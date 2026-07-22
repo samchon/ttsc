@@ -8,6 +8,7 @@ import fs from "node:fs";
 import { createRequire } from "node:module";
 import os from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { findNearestGoMod } from "../../compiler/internal/paths";
 
@@ -1767,18 +1768,26 @@ export function spawnGoTool(
   args: readonly string[],
   options: SpawnSyncOptionsWithStringEncoding,
 ): SpawnSyncReturns<string> {
-  if (!shouldSpawnGoToolThroughShell(goBinary)) {
+  if (process.platform !== "win32") {
+    return spawnSync(goBinary, [...args], options);
+  }
+  const inheritedEnv = options.env ?? process.env;
+  const resolved = findExecutablePath(
+    goBinary,
+    inheritedEnv,
+    spawnWorkingDirectory(options.cwd),
+  );
+  if (!isWindowsCommandWrapper(resolved ?? goBinary)) {
     return spawnSync(goBinary, [...args], options);
   }
   // Preserve the native spawn ENOENT contract before cmd.exe becomes the
   // actual child process. The callers use that code for the install guidance.
-  if (path.isAbsolute(goBinary) && !fs.existsSync(goBinary)) {
+  if (resolved === null) {
     return spawnSync(goBinary, [...args], options);
   }
-  const inheritedEnv = options.env ?? process.env;
-  const shim = createWindowsGoCommandShim([goBinary, ...args]);
+  const shim = createWindowsGoCommandShim([resolved, ...args]);
   return spawnSync(
-    inheritedEnv.ComSpec ?? inheritedEnv.COMSPEC ?? "cmd.exe",
+    readWindowsEnvironmentValue(inheritedEnv, "COMSPEC") ?? "cmd.exe",
     windowsGoCommandArgs(shim.payload),
     {
       ...options,
@@ -1795,8 +1804,15 @@ export function windowsGoCommandArgs(payload: string): string[] {
   return ["/d", "/v:off", "/s", "/c", payload];
 }
 
-function shouldSpawnGoToolThroughShell(goBinary: string): boolean {
-  return process.platform === "win32" && /\.(?:bat|cmd)$/i.test(goBinary);
+function spawnWorkingDirectory(
+  cwd: SpawnSyncOptionsWithStringEncoding["cwd"],
+): string {
+  if (cwd === undefined) return process.cwd();
+  return path.resolve(typeof cwd === "string" ? cwd : fileURLToPath(cwd));
+}
+
+function isWindowsCommandWrapper(location: string): boolean {
+  return process.platform === "win32" && /\.(?:bat|cmd)$/i.test(location);
 }
 
 /** Pass volatile cmd wrapper arguments through one-pass environment expansion. */
@@ -2431,38 +2447,79 @@ function resolveExecutableIdentityPath(
   binary: string,
   env: NodeJS.ProcessEnv = process.env,
 ): string {
+  const resolved = findExecutablePath(binary, env, process.cwd());
+  return resolved === null ? binary : resolveRealPath(resolved);
+}
+
+function findExecutablePath(
+  binary: string,
+  env: NodeJS.ProcessEnv,
+  cwd: string,
+): string | null {
   if (path.isAbsolute(binary)) {
-    return resolveRealPath(binary);
+    return findExecutableCandidate(binary, env);
   }
-  if (binary.includes(path.sep)) {
-    return resolveRealPath(path.resolve(binary));
+  if (hasPathSeparator(binary)) {
+    return findExecutableCandidate(path.resolve(cwd, binary), env);
   }
-  for (const dir of readPathEnvironment(env).split(path.delimiter)) {
-    if (dir.length === 0) continue;
-    const candidate = path.join(dir, binary);
-    if (fs.existsSync(candidate)) {
-      return resolveRealPath(candidate);
-    }
-    if (process.platform === "win32") {
-      // Probe every PATHEXT extension, not just `.exe`, so a compiler backed by
-      // a `.cmd`/`.bat` wrapper resolves to its real file and is hashed into the
-      // cache key. Otherwise the wrapper reads as "missing" and a change to it
-      // would not invalidate the cached plugin binary.
-      for (const ext of windowsExecutableExtensions(env)) {
-        const executable = `${candidate}${ext}`;
-        if (fs.existsSync(executable)) {
-          return resolveRealPath(executable);
-        }
-      }
-    }
+
+  const directories = readPathEnvironment(env)
+    .split(path.delimiter)
+    .map((dir) => stripPathQuotes(dir));
+  if (process.platform === "win32") directories.unshift(cwd);
+  for (const dir of directories) {
+    const candidate = path.resolve(cwd, dir, binary);
+    const resolved = findExecutableCandidate(candidate, env);
+    if (resolved !== null) return resolved;
   }
-  return binary;
+  return null;
+}
+
+function findExecutableCandidate(
+  candidate: string,
+  env: NodeJS.ProcessEnv,
+): string | null {
+  if (isExecutableFile(candidate)) return candidate;
+  if (process.platform !== "win32" || path.extname(candidate) !== "") {
+    return null;
+  }
+  // Probe every PATHEXT extension, not just `.exe`, so a compiler backed by a
+  // `.cmd`/`.bat` wrapper is both launched correctly and hashed into the cache
+  // key. Otherwise the wrapper reads as missing and changes do not invalidate
+  // the cached plugin binary.
+  for (const ext of windowsExecutableExtensions(env)) {
+    const executable = `${candidate}${ext}`;
+    if (isExecutableFile(executable)) return executable;
+  }
+  return null;
+}
+
+function isExecutableFile(location: string): boolean {
+  try {
+    return fs.statSync(location).isFile();
+  } catch {
+    return false;
+  }
+}
+
+function hasPathSeparator(location: string): boolean {
+  return (
+    location.includes(path.sep) ||
+    (process.platform === "win32" && location.includes("/"))
+  );
+}
+
+function stripPathQuotes(location: string): string {
+  const trimmed = location.trim();
+  return trimmed.length >= 2 && trimmed.startsWith('"') && trimmed.endsWith('"')
+    ? trimmed.slice(1, -1)
+    : trimmed;
 }
 
 function windowsExecutableExtensions(
   env: NodeJS.ProcessEnv = process.env,
 ): readonly string[] {
-  const pathext = env.PATHEXT;
+  const pathext = readWindowsEnvironmentValue(env, "PATHEXT");
   const raw = pathext && pathext.length > 0 ? pathext : ".COM;.EXE;.BAT;.CMD";
   return raw
     .split(";")
@@ -2471,7 +2528,22 @@ function windowsExecutableExtensions(
 }
 
 function readPathEnvironment(env: NodeJS.ProcessEnv = process.env): string {
-  return env.PATH ?? env.Path ?? "";
+  return process.platform === "win32"
+    ? (readWindowsEnvironmentValue(env, "PATH") ?? "")
+    : (env.PATH ?? "");
+}
+
+function readWindowsEnvironmentValue(
+  env: NodeJS.ProcessEnv,
+  name: string,
+): string | undefined {
+  const exact = env[name];
+  if (exact !== undefined) return exact;
+  const normalized = name.toLowerCase();
+  const key = Object.keys(env).find(
+    (candidate) => candidate.toLowerCase() === normalized,
+  );
+  return key === undefined ? undefined : env[key];
 }
 
 function resolveRealPath(location: string): string {

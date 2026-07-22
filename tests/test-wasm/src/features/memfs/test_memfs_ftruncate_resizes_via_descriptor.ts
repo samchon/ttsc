@@ -14,7 +14,7 @@ import { callMutation, expectFsError, openFd } from "../../internal/callbackFs";
  *
  * 1. Seed `/t.txt`="abcdef", then shrink its descriptor to 3 and grow it to 5.
  * 2. Read the bytes and reject unknown, stdout, and negative-length calls.
- * 3. Assert shrink, zero-filled growth, and each invalid descriptor code.
+ * 3. Assert shrink, zero-filled growth, and each rejection code.
  */
 export const test_memfs_ftruncate_resizes_via_descriptor =
   async (): Promise<void> => {

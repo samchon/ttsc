@@ -31,7 +31,7 @@ function fstatSize(fs: IWasmExecFS, fd: number): Promise<number> {
  *
  * 1. Unlink an open file, then read, write, truncate, and stat through its fd.
  * 2. Rename one open file over another open file.
- * 3. Mutate both fds and assert their bytes remain distinct after close.
+ * 3. Mutate both fds, assert distinct bytes, then close without recreating names.
  */
 export const test_memfs_descriptors_keep_open_node_identity =
   async (): Promise<void> => {

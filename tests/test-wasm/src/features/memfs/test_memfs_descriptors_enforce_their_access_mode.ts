@@ -32,7 +32,7 @@ function fstatMtime(fs: IWasmExecFS, fd: number): Promise<number> {
  *
  * 1. Open the same file read-only, write-only, and read-write.
  * 2. Reject read-only write and truncate plus write-only read operations.
- * 3. Assert `EBADF`, unchanged bytes and cursor, and permitted mutations.
+ * 3. Assert `EBADF`, unchanged bytes, mtime, and cursor, plus permitted mutations.
  */
 export const test_memfs_descriptors_enforce_their_access_mode =
   async (): Promise<void> => {
@@ -48,6 +48,11 @@ export const test_memfs_descriptors_enforce_their_access_mode =
       "a read-only descriptor rejects writes",
       { ...rejectedWrite, text: host.readFileText("/f.txt") },
       { code: "EBADF", n: 0, text: "abc" },
+    );
+    TestValidator.equals(
+      "the read-only descriptor advances before rejected ftruncate",
+      await readFdText(host.fs, readOnly, 1),
+      "a",
     );
     const readOnlyMtime = await fstatMtime(host.fs, readOnly);
     while (Date.now() <= readOnlyMtime)
@@ -78,8 +83,8 @@ export const test_memfs_descriptors_enforce_their_access_mode =
     // Positive twins: the granted directions still work.
     TestValidator.equals(
       "a rejected ftruncate leaves the read-only cursor unchanged",
-      await readFdText(host.fs, readOnly, 3),
-      "abc",
+      await readFdText(host.fs, readOnly, 2),
+      "bc",
     );
     const allowedWrite = await writeFdText(host.fs, readWrite, "X", 0);
     await callMutation((cb) => host.fs.ftruncate(writeOnly, 2, cb));

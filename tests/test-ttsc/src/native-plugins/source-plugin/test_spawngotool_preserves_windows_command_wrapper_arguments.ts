@@ -16,8 +16,8 @@ import { assert, fs, path } from "../../internal/source-build";
  *
  * 1. Assert the production cmd argument plan explicitly contains `/v:off`.
  * 2. Put a fake `go.cmd` under a path containing expansion and shell syntax.
- * 3. Run every Go subcommand shape with hostile argv and capture what arrived.
- * 4. Assert every byte and caller-owned environment entry is preserved.
+ * 3. Run absolute, PATH-resolved, and relative wrappers with hostile argv.
+ * 4. Assert argv/environment fidelity and ENOENT for missing wrapper forms.
  */
 export const test_spawngotool_preserves_windows_command_wrapper_arguments =
   () => {
@@ -96,6 +96,45 @@ export const test_spawngotool_preserves_windows_command_wrapper_arguments =
       assert.equal(result.status, 0, result.stderr || result.error?.message);
     }
 
+    const lookupArgs = ["env", "PATH lookup", "%LOOKUP%", "!LOOKUP!"];
+    const lookupResult = spawnGoTool("go", lookupArgs, {
+      cwd: root,
+      encoding: "utf8",
+      env: { ...env, PATH: wrapperRoot, PATHEXT: ".EXE;.CMD" },
+      windowsHide: true,
+    });
+    assert.equal(
+      lookupResult.status,
+      0,
+      lookupResult.stderr || lookupResult.error?.message,
+    );
+
+    const relativeArgs = ["version", "relative wrapper"];
+    const relativeResult = spawnGoTool(".\\go.cmd", relativeArgs, {
+      cwd: wrapperRoot,
+      encoding: "utf8",
+      env,
+      windowsHide: true,
+    });
+    assert.equal(
+      relativeResult.status,
+      0,
+      relativeResult.stderr || relativeResult.error?.message,
+    );
+
+    for (const missing of ["missing-go.cmd", ".\\missing-go.cmd"]) {
+      const result = spawnGoTool(missing, ["version"], {
+        cwd: root,
+        encoding: "utf8",
+        env: { ...env, PATH: root, PATHEXT: ".CMD" },
+        windowsHide: true,
+      });
+      assert.equal(
+        (result.error as NodeJS.ErrnoException | undefined)?.code,
+        "ENOENT",
+      );
+    }
+
     const captured = fs
       .readFileSync(capture, "utf8")
       .trim()
@@ -106,7 +145,7 @@ export const test_spawngotool_preserves_windows_command_wrapper_arguments =
       );
     assert.deepEqual(
       captured.map(({ args }) => args),
-      commands,
+      [...commands, lookupArgs, relativeArgs],
     );
     assert.ok(captured.every(({ sentinel }) => sentinel === "preserved"));
     assert.equal(

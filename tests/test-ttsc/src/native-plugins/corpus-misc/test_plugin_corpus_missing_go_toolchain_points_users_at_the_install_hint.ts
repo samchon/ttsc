@@ -5,7 +5,6 @@ import {
   copyProject,
   fs,
   os,
-  path,
   spawn,
   ttscBin,
 } from "../../internal/plugin-corpus";
@@ -16,9 +15,9 @@ import {
  *
  * Source plugins require `go build`, and first-time users often do not have Go
  * in PATH. When neither `go` nor the `TTSC_GO_BINARY` override resolves to a
- * real binary, including a missing Windows `.cmd` wrapper launched through
- * `cmd.exe`, ttsc must emit a human-readable message (`Go toolchain was not
- * found`) and name the env variable they can set to fix it.
+ * real binary, including a missing named Windows `.cmd` wrapper rejected before
+ * selecting `cmd.exe`, ttsc must emit a human-readable message (`Go toolchain
+ * was not found`) and name the env variable they can set to fix it.
  *
  * 1. Copy the `go-source-plugin` fixture into a temp directory.
  * 2. Run ttsc with a PATH that contains no Go binary and `TTSC_GO_BINARY` pointing
@@ -35,10 +34,8 @@ export const test_plugin_corpus_missing_go_toolchain_points_users_at_the_install
         // Strip Go binaries from PATH and force lookup of a guaranteed-missing
         // toolchain via TTSC_GO_BINARY.
         PATH: "/nonexistent",
-        TTSC_GO_BINARY: path.join(
-          root,
+        TTSC_GO_BINARY:
           process.platform === "win32" ? "missing-go.cmd" : "missing-go",
-        ),
         TTSC_CACHE_DIR: TestProject.tmpdir("ttsc-source-plugin-no-go-"),
       },
     });
