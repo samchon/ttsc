@@ -172,7 +172,7 @@ func printSwitchCaseBlock(ctx *PrintContext, node *shimast.Node) (Doc, bool) {
     ctx.Source[start] != '{' || ctx.Source[end-1] != '}' {
     return verbatim(ctx, node), !nodeSpansMultipleLines(ctx, node)
   }
-  if listHasInterItemComments(ctx, node) {
+  if nodeHasNonItemComment(ctx, node, block.Clauses.Nodes) {
     return verbatim(ctx, node), false
   }
   clauses := block.Clauses.Nodes
@@ -211,7 +211,7 @@ func printSwitchClause(ctx *PrintContext, node *shimast.Node) (Doc, bool) {
   if clause == nil || clause.Statements == nil || start < 0 || end < start || end > len(ctx.Source) {
     return verbatim(ctx, node), !nodeSpansMultipleLines(ctx, node)
   }
-  if listHasInterItemComments(ctx, node) {
+  if nodeHasNonItemComment(ctx, node, clause.Statements.Nodes) {
     return verbatim(ctx, node), false
   }
   statements := clause.Statements.Nodes

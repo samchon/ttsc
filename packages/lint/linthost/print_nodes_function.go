@@ -263,7 +263,7 @@ func printBlock(ctx *PrintContext, node *shimast.Node) (Doc, bool) {
   if block == nil || block.Statements == nil {
     return verbatim(ctx, node), !nodeSpansMultipleLines(ctx, node)
   }
-  hasComment := blockHasNonStatementComment(ctx, node, block.Statements.Nodes)
+  hasComment := nodeHasNonItemComment(ctx, node, block.Statements.Nodes)
   if len(block.Statements.Nodes) == 0 {
     if hasComment {
       // A one-line comment-only block is non-empty to Prettier: keep the
@@ -276,8 +276,9 @@ func printBlock(ctx *PrintContext, node *shimast.Node) (Doc, bool) {
         ctx.Source[start] != '{' || ctx.Source[end-1] != '}' {
         return verbatim(ctx, node), !nodeSpansMultipleLines(ctx, node)
       }
-      inner := strings.TrimSpace(ctx.Source[start+1 : end-1])
-      if inner == "" || strings.Contains(inner, "\n") {
+      rawInner := ctx.Source[start+1 : end-1]
+      inner := strings.TrimSpace(rawInner)
+      if inner == "" || strings.ContainsAny(rawInner, "\r\n") {
         return verbatim(ctx, node), false
       }
       return Concat(
@@ -354,7 +355,7 @@ func rangeHasNewline(src string, start, end int) bool {
 // blankLineBetweenStatements reports whether the source gap between the
 // end of one block statement and the start of the next contains a blank
 // line — two or more newlines. printBlock uses it to keep a single
-// user-authored blank line between statements. blockHasNonStatementComment
+// user-authored blank line between statements. nodeHasNonItemComment
 // has already guaranteed the gap holds no comment when the block is
 // covered, so the gap is pure whitespace and counting newlines suffices.
 func blankLineBetweenStatements(src string, prevEnd, nextPos int) bool {
@@ -374,30 +375,29 @@ func blankLineBetweenStatements(src string, prevEnd, nextPos int) bool {
   return false
 }
 
-// blockHasNonStatementComment reports whether the block's byte range
-// holds a `//` or `/*` outside every statement's token range. The block
-// printer joins statements with bare Hardlines that have no slot for
-// inter-statement trivia, so a stray comment would be dropped by a
-// reflow. Detecting it lets printBlock report the block uncovered and
-// the formatPrintWidth rule abstain.
+// nodeHasNonItemComment reports whether the node's byte range holds a `//` or
+// `/*` outside every supplied item's token range. Block and switch printers
+// join their items with minted Hardlines that have no slot for inter-item
+// trivia, so a stray comment would be dropped by a reflow. Detecting it lets
+// the printer report the node uncovered and the formatPrintWidth rule abstain.
 //
 // The scan mirrors rules_format_print_width.go::hasNonChildComments:
 // comment-shaped bytes inside a complete statement token range (string
 // literals, nested comments) are masked, so only genuine
 // inter-statement comments surface.
-func blockHasNonStatementComment(ctx *PrintContext, node *shimast.Node, stmts []*shimast.Node) bool {
+func nodeHasNonItemComment(ctx *PrintContext, node *shimast.Node, items []*shimast.Node) bool {
   start := shimscanner.SkipTrivia(ctx.Source, node.Pos())
   end := node.End()
   if start < 0 || end < start || end > len(ctx.Source) {
     return false
   }
   type span struct{ pos, end int }
-  ranges := make([]span, 0, len(stmts))
-  for _, stmt := range stmts {
-    if stmt == nil {
+  ranges := make([]span, 0, len(items))
+  for _, item := range items {
+    if item == nil {
       continue
     }
-    ranges = append(ranges, span{shimscanner.SkipTrivia(ctx.Source, stmt.Pos()), stmt.End()})
+    ranges = append(ranges, span{shimscanner.SkipTrivia(ctx.Source, item.Pos()), item.End()})
   }
   inStatement := func(i int) bool {
     for _, r := range ranges {
