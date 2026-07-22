@@ -16,11 +16,11 @@ catalogs:
     '@rollup/plugin-node-resolve': ^16.0.3
     rollup: ^4.56.0
   samchon:
-    '@typia/interface': 13.1.0
-    '@typia/mcp': 13.1.0
-    '@typia/utils': 13.1.0
-    typia: 13.1.0
+    typia: &typia ^13.2.0
+    '@typia/interface': *typia
+    '@typia/mcp': *typia
+    '@typia/utils': *typia
   utils:
-    '@nestia/e2e': ^12.0.0-rc.2
+    '@nestia/e2e': ^12.0.0
     '@types/node': ^25.3.0
     rimraf: ^6.1.2
