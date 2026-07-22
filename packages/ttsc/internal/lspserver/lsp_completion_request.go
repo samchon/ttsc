@@ -100,11 +100,11 @@ func (p *Proxy) completionItemsFor(env Envelope) pendingCompletionRequest {
     return pendingCompletionRequest{}
   }
   linePrefix := linePrefixAt(text, offset)
-  if !anyCompletionHintTriggers(hints, linePrefix) {
-    // No hint's trigger is on this line, so none can apply whatever scope the
-    // cursor turns out to be in. Returning here skips cursorInJSDoc, which
-    // scans the document from byte zero — the dominant cost of this request,
-    // and pure waste on every keystroke that is not inside a trigger.
+  if !anyCompletionHintCouldApply(hints, linePrefix) {
+    // Every hint is already refused on grounds the cursor's scope cannot
+    // rescue, so returning here skips cursorInJSDoc — which scans the document
+    // from byte zero, is the dominant cost of this request, and is pure waste
+    // on every keystroke that is not inside a trigger.
     return pendingCompletionRequest{}
   }
   items, filter := matchCompletionHints(

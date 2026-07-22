@@ -38,7 +38,7 @@ func TestLSPCompletionGateNeverRefusesAMatchingLine(t *testing.T) {
     {"const value = 1;", false},
     {" * @nothing here", true}, // the broad "@" trigger still applies
   } {
-    gate := anyCompletionHintTriggers(hints, entry.line)
+    gate := anyCompletionHintCouldApply(hints, entry.line)
     if gate != entry.open {
       t.Fatalf("gate for %q: want %v, got %v", entry.line, entry.open, gate)
     }

@@ -46,8 +46,8 @@ func computeLSPHints(opts *lspCommandOptions) ([]publicrule.Hint, int) {
     fmt.Fprintln(os.Stderr, err)
     return nil, 2
   }
-  publishers, needsChecker := engine.hintPublishers()
-  if len(publishers) == 0 {
+  publishes, needsChecker := engine.hasHintPublisher()
+  if !publishes {
     // Nothing the config declared can publish a corpus, so there is no
     // projection to take and the Program is never built. A project with no
     // hint-publishing rule is the common case, and it used to pay a full parse
@@ -63,17 +63,19 @@ func computeLSPHints(opts *lspCommandOptions) ([]publicrule.Hint, int) {
     fmt.Fprintf(os.Stderr, "@ttsc/lint: %v\n", err)
     return nil, 2
   }
-  if len(parseDiags) > 0 {
+  if prog == nil || len(parseDiags) > 0 {
     // The project does not parse right now. Rules never ran, so there is no
     // corpus — but these are tsgo's diagnostics to own, and failing here would
-    // make an editor treat a syntax error mid-typing as a broken plugin.
+    // make an editor treat a syntax error mid-typing as a broken plugin. A nil
+    // Program without diagnostics reaches the same answer rather than a JSON
+    // null, which a caller decoding an array would read as a broken plugin too.
     return []publicrule.Hint{}, 0
   }
   return collectProjectHints(prog.runProjectCycle(engine)), 0
 }
 
-// hintPublishers returns the declared project rules that can publish a corpus,
-// and whether serving them needs a type checker.
+// hasHintPublisher reports whether any declared project rule can publish a
+// corpus, and whether serving those rules needs a type checker.
 //
 // Both answers come from the registration table and the resolved config, so
 // they are available before a Program exists — which is the point. A rule that
@@ -85,9 +87,9 @@ func computeLSPHints(opts *lspCommandOptions) ([]publicrule.Hint, int) {
 // build a checker no corpus reads. Here a checker is requested only when a rule
 // that actually publishes hints declined to say it needs none — the same
 // conservative default projectRuleNeedsTypeChecker applies everywhere else.
-func (e *Engine) hintPublishers() (names []string, needsChecker bool) {
+func (e *Engine) hasHintPublisher() (publishes bool, needsChecker bool) {
   if e == nil {
-    return nil, false
+    return false, false
   }
   for _, name := range allProjectRuleNames() {
     setting := e.projectSettings[name]
@@ -98,15 +100,17 @@ func (e *Engine) hintPublishers() (names []string, needsChecker bool) {
     if !registered {
       continue
     }
-    if _, publishes := adapter.inner.(publicrule.HintRule); !publishes {
+    if _, publisher := adapter.inner.(publicrule.HintRule); !publisher {
       continue
     }
-    names = append(names, name)
+    publishes = true
     if projectRuleNeedsTypeChecker(name) {
+      // Every publisher's need is folded in rather than returning early: one
+      // rule declining a checker does not spare a sibling that reads one.
       needsChecker = true
     }
   }
-  return names, needsChecker
+  return publishes, needsChecker
 }
 
 // collectProjectHints gathers the editor-completion corpus every declared
