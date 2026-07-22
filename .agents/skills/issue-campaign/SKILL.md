@@ -1,11 +1,11 @@
 ---
 name: issue-campaign
-description: "Defines the default solo repository-wide issue campaign for ttsc: repeated full-scope discovery to an empty round before each unified CI-validated implementation pull request, lead-vetted issue publication, solo Self-Review, and renewed cycles until a cycle discovers nothing. Use for broad audits, many issue candidates, or repeated issue-to-pull-request campaigns unless the user explicitly requests parallel or multi-agent execution; do not use for one already-defined issue or an ordinary pull request."
+description: "Defines the default solo repository-wide issue campaign for ttsc: repeated full-scope discovery to an empty round before each unified CI-validated implementation pull request, lead-vetted issue publication, mandatory Individual and Overall Self-Review, and renewed cycles until a cycle discovers nothing. Use for broad audits, many issue candidates, or repeated issue-to-pull-request campaigns unless the user explicitly requests parallel or multi-agent execution; do not use for one already-defined issue or an ordinary pull request."
 ---
 
 # Issue Campaign
 
-An issue campaign is a repeatable solo sequence. Each cycle saturates exhaustive discovery against one integrated repository state, publishes the accepted issues, and opens one unified implementation pull request only after a complete fresh discovery round is empty. A merge starts the next cycle against the new integrated state. The main agent owns every phase and spawns no subagent other than the read-only commit early-warning pass that [development.md](development.md#implement-and-write-tests) defines.
+An issue campaign is a repeatable solo sequence. Each cycle saturates exhaustive discovery against one integrated repository state, publishes the accepted issues, and opens one unified implementation pull request only after a complete fresh discovery round is empty. A merge starts the next cycle against the new integrated state. The main agent owns every phase and spawns no subagent other than the mandatory read-only Individual Self-Review that [development.md](development.md#implement-and-write-tests) defines for each coherent pushed issue-implementation commit.
 
 Use the [multi-agent skill](../multi-agent/SKILL.md) and its issue-campaign procedure instead only when the user explicitly asks for a parallel or multi-agent issue campaign.
 
@@ -78,6 +78,6 @@ Use tables for repeated case mappings. Read the rendered issue back and keep its
 
 ## Develop And Repeat The Campaign
 
-Read [development.md](development.md) in full when the user authorizes implementation pull requests or the end of a campaign that entered implementation. It owns the single cycle pull request, empty claim, internal DAG order, test authoring, formatting, ordinary CI, red-CI repair, solo Self-Review, merge, branch and temporary-asset cleanup, and renewed discovery. Do not take a development action until the cycle's empty-round gate has passed.
+Read [development.md](development.md) in full when the user authorizes implementation pull requests or the end of a campaign that entered implementation. It owns the single cycle pull request, empty claim, internal DAG order, test authoring, formatting, ordinary CI, Individual and Overall Self-Review, red-CI repair, merge, branch and temporary-asset cleanup, and renewed discovery. Do not take a development action until the cycle's empty-round gate has passed.
 
 An audit-only or issue-publication-only campaign does not load the development procedure or mutate repository or GitHub state beyond the authorized publications.

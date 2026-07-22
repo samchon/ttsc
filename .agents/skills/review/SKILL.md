@@ -1,13 +1,15 @@
 ---
 name: review
-description: Defines exhaustive solo review, Self-Review, and solo repository-wide issue-discovery rounds for ttsc. Use for every self-review or unqualified review request and as the default review mode inside issue campaigns. This skill never spawns review agents; use the multi-agent skill only when the user explicitly requests a team, parallel, or multi-agent review.
+description: Defines exhaustive solo Overall Self-Review, mandatory advisory Individual Self-Review for solo issue-campaign commits, unqualified review, and solo repository-wide issue-discovery rounds for ttsc. Use for every self-review or unqualified review request and as the default review mode inside issue campaigns; use the multi-agent skill only when the user explicitly requests a team, parallel, or multi-agent review.
 ---
 
 # Review
 
+Individual Self-Review and Overall Self-Review are both Self-Review workflows. Individual review is a mandatory advisory pass over one pushed campaign commit, while Overall review is the solo whole-diff merge gate.
+
 ## Non-Negotiable Review Law
 
-One reviewer performs every review in this skill from scratch over the entire declared surface. Do not spawn a subagent, delegate a concern, or load the discussion skill. Do not create a clone or worktree for solo review or Self-Review.
+One reviewer performs every review in this skill from scratch over its entire declared surface. Do not spawn a subagent for an unqualified review, Overall Self-Review, or issue discovery, and do not delegate a concern or load the discussion skill. The mandatory Individual Self-Review defined below is the sole subagent carve-out. Do not create a clone or worktree for review.
 
 Apply [AGENTS.md's **Choose the principled course** rule](../../../AGENTS.md#attitude) to every review decision. Review duration, difficulty, and consequence surface never lower the completion standard.
 
@@ -18,9 +20,9 @@ A complete round must satisfy all four rules:
 - **Fresh start:** use the current state and repeat the whole inspection. Earlier rounds, sampled files, and a recheck of only the latest fix do not count as coverage.
 - **Unlimited rounds:** whenever the reviewer applies an improvement or accepts a meaningful issue candidate, update the work and start another complete round. Stop only after a complete round produces nothing that survives verification.
 
-## Self-Review
+## Overall Self-Review
 
-Self-Review and an unqualified review request use this solo workflow:
+Overall Self-Review uses this solo workflow. Outside a solo issue campaign, an unqualified Self-Review request means Overall Self-Review.
 
 1. Establish the complete change surface, including the pull-request base-to-head diff and any uncommitted changes.
 2. Perform one complete round under the Non-Negotiable Review Law. Include correctness and boundaries, Windows and POSIX behavior, concurrency and state, data loss and security, cache and recovery invariants, public API and compatibility, test isolation, CI and packaging, generated output, documentation, and migration effects.
@@ -29,15 +31,17 @@ Self-Review and an unqualified review request use this solo workflow:
 5. If anything changed, restart at step 1 as a fresh full round.
 6. Finish only when a complete round finds nothing to improve. Report the final clean round and every verification that could not run.
 
-Self-Review does not authorize creating, pushing, updating, or merging a pull request. If the user separately requests one of those actions, follow the pull-request skill.
+Overall Self-Review does not authorize creating, pushing, updating, or merging a pull request. If the user separately requests one of those actions, follow the pull-request skill.
 
-## Commit Early-Warning Pass
+## Individual Self-Review
 
-A commit early-warning pass is not a review under this skill. It is the read-only per-commit reader a solo campaign author may run while still implementing, defined by the [solo campaign development document](../issue-campaign/development.md#implement-and-write-tests).
+Individual Self-Review is the mandatory read-only review of exactly one coherent pushed issue-implementation commit in a solo issue campaign. The [solo campaign development document](../issue-campaign/development.md#implement-and-write-tests) defines its timing and pull-request record.
 
-It delegates nothing the Non-Negotiable Review Law governs. The law governs the author's own round, which still runs alone over the whole surface before merge under all four rules. One commit is not a declared surface, a reported candidate is not an accepted finding, and the passes do not add up to a round.
+The main agent immediately starts exactly one review subagent for that commit and continues implementing the next ready issue without waiting for the result or per-commit CI. The reviewer reads only the parent-to-commit change, reports advice and candidate findings to the main agent, and never edits, commits, pushes, comments on GitHub, or makes implementation decisions.
 
-Never call the pass a Self-Review, and never report it as one. A reader who sees that name concludes the gate already ran, and the whole-surface round disappears without anyone deciding to drop it.
+When the result arrives, the main agent adjudicates every candidate and records the Individual Self-Review result as a formal GitHub pull-request review with the `COMMENT` event. Put line-specific observations in inline review comments and commit-wide results in the review body.
+
+Individual Self-Review never reduces or substitutes for Overall Self-Review. The main agent still performs a fresh, exhaustive, solo Overall Self-Review of the complete pull-request base-to-head diff before merge, and only that clean Overall Self-Review is the review gate. Individual reviews do not combine into an Overall Self-Review round.
 
 ## Solo Issue Discovery Rounds
 

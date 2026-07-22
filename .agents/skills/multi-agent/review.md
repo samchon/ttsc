@@ -2,7 +2,7 @@
 
 Read this document only through the multi-agent skill for an explicitly requested team, parallel, or multi-agent review. The base review skill's Non-Negotiable Review Law still governs every reviewer: one agent performs one complete review of the entire declared surface from scratch.
 
-Do not use this procedure for Self-Review. The author always completes Self-Review alone even when a separate team review is also authorized.
+Do not use this procedure for Individual or Overall Self-Review. The author always completes Overall Self-Review alone even when a separate team review is also authorized. Individual Self-Review exists only in the solo issue-campaign workflow defined by the base review and campaign-development skills.
 
 ## Bound The Team
 
