@@ -3,6 +3,7 @@ package lspserver
 import (
   "encoding/json"
   "fmt"
+  "strings"
   "unicode/utf16"
 )
 
@@ -98,9 +99,17 @@ func (p *Proxy) completionItemsFor(env Envelope) pendingCompletionRequest {
   if !ok {
     return pendingCompletionRequest{}
   }
+  linePrefix := linePrefixAt(text, offset)
+  if !anyCompletionHintTriggers(hints, linePrefix) {
+    // No hint's trigger is on this line, so none can apply whatever scope the
+    // cursor turns out to be in. Returning here skips cursorInJSDoc, which
+    // scans the document from byte zero — the dominant cost of this request,
+    // and pure waste on every keystroke that is not inside a trigger.
+    return pendingCompletionRequest{}
+  }
   items, filter := matchCompletionHints(
     hints,
-    linePrefixAt(text, offset),
+    linePrefix,
     cursorInJSDoc(text, offset),
   )
   if len(items) == 0 {
@@ -174,13 +183,22 @@ func offsetForPosition(text string, line int, character int) (int, bool) {
   return len(text), true
 }
 
+// indexByteFrom returns the offset of the first target byte at or after from, or
+// -1. It delegates to strings.IndexByte rather than looping: this runs once per
+// line walked on the completion path, and the standard library's scan is the
+// platform's vectorized one where a hand-rolled loop is a byte at a time.
 func indexByteFrom(text string, from int, target byte) int {
-  for index := from; index < len(text); index++ {
-    if text[index] == target {
-      return index
-    }
+  if from < 0 {
+    from = 0
   }
-  return -1
+  if from >= len(text) {
+    return -1
+  }
+  found := strings.IndexByte(text[from:], target)
+  if found < 0 {
+    return -1
+  }
+  return from + found
 }
 
 // mergeCompletionResponse appends the plugin's items to upstream's answer.

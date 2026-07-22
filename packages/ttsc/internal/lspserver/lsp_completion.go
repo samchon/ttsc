@@ -43,10 +43,7 @@ func completionHintApplies(
   linePrefix string,
   inJSDoc bool,
 ) bool {
-  if hint.After == "" || len(hint.Items) == 0 {
-    return false
-  }
-  if hint.Scope == completionScopeJSDoc && !inJSDoc {
+  if !completionHintTriggers(hint, linePrefix) {
     return false
   }
   if hint.Scope != completionScopeJSDoc {
@@ -56,7 +53,38 @@ func completionHintApplies(
     // least explicable.
     return false
   }
-  return strings.Contains(linePrefix, hint.After)
+  return inJSDoc
+}
+
+// completionHintTriggers reports whether a hint has something to offer and its
+// trigger literal is present in the cursor's line.
+//
+// This is the half of the admission test that needs only the current line. It
+// is split out so a caller can run it before deciding the cursor's lexical
+// scope, which is the expensive half: the scope decision scans the document
+// from byte zero, while this reads one line.
+func completionHintTriggers(hint LSPCompletionHint, linePrefix string) bool {
+  return hint.After != "" &&
+    len(hint.Items) > 0 &&
+    strings.Contains(linePrefix, hint.After)
+}
+
+// anyCompletionHintTriggers reports whether any hint's trigger appears in the
+// line, meaning the corpus could contribute here and the scope is worth
+// deciding.
+//
+// When it answers false no hint can apply whatever the scope turns out to be,
+// because completionHintApplies requires the same trigger test — so the
+// document scan behind that decision would produce an answer nothing reads.
+// That is the overwhelmingly common case while typing: a corpus triggers on
+// "@" or "@evidence ", and most lines contain neither.
+func anyCompletionHintTriggers(hints []LSPCompletionHint, linePrefix string) bool {
+  for _, hint := range hints {
+    if completionHintTriggers(hint, linePrefix) {
+      return true
+    }
+  }
+  return false
 }
 
 // linePrefixAt returns the text from the start of the cursor's line up to the
