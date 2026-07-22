@@ -1,6 +1,7 @@
 import type { IPlaygroundDependencyInstallOptions } from "../structures/IPlaygroundDependencyInstallOptions";
 import type { IPlaygroundDependencyInstallResult } from "../structures/IPlaygroundDependencyInstallResult";
 import type { IPlaygroundDependencyProgressPhase } from "../structures/IPlaygroundDependencyProgressPhase";
+import type { IPlaygroundInstalledDependency } from "../structures/IPlaygroundInstalledDependency";
 import { BUILT_IN_PLAYGROUND_PACKAGES } from "./BUILT_IN_PLAYGROUND_PACKAGES";
 import {
   DECLARATION_FILE_REGEXP,
@@ -24,9 +25,11 @@ const DEFAULT_MAX_PACKAGES = 48;
  * extra-libs registry, and the in-page execute sandbox `require`.
  *
  * Transitive dependencies are followed via the resolved `package.json`'s
- * `dependencies` and (non-optional) `peerDependencies` fields. The walk is
- * bounded by `maxPackages` to keep a single keystroke from exhausting the tab's
- * network/memory budget.
+ * required, optional, and peer dependency fields. Passing a prior call's
+ * `resolvedDependencies` validates new edges against the exact mounted graph
+ * and reuses compatible packages without downloading their tarballs again. The
+ * walk is bounded by `maxPackages` to keep a single keystroke from exhausting
+ * the tab's network/memory budget.
  */
 export async function installPlaygroundDependencies(
   packageNames: Iterable<string>,
@@ -41,13 +44,40 @@ export async function installPlaygroundDependencies(
   const ignored = new Set(
     options.ignoredPackages ?? BUILT_IN_PLAYGROUND_PACKAGES,
   );
-  const installed = new Set(options.installedPackages ?? []);
+  const installedNames = new Set(options.installedPackages ?? []);
+  const installedDependencies = new Map<
+    string,
+    IPlaygroundInstalledDependency
+  >();
+  for (const dependency of options.installedDependencies ?? []) {
+    const previous = installedDependencies.get(dependency.name);
+    if (
+      previous !== undefined &&
+      (previous.registryName !== dependency.registryName ||
+        previous.version !== dependency.version)
+    ) {
+      throw new Error(
+        `Conflicting mounted identities for ${dependency.name}: ${previous.registryName}@${previous.version} and ${dependency.registryName}@${dependency.version}.`,
+      );
+    }
+    if (previous !== undefined) {
+      previous.requests.push(
+        ...dependency.requests.map((request) => ({ ...request })),
+      );
+      continue;
+    }
+    installedDependencies.set(dependency.name, {
+      ...dependency,
+      requests: dependency.requests.map((request) => ({ ...request })),
+    });
+  }
   const maxPackages = options.maxPackages ?? DEFAULT_MAX_PACKAGES;
   const queue: IQueueItem[] = [];
   const queued = new Map<string, IQueueItem>();
   const done = new Map<string, string>();
   const metadataByName = new Map<string, Parameters<typeof selectVersion>[0]>();
   const result: IPlaygroundDependencyInstallResult = {
+    resolvedDependencies: [],
     packages: [],
     compilerFiles: {},
     editorLibs: {},
@@ -60,21 +90,44 @@ export async function installPlaygroundDependencies(
     const known = queued.get(normalized.name);
     if (known) {
       if (known.registryName !== normalized.registryName) {
-        throw new Error(
-          `Conflicting npm aliases for ${normalized.name}: ${known.registryName} and ${normalized.registryName}.`,
+        if (normalized.optional) return;
+        const completed = done.get(normalized.name);
+        if (known.optional && (completed === undefined || completed === "")) {
+          known.registryName = normalized.registryName;
+          known.range = normalized.range;
+          known.requester = normalized.requester;
+          known.requests = [toVersionRequest(normalized)];
+          known.optional = false;
+          metadataByName.delete(normalized.name);
+          if (completed === "") {
+            done.delete(normalized.name);
+            queue.push(known);
+          }
+          return;
+        }
+        throw registryIdentityConflict(
+          normalized.name,
+          known.registryName!,
+          normalized,
         );
       }
       known.requests ??= [toVersionRequest(known)];
       known.requests.push(toVersionRequest(normalized));
-      known.optional &&= normalized.optional;
+      known.optional = known.requests.every((request) => request.optional);
       const completed = done.get(normalized.name);
       const metadata = metadataByName.get(normalized.name);
-      if (completed !== undefined && metadata) {
+      if (completed !== undefined && completed.length !== 0 && metadata) {
         // A dependency can discover an additional range after this package has
         // already been installed. Pin the installed version into the combined
         // solve so a compatible late constraint is accepted, but a range that
         // rejects the mounted version fails instead of being silently lost.
-        selectQueuedVersion(metadata, known, [completed]);
+        try {
+          selectQueuedVersion(metadata, known, [completed]);
+        } catch (error) {
+          const mounted = installedDependencies.get(normalized.name);
+          if (mounted) throw mountedVersionConflict(mounted, error);
+          throw error;
+        }
       } else if (completed !== undefined && !known.optional) {
         // An optional 404 may later be reached through a required edge. Retry
         // that edge so the required dependency cannot remain silently absent.
@@ -83,8 +136,23 @@ export async function installPlaygroundDependencies(
       }
       return;
     }
-    if (installed.has(normalized.name)) return;
-    normalized.requests = [toVersionRequest(normalized)];
+    const mounted = installedDependencies.get(normalized.name);
+    if (mounted && mounted.registryName !== normalized.registryName) {
+      if (normalized.optional) return;
+      throw registryIdentityConflict(
+        normalized.name,
+        mounted.registryName,
+        normalized,
+      );
+    }
+    if (installedNames.has(normalized.name) && mounted === undefined) return;
+    normalized.requests = [
+      ...(mounted?.requests.map((request) => ({ ...request })) ?? []),
+      toVersionRequest(normalized),
+    ];
+    normalized.optional = normalized.requests.every(
+      (request) => request.optional,
+    );
     queued.set(normalized.name, normalized);
     queue.push(normalized);
     report("queued", normalized, `Queued ${normalized.name}`);
@@ -118,7 +186,7 @@ export async function installPlaygroundDependencies(
     }
 
     const item = queue[index]!;
-    if (installed.has(item.name) || done.has(item.name)) continue;
+    if (done.has(item.name)) continue;
     throwIfAborted(options.signal);
 
     report("resolve", item, `Resolving ${item.name}`);
@@ -130,18 +198,60 @@ export async function installPlaygroundDependencies(
     );
     throwIfAborted(options.signal);
     if (!metadata) {
-      done.set(item.name, "");
-      report("skip", item, `Skipped optional ${item.name}`);
+      const mounted = installedDependencies.get(item.name);
+      if (mounted) {
+        // A missing registry entry gives us no way to validate a new optional
+        // range or tag. Preserve the already-published optional requests and
+        // omit the new edge instead of claiming the mounted version satisfies
+        // a constraint we never checked.
+        item.requests = mounted.requests.map((request) => ({ ...request }));
+        item.optional = item.requests.every((request) => request.optional);
+      }
+      done.set(item.name, mounted?.version ?? "");
+      report(
+        mounted ? "done" : "skip",
+        item,
+        mounted
+          ? `Reused mounted ${item.name}@${mounted.version}`
+          : `Skipped optional ${item.name}`,
+        mounted?.version,
+      );
       continue;
     }
 
     metadataByName.set(item.name, metadata);
-    const version = selectQueuedVersion(metadata, item);
+    const mounted = installedDependencies.get(item.name);
+    let version: string | null;
+    try {
+      version = selectQueuedVersion(
+        metadata,
+        item,
+        mounted ? [mounted.version] : [],
+      );
+    } catch (error) {
+      if (mounted) throw mountedVersionConflict(mounted, error);
+      throw error;
+    }
+    if (version === null) {
+      done.set(item.name, mounted?.version ?? "");
+      report("skip", item, `Skipped optional ${item.name}`);
+      continue;
+    }
+    if (mounted) {
+      done.set(item.name, mounted.version);
+      report(
+        "done",
+        item,
+        `Reused mounted ${item.name}@${mounted.version}`,
+        mounted.version,
+      );
+      continue;
+    }
     const versionMetadata = metadata.versions[version];
     const tarball = versionMetadata?.dist?.tarball;
     if (!versionMetadata || !tarball) {
       if (item.optional) {
-        done.set(item.name, version);
+        done.set(item.name, "");
         report("skip", item, `Skipped optional ${item.name}`);
         continue;
       }
@@ -158,25 +268,26 @@ export async function installPlaygroundDependencies(
       ...versionMetadata,
       ...unpacked.packageJson,
     };
-    const mounted = mountPackageFiles(item.name, unpacked.files);
+    const mountedFiles = mountPackageFiles(item.name, unpacked.files);
 
-    Object.assign(result.compilerFiles, mounted.compilerFiles);
-    Object.assign(result.editorLibs, mounted.editorLibs);
-    Object.assign(result.runtimeFiles, mounted.runtimeFiles);
+    Object.assign(result.compilerFiles, mountedFiles.compilerFiles);
+    Object.assign(result.editorLibs, mountedFiles.editorLibs);
+    Object.assign(result.runtimeFiles, mountedFiles.runtimeFiles);
 
-    const declarationCount = Object.keys(mounted.editorLibs).filter((key) =>
-      DECLARATION_FILE_REGEXP.test(key),
+    const declarationCount = Object.keys(mountedFiles.editorLibs).filter(
+      (key) => DECLARATION_FILE_REGEXP.test(key),
     ).length;
     result.packages.push({
       name: item.name,
+      registryName: item.registryName ?? item.name,
       version,
       tarball,
-      fileCount: Object.keys(mounted.compilerFiles).length,
+      fileCount: Object.keys(mountedFiles.compilerFiles).length,
       declarationCount,
     });
 
     done.set(item.name, version);
-    installed.add(item.name);
+    installedNames.add(item.name);
     report("done", item, `Installed ${item.name}@${version}`, version);
 
     enqueuePackageDependencies(packageJson, enqueue, item.name);
@@ -190,6 +301,23 @@ export async function installPlaygroundDependencies(
     }
   }
 
+  const resolved = new Map(installedDependencies);
+  for (const [name, version] of done) {
+    if (version.length === 0) continue;
+    const item = queued.get(name)!;
+    resolved.set(name, {
+      name,
+      registryName: item.registryName ?? name,
+      version,
+      requests: (item.requests ?? [toVersionRequest(item)]).map((request) => ({
+        ...request,
+      })),
+    });
+  }
+  result.resolvedDependencies = [...resolved.values()].map((dependency) => ({
+    ...dependency,
+    requests: dependency.requests.map((request) => ({ ...request })),
+  }));
   report("done", null, "Dependency install complete");
   return result;
 }
@@ -211,27 +339,84 @@ function normalizeRegistryRequest(item: IQueueItem): IQueueItem {
 }
 
 function toVersionRequest(item: IQueueItem): IVersionRequest {
-  return { range: item.range, requester: item.requester };
+  return {
+    optional: item.optional,
+    range: item.range,
+    requester: item.requester,
+  };
 }
 
 function selectQueuedVersion(
   metadata: Parameters<typeof selectVersion>[0],
   item: IQueueItem,
   extraRanges: readonly string[] = [],
-): string {
+): string | null {
   const requests = item.requests ?? [toVersionRequest(item)];
-  const ranges = [...requests.map((request) => request.range), ...extraRanges];
-  try {
-    return selectVersion(metadata, ranges);
-  } catch (error) {
-    if (requests.length < 2) throw error;
-    const message = error instanceof Error ? error.message : String(error);
-    const requestedBy = requests
-      .map(
-        ({ requester, range }) =>
-          `${requester} requests ${JSON.stringify(range)}`,
-      )
-      .join("; ");
-    throw new Error(`${message} Requested by ${requestedBy}.`);
+  const required = requests.filter((request) => !request.optional);
+  const optional = requests.filter((request) => request.optional);
+  const accepted = [...required];
+  let selected: string | null = null;
+
+  if (required.length !== 0) {
+    try {
+      selected = selectVersion(metadata, [
+        ...required.map((request) => request.range),
+        ...extraRanges,
+      ]);
+    } catch (error) {
+      throw requestedVersionError(error, required);
+    }
   }
+
+  for (const request of optional) {
+    try {
+      const candidate = selectVersion(metadata, [
+        ...accepted.map((acceptedRequest) => acceptedRequest.range),
+        request.range,
+        ...extraRanges,
+      ]);
+      accepted.push(request);
+      selected = candidate;
+    } catch {
+      // Optional ranges refine the selected version only when they are
+      // compatible with every required edge and the mounted-version pin.
+    }
+  }
+  item.requests = accepted;
+  item.optional = accepted.every((request) => request.optional);
+  return selected;
+}
+
+function requestedVersionError(
+  error: unknown,
+  requests: readonly IVersionRequest[],
+): Error {
+  const message = error instanceof Error ? error.message : String(error);
+  const requestedBy = requests
+    .map(
+      ({ requester, range }) =>
+        `${requester} requests ${JSON.stringify(range)}`,
+    )
+    .join("; ");
+  return new Error(`${message} Requested by ${requestedBy}.`);
+}
+
+function mountedVersionConflict(
+  mounted: IPlaygroundInstalledDependency,
+  error: unknown,
+): Error {
+  const message = error instanceof Error ? error.message : String(error);
+  return new Error(
+    `Mounted ${mounted.name}@${mounted.version} from ${mounted.registryName} is incompatible with the active dependency graph. ${message}`,
+  );
+}
+
+function registryIdentityConflict(
+  name: string,
+  registryName: string,
+  incoming: IQueueItem,
+): Error {
+  return new Error(
+    `Conflicting registry identities for ${name}: mounted or queued from ${registryName}, but ${incoming.requester} requests ${JSON.stringify(incoming.range)} from ${incoming.registryName}.`,
+  );
 }

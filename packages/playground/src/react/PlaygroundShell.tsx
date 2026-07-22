@@ -12,6 +12,7 @@ import { installPlaygroundDependencies } from "../npm/installPlaygroundDependenc
 import type { ICompilerService } from "../structures/ICompilerService";
 import type { IConsoleMessage } from "../structures/IConsoleMessage";
 import type { IPlaygroundDependencyProgress } from "../structures/IPlaygroundDependencyProgress";
+import type { IPlaygroundInstalledDependency } from "../structures/IPlaygroundInstalledDependency";
 import type { IPlaygroundShellProps } from "../structures/IPlaygroundShellProps";
 import type { ITransformOptions } from "../structures/ITransformOptions";
 import { ConsoleViewer } from "./ConsoleViewer";
@@ -86,20 +87,14 @@ export function PlaygroundShell({
   const dependencyProgressTimer = useRef<number | null>(null);
   const dependencyInstallChain = useRef<Promise<void>>(Promise.resolve());
   const dependencyAbort = useRef<AbortController | null>(null);
-  // Mirror `preinstalledPackages` into a ref so the worker-teardown
-  // effect can read the current value without taking the prop as a
-  // dep — listing the array prop in deps would tear down the worker on
-  // every parent re-render that produces a fresh array reference.
-  const preinstalledPackagesRef =
-    useRef<readonly string[]>(preinstalledPackages);
-  // The ref tracks names the wasm MemFS already has — preinstalled at boot
-  // (via `preinstalledPackages`) plus everything `installPlaygroundDependencies`
-  // has added across the session. A useEffect below merges fresh
-  // preinstalledPackages prop values into the ref so a parent that swaps
-  // the prop later does not race a now-stale Set.
-  const installedDependencyNames = useRef<Set<string>>(
-    new Set<string>(preinstalledPackages),
-  );
+  // Exact mounted identities and active requests. A name-only set cannot
+  // validate a later transitive range or distinguish an npm alias target.
+  const installedDependencies = useRef<
+    Map<string, IPlaygroundInstalledDependency>
+  >(new Map());
+  // Direct source roots selecting the mounted graph. Removing one requires a
+  // full solve and worker replacement so obsolete package files cannot survive.
+  const dependencyRoots = useRef<Set<string>>(new Set());
   // Accumulated runtime-file map produced by every successful
   // installPlaygroundDependencies call. Threaded through to executeBundle so
   // the in-page Execute sandbox's require can resolve any npm package the
@@ -145,17 +140,6 @@ export function PlaygroundShell({
     setSource(next);
   }, []);
 
-  // ── Sync installedDependencyNames + preinstalledPackagesRef on prop change ──
-  // The refs capture the initial value on mount; without this effect a
-  // parent that swaps `preinstalledPackages` later would race a stale
-  // Set against the fresh prop used in `ignoredPackages` below.
-  useEffect(() => {
-    preinstalledPackagesRef.current = preinstalledPackages;
-    for (const name of preinstalledPackages) {
-      installedDependencyNames.current.add(name);
-    }
-  }, [preinstalledPackages]);
-
   // ── Decode source from URL on mount ──
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -199,10 +183,11 @@ export function PlaygroundShell({
           input,
           preinstalledPackages,
         );
-        const firstPassMissing = firstPassPackageNames.filter(
-          (name) => !installedDependencyNames.current.has(name),
-        );
-        if (firstPassMissing.length === 0) return null;
+        if (
+          dependencyRootDelta(firstPassPackageNames, dependencyRoots.current)
+            .changed === false
+        )
+          return null;
 
         await wait(DEPENDENCY_INSTALL_QUIET_MS);
         if (sourceVersion.current !== version) return null;
@@ -211,28 +196,44 @@ export function PlaygroundShell({
           latestSource.current,
           preinstalledPackages,
         );
-        const missing = packageNames.filter(
-          (name) => !installedDependencyNames.current.has(name),
+        const delta = dependencyRootDelta(
+          packageNames,
+          dependencyRoots.current,
         );
-        if (missing.length === 0) return null;
+        if (!delta.changed) return null;
+        const replacing = delta.removed.length !== 0;
+        const requested = replacing ? packageNames : delta.added;
 
         if (dependencyProgressTimer.current !== null) {
           window.clearTimeout(dependencyProgressTimer.current);
           dependencyProgressTimer.current = null;
         }
-        setDependencyPackageNames(missing);
+        setDependencyPackageNames(requested);
         const abort = new AbortController();
         dependencyAbort.current = abort;
+        let workerMutated = false;
         try {
-          const installed = await installPlaygroundDependencies(missing, {
-            installedPackages: installedDependencyNames.current,
+          const installed = await installPlaygroundDependencies(requested, {
+            installedDependencies: replacing
+              ? []
+              : installedDependencies.current.values(),
             ignoredPackages: preinstalledPackages,
             signal: abort.signal,
             onProgress: setDependencyProgress,
           });
           if (sourceVersion.current !== version) return null;
+
+          if (replacing) {
+            workerMutated = true;
+            await client.reset();
+            installedDependencies.current = new Map();
+            dependencyRoots.current = new Set();
+            runtimeDependencyFiles.current = {};
+            setEditorExtraLibs({});
+          }
           if (Object.keys(installed.compilerFiles).length > 0) {
             const service = await createCompilerService();
+            workerMutated = true;
             await service.installDependencies({
               files: installed.compilerFiles,
               packages: installed.packages.map(({ name, version }) => ({
@@ -241,21 +242,23 @@ export function PlaygroundShell({
               })),
             });
           }
-          for (const pkg of installed.packages) {
-            installedDependencyNames.current.add(pkg.name);
-          }
-          if (Object.keys(installed.editorLibs).length > 0) {
-            setEditorExtraLibs((prev) => ({
-              ...prev,
-              ...installed.editorLibs,
-            }));
-          }
-          // Accumulate runtime files so the in-page Execute sandbox can
-          // resolve every package the user installed across this session.
-          runtimeDependencyFiles.current = {
-            ...runtimeDependencyFiles.current,
-            ...installed.runtimeFiles,
-          };
+          installedDependencies.current = new Map(
+            installed.resolvedDependencies.map(
+              (dependency) => [dependency.name, dependency] as const,
+            ),
+          );
+          dependencyRoots.current = new Set(packageNames);
+          setEditorExtraLibs((previous) =>
+            replacing
+              ? installed.editorLibs
+              : { ...previous, ...installed.editorLibs },
+          );
+          runtimeDependencyFiles.current = replacing
+            ? installed.runtimeFiles
+            : {
+                ...runtimeDependencyFiles.current,
+                ...installed.runtimeFiles,
+              };
           dependencyProgressTimer.current = window.setTimeout(() => {
             setDependencyProgress(null);
             setDependencyPackageNames([]);
@@ -263,6 +266,13 @@ export function PlaygroundShell({
           }, 350);
           return null;
         } catch (error) {
+          if (workerMutated) {
+            await client.reset();
+            installedDependencies.current = new Map();
+            dependencyRoots.current = new Set();
+            runtimeDependencyFiles.current = {};
+            setEditorExtraLibs({});
+          }
           if (isAbortError(error)) {
             setDependencyProgress(null);
             setDependencyPackageNames([]);
@@ -270,9 +280,9 @@ export function PlaygroundShell({
           }
           setDependencyProgress({
             phase: "error",
-            packageName: missing[0],
+            packageName: requested[0],
             completed: 0,
-            total: missing.length,
+            total: requested.length,
             message: describeUnknownError(error),
           });
           dependencyProgressTimer.current = window.setTimeout(() => {
@@ -288,7 +298,7 @@ export function PlaygroundShell({
       dependencyInstallChain.current = task.then(() => {});
       return task;
     },
-    [createCompilerService, preinstalledPackages],
+    [client, createCompilerService, preinstalledPackages],
   );
 
   // ── Run compile when source / options change ──
@@ -412,28 +422,18 @@ export function PlaygroundShell({
   // from the playground leaks one Worker per mount; a workerUrl swap
   // leaks the previous Worker forever.
   //
-  // Reset the dependency-tracking refs too. They named packages that
-  // existed in the previous worker's MemFS; the fresh worker boots with
-  // only `preinstalledPackages` mounted, so carrying the old names
-  // would make installDependenciesForSource skip the install (because
-  // `installedDependencyNames.current.has(name)` is still true) and
-  // the next compile would fail with `Cannot find module`.
+  // Reset the dependency graph too. Its exact versions, requests, roots, and
+  // runtime files describe only the worker generation that is being closed.
   //
-  // The effect depends on `[client]` ONLY — listing the array prop
-  // `preinstalledPackages` in deps would tear down the worker on every
-  // parent re-render that produces a fresh array reference. We read the
-  // current value through `preinstalledPackagesRef`, which the sync
-  // effect above keeps up to date.
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    setEditorExtraLibs({});
+    return () => {
       void client.reset();
-      installedDependencyNames.current = new Set<string>(
-        preinstalledPackagesRef.current,
-      );
+      installedDependencies.current = new Map();
+      dependencyRoots.current = new Set();
       runtimeDependencyFiles.current = {};
-    },
-    [client],
-  );
+    };
+  }, [client]);
 
   const onPickExample = useCallback(
     (id: string) => {
@@ -841,6 +841,20 @@ function normalizeClientError(error: unknown): unknown {
 
 function wait(ms: number): Promise<void> {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+function dependencyRootDelta(
+  current: readonly string[],
+  previous: ReadonlySet<string>,
+): { added: string[]; changed: boolean; removed: string[] } {
+  const next = new Set(current);
+  const added = current.filter((name) => !previous.has(name));
+  const removed = [...previous].filter((name) => !next.has(name));
+  return {
+    added,
+    changed: added.length !== 0 || removed.length !== 0,
+    removed,
+  };
 }
 
 function createAbortError(reason: string): Error {

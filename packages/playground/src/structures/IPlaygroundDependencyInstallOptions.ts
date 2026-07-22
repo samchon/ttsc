@@ -1,10 +1,22 @@
 import type { IPlaygroundDependencyProgress } from "./IPlaygroundDependencyProgress";
+import type { IPlaygroundInstalledDependency } from "./IPlaygroundInstalledDependency";
 
 /** Options for {@link installPlaygroundDependencies}. */
 export interface IPlaygroundDependencyInstallOptions {
   /** Defaults to `globalThis.fetch`. Override for tests or for offline runs. */
   fetch?: (input: string, init?: RequestInit) => Promise<Response>;
-  /** Package names the wasm already has — skip re-installing them. */
+  /**
+   * Exact package identities already mounted in this session.
+   *
+   * New edges are reconciled against their versions, registry targets, and
+   * active requests before a tarball is reused.
+   */
+  installedDependencies?: Iterable<IPlaygroundInstalledDependency>;
+  /**
+   * Legacy name-only skip list.
+   *
+   * Prefer `installedDependencies`; names alone cannot validate later ranges.
+   */
   installedPackages?: Iterable<string>;
   /** Package names to never install (preinstalled / built-in). */
   ignoredPackages?: Iterable<string>;

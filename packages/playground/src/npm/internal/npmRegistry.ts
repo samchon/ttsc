@@ -9,6 +9,7 @@ interface IPackageJson {
   name?: string;
   version?: string;
   dependencies?: Record<string, string>;
+  optionalDependencies?: Record<string, string>;
   peerDependencies?: Record<string, string>;
   peerDependenciesMeta?: Record<string, { optional?: boolean }>;
 }
@@ -17,6 +18,7 @@ export interface INpmVersionMetadata {
   name: string;
   version: string;
   dependencies?: Record<string, string>;
+  optionalDependencies?: Record<string, string>;
   peerDependencies?: Record<string, string>;
   peerDependenciesMeta?: Record<string, { optional?: boolean }>;
   dist?: {
@@ -45,6 +47,7 @@ export interface IQueueItem {
 }
 
 export interface IVersionRequest {
+  optional: boolean;
   range: string;
   requester: string;
 }
@@ -243,15 +246,21 @@ export function mountPackageFiles(
 export function enqueuePackageDependencies(
   packageJson: {
     dependencies?: Record<string, string>;
+    optionalDependencies?: Record<string, string>;
     peerDependencies?: Record<string, string>;
     peerDependenciesMeta?: Record<string, { optional?: boolean }>;
   },
   enqueue: (item: IQueueItem) => void,
   requester: string,
 ): void {
+  const optionalDependencies = packageJson.optionalDependencies ?? {};
   for (const [name, range] of Object.entries(packageJson.dependencies ?? {})) {
-    if (isRegistryRange(range))
+    if (!(name in optionalDependencies) && isRegistryRange(range))
       enqueue({ name, range, optional: false, requester });
+  }
+  for (const [name, range] of Object.entries(optionalDependencies)) {
+    if (isRegistryRange(range))
+      enqueue({ name, range, optional: true, requester });
   }
   for (const [name, range] of Object.entries(
     packageJson.peerDependencies ?? {},

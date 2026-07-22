@@ -1,7 +1,11 @@
 import type { IPlaygroundDependencyPackage } from "./IPlaygroundDependencyPackage";
+import type { IPlaygroundInstalledDependency } from "./IPlaygroundInstalledDependency";
 
 /** Aggregate result returned by {@link installPlaygroundDependencies}. */
 export interface IPlaygroundDependencyInstallResult {
+  /** Complete exact state after merging installed packages with this call. */
+  resolvedDependencies: IPlaygroundInstalledDependency[];
+  /** Packages whose tarballs were downloaded and unpacked by this call. */
   packages: IPlaygroundDependencyPackage[];
   /**
    * `node_modules/...` keyed map of files to mount inside the wasm-side

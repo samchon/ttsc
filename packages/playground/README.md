@@ -142,6 +142,10 @@ const installed = await installPlaygroundDependencies(names, {
 // mount installed.compilerFiles into the wasm MemFS via service.installDependencies
 ```
 
+For an additive edit, pass the prior call's `resolvedDependencies` as `installedDependencies`; the installer validates every new range against the mounted registry identity and exact version, and it returns only newly downloaded tarballs in `packages` plus the complete updated exact state in `resolvedDependencies`.
+
+When a direct source import is removed, solve the complete current root list without `installedDependencies` and atomically replace the compiler, editor, and runtime file maps so files from the obsolete graph cannot survive.
+
 `PlaygroundShell` wires this automatically on every keystroke, debounced 900 ms, with an abort signal on source change.
 
 ## Tailwind setup
