@@ -130,10 +130,10 @@ function extendsSpecifiers(extended: unknown): string[] {
 
 /**
  * Resolve an `extends` specifier to an absolute config path using TypeScript's
- * rules: absolute paths and relative specifiers get `.json` /
- * `tsconfig.json`-directory fallbacks; bare specifiers go through Node's module
- * resolver scoped to the declaring config. Returns `null` instead of throwing;
- * the compiler reports unresolvable `extends` itself.
+ * rules: absolute paths and relative specifiers get an exact-file / `.json`
+ * fallback; bare specifiers go through Node's module resolver scoped to the
+ * declaring config. Returns `null` instead of throwing; the compiler reports
+ * unresolvable `extends` itself.
  */
 function resolveExtendsConfig(
   tsconfig: string,
@@ -221,20 +221,24 @@ function isBarePackageRoot(specifier: string): boolean {
 }
 
 /**
- * Try an on-disk `extends` location as-is, with `.json` appended, and as a
- * directory containing `tsconfig.json`. Returns the first existing match.
+ * Try an on-disk `extends` location as-is and with `.json` appended. A
+ * directory is never a config file and must not be expanded to `tsconfig.json`.
  */
 function resolveExistingExtendsPath(location: string): string | null {
-  for (const candidate of new Set([
-    location,
-    `${location}.json`,
-    path.join(location, "tsconfig.json"),
-  ])) {
-    if (fs.existsSync(candidate)) {
+  for (const candidate of new Set([location, `${location}.json`])) {
+    if (isFile(candidate)) {
       return resolveRealPath(candidate);
     }
   }
   return null;
+}
+
+function isFile(location: string): boolean {
+  try {
+    return fs.statSync(location).isFile();
+  } catch {
+    return false;
+  }
 }
 
 /**
