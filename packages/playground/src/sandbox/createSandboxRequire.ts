@@ -193,22 +193,22 @@ export function createSandboxRequire(
     const mod: ModuleObj = { exports: {} };
     // Cache before evaluation so cyclic requires see the partial exports.
     cache.set(key, mod);
-    if (key.endsWith(".json")) {
-      mod.exports = JSON.parse(code) as unknown;
-      return mod;
-    }
-    const localRequire = (specifier: string): unknown => {
-      const resolved = resolveSpecifier(specifier, key);
-      if (!resolved) {
-        throw new Error(
-          `require("${specifier}") is not available in the playground sandbox (from ${key})`,
-        );
-      }
-      return evaluate(resolved).exports;
-    };
-    const filename = "/sandbox/" + key;
-    const dir = "/sandbox/" + dirname(key);
     try {
+      if (key.endsWith(".json")) {
+        mod.exports = JSON.parse(code) as unknown;
+        return mod;
+      }
+      const localRequire = (specifier: string): unknown => {
+        const resolved = resolveSpecifier(specifier, key);
+        if (!resolved) {
+          throw new Error(
+            `require("${specifier}") is not available in the playground sandbox (from ${key})`,
+          );
+        }
+        return evaluate(resolved).exports;
+      };
+      const filename = "/sandbox/" + key;
+      const dir = "/sandbox/" + dirname(key);
       const factory = new Function(
         "require",
         "module",
@@ -233,13 +233,18 @@ export function createSandboxRequire(
         filename,
         opts.console,
       );
+      return mod;
     } catch (err) {
+      // The entry is provisional until evaluation succeeds. Preserve a future
+      // replacement rather than evicting by key alone.
+      if (cache.get(key) === mod) {
+        cache.delete(key);
+      }
       // Surface eval-time errors with context so debugging the sandbox is
       // easier when typia ships a module that depends on something missing.
       const message = err instanceof Error ? err.message : String(err);
       throw new Error(`evaluating ${key}: ${message}`);
     }
-    return mod;
   };
 
   return (specifier: string): unknown => {
