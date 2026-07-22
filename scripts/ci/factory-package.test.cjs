@@ -14,6 +14,11 @@ const { PLATFORM, SCOPES } = require("../build-current.cjs");
 
 const root = path.resolve(__dirname, "..", "..");
 const factoryRoot = path.join(root, "packages", "factory");
+const typescriptManifestPath = require.resolve("typescript/package.json");
+const typescriptTscPath = path.resolve(
+  path.dirname(typescriptManifestPath),
+  JSON.parse(fs.readFileSync(typescriptManifestPath, "utf8")).bin.tsc,
+);
 
 test("the canonical full plans cover every publishable package build", () => {
   const expected = fs
@@ -143,7 +148,7 @@ test("the factory publication entry points load from built artifacts", () => {
     assertSucceeded(
       childProcess.spawnSync(
         process.execPath,
-        [require.resolve("typescript/bin/tsc"), "-p", "tsconfig.json"],
+        [typescriptTscPath, "-p", "tsconfig.json"],
         {
           cwd: workspace,
           encoding: "utf8",
