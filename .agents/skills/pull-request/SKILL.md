@@ -5,7 +5,7 @@ description: Defines ttsc branch, commit, pull-request, check, and merge workflo
 
 # Pull Request Submission
 
-Act on this skill only when the user explicitly requests the corresponding remote action, or when a standing autonomous mandate authorizes it. Permission to edit locally is not permission to push or open a pull request, and permission to open or update is not permission to merge. The one exception is a standing autonomous mandate — an autonomous or remote-control campaign, or an explicit instruction to carry the work through merge: it is the request for every step it names, including push and merge, and the skill's check, verification, and self-review gates still apply to each step.
+Act on this skill only when the user explicitly requests the corresponding remote action, or when a standing autonomous mandate authorizes it. Permission to edit locally is not permission to push or open a pull request, and permission to open or update is not permission to merge. The one exception is a standing autonomous mandate, such as an autonomous or remote-control campaign or an explicit instruction to carry the work through merge. It requests every step it names, including push and merge, and the skill's check, verification, and Self-Review gates still apply to each step.
 
 ## Branch From The Target
 
@@ -25,7 +25,7 @@ Stage explicit paths when the worktree is mixed. Never include unrelated user ch
 
 Write the body at open as the historical intent statement. Include the intent, scope, deferred items, and exact local verification. State skipped checks and disabled campaign CI honestly.
 
-Do not rewrite the body after every follow-up push. Record later CI fixes, newly discovered design issues, promoted deferred work, and Self-Review results as formal GitHub pull-request reviews with the `COMMENT` event so the thread preserves chronology. Use inline review comments when an observation belongs to a changed line and the review body for commit-wide or round-wide results. Do not use ordinary issue-style pull-request comments for this ledger, and never `APPROVE` or `REQUEST_CHANGES` on your own pull request. The title describes the merged outcome in Conventional Commits style, not the work process.
+Do not rewrite the body after every follow-up push. Record later CI fixes, newly discovered design issues, promoted deferred work, Individual Self-Review results, and Overall Self-Review rounds as formal GitHub pull-request reviews with the `COMMENT` event so the thread preserves chronology. Use inline review comments when an observation belongs to a changed line and the review body for commit-wide or round-wide results. Do not use ordinary issue-style pull-request comments for this ledger, and never `APPROVE` or `REQUEST_CHANGES` on your own pull request. The title describes the merged outcome in Conventional Commits style, not the work process.
 
 Push only the topic branch with upstream tracking. Use a file-backed body for multiline Markdown when opening through `gh`.
 
@@ -35,7 +35,7 @@ Before any issue-campaign push or pull request, complete `.agents/skills/issue-c
 
 ## Watch Checks After Every Ordinary Push
 
-After each ordinary push, including every multi-agent integrated-cleanup push, monitor the pull-request checks until every check settles. Only CI-suspended campaign implementation waves skip this loop. On failure, fetch the relevant job log, diagnose the real cause, fix it in place, push a new commit, and resume monitoring. Do not treat a green unrelated job as acceptance for a failed required surface.
+After each ordinary push, including every multi-agent integrated-cleanup push, monitor the pull-request checks until every check settles. Solo issue-campaign implementation commits and CI-suspended campaign implementation waves skip this per-push wait. The solo campaign main agent starts the required Individual Self-Review and immediately implements the next ready issue, then reads CI once the integrated head settles as its development procedure requires. On failure, fetch the relevant job log, diagnose the real cause, fix it in place, push a new commit, and resume monitoring. Do not treat a green unrelated job as acceptance for a failed required surface.
 
 ## Merge On Explicit Request Or Standing Autonomous Mandate
 

@@ -1,6 +1,6 @@
 ---
 name: multi-agent
-description: "Defines the explicitly parallel variants of ttsc review and issue campaigns. Use only when the user explicitly requests a team, parallel, or multi-agent review or campaign. Route review work to review.md and issue campaigns to issue-campaign.md. Self-Review and unqualified review remain solo. Multi-agent issue campaigns parallelize discovery and implementation by default, but an explicit request may limit parallelism to discovery and return implementation to the solo campaign."
+description: "Defines the explicitly parallel variants of ttsc review and issue campaigns. Use only when the user explicitly requests a team, parallel, or multi-agent review or campaign. Route review work to review.md and issue campaigns to issue-campaign.md. Overall Self-Review and unqualified review remain solo; the solo campaign's mandatory Individual Self-Review is a separate narrow subagent workflow. Multi-agent issue campaigns parallelize discovery and implementation by default, but an explicit request may limit parallelism to discovery and return implementation to the solo campaign."
 ---
 
 # Multi-Agent Workflows
@@ -14,7 +14,7 @@ This skill is the single entry point for every explicitly parallel review or cam
 
 `ttsc` has no benchmark-campaign skill. Use [benchmark](../benchmark/SKILL.md) for measurement integrity, then the applicable issue-campaign workflow for authorized benchmark-driven implementation.
 
-Do not load this skill for Self-Review, an unqualified review, or a campaign that does not explicitly request parallel agents.
+Do not load this skill merely for Individual Self-Review, Overall Self-Review, an unqualified review, or a campaign that does not explicitly request parallel agents.
 
 ## Shared Parallelism Rules
 
@@ -24,8 +24,8 @@ Do not load this skill for Self-Review, an unqualified review, or a campaign tha
 - Partition implementation only through verified dependency and file-ownership boundaries. One agent owns one coarse batch, branch, pull request, and worktree.
 - Keep the lead active on fact-checking, integration, conflict resolution, and decisions that do not duplicate an assigned agent.
 - Do not let agents re-delegate.
-- Self-Review remains solo for every author and every implementation branch.
+- Overall Self-Review remains solo for every author and every implementation branch.
 - Create worktrees only for parallel implementation batches and their integrated cleanup. Solo implementation and review use the current checkout.
 - Remove every finished worktree, local branch, process, and assignment-owned temporary asset before declaring its assignment complete.
 
-The solo campaign's [commit early-warning pass](../review/SKILL.md#commit-early-warning-pass) is a different topology and relaxes neither the full-surface rule nor the solo Self-Review rule above. A parallel review gives several reviewers the entire declared surface independently and the lead adjudicates their findings. The pass gives one read-only reader one commit's slice, reports candidates to the author who is still implementing, and leaves that author's own whole-surface round as the gate. A batch implementation agent here runs no pass, because agents do not re-delegate; the carve-out in the solo development procedure belongs to a solo campaign's main agent.
+The solo campaign's [Individual Self-Review](../review/SKILL.md#individual-self-review) is a different topology and relaxes neither the full-surface rule nor the solo Overall Self-Review rule above. A parallel review gives several reviewers the entire declared surface independently and the lead adjudicates their findings. Individual Self-Review gives exactly one read-only reviewer one pushed commit's parent-to-commit diff, returns advice to the main agent while implementation continues, and leaves that main agent's whole-surface Overall Self-Review as the merge gate. A batch implementation agent here runs no Individual Self-Review because agents do not re-delegate; the mandatory carve-out in the solo development procedure belongs to a solo campaign's main agent.

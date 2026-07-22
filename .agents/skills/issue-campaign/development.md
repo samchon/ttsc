@@ -7,17 +7,17 @@ Read this document in full when the user authorizes implementation pull requests
 - [Plan One Cycle Pull Request](#plan-one-cycle-pull-request)
 - [Claim The Complete Cycle](#claim-the-complete-cycle)
 - [Implement And Write Tests](#implement-and-write-tests)
-- [Validate With CI And Self-Review](#validate-with-ci-and-self-review)
+- [Validate With CI And Overall Self-Review](#validate-with-ci-and-overall-self-review)
 - [Merge And Clean Up](#merge-and-clean-up)
 - [Repeat Until A Clean Round](#repeat-until-a-clean-round)
 
 Five rules govern the implementation phase:
 
 - Enter implementation only after the parent skill's discovery saturation ends with a complete fresh empty round against the recorded pre-development integrated state.
-- The main agent performs all implementation, test authoring, CI diagnosis, review, and cleanup. Spawn no subagent except the read-only [commit early-warning pass](#implement-and-write-tests).
+- The main agent performs all implementation, test authoring, CI diagnosis, adjudication, Overall Self-Review, and cleanup. For every coherent pushed issue-implementation commit, spawn exactly one read-only [Individual Self-Review](#implement-and-write-tests) subagent.
 - Put every accepted, implementation-ready issue in the current cycle into one pull request. The issue DAG controls implementation order inside that pull request, not pull-request count.
 - Work in the current checkout and one topic branch. Do not create a clone or worktree for a solo campaign or its Self-Review.
-- The pull request's ordinary CI and a clean solo Self-Review are the acceptance gates. Repair every red CI lane in that same pull request, even when the failure predates the campaign or is unrelated to its original issues.
+- The pull request's ordinary CI and a clean Overall Self-Review are the acceptance gates. Repair every red CI lane in that same pull request, even when the failure predates the campaign or is unrelated to its original issues.
 
 ## Plan One Cycle Pull Request
 
@@ -57,17 +57,19 @@ The empty pull request prevents overlapping contributor work before code is writ
 
 Work through the DAG on the claimed topic branch. Analyze the full consequence and case surface across every issue before editing, then implement the complete cycle and its tests.
 
-Implement without interruption. Write each piece's tests as that piece lands instead of leaving the tests for the end of the cycle, and keep committing as each unit becomes coherent. Do not pause the sequence for a check run; [CI is read once per settled head](#validate-with-ci-and-self-review).
+Implement without interruption. Write each piece's tests as that piece lands instead of leaving the tests for the end of the cycle, and keep committing as each unit becomes coherent. Do not pause the sequence for a check run; [CI is read once per settled head](#validate-with-ci-and-overall-self-review).
 
 Close each issue from the commit that earns it. End the commit message with one `Close #n: <issue title>` line per resolved issue, so a commit that resolves several issues carries several lines. GitHub matches the keyword and the number and ignores the title tail, so the line closes the issue normally while the log stays legible without opening each number.
 
 A revert inside the pull request must not carry the closing keyword forward: `git revert` quotes the original subject, so rewrite its default `Revert "Close #n: ..."` without the closing phrase, and drop any `Closes #n` line for that issue from the pull-request body. That does not spare the issue by itself. A squash merge concatenates every commit message into the merge commit body, where the reverted commit's own `Close #n` line still sits, so the merge closes an issue whose fix no longer exists at `HEAD` and [the merge gate](#merge-and-clean-up) has to reopen it.
 
-After each pushed commit, submit a formal GitHub pull-request review with the `COMMENT` event naming the commit, what it landed, and which issues it resolved. The review is the running ledger for a reader who does not read the diff, not a closing mechanism: GitHub closes an issue only from a commit message or the pull-request body. Follow the [pull-request skill](../pull-request/SKILL.md#write-the-pull-request) for inline comments, review bodies, and self-review restrictions; do not replace this ledger with ordinary issue-style pull-request comments.
+Immediately after each coherent issue-implementation commit is pushed, start exactly one read-only subagent Individual Self-Review over that commit's parent-to-commit diff. Do not wait for its result or for per-commit CI. Continue the next ready issue immediately while the review runs.
 
-Once a commit lands, the main agent may spawn one read-only subagent as a commit early-warning pass over that commit and keep implementing while it runs. The pass reads that one commit and reports candidates. It never edits, commits, pushes, or makes an implementation decision. Its value is timing: a defect named while that code is the newest thing written costs little to correct, and nothing has been built on top of it yet.
+The individual reviewer advises the main agent only. It reports candidate findings for that one commit and never edits, commits, pushes, posts to GitHub, or makes implementation or disposition decisions.
 
-The pass never reduces the [Self-Review](#validate-with-ci-and-self-review) that gates the merge. A reader holding one commit cannot see what appears only across files: a helper that duplicates one the package already has, a document claiming a verification that the component it describes does not perform, or a replacement whose needle cannot match because the file on disk uses CRLF. The main agent's own complete round over the whole base-to-head diff is what finds those, and no number of passes substitutes for it. The [review skill](../review/SKILL.md#commit-early-warning-pass) owns that boundary and the name the pass must not take.
+When the result arrives, the main agent adjudicates every candidate and records the Individual Self-Review as one formal GitHub pull-request review with the `COMMENT` event. Name the commit, summarize what landed and which issues it resolved, attach line-specific findings as inline review comments, and put commit-wide findings or a clean result in the review body. This review is the running ledger for a reader who does not read the diff, not a closing mechanism. Do not replace it with an ordinary issue-style pull-request comment.
+
+Individual Self-Review never reduces or substitutes for [Overall Self-Review](#validate-with-ci-and-overall-self-review). One commit cannot expose every cross-file or integrated consequence, and individual reviews do not combine into an overall round. The [review skill](../review/SKILL.md#individual-self-review) owns this boundary.
 
 Each issue remains an evidence and acceptance unit inside the combined diff. Keep its positive, negative, boundary, and regression cases identifiable. Near-100% coverage of changed behavior is required; a green happy path is not completion.
 
@@ -75,18 +77,18 @@ Follow the development skill for test shape and narrow-then-broad local evidence
 
 If implementation disproves, narrows, or externally blocks an issue, reopen the evidence and update the issue and campaign ledger before changing the claimed scope. Do not leave an orphan issue or pretend an unresolved accepted issue was completed.
 
-## Validate With CI And Self-Review
+## Validate With CI And Overall Self-Review
 
-Commit and push the formatted integrated snapshot, then let every ordinary pull-request check run. Start solo Self-Review immediately over that exact base-to-head diff while CI executes.
+After no ready issue remains, receive and adjudicate every outstanding Individual Self-Review result. Commit and push the formatted integrated snapshot, then let every ordinary pull-request check run. Start the solo Overall Self-Review immediately over that exact base-to-head diff while CI executes.
 
-Submit every Self-Review finding round and the final clean round as a formal GitHub pull-request review with the `COMMENT` event. Attach line-specific findings as inline review comments and summarize round-wide findings or the clean conclusion in the review body; do not post ordinary issue-style pull-request comments for Self-Review.
+Submit every Overall Self-Review finding round and the final clean round as a formal GitHub pull-request review with the `COMMENT` event. Attach line-specific findings as inline review comments and summarize round-wide findings or the clean conclusion in the review body. Do not post ordinary issue-style pull-request comments for Self-Review.
 
 Read CI once per settled head. It gates the cycle, not each commit: every pull-request workflow sets `cancel-in-progress`, so the next push cancels an intermediate commit's run and waiting on that run stalls implementation for a discarded result.
 
 CI and review are independent gates:
 
 - CI must prove every configured build, type-check, test, packaging, and platform lane.
-- Self-Review must prove requirement fidelity, consequence coverage, issue-by-issue acceptance, test quality, documentation, generated output, and risks not encoded in CI.
+- Overall Self-Review must prove requirement fidelity, consequence coverage, issue-by-issue acceptance, test quality, documentation, generated output, and risks not encoded in CI.
 
 When either gate finds a defect:
 
@@ -94,11 +96,12 @@ When either gate finds a defect:
 2. Correct the source and complete the corresponding regression coverage.
 3. Run `pnpm format`.
 4. Commit and push the correction to the same pull request.
-5. Let the new CI run to completion and restart Self-Review as a fresh complete round over the new head.
+5. Immediately start exactly one Individual Self-Review for that correction commit without waiting for it or per-commit CI.
+6. Adjudicate and record the individual result when it arrives, let the new CI run to completion, and restart Overall Self-Review as a fresh complete round over the new head.
 
 Fix every red CI lane in the same pull request even when the failure predates the campaign or is unrelated to the campaign's original issues. Do not dismiss it as another contributor's failure.
 
-Do not merge a head whose green checks belong to an older SHA or whose clean review predates a correction. Continue the loop until the same immutable head has green required checks and a complete Self-Review round with no sound improvement.
+Do not merge a head whose green checks belong to an older SHA, whose clean Overall Self-Review predates a correction, or whose required Individual Self-Review result remains unrecorded. Continue the loop until the same immutable head has green required checks and a complete Overall Self-Review round with no sound improvement.
 
 ## Merge And Clean Up
 

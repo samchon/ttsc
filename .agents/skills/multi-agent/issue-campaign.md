@@ -14,7 +14,7 @@ Switch to parallel discovery with solo implementation only when the user explici
 2. Stop every discovery agent only after the empty-round development gate passes.
 3. If the gate passes with no accepted issue, skip implementation and evaluate [Completion](#completion).
 4. Otherwise read the base issue campaign's [solo development procedure](../issue-campaign/development.md).
-5. Put every implementation-ready issue into its one empty-claim pull request, use the current checkout without a worktree, run `pnpm format`, validate through ordinary CI, and complete solo Self-Review while CI runs.
+5. Put every implementation-ready issue into its one empty-claim pull request, use the current checkout without a worktree, run `pnpm format`, validate through ordinary CI, and follow the solo development procedure's Individual and Overall Self-Review rules.
 6. Apply that procedure's implementation, CI, merge, branch cleanup, and temporary-asset rules, but return here for the next parallel discovery round instead of switching to solo discovery.
 
 Do not infer solo implementation from quota concerns, a small issue count, or the fact that the lead performs publication. Only the user's explicit phase boundary selects it.
@@ -51,7 +51,7 @@ For each immediately executable batch:
 6. Install dependencies asynchronously when needed, then implement the full consequence surface and near-100% positive, negative, boundary, and regression coverage.
 7. Commit and push coherent increments, cancelling only the new runs for that exact branch.
 8. Run the narrowest local proving commands followed by the broader locally owned lanes.
-9. Freeze the head and complete solo Self-Review. If code changes, rerun the necessary local gates and restart the full review.
+9. Freeze the head and complete solo Overall Self-Review. If code changes, rerun the necessary local gates and restart the full review.
 10. Let the lead independently verify issue fit, dispositions, evidence, and batch scope.
 11. If any campaign pull-request run reaches red, diagnose and repair it in the same pull request, then commit and push the repair even when the failure predates the campaign or is unrelated to its original issues.
 12. Merge only with user authorization after local verification, lead review, the final campaign-run cancellation record, and any red-CI repair are complete.
@@ -69,10 +69,10 @@ After every parallel implementation batch is resolved and its worktree and exter
 1. Create one cleanup worktree and topic branch from the integrated target.
 2. Install dependencies when needed and run `pnpm format`.
 3. Run the full integrated local validation required by the project skill.
-4. If formatting changes files, open one ordinary cleanup pull request, let all CI checks run, and perform solo Self-Review while they run.
+4. If formatting changes files, open one ordinary cleanup pull request, let all CI checks run, and perform solo Overall Self-Review while they run.
 5. Repair every CI or review finding in the same cleanup pull request, including a red lane unrelated to the campaign's original changes, and repeat until the same head is green and clean.
 6. Merge with authorization, then remove the cleanup worktree, branch, and assignment-owned external assets.
-7. If formatting produces no diff, complete solo Self-Review over the integrated target, then remove the unused cleanup worktree and branch without opening a pull request.
+7. If formatting produces no diff, complete solo Overall Self-Review over the integrated target, then remove the unused cleanup worktree and branch without opening a pull request.
 
 ## Completion
 
