@@ -2573,19 +2573,17 @@ function executableSearchBases(
   const directories =
     process.platform === "win32"
       ? splitWindowsSearchPath(readPathEnvironment(env))
+          // libuv skips only genuinely empty slices. A quoted-empty slice
+          // survives that check, unquotes to "", and therefore names cwd.
+          .filter((entry) => entry.length > 0)
           .map(unquoteWindowsSearchEntry)
-          .filter((dir) => dir.length > 0)
       : readPathEnvironment(env).split(path.delimiter);
   const noDefaultCurrentDirectory =
     process.platform === "win32"
-      ? (readWindowsEnvironmentValue(
-          env,
-          "NoDefaultCurrentDirectoryInExePath",
-        ) ??
-        readWindowsEnvironmentValue(
+      ? readWindowsEnvironmentValue(
           process.env,
           "NoDefaultCurrentDirectoryInExePath",
-        ))
+        )
       : undefined;
   if (process.platform === "win32" && noDefaultCurrentDirectory === undefined) {
     directories.unshift(cwd);

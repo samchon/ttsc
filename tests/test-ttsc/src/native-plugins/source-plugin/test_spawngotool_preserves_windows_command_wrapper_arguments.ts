@@ -203,6 +203,24 @@ export const test_spawngotool_preserves_windows_command_wrapper_arguments =
     const noDefaultCurrentDirectory =
       process.env.NoDefaultCurrentDirectoryInExePath;
     try {
+      delete process.env.NoDefaultCurrentDirectoryInExePath;
+      const childPolicyResult = spawnGoTool("go", ["version"], {
+        cwd: blockedRoot,
+        encoding: "utf8",
+        env: {
+          ...env,
+          NoDefaultCurrentDirectoryInExePath: "1",
+          PATH: `"${semicolonRoot}"`,
+          PATHEXT: ".CMD",
+        },
+        windowsHide: true,
+      });
+      assert.equal(
+        childPolicyResult.status,
+        91,
+        "the child environment must not disable libuv's parent cwd probe",
+      );
+
       process.env.NoDefaultCurrentDirectoryInExePath = "1";
       const noCwdResult = spawnGoTool("go", noCwdArgs, {
         cwd: blockedRoot,
@@ -218,6 +236,21 @@ export const test_spawngotool_preserves_windows_command_wrapper_arguments =
         noCwdResult.status,
         0,
         noCwdResult.stderr || noCwdResult.error?.message,
+      );
+      const quotedEmptyResult = spawnGoTool("go", ["version"], {
+        cwd: blockedRoot,
+        encoding: "utf8",
+        env: {
+          ...env,
+          PATH: `"";"${semicolonRoot}"`,
+          PATHEXT: ".CMD",
+        },
+        windowsHide: true,
+      });
+      assert.equal(
+        quotedEmptyResult.status,
+        91,
+        "a quoted-empty PATH entry must explicitly select cwd",
       );
     } finally {
       if (noDefaultCurrentDirectory === undefined) {
