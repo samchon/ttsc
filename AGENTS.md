@@ -40,11 +40,11 @@ Default solo repository-wide issue discovery, issue publication, one CI-validate
 
 ### Review
 
-Default solo Self-Review, unqualified review, and exhaustive issue-discovery rounds, `.agents/skills/review/SKILL.md`. The reviewer inspects the whole declared surface and repeats fresh rounds until a complete pass produces no sound improvement or meaningful issue candidate.
+Default solo Overall Self-Review, mandatory advisory Individual Self-Review for solo issue-campaign commits, unqualified review, and exhaustive issue-discovery rounds, `.agents/skills/review/SKILL.md`. Overall review and discovery inspect the whole declared surface and repeat fresh rounds until a complete pass produces no sound improvement or meaningful issue candidate.
 
 ### Multi-Agent Workflows
 
-Explicitly parallel review and issue-campaign variants live under one entry point, `.agents/skills/multi-agent/SKILL.md`. Read it only when the user explicitly asks for a team, parallel, or multi-agent workflow. Multi-agent issue campaigns parallelize discovery and implementation by default and switch to solo implementation only on an explicit discovery-only parallel request; Self-Review remains solo.
+Explicitly parallel review and issue-campaign variants live under one entry point, `.agents/skills/multi-agent/SKILL.md`. Read it only when the user explicitly asks for a team, parallel, or multi-agent workflow. Multi-agent issue campaigns parallelize discovery and implementation by default and switch to solo implementation only on an explicit discovery-only parallel request. Overall Self-Review remains solo, while Individual Self-Review is the solo campaign's mandatory per-commit advisory subagent workflow.
 
 ### Discussion
 
