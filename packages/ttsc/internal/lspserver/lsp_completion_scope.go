@@ -55,20 +55,20 @@ type regexContext struct {
   kind regexPredecessor
   last byte
 
-  lastAdjacent bool
+  lastAdjacent       bool
   word               string
   previousWord       string
   beforePreviousWord string
-  wordMember   bool
-  previousMember bool
-  wordExpression bool
+  wordMember         bool
+  previousMember     bool
+  wordExpression     bool
   previousExpression bool
 
-  pendingFunction bool
-  functionExpression bool
-  functionBody bool
+  pendingFunction        bool
+  functionExpression     bool
+  functionBody           bool
   functionBodyExpression bool
-  classExpressions []bool
+  classExpressions       []bool
 
   parens []regexParen
   braces []bool
