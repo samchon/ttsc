@@ -38,10 +38,10 @@ const (
 // its trailing space, not `"@evidence"` — or the token swallows the separator
 // and nothing filters.
 //
-// When several triggers match one line the longest After wins and only its hints
-// are offered; equal lengths merge. That is what makes a corpus layerable: `"@"`,
-// `"@evidence "`, and `"@evidence docs/spec.md#"` can all be published at once
-// without the broad one drowning the narrow ones.
+// When several triggers match one line, the occurrence nearest the cursor wins.
+// At that occurrence, the longest After wins, and only hints with that same
+// trigger merge. That keeps a corpus layerable while preventing an earlier,
+// longer trigger from drowning a later one.
 type HintTrigger struct {
   Scope HintScope `json:"scope"`
   After string    `json:"after"`
