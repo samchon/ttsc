@@ -8,9 +8,9 @@ import (
 // TestDumpPathMapperUsesPortableCoordinates verifies the schema-v6 vocabulary
 // directly, independent of the host OS running the test.
 //
-//   1. Map in-project and sibling paths for POSIX, drive, and UNC layouts.
-//   2. Keep two pnpm version/peer contexts with the same package subpath apart.
-//   3. Preserve compiler virtual identities exactly.
+//  1. Map in-project and sibling paths for POSIX, drive, and UNC layouts.
+//  2. Keep two pnpm version/peer contexts with the same package subpath apart.
+//  3. Preserve compiler virtual identities exactly.
 func TestDumpPathMapperUsesPortableCoordinates(t *testing.T) {
   tests := []struct {
     name    string
@@ -54,9 +54,9 @@ func TestDumpPathMapperUsesPortableCoordinates(t *testing.T) {
 // TestDumpPathMapperRejectsUnportableRootsAndCollisions pins both fail-closed
 // boundaries of the mapping contract.
 //
-//   1. Reject a different Windows drive and a different UNC share precisely.
-//   2. Force two physical sources through one coordinate and require a collision.
-//   3. Require NewDump to surface the root error before JSON serialization.
+//  1. Reject a different Windows drive and a different UNC share precisely.
+//  2. Force two physical sources through one coordinate and require a collision.
+//  3. Require NewDump to surface the root error before JSON serialization.
 func TestDumpPathMapperRejectsUnportableRootsAndCollisions(t *testing.T) {
   for _, test := range []struct {
     name    string

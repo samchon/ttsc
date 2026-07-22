@@ -37,9 +37,8 @@ func runDump(args []string) int {
     cwd = resolved
   }
   // Resolve the project root the same way LoadProgram does (absolute, then
-  // tsgo-normalized) so it shares the node file paths' drive-letter case on
-  // Windows; otherwise the dump's prefix-based relativization would miss and
-  // leave every path absolute.
+  // tsgo-normalized) so the schema-v6 mapper receives the same canonical root
+  // grammar and drive-letter case as the compiler's source paths.
   if abs, err := filepath.Abs(cwd); err == nil {
     cwd = abs
   }
@@ -60,7 +59,7 @@ func runDump(args []string) int {
   g := graph.Build(prog)
   ignored := graph.GitIgnoredFiles(cwd, g)
   texts := graph.SourceTexts(prog)
-  origin, err := dumpOrigin(prog, cwd, texts)
+  origin, err := dumpOrigin(prog, texts)
   if err != nil {
     fmt.Fprintf(stderr, "ttscgraph: %v\n", err)
     return 1
@@ -90,7 +89,7 @@ func runDump(args []string) int {
 // saw the project, so it carries the same provenance a served snapshot does:
 // without it the file is a pile of facts with no way to tell which program, or
 // which day, they describe.
-func dumpOrigin(prog *driver.Program, cwd string, texts map[string]string) (graph.DumpOrigin, error) {
+func dumpOrigin(prog *driver.Program, texts map[string]string) (graph.DumpOrigin, error) {
   configs, err := parsedConfigs(prog)
   if err != nil {
     return graph.DumpOrigin{}, err

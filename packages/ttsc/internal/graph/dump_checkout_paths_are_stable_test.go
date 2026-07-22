@@ -23,11 +23,11 @@ const portableDumpTSConfig = `{
 // TestDumpCheckoutPathsAreStable verifies the whole schema-v6 consequence
 // surface, not only the path helper.
 //
-//   1. Build the same project plus sibling .ts/.d.ts under two checkout roots.
-//   2. Remove only the producer-local Project locator and require byte identity.
-//   3. Assert nodes, module names, endpoints, implementation evidence,
-//      diagnostics, manifests, and universe inputs all use one `../shared`
-//      coordinate, with the .ts internal and the .d.ts an external leaf.
+//  1. Build the same project plus sibling .ts/.d.ts under two checkout roots.
+//  2. Remove only the producer-local Project locator and require byte identity.
+//  3. Assert nodes, module names, endpoints, implementation evidence,
+//     diagnostics, manifests, and universe inputs all use one `../shared`
+//     coordinate, with the .ts internal and the .d.ts an external leaf.
 func TestDumpCheckoutPathsAreStable(t *testing.T) {
   firstCheckout := filepath.Join(t.TempDir(), "checkout-one")
   secondCheckout := filepath.Join(t.TempDir(), "checkout-two")

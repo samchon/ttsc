@@ -127,6 +127,10 @@ type graphSession struct {
   configDigests []graph.FileDigest
   roots         []graph.RootFile
   initialized   bool
+  // pendingDumpMode remembers a generation whose state was captured but whose
+  // dump failed. Until an input change lets the session rebuild, an unchanged
+  // request must retry that dump instead of falsely confirming the older graph.
+  pendingDumpMode string
 }
 
 func newGraphSession(cwd, tsconfig string) (*graphSession, error) {
@@ -146,11 +150,17 @@ func (s *graphSession) Close() error {
 
 func (s *graphSession) Snapshot() (*graph.Dump, string, bool, error) {
   if !s.initialized {
+    // The captured compiler state is initialized even when its first dump is
+    // not publishable. Mark the attempt before building so a later request can
+    // observe a config/source edit that repairs the path error instead of
+    // retrying the stale Program forever.
+    s.initialized = true
     dump, err := s.buildDump()
     if err != nil {
+      s.pendingDumpMode = serveModeInitial
       return nil, "", false, err
     }
-    s.initialized = true
+    s.pendingDumpMode = ""
     return &dump, serveModeInitial, true, nil
   }
 
@@ -194,6 +204,9 @@ func (s *graphSession) Snapshot() (*graph.Dump, string, bool, error) {
     return s.changedSnapshot(serveModeReload)
   }
   if len(changed) == 0 {
+    if s.pendingDumpMode != "" {
+      return s.changedSnapshot(s.pendingDumpMode)
+    }
     return nil, serveModeUnchanged, false, nil
   }
   if s.compiler.Program().HasLinkedProgramPlugins() {
@@ -231,8 +244,10 @@ func (s *graphSession) Snapshot() (*graph.Dump, string, bool, error) {
 func (s *graphSession) changedSnapshot(mode string) (*graph.Dump, string, bool, error) {
   dump, err := s.buildDump()
   if err != nil {
+    s.pendingDumpMode = mode
     return nil, "", false, err
   }
+  s.pendingDumpMode = ""
   return &dump, mode, true, nil
 }
 
