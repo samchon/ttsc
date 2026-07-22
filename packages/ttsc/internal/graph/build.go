@@ -35,6 +35,8 @@ func SourceTexts(prog *driver.Program) map[string]string {
   if prog == nil || prog.TSProgram == nil {
     return map[string]string{}
   }
+  // Discarded on purpose: this returns text, not an error channel. A failed
+  // apply reaches the dump through `NewDiagnostics`, which asks `Diagnostics`.
   _ = prog.ApplyLinkedPlugins()
   files := prog.TSProgram.SourceFiles()
   out := make(map[string]string, len(files))

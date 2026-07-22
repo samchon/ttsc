@@ -101,6 +101,9 @@ func (p *Program) SourceFile(filename string) *ast.SourceFile {
   if p == nil || p.TSProgram == nil {
     return nil
   }
+  // Discarded on purpose: an accessor returning a source file has no channel
+  // for an apply failure, and growing one would ripple through every caller.
+  // `Diagnostics` reports it, and the emit path checks the error directly.
   _ = p.ApplyLinkedPlugins()
   normalized := filepath.ToSlash(filename)
   for _, file := range p.TSProgram.SourceFiles() {
@@ -513,6 +516,7 @@ func ApplySourcePreamble(text string, preamble string) string {
 // SourceFiles exposes the program's user-authored source files (declaration
 // files filtered out).
 func (p *Program) SourceFiles() []*ast.SourceFile {
+  // Discarded on purpose; see SourceFile. `Diagnostics` carries the failure.
   _ = p.ApplyLinkedPlugins()
   return p.sourceFilesRaw()
 }
@@ -563,6 +567,27 @@ func (p *Program) Diagnostics() []Diagnostic {
   if p == nil || p.TSProgram == nil {
     return []Diagnostic{{Message: "driver: nil program"}}
   }
+  // A linked ProgramPlugin that failed to apply is reported here, ahead of the
+  // compiler's own findings, because every other consumer of this program is
+  // then looking at a tree the plugin did not transform.
+  //
+  // `SourceFile`, `SourceFiles`, and the graph builder all run the apply and
+  // discard its error — they have no channel of their own and are not the place
+  // to grow one. The emit path checks it directly and fails the build, so this
+  // is the read-only half of the same fact: `ttscgraph` used to describe the
+  // untransformed program with nothing to say about it, while `ttsc build` on
+  // the same project reported the failure.
+  //
+  // The apply is cached, so asking here costs nothing a caller was not going to
+  // pay, and the answer cannot differ between callers. `driver: nil program`
+  // above is the precedent for a driver-level entry with no file or code.
+  var out []Diagnostic
+  if err := p.ApplyLinkedPlugins(); err != nil {
+    out = append(out, Diagnostic{
+      Severity: SeverityError,
+      Message:  "driver: linked plugins failed to apply: " + err.Error(),
+    })
+  }
   ctx := context.Background()
   raw := shimcompiler.GetDiagnosticsOfAnyProgram(
     ctx,
@@ -573,7 +598,7 @@ func (p *Program) Diagnostics() []Diagnostic {
     p.TSProgram.GetSemanticDiagnostics,
   )
   raw = filterDiagnostics(raw)
-  return convertDiagnostics(shimcompiler.SortAndDeduplicateDiagnostics(raw))
+  return append(out, convertDiagnostics(shimcompiler.SortAndDeduplicateDiagnostics(raw))...)
 }
 
 // filterDiagnostics removes diagnostics that are false positives in ttsc's
