@@ -35,12 +35,6 @@ func newResidentProgramCache() *residentProgramCache {
   return &residentProgramCache{entries: map[string]*program{}}
 }
 
-// acquire returns a warm Program for the key, building and caching it on a miss.
-// On a hit it resets the memoized project cycle so the caller's engine — which
-// may differ from the engine that first warmed this Program (a lint verb versus
-// a format verb) — re-evaluates its own project and file rules over the reused
-// ASTs and checker. The returned close func is a no-op: a cached Program
-// outlives the verb and is released only by invalidate or daemon exit.
 // residentProgramKey identifies one cached Program. The checker suffix keeps a
 // checker-free Program from being handed to a verb whose rules read one.
 func residentProgramKey(opts *lspCommandOptions, needsChecker bool) string {
@@ -51,6 +45,17 @@ func residentProgramKey(opts *lspCommandOptions, needsChecker bool) string {
   return key
 }
 
+// acquire returns a warm Program for the key, building and caching it on a miss.
+// On a hit it resets the memoized project cycle so the caller's engine — which
+// may differ from the engine that first warmed this Program (a lint verb versus
+// a format verb) — re-evaluates its own project and file rules over the reused
+// ASTs and checker. The returned close func is a no-op: a cached Program
+// outlives the verb and is released only by invalidate or daemon exit.
+//
+// One project keeps one Program. A checker-bearing Program answers a verb that
+// needs no checker, and a verb that does need one releases the checker-free
+// entry it supersedes, so the daemon's memory does not depend on which verb the
+// editor happened to ask for first.
 func (c *residentProgramCache) acquire(
   opts *lspCommandOptions,
   needsChecker bool,
@@ -203,10 +208,10 @@ type serveLSPResponse struct {
 // cache and answers newline-delimited verb requests read from in by writing one
 // JSON reply per line to out, until in reaches EOF.
 //
-// Only the read verbs run resident here: lsp-diagnostics, lsp-code-actions, and
-// lsp-hints (the hot path, one per save, one per cursor, and one per save)
-// reuse the warm Program; lsp-command-ids and lsp-code-action-kinds answer their
-// static lists; an invalidate control drops the Program. lsp-execute-command is
+// Only the read verbs run resident here. lsp-diagnostics and lsp-hints (one per
+// save) and lsp-code-actions (one per cursor) are the hot path and reuse the
+// warm Program; lsp-command-ids and lsp-code-action-kinds answer their static
+// lists; an invalidate control drops the Program. lsp-execute-command is
 // deliberately left to the spawn-per-verb path — it is user-initiated and its
 // temp-workspace fix cascade does not fit the resident cache.
 //
