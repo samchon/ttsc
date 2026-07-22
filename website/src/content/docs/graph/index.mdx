@@ -68,6 +68,8 @@ A text search or a tree-sitter parse stops where the syntax stops. A real type c
 
 Source-derived display text is fail-closed. The snapshot manifest covers every source the checker loaded, including outside `.d.ts` boundary leaves and virtual compiler libraries. The server reuses a disk file only when its raw bytes match the disk snapshot and its compiler-decoded text matches the checker snapshot, so UTF-8 BOM and UTF-16 sources keep their display facts without mixing live-disk content into older graph facts. Its line slicing follows the compiler's ECMAScript LF, CRLF, CR, LS, and PS model, so signatures and JSDoc keep the same coordinates under every valid source spelling. A missing digest, read failure, or mismatch omits the optional text.
 
+Graph identities are portable across checkout directories. Project files remain project-relative; sibling and project-reference files use the same `../` coordinate everywhere; package declarations retain their complete resolution path, including pnpm version and peer-context segments; and compiler libraries retain `bundled:///...`. The producer applies this one mapping to nodes, edges, evidence, diagnostics, and provenance, and refuses a cross-drive source or any identity collision before it writes a snapshot.
+
 ## Get started
 
 Install, connect an agent, and where to read next.

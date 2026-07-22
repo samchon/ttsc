@@ -44,7 +44,10 @@ export var duplicate = { second: 2 };
     t.Fatalf("first declaration members were overwritten: %+v", node.ObjectMembers)
   }
 
-  dump := NewDump(graph, root, "tsconfig.json", nil, SourceTexts(prog), DumpOrigin{})
+  dump, err := NewDump(graph, root, "tsconfig.json", nil, SourceTexts(prog), DumpOrigin{})
+  if err != nil {
+    t.Fatal(err)
+  }
   for _, dumped := range dump.Nodes {
     if dumped.ID != "src/main.ts#duplicate:variable" {
       continue

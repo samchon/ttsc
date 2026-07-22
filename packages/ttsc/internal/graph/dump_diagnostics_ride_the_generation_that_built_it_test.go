@@ -36,9 +36,12 @@ func TestDumpDiagnosticsRideTheGenerationThatBuiltIt(t *testing.T) {
   }
   defer func() { _ = prog.Close() }()
 
-  dump := NewDump(Build(prog), root, "tsconfig.json", nil, SourceTexts(prog), DumpOrigin{
-    Diagnostics: NewDiagnostics(prog, root),
+  dump, err := NewDump(Build(prog), root, "tsconfig.json", nil, SourceTexts(prog), DumpOrigin{
+    Diagnostics: NewDiagnostics(prog),
   })
+  if err != nil {
+    t.Fatal(err)
+  }
 
   var match *Diagnostic
   for i := range dump.Diagnostics {
@@ -69,7 +72,10 @@ func TestDumpDiagnosticsRideTheGenerationThatBuiltIt(t *testing.T) {
 
   // The negative twin: a caller that does not collect diagnostics publishes an
   // empty list, never a nil that would encode as JSON null.
-  quiet := NewDump(Build(prog), root, "tsconfig.json", nil, SourceTexts(prog), DumpOrigin{})
+  quiet, err := NewDump(Build(prog), root, "tsconfig.json", nil, SourceTexts(prog), DumpOrigin{})
+  if err != nil {
+    t.Fatal(err)
+  }
   if quiet.Diagnostics == nil {
     t.Fatal("an uncollected diagnostics list is nil, so it serializes as null rather than []")
   }

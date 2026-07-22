@@ -136,7 +136,7 @@ function ownerKey(node: ITtscGraphNode): string | undefined {
   return owner === "" ? undefined : owner;
 }
 
-/** A file's id and node name from its project-relative path. */
+/** A file's id and node name from its schema-v6 path coordinate. */
 function fileNodeId(file: string): string {
   return file;
 }

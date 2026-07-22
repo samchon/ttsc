@@ -28,9 +28,8 @@ func run() int {
   flag.Parse()
 
   // Resolve the project root the same way LoadProgram does (absolute, then
-  // tsgo-normalized) so it shares the node file paths' drive-letter case on
-  // Windows; otherwise the dump's prefix-based relativization would miss and
-  // leave every path absolute.
+  // tsgo-normalized) so the schema-v6 mapper receives the same canonical root
+  // grammar and drive-letter case as the compiler's source paths.
   root := *cwd
   if abs, err := filepath.Abs(root); err == nil {
     root = abs
@@ -60,7 +59,6 @@ func run() int {
   // `ttscgraph dump` is the one that proves the whole contract.
   data, err := graph.MarshalDump(g, root, *tsconfig, ignored, texts, graph.DumpOrigin{
     Provenance: graph.NewProvenance(
-      root,
       // No version: this tool is built from the tree on demand and never
       // stamped, and an invented one would be worse than an absent one.
       graph.Producer{Tool: "graphdump", Typescript: graph.TypescriptVersion()},

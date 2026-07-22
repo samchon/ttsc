@@ -13,19 +13,19 @@ import { ITtscGraphSpan } from "./ITtscGraphSpan";
  * warm model while project inputs stay unchanged; the bundled 3D viewer reduces
  * the same dump.
  *
- * `project` is absolute. Every other path is relative to it — `tsconfig`, and
- * the `file` fields on nodes, edges, diagnostics, and the provenance manifest.
- *
- * Two kinds of path fall outside the project and so cannot be relative to it: a
- * dependency keeps its `node_modules/`-relative tail, which is what makes a
- * dependency leaf readable, and anything else the compiler loaded keeps the
- * identity the compiler gave it — a virtual lib stays `bundled:///…`.
+ * `project` is the producer-local absolute locator. Every identity-bearing path
+ * uses one schema-v6 coordinate relative to it: project files are ordinary
+ * relative paths; same-filesystem siblings use `../` segments; package files
+ * keep their full resolution context (including version/peer-store segments);
+ * and a virtual compiler source stays `bundled:///…`. Raw absolute identities
+ * are never emitted. A source on another drive or UNC share makes the producer
+ * fail unless a future contract supplies a logical root for it.
  */
 export interface ITtscGraphDump {
   /** Absolute path of the project root the graph was built for. */
   project: string;
 
-  /** The tsconfig the program was loaded from, relative to `project`. */
+  /** The tsconfig the program was loaded from, in the dump's path vocabulary. */
   tsconfig: string;
 
   /** Evidence about the one program that produced everything below. */
@@ -143,16 +143,16 @@ export namespace ITtscGraphDump {
 
   /** A root file attributed to the config that named it. */
   export interface IRootFile {
-    /** The tsconfig that named this root, project-relative. */
+    /** The tsconfig that named this root, in the dump's path vocabulary. */
     config: string;
 
-    /** The root file, project-relative. */
+    /** The root file, in the dump's path vocabulary. */
     file: string;
   }
 
   /** A file and the hex-encoded SHA-256 of its on-disk bytes. */
   export interface IFileDigest {
-    /** Project-relative. */
+    /** In the dump's path vocabulary. */
     file: string;
 
     /** Hex-encoded SHA-256. */
@@ -169,7 +169,7 @@ export namespace ITtscGraphDump {
    * on every build.
    */
   export interface ISourceDigest {
-    /** Project-relative. */
+    /** In the dump's path vocabulary. */
     file: string;
 
     /**
@@ -199,7 +199,7 @@ export namespace ITtscGraphDump {
 
   /** One compiler diagnostic from the generation that produced the facts. */
   export interface IDiagnostic {
-    /** Project-relative. */
+    /** In the dump's path vocabulary. */
     file: string;
 
     /** 1-based line. */

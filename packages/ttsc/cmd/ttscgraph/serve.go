@@ -127,6 +127,10 @@ type graphSession struct {
   configDigests []graph.FileDigest
   roots         []graph.RootFile
   initialized   bool
+  // pendingDumpMode remembers a generation whose state was captured but whose
+  // dump failed. Until an input change lets the session rebuild, an unchanged
+  // request must retry that dump instead of falsely confirming the older graph.
+  pendingDumpMode string
 }
 
 func newGraphSession(cwd, tsconfig string) (*graphSession, error) {
@@ -146,8 +150,17 @@ func (s *graphSession) Close() error {
 
 func (s *graphSession) Snapshot() (*graph.Dump, string, bool, error) {
   if !s.initialized {
-    dump := s.buildDump()
+    // The captured compiler state is initialized even when its first dump is
+    // not publishable. Mark the attempt before building so a later request can
+    // observe a config/source edit that repairs the path error instead of
+    // retrying the stale Program forever.
     s.initialized = true
+    dump, err := s.buildDump()
+    if err != nil {
+      s.pendingDumpMode = serveModeInitial
+      return nil, "", false, err
+    }
+    s.pendingDumpMode = ""
     return &dump, serveModeInitial, true, nil
   }
 
@@ -159,16 +172,14 @@ func (s *graphSession) Snapshot() (*graph.Dump, string, bool, error) {
     if err := s.reload(); err != nil {
       return nil, "", false, err
     }
-    dump := s.buildDump()
-    return &dump, serveModeReload, true, nil
+    return s.changedSnapshot(serveModeReload)
   }
 
   if diskStatesChanged(s.auxStates) {
     if err := s.reload(); err != nil {
       return nil, "", false, err
     }
-    dump := s.buildDump()
-    return &dump, serveModeReload, true, nil
+    return s.changedSnapshot(serveModeReload)
   }
 
   roots, err := projectRootFiles(s.compiler.Program(), true)
@@ -179,8 +190,7 @@ func (s *graphSession) Snapshot() (*graph.Dump, string, bool, error) {
     if err := s.reload(); err != nil {
       return nil, "", false, err
     }
-    dump := s.buildDump()
-    return &dump, serveModeReload, true, nil
+    return s.changedSnapshot(serveModeReload)
   }
 
   changed, deleted, err := changedSources(s.sourceHashes)
@@ -191,18 +201,19 @@ func (s *graphSession) Snapshot() (*graph.Dump, string, bool, error) {
     if err := s.reload(); err != nil {
       return nil, "", false, err
     }
-    dump := s.buildDump()
-    return &dump, serveModeReload, true, nil
+    return s.changedSnapshot(serveModeReload)
   }
   if len(changed) == 0 {
+    if s.pendingDumpMode != "" {
+      return s.changedSnapshot(s.pendingDumpMode)
+    }
     return nil, serveModeUnchanged, false, nil
   }
   if s.compiler.Program().HasLinkedProgramPlugins() {
     if err := s.reload(); err != nil {
       return nil, "", false, err
     }
-    dump := s.buildDump()
-    return &dump, serveModeReload, true, nil
+    return s.changedSnapshot(serveModeReload)
   }
 
   mode := serveModeIncremental
@@ -221,14 +232,22 @@ func (s *graphSession) Snapshot() (*graph.Dump, string, bool, error) {
       if err := s.reload(); err != nil {
         return nil, "", false, err
       }
-      dump := s.buildDump()
-      return &dump, serveModeReload, true, nil
+      return s.changedSnapshot(serveModeReload)
     }
   }
   if err := s.captureState(); err != nil {
     return nil, "", false, err
   }
-  dump := s.buildDump()
+  return s.changedSnapshot(mode)
+}
+
+func (s *graphSession) changedSnapshot(mode string) (*graph.Dump, string, bool, error) {
+  dump, err := s.buildDump()
+  if err != nil {
+    s.pendingDumpMode = mode
+    return nil, "", false, err
+  }
+  s.pendingDumpMode = ""
   return &dump, mode, true, nil
 }
 
@@ -322,7 +341,7 @@ func missingRootInputs(configs []*shimtsoptions.ParsedCommandLine, sourceHashes 
   return missing
 }
 
-func (s *graphSession) buildDump() graph.Dump {
+func (s *graphSession) buildDump() (graph.Dump, error) {
   program := s.compiler.Program()
   built := graph.Build(program)
   // One texts map feeds both the spans and the manifest digests, so the bytes a
@@ -336,7 +355,6 @@ func (s *graphSession) buildDump() graph.Dump {
     texts,
     graph.DumpOrigin{
       Provenance: graph.NewProvenance(
-        s.cwd,
         serveProducer(),
         fullSnapshotCapabilities,
         s.configDigests,
@@ -344,7 +362,7 @@ func (s *graphSession) buildDump() graph.Dump {
         texts,
         s.diskDigests,
       ),
-      Diagnostics: graph.NewDiagnostics(program, s.cwd),
+      Diagnostics: graph.NewDiagnostics(program),
     },
   )
 }

@@ -87,6 +87,35 @@ export const test_ttscgraph_source_reader_enforces_snapshot_identity_once =
     assert.equal(stableReads, 1, "a successful file is read once per snapshot");
     assert.ok(Object.isFrozen(first), "cached source lines are immutable");
 
+    const sibling = "export const sibling = true;\n";
+    let siblingPath = "";
+    const siblingReader = new Reader(
+      "/checkout/app",
+      {
+        capabilities: ["sourceDigests", "diskDigests"],
+        sources: [
+          {
+            file: "../shared/sibling.ts",
+            checkerDigest: digest(sibling),
+            diskDigest: digest(Buffer.from(sibling, "utf8")),
+          },
+        ],
+      },
+      (file) => {
+        siblingPath = file;
+        return Buffer.from(sibling, "utf8");
+      },
+    );
+    assert.deepEqual(siblingReader.lines("../shared/sibling.ts"), [
+      "export const sibling = true;",
+      "",
+    ]);
+    assert.equal(
+      siblingPath,
+      path.resolve("/checkout/app", "../shared/sibling.ts"),
+      "schema-v6 sibling coordinates resolve against the project locator",
+    );
+
     const before = "export const before = 1;\n";
     let current = "export const after = 2;\n";
     let mutationReads = 0;

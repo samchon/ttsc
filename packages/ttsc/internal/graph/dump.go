@@ -4,7 +4,6 @@ import (
   "bufio"
   "encoding/json"
   "io"
-  "path/filepath"
   "sort"
   "strings"
 )
@@ -20,8 +19,8 @@ import (
 //     EdgeMemberRelation into "implements" / "overrides";
 //   - byte spans become 1-based line/col Evidence ranges;
 //   - decorator facts ride on their target node;
-//   - file paths are project-relative and the output is sorted, so the dump is
-//     deterministic and diffable.
+//   - file paths use one portable, injective project coordinate and the output
+//     is sorted, so the dump is deterministic and diffable.
 //
 // Structural derivations the schema also defines (file nodes, contains/exports
 // edges) are left to the TypeScript loader, which has the node set in hand and
@@ -147,12 +146,13 @@ type DumpOrigin struct {
 }
 
 // NewDump projects a built graph onto the export shape. project is the absolute
-// project root used to relativize file paths and node ids; ignored is the
-// git-ignored source set (nil for a non-git project); sources maps a source
-// file's path to its text so byte spans become line/col evidence (nil omits
-// evidence); origin is the snapshot evidence that proves where the facts came
-// from.
-func NewDump(g *Graph, project, tsconfig string, ignored map[string]bool, sources map[string]string, origin DumpOrigin) Dump {
+// root of the portable path coordinate; ignored is the git-ignored source set
+// (nil for a non-git project); sources maps a source file's physical path to its
+// text so byte spans become line/col evidence (nil omits evidence); origin is
+// the snapshot evidence that proves where the facts came from. It returns an
+// error before serialization when a path is on another filesystem root or two
+// physical sources would collide at one wire identity.
+func NewDump(g *Graph, project, tsconfig string, ignored map[string]bool, sources map[string]string, origin DumpOrigin) (Dump, error) {
   ctx := newDumpContext(project, sources)
 
   // Decorators ride on their target node; group by the internal node id before
@@ -222,7 +222,7 @@ func NewDump(g *Graph, project, tsconfig string, ignored map[string]bool, source
 
   // The schema version describes this code, not the caller's belief about it,
   // so stamp it here rather than trusting what came in.
-  provenance := origin.Provenance
+  provenance := ctx.provenance(origin.Provenance)
   provenance.SchemaVersion = DumpSchemaVersion
 
   // A nil slice encodes as JSON null, and null is not an empty list: a reader
@@ -241,19 +241,23 @@ func NewDump(g *Graph, project, tsconfig string, ignored map[string]bool, source
     provenance.Universe.Roots = []RootFile{}
   }
 
-  diagnostics := origin.Diagnostics
+  diagnostics := ctx.diagnostics(origin.Diagnostics)
   if diagnostics == nil {
     diagnostics = []Diagnostic{}
   }
 
-  return Dump{
+  dump := Dump{
     Project:     project,
-    Tsconfig:    tsconfig,
+    Tsconfig:    ctx.rel(tsconfig),
     Provenance:  provenance,
     Diagnostics: diagnostics,
     Nodes:       nodes,
     Edges:       edges,
   }
+  if err := ctx.pathError(); err != nil {
+    return Dump{}, err
+  }
+  return dump, nil
 }
 
 // dumpEnumMembers projects an enum's members onto the wire shape, nil for a
@@ -301,7 +305,10 @@ func objectMemberWireKind(kind NodeKind) string {
 // MarshalDump serializes a built graph to the export JSON, indented when pretty.
 // See NewDump for the parameters.
 func MarshalDump(g *Graph, project, tsconfig string, ignored map[string]bool, sources map[string]string, origin DumpOrigin, pretty bool) ([]byte, error) {
-  d := NewDump(g, project, tsconfig, ignored, sources, origin)
+  d, err := NewDump(g, project, tsconfig, ignored, sources, origin)
+  if err != nil {
+    return nil, err
+  }
   if pretty {
     return json.MarshalIndent(d, "", "  ")
   }
@@ -317,12 +324,16 @@ func MarshalDump(g *Graph, project, tsconfig string, ignored map[string]bool, so
 // copy of it held live beside the first — half a gigabyte of peak heap that
 // bought nothing, because the bytes were already exactly what stdout wanted.
 func EncodeDump(w io.Writer, g *Graph, project, tsconfig string, ignored map[string]bool, sources map[string]string, origin DumpOrigin, pretty bool) error {
+  dump, err := NewDump(g, project, tsconfig, ignored, sources, origin)
+  if err != nil {
+    return err
+  }
   buffered := bufio.NewWriterSize(w, 1<<20)
   encoder := json.NewEncoder(buffered)
   if pretty {
     encoder.SetIndent("", "  ")
   }
-  if err := encoder.Encode(NewDump(g, project, tsconfig, ignored, sources, origin)); err != nil {
+  if err := encoder.Encode(dump); err != nil {
     return err
   }
   return buffered.Flush()
@@ -387,40 +398,29 @@ func nodeNames(n *Node) (simple, qualified string) {
   return n.Simple, n.Name
 }
 
-// dumpContext relativizes paths and turns byte spans into line/col evidence,
-// caching a per-file line index so a large file's many edges cost O(log n) each
-// instead of a re-scan.
+// dumpContext maps paths and turns byte spans into line/col evidence, caching a
+// per-file line index so a large file's many edges cost O(log n) each instead
+// of a re-scan.
 type dumpContext struct {
-  project string
+  paths   *dumpPathMapper
   sources map[string]string
   lines   map[string]lineStarts
 }
 
 func newDumpContext(project string, sources map[string]string) *dumpContext {
   return &dumpContext{
-    project: strings.TrimRight(filepath.ToSlash(project), "/"),
+    paths:   newDumpPathMapper(project),
     sources: sources,
     lines:   map[string]lineStarts{},
   }
 }
 
-// rel makes a source file path project-relative; an external path keeps its
-// node_modules-relative tail so a dependency leaf stays readable.
+// rel delegates every identity-bearing path to the dump's one cached mapper.
 func (c *dumpContext) rel(file string) string {
-  f := filepath.ToSlash(file)
-  if c.project != "" {
-    if f == c.project {
-      return ""
-    }
-    if strings.HasPrefix(f, c.project+"/") {
-      return f[len(c.project)+1:]
-    }
-  }
-  if i := strings.LastIndex(f, "/node_modules/"); i >= 0 {
-    return f[i+1:]
-  }
-  return f
+  return c.paths.mapPath(file)
 }
+
+func (c *dumpContext) pathError() error { return c.paths.err() }
 
 // relID relativizes the path portion of a node id ("path#qualifiedName:kind").
 // An id with no path (a future virtual node) is returned unchanged.
