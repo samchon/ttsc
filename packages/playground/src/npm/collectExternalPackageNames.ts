@@ -143,6 +143,7 @@ const REGEX_PRECEDING_KEYWORDS = new Set([
   "void",
   "do",
   "else",
+  "extends",
   "yield",
   "await",
   "case",
@@ -176,17 +177,23 @@ class LexicalContext {
   private readonly parens: IParenContext[] = [];
   private readonly braces: boolean[] = [];
   private pendingFunctionExpression: boolean | undefined;
-  private pendingClassExpression: boolean | undefined;
+  private readonly pendingClassExpressions: boolean[] = [];
 
   public isRegexAllowed(): boolean {
     return isRegexAllowedAfter(this.tokens[this.tokens.length - 1]);
   }
 
   public pushWord(value: string): void {
-    if (value === "function")
+    if (
+      value === "function" &&
+      !isMemberAccess(this.tokens[this.tokens.length - 1])
+    )
       this.pendingFunctionExpression = isExpressionPosition(this.tokens);
-    else if (value === "class")
-      this.pendingClassExpression = isExpressionPosition(this.tokens);
+    else if (
+      value === "class" &&
+      !isMemberAccess(this.tokens[this.tokens.length - 1])
+    )
+      this.pendingClassExpressions.push(isExpressionPosition(this.tokens));
     this.tokens.push({ kind: "word", value });
   }
 
@@ -195,6 +202,18 @@ class LexicalContext {
   }
 
   public pushPunct(value: string): void {
+    if (value === ":") {
+      const previous = this.tokens[this.tokens.length - 1];
+      if (
+        previous?.kind === "word" &&
+        !isMemberAccess(this.tokens[this.tokens.length - 2])
+      ) {
+        if (previous.value === "function")
+          this.pendingFunctionExpression = undefined;
+        else if (previous.value === "class")
+          this.pendingClassExpressions.pop();
+      }
+    }
     if (value === "(") {
       const functionIsExpression = this.pendingFunctionExpression;
       this.pendingFunctionExpression = undefined;
@@ -223,7 +242,6 @@ class LexicalContext {
     }
     if (value === "{") {
       this.braces.push(this.braceAllowsRegexAfter());
-      this.pendingClassExpression = undefined;
       this.tokens.push({ kind: "punct", value });
       return;
     }
@@ -240,14 +258,14 @@ class LexicalContext {
 
   private braceAllowsRegexAfter(): boolean {
     const previous = this.tokens[this.tokens.length - 1];
-    if (this.pendingClassExpression !== undefined)
-      return !this.pendingClassExpression;
     if (
       previous?.kind === "punct" &&
       previous.value === ")" &&
       previous.functionBodyIsExpression !== undefined
     )
       return !previous.functionBodyIsExpression;
+    if (this.classBodyPrecedes(previous))
+      return !this.pendingClassExpressions.pop()!;
     if (!previous) return true;
     if (previous.kind === "word")
       return BLOCK_PRECEDING_KEYWORDS.has(previous.value);
@@ -259,6 +277,19 @@ class LexicalContext {
       previous.value === "}"
     );
   }
+
+  private classBodyPrecedes(previous: Token | undefined): boolean {
+    if (this.pendingClassExpressions.length === 0 || this.parens.length !== 0)
+      return false;
+    if (!previous) return false;
+    if (previous.kind === "word" || previous.kind === "other") return true;
+    return (
+      previous.kind === "punct" &&
+      (previous.value === ")" ||
+        previous.value === "]" ||
+        previous.value === "}")
+    );
+  }
 }
 
 function isControlHeader(tokens: readonly Token[]): boolean {
@@ -267,10 +298,7 @@ function isControlHeader(tokens: readonly Token[]): boolean {
   if (
     previous?.kind === "word" &&
     CONTROL_HEADER_KEYWORDS.has(previous.value) &&
-    !(
-      beforePrevious?.kind === "punct" &&
-      (beforePrevious.value === "." || beforePrevious.value === "?.")
-    )
+    !isMemberAccess(beforePrevious)
   )
     return true;
   return (
@@ -278,6 +306,13 @@ function isControlHeader(tokens: readonly Token[]): boolean {
     previous.value === "await" &&
     beforePrevious?.kind === "word" &&
     beforePrevious.value === "for"
+  );
+}
+
+function isMemberAccess(token: Token | undefined): boolean {
+  return (
+    token?.kind === "punct" &&
+    (token.value === "." || token.value === "?.")
   );
 }
 

@@ -68,8 +68,7 @@ type regexContext struct {
   functionExpression bool
   functionBody bool
   functionBodyExpression bool
-  pendingClass bool
-  classExpression bool
+  classExpressions []bool
 
   parens []regexParen
   braces []bool
@@ -127,6 +126,14 @@ func (context *regexContext) writeCode(symbol byte) {
     return
   }
   context.finishWord()
+  if symbol == ':' && context.kind == regexPredecessorWord {
+    word, member := context.lastWord()
+    if !member && word == "function" {
+      context.pendingFunction = false
+    } else if !member && word == "class" && len(context.classExpressions) > 0 {
+      context.classExpressions = context.classExpressions[:len(context.classExpressions)-1]
+    }
+  }
   switch symbol {
   case '(':
     paren := regexParen{control: context.controlHeaderPrecedes()}
@@ -182,13 +189,15 @@ func (context *regexContext) writeCode(symbol byte) {
 }
 
 func (context *regexContext) blockPrecedes() bool {
-  if context.pendingClass {
-    context.pendingClass = false
-    return !context.classExpression
-  }
   if context.functionBody {
     context.functionBody = false
     return !context.functionBodyExpression
+  }
+  if context.classBodyPrecedes() {
+    depth := len(context.classExpressions) - 1
+    expression := context.classExpressions[depth]
+    context.classExpressions = context.classExpressions[:depth]
+    return !expression
   }
   if context.kind == regexPredecessorControlHeader {
     return true
@@ -204,6 +213,14 @@ func (context *regexContext) blockPrecedes() bool {
     }
   }
   return context.last == ';' || context.last == '{' || context.last == '}'
+}
+
+func (context *regexContext) classBodyPrecedes() bool {
+  if len(context.classExpressions) == 0 || len(context.parens) != 0 {
+    return false
+  }
+  return context.kind == regexPredecessorWord ||
+    context.kind == regexPredecessorValue
 }
 
 func (context *regexContext) controlHeaderPrecedes() bool {
@@ -242,12 +259,11 @@ func (context *regexContext) finishWord() {
   if context.word == "" {
     return
   }
-  if context.word == "function" {
+  if context.word == "function" && !context.wordMember {
     context.pendingFunction = true
     context.functionExpression = context.wordExpression
-  } else if context.word == "class" {
-    context.pendingClass = true
-    context.classExpression = context.wordExpression
+  } else if context.word == "class" && !context.wordMember {
+    context.classExpressions = append(context.classExpressions, context.wordExpression)
   }
   context.beforePreviousWord = context.previousWord
   context.previousWord = context.word
@@ -460,7 +476,7 @@ func regexKeywordPrecedes(word string, member bool) bool {
     return false
   }
   switch word {
-  case "await", "case", "delete", "do", "else", "in", "instanceof", "new",
+  case "await", "case", "delete", "do", "else", "extends", "in", "instanceof", "new",
     "of", "return", "throw", "typeof", "void", "yield":
     return true
   default:
