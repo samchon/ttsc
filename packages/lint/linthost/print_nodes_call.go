@@ -595,14 +595,10 @@ func lastArgHuggableShape(last *shimast.Node) bool {
       // explodes the whole list. A block body hugs regardless (handled above).
       return arrow.Type == nil || arrow.Type.Kind != shimast.KindTypeReference
     }
+    return arrowBodyBreaksAfterArrow(body)
   }
   // DEFERRED (architectural, not a one-line predicate fix; do not re-add to the
   // switch above without the supporting layout work):
-  //   - A call/conditional/JSX-expression arrow body. Prettier's couldExpandArg
-  //     hugs it, but ttsc emits the arrow signature (`=> `) verbatim with no
-  //     break point after `=>`, so hugging here would force the FIRST group
-  //     inside the call instead of breaking after `=>` — a different shape, not
-  //     parity. Needs a break-after-`=>` arrow-body layout variant first.
   //   - A trailing `as`/`satisfies` cast wrapping a huggable last argument.
   //     Prettier's couldExpandArg recurses into the cast, but ttsc does not
   //     dispatch KindAsExpression (it prints verbatim), so forceBreakFirstGroup

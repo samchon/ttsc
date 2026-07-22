@@ -165,7 +165,7 @@ func (formatPrintWidth) Check(ctx *Context, node *shimast.Node) {
   // walks the reflow subtree; skip the fast path for it so the printer's
   // ForceBreak produces the exploded shape. Everything else that fits flat is
   // byte-identical after reflow, so the fast path stands.
-  if !fastPathForcesBreak(node) &&
+  if !fastPathForcesBreak(node, src) &&
     !sliceContainsNewline(src, start, end) &&
     printOpts.StartingColumn+displayWidth(src[start:end])+trailingWidth <= printOpts.PrintWidth {
     return
