@@ -16,6 +16,8 @@ import (
   "strings"
   "sync"
   "time"
+
+  "github.com/samchon/ttsc/packages/lint/linthost/windowsjunction"
 )
 
 // configLoaderTimeout caps every `ttsx`/`node -e` subprocess that
@@ -1967,18 +1969,10 @@ func linkNearestNodeModules(tempDir, sourceDir string) error {
 }
 
 // createWindowsJunction creates a directory junction at `link` pointing at
-// `target` using `cmd /c mklink /J`. Junctions do not require elevated
-// privileges (unlike symlinks on Windows), making them the right fallback when
-// os.Symlink fails.
+// `target`. Junctions do not require elevated privileges (unlike symlinks on
+// Windows), making them the right fallback when os.Symlink fails.
 func createWindowsJunction(link, target string) error {
-  // `cmd /c mklink /J link target` is the standard recipe and works
-  // without elevated privileges. Both arguments must be absolute paths
-  // with native separators, which they already are here.
-  cmd := exec.Command("cmd", "/c", "mklink", "/J", link, target)
-  if out, err := cmd.CombinedOutput(); err != nil {
-    return fmt.Errorf("mklink /J failed: %v: %s", err, strings.TrimSpace(string(out)))
-  }
-  return nil
+  return windowsjunction.Create(link, target)
 }
 
 // findNearestNodeModules walks upward from `start` and returns the first

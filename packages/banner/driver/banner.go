@@ -12,6 +12,7 @@ import (
   "strings"
   "time"
 
+  "github.com/samchon/ttsc/packages/banner/driver/windowsjunction"
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
@@ -665,11 +666,7 @@ func linkNearestNodeModules(tempDir, sourceDir string) error {
 
 // createWindowsJunction creates a directory junction on Windows.
 func createWindowsJunction(link, target string) error {
-  cmd := exec.Command("cmd", "/c", "mklink", "/J", link, target)
-  if out, err := cmd.CombinedOutput(); err != nil {
-    return fmt.Errorf("mklink /J failed: %v: %s", err, strings.TrimSpace(string(out)))
-  }
-  return nil
+  return windowsjunction.Create(link, target)
 }
 
 // findNearestNodeModules walks up from start looking for a node_modules directory.

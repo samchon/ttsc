@@ -12,6 +12,7 @@ import (
   "strings"
   "time"
 
+  "github.com/samchon/ttsc/packages/strip/driver/windowsjunction"
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
@@ -541,11 +542,7 @@ func stripLinkNearestNodeModules(tempDir, sourceDir string) error {
 
 // stripCreateWindowsJunction creates a directory junction on Windows.
 func stripCreateWindowsJunction(link, target string) error {
-  cmd := exec.Command("cmd", "/c", "mklink", "/J", link, target)
-  if out, err := cmd.CombinedOutput(); err != nil {
-    return fmt.Errorf("mklink /J failed: %v: %s", err, strings.TrimSpace(string(out)))
-  }
-  return nil
+  return windowsjunction.Create(link, target)
 }
 
 // stripRelativeImportSpecifier computes the ESM import specifier for location
