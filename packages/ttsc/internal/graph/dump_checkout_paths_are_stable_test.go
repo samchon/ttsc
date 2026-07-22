@@ -90,9 +90,23 @@ export const broken: number = "nope";
   // An implementation span is the one evidence path that cannot be recovered
   // from its owner node. Point one real node at the sibling source so this
   // end-to-end projection proves that optional path uses the same mapper too.
+  implementationFile := ""
+  for _, node := range built.Nodes {
+    if node.Kind == NodeFunction && node.Name == "sibling" {
+      implementationFile = node.File
+      break
+    }
+  }
+  if implementationFile == "" {
+    t.Fatal("fixture graph omitted sibling function")
+  }
   for _, node := range built.Nodes {
     if node.Kind == NodeFunction && node.Name == "main" {
-      node.ImplementationFile = siblingFile
+      // Use the compiler's canonical spelling rather than filepath.Join's host
+      // spelling. On Windows SourceTexts is keyed by tsgo-normalized slashes;
+      // injecting the fixture's backslash path would test a missing source-map
+      // lookup instead of the wire mapper.
+      node.ImplementationFile = implementationFile
       node.ImplementationPos = 0
       node.ImplementationEnd = len("export function sibling")
       break

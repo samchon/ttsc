@@ -62,6 +62,14 @@ func (m *dumpPathMapper) mapPath(file string) string {
   if shimtspath.GetRootLength(physical) == 0 {
     physical = shimtspath.GetNormalizedAbsolutePath(physical, m.project)
   }
+  if !dumpPathRootsEqual(m.project, physical, m.caseSensitive) {
+    m.fail(fmt.Errorf(
+      "ttscgraph: source path %q cannot be represented relative to project %q because they are on different filesystem roots",
+      normalized,
+      m.project,
+    ))
+    return normalized
+  }
   options := shimtspath.ComparePathsOptions{
     CurrentDirectory:          m.project,
     UseCaseSensitiveFileNames: m.caseSensitive,
@@ -129,4 +137,36 @@ func dumpPathRootIsCaseSensitive(path string) bool {
   }
   root := path[:rootLength]
   return !(strings.HasPrefix(root, "//") || (len(root) >= 2 && root[1] == ':'))
+}
+
+// dumpPathRootsEqual compares filesystem roots before asking tspath for a
+// relative coordinate. tspath models a UNC root as `//server/`, which is useful
+// for URL-like path operations but too broad for a filesystem identity: on
+// Windows, `//server/share-a` and `//server/share-b` are different volumes and
+// no `../share-b` coordinate can cross between them. Include the share component
+// for that one grammar and keep tspath's roots for drive and POSIX paths.
+func dumpPathRootsEqual(left, right string, caseSensitive bool) bool {
+  leftRoot := dumpFilesystemRoot(left)
+  rightRoot := dumpFilesystemRoot(right)
+  if caseSensitive {
+    return leftRoot == rightRoot
+  }
+  return strings.EqualFold(leftRoot, rightRoot)
+}
+
+func dumpFilesystemRoot(path string) string {
+  normalized := shimtspath.NormalizeSlashes(path)
+  rootLength := shimtspath.GetRootLength(normalized)
+  if rootLength == 0 {
+    return ""
+  }
+  root := normalized[:rootLength]
+  if !strings.HasPrefix(root, "//") {
+    return root
+  }
+  remainder := normalized[rootLength:]
+  if slash := strings.IndexByte(remainder, '/'); slash >= 0 {
+    return root + remainder[:slash]
+  }
+  return root + remainder
 }
