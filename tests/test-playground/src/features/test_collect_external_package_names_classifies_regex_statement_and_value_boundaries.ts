@@ -24,6 +24,7 @@ export const test_collect_external_package_names_classifies_regex_statement_and_
       'const functionValue = function () {} / require("function-real") / 2;',
       'const asyncFunctionValue = async function () {} / require("async-function-real") / 2;',
       'const classValue = class {} / require("class-real") / 2;',
+      'const memberValue = object.if() / require("member-real") / 2;',
       'const template = `${(() => { if (ok) /require\\("template-ghost"\\)/.test(value); const objectValue = {} / require("template-object-real") / 2; return require("template-real"); })()}`;',
       'require("outside-real");',
     ].join("\n");
@@ -32,6 +33,7 @@ export const test_collect_external_package_names_classifies_regex_statement_and_
       "async-function-real",
       "class-real",
       "function-real",
+      "member-real",
       "object-real",
       "outside-real",
       "template-object-real",

@@ -263,9 +263,16 @@ class LexicalContext {
 
 function isControlHeader(tokens: readonly Token[]): boolean {
   const previous = tokens[tokens.length - 1];
-  if (previous?.kind === "word" && CONTROL_HEADER_KEYWORDS.has(previous.value))
-    return true;
   const beforePrevious = tokens[tokens.length - 2];
+  if (
+    previous?.kind === "word" &&
+    CONTROL_HEADER_KEYWORDS.has(previous.value) &&
+    !(
+      beforePrevious?.kind === "punct" &&
+      (beforePrevious.value === "." || beforePrevious.value === "?.")
+    )
+  )
+    return true;
   return (
     previous?.kind === "word" &&
     previous.value === "await" &&
