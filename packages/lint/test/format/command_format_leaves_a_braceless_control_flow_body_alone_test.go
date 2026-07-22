@@ -17,7 +17,7 @@ func TestCommandFormatLeavesABracelessControlFlowBodyAlone(t *testing.T) {
   for _, source := range []string{
     "run(() => {\n  for (const x of xs) f(x);\n});\n",
     "run(() => {\n  if (n) f(n);\n});\n",
-    "run(() => {\n  if (n) { f(n); } else g(n);\n});\n",
+    "run(() => {\n  if (n) {\n    f(n);\n  } else g(n);\n});\n",
   } {
     assertFormatUnchanged(t, source)
   }
