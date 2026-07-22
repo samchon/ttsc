@@ -1,7 +1,12 @@
 import { TestValidator } from "@nestia/e2e";
 import { type IWasmExecFS, createMemFS } from "@ttsc/wasm";
 
-import { callMutation, openFd, writeFdText } from "../../internal/callbackFs";
+import {
+  callMutation,
+  expectFsError,
+  openFd,
+  writeFdText,
+} from "../../internal/callbackFs";
 
 const O_RDWR = 2;
 
@@ -29,7 +34,7 @@ function fstatSize(fs: IWasmExecFS, fd: number): Promise<number> {
  * replacement rename destination. Each fd must retain its opened node while the
  * namespace independently removes or replaces names.
  *
- * 1. Unlink an open file, then read, write, truncate, and stat through its fd.
+ * 1. Unlink an open file, reject path stat, then use every fd operation.
  * 2. Rename one open file over another open file.
  * 3. Mutate both fds, assert distinct bytes, then close without recreating names.
  */
@@ -46,10 +51,13 @@ export const test_memfs_descriptors_keep_open_node_identity =
       "unlink removes only the name",
       {
         pathExists: host.exists("/unlinked.txt"),
+        pathStat: await expectFsError((cb) =>
+          host.fs.stat("/unlinked.txt", cb),
+        ),
         fdText: await readAt(host.fs, unlinkedFd, 4),
         fdSize: await fstatSize(host.fs, unlinkedFd),
       },
-      { pathExists: false, fdText: "XE", fdSize: 2 },
+      { pathExists: false, pathStat: "ENOENT", fdText: "XE", fdSize: 2 },
     );
 
     host.writeFile("/source.txt", "NEW");
