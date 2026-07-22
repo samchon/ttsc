@@ -33,7 +33,9 @@ Use this mode only through the multi-agent issue-campaign procedure.
 2. Each reviewer independently audits source, tests, documentation, CI, packaging, generated artifacts, platform behavior, upstream or downstream provenance, and open and closed issue or pull-request history. Audit the current implementation and history against the development skill's **Forbidden** section.
 3. Each reviewer records its own evidence-backed raw candidates without seeing or negotiating a shared candidate list.
 4. The lead reopens every candidate from primary evidence, reproduces it, checks ownership and provenance, traces the consequence surface, and records accept, partial acceptance, rewrite, combine, split, reject, or defer in `.wiki`.
-5. If any meaningful candidate survives, complete the authorized campaign cycle and begin another fresh parallel round over the integrated state.
-6. End discovery only when every reviewer completes the whole scope and no meaningful candidate survives lead verification.
+5. If any meaningful candidate survives, complete its authorized adjudication and publication, keep implementation closed, end the current discovery team, and begin another complete parallel round against the same recorded pre-development integrated state.
+6. Repeat step 5 without a round limit. Earlier team rounds, candidate rechecks, and sampled areas do not count toward the new round.
+7. End the cycle's discovery phase only when every reviewer in one fresh round completes the whole scope and no meaningful candidate survives lead verification. Hand every implementation-ready accepted issue accumulated across the preceding nonempty rounds to implementation.
+8. After the integrated implementation merges, start the next cycle's discovery saturation from the new integrated state. End the campaign only when an empty round leaves no accepted campaign issue unresolved.
 
-An unresolved accepted issue or incomplete implementation prevents a successful campaign conclusion.
+An empty round can open implementation while accepted issues remain, but an unresolved accepted issue or incomplete implementation prevents a successful campaign conclusion.
