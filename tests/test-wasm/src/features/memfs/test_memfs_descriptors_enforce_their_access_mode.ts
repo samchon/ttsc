@@ -1,7 +1,8 @@
 import { TestValidator } from "@nestia/e2e";
-import { createMemFS } from "@ttsc/wasm";
+import { type IWasmExecFS, createMemFS } from "@ttsc/wasm";
 
 import {
+  callMutation,
   expectFsError,
   openFd,
   openResult,
@@ -14,20 +15,24 @@ const O_WRONLY = 1;
 const O_RDWR = 2;
 const O_TRUNC = 512;
 
+function fstatMtime(fs: IWasmExecFS, fd: number): Promise<number> {
+  return new Promise<number>((resolve, reject) =>
+    fs.fstat(fd, (err, stats) => (err ? reject(err) : resolve(stats.mtimeMs))),
+  );
+}
+
 /**
  * Verifies a MemFS descriptor only permits the operations its `open` access
  * mode granted.
  *
  * The descriptor record stored just a path and an offset, so a read-only
- * descriptor accepted writes and a write-only descriptor accepted reads. Both
- * reported success, which is worse than a refusal: the caller keeps a handle it
- * believes is restricted while the file changes underneath it.
+ * descriptor accepted writes and a write-only descriptor accepted reads. A
+ * later gap also let read-only descriptors truncate the file. These operations
+ * must fail before changing bytes, mtime, or the shared cursor.
  *
  * 1. Open the same file read-only, write-only, and read-write.
- * 2. Drive a write through the read-only fd and a read through the write-only fd,
- *    then exercise both directions on the read-write fd.
- * 3. Assert the forbidden operations return `EBADF` with zero bytes and no byte
- *    change, and that the permitted ones still work.
+ * 2. Reject read-only write and truncate plus write-only read operations.
+ * 3. Assert `EBADF`, unchanged bytes, mtime, and cursor, plus permitted mutations.
  */
 export const test_memfs_descriptors_enforce_their_access_mode =
   async (): Promise<void> => {
@@ -45,6 +50,29 @@ export const test_memfs_descriptors_enforce_their_access_mode =
       { code: "EBADF", n: 0, text: "abc" },
     );
     TestValidator.equals(
+      "the read-only descriptor advances before rejected ftruncate",
+      await readFdText(host.fs, readOnly, 1),
+      "a",
+    );
+    const readOnlyMtime = await fstatMtime(host.fs, readOnly);
+    while (Date.now() <= readOnlyMtime)
+      await new Promise((resolve) => setTimeout(resolve, 1));
+    TestValidator.equals(
+      "a read-only descriptor rejects ftruncate without moving its cursor",
+      {
+        beforeMtime: readOnlyMtime,
+        code: await expectFsError((cb) => host.fs.ftruncate(readOnly, 1, cb)),
+        afterMtime: await fstatMtime(host.fs, readOnly),
+        text: host.readFileText("/f.txt"),
+      },
+      {
+        beforeMtime: readOnlyMtime,
+        code: "EBADF",
+        afterMtime: readOnlyMtime,
+        text: "abc",
+      },
+    );
+    TestValidator.equals(
       "a write-only descriptor rejects reads",
       await expectFsError((cb) =>
         host.fs.read(writeOnly, new Uint8Array(1), 0, 1, null, cb),
@@ -54,19 +82,20 @@ export const test_memfs_descriptors_enforce_their_access_mode =
 
     // Positive twins: the granted directions still work.
     TestValidator.equals(
-      "a read-only descriptor still reads",
-      await readFdText(host.fs, readOnly, 3),
-      "abc",
+      "a rejected ftruncate leaves the read-only cursor unchanged",
+      await readFdText(host.fs, readOnly, 2),
+      "bc",
     );
     const allowedWrite = await writeFdText(host.fs, readWrite, "X", 0);
+    await callMutation((cb) => host.fs.ftruncate(writeOnly, 2, cb));
     TestValidator.equals(
-      "a read-write descriptor reads and writes",
+      "writable descriptors still write and truncate",
       {
         ...allowedWrite,
         text: host.readFileText("/f.txt"),
         read: await readFdText(host.fs, readWrite, 3),
       },
-      { code: null, n: 1, text: "Xbc", read: "Xbc" },
+      { code: null, n: 1, text: "Xb", read: "Xb" },
     );
 
     // A directory opens read-only only; a write mode would replace it.

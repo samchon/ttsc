@@ -8,6 +8,7 @@ import fs from "node:fs";
 import { createRequire } from "node:module";
 import os from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { findNearestGoMod } from "../../compiler/internal/paths";
 
@@ -193,7 +194,7 @@ export function buildSourcePlugin(opts: {
   const { dir, entry, source } = resolveSourceBuildTarget(opts);
   const overlayDirs = [...(opts.overlayDirs ?? findTtscOverlayDirs())].sort();
   const contributors = opts.contributors ?? [];
-  const goBinary = resolveGoCompiler(env);
+  const goBinary = resolveGoToolForBuild(resolveGoCompiler(env), env, dir);
   ensureExecutableGoToolchain(goBinary);
   const key = computeCacheKey({
     contributors,
@@ -1762,24 +1763,85 @@ function goToolchainNotFoundMessage(pluginName: string): string {
   );
 }
 
-function spawnGoTool(
+export function spawnGoTool(
   goBinary: string,
   args: readonly string[],
   options: SpawnSyncOptionsWithStringEncoding,
 ): SpawnSyncReturns<string> {
-  const shell = shouldSpawnGoToolThroughShell(goBinary);
-  // Under shell:true (a Windows .cmd/.bat wrapper) Node does not quote the
-  // command, so a wrapper at a path containing a space would be split by cmd.
-  // Quote it here; the go arguments ttsc passes never contain spaces, and
-  // quoting a space-free path is harmless.
-  return spawnSync(shell ? `"${goBinary}"` : goBinary, [...args], {
-    ...options,
-    shell,
-  });
+  if (process.platform !== "win32") {
+    return spawnSync(goBinary, [...args], options);
+  }
+  const inheritedEnv = options.env ?? process.env;
+  const resolved = resolveWindowsGoTool(
+    goBinary,
+    inheritedEnv,
+    spawnWorkingDirectory(options.cwd),
+  );
+  if (!resolved.wrapper) {
+    return spawnSync(goBinary, [...args], options);
+  }
+  // Preserve the native spawn ENOENT contract before cmd.exe becomes the
+  // actual child process. The callers use that code for the install guidance.
+  if (resolved.location === null) {
+    return spawnSync(goBinary, [...args], options);
+  }
+  const shim = createWindowsGoCommandShim([resolved.location, ...args]);
+  return spawnSync(
+    readWindowsEnvironmentValue(inheritedEnv, "COMSPEC") ??
+      readWindowsEnvironmentValue(process.env, "COMSPEC") ??
+      "cmd.exe",
+    windowsGoCommandArgs(shim.payload),
+    {
+      ...options,
+      env: { ...inheritedEnv, ...shim.environment },
+      shell: false,
+      // The /c payload is already one fully quoted Windows command line.
+      windowsVerbatimArguments: true,
+    },
+  );
 }
 
-function shouldSpawnGoToolThroughShell(goBinary: string): boolean {
-  return process.platform === "win32" && /\.(?:bat|cmd)$/i.test(goBinary);
+/** Build the fixed cmd.exe switch sequence for one already quoted payload. */
+export function windowsGoCommandArgs(payload: string): string[] {
+  return ["/d", "/v:off", "/s", "/c", payload];
+}
+
+function spawnWorkingDirectory(
+  cwd: SpawnSyncOptionsWithStringEncoding["cwd"],
+): string {
+  if (cwd === undefined) return process.cwd();
+  return path.resolve(typeof cwd === "string" ? cwd : fileURLToPath(cwd));
+}
+
+function isWindowsCommandWrapper(location: string): boolean {
+  return process.platform === "win32" && /\.(?:bat|cmd)$/i.test(location);
+}
+
+/** Pass volatile cmd wrapper arguments through one-pass environment expansion. */
+function createWindowsGoCommandShim(args: readonly string[]): {
+  environment: NodeJS.ProcessEnv;
+  payload: string;
+} {
+  const prefix = `TTSC_GO_COMMAND_SHIM_${crypto
+    .randomBytes(8)
+    .toString("hex")
+    .toUpperCase()}_ARG_`;
+  const environment = Object.fromEntries(
+    args.map((arg, index) => [prefix + index, quoteWindowsCommandArg(arg)]),
+  );
+  return {
+    environment,
+    // cmd expands each placeholder exactly once. Percent-shaped text inside an
+    // expanded value is not scanned as a second environment reference.
+    payload: `"${args.map((_, index) => `%${prefix}${index}%`).join(" ")}"`,
+  };
+}
+
+/** Quote one argv value for the Windows command-line parser used by cmd. */
+function quoteWindowsCommandArg(arg: string): string {
+  return `"${String(arg)
+    .replace(/(\\*)"/g, '$1$1\\"')
+    .replace(/(\\*)$/, "$1$1")}"`;
 }
 
 function goBuildEnv(
@@ -2229,15 +2291,19 @@ export function computeCacheKey(inputs: {
   tsgoVersion: string;
 }): string {
   const env = inputs.env ?? process.env;
+  const goBinary =
+    inputs.goBinary === undefined
+      ? undefined
+      : resolveGoToolForBuild(inputs.goBinary, env, inputs.dir);
   const hash = crypto.createHash("sha256");
   hash.update(`ttsc=${inputs.ttscVersion}\n`);
   hash.update(`tsgo=${inputs.tsgoVersion}\n`);
   hash.update(`platform=${process.platform}/${process.arch}\n`);
   hash.update(`entry=${inputs.entry}\n`);
-  if (inputs.goBinary !== undefined) {
-    hash.update(`go=${resolveGoCompilerIdentity(inputs.goBinary, env)}\n`);
+  if (goBinary !== undefined) {
+    hash.update(`go=${resolveGoCompilerIdentity(goBinary, env, inputs.dir)}\n`);
   }
-  hashGoBuildEnvironment(hash, inputs.goBinary, inputs.dir, env);
+  hashGoBuildEnvironment(hash, goBinary, inputs.dir, env);
   hashExternalGoBuildEnvironment(hash, env);
   hashSourceDirectory(hash, "plugin", inputs.dir);
   for (const [index, dir] of [...(inputs.overlayDirs ?? [])].sort().entries()) {
@@ -2329,23 +2395,42 @@ function isHashableFile(name: string): boolean {
 // content signature (byte size + nanosecond mtime). That signature changes if
 // a long-lived host rewrites the binary in place between calls, so the memo
 // re-derives the identity exactly as the un-memoized code would and the
-// cache-key bytes stay byte-for-byte identical to today. `go version` reads no
-// cwd/custom env (the spawn passes neither), so cwd is not part of the key.
+// cache-key bytes stay byte-for-byte identical to today. The selected compiler
+// path is shared by every build subprocess on Windows, while `go version` uses
+// the same effective cwd and environment as the cache-key `go env` query. The
+// memo key includes that context so an environment-sensitive wrapper cannot
+// lend its version result to another compiler invocation.
 const goCompilerIdentityCache = new Map<string, string>();
 
 function resolveGoCompilerIdentity(
   goBinary: string,
   env: NodeJS.ProcessEnv = process.env,
+  cwd: string = process.cwd(),
 ): string {
-  const resolved = resolveExecutableIdentityPath(goBinary, env);
-  const memoKey = goCompilerIdentityMemoKey(goBinary, resolved);
+  const selected = resolveGoToolForBuild(goBinary, env, cwd);
+  const resolved =
+    process.platform === "win32"
+      ? resolveRealPath(selected)
+      : resolveExecutableIdentityPath(selected, env, cwd);
+  const compilerEnv = goBuildEnv(selected, undefined, env);
+  const memoKey = goCompilerIdentityMemoKey(
+    goBinary,
+    resolved,
+    compilerEnv,
+    cwd,
+  );
   if (memoKey !== null) {
     const cached = goCompilerIdentityCache.get(memoKey);
     if (cached !== undefined) {
       return cached;
     }
   }
-  const identity = computeGoCompilerIdentity(goBinary, resolved);
+  const identity = computeGoCompilerIdentity(
+    selected,
+    resolved,
+    compilerEnv,
+    cwd,
+  );
   if (memoKey !== null) {
     goCompilerIdentityCache.set(memoKey, identity);
   }
@@ -2358,21 +2443,38 @@ function resolveGoCompilerIdentity(
 function goCompilerIdentityMemoKey(
   goBinary: string,
   resolved: string,
+  env: NodeJS.ProcessEnv,
+  cwd: string,
 ): string | null {
   try {
     const stat = fs.statSync(resolved);
-    return `${goBinary}\0${resolved}\0${stat.size}\0${stat.mtimeMs}`;
+    const context = crypto.createHash("sha256");
+    context.update(cwd);
+    for (const [key, value] of Object.entries(env).sort(([left], [right]) =>
+      left === right ? 0 : left < right ? -1 : 1,
+    )) {
+      if (value === undefined) continue;
+      context.update(`\0${key.length}:${key}${value.length}:${value}`);
+    }
+    return `${goBinary}\0${resolved}\0${stat.size}\0${stat.mtimeMs}\0${context.digest("hex")}`;
   } catch {
     return null;
   }
 }
 
-function computeGoCompilerIdentity(goBinary: string, resolved: string): string {
+function computeGoCompilerIdentity(
+  goBinary: string,
+  resolved: string,
+  env: NodeJS.ProcessEnv,
+  cwd: string,
+): string {
   if (!fs.existsSync(resolved)) {
     return "missing";
   }
   const version = spawnGoTool(goBinary, ["version"], {
+    cwd,
     encoding: "utf8",
+    env,
     windowsHide: true,
   });
   const versionText =
@@ -2386,48 +2488,207 @@ function computeGoCompilerIdentity(goBinary: string, resolved: string): string {
 function resolveExecutableIdentityPath(
   binary: string,
   env: NodeJS.ProcessEnv = process.env,
+  cwd: string = process.cwd(),
 ): string {
-  if (path.isAbsolute(binary)) {
-    return resolveRealPath(binary);
+  const resolved = findExecutablePath(binary, env, cwd);
+  return resolved === null ? binary : resolveRealPath(resolved);
+}
+
+/** Pin Windows PATH and command-wrapper lookup to one build-wide target. */
+function resolveGoToolForBuild(
+  binary: string,
+  env: NodeJS.ProcessEnv,
+  cwd: string,
+): string {
+  if (process.platform !== "win32") return binary;
+  return resolveWindowsGoTool(binary, env, cwd).location ?? binary;
+}
+
+function findExecutablePath(
+  binary: string,
+  env: NodeJS.ProcessEnv,
+  cwd: string,
+): string | null {
+  for (const candidate of executableSearchBases(binary, env, cwd)) {
+    const resolved = findExecutableCandidate(candidate, env);
+    if (resolved !== null) return resolved;
   }
-  if (binary.includes(path.sep)) {
-    return resolveRealPath(path.resolve(binary));
+  return null;
+}
+
+interface IWindowsGoToolResolution {
+  location: string | null;
+  wrapper: boolean;
+}
+
+/** Preserve libuv's native target before falling back to cmd/bat wrappers. */
+function resolveWindowsGoTool(
+  binary: string,
+  env: NodeJS.ProcessEnv,
+  cwd: string,
+): IWindowsGoToolResolution {
+  const candidates = executableSearchBases(binary, env, cwd);
+  if (isWindowsCommandWrapper(binary)) {
+    return {
+      location: candidates.find(isExecutableFile) ?? null,
+      wrapper: true,
+    };
   }
-  for (const dir of readPathEnvironment(env).split(path.delimiter)) {
-    if (dir.length === 0) continue;
-    const candidate = path.join(dir, binary);
-    if (fs.existsSync(candidate)) {
-      return resolveRealPath(candidate);
+
+  const hasExtension = windowsFileNameHasExtension(binary);
+  for (const candidate of candidates) {
+    if (hasExtension && isExecutableFile(candidate)) {
+      return { location: candidate, wrapper: false };
     }
-    if (process.platform === "win32") {
-      // Probe every PATHEXT extension, not just `.exe`, so a compiler backed by
-      // a `.cmd`/`.bat` wrapper resolves to its real file and is hashed into the
-      // cache key. Otherwise the wrapper reads as "missing" and a change to it
-      // would not invalidate the cached plugin binary.
-      for (const ext of windowsExecutableExtensions(env)) {
-        const executable = `${candidate}${ext}`;
-        if (fs.existsSync(executable)) {
-          return resolveRealPath(executable);
-        }
+    for (const extension of [".com", ".exe"]) {
+      const executable = candidate + extension;
+      if (isExecutableFile(executable)) {
+        return { location: executable, wrapper: false };
       }
     }
   }
-  return binary;
+
+  const wrapperExtensions = windowsExecutableExtensions(env).filter((ext) =>
+    /\.(?:bat|cmd)$/i.test(ext),
+  );
+  for (const candidate of candidates) {
+    for (const extension of wrapperExtensions) {
+      const executable = candidate + extension;
+      if (isExecutableFile(executable)) {
+        return { location: executable, wrapper: true };
+      }
+    }
+  }
+  return { location: null, wrapper: false };
+}
+
+function executableSearchBases(
+  binary: string,
+  env: NodeJS.ProcessEnv,
+  cwd: string,
+): string[] {
+  if (path.isAbsolute(binary)) return [binary];
+  if (hasPathQualifier(binary)) return [path.resolve(cwd, binary)];
+
+  const directories =
+    process.platform === "win32"
+      ? splitWindowsSearchPath(readPathEnvironment(env))
+          // libuv skips only genuinely empty slices. A quoted-empty slice
+          // survives that check, unquotes to "", and therefore names cwd.
+          .filter((entry) => entry.length > 0)
+          .map(unquoteWindowsSearchEntry)
+      : readPathEnvironment(env).split(path.delimiter);
+  const noDefaultCurrentDirectory =
+    process.platform === "win32"
+      ? readWindowsEnvironmentValue(
+          process.env,
+          "NoDefaultCurrentDirectoryInExePath",
+        )
+      : undefined;
+  if (process.platform === "win32" && noDefaultCurrentDirectory === undefined) {
+    directories.unshift(cwd);
+  }
+  return directories.map((dir) => path.resolve(cwd, dir, binary));
+}
+
+function findExecutableCandidate(
+  candidate: string,
+  env: NodeJS.ProcessEnv,
+): string | null {
+  if (isExecutableFile(candidate)) return candidate;
+  if (process.platform !== "win32") return null;
+  // Probe every PATHEXT extension, not just `.exe`, so a compiler backed by a
+  // `.cmd`/`.bat` wrapper is both launched correctly and hashed into the cache
+  // key. Otherwise the wrapper reads as missing and changes do not invalidate
+  // the cached plugin binary.
+  for (const ext of windowsExecutableExtensions(env)) {
+    const executable = `${candidate}${ext}`;
+    if (isExecutableFile(executable)) return executable;
+  }
+  return null;
+}
+
+function isExecutableFile(location: string): boolean {
+  try {
+    return fs.statSync(location).isFile();
+  } catch {
+    return false;
+  }
+}
+
+function hasPathQualifier(location: string): boolean {
+  return (
+    location.includes(path.sep) ||
+    (process.platform === "win32" &&
+      (location.includes("/") || /^[a-zA-Z]:/.test(location)))
+  );
+}
+
+function windowsFileNameHasExtension(location: string): boolean {
+  const name = path.basename(location);
+  const dot = name.indexOf(".");
+  return dot >= 0 && dot < name.length - 1;
+}
+
+function splitWindowsSearchPath(value: string): string[] {
+  const entries: string[] = [];
+  let start = 0;
+  let quote = "";
+  for (let index = 0; index < value.length; index++) {
+    const character = value[index]!;
+    if (quote !== "") {
+      if (character === quote) quote = "";
+    } else if ((character === '"' || character === "'") && index === start) {
+      quote = character;
+    } else if (character === ";") {
+      entries.push(value.slice(start, index));
+      start = index + 1;
+    }
+  }
+  entries.push(value.slice(start));
+  return entries;
+}
+
+function unquoteWindowsSearchEntry(location: string): string {
+  const first = location[0];
+  const withoutFirst =
+    first === '"' || first === "'" ? location.slice(1) : location;
+  const last = withoutFirst[withoutFirst.length - 1];
+  return last === '"' || last === "'"
+    ? withoutFirst.slice(0, -1)
+    : withoutFirst;
 }
 
 function windowsExecutableExtensions(
   env: NodeJS.ProcessEnv = process.env,
 ): readonly string[] {
-  const pathext = env.PATHEXT;
+  const pathext = readWindowsEnvironmentValue(env, "PATHEXT");
   const raw = pathext && pathext.length > 0 ? pathext : ".COM;.EXE;.BAT;.CMD";
-  return raw
-    .split(";")
-    .map((ext) => ext.trim().toLowerCase())
+  return splitWindowsSearchPath(raw)
+    .map(unquoteWindowsSearchEntry)
+    .map((ext) => ext.toLowerCase())
     .filter((ext) => ext.length > 0);
 }
 
 function readPathEnvironment(env: NodeJS.ProcessEnv = process.env): string {
-  return env.PATH ?? env.Path ?? "";
+  return process.platform === "win32"
+    ? (readWindowsEnvironmentValue(env, "PATH") ??
+        readWindowsEnvironmentValue(process.env, "PATH") ??
+        "")
+    : (env.PATH ?? "/usr/bin:/bin");
+}
+
+function readWindowsEnvironmentValue(
+  env: NodeJS.ProcessEnv,
+  name: string,
+): string | undefined {
+  const exact = env[name];
+  if (exact !== undefined) return exact;
+  const normalized = name.toLowerCase();
+  const key = Object.keys(env)
+    .filter((candidate) => candidate.toLowerCase() === normalized)
+    .sort()[0];
+  return key === undefined ? undefined : env[key];
 }
 
 function resolveRealPath(location: string): string {

@@ -14,13 +14,14 @@ import (
 )
 
 type pathsRewriter struct {
-  checker     *shimchecker.Checker
-  basePath    string
-  jsxPreserve bool
-  outDir      string
-  patterns    []pathsPathPattern
-  rootDir     string
-  sourceFiles map[string]string
+  checker           *shimchecker.Checker
+  basePath          string
+  canonicalFileName func(string) string
+  jsxPreserve       bool
+  outDir            string
+  patterns          []pathsPathPattern
+  rootDir           string
+  sourceFiles       map[string]string
 }
 
 type pathsPathPattern struct {
@@ -48,6 +49,9 @@ func pathsResolveSource(r *pathsRewriter, specifier string) (string, bool)
 
 //go:linkname pathsLookupSource github.com/samchon/ttsc/packages/paths/driver.(*rewriter).lookupSource
 func pathsLookupSource(r *pathsRewriter, candidate string) (string, bool)
+
+//go:linkname pathsSourceKey github.com/samchon/ttsc/packages/paths/driver.(*rewriter).sourceKey
+func pathsSourceKey(r *pathsRewriter, value string) string
 
 //go:linkname pathsOutputPathForSource github.com/samchon/ttsc/packages/paths/driver.(*rewriter).outputPathForSource
 func pathsOutputPathForSource(r *pathsRewriter, source string) string

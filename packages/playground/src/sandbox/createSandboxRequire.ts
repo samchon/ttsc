@@ -116,7 +116,7 @@ export function createSandboxRequire(
       }
       return tryPaths(`${pkg}/index.js`, `${pkg}/index.cjs`);
     }
-    // Subpath: honor exports["./subpath"] or exports["./subpath/*"] patterns.
+    // Subpath: honor exact exports and general single-star patterns.
     const exportsAny = pj.exports;
     if (
       exportsAny !== undefined &&
@@ -126,18 +126,26 @@ export function createSandboxRequire(
       const entries = exportsAny as Record<string, unknown>;
       // Exact match first.
       const exactKey = `./${subpath}`;
-      if (Object.prototype.hasOwnProperty.call(entries, exactKey))
+      if (
+        Object.prototype.hasOwnProperty.call(entries, exactKey) &&
+        !exactKey.includes("*") &&
+        !exactKey.endsWith("/")
+      )
         return resolveExportTarget(pkg, entries[exactKey]);
       // Node resolves the most-specific wildcard, not insertion order.
       const patterns = Object.entries(entries)
-        .filter(([pattern]) => pattern.endsWith("/*"))
-        .sort(([a], [b]) => b.length - a.length);
-      for (const [pattern, target] of patterns) {
-        if (!pattern.endsWith("/*")) continue;
-        const prefix = pattern.slice(2, -1); // strip "./" and trailing "*"
-        if (!subpath.startsWith(prefix)) continue;
-        const rest = subpath.slice(prefix.length);
-        return resolveExportTarget(pkg, target, rest);
+        .map(([pattern, target]) => ({
+          pattern,
+          replacement: exportPatternReplacement(pattern, exactKey),
+          target,
+        }))
+        .filter(
+          (entry): entry is typeof entry & { replacement: string } =>
+            entry.replacement !== undefined,
+        )
+        .sort((a, b) => compareExportPatternKeys(a.pattern, b.pattern));
+      for (const { replacement, target } of patterns) {
+        return resolveExportTarget(pkg, target, replacement);
       }
     }
     return null;
@@ -256,6 +264,41 @@ export function createSandboxRequire(
     }
     return evaluate(resolved).exports;
   };
+}
+
+/** Capture the middle of one valid single-star exports key. */
+function exportPatternReplacement(
+  pattern: string,
+  subpath: string,
+): string | undefined {
+  const star = pattern.indexOf("*");
+  if (
+    !pattern.startsWith("./") ||
+    star === -1 ||
+    pattern.indexOf("*", star + 1) !== -1
+  ) {
+    return undefined;
+  }
+  const prefix = pattern.slice(0, star);
+  const suffix = pattern.slice(star + 1);
+  if (
+    subpath.length < pattern.length ||
+    !subpath.startsWith(prefix) ||
+    !subpath.endsWith(suffix)
+  ) {
+    return undefined;
+  }
+  return subpath.slice(prefix.length, subpath.length - suffix.length);
+}
+
+/** Node exports patterns rank longer prefixes, then longer full keys, first. */
+function compareExportPatternKeys(left: string, right: string): number {
+  const leftPrefix = left.indexOf("*");
+  const rightPrefix = right.indexOf("*");
+  if (leftPrefix !== rightPrefix) {
+    return rightPrefix - leftPrefix;
+  }
+  return right.length - left.length;
 }
 
 /**

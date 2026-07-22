@@ -33,13 +33,14 @@ func (plugin) ApplyProgram(prog *driver.Program, _ driver.PluginContext) error {
 // rewriter holds the resolved tsconfig paths configuration used to rewrite
 // module specifiers across an entire program.
 type rewriter struct {
-  checker     *shimchecker.Checker
-  basePath    string
-  jsxPreserve bool
-  outDir      string
-  patterns    []pathPattern
-  rootDir     string
-  sourceFiles map[string]string // normalized source path → same path (used as a set)
+  checker           *shimchecker.Checker
+  basePath          string
+  canonicalFileName func(string) string
+  jsxPreserve       bool
+  outDir            string
+  patterns          []pathPattern
+  rootDir           string
+  sourceFiles       map[string]string // canonical source path → original normalized path
 }
 
 // pathPattern is a single tsconfig paths entry with its wildcard pattern and
@@ -58,7 +59,13 @@ var sourceLookupExtensions = []string{
 // Patterns are sorted by decreasing specificity (longer literal prefix first)
 // so the most-specific match wins on overlapping patterns.
 func newRewriter(prog *driver.Program) *rewriter {
-  out := &rewriter{sourceFiles: map[string]string{}}
+  caseSensitive := useCaseSensitiveFileNames(prog)
+  out := &rewriter{
+    canonicalFileName: func(name string) string {
+      return shimtspath.GetCanonicalFileName(name, caseSensitive)
+    },
+    sourceFiles: map[string]string{},
+  }
   if prog == nil || prog.ParsedConfig == nil || prog.ParsedConfig.ParsedConfig == nil || prog.ParsedConfig.ParsedConfig.CompilerOptions == nil {
     return out
   }
@@ -78,7 +85,7 @@ func newRewriter(prog *driver.Program) *rewriter {
     out.rootDir = inferredRootDir(options.ConfigFilePath, fileNames, cwd, useCaseSensitiveFileNames(prog))
   }
   for _, name := range fileNames {
-    out.sourceFiles[name] = name
+    out.sourceFiles[out.sourceKey(name)] = name
   }
   if options.Paths != nil {
     for key, targets := range options.Paths.Entries() {
@@ -255,21 +262,33 @@ func (r *rewriter) resolveSource(specifier string) (string, bool) {
 // extension) corresponds to a known source file. It tries the exact path, stem
 // with each known TypeScript/JavaScript source extension, and index files.
 func (r *rewriter) lookupSource(candidate string) (string, bool) {
-  if source, ok := r.sourceFiles[normalizePath(candidate)]; ok {
+  normalized := normalizePath(candidate)
+  if source, ok := r.sourceFiles[r.sourceKey(normalized)]; ok {
     return source, true
   }
-  stem := stripKnownSourceExtension(normalizePath(candidate))
+  stem := stripKnownSourceExtension(normalized)
   for _, ext := range sourceLookupExtensions {
-    if source, ok := r.sourceFiles[stem+ext]; ok {
+    if source, ok := r.sourceFiles[r.sourceKey(stem+ext)]; ok {
       return source, true
     }
   }
   for _, ext := range sourceLookupExtensions {
-    if source, ok := r.sourceFiles[normalizePath(filepath.Join(stem, "index"+ext))]; ok {
+    if source, ok := r.sourceFiles[r.sourceKey(filepath.Join(stem, "index"+ext))]; ok {
       return source, true
     }
   }
   return "", false
+}
+
+// sourceKey applies the compiler host's filesystem identity rule to one path.
+// Synthetic test rewriters leave canonicalFileName nil and retain the previous
+// exact-key behavior.
+func (r *rewriter) sourceKey(value string) string {
+  normalized := normalizePath(value)
+  if r.canonicalFileName == nil {
+    return normalized
+  }
+  return r.canonicalFileName(normalized)
 }
 
 // outputPathForSource maps a source file path to its emitted output path under
