@@ -2537,11 +2537,8 @@ function resolveWindowsGoTool(
 
   const hasExtension = windowsFileNameHasExtension(binary);
   for (const candidate of candidates) {
-    if (hasExtension) {
-      if (isExecutableFile(candidate)) {
-        return { location: candidate, wrapper: false };
-      }
-      continue;
+    if (hasExtension && isExecutableFile(candidate)) {
+      return { location: candidate, wrapper: false };
     }
     for (const extension of [".com", ".exe"]) {
       const executable = candidate + extension;
@@ -2550,8 +2547,6 @@ function resolveWindowsGoTool(
       }
     }
   }
-
-  if (hasExtension) return { location: null, wrapper: false };
 
   const wrapperExtensions = windowsExecutableExtensions(env).filter((ext) =>
     /\.(?:bat|cmd)$/i.test(ext),
@@ -2580,9 +2575,7 @@ function executableSearchBases(
       ? splitWindowsSearchPath(readPathEnvironment(env))
           .map(unquoteWindowsSearchEntry)
           .filter((dir) => dir.length > 0)
-      : readPathEnvironment(env)
-          .split(path.delimiter)
-          .filter((dir) => dir.length > 0);
+      : readPathEnvironment(env).split(path.delimiter);
   const noDefaultCurrentDirectory =
     process.platform === "win32"
       ? (readWindowsEnvironmentValue(
@@ -2647,7 +2640,7 @@ function splitWindowsSearchPath(value: string): string[] {
     const character = value[index]!;
     if (quote !== "") {
       if (character === quote) quote = "";
-    } else if (character === '"' && index === start) {
+    } else if ((character === '"' || character === "'") && index === start) {
       quote = character;
     } else if (character === ";") {
       entries.push(value.slice(start, index));
@@ -2659,9 +2652,13 @@ function splitWindowsSearchPath(value: string): string[] {
 }
 
 function unquoteWindowsSearchEntry(location: string): string {
-  if (!location.startsWith('"')) return location;
-  const unquoted = location.slice(1);
-  return unquoted.endsWith('"') ? unquoted.slice(0, -1) : unquoted;
+  const first = location[0];
+  const withoutFirst =
+    first === '"' || first === "'" ? location.slice(1) : location;
+  const last = withoutFirst[withoutFirst.length - 1];
+  return last === '"' || last === "'"
+    ? withoutFirst.slice(0, -1)
+    : withoutFirst;
 }
 
 function windowsExecutableExtensions(
@@ -2680,7 +2677,7 @@ function readPathEnvironment(env: NodeJS.ProcessEnv = process.env): string {
     ? (readWindowsEnvironmentValue(env, "PATH") ??
         readWindowsEnvironmentValue(process.env, "PATH") ??
         "")
-    : (env.PATH ?? "");
+    : (env.PATH ?? "/usr/bin:/bin");
 }
 
 function readWindowsEnvironmentValue(

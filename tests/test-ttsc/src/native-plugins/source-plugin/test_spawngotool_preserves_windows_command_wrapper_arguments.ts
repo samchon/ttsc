@@ -131,7 +131,7 @@ export const test_spawngotool_preserves_windows_command_wrapper_arguments =
     const whitespaceResult = spawnGoTool("go", whitespaceArgs, {
       cwd: root,
       encoding: "utf8",
-      env: { ...env, PATH: whitespaceRoot, PATHEXT: ".CMD" },
+      env: { ...env, PATH: " leading-path-entry", PATHEXT: ".CMD" },
       windowsHide: true,
     });
     assert.equal(
@@ -155,6 +155,18 @@ export const test_spawngotool_preserves_windows_command_wrapper_arguments =
       semicolonResult.status,
       0,
       semicolonResult.stderr || semicolonResult.error?.message,
+    );
+    const singleQuoteArgs = ["version", "single-quoted semicolon PATH"];
+    const singleQuoteResult = spawnGoTool("go", singleQuoteArgs, {
+      cwd: root,
+      encoding: "utf8",
+      env: { ...env, PATH: `'${semicolonRoot}'`, PATHEXT: ".CMD" },
+      windowsHide: true,
+    });
+    assert.equal(
+      singleQuoteResult.status,
+      0,
+      singleQuoteResult.stderr || singleQuoteResult.error?.message,
     );
 
     fs.copyFileSync(wrapper, path.join(wrapperRoot, "node.cmd"));
@@ -307,6 +319,39 @@ export const test_spawngotool_preserves_windows_command_wrapper_arguments =
     });
     assert.notEqual(keyA, keyB);
 
+    const nativeTemplate = path.join(
+      process.env.SystemRoot ?? "C:\\Windows",
+      "System32",
+      "where.exe",
+    );
+    const extendedNativeA = path.join(root, "extended-native-a");
+    const extendedNativeB = path.join(root, "extended-native-b");
+    fs.mkdirSync(extendedNativeA, { recursive: true });
+    fs.mkdirSync(extendedNativeB, { recursive: true });
+    const goV1A = path.join(extendedNativeA, "go.v1.exe");
+    const goV1B = path.join(extendedNativeB, "go.v1.exe");
+    fs.copyFileSync(nativeTemplate, goV1A);
+    fs.copyFileSync(nativeTemplate, goV1B);
+    fs.appendFileSync(goV1A, "compiler a");
+    fs.appendFileSync(goV1B, "compiler b");
+    const extendedKeyA = computeCacheKey({
+      dir: plugin,
+      entry: ".",
+      env: { ...env, PATH: extendedNativeA },
+      goBinary: "go.v1",
+      ttscVersion: "1.0.0",
+      tsgoVersion: "7.0.0-dev",
+    });
+    const extendedKeyB = computeCacheKey({
+      dir: plugin,
+      entry: ".",
+      env: { ...env, PATH: extendedNativeB },
+      goBinary: "go.v1",
+      ttscVersion: "1.0.0",
+      tsgoVersion: "7.0.0-dev",
+    });
+    assert.notEqual(extendedKeyA, extendedKeyB);
+
     for (const missing of [
       "missing-go",
       "missing-go.cmd",
@@ -338,6 +383,7 @@ export const test_spawngotool_preserves_windows_command_wrapper_arguments =
       relativeArgs,
       whitespaceArgs,
       semicolonArgs,
+      singleQuoteArgs,
       noCwdArgs,
       inheritedPathArgs,
       duplicatePathArgs,

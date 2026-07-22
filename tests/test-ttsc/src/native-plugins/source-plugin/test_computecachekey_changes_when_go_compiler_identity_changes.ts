@@ -3,8 +3,8 @@ import { TestProject } from "@ttsc/testing";
 import {
   assert,
   computeCacheKey,
+  createFakeGoBinary,
   fs,
-  os,
   path,
 } from "../../internal/source-build";
 
@@ -18,7 +18,8 @@ import {
  *
  * 1. Create one source plugin and two fake Go executables with different content.
  * 2. Compute the cache key with each executable as `goBinary`.
- * 3. Assert the keys differ.
+ * 3. On POSIX, contrast an empty leading PATH entry with PATH-only lookup.
+ * 4. Assert each effective compiler identity receives a distinct key.
  */
 export const test_computecachekey_changes_when_go_compiler_identity_changes =
   () => {
@@ -52,4 +53,30 @@ export const test_computecachekey_changes_when_go_compiler_identity_changes =
     });
 
     assert.notEqual(first, second);
+
+    if (process.platform === "win32") return;
+    const cwdGo = createFakeGoBinary(plugin);
+    fs.renameSync(cwdGo, path.join(plugin, "go"));
+    const pathToolchain = path.join(root, "path-toolchain");
+    fs.mkdirSync(pathToolchain, { recursive: true });
+    const pathGo = createFakeGoBinary(pathToolchain);
+    fs.renameSync(pathGo, path.join(pathToolchain, "go"));
+
+    const cwdFirst = computeCacheKey({
+      dir: plugin,
+      entry: ".",
+      env: { ...process.env, PATH: `${path.delimiter}${pathToolchain}` },
+      goBinary: "go",
+      ttscVersion: "1.0.0",
+      tsgoVersion: "7.0.0-dev",
+    });
+    const pathOnly = computeCacheKey({
+      dir: plugin,
+      entry: ".",
+      env: { ...process.env, PATH: pathToolchain },
+      goBinary: "go",
+      ttscVersion: "1.0.0",
+      tsgoVersion: "7.0.0-dev",
+    });
+    assert.notEqual(cwdFirst, pathOnly);
   };
