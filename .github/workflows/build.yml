@@ -53,6 +53,9 @@ jobs:
       - name: Build Packages
         run: pnpm run build
 
+      - name: Smoke release-candidate ttscgraph snapshot
+        run: node scripts/assert-ttscgraph-release-candidate.cjs
+
   wasm-build:
     runs-on: ubuntu-latest
     steps:

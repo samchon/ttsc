@@ -53,6 +53,8 @@ jobs:
         run: node scripts/assert-marketplace-version.cjs --extension samchon.ttsc --timeout-ms 60000 --interval-ms 5000
       - name: Build all packages
         run: pnpm run build
+      - name: Smoke release-candidate ttscgraph snapshot
+        run: node scripts/assert-ttscgraph-release-candidate.cjs
       - name: Assert dist/ttsc.wasm exists and is >10MB
         run: |
           test -f packages/wasm/dist/ttsc.wasm
