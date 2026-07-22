@@ -21,7 +21,7 @@ export function collectExternalPackageNames(
 /**
  * Collect the string specifiers of every executable module-loading construct in
  * `source`: `import`/`export ... from`, side-effect `import "x"`, dynamic
- * `import("x")`, and `require("x")` calls.
+ * `import("x")`, `require("x")`, and `require?.("x")` calls.
  *
  * The scan tokenizes `source` first so import/export/require lookalikes that
  * live inside comments, string or template contents, or regular-expression
@@ -38,7 +38,11 @@ function collectModuleSpecifiers(source: string): string[] {
   const isOpenParen = (token: Token | undefined): boolean =>
     token !== undefined && token.kind === "punct" && token.value === "(";
   const isMemberAccess = (token: Token | undefined): boolean =>
-    token !== undefined && token.kind === "punct" && token.value === ".";
+    token !== undefined &&
+    token.kind === "punct" &&
+    (token.value === "." || token.value === "?.");
+  const isOptionalChain = (token: Token | undefined): boolean =>
+    token !== undefined && token.kind === "punct" && token.value === "?.";
 
   for (let i = 0; i < tokens.length; i++) {
     const token = tokens[i];
@@ -47,8 +51,10 @@ function collectModuleSpecifiers(source: string): string[] {
     if (token.value === "require") {
       // `obj.require(...)` is an unrelated method call, not CommonJS require.
       if (isMemberAccess(tokens[i - 1])) continue;
-      if (isOpenParen(tokens[i + 1])) {
-        const spec = asString(tokens[i + 2]);
+      const optional =
+        isOptionalChain(tokens[i + 1]) && isOpenParen(tokens[i + 2]);
+      if (isOpenParen(tokens[i + 1]) || optional) {
+        const spec = asString(tokens[i + (optional ? 3 : 2)]);
         if (spec !== null) out.push(spec);
       }
       continue;
@@ -109,7 +115,8 @@ type Token =
   // A single- or double-quoted string literal, with escapes decoded to their
   // literal characters so a specifier survives unchanged.
   | { kind: "string"; value: string }
-  // A single punctuation character.
+  // A punctuation token; compound forms are retained where lexical state or
+  // module-call recognition depends on them.
   | { kind: "punct"; value: string }
   // An opaque value token — number, template literal, or regular-expression
   // literal — whose contents can never be a static specifier.
@@ -188,24 +195,13 @@ function tokenize(source: string): Token[] {
     }
     // String literal.
     if (c === '"' || c === "'") {
-      i++;
-      let value = "";
-      while (i < n) {
-        const d = source[i]!;
-        if (d === "\\") {
-          value += source[i + 1] ?? "";
-          i += 2;
-          continue;
-        }
-        if (d === c) {
-          i++;
-          break;
-        }
-        if (d === "\n") break; // unterminated single-line string
-        value += d;
-        i++;
-      }
-      tokens.push({ kind: "string", value });
+      const quoted = readQuotedString(source, i, c);
+      i = quoted.end;
+      tokens.push(
+        quoted.value === null
+          ? { kind: "other" }
+          : { kind: "string", value: quoted.value },
+      );
       continue;
     }
     // Template quasis are opaque, but `${...}` substitutions are executable
@@ -249,6 +245,18 @@ function tokenize(source: string): Token[] {
       while (j < n && /[0-9a-fA-FxXoObBeE._]/.test(source[j]!)) j++;
       tokens.push({ kind: "other" });
       i = j;
+      continue;
+    }
+    // Compound punctuation whose identity affects the following slash or
+    // direct optional-call recognition.
+    if ((c === "+" || c === "-") && source[i + 1] === c) {
+      tokens.push({ kind: "punct", value: c + c });
+      i += 2;
+      continue;
+    }
+    if (c === "?" && source[i + 1] === "." && !isDigit(source[i + 2] ?? "")) {
+      tokens.push({ kind: "punct", value: "?." });
+      i += 2;
       continue;
     }
     // Single punctuation character.
@@ -317,6 +325,20 @@ function findTemplateSubstitutionEnd(source: string, start: number): number {
       i = end - 1;
       continue;
     }
+    if ((c === "+" || c === "-") && source[i + 1] === c) {
+      previous = { kind: "punct", value: c + c };
+      i++;
+      continue;
+    }
+    if (
+      c === "?" &&
+      source[i + 1] === "." &&
+      !/[0-9]/.test(source[i + 2] ?? "")
+    ) {
+      previous = { kind: "punct", value: "?." };
+      i++;
+      continue;
+    }
     if (c === "{") depth++;
     else if (c === "}" && --depth === 0) return i;
     previous = { kind: "punct", value: c };
@@ -333,7 +355,141 @@ function isRegexAllowedAfter(previous: Token | undefined): boolean {
   if (previous.kind === "string" || previous.kind === "other") return false;
   if (previous.kind === "word")
     return REGEX_PRECEDING_KEYWORDS.has(previous.value);
-  return previous.value !== ")" && previous.value !== "]";
+  return (
+    previous.value !== ")" &&
+    previous.value !== "]" &&
+    previous.value !== "++" &&
+    previous.value !== "--"
+  );
+}
+
+interface IQuotedStringResult {
+  end: number;
+  value: string | null;
+}
+
+/** Read one quoted literal and compute its JavaScript StringValue. */
+function readQuotedString(
+  source: string,
+  start: number,
+  quote: string,
+): IQuotedStringResult {
+  let value = "";
+  for (let index = start + 1; index < source.length; ) {
+    const character = source[index]!;
+    if (character === quote) {
+      return { end: index + 1, value };
+    }
+    if (isLineTerminator(character)) {
+      return { end: index, value: null };
+    }
+    if (character !== "\\") {
+      value += character;
+      index++;
+      continue;
+    }
+
+    const escaped = source[index + 1];
+    if (escaped === undefined) {
+      return { end: source.length, value: null };
+    }
+    if (isLineTerminator(escaped)) {
+      index += escaped === "\r" && source[index + 2] === "\n" ? 3 : 2;
+      continue;
+    }
+
+    const simple = SIMPLE_STRING_ESCAPES[escaped];
+    if (simple !== undefined) {
+      value += simple;
+      index += 2;
+      continue;
+    }
+    if (escaped === "0") {
+      if (/[0-9]/.test(source[index + 2] ?? "")) {
+        return invalidQuotedString(source, start, quote);
+      }
+      value += "\0";
+      index += 2;
+      continue;
+    }
+    if (escaped >= "1" && escaped <= "9") {
+      return invalidQuotedString(source, start, quote);
+    }
+    if (escaped === "x") {
+      const digits = source.slice(index + 2, index + 4);
+      if (digits.length !== 2 || !/^[0-9a-fA-F]{2}$/.test(digits)) {
+        return invalidQuotedString(source, start, quote);
+      }
+      value += String.fromCharCode(Number.parseInt(digits, 16));
+      index += 4;
+      continue;
+    }
+    if (escaped === "u") {
+      if (source[index + 2] === "{") {
+        const close = source.indexOf("}", index + 3);
+        const digits = close < 0 ? "" : source.slice(index + 3, close);
+        const significantDigits = digits.replace(/^0+/, "") || "0";
+        const codePoint = Number.parseInt(digits, 16);
+        if (
+          close < 0 ||
+          !/^[0-9a-fA-F]+$/.test(digits) ||
+          significantDigits.length > 6 ||
+          codePoint > 0x10ffff
+        ) {
+          return invalidQuotedString(source, start, quote);
+        }
+        value += String.fromCodePoint(codePoint);
+        index = close + 1;
+        continue;
+      }
+      const digits = source.slice(index + 2, index + 6);
+      if (digits.length !== 4 || !/^[0-9a-fA-F]{4}$/.test(digits)) {
+        return invalidQuotedString(source, start, quote);
+      }
+      value += String.fromCharCode(Number.parseInt(digits, 16));
+      index += 6;
+      continue;
+    }
+
+    // IdentityEscape / NonEscapeCharacter: the slash is discarded and the
+    // escaped source character contributes directly to the StringValue.
+    value += escaped;
+    index += 2;
+  }
+  return { end: source.length, value: null };
+}
+
+const SIMPLE_STRING_ESCAPES: Readonly<Record<string, string>> = {
+  "'": "'",
+  '"': '"',
+  "\\": "\\",
+  b: "\b",
+  f: "\f",
+  n: "\n",
+  r: "\r",
+  t: "\t",
+  v: "\v",
+};
+
+function invalidQuotedString(
+  source: string,
+  start: number,
+  quote: string,
+): IQuotedStringResult {
+  const end = skipQuoted(source, start, quote);
+  return {
+    end: end < source.length && source[end] === quote ? end + 1 : end,
+    value: null,
+  };
+}
+
+function isLineTerminator(character: string): boolean {
+  return (
+    character === "\n" ||
+    character === "\r" ||
+    character === "\u2028" ||
+    character === "\u2029"
+  );
 }
 
 function skipRegularExpression(
@@ -368,7 +524,7 @@ function skipQuoted(source: string, start: number, quote: string): number {
       i++;
       continue;
     }
-    if (source[i] === quote || source[i] === "\n") return i;
+    if (source[i] === quote || isLineTerminator(source[i]!)) return i;
   }
   return source.length;
 }

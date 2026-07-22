@@ -127,6 +127,8 @@ The typia pack itself is built by the site (typically with a `pack-typia-sources
 
 When the user types `import {v4} from "uuid"`, the shell auto-fetches `uuid` (and its transitive deps) from the npm registry, unpacks the tgz in the browser, and mounts the files into the wasm MemFS, no proxy server needed.
 
+Discovery covers static quoted specifiers in imports, exports, dynamic imports, `require(...)`, and direct `require?.(...)` calls, using their cooked JavaScript string values while ignoring comments, regular expressions, template quasis, and computed arguments.
+
 ```ts
 import {
   collectExternalPackageNames,
