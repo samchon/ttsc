@@ -11,14 +11,17 @@ Read this document in full when the user authorizes implementation pull requests
 - [Merge And Clean Up](#merge-and-clean-up)
 - [Repeat Until A Clean Round](#repeat-until-a-clean-round)
 
-Four rules govern the implementation phase:
+Five rules govern the implementation phase:
 
+- Enter implementation only after the parent skill's discovery saturation ends with a complete fresh empty round against the recorded pre-development integrated state.
 - The main agent performs all implementation, test authoring, CI diagnosis, review, and cleanup. Spawn no subagent except the read-only [commit early-warning pass](#implement-and-write-tests).
 - Put every accepted, implementation-ready issue in the current cycle into one pull request. The issue DAG controls implementation order inside that pull request, not pull-request count.
 - Work in the current checkout and one topic branch. Do not create a clone or worktree for a solo campaign or its Self-Review.
 - The pull request's ordinary CI and a clean solo Self-Review are the acceptance gates. Repair every red CI lane in that same pull request, even when the failure predates the campaign or is unrelated to its original issues.
 
 ## Plan One Cycle Pull Request
+
+Confirm the discovery gate before planning or claiming work. The campaign ledger must identify the integrated baseline, every complete discovery round against it, the last round's empty result, and the accepted issue set accumulated across preceding nonempty rounds. Fetch the target branch and compare it with that baseline. If the last complete round is not empty or the target advanced, synchronize the target checkout, record the new baseline, and return to discovery instead of opening development.
 
 Recompute the published-issue dependency DAG after publication. Record dependencies because they determine safe edit order and when one fix can expose another, but do not partition ready issues into separate pull requests.
 
@@ -40,7 +43,7 @@ Difficulty never removes an issue from the cycle. When a resolution needs a judg
 
 Claim the whole cycle before implementation:
 
-1. Use the current checkout, update the target branch with `git pull --ff-only`, and create one topic branch. Do not create a clone or worktree.
+1. Use the current checkout, confirm the target branch still matches the gated baseline, and create one topic branch from that exact state. Do not create a clone or worktree.
 2. Create one implementation-free commit with `git commit --allow-empty`.
 3. Push the branch and open one draft pull request.
 4. Reference every cycle issue by number, mark verification pending, and state that the pull request owns the complete accepted cycle.
@@ -115,9 +118,11 @@ Formatting belongs to the unified cycle pull request, so a separate post-campaig
 
 ## Repeat Until A Clean Round
 
-After every merged cycle, return to the parent skill's Discover Issues phase and perform another complete fresh round over the entire declared scope.
+After every merged cycle, return to the parent skill's Discover Issues phase and start the next cycle against the new integrated state.
 
-If any meaningful candidate survives fact-checking, adjudicate and publish it when authorized, then claim the next single cycle pull request containing every implementation-ready issue. Repeat discovery, implementation, CI, review, merge, and cleanup without a fixed round limit.
+If any meaningful candidate survives fact-checking, adjudicate and publish it when authorized, accumulate it in the next cycle ledger, and run another complete fresh full-scope round against that same pre-development state. Repeat discovery without a fixed round limit and do not claim the next pull request until a subsequent complete round is empty.
+
+After the empty-round gate passes, claim the next single cycle pull request containing every implementation-ready issue accumulated by the preceding nonempty rounds. If the gate passes with no accepted issue to implement, finish the remaining cleanup and evaluate the completion conditions below.
 
 The campaign succeeds only when all of these are true:
 
