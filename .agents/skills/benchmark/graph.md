@@ -99,4 +99,4 @@ Do not add an instruction that suppresses a legitimate follow-up or invents a re
 
 ### Treat Surprises As Failed Understanding
 
-Past single-cell fixes regressed other repositories by changing seed coverage, growing flow payloads, or removing anchors the model used as citations. State the predicted effect on every moved cell before measurement. If reality contradicts the prediction, investigate or revert before stacking another patch.
+A single-cell change can alter seed coverage, grow flow payloads, or remove anchors the model uses as citations in another repository. State the predicted effect on every moved cell before measurement. If reality contradicts the prediction, investigate or revert before stacking another patch.
