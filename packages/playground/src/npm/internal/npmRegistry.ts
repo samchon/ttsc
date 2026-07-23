@@ -139,8 +139,10 @@ export async function downloadTarball(
   signal: AbortSignal | undefined,
   maxBytes = 16 * 1024 * 1024,
 ): Promise<ArrayBuffer> {
+  validateByteLimit(maxBytes, "compressed");
   const response = await fetchImpl(tarball, { signal });
   if (!response.ok) {
+    void response.body?.cancel().catch(() => undefined);
     throw new Error(`tarball download failed with HTTP ${response.status}.`);
   }
   const declaredLength = response.headers.get("content-length");
@@ -569,9 +571,7 @@ async function collectBoundedStream(
   signal: AbortSignal | undefined,
   fallback: () => Promise<ArrayBuffer>,
 ): Promise<ArrayBuffer> {
-  if (!Number.isSafeInteger(maxBytes) || maxBytes <= 0) {
-    throw new Error(`${kind} byte limit must be a positive safe integer.`);
-  }
+  validateByteLimit(maxBytes, kind);
   if (stream === null) {
     const bytes = await fallback();
     throwIfAborted(signal);
@@ -636,6 +636,15 @@ async function collectBoundedStream(
 
 function formatByteLimit(bytes: number): string {
   return `${bytes.toLocaleString("en-US")}-byte`;
+}
+
+function validateByteLimit(
+  maxBytes: number,
+  kind: "compressed" | "expanded",
+): void {
+  if (!Number.isSafeInteger(maxBytes) || maxBytes <= 0) {
+    throw new Error(`${kind} byte limit must be a positive safe integer.`);
+  }
 }
 
 /**

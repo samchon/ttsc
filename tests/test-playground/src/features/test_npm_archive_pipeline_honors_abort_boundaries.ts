@@ -10,6 +10,9 @@ import { createNpmFixtureTarball } from "../internal/npmFixture";
 /**
  * Verifies cancellation is observed across the archive handoff.
  *
+ * Superseded per-keystroke installs have no reusable result, so waiting for
+ * another network chunk or digest only consumes browser-tab resources.
+ *
  * 1. Abort while a streamed download is waiting and assert the byte collector
  *    rejects without waiting for another chunk.
  * 2. Abort an in-flight digest, then pass an already aborted signal to

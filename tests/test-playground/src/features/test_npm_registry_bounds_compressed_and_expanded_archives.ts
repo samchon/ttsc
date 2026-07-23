@@ -56,6 +56,42 @@ export const test_npm_registry_bounds_compressed_and_expanded_archives =
       /compressed byte limit/,
     );
     assert.equal(cancelCalls, 1, "header rejection must cancel the response");
+    let httpCancelCalls = 0;
+    await assert.rejects(
+      downloadTarball(
+        async () =>
+          new Response(
+            new ReadableStream<Uint8Array>({
+              cancel() {
+                ++httpCancelCalls;
+              },
+            }),
+            { status: 500 },
+          ),
+        "https://tar.invalid/error.tgz",
+        undefined,
+      ),
+      /HTTP 500/,
+    );
+    assert.equal(httpCancelCalls, 1, "HTTP rejection must cancel the response");
+    let invalidLimitFetches = 0;
+    await assert.rejects(
+      downloadTarball(
+        async () => {
+          ++invalidLimitFetches;
+          return new Response(tarball);
+        },
+        "https://tar.invalid/invalid-limit.tgz",
+        undefined,
+        0,
+      ),
+      /positive safe integer/,
+    );
+    assert.equal(
+      invalidLimitFetches,
+      0,
+      "an invalid limit must fail before opening a response",
+    );
 
     const expandedLength = gunzipSync(new Uint8Array(tarball)).byteLength;
     await assert.rejects(

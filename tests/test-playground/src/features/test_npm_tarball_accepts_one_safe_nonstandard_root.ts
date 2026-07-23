@@ -6,6 +6,9 @@ import { createTarball } from "../internal/tarball";
 /**
  * Verifies DefinitelyTyped's official archive-root convention remains valid.
  *
+ * Current `@types/*` tarballs use roots such as `node/`, not npm's usual
+ * `package/`, while still requiring the same single-root confinement.
+ *
  * 1. Build an `@types/node`-shaped archive whose single top-level root is `node/`
  *    rather than npm's usual `package/`.
  * 2. Assert the root is stripped consistently and the package files unpack without
