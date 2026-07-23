@@ -14,8 +14,8 @@ export default function TtscWebsiteLandingMovie() {
     <div className="ttsc-landing min-h-screen bg-white text-[#102a43]">
       <TtscWebsiteLandingHero />
       <TtscWebsiteLandingRestOfToolchain />
-      <TtscWebsiteLandingLintAsCompileError />
       <TtscWebsiteLandingCodeGraph />
+      <TtscWebsiteLandingLintAsCompileError />
       <TtscWebsiteLandingPluginEcosystem />
       <TtscWebsiteLandingInTheBrowser />
       <TtscWebsiteLandingSponsors />
