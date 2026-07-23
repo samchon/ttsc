@@ -23,21 +23,21 @@ const CARDS = [
     accent: false,
   },
   {
+    name: "@ttsc/graph",
+    tagline: "Coding agents",
+    description:
+      "Hand a coding agent a checker-resolved graph of your codebase over MCP, so it stops grepping and re-reading files.",
+    meta: "MCP code graph",
+    href: "/docs/graph",
+    accent: false,
+  },
+  {
     name: "@ttsc/lint",
     tagline: "Lint and format",
     description:
       "Report rules as TS diagnostics, apply autofixes, and format through the same compiler pass.",
     meta: "fix / format / TSxxxxx",
     href: "/docs/lint",
-    accent: false,
-  },
-  {
-    name: "@ttsc/graph",
-    tagline: "Coding agents",
-    description:
-      "Hand a coding agent a checker-resolved map of your codebase over MCP, so it stops grepping and re-reading files.",
-    meta: "MCP code graph",
-    href: "/docs/graph",
     accent: false,
   },
 ] as const;

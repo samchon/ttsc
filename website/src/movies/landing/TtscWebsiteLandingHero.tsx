@@ -8,16 +8,16 @@ const CLAIMS = [
       "TypeScript-Go checks natively, in parallel. JavaScript tsc does neither.",
   },
   {
-    value: "800x",
-    label: "faster lint loop",
-    detail:
-      "Rules reuse the AST and types the compiler already built. ESLint parses it all again.",
-  },
-  {
     value: "90%",
     label: "fewer agent tokens",
     detail:
       "Agents read one compiler-resolved graph over MCP instead of crawling source files.",
+  },
+  {
+    value: "800x",
+    label: "faster lint loop",
+    detail:
+      "Rules reuse the AST and types the compiler already built. ESLint parses it all again.",
   },
   {
     value: "type-safe",
@@ -39,14 +39,14 @@ const FLOW = [
     tone: "text-blue-200",
   },
   {
+    name: "@ttsc/graph",
+    text: "code graph for coding agents, over MCP",
+    tone: "text-blue-300",
+  },
+  {
     name: "@ttsc/lint",
     text: "rules as compiler diagnostics",
     tone: "text-cyan-300",
-  },
-  {
-    name: "@ttsc/graph",
-    text: "code map for coding agents, over MCP",
-    tone: "text-blue-300",
   },
   {
     name: "plugins",

@@ -8,8 +8,8 @@ A `typescript-go` toolchain for compiler-powered plugins and type-safe execution
 
 - **`ttsc`**: build, check, and transform.
 - **`ttsx`**: execute TypeScript with type checking.
-- [**`@ttsc/lint`**](https://github.com/samchon/ttsc/tree/master/packages/lint): lint violations as compiler errors.
 - [**`@ttsc/graph`**](https://github.com/samchon/ttsc/tree/master/packages/graph): MCP code graph that reduces agent token usage.
+- [**`@ttsc/lint`**](https://github.com/samchon/ttsc/tree/master/packages/lint): lint violations as compiler errors.
 - **plugin support**: compiler-powered libraries, such as `typia`.
 
 ## Setup
@@ -34,6 +34,33 @@ That covers the CLI. The integrations each have a short guide:
 - [`@ttsc/unplugin`](https://ttsc.dev/docs/setup/unplugin): Vite, Rollup, Rolldown, esbuild, webpack, Rspack, Next.js, Turbopack, Farm, and Bun.
 - [`@ttsc/metro`](https://ttsc.dev/docs/setup/metro): React Native and Expo.
 - [`@ttsc/vscode`](https://ttsc.dev/docs/setup/vscode): live editor diagnostics.
+
+## Graph
+
+Your coding agent answers from the compiler, spending roughly 90% fewer tokens.
+
+`@ttsc/graph` is an MCP server that gives the agent a compiler-resolved graph of your project: what calls what, what a change would touch, and where to start reading. The agent asks the type checker instead of grepping and re-reading files.
+
+Register it with your MCP client. For Claude Code, a `.mcp.json` in the project root:
+
+```bash
+npm install -D ttsc @ttsc/graph typescript
+```
+
+```json
+{
+  "mcpServers": {
+    "ttsc-graph": {
+      "command": "npx",
+      "args": ["-y", "@ttsc/graph"]
+    }
+  }
+}
+```
+
+On the agent-cost benchmark, Claude agents answer reading zero files, cutting tokens by roughly 90% and tool calls by 93% to 96%. The design and per-repository numbers are in the [Code Graph guide](https://ttsc.dev/docs/graph) and the [benchmark](https://ttsc.dev/docs/benchmark/graph).
+
+![Median tokens on the shared onboarding question, lower is better](https://ttsc.dev/benchmark/svg/graph-common-codex-gpt-5.6-sol.svg)
 
 ## Lint
 
@@ -97,33 +124,6 @@ npx ttsc format   # format edits only, never changes behavior
 
 The rule catalog and every `format` key are in the [Lint & Format guide](https://ttsc.dev/docs/lint).
 
-## Graph
-
-Your coding agent answers from the compiler, spending roughly 90% fewer tokens.
-
-`@ttsc/graph` is an MCP server that gives the agent a compiler-resolved graph of your project: what calls what, what a change would touch, and where to start reading. The agent asks the type checker instead of grepping and re-reading files.
-
-Register it with your MCP client. For Claude Code, a `.mcp.json` in the project root:
-
-```bash
-npm install -D ttsc @ttsc/graph typescript
-```
-
-```json
-{
-  "mcpServers": {
-    "ttsc-graph": {
-      "command": "npx",
-      "args": ["-y", "@ttsc/graph"]
-    }
-  }
-}
-```
-
-On the agent-cost benchmark, Claude agents answer reading zero files, cutting tokens by roughly 90% and tool calls by 93% to 96%. The design and per-repository numbers are in the [Code Graph guide](https://ttsc.dev/docs/graph) and the [benchmark](https://ttsc.dev/docs/benchmark/graph).
-
-![Median tokens on the shared onboarding question, lower is better](https://ttsc.dev/benchmark/svg/graph-common-codex-gpt-5.6-sol.svg)
-
 ## Plugins
 
 A plugin hooks the compile to add checks, transforms, or type-driven code generation, all driven by the types the checker has already resolved. It runs on every `ttsc` build and `ttsx` run, with no extra step.
@@ -148,8 +148,8 @@ export const isStringArray = (() => {
 Utility plugins shipped in this repository:
 
 - [`@ttsc/banner`](https://github.com/samchon/ttsc/tree/master/packages/banner): adds `@packageDocumentation` JSDoc banners.
-- [`@ttsc/lint`](https://github.com/samchon/ttsc/tree/master/packages/lint): lints and formats TypeScript source.
 - [`@ttsc/graph`](https://github.com/samchon/ttsc/tree/master/packages/graph): MCP server exposing a checker-resolved code graph to coding agents.
+- [`@ttsc/lint`](https://github.com/samchon/ttsc/tree/master/packages/lint): lints and formats TypeScript source.
 - [`@ttsc/paths`](https://github.com/samchon/ttsc/tree/master/packages/paths): rewrites source path aliases so JS and declaration emit receive relative imports.
 - [`@ttsc/strip`](https://github.com/samchon/ttsc/tree/master/packages/strip): removes configured calls and `debugger` statements.
 - [`@ttsc/unplugin`](https://github.com/samchon/ttsc/tree/master/packages/unplugin): runs `ttsc` plugins inside bundlers supported by `unplugin`.
