@@ -208,8 +208,10 @@ type LSPCompletionHint struct {
   // Deliberately a literal and not a pattern. A regex would be unvalidatable at
   // discovery time, and the one shipped example of plugin-supplied regex driving
   // completion — Tailwind's experimental.classRegex — is a documented source of
-  // editor hangs. When several hints match one line the longest After wins, and
-  // that alone is enough to layer a corpus.
+  // editor hangs. When several hints match one line, the occurrence nearest the
+  // cursor wins; at that occurrence the longest After wins, and only the same
+  // trigger merges. That is enough to layer a corpus without hiding a later
+  // trigger behind an earlier one.
   After string `json:"after"`
   // Items are offered in slice order; the proxy derives the sort key from it.
   Items []LSPCompletionItem `json:"items"`

@@ -3,7 +3,15 @@ const fs = require("node:fs");
 const path = require("node:path");
 const zlib = require("node:zlib");
 
+const {
+  findGoArchiveChecksum,
+  hasVerifiedGoExtraction,
+  recordVerifiedGoExtraction,
+  verifyOrReplaceGoArchive,
+} = require("./go-sdk-integrity.cjs");
 const { resolveGoTarget } = require("./platform-target.cjs");
+
+const GO_DOWNLOADS_URL = "https://go.dev/dl/?mode=json&include=all";
 
 const cwd = process.cwd();
 const manifest = JSON.parse(
@@ -199,19 +207,12 @@ function ensureDownloadedGoRoot() {
     "bin",
     npmOs === "win32" ? "go.exe" : "go",
   );
-  if (fs.existsSync(goBinary)) {
-    return goroot;
-  }
-
   fs.mkdirSync(cacheRoot, { recursive: true });
   const archivePath = path.join(cacheRoot, archive);
   const url = `https://go.dev/dl/${archive}`;
-  if (!fs.existsSync(archivePath)) {
-    console.log(`Downloading Go compiler ${url}`);
-    cp.execFileSync("curl", ["-L", "--fail", "-o", archivePath, url], {
-      stdio: "inherit",
-    });
-  }
+  const checksum = fetchGoArchiveChecksum(cacheRoot, version, archive);
+  ensureVerifiedGoArchive(archivePath, url, checksum);
+  if (hasVerifiedGoExtraction(extractDir, goBinary, checksum)) return goroot;
 
   fs.rmSync(extractDir, { recursive: true, force: true });
   fs.mkdirSync(extractDir, { recursive: true });
@@ -227,7 +228,54 @@ function ensureDownloadedGoRoot() {
       `build-platform-package: downloaded Go compiler missing: ${goBinary}`,
     );
   }
+  recordVerifiedGoExtraction(extractDir, checksum);
   return goroot;
+}
+
+function fetchGoArchiveChecksum(cacheRoot, version, archive) {
+  const metadataPath = path.join(
+    cacheRoot,
+    `.${archive}.${process.pid}.${Date.now()}.downloads.json`,
+  );
+  try {
+    console.log(`Resolving Go compiler checksum for ${archive}`);
+    cp.execFileSync(
+      "curl",
+      [
+        "-L",
+        "--fail",
+        "--silent",
+        "--show-error",
+        "-o",
+        metadataPath,
+        GO_DOWNLOADS_URL,
+      ],
+      { stdio: "inherit" },
+    );
+    const checksum = findGoArchiveChecksum(
+      JSON.parse(fs.readFileSync(metadataPath, "utf8")),
+      version,
+      archive,
+    );
+    if (!checksum) {
+      throw new Error(
+        `build-platform-package: official Go download metadata has no checksum for ${archive}`,
+      );
+    }
+    return checksum;
+  } finally {
+    fs.rmSync(metadataPath, { force: true });
+  }
+}
+
+function ensureVerifiedGoArchive(archivePath, url, checksum) {
+  const temporary = `${archivePath}.${process.pid}.${Date.now()}.download`;
+  verifyOrReplaceGoArchive(archivePath, checksum, temporary, (target) => {
+    console.log(`Downloading Go compiler ${url}`);
+    cp.execFileSync("curl", ["-L", "--fail", "-o", target, url], {
+      stdio: "inherit",
+    });
+  });
 }
 
 function readGoVersion() {

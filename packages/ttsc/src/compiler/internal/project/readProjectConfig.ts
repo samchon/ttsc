@@ -349,21 +349,29 @@ function isBarePackageRoot(specifier: string): boolean {
 }
 
 /**
- * Given an on-disk location, try the path as-is, with `.json` appended, and as
- * a directory containing `tsconfig.json`. Returns the first match or throws.
+ * Given an on-disk location, try the path as-is and, unless it already ends in
+ * `.json`, with that extension appended. Only regular files are valid `extends`
+ * targets; TypeScript neither expands a directory into `tsconfig.json` nor
+ * probes a double `.json` suffix.
  */
 function resolveExistingExtendsPath(location: string): string {
-  const candidates = new Set<string>([
-    location,
-    `${location}.json`,
-    path.join(location, "tsconfig.json"),
-  ]);
+  const candidates = location.endsWith(".json")
+    ? [location]
+    : [location, `${location}.json`];
   for (const candidate of candidates) {
-    if (fs.existsSync(candidate)) {
+    if (isFile(candidate)) {
       return resolveRealPath(candidate);
     }
   }
   throw new Error(`ttsc: extended tsconfig not found: ${location}`);
+}
+
+function isFile(location: string): boolean {
+  try {
+    return fs.statSync(location).isFile();
+  } catch {
+    return false;
+  }
 }
 
 /**
