@@ -9,12 +9,49 @@ import { installPlaygroundDependencies } from "../../../../packages/playground/l
  * solve is cancelled in that gap, returning the older stage error hides why the
  * install was superseded and can publish the wrong state transition.
  *
- * 1. Resolve one package to a controlled successful tarball response.
- * 2. Queue cancellation while response-header access throws a stage error.
- * 3. Assert the install rejects with the exact signal reason.
+ * 1. Control metadata JSON rejection and a successful tarball response.
+ * 2. Queue cancellation across each stage-error handoff in turn.
+ * 3. Assert both installs reject with their exact signal reason.
  */
 export const test_npm_registry_prioritizes_abort_at_the_install_error_handoff =
   async () => {
+    const metadataController = new AbortController();
+    const metadataReason = new DOMException(
+      "metadata fixture aborted",
+      "AbortError",
+    );
+    let rejectMetadata!: (error: Error) => void;
+    const metadataJson = new Promise<unknown>((_resolve, reject) => {
+      rejectMetadata = reject;
+    });
+    let metadataJsonStarted!: () => void;
+    const metadataStarted = new Promise<void>((resolve) => {
+      metadataJsonStarted = resolve;
+    });
+    const metadataResponse = new Response(null);
+    Object.defineProperty(metadataResponse, "json", {
+      value: () => {
+        metadataJsonStarted();
+        return metadataJson;
+      },
+    });
+    const metadataInstalling = installPlaygroundDependencies(
+      ["metadata-fixture"],
+      {
+        signal: metadataController.signal,
+        fetch: async () => metadataResponse,
+      },
+    );
+    await metadataStarted;
+    void metadataJson.catch(() => {
+      queueMicrotask(() => metadataController.abort(metadataReason));
+    });
+    rejectMetadata(new Error("metadata JSON failed"));
+    await assert.rejects(
+      metadataInstalling,
+      (error) => error === metadataReason,
+    );
+
     const controller = new AbortController();
     const reason = new DOMException("fixture aborted", "AbortError");
     const tarball = "https://tar.invalid/fixture.tgz";

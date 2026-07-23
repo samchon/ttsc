@@ -199,12 +199,18 @@ export async function installPlaygroundDependencies(
     throwIfAborted(options.signal);
 
     report("resolve", item, `Resolving ${item.name}`);
-    const metadata = await fetchNpmMetadata(
-      fetchImpl,
-      item.registryName ?? item.name,
-      item.optional,
-      options.signal,
-    );
+    let metadata: Awaited<ReturnType<typeof fetchNpmMetadata>>;
+    try {
+      metadata = await fetchNpmMetadata(
+        fetchImpl,
+        item.registryName ?? item.name,
+        item.optional,
+        options.signal,
+      );
+    } catch (error) {
+      throwIfAborted(options.signal);
+      throw error;
+    }
     throwIfAborted(options.signal);
     if (!metadata) {
       const mounted = installedDependencies.get(item.name);
