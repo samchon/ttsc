@@ -1,3 +1,5 @@
+import fs from "node:fs";
+import path from "node:path";
 import type { UnpluginFactory, UnpluginInstance } from "unplugin";
 import { createUnplugin } from "unplugin";
 
@@ -12,6 +14,7 @@ import {
   stripQuery,
   transformTtsc,
 } from "./transform";
+import { createViteServeMissingInputWatch } from "./viteServe";
 
 const name = "ttsc-unplugin";
 /**
@@ -44,7 +47,9 @@ const unpluginFactory: UnpluginFactory<
 > = (rawOptions = {}) => {
   const options = resolveOptions(rawOptions);
   const transformCache = createTtscTransformCache();
+  const missingInputs = createViteServeMissingInputWatch();
   let aliases: unknown;
+  let viteCommand: string | undefined;
 
   return {
     name,
@@ -53,6 +58,25 @@ const unpluginFactory: UnpluginFactory<
     vite: {
       configResolved(config) {
         aliases = config.resolve.alias;
+        // Re-read per config resolution: a plugin instance reused across a
+        // serve and a later build must stop routing missing inputs to the
+        // serve-time poll, even though the closed server stays attached
+        // (see the dispose note in viteServe.ts).
+        viteCommand = config.command;
+      },
+      // Vite serve funnels every transform-context `addWatchFile()` into the
+      // module's added-import graph (`_addedImports`), which import-analysis
+      // resolves like real imports. Capture the dev server so the transform
+      // hook can route watch inputs that do not exist yet — superseding
+      // resolution candidates above all — around that graph and still
+      // invalidate their importers when the path is created.
+      configureServer(server) {
+        missingInputs.attach(server);
+      },
+      // Vite calls buildEnd when the dev server (or build) closes; drop every
+      // poller so a stopped server leaks no watch state.
+      buildEnd() {
+        missingInputs.dispose();
       },
     },
 
@@ -75,8 +99,23 @@ const unpluginFactory: UnpluginFactory<
         // unioned with the host-owned reference graph) so type-only inputs
         // invalidate this module in watch mode and persistent caches;
         // bundlers erase type-only imports from their own module graph and
-        // would otherwise serve stale generated code.
-        addWatchFile: (watched) => this.addWatchFile(watched),
+        // would otherwise serve stale generated code. Under Vite serve a
+        // missing input must not enter `addWatchFile`: import-analysis
+        // resolves added imports and 500s on a path that is absent by design
+        // (a superseding resolution candidate, a not-yet-generated
+        // dependency), so those are watched on the filesystem instead and
+        // invalidate this module when created.
+        addWatchFile: (watched) => {
+          if (
+            viteCommand === "serve" &&
+            missingInputs.serving() &&
+            !fs.existsSync(watched)
+          ) {
+            missingInputs.watch(watched, path.resolve(file));
+            return;
+          }
+          this.addWatchFile(watched);
+        },
         // A module the plugin declared volatile depends on non-file inputs,
         // which no file-dependency snapshot can represent; mark it
         // uncacheable where the bundler exposes that control.
