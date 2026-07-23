@@ -583,6 +583,7 @@ async function collectBoundedStream(
   fallback: () => Promise<ArrayBuffer>,
 ): Promise<ArrayBuffer> {
   if (stream === null) {
+    throwIfAborted(signal);
     const bytes = await abortable(fallback(), signal);
     throwIfAborted(signal);
     if (bytes.byteLength > maxBytes) {

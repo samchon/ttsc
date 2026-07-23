@@ -53,6 +53,28 @@ export const test_npm_archive_pipeline_honors_abort_boundaries = async () => {
   bodylessController.abort(reason);
   await assert.rejects(bodylessDownload, { name: "AbortError" });
 
+  const fetchController = new AbortController();
+  let fallbackCallsAfterFetchAbort = 0;
+  const abortedDuringFetch = downloadTarball(
+    async () => {
+      fetchController.abort(reason);
+      return {
+        arrayBuffer: async () => {
+          ++fallbackCallsAfterFetchAbort;
+          return new ArrayBuffer(0);
+        },
+        body: null,
+        headers: new Headers(),
+        ok: true,
+        status: 200,
+      } as Response;
+    },
+    "https://tar.invalid/aborted-during-fetch.tgz",
+    fetchController.signal,
+  );
+  await assert.rejects(abortedDuringFetch, { name: "AbortError" });
+  assert.equal(fallbackCallsAfterFetchAbort, 0);
+
   const digestController = new AbortController();
   const digesting = verifyTarball(
     new ArrayBuffer(16 * 1024 * 1024),
