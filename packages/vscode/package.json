@@ -2,7 +2,7 @@
   "name": "@ttsc/vscode",
   "displayName": "ttsc",
   "description": "TypeScript-Go and ttsc plugin diagnostics, completions, lint actions, and formatting for VS Code.",
-  "version": "0.20.1",
+  "version": "0.21.0",
   "publisher": "samchon",
   "icon": "images/icon.png",
   "license": "MIT",
