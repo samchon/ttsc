@@ -85,10 +85,7 @@ export function createSandboxRequire(
 
   const packageDeclaresExports = (mount: string): boolean => {
     const manifest = readPackageJson(mount);
-    return (
-      manifest !== null &&
-      Object.prototype.hasOwnProperty.call(manifest, "exports")
-    );
+    return manifest?.exports !== null && manifest?.exports !== undefined;
   };
 
   // Read package.json from pack and resolve via main/exports.
@@ -98,23 +95,30 @@ export function createSandboxRequire(
   ): string | null => {
     const pj = readPackageJson(mount);
     if (pj === null) return null;
-    if (Object.prototype.hasOwnProperty.call(pj, "exports")) {
+    if (pj.exports !== null && pj.exports !== undefined) {
       const resolution = resolvePackageExports(mount, pj.exports, subpath);
       return resolution.type === "resolved" ? resolution.key : null;
     }
     if (subpath === null) {
       if (typeof pj.main === "string") {
-        return tryPaths(
-          `${mount}/${stripDotSlash(pj.main)}`,
-          `${mount}/${stripDotSlash(pj.main)}.js`,
-          `${mount}/${stripDotSlash(pj.main)}.cjs`,
-          `${mount}/${stripDotSlash(pj.main)}.mjs`,
-          `${mount}/${stripDotSlash(pj.main)}.json`,
-          `${mount}/${stripDotSlash(pj.main)}/index.js`,
-          `${mount}/${stripDotSlash(pj.main)}/index.cjs`,
+        const main = stripDotSlash(pj.main);
+        const resolvedMain = tryPaths(
+          `${mount}/${main}`,
+          `${mount}/${main}.js`,
+          `${mount}/${main}.cjs`,
+          `${mount}/${main}.mjs`,
+          `${mount}/${main}.json`,
+          `${mount}/${main}/index.js`,
+          `${mount}/${main}/index.cjs`,
+          `${mount}/${main}/index.json`,
         );
+        if (resolvedMain !== null) return resolvedMain;
       }
-      return tryPaths(`${mount}/index.js`, `${mount}/index.cjs`);
+      return tryPaths(
+        `${mount}/index.js`,
+        `${mount}/index.cjs`,
+        `${mount}/index.json`,
+      );
     }
     return null;
   };
@@ -134,12 +138,12 @@ export function createSandboxRequire(
     for (let length = parts.length; length > 0; --length) {
       const mount = parts.slice(0, length).join("/");
       const manifest = readPackageJson(mount);
-      if (
-        manifest?.name === requestedPackage &&
-        Object.prototype.hasOwnProperty.call(manifest, "exports")
-      ) {
-        return mount;
-      }
+      if (manifest === null) continue;
+      return manifest.name === requestedPackage &&
+        manifest.exports !== null &&
+        manifest.exports !== undefined
+        ? mount
+        : null;
     }
     return null;
   };
@@ -185,6 +189,7 @@ export function createSandboxRequire(
       `${pkg}/${subpath}.json`,
       `${pkg}/${subpath}/index.js`,
       `${pkg}/${subpath}/index.cjs`,
+      `${pkg}/${subpath}/index.json`,
     );
     if (direct) return direct;
     // Fall back to package.json exports map.
@@ -390,40 +395,39 @@ function resolvePackageTarget(
 ): ExportTargetResolution {
   if (typeof target === "string") {
     const substituted = target.split("*").join(replacement);
-    validatePackageTarget(mount, substituted);
     return {
       type: "resolved",
-      key: `${mount}/${stripDotSlash(substituted)}`,
+      key: resolvePackageTargetKey(mount, substituted),
     };
   }
   if (target === null) return { type: "blocked" };
   if (Array.isArray(target)) {
+    if (target.length === 0) return { type: "blocked" };
     let lastInvalid: InvalidPackageTargetError | undefined;
+    let lastBlocked = false;
     for (const candidate of target) {
       try {
         const resolution = resolvePackageTarget(mount, candidate, replacement);
-        // Node skips null and unresolved array members. Once a valid target is
-        // resolved, file existence is a later phase and cannot trigger fallback.
-        if (resolution.type === "blocked" || resolution.type === "unresolved") {
-          continue;
+        if (resolution.type === "blocked") {
+          lastBlocked = true;
+          lastInvalid = undefined;
+        } else if (resolution.type === "resolved") {
+          // File existence is a later phase and cannot trigger fallback.
+          return resolution;
         }
-        return resolution;
       } catch (error) {
         if (!(error instanceof InvalidPackageTargetError)) throw error;
         lastInvalid = error;
+        lastBlocked = false;
       }
     }
     if (lastInvalid !== undefined) throw lastInvalid;
+    if (lastBlocked) return { type: "blocked" };
     return { type: "unresolved" };
   }
   if (target !== null && typeof target === "object") {
     const conditions = target as Record<string, unknown>;
     const keys = Object.keys(conditions);
-    if (keys.some((key) => key.startsWith("."))) {
-      throw new InvalidPackageConfigError(
-        `invalid package configuration for ${mount}: nested exports targets must use condition keys`,
-      );
-    }
     validateConditionKeys(mount, keys);
     for (const [condition, candidate] of Object.entries(conditions)) {
       if (!ACTIVE_EXPORT_CONDITIONS.has(condition)) continue;
@@ -454,30 +458,29 @@ function isArrayIndexKey(key: string): boolean {
 }
 
 /**
- * Validate the substituted package target before turning it into a pack key.
+ * Resolve one URL-like package target into a normalized pack key.
  *
  * Targets are URL-like package-relative paths. Dot segments, `node_modules`,
- * raw or encoded path separators, and their case/percent-encoded forms cannot
- * be allowed to escape or reinterpret the mounted package boundary.
+ * and encoded path separators cannot escape or reinterpret the mount. URL
+ * query/hash components do not participate in filesystem lookup, and pathname
+ * percent escapes are decoded exactly once.
  */
-function validatePackageTarget(mount: string, target: string): void {
-  if (
-    !target.startsWith("./") ||
-    target.includes("\\") ||
-    /%(?:2f|5c)/i.test(target)
-  ) {
+function resolvePackageTargetKey(mount: string, target: string): string {
+  if (!target.startsWith("./")) {
     throw new InvalidPackageTargetError(
       `invalid package target for ${mount}: ${JSON.stringify(target)}`,
     );
   }
-  for (const rawSegment of target.slice(2).split("/")) {
-    let decoded = rawSegment;
+  const pathnameTarget = target.split(/[?#]/, 1)[0]!;
+  if (/%(?:2f|5c)/i.test(pathnameTarget)) {
+    throw new InvalidPackageTargetError(
+      `invalid package target for ${mount}: ${JSON.stringify(target)}`,
+    );
+  }
+  for (const rawSegment of pathnameTarget.slice(2).split(/[\\/]/)) {
+    let decoded: string;
     try {
-      for (let depth = 0; depth < 4; ++depth) {
-        const next = decodeURIComponent(decoded);
-        if (next === decoded) break;
-        decoded = next;
-      }
+      decoded = decodeURIComponent(rawSegment);
     } catch {
       throw new InvalidPackageTargetError(
         `invalid package target for ${mount}: ${JSON.stringify(target)}`,
@@ -495,6 +498,32 @@ function validatePackageTarget(mount: string, target: string): void {
         `invalid package target for ${mount}: ${JSON.stringify(target)}`,
       );
     }
+  }
+  try {
+    const base = new URL(`https://sandbox.invalid/${mount}/`);
+    const resolved = new URL(target, base);
+    const basePath = decodeURIComponent(base.pathname);
+    const resolvedPath = decodeURIComponent(resolved.pathname).replace(
+      /\/+/g,
+      "/",
+    );
+    if (!resolvedPath.startsWith(basePath)) {
+      throw new InvalidPackageTargetError(
+        `invalid package target for ${mount}: ${JSON.stringify(target)}`,
+      );
+    }
+    const relative = resolvedPath.slice(basePath.length);
+    if (relative.length === 0) {
+      throw new InvalidPackageTargetError(
+        `invalid package target for ${mount}: ${JSON.stringify(target)}`,
+      );
+    }
+    return `${mount}/${relative}`;
+  } catch (error) {
+    if (error instanceof InvalidPackageTargetError) throw error;
+    throw new InvalidPackageTargetError(
+      `invalid package target for ${mount}: ${JSON.stringify(target)}`,
+    );
   }
 }
 
