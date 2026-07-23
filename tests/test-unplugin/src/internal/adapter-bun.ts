@@ -19,15 +19,26 @@ type BunLoader = (args: {
  * first `onLoad` handler plus its filter, mirroring how Bun drives the plugin.
  * No real Bun runtime is required.
  */
-async function captureBunLoader(plugin: {
-  setup(build: unknown): void;
-}): Promise<{ loader: BunLoader; options: BunLoadOptions }> {
+async function captureBunLoader(
+  plugin: {
+    setup(build: unknown): void;
+  },
+  mode: "bundler" | "runtime" = "runtime",
+): Promise<{
+  loader: BunLoader;
+  options: BunLoadOptions;
+}> {
   const loaders: { loader: BunLoader; options: BunLoadOptions }[] = [];
-  plugin.setup({
+  const build = {
     onLoad(options: BunLoadOptions, loader: BunLoader) {
       loaders.push({ loader, options });
     },
-  });
+  } as {
+    onLoad(options: BunLoadOptions, loader: BunLoader): void;
+    onStart?: (callback: () => void | Promise<void>) => void;
+  };
+  if (mode === "bundler") build.onStart = () => undefined;
+  plugin.setup(build);
   const registration = loaders[0];
   assert.ok(registration, "Bun adapter did not register an onLoad handler");
   return registration;
@@ -132,6 +143,7 @@ async function assertBunAdapterFallsThroughWhenItDoesNotTransform(): Promise<voi
     unpluginBun({
       plugins: [],
     }),
+    "bundler",
   );
 
   assert.equal(
@@ -153,6 +165,29 @@ async function assertBunAdapterFallsThroughWhenItDoesNotTransform(): Promise<voi
     undefined,
     "a no-op transform must fall through to Bun's built-in TypeScript loader",
   );
+}
+
+/**
+ * Asserts Bun runtime pass-through satisfies its stricter loader contract.
+ *
+ * Unlike `Bun.build`, `Bun.plugin()` rejects an `onLoad` result of `undefined`.
+ * Excluded or unchanged TypeScript must therefore be returned explicitly with
+ * its loader instead of using the bundler's next-loader signal.
+ */
+async function assertBunRuntimePassesThroughUnchangedSource(): Promise<void> {
+  const unpluginBun = await TestUnpluginRuntime.loadUnpluginAdapter("bun");
+  const root = TestUnpluginProject.createProject({ plugins: [] });
+  const file = TestUnpluginProject.mainFile(root);
+  const source = fs.readFileSync(file, "utf8");
+  const { loader } = await captureBunLoader(
+    unpluginBun({ plugins: [] }),
+    "runtime",
+  );
+
+  assert.deepEqual(await loader({ path: file }), {
+    contents: source,
+    loader: "ts",
+  });
 }
 
 /**
@@ -254,5 +289,6 @@ export {
   assertBunAdapterFallsThroughWhenItDoesNotTransform,
   assertBunAdapterSurvivesPluginReportedDependencies,
   assertBunAdapterTransformsSource,
+  assertBunRuntimePassesThroughUnchangedSource,
   assertBunRuntimeDoesNotRehashProjectPerModule,
 };

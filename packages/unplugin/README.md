@@ -165,7 +165,7 @@ await Bun.build({
 });
 ```
 
-The adapter yields to the next Bun loader for declarations, `node_modules`, and source that `ttsc` leaves unchanged. `Bun.build` clears the project generation through its `onStart` lifecycle on every build. The Bun runtime API has no corresponding hook, so one `Bun.plugin()` setup is treated as one immutable module-loading session: restart the Bun process after changing source, tsconfig, or plugin inputs.
+Under `Bun.build`, the adapter yields to the next loader for declarations, `node_modules`, and source that `ttsc` leaves unchanged. Bun's runtime `onLoad` contract does not accept an undefined result, so `Bun.plugin()` explicitly passes those files through with their original source. `Bun.build` clears the project generation through its `onStart` lifecycle on every build. The runtime API has no corresponding hook, so one setup is treated as one immutable module-loading session: restart the Bun process after changing source, tsconfig, or plugin inputs.
 
 ## Configuration
 

@@ -102,9 +102,11 @@ export interface BunLikeBuild {
  *
  * Bun does not implement the unplugin protocol, so this adapter wires the
  * shared ttsc transform core to Bun's `onLoad` hook directly. It reads each
- * included file from disk and forwards the content to the transform. Excluded
- * files and no-op transforms return `undefined` so Bun's next loader or
- * built-in TypeScript loader retains ownership.
+ * included file from disk and forwards the content to the transform. Under
+ * `Bun.build`, excluded files and no-op transforms return `undefined` so the
+ * next loader retains ownership. The runtime `Bun.plugin()` API rejects an
+ * undefined `onLoad` result, so that path explicitly returns the original
+ * source and loader instead.
  *
  * The same object works for `Bun.build({ plugins: [ttsc()] })` (bundler) and
  * for `Bun.plugin(ttsc())` / a `bunfig.toml` preload (runtime) — see
@@ -126,6 +128,7 @@ export default function bun(options?: TtscBunOptions): BunLikePlugin {
       const getOptions = () =>
         (resolved ??= resolveOptions(resolveBunOptions(options)));
       const cache = createTtscTransformCache();
+      const runtime = build.onStart === undefined;
       // Bun.plugin() has no onStart callback, but one setup invocation belongs
       // to exactly one runtime process and module-loading session. Mark that
       // session up front so first delivery of every emitted project module is
@@ -136,7 +139,11 @@ export default function bun(options?: TtscBunOptions): BunLikePlugin {
       build.onStart?.(() => beginTtscTransformBuild(cache));
       build.onLoad({ filter: sourceFilePattern }, async (args) => {
         if (!isTransformTarget(args.path)) {
-          return undefined;
+          if (!runtime) return undefined;
+          return {
+            contents: await fs.readFile(args.path, "utf8"),
+            loader: bunLoaderFor(args.path),
+          };
         }
         const loader = bunLoaderFor(args.path);
         const source = await fs.readFile(args.path, "utf8");
@@ -151,7 +158,7 @@ export default function bun(options?: TtscBunOptions): BunLikePlugin {
         if (result !== undefined) {
           return { contents: result.code, loader };
         }
-        return undefined;
+        return runtime ? { contents: source, loader } : undefined;
       });
     },
   };
