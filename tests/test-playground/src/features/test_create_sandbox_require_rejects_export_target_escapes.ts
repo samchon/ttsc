@@ -44,7 +44,6 @@ export const test_create_sandbox_require_rejects_export_target_escapes = () => {
     "encoded-dot",
     "modules",
     "encoded-modules",
-    "encoded-slash",
     "pattern/escape/../secret",
   ]) {
     assert.throws(
@@ -53,4 +52,9 @@ export const test_create_sandbox_require_rejects_export_target_escapes = () => {
       specifier,
     );
   }
+  assert.throws(
+    () => require("encoded-slash"),
+    /invalid module specifier/,
+    "an encoded separator is selected but cannot be converted to a pack path",
+  );
 };

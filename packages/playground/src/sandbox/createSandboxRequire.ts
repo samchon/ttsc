@@ -41,6 +41,7 @@ type ExportTargetResolution =
   | { type: "unresolved" };
 
 class InvalidPackageTargetError extends Error {}
+class InvalidPackageTargetLoadError extends Error {}
 class InvalidPackageConfigError extends Error {}
 
 /**
@@ -88,37 +89,49 @@ export function createSandboxRequire(
     return manifest?.exports !== null && manifest?.exports !== undefined;
   };
 
+  /** Resolve one legacy CommonJS file-or-directory candidate. */
+  const resolveLegacyPath = (
+    candidate: string,
+    seen = new Set<string>(),
+  ): string | null => {
+    const file = tryPaths(
+      candidate,
+      `${candidate}.js`,
+      `${candidate}.cjs`,
+      `${candidate}.mjs`,
+      `${candidate}.json`,
+    );
+    if (file !== null) return file;
+    if (seen.has(candidate)) return null;
+    seen.add(candidate);
+
+    const manifest = readPackageJson(candidate);
+    if (typeof manifest?.main === "string" && manifest.main.length !== 0) {
+      const main = posixJoin(candidate, manifest.main);
+      if (main !== candidate) {
+        const resolvedMain = resolveLegacyPath(main, seen);
+        if (resolvedMain !== null) return resolvedMain;
+      }
+    }
+    return tryPaths(
+      `${candidate}/index.js`,
+      `${candidate}/index.cjs`,
+      `${candidate}/index.json`,
+    );
+  };
+
   // Read package.json from pack and resolve via main/exports.
   const resolvePackageEntry = (
     mount: string,
     subpath: string | null,
   ): string | null => {
     const pj = readPackageJson(mount);
-    if (pj === null) return null;
-    if (pj.exports !== null && pj.exports !== undefined) {
+    if (pj?.exports !== null && pj?.exports !== undefined) {
       const resolution = resolvePackageExports(mount, pj.exports, subpath);
       return resolution.type === "resolved" ? resolution.key : null;
     }
     if (subpath === null) {
-      if (typeof pj.main === "string") {
-        const main = stripDotSlash(pj.main);
-        const resolvedMain = tryPaths(
-          `${mount}/${main}`,
-          `${mount}/${main}.js`,
-          `${mount}/${main}.cjs`,
-          `${mount}/${main}.mjs`,
-          `${mount}/${main}.json`,
-          `${mount}/${main}/index.js`,
-          `${mount}/${main}/index.cjs`,
-          `${mount}/${main}/index.json`,
-        );
-        if (resolvedMain !== null) return resolvedMain;
-      }
-      return tryPaths(
-        `${mount}/index.js`,
-        `${mount}/index.cjs`,
-        `${mount}/index.json`,
-      );
+      return resolveLegacyPath(mount);
     }
     return null;
   };
@@ -158,15 +171,7 @@ export function createSandboxRequire(
       if (!fromKey) return null;
       const baseDir = dirname(fromKey);
       const joined = posixJoin(baseDir, specifier);
-      return tryPaths(
-        joined,
-        `${joined}.js`,
-        `${joined}.cjs`,
-        `${joined}.mjs`,
-        `${joined}.json`,
-        `${joined}/index.js`,
-        `${joined}/index.cjs`,
-      );
+      return resolveLegacyPath(joined);
     }
     // Bare specifier. Split into package name + subpath.
     const { pkg, subpath } = splitBareSpecifier(specifier);
@@ -181,16 +186,7 @@ export function createSandboxRequire(
     // retain the historical packed-file fallback.
     if (packageDeclaresExports(pkg)) return resolvePackageEntry(pkg, subpath);
     // First try direct paths (covers packages that do not declare exports).
-    const direct = tryPaths(
-      `${pkg}/${subpath}`,
-      `${pkg}/${subpath}.js`,
-      `${pkg}/${subpath}.cjs`,
-      `${pkg}/${subpath}.mjs`,
-      `${pkg}/${subpath}.json`,
-      `${pkg}/${subpath}/index.js`,
-      `${pkg}/${subpath}/index.cjs`,
-      `${pkg}/${subpath}/index.json`,
-    );
+    const direct = resolveLegacyPath(`${pkg}/${subpath}`);
     if (direct) return direct;
     // Fall back to package.json exports map.
     return resolvePackageEntry(pkg, subpath);
@@ -473,8 +469,8 @@ function resolvePackageTargetKey(mount: string, target: string): string {
   }
   const pathnameTarget = target.split(/[?#]/, 1)[0]!;
   if (/%(?:2f|5c)/i.test(pathnameTarget)) {
-    throw new InvalidPackageTargetError(
-      `invalid package target for ${mount}: ${JSON.stringify(target)}`,
+    throw new InvalidPackageTargetLoadError(
+      `invalid module specifier for ${mount}: ${JSON.stringify(target)}`,
     );
   }
   for (const rawSegment of pathnameTarget.slice(2).split(/[\\/]/)) {
@@ -482,8 +478,8 @@ function resolvePackageTargetKey(mount: string, target: string): string {
     try {
       decoded = decodeURIComponent(rawSegment);
     } catch {
-      throw new InvalidPackageTargetError(
-        `invalid package target for ${mount}: ${JSON.stringify(target)}`,
+      throw new InvalidPackageTargetLoadError(
+        `invalid module specifier for ${mount}: ${JSON.stringify(target)}`,
       );
     }
     const normalized = decoded.toLowerCase();
@@ -513,16 +509,15 @@ function resolvePackageTargetKey(mount: string, target: string): string {
       );
     }
     const relative = resolvedPath.slice(basePath.length);
-    if (relative.length === 0) {
-      throw new InvalidPackageTargetError(
-        `invalid package target for ${mount}: ${JSON.stringify(target)}`,
-      );
-    }
     return `${mount}/${relative}`;
   } catch (error) {
-    if (error instanceof InvalidPackageTargetError) throw error;
-    throw new InvalidPackageTargetError(
-      `invalid package target for ${mount}: ${JSON.stringify(target)}`,
+    if (
+      error instanceof InvalidPackageTargetError ||
+      error instanceof InvalidPackageTargetLoadError
+    )
+      throw error;
+    throw new InvalidPackageTargetLoadError(
+      `invalid module specifier for ${mount}: ${JSON.stringify(target)}`,
     );
   }
 }

@@ -38,5 +38,5 @@ export const test_create_sandbox_require_normalizes_url_export_targets = () => {
   assert.equal(require("urls/hash"), "suffix");
   assert.equal(require("urls/backslash"), "normalized");
   assert.equal(require("urls/slashes"), "normalized");
-  assert.throws(() => require("urls/escape"), /invalid package target/);
+  assert.throws(() => require("urls/escape"), /invalid module specifier/);
 };

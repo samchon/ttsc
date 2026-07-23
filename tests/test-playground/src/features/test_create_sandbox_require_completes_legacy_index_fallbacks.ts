@@ -24,6 +24,16 @@ export const test_create_sandbox_require_completes_legacy_index_fallbacks =
         "json-directory/lib/index.json": JSON.stringify({
           value: "json-directory",
         }),
+        "nested/package.json": JSON.stringify({ main: "./entry.cjs" }),
+        "nested/entry.cjs":
+          "module.exports = [require('./jsondir'), require('./subdir')];",
+        "nested/jsondir/index.json": JSON.stringify({ value: "relative-json" }),
+        "nested/subdir/package.json": JSON.stringify({ main: "./main.cjs" }),
+        "nested/subdir/main.cjs": "module.exports = 'relative-main';",
+        "bare-sub/package.json": JSON.stringify({ main: "./index.cjs" }),
+        "bare-sub/index.cjs": "module.exports = require('bare-sub/sub');",
+        "bare-sub/sub/package.json": JSON.stringify({ main: "./main.cjs" }),
+        "bare-sub/sub/main.cjs": "module.exports = 'bare-sub-main';",
       },
       { console },
     );
@@ -33,4 +43,9 @@ export const test_create_sandbox_require_completes_legacy_index_fallbacks =
     assert.deepEqual(require("json-directory"), {
       value: "json-directory",
     });
+    assert.deepEqual(require("nested"), [
+      { value: "relative-json" },
+      "relative-main",
+    ]);
+    assert.equal(require("bare-sub"), "bare-sub-main");
   };

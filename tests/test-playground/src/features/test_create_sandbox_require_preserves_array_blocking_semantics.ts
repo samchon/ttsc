@@ -43,6 +43,18 @@ export const test_create_sandbox_require_preserves_array_blocking_semantics =
           },
         }),
         "dot-condition/default.cjs": "module.exports = 'default';",
+        "load-error/package.json": JSON.stringify({
+          exports: ["./%2foutside.cjs", "./fallback.cjs"],
+        }),
+        "load-error/fallback.cjs": "module.exports = 'wrong';",
+        "directory/package.json": JSON.stringify({
+          exports: ["./", "./fallback.cjs"],
+        }),
+        "directory/fallback.cjs": "module.exports = 'wrong';",
+        "malformed/package.json": JSON.stringify({
+          exports: ["./bad%escape.cjs", "./fallback.cjs"],
+        }),
+        "malformed/fallback.cjs": "module.exports = 'wrong';",
       },
       { console },
     );
@@ -56,4 +68,11 @@ export const test_create_sandbox_require_preserves_array_blocking_semantics =
       "default",
       "an inactive nested dot key leaves the branch unresolved",
     );
+    assert.throws(() => require("load-error"), /invalid module specifier/);
+    assert.throws(
+      () => require("directory"),
+      /is not available/,
+      "a selected package-directory target must not reach array fallback",
+    );
+    assert.throws(() => require("malformed"), /invalid module specifier/);
   };
