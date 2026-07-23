@@ -1,5 +1,4 @@
 import fs from "node:fs/promises";
-import path from "node:path";
 
 import {
   beginTtscTransformBuild,
@@ -12,10 +11,10 @@ import type { TtscUnpluginOptions } from "./core/options";
 import { pathIdentityKey } from "./core/transform";
 
 /**
- * Bun receives absolute filesystem paths for ordinary source files, while
- * plugin-created virtual ids may contain a NUL sentinel. A virtual id must stay
- * with the plugin that created it: claiming it here and trying to read it from
- * disk prevents that plugin's later loader from running.
+ * Bun normally reports filesystem source paths, while plugin-created virtual
+ * ids may contain a NUL sentinel. A virtual id must stay with the plugin that
+ * created it: claiming it here and trying to read it from disk prevents that
+ * plugin's later loader from running.
  */
 const bunSourceFilePattern = /^[^\x00]*\.[cm]?tsx?$/;
 
@@ -92,7 +91,6 @@ export interface BunLikeBuild {
    */
   config?: {
     files?: Readonly<Record<string, unknown>>;
-    root?: string;
   };
   /**
    * Register a callback for the start of a bundler build.
@@ -103,11 +101,12 @@ export interface BunLikeBuild {
   /**
    * Register a loader callback for files matching `filter`.
    *
-   * The callback receives the absolute file path and must return the
-   * transformed file contents plus the `loader` Bun should apply next. The
-   * `loader` matters most for the runtime path (`Bun.plugin`), where Bun must
-   * be told the returned contents are still TypeScript so it keeps transpiling
-   * them before execution.
+   * The callback receives the file path and must return the transformed file
+   * contents plus the `loader` Bun should apply next. Configured in-memory
+   * files retain relative key spellings; ordinary disk files are normally
+   * absolute. The `loader` matters most for the runtime path (`Bun.plugin`),
+   * where Bun must be told the returned contents are still TypeScript so it
+   * keeps transpiling them before execution.
    */
   onLoad(
     options: { filter: RegExp },
@@ -203,17 +202,12 @@ function bunLoaderFor(filePath: string): BunLoader {
 /**
  * Collect the filesystem identities owned by Bun's `BuildConfig.files` map.
  *
- * Bun reports an absolute `onLoad` path even when the corresponding map key is
- * relative. Relative keys use the configured build root, or the process working
- * directory when no root is supplied.
+ * Bun preserves relative `files` keys in the corresponding `onLoad` path.
+ * Filesystem identity resolves both spellings from the process working
+ * directory, while absolute keys remain absolute.
  */
 function collectBunInMemoryFiles(build: BunLikeBuild): ReadonlySet<string> {
   const files = build.config?.files;
   if (files === undefined) return new Set();
-  const root = path.resolve(build.config?.root ?? process.cwd());
-  return new Set(
-    Object.keys(files).map((file) =>
-      pathIdentityKey(path.isAbsolute(file) ? file : path.resolve(root, file)),
-    ),
-  );
+  return new Set(Object.keys(files).map(pathIdentityKey));
 }

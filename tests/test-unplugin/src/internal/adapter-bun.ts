@@ -227,7 +227,7 @@ async function assertBunAdapterYieldsToConfiguredInMemoryFiles(): Promise<void> 
   const unpluginBun = await TestUnpluginRuntime.loadUnpluginAdapter("bun");
   const root = TestUnpluginProject.createProject();
   const main = TestUnpluginProject.mainFile(root);
-  const relativeMain = path.relative(root, main);
+  const relativeMain = path.relative(process.cwd(), main);
   const virtual = path.resolve(root, "virtual.ts");
   const { loader } = await captureBunLoader(unpluginBun(), "bundler", {
     files: {
@@ -238,9 +238,9 @@ async function assertBunAdapterYieldsToConfiguredInMemoryFiles(): Promise<void> 
   });
 
   assert.equal(
-    await loader({ path: main }),
+    await loader({ path: relativeMain }),
     undefined,
-    "a relative files entry must override the existing disk source",
+    "a relative files entry must keep its cwd-relative Bun spelling",
   );
   assert.equal(
     await loader({ path: virtual }),
