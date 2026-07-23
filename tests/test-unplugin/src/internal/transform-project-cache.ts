@@ -292,6 +292,102 @@ async function assertConcurrentTransformsCompileOnce(): Promise<void> {
   assert.equal(pluginRuns, 1, "concurrent callers must share one compile");
 }
 
+/**
+ * Asserts the first delivery of each module does not re-read the entire
+ * project.
+ *
+ * A project transform already returns output and an input snapshot for every
+ * module. Re-hashing all P project files before selecting each of N outputs
+ * makes the first build O(N x P), even though no generation has crossed a build
+ * boundary. The cache can compare each supplied module source with its snapshot
+ * entry and reserve complete validation for a repeated module request.
+ */
+async function assertFirstModuleDeliveriesDoNotRehashProject(): Promise<void> {
+  const { createTtscTransformCache, resolveOptions, transformTtsc } =
+    await TestUnpluginRuntime.loadUnpluginApi();
+  const project = createCacheProject({ fileCount: 24 });
+  const modules = projectModules(project.root);
+  const sources = new Map(
+    modules.map((file) => [file, fs.readFileSync(file, "utf8")]),
+  );
+  const cache = createTtscTransformCache();
+  const options = resolveOptions();
+
+  const first = modules[0]!;
+  assert.ok(
+    await transformTtsc(first, sources.get(first)!, options, undefined, cache),
+  );
+
+  const originalReadFileSync = fs.readFileSync;
+  let projectReads = 0;
+  fs.readFileSync = ((file: fs.PathOrFileDescriptor, ...args: unknown[]) => {
+    if (
+      typeof file === "string" &&
+      path.resolve(file).startsWith(`${path.resolve(project.root)}${path.sep}`)
+    ) {
+      ++projectReads;
+    }
+    return (originalReadFileSync as (...params: unknown[]) => unknown)(
+      file,
+      ...args,
+    );
+  }) as typeof fs.readFileSync;
+  try {
+    for (const file of modules.slice(1)) {
+      assert.ok(
+        await transformTtsc(
+          file,
+          sources.get(file)!,
+          options,
+          undefined,
+          cache,
+        ),
+      );
+    }
+  } finally {
+    fs.readFileSync = originalReadFileSync;
+  }
+
+  assert.equal(
+    projectReads,
+    0,
+    "first module deliveries must not re-hash the project snapshot",
+  );
+  assert.equal(fs.readFileSync(project.runLog, "utf8").length, 1);
+}
+
+/**
+ * Asserts a stale input-mismatch cleanup neither deletes nor bypasses a newer
+ * generation installed while the stale Promise was pending.
+ */
+async function assertStaleMismatchUsesNewerGeneration(): Promise<void> {
+  const { api, cache, key, good, file, source, options } =
+    await primeSuccessfulTransform();
+
+  let resolveStale!: (value: unknown) => void;
+  const stale = new Promise<unknown>((resolve) => {
+    resolveStale = resolve;
+  });
+  cache.set(key, stale);
+  const pending = api.transformTtsc(file, source, options, undefined, cache);
+
+  const newer = Promise.resolve(good);
+  cache.set(key, newer);
+  resolveStale({
+    ...(good as Record<string, unknown>),
+    inputHashes: {},
+  });
+
+  const result = await pending;
+  assert.ok(result);
+  TestUnpluginProject.assertTransformedToPlugin(result.code);
+  assert.equal(
+    cache.get(key),
+    newer,
+    "a stale mismatch must retry the authoritative newer generation",
+  );
+}
+
 /** Absolute, sorted list of the project's `src/*.ts` modules. */
 function projectModules(root: string): string[] {
   const srcDir = path.join(root, "src");
@@ -491,7 +587,9 @@ export {
   assertCacheHitsDespiteOutOfWalkOutputKey,
   assertCacheTransformsMultiFileProjectOnce,
   assertConcurrentTransformsCompileOnce,
+  assertFirstModuleDeliveriesDoNotRehashProject,
   assertHostExceptionTransformIsEvictedAndRecovers,
   assertRejectedTransformIsEvictedAndRecovers,
   assertStaleEvictionKeepsNewerGeneration,
+  assertStaleMismatchUsesNewerGeneration,
 };
