@@ -1,4 +1,5 @@
 import {
+  assertFixtureDerivesMissingCandidate,
   createLinkedWorkspaceFixture,
   requestMainModule,
   startViteServer,
@@ -16,14 +17,17 @@ import {
  * restart of a programmatic (inline-plugin) server — the configuration shape
  * middleware-mode frameworks use.
  *
- * 1. Serve the linked-workspace fixture and request the entry module once.
- * 2. Restart the resident server (same plugin instance, new plugin container).
- * 3. Request the entry module again and assert it still transforms instead of
+ * 1. Build the linked-workspace fixture and prove it derives the missing
+ *    candidate, so the scenario cannot pass vacuously.
+ * 2. Serve it and request the entry module once.
+ * 3. Restart the resident server (same plugin instance, new plugin container).
+ * 4. Request the entry module again and assert it still transforms instead of
  *    failing on the absent candidate.
  */
 export const test_vite_serve_survives_missing_candidates_after_a_server_restart =
   async () => {
     const fixture = createLinkedWorkspaceFixture();
+    await assertFixtureDerivesMissingCandidate(fixture);
     const server = await startViteServer(fixture);
     try {
       await requestMainModule(server);

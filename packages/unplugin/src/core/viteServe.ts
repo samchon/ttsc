@@ -79,7 +79,12 @@ export interface ViteServeMissingInputWatch {
   attach(server: ViteDevServerLike): void;
   /** Stop every poll; safe to call repeatedly. */
   dispose(): void;
-  /** Report whether a dev server is attached (i.e. Vite serve is running). */
+  /**
+   * Report whether a dev server has ever been attached. This is not a liveness
+   * predicate — the reference intentionally survives the server's close (see
+   * {@link dispose}) — so route decisions must also gate on the resolved
+   * config's `command`, as the adapter does.
+   */
   serving(): boolean;
   /** Register one missing watch input derived for `importer`. */
   watch(input: string, importer: string): void;
@@ -125,11 +130,11 @@ export function createViteServeMissingInputWatch(): ViteServeMissingInputWatch {
       const identity = pathIdentityKey(spelling);
       const existing = entries.get(identity);
       if (existing !== undefined) {
-        existing.importers.add(pathIdentityKey(importer));
+        existing.importers.add(path.resolve(importer));
         return;
       }
       const entry: IMissingInputEntry = {
-        importers: new Set([pathIdentityKey(importer)]),
+        importers: new Set([path.resolve(importer)]),
         listener: (current) => {
           // `fs.watchFile` reports a missing path as zeroed stats (and fires
           // once with them right after registration); only a poll that
@@ -154,16 +159,33 @@ export function createViteServeMissingInputWatch(): ViteServeMissingInputWatch {
       );
       // A poller must never keep the dev-server process alive on its own.
       watcher.unref?.();
+      // `fs.watchFile` snapshots the path's stats at registration and fires
+      // only on a subsequent change, so a file created between the adapter's
+      // existence check and this registration would count as "unchanged" and
+      // never fire. One deferred recheck closes that window; routing through
+      // the listener keeps a single finalization path.
+      const recheck = setTimeout(() => {
+        if (entries.get(identity) !== entry) {
+          return;
+        }
+        try {
+          entry.listener(fs.statSync(entry.spelling));
+        } catch {
+          // Still missing (or deleted again): the ordinary poll stays armed.
+        }
+      }, MISSING_INPUT_POLL_INTERVAL);
+      recheck.unref?.();
     },
   };
 }
 
 /**
  * Invalidate every module-graph node of the registered importers so the next
- * request retransforms them. Importer keys are filesystem identities (see
- * {@link pathIdentityKey}); graph lookups go through {@link selectModulesByFile}
- * because module-graph file keys are slash-normalized and, on case-insensitive
- * filesystems, may not match the compiler's spelling byte for byte.
+ * request retransforms them. Importers keep their original absolute spelling so
+ * the module graph's exact-key lookup can hit; graph lookups still go through
+ * {@link selectModulesByFile} because module-graph file keys are
+ * slash-normalized and, on case-insensitive filesystems, may not match the
+ * compiler's spelling byte for byte.
  */
 function invalidateImporters(
   server: ViteDevServerLike,
@@ -202,24 +224,22 @@ function selectModuleGraphs(server: ViteDevServerLike): ViteModuleGraphLike[] {
 }
 
 /**
- * Look up the module nodes registered for one importer identity: the fast
+ * Look up the module nodes registered for one importer spelling: the fast
  * slash-normalized `getModulesByFile` lookup first, then an identity scan of
  * `fileToModulesMap` for spellings that differ only by separator or case.
  */
 function selectModulesByFile(
   graph: ViteModuleGraphLike,
-  importerIdentity: string,
+  importer: string,
 ): ViteModuleNodeLike[] {
-  const direct = graph.getModulesByFile?.(importerIdentity.replace(/\\/g, "/"));
+  const direct = graph.getModulesByFile?.(importer.replace(/\\/g, "/"));
   if (direct !== undefined && direct.size !== 0) {
     return [...direct];
   }
+  const identity = pathIdentityKey(importer);
   const output: ViteModuleNodeLike[] = [];
   for (const [file, nodes] of graph.fileToModulesMap ?? []) {
-    if (
-      typeof file === "string" &&
-      pathIdentityKey(file) === importerIdentity
-    ) {
+    if (typeof file === "string" && pathIdentityKey(file) === identity) {
       output.push(...nodes);
     }
   }
