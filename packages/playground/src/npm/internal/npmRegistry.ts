@@ -82,16 +82,19 @@ export async function fetchNpmMetadata(
   signal: AbortSignal | undefined,
 ): Promise<INpmMetadata | null> {
   throwIfAborted(signal);
-  const response = await abortable(
-    fetchImpl(`https://registry.npmjs.org/${encodeURIComponent(packageName)}`, {
-      headers: {
-        Accept: "application/vnd.npm.install-v1+json, application/json",
-      },
-      signal,
-    }),
+  const response = await fetchWithAbort(
+    () =>
+      fetchImpl(
+        `https://registry.npmjs.org/${encodeURIComponent(packageName)}`,
+        {
+          headers: {
+            Accept: "application/vnd.npm.install-v1+json, application/json",
+          },
+          signal,
+        },
+      ),
     signal,
   );
-  throwIfAborted(signal);
   if (response.status === 404 && optional) {
     void response.body?.cancel().catch(() => undefined);
     return null;
@@ -104,7 +107,7 @@ export async function fetchNpmMetadata(
   }
   throwIfAborted(signal);
   const metadata = (await abortable(
-    response.json() as Promise<INpmMetadata>,
+    () => response.json() as Promise<INpmMetadata>,
     signal,
   )) as INpmMetadata;
   throwIfAborted(signal);
@@ -158,8 +161,10 @@ export async function downloadTarball(
 ): Promise<ArrayBuffer> {
   throwIfAborted(signal);
   const byteLimit = validateNpmByteLimit(maxBytes, "compressed");
-  const response = await abortable(fetchImpl(tarball, { signal }), signal);
-  throwIfAborted(signal);
+  const response = await fetchWithAbort(
+    () => fetchImpl(tarball, { signal }),
+    signal,
+  );
   if (!response.ok) {
     void response.body?.cancel().catch(() => undefined);
     throw new Error(`tarball download failed with HTTP ${response.status}.`);
@@ -198,7 +203,7 @@ export async function verifyTarball(
     );
     const actual = new Uint8Array(
       await abortable(
-        crypto.subtle.digest(strongest[0]!.webAlgorithm, tgz),
+        () => crypto.subtle.digest(strongest[0]!.webAlgorithm, tgz),
         signal,
       ),
     );
@@ -215,7 +220,7 @@ export async function verifyTarball(
       throw new Error("tarball shasum is not a valid SHA-1 digest.");
     }
     const actual = new Uint8Array(
-      await abortable(crypto.subtle.digest("SHA-1", tgz), signal),
+      await abortable(() => crypto.subtle.digest("SHA-1", tgz), signal),
     );
     throwIfAborted(signal);
     if (!equalBytes(actual, decodeHex(dist.shasum))) {
@@ -593,7 +598,7 @@ async function collectBoundedStream(
 ): Promise<ArrayBuffer> {
   if (stream === null) {
     throwIfAborted(signal);
-    const bytes = await abortable(fallback(), signal);
+    const bytes = await abortable(fallback, signal);
     throwIfAborted(signal);
     if (bytes.byteLength > maxBytes) {
       throw new Error(
@@ -674,13 +679,18 @@ export function validateNpmByteLimit(
  * cancellable.
  */
 function abortable<T>(
-  task: Promise<T>,
+  start: () => Promise<T>,
   signal: AbortSignal | undefined,
+  disposeLateValue?: (value: T) => void,
 ): Promise<T> {
-  if (signal === undefined) return task;
   throwIfAborted(signal);
+  const task = start();
+  if (signal === undefined) return task;
   return new Promise<T>((resolve, reject) => {
+    let aborted = false;
     const abort = () => {
+      if (aborted) return;
+      aborted = true;
       try {
         throwIfAborted(signal);
       } catch (error) {
@@ -688,8 +698,38 @@ function abortable<T>(
       }
     };
     signal.addEventListener("abort", abort, { once: true });
-    void task.then(resolve, reject).finally(() => {
-      signal.removeEventListener("abort", abort);
-    });
+    void task
+      .then((value) => {
+        if (signal.aborted) {
+          try {
+            disposeLateValue?.(value);
+          } catch {
+            // Disposal is best-effort and must not replace the abort reason.
+          }
+          abort();
+          return;
+        }
+        resolve(value);
+      }, reject)
+      .finally(() => {
+        signal.removeEventListener("abort", abort);
+      });
+    if (signal.aborted) abort();
   });
+}
+
+/** Fetch one response and cancel any body that loses the abort race. */
+async function fetchWithAbort(
+  start: () => Promise<Response>,
+  signal: AbortSignal | undefined,
+): Promise<Response> {
+  const cancel = (response: Response): void => {
+    void response.body?.cancel().catch(() => undefined);
+  };
+  const response = await abortable(start, signal, cancel);
+  if (signal?.aborted) {
+    cancel(response);
+    throwIfAborted(signal);
+  }
+  return response;
 }
