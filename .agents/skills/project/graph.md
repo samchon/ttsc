@@ -6,7 +6,7 @@ Read this before changing `packages/graph`, graph benchmark prompts, graph bench
 
 `@ttsc/graph` is a compiler-derived TypeScript index for coding agents. It should expose declarations, signatures, relationships, decorators, tests, and source spans from the resident `Program` and `TypeChecker`. It must not inline implementation bodies. When source text is needed, return the smallest span and let the agent read it normally.
 
-Code inlining is not an acceptable product option. Similar graph-memory tools such as `codegraph` and `codebase-memory-mcp` showed the failure mode: once tool output includes source bodies, large projects can explode into huge tool output, prompt replay, redundant follow-up calls, and negative token savings. `@ttsc/graph` must avoid that class of failure by staying an index with spans.
+Code inlining is not an acceptable product option. Returning source bodies can make large projects produce huge tool output, prompt replay, redundant follow-up calls, and negative token savings. `@ttsc/graph` must remain an index with spans.
 
 ## Prohibited
 

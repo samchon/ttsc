@@ -15,18 +15,19 @@ The shim is the only typescript-go surface available to source-plugin authors su
 
 ## Shim structure
 
-Each `shim/<name>/` directory holds two kinds of file:
+Each `shim/<name>/` directory has generated and hand-maintained files:
 
-- **`surface.go` — generated, do not edit.** Header `// Code generated ... DO NOT EDIT.`. Plain type aliases (`type Foo = innerast.Foo`) for the package's exported API surface, produced by `go run ./tools/gen_shims` from `packages/ttsc`. Regenerating overwrites it.
-- **`shim.go` — hand-maintained.** First line `// gen_shims:hand-maintained`; the generator detects that marker and skips the file. This is where wrapper funcs and `//go:linkname` declarations live. Extra files like `ast/parent.go` are also hand-maintained.
+- **Generated `shim.go`, do not edit.** `go run ./tools/gen_shims` writes the exported aliases and linkname declarations for shim packages whose `shim.go` does not opt out of generation.
+- **Hand-maintained files.** A `shim.go` that starts with `// gen_shims:hand-maintained` is not regenerated. Keep wrappers and `//go:linkname` declarations there or in another hand-maintained file such as `ast/parent.go`.
+- **Package-specific generated support files.** Some packages also have files such as `surface.go` or `enums_gen.go`. Follow their generated-file header and regenerate them with their owning command; do not create one merely to expose a symbol.
 
 Per-directory `extra-shim.json` feeds the generator the symbols it cannot derive on its own: `ExtraFunctions` (unexported funcs to linkname), `ExtraMethods`, `ExtraFields`, and `IgnoreFunctions` (exported funcs the generator should skip because a hand-written variant exists).
 
 Pick the mechanism by what the symbol is:
 
-- **Exported type** → type alias in `surface.go` (let the generator add it), e.g. `type Node = innerast.Node`.
-- **Exported func that the generator skips** (e.g. its signature names an unexported type) → hand-write a wrapper func in `shim.go`, like `func SetParentInChildren(node *Node) { innerast.SetParentInChildren(node) }`.
-- **Unexported symbol** → `//go:linkname`, like the `GetSourceFileOfNode` / `GetNodeAtPosition` entries in `ast/shim.go`. Add an `_ "unsafe"` import and declare the func with no body.
+- **Exported type**: re-run the generator when it can derive the alias. Otherwise add the alias to a hand-maintained file; do not create a generic `surface.go`.
+- **Exported func that the generator skips**: add a thin wrapper in a hand-maintained file.
+- **Unexported symbol**: add a `//go:linkname` declaration to a hand-maintained file, import `_ "unsafe"`, and declare the function with no body.
 
 ## Adding a missing API a plugin needs
 
@@ -34,12 +35,10 @@ The common task: a plugin needs a typescript-go symbol that the shim does not ye
 
 1. Find the symbol in the pinned typescript-go source under the module cache: `go env GOMODCACHE`/`github.com/microsoft/typescript-go@<version>/internal/<pkg>/`. Confirm its exact name, signature, and whether it is exported.
 2. Add the re-export to the matching `shim/<pkg>/`:
-   - exported func with a clean signature → re-run `go run ./tools/gen_shims` (or add a wrapper in `shim.go` if the generator skips it);
-   - exported type → add the alias in `surface.go` via the generator;
-   - unexported symbol → add a `//go:linkname` declaration in `shim.go`.
+   - use `go run ./tools/gen_shims` for symbols the generator derives;
+   - use a hand-maintained file for an exported symbol the generator cannot derive; or
+   - add a `//go:linkname` declaration for an unexported symbol.
 3. Build the shim module and `packages/ttsc` to verify it links.
-
-Recent worked example: `ast.SetParentInChildren` was exposed in `shim/ast/parent.go` as a thin wrapper so a transform can re-parent synthetic nodes before emit (the emit resolver dereferences `Parent` and would hit nil otherwise). For an unexported symbol the pattern is the linkname form already in `ast/shim.go`.
 
 ## Bumping the pinned typescript-go version
 
@@ -48,7 +47,7 @@ The version is pinned per shim module: `require github.com/microsoft/typescript-
 To bump:
 
 1. Update the `require` line to the new pseudo-version in every `shim/*/go.mod` (keep them all the same) and in `packages/ttsc/go.mod`, then refresh each `go.sum`.
-2. Re-run `go run ./tools/gen_shims` from `packages/ttsc` to regenerate `surface.go` against the new source.
+2. Re-run `go run ./tools/gen_shims` from `packages/ttsc` to regenerate every generated `shim.go` against the new source.
 3. Re-check the hand-maintained `shim.go` files and `extra-shim.json` entries: an upstream rename, signature change, or export/unexport flip can break a wrapper or linkname. Build `packages/ttsc` and fix the fallout.
 
 ## Validating a shim change in a real consumer
@@ -67,17 +66,17 @@ Install the produced tarballs into `../typia` (or another consumer) and run a re
 
 `packages/ttsc/tools/shim_audit` enforces shim completeness in CI (the `shim-audit` job runs `pnpm --filter ttsc shim:audit`) so the recurring "missing re-export" class cannot return. It treats the shim as a closure: if a type is aliased, everything reachable from it should be reachable through the shim. Four layers:
 
-- **Enum families (zero-tolerance).** `shim/<pkg>/enums_gen.go` completes every exposed enum family, re-exporting any member not already re-exported in the package's `shim.go`/`surface.go`; the gate fails on any partial enum. After a typescript-go bump, run `pnpm --filter ttsc shim:audit -fix` to regenerate it. This is the `SignatureKindConstruct` (#230) class.
+- **Enum families (zero-tolerance).** `shim/<pkg>/enums_gen.go` completes every exposed enum family, re-exporting any member not already exposed by the package. The gate fails on any partial enum. After a typescript-go bump, run `pnpm --filter ttsc shim:audit -fix` to regenerate it.
 - **Reachable funcs / escaping types (ratcheted).** `tools/shim_audit/baseline.json` grandfathers the current backlog; the gate fails on any _new_ gap. Expose the symbol, or run `pnpm --filter ttsc shim:audit -write-baseline` to accept it deliberately.
 - **Producer closure (zero-tolerance).** Every pointer-like compiler object consumed by a public shim operation must come from a reachable public operation, a callback supplied by the compiler, or a reasoned root or ownership boundary in `baseline.json`'s `producer_exemptions`. The audit follows direct and named callback/container contracts across package functions, hand-written methods, and method sets published by exposed aliases. Operation results unlock only after their compiler-object inputs and receiver are obtainable, so rootless function or method cycles do not satisfy the gate. `-write-baseline` never infers or accepts producer exemptions. Add an exported producer when the object represents plugin-usable compiler state. Exempt only caller-owned configuration, nullable optional inputs, or host/compiler-owned state outside the supported plugin entry points, and give every exemption a non-empty rationale. Automatic exposure alone is not an exemption.
-- **Unexported helpers.** Closure cannot predict these (a new consumer's first ask for an internal helper); the audit lists them as a demand pool. Expose with the `//go:linkname` pattern above (`Checker_getMinArgumentCount` is the worked example).
+- **Unexported helpers.** Closure cannot predict these. The audit lists them as a demand pool; expose a needed helper with the `//go:linkname` pattern above.
 
 ## Traversal-completeness probes
 
-Closure and the audit only see whether a symbol is _nameable_ or whether a composition _compiles_. They cannot see a _runtime dead-end_: an exposed graph-walk op that silently can't reach part of the graph. `Checker_getBaseTypes` nil-derefs on a generic `Reference` base, so a base-chain walk dead-ends at the generic boundary — invisible to the audit, surfaced only when a consumer crashes (#246).
+Closure and the audit prove that a symbol is _nameable_ and a composition _compiles_. They cannot prove that an exposed graph-walk operation reaches every required node at runtime.
 
-Catch that class with a runtime probe over a ttsc-owned fixture. The probe must use the exposed traversal and assert that it reaches the expected endpoint; compilation alone proves linkage, not traversal completeness.
+For every new graph-walk operation, add a runtime probe over a ttsc-owned fixture. Use the exposed traversal and assert that it reaches the expected endpoint; compilation alone proves linkage, not traversal completeness.
 
-The worked examples are `packages/lint/test/shim/base_chain_walk_crosses_generic_boundary_test.go` and `packages/lint/test/shim/signature_introspection_reaches_runtime_endpoints_test.go`. They build a real Checker through the lint host's `loadProgram`. The first proves the naive base walk stops before `Base` while the declared-type bridge reaches it. The second obtains real construct and call signatures through the shim, then asserts minimum and declared arity, parameters, rest elements, and return types for `()`, `(x?)`, `(x)`, `(...xs)`, and `(x, ...rest)`.
+Keep traversal probes in `packages/lint/test/shim/`. Build a real Checker through the lint host's `loadProgram`, then exercise generic references and every supported signature shape through the public shim.
 
-Keep these probes in `packages/lint/test/`, the ttsc-owned Go harness with a Checker over source, and run them through `pnpm test:go`. Add a fixture and endpoint assertion whenever a new graph-walk operation could introduce a silent dead end.
+Run these probes through `pnpm test:go`. Add a fixture and endpoint assertion whenever a new graph-walk operation could introduce a silent dead end.

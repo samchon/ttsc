@@ -87,7 +87,7 @@ Use the shared helpers in `tests/utils` and the per-suite `internal/` modules; d
 
 ### Coverage, not happy paths
 
-A test that only feeds a rule its own canonical output and asserts it is unchanged proves idempotency, not correctness. That gap is how a batch of formatter over-matches shipped: the predicates hugged or broke shapes Prettier leaves alone, yet every test fed an already-correct example, so nothing fired. Each rule or predicate needs more than its happy path:
+A test that only feeds a rule its own canonical output and asserts it is unchanged proves idempotency, not correctness. Each rule or predicate needs more than its happy path:
 
 - **The transformation direction.** For a rule that rewrites X into Y, assert that a mangled or unformatted input produces the canonical output (input differs from output), not only that the canonical form round-trips unchanged.
 - **A negative twin for every positive.** Wherever a predicate acts (hug, break, merge, autofix), pin an adjacent case one property away where it must NOT act. An over-match stays invisible until the counter-example exists.
