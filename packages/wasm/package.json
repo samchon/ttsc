@@ -1,6 +1,6 @@
 {
   "name": "@ttsc/wasm",
-  "version": "0.20.0",
+  "version": "0.20.1",
   "description": "Build in-browser ttsc playgrounds. Compose ttsc + typescript-go with your own plugins via the Go host helper.",
   "main": "lib/src/index.js",
   "types": "lib/src/index.d.ts",

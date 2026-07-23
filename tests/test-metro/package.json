@@ -1,7 +1,7 @@
 {
   "private": true,
   "name": "@ttsc/test-metro",
-  "version": "0.20.0",
+  "version": "0.20.1",
   "description": "Adapter and transform tests for @ttsc/metro.",
   "type": "module",
   "scripts": {
