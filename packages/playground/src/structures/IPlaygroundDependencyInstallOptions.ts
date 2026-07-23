@@ -22,6 +22,19 @@ export interface IPlaygroundDependencyInstallOptions {
   ignoredPackages?: Iterable<string>;
   /** Safety cap: error out after installing this many packages. */
   maxPackages?: number;
+  /**
+   * Maximum compressed bytes accepted for one npm tarball.
+   *
+   * Defaults to 16 MiB and is enforced while streaming, independent of the
+   * response's `Content-Length`.
+   */
+  maxTarballBytes?: number;
+  /**
+   * Maximum expanded tar bytes accepted for one npm package.
+   *
+   * Defaults to 64 MiB and is enforced while gzip output is streamed.
+   */
+  maxUnpackedBytes?: number;
   /** Aborts the install when triggered. */
   signal?: AbortSignal;
   /** Fires for each phase transition during the install. */

@@ -4,8 +4,8 @@ import { assertRejectedTransformIsEvictedAndRecovers } from "../../internal/tran
  * Verifies a rejected transform generation is evicted so adapters recover
  * (#672).
  *
- * The per-build cache stores the in-flight transform Promise before it settles
- * so concurrent callers share one compile. A rejected generation used to stay
+ * The shared cache stores the in-flight transform Promise before it settles so
+ * concurrent callers share one compile. A rejected generation used to stay
  * cached, making a transient toolchain/host failure permanent for a long-lived
  * Metro or Turbopack worker: the unchanged module replayed the old rejection
  * forever. A failed generation must instead be surfaced and removed.

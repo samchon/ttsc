@@ -16,7 +16,7 @@ import { emitGraphPlugins } from "./transform-graph";
  * The project-walk snapshot cannot see inputs outside the project root or under
  * ignored directories, yet the reference graph and the plugin-reported
  * dependencies prove they feed the transform. Hosts without a per-build cache
- * boundary (Metro workers, the Turbopack loader, Bun) keep one cache for the
+ * boundary (Metro workers and the Turbopack loader) keep one cache for the
  * process lifetime, so validation itself must re-hash those inputs.
  */
 
@@ -173,6 +173,66 @@ export async function assertCacheInvalidatesThroughExternalGraphEdge(): Promise<
   const generation = cacheEntry(cache);
 
   fs.writeFileSync(external, "declare const second: string;\n", "utf8");
+  const after = await transformTtsc(
+    TestUnpluginProject.mainFile(root),
+    TestUnpluginProject.mainSource(root),
+    options,
+    undefined,
+    cache,
+  );
+  assert.ok(after);
+  assert.notStrictEqual(cacheEntry(cache), generation);
+}
+
+/**
+ * Asserts an in-root filesystem link remains outside the project-walk hash
+ * universe and its target content invalidates a cached generation.
+ */
+export async function assertCacheInvalidatesThroughLinkedGraphEdge(): Promise<void> {
+  const {
+    isProjectWalkPath,
+    resolveOptions,
+    transformTtsc,
+    createTtscTransformCache,
+  } = await TestUnpluginRuntime.loadUnpluginApi();
+  const shared = TestProject.tmpdir("ttsc-unplugin-linked-");
+  const target = path.join(shared, "types.d.ts");
+  fs.writeFileSync(target, "declare const first: string;\n", "utf8");
+  const root = TestUnpluginProject.createProject({ plugins: [] });
+  const linkedDirectory = path.join(root, "linked");
+  fs.symlinkSync(
+    shared,
+    linkedDirectory,
+    process.platform === "win32" ? "junction" : "dir",
+  );
+  const linked = path.join(linkedDirectory, "types.d.ts");
+  assert.equal(isProjectWalkPath(root, linked), false);
+  assert.equal(
+    isProjectWalkPath(root, path.join(root, "src", "missing.d.ts")),
+    false,
+  );
+  assert.equal(
+    isProjectWalkPath(root, TestUnpluginProject.mainFile(root)),
+    true,
+  );
+
+  const options = resolveOptions({
+    plugins: emitGraphPlugins({
+      edges: { "src/main.ts": ["linked/types.d.ts"] },
+    }),
+  });
+  const cache = createTtscTransformCache();
+  const before = await transformTtsc(
+    TestUnpluginProject.mainFile(root),
+    TestUnpluginProject.mainSource(root),
+    options,
+    undefined,
+    cache,
+  );
+  assert.ok(before);
+  const generation = cacheEntry(cache);
+
+  fs.writeFileSync(target, "declare const second: string;\n", "utf8");
   const after = await transformTtsc(
     TestUnpluginProject.mainFile(root),
     TestUnpluginProject.mainSource(root),

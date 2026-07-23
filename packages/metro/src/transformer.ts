@@ -9,11 +9,11 @@
  * (strips types, RN transforms) -> Babel AST (what Metro consumes)
  *
  * The ttsc pass reuses `@ttsc/unplugin`'s `transformTtsc`, so the plugin
- * contract, tsconfig discovery, and per-build cache are identical to every
- * other bundler integration. Cross-file cache invalidation rides the project
- * fingerprint {@link getCacheKey} folds into Metro's static transformer key (see
- * `core/fingerprint.ts`); the package README covers the v1 cost model and the
- * remaining watch-session boundary.
+ * contract and tsconfig discovery are identical to the bundler integrations.
+ * Its per-worker cache has no build-start signal and therefore validates every
+ * generation hit. Cross-file invalidation also rides the project fingerprint
+ * {@link getCacheKey} folds into Metro's static transformer key (see
+ * `core/fingerprint.ts`).
  */
 import {
   createTtscTransformCache,

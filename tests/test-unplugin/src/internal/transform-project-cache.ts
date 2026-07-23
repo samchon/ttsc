@@ -26,8 +26,8 @@ interface ICacheProjectOptions {
 process.env.TTSC_CACHE_DIR ??= TestProject.tmpdir("ttsc-unplugin-cache-");
 
 /**
- * Drive a real per-build transform over every module of a multi-file project
- * sharing one cache, then return how many whole-project transforms the fixture
+ * Drive a real transform over every module of a multi-file project sharing one
+ * persistent cache, then return how many whole-project transforms the fixture
  * plugin actually ran plus the per-module results.
  *
  * The fixture plugin appends one byte to a run-log file on every invocation, so
@@ -61,8 +61,8 @@ async function runProjectBuild(options: ICacheProjectOptions): Promise<{
 }
 
 /**
- * Asserts the per-build cache compiles a multi-file project once and serves
- * every other module from cache — the happy-path baseline.
+ * Asserts the shared project cache compiles a multi-file project once and
+ * serves every other module from cache — the happy-path baseline.
  *
  * Every compiler output key sits inside the project walk, so this holds on both
  * the old and fixed code; the out-of-walk regression is pinned separately by
@@ -92,7 +92,7 @@ async function assertCacheTransformsMultiFileProjectOnce(): Promise<void> {
  *
  * 1. Build a multi-file project whose fixture transform emits one
  *    `node_modules/**` output key.
- * 2. Run a per-build transform over every module sharing one cache.
+ * 2. Run a transform over every module sharing one persistent cache.
  * 3. Assert the plugin ran exactly once (cache hit), not once per module.
  */
 async function assertCacheHitsDespiteOutOfWalkOutputKey(): Promise<void> {
@@ -290,6 +290,186 @@ async function assertConcurrentTransformsCompileOnce(): Promise<void> {
     ? fs.readFileSync(project.runLog, "utf8").length
     : 0;
   assert.equal(pluginRuns, 1, "concurrent callers must share one compile");
+}
+
+/**
+ * Asserts the first delivery of each module does not re-read the entire
+ * project.
+ *
+ * A project transform already returns output and an input snapshot for every
+ * module. Re-hashing all P project files before selecting each of N outputs
+ * makes the first build O(N x P), even though no generation has crossed a build
+ * boundary. The cache can compare each supplied module source with its snapshot
+ * entry and reserve complete validation for a repeated module request.
+ */
+async function assertFirstModuleDeliveriesDoNotRehashProject(): Promise<void> {
+  const {
+    beginTtscTransformBuild,
+    createTtscTransformCache,
+    resolveOptions,
+    transformTtsc,
+  } = await TestUnpluginRuntime.loadUnpluginApi();
+  const project = createCacheProject({ fileCount: 24 });
+  const modules = projectModules(project.root);
+  const sources = new Map(
+    modules.map((file) => [file, fs.readFileSync(file, "utf8")]),
+  );
+  const cache = createTtscTransformCache();
+  beginTtscTransformBuild(cache);
+  const options = resolveOptions();
+
+  const first = modules[0]!;
+  assert.ok(
+    await transformTtsc(first, sources.get(first)!, options, undefined, cache),
+  );
+
+  fs.appendFileSync(
+    path.join(project.root, "plugin.cjs"),
+    "\n// changed after the build-scoped generation started\n",
+    "utf8",
+  );
+  for (const file of modules.slice(1)) {
+    assert.ok(
+      await transformTtsc(file, sources.get(file)!, options, undefined, cache),
+    );
+  }
+
+  assert.equal(fs.readFileSync(project.runLog, "utf8").length, 1);
+}
+
+/**
+ * Asserts a cache with no build-start lifecycle validates every generation hit,
+ * including a module that generation has not served before.
+ */
+async function assertPersistentCacheValidatesAnUnservedModule(): Promise<void> {
+  const { createTtscTransformCache, resolveOptions, transformTtsc } =
+    await TestUnpluginRuntime.loadUnpluginApi();
+  const root = TestUnpluginProject.createProject({
+    plugins: [
+      {
+        transform: "./plugin.cjs",
+        name: "fixture",
+        operation: "echo-file",
+        path: "src/lazy.ts",
+      },
+    ],
+  });
+  const lazy = path.join(root, "src", "lazy.ts");
+  fs.writeFileSync(lazy, "export const lazy = 1;\n", "utf8");
+  const cache = createTtscTransformCache();
+  const options = resolveOptions();
+
+  assert.ok(
+    await transformTtsc(
+      TestUnpluginProject.mainFile(root),
+      TestUnpluginProject.mainSource(root),
+      options,
+      undefined,
+      cache,
+    ),
+  );
+  const oldGeneration = [...cache.values()][0];
+  assert.ok(oldGeneration);
+
+  fs.appendFileSync(path.join(root, "plugin.cjs"), "\n// changed input\n");
+  const result = await transformTtsc(
+    lazy,
+    fs.readFileSync(lazy, "utf8"),
+    options,
+    undefined,
+    cache,
+  );
+  assert.ok(result);
+  assert.match(result.code, /ttsc-fixture/);
+  assert.notEqual(
+    [...cache.values()][0],
+    oldGeneration,
+    "a persistent cache must validate unrelated inputs before first delivery",
+  );
+}
+
+/**
+ * Asserts a stale input-mismatch cleanup neither deletes nor bypasses a newer
+ * generation installed while the stale Promise was pending.
+ */
+async function assertStaleMismatchUsesNewerGeneration(): Promise<void> {
+  const { api, cache, key, good, file, source, options } =
+    await primeSuccessfulTransform();
+
+  let resolveStale!: (value: unknown) => void;
+  const stale = new Promise<unknown>((resolve) => {
+    resolveStale = resolve;
+  });
+  cache.set(key, stale);
+  const pending = api.transformTtsc(file, source, options, undefined, cache);
+
+  const newer = Promise.resolve(good);
+  cache.set(key, newer);
+  resolveStale({
+    ...(good as Record<string, unknown>),
+    inputHashes: {},
+  });
+
+  const result = await pending;
+  assert.ok(result);
+  TestUnpluginProject.assertTransformedToPlugin(result.code);
+  assert.equal(
+    cache.get(key),
+    newer,
+    "a stale mismatch must retry the authoritative newer generation",
+  );
+}
+
+/**
+ * Asserts a caller awaiting an old but otherwise matching generation retries
+ * when a sibling caller replaces that generation.
+ */
+async function assertSupersededMatchingGenerationIsNotServed(): Promise<void> {
+  const { api, cache, key, good, file, source, options } =
+    await primeSuccessfulTransform();
+  const goodRecord = good as {
+    result: {
+      typescript: Record<string, string>;
+      [key: string]: unknown;
+    };
+    [key: string]: unknown;
+  };
+  const outputKey = Object.keys(goodRecord.result.typescript)[0]!;
+  const staleValue = {
+    ...goodRecord,
+    result: {
+      ...goodRecord.result,
+      typescript: {
+        ...goodRecord.result.typescript,
+        [outputKey]: "export const marker = 'STALE';\n",
+      },
+    },
+  };
+
+  let resolveStale!: (value: unknown) => void;
+  const stale = new Promise<unknown>((resolve) => {
+    resolveStale = resolve;
+  });
+  cache.set(key, stale);
+  const mismatching = api.transformTtsc(
+    file,
+    `${source}\n// mismatching caller\n`,
+    options,
+    undefined,
+    cache,
+  );
+  const matching = api.transformTtsc(file, source, options, undefined, cache);
+  resolveStale(staleValue);
+
+  const matchingResult = await matching;
+  assert.ok(matchingResult);
+  assert.doesNotMatch(
+    matchingResult.code,
+    /STALE/,
+    "a matching waiter must not return a generation another caller superseded",
+  );
+  assert.ok(await mismatching);
+  assert.notEqual(cache.get(key), stale);
 }
 
 /** Absolute, sorted list of the project's `src/*.ts` modules. */
@@ -491,7 +671,11 @@ export {
   assertCacheHitsDespiteOutOfWalkOutputKey,
   assertCacheTransformsMultiFileProjectOnce,
   assertConcurrentTransformsCompileOnce,
+  assertFirstModuleDeliveriesDoNotRehashProject,
   assertHostExceptionTransformIsEvictedAndRecovers,
+  assertPersistentCacheValidatesAnUnservedModule,
   assertRejectedTransformIsEvictedAndRecovers,
   assertStaleEvictionKeepsNewerGeneration,
+  assertStaleMismatchUsesNewerGeneration,
+  assertSupersededMatchingGenerationIsNotServed,
 };

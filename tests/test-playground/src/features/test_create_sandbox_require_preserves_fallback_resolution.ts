@@ -3,13 +3,16 @@ import assert from "node:assert/strict";
 import { createSandboxRequire } from "../../../../packages/playground/lib/src/sandbox/createSandboxRequire.js";
 
 /**
- * The root-`exports` change (RA-12 / #670) must not regress the resolver's
- * other paths: `main` and `index` fallbacks, exact and wildcard subpath
- * exports, scoped package names, relative sibling requires, and JSON modules
- * all share `resolvePackageEntry` / `resolveSpecifier` and must keep working.
+ * Verifies root exports changes preserve every fallback resolver branch.
  *
- * This is the boundary guard for the root-exports fix: it exercises every
- * resolution branch other than the root-exports one in a single sandbox pack.
+ * `main` and `index` fallbacks, exact and wildcard subpath exports, scoped
+ * names, relative requires, and JSON modules all share the changed package
+ * entry and specifier owners.
+ *
+ * 1. Mount legacy, exact, pattern, array, condition, scoped, relative, and JSON
+ *    package shapes.
+ * 2. Require every available entry and the blocked negative twin.
+ * 3. Assert each shared resolver branch retains its prior observable result.
  */
 export const test_create_sandbox_require_preserves_fallback_resolution = () => {
   const require = createSandboxRequire(
@@ -35,9 +38,10 @@ export const test_create_sandbox_require_preserves_fallback_resolution = () => {
       }),
       "w/src/feat/x.js": "module.exports = { v: 'wild' };",
       "w/src/deep/x.js": "module.exports = { v: 'deep-wild' };",
-      // array fallback, null blocker, and inactive condition target
+      // array fallback from an invalid target, null blocker, and inactive
+      // condition target
       "a/package.json": JSON.stringify({
-        exports: { "./entry": ["./missing.js", "./available.js"] },
+        exports: { "./entry": ["invalid-target", "./available.js"] },
       }),
       "a/available.js": "module.exports = { v: 'array' };",
       "blocked/package.json": JSON.stringify({ exports: { "./x": null } }),

@@ -45,9 +45,9 @@ const nodeModulesPattern = /(?:^|[/\\])node_modules(?:[/\\]|$)/;
 /**
  * Per-process transform cache. Turbopack runs loaders in a worker pool and
  * never signals build boundaries to a loader, so the cache lives for the
- * worker's lifetime; entries self-invalidate by re-hashing the project's input
- * files on every request (see `transformTtsc`), which is the same freshness
- * rule the bundler-plugin adapters rely on between watch rebuilds.
+ * worker's lifetime. Because no build-start boundary exists, every cache hit
+ * validates all project and graph inputs before selecting output (see
+ * `transformTtsc`).
  */
 const transformCache = createTtscTransformCache();
 

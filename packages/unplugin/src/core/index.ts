@@ -6,11 +6,13 @@ import { createUnplugin } from "unplugin";
 import type { TtscUnpluginOptions } from "./options";
 import { resolveOptions } from "./options";
 import {
+  beginTtscTransformBuild,
   collectExternalInputHashes,
   collectProjectInputHashes,
   createTtscTransformCache,
   isDeclarationFile,
   isProjectWalkPath,
+  resetTtscTransformCache,
   stripQuery,
   transformTtsc,
 } from "./transform";
@@ -37,9 +39,9 @@ const virtualModulePattern = /\0/;
  *
  * The factory resolves raw options once, creates a per-build transform cache,
  * and captures Vite alias configuration via the `vite.configResolved` hook so
- * that path aliases are forwarded to the generated tsconfig overlay. The cache
- * is cleared on every `buildStart` to avoid stale results across watch-mode
- * rebuilds.
+ * that path aliases are forwarded to the generated tsconfig overlay. Real build
+ * lifecycles use a per-build cache; Vite's development server keeps persistent
+ * validation because its one `buildStart` spans later HMR edits.
  */
 const unpluginFactory: UnpluginFactory<
   TtscUnpluginOptions | undefined,
@@ -81,7 +83,11 @@ const unpluginFactory: UnpluginFactory<
     },
 
     buildStart() {
-      transformCache.clear();
+      if (viteCommand === "serve") {
+        resetTtscTransformCache(transformCache);
+      } else {
+        beginTtscTransformBuild(transformCache);
+      }
     },
 
     transformInclude(id) {
@@ -142,10 +148,12 @@ export type {
 } from "./options";
 export type { TtscTransformHooks } from "./transform";
 export {
+  beginTtscTransformBuild,
   collectExternalInputHashes,
   collectProjectInputHashes,
   createTtscTransformCache,
   isProjectWalkPath,
+  resetTtscTransformCache,
   resolveOptions,
   transformTtsc,
   unplugin,
@@ -160,7 +168,7 @@ export default unplugin;
  * Excluded ids: virtual modules (NUL prefix), `.d.ts` declaration files, and
  * anything inside `node_modules`.
  */
-function isTransformTarget(id: string): boolean {
+export function isTransformTarget(id: string): boolean {
   return (
     sourceFilePattern.test(id) &&
     !virtualModulePattern.test(id) &&

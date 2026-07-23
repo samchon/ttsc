@@ -72,11 +72,11 @@ For each TypeScript file Metro asks to transform:
 1. `@ttsc/metro` runs the `ttsc` plugin pass (reusing `@ttsc/unplugin`'s transform core) → transformed **TypeScript** source.
 2. The transformed source is handed to the upstream Expo/React-Native Babel transformer, which strips types, applies the RN transforms, and returns the Babel AST Metro consumes.
 
-The plugin contract, `tsconfig` discovery, and per-build cache are identical to every other `ttsc` bundler integration.
+The plugin contract and `tsconfig` discovery match the Unplugin integrations. Metro's worker has no build-start callback, so its shared transform cache validates the complete project snapshot on every hit instead of using a build-scoped first-delivery shortcut.
 
 ## Cache invalidation
 
-Metro keys its transform cache on each file's own content plus one static transformer key, and its babel-transformer contract has no per-file dependency registration. A `ttsc` transform can depend on a _type_ in another file, so `@ttsc/metro` folds a project fingerprint into that static key: every input file under the project root, plus the reference-graph inputs outside it (`node_modules` declarations, monorepo sibling sources, out-of-root tsconfig `extends` ancestry) recorded under `node_modules/.cache/ttsc-metro`. Editing any of them re-keys the next run, so `metro bundle` and dev-server starts pick up cross-file type changes without `--reset-cache`.
+Metro keys its transform cache on each file's own content plus one static transformer key, and its babel-transformer contract has no per-file dependency registration. A `ttsc` transform can depend on a _type_ in another file, so `@ttsc/metro` folds a project fingerprint into that static key: every regular file reached by the non-following project walk, plus reference-graph inputs outside that walk (`node_modules` declarations, monorepo sibling sources, files reached through symlinks or Windows junctions, and out-of-root tsconfig `extends` ancestry) recorded under `node_modules/.cache/ttsc-metro`. Editing any of them re-keys the next run, so `metro bundle` and dev-server starts pick up cross-file type changes without `--reset-cache`.
 
 The granularity is project-level by necessity: Metro evaluates the transformer key once per run, so any fingerprinted change re-transforms every file on the next run. What remains outside the mechanism's reach:
 

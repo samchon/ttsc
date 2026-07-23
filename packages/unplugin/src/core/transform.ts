@@ -40,15 +40,14 @@ export interface TtscTransformAlias {
 }
 
 /**
- * A single entry in the per-build transform cache.
+ * A single entry in the project transform cache.
  *
  * Stores the full compiler result together with SHA-256 hashes of every project
- * input file. On subsequent transforms the cached entry is validated by
- * re-hashing the project and comparing against {@link inputHashes}; a mismatch
- * triggers a full re-transform. Both sides hash the same set of files (the
- * project directory walk), so the comparison is meaningful; keying the
- * compiler's out-of-walk output paths on only one side is what made the cache
- * miss on every module.
+ * input file. In a cache with an explicit build lifecycle, the first delivery
+ * of each compiled module compares its supplied source with the generation
+ * snapshot in constant time; a repeated delivery re-hashes the complete input
+ * set. Persistent caches without that boundary perform complete validation on
+ * every hit.
  */
 export interface TtscCachedProjectTransform {
   /**
@@ -59,7 +58,7 @@ export interface TtscCachedProjectTransform {
    * directories (`node_modules` declarations, monorepo sibling sources,
    * out-of-root tsconfig `extends` ancestry), yet the host-owned reference
    * graph proves they are transform inputs. Long-lived hosts that never clear
-   * the cache between builds (Metro workers, the Turbopack loader, Bun) would
+   * the cache between builds (Metro workers and the Turbopack loader) would
    * otherwise replay a project transform computed against a stale out-of-walk
    * input for the whole process lifetime; per-build hosts clear the cache on
    * `buildStart` and never replay across edits.
@@ -80,6 +79,12 @@ export interface TtscCachedProjectTransform {
   projectRoot: string;
   /** Raw compiler output returned by {@link TtscCompiler.transform}. */
   result: ITtscCompilerTransformation;
+  /**
+   * Files already delivered from this generation, keyed by filesystem identity.
+   * Build-scoped caches use this to skip complete validation only for a
+   * module's first delivery inside the current build.
+   */
+  servedFiles?: Set<string>;
   /**
    * Absolute path of the generated temp-dir tsconfig this compile ran against,
    * when an alias/compiler-options overlay required one. The compiler reports
@@ -102,9 +107,40 @@ export type TtscTransformCache = Map<
   Promise<TtscCachedProjectTransform>
 >;
 
-/** Create an empty transform cache for a single build session. */
+/**
+ * Caches whose owner has declared a real per-build lifecycle by calling
+ * {@link beginTtscTransformBuild} before transforms begin.
+ */
+const BUILD_SCOPED_TRANSFORM_CACHES = new WeakSet<TtscTransformCache>();
+
+/** Create an empty persistent transform cache. */
 export function createTtscTransformCache(): TtscTransformCache {
   return new Map();
+}
+
+/**
+ * Start a host build, clearing its prior generation and enabling constant-time
+ * first delivery for modules compiled during this build.
+ *
+ * Hosts without a guaranteed build-start callback use persistent validation
+ * unless they have another immutable lifecycle. Bun runtime setup, for example,
+ * defines one process-scoped module-loading session.
+ */
+export function beginTtscTransformBuild(cache: TtscTransformCache): void {
+  cache.clear();
+  BUILD_SCOPED_TRANSFORM_CACHES.add(cache);
+}
+
+/**
+ * Clear a cache and return it to persistent validation mode.
+ *
+ * This is distinct from {@link beginTtscTransformBuild}: hosts such as Vite's
+ * development server may invoke `buildStart` only once for a process that spans
+ * many edits, so that callback cannot authorize build-scoped shortcuts.
+ */
+export function resetTtscTransformCache(cache: TtscTransformCache): void {
+  cache.clear();
+  BUILD_SCOPED_TRANSFORM_CACHES.delete(cache);
 }
 
 /** Cached case-insensitivity probes for existing macOS filesystem locations. */
@@ -157,8 +193,9 @@ export interface TtscTransformHooks {
  * @param options - Resolved plugin options.
  * @param aliases - Raw bundler alias configuration (Vite array or webpack
  *   object).
- * @param cache - Optional per-build cache; cleared by the caller on
- *   `buildStart`.
+ * @param cache - Optional project cache. Callers with a real `buildStart`
+ *   boundary declare it through {@link beginTtscTransformBuild}; other hosts
+ *   retain persistent validation.
  * @param hooks - Optional adapter callbacks; see {@link TtscTransformHooks}.
  *   Dependency notifications fire on cache hits too; watch registrations are
  *   per build, not per compilation.
@@ -192,70 +229,90 @@ export async function transformTtsc(
     tsconfig,
   });
 
-  let transformed = cache?.get(key);
-  if (transformed !== undefined) {
-    // A rejected in-flight generation must not stay cached: evict it (only if
-    // it is still the current entry) so a later call re-runs the transform.
-    const cached = await awaitOrEvict(cache, key, transformed);
-    if (
-      // A file the plugin declared volatile must never be served from the
-      // cache: its output depends on non-file inputs, so the input-hash
-      // snapshot cannot prove freshness. Fall through to a fresh transform.
-      !isVolatileFile({
-        file,
-        projectRoot: cached.projectRoot,
-        result: cached.result,
-      }) &&
-      matchesCachedSource(cached, file, source)
-    ) {
-      reportSuccessDiagnostics(cached.result);
-      // A resolved `"exception"` / `"failure"` envelope makes this throw; that
-      // is a failed generation too, so evict before surfacing it.
-      const code = selectOrEvict(cache, key, transformed, {
-        file,
-        projectRoot: cached.projectRoot,
-        result: cached.result,
-      });
-      notifyWatchInputs(hooks, {
-        file,
-        projectRoot: cached.projectRoot,
-        result: cached.result,
-        temporaryTsconfig: cached.temporaryTsconfig,
-      });
-      return createTransformResult(source, code);
+  for (;;) {
+    let transformed = cache?.get(key);
+    if (transformed !== undefined) {
+      // A rejected in-flight generation must not stay cached: evict it (only if
+      // it is still the current entry) so a later call re-runs the transform.
+      const cached = await awaitOrEvict(cache, key, transformed);
+      // While this caller awaited the old Promise, another caller may have
+      // invalidated it and installed a newer authoritative generation.
+      if (cache?.get(key) !== transformed) {
+        continue;
+      }
+      if (
+        // A file the plugin declared volatile must never be served from the
+        // cache: its output depends on non-file inputs, so the input-hash
+        // snapshot cannot prove freshness. Fall through to a fresh transform.
+        !isVolatileFile({
+          file,
+          projectRoot: cached.projectRoot,
+          result: cached.result,
+        }) &&
+        matchesCachedSource(
+          cached,
+          file,
+          source,
+          cache !== undefined && BUILD_SCOPED_TRANSFORM_CACHES.has(cache),
+        )
+      ) {
+        reportSuccessDiagnostics(cached.result);
+        // A resolved `"exception"` / `"failure"` envelope makes this throw;
+        // that is a failed generation too, so evict before surfacing it.
+        const code = selectOrEvict(cache, key, transformed, {
+          file,
+          projectRoot: cached.projectRoot,
+          result: cached.result,
+        });
+        notifyWatchInputs(hooks, {
+          file,
+          projectRoot: cached.projectRoot,
+          result: cached.result,
+          temporaryTsconfig: cached.temporaryTsconfig,
+        });
+        markCachedSourceServed(cached, file);
+        return createTransformResult(source, code);
+      }
+      evictGeneration(cache, key, transformed);
+      // Another caller may have replaced the generation while this caller was
+      // awaiting or validating the old one. Retry that authoritative entry
+      // instead of deleting it or starting a redundant third compilation.
+      if (cache?.get(key) !== undefined) {
+        continue;
+      }
+      transformed = undefined;
     }
-    cache?.delete(key);
-    transformed = undefined;
-  }
 
-  if (transformed === undefined) {
-    transformed = transformProject({
-      aliasPaths,
-      compilerOptions: options.compilerOptions,
-      currentFile: file,
-      currentSource: source,
-      plugins: options.plugins,
-      tsconfig,
+    if (transformed === undefined) {
+      transformed = transformProject({
+        aliasPaths,
+        compilerOptions: options.compilerOptions,
+        currentFile: file,
+        currentSource: source,
+        plugins: options.plugins,
+        tsconfig,
+      });
+      cache?.set(key, transformed);
+    }
+    const generation = transformed;
+    const cached = await awaitOrEvict(cache, key, generation);
+    if (cache !== undefined && cache.get(key) !== generation) {
+      continue;
+    }
+    const { projectRoot, result, temporaryTsconfig } = cached;
+    reportSuccessDiagnostics(result);
+    const code = selectOrEvict(cache, key, generation, {
+      file,
+      projectRoot,
+      result,
     });
-    cache?.set(key, transformed);
+    notifyWatchInputs(hooks, { file, projectRoot, result, temporaryTsconfig });
+    markCachedSourceServed(cached, file);
+    if (isVolatileFile({ file, projectRoot, result })) {
+      hooks?.markVolatile?.();
+    }
+    return createTransformResult(source, code);
   }
-  const generation = transformed;
-  const { projectRoot, result, temporaryTsconfig } = await awaitOrEvict(
-    cache,
-    key,
-    generation,
-  );
-  reportSuccessDiagnostics(result);
-  const code = selectOrEvict(cache, key, generation, {
-    file,
-    projectRoot,
-    result,
-  });
-  notifyWatchInputs(hooks, { file, projectRoot, result, temporaryTsconfig });
-  if (isVolatileFile({ file, projectRoot, result })) {
-    hooks?.markVolatile?.();
-  }
-  return createTransformResult(source, code);
 }
 
 /**
@@ -745,31 +802,30 @@ export function createTransformResult(
  * Validate a cached project transform against the current on-disk project
  * state.
  *
- * Re-hashes every file under the project root and overlays the current module's
- * in-memory source, then compares the snapshot against the one captured when
- * the result was produced. Any input under the project root changing (the
- * module itself or a sibling the plugin reads) invalidates the entry and forces
- * a re-transform. Out-of-walk inputs the compiler reported (`node_modules`
- * declarations, sibling-package sources, out-of-root config ancestry) are
- * validated through {@link TtscCachedProjectTransform.externalInputHashes};
- * adapters additionally register them as derived watch inputs (the host-owned
- * `graph` union the reported `dependencies`) → `addWatchFile` → the bundler's
- * next `buildStart` cache clear.
+ * Always compares the current module's in-memory source with the generation
+ * snapshot. A cache whose owner called {@link beginTtscTransformBuild} can use
+ * that comparison alone for the module's first delivery in the current build;
+ * repeated requests re-hash every project and out-of-walk input. Persistent
+ * caches with no guaranteed build boundary perform complete validation on every
+ * hit. Any mismatch forces a complete re-transform.
  *
- * Both this snapshot and {@link collectInputHashes} draw their keys from the
- * exact same {@link collectProjectInputHashes} walk, so the two always agree on
- * the key universe. The earlier implementation overlaid the compiler's output
- * keys here on only one side; those keys include out-of-walk program inputs
- * (`node_modules` declarations, sibling-package sources), so the snapshots
- * never matched and the cache missed on every module; re-transforming the whole
- * project once per file on any project that imports a typed dependency.
+ * The complete validation snapshot and {@link collectInputHashes} draw their
+ * keys from the exact same {@link collectProjectInputHashes} walk, so the two
+ * agree on the key universe.
  */
 function matchesCachedSource(
   cached: TtscCachedProjectTransform,
   file: string,
   source: string,
+  buildScoped: boolean,
 ): boolean {
   const currentKey = toProjectKey(cached.projectRoot, file);
+  if (cached.inputHashes[currentKey] !== hashText(source)) {
+    return false;
+  }
+  if (buildScoped && !cached.servedFiles?.has(pathIdentityKey(file))) {
+    return true;
+  }
   const currentHashes = collectProjectInputHashes(cached.projectRoot);
   currentHashes[currentKey] = hashText(source);
   if (!sameHashes(cached.inputHashes, currentHashes)) {
@@ -790,6 +846,14 @@ function matchesCachedSource(
       cached.externalInputPaths ?? Object.keys(externalHashes),
     ),
   );
+}
+
+/** Record a successfully selected module as delivered by this generation. */
+function markCachedSourceServed(
+  cached: TtscCachedProjectTransform,
+  file: string,
+): void {
+  (cached.servedFiles ??= new Set()).add(pathIdentityKey(file));
 }
 
 /**
@@ -876,11 +940,12 @@ function listProjectInputFiles(root: string): string[] {
 
 /**
  * Report whether an absolute `file` belongs to the project walk universe of
- * `root`: it lies under `root` and no segment of the relative path (including
- * the basename) is an ignored directory name. The predicate mirrors
- * {@link listProjectInputFiles} exactly, so "walk-visible" here means "hashed by
- * {@link collectProjectInputHashes}". Anything else is an out-of-walk input that
- * only the reference graph can prove relevant.
+ * `root`: it lies under `root`, every component exists without traversing a
+ * symbolic link, the leaf is a regular file, and no segment of the relative
+ * path is ignored. The predicate mirrors {@link listProjectInputFiles} exactly,
+ * so "walk-visible" here means "hashed by {@link collectProjectInputHashes}".
+ * Missing paths and files reached through symlinks or Windows junctions are
+ * out-of-walk inputs that only the reference graph can prove relevant.
  */
 export function isProjectWalkPath(root: string, file: string): boolean {
   const relative = path.relative(pathIdentityKey(root), pathIdentityKey(file));
@@ -892,9 +957,28 @@ export function isProjectWalkPath(root: string, file: string): boolean {
   ) {
     return false;
   }
-  return relative
-    .split(path.sep)
-    .every((segment) => !isIgnoredProjectDirectory(segment));
+  const segments = relative.split(path.sep);
+  if (segments.some(isIgnoredProjectDirectory)) {
+    return false;
+  }
+  let current = path.resolve(root);
+  for (let index = 0; index < segments.length; ++index) {
+    current = path.join(current, segments[index]!);
+    let stats: fs.Stats;
+    try {
+      stats = fs.lstatSync(current);
+    } catch {
+      return false;
+    }
+    if (stats.isSymbolicLink()) {
+      return false;
+    }
+    const leaf = index === segments.length - 1;
+    if ((leaf && !stats.isFile()) || (!leaf && !stats.isDirectory())) {
+      return false;
+    }
+  }
+  return true;
 }
 
 /**
@@ -1092,6 +1176,7 @@ async function transformProject(props: {
       }),
       projectRoot,
       result,
+      servedFiles: new Set(),
       // Remember the generated temp-dir tsconfig (disposed below) so watch
       // derivation can drop it from the envelope's config chain; a registered
       // but deleted file would invalidate every persistent-cache snapshot.

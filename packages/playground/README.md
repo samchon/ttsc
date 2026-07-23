@@ -137,6 +137,8 @@ import {
 
 const names = collectExternalPackageNames(userSource);
 const installed = await installPlaygroundDependencies(names, {
+  maxTarballBytes: 16 * 1024 * 1024,
+  maxUnpackedBytes: 64 * 1024 * 1024,
   onProgress: (p) => console.log(p.phase, p.packageName),
 });
 // mount installed.compilerFiles into the wasm MemFS via service.installDependencies
@@ -147,6 +149,12 @@ For an additive edit, pass the prior call's `resolvedDependencies` as `installed
 When a direct source import is removed, solve the complete current root list without `installedDependencies` and atomically replace the compiler, editor, and runtime file maps so files from the obsolete graph cannot survive.
 
 `PlaygroundShell` wires this automatically on every keystroke, debounced 900 ms, with an abort signal on source change.
+
+The installer verifies the strongest supported `dist.integrity` digest before decompression, or `dist.shasum` when integrity is absent. Historical and private registry metadata with neither field remains compatible but unauthenticated. Each tarball is streamed through independent compressed and expanded byte limits (16 MiB and 64 MiB by default), and every file must remain below one safe, consistent archive root (`package/` normally; DefinitelyTyped uses roots such as `node/`). Override the limits with `maxTarballBytes` and `maxUnpackedBytes` when a known package requires more.
+
+Integrity proves that archive bytes match registry metadata; it does not establish that package code is safe. `createSandboxRequire` is a CommonJS resolver and evaluator, not an origin, process, or capability sandbox. The byte limits protect installation availability, not runtime behavior such as loops, timers, network access, or globals exposed by the host. Sites accepting untrusted code or packages must provide an isolated `executeBundle` policy appropriate to their environment.
+
+The Execute lane's CommonJS resolver treats `package.json#exports` as the package boundary. It selects `require` and `default` conditions in manifest order, preserves Node's distinction between target selection and file loading, validates relative targets after wildcard substitution, and rejects mixed or numeric condition maps. A package mounted through an npm alias may still self-reference its real manifest `name` when it declares exports; packages without exports keep legacy direct-path resolution and do not gain self-reference behavior.
 
 ## Tailwind setup
 

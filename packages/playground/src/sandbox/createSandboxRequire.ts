@@ -4,13 +4,12 @@
 //
 // Resolution algorithm (minimal):
 //   - Bare specifier `typia/lib/X`:
-//       try `typia/lib/X.js`, then `typia/lib/X/index.js`, then honor the
-//       package's `exports` / `main` (read from <pkg>/package.json) before
-//       giving up.
+//       honor the package's `exports` boundary when declared; otherwise try
+//       `typia/lib/X.js`, then `typia/lib/X/index.js`.
 //   - Relative `./Y` / `../Y` (encountered when one pack module requires a
 //       sibling): resolved against the caller's pack key.
-//   - Bare `name` (no subpath): honors the package `main` field, falling back
-//       to `name/index.js`.
+//   - Bare `name` (no subpath): honors package `exports`, then (only when
+//       exports is absent) `main`, falling back to `name/index.js`.
 //
 // Every successful load is cached so cyclic graphs settle. Module evaluation
 // wraps the source text in the standard CJS wrapper:
@@ -36,6 +35,15 @@ interface ISandboxRequireOptions {
 // neither Node's runtime nor an ESM evaluator.
 const ACTIVE_EXPORT_CONDITIONS = new Set(["require", "default"]);
 
+type ExportTargetResolution =
+  | { type: "resolved"; key: string }
+  | { type: "blocked" }
+  | { type: "unresolved" };
+
+class InvalidPackageTargetError extends Error {}
+class InvalidPackageTargetLoadError extends Error {}
+class InvalidPackageConfigError extends Error {}
+
 /**
  * Build a sandboxed `require` function over a runtime pack. Resolves typia /
  * `@typia/*` / randexp specifiers from the pack; throws on anything else so the
@@ -56,97 +64,104 @@ export function createSandboxRequire(
     return null;
   };
 
-  const packageDeclaresExports = (pkg: string): boolean => {
-    const key = `${pkg}/package.json`;
-    if (!has(key)) return false;
+  const readPackageJson = (mount: string): IPackJson | null => {
+    const key = `${mount}/package.json`;
+    if (!has(key)) return null;
     try {
-      return Object.prototype.hasOwnProperty.call(
-        JSON.parse(pack[key]!) as IPackJson,
-        "exports",
-      );
+      const parsed = JSON.parse(pack[key]!) as unknown;
+      if (
+        parsed === null ||
+        typeof parsed !== "object" ||
+        Array.isArray(parsed)
+      ) {
+        throw new Error("package.json must contain an object");
+      }
+      return parsed as IPackJson;
     } catch {
-      return false;
+      throw new InvalidPackageConfigError(
+        `invalid package configuration in ${key}`,
+      );
     }
   };
 
-  const resolveExportTarget = (
-    pkg: string,
-    target: unknown,
-    replacement = "",
-  ): string | null => {
-    const candidates = conditionalExportTargets(target);
-    if (!candidates) return null;
-    for (const candidate of candidates) {
-      const resolved = `${pkg}/${stripDotSlash(
-        candidate.split("*").join(replacement),
-      )}`;
-      if (has(resolved)) return resolved;
+  const packageDeclaresExports = (mount: string): boolean => {
+    const manifest = readPackageJson(mount);
+    return manifest?.exports !== null && manifest?.exports !== undefined;
+  };
+
+  const resolveLegacyFile = (candidate: string): string | null =>
+    tryPaths(
+      candidate,
+      `${candidate}.js`,
+      `${candidate}.cjs`,
+      `${candidate}.mjs`,
+      `${candidate}.json`,
+    );
+
+  const resolveLegacyIndex = (candidate: string): string | null =>
+    tryPaths(
+      `${candidate}/index.js`,
+      `${candidate}/index.cjs`,
+      `${candidate}/index.json`,
+    );
+
+  /** Resolve one legacy CommonJS file-or-directory candidate. */
+  const resolveLegacyPath = (candidate: string): string | null => {
+    const file = resolveLegacyFile(candidate);
+    if (file !== null) return file;
+
+    const manifest = readPackageJson(candidate);
+    if (typeof manifest?.main === "string" && manifest.main.length !== 0) {
+      const main = posixJoin(candidate, manifest.main);
+      if (main !== candidate) {
+        // Node's legacy tryPackage resolves the selected main as a file, then
+        // as that directory's index. It does not recursively interpret a
+        // second package.json below the selected main directory.
+        const resolvedMain =
+          resolveLegacyFile(main) ?? resolveLegacyIndex(main);
+        if (resolvedMain !== null) return resolvedMain;
+      }
     }
-    return null;
+    return resolveLegacyIndex(candidate);
   };
 
   // Read package.json from pack and resolve via main/exports.
   const resolvePackageEntry = (
-    pkg: string,
+    mount: string,
     subpath: string | null,
   ): string | null => {
-    const pjKey = `${pkg}/package.json`;
-    if (!has(pjKey)) return null;
-    let pj: IPackJson;
-    try {
-      pj = JSON.parse(pack[pjKey]!) as IPackJson;
-    } catch {
-      return null;
+    const pj = readPackageJson(mount);
+    if (pj?.exports !== null && pj?.exports !== undefined) {
+      const resolution = resolvePackageExports(mount, pj.exports, subpath);
+      return resolution.type === "resolved" ? resolution.key : null;
     }
     if (subpath === null) {
-      // bare "name": honor the root `exports` entry (string, subpath table
-      // "." key, or bare condition map) → CJS target, else main, else index.
-      if (pj.exports !== undefined)
-        return resolveExportTarget(pkg, rootExportTarget(pj.exports));
-      if (typeof pj.main === "string") {
-        return tryPaths(
-          `${pkg}/${stripDotSlash(pj.main)}`,
-          `${pkg}/${stripDotSlash(pj.main)}.js`,
-          `${pkg}/${stripDotSlash(pj.main)}.cjs`,
-          `${pkg}/${stripDotSlash(pj.main)}.mjs`,
-          `${pkg}/${stripDotSlash(pj.main)}.json`,
-          `${pkg}/${stripDotSlash(pj.main)}/index.js`,
-          `${pkg}/${stripDotSlash(pj.main)}/index.cjs`,
-        );
-      }
-      return tryPaths(`${pkg}/index.js`, `${pkg}/index.cjs`);
+      return resolveLegacyPath(mount);
     }
-    // Subpath: honor exact exports and general single-star patterns.
-    const exportsAny = pj.exports;
-    if (
-      exportsAny !== undefined &&
-      typeof exportsAny === "object" &&
-      exportsAny !== null
-    ) {
-      const entries = exportsAny as Record<string, unknown>;
-      // Exact match first.
-      const exactKey = `./${subpath}`;
-      if (
-        Object.prototype.hasOwnProperty.call(entries, exactKey) &&
-        !exactKey.includes("*") &&
-        !exactKey.endsWith("/")
-      )
-        return resolveExportTarget(pkg, entries[exactKey]);
-      // Node resolves the most-specific wildcard, not insertion order.
-      const patterns = Object.entries(entries)
-        .map(([pattern, target]) => ({
-          pattern,
-          replacement: exportPatternReplacement(pattern, exactKey),
-          target,
-        }))
-        .filter(
-          (entry): entry is typeof entry & { replacement: string } =>
-            entry.replacement !== undefined,
-        )
-        .sort((a, b) => compareExportPatternKeys(a.pattern, b.pattern));
-      for (const { replacement, target } of patterns) {
-        return resolveExportTarget(pkg, target, replacement);
-      }
+    return null;
+  };
+
+  /**
+   * Locate a package self-reference by walking from the calling module to its
+   * nearest manifest. Node enables self-reference only when that manifest has
+   * both the requested `name` and an `exports` field; the pack mount itself may
+   * be an npm alias whose key differs from `name`.
+   */
+  const selfReferenceMount = (
+    fromKey: string | null,
+    requestedPackage: string,
+  ): string | null => {
+    if (fromKey === null) return null;
+    const parts = dirname(fromKey).split("/").filter(Boolean);
+    for (let length = parts.length; length > 0; --length) {
+      const mount = parts.slice(0, length).join("/");
+      const manifest = readPackageJson(mount);
+      if (manifest === null) continue;
+      return manifest.name === requestedPackage &&
+        manifest.exports !== null &&
+        manifest.exports !== undefined
+        ? mount
+        : null;
     }
     return null;
   };
@@ -161,18 +176,14 @@ export function createSandboxRequire(
       if (!fromKey) return null;
       const baseDir = dirname(fromKey);
       const joined = posixJoin(baseDir, specifier);
-      return tryPaths(
-        joined,
-        `${joined}.js`,
-        `${joined}.cjs`,
-        `${joined}.mjs`,
-        `${joined}.json`,
-        `${joined}/index.js`,
-        `${joined}/index.cjs`,
-      );
+      return resolveLegacyPath(joined);
     }
     // Bare specifier. Split into package name + subpath.
     const { pkg, subpath } = splitBareSpecifier(specifier);
+    const selfMount = selfReferenceMount(fromKey, pkg);
+    if (selfMount !== null) {
+      return resolvePackageEntry(selfMount, subpath);
+    }
     if (subpath === null) {
       return resolvePackageEntry(pkg, null);
     }
@@ -180,15 +191,7 @@ export function createSandboxRequire(
     // retain the historical packed-file fallback.
     if (packageDeclaresExports(pkg)) return resolvePackageEntry(pkg, subpath);
     // First try direct paths (covers packages that do not declare exports).
-    const direct = tryPaths(
-      `${pkg}/${subpath}`,
-      `${pkg}/${subpath}.js`,
-      `${pkg}/${subpath}.cjs`,
-      `${pkg}/${subpath}.mjs`,
-      `${pkg}/${subpath}.json`,
-      `${pkg}/${subpath}/index.js`,
-      `${pkg}/${subpath}/index.cjs`,
-    );
+    const direct = resolveLegacyPath(`${pkg}/${subpath}`);
     if (direct) return direct;
     // Fall back to package.json exports map.
     return resolvePackageEntry(pkg, subpath);
@@ -208,7 +211,7 @@ export function createSandboxRequire(
       }
       const localRequire = (specifier: string): unknown => {
         const resolved = resolveSpecifier(specifier, key);
-        if (!resolved) {
+        if (!resolved || !has(resolved)) {
           throw new Error(
             `require("${specifier}") is not available in the playground sandbox (from ${key})`,
           );
@@ -257,7 +260,7 @@ export function createSandboxRequire(
 
   return (specifier: string): unknown => {
     const resolved = resolveSpecifier(specifier, null);
-    if (!resolved) {
+    if (!resolved || !has(resolved)) {
       throw new Error(
         `require("${specifier}") is not available in the playground sandbox`,
       );
@@ -302,52 +305,226 @@ function compareExportPatternKeys(left: string, right: string): number {
 }
 
 /**
- * Reduce a `package.json` `exports` field to the value describing its ROOT
- * (".") entry, ready for {@link conditionalExportTargets}. Node accepts three
- * valid root shapes and they must all resolve consistently:
+ * Resolve one package `exports` request without consulting pack existence.
  *
- * - A bare string target — `"exports": "./index.cjs"`;
- * - A subpath table keyed by "." — `{ ".": <target>, "./sub": ... }`;
- * - A bare condition map whose keys are all conditions, not subpaths — `{
- *   "require": "./index.cjs", "default": "./index.cjs" }`.
- *
- * Node forbids mixing subpath keys with condition keys, so the presence of any
- * "."-prefixed key decides the interpretation: a subpath table exposes its root
- * as `exports["."]`, while a condition map is itself the root target. Returns
- * null when `exports` is absent, empty, or describes no root entry.
+ * Node chooses one target first and performs file loading afterward. Keeping
+ * those phases separate is essential: a valid first array target that names a
+ * missing file must fail at load time rather than fall through to a later
+ * target.
  */
-function rootExportTarget(exports: unknown): unknown {
-  if (typeof exports === "string") return exports;
-  if (!exports || typeof exports !== "object") return null;
-  const obj = exports as Record<string, unknown>;
-  const keys = Object.keys(obj);
-  if (keys.length === 0) return null;
-  const hasSubpathKey = keys.some((k) => k === "." || k.startsWith("./"));
-  return hasSubpathKey ? obj["."] : obj;
+function resolvePackageExports(
+  mount: string,
+  exportsField: unknown,
+  subpath: string | null,
+): ExportTargetResolution {
+  let target: unknown;
+  if (
+    exportsField !== null &&
+    typeof exportsField === "object" &&
+    !Array.isArray(exportsField)
+  ) {
+    const entries = exportsField as Record<string, unknown>;
+    const kind = classifyExportsObject(mount, entries);
+    if (kind === "conditions") {
+      if (subpath !== null) return { type: "unresolved" };
+      target = entries;
+    } else {
+      const request = subpath === null ? "." : `./${subpath}`;
+      if (
+        Object.prototype.hasOwnProperty.call(entries, request) &&
+        !request.includes("*") &&
+        !request.endsWith("/")
+      ) {
+        target = entries[request];
+      } else {
+        const patterns = Object.entries(entries)
+          .map(([pattern, candidate]) => ({
+            pattern,
+            replacement: exportPatternReplacement(pattern, request),
+            target: candidate,
+          }))
+          .filter(
+            (entry): entry is typeof entry & { replacement: string } =>
+              entry.replacement !== undefined,
+          )
+          .sort((a, b) => compareExportPatternKeys(a.pattern, b.pattern));
+        const selected = patterns[0];
+        if (selected === undefined) return { type: "unresolved" };
+        return resolvePackageTarget(
+          mount,
+          selected.target,
+          selected.replacement,
+        );
+      }
+    }
+  } else {
+    if (subpath !== null) return { type: "unresolved" };
+    target = exportsField;
+  }
+  return resolvePackageTarget(mount, target, "");
 }
 
-function conditionalExportTargets(value: unknown): string[] | null {
-  if (typeof value === "string") return [value];
-  if (Array.isArray(value)) {
-    const candidates: string[] = [];
-    for (const target of value) {
-      const resolved = conditionalExportTargets(target);
-      if (resolved) candidates.push(...resolved);
-    }
-    return candidates.length === 0 ? null : candidates;
+/** Classify and validate a top-level exports object. */
+function classifyExportsObject(
+  mount: string,
+  entries: Record<string, unknown>,
+): "subpaths" | "conditions" {
+  const keys = Object.keys(entries);
+  const subpathKeys = keys.filter((key) => key.startsWith("."));
+  if (subpathKeys.length !== 0 && subpathKeys.length !== keys.length) {
+    throw new InvalidPackageConfigError(
+      `invalid package configuration for ${mount}: exports cannot mix subpath and condition keys`,
+    );
   }
-  if (value && typeof value === "object") {
-    const obj = value as Record<string, unknown>;
-    for (const [condition, target] of Object.entries(obj)) {
+  if (subpathKeys.length !== 0) {
+    if (subpathKeys.some((key) => key !== "." && !key.startsWith("./"))) {
+      throw new InvalidPackageConfigError(
+        `invalid package configuration for ${mount}: invalid exports subpath key`,
+      );
+    }
+    return "subpaths";
+  }
+  validateConditionKeys(mount, keys);
+  return "conditions";
+}
+
+/** Resolve a string, array, conditional object, or null exports target. */
+function resolvePackageTarget(
+  mount: string,
+  target: unknown,
+  replacement: string,
+): ExportTargetResolution {
+  if (typeof target === "string") {
+    const substituted = target.split("*").join(replacement);
+    return {
+      type: "resolved",
+      key: resolvePackageTargetKey(mount, substituted),
+    };
+  }
+  if (target === null) return { type: "blocked" };
+  if (Array.isArray(target)) {
+    if (target.length === 0) return { type: "blocked" };
+    let lastInvalid: InvalidPackageTargetError | undefined;
+    let lastBlocked = false;
+    for (const candidate of target) {
+      try {
+        const resolution = resolvePackageTarget(mount, candidate, replacement);
+        if (resolution.type === "blocked") {
+          lastBlocked = true;
+          lastInvalid = undefined;
+        } else if (resolution.type === "resolved") {
+          // File existence is a later phase and cannot trigger fallback.
+          return resolution;
+        }
+      } catch (error) {
+        if (!(error instanceof InvalidPackageTargetError)) throw error;
+        lastInvalid = error;
+        lastBlocked = false;
+      }
+    }
+    if (lastInvalid !== undefined) throw lastInvalid;
+    if (lastBlocked) return { type: "blocked" };
+    return { type: "unresolved" };
+  }
+  if (target !== null && typeof target === "object") {
+    const conditions = target as Record<string, unknown>;
+    const keys = Object.keys(conditions);
+    validateConditionKeys(mount, keys);
+    for (const [condition, candidate] of Object.entries(conditions)) {
       if (!ACTIVE_EXPORT_CONDITIONS.has(condition)) continue;
-      return conditionalExportTargets(target);
+      const resolution = resolvePackageTarget(mount, candidate, replacement);
+      if (resolution.type === "unresolved") continue;
+      return resolution;
     }
+    return { type: "unresolved" };
   }
-  return null;
+  throw new InvalidPackageTargetError(
+    `invalid package target for ${mount}: expected a relative ./ target`,
+  );
 }
 
-function stripDotSlash(p: string): string {
-  return p.startsWith("./") ? p.slice(2) : p;
+/** Reject integer-like condition keys, whose enumeration order is ambiguous. */
+function validateConditionKeys(mount: string, keys: string[]): void {
+  if (keys.some(isArrayIndexKey)) {
+    throw new InvalidPackageConfigError(
+      `invalid package configuration for ${mount}: numeric exports condition keys are not allowed`,
+    );
+  }
+}
+
+function isArrayIndexKey(key: string): boolean {
+  if (!/^(?:0|[1-9]\d*)$/.test(key)) return false;
+  const value = Number(key);
+  return value >= 0 && value < 0xffffffff && String(value) === key;
+}
+
+/**
+ * Resolve one URL-like package target into a normalized pack key.
+ *
+ * Targets are URL-like package-relative paths. Dot segments, `node_modules`,
+ * and encoded path separators cannot escape or reinterpret the mount. URL
+ * query/hash components do not participate in filesystem lookup, and pathname
+ * percent escapes are decoded exactly once.
+ */
+function resolvePackageTargetKey(mount: string, target: string): string {
+  if (!target.startsWith("./")) {
+    throw new InvalidPackageTargetError(
+      `invalid package target for ${mount}: ${JSON.stringify(target)}`,
+    );
+  }
+  const pathnameTarget = target.split(/[?#]/, 1)[0]!;
+  if (/%(?:2f|5c)/i.test(pathnameTarget)) {
+    throw new InvalidPackageTargetLoadError(
+      `invalid module specifier for ${mount}: ${JSON.stringify(target)}`,
+    );
+  }
+  for (const rawSegment of pathnameTarget.slice(2).split(/[\\/]/)) {
+    let decoded: string;
+    try {
+      decoded = decodeURIComponent(rawSegment);
+    } catch {
+      throw new InvalidPackageTargetLoadError(
+        `invalid module specifier for ${mount}: ${JSON.stringify(target)}`,
+      );
+    }
+    const normalized = decoded.toLowerCase();
+    if (
+      normalized === "." ||
+      normalized === ".." ||
+      normalized === "node_modules" ||
+      decoded.includes("/") ||
+      decoded.includes("\\")
+    ) {
+      throw new InvalidPackageTargetError(
+        `invalid package target for ${mount}: ${JSON.stringify(target)}`,
+      );
+    }
+  }
+  try {
+    const base = new URL(`https://sandbox.invalid/${mount}/`);
+    const resolved = new URL(target, base);
+    const basePath = decodeURIComponent(base.pathname);
+    const resolvedPath = decodeURIComponent(resolved.pathname).replace(
+      /\/+/g,
+      "/",
+    );
+    if (!resolvedPath.startsWith(basePath)) {
+      throw new InvalidPackageTargetError(
+        `invalid package target for ${mount}: ${JSON.stringify(target)}`,
+      );
+    }
+    const relative = resolvedPath.slice(basePath.length);
+    return `${mount}/${relative}`;
+  } catch (error) {
+    if (
+      error instanceof InvalidPackageTargetError ||
+      error instanceof InvalidPackageTargetLoadError
+    )
+      throw error;
+    throw new InvalidPackageTargetLoadError(
+      `invalid module specifier for ${mount}: ${JSON.stringify(target)}`,
+    );
+  }
 }
 
 function dirname(p: string): string {
