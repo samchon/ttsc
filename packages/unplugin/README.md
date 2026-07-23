@@ -165,6 +165,8 @@ await Bun.build({
 });
 ```
 
+The adapter yields to the next Bun loader for declarations, `node_modules`, and source that `ttsc` leaves unchanged. `Bun.build` also clears the project generation through its `onStart` lifecycle on every build; the Bun runtime API has no corresponding hook, so its long-lived loader performs complete input validation on every generation hit.
+
 ## Configuration
 
 By default, `@ttsc/unplugin` finds the nearest `tsconfig.json` from the file being transformed and uses that project's plugin settings, including directly installed plugin packages.
@@ -310,7 +312,7 @@ The transform host reports the program's reference graph (the transform envelope
 
 Transform plugins may additionally report, per file, the source files they consulted (the envelope's `dependencies` field); the adapter registers those as watch files too, union semantics. A plugin that declares such a list [complete](https://ttsc.dev/docs/development/concepts/protocol#dependency-completeness) for a file narrows the registration instead: only its own list plus the tsconfig chain, so files the transform never consulted stop invalidating it. Files a plugin declares `volatile` (output depending on non-file inputs such as environment or time) bypass the adapter's transform cache and are marked uncacheable where the bundler exposes that control.
 
-The transform cache uses the same input set: every regular file reached by the non-following project walk plus graph-reported inputs outside that walk (`node_modules` declarations, monorepo sibling sources, files reached through symlinks or Windows junctions, and out-of-root `extends` ancestry). One whole-project compile already contains every module's output, so the first request for each module checks its supplied source against that generation without re-reading the project. A repeated request for a module validates the complete project and external-input snapshots; adapters with a build lifecycle clear the generation at `buildStart`. This avoids one complete project walk per module on an initial build while long-lived hosts (Metro workers, the Turbopack loader, Bun) still recompile after an input changes.
+The transform cache uses the same input set: every regular file reached by the non-following project walk plus graph-reported inputs outside that walk (`node_modules` declarations, monorepo sibling sources, files reached through symlinks or Windows junctions, and out-of-root `extends` ancestry). One whole-project compile already contains every module's output. Adapters with a guaranteed `buildStart` boundary clear the previous generation there, then check only the supplied source on each module's first delivery in that build; a repeated delivery validates the complete snapshots. This avoids one complete project walk per module on an initial build. Long-lived hosts without that boundary (Metro workers, the Turbopack loader, and the Bun runtime loader) validate the complete project and external-input snapshots on every generation hit.
 
 ## Sponsors
 

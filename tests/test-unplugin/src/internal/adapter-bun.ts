@@ -1,5 +1,6 @@
 import { TestUnpluginProject, TestUnpluginRuntime } from "@ttsc/testing";
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import path from "node:path";
 
 /** Minimal shape of the options object passed to `onLoad` in the Bun plugin API. */
@@ -11,7 +12,7 @@ type BunLoadOptions = { filter: RegExp };
  */
 type BunLoader = (args: {
   path: string;
-}) => Promise<{ contents: string; loader: string }>;
+}) => Promise<{ contents: string; loader: string } | undefined>;
 
 /**
  * Register the Bun adapter against a capturing `setup` stub and return the
@@ -57,6 +58,7 @@ async function assertBunAdapterTransformsSource() {
     throw new Error("Bun adapter did not register a TypeScript source filter");
   }
   const result = await loader({ path: TestUnpluginProject.mainFile(root) });
+  assert.ok(result);
   TestUnpluginProject.assertTransformedToPlugin(result.contents);
   // The loader field is what lets the same adapter drive Bun's runtime
   // (`Bun.plugin` / bunfig preload): Bun must be told the emitted contents are
@@ -103,17 +105,112 @@ async function assertBunAdapterSurvivesPluginReportedDependencies() {
   // Fresh transform: the reported dependencies reach the watch hook. The old
   // empty-receiver context threw here instead of returning source.
   const first = await loader({ path: TestUnpluginProject.mainFile(root) });
+  assert.ok(first);
   TestUnpluginProject.assertTransformedToPlugin(first.contents);
   assert.equal(first.loader, "ts");
 
   // Cache hit: the shared transform replays the dependency notification, so the
   // no-op context must stay valid on the second load too.
   const second = await loader({ path: TestUnpluginProject.mainFile(root) });
+  assert.ok(second);
   TestUnpluginProject.assertTransformedToPlugin(second.contents);
   assert.equal(second.loader, "ts");
 }
 
+/**
+ * Asserts excluded files and no-op transforms fall through to Bun's next
+ * loader.
+ *
+ * Bun stops at the first `onLoad` callback that returns a value. The adapter's
+ * broad TypeScript filter therefore must consult the shared `transformInclude`
+ * predicate before reading and return `undefined` when the path is excluded or
+ * the transform produced no code.
+ */
+async function assertBunAdapterFallsThroughWhenItDoesNotTransform(): Promise<void> {
+  const unpluginBun = await TestUnpluginRuntime.loadUnpluginAdapter("bun");
+  const { loader } = await captureBunLoader(
+    unpluginBun({
+      plugins: [],
+    }),
+  );
+
+  assert.equal(
+    await loader({
+      path: path.join(
+        TestUnpluginProject.createProject(),
+        "node_modules",
+        "missing",
+        "index.ts",
+      ),
+    }),
+    undefined,
+    "an excluded path must not be read or claim the loader chain",
+  );
+
+  const root = TestUnpluginProject.createProject({ plugins: [] });
+  assert.equal(
+    await loader({ path: TestUnpluginProject.mainFile(root) }),
+    undefined,
+    "a no-op transform must fall through to Bun's built-in TypeScript loader",
+  );
+}
+
+/**
+ * Asserts Bun bundler `onStart` forwards the shared transform build lifecycle.
+ *
+ * The first compile emits a second module but only serves `main.ts`. After
+ * corrupting `main.ts`, the unchanged second module would still be a valid
+ * first-use cache hit unless the next build's `onStart` clears the generation.
+ */
+async function assertBunAdapterClearsCacheOnBuildStart(): Promise<void> {
+  const unpluginBun = await TestUnpluginRuntime.loadUnpluginAdapter("bun");
+  const root = TestUnpluginProject.createProject({
+    plugins: [
+      {
+        transform: "./plugin.cjs",
+        name: "fixture",
+        operation: "echo-file",
+        path: "src/secondary.ts",
+      },
+    ],
+  });
+  const secondary = path.join(root, "src", "secondary.ts");
+  fs.writeFileSync(secondary, "export const secondary = 1;\n", "utf8");
+
+  let start: (() => void | Promise<void>) | undefined;
+  const loaders: BunLoader[] = [];
+  unpluginBun().setup({
+    onStart(callback: () => void | Promise<void>) {
+      start = callback;
+    },
+    onLoad(_options: BunLoadOptions, loader: BunLoader) {
+      loaders.push(loader);
+    },
+  });
+  assert.ok(start, "Bun bundler setup must register onStart when available");
+  const loader = loaders[0];
+  assert.ok(loader);
+
+  const first = await loader({ path: TestUnpluginProject.mainFile(root) });
+  assert.ok(first);
+  TestUnpluginProject.assertTransformedToPlugin(first.contents);
+
+  fs.writeFileSync(
+    TestUnpluginProject.mainFile(root),
+    "export const broken = true;\n",
+    "utf8",
+  );
+  await start();
+  await assert.rejects(
+    () => loader({ path: secondary }),
+    /expected export const value/,
+    "the next build must compile again instead of serving the old generation",
+  );
+}
+
 export {
+  assertBunAdapterClearsCacheOnBuildStart,
+  assertBunAdapterFallsThroughWhenItDoesNotTransform,
   assertBunAdapterSurvivesPluginReportedDependencies,
   assertBunAdapterTransformsSource,
 };

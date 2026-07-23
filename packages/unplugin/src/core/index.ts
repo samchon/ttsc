@@ -6,6 +6,7 @@ import { createUnplugin } from "unplugin";
 import type { TtscUnpluginOptions } from "./options";
 import { resolveOptions } from "./options";
 import {
+  beginTtscTransformBuild,
   collectExternalInputHashes,
   collectProjectInputHashes,
   createTtscTransformCache,
@@ -81,7 +82,7 @@ const unpluginFactory: UnpluginFactory<
     },
 
     buildStart() {
-      transformCache.clear();
+      beginTtscTransformBuild(transformCache);
     },
 
     transformInclude(id) {
@@ -142,6 +143,7 @@ export type {
 } from "./options";
 export type { TtscTransformHooks } from "./transform";
 export {
+  beginTtscTransformBuild,
   collectExternalInputHashes,
   collectProjectInputHashes,
   createTtscTransformCache,
@@ -160,7 +162,7 @@ export default unplugin;
  * Excluded ids: virtual modules (NUL prefix), `.d.ts` declaration files, and
  * anything inside `node_modules`.
  */
-function isTransformTarget(id: string): boolean {
+export function isTransformTarget(id: string): boolean {
   return (
     sourceFilePattern.test(id) &&
     !virtualModulePattern.test(id) &&

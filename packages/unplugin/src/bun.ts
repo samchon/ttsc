@@ -1,8 +1,13 @@
 import fs from "node:fs/promises";
-import type { UnpluginContextMeta } from "unplugin";
 
-import { unplugin } from "./api";
-import { sourceFilePattern } from "./core/index";
+import {
+  beginTtscTransformBuild,
+  createTtscTransformCache,
+  isTransformTarget,
+  resolveOptions,
+  sourceFilePattern,
+  transformTtsc,
+} from "./core/index";
 import type { TtscUnpluginOptions } from "./core/options";
 
 /**
@@ -38,7 +43,7 @@ export type TtscBunOptions =
   | (() => TtscUnpluginOptions | undefined);
 
 /**
- * Transform context handed to the raw unplugin transform under Bun.
+ * Transform hooks handed to the shared transform under Bun.
  *
  * The shared transform calls `addWatchFile` once per plugin-reported dependency
  * so type-only inputs can enter a bundler's watch graph. Bun's bundler and
@@ -49,7 +54,7 @@ export type TtscBunOptions =
  * `this.addWatchFile` `undefined`, so any plugin reporting dependencies threw
  * `TypeError: this.addWatchFile is not a function`.
  */
-const bunTransformContext = {
+const bunTransformHooks = {
   addWatchFile(): void {},
 };
 
@@ -63,10 +68,17 @@ function resolveBunOptions(
 /**
  * Minimal subset of the Bun `BuildConfig` plugin build object.
  *
- * Only the `onLoad` hook is used; other hooks are not needed for a
- * source-to-source transform.
+ * `onLoad` drives the source transform. Bun's bundler also exposes `onStart`,
+ * which is used when available to forward the shared plugin's build lifecycle
+ * and clear its per-build cache. The runtime plugin API omits that hook.
  */
 export interface BunLikeBuild {
+  /**
+   * Register a callback for the start of a bundler build.
+   *
+   * Optional because `Bun.plugin()` runtime builders do not expose this hook.
+   */
+  onStart?(callback: () => void | Promise<void>): void;
   /**
    * Register a loader callback for files matching `filter`.
    *
@@ -80,18 +92,18 @@ export interface BunLikeBuild {
     options: { filter: RegExp },
     loader: (args: {
       path: string;
-    }) => Promise<{ contents: string; loader: BunLoader }>,
+    }) => Promise<{ contents: string; loader: BunLoader } | undefined>,
   ): void;
 }
 
 /**
  * Create a ttsc plugin for Bun's bundler AND runtime.
  *
- * Bun does not implement the unplugin protocol, so this adapter instantiates
- * the raw unplugin transform and wires it to Bun's `onLoad` hook manually. The
- * adapter reads each matching file from disk and forwards the content to the
- * ttsc transform; if the transform returns no changes the original source is
- * passed through unchanged.
+ * Bun does not implement the unplugin protocol, so this adapter wires the
+ * shared ttsc transform core to Bun's `onLoad` hook directly. It reads each
+ * included file from disk and forwards the content to the transform. Excluded
+ * files and no-op transforms return `undefined` so Bun's next loader or
+ * built-in TypeScript loader retains ownership.
  *
  * The same object works for `Bun.build({ plugins: [ttsc()] })` (bundler) and
  * for `Bun.plugin(ttsc())` / a `bunfig.toml` preload (runtime) — see
@@ -103,41 +115,33 @@ export default function bun(options?: TtscBunOptions): BunLikePlugin {
   return {
     name: "ttsc-unplugin",
     setup(build) {
-      // Build the raw transform lazily on first load rather than in `setup`.
-      // Bun runs `setup` synchronously when the plugin is registered, so a
-      // runtime registration (bun-register) that resolves its effective options
-      // through a provider must defer that resolution until after any explicit
-      // `register(options)` call in the same tick. Deferring also keeps a single
-      // transform (and its project cache) shared across every loaded module.
-      let raw: ReturnType<typeof unplugin.raw> | undefined;
+      // Resolve options lazily on first load. Runtime registration may call
+      // register(options) immediately after the import-time default
+      // registration; the provider form must observe that last synchronous
+      // update without installing a second shadowing loader.
+      let resolved: ReturnType<typeof resolveOptions> | undefined;
+      const getOptions = () =>
+        (resolved ??= resolveOptions(resolveBunOptions(options)));
+      const cache = createTtscTransformCache();
+      build.onStart?.(() => beginTtscTransformBuild(cache));
       build.onLoad({ filter: sourceFilePattern }, async (args) => {
-        raw ??= unplugin.raw(
-          resolveBunOptions(options),
-          {} as UnpluginContextMeta,
-        );
+        if (!isTransformTarget(args.path)) {
+          return undefined;
+        }
         const loader = bunLoaderFor(args.path);
         const source = await fs.readFile(args.path, "utf8");
-        const result =
-          typeof raw.transform === "function"
-            ? await raw.transform.call(
-                bunTransformContext as never,
-                source,
-                args.path,
-              )
-            : undefined;
-        // Unpack both shorthand string and object result shapes.
-        if (typeof result === "string") {
-          return { contents: result, loader };
-        }
-        if (
-          typeof result === "object" &&
-          result !== null &&
-          "code" in result &&
-          typeof result.code === "string"
-        ) {
+        const result = await transformTtsc(
+          args.path,
+          source,
+          getOptions(),
+          undefined,
+          cache,
+          bunTransformHooks,
+        );
+        if (result !== undefined) {
           return { contents: result.code, loader };
         }
-        return { contents: source, loader };
+        return undefined;
       });
     },
   };

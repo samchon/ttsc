@@ -303,14 +303,19 @@ async function assertConcurrentTransformsCompileOnce(): Promise<void> {
  * entry and reserve complete validation for a repeated module request.
  */
 async function assertFirstModuleDeliveriesDoNotRehashProject(): Promise<void> {
-  const { createTtscTransformCache, resolveOptions, transformTtsc } =
-    await TestUnpluginRuntime.loadUnpluginApi();
+  const {
+    beginTtscTransformBuild,
+    createTtscTransformCache,
+    resolveOptions,
+    transformTtsc,
+  } = await TestUnpluginRuntime.loadUnpluginApi();
   const project = createCacheProject({ fileCount: 24 });
   const modules = projectModules(project.root);
   const sources = new Map(
     modules.map((file) => [file, fs.readFileSync(file, "utf8")]),
   );
   const cache = createTtscTransformCache();
+  beginTtscTransformBuild(cache);
   const options = resolveOptions();
 
   const first = modules[0]!;
@@ -357,6 +362,57 @@ async function assertFirstModuleDeliveriesDoNotRehashProject(): Promise<void> {
 }
 
 /**
+ * Asserts a cache with no build-start lifecycle validates every generation hit,
+ * including a module that generation has not served before.
+ */
+async function assertPersistentCacheValidatesAnUnservedModule(): Promise<void> {
+  const { createTtscTransformCache, resolveOptions, transformTtsc } =
+    await TestUnpluginRuntime.loadUnpluginApi();
+  const root = TestUnpluginProject.createProject({
+    plugins: [
+      {
+        transform: "./plugin.cjs",
+        name: "fixture",
+        operation: "echo-file",
+        path: "src/lazy.ts",
+      },
+    ],
+  });
+  const lazy = path.join(root, "src", "lazy.ts");
+  fs.writeFileSync(lazy, "export const lazy = 1;\n", "utf8");
+  const cache = createTtscTransformCache();
+  const options = resolveOptions();
+
+  assert.ok(
+    await transformTtsc(
+      TestUnpluginProject.mainFile(root),
+      TestUnpluginProject.mainSource(root),
+      options,
+      undefined,
+      cache,
+    ),
+  );
+  const oldGeneration = [...cache.values()][0];
+  assert.ok(oldGeneration);
+
+  fs.appendFileSync(path.join(root, "plugin.cjs"), "\n// changed input\n");
+  const result = await transformTtsc(
+    lazy,
+    fs.readFileSync(lazy, "utf8"),
+    options,
+    undefined,
+    cache,
+  );
+  assert.ok(result);
+  assert.match(result.code, /ttsc-fixture/);
+  assert.notEqual(
+    [...cache.values()][0],
+    oldGeneration,
+    "a persistent cache must validate unrelated inputs before first delivery",
+  );
+}
+
+/**
  * Asserts a stale input-mismatch cleanup neither deletes nor bypasses a newer
  * generation installed while the stale Promise was pending.
  */
@@ -386,6 +442,58 @@ async function assertStaleMismatchUsesNewerGeneration(): Promise<void> {
     newer,
     "a stale mismatch must retry the authoritative newer generation",
   );
+}
+
+/**
+ * Asserts a caller awaiting an old but otherwise matching generation retries
+ * when a sibling caller replaces that generation.
+ */
+async function assertSupersededMatchingGenerationIsNotServed(): Promise<void> {
+  const { api, cache, key, good, file, source, options } =
+    await primeSuccessfulTransform();
+  const goodRecord = good as {
+    result: {
+      typescript: Record<string, string>;
+      [key: string]: unknown;
+    };
+    [key: string]: unknown;
+  };
+  const outputKey = Object.keys(goodRecord.result.typescript)[0]!;
+  const staleValue = {
+    ...goodRecord,
+    result: {
+      ...goodRecord.result,
+      typescript: {
+        ...goodRecord.result.typescript,
+        [outputKey]: "export const marker = 'STALE';\n",
+      },
+    },
+  };
+
+  let resolveStale!: (value: unknown) => void;
+  const stale = new Promise<unknown>((resolve) => {
+    resolveStale = resolve;
+  });
+  cache.set(key, stale);
+  const mismatching = api.transformTtsc(
+    file,
+    `${source}\n// mismatching caller\n`,
+    options,
+    undefined,
+    cache,
+  );
+  const matching = api.transformTtsc(file, source, options, undefined, cache);
+  resolveStale(staleValue);
+
+  const matchingResult = await matching;
+  assert.ok(matchingResult);
+  assert.doesNotMatch(
+    matchingResult.code,
+    /STALE/,
+    "a matching waiter must not return a generation another caller superseded",
+  );
+  assert.ok(await mismatching);
+  assert.notEqual(cache.get(key), stale);
 }
 
 /** Absolute, sorted list of the project's `src/*.ts` modules. */
@@ -589,7 +697,9 @@ export {
   assertConcurrentTransformsCompileOnce,
   assertFirstModuleDeliveriesDoNotRehashProject,
   assertHostExceptionTransformIsEvictedAndRecovers,
+  assertPersistentCacheValidatesAnUnservedModule,
   assertRejectedTransformIsEvictedAndRecovers,
   assertStaleEvictionKeepsNewerGeneration,
   assertStaleMismatchUsesNewerGeneration,
+  assertSupersededMatchingGenerationIsNotServed,
 };

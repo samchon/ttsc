@@ -40,14 +40,14 @@ export interface TtscTransformAlias {
 }
 
 /**
- * A single entry in the per-build transform cache.
+ * A single entry in the project transform cache.
  *
  * Stores the full compiler result together with SHA-256 hashes of every project
- * input file. The first delivery of each compiled module compares its supplied
- * source with the generation snapshot in constant time; a repeated delivery
- * re-hashes the complete input set to validate a long-lived cache. This avoids
- * an O(modules x project files) first build while retaining cross-build
- * invalidation for hosts that do not expose a build boundary.
+ * input file. In a cache with an explicit build lifecycle, the first delivery
+ * of each compiled module compares its supplied source with the generation
+ * snapshot in constant time; a repeated delivery re-hashes the complete input
+ * set. Persistent caches without that boundary perform complete validation on
+ * every hit.
  */
 export interface TtscCachedProjectTransform {
   /**
@@ -81,9 +81,8 @@ export interface TtscCachedProjectTransform {
   result: ITtscCompilerTransformation;
   /**
    * Files already delivered from this generation, keyed by filesystem identity.
-   * A repeated request is the observable boundary between builds for hosts that
-   * cannot clear the cache on `buildStart`, so it performs complete project and
-   * external-input validation.
+   * Build-scoped caches use this to skip complete validation only for a
+   * module's first delivery inside the current build.
    */
   servedFiles?: Set<string>;
   /**
@@ -108,9 +107,27 @@ export type TtscTransformCache = Map<
   Promise<TtscCachedProjectTransform>
 >;
 
-/** Create an empty transform cache for a single build session. */
+/**
+ * Caches whose owner has declared a real per-build lifecycle by calling
+ * {@link beginTtscTransformBuild} before transforms begin.
+ */
+const BUILD_SCOPED_TRANSFORM_CACHES = new WeakSet<TtscTransformCache>();
+
+/** Create an empty persistent transform cache. */
 export function createTtscTransformCache(): TtscTransformCache {
   return new Map();
+}
+
+/**
+ * Start a host build, clearing its prior generation and enabling constant-time
+ * first delivery for modules compiled during this build.
+ *
+ * Hosts without a guaranteed build-start callback must not call this function;
+ * their persistent caches validate the complete input snapshot on every hit.
+ */
+export function beginTtscTransformBuild(cache: TtscTransformCache): void {
+  cache.clear();
+  BUILD_SCOPED_TRANSFORM_CACHES.add(cache);
 }
 
 /** Cached case-insensitivity probes for existing macOS filesystem locations. */
@@ -204,6 +221,11 @@ export async function transformTtsc(
       // A rejected in-flight generation must not stay cached: evict it (only if
       // it is still the current entry) so a later call re-runs the transform.
       const cached = await awaitOrEvict(cache, key, transformed);
+      // While this caller awaited the old Promise, another caller may have
+      // invalidated it and installed a newer authoritative generation.
+      if (cache?.get(key) !== transformed) {
+        continue;
+      }
       if (
         // A file the plugin declared volatile must never be served from the
         // cache: its output depends on non-file inputs, so the input-hash
@@ -213,7 +235,12 @@ export async function transformTtsc(
           projectRoot: cached.projectRoot,
           result: cached.result,
         }) &&
-        matchesCachedSource(cached, file, source)
+        matchesCachedSource(
+          cached,
+          file,
+          source,
+          cache !== undefined && BUILD_SCOPED_TRANSFORM_CACHES.has(cache),
+        )
       ) {
         reportSuccessDiagnostics(cached.result);
         // A resolved `"exception"` / `"failure"` envelope makes this throw;
@@ -255,6 +282,9 @@ export async function transformTtsc(
     }
     const generation = transformed;
     const cached = await awaitOrEvict(cache, key, generation);
+    if (cache !== undefined && cache.get(key) !== generation) {
+      continue;
+    }
     const { projectRoot, result, temporaryTsconfig } = cached;
     reportSuccessDiagnostics(result);
     const code = selectOrEvict(cache, key, generation, {
@@ -759,12 +789,11 @@ export function createTransformResult(
  * state.
  *
  * Always compares the current module's in-memory source with the generation
- * snapshot. The first request for each module can then use the already compiled
- * project result without re-reading every project file. Once that module has
- * been served, a repeated request marks a possible new build in a long-lived
- * host and re-hashes every project and out-of-walk input. Any mismatch forces a
- * complete re-transform. Adapters with a real build boundary clear the cache on
- * `buildStart`; adapters also register derived watch inputs with their hosts.
+ * snapshot. A cache whose owner called {@link beginTtscTransformBuild} can use
+ * that comparison alone for the module's first delivery in the current build;
+ * repeated requests re-hash every project and out-of-walk input. Persistent
+ * caches with no guaranteed build boundary perform complete validation on every
+ * hit. Any mismatch forces a complete re-transform.
  *
  * The complete validation snapshot and {@link collectInputHashes} draw their
  * keys from the exact same {@link collectProjectInputHashes} walk, so the two
@@ -774,12 +803,13 @@ function matchesCachedSource(
   cached: TtscCachedProjectTransform,
   file: string,
   source: string,
+  buildScoped: boolean,
 ): boolean {
   const currentKey = toProjectKey(cached.projectRoot, file);
   if (cached.inputHashes[currentKey] !== hashText(source)) {
     return false;
   }
-  if (!cached.servedFiles?.has(pathIdentityKey(file))) {
+  if (buildScoped && !cached.servedFiles?.has(pathIdentityKey(file))) {
     return true;
   }
   const currentHashes = collectProjectInputHashes(cached.projectRoot);
