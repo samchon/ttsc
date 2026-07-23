@@ -44,7 +44,7 @@ func completionScopePending(
   params, _ := json.Marshal(map[string]any{
     "textDocument": map[string]any{"uri": uri},
     "position": map[string]any{
-      "line": line,
+      "line":      line,
       "character": character,
     },
   })

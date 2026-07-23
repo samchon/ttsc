@@ -166,8 +166,8 @@ interface IParenContext {
 }
 
 /**
- * Retain just enough delimiter context to distinguish a regex statement after
- * a control header or block from division after an expression value. The
+ * Retain just enough delimiter context to distinguish a regex statement after a
+ * control header or block from division after an expression value. The
  * collector is not a parser: this state only decides whether a following slash
  * is opaque regex text or executable code worth scanning for module calls.
  */
@@ -210,8 +210,7 @@ class LexicalContext {
       ) {
         if (previous.value === "function")
           this.pendingFunctionExpression = undefined;
-        else if (previous.value === "class")
-          this.pendingClassExpressions.pop();
+        else if (previous.value === "class") this.pendingClassExpressions.pop();
       }
     }
     if (value === "(") {
@@ -272,9 +271,7 @@ class LexicalContext {
     if (previous.kind !== "punct") return false;
     if (previous.value === ")") return previous.regexAllowedAfter === true;
     return (
-      previous.value === ";" ||
-      previous.value === "{" ||
-      previous.value === "}"
+      previous.value === ";" || previous.value === "{" || previous.value === "}"
     );
   }
 
@@ -311,8 +308,7 @@ function isControlHeader(tokens: readonly Token[]): boolean {
 
 function isMemberAccess(token: Token | undefined): boolean {
   return (
-    token?.kind === "punct" &&
-    (token.value === "." || token.value === "?.")
+    token?.kind === "punct" && (token.value === "." || token.value === "?.")
   );
 }
 
@@ -321,22 +317,13 @@ function isExpressionPosition(tokens: readonly Token[]): boolean {
   // `async function` inherits the context before `async`: it is a declaration
   // at a statement boundary and an expression after an assignment or return.
   const latest = tokens[index];
-  if (latest?.kind === "word" && latest.value === "async")
-    index--;
+  if (latest?.kind === "word" && latest.value === "async") index--;
   const previous = tokens[index];
   if (!previous) return false;
   if (previous.kind === "word")
     return REGEX_PRECEDING_KEYWORDS.has(previous.value);
   if (previous.kind !== "punct") return false;
-  return ![
-    ")",
-    "]",
-    "}",
-    ";",
-    "{",
-    "++",
-    "--",
-  ].includes(previous.value);
+  return ![")", "]", "}", ";", "{", "++", "--"].includes(previous.value);
 }
 
 /**
@@ -550,9 +537,7 @@ function isRegexAllowedAfter(previous: Token | undefined): boolean {
   if (previous.value === ")" || previous.value === "}")
     return previous.regexAllowedAfter === true;
   return (
-    previous.value !== "]" &&
-    previous.value !== "++" &&
-    previous.value !== "--"
+    previous.value !== "]" && previous.value !== "++" && previous.value !== "--"
   );
 }
 

@@ -27,10 +27,7 @@ export const test_platform_package_verifies_downloaded_go_archives = () => {
       goBinary: string,
       checksum: string,
     ) => boolean;
-    recordVerifiedGoExtraction: (
-      extractDir: string,
-      checksum: string,
-    ) => void;
+    recordVerifiedGoExtraction: (extractDir: string, checksum: string) => void;
     verifyGoArchiveChecksum: (file: string, expected: string) => void;
     verifyOrReplaceGoArchive: (
       archive: string,

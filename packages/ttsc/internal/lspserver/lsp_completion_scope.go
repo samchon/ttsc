@@ -75,8 +75,8 @@ type regexContext struct {
 }
 
 type regexParen struct {
-  control bool
-  function bool
+  control    bool
+  function   bool
   expression bool
 }
 
