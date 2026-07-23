@@ -116,7 +116,7 @@ export const test_npm_registry_bounds_compressed_and_expanded_archives =
       );
     }
     await assert.rejects(
-      unpackNpmTarball(tarball, undefined, 0),
+      unpackNpmTarball(new Uint8Array([0, 1, 2, 3]).buffer, undefined, 0),
       /positive safe integer/,
     );
 

@@ -5,6 +5,10 @@ import { createSandboxRequire } from "../../../../packages/playground/lib/src/sa
 /**
  * Verifies exports arrays preserve Node's final null/invalid decision.
  *
+ * Flattening array candidates loses whether the last meaningful result blocked
+ * a subpath or merely failed to resolve, which can expose an outer fallback
+ * that the package explicitly denied.
+ *
  * 1. Put empty, null-only, invalid-then-null, and null-then-valid arrays under the
  *    active `require` condition with an outer default.
  * 2. Assert blocked arrays cannot reach the default while the later valid target

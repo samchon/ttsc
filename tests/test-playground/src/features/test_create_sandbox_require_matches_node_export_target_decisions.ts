@@ -9,6 +9,10 @@ import { createSandboxRequire } from "../../../../packages/playground/lib/src/sa
  * null, and unresolved members, but a valid selected target does not fall
  * through merely because its file is missing. Conditional objects continue
  * after an active nested branch resolves to no target.
+ *
+ * 1. Exercise missing, invalid, nested-condition, mixed-map, and numeric cases.
+ * 2. Require each package through the same public sandbox entry point.
+ * 3. Assert selection fallback occurs only where Node permits it.
  */
 export const test_create_sandbox_require_matches_node_export_target_decisions =
   () => {

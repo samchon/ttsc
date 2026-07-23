@@ -9,6 +9,10 @@ import { createSandboxRequire } from "../../../../packages/playground/lib/src/sa
  * Npm aliases mount a package under the requested alias while preserving its
  * real `package.json#name`. Node allows modules inside a package that declares
  * exports to require that real name through the package's own exports map.
+ *
+ * 1. Mount an exported package under an alias and require its real-name subpath.
+ * 2. Mount a legacy alias without exports as the adjacent negative case.
+ * 3. Assert only the exports-owning package gains self-reference behavior.
  */
 export const test_create_sandbox_require_resolves_aliased_package_self_references =
   () => {

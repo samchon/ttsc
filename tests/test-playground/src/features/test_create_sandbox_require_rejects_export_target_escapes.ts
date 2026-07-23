@@ -8,6 +8,10 @@ import { createSandboxRequire } from "../../../../packages/playground/lib/src/sa
  * Validation runs after wildcard substitution and percent decoding. Request
  * keys remain lookup keys, however: an exact key containing `..` is not itself
  * a target escape when it maps to a safe file.
+ *
+ * 1. Mount direct, encoded, `node_modules`, separator, and wildcard escapes.
+ * 2. Resolve a safe exact request key containing `..` as the negative twin.
+ * 3. Assert only the safe target remains inside the package mount.
  */
 export const test_create_sandbox_require_rejects_export_target_escapes = () => {
   const require = createSandboxRequire(

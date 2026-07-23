@@ -10,6 +10,11 @@ import { createSandboxRequire } from "../../../../packages/playground/lib/src/sa
  *
  * This is the boundary guard for the root-exports fix: it exercises every
  * resolution branch other than the root-exports one in a single sandbox pack.
+ *
+ * 1. Mount legacy, exact, pattern, array, condition, scoped, relative, and JSON
+ *    package shapes.
+ * 2. Require every available entry and the blocked negative twin.
+ * 3. Assert each shared resolver branch retains its prior observable result.
  */
 export const test_create_sandbox_require_preserves_fallback_resolution = () => {
   const require = createSandboxRequire(

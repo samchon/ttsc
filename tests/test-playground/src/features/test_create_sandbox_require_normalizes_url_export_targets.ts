@@ -5,6 +5,10 @@ import { createSandboxRequire } from "../../../../packages/playground/lib/src/sa
 /**
  * Verifies exports targets use URL pathname semantics before pack lookup.
  *
+ * Raw target strings are URLs, not in-memory map keys. Looking them up without
+ * normalization rejects valid packages or treats query and fragment text as a
+ * filename.
+ *
  * 1. Declare encoded characters, double encoding, query/hash suffixes,
  *    backslashes, and repeated slashes that Node resolves inside the package.
  * 2. Assert each resolves to the normalized pack key without weakening the
