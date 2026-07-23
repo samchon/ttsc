@@ -161,7 +161,7 @@ await Bun.build({
 });
 ```
 
-Under `Bun.build`, the adapter yields to the next loader for declarations, `node_modules`, and source that `ttsc` leaves unchanged. Bun's runtime `onLoad` contract does not accept an undefined result, so `Bun.plugin()` returns those files with their original source and does not chain another overlapping runtime loader. NUL-prefixed virtual modules remain outside the adapter's filter so their creating plugin keeps ownership. `Bun.build` clears the project generation through its `onStart` lifecycle on every build.
+Under `Bun.build`, the adapter yields to the next loader for declarations, `node_modules`, source that `ttsc` leaves unchanged, and entries supplied through `Bun.build({ files })`. In-memory entries remain with Bun because ttsc transforms filesystem-backed project inputs. Bun's runtime `onLoad` contract does not accept an undefined result, so `Bun.plugin()` returns excluded and unchanged filesystem files with their original source and does not chain another overlapping runtime loader. NUL-prefixed virtual ids remain outside the adapter's filesystem filter. `Bun.build` clears the project generation through its `onStart` lifecycle on every build.
 
 For the Bun **runtime**, `bun run`, `bun test`, or any `bun <entry>.ts` with no bundling step, register the transform on Bun's module loader with `@ttsc/unplugin/bun-register`. Add a `bunfig.toml` preload once:
 

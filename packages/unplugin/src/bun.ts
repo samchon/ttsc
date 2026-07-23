@@ -1,4 +1,5 @@
 import fs from "node:fs/promises";
+import path from "node:path";
 
 import {
   beginTtscTransformBuild,
@@ -8,6 +9,7 @@ import {
   transformTtsc,
 } from "./core/index";
 import type { TtscUnpluginOptions } from "./core/options";
+import { pathIdentityKey } from "./core/transform";
 
 /**
  * Bun receives absolute filesystem paths for ordinary source files, while
@@ -82,6 +84,17 @@ function resolveBunOptions(
  */
 export interface BunLikeBuild {
   /**
+   * Build configuration exposed unchanged by Bun's bundler plugin builder.
+   *
+   * Runtime plugin builders do not supply `files`. Bun's bundler accepts an
+   * in-memory file map whose values deliberately remain `unknown` here because
+   * this adapter only needs to preserve ownership, not consume their contents.
+   */
+  config?: {
+    files?: Readonly<Record<string, unknown>>;
+    root?: string;
+  };
+  /**
    * Register a callback for the start of a bundler build.
    *
    * Optional because `Bun.plugin()` runtime builders do not expose this hook.
@@ -111,9 +124,12 @@ export interface BunLikeBuild {
  * shared ttsc transform core to Bun's `onLoad` hook directly. It reads each
  * included file from disk and forwards the content to the transform. Under
  * `Bun.build`, excluded files and no-op transforms return `undefined` so the
- * next loader retains ownership. The runtime `Bun.plugin()` API rejects an
- * undefined `onLoad` result, so that path explicitly returns the original
- * source and loader instead.
+ * next loader retains ownership. Entries supplied through `BuildConfig.files`
+ * also stay with Bun's in-memory loader: they are not filesystem project inputs
+ * and reading the same path from disk would either fail or silently replace the
+ * configured contents. The runtime `Bun.plugin()` API rejects an undefined
+ * `onLoad` result, so that path explicitly returns the original source and
+ * loader instead.
  *
  * The same object works for `Bun.build({ plugins: [ttsc()] })` (bundler) and
  * for `Bun.plugin(ttsc())` / a `bunfig.toml` preload (runtime) — see
@@ -136,6 +152,7 @@ export default function bun(options?: TtscBunOptions): BunLikePlugin {
         (resolved ??= resolveOptions(resolveBunOptions(options)));
       const cache = createTtscTransformCache();
       const runtime = build.onStart === undefined;
+      const inMemoryFiles = collectBunInMemoryFiles(build);
       // Bun.plugin() has no onStart callback, but one setup invocation belongs
       // to exactly one runtime process and module-loading session. Mark that
       // session up front so first delivery of every emitted project module is
@@ -145,6 +162,9 @@ export default function bun(options?: TtscBunOptions): BunLikePlugin {
       beginTtscTransformBuild(cache);
       build.onStart?.(() => beginTtscTransformBuild(cache));
       build.onLoad({ filter: bunSourceFilePattern }, async (args) => {
+        if (!runtime && inMemoryFiles.has(pathIdentityKey(args.path))) {
+          return undefined;
+        }
         if (!isTransformTarget(args.path)) {
           if (!runtime) return undefined;
           return {
@@ -178,4 +198,22 @@ export default function bun(options?: TtscBunOptions): BunLikePlugin {
  */
 function bunLoaderFor(filePath: string): BunLoader {
   return /x$/i.test(filePath) ? "tsx" : "ts";
+}
+
+/**
+ * Collect the filesystem identities owned by Bun's `BuildConfig.files` map.
+ *
+ * Bun reports an absolute `onLoad` path even when the corresponding map key is
+ * relative. Relative keys use the configured build root, or the process working
+ * directory when no root is supplied.
+ */
+function collectBunInMemoryFiles(build: BunLikeBuild): ReadonlySet<string> {
+  const files = build.config?.files;
+  if (files === undefined) return new Set();
+  const root = path.resolve(build.config?.root ?? process.cwd());
+  return new Set(
+    Object.keys(files).map((file) =>
+      pathIdentityKey(path.isAbsolute(file) ? file : path.resolve(root, file)),
+    ),
+  );
 }

@@ -5,6 +5,10 @@ import path from "node:path";
 
 /** Minimal shape of the options object passed to `onLoad` in the Bun plugin API. */
 type BunLoadOptions = { filter: RegExp };
+type BunBuildConfig = {
+  files?: Readonly<Record<string, unknown>>;
+  root?: string;
+};
 
 /**
  * Minimal shape of a Bun load handler: receives a path and returns transformed
@@ -24,16 +28,19 @@ async function captureBunLoader(
     setup(build: unknown): void;
   },
   mode: "bundler" | "runtime" = "runtime",
+  config?: BunBuildConfig,
 ): Promise<{
   loader: BunLoader;
   options: BunLoadOptions;
 }> {
   const loaders: { loader: BunLoader; options: BunLoadOptions }[] = [];
   const build = {
+    config,
     onLoad(options: BunLoadOptions, loader: BunLoader) {
       loaders.push({ loader, options });
     },
   } as {
+    config?: BunBuildConfig;
     onLoad(options: BunLoadOptions, loader: BunLoader): void;
     onStart?: (callback: () => void | Promise<void>) => void;
   };
@@ -191,13 +198,13 @@ async function assertBunRuntimePassesThroughUnchangedSource(): Promise<void> {
 }
 
 /**
- * Asserts the Bun adapter never claims a NUL-prefixed virtual TypeScript id.
+ * Asserts the Bun adapter filter excludes NUL-prefixed virtual TypeScript ids.
  *
- * Bun applies loader filters before callbacks. A virtual id that reaches this
- * callback would be treated as a filesystem path; rejecting it in the filter
- * leaves ownership with the plugin that created the virtual module.
+ * A virtual id that reaches this callback would be treated as a filesystem
+ * path. This assertion pins the filter boundary without assuming how another
+ * Bun runtime plugin schedules or represents its own virtual modules.
  */
-async function assertBunRuntimeLeavesVirtualModulesToTheirOwner(): Promise<void> {
+async function assertBunAdapterExcludesNulVirtualIds(): Promise<void> {
   const unpluginBun = await TestUnpluginRuntime.loadUnpluginAdapter("bun");
   const { options } = await captureBunLoader(
     unpluginBun({ plugins: [] }),
@@ -207,6 +214,39 @@ async function assertBunRuntimeLeavesVirtualModulesToTheirOwner(): Promise<void>
   assert.equal(options.filter.test("\0virtual.ts"), false);
   assert.equal(options.filter.test("/project/src/ordinary.ts"), true);
   assert.equal(options.filter.test("C:\\project\\src\\ordinary.tsx"), true);
+}
+
+/**
+ * Asserts Bun build files remain owned by Bun's in-memory loader.
+ *
+ * `BuildConfig.files` can introduce a path with no disk entry or override an
+ * existing one. Reading either through the filesystem violates Bun's stated
+ * priority and can produce an `ENOENT` or transform stale disk contents.
+ */
+async function assertBunAdapterYieldsToConfiguredInMemoryFiles(): Promise<void> {
+  const unpluginBun = await TestUnpluginRuntime.loadUnpluginAdapter("bun");
+  const root = TestUnpluginProject.createProject();
+  const main = TestUnpluginProject.mainFile(root);
+  const relativeMain = path.relative(root, main);
+  const virtual = path.resolve(root, "virtual.ts");
+  const { loader } = await captureBunLoader(unpluginBun(), "bundler", {
+    files: {
+      [relativeMain]: "export const memory = true;",
+      [virtual]: "export const virtual = true;",
+    },
+    root,
+  });
+
+  assert.equal(
+    await loader({ path: main }),
+    undefined,
+    "a relative files entry must override the existing disk source",
+  );
+  assert.equal(
+    await loader({ path: virtual }),
+    undefined,
+    "an absolute files entry must not be read from the filesystem",
+  );
 }
 
 /**
@@ -305,10 +345,11 @@ async function assertBunRuntimeDoesNotRehashProjectPerModule(): Promise<void> {
 
 export {
   assertBunAdapterClearsCacheOnBuildStart,
+  assertBunAdapterExcludesNulVirtualIds,
   assertBunAdapterFallsThroughWhenItDoesNotTransform,
   assertBunAdapterSurvivesPluginReportedDependencies,
   assertBunAdapterTransformsSource,
-  assertBunRuntimeLeavesVirtualModulesToTheirOwner,
+  assertBunAdapterYieldsToConfiguredInMemoryFiles,
   assertBunRuntimePassesThroughUnchangedSource,
   assertBunRuntimeDoesNotRehashProjectPerModule,
 };
