@@ -1,12 +1,12 @@
 import { assert, fs, path, workspaceRoot } from "../../internal/toolchain";
 
 /**
- * Verifies release gates surround Marketplace publication before npm.
+ * Verifies release preflight precedes publication without a Marketplace gate.
  *
- * Locks the ordering in `.github/workflows/release.yml`. Public Marketplace
- * readiness must be proven before build or credential use, and the tagged
- * version must be anonymously served after Marketplace publication but before
- * the irreversible npm publication.
+ * Locks the ordering in `.github/workflows/release.yml`. Deterministic tag and
+ * package validation must precede build and credential use, while eventual
+ * consistency in the public Marketplace index must not block the independent
+ * npm release channel.
  *
  * Order is a property of what the workflow runs, so the comments come out
  * first. #726 documented the runner's disk reclaim in prose that names `pnpm
@@ -17,9 +17,9 @@ import { assert, fs, path, workspaceRoot } from "../../internal/toolchain";
  * the next comment that mentions one.
  *
  * 1. Read the release workflow and drop its comment lines.
- * 2. Locate both preflights, both publications, and the exact-version gate.
- * 3. Assert readiness precedes every mutation and exact verification sits strictly
- *    between Marketplace and npm publication.
+ * 2. Locate deterministic preflight, build, credentials, and both publications.
+ * 3. Assert preflight precedes every mutation and no Marketplace probe is wired
+ *    into the release path.
  */
 export const test_release_workflow_runs_preflight_before_publication = () => {
   const source = fs.readFileSync(
@@ -41,24 +41,10 @@ export const test_release_workflow_runs_preflight_before_publication = () => {
     "release-preflight.cjs must be invoked exactly once",
   );
 
-  const marketplaceProbe = "scripts/assert-marketplace-version.cjs";
-  const readiness = workflow.indexOf(marketplaceProbe);
-  const exactVersion = workflow.indexOf(marketplaceProbe, readiness + 1);
-  assert.notEqual(readiness, -1, "Marketplace readiness gate is missing");
-  assert.notEqual(
-    exactVersion,
-    -1,
-    "Marketplace exact-version gate is missing",
-  );
   assert.equal(
-    workflow.indexOf(marketplaceProbe, exactVersion + 1),
+    workflow.indexOf("scripts/assert-marketplace-version.cjs"),
     -1,
-    "Marketplace probe must be invoked exactly twice",
-  );
-  assert.match(
-    workflow.slice(exactVersion, workflow.indexOf("\n", exactVersion)),
-    /--version "\$\{GITHUB_REF_NAME#v\}"/,
-    "post-publish gate must query the tagged release version",
+    "public Marketplace indexing must not gate the release workflow",
   );
 
   const marketplacePublish = workflow.indexOf("publish-vscode-marketplace.sh");
@@ -74,20 +60,12 @@ export const test_release_workflow_runs_preflight_before_publication = () => {
   ] as Array<[string, number]>) {
     assert.notEqual(index, -1, `expected to find ${label} step`);
     assert.ok(
-      readiness < index,
-      `readiness (index ${readiness}) must run before ${label} (index ${index})`,
+      preflight < index,
+      `preflight (index ${preflight}) must run before ${label} (index ${index})`,
     );
   }
   assert.ok(
-    preflight < readiness,
-    "deterministic release preflight must run before public readiness",
-  );
-  assert.ok(
-    marketplacePublish < exactVersion,
-    "exact-version gate must run after Marketplace publication",
-  );
-  assert.ok(
-    exactVersion < npmPublish,
-    "exact-version gate must run before npm publication",
+    marketplacePublish < npmPublish,
+    "Marketplace publication must run before npm publication",
   );
 };
