@@ -1,4 +1,5 @@
 import fs from "node:fs/promises";
+import path from "node:path";
 
 import {
   beginTtscTransformBuild,
@@ -151,7 +152,7 @@ export default function bun(options?: TtscBunOptions): BunLikePlugin {
         (resolved ??= resolveOptions(resolveBunOptions(options)));
       const cache = createTtscTransformCache();
       const runtime = build.onStart === undefined;
-      const inMemoryFiles = collectBunInMemoryFiles(build);
+      const ownsInMemoryFile = createBunInMemoryFileMatcher(build);
       // Bun.plugin() has no onStart callback, but one setup invocation belongs
       // to exactly one runtime process and module-loading session. Mark that
       // session up front so first delivery of every emitted project module is
@@ -161,7 +162,7 @@ export default function bun(options?: TtscBunOptions): BunLikePlugin {
       beginTtscTransformBuild(cache);
       build.onStart?.(() => beginTtscTransformBuild(cache));
       build.onLoad({ filter: bunSourceFilePattern }, async (args) => {
-        if (!runtime && inMemoryFiles.has(pathIdentityKey(args.path))) {
+        if (!runtime && ownsInMemoryFile(args.path)) {
           return undefined;
         }
         if (!isTransformTarget(args.path)) {
@@ -200,14 +201,26 @@ function bunLoaderFor(filePath: string): BunLoader {
 }
 
 /**
- * Collect the filesystem identities owned by Bun's `BuildConfig.files` map.
+ * Create a stable ownership matcher for Bun's `BuildConfig.files` map.
  *
  * Bun preserves relative `files` keys in the corresponding `onLoad` path.
- * Filesystem identity resolves both spellings from the process working
- * directory, while absolute keys remain absolute.
+ * Preserve those spellings directly and resolve normalized variants against the
+ * setup-time working directory. A later `process.chdir()` must not change which
+ * paths this build configuration owns.
  */
-function collectBunInMemoryFiles(build: BunLikeBuild): ReadonlySet<string> {
+function createBunInMemoryFileMatcher(
+  build: BunLikeBuild,
+): (file: string) => boolean {
   const files = build.config?.files;
-  if (files === undefined) return new Set();
-  return new Set(Object.keys(files).map(pathIdentityKey));
+  if (files === undefined) return () => false;
+  const spellings = new Set(Object.keys(files));
+  const setupDirectory = process.cwd();
+  const identities = new Set(
+    [...spellings].map((file) =>
+      pathIdentityKey(path.resolve(setupDirectory, file)),
+    ),
+  );
+  return (file) =>
+    spellings.has(file) ||
+    identities.has(pathIdentityKey(path.resolve(setupDirectory, file)));
 }

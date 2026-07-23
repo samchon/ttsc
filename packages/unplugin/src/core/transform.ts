@@ -193,8 +193,9 @@ export interface TtscTransformHooks {
  * @param options - Resolved plugin options.
  * @param aliases - Raw bundler alias configuration (Vite array or webpack
  *   object).
- * @param cache - Optional per-build cache; cleared by the caller on
- *   `buildStart`.
+ * @param cache - Optional project cache. Callers with a real `buildStart`
+ *   boundary declare it through {@link beginTtscTransformBuild}; other hosts
+ *   retain persistent validation.
  * @param hooks - Optional adapter callbacks; see {@link TtscTransformHooks}.
  *   Dependency notifications fire on cache hits too; watch registrations are
  *   per build, not per compilation.

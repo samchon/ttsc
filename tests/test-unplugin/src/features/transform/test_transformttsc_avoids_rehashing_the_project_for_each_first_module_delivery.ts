@@ -8,8 +8,8 @@ import { assertFirstModuleDeliveriesDoNotRehashProject } from "../../internal/tr
  * initial build into N complete project walks.
  *
  * 1. Compile a 24-module project and cache its whole-project result.
- * 2. Count project reads while requesting every remaining module once.
- * 3. Assert no project file was re-read and the native transform ran once.
+ * 2. Change an unrelated input, then request every remaining module once.
+ * 3. Assert the build-scoped generation still ran only one transform.
  */
 export const test_transformttsc_avoids_rehashing_the_project_for_each_first_module_delivery =
   async () => {

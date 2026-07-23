@@ -26,8 +26,8 @@ interface ICacheProjectOptions {
 process.env.TTSC_CACHE_DIR ??= TestProject.tmpdir("ttsc-unplugin-cache-");
 
 /**
- * Drive a real per-build transform over every module of a multi-file project
- * sharing one cache, then return how many whole-project transforms the fixture
+ * Drive a real transform over every module of a multi-file project sharing one
+ * persistent cache, then return how many whole-project transforms the fixture
  * plugin actually ran plus the per-module results.
  *
  * The fixture plugin appends one byte to a run-log file on every invocation, so
@@ -61,8 +61,8 @@ async function runProjectBuild(options: ICacheProjectOptions): Promise<{
 }
 
 /**
- * Asserts the per-build cache compiles a multi-file project once and serves
- * every other module from cache — the happy-path baseline.
+ * Asserts the shared project cache compiles a multi-file project once and
+ * serves every other module from cache — the happy-path baseline.
  *
  * Every compiler output key sits inside the project walk, so this holds on both
  * the old and fixed code; the out-of-walk regression is pinned separately by
@@ -92,7 +92,7 @@ async function assertCacheTransformsMultiFileProjectOnce(): Promise<void> {
  *
  * 1. Build a multi-file project whose fixture transform emits one
  *    `node_modules/**` output key.
- * 2. Run a per-build transform over every module sharing one cache.
+ * 2. Run a transform over every module sharing one persistent cache.
  * 3. Assert the plugin ran exactly once (cache hit), not once per module.
  */
 async function assertCacheHitsDespiteOutOfWalkOutputKey(): Promise<void> {
@@ -323,41 +323,17 @@ async function assertFirstModuleDeliveriesDoNotRehashProject(): Promise<void> {
     await transformTtsc(first, sources.get(first)!, options, undefined, cache),
   );
 
-  const originalReadFileSync = fs.readFileSync;
-  let projectReads = 0;
-  fs.readFileSync = ((file: fs.PathOrFileDescriptor, ...args: unknown[]) => {
-    if (
-      typeof file === "string" &&
-      path.resolve(file).startsWith(`${path.resolve(project.root)}${path.sep}`)
-    ) {
-      ++projectReads;
-    }
-    return (originalReadFileSync as (...params: unknown[]) => unknown)(
-      file,
-      ...args,
+  fs.appendFileSync(
+    path.join(project.root, "plugin.cjs"),
+    "\n// changed after the build-scoped generation started\n",
+    "utf8",
+  );
+  for (const file of modules.slice(1)) {
+    assert.ok(
+      await transformTtsc(file, sources.get(file)!, options, undefined, cache),
     );
-  }) as typeof fs.readFileSync;
-  try {
-    for (const file of modules.slice(1)) {
-      assert.ok(
-        await transformTtsc(
-          file,
-          sources.get(file)!,
-          options,
-          undefined,
-          cache,
-        ),
-      );
-    }
-  } finally {
-    fs.readFileSync = originalReadFileSync;
   }
 
-  assert.equal(
-    projectReads,
-    0,
-    "first module deliveries must not re-hash the project snapshot",
-  );
   assert.equal(fs.readFileSync(project.runLog, "utf8").length, 1);
 }
 

@@ -228,6 +228,7 @@ async function assertBunAdapterYieldsToConfiguredInMemoryFiles(): Promise<void> 
   const root = TestUnpluginProject.createProject();
   const main = TestUnpluginProject.mainFile(root);
   const relativeMain = path.relative(process.cwd(), main);
+  const reportedRelativeMain = relativeMain.split(path.sep).join("/");
   const virtual = path.resolve(root, "virtual.ts");
   const { loader } = await captureBunLoader(unpluginBun(), "bundler", {
     files: {
@@ -237,16 +238,22 @@ async function assertBunAdapterYieldsToConfiguredInMemoryFiles(): Promise<void> 
     root,
   });
 
-  assert.equal(
-    await loader({ path: relativeMain }),
-    undefined,
-    "a relative files entry must keep its cwd-relative Bun spelling",
-  );
-  assert.equal(
-    await loader({ path: virtual }),
-    undefined,
-    "an absolute files entry must not be read from the filesystem",
-  );
+  const setupDirectory = process.cwd();
+  try {
+    process.chdir(root);
+    assert.equal(
+      await loader({ path: reportedRelativeMain }),
+      undefined,
+      "relative ownership must survive separator and cwd changes",
+    );
+    assert.equal(
+      await loader({ path: virtual }),
+      undefined,
+      "an absolute files entry must not be read from the filesystem",
+    );
+  } finally {
+    process.chdir(setupDirectory);
+  }
 }
 
 /**

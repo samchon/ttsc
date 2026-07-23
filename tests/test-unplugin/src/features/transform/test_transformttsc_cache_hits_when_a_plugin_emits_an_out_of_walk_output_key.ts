@@ -1,7 +1,7 @@
 import { assertCacheHitsDespiteOutOfWalkOutputKey } from "../../internal/transform-project-cache";
 
 /**
- * Verifies samchon/ttsc#252: the per-build cache hits even when the transform
+ * Verifies #252: the shared cache accepts out-of-walk compiler output keys.
  * output is keyed outside the project's directory walk.
  *
  * The store-time hash snapshot once overlaid the compiler's output keys, which

@@ -16,7 +16,7 @@ import { emitGraphPlugins } from "./transform-graph";
  * The project-walk snapshot cannot see inputs outside the project root or under
  * ignored directories, yet the reference graph and the plugin-reported
  * dependencies prove they feed the transform. Hosts without a per-build cache
- * boundary (Metro workers, the Turbopack loader, Bun) keep one cache for the
+ * boundary (Metro workers and the Turbopack loader) keep one cache for the
  * process lifetime, so validation itself must re-hash those inputs.
  */
 

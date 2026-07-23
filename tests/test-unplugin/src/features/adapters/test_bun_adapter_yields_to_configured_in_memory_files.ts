@@ -3,13 +3,13 @@ import { assertBunAdapterYieldsToConfiguredInMemoryFiles } from "../../internal/
 /**
  * Verifies Bun build files retain their in-memory loader priority.
  *
- * Bun exposes configured `files` entries as ordinary `file` namespace paths and
- * preserves relative key spellings. Treating those paths as disk inputs either
- * fails for a virtual entry or silently transforms stale disk contents.
+ * Bun exposes configured `files` entries as ordinary `file` namespace paths.
+ * Relative keys stay relative while separators may be normalized. Treating
+ * those paths as disk inputs either fails or transforms stale disk contents.
  *
  * 1. Configure one relative override and one absolute virtual TypeScript file.
- * 2. Invoke the captured loader with Bun's relative and absolute path spellings.
- * 3. Assert the adapter yields both entries to Bun without reading disk.
+ * 2. Change cwd and invoke Bun's normalized relative and absolute spellings.
+ * 3. Assert the adapter still yields both entries without reading disk.
  */
 export const test_bun_adapter_yields_to_configured_in_memory_files =
   async () => {
