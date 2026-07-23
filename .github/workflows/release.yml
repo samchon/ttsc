@@ -50,7 +50,12 @@ jobs:
       - name: Preflight - validate release tag and package versions
         run: node scripts/release-preflight.cjs
       - name: Preflight - verify public Marketplace channel
-        run: node scripts/assert-marketplace-version.cjs --extension samchon.ttsc --timeout-ms 60000 --interval-ms 5000
+        # Non-fatal: a fresh launch (or a not-yet-served extension) has no public
+        # version to confirm here, and requiring one deadlocks the very publish
+        # that would create it. The post-publish "Verify ... serves release" step
+        # is the real gate.
+        continue-on-error: true
+        run: node scripts/assert-marketplace-version.cjs --extension samchon.ttsc --timeout-ms 15000 --interval-ms 5000
       - name: Build all packages
         run: pnpm run build
       - name: Smoke release-candidate ttscgraph snapshot
