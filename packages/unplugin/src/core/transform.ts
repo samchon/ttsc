@@ -58,7 +58,7 @@ export interface TtscCachedProjectTransform {
    * directories (`node_modules` declarations, monorepo sibling sources,
    * out-of-root tsconfig `extends` ancestry), yet the host-owned reference
    * graph proves they are transform inputs. Long-lived hosts that never clear
-   * the cache between builds (Metro workers, the Turbopack loader, Bun) would
+   * the cache between builds (Metro workers and the Turbopack loader) would
    * otherwise replay a project transform computed against a stale out-of-walk
    * input for the whole process lifetime; per-build hosts clear the cache on
    * `buildStart` and never replay across edits.
@@ -122,8 +122,9 @@ export function createTtscTransformCache(): TtscTransformCache {
  * Start a host build, clearing its prior generation and enabling constant-time
  * first delivery for modules compiled during this build.
  *
- * Hosts without a guaranteed build-start callback must not call this function;
- * their persistent caches validate the complete input snapshot on every hit.
+ * Hosts without a guaranteed build-start callback use persistent validation
+ * unless they have another immutable lifecycle. Bun runtime setup, for example,
+ * defines one process-scoped module-loading session.
  */
 export function beginTtscTransformBuild(cache: TtscTransformCache): void {
   cache.clear();
