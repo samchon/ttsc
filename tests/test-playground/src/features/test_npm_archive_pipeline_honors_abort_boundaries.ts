@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 
 import {
   downloadTarball,
+  fetchNpmMetadata,
   unpackNpmTarball,
   verifyTarball,
 } from "../../../../packages/playground/lib/src/npm/internal/npmRegistry.js";
@@ -13,15 +14,54 @@ import { createNpmFixtureTarball } from "../internal/npmFixture";
  * Superseded per-keystroke installs have no reusable result, so waiting for
  * another network chunk or digest only consumes browser-tab resources.
  *
- * 1. Abort while streamed and bodyless downloads are waiting and assert both byte
- *    collectors reject without waiting for their underlying operations.
- * 2. Abort an in-flight digest, then pass an already aborted signal through
+ * 1. Abort stalled metadata fetch, JSON, and tarball fetch operations.
+ * 2. Abort while streamed and bodyless downloads wait, including fetch handoff.
+ * 3. Abort an in-flight digest, then pass an already aborted signal through
  *    download, verification, and decompression and assert every stage stops.
  */
 export const test_npm_archive_pipeline_honors_abort_boundaries = async () => {
   const tarball = createNpmFixtureTarball();
-  const downloadController = new AbortController();
   const reason = new DOMException("fixture aborted", "AbortError");
+
+  const metadataFetchController = new AbortController();
+  const metadataFetch = fetchNpmMetadata(
+    () => new Promise<Response>(() => undefined),
+    "fixture",
+    false,
+    metadataFetchController.signal,
+  );
+  await Promise.resolve();
+  metadataFetchController.abort(reason);
+  await assert.rejects(metadataFetch, { name: "AbortError" });
+
+  const metadataJsonController = new AbortController();
+  const metadataJson = fetchNpmMetadata(
+    async () =>
+      ({
+        body: null,
+        json: () => new Promise<unknown>(() => undefined),
+        ok: true,
+        status: 200,
+      }) as Response,
+    "fixture",
+    false,
+    metadataJsonController.signal,
+  );
+  await Promise.resolve();
+  metadataJsonController.abort(reason);
+  await assert.rejects(metadataJson, { name: "AbortError" });
+
+  const tarballFetchController = new AbortController();
+  const tarballFetch = downloadTarball(
+    () => new Promise<Response>(() => undefined),
+    "https://tar.invalid/fetch.tgz",
+    tarballFetchController.signal,
+  );
+  await Promise.resolve();
+  tarballFetchController.abort(reason);
+  await assert.rejects(tarballFetch, { name: "AbortError" });
+
+  const downloadController = new AbortController();
   const downloading = downloadTarball(
     async () =>
       new Response(

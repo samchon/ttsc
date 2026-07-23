@@ -81,15 +81,17 @@ export async function fetchNpmMetadata(
   optional: boolean,
   signal: AbortSignal | undefined,
 ): Promise<INpmMetadata | null> {
-  const response = await fetchImpl(
-    `https://registry.npmjs.org/${encodeURIComponent(packageName)}`,
-    {
+  throwIfAborted(signal);
+  const response = await abortable(
+    fetchImpl(`https://registry.npmjs.org/${encodeURIComponent(packageName)}`, {
       headers: {
         Accept: "application/vnd.npm.install-v1+json, application/json",
       },
       signal,
-    },
+    }),
+    signal,
   );
+  throwIfAborted(signal);
   if (response.status === 404 && optional) {
     void response.body?.cancel().catch(() => undefined);
     return null;
@@ -100,7 +102,13 @@ export async function fetchNpmMetadata(
       `npm registry returned ${response.status} while resolving ${packageName}.`,
     );
   }
-  return (await response.json()) as INpmMetadata;
+  throwIfAborted(signal);
+  const metadata = (await abortable(
+    response.json() as Promise<INpmMetadata>,
+    signal,
+  )) as INpmMetadata;
+  throwIfAborted(signal);
+  return metadata;
 }
 
 export function selectVersion(
@@ -150,7 +158,8 @@ export async function downloadTarball(
 ): Promise<ArrayBuffer> {
   throwIfAborted(signal);
   const byteLimit = validateNpmByteLimit(maxBytes, "compressed");
-  const response = await fetchImpl(tarball, { signal });
+  const response = await abortable(fetchImpl(tarball, { signal }), signal);
+  throwIfAborted(signal);
   if (!response.ok) {
     void response.body?.cancel().catch(() => undefined);
     throw new Error(`tarball download failed with HTTP ${response.status}.`);
