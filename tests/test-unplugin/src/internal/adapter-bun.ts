@@ -208,9 +208,65 @@ async function assertBunAdapterClearsCacheOnBuildStart(): Promise<void> {
   );
 }
 
+/**
+ * Asserts Bun's runtime-only plugin shape does not re-read the whole project
+ * for every module's first delivery.
+ *
+ * `Bun.plugin()` exposes `onLoad` but no `onStart`. One setup invocation is one
+ * process-scoped module-loading session, so the adapter must start a build
+ * scope during setup rather than leave the shared cache in persistent mode.
+ */
+async function assertBunRuntimeDoesNotRehashProjectPerModule(): Promise<void> {
+  const unpluginBun = await TestUnpluginRuntime.loadUnpluginAdapter("bun");
+  const root = TestUnpluginProject.createProject({
+    plugins: [
+      {
+        transform: "./plugin.cjs",
+        name: "fixture",
+        operation: "echo-file",
+        path: "src/secondary.ts",
+      },
+    ],
+  });
+  const secondary = path.join(root, "src", "secondary.ts");
+  fs.writeFileSync(secondary, "export const secondary = 1;\n", "utf8");
+  const { loader } = await captureBunLoader(unpluginBun());
+
+  const first = await loader({ path: TestUnpluginProject.mainFile(root) });
+  assert.ok(first);
+
+  const originalReadFileSync = fs.readFileSync;
+  let projectReads = 0;
+  fs.readFileSync = ((file: fs.PathOrFileDescriptor, ...args: unknown[]) => {
+    if (
+      typeof file === "string" &&
+      path.resolve(file).startsWith(`${path.resolve(root)}${path.sep}`)
+    ) {
+      ++projectReads;
+    }
+    return (originalReadFileSync as (...values: unknown[]) => unknown)(
+      file,
+      ...args,
+    );
+  }) as typeof fs.readFileSync;
+  try {
+    const lazy = await loader({ path: secondary });
+    assert.ok(lazy);
+    assert.match(lazy.contents, /secondary = 1/);
+  } finally {
+    fs.readFileSync = originalReadFileSync;
+  }
+  assert.equal(
+    projectReads,
+    0,
+    "a first module delivery in one Bun runtime session must not walk and hash the project",
+  );
+}
+
 export {
   assertBunAdapterClearsCacheOnBuildStart,
   assertBunAdapterFallsThroughWhenItDoesNotTransform,
   assertBunAdapterSurvivesPluginReportedDependencies,
   assertBunAdapterTransformsSource,
+  assertBunRuntimeDoesNotRehashProjectPerModule,
 };

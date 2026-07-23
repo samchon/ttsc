@@ -12,6 +12,7 @@ import {
   createTtscTransformCache,
   isDeclarationFile,
   isProjectWalkPath,
+  resetTtscTransformCache,
   stripQuery,
   transformTtsc,
 } from "./transform";
@@ -38,9 +39,9 @@ const virtualModulePattern = /\0/;
  *
  * The factory resolves raw options once, creates a per-build transform cache,
  * and captures Vite alias configuration via the `vite.configResolved` hook so
- * that path aliases are forwarded to the generated tsconfig overlay. The cache
- * is cleared on every `buildStart` to avoid stale results across watch-mode
- * rebuilds.
+ * that path aliases are forwarded to the generated tsconfig overlay. Real build
+ * lifecycles use a per-build cache; Vite's development server keeps persistent
+ * validation because its one `buildStart` spans later HMR edits.
  */
 const unpluginFactory: UnpluginFactory<
   TtscUnpluginOptions | undefined,
@@ -82,7 +83,11 @@ const unpluginFactory: UnpluginFactory<
     },
 
     buildStart() {
-      beginTtscTransformBuild(transformCache);
+      if (viteCommand === "serve") {
+        resetTtscTransformCache(transformCache);
+      } else {
+        beginTtscTransformBuild(transformCache);
+      }
     },
 
     transformInclude(id) {
@@ -148,6 +153,7 @@ export {
   collectProjectInputHashes,
   createTtscTransformCache,
   isProjectWalkPath,
+  resetTtscTransformCache,
   resolveOptions,
   transformTtsc,
   unplugin,

@@ -70,7 +70,8 @@ function resolveBunOptions(
  *
  * `onLoad` drives the source transform. Bun's bundler also exposes `onStart`,
  * which is used when available to forward the shared plugin's build lifecycle
- * and clear its per-build cache. The runtime plugin API omits that hook.
+ * and clear its per-build cache. The runtime plugin API omits that hook, so
+ * plugin setup itself starts its one process-scoped module-loading session.
  */
 export interface BunLikeBuild {
   /**
@@ -109,7 +110,9 @@ export interface BunLikeBuild {
  * for `Bun.plugin(ttsc())` / a `bunfig.toml` preload (runtime) — see
  * `bun-register`. Every result carries an explicit `loader` so Bun keeps
  * transpiling the emitted TypeScript at runtime; `sourceFilePattern` only
- * matches TypeScript, so the loader is always `ts`/`tsx`.
+ * matches TypeScript, so the loader is always `ts`/`tsx`. A runtime plugin
+ * instance is one immutable load session, like Bun's own module cache; restart
+ * the process after changing compiler inputs.
  */
 export default function bun(options?: TtscBunOptions): BunLikePlugin {
   return {
@@ -123,6 +126,13 @@ export default function bun(options?: TtscBunOptions): BunLikePlugin {
       const getOptions = () =>
         (resolved ??= resolveOptions(resolveBunOptions(options)));
       const cache = createTtscTransformCache();
+      // Bun.plugin() has no onStart callback, but one setup invocation belongs
+      // to exactly one runtime process and module-loading session. Mark that
+      // session up front so first delivery of every emitted project module is
+      // constant-time instead of re-reading the whole project. Bun.build()
+      // immediately starts the same initial scope again through onStart and
+      // repeats it for subsequent builds.
+      beginTtscTransformBuild(cache);
       build.onStart?.(() => beginTtscTransformBuild(cache));
       build.onLoad({ filter: sourceFilePattern }, async (args) => {
         if (!isTransformTarget(args.path)) {

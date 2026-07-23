@@ -130,6 +130,18 @@ export function beginTtscTransformBuild(cache: TtscTransformCache): void {
   BUILD_SCOPED_TRANSFORM_CACHES.add(cache);
 }
 
+/**
+ * Clear a cache and return it to persistent validation mode.
+ *
+ * This is distinct from {@link beginTtscTransformBuild}: hosts such as Vite's
+ * development server may invoke `buildStart` only once for a process that spans
+ * many edits, so that callback cannot authorize build-scoped shortcuts.
+ */
+export function resetTtscTransformCache(cache: TtscTransformCache): void {
+  cache.clear();
+  BUILD_SCOPED_TRANSFORM_CACHES.delete(cache);
+}
+
 /** Cached case-insensitivity probes for existing macOS filesystem locations. */
 const CASE_INSENSITIVE_FILESYSTEMS = new Map<string, boolean>();
 
