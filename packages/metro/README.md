@@ -76,7 +76,7 @@ The plugin contract, `tsconfig` discovery, and per-build cache are identical to 
 
 ## Cache invalidation
 
-Metro keys its transform cache on each file's own content plus one static transformer key, and its babel-transformer contract has no per-file dependency registration. A `ttsc` transform can depend on a _type_ in another file, so `@ttsc/metro` folds a project fingerprint into that static key: every input file under the project root, plus the reference-graph inputs outside it (`node_modules` declarations, monorepo sibling sources, out-of-root tsconfig `extends` ancestry) recorded under `node_modules/.cache/ttsc-metro`. Editing any of them re-keys the next run, so `metro bundle` and dev-server starts pick up cross-file type changes without `--reset-cache`.
+Metro keys its transform cache on each file's own content plus one static transformer key, and its babel-transformer contract has no per-file dependency registration. A `ttsc` transform can depend on a _type_ in another file, so `@ttsc/metro` folds a project fingerprint into that static key: every regular file reached by the non-following project walk, plus reference-graph inputs outside that walk (`node_modules` declarations, monorepo sibling sources, files reached through symlinks or Windows junctions, and out-of-root tsconfig `extends` ancestry) recorded under `node_modules/.cache/ttsc-metro`. Editing any of them re-keys the next run, so `metro bundle` and dev-server starts pick up cross-file type changes without `--reset-cache`.
 
 The granularity is project-level by necessity: Metro evaluates the transformer key once per run, so any fingerprinted change re-transforms every file on the next run. What remains outside the mechanism's reach:
 

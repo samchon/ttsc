@@ -543,6 +543,45 @@ export async function assertTransformerRecordsOnlyExternalInputs(): Promise<void
 }
 
 /**
+ * Asserts Metro records an existing linked input because the project walk does
+ * not follow the link and therefore cannot fingerprint its target.
+ */
+export async function assertTransformerRecordsLinkedInput(): Promise<void> {
+  const shared = TestProject.tmpdir("ttsc-metro-linked-");
+  const target = path.join(shared, "types.d.ts");
+  fs.writeFileSync(target, "declare const marker: string;\n", "utf8");
+
+  const root = TestUnpluginProject.createProject({ plugins: [] });
+  const linkedDirectory = path.join(root, "linked");
+  fs.symlinkSync(
+    shared,
+    linkedDirectory,
+    process.platform === "win32" ? "junction" : "dir",
+  );
+  const linked = path.join(linkedDirectory, "types.d.ts");
+  await prepareSnapshot(root);
+  await TestMetroRuntime.runTransform({
+    options: {
+      upstreamTransformer: TestMetroRuntime.fakeUpstreamPathOnDisk(),
+      plugins: [
+        {
+          transform: "./plugin.cjs",
+          name: "reporter",
+          operation: "emit-dependencies",
+          dependencies: ["linked/types.d.ts"],
+        },
+      ],
+    },
+    params: {
+      src: TestUnpluginProject.mainSource(root),
+      filename: "src/main.ts",
+      options: { projectRoot: root },
+    },
+  });
+  assert.deepEqual(workerSnapshotFiles(root), [linked]);
+}
+
+/**
  * Asserts a plugin-declared volatile transform marks this worker's snapshot
  * volatile, feeding the nonce degradation checked by the volatile key case.
  */

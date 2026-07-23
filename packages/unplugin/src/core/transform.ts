@@ -876,11 +876,12 @@ function listProjectInputFiles(root: string): string[] {
 
 /**
  * Report whether an absolute `file` belongs to the project walk universe of
- * `root`: it lies under `root` and no segment of the relative path (including
- * the basename) is an ignored directory name. The predicate mirrors
- * {@link listProjectInputFiles} exactly, so "walk-visible" here means "hashed by
- * {@link collectProjectInputHashes}". Anything else is an out-of-walk input that
- * only the reference graph can prove relevant.
+ * `root`: it lies under `root`, every component exists without traversing a
+ * symbolic link, the leaf is a regular file, and no segment of the relative
+ * path is ignored. The predicate mirrors {@link listProjectInputFiles} exactly,
+ * so "walk-visible" here means "hashed by {@link collectProjectInputHashes}".
+ * Missing paths and files reached through symlinks or Windows junctions are
+ * out-of-walk inputs that only the reference graph can prove relevant.
  */
 export function isProjectWalkPath(root: string, file: string): boolean {
   const relative = path.relative(pathIdentityKey(root), pathIdentityKey(file));
@@ -892,9 +893,28 @@ export function isProjectWalkPath(root: string, file: string): boolean {
   ) {
     return false;
   }
-  return relative
-    .split(path.sep)
-    .every((segment) => !isIgnoredProjectDirectory(segment));
+  const segments = relative.split(path.sep);
+  if (segments.some(isIgnoredProjectDirectory)) {
+    return false;
+  }
+  let current = path.resolve(root);
+  for (let index = 0; index < segments.length; ++index) {
+    current = path.join(current, segments[index]!);
+    let stats: fs.Stats;
+    try {
+      stats = fs.lstatSync(current);
+    } catch {
+      return false;
+    }
+    if (stats.isSymbolicLink()) {
+      return false;
+    }
+    const leaf = index === segments.length - 1;
+    if ((leaf && !stats.isFile()) || (!leaf && !stats.isDirectory())) {
+      return false;
+    }
+  }
+  return true;
 }
 
 /**

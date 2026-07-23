@@ -310,7 +310,7 @@ The transform host reports the program's reference graph (the transform envelope
 
 Transform plugins may additionally report, per file, the source files they consulted (the envelope's `dependencies` field); the adapter registers those as watch files too, union semantics. A plugin that declares such a list [complete](https://ttsc.dev/docs/development/concepts/protocol#dependency-completeness) for a file narrows the registration instead: only its own list plus the tsconfig chain, so files the transform never consulted stop invalidating it. Files a plugin declares `volatile` (output depending on non-file inputs such as environment or time) bypass the adapter's transform cache and are marked uncacheable where the bundler exposes that control.
 
-The transform cache itself validates against the same input set: every file under the project root plus the graph-reported inputs outside it (`node_modules` declarations, monorepo sibling sources, out-of-root `extends` ancestry). Hosts that keep one cache for the process lifetime instead of per build (Metro workers, the Turbopack loader, Bun) therefore recompile when any of those inputs changes, not only in-project ones.
+The transform cache itself validates against the same input set: every regular file reached by the non-following project walk plus graph-reported inputs outside that walk (`node_modules` declarations, monorepo sibling sources, files reached through symlinks or Windows junctions, and out-of-root `extends` ancestry). Hosts that keep one cache for the process lifetime instead of per build (Metro workers, the Turbopack loader, Bun) therefore recompile when any of those inputs changes, not only ordinary in-project files.
 
 ## Sponsors
 
