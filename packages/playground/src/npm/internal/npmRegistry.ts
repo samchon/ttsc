@@ -85,8 +85,12 @@ export async function fetchNpmMetadata(
       signal,
     },
   );
-  if (response.status === 404 && optional) return null;
+  if (response.status === 404 && optional) {
+    void response.body?.cancel().catch(() => undefined);
+    return null;
+  }
   if (!response.ok) {
+    void response.body?.cancel().catch(() => undefined);
     throw new Error(
       `npm registry returned ${response.status} while resolving ${packageName}.`,
     );
