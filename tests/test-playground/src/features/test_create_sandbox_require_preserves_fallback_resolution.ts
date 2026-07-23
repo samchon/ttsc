@@ -35,9 +35,10 @@ export const test_create_sandbox_require_preserves_fallback_resolution = () => {
       }),
       "w/src/feat/x.js": "module.exports = { v: 'wild' };",
       "w/src/deep/x.js": "module.exports = { v: 'deep-wild' };",
-      // array fallback, null blocker, and inactive condition target
+      // array fallback from an invalid target, null blocker, and inactive
+      // condition target
       "a/package.json": JSON.stringify({
-        exports: { "./entry": ["./missing.js", "./available.js"] },
+        exports: { "./entry": ["invalid-target", "./available.js"] },
       }),
       "a/available.js": "module.exports = { v: 'array' };",
       "blocked/package.json": JSON.stringify({ exports: { "./x": null } }),

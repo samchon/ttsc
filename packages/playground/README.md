@@ -148,6 +148,8 @@ When a direct source import is removed, solve the complete current root list wit
 
 `PlaygroundShell` wires this automatically on every keystroke, debounced 900 ms, with an abort signal on source change.
 
+The Execute lane's CommonJS resolver treats `package.json#exports` as the package boundary. It selects `require` and `default` conditions in manifest order, preserves Node's distinction between target selection and file loading, validates relative targets after wildcard substitution, and rejects mixed or numeric condition maps. A package mounted through an npm alias may still self-reference its real manifest `name` when it declares exports; packages without exports keep legacy direct-path resolution and do not gain self-reference behavior.
+
 ## Tailwind setup
 
 The bundled React components use Tailwind 4 utility classes. The host site must load Tailwind for them to render correctly.

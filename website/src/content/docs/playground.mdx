@@ -14,7 +14,7 @@ Incremental additions retain each mounted package's registry target, exact versi
 
 Removing a direct import solves the complete remaining root set before the playground replaces its worker and compiler, Monaco, and Execute maps; aborted or failed replacement solves never publish a partial graph.
 
-Node builtins, in either bare or `node:` form, are never requested from npm. The Execute sandbox treats a package `exports` map as its public boundary and evaluates the first applicable `require` or `default` condition in manifest order. It does not activate Node-only or ESM-only conditions.
+Node builtins, in either bare or `node:` form, are never requested from npm. The Execute sandbox treats a package `exports` map as its public boundary and evaluates applicable `require` and `default` conditions in manifest order. It preserves Node's separation between selecting a target and loading its file, validates relative targets after wildcard substitution, and rejects invalid mixed or numeric condition maps. It does not activate Node-only or ESM-only conditions. A package mounted through an npm alias can self-reference its real manifest `name` when it declares exports; a package without exports keeps legacy direct-path resolution and does not gain self-reference behavior.
 
 The `typia` packages used by the default examples remain bundled because the wasm-side typia adapter must match the exact typia source version linked into the playground compiler.
 
