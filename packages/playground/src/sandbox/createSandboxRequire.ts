@@ -89,35 +89,40 @@ export function createSandboxRequire(
     return manifest?.exports !== null && manifest?.exports !== undefined;
   };
 
-  /** Resolve one legacy CommonJS file-or-directory candidate. */
-  const resolveLegacyPath = (
-    candidate: string,
-    seen = new Set<string>(),
-  ): string | null => {
-    const file = tryPaths(
+  const resolveLegacyFile = (candidate: string): string | null =>
+    tryPaths(
       candidate,
       `${candidate}.js`,
       `${candidate}.cjs`,
       `${candidate}.mjs`,
       `${candidate}.json`,
     );
+
+  const resolveLegacyIndex = (candidate: string): string | null =>
+    tryPaths(
+      `${candidate}/index.js`,
+      `${candidate}/index.cjs`,
+      `${candidate}/index.json`,
+    );
+
+  /** Resolve one legacy CommonJS file-or-directory candidate. */
+  const resolveLegacyPath = (candidate: string): string | null => {
+    const file = resolveLegacyFile(candidate);
     if (file !== null) return file;
-    if (seen.has(candidate)) return null;
-    seen.add(candidate);
 
     const manifest = readPackageJson(candidate);
     if (typeof manifest?.main === "string" && manifest.main.length !== 0) {
       const main = posixJoin(candidate, manifest.main);
       if (main !== candidate) {
-        const resolvedMain = resolveLegacyPath(main, seen);
+        // Node's legacy tryPackage resolves the selected main as a file, then
+        // as that directory's index. It does not recursively interpret a
+        // second package.json below the selected main directory.
+        const resolvedMain =
+          resolveLegacyFile(main) ?? resolveLegacyIndex(main);
         if (resolvedMain !== null) return resolvedMain;
       }
     }
-    return tryPaths(
-      `${candidate}/index.js`,
-      `${candidate}/index.cjs`,
-      `${candidate}/index.json`,
-    );
+    return resolveLegacyIndex(candidate);
   };
 
   // Read package.json from pack and resolve via main/exports.
@@ -520,10 +525,6 @@ function resolvePackageTargetKey(mount: string, target: string): string {
       `invalid module specifier for ${mount}: ${JSON.stringify(target)}`,
     );
   }
-}
-
-function stripDotSlash(p: string): string {
-  return p.startsWith("./") ? p.slice(2) : p;
 }
 
 function dirname(p: string): string {

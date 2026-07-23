@@ -5,10 +5,14 @@ import { createSandboxRequire } from "../../../../packages/playground/lib/src/sa
 /**
  * Verifies packages without exports retain Node-style legacy fallbacks.
  *
- * 1. Provide a missing main with a root index, a JSON-only root index, and a main
- *    directory containing only `index.json`.
- * 2. Assert failed main lookup continues to root fallback and JSON index files are
- *    available at both directory levels.
+ * Root, relative, and bare-subpath requests all enter CommonJS directory
+ * resolution, but a selected root `main` must not recurse into another
+ * manifest.
+ *
+ * 1. Exercise missing main, root JSON index, and main-directory JSON index.
+ * 2. Resolve relative and bare subdirectories through their own manifests.
+ * 3. Assert a root main target ignores a nested manifest and falls back to the
+ *    root index.
  */
 export const test_create_sandbox_require_completes_legacy_index_fallbacks =
   () => {
@@ -34,6 +38,12 @@ export const test_create_sandbox_require_completes_legacy_index_fallbacks =
         "bare-sub/index.cjs": "module.exports = require('bare-sub/sub');",
         "bare-sub/sub/package.json": JSON.stringify({ main: "./main.cjs" }),
         "bare-sub/sub/main.cjs": "module.exports = 'bare-sub-main';",
+        "main-boundary/package.json": JSON.stringify({ main: "./sub" }),
+        "main-boundary/sub/package.json": JSON.stringify({
+          main: "./nested.cjs",
+        }),
+        "main-boundary/sub/nested.cjs": "module.exports = 'wrong-nested-main';",
+        "main-boundary/index.js": "module.exports = 'root-fallback';",
       },
       { console },
     );
@@ -48,4 +58,9 @@ export const test_create_sandbox_require_completes_legacy_index_fallbacks =
       "relative-main",
     ]);
     assert.equal(require("bare-sub"), "bare-sub-main");
+    assert.equal(
+      require("main-boundary"),
+      "root-fallback",
+      "a root main directory does not recursively interpret its manifest",
+    );
   };
