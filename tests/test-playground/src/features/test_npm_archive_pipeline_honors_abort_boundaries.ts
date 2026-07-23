@@ -13,8 +13,8 @@ import { createNpmFixtureTarball } from "../internal/npmFixture";
  * Superseded per-keystroke installs have no reusable result, so waiting for
  * another network chunk or digest only consumes browser-tab resources.
  *
- * 1. Abort while a streamed download is waiting and assert the byte collector
- *    rejects without waiting for another chunk.
+ * 1. Abort while streamed and bodyless downloads are waiting and assert both byte
+ *    collectors reject without waiting for their underlying operations.
  * 2. Abort an in-flight digest, then pass an already aborted signal through
  *    download, verification, and decompression and assert every stage stops.
  */
@@ -35,6 +35,23 @@ export const test_npm_archive_pipeline_honors_abort_boundaries = async () => {
   await Promise.resolve();
   downloadController.abort(reason);
   await assert.rejects(downloading, { name: "AbortError" });
+
+  const bodylessController = new AbortController();
+  const bodylessDownload = downloadTarball(
+    async () =>
+      ({
+        arrayBuffer: () => new Promise<ArrayBuffer>(() => undefined),
+        body: null,
+        headers: new Headers(),
+        ok: true,
+        status: 200,
+      }) as Response,
+    "https://tar.invalid/bodyless.tgz",
+    bodylessController.signal,
+  );
+  await Promise.resolve();
+  bodylessController.abort(reason);
+  await assert.rejects(bodylessDownload, { name: "AbortError" });
 
   const digestController = new AbortController();
   const digesting = verifyTarball(
