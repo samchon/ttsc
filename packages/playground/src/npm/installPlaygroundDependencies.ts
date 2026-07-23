@@ -15,9 +15,12 @@ import {
   throwIfAborted,
   toTypesPackageName,
   unpackNpmTarball,
+  verifyTarball,
 } from "./internal/npmRegistry";
 
 const DEFAULT_MAX_PACKAGES = 48;
+const DEFAULT_MAX_TARBALL_BYTES = 16 * 1024 * 1024;
+const DEFAULT_MAX_UNPACKED_BYTES = 64 * 1024 * 1024;
 
 /**
  * Resolve, download, and unpack a set of npm packages directly inside the
@@ -72,6 +75,9 @@ export async function installPlaygroundDependencies(
     });
   }
   const maxPackages = options.maxPackages ?? DEFAULT_MAX_PACKAGES;
+  const maxTarballBytes = options.maxTarballBytes ?? DEFAULT_MAX_TARBALL_BYTES;
+  const maxUnpackedBytes =
+    options.maxUnpackedBytes ?? DEFAULT_MAX_UNPACKED_BYTES;
   const queue: IQueueItem[] = [];
   const queued = new Map<string, IQueueItem>();
   const done = new Map<string, string>();
@@ -250,19 +256,30 @@ export async function installPlaygroundDependencies(
     const versionMetadata = metadata.versions[version];
     const tarball = versionMetadata?.dist?.tarball;
     if (!versionMetadata || !tarball) {
-      if (item.optional) {
-        done.set(item.name, "");
-        report("skip", item, `Skipped optional ${item.name}`);
-        continue;
-      }
       throw new Error(`No tarball found for ${item.name}@${version}.`);
     }
 
-    report("download", item, `Downloading ${item.name}@${version}`, version);
-    const tgz = await downloadTarball(fetchImpl, tarball, options.signal);
-    throwIfAborted(options.signal);
-    report("extract", item, `Extracting ${item.name}@${version}`, version);
-    const unpacked = await unpackNpmTarball(tgz, options.signal);
+    let unpacked: Awaited<ReturnType<typeof unpackNpmTarball>>;
+    try {
+      report("download", item, `Downloading ${item.name}@${version}`, version);
+      const tgz = await downloadTarball(
+        fetchImpl,
+        tarball,
+        options.signal,
+        maxTarballBytes,
+      );
+      throwIfAborted(options.signal);
+      await verifyTarball(tgz, versionMetadata.dist ?? {}, options.signal);
+      throwIfAborted(options.signal);
+      report("extract", item, `Extracting ${item.name}@${version}`, version);
+      unpacked = await unpackNpmTarball(tgz, options.signal, maxUnpackedBytes);
+    } catch (error) {
+      if (options.signal?.aborted) throw error;
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to install ${item.name}@${version}: ${message}`, {
+        cause: error,
+      });
+    }
     throwIfAborted(options.signal);
     const packageJson = {
       ...versionMetadata,

@@ -22,6 +22,8 @@ export interface INpmVersionMetadata {
   peerDependencies?: Record<string, string>;
   peerDependenciesMeta?: Record<string, { optional?: boolean }>;
   dist?: {
+    integrity?: string;
+    shasum?: string;
     tarball?: string;
   };
 }
@@ -135,20 +137,73 @@ export async function downloadTarball(
   fetchImpl: FetchLike,
   tarball: string,
   signal: AbortSignal | undefined,
+  maxBytes = 16 * 1024 * 1024,
 ): Promise<ArrayBuffer> {
   const response = await fetchImpl(tarball, { signal });
   if (!response.ok) {
     throw new Error(`tarball download failed with HTTP ${response.status}.`);
   }
-  return response.arrayBuffer();
+  const declaredLength = response.headers.get("content-length");
+  if (declaredLength !== null) {
+    const parsed = Number(declaredLength);
+    if (Number.isFinite(parsed) && parsed >= 0 && parsed > maxBytes) {
+      throw new Error(
+        `tarball exceeds the ${formatByteLimit(maxBytes)} compressed byte limit.`,
+      );
+    }
+  }
+  return collectBoundedStream(
+    response.body,
+    maxBytes,
+    "compressed",
+    signal,
+    () => response.arrayBuffer(),
+  );
+}
+
+/** Verify registry authentication metadata against the compressed bytes. */
+export async function verifyTarball(
+  tgz: ArrayBuffer,
+  dist: { integrity?: string; shasum?: string },
+  signal: AbortSignal | undefined,
+): Promise<void> {
+  throwIfAborted(signal);
+  if (dist.integrity !== undefined) {
+    const candidates = parseIntegrity(dist.integrity);
+    const strength = Math.max(...candidates.map(({ rank }) => rank));
+    const strongest = candidates.filter(
+      (candidate) => candidate.rank === strength,
+    );
+    const actual = new Uint8Array(
+      await crypto.subtle.digest(strongest[0]!.webAlgorithm, tgz),
+    );
+    throwIfAborted(signal);
+    if (!strongest.some(({ digest }) => equalBytes(actual, digest))) {
+      throw new Error(
+        `tarball integrity mismatch (${strongest[0]!.algorithm}).`,
+      );
+    }
+    return;
+  }
+  if (dist.shasum !== undefined) {
+    if (!/^[a-fA-F0-9]{40}$/.test(dist.shasum)) {
+      throw new Error("tarball shasum is not a valid SHA-1 digest.");
+    }
+    const actual = new Uint8Array(await crypto.subtle.digest("SHA-1", tgz));
+    throwIfAborted(signal);
+    if (!equalBytes(actual, decodeHex(dist.shasum))) {
+      throw new Error("tarball shasum mismatch (sha1).");
+    }
+  }
 }
 
 export async function unpackNpmTarball(
   tgz: ArrayBuffer,
   signal: AbortSignal | undefined,
+  maxBytes = 64 * 1024 * 1024,
 ): Promise<IUnpackedPackage> {
   throwIfAborted(signal);
-  const tar = await gunzip(tgz);
+  const tar = await gunzip(tgz, maxBytes, signal);
   throwIfAborted(signal);
   const decoder = new TextDecoder();
   const files: Record<string, string> = {};
@@ -156,24 +211,40 @@ export async function unpackNpmTarball(
   let offset = 0;
   let longPath: string | null = null;
   let paxPath: string | null = null;
+  let terminated = false;
 
-  while (offset + 512 <= tar.length) {
+  while (offset < tar.length) {
     throwIfAborted(signal);
+    if (offset + 512 > tar.length) {
+      throw new Error("Truncated tar header.");
+    }
     const header = tar.subarray(offset, offset + 512);
     offset += 512;
-    if (header.every((value) => value === 0)) break;
+    if (header.every((value) => value === 0)) {
+      terminated = true;
+      break;
+    }
 
     const type = String.fromCharCode(header[156] ?? 0);
     const size = parseOctal(header.subarray(124, 136));
+    if (size > tar.length - offset) {
+      throw new Error("Tar entry body extends beyond the archive.");
+    }
     const body = tar.subarray(offset, offset + size);
-    offset += Math.ceil(size / 512) * 512;
+    const paddedSize = Math.ceil(size / 512) * 512;
+    if (!Number.isSafeInteger(paddedSize) || paddedSize > tar.length - offset) {
+      throw new Error("Tar entry padding extends beyond the archive.");
+    }
+    offset += paddedSize;
 
     if (type === "L") {
       longPath = trimNull(decoder.decode(body));
+      confineTarPath(longPath);
       continue;
     }
     if (type === "x") {
       paxPath = parsePaxPath(body);
+      if (paxPath !== null) confineTarPath(paxPath);
       continue;
     }
     if (type !== "0" && type !== "\0") {
@@ -182,12 +253,11 @@ export async function unpackNpmTarball(
       continue;
     }
 
-    const rawPath =
-      paxPath ?? longPath ?? readTarString(header.subarray(0, 100), decoder);
+    const rawPath = paxPath ?? longPath ?? readTarHeaderPath(header, decoder);
     longPath = null;
     paxPath = null;
-    const rel = stripTarRoot(rawPath);
-    if (!rel || !TEXT_FILE_REGEXP.test(rel)) continue;
+    const rel = confineTarPath(rawPath);
+    if (!TEXT_FILE_REGEXP.test(rel)) continue;
 
     const text = decoder.decode(body);
     files[rel] = text;
@@ -199,11 +269,16 @@ export async function unpackNpmTarball(
       }
     }
   }
+  if (!terminated) throw new Error("Tar archive has no end marker.");
 
   return { files, packageJson };
 }
 
-async function gunzip(input: ArrayBuffer): Promise<Uint8Array> {
+async function gunzip(
+  input: ArrayBuffer,
+  maxBytes: number,
+  signal: AbortSignal | undefined,
+): Promise<Uint8Array> {
   if (!("DecompressionStream" in globalThis)) {
     throw new Error(
       "This browser cannot unpack npm tgz files because DecompressionStream is unavailable.",
@@ -212,7 +287,11 @@ async function gunzip(input: ArrayBuffer): Promise<Uint8Array> {
   const stream = new Blob([input])
     .stream()
     .pipeThrough(new DecompressionStream("gzip"));
-  return new Uint8Array(await new Response(stream).arrayBuffer());
+  return new Uint8Array(
+    await collectBoundedStream(stream, maxBytes, "expanded", signal, async () =>
+      new Response(stream).arrayBuffer(),
+    ),
+  );
 }
 
 export interface IMountedFiles {
@@ -307,12 +386,18 @@ function readTarString(bytes: Uint8Array, decoder: TextDecoder): string {
 
 function trimNull(text: string): string {
   const index = text.indexOf("\0");
-  return (index < 0 ? text : text.slice(0, index)).trim();
+  return index < 0 ? text : text.slice(0, index);
 }
 
 function parseOctal(bytes: Uint8Array): number {
   const text = trimNull(new TextDecoder().decode(bytes)).trim();
-  return text ? Number.parseInt(text, 8) : 0;
+  if (text.length === 0) return 0;
+  if (!/^[0-7]+$/.test(text)) throw new Error("Invalid tar entry size.");
+  const value = Number.parseInt(text, 8);
+  if (!Number.isSafeInteger(value) || value < 0) {
+    throw new Error("Tar entry size is outside the safe integer range.");
+  }
+  return value;
 }
 
 function parsePaxPath(bytes: Uint8Array): string | null {
@@ -343,11 +428,164 @@ function parsePaxPath(bytes: Uint8Array): string | null {
   return path;
 }
 
-function stripTarRoot(path: string): string {
-  const normalized = path.replace(/\\/g, "/").replace(/^\/+/, "");
-  if (!normalized) return "";
-  if (normalized.startsWith("package/"))
-    return normalized.slice("package/".length);
-  const slash = normalized.indexOf("/");
-  return slash < 0 ? normalized : normalized.slice(slash + 1);
+function readTarHeaderPath(header: Uint8Array, decoder: TextDecoder): string {
+  const name = readTarString(header.subarray(0, 100), decoder);
+  const prefix = readTarString(header.subarray(345, 500), decoder);
+  return prefix ? `${prefix}/${name}` : name;
+}
+
+/** Require a regular npm archive path below its canonical `package/` root. */
+function confineTarPath(rawPath: string): string {
+  if (
+    rawPath.length === 0 ||
+    rawPath.includes("\\") ||
+    rawPath.startsWith("/") ||
+    /^[a-zA-Z]:/.test(rawPath)
+  ) {
+    throw new Error(`Invalid npm tar entry path ${JSON.stringify(rawPath)}.`);
+  }
+  const segments = rawPath.split("/");
+  if (
+    segments[0] !== "package" ||
+    segments.length < 2 ||
+    segments.some(
+      (segment, index) =>
+        segment.length === 0 ||
+        segment === "." ||
+        segment === ".." ||
+        (index > 0 && /^[a-zA-Z]:/.test(segment)),
+    )
+  ) {
+    throw new Error(
+      `npm tar entry is outside the canonical package root: ${JSON.stringify(rawPath)}.`,
+    );
+  }
+  return segments.slice(1).join("/");
+}
+
+interface IIntegrityCandidate {
+  algorithm: string;
+  digest: Uint8Array;
+  rank: number;
+  webAlgorithm: AlgorithmIdentifier;
+}
+
+function parseIntegrity(integrity: string): IIntegrityCandidate[] {
+  const tokens = integrity.trim().split(/\s+/).filter(Boolean);
+  if (tokens.length === 0) throw new Error("tarball integrity is empty.");
+  const candidates: IIntegrityCandidate[] = [];
+  for (const token of tokens) {
+    const match = /^([A-Za-z0-9]+)-([A-Za-z0-9+/]+={0,2})(?:\?[!-~]+)?$/i.exec(
+      token,
+    );
+    if (!match) {
+      throw new Error("tarball integrity contains malformed metadata.");
+    }
+    const algorithm = match[1]!.toLowerCase();
+    if (!["sha1", "sha256", "sha384", "sha512"].includes(algorithm)) {
+      decodeBase64(match[2]!);
+      continue;
+    }
+    const expectedLength =
+      algorithm === "sha512"
+        ? 64
+        : algorithm === "sha384"
+          ? 48
+          : algorithm === "sha256"
+            ? 32
+            : 20;
+    const digest = decodeBase64(match[2]!);
+    if (digest.length !== expectedLength) {
+      throw new Error("tarball integrity contains a malformed digest.");
+    }
+    candidates.push({
+      algorithm,
+      digest,
+      rank: expectedLength,
+      webAlgorithm: algorithm.replace("sha", "SHA-") as AlgorithmIdentifier,
+    });
+  }
+  if (candidates.length === 0) {
+    throw new Error("tarball integrity has no supported digest algorithm.");
+  }
+  return candidates;
+}
+
+function decodeBase64(value: string): Uint8Array {
+  try {
+    const decoded = atob(value);
+    return Uint8Array.from(decoded, (character) => character.charCodeAt(0));
+  } catch {
+    throw new Error("tarball integrity contains malformed base64.");
+  }
+}
+
+function decodeHex(value: string): Uint8Array {
+  return Uint8Array.from(value.match(/../g) ?? [], (byte) =>
+    Number.parseInt(byte, 16),
+  );
+}
+
+function equalBytes(left: Uint8Array, right: Uint8Array): boolean {
+  if (left.length !== right.length) return false;
+  let difference = 0;
+  for (let index = 0; index < left.length; ++index) {
+    difference |= left[index]! ^ right[index]!;
+  }
+  return difference === 0;
+}
+
+async function collectBoundedStream(
+  stream: ReadableStream<Uint8Array> | null,
+  maxBytes: number,
+  kind: "compressed" | "expanded",
+  signal: AbortSignal | undefined,
+  fallback: () => Promise<ArrayBuffer>,
+): Promise<ArrayBuffer> {
+  if (!Number.isSafeInteger(maxBytes) || maxBytes <= 0) {
+    throw new Error(`${kind} byte limit must be a positive safe integer.`);
+  }
+  if (stream === null) {
+    const bytes = await fallback();
+    throwIfAborted(signal);
+    if (bytes.byteLength > maxBytes) {
+      throw new Error(
+        `tarball exceeds the ${formatByteLimit(maxBytes)} ${kind} byte limit.`,
+      );
+    }
+    return bytes;
+  }
+  const reader = stream.getReader();
+  const chunks: Uint8Array[] = [];
+  let length = 0;
+  try {
+    for (;;) {
+      throwIfAborted(signal);
+      const next = await reader.read();
+      throwIfAborted(signal);
+      if (next.done) break;
+      if (next.value.byteLength > maxBytes - length) {
+        await reader.cancel();
+        throw new Error(
+          `tarball exceeds the ${formatByteLimit(maxBytes)} ${kind} byte limit.`,
+        );
+      }
+      chunks.push(next.value);
+      length += next.value.byteLength;
+    }
+  } catch (error) {
+    await reader.cancel(error).catch(() => undefined);
+    throw error;
+  }
+  const output = new Uint8Array(length);
+  let offset = 0;
+  for (const chunk of chunks) {
+    output.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return output.buffer;
+}
+
+function formatByteLimit(bytes: number): string {
+  return `${bytes.toLocaleString("en-US")}-byte`;
 }
