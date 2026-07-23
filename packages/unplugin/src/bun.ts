@@ -9,7 +9,6 @@ import {
   transformTtsc,
 } from "./core/index";
 import type { TtscUnpluginOptions } from "./core/options";
-import { pathIdentityKey } from "./core/transform";
 
 /**
  * Bun normally reports filesystem source paths, while plugin-created virtual
@@ -216,11 +215,28 @@ function createBunInMemoryFileMatcher(
   const spellings = new Set(Object.keys(files));
   const setupDirectory = process.cwd();
   const identities = new Set(
-    [...spellings].map((file) =>
-      pathIdentityKey(path.resolve(setupDirectory, file)),
-    ),
+    [...spellings].map((file) => bunPathIdentityKey(setupDirectory, file)),
   );
   return (file) =>
     spellings.has(file) ||
-    identities.has(pathIdentityKey(path.resolve(setupDirectory, file)));
+    identities.has(bunPathIdentityKey(setupDirectory, file));
+}
+
+/**
+ * Normalize the path forms Bun equates for its in-memory file map.
+ *
+ * Bun normalizes Windows separators, drive-letter case, and dot segments but
+ * preserves path-component case when matching `BuildConfig.files`. The normal
+ * filesystem identity key is intentionally broader on Windows and would let a
+ * differently cased virtual key suppress a real disk transform.
+ */
+function bunPathIdentityKey(directory: string, file: string): string {
+  const absolute = path.resolve(directory, file);
+  if (process.platform !== "win32") return absolute;
+  return absolute
+    .replace(/\\/g, "/")
+    .replace(
+      /^([a-z]):/i,
+      (_match, drive: string) => `${drive.toLowerCase()}:`,
+    );
 }

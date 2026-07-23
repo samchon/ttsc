@@ -2,7 +2,6 @@ import { assertCacheHitsDespiteOutOfWalkOutputKey } from "../../internal/transfo
 
 /**
  * Verifies #252: the shared cache accepts out-of-walk compiler output keys.
- * output is keyed outside the project's directory walk.
  *
  * The store-time hash snapshot once overlaid the compiler's output keys, which
  * include `node_modules` declarations the per-module validator never re-hashes.

@@ -254,6 +254,28 @@ async function assertBunAdapterYieldsToConfiguredInMemoryFiles(): Promise<void> 
   } finally {
     process.chdir(setupDirectory);
   }
+
+  const caseVariant = relativeMain.replace(/(^|[\\/])src([\\/])/, "$1SRC$2");
+  assert.notEqual(caseVariant, relativeMain);
+  let optionResolutions = 0;
+  const { loader: caseSensitiveLoader } = await captureBunLoader(
+    unpluginBun(() => {
+      ++optionResolutions;
+      return { plugins: [] };
+    }),
+    "bundler",
+    {
+      files: {
+        [caseVariant]: "export const differentlyCased = true;",
+      },
+    },
+  );
+  await caseSensitiveLoader({ path: reportedRelativeMain });
+  assert.equal(
+    optionResolutions,
+    1,
+    "a differently cased files key must not suppress a disk transform",
+  );
 }
 
 /**
