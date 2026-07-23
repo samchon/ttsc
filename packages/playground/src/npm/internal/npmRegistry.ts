@@ -139,7 +139,7 @@ export async function downloadTarball(
   signal: AbortSignal | undefined,
   maxBytes = 16 * 1024 * 1024,
 ): Promise<ArrayBuffer> {
-  validateByteLimit(maxBytes, "compressed");
+  validateNpmByteLimit(maxBytes, "compressed");
   const response = await fetchImpl(tarball, { signal });
   if (!response.ok) {
     void response.body?.cancel().catch(() => undefined);
@@ -211,6 +211,7 @@ export async function unpackNpmTarball(
   maxBytes = 64 * 1024 * 1024,
 ): Promise<IUnpackedPackage> {
   throwIfAborted(signal);
+  validateNpmByteLimit(maxBytes, "expanded");
   const tar = await gunzip(tgz, maxBytes, signal);
   throwIfAborted(signal);
   const decoder = new TextDecoder();
@@ -571,7 +572,7 @@ async function collectBoundedStream(
   signal: AbortSignal | undefined,
   fallback: () => Promise<ArrayBuffer>,
 ): Promise<ArrayBuffer> {
-  validateByteLimit(maxBytes, kind);
+  validateNpmByteLimit(maxBytes, kind);
   if (stream === null) {
     const bytes = await fallback();
     throwIfAborted(signal);
@@ -638,7 +639,8 @@ function formatByteLimit(bytes: number): string {
   return `${bytes.toLocaleString("en-US")}-byte`;
 }
 
-function validateByteLimit(
+/** Validate one public npm archive byte budget before starting related work. */
+export function validateNpmByteLimit(
   maxBytes: number,
   kind: "compressed" | "expanded",
 ): void {

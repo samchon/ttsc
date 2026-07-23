@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import { gunzipSync } from "node:zlib";
 
-import { downloadTarball } from "../../../../packages/playground/lib/src/npm/internal/npmRegistry.js";
+import { installPlaygroundDependencies } from "../../../../packages/playground/lib/src/index.js";
+import {
+  downloadTarball,
+  unpackNpmTarball,
+} from "../../../../packages/playground/lib/src/npm/internal/npmRegistry.js";
 import {
   createNpmFixtureTarball,
   installNpmFixture,
@@ -15,8 +19,9 @@ import {
  *
  * 1. Exceed the compressed limit with absent and falsely low length headers, and
  *    verify an oversized declared response is cancelled.
- * 2. Keep the gzip small but set the expanded limit below its tar output.
- * 3. Assert each independent byte budget fails with its own context.
+ * 2. Reject invalid public limits before metadata fetch or decompressor setup.
+ * 3. Keep the gzip small but set the expanded limit below its tar output.
+ * 4. Assert each independent byte budget fails with its own context.
  */
 export const test_npm_registry_bounds_compressed_and_expanded_archives =
   async () => {
@@ -91,6 +96,51 @@ export const test_npm_registry_bounds_compressed_and_expanded_archives =
       invalidLimitFetches,
       0,
       "an invalid limit must fail before opening a response",
+    );
+    for (const invalid of [{ maxTarballBytes: 0 }, { maxUnpackedBytes: 0 }]) {
+      let installFetches = 0;
+      await assert.rejects(
+        installPlaygroundDependencies(["fixture"], {
+          ...invalid,
+          fetch: async () => {
+            ++installFetches;
+            throw new Error("fetch must not run");
+          },
+        }),
+        /positive safe integer/,
+      );
+      assert.equal(
+        installFetches,
+        0,
+        "public limits must be validated before metadata resolution",
+      );
+    }
+    const originalDecompressionStream = globalThis.DecompressionStream;
+    let decompressionConstructions = 0;
+    Object.defineProperty(globalThis, "DecompressionStream", {
+      configurable: true,
+      value: class {
+        public constructor() {
+          ++decompressionConstructions;
+          throw new Error("decompressor must not be constructed");
+        }
+      },
+    });
+    try {
+      await assert.rejects(
+        unpackNpmTarball(tarball, undefined, 0),
+        /positive safe integer/,
+      );
+    } finally {
+      Object.defineProperty(globalThis, "DecompressionStream", {
+        configurable: true,
+        value: originalDecompressionStream,
+      });
+    }
+    assert.equal(
+      decompressionConstructions,
+      0,
+      "an invalid expanded limit must fail before decompressor setup",
     );
 
     const expandedLength = gunzipSync(new Uint8Array(tarball)).byteLength;

@@ -15,6 +15,7 @@ import {
   throwIfAborted,
   toTypesPackageName,
   unpackNpmTarball,
+  validateNpmByteLimit,
   verifyTarball,
 } from "./internal/npmRegistry";
 
@@ -78,6 +79,8 @@ export async function installPlaygroundDependencies(
   const maxTarballBytes = options.maxTarballBytes ?? DEFAULT_MAX_TARBALL_BYTES;
   const maxUnpackedBytes =
     options.maxUnpackedBytes ?? DEFAULT_MAX_UNPACKED_BYTES;
+  validateNpmByteLimit(maxTarballBytes, "compressed");
+  validateNpmByteLimit(maxUnpackedBytes, "expanded");
   const queue: IQueueItem[] = [];
   const queued = new Map<string, IQueueItem>();
   const done = new Map<string, string>();
