@@ -191,6 +191,25 @@ async function assertBunRuntimePassesThroughUnchangedSource(): Promise<void> {
 }
 
 /**
+ * Asserts the Bun adapter never claims a NUL-prefixed virtual TypeScript id.
+ *
+ * Bun applies loader filters before callbacks. A virtual id that reaches this
+ * callback would be treated as a filesystem path; rejecting it in the filter
+ * leaves ownership with the plugin that created the virtual module.
+ */
+async function assertBunRuntimeLeavesVirtualModulesToTheirOwner(): Promise<void> {
+  const unpluginBun = await TestUnpluginRuntime.loadUnpluginAdapter("bun");
+  const { options } = await captureBunLoader(
+    unpluginBun({ plugins: [] }),
+    "runtime",
+  );
+
+  assert.equal(options.filter.test("\0virtual.ts"), false);
+  assert.equal(options.filter.test("/project/src/ordinary.ts"), true);
+  assert.equal(options.filter.test("C:\\project\\src\\ordinary.tsx"), true);
+}
+
+/**
  * Asserts Bun bundler `onStart` forwards the shared transform build lifecycle.
  *
  * The first compile emits a second module but only serves `main.ts`. After
@@ -289,6 +308,7 @@ export {
   assertBunAdapterFallsThroughWhenItDoesNotTransform,
   assertBunAdapterSurvivesPluginReportedDependencies,
   assertBunAdapterTransformsSource,
+  assertBunRuntimeLeavesVirtualModulesToTheirOwner,
   assertBunRuntimePassesThroughUnchangedSource,
   assertBunRuntimeDoesNotRehashProjectPerModule,
 };

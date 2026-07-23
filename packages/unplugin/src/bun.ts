@@ -5,10 +5,17 @@ import {
   createTtscTransformCache,
   isTransformTarget,
   resolveOptions,
-  sourceFilePattern,
   transformTtsc,
 } from "./core/index";
 import type { TtscUnpluginOptions } from "./core/options";
+
+/**
+ * Bun receives absolute filesystem paths for ordinary source files, while
+ * plugin-created virtual ids may contain a NUL sentinel. A virtual id must stay
+ * with the plugin that created it: claiming it here and trying to read it from
+ * disk prevents that plugin's later loader from running.
+ */
+const bunSourceFilePattern = /^[^\x00]*\.[cm]?tsx?$/;
 
 /**
  * Minimal subset of the Bun plugin API consumed by this adapter.
@@ -111,7 +118,7 @@ export interface BunLikeBuild {
  * The same object works for `Bun.build({ plugins: [ttsc()] })` (bundler) and
  * for `Bun.plugin(ttsc())` / a `bunfig.toml` preload (runtime) — see
  * `bun-register`. Every result carries an explicit `loader` so Bun keeps
- * transpiling the emitted TypeScript at runtime; `sourceFilePattern` only
+ * transpiling the emitted TypeScript at runtime; `bunSourceFilePattern` only
  * matches TypeScript, so the loader is always `ts`/`tsx`. A runtime plugin
  * instance is one immutable load session, like Bun's own module cache; restart
  * the process after changing compiler inputs.
@@ -137,7 +144,7 @@ export default function bun(options?: TtscBunOptions): BunLikePlugin {
       // repeats it for subsequent builds.
       beginTtscTransformBuild(cache);
       build.onStart?.(() => beginTtscTransformBuild(cache));
-      build.onLoad({ filter: sourceFilePattern }, async (args) => {
+      build.onLoad({ filter: bunSourceFilePattern }, async (args) => {
         if (!isTransformTarget(args.path)) {
           if (!runtime) return undefined;
           return {
@@ -165,7 +172,7 @@ export default function bun(options?: TtscBunOptions): BunLikePlugin {
 }
 
 /**
- * Pick the Bun loader for a matched file. `sourceFilePattern` is
+ * Pick the Bun loader for a matched file. `bunSourceFilePattern` is
  * `/\.[cm]?tsx?$/`, so a trailing `x` (`.tsx`/`.ctsx`/`.mtsx`) is JSX-flavored
  * TypeScript and everything else (`.ts`/`.cts`/`.mts`) is plain TypeScript.
  */

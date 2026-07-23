@@ -161,7 +161,7 @@ await Bun.build({
 });
 ```
 
-The adapter yields to the next Bun loader for declarations, `node_modules`, and source that `ttsc` leaves unchanged, so its broad TypeScript hook does not shadow another plugin or Bun's built-in loader. `Bun.build` clears the project generation through its `onStart` lifecycle on every build.
+Under `Bun.build`, the adapter yields to the next loader for declarations, `node_modules`, and source that `ttsc` leaves unchanged. Bun's runtime `onLoad` contract does not accept an undefined result, so `Bun.plugin()` returns those files with their original source and does not chain another overlapping runtime loader. NUL-prefixed virtual modules remain outside the adapter's filter so their creating plugin keeps ownership. `Bun.build` clears the project generation through its `onStart` lifecycle on every build.
 
 For the Bun **runtime**, `bun run`, `bun test`, or any `bun <entry>.ts` with no bundling step, register the transform on Bun's module loader with `@ttsc/unplugin/bun-register`. Add a `bunfig.toml` preload once:
 
@@ -177,6 +177,8 @@ import { register } from "@ttsc/unplugin/bun-register";
 
 register({ project: "tsconfig.build.json" });
 ```
+
+One runtime registration is one immutable module-loading session. Restart the Bun process after changing source, tsconfig, or plugin inputs.
 
 ## Options
 
