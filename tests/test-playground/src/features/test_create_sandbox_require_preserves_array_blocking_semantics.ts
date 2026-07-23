@@ -11,8 +11,9 @@ import { createSandboxRequire } from "../../../../packages/playground/lib/src/sa
  *
  * 1. Put empty, null-only, invalid-then-null, and null-then-valid arrays under the
  *    active `require` condition with an outer default.
- * 2. Assert blocked arrays cannot reach the default while the later valid target
- *    remains selectable.
+ * 2. Exercise an inactive nested key and selected encoded, directory, and
+ *    malformed targets that must fail during loading.
+ * 3. Assert only invalid selection falls through; blocking and loading do not.
  */
 export const test_create_sandbox_require_preserves_array_blocking_semantics =
   () => {

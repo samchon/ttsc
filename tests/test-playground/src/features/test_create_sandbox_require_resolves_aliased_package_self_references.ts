@@ -3,8 +3,7 @@ import assert from "node:assert/strict";
 import { createSandboxRequire } from "../../../../packages/playground/lib/src/sandbox/createSandboxRequire.js";
 
 /**
- * Verifies package self-reference uses manifest identity rather than mount
- * name.
+ * Verifies aliased package self-reference uses manifest identity.
  *
  * Npm aliases mount a package under the requested alias while preserving its
  * real `package.json#name`. Node allows modules inside a package that declares

@@ -3,13 +3,11 @@ import assert from "node:assert/strict";
 import { createSandboxRequire } from "../../../../packages/playground/lib/src/sandbox/createSandboxRequire.js";
 
 /**
- * The root-`exports` change (RA-12 / #670) must not regress the resolver's
- * other paths: `main` and `index` fallbacks, exact and wildcard subpath
- * exports, scoped package names, relative sibling requires, and JSON modules
- * all share `resolvePackageEntry` / `resolveSpecifier` and must keep working.
+ * Verifies root exports changes preserve every fallback resolver branch.
  *
- * This is the boundary guard for the root-exports fix: it exercises every
- * resolution branch other than the root-exports one in a single sandbox pack.
+ * `main` and `index` fallbacks, exact and wildcard subpath exports, scoped
+ * names, relative requires, and JSON modules all share the changed package
+ * entry and specifier owners.
  *
  * 1. Mount legacy, exact, pattern, array, condition, scoped, relative, and JSON
  *    package shapes.

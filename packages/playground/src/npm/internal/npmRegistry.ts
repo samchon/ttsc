@@ -59,6 +59,11 @@ export type FetchLike = (
   init?: RequestInit,
 ) => Promise<Response>;
 
+declare const VALIDATED_NPM_BYTE_LIMIT: unique symbol;
+type ValidatedNpmByteLimit = number & {
+  readonly [VALIDATED_NPM_BYTE_LIMIT]: true;
+};
+
 const TEXT_FILE_REGEXP =
   /(^package\.json$|\.([cm]?js|jsx|[cm]?ts|tsx|json)$|\.d\.[cm]?ts$)/i;
 export const DECLARATION_FILE_REGEXP = /\.d\.[cm]?ts$/i;
@@ -144,7 +149,7 @@ export async function downloadTarball(
   maxBytes = 16 * 1024 * 1024,
 ): Promise<ArrayBuffer> {
   throwIfAborted(signal);
-  validateNpmByteLimit(maxBytes, "compressed");
+  const byteLimit = validateNpmByteLimit(maxBytes, "compressed");
   const response = await fetchImpl(tarball, { signal });
   if (!response.ok) {
     void response.body?.cancel().catch(() => undefined);
@@ -153,16 +158,16 @@ export async function downloadTarball(
   const declaredLength = response.headers.get("content-length");
   if (declaredLength !== null) {
     const parsed = Number(declaredLength);
-    if (Number.isFinite(parsed) && parsed >= 0 && parsed > maxBytes) {
+    if (Number.isFinite(parsed) && parsed >= 0 && parsed > byteLimit) {
       void response.body?.cancel().catch(() => undefined);
       throw new Error(
-        `tarball exceeds the ${formatByteLimit(maxBytes)} compressed byte limit.`,
+        `tarball exceeds the ${formatByteLimit(byteLimit)} compressed byte limit.`,
       );
     }
   }
   return collectBoundedStream(
     response.body,
-    maxBytes,
+    byteLimit,
     "compressed",
     signal,
     () => response.arrayBuffer(),
@@ -216,8 +221,8 @@ export async function unpackNpmTarball(
   maxBytes = 64 * 1024 * 1024,
 ): Promise<IUnpackedPackage> {
   throwIfAborted(signal);
-  validateNpmByteLimit(maxBytes, "expanded");
-  const tar = await gunzip(tgz, maxBytes, signal);
+  const byteLimit = validateNpmByteLimit(maxBytes, "expanded");
+  const tar = await gunzip(tgz, byteLimit, signal);
   throwIfAborted(signal);
   const decoder = new TextDecoder();
   const files: Record<string, string> = {};
@@ -297,7 +302,7 @@ export async function unpackNpmTarball(
 
 async function gunzip(
   input: ArrayBuffer,
-  maxBytes: number,
+  maxBytes: ValidatedNpmByteLimit,
   signal: AbortSignal | undefined,
 ): Promise<Uint8Array> {
   if (!("DecompressionStream" in globalThis)) {
@@ -572,12 +577,11 @@ function equalBytes(left: Uint8Array, right: Uint8Array): boolean {
 
 async function collectBoundedStream(
   stream: ReadableStream<Uint8Array> | null,
-  maxBytes: number,
+  maxBytes: ValidatedNpmByteLimit,
   kind: "compressed" | "expanded",
   signal: AbortSignal | undefined,
   fallback: () => Promise<ArrayBuffer>,
 ): Promise<ArrayBuffer> {
-  validateNpmByteLimit(maxBytes, kind);
   if (stream === null) {
     const bytes = await fallback();
     throwIfAborted(signal);
@@ -648,10 +652,11 @@ function formatByteLimit(bytes: number): string {
 export function validateNpmByteLimit(
   maxBytes: number,
   kind: "compressed" | "expanded",
-): void {
+): ValidatedNpmByteLimit {
   if (!Number.isSafeInteger(maxBytes) || maxBytes <= 0) {
     throw new Error(`${kind} byte limit must be a positive safe integer.`);
   }
+  return maxBytes as ValidatedNpmByteLimit;
 }
 
 /**
