@@ -91,8 +91,11 @@ export namespace TestUnpluginProject {
    * Set `TTSC_CACHE_DIR` once for the process lifetime so Go plugin builds are
    * shared across test cases. Skipped when the caller has already set the env
    * var (e.g. from a parent test runner that manages its own cache dir).
+   * Exported for fixture builders that do not go through {@link createProject}
+   * (the Vite serve scenarios), which would otherwise rebuild the native
+   * compiler host into every fixture's own `node_modules/.cache`.
    */
-  function ensureSharedCacheDir(): void {
+  export function ensureSharedCacheDir(): void {
     if (process.env.TTSC_CACHE_DIR !== undefined) {
       return;
     }

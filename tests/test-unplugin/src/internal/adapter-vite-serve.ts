@@ -50,6 +50,7 @@ export interface IViteServeCandidateFixture {
 
 /** Materialize the linked-workspace fixture in a temporary directory. */
 export function createLinkedWorkspaceFixture(): IViteServeCandidateFixture {
+  TestUnpluginProject.ensureSharedCacheDir();
   const workspace = TestProject.tmpdir("ttsc-unplugin-vite-serve-");
   const linkedPackage = path.join(workspace, "packages", "linked-pkg");
   fs.mkdirSync(linkedPackage, { recursive: true });
