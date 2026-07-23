@@ -49,6 +49,7 @@ const unpluginFactory: UnpluginFactory<
   const transformCache = createTtscTransformCache();
   const missingInputs = createViteServeMissingInputWatch();
   let aliases: unknown;
+  let viteCommand: string | undefined;
 
   return {
     name,
@@ -57,6 +58,11 @@ const unpluginFactory: UnpluginFactory<
     vite: {
       configResolved(config) {
         aliases = config.resolve.alias;
+        // Re-read per config resolution: a plugin instance reused across a
+        // serve and a later build must stop routing missing inputs to the
+        // serve-time poll, even though the closed server stays attached
+        // (see the dispose note in viteServe.ts).
+        viteCommand = config.command;
       },
       // Vite serve funnels every transform-context `addWatchFile()` into the
       // module's added-import graph (`_addedImports`), which import-analysis
@@ -100,7 +106,11 @@ const unpluginFactory: UnpluginFactory<
         // dependency), so those are watched on the filesystem instead and
         // invalidate this module when created.
         addWatchFile: (watched) => {
-          if (missingInputs.serving() && !fs.existsSync(watched)) {
+          if (
+            viteCommand === "serve" &&
+            missingInputs.serving() &&
+            !fs.existsSync(watched)
+          ) {
             missingInputs.watch(watched, path.resolve(file));
             return;
           }

@@ -77,7 +77,7 @@ export interface ViteDevServerLike {
 export interface ViteServeMissingInputWatch {
   /** Adopt the dev server whose module graphs creation events invalidate. */
   attach(server: ViteDevServerLike): void;
-  /** Stop every poll and forget the server; safe to call repeatedly. */
+  /** Stop every poll; safe to call repeatedly. */
   dispose(): void;
   /** Report whether a dev server is attached (i.e. Vite serve is running). */
   serving(): boolean;
@@ -110,7 +110,12 @@ export function createViteServeMissingInputWatch(): ViteServeMissingInputWatch {
       for (const [identity, entry] of entries) {
         unwatch(identity, entry);
       }
-      server = undefined;
+      // The server reference deliberately survives: `vite.restartServer`
+      // configures the replacement server (attach) before it closes the old
+      // one (whose buildEnd runs this dispose), so unsetting it here would
+      // detach the freshly attached replacement and revive the 500 this
+      // module exists to prevent. A same-instance `vite build` after a serve
+      // is instead excluded by the adapter's `config.command` gate.
     },
     serving() {
       return server !== undefined;
