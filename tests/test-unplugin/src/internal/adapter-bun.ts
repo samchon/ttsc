@@ -298,6 +298,44 @@ async function assertBunAdapterYieldsToConfiguredInMemoryFiles(): Promise<void> 
     1,
     "relative and dot-segment files keys must not claim an absolute disk path",
   );
+
+  if (process.platform === "win32") {
+    const driveCaseVariant = main.replace(
+      /^([a-z]):/i,
+      (_match, drive: string) =>
+        `${drive === drive.toLowerCase() ? drive.toUpperCase() : drive.toLowerCase()}:`,
+    );
+    assert.notEqual(driveCaseVariant, main);
+    let equivalentOptionResolutions = 0;
+    const { loader: equivalentLoader } = await captureBunLoader(
+      unpluginBun(() => {
+        ++equivalentOptionResolutions;
+        return { plugins: [] };
+      }),
+      "bundler",
+      {
+        files: {
+          [driveCaseVariant]: "export const driveCase = true;",
+          [dotAbsoluteMain]: "export const dotted = true;",
+        },
+      },
+    );
+    assert.equal(
+      await equivalentLoader({ path: main }),
+      undefined,
+      "Windows drive-letter case must preserve in-memory ownership",
+    );
+    assert.equal(
+      await equivalentLoader({ path: dotAbsoluteMain.replace(/\\/g, "/") }),
+      undefined,
+      "separator normalization must preserve an identical dotted spelling",
+    );
+    assert.equal(
+      equivalentOptionResolutions,
+      0,
+      "Bun-equivalent Windows spellings must not enter the disk transform",
+    );
+  }
 }
 
 /**
