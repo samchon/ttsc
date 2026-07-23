@@ -41,7 +41,8 @@ export const test_npm_registry_verifies_the_strongest_integrity_digest =
     );
 
     const changed = tarball.slice(0);
-    new Uint8Array(changed)[10] ^= 1;
+    const changedBytes = new Uint8Array(changed);
+    changedBytes[10] = changedBytes[10]! ^ 1;
     await assert.rejects(
       installNpmFixture({
         dist: { integrity: `sha512-${sha512}` },
