@@ -11,6 +11,10 @@ import {
  *
  * SHA-1 `shasum` is used only when SRI is absent. Metadata carrying neither
  * field remains installable for private and historical registries.
+ *
+ * 1. Install with a matching SHA-1 shasum, then reject a mismatch.
+ * 2. Remove both authentication fields.
+ * 3. Assert the explicit legacy compatibility path remains installable.
  */
 export const test_npm_registry_uses_shasum_and_allows_legacy_unsigned_metadata =
   async () => {

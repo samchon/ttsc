@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { gunzipSync } from "node:zlib";
 
+import { downloadTarball } from "../../../../packages/playground/lib/src/npm/internal/npmRegistry.js";
 import {
   createNpmFixtureTarball,
   installNpmFixture,
@@ -11,6 +12,11 @@ import {
  *
  * A missing or falsely low Content-Length cannot bypass the compressed stream
  * counter, and a small gzip cannot expand beyond the independent tar budget.
+ *
+ * 1. Exceed the compressed limit with absent and falsely low length headers, and
+ *    verify an oversized declared response is cancelled.
+ * 2. Keep the gzip small but set the expanded limit below its tar output.
+ * 3. Assert each independent byte budget fails with its own context.
  */
 export const test_npm_registry_bounds_compressed_and_expanded_archives =
   async () => {
@@ -31,6 +37,25 @@ export const test_npm_registry_bounds_compressed_and_expanded_archives =
       }),
       /compressed byte limit/,
     );
+    let cancelCalls = 0;
+    await assert.rejects(
+      downloadTarball(
+        async () =>
+          new Response(
+            new ReadableStream<Uint8Array>({
+              cancel() {
+                ++cancelCalls;
+              },
+            }),
+            { headers: { "content-length": "1000" } },
+          ),
+        "https://tar.invalid/oversized.tgz",
+        undefined,
+        999,
+      ),
+      /compressed byte limit/,
+    );
+    assert.equal(cancelCalls, 1, "header rejection must cancel the response");
 
     const expandedLength = gunzipSync(new Uint8Array(tarball)).byteLength;
     await assert.rejects(

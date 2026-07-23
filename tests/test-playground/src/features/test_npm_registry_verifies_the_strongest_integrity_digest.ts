@@ -12,6 +12,10 @@ import {
  * The strongest supported algorithm controls the decision even when a weaker
  * digest matches. Changed bytes and malformed metadata must fail with package
  * context, while a correct SHA-512 digest installs normally.
+ *
+ * 1. Mix unsupported, weak mismatching, and strong matching digests.
+ * 2. Reverse the strong/weak result, alter bytes, and malform metadata.
+ * 3. Assert only an authenticated strongest digest reaches extraction.
  */
 export const test_npm_registry_verifies_the_strongest_integrity_digest =
   async () => {

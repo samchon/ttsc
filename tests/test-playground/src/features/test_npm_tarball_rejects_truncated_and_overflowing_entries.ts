@@ -9,6 +9,10 @@ import { createNpmFixtureTarball } from "../internal/npmFixture";
  *
  * Missing end markers, bodies that extend past the archive, and malformed
  * numeric fields must fail instead of producing partial maps.
+ *
+ * 1. Remove the end marker, overstate an entry body, and corrupt its size.
+ * 2. Recompress each malformed tar through the normal gzip entry point.
+ * 3. Assert record parsing fails before any partial package is published.
  */
 export const test_npm_tarball_rejects_truncated_and_overflowing_entries =
   async () => {

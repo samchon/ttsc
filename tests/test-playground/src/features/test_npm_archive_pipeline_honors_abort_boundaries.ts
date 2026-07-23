@@ -10,31 +10,39 @@ import { createNpmFixtureTarball } from "../internal/npmFixture";
 /**
  * Verifies cancellation is observed across the archive handoff.
  *
- * 1. Abort while a streamed download produces its first chunk and assert the byte
- *    collector stops.
- * 2. Pass an already aborted signal to verification and decompression and assert
- *    neither stage continues.
+ * 1. Abort while a streamed download is waiting and assert the byte collector
+ *    rejects without waiting for another chunk.
+ * 2. Abort an in-flight digest, then pass an already aborted signal to
+ *    decompression and assert every stage stops.
  */
 export const test_npm_archive_pipeline_honors_abort_boundaries = async () => {
   const tarball = createNpmFixtureTarball();
   const downloadController = new AbortController();
   const reason = new DOMException("fixture aborted", "AbortError");
-  await assert.rejects(
-    downloadTarball(
-      async () =>
-        new Response(
-          new ReadableStream<Uint8Array>({
-            pull(controller) {
-              controller.enqueue(new Uint8Array(tarball.slice(0, 8)));
-              downloadController.abort(reason);
-            },
-          }),
-        ),
-      "https://tar.invalid/fixture.tgz",
-      downloadController.signal,
-    ),
-    { name: "AbortError" },
+  const downloading = downloadTarball(
+    async () =>
+      new Response(
+        new ReadableStream<Uint8Array>({
+          pull: () => new Promise<void>(() => undefined),
+        }),
+      ),
+    "https://tar.invalid/fixture.tgz",
+    downloadController.signal,
   );
+  await Promise.resolve();
+  downloadController.abort(reason);
+  await assert.rejects(downloading, { name: "AbortError" });
+
+  const digestController = new AbortController();
+  const digesting = verifyTarball(
+    new ArrayBuffer(16 * 1024 * 1024),
+    {
+      integrity: `sha512-${Buffer.alloc(64).toString("base64")}`,
+    },
+    digestController.signal,
+  );
+  digestController.abort(reason);
+  await assert.rejects(digesting, { name: "AbortError" });
 
   const stopped = new AbortController();
   stopped.abort(reason);

@@ -8,6 +8,10 @@ import { createNpmFixtureTarball } from "../internal/npmFixture";
  *
  * Once optional package metadata exists, an integrity failure is a corrupt
  * archive and must abort the install rather than silently omit the dependency.
+ *
+ * 1. Install a root whose optional edge resolves to registry metadata.
+ * 2. Give that edge a mismatched digest and then no tarball URL.
+ * 3. Assert both archive failures abort; only registry absence may skip.
  */
 export const test_npm_registry_does_not_skip_optional_archive_failures =
   async () => {

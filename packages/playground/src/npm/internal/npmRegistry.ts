@@ -147,6 +147,7 @@ export async function downloadTarball(
   if (declaredLength !== null) {
     const parsed = Number(declaredLength);
     if (Number.isFinite(parsed) && parsed >= 0 && parsed > maxBytes) {
+      void response.body?.cancel().catch(() => undefined);
       throw new Error(
         `tarball exceeds the ${formatByteLimit(maxBytes)} compressed byte limit.`,
       );
@@ -175,7 +176,10 @@ export async function verifyTarball(
       (candidate) => candidate.rank === strength,
     );
     const actual = new Uint8Array(
-      await crypto.subtle.digest(strongest[0]!.webAlgorithm, tgz),
+      await abortable(
+        crypto.subtle.digest(strongest[0]!.webAlgorithm, tgz),
+        signal,
+      ),
     );
     throwIfAborted(signal);
     if (!strongest.some(({ digest }) => equalBytes(actual, digest))) {
@@ -189,7 +193,9 @@ export async function verifyTarball(
     if (!/^[a-fA-F0-9]{40}$/.test(dist.shasum)) {
       throw new Error("tarball shasum is not a valid SHA-1 digest.");
     }
-    const actual = new Uint8Array(await crypto.subtle.digest("SHA-1", tgz));
+    const actual = new Uint8Array(
+      await abortable(crypto.subtle.digest("SHA-1", tgz), signal),
+    );
     throwIfAborted(signal);
     if (!equalBytes(actual, decodeHex(dist.shasum))) {
       throw new Error("tarball shasum mismatch (sha1).");
@@ -212,6 +218,13 @@ export async function unpackNpmTarball(
   let longPath: string | null = null;
   let paxPath: string | null = null;
   let terminated = false;
+  let archiveRoot: string | null = null;
+
+  const confine = (rawPath: string): string => {
+    const confined = confineTarPath(rawPath, archiveRoot);
+    archiveRoot = confined.root;
+    return confined.relative;
+  };
 
   while (offset < tar.length) {
     throwIfAborted(signal);
@@ -239,12 +252,12 @@ export async function unpackNpmTarball(
 
     if (type === "L") {
       longPath = trimNull(decoder.decode(body));
-      confineTarPath(longPath);
+      confine(longPath);
       continue;
     }
     if (type === "x") {
       paxPath = parsePaxPath(body);
-      if (paxPath !== null) confineTarPath(paxPath);
+      if (paxPath !== null) confine(paxPath);
       continue;
     }
     if (type !== "0" && type !== "\0") {
@@ -256,7 +269,7 @@ export async function unpackNpmTarball(
     const rawPath = paxPath ?? longPath ?? readTarHeaderPath(header, decoder);
     longPath = null;
     paxPath = null;
-    const rel = confineTarPath(rawPath);
+    const rel = confine(rawPath);
     if (!TEXT_FILE_REGEXP.test(rel)) continue;
 
     const text = decoder.decode(body);
@@ -434,8 +447,17 @@ function readTarHeaderPath(header: Uint8Array, decoder: TextDecoder): string {
   return prefix ? `${prefix}/${name}` : name;
 }
 
-/** Require a regular npm archive path below its canonical `package/` root. */
-function confineTarPath(rawPath: string): string {
+/**
+ * Require an npm archive path below one safe, consistent top-level root.
+ *
+ * Npm normally emits `package/`, while current DefinitelyTyped tarballs use
+ * roots such as `node/` and `react/`. The root spelling does not enter the
+ * mounted key; consistency and safe remaining segments provide confinement.
+ */
+function confineTarPath(
+  rawPath: string,
+  archiveRoot: string | null,
+): { relative: string; root: string } {
   if (
     rawPath.length === 0 ||
     rawPath.includes("\\") ||
@@ -446,7 +468,6 @@ function confineTarPath(rawPath: string): string {
   }
   const segments = rawPath.split("/");
   if (
-    segments[0] !== "package" ||
     segments.length < 2 ||
     segments.some(
       (segment, index) =>
@@ -457,10 +478,16 @@ function confineTarPath(rawPath: string): string {
     )
   ) {
     throw new Error(
-      `npm tar entry is outside the canonical package root: ${JSON.stringify(rawPath)}.`,
+      `npm tar entry is outside a confined package root: ${JSON.stringify(rawPath)}.`,
     );
   }
-  return segments.slice(1).join("/");
+  const root = segments[0]!;
+  if (archiveRoot !== null && root !== archiveRoot) {
+    throw new Error(
+      `npm tar archive mixes package roots ${JSON.stringify(archiveRoot)} and ${JSON.stringify(root)}.`,
+    );
+  }
+  return { relative: segments.slice(1).join("/"), root };
 }
 
 interface IIntegrityCandidate {
@@ -558,14 +585,33 @@ async function collectBoundedStream(
   const reader = stream.getReader();
   const chunks: Uint8Array[] = [];
   let length = 0;
+  let abort: (() => void) | undefined;
+  const aborted =
+    signal === undefined
+      ? undefined
+      : new Promise<never>((_resolve, reject) => {
+          abort = () => {
+            let error: unknown;
+            try {
+              throwIfAborted(signal);
+              return;
+            } catch (caught) {
+              error = caught;
+            }
+            void reader.cancel(error).catch(() => undefined);
+            reject(error);
+          };
+          signal.addEventListener("abort", abort, { once: true });
+        });
   try {
     for (;;) {
       throwIfAborted(signal);
-      const next = await reader.read();
+      const read = reader.read();
+      const next = aborted ? await Promise.race([read, aborted]) : await read;
       throwIfAborted(signal);
       if (next.done) break;
       if (next.value.byteLength > maxBytes - length) {
-        await reader.cancel();
+        void reader.cancel().catch(() => undefined);
         throw new Error(
           `tarball exceeds the ${formatByteLimit(maxBytes)} ${kind} byte limit.`,
         );
@@ -574,8 +620,10 @@ async function collectBoundedStream(
       length += next.value.byteLength;
     }
   } catch (error) {
-    await reader.cancel(error).catch(() => undefined);
+    void reader.cancel(error).catch(() => undefined);
     throw error;
+  } finally {
+    if (abort !== undefined) signal?.removeEventListener("abort", abort);
   }
   const output = new Uint8Array(length);
   let offset = 0;
@@ -588,4 +636,29 @@ async function collectBoundedStream(
 
 function formatByteLimit(bytes: number): string {
   return `${bytes.toLocaleString("en-US")}-byte`;
+}
+
+/**
+ * Reject promptly on abort even when an underlying browser task is not
+ * cancellable.
+ */
+function abortable<T>(
+  task: Promise<T>,
+  signal: AbortSignal | undefined,
+): Promise<T> {
+  if (signal === undefined) return task;
+  throwIfAborted(signal);
+  return new Promise<T>((resolve, reject) => {
+    const abort = () => {
+      try {
+        throwIfAborted(signal);
+      } catch (error) {
+        reject(error);
+      }
+    };
+    signal.addEventListener("abort", abort, { once: true });
+    void task.then(resolve, reject).finally(() => {
+      signal.removeEventListener("abort", abort);
+    });
+  });
 }
