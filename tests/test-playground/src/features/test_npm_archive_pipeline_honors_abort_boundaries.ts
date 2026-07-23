@@ -27,8 +27,10 @@ function createStartSignal(): {
  *
  * 1. Abort after stalled metadata fetch, JSON, and tarball fetch work starts.
  * 2. Abort active streamed and bodyless reads and dispose a late response.
- * 3. Reject a fetch after synchronous abort without an unhandled rejection.
- * 4. Abort an in-flight digest, then pass an already aborted signal through
+ * 3. Abort at the response handoff and retain the exact reason while disposing
+ *    metadata and tarball bodies.
+ * 4. Prioritize synchronous aborts and remove listeners from stalled work.
+ * 5. Abort an in-flight digest, then pass an already aborted signal through
  *    download, verification, and decompression and assert every stage stops.
  */
 export const test_npm_archive_pipeline_honors_abort_boundaries = async () => {
@@ -164,6 +166,59 @@ export const test_npm_archive_pipeline_honors_abort_boundaries = async () => {
   await new Promise<void>((resolve) => setImmediate(resolve));
   assert.equal(lateResponseCancelCalls, 1);
 
+  const metadataHandoffController = new AbortController();
+  let resolveMetadataHandoff!: (response: Response) => void;
+  const metadataHandoffPromise = new Promise<Response>((resolve) => {
+    resolveMetadataHandoff = resolve;
+  });
+  let metadataHandoffCancelCalls = 0;
+  const metadataAtHandoff = fetchNpmMetadata(
+    () => metadataHandoffPromise,
+    "optional-fixture",
+    true,
+    metadataHandoffController.signal,
+  );
+  void metadataHandoffPromise.then(() => {
+    queueMicrotask(() => metadataHandoffController.abort(reason));
+  });
+  resolveMetadataHandoff({
+    body: {
+      cancel: async () => {
+        ++metadataHandoffCancelCalls;
+      },
+    },
+    ok: false,
+    status: 404,
+  } as Response);
+  await rejectsAbort(metadataAtHandoff);
+  assert.equal(metadataHandoffCancelCalls, 1);
+
+  const tarballHandoffController = new AbortController();
+  let resolveTarballHandoff!: (response: Response) => void;
+  const tarballHandoffPromise = new Promise<Response>((resolve) => {
+    resolveTarballHandoff = resolve;
+  });
+  let tarballHandoffCancelCalls = 0;
+  const tarballAtHandoff = downloadTarball(
+    () => tarballHandoffPromise,
+    "https://tar.invalid/response-handoff.tgz",
+    tarballHandoffController.signal,
+  );
+  void tarballHandoffPromise.then(() => {
+    queueMicrotask(() => tarballHandoffController.abort(reason));
+  });
+  resolveTarballHandoff({
+    body: {
+      cancel: async () => {
+        ++tarballHandoffCancelCalls;
+      },
+    },
+    ok: false,
+    status: 503,
+  } as Response);
+  await rejectsAbort(tarballAtHandoff);
+  assert.equal(tarballHandoffCancelCalls, 1);
+
   const fetchController = new AbortController();
   let fallbackCallsAfterFetchAbort = 0;
   const abortedDuringFetch = downloadTarball(
@@ -201,6 +256,44 @@ export const test_npm_archive_pipeline_honors_abort_boundaries = async () => {
   await rejectsAbort(rejectedAfterAbort);
   rejectFetch(new Error("late fetch failure"));
   await new Promise<void>((resolve) => setImmediate(resolve));
+
+  const throwingFetchController = new AbortController();
+  const synchronousThrowAfterAbort = downloadTarball(
+    () => {
+      throwingFetchController.abort(reason);
+      throw new Error("synchronous fetch failure");
+    },
+    "https://tar.invalid/synchronous-throw.tgz",
+    throwingFetchController.signal,
+  );
+  await rejectsAbort(synchronousThrowAfterAbort);
+
+  let stalledSignalAborted = false;
+  const stalledSignalListeners = new Set<unknown>();
+  const stalledSignal = {
+    addEventListener: (_type: string, listener: unknown) => {
+      stalledSignalListeners.add(listener);
+    },
+    get aborted() {
+      return stalledSignalAborted;
+    },
+    get reason() {
+      return reason;
+    },
+    removeEventListener: (_type: string, listener: unknown) => {
+      stalledSignalListeners.delete(listener);
+    },
+  } as unknown as AbortSignal;
+  const stalledAfterSynchronousAbort = downloadTarball(
+    () => {
+      stalledSignalAborted = true;
+      return new Promise<Response>(() => undefined);
+    },
+    "https://tar.invalid/stalled-after-synchronous-abort.tgz",
+    stalledSignal,
+  );
+  await rejectsAbort(stalledAfterSynchronousAbort);
+  assert.equal(stalledSignalListeners.size, 0);
 
   const digestController = new AbortController();
   const digesting = verifyTarball(

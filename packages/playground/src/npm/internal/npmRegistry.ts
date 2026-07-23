@@ -95,12 +95,13 @@ export async function fetchNpmMetadata(
       ),
     signal,
   );
+  throwIfResponseAborted(response, signal);
   if (response.status === 404 && optional) {
-    void response.body?.cancel().catch(() => undefined);
+    cancelResponseBody(response);
     return null;
   }
   if (!response.ok) {
-    void response.body?.cancel().catch(() => undefined);
+    cancelResponseBody(response);
     throw new Error(
       `npm registry returned ${response.status} while resolving ${packageName}.`,
     );
@@ -165,15 +166,16 @@ export async function downloadTarball(
     () => fetchImpl(tarball, { signal }),
     signal,
   );
+  throwIfResponseAborted(response, signal);
   if (!response.ok) {
-    void response.body?.cancel().catch(() => undefined);
+    cancelResponseBody(response);
     throw new Error(`tarball download failed with HTTP ${response.status}.`);
   }
   const declaredLength = response.headers.get("content-length");
   if (declaredLength !== null) {
     const parsed = Number(declaredLength);
     if (Number.isFinite(parsed) && parsed >= 0 && parsed > byteLimit) {
-      void response.body?.cancel().catch(() => undefined);
+      cancelResponseBody(response);
       throw new Error(
         `tarball exceeds the ${formatByteLimit(byteLimit)} compressed byte limit.`,
       );
@@ -684,13 +686,20 @@ function abortable<T>(
   disposeLateValue?: (value: T) => void,
 ): Promise<T> {
   throwIfAborted(signal);
-  const task = start();
+  let task: Promise<T>;
+  try {
+    task = start();
+  } catch (error) {
+    throwIfAborted(signal);
+    throw error;
+  }
   if (signal === undefined) return task;
   return new Promise<T>((resolve, reject) => {
     let aborted = false;
     const abort = () => {
       if (aborted) return;
       aborted = true;
+      signal.removeEventListener("abort", abort);
       try {
         throwIfAborted(signal);
       } catch (error) {
@@ -718,18 +727,27 @@ function abortable<T>(
   });
 }
 
+/** Cancel an unused response body without obscuring the deciding outcome. */
+function cancelResponseBody(response: Response): void {
+  void response.body?.cancel().catch(() => undefined);
+}
+
+/** Preserve the abort reason across the response-to-caller handoff. */
+function throwIfResponseAborted(
+  response: Response,
+  signal: AbortSignal | undefined,
+): void {
+  if (!signal?.aborted) return;
+  cancelResponseBody(response);
+  throwIfAborted(signal);
+}
+
 /** Fetch one response and cancel any body that loses the abort race. */
 async function fetchWithAbort(
   start: () => Promise<Response>,
   signal: AbortSignal | undefined,
 ): Promise<Response> {
-  const cancel = (response: Response): void => {
-    void response.body?.cancel().catch(() => undefined);
-  };
-  const response = await abortable(start, signal, cancel);
-  if (signal?.aborted) {
-    cancel(response);
-    throwIfAborted(signal);
-  }
+  const response = await abortable(start, signal, cancelResponseBody);
+  throwIfResponseAborted(response, signal);
   return response;
 }
