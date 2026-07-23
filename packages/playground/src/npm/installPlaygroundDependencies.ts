@@ -277,7 +277,7 @@ export async function installPlaygroundDependencies(
       report("extract", item, `Extracting ${item.name}@${version}`, version);
       unpacked = await unpackNpmTarball(tgz, options.signal, maxUnpackedBytes);
     } catch (error) {
-      if (options.signal?.aborted) throw error;
+      throwIfAborted(options.signal);
       const message = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to install ${item.name}@${version}: ${message}`, {
         cause: error,
