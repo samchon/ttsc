@@ -1,5 +1,4 @@
 import fs from "node:fs/promises";
-import path from "node:path";
 
 import {
   beginTtscTransformBuild,
@@ -203,37 +202,29 @@ function bunLoaderFor(filePath: string): BunLoader {
  * Create a stable ownership matcher for Bun's `BuildConfig.files` map.
  *
  * Bun preserves relative `files` keys in the corresponding `onLoad` path.
- * Preserve those spellings directly and resolve normalized variants against the
- * setup-time working directory. A later `process.chdir()` must not change which
- * paths this build configuration owns.
+ * Preserve relative versus absolute spelling and dot segments exactly. Windows
+ * normalizes separators and drive-letter case, but not component case. No path
+ * is resolved against cwd, so `process.chdir()` cannot change ownership.
  */
 function createBunInMemoryFileMatcher(
   build: BunLikeBuild,
 ): (file: string) => boolean {
   const files = build.config?.files;
   if (files === undefined) return () => false;
-  const spellings = new Set(Object.keys(files));
-  const setupDirectory = process.cwd();
-  const identities = new Set(
-    [...spellings].map((file) => bunPathIdentityKey(setupDirectory, file)),
-  );
-  return (file) =>
-    spellings.has(file) ||
-    identities.has(bunPathIdentityKey(setupDirectory, file));
+  const identities = new Set(Object.keys(files).map(bunPathIdentityKey));
+  return (file) => identities.has(bunPathIdentityKey(file));
 }
 
 /**
  * Normalize the path forms Bun equates for its in-memory file map.
  *
- * Bun normalizes Windows separators, drive-letter case, and dot segments but
- * preserves path-component case when matching `BuildConfig.files`. The normal
- * filesystem identity key is intentionally broader on Windows and would let a
- * differently cased virtual key suppress a real disk transform.
+ * Bun normalizes Windows separators and drive-letter case, but preserves path
+ * component case, relative versus absolute spelling, and dot segments. A
+ * filesystem identity key is broader and would suppress real disk transforms.
  */
-function bunPathIdentityKey(directory: string, file: string): string {
-  const absolute = path.resolve(directory, file);
-  if (process.platform !== "win32") return absolute;
-  return absolute
+function bunPathIdentityKey(file: string): string {
+  if (process.platform !== "win32") return file;
+  return file
     .replace(/\\/g, "/")
     .replace(
       /^([a-z]):/i,

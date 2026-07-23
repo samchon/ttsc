@@ -227,7 +227,7 @@ async function assertBunAdapterYieldsToConfiguredInMemoryFiles(): Promise<void> 
   const unpluginBun = await TestUnpluginRuntime.loadUnpluginAdapter("bun");
   const root = TestUnpluginProject.createProject();
   const main = TestUnpluginProject.mainFile(root);
-  const relativeMain = path.relative(process.cwd(), main);
+  const relativeMain = path.join("src", path.basename(main));
   const reportedRelativeMain = relativeMain.split(path.sep).join("/");
   const virtual = path.resolve(root, "virtual.ts");
   const { loader } = await captureBunLoader(unpluginBun(), "bundler", {
@@ -255,8 +255,8 @@ async function assertBunAdapterYieldsToConfiguredInMemoryFiles(): Promise<void> 
     process.chdir(setupDirectory);
   }
 
-  const caseVariant = relativeMain.replace(/(^|[\\/])src([\\/])/, "$1SRC$2");
-  assert.notEqual(caseVariant, relativeMain);
+  const caseVariant = main.replace(/(^|[\\/])src([\\/])/, "$1SRC$2");
+  assert.notEqual(caseVariant, main);
   let optionResolutions = 0;
   const { loader: caseSensitiveLoader } = await captureBunLoader(
     unpluginBun(() => {
@@ -270,11 +270,33 @@ async function assertBunAdapterYieldsToConfiguredInMemoryFiles(): Promise<void> 
       },
     },
   );
-  await caseSensitiveLoader({ path: reportedRelativeMain });
+  await caseSensitiveLoader({ path: main });
   assert.equal(
     optionResolutions,
     1,
     "a differently cased files key must not suppress a disk transform",
+  );
+
+  const dotAbsoluteMain = `${path.dirname(main)}${path.sep}..${path.sep}src${path.sep}${path.basename(main)}`;
+  let spellingOptionResolutions = 0;
+  const { loader: spellingLoader } = await captureBunLoader(
+    unpluginBun(() => {
+      ++spellingOptionResolutions;
+      return { plugins: [] };
+    }),
+    "bundler",
+    {
+      files: {
+        [dotAbsoluteMain]: "export const dotSpelling = true;",
+        [relativeMain]: "export const relativeSpelling = true;",
+      },
+    },
+  );
+  await spellingLoader({ path: main });
+  assert.equal(
+    spellingOptionResolutions,
+    1,
+    "relative and dot-segment files keys must not claim an absolute disk path",
   );
 }
 
