@@ -143,6 +143,7 @@ export async function downloadTarball(
   signal: AbortSignal | undefined,
   maxBytes = 16 * 1024 * 1024,
 ): Promise<ArrayBuffer> {
+  throwIfAborted(signal);
   validateNpmByteLimit(maxBytes, "compressed");
   const response = await fetchImpl(tarball, { signal });
   if (!response.ok) {

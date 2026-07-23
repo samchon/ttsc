@@ -15,8 +15,8 @@ import { createNpmFixtureTarball } from "../internal/npmFixture";
  *
  * 1. Abort while a streamed download is waiting and assert the byte collector
  *    rejects without waiting for another chunk.
- * 2. Abort an in-flight digest, then pass an already aborted signal to
- *    decompression and assert every stage stops.
+ * 2. Abort an in-flight digest, then pass an already aborted signal through
+ *    download, verification, and decompression and assert every stage stops.
  */
 export const test_npm_archive_pipeline_honors_abort_boundaries = async () => {
   const tarball = createNpmFixtureTarball();
@@ -52,6 +52,20 @@ export const test_npm_archive_pipeline_honors_abort_boundaries = async () => {
   await assert.rejects(verifyTarball(tarball, {}, stopped.signal), {
     name: "AbortError",
   });
+  let stoppedFetches = 0;
+  await assert.rejects(
+    downloadTarball(
+      async () => {
+        ++stoppedFetches;
+        return new Response(tarball);
+      },
+      "https://tar.invalid/stopped.tgz",
+      stopped.signal,
+      0,
+    ),
+    { name: "AbortError" },
+  );
+  assert.equal(stoppedFetches, 0);
   await assert.rejects(unpackNpmTarball(tarball, stopped.signal), {
     name: "AbortError",
   });

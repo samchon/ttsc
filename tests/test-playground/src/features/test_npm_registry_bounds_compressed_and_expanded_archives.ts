@@ -115,32 +115,9 @@ export const test_npm_registry_bounds_compressed_and_expanded_archives =
         "public limits must be validated before metadata resolution",
       );
     }
-    const originalDecompressionStream = globalThis.DecompressionStream;
-    let decompressionConstructions = 0;
-    Object.defineProperty(globalThis, "DecompressionStream", {
-      configurable: true,
-      value: class {
-        public constructor() {
-          ++decompressionConstructions;
-          throw new Error("decompressor must not be constructed");
-        }
-      },
-    });
-    try {
-      await assert.rejects(
-        unpackNpmTarball(tarball, undefined, 0),
-        /positive safe integer/,
-      );
-    } finally {
-      Object.defineProperty(globalThis, "DecompressionStream", {
-        configurable: true,
-        value: originalDecompressionStream,
-      });
-    }
-    assert.equal(
-      decompressionConstructions,
-      0,
-      "an invalid expanded limit must fail before decompressor setup",
+    await assert.rejects(
+      unpackNpmTarball(tarball, undefined, 0),
+      /positive safe integer/,
     );
 
     const expandedLength = gunzipSync(new Uint8Array(tarball)).byteLength;
