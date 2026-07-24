@@ -3912,7 +3912,14 @@ function finalizeDependencies(): Array<{
 }
 
 function graphWatchReachability(): Set<string> {
-  const config = new URL(configUrl).href;
+  // Respell the seed the way the module system spells a path. A URL handed to
+  // this process may come from a producer with different escaping rules — Go
+  // leaves a tilde unreserved where Node percent-encodes it, and a Windows 8.3
+  // component is the one path shape that carries one — so the seed would name a
+  // URL no edge was ever keyed under. The walk would then reach nothing and
+  // every dependency recorded after the first import would be demoted out of
+  // the published watch set.
+  const config = pathToFileURL(fileURLToPath(configUrl)).href;
   const adjacency = new Map<string, typeof graphEdges>();
   for (const edge of graphEdges) {
     const outgoing = adjacency.get(edge.parent) ?? [];
