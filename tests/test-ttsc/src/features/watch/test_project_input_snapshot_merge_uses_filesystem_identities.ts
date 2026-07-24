@@ -114,9 +114,13 @@ export const test_project_input_snapshot_merge_uses_filesystem_identities =
       );
     }
 
+    // The default macOS volume does not provide two case-distinct entries.
+    // Windows explicitly enables the directory flag below; Linux volumes used
+    // by the supported test lanes are case-sensitive by default.
+    if (process.platform === "darwin") return;
     const caseRoot = path.join(fixtureRoot, "case-sensitive");
     fs.mkdirSync(caseRoot);
-    if (!enableWindowsCaseSensitivity(caseRoot)) return;
+    enableWindowsCaseSensitivity(caseRoot);
     const upperRoot = path.join(caseRoot, "Project");
     const lowerRoot = path.join(caseRoot, "project");
     fs.mkdirSync(upperRoot);
@@ -181,8 +185,8 @@ function alternateCase(location: string): string {
   );
 }
 
-function enableWindowsCaseSensitivity(directory: string): boolean {
-  if (process.platform !== "win32") return true;
+function enableWindowsCaseSensitivity(directory: string): void {
+  if (process.platform !== "win32") return;
   const result = child_process.spawnSync(
     "fsutil.exe",
     ["file", "setCaseSensitiveInfo", directory, "enable"],
@@ -191,7 +195,13 @@ function enableWindowsCaseSensitivity(directory: string): boolean {
       windowsHide: true,
     },
   );
-  return result.status === 0;
+  assert.equal(
+    result.status,
+    0,
+    `failed to enable Windows per-directory case sensitivity: ${
+      result.error?.message ?? result.stderr.trim()
+    }`,
+  );
 }
 
 function windowsShortPath(location: string): string | undefined {
