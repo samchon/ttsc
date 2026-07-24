@@ -9,10 +9,10 @@ import {
 } from "../../../../../packages/ttsc/lib/launcher/internal/watchTopology.js";
 
 /**
- * Verifies inherited file-valued compiler outputs remain relative to the
+ * Verifies inherited path-valued compiler outputs remain relative to the
  * tsconfig that declared them.
  *
- * 1. Declare `outFile` and `tsBuildInfoFile` in a nested base config.
+ * 1. Declare `outDir` and `tsBuildInfoFile` in a nested base config.
  * 2. Suppress writes at the base config's output paths.
  * 3. Treat the old project-root-relative interpretations as external inputs.
  */
@@ -29,8 +29,7 @@ export const test_watch_topology_preserves_inherited_output_option_bases =
       JSON.stringify({
         compilerOptions: {
           composite: true,
-          module: "preserve",
-          outFile: "generated/bundle.js",
+          outDir: "generated",
           tsBuildInfoFile: "cache/base.tsbuildinfo",
         },
       }),
@@ -65,7 +64,7 @@ export const test_watch_topology_preserves_inherited_output_option_bases =
     try {
       topology.refresh(false);
       const declaredOutputs = [
-        path.join(root, "config", "generated", "bundle.js"),
+        path.join(root, "config", "generated", "main.js"),
         path.join(root, "config", "cache", "base.tsbuildinfo"),
       ];
       topology.setProjectInputs({
@@ -80,7 +79,7 @@ export const test_watch_topology_preserves_inherited_output_option_bases =
       await expectProjectQuiet(changes);
 
       const rootRelativeTwins = [
-        path.join(root, "generated", "bundle.js"),
+        path.join(root, "generated", "main.js"),
         path.join(root, "cache", "base.tsbuildinfo"),
       ];
       topology.setProjectInputs({
