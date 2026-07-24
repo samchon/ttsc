@@ -1645,6 +1645,7 @@ export function isAbsoluteLocalProjectInputPath(
   location: string,
   platform: NodeJS.Platform = process.platform,
 ): boolean {
+  if (location.includes("\0")) return false;
   if (platform !== "win32") return path.posix.isAbsolute(location);
   const normalized = location.replaceAll("/", "\\");
   if (/^[A-Za-z]:\\/.test(normalized)) return true;
@@ -1652,12 +1653,25 @@ export function isAbsoluteLocalProjectInputPath(
     const extended = normalized.slice(4);
     if (/^[A-Za-z]:\\/.test(extended)) return true;
     if (extended.toLowerCase().startsWith("unc\\")) {
-      return /^unc\\[^\\]+\\[^\\]+(?:\\|$)/i.test(extended);
+      return isWindowsUncProjectInputPath(`\\\\${extended.slice(4)}`);
     }
     return false;
   }
   if (normalized.startsWith("\\\\.\\")) return false;
-  return /^\\\\[^\\]+\\[^\\]+(?:\\|$)/.test(normalized);
+  return isWindowsUncProjectInputPath(normalized);
+}
+
+function isWindowsUncProjectInputPath(location: string): boolean {
+  const matched = /^\\\\([^\\]+)\\([^\\]+)(?:\\|$)/.exec(location);
+  return (
+    matched !== null &&
+    isWindowsUncVolumeSegment(matched[1]!) &&
+    isWindowsUncVolumeSegment(matched[2]!)
+  );
+}
+
+function isWindowsUncVolumeSegment(segment: string): boolean {
+  return segment !== "." && segment !== ".." && !/[\0<>:"/\\|?*]/.test(segment);
 }
 
 function isStringArray(value: unknown): value is string[] {
