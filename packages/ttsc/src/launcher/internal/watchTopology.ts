@@ -135,9 +135,17 @@ export class WatchTopology {
     // Stamp the tracked set as it is resolved, so the first event that cannot
     // name what changed compares against the state the compiler just saw rather
     // than against nothing, which would make it nominate everything once.
-    this.compilerFileStamps = new Map(
-      [...next.files].map(([key, file]) => [key, compilerFileStamp(file)]),
-    );
+    for (const key of [...this.compilerFileStamps.keys()]) {
+      if (!next.files.has(key)) this.compilerFileStamps.delete(key);
+    }
+    for (const [key, file] of next.files) {
+      // Only a file with no stamp yet is seeded. Restamping one that already
+      // has a baseline would advance it past a change nobody reported, and the
+      // next unnamed event would then read that change as no change at all.
+      if (!this.compilerFileStamps.has(key)) {
+        this.compilerFileStamps.set(key, compilerFileStamp(file));
+      }
+    }
     this.directories = next.directories;
     this.outputFiles = next.outputFiles;
     this.outputs = next.outputs;
@@ -241,6 +249,11 @@ export class WatchTopology {
           watcherRegistrationPath(location),
           { persistent: true },
           () => {
+            // A per-file watcher fires on any filesystem attention its target
+            // receives, and it carries no filename to distinguish an edit from
+            // a touch. It answers the same question the unnamed directory event
+            // answers, so it answers it the same way: from the bytes.
+            if (!this.compilerFileMoved(location)) return;
             this.callbacks.onInputChange({
               kind: this.classifyCompilerInput(location),
               path: location,
@@ -249,6 +262,15 @@ export class WatchTopology {
         ),
       (location, error) => this.callbacks.onError(location, error),
     );
+  }
+
+  /** Whether a tracked file's bytes differ from the last stamp taken. */
+  private compilerFileMoved(location: string): boolean {
+    const key = pathKey(location);
+    const stamp = compilerFileStamp(location);
+    if (this.compilerFileStamps.get(key) === stamp) return false;
+    this.compilerFileStamps.set(key, stamp);
+    return true;
   }
 
   private syncDirectoryWatchers(): void {
@@ -343,15 +365,7 @@ export class WatchTopology {
       for (const file of changes) this.recordCompilerFileStamp(file);
       return [...changes];
     }
-    const moved: string[] = [];
-    for (const file of changes) {
-      const key = pathKey(file);
-      const stamp = compilerFileStamp(file);
-      if (this.compilerFileStamps.get(key) === stamp) continue;
-      this.compilerFileStamps.set(key, stamp);
-      moved.push(file);
-    }
-    return moved;
+    return changes.filter((file) => this.compilerFileMoved(file));
   }
 
   private recordCompilerFileStamp(file: string): void {

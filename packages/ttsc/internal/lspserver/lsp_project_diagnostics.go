@@ -2,6 +2,7 @@ package lspserver
 
 import (
   "encoding/json"
+  "path/filepath"
   "strings"
 )
 
@@ -135,6 +136,14 @@ func (s *NativePluginSource) clientProjectURI(uri string) string {
     return uri
   }
   client := s.clientTsconfig
+  // A relative spelling has no anchor here: this process never changed into the
+  // client's directory, so resolving it would answer about wherever the host
+  // happens to be running, and the URI builder below assumes an absolute native
+  // path — handed a relative one it produces a host-only URI that addresses
+  // nothing. Leaving the producer's spelling alone is strictly better.
+  if !filepath.IsAbs(projectInputFilesystemPath(client)) {
+    return uri
+  }
   if projectInputPathKey(realProjectInputPath(location)) !=
     projectInputPathKey(realProjectInputPath(client)) {
     return uri

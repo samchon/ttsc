@@ -1679,7 +1679,11 @@ function evaluateTtsxConfigPlugins(
       "utf8",
     );
 
-    const ttsxBinary = resolveTtsxLauncher(configPath);
+    // The config comes first, so a project that pins its own ttsc gets it. This
+    // descriptor's own location comes second, because a fixture or a workspace
+    // that installs only the lint package cannot resolve ttsc from the config
+    // at all, and the descriptor always sits beside the host that loaded it.
+    const ttsxBinary = resolveTtsxLauncher([configPath, context.dirname]);
     // `--no-plugins` keeps this build hermetic: the loader only needs to
     // type-check and run the user's lint config to extract its plugin
     // entries. Loading the host project's transform/check plugins
@@ -2309,15 +2313,23 @@ function nodeConfigLoaderEnv(configPath: string): NodeJS.ProcessEnv {
 /**
  * Where the isolated config evaluator lives.
  *
- * An explicit override wins. Otherwise the launcher is resolved out of the ttsc
- * installation the project uses, because a bare command name only works when a
- * bin link happens to be on PATH — which it is for a spawned CLI and is not for
- * a host that loaded this descriptor in process. Falling back to the bare name
- * keeps an installation that resolves differently working.
+ * An explicit override wins. Otherwise the launcher is resolved out of a ttsc
+ * installation one of the anchors can see, because a bare command name only
+ * works when a bin link happens to be on PATH — which it is for a spawned CLI
+ * and is not for a host that loaded this descriptor in process. The bare name
+ * remains the last resort for an installation none of them reach.
  */
-function resolveTtsxLauncher(anchor: string): string {
+function resolveTtsxLauncher(anchors: readonly string[]): string {
   const explicit = process.env.TTSC_TTSX_BINARY?.trim();
   if (explicit) return explicit;
+  for (const anchor of anchors) {
+    const launcher = ttsxLauncherFrom(anchor);
+    if (launcher !== undefined) return launcher;
+  }
+  return "ttsx";
+}
+
+function ttsxLauncherFrom(anchor: string): string | undefined {
   try {
     // Only the manifest is exported, so the launcher is derived from where the
     // manifest resolved rather than requested as a subpath. Resolution is
@@ -2333,9 +2345,9 @@ function resolveTtsxLauncher(anchor: string): string {
     );
     if (fs.existsSync(launcher)) return launcher;
   } catch {
-    // An installation that resolves differently keeps the bare command.
+    // This anchor cannot see ttsc; the caller tries the next one.
   }
-  return "ttsx";
+  return undefined;
 }
 
 function ttsxThroughNodeIfNeeded(binary: string): {
