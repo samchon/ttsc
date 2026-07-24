@@ -189,61 +189,6 @@ func RunLSPDiagnostics(args []string) int {
   return writeJSON(result)
 }
 
-// RunLSPProjectDiagnostics prints the current project-rule publication without
-// requiring an open TypeScript document.
-func RunLSPProjectDiagnostics(args []string) int {
-  opts, ok := parseLSPCommandOptions("lsp-project-diagnostics", args)
-  if !ok {
-    return 2
-  }
-  result, code := computeLSPProjectDiagnostics(opts)
-  if code != 0 {
-    return code
-  }
-  return writeJSON(result)
-}
-
-// computeLSPProjectDiagnostics evaluates only project rules and returns an
-// empty publication when they are disabled, allowing the proxy to clear the
-// previous generation.
-func computeLSPProjectDiagnostics(opts *lspCommandOptions) (*lspProjectDiagnostics, int) {
-  rules, err := loadRules(opts.pluginsJSON, opts.cwd, opts.tsconfig)
-  if err != nil {
-    fmt.Fprintln(os.Stderr, err)
-    return nil, 2
-  }
-  engine := NewEngineWithResolver(rules)
-  if err := engine.ConfigError(); err != nil {
-    fmt.Fprintln(os.Stderr, err)
-    return nil, 2
-  }
-  prog, parseDiags, closeProgram, err := acquireProgram(opts, engine.NeedsTypeChecker())
-  if closeProgram != nil {
-    defer closeProgram()
-  }
-  if err != nil {
-    fmt.Fprintf(os.Stderr, "@ttsc/lint: %v\n", err)
-    return nil, 2
-  }
-  if prog == nil {
-    return nil, 0
-  }
-  publication := &lspProjectDiagnostics{
-    URI:         fileURL(prog.identity.LogicalConfigPath),
-    Diagnostics: []lspDiagnostic{},
-  }
-  if len(parseDiags) > 0 {
-    return publication, 0
-  }
-  for _, finding := range prog.runProjectCycle(engine).finalize() {
-    publication.Diagnostics = append(
-      publication.Diagnostics,
-      findingToLSPDiagnostic(finding),
-    )
-  }
-  return publication, 0
-}
-
 // computeLSPDiagnostics builds the diagnostics result for one file URI. Split
 // from RunLSPDiagnostics so the resident lsp-serve loop can produce the same
 // result against a warm Program without re-parsing per verb.

@@ -31,7 +31,7 @@ func TestResidentFallsBackWhenServeUnsupported(t *testing.T) {
   }
 
   source.residentMu.Lock()
-  unsupported := source.serveUnsupported[pluginKey(plugin)]
+  unsupported := source.serveUnsupported[plugin.Binary]
   source.residentMu.Unlock()
   if !unsupported {
     t.Fatal("a first-spawn failure must mark lsp-serve unsupported so the source stops retrying")

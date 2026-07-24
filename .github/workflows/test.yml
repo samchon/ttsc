@@ -31,52 +31,6 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  watch-platforms:
-    name: watch (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os:
-          - ubuntu-latest
-          - macos-latest
-          - windows-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24.x
-
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: packages/ttsc/go.mod
-          cache-dependency-path: |
-            packages/ttsc/go.sum
-            packages/ttsc/tools/shim_audit/go.sum
-            tests/go-transformer/go.mod
-
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10.6.4
-
-      - name: Install Dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Use System Go For Source Plugin Tests
-        shell: bash
-        run: echo "TTSC_GO_BINARY=$(go env GOROOT)/bin/go" >> "$GITHUB_ENV"
-
-      - name: Build Current Platform
-        run: pnpm run build:current
-        env:
-          TTSC_BUILD_SCOPE: test-ttsc
-
-      - name: Run watch tests
-        run: pnpm --filter @ttsc/test-ttsc start
-        env:
-          TTSC_TEST_DIR: features/watch
-
   test:
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.os || 'ubuntu-latest' }}

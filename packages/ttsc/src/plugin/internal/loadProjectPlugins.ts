@@ -65,7 +65,6 @@ export function loadProjectPlugins(options: {
   entries?: readonly ITtscProjectPluginConfig[] | false;
   env?: NodeJS.ProcessEnv;
   file?: string;
-  onWatchInputs?: (inputs: readonly string[]) => void;
   pluginConfigDir?: string;
   projectRoot?: string;
   tsconfig?: string;
@@ -87,7 +86,6 @@ export function loadProjectPlugins(options: {
           (entry) => entry.config.enabled !== false,
         );
   if (entries.length === 0) {
-    options.onWatchInputs?.([]);
     return {
       nativePlugins: [],
       project,
@@ -152,12 +150,6 @@ export function loadProjectPlugins(options: {
       stage,
     };
   });
-  options.onWatchInputs?.(
-    records.flatMap((record) => [
-      record.source,
-      ...(record.contributors?.map((contributor) => contributor.source) ?? []),
-    ]),
-  );
   const linkedContributors = records
     .filter((record) => record.stage === "transform")
     .flatMap((record) =>

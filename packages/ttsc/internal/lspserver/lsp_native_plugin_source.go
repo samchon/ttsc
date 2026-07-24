@@ -10,7 +10,6 @@ import (
   "os/exec"
   "strings"
   "sync"
-  "sync/atomic"
   "time"
 )
 
@@ -40,8 +39,6 @@ type NativePluginConfigEntry struct {
 type NativeLSPPluginEntry struct {
   Binary             string `json:"binary"`
   Name               string `json:"name,omitempty"`
-  ProjectDiagnostics bool   `json:"projectDiagnostics,omitempty"`
-  ProjectInputs      bool   `json:"projectInputs,omitempty"`
   ProjectContextArgs bool   `json:"projectContextArgs,omitempty"`
   Stage              string `json:"stage,omitempty"`
 }
@@ -90,16 +87,6 @@ type NativePluginSource struct {
   hintsRefresh coalescingRefresh
   owners       map[string]NativeLSPPluginEntry
   logMu        sync.Mutex
-
-  projectInputsMu       sync.RWMutex
-  projectInputs         LSPProjectInputSnapshot
-  pluginProjectInputs   map[string]projectInputRecord
-  projectInputsObserver func()
-  projectInputsRefresh  coalescingRefresh
-
-  projectDiagnosticsMu       sync.RWMutex
-  pluginProjectDiagnostics   map[string]projectDiagnosticRecord
-  projectDiagnosticsSequence atomic.Uint64
 
   // residentMu guards the resident-daemon table below. A resident sidecar keeps
   // a warm Program across verbs, so lsp-diagnostics / lsp-code-actions reuse it
@@ -183,7 +170,6 @@ func NewNativePluginSource(opts NativePluginSourceOptions) (*NativePluginSource,
     owners:             map[string]NativeLSPPluginEntry{},
   }
   source.discoverCommandIDs()
-  source.discoverProjectInputs(1)
   // The corpus fetch loads a Program, so it runs off the construction path.
   // Blocking here would delay initialize — and therefore the editor's first
   // response — for a feature most projects do not use. Until it lands,
@@ -202,15 +188,8 @@ func (s *NativePluginSource) Diagnostics(doc LSPDocumentVersion) LSPDiagnosticsR
   if s == nil || doc.URI == "" {
     return LSPDiagnosticsResult{}
   }
-  generation := s.projectDiagnosticsSequence.Add(1)
-  out := LSPDiagnosticsResult{
-    projectUpdatedProducers: map[string]struct{}{},
-  }
-  for _, plugin := range selectPluginTransports(
-    s.plugins,
-    nil,
-    s.projectContextJSON,
-  ) {
+  out := LSPDiagnosticsResult{}
+  for _, plugin := range s.plugins {
     body, err := s.run(plugin, "lsp-diagnostics", "--uri="+doc.URI)
     if err != nil {
       s.log("%v", err)
@@ -222,13 +201,23 @@ func (s *NativePluginSource) Diagnostics(doc LSPDocumentVersion) LSPDiagnosticsR
       continue
     }
     out.Document = append(out.Document, result.Document...)
-    if result.Project != nil && result.Project.URI != "" {
-      s.storeProjectDiagnostics(plugin, generation, result.Project)
-      out.projectUpdatedProducers[pluginKey(plugin, s.projectContextJSON)] = struct{}{}
+    if result.Project == nil {
+      continue
     }
-  }
-  if len(out.projectUpdatedProducers) != 0 {
-    out.Project = s.projectDiagnosticsSnapshot()
+    if out.Project == nil {
+      copied := *result.Project
+      copied.Diagnostics = append([]LSPDiagnostic(nil), result.Project.Diagnostics...)
+      out.Project = &copied
+      continue
+    }
+    if out.Project.URI != result.Project.URI {
+      s.log("ttscserver: %s returned project diagnostics for %s after %s; replacing the prior project publication", pluginLabel(plugin), result.Project.URI, out.Project.URI)
+      copied := *result.Project
+      copied.Diagnostics = append([]LSPDiagnostic(nil), result.Project.Diagnostics...)
+      out.Project = &copied
+      continue
+    }
+    out.Project.Diagnostics = append(out.Project.Diagnostics, result.Project.Diagnostics...)
   }
   return out
 }
@@ -253,11 +242,7 @@ func (s *NativePluginSource) CodeActions(uri string, rng LSPRange, ctx LSPCodeAc
   rangeJSON, _ := json.Marshal(rng)
   contextJSON, _ := json.Marshal(ctx)
   var out []LSPCodeAction
-  for _, plugin := range selectPluginTransports(
-    s.plugins,
-    nil,
-    s.projectContextJSON,
-  ) {
+  for _, plugin := range s.plugins {
     body, err := s.run(
       plugin,
       "lsp-code-actions",
@@ -450,11 +435,7 @@ type completionHintRecord struct {
 // so a fast producer's fresh corpus reaches the editor without waiting on a slow
 // one, and a producer that failed keeps serving what it last published.
 func (s *NativePluginSource) discoverCompletionHints(generation uint64) {
-  for _, plugin := range selectPluginTransports(
-    s.plugins,
-    nil,
-    s.projectContextJSON,
-  ) {
+  for _, plugin := range s.plugins {
     body, err := s.run(plugin, "lsp-hints")
     if err != nil {
       // Silent, unlike every other discovery failure here. A plugin that does
@@ -493,7 +474,7 @@ func (s *NativePluginSource) discoverCompletionHints(generation uint64) {
 // being offered. An older generation is dropped: refresh cycles are scheduled by
 // editor events, and the last event's answer is the one the user is waiting for.
 func (s *NativePluginSource) storeCompletionHints(plugin NativeLSPPluginEntry, generation uint64, hints []LSPCompletionHint) {
-  key := pluginKey(plugin, s.projectContextJSON)
+  key := pluginKey(plugin)
   s.hintsMu.Lock()
   defer s.hintsMu.Unlock()
   if existing, ok := s.pluginHints[key]; ok && generation < existing.generation {
@@ -513,12 +494,13 @@ func (s *NativePluginSource) storeCompletionHints(plugin NativeLSPPluginEntry, g
 // which a Go map's randomized range would not. The caller holds hintsMu.
 func (s *NativePluginSource) flattenCompletionHintsLocked() []LSPCompletionHint {
   hints := []LSPCompletionHint{}
-  for _, plugin := range selectPluginTransports(
-    s.plugins,
-    nil,
-    s.projectContextJSON,
-  ) {
-    key := pluginKey(plugin, s.projectContextJSON)
+  seen := make(map[string]struct{}, len(s.plugins))
+  for _, plugin := range s.plugins {
+    key := pluginKey(plugin)
+    if _, duplicate := seen[key]; duplicate {
+      continue
+    }
+    seen[key] = struct{}{}
     hints = append(hints, s.pluginHints[key].hints...)
   }
   return hints
@@ -536,44 +518,12 @@ func (s *NativePluginSource) notifyCompletionHintsObserver() {
   }
 }
 
-// pluginKey identifies one effective native launch transport. Every LSP verb
-// receives the full plugin manifest and has no selected-entry argument, so two
-// logical entries using the same binary and project-context argv return one
-// aggregate result and must share one cache, owner scope, and resident daemon.
-func pluginKey(
-  plugin NativeLSPPluginEntry,
-  projectContextJSON ...string,
-) string {
-  projectContextArgs := "0"
-  if plugin.ProjectContextArgs &&
-    len(projectContextJSON) != 0 &&
-    strings.TrimSpace(projectContextJSON[0]) != "" {
-    projectContextArgs = "1"
-  }
-  return plugin.Binary + "\x00" + projectContextArgs
-}
-
-// selectPluginTransports preserves manifest order while selecting at most one
-// representative for each effective native launch identity.
-func selectPluginTransports(
-  plugins []NativeLSPPluginEntry,
-  include func(NativeLSPPluginEntry) bool,
-  projectContextJSON ...string,
-) []NativeLSPPluginEntry {
-  selected := make([]NativeLSPPluginEntry, 0, len(plugins))
-  seen := make(map[string]struct{}, len(plugins))
-  for _, plugin := range plugins {
-    if include != nil && !include(plugin) {
-      continue
-    }
-    key := pluginKey(plugin, projectContextJSON...)
-    if _, duplicate := seen[key]; duplicate {
-      continue
-    }
-    seen[key] = struct{}{}
-    selected = append(selected, plugin)
-  }
-  return selected
+// pluginKey identifies one manifest entry. It matches the identity
+// pluginOwnsCommand compares, so a manifest carrying the same binary under two
+// stages keeps two independent corpora instead of overwriting one with the
+// other.
+func pluginKey(plugin NativeLSPPluginEntry) string {
+  return plugin.Binary + "\x00" + plugin.Name + "\x00" + plugin.Stage
 }
 
 // decodeNativeCompletionHints accepts both generations of the lsp-hints wire.
@@ -666,11 +616,7 @@ func (s *NativePluginSource) CodeActionKinds() []string {
 func (s *NativePluginSource) discoverCommandIDs() {
   seen := map[string]struct{}{}
   kindSeen := map[string]struct{}{}
-  for _, plugin := range selectPluginTransports(
-    s.plugins,
-    nil,
-    s.projectContextJSON,
-  ) {
+  for _, plugin := range s.plugins {
     body, err := s.run(plugin, "lsp-command-ids")
     if err != nil {
       s.log("%v", err)
@@ -724,8 +670,7 @@ func (s *NativePluginSource) pluginOwnsCommand(plugin NativeLSPPluginEntry, comm
   if !ok {
     return false
   }
-  return pluginKey(owner, s.projectContextJSON) ==
-    pluginKey(plugin, s.projectContextJSON)
+  return owner.Binary == plugin.Binary && owner.Name == plugin.Name && owner.Stage == plugin.Stage
 }
 
 func (s *NativePluginSource) run(plugin NativeLSPPluginEntry, command string, args ...string) ([]byte, error) {
@@ -735,20 +680,20 @@ func (s *NativePluginSource) run(plugin NativeLSPPluginEntry, command string, ar
   // spawn-per-verb path below with no behavior change. The static discovery
   // verbs (lsp-command-ids / lsp-code-action-kinds) and lsp-execute-command stay
   // on exec by design.
-  if command == serveVerbDiagnostics ||
-    command == serveVerbCodeActions {
+  if command == serveVerbDiagnostics || command == serveVerbCodeActions {
     if body, served, err := s.serveRun(plugin, command, args); served {
       return body, err
     }
   }
-  if command == serveVerbProjectDiagnostics ||
-    command == serveVerbHints {
-    // These newer optional verbs join the daemon on a weaker condition than the
-    // original document reads. A staged sidecar may implement the direct verb
-    // while its older resident loop rejects it. A nonzero resident reply is
-    // indistinguishable from the verb itself failing, so retry once through the
-    // advertised direct command. A genuine failure pays one extra spawn and is
-    // then handled exactly as it was before lsp-serve.
+  if command == serveVerbHints {
+    // Hints join the daemon on a weaker condition than the other two: the
+    // answer is used only when it arrives without error. A sidecar built after
+    // the daemon landed but before this verb joined it answers lsp-serve and
+    // rejects lsp-hints as an unknown verb, which reaches this side as a
+    // nonzero code — indistinguishable over this protocol from a rule that
+    // failed. Falling back to the spawn path on any nonzero reply keeps that
+    // sidecar's corpus working, and a project whose hints genuinely fail pays
+    // one extra spawn to fail there too, exactly as it did before.
     if body, served, err := s.serveRun(plugin, command, args); served && err == nil {
       return body, nil
     }

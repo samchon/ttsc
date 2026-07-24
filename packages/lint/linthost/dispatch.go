@@ -76,7 +76,7 @@ func run(args []string) int {
     // Don't pay contributor-registration cost for the version banner.
     fmt.Fprintf(os.Stdout, "@ttsc/lint %s\n", Version)
     return 0
-  case "check", "check-serve", "fix", "format", "build", "transform", "project-inputs", "lsp-command-ids", "lsp-code-action-kinds", "lsp-diagnostics", "lsp-project-diagnostics", "lsp-code-actions", "lsp-execute-command", "lsp-hints", "lsp-serve":
+  case "check", "fix", "format", "build", "transform", "lsp-command-ids", "lsp-code-action-kinds", "lsp-diagnostics", "lsp-code-actions", "lsp-execute-command", "lsp-hints", "lsp-serve":
   default:
     fmt.Fprintf(os.Stderr, "@ttsc/lint: unknown command %q\n", args[0])
     return 2
@@ -87,8 +87,6 @@ func run(args []string) int {
   switch args[0] {
   case "check":
     return RunCheck(args[1:])
-  case "check-serve":
-    return RunCheckServe(os.Stdin, os.Stdout, args[1:])
   case "fix":
     return RunFix(args[1:])
   case "format":
@@ -97,16 +95,12 @@ func run(args []string) int {
     return RunBuild(args[1:])
   case "transform":
     return RunTransform(args[1:])
-  case "project-inputs":
-    return RunProjectInputs(args[1:])
   case "lsp-command-ids":
     return RunLSPCommandIDs(args[1:])
   case "lsp-code-action-kinds":
     return RunLSPCodeActionKinds(args[1:])
   case "lsp-diagnostics":
     return RunLSPDiagnostics(args[1:])
-  case "lsp-project-diagnostics":
-    return RunLSPProjectDiagnostics(args[1:])
   case "lsp-code-actions":
     return RunLSPCodeActions(args[1:])
   case "lsp-execute-command":
