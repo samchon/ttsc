@@ -15,9 +15,9 @@ import {
  * watcher to an unrelated or remote namespace; silent path resolution would
  * make the launcher observe a different project than the plugin evaluated.
  *
- * 1. Reject relative files, remote URLs, and relative roots at the decoder.
+ * 1. Reject relative/remote/NUL reload files alongside the existing paths.
  * 2. Reject two otherwise-valid snapshots that publish different roots.
- * 3. Merge duplicate absolute entries under one consistent root.
+ * 3. Accept an old snapshot without reload metadata and merge physical aliases.
  */
 export const test_project_input_snapshots_reject_non_local_paths_and_mismatched_roots =
   () => {
@@ -27,6 +27,19 @@ export const test_project_input_snapshots_reject_non_local_paths_and_mismatched_
       { root, files: ["docs/spec.md"], globs: [] },
       { root, files: ["https://example.com/openapi.json"], globs: [] },
       { root: "relative-root", files: [], globs: [] },
+      { root, files: [], globs: [], reloadFiles: ["lint.config.json"] },
+      {
+        root,
+        files: [],
+        globs: [],
+        reloadFiles: ["https://example.com/lint.config.json"],
+      },
+      {
+        root,
+        files: [],
+        globs: [],
+        reloadFiles: [`${path.join(root, "lint.config.json")}\0ignored`],
+      },
     ];
     for (const snapshot of invalidSnapshots) {
       assert.throws(
@@ -39,7 +52,24 @@ export const test_project_input_snapshots_reject_non_local_paths_and_mismatched_
       root,
       files: [path.join(root, "docs", "spec.md")],
       globs: [path.join(root, "api", "**", "*.json")],
+      reloadFiles: [path.join(root, "lint.config.json")],
     };
+    assert.deepEqual(
+      parseProjectInputSnapshot(
+        JSON.stringify({ root, files: [], globs: [] }),
+        plugin,
+      ),
+      { root, files: [], globs: [], reloadFiles: [] },
+      "an older producer may omit the optional reload metadata",
+    );
+    assert.throws(
+      () =>
+        parseProjectInputSnapshot(
+          JSON.stringify({ root, files: [], globs: [], reloadFiles: root }),
+          plugin,
+        ),
+      /invalid snapshot/,
+    );
     assert.throws(
       () =>
         mergeProjectInputSnapshots(root, [
@@ -134,5 +164,6 @@ export const test_project_input_snapshots_reject_non_local_paths_and_mismatched_
       root,
       files: [path.join(root, "docs", "spec.md")],
       globs: [path.join(root, "api", "**", "*.json").split(path.sep).join("/")],
+      reloadFiles: [path.join(root, "lint.config.json")],
     });
   };

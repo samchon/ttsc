@@ -59,6 +59,10 @@ export const test_project_input_snapshot_merge_uses_filesystem_identities =
         path.join(root, "future", "missing.md"),
       ],
       globs: [path.join(root, "api", "**", "*.json")],
+      reloadFiles: [
+        path.join(root, "docs", "spec.md"),
+        path.join(root, "future", "missing.md"),
+      ],
     }));
     const merged = mergeProjectInputSnapshots(physicalRoot, snapshots);
     assert.equal(
@@ -70,6 +74,11 @@ export const test_project_input_snapshot_merge_uses_filesystem_identities =
       merged.globs.length,
       1,
       "glob aliases must inherit the existing api directory identity",
+    );
+    assert.equal(
+      merged.reloadFiles?.length,
+      2,
+      "reload aliases must use the same existing and missing identities",
     );
     assert.equal(merged.root, path.resolve(physicalRoot));
 
@@ -115,10 +124,17 @@ export const test_project_input_snapshot_merge_uses_filesystem_identities =
           path.join(upperRoot, "Api", "**", "*.json"),
           path.join(upperRoot, "api", "**", "*.json"),
         ],
+        reloadFiles: [
+          upperFile,
+          lowerFile,
+          path.join(upperRoot, "Future", "config.json"),
+          path.join(upperRoot, "future", "config.json"),
+        ],
       },
     ]);
     assert.equal(caseDistinct.files.length, 4);
     assert.equal(caseDistinct.globs.length, 2);
+    assert.equal(caseDistinct.reloadFiles?.length, 4);
   };
 
 function realpath(location: string): string {

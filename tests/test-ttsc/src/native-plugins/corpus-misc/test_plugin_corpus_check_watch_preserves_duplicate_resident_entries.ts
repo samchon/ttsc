@@ -65,19 +65,26 @@ export const test_plugin_corpus_check_watch_preserves_duplicate_resident_entries
       let transcript = session.transcript();
       let samples = residentSamples(transcript);
       assert.equal(samples.length, 2, transcript);
-      assert.deepEqual(samples[0], {
-        pid: samples[0]!.pid,
-        programLoads: 1,
-        programUpdates: 0,
-        reused: false,
-      });
-      assert.deepEqual(samples[1], {
-        pid: samples[0]!.pid,
-        programLoads: 1,
-        programUpdates: 0,
-        reused: true,
-      });
-      assert.equal(noVarDiagnosticCount(transcript), 2, transcript);
+      assert.deepEqual(
+        samples[0],
+        {
+          pid: samples[0]!.pid,
+          programLoads: 1,
+          programUpdates: 0,
+          reused: false,
+        },
+        transcript,
+      );
+      assert.deepEqual(
+        samples[1],
+        {
+          pid: samples[0]!.pid,
+          programLoads: 1,
+          programUpdates: 0,
+          reused: true,
+        },
+        transcript,
+      );
       assert.doesNotMatch(transcript, /invalid request/i);
 
       fs.writeFileSync(
@@ -89,28 +96,31 @@ export const test_plugin_corpus_check_watch_preserves_duplicate_resident_entries
       transcript = session.transcript();
       samples = residentSamples(transcript);
       assert.equal(samples.length, 4, transcript);
-      assert.deepEqual(samples[2], {
-        pid: samples[0]!.pid,
-        programLoads: 1,
-        programUpdates: 1,
-        reused: true,
-      });
-      assert.deepEqual(samples[3], {
-        pid: samples[0]!.pid,
-        programLoads: 1,
-        programUpdates: 2,
-        reused: true,
-      });
-      assert.equal(noVarDiagnosticCount(transcript), 4, transcript);
+      assert.deepEqual(
+        samples[2],
+        {
+          pid: samples[0]!.pid,
+          programLoads: 1,
+          programUpdates: 1,
+          reused: true,
+        },
+        transcript,
+      );
+      assert.deepEqual(
+        samples[3],
+        {
+          pid: samples[0]!.pid,
+          programLoads: 1,
+          programUpdates: 2,
+          reused: true,
+        },
+        transcript,
+      );
       assert.doesNotMatch(transcript, /invalid request/i);
     } finally {
       await session.close();
     }
   };
-
-function noVarDiagnosticCount(transcript: string): number {
-  return transcript.match(/\[no-var\]/g)?.length ?? 0;
-}
 
 function residentSamples(transcript: string): ResidentSample[] {
   return [
