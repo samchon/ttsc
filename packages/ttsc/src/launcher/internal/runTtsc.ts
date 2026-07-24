@@ -22,6 +22,7 @@ import {
 } from "../../plugin/internal/buildSourcePlugin";
 import type { ITtscProjectInputSnapshot } from "../../structures/internal/ITtscProjectInputSnapshot";
 import type { TtscBuildOptions } from "../../structures/internal/TtscBuildOptions";
+import type { TtscSingleFileEmitOptions } from "../../structures/internal/TtscSingleFileEmitOptions";
 import { getCompilerVersionText } from "./getCompilerVersionText";
 import { resolveCacheDir } from "./resolveCacheDir";
 import { WatchTopology } from "./watchTopology";
@@ -571,7 +572,10 @@ function printCacheHelp(): void {
   process.stdout.write("\n");
 }
 
-function runSingleFile(options: ReturnType<typeof parseBuildArgs>): number {
+function runSingleFile(
+  options: ReturnType<typeof parseBuildArgs> &
+    Pick<TtscSingleFileEmitOptions, "onProjectInputs" | "onWatchInputs">,
+): number {
   if (options.files.length !== 1) {
     throw new Error(
       "ttsc: single-file mode currently accepts exactly one input file",
@@ -593,6 +597,8 @@ function runSingleFile(options: ReturnType<typeof parseBuildArgs>): number {
     checkers: options.checkers,
     cwd,
     file,
+    onProjectInputs: options.onProjectInputs,
+    onWatchInputs: options.onWatchInputs,
     out,
     passthrough: options.passthrough,
     singleThreaded: options.singleThreaded,

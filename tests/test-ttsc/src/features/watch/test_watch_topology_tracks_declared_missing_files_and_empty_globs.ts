@@ -6,6 +6,8 @@ import path from "node:path";
 import {
   type WatchInputChange,
   WatchTopology,
+  literalGlobRoot,
+  projectInputEventShouldNotify,
 } from "../../../../../packages/ttsc/lib/launcher/internal/watchTopology.js";
 
 /**
@@ -28,7 +30,12 @@ export const test_watch_topology_tracks_declared_missing_files_and_empty_globs =
     fs.writeFileSync(
       path.join(root, "tsconfig.json"),
       JSON.stringify({
-        compilerOptions: { outDir: "dist", rootDir: "src" },
+        compilerOptions: {
+          outDir: "dist",
+          outFile: "api/bundle.json",
+          rootDir: "src",
+          tsBuildInfoFile: "api/state.json",
+        },
         files: ["src/main.ts"],
       }),
       "utf8",
@@ -63,8 +70,38 @@ export const test_watch_topology_tracks_declared_missing_files_and_empty_globs =
         ],
       });
 
+      if (process.platform === "win32") {
+        const volumeRoot = path.parse(root).root;
+        assert.equal(
+          literalGlobRoot(path.join(volumeRoot, "**", "*.json")),
+          volumeRoot,
+          "a drive-root glob must not resolve through the drive's current directory",
+        );
+      }
+
       fs.writeFileSync(path.join(root, "README.md"), "unrelated\n", "utf8");
       await waitForQuiet(changes);
+
+      assert.equal(
+        projectInputEventShouldNotify({
+          contentChanged: false,
+          directlyMatched: false,
+          membershipChanged: false,
+          topologyMatched: false,
+        }),
+        false,
+        "a filename-less event with unchanged inputs must stay quiet",
+      );
+      assert.equal(
+        projectInputEventShouldNotify({
+          contentChanged: true,
+          directlyMatched: false,
+          membershipChanged: false,
+          topologyMatched: false,
+        }),
+        true,
+        "a filename-less event with changed declared content must wake",
+      );
 
       fs.mkdirSync(path.join(root, "docs"));
       await delay();
@@ -80,6 +117,50 @@ export const test_watch_topology_tracks_declared_missing_files_and_empty_globs =
       await delay();
       previousProjectChanges = projectChangeCount(changes);
       fs.writeFileSync(path.join(root, "api", "v1", "openapi.json"), "{}\n");
+      await waitForNextProjectChange(changes, previousProjectChanges);
+
+      fs.writeFileSync(path.join(root, "api", "state.json"), "{}\n");
+      fs.writeFileSync(path.join(root, "api", "bundle.json"), "{}\n");
+      await waitForQuiet(changes);
+
+      const movedDocs = path.join(root, "docs-old");
+      previousProjectChanges = projectChangeCount(changes);
+      fs.renameSync(path.join(root, "docs"), movedDocs);
+      await waitForNextProjectChange(changes, previousProjectChanges);
+      fs.mkdirSync(path.join(root, "docs"));
+      await delay();
+      previousProjectChanges = projectChangeCount(changes);
+      fs.writeFileSync(
+        path.join(root, "docs", "missing.md"),
+        "replacement\n",
+        "utf8",
+      );
+      await waitForNextProjectChange(changes, previousProjectChanges);
+      await delay();
+      const afterReplacement = projectChangeCount(changes);
+      fs.writeFileSync(
+        path.join(movedDocs, "missing.md"),
+        "orphaned watcher\n",
+        "utf8",
+      );
+      await delay();
+      assert.equal(
+        projectChangeCount(changes),
+        afterReplacement,
+        "the watcher for the renamed directory must be retired",
+      );
+
+      const movedApi = path.join(root, "api-old");
+      previousProjectChanges = projectChangeCount(changes);
+      fs.renameSync(path.join(root, "api"), movedApi);
+      await waitForNextProjectChange(changes, previousProjectChanges);
+      fs.mkdirSync(path.join(root, "api", "v1"), { recursive: true });
+      await delay();
+      previousProjectChanges = projectChangeCount(changes);
+      fs.writeFileSync(
+        path.join(root, "api", "v1", "replacement.json"),
+        "{}\n",
+      );
       await waitForNextProjectChange(changes, previousProjectChanges);
 
       fs.mkdirSync(path.join(root, "dist"), { recursive: true });

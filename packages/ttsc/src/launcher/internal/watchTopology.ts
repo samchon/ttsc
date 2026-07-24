@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -31,6 +32,7 @@ export type WatchInputChange = {
 type ResolvedWatchTopology = {
   directories: Map<string, string>;
   files: Map<string, string>;
+  outputFiles: Map<string, string>;
   outputs: Map<string, string>;
 };
 
@@ -50,8 +52,11 @@ export class WatchTopology {
   private files = new Map<string, string>();
   private fileWatchers = new Map<string, fs.FSWatcher>();
   private observedDirectories = new Map<string, string>();
+  private outputFiles = new Map<string, string>();
   private outputs = new Map<string, string>();
+  private projectInputFingerprints = new Map<string, string>();
   private projectInputMatches = new Map<string, string>();
+  private projectInputPollTimer: NodeJS.Timeout | undefined;
   private projectInputs: ITtscProjectInputSnapshot = {
     files: [],
     globs: [],
@@ -70,9 +75,11 @@ export class WatchTopology {
     const changed =
       mapsEqual(this.files, next.files) === false ||
       mapsEqual(this.directories, next.directories) === false ||
+      mapsEqual(this.outputFiles, next.outputFiles) === false ||
       mapsEqual(this.outputs, next.outputs) === false;
     this.files = next.files;
     this.directories = next.directories;
+    this.outputFiles = next.outputFiles;
     this.outputs = next.outputs;
     this.syncFileWatchers();
     this.syncDirectoryWatchers();
@@ -100,6 +107,9 @@ export class WatchTopology {
     if (projectInputSnapshotsEqual(this.projectInputs, next)) return;
     this.projectInputs = next;
     this.projectInputMatches = this.collectProjectInputMatches();
+    this.projectInputFingerprints = fingerprintProjectInputMatches(
+      this.projectInputMatches,
+    );
     this.syncProjectInputWatchers();
   }
 
@@ -109,6 +119,10 @@ export class WatchTopology {
     closeWatchers(this.directoryWatchers);
     closeWatchers(this.extraWatchers);
     closeWatchers(this.projectInputWatchers);
+    if (this.projectInputPollTimer !== undefined) {
+      clearInterval(this.projectInputPollTimer);
+      this.projectInputPollTimer = undefined;
+    }
   }
 
   private syncFileWatchers(): void {
@@ -131,7 +145,8 @@ export class WatchTopology {
     for (const [key, location] of this.observedDirectories) {
       if (
         isDirectory(location) === false ||
-        this.isCompilerOutputDirectory(location)
+        this.isCompilerOutputDirectory(location) ||
+        this.isProjectInputDirectory(location)
       ) {
         this.observedDirectories.delete(key);
         continue;
@@ -187,27 +202,81 @@ export class WatchTopology {
   private syncProjectInputWatchers(): void {
     const desired = new Map<string, string>();
     for (const file of this.projectInputs.files) {
-      addProjectInputWatchDirectories(desired, path.dirname(file), false);
+      const target = path.dirname(file);
+      addProjectInputWatchDirectories(
+        desired,
+        target,
+        projectInputWatchAnchor(this.projectInputs.root, target),
+      );
     }
     for (const glob of this.projectInputs.globs) {
-      addProjectInputWatchDirectories(desired, literalGlobRoot(glob), true);
+      const target = literalGlobRoot(glob);
+      addProjectInputWatchDirectories(
+        desired,
+        target,
+        projectInputWatchAnchor(this.projectInputs.root, target),
+        process.platform !== "win32",
+      );
     }
     for (const [key, location] of desired) {
       if (this.isCompilerOutputDirectory(location)) desired.delete(key);
     }
+    const keyedDesired = new Map<string, string>();
+    for (const location of desired.values()) {
+      const recursive = this.isRecursiveProjectInputWatch(location);
+      keyedDesired.set(projectInputWatcherKey(location, recursive), location);
+    }
     syncWatchers(
       this.projectInputWatchers,
-      desired,
+      keyedDesired,
       (location) =>
-        fs.watch(location, { persistent: true }, (_event, filename) => {
-          const changed =
-            filename === null
-              ? undefined
-              : path.resolve(location, filename.toString());
-          this.refreshProjectInputs(location, changed);
-        }),
+        fs.watch(
+          location,
+          {
+            persistent: true,
+            recursive: this.isRecursiveProjectInputWatch(location),
+          },
+          (_event, filename) => {
+            const changed =
+              filename === null
+                ? undefined
+                : path.resolve(location, filename.toString());
+            this.refreshProjectInputs(location, changed);
+          },
+        ),
       (location, error) => this.callbacks.onError(location, error),
     );
+    this.syncProjectInputPoller();
+  }
+
+  private isRecursiveProjectInputWatch(location: string): boolean {
+    return (
+      process.platform !== "win32" &&
+      this.projectInputs.globs.some((glob) => {
+        const target = literalGlobRoot(glob);
+        return (
+          pathKey(projectInputWatchAnchor(this.projectInputs.root, target)) ===
+          pathKey(location)
+        );
+      })
+    );
+  }
+
+  private syncProjectInputPoller(): void {
+    const required =
+      process.platform === "win32" && this.projectInputs.globs.length !== 0;
+    if (!required) {
+      if (this.projectInputPollTimer !== undefined) {
+        clearInterval(this.projectInputPollTimer);
+        this.projectInputPollTimer = undefined;
+      }
+      return;
+    }
+    if (this.projectInputPollTimer !== undefined) return;
+    this.projectInputPollTimer = setInterval(() => {
+      this.refreshProjectInputs(this.projectInputs.root);
+    }, 250);
+    this.projectInputPollTimer.unref();
   }
 
   private refreshProjectInputs(location: string, changed?: string): void {
@@ -219,12 +288,30 @@ export class WatchTopology {
         changed !== undefined &&
         (previous.has(pathKey(changed)) ||
           matchesProjectInput(this.projectInputs, changed));
+      const topologyMatched =
+        changed !== undefined &&
+        projectInputTopologyMayAffect(this.projectInputs, changed);
+      const nextFingerprints =
+        changed === undefined ||
+        membershipChanged ||
+        directlyMatched ||
+        topologyMatched
+          ? fingerprintProjectInputMatches(next)
+          : this.projectInputFingerprints;
+      const contentChanged =
+        changed === undefined &&
+        mapsEqual(this.projectInputFingerprints, nextFingerprints) === false;
       this.projectInputMatches = next;
+      this.projectInputFingerprints = nextFingerprints;
       this.syncProjectInputWatchers();
       if (
-        (changed === undefined || membershipChanged || directlyMatched) &&
-        (changed === undefined ||
-          this.isCompilerOutputDirectory(changed) === false)
+        projectInputEventShouldNotify({
+          contentChanged,
+          directlyMatched,
+          membershipChanged,
+          topologyMatched,
+        }) &&
+        (changed === undefined || this.isCompilerOutput(changed) === false)
       ) {
         this.callbacks.onInputChange({
           kind: "project",
@@ -239,10 +326,7 @@ export class WatchTopology {
   private collectProjectInputMatches(): Map<string, string> {
     const matches = new Map<string, string>();
     for (const file of this.projectInputs.files) {
-      if (
-        fs.existsSync(file) &&
-        this.isCompilerOutputDirectory(file) === false
-      ) {
+      if (fs.existsSync(file) && this.isCompilerOutput(file) === false) {
         matches.set(pathKey(file), file);
       }
     }
@@ -256,7 +340,7 @@ export class WatchTopology {
         const current = stack.pop()!;
         for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
           const location = path.join(current, entry.name);
-          if (this.isCompilerOutputDirectory(location)) continue;
+          if (this.isCompilerOutput(location)) continue;
           if (entry.isDirectory()) {
             stack.push(location);
           } else if (
@@ -275,7 +359,8 @@ export class WatchTopology {
     if (
       changed !== undefined &&
       isDirectory(changed) &&
-      this.isCompilerOutputDirectory(changed) === false
+      this.isCompilerOutputDirectory(changed) === false &&
+      this.isProjectInputDirectory(changed) === false
     ) {
       this.observedDirectories.set(pathKey(changed), changed);
     }
@@ -291,6 +376,32 @@ export class WatchTopology {
       isPathWithin(output, location),
     );
   }
+
+  private isCompilerOutput(location: string): boolean {
+    return (
+      this.outputFiles.has(pathKey(location)) ||
+      this.isCompilerOutputDirectory(location)
+    );
+  }
+
+  private isProjectInputDirectory(location: string): boolean {
+    const resolved = path.resolve(location);
+    return (
+      this.projectInputs.files.some(
+        (file) =>
+          isPathWithin(resolved, file) ||
+          isPathWithin(path.dirname(file), resolved),
+      ) ||
+      this.projectInputs.globs.some((glob) => {
+        const root = literalGlobRoot(glob);
+        return isPathWithin(root, resolved) || isPathWithin(resolved, root);
+      })
+    );
+  }
+}
+
+function projectInputWatcherKey(location: string, recursive: boolean): string {
+  return `${pathKey(location)}\0${recursive ? "recursive" : "direct"}`;
 }
 
 function resolveWatchTopology(
@@ -298,6 +409,7 @@ function resolveWatchTopology(
   extraInputs: readonly string[],
 ): ResolvedWatchTopology {
   const files = new Map<string, string>();
+  const outputFiles = new Map<string, string>();
   const outputs = new Map<string, string>();
   const roots: string[] = [];
   if (options.files.length !== 0) {
@@ -308,7 +420,9 @@ function resolveWatchTopology(
     });
     roots.push(project.root);
     addPaths(files, project.configPaths);
-    addPaths(outputs, resolveCompilerOutputs(project, options).directories);
+    const compilerOutputs = resolveCompilerOutputs(project, options);
+    addPaths(outputFiles, compilerOutputs.files);
+    addPaths(outputs, compilerOutputs.directories);
     addPaths(
       files,
       options.files.map((file) => path.resolve(options.cwd, file)),
@@ -317,7 +431,9 @@ function resolveWatchTopology(
     for (const project of readReferencedProjects(options)) {
       roots.push(project.root);
       addPaths(files, project.configPaths);
-      addPaths(outputs, resolveCompilerOutputs(project, options).directories);
+      const compilerOutputs = resolveCompilerOutputs(project, options);
+      addPaths(outputFiles, compilerOutputs.files);
+      addPaths(outputs, compilerOutputs.directories);
       addPaths(files, listCompilerInputs(project, options));
     }
   }
@@ -325,6 +441,7 @@ function resolveWatchTopology(
   return {
     directories: collectTopologyDirectories(files.values(), roots),
     files,
+    outputFiles,
     outputs,
   };
 }
@@ -583,16 +700,38 @@ function projectInputSnapshotsEqual(
 function addProjectInputWatchDirectories(
   desired: Map<string, string>,
   target: string,
-  recursive: boolean,
+  anchor: string,
+  includeTarget = true,
 ): void {
   const existing = nearestExistingDirectory(target);
   if (existing === undefined) return;
-  desired.set(pathKey(existing), existing);
-  if (recursive && pathKey(existing) === pathKey(path.resolve(target))) {
-    for (const directory of collectInputDirectories(existing)) {
-      desired.set(pathKey(directory), directory);
-    }
+  let current =
+    includeTarget === false &&
+    pathKey(existing) === pathKey(path.resolve(target))
+      ? path.dirname(existing)
+      : existing;
+  while (true) {
+    desired.set(pathKey(current), current);
+    if (pathKey(current) === pathKey(anchor)) break;
+    const parent = path.dirname(current);
+    if (parent === current) break;
+    current = parent;
   }
+}
+
+function projectInputWatchAnchor(root: string, target: string): string {
+  const current = path.resolve(root);
+  const resolvedTarget = path.resolve(target);
+  if (
+    pathKey(path.parse(current).root) !==
+    pathKey(path.parse(resolvedTarget).root)
+  ) {
+    return path.dirname(resolvedTarget);
+  }
+  if (isPathWithin(current, resolvedTarget) === false) {
+    return path.dirname(resolvedTarget);
+  }
+  return current;
 }
 
 function nearestExistingDirectory(location: string): string | undefined {
@@ -605,13 +744,22 @@ function nearestExistingDirectory(location: string): string | undefined {
   }
 }
 
-function literalGlobRoot(pattern: string): string {
-  const normalized = pattern.split("\\").join("/");
+export function literalGlobRoot(pattern: string): string {
+  const resolved = path.resolve(pattern);
+  const normalized = resolved.split("\\").join("/");
   const wildcard = normalized.search(/[*?]/);
-  if (wildcard === -1) return path.dirname(path.resolve(pattern));
+  if (wildcard === -1) return path.dirname(resolved);
   const separator = normalized.lastIndexOf("/", wildcard);
   const prefix = separator < 0 ? "." : normalized.slice(0, separator);
-  return path.resolve(prefix || path.parse(path.resolve(pattern)).root);
+  const volumeRoot = path.parse(resolved).root;
+  const normalizedVolumeRoot = volumeRoot.split("\\").join("/");
+  if (
+    prefix.length === 0 ||
+    prefix === normalizedVolumeRoot.replace(/\/$/, "")
+  ) {
+    return volumeRoot;
+  }
+  return path.resolve(prefix);
 }
 
 function matchesProjectInput(
@@ -623,6 +771,57 @@ function matchesProjectInput(
     snapshot.files.some((file) => pathKey(file) === key) ||
     snapshot.globs.some((glob) => matchesProjectInputGlob(glob, location))
   );
+}
+
+function projectInputTopologyMayAffect(
+  snapshot: ITtscProjectInputSnapshot,
+  location: string,
+): boolean {
+  const changed = path.resolve(location);
+  return (
+    snapshot.files.some((file) => isPathWithin(changed, file)) ||
+    snapshot.globs.some((glob) => {
+      const root = literalGlobRoot(glob);
+      return (
+        isPathWithin(changed, root) ||
+        (isPathWithin(root, changed) && isDirectory(changed))
+      );
+    })
+  );
+}
+
+export function projectInputEventShouldNotify(input: {
+  contentChanged: boolean;
+  directlyMatched: boolean;
+  membershipChanged: boolean;
+  topologyMatched: boolean;
+}): boolean {
+  return (
+    input.contentChanged ||
+    input.directlyMatched ||
+    input.membershipChanged ||
+    input.topologyMatched
+  );
+}
+
+function fingerprintProjectInputMatches(
+  matches: ReadonlyMap<string, string>,
+): Map<string, string> {
+  const fingerprints = new Map<string, string>();
+  for (const [key, location] of matches) {
+    try {
+      fingerprints.set(
+        key,
+        crypto
+          .createHash("sha256")
+          .update(fs.readFileSync(location))
+          .digest("hex"),
+      );
+    } catch {
+      fingerprints.set(key, "");
+    }
+  }
+  return fingerprints;
 }
 
 function matchesProjectInputGlob(pattern: string, location: string): boolean {

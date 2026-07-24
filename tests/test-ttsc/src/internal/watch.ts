@@ -13,10 +13,13 @@ export class WatchSession {
   private builds = 0;
   private output = "";
 
-  public constructor(root: string, options: { env?: NodeJS.ProcessEnv } = {}) {
+  public constructor(
+    root: string,
+    options: { args?: readonly string[]; env?: NodeJS.ProcessEnv } = {},
+  ) {
     const child = child_process.spawn(
       process.execPath,
-      [ttscBin, "--watch", "--cwd", root],
+      [ttscBin, ...(options.args ?? []), "--watch", "--cwd", root],
       {
         cwd: root,
         env: {

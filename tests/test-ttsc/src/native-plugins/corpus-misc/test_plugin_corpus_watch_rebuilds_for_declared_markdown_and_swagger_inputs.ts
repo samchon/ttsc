@@ -82,6 +82,32 @@ export const test_plugin_corpus_watch_rebuilds_for_declared_markdown_and_swagger
     } finally {
       await session.close();
     }
+
+    fs.writeFileSync(
+      path.join(root, "docs", "spec.md"),
+      "# Contract\n",
+      "utf8",
+    );
+    const positional = new WatchSession(root, {
+      args: ["check", "src/main.ts"],
+      env: {
+        PATH: goPath(),
+        TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
+      },
+    });
+    try {
+      await positional.waitForBuilds(1);
+      fs.writeFileSync(
+        path.join(root, "docs", "spec.md"),
+        "positional broken\n",
+        "utf8",
+      );
+      await positional.waitForBuilds(2);
+      await positional.waitForQuiet(300);
+      assert.match(positional.transcript(), /TS9001: Markdown input is stale/);
+    } finally {
+      await positional.close();
+    }
   };
 
 function goSource(): string {
