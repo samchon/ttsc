@@ -569,9 +569,22 @@ export default { rules: { "no-var": severity } };`)
       t.Fatal(err)
     }
   }
+  // On Windows a symlink's kind is fixed the moment it is created: a target that
+  // does not exist yet produces a file symlink, and realpathSync then aborts
+  // with EPERM once that target becomes a directory and the resolver walks into
+  // it — which is exactly the transition this case exercises. Create the target
+  // as a directory first so the link is a directory symlink, then remove it to
+  // reach the dangling state the root fallback is meant to resolve. On POSIX a
+  // symlink carries no kind, so the extra round-trip changes nothing.
+  if err := os.MkdirAll(danglingTarget, 0o755); err != nil {
+    t.Fatal(err)
+  }
   danglingSupported := false
   if err := os.Symlink(danglingTarget, danglingLink); err == nil {
     danglingSupported = true
+  }
+  if err := os.RemoveAll(danglingTarget); err != nil {
+    t.Fatal(err)
   }
   if danglingSupported {
     write(
