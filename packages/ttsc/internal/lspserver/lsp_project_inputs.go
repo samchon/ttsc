@@ -1,8 +1,10 @@
 package lspserver
 
 import (
+  "crypto/sha256"
   "encoding/json"
   "fmt"
+  "os"
   "path"
   "path/filepath"
   "runtime"
@@ -18,6 +20,8 @@ type LSPProjectInputSnapshot struct {
   Globs             []string `json:"globs"`
   ReloadFiles       []string `json:"reloadFiles,omitempty"`
   ReloadDirectories []string `json:"reloadDirectories,omitempty"`
+
+  reloadDirectoryDigests map[string]string
 }
 
 type projectInputRecord struct {
@@ -52,8 +56,10 @@ func (s *NativePluginSource) ProjectInputMatchesURI(uri string) bool {
   return projectInputSnapshotMatchesCandidate(s.projectInputs, candidate)
 }
 
-// ProjectInputReloadMatchesURI reports whether uri changes executable plugin
-// selection and therefore requires a fresh launcher evaluation.
+// ProjectInputReloadMatchesURI reports whether uri names an exact reload file,
+// a reload directory, or one of that directory's immediate entries. Callers
+// with an LSP change event should use ProjectInputReloadMatchesChange so an
+// ordinary content edit inside a topology directory does not force a restart.
 func (s *NativePluginSource) ProjectInputReloadMatchesURI(uri string) bool {
   if s == nil {
     return false
@@ -63,18 +69,61 @@ func (s *NativePluginSource) ProjectInputReloadMatchesURI(uri string) bool {
     return false
   }
   candidate := realProjectInputPath(location)
+  candidateEntry := realProjectInputEntryPath(location)
   candidateKey := projectInputPathKey(candidate)
+  candidateEntryKey := projectInputPathKey(candidateEntry)
   s.projectInputsMu.RLock()
   defer s.projectInputsMu.RUnlock()
   for _, file := range s.projectInputs.ReloadFiles {
-    if projectInputPathKey(file) == candidateKey {
+    fileKey := projectInputPathKey(file)
+    if fileKey == candidateKey || fileKey == candidateEntryKey {
       return true
     }
   }
   for _, directory := range s.projectInputs.ReloadDirectories {
-    if projectInputDirectoryContains(directory, candidate) {
+    if projectInputDirectoryContainsImmediate(directory, candidateEntry) {
       return true
     }
+  }
+  return false
+}
+
+// ProjectInputReloadMatchesChange reports whether an LSP filesystem change
+// invalidates executable plugin selection. Exact reload files are content
+// inputs. Reload directories are topology inputs, so only a change to the
+// directory itself or an immediate entry can qualify, and it qualifies only
+// when the current name/type/symlink-target digest differs from the snapshot.
+func (s *NativePluginSource) ProjectInputReloadMatchesChange(
+  uri string,
+  _ *int,
+) bool {
+  if s == nil {
+    return false
+  }
+  location, ok := filePathFromURI(uri)
+  if !ok {
+    return false
+  }
+  candidate := realProjectInputPath(location)
+  candidateEntry := realProjectInputEntryPath(location)
+  candidateKey := projectInputPathKey(candidate)
+  candidateEntryKey := projectInputPathKey(candidateEntry)
+  s.projectInputsMu.RLock()
+  snapshot := copyProjectInputSnapshot(s.projectInputs)
+  s.projectInputsMu.RUnlock()
+  for _, file := range snapshot.ReloadFiles {
+    fileKey := projectInputPathKey(file)
+    if fileKey == candidateKey || fileKey == candidateEntryKey {
+      return true
+    }
+  }
+  for _, directory := range snapshot.ReloadDirectories {
+    if !projectInputDirectoryContainsImmediate(directory, candidateEntry) {
+      continue
+    }
+    key := projectInputPathKey(directory)
+    return projectInputReloadDirectoryDigest(directory) !=
+      snapshot.reloadDirectoryDigests[key]
   }
   return false
 }
@@ -229,6 +278,7 @@ func (s *NativePluginSource) flattenProjectInputsLocked() LSPProjectInputSnapsho
   globs := map[string]string{}
   reloadFiles := map[string]string{}
   reloadDirectories := map[string]string{}
+  reloadDirectoryDigests := map[string]string{}
   root := ""
   for _, plugin := range selectPluginTransports(
     s.plugins,
@@ -250,10 +300,16 @@ func (s *NativePluginSource) flattenProjectInputsLocked() LSPProjectInputSnapsho
       reloadFiles[projectInputPathKey(file)] = file
     }
     for _, directory := range snapshot.ReloadDirectories {
-      reloadDirectories[projectInputPathKey(directory)] = directory
+      directoryKey := projectInputPathKey(directory)
+      reloadDirectories[directoryKey] = directory
+      reloadDirectoryDigests[directoryKey] =
+        snapshot.reloadDirectoryDigests[directoryKey]
     }
   }
-  out := LSPProjectInputSnapshot{Root: root}
+  out := LSPProjectInputSnapshot{
+    Root:                   root,
+    reloadDirectoryDigests: reloadDirectoryDigests,
+  }
   for _, file := range files {
     out.Files = append(out.Files, file)
   }
@@ -343,7 +399,10 @@ func normalizeLSPProjectInputSnapshot(
     normalized := filepath.ToSlash(filepath.Clean(native))
     globs[projectInputPathKey(normalized)] = normalized
   }
-  out := LSPProjectInputSnapshot{Root: root}
+  out := LSPProjectInputSnapshot{
+    Root:                   root,
+    reloadDirectoryDigests: map[string]string{},
+  }
   for _, file := range files {
     out.Files = append(out.Files, file)
   }
@@ -355,6 +414,8 @@ func normalizeLSPProjectInputSnapshot(
   }
   for _, directory := range reloadDirectories {
     out.ReloadDirectories = append(out.ReloadDirectories, directory)
+    out.reloadDirectoryDigests[projectInputPathKey(directory)] =
+      projectInputReloadDirectoryDigest(directory)
   }
   sort.Strings(out.Files)
   sort.Strings(out.Globs)
@@ -417,13 +478,23 @@ func isWindowsUNCVolumeSegment(segment string) bool {
 func copyProjectInputSnapshot(
   snapshot LSPProjectInputSnapshot,
 ) LSPProjectInputSnapshot {
-  return LSPProjectInputSnapshot{
+  copied := LSPProjectInputSnapshot{
     Root:              snapshot.Root,
     Files:             append([]string(nil), snapshot.Files...),
     Globs:             append([]string(nil), snapshot.Globs...),
     ReloadFiles:       append([]string(nil), snapshot.ReloadFiles...),
     ReloadDirectories: append([]string(nil), snapshot.ReloadDirectories...),
   }
+  if snapshot.reloadDirectoryDigests != nil {
+    copied.reloadDirectoryDigests = make(
+      map[string]string,
+      len(snapshot.reloadDirectoryDigests),
+    )
+    for key, digest := range snapshot.reloadDirectoryDigests {
+      copied.reloadDirectoryDigests[key] = digest
+    }
+  }
+  return copied
 }
 
 func projectInputSnapshotsEqual(
@@ -460,11 +531,18 @@ func projectInputSnapshotsEqual(
       projectInputPathKey(right.ReloadDirectories[index]) {
       return false
     }
+    key := projectInputPathKey(left.ReloadDirectories[index])
+    if left.reloadDirectoryDigests[key] != right.reloadDirectoryDigests[key] {
+      return false
+    }
   }
   return true
 }
 
-func projectInputDirectoryContains(directory string, candidate string) bool {
+func projectInputDirectoryContainsImmediate(
+  directory string,
+  candidate string,
+) bool {
   relative, err := filepath.Rel(
     projectInputFilesystemPath(directory),
     projectInputFilesystemPath(candidate),
@@ -477,7 +555,49 @@ func projectInputDirectoryContains(directory string, candidate string) bool {
     return projectInputPathKey(directory) == projectInputPathKey(candidate)
   }
   return relativeKey != ".." &&
-    !strings.HasPrefix(relativeKey, "../")
+    !strings.HasPrefix(relativeKey, "../") &&
+    !strings.Contains(relativeKey, "/")
+}
+
+func projectInputReloadDirectoryDigest(directory string) string {
+  entries, err := os.ReadDir(projectInputFilesystemPath(directory))
+  if err != nil {
+    return "error:" + err.Error()
+  }
+  digest := sha256.New()
+  for index, entry := range entries {
+    kind := "other"
+    info, err := entry.Info()
+    if err != nil {
+      return "error:" + err.Error()
+    }
+    switch {
+    case info.Mode()&os.ModeSymlink != 0:
+      kind = "symlink"
+    case info.IsDir():
+      kind = "directory"
+    case info.Mode().IsRegular():
+      kind = "file"
+    }
+    target := ""
+    if kind == "symlink" {
+      target, err = os.Readlink(
+        filepath.Join(projectInputFilesystemPath(directory), entry.Name()),
+      )
+      if err != nil {
+        target = "<unreadable>"
+      }
+    }
+    digest.Write([]byte(entry.Name()))
+    digest.Write([]byte{0})
+    digest.Write([]byte(kind))
+    digest.Write([]byte{0})
+    digest.Write([]byte(target))
+    if index+1 != len(entries) {
+      digest.Write([]byte{0})
+    }
+  }
+  return fmt.Sprintf("%x", digest.Sum(nil))
 }
 
 func realProjectInputPath(location string) string {
@@ -502,6 +622,14 @@ func realProjectInputPath(location string) string {
     suffix = append(suffix, filepath.Base(probe))
     probe = parent
   }
+}
+
+func realProjectInputEntryPath(location string) string {
+  native := projectInputFilesystemPath(location)
+  return filepath.Join(
+    realProjectInputPath(filepath.Dir(native)),
+    filepath.Base(native),
+  )
 }
 
 func projectInputFilesystemPath(location string) string {

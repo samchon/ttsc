@@ -18,7 +18,8 @@ import (
 //     publishes them, plus executable reload paths, then install that snapshot
 //     in a source.
 //  2. Match URI spellings for future files without creating them.
-//  3. Match only exact or contained executable-selection inputs for restart.
+//  3. Match only exact files, directory identity, or immediate topology
+//     entries as executable-selection input scope.
 //  4. Reject an unrelated Markdown file and an HTTPS resource.
 func TestProjectInputsMatchMissingExactAndGlob(t *testing.T) {
   root := t.TempDir()
@@ -102,6 +103,7 @@ func TestProjectInputsMatchMissingExactAndGlob(t *testing.T) {
     {filepath.Join(root, "lint.config.ts"), true},
     {filepath.Join(root, "config-deps"), true},
     {filepath.Join(root, "config-deps", "package.json"), true},
+    {filepath.Join(root, "config-deps", "nested", "package.json"), false},
     {filepath.Join(root, "config-deps-other", "package.json"), false},
     {filepath.Join(root, "README.md"), false},
   }

@@ -8,6 +8,16 @@ import (
 // TestProjectInputRegistrationShapesRelativePatterns verifies exact paths and
 // glob populations become deterministic LSP RelativePatterns without treating
 // literal filename metacharacters as wildcards.
+//
+// Reload directories need two registrations: immediate children carry
+// topology changes, while the exact directory identity carries deletion and
+// replacement when a child-rooted watcher can no longer observe the object.
+//
+//  1. Declare duplicate exact files, portable globs, and one reload directory.
+//  2. Build and index the deduplicated relative-pattern registrations.
+//  3. Assert literals are escaped while portable wildcard segments survive.
+//  4. Assert reload-directory identity and immediate-child patterns both exist.
+//  5. Assert drive and UNC file URIs preserve their authority and escaping.
 func TestProjectInputRegistrationShapesRelativePatterns(t *testing.T) {
   root := t.TempDir()
   exact := filepath.Join(
@@ -39,8 +49,8 @@ func TestProjectInputRegistrationShapesRelativePatterns(t *testing.T) {
     },
   }
   watchers := projectInputFileWatchers(snapshot)
-  if len(watchers) != 4 {
-    t.Fatalf("watchers = %#v, want 4 deduplicated entries", watchers)
+  if len(watchers) != 5 {
+    t.Fatalf("watchers = %#v, want 5 deduplicated entries", watchers)
   }
 
   byPattern := map[string]projectInputFileWatcher{}
@@ -67,7 +77,10 @@ func TestProjectInputRegistrationShapesRelativePatterns(t *testing.T) {
     t.Fatalf("literal glob metacharacters were not escaped in %#v", byPattern)
   }
   if _, ok := byPattern["config-deps/*"]; !ok {
-    t.Fatalf("reload-directory watcher missing from %#v", byPattern)
+    t.Fatalf("reload-directory child watcher missing from %#v", byPattern)
+  }
+  if _, ok := byPattern["config-deps"]; !ok {
+    t.Fatalf("reload-directory identity watcher missing from %#v", byPattern)
   }
 
   if got := projectInputFileURI("C:/Program Files/a#b%25"); got !=

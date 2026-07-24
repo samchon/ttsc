@@ -1,6 +1,8 @@
 package lspserver
 
 import (
+  "bytes"
+  "encoding/json"
   "errors"
   "io"
   "testing"
@@ -11,8 +13,9 @@ type executableProjectInputSource struct {
   reloadURI string
 }
 
-func (s executableProjectInputSource) ProjectInputReloadMatchesURI(
+func (s executableProjectInputSource) ProjectInputReloadMatchesChange(
   uri string,
+  _ *int,
 ) bool {
   return uri == s.reloadURI
 }
@@ -26,13 +29,15 @@ func (s executableProjectInputSource) ProjectInputReloadMatchesURI(
 // selection in place.
 //
 //  1. Send a watched change for the source's executable reload URI.
-//  2. Assert the proxy returns its stable restart sentinel before forwarding.
+//  2. Assert the proxy announces the expected lifecycle transition, then
+//     returns its stable restart sentinel before forwarding.
 //  3. Send an unrelated change and assert it follows the ordinary forwarded
-//     invalidation path.
+//     invalidation path without another lifecycle notification.
 func TestLSPExecutableProjectInputChangeRequestsLauncherRestart(t *testing.T) {
   reloadURI := "file:///project/lint.config.ts"
+  var editor bytes.Buffer
   proxy := NewProxy(ProxyOptions{
-    EditorOut:  io.Discard,
+    EditorOut:  &editor,
     UpstreamIn: io.Discard,
     Source: executableProjectInputSource{
       reloadURI: reloadURI,
@@ -51,6 +56,28 @@ func TestLSPExecutableProjectInputChangeRequestsLauncherRestart(t *testing.T) {
   if !errors.Is(err, ErrLSPPluginSelectionChanged) {
     t.Fatalf("reload error = %v, want %v", err, ErrLSPPluginSelectionChanged)
   }
+  _, body, err := NewFrameReader(&editor).Read()
+  if err != nil {
+    t.Fatalf("read plugin-selection notification: %v", err)
+  }
+  notification, err := ParseEnvelope(body)
+  if err != nil {
+    t.Fatalf("parse plugin-selection notification: %v", err)
+  }
+  if notification.Method != methodPluginSelectionChanged {
+    t.Fatalf(
+      "notification method = %q, want %q",
+      notification.Method,
+      methodPluginSelectionChanged,
+    )
+  }
+  var params map[string]string
+  if err := json.Unmarshal(notification.Params, &params); err != nil {
+    t.Fatalf("parse plugin-selection notification params: %v", err)
+  }
+  if params["reason"] != "projectInputChanged" {
+    t.Fatalf("notification params = %#v", params)
+  }
 
   handled, err = proxy.handleEditorEnvelope(
     watchedFilesEnvelope(
@@ -64,5 +91,8 @@ func TestLSPExecutableProjectInputChangeRequestsLauncherRestart(t *testing.T) {
   }
   if handled {
     t.Fatal("ordinary watched change was swallowed instead of forwarded")
+  }
+  if editor.Len() != 0 {
+    t.Fatalf("ordinary change wrote an unexpected editor frame: %q", editor.String())
   }
 }

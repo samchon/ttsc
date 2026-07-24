@@ -35,22 +35,23 @@ var ErrLSPPluginSelectionChanged = errors.New(
 )
 
 const (
-  methodPublishDiagnostics = "textDocument/publishDiagnostics"
-  methodInitialize         = "initialize"
-  methodDidOpen            = "textDocument/didOpen"
-  methodDidChange          = "textDocument/didChange"
-  methodDidSave            = "textDocument/didSave"
-  methodDidClose           = "textDocument/didClose"
-  methodCodeAction         = "textDocument/codeAction"
-  methodExecuteCommand     = "workspace/executeCommand"
-  methodCancelRequest      = "$/cancelRequest"
-  methodFormatting         = "textDocument/formatting"
-  methodDocumentSymbol     = "textDocument/documentSymbol"
-  methodReferences         = "textDocument/references"
-  methodCompletion         = "textDocument/completion"
-  methodCompletionResolve  = "completionItem/resolve"
-  methodInitialized        = "initialized"
-  methodExit               = "exit"
+  methodPublishDiagnostics     = "textDocument/publishDiagnostics"
+  methodInitialize             = "initialize"
+  methodDidOpen                = "textDocument/didOpen"
+  methodDidChange              = "textDocument/didChange"
+  methodDidSave                = "textDocument/didSave"
+  methodDidClose               = "textDocument/didClose"
+  methodCodeAction             = "textDocument/codeAction"
+  methodExecuteCommand         = "workspace/executeCommand"
+  methodCancelRequest          = "$/cancelRequest"
+  methodFormatting             = "textDocument/formatting"
+  methodDocumentSymbol         = "textDocument/documentSymbol"
+  methodReferences             = "textDocument/references"
+  methodCompletion             = "textDocument/completion"
+  methodCompletionResolve      = "completionItem/resolve"
+  methodInitialized            = "initialized"
+  methodExit                   = "exit"
+  methodPluginSelectionChanged = "ttsc/pluginSelectionChanged"
 
   // methodDidChangeWatchedFiles is the only notification an editor sends for a
   // file it does not have open: a tsconfig edit, a generated file, a branch
@@ -2443,7 +2444,10 @@ func (p *Proxy) invalidateForWatchedFileChanges(env Envelope) error {
     return nil
   }
   for _, change := range params.Changes {
-    if p.projectInputReloadMatchesURI(change.URI) {
+    if p.projectInputReloadMatchesChange(change.URI, change.Type) {
+      if err := p.writePluginSelectionChanged(); err != nil {
+        return err
+      }
       return ErrLSPPluginSelectionChanged
     }
   }
@@ -2571,6 +2575,10 @@ type projectInputReloadMatcher interface {
   ProjectInputReloadMatchesURI(string) bool
 }
 
+type projectInputReloadChangeMatcher interface {
+  ProjectInputReloadMatchesChange(string, *int) bool
+}
+
 type projectInputOwnerMatcher interface {
   ProjectInputOwnersForURI(string) []string
 }
@@ -2619,9 +2627,33 @@ func (p *Proxy) projectInputOwnerScope(
   return projectDiagnosticOwnerScope{all: true}, true
 }
 
-func (p *Proxy) projectInputReloadMatchesURI(uri string) bool {
+func (p *Proxy) projectInputReloadMatchesChange(
+  uri string,
+  changeType *int,
+) bool {
+  if source, ok := p.source.(projectInputReloadChangeMatcher); ok {
+    return source.ProjectInputReloadMatchesChange(uri, changeType)
+  }
   source, ok := p.source.(projectInputReloadMatcher)
   return ok && source.ProjectInputReloadMatchesURI(uri)
+}
+
+func (p *Proxy) writePluginSelectionChanged() error {
+  params, err := json.Marshal(map[string]string{
+    "reason": "projectInputChanged",
+  })
+  if err != nil {
+    return err
+  }
+  body, err := json.Marshal(Envelope{
+    JSONRPC: "2.0",
+    Method:  methodPluginSelectionChanged,
+    Params:  params,
+  })
+  if err != nil {
+    return err
+  }
+  return p.writeEditorFrame(body)
 }
 
 func (p *Proxy) refreshProjectInputs() {
