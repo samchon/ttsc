@@ -1225,18 +1225,14 @@ export function mergeProjectInputSnapshots(
 ): ITtscProjectInputSnapshot {
   const files = new Map<string, string>();
   const globs = new Map<string, string>();
-  let root: string | undefined;
+  const root = path.resolve(fallbackRoot);
   for (const snapshot of snapshots) {
     const candidateRoot = path.resolve(snapshot.root);
-    if (
-      root !== undefined &&
-      projectInputPathKey(root) !== projectInputPathKey(candidateRoot)
-    ) {
+    if (projectInputPathKey(root) !== projectInputPathKey(candidateRoot)) {
       throw new Error(
-        `ttsc.project-inputs: plugins returned different project roots: ${root} and ${candidateRoot}`,
+        `ttsc.project-inputs: plugin root ${candidateRoot} differs from the selected project root ${root}`,
       );
     }
-    root = candidateRoot;
     for (const file of snapshot.files) {
       const resolved = path.resolve(file);
       files.set(projectInputPathKey(resolved), resolved);
@@ -1247,7 +1243,7 @@ export function mergeProjectInputSnapshots(
     }
   }
   return {
-    root: root ?? path.resolve(fallbackRoot),
+    root,
     files: [...files.values()].sort(),
     globs: [...globs.values()].sort(),
   };
@@ -1283,13 +1279,26 @@ export function parseProjectInputSnapshot(
     ["root", snapshot.root],
     ...snapshot.files.map((file) => ["file", file] as const),
     ...snapshot.globs.map((glob) => ["glob", glob] as const),
-  ].find(([, location]) => location.length === 0 || !path.isAbsolute(location));
+  ].find(
+    ([, location]) =>
+      location.length === 0 || !isAbsoluteLocalProjectInputPath(location),
+  );
   if (invalid !== undefined) {
     throw new Error(
       `ttsc.project-inputs: ${plugin.name ?? plugin.binary} returned an invalid snapshot: ${invalid[0]} ${JSON.stringify(invalid[1])} is not an absolute local path`,
     );
   }
   return snapshot;
+}
+
+export function isAbsoluteLocalProjectInputPath(
+  location: string,
+  platform: NodeJS.Platform = process.platform,
+): boolean {
+  if (platform !== "win32") return path.posix.isAbsolute(location);
+  if (!path.win32.isAbsolute(location)) return false;
+  const root = path.win32.parse(location).root.replaceAll("/", "\\");
+  return /^[A-Za-z]:\\$/.test(root) || /^\\\\[^\\]+\\[^\\]+\\$/.test(root);
 }
 
 function isStringArray(value: unknown): value is string[] {
