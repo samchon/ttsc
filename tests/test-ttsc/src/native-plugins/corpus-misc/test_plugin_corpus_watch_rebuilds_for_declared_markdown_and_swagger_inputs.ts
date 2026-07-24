@@ -26,6 +26,7 @@ import { WatchSession } from "../../internal/watch";
  *    through the real plugin-sidecar protocol.
  * 6. Suppress positional `.js` and `.jsx` outputs declared by the plugin's
  *    JavaScript globs.
+ * 7. Remove the plugin and prove its former Go source no longer wakes watch.
  */
 export const test_plugin_corpus_watch_rebuilds_for_declared_markdown_and_swagger_inputs =
   async (): Promise<void> => {
@@ -256,6 +257,53 @@ export const test_plugin_corpus_watch_rebuilds_for_declared_markdown_and_swagger
       await preserve.waitForQuiet();
     } finally {
       await preserve.close();
+    }
+
+    fs.writeFileSync(
+      path.join(root, "tsconfig.json"),
+      JSON.stringify({
+        compilerOptions: {
+          module: "commonjs",
+          plugins: [{ transform: "./plugins/watch.cjs" }],
+          rootDir: "src",
+          strict: true,
+          target: "ES2022",
+        },
+        include: ["src"],
+      }),
+      "utf8",
+    );
+    const removal = new WatchSession(root, {
+      env: {
+        PATH: goPath(),
+        TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
+      },
+    });
+    try {
+      await removal.waitForBuilds(1);
+      fs.writeFileSync(
+        path.join(root, "tsconfig.json"),
+        JSON.stringify({
+          compilerOptions: {
+            module: "commonjs",
+            rootDir: "src",
+            strict: true,
+            target: "ES2022",
+          },
+          include: ["src"],
+        }),
+        "utf8",
+      );
+      await removal.waitForBuilds(2);
+      await removal.waitForQuiet(300);
+      fs.appendFileSync(
+        path.join(root, "plugins", "watch-go", "main.go"),
+        "\n// removed plugin input\n",
+        "utf8",
+      );
+      await removal.waitForQuiet();
+    } finally {
+      await removal.close();
     }
   };
 
