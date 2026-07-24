@@ -438,7 +438,6 @@ func normalizeLSPProjectInputSnapshot(
   }
   globs := map[string]string{}
   for _, pattern := range snapshot.Globs {
-    native := projectInputFilesystemPath(pattern)
     if strings.TrimSpace(pattern) == "" ||
       !isAbsoluteLocalLSPProjectInputPath(pattern, runtime.GOOS) {
       return LSPProjectInputSnapshot{}, fmt.Errorf(
@@ -446,7 +445,12 @@ func normalizeLSPProjectInputSnapshot(
         pattern,
       )
     }
-    normalized := filepath.ToSlash(filepath.Clean(native))
+    // Every other lane in this function resolves its declaration physically,
+    // and a glob has to as well or its population is compared against events
+    // that were. A pattern has no filesystem object of its own, so resolution
+    // takes its longest existing prefix and rejoins the wildcards, which leaves
+    // the pattern's shape untouched while its root gains one identity.
+    normalized := filepath.ToSlash(realProjectInputPath(pattern))
     globs[projectInputPathKey(normalized)] = normalized
   }
   out := LSPProjectInputSnapshot{
