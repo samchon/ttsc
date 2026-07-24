@@ -6,7 +6,7 @@ import { readJsoncFile } from "../../compiler/internal/project/readConfigJson";
 import { readProjectConfig } from "../../compiler/internal/project/readProjectConfig";
 import { resolveTsgo } from "../../compiler/internal/resolveTsgo";
 import { outputText, spawnNative } from "../../compiler/internal/spawnNative";
-import { normalizeFlagToken } from "../../flags/schema";
+import { resolveFlagSpec } from "../../flags/schema";
 import type { ITtscParsedProjectConfig } from "../../structures/internal/ITtscParsedProjectConfig";
 import type { ITtscProjectInputSnapshot } from "../../structures/internal/ITtscProjectInputSnapshot";
 import type { TtscBuildOptions } from "../../structures/internal/TtscBuildOptions";
@@ -655,8 +655,7 @@ function inferAdjacentCompilerOutputs(
           ? ".mjs"
           : extension === ".cts"
             ? ".cjs"
-            : extension === ".tsx" &&
-                (emit.jsx === "preserve" || emit.jsx === "react-native")
+            : extension === ".tsx" && emit.jsx === "preserve"
               ? ".jsx"
               : ".js";
       const javascript = stem + javascriptExtension;
@@ -704,10 +703,12 @@ function effectiveCompilerEmit(
   const compilerOptions = project.compilerOptions;
   const passthrough = options.passthrough;
   const noEmit =
-    options.emit === false ||
-    (options.emit !== true &&
-      (passthroughBooleanOption(passthrough, "--noEmit") ??
-        compilerOptions.noEmit === true));
+    passthroughBooleanOption(passthrough, "--noEmit") ??
+    (options.emit === false
+      ? true
+      : options.emit === true
+        ? false
+        : compilerOptions.noEmit === true);
   const composite =
     passthroughBooleanOption(passthrough, "--composite") ??
     compilerOptions.composite === true;
@@ -716,10 +717,10 @@ function effectiveCompilerEmit(
     (passthroughBooleanOption(passthrough, "--incremental") ??
       compilerOptions.incremental === true);
   const emitDeclarationOnly =
-    options.emit === true
+    passthroughBooleanOption(passthrough, "--emitDeclarationOnly") ??
+    (options.emit === true
       ? false
-      : (passthroughBooleanOption(passthrough, "--emitDeclarationOnly") ??
-        compilerOptions.emitDeclarationOnly === true);
+      : compilerOptions.emitDeclarationOnly === true);
   const declaration =
     !noEmit &&
     (composite ||
@@ -740,7 +741,7 @@ function effectiveCompilerEmit(
     (passthroughBooleanOption(passthrough, "--declarationMap") ??
       compilerOptions.declarationMap === true);
   const cliOutDir =
-    options.outDir ?? passthroughPathOption(passthrough, "--outDir");
+    passthroughPathOption(passthrough, "--outDir") ?? options.outDir;
   const cliDeclarationDir = passthroughPathOption(
     passthrough,
     "--declarationDir",
@@ -774,7 +775,7 @@ function effectiveCompilerEmit(
       cliOutFile !== undefined
         ? path.resolve(options.cwd, cliOutFile)
         : typeof compilerOptions.outFile === "string"
-          ? path.resolve(project.root, compilerOptions.outFile)
+          ? path.resolve(compilerOptions.outFile)
           : undefined,
     rootDir:
       cliRootDir !== undefined
@@ -787,7 +788,7 @@ function effectiveCompilerEmit(
       cliTsBuildInfoFile !== undefined
         ? path.resolve(options.cwd, cliTsBuildInfoFile)
         : typeof compilerOptions.tsBuildInfoFile === "string"
-          ? path.resolve(project.root, compilerOptions.tsBuildInfoFile)
+          ? path.resolve(compilerOptions.tsBuildInfoFile)
           : undefined,
     jsx,
   };
@@ -873,7 +874,7 @@ function passthroughOptionMatches(token: string, name: string): boolean {
   if (!token.startsWith("-")) return false;
   const equalsIndex = token.indexOf("=");
   const spelling = equalsIndex === -1 ? token : token.slice(0, equalsIndex);
-  return normalizeFlagToken(spelling) === normalizeFlagToken(name);
+  return resolveFlagSpec(spelling)?.name === resolveFlagSpec(name)?.name;
 }
 
 function isCompilerOutput(

@@ -24,6 +24,7 @@ import { WatchSession } from "../../internal/watch";
  * 4. Emit adjacent JavaScript in positional watch without a rebuild loop.
  * 5. Reject relative paths but accept Windows extended-length filesystem paths
  *    through the real plugin-sidecar protocol.
+ * 6. Suppress React Native JSX's real adjacent `.js` emit.
  */
 export const test_plugin_corpus_watch_rebuilds_for_declared_markdown_and_swagger_inputs =
   async (): Promise<void> => {
@@ -170,6 +171,40 @@ export const test_plugin_corpus_watch_rebuilds_for_declared_markdown_and_swagger
       } finally {
         await extended.close();
       }
+    }
+
+    fs.writeFileSync(
+      path.join(root, "src", "view.tsx"),
+      "export const view = 1;\n",
+      "utf8",
+    );
+    fs.writeFileSync(
+      path.join(root, "tsconfig.json"),
+      JSON.stringify({
+        compilerOptions: {
+          jsx: "react-native",
+          module: "commonjs",
+          plugins: [{ transform: "./plugins/watch.cjs" }],
+          strict: true,
+          target: "ES2022",
+        },
+        include: ["src"],
+      }),
+      "utf8",
+    );
+    const reactNative = new WatchSession(root, {
+      args: ["src/view.tsx", "-JSX", "react-native"],
+      env: {
+        PATH: goPath(),
+        TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
+      },
+    });
+    try {
+      await reactNative.waitForBuilds(1);
+      await reactNative.waitForQuiet();
+      assert.equal(fs.existsSync(path.join(root, "src", "view.js")), true);
+    } finally {
+      await reactNative.close();
     }
   };
 

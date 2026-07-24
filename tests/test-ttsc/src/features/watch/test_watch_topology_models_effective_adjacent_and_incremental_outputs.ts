@@ -16,7 +16,9 @@ import {
  * 1. Resolve a positional source relative to the launcher's explicit cwd.
  * 2. Let `--emit` override configured declaration-only output.
  * 3. Suppress the default build-info file even under `noEmit`.
- * 4. Honor one-dash CLI aliases and JSX output overrides.
+ * 4. Honor canonical one-dash, case, and short-alias identities.
+ * 5. Apply passthrough options after launcher-generated emit and outDir flags.
+ * 6. Match tsgo's `.js` output for React Native JSX.
  */
 export const test_watch_topology_models_effective_adjacent_and_incremental_outputs =
   async (): Promise<void> => {
@@ -68,7 +70,7 @@ export const test_watch_topology_models_effective_adjacent_and_incremental_outpu
     const declaration = topology(root, declarationChanges, {
       emit: true,
       files: [],
-      passthrough: ["-declaration", "-declarationDir", "types"],
+      passthrough: ["--DECLARATION", "false", "-D", "-DECLARATIONDIR", "types"],
     });
     try {
       declaration.refresh(false);
@@ -87,20 +89,146 @@ export const test_watch_topology_models_effective_adjacent_and_incremental_outpu
       declaration.close();
     }
 
+    const declarationDisabledChanges: WatchInputChange[] = [];
+    const declarationDisabled = topology(root, declarationDisabledChanges, {
+      emit: true,
+      files: [],
+      passthrough: [
+        "-d",
+        "--DECLARATION",
+        "false",
+        "-declarationDir",
+        "types-disabled",
+      ],
+    });
+    try {
+      declarationDisabled.refresh(false);
+      const disabledDeclaration = path.join(
+        root,
+        "types-disabled",
+        "main.d.ts",
+      );
+      declarationDisabled.setProjectInputs({
+        root,
+        files: [disabledDeclaration],
+        globs: [],
+      });
+      fs.mkdirSync(path.dirname(disabledDeclaration), { recursive: true });
+      const previous = projectChangeCount(declarationDisabledChanges);
+      fs.writeFileSync(
+        disabledDeclaration,
+        "export declare const external: 1;\n",
+      );
+      await waitForProjectChange(declarationDisabledChanges, previous);
+    } finally {
+      declarationDisabled.close();
+    }
+
+    const declarationOnlySource = path.join(root, "src", "only.ts");
+    fs.writeFileSync(
+      declarationOnlySource,
+      "export const declarationOnly = 1;\n",
+      "utf8",
+    );
+    const declarationOnlyChanges: WatchInputChange[] = [];
+    const declarationOnly = topology(root, declarationOnlyChanges, {
+      emit: true,
+      files: ["src/only.ts"],
+      passthrough: ["-EMITDECLARATIONONLY"],
+    });
+    try {
+      declarationOnly.refresh(false);
+      const declarationOutput = path.join(root, "src", "only.d.ts");
+      declarationOnly.setProjectInputs({
+        root,
+        files: [declarationOutput],
+        globs: [],
+      });
+      fs.writeFileSync(
+        declarationOutput,
+        "export declare const declarationOnly = 1;\n",
+        "utf8",
+      );
+      await expectProjectQuiet(declarationOnlyChanges);
+
+      const javascriptOutput = path.join(root, "src", "only.js");
+      declarationOnly.setProjectInputs({
+        root,
+        files: [javascriptOutput],
+        globs: [],
+      });
+      const previous = projectChangeCount(declarationOnlyChanges);
+      fs.writeFileSync(
+        javascriptOutput,
+        "export const declarationOnly = 1;\n",
+        "utf8",
+      );
+      await waitForProjectChange(declarationOnlyChanges, previous);
+    } finally {
+      declarationOnly.close();
+    }
+
+    const outDirChanges: WatchInputChange[] = [];
+    const outDir = topology(root, outDirChanges, {
+      emit: true,
+      files: ["src/main.ts"],
+      outDir: "launcher-output",
+      passthrough: ["-OUTDIR", "passthrough-output"],
+    });
+    try {
+      outDir.refresh(false);
+      const passthroughOutput = path.join(
+        root,
+        "passthrough-output",
+        "main.js",
+      );
+      outDir.setProjectInputs({
+        root,
+        files: [passthroughOutput],
+        globs: [],
+      });
+      fs.mkdirSync(path.dirname(passthroughOutput), { recursive: true });
+      fs.writeFileSync(passthroughOutput, "export const value = 1;\n", "utf8");
+      await expectProjectQuiet(outDirChanges);
+
+      const launcherOutput = path.join(root, "launcher-output", "main.js");
+      outDir.setProjectInputs({
+        root,
+        files: [launcherOutput],
+        globs: [],
+      });
+      fs.mkdirSync(path.dirname(launcherOutput), { recursive: true });
+      const previous = projectChangeCount(outDirChanges);
+      fs.writeFileSync(launcherOutput, "export const value = 1;\n", "utf8");
+      await waitForProjectChange(outDirChanges, previous);
+    } finally {
+      outDir.close();
+    }
+
     const tsxSource = path.join(root, "src", "view.tsx");
     fs.writeFileSync(tsxSource, "export const view = <div />;\n", "utf8");
     const jsxChanges: WatchInputChange[] = [];
     const jsx = topology(root, jsxChanges, {
       emit: true,
       files: ["src/view.tsx"],
-      passthrough: ["-jsx", "preserve"],
+      passthrough: ["-JSX", "react-native"],
     });
     try {
       jsx.refresh(false);
+      const javascriptOutput = path.join(root, "src", "view.js");
+      jsx.setProjectInputs({ root, files: [javascriptOutput], globs: [] });
+      fs.writeFileSync(
+        javascriptOutput,
+        "export const view = <div />;\n",
+        "utf8",
+      );
+      await expectProjectQuiet(jsxChanges);
+
       const jsxOutput = path.join(root, "src", "view.jsx");
       jsx.setProjectInputs({ root, files: [jsxOutput], globs: [] });
-      fs.writeFileSync(jsxOutput, "export const view = <div />;\n", "utf8");
-      await expectProjectQuiet(jsxChanges);
+      const previous = projectChangeCount(jsxChanges);
+      fs.writeFileSync(jsxOutput, "export const external = <div />;\n", "utf8");
+      await waitForProjectChange(jsxChanges, previous);
     } finally {
       jsx.close();
     }
@@ -112,6 +240,7 @@ function topology(
   options: {
     emit: boolean;
     files: string[];
+    outDir?: string;
     passthrough?: string[];
   },
 ): WatchTopology {
@@ -120,6 +249,7 @@ function topology(
       cwd: root,
       emit: options.emit,
       files: options.files,
+      outDir: options.outDir,
       passthrough: options.passthrough,
       projectRoot: root,
       tsconfig: path.join(root, "tsconfig.json"),
