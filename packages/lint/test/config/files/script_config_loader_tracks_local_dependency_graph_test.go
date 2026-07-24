@@ -3,6 +3,7 @@ package linthost
 import (
   "os"
   "path/filepath"
+  "strconv"
   "testing"
 )
 
@@ -30,12 +31,14 @@ import (
 //  9. Reach one shared helper through a package before reaching it directly
 //     and prove final graph reachability, not module-load order, owns its scope.
 //  10. Resolve a package above the declared project root, add a nearer package
-//     whose root index temporarily backs an unresolved nested main target, then
-//     create only that target and prove each selection transition is fresh.
-//  11. Resolve a legacy main outside its package, using a literal asterisk when
-//     the filesystem supports one, then create it and prove Node's legacy main
-//     semantics are tracked separately from bounded exports targets.
-//  12. Extend an executable config from JSON and prove the nested evaluation's
+//     whose main initially selects an extension fallback, then create the exact
+//     main target and prove each valid selection transition is fresh.
+//  11. Resolve an absolute legacy main outside its package, using a literal
+//     asterisk when the filesystem supports one, then create its exact target
+//     ahead of an extension fallback and prove the transition is fresh.
+//  12. Resolve a package through exports and prove ignored main and inactive
+//     condition branches do not become cache or watch dependencies.
+//  13. Extend an executable config from JSON and prove the nested evaluation's
 //     resolution directories reach the final resolver.
 func TestScriptConfigLoaderTracksLocalDependencyGraph(t *testing.T) {
   t.Setenv("TTSC_LINT_DISABLE_CONFIG_CACHE", "")
@@ -324,15 +327,15 @@ module.exports = {
   }
   write(
     filepath.Join(nearerPackage, "package.json"),
-    `{"main":"lib/index.cjs"}`,
+    `{"main":"lib/index"}`,
   )
-  write(filepath.Join(nearerPackage, "index.cjs"), `module.exports = "warning";`)
+  write(filepath.Join(nearerTarget, "index.js"), `module.exports = "warning";`)
   beforeNestedMain, err := loadConfigFileEvaluationWithin(
     hoistedConfig,
     hoistedProject,
   )
   if err != nil {
-    t.Fatalf("load nearer package root fallback: %v", err)
+    t.Fatalf("load nearer package extension fallback: %v", err)
   }
   assertConfigRuleSeverity(
     t,
@@ -354,7 +357,7 @@ module.exports = {
     configDependencyDir,
     configDependencyWatch,
   )
-  write(filepath.Join(nearerTarget, "index.cjs"), `module.exports = "error";`)
+  write(filepath.Join(nearerTarget, "index"), `module.exports = "error";`)
   afterNestedMain, err := loadConfigFileEvaluationWithin(
     hoistedConfig,
     hoistedProject,
@@ -377,19 +380,23 @@ module.exports = {
       t.Fatal(err)
     }
   }
-  legacyTargetName := "selection.cjs"
+  legacyTargetName := "selection"
   asteriskProbe := filepath.Join(root, "literal*.probe")
   if err := os.WriteFile(asteriskProbe, []byte("probe"), 0o644); err == nil {
-    legacyTargetName = "literal*.cjs"
+    legacyTargetName = "literal*"
     if err := os.Remove(asteriskProbe); err != nil {
       t.Fatal(err)
     }
   }
+  legacyMain := filepath.ToSlash(filepath.Join(legacyShared, legacyTargetName))
   write(
     filepath.Join(legacyPackage, "package.json"),
-    `{"main":"../legacy-main-shared/`+legacyTargetName+`"}`,
+    `{"main":`+strconv.Quote(legacyMain)+`}`,
   )
-  write(filepath.Join(legacyPackage, "index.cjs"), `module.exports = "warning";`)
+  write(
+    filepath.Join(legacyShared, legacyTargetName+".js"),
+    `module.exports = "warning";`,
+  )
   legacyConfig := filepath.Join(legacyProject, "lint.config.cjs")
   write(legacyConfig, `module.exports = {
   rules: { "no-var": require("legacy-main") },
@@ -432,6 +439,49 @@ module.exports = {
     "error",
   )
 
+  exportsPackage := filepath.Join(root, "node_modules", "exports-priority")
+  activeExports := filepath.Join(exportsPackage, "require")
+  inactiveExports := filepath.Join(exportsPackage, "import")
+  ignoredMain := filepath.Join(root, "ignored-exports-main")
+  exportsProject := filepath.Join(root, "exports-project")
+  for _, directory := range []string{
+    activeExports,
+    inactiveExports,
+    ignoredMain,
+    exportsProject,
+  } {
+    if err := os.MkdirAll(directory, 0o755); err != nil {
+      t.Fatal(err)
+    }
+  }
+  write(filepath.Join(activeExports, "index.cjs"), `module.exports = "error";`)
+  write(filepath.Join(inactiveExports, "index.cjs"), `module.exports = "warning";`)
+  write(
+    filepath.Join(exportsPackage, "package.json"),
+    `{"main":"../../ignored-exports-main/index.cjs","exports":{".":{"import":"./import/index.cjs","require":"./require/index.cjs"}}}`,
+  )
+  exportsConfig := filepath.Join(exportsProject, "lint.config.cjs")
+  write(exportsConfig, `module.exports = {
+  rules: { "no-var": require("exports-priority") },
+};`)
+  exported, err := loadConfigFileEvaluationWithin(
+    exportsConfig,
+    exportsProject,
+  )
+  if err != nil {
+    t.Fatalf("load conditional exports package: %v", err)
+  }
+  assertConfigRuleSeverity(t, exported.value, "no-var", "error")
+  assertConfigDependencyKindScope(
+    t,
+    exported.dependencyDigests,
+    activeExports,
+    configDependencyDir,
+    configDependencyWatch,
+  )
+  assertConfigDependencyAbsent(t, exported.dependencyDigests, inactiveExports)
+  assertConfigDependencyAbsent(t, exported.dependencyDigests, ignoredMain)
+
   extendsRoot := filepath.Join(root, "extends")
   if err := os.MkdirAll(extendsRoot, 0o755); err != nil {
     t.Fatal(err)
@@ -462,6 +512,19 @@ module.exports = {
       extendsRoot,
       directories,
     )
+  }
+}
+
+func assertConfigDependencyAbsent(
+  t *testing.T,
+  dependencies []configDependencyFingerprint,
+  unexpectedPath string,
+) {
+  t.Helper()
+  for _, dependency := range dependencies {
+    if filepath.Clean(dependency.Path) == filepath.Clean(unexpectedPath) {
+      t.Fatalf("unexpected dependency %s in cache graph %v", unexpectedPath, dependencies)
+    }
   }
 }
 

@@ -2221,60 +2221,70 @@ function recordPackageCandidateTopology(
   } catch {
     return;
   }
-  recordPackageRootTopology(packageRoot, owners);
   const subpath = specifier
     .slice(packageName.length)
     .replace(/^[/\\]+/, "");
-  if (subpath !== "") {
-    recordBoundedPackageTargetTopology(packageRoot, subpath, owners);
+  const hasExports = recordPackageRootTopology(
+    packageRoot,
+    owners,
+    subpath === "",
+  );
+  if (subpath !== "" && !hasExports) {
+    recordPackageSubpathTopology(packageRoot, subpath, owners);
   }
 }
 
-function recordPackageRootTopology(packageRoot, owners) {
+function recordPackageRootTopology(packageRoot, owners, useMain) {
   const normalizedRoot = path.resolve(packageRoot);
   recordDirectoryDependency(normalizedRoot, owners);
   const manifest = path.join(normalizedRoot, "package.json");
+  if (!recordOptionalFileDependency(manifest, owners)) return false;
+  try {
+    const value = JSON.parse(fs.readFileSync(manifest, "utf8"));
+    if (value !== null && typeof value === "object") {
+      const hasExports =
+        value.exports !== undefined && value.exports !== null;
+      if (useMain && !hasExports && typeof value.main === "string") {
+        recordPackagePathCandidate(
+          path.resolve(normalizedRoot, value.main),
+          owners,
+        );
+      }
+      return hasExports;
+    }
+  } catch {
+  }
+  return false;
+}
+
+function recordPackageSubpathTopology(packageRoot, subpath, owners) {
+  const candidate = boundedPackageTarget(packageRoot, subpath);
+  if (candidate === undefined) return;
+  recordPackagePathCandidate(candidate, owners);
+  try {
+    if (!fs.statSync(candidate).isDirectory()) return;
+  } catch {
+    return;
+  }
+  const manifest = path.join(candidate, "package.json");
   if (!recordOptionalFileDependency(manifest, owners)) return;
   try {
     const value = JSON.parse(fs.readFileSync(manifest, "utf8"));
     if (value !== null && typeof value === "object") {
       if (typeof value.main === "string") {
         recordPackagePathCandidate(
-          path.resolve(normalizedRoot, value.main),
+          path.resolve(candidate, value.main),
           owners,
         );
       }
-      recordPackageExportTargets(normalizedRoot, value.exports, owners);
     }
   } catch {
   }
 }
 
-function recordPackageExportTargets(packageRoot, value, owners) {
-  if (typeof value === "string") {
-    const literalPrefix = value.split("*", 1)[0];
-    if (literalPrefix !== "") {
-      recordBoundedPackageTargetTopology(packageRoot, literalPrefix, owners);
-    }
-    return;
-  }
-  if (Array.isArray(value)) {
-    for (const item of value) {
-      recordPackageExportTargets(packageRoot, item, owners);
-    }
-    return;
-  }
-  if (value !== null && typeof value === "object") {
-    for (const item of Object.values(value)) {
-      recordPackageExportTargets(packageRoot, item, owners);
-    }
-  }
-}
-
-function recordBoundedPackageTargetTopology(
+function boundedPackageTarget(
   packageRoot,
   target,
-  owners,
 ) {
   const candidate = path.resolve(packageRoot, target);
   const relative = path.relative(packageRoot, candidate);
@@ -2283,9 +2293,9 @@ function recordBoundedPackageTargetTopology(
     relative.startsWith(".." + path.sep) ||
     path.isAbsolute(relative)
   ) {
-    return;
+    return undefined;
   }
-  recordPackagePathCandidate(candidate, owners);
+  return candidate;
 }
 
 function recordPackagePathCandidate(candidate, owners) {
@@ -2988,22 +2998,61 @@ function recordPackageCandidateTopology(
   } catch {
     return;
   }
-  recordPackageRootTopology(packageRoot, owners);
   const subpath = specifier
     .slice(packageName.length)
     .replace(/^[/\\]+/, "");
-  if (subpath !== "") {
-    recordBoundedPackageTargetTopology(packageRoot, subpath, owners);
+  const hasExports = recordPackageRootTopology(
+    packageRoot,
+    owners,
+    subpath === "",
+  );
+  if (subpath !== "" && !hasExports) {
+    recordPackageSubpathTopology(packageRoot, subpath, owners);
   }
 }
 
 function recordPackageRootTopology(
   packageRoot: string,
   owners: readonly string[],
-): void {
+  useMain: boolean,
+): boolean {
   const normalizedRoot = path.resolve(packageRoot);
   recordDirectoryDependency(normalizedRoot, owners);
   const manifest = path.join(normalizedRoot, "package.json");
+  if (!recordOptionalFileDependency(manifest, owners)) return false;
+  try {
+    const value = JSON.parse(fs.readFileSync(manifest, "utf8"));
+    if (value !== null && typeof value === "object") {
+      const metadata = value as Record<string, unknown>;
+      const hasExports =
+        metadata.exports !== undefined && metadata.exports !== null;
+      if (useMain && !hasExports && typeof metadata.main === "string") {
+        recordPackagePathCandidate(
+          path.resolve(normalizedRoot, metadata.main),
+          owners,
+        );
+      }
+      return hasExports;
+    }
+  } catch {
+  }
+  return false;
+}
+
+function recordPackageSubpathTopology(
+  packageRoot: string,
+  subpath: string,
+  owners: readonly string[],
+): void {
+  const candidate = boundedPackageTarget(packageRoot, subpath);
+  if (candidate === undefined) return;
+  recordPackagePathCandidate(candidate, owners);
+  try {
+    if (!fs.statSync(candidate).isDirectory()) return;
+  } catch {
+    return;
+  }
+  const manifest = path.join(candidate, "package.json");
   if (!recordOptionalFileDependency(manifest, owners)) return;
   try {
     const value = JSON.parse(fs.readFileSync(manifest, "utf8"));
@@ -3011,46 +3060,19 @@ function recordPackageRootTopology(
       const metadata = value as Record<string, unknown>;
       if (typeof metadata.main === "string") {
         recordPackagePathCandidate(
-          path.resolve(normalizedRoot, metadata.main),
+          path.resolve(candidate, metadata.main),
           owners,
         );
       }
-      recordPackageExportTargets(normalizedRoot, metadata.exports, owners);
     }
   } catch {
   }
 }
 
-function recordPackageExportTargets(
-  packageRoot: string,
-  value: unknown,
-  owners: readonly string[],
-): void {
-  if (typeof value === "string") {
-    const literalPrefix = value.split("*", 1)[0];
-    if (literalPrefix !== "") {
-      recordBoundedPackageTargetTopology(packageRoot, literalPrefix, owners);
-    }
-    return;
-  }
-  if (Array.isArray(value)) {
-    for (const item of value) {
-      recordPackageExportTargets(packageRoot, item, owners);
-    }
-    return;
-  }
-  if (value !== null && typeof value === "object") {
-    for (const item of Object.values(value)) {
-      recordPackageExportTargets(packageRoot, item, owners);
-    }
-  }
-}
-
-function recordBoundedPackageTargetTopology(
+function boundedPackageTarget(
   packageRoot: string,
   target: string,
-  owners: readonly string[],
-): void {
+): string | undefined {
   const candidate = path.resolve(packageRoot, target);
   const relative = path.relative(packageRoot, candidate);
   if (
@@ -3058,9 +3080,9 @@ function recordBoundedPackageTargetTopology(
     relative.startsWith(".." + path.sep) ||
     path.isAbsolute(relative)
   ) {
-    return;
+    return undefined;
   }
-  recordPackagePathCandidate(candidate, owners);
+  return candidate;
 }
 
 function recordPackagePathCandidate(

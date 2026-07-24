@@ -190,12 +190,18 @@ func TestConfigCacheInvalidatesTransitiveDependencyDigests(t *testing.T) {
     nil,
     0o644,
   ); err == nil {
-    invalidName = invalidCandidate
-    assertDirectoryDependencyDigest(
-      t,
-      invalidTopology,
-      []testDirectoryDigestRecord{{name: invalidName, kind: "file"}},
-    )
+    entries, readErr := os.ReadDir(invalidTopology)
+    if readErr != nil {
+      t.Fatal(readErr)
+    }
+    if len(entries) == 1 && bytes.Equal([]byte(entries[0].Name()), invalidCandidate) {
+      invalidName = invalidCandidate
+      assertDirectoryDependencyDigest(
+        t,
+        invalidTopology,
+        []testDirectoryDigestRecord{{name: invalidName, kind: "file"}},
+      )
+    }
   }
 
   optionalManifest := filepath.Join(root, "optional-package.json")

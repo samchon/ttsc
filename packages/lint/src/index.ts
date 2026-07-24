@@ -818,28 +818,35 @@ function recordPackageCandidateTopology(
   } catch {
     return;
   }
-  recordPackageRootTopology(packageRoot, owners);
   const subpath = specifier
     .slice(packageName.length)
     .replace(/^[/\\\\]+/, "");
-  if (subpath !== "") {
-    recordBoundedPackageTargetTopology(packageRoot, subpath, owners);
+  const hasExports = recordPackageRootTopology(
+    packageRoot,
+    owners,
+    subpath === "",
+  );
+  if (subpath !== "" && !hasExports) {
+    recordPackageSubpathTopology(packageRoot, subpath, owners);
   }
 }
 
 function recordPackageRootTopology(
   packageRoot: string,
   owners: readonly string[],
-): void {
+  useMain: boolean,
+): boolean {
   const normalizedRoot = path.resolve(packageRoot);
   recordDirectoryDependency(normalizedRoot, owners);
   const manifest = path.join(normalizedRoot, "package.json");
-  if (!recordOptionalFileDependency(manifest, owners)) return;
+  if (!recordOptionalFileDependency(manifest, owners)) return false;
   try {
     const value = JSON.parse(fs.readFileSync(manifest, "utf8"));
     if (value !== null && typeof value === "object") {
       const metadata = value as Record<string, unknown>;
-      if (typeof metadata.main === "string") {
+      const hasExports =
+        metadata.exports !== undefined && metadata.exports !== null;
+      if (useMain && !hasExports && typeof metadata.main === "string") {
         // CommonJS main is a legacy path, not an exports target. Node resolves
         // it literally and permits absolute paths and paths outside the package.
         recordPackagePathCandidate(
@@ -847,44 +854,53 @@ function recordPackageRootTopology(
           owners,
         );
       }
-      recordPackageExportTargets(normalizedRoot, metadata.exports, owners);
+      // A successful exports resolution already records the selected child's
+      // directory and file. The manifest owns mapping changes; inactive
+      // subpaths and conditions must not become watch inputs.
+      return hasExports;
     }
   } catch {
     // Node owns malformed-manifest diagnostics; the manifest digest is enough
     // to invalidate this evaluation when its contents change.
   }
+  return false;
 }
 
-function recordPackageExportTargets(
+function recordPackageSubpathTopology(
   packageRoot: string,
-  value: unknown,
+  subpath: string,
   owners: readonly string[],
 ): void {
-  if (typeof value === "string") {
-    const literalPrefix = value.split("*", 1)[0];
-    if (literalPrefix !== "") {
-      recordBoundedPackageTargetTopology(packageRoot, literalPrefix, owners);
-    }
+  const candidate = boundedPackageTarget(packageRoot, subpath);
+  if (candidate === undefined) return;
+  recordPackagePathCandidate(candidate, owners);
+  try {
+    if (!fs.statSync(candidate).isDirectory()) return;
+  } catch {
     return;
   }
-  if (Array.isArray(value)) {
-    for (const item of value) {
-      recordPackageExportTargets(packageRoot, item, owners);
+  const manifest = path.join(candidate, "package.json");
+  if (!recordOptionalFileDependency(manifest, owners)) return;
+  try {
+    const value = JSON.parse(fs.readFileSync(manifest, "utf8"));
+    if (value !== null && typeof value === "object") {
+      const metadata = value as Record<string, unknown>;
+      if (typeof metadata.main === "string") {
+        recordPackagePathCandidate(
+          path.resolve(candidate, metadata.main),
+          owners,
+        );
+      }
     }
-    return;
-  }
-  if (value !== null && typeof value === "object") {
-    for (const item of Object.values(value)) {
-      recordPackageExportTargets(packageRoot, item, owners);
-    }
+  } catch {
+    // Node owns malformed nested-package diagnostics.
   }
 }
 
-function recordBoundedPackageTargetTopology(
+function boundedPackageTarget(
   packageRoot: string,
   target: string,
-  owners: readonly string[],
-): void {
+): string | undefined {
   const candidate = path.resolve(packageRoot, target);
   const relative = path.relative(packageRoot, candidate);
   if (
@@ -892,9 +908,9 @@ function recordBoundedPackageTargetTopology(
     relative.startsWith(".." + path.sep) ||
     path.isAbsolute(relative)
   ) {
-    return;
+    return undefined;
   }
-  recordPackagePathCandidate(candidate, owners);
+  return candidate;
 }
 
 function recordPackagePathCandidate(
