@@ -7,6 +7,7 @@ import {
   type WatchInputChange,
   WatchTopology,
   literalGlobRoot,
+  projectInputActiveWatchDirectories,
   projectInputEventShouldNotify,
   projectInputWatchDirectories,
 } from "../../../../../packages/ttsc/lib/launcher/internal/watchTopology.js";
@@ -18,9 +19,10 @@ import {
  * populations from config. The watch topology must observe later creates and
  * edits without rebuilding for unrelated files or compiler outputs.
  *
- * 1. Publish one missing file, one zero-match glob, and one output glob.
- * 2. Create and edit the declared inputs, asserting one project wake-up each.
- * 3. Replace the snapshot and prove removed and unrelated paths stay quiet.
+ * 1. Stage nested external roots and prove only their ancestor stays active.
+ * 2. Remove the ancestor declaration and prove the retained child is promoted.
+ * 3. Create and edit missing exact and glob inputs.
+ * 4. Replace the snapshot and prove removed and unrelated paths stay quiet.
  */
 export const test_watch_topology_tracks_declared_missing_files_and_empty_globs =
   async (): Promise<void> => {
@@ -63,6 +65,68 @@ export const test_watch_topology_tracks_declared_missing_files_and_empty_globs =
     );
     try {
       topology.refresh(false);
+      const stagedRoot = TestProject.tmpdir(
+        "ttsc-project-input-staged-anchor-",
+      );
+      const stagedAncestorFile = path.join(stagedRoot, "a", "one.md");
+      const stagedDescendantFile = path.join(stagedRoot, "a", "b", "two.md");
+      topology.setProjectInputs({
+        root,
+        files: [stagedAncestorFile],
+        globs: [],
+      });
+      fs.mkdirSync(path.dirname(stagedDescendantFile), { recursive: true });
+      fs.writeFileSync(stagedDescendantFile, "initial\n", "utf8");
+      await delay();
+      topology.setProjectInputs({
+        root,
+        files: [stagedAncestorFile, stagedDescendantFile],
+        globs: [],
+      });
+      const stagedAncestorRoots = projectInputWatchDirectories(
+        path.dirname(stagedAncestorFile),
+        root,
+      );
+      const stagedDescendantRoots = projectInputWatchDirectories(
+        path.dirname(stagedDescendantFile),
+        root,
+      );
+      assert.deepEqual(
+        projectInputActiveWatchDirectories([
+          ...stagedAncestorRoots,
+          ...stagedDescendantRoots,
+        ]),
+        [stagedRoot],
+        "a recursive ancestor must cover its retained descendant root",
+      );
+      await delay();
+      const coveredNotifications = await writeAndCountProjectChanges(
+        changes,
+        stagedDescendantFile,
+        "covered edit\n",
+      );
+      topology.setProjectInputs({
+        root,
+        files: [stagedDescendantFile],
+        globs: [],
+      });
+      assert.deepEqual(
+        projectInputActiveWatchDirectories(stagedDescendantRoots),
+        [path.join(stagedRoot, "a")],
+        "the retained descendant root must become active on its own",
+      );
+      await delay();
+      const promotedNotifications = await writeAndCountProjectChanges(
+        changes,
+        stagedDescendantFile,
+        "promoted edit\n",
+      );
+      assert.equal(
+        coveredNotifications,
+        promotedNotifications,
+        "ancestor coverage must not multiply recursive watch notifications",
+      );
+
       const externalRoot = TestProject.tmpdir("ttsc-project-input-anchor-");
       const externalFile = path.join(
         externalRoot,
@@ -80,14 +144,14 @@ export const test_watch_topology_tracks_declared_missing_files_and_empty_globs =
       });
       assert.deepEqual(
         projectInputWatchDirectories(
-          path.join(root, "docs", "nested", "missing.md"),
+          path.dirname(path.join(root, "docs", "nested", "missing.md")),
           root,
         ),
         [root],
         "an internal declaration must use one stable project-root handle",
       );
       assert.deepEqual(
-        projectInputWatchDirectories(externalFile, root),
+        projectInputWatchDirectories(path.dirname(externalFile), root),
         [externalRoot],
         "a missing external tree must use one nearest-ancestor handle",
       );
@@ -250,6 +314,17 @@ async function waitForNextProjectChange(
 
 function projectChangeCount(changes: readonly WatchInputChange[]): number {
   return changes.filter((change) => change.kind === "project").length;
+}
+
+async function writeAndCountProjectChanges(
+  changes: readonly WatchInputChange[],
+  location: string,
+  content: string,
+): Promise<number> {
+  const previous = projectChangeCount(changes);
+  fs.writeFileSync(location, content, "utf8");
+  await waitForNextProjectChange(changes, previous);
+  return projectChangeCount(changes) - previous;
 }
 
 async function waitForQuiet(

@@ -261,9 +261,11 @@ export class WatchTopology {
       const location = this.projectInputWatchRoot("glob", glob, root);
       if (location !== undefined) desired.set(pathKey(location), location);
     }
+    const active = new Map<string, string>();
+    addPaths(active, projectInputActiveWatchDirectories(desired.values()));
     syncWatchers(
       this.projectInputWatchers,
-      desired,
+      active,
       (location) =>
         fs.watch(
           location,
@@ -1069,6 +1071,28 @@ export function projectInputWatchDirectories(
 ): string[] {
   const root = projectInputRecursiveWatchRoot(target, projectRoot);
   return root === undefined ? [] : [root];
+}
+
+/**
+ * Removes recursive roots already covered by an ancestor without rewriting the
+ * declaration-specific roots retained by WatchTopology.
+ */
+export function projectInputActiveWatchDirectories(
+  directories: Iterable<string>,
+): string[] {
+  const unique = new Map<string, string>();
+  for (const directory of directories) {
+    const resolved = path.resolve(directory);
+    unique.set(pathKey(resolved), resolved);
+  }
+  return [...unique]
+    .filter(([key, directory]) =>
+      [...unique].every(
+        ([candidateKey, candidate]) =>
+          candidateKey === key || isPathWithin(candidate, directory) === false,
+      ),
+    )
+    .map(([, directory]) => directory);
 }
 
 function projectInputRecursiveWatchRoot(
