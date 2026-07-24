@@ -39,6 +39,7 @@ type NativePluginConfigEntry struct {
 type NativeLSPPluginEntry struct {
   Binary             string `json:"binary"`
   Name               string `json:"name,omitempty"`
+  ProjectInputs      bool   `json:"projectInputs,omitempty"`
   ProjectContextArgs bool   `json:"projectContextArgs,omitempty"`
   Stage              string `json:"stage,omitempty"`
 }
@@ -87,6 +88,12 @@ type NativePluginSource struct {
   hintsRefresh coalescingRefresh
   owners       map[string]NativeLSPPluginEntry
   logMu        sync.Mutex
+
+  projectInputsMu       sync.RWMutex
+  projectInputs         LSPProjectInputSnapshot
+  pluginProjectInputs   map[string]projectInputRecord
+  projectInputsObserver func()
+  projectInputsRefresh  coalescingRefresh
 
   // residentMu guards the resident-daemon table below. A resident sidecar keeps
   // a warm Program across verbs, so lsp-diagnostics / lsp-code-actions reuse it
@@ -170,6 +177,7 @@ func NewNativePluginSource(opts NativePluginSourceOptions) (*NativePluginSource,
     owners:             map[string]NativeLSPPluginEntry{},
   }
   source.discoverCommandIDs()
+  source.discoverProjectInputs(1)
   // The corpus fetch loads a Program, so it runs off the construction path.
   // Blocking here would delay initialize — and therefore the editor's first
   // response — for a feature most projects do not use. Until it lands,
@@ -680,7 +688,9 @@ func (s *NativePluginSource) run(plugin NativeLSPPluginEntry, command string, ar
   // spawn-per-verb path below with no behavior change. The static discovery
   // verbs (lsp-command-ids / lsp-code-action-kinds) and lsp-execute-command stay
   // on exec by design.
-  if command == serveVerbDiagnostics || command == serveVerbCodeActions {
+  if command == serveVerbDiagnostics ||
+    command == serveVerbProjectDiagnostics ||
+    command == serveVerbCodeActions {
     if body, served, err := s.serveRun(plugin, command, args); served {
       return body, err
     }

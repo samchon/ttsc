@@ -112,6 +112,7 @@ function resolveTtscserverEnv(argv: readonly string[]): NodeJS.ProcessEnv {
       lspPlugins: lspPlugins.map((plugin) => ({
         binary: plugin.binary,
         name: plugin.name,
+        projectInputs: plugin.capabilities?.projectInputs === true,
         projectContextArgs: plugin.capabilities?.projectContextArgs === true,
         stage: plugin.stage,
       })),
