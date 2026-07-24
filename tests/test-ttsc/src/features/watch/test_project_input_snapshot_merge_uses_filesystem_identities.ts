@@ -16,9 +16,10 @@ import { mergeProjectInputSnapshots } from "../../../../../packages/ttsc/lib/com
  *
  * 1. Merge root, existing file, missing file, and glob declarations through
  *    symlink plus available Windows case, 8.3, and extended aliases.
- * 2. Under a case-sensitive directory, keep case-distinct roots and entries
+ * 2. Prove aliases are order-independent and missing case aliases follow the
+ *    nearest existing directory's actual case semantics.
+ * 3. Under a case-sensitive directory, keep case-distinct roots and entries
  *    separate, including missing descendants.
- * 3. Assert only aliases that the filesystem resolves to one identity dedupe.
  */
 export const test_project_input_snapshot_merge_uses_filesystem_identities =
   (): void => {
@@ -65,6 +66,11 @@ export const test_project_input_snapshot_merge_uses_filesystem_identities =
       ],
     }));
     const merged = mergeProjectInputSnapshots(physicalRoot, snapshots);
+    assert.deepEqual(
+      mergeProjectInputSnapshots(physicalRoot, [...snapshots].reverse()),
+      merged,
+      "the canonical snapshot must not depend on producer or alias order",
+    );
     assert.equal(
       merged.files.length,
       2,
@@ -90,18 +96,36 @@ export const test_project_input_snapshot_merge_uses_filesystem_identities =
     );
     assert.deepEqual(merged.reloadFiles, merged.files);
 
+    if (process.platform === "win32") {
+      const missingCaseAliases = mergeProjectInputSnapshots(physicalRoot, [
+        {
+          root: physicalRoot,
+          files: [
+            path.join(physicalRoot, "Future", "Spec.md"),
+            path.join(physicalRoot, "future", "spec.md"),
+          ],
+          globs: [],
+        },
+      ]);
+      assert.deepEqual(
+        missingCaseAliases.files,
+        [path.join(physical, "future", "spec.md")],
+        "missing suffix aliases must fold under a default insensitive directory",
+      );
+    }
+
     const caseRoot = path.join(fixtureRoot, "case-sensitive");
     fs.mkdirSync(caseRoot);
-    enableWindowsCaseSensitivity(caseRoot);
+    if (!enableWindowsCaseSensitivity(caseRoot)) return;
     const upperRoot = path.join(caseRoot, "Project");
     const lowerRoot = path.join(caseRoot, "project");
     fs.mkdirSync(upperRoot);
-    try {
-      fs.mkdirSync(lowerRoot);
-    } catch {
-      return;
-    }
-    if (realpath(upperRoot) === realpath(lowerRoot)) return;
+    fs.mkdirSync(lowerRoot);
+    assert.notEqual(
+      realpath(upperRoot),
+      realpath(lowerRoot),
+      "the case-sensitive test directory must retain distinct root identities",
+    );
 
     assert.throws(
       () =>
@@ -157,9 +181,9 @@ function alternateCase(location: string): string {
   );
 }
 
-function enableWindowsCaseSensitivity(directory: string): void {
-  if (process.platform !== "win32") return;
-  child_process.spawnSync(
+function enableWindowsCaseSensitivity(directory: string): boolean {
+  if (process.platform !== "win32") return true;
+  const result = child_process.spawnSync(
     "fsutil.exe",
     ["file", "setCaseSensitiveInfo", directory, "enable"],
     {
@@ -167,6 +191,7 @@ function enableWindowsCaseSensitivity(directory: string): void {
       windowsHide: true,
     },
   );
+  return result.status === 0;
 }
 
 function windowsShortPath(location: string): string | undefined {
