@@ -196,10 +196,10 @@ func (s *NativePluginSource) ProjectInputOwnersForURI(uri string) []string {
 // The candidate arrives from an editor URI and is resolved physically, so a
 // declaration compared lexically can never match it wherever the two spellings
 // differ: a Windows short (8.3) component, which `%TEMP%` routinely carries, or
-// a symlinked ancestor such as macOS `/var`. Resolving here rather than when
-// the snapshot is stored keeps the declared spelling available to the client
-// registration that also reads it, and lets a retargeted link be recognized on
-// the event that follows it.
+// a symlinked ancestor such as macOS `/var`. Normalization already resolves
+// every lane, so this resolution is idempotent for any snapshot that arrived
+// through it; it is what makes a snapshot stored directly, as the unit cases
+// do, answer on the same terms as one the ingestion boundary normalized.
 func projectInputSnapshotMatchesCandidate(
   snapshot LSPProjectInputSnapshot,
   candidate string,

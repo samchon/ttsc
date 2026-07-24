@@ -2731,7 +2731,10 @@ function samePhysicalPath(left, right) {
   try {
     return sameResolutionPath(realPath(left), realPath(right));
   } catch {
-    return sameResolutionPath(left, right);
+    // A path that cannot be resolved cannot be shown to be the same file, and
+    // answering from the lexical spelling would return the very answer this
+    // comparison exists to replace.
+    return false;
   }
 }
 
@@ -3844,7 +3847,10 @@ function samePhysicalPath(left: string, right: string): boolean {
   try {
     return sameResolutionPath(realPath(left), realPath(right));
   } catch {
-    return sameResolutionPath(left, right);
+    // A path that cannot be resolved cannot be shown to be the same file, and
+    // answering from the lexical spelling would return the very answer this
+    // comparison exists to replace.
+    return false;
   }
 }
 
