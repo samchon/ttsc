@@ -126,7 +126,7 @@ async function writeAndWait(
         (change) =>
           change.kind === "project" &&
           change.path !== undefined &&
-          realpath(change.path) === realpath(location),
+          pathMatchesOrContains(change.path, location),
       ) === false
   ) {
     if (Date.now() >= deadline) {
@@ -139,6 +139,15 @@ async function writeAndWait(
     await delay(25);
   }
   await delay();
+}
+
+function pathMatchesOrContains(changed: string, target: string): boolean {
+  const root = realpath(changed);
+  const candidate = realpath(target);
+  return (
+    candidate === root ||
+    candidate.startsWith(root.endsWith(path.sep) ? root : `${root}${path.sep}`)
+  );
 }
 
 function enableWindowsCaseSensitivity(directory: string): boolean {

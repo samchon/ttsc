@@ -187,20 +187,18 @@ function filesystemDirectoryIsCaseSensitive(directory: string): boolean {
     if (previous !== undefined && previous !== name) return true;
     foldedNames.set(folded, name);
   }
-  if (process.platform !== "win32") {
-    for (const name of entries) {
-      const alternate = alternateCase(name);
-      if (alternate === name) continue;
-      try {
-        physicalRealpath(path.join(directory, alternate));
-        return false;
-      } catch (error) {
-        if (isMissingFilesystemEntry(error)) return true;
-        throw error;
-      }
+  for (const name of entries) {
+    const alternate = alternateCase(name);
+    if (alternate === name) continue;
+    try {
+      physicalRealpath(path.join(directory, alternate));
+      return false;
+    } catch (error) {
+      if (isMissingFilesystemEntry(error)) continue;
+      throw error;
     }
-    return true;
   }
+  if (process.platform !== "win32") return true;
   // Node does not expose the Windows per-directory flag. Prefer fsutil's
   // read-only answer, then conservatively preserve distinct declarations.
   const result = childProcess.spawnSync(
