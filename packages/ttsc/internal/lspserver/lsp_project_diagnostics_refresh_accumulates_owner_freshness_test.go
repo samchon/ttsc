@@ -51,6 +51,12 @@ func TestProjectDiagnosticsRefreshAccumulatesOwnerFreshness(t *testing.T) {
   proxy.scheduleProjectDiagnosticRefresh(projectDiagnosticOwnerScope{
     owners: map[string]struct{}{"alpha": {}},
   })
+  proxy.projectRefreshMu.Lock()
+  if proxy.projectRefreshTimer != nil {
+    proxy.projectRefreshTimer.Stop()
+    proxy.projectRefreshTimer = nil
+  }
+  proxy.projectRefreshMu.Unlock()
   proxy.completePendingProjectDiagnosticRefresh(2)
   proxy.projectRefreshMu.Lock()
   defer proxy.projectRefreshMu.Unlock()

@@ -1,5 +1,6 @@
 import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import path from "node:path";
 
 import { resolveSingleFileOutput } from "../../../../../packages/ttsc/lib/launcher/internal/singleFileOutput.js";
@@ -12,10 +13,17 @@ import { resolveSingleFileOutput } from "../../../../../packages/ttsc/lib/launch
  * the command line.
  */
 export const test_ttsc_matches_tsgo_only_flag_value_rules = (): void => {
-  const root = TestProject.commonJsProject({
-    "src/main.ts": "export const value = 1;\n",
-    "src/view.tsx": "export const view = 1;\n",
-  });
+  const root = TestProject.commonJsProject(
+    {
+      "src/main.ts": "export const value = 1;\n",
+      "src/view.tsx": "export const view = 1;\n",
+    },
+    {
+      compilerOptions: {
+        declaration: true,
+      },
+    },
+  );
 
   const inline = TestProject.spawn(
     TestProject.TTSC_BIN,
@@ -57,12 +65,19 @@ export const test_ttsc_matches_tsgo_only_flag_value_rules = (): void => {
   );
 
   for (const value of ["false", "null"]) {
+    const outDir = `dist-${value}`;
     const lowercase = TestProject.spawn(
       TestProject.TTSC_BIN,
-      ["--declaration", value, "--noEmit", "--cwd", root],
+      ["--declaration", value, "--outDir", outDir, "--cwd", root],
       { cwd: root },
     );
     assert.equal(lowercase.status, 0, lowercase.stderr);
+    assert.equal(fs.existsSync(path.join(root, outDir, "main.js")), true);
+    assert.equal(
+      fs.existsSync(path.join(root, outDir, "main.d.ts")),
+      false,
+      `--declaration ${value} did not clear configured declaration emit`,
+    );
   }
   const uppercaseBoolean = TestProject.spawn(
     TestProject.TTSC_BIN,

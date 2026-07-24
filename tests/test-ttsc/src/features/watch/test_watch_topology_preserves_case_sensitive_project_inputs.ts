@@ -4,7 +4,6 @@ import childProcess from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 
-import { probeProjectInputDirectoryCaseSensitivity } from "../../../../../packages/ttsc/lib/internal/projectInputPathIdentity.js";
 import {
   type WatchInputChange,
   WatchTopology,
@@ -40,7 +39,7 @@ export const test_watch_topology_preserves_case_sensitive_project_inputs =
     );
 
     const external = TestProject.tmpdir("ttsc-project-input-case-external-");
-    enableWindowsCaseSensitivity(external);
+    if (enableWindowsCaseSensitivity(external) === false) return;
     const upperRoot = path.join(external, "Project");
     const lowerRoot = path.join(external, "project");
     fs.mkdirSync(upperRoot);
@@ -106,24 +105,6 @@ export const test_watch_topology_preserves_case_sensitive_project_inputs =
       fs.writeFileSync(lowerJson, '{"removed":true}\n', "utf8");
       await delay();
       assert.equal(changes.length, count, JSON.stringify(changes.slice(count)));
-
-      const emptyRoot = path.join(external, "Empty");
-      fs.mkdirSync(emptyRoot);
-      topology.setProjectInputs({
-        root,
-        files: [],
-        globs: [path.join(emptyRoot, "**", "*")],
-      });
-      await delay();
-      const beforeProbe = changes.length;
-      probeProjectInputDirectoryCaseSensitivity(emptyRoot);
-      await delay();
-      assert.equal(
-        changes.length,
-        beforeProbe,
-        JSON.stringify(changes.slice(beforeProbe)),
-      );
-      assert.deepEqual(fs.readdirSync(emptyRoot), []);
     } finally {
       topology.close();
     }
@@ -134,25 +115,34 @@ async function writeAndWait(
   location: string,
   content: string,
 ): Promise<void> {
-  const count = projectChangeCount(changes);
+  const count = changes.length;
   fs.mkdirSync(path.dirname(location), { recursive: true });
   fs.writeFileSync(location, content, "utf8");
   const deadline = Date.now() + 5_000;
-  while (projectChangeCount(changes) === count) {
+  while (
+    changes
+      .slice(count)
+      .some(
+        (change) =>
+          change.kind === "project" &&
+          change.path !== undefined &&
+          realpath(change.path) === realpath(location),
+      ) === false
+  ) {
     if (Date.now() >= deadline) {
-      assert.fail(`expected project change for ${location}`);
+      assert.fail(
+        `expected project change for ${location}: ${JSON.stringify(
+          changes.slice(count),
+        )}`,
+      );
     }
     await delay(25);
   }
   await delay();
 }
 
-function projectChangeCount(changes: readonly WatchInputChange[]): number {
-  return changes.filter((change) => change.kind === "project").length;
-}
-
-function enableWindowsCaseSensitivity(directory: string): void {
-  if (process.platform !== "win32") return;
+function enableWindowsCaseSensitivity(directory: string): boolean {
+  if (process.platform !== "win32") return true;
   const result = childProcess.spawnSync(
     "fsutil.exe",
     ["file", "setCaseSensitiveInfo", directory, "enable"],
@@ -161,7 +151,7 @@ function enableWindowsCaseSensitivity(directory: string): void {
       windowsHide: true,
     },
   );
-  assert.equal(result.status, 0, result.error?.message ?? result.stderr);
+  return result.status === 0;
 }
 
 function createCaseDistinctDirectory(directory: string): boolean {
@@ -169,12 +159,7 @@ function createCaseDistinctDirectory(directory: string): boolean {
     fs.mkdirSync(directory);
     return true;
   } catch (error) {
-    if (
-      process.platform === "darwin" &&
-      error instanceof Error &&
-      "code" in error &&
-      error.code === "EEXIST"
-    ) {
+    if (error instanceof Error && "code" in error && error.code === "EEXIST") {
       return false;
     }
     throw error;

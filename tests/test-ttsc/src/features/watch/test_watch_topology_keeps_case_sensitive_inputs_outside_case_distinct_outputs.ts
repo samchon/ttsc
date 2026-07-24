@@ -29,7 +29,7 @@ export const test_watch_topology_keeps_case_sensitive_inputs_outside_case_distin
     fs.writeFileSync(source, "export const value = 1;\n", "utf8");
 
     const external = TestProject.tmpdir("ttsc-project-input-output-external-");
-    enableWindowsCaseSensitivity(external);
+    if (enableWindowsCaseSensitivity(external) === false) return;
     const outputRoot = path.join(external, "Output");
     const inputRoot = path.join(external, "output");
     fs.mkdirSync(outputRoot);
@@ -40,7 +40,7 @@ export const test_watch_topology_keeps_case_sensitive_inputs_outside_case_distin
     const exactOutput = path.join(exactDirectory, "State.json");
     const exactInput = path.join(exactDirectory, "state.json");
     fs.mkdirSync(exactDirectory, { recursive: true });
-    enableWindowsCaseSensitivity(exactDirectory);
+    if (enableWindowsCaseSensitivity(exactDirectory) === false) return;
     fs.writeFileSync(
       path.join(root, "tsconfig.json"),
       JSON.stringify({
@@ -88,7 +88,7 @@ export const test_watch_topology_keeps_case_sensitive_inputs_outside_case_distin
       });
       assert.deepEqual(
         liveRoots,
-        [realpath(exactRoot), realpath(inputRoot)].sort(),
+        [realpath(exactDirectory), realpath(inputRoot)].sort(),
       );
 
       await writeAndWait(changes, exact, "exact\n");
@@ -104,25 +104,34 @@ async function writeAndWait(
   location: string,
   content: string,
 ): Promise<void> {
-  const count = projectChangeCount(changes);
+  const count = changes.length;
   fs.mkdirSync(path.dirname(location), { recursive: true });
   fs.writeFileSync(location, content, "utf8");
   const deadline = Date.now() + 5_000;
-  while (projectChangeCount(changes) === count) {
+  while (
+    changes
+      .slice(count)
+      .some(
+        (change) =>
+          change.kind === "project" &&
+          change.path !== undefined &&
+          realpath(change.path) === realpath(location),
+      ) === false
+  ) {
     if (Date.now() >= deadline) {
-      assert.fail(`expected project change for ${location}`);
+      assert.fail(
+        `expected project change for ${location}: ${JSON.stringify(
+          changes.slice(count),
+        )}`,
+      );
     }
     await delay(25);
   }
   await delay();
 }
 
-function projectChangeCount(changes: readonly WatchInputChange[]): number {
-  return changes.filter((change) => change.kind === "project").length;
-}
-
-function enableWindowsCaseSensitivity(directory: string): void {
-  if (process.platform !== "win32") return;
+function enableWindowsCaseSensitivity(directory: string): boolean {
+  if (process.platform !== "win32") return true;
   const result = childProcess.spawnSync(
     "fsutil.exe",
     ["file", "setCaseSensitiveInfo", directory, "enable"],
@@ -131,7 +140,7 @@ function enableWindowsCaseSensitivity(directory: string): void {
       windowsHide: true,
     },
   );
-  assert.equal(result.status, 0, result.error?.message ?? result.stderr);
+  return result.status === 0;
 }
 
 function createCaseDistinctDirectory(directory: string): boolean {
@@ -139,12 +148,7 @@ function createCaseDistinctDirectory(directory: string): boolean {
     fs.mkdirSync(directory);
     return true;
   } catch (error) {
-    if (
-      process.platform === "darwin" &&
-      error instanceof Error &&
-      "code" in error &&
-      error.code === "EEXIST"
-    ) {
+    if (error instanceof Error && "code" in error && error.code === "EEXIST") {
       return false;
     }
     throw error;

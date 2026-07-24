@@ -1,5 +1,4 @@
 import childProcess from "node:child_process";
-import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -32,9 +31,6 @@ type CachedRealpath =
       found: true;
       path: string;
     };
-
-const CASE_SENSITIVITY_PROBE_PREFIX = ".ttsc-project-input-case-probe-";
-const CASE_SENSITIVITY_PROBE_SUFFIX = "-Aa.ttsc-probe";
 
 /**
  * Create one filesystem-identity resolver for a project-input transaction.
@@ -206,7 +202,7 @@ function filesystemDirectoryIsCaseSensitive(directory: string): boolean {
     return true;
   }
   // Node does not expose the Windows per-directory flag. Prefer fsutil's
-  // read-only answer, then fall back to a locale-independent sentinel probe.
+  // read-only answer, then conservatively preserve distinct declarations.
   const result = childProcess.spawnSync(
     "fsutil.exe",
     ["file", "queryCaseSensitiveInfo", directory],
@@ -216,68 +212,7 @@ function filesystemDirectoryIsCaseSensitive(directory: string): boolean {
     if (/\bdisabled\b/iu.test(result.stdout)) return false;
     if (/\benabled\b/iu.test(result.stdout)) return true;
   }
-  return probeProjectInputDirectoryCaseSensitivity(directory);
-}
-
-export function probeProjectInputDirectoryCaseSensitivity(
-  directory: string,
-): boolean {
-  const basename = `${CASE_SENSITIVITY_PROBE_PREFIX}${crypto.randomUUID()}${CASE_SENSITIVITY_PROBE_SUFFIX}`;
-  const exact = path.join(directory, basename);
-  const alternate = path.join(directory, alternateCase(basename));
-  let exactCreated = false;
-  let exactDescriptor: number | undefined;
-  let alternateCreated = false;
-  let alternateDescriptor: number | undefined;
-  let sensitive = true;
-  try {
-    exactDescriptor = fs.openSync(exact, "wx");
-    exactCreated = true;
-    fs.closeSync(exactDescriptor);
-    exactDescriptor = undefined;
-    try {
-      alternateDescriptor = fs.openSync(alternate, "wx");
-      alternateCreated = true;
-    } catch (error) {
-      sensitive = isFilesystemEntryExists(error) === false;
-    }
-  } catch {
-    sensitive = true;
-  } finally {
-    if (alternateDescriptor !== undefined) {
-      try {
-        fs.closeSync(alternateDescriptor);
-      } catch {
-        sensitive = true;
-      }
-    }
-    if (exactDescriptor !== undefined) {
-      try {
-        fs.closeSync(exactDescriptor);
-      } catch {
-        sensitive = true;
-      }
-    }
-    if (alternateCreated) {
-      try {
-        fs.unlinkSync(alternate);
-      } catch {
-        sensitive = true;
-      }
-    }
-    if (exactCreated) {
-      try {
-        fs.unlinkSync(exact);
-      } catch {
-        sensitive = true;
-      }
-    }
-  }
-  return sensitive;
-}
-
-function isFilesystemEntryExists(error: unknown): boolean {
-  return error instanceof Error && "code" in error && error.code === "EEXIST";
+  return true;
 }
 
 function alternateCase(value: string): string {

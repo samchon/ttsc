@@ -676,7 +676,6 @@ function runWatch(
 
   const runOnce = async () => {
     running = true;
-    topology?.beginExecutionGeneration();
     const change = pendingChanges.take();
     let completed = false;
     try {
