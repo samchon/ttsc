@@ -10,6 +10,7 @@ import { resolveFlagSpec } from "../../flags/schema";
 import type { ITtscParsedProjectConfig } from "../../structures/internal/ITtscParsedProjectConfig";
 import type { ITtscProjectInputSnapshot } from "../../structures/internal/ITtscProjectInputSnapshot";
 import type { TtscBuildOptions } from "../../structures/internal/TtscBuildOptions";
+import { resolveSingleFileOutput } from "./singleFileOutput";
 
 type WatchTopologyOptions = Pick<
   TtscBuildOptions,
@@ -32,6 +33,8 @@ type WatchTopologyCallbacks = {
 };
 
 export type WatchInputChange = {
+  /** Keep the resident process but cold-load its compiler Program. */
+  invalidate?: boolean;
   kind: "compiler" | "config" | "plugin" | "project";
   path?: string;
 };
@@ -53,6 +56,7 @@ type ResolvedWatchTopology = {
  * outputs are filtered before any watcher is installed.
  */
 export class WatchTopology {
+  private closed = false;
   private directories = new Map<string, string>();
   private directoryWatchers = new Map<string, fs.FSWatcher>();
   private extraInputs: readonly string[] = [];
@@ -69,6 +73,7 @@ export class WatchTopology {
     globs: [],
     root: "",
   };
+  private projectInputRejectedWatchRoots = new Set<string>();
   private projectInputWatchRoots = new Map<string, string>();
   private projectInputWatchers = new Map<string, fs.FSWatcher>();
   private reloadFiles = new Map<string, string>();
@@ -117,6 +122,7 @@ export class WatchTopology {
     const next = normalizeProjectInputSnapshot(inputs);
     if (projectInputSnapshotsEqual(this.projectInputs, next)) return;
     this.projectInputs = next;
+    this.projectInputRejectedWatchRoots.clear();
     const declarations = new Set([
       ...next.files.map((file) => projectInputDeclarationKey("file", file)),
       ...next.globs.map((glob) => projectInputDeclarationKey("glob", glob)),
@@ -133,6 +139,7 @@ export class WatchTopology {
 
   /** Close every watcher so SIGINT/SIGTERM can drain the event loop. */
   public close(): void {
+    this.closed = true;
     closeWatchers(this.fileWatchers);
     closeWatchers(this.directoryWatchers);
     closeWatchers(this.extraWatchers);
@@ -245,6 +252,7 @@ export class WatchTopology {
   }
 
   private syncProjectInputWatchers(): void {
+    if (this.closed) return;
     const desired = new Map<string, string>();
     for (const file of this.projectInputs.files) {
       if (this.isCompilerOutput(file)) continue;
@@ -261,8 +269,16 @@ export class WatchTopology {
       const location = this.projectInputWatchRoot("glob", glob, root);
       if (location !== undefined) desired.set(pathKey(location), location);
     }
+    const eligible = [...desired].filter(
+      ([key]) => !this.projectInputRejectedWatchRoots.has(key),
+    );
     const active = new Map<string, string>();
-    addPaths(active, projectInputActiveWatchDirectories(desired.values()));
+    addPaths(
+      active,
+      projectInputActiveWatchDirectories(
+        eligible.map(([, location]) => location),
+      ),
+    );
     syncWatchers(
       this.projectInputWatchers,
       active,
@@ -278,7 +294,15 @@ export class WatchTopology {
             this.refreshProjectInputs(location, changed);
           },
         ),
-      (location, error) => this.callbacks.onError(location, error),
+      (location, error) => {
+        const key = pathKey(location);
+        const firstFailure = !this.projectInputRejectedWatchRoots.has(key);
+        this.projectInputRejectedWatchRoots.add(key);
+        this.callbacks.onError(location, error);
+        if (firstFailure) {
+          queueMicrotask(() => this.syncProjectInputWatchers());
+        }
+      },
     );
   }
 
@@ -326,6 +350,11 @@ export class WatchTopology {
           : this.projectInputFingerprints;
       const contentChanged =
         mapsEqual(this.projectInputFingerprints, nextFingerprints) === false;
+      const invalidate = projectInputMembershipInvalidatesProgram({
+        changed,
+        next,
+        previous,
+      });
       this.projectInputMatches = next;
       this.projectInputFingerprints = nextFingerprints;
       this.syncProjectInputWatchers();
@@ -338,6 +367,7 @@ export class WatchTopology {
         (changed === undefined || this.isCompilerOutput(changed) === false)
       ) {
         this.callbacks.onInputChange({
+          ...(invalidate ? { invalidate: true } : {}),
           kind: "project",
           path: changed,
         });
@@ -454,21 +484,23 @@ function resolveWatchTopology(
     roots.push(project.root);
     addPaths(files, project.configPaths);
     addPaths(reloadFiles, project.configPaths);
-    const compilerOutputs = resolveCompilerOutputs(project, options);
-    addPaths(outputFiles, compilerOutputs.files);
-    addPaths(
-      outputFiles,
-      inferAdjacentCompilerOutputs(
-        project,
-        options,
-        options.files.map((file) => path.resolve(options.cwd, file)),
-      ),
+    const positionalInputs = options.files.map((file) =>
+      path.resolve(options.cwd, file),
     );
-    addPaths(outputs, compilerOutputs.directories);
-    addPaths(
-      files,
-      options.files.map((file) => path.resolve(options.cwd, file)),
-    );
+    if (
+      positionalInputs.length === 1 &&
+      (options.emit ?? project.compilerOptions.noEmit !== true)
+    ) {
+      addPaths(outputFiles, [
+        resolveSingleFileOutput({
+          cliOutDir: options.outDir,
+          cwd: options.cwd,
+          file: positionalInputs[0]!,
+          tsconfig: options.tsconfig,
+        }),
+      ]);
+    }
+    addPaths(files, positionalInputs);
   } else {
     for (const project of readReferencedProjects(options)) {
       roots.push(project.root);
@@ -635,14 +667,8 @@ function inferAdjacentCompilerOutputs(
   const emit = effectiveCompilerEmit(project, options);
   const outputs = new Set<string>();
   for (const input of inputs) {
-    if (!isPathWithin(project.root, input)) continue;
     const extension = path.extname(input).toLowerCase();
-    if (
-      extension !== ".ts" &&
-      extension !== ".tsx" &&
-      extension !== ".mts" &&
-      extension !== ".cts"
-    ) {
+    if (!isCompilerEmittableSourceExtension(extension)) {
       continue;
     }
     if (/\.d\.(?:ts|mts|cts)$/i.test(input)) continue;
@@ -650,7 +676,8 @@ function inferAdjacentCompilerOutputs(
     if (
       emit.javascript &&
       emit.outDir === undefined &&
-      emit.outFile === undefined
+      emit.outFile === undefined &&
+      !isJavaScriptSourceExtension(extension)
     ) {
       const javascriptExtension =
         extension === ".mts"
@@ -671,9 +698,9 @@ function inferAdjacentCompilerOutputs(
       emit.outFile === undefined
     ) {
       const declarationExtension =
-        extension === ".mts"
+        extension === ".mts" || extension === ".mjs"
           ? ".d.mts"
-          : extension === ".cts"
+          : extension === ".cts" || extension === ".cjs"
             ? ".d.cts"
             : ".d.ts";
       const declaration = stem + declarationExtension;
@@ -682,6 +709,23 @@ function inferAdjacentCompilerOutputs(
     }
   }
   return [...outputs];
+}
+
+function isCompilerEmittableSourceExtension(extension: string): boolean {
+  return [
+    ".cjs",
+    ".cts",
+    ".js",
+    ".jsx",
+    ".mjs",
+    ".mts",
+    ".ts",
+    ".tsx",
+  ].includes(extension);
+}
+
+function isJavaScriptSourceExtension(extension: string): boolean {
+  return [".cjs", ".js", ".jsx", ".mjs"].includes(extension);
 }
 
 type EffectiveCompilerEmit = {
@@ -960,22 +1004,32 @@ function syncWatchers(
   desired: ReadonlyMap<string, string>,
   create: (location: string, key: string) => fs.FSWatcher,
   onError: (location: string, error: unknown) => void,
-): void {
+): boolean {
+  let complete = true;
+  for (const [key, location] of desired) {
+    if (watchers.has(key)) continue;
+    try {
+      const watcher = create(location, key);
+      watcher.on("error", (error) => {
+        if (watchers.get(key) === watcher) {
+          watchers.delete(key);
+        }
+        watcher.close();
+        onError(location, error);
+      });
+      watchers.set(key, watcher);
+    } catch (error) {
+      complete = false;
+      onError(location, error);
+    }
+  }
+  if (!complete) return false;
   for (const [key, watcher] of watchers) {
     if (desired.has(key)) continue;
     watcher.close();
     watchers.delete(key);
   }
-  for (const [key, location] of desired) {
-    if (watchers.has(key)) continue;
-    try {
-      const watcher = create(location, key);
-      watcher.on("error", (error) => onError(location, error));
-      watchers.set(key, watcher);
-    } catch (error) {
-      onError(location, error);
-    }
-  }
+  return true;
 }
 
 function closeWatchers(watchers: Map<string, fs.FSWatcher>): void {
@@ -1156,6 +1210,47 @@ export function projectInputEventShouldNotify(input: {
   return (
     input.contentChanged || input.directlyMatched || input.membershipChanged
   );
+}
+
+/**
+ * Return whether a project-input population transition can reshape a Program.
+ *
+ * JSON is data to a ProjectRule but may simultaneously be a `resolveJsonModule`
+ * source. TypeScript and JavaScript paths can likewise overlap a project-input
+ * declaration. Their creation or deletion therefore requires a cold Program
+ * inside the existing resident process. A filename-less event cannot identify
+ * the changed member and is conservatively invalidating whenever the population
+ * moved.
+ */
+export function projectInputMembershipInvalidatesProgram(input: {
+  changed?: string;
+  next: ReadonlyMap<string, string>;
+  previous: ReadonlyMap<string, string>;
+}): boolean {
+  if (mapsEqual(input.previous, input.next)) return false;
+  if (input.changed === undefined) return true;
+  for (const [key, location] of input.previous) {
+    if (
+      input.next.has(key) === false &&
+      projectInputPathMayAffectProgram(location)
+    ) {
+      return true;
+    }
+  }
+  for (const [key, location] of input.next) {
+    if (
+      input.previous.has(key) === false &&
+      projectInputPathMayAffectProgram(location)
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function projectInputPathMayAffectProgram(location: string): boolean {
+  const extension = path.extname(location).toLowerCase();
+  return extension === ".json" || isCompilerEmittableSourceExtension(extension);
 }
 
 function fingerprintProjectInputMatches(

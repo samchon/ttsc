@@ -207,6 +207,8 @@ export function runBuild(options: RunBuildOptions = {}): TtscBuildResult {
 export type ResidentCheckWatchChange = {
   /** Re-resolve project, plugin, contributor, and Program topology. */
   reload?: boolean;
+  /** Retain the sidecar and execution selection but cold-load its Program. */
+  invalidate?: boolean;
   /** Local compiler or data paths changed since the prior cycle. */
   changed?: readonly string[];
   /** Subset of changed paths declared by ProjectRules as external inputs. */
@@ -486,7 +488,7 @@ function residentCheckProcessKey(
   return `${plugin.binary}\0${plugin.name}\0${JSON.stringify(args)}`;
 }
 
-function residentCheckRequest(
+export function residentCheckRequest(
   change: ResidentCheckWatchChange,
   cwd: string,
 ): ResidentCheckRequest {
@@ -495,6 +497,7 @@ function residentCheckRequest(
   const changed = normalize(change.changed);
   const external = normalize(change.external);
   return {
+    ...(change.invalidate === true ? { invalidate: true } : {}),
     ...(changed.length === 0 ? {} : { changed }),
     ...(external.length === 0 ? {} : { external }),
   };
