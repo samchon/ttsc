@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import path from "node:path";
 
 import { resolveFlagSpec } from "../../flags/schema";
@@ -1690,9 +1691,28 @@ function normalizeProjectInputGlob(pattern: string): string {
   return resolveProjectInputPath(pattern).split(path.sep).join("/");
 }
 
+/**
+ * Resolve the filesystem-owned portion of a declaration while retaining every
+ * not-yet-created suffix segment. Existing case, symlink, junction, and 8.3
+ * aliases therefore share the spelling reported by the filesystem, while a
+ * case-sensitive directory can retain two genuinely distinct entries.
+ */
 function projectInputPathKey(location: string): string {
   const normalized = resolveProjectInputPath(location);
-  return process.platform === "win32" ? normalized.toLowerCase() : normalized;
+  let existing = normalized;
+  const missing: string[] = [];
+  while (true) {
+    try {
+      const physical =
+        fs.realpathSync.native?.(existing) ?? fs.realpathSync(existing);
+      return path.resolve(physical, ...missing);
+    } catch {
+      const parent = path.dirname(existing);
+      if (parent === existing) return normalized;
+      missing.unshift(path.basename(existing));
+      existing = parent;
+    }
+  }
 }
 
 function resolveProjectInputPath(location: string): string {
