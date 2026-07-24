@@ -430,19 +430,12 @@ export class WatchTopology {
     );
   }
 
-  /**
-   * Drop the watcher that just reported a directory replacement.
-   *
-   * A recursive watcher binds to the filesystem objects it walked when it was
-   * installed, and no backend rebinds them: replacing a directory under the
-   * root leaves the old object bound and the arriving one unwatched, so the
-   * replacement is observed once and every later edit inside it is invisible.
-   * The next sync reinstalls the same root and walks the new objects. The cost
-   * is one re-walk of a root that just proved its topology moved, and it is
-   * paid only for a directory event admitted by the anchoring rule.
-   */
-  private retireProjectInputWatcher(location: string): void {
-    const key = createProjectInputPathIdentityContext().resolve(location).key;
+  /** Drop the watcher that just reported a directory replacement. */
+  private retireProjectInputWatcher(
+    location: string,
+    identities: ProjectInputPathIdentityContext,
+  ): void {
+    const key = identities.resolve(location).key;
     const watcher = this.projectInputWatchers.get(key);
     if (watcher === undefined) return;
     watcher.close();
@@ -541,6 +534,22 @@ export class WatchTopology {
       ) {
         return;
       }
+      // Rearm before snapshotting. A watcher that has to be replaced stops
+      // delivering the moment it is closed, so a scan taken first would become
+      // the baseline for a window in which nothing was watched, and anything
+      // written there would never be announced again. Reinstalling first makes
+      // the scan below observe whatever the gap swallowed.
+      if (
+        changed !== undefined &&
+        projectInputReplacementStrandsWatchers(
+          this.projectInputs,
+          changed,
+          identities,
+        )
+      ) {
+        this.retireProjectInputWatcher(location, identities);
+        this.syncProjectInputWatchers();
+      }
       const next = this.collectProjectInputMatches();
       const membershipChanged = mapsEqual(previous, next) === false;
       const nextFingerprints =
@@ -573,9 +582,6 @@ export class WatchTopology {
       });
       this.projectInputMatches = next;
       this.projectInputFingerprints = nextFingerprints;
-      if (changed !== undefined && topologyMatched && isDirectory(changed)) {
-        this.retireProjectInputWatcher(location);
-      }
       this.syncProjectInputWatchers();
       // A JSON/TS/JS project-input member can simultaneously enter or leave
       // the compiler Program. Reconcile the compiler watch snapshot before
@@ -1601,6 +1607,55 @@ function matchesProjectInput(
  * inferred from a rebuild that a silent rescan and a skipped rescan produce
  * identically.
  */
+/**
+ * Whether a replacement at this path leaves a recursive watcher bound to the
+ * object that was replaced.
+ *
+ * Only one backend needs the answer. Node routes a recursive watch to its own
+ * per-directory implementation when the platform is neither macOS nor Windows,
+ * and that implementation keys its handles by path: a directory renamed away
+ * keeps its key, so the directory renamed into its place is skipped as already
+ * known and nothing inside it is ever watched. The native subtree backends both
+ * other platforms use follow the path, so retiring their watcher would buy
+ * nothing and would open a window in which no events are delivered at all.
+ *
+ * The answer is deliberately narrower than the rescan rule. A directory
+ * appearing inside a glob root also deserves a rescan, but it replaces nothing,
+ * and reinstalling a root costs one watch descriptor per entry beneath it —
+ * which an install storm would pay thousands of times.
+ */
+export function projectInputReplacementStrandsWatchers(
+  snapshot: ITtscProjectInputSnapshot,
+  location: string,
+  identities = createProjectInputPathIdentityContext(),
+  platform: NodeJS.Platform = process.platform,
+): boolean {
+  if (platform === "darwin" || platform === "win32") return false;
+  const changed = path.resolve(location);
+  if (!isDirectory(changed)) return false;
+  return projectInputAnchorsDeclaration(
+    snapshot,
+    path.dirname(changed),
+    identities,
+  );
+}
+
+function projectInputAnchorsDeclaration(
+  snapshot: ITtscProjectInputSnapshot,
+  directory: string,
+  identities: ProjectInputPathIdentityContext,
+): boolean {
+  return (
+    snapshot.files.some((file) => identities.isWithin(directory, file)) ||
+    (snapshot.reloadFiles ?? []).some((file) =>
+      identities.isWithin(directory, file),
+    ) ||
+    snapshot.globs.some((glob) =>
+      identities.isWithin(directory, literalGlobRoot(glob)),
+    )
+  );
+}
+
 export function projectInputTopologyMayAffect(
   snapshot: ITtscProjectInputSnapshot,
   location: string,
@@ -1609,13 +1664,7 @@ export function projectInputTopologyMayAffect(
 ): boolean {
   const changed = path.resolve(location);
   const anchors = (directory: string): boolean =>
-    snapshot.files.some((file) => identities.isWithin(directory, file)) ||
-    (snapshot.reloadFiles ?? []).some((file) =>
-      identities.isWithin(directory, file),
-    ) ||
-    snapshot.globs.some((glob) =>
-      identities.isWithin(directory, literalGlobRoot(glob)),
-    );
+    projectInputAnchorsDeclaration(snapshot, directory, identities);
   // An atomic replacement never names the declared file whose bytes it changed;
   // it names the directory that was swapped, and that directory can be one the
   // declaration does not contain — renaming `docs` away reports the arriving
@@ -1624,9 +1673,10 @@ export function projectInputTopologyMayAffect(
   // on the path to a declared input. A tree no declaration reaches, such as
   // `node_modules` under an ordinary project, then costs nothing per created
   // entry instead of a population rescan and a full content re-fingerprint. A
-  // glob whose literal root covers that tree still admits everything beneath
-  // it through the branch below, because a directory appearing inside a glob
-  // root can hold matches; the declaration decides that reach, not this rule.
+  // glob whose literal root covers that tree still admits every directory
+  // beneath it through the branch below, because a directory appearing inside a
+  // glob root can hold matches; the declaration decides that reach, not this
+  // rule.
   if (isDirectory(changed) && anchors(path.dirname(changed))) return true;
   return (
     anchors(changed) ||
@@ -1996,16 +2046,16 @@ function isRecord(value: unknown): value is Record<string, unknown> {
  * A watch declaration keeps its lexical spelling, because classification,
  * containment, and notification are all expressed in the caller's own paths.
  * The backend needs the canonical spelling instead. libuv stores the directory
- * string it was handed, expands each delivered event to its long path, and then
- * requires the stored string to be that expansion's prefix. A short (8.3)
- * component makes the two disagree, and the resulting assertion aborts the
- * whole process (libuv issue 5010; upstream now returns an error instead, but
- * the bundled libuv every supported Node ships still asserts). `os.tmpdir()`
- * routinely yields such a path, so ordinary projects reach it, not only tests.
- * macOS matches events against the watched path resolved through symlinks, so
- * `/var` and `/private/var` must not be mixed either. Resolving here keeps
- * every backend comparing two canonical spellings while callers keep resolving
- * events against what they declared.
+ * string it was handed, expands each delivered event that still exists on disk
+ * to its long path, and then requires the stored string to be that expansion's
+ * prefix. A short (8.3) component makes the two disagree, and the resulting
+ * assertion aborts the whole process (libuv issue 5010; upstream now returns an
+ * error instead, but the bundled libuv every supported Node ships still
+ * asserts). `os.tmpdir()` routinely yields such a path, so ordinary projects
+ * reach it, not only tests. macOS matches events against the watched path
+ * resolved through symlinks, so `/var` and `/private/var` must not be mixed
+ * either. Resolving here keeps every backend comparing two canonical spellings
+ * while callers keep resolving events against what they declared.
  */
 function watcherRegistrationPath(location: string): string {
   try {

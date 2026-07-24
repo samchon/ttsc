@@ -19,7 +19,9 @@ import { projectInputTopologyMayAffect } from "../../../../../packages/ttsc/lib/
  *
  * 1. Declare one exact file and one glob population inside a project.
  * 2. Admit the sibling directory an atomic replacement leaves behind.
- * 3. Reject an unrelated dependency tree and an unrelated ordinary file.
+ * 3. Admit the dependency root beside it and reject everything below that root,
+ *    which is the pair the rule turns on.
+ * 4. Reject an unrelated ordinary file and keep a missing glob root admissible.
  */
 export const test_project_input_topology_admits_only_anchoring_directories =
   (): void => {
