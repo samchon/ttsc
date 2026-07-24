@@ -7,6 +7,12 @@ import { readProjectConfig } from "../../compiler/internal/project/readProjectCo
 import { resolveTsgo } from "../../compiler/internal/resolveTsgo";
 import { outputText, spawnNative } from "../../compiler/internal/spawnNative";
 import { resolveFlagSpec } from "../../flags/schema";
+import {
+  type ProjectInputPathIdentityContext,
+  createProjectInputPathIdentityContext,
+  isProjectInputPathIdentityWithin,
+  resolveProjectInputPath,
+} from "../../internal/projectInputPathIdentity";
 import type { ITtscParsedProjectConfig } from "../../structures/internal/ITtscParsedProjectConfig";
 import type { ITtscProjectInputSnapshot } from "../../structures/internal/ITtscProjectInputSnapshot";
 import type { TtscBuildOptions } from "../../structures/internal/TtscBuildOptions";
@@ -29,6 +35,7 @@ type WatchTopologyOptions = Pick<
 type WatchTopologyCallbacks = {
   onError(location: string, error: unknown): void;
   onInputChange(change: WatchInputChange): void;
+  onProjectInputWatchRoots?(roots: readonly string[]): void;
   onTopologyChange(): void;
 };
 
@@ -283,6 +290,7 @@ export class WatchTopology {
 
   private syncProjectInputWatchers(): void {
     if (this.closed) return;
+    const identities = createProjectInputPathIdentityContext();
     const desired = new Map<string, string>();
     for (const file of this.projectInputs.files) {
       if (this.isCompilerOutput(file)) continue;
@@ -291,13 +299,33 @@ export class WatchTopology {
         file,
         path.dirname(file),
       );
-      if (location !== undefined) desired.set(pathKey(location), location);
+      if (location !== undefined) {
+        const available = projectInputAvailableWatchDirectory(
+          location,
+          this.projectInputRejectedWatchRoots,
+          identities,
+        );
+        if (available !== undefined) {
+          const identity = identities.resolve(available);
+          desired.set(identity.key, identity.path);
+        }
+      }
     }
     for (const glob of this.projectInputs.globs) {
       const root = literalGlobRoot(glob);
       if (this.isCompilerOutputDirectory(root)) continue;
       const location = this.projectInputWatchRoot("glob", glob, root);
-      if (location !== undefined) desired.set(pathKey(location), location);
+      if (location !== undefined) {
+        const available = projectInputAvailableWatchDirectory(
+          location,
+          this.projectInputRejectedWatchRoots,
+          identities,
+        );
+        if (available !== undefined) {
+          const identity = identities.resolve(available);
+          desired.set(identity.key, identity.path);
+        }
+      }
     }
     for (const file of this.projectInputs.reloadFiles ?? []) {
       if (this.isCompilerOutput(file)) continue;
@@ -306,18 +334,26 @@ export class WatchTopology {
         file,
         path.dirname(file),
       );
-      if (location !== undefined) desired.set(pathKey(location), location);
+      if (location !== undefined) {
+        const available = projectInputAvailableWatchDirectory(
+          location,
+          this.projectInputRejectedWatchRoots,
+          identities,
+        );
+        if (available !== undefined) {
+          const identity = identities.resolve(available);
+          desired.set(identity.key, identity.path);
+        }
+      }
     }
-    const eligible = [...desired].filter(
-      ([key]) => !this.projectInputRejectedWatchRoots.has(key),
-    );
     const active = new Map<string, string>();
-    addPaths(
-      active,
-      projectInputActiveWatchDirectories(
-        eligible.map(([, location]) => location),
-      ),
-    );
+    for (const location of projectInputActiveWatchDirectories(
+      desired.values(),
+      identities,
+    )) {
+      const identity = identities.resolve(location);
+      active.set(identity.key, identity.path);
+    }
     syncWatchers(
       this.projectInputWatchers,
       active,
@@ -334,7 +370,7 @@ export class WatchTopology {
           },
         ),
       (location, error) => {
-        const key = pathKey(location);
+        const key = identities.resolve(location).key;
         const firstFailure = !this.projectInputRejectedWatchRoots.has(key);
         this.projectInputRejectedWatchRoots.add(key);
         this.callbacks.onError(location, error);
@@ -342,6 +378,9 @@ export class WatchTopology {
           queueMicrotask(() => this.syncProjectInputWatchers());
         }
       },
+    );
+    this.callbacks.onProjectInputWatchRoots?.(
+      [...this.projectInputWatchers.keys()].sort(),
     );
   }
 
@@ -364,13 +403,19 @@ export class WatchTopology {
   private refreshProjectInputs(location: string, changed?: string): void {
     try {
       const previous = this.projectInputMatches;
+      const identities = createProjectInputPathIdentityContext();
       const directlyMatched =
         changed !== undefined &&
-        (previous.has(pathKey(changed)) ||
-          matchesProjectInput(this.projectInputs, changed));
+        (previous.has(identities.resolve(changed).key) ||
+          matchesProjectInput(this.projectInputs, changed, identities));
       const topologyMatched =
         changed !== undefined &&
-        projectInputTopologyMayAffect(this.projectInputs, changed, previous);
+        projectInputTopologyMayAffect(
+          this.projectInputs,
+          changed,
+          previous,
+          identities,
+        );
       if (
         changed !== undefined &&
         (this.isCompilerOutput(changed) ||
@@ -442,15 +487,18 @@ export class WatchTopology {
   }
 
   private collectProjectInputMatches(): Map<string, string> {
+    const identities = createProjectInputPathIdentityContext();
     const matches = new Map<string, string>();
     for (const file of this.projectInputs.files) {
       if (fs.existsSync(file) && this.isCompilerOutput(file) === false) {
-        matches.set(pathKey(file), file);
+        const identity = identities.resolve(file);
+        matches.set(identity.key, identity.path);
       }
     }
     for (const file of this.projectInputs.reloadFiles ?? []) {
       if (fs.existsSync(file) && this.isCompilerOutput(file) === false) {
-        matches.set(pathKey(file), file);
+        const identity = identities.resolve(file);
+        matches.set(identity.key, identity.path);
       }
     }
     for (const glob of this.projectInputs.globs) {
@@ -475,9 +523,10 @@ export class WatchTopology {
             stack.push(location);
           } else if (
             entry.isFile() &&
-            matchesProjectInputGlob(glob, location)
+            matchesProjectInputGlob(glob, location, identities)
           ) {
-            matches.set(pathKey(location), location);
+            const identity = identities.resolve(location);
+            matches.set(identity.key, identity.path);
           }
         }
       }
@@ -516,20 +565,24 @@ export class WatchTopology {
 
   private isProjectInputDirectory(location: string): boolean {
     const resolved = path.resolve(location);
+    const identities = createProjectInputPathIdentityContext();
     return (
       this.projectInputs.files.some(
         (file) =>
-          isPathWithin(resolved, file) ||
-          isPathWithin(path.dirname(file), resolved),
+          identities.isWithin(resolved, file) ||
+          identities.isWithin(path.dirname(file), resolved),
       ) ||
       (this.projectInputs.reloadFiles ?? []).some(
         (file) =>
-          isPathWithin(resolved, file) ||
-          isPathWithin(path.dirname(file), resolved),
+          identities.isWithin(resolved, file) ||
+          identities.isWithin(path.dirname(file), resolved),
       ) ||
       this.projectInputs.globs.some((glob) => {
         const root = literalGlobRoot(glob);
-        return isPathWithin(root, resolved) || isPathWithin(resolved, root);
+        return (
+          identities.isWithin(root, resolved) ||
+          identities.isWithin(resolved, root)
+        );
       })
     );
   }
@@ -1073,10 +1126,15 @@ function isDirectory(location: string): boolean {
   }
 }
 
-function syncWatchers(
-  watchers: Map<string, fs.FSWatcher>,
+type SynchronizedWatcher = {
+  close(): void;
+  on(event: "error", listener: (error: Error) => void): unknown;
+};
+
+export function syncWatchers<T extends SynchronizedWatcher>(
+  watchers: Map<string, T>,
   desired: ReadonlyMap<string, string>,
-  create: (location: string, key: string) => fs.FSWatcher,
+  create: (location: string, key: string) => T,
   onError: (location: string, error: unknown) => void,
 ): boolean {
   let complete = true;
@@ -1131,26 +1189,27 @@ function uniqueExistingPaths(paths: readonly string[]): string[] {
 function normalizeProjectInputSnapshot(
   snapshot: ITtscProjectInputSnapshot,
 ): ITtscProjectInputSnapshot {
+  const identities = createProjectInputPathIdentityContext();
   const files = new Map<string, string>();
   const globs = new Map<string, string>();
   const reloadFiles = new Map<string, string>();
   for (const file of snapshot.files) {
-    const resolved = path.resolve(file);
-    files.set(pathKey(resolved), resolved);
+    const identity = identities.resolve(file);
+    files.set(identity.key, identity.path);
   }
   for (const glob of snapshot.globs) {
-    const normalized = path.resolve(glob).split(path.sep).join("/");
-    globs.set(projectInputPatternKey(normalized), normalized);
+    const identity = identities.resolve(glob);
+    globs.set(identity.key, identity.path.split(path.sep).join("/"));
   }
   for (const file of snapshot.reloadFiles ?? []) {
-    const resolved = path.resolve(file);
-    reloadFiles.set(pathKey(resolved), resolved);
+    const identity = identities.resolve(file);
+    reloadFiles.set(identity.key, identity.path);
   }
   return {
     files: [...files.values()].sort(),
     globs: [...globs.values()].sort(),
     reloadFiles: [...reloadFiles.values()].sort(),
-    root: path.resolve(snapshot.root),
+    root: identities.resolve(snapshot.root).path,
   };
 }
 
@@ -1159,7 +1218,8 @@ function projectInputSnapshotsEqual(
   right: ITtscProjectInputSnapshot,
 ): boolean {
   return (
-    pathKey(left.root || ".") === pathKey(right.root || ".") &&
+    resolveProjectInputPath(left.root || ".") ===
+      resolveProjectInputPath(right.root || ".") &&
     arraysEqual(left.files, right.files) &&
     arraysEqual(left.globs, right.globs) &&
     arraysEqual(left.reloadFiles ?? [], right.reloadFiles ?? [])
@@ -1188,7 +1248,7 @@ function projectInputDeclarationKey(
   kind: "file" | "glob" | "reload",
   declaration: string,
 ): string {
-  return `${kind}\0${projectInputPatternKey(declaration)}`;
+  return `${kind}\0${resolveProjectInputPath(declaration)}`;
 }
 
 /**
@@ -1214,29 +1274,52 @@ export function projectInputWatchDirectories(
  */
 export function projectInputActiveWatchDirectories(
   directories: Iterable<string>,
+  identities = createProjectInputPathIdentityContext(),
 ): string[] {
   const unique = new Map<string, string>();
   for (const directory of directories) {
-    const resolved = path.resolve(directory);
-    unique.set(pathKey(resolved), resolved);
+    const identity = identities.resolve(directory);
+    unique.set(identity.key, identity.path);
   }
   return [...unique]
-    .filter(([key, directory]) =>
-      [...unique].every(
-        ([candidateKey, candidate]) =>
-          candidateKey === key || isPathWithin(candidate, directory) === false,
-      ),
-    )
+    .filter(([key]) => {
+      let ancestor = path.dirname(key);
+      while (ancestor !== key) {
+        if (unique.has(ancestor)) return false;
+        const parent = path.dirname(ancestor);
+        if (parent === ancestor) break;
+        ancestor = parent;
+      }
+      return true;
+    })
     .map(([, directory]) => directory);
+}
+
+export function projectInputAvailableWatchDirectory(
+  location: string,
+  rejected: ReadonlySet<string>,
+  identities: ProjectInputPathIdentityContext = createProjectInputPathIdentityContext(),
+): string | undefined {
+  let current = path.resolve(location);
+  while (true) {
+    const identity = identities.resolve(current);
+    if (!rejected.has(identity.key)) return identity.path;
+    const parent = path.dirname(current);
+    if (parent === current) return undefined;
+    const fallback = nearestExistingDirectory(parent);
+    if (fallback === undefined) return undefined;
+    current = fallback;
+  }
 }
 
 function projectInputRecursiveWatchRoot(
   target: string,
   projectRoot: string,
+  identities = createProjectInputPathIdentityContext(),
 ): string | undefined {
   const resolvedTarget = path.resolve(target);
   const resolvedProjectRoot = path.resolve(projectRoot);
-  if (isPathWithin(resolvedProjectRoot, resolvedTarget)) {
+  if (identities.isWithin(resolvedProjectRoot, resolvedTarget)) {
     return nearestExistingDirectory(resolvedProjectRoot);
   }
   return nearestExistingDirectory(path.dirname(resolvedTarget));
@@ -1255,12 +1338,17 @@ function nearestExistingDirectory(location: string): string | undefined {
 function matchesProjectInput(
   snapshot: ITtscProjectInputSnapshot,
   location: string,
+  identities = createProjectInputPathIdentityContext(),
 ): boolean {
-  const key = pathKey(location);
+  const key = identities.resolve(location).key;
   return (
-    snapshot.files.some((file) => pathKey(file) === key) ||
-    (snapshot.reloadFiles ?? []).some((file) => pathKey(file) === key) ||
-    snapshot.globs.some((glob) => matchesProjectInputGlob(glob, location))
+    snapshot.files.some((file) => identities.resolve(file).key === key) ||
+    (snapshot.reloadFiles ?? []).some(
+      (file) => identities.resolve(file).key === key,
+    ) ||
+    snapshot.globs.some((glob) =>
+      matchesProjectInputGlob(glob, location, identities),
+    )
   );
 }
 
@@ -1268,18 +1356,21 @@ function projectInputTopologyMayAffect(
   snapshot: ITtscProjectInputSnapshot,
   location: string,
   previous: ReadonlyMap<string, string>,
+  identities = createProjectInputPathIdentityContext(),
 ): boolean {
   const changed = path.resolve(location);
   return (
-    snapshot.files.some((file) => isPathWithin(changed, file)) ||
-    (snapshot.reloadFiles ?? []).some((file) => isPathWithin(changed, file)) ||
+    snapshot.files.some((file) => identities.isWithin(changed, file)) ||
+    (snapshot.reloadFiles ?? []).some((file) =>
+      identities.isWithin(changed, file),
+    ) ||
     snapshot.globs.some((glob) => {
       const root = literalGlobRoot(glob);
-      if (isPathWithin(changed, root)) return true;
-      if (isPathWithin(root, changed) === false) return false;
+      if (identities.isWithin(changed, root)) return true;
+      if (identities.isWithin(root, changed) === false) return false;
       if (isDirectory(changed)) return true;
       return [...previous.values()].some((input) =>
-        isPathWithin(changed, input),
+        identities.isWithin(changed, input),
       );
     })
   );
@@ -1333,10 +1424,16 @@ export function projectInputReloadEventShouldNotify(input: {
   changedInputs: readonly string[];
   reloadFiles: readonly string[];
 }): boolean {
-  const reloadFiles = new Set(input.reloadFiles.map(pathKey));
+  const identities = createProjectInputPathIdentityContext();
+  const reloadFiles = new Set(
+    input.reloadFiles.map((location) => identities.resolve(location).key),
+  );
   return (
-    (input.changed !== undefined && reloadFiles.has(pathKey(input.changed))) ||
-    input.changedInputs.some((location) => reloadFiles.has(pathKey(location)))
+    (input.changed !== undefined &&
+      reloadFiles.has(identities.resolve(input.changed).key)) ||
+    input.changedInputs.some((location) =>
+      reloadFiles.has(identities.resolve(location).key),
+    )
   );
 }
 
@@ -1426,14 +1523,28 @@ function fingerprintProjectInputMatches(
   return fingerprints;
 }
 
-function matchesProjectInputGlob(pattern: string, location: string): boolean {
-  const normalize = (value: string): string => {
-    const normalized = path.resolve(value).split(path.sep).join("/");
-    return process.platform === "win32" ? normalized.toLowerCase() : normalized;
-  };
+function matchesProjectInputGlob(
+  pattern: string,
+  location: string,
+  identities = createProjectInputPathIdentityContext(),
+): boolean {
+  const root = identities.resolve(literalGlobRoot(pattern));
+  const candidate = identities.resolve(location);
+  if (!isProjectInputPathIdentityWithin(root.key, candidate.key)) return false;
+  const sensitive = identities.caseSensitive(root.path);
+  const patternParts = path
+    .relative(root.path, identities.resolve(pattern).path)
+    .split(path.sep);
+  const candidateParts = path
+    .relative(root.path, candidate.path)
+    .split(path.sep);
   return matchProjectInputGlobParts(
-    normalize(pattern).split("/"),
-    normalize(location).split("/"),
+    sensitive
+      ? patternParts
+      : patternParts.map((segment) => segment.toLowerCase()),
+    sensitive
+      ? candidateParts
+      : candidateParts.map((segment) => segment.toLowerCase()),
   );
 }
 
@@ -1480,10 +1591,6 @@ function matchProjectInputGlobSegment(
     else source += char.replace(/[\\^$.*+?()[\]{}|]/g, "\\$&");
   }
   return new RegExp(`${source}$`, "u").test(candidate);
-}
-
-function projectInputPatternKey(pattern: string): string {
-  return process.platform === "win32" ? pattern.toLowerCase() : pattern;
 }
 
 function mapsEqual(
