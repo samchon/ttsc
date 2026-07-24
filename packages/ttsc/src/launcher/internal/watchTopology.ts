@@ -103,6 +103,7 @@ export class WatchTopology {
   private projectInputWatchers = new Map<string, fs.FSWatcher>();
   private projectInputLinkWatchers = new Map<string, fs.FSWatcher>();
   private reloadFiles = new Map<string, string>();
+  private observedProjectInputDirectories = new Set<string>();
 
   public constructor(
     private readonly options: WatchTopologyOptions,
@@ -703,8 +704,21 @@ export class WatchTopology {
         changed !== undefined &&
         projectInputReplacementStrandsWatchers(population, changed, identities)
       ) {
-        this.retireProjectInputWatcher(location, identities);
-        this.syncProjectInputWatchers();
+        // Only a directory that was already being watched can strand its
+        // watcher: the path-keyed backend skips an entry it already knows, so
+        // the handle it put on the old inode never moves to the replacement. A
+        // directory appearing for the first time is not that — the recursive
+        // root over its parent already picks it up, and closing that root to
+        // reinstall it would instead drop the siblings it was still delivering,
+        // which is how a later edit to an unrelated declared file went silent.
+        // So retire only on a directory this session has seen before.
+        const directoryKey = identities.resolve(changed).key;
+        if (this.observedProjectInputDirectories.has(directoryKey)) {
+          this.retireProjectInputWatcher(location, identities);
+          this.syncProjectInputWatchers();
+        } else {
+          this.observedProjectInputDirectories.add(directoryKey);
+        }
       }
       const next = this.collectProjectInputMatches();
       const membershipChanged = mapsEqual(previous, next) === false;
