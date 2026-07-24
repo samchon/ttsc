@@ -59,8 +59,8 @@ export const test_watch_topology_preserves_case_sensitive_project_inputs =
     }
     if (realpath(upperApi) === realpath(lowerApi)) return;
 
-    const upperExact = path.join(upperRoot, "evidence.md");
-    const lowerExact = path.join(lowerRoot, "evidence.md");
+    const upperExact = path.join(upperRoot, "nested", "evidence.md");
+    const lowerExact = path.join(lowerRoot, "nested", "evidence.md");
     const upperGlob = path.join(upperApi, "**", "*.json");
     const lowerGlob = path.join(lowerApi, "**", "*.json");
     const changes: WatchInputChange[] = [];
@@ -124,6 +124,7 @@ async function writeAndWait(
   content: string,
 ): Promise<void> {
   const count = changes.length;
+  fs.mkdirSync(path.dirname(location), { recursive: true });
   fs.writeFileSync(location, content, "utf8");
   const deadline = Date.now() + 5_000;
   while (changes.length === count) {

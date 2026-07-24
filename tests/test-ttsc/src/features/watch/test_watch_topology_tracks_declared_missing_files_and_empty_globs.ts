@@ -51,6 +51,7 @@ export const test_watch_topology_tracks_declared_missing_files_and_empty_globs =
       {
         cwd: root,
         files: [source],
+        outDir: path.join(root, "dist"),
         projectRoot: root,
         tsconfig: path.join(root, "tsconfig.json"),
       },
@@ -141,7 +142,11 @@ export const test_watch_topology_tracks_declared_missing_files_and_empty_globs =
       );
       topology.setProjectInputs({
         root,
-        files: [path.join(root, "docs", "nested", "missing.md"), externalFile],
+        files: [
+          path.join(root, "docs", "nested", "missing.md"),
+          path.join(root, "dist", "main.js"),
+          externalFile,
+        ],
         globs: [
           path.join(root, "api", "**", "*.json"),
           path.join(root, "dist", "**", "*.json"),
@@ -268,7 +273,7 @@ export const test_watch_topology_tracks_declared_missing_files_and_empty_globs =
       await waitForNextProjectChange(changes, previousProjectChanges);
 
       fs.mkdirSync(path.join(root, "dist"), { recursive: true });
-      fs.writeFileSync(path.join(root, "dist", "generated.json"), "{}\n");
+      fs.writeFileSync(path.join(root, "dist", "main.js"), "export {};\n");
       await waitForQuiet(changes);
 
       topology.setProjectInputs({
