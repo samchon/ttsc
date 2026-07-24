@@ -423,6 +423,25 @@ export class WatchTopology {
     );
   }
 
+  /**
+   * Drop the watcher that just reported a directory replacement.
+   *
+   * A recursive watcher binds to the filesystem objects it walked when it was
+   * installed, and no backend rebinds them: replacing a directory under the
+   * root leaves the old object bound and the arriving one unwatched, so the
+   * replacement is observed once and every later edit inside it is invisible.
+   * The next sync reinstalls the same root and walks the new objects. The cost
+   * is one re-walk of a root that just proved its topology moved, and it is
+   * paid only for a directory event admitted by the anchoring rule.
+   */
+  private retireProjectInputWatcher(location: string): void {
+    const key = createProjectInputPathIdentityContext().resolve(location).key;
+    const watcher = this.projectInputWatchers.get(key);
+    if (watcher === undefined) return;
+    watcher.close();
+    this.projectInputWatchers.delete(key);
+  }
+
   private retainProjectInputWatchRoot(
     desired: Map<string, string>,
     identities: ProjectInputPathIdentityContext,
@@ -547,6 +566,9 @@ export class WatchTopology {
       });
       this.projectInputMatches = next;
       this.projectInputFingerprints = nextFingerprints;
+      if (changed !== undefined && topologyMatched && isDirectory(changed)) {
+        this.retireProjectInputWatcher(location);
+      }
       this.syncProjectInputWatchers();
       // A JSON/TS/JS project-input member can simultaneously enter or leave
       // the compiler Program. Reconcile the compiler watch snapshot before
