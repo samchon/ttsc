@@ -23,6 +23,7 @@ type TtscPluginDescriptor = {
     diagnosticsTiming?: boolean;
     lsp?: boolean;
     projectContextArgs?: boolean;
+    projectDiagnostics?: boolean;
     projectInputs?: boolean;
     residentCheck?: boolean;
     threadingArgs?: boolean;
@@ -136,6 +137,7 @@ export default function createTtscPlugin(
       diagnosticsTiming: true,
       lsp: true,
       projectContextArgs: true,
+      projectDiagnostics: true,
       projectInputs: true,
       residentCheck: true,
       threadingArgs: true,

@@ -10,6 +10,7 @@ import (
   "os/exec"
   "strings"
   "sync"
+  "sync/atomic"
   "time"
 )
 
@@ -39,6 +40,7 @@ type NativePluginConfigEntry struct {
 type NativeLSPPluginEntry struct {
   Binary             string `json:"binary"`
   Name               string `json:"name,omitempty"`
+  ProjectDiagnostics bool   `json:"projectDiagnostics,omitempty"`
   ProjectInputs      bool   `json:"projectInputs,omitempty"`
   ProjectContextArgs bool   `json:"projectContextArgs,omitempty"`
   Stage              string `json:"stage,omitempty"`
@@ -94,6 +96,10 @@ type NativePluginSource struct {
   pluginProjectInputs   map[string]projectInputRecord
   projectInputsObserver func()
   projectInputsRefresh  coalescingRefresh
+
+  projectDiagnosticsMu       sync.RWMutex
+  pluginProjectDiagnostics   map[string]projectDiagnosticRecord
+  projectDiagnosticsSequence atomic.Uint64
 
   // residentMu guards the resident-daemon table below. A resident sidecar keeps
   // a warm Program across verbs, so lsp-diagnostics / lsp-code-actions reuse it
@@ -196,6 +202,7 @@ func (s *NativePluginSource) Diagnostics(doc LSPDocumentVersion) LSPDiagnosticsR
   if s == nil || doc.URI == "" {
     return LSPDiagnosticsResult{}
   }
+  generation := s.projectDiagnosticsSequence.Add(1)
   out := LSPDiagnosticsResult{}
   for _, plugin := range s.plugins {
     body, err := s.run(plugin, "lsp-diagnostics", "--uri="+doc.URI)
@@ -209,24 +216,11 @@ func (s *NativePluginSource) Diagnostics(doc LSPDocumentVersion) LSPDiagnosticsR
       continue
     }
     out.Document = append(out.Document, result.Document...)
-    if result.Project == nil {
-      continue
+    if result.Project != nil && result.Project.URI != "" {
+      s.storeProjectDiagnostics(plugin, generation, result.Project)
     }
-    if out.Project == nil {
-      copied := *result.Project
-      copied.Diagnostics = append([]LSPDiagnostic(nil), result.Project.Diagnostics...)
-      out.Project = &copied
-      continue
-    }
-    if out.Project.URI != result.Project.URI {
-      s.log("ttscserver: %s returned project diagnostics for %s after %s; replacing the prior project publication", pluginLabel(plugin), result.Project.URI, out.Project.URI)
-      copied := *result.Project
-      copied.Diagnostics = append([]LSPDiagnostic(nil), result.Project.Diagnostics...)
-      out.Project = &copied
-      continue
-    }
-    out.Project.Diagnostics = append(out.Project.Diagnostics, result.Project.Diagnostics...)
   }
+  out.Project = s.projectDiagnosticsSnapshot()
   return out
 }
 
@@ -689,21 +683,19 @@ func (s *NativePluginSource) run(plugin NativeLSPPluginEntry, command string, ar
   // verbs (lsp-command-ids / lsp-code-action-kinds) and lsp-execute-command stay
   // on exec by design.
   if command == serveVerbDiagnostics ||
-    command == serveVerbProjectDiagnostics ||
     command == serveVerbCodeActions {
     if body, served, err := s.serveRun(plugin, command, args); served {
       return body, err
     }
   }
-  if command == serveVerbHints {
-    // Hints join the daemon on a weaker condition than the other two: the
-    // answer is used only when it arrives without error. A sidecar built after
-    // the daemon landed but before this verb joined it answers lsp-serve and
-    // rejects lsp-hints as an unknown verb, which reaches this side as a
-    // nonzero code — indistinguishable over this protocol from a rule that
-    // failed. Falling back to the spawn path on any nonzero reply keeps that
-    // sidecar's corpus working, and a project whose hints genuinely fail pays
-    // one extra spawn to fail there too, exactly as it did before.
+  if command == serveVerbProjectDiagnostics ||
+    command == serveVerbHints {
+    // These newer optional verbs join the daemon on a weaker condition than the
+    // original document reads. A staged sidecar may implement the direct verb
+    // while its older resident loop rejects it. A nonzero resident reply is
+    // indistinguishable from the verb itself failing, so retry once through the
+    // advertised direct command. A genuine failure pays one extra spawn and is
+    // then handled exactly as it was before lsp-serve.
     if body, served, err := s.serveRun(plugin, command, args); served && err == nil {
       return body, nil
     }

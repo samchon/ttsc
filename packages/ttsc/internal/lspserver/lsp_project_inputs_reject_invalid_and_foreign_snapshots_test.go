@@ -15,7 +15,8 @@ import (
 //
 //  1. Normalize one valid snapshot under the selected physical root.
 //  2. Reject relative paths, remote URLs, and a different project root.
-//  3. Reject Windows device namespaces while retaining drive and UNC paths.
+//  3. Reject Windows device namespaces and malformed UNC volumes while
+//     retaining fixed drive and UNC paths.
 func TestLSPProjectInputsRejectInvalidAndForeignSnapshots(t *testing.T) {
   root := t.TempDir()
   valid := LSPProjectInputSnapshot{
@@ -52,6 +53,11 @@ func TestLSPProjectInputsRejectInvalidAndForeignSnapshots(t *testing.T) {
     {location: `\\?\C:\project\docs\spec.md`, want: true},
     {location: `\\?\UNC\server\share\docs\spec.md`, want: true},
     {location: `\root-only\docs\spec.md`, want: false},
+    {location: "/root-only/docs/spec.md", want: false},
+    {location: "\\\\server\\*\\docs\\spec.md", want: false},
+    {location: "\\\\server\\..\\docs\\spec.md", want: false},
+    {location: "\\\\?\\UNC\\server\\?\\docs\\spec.md", want: false},
+    {location: "C:\\project\\docs\\spec.md\x00ignored", want: false},
     {location: `\\?\GLOBALROOT\Device\HarddiskVolume1`, want: false},
     {location: `\\.\pipe\ttsc`, want: false},
   }
@@ -64,5 +70,8 @@ func TestLSPProjectInputsRejectInvalidAndForeignSnapshots(t *testing.T) {
         tc.want,
       )
     }
+  }
+  if !isAbsoluteLocalLSPProjectInputPath("/project/docs/spec.md", "linux") {
+    t.Fatal("POSIX absolute path was rejected under a non-Windows target")
   }
 }

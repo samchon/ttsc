@@ -3,6 +3,7 @@ package lspserver
 import (
   "encoding/json"
   "fmt"
+  "path"
   "path/filepath"
   "runtime"
   "sort"
@@ -186,57 +187,6 @@ func (s *NativePluginSource) flattenProjectInputsLocked() LSPProjectInputSnapsho
   return out
 }
 
-// ProjectDiagnostics evaluates project rules without requiring an open
-// document and merges publications from capable sidecars.
-func (s *NativePluginSource) ProjectDiagnostics() *LSPProjectDiagnostics {
-  if s == nil {
-    return nil
-  }
-  var out *LSPProjectDiagnostics
-  for _, plugin := range s.plugins {
-    if !plugin.ProjectInputs {
-      continue
-    }
-    body, err := s.run(plugin, serveVerbProjectDiagnostics)
-    if err != nil {
-      s.log("%v", err)
-      continue
-    }
-    var publication *LSPProjectDiagnostics
-    if err := json.Unmarshal(body, &publication); err != nil {
-      s.log(
-        "ttscserver: %s lsp-project-diagnostics returned invalid JSON: %v",
-        pluginLabel(plugin),
-        err,
-      )
-      continue
-    }
-    if publication == nil || publication.URI == "" {
-      continue
-    }
-    if out == nil {
-      copied := *publication
-      copied.Diagnostics = append(
-        []LSPDiagnostic(nil),
-        publication.Diagnostics...,
-      )
-      out = &copied
-      continue
-    }
-    if out.URI != publication.URI {
-      s.log(
-        "ttscserver: %s lsp-project-diagnostics returned URI %q, want %q",
-        pluginLabel(plugin),
-        publication.URI,
-        out.URI,
-      )
-      continue
-    }
-    out.Diagnostics = append(out.Diagnostics, publication.Diagnostics...)
-  }
-  return out
-}
-
 func normalizeLSPProjectInputSnapshot(
   snapshot LSPProjectInputSnapshot,
   expectedRoot string,
@@ -299,8 +249,11 @@ func isAbsoluteLocalLSPProjectInputPath(
   location string,
   goos string,
 ) bool {
+  if strings.ContainsRune(location, '\x00') {
+    return false
+  }
   if goos != "windows" {
-    return filepath.IsAbs(filepath.FromSlash(location))
+    return path.IsAbs(location)
   }
   normalized := strings.ReplaceAll(location, "/", `\`)
   if strings.HasPrefix(normalized, `\\?\`) {
@@ -332,8 +285,15 @@ func isWindowsDrivePath(location string) bool {
 func isWindowsUNCPath(location string) bool {
   components := strings.Split(location, `\`)
   return len(components) >= 2 &&
-    components[0] != "" &&
-    components[1] != ""
+    isWindowsUNCVolumeSegment(components[0]) &&
+    isWindowsUNCVolumeSegment(components[1])
+}
+
+func isWindowsUNCVolumeSegment(segment string) bool {
+  return segment != "" &&
+    segment != "." &&
+    segment != ".." &&
+    !strings.ContainsAny(segment, "\x00<>:\"/\\|?*")
 }
 
 func copyProjectInputSnapshot(

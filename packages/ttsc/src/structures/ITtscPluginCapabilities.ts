@@ -47,6 +47,17 @@ export interface ITtscPluginCapabilities {
   projectContextArgs?: boolean;
 
   /**
+   * Whether the LSP sidecar implements the standalone `lsp-project-diagnostics`
+   * command.
+   *
+   * The command evaluates project rules without an open document. It is
+   * independent of `projectInputs`, which publishes only filesystem topology.
+   *
+   * @default false
+   */
+  projectDiagnostics?: boolean;
+
+  /**
    * Whether the sidecar implements the `project-inputs` command. The command
    * publishes normalized exact paths and glob populations declared by enabled
    * project rules without loading a TypeScript Program.

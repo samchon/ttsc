@@ -381,6 +381,7 @@ func (p *Proxy) handleEditorEnvelope(env Envelope, body []byte) (bool, error) {
       p.invalidateResidentPlugins(env)
       p.refreshPluginCompletionHints()
       p.publishPluginDiagnosticsForDocumentNotification(env)
+      p.resumePendingProjectDiagnosticRefresh()
     }
   case methodDidChangeConfiguration:
     if env.IsNotification() {
@@ -1320,7 +1321,15 @@ func (p *Proxy) publishMergedPluginDiagnostics(uri string, version *int, adoptCa
     p.reportAsyncError(p.writePublishDiagnosticsIfCurrent(uri, version, merged, generation))
   }
   if diagnostics.Project != nil && !p.hasDirtyDocuments() {
-    p.reportAsyncError(p.writeProjectDiagnosticsIfCurrent(diagnostics.Project, projectGeneration, false))
+    published, err := p.writeProjectDiagnosticsIfCurrent(
+      diagnostics.Project,
+      projectGeneration,
+      false,
+    )
+    p.reportAsyncError(err)
+    if published {
+      p.completePendingProjectDiagnosticRefresh(projectGeneration)
+    }
   }
 }
 
@@ -1346,9 +1355,9 @@ func (p *Proxy) writeProjectDiagnosticsIfCurrent(
   publication *LSPProjectDiagnostics,
   generation uint64,
   publishEmpty bool,
-) error {
+) (bool, error) {
   if publication == nil || publication.URI == "" {
-    return nil
+    return false, nil
   }
   diagnostics := append([]LSPDiagnostic(nil), publication.Diagnostics...)
   for index := range diagnostics {
@@ -1361,7 +1370,7 @@ func (p *Proxy) writeProjectDiagnosticsIfCurrent(
   defer p.diagnosticsMu.Unlock()
   if p.projectDiagnosticGeneration != generation ||
     len(p.dirtyDocuments) != 0 {
-    return nil
+    return false, nil
   }
 
   previousURI := p.projectDiagnosticsURI
@@ -1374,7 +1383,7 @@ func (p *Proxy) writeProjectDiagnosticsIfCurrent(
       p.editorOut,
       p.publishDiagnosticsBody(previousURI, nil, p.mergedDiagnosticsLocked(previousURI)),
     ); err != nil {
-      return err
+      return false, err
     }
   }
 
@@ -1384,12 +1393,15 @@ func (p *Proxy) writeProjectDiagnosticsIfCurrent(
     !publishEmpty &&
     !previousHadDiagnostics &&
     !changedURI {
-    return nil
+    return true, nil
   }
-  return WriteFrame(
+  if err := WriteFrame(
     p.editorOut,
     p.publishDiagnosticsBody(publication.URI, nil, p.mergedDiagnosticsLocked(publication.URI)),
-  )
+  ); err != nil {
+    return false, err
+  }
+  return true, nil
 }
 
 func marshalLSPDiagnostics(diagnostics []LSPDiagnostic) []json.RawMessage {
@@ -2536,27 +2548,53 @@ func (p *Proxy) refreshProjectDiagnostics(uint64) {
   }
   p.projectRefreshMu.Lock()
   generation := p.pendingProjectDiagnosticGeneration
+  pending := p.projectDiagnosticRefreshPending
   p.projectRefreshMu.Unlock()
+  if !pending {
+    return
+  }
   if p.hasDirtyDocuments() {
     return
   }
   publication := source.ProjectDiagnostics()
-  if publication != nil {
-    p.reportAsyncError(
-      // The editor can retain a project diagnostic from before this proxy
-      // generation. An external-input refresh therefore publishes an explicit
-      // empty replacement even when the in-process cache was already empty.
-      p.writeProjectDiagnosticsIfCurrent(publication, generation, true),
-    )
-  }
-  if p.hasDirtyDocuments() {
+  if publication == nil || publication.URI == "" {
     return
   }
-  p.projectRefreshMu.Lock()
-  if p.pendingProjectDiagnosticGeneration == generation {
-    p.projectDiagnosticRefreshPending = false
+  // The editor can retain a project diagnostic from before this proxy
+  // generation. An external-input refresh therefore publishes an explicit
+  // empty replacement even when the in-process cache was already empty.
+  published, err := p.writeProjectDiagnosticsIfCurrent(
+    publication,
+    generation,
+    true,
+  )
+  p.reportAsyncError(err)
+  if err != nil || p.hasDirtyDocuments() {
+    return
   }
-  p.projectRefreshMu.Unlock()
+  if published {
+    p.completePendingProjectDiagnosticRefresh(generation)
+    return
+  }
+  // A document diagnostics request may have advanced the project generation
+  // without publishing project diagnostics, for example when parse diagnostics
+  // caused the sidecar to omit its project result. Retain and rerun the direct
+  // refresh instead of treating that rejected write as a successful clear.
+  p.resumePendingProjectDiagnosticRefresh()
+}
+
+func (p *Proxy) completePendingProjectDiagnosticRefresh(generation uint64) {
+  p.projectRefreshMu.Lock()
+  defer p.projectRefreshMu.Unlock()
+  if !p.projectDiagnosticRefreshPending ||
+    generation < p.pendingProjectDiagnosticGeneration {
+    return
+  }
+  p.projectDiagnosticRefreshPending = false
+  if p.projectRefreshTimer != nil {
+    p.projectRefreshTimer.Stop()
+    p.projectRefreshTimer = nil
+  }
 }
 
 func (p *Proxy) stopProjectDiagnosticRefresh() {
@@ -2609,14 +2647,20 @@ func externalWatchedChangeRetainsProgram(
   if uri == "" || changeType == nil || isProjectConfigURI(uri) {
     return false
   }
-  if _, ok := filePathFromURI(uri); !ok {
+  location, ok := filePathFromURI(uri)
+  if !ok {
     return false
   }
   switch *changeType {
   case fileChangeTypeChanged:
     return true
   case fileChangeTypeCreated, fileChangeTypeDeleted:
-    return !watchedURIHasProgramSourceExtension(uri)
+    // A declared JSON path can also be a resolveJsonModule input. Its
+    // creation/deletion changes module-resolution topology even when the
+    // project-input matcher classified it as external. Other data-only
+    // references retain the Program, while source roots still invalidate it.
+    return strings.ToLower(filepath.Ext(location)) != ".json" &&
+      !watchedURIHasProgramSourceExtension(uri)
   default:
     return false
   }
