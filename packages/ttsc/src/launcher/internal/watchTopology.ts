@@ -1639,8 +1639,15 @@ function projectInputAnchorsDeclaration(
     (snapshot.reloadFiles ?? []).some((file) =>
       identities.isWithin(directory, file),
     ) ||
-    (snapshot.reloadDirectories ?? []).some((entry) =>
-      identities.isWithin(directory, entry),
+    (snapshot.reloadDirectories ?? []).some(
+      (entry) =>
+        // A reload directory anchors the directory that contains it, never
+        // itself. Its own fingerprint is a digest of its immediate entries, so
+        // nothing below it can reach the corpus, and treating it as its own
+        // anchor would rearm for every entry created directly inside it —
+        // including `node_modules`, which contributors publish as one.
+        identities.isWithin(directory, entry) &&
+        identities.resolve(directory).key !== identities.resolve(entry).key,
     ) ||
     snapshot.globs.some((glob) =>
       identities.isWithin(directory, literalGlobRoot(glob)),

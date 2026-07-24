@@ -18,7 +18,8 @@ import { projectInputReplacementStrandsWatchers } from "../../../../../packages/
  *
  * 1. Declare an exact file, a reload directory, and a glob population.
  * 2. Require a rearm where a declaration is anchored, on the path-keyed backend.
- * 3. Require none on the native backends, for a file, or deeper in a glob root.
+ * 3. Require none on the native backends, for a file, or below a glob root or a
+ *    reload directory, whose own digest nothing beneath it can reach.
  */
 export const test_project_input_replacement_strands_only_path_keyed_watchers =
   (): void => {
@@ -31,6 +32,7 @@ export const test_project_input_replacement_strands_only_path_keyed_watchers =
       path.dirname(declared),
       replaced,
       reloadDirectory,
+      path.join(reloadDirectory, "pkg"),
       globDepth,
     ]) {
       fs.mkdirSync(directory, { recursive: true });
@@ -59,6 +61,16 @@ export const test_project_input_replacement_strands_only_path_keyed_watchers =
       // gets one through the admission rule. It replaces nothing a watch root
       // is anchored on, so it must not also pay for a reinstall.
       ["a directory below a glob root", globDepth, "linux", false],
+      // A reload directory's fingerprint is a digest of its immediate entries,
+      // so nothing below it can reach the corpus. Contributors publish
+      // `node_modules` as one, and treating it as its own anchor would rearm
+      // once per package an install creates.
+      [
+        "a directory inside a reload directory",
+        path.join(reloadDirectory, "pkg"),
+        "linux",
+        false,
+      ],
     ] as const) {
       assert.equal(
         projectInputReplacementStrandsWatchers(
