@@ -36,6 +36,8 @@ import { outputText, spawnNative } from "./spawnNative";
 export type RunBuildOptions = TtscBuildOptions & {
   skipDiagnosticsCheck?: boolean;
   forceListEmittedFiles?: boolean;
+  /** Keep every compiler-owned side product inside this private directory. */
+  isolateOutputsTo?: string;
   /**
    * Receives selected native-plugin source roots after the project resolves.
    * The watch launcher uses these roots to invalidate a sidecar when its Go
@@ -1255,6 +1257,7 @@ function createTsgoBuildArgs(
   args.push(...createTsgoDiagnosticArgs(options));
   args.push(...createTsgoThreadingArgs(options));
   args.push(...(options.passthrough ?? []));
+  args.push(...isolatedTsgoOutputArgs(options));
   if (flags.noEmitOnError === true) {
     args.push("--noEmitOnError");
   }
@@ -1486,11 +1489,33 @@ function transformHostTimingLabel(
  * single token so the sidecars' unknown-flag filters keep it intact.
  */
 function createNativeTsgoArgs(options: TtscCommonOptions): string[] {
-  const passthrough = nativeTsgoPassthroughArgs(options);
-  if (passthrough === undefined || passthrough.length === 0) {
+  const passthrough = [
+    ...(nativeTsgoPassthroughArgs(options) ?? []),
+    ...isolatedTsgoOutputArgs(options),
+  ];
+  if (passthrough.length === 0) {
     return [];
   }
   return ["--tsgo-args=" + JSON.stringify(passthrough)];
+}
+
+function isolatedTsgoOutputArgs(options: TtscCommonOptions): string[] {
+  const target =
+    "isolateOutputsTo" in options &&
+    typeof options.isolateOutputsTo === "string"
+      ? path.resolve(options.isolateOutputsTo)
+      : undefined;
+  if (target === undefined) return [];
+  return [
+    "--outFile",
+    "null",
+    "--declarationDir",
+    "null",
+    "--tsBuildInfoFile",
+    "null",
+    "--outDir",
+    target,
+  ];
 }
 
 function nativeTsgoPassthroughArgs(

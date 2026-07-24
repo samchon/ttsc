@@ -10,7 +10,8 @@ import { isOutsideRelativePath } from "./paths";
  *
  * 1. Try to derive the exact output path by mirroring the source's relative
  *    position inside `projectRoot` into `outDir`, applying the correct JS
- *    extension (`.js` / `.mjs` / `.cjs`). Use this path if it exists on disk.
+ *    extension (`.js` / `.jsx` / `.mjs` / `.cjs`). Use this path if it exists
+ *    on disk.
  * 2. Fall back to scoring each candidate in `emittedFiles` (or a recursive
  *    directory scan of `outDir`) by the number of trailing path-stem segments
  *    shared with the source file name, and pick the highest-scoring existing
@@ -25,13 +26,23 @@ export function resolveEmittedJavaScript(options: {
   projectRoot: string;
   sourceFile: string;
 }): string | null {
-  const exact = resolveExactEmittedFile(
+  const exact = resolveExactEmittedFiles(
     options.outDir,
     options.projectRoot,
     options.sourceFile,
   );
-  if (exact && fs.existsSync(exact)) {
-    return exact;
+  const emitted = new Set(
+    options.emittedFiles?.map((file) => emittedPathKey(file)) ?? [],
+  );
+  for (const candidate of exact) {
+    if (emitted.has(emittedPathKey(candidate)) && fs.existsSync(candidate)) {
+      return candidate;
+    }
+  }
+  for (const candidate of exact) {
+    if (fs.existsSync(candidate)) {
+      return candidate;
+    }
   }
 
   // Score the pre-computed emit list first (cheap). When it yields nothing —
@@ -81,22 +92,24 @@ function bestStemMatch(
 
 /**
  * Derive the exact output path for `sourceFile` by mirroring its position
- * relative to `projectRoot` into `outDir`. Returns `null` when the source is
- * not inside the project root or when the path cannot be determined.
+ * relative to `projectRoot` into `outDir`. Returns no candidates when the
+ * source is not inside the project root or when the path cannot be determined.
  */
-function resolveExactEmittedFile(
+function resolveExactEmittedFiles(
   outDir: string,
   projectRoot: string,
   sourceFile: string,
-): string | null {
+): string[] {
   const relative = path.relative(projectRoot, sourceFile);
   if (relative === "" || isOutsideRelativePath(relative)) {
-    return null;
+    return [];
   }
-  return path.resolve(
-    outDir,
-    relative.slice(0, relative.length - path.extname(relative).length) +
-      emittedJavaScriptExtension(sourceFile),
+  const stem = relative.slice(
+    0,
+    relative.length - path.extname(relative).length,
+  );
+  return emittedJavaScriptExtensions(sourceFile).map((extension) =>
+    path.resolve(outDir, stem + extension),
   );
 }
 
@@ -149,21 +162,30 @@ function sharedSourceStemSegments(outPath: string, srcPath: string): number {
 }
 
 /**
- * Map a TypeScript source extension to its JavaScript output counterpart.
- * `.mts` → `.mjs`, `.cts` → `.cjs`, everything else → `.js`.
+ * Map a source extension to every JavaScript output counterpart tsgo can use.
+ * JSX preserve mode writes `.tsx`/`.jsx` inputs as `.jsx`; all other JSX modes
+ * write `.js`.
  */
-function emittedJavaScriptExtension(filename: string): string {
+function emittedJavaScriptExtensions(filename: string): readonly string[] {
   switch (path.extname(filename).toLowerCase()) {
     case ".mts":
-      return ".mjs";
+      return [".mjs"];
     case ".cts":
-      return ".cjs";
+      return [".cjs"];
+    case ".tsx":
+    case ".jsx":
+      return [".js", ".jsx"];
     default:
-      return ".js";
+      return [".js"];
   }
 }
 
-/** Return true when `filename` has a `.js`, `.mjs`, or `.cjs` extension. */
+/** Return true when `filename` has a JavaScript output extension. */
 function isJavaScriptOutput(filename: string): boolean {
-  return /\.(?:[cm]?js)$/i.test(filename);
+  return /\.(?:[cm]?js|jsx)$/i.test(filename);
+}
+
+function emittedPathKey(filename: string): string {
+  const resolved = path.resolve(filename);
+  return process.platform === "win32" ? resolved.toLowerCase() : resolved;
 }

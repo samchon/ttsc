@@ -23,6 +23,7 @@ export const test_project_input_membership_classifies_program_topology =
     const typescript = path.join(root, "generated", "contract.ts");
     const javascript = path.join(root, "generated", "contract.mjs");
     const markdown = path.join(root, "docs", "spec.md");
+    const packageJson = path.join(root, "package.json");
     const yaml = path.join(root, "api", "openapi.yaml");
     const empty = new Map<string, string>();
     const population = (...locations: string[]): Map<string, string> =>
@@ -49,11 +50,24 @@ export const test_project_input_membership_classifies_program_topology =
     assert.equal(
       projectInputMembershipInvalidatesProgram({
         changed: json,
+        changedInputs: [json],
+        contentChanged: true,
         next: population(json),
         previous: population(json),
       }),
       false,
       "content-only JSON edits preserve membership and the warm Program",
+    );
+    assert.equal(
+      projectInputMembershipInvalidatesProgram({
+        changed: packageJson,
+        changedInputs: [packageJson],
+        contentChanged: true,
+        next: population(packageJson),
+        previous: population(packageJson),
+      }),
+      true,
+      "package metadata content must invalidate module resolution",
     );
     for (const source of [typescript, javascript]) {
       assert.equal(

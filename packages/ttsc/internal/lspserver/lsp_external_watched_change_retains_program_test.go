@@ -8,11 +8,12 @@ import "testing"
 // Project-input globs may overlap source files even though Markdown and
 // OpenAPI are the common case, but a JSON path may also be a resolveJsonModule
 // source. JSON create/delete changes possible Program topology, while in-place
-// JSON edits and data-only reference topology preserve the current root graph.
+// JSON edits and data-only reference topology preserve the current root graph,
+// except package metadata whose content participates in module resolution.
 //
 //  1. Retain changed Markdown and Swagger inputs.
 //  2. Retain an in-place TypeScript edit for incremental Program update.
-//  3. Reload created/deleted TypeScript or JSON and project configurations.
+//  3. Reload package metadata, created/deleted modules, and project configs.
 func TestExternalWatchedChangeRetainsProgram(t *testing.T) {
   changed := fileChangeTypeChanged
   created := fileChangeTypeCreated
@@ -24,6 +25,8 @@ func TestExternalWatchedChangeRetainsProgram(t *testing.T) {
   }{
     {uri: "file:///project/docs/spec.md", changeType: &changed, want: true},
     {uri: "file:///project/api/openapi.json", changeType: &changed, want: true},
+    {uri: "file:///project/package.json", changeType: &changed, want: false},
+    {uri: "file:///project/PACKAGE.JSON", changeType: &changed, want: false},
     {uri: "file:///project/api/openapi.json", changeType: &created, want: false},
     {uri: "file:///project/api/openapi.json", changeType: &deleted, want: false},
     {uri: "file:///project/api/openapi.JSON", changeType: &created, want: false},
