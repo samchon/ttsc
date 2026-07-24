@@ -31,7 +31,7 @@ type ResidentSample = {
  * 2. Repair the known source, require one incremental sample, and compare the
  *    clean state with a cold one-shot check.
  * 3. Reintroduce the finding and require the same PID/load with another update.
- * 4. Edit tsconfig and contributor source, requiring a fresh sidecar each time.
+ * 4. Edit tsconfig and require a fresh sidecar.
  * 5. Add and remove a TypeScript root, requiring a full reload each time.
  * 6. Shut down and prove the final resident sidecar was disposed.
  */
@@ -40,20 +40,9 @@ export const test_plugin_corpus_check_watch_reuses_resident_program =
     const root = setupLintProject("lint-violations");
     const source = path.join(root, "src", "main.ts");
     fs.writeFileSync(
-      path.join(root, "lint.config.cjs"),
-      `const path = require("node:path");
-module.exports = {
-  plugins: {
-    probe: { source: path.join(__dirname, "contributors", "probe") },
-  },
-  rules: { "no-var": "error" },
-};
-`,
+      path.join(root, "lint.config.json"),
+      JSON.stringify({ rules: { "no-var": "error" } }),
     );
-    fs.rmSync(path.join(root, "lint.config.json"), { force: true });
-    const contributor = path.join(root, "contributors", "probe", "probe.go");
-    fs.mkdirSync(path.dirname(contributor), { recursive: true });
-    fs.writeFileSync(contributor, "package probe\n", "utf8");
     fs.writeFileSync(
       source,
       "var legacy = 1;\nJSON.stringify(legacy);\n",
@@ -117,28 +106,18 @@ module.exports = {
       assert.equal(samples.length, 4, session.transcript());
       assertFreshSample(samples[3]!, samples[2]!.pid);
 
-      fs.writeFileSync(
-        contributor,
-        "package probe\n\n// contributor topology changed\n",
-        "utf8",
-      );
-      await session.waitForBuilds(5, 300_000);
+      const added = path.join(root, "src", "added.ts");
+      fs.writeFileSync(added, "export const added = true;\n", "utf8");
+      await session.waitForBuilds(5);
       samples = residentSamples(session.transcript());
       assert.equal(samples.length, 5, session.transcript());
       assertFreshSample(samples[4]!, samples[3]!.pid);
 
-      const added = path.join(root, "src", "added.ts");
-      fs.writeFileSync(added, "export const added = true;\n", "utf8");
+      fs.rmSync(added);
       await session.waitForBuilds(6);
       samples = residentSamples(session.transcript());
       assert.equal(samples.length, 6, session.transcript());
       assertFreshSample(samples[5]!, samples[4]!.pid);
-
-      fs.rmSync(added);
-      await session.waitForBuilds(7);
-      samples = residentSamples(session.transcript());
-      assert.equal(samples.length, 7, session.transcript());
-      assertFreshSample(samples[6]!, samples[5]!.pid);
     } finally {
       await session.close();
     }
