@@ -30,7 +30,8 @@ type PublishDiagnosticsParams = {
   }[];
 };
 
-const guardContributor = `package guard
+const guardContributor =
+  `package guard
 
 import (
   "fmt"
@@ -52,9 +53,32 @@ type projectBinding struct {
 
 func (projectGuard) Name() string { return "guard/project" }
 func (projectGuard) ProjectInputs(ctx *rule.ProjectInputContext) []rule.ProjectInput {
+  var options struct {
+    Marker string ` +
+  '`json:"marker"`' +
+  `
+  }
+  if err := ctx.DecodeOptions(&options); err != nil {
+    panic(err)
+  }
+  physicalRoot, err := filepath.EvalSymlinks(ctx.Identity.PhysicalProjectRoot)
+  if err != nil {
+    panic(err)
+  }
+  markerRoot, err := filepath.EvalSymlinks(filepath.Dir(options.Marker))
+  if err != nil {
+    panic(err)
+  }
+  if physicalRoot != markerRoot {
+    panic(fmt.Sprintf(
+      "project input identity mismatch: physical=%s marker=%s",
+      physicalRoot,
+      markerRoot,
+    ))
+  }
   return []rule.ProjectInput{{
     Kind: rule.ProjectInputFile,
-    Pattern: "guard-state.txt",
+    Pattern: options.Marker,
   }}
 }
 func (projectGuard) Check(ctx *rule.ProjectContext) {
@@ -202,7 +226,9 @@ module.exports = {
     unrelated: { source: path.join(__dirname, "contributors", "unrelated") },
   },
   rules: {
-    "guard/project": "error",
+    "guard/project": ["error", {
+      marker: path.join(__dirname, "guard-state.txt"),
+    }],
     "guard/project-io": "error",
     "guard/ast": "error",
     "unrelated/ast": "error",

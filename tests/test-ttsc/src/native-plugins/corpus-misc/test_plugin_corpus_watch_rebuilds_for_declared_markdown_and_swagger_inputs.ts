@@ -20,6 +20,7 @@ import { WatchSession } from "../../internal/watch";
  * 2. Break and repair Markdown, then create a broken Swagger JSON match.
  * 3. Assert each declared transition rebuilds once and an unrelated README is
  *    quiet.
+ * 4. Reject a relative snapshot through the real plugin-sidecar protocol.
  */
 export const test_plugin_corpus_watch_rebuilds_for_declared_markdown_and_swagger_inputs =
   async (): Promise<void> => {
@@ -108,6 +109,23 @@ export const test_plugin_corpus_watch_rebuilds_for_declared_markdown_and_swagger
     } finally {
       await positional.close();
     }
+
+    const invalid = new WatchSession(root, {
+      env: {
+        PATH: goPath(),
+        TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
+        TTSC_TEST_PROJECT_INPUT_MODE: "relative",
+      },
+    });
+    try {
+      await invalid.waitForBuilds(1);
+      assert.match(
+        invalid.transcript(),
+        /invalid snapshot.*not an absolute local path/s,
+      );
+    } finally {
+      await invalid.close();
+    }
   };
 
 function goSource(): string {
@@ -128,6 +146,14 @@ function goSource(): string {
     "\troot, _ := os.Getwd()",
     "\tswitch os.Args[1] {",
     '\tcase "project-inputs":',
+    '\t\tif os.Getenv("TTSC_TEST_PROJECT_INPUT_MODE") == "relative" {',
+    "\t\t\t_ = json.NewEncoder(os.Stdout).Encode(map[string]any{",
+    '\t\t\t\t"root": root,',
+    '\t\t\t\t"files": []string{"docs/spec.md"},',
+    '\t\t\t\t"globs": []string{},',
+    "\t\t\t})",
+    "\t\t\treturn",
+    "\t\t}",
     "\t\t_ = json.NewEncoder(os.Stdout).Encode(map[string]any{",
     '\t\t\t"root": root,',
     '\t\t\t"files": []string{filepath.Join(root, "docs", "spec.md")},',
