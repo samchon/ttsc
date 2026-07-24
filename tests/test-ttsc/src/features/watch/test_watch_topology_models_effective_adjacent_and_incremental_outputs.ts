@@ -43,6 +43,19 @@ export const test_watch_topology_models_effective_adjacent_and_incremental_outpu
       const previous = projectChangeCount(adjacentChanges);
       fs.writeFileSync(declaration, "export declare const external: 1;\n");
       await waitForProjectChange(adjacentChanges, previous);
+
+      const previousConfig = changeKindCount(adjacentChanges, "config");
+      writeConfig(root, { strict: true });
+      await waitForChangeKind(adjacentChanges, "config", previousConfig);
+
+      const pluginRoot = path.join(root, "plugin");
+      const pluginSource = path.join(pluginRoot, "rule.go");
+      fs.mkdirSync(pluginRoot);
+      fs.writeFileSync(pluginSource, "package plugin\n", "utf8");
+      adjacent.setExtraInputs([pluginRoot]);
+      const previousPlugin = changeKindCount(adjacentChanges, "plugin");
+      fs.writeFileSync(pluginSource, "package plugin\n// changed\n", "utf8");
+      await waitForChangeKind(adjacentChanges, "plugin", previousPlugin);
     } finally {
       adjacent.close();
     }
@@ -152,7 +165,28 @@ async function waitForProjectChange(
 }
 
 function projectChangeCount(changes: readonly WatchInputChange[]): number {
-  return changes.filter((change) => change.kind === "project").length;
+  return changeKindCount(changes, "project");
+}
+
+async function waitForChangeKind(
+  changes: readonly WatchInputChange[],
+  kind: WatchInputChange["kind"],
+  previous: number,
+): Promise<void> {
+  const deadline = Date.now() + 5_000;
+  while (changeKindCount(changes, kind) <= previous) {
+    if (Date.now() >= deadline) {
+      assert.fail(`expected a ${kind} change after ${previous}`);
+    }
+    await delay(25);
+  }
+}
+
+function changeKindCount(
+  changes: readonly WatchInputChange[],
+  kind: WatchInputChange["kind"],
+): number {
+  return changes.filter((change) => change.kind === kind).length;
 }
 
 function delay(milliseconds = 350): Promise<void> {
