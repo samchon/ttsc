@@ -27,9 +27,7 @@ npx ttsc --watch
 
 Re-compiles on save. Pass `--preserveWatchOutput` to keep your scrollback.
 
-The watcher follows TypeScript-Go's resolved program inputs instead of guessing from directory names. It reconciles the set after each build and when directory topology changes, so newly included folders, `extends` configs, project references, loaded declarations, and selected Go plugin sources join the running session. A check-stage plugin may also publish exact local files and glob populations through the project-input protocol; missing exact paths and zero-match globs remain live, while unrelated workspace documents stay quiet. Compiler output and cache products are not inputs, so an emit-mode build stays quiet until a real input changes.
-
-In `ttsc check --watch`, a capable check-stage sidecar and its no-emit Program stay resident across ordinary saves and declared external-data changes. Every cycle still creates fresh rule and reporting state. A config edit, root addition or deletion, selected plugin or Go contributor change, or project-input topology change starts a fresh session; an unsupported sidecar or protocol failure uses the established one-shot check path. Transform and emit builds are unchanged.
+The watcher follows TypeScript-Go's resolved program inputs instead of guessing from directory names. It reconciles the set after each build and when directory topology changes, so newly included folders, `extends` configs, project references, loaded declarations, and selected Go plugin sources join the running session. Compiler output and cache products are not inputs, so an emit-mode build stays quiet until a real input changes.
 
 ## Other day-to-day commands
 

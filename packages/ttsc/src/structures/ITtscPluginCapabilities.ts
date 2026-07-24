@@ -47,40 +47,6 @@ export interface ITtscPluginCapabilities {
   projectContextArgs?: boolean;
 
   /**
-   * Whether the LSP sidecar implements the standalone `lsp-project-diagnostics`
-   * command.
-   *
-   * The command evaluates project rules without an open document. It is
-   * independent of `projectInputs`, which publishes only filesystem topology.
-   *
-   * @default false
-   */
-  projectDiagnostics?: boolean;
-
-  /**
-   * Whether the sidecar implements the `project-inputs` command. The command
-   * publishes normalized exact paths and glob populations declared by enabled
-   * project rules without loading a TypeScript Program.
-   *
-   * @default false
-   */
-  projectInputs?: boolean;
-
-  /**
-   * Whether the check-stage sidecar implements the newline-delimited
-   * `check-serve` protocol used by `ttsc check --watch`.
-   *
-   * A resident check host keeps one no-emit TypeScript Program across
-   * compatible source and declared external-input changes while constructing a
-   * fresh rule engine and reporter for every request. The launcher retains the
-   * spawn-per-cycle path when this capability is absent and never uses it for
-   * transform or emit work.
-   *
-   * @default false
-   */
-  residentCheck?: boolean;
-
-  /**
    * Whether the sidecar accepts `--singleThreaded` and `--checkers` on its
    * command line. The lint sidecar parses both flags via `parseSubcommandFlags`
    * and threads them into `loadProgram` (parse phase) and `engine.SetSerial`

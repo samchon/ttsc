@@ -126,10 +126,7 @@ func noopClose() {}
 // or drops an entry for a full reload when a changed path is not one of its
 // source files — a config edit, or a new or removed file, which tsgo's
 // per-file UpdateProgram cannot express and a fresh load handles correctly.
-func (c *residentProgramCache) applyChanges(
-  paths []string,
-  external map[string]struct{},
-) {
+func (c *residentProgramCache) applyChanges(paths []string) {
   if len(paths) == 0 {
     return
   }
@@ -139,9 +136,6 @@ func (c *residentProgramCache) applyChanges(
     fullReload := false
     for _, path := range paths {
       if prog.sourceFileByPath(path) == nil {
-        if _, ok := external[canonicalProjectPath("", realProjectPath(path))]; ok {
-          continue
-        }
         fullReload = true
         break
       }
@@ -152,9 +146,7 @@ func (c *residentProgramCache) applyChanges(
       continue
     }
     for _, path := range paths {
-      if prog.sourceFileByPath(path) != nil {
-        prog.applyChange(path)
-      }
+      prog.applyChange(path)
     }
   }
 }
@@ -201,10 +193,6 @@ type serveLSPRequest struct {
   // Program does not already hold as a source (a config edit, a new or removed
   // file) drops the entry for a full reload instead.
   Changed []string `json:"changed,omitempty"`
-  // External marks changed URIs that belong to declared ProjectRule inputs.
-  // Unknown external files invalidate fresh rule state but not the TypeScript
-  // Program; a path that is also a source file still updates incrementally.
-  External []string `json:"external,omitempty"`
 }
 
 // serveLSPResponse is the reply to one request: the verb's JSON result verbatim
@@ -280,18 +268,12 @@ func handleServeLSPLine(line string, base *lspCommandOptions, encoder *json.Enco
   }
   if len(req.Changed) > 0 {
     paths := make([]string, 0, len(req.Changed))
-    external := make(map[string]struct{}, len(req.External))
-    for _, uri := range req.External {
-      if path, err := filePathFromURI(uri); err == nil {
-        external[canonicalProjectPath("", realProjectPath(path))] = struct{}{}
-      }
-    }
     for _, uri := range req.Changed {
       if path, err := filePathFromURI(uri); err == nil {
         paths = append(paths, path)
       }
     }
-    residentPrograms.applyChanges(paths, external)
+    residentPrograms.applyChanges(paths)
   }
   opts := *base
   opts.uri = req.URI
@@ -300,9 +282,6 @@ func handleServeLSPLine(line string, base *lspCommandOptions, encoder *json.Enco
   switch req.Verb {
   case "lsp-diagnostics":
     result, code := computeLSPDiagnostics(&opts)
-    encodeServeResult(encoder, result, code)
-  case "lsp-project-diagnostics":
-    result, code := computeLSPProjectDiagnostics(&opts)
     encodeServeResult(encoder, result, code)
   case "lsp-code-actions":
     result, code := computeLSPCodeActions(&opts)

@@ -44,15 +44,6 @@ func TestLSPHintsRefreshScheduledByEditorEvents(t *testing.T) {
     `{"jsonrpc":"2.0","method":"textDocument/didSave","params":{"textDocument":{"uri":"file:///a.ts"}}}`,
     `{"jsonrpc":"2.0","method":"workspace/didChangeConfiguration","params":{"settings":{}}}`,
     `{"jsonrpc":"2.0","method":"workspace/didChangeWatchedFiles","params":{"changes":[{"uri":"file:///lint.config.ts","type":2}]}}`,
-    // JSON can be a resolveJsonModule source even when no ProjectRule declares
-    // it. Content and membership changes therefore invalidate the Program-wide
-    // hint corpus just like TypeScript changes do.
-    `{"jsonrpc":"2.0","method":"workspace/didChangeWatchedFiles","params":{"changes":[{"uri":"file:///src/data.json","type":1}]}}`,
-    `{"jsonrpc":"2.0","method":"workspace/didChangeWatchedFiles","params":{"changes":[{"uri":"file:///src/data.json","type":2}]}}`,
-    `{"jsonrpc":"2.0","method":"workspace/didChangeWatchedFiles","params":{"changes":[{"uri":"file:///src/data.json","type":3}]}}`,
-    // Package metadata participates in module resolution independently of
-    // ProjectRule ownership.
-    `{"jsonrpc":"2.0","method":"workspace/didChangeWatchedFiles","params":{"changes":[{"uri":"file:///package.json","type":2}]}}`,
     // Params the proxy cannot read take the conservative branch: it cannot tell
     // which inputs changed, so it assumes they all did — the same answer it
     // gives the resident daemon there.

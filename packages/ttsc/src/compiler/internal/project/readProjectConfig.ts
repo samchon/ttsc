@@ -12,14 +12,7 @@ import { resolveProjectIdentity } from "./resolveProjectConfig";
  * Compiler option keys whose values are file-system paths that must be resolved
  * relative to the tsconfig that declares them, not the project root.
  */
-const PATH_OPTIONS = new Set([
-  "baseUrl",
-  "declarationDir",
-  "outFile",
-  "rootDir",
-  "tsBuildInfoFile",
-]);
-const CONFIG_DIR_TEMPLATE = "${configDir}";
+const PATH_OPTIONS = new Set(["baseUrl", "declarationDir", "rootDir"]);
 
 /**
  * Intermediate type used during `extends`-chain resolution before the result is
@@ -42,11 +35,9 @@ type ResolvedCompilerOptions = {
  *
  * Follows `extends` chains (including arrays) and merges compiler options with
  * later configs taking precedence. Path-typed options (`baseUrl`,
- * `declarationDir`, `outFile`, `rootDir`, `tsBuildInfoFile`) are resolved
- * relative to the config that declares them. `${configDir}` paths are resolved
- * against the final consuming config after the extends chain is merged. The
- * `outDir` is resolved to an absolute path. Plugins are inherited from the
- * nearest ancestor that declares them.
+ * `declarationDir`, `rootDir`) are resolved relative to the config that
+ * declares them. The `outDir` is resolved to an absolute path. Plugins are
+ * inherited from the nearest ancestor that declares them.
  */
 export function readProjectConfig(
   opts: ITtscProjectLocatorOptions = {},
@@ -54,11 +45,7 @@ export function readProjectConfig(
   const identity = resolveProjectIdentity(opts);
   const tsconfig = identity.physicalConfigPath;
   const root = identity.physicalProjectRoot;
-  const compilerOptions = readResolvedCompilerOptions(
-    tsconfig,
-    new Set(),
-    path.dirname(tsconfig),
-  );
+  const compilerOptions = readResolvedCompilerOptions(tsconfig);
   return {
     configPaths: compilerOptions.configPaths,
     compilerOptions: {
@@ -110,7 +97,6 @@ function resolveAbsolutePath(cwd: string, target: string): string {
 function readResolvedCompilerOptions(
   tsconfig: string,
   seen: Set<string> = new Set(),
-  configDir = path.dirname(tsconfig),
 ): ResolvedCompilerOptions {
   const canonical = resolveRealPath(tsconfig);
   if (seen.has(canonical)) {
@@ -126,12 +112,7 @@ function readResolvedCompilerOptions(
       };
     };
     const own = parsed.compilerOptions;
-    const base = resolveBaseCompilerOptions(
-      canonical,
-      parsed.extends,
-      seen,
-      configDir,
-    );
+    const base = resolveBaseCompilerOptions(canonical, parsed.extends, seen);
     const ownBaseDir = path.dirname(canonical);
     const ownOptionBaseDirs =
       own === undefined
@@ -149,7 +130,6 @@ function readResolvedCompilerOptions(
         ...(own ?? {}),
       },
       optionBaseDirs,
-      configDir,
     );
     const ownPlugins = own?.plugins;
     const pluginsDeclared = Array.isArray(ownPlugins);
@@ -162,7 +142,7 @@ function readResolvedCompilerOptions(
       options,
       outDir:
         typeof own?.outDir === "string"
-          ? resolveCompilerOptionPath(ownBaseDir, configDir, own.outDir)
+          ? resolveAbsolutePath(ownBaseDir, own.outDir)
           : base.outDir,
       pluginBaseDirs: pluginsDeclared
         ? plugins.map(() => ownBaseDir)
@@ -189,13 +169,11 @@ function resolveBaseCompilerOptions(
   tsconfig: string,
   extended: unknown,
   seen: Set<string>,
-  configDir: string,
 ): ResolvedCompilerOptions {
   if (typeof extended === "string") {
     return readResolvedCompilerOptions(
       resolveExtendsConfig(tsconfig, extended),
       seen,
-      configDir,
     );
   }
   if (!Array.isArray(extended)) {
@@ -223,7 +201,6 @@ function resolveBaseCompilerOptions(
     const current = readResolvedCompilerOptions(
       resolveExtendsConfig(tsconfig, specifier),
       seen,
-      configDir,
     );
     merged = {
       configPaths: uniquePaths([...merged.configPaths, ...current.configPaths]),
@@ -257,43 +234,16 @@ function uniquePaths(paths: readonly string[]): string[] {
 function resolvePathOptions(
   options: Record<string, unknown>,
   baseDirs: Record<string, string>,
-  configDir: string,
 ): Record<string, unknown> {
   const resolved = { ...options };
   for (const key of PATH_OPTIONS) {
     const value = resolved[key];
     const baseDir = baseDirs[key];
     if (typeof value === "string" && baseDir !== undefined) {
-      resolved[key] = resolveCompilerOptionPath(baseDir, configDir, value);
+      resolved[key] = resolveAbsolutePath(baseDir, value);
     }
   }
   return resolved;
-}
-
-/**
- * Resolve an ordinary path from the config that declares it, but substitute a
- * leading `${configDir}` from the final config consuming the merged preset.
- */
-function resolveCompilerOptionPath(
-  declaringDir: string,
-  configDir: string,
-  value: string,
-): string {
-  if (
-    value.slice(0, CONFIG_DIR_TEMPLATE.length).toLowerCase() ===
-    CONFIG_DIR_TEMPLATE.toLowerCase()
-  ) {
-    const suffix = value.slice(CONFIG_DIR_TEMPLATE.length);
-    return resolveAbsolutePath(
-      configDir,
-      suffix.length === 0
-        ? "."
-        : suffix.startsWith("/") || suffix.startsWith("\\")
-          ? `.${suffix}`
-          : suffix,
-    );
-  }
-  return resolveAbsolutePath(declaringDir, value);
 }
 
 /**

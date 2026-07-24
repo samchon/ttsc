@@ -39,7 +39,6 @@ export function runSingleFileEmit(options: TtscSingleFileEmitOptions): string {
       cwd,
       emit: true,
       forceListEmittedFiles: true,
-      isolateOutputsTo: outDir,
       outDir,
       resolvedProject: project,
       tsconfig,

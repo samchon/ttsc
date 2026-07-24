@@ -11,16 +11,12 @@ export class WatchSession {
   private readonly child: ReturnType<typeof child_process.spawn>;
   private readonly listeners = new Set<() => void>();
   private builds = 0;
-  private buildStarts = 0;
   private output = "";
 
-  public constructor(
-    root: string,
-    options: { args?: readonly string[]; env?: NodeJS.ProcessEnv } = {},
-  ) {
+  public constructor(root: string, options: { env?: NodeJS.ProcessEnv } = {}) {
     const child = child_process.spawn(
       process.execPath,
-      [ttscBin, ...(options.args ?? []), "--watch", "--cwd", root],
+      [ttscBin, "--watch", "--cwd", root],
       {
         cwd: root,
         env: {
@@ -43,9 +39,6 @@ export class WatchSession {
       this.output += chunk.toString("utf8");
       this.builds = (
         this.output.match(/\[ttsc\] watch build (?:complete|failed)/g) ?? []
-      ).length;
-      this.buildStarts = (
-        this.output.match(/\[ttsc\] rebuilding at /g) ?? []
       ).length;
       for (const listener of this.listeners) listener();
     };
@@ -79,20 +72,14 @@ export class WatchSession {
 
   /** Assert that no additional build lands during a deliberate idle period. */
   public waitForQuiet(duration = 900): Promise<void> {
-    const initialBuilds = this.builds;
-    const initialBuildStarts = this.buildStarts;
+    const initial = this.builds;
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
         this.listeners.delete(check);
         resolve();
       }, duration);
       const check = (): void => {
-        if (
-          this.builds === initialBuilds &&
-          this.buildStarts === initialBuildStarts
-        ) {
-          return;
-        }
+        if (this.builds === initial) return;
         clearTimeout(timer);
         this.listeners.delete(check);
         reject(
@@ -103,11 +90,6 @@ export class WatchSession {
       };
       this.listeners.add(check);
     });
-  }
-
-  /** Return the combined stdout/stderr transcript observed so far. */
-  public transcript(): string {
-    return this.output;
   }
 
   /** Stop the child and fail if its persistent watcher handles do not drain. */
