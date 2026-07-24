@@ -37,6 +37,7 @@ import (
   "fmt"
   "os"
   "path/filepath"
+  "runtime"
   "strings"
 
   shimast "github.com/microsoft/typescript-go/shim/ast"
@@ -61,15 +62,13 @@ func (projectGuard) ProjectInputs(ctx *rule.ProjectInputContext) []rule.ProjectI
   if err := ctx.DecodeOptions(&options); err != nil {
     panic(err)
   }
-  physicalRoot, err := filepath.EvalSymlinks(ctx.Identity.PhysicalProjectRoot)
-  if err != nil {
-    panic(err)
+  physicalRoot := filepath.Clean(ctx.Identity.PhysicalProjectRoot)
+  markerRoot := filepath.Clean(filepath.Dir(options.Marker))
+  sameRoot := physicalRoot == markerRoot
+  if runtime.GOOS == "windows" {
+    sameRoot = strings.EqualFold(physicalRoot, markerRoot)
   }
-  markerRoot, err := filepath.EvalSymlinks(filepath.Dir(options.Marker))
-  if err != nil {
-    panic(err)
-  }
-  if physicalRoot != markerRoot {
+  if !sameRoot {
     panic(fmt.Sprintf(
       "project input identity mismatch: physical=%s marker=%s",
       physicalRoot,
