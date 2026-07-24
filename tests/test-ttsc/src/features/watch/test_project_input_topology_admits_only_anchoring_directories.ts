@@ -41,25 +41,27 @@ export const test_project_input_topology_admits_only_anchoring_directories =
     for (const [label, location, expected] of [
       ["the replaced sibling of a declared ancestor", replaced, true],
       ["a declared ancestor itself", path.join(root, "docs"), true],
-      ["the project root", root, true],
-      ["an unrelated dependency subtree", dependencies, false],
+      // The dependency root sits directly beside a declared ancestor, so it is
+      // admitted while everything below it is not. That pair is the rule: depth
+      // one costs a rescan, the thousands of entries beneath it cost nothing.
       [
-        "an unrelated dependency root",
+        "a dependency root beside a declared ancestor",
+        path.join(root, "node_modules"),
+        true,
+      ],
+      [
+        "an unrelated dependency package",
         path.join(root, "node_modules", "pkg"),
         false,
       ],
+      ["an unrelated dependency subtree", dependencies, false],
       ["an unrelated ordinary file", path.join(root, "README.md"), false],
+      ["a missing glob root", path.join(root, "api"), true],
     ] as const) {
       assert.equal(
-        projectInputTopologyMayAffect(snapshot, location),
+        projectInputTopologyMayAffect(snapshot, location, new Map()),
         expected,
         `${label} must ${expected ? "be admitted" : "stay outside"} the rescan`,
       );
     }
-
-    assert.equal(
-      projectInputTopologyMayAffect(snapshot, path.join(root, "api")),
-      true,
-      "a missing glob root must remain admissible once it appears",
-    );
   };

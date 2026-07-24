@@ -307,9 +307,11 @@ export const test_watch_topology_tracks_declared_missing_files_and_empty_globs =
       );
       await waitForNextProjectChange(changes, previousProjectChanges);
 
-      assert.equal(
-        changes.every((change) => change.kind === "project"),
-        true,
+      const foreign = changes.filter((change) => change.kind !== "project");
+      assert.deepEqual(
+        foreign,
+        [],
+        "external data must never reach the compiler or reload lanes",
       );
     } finally {
       topology.close();

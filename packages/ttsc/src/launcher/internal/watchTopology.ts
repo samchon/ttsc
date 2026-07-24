@@ -1597,7 +1597,7 @@ function matchesProjectInput(
 export function projectInputTopologyMayAffect(
   snapshot: ITtscProjectInputSnapshot,
   location: string,
-  previous: ReadonlyMap<string, string> = new Map(),
+  previous: ReadonlyMap<string, string>,
   identities = createProjectInputPathIdentityContext(),
 ): boolean {
   const changed = path.resolve(location);
@@ -1614,10 +1614,12 @@ export function projectInputTopologyMayAffect(
   // declaration does not contain — renaming `docs` away reports the arriving
   // `docs-old`, not `docs`. So a directory event is admitted from where it
   // happened rather than from what it contains: its own parent must already lie
-  // on the path to a declared input. An unrelated tree such as `node_modules`
-  // then cannot force a population rescan and a full content re-fingerprint
-  // once per created entry, which an install or a checkout would otherwise do
-  // thousands of times.
+  // on the path to a declared input. A tree no declaration reaches, such as
+  // `node_modules` under an ordinary project, then costs nothing per created
+  // entry instead of a population rescan and a full content re-fingerprint. A
+  // glob whose literal root covers that tree still admits everything beneath
+  // it through the branch below, because a directory appearing inside a glob
+  // root can hold matches; the declaration decides that reach, not this rule.
   if (isDirectory(changed) && anchors(path.dirname(changed))) return true;
   return (
     anchors(changed) ||
@@ -1986,15 +1988,17 @@ function isRecord(value: unknown): value is Record<string, unknown> {
  *
  * A watch declaration keeps its lexical spelling, because classification,
  * containment, and notification are all expressed in the caller's own paths.
- * The backend needs the canonical spelling instead. On Windows, a recursive
- * watch whose path carries a short (8.3) component fails libuv's prefix
- * assertion in `uv__relative_path` and aborts the process on the first event
- * (libuv issue 5010, fixed upstream by turning the assertion into an error);
- * `os.tmpdir()` routinely yields such a path, so this is reachable by ordinary
- * projects, not only by tests. macOS matches events against the watched path
- * resolved through symlinks, so `/var` and `/private/var` must not be mixed
- * either. Resolving here keeps every backend comparing two canonical spellings
- * while callers keep resolving events against what they declared.
+ * The backend needs the canonical spelling instead. libuv stores the directory
+ * string it was handed, expands each delivered event to its long path, and then
+ * requires the stored string to be that expansion's prefix. A short (8.3)
+ * component makes the two disagree, and the resulting assertion aborts the
+ * whole process (libuv issue 5010; upstream now returns an error instead, but
+ * the bundled libuv every supported Node ships still asserts). `os.tmpdir()`
+ * routinely yields such a path, so ordinary projects reach it, not only tests.
+ * macOS matches events against the watched path resolved through symlinks, so
+ * `/var` and `/private/var` must not be mixed either. Resolving here keeps
+ * every backend comparing two canonical spellings while callers keep resolving
+ * events against what they declared.
  */
 function watcherRegistrationPath(location: string): string {
   try {
