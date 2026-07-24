@@ -1731,7 +1731,23 @@ function projectInputRecursiveWatchRoot(
   if (identities.isWithin(resolvedProjectRoot, resolvedTarget)) {
     return nearestExistingDirectory(resolvedProjectRoot);
   }
-  return nearestExistingDirectory(path.dirname(resolvedTarget));
+  // An external anchor rises to the declared parent so a tree that does not
+  // exist yet is still observed, and so siblings under it share one handle. It
+  // may not rise past the project, though: a directory that contains the
+  // project swallows the project's own root when the two are merged, and every
+  // in-project declaration then rides one recursive handle over a shared system
+  // directory — a temp root, or the filesystem root itself — which delivers
+  // nothing. Prefer the declared parent, fall back to the target's own tree,
+  // and decline rather than widen past the project.
+  for (const candidate of [
+    nearestExistingDirectory(path.dirname(resolvedTarget)),
+    nearestExistingDirectory(resolvedTarget),
+  ]) {
+    if (candidate === undefined) continue;
+    if (identities.isWithin(candidate, resolvedProjectRoot)) continue;
+    return candidate;
+  }
+  return undefined;
 }
 
 /**
