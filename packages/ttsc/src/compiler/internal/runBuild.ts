@@ -213,15 +213,17 @@ export type ResidentCheckWatchChange = {
 };
 
 /**
- * Check-only watch coordinator.
+ * Analysis-only watch coordinator.
  *
  * The selected project and compatible check-stage processes stay resident
  * across ordinary source/data edits. A config, root-set, contributor, or plugin
  * topology transition calls for a full reset before the next cycle. Emit and
- * transform lanes never enter this coordinator.
+ * transform lanes can pass through the coordinator, but compatibility checks
+ * keep them on the established one-shot path without starting sidecars.
  */
 export class ResidentCheckWatchSession {
   private execution: ReturnType<typeof resolveExecutionContext> | undefined;
+  private readonly pendingChanges = new Map<string, ResidentCheckRequest>();
   private projectInputs: ITtscProjectInputSnapshot | undefined;
   private readonly processes = new Map<string, ResidentCheckProcess>();
 
@@ -309,6 +311,7 @@ export class ResidentCheckWatchSession {
   private reset(): void {
     for (const process of this.processes.values()) process.dispose();
     this.processes.clear();
+    this.pendingChanges.clear();
     this.execution = undefined;
     this.projectInputs = undefined;
   }
@@ -351,12 +354,34 @@ export class ResidentCheckWatchSession {
       stderr: "",
       stdout: "",
     };
-    for (const plugin of execution.nativePlugins.filter(
-      (candidate) => candidate.stage === "check",
-    )) {
-      const args = createNativeCheckArgs(execution, options, plugin);
+    const checks = execution.nativePlugins
+      .filter((candidate) => candidate.stage === "check")
+      .map((plugin) => {
+        const args = createNativeCheckArgs(execution, options, plugin);
+        return {
+          args,
+          key:
+            plugin.capabilities?.residentCheck === true
+              ? residentCheckProcessKey(plugin, args)
+              : undefined,
+          plugin,
+        };
+      });
+    const request = residentCheckRequest(change, execution.projectRoot);
+    // Buffer the cycle for every resident plugin before running any of them.
+    // An earlier plugin may fail and short-circuit diagnostics, but a later
+    // sidecar must still receive every filesystem transition when it resumes.
+    for (const check of checks) {
+      if (check.key === undefined) continue;
+      this.pendingChanges.set(
+        check.key,
+        mergeResidentCheckRequests(this.pendingChanges.get(check.key), request),
+      );
+    }
+
+    for (const { args, key, plugin } of checks) {
       let result: TtscBuildResult;
-      if (plugin.capabilities?.residentCheck !== true) {
+      if (key === undefined) {
         result = runNativePluginCommand(
           plugin,
           args,
@@ -368,7 +393,6 @@ export class ResidentCheckWatchSession {
         );
       } else {
         const startedAt = process.hrtime.bigint();
-        const key = residentCheckProcessKey(plugin, args);
         let resident = this.processes.get(key);
         if (resident === undefined) {
           resident = new ResidentCheckProcess({
@@ -380,9 +404,8 @@ export class ResidentCheckWatchSession {
           this.processes.set(key, resident);
         }
         try {
-          const reply = await resident.request(
-            residentCheckRequest(change, execution.projectRoot),
-          );
+          const reply = await resident.request(this.pendingChanges.get(key)!);
+          this.pendingChanges.delete(key);
           result = normalizeBuildOutput(
             {
               status: reply.status,
@@ -394,6 +417,9 @@ export class ResidentCheckWatchSession {
         } catch {
           resident.dispose();
           this.processes.delete(key);
+          // The one-shot fallback observes the complete current filesystem,
+          // and a later sidecar starts cold, so neither needs old deltas.
+          this.pendingChanges.delete(key);
           // A capability-aware host may still disappear or violate framing.
           // Preserve correctness by running the established one-shot command
           // for this cycle; the next cycle gets one clean respawn attempt.
@@ -464,6 +490,25 @@ function residentCheckRequest(
   return {
     ...(changed.length === 0 ? {} : { changed }),
     ...(external.length === 0 ? {} : { external }),
+  };
+}
+
+function mergeResidentCheckRequests(
+  previous: ResidentCheckRequest | undefined,
+  current: ResidentCheckRequest,
+): ResidentCheckRequest {
+  const merge = (
+    left: readonly string[] | undefined,
+    right: readonly string[] | undefined,
+  ): string[] => [...new Set([...(left ?? []), ...(right ?? [])])].sort();
+  const changed = merge(previous?.changed, current.changed);
+  const external = merge(previous?.external, current.external);
+  return {
+    ...(changed.length === 0 ? {} : { changed }),
+    ...(external.length === 0 ? {} : { external }),
+    ...(previous?.invalidate === true || current.invalidate === true
+      ? { invalidate: true }
+      : {}),
   };
 }
 

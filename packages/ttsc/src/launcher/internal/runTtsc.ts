@@ -761,9 +761,7 @@ function runWatch(
   let rerun = false;
   let timer: NodeJS.Timeout | null = null;
   const resident =
-    checkOnly && invocation.files.length === 0
-      ? new ResidentCheckWatchSession()
-      : undefined;
+    invocation.files.length === 0 ? new ResidentCheckWatchSession() : undefined;
   let pendingReload = false;
   const pendingChanged = new Set<string>();
   const pendingExternal = new Set<string>();

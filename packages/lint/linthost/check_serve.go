@@ -57,12 +57,16 @@ func (s *residentCheckState) close() {
 // apply translates a compatible filesystem transition into incremental Program
 // updates. An unknown non-external path changes the selected compiler topology
 // and therefore drops the Program; a declared data input never does.
-func (s *residentCheckState) apply(req serveCheckRequest) {
+func (s *residentCheckState) apply(req serveCheckRequest) bool {
   if req.Invalidate {
     s.close()
+    return false
   }
-  if s.program == nil || len(req.Changed) == 0 {
-    return
+  if s.program == nil {
+    return false
+  }
+  if len(req.Changed) == 0 {
+    return true
   }
   external := make(map[string]struct{}, len(req.External))
   for _, location := range req.External {
@@ -75,7 +79,7 @@ func (s *residentCheckState) apply(req serveCheckRequest) {
     resolved, ok := residentCheckPath(location)
     if !ok {
       s.close()
-      return
+      return false
     }
     if s.program.sourceFileByPath(resolved) == nil {
       key := canonicalProjectPath("", realProjectPath(resolved))
@@ -83,14 +87,22 @@ func (s *residentCheckState) apply(req serveCheckRequest) {
         continue
       }
       s.close()
-      return
+      return false
     }
     changed = append(changed, resolved)
   }
+  reused := true
   for _, location := range changed {
-    s.program.applyChange(location)
-    s.programUpdates++
+    if s.program.applyChange(location) {
+      s.programUpdates++
+    } else {
+      // UpdateProgram returned a fully reconstructed Program. Count the real
+      // parse boundary as a load and do not advertise the cycle as reused.
+      s.programLoads++
+      reused = false
+    }
   }
+  return reused
 }
 
 func residentCheckPath(location string) (string, bool) {
@@ -173,11 +185,13 @@ func handleServeCheckLine(
     )
     return
   }
-  state.apply(req)
-  response = state.run(base)
+  response = state.run(base, state.apply(req))
 }
 
-func (s *residentCheckState) run(base *subcommandOpts) serveCheckResponse {
+func (s *residentCheckState) run(
+  base *subcommandOpts,
+  reused bool,
+) serveCheckResponse {
   var stdout bytes.Buffer
   var stderr bytes.Buffer
   opts := *base
@@ -197,7 +211,6 @@ func (s *residentCheckState) run(base *subcommandOpts) serveCheckResponse {
   }
   engine.SetSerial(opts.singleThreaded)
 
-  reused := s.program != nil
   if s.program == nil || (engine.NeedsTypeChecker() && s.program.checker == nil) {
     if s.program != nil {
       s.close()

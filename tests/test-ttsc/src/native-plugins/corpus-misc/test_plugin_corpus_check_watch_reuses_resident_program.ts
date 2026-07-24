@@ -18,8 +18,8 @@ type ResidentSample = {
 };
 
 /**
- * Verifies real `ttsc check --watch` reuses the lint sidecar and Program only
- * across compatible source edits.
+ * Verifies real `ttsc --noEmit --watch` reuses the lint sidecar and Program
+ * only across compatible source edits.
  *
  * The diagnostics stream is ordinary product telemetry. It proves the child PID
  * and Program load count remain stable while updates advance, then proves a
@@ -31,23 +31,36 @@ type ResidentSample = {
  * 2. Repair the known source, require one incremental sample, and compare the
  *    clean state with a cold one-shot check.
  * 3. Reintroduce the finding and require the same PID/load with another update.
- * 4. Add a TypeScript root and require a full Program reload before shutdown.
+ * 4. Edit tsconfig and contributor source, requiring a fresh sidecar each time.
+ * 5. Add and remove a TypeScript root, requiring a full reload each time.
+ * 6. Shut down and prove the final resident sidecar was disposed.
  */
 export const test_plugin_corpus_check_watch_reuses_resident_program =
   async (): Promise<void> => {
     const root = setupLintProject("lint-violations");
     const source = path.join(root, "src", "main.ts");
     fs.writeFileSync(
-      path.join(root, "lint.config.json"),
-      JSON.stringify({ rules: { "no-var": "error" } }),
+      path.join(root, "lint.config.cjs"),
+      `const path = require("node:path");
+module.exports = {
+  plugins: {
+    probe: { source: path.join(__dirname, "contributors", "probe") },
+  },
+  rules: { "no-var": "error" },
+};
+`,
     );
+    fs.rmSync(path.join(root, "lint.config.json"), { force: true });
+    const contributor = path.join(root, "contributors", "probe", "probe.go");
+    fs.mkdirSync(path.dirname(contributor), { recursive: true });
+    fs.writeFileSync(contributor, "package probe\n", "utf8");
     fs.writeFileSync(
       source,
       "var legacy = 1;\nJSON.stringify(legacy);\n",
       "utf8",
     );
     const session = new WatchSession(root, {
-      args: ["check", "--diagnostics"],
+      args: ["--noEmit", "--diagnostics"],
       env: {
         PATH: goPath(),
         TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
@@ -93,26 +106,51 @@ export const test_plugin_corpus_check_watch_reuses_resident_program =
         reused: true,
       });
 
-      fs.writeFileSync(
-        path.join(root, "src", "added.ts"),
-        "export const added = true;\n",
-        "utf8",
-      );
+      const tsconfig = path.join(root, "tsconfig.json");
+      const config = JSON.parse(fs.readFileSync(tsconfig, "utf8")) as {
+        compilerOptions: Record<string, unknown>;
+      };
+      config.compilerOptions.noUnusedLocals = false;
+      fs.writeFileSync(tsconfig, JSON.stringify(config), "utf8");
       await session.waitForBuilds(4);
       samples = residentSamples(session.transcript());
       assert.equal(samples.length, 4, session.transcript());
-      assert.equal(samples[3]!.programLoads, 1);
-      assert.equal(samples[3]!.programUpdates, 0);
-      assert.equal(samples[3]!.reused, false);
+      assertFreshSample(samples[3]!, samples[2]!.pid);
+
+      fs.writeFileSync(
+        contributor,
+        "package probe\n\n// contributor topology changed\n",
+        "utf8",
+      );
+      await session.waitForBuilds(5, 300_000);
+      samples = residentSamples(session.transcript());
+      assert.equal(samples.length, 5, session.transcript());
+      assertFreshSample(samples[4]!, samples[3]!.pid);
+
+      const added = path.join(root, "src", "added.ts");
+      fs.writeFileSync(added, "export const added = true;\n", "utf8");
+      await session.waitForBuilds(6);
+      samples = residentSamples(session.transcript());
+      assert.equal(samples.length, 6, session.transcript());
+      assertFreshSample(samples[5]!, samples[4]!.pid);
+
+      fs.rmSync(added);
+      await session.waitForBuilds(7);
+      samples = residentSamples(session.transcript());
+      assert.equal(samples.length, 7, session.transcript());
+      assertFreshSample(samples[6]!, samples[5]!.pid);
     } finally {
       await session.close();
     }
+    const finalPid = residentSamples(session.transcript()).at(-1)?.pid;
+    assert.notEqual(finalPid, undefined, session.transcript());
+    await waitForProcessExit(finalPid!);
     fs.writeFileSync(
       source,
       "const modern = 1;\nJSON.stringify(modern);\n",
       "utf8",
     );
-    const cold = spawn(ttscBin, ["check", "--cwd", root], {
+    const cold = spawn(ttscBin, ["--noEmit", "--cwd", root], {
       cwd: root,
       env: {
         PATH: goPath(),
@@ -121,6 +159,32 @@ export const test_plugin_corpus_check_watch_reuses_resident_program =
     });
     assert.equal(cold.status, 0, cold.stderr);
   };
+
+function assertFreshSample(sample: ResidentSample, previousPid: number): void {
+  assert.notEqual(sample.pid, previousPid);
+  assert.equal(sample.programLoads, 1);
+  assert.equal(sample.programUpdates, 0);
+  assert.equal(sample.reused, false);
+}
+
+async function waitForProcessExit(pid: number): Promise<void> {
+  const deadline = Date.now() + 5_000;
+  while (processIsAlive(pid)) {
+    if (Date.now() >= deadline) {
+      assert.fail(`resident check sidecar ${String(pid)} survived watch close`);
+    }
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+}
+
+function processIsAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    return (error as NodeJS.ErrnoException).code === "EPERM";
+  }
+}
 
 function residentSamples(transcript: string): ResidentSample[] {
   return [
