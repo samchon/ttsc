@@ -21,9 +21,12 @@ import (
 //  3. Reintroduce the finding and compare the failing incremental and cold
 //     diagnostics byte-for-byte.
 //  4. Apply a declared external JSON change and assert the Program stays warm.
-//  5. Add an unknown TypeScript root and assert the next cycle fully reloads.
+//  5. Change the import graph and require honest full-rebuild telemetry.
+//  6. Add an unknown TypeScript root and assert the next cycle fully reloads.
 func TestCheckServeReusesProgramAndMatchesColdCycles(t *testing.T) {
   root := seedLintProject(t, "var legacy = 1;\nJSON.stringify(legacy);\n")
+  dependency := filepath.Join(root, "src", "dependency.ts")
+  writeFile(t, dependency, "export const dependency = true;\n")
   seedLintRules(t, root, map[string]string{"no-var": "error"})
   base, err := parseSubcommandFlagsWithIO(
     "check-serve",
@@ -41,7 +44,7 @@ func TestCheckServeReusesProgramAndMatchesColdCycles(t *testing.T) {
   state := &residentCheckState{}
   defer state.close()
 
-  first := state.run(base)
+  first := state.run(base, false)
   if first.Status != 2 ||
     first.Telemetry.ProgramLoads != 1 ||
     first.Telemetry.Reused ||
@@ -51,8 +54,10 @@ func TestCheckServeReusesProgramAndMatchesColdCycles(t *testing.T) {
 
   source := filepath.Join(root, "src", "main.ts")
   writeFile(t, source, "const modern = 1;\nJSON.stringify(modern);\n")
-  state.apply(serveCheckRequest{Changed: []string{source}})
-  incremental := state.run(base)
+  incremental := state.run(
+    base,
+    state.apply(serveCheckRequest{Changed: []string{source}}),
+  )
   var coldOut bytes.Buffer
   var coldErr bytes.Buffer
   coldCode := RunCheckWithIO(
@@ -81,8 +86,10 @@ func TestCheckServeReusesProgramAndMatchesColdCycles(t *testing.T) {
   }
 
   writeFile(t, source, "var legacy = 1;\nJSON.stringify(legacy);\n")
-  state.apply(serveCheckRequest{Changed: []string{source}})
-  failing := state.run(base)
+  failing := state.run(
+    base,
+    state.apply(serveCheckRequest{Changed: []string{source}}),
+  )
   coldOut.Reset()
   coldErr.Reset()
   coldCode = RunCheckWithIO(
@@ -112,21 +119,44 @@ func TestCheckServeReusesProgramAndMatchesColdCycles(t *testing.T) {
 
   external := filepath.Join(root, "openapi.json")
   writeFile(t, external, `{"openapi":"3.1.0"}`)
-  state.apply(serveCheckRequest{
-    Changed:  []string{external},
-    External: []string{external},
-  })
-  externalCycle := state.run(base)
+  externalCycle := state.run(
+    base,
+    state.apply(serveCheckRequest{
+      Changed:  []string{external},
+      External: []string{external},
+    }),
+  )
   if externalCycle.Telemetry.ProgramLoads != 1 ||
     !externalCycle.Telemetry.Reused {
     t.Fatalf("external cycle telemetry = %#v", externalCycle.Telemetry)
   }
 
+  writeFile(
+    t,
+    source,
+    "import { dependency } from \"./dependency\";\n"+
+      "var legacy = dependency;\nJSON.stringify(legacy);\n",
+  )
+  importGraphCycle := state.run(
+    base,
+    state.apply(serveCheckRequest{Changed: []string{source}}),
+  )
+  if importGraphCycle.Telemetry.ProgramLoads != 2 ||
+    importGraphCycle.Telemetry.ProgramUpdates != 2 ||
+    importGraphCycle.Telemetry.Reused {
+    t.Fatalf(
+      "import-graph rebuild telemetry = %#v",
+      importGraphCycle.Telemetry,
+    )
+  }
+
   added := filepath.Join(root, "src", "added.ts")
   writeFile(t, added, "export const added = true;\n")
-  state.apply(serveCheckRequest{Changed: []string{added}})
-  reloaded := state.run(base)
-  if reloaded.Telemetry.ProgramLoads != 2 ||
+  reloaded := state.run(
+    base,
+    state.apply(serveCheckRequest{Changed: []string{added}}),
+  )
+  if reloaded.Telemetry.ProgramLoads != 3 ||
     reloaded.Telemetry.Reused {
     t.Fatalf("topology reload telemetry = %#v", reloaded.Telemetry)
   }
