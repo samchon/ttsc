@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import path from "node:path";
 
 import {
+  isAbsoluteLocalProjectInputPath,
   mergeProjectInputSnapshots,
   parseProjectInputSnapshot,
 } from "../../../../../packages/ttsc/lib/compiler/internal/runBuild.js";
@@ -41,7 +42,29 @@ export const test_project_input_snapshots_reject_non_local_paths_and_mismatched_
           first,
           { root: path.resolve("other-project"), files: [], globs: [] },
         ]),
-      /different project roots/,
+      /differs from the selected project root/,
+    );
+    assert.throws(
+      () =>
+        mergeProjectInputSnapshots(root, [
+          { root: path.resolve("foreign-project"), files: [], globs: [] },
+        ]),
+      /differs from the selected project root/,
+    );
+    assert.equal(
+      isAbsoluteLocalProjectInputPath("\\root-only\\spec.md", "win32"),
+      false,
+    );
+    assert.equal(
+      isAbsoluteLocalProjectInputPath("C:\\project\\spec.md", "win32"),
+      true,
+    );
+    assert.equal(
+      isAbsoluteLocalProjectInputPath(
+        "\\\\server\\share\\project\\spec.md",
+        "win32",
+      ),
+      true,
     );
     assert.deepEqual(mergeProjectInputSnapshots(root, [first, first]), {
       root,
