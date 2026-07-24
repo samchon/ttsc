@@ -1608,10 +1608,13 @@ function matchesProjectInput(
  * both other platforms use follow the path, so retiring their watcher would buy
  * nothing and would open a window in which no events are delivered.
  *
- * The answer is deliberately narrower than the rescan rule. A directory
- * appearing inside a glob root also deserves a rescan, but it replaces nothing,
- * and reinstalling a root costs one watch descriptor per entry beneath it —
- * which an install storm would pay thousands of times.
+ * The answer is deliberately narrower than the rescan rule, because
+ * reinstalling a root costs one watch descriptor per entry beneath it, which an
+ * install storm would pay thousands of times. A directory appearing inside a
+ * glob root deserves a rescan but replaces nothing a root stands on, and a
+ * reload directory anchors the directory that contains it rather than itself,
+ * since its fingerprint is a digest of its own immediate entries and nothing
+ * below it can reach the declared corpus.
  */
 export function projectInputReplacementStrandsWatchers(
   snapshot: ITtscProjectInputSnapshot,

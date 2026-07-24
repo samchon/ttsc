@@ -27,12 +27,13 @@ export const test_project_input_replacement_strands_only_path_keyed_watchers =
     const declared = path.join(root, "docs", "nested", "missing.md");
     const replaced = path.join(root, "docs-old");
     const reloadDirectory = path.join(root, "outside", "config");
+    const reloadChild = path.join(reloadDirectory, "pkg");
     const globDepth = path.join(root, "api", "v1", "schemas");
     for (const directory of [
       path.dirname(declared),
       replaced,
       reloadDirectory,
-      path.join(reloadDirectory, "pkg"),
+      reloadChild,
       globDepth,
     ]) {
       fs.mkdirSync(directory, { recursive: true });
@@ -65,12 +66,7 @@ export const test_project_input_replacement_strands_only_path_keyed_watchers =
       // so nothing below it can reach the corpus. Contributors publish
       // `node_modules` as one, and treating it as its own anchor would rearm
       // once per package an install creates.
-      [
-        "a directory inside a reload directory",
-        path.join(reloadDirectory, "pkg"),
-        "linux",
-        false,
-      ],
+      ["a directory inside a reload directory", reloadChild, "linux", false],
     ] as const) {
       assert.equal(
         projectInputReplacementStrandsWatchers(
