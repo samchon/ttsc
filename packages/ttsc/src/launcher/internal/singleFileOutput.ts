@@ -116,17 +116,11 @@ function passthroughStringOption(
   let value: string | undefined;
   for (let index = 0; index < (tokens?.length ?? 0); index++) {
     const token = tokens?.[index];
-    const equalsIndex = token?.indexOf("=") ?? -1;
-    const option = equalsIndex === -1 ? token : token?.slice(0, equalsIndex);
     if (
-      option === undefined ||
-      (resolveFlagSpec(option)?.name ?? option.toLowerCase()) !==
-        (resolveFlagSpec(name)?.name ?? name.toLowerCase())
+      token === undefined ||
+      token.includes("=") ||
+      resolveFlagSpec(token)?.name !== resolveFlagSpec(name)?.name
     ) {
-      continue;
-    }
-    if (equalsIndex !== -1) {
-      value = token?.slice(equalsIndex + 1).toLowerCase();
       continue;
     }
     const next = tokens?.[index + 1];
