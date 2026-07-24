@@ -100,6 +100,7 @@ export class WatchTopology {
   private projectInputRejectedWatchRoots = new Set<string>();
   private projectInputWatchRoots = new Map<string, string>();
   private projectInputWatchers = new Map<string, fs.FSWatcher>();
+  private projectInputLinkWatchers = new Map<string, fs.FSWatcher>();
   private reloadFiles = new Map<string, string>();
 
   public constructor(
@@ -219,6 +220,7 @@ export class WatchTopology {
     closeWatchers(this.directoryWatchers);
     closeWatchers(this.extraWatchers);
     closeWatchers(this.projectInputWatchers);
+    closeWatchers(this.projectInputLinkWatchers);
   }
 
   private syncFileWatchers(): void {
@@ -432,8 +434,53 @@ export class WatchTopology {
         }
       },
     );
+    this.syncProjectInputLinkWatchers(identities);
     this.callbacks.onProjectInputWatchRoots?.(
       [...this.projectInputWatchers.keys()].sort(),
+    );
+  }
+
+  /**
+   * Watch the directory that holds a declaration which is itself a link.
+   *
+   * A recursive watcher cannot report the link being replaced. The backend that
+   * keys its handles by path skips an entry it already knows, and the handle it
+   * put on the entry followed the link to the target's inode, which unlinking
+   * and recreating the link never touches. A plain directory watch has neither
+   * property: it reports the entry by name the moment it moves. These are kept
+   * apart from the recursive roots because they are not roots — they observe
+   * one directory, they are never reported as watch roots, and an ancestor
+   * covering them does not make them redundant.
+   */
+  private syncProjectInputLinkWatchers(
+    identities: ProjectInputPathIdentityContext,
+  ): void {
+    const desired = new Map<string, string>();
+    for (const kind of ["file", "reload"] as const) {
+      for (const declaration of this.projectInputDeclarations(kind)) {
+        const declared = path.resolve(declaration);
+        if (identities.resolve(declared).key === declared) continue;
+        const parent = nearestExistingDirectory(path.dirname(declared));
+        if (parent === undefined) continue;
+        desired.set(identities.resolve(parent).key, parent);
+      }
+    }
+    syncWatchers(
+      this.projectInputLinkWatchers,
+      desired,
+      (location) =>
+        fs.watch(
+          watcherRegistrationPath(location),
+          { persistent: true },
+          (_event, filename) => {
+            const changed =
+              filename === null
+                ? undefined
+                : path.resolve(location, filename.toString());
+            this.refreshProjectInputs(location, changed);
+          },
+        ),
+      (location, error) => this.callbacks.onError(location, error),
     );
   }
 
