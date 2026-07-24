@@ -1519,8 +1519,9 @@ function projectInputChangedPaths(input: {
  * Classify an exact execution-selection input ahead of ordinary project data.
  *
  * `changedInputs` carries fingerprint or membership deltas, so a filename-less
- * event can still select the cold lane. A named exact event remains cold even
- * when its bytes happen to be unchanged.
+ * event can still select the cold lane. A named exact event selects the cold
+ * lane only after the surrounding change detector admits the event; unchanged
+ * bytes remain quiet before this classifier is observed.
  */
 export function projectInputReloadEventShouldNotify(input: {
   changed?: string;
