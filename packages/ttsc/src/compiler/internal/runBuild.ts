@@ -3,6 +3,10 @@ import path from "node:path";
 
 import { resolveFlagSpec } from "../../flags/schema";
 import {
+  type ProjectInputPathIdentityContext,
+  createProjectInputPathIdentityContext,
+} from "../../internal/projectInputPathIdentity";
+import {
   hasProjectPluginEntries,
   loadProjectPlugins,
 } from "../../plugin/internal/loadProjectPlugins";
@@ -1625,33 +1629,34 @@ function discoverNativeProjectInputs(
 export function mergeProjectInputSnapshots(
   fallbackRoot: string,
   snapshots: readonly ITtscProjectInputSnapshot[],
+  identities: ProjectInputPathIdentityContext = createProjectInputPathIdentityContext(),
 ): ITtscProjectInputSnapshot {
   const files = new Map<string, string>();
   const globs = new Map<string, string>();
   const reloadFiles = new Map<string, string>();
-  const root = resolveProjectInputPath(fallbackRoot);
+  const rootIdentity = identities.resolve(fallbackRoot);
   for (const snapshot of snapshots) {
-    const candidateRoot = resolveProjectInputPath(snapshot.root);
-    if (projectInputPathKey(root) !== projectInputPathKey(candidateRoot)) {
+    const candidateRoot = identities.resolve(snapshot.root);
+    if (rootIdentity.key !== candidateRoot.key) {
       throw new Error(
-        `ttsc.project-inputs: plugin root ${candidateRoot} differs from the selected project root ${root}`,
+        `ttsc.project-inputs: plugin root ${candidateRoot.path} differs from the selected project root ${rootIdentity.path}`,
       );
     }
     for (const file of snapshot.files) {
-      const resolved = resolveProjectInputPath(file);
-      files.set(projectInputPathKey(resolved), resolved);
+      const identity = identities.resolve(file);
+      files.set(identity.key, identity.path);
     }
     for (const glob of snapshot.globs) {
-      const normalized = normalizeProjectInputGlob(glob);
-      globs.set(projectInputPathKey(normalized), normalized);
+      const identity = identities.resolve(glob);
+      globs.set(identity.key, identity.path.split(path.sep).join("/"));
     }
     for (const reloadFile of snapshot.reloadFiles ?? []) {
-      const resolved = resolveProjectInputPath(reloadFile);
-      reloadFiles.set(projectInputPathKey(resolved), resolved);
+      const identity = identities.resolve(reloadFile);
+      reloadFiles.set(identity.key, identity.path);
     }
   }
   return {
-    root,
+    root: rootIdentity.path,
     files: [...files.values()].sort(),
     globs: [...globs.values()].sort(),
     reloadFiles: [...reloadFiles.values()].sort(),
@@ -1745,51 +1750,6 @@ function isStringArray(value: unknown): value is string[] {
   return (
     Array.isArray(value) && value.every((item) => typeof item === "string")
   );
-}
-
-function normalizeProjectInputGlob(pattern: string): string {
-  return resolveProjectInputPath(pattern).split(path.sep).join("/");
-}
-
-/**
- * Resolve the filesystem-owned portion of a declaration while retaining every
- * not-yet-created suffix segment. Existing case, symlink, junction, and 8.3
- * aliases therefore share the spelling reported by the filesystem, while a
- * case-sensitive directory can retain two genuinely distinct entries.
- */
-function projectInputPathKey(location: string): string {
-  const normalized = resolveProjectInputPath(location);
-  let existing = normalized;
-  const missing: string[] = [];
-  while (true) {
-    try {
-      const physical =
-        fs.realpathSync.native?.(existing) ?? fs.realpathSync(existing);
-      return path.resolve(physical, ...missing);
-    } catch {
-      const parent = path.dirname(existing);
-      if (parent === existing) return normalized;
-      missing.unshift(path.basename(existing));
-      existing = parent;
-    }
-  }
-}
-
-function resolveProjectInputPath(location: string): string {
-  if (process.platform !== "win32") {
-    return path.resolve(location);
-  }
-  const normalized = location.replaceAll("/", "\\");
-  if (normalized.toLowerCase().startsWith("\\\\?\\unc\\")) {
-    return path.resolve(`\\\\${normalized.slice(8)}`);
-  }
-  if (
-    normalized.startsWith("\\\\?\\") &&
-    /^[A-Za-z]:\\/.test(normalized.slice(4))
-  ) {
-    return path.resolve(normalized.slice(4));
-  }
-  return path.resolve(location);
 }
 
 /**

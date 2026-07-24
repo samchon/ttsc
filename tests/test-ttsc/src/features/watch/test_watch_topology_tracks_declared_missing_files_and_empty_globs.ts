@@ -46,6 +46,7 @@ export const test_watch_topology_tracks_declared_missing_files_and_empty_globs =
     );
 
     const changes: WatchInputChange[] = [];
+    let projectInputWatchRoots: readonly string[] = [];
     const topology = new WatchTopology(
       {
         cwd: root,
@@ -58,6 +59,9 @@ export const test_watch_topology_tracks_declared_missing_files_and_empty_globs =
           throw new Error(`watch error on ${location}`, { cause: error });
         },
         onInputChange: (change) => changes.push(change),
+        onProjectInputWatchRoots: (roots) => {
+          projectInputWatchRoots = [...roots];
+        },
         onTopologyChange: () => {
           throw new Error("external inputs must not alter compiler membership");
         },
@@ -99,33 +103,34 @@ export const test_watch_topology_tracks_declared_missing_files_and_empty_globs =
         [stagedRoot],
         "a recursive ancestor must cover its retained descendant root",
       );
-      await delay();
-      const coveredNotifications = await writeAndCountProjectChanges(
-        changes,
-        stagedDescendantFile,
-        "covered edit\n",
+      assert.deepEqual(
+        projectInputWatchRoots,
+        [realpath(stagedRoot)],
+        "the live watcher map must contain only the covering ancestor",
       );
+      await delay();
+      let previousProjectChanges = projectChangeCount(changes);
+      fs.writeFileSync(stagedDescendantFile, "covered edit\n", "utf8");
+      await waitForNextProjectChange(changes, previousProjectChanges);
       topology.setProjectInputs({
         root,
         files: [stagedDescendantFile],
         globs: [],
       });
       assert.deepEqual(
+        projectInputWatchRoots,
+        [realpath(path.join(stagedRoot, "a"))],
+        "the live watcher map must promote the retained child",
+      );
+      assert.deepEqual(
         projectInputActiveWatchDirectories(stagedDescendantRoots),
         [path.join(stagedRoot, "a")],
         "the retained descendant root must become active on its own",
       );
       await delay();
-      const promotedNotifications = await writeAndCountProjectChanges(
-        changes,
-        stagedDescendantFile,
-        "promoted edit\n",
-      );
-      assert.equal(
-        coveredNotifications,
-        promotedNotifications,
-        "ancestor coverage must not multiply recursive watch notifications",
-      );
+      previousProjectChanges = projectChangeCount(changes);
+      fs.writeFileSync(stagedDescendantFile, "promoted edit\n", "utf8");
+      await waitForNextProjectChange(changes, previousProjectChanges);
 
       const externalRoot = TestProject.tmpdir("ttsc-project-input-anchor-");
       const externalFile = path.join(
@@ -164,7 +169,7 @@ export const test_watch_topology_tracks_declared_missing_files_and_empty_globs =
           "a drive-root glob must not resolve through the drive's current directory",
         );
       }
-      let previousProjectChanges = projectChangeCount(changes);
+      previousProjectChanges = projectChangeCount(changes);
       fs.mkdirSync(path.dirname(externalFile), { recursive: true });
       fs.writeFileSync(externalFile, "external\n", "utf8");
       await waitForNextProjectChange(changes, previousProjectChanges);
@@ -206,10 +211,6 @@ export const test_watch_topology_tracks_declared_missing_files_and_empty_globs =
       previousProjectChanges = projectChangeCount(changes);
       fs.writeFileSync(path.join(root, "api", "v1", "openapi.json"), "{}\n");
       await waitForNextProjectChange(changes, previousProjectChanges);
-
-      fs.writeFileSync(path.join(root, "api", "state.json"), "{}\n");
-      fs.writeFileSync(path.join(root, "api", "bundle.json"), "{}\n");
-      await waitForQuiet(changes);
 
       previousProjectChanges = projectChangeCount(changes);
       fs.writeFileSync(path.join(root, "unrelated.tmp"), "unrelated\n");
@@ -316,17 +317,6 @@ function projectChangeCount(changes: readonly WatchInputChange[]): number {
   return changes.filter((change) => change.kind === "project").length;
 }
 
-async function writeAndCountProjectChanges(
-  changes: readonly WatchInputChange[],
-  location: string,
-  content: string,
-): Promise<number> {
-  const previous = projectChangeCount(changes);
-  fs.writeFileSync(location, content, "utf8");
-  await waitForNextProjectChange(changes, previous);
-  return projectChangeCount(changes) - previous;
-}
-
 async function waitForQuiet(
   changes: readonly WatchInputChange[],
 ): Promise<void> {
@@ -337,4 +327,8 @@ async function waitForQuiet(
 
 function delay(milliseconds = 250): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
+function realpath(location: string): string {
+  return fs.realpathSync.native?.(location) ?? fs.realpathSync(location);
 }

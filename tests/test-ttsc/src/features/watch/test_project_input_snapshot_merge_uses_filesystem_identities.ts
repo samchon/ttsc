@@ -80,7 +80,15 @@ export const test_project_input_snapshot_merge_uses_filesystem_identities =
       2,
       "reload aliases must use the same existing and missing identities",
     );
-    assert.equal(merged.root, path.resolve(physicalRoot));
+    const physical = realpath(physicalRoot);
+    assert.equal(merged.root, physical);
+    assert.equal(merged.files[0], path.join(physical, "docs", "spec.md"));
+    assert.equal(merged.files[1], path.join(physical, "future", "missing.md"));
+    assert.equal(
+      merged.globs[0],
+      path.join(physical, "api", "**", "*.json").split(path.sep).join("/"),
+    );
+    assert.deepEqual(merged.reloadFiles, merged.files);
 
     const caseRoot = path.join(fixtureRoot, "case-sensitive");
     fs.mkdirSync(caseRoot);
