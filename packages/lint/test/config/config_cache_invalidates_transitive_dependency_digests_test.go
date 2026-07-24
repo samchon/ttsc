@@ -18,7 +18,9 @@ import (
 //     fresh evaluation replaces it.
 //  3. Make the helper change during all three bounded evaluation attempts and
 //     prove the unstable result is returned but never cached indefinitely.
-//  4. Reject every malformed dependency-envelope class while accepting an
+//  4. Prove Go validates the exact directory byte stream emitted by every
+//     JavaScript loader, including its lack of a final record delimiter.
+//  5. Reject every malformed dependency-envelope class while accepting an
 //     idempotent duplicate, so corrupt cache state can only become a soft miss.
 func TestConfigCacheInvalidatesTransitiveDependencyDigests(t *testing.T) {
   t.Setenv("TTSC_LINT_DISABLE_CONFIG_CACHE", "")
@@ -112,6 +114,39 @@ func TestConfigCacheInvalidatesTransitiveDependencyDigests(t *testing.T) {
   }
   if unstableCalls != 6 {
     t.Fatalf("unstable result was cached: attempts=%d, want 6", unstableCalls)
+  }
+
+  topology := filepath.Join(root, "topology")
+  if err := os.Mkdir(topology, 0o755); err != nil {
+    t.Fatal(err)
+  }
+  write(filepath.Join(topology, "alpha"), "")
+  if err := os.Mkdir(filepath.Join(topology, "nested"), 0o755); err != nil {
+    t.Fatal(err)
+  }
+  serializedDirectory := strings.Join(
+    []string{
+      "alpha\x00file\x00",
+      "nested\x00directory\x00",
+    },
+    "\x00",
+  )
+  serializedSum := sha256.Sum256([]byte(serializedDirectory))
+  directoryDigest, err := configDependencyDigest(
+    configDependencyFingerprint{
+      Path: topology,
+      Kind: configDependencyDir,
+    },
+  )
+  if err != nil {
+    t.Fatalf("directory digest: %v", err)
+  }
+  if want := hex.EncodeToString(serializedSum[:]); directoryDigest != want {
+    t.Fatalf(
+      "directory digest = %s, want JavaScript byte protocol %s",
+      directoryDigest,
+      want,
+    )
   }
 
   helperBody, err := os.ReadFile(helper)

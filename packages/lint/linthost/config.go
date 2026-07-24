@@ -1581,7 +1581,7 @@ func configDependencyDigest(
       return "", err
     }
     h := sha256.New()
-    for _, entry := range entries {
+    for index, entry := range entries {
       kind := "other"
       info, err := entry.Info()
       if err != nil {
@@ -1607,7 +1607,9 @@ func configDependencyDigest(
       h.Write([]byte(kind))
       h.Write([]byte{0})
       h.Write([]byte(target))
-      h.Write([]byte{0})
+      if index+1 != len(entries) {
+        h.Write([]byte{0})
+      }
     }
     return hex.EncodeToString(h.Sum(nil)), nil
   }

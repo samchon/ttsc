@@ -442,6 +442,8 @@ function readConfigPluginEntries(
 const TTSX_EXTRACTOR_SCRIPT = `// @ts-ignore -- internal loader must not require user-installed Node typings.
 import * as fs from "node:fs";
 // @ts-ignore -- internal loader must not require user-installed Node typings.
+import { Buffer } from "node:buffer";
+// @ts-ignore -- internal loader must not require user-installed Node typings.
 import { createHash } from "node:crypto";
 // @ts-ignore -- internal loader must not require user-installed Node typings.
 import { createRequire, registerHooks } from "node:module";
