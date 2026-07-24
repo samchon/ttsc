@@ -167,6 +167,8 @@ All entries are normalized absolute local filesystem patterns. `root` must resol
 
 The CLI watcher retains one recursive `fs.watch` root per declaration, deduplicating declarations that share an ancestor. An input inside the project is owned by the physical project root, so deleting, renaming, or atomically replacing a declared directory cannot strand a child handle on the old filesystem object. A missing external input is owned by the nearest existing ancestor of its declared parent; replacement above that explicit boundary requires restarting the watch. This keeps watcher count bounded by declarations and avoids per-file polling. Events compare the declared population and its content fingerprints before scheduling a debounced rebuild, so an unrelated file or a filename-less event with unchanged content stays quiet.
 
+Observation is event-driven. A change is observable only when the filesystem backend emits an `fs.watch` event at the declared path or within its retained owner ancestor. Physical normalization makes symlink spellings share that watched identity, and retained ancestors keep atomic replacement of a declared path observable; neither guarantee follows a hard link to an alias outside the retained boundary. Editing through such a hard-link alias is not guaranteed to rebuild, and neither is a change hidden by a filesystem or network backend that does not deliver the corresponding event. There is no polling fallback.
+
 ## Resident check watch
 
 A check-stage sidecar with `capabilities.residentCheck: true` must implement `check-serve`. The command accepts the same fixed project, plugin, compiler, and threading arguments as `check`, then exchanges one JSON object per newline over stdin and stdout:
