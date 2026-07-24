@@ -1888,6 +1888,8 @@ function resolveExecutionContext(
         projectRoot,
         tsconfig,
       }).nativePlugins;
+    } else {
+      options.onWatchInputs?.([]);
     }
   } catch (error) {
     pluginSetupFailure = {

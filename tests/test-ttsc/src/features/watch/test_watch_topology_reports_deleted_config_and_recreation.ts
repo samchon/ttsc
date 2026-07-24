@@ -41,6 +41,7 @@ export const test_watch_topology_reports_deleted_config_and_recreation =
     );
     try {
       topology.refresh(false);
+      topology.beginExecutionGeneration();
       fs.rmSync(config);
       await waitFor(
         () => changes.some((change) => change.kind === "config"),

@@ -49,6 +49,26 @@ export const test_execution_input_fingerprints_filter_reflected_watch_events =
       "an event outside the declared execution input must stay quiet",
     );
 
+    const configFingerprints = fingerprintExecutionInputs([unrelated]);
+    const configEvent = (): boolean =>
+      executionInputEventShouldNotify({
+        changed: unrelated,
+        fingerprints: configFingerprints,
+        inputs: [unrelated],
+        watchRoot: root,
+      });
+    assert.equal(
+      configEvent(),
+      false,
+      "a queued config event for reflected bytes must be dropped",
+    );
+    fs.writeFileSync(unrelated, "changed config bytes\n", "utf8");
+    assert.equal(
+      configEvent(),
+      true,
+      "a real config edit after the boundary must reload",
+    );
+
     fs.writeFileSync(main, "package main\n\nvar generation = 2\n", "utf8");
     assert.equal(notify(main), true, "a post-boundary edit must reload");
     assert.equal(notify(main), false, "its duplicate event must be coalesced");
