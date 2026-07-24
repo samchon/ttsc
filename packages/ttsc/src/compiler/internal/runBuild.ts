@@ -213,9 +213,6 @@ function runBuildTimed(
       ...(plugin.contributors?.map((contributor) => contributor.source) ?? []),
     ]),
   );
-  if (options.onProjectInputs !== undefined) {
-    options.onProjectInputs(discoverNativeProjectInputs(options, execution));
-  }
   if (
     execution.nativePlugins.length > 0 ||
     execution.pluginSetupFailure !== undefined
@@ -229,6 +226,9 @@ function runBuildTimed(
       buildOptions,
       execution,
     );
+  }
+  if (options.onProjectInputs !== undefined) {
+    options.onProjectInputs(discoverNativeProjectInputs(options, execution));
   }
   if (execution.nativePlugins.length > 0) {
     const compilers = execution.nativePlugins.filter(
@@ -1186,9 +1186,7 @@ function discoverNativeProjectInputs(
   options: TtscBuildOptions,
   execution: ReturnType<typeof resolveExecutionContext>,
 ): ITtscProjectInputSnapshot {
-  const files = new Set<string>();
-  const globs = new Set<string>();
-  let root = execution.projectRoot;
+  const snapshots: ITtscProjectInputSnapshot[] = [];
   for (const plugin of execution.nativePlugins.filter(
     (candidate) =>
       candidate.stage === "check" &&
@@ -1216,19 +1214,46 @@ function discoverNativeProjectInputs(
       );
     }
     const snapshot = parseProjectInputSnapshot(stdout, plugin);
-    root = snapshot.root;
-    for (const file of snapshot.files) files.add(path.resolve(file));
-    for (const glob of snapshot.globs)
-      globs.add(normalizeProjectInputGlob(glob));
+    snapshots.push(snapshot);
+  }
+  return mergeProjectInputSnapshots(execution.projectRoot, snapshots);
+}
+
+export function mergeProjectInputSnapshots(
+  fallbackRoot: string,
+  snapshots: readonly ITtscProjectInputSnapshot[],
+): ITtscProjectInputSnapshot {
+  const files = new Map<string, string>();
+  const globs = new Map<string, string>();
+  let root: string | undefined;
+  for (const snapshot of snapshots) {
+    const candidateRoot = path.resolve(snapshot.root);
+    if (
+      root !== undefined &&
+      projectInputPathKey(root) !== projectInputPathKey(candidateRoot)
+    ) {
+      throw new Error(
+        `ttsc.project-inputs: plugins returned different project roots: ${root} and ${candidateRoot}`,
+      );
+    }
+    root = candidateRoot;
+    for (const file of snapshot.files) {
+      const resolved = path.resolve(file);
+      files.set(projectInputPathKey(resolved), resolved);
+    }
+    for (const glob of snapshot.globs) {
+      const normalized = normalizeProjectInputGlob(glob);
+      globs.set(projectInputPathKey(normalized), normalized);
+    }
   }
   return {
-    root: path.resolve(root),
-    files: [...files].sort(),
-    globs: [...globs].sort(),
+    root: root ?? path.resolve(fallbackRoot),
+    files: [...files.values()].sort(),
+    globs: [...globs.values()].sort(),
   };
 }
 
-function parseProjectInputSnapshot(
+export function parseProjectInputSnapshot(
   text: string,
   plugin: ITtscLoadedNativePlugin,
 ): ITtscProjectInputSnapshot {
@@ -1253,7 +1278,18 @@ function parseProjectInputSnapshot(
       `ttsc.project-inputs: ${plugin.name ?? plugin.binary} returned an invalid snapshot`,
     );
   }
-  return value as unknown as ITtscProjectInputSnapshot;
+  const snapshot = value as unknown as ITtscProjectInputSnapshot;
+  const invalid = [
+    ["root", snapshot.root],
+    ...snapshot.files.map((file) => ["file", file] as const),
+    ...snapshot.globs.map((glob) => ["glob", glob] as const),
+  ].find(([, location]) => location.length === 0 || !path.isAbsolute(location));
+  if (invalid !== undefined) {
+    throw new Error(
+      `ttsc.project-inputs: ${plugin.name ?? plugin.binary} returned an invalid snapshot: ${invalid[0]} ${JSON.stringify(invalid[1])} is not an absolute local path`,
+    );
+  }
+  return snapshot;
 }
 
 function isStringArray(value: unknown): value is string[] {
@@ -1264,6 +1300,11 @@ function isStringArray(value: unknown): value is string[] {
 
 function normalizeProjectInputGlob(pattern: string): string {
   return path.resolve(pattern).split(path.sep).join("/");
+}
+
+function projectInputPathKey(location: string): string {
+  const normalized = path.resolve(location);
+  return process.platform === "win32" ? normalized.toLowerCase() : normalized;
 }
 
 /**
