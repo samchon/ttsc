@@ -17,8 +17,9 @@ import {
  * 2. Let `--emit` override configured declaration-only output.
  * 3. Suppress the default build-info file even under `noEmit`.
  * 4. Honor canonical one-dash, case, and short-alias identities.
- * 5. Apply passthrough options after launcher-generated emit and outDir flags.
+ * 5. Separate positional materialization from temporary compiler outputs.
  * 6. Match tsgo's `.js` output for React Native JSX.
+ * 7. Include adjacent declarations from external JavaScript inputs.
  */
 export const test_watch_topology_models_effective_adjacent_and_incremental_outputs =
   async (): Promise<void> => {
@@ -124,21 +125,15 @@ export const test_watch_topology_models_effective_adjacent_and_incremental_outpu
       declarationDisabled.close();
     }
 
-    const declarationOnlySource = path.join(root, "src", "only.ts");
-    fs.writeFileSync(
-      declarationOnlySource,
-      "export const declarationOnly = 1;\n",
-      "utf8",
-    );
     const declarationOnlyChanges: WatchInputChange[] = [];
     const declarationOnly = topology(root, declarationOnlyChanges, {
       emit: true,
-      files: ["src/only.ts"],
+      files: [],
       passthrough: ["-EMITDECLARATIONONLY"],
     });
     try {
       declarationOnly.refresh(false);
-      const declarationOutput = path.join(root, "src", "only.d.ts");
+      const declarationOutput = path.join(root, "src", "main.d.ts");
       declarationOnly.setProjectInputs({
         root,
         files: [declarationOutput],
@@ -151,7 +146,7 @@ export const test_watch_topology_models_effective_adjacent_and_incremental_outpu
       );
       await expectProjectQuiet(declarationOnlyChanges);
 
-      const javascriptOutput = path.join(root, "src", "only.js");
+      const javascriptOutput = path.join(root, "src", "main.js");
       declarationOnly.setProjectInputs({
         root,
         files: [javascriptOutput],
@@ -189,7 +184,7 @@ export const test_watch_topology_models_effective_adjacent_and_incremental_outpu
       });
       fs.mkdirSync(path.dirname(passthroughOutput), { recursive: true });
       fs.writeFileSync(passthroughOutput, "export const value = 1;\n", "utf8");
-      await expectProjectQuiet(outDirChanges);
+      await waitForProjectChange(outDirChanges, 0);
 
       const launcherOutput = path.join(root, "launcher-output", "main.js");
       outDir.setProjectInputs({
@@ -198,9 +193,8 @@ export const test_watch_topology_models_effective_adjacent_and_incremental_outpu
         globs: [],
       });
       fs.mkdirSync(path.dirname(launcherOutput), { recursive: true });
-      const previous = projectChangeCount(outDirChanges);
       fs.writeFileSync(launcherOutput, "export const value = 1;\n", "utf8");
-      await waitForProjectChange(outDirChanges, previous);
+      await expectProjectQuiet(outDirChanges);
     } finally {
       outDir.close();
     }
@@ -231,6 +225,43 @@ export const test_watch_topology_models_effective_adjacent_and_incremental_outpu
       await waitForProjectChange(jsxChanges, previous);
     } finally {
       jsx.close();
+    }
+
+    const externalRoot = TestProject.tmpdir("ttsc-external-javascript-output-");
+    const externalJavaScript = path.join(externalRoot, "input.js");
+    fs.writeFileSync(externalJavaScript, "export const external = 1;\n");
+    fs.writeFileSync(
+      path.join(root, "tsconfig.json"),
+      JSON.stringify({
+        compilerOptions: {
+          allowJs: true,
+          declaration: true,
+          emitDeclarationOnly: true,
+        },
+        files: [externalJavaScript],
+      }),
+      "utf8",
+    );
+    const externalDeclarationChanges: WatchInputChange[] = [];
+    const externalDeclaration = topology(root, externalDeclarationChanges, {
+      emit: true,
+      files: [],
+    });
+    try {
+      externalDeclaration.refresh(false);
+      const declarationOutput = path.join(externalRoot, "input.d.ts");
+      externalDeclaration.setProjectInputs({
+        root,
+        files: [declarationOutput],
+        globs: [],
+      });
+      fs.writeFileSync(
+        declarationOutput,
+        "export declare const external: 1;\n",
+      );
+      await expectProjectQuiet(externalDeclarationChanges);
+    } finally {
+      externalDeclaration.close();
     }
   };
 
