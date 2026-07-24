@@ -5,6 +5,7 @@ import (
   "fmt"
   "net/url"
   "os"
+  slashpath "path"
   "path/filepath"
   "sort"
   "strings"
@@ -172,13 +173,24 @@ func realProjectGlob(pattern string) string {
 }
 
 func uniqueProjectInputPatterns(patterns []string) []string {
+  return uniqueProjectInputPatternsForFilesystem(
+    patterns,
+    isCaseInsensitiveFilesystem(),
+  )
+}
+
+func uniqueProjectInputPatternsForFilesystem(
+  patterns []string,
+  caseInsensitive bool,
+) []string {
   seen := map[string]string{}
   for _, pattern := range patterns {
-    key := filepath.Clean(filepath.FromSlash(pattern))
-    if isCaseInsensitiveFilesystem() {
+    normalized := normalizeProjectInputPattern(pattern, caseInsensitive)
+    key := normalized
+    if caseInsensitive {
       key = strings.ToLower(key)
     }
-    seen[key] = filepath.ToSlash(filepath.Clean(filepath.FromSlash(pattern)))
+    seen[key] = normalized
   }
   out := make([]string, 0, len(seen))
   for _, pattern := range seen {
@@ -186,6 +198,22 @@ func uniqueProjectInputPatterns(patterns []string) []string {
   }
   sort.Strings(out)
   return out
+}
+
+func normalizeProjectInputPattern(
+  pattern string,
+  caseInsensitive bool,
+) string {
+  if !caseInsensitive {
+    return filepath.ToSlash(filepath.Clean(filepath.FromSlash(pattern)))
+  }
+  slashed := strings.ReplaceAll(pattern, "\\", "/")
+  unc := strings.HasPrefix(slashed, "//")
+  normalized := slashpath.Clean(slashed)
+  if unc && !strings.HasPrefix(normalized, "//") {
+    normalized = "/" + normalized
+  }
+  return normalized
 }
 
 func isCaseInsensitiveFilesystem() bool {
