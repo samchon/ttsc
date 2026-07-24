@@ -2221,62 +2221,62 @@ function recordPackageCandidateTopology(
   } catch {
     return;
   }
-  const visited = new Set();
-  recordPackageDirectoryTopology(packageRoot, owners, visited);
+  recordPackageRootTopology(packageRoot, owners);
   const subpath = specifier
     .slice(packageName.length)
     .replace(/^[/\\]+/, "");
   if (subpath !== "") {
-    recordPackageTargetTopology(packageRoot, subpath, owners, visited);
+    recordBoundedPackageTargetTopology(packageRoot, subpath, owners);
   }
 }
 
-function recordPackageDirectoryTopology(directory, owners, visited) {
-  const normalized = path.resolve(directory);
-  if (visited.has(normalized)) return;
-  visited.add(normalized);
-  recordDirectoryDependency(normalized, owners);
-  const manifest = path.join(normalized, "package.json");
+function recordPackageRootTopology(packageRoot, owners) {
+  const normalizedRoot = path.resolve(packageRoot);
+  recordDirectoryDependency(normalizedRoot, owners);
+  const manifest = path.join(normalizedRoot, "package.json");
   if (!recordOptionalFileDependency(manifest, owners)) return;
   try {
     const value = JSON.parse(fs.readFileSync(manifest, "utf8"));
     if (value !== null && typeof value === "object") {
       if (typeof value.main === "string") {
-        recordPackageTargetTopology(normalized, value.main, owners, visited);
+        recordPackagePathCandidate(
+          path.resolve(normalizedRoot, value.main),
+          owners,
+        );
       }
-      recordPackageExportTargets(normalized, value.exports, owners, visited);
+      recordPackageExportTargets(normalizedRoot, value.exports, owners);
     }
   } catch {
   }
 }
 
-function recordPackageExportTargets(packageRoot, value, owners, visited) {
+function recordPackageExportTargets(packageRoot, value, owners) {
   if (typeof value === "string") {
-    recordPackageTargetTopology(packageRoot, value, owners, visited);
+    const literalPrefix = value.split("*", 1)[0];
+    if (literalPrefix !== "") {
+      recordBoundedPackageTargetTopology(packageRoot, literalPrefix, owners);
+    }
     return;
   }
   if (Array.isArray(value)) {
     for (const item of value) {
-      recordPackageExportTargets(packageRoot, item, owners, visited);
+      recordPackageExportTargets(packageRoot, item, owners);
     }
     return;
   }
   if (value !== null && typeof value === "object") {
     for (const item of Object.values(value)) {
-      recordPackageExportTargets(packageRoot, item, owners, visited);
+      recordPackageExportTargets(packageRoot, item, owners);
     }
   }
 }
 
-function recordPackageTargetTopology(
+function recordBoundedPackageTargetTopology(
   packageRoot,
   target,
   owners,
-  visited,
 ) {
-  const literalPrefix = target.split("*", 1)[0];
-  if (literalPrefix === "") return;
-  const candidate = path.resolve(packageRoot, literalPrefix);
+  const candidate = path.resolve(packageRoot, target);
   const relative = path.relative(packageRoot, candidate);
   if (
     relative === ".." ||
@@ -2285,17 +2285,49 @@ function recordPackageTargetTopology(
   ) {
     return;
   }
-  let current = packageRoot;
-  for (const component of relative.split(path.sep).filter(Boolean)) {
+  recordPackagePathCandidate(candidate, owners);
+}
+
+function recordPackagePathCandidate(candidate, owners) {
+  const normalized = path.resolve(candidate);
+  const parsed = path.parse(normalized);
+  const components = normalized
+    .slice(parsed.root.length)
+    .split(path.sep)
+    .filter(Boolean);
+  let current = parsed.root;
+  for (let index = 0; index < components.length; index++) {
+    const component = components[index];
     const next = path.join(current, component);
+    let entry;
     try {
-      if (!fs.statSync(next).isDirectory()) return;
+      entry = fs.lstatSync(next);
     } catch {
+      recordDirectoryDependency(current, owners);
+      return;
+    }
+    if (entry.isSymbolicLink()) {
+      recordDirectoryDependency(current, owners);
+    }
+    let isDirectory = entry.isDirectory();
+    if (entry.isSymbolicLink()) {
+      try {
+        isDirectory = fs.statSync(next).isDirectory();
+      } catch {
+        return;
+      }
+    }
+    if (index === components.length - 1) {
+      recordDirectoryDependency(isDirectory ? next : current, owners);
+      return;
+    }
+    if (!isDirectory) {
+      recordDirectoryDependency(current, owners);
       return;
     }
     current = next;
-    recordPackageDirectoryTopology(current, owners, visited);
   }
+  recordDirectoryDependency(current, owners);
 }
 
 function modulePackageName(specifier) {
@@ -2956,35 +2988,34 @@ function recordPackageCandidateTopology(
   } catch {
     return;
   }
-  const visited = new Set<string>();
-  recordPackageDirectoryTopology(packageRoot, owners, visited);
+  recordPackageRootTopology(packageRoot, owners);
   const subpath = specifier
     .slice(packageName.length)
     .replace(/^[/\\]+/, "");
   if (subpath !== "") {
-    recordPackageTargetTopology(packageRoot, subpath, owners, visited);
+    recordBoundedPackageTargetTopology(packageRoot, subpath, owners);
   }
 }
 
-function recordPackageDirectoryTopology(
-  directory: string,
+function recordPackageRootTopology(
+  packageRoot: string,
   owners: readonly string[],
-  visited: Set<string>,
 ): void {
-  const normalized = path.resolve(directory);
-  if (visited.has(normalized)) return;
-  visited.add(normalized);
-  recordDirectoryDependency(normalized, owners);
-  const manifest = path.join(normalized, "package.json");
+  const normalizedRoot = path.resolve(packageRoot);
+  recordDirectoryDependency(normalizedRoot, owners);
+  const manifest = path.join(normalizedRoot, "package.json");
   if (!recordOptionalFileDependency(manifest, owners)) return;
   try {
     const value = JSON.parse(fs.readFileSync(manifest, "utf8"));
     if (value !== null && typeof value === "object") {
       const metadata = value as Record<string, unknown>;
       if (typeof metadata.main === "string") {
-        recordPackageTargetTopology(normalized, metadata.main, owners, visited);
+        recordPackagePathCandidate(
+          path.resolve(normalizedRoot, metadata.main),
+          owners,
+        );
       }
-      recordPackageExportTargets(normalized, metadata.exports, owners, visited);
+      recordPackageExportTargets(normalizedRoot, metadata.exports, owners);
     }
   } catch {
   }
@@ -2994,34 +3025,33 @@ function recordPackageExportTargets(
   packageRoot: string,
   value: unknown,
   owners: readonly string[],
-  visited: Set<string>,
 ): void {
   if (typeof value === "string") {
-    recordPackageTargetTopology(packageRoot, value, owners, visited);
+    const literalPrefix = value.split("*", 1)[0];
+    if (literalPrefix !== "") {
+      recordBoundedPackageTargetTopology(packageRoot, literalPrefix, owners);
+    }
     return;
   }
   if (Array.isArray(value)) {
     for (const item of value) {
-      recordPackageExportTargets(packageRoot, item, owners, visited);
+      recordPackageExportTargets(packageRoot, item, owners);
     }
     return;
   }
   if (value !== null && typeof value === "object") {
     for (const item of Object.values(value)) {
-      recordPackageExportTargets(packageRoot, item, owners, visited);
+      recordPackageExportTargets(packageRoot, item, owners);
     }
   }
 }
 
-function recordPackageTargetTopology(
+function recordBoundedPackageTargetTopology(
   packageRoot: string,
   target: string,
   owners: readonly string[],
-  visited: Set<string>,
 ): void {
-  const literalPrefix = target.split("*", 1)[0];
-  if (literalPrefix === "") return;
-  const candidate = path.resolve(packageRoot, literalPrefix);
+  const candidate = path.resolve(packageRoot, target);
   const relative = path.relative(packageRoot, candidate);
   if (
     relative === ".." ||
@@ -3030,17 +3060,52 @@ function recordPackageTargetTopology(
   ) {
     return;
   }
-  let current = packageRoot;
-  for (const component of relative.split(path.sep).filter(Boolean)) {
+  recordPackagePathCandidate(candidate, owners);
+}
+
+function recordPackagePathCandidate(
+  candidate: string,
+  owners: readonly string[],
+): void {
+  const normalized = path.resolve(candidate);
+  const parsed = path.parse(normalized);
+  const components = normalized
+    .slice(parsed.root.length)
+    .split(path.sep)
+    .filter(Boolean);
+  let current = parsed.root;
+  for (let index = 0; index < components.length; index++) {
+    const component = components[index];
     const next = path.join(current, component);
+    let entry: ReturnType<typeof fs.lstatSync>;
     try {
-      if (!fs.statSync(next).isDirectory()) return;
+      entry = fs.lstatSync(next);
     } catch {
+      recordDirectoryDependency(current, owners);
+      return;
+    }
+    if (entry.isSymbolicLink()) {
+      recordDirectoryDependency(current, owners);
+    }
+    let isDirectory = entry.isDirectory();
+    if (entry.isSymbolicLink()) {
+      try {
+        isDirectory = fs.statSync(next).isDirectory();
+      } catch {
+        return;
+      }
+    }
+    if (index === components.length - 1) {
+      recordDirectoryDependency(isDirectory ? next : current, owners);
+      return;
+    }
+    if (!isDirectory) {
+      recordDirectoryDependency(current, owners);
       return;
     }
     current = next;
-    recordPackageDirectoryTopology(current, owners, visited);
   }
+  recordDirectoryDependency(current, owners);
 }
 
 function modulePackageName(specifier: string): string | undefined {
@@ -3082,7 +3147,7 @@ function sameResolutionPath(left: string, right: string): boolean {
 
 function finalizeDependencies(): Array<{
   digest: string;
-  kind: "directory" | "file";
+  kind: "directory" | "file" | "optional-file";
   path: string;
   scope: "cache" | "watch";
 }> {
