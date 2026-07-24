@@ -71,12 +71,17 @@ func TestProjectInputSnapshotReconcilesOptionsAndPhysicalPaths(t *testing.T) {
 
   first := collect("docs/old.md", "api/old/**/*.json")
   second := collect("docs/new.md", "api/new/**/*.yaml")
-  if first.Root != filepath.ToSlash(realProjectPath(physicalRoot)) ||
+  canonicalRoot := realProjectPath(physicalRoot)
+  if first.Root != filepath.ToSlash(canonicalRoot) ||
     second.Root != first.Root {
-    t.Fatalf("physical roots = %q then %q, want %q", first.Root, second.Root, physicalRoot)
+    t.Fatalf("physical roots = %q then %q, want %q", first.Root, second.Root, canonicalRoot)
   }
-  wantFiles := []string{filepath.ToSlash(filepath.Join(physicalRoot, "docs", "new.md"))}
-  wantGlobs := []string{filepath.ToSlash(filepath.Join(physicalRoot, "api", "new", "**", "*.yaml"))}
+  wantFiles := []string{
+    filepath.ToSlash(realProjectPath(filepath.Join(physicalRoot, "docs", "new.md"))),
+  }
+  wantGlobs := []string{
+    filepath.ToSlash(realProjectGlob(filepath.Join(physicalRoot, "api", "new", "**", "*.yaml"))),
+  }
   if !reflect.DeepEqual(second.Files, wantFiles) {
     t.Fatalf("replacement files = %#v, want %#v", second.Files, wantFiles)
   }

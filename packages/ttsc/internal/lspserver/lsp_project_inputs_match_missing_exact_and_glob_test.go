@@ -14,20 +14,24 @@ import (
 // create/change/delete notifications. Unrelated files and remote URIs remain
 // outside the filesystem contract.
 //
-//  1. Install one missing exact path and one JSON/YAML glob in a source.
+//  1. Normalize one missing exact path and two zero-match globs as a producer
+//     publishes them, then install that snapshot in a source.
 //  2. Match URI spellings for future files without creating them.
 //  3. Reject an unrelated Markdown file and an HTTPS resource.
 func TestProjectInputsMatchMissingExactAndGlob(t *testing.T) {
   root := t.TempDir()
-  source := &NativePluginSource{
-    projectInputs: LSPProjectInputSnapshot{
-      Root: filepath.ToSlash(root),
+  publishedPath := func(location string) string {
+    return filepath.ToSlash(realProjectInputPath(location))
+  }
+  snapshot, err := normalizeLSPProjectInputSnapshot(
+    LSPProjectInputSnapshot{
+      Root: publishedPath(root),
       Files: []string{
-        filepath.ToSlash(filepath.Join(root, "docs", "missing.md")),
+        publishedPath(filepath.Join(root, "docs", "missing.md")),
       },
       Globs: []string{
-        filepath.ToSlash(filepath.Join(root, "api", "**", "*.json")),
-        filepath.ToSlash(filepath.Join(
+        publishedPath(filepath.Join(root, "api", "**", "*.json")),
+        publishedPath(filepath.Join(
           root,
           "api",
           "**",
@@ -36,6 +40,13 @@ func TestProjectInputsMatchMissingExactAndGlob(t *testing.T) {
         )),
       },
     },
+    root,
+  )
+  if err != nil {
+    t.Fatalf("normalize project input snapshot: %v", err)
+  }
+  source := &NativePluginSource{
+    projectInputs: snapshot,
   }
 
   cases := []struct {

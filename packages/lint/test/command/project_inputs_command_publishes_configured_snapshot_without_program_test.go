@@ -77,17 +77,20 @@ func TestProjectInputsCommandPublishesConfiguredSnapshotWithoutProgram(t *testin
   if err := json.Unmarshal([]byte(stdout), &snapshot); err != nil {
     t.Fatalf("decode project-inputs stdout: %v\n%s", err, stdout)
   }
+  physicalRoot := realProjectPath(root)
   wantFiles := []string{
-    filepath.ToSlash(filepath.Join(root, "docs", "missing.md")),
-    filepath.ToSlash(filepath.Join(root, "lint.config.json")),
+    filepath.ToSlash(realProjectPath(filepath.Join(root, "docs", "missing.md"))),
+    filepath.ToSlash(realProjectPath(filepath.Join(root, "lint.config.json"))),
   }
-  if snapshot.Root != filepath.ToSlash(realProjectPath(root)) {
-    t.Fatalf("root = %q, want %q", snapshot.Root, root)
+  if snapshot.Root != filepath.ToSlash(physicalRoot) {
+    t.Fatalf("root = %q, want %q", snapshot.Root, physicalRoot)
   }
   if !reflect.DeepEqual(snapshot.Files, wantFiles) {
     t.Fatalf("files = %#v, want %#v", snapshot.Files, wantFiles)
   }
-  wantGlobs := []string{filepath.ToSlash(filepath.Join(root, "api", "**", "*.yaml"))}
+  wantGlobs := []string{
+    filepath.ToSlash(realProjectGlob(filepath.Join(root, "api", "**", "*.yaml"))),
+  }
   if !reflect.DeepEqual(snapshot.Globs, wantGlobs) {
     t.Fatalf("globs = %#v, want %#v", snapshot.Globs, wantGlobs)
   }
