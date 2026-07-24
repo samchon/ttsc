@@ -526,8 +526,11 @@ const graphEdges: Array<{
   packageBoundary: boolean;
   parent: string;
 }> = [];
-const normalizedConfigUrl = new URL(configUrl).href;
-const configLocation = fileURLToPath(normalizedConfigUrl);
+const configLocation = fileURLToPath(configUrl);
+// Spelled by the module system, so the records made here and the reachability
+// seed name the same URL. A producer with different escaping rules would
+// otherwise own the startup records under a spelling the walk never reaches.
+const normalizedConfigUrl = pathToFileURL(configLocation).href;
 graphNodes.set(normalizedConfigUrl, configLocation);
 recordDependency(
   "file",

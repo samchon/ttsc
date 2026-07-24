@@ -354,9 +354,10 @@ export class WatchTopology {
    * tracked file under the watched directory, which is the only safe answer it
    * can give from an event carrying no filename. macOS delivers such events for
    * ordinary activity elsewhere in the project, so the compiler lane would wake
-   * for sources nobody touched. A named event is already precise and is passed
-   * through untouched; an unnamed one is decided from the bytes on disk, which
-   * is the question the event could not answer.
+   * for sources nobody touched. Only a content notification passes through: it
+   * is the one event that claims the bytes moved. A rename claims the directory
+   * entry was rewritten and an unnamed event claims nothing, so both are
+   * decided from the bytes, which is the question neither of them answered.
    */
   private compilerChangesToReport(
     changes: readonly string[],
