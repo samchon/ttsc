@@ -86,8 +86,12 @@ export const test_watch_topology_registers_physical_watch_paths =
         true,
         `declared spelling expected, got ${JSON.stringify(reported)}`,
       );
+      // Compare against the spelling that would actually leak: the alias target
+      // reached through its own physical form, not the lexical path mkdtemp
+      // returned, which on macOS is itself an alias of the real location.
+      const leaked = fs.realpathSync.native(physicalRoot);
       assert.equal(
-        reported.some((location) => isPathWithin(physicalRoot, location)),
+        reported.some((location) => isPathWithin(leaked, location)),
         false,
         `physical spelling leaked into ${JSON.stringify(reported)}`,
       );

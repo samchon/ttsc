@@ -1536,24 +1536,44 @@ function matchesProjectInput(
   );
 }
 
-function projectInputTopologyMayAffect(
+/**
+ * Decide whether an event that named no declared input can still have moved
+ * one.
+ *
+ * The admitted set is the only bound on how often a watch session re-reads and
+ * re-hashes its declared corpus, and both directions cost: too narrow drops an
+ * atomic replacement, too wide re-fingerprints on every entry an install
+ * creates. Exported so that boundary is pinned directly instead of being
+ * inferred from a rebuild that a silent rescan and a skipped rescan produce
+ * identically.
+ */
+export function projectInputTopologyMayAffect(
   snapshot: ITtscProjectInputSnapshot,
   location: string,
-  previous: ReadonlyMap<string, string>,
+  previous: ReadonlyMap<string, string> = new Map(),
   identities = createProjectInputPathIdentityContext(),
 ): boolean {
   const changed = path.resolve(location);
-  // A directory event can replace, move, or re-anchor every declared population
-  // beneath it, and the delivered name is the container rather than the input:
-  // an atomic replacement reports the swapped directory, never the file whose
-  // bytes it changed. Admitting the event only costs a rescan, and the rescan
-  // still stays silent when no declared fingerprint moved.
-  if (isDirectory(changed)) return true;
-  return (
-    snapshot.files.some((file) => identities.isWithin(changed, file)) ||
+  const anchors = (directory: string): boolean =>
+    snapshot.files.some((file) => identities.isWithin(directory, file)) ||
     (snapshot.reloadFiles ?? []).some((file) =>
-      identities.isWithin(changed, file),
+      identities.isWithin(directory, file),
     ) ||
+    snapshot.globs.some((glob) =>
+      identities.isWithin(directory, literalGlobRoot(glob)),
+    );
+  // An atomic replacement never names the declared file whose bytes it changed;
+  // it names the directory that was swapped, and that directory can be one the
+  // declaration does not contain — renaming `docs` away reports the arriving
+  // `docs-old`, not `docs`. So a directory event is admitted from where it
+  // happened rather than from what it contains: its own parent must already lie
+  // on the path to a declared input. An unrelated tree such as `node_modules`
+  // then cannot force a population rescan and a full content re-fingerprint
+  // once per created entry, which an install or a checkout would otherwise do
+  // thousands of times.
+  if (isDirectory(changed) && anchors(path.dirname(changed))) return true;
+  return (
+    anchors(changed) ||
     (snapshot.reloadDirectories ?? []).some((directory) =>
       identities.isWithin(directory, changed),
     ) ||
@@ -1917,21 +1937,25 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 /**
  * Resolve the spelling a filesystem watcher must be registered under.
  *
- * A watch declaration keeps its lexical spelling because every classification,
- * containment, and notification decision is expressed in the caller's own
- * paths. The watcher backend needs the physical spelling instead: libuv stores
- * the string handed to `uv_fs_event_start` and, on Windows, expands each event
- * to its long path before requiring the stored string to be its prefix. A short
- * (8.3) component — which `os.tmpdir()` routinely yields — therefore aborts the
- * process on the first event. macOS resolves the watched path through symlinks
- * before matching, so `/var` and `/private/var` must not be mixed either.
- * Registering the physical spelling keeps both backends aligned while callers
- * keep resolving events against their declared paths.
+ * A watch declaration keeps its lexical spelling, because classification,
+ * containment, and notification are all expressed in the caller's own paths.
+ * The backend needs the canonical spelling instead. On Windows, a recursive
+ * watch whose path carries a short (8.3) component fails libuv's prefix
+ * assertion in `uv__relative_path` and aborts the process on the first event
+ * (libuv issue 5010, fixed upstream by turning the assertion into an error);
+ * `os.tmpdir()` routinely yields such a path, so this is reachable by ordinary
+ * projects, not only by tests. macOS matches events against the watched path
+ * resolved through symlinks, so `/var` and `/private/var` must not be mixed
+ * either. Resolving here keeps every backend comparing two canonical spellings
+ * while callers keep resolving events against what they declared.
  */
 function watcherRegistrationPath(location: string): string {
   try {
-    return fs.realpathSync.native(location);
+    return fs.realpathSync.native?.(location) ?? fs.realpathSync(location);
   } catch {
+    // A vanished target makes fs.watch throw anyway, which syncWatchers already
+    // routes to the error path; an unreadable ancestor is better watched under
+    // its declared spelling than not watched at all.
     return location;
   }
 }
