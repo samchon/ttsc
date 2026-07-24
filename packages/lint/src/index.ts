@@ -426,10 +426,43 @@ function readConfigPluginEntries(
   configPath: string,
   context: TtscPluginFactoryContext<ITtscLintPluginConfig>,
 ): ConfigPluginEntry[] {
-  // Every config uses the same isolated evaluator. JSON can name contributor
-  // packages whose top-level code writes to stdout, so loading its strings in
-  // this host process would corrupt CLI JSON or preface the first LSP frame.
+  // A JSON config that names no contributor has nothing to extract, and reading
+  // it runs no user code, so the isolated evaluator is not needed to keep its
+  // strings away from stdout. Skipping it there matters beyond the cost: the
+  // evaluator is a real subprocess, and a host that only wanted to know whether
+  // there were contributors would otherwise depend on a launcher being
+  // resolvable and on a compiler accepting one more invocation.
+  if (jsonConfigDeclaresNoContributor(configPath)) return [];
+  // Every other config uses the same isolated evaluator. Executable config can
+  // name contributor packages whose top-level code writes to stdout, so loading
+  // it in this host process would corrupt CLI JSON or preface the first LSP
+  // frame.
   return readTtsxConfigPlugins(configPath, context);
+}
+
+function jsonConfigDeclaresNoContributor(configPath: string): boolean {
+  if (path.extname(configPath).toLowerCase() !== ".json") return false;
+  try {
+    const value: unknown = JSON.parse(fs.readFileSync(configPath, "utf8"));
+    return configObjectsDeclaringPlugins(value).length === 0;
+  } catch {
+    // A malformed config is the evaluator's diagnostic to report, not this
+    // shortcut's, so it falls through to the path that reports it.
+    return false;
+  }
+}
+
+/** Every object in a config that declares a `plugins` map, flattened. */
+function configObjectsDeclaringPlugins(
+  value: unknown,
+): Record<string, unknown>[] {
+  if (Array.isArray(value)) {
+    return value.flatMap((entry) => configObjectsDeclaringPlugins(entry));
+  }
+  if (value === null || typeof value !== "object") return [];
+  const record = value as Record<string, unknown>;
+  const plugins = record.plugins;
+  return plugins !== undefined && plugins !== null ? [record] : [];
 }
 
 // TypeScript source written to a temp file and executed via ttsx. The
