@@ -12,7 +12,8 @@ import {
  * Verifies a failed topology refresh still schedules the resident config lane.
  *
  * 1. Delete the active config and observe a config change despite parse failure.
- * 2. Recreate it and prove the same watch session observes the replacement.
+ * 2. Recreate and atomically replace it, preserving the same watch session.
+ * 3. Prove an ordinary POSIX write produces one config notification after rearm.
  */
 export const test_watch_topology_reports_deleted_config_and_recreation =
   async (): Promise<void> => {
@@ -58,10 +59,45 @@ export const test_watch_topology_reports_deleted_config_and_recreation =
           deletionCount,
         "config recreation",
       );
+      await settle();
+
+      const replacement = path.join(root, "tsconfig.next.json");
+      fs.writeFileSync(replacement, configText, "utf8");
+      await settle();
+      const beforeReplacement = configChangeCount(changes);
+      fs.renameSync(replacement, config);
+      await waitFor(
+        () => configChangeCount(changes) > beforeReplacement,
+        "atomic config replacement",
+      );
+      await settle();
+
+      const beforeOrdinaryWrite = configChangeCount(changes);
+      fs.appendFileSync(config, "\n", "utf8");
+      await waitFor(
+        () => configChangeCount(changes) > beforeOrdinaryWrite,
+        "post-replacement config edit",
+      );
+      await settle();
+      if (process.platform !== "win32") {
+        assert.equal(
+          configChangeCount(changes) - beforeOrdinaryWrite,
+          1,
+          JSON.stringify(changes),
+        );
+      }
     } finally {
       topology.close();
     }
   };
+
+function configChangeCount(changes: readonly WatchInputChange[]): number {
+  return changes.filter((change) => change.kind === "config").length;
+}
+
+function settle(): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, 250));
+}
 
 async function waitFor(predicate: () => boolean, label: string): Promise<void> {
   const deadline = Date.now() + 5_000;

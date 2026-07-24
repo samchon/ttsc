@@ -5,10 +5,7 @@ import "testing"
 // TestProjectDiagnosticsRefreshAccumulatesOwnerFreshness verifies separate
 // successful refreshes can jointly satisfy one affected-producer generation.
 func TestProjectDiagnosticsRefreshAccumulatesOwnerFreshness(t *testing.T) {
-  proxy := NewProxy(ProxyOptions{
-    Source: &NativePluginSource{},
-  })
-  defer proxy.stopProjectDiagnosticRefresh()
+  proxy := &Proxy{}
   proxy.projectDiagnosticRefreshPending = true
   proxy.pendingProjectDiagnosticGeneration = 2
   proxy.pendingProjectDiagnosticOwners = map[string]struct{}{
@@ -47,16 +44,10 @@ func TestProjectDiagnosticsRefreshAccumulatesOwnerFreshness(t *testing.T) {
   // A newer watched event can arrive after record reports completion but
   // before its caller clears the old generation. The newer scope must survive
   // that rejected completion unchanged.
-  proxy.projectDiagnosticGeneration = 2
-  proxy.scheduleProjectDiagnosticRefresh(projectDiagnosticOwnerScope{
-    owners: map[string]struct{}{"alpha": {}},
-  })
-  proxy.projectRefreshMu.Lock()
-  if proxy.projectRefreshTimer != nil {
-    proxy.projectRefreshTimer.Stop()
-    proxy.projectRefreshTimer = nil
-  }
-  proxy.projectRefreshMu.Unlock()
+  proxy.projectDiagnosticGeneration = 3
+  proxy.pendingProjectDiagnosticGeneration = 3
+  proxy.projectDiagnosticRefreshPending = true
+  proxy.pendingProjectDiagnosticOwners = map[string]struct{}{"alpha": {}}
   proxy.completePendingProjectDiagnosticRefresh(2)
   proxy.projectRefreshMu.Lock()
   defer proxy.projectRefreshMu.Unlock()
