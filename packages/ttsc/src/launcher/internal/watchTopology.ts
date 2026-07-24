@@ -496,10 +496,19 @@ export class WatchTopology {
     identities: ProjectInputPathIdentityContext,
   ): void {
     const key = identities.resolve(location).key;
-    const watcher = this.projectInputWatchers.get(key);
-    if (watcher === undefined) return;
-    watcher.close();
-    this.projectInputWatchers.delete(key);
+    // A plain directory watcher binds an inode, so a replacement strands it
+    // exactly as it strands a recursive root. Both maps are keyed the same way,
+    // so both are retired together and the next sync reinstalls whichever the
+    // declarations still call for.
+    for (const watchers of [
+      this.projectInputWatchers,
+      this.projectInputLinkWatchers,
+    ]) {
+      const watcher = watchers.get(key);
+      if (watcher === undefined) continue;
+      watcher.close();
+      watchers.delete(key);
+    }
   }
 
   private retainProjectInputWatchRoot(

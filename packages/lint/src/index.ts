@@ -439,7 +439,14 @@ function readConfigPluginEntries(
 // as a JSON array for the parent process to parse — avoiding the need to
 // serialise arbitrary in-memory plugin objects across the process boundary.
 // The URL lives in a variable so tsgo does not statically resolve it.
-const TTSX_EXTRACTOR_SCRIPT = `// @ts-ignore -- internal loader must not require user-installed Node typings.
+/**
+ * The descriptor extractor's emitted source.
+ *
+ * Exported so a regression can inspect the same bytes the loader executes. The
+ * template consumes its own escapes, so reading this file's text instead would
+ * check characters no consumer ever sees.
+ */
+export const TTSX_EXTRACTOR_SCRIPT = `// @ts-ignore -- internal loader must not require user-installed Node typings.
 import * as fs from "node:fs";
 // @ts-ignore -- internal loader must not require user-installed Node typings.
 import { Buffer } from "node:buffer";
