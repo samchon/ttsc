@@ -465,19 +465,6 @@ export class WatchTopology {
   }
 
   /**
-   * Every spelling of one declaration that has to be anchored separately.
-   *
-   * The retained snapshot is normalized to physical identities, which is what
-   * every comparison needs but not what every watcher needs: a declaration
-   * reached through a symlink resolves to its target's directory, so anchoring
-   * the normalized form alone watches the bytes and never the link. Retargeting
-   * or replacing the link then goes unobserved, even though it is exactly what
-   * decides which bytes the declaration names next. Both spellings are planned
-   * through the same root selection, so the project-root hoist and the
-   * nearest-existing-ancestor boundary still bound each of them, and the active
-   * set drops one again whenever they coincide or share an ancestor.
-   */
-  /**
    * One snapshot holding every spelling of every declaration.
    *
    * Consumers that decide from a population rather than from a single path have
@@ -495,6 +482,19 @@ export class WatchTopology {
     };
   }
 
+  /**
+   * Every spelling of one declaration that has to be anchored separately.
+   *
+   * The retained snapshot is normalized to physical identities, which is what
+   * every comparison needs but not what every watcher needs: a declaration
+   * reached through a symlink resolves to its target's directory, so anchoring
+   * the normalized form alone watches the bytes and never the link. Retargeting
+   * or replacing the link then goes unobserved, even though it is exactly what
+   * decides which bytes the declaration names next. Both spellings are planned
+   * through the same root selection, so the project-root hoist and the
+   * nearest-existing-ancestor boundary still bound each of them, and the active
+   * set drops one again whenever they coincide or share an ancestor.
+   */
   private projectInputDeclarations(
     kind: "file" | "glob" | "reload" | "reload-directory",
   ): string[] {

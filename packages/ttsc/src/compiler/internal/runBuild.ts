@@ -1651,13 +1651,6 @@ function discoverNativeProjectInputs(
   return mergeProjectInputSnapshots(execution.projectRoot, snapshots);
 }
 
-/**
- * Keep one declared spelling per identity, chosen without regard to order.
- *
- * Two producers can declare the same file under different aliases, and the
- * merged snapshot has to be canonical: last-write-wins would make the published
- * topology depend on which contributor ran first.
- */
 function arraysEqual(
   left: readonly string[],
   right: readonly string[],
@@ -1667,13 +1660,28 @@ function arraysEqual(
   );
 }
 
+/**
+ * Keep every declared spelling of one identity, ordered without regard to which
+ * producer ran first.
+ *
+ * Two contributors can name the same file through different aliases, and each
+ * alias is a path a watcher has to observe: keeping only one of them would
+ * discard the link whose retarget the other spelling exists to catch. Sorting
+ * makes the merged snapshot canonical, which last-write-wins would not be.
+ */
 function retainDeclaredSpelling(
-  target: Map<string, string>,
+  target: Map<string, string[]>,
   key: string,
   declared: string,
 ): void {
   const previous = target.get(key);
-  if (previous === undefined || declared < previous) target.set(key, declared);
+  if (previous === undefined) {
+    target.set(key, [declared]);
+    return;
+  }
+  if (previous.includes(declared)) return;
+  previous.push(declared);
+  previous.sort();
 }
 
 export function mergeProjectInputSnapshots(
@@ -1689,10 +1697,10 @@ export function mergeProjectInputSnapshots(
   // wrote. Normalization resolves a declaration through its symlinks, which is
   // right for every comparison and wrong for the watcher that has to observe
   // the link itself being retargeted.
-  const declaredFiles = new Map<string, string>();
-  const declaredGlobs = new Map<string, string>();
-  const declaredReloadDirectories = new Map<string, string>();
-  const declaredReloadFiles = new Map<string, string>();
+  const declaredFiles = new Map<string, string[]>();
+  const declaredGlobs = new Map<string, string[]>();
+  const declaredReloadDirectories = new Map<string, string[]>();
+  const declaredReloadFiles = new Map<string, string[]>();
   const rootIdentity = identities.resolve(fallbackRoot);
   for (const snapshot of snapshots) {
     const candidateRoot = identities.resolve(snapshot.root);
@@ -1742,10 +1750,10 @@ export function mergeProjectInputSnapshots(
     reloadFiles: [...reloadFiles.values()].sort(),
   };
   const declared = {
-    files: [...declaredFiles.values()].sort(),
-    globs: [...declaredGlobs.values()].sort(),
-    reloadDirectories: [...declaredReloadDirectories.values()].sort(),
-    reloadFiles: [...declaredReloadFiles.values()].sort(),
+    files: [...declaredFiles.values()].flat().sort(),
+    globs: [...declaredGlobs.values()].flat().sort(),
+    reloadDirectories: [...declaredReloadDirectories.values()].flat().sort(),
+    reloadFiles: [...declaredReloadFiles.values()].flat().sort(),
   };
   // Carried only when it says something the normalized arrays do not. A tree
   // with no alias on any declaration produces the same four lists, and a

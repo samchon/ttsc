@@ -2739,10 +2739,12 @@ function samePhysicalPath(left, right) {
   try {
     return sameResolutionPath(realPath(left), realPath(right));
   } catch {
-    // A path that cannot be resolved cannot be shown to be the same file, and
-    // answering from the lexical spelling would return the very answer this
-    // comparison exists to replace.
-    return false;
+    // A lexical comparison can only miss an alias, never invent one, so it is
+    // a weaker answer rather than a wrong one. Refusing to answer at all would
+    // discard the identical-spelling case, and on the entry gate that means a
+    // config whose realpath momentarily fails stops being recognized as the
+    // entry and takes its whole dependency graph with it.
+    return sameResolutionPath(left, right);
   }
 }
 
@@ -3855,10 +3857,12 @@ function samePhysicalPath(left: string, right: string): boolean {
   try {
     return sameResolutionPath(realPath(left), realPath(right));
   } catch {
-    // A path that cannot be resolved cannot be shown to be the same file, and
-    // answering from the lexical spelling would return the very answer this
-    // comparison exists to replace.
-    return false;
+    // A lexical comparison can only miss an alias, never invent one, so it is
+    // a weaker answer rather than a wrong one. Refusing to answer at all would
+    // discard the identical-spelling case, and on the entry gate that means a
+    // config whose realpath momentarily fails stops being recognized as the
+    // entry and takes its whole dependency graph with it.
+    return sameResolutionPath(left, right);
   }
 }
 
