@@ -1666,8 +1666,8 @@ function arraysEqual(
  *
  * Two contributors can name the same file through different aliases, and each
  * alias is a path a watcher has to observe: keeping only one of them would
- * discard the link whose retarget the other spelling exists to catch. Sorting
- * makes the merged snapshot canonical, which last-write-wins would not be.
+ * discard the link whose retarget the other spelling exists to catch. Insertion
+ * order is not canonical, so the caller sorts the flattened result.
  */
 function retainDeclaredSpelling(
   target: Map<string, string[]>,
@@ -1681,7 +1681,6 @@ function retainDeclaredSpelling(
   }
   if (previous.includes(declared)) return;
   previous.push(declared);
-  previous.sort();
 }
 
 export function mergeProjectInputSnapshots(

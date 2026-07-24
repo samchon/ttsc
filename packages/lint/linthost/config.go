@@ -1768,7 +1768,7 @@ func runConfigLoaderCommand(
   // A loader diagnostic is only useful when the load succeeds, because a
   // failure already carries the same text in its message. Forward it so an
   // assertion about what the loader recorded can name what it resolved.
-  if os.Getenv("TTSC_LINT_DEBUG_CONFIG_GRAPH") != "" {
+  if err == nil && os.Getenv("TTSC_LINT_DEBUG_CONFIG_GRAPH") != "" {
     if text := strings.TrimSpace(stderr.String()); text != "" {
       fmt.Fprintln(os.Stderr, text)
     }
@@ -2739,12 +2739,14 @@ function samePhysicalPath(left, right) {
   try {
     return sameResolutionPath(realPath(left), realPath(right));
   } catch {
-    // A lexical comparison can only miss an alias, never invent one, so it is
-    // a weaker answer rather than a wrong one. Refusing to answer at all would
-    // discard the identical-spelling case, and on the entry gate that means a
-    // config whose realpath momentarily fails stops being recognized as the
-    // entry and takes its whole dependency graph with it.
-    return sameResolutionPath(left, right);
+    // Fall back to the spellings themselves. Refusing to answer would discard
+    // the identical-spelling case, and on the entry gate that means a config
+    // whose realpath momentarily fails stops being recognized as the entry and
+    // takes its whole dependency graph with it. The comparison is exact rather
+    // than lexical, because a relative-path comparison folds case on Windows
+    // and collapses dot segments, either of which would call two distinct files
+    // the same one.
+    return path.resolve(left) === path.resolve(right);
   }
 }
 
@@ -3857,12 +3859,14 @@ function samePhysicalPath(left: string, right: string): boolean {
   try {
     return sameResolutionPath(realPath(left), realPath(right));
   } catch {
-    // A lexical comparison can only miss an alias, never invent one, so it is
-    // a weaker answer rather than a wrong one. Refusing to answer at all would
-    // discard the identical-spelling case, and on the entry gate that means a
-    // config whose realpath momentarily fails stops being recognized as the
-    // entry and takes its whole dependency graph with it.
-    return sameResolutionPath(left, right);
+    // Fall back to the spellings themselves. Refusing to answer would discard
+    // the identical-spelling case, and on the entry gate that means a config
+    // whose realpath momentarily fails stops being recognized as the entry and
+    // takes its whole dependency graph with it. The comparison is exact rather
+    // than lexical, because a relative-path comparison folds case on Windows
+    // and collapses dot segments, either of which would call two distinct files
+    // the same one.
+    return path.resolve(left) === path.resolve(right);
   }
 }
 

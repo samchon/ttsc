@@ -68,7 +68,9 @@ func TestConfigLoaderSourcesEscapeEveryLiteralPercent(t *testing.T) {
 //
 // Counting per line is enough because neither loader contains a multi-line
 // string: every literal opens and closes on one line, and the only escapes in
-// front of a quote are backslashes, which are skipped with their successor.
+// front of a quote are backslashes, which are skipped with their successor. A
+// line comment ends the scan, so prose carrying a lone quote cannot fail the
+// build with a message about a string literal it does not contain.
 func unbalancedQuoteLine(source string) (string, bool) {
   for _, line := range strings.Split(source, "\n") {
     quotes := 0
@@ -76,6 +78,12 @@ func unbalancedQuoteLine(source string) (string, bool) {
       if line[index] == '\\' {
         index++
         continue
+      }
+      if quotes%2 == 0 &&
+        line[index] == '/' &&
+        index+1 < len(line) &&
+        line[index+1] == '/' {
+        break
       }
       if line[index] == '"' {
         quotes++
