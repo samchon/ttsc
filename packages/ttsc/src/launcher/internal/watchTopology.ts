@@ -76,6 +76,7 @@ export class WatchTopology {
   private directoryWatchers = new Map<string, fs.FSWatcher>();
   private extraInputs: readonly string[] = [];
   private extraWatchers = new Map<string, fs.FSWatcher>();
+  private compilerFileStamps = new Map<string, string>();
   private files = new Map<string, string>();
   private fileWatchers = new Map<string, fs.FSWatcher>();
   private observedDirectories = new Map<string, string>();
@@ -131,6 +132,12 @@ export class WatchTopology {
       mapsEqual(this.reloadFiles, next.reloadFiles) === false;
     this.analysisOnly = next.analysisOnly;
     this.files = next.files;
+    // Stamp the tracked set as it is resolved, so the first event that cannot
+    // name what changed compares against the state the compiler just saw rather
+    // than against nothing, which would make it nominate everything once.
+    this.compilerFileStamps = new Map(
+      [...next.files].map(([key, file]) => [key, compilerFileStamp(file)]),
+    );
     this.directories = next.directories;
     this.outputFiles = next.outputFiles;
     this.outputs = next.outputs;
@@ -301,7 +308,10 @@ export class WatchTopology {
               trackedFiles: this.files,
             });
             this.rearmFileWatchers(plan.rearm);
-            for (const file of plan.changes) {
+            for (const file of this.compilerChangesToReport(
+              plan.changes,
+              changed,
+            )) {
               this.callbacks.onInputChange({
                 kind: this.classifyCompilerInput(file),
                 path: file,
@@ -312,6 +322,40 @@ export class WatchTopology {
         ),
       (location, error) => this.callbacks.onError(location, error),
     );
+  }
+
+  /**
+   * Narrow a plan's changes to the tracked files that actually moved.
+   *
+   * A backend that cannot name what changed forces the plan to nominate every
+   * tracked file under the watched directory, which is the only safe answer it
+   * can give from an event carrying no filename. macOS delivers such events for
+   * ordinary activity elsewhere in the project, so the compiler lane would wake
+   * for sources nobody touched. A named event is already precise and is passed
+   * through untouched; an unnamed one is decided from the bytes on disk, which
+   * is the question the event could not answer.
+   */
+  private compilerChangesToReport(
+    changes: readonly string[],
+    changed: string | undefined,
+  ): string[] {
+    if (changed !== undefined) {
+      for (const file of changes) this.recordCompilerFileStamp(file);
+      return [...changes];
+    }
+    const moved: string[] = [];
+    for (const file of changes) {
+      const key = pathKey(file);
+      const stamp = compilerFileStamp(file);
+      if (this.compilerFileStamps.get(key) === stamp) continue;
+      this.compilerFileStamps.set(key, stamp);
+      moved.push(file);
+    }
+    return moved;
+  }
+
+  private recordCompilerFileStamp(file: string): void {
+    this.compilerFileStamps.set(pathKey(file), compilerFileStamp(file));
   }
 
   private rearmFileWatchers(files: readonly string[]): void {
@@ -1663,6 +1707,22 @@ function projectInputRecursiveWatchRoot(
     return nearestExistingDirectory(resolvedProjectRoot);
   }
   return nearestExistingDirectory(path.dirname(resolvedTarget));
+}
+
+/**
+ * A cheap identity for a tracked file's current bytes.
+ *
+ * Modification time and size together answer "did this move" without reading
+ * the file, which is all the unnamed-event path needs; a file that vanished
+ * answers as absent rather than as unchanged.
+ */
+function compilerFileStamp(location: string): string {
+  try {
+    const stats = fs.statSync(location);
+    return `${stats.mtimeMs}:${stats.size}`;
+  } catch {
+    return "";
+  }
 }
 
 function isSymbolicLink(location: string): boolean {
