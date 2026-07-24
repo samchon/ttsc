@@ -223,7 +223,7 @@ export type ResidentCheckWatchChange = {
  */
 export class ResidentCheckWatchSession {
   private execution: ReturnType<typeof resolveExecutionContext> | undefined;
-  private readonly pendingChanges = new Map<string, ResidentCheckRequest>();
+  private readonly pendingChanges = new Map<number, ResidentCheckRequest>();
   private projectInputs: ITtscProjectInputSnapshot | undefined;
   private readonly processes = new Map<string, ResidentCheckProcess>();
 
@@ -356,10 +356,11 @@ export class ResidentCheckWatchSession {
     };
     const checks = execution.nativePlugins
       .filter((candidate) => candidate.stage === "check")
-      .map((plugin) => {
+      .map((plugin, entryIndex) => {
         const args = createNativeCheckArgs(execution, options, plugin);
         return {
           args,
+          entryIndex,
           key:
             plugin.capabilities?.residentCheck === true
               ? residentCheckProcessKey(plugin, args)
@@ -374,12 +375,15 @@ export class ResidentCheckWatchSession {
     for (const check of checks) {
       if (check.key === undefined) continue;
       this.pendingChanges.set(
-        check.key,
-        mergeResidentCheckRequests(this.pendingChanges.get(check.key), request),
+        check.entryIndex,
+        mergeResidentCheckRequests(
+          this.pendingChanges.get(check.entryIndex),
+          request,
+        ),
       );
     }
 
-    for (const { args, key, plugin } of checks) {
+    for (const { args, entryIndex, key, plugin } of checks) {
       let result: TtscBuildResult;
       if (key === undefined) {
         result = runNativePluginCommand(
@@ -404,8 +408,10 @@ export class ResidentCheckWatchSession {
           this.processes.set(key, resident);
         }
         try {
-          const reply = await resident.request(this.pendingChanges.get(key)!);
-          this.pendingChanges.delete(key);
+          const reply = await resident.request(
+            this.pendingChanges.get(entryIndex)!,
+          );
+          this.pendingChanges.delete(entryIndex);
           result = normalizeBuildOutput(
             {
               status: reply.status,
@@ -419,7 +425,7 @@ export class ResidentCheckWatchSession {
           this.processes.delete(key);
           // The one-shot fallback observes the complete current filesystem,
           // and a later sidecar starts cold, so neither needs old deltas.
-          this.pendingChanges.delete(key);
+          this.pendingChanges.delete(entryIndex);
           // A capability-aware host may still disappear or violate framing.
           // Preserve correctness by running the established one-shot command
           // for this cycle; the next cycle gets one clean respawn attempt.
