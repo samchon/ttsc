@@ -280,17 +280,24 @@ function resolveCompilerOptionPath(
   value: string,
 ): string {
   if (
-    value.slice(0, CONFIG_DIR_TEMPLATE.length).toLowerCase() ===
+    value.slice(0, CONFIG_DIR_TEMPLATE.length).toLowerCase() !==
     CONFIG_DIR_TEMPLATE.toLowerCase()
   ) {
-    const suffix = value.slice(CONFIG_DIR_TEMPLATE.length);
-    // TypeScript replaces the template with "./" before normalizing the
-    // result. Preserve that relative prefix even when the suffix resembles an
-    // absolute Windows path, and normalize either config-file separator on
-    // every host.
-    return resolveAbsolutePath(configDir, `./${suffix}`.replaceAll("\\", "/"));
+    return resolveAbsolutePath(declaringDir, value);
   }
-  return resolveAbsolutePath(declaringDir, value);
+  // The compiler picks the base directory from a case-insensitive prefix but
+  // substitutes only the exact spelling, so a mis-cased template still anchors
+  // here while staying in the path as written. Both halves are reproduced: this
+  // function exists to say where the compiler will put the file, and a value
+  // the compiler leaves literal is not ours to interpret.
+  //
+  // The exact spelling becomes "./" before the result is normalized, which
+  // keeps the value relative even when its remainder resembles an absolute
+  // Windows path. Either config-file separator is accepted on every host.
+  const substituted = value.startsWith(CONFIG_DIR_TEMPLATE)
+    ? `./${value.slice(CONFIG_DIR_TEMPLATE.length)}`
+    : value;
+  return resolveAbsolutePath(configDir, substituted.replaceAll("\\", "/"));
 }
 
 /**

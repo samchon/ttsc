@@ -59,4 +59,23 @@ export const test_readprojectconfig_substitutes_configdir_from_the_final_consume
       project.compilerOptions.tsBuildInfoFile,
       path.join(root, "cache", "build.tsbuildinfo"),
     );
+
+    // The compiler recognizes the template without regard to case but rewrites
+    // only the exact spelling, so a mis-cased one anchors on the consuming
+    // config and then stays in the path exactly as written. This function
+    // reports where the compiler will put the file, so it reproduces both
+    // halves rather than the half that reads like the intent.
+    const miscased = TestProject.tmpdir("ttsc-config-dir-miscased-");
+    fs.writeFileSync(
+      path.join(miscased, "tsconfig.json"),
+      JSON.stringify({ compilerOptions: { outDir: "${ConfigDir}/dist" } }),
+      "utf8",
+    );
+    assert.equal(
+      readProjectConfig({
+        cwd: miscased,
+        tsconfig: path.join(miscased, "tsconfig.json"),
+      }).compilerOptions.outDir,
+      path.resolve(miscased, "${ConfigDir}/dist"),
+    );
   };

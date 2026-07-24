@@ -34,6 +34,10 @@ jobs:
   watch-platforms:
     name: watch (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    # These tests block on filesystem notifications, so a platform that stops
+    # delivering one does not fail — it waits. Without a bound that becomes the
+    # six-hour default, three times over.
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:

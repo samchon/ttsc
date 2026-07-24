@@ -52,6 +52,8 @@ type LSPDocumentVersion = lspserver.LSPDocumentVersion
 // LSPProjectDiagnostics is the driver-level alias for a project publication.
 type LSPProjectDiagnostics = lspserver.LSPProjectDiagnostics
 
+// LSPProjectInputSnapshot is the driver-level alias for the set of paths a
+// producer declares its answers depend on.
 type LSPProjectInputSnapshot = lspserver.LSPProjectInputSnapshot
 
 // LSPDiagnosticsResult separates document and project plugin diagnostics.
