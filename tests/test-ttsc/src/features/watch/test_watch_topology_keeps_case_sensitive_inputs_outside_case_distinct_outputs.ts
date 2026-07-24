@@ -29,7 +29,7 @@ export const test_watch_topology_keeps_case_sensitive_inputs_outside_case_distin
     fs.writeFileSync(source, "export const value = 1;\n", "utf8");
 
     const external = TestProject.tmpdir("ttsc-project-input-output-external-");
-    if (enableWindowsCaseSensitivity(external) === false) return;
+    enableWindowsCaseSensitivity(external);
     const outputRoot = path.join(external, "Output");
     const inputRoot = path.join(external, "output");
     fs.mkdirSync(outputRoot);
@@ -119,8 +119,8 @@ function projectChangeCount(changes: readonly WatchInputChange[]): number {
   return changes.filter((change) => change.kind === "project").length;
 }
 
-function enableWindowsCaseSensitivity(directory: string): boolean {
-  if (process.platform !== "win32") return true;
+function enableWindowsCaseSensitivity(directory: string): void {
+  if (process.platform !== "win32") return;
   const result = childProcess.spawnSync(
     "fsutil.exe",
     ["file", "setCaseSensitiveInfo", directory, "enable"],
@@ -129,7 +129,7 @@ function enableWindowsCaseSensitivity(directory: string): boolean {
       windowsHide: true,
     },
   );
-  return result.status === 0;
+  assert.equal(result.status, 0, result.error?.message ?? result.stderr);
 }
 
 function createCaseDistinctDirectory(directory: string): boolean {
@@ -137,7 +137,12 @@ function createCaseDistinctDirectory(directory: string): boolean {
     fs.mkdirSync(directory);
     return true;
   } catch (error) {
-    if (error instanceof Error && "code" in error && error.code === "EEXIST") {
+    if (
+      process.platform === "darwin" &&
+      error instanceof Error &&
+      "code" in error &&
+      error.code === "EEXIST"
+    ) {
       return false;
     }
     throw error;

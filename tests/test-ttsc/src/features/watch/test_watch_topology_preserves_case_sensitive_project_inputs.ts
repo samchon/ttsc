@@ -4,6 +4,7 @@ import childProcess from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 
+import { probeProjectInputDirectoryCaseSensitivity } from "../../../../../packages/ttsc/lib/internal/projectInputPathIdentity.js";
 import {
   type WatchInputChange,
   WatchTopology,
@@ -39,7 +40,7 @@ export const test_watch_topology_preserves_case_sensitive_project_inputs =
     );
 
     const external = TestProject.tmpdir("ttsc-project-input-case-external-");
-    if (enableWindowsCaseSensitivity(external) === false) return;
+    enableWindowsCaseSensitivity(external);
     const upperRoot = path.join(external, "Project");
     const lowerRoot = path.join(external, "project");
     fs.mkdirSync(upperRoot);
@@ -105,6 +106,24 @@ export const test_watch_topology_preserves_case_sensitive_project_inputs =
       fs.writeFileSync(lowerJson, '{"removed":true}\n', "utf8");
       await delay();
       assert.equal(changes.length, count, JSON.stringify(changes.slice(count)));
+
+      const emptyRoot = path.join(external, "Empty");
+      fs.mkdirSync(emptyRoot);
+      topology.setProjectInputs({
+        root,
+        files: [],
+        globs: [path.join(emptyRoot, "**", "*")],
+      });
+      await delay();
+      const beforeProbe = changes.length;
+      probeProjectInputDirectoryCaseSensitivity(emptyRoot);
+      await delay();
+      assert.equal(
+        changes.length,
+        beforeProbe,
+        JSON.stringify(changes.slice(beforeProbe)),
+      );
+      assert.deepEqual(fs.readdirSync(emptyRoot), []);
     } finally {
       topology.close();
     }
@@ -132,8 +151,8 @@ function projectChangeCount(changes: readonly WatchInputChange[]): number {
   return changes.filter((change) => change.kind === "project").length;
 }
 
-function enableWindowsCaseSensitivity(directory: string): boolean {
-  if (process.platform !== "win32") return true;
+function enableWindowsCaseSensitivity(directory: string): void {
+  if (process.platform !== "win32") return;
   const result = childProcess.spawnSync(
     "fsutil.exe",
     ["file", "setCaseSensitiveInfo", directory, "enable"],
@@ -142,7 +161,7 @@ function enableWindowsCaseSensitivity(directory: string): boolean {
       windowsHide: true,
     },
   );
-  return result.status === 0;
+  assert.equal(result.status, 0, result.error?.message ?? result.stderr);
 }
 
 function createCaseDistinctDirectory(directory: string): boolean {
@@ -150,7 +169,12 @@ function createCaseDistinctDirectory(directory: string): boolean {
     fs.mkdirSync(directory);
     return true;
   } catch (error) {
-    if (error instanceof Error && "code" in error && error.code === "EEXIST") {
+    if (
+      process.platform === "darwin" &&
+      error instanceof Error &&
+      "code" in error &&
+      error.code === "EEXIST"
+    ) {
       return false;
     }
     throw error;
