@@ -70,22 +70,26 @@ export const test_watch_topology_registers_physical_watch_paths =
     );
     try {
       topology.refresh(false);
+      // Only paths this class resolved from an event are in scope. A config
+      // path arrives already canonicalized from the project reader, which owns
+      // that normalization and is not what this case is about, so the wait ends
+      // on a source change rather than on any change at all.
+      const sourceChanges = (): string[] =>
+        changes
+          .map((change) => change.path)
+          .filter((location): location is string => location !== undefined)
+          .filter((location) => path.basename(location) === "main.ts");
       const deadline = Date.now() + 5_000;
-      while (changes.length === 0) {
+      while (sourceChanges().length === 0) {
         if (Date.now() >= deadline) {
-          assert.fail("an aliased project root must still deliver events");
+          assert.fail(
+            `an aliased project root must still deliver events: ${JSON.stringify(changes)}`,
+          );
         }
         fs.writeFileSync(source, "export const value = 2;\n", "utf8");
         await new Promise((resolve) => setTimeout(resolve, 25));
       }
-      // Only paths this class resolved from an event are in scope. A config
-      // path arrives already canonicalized from the project reader, which owns
-      // that normalization and is not what this case is about.
-      const reported = changes
-        .map((change) => change.path)
-        .filter((location): location is string => location !== undefined)
-        .filter((location) => path.basename(location) === "main.ts");
-      assert.notEqual(reported.length, 0, JSON.stringify(changes));
+      const reported = sourceChanges();
       assert.equal(
         reported.every((location) => location === source),
         true,

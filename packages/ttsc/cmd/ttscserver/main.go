@@ -178,12 +178,14 @@ func runLSP(args []string) int {
 // process and takes ownership of it.
 //
 // The manifest names every resolved project plugin and its launch context, so
-// it is consumed exactly once. The backing file is removed as soon as it has
-// been read, which means a forcibly terminated launcher cannot leave the
-// payload on disk, and both transport variables are cleared from this process
-// so no plugin sidecar spawned later inherits the payload or a path to it.
-// The environment forms remain accepted because an editor pointed straight at
-// a native binary has no launcher to pass the flag.
+// the copy this process was given to own is consumed exactly once: the file the
+// launcher named with the flag is removed as soon as it has been read, which
+// means a forcibly terminated launcher cannot leave the payload on disk. Both
+// transport variables are cleared from this process either way, so no plugin
+// sidecar spawned later inherits the payload or a path to it. The environment
+// forms remain accepted because an editor pointed straight at a native binary
+// has no launcher to pass the flag, and a manifest supplied that way is read
+// without being removed, because it belongs to whoever wrote it.
 func lspPluginManifestJSON(flagLocation string) (string, error) {
   defer func() {
     os.Unsetenv("TTSC_LSP_PLUGINS_FILE")

@@ -168,9 +168,16 @@ export class WatchTopology {
    */
   public setProjectInputs(inputs: ITtscProjectInputSnapshot): void {
     const next = normalizeProjectInputSnapshot(inputs);
-    if (projectInputSnapshotsEqual(this.projectInputs, next)) return;
-    this.projectInputs = next;
+    // The declared spellings are recorded even when the normalized snapshot did
+    // not move, because a republication can carry a new alias for identities
+    // that already matched, and anchoring the spelling that was retired would
+    // leave the live one unwatched.
     this.declaredProjectInputs = inputs;
+    if (projectInputSnapshotsEqual(this.projectInputs, next)) {
+      this.syncProjectInputWatchers();
+      return;
+    }
+    this.projectInputs = next;
     this.projectInputRejectedWatchRoots.clear();
     const declarations = new Set(
       [next, inputs].flatMap((snapshot) => [
