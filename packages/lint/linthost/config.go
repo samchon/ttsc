@@ -1311,10 +1311,11 @@ type configDependencyFingerprint struct {
 }
 
 const (
-  configDependencyCache = "cache"
-  configDependencyWatch = "watch"
-  configDependencyFile  = "file"
-  configDependencyDir   = "directory"
+  configDependencyCache        = "cache"
+  configDependencyWatch        = "watch"
+  configDependencyFile         = "file"
+  configDependencyDir          = "directory"
+  configDependencyOptionalFile = "optional-file"
 )
 
 type evaluatedConfigFile struct {
@@ -1614,6 +1615,22 @@ func configDependencyDigest(
     }
     return hex.EncodeToString(h.Sum(nil)), nil
   }
+  if dependency.Kind == configDependencyOptionalFile {
+    info, err := os.Stat(dependency.Path)
+    if err != nil || !info.Mode().IsRegular() {
+      digest := sha256.Sum256([]byte("missing\x00"))
+      return hex.EncodeToString(digest[:]), nil
+    }
+    body, err := os.ReadFile(dependency.Path)
+    if err != nil {
+      digest := sha256.Sum256([]byte("missing\x00"))
+      return hex.EncodeToString(digest[:]), nil
+    }
+    h := sha256.New()
+    h.Write([]byte("file\x00"))
+    h.Write(body)
+    return hex.EncodeToString(h.Sum(nil)), nil
+  }
   body, err := os.ReadFile(dependency.Path)
   if err != nil {
     return "", err
@@ -1810,7 +1827,8 @@ func normalizeConfigDependencyFingerprints(
       len(dependency.Digest) != sha256.Size*2 ||
       strings.ToLower(dependency.Digest) != dependency.Digest ||
       (dependency.Kind != configDependencyFile &&
-        dependency.Kind != configDependencyDir) ||
+        dependency.Kind != configDependencyDir &&
+        dependency.Kind != configDependencyOptionalFile) ||
       (dependency.Scope != configDependencyCache &&
         dependency.Scope != configDependencyWatch) {
       return nil, false
@@ -2036,18 +2054,27 @@ function recordDirectoryDependency(location, owners) {
 }
 
 function directoryDigest(location) {
-  const entries = fs.readdirSync(
-    location,
-    { encoding: "buffer", withFileTypes: true },
-  )
-    .map((entry) => {
-      const kind = entry.isDirectory()
-        ? "directory"
-        : entry.isFile()
-          ? "file"
-          : entry.isSymbolicLink()
-            ? "symlink"
-            : "other";
+  const entries = [];
+  if (process.platform === "win32") {
+    for (const entry of fs.readdirSync(location, { withFileTypes: true })) {
+      let target = Buffer.alloc(0);
+      if (entry.isSymbolicLink()) {
+        try {
+          target = Buffer.from(
+            fs.readlinkSync(path.join(location, entry.name)),
+            "utf8",
+          );
+        } catch {
+          target = Buffer.from("<unreadable>");
+        }
+      }
+      entries.push(directoryDigestRecord(Buffer.from(entry.name), entry, target));
+    }
+  } else {
+    for (const entry of fs.readdirSync(
+      location,
+      { encoding: "buffer", withFileTypes: true },
+    )) {
       let target = Buffer.alloc(0);
       if (entry.isSymbolicLink()) {
         try {
@@ -2063,13 +2090,10 @@ function directoryDigest(location) {
           target = Buffer.from("<unreadable>");
         }
       }
-      return Buffer.concat([
-        entry.name,
-        Buffer.from("\0" + kind + "\0"),
-        target,
-      ]);
-    })
-    .sort(Buffer.compare);
+      entries.push(directoryDigestRecord(entry.name, entry, target));
+    }
+  }
+  entries.sort(Buffer.compare);
   const serialized = Buffer.concat(
     entries.flatMap((entry, index) =>
       index === 0 ? [entry] : [Buffer.from([0]), entry],
@@ -2078,23 +2102,51 @@ function directoryDigest(location) {
   return createHash("sha256").update(serialized).digest("hex");
 }
 
+function directoryDigestRecord(name, entry, target) {
+  const kind = entry.isDirectory()
+    ? "directory"
+    : entry.isFile()
+      ? "file"
+      : entry.isSymbolicLink()
+        ? "symlink"
+        : "other";
+  return Buffer.concat([name, Buffer.from("\0" + kind + "\0"), target]);
+}
+
+function optionalFileDigest(location) {
+  try {
+    if (fs.statSync(location).isFile()) {
+      return createHash("sha256")
+        .update(Buffer.concat([Buffer.from("file\0"), fs.readFileSync(location)]))
+        .digest("hex");
+    }
+  } catch {
+  }
+  return createHash("sha256").update("missing\0").digest("hex");
+}
+
+function recordOptionalFileDependency(location, owners) {
+  try {
+    if (fs.statSync(location).isFile()) {
+      recordDependency(
+        "file",
+        location,
+        createHash("sha256").update(fs.readFileSync(location)).digest("hex"),
+        owners,
+      );
+      return true;
+    }
+  } catch {
+  }
+  recordDependency("optional-file", location, optionalFileDigest(location), owners);
+  return false;
+}
+
 function recordPackageManifests(location, owners) {
   let current = path.dirname(location);
   while (true) {
-    recordDirectoryDependency(current, owners);
     const manifest = path.join(current, "package.json");
-    try {
-      if (fs.statSync(manifest).isFile()) {
-        recordDependency(
-          "file",
-          manifest,
-          createHash("sha256").update(fs.readFileSync(manifest)).digest("hex"),
-          owners,
-        );
-        return;
-      }
-    } catch {
-    }
+    if (recordOptionalFileDependency(manifest, owners)) return;
     const parent = path.dirname(current);
     if (parent === current || path.basename(current) === "node_modules") return;
     current = parent;
@@ -2128,6 +2180,14 @@ function recordNodeModulesSearchDirectories(
           } catch {
           }
         }
+        if (packageName !== undefined) {
+          recordPackageCandidateTopology(
+            modules,
+            packageName,
+            specifier,
+            owners,
+          );
+        }
         if (
           packageName !== undefined &&
           resolvedPackageContains(modules, packageName, childLocation)
@@ -2146,6 +2206,95 @@ function recordNodeModulesSearchDirectories(
     const parent = path.dirname(current);
     if (parent === current) return;
     current = parent;
+  }
+}
+
+function recordPackageCandidateTopology(
+  modules,
+  packageName,
+  specifier,
+  owners,
+) {
+  const packageRoot = path.join(modules, packageName);
+  try {
+    if (!fs.statSync(packageRoot).isDirectory()) return;
+  } catch {
+    return;
+  }
+  const visited = new Set();
+  recordPackageDirectoryTopology(packageRoot, owners, visited);
+  const subpath = specifier
+    .slice(packageName.length)
+    .replace(/^[/\\]+/, "");
+  if (subpath !== "") {
+    recordPackageTargetTopology(packageRoot, subpath, owners, visited);
+  }
+}
+
+function recordPackageDirectoryTopology(directory, owners, visited) {
+  const normalized = path.resolve(directory);
+  if (visited.has(normalized)) return;
+  visited.add(normalized);
+  recordDirectoryDependency(normalized, owners);
+  const manifest = path.join(normalized, "package.json");
+  if (!recordOptionalFileDependency(manifest, owners)) return;
+  try {
+    const value = JSON.parse(fs.readFileSync(manifest, "utf8"));
+    if (value !== null && typeof value === "object") {
+      if (typeof value.main === "string") {
+        recordPackageTargetTopology(normalized, value.main, owners, visited);
+      }
+      recordPackageExportTargets(normalized, value.exports, owners, visited);
+    }
+  } catch {
+  }
+}
+
+function recordPackageExportTargets(packageRoot, value, owners, visited) {
+  if (typeof value === "string") {
+    recordPackageTargetTopology(packageRoot, value, owners, visited);
+    return;
+  }
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      recordPackageExportTargets(packageRoot, item, owners, visited);
+    }
+    return;
+  }
+  if (value !== null && typeof value === "object") {
+    for (const item of Object.values(value)) {
+      recordPackageExportTargets(packageRoot, item, owners, visited);
+    }
+  }
+}
+
+function recordPackageTargetTopology(
+  packageRoot,
+  target,
+  owners,
+  visited,
+) {
+  const literalPrefix = target.split("*", 1)[0];
+  if (literalPrefix === "") return;
+  const candidate = path.resolve(packageRoot, literalPrefix);
+  const relative = path.relative(packageRoot, candidate);
+  if (
+    relative === ".." ||
+    relative.startsWith(".." + path.sep) ||
+    path.isAbsolute(relative)
+  ) {
+    return;
+  }
+  let current = packageRoot;
+  for (const component of relative.split(path.sep).filter(Boolean)) {
+    const next = path.join(current, component);
+    try {
+      if (!fs.statSync(next).isDirectory()) return;
+    } catch {
+      return;
+    }
+    current = next;
+    recordPackageDirectoryTopology(current, owners, visited);
   }
 }
 
@@ -2442,7 +2591,7 @@ const resolutionRoot = path.resolve(%s);
 const CONFIG_KEYS = new Set<string>([%s]);
 const dependencies = new Map<string, {
   digest: string;
-  kind: "directory" | "file";
+  kind: "directory" | "file" | "optional-file";
   path: string;
   owners: Set<string>;
 }>();
@@ -2464,6 +2613,7 @@ recordDependency(
 recordPackageManifests(configLocation, [normalizedConfigUrl]);
 
 declare const process: {
+  platform: string;
   stdout: { write(value: string): void };
   stderr: { write(value: string): void };
   exit(code?: number): never;
@@ -2562,7 +2712,7 @@ function isObject(value: unknown): value is Record<string, unknown> {
 }
 
 function recordDependency(
-  kind: "directory" | "file",
+  kind: "directory" | "file" | "optional-file",
   location: string,
   digest: string,
   owners: readonly string[],
@@ -2625,16 +2775,27 @@ function recordDirectoryDependency(
 }
 
 function directoryDigest(location: string): string {
-  const entries = fs
-    .readdirSync(location, { encoding: "buffer", withFileTypes: true })
-    .map((entry) => {
-      const kind = entry.isDirectory()
-        ? "directory"
-        : entry.isFile()
-          ? "file"
-          : entry.isSymbolicLink()
-            ? "symlink"
-            : "other";
+  const entries: Buffer[] = [];
+  if (process.platform === "win32") {
+    for (const entry of fs.readdirSync(location, { withFileTypes: true })) {
+      let target = Buffer.alloc(0);
+      if (entry.isSymbolicLink()) {
+        try {
+          target = Buffer.from(
+            fs.readlinkSync(path.join(location, entry.name)),
+            "utf8",
+          );
+        } catch {
+          target = Buffer.from("<unreadable>");
+        }
+      }
+      entries.push(directoryDigestRecord(Buffer.from(entry.name), entry, target));
+    }
+  } else {
+    for (const entry of fs.readdirSync(location, {
+      encoding: "buffer",
+      withFileTypes: true,
+    })) {
       let target = Buffer.alloc(0);
       if (entry.isSymbolicLink()) {
         try {
@@ -2650,13 +2811,10 @@ function directoryDigest(location: string): string {
           target = Buffer.from("<unreadable>");
         }
       }
-      return Buffer.concat([
-        entry.name,
-        Buffer.from("\0" + kind + "\0"),
-        target,
-      ]);
-    })
-    .sort(Buffer.compare);
+      entries.push(directoryDigestRecord(entry.name, entry, target));
+    }
+  }
+  entries.sort(Buffer.compare);
   const serialized = Buffer.concat(
     entries.flatMap((entry, index) =>
       index === 0 ? [entry] : [Buffer.from([0]), entry],
@@ -2665,26 +2823,65 @@ function directoryDigest(location: string): string {
   return createHash("sha256").update(serialized).digest("hex");
 }
 
+function directoryDigestRecord(
+  name: Buffer,
+  entry: {
+    isDirectory(): boolean;
+    isFile(): boolean;
+    isSymbolicLink(): boolean;
+  },
+  target: Buffer,
+): Buffer {
+  const kind = entry.isDirectory()
+    ? "directory"
+    : entry.isFile()
+      ? "file"
+      : entry.isSymbolicLink()
+        ? "symlink"
+        : "other";
+  return Buffer.concat([name, Buffer.from("\0" + kind + "\0"), target]);
+}
+
+function optionalFileDigest(location: string): string {
+  try {
+    if (fs.statSync(location).isFile()) {
+      return createHash("sha256")
+        .update(Buffer.concat([Buffer.from("file\0"), fs.readFileSync(location)]))
+        .digest("hex");
+    }
+  } catch {
+  }
+  return createHash("sha256").update("missing\0").digest("hex");
+}
+
+function recordOptionalFileDependency(
+  location: string,
+  owners: readonly string[],
+): boolean {
+  try {
+    if (fs.statSync(location).isFile()) {
+      recordDependency(
+        "file",
+        location,
+        createHash("sha256").update(fs.readFileSync(location)).digest("hex"),
+        owners,
+      );
+      return true;
+    }
+  } catch {
+  }
+  recordDependency("optional-file", location, optionalFileDigest(location), owners);
+  return false;
+}
+
 function recordPackageManifests(
   location: string,
   owners: readonly string[],
 ): void {
   let current = path.dirname(location);
   while (true) {
-    recordDirectoryDependency(current, owners);
     const manifest = path.join(current, "package.json");
-    try {
-      if (fs.statSync(manifest).isFile()) {
-        recordDependency(
-          "file",
-          manifest,
-          createHash("sha256").update(fs.readFileSync(manifest)).digest("hex"),
-          owners,
-        );
-        return;
-      }
-    } catch {
-    }
+    if (recordOptionalFileDependency(manifest, owners)) return;
     const parent = path.dirname(current);
     if (parent === current || path.basename(current) === "node_modules") return;
     current = parent;
@@ -2718,6 +2915,14 @@ function recordNodeModulesSearchDirectories(
           } catch {
           }
         }
+        if (packageName !== undefined) {
+          recordPackageCandidateTopology(
+            modules,
+            packageName,
+            specifier,
+            owners,
+          );
+        }
         if (
           packageName !== undefined &&
           resolvedPackageContains(modules, packageName, childLocation)
@@ -2736,6 +2941,105 @@ function recordNodeModulesSearchDirectories(
     const parent = path.dirname(current);
     if (parent === current) return;
     current = parent;
+  }
+}
+
+function recordPackageCandidateTopology(
+  modules: string,
+  packageName: string,
+  specifier: string,
+  owners: readonly string[],
+): void {
+  const packageRoot = path.join(modules, packageName);
+  try {
+    if (!fs.statSync(packageRoot).isDirectory()) return;
+  } catch {
+    return;
+  }
+  const visited = new Set<string>();
+  recordPackageDirectoryTopology(packageRoot, owners, visited);
+  const subpath = specifier
+    .slice(packageName.length)
+    .replace(/^[/\\]+/, "");
+  if (subpath !== "") {
+    recordPackageTargetTopology(packageRoot, subpath, owners, visited);
+  }
+}
+
+function recordPackageDirectoryTopology(
+  directory: string,
+  owners: readonly string[],
+  visited: Set<string>,
+): void {
+  const normalized = path.resolve(directory);
+  if (visited.has(normalized)) return;
+  visited.add(normalized);
+  recordDirectoryDependency(normalized, owners);
+  const manifest = path.join(normalized, "package.json");
+  if (!recordOptionalFileDependency(manifest, owners)) return;
+  try {
+    const value = JSON.parse(fs.readFileSync(manifest, "utf8"));
+    if (value !== null && typeof value === "object") {
+      const metadata = value as Record<string, unknown>;
+      if (typeof metadata.main === "string") {
+        recordPackageTargetTopology(normalized, metadata.main, owners, visited);
+      }
+      recordPackageExportTargets(normalized, metadata.exports, owners, visited);
+    }
+  } catch {
+  }
+}
+
+function recordPackageExportTargets(
+  packageRoot: string,
+  value: unknown,
+  owners: readonly string[],
+  visited: Set<string>,
+): void {
+  if (typeof value === "string") {
+    recordPackageTargetTopology(packageRoot, value, owners, visited);
+    return;
+  }
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      recordPackageExportTargets(packageRoot, item, owners, visited);
+    }
+    return;
+  }
+  if (value !== null && typeof value === "object") {
+    for (const item of Object.values(value)) {
+      recordPackageExportTargets(packageRoot, item, owners, visited);
+    }
+  }
+}
+
+function recordPackageTargetTopology(
+  packageRoot: string,
+  target: string,
+  owners: readonly string[],
+  visited: Set<string>,
+): void {
+  const literalPrefix = target.split("*", 1)[0];
+  if (literalPrefix === "") return;
+  const candidate = path.resolve(packageRoot, literalPrefix);
+  const relative = path.relative(packageRoot, candidate);
+  if (
+    relative === ".." ||
+    relative.startsWith(".." + path.sep) ||
+    path.isAbsolute(relative)
+  ) {
+    return;
+  }
+  let current = packageRoot;
+  for (const component of relative.split(path.sep).filter(Boolean)) {
+    const next = path.join(current, component);
+    try {
+      if (!fs.statSync(next).isDirectory()) return;
+    } catch {
+      return;
+    }
+    current = next;
+    recordPackageDirectoryTopology(current, owners, visited);
   }
 }
 

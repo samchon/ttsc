@@ -29,9 +29,9 @@ import (
 //     fingerprint invalidates an extensionless local require.
 //  9. Reach one shared helper through a package before reaching it directly
 //     and prove final graph reachability, not module-load order, owns its scope.
-//  10. Resolve a package above the declared project root, add a nearer package,
-//     and prove every Node search level through the selected package is
-//     topology input.
+//  10. Resolve a package above the declared project root while a nearer package
+//     has an unresolved nested main target, then create only that target and
+//     prove package-candidate topology selects it without a stale cache hit.
 //  11. Extend an executable config from JSON and prove the nested evaluation's
 //     resolution directories reach the final resolver.
 func TestScriptConfigLoaderTracksLocalDependencyGraph(t *testing.T) {
@@ -289,6 +289,15 @@ module.exports = {
   if err := os.MkdirAll(hoistedProject, 0o755); err != nil {
     t.Fatal(err)
   }
+  nearerPackage := filepath.Join(root, "apps", "node_modules", "hoisted")
+  nearerTarget := filepath.Join(nearerPackage, "lib")
+  if err := os.MkdirAll(nearerTarget, 0o755); err != nil {
+    t.Fatal(err)
+  }
+  write(
+    filepath.Join(nearerPackage, "package.json"),
+    `{"main":"lib/index.cjs"}`,
+  )
   hoistedConfig := filepath.Join(hoistedProject, "lint.config.cjs")
   write(hoistedConfig, `module.exports = {
   rules: { "no-var": require("hoisted") },
@@ -309,19 +318,25 @@ module.exports = {
   assertConfigDependencyKindScope(
     t,
     beforeNearerPackage.dependencyDigests,
-    filepath.Join(root, "apps"),
+    filepath.Join(hoistedProject, "package.json"),
+    configDependencyOptionalFile,
+    configDependencyWatch,
+  )
+  assertConfigDependencyKindScope(
+    t,
+    beforeNearerPackage.dependencyDigests,
+    nearerPackage,
     configDependencyDir,
     configDependencyWatch,
   )
-  nearerPackage := filepath.Join(root, "apps", "node_modules", "hoisted")
-  if err := os.MkdirAll(nearerPackage, 0o755); err != nil {
-    t.Fatal(err)
-  }
-  write(
-    filepath.Join(nearerPackage, "package.json"),
-    `{"main":"index.cjs"}`,
+  assertConfigDependencyKindScope(
+    t,
+    beforeNearerPackage.dependencyDigests,
+    nearerTarget,
+    configDependencyDir,
+    configDependencyWatch,
   )
-  write(filepath.Join(nearerPackage, "index.cjs"), `module.exports = "error";`)
+  write(filepath.Join(nearerTarget, "index.cjs"), `module.exports = "error";`)
   afterNearerPackage, err := loadConfigFileEvaluationWithin(
     hoistedConfig,
     hoistedProject,
@@ -341,7 +356,7 @@ module.exports = {
     t.Fatal(err)
   }
   baseConfig := filepath.Join(extendsRoot, "base.config.cjs")
-  baseSelection := filepath.Join(extendsRoot, "base-selection.cjs")
+  baseSelection := filepath.Join(extendsRoot, "base-selection.js")
   childConfig := filepath.Join(extendsRoot, "lint.config.json")
   write(baseSelection, `module.exports = "warning";`)
   write(baseConfig, `module.exports = {

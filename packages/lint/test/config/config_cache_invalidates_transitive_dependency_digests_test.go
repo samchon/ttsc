@@ -6,7 +6,6 @@ import (
   "encoding/hex"
   "os"
   "path/filepath"
-  "runtime"
   "sort"
   "strconv"
   "strings"
@@ -24,9 +23,11 @@ import (
 //     prove the unstable result is returned but never cached indefinitely.
 //  4. Prove empty, single, UTF-8, symlink, and POSIX non-UTF-8 directory
 //     records share one raw-byte digest protocol without a final delimiter.
-//  5. Evaluate a real executable config in a directory with those names twice
+//  5. Prove an exact optional-file fingerprint changes on creation and returns
+//     to its original state on deletion.
+//  6. Evaluate a real executable config in a directory with those names twice
 //     and prove the JavaScript fingerprint is accepted by the Go cache reader.
-//  6. Reject every malformed dependency-envelope class while accepting an
+//  7. Reject every malformed dependency-envelope class while accepting an
 //     idempotent duplicate, so corrupt cache state can only become a soft miss.
 func TestConfigCacheInvalidatesTransitiveDependencyDigests(t *testing.T) {
   t.Setenv("TTSC_LINT_DISABLE_CONFIG_CACHE", "")
@@ -183,13 +184,56 @@ func TestConfigCacheInvalidatesTransitiveDependencyDigests(t *testing.T) {
   if err := os.Mkdir(invalidTopology, 0o755); err != nil {
     t.Fatal(err)
   }
-  if runtime.GOOS != "windows" {
-    invalidName = []byte{0xff, 'x'}
-    write(filepath.Join(invalidTopology, string(invalidName)), "")
+  invalidCandidate := []byte{0xff, 'x'}
+  if err := os.WriteFile(
+    filepath.Join(invalidTopology, string(invalidCandidate)),
+    nil,
+    0o644,
+  ); err == nil {
+    invalidName = invalidCandidate
     assertDirectoryDependencyDigest(
       t,
       invalidTopology,
       []testDirectoryDigestRecord{{name: invalidName, kind: "file"}},
+    )
+  }
+
+  optionalManifest := filepath.Join(root, "optional-package.json")
+  absentFingerprint := configDependencyFingerprint{
+    Path:  optionalManifest,
+    Kind:  configDependencyOptionalFile,
+    Scope: configDependencyWatch,
+  }
+  absentDigest, err := configDependencyDigest(absentFingerprint)
+  if err != nil {
+    t.Fatalf("missing optional-file digest: %v", err)
+  }
+  absentFingerprint.Digest = absentDigest
+  if normalized, ok := normalizeConfigDependencyFingerprints(
+    []configDependencyFingerprint{absentFingerprint},
+  ); !ok || len(normalized) != 1 {
+    t.Fatalf("optional-file fingerprint did not normalize: %v, %v", normalized, ok)
+  }
+  write(optionalManifest, `{"type":"commonjs"}`)
+  presentDigest, err := configDependencyDigest(absentFingerprint)
+  if err != nil {
+    t.Fatalf("present optional-file digest: %v", err)
+  }
+  if presentDigest == absentDigest {
+    t.Fatal("optional-file creation did not change its exact-path digest")
+  }
+  if err := os.Remove(optionalManifest); err != nil {
+    t.Fatal(err)
+  }
+  restoredDigest, err := configDependencyDigest(absentFingerprint)
+  if err != nil {
+    t.Fatalf("restored optional-file digest: %v", err)
+  }
+  if restoredDigest != absentDigest {
+    t.Fatalf(
+      "optional-file deletion digest = %s, want original missing digest %s",
+      restoredDigest,
+      absentDigest,
     )
   }
 
