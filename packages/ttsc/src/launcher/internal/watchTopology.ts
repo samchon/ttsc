@@ -47,6 +47,7 @@ export type WatchInputChange = {
 };
 
 type ResolvedWatchTopology = {
+  analysisOnly: boolean;
   directories: Map<string, string>;
   files: Map<string, string>;
   outputFiles: Map<string, string>;
@@ -63,6 +64,7 @@ type ResolvedWatchTopology = {
  * outputs are filtered before any watcher is installed.
  */
 export class WatchTopology {
+  private analysisOnly = false;
   private closed = false;
   private directories = new Map<string, string>();
   private directoryWatchers = new Map<string, fs.FSWatcher>();
@@ -95,7 +97,7 @@ export class WatchTopology {
   public refresh(notify: boolean): void {
     const next = resolveWatchTopology(this.options, this.extraInputs);
     const projectInputProgramChange =
-      this.options.emit === false &&
+      next.analysisOnly &&
       mapsEqual(this.reloadFiles, next.reloadFiles) &&
       mapsEqual(this.outputFiles, next.outputFiles) &&
       mapsEqual(this.outputs, next.outputs)
@@ -106,11 +108,13 @@ export class WatchTopology {
           )
         : undefined;
     const changed =
+      this.analysisOnly !== next.analysisOnly ||
       mapsEqual(this.files, next.files) === false ||
       mapsEqual(this.directories, next.directories) === false ||
       mapsEqual(this.outputFiles, next.outputFiles) === false ||
       mapsEqual(this.outputs, next.outputs) === false ||
       mapsEqual(this.reloadFiles, next.reloadFiles) === false;
+    this.analysisOnly = next.analysisOnly;
     this.files = next.files;
     this.directories = next.directories;
     this.outputFiles = next.outputFiles;
@@ -293,7 +297,7 @@ export class WatchTopology {
     const identities = createProjectInputPathIdentityContext();
     const desired = new Map<string, string>();
     for (const file of this.projectInputs.files) {
-      if (this.isCompilerOutput(file)) continue;
+      if (this.isProjectInputCompilerOutput(file, identities)) continue;
       const location = this.projectInputWatchRoot(
         "file",
         file,
@@ -313,7 +317,9 @@ export class WatchTopology {
     }
     for (const glob of this.projectInputs.globs) {
       const root = literalGlobRoot(glob);
-      if (this.isCompilerOutputDirectory(root)) continue;
+      if (this.isProjectInputCompilerOutputDirectory(root, identities)) {
+        continue;
+      }
       const location = this.projectInputWatchRoot("glob", glob, root);
       if (location !== undefined) {
         const available = projectInputAvailableWatchDirectory(
@@ -328,7 +334,7 @@ export class WatchTopology {
       }
     }
     for (const file of this.projectInputs.reloadFiles ?? []) {
-      if (this.isCompilerOutput(file)) continue;
+      if (this.isProjectInputCompilerOutput(file, identities)) continue;
       const location = this.projectInputWatchRoot(
         "reload",
         file,
@@ -418,7 +424,7 @@ export class WatchTopology {
         );
       if (
         changed !== undefined &&
-        (this.isCompilerOutput(changed) ||
+        (this.isProjectInputCompilerOutput(changed, identities) ||
           (directlyMatched === false && topologyMatched === false))
       ) {
         return;
@@ -447,6 +453,8 @@ export class WatchTopology {
       });
       const invalidate = projectInputMembershipInvalidatesProgram({
         changed,
+        changedInputs,
+        contentChanged,
         next,
         previous,
       });
@@ -464,7 +472,8 @@ export class WatchTopology {
           directlyMatched,
           membershipChanged,
         }) &&
-        (changed === undefined || this.isCompilerOutput(changed) === false)
+        (changed === undefined ||
+          this.isProjectInputCompilerOutput(changed, identities) === false)
       ) {
         this.callbacks.onInputChange(
           reload
@@ -490,20 +499,29 @@ export class WatchTopology {
     const identities = createProjectInputPathIdentityContext();
     const matches = new Map<string, string>();
     for (const file of this.projectInputs.files) {
-      if (fs.existsSync(file) && this.isCompilerOutput(file) === false) {
+      if (
+        fs.existsSync(file) &&
+        this.isProjectInputCompilerOutput(file, identities) === false
+      ) {
         const identity = identities.resolve(file);
         matches.set(identity.key, identity.path);
       }
     }
     for (const file of this.projectInputs.reloadFiles ?? []) {
-      if (fs.existsSync(file) && this.isCompilerOutput(file) === false) {
+      if (
+        fs.existsSync(file) &&
+        this.isProjectInputCompilerOutput(file, identities) === false
+      ) {
         const identity = identities.resolve(file);
         matches.set(identity.key, identity.path);
       }
     }
     for (const glob of this.projectInputs.globs) {
       const root = literalGlobRoot(glob);
-      if (isDirectory(root) === false || this.isCompilerOutputDirectory(root)) {
+      if (
+        isDirectory(root) === false ||
+        this.isProjectInputCompilerOutputDirectory(root, identities)
+      ) {
         continue;
       }
       const stack = [root];
@@ -518,7 +536,9 @@ export class WatchTopology {
         }
         for (const entry of entries) {
           const location = path.join(current, entry.name);
-          if (this.isCompilerOutput(location)) continue;
+          if (this.isProjectInputCompilerOutput(location, identities)) {
+            continue;
+          }
           if (entry.isDirectory()) {
             stack.push(location);
           } else if (
@@ -546,6 +566,12 @@ export class WatchTopology {
     try {
       this.refresh(true);
     } catch (error) {
+      for (const reload of reloadInputsForFailedTopologyRefresh(
+        this.reloadFiles.values(),
+        changed,
+      )) {
+        this.callbacks.onInputChange({ kind: "config", path: reload });
+      }
       this.callbacks.onError(location, error);
     }
   }
@@ -560,6 +586,27 @@ export class WatchTopology {
     return (
       this.outputFiles.has(pathKey(location)) ||
       this.isCompilerOutputDirectory(location)
+    );
+  }
+
+  private isProjectInputCompilerOutputDirectory(
+    location: string,
+    identities: ProjectInputPathIdentityContext,
+  ): boolean {
+    return [...this.outputs.values()].some((output) =>
+      identities.isWithin(output, location),
+    );
+  }
+
+  private isProjectInputCompilerOutput(
+    location: string,
+    identities: ProjectInputPathIdentityContext,
+  ): boolean {
+    const key = identities.resolve(location).key;
+    return (
+      [...this.outputFiles.values()].some(
+        (output) => identities.resolve(output).key === key,
+      ) || this.isProjectInputCompilerOutputDirectory(location, identities)
     );
   }
 
@@ -603,10 +650,30 @@ export class WatchTopology {
   }
 }
 
+export function reloadInputsForFailedTopologyRefresh(
+  reloadFiles: Iterable<string>,
+  changed?: string,
+): string[] {
+  const changedKey = changed === undefined ? undefined : pathKey(changed);
+  const reloads = new Map<string, string>();
+  for (const location of reloadFiles) {
+    const resolved = path.resolve(location);
+    const key = pathKey(resolved);
+    if (
+      (changedKey !== undefined && key === changedKey) ||
+      fs.existsSync(resolved) === false
+    ) {
+      reloads.set(key, resolved);
+    }
+  }
+  return [...reloads.values()].sort();
+}
+
 function resolveWatchTopology(
   options: WatchTopologyOptions,
   extraInputs: readonly string[],
 ): ResolvedWatchTopology {
+  let analysisOnly = options.emit === false;
   const files = new Map<string, string>();
   const outputFiles = new Map<string, string>();
   const outputs = new Map<string, string>();
@@ -618,6 +685,7 @@ function resolveWatchTopology(
       projectRoot: options.projectRoot,
       tsconfig: options.tsconfig,
     });
+    analysisOnly = watchTopologyAnalysisOnly(options, project);
     roots.push(project.root);
     addPaths(files, project.configPaths);
     addPaths(reloadFiles, project.configPaths);
@@ -639,7 +707,11 @@ function resolveWatchTopology(
     }
     addPaths(files, positionalInputs);
   } else {
-    for (const project of readReferencedProjects(options)) {
+    const projects = readReferencedProjects(options);
+    if (projects[0] !== undefined) {
+      analysisOnly = watchTopologyAnalysisOnly(options, projects[0]);
+    }
+    for (const project of projects) {
       roots.push(project.root);
       addPaths(files, project.configPaths);
       addPaths(reloadFiles, project.configPaths);
@@ -656,12 +728,24 @@ function resolveWatchTopology(
   }
   addPaths(files, extraInputs);
   return {
+    analysisOnly,
     directories: collectTopologyDirectories(files.values(), roots),
     files,
     outputFiles,
     outputs,
     reloadFiles,
   };
+}
+
+function watchTopologyAnalysisOnly(
+  options: WatchTopologyOptions,
+  project: ITtscParsedProjectConfig,
+): boolean {
+  if (options.emit !== undefined) return options.emit === false;
+  const noEmit =
+    passthroughBooleanOption(options.passthrough, "--noEmit") ??
+    project.compilerOptions.noEmit === true;
+  return noEmit;
 }
 
 function readReferencedProjects(
@@ -923,8 +1007,7 @@ function effectiveCompilerEmit(
     declaration &&
     (passthroughBooleanOption(passthrough, "--declarationMap") ??
       compilerOptions.declarationMap === true);
-  const cliOutDir =
-    passthroughPathOption(passthrough, "--outDir") ?? options.outDir;
+  const cliOutDir = passthroughPathOption(passthrough, "--outDir");
   const cliDeclarationDir = passthroughPathOption(
     passthrough,
     "--declarationDir",
@@ -940,39 +1023,51 @@ function effectiveCompilerEmit(
   return {
     declaration,
     declarationDir:
-      cliDeclarationDir !== undefined
-        ? path.resolve(options.cwd, cliDeclarationDir)
-        : typeof compilerOptions.declarationDir === "string"
-          ? path.resolve(compilerOptions.declarationDir)
-          : undefined,
+      cliDeclarationDir === null
+        ? undefined
+        : cliDeclarationDir !== undefined
+          ? path.resolve(options.cwd, cliDeclarationDir)
+          : typeof compilerOptions.declarationDir === "string"
+            ? path.resolve(compilerOptions.declarationDir)
+            : undefined,
     declarationMap,
     incremental,
     javascript,
     outDir:
-      cliOutDir !== undefined
-        ? path.resolve(options.cwd, cliOutDir)
-        : typeof compilerOptions.outDir === "string"
-          ? path.resolve(compilerOptions.outDir)
-          : undefined,
+      cliOutDir === null
+        ? undefined
+        : cliOutDir !== undefined
+          ? path.resolve(options.cwd, cliOutDir)
+          : options.outDir !== undefined
+            ? path.resolve(options.cwd, options.outDir)
+            : typeof compilerOptions.outDir === "string"
+              ? path.resolve(compilerOptions.outDir)
+              : undefined,
     outFile:
-      cliOutFile !== undefined
-        ? path.resolve(options.cwd, cliOutFile)
-        : typeof compilerOptions.outFile === "string"
-          ? path.resolve(compilerOptions.outFile)
-          : undefined,
+      cliOutFile === null
+        ? undefined
+        : cliOutFile !== undefined
+          ? path.resolve(options.cwd, cliOutFile)
+          : typeof compilerOptions.outFile === "string"
+            ? path.resolve(compilerOptions.outFile)
+            : undefined,
     rootDir:
-      cliRootDir !== undefined
-        ? path.resolve(options.cwd, cliRootDir)
-        : typeof compilerOptions.rootDir === "string"
-          ? path.resolve(compilerOptions.rootDir)
-          : undefined,
+      cliRootDir === null
+        ? undefined
+        : cliRootDir !== undefined
+          ? path.resolve(options.cwd, cliRootDir)
+          : typeof compilerOptions.rootDir === "string"
+            ? path.resolve(compilerOptions.rootDir)
+            : undefined,
     sourceMap,
     tsBuildInfoFile:
-      cliTsBuildInfoFile !== undefined
-        ? path.resolve(options.cwd, cliTsBuildInfoFile)
-        : typeof compilerOptions.tsBuildInfoFile === "string"
-          ? path.resolve(compilerOptions.tsBuildInfoFile)
-          : undefined,
+      cliTsBuildInfoFile === null
+        ? undefined
+        : cliTsBuildInfoFile !== undefined
+          ? path.resolve(options.cwd, cliTsBuildInfoFile)
+          : typeof compilerOptions.tsBuildInfoFile === "string"
+            ? path.resolve(compilerOptions.tsBuildInfoFile)
+            : undefined,
     jsx,
   };
 }
@@ -1021,17 +1116,15 @@ function passthroughBooleanOption(
 function passthroughPathOption(
   tokens: readonly string[] | undefined,
   name: string,
-): string | undefined {
-  let value: string | undefined;
+): string | null | undefined {
+  let value: string | null | undefined;
   for (let index = 0; index < (tokens?.length ?? 0); index++) {
     const token = tokens?.[index];
     if (token === undefined) continue;
-    const equalsIndex = token.indexOf("=");
     if (!passthroughOptionMatches(token, name)) continue;
-    if (equalsIndex === -1 && index + 1 < (tokens?.length ?? 0)) {
-      value = tokens?.[++index];
-    } else if (equalsIndex !== -1) {
-      value = token.slice(equalsIndex + 1);
+    if (index + 1 < (tokens?.length ?? 0)) {
+      const next = tokens?.[++index];
+      value = next === "null" ? null : next;
     }
   }
   return value;
@@ -1041,7 +1134,7 @@ function passthroughStringOption(
   tokens: readonly string[] | undefined,
   name: string,
 ): string | undefined {
-  return passthroughPathOption(tokens, name)?.toLowerCase();
+  return passthroughPathOption(tokens, name)?.toLowerCase() ?? undefined;
 }
 
 function passthroughOptionMatches(token: string, name: string): boolean {
@@ -1381,9 +1474,7 @@ export function projectInputEventShouldNotify(input: {
   directlyMatched: boolean;
   membershipChanged: boolean;
 }): boolean {
-  return (
-    input.contentChanged || input.directlyMatched || input.membershipChanged
-  );
+  return input.contentChanged || input.membershipChanged;
 }
 
 function projectInputChangedPaths(input: {
@@ -1449,9 +1540,22 @@ export function projectInputReloadEventShouldNotify(input: {
  */
 export function projectInputMembershipInvalidatesProgram(input: {
   changed?: string;
+  changedInputs?: readonly string[];
+  contentChanged?: boolean;
   next: ReadonlyMap<string, string>;
   previous: ReadonlyMap<string, string>;
 }): boolean {
+  if (
+    input.contentChanged === true &&
+    (
+      input.changedInputs ??
+      (input.changed === undefined ? [] : [input.changed])
+    ).some(
+      (location) => path.basename(location).toLowerCase() === "package.json",
+    )
+  ) {
+    return true;
+  }
   if (mapsEqual(input.previous, input.next)) return false;
   if (input.changed === undefined) return true;
   for (const [key, location] of input.previous) {

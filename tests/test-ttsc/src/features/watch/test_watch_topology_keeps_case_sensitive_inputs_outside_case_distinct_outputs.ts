@@ -10,57 +10,59 @@ import {
 } from "../../../../../packages/ttsc/lib/launcher/internal/watchTopology.js";
 
 /**
- * Verifies watch topology preserves case-sensitive project inputs.
+ * Verifies case-distinct compiler outputs do not hide project inputs.
  *
- * Lowercasing Windows paths can collapse two physical roots before watcher
- * pruning and can make a glob match its case-distinct sibling. Both exact and
- * glob inputs must retain the identities reported by the filesystem.
+ * Compiler topology keeps ordinary Windows path keys case-insensitive, but a
+ * project rule can declare a physical sibling under a case-sensitive directory.
+ * Output exclusion must compare those declarations by filesystem identity.
  *
- * 1. Create case-distinct external roots and glob roots.
- * 2. Assert both recursive watcher handles remain live.
- * 3. Observe each exact and glob input, then remove one glob and keep it quiet.
+ * 1. Put declaration output in `Output` and project inputs in sibling `output`.
+ * 2. Put build-info output at `State.json` and input at sibling `state.json`.
+ * 3. Assert both project-input watcher roots remain live.
+ * 4. Create exact and glob members and observe every project change.
  */
-export const test_watch_topology_preserves_case_sensitive_project_inputs =
+export const test_watch_topology_keeps_case_sensitive_inputs_outside_case_distinct_outputs =
   async (): Promise<void> => {
-    const root = TestProject.tmpdir("ttsc-project-input-case-project-");
+    const root = TestProject.tmpdir("ttsc-project-input-output-project-");
     const source = path.join(root, "src", "main.ts");
     fs.mkdirSync(path.dirname(source), { recursive: true });
     fs.writeFileSync(source, "export const value = 1;\n", "utf8");
+
+    const external = TestProject.tmpdir("ttsc-project-input-output-external-");
+    if (enableWindowsCaseSensitivity(external) === false) return;
+    const outputRoot = path.join(external, "Output");
+    const inputRoot = path.join(external, "output");
+    fs.mkdirSync(outputRoot);
+    if (createCaseDistinctDirectory(inputRoot) === false) return;
+    assert.notEqual(realpath(outputRoot), realpath(inputRoot));
+    const exactRoot = path.join(external, "Exact");
+    const exactOutput = path.join(exactRoot, "nested", "State.json");
+    const exactInput = path.join(exactRoot, "nested", "state.json");
+    fs.mkdirSync(exactRoot);
     fs.writeFileSync(
       path.join(root, "tsconfig.json"),
       JSON.stringify({
         compilerOptions: {
-          outDir: "dist",
+          declaration: true,
+          declarationDir: outputRoot,
+          incremental: true,
           rootDir: "src",
+          tsBuildInfoFile: exactOutput,
         },
         files: ["src/main.ts"],
       }),
       "utf8",
     );
 
-    const external = TestProject.tmpdir("ttsc-project-input-case-external-");
-    if (enableWindowsCaseSensitivity(external) === false) return;
-    const upperRoot = path.join(external, "Project");
-    const lowerRoot = path.join(external, "project");
-    fs.mkdirSync(upperRoot);
-    if (createCaseDistinctDirectory(lowerRoot) === false) return;
-    assert.notEqual(realpath(upperRoot), realpath(lowerRoot));
-    const upperApi = path.join(upperRoot, "Api");
-    const lowerApi = path.join(upperRoot, "api");
-    fs.mkdirSync(upperApi);
-    if (createCaseDistinctDirectory(lowerApi) === false) return;
-    assert.notEqual(realpath(upperApi), realpath(lowerApi));
-
-    const upperExact = path.join(upperRoot, "nested", "evidence.md");
-    const lowerExact = path.join(lowerRoot, "nested", "evidence.md");
-    const upperGlob = path.join(upperApi, "**", "*.json");
-    const lowerGlob = path.join(lowerApi, "**", "*.json");
+    const exact = path.join(inputRoot, "nested", "evidence.md");
+    const globRoot = path.join(inputRoot, "api");
+    fs.mkdirSync(globRoot);
     const changes: WatchInputChange[] = [];
     let liveRoots: readonly string[] = [];
     const topology = new WatchTopology(
       {
         cwd: root,
-        files: [source],
+        files: [],
         projectRoot: root,
         tsconfig: path.join(root, "tsconfig.json"),
       },
@@ -72,39 +74,24 @@ export const test_watch_topology_preserves_case_sensitive_project_inputs =
         onProjectInputWatchRoots: (roots) => {
           liveRoots = [...roots];
         },
-        onTopologyChange: () => {
-          throw new Error("external inputs must not alter compiler membership");
-        },
+        onTopologyChange: () => undefined,
       },
     );
     try {
       topology.refresh(false);
       topology.setProjectInputs({
         root,
-        files: [upperExact, lowerExact],
-        globs: [upperGlob, lowerGlob],
+        files: [exact, exactInput],
+        globs: [path.join(globRoot, "**", "*.json")],
       });
       assert.deepEqual(
         liveRoots,
-        [realpath(upperRoot), realpath(lowerRoot)].sort(),
+        [realpath(exactRoot), realpath(inputRoot)].sort(),
       );
 
-      await writeAndWait(changes, upperExact, "upper\n");
-      await writeAndWait(changes, lowerExact, "lower\n");
-      const upperJson = path.join(upperApi, "openapi.json");
-      const lowerJson = path.join(lowerApi, "openapi.json");
-      await writeAndWait(changes, upperJson, "{}\n");
-      await writeAndWait(changes, lowerJson, "{}\n");
-
-      topology.setProjectInputs({
-        root,
-        files: [upperExact, lowerExact],
-        globs: [upperGlob],
-      });
-      const count = changes.length;
-      fs.writeFileSync(lowerJson, '{"removed":true}\n', "utf8");
-      await delay();
-      assert.equal(changes.length, count, JSON.stringify(changes.slice(count)));
+      await writeAndWait(changes, exact, "exact\n");
+      await writeAndWait(changes, exactInput, "case-distinct output\n");
+      await writeAndWait(changes, path.join(globRoot, "openapi.json"), "{}\n");
     } finally {
       topology.close();
     }

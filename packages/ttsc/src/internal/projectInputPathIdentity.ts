@@ -174,8 +174,12 @@ function physicalRealpath(location: string): string {
 }
 
 function filesystemDirectoryIsCaseSensitive(directory: string): boolean {
-  if (process.platform !== "win32") return true;
-  const entries = fs.readdirSync(directory);
+  let entries: string[];
+  try {
+    entries = fs.readdirSync(directory);
+  } catch {
+    return true;
+  }
   const names = new Set(entries);
   for (const name of entries) {
     const alternate = alternateCase(name);
@@ -189,6 +193,10 @@ function filesystemDirectoryIsCaseSensitive(directory: string): boolean {
       throw error;
     }
   }
+  // Node does not expose volume case semantics. Existing entries provide a
+  // non-mutating probe on every platform; an empty or inconclusive non-Windows
+  // directory conservatively preserves distinct declarations.
+  if (process.platform !== "win32") return true;
   const result = childProcess.spawnSync(
     "fsutil.exe",
     ["file", "queryCaseSensitiveInfo", directory],
@@ -198,8 +206,8 @@ function filesystemDirectoryIsCaseSensitive(directory: string): boolean {
     if (/\bdisabled\b/iu.test(result.stdout)) return false;
     if (/\benabled\b/iu.test(result.stdout)) return true;
   }
-  // An unknown answer must preserve distinct declarations. A false positive
-  // retains an extra watcher; a false negative could merge two real files.
+  // A false positive keeps an extra watcher; a false negative could merge two
+  // distinct paths and lose a change.
   return true;
 }
 

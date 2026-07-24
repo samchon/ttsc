@@ -185,6 +185,15 @@ export const test_watch_topology_tracks_declared_missing_files_and_empty_globs =
       assert.equal(
         projectInputEventShouldNotify({
           contentChanged: false,
+          directlyMatched: true,
+          membershipChanged: false,
+        }),
+        false,
+        "a same-bytes event for a declared path must stay quiet",
+      );
+      assert.equal(
+        projectInputEventShouldNotify({
+          contentChanged: false,
           directlyMatched: false,
           membershipChanged: false,
         }),

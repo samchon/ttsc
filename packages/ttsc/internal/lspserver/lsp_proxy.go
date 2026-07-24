@@ -2845,7 +2845,9 @@ func externalWatchedChangeRetainsProgram(
   }
   switch *changeType {
   case fileChangeTypeChanged:
-    return true
+    // Package metadata changes module resolution without changing the declared
+    // input population. Ordinary data JSON remains a warm external update.
+    return !watchedURIIsPackageJSON(uri)
   case fileChangeTypeCreated, fileChangeTypeDeleted:
     // A declared path may also satisfy a compiler root, module resolution, or
     // another compiler-recognized extension. Only those membership changes
@@ -2854,6 +2856,11 @@ func externalWatchedChangeRetainsProgram(
   default:
     return false
   }
+}
+
+func watchedURIIsPackageJSON(uri string) bool {
+  location, ok := filePathFromURI(uri)
+  return ok && strings.EqualFold(filepath.Base(location), "package.json")
 }
 
 func watchedURIHasProgramInputExtension(uri string) bool {
