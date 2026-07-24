@@ -589,6 +589,7 @@ export class WatchTopology {
       location,
       this.projectInputRejectedWatchRoots,
       identities,
+      this.projectInputs.root,
     );
     if (available === undefined) return;
     const identity = identities.resolve(available);
@@ -1664,7 +1665,12 @@ function projectInputDeclarationKey(
  * Inputs inside the project share its physical root so directory replacement
  * cannot strand a child handle. External inputs use the nearest existing
  * ancestor of their declared parent, which is the explicit boundary for
- * observing a currently missing external tree without polling every file.
+ * observing a currently missing external tree without polling every file --
+ * except that the boundary never rises to a directory holding the project,
+ * since such a root outranks the project's own in the active merge and leaves
+ * one handle over a shared system directory to carry everything. An external
+ * declaration that can only be owned that way falls back to its own tree, and
+ * is left unwatched when even that would contain the project.
  */
 export function projectInputWatchDirectories(
   target: string,
@@ -1708,10 +1714,25 @@ export function projectInputAvailableWatchDirectory(
   location: string,
   rejected: ReadonlySet<string>,
   identities: ProjectInputPathIdentityContext = createProjectInputPathIdentityContext(),
+  projectRoot?: string,
 ): string | undefined {
+  const resolvedProjectRoot =
+    projectRoot === undefined ? undefined : path.resolve(projectRoot);
   let current = path.resolve(location);
   while (true) {
     const identity = identities.resolve(current);
+    // Escalation obeys the same ceiling root selection does. A watcher that
+    // failed once would otherwise be replaced by one over a directory holding
+    // the project, which outranks the project's own root in the active merge
+    // and re-opens, through the recovery path, the exact swallow that selection
+    // refuses to create. Giving up the failed root is the lesser loss.
+    if (
+      resolvedProjectRoot !== undefined &&
+      identity.key !== identities.resolve(resolvedProjectRoot).key &&
+      identities.isWithin(identity.path, resolvedProjectRoot)
+    ) {
+      return undefined;
+    }
     if (!rejected.has(identity.key)) return identity.path;
     const parent = path.dirname(current);
     if (parent === current) return undefined;
@@ -1744,7 +1765,18 @@ function projectInputRecursiveWatchRoot(
     nearestExistingDirectory(resolvedTarget),
   ]) {
     if (candidate === undefined) continue;
-    if (identities.isWithin(candidate, resolvedProjectRoot)) continue;
+    // The project root cannot outrank itself in the merge, so it is the one
+    // container that is never a swallow — it is the owner the internal branch
+    // would have chosen anyway. A declaration reached through an in-project
+    // directory symlink lands here, and rejecting it would drop the hoist that
+    // keeps a replaced directory from stranding a child handle.
+    if (
+      identities.resolve(candidate).key !==
+        identities.resolve(resolvedProjectRoot).key &&
+      identities.isWithin(candidate, resolvedProjectRoot)
+    ) {
+      continue;
+    }
     return candidate;
   }
   return undefined;
@@ -1971,10 +2003,19 @@ export function projectInputReloadEventShouldNotify(input: {
   const reloadDirectories = (input.reloadDirectories ?? []).map((location) =>
     identities.resolve(location),
   );
-  const isReloadDirectoryInput = (location: string): boolean =>
-    reloadDirectories.some((directory) =>
-      identities.isWithin(directory.path, location),
+  // A reload directory is a non-recursive surface: its fingerprint is a digest
+  // of its immediate entries' names, kinds, and link targets, so only an entry
+  // it holds directly can move it. Matching the whole subtree instead makes a
+  // resolution ancestor — the lint config graph publishes every node_modules
+  // level it searched, up to the filesystem root — classify every edit beneath
+  // it as a selection change, which restarts the sidecar on each keystroke and
+  // ends warm reuse for any project inside one.
+  const isReloadDirectoryInput = (location: string): boolean => {
+    const parent = identities.resolve(path.dirname(location)).key;
+    return reloadDirectories.some(
+      (directory) => identities.resolve(directory.path).key === parent,
     );
+  };
   return (
     (input.changed !== undefined &&
       (reloadFiles.has(identities.resolve(input.changed).key) ||

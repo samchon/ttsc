@@ -22,7 +22,8 @@ import {
  *
  * 1. Anchor a sibling external tree and keep the parent rule.
  * 2. Anchor one whose parent contains the project and require a narrower root.
- * 3. Assert the project's own root survives the merge in both cases.
+ * 3. Decline entirely when even the target's own tree contains the project.
+ * 4. Assert the project's own root survives the merge beside an external one.
  */
 export const test_project_input_watch_root_never_swallows_the_project =
   (): void => {
@@ -46,6 +47,16 @@ export const test_project_input_watch_root_never_swallows_the_project =
       projectInputWatchDirectories(beside, root),
       [beside],
       "an anchor that would contain the project falls back to its own tree",
+    );
+
+    // The case the runner actually hit: a resolution ancestor published as a
+    // declaration. Every candidate for it contains the project, so there is no
+    // root left that would not swallow the project, and declining is the whole
+    // point of the rule.
+    assert.deepEqual(
+      projectInputWatchDirectories(parent, root),
+      [],
+      "a declaration containing the project leaves nothing safe to watch",
     );
 
     assert.deepEqual(
