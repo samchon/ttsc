@@ -235,7 +235,7 @@ export class WatchTopology {
             persistent: true,
             recursive: process.platform === "win32",
           },
-          (_event, filename) => {
+          (event, filename) => {
             const changed =
               filename === null
                 ? undefined
@@ -251,19 +251,36 @@ export class WatchTopology {
             // File watchers own ordinary source/config edits. Directory watchers
             // only reconcile membership, so an emit in an unrelated output folder
             // cannot schedule another build.
+            if (changed === undefined && process.platform !== "win32") {
+              // Some POSIX backends omit the filename for a rename. Re-arm every
+              // potentially replaced tracked file below this watch root and
+              // conservatively report each surviving input; otherwise a watcher
+              // can remain attached to an unlinked inode and miss later edits.
+              const candidates = [...this.files.values()].filter(
+                (file) => fs.existsSync(file) && isPathWithin(location, file),
+              );
+              this.rearmFileWatchers(candidates);
+              for (const file of candidates) {
+                this.callbacks.onInputChange({
+                  kind: this.classifyCompilerInput(file),
+                  path: file,
+                });
+              }
+              this.refreshFromDirectory(location);
+              return;
+            }
             if (
               changed !== undefined &&
               this.files.has(pathKey(changed)) &&
               fs.existsSync(changed)
             ) {
-              if (process.platform !== "win32") {
+              if (process.platform !== "win32" && event === "rename") {
                 // POSIX file watchers remain attached to the deleted inode.
                 // A directory event for the replacement must install a fresh
                 // handle before the next edit.
-                const key = pathKey(changed);
-                this.fileWatchers.get(key)?.close();
-                this.fileWatchers.delete(key);
-                this.syncFileWatchers();
+                this.rearmFileWatchers([changed]);
+              } else if (process.platform !== "win32") {
+                return;
               }
               this.callbacks.onInputChange({
                 kind: this.classifyCompilerInput(changed),
@@ -276,6 +293,15 @@ export class WatchTopology {
         ),
       (location, error) => this.callbacks.onError(location, error),
     );
+  }
+
+  private rearmFileWatchers(files: readonly string[]): void {
+    for (const file of files) {
+      const key = pathKey(file);
+      this.fileWatchers.get(key)?.close();
+      this.fileWatchers.delete(key);
+    }
+    this.syncFileWatchers();
   }
 
   private syncExtraWatchers(): void {
