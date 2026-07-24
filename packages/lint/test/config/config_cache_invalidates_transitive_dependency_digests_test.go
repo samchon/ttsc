@@ -1,10 +1,14 @@
 package linthost
 
 import (
+  "bytes"
   "crypto/sha256"
   "encoding/hex"
   "os"
   "path/filepath"
+  "runtime"
+  "sort"
+  "strconv"
   "strings"
   "testing"
 )
@@ -18,9 +22,11 @@ import (
 //     fresh evaluation replaces it.
 //  3. Make the helper change during all three bounded evaluation attempts and
 //     prove the unstable result is returned but never cached indefinitely.
-//  4. Prove Go validates the exact directory byte stream emitted by every
-//     JavaScript loader, including its lack of a final record delimiter.
-//  5. Reject every malformed dependency-envelope class while accepting an
+//  4. Prove empty, single, UTF-8, symlink, and POSIX non-UTF-8 directory
+//     records share one raw-byte digest protocol without a final delimiter.
+//  5. Evaluate a real executable config in a directory with those names twice
+//     and prove the JavaScript fingerprint is accepted by the Go cache reader.
+//  6. Reject every malformed dependency-envelope class while accepting an
 //     idempotent duplicate, so corrupt cache state can only become a soft miss.
 func TestConfigCacheInvalidatesTransitiveDependencyDigests(t *testing.T) {
   t.Setenv("TTSC_LINT_DISABLE_CONFIG_CACHE", "")
@@ -116,36 +122,112 @@ func TestConfigCacheInvalidatesTransitiveDependencyDigests(t *testing.T) {
     t.Fatalf("unstable result was cached: attempts=%d, want 6", unstableCalls)
   }
 
-  topology := filepath.Join(root, "topology")
+  emptyTopology := filepath.Join(root, "topology-empty")
+  if err := os.Mkdir(emptyTopology, 0o755); err != nil {
+    t.Fatal(err)
+  }
+  assertDirectoryDependencyDigest(t, emptyTopology, nil)
+
+  singleTopology := filepath.Join(root, "topology-single")
+  if err := os.Mkdir(singleTopology, 0o755); err != nil {
+    t.Fatal(err)
+  }
+  write(filepath.Join(singleTopology, "alpha"), "")
+  assertDirectoryDependencyDigest(
+    t,
+    singleTopology,
+    []testDirectoryDigestRecord{{name: []byte("alpha"), kind: "file"}},
+  )
+
+  topology := filepath.Join(root, "topology-multiple")
   if err := os.Mkdir(topology, 0o755); err != nil {
     t.Fatal(err)
   }
   write(filepath.Join(topology, "alpha"), "")
+  write(filepath.Join(topology, "é"), "")
   if err := os.Mkdir(filepath.Join(topology, "nested"), 0o755); err != nil {
     t.Fatal(err)
   }
-  serializedDirectory := strings.Join(
-    []string{
-      "alpha\x00file\x00",
-      "nested\x00directory\x00",
-    },
-    "\x00",
-  )
-  serializedSum := sha256.Sum256([]byte(serializedDirectory))
-  directoryDigest, err := configDependencyDigest(
-    configDependencyFingerprint{
-      Path: topology,
-      Kind: configDependencyDir,
+  assertDirectoryDependencyDigest(
+    t,
+    topology,
+    []testDirectoryDigestRecord{
+      {name: []byte("alpha"), kind: "file"},
+      {name: []byte("é"), kind: "file"},
+      {name: []byte("nested"), kind: "directory"},
     },
   )
-  if err != nil {
-    t.Fatalf("directory digest: %v", err)
+
+  symlinkTopology := filepath.Join(root, "topology-symlink")
+  if err := os.Mkdir(symlinkTopology, 0o755); err != nil {
+    t.Fatal(err)
   }
-  if want := hex.EncodeToString(serializedSum[:]); directoryDigest != want {
+  symlinkTarget := "목적"
+  write(filepath.Join(symlinkTopology, symlinkTarget), "")
+  if err := os.Symlink(
+    symlinkTarget,
+    filepath.Join(symlinkTopology, "link"),
+  ); err == nil {
+    assertDirectoryDependencyDigest(
+      t,
+      symlinkTopology,
+      []testDirectoryDigestRecord{
+        {name: []byte("link"), kind: "symlink", target: []byte(symlinkTarget)},
+        {name: []byte(symlinkTarget), kind: "file"},
+      },
+    )
+  }
+
+  invalidName := []byte(nil)
+  invalidTopology := filepath.Join(root, "topology-invalid")
+  if err := os.Mkdir(invalidTopology, 0o755); err != nil {
+    t.Fatal(err)
+  }
+  if runtime.GOOS != "windows" {
+    invalidName = []byte{0xff, 'x'}
+    write(filepath.Join(invalidTopology, string(invalidName)), "")
+    assertDirectoryDependencyDigest(
+      t,
+      invalidTopology,
+      []testDirectoryDigestRecord{{name: invalidName, kind: "file"}},
+    )
+  }
+
+  loaderRoot := filepath.Join(root, "loader-parity")
+  loaderConfigRoot := filepath.Join(loaderRoot, "config")
+  loaderCounterRoot := filepath.Join(loaderRoot, "counter")
+  for _, directory := range []string{loaderConfigRoot, loaderCounterRoot} {
+    if err := os.MkdirAll(directory, 0o755); err != nil {
+      t.Fatal(err)
+    }
+  }
+  write(filepath.Join(loaderConfigRoot, "package.json"), `{"type":"commonjs"}`)
+  write(filepath.Join(loaderConfigRoot, "é"), "")
+  if invalidName != nil {
+    write(filepath.Join(loaderConfigRoot, string(invalidName)), "")
+  }
+  loaderCounter := filepath.Join(loaderCounterRoot, "calls")
+  loaderConfig := filepath.Join(loaderConfigRoot, "lint.config.cjs")
+  write(loaderConfig, `const fs = require("node:fs");
+const counter = `+strconv.Quote(loaderCounter)+`;
+let calls = 0;
+try { calls = Number(fs.readFileSync(counter, "utf8")); } catch {}
+fs.writeFileSync(counter, String(calls + 1));
+module.exports = { rules: {} };`)
+  if _, err := loadConfigFileEvaluation(loaderConfig); err != nil {
+    t.Fatalf("first real-loader evaluation: %v", err)
+  }
+  if _, err := loadConfigFileEvaluation(loaderConfig); err != nil {
+    t.Fatalf("cached real-loader evaluation: %v", err)
+  }
+  loaderCalls, err := os.ReadFile(loaderCounter)
+  if err != nil {
+    t.Fatal(err)
+  }
+  if string(loaderCalls) != "1" {
     t.Fatalf(
-      "directory digest = %s, want JavaScript byte protocol %s",
-      directoryDigest,
-      want,
+      "JavaScript and Go directory fingerprints disagreed: evaluations=%s, want 1",
+      loaderCalls,
     )
   }
 
@@ -181,5 +263,53 @@ func TestConfigCacheInvalidatesTransitiveDependencyDigests(t *testing.T) {
   )
   if !ok || len(normalized) != 1 || normalized[0] != valid {
     t.Fatalf("idempotent duplicate normalized to %v, %v", normalized, ok)
+  }
+}
+
+type testDirectoryDigestRecord struct {
+  name   []byte
+  kind   string
+  target []byte
+}
+
+func assertDirectoryDependencyDigest(
+  t *testing.T,
+  location string,
+  records []testDirectoryDigestRecord,
+) {
+  t.Helper()
+  records = append([]testDirectoryDigestRecord(nil), records...)
+  sort.Slice(records, func(left, right int) bool {
+    return bytes.Compare(records[left].name, records[right].name) < 0
+  })
+  serialized := make([]byte, 0)
+  for index, record := range records {
+    if index != 0 {
+      serialized = append(serialized, 0)
+    }
+    serialized = append(serialized, record.name...)
+    serialized = append(serialized, 0)
+    serialized = append(serialized, record.kind...)
+    serialized = append(serialized, 0)
+    serialized = append(serialized, record.target...)
+  }
+  sum := sha256.Sum256(serialized)
+  expected := hex.EncodeToString(sum[:])
+  actual, err := configDependencyDigest(
+    configDependencyFingerprint{
+      Path: location,
+      Kind: configDependencyDir,
+    },
+  )
+  if err != nil {
+    t.Fatalf("directory digest %s: %v", location, err)
+  }
+  if actual != expected {
+    t.Fatalf(
+      "directory digest %s = %s, want raw-byte protocol %s",
+      location,
+      actual,
+      expected,
+    )
   }
 }

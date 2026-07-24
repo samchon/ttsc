@@ -29,6 +29,11 @@ import (
 //     fingerprint invalidates an extensionless local require.
 //  9. Reach one shared helper through a package before reaching it directly
 //     and prove final graph reachability, not module-load order, owns its scope.
+//  10. Resolve a package above the declared project root, add a nearer package,
+//     and prove every Node search level through the selected package is
+//     topology input.
+//  11. Extend an executable config from JSON and prove the nested evaluation's
+//     resolution directories reach the final resolver.
 func TestScriptConfigLoaderTracksLocalDependencyGraph(t *testing.T) {
   t.Setenv("TTSC_LINT_DISABLE_CONFIG_CACHE", "")
   root := t.TempDir()
@@ -46,6 +51,7 @@ func TestScriptConfigLoaderTracksLocalDependencyGraph(t *testing.T) {
       t.Fatal(err)
     }
   }
+  write(filepath.Join(root, "package.json"), `{"type":"commonjs"}`)
   write(filepath.Join(packageRoot, "package.json"), `{"main":"index.cjs"}`)
   packageEntry := filepath.Join(packageRoot, "index.cjs")
   write(packageEntry, `module.exports = "error";`)
@@ -66,6 +72,7 @@ module.exports = { rules: { "no-var": selection.rule } };`)
     first.dependencies,
     []string{cjsConfig, cjsHelper},
     packageRoot,
+    filepath.Join(packageRoot, "package.json"),
   )
   assertConfigDependencyScope(
     t,
@@ -86,6 +93,7 @@ module.exports = { rules: { "no-var": selection.rule } };`)
     second.dependencies,
     []string{cjsConfig, cjsHelper},
     packageRoot,
+    filepath.Join(packageRoot, "package.json"),
   )
 
   write(cjsHelper, `require("demo"); module.exports = { rule: "error" };`)
@@ -146,7 +154,10 @@ module.exports = { rules: { "no-var": selection.rule } };`)
     t,
     packaged.dependencies,
     []string{packagedConfig, packagedHelper},
-    filepath.Join(packageRoot, "unrelated-package"),
+    packageRoot,
+    packagedConfig,
+    packagedHelper,
+    filepath.Join(packageRoot, "package.json"),
   )
 
   alternatePackageEntry := filepath.Join(packageRoot, "alternate.cjs")
@@ -264,6 +275,98 @@ module.exports = {
     configDependencyFile,
     configDependencyWatch,
   )
+
+  hoistedPackage := filepath.Join(root, "node_modules", "hoisted")
+  if err := os.MkdirAll(hoistedPackage, 0o755); err != nil {
+    t.Fatal(err)
+  }
+  write(
+    filepath.Join(hoistedPackage, "package.json"),
+    `{"main":"index.cjs"}`,
+  )
+  write(filepath.Join(hoistedPackage, "index.cjs"), `module.exports = "warning";`)
+  hoistedProject := filepath.Join(root, "apps", "a")
+  if err := os.MkdirAll(hoistedProject, 0o755); err != nil {
+    t.Fatal(err)
+  }
+  hoistedConfig := filepath.Join(hoistedProject, "lint.config.cjs")
+  write(hoistedConfig, `module.exports = {
+  rules: { "no-var": require("hoisted") },
+};`)
+  beforeNearerPackage, err := loadConfigFileEvaluationWithin(
+    hoistedConfig,
+    hoistedProject,
+  )
+  if err != nil {
+    t.Fatalf("load hoisted package config: %v", err)
+  }
+  assertConfigRuleSeverity(
+    t,
+    beforeNearerPackage.value,
+    "no-var",
+    "warning",
+  )
+  assertConfigDependencyKindScope(
+    t,
+    beforeNearerPackage.dependencyDigests,
+    filepath.Join(root, "apps"),
+    configDependencyDir,
+    configDependencyWatch,
+  )
+  nearerPackage := filepath.Join(root, "apps", "node_modules", "hoisted")
+  if err := os.MkdirAll(nearerPackage, 0o755); err != nil {
+    t.Fatal(err)
+  }
+  write(
+    filepath.Join(nearerPackage, "package.json"),
+    `{"main":"index.cjs"}`,
+  )
+  write(filepath.Join(nearerPackage, "index.cjs"), `module.exports = "error";`)
+  afterNearerPackage, err := loadConfigFileEvaluationWithin(
+    hoistedConfig,
+    hoistedProject,
+  )
+  if err != nil {
+    t.Fatalf("reload nearer package config: %v", err)
+  }
+  assertConfigRuleSeverity(
+    t,
+    afterNearerPackage.value,
+    "no-var",
+    "error",
+  )
+
+  extendsRoot := filepath.Join(root, "extends")
+  if err := os.MkdirAll(extendsRoot, 0o755); err != nil {
+    t.Fatal(err)
+  }
+  baseConfig := filepath.Join(extendsRoot, "base.config.cjs")
+  baseSelection := filepath.Join(extendsRoot, "base-selection.cjs")
+  childConfig := filepath.Join(extendsRoot, "lint.config.json")
+  write(baseSelection, `module.exports = "warning";`)
+  write(baseConfig, `module.exports = {
+  rules: { "no-var": require("./base-selection") },
+};`)
+  write(childConfig, `{"extends":"./base.config.cjs"}`)
+  resolver, err := loadConfigResolver(childConfig, extendsRoot)
+  if err != nil {
+    t.Fatalf("load JSON config extending executable config: %v", err)
+  }
+  directories := resolver.(interface{ ConfigDirectories() []string }).ConfigDirectories()
+  foundExtendsRoot := false
+  for _, directory := range directories {
+    if filepath.Clean(directory) == filepath.Clean(extendsRoot) {
+      foundExtendsRoot = true
+      break
+    }
+  }
+  if !foundExtendsRoot {
+    t.Fatalf(
+      "extends resolution directory %s missing from %v",
+      extendsRoot,
+      directories,
+    )
+  }
 }
 
 func assertConfigDependencyScope(
@@ -339,8 +442,13 @@ func assertConfigDependencies(
   actual []string,
   expected []string,
   excludedRoot string,
+  allowedWithinExcludedRoot ...string,
 ) {
   t.Helper()
+  allowed := make(map[string]struct{}, len(allowedWithinExcludedRoot))
+  for _, location := range allowedWithinExcludedRoot {
+    allowed[filepath.Clean(location)] = struct{}{}
+  }
   found := map[string]struct{}{}
   for _, location := range actual {
     location = filepath.Clean(location)
@@ -349,9 +457,10 @@ func assertConfigDependencies(
     if err == nil &&
       relative != ".." &&
       !filepath.IsAbs(relative) &&
-      !startsWithParentDirectory(relative) &&
-      filepath.Base(location) != "package.json" {
-      t.Fatalf("package dependency leaked into local graph: %s", location)
+      !startsWithParentDirectory(relative) {
+      if _, ok := allowed[location]; !ok {
+        t.Fatalf("package dependency leaked into local graph: %s", location)
+      }
     }
   }
   for _, location := range expected {

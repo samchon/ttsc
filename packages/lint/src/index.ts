@@ -609,7 +609,12 @@ function recordResolutionTopology(
   recordDirectoryDependency(path.dirname(childLocation), owners);
   recordPackageManifests(childLocation, owners);
   if (parentLocation !== undefined && !isLocalModuleSpecifier(specifier)) {
-    recordNodeModulesSearchDirectories(parentLocation, specifier, owners);
+    recordNodeModulesSearchDirectories(
+      parentLocation,
+      specifier,
+      childLocation,
+      owners,
+    );
   }
 }
 
@@ -625,29 +630,44 @@ function recordDirectoryDependency(
 }
 
 function directoryDigest(location: string): string {
-  const entries = fs.readdirSync(location, { withFileTypes: true })
+  const entries = fs
+    .readdirSync(location, { encoding: "buffer", withFileTypes: true })
     .map((entry) => {
-      let kind = entry.isDirectory()
+      const kind = entry.isDirectory()
         ? "directory"
         : entry.isFile()
           ? "file"
           : entry.isSymbolicLink()
             ? "symlink"
             : "other";
-      let target = "";
+      let target = Buffer.alloc(0);
       if (entry.isSymbolicLink()) {
         try {
-          target = fs.readlinkSync(path.join(location, entry.name));
+          target = fs.readlinkSync(
+            Buffer.concat([
+              Buffer.from(location),
+              Buffer.from(path.sep),
+              entry.name,
+            ]),
+            { encoding: "buffer" },
+          );
         } catch {
-          target = "<unreadable>";
+          target = Buffer.from("<unreadable>");
         }
       }
-      return entry.name + "\\0" + kind + "\\0" + target;
+      return Buffer.concat([
+        entry.name,
+        Buffer.from("\\0" + kind + "\\0"),
+        target,
+      ]);
     })
-    .sort((left, right) =>
-      Buffer.compare(Buffer.from(left, "utf8"), Buffer.from(right, "utf8")),
-    );
-  return createHash("sha256").update(entries.join("\\0")).digest("hex");
+    .sort(Buffer.compare);
+  const serialized = Buffer.concat(
+    entries.flatMap((entry, index) =>
+      index === 0 ? [entry] : [Buffer.from([0]), entry],
+    ),
+  );
+  return createHash("sha256").update(serialized).digest("hex");
 }
 
 function recordPackageManifests(
@@ -655,7 +675,6 @@ function recordPackageManifests(
   owners: readonly string[],
 ): void {
   let current = path.dirname(location);
-  const boundary = resolutionBoundaryFor(location);
   while (true) {
     // A newly created nearer package.json can change ESM/CJS interpretation.
     // Fingerprint the search directory as well as every manifest that exists.
@@ -674,7 +693,6 @@ function recordPackageManifests(
     } catch {
       // A missing manifest does not participate in the current resolution.
     }
-    if (sameResolutionPath(current, boundary)) return;
     const parent = path.dirname(current);
     if (parent === current || path.basename(current) === "node_modules") return;
     current = parent;
@@ -684,14 +702,15 @@ function recordPackageManifests(
 function recordNodeModulesSearchDirectories(
   parentLocation: string,
   specifier: string,
+  childLocation: string,
   owners: readonly string[],
 ): void {
+  const packageName = modulePackageName(specifier);
   const scope =
     specifier.startsWith("@") && specifier.includes("/")
       ? specifier.slice(0, specifier.indexOf("/"))
       : undefined;
   let current = path.dirname(parentLocation);
-  const boundary = resolutionBoundaryFor(parentLocation);
   while (true) {
     // A newly created nearer node_modules directory can shadow the package
     // selected by this evaluation, so missing search levels are dependencies.
@@ -710,25 +729,59 @@ function recordNodeModulesSearchDirectories(
             // The directory digest of node_modules records a missing scope.
           }
         }
+        if (
+          packageName !== undefined &&
+          resolvedPackageContains(modules, packageName, childLocation)
+        ) {
+          return;
+        }
       }
     } catch {
       // Missing search levels do not participate in the current resolution.
     }
-    if (sameResolutionPath(current, boundary)) return;
+    if (
+      packageName === undefined &&
+      sameResolutionPath(current, resolutionRoot)
+    ) {
+      return;
+    }
     const parent = path.dirname(current);
     if (parent === current) return;
     current = parent;
   }
 }
 
-function resolutionBoundaryFor(location: string): string {
-  const resolved = path.resolve(location);
-  const relative = path.relative(resolutionRoot, resolved);
-  return relative !== ".." &&
-    !relative.startsWith(".." + path.sep) &&
-    !path.isAbsolute(relative)
-    ? resolutionRoot
-    : path.dirname(resolved);
+function modulePackageName(specifier: string): string | undefined {
+  if (specifier.startsWith("@")) {
+    const components = specifier.split("/");
+    return components.length >= 2
+      ? components[0] + "/" + components[1]
+      : undefined;
+  }
+  const [name] = specifier.split("/");
+  return name && !name.startsWith("#") ? name : undefined;
+}
+
+function resolvedPackageContains(
+  modules: string,
+  packageName: string,
+  childLocation: string,
+): boolean {
+  try {
+    const packageRoot = fs.realpathSync(path.join(modules, packageName));
+    const relative = path.relative(
+      packageRoot,
+      fs.realpathSync(childLocation),
+    );
+    return (
+      relative === "" ||
+      (relative !== ".." &&
+        !relative.startsWith(".." + path.sep) &&
+        !path.isAbsolute(relative))
+    );
+  } catch {
+    return false;
+  }
 }
 
 function sameResolutionPath(left: string, right: string): boolean {
@@ -1348,7 +1401,7 @@ function configDependenciesAreCurrent(
 
 function configDirectoryDigest(location: string): string {
   const entries = fs
-    .readdirSync(location, { withFileTypes: true })
+    .readdirSync(location, { encoding: "buffer", withFileTypes: true })
     .map((entry) => {
       const kind = entry.isDirectory()
         ? "directory"
@@ -1357,20 +1410,34 @@ function configDirectoryDigest(location: string): string {
           : entry.isSymbolicLink()
             ? "symlink"
             : "other";
-      let target = "";
+      let target = Buffer.alloc(0);
       if (entry.isSymbolicLink()) {
         try {
-          target = fs.readlinkSync(path.join(location, entry.name));
+          target = fs.readlinkSync(
+            Buffer.concat([
+              Buffer.from(location),
+              Buffer.from(path.sep),
+              entry.name,
+            ]),
+            { encoding: "buffer" },
+          );
         } catch {
-          target = "<unreadable>";
+          target = Buffer.from("<unreadable>");
         }
       }
-      return entry.name + "\0" + kind + "\0" + target;
+      return Buffer.concat([
+        entry.name,
+        Buffer.from("\0" + kind + "\0"),
+        target,
+      ]);
     })
-    .sort((left, right) =>
-      Buffer.compare(Buffer.from(left, "utf8"), Buffer.from(right, "utf8")),
-    );
-  return createHash("sha256").update(entries.join("\0")).digest("hex");
+    .sort(Buffer.compare);
+  const serialized = Buffer.concat(
+    entries.flatMap((entry, index) =>
+      index === 0 ? [entry] : [Buffer.from([0]), entry],
+    ),
+  );
+  return createHash("sha256").update(serialized).digest("hex");
 }
 
 // ────────────────────────────────────────────────────────────────────────────
