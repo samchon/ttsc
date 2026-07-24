@@ -1597,27 +1597,16 @@ function matchesProjectInput(
 }
 
 /**
- * Decide whether an event that named no declared input can still have moved
- * one.
- *
- * The admitted set is the only bound on how often a watch session re-reads and
- * re-hashes its declared corpus, and both directions cost: too narrow drops an
- * atomic replacement, too wide re-fingerprints on every entry an install
- * creates. Exported so that boundary is pinned directly instead of being
- * inferred from a rebuild that a silent rescan and a skipped rescan produce
- * identically.
- */
-/**
  * Whether a replacement at this path leaves a recursive watcher bound to the
  * object that was replaced.
  *
  * Only one backend needs the answer. Node routes a recursive watch to its own
  * per-directory implementation when the platform is neither macOS nor Windows,
- * and that implementation keys its handles by path: a directory renamed away
- * keeps its key, so the directory renamed into its place is skipped as already
- * known and nothing inside it is ever watched. The native subtree backends both
- * other platforms use follow the path, so retiring their watcher would buy
- * nothing and would open a window in which no events are delivered at all.
+ * and that implementation keys its handles by path: the handle for a directory
+ * renamed away stays bound to the object that left, and any child whose name
+ * survives the swap is skipped as already known. The native subtree backends
+ * both other platforms use follow the path, so retiring their watcher would buy
+ * nothing and would open a window in which no events are delivered.
  *
  * The answer is deliberately narrower than the rescan rule. A directory
  * appearing inside a glob root also deserves a rescan, but it replaces nothing,
@@ -1650,12 +1639,26 @@ function projectInputAnchorsDeclaration(
     (snapshot.reloadFiles ?? []).some((file) =>
       identities.isWithin(directory, file),
     ) ||
+    (snapshot.reloadDirectories ?? []).some((entry) =>
+      identities.isWithin(directory, entry),
+    ) ||
     snapshot.globs.some((glob) =>
       identities.isWithin(directory, literalGlobRoot(glob)),
     )
   );
 }
 
+/**
+ * Decide whether an event that named no declared input can still have moved
+ * one.
+ *
+ * The admitted set is the only bound on how often a watch session re-reads and
+ * re-hashes its declared corpus, and both directions cost: too narrow drops an
+ * atomic replacement, too wide re-fingerprints on every entry an install
+ * creates. Exported so that boundary is pinned directly instead of being
+ * inferred from a rebuild that a silent rescan and a skipped rescan produce
+ * identically.
+ */
 export function projectInputTopologyMayAffect(
   snapshot: ITtscProjectInputSnapshot,
   location: string,
