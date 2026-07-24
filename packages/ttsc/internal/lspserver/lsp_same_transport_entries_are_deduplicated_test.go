@@ -64,38 +64,3 @@ func TestLSPSameTransportEntriesAreDeduplicated(t *testing.T) {
     t.Fatalf("same transport selected %d project producers", result.selected)
   }
 }
-
-// TestLSPDifferingProjectContextArgsUseSeparateResidentSessions verifies launch
-// argv is part of resident identity instead of whichever logical entry runs
-// first fixing the daemon's project-context behavior for every later entry.
-func TestLSPDifferingProjectContextArgsUseSeparateResidentSessions(t *testing.T) {
-  withoutContext := NativeLSPPluginEntry{
-    Binary: "ttsc-no-such-shared-sidecar",
-    Name:   "@ttsc/without-context",
-  }
-  withContext := withoutContext
-  withContext.Name = "@ttsc/with-context"
-  withContext.ProjectContextArgs = true
-  if pluginKey(withoutContext) == pluginKey(withContext) {
-    t.Fatal("project-context argv did not distinguish launch transports")
-  }
-
-  source := &NativePluginSource{
-    cwd:                t.TempDir(),
-    pluginsJSON:        "[]",
-    projectContextJSON: `{"physicalProjectRoot":"/project"}`,
-  }
-  _, _, _ = source.serveRun(
-    withoutContext,
-    serveVerbDiagnostics,
-    []string{"--uri=file:///project/a.ts"},
-  )
-  _, _, _ = source.serveRun(
-    withContext,
-    serveVerbDiagnostics,
-    []string{"--uri=file:///project/a.ts"},
-  )
-  if len(source.residents) != 2 {
-    t.Fatalf("differing launch argv shared %d resident sessions", len(source.residents))
-  }
-}

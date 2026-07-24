@@ -49,8 +49,9 @@ func (s *NativePluginSource) ProjectDiagnosticsForOwners(
     func(plugin NativeLSPPluginEntry) bool {
       return plugin.ProjectDiagnostics
     },
+    s.projectContextJSON,
   ) {
-    key := pluginKey(plugin)
+    key := pluginKey(plugin, s.projectContextJSON)
     if owners != nil {
       if _, selected := selectedOwners[key]; !selected {
         continue
@@ -95,7 +96,7 @@ func (s *NativePluginSource) storeProjectDiagnostics(
   if publication == nil || publication.URI == "" {
     return
   }
-  key := pluginKey(plugin)
+  key := pluginKey(plugin, s.projectContextJSON)
   copied := copyProjectDiagnostics(publication)
   s.projectDiagnosticsMu.Lock()
   defer s.projectDiagnosticsMu.Unlock()
@@ -119,8 +120,12 @@ func (s *NativePluginSource) projectDiagnosticsSnapshot() *LSPProjectDiagnostics
   s.projectDiagnosticsMu.RLock()
   defer s.projectDiagnosticsMu.RUnlock()
   var out *LSPProjectDiagnostics
-  for _, plugin := range selectPluginTransports(s.plugins, nil) {
-    key := pluginKey(plugin)
+  for _, plugin := range selectPluginTransports(
+    s.plugins,
+    nil,
+    s.projectContextJSON,
+  ) {
+    key := pluginKey(plugin, s.projectContextJSON)
     record, ok := s.pluginProjectDiagnostics[key]
     if !ok {
       continue
