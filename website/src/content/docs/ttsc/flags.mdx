@@ -26,6 +26,18 @@ one layer and silently disappears at the next boundary.
 | `--emit` | - | boolean | ttsc, build, check | launcher, runBuild, host, lint | - | Force emitted files during build. |
 | `--noEmit` | - | boolean | ttsc, build, check | launcher, runBuild, host, lint | shadow | Force analysis-only build with no file writes. |
 | `--outDir` | - | value | ttsc, build, check | launcher, host, lint | - | Override compilerOptions.outDir for this invocation. |
+| `--composite` | - | boolean | ttsc, ttsx, build, check, fix, format | tsgo | - | Enable project-reference constraints (forwarded to tsgo). |
+| `--incremental` | `-i` | boolean | ttsc, ttsx, build, check, fix, format | tsgo | - | Write build information for incremental compilation. |
+| `--tsBuildInfoFile` | - | value | ttsc, ttsx, build, check, fix, format | tsgo | - | Choose the incremental build-information file. |
+| `--declaration` | `-d` | boolean | ttsc, ttsx, build, check, fix, format | tsgo | - | Emit declaration files. |
+| `--declarationDir` | - | value | ttsc, ttsx, build, check, fix, format | tsgo | - | Choose the declaration output directory. |
+| `--declarationMap` | - | boolean | ttsc, ttsx, build, check, fix, format | tsgo | - | Emit source maps for declaration files. |
+| `--emitDeclarationOnly` | - | boolean | ttsc, ttsx, build, check, fix, format | tsgo | - | Emit declarations without JavaScript. |
+| `--inlineSourceMap` | - | boolean | ttsc, ttsx, build, check, fix, format | tsgo | - | Inline source maps into emitted JavaScript. |
+| `--sourceMap` | - | boolean | ttsc, ttsx, build, check, fix, format | tsgo | - | Emit external JavaScript source maps. |
+| `--outFile` | - | value | ttsc, ttsx, build, check, fix, format | tsgo | - | Bundle emitted JavaScript and declarations into one file. |
+| `--rootDir` | - | value | ttsc, ttsx, build, check, fix, format | tsgo | - | Choose the compiler input root. |
+| `--jsx` | - | value | ttsc, ttsx, build, check, fix, format | tsgo | - | Choose the JSX emit transform. |
 | `--watch` | `-w` | boolean | ttsc, build, check | launcher | consumed-not-forwarded | Rebuild when project files change. |
 | `--preserveWatchOutput` | - | boolean | ttsc, build, check | launcher | consumed-not-forwarded | Do not clear the screen between watch rebuilds. |
 | `--quiet` | - | boolean | ttsc, build, check, fix, format | launcher, host, lint | - | Keep build output quiet (default). |

@@ -12,7 +12,13 @@ import { resolveProjectIdentity } from "./resolveProjectConfig";
  * Compiler option keys whose values are file-system paths that must be resolved
  * relative to the tsconfig that declares them, not the project root.
  */
-const PATH_OPTIONS = new Set(["baseUrl", "declarationDir", "rootDir"]);
+const PATH_OPTIONS = new Set([
+  "baseUrl",
+  "declarationDir",
+  "outFile",
+  "rootDir",
+  "tsBuildInfoFile",
+]);
 
 /**
  * Intermediate type used during `extends`-chain resolution before the result is
@@ -35,9 +41,10 @@ type ResolvedCompilerOptions = {
  *
  * Follows `extends` chains (including arrays) and merges compiler options with
  * later configs taking precedence. Path-typed options (`baseUrl`,
- * `declarationDir`, `rootDir`) are resolved relative to the config that
- * declares them. The `outDir` is resolved to an absolute path. Plugins are
- * inherited from the nearest ancestor that declares them.
+ * `declarationDir`, `outFile`, `rootDir`, `tsBuildInfoFile`) are resolved
+ * relative to the config that declares them. The `outDir` is resolved to an
+ * absolute path. Plugins are inherited from the nearest ancestor that declares
+ * them.
  */
 export function readProjectConfig(
   opts: ITtscProjectLocatorOptions = {},

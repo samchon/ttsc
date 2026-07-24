@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 
 import { parseFlags } from "../../../../../packages/ttsc/lib/flags/parser.js";
+import { resolveFlagSpec } from "../../../../../packages/ttsc/lib/flags/schema.js";
 
 const isInputFile = (token: string): boolean =>
   [".ts", ".tsx", ".mts", ".cts"].some((ext) => token.endsWith(ext));
@@ -27,7 +28,9 @@ const parse = (argv: string[]) =>
  *
  * 1. Parse case, dash, inline, spaced, and alias spellings of ttsc-owned flags.
  * 2. Assert each resolves to the canonical flag with the canonical value.
- * 3. Assert an unknown flag, a near-miss flag name, and a bare token that spells a
+ * 3. Resolve output-affecting tsgo flags through the same schema while preserving
+ *    their original forwarded argv.
+ * 4. Assert an unknown flag, a near-miss flag name, and a bare token that spells a
  *    flag are still forwarded verbatim with their adjacency intact.
  */
 export const test_ttsc_resolves_flag_spellings_the_compiler_treats_as_identical =
@@ -59,6 +62,39 @@ export const test_ttsc_resolves_flag_spellings_the_compiler_treats_as_identical 
       [["--tsconfig", "x.json"]],
     );
     assert.deepEqual([...parse(["-noEmit"]).values], [["--noEmit", true]]);
+
+    // Output inference consumes the canonical identity even though tsgo still
+    // receives the original spelling. This covers a short alias, a one-dash
+    // long option, case folding, and spaced values.
+    assert.equal(resolveFlagSpec("-D")?.name, "--declaration");
+    assert.equal(resolveFlagSpec("-INCREMENTAL")?.name, "--incremental");
+    assert.equal(
+      resolveFlagSpec("--TSBUILDINFOFILE")?.name,
+      "--tsBuildInfoFile",
+    );
+    assert.equal(resolveFlagSpec("-JsX")?.name, "--jsx");
+    const compilerOutputFlags = parse([
+      "-D",
+      "--DECLARATION",
+      "false",
+      "-I",
+      "--TSBUILDINFOFILE",
+      "cache/build.tsbuildinfo",
+      "-JsX",
+      "react-native",
+      "a.ts",
+    ]);
+    assert.deepEqual(compilerOutputFlags.passthrough, [
+      "-D",
+      "--DECLARATION",
+      "false",
+      "-I",
+      "--TSBUILDINFOFILE",
+      "cache/build.tsbuildinfo",
+      "-JsX",
+      "react-native",
+    ]);
+    assert.deepEqual(compilerOutputFlags.positional, ["a.ts"]);
 
     // A launcher-only flag is normalized with the rest: it is consumed with its
     // value rather than reaching tsgo, which would reject it.
