@@ -80,18 +80,19 @@ func (s *NativePluginSource) serveRun(plugin NativeLSPPluginEntry, verb string, 
   if s == nil || strings.TrimSpace(plugin.Binary) == "" {
     return nil, false, nil
   }
+  key := pluginKey(plugin)
   s.residentMu.Lock()
-  if s.serveUnsupported[plugin.Binary] {
+  if s.serveUnsupported[key] {
     s.residentMu.Unlock()
     return nil, false, nil
   }
-  sc := s.residents[plugin.Binary]
+  sc := s.residents[key]
   if sc == nil {
     sc = &residentSidecar{}
     if s.residents == nil {
       s.residents = map[string]*residentSidecar{}
     }
-    s.residents[plugin.Binary] = sc
+    s.residents[key] = sc
   }
   s.residentMu.Unlock()
 
@@ -108,7 +109,7 @@ func (s *NativePluginSource) serveRun(plugin NativeLSPPluginEntry, verb string, 
       if s.serveUnsupported == nil {
         s.serveUnsupported = map[string]bool{}
       }
-      s.serveUnsupported[plugin.Binary] = true
+      s.serveUnsupported[key] = true
     }
     s.residentMu.Unlock()
     return nil, false, nil
@@ -299,42 +300,42 @@ func (s *NativePluginSource) InvalidateResidentProgramsForOwnedWatchedChanges(
       ordinary = append(ordinary, uri)
     }
   }
-  ownerBinaries := make(map[string]map[string]struct{}, len(externalURIs))
-  allBinaries := make(map[string]bool, len(externalURIs))
+  ownerTransports := make(map[string]map[string]struct{}, len(externalURIs))
+  allTransports := make(map[string]bool, len(externalURIs))
   pluginsByKey := make(map[string]NativeLSPPluginEntry, len(s.plugins))
   for _, plugin := range s.plugins {
     pluginsByKey[pluginKey(plugin)] = plugin
   }
   for _, uri := range externalURIs {
     if watchedURIHasProgramInputExtension(uri) {
-      allBinaries[uri] = true
+      allTransports[uri] = true
       continue
     }
     owners, scoped := externalOwners[uri]
     if !scoped || owners == nil {
-      allBinaries[uri] = true
+      allTransports[uri] = true
       continue
     }
-    binaries := map[string]struct{}{}
+    transports := map[string]struct{}{}
     for _, owner := range owners {
       if plugin, ok := pluginsByKey[owner]; ok {
-        binaries[plugin.Binary] = struct{}{}
+        transports[pluginKey(plugin)] = struct{}{}
       }
     }
-    ownerBinaries[uri] = binaries
+    ownerTransports[uri] = transports
   }
   s.residentMu.Lock()
   residents := make(map[string]*residentSidecar, len(s.residents))
-  for binary, sc := range s.residents {
-    residents[binary] = sc
+  for key, sc := range s.residents {
+    residents[key] = sc
   }
   s.residentMu.Unlock()
-  for binary, sc := range residents {
+  for key, sc := range residents {
     changed := append([]string(nil), ordinary...)
     selectedExternal := []string{}
     for _, uri := range externalURIs {
-      _, owned := ownerBinaries[uri][binary]
-      if !allBinaries[uri] && !owned {
+      _, owned := ownerTransports[uri][key]
+      if !allTransports[uri] && !owned {
         continue
       }
       changed = append(changed, uri)

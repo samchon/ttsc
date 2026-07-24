@@ -66,13 +66,8 @@ func (s *NativePluginSource) ProjectInputOwnersForURI(uri string) []string {
   s.projectInputsMu.RLock()
   defer s.projectInputsMu.RUnlock()
   owners := []string{}
-  seen := map[string]struct{}{}
-  for _, plugin := range s.plugins {
+  for _, plugin := range selectPluginTransports(s.plugins, nil) {
     key := pluginKey(plugin)
-    if _, duplicate := seen[key]; duplicate {
-      continue
-    }
-    seen[key] = struct{}{}
     record, ok := s.pluginProjectInputs[key]
     if !ok || !projectInputSnapshotMatchesCandidate(record.snapshot, candidate) {
       continue
@@ -125,10 +120,12 @@ func (s *NativePluginSource) SetProjectInputsObserver(observer func()) {
 
 func (s *NativePluginSource) discoverProjectInputs(generation uint64) {
   changed := false
-  for _, plugin := range s.plugins {
-    if !plugin.ProjectInputs {
-      continue
-    }
+  for _, plugin := range selectPluginTransports(
+    s.plugins,
+    func(plugin NativeLSPPluginEntry) bool {
+      return plugin.ProjectInputs
+    },
+  ) {
     body, err := s.run(plugin, "project-inputs")
     if err != nil {
       s.log("%v", err)
@@ -197,13 +194,8 @@ func (s *NativePluginSource) flattenProjectInputsLocked() LSPProjectInputSnapsho
   files := map[string]string{}
   globs := map[string]string{}
   root := ""
-  seen := map[string]struct{}{}
-  for _, plugin := range s.plugins {
+  for _, plugin := range selectPluginTransports(s.plugins, nil) {
     key := pluginKey(plugin)
-    if _, duplicate := seen[key]; duplicate {
-      continue
-    }
-    seen[key] = struct{}{}
     snapshot := s.pluginProjectInputs[key].snapshot
     if root == "" && snapshot.Root != "" {
       root = snapshot.Root

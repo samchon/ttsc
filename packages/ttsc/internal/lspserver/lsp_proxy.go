@@ -2826,7 +2826,7 @@ func watchedChangesMayAffectProgram(changes []struct {
     if isProjectConfigURI(change.URI) {
       return true
     }
-    if watchedURIHasProgramSourceExtension(change.URI) {
+    if watchedURIHasProgramInputExtension(change.URI) {
       return true
     }
   }

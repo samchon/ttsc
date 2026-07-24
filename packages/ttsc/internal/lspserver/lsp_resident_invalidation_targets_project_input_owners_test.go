@@ -16,8 +16,8 @@ func TestLSPResidentInvalidationTargetsProjectInputOwners(t *testing.T) {
   source := &NativePluginSource{
     plugins: []NativeLSPPluginEntry{first, second},
     residents: map[string]*residentSidecar{
-      first.Binary:  firstResident,
-      second.Binary: secondResident,
+      pluginKey(first):  firstResident,
+      pluginKey(second): secondResident,
     },
   }
   const externalURI = "file:///project/docs/spec.md"
@@ -70,8 +70,8 @@ func TestLSPResidentInvalidationBroadcastsProgramInputOverlap(t *testing.T) {
       source := &NativePluginSource{
         plugins: []NativeLSPPluginEntry{first, second},
         residents: map[string]*residentSidecar{
-          first.Binary:  firstResident,
-          second.Binary: secondResident,
+          pluginKey(first):  firstResident,
+          pluginKey(second): secondResident,
         },
       }
 

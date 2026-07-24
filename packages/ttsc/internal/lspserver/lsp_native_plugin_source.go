@@ -206,7 +206,7 @@ func (s *NativePluginSource) Diagnostics(doc LSPDocumentVersion) LSPDiagnosticsR
   out := LSPDiagnosticsResult{
     projectUpdatedProducers: map[string]struct{}{},
   }
-  for _, plugin := range s.plugins {
+  for _, plugin := range selectPluginTransports(s.plugins, nil) {
     body, err := s.run(plugin, "lsp-diagnostics", "--uri="+doc.URI)
     if err != nil {
       s.log("%v", err)
@@ -249,7 +249,7 @@ func (s *NativePluginSource) CodeActions(uri string, rng LSPRange, ctx LSPCodeAc
   rangeJSON, _ := json.Marshal(rng)
   contextJSON, _ := json.Marshal(ctx)
   var out []LSPCodeAction
-  for _, plugin := range s.plugins {
+  for _, plugin := range selectPluginTransports(s.plugins, nil) {
     body, err := s.run(
       plugin,
       "lsp-code-actions",
@@ -442,7 +442,7 @@ type completionHintRecord struct {
 // so a fast producer's fresh corpus reaches the editor without waiting on a slow
 // one, and a producer that failed keeps serving what it last published.
 func (s *NativePluginSource) discoverCompletionHints(generation uint64) {
-  for _, plugin := range s.plugins {
+  for _, plugin := range selectPluginTransports(s.plugins, nil) {
     body, err := s.run(plugin, "lsp-hints")
     if err != nil {
       // Silent, unlike every other discovery failure here. A plugin that does
@@ -501,13 +501,8 @@ func (s *NativePluginSource) storeCompletionHints(plugin NativeLSPPluginEntry, g
 // which a Go map's randomized range would not. The caller holds hintsMu.
 func (s *NativePluginSource) flattenCompletionHintsLocked() []LSPCompletionHint {
   hints := []LSPCompletionHint{}
-  seen := make(map[string]struct{}, len(s.plugins))
-  for _, plugin := range s.plugins {
+  for _, plugin := range selectPluginTransports(s.plugins, nil) {
     key := pluginKey(plugin)
-    if _, duplicate := seen[key]; duplicate {
-      continue
-    }
-    seen[key] = struct{}{}
     hints = append(hints, s.pluginHints[key].hints...)
   }
   return hints
@@ -525,12 +520,38 @@ func (s *NativePluginSource) notifyCompletionHintsObserver() {
   }
 }
 
-// pluginKey identifies one manifest entry. It matches the identity
-// pluginOwnsCommand compares, so a manifest carrying the same binary under two
-// stages keeps two independent corpora instead of overwriting one with the
-// other.
+// pluginKey identifies one effective native launch transport. Every LSP verb
+// receives the full plugin manifest and has no selected-entry argument, so two
+// logical entries using the same binary and project-context argv return one
+// aggregate result and must share one cache, owner scope, and resident daemon.
 func pluginKey(plugin NativeLSPPluginEntry) string {
-  return plugin.Binary + "\x00" + plugin.Name + "\x00" + plugin.Stage
+  projectContextArgs := "0"
+  if plugin.ProjectContextArgs {
+    projectContextArgs = "1"
+  }
+  return plugin.Binary + "\x00" + projectContextArgs
+}
+
+// selectPluginTransports preserves manifest order while selecting at most one
+// representative for each effective native launch identity.
+func selectPluginTransports(
+  plugins []NativeLSPPluginEntry,
+  include func(NativeLSPPluginEntry) bool,
+) []NativeLSPPluginEntry {
+  selected := make([]NativeLSPPluginEntry, 0, len(plugins))
+  seen := make(map[string]struct{}, len(plugins))
+  for _, plugin := range plugins {
+    if include != nil && !include(plugin) {
+      continue
+    }
+    key := pluginKey(plugin)
+    if _, duplicate := seen[key]; duplicate {
+      continue
+    }
+    seen[key] = struct{}{}
+    selected = append(selected, plugin)
+  }
+  return selected
 }
 
 // decodeNativeCompletionHints accepts both generations of the lsp-hints wire.
@@ -623,7 +644,7 @@ func (s *NativePluginSource) CodeActionKinds() []string {
 func (s *NativePluginSource) discoverCommandIDs() {
   seen := map[string]struct{}{}
   kindSeen := map[string]struct{}{}
-  for _, plugin := range s.plugins {
+  for _, plugin := range selectPluginTransports(s.plugins, nil) {
     body, err := s.run(plugin, "lsp-command-ids")
     if err != nil {
       s.log("%v", err)
@@ -677,7 +698,7 @@ func (s *NativePluginSource) pluginOwnsCommand(plugin NativeLSPPluginEntry, comm
   if !ok {
     return false
   }
-  return owner.Binary == plugin.Binary && owner.Name == plugin.Name && owner.Stage == plugin.Stage
+  return pluginKey(owner) == pluginKey(plugin)
 }
 
 func (s *NativePluginSource) run(plugin NativeLSPPluginEntry, command string, args ...string) ([]byte, error) {

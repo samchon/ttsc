@@ -87,6 +87,7 @@ export class WatchTopology {
   private projectInputRejectedWatchRoots = new Set<string>();
   private projectInputWatchRoots = new Map<string, string>();
   private projectInputWatchers = new Map<string, fs.FSWatcher>();
+  private reloadInputFingerprints = new Map<string, string>();
   private reloadFiles = new Map<string, string>();
 
   public constructor(
@@ -155,6 +156,20 @@ export class WatchTopology {
   }
 
   /**
+   * Freeze the known execution inputs immediately before one watch build.
+   *
+   * Events arriving after that boundary are compared with bytes the generation
+   * could consume. Newly discovered reload inputs are intentionally absent and
+   * therefore remain conservative until the next explicit generation.
+   */
+  public beginExecutionGeneration(): void {
+    this.extraInputFingerprints = fingerprintExecutionInputs(this.extraInputs);
+    this.reloadInputFingerprints = fingerprintExecutionInputs(
+      this.executionReloadInputs(),
+    );
+  }
+
+  /**
    * Reconcile project-rule dependencies, retaining absent files and empty glob
    * populations as live topology.
    */
@@ -197,8 +212,16 @@ export class WatchTopology {
       files,
       (location) =>
         fs.watch(location, { persistent: true }, () => {
+          const kind = this.classifyCompilerInput(location);
+          if (
+            kind === "config" &&
+            this.executionReloadInputEventShouldNotify(location, location) ===
+              false
+          ) {
+            return;
+          }
           this.callbacks.onInputChange({
-            kind: this.classifyCompilerInput(location),
+            kind,
             path: location,
           });
         }),
@@ -263,8 +286,18 @@ export class WatchTopology {
               fs.existsSync(changed)
             ) {
               if (process.platform === "win32") {
+                const kind = this.classifyCompilerInput(changed);
+                if (
+                  kind === "config" &&
+                  this.executionReloadInputEventShouldNotify(
+                    changed,
+                    location,
+                  ) === false
+                ) {
+                  return;
+                }
                 this.callbacks.onInputChange({
-                  kind: this.classifyCompilerInput(changed),
+                  kind,
                   path: changed,
                 });
               }
@@ -596,7 +629,9 @@ export class WatchTopology {
         this.reloadFiles.values(),
         changed,
       )) {
-        this.callbacks.onInputChange({ kind: "config", path: reload });
+        if (this.executionReloadInputEventShouldNotify(reload, location)) {
+          this.callbacks.onInputChange({ kind: "config", path: reload });
+        }
       }
       this.callbacks.onError(location, error);
     }
@@ -673,6 +708,30 @@ export class WatchTopology {
       (input) =>
         pathKey(input) === pathKey(resolved) || isPathWithin(input, resolved),
     );
+  }
+
+  private executionReloadInputs(): string[] {
+    return uniqueExistingPaths([
+      ...this.reloadFiles.values(),
+      ...(this.projectInputs.reloadFiles ?? []),
+    ]);
+  }
+
+  private executionReloadInputEventShouldNotify(
+    changed: string,
+    watchRoot: string,
+  ): boolean {
+    try {
+      return executionInputEventShouldNotify({
+        changed,
+        fingerprints: this.reloadInputFingerprints,
+        inputs: this.executionReloadInputs(),
+        watchRoot,
+      });
+    } catch (error) {
+      this.callbacks.onError(changed, error);
+      return true;
+    }
   }
 }
 
@@ -1349,7 +1408,7 @@ export function executionInputEventShouldNotify(input: {
     }
     const key = pathKey(changed);
     const current = fingerprintExecutionInputFile(changed);
-    if (current !== null || input.fingerprints.has(key)) {
+    if (current !== null && input.fingerprints.has(key)) {
       const previous = input.fingerprints.get(key);
       if (previous === current) return false;
       if (current === undefined) input.fingerprints.delete(key);
