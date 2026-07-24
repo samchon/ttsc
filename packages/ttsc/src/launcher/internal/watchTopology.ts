@@ -571,11 +571,15 @@ export class WatchTopology {
         previous,
         previousFingerprints: this.projectInputFingerprints,
       });
+      // Both spellings classify the event. The normalized form names the file a
+      // link pointed at when the snapshot was published, so after a retarget it
+      // names the wrong one; only the declared form resolves to what the link
+      // points at now, which is the selection this lane exists to protect.
       const reload = projectInputReloadEventShouldNotify({
         changed,
         changedInputs,
-        reloadDirectories: this.projectInputs.reloadDirectories ?? [],
-        reloadFiles: this.projectInputs.reloadFiles ?? [],
+        reloadDirectories: this.projectInputDeclarations("reload-directory"),
+        reloadFiles: this.projectInputDeclarations("reload"),
       });
       const invalidate = projectInputMembershipInvalidatesProgram({
         changed,
