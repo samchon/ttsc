@@ -2719,17 +2719,6 @@ function sameResolutionPath(left, right) {
   return path.relative(left, right) === "";
 }
 
-function samePhysicalPath(left, right) {
-  try {
-    return sameResolutionPath(
-      fs.realpathSync.native(left),
-      fs.realpathSync.native(right),
-    );
-  } catch {
-    return sameResolutionPath(left, right);
-  }
-}
-
 function finalizeDependencies() {
   const watched = graphWatchReachability();
   return [...dependencies.values()].map(({ owners, ...dependency }) => ({
@@ -2748,16 +2737,6 @@ function graphWatchReachability() {
     adjacency.set(edge.parent, outgoing);
   }
   const queue = [{ url: configUrl, watched: true }];
-  // Node resolves the entry through the filesystem before it records an edge,
-  // so the URL it reports as a parent can be a different spelling of the same
-  // file: a Windows short component, or a symlinked ancestor. Seeding only the
-  // spelling this process was handed would leave every edge unreachable and
-  // demote the whole graph to cache scope, which drops it from the watch set.
-  for (const [url, location] of graphNodes) {
-    if (url !== queue[0].url && samePhysicalPath(location, configLocation)) {
-      queue.push({ url, watched: true });
-    }
-  }
   const visited = new Set();
   const watched = new Set();
   while (queue.length !== 0) {
@@ -3830,17 +3809,6 @@ function sameResolutionPath(left: string, right: string): boolean {
   return path.relative(left, right) === "";
 }
 
-function samePhysicalPath(left: string, right: string): boolean {
-  try {
-    return sameResolutionPath(
-      fs.realpathSync.native(left),
-      fs.realpathSync.native(right),
-    );
-  } catch {
-    return sameResolutionPath(left, right);
-  }
-}
-
 function finalizeDependencies(): Array<{
   digest: string;
   kind: "directory" | "file" | "optional-file";
@@ -3867,16 +3835,6 @@ function graphWatchReachability(): Set<string> {
   const queue: Array<{ url: string; watched: boolean }> = [
     { url: config, watched: true },
   ];
-  // Node resolves the entry through the filesystem before it records an edge,
-  // so the URL it reports as a parent can be a different spelling of the same
-  // file: a Windows short component, or a symlinked ancestor. Seeding only the
-  // spelling this process was handed would leave every edge unreachable and
-  // demote the whole graph to cache scope, which drops it from the watch set.
-  for (const [url, location] of graphNodes) {
-    if (url !== queue[0].url && samePhysicalPath(location, configLocation)) {
-      queue.push({ url, watched: true });
-    }
-  }
   const visited = new Set<string>();
   const watched = new Set<string>();
   while (queue.length !== 0) {
