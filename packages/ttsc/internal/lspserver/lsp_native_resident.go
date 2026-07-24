@@ -80,7 +80,7 @@ func (s *NativePluginSource) serveRun(plugin NativeLSPPluginEntry, verb string, 
   if s == nil || strings.TrimSpace(plugin.Binary) == "" {
     return nil, false, nil
   }
-  key := pluginKey(plugin)
+  key := pluginKey(plugin, s.projectContextJSON)
   s.residentMu.Lock()
   if s.serveUnsupported[key] {
     s.residentMu.Unlock()
@@ -304,7 +304,7 @@ func (s *NativePluginSource) InvalidateResidentProgramsForOwnedWatchedChanges(
   allTransports := make(map[string]bool, len(externalURIs))
   pluginsByKey := make(map[string]NativeLSPPluginEntry, len(s.plugins))
   for _, plugin := range s.plugins {
-    pluginsByKey[pluginKey(plugin)] = plugin
+    pluginsByKey[pluginKey(plugin, s.projectContextJSON)] = plugin
   }
   for _, uri := range externalURIs {
     if watchedURIHasProgramInputExtension(uri) {
@@ -319,7 +319,7 @@ func (s *NativePluginSource) InvalidateResidentProgramsForOwnedWatchedChanges(
     transports := map[string]struct{}{}
     for _, owner := range owners {
       if plugin, ok := pluginsByKey[owner]; ok {
-        transports[pluginKey(plugin)] = struct{}{}
+        transports[pluginKey(plugin, s.projectContextJSON)] = struct{}{}
       }
     }
     ownerTransports[uri] = transports

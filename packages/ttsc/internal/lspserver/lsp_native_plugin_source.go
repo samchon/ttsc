@@ -206,7 +206,11 @@ func (s *NativePluginSource) Diagnostics(doc LSPDocumentVersion) LSPDiagnosticsR
   out := LSPDiagnosticsResult{
     projectUpdatedProducers: map[string]struct{}{},
   }
-  for _, plugin := range selectPluginTransports(s.plugins, nil) {
+  for _, plugin := range selectPluginTransports(
+    s.plugins,
+    nil,
+    s.projectContextJSON,
+  ) {
     body, err := s.run(plugin, "lsp-diagnostics", "--uri="+doc.URI)
     if err != nil {
       s.log("%v", err)
@@ -220,7 +224,7 @@ func (s *NativePluginSource) Diagnostics(doc LSPDocumentVersion) LSPDiagnosticsR
     out.Document = append(out.Document, result.Document...)
     if result.Project != nil && result.Project.URI != "" {
       s.storeProjectDiagnostics(plugin, generation, result.Project)
-      out.projectUpdatedProducers[pluginKey(plugin)] = struct{}{}
+      out.projectUpdatedProducers[pluginKey(plugin, s.projectContextJSON)] = struct{}{}
     }
   }
   if len(out.projectUpdatedProducers) != 0 {
@@ -249,7 +253,11 @@ func (s *NativePluginSource) CodeActions(uri string, rng LSPRange, ctx LSPCodeAc
   rangeJSON, _ := json.Marshal(rng)
   contextJSON, _ := json.Marshal(ctx)
   var out []LSPCodeAction
-  for _, plugin := range selectPluginTransports(s.plugins, nil) {
+  for _, plugin := range selectPluginTransports(
+    s.plugins,
+    nil,
+    s.projectContextJSON,
+  ) {
     body, err := s.run(
       plugin,
       "lsp-code-actions",
@@ -442,7 +450,11 @@ type completionHintRecord struct {
 // so a fast producer's fresh corpus reaches the editor without waiting on a slow
 // one, and a producer that failed keeps serving what it last published.
 func (s *NativePluginSource) discoverCompletionHints(generation uint64) {
-  for _, plugin := range selectPluginTransports(s.plugins, nil) {
+  for _, plugin := range selectPluginTransports(
+    s.plugins,
+    nil,
+    s.projectContextJSON,
+  ) {
     body, err := s.run(plugin, "lsp-hints")
     if err != nil {
       // Silent, unlike every other discovery failure here. A plugin that does
@@ -481,7 +493,7 @@ func (s *NativePluginSource) discoverCompletionHints(generation uint64) {
 // being offered. An older generation is dropped: refresh cycles are scheduled by
 // editor events, and the last event's answer is the one the user is waiting for.
 func (s *NativePluginSource) storeCompletionHints(plugin NativeLSPPluginEntry, generation uint64, hints []LSPCompletionHint) {
-  key := pluginKey(plugin)
+  key := pluginKey(plugin, s.projectContextJSON)
   s.hintsMu.Lock()
   defer s.hintsMu.Unlock()
   if existing, ok := s.pluginHints[key]; ok && generation < existing.generation {
@@ -501,8 +513,12 @@ func (s *NativePluginSource) storeCompletionHints(plugin NativeLSPPluginEntry, g
 // which a Go map's randomized range would not. The caller holds hintsMu.
 func (s *NativePluginSource) flattenCompletionHintsLocked() []LSPCompletionHint {
   hints := []LSPCompletionHint{}
-  for _, plugin := range selectPluginTransports(s.plugins, nil) {
-    key := pluginKey(plugin)
+  for _, plugin := range selectPluginTransports(
+    s.plugins,
+    nil,
+    s.projectContextJSON,
+  ) {
+    key := pluginKey(plugin, s.projectContextJSON)
     hints = append(hints, s.pluginHints[key].hints...)
   }
   return hints
@@ -524,9 +540,14 @@ func (s *NativePluginSource) notifyCompletionHintsObserver() {
 // receives the full plugin manifest and has no selected-entry argument, so two
 // logical entries using the same binary and project-context argv return one
 // aggregate result and must share one cache, owner scope, and resident daemon.
-func pluginKey(plugin NativeLSPPluginEntry) string {
+func pluginKey(
+  plugin NativeLSPPluginEntry,
+  projectContextJSON ...string,
+) string {
   projectContextArgs := "0"
-  if plugin.ProjectContextArgs {
+  if plugin.ProjectContextArgs &&
+    len(projectContextJSON) != 0 &&
+    strings.TrimSpace(projectContextJSON[0]) != "" {
     projectContextArgs = "1"
   }
   return plugin.Binary + "\x00" + projectContextArgs
@@ -537,6 +558,7 @@ func pluginKey(plugin NativeLSPPluginEntry) string {
 func selectPluginTransports(
   plugins []NativeLSPPluginEntry,
   include func(NativeLSPPluginEntry) bool,
+  projectContextJSON ...string,
 ) []NativeLSPPluginEntry {
   selected := make([]NativeLSPPluginEntry, 0, len(plugins))
   seen := make(map[string]struct{}, len(plugins))
@@ -544,7 +566,7 @@ func selectPluginTransports(
     if include != nil && !include(plugin) {
       continue
     }
-    key := pluginKey(plugin)
+    key := pluginKey(plugin, projectContextJSON...)
     if _, duplicate := seen[key]; duplicate {
       continue
     }
@@ -644,7 +666,11 @@ func (s *NativePluginSource) CodeActionKinds() []string {
 func (s *NativePluginSource) discoverCommandIDs() {
   seen := map[string]struct{}{}
   kindSeen := map[string]struct{}{}
-  for _, plugin := range selectPluginTransports(s.plugins, nil) {
+  for _, plugin := range selectPluginTransports(
+    s.plugins,
+    nil,
+    s.projectContextJSON,
+  ) {
     body, err := s.run(plugin, "lsp-command-ids")
     if err != nil {
       s.log("%v", err)
@@ -698,7 +724,8 @@ func (s *NativePluginSource) pluginOwnsCommand(plugin NativeLSPPluginEntry, comm
   if !ok {
     return false
   }
-  return pluginKey(owner) == pluginKey(plugin)
+  return pluginKey(owner, s.projectContextJSON) ==
+    pluginKey(plugin, s.projectContextJSON)
 }
 
 func (s *NativePluginSource) run(plugin NativeLSPPluginEntry, command string, args ...string) ([]byte, error) {

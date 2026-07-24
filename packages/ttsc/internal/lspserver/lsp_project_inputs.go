@@ -66,8 +66,12 @@ func (s *NativePluginSource) ProjectInputOwnersForURI(uri string) []string {
   s.projectInputsMu.RLock()
   defer s.projectInputsMu.RUnlock()
   owners := []string{}
-  for _, plugin := range selectPluginTransports(s.plugins, nil) {
-    key := pluginKey(plugin)
+  for _, plugin := range selectPluginTransports(
+    s.plugins,
+    nil,
+    s.projectContextJSON,
+  ) {
+    key := pluginKey(plugin, s.projectContextJSON)
     record, ok := s.pluginProjectInputs[key]
     if !ok || !projectInputSnapshotMatchesCandidate(record.snapshot, candidate) {
       continue
@@ -125,6 +129,7 @@ func (s *NativePluginSource) discoverProjectInputs(generation uint64) {
     func(plugin NativeLSPPluginEntry) bool {
       return plugin.ProjectInputs
     },
+    s.projectContextJSON,
   ) {
     body, err := s.run(plugin, "project-inputs")
     if err != nil {
@@ -168,7 +173,7 @@ func (s *NativePluginSource) storeProjectInputs(
   generation uint64,
   snapshot LSPProjectInputSnapshot,
 ) bool {
-  key := pluginKey(plugin)
+  key := pluginKey(plugin, s.projectContextJSON)
   s.projectInputsMu.Lock()
   defer s.projectInputsMu.Unlock()
   if existing, ok := s.pluginProjectInputs[key]; ok &&
@@ -194,8 +199,12 @@ func (s *NativePluginSource) flattenProjectInputsLocked() LSPProjectInputSnapsho
   files := map[string]string{}
   globs := map[string]string{}
   root := ""
-  for _, plugin := range selectPluginTransports(s.plugins, nil) {
-    key := pluginKey(plugin)
+  for _, plugin := range selectPluginTransports(
+    s.plugins,
+    nil,
+    s.projectContextJSON,
+  ) {
+    key := pluginKey(plugin, s.projectContextJSON)
     snapshot := s.pluginProjectInputs[key].snapshot
     if root == "" && snapshot.Root != "" {
       root = snapshot.Root
