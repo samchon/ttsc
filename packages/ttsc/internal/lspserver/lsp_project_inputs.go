@@ -141,7 +141,13 @@ func (s *NativePluginSource) ProjectInputReloadMatchesChange(
       continue
     }
     key := projectInputPathKey(directory)
-    if key == candidateEntryKey &&
+    // The digest map is keyed by the declared spelling, so that lookup keeps
+    // it. The identity comparison is against a physically resolved candidate
+    // and has to resolve too, or a directory recreated with identical topology
+    // under an aliased spelling would fall through to the digest compare and
+    // report no change at all.
+    if projectInputPathKey(realProjectInputPath(directory)) ==
+      candidateEntryKey &&
       (changeType == nil || *changeType != fileChangeTypeChanged) {
       return true
     }
