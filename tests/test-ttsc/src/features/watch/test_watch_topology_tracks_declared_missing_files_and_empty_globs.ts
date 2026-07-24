@@ -8,7 +8,6 @@ import {
   WatchTopology,
   literalGlobRoot,
   projectInputEventShouldNotify,
-  projectInputWatchDirectories,
 } from "../../../../../packages/ttsc/lib/launcher/internal/watchTopology.js";
 
 /**
@@ -63,9 +62,16 @@ export const test_watch_topology_tracks_declared_missing_files_and_empty_globs =
     );
     try {
       topology.refresh(false);
+      const externalRoot = TestProject.tmpdir("ttsc-project-input-anchor-");
+      const externalFile = path.join(
+        externalRoot,
+        "missing",
+        "nested",
+        "external.md",
+      );
       topology.setProjectInputs({
         root,
-        files: [path.join(root, "docs", "nested", "missing.md")],
+        files: [path.join(root, "docs", "nested", "missing.md"), externalFile],
         globs: [
           path.join(root, "api", "**", "*.json"),
           path.join(root, "dist", "**", "*.json"),
@@ -80,20 +86,10 @@ export const test_watch_topology_tracks_declared_missing_files_and_empty_globs =
           "a drive-root glob must not resolve through the drive's current directory",
         );
       }
-      const externalRoot = TestProject.tmpdir("ttsc-project-input-anchor-");
-      const missingExternalTarget = path.join(
-        externalRoot,
-        "missing",
-        "nested",
-      );
-      assert.deepEqual(
-        projectInputWatchDirectories(
-          missingExternalTarget,
-          path.dirname(missingExternalTarget),
-        ),
-        [externalRoot],
-        "a missing external path must anchor at its nearest existing directory",
-      );
+      let previousProjectChanges = projectChangeCount(changes);
+      fs.mkdirSync(path.dirname(externalFile), { recursive: true });
+      fs.writeFileSync(externalFile, "external\n", "utf8");
+      await waitForNextProjectChange(changes, previousProjectChanges);
 
       fs.writeFileSync(path.join(root, "README.md"), "unrelated\n", "utf8");
       await waitForQuiet(changes);
@@ -119,7 +115,7 @@ export const test_watch_topology_tracks_declared_missing_files_and_empty_globs =
 
       fs.mkdirSync(path.join(root, "docs", "nested"), { recursive: true });
       await delay();
-      let previousProjectChanges = projectChangeCount(changes);
+      previousProjectChanges = projectChangeCount(changes);
       fs.writeFileSync(
         path.join(root, "docs", "nested", "missing.md"),
         "declared\n",

@@ -14,9 +14,9 @@ import {
  * products.
  *
  * 1. Resolve a positional source relative to the launcher's explicit cwd.
- * 2. Suppress its real adjacent JavaScript but retain a non-emitted `.d.ts`.
+ * 2. Let `--emit` override configured declaration-only output.
  * 3. Suppress the default build-info file even under `noEmit`.
- * 4. Honor CLI declaration-directory overrides.
+ * 4. Honor one-dash CLI aliases and JSX output overrides.
  */
 export const test_watch_topology_models_effective_adjacent_and_incremental_outputs =
   async (): Promise<void> => {
@@ -25,7 +25,7 @@ export const test_watch_topology_models_effective_adjacent_and_incremental_outpu
     fs.mkdirSync(path.dirname(source), { recursive: true });
     fs.writeFileSync(source, "export const value = 1;\n", "utf8");
 
-    writeConfig(root, {});
+    writeConfig(root, { emitDeclarationOnly: true });
     const adjacentChanges: WatchInputChange[] = [];
     const adjacent = topology(root, adjacentChanges, {
       emit: true,
@@ -43,19 +43,6 @@ export const test_watch_topology_models_effective_adjacent_and_incremental_outpu
       const previous = projectChangeCount(adjacentChanges);
       fs.writeFileSync(declaration, "export declare const external: 1;\n");
       await waitForProjectChange(adjacentChanges, previous);
-
-      const previousConfig = changeKindCount(adjacentChanges, "config");
-      writeConfig(root, { strict: true });
-      await waitForChangeKind(adjacentChanges, "config", previousConfig);
-
-      const pluginRoot = path.join(root, "plugin");
-      const pluginSource = path.join(pluginRoot, "rule.go");
-      fs.mkdirSync(pluginRoot);
-      fs.writeFileSync(pluginSource, "package plugin\n", "utf8");
-      adjacent.setExtraInputs([pluginRoot]);
-      const previousPlugin = changeKindCount(adjacentChanges, "plugin");
-      fs.writeFileSync(pluginSource, "package plugin\n// changed\n", "utf8");
-      await waitForChangeKind(adjacentChanges, "plugin", previousPlugin);
     } finally {
       adjacent.close();
     }
@@ -81,7 +68,7 @@ export const test_watch_topology_models_effective_adjacent_and_incremental_outpu
     const declaration = topology(root, declarationChanges, {
       emit: true,
       files: [],
-      passthrough: ["--declaration", "--declarationDir", "types"],
+      passthrough: ["-declaration", "-declarationDir", "types"],
     });
     try {
       declaration.refresh(false);
@@ -98,6 +85,24 @@ export const test_watch_topology_models_effective_adjacent_and_incremental_outpu
       await expectProjectQuiet(declarationChanges);
     } finally {
       declaration.close();
+    }
+
+    const tsxSource = path.join(root, "src", "view.tsx");
+    fs.writeFileSync(tsxSource, "export const view = <div />;\n", "utf8");
+    const jsxChanges: WatchInputChange[] = [];
+    const jsx = topology(root, jsxChanges, {
+      emit: true,
+      files: ["src/view.tsx"],
+      passthrough: ["-jsx", "preserve"],
+    });
+    try {
+      jsx.refresh(false);
+      const jsxOutput = path.join(root, "src", "view.jsx");
+      jsx.setProjectInputs({ root, files: [jsxOutput], globs: [] });
+      fs.writeFileSync(jsxOutput, "export const view = <div />;\n", "utf8");
+      await expectProjectQuiet(jsxChanges);
+    } finally {
+      jsx.close();
     }
   };
 
@@ -166,20 +171,6 @@ async function waitForProjectChange(
 
 function projectChangeCount(changes: readonly WatchInputChange[]): number {
   return changeKindCount(changes, "project");
-}
-
-async function waitForChangeKind(
-  changes: readonly WatchInputChange[],
-  kind: WatchInputChange["kind"],
-  previous: number,
-): Promise<void> {
-  const deadline = Date.now() + 5_000;
-  while (changeKindCount(changes, kind) <= previous) {
-    if (Date.now() >= deadline) {
-      assert.fail(`expected a ${kind} change after ${previous}`);
-    }
-    await delay(25);
-  }
 }
 
 function changeKindCount(

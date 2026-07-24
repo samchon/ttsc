@@ -6,6 +6,7 @@ import { readJsoncFile } from "../../compiler/internal/project/readConfigJson";
 import { readProjectConfig } from "../../compiler/internal/project/readProjectConfig";
 import { resolveTsgo } from "../../compiler/internal/resolveTsgo";
 import { outputText, spawnNative } from "../../compiler/internal/spawnNative";
+import { normalizeFlagToken } from "../../flags/schema";
 import type { ITtscParsedProjectConfig } from "../../structures/internal/ITtscParsedProjectConfig";
 import type { ITtscProjectInputSnapshot } from "../../structures/internal/ITtscProjectInputSnapshot";
 import type { TtscBuildOptions } from "../../structures/internal/TtscBuildOptions";
@@ -43,6 +44,11 @@ type ResolvedWatchTopology = {
   reloadFiles: Map<string, string>;
 };
 
+type ProjectInputStatWatch = {
+  listener: (current: fs.Stats, previous: fs.Stats) => void;
+  location: string;
+};
+
 /**
  * Keeps the launcher watch set aligned with the compiler's current program.
  *
@@ -68,7 +74,7 @@ export class WatchTopology {
     globs: [],
     root: "",
   };
-  private projectInputWatchers = new Map<string, fs.FSWatcher>();
+  private projectInputWatchers = new Map<string, ProjectInputStatWatch>();
   private reloadFiles = new Map<string, string>();
 
   public constructor(
@@ -127,7 +133,7 @@ export class WatchTopology {
     closeWatchers(this.fileWatchers);
     closeWatchers(this.directoryWatchers);
     closeWatchers(this.extraWatchers);
-    closeWatchers(this.projectInputWatchers);
+    closeProjectInputWatchers(this.projectInputWatchers);
   }
 
   private syncFileWatchers(): void {
@@ -239,64 +245,59 @@ export class WatchTopology {
     const desired = new Map<string, string>();
     for (const file of this.projectInputs.files) {
       if (this.isCompilerOutput(file)) continue;
-      const target = path.dirname(file);
-      addProjectInputWatchPlans(
-        desired,
-        "file",
-        target,
-        this.projectInputs.root,
-      );
+      desired.set(pathKey(file), file);
     }
     for (const glob of this.projectInputs.globs) {
-      const target = literalGlobRoot(glob);
-      if (this.isCompilerOutputDirectory(target)) continue;
-      addProjectInputWatchPlans(
-        desired,
-        "glob",
-        target,
-        this.projectInputs.root,
-      );
-    }
-    syncWatchers(
-      this.projectInputWatchers,
-      desired,
-      (location, key) =>
-        fs.watch(
-          location,
-          {
-            persistent: true,
-            recursive: projectInputWatcherIsRecursive(key),
-          },
-          (event, filename) => {
-            const changed =
-              filename === null
-                ? undefined
-                : path.resolve(location, filename.toString());
-            if (event === "rename") {
-              this.invalidateRenamedProjectInputWatchers(location, changed);
-            }
-            this.refreshProjectInputs(location, changed);
-          },
-        ),
-      (location, error) => this.callbacks.onError(location, error),
-    );
-  }
-
-  private invalidateRenamedProjectInputWatchers(
-    source: string,
-    changed: string | undefined,
-  ): void {
-    for (const [key, watcher] of this.projectInputWatchers) {
-      const separator = key.lastIndexOf("\0");
-      const location = separator === -1 ? key : key.slice(0, separator);
-      if (
-        (changed === undefined && pathKey(source) !== location) ||
-        (changed !== undefined && isPathWithin(changed, location) === false)
-      ) {
-        continue;
+      const root = literalGlobRoot(glob);
+      if (this.isCompilerOutputDirectory(root)) continue;
+      desired.set(pathKey(root), root);
+      if (isDirectory(root) === false) continue;
+      const stack = [root];
+      while (stack.length !== 0) {
+        const current = stack.pop()!;
+        desired.set(pathKey(current), current);
+        let entries: fs.Dirent[];
+        try {
+          entries = fs.readdirSync(current, { withFileTypes: true });
+        } catch (error) {
+          if (isVanishedFilesystemEntry(error)) continue;
+          throw error;
+        }
+        for (const entry of entries) {
+          const location = path.join(current, entry.name);
+          if (this.isCompilerOutput(location)) continue;
+          if (entry.isDirectory()) {
+            stack.push(location);
+          } else if (
+            entry.isFile() &&
+            matchesProjectInputGlob(glob, location)
+          ) {
+            desired.set(pathKey(location), location);
+          }
+        }
       }
-      watcher.close();
+    }
+
+    for (const [key, watched] of this.projectInputWatchers) {
+      if (desired.has(key)) continue;
+      fs.unwatchFile(watched.location, watched.listener);
       this.projectInputWatchers.delete(key);
+    }
+    for (const [key, location] of desired) {
+      if (this.projectInputWatchers.has(key)) continue;
+      const listener = (): void => {
+        this.refreshProjectInputs(location, location);
+      };
+      try {
+        // ProjectRule paths may not exist yet and their containing trees may
+        // be atomically replaced. Stat watches bind to path identity instead
+        // of holding directory handles, so both cases remain observable on
+        // every supported filesystem without preventing a replacement.
+        fs.watchFile(location, { interval: 100, persistent: true }, listener);
+        this.projectInputWatchers.set(key, { listener, location });
+      } catch (error) {
+        this.callbacks.onError(location, error);
+      }
     }
   }
 
@@ -435,44 +436,6 @@ export class WatchTopology {
         return isPathWithin(root, resolved) || isPathWithin(resolved, root);
       })
     );
-  }
-}
-
-function projectInputWatcherKey(location: string, recursive: boolean): string {
-  return `${pathKey(location)}\0${recursive ? "recursive" : "direct"}`;
-}
-
-function projectInputWatcherIsRecursive(key: string): boolean {
-  return key.endsWith("\0recursive");
-}
-
-function addProjectInputWatchPlans(
-  desired: Map<string, string>,
-  kind: "file" | "glob",
-  target: string,
-  projectRoot: string,
-): void {
-  const existing = nearestExistingDirectory(target);
-  if (existing === undefined) return;
-  const recursive =
-    kind === "glob" && pathKey(existing) === pathKey(path.resolve(target));
-  desired.set(projectInputWatcherKey(existing, recursive), existing);
-
-  const resolvedProjectRoot = path.resolve(projectRoot);
-  const sameVolume =
-    pathKey(path.parse(existing).root) ===
-    pathKey(path.parse(resolvedProjectRoot).root);
-  const boundary =
-    sameVolume && isPathWithin(resolvedProjectRoot, existing)
-      ? resolvedProjectRoot
-      : path.parse(existing).root;
-  let owner = path.dirname(existing);
-  while (owner !== existing) {
-    desired.set(projectInputWatcherKey(owner, false), owner);
-    if (pathKey(owner) === pathKey(boundary)) break;
-    const parent = path.dirname(owner);
-    if (parent === owner) break;
-    owner = parent;
   }
 }
 
@@ -698,8 +661,7 @@ function inferAdjacentCompilerOutputs(
           : extension === ".cts"
             ? ".cjs"
             : extension === ".tsx" &&
-                (project.compilerOptions.jsx === "preserve" ||
-                  project.compilerOptions.jsx === "react-native")
+                (emit.jsx === "preserve" || emit.jsx === "react-native")
               ? ".jsx"
               : ".js";
       const javascript = stem + javascriptExtension;
@@ -732,6 +694,7 @@ type EffectiveCompilerEmit = {
   declarationMap: boolean;
   incremental: boolean;
   javascript: boolean;
+  jsx?: unknown;
   outDir?: string;
   outFile?: string;
   rootDir?: string;
@@ -758,8 +721,10 @@ function effectiveCompilerEmit(
     (passthroughBooleanOption(passthrough, "--incremental") ??
       compilerOptions.incremental === true);
   const emitDeclarationOnly =
-    passthroughBooleanOption(passthrough, "--emitDeclarationOnly") ??
-    compilerOptions.emitDeclarationOnly === true;
+    options.emit === true
+      ? false
+      : (passthroughBooleanOption(passthrough, "--emitDeclarationOnly") ??
+        compilerOptions.emitDeclarationOnly === true);
   const declaration =
     !noEmit &&
     (composite ||
@@ -791,6 +756,8 @@ function effectiveCompilerEmit(
     passthrough,
     "--tsBuildInfoFile",
   );
+  const jsx =
+    passthroughStringOption(passthrough, "--jsx") ?? compilerOptions.jsx;
   return {
     declaration,
     declarationDir:
@@ -827,6 +794,7 @@ function effectiveCompilerEmit(
         : typeof compilerOptions.tsBuildInfoFile === "string"
           ? path.resolve(project.root, compilerOptions.tsBuildInfoFile)
           : undefined,
+    jsx,
   };
 }
 
@@ -858,13 +826,13 @@ function passthroughBooleanOption(
   tokens: readonly string[] | undefined,
   name: string,
 ): boolean | undefined {
-  const lower = name.toLowerCase();
   let value: boolean | undefined;
   for (let index = 0; index < (tokens?.length ?? 0); index++) {
     const token = tokens?.[index];
     if (token === undefined) continue;
-    const normalized = token.toLowerCase();
-    if (normalized === lower) {
+    const equalsIndex = token.indexOf("=");
+    if (!passthroughOptionMatches(token, name)) continue;
+    if (equalsIndex === -1) {
       const next = tokens?.[index + 1]?.toLowerCase();
       if (next === "true" || next === "false") {
         value = next === "true";
@@ -872,8 +840,8 @@ function passthroughBooleanOption(
       } else {
         value = true;
       }
-    } else if (normalized.startsWith(`${lower}=`)) {
-      const inline = normalized.slice(lower.length + 1);
+    } else {
+      const inline = token.slice(equalsIndex + 1).toLowerCase();
       if (inline === "true" || inline === "false") value = inline === "true";
     }
   }
@@ -884,19 +852,33 @@ function passthroughPathOption(
   tokens: readonly string[] | undefined,
   name: string,
 ): string | undefined {
-  const lower = name.toLowerCase();
   let value: string | undefined;
   for (let index = 0; index < (tokens?.length ?? 0); index++) {
     const token = tokens?.[index];
     if (token === undefined) continue;
-    const normalized = token.toLowerCase();
-    if (normalized === lower && index + 1 < (tokens?.length ?? 0)) {
+    const equalsIndex = token.indexOf("=");
+    if (!passthroughOptionMatches(token, name)) continue;
+    if (equalsIndex === -1 && index + 1 < (tokens?.length ?? 0)) {
       value = tokens?.[++index];
-    } else if (normalized.startsWith(`${lower}=`)) {
-      value = token.slice(name.length + 1);
+    } else if (equalsIndex !== -1) {
+      value = token.slice(equalsIndex + 1);
     }
   }
   return value;
+}
+
+function passthroughStringOption(
+  tokens: readonly string[] | undefined,
+  name: string,
+): string | undefined {
+  return passthroughPathOption(tokens, name)?.toLowerCase();
+}
+
+function passthroughOptionMatches(token: string, name: string): boolean {
+  if (!token.startsWith("-")) return false;
+  const equalsIndex = token.indexOf("=");
+  const spelling = equalsIndex === -1 ? token : token.slice(0, equalsIndex);
+  return normalizeFlagToken(spelling) === normalizeFlagToken(name);
 }
 
 function isCompilerOutput(
@@ -1003,6 +985,15 @@ function closeWatchers(watchers: Map<string, fs.FSWatcher>): void {
   watchers.clear();
 }
 
+function closeProjectInputWatchers(
+  watchers: Map<string, ProjectInputStatWatch>,
+): void {
+  for (const watched of watchers.values()) {
+    fs.unwatchFile(watched.location, watched.listener);
+  }
+  watchers.clear();
+}
+
 function addPaths(target: Map<string, string>, paths: Iterable<string>): void {
   for (const location of paths) {
     const resolved = path.resolve(location);
@@ -1049,31 +1040,6 @@ function projectInputSnapshotsEqual(
     arraysEqual(left.files, right.files) &&
     arraysEqual(left.globs, right.globs)
   );
-}
-
-function projectInputRecursiveWatchRoot(
-  target: string,
-  _projectRoot: string,
-): string | undefined {
-  return nearestExistingDirectory(target);
-}
-
-export function projectInputWatchDirectories(
-  target: string,
-  projectRoot: string,
-): string[] {
-  const root = projectInputRecursiveWatchRoot(target, projectRoot);
-  return root === undefined ? [] : [root];
-}
-
-function nearestExistingDirectory(location: string): string | undefined {
-  let current = path.resolve(location);
-  while (true) {
-    if (isDirectory(current)) return current;
-    const parent = path.dirname(current);
-    if (parent === current) return undefined;
-    current = parent;
-  }
 }
 
 export function literalGlobRoot(pattern: string): string {
@@ -1170,19 +1136,32 @@ function matchProjectInputGlobParts(
   pattern: readonly string[],
   candidate: readonly string[],
 ): boolean {
-  if (pattern.length === 0) return candidate.length === 0;
-  if (pattern[0] === "**") {
-    return (
-      matchProjectInputGlobParts(pattern.slice(1), candidate) ||
-      (candidate.length !== 0 &&
-        matchProjectInputGlobParts(pattern, candidate.slice(1)))
-    );
-  }
-  return (
-    candidate.length !== 0 &&
-    matchProjectInputGlobSegment(pattern[0]!, candidate[0]!) &&
-    matchProjectInputGlobParts(pattern.slice(1), candidate.slice(1))
-  );
+  const memo = new Map<string, boolean>();
+  const visit = (patternIndex: number, candidateIndex: number): boolean => {
+    const key = `${String(patternIndex)}:${String(candidateIndex)}`;
+    const cached = memo.get(key);
+    if (cached !== undefined) return cached;
+    let matched: boolean;
+    if (patternIndex === pattern.length) {
+      matched = candidateIndex === candidate.length;
+    } else if (pattern[patternIndex] === "**") {
+      matched =
+        visit(patternIndex + 1, candidateIndex) ||
+        (candidateIndex !== candidate.length &&
+          visit(patternIndex, candidateIndex + 1));
+    } else {
+      matched =
+        candidateIndex !== candidate.length &&
+        matchProjectInputGlobSegment(
+          pattern[patternIndex]!,
+          candidate[candidateIndex]!,
+        ) &&
+        visit(patternIndex + 1, candidateIndex + 1);
+    }
+    memo.set(key, matched);
+    return matched;
+  };
+  return visit(0, 0);
 }
 
 function matchProjectInputGlobSegment(

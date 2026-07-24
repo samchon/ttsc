@@ -418,19 +418,37 @@ func projectInputPathKey(location string) string {
 }
 
 func matchProjectInputGlob(pattern []string, candidate []string) bool {
-  if len(pattern) == 0 {
-    return len(candidate) == 0
+  type position struct {
+    pattern   int
+    candidate int
   }
-  if pattern[0] == "**" {
-    return matchProjectInputGlob(pattern[1:], candidate) ||
-      (len(candidate) > 0 &&
-        matchProjectInputGlob(pattern, candidate[1:]))
+  memo := map[position]bool{}
+  visited := map[position]bool{}
+  var visit func(int, int) bool
+  visit = func(patternIndex int, candidateIndex int) bool {
+    key := position{pattern: patternIndex, candidate: candidateIndex}
+    if visited[key] {
+      return memo[key]
+    }
+    visited[key] = true
+    var matched bool
+    switch {
+    case patternIndex == len(pattern):
+      matched = candidateIndex == len(candidate)
+    case pattern[patternIndex] == "**":
+      matched = visit(patternIndex+1, candidateIndex) ||
+        (candidateIndex != len(candidate) &&
+          visit(patternIndex, candidateIndex+1))
+    case candidateIndex != len(candidate):
+      matched = matchProjectInputGlobSegment(
+        pattern[patternIndex],
+        candidate[candidateIndex],
+      ) && visit(patternIndex+1, candidateIndex+1)
+    }
+    memo[key] = matched
+    return matched
   }
-  if len(candidate) == 0 {
-    return false
-  }
-  return matchProjectInputGlobSegment(pattern[0], candidate[0]) &&
-    matchProjectInputGlob(pattern[1:], candidate[1:])
+  return visit(0, 0)
 }
 
 func matchProjectInputGlobSegment(pattern string, candidate string) bool {
