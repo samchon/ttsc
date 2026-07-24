@@ -285,7 +285,10 @@ export class WatchTopology {
     }
     for (const [key, location] of desired) {
       if (this.projectInputWatchers.has(key)) continue;
-      const listener = (): void => {
+      const listener = (current: fs.Stats, previous: fs.Stats): void => {
+        // A missing path can produce an initial all-zero callback. It is a
+        // polling baseline, not a filesystem transition.
+        if (projectInputStatsEqual(current, previous)) return;
         this.refreshProjectInputs(location, location);
       };
       try {
@@ -992,6 +995,18 @@ function closeProjectInputWatchers(
     fs.unwatchFile(watched.location, watched.listener);
   }
   watchers.clear();
+}
+
+function projectInputStatsEqual(left: fs.Stats, right: fs.Stats): boolean {
+  return (
+    left.dev === right.dev &&
+    left.ino === right.ino &&
+    left.mode === right.mode &&
+    left.nlink === right.nlink &&
+    left.size === right.size &&
+    left.mtimeMs === right.mtimeMs &&
+    left.ctimeMs === right.ctimeMs
+  );
 }
 
 function addPaths(target: Map<string, string>, paths: Iterable<string>): void {
