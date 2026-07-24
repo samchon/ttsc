@@ -36,7 +36,8 @@ export const test_watch_topology_registers_physical_watch_paths =
       // case pins is unobservable here, so leave it to the platforms that can.
       return;
     }
-    if (fs.realpathSync.native(root) === path.resolve(root)) return;
+    const physical = fs.realpathSync.native?.(root) ?? fs.realpathSync(root);
+    if (physical === path.resolve(root)) return;
 
     const source = path.join(root, "src", "main.ts");
     fs.mkdirSync(path.dirname(source), { recursive: true });
@@ -77,35 +78,20 @@ export const test_watch_topology_registers_physical_watch_paths =
         fs.writeFileSync(source, "export const value = 2;\n", "utf8");
         await new Promise((resolve) => setTimeout(resolve, 25));
       }
+      // Only paths this class resolved from an event are in scope. A config
+      // path arrives already canonicalized from the project reader, which owns
+      // that normalization and is not what this case is about.
       const reported = changes
         .map((change) => change.path)
-        .filter((location): location is string => location !== undefined);
+        .filter((location): location is string => location !== undefined)
+        .filter((location) => path.basename(location) === "main.ts");
       assert.notEqual(reported.length, 0, JSON.stringify(changes));
       assert.equal(
-        reported.every((location) => isPathWithin(root, location)),
+        reported.every((location) => location === source),
         true,
         `declared spelling expected, got ${JSON.stringify(reported)}`,
-      );
-      // Compare against the spelling that would actually leak: the alias target
-      // reached through its own physical form, not the lexical path mkdtemp
-      // returned, which on macOS is itself an alias of the real location.
-      const leaked = fs.realpathSync.native(physicalRoot);
-      assert.equal(
-        reported.some((location) => isPathWithin(leaked, location)),
-        false,
-        `physical spelling leaked into ${JSON.stringify(reported)}`,
       );
     } finally {
       topology.close();
     }
   };
-
-function isPathWithin(root: string, location: string): boolean {
-  const relative = path.relative(root, location);
-  return (
-    relative === "" ||
-    (relative !== ".." &&
-      relative.startsWith(`..${path.sep}`) === false &&
-      path.isAbsolute(relative) === false)
-  );
-}

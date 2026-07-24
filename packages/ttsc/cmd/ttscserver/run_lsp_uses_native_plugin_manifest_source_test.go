@@ -5,6 +5,7 @@ import (
   "context"
   "os"
   "path/filepath"
+  "strings"
   "testing"
 
   "github.com/samchon/ttsc/packages/ttsc/internal/lspserver"
@@ -25,9 +26,11 @@ import (
 //     that the legacy payload no longer reaches a spawned sidecar.
 //  4. Put a valid manifest in TTSC_LSP_PLUGINS_FILE while making the legacy
 //     environment payload invalid, and prove the bounded file transport wins,
-//     is deleted once read, and leaves neither variable behind.
+//     leaves neither variable behind, and survives the read because an editor
+//     that supplies it out of band must be able to launch twice.
 //  5. Pass a manifest through --lsp-plugins-file while both environment forms
-//     are invalid, and prove the flag transport takes precedence.
+//     are invalid, and prove the flag transport takes precedence and is
+//     consumed, because the launcher created that file for this process alone.
 //  6. Point the flag at a missing manifest and prove the command fails instead
 //     of silently serving a project without its declared plugins.
 func TestRunLSPUsesNativePluginManifestSource(t *testing.T) {
@@ -42,7 +45,7 @@ func TestRunLSPUsesNativePluginManifestSource(t *testing.T) {
   }
   defer func() { runLSPServer = prev }()
 
-  invoke := func(label string, extra ...string) (int, string) {
+  invoke := func(extra ...string) (int, string) {
     t.Helper()
     outBuf := &bytes.Buffer{}
     errBuf := &bytes.Buffer{}
@@ -60,7 +63,7 @@ func TestRunLSPUsesNativePluginManifestSource(t *testing.T) {
   }
   run := func(label string, extra ...string) {
     t.Helper()
-    code, stderrText := invoke(label, extra...)
+    code, stderrText := invoke(extra...)
     if code != 0 {
       t.Fatalf("%s: expected exit 0, got %d (stderr=%q)", label, code, stderrText)
     }
@@ -95,8 +98,8 @@ func TestRunLSPUsesNativePluginManifestSource(t *testing.T) {
   t.Setenv("TTSC_LSP_PLUGINS_JSON", "{invalid")
   t.Setenv("TTSC_LSP_PLUGINS_FILE", environmentManifest)
   run("manifest file")
-  if _, err := os.Stat(environmentManifest); !os.IsNotExist(err) {
-    t.Fatalf("environment manifest survived startup: %v", err)
+  if _, err := os.Stat(environmentManifest); err != nil {
+    t.Fatalf("out-of-band manifest was consumed by its reader: %v", err)
   }
 
   flagManifest := writeManifest()
@@ -110,14 +113,13 @@ func TestRunLSPUsesNativePluginManifestSource(t *testing.T) {
   t.Setenv("TTSC_LSP_PLUGINS_JSON", `{"plugins":[],"lspPlugins":[]}`)
   t.Setenv("TTSC_LSP_PLUGINS_FILE", "")
   code, stderrText := invoke(
-    "missing manifest",
     "--lsp-plugins-file",
     filepath.Join(t.TempDir(), "absent.json"),
   )
   if code == 0 {
     t.Fatal("a missing manifest must not start the host")
   }
-  if !bytes.Contains([]byte(stderrText), []byte("--lsp-plugins-file")) {
+  if !strings.Contains(stderrText, "--lsp-plugins-file") {
     t.Fatalf("expected the failing transport to be named, got %q", stderrText)
   }
 }

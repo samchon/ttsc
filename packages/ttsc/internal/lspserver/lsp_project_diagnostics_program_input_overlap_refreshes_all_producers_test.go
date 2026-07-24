@@ -12,7 +12,14 @@ import (
 //
 // Only the first producer declares the path, but both project-rule producers
 // observe the shared Program. TypeScript and resolveJsonModule JSON edits must
-// therefore refresh both while the Markdown case above remains owner-scoped.
+// therefore refresh both, while a path that can only be data keeps the
+// owner-scoped behavior pinned by
+// lsp_project_diagnostics_refreshes_only_input_owners_test.go.
+//
+//  1. Declare one shared-Program path for the first producer only.
+//  2. Resolve its owner scope and widen it as a watched Program input.
+//  3. Assert the scope became all-producer.
+//  4. Refresh and assert both producers were invoked.
 func TestLSPProjectDiagnosticsProgramInputOverlapRefreshesAllProducers(
   t *testing.T,
 ) {

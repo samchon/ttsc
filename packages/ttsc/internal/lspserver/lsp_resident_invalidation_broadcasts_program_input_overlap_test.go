@@ -9,6 +9,10 @@ import "testing"
 // producer while belonging to every resident Program. All residents must see
 // the content delta; the daemon itself skips an external path when its Program
 // does not contain it.
+//
+//  1. Install two resident entries with distinct producer keys.
+//  2. Attribute one shared-Program URI to the first producer only.
+//  3. Assert both residents receive the changed and external deltas.
 func TestLSPResidentInvalidationBroadcastsProgramInputOverlap(t *testing.T) {
   for _, externalURI := range []string{
     "file:///project/src/shared.ts",

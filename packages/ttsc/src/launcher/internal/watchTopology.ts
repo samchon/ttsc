@@ -90,6 +90,13 @@ export class WatchTopology {
     reloadFiles: [],
     root: "",
   };
+  private declaredProjectInputs: ITtscProjectInputSnapshot = {
+    files: [],
+    globs: [],
+    reloadDirectories: [],
+    reloadFiles: [],
+    root: "",
+  };
   private projectInputRejectedWatchRoots = new Set<string>();
   private projectInputWatchRoots = new Map<string, string>();
   private projectInputWatchers = new Map<string, fs.FSWatcher>();
@@ -163,17 +170,24 @@ export class WatchTopology {
     const next = normalizeProjectInputSnapshot(inputs);
     if (projectInputSnapshotsEqual(this.projectInputs, next)) return;
     this.projectInputs = next;
+    this.declaredProjectInputs = inputs;
     this.projectInputRejectedWatchRoots.clear();
-    const declarations = new Set([
-      ...next.files.map((file) => projectInputDeclarationKey("file", file)),
-      ...next.globs.map((glob) => projectInputDeclarationKey("glob", glob)),
-      ...(next.reloadFiles ?? []).map((file) =>
-        projectInputDeclarationKey("reload", file),
-      ),
-      ...(next.reloadDirectories ?? []).map((directory) =>
-        projectInputDeclarationKey("reload-directory", directory),
-      ),
-    ]);
+    const declarations = new Set(
+      [next, inputs].flatMap((snapshot) => [
+        ...snapshot.files.map((file) =>
+          projectInputDeclarationKey("file", file),
+        ),
+        ...snapshot.globs.map((glob) =>
+          projectInputDeclarationKey("glob", glob),
+        ),
+        ...(snapshot.reloadFiles ?? []).map((file) =>
+          projectInputDeclarationKey("reload", file),
+        ),
+        ...(snapshot.reloadDirectories ?? []).map((directory) =>
+          projectInputDeclarationKey("reload-directory", directory),
+        ),
+      ]),
+    );
     for (const key of this.projectInputWatchRoots.keys()) {
       if (!declarations.has(key)) this.projectInputWatchRoots.delete(key);
     }
@@ -326,7 +340,7 @@ export class WatchTopology {
     if (this.closed) return;
     const identities = createProjectInputPathIdentityContext();
     const desired = new Map<string, string>();
-    for (const file of this.projectInputs.files) {
+    for (const file of this.projectInputDeclarations("file")) {
       if (this.isProjectInputCompilerOutput(file, identities)) continue;
       const location = this.projectInputWatchRoot(
         "file",
@@ -336,9 +350,8 @@ export class WatchTopology {
       if (location !== undefined) {
         this.retainProjectInputWatchRoot(desired, identities, location);
       }
-      this.retainProjectInputTargetWatchRoot(desired, identities, file);
     }
-    for (const glob of this.projectInputs.globs) {
+    for (const glob of this.projectInputDeclarations("glob")) {
       const root = literalGlobRoot(glob);
       if (this.isProjectInputCompilerOutputDirectory(root, identities)) {
         continue;
@@ -348,7 +361,7 @@ export class WatchTopology {
         this.retainProjectInputWatchRoot(desired, identities, location);
       }
     }
-    for (const file of this.projectInputs.reloadFiles ?? []) {
+    for (const file of this.projectInputDeclarations("reload")) {
       if (this.isProjectInputCompilerOutput(file, identities)) continue;
       const location = this.projectInputWatchRoot(
         "reload",
@@ -358,9 +371,8 @@ export class WatchTopology {
       if (location !== undefined) {
         this.retainProjectInputWatchRoot(desired, identities, location);
       }
-      this.retainProjectInputTargetWatchRoot(desired, identities, file);
     }
-    for (const directory of this.projectInputs.reloadDirectories ?? []) {
+    for (const directory of this.projectInputDeclarations("reload-directory")) {
       if (this.isProjectInputCompilerOutputDirectory(directory, identities)) {
         continue;
       }
@@ -427,28 +439,41 @@ export class WatchTopology {
   }
 
   /**
-   * Also anchor an exact declaration on the directory holding the bytes it
-   * names.
+   * Every spelling of one declaration that has to be anchored separately.
    *
-   * A declaration is a lexical path, but a symlink can place the file it
-   * resolves to in an unrelated directory. The lexical anchor observes the link
-   * being retargeted or replaced; only this one observes an edit to the file
-   * the current link actually points at, which is the content the retained
-   * fingerprint was taken from. Nothing is retained across syncs here: the
-   * target moves with the link, so it is planned from the current filesystem
-   * every time, and an ancestor that already covers it drops it again.
+   * The retained snapshot is normalized to physical identities, which is what
+   * every comparison needs but not what every watcher needs: a declaration
+   * reached through a symlink resolves to its target's directory, so anchoring
+   * the normalized form alone watches the bytes and never the link. Retargeting
+   * or replacing the link then goes unobserved, even though it is exactly what
+   * decides which bytes the declaration names next. Both spellings are planned
+   * through the same root selection, so the project-root hoist and the
+   * nearest-existing-ancestor boundary still bound each of them, and the active
+   * set drops one again whenever they coincide or share an ancestor.
    */
-  private retainProjectInputTargetWatchRoot(
-    desired: Map<string, string>,
-    identities: ProjectInputPathIdentityContext,
-    file: string,
-  ): void {
-    const declared = path.resolve(file);
-    const physical = watcherRegistrationPath(declared);
-    if (physical === declared) return;
-    const parent = nearestExistingDirectory(path.dirname(physical));
-    if (parent === undefined) return;
-    this.retainProjectInputWatchRoot(desired, identities, parent);
+  private projectInputDeclarations(
+    kind: "file" | "glob" | "reload" | "reload-directory",
+  ): string[] {
+    const select = (snapshot: ITtscProjectInputSnapshot): readonly string[] =>
+      kind === "file"
+        ? snapshot.files
+        : kind === "glob"
+          ? snapshot.globs
+          : kind === "reload"
+            ? (snapshot.reloadFiles ?? [])
+            : (snapshot.reloadDirectories ?? []);
+    const seen = new Set<string>();
+    const declarations: string[] = [];
+    for (const entry of [
+      ...select(this.projectInputs),
+      ...select(this.declaredProjectInputs),
+    ]) {
+      const key = resolveProjectInputPath(entry);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      declarations.push(entry);
+    }
+    return declarations;
   }
 
   private projectInputWatchRoot(

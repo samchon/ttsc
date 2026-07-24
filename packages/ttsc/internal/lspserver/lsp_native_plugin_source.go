@@ -152,7 +152,9 @@ func NewNativePluginSource(opts NativePluginSourceOptions) (*NativePluginSource,
   var manifest NativePluginManifest
   if strings.TrimSpace(opts.ManifestJSON) != "" {
     if err := json.Unmarshal([]byte(opts.ManifestJSON), &manifest); err != nil {
-      return nil, fmt.Errorf("ttscserver: invalid TTSC_LSP_PLUGINS_JSON: %w", err)
+      // The manifest reaches this constructor through three transports, so it
+      // is named by what it is rather than by the one that happened to carry it.
+      return nil, fmt.Errorf("ttscserver: invalid LSP plugin manifest: %w", err)
     }
   }
   pluginsJSON, err := json.Marshal(manifest.Plugins)

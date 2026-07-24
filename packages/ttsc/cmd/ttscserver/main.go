@@ -189,21 +189,24 @@ func lspPluginManifestJSON(flagLocation string) (string, error) {
     os.Unsetenv("TTSC_LSP_PLUGINS_FILE")
     os.Unsetenv("TTSC_LSP_PLUGINS_JSON")
   }()
-  source := "--lsp-plugins-file"
-  location := flagLocation
-  if location == "" {
-    source = "TTSC_LSP_PLUGINS_FILE"
-    location = strings.TrimSpace(os.Getenv("TTSC_LSP_PLUGINS_FILE"))
+  if flagLocation != "" {
+    body, err := readLSPPluginManifestFile("--lsp-plugins-file", flagLocation)
+    if err != nil {
+      return "", err
+    }
+    // Only the flag names a file the launcher created for this process, so
+    // only that one is consumed here. Removing it is what keeps a forcibly
+    // terminated launcher from leaving the payload on disk. A path supplied
+    // out of band belongs to whoever wrote it and must survive the read, or
+    // the next session would start without the plugins it declared.
+    os.Remove(flagLocation)
+    return body, nil
   }
+  location := strings.TrimSpace(os.Getenv("TTSC_LSP_PLUGINS_FILE"))
   if location == "" {
     return os.Getenv("TTSC_LSP_PLUGINS_JSON"), nil
   }
-  body, err := readLSPPluginManifestFile(source, location)
-  os.Remove(location)
-  if err != nil {
-    return "", err
-  }
-  return body, nil
+  return readLSPPluginManifestFile("TTSC_LSP_PLUGINS_FILE", location)
 }
 
 func readLSPPluginManifestFile(source, location string) (string, error) {
@@ -253,6 +256,11 @@ Options:
   --cwd <dir>          Project root used as the tsgo server working directory.
   --tsconfig <path>    Project config path used by ttsc plugin sidecars.
   --tsgo <path>        Absolute tsgo binary path (defaults to TTSC_TSGO_BINARY).
+  --lsp-plugins-file <path>
+                       Private plugin manifest written by the ttsc launcher; it is
+                       consumed and deleted at startup. Editors that spawn this
+                       binary directly supply their own manifest through
+                       TTSC_LSP_PLUGINS_FILE instead, which is never deleted.
   --suppress-execute-command-provider
                        Do not advertise ttsc executeCommand ids during initialize.
   --suppress-execute-command-ids <ids>
