@@ -172,7 +172,10 @@ export class WatchTopology {
     // not move, because a republication can carry a new alias for identities
     // that already matched, and anchoring the spelling that was retired would
     // leave the live one unwatched.
-    this.declaredProjectInputs = inputs;
+    this.declaredProjectInputs =
+      inputs.declared === undefined
+        ? inputs
+        : { ...inputs.declared, root: inputs.root };
     if (projectInputSnapshotsEqual(this.projectInputs, next)) {
       this.syncProjectInputWatchers();
       return;
@@ -518,7 +521,8 @@ export class WatchTopology {
       const directlyMatched =
         changed !== undefined &&
         (previous.has(identities.resolve(changed).key) ||
-          matchesProjectInput(this.projectInputs, changed, identities));
+          matchesProjectInput(this.projectInputs, changed, identities) ||
+          matchesProjectInput(this.declaredProjectInputs, changed, identities));
       const topologyMatched =
         changed !== undefined &&
         projectInputTopologyMayAffect(
@@ -620,7 +624,12 @@ export class WatchTopology {
   private collectProjectInputMatches(): Map<string, string> {
     const identities = createProjectInputPathIdentityContext();
     const matches = new Map<string, string>();
-    for (const file of this.projectInputs.files) {
+    // Both spellings are scanned, and each is resolved here rather than when
+    // the snapshot arrived. A declaration reached through a symlink otherwise
+    // keeps the identity it had when it was published, so retargeting the link
+    // moves no key, changes no fingerprint, and the cycle never learns that the
+    // bytes it depends on are now a different file.
+    for (const file of this.projectInputDeclarations("file")) {
       if (
         fs.existsSync(file) &&
         this.isProjectInputCompilerOutput(file, identities) === false
@@ -629,7 +638,7 @@ export class WatchTopology {
         matches.set(identity.key, identity.path);
       }
     }
-    for (const file of this.projectInputs.reloadFiles ?? []) {
+    for (const file of this.projectInputDeclarations("reload")) {
       if (
         fs.existsSync(file) &&
         this.isProjectInputCompilerOutput(file, identities) === false
@@ -638,7 +647,7 @@ export class WatchTopology {
         matches.set(identity.key, identity.path);
       }
     }
-    for (const directory of this.projectInputs.reloadDirectories ?? []) {
+    for (const directory of this.projectInputDeclarations("reload-directory")) {
       if (
         isDirectory(directory) &&
         this.isProjectInputCompilerOutputDirectory(directory, identities) ===
@@ -648,7 +657,7 @@ export class WatchTopology {
         matches.set(identity.key, identity.path);
       }
     }
-    for (const glob of this.projectInputs.globs) {
+    for (const glob of this.projectInputDeclarations("glob")) {
       const root = literalGlobRoot(glob);
       if (
         isDirectory(root) === false ||

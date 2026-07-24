@@ -1660,6 +1660,14 @@ export function mergeProjectInputSnapshots(
   const globs = new Map<string, string>();
   const reloadDirectories = new Map<string, string>();
   const reloadFiles = new Map<string, string>();
+  // Deduplicated on the same identity keys, but holding what the contributors
+  // wrote. Normalization resolves a declaration through its symlinks, which is
+  // right for every comparison and wrong for the watcher that has to observe
+  // the link itself being retargeted.
+  const declaredFiles = new Map<string, string>();
+  const declaredGlobs = new Map<string, string>();
+  const declaredReloadDirectories = new Map<string, string>();
+  const declaredReloadFiles = new Map<string, string>();
   const rootIdentity = identities.resolve(fallbackRoot);
   for (const snapshot of snapshots) {
     const candidateRoot = identities.resolve(snapshot.root);
@@ -1671,21 +1679,37 @@ export function mergeProjectInputSnapshots(
     for (const file of snapshot.files) {
       const identity = identities.resolve(file);
       files.set(identity.key, identity.path);
+      declaredFiles.set(identity.key, path.resolve(file));
     }
     for (const glob of snapshot.globs) {
       const identity = identities.resolve(glob);
       globs.set(identity.key, identity.path.split(path.sep).join("/"));
+      declaredGlobs.set(
+        identity.key,
+        path.resolve(glob).split(path.sep).join("/"),
+      );
     }
     for (const reloadFile of snapshot.reloadFiles ?? []) {
       const identity = identities.resolve(reloadFile);
       reloadFiles.set(identity.key, identity.path);
+      declaredReloadFiles.set(identity.key, path.resolve(reloadFile));
     }
     for (const reloadDirectory of snapshot.reloadDirectories ?? []) {
       const identity = identities.resolve(reloadDirectory);
       reloadDirectories.set(identity.key, identity.path);
+      declaredReloadDirectories.set(
+        identity.key,
+        path.resolve(reloadDirectory),
+      );
     }
   }
   return {
+    declared: {
+      files: [...declaredFiles.values()].sort(),
+      globs: [...declaredGlobs.values()].sort(),
+      reloadDirectories: [...declaredReloadDirectories.values()].sort(),
+      reloadFiles: [...declaredReloadFiles.values()].sort(),
+    },
     root: rootIdentity.path,
     files: [...files.values()].sort(),
     globs: [...globs.values()].sort(),
