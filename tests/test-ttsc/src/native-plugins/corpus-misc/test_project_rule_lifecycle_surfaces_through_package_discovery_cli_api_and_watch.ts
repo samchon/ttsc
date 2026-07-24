@@ -51,6 +51,12 @@ type projectBinding struct {
 }
 
 func (projectGuard) Name() string { return "guard/project" }
+func (projectGuard) ProjectInputs(ctx *rule.ProjectInputContext) []rule.ProjectInput {
+  return []rule.ProjectInput{{
+    Kind: rule.ProjectInputFile,
+    Pattern: "guard-state.txt",
+  }}
+}
 func (projectGuard) Check(ctx *rule.ProjectContext) {
   ctx.SetState(&projectBinding{
     identity: ctx.Identity,
@@ -148,8 +154,9 @@ func init() { rule.Register(independentAST{}) }
  * 2. Run the public API with explicit root/config-origin channels and assert its
  *    structured project diagnostic has `file: null`.
  * 3. Publish the JIT failure over LSP, then clear it with a clean loaded cycle.
- * 4. Trigger two watch cycles and assert each prints one finding with a distinct
- *    state-carried lifecycle id.
+ * 4. Trigger two additional watch cycles by changing the contributor-declared
+ *    external input and assert the blocked cycles carry distinct lifecycle
+ *    ids.
  */
 export const test_project_rule_lifecycle_surfaces_through_package_discovery_cli_api_and_watch =
   async (): Promise<void> => {
@@ -352,7 +359,8 @@ module.exports = {
       },
     );
     let output = "";
-    let touched = false;
+    let cleaned = false;
+    let blockedAgain = false;
     let terminated = false;
     const exit = new Promise<void>((resolve, reject) => {
       const timer = setTimeout(() => {
@@ -373,13 +381,13 @@ module.exports = {
       const cycles = output.match(
         /\[ttsc\] watch build (?:complete|failed)/g,
       )?.length;
-      if (!touched && (cycles ?? 0) >= 1) {
-        touched = true;
-        fs.writeFileSync(
-          path.join(physicalRoot, "src", "main.ts"),
-          `export const changed = ${Date.now()};\n`,
-        );
-      } else if (!terminated && (cycles ?? 0) >= 2) {
+      if (!cleaned && (cycles ?? 0) >= 1) {
+        cleaned = true;
+        fs.writeFileSync(guardState, "clean\n");
+      } else if (!blockedAgain && (cycles ?? 0) >= 2) {
+        blockedAgain = true;
+        fs.writeFileSync(guardState, "blocked\n");
+      } else if (!terminated && (cycles ?? 0) >= 3) {
         terminated = true;
         child.kill("SIGTERM");
       }
@@ -392,7 +400,7 @@ module.exports = {
     assert.equal(
       output.match(/\[guard\/project\]/g)?.length,
       2,
-      `watch should print one project finding per rebuild\n${output}`,
+      `watch should report only the two blocked external-input cycles\n${output}`,
     );
     const lifecycleIDs = [...output.matchAll(/lifecycle=(\S+)/g)].map(
       (match) => match[1],
