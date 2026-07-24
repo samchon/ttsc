@@ -158,12 +158,18 @@ It prints one JSON object:
 ```json
 {
   "root": "/physical/project",
-  "files": ["/physical/project/docs/spec.md"],
-  "globs": ["/physical/project/openapi/**/*.json"]
+  "files": [
+    "/physical/project/docs/spec.md",
+    "/physical/project/lint.config.cjs"
+  ],
+  "globs": ["/physical/project/openapi/**/*.json"],
+  "reloadFiles": ["/physical/project/lint.config.cjs"]
 }
 ```
 
-All entries are normalized absolute local filesystem patterns. `root` must resolve to the same physical filesystem identity as `--cwd`; consumers reject a snapshot rooted in a different project instead of redirecting a long-lived watcher. `files` are retained while missing; `globs` describe populations and are retained while matching nothing. The portable glob grammar is `*` within one path segment, `?` for one character, and a complete `**` segment across directories; brackets and braces are literal filename characters. Windows drive, UNC, and their extended-length file forms are local paths, while device namespaces and HTTP(S) resources are outside this protocol. The command declares topology without loading a TypeScript Program or reading the external content. Hosts call it only when the capability is explicitly enabled, so older strict sidecars are never probed with an unknown command. A failing refresh leaves the consumer's last successful snapshot in force.
+All entries are normalized absolute local filesystem patterns. `root` must resolve to the same physical filesystem identity as `--cwd`; consumers reject a snapshot rooted in a different project instead of redirecting a long-lived watcher. `files` are retained while missing; `globs` describe populations and are retained while matching nothing. Optional `reloadFiles` are exact paths whose change can alter plugin or contributor selection. The CLI watcher treats them as cold execution transitions instead of warm external-data updates. Producers also publish those paths in `files`: this preserves older decoders and lets `ttscserver` continue registering its existing file watches while it ignores the optional field. `reloadFiles` is CLI cold-selection metadata, not a separate LSP watch surface.
+
+The portable glob grammar is `*` within one path segment, `?` for one character, and a complete `**` segment across directories; brackets and braces are literal filename characters. Windows drive, UNC, and their extended-length file forms are local paths, while device namespaces and HTTP(S) resources are outside this protocol. The command declares topology without loading a TypeScript Program or reading the external content. Hosts call it only when the capability is explicitly enabled, so older strict sidecars are never probed with an unknown command. A failing refresh leaves the consumer's last successful snapshot in force.
 
 The CLI watcher retains one recursive `fs.watch` root per declaration, deduplicating declarations that share an ancestor. An input inside the project is owned by the physical project root, so deleting, renaming, or atomically replacing a declared directory cannot strand a child handle on the old filesystem object. A missing external input is owned by the nearest existing ancestor of its declared parent; replacement above that explicit boundary requires restarting the watch. This keeps watcher count bounded by declarations and avoids per-file polling. Events compare the declared population and its content fingerprints before scheduling a debounced rebuild, so an unrelated file or a filename-less event with unchanged content stays quiet.
 

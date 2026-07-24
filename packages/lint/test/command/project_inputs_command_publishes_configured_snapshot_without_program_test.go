@@ -88,6 +88,12 @@ func TestProjectInputsCommandPublishesConfiguredSnapshotWithoutProgram(t *testin
   if !reflect.DeepEqual(snapshot.Files, wantFiles) {
     t.Fatalf("files = %#v, want %#v", snapshot.Files, wantFiles)
   }
+  wantReloadFiles := []string{
+    filepath.ToSlash(realProjectPath(filepath.Join(root, "lint.config.json"))),
+  }
+  if !reflect.DeepEqual(snapshot.ReloadFiles, wantReloadFiles) {
+    t.Fatalf("reload files = %#v, want %#v", snapshot.ReloadFiles, wantReloadFiles)
+  }
   wantGlobs := []string{
     filepath.ToSlash(realProjectGlob(filepath.Join(root, "api", "**", "*.yaml"))),
   }

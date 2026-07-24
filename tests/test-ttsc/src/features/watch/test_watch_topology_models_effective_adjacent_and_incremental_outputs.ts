@@ -20,6 +20,8 @@ import {
  * 5. Separate positional materialization from temporary compiler outputs.
  * 6. Match tsgo's `.js` output for React Native JSX.
  * 7. Include adjacent declarations from external JavaScript inputs.
+ * 8. Match build-info, declaration-only, JavaScript JSX, and boolean receiver
+ *    semantics from the pinned tsgo.
  */
 export const test_watch_topology_models_effective_adjacent_and_incremental_outputs =
   async (): Promise<void> => {
@@ -64,6 +66,41 @@ export const test_watch_topology_models_effective_adjacent_and_incremental_outpu
       await expectProjectQuiet(incrementalChanges);
     } finally {
       incremental.close();
+    }
+
+    writeConfig(root, {
+      incremental: true,
+      module: "amd",
+      outFile: "dist/bundle.js",
+    });
+    const outFileIncrementalChanges: WatchInputChange[] = [];
+    const outFileIncremental = topology(root, outFileIncrementalChanges, {
+      emit: true,
+      files: [],
+    });
+    try {
+      outFileIncremental.refresh(false);
+      const buildInfo = path.join(root, "tsconfig.tsbuildinfo");
+      outFileIncremental.setProjectInputs({
+        root,
+        files: [buildInfo],
+        globs: [],
+      });
+      fs.writeFileSync(buildInfo, "{}\n", "utf8");
+      await expectProjectQuiet(outFileIncrementalChanges);
+
+      const outFileTwin = path.join(root, "dist", "bundle.tsbuildinfo");
+      outFileIncremental.setProjectInputs({
+        root,
+        files: [outFileTwin],
+        globs: [],
+      });
+      fs.mkdirSync(path.dirname(outFileTwin), { recursive: true });
+      const previous = projectChangeCount(outFileIncrementalChanges);
+      fs.writeFileSync(outFileTwin, "{}\n", "utf8");
+      await waitForProjectChange(outFileIncrementalChanges, previous);
+    } finally {
+      outFileIncremental.close();
     }
 
     writeConfig(root, {});
@@ -139,12 +176,16 @@ export const test_watch_topology_models_effective_adjacent_and_incremental_outpu
         files: [declarationOutput],
         globs: [],
       });
+      const previousDeclaration = projectChangeCount(declarationOnlyChanges);
       fs.writeFileSync(
         declarationOutput,
         "export declare const declarationOnly = 1;\n",
         "utf8",
       );
-      await expectProjectQuiet(declarationOnlyChanges);
+      await waitForProjectChange(
+        declarationOnlyChanges,
+        previousDeclaration,
+      );
 
       const javascriptOutput = path.join(root, "src", "main.js");
       declarationOnly.setProjectInputs({
@@ -161,6 +202,34 @@ export const test_watch_topology_models_effective_adjacent_and_incremental_outpu
       await waitForProjectChange(declarationOnlyChanges, previous);
     } finally {
       declarationOnly.close();
+    }
+
+    const explicitDeclarationOnlyChanges: WatchInputChange[] = [];
+    const explicitDeclarationOnly = topology(
+      root,
+      explicitDeclarationOnlyChanges,
+      {
+        emit: true,
+        files: [],
+        passthrough: ["-d", "-emitDeclarationOnly"],
+      },
+    );
+    try {
+      explicitDeclarationOnly.refresh(false);
+      const declarationOutput = path.join(root, "src", "main.d.ts");
+      explicitDeclarationOnly.setProjectInputs({
+        root,
+        files: [declarationOutput],
+        globs: [],
+      });
+      fs.writeFileSync(
+        declarationOutput,
+        "export declare const explicitDeclarationOnly = 1;\n",
+        "utf8",
+      );
+      await expectProjectQuiet(explicitDeclarationOnlyChanges);
+    } finally {
+      explicitDeclarationOnly.close();
     }
 
     const outDirChanges: WatchInputChange[] = [];
@@ -225,6 +294,64 @@ export const test_watch_topology_models_effective_adjacent_and_incremental_outpu
       await waitForProjectChange(jsxChanges, previous);
     } finally {
       jsx.close();
+    }
+
+    const jsxJavaScript = path.join(root, "src", "input.jsx");
+    fs.writeFileSync(jsxJavaScript, "export const input = <div />;\n", "utf8");
+    fs.writeFileSync(
+      path.join(root, "tsconfig.json"),
+      JSON.stringify({
+        compilerOptions: { allowJs: true, jsx: "react" },
+        files: ["src/input.jsx"],
+      }),
+      "utf8",
+    );
+    const jsxJavaScriptChanges: WatchInputChange[] = [];
+    const jsxJavaScriptTopology = topology(root, jsxJavaScriptChanges, {
+      emit: true,
+      files: [],
+    });
+    try {
+      jsxJavaScriptTopology.refresh(false);
+      const javascriptOutput = path.join(root, "src", "input.js");
+      jsxJavaScriptTopology.setProjectInputs({
+        root,
+        files: [javascriptOutput],
+        globs: [],
+      });
+      fs.writeFileSync(
+        javascriptOutput,
+        "export const input = React.createElement('div');\n",
+        "utf8",
+      );
+      await expectProjectQuiet(jsxJavaScriptChanges);
+    } finally {
+      jsxJavaScriptTopology.close();
+    }
+
+    writeConfig(root, {});
+    const uppercaseBooleanChanges: WatchInputChange[] = [];
+    const uppercaseBoolean = topology(root, uppercaseBooleanChanges, {
+      emit: true,
+      files: [],
+      passthrough: ["--declaration", "FALSE"],
+    });
+    try {
+      uppercaseBoolean.refresh(false);
+      const declarationOutput = path.join(root, "src", "main.d.ts");
+      uppercaseBoolean.setProjectInputs({
+        root,
+        files: [declarationOutput],
+        globs: [],
+      });
+      fs.writeFileSync(
+        declarationOutput,
+        "export declare const uppercaseBoolean = 1;\n",
+        "utf8",
+      );
+      await expectProjectQuiet(uppercaseBooleanChanges);
+    } finally {
+      uppercaseBoolean.close();
     }
 
     const externalRoot = TestProject.tmpdir("ttsc-external-javascript-output-");
