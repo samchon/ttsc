@@ -540,15 +540,18 @@ export class WatchTopology {
     try {
       const previous = this.projectInputMatches;
       const identities = createProjectInputPathIdentityContext();
+      // One population for the whole decision. Every question below is asked of
+      // the same declarations, and rebuilding it per question would both cost
+      // more and let two answers disagree about what was declared.
+      const population = this.projectInputPopulation();
       const directlyMatched =
         changed !== undefined &&
         (previous.has(identities.resolve(changed).key) ||
-          matchesProjectInput(this.projectInputs, changed, identities) ||
-          matchesProjectInput(this.declaredProjectInputs, changed, identities));
+          matchesProjectInput(population, changed, identities));
       const topologyMatched =
         changed !== undefined &&
         projectInputTopologyMayAffect(
-          this.projectInputPopulation(),
+          population,
           changed,
           previous,
           identities,
@@ -567,11 +570,7 @@ export class WatchTopology {
       // the scan below observe whatever the gap swallowed.
       if (
         changed !== undefined &&
-        projectInputReplacementStrandsWatchers(
-          this.projectInputPopulation(),
-          changed,
-          identities,
-        )
+        projectInputReplacementStrandsWatchers(population, changed, identities)
       ) {
         this.retireProjectInputWatcher(location, identities);
         this.syncProjectInputWatchers();
@@ -600,8 +599,8 @@ export class WatchTopology {
       const reload = projectInputReloadEventShouldNotify({
         changed,
         changedInputs,
-        reloadDirectories: this.projectInputDeclarations("reload-directory"),
-        reloadFiles: this.projectInputDeclarations("reload"),
+        reloadDirectories: population.reloadDirectories ?? [],
+        reloadFiles: population.reloadFiles ?? [],
       });
       const invalidate = projectInputMembershipInvalidatesProgram({
         changed,
