@@ -144,7 +144,7 @@ export const test_watch_topology_tracks_declared_missing_files_and_empty_globs =
         root,
         files: [
           path.join(root, "docs", "nested", "missing.md"),
-          path.join(root, "dist", "main.js"),
+          path.join(root, "dist", "src", "main.js"),
           externalFile,
         ],
         globs: [
@@ -272,8 +272,11 @@ export const test_watch_topology_tracks_declared_missing_files_and_empty_globs =
       );
       await waitForNextProjectChange(changes, previousProjectChanges);
 
-      fs.mkdirSync(path.join(root, "dist"), { recursive: true });
-      fs.writeFileSync(path.join(root, "dist", "main.js"), "export {};\n");
+      fs.mkdirSync(path.join(root, "dist", "src"), { recursive: true });
+      fs.writeFileSync(
+        path.join(root, "dist", "src", "main.js"),
+        "export {};\n",
+      );
       await waitForQuiet(changes);
 
       topology.setProjectInputs({
