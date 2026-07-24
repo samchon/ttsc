@@ -22,10 +22,10 @@ type PublishDiagnosticsParams = {
 /**
  * Verifies ttscserver LSP honors an explicit @ttsc/lint config file.
  *
- * The JavaScript launcher serializes project plugin entries into
- * `TTSC_LSP_PLUGINS_JSON` for the Go proxy. This pins the config handoff: a
- * project-level `configFile` must survive into the sidecar invocation instead
- * of falling back to the auto-discovered `lint.config.json` next to tsconfig.
+ * The JavaScript launcher serializes project plugin entries into its private
+ * manifest file for the Go proxy. This pins the config handoff: a project-level
+ * `configFile` must survive into the sidecar invocation instead of falling back
+ * to the auto-discovered `lint.config.json` next to tsconfig.
  *
  * 1. Materialize a project with two lint configs: explicit `no-var`, default
  *    `no-console`.

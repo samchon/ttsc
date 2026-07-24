@@ -103,6 +103,9 @@ func TestLSPReloadDirectoriesCompareImmediateTopology(t *testing.T) {
   if err := os.Remove(deletionRoot); err != nil {
     t.Fatal(err)
   }
+  if !source.ProjectInputReloadMatchesChange(uri(deletionRoot), &deleted) {
+    t.Fatal("reload-directory deletion did not change its topology state")
+  }
 
   replacementRoot := filepath.Join(root, "replacement-deps")
   if err := os.Mkdir(replacementRoot, 0o755); err != nil {
@@ -160,9 +163,6 @@ func TestLSPReloadDirectoriesCompareImmediateTopology(t *testing.T) {
   source.projectInputs = refreshed
   if !source.ProjectInputReloadMatchesChange(uri(refreshEntry), &created) {
     t.Fatal("project-input refresh absorbed selection-time topology drift")
-  }
-  if !source.ProjectInputReloadMatchesChange(uri(deletionRoot), &deleted) {
-    t.Fatal("reload-directory deletion did not change its topology state")
   }
 
   firstTarget := filepath.Join(root, "first-target")

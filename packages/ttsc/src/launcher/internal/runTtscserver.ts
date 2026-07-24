@@ -30,6 +30,11 @@ type LSPExecutionContext = {
   tsgoBinary: string;
 };
 
+type TtscserverEnvironment = {
+  dispose(): void;
+  env: NodeJS.ProcessEnv;
+};
+
 const LSP_SELECTION_STABILITY_ATTEMPTS = 3;
 const LSP_PROJECT_INPUT_TIMEOUT_MS = 30_000;
 const LSP_PROJECT_INPUT_MAX_BUFFER = 4 * 1024 * 1024;
@@ -42,7 +47,7 @@ const LSP_PROJECT_INPUT_MAX_BUFFER = 4 * 1024 * 1024;
  *
  * - Resolve the platform binary,
  * - Resolve the project TypeScript-Go binary for the native wrapper,
- * - Resolve the project config and build the LSP plugin manifest environment,
+ * - Resolve the project config and materialize the private LSP plugin manifest,
  * - Inject the Node/ttsx helper paths used by disk-backed LSP sidecars,
  * - Inject `--stdio` when the first arg is not a meta-command,
  * - Delegate to the binary with inherited stdio so OS-level signals reach the
@@ -64,20 +69,25 @@ export function runTtscserver(
   ensureExecutable(binary);
 
   const args = needsStdio(argv) ? ["--stdio", ...argv] : [...argv];
-  let env: NodeJS.ProcessEnv;
+  let execution: TtscserverEnvironment;
   try {
-    env = resolveTtscserverEnv(args);
+    execution = resolveTtscserverEnv(args);
   } catch (error) {
     process.stderr.write(
       `ttscserver: ${stripTtscPrefix(formatError(error))}\n`,
     );
     return 1;
   }
-  const result = spawnSync(binary, args, {
-    stdio: "inherit",
-    env,
-    windowsHide: true,
-  });
+  let result: ReturnType<typeof spawnSync>;
+  try {
+    result = spawnSync(binary, args, {
+      stdio: "inherit",
+      env: execution.env,
+      windowsHide: true,
+    });
+  } finally {
+    execution.dispose();
+  }
   if (result.error) {
     process.stderr.write(`ttscserver: ${result.error.message}\n`);
     return 1;
@@ -100,47 +110,94 @@ export function runTtscserver(
 /**
  * Build the environment for the native binary. In `--stdio` (LSP) mode the Go
  * binary needs the project tsgo binary plus any LSP-capable plugin sidecars the
- * JS loader resolved from config. Inject those paths through environment
- * variables so the native host can stay focused on proxying tsgo and
- * dispatching sidecar verbs. Skip `TTSC_TSGO_BINARY` injection when the caller
- * already provided the variable or passed an explicit `--tsgo` option.
+ * JS loader resolved from config. Pass the manifest through a private temporary
+ * file and inject canonical helper paths so the native host and every later
+ * sidecar refresh use the same launch context.
  */
-function resolveTtscserverEnv(argv: readonly string[]): NodeJS.ProcessEnv {
+function resolveTtscserverEnv(argv: readonly string[]): TtscserverEnvironment {
   if (!argv.includes("--stdio")) {
     // Non-LSP invocations (--version, --help) do not shell out to tsgo.
-    return process.env;
+    return { dispose() {}, env: process.env };
   }
   const context = resolveLspExecutionContext(argv);
+  const env = lspSidecarEnvironment({
+    pluginConfigOrigin: context.projectContext?.pluginConfigOrigin,
+    tsgoBinary: context.tsgoBinary,
+  });
+  delete env.TTSC_LSP_PLUGINS_JSON;
+  delete env.TTSC_LSP_PLUGINS_FILE;
+  const lspPlugins = context.nativePlugins.filter(
+    (plugin) => plugin.capabilities?.lsp === true,
+  );
+  if (lspPlugins.length === 0) {
+    return { dispose() {}, env };
+  }
+  const transport = materializeLSPPluginManifest({
+    initialProjectInputs: Object.fromEntries(context.initialProjectInputs),
+    plugins: serializeNativePlugins(context.nativePlugins),
+    projectContext: context.projectContext,
+    lspPlugins: lspPlugins.map((plugin) => ({
+      binary: plugin.binary,
+      ...(plugin.capabilities?.projectInputs === true
+        ? { initialProjectInputKey: lspPluginTransportKey(plugin) }
+        : {}),
+      name: plugin.name,
+      projectDiagnostics: plugin.capabilities?.projectDiagnostics === true,
+      projectInputs: plugin.capabilities?.projectInputs === true,
+      projectContextArgs: plugin.capabilities?.projectContextArgs === true,
+      stage: plugin.stage,
+    })),
+  });
+  env.TTSC_LSP_PLUGINS_FILE = transport.path;
+  return {
+    dispose: transport.dispose,
+    env,
+  };
+}
+
+export function materializeLSPPluginManifest(manifest: unknown): {
+  dispose(): void;
+  path: string;
+} {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-lsp-"));
+  const location = path.join(directory, "plugins.json");
+  try {
+    fs.writeFileSync(location, JSON.stringify(manifest), {
+      encoding: "utf8",
+      flag: "wx",
+      mode: 0o600,
+    });
+  } catch (error) {
+    fs.rmSync(directory, { force: true, recursive: true });
+    throw error;
+  }
+  let disposed = false;
+  return {
+    dispose(): void {
+      if (disposed) return;
+      disposed = true;
+      fs.rmSync(directory, { force: true, recursive: true });
+    },
+    path: location,
+  };
+}
+
+function lspSidecarEnvironment(options: {
+  pluginConfigOrigin: string | undefined;
+  tsgoBinary: string;
+}): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = {
     ...process.env,
     TTSC_NODE_BINARY: process.env.TTSC_NODE_BINARY ?? process.execPath,
+    TTSC_TSGO_BINARY: options.tsgoBinary,
     TTSC_TTSX_BINARY:
       process.env.TTSC_TTSX_BINARY ??
       path.join(__dirname, "..", "..", "launcher", "ttsx.js"),
   };
-  delete env.TTSC_LSP_PLUGINS_JSON;
-  if (!process.env.TTSC_TSGO_BINARY && !hasTsgoOption(argv)) {
-    env.TTSC_TSGO_BINARY = context.tsgoBinary;
-  }
-  const lspPlugins = context.nativePlugins.filter(
-    (plugin) => plugin.capabilities?.lsp === true,
-  );
-  if (lspPlugins.length > 0) {
-    env.TTSC_LSP_PLUGINS_JSON = JSON.stringify({
-      plugins: serializeNativePlugins(context.nativePlugins),
-      projectContext: context.projectContext,
-      lspPlugins: lspPlugins.map((plugin) => ({
-        binary: plugin.binary,
-        initialProjectInputs: context.initialProjectInputs.get(
-          lspPluginTransportKey(plugin),
-        ),
-        name: plugin.name,
-        projectDiagnostics: plugin.capabilities?.projectDiagnostics === true,
-        projectInputs: plugin.capabilities?.projectInputs === true,
-        projectContextArgs: plugin.capabilities?.projectContextArgs === true,
-        stage: plugin.stage,
-      })),
-    });
+  if (options.pluginConfigOrigin === undefined) {
+    delete env.TTSC_PLUGIN_CONFIG_DIR;
+  } else {
+    env.TTSC_PLUGIN_CONFIG_DIR = options.pluginConfigOrigin;
   }
   return env;
 }
@@ -199,21 +256,36 @@ function resolveLspExecutionContext(
       pluginConfigOrigin,
     );
     const confirmedProject = confirmation.project;
+    const confirmedTsgo = resolveTsgo({
+      binary: optionValue(argv, "--tsgo"),
+      cwd: confirmedProject.root,
+      resolveFrom: __filename,
+    });
+    const confirmedProjectInputs = captureInitialLSPProjectInputs({
+      nativePlugins: confirmation.nativePlugins,
+      pluginConfigOrigin,
+      project: confirmedProject,
+      tsgoBinary: confirmedTsgo.binary,
+    });
     if (
       lspSelectionSignature(selectedProject, loaded.nativePlugins) ===
         lspSelectionSignature(confirmedProject, confirmation.nativePlugins) &&
-      [...initialProjectInputs.values()].every(
+      initialLSPProjectInputsEqual(
+        initialProjectInputs,
+        confirmedProjectInputs,
+      ) &&
+      [...confirmedProjectInputs.values()].every(
         initialLSPProjectInputSnapshotIsCurrent,
       )
     ) {
       return {
-        initialProjectInputs,
+        initialProjectInputs: confirmedProjectInputs,
         nativePlugins: confirmation.nativePlugins,
         projectContext: {
           ...confirmedProject.identity,
           ...(pluginConfigOrigin === undefined ? {} : { pluginConfigOrigin }),
         },
-        tsgoBinary: tsgo.binary,
+        tsgoBinary: confirmedTsgo.binary,
       };
     }
     project = confirmedProject;
@@ -272,19 +344,10 @@ function captureInitialLSPProjectInputs(options: {
         ),
       );
     }
-    const env: NodeJS.ProcessEnv = {
-      ...process.env,
-      TTSC_NODE_BINARY: process.env.TTSC_NODE_BINARY ?? process.execPath,
-      TTSC_TSGO_BINARY: process.env.TTSC_TSGO_BINARY ?? options.tsgoBinary,
-      TTSC_TTSX_BINARY:
-        process.env.TTSC_TTSX_BINARY ??
-        path.join(__dirname, "..", "..", "launcher", "ttsx.js"),
-    };
-    if (options.pluginConfigOrigin === undefined) {
-      delete env.TTSC_PLUGIN_CONFIG_DIR;
-    } else {
-      env.TTSC_PLUGIN_CONFIG_DIR = options.pluginConfigOrigin;
-    }
+    const env = lspSidecarEnvironment({
+      pluginConfigOrigin: options.pluginConfigOrigin,
+      tsgoBinary: options.tsgoBinary,
+    });
     const result = spawnSync(plugin.binary, args, {
       cwd: options.project.root,
       encoding: "utf8",
@@ -321,6 +384,46 @@ function lspPluginTransportKey(plugin: ITtscLoadedNativePlugin): string {
     "\0" +
     (plugin.capabilities?.projectContextArgs === true ? "1" : "0")
   );
+}
+
+function initialLSPProjectInputsEqual(
+  left: ReadonlyMap<string, InitialLSPProjectInputSnapshot>,
+  right: ReadonlyMap<string, InitialLSPProjectInputSnapshot>,
+): boolean {
+  if (left.size !== right.size) return false;
+  for (const [key, leftSnapshot] of left) {
+    const rightSnapshot = right.get(key);
+    if (
+      rightSnapshot === undefined ||
+      initialLSPProjectInputSnapshotSignature(leftSnapshot) !==
+        initialLSPProjectInputSnapshotSignature(rightSnapshot)
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function initialLSPProjectInputSnapshotSignature(
+  snapshot: InitialLSPProjectInputSnapshot,
+): string {
+  const sorted = (values: readonly string[] | undefined): string[] =>
+    [...(values ?? [])].sort();
+  const reloadDirectories = sorted(snapshot.reloadDirectories);
+  const reloadFiles = sorted(snapshot.reloadFiles);
+  return JSON.stringify({
+    files: sorted(snapshot.files),
+    globs: sorted(snapshot.globs),
+    reloadDirectories: reloadDirectories.map((directory) => [
+      directory,
+      snapshot.reloadDirectoryDigests[directory],
+    ]),
+    reloadFiles: reloadFiles.map((file) => [
+      file,
+      snapshot.reloadFileDigests[file],
+    ]),
+    root: snapshot.root,
+  });
 }
 
 function parseInitialLSPProjectInputSnapshot(
@@ -367,7 +470,7 @@ export function fingerprintInitialLSPProjectInputSnapshot(
   }
   for (const file of snapshot.reloadFiles ?? []) {
     reloadFileDigests[file] = lspProjectInputFileDigest(
-      realLSPProjectInputPath(file),
+      realLSPProjectInputEntryPath(file),
     );
   }
   return {
@@ -389,7 +492,7 @@ export function initialLSPProjectInputSnapshotIsCurrent(
     (snapshot.reloadFiles ?? []).every(
       (file) =>
         snapshot.reloadFileDigests[file] ===
-        lspProjectInputFileDigest(realLSPProjectInputPath(file)),
+        lspProjectInputFileDigest(realLSPProjectInputEntryPath(file)),
     )
   );
 }
@@ -495,7 +598,14 @@ function lspProjectInputFileDigest(location: string): string {
   try {
     const info = fs.lstatSync(location);
     if (info.isSymbolicLink()) {
-      const target = fs.readlinkSync(location);
+      let target = Buffer.from("<unreadable>");
+      try {
+        target = fs.readlinkSync(Buffer.from(location), {
+          encoding: "buffer",
+        });
+      } catch {
+        // Preserve the same explicit unreadable state as the Go validator.
+      }
       let content = Buffer.from("missing\0");
       try {
         content = Buffer.concat([
@@ -509,7 +619,7 @@ function lspProjectInputFileDigest(location: string): string {
         .update(
           Buffer.concat([
             Buffer.from("symlink\0"),
-            Buffer.from(target),
+            target,
             Buffer.from([0]),
             content,
           ]),
@@ -549,8 +659,12 @@ function realLSPProjectInputPath(location: string): string {
   }
 }
 
-function hasTsgoOption(argv: readonly string[]): boolean {
-  return argv.some((arg) => arg === "--tsgo" || arg.startsWith("--tsgo="));
+function realLSPProjectInputEntryPath(location: string): string {
+  const absolute = path.resolve(location);
+  return path.join(
+    realLSPProjectInputPath(path.dirname(absolute)),
+    path.basename(absolute),
+  );
 }
 
 function optionValue(

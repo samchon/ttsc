@@ -1,8 +1,9 @@
 // Command ttscserver is the Go LSP host shipped by ttsc. It wraps the
 // project-selected TypeScript-Go LSP server process and proxies traffic
 // between the editor and that server. The JavaScript launcher resolves project
-// plugins first and passes an LSP manifest so this command can merge plugin
-// diagnostics, code actions, and ttsc-owned executeCommand handling.
+// plugins first and passes a private LSP manifest file so this command can
+// merge plugin diagnostics, code actions, and ttsc-owned executeCommand
+// handling.
 //
 // The JavaScript launcher (`packages/ttsc/src/launcher/ttscserver.ts`)
 // resolves the native binary and forwards stdio so editors can spawn
@@ -28,6 +29,8 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/internal/graphsymbols"
   "github.com/samchon/ttsc/packages/ttsc/internal/lspserver"
 )
+
+const lspPluginManifestMaxBytes = 64 * 1024 * 1024
 
 // Build metadata; overwritten via -ldflags in release builds.
 var (
@@ -121,10 +124,15 @@ func runLSP(args []string) int {
     tsgoBinary = strings.TrimSpace(os.Getenv("TTSC_TSGO_BINARY"))
   }
 
+  manifestJSON, err := lspPluginManifestJSON()
+  if err != nil {
+    fmt.Fprintf(stderr, "ttscserver: %v\n", err)
+    return 2
+  }
   source, err := lspserver.NewNativePluginSource(lspserver.NativePluginSourceOptions{
     Cwd:          cwd,
     Err:          stderr,
-    ManifestJSON: os.Getenv("TTSC_LSP_PLUGINS_JSON"),
+    ManifestJSON: manifestJSON,
     Tsconfig:     strings.TrimSpace(*tsconfigFlag),
   })
   if err != nil {
@@ -158,6 +166,29 @@ func runLSP(args []string) int {
     return 1
   }
   return 0
+}
+
+func lspPluginManifestJSON() (string, error) {
+  location := strings.TrimSpace(os.Getenv("TTSC_LSP_PLUGINS_FILE"))
+  if location == "" {
+    return os.Getenv("TTSC_LSP_PLUGINS_JSON"), nil
+  }
+  input, err := os.Open(location)
+  if err != nil {
+    return "", fmt.Errorf("read TTSC_LSP_PLUGINS_FILE: %w", err)
+  }
+  defer input.Close()
+  body, err := io.ReadAll(io.LimitReader(input, lspPluginManifestMaxBytes+1))
+  if err != nil {
+    return "", fmt.Errorf("read TTSC_LSP_PLUGINS_FILE: %w", err)
+  }
+  if len(body) > lspPluginManifestMaxBytes {
+    return "", fmt.Errorf(
+      "TTSC_LSP_PLUGINS_FILE exceeds %d bytes",
+      lspPluginManifestMaxBytes,
+    )
+  }
+  return string(body), nil
 }
 
 func printVersion(w io.Writer) {

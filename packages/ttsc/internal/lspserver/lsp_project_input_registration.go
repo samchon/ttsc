@@ -36,6 +36,10 @@ type projectInputSnapshotSource interface {
   ProjectInputs() LSPProjectInputSnapshot
 }
 
+type projectInputReloadFingerprintSource interface {
+  ProjectInputReloadFingerprintsAreCurrent() bool
+}
+
 func (p *Proxy) projectInputWatchInitialized() {
   p.projectInputWatchMu.Lock()
   p.projectInputWatchReady = true
@@ -184,6 +188,15 @@ func (p *Proxy) writeProjectInputWatchRegistration(
         )
       }
       p.projectInputWatchMu.Unlock()
+      if source, ok := p.source.(projectInputReloadFingerprintSource); ok &&
+        !source.ProjectInputReloadFingerprintsAreCurrent() {
+        if err := p.writePluginSelectionChanged(); err != nil {
+          p.reportAsyncError(err)
+        } else {
+          p.reportAsyncError(ErrLSPPluginSelectionChanged)
+        }
+        return
+      }
       p.reconcileProjectInputWatchRegistration()
     },
   )

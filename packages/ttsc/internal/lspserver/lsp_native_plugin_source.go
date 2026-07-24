@@ -19,12 +19,13 @@ const nativePluginCommandStdoutLimit = 4 * 1024 * 1024
 const nativePluginCommandStderrLimit = 1024 * 1024
 
 // NativePluginManifest is the JSON shape the JavaScript ttscserver launcher
-// passes through TTSC_LSP_PLUGINS_JSON after running normal project plugin
+// writes to its private manifest file after running normal project plugin
 // discovery and source-plugin builds.
 type NativePluginManifest struct {
-  Plugins        []NativePluginConfigEntry `json:"plugins"`
-  LSPPlugins     []NativeLSPPluginEntry    `json:"lspPlugins"`
-  ProjectContext json.RawMessage           `json:"projectContext,omitempty"`
+  InitialProjectInputs map[string]LSPProjectInputSnapshot `json:"initialProjectInputs,omitempty"`
+  Plugins              []NativePluginConfigEntry          `json:"plugins"`
+  LSPPlugins           []NativeLSPPluginEntry             `json:"lspPlugins"`
+  ProjectContext       json.RawMessage                    `json:"projectContext,omitempty"`
 }
 
 // NativePluginConfigEntry mirrors the compact sidecar protocol used by
@@ -38,13 +39,14 @@ type NativePluginConfigEntry struct {
 // NativeLSPPluginEntry names one built sidecar that opted into the LSP
 // protocol through its JavaScript descriptor capabilities.
 type NativeLSPPluginEntry struct {
-  Binary               string                   `json:"binary"`
-  InitialProjectInputs *LSPProjectInputSnapshot `json:"initialProjectInputs,omitempty"`
-  Name                 string                   `json:"name,omitempty"`
-  ProjectDiagnostics   bool                     `json:"projectDiagnostics,omitempty"`
-  ProjectInputs        bool                     `json:"projectInputs,omitempty"`
-  ProjectContextArgs   bool                     `json:"projectContextArgs,omitempty"`
-  Stage                string                   `json:"stage,omitempty"`
+  Binary                 string                   `json:"binary"`
+  InitialProjectInputKey string                   `json:"initialProjectInputKey,omitempty"`
+  InitialProjectInputs   *LSPProjectInputSnapshot `json:"initialProjectInputs,omitempty"`
+  Name                   string                   `json:"name,omitempty"`
+  ProjectDiagnostics     bool                     `json:"projectDiagnostics,omitempty"`
+  ProjectInputs          bool                     `json:"projectInputs,omitempty"`
+  ProjectContextArgs     bool                     `json:"projectContextArgs,omitempty"`
+  Stage                  string                   `json:"stage,omitempty"`
 }
 
 // NativePluginSourceOptions configures a sidecar-backed PluginSource.
@@ -192,12 +194,24 @@ func NewNativePluginSource(opts NativePluginSourceOptions) (*NativePluginSource,
     },
     source.projectContextJSON,
   ) {
-    if plugin.InitialProjectInputs == nil {
+    initialProjectInputs := plugin.InitialProjectInputs
+    if plugin.InitialProjectInputKey != "" {
+      snapshot, ok := manifest.InitialProjectInputs[plugin.InitialProjectInputKey]
+      if !ok {
+        return nil, fmt.Errorf(
+          "ttscserver: %s initial project inputs key %q is missing from the manifest",
+          pluginLabel(plugin),
+          plugin.InitialProjectInputKey,
+        )
+      }
+      initialProjectInputs = &snapshot
+    }
+    if initialProjectInputs == nil {
       missingInitialProjectInputs = true
       continue
     }
     snapshot, err := normalizeLSPProjectInputSnapshot(
-      *plugin.InitialProjectInputs,
+      *initialProjectInputs,
       source.cwd,
     )
     if err != nil {

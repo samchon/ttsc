@@ -40,6 +40,20 @@ func (s *NativePluginSource) ProjectInputs() LSPProjectInputSnapshot {
   return copyProjectInputSnapshot(s.projectInputs)
 }
 
+// ProjectInputReloadFingerprintsAreCurrent reports whether the retained
+// selection-time baseline still matches the filesystem. The proxy checks this
+// after the client confirms dynamic watcher registration, closing the interval
+// between construction-time validation and active event delivery.
+func (s *NativePluginSource) ProjectInputReloadFingerprintsAreCurrent() bool {
+  if s == nil {
+    return true
+  }
+  s.projectInputsMu.RLock()
+  snapshot := copyProjectInputSnapshot(s.projectInputs)
+  s.projectInputsMu.RUnlock()
+  return projectInputReloadFingerprintsAreCurrent(snapshot)
+}
+
 // ProjectInputMatchesURI reports whether a watched-file URI belongs to a
 // declared exact dependency or glob population.
 func (s *NativePluginSource) ProjectInputMatchesURI(uri string) bool {
@@ -385,7 +399,7 @@ func normalizeLSPProjectInputSnapshot(
         file,
       )
     }
-    normalized := filepath.ToSlash(realProjectInputPath(file))
+    normalized := filepath.ToSlash(realProjectInputEntryPath(file))
     reloadFiles[projectInputPathKey(normalized)] = normalized
   }
   reloadDirectories := map[string]string{}
@@ -676,7 +690,8 @@ func projectInputSnapshotDigest(
   }
   wanted := projectInputPathKey(location)
   for candidate, digest := range fingerprints {
-    if projectInputPathKey(realProjectInputPath(candidate)) == wanted {
+    if projectInputPathKey(realProjectInputPath(candidate)) == wanted ||
+      projectInputPathKey(realProjectInputEntryPath(candidate)) == wanted {
       return digest, true
     }
   }
