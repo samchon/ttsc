@@ -334,16 +334,9 @@ export class WatchTopology {
         path.dirname(file),
       );
       if (location !== undefined) {
-        const available = projectInputAvailableWatchDirectory(
-          location,
-          this.projectInputRejectedWatchRoots,
-          identities,
-        );
-        if (available !== undefined) {
-          const identity = identities.resolve(available);
-          desired.set(identity.key, identity.path);
-        }
+        this.retainProjectInputWatchRoot(desired, identities, location);
       }
+      this.retainProjectInputTargetWatchRoot(desired, identities, file);
     }
     for (const glob of this.projectInputs.globs) {
       const root = literalGlobRoot(glob);
@@ -352,15 +345,7 @@ export class WatchTopology {
       }
       const location = this.projectInputWatchRoot("glob", glob, root);
       if (location !== undefined) {
-        const available = projectInputAvailableWatchDirectory(
-          location,
-          this.projectInputRejectedWatchRoots,
-          identities,
-        );
-        if (available !== undefined) {
-          const identity = identities.resolve(available);
-          desired.set(identity.key, identity.path);
-        }
+        this.retainProjectInputWatchRoot(desired, identities, location);
       }
     }
     for (const file of this.projectInputs.reloadFiles ?? []) {
@@ -371,16 +356,9 @@ export class WatchTopology {
         path.dirname(file),
       );
       if (location !== undefined) {
-        const available = projectInputAvailableWatchDirectory(
-          location,
-          this.projectInputRejectedWatchRoots,
-          identities,
-        );
-        if (available !== undefined) {
-          const identity = identities.resolve(available);
-          desired.set(identity.key, identity.path);
-        }
+        this.retainProjectInputWatchRoot(desired, identities, location);
       }
+      this.retainProjectInputTargetWatchRoot(desired, identities, file);
     }
     for (const directory of this.projectInputs.reloadDirectories ?? []) {
       if (this.isProjectInputCompilerOutputDirectory(directory, identities)) {
@@ -392,15 +370,7 @@ export class WatchTopology {
         directory,
       );
       if (location !== undefined) {
-        const available = projectInputAvailableWatchDirectory(
-          location,
-          this.projectInputRejectedWatchRoots,
-          identities,
-        );
-        if (available !== undefined) {
-          const identity = identities.resolve(available);
-          desired.set(identity.key, identity.path);
-        }
+        this.retainProjectInputWatchRoot(desired, identities, location);
       }
     }
     const active = new Map<string, string>();
@@ -439,6 +409,46 @@ export class WatchTopology {
     this.callbacks.onProjectInputWatchRoots?.(
       [...this.projectInputWatchers.keys()].sort(),
     );
+  }
+
+  private retainProjectInputWatchRoot(
+    desired: Map<string, string>,
+    identities: ProjectInputPathIdentityContext,
+    location: string,
+  ): void {
+    const available = projectInputAvailableWatchDirectory(
+      location,
+      this.projectInputRejectedWatchRoots,
+      identities,
+    );
+    if (available === undefined) return;
+    const identity = identities.resolve(available);
+    desired.set(identity.key, identity.path);
+  }
+
+  /**
+   * Also anchor an exact declaration on the directory holding the bytes it
+   * names.
+   *
+   * A declaration is a lexical path, but a symlink can place the file it
+   * resolves to in an unrelated directory. The lexical anchor observes the link
+   * being retargeted or replaced; only this one observes an edit to the file
+   * the current link actually points at, which is the content the retained
+   * fingerprint was taken from. Nothing is retained across syncs here: the
+   * target moves with the link, so it is planned from the current filesystem
+   * every time, and an ancestor that already covers it drops it again.
+   */
+  private retainProjectInputTargetWatchRoot(
+    desired: Map<string, string>,
+    identities: ProjectInputPathIdentityContext,
+    file: string,
+  ): void {
+    const declared = path.resolve(file);
+    const physical = watcherRegistrationPath(declared);
+    if (physical === declared) return;
+    const parent = nearestExistingDirectory(path.dirname(physical));
+    if (parent === undefined) return;
+    this.retainProjectInputWatchRoot(desired, identities, parent);
   }
 
   private projectInputWatchRoot(

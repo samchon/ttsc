@@ -31,6 +31,8 @@ type LSPExecutionContext = {
 };
 
 type TtscserverEnvironment = {
+  /** Flags prepended to the native invocation, ahead of the caller's argv. */
+  args: readonly string[];
   dispose(): void;
   env: NodeJS.ProcessEnv;
 };
@@ -80,7 +82,7 @@ export function runTtscserver(
   }
   let result: ReturnType<typeof spawnSync>;
   try {
-    result = spawnSync(binary, args, {
+    result = spawnSync(binary, [...execution.args, ...args], {
       stdio: "inherit",
       env: execution.env,
       windowsHide: true,
@@ -117,7 +119,7 @@ export function runTtscserver(
 function resolveTtscserverEnv(argv: readonly string[]): TtscserverEnvironment {
   if (!argv.includes("--stdio")) {
     // Non-LSP invocations (--version, --help) do not shell out to tsgo.
-    return { dispose() {}, env: process.env };
+    return { args: [], dispose() {}, env: process.env };
   }
   const context = resolveLspExecutionContext(argv);
   const env = lspSidecarEnvironment({
@@ -130,7 +132,8 @@ function resolveTtscserverEnv(argv: readonly string[]): TtscserverEnvironment {
     (plugin) => plugin.capabilities?.lsp === true,
   );
   if (lspPlugins.length === 0) {
-    return { dispose() {}, env };
+    // Nothing would be lost by an older native host, so keep it startable.
+    return { args: [], dispose() {}, env };
   }
   const transport = materializeLSPPluginManifest({
     initialProjectInputs: Object.fromEntries(context.initialProjectInputs),
@@ -148,8 +151,12 @@ function resolveTtscserverEnv(argv: readonly string[]): TtscserverEnvironment {
       stage: plugin.stage,
     })),
   });
-  env.TTSC_LSP_PLUGINS_FILE = transport.path;
+  // Deliver the manifest as an explicit flag rather than an inherited variable.
+  // A native host that predates the flag rejects the invocation instead of
+  // starting without the plugins this project declared, and nothing downstream
+  // of the host inherits either a path to the manifest or its payload.
   return {
+    args: ["--lsp-plugins-file", transport.path],
     dispose: transport.dispose,
     env,
   };

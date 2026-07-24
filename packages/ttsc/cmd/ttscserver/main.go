@@ -97,6 +97,12 @@ func runLSP(args []string) int {
   suppressExecuteCommandProviderFlag := fs.Bool("suppress-execute-command-provider", false, "do not advertise ttsc executeCommand ids during initialize")
   suppressExecuteCommandIDsFlag := fs.String("suppress-execute-command-ids", "", "comma-separated ttsc executeCommand ids to omit during initialize")
   executeCommandIDPrefixFlag := fs.String("execute-command-id-prefix", "", "prefix to apply to advertised executeCommand ids")
+  // The launcher passes this flag only when it actually resolved LSP-capable
+  // plugins, so a host too old to know it refuses to start instead of running
+  // silently without every plugin the project declared. Version skew between
+  // the launcher and a TTSCSERVER_BINARY override is therefore visible at the
+  // first request rather than diagnosed from missing diagnostics.
+  lspPluginsFileFlag := fs.String("lsp-plugins-file", "", "path to the private LSP plugin manifest written by the ttsc launcher")
   _ = fs.String("clientProcessId", "", "ignored VSCode language-client compatibility flag")
   if err := fs.Parse(args); err != nil {
     return 2
@@ -124,7 +130,7 @@ func runLSP(args []string) int {
     tsgoBinary = strings.TrimSpace(os.Getenv("TTSC_TSGO_BINARY"))
   }
 
-  manifestJSON, err := lspPluginManifestJSON()
+  manifestJSON, err := lspPluginManifestJSON(strings.TrimSpace(*lspPluginsFileFlag))
   if err != nil {
     fmt.Fprintf(stderr, "ttscserver: %v\n", err)
     return 2
@@ -168,23 +174,52 @@ func runLSP(args []string) int {
   return 0
 }
 
-func lspPluginManifestJSON() (string, error) {
-  location := strings.TrimSpace(os.Getenv("TTSC_LSP_PLUGINS_FILE"))
+// lspPluginManifestJSON reads the private plugin manifest prepared for this
+// process and takes ownership of it.
+//
+// The manifest names every resolved project plugin and its launch context, so
+// it is consumed exactly once. The backing file is removed as soon as it has
+// been read, which means a forcibly terminated launcher cannot leave the
+// payload on disk, and both transport variables are cleared from this process
+// so no plugin sidecar spawned later inherits the payload or a path to it.
+// The environment forms remain accepted because an editor pointed straight at
+// a native binary has no launcher to pass the flag.
+func lspPluginManifestJSON(flagLocation string) (string, error) {
+  defer func() {
+    os.Unsetenv("TTSC_LSP_PLUGINS_FILE")
+    os.Unsetenv("TTSC_LSP_PLUGINS_JSON")
+  }()
+  source := "--lsp-plugins-file"
+  location := flagLocation
+  if location == "" {
+    source = "TTSC_LSP_PLUGINS_FILE"
+    location = strings.TrimSpace(os.Getenv("TTSC_LSP_PLUGINS_FILE"))
+  }
   if location == "" {
     return os.Getenv("TTSC_LSP_PLUGINS_JSON"), nil
   }
+  body, err := readLSPPluginManifestFile(source, location)
+  os.Remove(location)
+  if err != nil {
+    return "", err
+  }
+  return body, nil
+}
+
+func readLSPPluginManifestFile(source, location string) (string, error) {
   input, err := os.Open(location)
   if err != nil {
-    return "", fmt.Errorf("read TTSC_LSP_PLUGINS_FILE: %w", err)
+    return "", fmt.Errorf("read %s: %w", source, err)
   }
   defer input.Close()
   body, err := io.ReadAll(io.LimitReader(input, lspPluginManifestMaxBytes+1))
   if err != nil {
-    return "", fmt.Errorf("read TTSC_LSP_PLUGINS_FILE: %w", err)
+    return "", fmt.Errorf("read %s: %w", source, err)
   }
   if len(body) > lspPluginManifestMaxBytes {
     return "", fmt.Errorf(
-      "TTSC_LSP_PLUGINS_FILE exceeds %d bytes",
+      "%s exceeds %d bytes",
+      source,
       lspPluginManifestMaxBytes,
     )
   }

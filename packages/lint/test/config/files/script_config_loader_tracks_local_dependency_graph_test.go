@@ -670,10 +670,14 @@ export default { rules: { "no-var": severity } };`)
     configDependencyOptionalFile,
     configDependencyWatch,
   )
+  // The nearer candidate is pinned by its exact entry candidates, never by a
+  // digest of its whole directory, so unrelated files inside it stay neutral.
+  // The selected outer root is a directory dependency for an unrelated reason:
+  // it is the parent of the module this resolution actually loaded.
   assertConfigDependencyKindAbsent(
     t,
     beforeShadow.dependencyDigests,
-    shadowOuter,
+    shadowNearer,
     configDependencyDir,
   )
   write(filepath.Join(shadowNearer, "index.js"), `module.exports = "warning";`)
