@@ -44,11 +44,6 @@ type ResolvedWatchTopology = {
   reloadFiles: Map<string, string>;
 };
 
-type ProjectInputStatWatch = {
-  listener: (current: fs.Stats, previous: fs.Stats) => void;
-  location: string;
-};
-
 /**
  * Keeps the launcher watch set aligned with the compiler's current program.
  *
@@ -74,7 +69,8 @@ export class WatchTopology {
     globs: [],
     root: "",
   };
-  private projectInputWatchers = new Map<string, ProjectInputStatWatch>();
+  private projectInputWatchRoots = new Map<string, string>();
+  private projectInputWatchers = new Map<string, fs.FSWatcher>();
   private reloadFiles = new Map<string, string>();
 
   public constructor(
@@ -121,6 +117,13 @@ export class WatchTopology {
     const next = normalizeProjectInputSnapshot(inputs);
     if (projectInputSnapshotsEqual(this.projectInputs, next)) return;
     this.projectInputs = next;
+    const declarations = new Set([
+      ...next.files.map((file) => projectInputDeclarationKey("file", file)),
+      ...next.globs.map((glob) => projectInputDeclarationKey("glob", glob)),
+    ]);
+    for (const key of this.projectInputWatchRoots.keys()) {
+      if (!declarations.has(key)) this.projectInputWatchRoots.delete(key);
+    }
     this.projectInputMatches = this.collectProjectInputMatches();
     this.projectInputFingerprints = fingerprintProjectInputMatches(
       this.projectInputMatches,
@@ -133,7 +136,7 @@ export class WatchTopology {
     closeWatchers(this.fileWatchers);
     closeWatchers(this.directoryWatchers);
     closeWatchers(this.extraWatchers);
-    closeProjectInputWatchers(this.projectInputWatchers);
+    closeWatchers(this.projectInputWatchers);
   }
 
   private syncFileWatchers(): void {
@@ -245,63 +248,52 @@ export class WatchTopology {
     const desired = new Map<string, string>();
     for (const file of this.projectInputs.files) {
       if (this.isCompilerOutput(file)) continue;
-      desired.set(pathKey(file), file);
+      const location = this.projectInputWatchRoot(
+        "file",
+        file,
+        path.dirname(file),
+      );
+      if (location !== undefined) desired.set(pathKey(location), location);
     }
     for (const glob of this.projectInputs.globs) {
       const root = literalGlobRoot(glob);
       if (this.isCompilerOutputDirectory(root)) continue;
-      desired.set(pathKey(root), root);
-      if (isDirectory(root) === false) continue;
-      const stack = [root];
-      while (stack.length !== 0) {
-        const current = stack.pop()!;
-        desired.set(pathKey(current), current);
-        let entries: fs.Dirent[];
-        try {
-          entries = fs.readdirSync(current, { withFileTypes: true });
-        } catch (error) {
-          if (isVanishedFilesystemEntry(error)) continue;
-          throw error;
-        }
-        for (const entry of entries) {
-          const location = path.join(current, entry.name);
-          if (this.isCompilerOutput(location)) continue;
-          if (entry.isDirectory()) {
-            stack.push(location);
-          } else if (
-            entry.isFile() &&
-            matchesProjectInputGlob(glob, location)
-          ) {
-            desired.set(pathKey(location), location);
-          }
-        }
-      }
+      const location = this.projectInputWatchRoot("glob", glob, root);
+      if (location !== undefined) desired.set(pathKey(location), location);
     }
+    syncWatchers(
+      this.projectInputWatchers,
+      desired,
+      (location) =>
+        fs.watch(
+          location,
+          { persistent: true, recursive: true },
+          (_event, filename) => {
+            const changed =
+              filename === null
+                ? undefined
+                : path.resolve(location, filename.toString());
+            this.refreshProjectInputs(location, changed);
+          },
+        ),
+      (location, error) => this.callbacks.onError(location, error),
+    );
+  }
 
-    for (const [key, watched] of this.projectInputWatchers) {
-      if (desired.has(key)) continue;
-      fs.unwatchFile(watched.location, watched.listener);
-      this.projectInputWatchers.delete(key);
-    }
-    for (const [key, location] of desired) {
-      if (this.projectInputWatchers.has(key)) continue;
-      const listener = (current: fs.Stats, previous: fs.Stats): void => {
-        // A missing path can produce an initial all-zero callback. It is a
-        // polling baseline, not a filesystem transition.
-        if (projectInputStatsEqual(current, previous)) return;
-        this.refreshProjectInputs(location, location);
-      };
-      try {
-        // ProjectRule paths may not exist yet and their containing trees may
-        // be atomically replaced. Stat watches bind to path identity instead
-        // of holding directory handles, so both cases remain observable on
-        // every supported filesystem without preventing a replacement.
-        fs.watchFile(location, { interval: 100, persistent: true }, listener);
-        this.projectInputWatchers.set(key, { listener, location });
-      } catch (error) {
-        this.callbacks.onError(location, error);
-      }
-    }
+  private projectInputWatchRoot(
+    kind: "file" | "glob",
+    declaration: string,
+    target: string,
+  ): string | undefined {
+    const key = projectInputDeclarationKey(kind, declaration);
+    const retained = this.projectInputWatchRoots.get(key);
+    if (retained !== undefined && isDirectory(retained)) return retained;
+    const resolved = projectInputRecursiveWatchRoot(
+      target,
+      this.projectInputs.root,
+    );
+    if (resolved !== undefined) this.projectInputWatchRoots.set(key, resolved);
+    return resolved;
   }
 
   private refreshProjectInputs(location: string, changed?: string): void {
@@ -988,27 +980,6 @@ function closeWatchers(watchers: Map<string, fs.FSWatcher>): void {
   watchers.clear();
 }
 
-function closeProjectInputWatchers(
-  watchers: Map<string, ProjectInputStatWatch>,
-): void {
-  for (const watched of watchers.values()) {
-    fs.unwatchFile(watched.location, watched.listener);
-  }
-  watchers.clear();
-}
-
-function projectInputStatsEqual(left: fs.Stats, right: fs.Stats): boolean {
-  return (
-    left.dev === right.dev &&
-    left.ino === right.ino &&
-    left.mode === right.mode &&
-    left.nlink === right.nlink &&
-    left.size === right.size &&
-    left.mtimeMs === right.mtimeMs &&
-    left.ctimeMs === right.ctimeMs
-  );
-}
-
 function addPaths(target: Map<string, string>, paths: Iterable<string>): void {
   for (const location of paths) {
     const resolved = path.resolve(location);
@@ -1073,6 +1044,52 @@ export function literalGlobRoot(pattern: string): string {
     return volumeRoot;
   }
   return path.resolve(prefix);
+}
+
+function projectInputDeclarationKey(
+  kind: "file" | "glob",
+  declaration: string,
+): string {
+  return `${kind}\0${projectInputPatternKey(declaration)}`;
+}
+
+/**
+ * Chooses the one stable recursive watcher root owned by a project-input
+ * declaration.
+ *
+ * Inputs inside the project share its physical root so directory replacement
+ * cannot strand a child handle. External inputs use the nearest existing
+ * ancestor of their declared parent, which is the explicit boundary for
+ * observing a currently missing external tree without polling every file.
+ */
+export function projectInputWatchDirectories(
+  target: string,
+  projectRoot: string,
+): string[] {
+  const root = projectInputRecursiveWatchRoot(target, projectRoot);
+  return root === undefined ? [] : [root];
+}
+
+function projectInputRecursiveWatchRoot(
+  target: string,
+  projectRoot: string,
+): string | undefined {
+  const resolvedTarget = path.resolve(target);
+  const resolvedProjectRoot = path.resolve(projectRoot);
+  if (isPathWithin(resolvedProjectRoot, resolvedTarget)) {
+    return nearestExistingDirectory(resolvedProjectRoot);
+  }
+  return nearestExistingDirectory(path.dirname(resolvedTarget));
+}
+
+function nearestExistingDirectory(location: string): string | undefined {
+  let current = path.resolve(location);
+  while (true) {
+    if (isDirectory(current)) return current;
+    const parent = path.dirname(current);
+    if (parent === current) return undefined;
+    current = parent;
+  }
 }
 
 function matchesProjectInput(
