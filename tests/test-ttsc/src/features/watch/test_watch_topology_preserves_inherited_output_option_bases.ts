@@ -29,7 +29,7 @@ export const test_watch_topology_preserves_inherited_output_option_bases =
       JSON.stringify({
         compilerOptions: {
           composite: true,
-          module: "amd",
+          module: "preserve",
           outFile: "generated/bundle.js",
           tsBuildInfoFile: "cache/base.tsbuildinfo",
         },
@@ -50,7 +50,7 @@ export const test_watch_topology_preserves_inherited_output_option_bases =
       {
         cwd: root,
         emit: true,
-        files: ["src/main.ts"],
+        files: [],
         projectRoot: root,
         tsconfig: path.join(root, "tsconfig.json"),
       },

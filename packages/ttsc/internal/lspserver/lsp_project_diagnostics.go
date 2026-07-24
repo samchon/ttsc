@@ -44,16 +44,13 @@ func (s *NativePluginSource) ProjectDiagnosticsForOwners(
     complete:  true,
     refreshed: map[string]struct{}{},
   }
-  seen := map[string]struct{}{}
-  for _, plugin := range s.plugins {
-    if !plugin.ProjectDiagnostics {
-      continue
-    }
+  for _, plugin := range selectPluginTransports(
+    s.plugins,
+    func(plugin NativeLSPPluginEntry) bool {
+      return plugin.ProjectDiagnostics
+    },
+  ) {
     key := pluginKey(plugin)
-    if _, duplicate := seen[key]; duplicate {
-      continue
-    }
-    seen[key] = struct{}{}
     if owners != nil {
       if _, selected := selectedOwners[key]; !selected {
         continue
@@ -122,13 +119,8 @@ func (s *NativePluginSource) projectDiagnosticsSnapshot() *LSPProjectDiagnostics
   s.projectDiagnosticsMu.RLock()
   defer s.projectDiagnosticsMu.RUnlock()
   var out *LSPProjectDiagnostics
-  seen := make(map[string]struct{}, len(s.plugins))
-  for _, plugin := range s.plugins {
+  for _, plugin := range selectPluginTransports(s.plugins, nil) {
     key := pluginKey(plugin)
-    if _, duplicate := seen[key]; duplicate {
-      continue
-    }
-    seen[key] = struct{}{}
     record, ok := s.pluginProjectDiagnostics[key]
     if !ok {
       continue

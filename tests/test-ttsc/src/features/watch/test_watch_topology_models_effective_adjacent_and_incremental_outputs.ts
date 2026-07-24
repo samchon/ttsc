@@ -186,7 +186,12 @@ export const test_watch_topology_models_effective_adjacent_and_incremental_outpu
       fs.writeFileSync(passthroughOutput, "export const value = 1;\n", "utf8");
       await waitForProjectChange(outDirChanges, 0);
 
-      const launcherOutput = path.join(root, "launcher-output", "main.js");
+      const launcherOutput = path.join(
+        root,
+        "launcher-output",
+        "src",
+        "main.js",
+      );
       outDir.setProjectInputs({
         root,
         files: [launcherOutput],
