@@ -18,15 +18,16 @@ import (
 // the caller falls back to a fresh spawn.
 const residentRequestTimeout = nativePluginCommandTimeout
 
-// serveVerbDiagnostics, serveVerbCodeActions, and serveVerbHints are the verbs
-// routed to the resident daemon: the three that load a Program.
+// The serve verbs below are routed to the resident daemon because they load a
+// Program.
 // lsp-command-ids / lsp-code-action-kinds run once at startup and never load one
 // (routing them would spawn the daemon on the initialize path);
 // lsp-execute-command is user-initiated and keeps its spawn-per-verb path.
 const (
-  serveVerbDiagnostics = "lsp-diagnostics"
-  serveVerbCodeActions = "lsp-code-actions"
-  serveVerbHints       = "lsp-hints"
+  serveVerbDiagnostics        = "lsp-diagnostics"
+  serveVerbProjectDiagnostics = "lsp-project-diagnostics"
+  serveVerbCodeActions        = "lsp-code-actions"
+  serveVerbHints              = "lsp-hints"
 )
 
 // serveClientRequest mirrors linthost's serveLSPRequest: the base project
@@ -38,6 +39,7 @@ type serveClientRequest struct {
   ContextJSON string   `json:"contextJson,omitempty"`
   Invalidate  bool     `json:"invalidate,omitempty"`
   Changed     []string `json:"changed,omitempty"`
+  External    []string `json:"external,omitempty"`
 }
 
 // serveClientResponse mirrors linthost's serveLSPResponse: the verb's JSON
@@ -63,6 +65,9 @@ type residentSidecar struct {
   // request, so the daemon updates the warm Program incrementally rather than
   // rebuilding it.
   changed []string
+  // external identifies changed entries that are declared ProjectRule inputs,
+  // allowing an unknown non-Program path to retain the warm Program.
+  external []string
 }
 
 // serveRun routes a serve-able verb through the plugin's resident daemon.
@@ -132,6 +137,10 @@ func (sc *residentSidecar) call(s *NativePluginSource, plugin NativeLSPPluginEnt
   if len(sc.changed) > 0 {
     req.Changed = sc.changed
     sc.changed = nil
+  }
+  if len(sc.external) > 0 {
+    req.External = sc.external
+    sc.external = nil
   }
   line, err := json.Marshal(req)
   if err != nil {
@@ -245,6 +254,38 @@ func (s *NativePluginSource) InvalidateResidentPrograms(changedURIs ...string) {
       sc.changed = append(sc.changed, changedURIs...)
     } else {
       sc.invalidate = true
+    }
+    sc.mu.Unlock()
+  }
+}
+
+// InvalidateResidentProgramsForWatchedChanges distinguishes declared external
+// inputs from ordinary watched files so the sidecar can retain its Program for
+// data-only changes while still rebuilding fresh ProjectRule state.
+func (s *NativePluginSource) InvalidateResidentProgramsForWatchedChanges(
+  changedURIs []string,
+  externalURIs []string,
+) {
+  if s == nil {
+    return
+  }
+  external := make(map[string]struct{}, len(externalURIs))
+  for _, uri := range externalURIs {
+    external[uri] = struct{}{}
+  }
+  s.residentMu.Lock()
+  residents := make([]*residentSidecar, 0, len(s.residents))
+  for _, sc := range s.residents {
+    residents = append(residents, sc)
+  }
+  s.residentMu.Unlock()
+  for _, sc := range residents {
+    sc.mu.Lock()
+    sc.changed = append(sc.changed, changedURIs...)
+    for _, uri := range changedURIs {
+      if _, ok := external[uri]; ok {
+        sc.external = append(sc.external, uri)
+      }
     }
     sc.mu.Unlock()
   }
