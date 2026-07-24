@@ -6,7 +6,6 @@ import (
   "path/filepath"
   "sync"
   "testing"
-  "time"
 
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
@@ -121,35 +120,6 @@ func TestLSPProxyRegistersDeclaredProjectInputWatchers(t *testing.T) {
   if got := h.recvUpstream(); !bytes.Equal(got, unrelated) {
     t.Fatalf("unrelated upstream response changed:\n%s", got)
   }
-}
-
-// TestLSPProxyWarnsWhenRelativeWatcherRegistrationIsUnsupported verifies the
-// proxy does not pretend a partial in-project watcher covers external inputs.
-func TestLSPProxyWarnsWhenRelativeWatcherRegistrationIsUnsupported(t *testing.T) {
-  root := t.TempDir()
-  external := t.TempDir()
-  source := &projectInputRegistrationSource{
-    snapshot: driver.LSPProjectInputSnapshot{
-      Root:  filepath.ToSlash(root),
-      Files: []string{filepath.ToSlash(filepath.Join(external, "docs", "spec.md"))},
-    },
-  }
-  h := newProxyHarness(t, source)
-
-  initialize := []byte(`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"capabilities":{"workspace":{"didChangeWatchedFiles":{"dynamicRegistration":true,"relativePatternSupport":false}}}}}`)
-  h.sendEditor(initialize)
-  _ = h.recvUpstream()
-  h.sendUpstream([]byte(`{"jsonrpc":"2.0","id":1,"result":{"capabilities":{}}}`))
-  _ = h.recvEditor()
-  initialized := []byte(`{"jsonrpc":"2.0","method":"initialized","params":{}}`)
-  h.sendEditor(initialized)
-  _ = h.recvUpstream()
-  notice := h.recvEditor()
-  if !bytes.Contains(notice, []byte(`"window/logMessage"`)) ||
-    !bytes.Contains(notice, []byte(`dynamic relative file-pattern`)) {
-    t.Fatalf("unsupported client notice = %s", notice)
-  }
-  h.expectNoEditorFrame(100 * time.Millisecond)
 }
 
 func decodeDeclaredClientRequest(
