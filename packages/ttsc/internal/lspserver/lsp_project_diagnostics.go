@@ -1,6 +1,9 @@
 package lspserver
 
-import "encoding/json"
+import (
+  "encoding/json"
+  "strings"
+)
 
 // projectDiagnosticRecord is one producer's last successful project
 // publication. A failed refresh never updates the record, so another producer's
@@ -113,6 +116,32 @@ func (s *NativePluginSource) storeProjectDiagnostics(
   }
 }
 
+// clientProjectURI restates a producer's project URI in the spelling the client
+// opened the project under.
+//
+// A sidecar is deliberately given the project's physical paths, because that is
+// what makes its compiler, its caches, and its own resolution agree with every
+// other consumer. The editor never saw those paths. It opened the project under
+// whatever spelling its workspace uses — through a symlink, a mapped drive, a
+// case that differs — and a publication addressed to any other spelling is
+// invisible to it no matter how correct the diagnostics inside are. So the one
+// place the two worlds meet translates back.
+func (s *NativePluginSource) clientProjectURI(uri string) string {
+  if s == nil || uri == "" || strings.TrimSpace(s.clientTsconfig) == "" {
+    return uri
+  }
+  location, ok := filePathFromURI(uri)
+  if !ok {
+    return uri
+  }
+  client := s.clientTsconfig
+  if projectInputPathKey(realProjectInputPath(location)) !=
+    projectInputPathKey(realProjectInputPath(client)) {
+    return uri
+  }
+  return projectInputFileURI(client)
+}
+
 // projectDiagnosticsSnapshot concatenates producer publications in manifest
 // order. A project has one config URI, so a producer that reports a different
 // URI is excluded and logged rather than replacing the other producers.
@@ -131,6 +160,7 @@ func (s *NativePluginSource) projectDiagnosticsSnapshot() *LSPProjectDiagnostics
       continue
     }
     publication := record.publication
+    publication.URI = s.clientProjectURI(publication.URI)
     if out == nil {
       out = copyProjectDiagnostics(&publication)
       continue

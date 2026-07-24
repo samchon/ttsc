@@ -66,6 +66,7 @@ type NativePluginSource struct {
   pluginsJSON        string
   projectContextJSON string
   tsconfig           string
+  clientTsconfig     string
 
   commandIDs      []string
   codeActionKinds []string
@@ -185,6 +186,7 @@ func NewNativePluginSource(opts NativePluginSourceOptions) (*NativePluginSource,
     pluginsJSON:        string(pluginsJSON),
     projectContextJSON: string(manifest.ProjectContext),
     tsconfig:           sidecarTsconfig,
+    clientTsconfig:     opts.Tsconfig,
     owners:             map[string]NativeLSPPluginEntry{},
   }
   source.discoverCommandIDs()
