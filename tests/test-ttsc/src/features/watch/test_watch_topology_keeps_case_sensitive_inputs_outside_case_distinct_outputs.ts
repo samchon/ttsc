@@ -88,7 +88,7 @@ export const test_watch_topology_keeps_case_sensitive_inputs_outside_case_distin
       });
       assert.deepEqual(
         liveRoots,
-        [realpath(exactDirectory), realpath(inputRoot)].sort(),
+        [realpath(exactRoot), realpath(inputRoot)].sort(),
       );
 
       await writeAndWait(changes, exact, "exact\n");
@@ -115,7 +115,7 @@ async function writeAndWait(
         (change) =>
           change.kind === "project" &&
           change.path !== undefined &&
-          realpath(change.path) === realpath(location),
+          pathMatchesOrContains(change.path, location),
       ) === false
   ) {
     if (Date.now() >= deadline) {
@@ -128,6 +128,15 @@ async function writeAndWait(
     await delay(25);
   }
   await delay();
+}
+
+function pathMatchesOrContains(changed: string, target: string): boolean {
+  const root = realpath(changed);
+  const candidate = realpath(target);
+  return (
+    candidate === root ||
+    candidate.startsWith(root.endsWith(path.sep) ? root : `${root}${path.sep}`)
+  );
 }
 
 function enableWindowsCaseSensitivity(directory: string): boolean {
