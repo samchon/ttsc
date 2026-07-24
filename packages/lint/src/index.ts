@@ -554,15 +554,18 @@ const hooks = registerHooks({
     const url = new URL(resolved.url).href;
     const parent = context.parentURL && new URL(context.parentURL).href;
     const location = fileURLToPath(url);
-    // The entry is recognized by identity, not by string. A module URL is
-    // assigned by whoever loaded it, so the config can come back under a
-    // different spelling of the same file than the one this process was handed
-    // — a Windows short component, or a symlinked ancestor. Comparing strings
-    // then rejects the config's own imports at this gate, because their parent
-    // is a URL no node was ever recorded under, and the whole dependency graph
-    // collapses to the records made before the first import.
+    // The entry is recognized by what was asked for, not only by what came
+    // back. A module URL is assigned by whoever loaded it: a compiling loader
+    // can serve the config from its emitted output, and a platform can hand
+    // back a different spelling of the same file. Either way the URL bears no
+    // resemblance to the one this process was given, so the config's own
+    // imports would be rejected here — their parent is a URL no node was
+    // recorded under — and the graph would collapse to the records made before
+    // the first import. The request itself is unambiguous, so it decides.
     const entry =
-      url === new URL(configUrl).href || samePhysicalPath(location, configLocation);
+      specifier === configUrl ||
+      url === new URL(configUrl).href ||
+      samePhysicalPath(location, configLocation);
     if (!entry && (parent === undefined || !graphNodes.has(parent))) {
       return resolved;
     }
