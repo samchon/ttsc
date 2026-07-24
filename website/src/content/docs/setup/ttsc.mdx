@@ -32,6 +32,8 @@ Re-compiles on save. Add `--preserveWatchOutput` to keep your scrollback.
 
 The watcher follows the compiler's resolved program inputs. New included folders and referenced config or declaration inputs join the session as the project changes, while compiler output and cache products do not trigger another build. Check-stage plugins can additionally publish exact local files and glob populations; those declared inputs stay live through missing files and empty populations without making unrelated documents rebuild the project.
 
+`ttsc check --watch` also keeps capable check-stage sidecars and their no-emit Programs resident across normal source saves and declared external-data updates. Config, compiler-root, plugin, Go-contributor, and declared-input topology changes start a fresh session, while unsupported plugins continue through the one-shot path.
+
 ## CI
 
 ```yaml

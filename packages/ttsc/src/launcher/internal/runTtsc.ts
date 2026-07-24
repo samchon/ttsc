@@ -4,7 +4,11 @@ import path from "node:path";
 import { TtscCompiler } from "../../TtscCompiler";
 import { readProjectConfig } from "../../compiler/internal/project/readProjectConfig";
 import { resolveProjectConfig } from "../../compiler/internal/project/resolveProjectConfig";
-import { runBuild } from "../../compiler/internal/runBuild";
+import {
+  type ResidentCheckWatchChange,
+  ResidentCheckWatchSession,
+  runBuild,
+} from "../../compiler/internal/runBuild";
 import { runSingleFileEmit } from "../../compiler/internal/runSingleFileEmit";
 import {
   getBoolean,
@@ -756,12 +760,35 @@ function runWatch(
   let running = false;
   let rerun = false;
   let timer: NodeJS.Timeout | null = null;
+  const resident =
+    checkOnly && invocation.files.length === 0
+      ? new ResidentCheckWatchSession()
+      : undefined;
+  let pendingReload = false;
+  const pendingChanged = new Set<string>();
+  const pendingExternal = new Set<string>();
   // Tracks the most recent build's exit code so the watch session can exit
   // non-zero when its latest rebuild failed, instead of always reporting 0.
   let lastStatus = 0;
 
-  const runOnce = () => {
+  const takePendingChange = (): ResidentCheckWatchChange => {
+    const change: ResidentCheckWatchChange = {
+      ...(pendingReload ? { reload: true } : {}),
+      ...(pendingChanged.size === 0
+        ? {}
+        : { changed: [...pendingChanged].sort() }),
+      ...(pendingExternal.size === 0
+        ? {}
+        : { external: [...pendingExternal].sort() }),
+    };
+    pendingReload = false;
+    pendingChanged.clear();
+    pendingExternal.clear();
+    return change;
+  };
+  const runOnce = async () => {
     running = true;
+    const change = takePendingChange();
     let completed = false;
     try {
       if (!options.preserveWatchOutput) {
@@ -776,17 +803,20 @@ function runWatch(
       // to invalid JSON, single-file invariant). Catch here so a throwing
       // rebuild reports a clear failure and the watcher keeps running instead
       // of crashing the process with an uncaught exception.
-      const status =
-        invocation.files.length !== 0
-          ? runSingleFile(invocation)
-          : (() => {
-              const result = runBuild(
-                checkOnly ? { ...invocation, emit: false } : invocation,
-              );
-              if (result.stdout) process.stdout.write(result.stdout);
-              if (result.stderr) process.stderr.write(result.stderr);
-              return result.status;
-            })();
+      const status = await (invocation.files.length !== 0
+        ? Promise.resolve(runSingleFile(invocation))
+        : (async () => {
+            const buildOptions = checkOnly
+              ? { ...invocation, emit: false }
+              : invocation;
+            const result =
+              resident === undefined
+                ? runBuild(buildOptions)
+                : await resident.run(buildOptions, change);
+            if (result.stdout) process.stdout.write(result.stdout);
+            if (result.stderr) process.stderr.write(result.stderr);
+            return result.status;
+          })());
       lastStatus = status;
       completed = true;
       process.stdout.write(
@@ -817,13 +847,29 @@ function runWatch(
       trigger();
     }
   };
-  const trigger = () => {
+  const trigger = (
+    change?: {
+      kind: "compiler" | "config" | "plugin" | "project";
+      path?: string;
+    },
+    reload = false,
+  ) => {
+    if (reload || change?.kind === "config" || change?.kind === "plugin") {
+      pendingReload = true;
+      pendingChanged.clear();
+      pendingExternal.clear();
+    } else if (change?.path === undefined) {
+      if (change?.kind === "compiler") pendingReload = true;
+    } else {
+      pendingChanged.add(change.path);
+      if (change.kind === "project") pendingExternal.add(change.path);
+    }
     if (running) {
       rerun = true;
       return;
     }
     if (timer) clearTimeout(timer);
-    timer = setTimeout(runOnce, 60);
+    timer = setTimeout(() => void runOnce(), 60);
   };
 
   topology = new WatchTopology(invocation, {
@@ -832,14 +878,15 @@ function runWatch(
         `[ttsc] watch error on ${path.relative(cwd, location) || "."}: ${formatError(error)}\n`,
       );
     },
-    onInputChange: trigger,
-    onTopologyChange: trigger,
+    onInputChange: (change) => trigger(change),
+    onTopologyChange: () => trigger(undefined, true),
   });
   topology.refresh(false);
 
   const close = () => {
     if (timer) clearTimeout(timer);
     topology?.close();
+    resident?.dispose();
   };
   process.on("SIGINT", () => {
     close();
@@ -852,7 +899,7 @@ function runWatch(
 
   process.stdout.write(`[ttsc] watching ${path.relative(cwd, root) || "."}\n`);
   try {
-    runOnce();
+    void runOnce();
   } catch (error) {
     // runOnce already swallows build throws, but guard against any unforeseen
     // throw escaping the first pass: tear down the persistent watchers so the

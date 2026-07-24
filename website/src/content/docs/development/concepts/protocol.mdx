@@ -102,6 +102,7 @@ interface ITtscPlugin {
     lsp?: boolean;
     projectContextArgs?: boolean;
     projectInputs?: boolean;
+    residentCheck?: boolean;
     threadingArgs?: boolean;
   };
   reportsTypeScriptDiagnostics?: boolean;
@@ -120,7 +121,7 @@ Field rules:
 - `source`: Go package directory or `go.mod` file. A `package main` source builds as an executable sidecar. A non-`main` transform source is linked into the selected native host and must register itself through `driver.RegisterPlugin`. Relative paths are resolved from the consumer project root; package descriptors should usually return an absolute path. A compiled-CommonJS descriptor can base it on `__dirname`, but a `.ts`-source or ESM descriptor must base it on `context.dirname` (or resolve from `context.projectRoot`) instead (see [ESM-safety](#manifest) above), since `__dirname` is undefined there.
 - `composes`: optional list of other plugin names (or original `transform` specifiers) whose source build should be redirected to this descriptor's `source`. Composition is **one hop only**: `A.composes = ["B"]` sends B to A's binary, but if `B.composes = ["C"]` then C is sent to B's original binary, not A's. Reciprocal entries (`A.composes = ["B"]` and `B.composes = ["A"]`) are rejected as a cycle.
 - `stage`: plugin kind. Omit for `"transform"`.
-- `capabilities`: optional host behaviors a strict sidecar would otherwise reject or not understand. Set `threadingArgs` only when the sidecar accepts `--singleThreaded` and `--checkers`; set `diagnosticsTiming` only when it accepts `--diagnostics`/`--extendedDiagnostics` and may print timing detail to stdout. Set `lsp` only when the sidecar implements the `ttscserver` LSP verbs below. Set `projectContextArgs` only when it accepts `--project-context-json` and preserves the supplied project identity. Set `projectInputs` only when it implements the `project-inputs` snapshot command.
+- `capabilities`: optional host behaviors a strict sidecar would otherwise reject or not understand. Set `threadingArgs` only when the sidecar accepts `--singleThreaded` and `--checkers`; set `diagnosticsTiming` only when it accepts `--diagnostics`/`--extendedDiagnostics` and may print timing detail to stdout. Set `lsp` only when the sidecar implements the `ttscserver` LSP verbs below. Set `projectContextArgs` only when it accepts `--project-context-json` and preserves the supplied project identity. Set `projectInputs` only when it implements the `project-inputs` snapshot command. Set `residentCheck` only when a check-stage sidecar implements the `check-serve` protocol below.
 - `reportsTypeScriptDiagnostics`: check-stage capability flag. Set this only when the sidecar's `check` subcommand loads the project Program and reports normal TypeScript diagnostics itself; `ttsc` then skips the redundant `tsc --noEmit` guard. Ordinary check plugins should leave it unset so TypeScript diagnostics are still merged after their own output.
 - `contributors`: optional list of additional Go source packages to statically link into this plugin's binary at build time. Each entry's `source` is copied into the scratch build tree as `<scratch>/contrib/<name>/`, and a synthesized blank import in the entry package triggers the contributor's `init()` before `main`. See [Contributors](#contributors) below.
 
@@ -161,9 +162,35 @@ It prints one JSON object:
 }
 ```
 
-All entries are normalized absolute local filesystem patterns. `root` must resolve to the same physical filesystem identity as `--cwd`; consumers reject a snapshot rooted in a different project instead of redirecting a long-lived watcher. `files` are retained while missing; `globs` describe populations and are retained while matching nothing. Windows drive, UNC, and their extended-length file forms are local paths, while device namespaces and HTTP(S) resources are outside this protocol. The command declares topology without loading a TypeScript Program or reading the external content. Hosts call it only when the capability is explicitly enabled, so older strict sidecars are never probed with an unknown command. A failing refresh leaves the consumer's last successful snapshot in force.
+All entries are normalized absolute local filesystem patterns. `root` must resolve to the same physical filesystem identity as `--cwd`; consumers reject a snapshot rooted in a different project instead of redirecting a long-lived watcher. `files` are retained while missing; `globs` describe populations and are retained while matching nothing. The portable glob grammar is `*` within one path segment, `?` for one character, and a complete `**` segment across directories; brackets and braces are literal filename characters. Windows drive, UNC, and their extended-length file forms are local paths, while device namespaces and HTTP(S) resources are outside this protocol. The command declares topology without loading a TypeScript Program or reading the external content. Hosts call it only when the capability is explicitly enabled, so older strict sidecars are never probed with an unknown command. A failing refresh leaves the consumer's last successful snapshot in force.
 
 The CLI watcher keeps ancestor ownership so deleting, renaming, or atomically replacing a declared directory cannot strand a watcher on the old filesystem object. Glob populations use recursive `fs.watch` handles on every supported platform; a rename invalidates the affected handles before the topology is reconciled, so a replacement at the same path binds a fresh handle to the new filesystem object. Events compare the declared population and its content fingerprints before scheduling a debounced rebuild, so an unrelated file or a filename-less event with unchanged content stays quiet.
+
+## Resident check watch
+
+A check-stage sidecar with `capabilities.residentCheck: true` must implement `check-serve`. The command accepts the same fixed project, plugin, compiler, and threading arguments as `check`, then exchanges one JSON object per newline over stdin and stdout:
+
+```json
+{ "changed": ["/physical/project/src/main.ts"], "external": [] }
+```
+
+```json
+{
+  "status": 0,
+  "stdout": "",
+  "stderr": "",
+  "telemetry": {
+    "pid": 1234,
+    "programLoads": 1,
+    "programUpdates": 1,
+    "reused": true
+  }
+}
+```
+
+`changed` lists local filesystem inputs changed since the prior cycle. `external` is its subset declared by the project-input snapshot. A known Program source is updated incrementally even when a plugin also declares it; an unknown external data path leaves the Program resident. A config, compiler root-set, selected plugin, Go contributor, or project-input topology transition restarts the sidecar instead of sending a data update.
+
+Each response constructs fresh rule-engine, project-rule, reporter, and output state around the resident Program. Transport failure, malformed framing, or an absent capability falls back to the ordinary one-shot `check` command for correctness. Hosts use this protocol only for no-emit check watch sessions whose selected plugins are all check-stage; transform, build, fix, format, and emit flows remain one-shot. The telemetry is part of the ordinary protocol so diagnostics mode and tests can verify residency without benchmark-only behavior.
 
 ## LSP sidecar verbs
 

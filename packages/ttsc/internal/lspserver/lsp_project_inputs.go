@@ -423,12 +423,43 @@ func matchProjectInputGlob(pattern []string, candidate []string) bool {
   }
   if pattern[0] == "**" {
     return matchProjectInputGlob(pattern[1:], candidate) ||
-      (len(candidate) > 0 && matchProjectInputGlob(pattern, candidate[1:]))
+      (len(candidate) > 0 &&
+        matchProjectInputGlob(pattern, candidate[1:]))
   }
   if len(candidate) == 0 {
     return false
   }
-  matched, err := filepath.Match(pattern[0], candidate[0])
-  return err == nil && matched &&
+  return matchProjectInputGlobSegment(pattern[0], candidate[0]) &&
     matchProjectInputGlob(pattern[1:], candidate[1:])
+}
+
+func matchProjectInputGlobSegment(pattern string, candidate string) bool {
+  expression := []rune(pattern)
+  input := []rune(candidate)
+  matches := make([][]bool, len(expression)+1)
+  for index := range matches {
+    matches[index] = make([]bool, len(input)+1)
+  }
+  matches[0][0] = true
+  for patternIndex, char := range expression {
+    if char == '*' {
+      matches[patternIndex+1][0] = matches[patternIndex][0]
+    }
+    for inputIndex := range input {
+      switch char {
+      case '*':
+        matches[patternIndex+1][inputIndex+1] =
+          matches[patternIndex][inputIndex+1] ||
+            matches[patternIndex+1][inputIndex]
+      case '?':
+        matches[patternIndex+1][inputIndex+1] =
+          matches[patternIndex][inputIndex]
+      default:
+        matches[patternIndex+1][inputIndex+1] =
+          char == input[inputIndex] &&
+            matches[patternIndex][inputIndex]
+      }
+    }
+  }
+  return matches[len(expression)][len(input)]
 }
