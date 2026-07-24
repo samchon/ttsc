@@ -357,34 +357,14 @@ export class ResidentCheckWatchSession {
       stderr: "",
       stdout: "",
     };
-    const checks = execution.nativePlugins
-      .filter((candidate) => candidate.stage === "check")
-      .map((plugin, entryIndex) => {
-        const args = createNativeCheckArgs(execution, options, plugin);
-        return {
-          args,
-          entryIndex,
-          key:
-            plugin.capabilities?.residentCheck === true
-              ? residentCheckProcessKey(plugin, args)
-              : undefined,
-          plugin,
-        };
-      });
+    const checks = planResidentCheckEntries(execution.nativePlugins, (plugin) =>
+      createNativeCheckArgs(execution, options, plugin),
+    );
     const request = residentCheckRequest(change, execution.projectRoot);
     // Buffer the cycle for every resident plugin before running any of them.
     // An earlier plugin may fail and short-circuit diagnostics, but a later
     // sidecar must still receive every filesystem transition when it resumes.
-    for (const check of checks) {
-      if (check.key === undefined) continue;
-      this.pendingChanges.set(
-        check.entryIndex,
-        mergeResidentCheckRequests(
-          this.pendingChanges.get(check.entryIndex),
-          request,
-        ),
-      );
-    }
+    bufferResidentCheckEntryRequests(this.pendingChanges, checks, request);
 
     for (const { args, entryIndex, key, plugin } of checks) {
       let result: TtscBuildResult;
@@ -412,9 +392,8 @@ export class ResidentCheckWatchSession {
         }
         try {
           const reply = await resident.request(
-            this.pendingChanges.get(entryIndex)!,
+            takeResidentCheckEntryRequest(this.pendingChanges, entryIndex),
           );
-          this.pendingChanges.delete(entryIndex);
           result = normalizeBuildOutput(
             {
               status: reply.status,
@@ -428,7 +407,6 @@ export class ResidentCheckWatchSession {
           this.processes.delete(key);
           // The one-shot fallback observes the complete current filesystem,
           // and a later sidecar starts cold, so neither needs old deltas.
-          this.pendingChanges.delete(entryIndex);
           // A capability-aware host may still disappear or violate framing.
           // Preserve correctness by running the established one-shot command
           // for this cycle; the next cycle gets one clean respawn attempt.
@@ -459,12 +437,16 @@ function projectInputSnapshotsEqual(
   left: ITtscProjectInputSnapshot,
   right: ITtscProjectInputSnapshot,
 ): boolean {
+  const leftReloadFiles = left.reloadFiles ?? [];
+  const rightReloadFiles = right.reloadFiles ?? [];
   return (
     left.root === right.root &&
     left.files.length === right.files.length &&
     left.globs.length === right.globs.length &&
+    leftReloadFiles.length === rightReloadFiles.length &&
     left.files.every((value, index) => value === right.files[index]) &&
-    left.globs.every((value, index) => value === right.globs[index])
+    left.globs.every((value, index) => value === right.globs[index]) &&
+    leftReloadFiles.every((value, index) => value === rightReloadFiles[index])
   );
 }
 
@@ -486,6 +468,67 @@ function residentCheckProcessKey(
   args: readonly string[],
 ): string {
   return `${plugin.binary}\0${plugin.name}\0${JSON.stringify(args)}`;
+}
+
+export type ResidentCheckEntryPlan = {
+  args: string[];
+  entryIndex: number;
+  key: string | undefined;
+  plugin: ITtscLoadedNativePlugin;
+};
+
+/**
+ * Plan every configured check entry while sharing resident processes only by
+ * binary/name/argument identity.
+ */
+export function planResidentCheckEntries(
+  plugins: readonly ITtscLoadedNativePlugin[],
+  createArgs: (plugin: ITtscLoadedNativePlugin) => string[],
+): ResidentCheckEntryPlan[] {
+  return plugins
+    .filter((candidate) => candidate.stage === "check")
+    .map((plugin, entryIndex) => {
+      const args = createArgs(plugin);
+      return {
+        args,
+        entryIndex,
+        key:
+          plugin.capabilities?.residentCheck === true
+            ? residentCheckProcessKey(plugin, args)
+            : undefined,
+        plugin,
+      };
+    });
+}
+
+/** Retain one complete change stream per configured resident check entry. */
+export function bufferResidentCheckEntryRequests(
+  pending: Map<number, ResidentCheckRequest>,
+  checks: readonly ResidentCheckEntryPlan[],
+  request: ResidentCheckRequest,
+): void {
+  for (const check of checks) {
+    if (check.key === undefined) continue;
+    pending.set(
+      check.entryIndex,
+      mergeResidentCheckRequests(pending.get(check.entryIndex), request),
+    );
+  }
+}
+
+/** Consume exactly one configured entry's buffered request. */
+export function takeResidentCheckEntryRequest(
+  pending: Map<number, ResidentCheckRequest>,
+  entryIndex: number,
+): ResidentCheckRequest {
+  const request = pending.get(entryIndex);
+  if (request === undefined) {
+    throw new Error(
+      `ttsc: resident check entry ${String(entryIndex)} has no buffered request`,
+    );
+  }
+  pending.delete(entryIndex);
+  return request;
 }
 
 export function residentCheckRequest(
@@ -1585,6 +1628,7 @@ export function mergeProjectInputSnapshots(
 ): ITtscProjectInputSnapshot {
   const files = new Map<string, string>();
   const globs = new Map<string, string>();
+  const reloadFiles = new Map<string, string>();
   const root = resolveProjectInputPath(fallbackRoot);
   for (const snapshot of snapshots) {
     const candidateRoot = resolveProjectInputPath(snapshot.root);
@@ -1601,11 +1645,16 @@ export function mergeProjectInputSnapshots(
       const normalized = normalizeProjectInputGlob(glob);
       globs.set(projectInputPathKey(normalized), normalized);
     }
+    for (const reloadFile of snapshot.reloadFiles ?? []) {
+      const resolved = resolveProjectInputPath(reloadFile);
+      reloadFiles.set(projectInputPathKey(resolved), resolved);
+    }
   }
   return {
     root,
     files: [...files.values()].sort(),
     globs: [...globs.values()].sort(),
+    reloadFiles: [...reloadFiles.values()].sort(),
   };
 }
 
@@ -1628,7 +1677,9 @@ export function parseProjectInputSnapshot(
     value === null ||
     typeof (value as { root?: unknown }).root !== "string" ||
     !isStringArray((value as { files?: unknown }).files) ||
-    !isStringArray((value as { globs?: unknown }).globs)
+    !isStringArray((value as { globs?: unknown }).globs) ||
+    ((value as { reloadFiles?: unknown }).reloadFiles !== undefined &&
+      !isStringArray((value as { reloadFiles?: unknown }).reloadFiles))
   ) {
     throw new Error(
       `ttsc.project-inputs: ${plugin.name ?? plugin.binary} returned an invalid snapshot`,
@@ -1639,6 +1690,9 @@ export function parseProjectInputSnapshot(
     ["root", snapshot.root],
     ...snapshot.files.map((file) => ["file", file] as const),
     ...snapshot.globs.map((glob) => ["glob", glob] as const),
+    ...(snapshot.reloadFiles ?? []).map(
+      (file) => ["reload file", file] as const,
+    ),
   ].find(
     ([, location]) =>
       location.length === 0 || !isAbsoluteLocalProjectInputPath(location),
@@ -1648,7 +1702,10 @@ export function parseProjectInputSnapshot(
       `ttsc.project-inputs: ${plugin.name ?? plugin.binary} returned an invalid snapshot: ${invalid[0]} ${JSON.stringify(invalid[1])} is not an absolute local path`,
     );
   }
-  return snapshot;
+  return {
+    ...snapshot,
+    reloadFiles: snapshot.reloadFiles ?? [],
+  };
 }
 
 export function isAbsoluteLocalProjectInputPath(

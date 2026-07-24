@@ -2572,14 +2572,13 @@ func (p *Proxy) projectInputOwnerScope(
 ) (projectDiagnosticOwnerScope, bool) {
   if source, ok := p.source.(projectInputOwnerMatcher); ok {
     owners := source.ProjectInputOwnersForURI(uri)
-    if len(owners) == 0 {
-      return projectDiagnosticOwnerScope{}, false
+    if len(owners) != 0 {
+      scope := projectDiagnosticOwnerScope{owners: map[string]struct{}{}}
+      for _, owner := range owners {
+        scope.owners[owner] = struct{}{}
+      }
+      return scope, true
     }
-    scope := projectDiagnosticOwnerScope{owners: map[string]struct{}{}}
-    for _, owner := range owners {
-      scope.owners[owner] = struct{}{}
-    }
-    return scope, true
   }
   source, ok := p.source.(projectInputMatcher)
   if !ok || !source.ProjectInputMatchesURI(uri) {
@@ -2820,9 +2819,9 @@ func externalWatchedChangeRetainsProgram(
     return true
   case fileChangeTypeCreated, fileChangeTypeDeleted:
     // A declared path may also satisfy a compiler root, module resolution, or
-    // another compiler-recognized extension. Membership changes therefore
-    // always cold-load the Program; only in-place edits are safely localizable.
-    return false
+    // another compiler-recognized extension. Only those membership changes
+    // cold-load the Program; data-only topology remains safely localizable.
+    return !watchedURIHasProgramSourceExtension(uri)
   default:
     return false
   }

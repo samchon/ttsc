@@ -71,6 +71,7 @@ export class WatchTopology {
   private projectInputs: ITtscProjectInputSnapshot = {
     files: [],
     globs: [],
+    reloadFiles: [],
     root: "",
   };
   private projectInputRejectedWatchRoots = new Set<string>();
@@ -126,6 +127,9 @@ export class WatchTopology {
     const declarations = new Set([
       ...next.files.map((file) => projectInputDeclarationKey("file", file)),
       ...next.globs.map((glob) => projectInputDeclarationKey("glob", glob)),
+      ...(next.reloadFiles ?? []).map((file) =>
+        projectInputDeclarationKey("reload", file),
+      ),
     ]);
     for (const key of this.projectInputWatchRoots.keys()) {
       if (!declarations.has(key)) this.projectInputWatchRoots.delete(key);
@@ -155,9 +159,7 @@ export class WatchTopology {
       (location) =>
         fs.watch(location, { persistent: true }, () => {
           this.callbacks.onInputChange({
-            kind: this.reloadFiles.has(pathKey(location))
-              ? "config"
-              : "compiler",
+            kind: this.classifyCompilerInput(location),
             path: location,
           });
         }),
@@ -205,6 +207,14 @@ export class WatchTopology {
               filename === null
                 ? undefined
                 : path.resolve(location, filename.toString());
+            const pluginInput = changed ?? location;
+            if (this.isPluginInput(pluginInput)) {
+              this.callbacks.onInputChange({
+                kind: "plugin",
+                path: pluginInput,
+              });
+              return;
+            }
             // File watchers own ordinary source/config edits. Directory watchers
             // only reconcile membership, so an emit in an unrelated output folder
             // cannot schedule another build.
@@ -215,9 +225,7 @@ export class WatchTopology {
             ) {
               if (process.platform === "win32") {
                 this.callbacks.onInputChange({
-                  kind: this.reloadFiles.has(pathKey(changed))
-                    ? "config"
-                    : "compiler",
+                  kind: this.classifyCompilerInput(changed),
                   path: changed,
                 });
               }
@@ -269,6 +277,15 @@ export class WatchTopology {
       const location = this.projectInputWatchRoot("glob", glob, root);
       if (location !== undefined) desired.set(pathKey(location), location);
     }
+    for (const file of this.projectInputs.reloadFiles ?? []) {
+      if (this.isCompilerOutput(file)) continue;
+      const location = this.projectInputWatchRoot(
+        "reload",
+        file,
+        path.dirname(file),
+      );
+      if (location !== undefined) desired.set(pathKey(location), location);
+    }
     const eligible = [...desired].filter(
       ([key]) => !this.projectInputRejectedWatchRoots.has(key),
     );
@@ -307,7 +324,7 @@ export class WatchTopology {
   }
 
   private projectInputWatchRoot(
-    kind: "file" | "glob",
+    kind: "file" | "glob" | "reload",
     declaration: string,
     target: string,
   ): string | undefined {
@@ -350,6 +367,17 @@ export class WatchTopology {
           : this.projectInputFingerprints;
       const contentChanged =
         mapsEqual(this.projectInputFingerprints, nextFingerprints) === false;
+      const changedInputs = projectInputChangedPaths({
+        next,
+        nextFingerprints,
+        previous,
+        previousFingerprints: this.projectInputFingerprints,
+      });
+      const reload = projectInputReloadEventShouldNotify({
+        changed,
+        changedInputs,
+        reloadFiles: this.projectInputs.reloadFiles ?? [],
+      });
       const invalidate = projectInputMembershipInvalidatesProgram({
         changed,
         next,
@@ -358,6 +386,11 @@ export class WatchTopology {
       this.projectInputMatches = next;
       this.projectInputFingerprints = nextFingerprints;
       this.syncProjectInputWatchers();
+      // A JSON/TS/JS project-input member can simultaneously enter or leave
+      // the compiler Program. Reconcile the compiler watch snapshot before
+      // scheduling its resident invalidation, so runWatch's post-cycle refresh
+      // does not rediscover the same delta as a broader execution reload.
+      if (invalidate) this.refresh(false);
       if (
         projectInputEventShouldNotify({
           contentChanged,
@@ -366,11 +399,15 @@ export class WatchTopology {
         }) &&
         (changed === undefined || this.isCompilerOutput(changed) === false)
       ) {
-        this.callbacks.onInputChange({
-          ...(invalidate ? { invalidate: true } : {}),
-          kind: "project",
-          path: changed,
-        });
+        this.callbacks.onInputChange(
+          reload
+            ? { kind: "config", path: changed }
+            : {
+                ...(invalidate ? { invalidate: true } : {}),
+                kind: "project",
+                path: changed,
+              },
+        );
       }
     } catch (error) {
       // A rename can invalidate the old filesystem object before the
@@ -385,6 +422,11 @@ export class WatchTopology {
   private collectProjectInputMatches(): Map<string, string> {
     const matches = new Map<string, string>();
     for (const file of this.projectInputs.files) {
+      if (fs.existsSync(file) && this.isCompilerOutput(file) === false) {
+        matches.set(pathKey(file), file);
+      }
+    }
+    for (const file of this.projectInputs.reloadFiles ?? []) {
       if (fs.existsSync(file) && this.isCompilerOutput(file) === false) {
         matches.set(pathKey(file), file);
       }
@@ -458,10 +500,30 @@ export class WatchTopology {
           isPathWithin(resolved, file) ||
           isPathWithin(path.dirname(file), resolved),
       ) ||
+      (this.projectInputs.reloadFiles ?? []).some(
+        (file) =>
+          isPathWithin(resolved, file) ||
+          isPathWithin(path.dirname(file), resolved),
+      ) ||
       this.projectInputs.globs.some((glob) => {
         const root = literalGlobRoot(glob);
         return isPathWithin(root, resolved) || isPathWithin(resolved, root);
       })
+    );
+  }
+
+  private classifyCompilerInput(
+    location: string,
+  ): "compiler" | "config" | "plugin" {
+    if (this.isPluginInput(location)) return "plugin";
+    return this.reloadFiles.has(pathKey(location)) ? "config" : "compiler";
+  }
+
+  private isPluginInput(location: string): boolean {
+    const resolved = path.resolve(location);
+    return this.extraInputs.some(
+      (input) =>
+        pathKey(input) === pathKey(resolved) || isPathWithin(input, resolved),
     );
   }
 }
@@ -1059,6 +1121,7 @@ function normalizeProjectInputSnapshot(
 ): ITtscProjectInputSnapshot {
   const files = new Map<string, string>();
   const globs = new Map<string, string>();
+  const reloadFiles = new Map<string, string>();
   for (const file of snapshot.files) {
     const resolved = path.resolve(file);
     files.set(pathKey(resolved), resolved);
@@ -1067,9 +1130,14 @@ function normalizeProjectInputSnapshot(
     const normalized = path.resolve(glob).split(path.sep).join("/");
     globs.set(projectInputPatternKey(normalized), normalized);
   }
+  for (const file of snapshot.reloadFiles ?? []) {
+    const resolved = path.resolve(file);
+    reloadFiles.set(pathKey(resolved), resolved);
+  }
   return {
     files: [...files.values()].sort(),
     globs: [...globs.values()].sort(),
+    reloadFiles: [...reloadFiles.values()].sort(),
     root: path.resolve(snapshot.root),
   };
 }
@@ -1081,7 +1149,8 @@ function projectInputSnapshotsEqual(
   return (
     pathKey(left.root || ".") === pathKey(right.root || ".") &&
     arraysEqual(left.files, right.files) &&
-    arraysEqual(left.globs, right.globs)
+    arraysEqual(left.globs, right.globs) &&
+    arraysEqual(left.reloadFiles ?? [], right.reloadFiles ?? [])
   );
 }
 
@@ -1104,7 +1173,7 @@ export function literalGlobRoot(pattern: string): string {
 }
 
 function projectInputDeclarationKey(
-  kind: "file" | "glob",
+  kind: "file" | "glob" | "reload",
   declaration: string,
 ): string {
   return `${kind}\0${projectInputPatternKey(declaration)}`;
@@ -1178,6 +1247,7 @@ function matchesProjectInput(
   const key = pathKey(location);
   return (
     snapshot.files.some((file) => pathKey(file) === key) ||
+    (snapshot.reloadFiles ?? []).some((file) => pathKey(file) === key) ||
     snapshot.globs.some((glob) => matchesProjectInputGlob(glob, location))
   );
 }
@@ -1190,6 +1260,7 @@ function projectInputTopologyMayAffect(
   const changed = path.resolve(location);
   return (
     snapshot.files.some((file) => isPathWithin(changed, file)) ||
+    (snapshot.reloadFiles ?? []).some((file) => isPathWithin(changed, file)) ||
     snapshot.globs.some((glob) => {
       const root = literalGlobRoot(glob);
       if (isPathWithin(changed, root)) return true;
@@ -1209,6 +1280,51 @@ export function projectInputEventShouldNotify(input: {
 }): boolean {
   return (
     input.contentChanged || input.directlyMatched || input.membershipChanged
+  );
+}
+
+function projectInputChangedPaths(input: {
+  next: ReadonlyMap<string, string>;
+  nextFingerprints: ReadonlyMap<string, string>;
+  previous: ReadonlyMap<string, string>;
+  previousFingerprints: ReadonlyMap<string, string>;
+}): string[] {
+  const changed = new Map<string, string>();
+  const keys = new Set([
+    ...input.previous.keys(),
+    ...input.next.keys(),
+    ...input.previousFingerprints.keys(),
+    ...input.nextFingerprints.keys(),
+  ]);
+  for (const key of keys) {
+    if (
+      input.previous.has(key) === input.next.has(key) &&
+      input.previousFingerprints.get(key) === input.nextFingerprints.get(key)
+    ) {
+      continue;
+    }
+    const location = input.next.get(key) ?? input.previous.get(key);
+    if (location !== undefined) changed.set(key, location);
+  }
+  return [...changed.values()];
+}
+
+/**
+ * Classify an exact execution-selection input ahead of ordinary project data.
+ *
+ * `changedInputs` carries fingerprint or membership deltas, so a filename-less
+ * event can still select the cold lane. A named exact event remains cold even
+ * when its bytes happen to be unchanged.
+ */
+export function projectInputReloadEventShouldNotify(input: {
+  changed?: string;
+  changedInputs: readonly string[];
+  reloadFiles: readonly string[];
+}): boolean {
+  const reloadFiles = new Set(input.reloadFiles.map(pathKey));
+  return (
+    (input.changed !== undefined && reloadFiles.has(pathKey(input.changed))) ||
+    input.changedInputs.some((location) => reloadFiles.has(pathKey(location)))
   );
 }
 

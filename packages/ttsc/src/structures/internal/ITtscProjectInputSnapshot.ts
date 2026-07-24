@@ -4,6 +4,8 @@ export interface ITtscProjectInputSnapshot {
   files: readonly string[];
   /** Absolute glob patterns using forward-slash separators. */
   globs: readonly string[];
+  /** Exact paths whose change invalidates plugin/execution selection. */
+  reloadFiles?: readonly string[];
   /** Physical project root that anchored relative declarations. */
   root: string;
 }

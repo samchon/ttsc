@@ -37,7 +37,17 @@ func (s *NativePluginSource) ProjectInputs() LSPProjectInputSnapshot {
 // ProjectInputMatchesURI reports whether a watched-file URI belongs to a
 // declared exact dependency or glob population.
 func (s *NativePluginSource) ProjectInputMatchesURI(uri string) bool {
-  return len(s.ProjectInputOwnersForURI(uri)) != 0
+  if s == nil {
+    return false
+  }
+  location, ok := filePathFromURI(uri)
+  if !ok {
+    return false
+  }
+  candidate := projectInputPathKey(realProjectInputPath(location))
+  s.projectInputsMu.RLock()
+  defer s.projectInputsMu.RUnlock()
+  return projectInputSnapshotMatchesCandidate(s.projectInputs, candidate)
 }
 
 // ProjectInputOwnersForURI returns the stable plugin keys whose latest
