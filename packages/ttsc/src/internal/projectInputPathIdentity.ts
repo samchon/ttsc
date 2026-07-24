@@ -178,7 +178,7 @@ function filesystemDirectoryIsCaseSensitive(directory: string): boolean {
   try {
     entries = fs.readdirSync(directory);
   } catch {
-    return true;
+    return unprovenCaseSensitivity();
   }
   const foldedNames = new Map<string, string>();
   for (const name of entries) {
@@ -220,7 +220,7 @@ function filesystemDirectoryIsCaseSensitive(directory: string): boolean {
       }
       current = parent;
     }
-    return true;
+    return unprovenCaseSensitivity();
   }
   if (process.platform !== "win32") return true;
   // Node does not expose the Windows per-directory flag. Prefer fsutil's
@@ -234,7 +234,26 @@ function filesystemDirectoryIsCaseSensitive(directory: string): boolean {
     if (/\bdisabled\b/iu.test(result.stdout)) return false;
     if (/\benabled\b/iu.test(result.stdout)) return true;
   }
-  return true;
+  return unprovenCaseSensitivity();
+}
+
+/**
+ * What to assume when the volume refused to answer.
+ *
+ * Every probe above returns a proof: two names that fold together prove the
+ * volume keeps them apart, and a name that opens under the other case proves it
+ * does not. This is the remaining case — an empty or unreadable directory, a
+ * name with no letter to alter, a Windows build whose `fsutil` lacks the
+ * subcommand — and the only honest answer is the platform's own default.
+ *
+ * NTFS and APFS are case-insensitive unless a volume or a directory was opted
+ * out, so guessing sensitive there splits one file into two identities under
+ * two spellings, which is the failure this module exists to remove. The rarer
+ * mistake, on a volume that really was opted out, merges two files differing
+ * only in case into one watched identity.
+ */
+function unprovenCaseSensitivity(): boolean {
+  return process.platform !== "win32" && process.platform !== "darwin";
 }
 
 function alternateCase(value: string): string {
