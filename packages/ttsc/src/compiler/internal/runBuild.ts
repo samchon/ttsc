@@ -604,12 +604,6 @@ function prepareBuildExecution(
   execution: ReturnType<typeof resolveExecutionContext>,
   setupStartedAt: bigint,
 ): { buildOptions: RunBuildOptions; result?: TtscBuildResult } {
-  options.onWatchInputs?.(
-    execution.nativePlugins.flatMap((plugin) => [
-      plugin.source,
-      ...(plugin.contributors?.map((contributor) => contributor.source) ?? []),
-    ]),
-  );
   if (
     execution.nativePlugins.length > 0 ||
     execution.pluginSetupFailure !== undefined
@@ -1863,6 +1857,7 @@ export function createProcessDiagnostic(
 function resolveExecutionContext(
   options: TtscCommonOptions & {
     emit?: boolean;
+    onWatchInputs?: (inputs: readonly string[]) => void;
     resolvedProject?: ITtscParsedProjectConfig;
     tsconfig?: string;
   },
@@ -1888,6 +1883,7 @@ function resolveExecutionContext(
         cwd,
         entries: options.plugins,
         env: { ...process.env, ...options.env },
+        onWatchInputs: options.onWatchInputs,
         pluginConfigDir: options.pluginConfigDir,
         projectRoot,
         tsconfig,

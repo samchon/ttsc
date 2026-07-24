@@ -40,6 +40,8 @@ export const test_ttsc_single_file_matches_jsx_output_extensions =
     });
     const jsx = path.join(root, "dist", "view.jsx");
     const js = path.join(root, "dist", "view.js");
+    const adjacentJsx = path.join(root, "src", "view.jsx");
+    const adjacentJs = path.join(root, "src", "view.js");
 
     const configuredPreserve = spawn(ttscBin, ["--cwd", root, "src/view.tsx"], {
       cwd: root,
@@ -82,28 +84,47 @@ export const test_ttsc_single_file_matches_jsx_output_extensions =
     assert.equal(fs.existsSync(js), false, cliPreserve.stdout);
 
     fs.rmSync(jsx);
-    fs.writeFileSync(path.join(root, "tsconfig.json"), config("preserve"));
+    fs.writeFileSync(path.join(root, "tsconfig.json"), watchConfig("preserve"));
     const transformWatch = new WatchSession(root, {
       args: ["--jsx", "react-native", "src/view.tsx"],
     });
     try {
       await transformWatch.waitForBuilds(1);
-      assert.equal(fs.existsSync(js), true, transformWatch.transcript());
-      assert.equal(fs.existsSync(jsx), false, transformWatch.transcript());
+      assert.equal(
+        fs.existsSync(adjacentJs),
+        true,
+        transformWatch.transcript(),
+      );
+      assert.equal(
+        fs.existsSync(adjacentJsx),
+        false,
+        transformWatch.transcript(),
+      );
       await transformWatch.waitForQuiet();
     } finally {
       await transformWatch.close();
     }
 
-    fs.rmSync(js);
-    fs.writeFileSync(path.join(root, "tsconfig.json"), config("react-native"));
+    fs.rmSync(adjacentJs);
+    fs.writeFileSync(
+      path.join(root, "tsconfig.json"),
+      watchConfig("react-native"),
+    );
     const preserveWatch = new WatchSession(root, {
       args: ["--jsx", "preserve", "src/view.tsx"],
     });
     try {
       await preserveWatch.waitForBuilds(1);
-      assert.equal(fs.existsSync(jsx), true, preserveWatch.transcript());
-      assert.equal(fs.existsSync(js), false, preserveWatch.transcript());
+      assert.equal(
+        fs.existsSync(adjacentJsx),
+        true,
+        preserveWatch.transcript(),
+      );
+      assert.equal(
+        fs.existsSync(adjacentJs),
+        false,
+        preserveWatch.transcript(),
+      );
       await preserveWatch.waitForQuiet();
     } finally {
       await preserveWatch.close();
@@ -116,6 +137,19 @@ function config(jsx: "preserve" | "react-native"): string {
       jsx,
       module: "commonjs",
       outDir: "dist",
+      rootDir: "src",
+      strict: true,
+      target: "ES2022",
+    },
+    include: ["src"],
+  });
+}
+
+function watchConfig(jsx: "preserve" | "react-native"): string {
+  return JSON.stringify({
+    compilerOptions: {
+      jsx,
+      module: "commonjs",
       rootDir: "src",
       strict: true,
       target: "ES2022",

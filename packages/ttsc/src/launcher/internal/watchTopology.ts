@@ -69,6 +69,7 @@ export class WatchTopology {
   private directories = new Map<string, string>();
   private directoryWatchers = new Map<string, fs.FSWatcher>();
   private extraInputs: readonly string[] = [];
+  private extraInputFingerprints = new Map<string, string>();
   private extraWatchers = new Map<string, fs.FSWatcher>();
   private files = new Map<string, string>();
   private fileWatchers = new Map<string, fs.FSWatcher>();
@@ -143,6 +144,11 @@ export class WatchTopology {
   /** Add Go plugin source trees discovered by the real build lane. */
   public setExtraInputs(inputs: readonly string[]): void {
     const next = uniqueExistingPaths(inputs);
+    // loadProjectPlugins calls this before computing/building the source-plugin
+    // cache key. This snapshot is therefore the generation boundary: delayed
+    // events for bytes already consumed by the build can be dropped, while a
+    // real edit during the build still differs from this baseline.
+    this.extraInputFingerprints = fingerprintExecutionInputs(next);
     if (arraysEqual(this.extraInputs, next)) return;
     this.extraInputs = next;
     this.refresh(false);
@@ -282,10 +288,30 @@ export class WatchTopology {
       this.extraWatchers,
       directories,
       (location) =>
-        fs.watch(location, { persistent: true }, () => {
+        fs.watch(location, { persistent: true }, (_event, filename) => {
+          const changed =
+            filename === null
+              ? undefined
+              : path.resolve(location, filename.toString());
+          let notify: boolean;
+          try {
+            notify = executionInputEventShouldNotify({
+              changed,
+              fingerprints: this.extraInputFingerprints,
+              inputs: this.extraInputs,
+              watchRoot: location,
+            });
+          } catch (error) {
+            // A transient read/permission failure cannot be treated as
+            // unchanged. Keep the watch process alive and conservatively make
+            // the next cycle reload the plugin execution.
+            this.callbacks.onError(changed ?? location, error);
+            notify = true;
+          }
+          if (notify === false) return;
           this.callbacks.onInputChange({
             kind: "plugin",
-            path: location,
+            path: changed ?? location,
           });
         }),
       (location, error) => this.callbacks.onError(location, error),
@@ -701,6 +727,7 @@ function resolveWatchTopology(
           cliOutDir: options.outDir,
           cwd: options.cwd,
           file: positionalInputs[0]!,
+          passthrough: options.passthrough,
           tsconfig: options.tsconfig,
         }),
       ]);
@@ -1277,6 +1304,159 @@ function uniqueExistingPaths(paths: readonly string[]): string[] {
     unique.set(pathKey(resolved), resolved);
   }
   return [...unique.values()];
+}
+
+/**
+ * Capture the exact source-plugin bytes consumed at one execution generation.
+ *
+ * The full recursive walk belongs only at this explicit boundary. Ordinary
+ * filename-bearing watch events below compare one file, keeping the hot watch
+ * path O(changed-file-size).
+ */
+export function fingerprintExecutionInputs(
+  inputs: readonly string[],
+): Map<string, string> {
+  const fingerprints = new Map<string, string>();
+  for (const input of inputs) {
+    fingerprintExecutionInputPath(path.resolve(input), fingerprints);
+  }
+  return fingerprints;
+}
+
+/**
+ * Reconcile one source-plugin watch event against the execution generation.
+ *
+ * Filename-less and directory events conservatively rescan only the affected
+ * subtree. The mutable snapshot advances after a real delta so duplicate native
+ * watcher notifications do not schedule duplicate rebuilds.
+ */
+export function executionInputEventShouldNotify(input: {
+  changed?: string;
+  fingerprints: Map<string, string>;
+  inputs: readonly string[];
+  watchRoot: string;
+}): boolean {
+  const roots = input.inputs.map((location) => path.resolve(location));
+  if (input.changed !== undefined) {
+    const changed = path.resolve(input.changed);
+    if (
+      roots.some(
+        (root) =>
+          pathKey(root) === pathKey(changed) || isPathWithin(root, changed),
+      ) === false
+    ) {
+      return false;
+    }
+    const key = pathKey(changed);
+    const current = fingerprintExecutionInputFile(changed);
+    if (current !== null || input.fingerprints.has(key)) {
+      const previous = input.fingerprints.get(key);
+      if (previous === current) return false;
+      if (current === undefined) input.fingerprints.delete(key);
+      else input.fingerprints.set(key, current);
+      return true;
+    }
+  }
+  const affected =
+    input.changed === undefined
+      ? roots.some(
+          (root) =>
+            pathKey(root) === pathKey(input.watchRoot) ||
+            isPathWithin(root, input.watchRoot),
+        )
+        ? [path.resolve(input.watchRoot)]
+        : roots.filter((root) => isPathWithin(input.watchRoot, root))
+      : roots.some(
+            (root) =>
+              pathKey(root) === pathKey(input.changed!) ||
+              isPathWithin(root, input.changed!),
+          )
+        ? [path.resolve(input.changed)]
+        : [];
+  if (affected.length === 0) return false;
+
+  const next = new Map<string, string>();
+  for (const location of affected) {
+    fingerprintExecutionInputPath(location, next);
+  }
+  const previous = new Map<string, string>();
+  for (const [key, digest] of input.fingerprints) {
+    if (
+      affected.some(
+        (location) =>
+          key === pathKey(location) || isPathWithin(pathKey(location), key),
+      )
+    ) {
+      previous.set(key, digest);
+    }
+  }
+  if (mapsEqual(previous, next)) return false;
+  for (const key of previous.keys()) input.fingerprints.delete(key);
+  for (const [key, digest] of next) input.fingerprints.set(key, digest);
+  return true;
+}
+
+function fingerprintExecutionInputPath(
+  location: string,
+  fingerprints: Map<string, string>,
+): void {
+  let stats: fs.Stats;
+  try {
+    stats = fs.statSync(location);
+  } catch (error) {
+    if (isVanishedFilesystemEntry(error)) return;
+    throw error;
+  }
+  if (stats.isFile()) {
+    const fingerprint = fingerprintExecutionInputFile(location);
+    if (fingerprint !== undefined && fingerprint !== null) {
+      fingerprints.set(pathKey(location), fingerprint);
+    }
+    return;
+  }
+  if (stats.isDirectory() === false) return;
+  let entries: fs.Dirent[];
+  try {
+    entries = fs.readdirSync(location, { withFileTypes: true });
+  } catch (error) {
+    if (isVanishedFilesystemEntry(error)) return;
+    throw error;
+  }
+  for (const entry of entries) {
+    if (entry.isDirectory() || entry.isFile()) {
+      fingerprintExecutionInputPath(
+        path.join(location, entry.name),
+        fingerprints,
+      );
+    }
+  }
+}
+
+/**
+ * Returns null for a directory, undefined for a vanished path, and a digest for
+ * a regular file. This keeps filename-bearing events on the single-file path.
+ */
+function fingerprintExecutionInputFile(
+  location: string,
+): string | null | undefined {
+  let stats: fs.Stats;
+  try {
+    stats = fs.statSync(location);
+  } catch (error) {
+    if (isVanishedFilesystemEntry(error)) return undefined;
+    throw error;
+  }
+  if (stats.isDirectory()) return null;
+  if (stats.isFile() === false) return undefined;
+  try {
+    return crypto
+      .createHash("sha256")
+      .update(fs.readFileSync(location))
+      .digest("hex");
+  } catch (error) {
+    if (isVanishedFilesystemEntry(error)) return undefined;
+    throw error;
+  }
 }
 
 function normalizeProjectInputSnapshot(

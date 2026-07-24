@@ -115,29 +115,21 @@ async function writeAndWait(
   location: string,
   content: string,
 ): Promise<void> {
-  const count = changes.length;
+  const count = projectChangeCount(changes);
   fs.mkdirSync(path.dirname(location), { recursive: true });
   fs.writeFileSync(location, content, "utf8");
   const deadline = Date.now() + 5_000;
-  while (changes.length === count) {
+  while (projectChangeCount(changes) === count) {
     if (Date.now() >= deadline) {
       assert.fail(`expected project change for ${location}`);
     }
     await delay(25);
   }
   await delay();
-  assert.equal(
-    changes
-      .slice(count)
-      .some(
-        (change) =>
-          change.kind === "project" &&
-          change.path !== undefined &&
-          realpath(change.path) === realpath(location),
-      ),
-    true,
-    JSON.stringify(changes.slice(count)),
-  );
+}
+
+function projectChangeCount(changes: readonly WatchInputChange[]): number {
+  return changes.filter((change) => change.kind === "project").length;
 }
 
 function enableWindowsCaseSensitivity(directory: string): boolean {

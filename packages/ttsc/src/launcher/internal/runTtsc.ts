@@ -594,6 +594,7 @@ function runSingleFile(
         cliOutDir: options.outDir,
         cwd,
         file,
+        passthrough: options.passthrough,
         tsconfig: options.tsconfig,
       })
     : undefined;
