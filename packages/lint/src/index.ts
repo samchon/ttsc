@@ -527,28 +527,38 @@ const graphEdges: Array<{
   parent: string;
 }> = [];
 const configLocation = fileURLToPath(configUrl);
-// The one spelling the module system will use for this file, so the startup
-// records and the reachability seed name the same URL as every edge the
-// resolve hook reports.
+// Every spelling of this config the module system might key an edge under.
 //
-// Two producers can disagree here. The URL this process was handed comes from
-// whoever launched it, and a host that escapes a path by a different rule owns
-// the startup records under a spelling the walk never reaches. And the ESM
-// resolver respells a resolved file module through its real path unless
-// "--preserve-symlinks" is set, so a config reached through a symlinked
-// directory is keyed by its target — while a lexical seed sits on a node with
-// no outgoing edges at all. Either way the walk ends immediately and every
-// dependency recorded after the first import is demoted out of the watch set,
-// which is silent: the build still succeeds and simply stops reacting.
-const normalizedConfigUrl = pathToFileURL(realConfigLocation()).href;
-graphNodes.set(normalizedConfigUrl, configLocation);
+// Which one it uses is not knowable from here, and guessing has failed in both
+// directions. A path handed in by another producer can be escaped by a rule
+// Node does not share. Node respells a resolved file module through its real
+// path unless "--preserve-symlinks" is set, so a config reached through a
+// symlinked directory is keyed by its target. And a Windows 8.3 short name is
+// not a symlink: fs.realpathSync expands it, the module resolver does not, so
+// asking the volume there produces a spelling no edge carries.
+//
+// A seed that names a URL no edge was keyed under sits on a node with no
+// outgoing edges, the walk ends immediately, and every dependency recorded
+// after the first import is demoted from watch to cache. That failure is
+// silent: the build still succeeds and simply stops reacting. Seeding every
+// spelling costs one extra queue entry and cannot be wrong.
+const configUrlSpellings = [
+  ...new Set([
+    configUrl,
+    pathToFileURL(configLocation).href,
+    pathToFileURL(realConfigLocation()).href,
+  ]),
+];
+for (const spelling of configUrlSpellings) {
+  graphNodes.set(spelling, configLocation);
+}
 recordDependency(
   "file",
   configLocation,
   createHash("sha256").update(fs.readFileSync(configLocation)).digest("hex"),
-  [normalizedConfigUrl],
+  configUrlSpellings,
 );
-recordPackageManifests(configLocation, [normalizedConfigUrl]);
+recordPackageManifests(configLocation, configUrlSpellings);
 
 declare const process: {
   cwd(): string;
@@ -1438,16 +1448,14 @@ function finalizeDependencies(): Array<{
 }
 
 function graphWatchReachability(): Set<string> {
-  const config = normalizedConfigUrl;
   const adjacency = new Map<string, typeof graphEdges>();
   for (const edge of graphEdges) {
     const outgoing = adjacency.get(edge.parent) ?? [];
     outgoing.push(edge);
     adjacency.set(edge.parent, outgoing);
   }
-  const queue: Array<{ url: string; watched: boolean }> = [
-    { url: config, watched: true },
-  ];
+  const queue: Array<{ url: string; watched: boolean }> =
+    configUrlSpellings.map((url) => ({ url, watched: true }));
   const visited = new Set<string>();
   const watched = new Set<string>();
   while (queue.length !== 0) {
@@ -1759,8 +1767,13 @@ function evaluateTtsxConfigPlugins(
       );
     }
     if (result.status !== 0) {
+      // The evaluator already said why on its own stderr. Reporting only the
+      // exit code discards that and leaves the caller — a test, a CI log, a
+      // user with a typo in one contributor — holding a number.
+      const reason = configEvaluatorFailureReason(result.stderr);
       throw new Error(
-        `@ttsc/lint: lint config ${configPath} evaluation failed with exit code ${String(result.status)}`,
+        `@ttsc/lint: lint config ${configPath} evaluation failed with exit code ${String(result.status)}` +
+          (reason === "" ? "" : "\n" + reason),
       );
     }
     let payload: {
@@ -1836,6 +1849,24 @@ function evaluateTtsxConfigPlugins(
     fs.rmSync(tempDir, { recursive: true, force: true });
   }
 }
+
+/**
+ * What the evaluator said before it gave up, trimmed to the part that explains
+ * it.
+ *
+ * The build banner and progress lines are the same on success, so they say
+ * nothing about the failure; the tail is where the thrown reason lands. Kept to
+ * a few lines because this is appended to an exception message, not a log.
+ */
+function configEvaluatorFailureReason(stderr: string | undefined): string {
+  const lines = (stderr ?? "")
+    .split(/\r?\n/)
+    .map((line) => line.trimEnd())
+    .filter((line) => line.trim() !== "");
+  return lines.slice(-CONFIG_EVALUATOR_REASON_LINES).join("\n");
+}
+
+const CONFIG_EVALUATOR_REASON_LINES = 5;
 
 function forwardConfigEvaluatorStreams(
   stdout: string | null | undefined,
