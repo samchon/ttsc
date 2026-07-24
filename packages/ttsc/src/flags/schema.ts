@@ -61,9 +61,10 @@ export type FlagLayer =
 /**
  * Argument shape of a flag.
  *
- * - `boolean` — `--flag` / `--flag=true` / `--flag=false`. No value token is
- *   consumed.
- * - `value` — `--flag value` or `--flag=value`. Required value.
+ * - `boolean` — `--flag` with an optional spaced `true` / `false`. Launcher flags
+ *   also accept `--flag=true` / `--flag=false`; tsgo-forwarded flags stay
+ *   verbatim because pinned tsgo does not split `=`.
+ * - `value` — `--flag value`. Launcher flags also accept `--flag=value`.
  * - `valueOptional` — `--flag` standalone is allowed; if followed by a non-flag
  *   token that token is consumed as the value. (Currently unused — declared for
  *   future flags like `--watch [path]`.)
@@ -160,6 +161,13 @@ export interface FlagSpec {
    * Currently true for `--listEmittedFiles`, `--noEmit`, `--pretty`.
    */
   readonly internalShadow?: boolean;
+
+  /**
+   * `true` when pinned tsgo only permits the option in tsconfig, except for
+   * command-line `false` or `null`. The launcher forwards the original argv so
+   * tsgo remains the diagnostic authority.
+   */
+  readonly tsconfigOnly?: boolean;
 
   /**
    * Native sidecar capability that must be declared before ttsc sends this flag
@@ -281,7 +289,9 @@ export const FLAG_SCHEMA: readonly FlagSpec[] = [
     subcommands: ["ttsc", "ttsx", "build", "check", "fix", "format"],
     consumedBy: ["tsgo"],
     forwardTo: "tsgo",
-    description: "Enable project-reference constraints (forwarded to tsgo).",
+    tsconfigOnly: true,
+    description:
+      "Configure project-reference constraints in tsconfig; CLI accepts only false or null.",
   },
   {
     name: "--incremental",

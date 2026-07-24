@@ -26,7 +26,7 @@ one layer and silently disappears at the next boundary.
 | `--emit` | - | boolean | ttsc, build, check | launcher, runBuild, host, lint | - | Force emitted files during build. |
 | `--noEmit` | - | boolean | ttsc, build, check | launcher, runBuild, host, lint | shadow | Force analysis-only build with no file writes. |
 | `--outDir` | - | value | ttsc, build, check | launcher, host, lint | - | Override compilerOptions.outDir for this invocation. |
-| `--composite` | - | boolean | ttsc, ttsx, build, check, fix, format | tsgo | - | Enable project-reference constraints (forwarded to tsgo). |
+| `--composite` | - | boolean | ttsc, ttsx, build, check, fix, format | tsgo | tsconfig-only | Configure project-reference constraints in tsconfig; CLI accepts only false or null. |
 | `--incremental` | `-i` | boolean | ttsc, ttsx, build, check, fix, format | tsgo | - | Write build information for incremental compilation. |
 | `--tsBuildInfoFile` | - | value | ttsc, ttsx, build, check, fix, format | tsgo | - | Choose the incremental build-information file. |
 | `--declaration` | `-d` | boolean | ttsc, ttsx, build, check, fix, format | tsgo | - | Emit declaration files. |
@@ -67,9 +67,11 @@ one layer and silently disappears at the next boundary.
 
 ### Reading this table
 
-- **Kind** `boolean` flags take no value; `value` flags consume the next
-  argv token (or accept `--flag=VALUE`); `valueOptional` keeps a value
-  optional.
+- **Kind** `boolean` flags take no required value; `value` flags consume the
+  next argv token; `valueOptional` keeps a value optional. Launcher-owned
+  flags also accept `--flag=VALUE`. Flags forwarded to tsgo preserve their
+  original spelling, and the pinned tsgo CLI does not support inline
+  `=VALUE`.
 - **Consumed by** lists every layer that reads the flag into its own option
   struct. A flag without a Consumed-by entry is forwarded verbatim to tsgo.
 - **Notes** marks structural attributes: `terminal` (the flag asks tsgo

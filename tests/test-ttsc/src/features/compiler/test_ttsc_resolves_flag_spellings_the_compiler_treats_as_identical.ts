@@ -96,6 +96,34 @@ export const test_ttsc_resolves_flag_spellings_the_compiler_treats_as_identical 
     ]);
     assert.deepEqual(compilerOutputFlags.positional, ["a.ts"]);
 
+    // A schema-known tsgo value owns the next token even when the value happens
+    // to look like a source file.
+    const sourceLookingValue = parse([
+      "--rootDir",
+      "source-root.ts",
+      "main.ts",
+    ]);
+    assert.deepEqual(sourceLookingValue.passthrough, [
+      "--rootDir",
+      "source-root.ts",
+    ]);
+    assert.deepEqual(sourceLookingValue.positional, ["main.ts"]);
+
+    // Pinned tsgo does not split inline `=`, and only consumes exact lowercase
+    // boolean literals. The launcher preserves both argv shapes verbatim.
+    const receiverSyntax = parse([
+      "--outFile=bundle.js",
+      "--declaration",
+      "FALSE",
+      "main.ts",
+    ]);
+    assert.deepEqual(receiverSyntax.passthrough, [
+      "--outFile=bundle.js",
+      "--declaration",
+      "FALSE",
+    ]);
+    assert.deepEqual(receiverSyntax.positional, ["main.ts"]);
+
     // A launcher-only flag is normalized with the rest: it is consumed with its
     // value rather than reaching tsgo, which would reject it.
     const launcherOnly = parse(["--CWD", "dir", "a.ts"]);
