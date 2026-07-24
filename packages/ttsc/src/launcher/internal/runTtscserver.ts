@@ -8,6 +8,7 @@ import { createNativeProjectContextArgs } from "../../compiler/internal/project/
 import { readProjectConfig } from "../../compiler/internal/project/readProjectConfig";
 import { resolveBinary } from "../../compiler/internal/resolveBinary";
 import { resolveTsgo } from "../../compiler/internal/resolveTsgo";
+import { resolveProjectInputPath } from "../../internal/projectInputPathIdentity";
 import {
   hasProjectPluginEntries,
   loadProjectPlugins,
@@ -646,13 +647,22 @@ function lspProjectInputFileDigest(location: string): string {
   }
 }
 
+/**
+ * Physical path of a location whose leaf may not exist yet.
+ *
+ * Both ends go through the shared spelling rule rather than `path.resolve`
+ * alone. Windows hands back extended-length paths from a native realpath, and a
+ * record written as `\?\C:\project` never matches a lookup for `C:\project`
+ * even though one file is meant — the split identity every other consumer on
+ * this branch was taught to avoid.
+ */
 function realLSPProjectInputPath(location: string): string {
-  const absolute = path.resolve(location);
+  const absolute = resolveProjectInputPath(location);
   let probe = absolute;
   const suffix: string[] = [];
   for (;;) {
     try {
-      let resolved = fs.realpathSync.native(probe);
+      let resolved = resolveProjectInputPath(fs.realpathSync.native(probe));
       for (let index = suffix.length - 1; index >= 0; index--) {
         resolved = path.join(resolved, suffix[index]!);
       }
@@ -667,7 +677,7 @@ function realLSPProjectInputPath(location: string): string {
 }
 
 function realLSPProjectInputEntryPath(location: string): string {
-  const absolute = path.resolve(location);
+  const absolute = resolveProjectInputPath(location);
   return path.join(
     realLSPProjectInputPath(path.dirname(absolute)),
     path.basename(absolute),

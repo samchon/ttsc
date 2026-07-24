@@ -527,10 +527,20 @@ const graphEdges: Array<{
   parent: string;
 }> = [];
 const configLocation = fileURLToPath(configUrl);
-// Spelled by the module system, so the records made here and the reachability
-// seed name the same URL. A producer with different escaping rules would
-// otherwise own the startup records under a spelling the walk never reaches.
-const normalizedConfigUrl = pathToFileURL(configLocation).href;
+// The one spelling the module system will use for this file, so the startup
+// records and the reachability seed name the same URL as every edge the
+// resolve hook reports.
+//
+// Two producers can disagree here. The URL this process was handed comes from
+// whoever launched it, and a host that escapes a path by a different rule owns
+// the startup records under a spelling the walk never reaches. And the ESM
+// resolver respells a resolved file module through its real path unless
+// "--preserve-symlinks" is set, so a config reached through a symlinked
+// directory is keyed by its target — while a lexical seed sits on a node with
+// no outgoing edges at all. Either way the walk ends immediately and every
+// dependency recorded after the first import is demoted out of the watch set,
+// which is silent: the build still succeeds and simply stops reacting.
+const normalizedConfigUrl = pathToFileURL(realConfigLocation()).href;
 graphNodes.set(normalizedConfigUrl, configLocation);
 recordDependency(
   "file",
@@ -1390,6 +1400,22 @@ function samePhysicalPath(left: string, right: string): boolean {
   }
 }
 
+/**
+ * The config's real path, or its declared one when the volume will not say.
+ *
+ * A config can disappear between the host reading it and this loader starting,
+ * and a throw here would replace a precise report from the import below with a
+ * crash in bookkeeping. Seeding lexically instead only risks the demotion this
+ * value exists to prevent, on a file that is already gone.
+ */
+function realConfigLocation(): string {
+  try {
+    return realPath(configLocation);
+  } catch {
+    return configLocation;
+  }
+}
+
 function realPath(location: string): string {
   return fs.realpathSync.native
     ? fs.realpathSync.native(location)
@@ -1412,14 +1438,7 @@ function finalizeDependencies(): Array<{
 }
 
 function graphWatchReachability(): Set<string> {
-  // Respell the seed the way the module system spells a path. A URL handed to
-  // this process may come from a producer with different escaping rules — Go
-  // leaves a tilde unreserved where Node percent-encodes it, and a Windows 8.3
-  // component is the one path shape that carries one — so the seed would name a
-  // URL no edge was ever keyed under. The walk would then reach nothing and
-  // every dependency recorded after the first import would be demoted out of
-  // the published watch set.
-  const config = pathToFileURL(fileURLToPath(configUrl)).href;
+  const config = normalizedConfigUrl;
   const adjacency = new Map<string, typeof graphEdges>();
   for (const edge of graphEdges) {
     const outgoing = adjacency.get(edge.parent) ?? [];
