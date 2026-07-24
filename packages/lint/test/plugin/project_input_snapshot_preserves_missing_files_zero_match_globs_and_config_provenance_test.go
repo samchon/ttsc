@@ -78,13 +78,15 @@ func TestProjectInputSnapshotPreservesMissingFilesZeroMatchGlobsAndConfigProvena
     t.Fatalf("collect project inputs: %v", err)
   }
   wantFiles := []string{
-    filepath.ToSlash(filepath.Join(root, "docs", "missing.md")),
-    filepath.ToSlash(config),
+    filepath.ToSlash(realProjectPath(filepath.Join(root, "docs", "missing.md"))),
+    filepath.ToSlash(realProjectPath(config)),
   }
   if !reflect.DeepEqual(snapshot.Files, wantFiles) {
     t.Fatalf("files = %#v, want %#v", snapshot.Files, wantFiles)
   }
-  wantGlobs := []string{filepath.ToSlash(filepath.Join(root, "api", "**", "*.json"))}
+  wantGlobs := []string{
+    filepath.ToSlash(realProjectGlob(filepath.Join(root, "api", "**", "*.json"))),
+  }
   if !reflect.DeepEqual(snapshot.Globs, wantGlobs) {
     t.Fatalf("globs = %#v, want %#v", snapshot.Globs, wantGlobs)
   }
