@@ -701,8 +701,16 @@ function runWatch(
               resident === undefined
                 ? runBuild(buildOptions)
                 : await resident.run(buildOptions, change);
+            // Watch output is one ordered stream. The diagnostics a build
+            // produced and the "[ttsc] watch build …" marker that concludes
+            // them reach a single merged reader, and on two pipes the OS may
+            // hand it the marker first — a reader that counts the build on the
+            // marker then snapshots before the diagnostics land and sees an
+            // empty build. The rebuilding banner, the screen clear, and the
+            // marker are already on stdout, so the diagnostics join them there,
+            // the way tsc --watch prints everything to one place.
             if (result.stdout) process.stdout.write(result.stdout);
-            if (result.stderr) process.stderr.write(result.stderr);
+            if (result.stderr) process.stdout.write(result.stderr);
             return result.status;
           })());
       lastStatus = status;
@@ -711,7 +719,10 @@ function runWatch(
         `[ttsc] ${status === 0 ? "watch build complete" : "watch build failed"}\n`,
       );
     } catch (error) {
-      process.stderr.write(`${formatError(error)}\n`);
+      // Same ordered-stream rule as the build path: the failure text goes on
+      // the stream the marker below uses, so a merged reader sees them in order
+      // rather than racing two pipes.
+      process.stdout.write(`${formatError(error)}\n`);
       lastStatus = lastStatus === 0 ? 2 : lastStatus;
       process.stdout.write(`[ttsc] watch build failed\n`);
     } finally {
