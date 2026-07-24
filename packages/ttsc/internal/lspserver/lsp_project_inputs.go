@@ -89,7 +89,9 @@ func (s *NativePluginSource) ProjectInputReloadMatchesURI(uri string) bool {
   s.projectInputsMu.RLock()
   defer s.projectInputsMu.RUnlock()
   for _, file := range s.projectInputs.ReloadFiles {
-    fileKey := projectInputPathKey(file)
+    // The candidate is resolved physically, so the declaration has to be too;
+    // a Windows short component or a symlinked ancestor otherwise never matches.
+    fileKey := projectInputPathKey(realProjectInputPath(file))
     if fileKey == candidateKey || fileKey == candidateEntryKey {
       return true
     }
@@ -126,7 +128,9 @@ func (s *NativePluginSource) ProjectInputReloadMatchesChange(
   snapshot := copyProjectInputSnapshot(s.projectInputs)
   s.projectInputsMu.RUnlock()
   for _, file := range snapshot.ReloadFiles {
-    fileKey := projectInputPathKey(file)
+    // The candidate is resolved physically, so the declaration has to be too;
+    // a Windows short component or a symlinked ancestor otherwise never matches.
+    fileKey := projectInputPathKey(realProjectInputPath(file))
     if fileKey == candidateKey || fileKey == candidateEntryKey {
       return true
     }
@@ -180,18 +184,30 @@ func (s *NativePluginSource) ProjectInputOwnersForURI(uri string) []string {
   return owners
 }
 
+// projectInputSnapshotMatchesCandidate compares a declaration against a
+// candidate both sides of which have been resolved to one filesystem identity.
+//
+// The candidate arrives from an editor URI and is resolved physically, so a
+// declaration compared lexically can never match it wherever the two spellings
+// differ: a Windows short (8.3) component, which `%TEMP%` routinely carries, or
+// a symlinked ancestor such as macOS `/var`. Resolving here rather than when
+// the snapshot is stored keeps the declared spelling available to the client
+// registration that also reads it, and lets a retargeted link be recognized on
+// the event that follows it.
 func projectInputSnapshotMatchesCandidate(
   snapshot LSPProjectInputSnapshot,
   candidate string,
 ) bool {
   for _, file := range snapshot.Files {
-    if projectInputPathKey(file) == candidate {
+    if projectInputPathKey(realProjectInputPath(file)) == candidate {
       return true
     }
   }
   for _, pattern := range snapshot.Globs {
+    // A pattern has no filesystem object of its own; realProjectInputPath
+    // resolves its longest existing prefix and rejoins the wildcards.
     if matchProjectInputGlob(
-      strings.Split(projectInputPathKey(pattern), "/"),
+      strings.Split(projectInputPathKey(realProjectInputPath(pattern)), "/"),
       strings.Split(candidate, "/"),
     ) {
       return true
@@ -622,8 +638,13 @@ func projectInputDirectoryContainsImmediate(
   directory string,
   candidate string,
 ) bool {
+  // Both operands are resolved physically before they are compared. Callers
+  // pass a candidate that already went through that resolution, so leaving the
+  // declared directory lexical would never match it under a Windows short
+  // component or a symlinked ancestor.
+  resolvedDirectory := realProjectInputPath(directory)
   relative, err := filepath.Rel(
-    projectInputFilesystemPath(directory),
+    projectInputFilesystemPath(resolvedDirectory),
     projectInputFilesystemPath(candidate),
   )
   if err != nil || filepath.IsAbs(relative) {
@@ -631,7 +652,8 @@ func projectInputDirectoryContainsImmediate(
   }
   relativeKey := projectInputPathKey(relative)
   if relativeKey == "." {
-    return projectInputPathKey(directory) == projectInputPathKey(candidate)
+    return projectInputPathKey(resolvedDirectory) ==
+      projectInputPathKey(candidate)
   }
   return relativeKey != ".." &&
     !strings.HasPrefix(relativeKey, "../") &&
