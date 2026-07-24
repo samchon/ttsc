@@ -99,6 +99,7 @@ func (p *Proxy) reconcileProjectInputWatchRegistration() {
       p.projectInputWatchUnregisterRetryBlocked = true
       p.projectInputWatchMu.Unlock()
       p.reportAsyncError(err)
+      p.reconcileProjectInputWatchRegistration()
     }
     return
   }
@@ -137,6 +138,7 @@ func (p *Proxy) reconcileProjectInputWatchRegistration() {
     p.projectInputWatchFailedSignature = desired.Signature
     p.projectInputWatchMu.Unlock()
     p.reportAsyncError(err)
+    p.reconcileProjectInputWatchRegistration()
   }
 }
 
@@ -169,6 +171,7 @@ func (p *Proxy) writeProjectInputWatchRegistration(
             strings.TrimSpace(string(env.Error)),
           ),
         ))
+        p.reconcileProjectInputWatchRegistration()
         return
       }
       previous := p.projectInputWatchActive
@@ -213,6 +216,7 @@ func (p *Proxy) writeProjectInputWatchUnregistration(
             strings.TrimSpace(string(env.Error)),
           ),
         ))
+        p.reconcileProjectInputWatchRegistration()
         return
       }
       for index, staleID := range p.projectInputWatchStaleIDs {
