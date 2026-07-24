@@ -20,6 +20,7 @@ import {
   resolveCleanTargets,
   resolveSourceBuildCachePaths,
 } from "../../plugin/internal/buildSourcePlugin";
+import type { ITtscProjectInputSnapshot } from "../../structures/internal/ITtscProjectInputSnapshot";
 import type { TtscBuildOptions } from "../../structures/internal/TtscBuildOptions";
 import { getCompilerVersionText } from "./getCompilerVersionText";
 import { resolveCacheDir } from "./resolveCacheDir";
@@ -734,6 +735,9 @@ function runWatch(
     cwd,
     onWatchInputs: (inputs: readonly string[]) => {
       topology?.setExtraInputs(inputs);
+    },
+    onProjectInputs: (inputs: ITtscProjectInputSnapshot) => {
+      topology?.setProjectInputs(inputs);
     },
     quiet: true,
   };

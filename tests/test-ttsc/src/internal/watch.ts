@@ -92,6 +92,11 @@ export class WatchSession {
     });
   }
 
+  /** Return the combined stdout/stderr transcript observed so far. */
+  public transcript(): string {
+    return this.output;
+  }
+
   /** Stop the child and fail if its persistent watcher handles do not drain. */
   public async close(): Promise<void> {
     if (this.child.exitCode !== null || this.child.signalCode !== null) {
