@@ -84,6 +84,22 @@ export const test_project_input_snapshots_reject_non_local_paths_and_mismatched_
       "a device namespace is not a declared local filesystem path",
     );
     assert.equal(
+      isAbsoluteLocalProjectInputPath(
+        "\\\\?\\C:\\project\\docs\\spec.md",
+        "win32",
+      ),
+      true,
+      "an extended-length drive path remains a local filesystem path",
+    );
+    assert.equal(
+      isAbsoluteLocalProjectInputPath(
+        "\\\\?\\UNC\\server\\share\\docs\\spec.md",
+        "win32",
+      ),
+      true,
+      "an extended-length UNC path remains a local filesystem path",
+    );
+    assert.equal(
       isAbsoluteLocalProjectInputPath("\\\\.\\pipe\\ttsc", "win32"),
       false,
       "a named-pipe namespace is not a declared local filesystem path",

@@ -12,15 +12,18 @@ import { WatchSession } from "../../internal/watch";
  * Verifies a real check-plugin watch follows declared Markdown and Swagger
  * inputs without widening to unrelated workspace documents.
  *
- * The sidecar publishes one exact Markdown file and one initially empty JSON
- * glob. Its check command reads both sources, so each filesystem wake-up has an
- * observable fresh diagnostic rather than only a build banner.
+ * The sidecar publishes one exact Markdown file plus initially empty JSON and
+ * emitted-JavaScript globs. Its check command reads the data sources, so each
+ * legitimate filesystem wake-up has an observable fresh diagnostic while the
+ * compiler's adjacent JavaScript stays quiet.
  *
- * 1. Start a clean real watch with the exact file present and glob empty.
+ * 1. Start a real emitting watch with the exact file present and globs empty.
  * 2. Break and repair Markdown, then create a broken Swagger JSON match.
  * 3. Assert each declared transition rebuilds once and an unrelated README is
  *    quiet.
- * 4. Reject a relative snapshot through the real plugin-sidecar protocol.
+ * 4. Emit adjacent JavaScript in positional watch without a rebuild loop.
+ * 5. Reject relative paths but accept Windows extended-length filesystem paths
+ *    through the real plugin-sidecar protocol.
  */
 export const test_plugin_corpus_watch_rebuilds_for_declared_markdown_and_swagger_inputs =
   async (): Promise<void> => {
@@ -41,7 +44,7 @@ export const test_plugin_corpus_watch_rebuilds_for_declared_markdown_and_swagger
       },
       {
         compilerOptions: {
-          noEmit: true,
+          noEmit: false,
           plugins: [{ transform: "./plugins/watch.cjs" }],
         },
       },
@@ -110,6 +113,27 @@ export const test_plugin_corpus_watch_rebuilds_for_declared_markdown_and_swagger
       await positional.close();
     }
 
+    fs.writeFileSync(
+      path.join(root, "docs", "spec.md"),
+      "# Contract\n",
+      "utf8",
+    );
+    fs.rmSync(path.join(root, "api"), { recursive: true, force: true });
+    const emittingPositional = new WatchSession(root, {
+      args: ["src/main.ts"],
+      env: {
+        PATH: goPath(),
+        TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
+      },
+    });
+    try {
+      await emittingPositional.waitForBuilds(1);
+      await emittingPositional.waitForQuiet();
+      assert.equal(fs.existsSync(path.join(root, "dist", "main.js")), true);
+    } finally {
+      await emittingPositional.close();
+    }
+
     const invalid = new WatchSession(root, {
       env: {
         PATH: goPath(),
@@ -126,6 +150,27 @@ export const test_plugin_corpus_watch_rebuilds_for_declared_markdown_and_swagger
     } finally {
       await invalid.close();
     }
+
+    if (process.platform === "win32") {
+      const extended = new WatchSession(root, {
+        env: {
+          PATH: goPath(),
+          TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
+          TTSC_TEST_PROJECT_INPUT_MODE: "extended",
+        },
+      });
+      try {
+        await extended.waitForBuilds(1);
+        await extended.waitForQuiet();
+        assert.equal(
+          extended.transcript().includes("invalid snapshot"),
+          false,
+          extended.transcript(),
+        );
+      } finally {
+        await extended.close();
+      }
+    }
   };
 
 function goSource(): string {
@@ -138,6 +183,7 @@ function goSource(): string {
     '\t"io/fs"',
     '\t"os"',
     '\t"path/filepath"',
+    '\t"runtime"',
     '\t"strings"',
     ")",
     "",
@@ -154,10 +200,22 @@ function goSource(): string {
     "\t\t\t})",
     "\t\t\treturn",
     "\t\t}",
+    '\t\tif os.Getenv("TTSC_TEST_PROJECT_INPUT_MODE") == "extended" && runtime.GOOS == "windows" {',
+    "\t\t\textendedRoot := `\\\\?\\` + root",
+    "\t\t\t_ = json.NewEncoder(os.Stdout).Encode(map[string]any{",
+    '\t\t\t\t"root": extendedRoot,',
+    '\t\t\t\t"files": []string{filepath.Join(extendedRoot, "docs", "spec.md")},',
+    '\t\t\t\t"globs": []string{filepath.ToSlash(filepath.Join(extendedRoot, "api", "**", "*.json"))},',
+    "\t\t\t})",
+    "\t\t\treturn",
+    "\t\t}",
     "\t\t_ = json.NewEncoder(os.Stdout).Encode(map[string]any{",
     '\t\t\t"root": root,',
     '\t\t\t"files": []string{filepath.Join(root, "docs", "spec.md")},',
-    '\t\t\t"globs": []string{filepath.ToSlash(filepath.Join(root, "api", "**", "*.json"))},',
+    '\t\t\t"globs": []string{',
+    '\t\t\t\tfilepath.ToSlash(filepath.Join(root, "api", "**", "*.json")),',
+    '\t\t\t\tfilepath.ToSlash(filepath.Join(root, "**", "*.js")),',
+    "\t\t\t},",
     "\t\t})",
     '\tcase "check":',
     "\t\tfailed := false",
