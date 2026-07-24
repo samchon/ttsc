@@ -333,6 +333,7 @@ export class WatchTopology {
             for (const file of this.compilerChangesToReport(
               plan.changes,
               changed,
+              event,
             )) {
               this.callbacks.onInputChange({
                 kind: this.classifyCompilerInput(file),
@@ -360,8 +361,17 @@ export class WatchTopology {
   private compilerChangesToReport(
     changes: readonly string[],
     changed: string | undefined,
+    event: string,
   ): string[] {
-    if (changed !== undefined) {
+    // A content notification is taken at its word: the backend is telling us
+    // these bytes changed, and second-guessing it would lose an edit that
+    // landed inside the clock's resolution. A rename says the directory entry
+    // was rewritten, which is a different claim — a file can be moved back, or
+    // replaced by an identical copy, without its content moving at all — and an
+    // event that cannot name anything makes no claim about content either.
+    // Those two are decided from the bytes, and the rearm they drive is
+    // unaffected, because rebinding is about the inode and not the content.
+    if (changed !== undefined && event !== "rename") {
       for (const file of changes) this.recordCompilerFileStamp(file);
       return [...changes];
     }
