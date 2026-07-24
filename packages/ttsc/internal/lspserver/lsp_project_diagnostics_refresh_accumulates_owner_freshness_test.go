@@ -5,7 +5,10 @@ import "testing"
 // TestProjectDiagnosticsRefreshAccumulatesOwnerFreshness verifies separate
 // successful refreshes can jointly satisfy one affected-producer generation.
 func TestProjectDiagnosticsRefreshAccumulatesOwnerFreshness(t *testing.T) {
-  proxy := NewProxy(ProxyOptions{})
+  proxy := NewProxy(ProxyOptions{
+    Source: &NativePluginSource{},
+  })
+  defer proxy.stopProjectDiagnosticRefresh()
   proxy.projectDiagnosticRefreshPending = true
   proxy.pendingProjectDiagnosticGeneration = 2
   proxy.pendingProjectDiagnosticOwners = map[string]struct{}{
@@ -39,5 +42,27 @@ func TestProjectDiagnosticsRefreshAccumulatesOwnerFreshness(t *testing.T) {
     map[string]struct{}{"beta": {}},
   ) {
     t.Fatal("separate producer successes did not complete the generation")
+  }
+
+  // A newer watched event can arrive after record reports completion but
+  // before its caller clears the old generation. The newer scope must survive
+  // that rejected completion unchanged.
+  proxy.projectDiagnosticGeneration = 2
+  proxy.scheduleProjectDiagnosticRefresh(projectDiagnosticOwnerScope{
+    owners: map[string]struct{}{"alpha": {}},
+  })
+  proxy.completePendingProjectDiagnosticRefresh(2)
+  proxy.projectRefreshMu.Lock()
+  defer proxy.projectRefreshMu.Unlock()
+  if !proxy.projectDiagnosticRefreshPending ||
+    proxy.pendingProjectDiagnosticGeneration != 3 {
+    t.Fatalf(
+      "newer pending generation was cleared: pending %v, generation %d",
+      proxy.projectDiagnosticRefreshPending,
+      proxy.pendingProjectDiagnosticGeneration,
+    )
+  }
+  if _, pending := proxy.pendingProjectDiagnosticOwners["alpha"]; !pending {
+    t.Fatal("newer pending owner was cleared by the prior generation")
   }
 }

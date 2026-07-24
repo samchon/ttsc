@@ -277,10 +277,10 @@ func (s *NativePluginSource) InvalidateResidentProgramsForWatchedChanges(
   )
 }
 
-// InvalidateResidentProgramsForOwnedWatchedChanges sends declared external
-// changes only to resident binaries that own the matching snapshot. Ordinary
-// compiler changes still reach every resident because every Program observes
-// them.
+// InvalidateResidentProgramsForOwnedWatchedChanges sends data-only external
+// changes only to resident binaries that own the matching snapshot. A path that
+// can also belong to the Program reaches every resident, because each daemon
+// must decide whether its own Program contains that source.
 func (s *NativePluginSource) InvalidateResidentProgramsForOwnedWatchedChanges(
   changedURIs []string,
   externalURIs []string,
@@ -306,6 +306,10 @@ func (s *NativePluginSource) InvalidateResidentProgramsForOwnedWatchedChanges(
     pluginsByKey[pluginKey(plugin)] = plugin
   }
   for _, uri := range externalURIs {
+    if watchedURIHasProgramInputExtension(uri) {
+      allBinaries[uri] = true
+      continue
+    }
     owners, scoped := externalOwners[uri]
     if !scoped || owners == nil {
       allBinaries[uri] = true
