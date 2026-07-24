@@ -8,6 +8,7 @@ import {
 import type { ITtscCompilerDiagnostic } from "../../structures/ITtscCompilerDiagnostic";
 import type { ITtscLoadedNativePlugin } from "../../structures/internal/ITtscLoadedNativePlugin";
 import type { ITtscParsedProjectConfig } from "../../structures/internal/ITtscParsedProjectConfig";
+import type { ITtscProjectInputSnapshot } from "../../structures/internal/ITtscProjectInputSnapshot";
 import type { TtscBuildOptions } from "../../structures/internal/TtscBuildOptions";
 import type { TtscBuildResult } from "../../structures/internal/TtscBuildResult";
 import type { TtscCommonOptions } from "../../structures/internal/TtscCommonOptions";
@@ -32,6 +33,12 @@ type RunBuildOptions = TtscBuildOptions & {
    * implementation changes between rebuilds.
    */
   onWatchInputs?: (inputs: readonly string[]) => void;
+  /**
+   * Receives the reconciled project-rule filesystem dependency snapshot. Called
+   * only by watch launchers; ordinary builds do not probe the optional sidecar
+   * command.
+   */
+  onProjectInputs?: (inputs: ITtscProjectInputSnapshot) => void;
   /**
    * Emit an external source map from the direct tsgo build lane even when the
    * project configures none. Set by the ttsx runtime builds so a served emit
@@ -206,6 +213,9 @@ function runBuildTimed(
       ...(plugin.contributors?.map((contributor) => contributor.source) ?? []),
     ]),
   );
+  if (options.onProjectInputs !== undefined) {
+    options.onProjectInputs(discoverNativeProjectInputs(options, execution));
+  }
   if (
     execution.nativePlugins.length > 0 ||
     execution.pluginSetupFailure !== undefined
@@ -957,6 +967,27 @@ function createNativeCheckArgs(
   return args;
 }
 
+function createNativeProjectInputsArgs(
+  execution: ReturnType<typeof resolveExecutionContext>,
+  plugin: ITtscLoadedNativePlugin,
+): string[] {
+  const args = [
+    "project-inputs",
+    "--tsconfig=" + execution.tsconfig,
+    "--plugins-json=" + serializeNativePlugins(execution.nativePlugins),
+    "--cwd=" + execution.projectRoot,
+  ];
+  if (plugin.capabilities?.projectContextArgs === true) {
+    args.push(
+      ...createNativeProjectContextArgs(
+        execution.project,
+        execution.pluginConfigDir,
+      ),
+    );
+  }
+  return args;
+}
+
 // `--singleThreaded` / `--checkers` are forwarded to native check-stage hosts
 // only when the host is one ttsc itself owns (currently `@ttsc/lint`). #113
 // forwarded both flags as bare CLI tokens to every native sidecar, then
@@ -1149,6 +1180,90 @@ function runNativeCheckPlugins(
     }
   }
   return out;
+}
+
+function discoverNativeProjectInputs(
+  options: TtscBuildOptions,
+  execution: ReturnType<typeof resolveExecutionContext>,
+): ITtscProjectInputSnapshot {
+  const files = new Set<string>();
+  const globs = new Set<string>();
+  let root = execution.projectRoot;
+  for (const plugin of execution.nativePlugins.filter(
+    (candidate) =>
+      candidate.stage === "check" &&
+      candidate.capabilities?.projectInputs === true,
+  )) {
+    const res = spawnNative(
+      plugin.binary,
+      createNativeProjectInputsArgs(execution, plugin),
+      {
+        cwd: execution.projectRoot,
+        env: nativePluginEnv(options.env, execution, plugin),
+        encoding: "utf8",
+      },
+    );
+    if (res.error) {
+      throw new Error(
+        `ttsc.project-inputs: failed to spawn ${plugin.binary}: ${res.error.message}`,
+      );
+    }
+    const stdout = outputText(res.stdout).trim();
+    if (res.status !== 0) {
+      const detail = outputText(res.stderr).trim() || stdout;
+      throw new Error(
+        `ttsc.project-inputs: ${plugin.name ?? plugin.binary} failed${detail ? `: ${detail}` : ""}`,
+      );
+    }
+    const snapshot = parseProjectInputSnapshot(stdout, plugin);
+    root = snapshot.root;
+    for (const file of snapshot.files) files.add(path.resolve(file));
+    for (const glob of snapshot.globs)
+      globs.add(normalizeProjectInputGlob(glob));
+  }
+  return {
+    root: path.resolve(root),
+    files: [...files].sort(),
+    globs: [...globs].sort(),
+  };
+}
+
+function parseProjectInputSnapshot(
+  text: string,
+  plugin: ITtscLoadedNativePlugin,
+): ITtscProjectInputSnapshot {
+  let value: unknown;
+  try {
+    value = JSON.parse(text);
+  } catch (error) {
+    throw new Error(
+      `ttsc.project-inputs: ${plugin.name ?? plugin.binary} returned invalid JSON: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+  }
+  if (
+    typeof value !== "object" ||
+    value === null ||
+    typeof (value as { root?: unknown }).root !== "string" ||
+    !isStringArray((value as { files?: unknown }).files) ||
+    !isStringArray((value as { globs?: unknown }).globs)
+  ) {
+    throw new Error(
+      `ttsc.project-inputs: ${plugin.name ?? plugin.binary} returned an invalid snapshot`,
+    );
+  }
+  return value as unknown as ITtscProjectInputSnapshot;
+}
+
+function isStringArray(value: unknown): value is string[] {
+  return (
+    Array.isArray(value) && value.every((item) => typeof item === "string")
+  );
+}
+
+function normalizeProjectInputGlob(pattern: string): string {
+  return path.resolve(pattern).split(path.sep).join("/");
 }
 
 /**

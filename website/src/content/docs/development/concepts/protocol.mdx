@@ -101,6 +101,7 @@ interface ITtscPlugin {
     diagnosticsTiming?: boolean;
     lsp?: boolean;
     projectContextArgs?: boolean;
+    projectInputs?: boolean;
     threadingArgs?: boolean;
   };
   reportsTypeScriptDiagnostics?: boolean;
@@ -119,7 +120,7 @@ Field rules:
 - `source`: Go package directory or `go.mod` file. A `package main` source builds as an executable sidecar. A non-`main` transform source is linked into the selected native host and must register itself through `driver.RegisterPlugin`. Relative paths are resolved from the consumer project root; package descriptors should usually return an absolute path. A compiled-CommonJS descriptor can base it on `__dirname`, but a `.ts`-source or ESM descriptor must base it on `context.dirname` (or resolve from `context.projectRoot`) instead (see [ESM-safety](#manifest) above), since `__dirname` is undefined there.
 - `composes`: optional list of other plugin names (or original `transform` specifiers) whose source build should be redirected to this descriptor's `source`. Composition is **one hop only**: `A.composes = ["B"]` sends B to A's binary, but if `B.composes = ["C"]` then C is sent to B's original binary, not A's. Reciprocal entries (`A.composes = ["B"]` and `B.composes = ["A"]`) are rejected as a cycle.
 - `stage`: plugin kind. Omit for `"transform"`.
-- `capabilities`: optional host behaviors a strict sidecar would otherwise reject or not understand. Set `threadingArgs` only when the sidecar accepts `--singleThreaded` and `--checkers`; set `diagnosticsTiming` only when it accepts `--diagnostics`/`--extendedDiagnostics` and may print timing detail to stdout. Set `lsp` only when the sidecar implements the `ttscserver` LSP verbs below. Set `projectContextArgs` only when it accepts `--project-context-json` and preserves the supplied project identity.
+- `capabilities`: optional host behaviors a strict sidecar would otherwise reject or not understand. Set `threadingArgs` only when the sidecar accepts `--singleThreaded` and `--checkers`; set `diagnosticsTiming` only when it accepts `--diagnostics`/`--extendedDiagnostics` and may print timing detail to stdout. Set `lsp` only when the sidecar implements the `ttscserver` LSP verbs below. Set `projectContextArgs` only when it accepts `--project-context-json` and preserves the supplied project identity. Set `projectInputs` only when it implements the `project-inputs` snapshot command.
 - `reportsTypeScriptDiagnostics`: check-stage capability flag. Set this only when the sidecar's `check` subcommand loads the project Program and reports normal TypeScript diagnostics itself; `ttsc` then skips the redundant `tsc --noEmit` guard. Ordinary check plugins should leave it unset so TypeScript diagnostics are still merged after their own output.
 - `contributors`: optional list of additional Go source packages to statically link into this plugin's binary at build time. Each entry's `source` is copied into the scratch build tree as `<scratch>/contrib/<name>/`, and a synthesized blank import in the entry package triggers the contributor's `init()` before `main`. See [Contributors](#contributors) below.
 
@@ -141,6 +142,26 @@ When the user runs `ttsc fix`, `ttsc` invokes check-stage plugins with the `fix`
 When the user runs `ttsc format`, `ttsc` invokes the same check-stage plugins with the `format` subcommand. `ttsc format` is the format-only convenience that filters to format-class rule edits so lint rewrites are skipped. Pick this subcommand when you want to reshape source without applying lint rewrites. See [CLI Commands → `format`](#format) for the subcommand contract.
 
 **Transform-stage plugins do not see `fix` or `format`.** The host only spawns those subcommands against `stage: "check"` plugins; a transform-stage plugin's `default` branch will never receive them.
+
+## Project input snapshot
+
+A check-stage sidecar with `capabilities.projectInputs: true` must implement:
+
+```text
+project-inputs --cwd=<physical-root> --tsconfig=<physical-config> --plugins-json=<manifest> [--project-context-json=<identity>]
+```
+
+It prints one JSON object:
+
+```json
+{
+  "root": "/physical/project",
+  "files": ["/physical/project/docs/spec.md"],
+  "globs": ["/physical/project/openapi/**/*.json"]
+}
+```
+
+All entries are normalized absolute local filesystem patterns. `files` are retained while missing; `globs` describe populations and are retained while matching nothing. The command declares topology without loading a TypeScript Program or reading the external content. Hosts call it only when the capability is explicitly enabled, so older strict sidecars are never probed with an unknown command. A failing refresh leaves the consumer's last successful snapshot in force. HTTP(S) resources do not belong in this protocol.
 
 ## LSP sidecar verbs
 
