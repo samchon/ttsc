@@ -426,12 +426,13 @@ function readConfigPluginEntries(
   configPath: string,
   context: TtscPluginFactoryContext<ITtscLintPluginConfig>,
 ): ConfigPluginEntry[] {
-  // A JSON config that names no contributor has nothing to extract, and reading
-  // it runs no user code, so the isolated evaluator is not needed to keep its
-  // strings away from stdout. Skipping it there matters beyond the cost: the
-  // evaluator is a real subprocess, and a host that only wanted to know whether
-  // there were contributors would otherwise depend on a launcher being
-  // resolvable and on a compiler accepting one more invocation.
+  // A JSON config that can bring no contributor with it — no `plugins` map and
+  // no `extends` chain to follow — has nothing to extract, and reading it runs
+  // no user code, so the isolated evaluator is not needed to keep its strings
+  // away from stdout. Skipping it there matters beyond the cost: the evaluator
+  // is a real subprocess, and a host that only wanted to know whether there
+  // were contributors would otherwise depend on a launcher being resolvable and
+  // on a compiler accepting one more invocation.
   if (jsonConfigDeclaresNoContributor(configPath)) return [];
   // Every other config uses the same isolated evaluator. Executable config can
   // name contributor packages whose top-level code writes to stdout, so loading
@@ -444,7 +445,7 @@ function jsonConfigDeclaresNoContributor(configPath: string): boolean {
   if (path.extname(configPath).toLowerCase() !== ".json") return false;
   try {
     const value: unknown = JSON.parse(fs.readFileSync(configPath, "utf8"));
-    return configObjectsDeclaringPlugins(value).length === 0;
+    return !configMayDeclareContributor(value);
   } catch {
     // A malformed config is the evaluator's diagnostic to report, not this
     // shortcut's, so it falls through to the path that reports it.
@@ -452,17 +453,26 @@ function jsonConfigDeclaresNoContributor(configPath: string): boolean {
   }
 }
 
-/** Every object in a config that declares a `plugins` map, flattened. */
-function configObjectsDeclaringPlugins(
-  value: unknown,
-): Record<string, unknown>[] {
+/**
+ * Whether any object in a config could still bring a contributor with it.
+ *
+ * A `plugins` map names one directly. An `extends` chain names one indirectly:
+ * the base it points at may be executable and may declare contributors of its
+ * own, and following that chain is the evaluator's job. Treating a config that
+ * extends anything as undecidable here is what keeps this shortcut from
+ * silently dropping a contributor the base would have supplied.
+ */
+function configMayDeclareContributor(value: unknown): boolean {
   if (Array.isArray(value)) {
-    return value.flatMap((entry) => configObjectsDeclaringPlugins(entry));
+    return value.some((entry) => configMayDeclareContributor(entry));
   }
-  if (value === null || typeof value !== "object") return [];
+  if (value === null || typeof value !== "object") return false;
   const record = value as Record<string, unknown>;
-  const plugins = record.plugins;
-  return plugins !== undefined && plugins !== null ? [record] : [];
+  for (const key of ["plugins", "extends"]) {
+    const declared = record[key];
+    if (declared !== undefined && declared !== null) return true;
+  }
+  return false;
 }
 
 // TypeScript source written to a temp file and executed via ttsx. The
