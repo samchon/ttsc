@@ -21,7 +21,7 @@ export const test_readprojectconfig_substitutes_configdir_from_the_final_consume
       preset,
       JSON.stringify({
         compilerOptions: {
-          baseUrl: "${configDir}/base",
+          baseUrl: "${configDir}base",
           declarationDir: "${configDir}/types",
           outDir: "${configDir}/dist",
           outFile: "${configDir}/bundle/output.js",

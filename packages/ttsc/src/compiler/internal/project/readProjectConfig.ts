@@ -283,9 +283,14 @@ function resolveCompilerOptionPath(
     value.slice(0, CONFIG_DIR_TEMPLATE.length).toLowerCase() ===
     CONFIG_DIR_TEMPLATE.toLowerCase()
   ) {
+    const suffix = value.slice(CONFIG_DIR_TEMPLATE.length);
     return resolveAbsolutePath(
       configDir,
-      `.${value.slice(CONFIG_DIR_TEMPLATE.length)}`,
+      suffix.length === 0
+        ? "."
+        : suffix.startsWith("/") || suffix.startsWith("\\")
+          ? `.${suffix}`
+          : suffix,
     );
   }
   return resolveAbsolutePath(declaringDir, value);
