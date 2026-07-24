@@ -78,7 +78,7 @@ export const test_project_input_path_identity_respects_directory_case_semantics 
         windowsHide: true,
       },
     );
-    if (enabled.status !== 0) return;
+    assert.equal(enabled.status, 0, enabled.error?.message ?? enabled.stderr);
     fs.writeFileSync(path.join(sensitiveRoot, "Marker.txt"), "", "utf8");
     assert.notEqual(
       actual.resolve(path.join(sensitiveRoot, "Spec.md")).key,
