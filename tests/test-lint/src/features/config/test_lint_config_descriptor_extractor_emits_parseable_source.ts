@@ -1,4 +1,5 @@
-import { TTSX_EXTRACTOR_SCRIPT } from "../../../../../packages/lint/src/index";
+import { TTSX_EXTRACTOR_SCRIPT } from "@ttsc/lint";
+
 import { assert } from "../../internal/config-file";
 
 /**
