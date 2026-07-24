@@ -1651,6 +1651,22 @@ function discoverNativeProjectInputs(
   return mergeProjectInputSnapshots(execution.projectRoot, snapshots);
 }
 
+/**
+ * Keep one declared spelling per identity, chosen without regard to order.
+ *
+ * Two producers can declare the same file under different aliases, and the
+ * merged snapshot has to be canonical: last-write-wins would make the published
+ * topology depend on which contributor ran first.
+ */
+function retainDeclaredSpelling(
+  target: Map<string, string>,
+  key: string,
+  declared: string,
+): void {
+  const previous = target.get(key);
+  if (previous === undefined || declared < previous) target.set(key, declared);
+}
+
 export function mergeProjectInputSnapshots(
   fallbackRoot: string,
   snapshots: readonly ITtscProjectInputSnapshot[],
@@ -1679,12 +1695,13 @@ export function mergeProjectInputSnapshots(
     for (const file of snapshot.files) {
       const identity = identities.resolve(file);
       files.set(identity.key, identity.path);
-      declaredFiles.set(identity.key, path.resolve(file));
+      retainDeclaredSpelling(declaredFiles, identity.key, path.resolve(file));
     }
     for (const glob of snapshot.globs) {
       const identity = identities.resolve(glob);
       globs.set(identity.key, identity.path.split(path.sep).join("/"));
-      declaredGlobs.set(
+      retainDeclaredSpelling(
+        declaredGlobs,
         identity.key,
         path.resolve(glob).split(path.sep).join("/"),
       );
@@ -1692,12 +1709,17 @@ export function mergeProjectInputSnapshots(
     for (const reloadFile of snapshot.reloadFiles ?? []) {
       const identity = identities.resolve(reloadFile);
       reloadFiles.set(identity.key, identity.path);
-      declaredReloadFiles.set(identity.key, path.resolve(reloadFile));
+      retainDeclaredSpelling(
+        declaredReloadFiles,
+        identity.key,
+        path.resolve(reloadFile),
+      );
     }
     for (const reloadDirectory of snapshot.reloadDirectories ?? []) {
       const identity = identities.resolve(reloadDirectory);
       reloadDirectories.set(identity.key, identity.path);
-      declaredReloadDirectories.set(
+      retainDeclaredSpelling(
+        declaredReloadDirectories,
         identity.key,
         path.resolve(reloadDirectory),
       );
