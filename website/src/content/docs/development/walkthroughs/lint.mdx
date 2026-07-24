@@ -250,7 +250,7 @@ type RuleResolver interface {
 
 The engine queries this resolver per file, so two files with different scopes can get different rule sets. The resolver also handles the `.gitignore`-like `ignores` field, returning a `ResolvedRuleConfig` with `Ignored: true` for excluded paths so the engine can short-circuit without walking the AST.
 
-For the TypeScript-side discovery (`lint.config.ts` evaluation through `ttsx`), see [`packages/lint/src/index.ts`](https://github.com/samchon/ttsc/tree/master/packages/lint/src/index.ts), the JS factory spawns `ttsx` against a synthesized loader that extracts the user's `plugins` map, then writes the result to stdout as JSON. The Go side parses that JSON and feeds the resulting `contributors` into the plugin descriptor.
+For the TypeScript-side discovery (`lint.config.ts` evaluation through `ttsx`), see [`packages/lint/src/index.ts`](https://github.com/samchon/ttsc/tree/master/packages/lint/src/index.ts). The JS factory spawns `ttsx` against a synthesized loader that extracts the user's `plugins` map and writes the result to a private temporary file. Config logs are redirected to stderr so they cannot corrupt CLI JSON or LSP framing. The factory parses the private result and feeds the resulting `contributors` into the plugin descriptor.
 
 ## The engine (`linthost/engine.go`)
 

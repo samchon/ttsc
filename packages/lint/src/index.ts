@@ -861,12 +861,20 @@ function evaluateTtsxConfigPlugins(
       env,
       encoding: "utf8",
       maxBuffer: 1024 * 1024 * 16,
-      stdio: ["ignore", "inherit", "pipe"],
+      stdio: ["ignore", "pipe", "pipe"],
       // 60s cap so a runaway top-level await / infinite loop in the
       // user's lint config can't hang the entire ttsc invocation.
       timeout: 60_000,
       windowsHide: true,
     });
+    // The private result file is the evaluator protocol. User code may still
+    // write to stdout while the config is imported, but that output must never
+    // enter the host's machine channel: `ttsc --showConfig` emits JSON there
+    // and `ttscserver` emits Content-Length frames. Preserve the user's log by
+    // forwarding the captured bytes to stderr after the child has exited.
+    if (result.stdout) {
+      process.stderr.write(result.stdout);
+    }
     if (result.error) {
       throw new Error(
         `@ttsc/lint: failed to spawn ttsx for ${configPath}: ${result.error.message}`,
