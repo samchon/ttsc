@@ -1332,6 +1332,7 @@ func (p *Proxy) publishMergedPluginDiagnostics(uri string, version *int, adoptCa
     p.reportAsyncError(err)
     if writeResult.frameWritten &&
       p.recordPendingProjectDiagnosticOwnersRefreshed(
+        projectGeneration,
         diagnostics.projectUpdatedProducers,
       ) {
       p.completePendingProjectDiagnosticRefresh(projectGeneration)
@@ -2620,12 +2621,13 @@ func (p *Proxy) scheduleProjectDiagnosticRefresh(
       return
     }
   }
+  // Generation ownership and pending scope form one transaction. Resume uses
+  // the same diagnostics -> refresh lock order, so neither path can overwrite
+  // the other's newer pending generation between the two assignments.
   p.diagnosticsMu.Lock()
+  p.projectRefreshMu.Lock()
   p.projectDiagnosticGeneration++
   generation := p.projectDiagnosticGeneration
-  p.diagnosticsMu.Unlock()
-
-  p.projectRefreshMu.Lock()
   p.pendingProjectDiagnosticGeneration = generation
   p.projectDiagnosticRefreshPending = true
   if scope.all {
@@ -2641,6 +2643,7 @@ func (p *Proxy) scheduleProjectDiagnosticRefresh(
   }
   p.armProjectDiagnosticRefreshLocked()
   p.projectRefreshMu.Unlock()
+  p.diagnosticsMu.Unlock()
 }
 
 func (p *Proxy) armProjectDiagnosticRefreshLocked() {
@@ -2666,11 +2669,13 @@ func (p *Proxy) pendingProjectDiagnosticScopeLocked() projectDiagnosticOwnerScop
 }
 
 func (p *Proxy) recordPendingProjectDiagnosticOwnersRefreshed(
+  generation uint64,
   refreshed map[string]struct{},
 ) bool {
   p.projectRefreshMu.Lock()
   defer p.projectRefreshMu.Unlock()
   if !p.projectDiagnosticRefreshPending ||
+    generation < p.pendingProjectDiagnosticGeneration ||
     p.pendingProjectDiagnosticAllOwners ||
     len(p.pendingProjectDiagnosticOwners) == 0 {
     return false
@@ -2732,7 +2737,10 @@ func (p *Proxy) refreshProjectDiagnostics(uint64) {
   if writeResult.frameWritten {
     ownersComplete :=
       !scope.all &&
-        p.recordPendingProjectDiagnosticOwnersRefreshed(refresh.refreshed)
+        p.recordPendingProjectDiagnosticOwnersRefreshed(
+          generation,
+          refresh.refreshed,
+        )
     if refresh.complete || ownersComplete {
       p.completePendingProjectDiagnosticRefresh(generation)
     }

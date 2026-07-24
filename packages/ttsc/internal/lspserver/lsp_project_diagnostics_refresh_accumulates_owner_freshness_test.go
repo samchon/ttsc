@@ -7,12 +7,23 @@ import "testing"
 func TestProjectDiagnosticsRefreshAccumulatesOwnerFreshness(t *testing.T) {
   proxy := NewProxy(ProxyOptions{})
   proxy.projectDiagnosticRefreshPending = true
+  proxy.pendingProjectDiagnosticGeneration = 2
   proxy.pendingProjectDiagnosticOwners = map[string]struct{}{
     "alpha": {},
     "beta":  {},
   }
 
   if proxy.recordPendingProjectDiagnosticOwnersRefreshed(
+    1,
+    map[string]struct{}{"beta": {}},
+  ) {
+    t.Fatal("stale producer refresh completed the newer generation")
+  }
+  if _, pending := proxy.pendingProjectDiagnosticOwners["beta"]; !pending {
+    t.Fatal("stale producer refresh removed a newer pending owner")
+  }
+  if proxy.recordPendingProjectDiagnosticOwnersRefreshed(
+    2,
     map[string]struct{}{"alpha": {}},
   ) {
     t.Fatal("one producer completed a two-producer refresh")
@@ -24,6 +35,7 @@ func TestProjectDiagnosticsRefreshAccumulatesOwnerFreshness(t *testing.T) {
     t.Fatal("failed producer was removed from pending scope")
   }
   if !proxy.recordPendingProjectDiagnosticOwnersRefreshed(
+    2,
     map[string]struct{}{"beta": {}},
   ) {
     t.Fatal("separate producer successes did not complete the generation")
