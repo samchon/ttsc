@@ -665,6 +665,35 @@ func init() { rule.RegisterProject(noCycles{}) }
 
 The host runs each project rule once per Program, before file rules, even when `ctx.Sources` is empty. `ctx.Identity` keeps the caller's logical config and root spelling separate from the real paths used by the compiler, and also carries the invocation cwd, optional explicit project root, plugin-config origin, and lifecycle id. `ctx.Report` records a project finding and fails the rule; `ctx.Fail` fails it silently. A later file rule reads the same cycle through `ctx.ProjectResult(name)`, whose status is one of `absent`, `off`, `not_evaluated`, `passed`, or `failed`.
 
+If the rule reads local files that are not TypeScript Program inputs, publish their configured topology through the optional `rule.ProjectInputRule` contract:
+
+```go
+func (evidenceRule) ProjectInputs(ctx *rule.ProjectInputContext) []rule.ProjectInput {
+  var options struct {
+    Markdown []string `json:"markdown"`
+    OpenAPI  string   `json:"openapi"`
+  }
+  if err := ctx.DecodeOptions(&options); err != nil {
+    panic(err)
+  }
+  inputs := []rule.ProjectInput{{
+    Kind: rule.ProjectInputFile,
+    Pattern: options.OpenAPI,
+  }}
+  for _, pattern := range options.Markdown {
+    inputs = append(inputs, rule.ProjectInput{
+      Kind: rule.ProjectInputGlob,
+      Pattern: pattern,
+    })
+  }
+  return inputs
+}
+```
+
+`ProjectInputs` runs after the rule's global options and physical project identity are resolved, but before a TypeScript Program is loaded. A relative pattern is anchored to `ctx.Identity.PhysicalProjectRoot`. `ProjectInputFile` retains an exact path even when it is missing; `ProjectInputGlob` retains the population even when it currently matches nothing. That distinction lets a host observe later create, change, delete, and rename events without watching unrelated workspace documents. Publish the configured inputs, not only the files a successful `Check` happened to read, so a parse failure does not erase the dependency that can repair it. The host resolves symlink aliases, normalizes platform spelling, and shares duplicates before exposing one snapshot to CLI and editor consumers.
+
+Only local filesystem paths belong in this contract. HTTP(S) URLs have no filesystem event and need a contributor-owned polling or conditional-revalidation policy.
+
 Attach contributor-owned state when file rules must reuse the exact project binding selected during preflight:
 
 ```go

@@ -1182,6 +1182,33 @@ func init() { rule.RegisterProject(noCycles{}) }
 
 Each project rule runs once per loaded Program, before file rules. `ctx.Identity` includes the invocation cwd, logical and physical config paths and roots, an optional explicit project root, the plugin-config origin, and a lifecycle id. `Report` marks the rule failed and emits one project finding; `Fail` marks it failed without a finding. Later file rules can call `ctx.ProjectResult(name)` and distinguish `absent`, `off`, `not_evaluated`, `passed`, and `failed`.
 
+When a project rule reads local files outside the TypeScript Program, implement `rule.ProjectInputRule` so watch and editor hosts can observe exactly those inputs:
+
+```go
+func (evidenceRule) ProjectInputs(ctx *rule.ProjectInputContext) []rule.ProjectInput {
+  var options struct {
+    Markdown []string `json:"markdown"`
+    OpenAPI  string   `json:"openapi"`
+  }
+  if err := ctx.DecodeOptions(&options); err != nil {
+    panic(err)
+  }
+  inputs := []rule.ProjectInput{{
+    Kind: rule.ProjectInputFile,
+    Pattern: options.OpenAPI,
+  }}
+  for _, pattern := range options.Markdown {
+    inputs = append(inputs, rule.ProjectInput{
+      Kind: rule.ProjectInputGlob,
+      Pattern: pattern,
+    })
+  }
+  return inputs
+}
+```
+
+Relative patterns are anchored to `ctx.Identity.PhysicalProjectRoot`. Exact files remain dependencies while missing, and globs remain populations while they match nothing, so later create, rename, and repair events are observable. The host normalizes symlink aliases and shares duplicate declarations before publishing one snapshot. Declare configured topology rather than only files a successful `Check` happened to read; `ProjectInputs` runs after options and project identity are resolved but before a TypeScript Program is loaded. HTTP(S) URLs are not filesystem inputs and require a contributor-owned polling or conditional-revalidation policy.
+
 Use `ctx.SetState(value)` when a later file rule needs the exact project binding selected during that check. The host returns the same value without interpreting or serializing it:
 
 ```go

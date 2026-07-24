@@ -23,6 +23,7 @@ type TtscPluginDescriptor = {
     diagnosticsTiming?: boolean;
     lsp?: boolean;
     projectContextArgs?: boolean;
+    projectInputs?: boolean;
     threadingArgs?: boolean;
   };
   contributors?: TtscPluginContributor[];
@@ -134,6 +135,7 @@ export default function createTtscPlugin(
       diagnosticsTiming: true,
       lsp: true,
       projectContextArgs: true,
+      projectInputs: true,
       threadingArgs: true,
     },
     name: "@ttsc/lint",

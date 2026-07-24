@@ -219,6 +219,14 @@ func (r boundProjectRuleResolver) RuleOptionsVariants(name string) []json.RawMes
   return resolvedRuleOptionsVariants(r.RuleResolver, name)
 }
 
+func (r boundProjectRuleResolver) ConfigPaths() []string {
+  resolver, ok := r.RuleResolver.(interface{ ConfigPaths() []string })
+  if !ok {
+    return nil
+  }
+  return resolver.ConfigPaths()
+}
+
 // ResolveRules implements RuleResolver. A flat RuleConfig has no glob scoping,
 // so every file receives the full map unchanged.
 func (c RuleConfig) ResolveRules(string) ResolvedRuleConfig {
@@ -355,6 +363,17 @@ func (r InlineRuleResolver) ResolveProjectRules(names []string) (map[string]Proj
 // extending file's own entry so local rules win on collision.
 type ConfigStore struct {
   entries []ConfigEntry
+  paths   []string
+}
+
+// ConfigPaths returns the config and extends files that produced this store.
+// The paths are retained as exact dependencies even when no rule declares
+// additional project inputs.
+func (s *ConfigStore) ConfigPaths() []string {
+  if s == nil {
+    return nil
+  }
+  return append([]string(nil), s.paths...)
 }
 
 // RuleOptions implements the file-agnostic RuleResolver compatibility method.
@@ -703,7 +722,9 @@ func collectConfigStore(raw any, configDir, rootPath string) (*ConfigStore, erro
   store := &ConfigStore{}
   var chain []string
   if rootPath != "" {
-    chain = []string{filepath.Clean(rootPath)}
+    rootPath = filepath.Clean(rootPath)
+    chain = []string{rootPath}
+    store.paths = append(store.paths, rootPath)
   }
   if err := collectConfigObject(store, raw, configDir, "config", chain); err != nil {
     return nil, err
@@ -786,6 +807,9 @@ func collectConfigObject(store *ConfigStore, raw any, baseDir, path string, chai
     extendedChain, err := appendExtendsLink(chain, location)
     if err != nil {
       return err
+    }
+    if !containsPath(store.paths, location) {
+      store.paths = append(store.paths, location)
     }
     extendedRaw, err := loadConfigFile(location)
     if err != nil {

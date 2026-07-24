@@ -47,6 +47,15 @@ export interface ITtscPluginCapabilities {
   projectContextArgs?: boolean;
 
   /**
+   * Whether the sidecar implements the `project-inputs` command. The command
+   * publishes normalized exact paths and glob populations declared by enabled
+   * project rules without loading a TypeScript Program.
+   *
+   * @default false
+   */
+  projectInputs?: boolean;
+
+  /**
    * Whether the sidecar accepts `--singleThreaded` and `--checkers` on its
    * command line. The lint sidecar parses both flags via `parseSubcommandFlags`
    * and threads them into `loadProgram` (parse phase) and `engine.SetSerial`
