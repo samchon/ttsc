@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import fs from "node:fs";
 import { createRequire } from "node:module";
 import os from "node:os";
@@ -202,6 +202,16 @@ function loadContributorPluginViaRequire(
 
 /** Plugin entries observed in a lint config file, normalized per file. */
 type ConfigPluginEntry = { namespace: string; source: string };
+
+type ConfigDependencyFingerprint = {
+  digest: string;
+  path: string;
+};
+
+type ConfigPluginEvaluation = {
+  dependencies: ConfigDependencyFingerprint[];
+  entries: ConfigPluginEntry[];
+};
 
 /**
  * Resolves the contributor lint plugins declared in the project's lint config
@@ -417,11 +427,10 @@ function readConfigPluginEntries(
   if (ext === ".json") {
     return readJsonConfigPlugins(configPath, context);
   }
-  if (ext === ".js" || ext === ".cjs") {
-    return readCjsConfigPlugins(configPath);
-  }
-  // .ts, .cts, .mts, .mjs all need ttsx-side evaluation. .mjs sneaks in
-  // here because Node can't `require()` an ESM file synchronously.
+  // Every executable config uses the same isolated evaluator. Besides keeping
+  // CommonJS, ESM, and TypeScript export normalization identical, the process
+  // records the complete local module graph so helper-only edits invalidate
+  // both contributor selection and the native config cache.
   return readTtsxConfigPlugins(configPath, context);
 }
 
@@ -468,65 +477,6 @@ function readJsonConfigPlugins(
     });
 }
 
-function readCjsConfigPlugins(configPath: string): ConfigPluginEntry[] {
-  let mod: unknown;
-  try {
-    const requireFromConfig = createRequire(configPath);
-    const resolved = requireFromConfig.resolve(configPath);
-    // A resident CLI process calls the descriptor factory again after a lint
-    // config reload. Invalidate the config's local dependency graph as well as
-    // its entry: shared helper modules can own the changed contributor
-    // selection even when the entry file itself is unchanged. Package
-    // dependencies stay cached because they are not mutable config state.
-    evictLocalCjsConfigGraph(
-      requireFromConfig.cache,
-      resolved,
-      path.dirname(resolved),
-    );
-    mod = requireFromConfig(resolved);
-  } catch (error) {
-    throw new Error(
-      `@ttsc/lint: failed to load lint config ${configPath}: ${
-        error instanceof Error ? error.message : String(error)
-      }`,
-    );
-  }
-  return collectPluginObjectsFromConfig(unwrapDefault(mod))
-    .flatMap((map) => Object.entries(map))
-    .map(([namespace, value]) =>
-      normalizePluginValue(namespace, value, configPath),
-    );
-}
-
-function evictLocalCjsConfigGraph(
-  cache: NodeJS.Dict<NodeModule>,
-  resolved: string,
-  configDir: string,
-  visited = new Set<string>(),
-): void {
-  if (visited.has(resolved)) return;
-  visited.add(resolved);
-  const cached = cache[resolved];
-  if (cached !== undefined) {
-    for (const child of cached.children) {
-      if (isPathWithinDirectory(configDir, child.filename)) {
-        evictLocalCjsConfigGraph(cache, child.filename, configDir, visited);
-      }
-    }
-  }
-  delete cache[resolved];
-}
-
-function isPathWithinDirectory(directory: string, candidate: string): boolean {
-  const relative = path.relative(directory, candidate);
-  return (
-    relative === "" ||
-    (relative !== ".." &&
-      !relative.startsWith(`..${path.sep}`) &&
-      !path.isAbsolute(relative))
-  );
-}
-
 // TypeScript source written to a temp file and executed via ttsx. The
 // %CONFIG_IMPORT% placeholder is replaced with a JSON-quoted file URL
 // before the file hits disk. The script walks the exported config object,
@@ -534,7 +484,13 @@ function isPathWithinDirectory(directory: string, candidate: string): boolean {
 // as a JSON array for the parent process to parse — avoiding the need to
 // serialise arbitrary in-memory plugin objects across the process boundary.
 // The URL lives in a variable so tsgo does not statically resolve it.
-const TTSX_EXTRACTOR_SCRIPT = `const configUrl = %CONFIG_IMPORT%;
+const TTSX_EXTRACTOR_SCRIPT = `import * as fs from "node:fs";
+import { createHash } from "node:crypto";
+import { createRequire, registerHooks } from "node:module";
+import { fileURLToPath } from "node:url";
+
+const configUrl = %CONFIG_IMPORT%;
+const requireFromConfig = createRequire(configUrl);
 const CONFIG_KEYS = new Set<string>([
   "files",
   "ignores",
@@ -543,7 +499,8 @@ const CONFIG_KEYS = new Set<string>([
   "rules",
   "format",
 ]);
-const importedConfig = await import(configUrl);
+const dependencies = new Map<string, string>();
+const trackedUrls = new Set<string>();
 
 declare const process: {
   cwd(): string;
@@ -552,7 +509,43 @@ declare const process: {
   exit(code?: number): never;
 };
 
+const hooks = registerHooks({
+  resolve(specifier, context, nextResolve) {
+    const resolved = nextResolve(specifier, context);
+    if (typeof resolved.url !== "string" || !resolved.url.startsWith("file:")) {
+      return resolved;
+    }
+    const url = new URL(resolved.url).href;
+    const parent = context.parentURL && new URL(context.parentURL).href;
+    const entry = url === new URL(configUrl).href;
+    if (!entry && (parent === undefined || !trackedUrls.has(parent))) {
+      return resolved;
+    }
+    const location = fileURLToPath(url);
+    if (
+      !entry &&
+      location.replaceAll("\\\\", "/").split("/").includes("node_modules") &&
+      !isLocalModuleSpecifier(specifier)
+    ) {
+      return resolved;
+    }
+    trackedUrls.add(url);
+    try {
+      dependencies.set(
+        location,
+        createHash("sha256").update(fs.readFileSync(location)).digest("hex"),
+      );
+    } catch {
+      // The evaluator remains authoritative for the load error. An unreadable
+      // dependency simply makes this result non-cacheable in the parent.
+      dependencies.set(location, "");
+    }
+    return resolved;
+  },
+});
+
 try {
+  const importedConfig = await import(configUrl);
   const current = await resolveConfig(importedConfig, true);
   const pluginMaps = collectPluginObjects(current);
   const entries: Array<{ namespace: string; source: string }> = [];
@@ -563,14 +556,26 @@ try {
       entries.push({ namespace, source });
     }
   }
-  process.stdout.write(JSON.stringify({ entries }));
+  process.stdout.write(JSON.stringify({
+    dependencies: [...dependencies].map(([path, digest]) => ({ path, digest })),
+    entries,
+  }));
 } catch (error) {
   process.stderr.write(error instanceof Error && error.stack ? error.stack : String(error));
   process.exit(1);
+} finally {
+  hooks.deregister();
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object";
+}
+
+function isLocalModuleSpecifier(specifier: string): boolean {
+  return specifier.startsWith(".") ||
+    specifier.startsWith("/") ||
+    specifier.startsWith("file:") ||
+    /^[A-Za-z]:[\\\\/]/.test(specifier);
 }
 
 function hasOwn(value: Record<string, unknown>, key: string): boolean {
@@ -660,7 +665,9 @@ function collectPluginObjects(value: unknown): Array<Record<string, unknown>> {
 }
 
 function extractPluginSource(value: unknown): string | undefined {
-  if (typeof value === "string") return value;
+  if (typeof value === "string") {
+    value = requireFromConfig(value);
+  }
   if (!isObject(value)) return undefined;
   // ESM-from-CJS interop wraps CJS modules' \`exports.default\` so the
   // plugin object can land under a \`.default\` indirection. Walk a few
@@ -683,14 +690,16 @@ function extractPluginSource(value: unknown): string | undefined {
 `;
 
 /**
- * Resolves the contributor plugin entries declared in a .ts/.mjs lint config,
+ * Resolves contributor plugin entries declared in any executable lint config,
  * memoized through the shared on-disk config cache.
  *
  * Evaluating such a config spawns a full `ttsx` subprocess. A monorepo build
  * runs one `ttsc` process per package, and each would otherwise re-spawn `ttsx`
  * for the same shared config; the cache collapses that to a single evaluation.
- * The cache is keyed by the config file's path and exact contents (see
- * `configCacheKey`), so an edit re-evaluates cleanly.
+ * The cache key covers the entry's path and exact contents; the payload also
+ * fingerprints every local module reached from that entry. An entry or helper
+ * edit therefore re-evaluates cleanly without treating installed packages as
+ * project watch inputs.
  */
 function readTtsxConfigPlugins(
   configPath: string,
@@ -703,11 +712,27 @@ function readTtsxConfigPlugins(
     // resolved `source` directory may have moved since the entry was
     // written. A stale entry falls through to a fresh evaluation rather
     // than being forwarded to ttsc's plugin builder as a dead path.
-    if (cached && cached.every(isValidConfigPluginEntry)) return cached;
+    if (
+      cached &&
+      cached.entries.every(isValidConfigPluginEntry) &&
+      configDependenciesAreCurrent(cached.dependencies)
+    ) {
+      return cached.entries;
+    }
   }
-  const entries = evaluateTtsxConfigPlugins(configPath, context);
-  if (cacheKey) writeConfigPluginCache(cacheKey, entries);
-  return entries;
+  // A config can be saved while it is being evaluated. Retry a bounded number
+  // of times until every dependency still has the bytes the module hook saw.
+  // A continuously changing config remains usable but is deliberately not
+  // cached; watch will schedule another cycle.
+  let evaluation: ConfigPluginEvaluation;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    evaluation = evaluateTtsxConfigPlugins(configPath, context);
+    if (configDependenciesAreCurrent(evaluation.dependencies)) {
+      if (cacheKey) writeConfigPluginCache(cacheKey, evaluation);
+      return evaluation.entries;
+    }
+  }
+  return evaluation!.entries;
 }
 
 /**
@@ -739,7 +764,7 @@ function isValidConfigPluginEntry(entry: unknown): entry is ConfigPluginEntry {
 function evaluateTtsxConfigPlugins(
   configPath: string,
   _context: TtscPluginFactoryContext<ITtscLintPluginConfig>,
-): ConfigPluginEntry[] {
+): ConfigPluginEvaluation {
   const tempDir = realpathIfPossible(
     fs.mkdtempSync(path.join(loaderTempBase(configPath), "ttsc-lint-cfg-")),
   );
@@ -832,9 +857,15 @@ function evaluateTtsxConfigPlugins(
         `@ttsc/lint: lint config ${configPath} evaluation failed:\n${result.stderr || result.stdout}`,
       );
     }
-    let payload: { entries?: ConfigPluginEntry[] };
+    let payload: {
+      dependencies?: ConfigDependencyFingerprint[];
+      entries?: ConfigPluginEntry[];
+    };
     try {
-      payload = JSON.parse(result.stdout) as { entries?: ConfigPluginEntry[] };
+      payload = JSON.parse(result.stdout) as {
+        dependencies?: ConfigDependencyFingerprint[];
+        entries?: ConfigPluginEntry[];
+      };
     } catch (error) {
       throw new Error(
         `@ttsc/lint: lint config ${configPath} evaluator returned invalid JSON: ${
@@ -842,12 +873,25 @@ function evaluateTtsxConfigPlugins(
         }`,
       );
     }
-    const entries = payload.entries ?? [];
-    return entries.map((entry) => {
+    if (!Array.isArray(payload.entries)) {
+      throw new Error(
+        `@ttsc/lint: lint config ${configPath} evaluator omitted its plugin-entry array`,
+      );
+    }
+    const entries = payload.entries.map((entry) => {
       // The ttsx extractor already resolved each plugin object's
       // `source` to an absolute directory path. Validate the shape but
       // skip the specifier-resolution branch — re-routing a directory
       // through `createRequire().resolve` would fail.
+      if (
+        entry === null ||
+        typeof entry !== "object" ||
+        typeof entry.namespace !== "string"
+      ) {
+        throw new Error(
+          `@ttsc/lint: lint config ${configPath} evaluator returned a malformed plugin entry`,
+        );
+      }
       if (!NAMESPACE_PATTERN.test(entry.namespace)) {
         throw new Error(
           `@ttsc/lint: lint config ${configPath} namespace ${JSON.stringify(entry.namespace)} must match /^[a-z][a-z0-9_-]*$/`,
@@ -873,6 +917,15 @@ function evaluateTtsxConfigPlugins(
       }
       return { namespace: entry.namespace, source: entry.source };
     });
+    const dependencies = normalizeConfigDependencyFingerprints(
+      payload.dependencies,
+    );
+    if (dependencies === undefined) {
+      throw new Error(
+        `@ttsc/lint: lint config ${configPath} evaluator returned malformed dependency fingerprints`,
+      );
+    }
+    return { dependencies, entries };
   } finally {
     fs.rmSync(tempDir, { recursive: true, force: true });
   }
@@ -886,7 +939,7 @@ function evaluateTtsxConfigPlugins(
  * Namespaces the on-disk config cache. Kept in lockstep with the Go sidecar's
  * `configCacheVersion`; bump both when the cached shape changes.
  */
-const CONFIG_CACHE_VERSION = "v2";
+const CONFIG_CACHE_VERSION = "v3";
 
 /**
  * Directory shared by this factory and the Go sidecar for cached lint configs.
@@ -934,7 +987,7 @@ function configCacheKey(kind: string, configPath: string): string {
  */
 function readConfigPluginCache(
   cacheKey: string,
-): ConfigPluginEntry[] | undefined {
+): ConfigPluginEvaluation | undefined {
   let body: string;
   try {
     body = fs.readFileSync(
@@ -946,7 +999,22 @@ function readConfigPluginCache(
   }
   try {
     const parsed: unknown = JSON.parse(body);
-    return Array.isArray(parsed) ? (parsed as ConfigPluginEntry[]) : undefined;
+    if (
+      parsed === null ||
+      typeof parsed !== "object" ||
+      !Array.isArray((parsed as ConfigPluginEvaluation).entries) ||
+      !Array.isArray((parsed as ConfigPluginEvaluation).dependencies)
+    ) {
+      return undefined;
+    }
+    const dependencies = normalizeConfigDependencyFingerprints(
+      (parsed as ConfigPluginEvaluation).dependencies,
+    );
+    if (dependencies === undefined) return undefined;
+    return {
+      dependencies,
+      entries: (parsed as ConfigPluginEvaluation).entries,
+    };
   } catch {
     return undefined;
   }
@@ -960,17 +1028,79 @@ function readConfigPluginCache(
  */
 function writeConfigPluginCache(
   cacheKey: string,
-  entries: ConfigPluginEntry[],
+  evaluation: ConfigPluginEvaluation,
 ): void {
   try {
     const dir = configCacheDir();
     fs.mkdirSync(dir, { recursive: true });
-    const tmp = path.join(dir, `${cacheKey}.${process.pid}.tmp`);
-    fs.writeFileSync(tmp, JSON.stringify(entries), "utf8");
-    fs.renameSync(tmp, path.join(dir, `${cacheKey}.json`));
+    const tmp = path.join(
+      dir,
+      `${cacheKey}.${process.pid}.${randomUUID()}.tmp`,
+    );
+    try {
+      fs.writeFileSync(tmp, JSON.stringify(evaluation), "utf8");
+      fs.renameSync(tmp, path.join(dir, `${cacheKey}.json`));
+    } finally {
+      try {
+        fs.unlinkSync(tmp);
+      } catch {
+        // A successful rename already consumed the temporary path.
+      }
+    }
   } catch {
     // Cold cache on failure — the next invocation re-evaluates.
   }
+}
+
+function normalizeConfigDependencyFingerprints(
+  value: unknown,
+): ConfigDependencyFingerprint[] | undefined {
+  if (!Array.isArray(value) || value.length === 0) return undefined;
+  const dependencies = new Map<string, ConfigDependencyFingerprint>();
+  for (const candidate of value) {
+    if (
+      candidate === null ||
+      typeof candidate !== "object" ||
+      typeof (candidate as ConfigDependencyFingerprint).path !== "string" ||
+      typeof (candidate as ConfigDependencyFingerprint).digest !== "string"
+    ) {
+      return undefined;
+    }
+    const candidatePath = (candidate as ConfigDependencyFingerprint).path;
+    const digest = (candidate as ConfigDependencyFingerprint).digest;
+    if (!path.isAbsolute(candidatePath) || !/^[0-9a-f]{64}$/.test(digest)) {
+      return undefined;
+    }
+    const location = path.resolve(candidatePath);
+    const previous = dependencies.get(location);
+    if (previous !== undefined && previous.digest !== digest) {
+      return undefined;
+    }
+    dependencies.set(location, {
+      digest,
+      path: location,
+    });
+  }
+  return [...dependencies.values()].sort((left, right) =>
+    left.path.localeCompare(right.path),
+  );
+}
+
+function configDependenciesAreCurrent(
+  dependencies: readonly ConfigDependencyFingerprint[],
+): boolean {
+  if (dependencies.length === 0) return false;
+  return dependencies.every((dependency) => {
+    if (!/^[0-9a-f]{64}$/.test(dependency.digest)) return false;
+    try {
+      const digest = createHash("sha256")
+        .update(fs.readFileSync(dependency.path))
+        .digest("hex");
+      return digest === dependency.digest;
+    } catch {
+      return false;
+    }
+  });
 }
 
 // ────────────────────────────────────────────────────────────────────────────

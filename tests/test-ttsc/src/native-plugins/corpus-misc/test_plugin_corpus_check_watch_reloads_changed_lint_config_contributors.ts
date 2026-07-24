@@ -19,32 +19,40 @@ type ResidentSample = {
  * Verifies a lint-config contributor transition replaces resident execution.
  *
  * The config path is both a backward-compatible project input and a CLI reload
- * input. Reusing the old execution or CommonJS module cache would leave the
- * alpha binary active after the same file selects beta.
+ * input. Reusing the old execution, an entry-only cache, or CommonJS module
+ * state would leave the alpha binary active after an imported helper selects
+ * beta.
  *
- * 1. Start check watch with contributor A and record its resident PID/finding.
- * 2. Overwrite the same CJS config to select contributor B.
+ * 1. Start check watch with contributor A selected by a helper outside the project
+ *    and record its resident PID/finding.
+ * 2. Change only that helper to select contributor B.
  * 3. Require a fresh PID, cold Program, and only B's behavior in that cycle.
  */
 export const test_plugin_corpus_check_watch_reloads_changed_lint_config_contributors =
   async (): Promise<void> => {
     const root = setupLintProject("lint-violations");
     const config = path.join(root, "lint.config.cjs");
+    const shared = fs.mkdtempSync(
+      path.join(path.dirname(root), "ttsc-lint-selection-"),
+    );
+    const selection = path.join(shared, "selection.cjs");
     const alpha = path.join(root, "contributors", "alpha");
     const beta = path.join(root, "contributors", "beta");
     fs.rmSync(path.join(root, "lint.config.json"), { force: true });
     writeContributor(alpha, "alpha");
     writeContributor(beta, "beta");
-    writeConfig(config, "alpha", alpha);
+    writeConfig(config, selection);
+    writeSelection(selection, "alpha", alpha);
 
-    const session = new WatchSession(root, {
-      args: ["--noEmit", "--diagnostics"],
-      env: {
-        PATH: goPath(),
-        TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
-      },
-    });
+    let session: WatchSession | undefined;
     try {
+      session = new WatchSession(root, {
+        args: ["--noEmit", "--diagnostics"],
+        env: {
+          PATH: goPath(),
+          TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
+        },
+      });
       await session.waitForBuilds(1, 300_000);
       const firstTranscript = session.transcript();
       const firstSamples = residentSamples(firstTranscript);
@@ -53,7 +61,7 @@ export const test_plugin_corpus_check_watch_reloads_changed_lint_config_contribu
       assert.match(firstTranscript, /\[alpha\/marker\].*alpha active/s);
       assert.doesNotMatch(firstTranscript, /\[beta\/marker\]/);
 
-      writeConfig(config, "beta", beta);
+      writeSelection(selection, "beta", beta);
       await session.waitForBuilds(2, 300_000);
       const transcript = session.transcript();
       const samples = residentSamples(transcript);
@@ -65,7 +73,8 @@ export const test_plugin_corpus_check_watch_reloads_changed_lint_config_contribu
       assert.doesNotMatch(secondCycle, /ignoring unknown rule/i);
       await waitForProcessExit(samples[0]!.pid);
     } finally {
-      await session.close();
+      await session?.close();
+      fs.rmSync(shared, { recursive: true, force: true });
     }
   };
 
@@ -96,7 +105,15 @@ func init() { rule.Register(marker{}) }
   );
 }
 
-function writeConfig(
+function writeConfig(location: string, selection: string): void {
+  fs.writeFileSync(
+    location,
+    `module.exports = require(${JSON.stringify(selection)});\n`,
+    "utf8",
+  );
+}
+
+function writeSelection(
   location: string,
   namespace: "alpha" | "beta",
   source: string,

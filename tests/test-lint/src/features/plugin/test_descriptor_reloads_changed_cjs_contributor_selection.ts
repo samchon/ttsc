@@ -12,16 +12,19 @@ import { createLintProject } from "../../internal/config-file";
  * the same lint config path would otherwise retain the first module export and
  * rebuild the wrong contributor binary after a config edit.
  *
- * 1. Resolve contributor A through a local helper required by one CJS config.
+ * 1. Resolve contributor A through a sibling helper outside the CJS config
+ *    directory.
  * 2. Change only the helper to select contributor B.
  * 3. Resolve again in-process and require the fresh contributor source.
+ * 4. Select a contributor through a config-relative module specifier and preserve
+ *    the executable-config contract that strings load plugin modules.
  */
 export const test_descriptor_reloads_changed_cjs_contributor_selection =
   (): void => {
     const project = createLintProject({
       name: "contributor-selection-cjs-reload",
       source: "export const value = 1;\n",
-      pluginConfig: { configFile: "./lint.config.cjs" },
+      pluginConfig: { configFile: "./configs/lint.config.cjs" },
     });
     try {
       const alpha = createContributorSource(project.tmpdir, "alpha");
@@ -36,6 +39,11 @@ export const test_descriptor_reloads_changed_cjs_contributor_selection =
       assert.deepEqual(loadContributors(project.tmpdir), [
         { name: "beta", source: beta },
       ]);
+
+      writeSpecifierSelection(project.tmpdir, alpha);
+      assert.deepEqual(loadContributors(project.tmpdir), [
+        { name: "demo", source: alpha },
+      ]);
     } finally {
       project.cleanup();
     }
@@ -49,9 +57,10 @@ function createContributorSource(root: string, name: string): string {
 }
 
 function writeConfig(root: string): void {
+  fs.mkdirSync(path.join(root, "configs"), { recursive: true });
   fs.writeFileSync(
-    path.join(root, "lint.config.cjs"),
-    'module.exports = require("./selection.cjs");\n',
+    path.join(root, "configs", "lint.config.cjs"),
+    'module.exports = require("../selection.cjs");\n',
     "utf8",
   );
 }
@@ -62,6 +71,19 @@ function writeSelection(root: string, namespace: string, source: string): void {
     `module.exports = ${JSON.stringify({
       plugins: { [namespace]: { source } },
     })};\n`,
+    "utf8",
+  );
+}
+
+function writeSpecifierSelection(root: string, source: string): void {
+  fs.writeFileSync(
+    path.join(root, "contributor.cjs"),
+    `module.exports = ${JSON.stringify({ source })};\n`,
+    "utf8",
+  );
+  fs.writeFileSync(
+    path.join(root, "selection.cjs"),
+    `module.exports = { plugins: { demo: "../contributor.cjs" } };\n`,
     "utf8",
   );
 }

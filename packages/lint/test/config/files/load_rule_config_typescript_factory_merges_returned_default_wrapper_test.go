@@ -13,9 +13,11 @@ import (
 // after the factory call, otherwise only the local keys survive and inherited
 // rules or format options disappear.
 //
-// 1. Write a shared `.ts` config with rules and format options.
-// 2. Write an async package config that dynamically imports and spreads it.
-// 3. Assert shared rules and format options survive beside the local ignores.
+//  1. Write a shared `.ts` config with rules and format options.
+//  2. Write an async package config that dynamically imports and spreads it.
+//  3. Assert shared rules and format options survive beside the local ignores.
+//  4. Assert the executable config and imported helper are both published as
+//     config paths, then change only the helper and observe fresh rules.
 func TestLoadRuleConfigTypeScriptFactoryMergesReturnedDefaultWrapper(t *testing.T) {
   dir := t.TempDir()
   writeFile(t, filepath.Join(dir, "tsconfig.json"), "{}")
@@ -63,5 +65,41 @@ func TestLoadRuleConfigTypeScriptFactoryMergesReturnedDefaultWrapper(t *testing.
   }
   if opts.Prefer != "never" {
     t.Fatalf("prefer want \"never\" from shared format, got %q", opts.Prefer)
+  }
+
+  paths := resolver.(interface{ ConfigPaths() []string }).ConfigPaths()
+  for _, expected := range []string{
+    filepath.Join(dir, "ttsc-lint.config.ts"),
+    filepath.Join(dir, "shared-lint.config.ts"),
+  } {
+    found := false
+    for _, actual := range paths {
+      if filepath.Clean(actual) == filepath.Clean(expected) {
+        found = true
+        break
+      }
+    }
+    if !found {
+      t.Fatalf("ConfigPaths omitted %s from %v", expected, paths)
+    }
+  }
+
+  writeFile(t, filepath.Join(dir, "shared-lint.config.ts"), `export default {
+  format: { semi: false },
+  rules: {
+    "no-debugger": "warning",
+  },
+};`)
+  refreshed, err := LoadConfigResolver(&PluginEntry{
+    Config: map[string]any{
+      "configFile": "./ttsc-lint.config.ts",
+    },
+  }, dir, "tsconfig.json")
+  if err != nil {
+    t.Fatalf("LoadConfigResolver after helper edit: %v", err)
+  }
+  if got := refreshed.ResolveRules(filepath.Join(dir, "src", "main.ts")).
+    Rules.Severity("no-debugger"); got != SeverityWarn {
+    t.Fatalf("helper-only edit stayed cached: want warning, got %v", got)
   }
 }

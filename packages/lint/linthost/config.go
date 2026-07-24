@@ -811,11 +811,12 @@ func collectConfigObject(store *ConfigStore, raw any, baseDir, path string, chai
     if !containsPath(store.paths, location) {
       store.paths = append(store.paths, location)
     }
-    extendedRaw, err := loadConfigFile(location)
+    evaluated, err := loadConfigFileEvaluation(location)
     if err != nil {
       return err
     }
-    if err := collectConfigObject(store, extendedRaw, filepath.Dir(location), path+".extends", extendedChain); err != nil {
+    appendConfigPaths(store, evaluated.dependencies)
+    if err := collectConfigObject(store, evaluated.value, filepath.Dir(location), path+".extends", extendedChain); err != nil {
       return err
     }
   }
@@ -1058,15 +1059,26 @@ func LoadConfigResolver(entry *PluginEntry, cwd, tsconfigPath string) (RuleResol
 // loadConfigResolver loads and parses the lint config file at `location` into
 // a *ConfigStore and returns it as a RuleResolver.
 func loadConfigResolver(location string) (RuleResolver, error) {
-  raw, err := loadConfigFile(location)
+  evaluated, err := loadConfigFileEvaluation(location)
   if err != nil {
     return nil, err
   }
-  store, err := collectConfigStore(raw, filepath.Dir(location), location)
+  store, err := collectConfigStore(evaluated.value, filepath.Dir(location), location)
   if err != nil {
     return nil, err
   }
+  appendConfigPaths(store, evaluated.dependencies)
   return store, nil
+}
+
+func appendConfigPaths(store *ConfigStore, paths []string) {
+  for _, location := range paths {
+    location = filepath.Clean(location)
+    if !containsPath(store.paths, location) {
+      store.paths = append(store.paths, location)
+    }
+  }
+  sort.Strings(store.paths)
 }
 
 func findLintConfigFile(cwd, tsconfigPath string) (string, error) {
@@ -1233,23 +1245,47 @@ func tsconfigBaseDir(cwd, tsconfigPath string) string {
 // monorepo build — which spawns one `ttsc` process per package — evaluates a
 // shared lint config once instead of once per package.
 func loadConfigFile(location string) (any, error) {
+  evaluated, err := loadConfigFileEvaluation(location)
+  return evaluated.value, err
+}
+
+type configDependencyFingerprint struct {
+  Path   string `json:"path"`
+  Digest string `json:"digest"`
+}
+
+type evaluatedConfigFile struct {
+  value               any
+  dependencies        []string
+  dependencyDigests   []configDependencyFingerprint
+  dependenciesTracked bool
+}
+
+type cachedConfigEvaluation struct {
+  Value               any                           `json:"value"`
+  Dependencies        []configDependencyFingerprint `json:"dependencies"`
+  DependenciesTracked bool                          `json:"dependenciesTracked"`
+}
+
+func loadConfigFileEvaluation(location string) (evaluatedConfigFile, error) {
   ext := strings.ToLower(filepath.Ext(location))
   switch ext {
   case ".json":
-    return loadJSONConfigFile(location)
+    value, err := loadJSONConfigFile(location)
+    return evaluatedConfigFile{value: value}, err
   case ".js", ".cjs", ".mjs":
-    return loadCachedConfigFile(location, loadScriptConfigFile)
+    return loadCachedConfigEvaluation(location, loadScriptConfigEvaluation)
   case ".ts", ".cts", ".mts":
-    return loadCachedConfigFile(location, loadTypeScriptConfigFile)
+    return loadCachedConfigEvaluation(location, loadTypeScriptConfigEvaluation)
   default:
-    return nil, fmt.Errorf("@ttsc/lint: unsupported config file extension %q for %s", ext, location)
+    return evaluatedConfigFile{}, fmt.Errorf("@ttsc/lint: unsupported config file extension %q for %s", ext, location)
   }
 }
 
 // configCacheVersion namespaces the on-disk config cache. Bump it whenever
 // the shape of a cached config object changes so that entries written by an
 // older @ttsc/lint binary are treated as a miss rather than silently reused.
-const configCacheVersion = "v2"
+const configCacheVersion = "v3"
 
 // configEvalCache memoizes evaluated .ts/.js lint config objects for the
 // lifetime of one process; the on-disk cache (configCacheDir) extends the
@@ -1257,7 +1293,7 @@ const configCacheVersion = "v2"
 // spawns. Guarded by configEvalCacheMu.
 var (
   configEvalCacheMu sync.Mutex
-  configEvalCache   = map[string]any{}
+  configEvalCache   = map[string]cachedConfigEvaluation{}
 )
 
 // configCacheDir is the directory shared by this Go sidecar and the JS
@@ -1269,8 +1305,9 @@ func configCacheDir() string {
 }
 
 // configCacheDisabled reports whether the env opt-out is set — an escape
-// hatch for callers that must force a fresh evaluation (e.g. a config whose
-// behavior depends on imported non-config files that the key cannot see).
+// hatch for configs whose behavior depends on state outside their local module
+// graph, such as environment variables, network responses, or arbitrary file
+// reads.
 func configCacheDisabled() bool {
   return os.Getenv("TTSC_LINT_DISABLE_CONFIG_CACHE") != ""
 }
@@ -1293,67 +1330,164 @@ func configCacheKey(kind, absPath string, content []byte) string {
   return hex.EncodeToString(h.Sum(nil))
 }
 
-// loadCachedConfigFile wraps a subprocess-backed config loader (`eval`)
-// with the two-tier (in-process + on-disk) config cache. The cache key
-// covers the config file's path and bytes only — a config's own `import`s
-// of non-config files are NOT tracked, since a lint config is expected to
-// be self-contained; set TTSC_LINT_DISABLE_CONFIG_CACHE when it is not.
-// Errors are never cached: a failed evaluation re-runs next time.
+// loadCachedConfigFile preserves the historical value-only test seam around
+// the two-tier (in-process + on-disk) cache. Production executable-config
+// loaders use loadCachedConfigEvaluation so their complete local module graph
+// participates in validation. Errors are never cached: a failed evaluation
+// re-runs next time.
 func loadCachedConfigFile(location string, eval func(string) (any, error)) (any, error) {
+  evaluated, err := loadCachedConfigEvaluationWithPolicy(
+    location,
+    func(location string) (evaluatedConfigFile, error) {
+      value, err := eval(location)
+      return evaluatedConfigFile{value: value}, err
+    },
+    false,
+  )
+  return evaluated.value, err
+}
+
+func loadCachedConfigEvaluation(
+  location string,
+  eval func(string) (evaluatedConfigFile, error),
+) (evaluatedConfigFile, error) {
+  return loadCachedConfigEvaluationWithPolicy(location, eval, true)
+}
+
+func loadCachedConfigEvaluationWithPolicy(
+  location string,
+  eval func(string) (evaluatedConfigFile, error),
+  dependenciesRequired bool,
+) (evaluatedConfigFile, error) {
   if configCacheDisabled() {
     return eval(location)
   }
   content, err := os.ReadFile(location)
   if err != nil {
-    return nil, fmt.Errorf("@ttsc/lint: read config file %s: %w", location, err)
+    return evaluatedConfigFile{}, fmt.Errorf("@ttsc/lint: read config file %s: %w", location, err)
   }
   abs := location
   if resolved, absErr := filepath.Abs(location); absErr == nil {
     abs = resolved
   }
-  key := configCacheKey("config", abs, content)
+  kind := "config-value"
+  if dependenciesRequired {
+    kind = "config-graph"
+  }
+  key := configCacheKey(kind, abs, content)
 
   configEvalCacheMu.Lock()
   cached, ok := configEvalCache[key]
   configEvalCacheMu.Unlock()
-  if ok {
-    return cached, nil
+  if ok &&
+    cached.DependenciesTracked == dependenciesRequired &&
+    cachedConfigEvaluationIsCurrent(cached) {
+    return evaluatedConfigFileFromCache(cached), nil
   }
-  if value, hit := readConfigDiskCache(key); hit {
+  if disk, hit := readConfigDiskCache(key); hit &&
+    disk.DependenciesTracked == dependenciesRequired &&
+    cachedConfigEvaluationIsCurrent(disk) {
     configEvalCacheMu.Lock()
-    configEvalCache[key] = value
+    configEvalCache[key] = disk
     configEvalCacheMu.Unlock()
-    return value, nil
+    return evaluatedConfigFileFromCache(disk), nil
   }
 
-  value, err := eval(location)
-  if err != nil {
-    return nil, err
+  var evaluated evaluatedConfigFile
+  for attempt := 0; attempt < 3; attempt++ {
+    evaluated, err = eval(location)
+    if err != nil {
+      return evaluatedConfigFile{}, err
+    }
+    if evaluated.dependenciesTracked != dependenciesRequired {
+      return evaluatedConfigFile{}, fmt.Errorf(
+        "@ttsc/lint: config evaluator for %s returned dependenciesTracked=%t, want %t",
+        location,
+        evaluated.dependenciesTracked,
+        dependenciesRequired,
+      )
+    }
+    if (!evaluated.dependenciesTracked ||
+      len(evaluated.dependencyDigests) != 0) &&
+      configDependencyDigestsAreCurrent(evaluated.dependencyDigests) {
+      cached = cachedConfigEvaluation{
+        Value:               evaluated.value,
+        Dependencies:        append([]configDependencyFingerprint(nil), evaluated.dependencyDigests...),
+        DependenciesTracked: evaluated.dependenciesTracked,
+      }
+      configEvalCacheMu.Lock()
+      configEvalCache[key] = cached
+      configEvalCacheMu.Unlock()
+      writeConfigDiskCache(key, cached)
+      return evaluated, nil
+    }
   }
-  configEvalCacheMu.Lock()
-  configEvalCache[key] = value
-  configEvalCacheMu.Unlock()
-  writeConfigDiskCache(key, value)
-  return value, nil
+  return evaluated, nil
 }
 
 // readConfigDiskCache returns the cached config object for `key`, or
 // (nil, false) on any miss — a missing file, an unreadable file, or
 // content that no longer parses as a config object. Every failure is a
 // soft miss: the caller re-evaluates rather than surfacing a cache fault.
-func readConfigDiskCache(key string) (any, bool) {
+func evaluatedConfigFileFromCache(cached cachedConfigEvaluation) evaluatedConfigFile {
+  dependencies := make([]string, 0, len(cached.Dependencies))
+  for _, dependency := range cached.Dependencies {
+    dependencies = append(dependencies, dependency.Path)
+  }
+  return evaluatedConfigFile{
+    value:               cached.Value,
+    dependencies:        dependencies,
+    dependencyDigests:   append([]configDependencyFingerprint(nil), cached.Dependencies...),
+    dependenciesTracked: cached.DependenciesTracked,
+  }
+}
+
+func configDependencyDigestsAreCurrent(
+  dependencies []configDependencyFingerprint,
+) bool {
+  for _, dependency := range dependencies {
+    body, err := os.ReadFile(dependency.Path)
+    if err != nil {
+      return false
+    }
+    digest := sha256.Sum256(body)
+    if hex.EncodeToString(digest[:]) != dependency.Digest {
+      return false
+    }
+  }
+  return true
+}
+
+func cachedConfigEvaluationIsCurrent(cached cachedConfigEvaluation) bool {
+  if !cached.DependenciesTracked {
+    return len(cached.Dependencies) == 0
+  }
+  normalized, ok := normalizeConfigDependencyFingerprints(cached.Dependencies)
+  return ok && configDependencyDigestsAreCurrent(normalized)
+}
+
+func readConfigDiskCache(key string) (cachedConfigEvaluation, bool) {
   body, err := os.ReadFile(filepath.Join(configCacheDir(), key+".json"))
   if err != nil {
-    return nil, false
+    return cachedConfigEvaluation{}, false
   }
-  var value any
-  if err := json.Unmarshal(body, &value); err != nil {
-    return nil, false
+  var cached cachedConfigEvaluation
+  if err := json.Unmarshal(body, &cached); err != nil {
+    return cachedConfigEvaluation{}, false
   }
-  if !isConfigObject(value) {
-    return nil, false
+  if !isConfigObject(cached.Value) {
+    return cachedConfigEvaluation{}, false
   }
-  return value, true
+  if cached.DependenciesTracked {
+    normalized, ok := normalizeConfigDependencyFingerprints(cached.Dependencies)
+    if !ok {
+      return cachedConfigEvaluation{}, false
+    }
+    cached.Dependencies = normalized
+  } else if len(cached.Dependencies) != 0 {
+    return cachedConfigEvaluation{}, false
+  }
+  return cached, true
 }
 
 // writeConfigDiskCache stores `value` under `key`. It is best-effort: a
@@ -1361,8 +1495,8 @@ func readConfigDiskCache(key string) (any, bool) {
 // (the next run re-evaluates) rather than failing the lint run. The write
 // goes through a temp file + rename so a concurrent reader in a sibling
 // `ttsc` process never observes a half-written entry.
-func writeConfigDiskCache(key string, value any) {
-  body, err := json.Marshal(value)
+func writeConfigDiskCache(key string, cached cachedConfigEvaluation) {
+  body, err := json.Marshal(cached)
   if err != nil {
     return
   }
@@ -1439,29 +1573,87 @@ func serializableConfigKeysLiteral() string {
 // for error messages; `label` is the human-readable subject (e.g. "config
 // file" or "TypeScript config file") spliced into the load/parse error
 // prefixes so each loader keeps its own wording.
-func runConfigLoaderCommand(ctx context.Context, cmd *exec.Cmd, location, label string) (any, error) {
+func runConfigLoaderCommand(
+  ctx context.Context,
+  cmd *exec.Cmd,
+  location string,
+  label string,
+) (evaluatedConfigFile, error) {
   output, err := cmd.Output()
   if err != nil {
     if ctx.Err() == context.DeadlineExceeded {
-      return nil, fmt.Errorf("@ttsc/lint: load %s %s: timed out after %s", label, location, configLoaderTimeout)
+      return evaluatedConfigFile{}, fmt.Errorf("@ttsc/lint: load %s %s: timed out after %s", label, location, configLoaderTimeout)
     }
     stderr := ""
     if exit, ok := err.(*exec.ExitError); ok {
       stderr = strings.TrimSpace(string(exit.Stderr))
     }
     if stderr != "" {
-      return nil, fmt.Errorf("@ttsc/lint: load %s %s: %s", label, location, stderr)
+      return evaluatedConfigFile{}, fmt.Errorf("@ttsc/lint: load %s %s: %s", label, location, stderr)
     }
-    return nil, fmt.Errorf("@ttsc/lint: load %s %s: %w", label, location, err)
+    return evaluatedConfigFile{}, fmt.Errorf("@ttsc/lint: load %s %s: %w", label, location, err)
   }
-  var out any
-  if err := json.Unmarshal(output, &out); err != nil {
-    return nil, fmt.Errorf("@ttsc/lint: parse %s %s output: %w", label, location, err)
+  var envelope struct {
+    Dependencies []configDependencyFingerprint `json:"dependencies"`
+    Value        any                           `json:"value"`
   }
-  if !isConfigObject(out) {
-    return nil, fmt.Errorf("@ttsc/lint: config file %s must export an ITtscLintConfig object", location)
+  if err := json.Unmarshal(output, &envelope); err != nil {
+    return evaluatedConfigFile{}, fmt.Errorf("@ttsc/lint: parse %s %s output: %w", label, location, err)
   }
-  return out, nil
+  if !isConfigObject(envelope.Value) {
+    return evaluatedConfigFile{}, fmt.Errorf("@ttsc/lint: config file %s must export an ITtscLintConfig object", location)
+  }
+  normalized, ok := normalizeConfigDependencyFingerprints(envelope.Dependencies)
+  if !ok {
+    return evaluatedConfigFile{}, fmt.Errorf("@ttsc/lint: %s %s returned malformed dependency fingerprints", label, location)
+  }
+  dependencies := make([]string, len(normalized))
+  for i, dependency := range normalized {
+    dependencies[i] = dependency.Path
+  }
+  return evaluatedConfigFile{
+    value:               envelope.Value,
+    dependencies:        dependencies,
+    dependencyDigests:   normalized,
+    dependenciesTracked: true,
+  }, nil
+}
+
+func normalizeConfigDependencyFingerprints(
+  input []configDependencyFingerprint,
+) ([]configDependencyFingerprint, bool) {
+  if len(input) == 0 {
+    return nil, false
+  }
+  seen := make(map[string]string, len(input))
+  normalized := make([]configDependencyFingerprint, 0, len(input))
+  for _, dependency := range input {
+    if strings.TrimSpace(dependency.Path) == "" ||
+      !filepath.IsAbs(dependency.Path) ||
+      len(dependency.Digest) != sha256.Size*2 ||
+      strings.ToLower(dependency.Digest) != dependency.Digest {
+      return nil, false
+    }
+    if _, err := hex.DecodeString(dependency.Digest); err != nil {
+      return nil, false
+    }
+    absolute := filepath.Clean(dependency.Path)
+    if digest, exists := seen[absolute]; exists {
+      if digest != dependency.Digest {
+        return nil, false
+      }
+      continue
+    }
+    seen[absolute] = dependency.Digest
+    normalized = append(normalized, configDependencyFingerprint{
+      Path:   absolute,
+      Digest: dependency.Digest,
+    })
+  }
+  sort.Slice(normalized, func(left, right int) bool {
+    return normalized[left].Path < normalized[right].Path
+  })
+  return normalized, true
 }
 
 // loadScriptConfigFile evaluates a .js/.cjs/.mjs config file by running a
@@ -1470,18 +1662,68 @@ func runConfigLoaderCommand(ctx context.Context, cmd *exec.Cmd, location, label 
 // serializes the result as JSON to stdout. The subprocess has a
 // configLoaderTimeout deadline to prevent user code from hanging indefinitely.
 func loadScriptConfigFile(location string) (any, error) {
+  evaluated, err := loadScriptConfigEvaluation(location)
+  return evaluated.value, err
+}
+
+func loadScriptConfigEvaluation(location string) (evaluatedConfigFile, error) {
   script := fmt.Sprintf(`
-const { pathToFileURL } = require("node:url");
+const fs = require("node:fs");
+const { createHash } = require("node:crypto");
+const { registerHooks } = require("node:module");
+const { fileURLToPath, pathToFileURL } = require("node:url");
 
 const CONFIG_KEYS = new Set([%s]);
+const configUrl = pathToFileURL(process.argv[1]).href;
+const dependencies = new Map();
+const trackedUrls = new Set();
+const hooks = registerHooks({
+  resolve(specifier, context, nextResolve) {
+    const resolved = nextResolve(specifier, context);
+    if (typeof resolved.url !== "string" || !resolved.url.startsWith("file:")) {
+      return resolved;
+    }
+    const url = new URL(resolved.url).href;
+    const parent = context.parentURL && new URL(context.parentURL).href;
+    const entry = url === configUrl;
+    if (!entry && (parent === undefined || !trackedUrls.has(parent))) {
+      return resolved;
+    }
+    const location = fileURLToPath(url);
+    if (
+      !entry &&
+      location.replaceAll("\\", "/").split("/").includes("node_modules") &&
+      !isLocalModuleSpecifier(specifier)
+    ) {
+      return resolved;
+    }
+    trackedUrls.add(url);
+    try {
+      dependencies.set(
+        location,
+        createHash("sha256").update(fs.readFileSync(location)).digest("hex"),
+      );
+    } catch {
+      dependencies.set(location, "");
+    }
+    return resolved;
+  },
+});
 
 (async () => {
-  const mod = await import(pathToFileURL(process.argv[1]).href);
-  const value = await resolveConfig(mod, true);
-  if (value === null || typeof value !== "object" || Array.isArray(value)) {
-    throw new Error("config file must export an ITtscLintConfig object");
+  try {
+    const mod = await import(configUrl);
+    const value = await resolveConfig(mod, true);
+    if (value === null || typeof value !== "object" || Array.isArray(value)) {
+      throw new Error("config file must export an ITtscLintConfig object");
+    }
+    process.stdout.write(JSON.stringify({
+      dependencies: [...dependencies].map(([path, digest]) => ({ path, digest })),
+      value: toSerializableConfig(value),
+    }));
+  } finally {
+    hooks.deregister();
   }
-  process.stdout.write(JSON.stringify(toSerializableConfig(value)));
 })().catch((error) => {
   process.stderr.write(error && error.stack ? error.stack : String(error));
   process.exit(1);
@@ -1523,6 +1765,13 @@ async function resolveConfig(value, allowNamedConfig) {
 
 function isModuleNamespace(value) {
   return Object.prototype.toString.call(value) === "[object Module]";
+}
+
+function isLocalModuleSpecifier(specifier) {
+  return specifier.startsWith(".") ||
+    specifier.startsWith("/") ||
+    specifier.startsWith("file:") ||
+    /^[A-Za-z]:[\\/]/.test(specifier);
 }
 
 function hasConfigKey(value) {
@@ -1574,28 +1823,33 @@ function toSerializableConfig(value) {
 // The loader script imports the config file, resolves it through the same
 // normalization chain used by loadScriptConfigFile, and writes JSON to stdout.
 func loadTypeScriptConfigFile(location string) (any, error) {
+  evaluated, err := loadTypeScriptConfigEvaluation(location)
+  return evaluated.value, err
+}
+
+func loadTypeScriptConfigEvaluation(location string) (evaluatedConfigFile, error) {
   tempDir, err := os.MkdirTemp(loaderTempBase(location, os.TempDir()), "ttsc-lint-config-")
   if err != nil {
-    return nil, fmt.Errorf("@ttsc/lint: create config loader tempdir: %w", err)
+    return evaluatedConfigFile{}, fmt.Errorf("@ttsc/lint: create config loader tempdir: %w", err)
   }
   tempDir = realpathIfPossible(tempDir)
   defer os.RemoveAll(tempDir)
 
   if err := linkNearestNodeModules(tempDir, filepath.Dir(location)); err != nil {
-    return nil, err
+    return evaluatedConfigFile{}, err
   }
 
   loader := filepath.Join(tempDir, "loader.mts")
   tsconfig := filepath.Join(tempDir, "tsconfig.json")
   importLiteral, err := json.Marshal(fileURL(location))
   if err != nil {
-    return nil, fmt.Errorf("@ttsc/lint: encode config import %s: %w", location, err)
+    return evaluatedConfigFile{}, fmt.Errorf("@ttsc/lint: encode config import %s: %w", location, err)
   }
   if err := os.WriteFile(loader, []byte(typeScriptConfigLoaderSource(string(importLiteral))), 0o644); err != nil {
-    return nil, fmt.Errorf("@ttsc/lint: write config loader: %w", err)
+    return evaluatedConfigFile{}, fmt.Errorf("@ttsc/lint: write config loader: %w", err)
   }
   if err := os.WriteFile(tsconfig, []byte(typeScriptConfigLoaderTsconfig(loader, location, tempDir)), 0o644); err != nil {
-    return nil, fmt.Errorf("@ttsc/lint: write config loader tsconfig: %w", err)
+    return evaluatedConfigFile{}, fmt.Errorf("@ttsc/lint: write config loader tsconfig: %w", err)
   }
 
   args := []string{
@@ -1681,9 +1935,15 @@ func uncFileURL(pathname string) string {
 // assigned to a variable before `import(configUrl)` so tsgo does not try to
 // statically resolve the file URL during the loader build.
 func typeScriptConfigLoaderSource(importLiteral string) string {
-  return fmt.Sprintf(`const configUrl = %s;
+  return fmt.Sprintf(`import * as fs from "node:fs";
+import { createHash } from "node:crypto";
+import { registerHooks } from "node:module";
+import { fileURLToPath } from "node:url";
+
+const configUrl = %s;
 const CONFIG_KEYS = new Set<string>([%s]);
-const importedConfig = await import(configUrl);
+const dependencies = new Map<string, string>();
+const trackedUrls = new Set<string>();
 
 declare const process: {
   stdout: { write(value: string): void };
@@ -1691,15 +1951,54 @@ declare const process: {
   exit(code?: number): never;
 };
 
+const hooks = registerHooks({
+  resolve(specifier, context, nextResolve) {
+    const resolved = nextResolve(specifier, context);
+    if (typeof resolved.url !== "string" || !resolved.url.startsWith("file:")) {
+      return resolved;
+    }
+    const url = new URL(resolved.url).href;
+    const parent = context.parentURL && new URL(context.parentURL).href;
+    const entry = url === new URL(configUrl).href;
+    if (!entry && (parent === undefined || !trackedUrls.has(parent))) {
+      return resolved;
+    }
+    const location = fileURLToPath(url);
+    if (
+      !entry &&
+      location.replaceAll("\\", "/").split("/").includes("node_modules") &&
+      !isLocalModuleSpecifier(specifier)
+    ) {
+      return resolved;
+    }
+    trackedUrls.add(url);
+    try {
+      dependencies.set(
+        location,
+        createHash("sha256").update(fs.readFileSync(location)).digest("hex"),
+      );
+    } catch {
+      dependencies.set(location, "");
+    }
+    return resolved;
+  },
+});
+
 try {
+  const importedConfig = await import(configUrl);
   const value = await resolveConfig(importedConfig, true);
   if (!isObject(value) || Array.isArray(value)) {
     throw new Error("config file must export an ITtscLintConfig object");
   }
-  process.stdout.write(JSON.stringify(toSerializableConfig(value)));
+  process.stdout.write(JSON.stringify({
+    dependencies: [...dependencies].map(([path, digest]) => ({ path, digest })),
+    value: toSerializableConfig(value),
+  }));
 } catch (error) {
   process.stderr.write(error instanceof Error && error.stack ? error.stack : String(error));
   process.exit(1);
+} finally {
+  hooks.deregister();
 }
 
 async function resolveConfig(value: unknown, allowNamedConfig: boolean): Promise<unknown> {
@@ -1738,6 +2037,13 @@ async function resolveConfig(value: unknown, allowNamedConfig: boolean): Promise
 
 function isObject(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object";
+}
+
+function isLocalModuleSpecifier(specifier: string): boolean {
+  return specifier.startsWith(".") ||
+    specifier.startsWith("/") ||
+    specifier.startsWith("file:") ||
+    /^[A-Za-z]:[\\/]/.test(specifier);
 }
 
 function hasOwn(value: Record<string, unknown>, key: string): boolean {
