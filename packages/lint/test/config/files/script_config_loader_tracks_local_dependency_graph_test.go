@@ -46,6 +46,15 @@ import (
 //     generated typed loader applies the same active-condition semantics.
 //  16. Resolve a dangling external legacy-main link through root fallback, then
 //     create its unchanged target and prove the new main becomes visible.
+//  17. Resolve an outer package past an existing but unresolvable nearer
+//     candidate, then create only the nearer index file and prove the search
+//     result is recomputed rather than served from the recorded topology.
+//  18. Select an exports target carrying a query string and prove the lexical
+//     symlink chain Node actually resolves stays fingerprinted across a
+//     retarget.
+//  19. Resolve one package through an inactive condition, an encoded target, a
+//     wildcard pattern whose first array entry is invalid, and a null-blocked
+//     subpath, and prove only the active targets enter the graph.
 func TestScriptConfigLoaderTracksLocalDependencyGraph(t *testing.T) {
   t.Setenv("TTSC_LINT_DISABLE_CONFIG_CACHE", "")
   root := t.TempDir()
@@ -634,6 +643,162 @@ export default { rules: { "no-var": severity } };`)
       directories,
     )
   }
+
+  shadowProject := filepath.Join(root, "shadow-project")
+  shadowNearer := filepath.Join(shadowProject, "node_modules", "shadowed")
+  shadowOuter := filepath.Join(root, "node_modules", "shadowed")
+  for _, directory := range []string{shadowNearer, shadowOuter} {
+    if err := os.MkdirAll(directory, 0o755); err != nil {
+      t.Fatal(err)
+    }
+  }
+  write(filepath.Join(shadowOuter, "package.json"), `{"main":"index.cjs"}`)
+  write(filepath.Join(shadowOuter, "index.cjs"), `module.exports = "error";`)
+  shadowConfig := filepath.Join(shadowProject, "lint.config.cjs")
+  write(shadowConfig, `module.exports = {
+  rules: { "no-var": require("shadowed") },
+};`)
+  beforeShadow, err := loadConfigFileEvaluationWithin(shadowConfig, shadowProject)
+  if err != nil {
+    t.Fatalf("load outer package past an unresolvable nearer candidate: %v", err)
+  }
+  assertConfigRuleSeverity(t, beforeShadow.value, "no-var", "error")
+  assertConfigDependencyKindScope(
+    t,
+    beforeShadow.dependencyDigests,
+    filepath.Join(shadowNearer, "index.js"),
+    configDependencyOptionalFile,
+    configDependencyWatch,
+  )
+  assertConfigDependencyKindAbsent(
+    t,
+    beforeShadow.dependencyDigests,
+    shadowOuter,
+    configDependencyDir,
+  )
+  write(filepath.Join(shadowNearer, "index.js"), `module.exports = "warning";`)
+  afterShadow, err := loadConfigFileEvaluationWithin(shadowConfig, shadowProject)
+  if err != nil {
+    t.Fatalf("reload nearer package that became resolvable: %v", err)
+  }
+  assertConfigRuleSeverity(t, afterShadow.value, "no-var", "warning")
+
+  queryPackage := filepath.Join(root, "node_modules", "query-exports")
+  queryActive := filepath.Join(queryPackage, "active")
+  queryFallback := filepath.Join(queryPackage, "fallback")
+  queryBridge := filepath.Join(queryPackage, "bridge")
+  queryProject := filepath.Join(root, "query-project")
+  for _, directory := range []string{
+    queryActive,
+    queryFallback,
+    queryBridge,
+    queryProject,
+  } {
+    if err := os.MkdirAll(directory, 0o755); err != nil {
+      t.Fatal(err)
+    }
+  }
+  write(filepath.Join(queryActive, "index.cjs"), `module.exports = "error";`)
+  write(filepath.Join(queryFallback, "index.cjs"), `module.exports = "warning";`)
+  queryLink := filepath.Join(queryBridge, "selected")
+  if err := os.Symlink(filepath.Join("..", "active"), queryLink); err == nil {
+    write(
+      filepath.Join(queryPackage, "package.json"),
+      `{"exports":{".":"./bridge/selected/index.cjs?v=1"}}`,
+    )
+    queryConfig := filepath.Join(queryProject, "lint.config.cjs")
+    write(queryConfig, `module.exports = {
+  rules: { "no-var": require("query-exports") },
+};`)
+    beforeQueryRetarget, err := loadConfigFileEvaluationWithin(
+      queryConfig,
+      queryProject,
+    )
+    if err != nil {
+      t.Fatalf("load query-suffixed exports target: %v", err)
+    }
+    assertConfigRuleSeverity(t, beforeQueryRetarget.value, "no-var", "error")
+    assertConfigDependencyKindScope(
+      t,
+      beforeQueryRetarget.dependencyDigests,
+      queryBridge,
+      configDependencyDir,
+      configDependencyWatch,
+    )
+    if err := os.Remove(queryLink); err != nil {
+      t.Fatal(err)
+    }
+    if err := os.Symlink(filepath.Join("..", "fallback"), queryLink); err != nil {
+      t.Fatal(err)
+    }
+    afterQueryRetarget, err := loadConfigFileEvaluationWithin(
+      queryConfig,
+      queryProject,
+    )
+    if err != nil {
+      t.Fatalf("reload retargeted query-suffixed exports target: %v", err)
+    }
+    assertConfigRuleSeverity(t, afterQueryRetarget.value, "no-var", "warning")
+  }
+
+  branchPackage := filepath.Join(root, "node_modules", "exports-branches")
+  branchEntry := filepath.Join(branchPackage, "entry")
+  branchReal := filepath.Join(branchPackage, "real")
+  branchProject := filepath.Join(root, "branch-project")
+  for _, directory := range []string{branchEntry, branchReal, branchProject} {
+    if err := os.MkdirAll(directory, 0o755); err != nil {
+      t.Fatal(err)
+    }
+  }
+  write(filepath.Join(branchEntry, "main entry.cjs"), `module.exports = "error";`)
+  write(filepath.Join(branchReal, "pick.cjs"), `module.exports = "warning";`)
+  write(
+    filepath.Join(branchPackage, "package.json"),
+    `{"exports":{`+
+      `".":{"ttsc-unknown":"./absent.cjs","require":"./entry/main%20entry.cjs"},`+
+      `"./alias/*":["../escaped.cjs","./real/*.cjs"],`+
+      `"./blocked":null}}`,
+  )
+  branchConfig := filepath.Join(branchProject, "lint.config.cjs")
+  write(branchConfig, `let blocked = "off";
+try {
+  require("exports-branches/blocked");
+} catch {
+  blocked = "error";
+}
+module.exports = {
+  rules: {
+    "no-var": require("exports-branches"),
+    "no-debugger": require("exports-branches/alias/pick"),
+    "no-eval": blocked,
+  },
+};`)
+  branches, err := loadConfigFileEvaluationWithin(branchConfig, branchProject)
+  if err != nil {
+    t.Fatalf("load exports branch matrix: %v", err)
+  }
+  assertConfigRuleSeverity(t, branches.value, "no-var", "error")
+  assertConfigRuleSeverity(t, branches.value, "no-debugger", "warning")
+  assertConfigRuleSeverity(t, branches.value, "no-eval", "error")
+  assertConfigDependencyKindScope(
+    t,
+    branches.dependencyDigests,
+    branchEntry,
+    configDependencyDir,
+    configDependencyWatch,
+  )
+  assertConfigDependencyKindScope(
+    t,
+    branches.dependencyDigests,
+    branchReal,
+    configDependencyDir,
+    configDependencyWatch,
+  )
+  assertConfigDependencyAbsent(
+    t,
+    branches.dependencyDigests,
+    filepath.Join(branchPackage, "absent.cjs"),
+  )
 }
 
 func assertConfigDependencyAbsent(

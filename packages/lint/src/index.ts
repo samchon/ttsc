@@ -450,7 +450,7 @@ import { createRequire, registerHooks } from "node:module";
 // @ts-ignore -- internal loader must not require user-installed Node typings.
 import * as path from "node:path";
 // @ts-ignore -- internal loader must not require user-installed Node typings.
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const configUrl = %CONFIG_IMPORT%;
 const outputPath = %CONFIG_OUTPUT%;
@@ -865,17 +865,15 @@ function recordPackageRootTopology(
 ): { hasExports: boolean; selected: boolean } {
   const normalizedRoot = path.resolve(packageRoot);
   const manifest = path.join(normalizedRoot, "package.json");
+  const legacySelected = (): boolean =>
+    useMain &&
+    packagePathCandidateMatchesChild(normalizedRoot, childLocation, true);
   if (!recordOptionalFileDependency(manifest, owners)) {
-    return {
-      hasExports: false,
-      selected:
-        useMain &&
-        packagePathCandidateMatchesChild(
-          normalizedRoot,
-          childLocation,
-          true,
-        ),
-    };
+    const selected = legacySelected();
+    if (!selected) {
+      recordPackageIndexCandidates(normalizedRoot, useMain, owners);
+    }
+    return { hasExports: false, selected };
   }
   try {
     const value = JSON.parse(fs.readFileSync(manifest, "utf8"));
@@ -900,17 +898,18 @@ function recordPackageRootTopology(
             childLocation,
             false,
           );
-        if (selected) recordPackagePathCandidate(candidate, owners);
+        if (selected) {
+          recordPackagePathCandidate(candidate, owners);
+        } else if (candidate !== undefined) {
+          // A nearer package the search skipped starts winning the moment its
+          // own active target appears, and neither the parent node_modules
+          // listing nor the manifest changes when only that file is created.
+          recordOptionalFileDependency(candidate, owners);
+        }
         return { hasExports: true, selected };
       }
-      let selected =
-        useMain &&
-        packagePathCandidateMatchesChild(
-          normalizedRoot,
-          childLocation,
-          true,
-        );
-      if (useMain && !hasExports && typeof metadata.main === "string") {
+      let selected = legacySelected();
+      if (useMain && typeof metadata.main === "string") {
         // CommonJS main is a legacy path, not an exports target. Node resolves
         // it literally and permits absolute paths and paths outside the package.
         const main = path.resolve(normalizedRoot, metadata.main);
@@ -918,6 +917,9 @@ function recordPackageRootTopology(
         selected =
           packagePathCandidateMatchesChild(main, childLocation, true) ||
           selected;
+      }
+      if (!selected) {
+        recordPackageIndexCandidates(normalizedRoot, useMain, owners);
       }
       return {
         hasExports: false,
@@ -928,16 +930,27 @@ function recordPackageRootTopology(
     // Node owns malformed-manifest diagnostics; the manifest digest is enough
     // to invalidate this evaluation when its contents change.
   }
-  return {
-    hasExports: false,
-    selected:
-      useMain &&
-      packagePathCandidateMatchesChild(
-        normalizedRoot,
-        childLocation,
-        true,
-      ),
-  };
+  const selected = legacySelected();
+  if (!selected) {
+    recordPackageIndexCandidates(normalizedRoot, useMain, owners);
+  }
+  return { hasExports: false, selected };
+}
+
+// recordPackageIndexCandidates pins the LOAD_INDEX fallbacks of a package root
+// this resolution walked past without selecting. An empty package directory, or
+// one whose manifest declares no usable entry, becomes resolvable as soon as one
+// of these files exists, and that creation changes neither the parent directory
+// listing nor the manifest digest already recorded for the candidate.
+function recordPackageIndexCandidates(
+  packageRoot: string,
+  useMain: boolean,
+  owners: readonly string[],
+): void {
+  if (!useMain) return;
+  for (const name of ["index.js", "index.json", "index.node"]) {
+    recordOptionalFileDependency(path.join(packageRoot, name), owners);
+  }
 }
 
 function selectPackageExportsTarget(
@@ -1063,13 +1076,17 @@ function packageExportsTarget(
 ): string | undefined {
   if (!validPackageExportsTarget(target)) return undefined;
   try {
-    const decoded = target
-      .slice(2)
-      .replaceAll("\\\\", "/")
-      .split("/")
-      .map((component) => decodeURIComponent(component))
-      .join(path.sep);
-    return boundedPackageTarget(packageRoot, decoded);
+    // Node resolves an exports target as a URL against the package manifest,
+    // so percent escapes, query strings, and fragments all take part in the
+    // path it finally loads. Joining the raw target by hand diverges from that
+    // whenever the target is anything but a plain relative path, and a target
+    // Node resolves while this model rejects loses the selected file's
+    // fingerprint, leaving a retargeted symlink cached as fresh.
+    const packageUrl = pathToFileURL(path.join(packageRoot, "package.json"));
+    const resolved = new URL(target, packageUrl);
+    const packagePath = new URL(".", packageUrl).pathname;
+    if (!resolved.pathname.startsWith(packagePath)) return undefined;
+    return fileURLToPath(resolved);
   } catch {
     return undefined;
   }
@@ -1197,10 +1214,11 @@ function recordPackagePathCandidate(
   depth = 0,
 ): void {
   const normalized = path.resolve(candidate);
-  const visitKey =
-    process.platform === "win32" ? normalized.toLowerCase() : normalized;
-  if (depth >= 64 || visited.has(visitKey)) return;
-  visited.add(visitKey);
+  // The depth bound owns termination. A platform-wide case fold would merge
+  // paths that differ only by case, which a per-directory case-sensitive
+  // Windows tree keeps distinct, and would truncate a valid symlink chain.
+  if (depth >= 64 || visited.has(normalized)) return;
+  visited.add(normalized);
   const parsed = path.parse(normalized);
   const components = normalized
     .slice(parsed.root.length)
