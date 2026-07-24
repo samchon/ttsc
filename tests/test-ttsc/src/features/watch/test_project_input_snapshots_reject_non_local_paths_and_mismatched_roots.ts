@@ -60,6 +60,11 @@ export const test_project_input_snapshots_reject_non_local_paths_and_mismatched_
       false,
     );
     assert.equal(
+      isAbsoluteLocalProjectInputPath("/root-only/spec.md", "win32"),
+      false,
+      "a slash-rooted path still depends on the launcher's current drive",
+    );
+    assert.equal(
       isAbsoluteLocalProjectInputPath("C:\\project\\spec.md", "win32"),
       true,
     );
@@ -74,6 +79,14 @@ export const test_project_input_snapshots_reject_non_local_paths_and_mismatched_
       isAbsoluteLocalProjectInputPath("\\\\server\\share", "win32"),
       true,
       "a UNC share root is an absolute local filesystem path",
+    );
+    assert.equal(
+      isAbsoluteLocalProjectInputPath(
+        "\\\\server\\*\\project\\spec.md",
+        "win32",
+      ),
+      false,
+      "a UNC share is a fixed volume, not a glob population",
     );
     assert.equal(
       isAbsoluteLocalProjectInputPath(
@@ -100,9 +113,22 @@ export const test_project_input_snapshots_reject_non_local_paths_and_mismatched_
       "an extended-length UNC path remains a local filesystem path",
     );
     assert.equal(
+      isAbsoluteLocalProjectInputPath(
+        "\\\\?\\UNC\\server\\?\\docs\\spec.md",
+        "win32",
+      ),
+      false,
+      "an extended UNC share must also name a fixed volume",
+    );
+    assert.equal(
       isAbsoluteLocalProjectInputPath("\\\\.\\pipe\\ttsc", "win32"),
       false,
       "a named-pipe namespace is not a declared local filesystem path",
+    );
+    assert.equal(
+      isAbsoluteLocalProjectInputPath("/project/docs/spec.md", "linux"),
+      true,
+      "the same slash-rooted spelling is a complete POSIX identity",
     );
     assert.deepEqual(mergeProjectInputSnapshots(root, [first, first]), {
       root,
