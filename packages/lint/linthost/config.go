@@ -3007,6 +3007,7 @@ recordDependency(
 recordPackageManifests(configLocation, [normalizedConfigUrl]);
 
 declare const process: {
+  env: Record<string, string | undefined>;
   platform: string;
   stdout: { write(value: string): void };
   stderr: { write(value: string): void };
@@ -3860,6 +3861,23 @@ function finalizeDependencies(): Array<{
   scope: "cache" | "watch";
 }> {
   const watched = graphWatchReachability();
+  // Opt-in diagnostics for a graph that comes back empty. The only channel this
+  // loader may use is stderr, because the result travels through a private file
+  // that user output must not corrupt; it stays silent unless a caller asks.
+  if (process.env.TTSC_LINT_DEBUG_CONFIG_GRAPH) {
+    process.stderr.write(
+      "@ttsc/lint: config graph " +
+        JSON.stringify({
+          configUrl,
+          normalizedConfigUrl,
+          nodes: [...graphNodes.keys()],
+          edges: graphEdges.map((edge) => edge.parent + " -> " + edge.child),
+          watched: [...watched],
+        }) +
+        "
+",
+    );
+  }
   return [...dependencies.values()].map(({ owners, ...dependency }) => ({
     ...dependency,
     scope: [...owners].some((owner) => watched.has(owner))

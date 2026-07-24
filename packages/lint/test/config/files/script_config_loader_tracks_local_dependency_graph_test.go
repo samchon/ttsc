@@ -57,6 +57,10 @@ import (
 //     subpath, and prove only the active targets enter the graph.
 func TestScriptConfigLoaderTracksLocalDependencyGraph(t *testing.T) {
   t.Setenv("TTSC_LINT_DISABLE_CONFIG_CACHE", "")
+  // The typed loader's graph has come back holding only its startup records on
+  // Windows. Ask it to report what it resolved, so a failure names the URLs
+  // instead of only the dependencies that survived them.
+  t.Setenv("TTSC_LINT_DEBUG_CONFIG_GRAPH", "1")
   root := t.TempDir()
   configs := filepath.Join(root, "configs")
   shared := filepath.Join(root, "shared")
