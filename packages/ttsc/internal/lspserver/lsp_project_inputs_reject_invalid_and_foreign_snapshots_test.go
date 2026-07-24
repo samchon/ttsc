@@ -17,6 +17,7 @@ import (
 //  2. Reject relative paths, remote URLs, and a different project root.
 //  3. Reject Windows device namespaces and malformed UNC volumes while
 //     retaining fixed drive and UNC paths.
+//  4. Reject incomplete and malformed launcher-owned reload fingerprints.
 func TestLSPProjectInputsRejectInvalidAndForeignSnapshots(t *testing.T) {
   root := t.TempDir()
   valid := LSPProjectInputSnapshot{
@@ -48,6 +49,31 @@ func TestLSPProjectInputsRejectInvalidAndForeignSnapshots(t *testing.T) {
   for _, snapshot := range cases {
     if _, err := normalizeLSPProjectInputSnapshot(snapshot, root); err == nil {
       t.Fatalf("invalid snapshot was accepted: %#v", snapshot)
+    }
+  }
+
+  malformedFingerprintCases := []LSPProjectInputSnapshot{
+    {
+      Root:                   root,
+      ReloadDirectories:      valid.ReloadDirectories,
+      ReloadDirectoryDigests: map[string]string{},
+    },
+    {
+      Root:              root,
+      ReloadDirectories: valid.ReloadDirectories,
+      ReloadDirectoryDigests: map[string]string{
+        valid.ReloadDirectories[0]: "not-a-sha256-digest",
+      },
+    },
+    {
+      Root:              root,
+      ReloadFiles:       valid.ReloadFiles,
+      ReloadFileDigests: map[string]string{},
+    },
+  }
+  for _, snapshot := range malformedFingerprintCases {
+    if _, err := normalizeLSPProjectInputSnapshot(snapshot, root); err == nil {
+      t.Fatalf("malformed selection fingerprint was accepted: %#v", snapshot)
     }
   }
 

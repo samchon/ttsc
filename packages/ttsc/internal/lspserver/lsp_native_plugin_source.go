@@ -38,12 +38,13 @@ type NativePluginConfigEntry struct {
 // NativeLSPPluginEntry names one built sidecar that opted into the LSP
 // protocol through its JavaScript descriptor capabilities.
 type NativeLSPPluginEntry struct {
-  Binary             string `json:"binary"`
-  Name               string `json:"name,omitempty"`
-  ProjectDiagnostics bool   `json:"projectDiagnostics,omitempty"`
-  ProjectInputs      bool   `json:"projectInputs,omitempty"`
-  ProjectContextArgs bool   `json:"projectContextArgs,omitempty"`
-  Stage              string `json:"stage,omitempty"`
+  Binary               string                   `json:"binary"`
+  InitialProjectInputs *LSPProjectInputSnapshot `json:"initialProjectInputs,omitempty"`
+  Name                 string                   `json:"name,omitempty"`
+  ProjectDiagnostics   bool                     `json:"projectDiagnostics,omitempty"`
+  ProjectInputs        bool                     `json:"projectInputs,omitempty"`
+  ProjectContextArgs   bool                     `json:"projectContextArgs,omitempty"`
+  Stage                string                   `json:"stage,omitempty"`
 }
 
 // NativePluginSourceOptions configures a sidecar-backed PluginSource.
@@ -183,7 +184,40 @@ func NewNativePluginSource(opts NativePluginSourceOptions) (*NativePluginSource,
     owners:             map[string]NativeLSPPluginEntry{},
   }
   source.discoverCommandIDs()
-  source.discoverProjectInputs(1)
+  missingInitialProjectInputs := false
+  for _, plugin := range selectPluginTransports(
+    source.plugins,
+    func(plugin NativeLSPPluginEntry) bool {
+      return plugin.ProjectInputs
+    },
+    source.projectContextJSON,
+  ) {
+    if plugin.InitialProjectInputs == nil {
+      missingInitialProjectInputs = true
+      continue
+    }
+    snapshot, err := normalizeLSPProjectInputSnapshot(
+      *plugin.InitialProjectInputs,
+      source.cwd,
+    )
+    if err != nil {
+      return nil, fmt.Errorf(
+        "ttscserver: %s initial project inputs are invalid: %w",
+        pluginLabel(plugin),
+        err,
+      )
+    }
+    if !projectInputReloadFingerprintsAreCurrent(snapshot) {
+      return nil, fmt.Errorf(
+        "ttscserver: %s project selection inputs changed during startup",
+        pluginLabel(plugin),
+      )
+    }
+    source.storeProjectInputs(plugin, 1, snapshot)
+  }
+  if missingInitialProjectInputs {
+    source.discoverProjectInputs(1)
+  }
   // The corpus fetch loads a Program, so it runs off the construction path.
   // Blocking here would delay initialize — and therefore the editor's first
   // response — for a feature most projects do not use. Until it lands,

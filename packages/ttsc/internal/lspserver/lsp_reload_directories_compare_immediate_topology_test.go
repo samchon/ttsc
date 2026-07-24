@@ -21,6 +21,12 @@ import (
 //  4. Prove deleting the watched directory itself changes the digest.
 //  5. Where supported, retarget a symlink without renaming it and prove the raw
 //     link target participates in the digest.
+//  6. Replace an empty directory with the same topology and prove its identity
+//     event still restarts selection.
+//  7. Nest one reload directory in another and prove the unchanged parent
+//     cannot hide an immediate topology change in the child.
+//  8. Rediscover project inputs after topology drift and prove refresh retains
+//     the selection-time baseline until the server restarts.
 func TestLSPReloadDirectoriesCompareImmediateTopology(t *testing.T) {
   root := t.TempDir()
   reloadDirectory := filepath.Join(root, "config-deps")
@@ -96,6 +102,64 @@ func TestLSPReloadDirectoriesCompareImmediateTopology(t *testing.T) {
   source.projectInputs = snapshot(deletionRoot)
   if err := os.Remove(deletionRoot); err != nil {
     t.Fatal(err)
+  }
+
+  replacementRoot := filepath.Join(root, "replacement-deps")
+  if err := os.Mkdir(replacementRoot, 0o755); err != nil {
+    t.Fatal(err)
+  }
+  source.projectInputs = snapshot(replacementRoot)
+  if err := os.Remove(replacementRoot); err != nil {
+    t.Fatal(err)
+  }
+  if err := os.Mkdir(replacementRoot, 0o755); err != nil {
+    t.Fatal(err)
+  }
+  if !source.ProjectInputReloadMatchesChange(
+    uri(replacementRoot),
+    &created,
+  ) {
+    t.Fatal("same-topology directory replacement did not match its identity event")
+  }
+
+  nestedParent := filepath.Join(root, "nested-parent")
+  nestedChild := filepath.Join(nestedParent, "child")
+  if err := os.MkdirAll(nestedChild, 0o755); err != nil {
+    t.Fatal(err)
+  }
+  nestedSnapshot, err := normalizeLSPProjectInputSnapshot(
+    LSPProjectInputSnapshot{
+      Root:              root,
+      ReloadDirectories: []string{nestedParent, nestedChild},
+    },
+    root,
+  )
+  if err != nil {
+    t.Fatalf("normalize nested reload directories: %v", err)
+  }
+  source.projectInputs = nestedSnapshot
+  nestedEntry := filepath.Join(nestedChild, "selection.cjs")
+  if err := os.WriteFile(nestedEntry, []byte("alpha"), 0o644); err != nil {
+    t.Fatal(err)
+  }
+  if !source.ProjectInputReloadMatchesChange(uri(nestedEntry), &created) {
+    t.Fatal("unchanged parent reload directory hid nested topology change")
+  }
+
+  refreshRoot := filepath.Join(root, "refresh-deps")
+  if err := os.Mkdir(refreshRoot, 0o755); err != nil {
+    t.Fatal(err)
+  }
+  baseline := snapshot(refreshRoot)
+  refreshEntry := filepath.Join(refreshRoot, "selection.cjs")
+  if err := os.WriteFile(refreshEntry, []byte("alpha"), 0o644); err != nil {
+    t.Fatal(err)
+  }
+  refreshed := snapshot(refreshRoot)
+  preserveProjectInputReloadFingerprints(baseline, &refreshed)
+  source.projectInputs = refreshed
+  if !source.ProjectInputReloadMatchesChange(uri(refreshEntry), &created) {
+    t.Fatal("project-input refresh absorbed selection-time topology drift")
   }
   if !source.ProjectInputReloadMatchesChange(uri(deletionRoot), &deleted) {
     t.Fatal("reload-directory deletion did not change its topology state")

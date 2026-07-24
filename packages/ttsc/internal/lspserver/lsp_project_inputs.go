@@ -15,13 +15,13 @@ import (
 // LSPProjectInputSnapshot is the normalized external filesystem topology
 // published by project-rule contributors.
 type LSPProjectInputSnapshot struct {
-  Root              string   `json:"root"`
-  Files             []string `json:"files"`
-  Globs             []string `json:"globs"`
-  ReloadFiles       []string `json:"reloadFiles,omitempty"`
-  ReloadDirectories []string `json:"reloadDirectories,omitempty"`
-
-  reloadDirectoryDigests map[string]string
+  Root                   string            `json:"root"`
+  Files                  []string          `json:"files"`
+  Globs                  []string          `json:"globs"`
+  ReloadFiles            []string          `json:"reloadFiles,omitempty"`
+  ReloadDirectories      []string          `json:"reloadDirectories,omitempty"`
+  ReloadFileDigests      map[string]string `json:"reloadFileDigests,omitempty"`
+  ReloadDirectoryDigests map[string]string `json:"reloadDirectoryDigests,omitempty"`
 }
 
 type projectInputRecord struct {
@@ -95,7 +95,7 @@ func (s *NativePluginSource) ProjectInputReloadMatchesURI(uri string) bool {
 // when the current name/type/symlink-target digest differs from the snapshot.
 func (s *NativePluginSource) ProjectInputReloadMatchesChange(
   uri string,
-  _ *int,
+  changeType *int,
 ) bool {
   if s == nil {
     return false
@@ -117,15 +117,22 @@ func (s *NativePluginSource) ProjectInputReloadMatchesChange(
       return true
     }
   }
+  matched := false
   for _, directory := range snapshot.ReloadDirectories {
     if !projectInputDirectoryContainsImmediate(directory, candidateEntry) {
       continue
     }
     key := projectInputPathKey(directory)
-    return projectInputReloadDirectoryDigest(directory) !=
-      snapshot.reloadDirectoryDigests[key]
+    if key == candidateEntryKey &&
+      (changeType == nil || *changeType != fileChangeTypeChanged) {
+      return true
+    }
+    if projectInputReloadDirectoryDigest(directory) !=
+      snapshot.ReloadDirectoryDigests[key] {
+      matched = true
+    }
   }
-  return false
+  return matched
 }
 
 // ProjectInputOwnersForURI returns the stable plugin keys whose latest
@@ -262,6 +269,9 @@ func (s *NativePluginSource) storeProjectInputs(
     s.pluginProjectInputs = map[string]projectInputRecord{}
   }
   existing, existed := s.pluginProjectInputs[key]
+  if existed {
+    preserveProjectInputReloadFingerprints(existing.snapshot, &snapshot)
+  }
   s.pluginProjectInputs[key] = projectInputRecord{
     generation: generation,
     snapshot:   snapshot,
@@ -278,6 +288,7 @@ func (s *NativePluginSource) flattenProjectInputsLocked() LSPProjectInputSnapsho
   globs := map[string]string{}
   reloadFiles := map[string]string{}
   reloadDirectories := map[string]string{}
+  reloadFileDigests := map[string]string{}
   reloadDirectoryDigests := map[string]string{}
   root := ""
   for _, plugin := range selectPluginTransports(
@@ -297,18 +308,21 @@ func (s *NativePluginSource) flattenProjectInputsLocked() LSPProjectInputSnapsho
       globs[projectInputPathKey(pattern)] = pattern
     }
     for _, file := range snapshot.ReloadFiles {
-      reloadFiles[projectInputPathKey(file)] = file
+      fileKey := projectInputPathKey(file)
+      reloadFiles[fileKey] = file
+      reloadFileDigests[fileKey] = snapshot.ReloadFileDigests[fileKey]
     }
     for _, directory := range snapshot.ReloadDirectories {
       directoryKey := projectInputPathKey(directory)
       reloadDirectories[directoryKey] = directory
       reloadDirectoryDigests[directoryKey] =
-        snapshot.reloadDirectoryDigests[directoryKey]
+        snapshot.ReloadDirectoryDigests[directoryKey]
     }
   }
   out := LSPProjectInputSnapshot{
     Root:                   root,
-    reloadDirectoryDigests: reloadDirectoryDigests,
+    ReloadFileDigests:      reloadFileDigests,
+    ReloadDirectoryDigests: reloadDirectoryDigests,
   }
   for _, file := range files {
     out.Files = append(out.Files, file)
@@ -401,7 +415,8 @@ func normalizeLSPProjectInputSnapshot(
   }
   out := LSPProjectInputSnapshot{
     Root:                   root,
-    reloadDirectoryDigests: map[string]string{},
+    ReloadFileDigests:      map[string]string{},
+    ReloadDirectoryDigests: map[string]string{},
   }
   for _, file := range files {
     out.Files = append(out.Files, file)
@@ -411,11 +426,48 @@ func normalizeLSPProjectInputSnapshot(
   }
   for _, file := range reloadFiles {
     out.ReloadFiles = append(out.ReloadFiles, file)
+    key := projectInputPathKey(file)
+    digest, ok := projectInputSnapshotDigest(snapshot.ReloadFileDigests, file)
+    if !ok {
+      if snapshot.ReloadFileDigests != nil {
+        return LSPProjectInputSnapshot{}, fmt.Errorf(
+          "reload file %q is missing its selection fingerprint",
+          file,
+        )
+      }
+      digest = projectInputReloadFileDigest(file)
+    }
+    if !validProjectInputFingerprint(digest) {
+      return LSPProjectInputSnapshot{}, fmt.Errorf(
+        "reload file %q has an invalid fingerprint",
+        file,
+      )
+    }
+    out.ReloadFileDigests[key] = digest
   }
   for _, directory := range reloadDirectories {
     out.ReloadDirectories = append(out.ReloadDirectories, directory)
-    out.reloadDirectoryDigests[projectInputPathKey(directory)] =
-      projectInputReloadDirectoryDigest(directory)
+    key := projectInputPathKey(directory)
+    digest, ok := projectInputSnapshotDigest(
+      snapshot.ReloadDirectoryDigests,
+      directory,
+    )
+    if !ok {
+      if snapshot.ReloadDirectoryDigests != nil {
+        return LSPProjectInputSnapshot{}, fmt.Errorf(
+          "reload directory %q is missing its selection fingerprint",
+          directory,
+        )
+      }
+      digest = projectInputReloadDirectoryDigest(directory)
+    }
+    if !validProjectInputFingerprint(digest) {
+      return LSPProjectInputSnapshot{}, fmt.Errorf(
+        "reload directory %q has an invalid fingerprint",
+        directory,
+      )
+    }
+    out.ReloadDirectoryDigests[key] = digest
   }
   sort.Strings(out.Files)
   sort.Strings(out.Globs)
@@ -485,13 +537,22 @@ func copyProjectInputSnapshot(
     ReloadFiles:       append([]string(nil), snapshot.ReloadFiles...),
     ReloadDirectories: append([]string(nil), snapshot.ReloadDirectories...),
   }
-  if snapshot.reloadDirectoryDigests != nil {
-    copied.reloadDirectoryDigests = make(
+  if snapshot.ReloadFileDigests != nil {
+    copied.ReloadFileDigests = make(
       map[string]string,
-      len(snapshot.reloadDirectoryDigests),
+      len(snapshot.ReloadFileDigests),
     )
-    for key, digest := range snapshot.reloadDirectoryDigests {
-      copied.reloadDirectoryDigests[key] = digest
+    for key, digest := range snapshot.ReloadFileDigests {
+      copied.ReloadFileDigests[key] = digest
+    }
+  }
+  if snapshot.ReloadDirectoryDigests != nil {
+    copied.ReloadDirectoryDigests = make(
+      map[string]string,
+      len(snapshot.ReloadDirectoryDigests),
+    )
+    for key, digest := range snapshot.ReloadDirectoryDigests {
+      copied.ReloadDirectoryDigests[key] = digest
     }
   }
   return copied
@@ -525,6 +586,10 @@ func projectInputSnapshotsEqual(
       projectInputPathKey(right.ReloadFiles[index]) {
       return false
     }
+    key := projectInputPathKey(left.ReloadFiles[index])
+    if left.ReloadFileDigests[key] != right.ReloadFileDigests[key] {
+      return false
+    }
   }
   for index := range left.ReloadDirectories {
     if projectInputPathKey(left.ReloadDirectories[index]) !=
@@ -532,7 +597,7 @@ func projectInputSnapshotsEqual(
       return false
     }
     key := projectInputPathKey(left.ReloadDirectories[index])
-    if left.reloadDirectoryDigests[key] != right.reloadDirectoryDigests[key] {
+    if left.ReloadDirectoryDigests[key] != right.ReloadDirectoryDigests[key] {
       return false
     }
   }
@@ -559,17 +624,90 @@ func projectInputDirectoryContainsImmediate(
     !strings.Contains(relativeKey, "/")
 }
 
+func preserveProjectInputReloadFingerprints(
+  baseline LSPProjectInputSnapshot,
+  current *LSPProjectInputSnapshot,
+) {
+  if current == nil {
+    return
+  }
+  for _, file := range current.ReloadFiles {
+    key := projectInputPathKey(file)
+    if digest := baseline.ReloadFileDigests[key]; digest != "" {
+      current.ReloadFileDigests[key] = digest
+    }
+  }
+  for _, directory := range current.ReloadDirectories {
+    key := projectInputPathKey(directory)
+    if digest := baseline.ReloadDirectoryDigests[key]; digest != "" {
+      current.ReloadDirectoryDigests[key] = digest
+    }
+  }
+}
+
+func projectInputReloadFingerprintsAreCurrent(
+  snapshot LSPProjectInputSnapshot,
+) bool {
+  for _, file := range snapshot.ReloadFiles {
+    key := projectInputPathKey(file)
+    if snapshot.ReloadFileDigests[key] != projectInputReloadFileDigest(file) {
+      return false
+    }
+  }
+  for _, directory := range snapshot.ReloadDirectories {
+    key := projectInputPathKey(directory)
+    if snapshot.ReloadDirectoryDigests[key] !=
+      projectInputReloadDirectoryDigest(directory) {
+      return false
+    }
+  }
+  return true
+}
+
+func projectInputSnapshotDigest(
+  fingerprints map[string]string,
+  location string,
+) (string, bool) {
+  if fingerprints == nil {
+    return "", false
+  }
+  if digest, ok := fingerprints[location]; ok {
+    return digest, true
+  }
+  wanted := projectInputPathKey(location)
+  for candidate, digest := range fingerprints {
+    if projectInputPathKey(realProjectInputPath(candidate)) == wanted {
+      return digest, true
+    }
+  }
+  return "", false
+}
+
+func validProjectInputFingerprint(digest string) bool {
+  if len(digest) != sha256.Size*2 || strings.ToLower(digest) != digest {
+    return false
+  }
+  for _, char := range digest {
+    if (char < '0' || char > '9') && (char < 'a' || char > 'f') {
+      return false
+    }
+  }
+  return true
+}
+
 func projectInputReloadDirectoryDigest(directory string) string {
   entries, err := os.ReadDir(projectInputFilesystemPath(directory))
   if err != nil {
-    return "error:" + err.Error()
+    missing := sha256.Sum256([]byte("missing\x00"))
+    return fmt.Sprintf("%x", missing[:])
   }
   digest := sha256.New()
   for index, entry := range entries {
     kind := "other"
     info, err := entry.Info()
     if err != nil {
-      return "error:" + err.Error()
+      missing := sha256.Sum256([]byte("missing\x00"))
+      return fmt.Sprintf("%x", missing[:])
     }
     switch {
     case info.Mode()&os.ModeSymlink != 0:
@@ -598,6 +736,44 @@ func projectInputReloadDirectoryDigest(directory string) string {
     }
   }
   return fmt.Sprintf("%x", digest.Sum(nil))
+}
+
+func projectInputReloadFileDigest(location string) string {
+  native := projectInputFilesystemPath(location)
+  info, err := os.Lstat(native)
+  if err != nil {
+    missing := sha256.Sum256([]byte("missing\x00"))
+    return fmt.Sprintf("%x", missing[:])
+  }
+  if info.Mode()&os.ModeSymlink != 0 {
+    target, err := os.Readlink(native)
+    if err != nil {
+      target = "<unreadable>"
+    }
+    content := []byte("missing\x00")
+    if body, readErr := os.ReadFile(native); readErr == nil {
+      content = append([]byte("file\x00"), body...)
+    }
+    digest := sha256.New()
+    digest.Write([]byte("symlink\x00"))
+    digest.Write([]byte(target))
+    digest.Write([]byte{0})
+    digest.Write(content)
+    return fmt.Sprintf("%x", digest.Sum(nil))
+  }
+  if info.Mode().IsRegular() {
+    body, err := os.ReadFile(native)
+    if err != nil {
+      missing := sha256.Sum256([]byte("missing\x00"))
+      return fmt.Sprintf("%x", missing[:])
+    }
+    digest := sha256.New()
+    digest.Write([]byte("file\x00"))
+    digest.Write(body)
+    return fmt.Sprintf("%x", digest.Sum(nil))
+  }
+  other := sha256.Sum256([]byte("other\x00"))
+  return fmt.Sprintf("%x", other[:])
 }
 
 func realProjectInputPath(location string) string {
