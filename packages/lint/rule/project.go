@@ -103,6 +103,64 @@ type ProjectRule interface {
   Check(ctx *ProjectContext)
 }
 
+// ProjectInputKind distinguishes one exact local path from a glob population.
+// Both kinds are resolved against ProjectIdentity.PhysicalProjectRoot by the
+// host. Remote URLs are not project inputs.
+type ProjectInputKind string
+
+const (
+  ProjectInputFile ProjectInputKind = "file"
+  ProjectInputGlob ProjectInputKind = "glob"
+)
+
+// ProjectInput declares one local filesystem dependency of a ProjectRule.
+// Pattern may be absolute or relative to the physical project root. Glob
+// patterns support path-segment `*`, `?`, and `**`; exact files remain
+// dependencies while missing.
+type ProjectInput struct {
+  Kind    ProjectInputKind `json:"kind"`
+  Pattern string           `json:"pattern"`
+}
+
+// ProjectInputRule is the optional dependency-publication contract for a
+// ProjectRule. The host calls ProjectInputs after resolving the rule's options
+// and physical project identity, without loading a TypeScript Program.
+type ProjectInputRule interface {
+  ProjectInputs(ctx *ProjectInputContext) []ProjectInput
+}
+
+// ProjectInputContext contains the immutable configuration available while a
+// ProjectRule declares its local filesystem dependencies.
+type ProjectInputContext struct {
+  Identity ProjectIdentity
+  Severity Severity
+  Options  json.RawMessage
+}
+
+// NewProjectInputContext constructs the context passed to
+// ProjectInputRule.ProjectInputs. Contributor code normally receives this value
+// and does not construct it.
+func NewProjectInputContext(
+  identity ProjectIdentity,
+  severity Severity,
+  options json.RawMessage,
+) *ProjectInputContext {
+  return &ProjectInputContext{
+    Identity: identity,
+    Severity: severity,
+    Options:  append(json.RawMessage(nil), options...),
+  }
+}
+
+// DecodeOptions unmarshals the configured project-rule options into out. A
+// missing options tuple leaves out unchanged and returns nil.
+func (c *ProjectInputContext) DecodeOptions(out interface{}) error {
+  if c == nil || len(c.Options) == 0 {
+    return nil
+  }
+  return json.Unmarshal(c.Options, out)
+}
+
 // ProjectReporter is the cycle-scoped failure channel available to project
 // helpers. Report records a deterministic project finding and also marks the
 // current rule failed; Fail marks failure without adding a finding.

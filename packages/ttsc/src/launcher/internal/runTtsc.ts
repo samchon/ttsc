@@ -4,7 +4,11 @@ import path from "node:path";
 import { TtscCompiler } from "../../TtscCompiler";
 import { readProjectConfig } from "../../compiler/internal/project/readProjectConfig";
 import { resolveProjectConfig } from "../../compiler/internal/project/resolveProjectConfig";
-import { runBuild } from "../../compiler/internal/runBuild";
+import {
+  type ResidentCheckWatchChange,
+  ResidentCheckWatchSession,
+  runBuild,
+} from "../../compiler/internal/runBuild";
 import { runSingleFileEmit } from "../../compiler/internal/runSingleFileEmit";
 import {
   getBoolean,
@@ -20,10 +24,13 @@ import {
   resolveCleanTargets,
   resolveSourceBuildCachePaths,
 } from "../../plugin/internal/buildSourcePlugin";
+import type { ITtscProjectInputSnapshot } from "../../structures/internal/ITtscProjectInputSnapshot";
 import type { TtscBuildOptions } from "../../structures/internal/TtscBuildOptions";
+import type { TtscSingleFileEmitOptions } from "../../structures/internal/TtscSingleFileEmitOptions";
 import { getCompilerVersionText } from "./getCompilerVersionText";
 import { resolveCacheDir } from "./resolveCacheDir";
-import { WatchTopology } from "./watchTopology";
+import { resolveSingleFileOutput } from "./singleFileOutput";
+import { type WatchInputChange, WatchTopology } from "./watchTopology";
 
 /**
  * CLI entry point for `ttsc`. Dispatches argv to the appropriate build lane
@@ -570,7 +577,10 @@ function printCacheHelp(): void {
   process.stdout.write("\n");
 }
 
-function runSingleFile(options: ReturnType<typeof parseBuildArgs>): number {
+function runSingleFile(
+  options: ReturnType<typeof parseBuildArgs> &
+    Pick<TtscSingleFileEmitOptions, "onProjectInputs" | "onWatchInputs">,
+): number {
   if (options.files.length !== 1) {
     throw new Error(
       "ttsc: single-file mode currently accepts exactly one input file",
@@ -580,10 +590,11 @@ function runSingleFile(options: ReturnType<typeof parseBuildArgs>): number {
   const file = path.resolve(cwd, options.files[0]!);
   const emit = singleFileShouldEmit(options, cwd, file);
   const out = emit
-    ? resolveSingleFileOut({
+    ? resolveSingleFileOutput({
         cliOutDir: options.outDir,
         cwd,
         file,
+        passthrough: options.passthrough,
         tsconfig: options.tsconfig,
       })
     : undefined;
@@ -592,6 +603,8 @@ function runSingleFile(options: ReturnType<typeof parseBuildArgs>): number {
     checkers: options.checkers,
     cwd,
     file,
+    onProjectInputs: options.onProjectInputs,
+    onWatchInputs: options.onWatchInputs,
     out,
     passthrough: options.passthrough,
     singleThreaded: options.singleThreaded,
@@ -628,101 +641,6 @@ function singleFileShouldEmit(
   return project.compilerOptions.noEmit !== true;
 }
 
-function resolveSingleFileOut(opts: {
-  cliOutDir?: string;
-  cwd: string;
-  file: string;
-  tsconfig?: string;
-}): string {
-  const jsBasename =
-    path.basename(opts.file).replace(/\.[cm]?tsx?$/i, "") +
-    singleFileJsExtension(opts.file);
-
-  // Explicit CLI --outDir wins. Mirrors the CWD-relative source layout under
-  // the requested directory so existing single-file invocations don't shift.
-  if (opts.cliOutDir) {
-    const relative = path.relative(opts.cwd, opts.file);
-    const jsRelative =
-      relative.slice(0, relative.length - path.extname(relative).length) +
-      singleFileJsExtension(opts.file);
-    return path.resolve(opts.cwd, opts.cliOutDir, jsRelative);
-  }
-
-  // No CLI override: honor tsconfig's outDir so `ttsc src/foo.ts` lands the
-  // emitted JS at `<outDir>/<relative-from-rootDir>.js` instead of dropping
-  // it next to the source file. This matches how project mode emits and how
-  // `tsc <file>` would behave with the same tsconfig.
-  const projectOutDir = readProjectOutDir({
-    cwd: opts.cwd,
-    file: opts.file,
-    tsconfig: opts.tsconfig,
-  });
-  if (projectOutDir !== null) {
-    const fromRoot = path.relative(projectOutDir.rootDir, opts.file);
-    if (fromRoot !== "" && !isOutsideSingleFileLayout(fromRoot)) {
-      const jsRelative =
-        fromRoot.slice(0, fromRoot.length - path.extname(fromRoot).length) +
-        singleFileJsExtension(opts.file);
-      return path.resolve(projectOutDir.outDir, jsRelative);
-    }
-    return path.resolve(projectOutDir.outDir, jsBasename);
-  }
-
-  // Last resort (no tsconfig outDir at all): emit next to the source. This
-  // preserves the legacy `ttsc <file.ts>` → `<file.js>` behavior for projects
-  // that intentionally don't configure outDir.
-  return opts.file.replace(/\.[cm]?tsx?$/i, singleFileJsExtension(opts.file));
-}
-
-function readProjectOutDir(opts: {
-  cwd: string;
-  file: string;
-  tsconfig?: string;
-}): { outDir: string; rootDir: string } | null {
-  try {
-    const project = readProjectConfig({
-      cwd: opts.cwd,
-      file: opts.file,
-      tsconfig: opts.tsconfig,
-    });
-    const outDir = project.compilerOptions.outDir;
-    if (typeof outDir !== "string" || outDir.length === 0) {
-      return null;
-    }
-    const rawRoot = project.compilerOptions.rootDir;
-    const rootDir =
-      typeof rawRoot === "string" && rawRoot.length !== 0
-        ? path.isAbsolute(rawRoot)
-          ? rawRoot
-          : path.resolve(project.root, rawRoot)
-        : project.root;
-    return { outDir, rootDir };
-  } catch {
-    // Missing or unreadable tsconfig: fall back to the legacy behavior so
-    // `ttsc <file>` still works outside a configured project.
-    return null;
-  }
-}
-
-function isOutsideSingleFileLayout(relative: string): boolean {
-  return (
-    relative === ".." ||
-    relative.startsWith(`..${path.sep}`) ||
-    path.isAbsolute(relative)
-  );
-}
-
-function singleFileJsExtension(file: string): string {
-  switch (path.extname(file).toLowerCase()) {
-    case ".mts":
-      return ".mjs";
-    case ".cts":
-      return ".cjs";
-    default:
-      return ".js";
-  }
-}
-
 function runWatch(
   options: ReturnType<typeof parseBuildArgs>,
   checkOnly: boolean,
@@ -735,6 +653,9 @@ function runWatch(
     onWatchInputs: (inputs: readonly string[]) => {
       topology?.setExtraInputs(inputs);
     },
+    onProjectInputs: (inputs: ITtscProjectInputSnapshot) => {
+      topology?.setProjectInputs(inputs);
+    },
     quiet: true,
   };
   const root = path.dirname(
@@ -746,12 +667,16 @@ function runWatch(
   let running = false;
   let rerun = false;
   let timer: NodeJS.Timeout | null = null;
+  const resident =
+    invocation.files.length === 0 ? new ResidentCheckWatchSession() : undefined;
+  const pendingChanges = new PendingResidentCheckWatchChanges();
   // Tracks the most recent build's exit code so the watch session can exit
   // non-zero when its latest rebuild failed, instead of always reporting 0.
   let lastStatus = 0;
 
-  const runOnce = () => {
+  const runOnce = async () => {
     running = true;
+    const change = pendingChanges.take();
     let completed = false;
     try {
       if (!options.preserveWatchOutput) {
@@ -766,17 +691,20 @@ function runWatch(
       // to invalid JSON, single-file invariant). Catch here so a throwing
       // rebuild reports a clear failure and the watcher keeps running instead
       // of crashing the process with an uncaught exception.
-      const status =
-        invocation.files.length !== 0
-          ? runSingleFile(invocation)
-          : (() => {
-              const result = runBuild(
-                checkOnly ? { ...invocation, emit: false } : invocation,
-              );
-              if (result.stdout) process.stdout.write(result.stdout);
-              if (result.stderr) process.stderr.write(result.stderr);
-              return result.status;
-            })();
+      const status = await (invocation.files.length !== 0
+        ? Promise.resolve(runSingleFile(invocation))
+        : (async () => {
+            const buildOptions = checkOnly
+              ? { ...invocation, emit: false }
+              : invocation;
+            const result =
+              resident === undefined
+                ? runBuild(buildOptions)
+                : await resident.run(buildOptions, change);
+            if (result.stdout) process.stdout.write(result.stdout);
+            if (result.stderr) process.stderr.write(result.stderr);
+            return result.status;
+          })());
       lastStatus = status;
       completed = true;
       process.stdout.write(
@@ -807,13 +735,14 @@ function runWatch(
       trigger();
     }
   };
-  const trigger = () => {
+  const trigger = (change?: WatchInputChange, reload = false) => {
+    pendingChanges.push(change, reload);
     if (running) {
       rerun = true;
       return;
     }
     if (timer) clearTimeout(timer);
-    timer = setTimeout(runOnce, 60);
+    timer = setTimeout(() => void runOnce(), 60);
   };
 
   topology = new WatchTopology(invocation, {
@@ -822,14 +751,15 @@ function runWatch(
         `[ttsc] watch error on ${path.relative(cwd, location) || "."}: ${formatError(error)}\n`,
       );
     },
-    onInputChange: trigger,
-    onTopologyChange: trigger,
+    onInputChange: (change) => trigger(change),
+    onTopologyChange: () => trigger(undefined, true),
   });
   topology.refresh(false);
 
   const close = () => {
     if (timer) clearTimeout(timer);
     topology?.close();
+    resident?.dispose();
   };
   process.on("SIGINT", () => {
     close();
@@ -842,7 +772,7 @@ function runWatch(
 
   process.stdout.write(`[ttsc] watching ${path.relative(cwd, root) || "."}\n`);
   try {
-    runOnce();
+    void runOnce();
   } catch (error) {
     // runOnce already swallows build throws, but guard against any unforeseen
     // throw escaping the first pass: tear down the persistent watchers so the
@@ -853,6 +783,59 @@ function runWatch(
     return toExitCode(lastStatus === 0 ? 2 : lastStatus);
   }
   return toExitCode(lastStatus);
+}
+
+/**
+ * Coalesces filesystem events until the next resident check-watch cycle.
+ *
+ * A full reload dominates every narrower signal. Program invalidation remains
+ * distinct so a project-input module creation/deletion can cold-load the
+ * Program without discarding the selected execution or restarting the sidecar.
+ */
+export class PendingResidentCheckWatchChanges {
+  private readonly changed = new Set<string>();
+  private readonly external = new Set<string>();
+  private invalidate = false;
+  private reload = false;
+
+  public push(change?: WatchInputChange, reload = false): void {
+    if (reload || change?.kind === "config" || change?.kind === "plugin") {
+      this.reload = true;
+      this.invalidate = false;
+      this.changed.clear();
+      this.external.clear();
+      return;
+    }
+    if (this.reload) return;
+    if (change?.invalidate === true) this.invalidate = true;
+    if (change?.path === undefined) {
+      if (change?.kind === "compiler") {
+        this.reload = true;
+        this.invalidate = false;
+        this.changed.clear();
+        this.external.clear();
+      }
+      return;
+    }
+    this.changed.add(change.path);
+    if (change.kind === "project") this.external.add(change.path);
+  }
+
+  public take(): ResidentCheckWatchChange {
+    const change: ResidentCheckWatchChange = {
+      ...(this.reload ? { reload: true } : {}),
+      ...(this.invalidate ? { invalidate: true } : {}),
+      ...(this.changed.size === 0 ? {} : { changed: [...this.changed].sort() }),
+      ...(this.external.size === 0
+        ? {}
+        : { external: [...this.external].sort() }),
+    };
+    this.reload = false;
+    this.invalidate = false;
+    this.changed.clear();
+    this.external.clear();
+    return change;
+  }
 }
 
 // Coerces a build status into a valid process exit code: 0 stays 0, any

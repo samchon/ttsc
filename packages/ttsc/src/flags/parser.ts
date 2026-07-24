@@ -156,12 +156,9 @@ export function parseFlags(opts: ParseOptions): ParseResult {
     // `--target all` masquerade as `--all` now that the lookup is dash- and
     // case-insensitive.
     if (current.startsWith("-")) {
-      // `--foo=value` / `-p=value` form: split before resolving against the
-      // schema. Both long (`--foo`) and short (`-p`) aliases support the
-      // inline-value shape — without splitting the short form, `-p=value`
-      // would fall through as an unknown token and be forwarded to tsgo,
-      // bypassing the launcher's own consumer (e.g. plugin discovery against
-      // the wrong project root).
+      // Split `--foo=value` / `-p=value` before resolving launcher-owned
+      // options. A tsgo-only option is still forwarded byte-for-byte; pinned
+      // tsgo does not split `=`, so it will reject that spelling itself.
       const equalsIndex = current.indexOf("=");
       const token =
         equalsIndex === -1 ? current : current.slice(0, equalsIndex);
@@ -369,13 +366,10 @@ function validatePositiveInt(
  * `--tsgo-args`); without this branch the parser would lose the value token of
  * a `--flag value` pair.
  *
- * `isPositional` is the same predicate the main loop applies, and applying it
- * here is what makes the file's own claim true — that the two value-resolution
- * paths agree, and that the predicate is the only signal separating a forwarded
- * value from a real input. Without it this branch took the next bare token on
- * behalf of a flag that does not own it, so `ttsc --pretty a.ts` lost `a.ts`
- * out of `positional` and silently switched from single-file mode to project
- * mode (issue #663's failure shape, reached through the sibling branch).
+ * A value option owned by tsgo always consumes its next bare token, even when
+ * it ends in `.ts`; `--rootDir src.ts main.ts` has one option value and one
+ * source. Schema rows belonging only to another ttsc layer still consult
+ * `isPositional`, because tsgo does not own their arity.
  */
 function forwardKnownButUnaccepted(
   passthrough: string[],
@@ -386,15 +380,21 @@ function forwardKnownButUnaccepted(
   isPositional: ((token: string) => boolean) | undefined,
 ): void {
   passthrough.push(original);
-  // Boolean flags carry no value. `--foo=value` already encodes the value
-  // inline. Otherwise the next argv token is the flag's value: keep it
-  // adjacent so tsgo receives the pair intact.
+  // Boolean flags carry no required value. `--foo=value` is already one token.
   if (flag.kind === "boolean" || inlineValue !== undefined) {
     return;
   }
   if (rest.length === 0) return;
   if (rest[0]!.startsWith("-")) return;
-  if (isPositional !== undefined && isPositional(rest[0]!)) return;
+  const tsgoOwnsArity =
+    flag.consumedBy.includes("tsgo") || flag.forwardTo === "tsgo";
+  if (
+    tsgoOwnsArity === false &&
+    isPositional !== undefined &&
+    isPositional(rest[0]!)
+  ) {
+    return;
+  }
   passthrough.push(rest.shift()!);
 }
 

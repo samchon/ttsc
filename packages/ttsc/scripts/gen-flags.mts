@@ -143,9 +143,11 @@ ${rows}
 
 ### Reading this table
 
-- **Kind** \`boolean\` flags take no value; \`value\` flags consume the next
-  argv token (or accept \`--flag=VALUE\`); \`valueOptional\` keeps a value
-  optional.
+- **Kind** \`boolean\` flags take no required value; \`value\` flags consume the
+  next argv token; \`valueOptional\` keeps a value optional. Launcher-owned
+  flags also accept \`--flag=VALUE\`. Flags forwarded to tsgo preserve their
+  original spelling, and the pinned tsgo CLI does not support inline
+  \`=VALUE\`.
 - **Consumed by** lists every layer that reads the flag into its own option
   struct. A flag without a Consumed-by entry is forwarded verbatim to tsgo.
 - **Notes** marks structural attributes: \`terminal\` (the flag asks tsgo
@@ -188,6 +190,7 @@ function renderNotes(flag: FlagSpec): string {
   if (flag.projectFree === true) tags.push("project-free");
   if (flag.repeatable === true) tags.push("repeatable");
   if (flag.internalShadow === true) tags.push("shadow");
+  if (flag.tsconfigOnly === true) tags.push("tsconfig-only");
   if (flag.nativeCapability !== undefined) {
     tags.push(`capability: ${flag.nativeCapability}`);
   }

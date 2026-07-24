@@ -1,8 +1,9 @@
 // Command ttscserver is the Go LSP host shipped by ttsc. It wraps the
 // project-selected TypeScript-Go LSP server process and proxies traffic
 // between the editor and that server. The JavaScript launcher resolves project
-// plugins first and passes an LSP manifest so this command can merge plugin
-// diagnostics, code actions, and ttsc-owned executeCommand handling.
+// plugins first and passes a private LSP manifest file so this command can
+// merge plugin diagnostics, code actions, and ttsc-owned executeCommand
+// handling.
 //
 // The JavaScript launcher (`packages/ttsc/src/launcher/ttscserver.ts`)
 // resolves the native binary and forwards stdio so editors can spawn
@@ -28,6 +29,8 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/internal/graphsymbols"
   "github.com/samchon/ttsc/packages/ttsc/internal/lspserver"
 )
+
+const lspPluginManifestMaxBytes = 64 * 1024 * 1024
 
 // Build metadata; overwritten via -ldflags in release builds.
 var (
@@ -94,6 +97,12 @@ func runLSP(args []string) int {
   suppressExecuteCommandProviderFlag := fs.Bool("suppress-execute-command-provider", false, "do not advertise ttsc executeCommand ids during initialize")
   suppressExecuteCommandIDsFlag := fs.String("suppress-execute-command-ids", "", "comma-separated ttsc executeCommand ids to omit during initialize")
   executeCommandIDPrefixFlag := fs.String("execute-command-id-prefix", "", "prefix to apply to advertised executeCommand ids")
+  // The launcher passes this flag only when it actually resolved LSP-capable
+  // plugins, so a host too old to know it refuses to start instead of running
+  // silently without every plugin the project declared. Version skew between
+  // the launcher and a TTSCSERVER_BINARY override is therefore visible at the
+  // first request rather than diagnosed from missing diagnostics.
+  lspPluginsFileFlag := fs.String("lsp-plugins-file", "", "path to the private LSP plugin manifest written by the ttsc launcher")
   _ = fs.String("clientProcessId", "", "ignored VSCode language-client compatibility flag")
   if err := fs.Parse(args); err != nil {
     return 2
@@ -121,10 +130,15 @@ func runLSP(args []string) int {
     tsgoBinary = strings.TrimSpace(os.Getenv("TTSC_TSGO_BINARY"))
   }
 
+  manifestJSON, err := lspPluginManifestJSON(strings.TrimSpace(*lspPluginsFileFlag))
+  if err != nil {
+    fmt.Fprintf(stderr, "ttscserver: %v\n", err)
+    return 2
+  }
   source, err := lspserver.NewNativePluginSource(lspserver.NativePluginSourceOptions{
     Cwd:          cwd,
     Err:          stderr,
-    ManifestJSON: os.Getenv("TTSC_LSP_PLUGINS_JSON"),
+    ManifestJSON: manifestJSON,
     Tsconfig:     strings.TrimSpace(*tsconfigFlag),
   })
   if err != nil {
@@ -160,6 +174,63 @@ func runLSP(args []string) int {
   return 0
 }
 
+// lspPluginManifestJSON reads the private plugin manifest prepared for this
+// process and takes ownership of it.
+//
+// The manifest names every resolved project plugin and its launch context, so
+// the copy this process was given to own is consumed exactly once: the file the
+// launcher named with the flag is removed as soon as it has been read, which
+// means a forcibly terminated launcher cannot leave the payload on disk. Both
+// transport variables are cleared from this process either way, so no plugin
+// sidecar spawned later inherits the payload or a path to it. The environment
+// forms remain accepted because an editor pointed straight at a native binary
+// has no launcher to pass the flag, and a manifest supplied that way is read
+// without being removed, because it belongs to whoever wrote it.
+func lspPluginManifestJSON(flagLocation string) (string, error) {
+  defer func() {
+    os.Unsetenv("TTSC_LSP_PLUGINS_FILE")
+    os.Unsetenv("TTSC_LSP_PLUGINS_JSON")
+  }()
+  if flagLocation != "" {
+    body, err := readLSPPluginManifestFile("--lsp-plugins-file", flagLocation)
+    if err != nil {
+      return "", err
+    }
+    // Only the flag names a file the launcher created for this process, so
+    // only that one is consumed here. Removing it is what keeps a forcibly
+    // terminated launcher from leaving the payload on disk. A path supplied
+    // out of band belongs to whoever wrote it and must survive the read, or
+    // the next session would start without the plugins it declared.
+    os.Remove(flagLocation)
+    return body, nil
+  }
+  location := strings.TrimSpace(os.Getenv("TTSC_LSP_PLUGINS_FILE"))
+  if location == "" {
+    return os.Getenv("TTSC_LSP_PLUGINS_JSON"), nil
+  }
+  return readLSPPluginManifestFile("TTSC_LSP_PLUGINS_FILE", location)
+}
+
+func readLSPPluginManifestFile(source, location string) (string, error) {
+  input, err := os.Open(location)
+  if err != nil {
+    return "", fmt.Errorf("read %s: %w", source, err)
+  }
+  defer input.Close()
+  body, err := io.ReadAll(io.LimitReader(input, lspPluginManifestMaxBytes+1))
+  if err != nil {
+    return "", fmt.Errorf("read %s: %w", source, err)
+  }
+  if len(body) > lspPluginManifestMaxBytes {
+    return "", fmt.Errorf(
+      "%s exceeds %d bytes",
+      source,
+      lspPluginManifestMaxBytes,
+    )
+  }
+  return string(body), nil
+}
+
 func printVersion(w io.Writer) {
   fmt.Fprintf(
     w,
@@ -187,6 +258,11 @@ Options:
   --cwd <dir>          Project root used as the tsgo server working directory.
   --tsconfig <path>    Project config path used by ttsc plugin sidecars.
   --tsgo <path>        Absolute tsgo binary path (defaults to TTSC_TSGO_BINARY).
+  --lsp-plugins-file <path>
+                       Private plugin manifest written by the ttsc launcher; it is
+                       consumed and deleted at startup. Editors that spawn this
+                       binary directly supply their own manifest through
+                       TTSC_LSP_PLUGINS_FILE instead, which is never deleted.
   --suppress-execute-command-provider
                        Do not advertise ttsc executeCommand ids during initialize.
   --suppress-execute-command-ids <ids>

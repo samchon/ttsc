@@ -7,6 +7,7 @@ import (
   "encoding/hex"
   "encoding/json"
   "fmt"
+  "io"
   "net/url"
   "os"
   "os/exec"
@@ -219,6 +220,22 @@ func (r boundProjectRuleResolver) RuleOptionsVariants(name string) []json.RawMes
   return resolvedRuleOptionsVariants(r.RuleResolver, name)
 }
 
+func (r boundProjectRuleResolver) ConfigPaths() []string {
+  resolver, ok := r.RuleResolver.(interface{ ConfigPaths() []string })
+  if !ok {
+    return nil
+  }
+  return resolver.ConfigPaths()
+}
+
+func (r boundProjectRuleResolver) ConfigDirectories() []string {
+  resolver, ok := r.RuleResolver.(interface{ ConfigDirectories() []string })
+  if !ok {
+    return nil
+  }
+  return resolver.ConfigDirectories()
+}
+
 // ResolveRules implements RuleResolver. A flat RuleConfig has no glob scoping,
 // so every file receives the full map unchanged.
 func (c RuleConfig) ResolveRules(string) ResolvedRuleConfig {
@@ -354,7 +371,30 @@ func (r InlineRuleResolver) ResolveProjectRules(names []string) (map[string]Proj
 // ConfigEntry per file, the extends-target entries declared before the
 // extending file's own entry so local rules win on collision.
 type ConfigStore struct {
-  entries []ConfigEntry
+  directories    []string
+  entries        []ConfigEntry
+  paths          []string
+  resolutionRoot string
+}
+
+// ConfigPaths returns the config and extends files that produced this store.
+// The paths are retained as exact dependencies even when no rule declares
+// additional project inputs.
+func (s *ConfigStore) ConfigPaths() []string {
+  if s == nil {
+    return nil
+  }
+  return append([]string(nil), s.paths...)
+}
+
+// ConfigDirectories returns resolution-topology directories whose immediate
+// entries can change which executable-config module Node selects. Consumers
+// watch these as cold configuration inputs rather than ordinary rule data.
+func (s *ConfigStore) ConfigDirectories() []string {
+  if s == nil {
+    return nil
+  }
+  return append([]string(nil), s.directories...)
 }
 
 // RuleOptions implements the file-agnostic RuleResolver compatibility method.
@@ -700,10 +740,21 @@ func parseExternalConfigStore(raw any, configDir string) (*ConfigStore, error) {
 // guard so a config that `extends` itself (directly or transitively) is
 // rejected.
 func collectConfigStore(raw any, configDir, rootPath string) (*ConfigStore, error) {
-  store := &ConfigStore{}
+  return collectConfigStoreWithin(raw, configDir, rootPath, configDir)
+}
+
+func collectConfigStoreWithin(
+  raw any,
+  configDir string,
+  rootPath string,
+  resolutionRoot string,
+) (*ConfigStore, error) {
+  store := &ConfigStore{resolutionRoot: filepath.Clean(resolutionRoot)}
   var chain []string
   if rootPath != "" {
-    chain = []string{filepath.Clean(rootPath)}
+    rootPath = filepath.Clean(rootPath)
+    chain = []string{rootPath}
+    store.paths = append(store.paths, rootPath)
   }
   if err := collectConfigObject(store, raw, configDir, "config", chain); err != nil {
     return nil, err
@@ -787,11 +838,19 @@ func collectConfigObject(store *ConfigStore, raw any, baseDir, path string, chai
     if err != nil {
       return err
     }
-    extendedRaw, err := loadConfigFile(location)
+    if !containsPath(store.paths, location) {
+      store.paths = append(store.paths, location)
+    }
+    evaluated, err := loadConfigFileEvaluationWithin(
+      location,
+      store.resolutionRoot,
+    )
     if err != nil {
       return err
     }
-    if err := collectConfigObject(store, extendedRaw, filepath.Dir(location), path+".extends", extendedChain); err != nil {
+    appendConfigPaths(store, evaluated.dependencies)
+    appendConfigDirectories(store, evaluated.dependencyDirectories)
+    if err := collectConfigObject(store, evaluated.value, filepath.Dir(location), path+".extends", extendedChain); err != nil {
       return err
     }
   }
@@ -1004,6 +1063,7 @@ func LoadConfigResolver(entry *PluginEntry, cwd, tsconfigPath string) (RuleResol
   if inline == nil {
     inline = map[string]any{}
   }
+  resolutionRoot := tsconfigBaseDir(cwd, tsconfigPath)
 
   if configFileValue, ok := inline["configFile"]; ok {
     configFile, ok := configFileValue.(string)
@@ -1014,7 +1074,7 @@ func LoadConfigResolver(entry *PluginEntry, cwd, tsconfigPath string) (RuleResol
       return nil, fmt.Errorf("@ttsc/lint: \"configFile\" must not be empty")
     }
     location := resolveConfigFilePath(configFile, cwd, tsconfigPath)
-    return loadConfigResolver(location)
+    return loadConfigResolver(location, resolutionRoot)
   }
 
   discovered, err := findLintConfigFile(cwd, tsconfigPath)
@@ -1028,21 +1088,51 @@ func LoadConfigResolver(entry *PluginEntry, cwd, tsconfigPath string) (RuleResol
       strings.Join(discoveryConfigBaseDirs(cwd, tsconfigPath), ", then from "),
     )
   }
-  return loadConfigResolver(discovered)
+  return loadConfigResolver(discovered, resolutionRoot)
 }
 
 // loadConfigResolver loads and parses the lint config file at `location` into
 // a *ConfigStore and returns it as a RuleResolver.
-func loadConfigResolver(location string) (RuleResolver, error) {
-  raw, err := loadConfigFile(location)
+func loadConfigResolver(
+  location string,
+  resolutionRoot string,
+) (RuleResolver, error) {
+  evaluated, err := loadConfigFileEvaluationWithin(location, resolutionRoot)
   if err != nil {
     return nil, err
   }
-  store, err := collectConfigStore(raw, filepath.Dir(location), location)
+  store, err := collectConfigStoreWithin(
+    evaluated.value,
+    filepath.Dir(location),
+    location,
+    resolutionRoot,
+  )
   if err != nil {
     return nil, err
   }
+  appendConfigPaths(store, evaluated.dependencies)
+  appendConfigDirectories(store, evaluated.dependencyDirectories)
   return store, nil
+}
+
+func appendConfigPaths(store *ConfigStore, paths []string) {
+  for _, location := range paths {
+    location = filepath.Clean(location)
+    if !containsPath(store.paths, location) {
+      store.paths = append(store.paths, location)
+    }
+  }
+  sort.Strings(store.paths)
+}
+
+func appendConfigDirectories(store *ConfigStore, directories []string) {
+  for _, location := range directories {
+    location = filepath.Clean(location)
+    if !containsPath(store.directories, location) {
+      store.directories = append(store.directories, location)
+    }
+  }
+  sort.Strings(store.directories)
 }
 
 func findLintConfigFile(cwd, tsconfigPath string) (string, error) {
@@ -1209,23 +1299,84 @@ func tsconfigBaseDir(cwd, tsconfigPath string) string {
 // monorepo build — which spawns one `ttsc` process per package — evaluates a
 // shared lint config once instead of once per package.
 func loadConfigFile(location string) (any, error) {
+  evaluated, err := loadConfigFileEvaluation(location)
+  return evaluated.value, err
+}
+
+type configDependencyFingerprint struct {
+  Path   string `json:"path"`
+  Digest string `json:"digest"`
+  Kind   string `json:"kind"`
+  Scope  string `json:"scope"`
+}
+
+const (
+  configDependencyCache        = "cache"
+  configDependencyWatch        = "watch"
+  configDependencyFile         = "file"
+  configDependencyDir          = "directory"
+  configDependencyOptionalFile = "optional-file"
+)
+
+type evaluatedConfigFile struct {
+  value                 any
+  dependencies          []string
+  dependencyDirectories []string
+  dependencyDigests     []configDependencyFingerprint
+  dependenciesTracked   bool
+}
+
+type cachedConfigEvaluation struct {
+  Value               any                           `json:"value"`
+  Dependencies        []configDependencyFingerprint `json:"dependencies"`
+  DependenciesTracked bool                          `json:"dependenciesTracked"`
+}
+
+func loadConfigFileEvaluation(location string) (evaluatedConfigFile, error) {
+  return loadConfigFileEvaluationWithin(location, filepath.Dir(location))
+}
+
+func loadConfigFileEvaluationWithin(
+  location string,
+  resolutionRoot string,
+) (evaluatedConfigFile, error) {
+  if strings.TrimSpace(resolutionRoot) == "" {
+    resolutionRoot = filepath.Dir(location)
+  }
+  if absolute, err := filepath.Abs(resolutionRoot); err == nil {
+    resolutionRoot = absolute
+  }
+  resolutionRoot = filepath.Clean(resolutionRoot)
   ext := strings.ToLower(filepath.Ext(location))
   switch ext {
   case ".json":
-    return loadJSONConfigFile(location)
+    value, err := loadJSONConfigFile(location)
+    return evaluatedConfigFile{value: value}, err
   case ".js", ".cjs", ".mjs":
-    return loadCachedConfigFile(location, loadScriptConfigFile)
+    return loadCachedConfigEvaluationForRoot(
+      location,
+      resolutionRoot,
+      func(location string) (evaluatedConfigFile, error) {
+        return loadScriptConfigEvaluationWithin(location, resolutionRoot)
+      },
+    )
   case ".ts", ".cts", ".mts":
-    return loadCachedConfigFile(location, loadTypeScriptConfigFile)
+    return loadCachedConfigEvaluationForRoot(
+      location,
+      resolutionRoot,
+      func(location string) (evaluatedConfigFile, error) {
+        return loadTypeScriptConfigEvaluationWithin(location, resolutionRoot)
+      },
+    )
   default:
-    return nil, fmt.Errorf("@ttsc/lint: unsupported config file extension %q for %s", ext, location)
+    return evaluatedConfigFile{}, fmt.Errorf("@ttsc/lint: unsupported config file extension %q for %s", ext, location)
   }
 }
 
 // configCacheVersion namespaces the on-disk config cache. Bump it whenever
 // the shape of a cached config object changes so that entries written by an
 // older @ttsc/lint binary are treated as a miss rather than silently reused.
-const configCacheVersion = "v2"
+const configCacheVersion = "v5"
 
 // configEvalCache memoizes evaluated .ts/.js lint config objects for the
 // lifetime of one process; the on-disk cache (configCacheDir) extends the
@@ -1233,7 +1384,7 @@ const configCacheVersion = "v2"
 // spawns. Guarded by configEvalCacheMu.
 var (
   configEvalCacheMu sync.Mutex
-  configEvalCache   = map[string]any{}
+  configEvalCache   = map[string]cachedConfigEvaluation{}
 )
 
 // configCacheDir is the directory shared by this Go sidecar and the JS
@@ -1245,8 +1396,9 @@ func configCacheDir() string {
 }
 
 // configCacheDisabled reports whether the env opt-out is set — an escape
-// hatch for callers that must force a fresh evaluation (e.g. a config whose
-// behavior depends on imported non-config files that the key cannot see).
+// hatch for configs whose behavior depends on state outside their local module
+// graph, such as environment variables, network responses, or arbitrary file
+// reads.
 func configCacheDisabled() bool {
   return os.Getenv("TTSC_LINT_DISABLE_CONFIG_CACHE") != ""
 }
@@ -1269,67 +1421,254 @@ func configCacheKey(kind, absPath string, content []byte) string {
   return hex.EncodeToString(h.Sum(nil))
 }
 
-// loadCachedConfigFile wraps a subprocess-backed config loader (`eval`)
-// with the two-tier (in-process + on-disk) config cache. The cache key
-// covers the config file's path and bytes only — a config's own `import`s
-// of non-config files are NOT tracked, since a lint config is expected to
-// be self-contained; set TTSC_LINT_DISABLE_CONFIG_CACHE when it is not.
-// Errors are never cached: a failed evaluation re-runs next time.
+// loadCachedConfigFile preserves the historical value-only test seam around
+// the two-tier (in-process + on-disk) cache. Production executable-config
+// loaders use loadCachedConfigEvaluation so their complete local module graph
+// participates in validation. Errors are never cached: a failed evaluation
+// re-runs next time.
 func loadCachedConfigFile(location string, eval func(string) (any, error)) (any, error) {
+  evaluated, err := loadCachedConfigEvaluationWithPolicy(
+    location,
+    func(location string) (evaluatedConfigFile, error) {
+      value, err := eval(location)
+      return evaluatedConfigFile{value: value}, err
+    },
+    false,
+    "",
+  )
+  return evaluated.value, err
+}
+
+func loadCachedConfigEvaluation(
+  location string,
+  eval func(string) (evaluatedConfigFile, error),
+) (evaluatedConfigFile, error) {
+  return loadCachedConfigEvaluationWithPolicy(location, eval, true, "")
+}
+
+func loadCachedConfigEvaluationForRoot(
+  location string,
+  resolutionRoot string,
+  eval func(string) (evaluatedConfigFile, error),
+) (evaluatedConfigFile, error) {
+  return loadCachedConfigEvaluationWithPolicy(
+    location,
+    eval,
+    true,
+    filepath.Clean(resolutionRoot),
+  )
+}
+
+func loadCachedConfigEvaluationWithPolicy(
+  location string,
+  eval func(string) (evaluatedConfigFile, error),
+  dependenciesRequired bool,
+  cacheNamespace string,
+) (evaluatedConfigFile, error) {
   if configCacheDisabled() {
     return eval(location)
   }
   content, err := os.ReadFile(location)
   if err != nil {
-    return nil, fmt.Errorf("@ttsc/lint: read config file %s: %w", location, err)
+    return evaluatedConfigFile{}, fmt.Errorf("@ttsc/lint: read config file %s: %w", location, err)
   }
   abs := location
   if resolved, absErr := filepath.Abs(location); absErr == nil {
     abs = resolved
   }
-  key := configCacheKey("config", abs, content)
+  kind := "config-value"
+  if dependenciesRequired {
+    kind = "config-graph"
+  }
+  if cacheNamespace != "" {
+    kind += "\x00" + cacheNamespace
+  }
+  key := configCacheKey(kind, abs, content)
 
   configEvalCacheMu.Lock()
   cached, ok := configEvalCache[key]
   configEvalCacheMu.Unlock()
-  if ok {
-    return cached, nil
+  if ok &&
+    cached.DependenciesTracked == dependenciesRequired &&
+    cachedConfigEvaluationIsCurrent(cached) {
+    return evaluatedConfigFileFromCache(cached), nil
   }
-  if value, hit := readConfigDiskCache(key); hit {
+  if disk, hit := readConfigDiskCache(key); hit &&
+    disk.DependenciesTracked == dependenciesRequired &&
+    cachedConfigEvaluationIsCurrent(disk) {
     configEvalCacheMu.Lock()
-    configEvalCache[key] = value
+    configEvalCache[key] = disk
     configEvalCacheMu.Unlock()
-    return value, nil
+    return evaluatedConfigFileFromCache(disk), nil
   }
 
-  value, err := eval(location)
-  if err != nil {
-    return nil, err
+  var evaluated evaluatedConfigFile
+  for attempt := 0; attempt < 3; attempt++ {
+    evaluated, err = eval(location)
+    if err != nil {
+      return evaluatedConfigFile{}, err
+    }
+    if evaluated.dependenciesTracked != dependenciesRequired {
+      return evaluatedConfigFile{}, fmt.Errorf(
+        "@ttsc/lint: config evaluator for %s returned dependenciesTracked=%t, want %t",
+        location,
+        evaluated.dependenciesTracked,
+        dependenciesRequired,
+      )
+    }
+    if (!evaluated.dependenciesTracked ||
+      len(evaluated.dependencyDigests) != 0) &&
+      configDependencyDigestsAreCurrent(evaluated.dependencyDigests) {
+      cached = cachedConfigEvaluation{
+        Value:               evaluated.value,
+        Dependencies:        append([]configDependencyFingerprint(nil), evaluated.dependencyDigests...),
+        DependenciesTracked: evaluated.dependenciesTracked,
+      }
+      configEvalCacheMu.Lock()
+      configEvalCache[key] = cached
+      configEvalCacheMu.Unlock()
+      writeConfigDiskCache(key, cached)
+      return evaluated, nil
+    }
   }
-  configEvalCacheMu.Lock()
-  configEvalCache[key] = value
-  configEvalCacheMu.Unlock()
-  writeConfigDiskCache(key, value)
-  return value, nil
+  return evaluated, nil
 }
 
 // readConfigDiskCache returns the cached config object for `key`, or
 // (nil, false) on any miss — a missing file, an unreadable file, or
 // content that no longer parses as a config object. Every failure is a
 // soft miss: the caller re-evaluates rather than surfacing a cache fault.
-func readConfigDiskCache(key string) (any, bool) {
+func evaluatedConfigFileFromCache(cached cachedConfigEvaluation) evaluatedConfigFile {
+  dependencies := make([]string, 0, len(cached.Dependencies))
+  directories := make([]string, 0, len(cached.Dependencies))
+  for _, dependency := range cached.Dependencies {
+    if dependency.Scope == configDependencyWatch {
+      if dependency.Kind == configDependencyDir {
+        directories = append(directories, dependency.Path)
+      } else {
+        dependencies = append(dependencies, dependency.Path)
+      }
+    }
+  }
+  return evaluatedConfigFile{
+    value:                 cached.Value,
+    dependencies:          dependencies,
+    dependencyDirectories: directories,
+    dependencyDigests:     append([]configDependencyFingerprint(nil), cached.Dependencies...),
+    dependenciesTracked:   cached.DependenciesTracked,
+  }
+}
+
+func configDependencyDigestsAreCurrent(
+  dependencies []configDependencyFingerprint,
+) bool {
+  for _, dependency := range dependencies {
+    digest, err := configDependencyDigest(dependency)
+    if err != nil {
+      return false
+    }
+    if digest != dependency.Digest {
+      return false
+    }
+  }
+  return true
+}
+
+func configDependencyDigest(
+  dependency configDependencyFingerprint,
+) (string, error) {
+  if dependency.Kind == configDependencyDir {
+    entries, err := os.ReadDir(dependency.Path)
+    if err != nil {
+      return "", err
+    }
+    h := sha256.New()
+    for index, entry := range entries {
+      kind := "other"
+      info, err := entry.Info()
+      if err != nil {
+        return "", err
+      }
+      switch {
+      case info.Mode()&os.ModeSymlink != 0:
+        kind = "symlink"
+      case info.IsDir():
+        kind = "directory"
+      case info.Mode().IsRegular():
+        kind = "file"
+      }
+      target := ""
+      if kind == "symlink" {
+        target, err = os.Readlink(filepath.Join(dependency.Path, entry.Name()))
+        if err != nil {
+          target = "<unreadable>"
+        }
+      }
+      h.Write([]byte(entry.Name()))
+      h.Write([]byte{0})
+      h.Write([]byte(kind))
+      h.Write([]byte{0})
+      h.Write([]byte(target))
+      if index+1 != len(entries) {
+        h.Write([]byte{0})
+      }
+    }
+    return hex.EncodeToString(h.Sum(nil)), nil
+  }
+  if dependency.Kind == configDependencyOptionalFile {
+    info, err := os.Stat(dependency.Path)
+    if err != nil || !info.Mode().IsRegular() {
+      digest := sha256.Sum256([]byte("missing\x00"))
+      return hex.EncodeToString(digest[:]), nil
+    }
+    body, err := os.ReadFile(dependency.Path)
+    if err != nil {
+      digest := sha256.Sum256([]byte("missing\x00"))
+      return hex.EncodeToString(digest[:]), nil
+    }
+    h := sha256.New()
+    h.Write([]byte("file\x00"))
+    h.Write(body)
+    return hex.EncodeToString(h.Sum(nil)), nil
+  }
+  body, err := os.ReadFile(dependency.Path)
+  if err != nil {
+    return "", err
+  }
+  digest := sha256.Sum256(body)
+  return hex.EncodeToString(digest[:]), nil
+}
+
+func cachedConfigEvaluationIsCurrent(cached cachedConfigEvaluation) bool {
+  if !cached.DependenciesTracked {
+    return len(cached.Dependencies) == 0
+  }
+  normalized, ok := normalizeConfigDependencyFingerprints(cached.Dependencies)
+  return ok && configDependencyDigestsAreCurrent(normalized)
+}
+
+func readConfigDiskCache(key string) (cachedConfigEvaluation, bool) {
   body, err := os.ReadFile(filepath.Join(configCacheDir(), key+".json"))
   if err != nil {
-    return nil, false
+    return cachedConfigEvaluation{}, false
   }
-  var value any
-  if err := json.Unmarshal(body, &value); err != nil {
-    return nil, false
+  var cached cachedConfigEvaluation
+  if err := json.Unmarshal(body, &cached); err != nil {
+    return cachedConfigEvaluation{}, false
   }
-  if !isConfigObject(value) {
-    return nil, false
+  if !isConfigObject(cached.Value) {
+    return cachedConfigEvaluation{}, false
   }
-  return value, true
+  if cached.DependenciesTracked {
+    normalized, ok := normalizeConfigDependencyFingerprints(cached.Dependencies)
+    if !ok {
+      return cachedConfigEvaluation{}, false
+    }
+    cached.Dependencies = normalized
+  } else if len(cached.Dependencies) != 0 {
+    return cachedConfigEvaluation{}, false
+  }
+  return cached, true
 }
 
 // writeConfigDiskCache stores `value` under `key`. It is best-effort: a
@@ -1337,8 +1676,8 @@ func readConfigDiskCache(key string) (any, bool) {
 // (the next run re-evaluates) rather than failing the lint run. The write
 // goes through a temp file + rename so a concurrent reader in a sibling
 // `ttsc` process never observes a half-written entry.
-func writeConfigDiskCache(key string, value any) {
-  body, err := json.Marshal(value)
+func writeConfigDiskCache(key string, cached cachedConfigEvaluation) {
+  body, err := json.Marshal(cached)
   if err != nil {
     return
   }
@@ -1408,56 +1747,267 @@ func serializableConfigKeysLiteral() string {
 
 // runConfigLoaderCommand runs a prepared config-loader subprocess (`cmd`),
 // then turns its result into a parsed config object. It owns the shared tail
-// of both subprocess-backed loaders: capturing stdout, distinguishing a
-// timeout from a process error (extracting the subprocess stderr when present),
-// JSON-parsing the output, and rejecting a non-object result. `ctx` is the
+// of both subprocess-backed loaders: discarding user stdout, distinguishing a
+// timeout from a process error, reading the private result file, JSON-parsing
+// its envelope, and rejecting a non-object result. `ctx` is the
 // timeout context the caller bound `cmd` to; `location` is the config file path
 // for error messages; `label` is the human-readable subject (e.g. "config
 // file" or "TypeScript config file") spliced into the load/parse error
 // prefixes so each loader keeps its own wording.
-func runConfigLoaderCommand(ctx context.Context, cmd *exec.Cmd, location, label string) (any, error) {
-  output, err := cmd.Output()
+func runConfigLoaderCommand(
+  ctx context.Context,
+  cmd *exec.Cmd,
+  location string,
+  label string,
+  outputPath string,
+) (evaluatedConfigFile, error) {
+  var stderr bytes.Buffer
+  cmd.Stdout = io.Discard
+  cmd.Stderr = &stderr
+  err := cmd.Run()
+  // A loader diagnostic is only useful when the load succeeds, because a
+  // failure already carries the same text in its message. Forward it so an
+  // assertion about what the loader recorded can name what it resolved.
+  if err == nil && os.Getenv("TTSC_LINT_DEBUG_CONFIG_GRAPH") != "" {
+    if text := strings.TrimSpace(stderr.String()); text != "" {
+      fmt.Fprintln(os.Stderr, text)
+    }
+  }
   if err != nil {
     if ctx.Err() == context.DeadlineExceeded {
-      return nil, fmt.Errorf("@ttsc/lint: load %s %s: timed out after %s", label, location, configLoaderTimeout)
+      return evaluatedConfigFile{}, fmt.Errorf("@ttsc/lint: load %s %s: timed out after %s", label, location, configLoaderTimeout)
     }
-    stderr := ""
-    if exit, ok := err.(*exec.ExitError); ok {
-      stderr = strings.TrimSpace(string(exit.Stderr))
+    stderrText := strings.TrimSpace(stderr.String())
+    if stderrText != "" {
+      return evaluatedConfigFile{}, fmt.Errorf("@ttsc/lint: load %s %s: %s", label, location, stderrText)
     }
-    if stderr != "" {
-      return nil, fmt.Errorf("@ttsc/lint: load %s %s: %s", label, location, stderr)
+    return evaluatedConfigFile{}, fmt.Errorf("@ttsc/lint: load %s %s: %w", label, location, err)
+  }
+  output, err := os.ReadFile(outputPath)
+  if err != nil {
+    return evaluatedConfigFile{}, fmt.Errorf("@ttsc/lint: read %s %s result: %w", label, location, err)
+  }
+  var envelope struct {
+    Dependencies []configDependencyFingerprint `json:"dependencies"`
+    Value        any                           `json:"value"`
+  }
+  if err := json.Unmarshal(output, &envelope); err != nil {
+    return evaluatedConfigFile{}, fmt.Errorf("@ttsc/lint: parse %s %s output: %w", label, location, err)
+  }
+  if !isConfigObject(envelope.Value) {
+    return evaluatedConfigFile{}, fmt.Errorf("@ttsc/lint: config file %s must export an ITtscLintConfig object", location)
+  }
+  normalized, ok := normalizeConfigDependencyFingerprints(envelope.Dependencies)
+  if !ok {
+    return evaluatedConfigFile{}, fmt.Errorf("@ttsc/lint: %s %s returned malformed dependency fingerprints", label, location)
+  }
+  dependencies := make([]string, 0, len(normalized))
+  directories := make([]string, 0, len(normalized))
+  for _, dependency := range normalized {
+    if dependency.Scope == configDependencyWatch {
+      if dependency.Kind == configDependencyDir {
+        directories = append(directories, dependency.Path)
+      } else {
+        dependencies = append(dependencies, dependency.Path)
+      }
     }
-    return nil, fmt.Errorf("@ttsc/lint: load %s %s: %w", label, location, err)
   }
-  var out any
-  if err := json.Unmarshal(output, &out); err != nil {
-    return nil, fmt.Errorf("@ttsc/lint: parse %s %s output: %w", label, location, err)
+  return evaluatedConfigFile{
+    value:                 envelope.Value,
+    dependencies:          dependencies,
+    dependencyDirectories: directories,
+    dependencyDigests:     normalized,
+    dependenciesTracked:   true,
+  }, nil
+}
+
+func normalizeConfigDependencyFingerprints(
+  input []configDependencyFingerprint,
+) ([]configDependencyFingerprint, bool) {
+  if len(input) == 0 {
+    return nil, false
   }
-  if !isConfigObject(out) {
-    return nil, fmt.Errorf("@ttsc/lint: config file %s must export an ITtscLintConfig object", location)
+  seen := make(map[string]configDependencyFingerprint, len(input))
+  normalized := make([]configDependencyFingerprint, 0, len(input))
+  for _, dependency := range input {
+    if strings.TrimSpace(dependency.Path) == "" ||
+      !filepath.IsAbs(dependency.Path) ||
+      len(dependency.Digest) != sha256.Size*2 ||
+      strings.ToLower(dependency.Digest) != dependency.Digest ||
+      (dependency.Kind != configDependencyFile &&
+        dependency.Kind != configDependencyDir &&
+        dependency.Kind != configDependencyOptionalFile) ||
+      (dependency.Scope != configDependencyCache &&
+        dependency.Scope != configDependencyWatch) {
+      return nil, false
+    }
+    if _, err := hex.DecodeString(dependency.Digest); err != nil {
+      return nil, false
+    }
+    absolute := filepath.Clean(dependency.Path)
+    key := dependency.Kind + "\x00" + absolute
+    if previous, exists := seen[key]; exists {
+      if previous.Digest != dependency.Digest ||
+        previous.Kind != dependency.Kind ||
+        previous.Scope != dependency.Scope {
+        return nil, false
+      }
+      continue
+    }
+    fingerprint := configDependencyFingerprint{
+      Path:   absolute,
+      Digest: dependency.Digest,
+      Kind:   dependency.Kind,
+      Scope:  dependency.Scope,
+    }
+    seen[key] = fingerprint
+    normalized = append(normalized, fingerprint)
   }
-  return out, nil
+  sort.Slice(normalized, func(left, right int) bool {
+    return normalized[left].Path < normalized[right].Path
+  })
+  return normalized, true
 }
 
 // loadScriptConfigFile evaluates a .js/.cjs/.mjs config file by running a
 // Node subprocess that dynamic-imports the file, resolves the exported config
-// through the same 8-hop default/config normalization used by the TS loader, and
-// serializes the result as JSON to stdout. The subprocess has a
+// through the same 8-hop default/config normalization used by the TS loader,
+// and serializes the result into a private result file. The subprocess has a
 // configLoaderTimeout deadline to prevent user code from hanging indefinitely.
 func loadScriptConfigFile(location string) (any, error) {
-  script := fmt.Sprintf(`
-const { pathToFileURL } = require("node:url");
+  evaluated, err := loadScriptConfigEvaluation(location)
+  return evaluated.value, err
+}
+
+func loadScriptConfigEvaluation(location string) (evaluatedConfigFile, error) {
+  return loadScriptConfigEvaluationWithin(location, filepath.Dir(location))
+}
+
+func loadScriptConfigEvaluationWithin(
+  location string,
+  resolutionRoot string,
+) (evaluatedConfigFile, error) {
+  tempDir, err := os.MkdirTemp("", "ttsc-lint-script-config-")
+  if err != nil {
+    return evaluatedConfigFile{}, fmt.Errorf("@ttsc/lint: create script config result directory: %w", err)
+  }
+  defer os.RemoveAll(tempDir)
+  outputPath := filepath.Join(tempDir, "result.json")
+  script := scriptConfigLoaderSource()
+  node := os.Getenv("TTSC_NODE_BINARY")
+  if node == "" {
+    node = "node"
+  }
+  ctx, cancel := context.WithTimeout(context.Background(), configLoaderTimeout)
+  defer cancel()
+  cmd := exec.CommandContext(
+    ctx,
+    node,
+    "-e",
+    script,
+    location,
+    outputPath,
+    resolutionRoot,
+  )
+  return runConfigLoaderCommand(ctx, cmd, location, "config file", outputPath)
+}
+
+// scriptConfigLoaderSource returns the CommonJS source of the loader script
+// Node executes to evaluate a .js/.cjs/.mjs lint config file. It is a named
+// function for the same reason as typeScriptConfigLoaderSource: the source is
+// a fmt.Sprintf format string, so every literal percent sign inside it must be
+// doubled, and only a callable generator lets a regression prove the emitted
+// script carries no formatting artifact.
+func scriptConfigLoaderSource() string {
+  return fmt.Sprintf(`
+const { Buffer } = require("node:buffer");
+const fs = require("node:fs");
+const { createHash } = require("node:crypto");
+const { registerHooks } = require("node:module");
+const path = require("node:path");
+const { fileURLToPath, pathToFileURL } = require("node:url");
 
 const CONFIG_KEYS = new Set([%s]);
+const configUrl = pathToFileURL(process.argv[1]).href;
+const outputPath = process.argv[2];
+const resolutionRoot = path.resolve(process.argv[3]);
+const dependencies = new Map();
+const graphNodes = new Map();
+const graphEdges = [];
+const configLocation = fileURLToPath(configUrl);
+graphNodes.set(configUrl, configLocation);
+recordDependency(
+  "file",
+  configLocation,
+  createHash("sha256").update(fs.readFileSync(configLocation)).digest("hex"),
+  [configUrl],
+);
+recordPackageManifests(configLocation, [configUrl]);
+const hooks = registerHooks({
+  resolve(specifier, context, nextResolve) {
+    const resolved = nextResolve(specifier, context);
+    if (typeof resolved.url !== "string" || !resolved.url.startsWith("file:")) {
+      return resolved;
+    }
+    const url = new URL(resolved.url).href;
+    const parent = context.parentURL && new URL(context.parentURL).href;
+    const location = fileURLToPath(url);
+    // The entry is recognized by identity, not by string. A module URL is
+    // assigned by whoever loaded it, so the config can come back under a
+    // different spelling of the same file than the one this process was handed
+    // — a Windows short component, or a symlinked ancestor. Comparing strings
+    // then rejects the config's own imports at this gate, because their parent
+    // is a URL no node was ever recorded under, and the whole dependency graph
+    // collapses to the records made before the first import.
+    const entry =
+      url === configUrl || samePhysicalPath(location, configLocation);
+    if (!entry && (parent === undefined || !graphNodes.has(parent))) {
+      return resolved;
+    }
+    graphNodes.set(url, location);
+    if (parent !== undefined) {
+      graphEdges.push({
+        child: url,
+        packageBoundary:
+          pathHasNodeModules(location) && !isLocalModuleSpecifier(specifier),
+        parent,
+      });
+      recordResolutionTopology(
+        specifier,
+        parent,
+        url,
+        location,
+        context.conditions,
+      );
+    }
+    try {
+      recordDependency(
+        "file",
+        location,
+        createHash("sha256").update(fs.readFileSync(location)).digest("hex"),
+        [url],
+      );
+    } catch {
+      recordDependency("file", location, "", [url]);
+    }
+    return resolved;
+  },
+});
 
 (async () => {
-  const mod = await import(pathToFileURL(process.argv[1]).href);
-  const value = await resolveConfig(mod, true);
-  if (value === null || typeof value !== "object" || Array.isArray(value)) {
-    throw new Error("config file must export an ITtscLintConfig object");
+  try {
+    const mod = await import(configUrl);
+    const value = await resolveConfig(mod, true);
+    if (value === null || typeof value !== "object" || Array.isArray(value)) {
+      throw new Error("config file must export an ITtscLintConfig object");
+    }
+    fs.writeFileSync(outputPath, JSON.stringify({
+      dependencies: finalizeDependencies(),
+      value: toSerializableConfig(value),
+    }), "utf8");
+  } finally {
+    hooks.deregister();
   }
-  process.stdout.write(JSON.stringify(toSerializableConfig(value)));
 })().catch((error) => {
   process.stderr.write(error && error.stack ? error.stack : String(error));
   process.exit(1);
@@ -1501,6 +2051,749 @@ function isModuleNamespace(value) {
   return Object.prototype.toString.call(value) === "[object Module]";
 }
 
+function isObject(value) {
+  return value !== null && typeof value === "object";
+}
+
+function recordDependency(kind, location, digest, owners) {
+  const key = kind + "\0" + location;
+  const previous = dependencies.get(key);
+  const mergedOwners = previous ? previous.owners : new Set();
+  for (const owner of owners) mergedOwners.add(owner);
+  dependencies.set(key, {
+    digest: previous && previous.digest !== digest ? "" : digest,
+    kind,
+    owners: mergedOwners,
+    path: location,
+  });
+}
+
+function isLocalModuleSpecifier(specifier) {
+  return specifier.startsWith(".") ||
+    specifier.startsWith("/") ||
+    specifier.startsWith("file:") ||
+    /^[A-Za-z]:[\\/]/.test(specifier);
+}
+
+function pathHasNodeModules(location) {
+  return location.replaceAll("\\", "/").split("/").includes("node_modules");
+}
+
+function recordResolutionTopology(
+  specifier,
+  parentUrl,
+  childUrl,
+  childLocation,
+  conditions,
+) {
+  const owners = [parentUrl, childUrl];
+  const parentLocation = graphNodes.get(parentUrl);
+  if (parentLocation !== undefined && isLocalModuleSpecifier(specifier)) {
+    recordDirectoryDependency(path.dirname(parentLocation), owners);
+  }
+  recordDirectoryDependency(path.dirname(childLocation), owners);
+  recordPackageManifests(childLocation, owners);
+  if (parentLocation !== undefined && !isLocalModuleSpecifier(specifier)) {
+    recordNodeModulesSearchDirectories(
+      parentLocation,
+      specifier,
+      childLocation,
+      owners,
+      conditions,
+    );
+  }
+}
+
+function recordDirectoryDependency(location, owners) {
+  try {
+    recordDependency("directory", location, directoryDigest(location), owners);
+  } catch {
+    recordDependency("directory", location, "", owners);
+  }
+}
+
+function directoryDigest(location) {
+  const entries = [];
+  if (process.platform === "win32") {
+    for (const entry of fs.readdirSync(location, { withFileTypes: true })) {
+      let target = Buffer.alloc(0);
+      if (entry.isSymbolicLink()) {
+        try {
+          target = Buffer.from(
+            fs.readlinkSync(path.join(location, entry.name)),
+            "utf8",
+          );
+        } catch {
+          target = Buffer.from("<unreadable>");
+        }
+      }
+      entries.push(directoryDigestRecord(Buffer.from(entry.name), entry, target));
+    }
+  } else {
+    for (const entry of fs.readdirSync(
+      location,
+      { encoding: "buffer", withFileTypes: true },
+    )) {
+      let target = Buffer.alloc(0);
+      if (entry.isSymbolicLink()) {
+        try {
+          target = fs.readlinkSync(
+            Buffer.concat([
+              Buffer.from(location),
+              Buffer.from(path.sep),
+              entry.name,
+            ]),
+            { encoding: "buffer" },
+          );
+        } catch {
+          target = Buffer.from("<unreadable>");
+        }
+      }
+      entries.push(directoryDigestRecord(entry.name, entry, target));
+    }
+  }
+  entries.sort(Buffer.compare);
+  const serialized = Buffer.concat(
+    entries.flatMap((entry, index) =>
+      index === 0 ? [entry] : [Buffer.from([0]), entry],
+    ),
+  );
+  return createHash("sha256").update(serialized).digest("hex");
+}
+
+function directoryDigestRecord(name, entry, target) {
+  const kind = entry.isDirectory()
+    ? "directory"
+    : entry.isFile()
+      ? "file"
+      : entry.isSymbolicLink()
+        ? "symlink"
+        : "other";
+  return Buffer.concat([name, Buffer.from("\0" + kind + "\0"), target]);
+}
+
+function optionalFileDigest(location) {
+  try {
+    if (fs.statSync(location).isFile()) {
+      return createHash("sha256")
+        .update(Buffer.concat([Buffer.from("file\0"), fs.readFileSync(location)]))
+        .digest("hex");
+    }
+  } catch {
+  }
+  return createHash("sha256").update("missing\0").digest("hex");
+}
+
+function recordOptionalFileDependency(location, owners) {
+  try {
+    if (fs.statSync(location).isFile()) {
+      recordDependency(
+        "file",
+        location,
+        createHash("sha256").update(fs.readFileSync(location)).digest("hex"),
+        owners,
+      );
+      return true;
+    }
+  } catch {
+  }
+  recordDependency("optional-file", location, optionalFileDigest(location), owners);
+  return false;
+}
+
+function recordPackageManifests(location, owners) {
+  let current = path.dirname(location);
+  while (true) {
+    const manifest = path.join(current, "package.json");
+    if (recordOptionalFileDependency(manifest, owners)) return;
+    const parent = path.dirname(current);
+    if (parent === current || path.basename(current) === "node_modules") return;
+    current = parent;
+  }
+}
+
+function recordNodeModulesSearchDirectories(
+  parentLocation,
+  specifier,
+  childLocation,
+  owners,
+  conditions,
+) {
+  const packageName = modulePackageName(specifier);
+  const scope =
+    specifier.startsWith("@") && specifier.includes("/")
+      ? specifier.slice(0, specifier.indexOf("/"))
+      : undefined;
+  let current = path.dirname(parentLocation);
+  while (true) {
+    recordDirectoryDependency(current, owners);
+    const modules = path.join(current, "node_modules");
+    try {
+      if (fs.statSync(modules).isDirectory()) {
+        recordDirectoryDependency(modules, owners);
+        if (scope !== undefined) {
+          const scoped = path.join(modules, scope);
+          try {
+            if (fs.statSync(scoped).isDirectory()) {
+              recordDirectoryDependency(scoped, owners);
+            }
+          } catch {
+          }
+        }
+        if (packageName !== undefined) {
+          const selected = recordPackageCandidateTopology(
+            modules,
+            packageName,
+            specifier,
+            childLocation,
+            owners,
+            conditions,
+          );
+          if (
+            selected ||
+            resolvedPackageContains(modules, packageName, childLocation)
+          ) {
+            return;
+          }
+        }
+      }
+    } catch {
+    }
+    if (
+      packageName === undefined &&
+      samePhysicalPath(current, resolutionRoot)
+    ) {
+      return;
+    }
+    const parent = path.dirname(current);
+    if (parent === current) return;
+    current = parent;
+  }
+}
+
+function recordPackageCandidateTopology(
+  modules,
+  packageName,
+  specifier,
+  childLocation,
+  owners,
+  conditions,
+) {
+  const packageRoot = path.join(modules, packageName);
+  try {
+    if (!fs.statSync(packageRoot).isDirectory()) return false;
+  } catch {
+    return false;
+  }
+  const subpath = specifier
+    .slice(packageName.length)
+    .replace(/^[/\\]+/, "");
+  const rootTopology = recordPackageRootTopology(
+    packageRoot,
+    owners,
+    subpath === "",
+    subpath === "" ? "." : "./" + subpath.replaceAll("\\", "/"),
+    childLocation,
+    conditions,
+  );
+  if (subpath !== "" && !rootTopology.hasExports) {
+    return (
+      recordPackageSubpathTopology(
+        packageRoot,
+        subpath,
+        childLocation,
+        owners,
+      ) || rootTopology.selected
+    );
+  }
+  return rootTopology.selected;
+}
+
+function recordPackageRootTopology(
+  packageRoot,
+  owners,
+  useMain,
+  packageSubpath,
+  childLocation,
+  conditions,
+) {
+  const normalizedRoot = path.resolve(packageRoot);
+  const manifest = path.join(normalizedRoot, "package.json");
+  const legacySelected = () =>
+    useMain &&
+    packagePathCandidateMatchesChild(normalizedRoot, childLocation, true);
+  if (!recordOptionalFileDependency(manifest, owners)) {
+    const selected = legacySelected();
+    if (!selected) {
+      recordPackageIndexCandidates(normalizedRoot, useMain, owners);
+    }
+    return { hasExports: false, selected };
+  }
+  try {
+    const value = JSON.parse(fs.readFileSync(manifest, "utf8"));
+    if (value !== null && typeof value === "object") {
+      const hasExports =
+        value.exports !== undefined && value.exports !== null;
+      if (hasExports) {
+        const target = selectPackageExportsTarget(
+          value.exports,
+          packageSubpath,
+          new Set(conditions),
+        );
+        const candidate =
+          typeof target === "string"
+            ? packageExportsTarget(normalizedRoot, target)
+            : undefined;
+        const selected =
+          candidate !== undefined &&
+          packagePathCandidateMatchesChild(
+            candidate,
+            childLocation,
+            false,
+          );
+        if (selected) {
+          recordPackagePathCandidate(candidate, owners);
+        } else if (candidate !== undefined) {
+          // A nearer package the search skipped starts winning the moment its
+          // own active target appears, and neither the parent node_modules
+          // listing nor the manifest changes when only that file is created.
+          recordOptionalFileDependency(candidate, owners);
+        }
+        return { hasExports: true, selected };
+      }
+      let selected = legacySelected();
+      if (useMain && typeof value.main === "string") {
+        const main = path.resolve(normalizedRoot, value.main);
+        recordPackagePathCandidate(main, owners);
+        selected =
+          packagePathCandidateMatchesChild(main, childLocation, true) ||
+          selected;
+      }
+      if (!selected) {
+        recordPackageIndexCandidates(normalizedRoot, useMain, owners);
+      }
+      return { hasExports: false, selected };
+    }
+  } catch {
+  }
+  const rootSelected = legacySelected();
+  if (!rootSelected) {
+    recordPackageIndexCandidates(normalizedRoot, useMain, owners);
+  }
+  return { hasExports: false, selected: rootSelected };
+}
+
+// recordPackageIndexCandidates pins the LOAD_INDEX fallbacks of a package root
+// this resolution walked past without selecting. An empty package directory, or
+// one whose manifest declares no usable entry, becomes resolvable as soon as one
+// of these files exists, and that creation changes neither the parent directory
+// listing nor the manifest digest already recorded for the candidate.
+function recordPackageIndexCandidates(packageRoot, useMain, owners) {
+  if (!useMain) return;
+  for (const name of ["index.js", "index.json", "index.node"]) {
+    recordOptionalFileDependency(path.join(packageRoot, name), owners);
+  }
+}
+
+function selectPackageExportsTarget(
+  exportsValue,
+  packageSubpath,
+  conditions,
+) {
+  let mappings = exportsValue;
+  if (
+    typeof mappings === "string" ||
+    Array.isArray(mappings) ||
+    (isObject(mappings) &&
+      Object.keys(mappings).every((key) => !key.startsWith(".")))
+  ) {
+    if (packageSubpath !== ".") return undefined;
+    return selectPackageTarget(mappings, "", false, conditions);
+  }
+  if (!isObject(mappings)) return undefined;
+  if (
+    Object.prototype.hasOwnProperty.call(mappings, packageSubpath) &&
+    !packageSubpath.includes("*") &&
+    !packageSubpath.endsWith("/")
+  ) {
+    return selectPackageTarget(
+      mappings[packageSubpath],
+      "",
+      false,
+      conditions,
+    );
+  }
+  let bestMatch = "";
+  let bestSubpath = "";
+  for (const key of Object.keys(mappings)) {
+    const wildcard = key.indexOf("*");
+    if (
+      wildcard === -1 ||
+      key.lastIndexOf("*") !== wildcard ||
+      !packageSubpath.startsWith(key.slice(0, wildcard))
+    ) {
+      continue;
+    }
+    const trailer = key.slice(wildcard + 1);
+    if (
+      packageSubpath.length < key.length ||
+      !packageSubpath.endsWith(trailer) ||
+      packagePatternKeyCompare(bestMatch, key) !== 1
+    ) {
+      continue;
+    }
+    bestMatch = key;
+    bestSubpath = packageSubpath.slice(
+      wildcard,
+      packageSubpath.length - trailer.length,
+    );
+  }
+  return bestMatch === ""
+    ? undefined
+    : selectPackageTarget(
+        mappings[bestMatch],
+        bestSubpath,
+        true,
+        conditions,
+      );
+}
+
+function selectPackageTarget(target, subpath, pattern, conditions) {
+  if (typeof target === "string") {
+    const selected = pattern ? target.replaceAll("*", subpath) : target;
+    return validPackageExportsTarget(selected) ? selected : undefined;
+  }
+  if (Array.isArray(target)) {
+    for (const item of target) {
+      const selected = selectPackageTarget(
+        item,
+        subpath,
+        pattern,
+        conditions,
+      );
+      if (selected !== undefined && selected !== null) return selected;
+    }
+    return null;
+  }
+  if (isObject(target)) {
+    for (const [condition, value] of Object.entries(target)) {
+      if (condition !== "default" && !conditions.has(condition)) continue;
+      const selected = selectPackageTarget(
+        value,
+        subpath,
+        pattern,
+        conditions,
+      );
+      if (selected !== undefined) return selected;
+    }
+    return undefined;
+  }
+  return target === null ? null : undefined;
+}
+
+function packagePatternKeyCompare(left, right) {
+  const leftWildcard = left.indexOf("*");
+  const rightWildcard = right.indexOf("*");
+  const leftBase =
+    leftWildcard === -1 ? left.length : leftWildcard + 1;
+  const rightBase =
+    rightWildcard === -1 ? right.length : rightWildcard + 1;
+  if (leftBase > rightBase) return -1;
+  if (rightBase > leftBase) return 1;
+  if (leftWildcard === -1) return 1;
+  if (rightWildcard === -1) return -1;
+  if (left.length > right.length) return -1;
+  if (right.length > left.length) return 1;
+  return 0;
+}
+
+function packageExportsTarget(packageRoot, target) {
+  if (!validPackageExportsTarget(target)) return undefined;
+  try {
+    // Node resolves an exports target as a URL against the package manifest,
+    // so percent escapes, query strings, and fragments all take part in the
+    // path it finally loads. Joining the raw target by hand diverges from that
+    // whenever the target is anything but a plain relative path, and a target
+    // Node resolves while this model rejects loses the selected file's
+    // fingerprint, leaving a retargeted symlink cached as fresh.
+    const packageUrl = pathToFileURL(path.join(packageRoot, "package.json"));
+    const resolved = new URL(target, packageUrl);
+    const packagePath = new URL(".", packageUrl).pathname;
+    if (!resolved.pathname.startsWith(packagePath)) return undefined;
+    return fileURLToPath(resolved);
+  } catch {
+    return undefined;
+  }
+}
+
+function validPackageExportsTarget(target) {
+  if (!target.startsWith("./") || /%%2f|%%5c/i.test(target)) return false;
+  const components = target
+    .slice(2)
+    .replaceAll("\\", "/")
+    .split("/");
+  if (
+    components.some(
+      (component) => {
+        try {
+          const decoded = decodeURIComponent(component);
+          return (
+            decoded === "." ||
+            decoded === ".." ||
+            decoded.includes("/") ||
+            decoded.includes("\\") ||
+            decoded.toLowerCase() === "node_modules"
+          );
+        } catch {
+          return true;
+        }
+      },
+    )
+  ) {
+    return false;
+  }
+  return true;
+}
+
+function packagePathCandidateMatchesChild(
+  candidate,
+  childLocation,
+  legacy,
+) {
+  let child;
+  try {
+    child = fs.realpathSync.native(childLocation);
+  } catch {
+    child = path.resolve(childLocation);
+  }
+  const candidates = legacy
+    ? [
+        candidate,
+        candidate + ".js",
+        candidate + ".json",
+        candidate + ".node",
+        path.join(candidate, "index.js"),
+        path.join(candidate, "index.json"),
+        path.join(candidate, "index.node"),
+      ]
+    : [candidate];
+  return candidates.some((location) => {
+    try {
+      return sameResolutionPath(fs.realpathSync.native(location), child);
+    } catch {
+      return false;
+    }
+  });
+}
+
+function recordPackageSubpathTopology(
+  packageRoot,
+  subpath,
+  childLocation,
+  owners,
+) {
+  const candidate = boundedPackageTarget(packageRoot, subpath);
+  if (candidate === undefined) return false;
+  recordPackagePathCandidate(candidate, owners);
+  let selected = packagePathCandidateMatchesChild(
+    candidate,
+    childLocation,
+    true,
+  );
+  try {
+    if (!fs.statSync(candidate).isDirectory()) return selected;
+  } catch {
+    return selected;
+  }
+  const manifest = path.join(candidate, "package.json");
+  if (!recordOptionalFileDependency(manifest, owners)) return selected;
+  try {
+    const value = JSON.parse(fs.readFileSync(manifest, "utf8"));
+    if (value !== null && typeof value === "object") {
+      if (typeof value.main === "string") {
+        const main = path.resolve(candidate, value.main);
+        recordPackagePathCandidate(main, owners);
+        selected =
+          packagePathCandidateMatchesChild(main, childLocation, true) ||
+          selected;
+      }
+    }
+  } catch {
+  }
+  return selected;
+}
+
+function boundedPackageTarget(
+  packageRoot,
+  target,
+) {
+  const candidate = path.resolve(packageRoot, target);
+  const relative = path.relative(packageRoot, candidate);
+  if (
+    relative === ".." ||
+    relative.startsWith(".." + path.sep) ||
+    path.isAbsolute(relative)
+  ) {
+    return undefined;
+  }
+  return candidate;
+}
+
+function recordPackagePathCandidate(
+  candidate,
+  owners,
+  visited = new Set(),
+  depth = 0,
+) {
+  const normalized = path.resolve(candidate);
+  // The depth bound owns termination. A platform-wide case fold would merge
+  // paths that differ only by case, which a per-directory case-sensitive
+  // Windows tree keeps distinct, and would truncate a valid symlink chain.
+  if (depth >= 64 || visited.has(normalized)) return;
+  visited.add(normalized);
+  const parsed = path.parse(normalized);
+  const components = normalized
+    .slice(parsed.root.length)
+    .split(path.sep)
+    .filter(Boolean);
+  let current = parsed.root;
+  for (let index = 0; index < components.length; index++) {
+    const component = components[index];
+    const next = path.join(current, component);
+    let entry;
+    try {
+      entry = fs.lstatSync(next);
+    } catch {
+      recordDirectoryDependency(current, owners);
+      return;
+    }
+    if (entry.isSymbolicLink()) {
+      recordDirectoryDependency(current, owners);
+      try {
+        const target = fs.readlinkSync(next);
+        const remainder = components.slice(index + 1);
+        recordPackagePathCandidate(
+          path.join(path.resolve(current, target), ...remainder),
+          owners,
+          visited,
+          depth + 1,
+        );
+      } catch {
+      }
+    }
+    let isDirectory = entry.isDirectory();
+    if (entry.isSymbolicLink()) {
+      try {
+        isDirectory = fs.statSync(next).isDirectory();
+      } catch {
+        return;
+      }
+    }
+    if (index === components.length - 1) {
+      recordDirectoryDependency(isDirectory ? next : current, owners);
+      return;
+    }
+    if (!isDirectory) {
+      recordDirectoryDependency(current, owners);
+      return;
+    }
+    current = next;
+  }
+  recordDirectoryDependency(current, owners);
+}
+
+function modulePackageName(specifier) {
+  if (specifier.startsWith("@")) {
+    const components = specifier.split("/");
+    return components.length >= 2
+      ? components[0] + "/" + components[1]
+      : undefined;
+  }
+  const [name] = specifier.split("/");
+  return name && !name.startsWith("#") ? name : undefined;
+}
+
+function resolvedPackageContains(modules, packageName, childLocation) {
+  try {
+    const packageRoot = fs.realpathSync(path.join(modules, packageName));
+    const relative = path.relative(
+      packageRoot,
+      fs.realpathSync(childLocation),
+    );
+    return (
+      relative === "" ||
+      (relative !== ".." &&
+        !relative.startsWith(".." + path.sep) &&
+        !path.isAbsolute(relative))
+    );
+  } catch {
+    return false;
+  }
+}
+
+function sameResolutionPath(left, right) {
+  return path.relative(left, right) === "";
+}
+
+function samePhysicalPath(left, right) {
+  try {
+    return sameResolutionPath(realPath(left), realPath(right));
+  } catch {
+    // Fall back to the spellings themselves, folding case the way the platform
+    // does. On the entry gate a false negative is catastrophic — the config
+    // stops being recognized and its whole graph collapses — while a false
+    // positive only over-includes, so the degradation has to lean toward "same
+    // file". A drive-letter or component case difference is the ordinary
+    // Windows situation; a per-directory case-sensitive tree is the rare one.
+    return sameResolutionPath(left, right);
+  }
+}
+
+function realPath(location) {
+  return fs.realpathSync.native
+    ? fs.realpathSync.native(location)
+    : fs.realpathSync(location);
+}
+
+function finalizeDependencies() {
+  const watched = graphWatchReachability();
+  return [...dependencies.values()].map(({ owners, ...dependency }) => ({
+    ...dependency,
+    scope: [...owners].some((owner) => watched.has(owner))
+      ? "watch"
+      : "cache",
+  }));
+}
+
+function graphWatchReachability() {
+  const adjacency = new Map();
+  for (const edge of graphEdges) {
+    const outgoing = adjacency.get(edge.parent) || [];
+    outgoing.push(edge);
+    adjacency.set(edge.parent, outgoing);
+  }
+  const queue = [{ url: configUrl, watched: true }];
+  const visited = new Set();
+  const watched = new Set();
+  while (queue.length !== 0) {
+    const state = queue.shift();
+    const key = state.url + "\0" + (state.watched ? "1" : "0");
+    if (visited.has(key)) continue;
+    visited.add(key);
+    if (state.watched) watched.add(state.url);
+    for (const edge of adjacency.get(state.url) || []) {
+      const childLocation = graphNodes.get(edge.child);
+      const childWatched = edge.packageBoundary
+        ? false
+        : childLocation !== undefined && !pathHasNodeModules(childLocation)
+          ? true
+          : state.watched;
+      queue.push({ url: edge.child, watched: childWatched });
+    }
+  }
+  return watched;
+}
+
 function hasConfigKey(value) {
   for (const key of CONFIG_KEYS) {
     if (Object.prototype.hasOwnProperty.call(value, key)) {
@@ -1534,44 +2827,70 @@ function toSerializableConfig(value) {
   return out;
 }
 `, serializableConfigKeysLiteral())
-  node := os.Getenv("TTSC_NODE_BINARY")
-  if node == "" {
-    node = "node"
-  }
-  ctx, cancel := context.WithTimeout(context.Background(), configLoaderTimeout)
-  defer cancel()
-  cmd := exec.CommandContext(ctx, node, "-e", script, location)
-  return runConfigLoaderCommand(ctx, cmd, location, "config file")
 }
 
 // loadTypeScriptConfigFile evaluates a .ts/.cts/.mts config file by writing
 // an ephemeral loader script and tsconfig into a temp directory, symlinking the
 // nearest node_modules, then running `ttsx` with a configLoaderTimeout deadline.
 // The loader script imports the config file, resolves it through the same
-// normalization chain used by loadScriptConfigFile, and writes JSON to stdout.
+// normalization chain used by loadScriptConfigFile, and writes a private JSON
+// result file so user stdout cannot corrupt the protocol.
 func loadTypeScriptConfigFile(location string) (any, error) {
+  evaluated, err := loadTypeScriptConfigEvaluation(location)
+  return evaluated.value, err
+}
+
+func loadTypeScriptConfigEvaluation(location string) (evaluatedConfigFile, error) {
+  return loadTypeScriptConfigEvaluationWithin(location, filepath.Dir(location))
+}
+
+func loadTypeScriptConfigEvaluationWithin(
+  location string,
+  resolutionRoot string,
+) (evaluatedConfigFile, error) {
   tempDir, err := os.MkdirTemp(loaderTempBase(location, os.TempDir()), "ttsc-lint-config-")
   if err != nil {
-    return nil, fmt.Errorf("@ttsc/lint: create config loader tempdir: %w", err)
+    return evaluatedConfigFile{}, fmt.Errorf("@ttsc/lint: create config loader tempdir: %w", err)
   }
   tempDir = realpathIfPossible(tempDir)
   defer os.RemoveAll(tempDir)
 
   if err := linkNearestNodeModules(tempDir, filepath.Dir(location)); err != nil {
-    return nil, err
+    return evaluatedConfigFile{}, err
   }
 
   loader := filepath.Join(tempDir, "loader.mts")
+  outputPath := filepath.Join(tempDir, "result.json")
   tsconfig := filepath.Join(tempDir, "tsconfig.json")
   importLiteral, err := json.Marshal(fileURL(location))
   if err != nil {
-    return nil, fmt.Errorf("@ttsc/lint: encode config import %s: %w", location, err)
+    return evaluatedConfigFile{}, fmt.Errorf("@ttsc/lint: encode config import %s: %w", location, err)
   }
-  if err := os.WriteFile(loader, []byte(typeScriptConfigLoaderSource(string(importLiteral))), 0o644); err != nil {
-    return nil, fmt.Errorf("@ttsc/lint: write config loader: %w", err)
+  outputLiteral, err := json.Marshal(outputPath)
+  if err != nil {
+    return evaluatedConfigFile{}, fmt.Errorf("@ttsc/lint: encode config result path %s: %w", outputPath, err)
+  }
+  resolutionRootLiteral, err := json.Marshal(filepath.Clean(resolutionRoot))
+  if err != nil {
+    return evaluatedConfigFile{}, fmt.Errorf(
+      "@ttsc/lint: encode config resolution root %s: %w",
+      resolutionRoot,
+      err,
+    )
+  }
+  if err := os.WriteFile(
+    loader,
+    []byte(typeScriptConfigLoaderSource(
+      string(importLiteral),
+      string(outputLiteral),
+      string(resolutionRootLiteral),
+    )),
+    0o644,
+  ); err != nil {
+    return evaluatedConfigFile{}, fmt.Errorf("@ttsc/lint: write config loader: %w", err)
   }
   if err := os.WriteFile(tsconfig, []byte(typeScriptConfigLoaderTsconfig(loader, location, tempDir)), 0o644); err != nil {
-    return nil, fmt.Errorf("@ttsc/lint: write config loader tsconfig: %w", err)
+    return evaluatedConfigFile{}, fmt.Errorf("@ttsc/lint: write config loader tsconfig: %w", err)
   }
 
   args := []string{
@@ -1597,7 +2916,7 @@ func loadTypeScriptConfigFile(location string) (any, error) {
   defer cancel()
   cmd := ttsxCommandContext(ctx, args...)
   cmd.Env = nodeConfigLoaderEnv(location)
-  return runConfigLoaderCommand(ctx, cmd, location, "TypeScript config file")
+  return runConfigLoaderCommand(ctx, cmd, location, "TypeScript config file", outputPath)
 }
 
 // isConfigObject reports whether `value` is a top-level config object. A lint
@@ -1656,26 +2975,125 @@ func uncFileURL(pathname string) string {
 // `importLiteral` is a JSON-encoded file URL (produced by json.Marshal). It is
 // assigned to a variable before `import(configUrl)` so tsgo does not try to
 // statically resolve the file URL during the loader build.
-func typeScriptConfigLoaderSource(importLiteral string) string {
-  return fmt.Sprintf(`const configUrl = %s;
+func typeScriptConfigLoaderSource(
+  importLiteral string,
+  outputLiteral string,
+  resolutionRootLiteral string,
+) string {
+  return fmt.Sprintf(`// @ts-ignore -- internal loader must not require user-installed Node typings.
+import * as fs from "node:fs";
+// @ts-ignore -- internal loader must not require user-installed Node typings.
+import { Buffer } from "node:buffer";
+// @ts-ignore -- internal loader must not require user-installed Node typings.
+import { createHash } from "node:crypto";
+// @ts-ignore -- internal loader must not require user-installed Node typings.
+import { registerHooks } from "node:module";
+// @ts-ignore -- internal loader must not require user-installed Node typings.
+import * as path from "node:path";
+// @ts-ignore -- internal loader must not require user-installed Node typings.
+import { fileURLToPath, pathToFileURL } from "node:url";
+
+const configUrl = %s;
+const outputPath = %s;
+const resolutionRoot = path.resolve(%s);
 const CONFIG_KEYS = new Set<string>([%s]);
-const importedConfig = await import(configUrl);
+const dependencies = new Map<string, {
+  digest: string;
+  kind: "directory" | "file" | "optional-file";
+  path: string;
+  owners: Set<string>;
+}>();
+const graphNodes = new Map<string, string>();
+const graphEdges: Array<{
+  child: string;
+  packageBoundary: boolean;
+  parent: string;
+}> = [];
+const normalizedConfigUrl = new URL(configUrl).href;
+const configLocation = fileURLToPath(normalizedConfigUrl);
+graphNodes.set(normalizedConfigUrl, configLocation);
+recordDependency(
+  "file",
+  configLocation,
+  createHash("sha256").update(fs.readFileSync(configLocation)).digest("hex"),
+  [normalizedConfigUrl],
+);
+recordPackageManifests(configLocation, [normalizedConfigUrl]);
 
 declare const process: {
+  env: Record<string, string | undefined>;
+  platform: string;
   stdout: { write(value: string): void };
   stderr: { write(value: string): void };
   exit(code?: number): never;
 };
 
+const hooks = registerHooks({
+  resolve(specifier, context, nextResolve) {
+    const resolved = nextResolve(specifier, context);
+    if (typeof resolved.url !== "string" || !resolved.url.startsWith("file:")) {
+      return resolved;
+    }
+    const url = new URL(resolved.url).href;
+    const parent = context.parentURL && new URL(context.parentURL).href;
+    const location = fileURLToPath(url);
+    // The entry is recognized by identity, not by string. A module URL is
+    // assigned by whoever loaded it, so the config can come back under a
+    // different spelling of the same file than the one this process was handed
+    // — a Windows short component, or a symlinked ancestor. Comparing strings
+    // then rejects the config's own imports at this gate, because their parent
+    // is a URL no node was ever recorded under, and the whole dependency graph
+    // collapses to the records made before the first import.
+    const entry =
+      url === new URL(configUrl).href || samePhysicalPath(location, configLocation);
+    if (!entry && (parent === undefined || !graphNodes.has(parent))) {
+      return resolved;
+    }
+    graphNodes.set(url, location);
+    if (parent !== undefined) {
+      graphEdges.push({
+        child: url,
+        packageBoundary:
+          pathHasNodeModules(location) && !isLocalModuleSpecifier(specifier),
+        parent,
+      });
+      recordResolutionTopology(
+        specifier,
+        parent,
+        url,
+        location,
+        context.conditions,
+      );
+    }
+    try {
+      recordDependency(
+        "file",
+        location,
+        createHash("sha256").update(fs.readFileSync(location)).digest("hex"),
+        [url],
+      );
+    } catch {
+      recordDependency("file", location, "", [url]);
+    }
+    return resolved;
+  },
+});
+
 try {
+  const importedConfig = await import(configUrl);
   const value = await resolveConfig(importedConfig, true);
   if (!isObject(value) || Array.isArray(value)) {
     throw new Error("config file must export an ITtscLintConfig object");
   }
-  process.stdout.write(JSON.stringify(toSerializableConfig(value)));
+  fs.writeFileSync(outputPath, JSON.stringify({
+    dependencies: finalizeDependencies(),
+    value: toSerializableConfig(value),
+  }), "utf8");
 } catch (error) {
   process.stderr.write(error instanceof Error && error.stack ? error.stack : String(error));
   process.exit(1);
+} finally {
+  hooks.deregister();
 }
 
 async function resolveConfig(value: unknown, allowNamedConfig: boolean): Promise<unknown> {
@@ -1714,6 +3132,809 @@ async function resolveConfig(value: unknown, allowNamedConfig: boolean): Promise
 
 function isObject(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object";
+}
+
+function recordDependency(
+  kind: "directory" | "file" | "optional-file",
+  location: string,
+  digest: string,
+  owners: readonly string[],
+): void {
+  const key = kind + "\0" + location;
+  const previous = dependencies.get(key);
+  const mergedOwners = previous?.owners ?? new Set<string>();
+  for (const owner of owners) mergedOwners.add(owner);
+  dependencies.set(key, {
+    digest: previous !== undefined && previous.digest !== digest ? "" : digest,
+    kind,
+    owners: mergedOwners,
+    path: location,
+  });
+}
+
+function isLocalModuleSpecifier(specifier: string): boolean {
+  return specifier.startsWith(".") ||
+    specifier.startsWith("/") ||
+    specifier.startsWith("file:") ||
+    /^[A-Za-z]:[\\/]/.test(specifier);
+}
+
+function pathHasNodeModules(location: string): boolean {
+  return location.replaceAll("\\", "/").split("/").includes("node_modules");
+}
+
+function recordResolutionTopology(
+  specifier: string,
+  parentUrl: string,
+  childUrl: string,
+  childLocation: string,
+  conditions: readonly string[],
+): void {
+  const owners = [parentUrl, childUrl];
+  const parentLocation = graphNodes.get(parentUrl);
+  if (parentLocation !== undefined && isLocalModuleSpecifier(specifier)) {
+    recordDirectoryDependency(path.dirname(parentLocation), owners);
+  }
+  recordDirectoryDependency(path.dirname(childLocation), owners);
+  recordPackageManifests(childLocation, owners);
+  if (parentLocation !== undefined && !isLocalModuleSpecifier(specifier)) {
+    recordNodeModulesSearchDirectories(
+      parentLocation,
+      specifier,
+      childLocation,
+      owners,
+      conditions,
+    );
+  }
+}
+
+function recordDirectoryDependency(
+  location: string,
+  owners: readonly string[],
+): void {
+  try {
+    recordDependency("directory", location, directoryDigest(location), owners);
+  } catch {
+    recordDependency("directory", location, "", owners);
+  }
+}
+
+function directoryDigest(location: string): string {
+  const entries: Buffer[] = [];
+  if (process.platform === "win32") {
+    for (const entry of fs.readdirSync(location, { withFileTypes: true })) {
+      let target = Buffer.alloc(0);
+      if (entry.isSymbolicLink()) {
+        try {
+          target = Buffer.from(
+            fs.readlinkSync(path.join(location, entry.name)),
+            "utf8",
+          );
+        } catch {
+          target = Buffer.from("<unreadable>");
+        }
+      }
+      entries.push(directoryDigestRecord(Buffer.from(entry.name), entry, target));
+    }
+  } else {
+    for (const entry of fs.readdirSync(location, {
+      encoding: "buffer",
+      withFileTypes: true,
+    })) {
+      let target = Buffer.alloc(0);
+      if (entry.isSymbolicLink()) {
+        try {
+          target = fs.readlinkSync(
+            Buffer.concat([
+              Buffer.from(location),
+              Buffer.from(path.sep),
+              entry.name,
+            ]),
+            { encoding: "buffer" },
+          );
+        } catch {
+          target = Buffer.from("<unreadable>");
+        }
+      }
+      entries.push(directoryDigestRecord(entry.name, entry, target));
+    }
+  }
+  entries.sort(Buffer.compare);
+  const serialized = Buffer.concat(
+    entries.flatMap((entry, index) =>
+      index === 0 ? [entry] : [Buffer.from([0]), entry],
+    ),
+  );
+  return createHash("sha256").update(serialized).digest("hex");
+}
+
+function directoryDigestRecord(
+  name: Buffer,
+  entry: {
+    isDirectory(): boolean;
+    isFile(): boolean;
+    isSymbolicLink(): boolean;
+  },
+  target: Buffer,
+): Buffer {
+  const kind = entry.isDirectory()
+    ? "directory"
+    : entry.isFile()
+      ? "file"
+      : entry.isSymbolicLink()
+        ? "symlink"
+        : "other";
+  return Buffer.concat([name, Buffer.from("\0" + kind + "\0"), target]);
+}
+
+function optionalFileDigest(location: string): string {
+  try {
+    if (fs.statSync(location).isFile()) {
+      return createHash("sha256")
+        .update(Buffer.concat([Buffer.from("file\0"), fs.readFileSync(location)]))
+        .digest("hex");
+    }
+  } catch {
+  }
+  return createHash("sha256").update("missing\0").digest("hex");
+}
+
+function recordOptionalFileDependency(
+  location: string,
+  owners: readonly string[],
+): boolean {
+  try {
+    if (fs.statSync(location).isFile()) {
+      recordDependency(
+        "file",
+        location,
+        createHash("sha256").update(fs.readFileSync(location)).digest("hex"),
+        owners,
+      );
+      return true;
+    }
+  } catch {
+  }
+  recordDependency("optional-file", location, optionalFileDigest(location), owners);
+  return false;
+}
+
+function recordPackageManifests(
+  location: string,
+  owners: readonly string[],
+): void {
+  let current = path.dirname(location);
+  while (true) {
+    const manifest = path.join(current, "package.json");
+    if (recordOptionalFileDependency(manifest, owners)) return;
+    const parent = path.dirname(current);
+    if (parent === current || path.basename(current) === "node_modules") return;
+    current = parent;
+  }
+}
+
+function recordNodeModulesSearchDirectories(
+  parentLocation: string,
+  specifier: string,
+  childLocation: string,
+  owners: readonly string[],
+  conditions: readonly string[],
+): void {
+  const packageName = modulePackageName(specifier);
+  const scope =
+    specifier.startsWith("@") && specifier.includes("/")
+      ? specifier.slice(0, specifier.indexOf("/"))
+      : undefined;
+  let current = path.dirname(parentLocation);
+  while (true) {
+    recordDirectoryDependency(current, owners);
+    const modules = path.join(current, "node_modules");
+    try {
+      if (fs.statSync(modules).isDirectory()) {
+        recordDirectoryDependency(modules, owners);
+        if (scope !== undefined) {
+          const scoped = path.join(modules, scope);
+          try {
+            if (fs.statSync(scoped).isDirectory()) {
+              recordDirectoryDependency(scoped, owners);
+            }
+          } catch {
+          }
+        }
+        if (packageName !== undefined) {
+          const selected = recordPackageCandidateTopology(
+            modules,
+            packageName,
+            specifier,
+            childLocation,
+            owners,
+            conditions,
+          );
+          if (
+            selected ||
+            resolvedPackageContains(modules, packageName, childLocation)
+          ) {
+            return;
+          }
+        }
+      }
+    } catch {
+    }
+    if (
+      packageName === undefined &&
+      samePhysicalPath(current, resolutionRoot)
+    ) {
+      return;
+    }
+    const parent = path.dirname(current);
+    if (parent === current) return;
+    current = parent;
+  }
+}
+
+function recordPackageCandidateTopology(
+  modules: string,
+  packageName: string,
+  specifier: string,
+  childLocation: string,
+  owners: readonly string[],
+  conditions: readonly string[],
+): boolean {
+  const packageRoot = path.join(modules, packageName);
+  try {
+    if (!fs.statSync(packageRoot).isDirectory()) return false;
+  } catch {
+    return false;
+  }
+  const subpath = specifier
+    .slice(packageName.length)
+    .replace(/^[/\\]+/, "");
+  const rootTopology = recordPackageRootTopology(
+    packageRoot,
+    owners,
+    subpath === "",
+    subpath === "" ? "." : "./" + subpath.replaceAll("\\", "/"),
+    childLocation,
+    conditions,
+  );
+  if (subpath !== "" && !rootTopology.hasExports) {
+    return (
+      recordPackageSubpathTopology(
+        packageRoot,
+        subpath,
+        childLocation,
+        owners,
+      ) || rootTopology.selected
+    );
+  }
+  return rootTopology.selected;
+}
+
+function recordPackageRootTopology(
+  packageRoot: string,
+  owners: readonly string[],
+  useMain: boolean,
+  packageSubpath: string,
+  childLocation: string,
+  conditions: readonly string[],
+): { hasExports: boolean; selected: boolean } {
+  const normalizedRoot = path.resolve(packageRoot);
+  const manifest = path.join(normalizedRoot, "package.json");
+  const legacySelected = (): boolean =>
+    useMain &&
+    packagePathCandidateMatchesChild(normalizedRoot, childLocation, true);
+  if (!recordOptionalFileDependency(manifest, owners)) {
+    const selected = legacySelected();
+    if (!selected) {
+      recordPackageIndexCandidates(normalizedRoot, useMain, owners);
+    }
+    return { hasExports: false, selected };
+  }
+  try {
+    const value = JSON.parse(fs.readFileSync(manifest, "utf8"));
+    if (value !== null && typeof value === "object") {
+      const metadata = value as Record<string, unknown>;
+      const hasExports =
+        metadata.exports !== undefined && metadata.exports !== null;
+      if (hasExports) {
+        const target = selectPackageExportsTarget(
+          metadata.exports,
+          packageSubpath,
+          new Set(conditions),
+        );
+        const candidate =
+          typeof target === "string"
+            ? packageExportsTarget(normalizedRoot, target)
+            : undefined;
+        const selected =
+          candidate !== undefined &&
+          packagePathCandidateMatchesChild(
+            candidate,
+            childLocation,
+            false,
+          );
+        if (selected) {
+          recordPackagePathCandidate(candidate, owners);
+        } else if (candidate !== undefined) {
+          // A nearer package the search skipped starts winning the moment its
+          // own active target appears, and neither the parent node_modules
+          // listing nor the manifest changes when only that file is created.
+          recordOptionalFileDependency(candidate, owners);
+        }
+        return { hasExports: true, selected };
+      }
+      let selected = legacySelected();
+      if (useMain && typeof metadata.main === "string") {
+        const main = path.resolve(normalizedRoot, metadata.main);
+        recordPackagePathCandidate(main, owners);
+        selected =
+          packagePathCandidateMatchesChild(main, childLocation, true) ||
+          selected;
+      }
+      if (!selected) {
+        recordPackageIndexCandidates(normalizedRoot, useMain, owners);
+      }
+      return { hasExports: false, selected };
+    }
+  } catch {
+  }
+  const rootSelected = legacySelected();
+  if (!rootSelected) {
+    recordPackageIndexCandidates(normalizedRoot, useMain, owners);
+  }
+  return { hasExports: false, selected: rootSelected };
+}
+
+// recordPackageIndexCandidates pins the LOAD_INDEX fallbacks of a package root
+// this resolution walked past without selecting. An empty package directory, or
+// one whose manifest declares no usable entry, becomes resolvable as soon as one
+// of these files exists, and that creation changes neither the parent directory
+// listing nor the manifest digest already recorded for the candidate.
+function recordPackageIndexCandidates(
+  packageRoot: string,
+  useMain: boolean,
+  owners: readonly string[],
+): void {
+  if (!useMain) return;
+  for (const name of ["index.js", "index.json", "index.node"]) {
+    recordOptionalFileDependency(path.join(packageRoot, name), owners);
+  }
+}
+
+function selectPackageExportsTarget(
+  exportsValue: unknown,
+  packageSubpath: string,
+  conditions: ReadonlySet<string>,
+): string | null | undefined {
+  let mappings: unknown = exportsValue;
+  if (
+    typeof mappings === "string" ||
+    Array.isArray(mappings) ||
+    (isObject(mappings) &&
+      Object.keys(mappings).every((key) => !key.startsWith(".")))
+  ) {
+    if (packageSubpath !== ".") return undefined;
+    return selectPackageTarget(mappings, "", false, conditions);
+  }
+  if (!isObject(mappings)) return undefined;
+  if (
+    Object.prototype.hasOwnProperty.call(mappings, packageSubpath) &&
+    !packageSubpath.includes("*") &&
+    !packageSubpath.endsWith("/")
+  ) {
+    return selectPackageTarget(
+      mappings[packageSubpath],
+      "",
+      false,
+      conditions,
+    );
+  }
+  let bestMatch = "";
+  let bestSubpath = "";
+  for (const key of Object.keys(mappings)) {
+    const wildcard = key.indexOf("*");
+    if (
+      wildcard === -1 ||
+      key.lastIndexOf("*") !== wildcard ||
+      !packageSubpath.startsWith(key.slice(0, wildcard))
+    ) {
+      continue;
+    }
+    const trailer = key.slice(wildcard + 1);
+    if (
+      packageSubpath.length < key.length ||
+      !packageSubpath.endsWith(trailer) ||
+      packagePatternKeyCompare(bestMatch, key) !== 1
+    ) {
+      continue;
+    }
+    bestMatch = key;
+    bestSubpath = packageSubpath.slice(
+      wildcard,
+      packageSubpath.length - trailer.length,
+    );
+  }
+  return bestMatch === ""
+    ? undefined
+    : selectPackageTarget(
+        mappings[bestMatch],
+        bestSubpath,
+        true,
+        conditions,
+      );
+}
+
+function selectPackageTarget(
+  target: unknown,
+  subpath: string,
+  pattern: boolean,
+  conditions: ReadonlySet<string>,
+): string | null | undefined {
+  if (typeof target === "string") {
+    const selected = pattern ? target.replaceAll("*", subpath) : target;
+    return validPackageExportsTarget(selected) ? selected : undefined;
+  }
+  if (Array.isArray(target)) {
+    for (const item of target) {
+      const selected = selectPackageTarget(
+        item,
+        subpath,
+        pattern,
+        conditions,
+      );
+      if (selected !== undefined && selected !== null) return selected;
+    }
+    return null;
+  }
+  if (isObject(target)) {
+    for (const [condition, value] of Object.entries(target)) {
+      if (condition !== "default" && !conditions.has(condition)) continue;
+      const selected = selectPackageTarget(
+        value,
+        subpath,
+        pattern,
+        conditions,
+      );
+      if (selected !== undefined) return selected;
+    }
+    return undefined;
+  }
+  return target === null ? null : undefined;
+}
+
+function packagePatternKeyCompare(left: string, right: string): number {
+  const leftWildcard = left.indexOf("*");
+  const rightWildcard = right.indexOf("*");
+  const leftBase =
+    leftWildcard === -1 ? left.length : leftWildcard + 1;
+  const rightBase =
+    rightWildcard === -1 ? right.length : rightWildcard + 1;
+  if (leftBase > rightBase) return -1;
+  if (rightBase > leftBase) return 1;
+  if (leftWildcard === -1) return 1;
+  if (rightWildcard === -1) return -1;
+  if (left.length > right.length) return -1;
+  if (right.length > left.length) return 1;
+  return 0;
+}
+
+function packageExportsTarget(
+  packageRoot: string,
+  target: string,
+): string | undefined {
+  if (!validPackageExportsTarget(target)) return undefined;
+  try {
+    // Node resolves an exports target as a URL against the package manifest,
+    // so percent escapes, query strings, and fragments all take part in the
+    // path it finally loads. Joining the raw target by hand diverges from that
+    // whenever the target is anything but a plain relative path, and a target
+    // Node resolves while this model rejects loses the selected file's
+    // fingerprint, leaving a retargeted symlink cached as fresh.
+    const packageUrl = pathToFileURL(path.join(packageRoot, "package.json"));
+    const resolved = new URL(target, packageUrl);
+    const packagePath = new URL(".", packageUrl).pathname;
+    if (!resolved.pathname.startsWith(packagePath)) return undefined;
+    return fileURLToPath(resolved);
+  } catch {
+    return undefined;
+  }
+}
+
+function validPackageExportsTarget(target: string): boolean {
+  if (!target.startsWith("./") || /%%2f|%%5c/i.test(target)) return false;
+  const components = target
+    .slice(2)
+    .replaceAll("\\", "/")
+    .split("/");
+  if (
+    components.some(
+      (component) => {
+        try {
+          const decoded = decodeURIComponent(component);
+          return (
+            decoded === "." ||
+            decoded === ".." ||
+            decoded.includes("/") ||
+            decoded.includes("\\") ||
+            decoded.toLowerCase() === "node_modules"
+          );
+        } catch {
+          return true;
+        }
+      },
+    )
+  ) {
+    return false;
+  }
+  return true;
+}
+
+function packagePathCandidateMatchesChild(
+  candidate: string,
+  childLocation: string,
+  legacy: boolean,
+): boolean {
+  let child: string;
+  try {
+    child = fs.realpathSync.native(childLocation);
+  } catch {
+    child = path.resolve(childLocation);
+  }
+  const candidates = legacy
+    ? [
+        candidate,
+        candidate + ".js",
+        candidate + ".json",
+        candidate + ".node",
+        path.join(candidate, "index.js"),
+        path.join(candidate, "index.json"),
+        path.join(candidate, "index.node"),
+      ]
+    : [candidate];
+  return candidates.some((location) => {
+    try {
+      return sameResolutionPath(fs.realpathSync.native(location), child);
+    } catch {
+      return false;
+    }
+  });
+}
+
+function recordPackageSubpathTopology(
+  packageRoot: string,
+  subpath: string,
+  childLocation: string,
+  owners: readonly string[],
+): boolean {
+  const candidate = boundedPackageTarget(packageRoot, subpath);
+  if (candidate === undefined) return false;
+  recordPackagePathCandidate(candidate, owners);
+  let selected = packagePathCandidateMatchesChild(
+    candidate,
+    childLocation,
+    true,
+  );
+  try {
+    if (!fs.statSync(candidate).isDirectory()) return selected;
+  } catch {
+    return selected;
+  }
+  const manifest = path.join(candidate, "package.json");
+  if (!recordOptionalFileDependency(manifest, owners)) return selected;
+  try {
+    const value = JSON.parse(fs.readFileSync(manifest, "utf8"));
+    if (value !== null && typeof value === "object") {
+      const metadata = value as Record<string, unknown>;
+      if (typeof metadata.main === "string") {
+        const main = path.resolve(candidate, metadata.main);
+        recordPackagePathCandidate(main, owners);
+        selected =
+          packagePathCandidateMatchesChild(main, childLocation, true) ||
+          selected;
+      }
+    }
+  } catch {
+  }
+  return selected;
+}
+
+function boundedPackageTarget(
+  packageRoot: string,
+  target: string,
+): string | undefined {
+  const candidate = path.resolve(packageRoot, target);
+  const relative = path.relative(packageRoot, candidate);
+  if (
+    relative === ".." ||
+    relative.startsWith(".." + path.sep) ||
+    path.isAbsolute(relative)
+  ) {
+    return undefined;
+  }
+  return candidate;
+}
+
+function recordPackagePathCandidate(
+  candidate: string,
+  owners: readonly string[],
+  visited: Set<string> = new Set(),
+  depth = 0,
+): void {
+  const normalized = path.resolve(candidate);
+  // The depth bound owns termination. A platform-wide case fold would merge
+  // paths that differ only by case, which a per-directory case-sensitive
+  // Windows tree keeps distinct, and would truncate a valid symlink chain.
+  if (depth >= 64 || visited.has(normalized)) return;
+  visited.add(normalized);
+  const parsed = path.parse(normalized);
+  const components = normalized
+    .slice(parsed.root.length)
+    .split(path.sep)
+    .filter(Boolean);
+  let current = parsed.root;
+  for (let index = 0; index < components.length; index++) {
+    const component = components[index];
+    const next = path.join(current, component);
+    let entry: ReturnType<typeof fs.lstatSync>;
+    try {
+      entry = fs.lstatSync(next);
+    } catch {
+      recordDirectoryDependency(current, owners);
+      return;
+    }
+    if (entry.isSymbolicLink()) {
+      recordDirectoryDependency(current, owners);
+      try {
+        const target = fs.readlinkSync(next);
+        const remainder = components.slice(index + 1);
+        recordPackagePathCandidate(
+          path.join(path.resolve(current, target), ...remainder),
+          owners,
+          visited,
+          depth + 1,
+        );
+      } catch {
+      }
+    }
+    let isDirectory = entry.isDirectory();
+    if (entry.isSymbolicLink()) {
+      try {
+        isDirectory = fs.statSync(next).isDirectory();
+      } catch {
+        return;
+      }
+    }
+    if (index === components.length - 1) {
+      recordDirectoryDependency(isDirectory ? next : current, owners);
+      return;
+    }
+    if (!isDirectory) {
+      recordDirectoryDependency(current, owners);
+      return;
+    }
+    current = next;
+  }
+  recordDirectoryDependency(current, owners);
+}
+
+function modulePackageName(specifier: string): string | undefined {
+  if (specifier.startsWith("@")) {
+    const components = specifier.split("/");
+    return components.length >= 2
+      ? components[0] + "/" + components[1]
+      : undefined;
+  }
+  const [name] = specifier.split("/");
+  return name && !name.startsWith("#") ? name : undefined;
+}
+
+function resolvedPackageContains(
+  modules: string,
+  packageName: string,
+  childLocation: string,
+): boolean {
+  try {
+    const packageRoot = fs.realpathSync(path.join(modules, packageName));
+    const relative = path.relative(
+      packageRoot,
+      fs.realpathSync(childLocation),
+    );
+    return (
+      relative === "" ||
+      (relative !== ".." &&
+        !relative.startsWith(".." + path.sep) &&
+        !path.isAbsolute(relative))
+    );
+  } catch {
+    return false;
+  }
+}
+
+function sameResolutionPath(left: string, right: string): boolean {
+  return path.relative(left, right) === "";
+}
+
+function samePhysicalPath(left: string, right: string): boolean {
+  try {
+    return sameResolutionPath(realPath(left), realPath(right));
+  } catch {
+    // Fall back to the spellings themselves, folding case the way the platform
+    // does. On the entry gate a false negative is catastrophic — the config
+    // stops being recognized and its whole graph collapses — while a false
+    // positive only over-includes, so the degradation has to lean toward "same
+    // file". A drive-letter or component case difference is the ordinary
+    // Windows situation; a per-directory case-sensitive tree is the rare one.
+    return sameResolutionPath(left, right);
+  }
+}
+
+function realPath(location: string): string {
+  return fs.realpathSync.native
+    ? fs.realpathSync.native(location)
+    : fs.realpathSync(location);
+}
+
+function finalizeDependencies(): Array<{
+  digest: string;
+  kind: "directory" | "file" | "optional-file";
+  path: string;
+  scope: "cache" | "watch";
+}> {
+  const watched = graphWatchReachability();
+  // Opt-in diagnostics for a graph that comes back empty. The only channel this
+  // loader may use is stderr, because the result travels through a private file
+  // that user output must not corrupt; it stays silent unless a caller asks.
+  if (process.env.TTSC_LINT_DEBUG_CONFIG_GRAPH) {
+    process.stderr.write(
+      "@ttsc/lint: config graph " +
+        JSON.stringify({
+          configUrl,
+          normalizedConfigUrl,
+          nodes: [...graphNodes.keys()],
+          edges: graphEdges.map((edge) => edge.parent + " -> " + edge.child),
+          watched: [...watched],
+        }) +
+        "\n",
+    );
+  }
+  return [...dependencies.values()].map(({ owners, ...dependency }) => ({
+    ...dependency,
+    scope: [...owners].some((owner) => watched.has(owner))
+      ? "watch"
+      : "cache",
+  }));
+}
+
+function graphWatchReachability(): Set<string> {
+  const config = new URL(configUrl).href;
+  const adjacency = new Map<string, typeof graphEdges>();
+  for (const edge of graphEdges) {
+    const outgoing = adjacency.get(edge.parent) ?? [];
+    outgoing.push(edge);
+    adjacency.set(edge.parent, outgoing);
+  }
+  const queue: Array<{ url: string; watched: boolean }> = [
+    { url: config, watched: true },
+  ];
+  const visited = new Set<string>();
+  const watched = new Set<string>();
+  while (queue.length !== 0) {
+    const state = queue.shift()!;
+    const key = state.url + "\0" + (state.watched ? "1" : "0");
+    if (visited.has(key)) continue;
+    visited.add(key);
+    if (state.watched) watched.add(state.url);
+    for (const edge of adjacency.get(state.url) ?? []) {
+      const childLocation = graphNodes.get(edge.child);
+      const childWatched = edge.packageBoundary
+        ? false
+        : childLocation !== undefined && !pathHasNodeModules(childLocation)
+          ? true
+          : state.watched;
+      queue.push({ url: edge.child, watched: childWatched });
+    }
+  }
+  return watched;
 }
 
 function hasOwn(value: Record<string, unknown>, key: string): boolean {
@@ -1759,7 +3980,12 @@ function toSerializableConfig(value: Record<string, unknown>): Record<string, un
   }
   return out;
 }
-`, importLiteral, serializableConfigKeysLiteral())
+`,
+    importLiteral,
+    outputLiteral,
+    resolutionRootLiteral,
+    serializableConfigKeysLiteral(),
+  )
 }
 
 // typeScriptConfigLoaderTsconfig generates the JSON content of the ephemeral

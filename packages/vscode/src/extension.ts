@@ -12,6 +12,8 @@ import {
   workspace,
 } from "vscode";
 import {
+  CloseAction,
+  type ErrorHandler,
   LanguageClient,
   LanguageClientOptions,
   ServerOptions,
@@ -24,6 +26,10 @@ import {
   shouldApplyCommandWorkspaceEdit,
   workspaceEditChangesTouchDirtyURI,
 } from "./commandEdits";
+import {
+  type ExpectedServerRestartHandler,
+  createExpectedServerRestartHandler,
+} from "./expectedServerRestart";
 import {
   createDocumentSelectorPattern,
   createResolutionCandidates,
@@ -49,10 +55,37 @@ type ServerLaunchSpec = {
 };
 
 type ClientEntry = {
-  client: LanguageClient;
+  client: TtscLanguageClient;
   ready: Promise<void>;
   root: string;
 };
+
+const METHOD_PLUGIN_SELECTION_CHANGED = "ttsc/pluginSelectionChanged";
+const expectedRestartHandlers = new WeakMap<
+  TtscLanguageClient,
+  ExpectedServerRestartHandler
+>();
+
+class TtscLanguageClient extends LanguageClient {
+  public override createDefaultErrorHandler(
+    maxRestartCount?: number,
+  ): ErrorHandler {
+    const controller = createExpectedServerRestartHandler(
+      super.createDefaultErrorHandler(maxRestartCount),
+      {
+        action: CloseAction.Restart,
+        handled: true,
+        message: "ttsc plugin selection changed; restarting language server.",
+      },
+    );
+    expectedRestartHandlers.set(this, controller);
+    return controller.errorHandler;
+  }
+
+  public expectPluginSelectionRestart(): void {
+    expectedRestartHandlers.get(this)?.expectRestart();
+  }
+}
 
 const clients = new Map<string, ClientEntry>();
 let reconcileQueue: Promise<void> = Promise.resolve();
@@ -531,12 +564,15 @@ async function startClient(
   spec: ServerLaunchSpec,
   traceChannel: OutputChannel,
 ): Promise<void> {
-  const client = new LanguageClient(
+  const client = new TtscLanguageClient(
     "ttsc",
     spec.name,
     spec.serverOptions,
     buildClientOptions(traceChannel, spec),
   );
+  client.onNotification(METHOD_PLUGIN_SELECTION_CHANGED, () => {
+    client.expectPluginSelectionRestart();
+  });
   const ready = client.start().catch((error) => {
     if (clients.get(spec.id)?.client === client) {
       clients.delete(spec.id);

@@ -81,7 +81,7 @@
         "ttsc.serverPath": {
           "type": "string",
           "default": "",
-          "description": "Absolute path to a ttscserver launcher, native binary, or Windows .cmd/.bat command shim. Leave empty to use the project ttsc launcher, which builds TTSC_LSP_PLUGINS_JSON for plugin diagnostics/actions; direct native paths need that manifest supplied out of band.",
+          "description": "Absolute path to a ttscserver launcher, native binary, or Windows .cmd/.bat command shim. Leave empty to use the project ttsc launcher, which passes the resolved plugin manifest through --lsp-plugins-file for plugin diagnostics/actions; direct native paths need that manifest supplied out of band via TTSC_LSP_PLUGINS_FILE.",
           "scope": "resource"
         },
         "ttsc.trace.server": {

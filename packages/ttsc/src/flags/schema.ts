@@ -61,9 +61,10 @@ export type FlagLayer =
 /**
  * Argument shape of a flag.
  *
- * - `boolean` — `--flag` / `--flag=true` / `--flag=false`. No value token is
- *   consumed.
- * - `value` — `--flag value` or `--flag=value`. Required value.
+ * - `boolean` — `--flag` with an optional spaced `true` / `false`. Launcher flags
+ *   also accept `--flag=true` / `--flag=false`; tsgo-forwarded flags stay
+ *   verbatim because pinned tsgo does not split `=`.
+ * - `value` — `--flag value`. Launcher flags also accept `--flag=value`.
  * - `valueOptional` — `--flag` standalone is allowed; if followed by a non-flag
  *   token that token is consumed as the value. (Currently unused — declared for
  *   future flags like `--watch [path]`.)
@@ -160,6 +161,13 @@ export interface FlagSpec {
    * Currently true for `--listEmittedFiles`, `--noEmit`, `--pretty`.
    */
   readonly internalShadow?: boolean;
+
+  /**
+   * `true` when pinned tsgo only permits the option in tsconfig, except for
+   * command-line `false` or `null`. The launcher forwards the original argv so
+   * tsgo remains the diagnostic authority.
+   */
+  readonly tsconfigOnly?: boolean;
 
   /**
    * Native sidecar capability that must be declared before ttsc sends this flag
@@ -274,6 +282,106 @@ export const FLAG_SCHEMA: readonly FlagSpec[] = [
     subcommands: ["ttsc", "build", "check"],
     consumedBy: ["launcher", "host", "lint"],
     description: "Override compilerOptions.outDir for this invocation.",
+  },
+  {
+    name: "--composite",
+    kind: "boolean",
+    subcommands: ["ttsc", "ttsx", "build", "check", "fix", "format"],
+    consumedBy: ["tsgo"],
+    forwardTo: "tsgo",
+    tsconfigOnly: true,
+    description:
+      "Configure project-reference constraints in tsconfig; CLI accepts only false or null.",
+  },
+  {
+    name: "--incremental",
+    aliases: ["-i"],
+    kind: "boolean",
+    subcommands: ["ttsc", "ttsx", "build", "check", "fix", "format"],
+    consumedBy: ["tsgo"],
+    forwardTo: "tsgo",
+    description: "Write build information for incremental compilation.",
+  },
+  {
+    name: "--tsBuildInfoFile",
+    kind: "value",
+    subcommands: ["ttsc", "ttsx", "build", "check", "fix", "format"],
+    consumedBy: ["tsgo"],
+    forwardTo: "tsgo",
+    description: "Choose the incremental build-information file.",
+  },
+  {
+    name: "--declaration",
+    aliases: ["-d"],
+    kind: "boolean",
+    subcommands: ["ttsc", "ttsx", "build", "check", "fix", "format"],
+    consumedBy: ["tsgo"],
+    forwardTo: "tsgo",
+    description: "Emit declaration files.",
+  },
+  {
+    name: "--declarationDir",
+    kind: "value",
+    subcommands: ["ttsc", "ttsx", "build", "check", "fix", "format"],
+    consumedBy: ["tsgo"],
+    forwardTo: "tsgo",
+    description: "Choose the declaration output directory.",
+  },
+  {
+    name: "--declarationMap",
+    kind: "boolean",
+    subcommands: ["ttsc", "ttsx", "build", "check", "fix", "format"],
+    consumedBy: ["tsgo"],
+    forwardTo: "tsgo",
+    description: "Emit source maps for declaration files.",
+  },
+  {
+    name: "--emitDeclarationOnly",
+    kind: "boolean",
+    subcommands: ["ttsc", "ttsx", "build", "check", "fix", "format"],
+    consumedBy: ["tsgo"],
+    forwardTo: "tsgo",
+    description: "Emit declarations without JavaScript.",
+  },
+  {
+    name: "--inlineSourceMap",
+    kind: "boolean",
+    subcommands: ["ttsc", "ttsx", "build", "check", "fix", "format"],
+    consumedBy: ["tsgo"],
+    forwardTo: "tsgo",
+    description: "Inline source maps into emitted JavaScript.",
+  },
+  {
+    name: "--sourceMap",
+    kind: "boolean",
+    subcommands: ["ttsc", "ttsx", "build", "check", "fix", "format"],
+    consumedBy: ["tsgo"],
+    forwardTo: "tsgo",
+    description: "Emit external JavaScript source maps.",
+  },
+  {
+    name: "--outFile",
+    kind: "value",
+    subcommands: ["ttsc", "ttsx", "build", "check", "fix", "format"],
+    consumedBy: ["tsgo"],
+    forwardTo: "tsgo",
+    description: "Bundle emitted JavaScript and declarations into one file.",
+  },
+  {
+    name: "--rootDir",
+    kind: "value",
+    subcommands: ["ttsc", "ttsx", "build", "check", "fix", "format"],
+    consumedBy: ["tsgo"],
+    forwardTo: "tsgo",
+    description: "Choose the compiler input root.",
+  },
+  {
+    name: "--jsx",
+    kind: "value",
+    subcommands: ["ttsc", "ttsx", "build", "check", "fix", "format"],
+    consumedBy: ["tsgo"],
+    forwardTo: "tsgo",
+    description: "Choose the JSX emit transform.",
   },
 
   // -------------------------------------------------------------------------

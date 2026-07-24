@@ -7,17 +7,17 @@ import * as path from "node:path";
 import { assert, ttscPackageRoot } from "../../internal/ttscserver";
 
 /**
- * Verifies ttscserver launcher respects `--tsgo=<path>` without resolving env.
+ * Verifies ttscserver launcher canonicalizes `--tsgo=<path>` for sidecars.
  *
  * Locks the argument-shape regression where the launcher recognized only
  * `--tsgo <path>`. A Node-backed fake native host records its environment so
- * this test proves the launcher does not inject TTSC_TSGO_BINARY when the
- * inline flag is present.
+ * this test proves the explicit compiler path reaches both the native host and
+ * every later Go-owned sidecar refresh through one canonical environment.
  *
  * 1. Prepare an isolated cwd plus a fake tsgo path.
  * 2. Spawn the JS ttscserver launcher with TTSC_TSGO_BINARY unset.
  * 3. Pass `--tsgo=<binary>`.
- * 4. Assert the fake host saw no injected TTSC_TSGO_BINARY.
+ * 4. Assert the fake host received that exact path in TTSC_TSGO_BINARY.
  */
 export const test_ttscserver_launcher_respects_inline_tsgo_flag = () => {
   const root = ttscPackageRoot();
@@ -75,7 +75,7 @@ export const test_ttscserver_launcher_respects_inline_tsgo_flag = () => {
       cwd,
       `--tsgo=${fakeTsgo}`,
     ]);
-    assert.equal(recorded.tsgo, "");
+    assert.equal(recorded.tsgo, fakeTsgo);
   } finally {
     fs.rmSync(cwd, { recursive: true, force: true });
   }
