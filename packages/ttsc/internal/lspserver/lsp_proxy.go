@@ -2448,6 +2448,10 @@ func (p *Proxy) invalidateForWatchedFileChanges(env Envelope) error {
     }
     ownerScope, matched := p.projectInputOwnerScope(change.URI)
     if matched {
+      ownerScope = projectDiagnosticScopeForWatchedInput(
+        change.URI,
+        ownerScope,
+      )
       externalSet[change.URI] = struct{}{}
       if ownerScope.all {
         allProjectDiagnosticOwners = true
@@ -2557,6 +2561,16 @@ type projectInputOwnerMatcher interface {
 type projectDiagnosticOwnerScope struct {
   all    bool
   owners map[string]struct{}
+}
+
+func projectDiagnosticScopeForWatchedInput(
+  uri string,
+  scope projectDiagnosticOwnerScope,
+) projectDiagnosticOwnerScope {
+  if watchedURIHasProgramInputExtension(uri) {
+    return projectDiagnosticOwnerScope{all: true}
+  }
+  return scope
 }
 
 func (scope projectDiagnosticOwnerScope) list() []string {
@@ -2836,12 +2850,18 @@ func externalWatchedChangeRetainsProgram(
     // A declared path may also satisfy a compiler root, module resolution, or
     // another compiler-recognized extension. Only those membership changes
     // cold-load the Program; data-only topology remains safely localizable.
-    location, _ := filePathFromURI(uri)
-    return !watchedURIHasProgramSourceExtension(uri) &&
-      !strings.EqualFold(filepath.Ext(location), ".json")
+    return !watchedURIHasProgramInputExtension(uri)
   default:
     return false
   }
+}
+
+func watchedURIHasProgramInputExtension(uri string) bool {
+  if watchedURIHasProgramSourceExtension(uri) {
+    return true
+  }
+  location, ok := filePathFromURI(uri)
+  return ok && strings.EqualFold(filepath.Ext(location), ".json")
 }
 
 func watchedURIHasProgramSourceExtension(uri string) bool {
