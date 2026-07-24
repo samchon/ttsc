@@ -155,6 +155,12 @@ type LSPProjectDiagnostics struct {
 type LSPDiagnosticsResult struct {
   Document []LSPDiagnostic        `json:"document"`
   Project  *LSPProjectDiagnostics `json:"project,omitempty"`
+
+  // projectUpdatedProducers names the sidecars that actually returned a
+  // project publication during this call. It is deliberately not serialized:
+  // the proxy uses it to distinguish a current computation from last-good
+  // aggregate state retained for another producer.
+  projectUpdatedProducers map[string]struct{}
 }
 
 // PluginSource is the seam between the LSP proxy and ttsc's plugin

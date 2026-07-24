@@ -37,15 +37,45 @@ func (s *NativePluginSource) ProjectInputs() LSPProjectInputSnapshot {
 // ProjectInputMatchesURI reports whether a watched-file URI belongs to a
 // declared exact dependency or glob population.
 func (s *NativePluginSource) ProjectInputMatchesURI(uri string) bool {
+  return len(s.ProjectInputOwnersForURI(uri)) != 0
+}
+
+// ProjectInputOwnersForURI returns the stable plugin keys whose latest
+// successful snapshots match uri. Ownership is retained past the flattened
+// client registration so an external edit refreshes only the contributors that
+// declared it.
+func (s *NativePluginSource) ProjectInputOwnersForURI(uri string) []string {
   if s == nil {
-    return false
+    return nil
   }
   location, ok := filePathFromURI(uri)
   if !ok {
-    return false
+    return nil
   }
   candidate := projectInputPathKey(realProjectInputPath(location))
-  snapshot := s.ProjectInputs()
+  s.projectInputsMu.RLock()
+  defer s.projectInputsMu.RUnlock()
+  owners := []string{}
+  seen := map[string]struct{}{}
+  for _, plugin := range s.plugins {
+    key := pluginKey(plugin)
+    if _, duplicate := seen[key]; duplicate {
+      continue
+    }
+    seen[key] = struct{}{}
+    record, ok := s.pluginProjectInputs[key]
+    if !ok || !projectInputSnapshotMatchesCandidate(record.snapshot, candidate) {
+      continue
+    }
+    owners = append(owners, key)
+  }
+  return owners
+}
+
+func projectInputSnapshotMatchesCandidate(
+  snapshot LSPProjectInputSnapshot,
+  candidate string,
+) bool {
   for _, file := range snapshot.Files {
     if projectInputPathKey(file) == candidate {
       return true
