@@ -20,6 +20,11 @@ import (
 //  4. Assert the executable config and imported helper are both published as
 //     config paths, then change only the helper and observe fresh rules.
 func TestLoadRuleConfigTypeScriptFactoryMergesReturnedDefaultWrapper(t *testing.T) {
+  // This case has reported a config's own import missing from the published
+  // paths on Windows, where the temporary directory carries a short component.
+  // Ask the loader to report the graph it built, so a failure names the URLs it
+  // resolved instead of only the dependencies that survived them.
+  t.Setenv("TTSC_LINT_DEBUG_CONFIG_GRAPH", "1")
   dir := t.TempDir()
   writeFile(t, filepath.Join(dir, "tsconfig.json"), "{}")
   writeFile(t, filepath.Join(dir, "shared-lint.config.ts"), `export default {
