@@ -1,6 +1,11 @@
+import fs from "node:fs";
 import path from "node:path";
 
 import { resolveFlagSpec } from "../../flags/schema";
+import {
+  type ProjectInputPathIdentityContext,
+  createProjectInputPathIdentityContext,
+} from "../../internal/projectInputPathIdentity";
 import {
   hasProjectPluginEntries,
   loadProjectPlugins,
@@ -8,11 +13,16 @@ import {
 import type { ITtscCompilerDiagnostic } from "../../structures/ITtscCompilerDiagnostic";
 import type { ITtscLoadedNativePlugin } from "../../structures/internal/ITtscLoadedNativePlugin";
 import type { ITtscParsedProjectConfig } from "../../structures/internal/ITtscParsedProjectConfig";
+import type { ITtscProjectInputSnapshot } from "../../structures/internal/ITtscProjectInputSnapshot";
 import type { TtscBuildOptions } from "../../structures/internal/TtscBuildOptions";
 import type { TtscBuildResult } from "../../structures/internal/TtscBuildResult";
 import type { TtscCommonOptions } from "../../structures/internal/TtscCommonOptions";
 import { createNativeProjectContextArgs } from "./project/createNativeProjectContextArgs";
 import { readProjectConfig } from "./project/readProjectConfig";
+import {
+  ResidentCheckProcess,
+  type ResidentCheckRequest,
+} from "./residentCheckProcess";
 import { resolveBinary } from "./resolveBinary";
 import { resolveTsgo } from "./resolveTsgo";
 import {
@@ -23,15 +33,23 @@ import {
 } from "./sharedHostHelpers";
 import { outputText, spawnNative } from "./spawnNative";
 
-type RunBuildOptions = TtscBuildOptions & {
+export type RunBuildOptions = TtscBuildOptions & {
   skipDiagnosticsCheck?: boolean;
   forceListEmittedFiles?: boolean;
+  /** Keep every compiler-owned side product inside this private directory. */
+  isolateOutputsTo?: string;
   /**
    * Receives selected native-plugin source roots after the project resolves.
    * The watch launcher uses these roots to invalidate a sidecar when its Go
    * implementation changes between rebuilds.
    */
   onWatchInputs?: (inputs: readonly string[]) => void;
+  /**
+   * Receives the reconciled project-rule filesystem dependency snapshot. Called
+   * only by watch launchers; ordinary builds do not probe the optional sidecar
+   * command.
+   */
+  onProjectInputs?: (inputs: ITtscProjectInputSnapshot) => void;
   /**
    * Emit an external source map from the direct tsgo build lane even when the
    * project configures none. Set by the ttsx runtime builds so a served emit
@@ -192,6 +210,367 @@ export function runBuild(options: RunBuildOptions = {}): TtscBuildResult {
   return appendTimingOutput(result, timing);
 }
 
+export type ResidentCheckWatchChange = {
+  /** Re-resolve project, plugin, contributor, and Program topology. */
+  reload?: boolean;
+  /** Retain the sidecar and execution selection but cold-load its Program. */
+  invalidate?: boolean;
+  /** Local compiler or data paths changed since the prior cycle. */
+  changed?: readonly string[];
+  /** Subset of changed paths declared by ProjectRules as external inputs. */
+  external?: readonly string[];
+};
+
+/**
+ * Analysis-only watch coordinator.
+ *
+ * The selected project and compatible check-stage processes stay resident
+ * across ordinary source/data edits. A config, root-set, contributor, or plugin
+ * topology transition calls for a full reset before the next cycle. Emit and
+ * transform lanes can pass through the coordinator, but compatibility checks
+ * keep them on the established one-shot path without starting sidecars.
+ */
+export class ResidentCheckWatchSession {
+  private execution: ReturnType<typeof resolveExecutionContext> | undefined;
+  private readonly pendingChanges = new Map<number, ResidentCheckRequest>();
+  private projectInputs: ITtscProjectInputSnapshot | undefined;
+  private readonly processes = new Map<string, ResidentCheckProcess>();
+
+  public async run(
+    options: RunBuildOptions,
+    change: ResidentCheckWatchChange = {},
+  ): Promise<TtscBuildResult> {
+    if (change.reload === true) this.reset();
+
+    const timing = createBuildTiming(options);
+    const projectFree = runProjectFreeTerminalFlag(options);
+    if (projectFree !== null) {
+      this.reset();
+      return appendTimingOutput(projectFree, timing);
+    }
+
+    let execution = this.execution;
+    const reusedExecution = execution !== undefined;
+    let buildOptions: RunBuildOptions;
+    if (execution === undefined) {
+      const setupStartedAt = process.hrtime.bigint();
+      execution = resolveExecutionContext(options);
+      const discoveryOptions = this.captureProjectInputs(options);
+      const prepared = prepareBuildExecution(
+        discoveryOptions,
+        timing,
+        execution,
+        setupStartedAt,
+      );
+      buildOptions = prepared.buildOptions;
+      if (prepared.result !== undefined) {
+        this.reset();
+        return appendTimingOutput(prepared.result, timing);
+      }
+      if (!residentCheckExecutionIsCompatible(buildOptions, execution)) {
+        this.reset();
+        return appendTimingOutput(
+          runPreparedBuild(options, timing, execution, buildOptions),
+          timing,
+        );
+      }
+      this.execution = execution;
+    } else {
+      buildOptions = applyProjectNoEmit(options, execution);
+    }
+    if (
+      reusedExecution &&
+      this.refreshProjectInputTopology(options, execution)
+    ) {
+      this.reset();
+      return this.run(options);
+    }
+
+    const checked = await this.runCheckPlugins(
+      buildOptions,
+      execution,
+      timing,
+      change,
+    );
+    let result: TtscBuildResult;
+    if (checked.status !== 0) {
+      result = appendTypeScriptDiagnosticsAfterPluginFailure(
+        checked,
+        buildOptions,
+        execution,
+      );
+    } else if (
+      checkPluginsReportTypeScriptDiagnostics(execution.nativePlugins)
+    ) {
+      result = checked;
+    } else {
+      result = appendBuildOutput(
+        checked,
+        runTsgo(execution, ["--noEmit"], buildOptions),
+      );
+    }
+    return appendTimingOutput(result, timing);
+  }
+
+  /** Terminate every sidecar and discard the cached selection context. */
+  public dispose(): void {
+    this.reset();
+  }
+
+  private reset(): void {
+    for (const process of this.processes.values()) process.dispose();
+    this.processes.clear();
+    this.pendingChanges.clear();
+    this.execution = undefined;
+    this.projectInputs = undefined;
+  }
+
+  private captureProjectInputs(options: RunBuildOptions): RunBuildOptions {
+    const onProjectInputs = options.onProjectInputs;
+    if (onProjectInputs === undefined) return options;
+    return {
+      ...options,
+      onProjectInputs: (snapshot) => {
+        this.projectInputs = snapshot;
+        onProjectInputs(snapshot);
+      },
+    };
+  }
+
+  private refreshProjectInputTopology(
+    options: RunBuildOptions,
+    execution: ReturnType<typeof resolveExecutionContext>,
+  ): boolean {
+    if (options.onProjectInputs === undefined) return false;
+    const next = discoverNativeProjectInputs(options, execution);
+    const changed =
+      this.projectInputs !== undefined &&
+      !projectInputSnapshotsEqual(this.projectInputs, next);
+    this.projectInputs = next;
+    options.onProjectInputs(next);
+    return changed;
+  }
+
+  private async runCheckPlugins(
+    options: RunBuildOptions,
+    execution: ReturnType<typeof resolveExecutionContext>,
+    timing: BuildTiming,
+    change: ResidentCheckWatchChange,
+  ): Promise<TtscBuildResult> {
+    let out: TtscBuildResult = {
+      diagnostics: [],
+      status: 0,
+      stderr: "",
+      stdout: "",
+    };
+    const checks = planResidentCheckEntries(execution.nativePlugins, (plugin) =>
+      createNativeCheckArgs(execution, options, plugin),
+    );
+    const request = residentCheckRequest(change, execution.projectRoot);
+    // Buffer the cycle for every resident plugin before running any of them.
+    // An earlier plugin may fail and short-circuit diagnostics, but a later
+    // sidecar must still receive every filesystem transition when it resumes.
+    bufferResidentCheckEntryRequests(this.pendingChanges, checks, request);
+
+    for (const { args, entryIndex, key, plugin } of checks) {
+      let result: TtscBuildResult;
+      if (key === undefined) {
+        result = runNativePluginCommand(
+          plugin,
+          args,
+          options,
+          execution,
+          "ttsc.check",
+          timing,
+          `ttsc check plugin ${plugin.name} time`,
+        );
+      } else {
+        const startedAt = process.hrtime.bigint();
+        let resident = this.processes.get(key);
+        if (resident === undefined) {
+          resident = new ResidentCheckProcess({
+            args: ["check-serve", ...args.slice(1)],
+            binary: plugin.binary,
+            cwd: execution.projectRoot,
+            env: nativePluginEnv(options.env, execution, plugin),
+          });
+          this.processes.set(key, resident);
+        }
+        try {
+          const reply = await resident.request(
+            takeResidentCheckEntryRequest(this.pendingChanges, entryIndex),
+          );
+          result = normalizeBuildOutput(
+            {
+              status: reply.status,
+              stderr: reply.stderr,
+              stdout: reply.stdout,
+            },
+            execution.projectRoot,
+          );
+        } catch {
+          resident.dispose();
+          this.processes.delete(key);
+          // The one-shot fallback observes the complete current filesystem,
+          // and a later sidecar starts cold, so neither needs old deltas.
+          // A capability-aware host may still disappear or violate framing.
+          // Preserve correctness by running the established one-shot command
+          // for this cycle; the next cycle gets one clean respawn attempt.
+          result = runNativePluginCommand(
+            plugin,
+            args,
+            options,
+            execution,
+            "ttsc.check",
+            { ...timing, enabled: false },
+            "",
+          );
+        }
+        recordTiming(
+          timing,
+          `ttsc check plugin ${plugin.name} time`,
+          startedAt,
+        );
+      }
+      out = appendBuildOutput(out, result);
+      if (result.status !== 0) return out;
+    }
+    return out;
+  }
+}
+
+function projectInputSnapshotsEqual(
+  left: ITtscProjectInputSnapshot,
+  right: ITtscProjectInputSnapshot,
+): boolean {
+  const leftReloadFiles = left.reloadFiles ?? [];
+  const rightReloadFiles = right.reloadFiles ?? [];
+  return (
+    left.root === right.root &&
+    left.files.length === right.files.length &&
+    left.globs.length === right.globs.length &&
+    leftReloadFiles.length === rightReloadFiles.length &&
+    left.files.every((value, index) => value === right.files[index]) &&
+    left.globs.every((value, index) => value === right.globs[index]) &&
+    leftReloadFiles.every((value, index) => value === rightReloadFiles[index])
+  );
+}
+
+function residentCheckExecutionIsCompatible(
+  options: RunBuildOptions,
+  execution: ReturnType<typeof resolveExecutionContext>,
+): boolean {
+  return (
+    options.emit === false &&
+    options.fix !== true &&
+    options.format !== true &&
+    forwardsTerminalTsgoFlag(options) === false &&
+    execution.nativePlugins.every((plugin) => plugin.stage === "check")
+  );
+}
+
+function residentCheckProcessKey(
+  plugin: ITtscLoadedNativePlugin,
+  args: readonly string[],
+): string {
+  return `${plugin.binary}\0${plugin.name}\0${JSON.stringify(args)}`;
+}
+
+export type ResidentCheckEntryPlan = {
+  args: string[];
+  entryIndex: number;
+  key: string | undefined;
+  plugin: ITtscLoadedNativePlugin;
+};
+
+/**
+ * Plan every configured check entry while sharing resident processes only by
+ * binary/name/argument identity.
+ */
+export function planResidentCheckEntries(
+  plugins: readonly ITtscLoadedNativePlugin[],
+  createArgs: (plugin: ITtscLoadedNativePlugin) => string[],
+): ResidentCheckEntryPlan[] {
+  return plugins
+    .filter((candidate) => candidate.stage === "check")
+    .map((plugin, entryIndex) => {
+      const args = createArgs(plugin);
+      return {
+        args,
+        entryIndex,
+        key:
+          plugin.capabilities?.residentCheck === true
+            ? residentCheckProcessKey(plugin, args)
+            : undefined,
+        plugin,
+      };
+    });
+}
+
+/** Retain one complete change stream per configured resident check entry. */
+export function bufferResidentCheckEntryRequests(
+  pending: Map<number, ResidentCheckRequest>,
+  checks: readonly ResidentCheckEntryPlan[],
+  request: ResidentCheckRequest,
+): void {
+  for (const check of checks) {
+    if (check.key === undefined) continue;
+    pending.set(
+      check.entryIndex,
+      mergeResidentCheckRequests(pending.get(check.entryIndex), request),
+    );
+  }
+}
+
+/** Consume exactly one configured entry's buffered request. */
+export function takeResidentCheckEntryRequest(
+  pending: Map<number, ResidentCheckRequest>,
+  entryIndex: number,
+): ResidentCheckRequest {
+  const request = pending.get(entryIndex);
+  if (request === undefined) {
+    throw new Error(
+      `ttsc: resident check entry ${String(entryIndex)} has no buffered request`,
+    );
+  }
+  pending.delete(entryIndex);
+  return request;
+}
+
+export function residentCheckRequest(
+  change: ResidentCheckWatchChange,
+  cwd: string,
+): ResidentCheckRequest {
+  const normalize = (values: readonly string[] | undefined): string[] =>
+    [...new Set(values?.map((value) => path.resolve(cwd, value)) ?? [])].sort();
+  const changed = normalize(change.changed);
+  const external = normalize(change.external);
+  return {
+    ...(change.invalidate === true ? { invalidate: true } : {}),
+    ...(changed.length === 0 ? {} : { changed }),
+    ...(external.length === 0 ? {} : { external }),
+  };
+}
+
+function mergeResidentCheckRequests(
+  previous: ResidentCheckRequest | undefined,
+  current: ResidentCheckRequest,
+): ResidentCheckRequest {
+  const merge = (
+    left: readonly string[] | undefined,
+    right: readonly string[] | undefined,
+  ): string[] => [...new Set([...(left ?? []), ...(right ?? [])])].sort();
+  const changed = merge(previous?.changed, current.changed);
+  const external = merge(previous?.external, current.external);
+  return {
+    ...(changed.length === 0 ? {} : { changed }),
+    ...(external.length === 0 ? {} : { external }),
+    ...(previous?.invalidate === true || current.invalidate === true
+      ? { invalidate: true }
+      : {}),
+  };
+}
+
 function runBuildTimed(
   options: RunBuildOptions,
   timing: BuildTiming,
@@ -200,12 +579,31 @@ function runBuildTimed(
   if (projectFree !== null) return projectFree;
   const setupStartedAt = process.hrtime.bigint();
   const execution = resolveExecutionContext(options);
-  options.onWatchInputs?.(
-    execution.nativePlugins.flatMap((plugin) => [
-      plugin.source,
-      ...(plugin.contributors?.map((contributor) => contributor.source) ?? []),
-    ]),
+  return runBuildWithExecution(options, timing, execution, setupStartedAt);
+}
+
+function runBuildWithExecution(
+  options: RunBuildOptions,
+  timing: BuildTiming,
+  execution: ReturnType<typeof resolveExecutionContext>,
+  setupStartedAt: bigint,
+): TtscBuildResult {
+  const prepared = prepareBuildExecution(
+    options,
+    timing,
+    execution,
+    setupStartedAt,
   );
+  if (prepared.result !== undefined) return prepared.result;
+  return runPreparedBuild(options, timing, execution, prepared.buildOptions);
+}
+
+function prepareBuildExecution(
+  options: RunBuildOptions,
+  timing: BuildTiming,
+  execution: ReturnType<typeof resolveExecutionContext>,
+  setupStartedAt: bigint,
+): { buildOptions: RunBuildOptions; result?: TtscBuildResult } {
   if (
     execution.nativePlugins.length > 0 ||
     execution.pluginSetupFailure !== undefined
@@ -214,12 +612,27 @@ function runBuildTimed(
   }
   const buildOptions = applyProjectNoEmit(options, execution);
   if (execution.pluginSetupFailure !== undefined) {
-    return appendTypeScriptDiagnosticsAfterPluginFailure(
-      execution.pluginSetupFailure,
+    return {
       buildOptions,
-      execution,
-    );
+      result: appendTypeScriptDiagnosticsAfterPluginFailure(
+        execution.pluginSetupFailure,
+        buildOptions,
+        execution,
+      ),
+    };
   }
+  if (options.onProjectInputs !== undefined) {
+    options.onProjectInputs(discoverNativeProjectInputs(options, execution));
+  }
+  return { buildOptions };
+}
+
+function runPreparedBuild(
+  options: RunBuildOptions,
+  timing: BuildTiming,
+  execution: ReturnType<typeof resolveExecutionContext>,
+  buildOptions: RunBuildOptions,
+): TtscBuildResult {
   if (execution.nativePlugins.length > 0) {
     const compilers = execution.nativePlugins.filter(
       (plugin) => plugin.stage === "transform",
@@ -838,6 +1251,7 @@ function createTsgoBuildArgs(
   args.push(...createTsgoDiagnosticArgs(options));
   args.push(...createTsgoThreadingArgs(options));
   args.push(...(options.passthrough ?? []));
+  args.push(...isolatedTsgoOutputArgs(options));
   if (flags.noEmitOnError === true) {
     args.push("--noEmitOnError");
   }
@@ -957,6 +1371,27 @@ function createNativeCheckArgs(
   return args;
 }
 
+function createNativeProjectInputsArgs(
+  execution: ReturnType<typeof resolveExecutionContext>,
+  plugin: ITtscLoadedNativePlugin,
+): string[] {
+  const args = [
+    "project-inputs",
+    "--tsconfig=" + execution.tsconfig,
+    "--plugins-json=" + serializeNativePlugins(execution.nativePlugins),
+    "--cwd=" + execution.projectRoot,
+  ];
+  if (plugin.capabilities?.projectContextArgs === true) {
+    args.push(
+      ...createNativeProjectContextArgs(
+        execution.project,
+        execution.pluginConfigDir,
+      ),
+    );
+  }
+  return args;
+}
+
 // `--singleThreaded` / `--checkers` are forwarded to native check-stage hosts
 // only when the host is one ttsc itself owns (currently `@ttsc/lint`). #113
 // forwarded both flags as bare CLI tokens to every native sidecar, then
@@ -1048,11 +1483,33 @@ function transformHostTimingLabel(
  * single token so the sidecars' unknown-flag filters keep it intact.
  */
 function createNativeTsgoArgs(options: TtscCommonOptions): string[] {
-  const passthrough = nativeTsgoPassthroughArgs(options);
-  if (passthrough === undefined || passthrough.length === 0) {
+  const passthrough = [
+    ...(nativeTsgoPassthroughArgs(options) ?? []),
+    ...isolatedTsgoOutputArgs(options),
+  ];
+  if (passthrough.length === 0) {
     return [];
   }
   return ["--tsgo-args=" + JSON.stringify(passthrough)];
+}
+
+function isolatedTsgoOutputArgs(options: TtscCommonOptions): string[] {
+  const target =
+    "isolateOutputsTo" in options &&
+    typeof options.isolateOutputsTo === "string"
+      ? path.resolve(options.isolateOutputsTo)
+      : undefined;
+  if (target === undefined) return [];
+  return [
+    "--outFile",
+    "null",
+    "--declarationDir",
+    "null",
+    "--tsBuildInfoFile",
+    "null",
+    "--outDir",
+    target,
+  ];
 }
 
 function nativeTsgoPassthroughArgs(
@@ -1151,6 +1608,169 @@ function runNativeCheckPlugins(
   return out;
 }
 
+function discoverNativeProjectInputs(
+  options: TtscBuildOptions,
+  execution: ReturnType<typeof resolveExecutionContext>,
+): ITtscProjectInputSnapshot {
+  const snapshots: ITtscProjectInputSnapshot[] = [];
+  for (const plugin of execution.nativePlugins.filter(
+    (candidate) =>
+      candidate.stage === "check" &&
+      candidate.capabilities?.projectInputs === true,
+  )) {
+    const res = spawnNative(
+      plugin.binary,
+      createNativeProjectInputsArgs(execution, plugin),
+      {
+        cwd: execution.projectRoot,
+        env: nativePluginEnv(options.env, execution, plugin),
+        encoding: "utf8",
+      },
+    );
+    if (res.error) {
+      throw new Error(
+        `ttsc.project-inputs: failed to spawn ${plugin.binary}: ${res.error.message}`,
+      );
+    }
+    const stdout = outputText(res.stdout).trim();
+    if (res.status !== 0) {
+      const detail = outputText(res.stderr).trim() || stdout;
+      throw new Error(
+        `ttsc.project-inputs: ${plugin.name ?? plugin.binary} failed${detail ? `: ${detail}` : ""}`,
+      );
+    }
+    const snapshot = parseProjectInputSnapshot(stdout, plugin);
+    snapshots.push(snapshot);
+  }
+  return mergeProjectInputSnapshots(execution.projectRoot, snapshots);
+}
+
+export function mergeProjectInputSnapshots(
+  fallbackRoot: string,
+  snapshots: readonly ITtscProjectInputSnapshot[],
+  identities: ProjectInputPathIdentityContext = createProjectInputPathIdentityContext(),
+): ITtscProjectInputSnapshot {
+  const files = new Map<string, string>();
+  const globs = new Map<string, string>();
+  const reloadFiles = new Map<string, string>();
+  const rootIdentity = identities.resolve(fallbackRoot);
+  for (const snapshot of snapshots) {
+    const candidateRoot = identities.resolve(snapshot.root);
+    if (rootIdentity.key !== candidateRoot.key) {
+      throw new Error(
+        `ttsc.project-inputs: plugin root ${candidateRoot.path} differs from the selected project root ${rootIdentity.path}`,
+      );
+    }
+    for (const file of snapshot.files) {
+      const identity = identities.resolve(file);
+      files.set(identity.key, identity.path);
+    }
+    for (const glob of snapshot.globs) {
+      const identity = identities.resolve(glob);
+      globs.set(identity.key, identity.path.split(path.sep).join("/"));
+    }
+    for (const reloadFile of snapshot.reloadFiles ?? []) {
+      const identity = identities.resolve(reloadFile);
+      reloadFiles.set(identity.key, identity.path);
+    }
+  }
+  return {
+    root: rootIdentity.path,
+    files: [...files.values()].sort(),
+    globs: [...globs.values()].sort(),
+    reloadFiles: [...reloadFiles.values()].sort(),
+  };
+}
+
+export function parseProjectInputSnapshot(
+  text: string,
+  plugin: ITtscLoadedNativePlugin,
+): ITtscProjectInputSnapshot {
+  let value: unknown;
+  try {
+    value = JSON.parse(text);
+  } catch (error) {
+    throw new Error(
+      `ttsc.project-inputs: ${plugin.name ?? plugin.binary} returned invalid JSON: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+  }
+  if (
+    typeof value !== "object" ||
+    value === null ||
+    typeof (value as { root?: unknown }).root !== "string" ||
+    !isStringArray((value as { files?: unknown }).files) ||
+    !isStringArray((value as { globs?: unknown }).globs) ||
+    ((value as { reloadFiles?: unknown }).reloadFiles !== undefined &&
+      !isStringArray((value as { reloadFiles?: unknown }).reloadFiles))
+  ) {
+    throw new Error(
+      `ttsc.project-inputs: ${plugin.name ?? plugin.binary} returned an invalid snapshot`,
+    );
+  }
+  const snapshot = value as unknown as ITtscProjectInputSnapshot;
+  const invalid = [
+    ["root", snapshot.root],
+    ...snapshot.files.map((file) => ["file", file] as const),
+    ...snapshot.globs.map((glob) => ["glob", glob] as const),
+    ...(snapshot.reloadFiles ?? []).map(
+      (file) => ["reload file", file] as const,
+    ),
+  ].find(
+    ([, location]) =>
+      location.length === 0 || !isAbsoluteLocalProjectInputPath(location),
+  );
+  if (invalid !== undefined) {
+    throw new Error(
+      `ttsc.project-inputs: ${plugin.name ?? plugin.binary} returned an invalid snapshot: ${invalid[0]} ${JSON.stringify(invalid[1])} is not an absolute local path`,
+    );
+  }
+  return {
+    ...snapshot,
+    reloadFiles: snapshot.reloadFiles ?? [],
+  };
+}
+
+export function isAbsoluteLocalProjectInputPath(
+  location: string,
+  platform: NodeJS.Platform = process.platform,
+): boolean {
+  if (location.includes("\0")) return false;
+  if (platform !== "win32") return path.posix.isAbsolute(location);
+  const normalized = location.replaceAll("/", "\\");
+  if (/^[A-Za-z]:\\/.test(normalized)) return true;
+  if (normalized.startsWith("\\\\?\\")) {
+    const extended = normalized.slice(4);
+    if (/^[A-Za-z]:\\/.test(extended)) return true;
+    if (extended.toLowerCase().startsWith("unc\\")) {
+      return isWindowsUncProjectInputPath(`\\\\${extended.slice(4)}`);
+    }
+    return false;
+  }
+  if (normalized.startsWith("\\\\.\\")) return false;
+  return isWindowsUncProjectInputPath(normalized);
+}
+
+function isWindowsUncProjectInputPath(location: string): boolean {
+  const matched = /^\\\\([^\\]+)\\([^\\]+)(?:\\|$)/.exec(location);
+  return (
+    matched !== null &&
+    isWindowsUncVolumeSegment(matched[1]!) &&
+    isWindowsUncVolumeSegment(matched[2]!)
+  );
+}
+
+function isWindowsUncVolumeSegment(segment: string): boolean {
+  return segment !== "." && segment !== ".." && !/[\0<>:"/\\|?*]/.test(segment);
+}
+
+function isStringArray(value: unknown): value is string[] {
+  return (
+    Array.isArray(value) && value.every((item) => typeof item === "string")
+  );
+}
+
 /**
  * Spawn a single native plugin binary with the given args and return the
  * normalized build result. `label` is used in the thrown error message so the
@@ -1237,6 +1857,7 @@ export function createProcessDiagnostic(
 function resolveExecutionContext(
   options: TtscCommonOptions & {
     emit?: boolean;
+    onWatchInputs?: (inputs: readonly string[]) => void;
     resolvedProject?: ITtscParsedProjectConfig;
     tsconfig?: string;
   },
@@ -1262,10 +1883,13 @@ function resolveExecutionContext(
         cwd,
         entries: options.plugins,
         env: { ...process.env, ...options.env },
+        onWatchInputs: options.onWatchInputs,
         pluginConfigDir: options.pluginConfigDir,
         projectRoot,
         tsconfig,
       }).nativePlugins;
+    } else {
+      options.onWatchInputs?.([]);
     }
   } catch (error) {
     pluginSetupFailure = {

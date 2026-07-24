@@ -322,10 +322,11 @@ func (p *program) sourceFileByPath(absPath string) *shimast.SourceFile {
 // confirmed absPath is a known source file; a config edit or a new/removed file
 // is handled by a full reload upstream, not here. tsgo returns a rebuilt Program
 // when the edit reshaped the import graph, and that rebuilt Program is still
-// correct, so the reused flag is not consulted.
-func (p *program) applyChange(absPath string) {
+// correct, but callers use the reused flag to distinguish incremental updates
+// from full Program reconstruction in product telemetry.
+func (p *program) applyChange(absPath string) bool {
   if p == nil || p.tsProgram == nil {
-    return
+    return false
   }
   name := absPath
   if file := p.sourceFileByPath(absPath); file != nil {
@@ -334,7 +335,7 @@ func (p *program) applyChange(absPath string) {
   fs := bundled.WrapFS(cachedvfs.From(osvfs.FS()))
   host := shimcompiler.NewCompilerHost(p.cwd, fs, bundled.LibPath(), nil, nil)
   changed := shimtspath.ToPath(name, p.cwd, fs.UseCaseSensitiveFileNames())
-  newProg, _ := p.tsProgram.UpdateProgram(changed, host, nil)
+  newProg, reused := p.tsProgram.UpdateProgram(changed, host, nil)
   if newProg != nil {
     p.tsProgram = newProg
     if p.checker != nil {
@@ -344,6 +345,7 @@ func (p *program) applyChange(absPath string) {
   // The prior cycle described the pre-edit Program; drop it so the next verb
   // re-evaluates its rules over the updated ASTs.
   p.projectCycle = nil
+  return reused
 }
 
 // userSourceFiles returns the tsconfig-selected source files the lint engine

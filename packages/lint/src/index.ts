@@ -23,6 +23,9 @@ type TtscPluginDescriptor = {
     diagnosticsTiming?: boolean;
     lsp?: boolean;
     projectContextArgs?: boolean;
+    projectDiagnostics?: boolean;
+    projectInputs?: boolean;
+    residentCheck?: boolean;
     threadingArgs?: boolean;
   };
   contributors?: TtscPluginContributor[];
@@ -134,6 +137,9 @@ export default function createTtscPlugin(
       diagnosticsTiming: true,
       lsp: true,
       projectContextArgs: true,
+      projectDiagnostics: true,
+      projectInputs: true,
+      residentCheck: true,
       threadingArgs: true,
     },
     name: "@ttsc/lint",
@@ -466,7 +472,18 @@ function readCjsConfigPlugins(configPath: string): ConfigPluginEntry[] {
   let mod: unknown;
   try {
     const requireFromConfig = createRequire(configPath);
-    mod = requireFromConfig(configPath);
+    const resolved = requireFromConfig.resolve(configPath);
+    // A resident CLI process calls the descriptor factory again after a lint
+    // config reload. Invalidate the config's local dependency graph as well as
+    // its entry: shared helper modules can own the changed contributor
+    // selection even when the entry file itself is unchanged. Package
+    // dependencies stay cached because they are not mutable config state.
+    evictLocalCjsConfigGraph(
+      requireFromConfig.cache,
+      resolved,
+      path.dirname(resolved),
+    );
+    mod = requireFromConfig(resolved);
   } catch (error) {
     throw new Error(
       `@ttsc/lint: failed to load lint config ${configPath}: ${
@@ -479,6 +496,35 @@ function readCjsConfigPlugins(configPath: string): ConfigPluginEntry[] {
     .map(([namespace, value]) =>
       normalizePluginValue(namespace, value, configPath),
     );
+}
+
+function evictLocalCjsConfigGraph(
+  cache: NodeJS.Dict<NodeModule>,
+  resolved: string,
+  configDir: string,
+  visited = new Set<string>(),
+): void {
+  if (visited.has(resolved)) return;
+  visited.add(resolved);
+  const cached = cache[resolved];
+  if (cached !== undefined) {
+    for (const child of cached.children) {
+      if (isPathWithinDirectory(configDir, child.filename)) {
+        evictLocalCjsConfigGraph(cache, child.filename, configDir, visited);
+      }
+    }
+  }
+  delete cache[resolved];
+}
+
+function isPathWithinDirectory(directory: string, candidate: string): boolean {
+  const relative = path.relative(directory, candidate);
+  return (
+    relative === "" ||
+    (relative !== ".." &&
+      !relative.startsWith(`..${path.sep}`) &&
+      !path.isAbsolute(relative))
+  );
 }
 
 // TypeScript source written to a temp file and executed via ttsx. The

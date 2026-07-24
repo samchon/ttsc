@@ -10,9 +10,11 @@ import (
   "net/url"
   "os"
   "path/filepath"
+  "sort"
   "strings"
   "sync"
   "sync/atomic"
+  "time"
   "unicode/utf16"
   "unicode/utf8"
 )
@@ -39,6 +41,7 @@ const (
   methodReferences         = "textDocument/references"
   methodCompletion         = "textDocument/completion"
   methodCompletionResolve  = "completionItem/resolve"
+  methodInitialized        = "initialized"
   methodExit               = "exit"
 
   // methodDidChangeWatchedFiles is the only notification an editor sends for a
@@ -138,7 +141,9 @@ type Proxy struct {
   pendingAugmentingActions map[string]struct{}
   pendingLocalActions      map[string]struct{}
   pendingCommands          map[string]struct{}
+  pendingClientRequests    map[string]func(Envelope)
   pendingInitialize        map[string]struct{}
+  clientRequestSequence    atomic.Uint64
 
   capabilityMu                   sync.Mutex
   upstreamCodeActionProvider     bool
@@ -153,6 +158,8 @@ type Proxy struct {
   // without a restart, so the proxy says so once per character.
   advertisedCompletionTriggers map[string]struct{}
   reportedCompletionTriggers   map[string]struct{}
+  projectInputWatchDynamic     bool
+  projectInputWatchRelative    bool
 
   diagnosticsMu               sync.Mutex
   upstreamDiagnostics         map[string]cachedDiagnostics
@@ -174,6 +181,25 @@ type Proxy struct {
   // handler falls back to a disk read. Guarded by diagnosticsMu like the
   // other per-uri document state.
   documentText map[string]string
+
+  projectRefreshMu                   sync.Mutex
+  projectRefreshTimer                *time.Timer
+  projectDiagnosticsRefresh          coalescingRefresh
+  pendingProjectDiagnosticGeneration uint64
+  projectDiagnosticRefreshPending    bool
+  pendingProjectDiagnosticAllOwners  bool
+  pendingProjectDiagnosticOwners     map[string]struct{}
+
+  projectInputWatchMu                     sync.Mutex
+  projectInputWatchReady                  bool
+  projectInputWatchDesired                projectInputWatchRegistration
+  projectInputWatchActive                 projectInputWatchRegistration
+  projectInputWatchStaleIDs               []string
+  projectInputWatchPending                bool
+  projectInputWatchFailedSignature        string
+  projectInputWatchUnregisterRetryBlocked bool
+  projectInputWatchWarningSent            bool
+  projectInputWatchRegistrationSequence   uint64
 }
 
 type pendingCodeActionRequest struct {
@@ -217,6 +243,7 @@ func NewProxy(opts ProxyOptions) *Proxy {
     pendingAugmentingActions:       make(map[string]struct{}),
     pendingLocalActions:            make(map[string]struct{}),
     pendingCommands:                make(map[string]struct{}),
+    pendingClientRequests:          make(map[string]func(Envelope)),
     pendingInitialize:              make(map[string]struct{}),
     upstreamCodeActionProvider:     true,
     upstreamDiagnostics:            make(map[string]cachedDiagnostics),
@@ -236,6 +263,14 @@ func NewProxy(opts ProxyOptions) *Proxy {
   if observed, ok := source.(completionHintObserverSource); ok {
     observed.SetCompletionHintsObserver(proxy.completionHintsRefreshed)
   }
+  type projectInputObserverSource interface {
+    SetProjectInputsObserver(func())
+  }
+  if observed, ok := source.(projectInputObserverSource); ok {
+    observed.SetProjectInputsObserver(func() {
+      go proxy.projectInputsRefreshed()
+    })
+  }
   return proxy
 }
 
@@ -245,6 +280,7 @@ func NewProxy(opts ProxyOptions) *Proxy {
 // pipe write fails. ErrFrameClosed and context.Canceled are folded into
 // a nil result so editor shutdown does not look like a crash.
 func (p *Proxy) Run(ctx context.Context) error {
+  defer p.stopProjectDiagnosticRefresh()
   errCh := make(chan error, 2)
   go func() { errCh <- p.pumpEditorToUpstream(ctx) }()
   go func() { errCh <- p.pumpUpstreamToEditor(ctx) }()
@@ -308,6 +344,9 @@ func (p *Proxy) pumpEditorToUpstream(_ context.Context) error {
     if err := p.writeUpstreamFrame(constrainInitializePositionEncoding(env, body)); err != nil {
       return err
     }
+    if env.IsNotification() && env.Method == methodInitialized {
+      go p.projectInputWatchInitialized()
+    }
   }
 }
 
@@ -324,6 +363,9 @@ func (p *Proxy) closeUpstreamInput() {
 // handleEditorEnvelope returns true if the envelope was fully processed
 // locally (responded to without forwarding upstream).
 func (p *Proxy) handleEditorEnvelope(env Envelope, body []byte) (bool, error) {
+  if env.IsResponse() && p.handleClientRequestResponse(env) {
+    return true, nil
+  }
   switch env.Method {
   case methodInitialize:
     if env.IsRequest() {
@@ -342,6 +384,7 @@ func (p *Proxy) handleEditorEnvelope(env Envelope, body []byte) (bool, error) {
       p.invalidateResidentPlugins(env)
       p.refreshPluginCompletionHints()
       p.publishPluginDiagnosticsForDocumentNotification(env)
+      p.resumePendingProjectDiagnosticRefresh()
     }
   case methodDidChangeConfiguration:
     if env.IsNotification() {
@@ -350,6 +393,7 @@ func (p *Proxy) handleEditorEnvelope(env Envelope, body []byte) (bool, error) {
       // invalidateForWatchedFileChanges, which knows whether anything actually
       // changed.
       p.refreshPluginCompletionHints()
+      p.refreshProjectInputs()
     }
   case methodDidChange:
     if env.IsNotification() {
@@ -369,6 +413,7 @@ func (p *Proxy) handleEditorEnvelope(env Envelope, body []byte) (bool, error) {
     if env.IsNotification() {
       p.evictDocumentText(env)
       p.clearDocumentDiagnostics(env)
+      p.resumePendingProjectDiagnosticRefresh()
     }
   case methodDidChangeWatchedFiles:
     if env.IsNotification() {
@@ -536,6 +581,24 @@ func (p *Proxy) rememberInitializeRequest(env Envelope) {
   key := env.IDKey()
   if key == "" {
     return
+  }
+  var params struct {
+    Capabilities struct {
+      Workspace struct {
+        DidChangeWatchedFiles struct {
+          DynamicRegistration    bool `json:"dynamicRegistration"`
+          RelativePatternSupport bool `json:"relativePatternSupport"`
+        } `json:"didChangeWatchedFiles"`
+      } `json:"workspace"`
+    } `json:"capabilities"`
+  }
+  if json.Unmarshal(env.Params, &params) == nil {
+    p.capabilityMu.Lock()
+    p.projectInputWatchDynamic =
+      params.Capabilities.Workspace.DidChangeWatchedFiles.DynamicRegistration
+    p.projectInputWatchRelative =
+      params.Capabilities.Workspace.DidChangeWatchedFiles.RelativePatternSupport
+    p.capabilityMu.Unlock()
   }
   p.pendingMu.Lock()
   defer p.pendingMu.Unlock()
@@ -1260,8 +1323,20 @@ func (p *Proxy) publishMergedPluginDiagnostics(uri string, version *int, adoptCa
   if ok {
     p.reportAsyncError(p.writePublishDiagnosticsIfCurrent(uri, version, merged, generation))
   }
-  if diagnostics.Project != nil {
-    p.reportAsyncError(p.writeProjectDiagnosticsIfCurrent(diagnostics.Project, projectGeneration))
+  if diagnostics.Project != nil && !p.hasDirtyDocuments() {
+    writeResult, err := p.writeProjectDiagnosticsIfCurrent(
+      diagnostics.Project,
+      projectGeneration,
+      false,
+    )
+    p.reportAsyncError(err)
+    if writeResult.frameWritten &&
+      p.recordPendingProjectDiagnosticOwnersRefreshed(
+        projectGeneration,
+        diagnostics.projectUpdatedProducers,
+      ) {
+      p.completePendingProjectDiagnosticRefresh(projectGeneration)
+    }
   }
 }
 
@@ -1283,9 +1358,13 @@ func (p *Proxy) writePublishDiagnosticsIfCurrent(uri string, version *int, diagn
   return WriteFrame(p.editorOut, body)
 }
 
-func (p *Proxy) writeProjectDiagnosticsIfCurrent(publication *LSPProjectDiagnostics, generation uint64) error {
+func (p *Proxy) writeProjectDiagnosticsIfCurrent(
+  publication *LSPProjectDiagnostics,
+  generation uint64,
+  publishEmpty bool,
+) (projectDiagnosticsWriteResult, error) {
   if publication == nil || publication.URI == "" {
-    return nil
+    return projectDiagnosticsWriteResult{}, nil
   }
   diagnostics := append([]LSPDiagnostic(nil), publication.Diagnostics...)
   for index := range diagnostics {
@@ -1296,8 +1375,9 @@ func (p *Proxy) writeProjectDiagnosticsIfCurrent(publication *LSPProjectDiagnost
   defer p.writeMu.Unlock()
   p.diagnosticsMu.Lock()
   defer p.diagnosticsMu.Unlock()
-  if p.projectDiagnosticGeneration != generation {
-    return nil
+  if p.projectDiagnosticGeneration != generation ||
+    len(p.dirtyDocuments) != 0 {
+    return projectDiagnosticsWriteResult{}, nil
   }
 
   previousURI := p.projectDiagnosticsURI
@@ -1310,19 +1390,33 @@ func (p *Proxy) writeProjectDiagnosticsIfCurrent(publication *LSPProjectDiagnost
       p.editorOut,
       p.publishDiagnosticsBody(previousURI, nil, p.mergedDiagnosticsLocked(previousURI)),
     ); err != nil {
-      return err
+      return projectDiagnosticsWriteResult{}, err
     }
   }
 
   p.projectDiagnosticsURI = publication.URI
   p.projectDiagnostics = cachedDiagnostics{diagnostics: copyRawDiagnostics(rawDiagnostics)}
-  if len(rawDiagnostics) == 0 && !previousHadDiagnostics && !changedURI {
-    return nil
+  if len(rawDiagnostics) == 0 &&
+    !publishEmpty &&
+    !previousHadDiagnostics &&
+    !changedURI {
+    return projectDiagnosticsWriteResult{accepted: true}, nil
   }
-  return WriteFrame(
+  if err := WriteFrame(
     p.editorOut,
     p.publishDiagnosticsBody(publication.URI, nil, p.mergedDiagnosticsLocked(publication.URI)),
-  )
+  ); err != nil {
+    return projectDiagnosticsWriteResult{}, err
+  }
+  return projectDiagnosticsWriteResult{
+    accepted:     true,
+    frameWritten: true,
+  }, nil
+}
+
+type projectDiagnosticsWriteResult struct {
+  accepted     bool
+  frameWritten bool
 }
 
 func marshalLSPDiagnostics(diagnostics []LSPDiagnostic) []json.RawMessage {
@@ -2255,6 +2349,44 @@ func (p *Proxy) invalidateResidentPluginsForURIs(uris ...string) {
   }
 }
 
+type watchedResidentInvalidator interface {
+  InvalidateResidentProgramsForWatchedChanges(
+    changedURIs []string,
+    externalURIs []string,
+  )
+}
+
+type ownedWatchedResidentInvalidator interface {
+  InvalidateResidentProgramsForOwnedWatchedChanges(
+    changedURIs []string,
+    externalURIs []string,
+    externalOwners map[string][]string,
+  )
+}
+
+func (p *Proxy) invalidateResidentPluginsForWatchedChanges(
+  changedURIs []string,
+  externalURIs []string,
+  externalOwners map[string][]string,
+) {
+  if source, ok := p.source.(ownedWatchedResidentInvalidator); ok {
+    source.InvalidateResidentProgramsForOwnedWatchedChanges(
+      changedURIs,
+      externalURIs,
+      externalOwners,
+    )
+    return
+  }
+  if source, ok := p.source.(watchedResidentInvalidator); ok {
+    source.InvalidateResidentProgramsForWatchedChanges(
+      changedURIs,
+      externalURIs,
+    )
+    return
+  }
+  p.invalidateResidentPluginsForURIs(changedURIs...)
+}
+
 // LSP FileChangeType. Only `changed` names an edit to a file whose place in the
 // project is unchanged; created and deleted both reshape the root set, which a
 // per-file UpdateProgram cannot express.
@@ -2303,11 +2435,41 @@ func (p *Proxy) invalidateForWatchedFileChanges(env Envelope) error {
     return nil
   }
   uris := make([]string, 0, len(params.Changes))
+  externalURIs := make([]string, 0, len(params.Changes))
+  externalSet := make(map[string]struct{}, len(params.Changes))
+  externalOwners := make(map[string][]string, len(params.Changes))
+  affectedProjectDiagnosticOwners := map[string]struct{}{}
+  allProjectDiagnosticOwners := false
   deleted := make([]string, 0, len(params.Changes))
   localizable := true
   for _, change := range params.Changes {
     if change.URI != "" && change.Type != nil && *change.Type == fileChangeTypeDeleted {
       deleted = append(deleted, change.URI)
+    }
+    ownerScope, matched := p.projectInputOwnerScope(change.URI)
+    if matched {
+      ownerScope = projectDiagnosticScopeForWatchedInput(
+        change.URI,
+        ownerScope,
+      )
+      externalSet[change.URI] = struct{}{}
+      if ownerScope.all {
+        allProjectDiagnosticOwners = true
+        externalOwners[change.URI] = nil
+      } else {
+        owners := ownerScope.list()
+        externalOwners[change.URI] = owners
+        for _, owner := range owners {
+          affectedProjectDiagnosticOwners[owner] = struct{}{}
+        }
+      }
+      if externalWatchedChangeRetainsProgram(change.URI, change.Type) {
+        externalURIs = append(externalURIs, change.URI)
+        uris = append(uris, change.URI)
+      } else {
+        localizable = false
+      }
+      continue
     }
     if !watchedFileChangeIsLocalizable(change.URI, change.Type) {
       localizable = false
@@ -2319,11 +2481,24 @@ func (p *Proxy) invalidateForWatchedFileChanges(env Envelope) error {
   if !localizable || len(uris) == 0 {
     p.invalidateResidentPluginsForURIs()
   } else {
-    p.invalidateResidentPluginsForURIs(uris...)
+    p.invalidateResidentPluginsForWatchedChanges(
+      uris,
+      externalURIs,
+      externalOwners,
+    )
   }
   // A completion corpus projects the whole Program, so it cannot be invalidated
   // per URI the way the resident daemon's is: any reported change can change it.
-  p.refreshPluginCompletionHints()
+  if len(externalSet) > 0 || watchedChangesMayAffectProgram(params.Changes) {
+    p.refreshPluginCompletionHints()
+  }
+  if len(externalSet) > 0 {
+    p.refreshProjectInputs()
+    p.scheduleProjectDiagnosticRefresh(projectDiagnosticOwnerScope{
+      all:    allProjectDiagnosticOwners,
+      owners: affectedProjectDiagnosticOwners,
+    })
+  }
   for _, uri := range deleted {
     if err := p.withdrawPluginDiagnosticsForDeletedDocument(uri); err != nil {
       return err
@@ -2371,6 +2546,340 @@ func watchedFileChangeIsLocalizable(uri string, changeType *int) bool {
     return false
   default:
     // A FileChangeType outside the enum LSP defines.
+    return false
+  }
+}
+
+type projectInputMatcher interface {
+  ProjectInputMatchesURI(string) bool
+}
+
+type projectInputOwnerMatcher interface {
+  ProjectInputOwnersForURI(string) []string
+}
+
+type projectDiagnosticOwnerScope struct {
+  all    bool
+  owners map[string]struct{}
+}
+
+func projectDiagnosticScopeForWatchedInput(
+  uri string,
+  scope projectDiagnosticOwnerScope,
+) projectDiagnosticOwnerScope {
+  if watchedURIHasProgramInputExtension(uri) {
+    return projectDiagnosticOwnerScope{all: true}
+  }
+  return scope
+}
+
+func (scope projectDiagnosticOwnerScope) list() []string {
+  owners := make([]string, 0, len(scope.owners))
+  for owner := range scope.owners {
+    owners = append(owners, owner)
+  }
+  sort.Strings(owners)
+  return owners
+}
+
+func (p *Proxy) projectInputOwnerScope(
+  uri string,
+) (projectDiagnosticOwnerScope, bool) {
+  if source, ok := p.source.(projectInputOwnerMatcher); ok {
+    owners := source.ProjectInputOwnersForURI(uri)
+    if len(owners) != 0 {
+      scope := projectDiagnosticOwnerScope{owners: map[string]struct{}{}}
+      for _, owner := range owners {
+        scope.owners[owner] = struct{}{}
+      }
+      return scope, true
+    }
+  }
+  source, ok := p.source.(projectInputMatcher)
+  if !ok || !source.ProjectInputMatchesURI(uri) {
+    return projectDiagnosticOwnerScope{}, false
+  }
+  return projectDiagnosticOwnerScope{all: true}, true
+}
+
+func (p *Proxy) refreshProjectInputs() {
+  type projectInputRefresher interface {
+    RefreshProjectInputs()
+  }
+  if source, ok := p.source.(projectInputRefresher); ok {
+    source.RefreshProjectInputs()
+  }
+}
+
+type projectDiagnosticsSource interface {
+  ProjectDiagnostics() *LSPProjectDiagnostics
+}
+
+type ownedProjectDiagnosticsSource interface {
+  ProjectDiagnosticsForOwners([]string) projectDiagnosticsRefreshResult
+}
+
+// scheduleProjectDiagnosticRefresh debounces external-input events and
+// invalidates the prior generation immediately. One in-flight computation may
+// finish, but its generation can no longer publish after a newer event.
+func (p *Proxy) scheduleProjectDiagnosticRefresh(
+  scope projectDiagnosticOwnerScope,
+) {
+  if _, owned := p.source.(ownedProjectDiagnosticsSource); !owned {
+    if _, legacy := p.source.(projectDiagnosticsSource); !legacy {
+      return
+    }
+  }
+  if !scope.all && len(scope.owners) == 0 {
+    if _, owned := p.source.(ownedProjectDiagnosticsSource); !owned {
+      return
+    }
+  }
+  // Generation ownership and pending scope form one transaction. Resume uses
+  // the same diagnostics -> refresh lock order, so neither path can overwrite
+  // the other's newer pending generation between the two assignments.
+  p.diagnosticsMu.Lock()
+  p.projectRefreshMu.Lock()
+  p.projectDiagnosticGeneration++
+  generation := p.projectDiagnosticGeneration
+  p.pendingProjectDiagnosticGeneration = generation
+  p.projectDiagnosticRefreshPending = true
+  if scope.all {
+    p.pendingProjectDiagnosticAllOwners = true
+    p.pendingProjectDiagnosticOwners = nil
+  } else if !p.pendingProjectDiagnosticAllOwners {
+    if p.pendingProjectDiagnosticOwners == nil {
+      p.pendingProjectDiagnosticOwners = map[string]struct{}{}
+    }
+    for owner := range scope.owners {
+      p.pendingProjectDiagnosticOwners[owner] = struct{}{}
+    }
+  }
+  p.armProjectDiagnosticRefreshLocked()
+  p.projectRefreshMu.Unlock()
+  p.diagnosticsMu.Unlock()
+}
+
+func (p *Proxy) armProjectDiagnosticRefreshLocked() {
+  if p.projectRefreshTimer != nil {
+    p.projectRefreshTimer.Stop()
+  }
+  p.projectRefreshTimer = time.AfterFunc(60*time.Millisecond, func() {
+    p.projectDiagnosticsRefresh.schedule(
+      p.refreshProjectDiagnostics,
+    )
+  })
+}
+
+func (p *Proxy) pendingProjectDiagnosticScopeLocked() projectDiagnosticOwnerScope {
+  scope := projectDiagnosticOwnerScope{
+    all:    p.pendingProjectDiagnosticAllOwners,
+    owners: map[string]struct{}{},
+  }
+  for owner := range p.pendingProjectDiagnosticOwners {
+    scope.owners[owner] = struct{}{}
+  }
+  return scope
+}
+
+func (p *Proxy) recordPendingProjectDiagnosticOwnersRefreshed(
+  generation uint64,
+  refreshed map[string]struct{},
+) bool {
+  p.projectRefreshMu.Lock()
+  defer p.projectRefreshMu.Unlock()
+  if !p.projectDiagnosticRefreshPending ||
+    generation < p.pendingProjectDiagnosticGeneration ||
+    p.pendingProjectDiagnosticAllOwners ||
+    len(p.pendingProjectDiagnosticOwners) == 0 {
+    return false
+  }
+  for owner := range refreshed {
+    delete(p.pendingProjectDiagnosticOwners, owner)
+  }
+  return len(p.pendingProjectDiagnosticOwners) == 0
+}
+
+func (p *Proxy) refreshProjectDiagnostics(uint64) {
+  p.projectRefreshMu.Lock()
+  generation := p.pendingProjectDiagnosticGeneration
+  pending := p.projectDiagnosticRefreshPending
+  scope := p.pendingProjectDiagnosticScopeLocked()
+  p.projectRefreshMu.Unlock()
+  if !pending {
+    return
+  }
+  if p.hasDirtyDocuments() {
+    return
+  }
+  refresh := projectDiagnosticsRefreshResult{complete: true}
+  if source, ok := p.source.(ownedProjectDiagnosticsSource); ok {
+    owners := scope.list()
+    if scope.all {
+      owners = nil
+    }
+    refresh = source.ProjectDiagnosticsForOwners(owners)
+  } else if source, ok := p.source.(projectDiagnosticsSource); ok {
+    refresh.publication = source.ProjectDiagnostics()
+    refresh.complete =
+      refresh.publication != nil && refresh.publication.URI != ""
+    refresh.selected = 1
+  } else {
+    return
+  }
+  if refresh.selected == 0 {
+    if refresh.complete {
+      p.completePendingProjectDiagnosticRefresh(generation)
+    }
+    return
+  }
+  if refresh.publication == nil || refresh.publication.URI == "" {
+    return
+  }
+  // The editor can retain a project diagnostic from before this proxy
+  // generation. An external-input refresh therefore publishes an explicit
+  // empty replacement even when the in-process cache was already empty.
+  writeResult, err := p.writeProjectDiagnosticsIfCurrent(
+    refresh.publication,
+    generation,
+    true,
+  )
+  p.reportAsyncError(err)
+  if err != nil || p.hasDirtyDocuments() {
+    return
+  }
+  if writeResult.frameWritten {
+    ownersComplete :=
+      !scope.all &&
+        p.recordPendingProjectDiagnosticOwnersRefreshed(
+          generation,
+          refresh.refreshed,
+        )
+    if refresh.complete || ownersComplete {
+      p.completePendingProjectDiagnosticRefresh(generation)
+    }
+    return
+  }
+  // A document diagnostics request may have advanced the project generation
+  // without publishing project diagnostics, for example when parse diagnostics
+  // caused the sidecar to omit its project result. Retain and rerun the direct
+  // refresh instead of treating that rejected write as a successful clear.
+  if !writeResult.accepted {
+    p.resumePendingProjectDiagnosticRefresh()
+  }
+}
+
+func (p *Proxy) completePendingProjectDiagnosticRefresh(generation uint64) {
+  p.projectRefreshMu.Lock()
+  defer p.projectRefreshMu.Unlock()
+  if !p.projectDiagnosticRefreshPending ||
+    generation < p.pendingProjectDiagnosticGeneration {
+    return
+  }
+  p.projectDiagnosticRefreshPending = false
+  p.pendingProjectDiagnosticAllOwners = false
+  p.pendingProjectDiagnosticOwners = nil
+  if p.projectRefreshTimer != nil {
+    p.projectRefreshTimer.Stop()
+    p.projectRefreshTimer = nil
+  }
+}
+
+func (p *Proxy) stopProjectDiagnosticRefresh() {
+  p.projectRefreshMu.Lock()
+  defer p.projectRefreshMu.Unlock()
+  if p.projectRefreshTimer != nil {
+    p.projectRefreshTimer.Stop()
+    p.projectRefreshTimer = nil
+  }
+  p.projectDiagnosticRefreshPending = false
+  p.pendingProjectDiagnosticAllOwners = false
+  p.pendingProjectDiagnosticOwners = nil
+}
+
+func (p *Proxy) resumePendingProjectDiagnosticRefresh() {
+  p.diagnosticsMu.Lock()
+  defer p.diagnosticsMu.Unlock()
+  if len(p.dirtyDocuments) != 0 {
+    return
+  }
+  p.projectRefreshMu.Lock()
+  defer p.projectRefreshMu.Unlock()
+  if p.projectDiagnosticRefreshPending {
+    p.projectDiagnosticGeneration++
+    p.pendingProjectDiagnosticGeneration = p.projectDiagnosticGeneration
+    p.armProjectDiagnosticRefreshLocked()
+  }
+}
+
+func (p *Proxy) hasDirtyDocuments() bool {
+  p.diagnosticsMu.Lock()
+  defer p.diagnosticsMu.Unlock()
+  return len(p.dirtyDocuments) > 0
+}
+
+func watchedChangesMayAffectProgram(changes []struct {
+  URI  string `json:"uri"`
+  Type *int   `json:"type"`
+}) bool {
+  for _, change := range changes {
+    if isProjectConfigURI(change.URI) {
+      return true
+    }
+    if watchedURIHasProgramInputExtension(change.URI) {
+      return true
+    }
+  }
+  return false
+}
+
+func externalWatchedChangeRetainsProgram(
+  uri string,
+  changeType *int,
+) bool {
+  if uri == "" || changeType == nil || isProjectConfigURI(uri) {
+    return false
+  }
+  if _, ok := filePathFromURI(uri); !ok {
+    return false
+  }
+  switch *changeType {
+  case fileChangeTypeChanged:
+    // Package metadata changes module resolution without changing the declared
+    // input population. Ordinary data JSON remains a warm external update.
+    return !watchedURIIsPackageJSON(uri)
+  case fileChangeTypeCreated, fileChangeTypeDeleted:
+    // A declared path may also satisfy a compiler root, module resolution, or
+    // another compiler-recognized extension. Only those membership changes
+    // cold-load the Program; data-only topology remains safely localizable.
+    return !watchedURIHasProgramInputExtension(uri)
+  default:
+    return false
+  }
+}
+
+func watchedURIIsPackageJSON(uri string) bool {
+  location, ok := filePathFromURI(uri)
+  return ok && strings.EqualFold(filepath.Base(location), "package.json")
+}
+
+func watchedURIHasProgramInputExtension(uri string) bool {
+  if watchedURIHasProgramSourceExtension(uri) {
+    return true
+  }
+  location, ok := filePathFromURI(uri)
+  return ok && strings.EqualFold(filepath.Ext(location), ".json")
+}
+
+func watchedURIHasProgramSourceExtension(uri string) bool {
+  location, ok := filePathFromURI(uri)
+  if !ok {
+    return false
+  }
+  switch strings.ToLower(filepath.Ext(location)) {
+  case ".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs":
+    return true
+  default:
     return false
   }
 }

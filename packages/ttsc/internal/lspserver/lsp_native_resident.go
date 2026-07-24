@@ -18,15 +18,16 @@ import (
 // the caller falls back to a fresh spawn.
 const residentRequestTimeout = nativePluginCommandTimeout
 
-// serveVerbDiagnostics, serveVerbCodeActions, and serveVerbHints are the verbs
-// routed to the resident daemon: the three that load a Program.
+// The serve verbs below are routed to the resident daemon because they load a
+// Program.
 // lsp-command-ids / lsp-code-action-kinds run once at startup and never load one
 // (routing them would spawn the daemon on the initialize path);
 // lsp-execute-command is user-initiated and keeps its spawn-per-verb path.
 const (
-  serveVerbDiagnostics = "lsp-diagnostics"
-  serveVerbCodeActions = "lsp-code-actions"
-  serveVerbHints       = "lsp-hints"
+  serveVerbDiagnostics        = "lsp-diagnostics"
+  serveVerbProjectDiagnostics = "lsp-project-diagnostics"
+  serveVerbCodeActions        = "lsp-code-actions"
+  serveVerbHints              = "lsp-hints"
 )
 
 // serveClientRequest mirrors linthost's serveLSPRequest: the base project
@@ -38,6 +39,7 @@ type serveClientRequest struct {
   ContextJSON string   `json:"contextJson,omitempty"`
   Invalidate  bool     `json:"invalidate,omitempty"`
   Changed     []string `json:"changed,omitempty"`
+  External    []string `json:"external,omitempty"`
 }
 
 // serveClientResponse mirrors linthost's serveLSPResponse: the verb's JSON
@@ -63,6 +65,9 @@ type residentSidecar struct {
   // request, so the daemon updates the warm Program incrementally rather than
   // rebuilding it.
   changed []string
+  // external identifies changed entries that are declared ProjectRule inputs,
+  // allowing an unknown non-Program path to retain the warm Program.
+  external []string
 }
 
 // serveRun routes a serve-able verb through the plugin's resident daemon.
@@ -75,18 +80,19 @@ func (s *NativePluginSource) serveRun(plugin NativeLSPPluginEntry, verb string, 
   if s == nil || strings.TrimSpace(plugin.Binary) == "" {
     return nil, false, nil
   }
+  key := pluginKey(plugin, s.projectContextJSON)
   s.residentMu.Lock()
-  if s.serveUnsupported[plugin.Binary] {
+  if s.serveUnsupported[key] {
     s.residentMu.Unlock()
     return nil, false, nil
   }
-  sc := s.residents[plugin.Binary]
+  sc := s.residents[key]
   if sc == nil {
     sc = &residentSidecar{}
     if s.residents == nil {
       s.residents = map[string]*residentSidecar{}
     }
-    s.residents[plugin.Binary] = sc
+    s.residents[key] = sc
   }
   s.residentMu.Unlock()
 
@@ -103,7 +109,7 @@ func (s *NativePluginSource) serveRun(plugin NativeLSPPluginEntry, verb string, 
       if s.serveUnsupported == nil {
         s.serveUnsupported = map[string]bool{}
       }
-      s.serveUnsupported[plugin.Binary] = true
+      s.serveUnsupported[key] = true
     }
     s.residentMu.Unlock()
     return nil, false, nil
@@ -132,6 +138,10 @@ func (sc *residentSidecar) call(s *NativePluginSource, plugin NativeLSPPluginEnt
   if len(sc.changed) > 0 {
     req.Changed = sc.changed
     sc.changed = nil
+  }
+  if len(sc.external) > 0 {
+    req.External = sc.external
+    sc.external = nil
   }
   line, err := json.Marshal(req)
   if err != nil {
@@ -246,6 +256,97 @@ func (s *NativePluginSource) InvalidateResidentPrograms(changedURIs ...string) {
     } else {
       sc.invalidate = true
     }
+    sc.mu.Unlock()
+  }
+}
+
+// InvalidateResidentProgramsForWatchedChanges distinguishes declared external
+// inputs from ordinary watched files so the sidecar can retain its Program for
+// data-only changes while still rebuilding fresh ProjectRule state.
+func (s *NativePluginSource) InvalidateResidentProgramsForWatchedChanges(
+  changedURIs []string,
+  externalURIs []string,
+) {
+  externalOwners := make(map[string][]string, len(externalURIs))
+  for _, uri := range externalURIs {
+    externalOwners[uri] = nil
+  }
+  s.InvalidateResidentProgramsForOwnedWatchedChanges(
+    changedURIs,
+    externalURIs,
+    externalOwners,
+  )
+}
+
+// InvalidateResidentProgramsForOwnedWatchedChanges sends data-only external
+// changes only to resident binaries that own the matching snapshot. A path that
+// can also belong to the Program reaches every resident, because each daemon
+// must decide whether its own Program contains that source.
+func (s *NativePluginSource) InvalidateResidentProgramsForOwnedWatchedChanges(
+  changedURIs []string,
+  externalURIs []string,
+  externalOwners map[string][]string,
+) {
+  if s == nil {
+    return
+  }
+  external := make(map[string]struct{}, len(externalURIs))
+  for _, uri := range externalURIs {
+    external[uri] = struct{}{}
+  }
+  ordinary := make([]string, 0, len(changedURIs))
+  for _, uri := range changedURIs {
+    if _, ok := external[uri]; !ok {
+      ordinary = append(ordinary, uri)
+    }
+  }
+  ownerTransports := make(map[string]map[string]struct{}, len(externalURIs))
+  allTransports := make(map[string]bool, len(externalURIs))
+  pluginsByKey := make(map[string]NativeLSPPluginEntry, len(s.plugins))
+  for _, plugin := range s.plugins {
+    pluginsByKey[pluginKey(plugin, s.projectContextJSON)] = plugin
+  }
+  for _, uri := range externalURIs {
+    if watchedURIHasProgramInputExtension(uri) {
+      allTransports[uri] = true
+      continue
+    }
+    owners, scoped := externalOwners[uri]
+    if !scoped || owners == nil {
+      allTransports[uri] = true
+      continue
+    }
+    transports := map[string]struct{}{}
+    for _, owner := range owners {
+      if plugin, ok := pluginsByKey[owner]; ok {
+        transports[pluginKey(plugin, s.projectContextJSON)] = struct{}{}
+      }
+    }
+    ownerTransports[uri] = transports
+  }
+  s.residentMu.Lock()
+  residents := make(map[string]*residentSidecar, len(s.residents))
+  for key, sc := range s.residents {
+    residents[key] = sc
+  }
+  s.residentMu.Unlock()
+  for key, sc := range residents {
+    changed := append([]string(nil), ordinary...)
+    selectedExternal := []string{}
+    for _, uri := range externalURIs {
+      _, owned := ownerTransports[uri][key]
+      if !allTransports[uri] && !owned {
+        continue
+      }
+      changed = append(changed, uri)
+      selectedExternal = append(selectedExternal, uri)
+    }
+    if len(changed) == 0 {
+      continue
+    }
+    sc.mu.Lock()
+    sc.changed = append(sc.changed, changed...)
+    sc.external = append(sc.external, selectedExternal...)
     sc.mu.Unlock()
   }
 }

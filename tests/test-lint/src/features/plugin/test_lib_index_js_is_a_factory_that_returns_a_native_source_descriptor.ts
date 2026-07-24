@@ -10,13 +10,14 @@ import { TestLintPlugin } from "../../internal/TestLintPlugin";
  * config object), and the returned descriptor must carry the plugin name
  * `"@ttsc/lint"`, the `"check"` stage, and the TypeScript-diagnostics
  * capability so the ttsc host knows when to invoke it and avoid redundant `tsgo
- * --noEmit` guards. A wrong name or stage would silently route lint diagnostics
- * to the wrong pipeline slot.
+ * --noEmit` guards. It also opts into the project-input snapshot consumed by
+ * watch and LSP hosts. A wrong name or stage would silently route lint
+ * diagnostics to the wrong pipeline slot.
  *
  * 1. Load the factory from the built `lib/index.js`.
  * 2. Call it with a minimal context supplying `transform: "@ttsc/lint"`.
  * 3. Assert `typeof factory === "function"`, `descriptor.name === "@ttsc/lint"`,
- *    `descriptor.stage === "check"`, and the diagnostics capability is set.
+ *    `descriptor.stage === "check"`, and both host capabilities are set.
  */
 export const test_lib_index_js_is_a_factory_that_returns_a_native_source_descriptor =
   () => {
@@ -28,4 +29,5 @@ export const test_lib_index_js_is_a_factory_that_returns_a_native_source_descrip
     assert.equal(descriptor.name, "@ttsc/lint");
     assert.equal(descriptor.stage, "check");
     assert.equal(descriptor.reportsTypeScriptDiagnostics, true);
+    assert.equal(descriptor.capabilities?.projectInputs, true);
   };
