@@ -8,6 +8,7 @@ import {
   WatchTopology,
   literalGlobRoot,
   projectInputEventShouldNotify,
+  projectInputWatchDirectories,
 } from "../../../../../packages/ttsc/lib/launcher/internal/watchTopology.js";
 
 /**
@@ -77,6 +78,19 @@ export const test_watch_topology_tracks_declared_missing_files_and_empty_globs =
           path.join(root, "dist", "**", "*.json"),
         ],
       });
+      assert.deepEqual(
+        projectInputWatchDirectories(
+          path.join(root, "docs", "nested", "missing.md"),
+          root,
+        ),
+        [root],
+        "an internal declaration must use one stable project-root handle",
+      );
+      assert.deepEqual(
+        projectInputWatchDirectories(externalFile, root),
+        [externalRoot],
+        "a missing external tree must use one nearest-ancestor handle",
+      );
 
       if (process.platform === "win32") {
         const volumeRoot = path.parse(root).root;
