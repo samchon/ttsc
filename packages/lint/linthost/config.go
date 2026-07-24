@@ -1943,11 +1943,19 @@ const hooks = registerHooks({
     }
     const url = new URL(resolved.url).href;
     const parent = context.parentURL && new URL(context.parentURL).href;
-    const entry = url === configUrl;
+    const location = fileURLToPath(url);
+    // The entry is recognized by identity, not by string. A module URL is
+    // assigned by whoever loaded it, so the config can come back under a
+    // different spelling of the same file than the one this process was handed
+    // — a Windows short component, or a symlinked ancestor. Comparing strings
+    // then rejects the config's own imports at this gate, because their parent
+    // is a URL no node was ever recorded under, and the whole dependency graph
+    // collapses to the records made before the first import.
+    const entry =
+      url === configUrl || samePhysicalPath(location, configLocation);
     if (!entry && (parent === undefined || !graphNodes.has(parent))) {
       return resolved;
     }
-    const location = fileURLToPath(url);
     graphNodes.set(url, location);
     if (parent !== undefined) {
       graphEdges.push({
@@ -2719,6 +2727,20 @@ function sameResolutionPath(left, right) {
   return path.relative(left, right) === "";
 }
 
+function samePhysicalPath(left, right) {
+  try {
+    return sameResolutionPath(realPath(left), realPath(right));
+  } catch {
+    return sameResolutionPath(left, right);
+  }
+}
+
+function realPath(location) {
+  return fs.realpathSync.native
+    ? fs.realpathSync.native(location)
+    : fs.realpathSync(location);
+}
+
 function finalizeDependencies() {
   const watched = graphWatchReachability();
   return [...dependencies.values()].map(({ owners, ...dependency }) => ({
@@ -2999,11 +3021,19 @@ const hooks = registerHooks({
     }
     const url = new URL(resolved.url).href;
     const parent = context.parentURL && new URL(context.parentURL).href;
-    const entry = url === new URL(configUrl).href;
+    const location = fileURLToPath(url);
+    // The entry is recognized by identity, not by string. A module URL is
+    // assigned by whoever loaded it, so the config can come back under a
+    // different spelling of the same file than the one this process was handed
+    // — a Windows short component, or a symlinked ancestor. Comparing strings
+    // then rejects the config's own imports at this gate, because their parent
+    // is a URL no node was ever recorded under, and the whole dependency graph
+    // collapses to the records made before the first import.
+    const entry =
+      url === new URL(configUrl).href || samePhysicalPath(location, configLocation);
     if (!entry && (parent === undefined || !graphNodes.has(parent))) {
       return resolved;
     }
-    const location = fileURLToPath(url);
     graphNodes.set(url, location);
     if (parent !== undefined) {
       graphEdges.push({
@@ -3807,6 +3837,20 @@ function resolvedPackageContains(
 
 function sameResolutionPath(left: string, right: string): boolean {
   return path.relative(left, right) === "";
+}
+
+function samePhysicalPath(left: string, right: string): boolean {
+  try {
+    return sameResolutionPath(realPath(left), realPath(right));
+  } catch {
+    return sameResolutionPath(left, right);
+  }
+}
+
+function realPath(location: string): string {
+  return fs.realpathSync.native
+    ? fs.realpathSync.native(location)
+    : fs.realpathSync(location);
 }
 
 function finalizeDependencies(): Array<{
