@@ -87,6 +87,17 @@ export class WatchTopology {
   /** Re-resolve compiler inputs and notify only when their membership changed. */
   public refresh(notify: boolean): void {
     const next = resolveWatchTopology(this.options, this.extraInputs);
+    const projectInputProgramChange =
+      this.options.emit === false &&
+      mapsEqual(this.reloadFiles, next.reloadFiles) &&
+      mapsEqual(this.outputFiles, next.outputFiles) &&
+      mapsEqual(this.outputs, next.outputs)
+        ? projectInputCompilerMembershipChange(
+            this.projectInputs,
+            this.files,
+            next.files,
+          )
+        : undefined;
     const changed =
       mapsEqual(this.files, next.files) === false ||
       mapsEqual(this.directories, next.directories) === false ||
@@ -103,7 +114,18 @@ export class WatchTopology {
     this.syncExtraWatchers();
     this.syncProjectInputWatchers();
     if (notify && changed) {
-      this.callbacks.onTopologyChange();
+      if (projectInputProgramChange !== undefined) {
+        this.callbacks.onInputChange({
+          invalidate: true,
+          kind: "project",
+          path:
+            projectInputProgramChange.length === 1
+              ? projectInputProgramChange[0]
+              : undefined,
+        });
+      } else {
+        this.callbacks.onTopologyChange();
+      }
     }
   }
 
@@ -739,7 +761,8 @@ function inferAdjacentCompilerOutputs(
       emit.javascript &&
       emit.outDir === undefined &&
       emit.outFile === undefined &&
-      !isJavaScriptSourceExtension(extension)
+      (!isJavaScriptSourceExtension(extension) ||
+        (extension === ".jsx" && emit.jsx !== "preserve"))
     ) {
       const javascriptExtension =
         extension === ".mts"
@@ -832,7 +855,6 @@ function effectiveCompilerEmit(
   const declaration =
     !noEmit &&
     (composite ||
-      emitDeclarationOnly ||
       (passthroughBooleanOption(passthrough, "--declaration") ??
         compilerOptions.declaration === true));
   const javascript = !noEmit && !emitDeclarationOnly;
@@ -907,9 +929,6 @@ function defaultTsBuildInfoFile(
   emit: EffectiveCompilerEmit,
 ): string {
   if (emit.tsBuildInfoFile !== undefined) return emit.tsBuildInfoFile;
-  if (emit.outFile !== undefined) {
-    return replaceOutputExtension(emit.outFile, ".tsbuildinfo");
-  }
   const configWithoutExtension = replaceOutputExtension(project.path, "");
   if (emit.outDir === undefined) return `${configWithoutExtension}.tsbuildinfo`;
   const relative =
@@ -934,19 +953,13 @@ function passthroughBooleanOption(
   for (let index = 0; index < (tokens?.length ?? 0); index++) {
     const token = tokens?.[index];
     if (token === undefined) continue;
-    const equalsIndex = token.indexOf("=");
     if (!passthroughOptionMatches(token, name)) continue;
-    if (equalsIndex === -1) {
-      const next = tokens?.[index + 1]?.toLowerCase();
-      if (next === "true" || next === "false") {
-        value = next === "true";
-        index++;
-      } else {
-        value = true;
-      }
+    const next = tokens?.[index + 1];
+    if (next === "true" || next === "false" || next === "null") {
+      value = next === "true";
+      index++;
     } else {
-      const inline = token.slice(equalsIndex + 1).toLowerCase();
-      if (inline === "true" || inline === "false") value = inline === "true";
+      value = true;
     }
   }
   return value;
@@ -980,9 +993,8 @@ function passthroughStringOption(
 
 function passthroughOptionMatches(token: string, name: string): boolean {
   if (!token.startsWith("-")) return false;
-  const equalsIndex = token.indexOf("=");
-  const spelling = equalsIndex === -1 ? token : token.slice(0, equalsIndex);
-  return resolveFlagSpec(spelling)?.name === resolveFlagSpec(name)?.name;
+  if (token.includes("=")) return false;
+  return resolveFlagSpec(token)?.name === resolveFlagSpec(name)?.name;
 }
 
 function isCompilerOutput(
@@ -1367,6 +1379,31 @@ export function projectInputMembershipInvalidatesProgram(input: {
 function projectInputPathMayAffectProgram(location: string): boolean {
   const extension = path.extname(location).toLowerCase();
   return extension === ".json" || isCompilerEmittableSourceExtension(extension);
+}
+
+function projectInputCompilerMembershipChange(
+  snapshot: ITtscProjectInputSnapshot,
+  previous: ReadonlyMap<string, string>,
+  next: ReadonlyMap<string, string>,
+): string[] | undefined {
+  const changed = new Map<string, string>();
+  for (const [key, location] of previous) {
+    if (next.has(key) === false) changed.set(key, location);
+  }
+  for (const [key, location] of next) {
+    if (previous.has(key) === false) changed.set(key, location);
+  }
+  if (
+    changed.size === 0 ||
+    [...changed.values()].some(
+      (location) =>
+        matchesProjectInput(snapshot, location) === false ||
+        projectInputPathMayAffectProgram(location) === false,
+    )
+  ) {
+    return undefined;
+  }
+  return [...changed.values()].sort();
 }
 
 function fingerprintProjectInputMatches(
