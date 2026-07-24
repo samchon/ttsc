@@ -762,7 +762,21 @@ function runWatch(
         `[ttsc] watch error on ${path.relative(cwd, location) || "."}: ${formatError(error)}\n`,
       );
     },
-    onInputChange: (change) => trigger(change),
+    onInputChange: (change) => {
+      debugWatchInputs(
+        `change ${change.kind}${change.invalidate === true ? " invalidate" : ""} ${
+          change.path === undefined
+            ? "(unnamed)"
+            : path.relative(cwd, change.path)
+        }`,
+      );
+      trigger(change);
+    },
+    onProjectInputWatchRoots: (roots) => {
+      debugWatchInputs(
+        `roots ${JSON.stringify(roots.map((root) => path.relative(cwd, root) || "."))}`,
+      );
+    },
     onTopologyChange: () => trigger(undefined, true),
   });
   topology.refresh(false);
@@ -853,6 +867,22 @@ export class PendingResidentCheckWatchChanges {
 // non-zero (or non-finite) status collapses to 1 so the session signals failure.
 function toExitCode(status: number): number {
   return Number.isInteger(status) && status >= 0 && status <= 255 ? status : 1;
+}
+
+/**
+ * Opt-in report of what the project-input layer is watching and announcing.
+ *
+ * A watch that goes quiet is indistinguishable from a watch with nothing to
+ * say: the build simply never runs again, and the transcript that survives says
+ * only that. This separates the two — the roots line states what is covered,
+ * and a change line states what was announced — so a missing rebuild can be
+ * attributed to the watch that never saw the file or to the decision that
+ * declined to report it. Silent unless asked, and on the same ordered stream as
+ * the rest of the watch output so it interleaves with the builds it explains.
+ */
+function debugWatchInputs(message: string): void {
+  if (!process.env.TTSC_WATCH_DEBUG_INPUTS) return;
+  process.stdout.write(`[ttsc:debug] ${message}\n`);
 }
 
 function formatError(error: unknown): string {

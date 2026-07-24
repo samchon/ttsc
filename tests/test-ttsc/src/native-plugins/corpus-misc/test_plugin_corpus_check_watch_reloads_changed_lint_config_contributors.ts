@@ -51,6 +51,7 @@ export const test_plugin_corpus_check_watch_reloads_changed_lint_config_contribu
         env: {
           PATH: goPath(),
           TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
+          TTSC_WATCH_DEBUG_INPUTS: "1",
         },
       });
       await session.waitForBuilds(1, 300_000);

@@ -123,6 +123,7 @@ module.exports = {
       env: {
         PATH: goPath(),
         TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
+        TTSC_WATCH_DEBUG_INPUTS: "1",
       },
     });
     try {
