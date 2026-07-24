@@ -445,13 +445,19 @@ function projectInputSnapshotsEqual(
 ): boolean {
   const leftReloadFiles = left.reloadFiles ?? [];
   const rightReloadFiles = right.reloadFiles ?? [];
+  const leftReloadDirectories = left.reloadDirectories ?? [];
+  const rightReloadDirectories = right.reloadDirectories ?? [];
   return (
     left.root === right.root &&
     left.files.length === right.files.length &&
     left.globs.length === right.globs.length &&
+    leftReloadDirectories.length === rightReloadDirectories.length &&
     leftReloadFiles.length === rightReloadFiles.length &&
     left.files.every((value, index) => value === right.files[index]) &&
     left.globs.every((value, index) => value === right.globs[index]) &&
+    leftReloadDirectories.every(
+      (value, index) => value === rightReloadDirectories[index],
+    ) &&
     leftReloadFiles.every((value, index) => value === rightReloadFiles[index])
   );
 }
@@ -1652,6 +1658,7 @@ export function mergeProjectInputSnapshots(
 ): ITtscProjectInputSnapshot {
   const files = new Map<string, string>();
   const globs = new Map<string, string>();
+  const reloadDirectories = new Map<string, string>();
   const reloadFiles = new Map<string, string>();
   const rootIdentity = identities.resolve(fallbackRoot);
   for (const snapshot of snapshots) {
@@ -1673,11 +1680,16 @@ export function mergeProjectInputSnapshots(
       const identity = identities.resolve(reloadFile);
       reloadFiles.set(identity.key, identity.path);
     }
+    for (const reloadDirectory of snapshot.reloadDirectories ?? []) {
+      const identity = identities.resolve(reloadDirectory);
+      reloadDirectories.set(identity.key, identity.path);
+    }
   }
   return {
     root: rootIdentity.path,
     files: [...files.values()].sort(),
     globs: [...globs.values()].sort(),
+    reloadDirectories: [...reloadDirectories.values()].sort(),
     reloadFiles: [...reloadFiles.values()].sort(),
   };
 }
@@ -1702,6 +1714,11 @@ export function parseProjectInputSnapshot(
     typeof (value as { root?: unknown }).root !== "string" ||
     !isStringArray((value as { files?: unknown }).files) ||
     !isStringArray((value as { globs?: unknown }).globs) ||
+    ((value as { reloadDirectories?: unknown }).reloadDirectories !==
+      undefined &&
+      !isStringArray(
+        (value as { reloadDirectories?: unknown }).reloadDirectories,
+      )) ||
     ((value as { reloadFiles?: unknown }).reloadFiles !== undefined &&
       !isStringArray((value as { reloadFiles?: unknown }).reloadFiles))
   ) {
@@ -1714,6 +1731,9 @@ export function parseProjectInputSnapshot(
     ["root", snapshot.root],
     ...snapshot.files.map((file) => ["file", file] as const),
     ...snapshot.globs.map((glob) => ["glob", glob] as const),
+    ...(snapshot.reloadDirectories ?? []).map(
+      (directory) => ["reload directory", directory] as const,
+    ),
     ...(snapshot.reloadFiles ?? []).map(
       (file) => ["reload file", file] as const,
     ),
@@ -1728,6 +1748,7 @@ export function parseProjectInputSnapshot(
   }
   return {
     ...snapshot,
+    reloadDirectories: snapshot.reloadDirectories ?? [],
     reloadFiles: snapshot.reloadFiles ?? [],
   };
 }

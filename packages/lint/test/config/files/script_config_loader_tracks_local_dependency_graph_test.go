@@ -22,6 +22,12 @@ import (
 //  6. Load an explicitly selected config inside node_modules and prove its
 //     relative helper remains local even though unrelated package imports do
 //     not enter the watch graph.
+//  7. Change only a package manifest's main target and prove resolution
+//     metadata, not a stale entry-module cache, selects the replacement.
+//  8. Add a higher-priority extension candidate and prove a directory topology
+//     fingerprint invalidates an extensionless local require.
+//  9. Reach one shared helper through a package before reaching it directly
+//     and prove final graph reachability, not module-load order, owns its scope.
 func TestScriptConfigLoaderTracksLocalDependencyGraph(t *testing.T) {
   t.Setenv("TTSC_LINT_DISABLE_CONFIG_CACHE", "")
   root := t.TempDir()
@@ -66,6 +72,7 @@ module.exports = { rules: { "no-var": selection.rule } };`)
     packageEntry,
     configDependencyCache,
   )
+  assertConfigWatchDependenciesWithin(t, first.dependencyDigests, root)
 
   write(packageEntry, `module.exports = "warning";`)
   second, err := loadConfigFileEvaluation(cjsConfig)
@@ -140,6 +147,122 @@ module.exports = { rules: { "no-var": selection.rule } };`)
     []string{packagedConfig, packagedHelper},
     filepath.Join(packageRoot, "unrelated-package"),
   )
+
+  alternatePackageEntry := filepath.Join(packageRoot, "alternate.cjs")
+  write(alternatePackageEntry, `module.exports = "error";`)
+  write(packageEntry, `module.exports = "warning";`)
+  manifestConfig := filepath.Join(configs, "manifest.config.cjs")
+  write(manifestConfig, `module.exports = {
+  rules: { "no-var": require("demo") },
+};`)
+  beforeManifestChange, err := loadConfigFileEvaluation(manifestConfig)
+  if err != nil {
+    t.Fatalf("load package manifest config: %v", err)
+  }
+  assertConfigRuleSeverity(
+    t,
+    beforeManifestChange.value,
+    "no-var",
+    "warning",
+  )
+  write(
+    filepath.Join(packageRoot, "package.json"),
+    `{"main":"alternate.cjs"}`,
+  )
+  afterManifestChange, err := loadConfigFileEvaluation(manifestConfig)
+  if err != nil {
+    t.Fatalf("reload package manifest config: %v", err)
+  }
+  assertConfigRuleSeverity(
+    t,
+    afterManifestChange.value,
+    "no-var",
+    "error",
+  )
+  assertConfigDependencyKindScope(
+    t,
+    afterManifestChange.dependencyDigests,
+    filepath.Join(packageRoot, "package.json"),
+    configDependencyFile,
+    configDependencyWatch,
+  )
+
+  topologyConfig := filepath.Join(configs, "topology.config.cjs")
+  topologyJSON := filepath.Join(shared, "topology.json")
+  topologyJS := filepath.Join(shared, "topology.js")
+  write(topologyConfig, `module.exports = {
+  rules: { "no-var": require("../shared/topology") },
+};`)
+  write(topologyJSON, `"warning"`)
+  beforeCandidateCreation, err := loadConfigFileEvaluation(topologyConfig)
+  if err != nil {
+    t.Fatalf("load extensionless config: %v", err)
+  }
+  assertConfigRuleSeverity(
+    t,
+    beforeCandidateCreation.value,
+    "no-var",
+    "warning",
+  )
+  write(topologyJS, `module.exports = "error";`)
+  afterCandidateCreation, err := loadConfigFileEvaluation(topologyConfig)
+  if err != nil {
+    t.Fatalf("reload extensionless config: %v", err)
+  }
+  assertConfigRuleSeverity(
+    t,
+    afterCandidateCreation.value,
+    "no-var",
+    "error",
+  )
+  assertConfigDependencyKindScope(
+    t,
+    afterCandidateCreation.dependencyDigests,
+    shared,
+    configDependencyDir,
+    configDependencyWatch,
+  )
+
+  diamondPackage := filepath.Join(root, "node_modules", "diamond")
+  if err := os.MkdirAll(diamondPackage, 0o755); err != nil {
+    t.Fatal(err)
+  }
+  write(
+    filepath.Join(diamondPackage, "package.json"),
+    `{"main":"index.cjs"}`,
+  )
+  diamondBridge := filepath.Join(shared, "diamond-bridge.cjs")
+  diamondLeaf := filepath.Join(shared, "diamond-leaf.cjs")
+  write(
+    filepath.Join(diamondPackage, "index.cjs"),
+    `module.exports = require("../../shared/diamond-bridge.cjs");`,
+  )
+  write(diamondBridge, `module.exports = require("./diamond-leaf.cjs");`)
+  write(diamondLeaf, `module.exports = "warning";`)
+  diamondConfig := filepath.Join(configs, "diamond.config.cjs")
+  write(diamondConfig, `require("diamond");
+module.exports = {
+  rules: { "no-var": require("../shared/diamond-bridge.cjs") },
+};`)
+  diamond, err := loadConfigFileEvaluation(diamondConfig)
+  if err != nil {
+    t.Fatalf("load diamond dependency config: %v", err)
+  }
+  assertConfigRuleSeverity(t, diamond.value, "no-var", "warning")
+  assertConfigDependencyKindScope(
+    t,
+    diamond.dependencyDigests,
+    diamondBridge,
+    configDependencyFile,
+    configDependencyWatch,
+  )
+  assertConfigDependencyKindScope(
+    t,
+    diamond.dependencyDigests,
+    diamondLeaf,
+    configDependencyFile,
+    configDependencyWatch,
+  )
 }
 
 func assertConfigDependencyScope(
@@ -158,6 +281,56 @@ func assertConfigDependencyScope(
     }
   }
   t.Fatalf("dependency %s missing from cache graph %v", expectedPath, dependencies)
+}
+
+func assertConfigDependencyKindScope(
+  t *testing.T,
+  dependencies []configDependencyFingerprint,
+  expectedPath string,
+  expectedKind string,
+  expectedScope string,
+) {
+  t.Helper()
+  for _, dependency := range dependencies {
+    if filepath.Clean(dependency.Path) != filepath.Clean(expectedPath) {
+      continue
+    }
+    if dependency.Kind != expectedKind || dependency.Scope != expectedScope {
+      t.Fatalf(
+        "dependency %s = kind %q scope %q, want kind %q scope %q",
+        expectedPath,
+        dependency.Kind,
+        dependency.Scope,
+        expectedKind,
+        expectedScope,
+      )
+    }
+    return
+  }
+  t.Fatalf("dependency %s missing from cache graph %v", expectedPath, dependencies)
+}
+
+func assertConfigWatchDependenciesWithin(
+  t *testing.T,
+  dependencies []configDependencyFingerprint,
+  root string,
+) {
+  t.Helper()
+  for _, dependency := range dependencies {
+    if dependency.Scope != configDependencyWatch {
+      continue
+    }
+    relative, err := filepath.Rel(root, dependency.Path)
+    if err != nil ||
+      filepath.IsAbs(relative) ||
+      startsWithParentDirectory(relative) {
+      t.Fatalf(
+        "watch dependency escaped project boundary %s: %#v",
+        root,
+        dependency,
+      )
+    }
+  }
 }
 
 func assertConfigDependencies(

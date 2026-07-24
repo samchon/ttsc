@@ -330,6 +330,25 @@ func projectInputFileWatchers(
     watcher := newProjectInputFileWatcher(base, pattern)
     unique[projectInputFileWatcherKey(watcher)] = watcher
   }
+  for _, file := range snapshot.ReloadFiles {
+    native := filepath.FromSlash(file)
+    desiredBase := filepath.Dir(native)
+    base := nearestExistingProjectInputDirectory(desiredBase)
+    pattern := escapeLSPGlobLiteral(relativeProjectInputPattern(base, native))
+    watcher := newProjectInputFileWatcher(base, pattern)
+    unique[projectInputFileWatcherKey(watcher)] = watcher
+  }
+  for _, directory := range snapshot.ReloadDirectories {
+    native := filepath.FromSlash(directory)
+    base := nearestExistingProjectInputDirectory(native)
+    prefix := relativeProjectInputPattern(base, native)
+    pattern := "*"
+    if prefix != "." {
+      pattern = escapeLSPGlobLiteral(prefix) + "/*"
+    }
+    watcher := newProjectInputFileWatcher(base, pattern)
+    unique[projectInputFileWatcherKey(watcher)] = watcher
+  }
   for _, pattern := range snapshot.Globs {
     desiredBase, relative := projectInputGlobRelativePattern(pattern)
     base := nearestExistingProjectInputDirectory(desiredBase)

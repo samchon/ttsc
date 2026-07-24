@@ -1,3 +1,4 @@
+import { Buffer } from "node:buffer";
 import { spawnSync } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
 import fs from "node:fs";
@@ -205,6 +206,7 @@ type ConfigPluginEntry = { namespace: string; source: string };
 
 type ConfigDependencyFingerprint = {
   digest: string;
+  kind: "directory" | "file";
   path: string;
   scope: "cache" | "watch";
 };
@@ -424,58 +426,10 @@ function readConfigPluginEntries(
   configPath: string,
   context: TtscPluginFactoryContext<ITtscLintPluginConfig>,
 ): ConfigPluginEntry[] {
-  const ext = path.extname(configPath).toLowerCase();
-  if (ext === ".json") {
-    return readJsonConfigPlugins(configPath, context);
-  }
-  // Every executable config uses the same isolated evaluator. Besides keeping
-  // CommonJS, ESM, and TypeScript export normalization identical, the process
-  // records the complete local module graph so helper-only edits invalidate
-  // both contributor selection and the native config cache.
+  // Every config uses the same isolated evaluator. JSON can name contributor
+  // packages whose top-level code writes to stdout, so loading its strings in
+  // this host process would corrupt CLI JSON or preface the first LSP frame.
   return readTtsxConfigPlugins(configPath, context);
-}
-
-function readJsonConfigPlugins(
-  configPath: string,
-  context: TtscPluginFactoryContext<ITtscLintPluginConfig>,
-): ConfigPluginEntry[] {
-  let parsed: unknown;
-  try {
-    // Strip a leading UTF-8 BOM so files saved by Windows editors
-    // (Notepad++, some VS Code setups) round-trip through `JSON.parse`
-    // without an opaque "Unexpected token" failure.
-    const text = fs.readFileSync(configPath, "utf8").replace(/^\uFEFF/, "");
-    parsed = JSON.parse(text);
-  } catch (error) {
-    throw new Error(
-      `@ttsc/lint: failed to parse lint config ${configPath}: ${
-        error instanceof Error ? error.message : String(error)
-      }`,
-    );
-  }
-  // In JSON, plugin values can only be strings (npm specifiers) — there
-  // is no way to attach an in-memory plugin object inside a JSON file.
-  return collectPluginObjectsFromConfig(parsed)
-    .flatMap((map) => Object.entries(map))
-    .map(([namespace, value]): ConfigPluginEntry => {
-      if (!NAMESPACE_PATTERN.test(namespace)) {
-        throw new Error(
-          `@ttsc/lint: lint config ${configPath} namespace ${JSON.stringify(namespace)} must match /^[a-z][a-z0-9_-]*$/`,
-        );
-      }
-      if (typeof value !== "string" || value.length === 0) {
-        throw new Error(
-          `@ttsc/lint: lint config ${configPath} plugin ${JSON.stringify(namespace)} must point at a package specifier string`,
-        );
-      }
-      const plugin = loadContributorPluginViaRequire(
-        value,
-        context,
-        namespace,
-        configPath,
-      );
-      return { namespace, source: plugin.source };
-    });
 }
 
 // TypeScript source written to a temp file and executed via ttsx. The
@@ -492,10 +446,13 @@ import { createHash } from "node:crypto";
 // @ts-ignore -- internal loader must not require user-installed Node typings.
 import { createRequire, registerHooks } from "node:module";
 // @ts-ignore -- internal loader must not require user-installed Node typings.
+import * as path from "node:path";
+// @ts-ignore -- internal loader must not require user-installed Node typings.
 import { fileURLToPath } from "node:url";
 
 const configUrl = %CONFIG_IMPORT%;
 const outputPath = %CONFIG_OUTPUT%;
+const resolutionRoot = path.resolve(%CONFIG_ROOT%);
 const requireFromConfig = createRequire(configUrl);
 const CONFIG_KEYS = new Set<string>([
   "files",
@@ -507,10 +464,26 @@ const CONFIG_KEYS = new Set<string>([
 ]);
 const dependencies = new Map<string, {
   digest: string;
+  kind: "directory" | "file";
   path: string;
-  scope: "cache" | "watch";
+  owners: Set<string>;
 }>();
-const graphUrls = new Map<string, boolean>();
+const graphNodes = new Map<string, string>();
+const graphEdges: Array<{
+  child: string;
+  packageBoundary: boolean;
+  parent: string;
+}> = [];
+const normalizedConfigUrl = new URL(configUrl).href;
+const configLocation = fileURLToPath(normalizedConfigUrl);
+graphNodes.set(normalizedConfigUrl, configLocation);
+recordDependency(
+  "file",
+  configLocation,
+  createHash("sha256").update(fs.readFileSync(configLocation)).digest("hex"),
+  [normalizedConfigUrl],
+);
+recordPackageManifests(configLocation, [normalizedConfigUrl]);
 
 declare const process: {
   cwd(): string;
@@ -528,35 +501,40 @@ const hooks = registerHooks({
     const url = new URL(resolved.url).href;
     const parent = context.parentURL && new URL(context.parentURL).href;
     const entry = url === new URL(configUrl).href;
-    const parentIsWatched = parent === undefined ? undefined : graphUrls.get(parent);
-    if (!entry && parentIsWatched === undefined) {
+    if (!entry && (parent === undefined || !graphNodes.has(parent))) {
       return resolved;
     }
     const location = fileURLToPath(url);
-    const packageBoundary =
-      !entry &&
-      parentIsWatched === true &&
-      location.replaceAll("\\\\", "/").split("/").includes("node_modules") &&
-      !isLocalModuleSpecifier(specifier);
-    const watched = entry || (parentIsWatched === true && !packageBoundary);
-    graphUrls.set(url, watched);
+    graphNodes.set(url, location);
+    if (parent !== undefined) {
+      graphEdges.push({
+        child: url,
+        packageBoundary:
+          pathHasNodeModules(location) && !isLocalModuleSpecifier(specifier),
+        parent,
+      });
+      recordResolutionTopology(specifier, parent, url, location);
+    }
     try {
       recordDependency(
+        "file",
         location,
         createHash("sha256").update(fs.readFileSync(location)).digest("hex"),
-        watched,
+        [url],
       );
     } catch {
       // The evaluator remains authoritative for the load error. An unreadable
       // dependency simply makes this result non-cacheable in the parent.
-      recordDependency(location, "", watched);
+      recordDependency("file", location, "", [url]);
     }
     return resolved;
   },
 });
 
 try {
-  const importedConfig = await import(configUrl);
+  const importedConfig = configLocation.toLowerCase().endsWith(".json")
+    ? JSON.parse(fs.readFileSync(configLocation, "utf8").replace(/^\uFEFF/, ""))
+    : await import(configUrl);
   const current = await resolveConfig(importedConfig, true);
   const pluginMaps = collectPluginObjects(current);
   const entries: Array<{ namespace: string; source: string }> = [];
@@ -572,7 +550,7 @@ try {
     }
   }
   fs.writeFileSync(outputPath, JSON.stringify({
-    dependencies: [...dependencies.values()],
+    dependencies: finalizeDependencies(),
     entries,
   }), "utf8");
 } catch (error) {
@@ -586,12 +564,21 @@ function isObject(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object";
 }
 
-function recordDependency(location: string, digest: string, watched: boolean): void {
-  const previous = dependencies.get(location);
-  dependencies.set(location, {
+function recordDependency(
+  kind: "directory" | "file",
+  location: string,
+  digest: string,
+  owners: readonly string[],
+): void {
+  const key = kind + "\\0" + location;
+  const previous = dependencies.get(key);
+  const mergedOwners = previous?.owners ?? new Set<string>();
+  for (const owner of owners) mergedOwners.add(owner);
+  dependencies.set(key, {
     digest: previous !== undefined && previous.digest !== digest ? "" : digest,
+    kind,
+    owners: mergedOwners,
     path: location,
-    scope: watched || previous?.scope === "watch" ? "watch" : "cache",
   });
 }
 
@@ -600,6 +587,197 @@ function isLocalModuleSpecifier(specifier: string): boolean {
     specifier.startsWith("/") ||
     specifier.startsWith("file:") ||
     /^[A-Za-z]:[\\\\/]/.test(specifier);
+}
+
+function pathHasNodeModules(location: string): boolean {
+  return location.replaceAll("\\\\", "/").split("/").includes("node_modules");
+}
+
+function recordResolutionTopology(
+  specifier: string,
+  parentUrl: string,
+  childUrl: string,
+  childLocation: string,
+): void {
+  const owners = [parentUrl, childUrl];
+  const parentLocation = graphNodes.get(parentUrl);
+  if (parentLocation !== undefined && isLocalModuleSpecifier(specifier)) {
+    recordDirectoryDependency(path.dirname(parentLocation), owners);
+  }
+  recordDirectoryDependency(path.dirname(childLocation), owners);
+  recordPackageManifests(childLocation, owners);
+  if (parentLocation !== undefined && !isLocalModuleSpecifier(specifier)) {
+    recordNodeModulesSearchDirectories(parentLocation, specifier, owners);
+  }
+}
+
+function recordDirectoryDependency(
+  location: string,
+  owners: readonly string[],
+): void {
+  try {
+    recordDependency("directory", location, directoryDigest(location), owners);
+  } catch {
+    recordDependency("directory", location, "", owners);
+  }
+}
+
+function directoryDigest(location: string): string {
+  const entries = fs.readdirSync(location, { withFileTypes: true })
+    .map((entry) => {
+      let kind = entry.isDirectory()
+        ? "directory"
+        : entry.isFile()
+          ? "file"
+          : entry.isSymbolicLink()
+            ? "symlink"
+            : "other";
+      let target = "";
+      if (entry.isSymbolicLink()) {
+        try {
+          target = fs.readlinkSync(path.join(location, entry.name));
+        } catch {
+          target = "<unreadable>";
+        }
+      }
+      return entry.name + "\\0" + kind + "\\0" + target;
+    })
+    .sort((left, right) =>
+      Buffer.compare(Buffer.from(left, "utf8"), Buffer.from(right, "utf8")),
+    );
+  return createHash("sha256").update(entries.join("\\0")).digest("hex");
+}
+
+function recordPackageManifests(
+  location: string,
+  owners: readonly string[],
+): void {
+  let current = path.dirname(location);
+  const boundary = resolutionBoundaryFor(location);
+  while (true) {
+    // A newly created nearer package.json can change ESM/CJS interpretation.
+    // Fingerprint the search directory as well as every manifest that exists.
+    recordDirectoryDependency(current, owners);
+    const manifest = path.join(current, "package.json");
+    try {
+      if (fs.statSync(manifest).isFile()) {
+        recordDependency(
+          "file",
+          manifest,
+          createHash("sha256").update(fs.readFileSync(manifest)).digest("hex"),
+          owners,
+        );
+        return;
+      }
+    } catch {
+      // A missing manifest does not participate in the current resolution.
+    }
+    if (sameResolutionPath(current, boundary)) return;
+    const parent = path.dirname(current);
+    if (parent === current || path.basename(current) === "node_modules") return;
+    current = parent;
+  }
+}
+
+function recordNodeModulesSearchDirectories(
+  parentLocation: string,
+  specifier: string,
+  owners: readonly string[],
+): void {
+  const scope =
+    specifier.startsWith("@") && specifier.includes("/")
+      ? specifier.slice(0, specifier.indexOf("/"))
+      : undefined;
+  let current = path.dirname(parentLocation);
+  const boundary = resolutionBoundaryFor(parentLocation);
+  while (true) {
+    // A newly created nearer node_modules directory can shadow the package
+    // selected by this evaluation, so missing search levels are dependencies.
+    recordDirectoryDependency(current, owners);
+    const modules = path.join(current, "node_modules");
+    try {
+      if (fs.statSync(modules).isDirectory()) {
+        recordDirectoryDependency(modules, owners);
+        if (scope !== undefined) {
+          const scoped = path.join(modules, scope);
+          try {
+            if (fs.statSync(scoped).isDirectory()) {
+              recordDirectoryDependency(scoped, owners);
+            }
+          } catch {
+            // The directory digest of node_modules records a missing scope.
+          }
+        }
+      }
+    } catch {
+      // Missing search levels do not participate in the current resolution.
+    }
+    if (sameResolutionPath(current, boundary)) return;
+    const parent = path.dirname(current);
+    if (parent === current) return;
+    current = parent;
+  }
+}
+
+function resolutionBoundaryFor(location: string): string {
+  const resolved = path.resolve(location);
+  const relative = path.relative(resolutionRoot, resolved);
+  return relative !== ".." &&
+    !relative.startsWith(".." + path.sep) &&
+    !path.isAbsolute(relative)
+    ? resolutionRoot
+    : path.dirname(resolved);
+}
+
+function sameResolutionPath(left: string, right: string): boolean {
+  return path.relative(left, right) === "";
+}
+
+function finalizeDependencies(): Array<{
+  digest: string;
+  kind: "directory" | "file";
+  path: string;
+  scope: "cache" | "watch";
+}> {
+  const watched = graphWatchReachability();
+  return [...dependencies.values()].map(({ owners, ...dependency }) => ({
+    ...dependency,
+    scope: [...owners].some((owner) => watched.has(owner))
+      ? "watch"
+      : "cache",
+  }));
+}
+
+function graphWatchReachability(): Set<string> {
+  const config = new URL(configUrl).href;
+  const adjacency = new Map<string, typeof graphEdges>();
+  for (const edge of graphEdges) {
+    const outgoing = adjacency.get(edge.parent) ?? [];
+    outgoing.push(edge);
+    adjacency.set(edge.parent, outgoing);
+  }
+  const queue: Array<{ url: string; watched: boolean }> = [
+    { url: config, watched: true },
+  ];
+  const visited = new Set<string>();
+  const watched = new Set<string>();
+  while (queue.length !== 0) {
+    const state = queue.shift()!;
+    const key = state.url + "\\0" + (state.watched ? "1" : "0");
+    if (visited.has(key)) continue;
+    visited.add(key);
+    if (state.watched) watched.add(state.url);
+    for (const edge of adjacency.get(state.url) ?? []) {
+      const childLocation = graphNodes.get(edge.child);
+      const childWatched = edge.packageBoundary
+        ? false
+        : childLocation !== undefined && !pathHasNodeModules(childLocation)
+          ? true
+          : state.watched;
+      queue.push({ url: edge.child, watched: childWatched });
+    }
+  }
+  return watched;
 }
 
 function hasOwn(value: Record<string, unknown>, key: string): boolean {
@@ -729,7 +907,8 @@ function readTtsxConfigPlugins(
   configPath: string,
   context: TtscPluginFactoryContext<ITtscLintPluginConfig>,
 ): ConfigPluginEntry[] {
-  const cacheKey = configCacheKey("plugins", configPath);
+  const resolutionRoot = path.resolve(pluginConfigBaseDir(context));
+  const cacheKey = configCacheKey(`plugins\0${resolutionRoot}`, configPath);
   if (cacheKey) {
     const cached = readConfigPluginCache(cacheKey);
     // Re-validate cached entries before trusting them: a contributor's
@@ -787,7 +966,7 @@ function isValidConfigPluginEntry(entry: unknown): entry is ConfigPluginEntry {
 
 function evaluateTtsxConfigPlugins(
   configPath: string,
-  _context: TtscPluginFactoryContext<ITtscLintPluginConfig>,
+  context: TtscPluginFactoryContext<ITtscLintPluginConfig>,
 ): ConfigPluginEvaluation {
   const tempDir = realpathIfPossible(
     fs.mkdtempSync(path.join(loaderTempBase(configPath), "ttsc-lint-cfg-")),
@@ -800,7 +979,12 @@ function evaluateTtsxConfigPlugins(
     const loaderSource = TTSX_EXTRACTOR_SCRIPT.replace(
       "%CONFIG_IMPORT%",
       JSON.stringify(pathToFileURL(configPath).href),
-    ).replace("%CONFIG_OUTPUT%", JSON.stringify(outputPath));
+    )
+      .replace("%CONFIG_OUTPUT%", JSON.stringify(outputPath))
+      .replace(
+        "%CONFIG_ROOT%",
+        JSON.stringify(path.resolve(pluginConfigBaseDir(context))),
+      );
     fs.writeFileSync(loaderPath, loaderSource, "utf8");
     fs.writeFileSync(
       tsconfigPath,
@@ -827,7 +1011,9 @@ function evaluateTtsxConfigPlugins(
           },
           files: [
             loaderPath.replace(/\\/g, "/"),
-            configPath.replace(/\\/g, "/"),
+            ...(path.extname(configPath).toLowerCase() === ".json"
+              ? []
+              : [configPath.replace(/\\/g, "/")]),
           ],
         },
         null,
@@ -867,14 +1053,7 @@ function evaluateTtsxConfigPlugins(
       timeout: 60_000,
       windowsHide: true,
     });
-    // The private result file is the evaluator protocol. User code may still
-    // write to stdout while the config is imported, but that output must never
-    // enter the host's machine channel: `ttsc --showConfig` emits JSON there
-    // and `ttscserver` emits Content-Length frames. Preserve the user's log by
-    // forwarding the captured bytes to stderr after the child has exited.
-    if (result.stdout) {
-      process.stderr.write(result.stdout);
-    }
+    forwardConfigEvaluatorStreams(result.stdout, result.stderr);
     if (result.error) {
       throw new Error(
         `@ttsc/lint: failed to spawn ttsx for ${configPath}: ${result.error.message}`,
@@ -888,7 +1067,7 @@ function evaluateTtsxConfigPlugins(
     }
     if (result.status !== 0) {
       throw new Error(
-        `@ttsc/lint: lint config ${configPath} evaluation failed:\n${result.stderr}`,
+        `@ttsc/lint: lint config ${configPath} evaluation failed with exit code ${String(result.status)}`,
       );
     }
     let payload: {
@@ -965,6 +1144,16 @@ function evaluateTtsxConfigPlugins(
   }
 }
 
+function forwardConfigEvaluatorStreams(
+  stdout: string | null | undefined,
+  stderr: string | null | undefined,
+): void {
+  // Both child streams are human output. Parent stdout is reserved for compiler
+  // JSON or LSP frames, so even a user console.log is redirected.
+  if (stdout) process.stderr.write(stdout);
+  if (stderr) process.stderr.write(stderr);
+}
+
 // ────────────────────────────────────────────────────────────────────────────
 // Config cache (shared with the Go sidecar — packages/lint/linthost/config.go)
 // ────────────────────────────────────────────────────────────────────────────
@@ -973,7 +1162,7 @@ function evaluateTtsxConfigPlugins(
  * Namespaces the on-disk config cache. Kept in lockstep with the Go sidecar's
  * `configCacheVersion`; bump both when the cached shape changes.
  */
-const CONFIG_CACHE_VERSION = "v4";
+const CONFIG_CACHE_VERSION = "v5";
 
 /**
  * Directory shared by this factory and the Go sidecar for cached lint configs.
@@ -1097,6 +1286,9 @@ function normalizeConfigDependencyFingerprints(
       typeof candidate !== "object" ||
       typeof (candidate as ConfigDependencyFingerprint).path !== "string" ||
       typeof (candidate as ConfigDependencyFingerprint).digest !== "string" ||
+      !["directory", "file"].includes(
+        (candidate as ConfigDependencyFingerprint).kind,
+      ) ||
       !["cache", "watch"].includes(
         (candidate as ConfigDependencyFingerprint).scope,
       )
@@ -1105,6 +1297,7 @@ function normalizeConfigDependencyFingerprints(
     }
     const candidatePath = (candidate as ConfigDependencyFingerprint).path;
     const digest = (candidate as ConfigDependencyFingerprint).digest;
+    const kind = (candidate as ConfigDependencyFingerprint).kind;
     const scope = (candidate as ConfigDependencyFingerprint).scope;
     if (!path.isAbsolute(candidatePath) || !/^[0-9a-f]{64}$/.test(digest)) {
       return undefined;
@@ -1113,12 +1306,15 @@ function normalizeConfigDependencyFingerprints(
     const previous = dependencies.get(location);
     if (
       previous !== undefined &&
-      (previous.digest !== digest || previous.scope !== scope)
+      (previous.digest !== digest ||
+        previous.kind !== kind ||
+        previous.scope !== scope)
     ) {
       return undefined;
     }
     dependencies.set(location, {
       digest,
+      kind,
       path: location,
       scope,
     });
@@ -1135,14 +1331,44 @@ function configDependenciesAreCurrent(
   return dependencies.every((dependency) => {
     if (!/^[0-9a-f]{64}$/.test(dependency.digest)) return false;
     try {
-      const digest = createHash("sha256")
-        .update(fs.readFileSync(dependency.path))
-        .digest("hex");
+      const digest =
+        dependency.kind === "directory"
+          ? configDirectoryDigest(dependency.path)
+          : createHash("sha256")
+              .update(fs.readFileSync(dependency.path))
+              .digest("hex");
       return digest === dependency.digest;
     } catch {
       return false;
     }
   });
+}
+
+function configDirectoryDigest(location: string): string {
+  const entries = fs
+    .readdirSync(location, { withFileTypes: true })
+    .map((entry) => {
+      const kind = entry.isDirectory()
+        ? "directory"
+        : entry.isFile()
+          ? "file"
+          : entry.isSymbolicLink()
+            ? "symlink"
+            : "other";
+      let target = "";
+      if (entry.isSymbolicLink()) {
+        try {
+          target = fs.readlinkSync(path.join(location, entry.name));
+        } catch {
+          target = "<unreadable>";
+        }
+      }
+      return entry.name + "\0" + kind + "\0" + target;
+    })
+    .sort((left, right) =>
+      Buffer.compare(Buffer.from(left, "utf8"), Buffer.from(right, "utf8")),
+    );
+  return createHash("sha256").update(entries.join("\0")).digest("hex");
 }
 
 // ────────────────────────────────────────────────────────────────────────────

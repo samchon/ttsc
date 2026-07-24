@@ -16,10 +16,11 @@ import (
 // ProjectInputSnapshot is the normalized filesystem dependency publication
 // shared by the CLI launcher and ttscserver.
 type ProjectInputSnapshot struct {
-  Root        string   `json:"root"`
-  Files       []string `json:"files"`
-  Globs       []string `json:"globs"`
-  ReloadFiles []string `json:"reloadFiles,omitempty"`
+  Root              string   `json:"root"`
+  Files             []string `json:"files"`
+  Globs             []string `json:"globs"`
+  ReloadFiles       []string `json:"reloadFiles,omitempty"`
+  ReloadDirectories []string `json:"reloadDirectories,omitempty"`
 }
 
 // RunProjectInputs prints the enabled ProjectRule dependency snapshot without
@@ -77,6 +78,15 @@ func collectProjectInputs(
       snapshot.ReloadFiles = append(snapshot.ReloadFiles, normalized)
     }
   }
+  if source, ok := resolver.(interface{ ConfigDirectories() []string }); ok {
+    for _, location := range source.ConfigDirectories() {
+      normalized := filepath.ToSlash(realProjectPath(location))
+      snapshot.ReloadDirectories = append(
+        snapshot.ReloadDirectories,
+        normalized,
+      )
+    }
+  }
   var joined error
   for _, name := range allProjectRuleNames() {
     setting := engine.projectSettings[name]
@@ -117,6 +127,9 @@ func collectProjectInputs(
   snapshot.Files = uniqueProjectInputPatterns(snapshot.Files)
   snapshot.Globs = uniqueProjectInputPatterns(snapshot.Globs)
   snapshot.ReloadFiles = uniqueProjectInputPatterns(snapshot.ReloadFiles)
+  snapshot.ReloadDirectories = uniqueProjectInputPatterns(
+    snapshot.ReloadDirectories,
+  )
   if joined != nil {
     return ProjectInputSnapshot{}, joined
   }

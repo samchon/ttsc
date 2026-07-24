@@ -31,10 +31,16 @@ func TestProjectInputRegistrationShapesRelativePatterns(t *testing.T) {
         "{openapi,swagger}.yaml",
       )),
     },
+    ReloadDirectories: []string{
+      filepath.ToSlash(filepath.Join(root, "config-deps")),
+    },
+    ReloadFiles: []string{
+      filepath.ToSlash(exact),
+    },
   }
   watchers := projectInputFileWatchers(snapshot)
-  if len(watchers) != 3 {
-    t.Fatalf("watchers = %#v, want 3 deduplicated entries", watchers)
+  if len(watchers) != 4 {
+    t.Fatalf("watchers = %#v, want 4 deduplicated entries", watchers)
   }
 
   byPattern := map[string]projectInputFileWatcher{}
@@ -59,6 +65,9 @@ func TestProjectInputRegistrationShapesRelativePatterns(t *testing.T) {
     "api/**/v[[]12[]]/[{]openapi,swagger[}].yaml"
   if _, ok := byPattern[literalMetacharacters]; !ok {
     t.Fatalf("literal glob metacharacters were not escaped in %#v", byPattern)
+  }
+  if _, ok := byPattern["config-deps/*"]; !ok {
+    t.Fatalf("reload-directory watcher missing from %#v", byPattern)
   }
 
   if got := projectInputFileURI("C:/Program Files/a#b%25"); got !=

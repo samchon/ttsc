@@ -17,9 +17,10 @@ import {
  * ancestor watcher must preserve the classification across every filesystem
  * lifecycle, including events that do not name the changed file.
  *
- * 1. Create, edit, delete, and atomically replace one initially missing reload.
- * 2. Require only cold config events for the duplicated files/reloadFiles path.
- * 3. Keep an ordinary project file warm and classify filename-less deltas.
+ * 1. Create, edit, delete, and atomically replace one initially missing file.
+ * 2. Create and rename entries in one resolution-topology directory.
+ * 3. Require cold config events for both executable reload declarations.
+ * 4. Keep an ordinary project file warm and classify filename-less deltas.
  */
 export const test_watch_topology_treats_reload_project_inputs_as_cold_transitions =
   async (): Promise<void> => {
@@ -27,6 +28,7 @@ export const test_watch_topology_treats_reload_project_inputs_as_cold_transition
     const source = path.join(root, "src", "main.ts");
     const tsconfig = path.join(root, "tsconfig.json");
     const reloadFile = path.join(root, "config", "lint.config.json");
+    const reloadDirectory = path.join(root, "config-deps");
     const warmFile = path.join(root, "docs", "spec.md");
     fs.mkdirSync(path.dirname(source), { recursive: true });
     fs.mkdirSync(path.dirname(warmFile), { recursive: true });
@@ -60,6 +62,7 @@ export const test_watch_topology_treats_reload_project_inputs_as_cold_transition
         root,
         files: [reloadFile, warmFile],
         globs: [],
+        reloadDirectories: [reloadDirectory],
         reloadFiles: [reloadFile],
       });
       await delay();
@@ -80,6 +83,19 @@ export const test_watch_topology_treats_reload_project_inputs_as_cold_transition
         fs.renameSync(replacement, reloadFile),
       );
 
+      fs.mkdirSync(reloadDirectory, { recursive: true });
+      const packageManifest = path.join(reloadDirectory, "package.json");
+      await expectNextKind(changes, "config", () =>
+        fs.writeFileSync(packageManifest, '{"main":"index.cjs"}\n', "utf8"),
+      );
+      const replacementManifest = path.join(
+        reloadDirectory,
+        "package.next.json",
+      );
+      await expectNextKind(changes, "config", () =>
+        fs.renameSync(packageManifest, replacementManifest),
+      );
+
       await expectNextKind(changes, "project", () =>
         fs.writeFileSync(warmFile, "warm edit\n", "utf8"),
       );
@@ -96,15 +112,17 @@ export const test_watch_topology_treats_reload_project_inputs_as_cold_transition
 
       assert.equal(
         projectInputReloadEventShouldNotify({
-          changedInputs: [reloadFile],
+          changedInputs: [packageManifest],
+          reloadDirectories: [reloadDirectory],
           reloadFiles: [reloadFile],
         }),
         true,
-        "a filename-less fingerprint delta must select the cold lane",
+        "a directory member fingerprint delta must select the cold lane",
       );
       assert.equal(
         projectInputReloadEventShouldNotify({
           changedInputs: [warmFile],
+          reloadDirectories: [reloadDirectory],
           reloadFiles: [reloadFile],
         }),
         false,
@@ -114,10 +132,21 @@ export const test_watch_topology_treats_reload_project_inputs_as_cold_transition
         projectInputReloadEventShouldNotify({
           changed: reloadFile,
           changedInputs: [],
+          reloadDirectories: [reloadDirectory],
           reloadFiles: [reloadFile],
         }),
         true,
         "a named reload event stays cold even when bytes are unchanged",
+      );
+      assert.equal(
+        projectInputReloadEventShouldNotify({
+          changed: path.join(reloadDirectory, "new-package"),
+          changedInputs: [],
+          reloadDirectories: [reloadDirectory],
+          reloadFiles: [reloadFile],
+        }),
+        true,
+        "a named resolution-topology event must select the cold lane",
       );
     } finally {
       topology.close();

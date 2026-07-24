@@ -86,6 +86,7 @@ export class WatchTopology {
   private projectInputs: ITtscProjectInputSnapshot = {
     files: [],
     globs: [],
+    reloadDirectories: [],
     reloadFiles: [],
     root: "",
   };
@@ -168,6 +169,9 @@ export class WatchTopology {
       ...next.globs.map((glob) => projectInputDeclarationKey("glob", glob)),
       ...(next.reloadFiles ?? []).map((file) =>
         projectInputDeclarationKey("reload", file),
+      ),
+      ...(next.reloadDirectories ?? []).map((directory) =>
+        projectInputDeclarationKey("reload-directory", directory),
       ),
     ]);
     for (const key of this.projectInputWatchRoots.keys()) {
@@ -370,6 +374,27 @@ export class WatchTopology {
         }
       }
     }
+    for (const directory of this.projectInputs.reloadDirectories ?? []) {
+      if (this.isProjectInputCompilerOutputDirectory(directory, identities)) {
+        continue;
+      }
+      const location = this.projectInputWatchRoot(
+        "reload-directory",
+        directory,
+        directory,
+      );
+      if (location !== undefined) {
+        const available = projectInputAvailableWatchDirectory(
+          location,
+          this.projectInputRejectedWatchRoots,
+          identities,
+        );
+        if (available !== undefined) {
+          const identity = identities.resolve(available);
+          desired.set(identity.key, identity.path);
+        }
+      }
+    }
     const active = new Map<string, string>();
     for (const location of projectInputActiveWatchDirectories(
       desired.values(),
@@ -409,7 +434,7 @@ export class WatchTopology {
   }
 
   private projectInputWatchRoot(
-    kind: "file" | "glob" | "reload",
+    kind: "file" | "glob" | "reload" | "reload-directory",
     declaration: string,
     target: string,
   ): string | undefined {
@@ -467,6 +492,7 @@ export class WatchTopology {
       const reload = projectInputReloadEventShouldNotify({
         changed,
         changedInputs,
+        reloadDirectories: this.projectInputs.reloadDirectories ?? [],
         reloadFiles: this.projectInputs.reloadFiles ?? [],
       });
       const invalidate = projectInputMembershipInvalidatesProgram({
@@ -531,6 +557,16 @@ export class WatchTopology {
         this.isProjectInputCompilerOutput(file, identities) === false
       ) {
         const identity = identities.resolve(file);
+        matches.set(identity.key, identity.path);
+      }
+    }
+    for (const directory of this.projectInputs.reloadDirectories ?? []) {
+      if (
+        isDirectory(directory) &&
+        this.isProjectInputCompilerOutputDirectory(directory, identities) ===
+          false
+      ) {
+        const identity = identities.resolve(directory);
         matches.set(identity.key, identity.path);
       }
     }
@@ -641,6 +677,11 @@ export class WatchTopology {
         (file) =>
           identities.isWithin(resolved, file) ||
           identities.isWithin(path.dirname(file), resolved),
+      ) ||
+      (this.projectInputs.reloadDirectories ?? []).some(
+        (directory) =>
+          identities.isWithin(resolved, directory) ||
+          identities.isWithin(directory, resolved),
       ) ||
       this.projectInputs.globs.some((glob) => {
         const root = literalGlobRoot(glob);
@@ -1304,6 +1345,7 @@ function normalizeProjectInputSnapshot(
   const identities = createProjectInputPathIdentityContext();
   const files = new Map<string, string>();
   const globs = new Map<string, string>();
+  const reloadDirectories = new Map<string, string>();
   const reloadFiles = new Map<string, string>();
   for (const file of snapshot.files) {
     const identity = identities.resolve(file);
@@ -1317,9 +1359,14 @@ function normalizeProjectInputSnapshot(
     const identity = identities.resolve(file);
     reloadFiles.set(identity.key, identity.path);
   }
+  for (const directory of snapshot.reloadDirectories ?? []) {
+    const identity = identities.resolve(directory);
+    reloadDirectories.set(identity.key, identity.path);
+  }
   return {
     files: [...files.values()].sort(),
     globs: [...globs.values()].sort(),
+    reloadDirectories: [...reloadDirectories.values()].sort(),
     reloadFiles: [...reloadFiles.values()].sort(),
     root: identities.resolve(snapshot.root).path,
   };
@@ -1334,6 +1381,7 @@ function projectInputSnapshotsEqual(
       resolveProjectInputPath(right.root || ".") &&
     arraysEqual(left.files, right.files) &&
     arraysEqual(left.globs, right.globs) &&
+    arraysEqual(left.reloadDirectories ?? [], right.reloadDirectories ?? []) &&
     arraysEqual(left.reloadFiles ?? [], right.reloadFiles ?? [])
   );
 }
@@ -1357,7 +1405,7 @@ export function literalGlobRoot(pattern: string): string {
 }
 
 function projectInputDeclarationKey(
-  kind: "file" | "glob" | "reload",
+  kind: "file" | "glob" | "reload" | "reload-directory",
   declaration: string,
 ): string {
   return `${kind}\0${resolveProjectInputPath(declaration)}`;
@@ -1458,6 +1506,9 @@ function matchesProjectInput(
     (snapshot.reloadFiles ?? []).some(
       (file) => identities.resolve(file).key === key,
     ) ||
+    (snapshot.reloadDirectories ?? []).some((directory) =>
+      identities.isWithin(directory, location),
+    ) ||
     snapshot.globs.some((glob) =>
       matchesProjectInputGlob(glob, location, identities),
     )
@@ -1475,6 +1526,9 @@ function projectInputTopologyMayAffect(
     snapshot.files.some((file) => identities.isWithin(changed, file)) ||
     (snapshot.reloadFiles ?? []).some((file) =>
       identities.isWithin(changed, file),
+    ) ||
+    (snapshot.reloadDirectories ?? []).some((directory) =>
+      identities.isWithin(directory, changed),
     ) ||
     snapshot.globs.some((glob) => {
       const root = literalGlobRoot(glob);
@@ -1533,17 +1587,28 @@ function projectInputChangedPaths(input: {
 export function projectInputReloadEventShouldNotify(input: {
   changed?: string;
   changedInputs: readonly string[];
+  reloadDirectories?: readonly string[];
   reloadFiles: readonly string[];
 }): boolean {
   const identities = createProjectInputPathIdentityContext();
   const reloadFiles = new Set(
     input.reloadFiles.map((location) => identities.resolve(location).key),
   );
+  const reloadDirectories = (input.reloadDirectories ?? []).map((location) =>
+    identities.resolve(location),
+  );
+  const isReloadDirectoryInput = (location: string): boolean =>
+    reloadDirectories.some((directory) =>
+      identities.isWithin(directory.path, location),
+    );
   return (
     (input.changed !== undefined &&
-      reloadFiles.has(identities.resolve(input.changed).key)) ||
-    input.changedInputs.some((location) =>
-      reloadFiles.has(identities.resolve(location).key),
+      (reloadFiles.has(identities.resolve(input.changed).key) ||
+        isReloadDirectoryInput(input.changed))) ||
+    input.changedInputs.some(
+      (location) =>
+        reloadFiles.has(identities.resolve(location).key) ||
+        isReloadDirectoryInput(location),
     )
   );
 }
@@ -1635,16 +1700,43 @@ function fingerprintProjectInputMatches(
     try {
       fingerprints.set(
         key,
-        crypto
-          .createHash("sha256")
-          .update(fs.readFileSync(location))
-          .digest("hex"),
+        isDirectory(location)
+          ? fingerprintProjectInputDirectory(location)
+          : crypto
+              .createHash("sha256")
+              .update(fs.readFileSync(location))
+              .digest("hex"),
       );
     } catch {
       fingerprints.set(key, "");
     }
   }
   return fingerprints;
+}
+
+function fingerprintProjectInputDirectory(location: string): string {
+  const entries = fs
+    .readdirSync(location, { withFileTypes: true })
+    .map((entry) => {
+      const kind = entry.isDirectory()
+        ? "directory"
+        : entry.isFile()
+          ? "file"
+          : entry.isSymbolicLink()
+            ? "symlink"
+            : "other";
+      let target = "";
+      if (entry.isSymbolicLink()) {
+        try {
+          target = fs.readlinkSync(path.join(location, entry.name));
+        } catch {
+          target = "<unreadable>";
+        }
+      }
+      return entry.name + "\0" + kind + "\0" + target;
+    })
+    .sort();
+  return crypto.createHash("sha256").update(entries.join("\0")).digest("hex");
 }
 
 function matchesProjectInputGlob(

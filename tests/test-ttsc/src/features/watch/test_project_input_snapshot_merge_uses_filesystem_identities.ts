@@ -64,6 +64,10 @@ export const test_project_input_snapshot_merge_uses_filesystem_identities =
         path.join(root, "docs", "spec.md"),
         path.join(root, "future", "missing.md"),
       ],
+      reloadDirectories: [
+        path.join(root, "api"),
+        path.join(root, "future", "packages"),
+      ],
     }));
     const merged = mergeProjectInputSnapshots(physicalRoot, snapshots);
     assert.deepEqual(
@@ -86,6 +90,11 @@ export const test_project_input_snapshot_merge_uses_filesystem_identities =
       2,
       "reload aliases must use the same existing and missing identities",
     );
+    assert.equal(
+      merged.reloadDirectories?.length,
+      2,
+      "reload-directory aliases must use physical directory identities",
+    );
     const physical = realpath(physicalRoot);
     assert.equal(merged.root, physical);
     assert.equal(merged.files[0], path.join(physical, "docs", "spec.md"));
@@ -95,6 +104,10 @@ export const test_project_input_snapshot_merge_uses_filesystem_identities =
       path.join(physical, "api", "**", "*.json").split(path.sep).join("/"),
     );
     assert.deepEqual(merged.reloadFiles, merged.files);
+    assert.deepEqual(merged.reloadDirectories, [
+      path.join(physical, "api"),
+      path.join(physical, "future", "packages"),
+    ]);
 
     if (process.platform === "win32") {
       const missingCaseAliases = mergeProjectInputSnapshots(physicalRoot, [
@@ -166,11 +179,18 @@ export const test_project_input_snapshot_merge_uses_filesystem_identities =
           path.join(upperRoot, "Future", "config.json"),
           path.join(upperRoot, "future", "config.json"),
         ],
+        reloadDirectories: [
+          path.join(upperRoot, "Api"),
+          path.join(upperRoot, "api"),
+          path.join(upperRoot, "Future", "packages"),
+          path.join(upperRoot, "future", "packages"),
+        ],
       },
     ]);
     assert.equal(caseDistinct.files.length, 4);
     assert.equal(caseDistinct.globs.length, 2);
     assert.equal(caseDistinct.reloadFiles?.length, 4);
+    assert.equal(caseDistinct.reloadDirectories?.length, 4);
   };
 
 function realpath(location: string): string {

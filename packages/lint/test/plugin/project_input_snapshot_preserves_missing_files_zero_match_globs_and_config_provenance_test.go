@@ -36,14 +36,19 @@ func (projectInputSnapshotRule) ProjectInputs(ctx *publicrule.ProjectInputContex
 // create or rename can wake the host. The lint config is another exact
 // dependency, and duplicate declarations from multiple rules share one owner.
 // Config paths remain in Files for decoder compatibility and are also marked
-// as ReloadFiles so CLI watch can replace its selected execution.
+// as ReloadFiles so CLI watch can replace its selected execution. Resolution
+// directories publish ReloadDirectories so package-manifest and
+// extension-candidate topology changes rebuild selection without recursively
+// scanning broad ancestor trees.
 //
 //  1. Enable one project rule with a missing Markdown path and empty JSON glob.
 //  2. Collect the snapshot before either dependency exists.
-//  3. Assert both declarations and the lint config remain, each exactly once.
+//  3. Assert both declarations, the lint config, and its resolution directory
+//     remain in their data and cold-reload protocol lanes.
 func TestProjectInputSnapshotPreservesMissingFilesZeroMatchGlobsAndConfigProvenance(t *testing.T) {
   root := t.TempDir()
   config := filepath.Join(root, "lint.config.json")
+  configDependencyDirectory := filepath.Join(root, "config-deps")
   options := json.RawMessage(`{"file":"docs/missing.md","glob":"api/**/*.json"}`)
   name := "test/project-inputs"
   previous, existed := registeredProjectRules[name]
@@ -60,7 +65,8 @@ func TestProjectInputSnapshotPreservesMissingFilesZeroMatchGlobsAndConfigProvena
     }
   })
   resolver := &ConfigStore{
-    paths: []string{config},
+    paths:       []string{config},
+    directories: []string{configDependencyDirectory},
     entries: []ConfigEntry{{
       BaseDir: root,
       Rules:   RuleConfig{name: SeverityError},
@@ -89,6 +95,19 @@ func TestProjectInputSnapshotPreservesMissingFilesZeroMatchGlobsAndConfigProvena
   wantReloadFiles := []string{filepath.ToSlash(realProjectPath(config))}
   if !reflect.DeepEqual(snapshot.ReloadFiles, wantReloadFiles) {
     t.Fatalf("reload files = %#v, want %#v", snapshot.ReloadFiles, wantReloadFiles)
+  }
+  wantReloadDirectories := []string{
+    filepath.ToSlash(realProjectPath(configDependencyDirectory)),
+  }
+  if !reflect.DeepEqual(
+    snapshot.ReloadDirectories,
+    wantReloadDirectories,
+  ) {
+    t.Fatalf(
+      "reload directories = %#v, want %#v",
+      snapshot.ReloadDirectories,
+      wantReloadDirectories,
+    )
   }
   wantGlobs := []string{
     filepath.ToSlash(realProjectGlob(filepath.Join(root, "api", "**", "*.json"))),

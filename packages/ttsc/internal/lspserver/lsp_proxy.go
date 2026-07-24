@@ -26,6 +26,14 @@ import (
 // fallback.
 var ErrCommandNotHandled = errors.New("lsp: command not handled by ttsc")
 
+// ErrLSPPluginSelectionChanged ends the current native host after a watched
+// config dependency changes which source plugins the JavaScript launcher must
+// rebuild. A fresh editor-managed process reruns descriptor discovery before it
+// creates the next LSP stream.
+var ErrLSPPluginSelectionChanged = errors.New(
+  "ttscserver: plugin selection input changed; restart required",
+)
+
 const (
   methodPublishDiagnostics = "textDocument/publishDiagnostics"
   methodInitialize         = "initialize"
@@ -2434,6 +2442,11 @@ func (p *Proxy) invalidateForWatchedFileChanges(env Envelope) error {
     // per plugin, each loading its own Program.
     return nil
   }
+  for _, change := range params.Changes {
+    if p.projectInputReloadMatchesURI(change.URI) {
+      return ErrLSPPluginSelectionChanged
+    }
+  }
   uris := make([]string, 0, len(params.Changes))
   externalURIs := make([]string, 0, len(params.Changes))
   externalSet := make(map[string]struct{}, len(params.Changes))
@@ -2554,6 +2567,10 @@ type projectInputMatcher interface {
   ProjectInputMatchesURI(string) bool
 }
 
+type projectInputReloadMatcher interface {
+  ProjectInputReloadMatchesURI(string) bool
+}
+
 type projectInputOwnerMatcher interface {
   ProjectInputOwnersForURI(string) []string
 }
@@ -2600,6 +2617,11 @@ func (p *Proxy) projectInputOwnerScope(
     return projectDiagnosticOwnerScope{}, false
   }
   return projectDiagnosticOwnerScope{all: true}, true
+}
+
+func (p *Proxy) projectInputReloadMatchesURI(uri string) bool {
+  source, ok := p.source.(projectInputReloadMatcher)
+  return ok && source.ProjectInputReloadMatchesURI(uri)
 }
 
 func (p *Proxy) refreshProjectInputs() {

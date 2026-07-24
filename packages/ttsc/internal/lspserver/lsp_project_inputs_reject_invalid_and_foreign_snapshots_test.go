@@ -20,15 +20,20 @@ import (
 func TestLSPProjectInputsRejectInvalidAndForeignSnapshots(t *testing.T) {
   root := t.TempDir()
   valid := LSPProjectInputSnapshot{
-    Root:  root,
-    Files: []string{filepath.Join(root, "docs", "spec.md")},
-    Globs: []string{filepath.Join(root, "api", "**", "*.json")},
+    Root:              root,
+    Files:             []string{filepath.Join(root, "docs", "spec.md")},
+    Globs:             []string{filepath.Join(root, "api", "**", "*.json")},
+    ReloadFiles:       []string{filepath.Join(root, "lint.config.ts")},
+    ReloadDirectories: []string{filepath.Join(root, "config-deps")},
   }
   normalized, err := normalizeLSPProjectInputSnapshot(valid, root)
   if err != nil {
     t.Fatalf("valid snapshot: %v", err)
   }
-  if len(normalized.Files) != 1 || len(normalized.Globs) != 1 {
+  if len(normalized.Files) != 1 ||
+    len(normalized.Globs) != 1 ||
+    len(normalized.ReloadFiles) != 1 ||
+    len(normalized.ReloadDirectories) != 1 {
     t.Fatalf("normalized snapshot = %#v", normalized)
   }
 
@@ -36,6 +41,8 @@ func TestLSPProjectInputsRejectInvalidAndForeignSnapshots(t *testing.T) {
     {Root: "relative", Files: []string{}, Globs: []string{}},
     {Root: root, Files: []string{"docs/spec.md"}, Globs: []string{}},
     {Root: root, Files: []string{}, Globs: []string{"https://example.com/openapi.json"}},
+    {Root: root, ReloadFiles: []string{"lint.config.ts"}},
+    {Root: root, ReloadDirectories: []string{"config-deps"}},
     {Root: filepath.Join(root, "foreign"), Files: []string{}, Globs: []string{}},
   }
   for _, snapshot := range cases {

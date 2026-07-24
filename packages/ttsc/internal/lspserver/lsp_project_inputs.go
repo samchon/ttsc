@@ -13,9 +13,11 @@ import (
 // LSPProjectInputSnapshot is the normalized external filesystem topology
 // published by project-rule contributors.
 type LSPProjectInputSnapshot struct {
-  Root  string   `json:"root"`
-  Files []string `json:"files"`
-  Globs []string `json:"globs"`
+  Root              string   `json:"root"`
+  Files             []string `json:"files"`
+  Globs             []string `json:"globs"`
+  ReloadFiles       []string `json:"reloadFiles,omitempty"`
+  ReloadDirectories []string `json:"reloadDirectories,omitempty"`
 }
 
 type projectInputRecord struct {
@@ -48,6 +50,33 @@ func (s *NativePluginSource) ProjectInputMatchesURI(uri string) bool {
   s.projectInputsMu.RLock()
   defer s.projectInputsMu.RUnlock()
   return projectInputSnapshotMatchesCandidate(s.projectInputs, candidate)
+}
+
+// ProjectInputReloadMatchesURI reports whether uri changes executable plugin
+// selection and therefore requires a fresh launcher evaluation.
+func (s *NativePluginSource) ProjectInputReloadMatchesURI(uri string) bool {
+  if s == nil {
+    return false
+  }
+  location, ok := filePathFromURI(uri)
+  if !ok {
+    return false
+  }
+  candidate := realProjectInputPath(location)
+  candidateKey := projectInputPathKey(candidate)
+  s.projectInputsMu.RLock()
+  defer s.projectInputsMu.RUnlock()
+  for _, file := range s.projectInputs.ReloadFiles {
+    if projectInputPathKey(file) == candidateKey {
+      return true
+    }
+  }
+  for _, directory := range s.projectInputs.ReloadDirectories {
+    if projectInputDirectoryContains(directory, candidate) {
+      return true
+    }
+  }
+  return false
 }
 
 // ProjectInputOwnersForURI returns the stable plugin keys whose latest
@@ -198,6 +227,8 @@ func (s *NativePluginSource) storeProjectInputs(
 func (s *NativePluginSource) flattenProjectInputsLocked() LSPProjectInputSnapshot {
   files := map[string]string{}
   globs := map[string]string{}
+  reloadFiles := map[string]string{}
+  reloadDirectories := map[string]string{}
   root := ""
   for _, plugin := range selectPluginTransports(
     s.plugins,
@@ -215,6 +246,12 @@ func (s *NativePluginSource) flattenProjectInputsLocked() LSPProjectInputSnapsho
     for _, pattern := range snapshot.Globs {
       globs[projectInputPathKey(pattern)] = pattern
     }
+    for _, file := range snapshot.ReloadFiles {
+      reloadFiles[projectInputPathKey(file)] = file
+    }
+    for _, directory := range snapshot.ReloadDirectories {
+      reloadDirectories[projectInputPathKey(directory)] = directory
+    }
   }
   out := LSPProjectInputSnapshot{Root: root}
   for _, file := range files {
@@ -223,8 +260,16 @@ func (s *NativePluginSource) flattenProjectInputsLocked() LSPProjectInputSnapsho
   for _, pattern := range globs {
     out.Globs = append(out.Globs, pattern)
   }
+  for _, file := range reloadFiles {
+    out.ReloadFiles = append(out.ReloadFiles, file)
+  }
+  for _, directory := range reloadDirectories {
+    out.ReloadDirectories = append(out.ReloadDirectories, directory)
+  }
   sort.Strings(out.Files)
   sort.Strings(out.Globs)
+  sort.Strings(out.ReloadFiles)
+  sort.Strings(out.ReloadDirectories)
   return out
 }
 
@@ -261,6 +306,30 @@ func normalizeLSPProjectInputSnapshot(
     normalized := filepath.ToSlash(realProjectInputPath(file))
     files[projectInputPathKey(normalized)] = normalized
   }
+  reloadFiles := map[string]string{}
+  for _, file := range snapshot.ReloadFiles {
+    if strings.TrimSpace(file) == "" ||
+      !isAbsoluteLocalLSPProjectInputPath(file, runtime.GOOS) {
+      return LSPProjectInputSnapshot{}, fmt.Errorf(
+        "reload file %q is not an absolute local path",
+        file,
+      )
+    }
+    normalized := filepath.ToSlash(realProjectInputPath(file))
+    reloadFiles[projectInputPathKey(normalized)] = normalized
+  }
+  reloadDirectories := map[string]string{}
+  for _, directory := range snapshot.ReloadDirectories {
+    if strings.TrimSpace(directory) == "" ||
+      !isAbsoluteLocalLSPProjectInputPath(directory, runtime.GOOS) {
+      return LSPProjectInputSnapshot{}, fmt.Errorf(
+        "reload directory %q is not an absolute local path",
+        directory,
+      )
+    }
+    normalized := filepath.ToSlash(realProjectInputPath(directory))
+    reloadDirectories[projectInputPathKey(normalized)] = normalized
+  }
   globs := map[string]string{}
   for _, pattern := range snapshot.Globs {
     native := projectInputFilesystemPath(pattern)
@@ -281,8 +350,16 @@ func normalizeLSPProjectInputSnapshot(
   for _, pattern := range globs {
     out.Globs = append(out.Globs, pattern)
   }
+  for _, file := range reloadFiles {
+    out.ReloadFiles = append(out.ReloadFiles, file)
+  }
+  for _, directory := range reloadDirectories {
+    out.ReloadDirectories = append(out.ReloadDirectories, directory)
+  }
   sort.Strings(out.Files)
   sort.Strings(out.Globs)
+  sort.Strings(out.ReloadFiles)
+  sort.Strings(out.ReloadDirectories)
   return out, nil
 }
 
@@ -341,9 +418,11 @@ func copyProjectInputSnapshot(
   snapshot LSPProjectInputSnapshot,
 ) LSPProjectInputSnapshot {
   return LSPProjectInputSnapshot{
-    Root:  snapshot.Root,
-    Files: append([]string(nil), snapshot.Files...),
-    Globs: append([]string(nil), snapshot.Globs...),
+    Root:              snapshot.Root,
+    Files:             append([]string(nil), snapshot.Files...),
+    Globs:             append([]string(nil), snapshot.Globs...),
+    ReloadFiles:       append([]string(nil), snapshot.ReloadFiles...),
+    ReloadDirectories: append([]string(nil), snapshot.ReloadDirectories...),
   }
 }
 
@@ -353,7 +432,9 @@ func projectInputSnapshotsEqual(
 ) bool {
   if projectInputPathKey(left.Root) != projectInputPathKey(right.Root) ||
     len(left.Files) != len(right.Files) ||
-    len(left.Globs) != len(right.Globs) {
+    len(left.Globs) != len(right.Globs) ||
+    len(left.ReloadFiles) != len(right.ReloadFiles) ||
+    len(left.ReloadDirectories) != len(right.ReloadDirectories) {
     return false
   }
   for index := range left.Files {
@@ -368,7 +449,35 @@ func projectInputSnapshotsEqual(
       return false
     }
   }
+  for index := range left.ReloadFiles {
+    if projectInputPathKey(left.ReloadFiles[index]) !=
+      projectInputPathKey(right.ReloadFiles[index]) {
+      return false
+    }
+  }
+  for index := range left.ReloadDirectories {
+    if projectInputPathKey(left.ReloadDirectories[index]) !=
+      projectInputPathKey(right.ReloadDirectories[index]) {
+      return false
+    }
+  }
   return true
+}
+
+func projectInputDirectoryContains(directory string, candidate string) bool {
+  relative, err := filepath.Rel(
+    projectInputFilesystemPath(directory),
+    projectInputFilesystemPath(candidate),
+  )
+  if err != nil || filepath.IsAbs(relative) {
+    return false
+  }
+  relativeKey := projectInputPathKey(relative)
+  if relativeKey == "." {
+    return projectInputPathKey(directory) == projectInputPathKey(candidate)
+  }
+  return relativeKey != ".." &&
+    !strings.HasPrefix(relativeKey, "../")
 }
 
 func realProjectInputPath(location string) string {

@@ -6,6 +6,8 @@ export interface ITtscProjectInputSnapshot {
   globs: readonly string[];
   /** Exact paths whose change invalidates plugin/execution selection. */
   reloadFiles?: readonly string[];
+  /** Directories whose immediate topology changes execution selection. */
+  reloadDirectories?: readonly string[];
   /** Physical project root that anchored relative declarations. */
   root: string;
 }
