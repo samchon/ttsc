@@ -135,12 +135,21 @@ func (s *NativePluginSource) clientProjectURI(uri string) string {
   if !ok {
     return uri
   }
+  // The client names its project relative to the directory it asked the host to
+  // work in, and the host never changed into it — so that directory is the only
+  // anchor the spelling has. Resolving against anything else would answer about
+  // wherever this process happens to be running, and the URI builder below
+  // assumes an absolute native path.
   client := s.clientTsconfig
-  // A relative spelling has no anchor here: this process never changed into the
-  // client's directory, so resolving it would answer about wherever the host
-  // happens to be running, and the URI builder below assumes an absolute native
-  // path — handed a relative one it produces a host-only URI that addresses
-  // nothing. Leaving the producer's spelling alone is strictly better.
+  if !filepath.IsAbs(projectInputFilesystemPath(client)) {
+    if strings.TrimSpace(s.clientCwd) == "" {
+      return uri
+    }
+    client = filepath.Join(
+      projectInputFilesystemPath(s.clientCwd),
+      projectInputFilesystemPath(client),
+    )
+  }
   if !filepath.IsAbs(projectInputFilesystemPath(client)) {
     return uri
   }
