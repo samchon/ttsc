@@ -200,12 +200,16 @@ export class WatchTopology {
       this.fileWatchers,
       files,
       (location) =>
-        fs.watch(location, { persistent: true }, () => {
-          this.callbacks.onInputChange({
-            kind: this.classifyCompilerInput(location),
-            path: location,
-          });
-        }),
+        fs.watch(
+          watcherRegistrationPath(location),
+          { persistent: true },
+          () => {
+            this.callbacks.onInputChange({
+              kind: this.classifyCompilerInput(location),
+              path: location,
+            });
+          },
+        ),
       (location, error) => this.callbacks.onError(location, error),
     );
   }
@@ -240,7 +244,7 @@ export class WatchTopology {
       desired,
       (location) =>
         fs.watch(
-          location,
+          watcherRegistrationPath(location),
           {
             persistent: true,
             recursive: process.platform === "win32",
@@ -300,16 +304,20 @@ export class WatchTopology {
       this.extraWatchers,
       directories,
       (location) =>
-        fs.watch(location, { persistent: true }, (_event, filename) => {
-          const changed =
-            filename === null
-              ? undefined
-              : path.resolve(location, filename.toString());
-          this.callbacks.onInputChange({
-            kind: "plugin",
-            path: changed ?? location,
-          });
-        }),
+        fs.watch(
+          watcherRegistrationPath(location),
+          { persistent: true },
+          (_event, filename) => {
+            const changed =
+              filename === null
+                ? undefined
+                : path.resolve(location, filename.toString());
+            this.callbacks.onInputChange({
+              kind: "plugin",
+              path: changed ?? location,
+            });
+          },
+        ),
       (location, error) => this.callbacks.onError(location, error),
     );
   }
@@ -408,7 +416,7 @@ export class WatchTopology {
       active,
       (location) =>
         fs.watch(
-          location,
+          watcherRegistrationPath(location),
           { persistent: true, recursive: true },
           (_event, filename) => {
             const changed =
@@ -1438,8 +1446,11 @@ export function projectInputActiveWatchDirectories(
 ): string[] {
   const unique = new Map<string, string>();
   for (const directory of directories) {
+    // Coverage is decided on physical identity so two spellings of one
+    // directory cannot both survive, but the surviving entry keeps the
+    // caller's spelling: this function selects roots, it does not rename them.
     const identity = identities.resolve(directory);
-    unique.set(identity.key, identity.path);
+    if (!unique.has(identity.key)) unique.set(identity.key, directory);
   }
   return [...unique]
     .filter(([key]) => {
@@ -1522,6 +1533,12 @@ function projectInputTopologyMayAffect(
   identities = createProjectInputPathIdentityContext(),
 ): boolean {
   const changed = path.resolve(location);
+  // A directory event can replace, move, or re-anchor every declared population
+  // beneath it, and the delivered name is the container rather than the input:
+  // an atomic replacement reports the swapped directory, never the file whose
+  // bytes it changed. Admitting the event only costs a rescan, and the rescan
+  // still stays silent when no declared fingerprint moved.
+  if (isDirectory(changed)) return true;
   return (
     snapshot.files.some((file) => identities.isWithin(changed, file)) ||
     (snapshot.reloadFiles ?? []).some((file) =>
@@ -1885,6 +1902,28 @@ export function planCompilerDirectoryWatchEvent(input: {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
+}
+
+/**
+ * Resolve the spelling a filesystem watcher must be registered under.
+ *
+ * A watch declaration keeps its lexical spelling because every classification,
+ * containment, and notification decision is expressed in the caller's own
+ * paths. The watcher backend needs the physical spelling instead: libuv stores
+ * the string handed to `uv_fs_event_start` and, on Windows, expands each event
+ * to its long path before requiring the stored string to be its prefix. A short
+ * (8.3) component — which `os.tmpdir()` routinely yields — therefore aborts the
+ * process on the first event. macOS resolves the watched path through symlinks
+ * before matching, so `/var` and `/private/var` must not be mixed either.
+ * Registering the physical spelling keeps both backends aligned while callers
+ * keep resolving events against their declared paths.
+ */
+function watcherRegistrationPath(location: string): string {
+  try {
+    return fs.realpathSync.native(location);
+  } catch {
+    return location;
+  }
 }
 
 function pathKey(location: string): string {

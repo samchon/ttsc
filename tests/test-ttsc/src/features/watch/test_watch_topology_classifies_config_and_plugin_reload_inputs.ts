@@ -52,10 +52,14 @@ export const test_watch_topology_classifies_config_and_plugin_reload_inputs =
       topology.refresh(false);
       topology.setExtraInputs([pluginRoot]);
 
-      writeConfig(config, true);
-      await waitForKind(changes, "config");
-      fs.writeFileSync(pluginSource, "package plugin\n\n// changed\n", "utf8");
-      await waitForKind(changes, "plugin");
+      await waitForKind(changes, "config", () => writeConfig(config, true));
+      await waitForKind(changes, "plugin", () =>
+        fs.writeFileSync(
+          pluginSource,
+          "package plugin\n\n// changed\n",
+          "utf8",
+        ),
+      );
 
       const pluginChanges = changes.filter(
         (change) =>
@@ -90,15 +94,26 @@ function writeConfig(location: string, noUnusedLocals: boolean): void {
   );
 }
 
+/**
+ * Reapply the stimulus until the expected change kind is observed.
+ *
+ * A filesystem watcher is armed asynchronously: macOS starts its FSEvents
+ * stream on a separate run loop, so a write issued in the same tick as the
+ * registration can land before the stream delivers anything. Repeating the edit
+ * proves the classification contract without waiting on that window, and the
+ * deadline still fails when the kind is never produced.
+ */
 async function waitForKind(
   changes: readonly WatchInputChange[],
   kind: WatchInputChange["kind"],
+  stimulus: () => void,
 ): Promise<void> {
   const deadline = Date.now() + 5_000;
   while (!changes.some((change) => change.kind === kind)) {
     if (Date.now() >= deadline) {
       assert.fail(`expected a ${kind} change: ${JSON.stringify(changes)}`);
     }
+    stimulus();
     await new Promise((resolve) => setTimeout(resolve, 25));
   }
 }
