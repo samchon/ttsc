@@ -2776,12 +2776,16 @@ func (p *Proxy) stopProjectDiagnosticRefresh() {
 }
 
 func (p *Proxy) resumePendingProjectDiagnosticRefresh() {
-  if p.hasDirtyDocuments() {
+  p.diagnosticsMu.Lock()
+  defer p.diagnosticsMu.Unlock()
+  if len(p.dirtyDocuments) != 0 {
     return
   }
   p.projectRefreshMu.Lock()
   defer p.projectRefreshMu.Unlock()
   if p.projectDiagnosticRefreshPending {
+    p.projectDiagnosticGeneration++
+    p.pendingProjectDiagnosticGeneration = p.projectDiagnosticGeneration
     p.armProjectDiagnosticRefreshLocked()
   }
 }

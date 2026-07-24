@@ -10,10 +10,12 @@ func (projectDiagnosticsResumeSource) ProjectDiagnostics() *LSPProjectDiagnostic
   return nil
 }
 
-// TestResumePendingProjectDiagnosticRefreshPreservesGeneration verifies a
-// save or close rearms the existing pending refresh atomically instead of
-// creating a newer generation after another path has completed it.
-func TestResumePendingProjectDiagnosticRefreshPreservesGeneration(t *testing.T) {
+// TestResumePendingProjectDiagnosticRefreshDoesNotReviveCompletedWork verifies
+// a save or close advances and rearms pending work atomically, while a refresh
+// completed before that transition remains completed.
+func TestResumePendingProjectDiagnosticRefreshDoesNotReviveCompletedWork(
+  t *testing.T,
+) {
   proxy := NewProxy(ProxyOptions{
     Source: projectDiagnosticsResumeSource{},
   })
@@ -29,13 +31,22 @@ func TestResumePendingProjectDiagnosticRefreshPreservesGeneration(t *testing.T) 
   proxy.diagnosticsMu.Lock()
   after := proxy.projectDiagnosticGeneration
   proxy.diagnosticsMu.Unlock()
-  if after != before {
+  if after != before+1 {
     t.Fatalf("resume advanced generation from %d to %d", before, after)
   }
   proxy.projectRefreshMu.Lock()
   pending := proxy.projectDiagnosticRefreshPending
+  generation := proxy.pendingProjectDiagnosticGeneration
   proxy.projectRefreshMu.Unlock()
   if !pending {
     t.Fatal("resume cleared the pending refresh")
+  }
+  proxy.completePendingProjectDiagnosticRefresh(generation)
+  proxy.resumePendingProjectDiagnosticRefresh()
+  proxy.diagnosticsMu.Lock()
+  final := proxy.projectDiagnosticGeneration
+  proxy.diagnosticsMu.Unlock()
+  if final != after {
+    t.Fatalf("completed refresh was revived at generation %d", final)
   }
 }
