@@ -36,9 +36,11 @@ export const test_watch_topology_keeps_case_sensitive_inputs_outside_case_distin
     if (createCaseDistinctDirectory(inputRoot) === false) return;
     assert.notEqual(realpath(outputRoot), realpath(inputRoot));
     const exactRoot = path.join(external, "Exact");
-    const exactOutput = path.join(exactRoot, "nested", "State.json");
-    const exactInput = path.join(exactRoot, "nested", "state.json");
-    fs.mkdirSync(exactRoot);
+    const exactDirectory = path.join(exactRoot, "nested");
+    const exactOutput = path.join(exactDirectory, "State.json");
+    const exactInput = path.join(exactDirectory, "state.json");
+    fs.mkdirSync(exactDirectory, { recursive: true });
+    enableWindowsCaseSensitivity(exactDirectory);
     fs.writeFileSync(
       path.join(root, "tsconfig.json"),
       JSON.stringify({
