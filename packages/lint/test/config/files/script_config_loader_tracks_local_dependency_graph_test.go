@@ -10,16 +10,18 @@ import (
 // protocol covers CommonJS and ESM without retaining in-process module state.
 //
 //  1. Load a CJS config whose helper lives outside the config directory and
-//     prove the entry and helper, but not a package dependency, are recorded.
-//  2. Change only that helper and prove the dependency-aware cache evaluates
+//     prove the entry/helper are watched while a package is cache-only.
+//  2. Change only the package and prove its cache fingerprint refreshes rules
+//     without publishing node_modules as a project watch input.
+//  3. Change only the helper and prove the dependency-aware cache evaluates
 //     the same entry path again with fresh rules.
-//  3. Load an MJS config with a transitive local import and prove the same graph
+//  4. Load an MJS config with a transitive local import and prove the same graph
 //     semantics apply to ESM.
-//  4. Fail after a CJS child loads, repair only the child, and prove the next
+//  5. Fail after a CJS child loads, repair only the child, and prove the next
 //     isolated evaluation cannot reuse the stale child cache.
-//  5. Load an explicitly selected config inside node_modules and prove its
+//  6. Load an explicitly selected config inside node_modules and prove its
 //     relative helper remains local even though unrelated package imports do
-//     not enter the dependency graph.
+//     not enter the watch graph.
 func TestScriptConfigLoaderTracksLocalDependencyGraph(t *testing.T) {
   t.Setenv("TTSC_LINT_DISABLE_CONFIG_CACHE", "")
   root := t.TempDir()
@@ -38,13 +40,14 @@ func TestScriptConfigLoaderTracksLocalDependencyGraph(t *testing.T) {
     }
   }
   write(filepath.Join(packageRoot, "package.json"), `{"main":"index.cjs"}`)
-  write(filepath.Join(packageRoot, "index.cjs"), `module.exports = "package";`)
+  packageEntry := filepath.Join(packageRoot, "index.cjs")
+  write(packageEntry, `module.exports = "error";`)
 
   cjsConfig := filepath.Join(configs, "lint.config.cjs")
   cjsHelper := filepath.Join(shared, "selection.cjs")
   write(cjsConfig, `const selection = require("../shared/selection.cjs");
 module.exports = { rules: { "no-var": selection.rule } };`)
-  write(cjsHelper, `require("demo"); module.exports = { rule: "error" };`)
+  write(cjsHelper, `module.exports = { rule: require("demo") };`)
 
   first, err := loadConfigFileEvaluation(cjsConfig)
   if err != nil {
@@ -57,13 +60,32 @@ module.exports = { rules: { "no-var": selection.rule } };`)
     []string{cjsConfig, cjsHelper},
     packageRoot,
   )
+  assertConfigDependencyScope(
+    t,
+    first.dependencyDigests,
+    packageEntry,
+    configDependencyCache,
+  )
 
-  write(cjsHelper, `require("demo"); module.exports = { rule: "warning" };`)
+  write(packageEntry, `module.exports = "warning";`)
   second, err := loadConfigFileEvaluation(cjsConfig)
+  if err != nil {
+    t.Fatalf("reload CJS package: %v", err)
+  }
+  assertConfigRuleSeverity(t, second.value, "no-var", "warning")
+  assertConfigDependencies(
+    t,
+    second.dependencies,
+    []string{cjsConfig, cjsHelper},
+    packageRoot,
+  )
+
+  write(cjsHelper, `require("demo"); module.exports = { rule: "error" };`)
+  third, err := loadConfigFileEvaluation(cjsConfig)
   if err != nil {
     t.Fatalf("reload CJS helper: %v", err)
   }
-  assertConfigRuleSeverity(t, second.value, "no-var", "warning")
+  assertConfigRuleSeverity(t, third.value, "no-var", "error")
 
   mjsConfig := filepath.Join(configs, "lint.config.mjs")
   mjsHelper := filepath.Join(shared, "selection.mjs")
@@ -118,6 +140,24 @@ module.exports = { rules: { "no-var": selection.rule } };`)
     []string{packagedConfig, packagedHelper},
     filepath.Join(packageRoot, "unrelated-package"),
   )
+}
+
+func assertConfigDependencyScope(
+  t *testing.T,
+  dependencies []configDependencyFingerprint,
+  expectedPath string,
+  expectedScope string,
+) {
+  t.Helper()
+  for _, dependency := range dependencies {
+    if filepath.Clean(dependency.Path) == filepath.Clean(expectedPath) {
+      if dependency.Scope != expectedScope {
+        t.Fatalf("dependency %s scope = %q, want %q", expectedPath, dependency.Scope, expectedScope)
+      }
+      return
+    }
+  }
+  t.Fatalf("dependency %s missing from cache graph %v", expectedPath, dependencies)
 }
 
 func assertConfigDependencies(

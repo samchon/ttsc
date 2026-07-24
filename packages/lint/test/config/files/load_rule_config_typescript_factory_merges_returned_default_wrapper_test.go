@@ -14,7 +14,8 @@ import (
 // rules or format options disappear.
 //
 //  1. Write a shared `.ts` config with rules and format options.
-//  2. Write an async package config that dynamically imports and spreads it.
+//  2. Write a logging async package config that dynamically imports and spreads
+//     it, proving stdout cannot corrupt the private result channel.
 //  3. Assert shared rules and format options survive beside the local ignores.
 //  4. Assert the executable config and imported helper are both published as
 //     config paths, then change only the helper and observe fresh rules.
@@ -28,6 +29,7 @@ func TestLoadRuleConfigTypeScriptFactoryMergesReturnedDefaultWrapper(t *testing.
   },
 };`)
   writeFile(t, filepath.Join(dir, "ttsc-lint.config.ts"), `export default async () => {
+  console.log("loading TypeScript lint config");
   const shared = await import("./shared-lint.config.ts");
   return {
     ...shared,

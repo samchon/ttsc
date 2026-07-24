@@ -45,6 +45,7 @@ func TestConfigCacheInvalidatesTransitiveDependencyDigests(t *testing.T) {
     dependency := configDependencyFingerprint{
       Path:   helper,
       Digest: hex.EncodeToString(sum[:]),
+      Scope:  configDependencyWatch,
     }
     return evaluatedConfigFile{
       value: map[string]any{
@@ -120,14 +121,17 @@ func TestConfigCacheInvalidatesTransitiveDependencyDigests(t *testing.T) {
   valid := configDependencyFingerprint{
     Path:   helper,
     Digest: hex.EncodeToString(helperSum[:]),
+    Scope:  configDependencyWatch,
   }
   invalid := [][]configDependencyFingerprint{
     nil,
-    {{Path: "relative.cjs", Digest: valid.Digest}},
-    {{Path: helper, Digest: ""}},
-    {{Path: helper, Digest: strings.Repeat("A", sha256.Size*2)}},
-    {{Path: helper, Digest: strings.Repeat("g", sha256.Size*2)}},
-    {valid, {Path: helper, Digest: strings.Repeat("0", sha256.Size*2)}},
+    {{Path: "relative.cjs", Digest: valid.Digest, Scope: configDependencyWatch}},
+    {{Path: helper, Digest: "", Scope: configDependencyWatch}},
+    {{Path: helper, Digest: strings.Repeat("A", sha256.Size*2), Scope: configDependencyWatch}},
+    {{Path: helper, Digest: strings.Repeat("g", sha256.Size*2), Scope: configDependencyWatch}},
+    {valid, {Path: helper, Digest: strings.Repeat("0", sha256.Size*2), Scope: configDependencyWatch}},
+    {{Path: helper, Digest: valid.Digest, Scope: "invalid"}},
+    {valid, {Path: helper, Digest: valid.Digest, Scope: configDependencyCache}},
   }
   for index, candidate := range invalid {
     if normalized, ok := normalizeConfigDependencyFingerprints(candidate); ok {

@@ -206,6 +206,7 @@ type ConfigPluginEntry = { namespace: string; source: string };
 type ConfigDependencyFingerprint = {
   digest: string;
   path: string;
+  scope: "cache" | "watch";
 };
 
 type ConfigPluginEvaluation = {
@@ -484,12 +485,17 @@ function readJsonConfigPlugins(
 // as a JSON array for the parent process to parse — avoiding the need to
 // serialise arbitrary in-memory plugin objects across the process boundary.
 // The URL lives in a variable so tsgo does not statically resolve it.
-const TTSX_EXTRACTOR_SCRIPT = `import * as fs from "node:fs";
+const TTSX_EXTRACTOR_SCRIPT = `// @ts-ignore -- internal loader must not require user-installed Node typings.
+import * as fs from "node:fs";
+// @ts-ignore -- internal loader must not require user-installed Node typings.
 import { createHash } from "node:crypto";
+// @ts-ignore -- internal loader must not require user-installed Node typings.
 import { createRequire, registerHooks } from "node:module";
+// @ts-ignore -- internal loader must not require user-installed Node typings.
 import { fileURLToPath } from "node:url";
 
 const configUrl = %CONFIG_IMPORT%;
+const outputPath = %CONFIG_OUTPUT%;
 const requireFromConfig = createRequire(configUrl);
 const CONFIG_KEYS = new Set<string>([
   "files",
@@ -499,8 +505,12 @@ const CONFIG_KEYS = new Set<string>([
   "rules",
   "format",
 ]);
-const dependencies = new Map<string, string>();
-const trackedUrls = new Set<string>();
+const dependencies = new Map<string, {
+  digest: string;
+  path: string;
+  scope: "cache" | "watch";
+}>();
+const graphUrls = new Map<string, boolean>();
 
 declare const process: {
   cwd(): string;
@@ -518,27 +528,28 @@ const hooks = registerHooks({
     const url = new URL(resolved.url).href;
     const parent = context.parentURL && new URL(context.parentURL).href;
     const entry = url === new URL(configUrl).href;
-    if (!entry && (parent === undefined || !trackedUrls.has(parent))) {
+    const parentIsWatched = parent === undefined ? undefined : graphUrls.get(parent);
+    if (!entry && parentIsWatched === undefined) {
       return resolved;
     }
     const location = fileURLToPath(url);
-    if (
+    const packageBoundary =
       !entry &&
+      parentIsWatched === true &&
       location.replaceAll("\\\\", "/").split("/").includes("node_modules") &&
-      !isLocalModuleSpecifier(specifier)
-    ) {
-      return resolved;
-    }
-    trackedUrls.add(url);
+      !isLocalModuleSpecifier(specifier);
+    const watched = entry || (parentIsWatched === true && !packageBoundary);
+    graphUrls.set(url, watched);
     try {
-      dependencies.set(
+      recordDependency(
         location,
         createHash("sha256").update(fs.readFileSync(location)).digest("hex"),
+        watched,
       );
     } catch {
       // The evaluator remains authoritative for the load error. An unreadable
       // dependency simply makes this result non-cacheable in the parent.
-      dependencies.set(location, "");
+      recordDependency(location, "", watched);
     }
     return resolved;
   },
@@ -552,14 +563,18 @@ try {
   for (const map of pluginMaps) {
     for (const [namespace, value] of Object.entries(map)) {
       const source = extractPluginSource(value);
-      if (source === undefined) continue;
+      if (source === undefined || source.length === 0) {
+        throw new Error(
+          \`contributor \${JSON.stringify(namespace)} must resolve to an object with a non-empty "source" string\`,
+        );
+      }
       entries.push({ namespace, source });
     }
   }
-  process.stdout.write(JSON.stringify({
-    dependencies: [...dependencies].map(([path, digest]) => ({ path, digest })),
+  fs.writeFileSync(outputPath, JSON.stringify({
+    dependencies: [...dependencies.values()],
     entries,
-  }));
+  }), "utf8");
 } catch (error) {
   process.stderr.write(error instanceof Error && error.stack ? error.stack : String(error));
   process.exit(1);
@@ -569,6 +584,15 @@ try {
 
 function isObject(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object";
+}
+
+function recordDependency(location: string, digest: string, watched: boolean): void {
+  const previous = dependencies.get(location);
+  dependencies.set(location, {
+    digest: previous !== undefined && previous.digest !== digest ? "" : digest,
+    path: location,
+    scope: watched || previous?.scope === "watch" ? "watch" : "cache",
+  });
 }
 
 function isLocalModuleSpecifier(specifier: string): boolean {
@@ -771,11 +795,12 @@ function evaluateTtsxConfigPlugins(
   try {
     linkNearestNodeModules(tempDir, path.dirname(configPath));
     const loaderPath = path.join(tempDir, "loader.mts");
+    const outputPath = path.join(tempDir, "result.json");
     const tsconfigPath = path.join(tempDir, "tsconfig.json");
     const loaderSource = TTSX_EXTRACTOR_SCRIPT.replace(
       "%CONFIG_IMPORT%",
       JSON.stringify(pathToFileURL(configPath).href),
-    );
+    ).replace("%CONFIG_OUTPUT%", JSON.stringify(outputPath));
     fs.writeFileSync(loaderPath, loaderSource, "utf8");
     fs.writeFileSync(
       tsconfigPath,
@@ -836,6 +861,7 @@ function evaluateTtsxConfigPlugins(
       env,
       encoding: "utf8",
       maxBuffer: 1024 * 1024 * 16,
+      stdio: ["ignore", "inherit", "pipe"],
       // 60s cap so a runaway top-level await / infinite loop in the
       // user's lint config can't hang the entire ttsc invocation.
       timeout: 60_000,
@@ -854,7 +880,7 @@ function evaluateTtsxConfigPlugins(
     }
     if (result.status !== 0) {
       throw new Error(
-        `@ttsc/lint: lint config ${configPath} evaluation failed:\n${result.stderr || result.stdout}`,
+        `@ttsc/lint: lint config ${configPath} evaluation failed:\n${result.stderr}`,
       );
     }
     let payload: {
@@ -862,7 +888,7 @@ function evaluateTtsxConfigPlugins(
       entries?: ConfigPluginEntry[];
     };
     try {
-      payload = JSON.parse(result.stdout) as {
+      payload = JSON.parse(fs.readFileSync(outputPath, "utf8")) as {
         dependencies?: ConfigDependencyFingerprint[];
         entries?: ConfigPluginEntry[];
       };
@@ -939,7 +965,7 @@ function evaluateTtsxConfigPlugins(
  * Namespaces the on-disk config cache. Kept in lockstep with the Go sidecar's
  * `configCacheVersion`; bump both when the cached shape changes.
  */
-const CONFIG_CACHE_VERSION = "v3";
+const CONFIG_CACHE_VERSION = "v4";
 
 /**
  * Directory shared by this factory and the Go sidecar for cached lint configs.
@@ -1062,23 +1088,31 @@ function normalizeConfigDependencyFingerprints(
       candidate === null ||
       typeof candidate !== "object" ||
       typeof (candidate as ConfigDependencyFingerprint).path !== "string" ||
-      typeof (candidate as ConfigDependencyFingerprint).digest !== "string"
+      typeof (candidate as ConfigDependencyFingerprint).digest !== "string" ||
+      !["cache", "watch"].includes(
+        (candidate as ConfigDependencyFingerprint).scope,
+      )
     ) {
       return undefined;
     }
     const candidatePath = (candidate as ConfigDependencyFingerprint).path;
     const digest = (candidate as ConfigDependencyFingerprint).digest;
+    const scope = (candidate as ConfigDependencyFingerprint).scope;
     if (!path.isAbsolute(candidatePath) || !/^[0-9a-f]{64}$/.test(digest)) {
       return undefined;
     }
     const location = path.resolve(candidatePath);
     const previous = dependencies.get(location);
-    if (previous !== undefined && previous.digest !== digest) {
+    if (
+      previous !== undefined &&
+      (previous.digest !== digest || previous.scope !== scope)
+    ) {
       return undefined;
     }
     dependencies.set(location, {
       digest,
       path: location,
+      scope,
     });
   }
   return [...dependencies.values()].sort((left, right) =>

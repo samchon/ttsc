@@ -8,7 +8,8 @@ import { createLintProject } from "../../internal/config-file";
 /**
  * Verifies helper-only contributor changes invalidate every module format.
  *
- * 1. Resolve contributor A through an MJS config and a sibling MJS helper.
+ * 1. Resolve contributor A through a logging MJS config and sibling MJS helper
+ *    without mixing stdout into the result payload.
  * 2. Change only that helper and resolve contributor B from the same entry.
  * 3. Repeat the identical transition through a TypeScript config/helper pair.
  */
@@ -54,6 +55,7 @@ function writeModuleConfig(root: string, extension: "mjs" | "ts"): void {
   fs.writeFileSync(
     path.join(directory, `lint.config.${extension}`),
     `import plugins from "../selection.${extension}";
+console.log("loading ${extension} lint config");
 export default { plugins };
 `,
     "utf8",
