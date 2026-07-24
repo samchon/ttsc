@@ -11,6 +11,10 @@ import {
  * Verifies the launcher accepts only absolute local dependency snapshots and
  * refuses to merge producer views of different physical projects.
  *
+ * A malformed opt-in sidecar must fail before it can redirect a long-lived
+ * watcher to an unrelated or remote namespace; silent path resolution would
+ * make the launcher observe a different project than the plugin evaluated.
+ *
  * 1. Reject relative files, remote URLs, and relative roots at the decoder.
  * 2. Reject two otherwise-valid snapshots that publish different roots.
  * 3. Merge duplicate absolute entries under one consistent root.
@@ -65,6 +69,24 @@ export const test_project_input_snapshots_reject_non_local_paths_and_mismatched_
         "win32",
       ),
       true,
+    );
+    assert.equal(
+      isAbsoluteLocalProjectInputPath("\\\\server\\share", "win32"),
+      true,
+      "a UNC share root is an absolute local filesystem path",
+    );
+    assert.equal(
+      isAbsoluteLocalProjectInputPath(
+        "\\\\?\\GLOBALROOT\\Device\\HarddiskVolume1",
+        "win32",
+      ),
+      false,
+      "a device namespace is not a declared local filesystem path",
+    );
+    assert.equal(
+      isAbsoluteLocalProjectInputPath("\\\\.\\pipe\\ttsc", "win32"),
+      false,
+      "a named-pipe namespace is not a declared local filesystem path",
     );
     assert.deepEqual(mergeProjectInputSnapshots(root, [first, first]), {
       root,

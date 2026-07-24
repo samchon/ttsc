@@ -1296,9 +1296,15 @@ export function isAbsoluteLocalProjectInputPath(
   platform: NodeJS.Platform = process.platform,
 ): boolean {
   if (platform !== "win32") return path.posix.isAbsolute(location);
-  if (!path.win32.isAbsolute(location)) return false;
-  const root = path.win32.parse(location).root.replaceAll("/", "\\");
-  return /^[A-Za-z]:\\$/.test(root) || /^\\\\[^\\]+\\[^\\]+\\$/.test(root);
+  const normalized = location.replaceAll("/", "\\");
+  if (/^[A-Za-z]:\\/.test(normalized)) return true;
+  if (
+    normalized.startsWith("\\\\?\\") ||
+    normalized.startsWith("\\\\.\\")
+  ) {
+    return false;
+  }
+  return /^\\\\[^\\]+\\[^\\]+(?:\\|$)/.test(normalized);
 }
 
 function isStringArray(value: unknown): value is string[] {
