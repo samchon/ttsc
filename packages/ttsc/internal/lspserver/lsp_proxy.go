@@ -1331,7 +1331,7 @@ func (p *Proxy) publishMergedPluginDiagnostics(uri string, version *int, adoptCa
     )
     p.reportAsyncError(err)
     if writeResult.frameWritten &&
-      p.pendingProjectDiagnosticOwnersRefreshed(
+      p.recordPendingProjectDiagnosticOwnersRefreshed(
         diagnostics.projectUpdatedProducers,
       ) {
       p.completePendingProjectDiagnosticRefresh(projectGeneration)
@@ -2639,6 +2639,11 @@ func (p *Proxy) scheduleProjectDiagnosticRefresh(
       p.pendingProjectDiagnosticOwners[owner] = struct{}{}
     }
   }
+  p.armProjectDiagnosticRefreshLocked()
+  p.projectRefreshMu.Unlock()
+}
+
+func (p *Proxy) armProjectDiagnosticRefreshLocked() {
   if p.projectRefreshTimer != nil {
     p.projectRefreshTimer.Stop()
   }
@@ -2647,7 +2652,6 @@ func (p *Proxy) scheduleProjectDiagnosticRefresh(
       p.refreshProjectDiagnostics,
     )
   })
-  p.projectRefreshMu.Unlock()
 }
 
 func (p *Proxy) pendingProjectDiagnosticScopeLocked() projectDiagnosticOwnerScope {
@@ -2661,7 +2665,7 @@ func (p *Proxy) pendingProjectDiagnosticScopeLocked() projectDiagnosticOwnerScop
   return scope
 }
 
-func (p *Proxy) pendingProjectDiagnosticOwnersRefreshed(
+func (p *Proxy) recordPendingProjectDiagnosticOwnersRefreshed(
   refreshed map[string]struct{},
 ) bool {
   p.projectRefreshMu.Lock()
@@ -2671,12 +2675,10 @@ func (p *Proxy) pendingProjectDiagnosticOwnersRefreshed(
     len(p.pendingProjectDiagnosticOwners) == 0 {
     return false
   }
-  for owner := range p.pendingProjectDiagnosticOwners {
-    if _, ok := refreshed[owner]; !ok {
-      return false
-    }
+  for owner := range refreshed {
+    delete(p.pendingProjectDiagnosticOwners, owner)
   }
-  return true
+  return len(p.pendingProjectDiagnosticOwners) == 0
 }
 
 func (p *Proxy) refreshProjectDiagnostics(uint64) {
@@ -2728,7 +2730,10 @@ func (p *Proxy) refreshProjectDiagnostics(uint64) {
     return
   }
   if writeResult.frameWritten {
-    if refresh.complete {
+    ownersComplete :=
+      !scope.all &&
+        p.recordPendingProjectDiagnosticOwnersRefreshed(refresh.refreshed)
+    if refresh.complete || ownersComplete {
       p.completePendingProjectDiagnosticRefresh(generation)
     }
     return
@@ -2775,11 +2780,9 @@ func (p *Proxy) resumePendingProjectDiagnosticRefresh() {
     return
   }
   p.projectRefreshMu.Lock()
-  pending := p.projectDiagnosticRefreshPending
-  scope := p.pendingProjectDiagnosticScopeLocked()
-  p.projectRefreshMu.Unlock()
-  if pending {
-    p.scheduleProjectDiagnosticRefresh(scope)
+  defer p.projectRefreshMu.Unlock()
+  if p.projectDiagnosticRefreshPending {
+    p.armProjectDiagnosticRefreshLocked()
   }
 }
 
