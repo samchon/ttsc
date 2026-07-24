@@ -10,21 +10,60 @@ type projectDiagnosticRecord struct {
   publication LSPProjectDiagnostics
 }
 
+type projectDiagnosticsRefreshResult struct {
+  publication *LSPProjectDiagnostics
+  refreshed   map[string]struct{}
+  complete    bool
+  selected    int
+}
+
 // ProjectDiagnostics evaluates project rules without requiring an open
 // document and returns the latest successful publication from every capable
 // sidecar.
 func (s *NativePluginSource) ProjectDiagnostics() *LSPProjectDiagnostics {
+  return s.ProjectDiagnosticsForOwners(nil).publication
+}
+
+// ProjectDiagnosticsForOwners refreshes only the diagnostics-capable producers
+// named by owners. A nil owner list preserves the legacy all-producer request;
+// an empty non-nil list is a successful no-op.
+func (s *NativePluginSource) ProjectDiagnosticsForOwners(
+  owners []string,
+) projectDiagnosticsRefreshResult {
   if s == nil {
-    return nil
+    return projectDiagnosticsRefreshResult{}
+  }
+  selectedOwners := map[string]struct{}{}
+  if owners != nil {
+    for _, owner := range owners {
+      selectedOwners[owner] = struct{}{}
+    }
   }
   generation := s.projectDiagnosticsSequence.Add(1)
+  result := projectDiagnosticsRefreshResult{
+    complete:  true,
+    refreshed: map[string]struct{}{},
+  }
+  seen := map[string]struct{}{}
   for _, plugin := range s.plugins {
     if !plugin.ProjectDiagnostics {
       continue
     }
+    key := pluginKey(plugin)
+    if _, duplicate := seen[key]; duplicate {
+      continue
+    }
+    seen[key] = struct{}{}
+    if owners != nil {
+      if _, selected := selectedOwners[key]; !selected {
+        continue
+      }
+    }
+    result.selected++
     body, err := s.run(plugin, serveVerbProjectDiagnostics)
     if err != nil {
       s.log("%v", err)
+      result.complete = false
       continue
     }
     var publication *LSPProjectDiagnostics
@@ -34,14 +73,18 @@ func (s *NativePluginSource) ProjectDiagnostics() *LSPProjectDiagnostics {
         pluginLabel(plugin),
         err,
       )
+      result.complete = false
       continue
     }
     if publication == nil || publication.URI == "" {
+      result.complete = false
       continue
     }
     s.storeProjectDiagnostics(plugin, generation, publication)
+    result.refreshed[key] = struct{}{}
   }
-  return s.projectDiagnosticsSnapshot()
+  result.publication = s.projectDiagnosticsSnapshot()
+  return result
 }
 
 // storeProjectDiagnostics replaces one producer's last-good publication. A

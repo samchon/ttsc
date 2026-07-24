@@ -203,7 +203,9 @@ func (s *NativePluginSource) Diagnostics(doc LSPDocumentVersion) LSPDiagnosticsR
     return LSPDiagnosticsResult{}
   }
   generation := s.projectDiagnosticsSequence.Add(1)
-  out := LSPDiagnosticsResult{}
+  out := LSPDiagnosticsResult{
+    projectUpdatedProducers: map[string]struct{}{},
+  }
   for _, plugin := range s.plugins {
     body, err := s.run(plugin, "lsp-diagnostics", "--uri="+doc.URI)
     if err != nil {
@@ -218,9 +220,12 @@ func (s *NativePluginSource) Diagnostics(doc LSPDocumentVersion) LSPDiagnosticsR
     out.Document = append(out.Document, result.Document...)
     if result.Project != nil && result.Project.URI != "" {
       s.storeProjectDiagnostics(plugin, generation, result.Project)
+      out.projectUpdatedProducers[pluginKey(plugin)] = struct{}{}
     }
   }
-  out.Project = s.projectDiagnosticsSnapshot()
+  if len(out.projectUpdatedProducers) != 0 {
+    out.Project = s.projectDiagnosticsSnapshot()
+  }
   return out
 }
 

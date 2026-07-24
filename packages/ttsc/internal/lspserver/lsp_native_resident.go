@@ -266,6 +266,26 @@ func (s *NativePluginSource) InvalidateResidentProgramsForWatchedChanges(
   changedURIs []string,
   externalURIs []string,
 ) {
+  externalOwners := make(map[string][]string, len(externalURIs))
+  for _, uri := range externalURIs {
+    externalOwners[uri] = nil
+  }
+  s.InvalidateResidentProgramsForOwnedWatchedChanges(
+    changedURIs,
+    externalURIs,
+    externalOwners,
+  )
+}
+
+// InvalidateResidentProgramsForOwnedWatchedChanges sends declared external
+// changes only to resident binaries that own the matching snapshot. Ordinary
+// compiler changes still reach every resident because every Program observes
+// them.
+func (s *NativePluginSource) InvalidateResidentProgramsForOwnedWatchedChanges(
+  changedURIs []string,
+  externalURIs []string,
+  externalOwners map[string][]string,
+) {
   if s == nil {
     return
   }
@@ -273,20 +293,55 @@ func (s *NativePluginSource) InvalidateResidentProgramsForWatchedChanges(
   for _, uri := range externalURIs {
     external[uri] = struct{}{}
   }
-  s.residentMu.Lock()
-  residents := make([]*residentSidecar, 0, len(s.residents))
-  for _, sc := range s.residents {
-    residents = append(residents, sc)
+  ordinary := make([]string, 0, len(changedURIs))
+  for _, uri := range changedURIs {
+    if _, ok := external[uri]; !ok {
+      ordinary = append(ordinary, uri)
+    }
   }
-  s.residentMu.Unlock()
-  for _, sc := range residents {
-    sc.mu.Lock()
-    sc.changed = append(sc.changed, changedURIs...)
-    for _, uri := range changedURIs {
-      if _, ok := external[uri]; ok {
-        sc.external = append(sc.external, uri)
+  ownerBinaries := make(map[string]map[string]struct{}, len(externalURIs))
+  allBinaries := make(map[string]bool, len(externalURIs))
+  pluginsByKey := make(map[string]NativeLSPPluginEntry, len(s.plugins))
+  for _, plugin := range s.plugins {
+    pluginsByKey[pluginKey(plugin)] = plugin
+  }
+  for _, uri := range externalURIs {
+    owners, scoped := externalOwners[uri]
+    if !scoped || owners == nil {
+      allBinaries[uri] = true
+      continue
+    }
+    binaries := map[string]struct{}{}
+    for _, owner := range owners {
+      if plugin, ok := pluginsByKey[owner]; ok {
+        binaries[plugin.Binary] = struct{}{}
       }
     }
+    ownerBinaries[uri] = binaries
+  }
+  s.residentMu.Lock()
+  residents := make(map[string]*residentSidecar, len(s.residents))
+  for binary, sc := range s.residents {
+    residents[binary] = sc
+  }
+  s.residentMu.Unlock()
+  for binary, sc := range residents {
+    changed := append([]string(nil), ordinary...)
+    selectedExternal := []string{}
+    for _, uri := range externalURIs {
+      _, owned := ownerBinaries[uri][binary]
+      if !allBinaries[uri] && !owned {
+        continue
+      }
+      changed = append(changed, uri)
+      selectedExternal = append(selectedExternal, uri)
+    }
+    if len(changed) == 0 {
+      continue
+    }
+    sc.mu.Lock()
+    sc.changed = append(sc.changed, changed...)
+    sc.external = append(sc.external, selectedExternal...)
     sc.mu.Unlock()
   }
 }
