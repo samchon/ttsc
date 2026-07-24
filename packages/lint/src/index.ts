@@ -516,7 +516,13 @@ const hooks = registerHooks({
           pathHasNodeModules(location) && !isLocalModuleSpecifier(specifier),
         parent,
       });
-      recordResolutionTopology(specifier, parent, url, location);
+      recordResolutionTopology(
+        specifier,
+        parent,
+        url,
+        location,
+        context.conditions,
+      );
     }
     try {
       recordDependency(
@@ -601,6 +607,7 @@ function recordResolutionTopology(
   parentUrl: string,
   childUrl: string,
   childLocation: string,
+  conditions: readonly string[],
 ): void {
   const owners = [parentUrl, childUrl];
   const parentLocation = graphNodes.get(parentUrl);
@@ -615,6 +622,7 @@ function recordResolutionTopology(
       specifier,
       childLocation,
       owners,
+      conditions,
     );
   }
 }
@@ -751,6 +759,7 @@ function recordNodeModulesSearchDirectories(
   specifier: string,
   childLocation: string,
   owners: readonly string[],
+  conditions: readonly string[],
 ): void {
   const packageName = modulePackageName(specifier);
   const scope =
@@ -777,18 +786,20 @@ function recordNodeModulesSearchDirectories(
           }
         }
         if (packageName !== undefined) {
-          recordPackageCandidateTopology(
+          const selected = recordPackageCandidateTopology(
             modules,
             packageName,
             specifier,
+            childLocation,
             owners,
+            conditions,
           );
-        }
-        if (
-          packageName !== undefined &&
-          resolvedPackageContains(modules, packageName, childLocation)
-        ) {
-          return;
+          if (
+            selected ||
+            resolvedPackageContains(modules, packageName, childLocation)
+          ) {
+            return;
+          }
         }
       }
     } catch {
@@ -810,91 +821,357 @@ function recordPackageCandidateTopology(
   modules: string,
   packageName: string,
   specifier: string,
+  childLocation: string,
   owners: readonly string[],
-): void {
+  conditions: readonly string[],
+): boolean {
   const packageRoot = path.join(modules, packageName);
   try {
-    if (!fs.statSync(packageRoot).isDirectory()) return;
+    if (!fs.statSync(packageRoot).isDirectory()) return false;
   } catch {
-    return;
+    return false;
   }
   const subpath = specifier
     .slice(packageName.length)
     .replace(/^[/\\\\]+/, "");
-  const hasExports = recordPackageRootTopology(
+  const rootTopology = recordPackageRootTopology(
     packageRoot,
     owners,
     subpath === "",
+    subpath === "" ? "." : "./" + subpath.replaceAll("\\\\", "/"),
+    childLocation,
+    conditions,
   );
-  if (subpath !== "" && !hasExports) {
-    recordPackageSubpathTopology(packageRoot, subpath, owners);
+  if (subpath !== "" && !rootTopology.hasExports) {
+    return (
+      recordPackageSubpathTopology(
+        packageRoot,
+        subpath,
+        childLocation,
+        owners,
+      ) || rootTopology.selected
+    );
   }
+  return rootTopology.selected;
 }
 
 function recordPackageRootTopology(
   packageRoot: string,
   owners: readonly string[],
   useMain: boolean,
-): boolean {
+  packageSubpath: string,
+  childLocation: string,
+  conditions: readonly string[],
+): { hasExports: boolean; selected: boolean } {
   const normalizedRoot = path.resolve(packageRoot);
-  recordDirectoryDependency(normalizedRoot, owners);
   const manifest = path.join(normalizedRoot, "package.json");
-  if (!recordOptionalFileDependency(manifest, owners)) return false;
+  if (!recordOptionalFileDependency(manifest, owners)) {
+    return {
+      hasExports: false,
+      selected:
+        useMain &&
+        packagePathCandidateMatchesChild(
+          normalizedRoot,
+          childLocation,
+          true,
+        ),
+    };
+  }
   try {
     const value = JSON.parse(fs.readFileSync(manifest, "utf8"));
     if (value !== null && typeof value === "object") {
       const metadata = value as Record<string, unknown>;
       const hasExports =
         metadata.exports !== undefined && metadata.exports !== null;
+      if (hasExports) {
+        const target = selectPackageExportsTarget(
+          metadata.exports,
+          packageSubpath,
+          new Set(conditions),
+        );
+        const candidate =
+          typeof target === "string"
+            ? packageExportsTarget(normalizedRoot, target)
+            : undefined;
+        const selected =
+          candidate !== undefined &&
+          packagePathCandidateMatchesChild(
+            candidate,
+            childLocation,
+            false,
+          );
+        if (selected) recordPackagePathCandidate(candidate, owners);
+        return { hasExports: true, selected };
+      }
+      let selected =
+        useMain &&
+        packagePathCandidateMatchesChild(
+          normalizedRoot,
+          childLocation,
+          true,
+        );
       if (useMain && !hasExports && typeof metadata.main === "string") {
         // CommonJS main is a legacy path, not an exports target. Node resolves
         // it literally and permits absolute paths and paths outside the package.
-        recordPackagePathCandidate(
-          path.resolve(normalizedRoot, metadata.main),
-          owners,
-        );
+        const main = path.resolve(normalizedRoot, metadata.main);
+        recordPackagePathCandidate(main, owners);
+        selected =
+          packagePathCandidateMatchesChild(main, childLocation, true) ||
+          selected;
       }
-      // A successful exports resolution already records the selected child's
-      // directory and file. The manifest owns mapping changes; inactive
-      // subpaths and conditions must not become watch inputs.
-      return hasExports;
+      return {
+        hasExports: false,
+        selected,
+      };
     }
   } catch {
     // Node owns malformed-manifest diagnostics; the manifest digest is enough
     // to invalidate this evaluation when its contents change.
   }
-  return false;
+  return {
+    hasExports: false,
+    selected:
+      useMain &&
+      packagePathCandidateMatchesChild(
+        normalizedRoot,
+        childLocation,
+        true,
+      ),
+  };
+}
+
+function selectPackageExportsTarget(
+  exportsValue: unknown,
+  packageSubpath: string,
+  conditions: ReadonlySet<string>,
+): string | null | undefined {
+  let mappings: unknown = exportsValue;
+  if (
+    typeof mappings === "string" ||
+    Array.isArray(mappings) ||
+    (isObject(mappings) &&
+      Object.keys(mappings).every((key) => !key.startsWith(".")))
+  ) {
+    if (packageSubpath !== ".") return undefined;
+    return selectPackageTarget(mappings, "", false, conditions);
+  }
+  if (!isObject(mappings)) return undefined;
+  if (
+    Object.prototype.hasOwnProperty.call(mappings, packageSubpath) &&
+    !packageSubpath.includes("*") &&
+    !packageSubpath.endsWith("/")
+  ) {
+    return selectPackageTarget(
+      mappings[packageSubpath],
+      "",
+      false,
+      conditions,
+    );
+  }
+  let bestMatch = "";
+  let bestSubpath = "";
+  for (const key of Object.keys(mappings)) {
+    const wildcard = key.indexOf("*");
+    if (
+      wildcard === -1 ||
+      key.lastIndexOf("*") !== wildcard ||
+      !packageSubpath.startsWith(key.slice(0, wildcard))
+    ) {
+      continue;
+    }
+    const trailer = key.slice(wildcard + 1);
+    if (
+      packageSubpath.length < key.length ||
+      !packageSubpath.endsWith(trailer) ||
+      packagePatternKeyCompare(bestMatch, key) !== 1
+    ) {
+      continue;
+    }
+    bestMatch = key;
+    bestSubpath = packageSubpath.slice(
+      wildcard,
+      packageSubpath.length - trailer.length,
+    );
+  }
+  return bestMatch === ""
+    ? undefined
+    : selectPackageTarget(
+        mappings[bestMatch],
+        bestSubpath,
+        true,
+        conditions,
+      );
+}
+
+function selectPackageTarget(
+  target: unknown,
+  subpath: string,
+  pattern: boolean,
+  conditions: ReadonlySet<string>,
+): string | null | undefined {
+  if (typeof target === "string") {
+    const selected = pattern ? target.replaceAll("*", subpath) : target;
+    return validPackageExportsTarget(selected) ? selected : undefined;
+  }
+  if (Array.isArray(target)) {
+    for (const item of target) {
+      const selected = selectPackageTarget(
+        item,
+        subpath,
+        pattern,
+        conditions,
+      );
+      if (selected !== undefined && selected !== null) return selected;
+    }
+    return null;
+  }
+  if (isObject(target)) {
+    for (const [condition, value] of Object.entries(target)) {
+      if (condition !== "default" && !conditions.has(condition)) continue;
+      const selected = selectPackageTarget(
+        value,
+        subpath,
+        pattern,
+        conditions,
+      );
+      if (selected !== undefined) return selected;
+    }
+    return undefined;
+  }
+  return target === null ? null : undefined;
+}
+
+function packagePatternKeyCompare(left: string, right: string): number {
+  const leftWildcard = left.indexOf("*");
+  const rightWildcard = right.indexOf("*");
+  const leftBase =
+    leftWildcard === -1 ? left.length : leftWildcard + 1;
+  const rightBase =
+    rightWildcard === -1 ? right.length : rightWildcard + 1;
+  if (leftBase > rightBase) return -1;
+  if (rightBase > leftBase) return 1;
+  if (leftWildcard === -1) return 1;
+  if (rightWildcard === -1) return -1;
+  if (left.length > right.length) return -1;
+  if (right.length > left.length) return 1;
+  return 0;
+}
+
+function packageExportsTarget(
+  packageRoot: string,
+  target: string,
+): string | undefined {
+  if (!validPackageExportsTarget(target)) return undefined;
+  try {
+    const decoded = target
+      .slice(2)
+      .replaceAll("\\\\", "/")
+      .split("/")
+      .map((component) => decodeURIComponent(component))
+      .join(path.sep);
+    return boundedPackageTarget(packageRoot, decoded);
+  } catch {
+    return undefined;
+  }
+}
+
+function validPackageExportsTarget(target: string): boolean {
+  if (!target.startsWith("./") || /%2f|%5c/i.test(target)) return false;
+  const components = target
+    .slice(2)
+    .replaceAll("\\\\", "/")
+    .split("/");
+  if (
+    components.some(
+      (component) => {
+        try {
+          const decoded = decodeURIComponent(component);
+          return (
+            decoded === "." ||
+            decoded === ".." ||
+            decoded.includes("/") ||
+            decoded.includes("\\\\") ||
+            decoded.toLowerCase() === "node_modules"
+          );
+        } catch {
+          return true;
+        }
+      },
+    )
+  ) {
+    return false;
+  }
+  return true;
+}
+
+function packagePathCandidateMatchesChild(
+  candidate: string,
+  childLocation: string,
+  legacy: boolean,
+): boolean {
+  let child: string;
+  try {
+    child = fs.realpathSync.native(childLocation);
+  } catch {
+    child = path.resolve(childLocation);
+  }
+  const candidates = legacy
+    ? [
+        candidate,
+        candidate + ".js",
+        candidate + ".json",
+        candidate + ".node",
+        path.join(candidate, "index.js"),
+        path.join(candidate, "index.json"),
+        path.join(candidate, "index.node"),
+      ]
+    : [candidate];
+  return candidates.some((location) => {
+    try {
+      return sameResolutionPath(fs.realpathSync.native(location), child);
+    } catch {
+      return false;
+    }
+  });
 }
 
 function recordPackageSubpathTopology(
   packageRoot: string,
   subpath: string,
+  childLocation: string,
   owners: readonly string[],
-): void {
+): boolean {
   const candidate = boundedPackageTarget(packageRoot, subpath);
-  if (candidate === undefined) return;
+  if (candidate === undefined) return false;
   recordPackagePathCandidate(candidate, owners);
+  let selected = packagePathCandidateMatchesChild(
+    candidate,
+    childLocation,
+    true,
+  );
   try {
-    if (!fs.statSync(candidate).isDirectory()) return;
+    if (!fs.statSync(candidate).isDirectory()) return selected;
   } catch {
-    return;
+    return selected;
   }
   const manifest = path.join(candidate, "package.json");
-  if (!recordOptionalFileDependency(manifest, owners)) return;
+  if (!recordOptionalFileDependency(manifest, owners)) return selected;
   try {
     const value = JSON.parse(fs.readFileSync(manifest, "utf8"));
     if (value !== null && typeof value === "object") {
       const metadata = value as Record<string, unknown>;
       if (typeof metadata.main === "string") {
-        recordPackagePathCandidate(
-          path.resolve(candidate, metadata.main),
-          owners,
-        );
+        const main = path.resolve(candidate, metadata.main);
+        recordPackagePathCandidate(main, owners);
+        selected =
+          packagePathCandidateMatchesChild(main, childLocation, true) ||
+          selected;
       }
     }
   } catch {
     // Node owns malformed nested-package diagnostics.
   }
+  return selected;
 }
 
 function boundedPackageTarget(
@@ -916,8 +1193,14 @@ function boundedPackageTarget(
 function recordPackagePathCandidate(
   candidate: string,
   owners: readonly string[],
+  visited: Set<string> = new Set(),
+  depth = 0,
 ): void {
   const normalized = path.resolve(candidate);
+  const visitKey =
+    process.platform === "win32" ? normalized.toLowerCase() : normalized;
+  if (depth >= 64 || visited.has(visitKey)) return;
+  visited.add(visitKey);
   const parsed = path.parse(normalized);
   const components = normalized
     .slice(parsed.root.length)
@@ -937,6 +1220,21 @@ function recordPackagePathCandidate(
     if (entry.isSymbolicLink()) {
       // The containing directory digest carries the raw link target.
       recordDirectoryDependency(current, owners);
+      try {
+        const target = fs.readlinkSync(next);
+        const remainder = components.slice(index + 1);
+        recordPackagePathCandidate(
+          path.join(
+            path.resolve(current, target),
+            ...remainder,
+          ),
+          owners,
+          visited,
+          depth + 1,
+        );
+      } catch {
+        // The lexical link record already carries the unreadable state.
+      }
     }
     let isDirectory = entry.isDirectory();
     if (entry.isSymbolicLink()) {

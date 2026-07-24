@@ -40,6 +40,12 @@ import (
 //     condition branches do not become cache or watch dependencies.
 //  13. Extend an executable config from JSON and prove the nested evaluation's
 //     resolution directories reach the final resolver.
+//  14. Retarget the selected exports path through a nested symlink and prove
+//     only that lexical path invalidates while the package root stays absent.
+//  15. Load the conditional package from a TypeScript config and prove the
+//     generated typed loader applies the same active-condition semantics.
+//  16. Resolve a dangling external legacy-main link through root fallback, then
+//     create its unchanged target and prove the new main becomes visible.
 func TestScriptConfigLoaderTracksLocalDependencyGraph(t *testing.T) {
   t.Setenv("TTSC_LINT_DISABLE_CONFIG_CACHE", "")
   root := t.TempDir()
@@ -343,12 +349,11 @@ module.exports = {
     "no-var",
     "warning",
   )
-  assertConfigDependencyKindScope(
+  assertConfigDependencyKindAbsent(
     t,
     beforeNestedMain.dependencyDigests,
     nearerPackage,
     configDependencyDir,
-    configDependencyWatch,
   )
   assertConfigDependencyKindScope(
     t,
@@ -414,6 +419,11 @@ module.exports = {
     "no-var",
     "warning",
   )
+  assertConfigWatchDependenciesWithin(
+    t,
+    beforeLegacyMain.dependencyDigests,
+    root,
+  )
   assertConfigDependencyKindScope(
     t,
     beforeLegacyMain.dependencyDigests,
@@ -442,11 +452,13 @@ module.exports = {
   exportsPackage := filepath.Join(root, "node_modules", "exports-priority")
   activeExports := filepath.Join(exportsPackage, "require")
   inactiveExports := filepath.Join(exportsPackage, "import")
+  exportsBridge := filepath.Join(exportsPackage, "bridge")
   ignoredMain := filepath.Join(root, "ignored-exports-main")
   exportsProject := filepath.Join(root, "exports-project")
   for _, directory := range []string{
     activeExports,
     inactiveExports,
+    exportsBridge,
     ignoredMain,
     exportsProject,
   } {
@@ -456,9 +468,17 @@ module.exports = {
   }
   write(filepath.Join(activeExports, "index.cjs"), `module.exports = "error";`)
   write(filepath.Join(inactiveExports, "index.cjs"), `module.exports = "warning";`)
+  exportsTarget := "./require/index.cjs"
+  exportsLink := filepath.Join(exportsBridge, "active")
+  exportsLinkSupported := false
+  if err := os.Symlink(filepath.Join("..", "require"), exportsLink); err == nil {
+    exportsTarget = "./bridge/active/index.cjs"
+    exportsLinkSupported = true
+  }
   write(
     filepath.Join(exportsPackage, "package.json"),
-    `{"main":"../../ignored-exports-main/index.cjs","exports":{".":{"import":"./import/index.cjs","require":"./require/index.cjs"}}}`,
+    `{"main":"../../ignored-exports-main/index.cjs","exports":{".":{"import":"./import/index.cjs","require":`+
+      strconv.Quote(exportsTarget)+`}}}`,
   )
   exportsConfig := filepath.Join(exportsProject, "lint.config.cjs")
   write(exportsConfig, `module.exports = {
@@ -481,6 +501,107 @@ module.exports = {
   )
   assertConfigDependencyAbsent(t, exported.dependencyDigests, inactiveExports)
   assertConfigDependencyAbsent(t, exported.dependencyDigests, ignoredMain)
+  assertConfigDependencyKindAbsent(
+    t,
+    exported.dependencyDigests,
+    exportsPackage,
+    configDependencyDir,
+  )
+  if exportsLinkSupported {
+    assertConfigDependencyKindScope(
+      t,
+      exported.dependencyDigests,
+      exportsBridge,
+      configDependencyDir,
+      configDependencyWatch,
+    )
+    if err := os.Remove(exportsLink); err != nil {
+      t.Fatal(err)
+    }
+    if err := os.Symlink(filepath.Join("..", "import"), exportsLink); err != nil {
+      t.Fatal(err)
+    }
+    retargeted, err := loadConfigFileEvaluationWithin(
+      exportsConfig,
+      exportsProject,
+    )
+    if err != nil {
+      t.Fatalf("reload retargeted exports symlink: %v", err)
+    }
+    assertConfigRuleSeverity(t, retargeted.value, "no-var", "warning")
+  }
+
+  typedExportsConfig := filepath.Join(configs, "exports.config.ts")
+  write(typedExportsConfig, `import severity from "exports-priority";
+export default { rules: { "no-var": severity } };`)
+  typedExports, err := loadConfigFileEvaluation(typedExportsConfig)
+  if err != nil {
+    t.Fatalf("load typed conditional exports config: %v", err)
+  }
+  assertConfigRuleSeverity(t, typedExports.value, "no-var", "warning")
+  assertConfigDependencyKindScope(
+    t,
+    typedExports.dependencyDigests,
+    inactiveExports,
+    configDependencyDir,
+    configDependencyWatch,
+  )
+
+  danglingPackage := filepath.Join(root, "node_modules", "dangling-main")
+  danglingContainer := filepath.Join(root, "dangling-targets")
+  danglingTarget := filepath.Join(danglingContainer, "selection")
+  danglingLink := filepath.Join(danglingPackage, "link")
+  for _, directory := range []string{danglingPackage, danglingContainer} {
+    if err := os.MkdirAll(directory, 0o755); err != nil {
+      t.Fatal(err)
+    }
+  }
+  danglingSupported := false
+  if err := os.Symlink(danglingTarget, danglingLink); err == nil {
+    danglingSupported = true
+  }
+  if danglingSupported {
+    write(
+      filepath.Join(danglingPackage, "package.json"),
+      `{"main":"link/index.cjs"}`,
+    )
+    write(filepath.Join(danglingPackage, "index.js"), `module.exports = "warning";`)
+    danglingConfig := filepath.Join(configs, "dangling.config.cjs")
+    write(danglingConfig, `module.exports = {
+  rules: { "no-var": require("dangling-main") },
+};`)
+    beforeDanglingTarget, err := loadConfigFileEvaluation(danglingConfig)
+    if err != nil {
+      t.Fatalf("load dangling legacy main fallback: %v", err)
+    }
+    assertConfigRuleSeverity(
+      t,
+      beforeDanglingTarget.value,
+      "no-var",
+      "warning",
+    )
+    assertConfigDependencyKindScope(
+      t,
+      beforeDanglingTarget.dependencyDigests,
+      danglingContainer,
+      configDependencyDir,
+      configDependencyWatch,
+    )
+    if err := os.MkdirAll(danglingTarget, 0o755); err != nil {
+      t.Fatal(err)
+    }
+    write(filepath.Join(danglingTarget, "index.cjs"), `module.exports = "error";`)
+    afterDanglingTarget, err := loadConfigFileEvaluation(danglingConfig)
+    if err != nil {
+      t.Fatalf("reload appeared dangling legacy main target: %v", err)
+    }
+    assertConfigRuleSeverity(
+      t,
+      afterDanglingTarget.value,
+      "no-var",
+      "error",
+    )
+  }
 
   extendsRoot := filepath.Join(root, "extends")
   if err := os.MkdirAll(extendsRoot, 0o755); err != nil {
@@ -524,6 +645,26 @@ func assertConfigDependencyAbsent(
   for _, dependency := range dependencies {
     if filepath.Clean(dependency.Path) == filepath.Clean(unexpectedPath) {
       t.Fatalf("unexpected dependency %s in cache graph %v", unexpectedPath, dependencies)
+    }
+  }
+}
+
+func assertConfigDependencyKindAbsent(
+  t *testing.T,
+  dependencies []configDependencyFingerprint,
+  unexpectedPath string,
+  unexpectedKind string,
+) {
+  t.Helper()
+  for _, dependency := range dependencies {
+    if filepath.Clean(dependency.Path) == filepath.Clean(unexpectedPath) &&
+      dependency.Kind == unexpectedKind {
+      t.Fatalf(
+        "unexpected %s dependency %s in cache graph %v",
+        unexpectedKind,
+        unexpectedPath,
+        dependencies,
+      )
     }
   }
 }
