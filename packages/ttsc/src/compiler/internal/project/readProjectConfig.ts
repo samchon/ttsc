@@ -284,14 +284,11 @@ function resolveCompilerOptionPath(
     CONFIG_DIR_TEMPLATE.toLowerCase()
   ) {
     const suffix = value.slice(CONFIG_DIR_TEMPLATE.length);
-    return resolveAbsolutePath(
-      configDir,
-      suffix.length === 0
-        ? "."
-        : suffix.startsWith("/") || suffix.startsWith("\\")
-          ? `.${suffix}`
-          : suffix,
-    );
+    // TypeScript replaces the template with "./" before normalizing the
+    // result. Preserve that relative prefix even when the suffix resembles an
+    // absolute Windows path, and normalize either config-file separator on
+    // every host.
+    return resolveAbsolutePath(configDir, `./${suffix}`.replaceAll("\\", "/"));
   }
   return resolveAbsolutePath(declaringDir, value);
 }

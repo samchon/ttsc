@@ -82,17 +82,17 @@ export const test_watch_topology_preserves_inherited_output_option_bases =
         path.join(root, "generated", "main.js"),
         path.join(root, "cache", "base.tsbuildinfo"),
       ];
-      topology.setProjectInputs({
-        root,
-        files: rootRelativeTwins,
-        globs: [],
-      });
-      const previous = projectChangeCount(changes);
       for (const output of rootRelativeTwins) {
+        topology.setProjectInputs({
+          root,
+          files: [output],
+          globs: [],
+        });
+        const previous = projectChangeCount(changes);
         fs.mkdirSync(path.dirname(output), { recursive: true });
         fs.writeFileSync(output, "{}\n", "utf8");
+        await waitForProjectChange(changes, previous);
       }
-      await waitForProjectChange(changes, previous);
     } finally {
       topology.close();
     }

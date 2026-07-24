@@ -198,6 +198,30 @@ function filesystemDirectoryIsCaseSensitive(directory: string): boolean {
       throw error;
     }
   }
+  if (process.platform === "darwin") {
+    // APFS/HFS case semantics are volume-wide. An empty directory has no child
+    // name to probe, so ask the same read-only question of its existing name in
+    // the parent and walk upward until a name with ASCII case is available.
+    // This avoids a write probe while still distinguishing default APFS from a
+    // case-sensitive volume.
+    let current = resolveProjectInputPath(directory);
+    while (true) {
+      const parent = path.dirname(current);
+      if (parent === current) break;
+      const name = path.basename(current);
+      const alternate = alternateCase(name);
+      if (alternate !== name) {
+        try {
+          physicalRealpath(path.join(parent, alternate));
+          return false;
+        } catch (error) {
+          if (isMissingFilesystemEntry(error) === false) throw error;
+        }
+      }
+      current = parent;
+    }
+    return true;
+  }
   if (process.platform !== "win32") return true;
   // Node does not expose the Windows per-directory flag. Prefer fsutil's
   // read-only answer, then conservatively preserve distinct declarations.

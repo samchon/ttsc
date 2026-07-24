@@ -55,6 +55,12 @@ type ResolvedWatchTopology = {
   reloadFiles: Map<string, string>;
 };
 
+export type CompilerDirectoryWatchEventPlan = {
+  changes: string[];
+  rearm: string[];
+  refresh: boolean;
+};
+
 /**
  * Keeps the launcher watch set aligned with the compiler's current program.
  *
@@ -248,47 +254,22 @@ export class WatchTopology {
               });
               return;
             }
-            // File watchers own ordinary source/config edits. Directory watchers
-            // only reconcile membership, so an emit in an unrelated output folder
-            // cannot schedule another build.
-            if (changed === undefined && process.platform !== "win32") {
-              // Some POSIX backends omit the filename for a rename. Re-arm every
-              // potentially replaced tracked file below this watch root and
-              // conservatively report each surviving input; otherwise a watcher
-              // can remain attached to an unlinked inode and miss later edits.
-              const candidates = [...this.files.values()].filter(
-                (file) => fs.existsSync(file) && isPathWithin(location, file),
-              );
-              this.rearmFileWatchers(candidates);
-              for (const file of candidates) {
-                this.callbacks.onInputChange({
-                  kind: this.classifyCompilerInput(file),
-                  path: file,
-                });
-              }
-              this.refreshFromDirectory(location);
-              return;
-            }
-            if (
-              changed !== undefined &&
-              this.files.has(pathKey(changed)) &&
-              fs.existsSync(changed)
-            ) {
-              if (process.platform !== "win32" && event === "rename") {
-                // POSIX file watchers remain attached to the deleted inode.
-                // A directory event for the replacement must install a fresh
-                // handle before the next edit.
-                this.rearmFileWatchers([changed]);
-              } else if (process.platform !== "win32") {
-                return;
-              }
+            const plan = planCompilerDirectoryWatchEvent({
+              changed,
+              event,
+              exists: fs.existsSync,
+              location,
+              platform: process.platform,
+              trackedFiles: this.files,
+            });
+            this.rearmFileWatchers(plan.rearm);
+            for (const file of plan.changes) {
               this.callbacks.onInputChange({
-                kind: this.classifyCompilerInput(changed),
-                path: changed,
+                kind: this.classifyCompilerInput(file),
+                path: file,
               });
-              return;
             }
-            this.refreshFromDirectory(location, changed);
+            if (plan.refresh) this.refreshFromDirectory(location, changed);
           },
         ),
       (location, error) => this.callbacks.onError(location, error),
@@ -1763,11 +1744,65 @@ function isPathWithin(root: string, candidate: string): boolean {
   );
 }
 
+/**
+ * Plan one compiler-directory event without relying on backend timing.
+ *
+ * POSIX file watchers own ordinary content changes. A named rename re-arms the
+ * replaced file; an unnamed event conservatively re-arms and reports every
+ * surviving tracked input below the watch root. Windows has no per-file
+ * watchers here, so both named and unnamed directory events report inputs.
+ */
+export function planCompilerDirectoryWatchEvent(input: {
+  changed?: string;
+  event: string;
+  exists(location: string): boolean;
+  location: string;
+  platform: NodeJS.Platform;
+  trackedFiles: ReadonlyMap<string, string>;
+}): CompilerDirectoryWatchEventPlan {
+  const candidates =
+    input.changed === undefined
+      ? [...input.trackedFiles.values()].filter(
+          (file) =>
+            input.exists(file) &&
+            isPathWithin(input.location, path.resolve(file)),
+        )
+      : input.trackedFiles.has(
+            pathKeyForPlatform(input.changed, input.platform),
+          ) && input.exists(input.changed)
+        ? [input.changed]
+        : [];
+  if (input.changed === undefined) {
+    return {
+      changes: candidates,
+      rearm: input.platform === "win32" ? [] : candidates,
+      refresh: true,
+    };
+  }
+  if (candidates.length === 0) {
+    return { changes: [], rearm: [], refresh: true };
+  }
+  if (input.platform === "win32") {
+    return { changes: candidates, rearm: [], refresh: false };
+  }
+  if (input.event === "rename") {
+    return { changes: candidates, rearm: candidates, refresh: false };
+  }
+  return { changes: [], rearm: [], refresh: false };
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
 function pathKey(location: string): string {
+  return pathKeyForPlatform(location, process.platform);
+}
+
+function pathKeyForPlatform(
+  location: string,
+  platform: NodeJS.Platform,
+): string {
   const resolved = path.resolve(location);
-  return process.platform === "win32" ? resolved.toLowerCase() : resolved;
+  return platform === "win32" ? resolved.toLowerCase() : resolved;
 }

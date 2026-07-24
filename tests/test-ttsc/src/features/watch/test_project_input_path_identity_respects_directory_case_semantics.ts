@@ -56,15 +56,16 @@ export const test_project_input_path_identity_respects_directory_case_semantics 
     );
     const insensitiveRoot = path.join(actualRoot, "insensitive");
     fs.mkdirSync(insensitiveRoot);
-    fs.writeFileSync(path.join(insensitiveRoot, "Marker.txt"), "", "utf8");
+    fs.writeFileSync(path.join(actualRoot, "Marker.txt"), "", "utf8");
     const actual = createProjectInputPathIdentityContext();
     const markerAliasExists = fs.existsSync(
-      path.join(insensitiveRoot, "mARKER.TXT"),
+      path.join(actualRoot, "mARKER.TXT"),
     );
     assert.equal(
       actual.resolve(path.join(insensitiveRoot, "Spec.md")).key ===
         actual.resolve(path.join(insensitiveRoot, "spec.md")).key,
       markerAliasExists,
+      "an empty directory must inherit its volume's case semantics",
     );
 
     if (process.platform !== "win32") return;

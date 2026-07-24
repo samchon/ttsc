@@ -25,8 +25,8 @@ export const test_readprojectconfig_substitutes_configdir_from_the_final_consume
           declarationDir: "${configDir}/types",
           outDir: "${configDir}/dist",
           outFile: "${configDir}/bundle/output.js",
-          rootDir: "${configDir}/sources",
-          tsBuildInfoFile: "${configDir}/cache/build.tsbuildinfo",
+          rootDir: "${configDir}C:\\sources",
+          tsBuildInfoFile: "${configDir}\\cache\\build.tsbuildinfo",
         },
       }),
       "utf8",
@@ -51,7 +51,10 @@ export const test_readprojectconfig_substitutes_configdir_from_the_final_consume
       project.compilerOptions.outFile,
       path.join(root, "bundle", "output.js"),
     );
-    assert.equal(project.compilerOptions.rootDir, path.join(root, "sources"));
+    assert.equal(
+      project.compilerOptions.rootDir,
+      path.resolve(root, "./C:/sources"),
+    );
     assert.equal(
       project.compilerOptions.tsBuildInfoFile,
       path.join(root, "cache", "build.tsbuildinfo"),
