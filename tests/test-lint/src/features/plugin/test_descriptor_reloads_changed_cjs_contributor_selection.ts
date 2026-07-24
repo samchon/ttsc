@@ -12,8 +12,8 @@ import { createLintProject } from "../../internal/config-file";
  * the same lint config path would otherwise retain the first module export and
  * rebuild the wrong contributor binary after a config edit.
  *
- * 1. Resolve contributor A from one CJS config path.
- * 2. Overwrite that path to select contributor B.
+ * 1. Resolve contributor A through a local helper required by one CJS config.
+ * 2. Change only the helper to select contributor B.
  * 3. Resolve again in-process and require the fresh contributor source.
  */
 export const test_descriptor_reloads_changed_cjs_contributor_selection =
@@ -26,12 +26,13 @@ export const test_descriptor_reloads_changed_cjs_contributor_selection =
     try {
       const alpha = createContributorSource(project.tmpdir, "alpha");
       const beta = createContributorSource(project.tmpdir, "beta");
-      writeConfig(project.tmpdir, "alpha", alpha);
+      writeConfig(project.tmpdir);
+      writeSelection(project.tmpdir, "alpha", alpha);
       assert.deepEqual(loadContributors(project.tmpdir), [
         { name: "alpha", source: alpha },
       ]);
 
-      writeConfig(project.tmpdir, "beta", beta);
+      writeSelection(project.tmpdir, "beta", beta);
       assert.deepEqual(loadContributors(project.tmpdir), [
         { name: "beta", source: beta },
       ]);
@@ -47,9 +48,17 @@ function createContributorSource(root: string, name: string): string {
   return source;
 }
 
-function writeConfig(root: string, namespace: string, source: string): void {
+function writeConfig(root: string): void {
   fs.writeFileSync(
     path.join(root, "lint.config.cjs"),
+    'module.exports = require("./selection.cjs");\n',
+    "utf8",
+  );
+}
+
+function writeSelection(root: string, namespace: string, source: string): void {
+  fs.writeFileSync(
+    path.join(root, "selection.cjs"),
     `module.exports = ${JSON.stringify({
       plugins: { [namespace]: { source } },
     })};\n`,

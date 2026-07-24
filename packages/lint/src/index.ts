@@ -474,9 +474,15 @@ function readCjsConfigPlugins(configPath: string): ConfigPluginEntry[] {
     const requireFromConfig = createRequire(configPath);
     const resolved = requireFromConfig.resolve(configPath);
     // A resident CLI process calls the descriptor factory again after a lint
-    // config reload. Node's CommonJS cache otherwise returns the contributor
-    // selection from the first build even though the file changed on disk.
-    delete requireFromConfig.cache[resolved];
+    // config reload. Invalidate the config's local dependency graph as well as
+    // its entry: shared helper modules can own the changed contributor
+    // selection even when the entry file itself is unchanged. Package
+    // dependencies stay cached because they are not mutable config state.
+    evictLocalCjsConfigGraph(
+      requireFromConfig.cache,
+      resolved,
+      path.dirname(resolved),
+    );
     mod = requireFromConfig(resolved);
   } catch (error) {
     throw new Error(
@@ -490,6 +496,35 @@ function readCjsConfigPlugins(configPath: string): ConfigPluginEntry[] {
     .map(([namespace, value]) =>
       normalizePluginValue(namespace, value, configPath),
     );
+}
+
+function evictLocalCjsConfigGraph(
+  cache: NodeJS.Dict<NodeModule>,
+  resolved: string,
+  configDir: string,
+  visited = new Set<string>(),
+): void {
+  if (visited.has(resolved)) return;
+  visited.add(resolved);
+  const cached = cache[resolved];
+  if (cached !== undefined) {
+    for (const child of cached.children) {
+      if (isPathWithinDirectory(configDir, child.filename)) {
+        evictLocalCjsConfigGraph(cache, child.filename, configDir, visited);
+      }
+    }
+  }
+  delete cache[resolved];
+}
+
+function isPathWithinDirectory(directory: string, candidate: string): boolean {
+  const relative = path.relative(directory, candidate);
+  return (
+    relative === "" ||
+    (relative !== ".." &&
+      !relative.startsWith(`..${path.sep}`) &&
+      !path.isAbsolute(relative))
+  );
 }
 
 // TypeScript source written to a temp file and executed via ttsx. The
