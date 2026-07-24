@@ -56,7 +56,6 @@ export class WatchTopology {
   private outputs = new Map<string, string>();
   private projectInputFingerprints = new Map<string, string>();
   private projectInputMatches = new Map<string, string>();
-  private projectInputPollTimer: NodeJS.Timeout | undefined;
   private projectInputs: ITtscProjectInputSnapshot = {
     files: [],
     globs: [],
@@ -119,10 +118,6 @@ export class WatchTopology {
     closeWatchers(this.directoryWatchers);
     closeWatchers(this.extraWatchers);
     closeWatchers(this.projectInputWatchers);
-    if (this.projectInputPollTimer !== undefined) {
-      clearInterval(this.projectInputPollTimer);
-      this.projectInputPollTimer = undefined;
-    }
   }
 
   private syncFileWatchers(): void {
@@ -215,7 +210,6 @@ export class WatchTopology {
         desired,
         target,
         projectInputWatchAnchor(this.projectInputs.root, target),
-        process.platform !== "win32",
       );
     }
     for (const [key, location] of desired) {
@@ -236,47 +230,47 @@ export class WatchTopology {
             persistent: true,
             recursive: this.isRecursiveProjectInputWatch(location),
           },
-          (_event, filename) => {
+          (event, filename) => {
             const changed =
               filename === null
                 ? undefined
                 : path.resolve(location, filename.toString());
+            if (event === "rename") {
+              this.invalidateRenamedProjectInputWatchers(location, changed);
+            }
             this.refreshProjectInputs(location, changed);
           },
         ),
       (location, error) => this.callbacks.onError(location, error),
     );
-    this.syncProjectInputPoller();
+  }
+
+  private invalidateRenamedProjectInputWatchers(
+    source: string,
+    changed: string | undefined,
+  ): void {
+    for (const [key, watcher] of this.projectInputWatchers) {
+      const separator = key.lastIndexOf("\0");
+      const location = separator === -1 ? key : key.slice(0, separator);
+      if (
+        pathKey(source) !== location &&
+        (changed === undefined || isPathWithin(changed, location) === false)
+      ) {
+        continue;
+      }
+      watcher.close();
+      this.projectInputWatchers.delete(key);
+    }
   }
 
   private isRecursiveProjectInputWatch(location: string): boolean {
-    return (
-      process.platform !== "win32" &&
-      this.projectInputs.globs.some((glob) => {
-        const target = literalGlobRoot(glob);
-        return (
-          pathKey(projectInputWatchAnchor(this.projectInputs.root, target)) ===
-          pathKey(location)
-        );
-      })
-    );
-  }
-
-  private syncProjectInputPoller(): void {
-    const required =
-      process.platform === "win32" && this.projectInputs.globs.length !== 0;
-    if (!required) {
-      if (this.projectInputPollTimer !== undefined) {
-        clearInterval(this.projectInputPollTimer);
-        this.projectInputPollTimer = undefined;
-      }
-      return;
-    }
-    if (this.projectInputPollTimer !== undefined) return;
-    this.projectInputPollTimer = setInterval(() => {
-      this.refreshProjectInputs(this.projectInputs.root);
-    }, 250);
-    this.projectInputPollTimer.unref();
+    return this.projectInputs.globs.some((glob) => {
+      const target = literalGlobRoot(glob);
+      return (
+        pathKey(projectInputWatchAnchor(this.projectInputs.root, target)) ===
+        pathKey(location)
+      );
+    });
   }
 
   private refreshProjectInputs(location: string, changed?: string): void {
@@ -299,7 +293,6 @@ export class WatchTopology {
           ? fingerprintProjectInputMatches(next)
           : this.projectInputFingerprints;
       const contentChanged =
-        changed === undefined &&
         mapsEqual(this.projectInputFingerprints, nextFingerprints) === false;
       this.projectInputMatches = next;
       this.projectInputFingerprints = nextFingerprints;
@@ -309,7 +302,6 @@ export class WatchTopology {
           contentChanged,
           directlyMatched,
           membershipChanged,
-          topologyMatched,
         }) &&
         (changed === undefined || this.isCompilerOutput(changed) === false)
       ) {
@@ -701,15 +693,16 @@ function addProjectInputWatchDirectories(
   desired: Map<string, string>,
   target: string,
   anchor: string,
-  includeTarget = true,
 ): void {
   const existing = nearestExistingDirectory(target);
   if (existing === undefined) return;
-  let current =
-    includeTarget === false &&
-    pathKey(existing) === pathKey(path.resolve(target))
-      ? path.dirname(existing)
-      : existing;
+  if (isPathWithin(anchor, existing) === false) {
+    desired.set(pathKey(existing), existing);
+    const parent = path.dirname(existing);
+    if (parent !== existing) desired.set(pathKey(parent), parent);
+    return;
+  }
+  let current = existing;
   while (true) {
     desired.set(pathKey(current), current);
     if (pathKey(current) === pathKey(anchor)) break;
@@ -717,6 +710,15 @@ function addProjectInputWatchDirectories(
     if (parent === current) break;
     current = parent;
   }
+}
+
+export function projectInputWatchDirectories(
+  target: string,
+  anchor: string,
+): string[] {
+  const desired = new Map<string, string>();
+  addProjectInputWatchDirectories(desired, target, anchor);
+  return [...desired.values()];
 }
 
 function projectInputWatchAnchor(root: string, target: string): string {
@@ -794,13 +796,9 @@ export function projectInputEventShouldNotify(input: {
   contentChanged: boolean;
   directlyMatched: boolean;
   membershipChanged: boolean;
-  topologyMatched: boolean;
 }): boolean {
   return (
-    input.contentChanged ||
-    input.directlyMatched ||
-    input.membershipChanged ||
-    input.topologyMatched
+    input.contentChanged || input.directlyMatched || input.membershipChanged
   );
 }
 
