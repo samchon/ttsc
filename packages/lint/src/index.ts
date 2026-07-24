@@ -815,7 +815,7 @@ function recordNodeModulesSearchDirectories(
     }
     if (
       packageName === undefined &&
-      sameResolutionPath(current, resolutionRoot)
+      samePhysicalPath(current, resolutionRoot)
     ) {
       return;
     }

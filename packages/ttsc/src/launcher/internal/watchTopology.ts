@@ -1489,9 +1489,12 @@ function projectInputSnapshotsEqual(
   left: ITtscProjectInputSnapshot,
   right: ITtscProjectInputSnapshot,
 ): boolean {
+  const identities = createProjectInputPathIdentityContext();
   return (
-    resolveProjectInputPath(left.root || ".") ===
-      resolveProjectInputPath(right.root || ".") &&
+    // Every sibling comparison in this class decides on identity, and this one
+    // is only safe today because both operands come from the same normalizer.
+    identities.resolve(left.root || ".").key ===
+      identities.resolve(right.root || ".").key &&
     arraysEqual(left.files, right.files) &&
     arraysEqual(left.globs, right.globs) &&
     arraysEqual(left.reloadDirectories ?? [], right.reloadDirectories ?? []) &&
