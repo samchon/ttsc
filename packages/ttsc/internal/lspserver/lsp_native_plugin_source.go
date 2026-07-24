@@ -69,6 +69,13 @@ type NativePluginSource struct {
   clientTsconfig     string
   clientCwd          string
 
+  // The client's project resolves once. Both halves are fixed for the
+  // session, while the answer costs a symlink walk per ancestor, and the
+  // question is asked again for every producer on every publication.
+  clientProjectOnce sync.Once
+  clientProject     string
+  clientProjectKey  string
+
   commandIDs      []string
   codeActionKinds []string
 

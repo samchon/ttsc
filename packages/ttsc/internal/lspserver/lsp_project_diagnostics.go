@@ -2,6 +2,7 @@ package lspserver
 
 import (
   "encoding/json"
+  "os"
   "path/filepath"
   "strings"
 )
@@ -128,36 +129,58 @@ func (s *NativePluginSource) storeProjectDiagnostics(
 // invisible to it no matter how correct the diagnostics inside are. So the one
 // place the two worlds meet translates back.
 func (s *NativePluginSource) clientProjectURI(uri string) string {
-  if s == nil || uri == "" || strings.TrimSpace(s.clientTsconfig) == "" {
+  if s == nil || uri == "" {
+    return uri
+  }
+  client, key := s.clientProjectIdentity()
+  if client == "" {
     return uri
   }
   location, ok := filePathFromURI(uri)
   if !ok {
     return uri
   }
-  // The client names its project relative to the directory it asked the host to
-  // work in, and the host never changed into it — so that directory is the only
-  // anchor the spelling has. Resolving against anything else would answer about
-  // wherever this process happens to be running, and the URI builder below
-  // assumes an absolute native path.
-  client := s.clientTsconfig
-  if !filepath.IsAbs(projectInputFilesystemPath(client)) {
-    if strings.TrimSpace(s.clientCwd) == "" {
-      return uri
-    }
-    client = filepath.Join(
-      projectInputFilesystemPath(s.clientCwd),
-      projectInputFilesystemPath(client),
-    )
-  }
-  if !filepath.IsAbs(projectInputFilesystemPath(client)) {
-    return uri
-  }
-  if projectInputPathKey(realProjectInputPath(location)) !=
-    projectInputPathKey(realProjectInputPath(client)) {
+  if projectInputPathKey(realProjectInputPath(location)) != key {
     return uri
   }
   return projectInputFileURI(client)
+}
+
+// clientProjectIdentity is the project as the client named it, absolute, with
+// the key a producer's URI is compared against. Empty when the client named no
+// project at all, which is the one case where there is nothing to translate to.
+func (s *NativePluginSource) clientProjectIdentity() (string, string) {
+  s.clientProjectOnce.Do(func() {
+    client := projectInputFilesystemPath(strings.TrimSpace(s.clientTsconfig))
+    if client == "" {
+      return
+    }
+    if !filepath.IsAbs(client) {
+      // The client names its project relative to the directory it asked this
+      // host to work in. When it named none, the host was started from that
+      // directory and inherited it, so the process directory is not a guess
+      // here — it is the same answer by another route.
+      base := projectInputFilesystemPath(strings.TrimSpace(s.clientCwd))
+      if base == "" {
+        working, err := os.Getwd()
+        if err != nil {
+          return
+        }
+        base = working
+      }
+      absolute, err := filepath.Abs(base)
+      if err != nil {
+        return
+      }
+      client = filepath.Join(absolute, client)
+    }
+    if !filepath.IsAbs(client) {
+      return
+    }
+    s.clientProject = client
+    s.clientProjectKey = projectInputPathKey(realProjectInputPath(client))
+  })
+  return s.clientProject, s.clientProjectKey
 }
 
 // projectDiagnosticsSnapshot concatenates producer publications in manifest
