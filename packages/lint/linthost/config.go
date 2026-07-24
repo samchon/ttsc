@@ -228,6 +228,14 @@ func (r boundProjectRuleResolver) ConfigPaths() []string {
   return resolver.ConfigPaths()
 }
 
+func (r boundProjectRuleResolver) ConfigDirectories() []string {
+  resolver, ok := r.RuleResolver.(interface{ ConfigDirectories() []string })
+  if !ok {
+    return nil
+  }
+  return resolver.ConfigDirectories()
+}
+
 // ResolveRules implements RuleResolver. A flat RuleConfig has no glob scoping,
 // so every file receives the full map unchanged.
 func (c RuleConfig) ResolveRules(string) ResolvedRuleConfig {

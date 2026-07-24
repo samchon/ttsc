@@ -10,7 +10,8 @@ import (
 // protocol covers CommonJS and ESM without retaining in-process module state.
 //
 //  1. Load a CJS config whose helper lives outside the config directory and
-//     prove the entry/helper are watched while a package is cache-only.
+//     prove the entry/helper are watched while package implementation files
+//     remain cache-only and package-resolution metadata is exact-watch input.
 //  2. Change only the package and prove its cache fingerprint refreshes rules
 //     without publishing node_modules as a project watch input.
 //  3. Change only the helper and prove the dependency-aware cache evaluates
@@ -348,7 +349,8 @@ func assertConfigDependencies(
     if err == nil &&
       relative != ".." &&
       !filepath.IsAbs(relative) &&
-      !startsWithParentDirectory(relative) {
+      !startsWithParentDirectory(relative) &&
+      filepath.Base(location) != "package.json" {
       t.Fatalf("package dependency leaked into local graph: %s", location)
     }
   }
