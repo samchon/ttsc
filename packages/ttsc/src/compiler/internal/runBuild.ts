@@ -1658,6 +1658,15 @@ function discoverNativeProjectInputs(
  * merged snapshot has to be canonical: last-write-wins would make the published
  * topology depend on which contributor ran first.
  */
+function arraysEqual(
+  left: readonly string[],
+  right: readonly string[],
+): boolean {
+  return (
+    left.length === right.length && left.every((item, i) => item === right[i])
+  );
+}
+
 function retainDeclaredSpelling(
   target: Map<string, string>,
   key: string,
@@ -1725,19 +1734,28 @@ export function mergeProjectInputSnapshots(
       );
     }
   }
-  return {
-    declared: {
-      files: [...declaredFiles.values()].sort(),
-      globs: [...declaredGlobs.values()].sort(),
-      reloadDirectories: [...declaredReloadDirectories.values()].sort(),
-      reloadFiles: [...declaredReloadFiles.values()].sort(),
-    },
+  const normalized = {
     root: rootIdentity.path,
     files: [...files.values()].sort(),
     globs: [...globs.values()].sort(),
     reloadDirectories: [...reloadDirectories.values()].sort(),
     reloadFiles: [...reloadFiles.values()].sort(),
   };
+  const declared = {
+    files: [...declaredFiles.values()].sort(),
+    globs: [...declaredGlobs.values()].sort(),
+    reloadDirectories: [...declaredReloadDirectories.values()].sort(),
+    reloadFiles: [...declaredReloadFiles.values()].sort(),
+  };
+  // Carried only when it says something the normalized arrays do not. A tree
+  // with no alias on any declaration produces the same four lists, and a
+  // consumer that has to scan both would pay twice for one population.
+  return arraysEqual(declared.files, normalized.files) &&
+    arraysEqual(declared.globs, normalized.globs) &&
+    arraysEqual(declared.reloadDirectories, normalized.reloadDirectories) &&
+    arraysEqual(declared.reloadFiles, normalized.reloadFiles)
+    ? normalized
+    : { ...normalized, declared };
 }
 
 export function parseProjectInputSnapshot(

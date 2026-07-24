@@ -183,7 +183,11 @@ export class WatchTopology {
     this.projectInputs = next;
     this.projectInputRejectedWatchRoots.clear();
     const declarations = new Set(
-      [next, inputs].flatMap((snapshot) => [
+      [
+        next,
+        inputs,
+        { ...(inputs.declared ?? inputs), root: inputs.root },
+      ].flatMap((snapshot) => [
         ...snapshot.files.map((file) =>
           projectInputDeclarationKey("file", file),
         ),
@@ -473,6 +477,24 @@ export class WatchTopology {
    * nearest-existing-ancestor boundary still bound each of them, and the active
    * set drops one again whenever they coincide or share an ancestor.
    */
+  /**
+   * One snapshot holding every spelling of every declaration.
+   *
+   * Consumers that decide from a population rather than from a single path have
+   * to see both, or half of them answer from the file a link pointed at when
+   * the snapshot was published while the event they are judging resolved to the
+   * file it points at now.
+   */
+  private projectInputPopulation(): ITtscProjectInputSnapshot {
+    return {
+      files: this.projectInputDeclarations("file"),
+      globs: this.projectInputDeclarations("glob"),
+      reloadDirectories: this.projectInputDeclarations("reload-directory"),
+      reloadFiles: this.projectInputDeclarations("reload"),
+      root: this.projectInputs.root,
+    };
+  }
+
   private projectInputDeclarations(
     kind: "file" | "glob" | "reload" | "reload-directory",
   ): string[] {
@@ -526,7 +548,7 @@ export class WatchTopology {
       const topologyMatched =
         changed !== undefined &&
         projectInputTopologyMayAffect(
-          this.projectInputs,
+          this.projectInputPopulation(),
           changed,
           previous,
           identities,
@@ -546,7 +568,7 @@ export class WatchTopology {
       if (
         changed !== undefined &&
         projectInputReplacementStrandsWatchers(
-          this.projectInputs,
+          this.projectInputPopulation(),
           changed,
           identities,
         )
