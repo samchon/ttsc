@@ -50,7 +50,14 @@ export const test_descriptor_rejects_malformed_cjs_contributors = (): void => {
 function loadContributors(projectRoot: string): void {
   const factory = TestLintPlugin.loadFactory();
   factory({
-    ...TestLintPlugin.factoryContext({ transform: "@ttsc/lint" }),
+    // The fixture declares its config through the tsconfig plugin entry, so a
+    // hand-built context has to carry the same entry. Without it discovery
+    // walks upward from the project root and never sees a config that lives
+    // in a subdirectory, and the descriptor reports no contributors at all.
+    ...TestLintPlugin.factoryContext({
+      configFile: "./configs/lint.config.cjs",
+      transform: "@ttsc/lint",
+    }),
     cwd: projectRoot,
     pluginConfigDir: projectRoot,
     projectRoot,

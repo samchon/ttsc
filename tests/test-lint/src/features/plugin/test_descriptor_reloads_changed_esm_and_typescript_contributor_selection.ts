@@ -28,12 +28,12 @@ export const test_descriptor_reloads_changed_esm_and_typescript_contributor_sele
         const beta = createContributorSource(project.tmpdir, "beta");
         writeModuleConfig(project.tmpdir, extension);
         writeModuleSelection(project.tmpdir, extension, "alpha", alpha);
-        assert.deepEqual(loadContributors(project.tmpdir), [
+        assert.deepEqual(loadContributors(project.tmpdir, extension), [
           { name: "alpha", source: alpha },
         ]);
 
         writeModuleSelection(project.tmpdir, extension, "beta", beta);
-        assert.deepEqual(loadContributors(project.tmpdir), [
+        assert.deepEqual(loadContributors(project.tmpdir, extension), [
           { name: "beta", source: beta },
         ]);
       } finally {
@@ -80,10 +80,18 @@ function writeModuleSelection(
 
 function loadContributors(
   projectRoot: string,
+  extension: string,
 ): Array<{ name: string; source: string }> {
   const factory = TestLintPlugin.loadFactory();
   const descriptor = factory({
-    ...TestLintPlugin.factoryContext({ transform: "@ttsc/lint" }),
+    // The fixture declares its config through the tsconfig plugin entry, so a
+    // hand-built context has to carry the same entry. Without it discovery
+    // walks upward from the project root and never sees a config that lives in
+    // a subdirectory, and the descriptor reports no contributors at all.
+    ...TestLintPlugin.factoryContext({
+      configFile: `./configs/lint.config.${extension}`,
+      transform: "@ttsc/lint",
+    }),
     cwd: projectRoot,
     pluginConfigDir: projectRoot,
     projectRoot,
