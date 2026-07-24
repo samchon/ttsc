@@ -180,23 +180,29 @@ function filesystemDirectoryIsCaseSensitive(directory: string): boolean {
   } catch {
     return true;
   }
-  const names = new Set(entries);
+  const foldedNames = new Map<string, string>();
   for (const name of entries) {
-    const alternate = alternateCase(name);
-    if (alternate === name) continue;
-    if (names.has(alternate)) return true;
-    try {
-      physicalRealpath(path.join(directory, alternate));
-      return false;
-    } catch (error) {
-      if (isMissingFilesystemEntry(error)) return true;
-      throw error;
-    }
+    const folded = name.toLowerCase();
+    const previous = foldedNames.get(folded);
+    if (previous !== undefined && previous !== name) return true;
+    foldedNames.set(folded, name);
   }
-  // Node does not expose volume case semantics. Existing entries provide a
-  // non-mutating probe on every platform; an empty or inconclusive non-Windows
-  // directory conservatively preserves distinct declarations.
-  if (process.platform !== "win32") return true;
+  if (process.platform !== "win32") {
+    for (const name of entries) {
+      const alternate = alternateCase(name);
+      if (alternate === name) continue;
+      try {
+        physicalRealpath(path.join(directory, alternate));
+        return false;
+      } catch (error) {
+        if (isMissingFilesystemEntry(error)) return true;
+        throw error;
+      }
+    }
+    return true;
+  }
+  // Node does not expose the Windows per-directory flag. Prefer fsutil's
+  // read-only answer, then conservatively preserve distinct declarations.
   const result = childProcess.spawnSync(
     "fsutil.exe",
     ["file", "queryCaseSensitiveInfo", directory],
@@ -206,8 +212,6 @@ function filesystemDirectoryIsCaseSensitive(directory: string): boolean {
     if (/\bdisabled\b/iu.test(result.stdout)) return false;
     if (/\benabled\b/iu.test(result.stdout)) return true;
   }
-  // A false positive keeps an extra watcher; a false negative could merge two
-  // distinct paths and lose a change.
   return true;
 }
 
