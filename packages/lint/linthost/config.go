@@ -1765,6 +1765,14 @@ func runConfigLoaderCommand(
   cmd.Stdout = io.Discard
   cmd.Stderr = &stderr
   err := cmd.Run()
+  // A loader diagnostic is only useful when the load succeeds, because a
+  // failure already carries the same text in its message. Forward it so an
+  // assertion about what the loader recorded can name what it resolved.
+  if os.Getenv("TTSC_LINT_DEBUG_CONFIG_GRAPH") != "" {
+    if text := strings.TrimSpace(stderr.String()); text != "" {
+      fmt.Fprintln(os.Stderr, text)
+    }
+  }
   if err != nil {
     if ctx.Err() == context.DeadlineExceeded {
       return evaluatedConfigFile{}, fmt.Errorf("@ttsc/lint: load %s %s: timed out after %s", label, location, configLoaderTimeout)
@@ -3880,8 +3888,7 @@ function finalizeDependencies(): Array<{
           edges: graphEdges.map((edge) => edge.parent + " -> " + edge.child),
           watched: [...watched],
         }) +
-        "
-",
+        "\n",
     );
   }
   return [...dependencies.values()].map(({ owners, ...dependency }) => ({
