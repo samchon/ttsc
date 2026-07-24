@@ -459,7 +459,13 @@ export class WatchTopology {
     for (const kind of ["file", "reload"] as const) {
       for (const declaration of this.projectInputDeclarations(kind)) {
         const declared = path.resolve(declaration);
-        if (identities.resolve(declared).key === declared) continue;
+        // The test is whether the declaration is itself a link, not whether its
+        // spelling is canonical. Comparing against the resolved identity would
+        // admit every declaration whose ancestor is aliased — which on macOS is
+        // every declaration under the system temporary directory — and it would
+        // still miss the retarget, because the watcher goes below the link.
+        if (!isSymbolicLink(declared)) continue;
+        if (this.isProjectInputCompilerOutput(declared, identities)) continue;
         const parent = nearestExistingDirectory(path.dirname(declared));
         if (parent === undefined) continue;
         desired.set(identities.resolve(parent).key, parent);
@@ -1648,6 +1654,14 @@ function projectInputRecursiveWatchRoot(
     return nearestExistingDirectory(resolvedProjectRoot);
   }
   return nearestExistingDirectory(path.dirname(resolvedTarget));
+}
+
+function isSymbolicLink(location: string): boolean {
+  try {
+    return fs.lstatSync(location).isSymbolicLink();
+  } catch {
+    return false;
+  }
 }
 
 function nearestExistingDirectory(location: string): string | undefined {

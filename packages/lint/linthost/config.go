@@ -2739,14 +2739,13 @@ function samePhysicalPath(left, right) {
   try {
     return sameResolutionPath(realPath(left), realPath(right));
   } catch {
-    // Fall back to the spellings themselves. Refusing to answer would discard
-    // the identical-spelling case, and on the entry gate that means a config
-    // whose realpath momentarily fails stops being recognized as the entry and
-    // takes its whole dependency graph with it. The comparison is exact rather
-    // than lexical, because a relative-path comparison folds case on Windows
-    // and collapses dot segments, either of which would call two distinct files
-    // the same one.
-    return path.resolve(left) === path.resolve(right);
+    // Fall back to the spellings themselves, folding case the way the platform
+    // does. On the entry gate a false negative is catastrophic — the config
+    // stops being recognized and its whole graph collapses — while a false
+    // positive only over-includes, so the degradation has to lean toward "same
+    // file". A drive-letter or component case difference is the ordinary
+    // Windows situation; a per-directory case-sensitive tree is the rare one.
+    return sameResolutionPath(left, right);
   }
 }
 
@@ -3859,14 +3858,13 @@ function samePhysicalPath(left: string, right: string): boolean {
   try {
     return sameResolutionPath(realPath(left), realPath(right));
   } catch {
-    // Fall back to the spellings themselves. Refusing to answer would discard
-    // the identical-spelling case, and on the entry gate that means a config
-    // whose realpath momentarily fails stops being recognized as the entry and
-    // takes its whole dependency graph with it. The comparison is exact rather
-    // than lexical, because a relative-path comparison folds case on Windows
-    // and collapses dot segments, either of which would call two distinct files
-    // the same one.
-    return path.resolve(left) === path.resolve(right);
+    // Fall back to the spellings themselves, folding case the way the platform
+    // does. On the entry gate a false negative is catastrophic — the config
+    // stops being recognized and its whole graph collapses — while a false
+    // positive only over-includes, so the degradation has to lean toward "same
+    // file". A drive-letter or component case difference is the ordinary
+    // Windows situation; a per-directory case-sensitive tree is the rare one.
+    return sameResolutionPath(left, right);
   }
 }
 
