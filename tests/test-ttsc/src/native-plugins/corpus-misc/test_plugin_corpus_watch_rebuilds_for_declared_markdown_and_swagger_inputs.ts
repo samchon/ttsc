@@ -185,6 +185,7 @@ export const test_plugin_corpus_watch_rebuilds_for_declared_markdown_and_swagger
           jsx: "preserve",
           module: "commonjs",
           plugins: [{ transform: "./plugins/watch.cjs" }],
+          rootDir: "src",
           strict: true,
           target: "ES2022",
         },
