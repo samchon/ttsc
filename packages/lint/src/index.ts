@@ -472,7 +472,12 @@ function readCjsConfigPlugins(configPath: string): ConfigPluginEntry[] {
   let mod: unknown;
   try {
     const requireFromConfig = createRequire(configPath);
-    mod = requireFromConfig(configPath);
+    const resolved = requireFromConfig.resolve(configPath);
+    // A resident CLI process calls the descriptor factory again after a lint
+    // config reload. Node's CommonJS cache otherwise returns the contributor
+    // selection from the first build even though the file changed on disk.
+    delete requireFromConfig.cache[resolved];
+    mod = requireFromConfig(resolved);
   } catch (error) {
     throw new Error(
       `@ttsc/lint: failed to load lint config ${configPath}: ${

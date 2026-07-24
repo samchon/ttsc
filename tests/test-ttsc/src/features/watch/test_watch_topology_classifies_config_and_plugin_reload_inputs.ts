@@ -16,8 +16,8 @@ import {
  * the config kind through the shared reset branch and observes a fresh PID.
  *
  * 1. Watch one project config and one selected plugin source tree.
- * 2. Edit each input and require its precise change kind.
- * 3. Prove both edits stay distinct from compiler/project changes.
+ * 2. Edit each input and require every overlapping watcher to choose reload.
+ * 3. Prove plugin-root/descendant events never leak into compiler/project.
  */
 export const test_watch_topology_classifies_config_and_plugin_reload_inputs =
   async (): Promise<void> => {
@@ -57,6 +57,16 @@ export const test_watch_topology_classifies_config_and_plugin_reload_inputs =
       fs.writeFileSync(pluginSource, "package plugin\n\n// changed\n", "utf8");
       await waitForKind(changes, "plugin");
 
+      const pluginChanges = changes.filter(
+        (change) =>
+          change.path !== undefined && isPathWithin(pluginRoot, change.path),
+      );
+      assert.notEqual(pluginChanges.length, 0, JSON.stringify(changes));
+      assert.equal(
+        pluginChanges.every((change) => change.kind === "plugin"),
+        true,
+        JSON.stringify(changes),
+      );
       assert.equal(
         changes.every(
           (change) => change.kind === "config" || change.kind === "plugin",
@@ -91,4 +101,14 @@ async function waitForKind(
     }
     await new Promise((resolve) => setTimeout(resolve, 25));
   }
+}
+
+function isPathWithin(root: string, location: string): boolean {
+  const relative = path.relative(root, location);
+  return (
+    relative === "" ||
+    (relative !== ".." &&
+      relative.startsWith(`..${path.sep}`) === false &&
+      path.isAbsolute(relative) === false)
+  );
 }
