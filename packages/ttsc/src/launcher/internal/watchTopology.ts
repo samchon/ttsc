@@ -6,6 +6,7 @@ import { readProjectConfig } from "../../compiler/internal/project/readProjectCo
 import { resolveTsgo } from "../../compiler/internal/resolveTsgo";
 import { outputText, spawnNative } from "../../compiler/internal/spawnNative";
 import type { ITtscParsedProjectConfig } from "../../structures/internal/ITtscParsedProjectConfig";
+import type { ITtscProjectInputSnapshot } from "../../structures/internal/ITtscProjectInputSnapshot";
 import type { TtscBuildOptions } from "../../structures/internal/TtscBuildOptions";
 
 type WatchTopologyOptions = Pick<
@@ -18,8 +19,13 @@ type WatchTopologyOptions = Pick<
 
 type WatchTopologyCallbacks = {
   onError(location: string, error: unknown): void;
-  onInputChange(): void;
+  onInputChange(change: WatchInputChange): void;
   onTopologyChange(): void;
+};
+
+export type WatchInputChange = {
+  kind: "compiler" | "plugin" | "project";
+  path?: string;
 };
 
 type ResolvedWatchTopology = {
@@ -45,6 +51,13 @@ export class WatchTopology {
   private fileWatchers = new Map<string, fs.FSWatcher>();
   private observedDirectories = new Map<string, string>();
   private outputs = new Map<string, string>();
+  private projectInputMatches = new Map<string, string>();
+  private projectInputs: ITtscProjectInputSnapshot = {
+    files: [],
+    globs: [],
+    root: "",
+  };
+  private projectInputWatchers = new Map<string, fs.FSWatcher>();
 
   public constructor(
     private readonly options: WatchTopologyOptions,
@@ -64,6 +77,7 @@ export class WatchTopology {
     this.syncFileWatchers();
     this.syncDirectoryWatchers();
     this.syncExtraWatchers();
+    this.syncProjectInputWatchers();
     if (notify && changed) {
       this.callbacks.onTopologyChange();
     }
@@ -77,11 +91,24 @@ export class WatchTopology {
     this.refresh(false);
   }
 
+  /**
+   * Reconcile project-rule dependencies, retaining absent files and empty glob
+   * populations as live topology.
+   */
+  public setProjectInputs(inputs: ITtscProjectInputSnapshot): void {
+    const next = normalizeProjectInputSnapshot(inputs);
+    if (projectInputSnapshotsEqual(this.projectInputs, next)) return;
+    this.projectInputs = next;
+    this.projectInputMatches = this.collectProjectInputMatches();
+    this.syncProjectInputWatchers();
+  }
+
   /** Close every watcher so SIGINT/SIGTERM can drain the event loop. */
   public close(): void {
     closeWatchers(this.fileWatchers);
     closeWatchers(this.directoryWatchers);
     closeWatchers(this.extraWatchers);
+    closeWatchers(this.projectInputWatchers);
   }
 
   private syncFileWatchers(): void {
@@ -90,7 +117,10 @@ export class WatchTopology {
       this.files,
       (location) =>
         fs.watch(location, { persistent: true }, () => {
-          this.callbacks.onInputChange();
+          this.callbacks.onInputChange({
+            kind: "compiler",
+            path: location,
+          });
         }),
       (location, error) => this.callbacks.onError(location, error),
     );
@@ -145,10 +175,100 @@ export class WatchTopology {
       directories,
       (location) =>
         fs.watch(location, { persistent: true }, () => {
-          this.callbacks.onInputChange();
+          this.callbacks.onInputChange({
+            kind: "plugin",
+            path: location,
+          });
         }),
       (location, error) => this.callbacks.onError(location, error),
     );
+  }
+
+  private syncProjectInputWatchers(): void {
+    const desired = new Map<string, string>();
+    for (const file of this.projectInputs.files) {
+      addProjectInputWatchDirectories(desired, path.dirname(file), false);
+    }
+    for (const glob of this.projectInputs.globs) {
+      addProjectInputWatchDirectories(desired, literalGlobRoot(glob), true);
+    }
+    for (const [key, location] of desired) {
+      if (this.isCompilerOutputDirectory(location)) desired.delete(key);
+    }
+    syncWatchers(
+      this.projectInputWatchers,
+      desired,
+      (location) =>
+        fs.watch(location, { persistent: true }, (_event, filename) => {
+          const changed =
+            filename === null
+              ? undefined
+              : path.resolve(location, filename.toString());
+          this.refreshProjectInputs(location, changed);
+        }),
+      (location, error) => this.callbacks.onError(location, error),
+    );
+  }
+
+  private refreshProjectInputs(location: string, changed?: string): void {
+    try {
+      const previous = this.projectInputMatches;
+      const next = this.collectProjectInputMatches();
+      const membershipChanged = mapsEqual(previous, next) === false;
+      const directlyMatched =
+        changed !== undefined &&
+        (previous.has(pathKey(changed)) ||
+          matchesProjectInput(this.projectInputs, changed));
+      this.projectInputMatches = next;
+      this.syncProjectInputWatchers();
+      if (
+        (changed === undefined || membershipChanged || directlyMatched) &&
+        (changed === undefined ||
+          this.isCompilerOutputDirectory(changed) === false)
+      ) {
+        this.callbacks.onInputChange({
+          kind: "project",
+          path: changed,
+        });
+      }
+    } catch (error) {
+      this.callbacks.onError(location, error);
+    }
+  }
+
+  private collectProjectInputMatches(): Map<string, string> {
+    const matches = new Map<string, string>();
+    for (const file of this.projectInputs.files) {
+      if (
+        fs.existsSync(file) &&
+        this.isCompilerOutputDirectory(file) === false
+      ) {
+        matches.set(pathKey(file), file);
+      }
+    }
+    for (const glob of this.projectInputs.globs) {
+      const root = literalGlobRoot(glob);
+      if (isDirectory(root) === false || this.isCompilerOutputDirectory(root)) {
+        continue;
+      }
+      const stack = [root];
+      while (stack.length !== 0) {
+        const current = stack.pop()!;
+        for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
+          const location = path.join(current, entry.name);
+          if (this.isCompilerOutputDirectory(location)) continue;
+          if (entry.isDirectory()) {
+            stack.push(location);
+          } else if (
+            entry.isFile() &&
+            matchesProjectInputGlob(glob, location)
+          ) {
+            matches.set(pathKey(location), location);
+          }
+        }
+      }
+    }
+    return matches;
   }
 
   private refreshFromDirectory(location: string, changed?: string): void {
@@ -427,6 +547,117 @@ function uniqueExistingPaths(paths: readonly string[]): string[] {
     unique.set(pathKey(resolved), resolved);
   }
   return [...unique.values()];
+}
+
+function normalizeProjectInputSnapshot(
+  snapshot: ITtscProjectInputSnapshot,
+): ITtscProjectInputSnapshot {
+  const files = new Map<string, string>();
+  const globs = new Map<string, string>();
+  for (const file of snapshot.files) {
+    const resolved = path.resolve(file);
+    files.set(pathKey(resolved), resolved);
+  }
+  for (const glob of snapshot.globs) {
+    const normalized = path.resolve(glob).split(path.sep).join("/");
+    globs.set(projectInputPatternKey(normalized), normalized);
+  }
+  return {
+    files: [...files.values()].sort(),
+    globs: [...globs.values()].sort(),
+    root: path.resolve(snapshot.root),
+  };
+}
+
+function projectInputSnapshotsEqual(
+  left: ITtscProjectInputSnapshot,
+  right: ITtscProjectInputSnapshot,
+): boolean {
+  return (
+    pathKey(left.root || ".") === pathKey(right.root || ".") &&
+    arraysEqual(left.files, right.files) &&
+    arraysEqual(left.globs, right.globs)
+  );
+}
+
+function addProjectInputWatchDirectories(
+  desired: Map<string, string>,
+  target: string,
+  recursive: boolean,
+): void {
+  const existing = nearestExistingDirectory(target);
+  if (existing === undefined) return;
+  desired.set(pathKey(existing), existing);
+  if (recursive && pathKey(existing) === pathKey(path.resolve(target))) {
+    for (const directory of collectInputDirectories(existing)) {
+      desired.set(pathKey(directory), directory);
+    }
+  }
+}
+
+function nearestExistingDirectory(location: string): string | undefined {
+  let current = path.resolve(location);
+  while (true) {
+    if (isDirectory(current)) return current;
+    const parent = path.dirname(current);
+    if (parent === current) return undefined;
+    current = parent;
+  }
+}
+
+function literalGlobRoot(pattern: string): string {
+  const normalized = pattern.split("\\").join("/");
+  const wildcard = normalized.search(/[*?]/);
+  if (wildcard === -1) return path.dirname(path.resolve(pattern));
+  const separator = normalized.lastIndexOf("/", wildcard);
+  const prefix = separator < 0 ? "." : normalized.slice(0, separator);
+  return path.resolve(prefix || path.parse(path.resolve(pattern)).root);
+}
+
+function matchesProjectInput(
+  snapshot: ITtscProjectInputSnapshot,
+  location: string,
+): boolean {
+  const key = pathKey(location);
+  return (
+    snapshot.files.some((file) => pathKey(file) === key) ||
+    snapshot.globs.some((glob) => matchesProjectInputGlob(glob, location))
+  );
+}
+
+function matchesProjectInputGlob(pattern: string, location: string): boolean {
+  const normalized = path.resolve(location).split(path.sep).join("/");
+  return projectInputGlobRegExp(pattern).test(normalized);
+}
+
+function projectInputGlobRegExp(pattern: string): RegExp {
+  const normalized = path.resolve(pattern).split(path.sep).join("/");
+  let source = "^";
+  for (let index = 0; index < normalized.length; index++) {
+    const char = normalized[index]!;
+    if (char === "*") {
+      if (normalized[index + 1] === "*") {
+        index++;
+        if (normalized[index + 1] === "/") {
+          index++;
+          source += "(?:[^/]+/)*";
+        } else {
+          source += ".*";
+        }
+      } else {
+        source += "[^/]*";
+      }
+    } else if (char === "?") {
+      source += "[^/]";
+    } else {
+      source += char.replace(/[\\^$.*+?()[\]{}|]/g, "\\$&");
+    }
+  }
+  return new RegExp(`${source}$`, process.platform === "win32" ? "i" : "");
+}
+
+function projectInputPatternKey(pattern: string): string {
+  return process.platform === "win32" ? pattern.toLowerCase() : pattern;
 }
 
 function mapsEqual(
