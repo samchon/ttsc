@@ -238,7 +238,7 @@ export class WatchTopology {
             if (event === "rename") {
               this.invalidateRenamedProjectInputWatchers(location, changed);
             }
-            this.refreshProjectInputs(location, changed);
+            this.refreshProjectInputs(location, changed, event === "rename");
           },
         ),
       (location, error) => this.callbacks.onError(location, error),
@@ -253,8 +253,8 @@ export class WatchTopology {
       const separator = key.lastIndexOf("\0");
       const location = separator === -1 ? key : key.slice(0, separator);
       if (
-        pathKey(source) !== location &&
-        (changed === undefined || isPathWithin(changed, location) === false)
+        (changed === undefined && pathKey(source) !== location) ||
+        (changed !== undefined && isPathWithin(changed, location) === false)
       ) {
         continue;
       }
@@ -273,18 +273,33 @@ export class WatchTopology {
     });
   }
 
-  private refreshProjectInputs(location: string, changed?: string): void {
+  private refreshProjectInputs(
+    location: string,
+    changed?: string,
+    topologyEvent = false,
+  ): void {
     try {
       const previous = this.projectInputMatches;
-      const next = this.collectProjectInputMatches();
-      const membershipChanged = mapsEqual(previous, next) === false;
       const directlyMatched =
         changed !== undefined &&
         (previous.has(pathKey(changed)) ||
           matchesProjectInput(this.projectInputs, changed));
       const topologyMatched =
         changed !== undefined &&
-        projectInputTopologyMayAffect(this.projectInputs, changed);
+        projectInputTopologyMayAffect(
+          this.projectInputs,
+          changed,
+          topologyEvent,
+        );
+      if (
+        changed !== undefined &&
+        (this.isCompilerOutput(changed) ||
+          (directlyMatched === false && topologyMatched === false))
+      ) {
+        return;
+      }
+      const next = this.collectProjectInputMatches();
+      const membershipChanged = mapsEqual(previous, next) === false;
       const nextFingerprints =
         changed === undefined ||
         membershipChanged ||
@@ -778,6 +793,7 @@ function matchesProjectInput(
 function projectInputTopologyMayAffect(
   snapshot: ITtscProjectInputSnapshot,
   location: string,
+  topologyEvent: boolean,
 ): boolean {
   const changed = path.resolve(location);
   return (
@@ -786,7 +802,8 @@ function projectInputTopologyMayAffect(
       const root = literalGlobRoot(glob);
       return (
         isPathWithin(changed, root) ||
-        (isPathWithin(root, changed) && isDirectory(changed))
+        (isPathWithin(root, changed) &&
+          (topologyEvent || isDirectory(changed)))
       );
     })
   );

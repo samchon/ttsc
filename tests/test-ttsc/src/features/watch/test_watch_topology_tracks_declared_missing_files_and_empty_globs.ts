@@ -136,6 +136,14 @@ export const test_watch_topology_tracks_declared_missing_files_and_empty_globs =
       fs.writeFileSync(path.join(root, "api", "bundle.json"), "{}\n");
       await waitForQuiet(changes);
 
+      previousProjectChanges = projectChangeCount(changes);
+      fs.writeFileSync(path.join(root, "unrelated.tmp"), "unrelated\n");
+      fs.writeFileSync(
+        path.join(root, "api", "v1", "openapi.json"),
+        '{"changed":true}\n',
+      );
+      await waitForNextProjectChange(changes, previousProjectChanges);
+
       const movedDocs = path.join(root, "docs-old");
       const replacementDocs = path.join(root, "docs-new");
       fs.mkdirSync(replacementDocs);
