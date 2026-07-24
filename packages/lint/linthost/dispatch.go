@@ -76,7 +76,7 @@ func run(args []string) int {
     // Don't pay contributor-registration cost for the version banner.
     fmt.Fprintf(os.Stdout, "@ttsc/lint %s\n", Version)
     return 0
-  case "check", "fix", "format", "build", "transform", "project-inputs", "lsp-command-ids", "lsp-code-action-kinds", "lsp-diagnostics", "lsp-project-diagnostics", "lsp-code-actions", "lsp-execute-command", "lsp-hints", "lsp-serve":
+  case "check", "check-serve", "fix", "format", "build", "transform", "project-inputs", "lsp-command-ids", "lsp-code-action-kinds", "lsp-diagnostics", "lsp-project-diagnostics", "lsp-code-actions", "lsp-execute-command", "lsp-hints", "lsp-serve":
   default:
     fmt.Fprintf(os.Stderr, "@ttsc/lint: unknown command %q\n", args[0])
     return 2
@@ -87,6 +87,8 @@ func run(args []string) int {
   switch args[0] {
   case "check":
     return RunCheck(args[1:])
+  case "check-serve":
+    return RunCheckServe(os.Stdin, os.Stdout, args[1:])
   case "fix":
     return RunFix(args[1:])
   case "format":

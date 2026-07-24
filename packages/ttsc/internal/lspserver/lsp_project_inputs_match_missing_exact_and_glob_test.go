@@ -27,7 +27,13 @@ func TestProjectInputsMatchMissingExactAndGlob(t *testing.T) {
       },
       Globs: []string{
         filepath.ToSlash(filepath.Join(root, "api", "**", "*.json")),
-        filepath.ToSlash(filepath.Join(root, "api", "**", "*.yaml")),
+        filepath.ToSlash(filepath.Join(
+          root,
+          "api",
+          "**",
+          "v[12]",
+          "{openapi,swagger}.yaml",
+        )),
       },
     },
   }
@@ -38,7 +44,18 @@ func TestProjectInputsMatchMissingExactAndGlob(t *testing.T) {
   }{
     {filepath.Join(root, "docs", "missing.md"), true},
     {filepath.Join(root, "api", "openapi.json"), true},
-    {filepath.Join(root, "api", "v1", "openapi.yaml"), true},
+    {filepath.Join(root, "api", "nested", "swagger.json"), true},
+    {
+      filepath.Join(
+        root,
+        "api",
+        "nested",
+        "v[12]",
+        "{openapi,swagger}.yaml",
+      ),
+      true,
+    },
+    {filepath.Join(root, "api", "nested", "v1", "openapi.yaml"), false},
     {filepath.Join(root, "README.md"), false},
   }
   for _, tc := range cases {

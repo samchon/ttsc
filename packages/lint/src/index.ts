@@ -24,6 +24,7 @@ type TtscPluginDescriptor = {
     lsp?: boolean;
     projectContextArgs?: boolean;
     projectInputs?: boolean;
+    residentCheck?: boolean;
     threadingArgs?: boolean;
   };
   contributors?: TtscPluginContributor[];
@@ -136,6 +137,7 @@ export default function createTtscPlugin(
       lsp: true,
       projectContextArgs: true,
       projectInputs: true,
+      residentCheck: true,
       threadingArgs: true,
     },
     name: "@ttsc/lint",

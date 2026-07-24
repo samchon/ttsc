@@ -32,6 +32,7 @@ export const test_watch_topology_tracks_declared_missing_files_and_empty_globs =
       path.join(root, "tsconfig.json"),
       JSON.stringify({
         compilerOptions: {
+          incremental: true,
           outDir: "dist",
           outFile: "api/bundle.json",
           rootDir: "src",
@@ -64,7 +65,7 @@ export const test_watch_topology_tracks_declared_missing_files_and_empty_globs =
       topology.refresh(false);
       topology.setProjectInputs({
         root,
-        files: [path.join(root, "docs", "missing.md")],
+        files: [path.join(root, "docs", "nested", "missing.md")],
         globs: [
           path.join(root, "api", "**", "*.json"),
           path.join(root, "dist", "**", "*.json"),
@@ -90,8 +91,8 @@ export const test_watch_topology_tracks_declared_missing_files_and_empty_globs =
           missingExternalTarget,
           path.dirname(missingExternalTarget),
         ),
-        [path.dirname(externalRoot)],
-        "an unreachable missing-path anchor must not expand to the volume root",
+        [externalRoot],
+        "a missing external path must anchor at its nearest existing directory",
       );
 
       fs.writeFileSync(path.join(root, "README.md"), "unrelated\n", "utf8");
@@ -116,11 +117,11 @@ export const test_watch_topology_tracks_declared_missing_files_and_empty_globs =
         "a filename-less event with changed declared content must wake",
       );
 
-      fs.mkdirSync(path.join(root, "docs"));
+      fs.mkdirSync(path.join(root, "docs", "nested"), { recursive: true });
       await delay();
       let previousProjectChanges = projectChangeCount(changes);
       fs.writeFileSync(
-        path.join(root, "docs", "missing.md"),
+        path.join(root, "docs", "nested", "missing.md"),
         "declared\n",
         "utf8",
       );
@@ -146,9 +147,9 @@ export const test_watch_topology_tracks_declared_missing_files_and_empty_globs =
 
       const movedDocs = path.join(root, "docs-old");
       const replacementDocs = path.join(root, "docs-new");
-      fs.mkdirSync(replacementDocs);
+      fs.mkdirSync(path.join(replacementDocs, "nested"), { recursive: true });
       fs.writeFileSync(
-        path.join(replacementDocs, "missing.md"),
+        path.join(replacementDocs, "nested", "missing.md"),
         "replacement\n",
         "utf8",
       );
@@ -159,7 +160,7 @@ export const test_watch_topology_tracks_declared_missing_files_and_empty_globs =
       await waitForNextProjectChange(changes, previousProjectChanges);
       previousProjectChanges = projectChangeCount(changes);
       fs.writeFileSync(
-        path.join(root, "docs", "missing.md"),
+        path.join(root, "docs", "nested", "missing.md"),
         "replacement edit\n",
         "utf8",
       );
@@ -167,7 +168,7 @@ export const test_watch_topology_tracks_declared_missing_files_and_empty_globs =
       await delay();
       const afterReplacement = projectChangeCount(changes);
       fs.writeFileSync(
-        path.join(movedDocs, "missing.md"),
+        path.join(movedDocs, "nested", "missing.md"),
         "orphaned watcher\n",
         "utf8",
       );
@@ -197,17 +198,21 @@ export const test_watch_topology_tracks_declared_missing_files_and_empty_globs =
 
       topology.setProjectInputs({
         root,
-        files: [path.join(root, "docs", "next.md")],
+        files: [path.join(root, "docs", "nested", "next.md")],
         globs: [],
       });
       fs.writeFileSync(
-        path.join(root, "docs", "missing.md"),
+        path.join(root, "docs", "nested", "missing.md"),
         "removed\n",
         "utf8",
       );
       await waitForQuiet(changes);
       previousProjectChanges = projectChangeCount(changes);
-      fs.writeFileSync(path.join(root, "docs", "next.md"), "next\n", "utf8");
+      fs.writeFileSync(
+        path.join(root, "docs", "nested", "next.md"),
+        "next\n",
+        "utf8",
+      );
       await waitForNextProjectChange(changes, previousProjectChanges);
 
       assert.equal(

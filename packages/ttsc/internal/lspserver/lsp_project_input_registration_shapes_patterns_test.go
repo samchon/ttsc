@@ -23,11 +23,18 @@ func TestProjectInputRegistrationShapesRelativePatterns(t *testing.T) {
     },
     Globs: []string{
       filepath.ToSlash(filepath.Join(root, "api", "**", "*.json")),
+      filepath.ToSlash(filepath.Join(
+        root,
+        "api",
+        "**",
+        "v[12]",
+        "{openapi,swagger}.yaml",
+      )),
     },
   }
   watchers := projectInputFileWatchers(snapshot)
-  if len(watchers) != 2 {
-    t.Fatalf("watchers = %#v, want 2 deduplicated entries", watchers)
+  if len(watchers) != 3 {
+    t.Fatalf("watchers = %#v, want 3 deduplicated entries", watchers)
   }
 
   byPattern := map[string]projectInputFileWatcher{}
@@ -47,6 +54,11 @@ func TestProjectInputRegistrationShapesRelativePatterns(t *testing.T) {
     t.Fatalf("glob pattern missing from %#v", byPattern)
   } else if watcher.GlobPattern.BaseURI == "" {
     t.Fatal("glob watcher has an empty base URI")
+  }
+  literalMetacharacters :=
+    "api/**/v[[]12[]]/[{]openapi,swagger[}].yaml"
+  if _, ok := byPattern[literalMetacharacters]; !ok {
+    t.Fatalf("literal glob metacharacters were not escaped in %#v", byPattern)
   }
 
   if got := projectInputFileURI("C:/Program Files/a#b%25"); got !=
