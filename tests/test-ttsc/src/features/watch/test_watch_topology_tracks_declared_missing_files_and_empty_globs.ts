@@ -8,6 +8,7 @@ import {
   WatchTopology,
   literalGlobRoot,
   projectInputEventShouldNotify,
+  projectInputWatchDirectories,
 } from "../../../../../packages/ttsc/lib/launcher/internal/watchTopology.js";
 
 /**
@@ -78,6 +79,20 @@ export const test_watch_topology_tracks_declared_missing_files_and_empty_globs =
           "a drive-root glob must not resolve through the drive's current directory",
         );
       }
+      const externalRoot = TestProject.tmpdir("ttsc-project-input-anchor-");
+      const missingExternalTarget = path.join(
+        externalRoot,
+        "missing",
+        "nested",
+      );
+      assert.deepEqual(
+        projectInputWatchDirectories(
+          missingExternalTarget,
+          path.dirname(missingExternalTarget),
+        ),
+        [externalRoot, path.dirname(externalRoot)],
+        "an unreachable missing-path anchor must not expand to the volume root",
+      );
 
       fs.writeFileSync(path.join(root, "README.md"), "unrelated\n", "utf8");
       await waitForQuiet(changes);
@@ -87,7 +102,6 @@ export const test_watch_topology_tracks_declared_missing_files_and_empty_globs =
           contentChanged: false,
           directlyMatched: false,
           membershipChanged: false,
-          topologyMatched: false,
         }),
         false,
         "a filename-less event with unchanged inputs must stay quiet",
@@ -97,7 +111,6 @@ export const test_watch_topology_tracks_declared_missing_files_and_empty_globs =
           contentChanged: true,
           directlyMatched: false,
           membershipChanged: false,
-          topologyMatched: false,
         }),
         true,
         "a filename-less event with changed declared content must wake",
@@ -124,15 +137,22 @@ export const test_watch_topology_tracks_declared_missing_files_and_empty_globs =
       await waitForQuiet(changes);
 
       const movedDocs = path.join(root, "docs-old");
+      const replacementDocs = path.join(root, "docs-new");
+      fs.mkdirSync(replacementDocs);
+      fs.writeFileSync(
+        path.join(replacementDocs, "missing.md"),
+        "replacement\n",
+        "utf8",
+      );
+      await waitForQuiet(changes);
       previousProjectChanges = projectChangeCount(changes);
       fs.renameSync(path.join(root, "docs"), movedDocs);
+      fs.renameSync(replacementDocs, path.join(root, "docs"));
       await waitForNextProjectChange(changes, previousProjectChanges);
-      fs.mkdirSync(path.join(root, "docs"));
-      await delay();
       previousProjectChanges = projectChangeCount(changes);
       fs.writeFileSync(
         path.join(root, "docs", "missing.md"),
-        "replacement\n",
+        "replacement edit\n",
         "utf8",
       );
       await waitForNextProjectChange(changes, previousProjectChanges);
@@ -214,7 +234,7 @@ async function waitForQuiet(
 ): Promise<void> {
   const count = changes.length;
   await delay();
-  assert.equal(changes.length, count);
+  assert.equal(changes.length, count, JSON.stringify(changes.slice(count)));
 }
 
 function delay(milliseconds = 250): Promise<void> {
