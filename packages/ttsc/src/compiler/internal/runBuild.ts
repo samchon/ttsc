@@ -1225,16 +1225,16 @@ export function mergeProjectInputSnapshots(
 ): ITtscProjectInputSnapshot {
   const files = new Map<string, string>();
   const globs = new Map<string, string>();
-  const root = path.resolve(fallbackRoot);
+  const root = resolveProjectInputPath(fallbackRoot);
   for (const snapshot of snapshots) {
-    const candidateRoot = path.resolve(snapshot.root);
+    const candidateRoot = resolveProjectInputPath(snapshot.root);
     if (projectInputPathKey(root) !== projectInputPathKey(candidateRoot)) {
       throw new Error(
         `ttsc.project-inputs: plugin root ${candidateRoot} differs from the selected project root ${root}`,
       );
     }
     for (const file of snapshot.files) {
-      const resolved = path.resolve(file);
+      const resolved = resolveProjectInputPath(file);
       files.set(projectInputPathKey(resolved), resolved);
     }
     for (const glob of snapshot.globs) {
@@ -1298,12 +1298,15 @@ export function isAbsoluteLocalProjectInputPath(
   if (platform !== "win32") return path.posix.isAbsolute(location);
   const normalized = location.replaceAll("/", "\\");
   if (/^[A-Za-z]:\\/.test(normalized)) return true;
-  if (
-    normalized.startsWith("\\\\?\\") ||
-    normalized.startsWith("\\\\.\\")
-  ) {
+  if (normalized.startsWith("\\\\?\\")) {
+    const extended = normalized.slice(4);
+    if (/^[A-Za-z]:\\/.test(extended)) return true;
+    if (extended.toLowerCase().startsWith("unc\\")) {
+      return /^unc\\[^\\]+\\[^\\]+(?:\\|$)/i.test(extended);
+    }
     return false;
   }
+  if (normalized.startsWith("\\\\.\\")) return false;
   return /^\\\\[^\\]+\\[^\\]+(?:\\|$)/.test(normalized);
 }
 
@@ -1314,12 +1317,29 @@ function isStringArray(value: unknown): value is string[] {
 }
 
 function normalizeProjectInputGlob(pattern: string): string {
-  return path.resolve(pattern).split(path.sep).join("/");
+  return resolveProjectInputPath(pattern).split(path.sep).join("/");
 }
 
 function projectInputPathKey(location: string): string {
-  const normalized = path.resolve(location);
+  const normalized = resolveProjectInputPath(location);
   return process.platform === "win32" ? normalized.toLowerCase() : normalized;
+}
+
+function resolveProjectInputPath(location: string): string {
+  if (process.platform !== "win32") {
+    return path.resolve(location);
+  }
+  const normalized = location.replaceAll("/", "\\");
+  if (normalized.toLowerCase().startsWith("\\\\?\\unc\\")) {
+    return path.resolve(`\\\\${normalized.slice(8)}`);
+  }
+  if (
+    normalized.startsWith("\\\\?\\") &&
+    /^[A-Za-z]:\\/.test(normalized.slice(4))
+  ) {
+    return path.resolve(normalized.slice(4));
+  }
+  return path.resolve(location);
 }
 
 /**

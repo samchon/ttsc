@@ -90,7 +90,7 @@ export const test_watch_topology_tracks_declared_missing_files_and_empty_globs =
           missingExternalTarget,
           path.dirname(missingExternalTarget),
         ),
-        [externalRoot, path.dirname(externalRoot)],
+        [path.dirname(externalRoot)],
         "an unreachable missing-path anchor must not expand to the volume root",
       );
 
