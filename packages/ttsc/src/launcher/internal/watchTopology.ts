@@ -731,6 +731,8 @@ export class WatchTopology {
       const reload = projectInputReloadEventShouldNotify({
         changed,
         changedInputs,
+        files: population.files,
+        globs: population.globs,
         reloadDirectories: population.reloadDirectories ?? [],
         reloadFiles: population.reloadFiles ?? [],
       });
@@ -1995,6 +1997,8 @@ export function projectInputReloadEventShouldNotify(input: {
   changedInputs: readonly string[];
   reloadDirectories?: readonly string[];
   reloadFiles: readonly string[];
+  files?: readonly string[];
+  globs?: readonly string[];
 }): boolean {
   const identities = createProjectInputPathIdentityContext();
   const reloadFiles = new Set(
@@ -2004,17 +2008,44 @@ export function projectInputReloadEventShouldNotify(input: {
     identities.resolve(location),
   );
   // A reload directory is a non-recursive surface: its fingerprint is a digest
-  // of its immediate entries' names, kinds, and link targets, so only an entry
-  // it holds directly can move it. Matching the whole subtree instead makes a
-  // resolution ancestor — the lint config graph publishes every node_modules
-  // level it searched, up to the filesystem root — classify every edit beneath
-  // it as a selection change, which restarts the sidecar on each keystroke and
-  // ends warm reuse for any project inside one.
-  const isReloadDirectoryInput = (location: string): boolean => {
-    const parent = identities.resolve(path.dirname(location)).key;
-    return reloadDirectories.some(
-      (directory) => identities.resolve(directory.path).key === parent,
+  // of its immediate entries' names, kinds, and link targets, so it moves only
+  // when the directory itself moves or when an entry it holds directly does.
+  // Matching the whole subtree instead makes a resolution ancestor — the lint
+  // config graph publishes every node_modules level it searched, up to the
+  // filesystem root — classify every edit beneath it as a selection change,
+  // which restarts the sidecar on each keystroke and ends warm reuse for any
+  // project inside one.
+  // Territory a data declaration already owns. A project root is published as a
+  // resolution directory because the config lives there, so without this every
+  // directory a declared glob is rooted at would read as a selection change the
+  // moment it appears — and appearing is exactly what a declared population
+  // does. The data lane already reports those, with program invalidation when
+  // the membership moved.
+  const dataOwned = (location: string): boolean => {
+    const key = identities.resolve(location).key;
+    return (
+      // A producer republishes its reload files in `files` for older decoders,
+      // so they are filtered back out here: a directory holding one is where a
+      // selection is chosen, not where data lives.
+      (input.files ?? []).some(
+        (file) =>
+          reloadFiles.has(identities.resolve(file).key) === false &&
+          (identities.resolve(file).key === key ||
+            identities.isWithin(location, file)),
+      ) ||
+      (input.globs ?? []).some((glob) =>
+        identities.isWithin(location, literalGlobRoot(glob)),
+      )
     );
+  };
+  const isReloadDirectoryInput = (location: string): boolean => {
+    if (dataOwned(location)) return false;
+    const key = identities.resolve(location).key;
+    const parent = identities.resolve(path.dirname(location)).key;
+    return reloadDirectories.some((directory) => {
+      const declared = identities.resolve(directory.path).key;
+      return declared === key || declared === parent;
+    });
   };
   return (
     (input.changed !== undefined &&
