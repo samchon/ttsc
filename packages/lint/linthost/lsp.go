@@ -205,7 +205,10 @@ func RunLSPProjectDiagnostics(args []string) int {
 
 // computeLSPProjectDiagnostics evaluates only project rules and returns an
 // empty publication when they are disabled, allowing the proxy to clear the
-// previous generation.
+// previous generation. A project that does not parse has no publication at
+// all: acquireProgram returns no Program alongside its parse diagnostics, so
+// the command prints null and the host keeps the producer's last good answer
+// instead of clearing it with a broken evaluation.
 func computeLSPProjectDiagnostics(opts *lspCommandOptions) (*lspProjectDiagnostics, int) {
   rules, err := loadRules(opts.pluginsJSON, opts.cwd, opts.tsconfig)
   if err != nil {
@@ -217,7 +220,7 @@ func computeLSPProjectDiagnostics(opts *lspCommandOptions) (*lspProjectDiagnosti
     fmt.Fprintln(os.Stderr, err)
     return nil, 2
   }
-  prog, parseDiags, closeProgram, err := acquireProgram(opts, engine.NeedsTypeChecker())
+  prog, _, closeProgram, err := acquireProgram(opts, engine.NeedsTypeChecker())
   if closeProgram != nil {
     defer closeProgram()
   }
@@ -231,9 +234,6 @@ func computeLSPProjectDiagnostics(opts *lspCommandOptions) (*lspProjectDiagnosti
   publication := &lspProjectDiagnostics{
     URI:         fileURL(prog.identity.LogicalConfigPath),
     Diagnostics: []lspDiagnostic{},
-  }
-  if len(parseDiags) > 0 {
-    return publication, 0
   }
   for _, finding := range prog.runProjectCycle(engine).finalize() {
     publication.Diagnostics = append(
