@@ -731,7 +731,6 @@ export class WatchTopology {
       const reload = projectInputReloadEventShouldNotify({
         changed,
         changedInputs,
-        files: population.files,
         globs: population.globs,
         reloadDirectories: population.reloadDirectories ?? [],
         reloadFiles: population.reloadFiles ?? [],
@@ -1997,7 +1996,6 @@ export function projectInputReloadEventShouldNotify(input: {
   changedInputs: readonly string[];
   reloadDirectories?: readonly string[];
   reloadFiles: readonly string[];
-  files?: readonly string[];
   globs?: readonly string[];
 }): boolean {
   const identities = createProjectInputPathIdentityContext();
@@ -2015,29 +2013,20 @@ export function projectInputReloadEventShouldNotify(input: {
   // filesystem root — classify every edit beneath it as a selection change,
   // which restarts the sidecar on each keystroke and ends warm reuse for any
   // project inside one.
-  // Territory a data declaration already owns. A project root is published as a
-  // resolution directory because the config lives there, so without this every
-  // directory a declared glob is rooted at would read as a selection change the
-  // moment it appears — and appearing is exactly what a declared population
-  // does. The data lane already reports those, with program invalidation when
-  // the membership moved.
-  const dataOwned = (location: string): boolean => {
-    const key = identities.resolve(location).key;
-    return (
-      // A producer republishes its reload files in `files` for older decoders,
-      // so they are filtered back out here: a directory holding one is where a
-      // selection is chosen, not where data lives.
-      (input.files ?? []).some(
-        (file) =>
-          reloadFiles.has(identities.resolve(file).key) === false &&
-          (identities.resolve(file).key === key ||
-            identities.isWithin(location, file)),
-      ) ||
-      (input.globs ?? []).some((glob) =>
-        identities.isWithin(location, literalGlobRoot(glob)),
-      )
+  // The territory a declared glob is rooted at. A project root is published as
+  // a resolution directory because the config lives there, so the directory a
+  // glob is rooted at reads as a new immediate entry the moment it appears --
+  // and appearing is what a declared population does. The data lane already
+  // reports it, with program invalidation when the membership moved, which is
+  // the cold-Program-same-process transition that belongs to data.
+  //
+  // Only glob roots. A declared file sitting directly in a resolution directory
+  // is still a selection surface: its own edit is what a project rule reads to
+  // decide, and that decision is made once per execution.
+  const dataOwned = (location: string): boolean =>
+    (input.globs ?? []).some((glob) =>
+      identities.isWithin(location, literalGlobRoot(glob)),
     );
-  };
   const isReloadDirectoryInput = (location: string): boolean => {
     if (dataOwned(location)) return false;
     const key = identities.resolve(location).key;
