@@ -2025,7 +2025,7 @@ export function projectInputReloadEventShouldNotify(input: {
   // decide, and that decision is made once per execution.
   const dataOwned = (location: string): boolean =>
     (input.globs ?? []).some((glob) =>
-      identities.isWithin(location, literalGlobRoot(glob)),
+      identities.isWithin(literalGlobRoot(glob), location),
     );
   const isReloadDirectoryInput = (location: string): boolean => {
     if (dataOwned(location)) return false;
