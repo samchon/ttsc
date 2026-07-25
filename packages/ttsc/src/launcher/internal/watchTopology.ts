@@ -2032,18 +2032,19 @@ export function projectInputReloadEventShouldNotify(input: {
   // Only glob roots, either way. A declared file sitting directly in a
   // resolution directory is still a selection surface: its own bytes are what a
   // project rule reads to decide, once per execution.
+  const globRoots = (input.globs ?? []).map((glob) =>
+    identities.resolve(literalGlobRoot(glob)),
+  );
   const exemptedFrom = (
     directory: ProjectInputPathIdentity,
     location: string,
   ): boolean =>
-    (input.globs ?? []).some((glob) => {
-      const globRoot = identities.resolve(literalGlobRoot(glob));
-      return (
+    globRoots.some(
+      (globRoot) =>
         globRoot.key !== directory.key &&
         identities.isWithin(directory.path, globRoot.path) &&
-        identities.isWithin(globRoot.path, location)
-      );
-    });
+        identities.isWithin(globRoot.path, location),
+    );
   // A reload directory is a non-recursive surface: its digest covers its
   // immediate entries' names, kinds, and link targets, so it moves only when the
   // directory itself moves or when an entry it holds directly does. Matching the
@@ -2069,16 +2070,24 @@ export function projectInputReloadEventShouldNotify(input: {
   // when it names anything else, or nothing at all, the safe reading is that
   // resolution moved. A missed reselection is a wrong answer; a spare restart is
   // a slow one.
-  const changedIsData =
-    input.changed !== undefined &&
-    reloadDirectories.some((directory) =>
-      exemptedFrom(directory, input.changed!),
-    );
+  const explains = (directory: ProjectInputPathIdentity): boolean => {
+    if (input.changed === undefined) return false;
+    // Only an immediate entry can move this directory's digest, so only an
+    // immediate entry can account for the delta. Asking whether the event was
+    // data somewhere else answers a different directory's question, and one
+    // exemption would then cancel every other directory's evidence.
+    const parent = identities.resolve(path.dirname(input.changed)).key;
+    return parent === directory.key && exemptedFrom(directory, input.changed);
+  };
   const isReloadDirectoryEvent = (location: string): boolean =>
     namesDirectory(location) || holdsAsImmediateEntry(location);
-  const isReloadDirectoryDelta = (location: string): boolean =>
-    holdsAsImmediateEntry(location) ||
-    (changedIsData === false && namesDirectory(location));
+  const isReloadDirectoryDelta = (location: string): boolean => {
+    if (holdsAsImmediateEntry(location)) return true;
+    const key = identities.resolve(location).key;
+    return reloadDirectories.some(
+      (directory) => directory.key === key && explains(directory) === false,
+    );
+  };
   return (
     (input.changed !== undefined &&
       (reloadFiles.has(identities.resolve(input.changed).key) ||

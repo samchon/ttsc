@@ -130,4 +130,43 @@ export const test_watch_topology_separates_glob_territory_from_selection =
       true,
       "a glob rooted above the resolution directory must not exempt it either",
     );
+
+    // Nested resolution directories are the ordinary case, not the exotic one:
+    // a config graph records the directory it searched, each node_modules level
+    // above it, and every ancestor between. Each one's digest answers only for
+    // its own immediate entries, so one directory's exemption must not speak
+    // for another's evidence.
+    const modules = path.join(root, "node_modules");
+    const nested = {
+      globs: [path.join(root, "api", "**", "*.json")],
+      reloadDirectories: [root, modules],
+      reloadFiles: shared.reloadFiles,
+    };
+    assert.equal(
+      projectInputReloadEventShouldNotify({
+        changed: globRoot,
+        changedInputs: [modules],
+        ...nested,
+      }),
+      true,
+      "a data event under one directory must not cancel another's delta",
+    );
+    assert.equal(
+      projectInputReloadEventShouldNotify({
+        changed: path.join(modules, "left-pad"),
+        changedInputs: [modules],
+        ...nested,
+      }),
+      true,
+      "an installed package stays cold with a glob declared elsewhere",
+    );
+    assert.equal(
+      projectInputReloadEventShouldNotify({
+        changed: globRoot,
+        changedInputs: [root],
+        ...nested,
+      }),
+      false,
+      "the directory the data actually moved still yields",
+    );
   };
