@@ -19,9 +19,16 @@ import { projectInputReloadEventShouldNotify } from "../../../../../packages/tts
  * same directory is still a selection surface, because a project rule reads its
  * bytes to decide, and that decision is made once per execution.
  *
+ * The same directory's fingerprint moves whenever anything appears directly
+ * inside it, data included, so a digest delta on the directory alone cannot
+ * tell a new package from a new data directory. Only the event's own name can,
+ * which is why the directory-itself rule belongs to the named event and the
+ * fingerprint lane keys on the entry that changed.
+ *
  * 1. Take a resolution directory holding both a glob root and a declared file.
  * 2. Assert the glob root stays warm and the declared file stays cold.
- * 3. Assert the directory itself and its other entries stay cold.
+ * 3. Assert the directory itself and its other entries stay cold when named.
+ * 4. Assert the directory's own digest delta alone does not select cold.
  */
 export const test_watch_topology_separates_glob_territory_from_selection =
   (): void => {
@@ -51,4 +58,29 @@ export const test_watch_topology_separates_glob_territory_from_selection =
         `${label} must select the ${expected ? "cold" : "warm"} lane`,
       );
     }
+
+    assert.equal(
+      projectInputReloadEventShouldNotify({
+        changedInputs: [root],
+        ...shared,
+      }),
+      false,
+      "a resolution directory's own digest delta is not by itself a selection change",
+    );
+    assert.equal(
+      projectInputReloadEventShouldNotify({
+        changedInputs: [path.join(root, "new-package", "package.json")],
+        ...shared,
+      }),
+      false,
+      "a delta below an immediate entry is not a selection change either",
+    );
+    assert.equal(
+      projectInputReloadEventShouldNotify({
+        changedInputs: [path.join(root, "new-package")],
+        ...shared,
+      }),
+      true,
+      "a delta on an immediate entry still selects the cold lane",
+    );
   };

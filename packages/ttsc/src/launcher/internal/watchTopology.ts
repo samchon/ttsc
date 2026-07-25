@@ -2027,23 +2027,37 @@ export function projectInputReloadEventShouldNotify(input: {
     (input.globs ?? []).some((glob) =>
       identities.isWithin(literalGlobRoot(glob), location),
     );
-  const isReloadDirectoryInput = (location: string): boolean => {
+  // What the event names, versus what its fingerprint says. A reload directory's
+  // digest moves whenever anything appears directly inside it, data included, so
+  // the digest alone cannot tell a new package from a new data directory. The
+  // name can: an event on the directory itself is the directory moving, which is
+  // the plainest topology change it has. So the self rule belongs to the named
+  // event, and the fingerprint lane keys on the entry that actually changed.
+  const holdsAsImmediateEntry = (location: string): boolean => {
+    const parent = identities.resolve(path.dirname(location)).key;
+    return reloadDirectories.some(
+      (directory) => identities.resolve(directory.path).key === parent,
+    );
+  };
+  const isReloadDirectoryEvent = (location: string): boolean => {
     if (dataOwned(location)) return false;
     const key = identities.resolve(location).key;
-    const parent = identities.resolve(path.dirname(location)).key;
-    return reloadDirectories.some((directory) => {
-      const declared = identities.resolve(directory.path).key;
-      return declared === key || declared === parent;
-    });
+    return (
+      reloadDirectories.some(
+        (directory) => identities.resolve(directory.path).key === key,
+      ) || holdsAsImmediateEntry(location)
+    );
   };
+  const isReloadDirectoryDelta = (location: string): boolean =>
+    dataOwned(location) === false && holdsAsImmediateEntry(location);
   return (
     (input.changed !== undefined &&
       (reloadFiles.has(identities.resolve(input.changed).key) ||
-        isReloadDirectoryInput(input.changed))) ||
+        isReloadDirectoryEvent(input.changed))) ||
     input.changedInputs.some(
       (location) =>
         reloadFiles.has(identities.resolve(location).key) ||
-        isReloadDirectoryInput(location),
+        isReloadDirectoryDelta(location),
     )
   );
 }
