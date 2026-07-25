@@ -8,6 +8,7 @@ import { resolveTsgo } from "../../compiler/internal/resolveTsgo";
 import { outputText, spawnNative } from "../../compiler/internal/spawnNative";
 import { resolveFlagSpec } from "../../flags/schema";
 import {
+  type ProjectInputPathIdentity,
   type ProjectInputPathIdentityContext,
   createProjectInputPathIdentityContext,
   isProjectInputPathIdentityWithin,
@@ -2005,33 +2006,34 @@ export function projectInputReloadEventShouldNotify(input: {
   const reloadDirectories = (input.reloadDirectories ?? []).map((location) =>
     identities.resolve(location),
   );
-  // Territory a declared glob is rooted at. A project root is published as a
-  // resolution directory because the config lives there, so the directory a glob
-  // is rooted at reads as a new immediate entry the moment it appears -- and
-  // appearing is what a declared population does. The data lane already reports
-  // it, with program invalidation when the membership moved, which is the
-  // cold-Program-same-process transition that belongs to data.
+  // Territory a declared glob is rooted at, judged against the resolution
+  // directory that would otherwise claim it. A project root is published as a
+  // resolution directory because the config lives there, so the directory a
+  // glob is rooted at reads as a new immediate entry the moment it appears --
+  // and appearing is what a declared population does. The data lane already
+  // reports it, with program invalidation when the membership moved, which is
+  // the cold-Program-same-process transition that belongs to data.
   //
-  // Data can only carve out below a resolution directory, never at it. A glob
-  // rooted on the resolution directory itself, or on a volume root, would
-  // otherwise exempt everything that directory exists to classify and retire
-  // the selection lane in silence. Its own role predates the glob.
+  // Data can only carve out strictly below a resolution directory. A glob
+  // rooted on that directory, or above it -- `literalGlobRoot` answers with the
+  // volume root for a pattern with no literal prefix -- would otherwise exempt
+  // everything the directory exists to classify, and the selection lane would
+  // retire in silence. Its role predates any glob drawn around it.
   //
   // Only glob roots, either way. A declared file sitting directly in a
   // resolution directory is still a selection surface: its own bytes are what a
   // project rule reads to decide, once per execution.
-  const dataOwned = (location: string): boolean =>
+  const exemptedFrom = (
+    directory: ProjectInputPathIdentity,
+    location: string,
+  ): boolean =>
     (input.globs ?? []).some((glob) => {
       const globRoot = identities.resolve(literalGlobRoot(glob));
-      if (
-        reloadDirectories.some(
-          (directory) =>
-            identities.resolve(directory.path).key === globRoot.key,
-        )
-      ) {
-        return false;
-      }
-      return identities.isWithin(globRoot.path, location);
+      return (
+        globRoot.key !== directory.key &&
+        identities.isWithin(directory.path, globRoot.path) &&
+        identities.isWithin(globRoot.path, location)
+      );
     });
   // A reload directory is a non-recursive surface: its digest covers its
   // immediate entries' names, kinds, and link targets, so it moves only when the
@@ -2040,30 +2042,34 @@ export function projectInputReloadEventShouldNotify(input: {
   // publishes every node_modules level it searched, up to the filesystem root --
   // read every edit beneath it as a selection change, which restarts the sidecar
   // on each keystroke and ends warm reuse for any project inside one.
-  //
-  // What the event names and what its digest says are different questions. The
-  // digest moves whenever anything appears directly inside, data included, so it
-  // cannot tell a new package from a new data directory. The name can: an event
-  // on the directory itself is the directory moving, which is the plainest
-  // topology change it has. So the self rule belongs to the named event, and the
-  // digest lane keys on the entry that actually changed.
   const holdsAsImmediateEntry = (location: string): boolean => {
     const parent = identities.resolve(path.dirname(location)).key;
     return reloadDirectories.some(
-      (directory) => identities.resolve(directory.path).key === parent,
+      (directory) =>
+        directory.key === parent && exemptedFrom(directory, location) === false,
     );
   };
-  const isReloadDirectoryEvent = (location: string): boolean => {
-    if (dataOwned(location)) return false;
+  const namesDirectory = (location: string): boolean => {
     const key = identities.resolve(location).key;
-    return (
-      reloadDirectories.some(
-        (directory) => identities.resolve(directory.path).key === key,
-      ) || holdsAsImmediateEntry(location)
-    );
+    return reloadDirectories.some((directory) => directory.key === key);
   };
+  // A digest delta on the directory itself is the only signal there is when the
+  // entry that appeared is not a declared match, so it cannot simply be dropped
+  // -- but it also cannot say what appeared. The event being classified in the
+  // same pass can: when it names data, the delta it caused is that data's, and
+  // when it names anything else, or nothing at all, the safe reading is that
+  // resolution moved. A missed reselection is a wrong answer; a spare restart is
+  // a slow one.
+  const changedIsData =
+    input.changed !== undefined &&
+    reloadDirectories.some((directory) =>
+      exemptedFrom(directory, input.changed!),
+    );
+  const isReloadDirectoryEvent = (location: string): boolean =>
+    namesDirectory(location) || holdsAsImmediateEntry(location);
   const isReloadDirectoryDelta = (location: string): boolean =>
-    dataOwned(location) === false && holdsAsImmediateEntry(location);
+    holdsAsImmediateEntry(location) ||
+    (changedIsData === false && namesDirectory(location));
   return (
     (input.changed !== undefined &&
       (reloadFiles.has(identities.resolve(input.changed).key) ||

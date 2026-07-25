@@ -59,13 +59,34 @@ export const test_watch_topology_separates_glob_territory_from_selection =
       );
     }
 
+    // The digest delta on the directory is the only signal there is when what
+    // appeared is not a declared match, so it survives on its own — and yields
+    // only to an event that names data in the same pass.
     assert.equal(
       projectInputReloadEventShouldNotify({
         changedInputs: [root],
         ...shared,
       }),
+      true,
+      "an unexplained digest delta on a resolution directory selects the cold lane",
+    );
+    assert.equal(
+      projectInputReloadEventShouldNotify({
+        changed: globRoot,
+        changedInputs: [root],
+        ...shared,
+      }),
       false,
-      "a resolution directory's own digest delta is not by itself a selection change",
+      "a digest delta explained by a data event stays warm",
+    );
+    assert.equal(
+      projectInputReloadEventShouldNotify({
+        changed: path.join(root, "new-package", "index.js"),
+        changedInputs: [root],
+        ...shared,
+      }),
+      true,
+      "a digest delta explained by a non-data event stays cold",
     );
     assert.equal(
       projectInputReloadEventShouldNotify({
@@ -97,5 +118,16 @@ export const test_watch_topology_separates_glob_territory_from_selection =
       }),
       true,
       "a glob rooted on the resolution directory must not exempt it",
+    );
+    assert.equal(
+      projectInputReloadEventShouldNotify({
+        changed: path.join(root, "new-package"),
+        changedInputs: [],
+        globs: [path.join(path.parse(root).root, "**", "*.json")],
+        reloadDirectories: [root],
+        reloadFiles: shared.reloadFiles,
+      }),
+      true,
+      "a glob rooted above the resolution directory must not exempt it either",
     );
   };
