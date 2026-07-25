@@ -893,9 +893,18 @@ export class WatchTopology {
     location: string,
     identities: ProjectInputPathIdentityContext,
   ): boolean {
-    return [...this.outputs.values()].some((output) =>
-      identities.isWithin(output, location),
-    );
+    const root = this.projectInputs.root;
+    return [...this.outputs.values()].some((output) => {
+      // An output directory that is the project itself, or holds it, is not a
+      // place where only build products live -- the sources are there too. A
+      // project emitting in place declares exactly that, and honouring it
+      // literally would classify every declared input as a product and leave
+      // the whole lane unwatched without anything failing to say so. Watching
+      // is the safe side here: a product that gets watched costs an extra
+      // rebuild, while an input that does not is never seen again.
+      if (root !== "" && identities.isWithin(output, root)) return false;
+      return identities.isWithin(output, location);
+    });
   }
 
   private isProjectInputCompilerOutput(
