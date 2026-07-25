@@ -8,6 +8,7 @@ import {
   type WatchInputChange,
   WatchTopology,
 } from "../../../../../packages/ttsc/lib/launcher/internal/watchTopology.js";
+import { WATCH_EVENT_DEADLINE_MS } from "../../internal/watch";
 
 /**
  * Verifies watch topology preserves case-sensitive project inputs.
@@ -118,7 +119,7 @@ async function writeAndWait(
   const count = changes.length;
   fs.mkdirSync(path.dirname(location), { recursive: true });
   fs.writeFileSync(location, content, "utf8");
-  const deadline = Date.now() + 5_000;
+  const deadline = Date.now() + WATCH_EVENT_DEADLINE_MS;
   while (
     changes
       .slice(count)

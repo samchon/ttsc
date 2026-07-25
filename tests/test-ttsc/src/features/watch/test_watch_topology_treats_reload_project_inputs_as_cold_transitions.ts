@@ -8,6 +8,7 @@ import {
   WatchTopology,
   projectInputReloadEventShouldNotify,
 } from "../../../../../packages/ttsc/lib/launcher/internal/watchTopology.js";
+import { WATCH_EVENT_DEADLINE_MS } from "../../internal/watch";
 
 /**
  * Verifies reload project inputs dominate the ordinary external-data lane.
@@ -164,7 +165,7 @@ async function expectNextKind(
 ): Promise<void> {
   const previous = changes.filter((change) => change.kind === kind).length;
   mutate();
-  const deadline = Date.now() + 5_000;
+  const deadline = Date.now() + WATCH_EVENT_DEADLINE_MS;
   while (changes.filter((change) => change.kind === kind).length === previous) {
     if (Date.now() >= deadline) {
       assert.fail(`expected ${kind}: ${JSON.stringify(changes)}`);

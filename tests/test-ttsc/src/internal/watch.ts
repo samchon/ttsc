@@ -143,3 +143,16 @@ export class WatchSession {
     );
   }
 }
+
+/**
+ * How long a watch test waits for an event it has already caused.
+ *
+ * These tests assert that a notification arrives, never how quickly, so the
+ * bound only has to exceed the slowest backend that still works. macOS
+ * coalesces FSEvents and delivers them on its own schedule, which under CI load
+ * runs well past a few seconds; the same suite already allows two minutes for a
+ * build. A generous bound costs a healthy run nothing, because every waiter
+ * polls and returns the moment its predicate holds, and it keeps a slow
+ * delivery from being reported as a missing one.
+ */
+export const WATCH_EVENT_DEADLINE_MS = 30_000;

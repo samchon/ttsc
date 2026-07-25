@@ -7,6 +7,7 @@ import {
   type WatchInputChange,
   WatchTopology,
 } from "../../../../../packages/ttsc/lib/launcher/internal/watchTopology.js";
+import { WATCH_EVENT_DEADLINE_MS } from "../../internal/watch";
 
 /**
  * Verifies config and selected plugin sources enter the same reload lane.
@@ -108,7 +109,7 @@ async function waitForKind(
   kind: WatchInputChange["kind"],
   stimulus: () => void,
 ): Promise<void> {
-  const deadline = Date.now() + 5_000;
+  const deadline = Date.now() + WATCH_EVENT_DEADLINE_MS;
   while (!changes.some((change) => change.kind === kind)) {
     if (Date.now() >= deadline) {
       assert.fail(`expected a ${kind} change: ${JSON.stringify(changes)}`);

@@ -7,6 +7,7 @@ import {
   type WatchInputChange,
   WatchTopology,
 } from "../../../../../packages/ttsc/lib/launcher/internal/watchTopology.js";
+import { WATCH_EVENT_DEADLINE_MS } from "../../internal/watch";
 
 /**
  * Verifies watchers register physical paths while reporting declared ones.
@@ -79,7 +80,7 @@ export const test_watch_topology_registers_physical_watch_paths =
           .map((change) => change.path)
           .filter((location): location is string => location !== undefined)
           .filter((location) => path.basename(location) === "main.ts");
-      const deadline = Date.now() + 5_000;
+      const deadline = Date.now() + WATCH_EVENT_DEADLINE_MS;
       while (sourceChanges().length === 0) {
         if (Date.now() >= deadline) {
           assert.fail(

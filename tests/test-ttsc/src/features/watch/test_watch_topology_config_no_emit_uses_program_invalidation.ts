@@ -7,6 +7,7 @@ import {
   type WatchInputChange,
   WatchTopology,
 } from "../../../../../packages/ttsc/lib/launcher/internal/watchTopology.js";
+import { WATCH_EVENT_DEADLINE_MS } from "../../internal/watch";
 
 /**
  * Verifies tsconfig noEmit gets the same resident Program fast path as
@@ -84,7 +85,7 @@ export const test_watch_topology_config_no_emit_uses_program_invalidation =
   };
 
 async function waitFor(predicate: () => boolean): Promise<void> {
-  const deadline = Date.now() + 5_000;
+  const deadline = Date.now() + WATCH_EVENT_DEADLINE_MS;
   while (Date.now() < deadline) {
     if (predicate()) return;
     await new Promise((resolve) => setTimeout(resolve, 25));

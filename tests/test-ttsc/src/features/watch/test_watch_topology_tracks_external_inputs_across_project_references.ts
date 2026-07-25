@@ -7,6 +7,7 @@ import {
   type WatchInputChange,
   WatchTopology,
 } from "../../../../../packages/ttsc/lib/launcher/internal/watchTopology.js";
+import { WATCH_EVENT_DEADLINE_MS } from "../../internal/watch";
 
 /**
  * Verifies referenced-project outputs stay quiet while absolute inputs outside
@@ -111,7 +112,7 @@ async function nextProjectChange(
   changes: readonly WatchInputChange[],
   previous: number,
 ): Promise<void> {
-  const deadline = Date.now() + 5_000;
+  const deadline = Date.now() + WATCH_EVENT_DEADLINE_MS;
   while (projectChanges(changes) <= previous) {
     if (Date.now() >= deadline) {
       assert.fail(`expected a project change after ${previous}`);

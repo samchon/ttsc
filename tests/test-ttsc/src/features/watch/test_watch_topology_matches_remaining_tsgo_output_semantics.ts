@@ -7,6 +7,7 @@ import {
   type WatchInputChange,
   WatchTopology,
 } from "../../../../../packages/ttsc/lib/launcher/internal/watchTopology.js";
+import { WATCH_EVENT_DEADLINE_MS } from "../../internal/watch";
 
 /**
  * Verifies project-mode output suppression follows the pinned tsgo semantics
@@ -185,7 +186,7 @@ async function waitForProjectChange(
   changes: readonly WatchInputChange[],
   previous: number,
 ): Promise<void> {
-  const deadline = Date.now() + 5_000;
+  const deadline = Date.now() + WATCH_EVENT_DEADLINE_MS;
   while (projectChangeCount(changes) <= previous) {
     if (Date.now() >= deadline) {
       assert.fail(`expected a project change after ${previous}`);

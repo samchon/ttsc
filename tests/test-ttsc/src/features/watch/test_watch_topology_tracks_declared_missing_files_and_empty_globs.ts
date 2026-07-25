@@ -11,6 +11,7 @@ import {
   projectInputEventShouldNotify,
   projectInputWatchDirectories,
 } from "../../../../../packages/ttsc/lib/launcher/internal/watchTopology.js";
+import { WATCH_EVENT_DEADLINE_MS } from "../../internal/watch";
 
 /**
  * Verifies declared project inputs stay live before any matching file exists.
@@ -322,7 +323,7 @@ async function waitForNextProjectChange(
   changes: readonly WatchInputChange[],
   previous: number,
 ): Promise<void> {
-  const deadline = Date.now() + 5_000;
+  const deadline = Date.now() + WATCH_EVENT_DEADLINE_MS;
   while (projectChangeCount(changes) <= previous) {
     if (Date.now() >= deadline) {
       assert.fail(`expected a project change after ${previous}`);

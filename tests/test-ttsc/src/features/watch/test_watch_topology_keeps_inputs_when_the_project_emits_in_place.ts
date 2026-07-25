@@ -4,6 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { WatchTopology } from "../../../../../packages/ttsc/lib/launcher/internal/watchTopology.js";
+import { WATCH_EVENT_DEADLINE_MS } from "../../internal/watch";
 
 /**
  * Verifies a project emitting in place still watches its declared inputs.
@@ -71,7 +72,7 @@ export const test_watch_topology_keeps_inputs_when_the_project_emits_in_place =
         "an in-place output directory must not leave the declared input unwatched",
       );
 
-      const deadline = Date.now() + 5_000;
+      const deadline = Date.now() + WATCH_EVENT_DEADLINE_MS;
       fs.writeFileSync(declared, "# Revised contract\n", "utf8");
       while (changes.length === 0) {
         if (Date.now() >= deadline) {

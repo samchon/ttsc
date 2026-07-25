@@ -7,6 +7,7 @@ import {
   type WatchInputChange,
   WatchTopology,
 } from "../../../../../packages/ttsc/lib/launcher/internal/watchTopology.js";
+import { WATCH_EVENT_DEADLINE_MS } from "../../internal/watch";
 
 /**
  * Verifies a symlinked reload input observes edits to the file it points at.
@@ -99,7 +100,7 @@ async function waitForConfigChange(
   // Let any event still in flight from the previous phase land before the
   // ledger is cleared, so a late arrival cannot satisfy the next expectation.
   await new Promise((resolve) => setTimeout(resolve, 250));
-  const deadline = Date.now() + 5_000;
+  const deadline = Date.now() + WATCH_EVENT_DEADLINE_MS;
   changes.length = 0;
   while (!changes.some((change) => change.kind === "config")) {
     if (Date.now() >= deadline) {
