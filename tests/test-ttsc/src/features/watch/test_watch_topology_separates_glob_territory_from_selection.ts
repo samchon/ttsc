@@ -83,4 +83,19 @@ export const test_watch_topology_separates_glob_territory_from_selection =
       true,
       "a delta on an immediate entry still selects the cold lane",
     );
+
+    // Data carves out below a resolution directory, never at it. A glob rooted
+    // on the directory itself would otherwise exempt everything that directory
+    // exists to classify, and the selection lane would retire without a sound.
+    assert.equal(
+      projectInputReloadEventShouldNotify({
+        changed: path.join(root, "new-package"),
+        changedInputs: [],
+        globs: [path.join(root, "**", "*.md")],
+        reloadDirectories: [root],
+        reloadFiles: shared.reloadFiles,
+      }),
+      true,
+      "a glob rooted on the resolution directory must not exempt it",
+    );
   };

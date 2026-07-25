@@ -2005,34 +2005,48 @@ export function projectInputReloadEventShouldNotify(input: {
   const reloadDirectories = (input.reloadDirectories ?? []).map((location) =>
     identities.resolve(location),
   );
-  // A reload directory is a non-recursive surface: its fingerprint is a digest
-  // of its immediate entries' names, kinds, and link targets, so it moves only
-  // when the directory itself moves or when an entry it holds directly does.
-  // Matching the whole subtree instead makes a resolution ancestor — the lint
-  // config graph publishes every node_modules level it searched, up to the
-  // filesystem root — classify every edit beneath it as a selection change,
-  // which restarts the sidecar on each keystroke and ends warm reuse for any
-  // project inside one.
-  // The territory a declared glob is rooted at. A project root is published as
-  // a resolution directory because the config lives there, so the directory a
-  // glob is rooted at reads as a new immediate entry the moment it appears --
-  // and appearing is what a declared population does. The data lane already
-  // reports it, with program invalidation when the membership moved, which is
-  // the cold-Program-same-process transition that belongs to data.
+  // Territory a declared glob is rooted at. A project root is published as a
+  // resolution directory because the config lives there, so the directory a glob
+  // is rooted at reads as a new immediate entry the moment it appears -- and
+  // appearing is what a declared population does. The data lane already reports
+  // it, with program invalidation when the membership moved, which is the
+  // cold-Program-same-process transition that belongs to data.
   //
-  // Only glob roots. A declared file sitting directly in a resolution directory
-  // is still a selection surface: its own edit is what a project rule reads to
-  // decide, and that decision is made once per execution.
+  // Data can only carve out below a resolution directory, never at it. A glob
+  // rooted on the resolution directory itself, or on a volume root, would
+  // otherwise exempt everything that directory exists to classify and retire
+  // the selection lane in silence. Its own role predates the glob.
+  //
+  // Only glob roots, either way. A declared file sitting directly in a
+  // resolution directory is still a selection surface: its own bytes are what a
+  // project rule reads to decide, once per execution.
   const dataOwned = (location: string): boolean =>
-    (input.globs ?? []).some((glob) =>
-      identities.isWithin(literalGlobRoot(glob), location),
-    );
-  // What the event names, versus what its fingerprint says. A reload directory's
-  // digest moves whenever anything appears directly inside it, data included, so
-  // the digest alone cannot tell a new package from a new data directory. The
-  // name can: an event on the directory itself is the directory moving, which is
-  // the plainest topology change it has. So the self rule belongs to the named
-  // event, and the fingerprint lane keys on the entry that actually changed.
+    (input.globs ?? []).some((glob) => {
+      const globRoot = identities.resolve(literalGlobRoot(glob));
+      if (
+        reloadDirectories.some(
+          (directory) =>
+            identities.resolve(directory.path).key === globRoot.key,
+        )
+      ) {
+        return false;
+      }
+      return identities.isWithin(globRoot.path, location);
+    });
+  // A reload directory is a non-recursive surface: its digest covers its
+  // immediate entries' names, kinds, and link targets, so it moves only when the
+  // directory itself moves or when an entry it holds directly does. Matching the
+  // whole subtree instead makes a resolution ancestor -- the lint config graph
+  // publishes every node_modules level it searched, up to the filesystem root --
+  // read every edit beneath it as a selection change, which restarts the sidecar
+  // on each keystroke and ends warm reuse for any project inside one.
+  //
+  // What the event names and what its digest says are different questions. The
+  // digest moves whenever anything appears directly inside, data included, so it
+  // cannot tell a new package from a new data directory. The name can: an event
+  // on the directory itself is the directory moving, which is the plainest
+  // topology change it has. So the self rule belongs to the named event, and the
+  // digest lane keys on the entry that actually changed.
   const holdsAsImmediateEntry = (location: string): boolean => {
     const parent = identities.resolve(path.dirname(location)).key;
     return reloadDirectories.some(
