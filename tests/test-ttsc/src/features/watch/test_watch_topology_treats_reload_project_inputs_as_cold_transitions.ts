@@ -84,11 +84,13 @@ export const test_watch_topology_treats_reload_project_inputs_as_cold_transition
         fs.renameSync(replacement, reloadFile),
       );
 
-      fs.mkdirSync(reloadDirectory, { recursive: true });
-      // Drain the directory's own creation first. It is a cold event in its own
-      // right, so without this the wait below is satisfied by that late arrival
-      // and says nothing about how the manifest was classified.
-      await delay();
+      // Drain the directory's own creation first. It is a cold event in its
+      // own right, so without waiting for it the wait below can be satisfied
+      // by that late arrival and say nothing about how the manifest was
+      // classified.
+      await expectNextKind(changes, "config", () =>
+        fs.mkdirSync(reloadDirectory, { recursive: true }),
+      );
       const packageManifest = path.join(reloadDirectory, "package.json");
       await expectNextKind(changes, "config", () =>
         fs.writeFileSync(packageManifest, '{"main":"index.cjs"}\n', "utf8"),

@@ -29,6 +29,7 @@ import { projectInputReloadEventShouldNotify } from "../../../../../packages/tts
  * 2. Assert the glob root stays warm and the declared file stays cold.
  * 3. Assert the directory itself and its other entries stay cold when named.
  * 4. Assert the directory's own digest delta alone does not select cold.
+ * 5. Assert a data event cancels no other directory's digest evidence.
  */
 export const test_watch_topology_separates_glob_territory_from_selection =
   (): void => {
@@ -168,5 +169,34 @@ export const test_watch_topology_separates_glob_territory_from_selection =
       }),
       false,
       "the directory the data actually moved still yields",
+    );
+
+    // The per-directory gate is what the nested shape above cannot prove: a
+    // directory that no sibling holds as an immediate entry has only its own
+    // digest delta for signal, and an event somewhere else cannot speak for
+    // it. A monorepo's unwatched ancestors are exactly such directories -- the
+    // watch-root ceiling declines them -- so a data event under the project
+    // must never cancel their evidence, and a deep event inside the glob root
+    // cannot account for a digest only an immediate entry can move.
+    const ancestor = path.dirname(root);
+    assert.equal(
+      projectInputReloadEventShouldNotify({
+        changed: globRoot,
+        changedInputs: [ancestor],
+        globs: shared.globs,
+        reloadDirectories: [root, ancestor],
+        reloadFiles: shared.reloadFiles,
+      }),
+      true,
+      "a data event under the project must not cancel an ancestor's digest delta",
+    );
+    assert.equal(
+      projectInputReloadEventShouldNotify({
+        changed: path.join(globRoot, "v1", "x.json"),
+        changedInputs: [root],
+        ...shared,
+      }),
+      true,
+      "a deep data event cannot account for the directory's own digest delta",
     );
   };
