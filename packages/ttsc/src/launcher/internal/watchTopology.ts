@@ -996,6 +996,13 @@ export class WatchTopology {
       // is the safe side here: a product that gets watched costs an extra
       // rebuild, while an input that does not is never seen again.
       if (root !== "" && identities.isWithin(output, root)) return false;
+      if (
+        [...this.files.values()].some((input) =>
+          identities.isWithin(output, input),
+        )
+      ) {
+        return false;
+      }
       return identities.isWithin(output, location);
     });
   }
@@ -1296,9 +1303,14 @@ function inferPerSourceCompilerOutputs(
     const extension = path.extname(input).toLowerCase();
     if (/\.d\.(?:ts|mts|cts)$/i.test(input)) continue;
     const stem = input.slice(0, -extension.length);
-    const mappedStem = (directory: string | undefined): string | undefined => {
+    const mappedStem = (
+      directory: string | undefined,
+      adjacentWhenOutside: boolean,
+    ): string | undefined => {
       if (directory === undefined) return stem;
-      if (!isPathWithin(sourceRoot, input)) return undefined;
+      if (!isPathWithin(sourceRoot, input)) {
+        return adjacentWhenOutside ? stem : undefined;
+      }
       return path.resolve(directory, path.relative(sourceRoot, stem));
     };
     if (extension === ".json") {
@@ -1307,7 +1319,7 @@ function inferPerSourceCompilerOutputs(
         emit.resolveJsonModule &&
         emit.outDir !== undefined
       ) {
-        const jsonStem = mappedStem(emit.outDir);
+        const jsonStem = mappedStem(emit.outDir, false);
         if (jsonStem !== undefined) outputs.add(`${jsonStem}.json`);
       }
       continue;
@@ -1328,7 +1340,7 @@ function inferPerSourceCompilerOutputs(
                 emit.jsx === "preserve"
               ? ".jsx"
               : ".js";
-      const javascriptStem = mappedStem(emit.outDir);
+      const javascriptStem = mappedStem(emit.outDir, true);
       if (javascriptStem !== undefined) {
         const javascript = javascriptStem + javascriptExtension;
         outputs.add(javascript);
@@ -1342,7 +1354,10 @@ function inferPerSourceCompilerOutputs(
           : extension === ".cts" || extension === ".cjs"
             ? ".d.cts"
             : ".d.ts";
-      const declarationStem = mappedStem(emit.declarationDir ?? emit.outDir);
+      const declarationStem = mappedStem(
+        emit.declarationDir ?? emit.outDir,
+        true,
+      );
       if (declarationStem !== undefined) {
         const declaration = declarationStem + declarationExtension;
         outputs.add(declaration);
@@ -1439,13 +1454,14 @@ function effectiveCompilerEmit(
   );
   const jsx =
     passthroughStringOption(passthrough, "--jsx") ?? compilerOptions.jsx;
+  const compilerCwd = project.root;
   return {
     declaration,
     declarationDir:
       cliDeclarationDir === null
         ? undefined
         : cliDeclarationDir !== undefined
-          ? path.resolve(options.cwd, cliDeclarationDir)
+          ? path.resolve(compilerCwd, cliDeclarationDir)
           : typeof compilerOptions.declarationDir === "string"
             ? path.resolve(compilerOptions.declarationDir)
             : undefined,
@@ -1456,9 +1472,9 @@ function effectiveCompilerEmit(
       cliOutDir === null
         ? undefined
         : cliOutDir !== undefined
-          ? path.resolve(options.cwd, cliOutDir)
+          ? path.resolve(compilerCwd, cliOutDir)
           : options.outDir !== undefined
-            ? path.resolve(options.cwd, options.outDir)
+            ? path.resolve(compilerCwd, options.outDir)
             : typeof compilerOptions.outDir === "string"
               ? path.resolve(compilerOptions.outDir)
               : undefined,
@@ -1469,7 +1485,7 @@ function effectiveCompilerEmit(
       cliRootDir === null
         ? undefined
         : cliRootDir !== undefined
-          ? path.resolve(options.cwd, cliRootDir)
+          ? path.resolve(compilerCwd, cliRootDir)
           : typeof compilerOptions.rootDir === "string"
             ? path.resolve(compilerOptions.rootDir)
             : undefined,
@@ -1478,7 +1494,7 @@ function effectiveCompilerEmit(
       cliTsBuildInfoFile === null
         ? undefined
         : cliTsBuildInfoFile !== undefined
-          ? path.resolve(options.cwd, cliTsBuildInfoFile)
+          ? path.resolve(compilerCwd, cliTsBuildInfoFile)
           : typeof compilerOptions.tsBuildInfoFile === "string"
             ? path.resolve(compilerOptions.tsBuildInfoFile)
             : undefined,

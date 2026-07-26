@@ -26,6 +26,8 @@ export const test_watch_topology_preserves_authoritative_inputs_and_json_outputs
     await verifyJavaScriptExtensionInputs();
     await verifyJsonCopyIsProduct();
     await verifyRemovedOutFileLayout();
+    await verifyPassthroughPathsUseProjectRoot();
+    await verifyOutOfRootDiagnosticRecoveryOutputs();
   };
 
 async function verifyDeclarationInputCollision(): Promise<void> {
@@ -203,15 +205,125 @@ async function verifyRemovedOutFileLayout(): Promise<void> {
   }
 }
 
+async function verifyPassthroughPathsUseProjectRoot(): Promise<void> {
+  const container = TestProject.tmpdir("ttsc-passthrough-output-base-");
+  const root = path.join(container, "project");
+  const source = path.join(root, "src", "main.ts");
+  fs.mkdirSync(path.dirname(source), { recursive: true });
+  fs.writeFileSync(source, "export const value = 1;\n");
+  writeConfig(root, { files: ["src/main.ts"] });
+
+  const changes: WatchInputChange[] = [];
+  const topology = createTopology(root, changes, {
+    cwd: container,
+    passthrough: [
+      "--rootDir",
+      ".",
+      "--declaration",
+      "--declarationDir",
+      "types",
+      "--incremental",
+      "--tsBuildInfoFile",
+      "cache/state.tsbuildinfo",
+    ],
+  });
+  try {
+    topology.refresh(false);
+    for (const output of [
+      path.join(root, "types", "src", "main.d.ts"),
+      path.join(root, "cache", "state.tsbuildinfo"),
+    ]) {
+      topology.setProjectInputs({ root, files: [output], globs: [] });
+      fs.mkdirSync(path.dirname(output), { recursive: true });
+      fs.writeFileSync(output, "compiler product\n");
+      await expectProjectQuiet(
+        changes,
+        `${path.relative(root, output)} used the launcher's outer cwd`,
+      );
+    }
+
+    const nearby = path.join(root, "cache", "external.json");
+    topology.setProjectInputs({ root, files: [nearby], globs: [] });
+    const nearbyChanges = projectChangeCount(changes);
+    fs.writeFileSync(nearby, '{"external":true}\n');
+    await waitForProjectChange(
+      changes,
+      nearbyChanges,
+      "nearby passthrough-relative data was classified as build info",
+    );
+  } finally {
+    topology.close();
+  }
+}
+
+async function verifyOutOfRootDiagnosticRecoveryOutputs(): Promise<void> {
+  const container = TestProject.tmpdir("ttsc-out-of-root-recovery-");
+  const root = path.join(container, "project");
+  const source = path.join(root, "src", "main.ts");
+  const externalRoot = path.join(container, "external");
+  const external = path.join(externalRoot, "external.ts");
+  fs.mkdirSync(path.dirname(source), { recursive: true });
+  fs.mkdirSync(externalRoot);
+  fs.writeFileSync(source, "export const value = 1;\n");
+  fs.writeFileSync(external, "export const external = 1;\n");
+  writeConfig(root, {
+    compilerOptions: {
+      declaration: true,
+      declarationDir: "types",
+      declarationMap: true,
+      outDir: "dist",
+      rootDir: "src",
+      sourceMap: true,
+    },
+    files: ["src/main.ts", "../external/external.ts"],
+  });
+
+  const changes: WatchInputChange[] = [];
+  const topology = createTopology(root, changes);
+  try {
+    topology.refresh(false);
+    for (const output of [
+      path.join(externalRoot, "external.js"),
+      path.join(externalRoot, "external.js.map"),
+      path.join(externalRoot, "external.d.ts"),
+      path.join(externalRoot, "external.d.ts.map"),
+    ]) {
+      topology.setProjectInputs({ root, files: [output], globs: [] });
+      fs.writeFileSync(output, "compiler recovery product\n");
+      await expectProjectQuiet(
+        changes,
+        `${path.basename(output)} diagnostic-recovery emit was not excluded`,
+      );
+    }
+
+    const externalJson = path.join(externalRoot, "external.json");
+    topology.setProjectInputs({ root, files: [externalJson], globs: [] });
+    const externalJsonChanges = projectChangeCount(changes);
+    fs.writeFileSync(externalJson, '{"external":true}\n');
+    await waitForProjectChange(
+      changes,
+      externalJsonChanges,
+      "external JSON was incorrectly modeled as diagnostic-recovery emit",
+    );
+  } finally {
+    topology.close();
+  }
+}
+
 function createTopology(
   root: string,
   changes: WatchInputChange[],
+  overrides: {
+    cwd?: string;
+    passthrough?: string[];
+  } = {},
 ): WatchTopology {
   return new WatchTopology(
     {
-      cwd: root,
+      cwd: overrides.cwd ?? root,
       emit: true,
       files: [],
+      passthrough: overrides.passthrough,
       projectRoot: root,
       tsconfig: path.join(root, "tsconfig.json"),
     },

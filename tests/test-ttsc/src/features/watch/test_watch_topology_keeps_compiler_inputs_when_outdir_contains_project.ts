@@ -32,6 +32,7 @@ export const test_watch_topology_keeps_compiler_inputs_when_outdir_contains_proj
         emit: true,
         name: "project root",
         outDir: ".",
+        projectInput: (root: string) => path.join(root, "external.json"),
         output: (container: string, root: string) =>
           path.join(root, "src", "main.js"),
       },
@@ -39,12 +40,14 @@ export const test_watch_topology_keeps_compiler_inputs_when_outdir_contains_proj
         emit: true,
         name: "project ancestor",
         outDir: "..",
+        projectInput: (root: string) => path.join(root, "external.json"),
         output: (container: string) => path.join(container, "src", "main.js"),
       },
       {
         emit: true,
         name: "source-overlapping output subtree",
         outDir: "src",
+        projectInput: (root: string) => path.join(root, "src", "external.json"),
         output: (_container: string, root: string) =>
           path.join(root, "src", "src", "main.js"),
       },
@@ -52,6 +55,7 @@ export const test_watch_topology_keeps_compiler_inputs_when_outdir_contains_proj
         emit: true,
         name: "proper output subtree",
         outDir: "dist",
+        projectInput: undefined,
         output: (_container: string, root: string) =>
           path.join(root, "dist", "src", "main.js"),
       },
@@ -59,6 +63,7 @@ export const test_watch_topology_keeps_compiler_inputs_when_outdir_contains_proj
         emit: false,
         name: "no emit",
         outDir: ".",
+        projectInput: (root: string) => path.join(root, "external.json"),
         output: (_container: string, root: string) =>
           path.join(root, "src", "main.js"),
       },
@@ -113,6 +118,18 @@ export const test_watch_topology_keeps_compiler_inputs_when_outdir_contains_proj
           previous,
           `${test.name}: emitted JavaScript retriggered the compiler lane`,
         );
+
+        if (test.projectInput !== undefined) {
+          const projectInput = test.projectInput(root);
+          topology.setProjectInputs({
+            root,
+            files: [projectInput],
+            globs: [],
+          });
+          const projectChanges = projectChangeCount(changes);
+          fs.writeFileSync(projectInput, '{"external":true}\n', "utf8");
+          await waitForProjectChange(changes, projectChanges, test.name);
+        }
       } finally {
         topology.close();
       }
@@ -135,6 +152,26 @@ async function waitForCompilerChange(
 
 function compilerChangeCount(changes: readonly WatchInputChange[]): number {
   return changes.filter((change) => change.kind === "compiler").length;
+}
+
+async function waitForProjectChange(
+  changes: readonly WatchInputChange[],
+  previous: number,
+  label: string,
+): Promise<void> {
+  const deadline = Date.now() + WATCH_EVENT_DEADLINE_MS;
+  while (projectChangeCount(changes) <= previous) {
+    if (Date.now() >= deadline) {
+      assert.fail(
+        `${label}: project input inside source output was not observed`,
+      );
+    }
+    await delay(25);
+  }
+}
+
+function projectChangeCount(changes: readonly WatchInputChange[]): number {
+  return changes.filter((change) => change.kind === "project").length;
 }
 
 function delay(milliseconds = 500): Promise<void> {
