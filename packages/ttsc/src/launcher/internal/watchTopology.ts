@@ -988,6 +988,7 @@ export class WatchTopology {
   ): boolean {
     const root = this.projectInputs.root;
     return [...this.outputs.values()].some((output) => {
+      if (!identities.isWithin(output, location)) return false;
       // An output directory that is the project itself, or holds it, is not a
       // place where only build products live -- the sources are there too. A
       // project emitting in place declares exactly that, and honouring it
@@ -1003,7 +1004,7 @@ export class WatchTopology {
       ) {
         return false;
       }
-      return identities.isWithin(output, location);
+      return true;
     });
   }
 

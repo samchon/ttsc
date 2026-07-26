@@ -19,6 +19,9 @@ import { WATCH_EVENT_DEADLINE_MS } from "../../internal/watch";
  *    incorrectly changed extension.
  * 3. Suppress nested products emitted above the project without `rootDir`.
  * 4. Treat removed `outFile` as a diagnostic, not an output-layout contract.
+ * 5. Resolve launcher and passthrough output paths from the compiler's cwd.
+ * 6. Suppress TS/JS diagnostic-recovery products outside the mapping root, while
+ *    retaining an adjacent JSON negative twin.
  */
 export const test_watch_topology_preserves_authoritative_inputs_and_json_outputs =
   async (): Promise<void> => {
@@ -216,6 +219,7 @@ async function verifyPassthroughPathsUseProjectRoot(): Promise<void> {
   const changes: WatchInputChange[] = [];
   const topology = createTopology(root, changes, {
     cwd: container,
+    outDir: "javascript",
     passthrough: [
       "--rootDir",
       ".",
@@ -230,6 +234,7 @@ async function verifyPassthroughPathsUseProjectRoot(): Promise<void> {
   try {
     topology.refresh(false);
     for (const output of [
+      path.join(root, "javascript", "src", "main.js"),
       path.join(root, "types", "src", "main.d.ts"),
       path.join(root, "cache", "state.tsbuildinfo"),
     ]) {
@@ -315,6 +320,7 @@ function createTopology(
   changes: WatchInputChange[],
   overrides: {
     cwd?: string;
+    outDir?: string;
     passthrough?: string[];
   } = {},
 ): WatchTopology {
@@ -323,6 +329,7 @@ function createTopology(
       cwd: overrides.cwd ?? root,
       emit: true,
       files: [],
+      outDir: overrides.outDir,
       passthrough: overrides.passthrough,
       projectRoot: root,
       tsconfig: path.join(root, "tsconfig.json"),
