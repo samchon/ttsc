@@ -5,6 +5,7 @@ on:
     branches:
       - master
     paths:
+      - ".gitattributes"
       - ".github/workflows/test.yml"
       - "config/**"
       - "experimental/**"
@@ -16,6 +17,7 @@ on:
       - "pnpm-workspace.yaml"
   pull_request:
     paths:
+      - ".gitattributes"
       - ".github/workflows/test.yml"
       - "config/**"
       - "experimental/**"
