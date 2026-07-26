@@ -55,6 +55,6 @@ Work through these in order:
 2. Confirm `ttsc` resolves in the project: `npx ttsc --version`.
 3. Confirm the project itself checks: `npx ttsc --noEmit`.
 4. Open **View → Output**, pick **ttsc** from the dropdown, and read the server log.
-5. For full LSP tracing, set `ttsc.trace.server` to `"verbose"` and reload the window.
+5. For full LSP tracing, run **Developer: Set Log Level...**, select **ttsc (trace)**, choose **Trace**, set `ttsc.trace.server` to `"verbose"`, and reload the window.
 
 The full extension reference, including the uninstall command, is in the [`@ttsc/vscode` README](https://github.com/samchon/ttsc/tree/master/packages/vscode). See [Lint in VS Code](/docs/lint/editor) for completion, diagnostics, suggestions, fixes, and formatting in one workflow.

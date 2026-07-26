@@ -92,7 +92,7 @@
             "verbose"
           ],
           "default": "off",
-          "description": "Trace LSP messages between VS Code and ttscserver."
+          "description": "Trace LSP messages between VS Code and ttscserver when the ttsc (trace) output channel log level is Trace."
         }
       }
     }
