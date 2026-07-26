@@ -51,7 +51,7 @@ func resolveWindowsProjectInputPath(location string) windowsProjectInputPath {
   probe := normalized
   missing := []string{}
   for {
-    physical, err := filepath.EvalSymlinks(probe)
+    physical, err := physicalProjectInputPath(probe)
     if err == nil {
       return windowsProjectInputPath{
         found:    true,
@@ -65,6 +65,47 @@ func resolveWindowsProjectInputPath(location string) windowsProjectInputPath {
     }
     missing = append(missing, filepath.Base(probe))
     probe = parent
+  }
+}
+
+func physicalProjectInputPath(location string) (string, error) {
+  pointer, err := windows.UTF16PtrFromString(location)
+  if err != nil {
+    return "", err
+  }
+  handle, err := windows.CreateFile(
+    pointer,
+    windows.FILE_READ_ATTRIBUTES,
+    windows.FILE_SHARE_READ|windows.FILE_SHARE_WRITE|windows.FILE_SHARE_DELETE,
+    nil,
+    windows.OPEN_EXISTING,
+    windows.FILE_FLAG_BACKUP_SEMANTICS,
+    0,
+  )
+  if err != nil {
+    return "", err
+  }
+  defer windows.CloseHandle(handle)
+
+  buffer := make([]uint16, windows.MAX_PATH)
+  for {
+    length, err := windows.GetFinalPathNameByHandle(
+      handle,
+      &buffer[0],
+      uint32(len(buffer)),
+      0,
+    )
+    if err != nil {
+      return "", err
+    }
+    if length < uint32(len(buffer)) {
+      return filepath.Clean(
+        projectInputFilesystemPath(
+          windows.UTF16ToString(buffer[:length]),
+        ),
+      ), nil
+    }
+    buffer = make([]uint16, length+1)
   }
 }
 

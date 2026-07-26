@@ -8,6 +8,7 @@ import (
   "path/filepath"
   "reflect"
   "slices"
+  "strings"
   "testing"
 )
 
@@ -196,7 +197,11 @@ func TestProjectInputPathKeyRespectsDirectoryCaseSemantics(t *testing.T) {
     t.Fatalf("ordinary aliases produced %d merged files: %#v", len(got), got)
   }
 
-  mutableRoot := t.TempDir()
+  mutableParent := t.TempDir()
+  mutableRoot := filepath.Join(mutableParent, "mutable")
+  if err := os.Mkdir(mutableRoot, 0o755); err != nil {
+    t.Fatal(err)
+  }
   firstMissing = filepath.Join(mutableRoot, "Missing.json")
   secondMissing = filepath.Join(mutableRoot, "missing.json")
   if projectInputPathKey(firstMissing) != projectInputPathKey(secondMissing) {
@@ -205,6 +210,15 @@ func TestProjectInputPathKeyRespectsDirectoryCaseSemantics(t *testing.T) {
   enableProjectInputCaseSensitivity(t, mutableRoot)
   if projectInputPathKey(firstMissing) == projectInputPathKey(secondMissing) {
     t.Fatal("case-sensitivity change was hidden by stale identity state")
+  }
+  if err := os.Remove(mutableRoot); err != nil {
+    t.Fatal(err)
+  }
+  if err := os.Mkdir(mutableRoot, 0o755); err != nil {
+    t.Fatal(err)
+  }
+  if projectInputPathKey(firstMissing) != projectInputPathKey(secondMissing) {
+    t.Fatal("recreated ordinary directory retained stale sensitivity")
   }
 
   upperUNC := windowsProjectInputKey(
@@ -218,6 +232,105 @@ func TestProjectInputPathKeyRespectsDirectoryCaseSemantics(t *testing.T) {
   if upperUNC != lowerUNC || upperUNC != "//server/share/folder/file.json" {
     t.Fatalf("UNC volume aliases = %q and %q", upperUNC, lowerUNC)
   }
+
+  t.Run("extended UNC aliases", func(t *testing.T) {
+    volume := filepath.VolumeName(ordinaryRoot)
+    if len(volume) != 2 || volume[1] != ':' {
+      t.Skipf("temporary directory has no drive volume: %q", volume)
+    }
+    tail := strings.TrimPrefix(ordinaryRoot, volume)
+    unc := `\\localhost\` + strings.ToUpper(volume[:1]) + `$` + tail
+    if _, err := os.Stat(unc); err != nil {
+      t.Skipf("administrative UNC share is unavailable: %v", err)
+    }
+    extended := `\\?\UNC\` + strings.TrimPrefix(unc, `\\`)
+    if projectInputPathKey(realProjectInputPath(unc)) !=
+      projectInputPathKey(realProjectInputPath(extended)) {
+      t.Fatalf("standard and extended UNC aliases split: %q, %q", unc, extended)
+    }
+  })
+
+  t.Run("junction physical identity", func(t *testing.T) {
+    declarationRoot := t.TempDir()
+    physicalRoot := t.TempDir()
+    for _, directory := range []string{
+      filepath.Join(physicalRoot, "docs"),
+      filepath.Join(physicalRoot, "api"),
+    } {
+      if err := os.MkdirAll(directory, 0o755); err != nil {
+        t.Fatal(err)
+      }
+    }
+    exact := filepath.Join(physicalRoot, "docs", "spec.md")
+    globbed := filepath.Join(physicalRoot, "api", "schema.json")
+    for _, location := range []string{exact, globbed} {
+      if err := os.WriteFile(location, []byte("{}\n"), 0o644); err != nil {
+        t.Fatal(err)
+      }
+    }
+    junction := filepath.Join(declarationRoot, "alias")
+    createProjectInputJunction(t, junction, physicalRoot)
+    snapshot, err := normalizeLSPProjectInputSnapshot(
+      LSPProjectInputSnapshot{
+        Root: declarationRoot,
+        Files: []string{
+          filepath.Join(junction, "docs", "spec.md"),
+        },
+        Globs: []string{
+          filepath.Join(junction, "api", "**", "*.json"),
+        },
+      },
+      declarationRoot,
+    )
+    if err != nil {
+      t.Fatalf("normalize junction inputs: %v", err)
+    }
+    junctionSource := &NativePluginSource{
+      plugins: []NativeLSPPluginEntry{first},
+    }
+    junctionSource.storeProjectInputs(first, 1, snapshot)
+    assertProjectInputOwners(
+      t,
+      junctionSource,
+      exact,
+      []string{pluginKey(first)},
+    )
+    assertProjectInputOwners(
+      t,
+      junctionSource,
+      globbed,
+      []string{pluginKey(first)},
+    )
+  })
+
+  t.Run("external junction selects reload", func(t *testing.T) {
+    reloadRoot := t.TempDir()
+    externalRoot := t.TempDir()
+    junction := filepath.Join(reloadRoot, "api")
+    snapshot, err := normalizeLSPProjectInputSnapshot(
+      LSPProjectInputSnapshot{
+        Root:              reloadRoot,
+        Globs:             []string{filepath.Join(junction, "**", "*.json")},
+        ReloadDirectories: []string{reloadRoot},
+      },
+      reloadRoot,
+    )
+    if err != nil {
+      t.Fatalf("normalize reload inputs: %v", err)
+    }
+    junctionSource := &NativePluginSource{
+      plugins: []NativeLSPPluginEntry{first},
+    }
+    junctionSource.storeProjectInputs(first, 1, snapshot)
+    createProjectInputJunction(t, junction, externalRoot)
+    created := fileChangeTypeCreated
+    if !junctionSource.ProjectInputReloadMatchesChange(
+      testFileURI(junction),
+      &created,
+    ) {
+      t.Fatal("external junction creation did not select plugin reload")
+    }
+  })
 }
 
 func enableProjectInputCaseSensitivity(t *testing.T, directory string) {
@@ -249,6 +362,26 @@ func disableProjectInputCaseSensitivity(t *testing.T, directory string) {
   )
   if output, err := command.CombinedOutput(); err != nil {
     t.Fatalf("failed to disable per-directory case sensitivity: %v\n%s", err, output)
+  }
+}
+
+func createProjectInputJunction(
+  t *testing.T,
+  junction string,
+  target string,
+) {
+  t.Helper()
+  command := exec.Command(
+    "cmd.exe",
+    "/d",
+    "/c",
+    "mklink",
+    "/J",
+    junction,
+    target,
+  )
+  if output, err := command.CombinedOutput(); err != nil {
+    t.Skipf("directory junction is unavailable: %v\n%s", err, output)
   }
 }
 

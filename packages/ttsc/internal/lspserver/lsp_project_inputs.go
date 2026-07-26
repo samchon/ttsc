@@ -869,7 +869,7 @@ func realProjectInputPath(location string) string {
   probe := absolute
   suffix := []string{}
   for {
-    resolved, err := filepath.EvalSymlinks(probe)
+    resolved, err := physicalProjectInputPath(probe)
     if err == nil {
       for index := len(suffix) - 1; index >= 0; index-- {
         resolved = filepath.Join(resolved, suffix[index])
