@@ -67,8 +67,13 @@ function evaluateAudit(result) {
   const label =
     `low=${counts.low}, moderate=${counts.moderate}, ` +
     `high=${counts.high}, critical=${counts.critical}`;
+  // pnpm 10 returns status 1 when any advisory exists even with
+  // --audit-level=high, and its JSON still includes lower severities. A valid
+  // payload with only low/moderate advisories therefore satisfies this gate.
+  // Other statuses remain command failures.
+  const unexpectedStatus = result.status !== 0 && result.status !== 1;
   if (
-    result.status !== 0 ||
+    unexpectedStatus ||
     counts.high !== 0 ||
     counts.critical !== 0 ||
     summary.ids.length !== 0

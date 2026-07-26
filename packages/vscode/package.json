@@ -108,6 +108,6 @@
     "rimraf": "catalog:utils",
     "ttsc": "workspace:*",
     "typescript": "catalog:typescript",
-    "vscode-languageclient": "^9.0.1"
+    "vscode-languageclient": "^10.1.0"
   }
 }

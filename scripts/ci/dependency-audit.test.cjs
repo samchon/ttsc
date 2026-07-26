@@ -27,6 +27,28 @@ test("a clean successful audit passes", () => {
   );
 });
 
+test("a valid moderate-only audit passes despite pnpm's status 1", () => {
+  assert.deepEqual(
+    evaluateAudit({
+      status: 1,
+      stdout: payload({
+        advisories: {
+          1: {
+            severity: "moderate",
+            github_advisory_id: "GHSA-moderate-test",
+          },
+        },
+      }),
+      stderr: "",
+    }),
+    {
+      ok: true,
+      message:
+        "dependency audit passed (low=8, moderate=26, high=0, critical=0)",
+    },
+  );
+});
+
 test("a nonzero audit remains red and names blocking advisories", () => {
   const outcome = evaluateAudit({
     status: 1,
@@ -91,6 +113,15 @@ test("command and JSON failures cannot report green", () => {
   });
   assert.equal(registry.ok, false);
   assert.match(registry.message, /pnpm: registry response failed/);
+
+  const unexpectedStatus = evaluateAudit({
+    status: 2,
+    stdout: payload(),
+    stderr: "audit command exited unexpectedly",
+  });
+  assert.equal(unexpectedStatus.ok, false);
+  assert.match(unexpectedStatus.message, /exit 2/);
+  assert.match(unexpectedStatus.message, /audit command exited unexpectedly/);
 });
 
 test("the lockfile excludes every campaign high or critical resolution", () => {
@@ -98,6 +129,7 @@ test("the lockfile excludes every campaign high or critical resolution", () => {
   for (const resolution of [
     "brace-expansion@1.1.14:",
     "brace-expansion@2.1.0:",
+    "brace-expansion@2.1.2:",
     "brace-expansion@5.0.6:",
     "fast-uri@3.1.2:",
     "form-data@4.0.5:",
@@ -109,6 +141,7 @@ test("the lockfile excludes every campaign high or critical resolution", () => {
     "sharp@0.34.5:",
     "shell-quote@1.8.4:",
     "tmp@0.2.5:",
+    "tmp@0.2.6:",
     "undici@7.25.0:",
     "vite@7.3.3:",
     "websocket-driver@0.7.4:",

@@ -4,6 +4,12 @@ packages:
   - "tests/*"
   - "website"
 overrides:
+  # VSCE's compatible tmp range selected 0.2.6, which is vulnerable to a
+  # type-confusion path traversal. Keep its transitive edge on the patched line.
+  "@vscode/vsce@3.9.2>tmp": 0.2.7
+  # The import sorter supports minimatch's stable named API, but its declared
+  # v9 range cannot reach the brace-expansion 5.0.8 allocation-bound fix.
+  "@trivago/prettier-plugin-sort-imports@6.0.2>minimatch": 10.2.5
   # Next 15.5.22 pins vulnerable PostCSS 8.4.31. Keep the override on that
   # parent edge; the website production build verifies the PostCSS 8 API.
   "next@15.5.22>postcss": 8.5.23
