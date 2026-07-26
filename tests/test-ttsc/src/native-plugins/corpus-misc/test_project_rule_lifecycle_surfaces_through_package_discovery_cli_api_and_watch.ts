@@ -97,9 +97,10 @@ func (binding *projectBinding) Revalidate() error {
     return nil
   }
   return fmt.Errorf(
-    "project blocked logical=%s physical=%s invocation=%s lifecycle=%s explicit=%s origin=%s sources=%d",
+    "project blocked logical=%s physical=%s logicalRoot=%s invocation=%s lifecycle=%s explicit=%s origin=%s sources=%d",
     binding.identity.LogicalConfigPath,
     binding.identity.PhysicalConfigPath,
+    binding.identity.LogicalProjectRoot,
     binding.identity.InvocationCwd,
     binding.identity.LifecycleID,
     binding.identity.ExplicitProjectRoot,
@@ -356,7 +357,15 @@ module.exports = {
         true,
       );
       assert.equal(
+        lspProjectDiagnostic?.message?.includes(`logicalRoot=${logicalRoot}`),
+        true,
+      );
+      assert.equal(
         lspProjectDiagnostic?.message?.includes(`invocation=${logicalRoot}`),
+        true,
+      );
+      assert.equal(
+        lspProjectDiagnostic?.message?.includes("explicit= origin="),
         true,
       );
 
