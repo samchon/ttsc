@@ -128,6 +128,8 @@ const service = createWorkerCompiler({
 
 The typia pack itself is built by the site (typically with a `pack-typia-sources.cjs`-style script that bundles `typia/`, `@typia/utils`, and `@typia/interface` into a flat JSON map). See the ttsc website's [`build/pack-typia-sources.cjs`](https://github.com/samchon/ttsc/blob/master/website/build/pack-typia-sources.cjs) for the reference implementation.
 
+Source-pack loads have a 30-second default deadline covering both the fetch and JSON body read. Calls for one URL share a single in-flight request; any caller's `signal` or deadline cancels that shared attempt, and a rejected attempt is evicted so the next compiler request retries the mount without starting another WASM runtime. Override the policy with `createTypiaSourcePackMount({ url, signal, timeoutMs })`.
+
 ## Runtime npm dependency installer
 
 When the user types `import {v4} from "uuid"`, the shell auto-fetches `uuid` (and its transitive deps) from the npm registry, unpacks the tgz in the browser, and mounts the files into the wasm MemFS, no proxy server needed.

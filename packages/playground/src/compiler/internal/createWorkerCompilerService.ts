@@ -85,27 +85,51 @@ export function createWorkerCompilerService(
     compilerOptions: extraCompilerOptions,
   });
 
-  // Cache the boot promise across calls. Pre-runtime failures clear the cache
-  // so the next call can retry. A post-go.run failure stays cached because the
-  // old runtime cannot be stopped and must never receive a replacement Ready
-  // bridge in the same Worker. The UI retry resets the compiler client, which
-  // terminates this Worker and creates a safe replacement.
-  let boot: Promise<IBootResult> | null = null;
-  function getBoot(): Promise<IBootResult> {
-    if (boot) return boot;
-    boot = (async () => {
-      const result = await deps.bootTtsc({
+  // Cache the runtime separately from the optional source-pack mount. A mount
+  // runs after Go is ready, so retrying a failed mount must reuse that runtime
+  // instead of calling bootTtsc again in the same Worker.
+  //
+  // Pre-runtime failures clear the runtime cache so the next call can retry. A
+  // post-go.run failure stays cached because the old runtime cannot be stopped
+  // and must never receive a replacement Ready bridge in the same Worker. The
+  // UI retry resets the compiler client, which terminates this Worker and
+  // creates a safe replacement.
+  let runtimeBoot: Promise<IBootResult> | null = null;
+  function getRuntimeBoot(): Promise<IBootResult> {
+    if (runtimeBoot) return runtimeBoot;
+    let attempt!: Promise<IBootResult>;
+    attempt = (async () =>
+      deps.bootTtsc({
         wasmUrl: options.wasmUrl,
         wasmExecUrl: options.wasmExecUrl,
         apiName: options.apiName,
-      });
+      }))().catch((err) => {
+      if (
+        !(err instanceof BootTtscWorkerTerminationError) &&
+        runtimeBoot === attempt
+      ) {
+        runtimeBoot = null;
+      }
+      throw err;
+    });
+    runtimeBoot = attempt;
+    return attempt;
+  }
+
+  let boot: Promise<IBootResult> | null = null;
+  function getBoot(): Promise<IBootResult> {
+    if (boot) return boot;
+    let attempt!: Promise<IBootResult>;
+    attempt = (async () => {
+      const result = await getRuntimeBoot();
       if (typiaPlugin?.mount) await typiaPlugin.mount(result.host, workDir);
       return result;
     })().catch((err) => {
-      if (!(err instanceof BootTtscWorkerTerminationError)) boot = null;
+      if (boot === attempt) boot = null;
       throw err;
     });
-    return boot;
+    boot = attempt;
+    return attempt;
   }
 
   // Serialize every MemFS-mutating call. tgrid queues incoming messages, but

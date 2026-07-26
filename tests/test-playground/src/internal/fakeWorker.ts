@@ -38,6 +38,8 @@ export interface IFakeApi {
 
 /** Everything the service touched during a test, for oracle assertions. */
 export interface IFakeRecord {
+  /** WASM/Go runtime boot calls. A mount retry must not start a second runtime. */
+  boot: number;
   /** Plugin verb invocations, in order (e.g. `transform`, `check`). */
   plugin: ITtscPluginOpts[];
   /** Build invocations, in order. Length 0 proves the build never ran. */
@@ -75,9 +77,10 @@ export function makeFakeWorker(
   options: ICreateWorkerCompilerOptions,
   api: IFakeApi,
 ): IFakeWorker {
-  const record: IFakeRecord = { plugin: [], build: [], writes: {} };
+  const record: IFakeRecord = { boot: 0, plugin: [], build: [], writes: {} };
 
   const host = {
+    mkdirp(_path: string): void {},
     writeFile(path: string, data: string | Uint8Array): void {
       record.writes[path] = typeof data === "string" ? data : String(data);
     },
@@ -97,10 +100,10 @@ export function makeFakeWorker(
   } as unknown as IBootResult["api"];
 
   const deps: IWorkerCompilerDeps = {
-    bootTtsc: async (_options: IBootTtscOptions): Promise<IBootResult> => ({
-      api: fakeApi,
-      host,
-    }),
+    bootTtsc: async (_options: IBootTtscOptions): Promise<IBootResult> => {
+      record.boot++;
+      return { api: fakeApi, host };
+    },
     parseResult: <T>(result: ITtscResult): T | null => {
       try {
         return JSON.parse(result.result) as T;

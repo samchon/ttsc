@@ -24,7 +24,10 @@ export { DEFAULT_WORK_DIR } from "./compiler/DEFAULT_WORK_DIR";
 export { installDependenciesIntoMemFS } from "./compiler/installDependenciesIntoMemFS";
 export { installTypiaSourcePack } from "./compiler/installTypiaSourcePack";
 export { lineColumnOf } from "./compiler/lineColumnOf";
-export { loadTypiaSourcePack } from "./compiler/loadTypiaSourcePack";
+export {
+  DEFAULT_SOURCE_PACK_TIMEOUT_MS,
+  loadTypiaSourcePack,
+} from "./compiler/loadTypiaSourcePack";
 export { mapDiagnostic } from "./compiler/mapDiagnostic";
 export { normalizeError } from "./compiler/normalizeError";
 export { normalizeNodeModulePath } from "./compiler/normalizeNodeModulePath";
