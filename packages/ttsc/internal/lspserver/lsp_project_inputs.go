@@ -159,7 +159,7 @@ func (s *NativePluginSource) ProjectInputReloadMatchesChange(
     if projectInputGlobExemptsReloadEntry(
       snapshot,
       directory,
-      candidateEntry,
+      candidate,
     ) {
       continue
     }

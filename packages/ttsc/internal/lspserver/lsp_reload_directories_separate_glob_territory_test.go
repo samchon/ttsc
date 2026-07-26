@@ -106,6 +106,47 @@ func TestLSPReloadDirectoriesSeparateGlobTerritory(t *testing.T) {
     }
   })
 
+  t.Run("symlinked literal root is data", func(t *testing.T) {
+    root := t.TempDir()
+    globRoot := filepath.Join(root, "api")
+    physicalData := filepath.Join(root, "data")
+    if err := os.Mkdir(physicalData, 0o755); err != nil {
+      t.Fatal(err)
+    }
+    source := &NativePluginSource{
+      projectInputs: snapshot(
+        root,
+        []string{filepath.Join(globRoot, "**", "*.json")},
+        nil,
+      ),
+    }
+    if err := os.Symlink(physicalData, globRoot); err != nil {
+      t.Skipf("directory symlinks unavailable: %v", err)
+    }
+    if source.ProjectInputReloadMatchesChange(uri(globRoot), &created) {
+      t.Fatal("symlinked glob root lost its physical data identity")
+    }
+  })
+
+  t.Run("symlinked literal root outside reload directory is selection", func(t *testing.T) {
+    root := t.TempDir()
+    globRoot := filepath.Join(root, "api")
+    physicalData := t.TempDir()
+    source := &NativePluginSource{
+      projectInputs: snapshot(
+        root,
+        []string{filepath.Join(globRoot, "**", "*.json")},
+        nil,
+      ),
+    }
+    if err := os.Symlink(physicalData, globRoot); err != nil {
+      t.Skipf("directory symlinks unavailable: %v", err)
+    }
+    if !source.ProjectInputReloadMatchesChange(uri(globRoot), &created) {
+      t.Fatal("glob root outside reload directory exempted selection")
+    }
+  })
+
   for _, test := range []struct {
     name string
     glob func(string) string
