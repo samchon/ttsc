@@ -21,6 +21,7 @@
 // by `EXCLUDED` with a reason, which is an explicit, named, reviewable entry
 // rather than the silence that caused this.
 
+const cp = require("node:child_process");
 const fs = require("node:fs");
 const path = require("node:path");
 
@@ -106,102 +107,60 @@ const HARNESS_TESTS = Object.keys(OWNERSHIP)
 /** Every `packages/lint/test/**` directory runs through one flattening runner. */
 const LINT_GO_RUNNER = "scripts/test-go-lint.cjs";
 
-/**
- * Walk `dir` and yield every directory holding at least one `*_test.go`.
- *
- * Discovery reads the tree rather than a manifest, which is the whole point: a
- * suite that exists is discovered whether or not anyone remembered it.
- */
-function goTestDirectories(dir, out) {
-  const entries = readDirectoryEntries(dir);
-  let hasTest = false;
-  for (const entry of entries) {
-    if (entry.isDirectory()) {
-      if (entry.name === "node_modules" || entry.name.startsWith(".")) continue;
-      goTestDirectories(path.join(dir, entry.name), out);
-      continue;
-    }
-    if (entry.name.endsWith("_test.go")) hasTest = true;
-  }
-  if (hasTest) out.push(path.relative(root, dir).split(path.sep).join("/"));
-  return out;
-}
-
-/**
- * `fs.readdirSync` with file types, or an empty list when the directory is
- * absent. The three discovery walks share it so a missing root is a finding
- * this file reports rather than an exception it raises.
- */
-function readDirectoryEntries(dir) {
-  try {
-    return fs.readdirSync(dir, { withFileTypes: true });
-  } catch {
-    return [];
-  }
-}
-
 /** Directories that hold e2e workspace packages named `test-*`. */
 const E2E_ROOTS = ["tests", "experimental"];
 
-/** Directories walked for node `*.test.cjs` suites. */
+/** Tracked roots that own node `*.test.cjs`/`*.test.mjs` suites. */
 const NODE_TEST_ROOTS = ["scripts", "website", "packages"];
 
 /**
- * Walk `dir` and yield every `*.test.cjs`, as a repository-relative path.
+ * Return the Git-tracked files that still exist in the worktree.
  *
- * Discovery reads the tree for the same reason the Go walk does. Five of these
- * ran only because `scripts/test-go.cjs` named them in a literal `harnessTests`
- * array, which is the finite list this gate exists to replace — a sixth that
- * someone forgot to add would have run nowhere and reported nothing.
+ * `git ls-files` is the committed-owner boundary. Filtering missing paths keeps
+ * an unstaged deletion visible as a stale claim, while ignored/generated
+ * mirrors can never become owners merely because a build materialized them.
+ * Failure is explicit outside a Git checkout: silently falling back to the
+ * filesystem would change the meaning of "committed" based on environment.
  */
-function nodeTestFiles(dir, out) {
-  for (const entry of readDirectoryEntries(dir)) {
-    if (entry.isDirectory()) {
-      if (
-        entry.name === "node_modules" ||
-        entry.name === "lib" ||
-        entry.name === "dist" ||
-        entry.name === "out" ||
-        entry.name.startsWith(".")
-      )
-        continue;
-      nodeTestFiles(path.join(dir, entry.name), out);
-      continue;
-    }
-    if (entry.name.endsWith(".test.cjs") || entry.name.endsWith(".test.mjs"))
-      out.push(
-        path
-          .relative(root, path.join(dir, entry.name))
-          .split(path.sep)
-          .join("/"),
-      );
-  }
-  return out;
+function trackedFiles() {
+  const result = cp.spawnSync("git", ["ls-files", "-z"], {
+    cwd: root,
+    encoding: "buffer",
+    windowsHide: true,
+  });
+  if (result.status !== 0)
+    throw new Error(
+      `scripts/ci/test-owners.cjs: git ls-files failed; committed owner discovery requires a Git checkout:\n${result.stderr?.toString("utf8") ?? ""}`,
+    );
+  return result.stdout
+    .toString("utf8")
+    .split("\0")
+    .filter(Boolean)
+    .filter((file) => fs.existsSync(path.join(root, file)));
 }
 
-/** Every committed executable test owner, discovered from the tree. */
-function discoverOwners() {
-  const owners = [];
-  for (const go of goTestDirectories(path.join(root, "packages"), []).concat(
-    goTestDirectories(path.join(root, "tests"), []),
-  ))
-    owners.push(`go:${go}`);
-  // `experimental/` holds `test-unplugin`, an e2e package the `unplugin` and
-  // `bun` lanes run. Reading only `tests/` left it undiscovered, so deleting
-  // its lane kept this gate green and a second suite added beside it would
-  // have been claimed by nothing.
+/** Every committed executable test owner, derived from tracked files. */
+function discoverOwners(files = trackedFiles()) {
+  const owners = new Set();
+  for (const file of files)
+    if (
+      file.endsWith("_test.go") &&
+      (file.startsWith("packages/") || file.startsWith("tests/"))
+    )
+      owners.add(`go:${path.posix.dirname(file)}`);
   for (const dir of E2E_ROOTS)
-    // Absent directory yields nothing, matching the two walkers above. A root
-    // that disappears should make its claims read as stale, which the second
-    // half of the invariant reports precisely; crashing here would replace that
-    // report with a stack trace.
-    for (const entry of readDirectoryEntries(path.join(root, dir)))
-      if (entry.isDirectory() && entry.name.startsWith("test-"))
-        owners.push(`e2e:${dir}/${entry.name}`);
-  for (const root_ of NODE_TEST_ROOTS)
-    for (const file of nodeTestFiles(path.join(root, root_), []))
-      owners.push(`node:${file}`);
-  return owners.sort();
+    for (const file of files) {
+      const [root_, packageName] = file.split("/");
+      if (root_ === dir && packageName?.startsWith("test-"))
+        owners.add(`e2e:${dir}/${packageName}`);
+    }
+  for (const file of files)
+    if (
+      NODE_TEST_ROOTS.some((directory) => file.startsWith(`${directory}/`)) &&
+      (file.endsWith(".test.cjs") || file.endsWith(".test.mjs"))
+    )
+      owners.add(`node:${file}`);
+  return [...owners].sort();
 }
 
 /** The executor claiming `owner`, or undefined when nothing claims it. */
@@ -216,8 +175,8 @@ function claimOf(owner) {
  * Returning failures rather than throwing lets the caller decide the reporting
  * shape; `test-owners.test.cjs` asserts the list is empty.
  */
-function ownershipFailures() {
-  const owners = discoverOwners();
+function ownershipFailures(files) {
+  const owners = discoverOwners(files);
   const discovered = new Set(owners);
   const failures = [];
   for (const owner of owners)
@@ -241,6 +200,7 @@ module.exports = {
   claimOf,
   discoverOwners,
   ownershipFailures,
+  trackedFiles,
 };
 
 if (require.main === module) {

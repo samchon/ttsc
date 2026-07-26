@@ -15,6 +15,7 @@ const {
   claimOf,
   discoverOwners,
   ownershipFailures,
+  trackedFiles,
 } = require("./test-owners.cjs");
 
 test("every committed test owner is claimed by an executor", () => {
@@ -68,6 +69,29 @@ test("an unclaimed owner fails, and a stale claim fails too", () => {
   assert.equal(claimOf("go:packages/ttsc/test/does-not-exist"), undefined);
   assert.equal(OWNERSHIP["e2e:tests/test-does-not-exist"], undefined);
   assert.equal(claimOf("node:scripts/does-not-exist.test.cjs"), undefined);
+});
+
+test("generated test-shaped files are excluded until Git tracks them", () => {
+  const generated = [
+    "packages/wasm/shim-vendor/shim/ast/test/generated_owner_test.go",
+    "experimental/test-generated-owner/package.json",
+    "scripts/ci/generated-owner.test.cjs",
+  ];
+  assert.equal(
+    discoverOwners().includes("go:packages/wasm/shim-vendor/shim/ast/test"),
+    false,
+    "the ignored wasm publication mirror became a committed test owner",
+  );
+  const failures = ownershipFailures([...trackedFiles(), ...generated]);
+  for (const owner of [
+    "go:packages/wasm/shim-vendor/shim/ast/test",
+    "e2e:experimental/test-generated-owner",
+    "node:scripts/ci/generated-owner.test.cjs",
+  ])
+    assert.ok(
+      failures.some((failure) => failure.startsWith(`unclaimed: ${owner} `)),
+      `tracked owner ${owner} did not enter the two-way invariant`,
+    );
 });
 
 test("the lint corpus is claimed by rule, not by enumeration", () => {
