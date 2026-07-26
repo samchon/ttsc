@@ -123,6 +123,8 @@ new TsPrinter().print(node);
 
 Companion helpers: `addSyntheticTrailingComment`, `get`/`setSyntheticLeadingComments`, `get`/`setSyntheticTrailingComments`.
 
+Synthetic comments are side-band data: they do not add properties to the node, so comments can be attached to frozen nodes. Compatible copies loaded in the same JavaScript realm share the versioned weak stores, including a CommonJS `require()` and an ES module `import()` of one installation or multiple installed copies. A copy from an older release that predates this registry cannot see comments written by a newer copy (or expose its private comments to one); upgrade every copy that exchanges nodes.
+
 ## Coverage
 
 The factory and printer cover the constructs most used for code generation: identifiers, literals, the common expressions, types (keyword / reference / union / intersection / array / tuple / type-literal / function / operator / ...), statements, classes & interfaces, enums, functions & arrow functions, and import / export declarations. Coverage is easy to extend — add the node under `src/ast/`, a builder under `src/factory/`, and a `case` to the printer.

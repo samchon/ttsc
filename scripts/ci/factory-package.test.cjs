@@ -4,6 +4,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const { createRequire } = require("node:module");
+const { pathToFileURL } = require("node:url");
 const test = require("node:test");
 
 const {
@@ -62,7 +63,7 @@ test("the canonical full plans cover every publishable package build", () => {
   );
 });
 
-test("the factory publication entry points load from built artifacts", () => {
+test("the factory publication entry points load from built artifacts", async () => {
   const manifest = JSON.parse(
     fs.readFileSync(path.join(factoryRoot, "package.json"), "utf8"),
   );
@@ -91,10 +92,19 @@ test("the factory publication entry points load from built artifacts", () => {
     const requireFromConsumer = createRequire(
       path.join(workspace, "consumer.cjs"),
     );
-    assertFactorySurface(
-      requireFromConsumer("@ttsc/factory"),
-      "CommonJS published entry",
+    const commonjs = requireFromConsumer("@ttsc/factory");
+    assertFactorySurface(commonjs, "CommonJS published entry");
+    const module = await import(
+      pathToFileURL(path.join(packageRoot, "lib", "index.mjs")).href
     );
+    assertCrossCopyComments(commonjs, module, "CommonJS/ESM format split");
+
+    const duplicateRoot = path.join(workspace, "duplicate-factory");
+    fs.cpSync(packageRoot, duplicateRoot, { recursive: true });
+    const duplicate = requireFromConsumer(
+      path.join(duplicateRoot, "lib", "index.js"),
+    );
+    assertCrossCopyComments(commonjs, duplicate, "physical package split");
 
     const esmConsumer = path.join(workspace, "consumer.mjs");
     fs.writeFileSync(
@@ -177,6 +187,75 @@ function assertFactorySurface(exports, label) {
     typeof exports.TsPrinter,
     "function",
     `${label} omits TsPrinter`,
+  );
+}
+
+function assertCrossCopyComments(writer, reader, label) {
+  assert.notEqual(
+    writer.addSyntheticLeadingComment,
+    reader.addSyntheticLeadingComment,
+    `${label} did not load independent modules`,
+  );
+
+  const leading = Object.freeze(
+    writer.default.createTypeAliasDeclaration(
+      undefined,
+      "Leading",
+      undefined,
+      writer.default.createKeywordTypeNode(writer.SyntaxKind.StringKeyword),
+    ),
+  );
+  writer.addSyntheticLeadingComment(
+    leading,
+    writer.SyntaxKind.MultiLineCommentTrivia,
+    " shared leading ",
+    true,
+  );
+  assert.equal(
+    reader.getSyntheticLeadingComments(leading)?.[0]?.text,
+    " shared leading ",
+    `${label} lost a leading comment`,
+  );
+  assert.match(
+    new reader.TsPrinter().print(leading),
+    /\/\* shared leading \*\/\ntype Leading = string;/,
+    `${label} printer lost a leading comment`,
+  );
+  reader.setSyntheticLeadingComments(leading, undefined);
+  assert.equal(
+    writer.getSyntheticLeadingComments(leading),
+    undefined,
+    `${label} clear did not reach the writer`,
+  );
+
+  const trailing = Object.freeze(
+    reader.default.createTypeAliasDeclaration(
+      undefined,
+      "Trailing",
+      undefined,
+      reader.default.createKeywordTypeNode(reader.SyntaxKind.NumberKeyword),
+    ),
+  );
+  reader.addSyntheticTrailingComment(
+    trailing,
+    reader.SyntaxKind.MultiLineCommentTrivia,
+    " shared trailing ",
+  );
+  assert.equal(
+    writer.getSyntheticTrailingComments(trailing)?.[0]?.text,
+    " shared trailing ",
+    `${label} lost a reverse-direction trailing comment`,
+  );
+  assert.match(
+    new writer.TsPrinter().print(trailing),
+    /type Trailing = number; \/\* shared trailing \*\//,
+    `${label} printer lost a reverse-direction trailing comment`,
+  );
+  writer.setSyntheticTrailingComments(trailing, []);
+  assert.equal(
+    reader.getSyntheticTrailingComments(trailing),
+    undefined,
+    `${label} reverse-direction clear did not reach the writer`,
   );
 }
 

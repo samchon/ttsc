@@ -4,10 +4,11 @@
  *
  * The legacy TypeScript compiler stores synthesized comments on a side-band
  * `node.emitNode` slot rather than on the node itself; this module reproduces
- * that behaviour with a {@link WeakMap} so the {@link import("./ast").Node}
- * interfaces stay free of printer-only metadata. {@link TsPrinter} consults
- * these stores while emitting and renders the comments verbatim — a leading
- * comment is printed before the node, a trailing comment after it.
+ * that behaviour with realm-shared {@link WeakMap}s so the
+ * {@link import("./ast").Node} interfaces stay free of printer-only metadata and
+ * frozen nodes remain valid targets. {@link TsPrinter} consults these stores
+ * while emitting and renders the comments verbatim — a leading comment is
+ * printed before the node, a trailing comment after it.
  *
  * ```typescript
  * import factory, {
@@ -57,8 +58,45 @@ export interface SynthesizedComment {
   hasLeadingNewLine?: boolean;
 }
 
-const leadingStore = new WeakMap<object, SynthesizedComment[]>();
-const trailingStore = new WeakMap<object, SynthesizedComment[]>();
+interface SyntheticCommentStores {
+  leading: WeakMap<object, SynthesizedComment[]>;
+  trailing: WeakMap<object, SynthesizedComment[]>;
+}
+
+/**
+ * One versioned registry per JavaScript realm.
+ *
+ * A package can be loaded through both its CommonJS and ESM entry points, and
+ * package managers may install multiple physical copies. Module-local WeakMaps
+ * make those copies silently lose each other's comments even though factory
+ * nodes are otherwise structural. A well-known, versioned key gives every
+ * compatible copy the same side-band stores without writing metadata to the
+ * node, so `Object.freeze(node)` keeps working as it did before.
+ *
+ * The version belongs to the stored value shape. A future incompatible shape
+ * must use another key rather than reinterpret an older registry.
+ */
+const SYNTHETIC_COMMENT_STORES = Symbol.for(
+  "@ttsc/factory.syntheticComments.v1",
+);
+
+const commentStores = (): SyntheticCommentStores => {
+  const existing: unknown = Reflect.get(globalThis, SYNTHETIC_COMMENT_STORES);
+  if (existing !== undefined) return existing as SyntheticCommentStores;
+  const created: SyntheticCommentStores = {
+    leading: new WeakMap<object, SynthesizedComment[]>(),
+    trailing: new WeakMap<object, SynthesizedComment[]>(),
+  };
+  Object.defineProperty(globalThis, SYNTHETIC_COMMENT_STORES, {
+    configurable: false,
+    enumerable: false,
+    value: created,
+    writable: false,
+  });
+  return created;
+};
+
+const { leading: leadingStore, trailing: trailingStore } = commentStores();
 
 const append = (
   store: WeakMap<object, SynthesizedComment[]>,
