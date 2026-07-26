@@ -6,6 +6,7 @@ interface DescriptorProcessResult {
   signal: NodeJS.Signals | null;
   status: number | null;
   stderr: string | null | undefined;
+  stdout: string | null | undefined;
 }
 
 /**
@@ -44,13 +45,19 @@ export function pluginDescriptorProcessFailure(
     );
   }
   if (result.status !== 0) {
-    const reason = descriptorFailureReason(result.stderr);
+    const reason = descriptorFailureReason(
+      hasText(result.stderr) ? result.stderr : result.stdout,
+    );
     return new Error(
       `ttsc: plugin descriptor "${request}" evaluation through ttsx failed with exit code ${String(result.status)}` +
         (reason === "" ? "" : "\n" + reason),
     );
   }
   return undefined;
+}
+
+function hasText(value: string | null | undefined): value is string {
+  return value !== null && value !== undefined && value.trim() !== "";
 }
 
 function descriptorFailureReason(stderr: string | null | undefined): string {

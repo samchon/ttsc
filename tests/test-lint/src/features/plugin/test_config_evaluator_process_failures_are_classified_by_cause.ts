@@ -72,6 +72,12 @@ export const test_config_evaluator_process_failures_are_classified_by_cause =
       /kept three\nkept four\nkept five\nkept six\nkept seven$/,
     );
 
+    const bounded = configEvaluatorProcessFailure(
+      processResult({ status: 3, stderr: "x".repeat(100_000) }),
+      configPath,
+    );
+    assert.ok((bounded?.message.length ?? Number.POSITIVE_INFINITY) < 8_500);
+
     assert.equal(
       configEvaluatorProcessFailure(processResult({ status: 0 }), configPath),
       undefined,

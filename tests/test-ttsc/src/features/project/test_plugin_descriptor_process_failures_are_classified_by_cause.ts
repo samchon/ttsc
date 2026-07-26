@@ -82,6 +82,16 @@ export const test_plugin_descriptor_process_failures_are_classified_by_cause =
     );
     assert.ok((bounded?.message.length ?? Number.POSITIVE_INFINITY) < 8_500);
 
+    const stdout = pluginDescriptorProcessFailure(
+      processResult({
+        status: 4,
+        stderr: "   ",
+        stdout: "stdout-only descriptor cause",
+      }),
+      request,
+    );
+    assert.match(stdout?.message ?? "", /stdout-only descriptor cause$/);
+
     assert.equal(
       pluginDescriptorProcessFailure(processResult({ status: 0 }), request),
       undefined,
@@ -98,17 +108,20 @@ function processResult(
     signal: NodeJS.Signals;
     status: number;
     stderr: string;
+    stdout: string;
   }>,
 ): {
   error?: Error;
   signal: NodeJS.Signals | null;
   status: number | null;
   stderr: string | null;
+  stdout: string | null;
 } {
   return {
     signal: null,
     status: null,
     stderr: null,
+    stdout: null,
     ...input,
   };
 }

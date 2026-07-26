@@ -62,7 +62,8 @@ export function configEvaluatorProcessFailure(
 function configEvaluatorFailureReason(
   stderr: string | null | undefined,
 ): string {
-  const lines = (stderr ?? "")
+  const bounded = (stderr ?? "").slice(-CONFIG_EVALUATOR_REASON_MAX_CHARS);
+  const lines = bounded
     .split(/\r?\n/)
     .map((line) => line.trimEnd())
     .filter((line) => line.trim() !== "");
@@ -70,3 +71,4 @@ function configEvaluatorFailureReason(
 }
 
 const CONFIG_EVALUATOR_REASON_LINES = 5;
+const CONFIG_EVALUATOR_REASON_MAX_CHARS = 8 * 1024;

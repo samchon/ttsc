@@ -62,6 +62,9 @@ export const test_plugin_descriptor_failures_propagate_and_cleanup_ttsx_temp =
         '  case "nonzero":',
         "    for (let i = 1; i <= 7; i++) console.error(`descriptor failure ${i}`);",
         "    process.exit(2);",
+        '  case "stdout-nonzero":',
+        '    console.log("stdout-only descriptor failure");',
+        "    process.exit(5);",
         '  case "missing":',
         "    process.exit(0);",
         '  case "malformed":',
@@ -115,6 +118,10 @@ export const test_plugin_descriptor_failures_propagate_and_cleanup_ttsx_temp =
         mode: "nonzero",
         pattern:
           /failed with exit code 2\ndescriptor failure 3\ndescriptor failure 4\ndescriptor failure 5\ndescriptor failure 6\ndescriptor failure 7/,
+      },
+      {
+        mode: "stdout-nonzero",
+        pattern: /failed with exit code 5\nstdout-only descriptor failure/,
       },
       {
         mode: "missing",
