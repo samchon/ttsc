@@ -1,7 +1,7 @@
 import * as path from "node:path";
 import {
   ExtensionContext,
-  OutputChannel,
+  LogOutputChannel,
   Range,
   RelativePattern,
   Uri,
@@ -89,7 +89,7 @@ class TtscLanguageClient extends LanguageClient {
 
 const clients = new Map<string, ClientEntry>();
 let reconcileQueue: Promise<void> = Promise.resolve();
-let sharedTraceChannel: OutputChannel | undefined;
+let sharedTraceChannel: LogOutputChannel | undefined;
 let deactivating = false;
 const warnedRelativeServerPaths = new Set<string>();
 
@@ -236,11 +236,11 @@ function collectResolutionCandidates() {
  * Build the `vscode-languageclient` options that configure which documents the
  * client handles and how it synchronises configuration with the server.
  *
- * The trace channel is a plain `OutputChannel` (not `LogOutputChannel`) because
- * `vscode-languageclient` owns trace line formatting already.
+ * Vscode-languageclient 10 uses the channel's log level and structured trace
+ * methods, so the shared trace sink must be a `LogOutputChannel`.
  */
 function buildClientOptions(
-  traceChannel: OutputChannel,
+  traceChannel: LogOutputChannel,
   spec: ServerLaunchSpec,
 ): LanguageClientOptions {
   // vscode-languageclient types this as the protocol string pattern, but the
@@ -434,7 +434,7 @@ function clientEntryForUri(uri: Uri): ClientEntry | undefined {
 
 async function ensureClientForUri(
   uri: Uri,
-  traceChannel: OutputChannel,
+  traceChannel: LogOutputChannel,
 ): Promise<void> {
   await enqueueClientReconciliation(async () => {
     const spec = resolveServerLaunchSpecForUri(uri);
@@ -446,7 +446,7 @@ async function ensureClientForUri(
 
 async function reconcileClientsForDocuments(
   documents: readonly { languageId: string; uri: Uri }[],
-  traceChannel: OutputChannel,
+  traceChannel: LogOutputChannel,
   fallbackSpecs: readonly ServerLaunchSpec[] = [],
   preferredUri?: Uri,
 ): Promise<void> {
@@ -562,7 +562,7 @@ function isSupportedDocument(document: {
 
 async function startClient(
   spec: ServerLaunchSpec,
-  traceChannel: OutputChannel,
+  traceChannel: LogOutputChannel,
 ): Promise<void> {
   const client = new TtscLanguageClient(
     "ttsc",
@@ -609,9 +609,9 @@ export async function activate(context: ExtensionContext): Promise<void> {
     );
   }
 
-  // Keep this as a plain OutputChannel; vscode-languageclient already prefixes
-  // trace lines with its own timestamp and channel markers.
-  const traceChannel = window.createOutputChannel("ttsc (trace)");
+  const traceChannel = window.createOutputChannel("ttsc (trace)", {
+    log: true,
+  });
   sharedTraceChannel = traceChannel;
   context.subscriptions.push(traceChannel);
 

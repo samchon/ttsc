@@ -98,7 +98,7 @@
     }
   },
   "scripts": {
-    "build": "rimraf lib dist && node build/build.cjs"
+    "build": "tsc --noEmit && rimraf lib dist && node build/build.cjs"
   },
   "devDependencies": {
     "@types/node": "catalog:utils",
