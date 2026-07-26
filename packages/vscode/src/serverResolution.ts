@@ -2,6 +2,11 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
+import {
+  type FilesystemPathIdentityContext,
+  type FilesystemPathIdentityOperations,
+  createFilesystemPathIdentityContext,
+} from "ttsc/path-identity";
 
 export type ResolutionCandidate = {
   cwd: string;
@@ -14,6 +19,17 @@ export type ResolutionCandidateInput = {
   activeWorkspaceRoot?: string;
   workspaceRoots?: readonly string[];
 };
+
+export function createServerRootPathIdentityContext(
+  platform: NodeJS.Platform = process.platform,
+  operations: Partial<FilesystemPathIdentityOperations> = {},
+): FilesystemPathIdentityContext {
+  return createFilesystemPathIdentityContext({
+    ...operations,
+    platform,
+    throwOnRealpathError: operations.throwOnRealpathError ?? false,
+  });
+}
 
 export type ServerProcessOptions = {
   cwd: string;
@@ -235,6 +251,7 @@ export function documentPattern(root: string): string {
 export function filterNonOverlappingCandidates(
   candidates: readonly ResolutionCandidate[],
 ): ResolutionCandidate[] {
+  const identities = createServerRootPathIdentityContext();
   const sorted = [...candidates].sort(
     (left, right) =>
       path.resolve(right.cwd).length - path.resolve(left.cwd).length,
@@ -243,7 +260,12 @@ export function filterNonOverlappingCandidates(
   for (const candidate of sorted) {
     if (
       selected.some((entry) =>
-        isPathInsideRoot(entry.cwd, candidate.cwd, process.platform),
+        isPathInsideRoot(
+          entry.cwd,
+          candidate.cwd,
+          process.platform,
+          identities,
+        ),
       )
     ) {
       continue;
@@ -261,16 +283,19 @@ export function planNonOverlappingClientRoots(
   roots: readonly string[],
   preferredRoot?: string,
   platform: NodeJS.Platform = process.platform,
+  identities: FilesystemPathIdentityContext = createServerRootPathIdentityContext(
+    platform,
+  ),
 ): string[] {
   const unique = new Map<string, string>();
   for (const root of roots) {
-    const key = rootKey(root, platform);
+    const key = rootKey(root, platform, identities);
     if (!unique.has(key)) {
       unique.set(key, root);
     }
   }
   const preferredKey = preferredRoot
-    ? rootKey(preferredRoot, platform)
+    ? rootKey(preferredRoot, platform, identities)
     : undefined;
   const ordered: string[] = [];
   if (preferredKey && unique.has(preferredKey)) {
@@ -282,15 +307,17 @@ export function planNonOverlappingClientRoots(
       const depth = pathDepth(right, platform) - pathDepth(left, platform);
       return (
         depth ||
-        normalizeForPathMatch(left, platform).localeCompare(
-          normalizeForPathMatch(right, platform),
+        rootKey(left, platform, identities).localeCompare(
+          rootKey(right, platform, identities),
         )
       );
     }),
   );
   const selected: string[] = [];
   for (const root of ordered) {
-    if (selected.some((entry) => rootsOverlap(entry, root, platform))) {
+    if (
+      selected.some((entry) => rootsOverlap(entry, root, platform, identities))
+    ) {
       continue;
     }
     selected.push(root);
@@ -302,16 +329,19 @@ export function selectDeepestRootForPath(
   file: string,
   roots: readonly string[],
   platform: NodeJS.Platform = process.platform,
+  identities: FilesystemPathIdentityContext = createServerRootPathIdentityContext(
+    platform,
+  ),
 ): string | undefined {
   let selected: string | undefined;
   for (const root of roots) {
-    if (!isPathInsideRoot(file, root, platform)) {
+    if (!isPathInsideRoot(file, root, platform, identities)) {
       continue;
     }
     if (
       !selected ||
-      normalizeForPathMatch(root, platform).length >
-        normalizeForPathMatch(selected, platform).length
+      rootKey(root, platform, identities).length >
+        rootKey(selected, platform, identities).length
     ) {
       selected = root;
     }
@@ -323,24 +353,24 @@ export function isPathInsideRoot(
   file: string,
   root: string,
   platform: NodeJS.Platform = process.platform,
+  identities: FilesystemPathIdentityContext = createServerRootPathIdentityContext(
+    platform,
+  ),
 ): boolean {
-  const normalizedFile = normalizeForPathMatch(file, platform);
-  const normalizedRoot = normalizeForPathMatch(root, platform);
-  const sep = platform === "win32" ? path.win32.sep : path.sep;
-  return (
-    normalizedFile === normalizedRoot ||
-    normalizedFile.startsWith(normalizedRoot + sep)
-  );
+  return identities.isWithin(root, file);
 }
 
 export function rootsOverlap(
   left: string,
   right: string,
   platform: NodeJS.Platform = process.platform,
+  identities: FilesystemPathIdentityContext = createServerRootPathIdentityContext(
+    platform,
+  ),
 ): boolean {
   return (
-    isPathInsideRoot(left, right, platform) ||
-    isPathInsideRoot(right, left, platform)
+    isPathInsideRoot(left, right, platform, identities) ||
+    isPathInsideRoot(right, left, platform, identities)
   );
 }
 
@@ -348,47 +378,58 @@ export function rootsToStopForTarget(
   roots: readonly string[],
   target: string,
   platform: NodeJS.Platform = process.platform,
+  identities: FilesystemPathIdentityContext = createServerRootPathIdentityContext(
+    platform,
+  ),
 ): string[] {
-  return roots.filter((root) => rootsOverlap(root, target, platform));
+  return roots.filter((root) =>
+    rootsOverlap(root, target, platform, identities),
+  );
 }
 
 export function rootsToStopForPlan(
   roots: readonly string[],
   plannedRoots: readonly string[],
   platform: NodeJS.Platform = process.platform,
+  identities: FilesystemPathIdentityContext = createServerRootPathIdentityContext(
+    platform,
+  ),
 ): string[] {
   const plannedKeys = new Set(
-    plannedRoots.map((root) => rootKey(root, platform)),
+    plannedRoots.map((root) => rootKey(root, platform, identities)),
   );
-  return roots.filter((root) => !plannedKeys.has(rootKey(root, platform)));
+  return roots.filter(
+    (root) => !plannedKeys.has(rootKey(root, platform, identities)),
+  );
 }
 
 export function rootsInsideRemovedWorkspace(
   roots: readonly string[],
   removedRoot: string,
   platform: NodeJS.Platform = process.platform,
+  identities: FilesystemPathIdentityContext = createServerRootPathIdentityContext(
+    platform,
+  ),
 ): string[] {
-  return roots.filter((root) => isPathInsideRoot(root, removedRoot, platform));
+  return roots.filter((root) =>
+    isPathInsideRoot(root, removedRoot, platform, identities),
+  );
 }
 
 export function rootKey(
   root: string,
   platform: NodeJS.Platform = process.platform,
+  identities: FilesystemPathIdentityContext = createServerRootPathIdentityContext(
+    platform,
+  ),
 ): string {
-  return normalizeForPathMatch(root, platform);
-}
-
-function normalizeForPathMatch(
-  value: string,
-  platform: NodeJS.Platform,
-): string {
-  const pathApi = platform === "win32" ? path.win32 : path;
-  const normalized = pathApi.resolve(value);
-  return platform === "win32" ? normalized.toLowerCase() : normalized;
+  return identities.resolve(root).key;
 }
 
 function pathDepth(value: string, platform: NodeJS.Platform): number {
-  return normalizeForPathMatch(value, platform)
+  const pathApi = platform === "win32" ? path.win32 : path;
+  return pathApi
+    .resolve(value)
     .split(platform === "win32" ? path.win32.sep : path.sep)
     .filter(Boolean).length;
 }

@@ -7,6 +7,8 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
+import { createFilesystemPathIdentityContext } from "../../../../../packages/ttsc/lib/internal/projectInputPathIdentity.js";
+
 /**
  * Verifies compiler-envelope and bundler paths compare by filesystem identity.
  *
@@ -28,6 +30,40 @@ export const test_transformttsc_uses_filesystem_path_identity = async () => {
   const root = TestUnpluginProject.createProject();
   const file = TestUnpluginProject.mainFile(root);
   const alternate = alternateBasenameCase(file);
+  const missing = (): never => {
+    throw Object.assign(new Error("missing"), { code: "ENOENT" });
+  };
+  const windows = createFilesystemPathIdentityContext({
+    platform: "win32",
+    caseSensitive: (directory) =>
+      directory.toLowerCase().startsWith("c:\\sensitive"),
+    realpath: (location) => {
+      const resolved = path.win32.resolve(location);
+      const folded = resolved.toLowerCase();
+      if (folded === "c:\\ordinary") return "C:\\Ordinary";
+      if (folded === "c:\\ordinary\\src") return "C:\\Ordinary\\src";
+      if (resolved === "C:\\Sensitive") return resolved;
+      if (resolved === "C:\\Sensitive\\src") return resolved;
+      if (resolved === "C:\\Sensitive\\src\\Main.ts") return resolved;
+      if (resolved === "C:\\Sensitive\\src\\main.ts") return resolved;
+      return missing();
+    },
+  });
+  assert.equal(
+    core.pathIdentityKey("C:\\ORDINARY\\src\\Main.ts", windows),
+    core.pathIdentityKey("c:\\ordinary\\SRC\\main.ts", windows),
+    "ordinary Windows aliases must share one unplugin identity",
+  );
+  assert.notEqual(
+    core.pathIdentityKey("C:\\Sensitive\\src\\Main.ts", windows),
+    core.pathIdentityKey("C:\\Sensitive\\src\\main.ts", windows),
+    "case-sensitive Windows modules must retain independent identities",
+  );
+  assert.notEqual(
+    core.pathIdentityKey("C:\\Sensitive\\src\\Future.ts", windows),
+    core.pathIdentityKey("C:\\Sensitive\\src\\future.ts", windows),
+    "missing module candidates must inherit sensitive ownership",
+  );
 
   if (core.pathIdentityKey(file) === core.pathIdentityKey(alternate)) {
     const cache = api.createTtscTransformCache();

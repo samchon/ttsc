@@ -4,7 +4,10 @@ import childProcess from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 
-import { createProjectInputPathIdentityContext } from "../../../../../packages/ttsc/lib/internal/projectInputPathIdentity.js";
+import {
+  createFilesystemPathIdentityContext,
+  createProjectInputPathIdentityContext,
+} from "../../../../../packages/ttsc/lib/internal/projectInputPathIdentity.js";
 
 /**
  * Verifies missing suffixes inherit their existing ancestor's case semantics.
@@ -15,7 +18,8 @@ import { createProjectInputPathIdentityContext } from "../../../../../packages/t
  *
  * 1. Prove both semantics through injected filesystem operations.
  * 2. Compare the real host directory semantics without mutating the volume.
- * 3. On capable Windows hosts, cover a per-directory sensitive override.
+ * 3. On capable Windows hosts, start a new identity transaction after enabling a
+ *    per-directory sensitive override and prove it is observed.
  */
 export const test_project_input_path_identity_respects_directory_case_semantics =
   (): void => {
@@ -35,11 +39,16 @@ export const test_project_input_path_identity_respects_directory_case_semantics 
       realpath,
     });
 
+    const insensitivePath = path.join(physical, "future", "spec.md");
+    const insensitiveVolume = path.parse(insensitivePath).root;
     assert.deepEqual(
       insensitive.resolve(path.join(alias, "Future", "Spec.md")),
       {
-        key: path.join(physical, "future", "spec.md"),
-        path: path.join(physical, "future", "spec.md"),
+        key:
+          process.platform === "win32"
+            ? `${insensitiveVolume.toLowerCase()}${insensitivePath.slice(insensitiveVolume.length)}`
+            : insensitivePath,
+        path: insensitivePath,
       },
     );
     assert.equal(
@@ -49,6 +58,51 @@ export const test_project_input_path_identity_respects_directory_case_semantics 
     assert.notEqual(
       sensitive.resolve(path.join(alias, "future", "spec.md")).key,
       sensitive.resolve(path.join(alias, "Future", "Spec.md")).key,
+    );
+
+    const missing = (): never => {
+      throw Object.assign(new Error("missing"), { code: "ENOENT" });
+    };
+    const windows = createFilesystemPathIdentityContext({
+      platform: "win32",
+      caseSensitive: (directory) =>
+        path.win32.resolve(directory).toLowerCase().startsWith("c:\\sensitive"),
+      realpath: (location) => {
+        const resolved = path.win32.resolve(location);
+        const folded = resolved.toLowerCase();
+        if (folded === "c:\\ordinary") return "C:\\Ordinary";
+        if (folded === "c:\\ordinary\\repo") return "C:\\Ordinary\\Repo";
+        if (resolved === "C:\\Sensitive") return resolved;
+        if (resolved === "C:\\Sensitive\\Project") return resolved;
+        if (resolved === "C:\\Sensitive\\project") return resolved;
+        if (/^\\\\[^\\]+\\[^\\]+\\Work$/i.test(resolved)) return resolved;
+        return missing();
+      },
+    });
+    assert.equal(
+      windows.resolve("C:\\ORDINARY\\repo").key,
+      windows.resolve("c:\\ordinary\\REPO").key,
+      "ordinary Windows aliases converge through physical spelling",
+    );
+    assert.notEqual(
+      windows.resolve("C:\\Sensitive\\Project").key,
+      windows.resolve("C:\\Sensitive\\project").key,
+      "case-sensitive Windows siblings remain distinct",
+    );
+    assert.notEqual(
+      windows.resolve("C:\\Sensitive\\Project\\Future.ts").key,
+      windows.resolve("C:\\Sensitive\\Project\\future.ts").key,
+      "missing descendants inherit sensitive ownership",
+    );
+    assert.equal(
+      windows.resolve("C:\\Ordinary\\Repo\\Future.ts").key,
+      windows.resolve("c:\\ordinary\\repo\\future.ts").key,
+      "missing descendants inherit insensitive ownership",
+    );
+    assert.equal(
+      windows.resolve("\\\\SERVER\\Share\\Work").key,
+      windows.resolve("\\\\server\\share\\Work").key,
+      "UNC authority and share aliases identify one volume",
     );
 
     const actualRoot = TestProject.tmpdir(
@@ -81,8 +135,9 @@ export const test_project_input_path_identity_respects_directory_case_semantics 
     );
     assert.equal(enabled.status, 0, enabled.error?.message ?? enabled.stderr);
     fs.writeFileSync(path.join(sensitiveRoot, "Marker.txt"), "", "utf8");
+    const sensitiveActual = createProjectInputPathIdentityContext();
     assert.notEqual(
-      actual.resolve(path.join(sensitiveRoot, "Spec.md")).key,
-      actual.resolve(path.join(sensitiveRoot, "spec.md")).key,
+      sensitiveActual.resolve(path.join(sensitiveRoot, "Spec.md")).key,
+      sensitiveActual.resolve(path.join(sensitiveRoot, "spec.md")).key,
     );
   };

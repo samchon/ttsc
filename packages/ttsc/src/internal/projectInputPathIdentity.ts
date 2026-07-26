@@ -2,25 +2,27 @@ import childProcess from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 
-export type ProjectInputPathIdentity = {
+export type FilesystemPathIdentity = {
   key: string;
   path: string;
 };
 
-export type ProjectInputPathIdentityOperations = {
+export type FilesystemPathIdentityOperations = {
   caseSensitive(directory: string): boolean;
+  platform: NodeJS.Platform;
   realpath(location: string): string;
+  throwOnRealpathError: boolean;
 };
 
-export type ProjectInputPathIdentityContext = {
+export type FilesystemPathIdentityContext = {
   caseSensitive(directory: string): boolean;
   isWithin(root: string, candidate: string): boolean;
-  resolve(location: string): ProjectInputPathIdentity;
+  resolve(location: string): FilesystemPathIdentity;
 };
 
 type CachedIdentity = {
   ancestor: string;
-  identity: ProjectInputPathIdentity;
+  identity: FilesystemPathIdentity;
 };
 
 type CachedRealpath =
@@ -33,30 +35,41 @@ type CachedRealpath =
     };
 
 /**
- * Create one filesystem-identity resolver for a project-input transaction.
+ * Create one filesystem-identity resolver for a filesystem transaction.
  *
  * Existing segments use their physical spelling. A missing suffix keeps exact
  * spelling only under a case-sensitive directory; otherwise its canonical
  * spelling is folded so aliases remain one declaration before they exist.
  */
-export function createProjectInputPathIdentityContext(
-  operations: Partial<ProjectInputPathIdentityOperations> = {},
-): ProjectInputPathIdentityContext {
+export function createFilesystemPathIdentityContext(
+  operations: Partial<FilesystemPathIdentityOperations> = {},
+): FilesystemPathIdentityContext {
   const identities = new Map<string, CachedIdentity>();
   const realpaths = new Map<string, CachedRealpath>();
   const sensitivities = new Map<string, boolean>();
+  const platform = operations.platform ?? process.platform;
+  const pathApi = platform === "win32" ? path.win32 : path;
+  const throwOnRealpathError = operations.throwOnRealpathError ?? true;
   const realpath = operations.realpath ?? physicalRealpath;
   const caseSensitive =
-    operations.caseSensitive ?? filesystemDirectoryIsCaseSensitive;
+    operations.caseSensitive ??
+    ((directory: string) =>
+      filesystemDirectoryIsCaseSensitive(directory, platform));
 
-  const resolve = (location: string): ProjectInputPathIdentity => {
-    const normalized = resolveProjectInputPath(location);
+  const resolve = (location: string): FilesystemPathIdentity => {
+    const normalized = resolveFilesystemPath(location, platform);
     const cached = identities.get(normalized);
     if (cached !== undefined) return cached.identity;
     let existing = normalized;
     const missing: string[] = [];
     while (true) {
-      const physical = cachedRealpath(realpaths, realpath, existing);
+      const physical = cachedRealpath(
+        realpaths,
+        realpath,
+        existing,
+        platform,
+        throwOnRealpathError,
+      );
       if (physical !== undefined) {
         const sensitive =
           missing.length === 0
@@ -65,9 +78,9 @@ export function createProjectInputPathIdentityContext(
         const suffix = sensitive
           ? missing
           : missing.map((segment) => segment.toLowerCase());
-        const canonical = path.resolve(physical, ...suffix);
+        const canonical = pathApi.resolve(physical, ...suffix);
         const identity = {
-          key: canonical,
+          key: filesystemPathIdentityKey(canonical, platform),
           path: canonical,
         };
         identities.set(normalized, {
@@ -76,10 +89,18 @@ export function createProjectInputPathIdentityContext(
         });
         return identity;
       }
-      const parent = path.dirname(existing);
+      const parent = pathApi.dirname(existing);
       if (parent === existing) {
+        const sensitive = cachedCaseSensitivity(
+          sensitivities,
+          caseSensitive,
+          existing,
+        );
         const identity = {
-          key: normalized,
+          key: filesystemPathIdentityKey(
+            sensitive ? normalized : normalized.toLowerCase(),
+            platform,
+          ),
           path: normalized,
         };
         identities.set(normalized, {
@@ -88,14 +109,14 @@ export function createProjectInputPathIdentityContext(
         });
         return identity;
       }
-      missing.unshift(path.basename(existing));
+      missing.unshift(pathApi.basename(existing));
       existing = parent;
     }
   };
 
   return {
     caseSensitive: (directory) => {
-      const normalized = resolveProjectInputPath(directory);
+      const normalized = resolveFilesystemPath(directory, platform);
       resolve(normalized);
       return cachedCaseSensitivity(
         sensitivities,
@@ -104,54 +125,65 @@ export function createProjectInputPathIdentityContext(
       );
     },
     isWithin: (root, candidate) =>
-      isProjectInputPathIdentityWithin(
+      isFilesystemPathIdentityWithin(
         resolve(root).key,
         resolve(candidate).key,
+        platform,
       ),
     resolve,
   };
 }
 
-export function isProjectInputPathIdentityWithin(
+export function isFilesystemPathIdentityWithin(
   root: string,
   candidate: string,
+  platform: NodeJS.Platform = process.platform,
 ): boolean {
   if (candidate === root) return true;
+  const separator = platform === "win32" ? path.win32.sep : path.sep;
   return candidate.startsWith(
-    root.endsWith(path.sep) ? root : `${root}${path.sep}`,
+    root.endsWith(separator) ? root : `${root}${separator}`,
   );
 }
 
-export function resolveProjectInputPath(location: string): string {
-  if (process.platform !== "win32") {
-    return path.resolve(location);
+export function resolveFilesystemPath(
+  location: string,
+  platform: NodeJS.Platform = process.platform,
+): string {
+  const pathApi = platform === "win32" ? path.win32 : path;
+  if (platform !== "win32") {
+    return pathApi.resolve(location);
   }
   const normalized = location.replaceAll("/", "\\");
   if (normalized.toLowerCase().startsWith("\\\\?\\unc\\")) {
-    return path.resolve(`\\\\${normalized.slice(8)}`);
+    return pathApi.resolve(`\\\\${normalized.slice(8)}`);
   }
   if (
     normalized.startsWith("\\\\?\\") &&
     /^[A-Za-z]:\\/.test(normalized.slice(4))
   ) {
-    return path.resolve(normalized.slice(4));
+    return pathApi.resolve(normalized.slice(4));
   }
-  return path.resolve(normalized);
+  return pathApi.resolve(normalized);
 }
 
 function cachedRealpath(
   cache: Map<string, CachedRealpath>,
   realpath: (location: string) => string,
   location: string,
+  platform: NodeJS.Platform,
+  throwOnRealpathError: boolean,
 ): string | undefined {
   const cached = cache.get(location);
   if (cached !== undefined) return cached.found ? cached.path : undefined;
   try {
-    const physical = resolveProjectInputPath(realpath(location));
+    const physical = resolveFilesystemPath(realpath(location), platform);
     cache.set(location, { found: true, path: physical });
     return physical;
   } catch (error) {
-    if (isMissingFilesystemEntry(error) === false) throw error;
+    if (throwOnRealpathError && isMissingFilesystemEntry(error) === false) {
+      throw error;
+    }
     cache.set(location, { found: false });
     return undefined;
   }
@@ -173,12 +205,15 @@ function physicalRealpath(location: string): string {
   return fs.realpathSync.native?.(location) ?? fs.realpathSync(location);
 }
 
-function filesystemDirectoryIsCaseSensitive(directory: string): boolean {
+function filesystemDirectoryIsCaseSensitive(
+  directory: string,
+  platform: NodeJS.Platform,
+): boolean {
   let entries: string[];
   try {
     entries = fs.readdirSync(directory);
   } catch {
-    return unprovenCaseSensitivity();
+    return unprovenCaseSensitivity(platform);
   }
   const foldedNames = new Map<string, string>();
   for (const name of entries) {
@@ -187,24 +222,29 @@ function filesystemDirectoryIsCaseSensitive(directory: string): boolean {
     if (previous !== undefined && previous !== name) return true;
     foldedNames.set(folded, name);
   }
+  let rejectedAlternate = false;
   for (const name of entries) {
     const alternate = alternateCase(name);
     if (alternate === name) continue;
     try {
-      physicalRealpath(path.join(directory, alternate));
+      fs.lstatSync(path.join(directory, alternate));
       return false;
     } catch (error) {
-      if (isMissingFilesystemEntry(error)) continue;
+      if (isMissingFilesystemEntry(error)) {
+        rejectedAlternate = true;
+        continue;
+      }
       throw error;
     }
   }
-  if (process.platform === "darwin") {
+  if (rejectedAlternate) return true;
+  if (platform === "darwin") {
     // APFS/HFS case semantics are volume-wide. An empty directory has no child
     // name to probe, so ask the same read-only question of its existing name in
     // the parent and walk upward until a name with ASCII case is available.
     // This avoids a write probe while still distinguishing default APFS from a
     // case-sensitive volume.
-    let current = resolveProjectInputPath(directory);
+    let current = resolveFilesystemPath(directory, platform);
     while (true) {
       const parent = path.dirname(current);
       if (parent === current) break;
@@ -220,9 +260,9 @@ function filesystemDirectoryIsCaseSensitive(directory: string): boolean {
       }
       current = parent;
     }
-    return unprovenCaseSensitivity();
+    return unprovenCaseSensitivity(platform);
   }
-  if (process.platform !== "win32") return true;
+  if (platform !== "win32") return true;
   // Node does not expose the Windows per-directory flag. Prefer fsutil's
   // read-only answer, then conservatively preserve distinct declarations.
   const result = childProcess.spawnSync(
@@ -234,7 +274,7 @@ function filesystemDirectoryIsCaseSensitive(directory: string): boolean {
     if (/\bdisabled\b/iu.test(result.stdout)) return false;
     if (/\benabled\b/iu.test(result.stdout)) return true;
   }
-  return unprovenCaseSensitivity();
+  return unprovenCaseSensitivity(platform);
 }
 
 /**
@@ -252,8 +292,17 @@ function filesystemDirectoryIsCaseSensitive(directory: string): boolean {
  * mistake, on a volume that really was opted out, merges two files differing
  * only in case into one watched identity.
  */
-function unprovenCaseSensitivity(): boolean {
-  return process.platform !== "win32" && process.platform !== "darwin";
+function unprovenCaseSensitivity(platform: NodeJS.Platform): boolean {
+  return platform !== "win32" && platform !== "darwin";
+}
+
+function filesystemPathIdentityKey(
+  location: string,
+  platform: NodeJS.Platform,
+): string {
+  if (platform !== "win32") return location;
+  const root = path.win32.parse(location).root;
+  return `${root.toLowerCase()}${location.slice(root.length)}`;
 }
 
 function alternateCase(value: string): string {
@@ -270,4 +319,26 @@ function isMissingFilesystemEntry(error: unknown): boolean {
     "code" in error &&
     (error.code === "ENOENT" || error.code === "ENOTDIR")
   );
+}
+
+export type ProjectInputPathIdentity = FilesystemPathIdentity;
+export type ProjectInputPathIdentityOperations =
+  FilesystemPathIdentityOperations;
+export type ProjectInputPathIdentityContext = FilesystemPathIdentityContext;
+
+export function createProjectInputPathIdentityContext(
+  operations: Partial<ProjectInputPathIdentityOperations> = {},
+): ProjectInputPathIdentityContext {
+  return createFilesystemPathIdentityContext(operations);
+}
+
+export function isProjectInputPathIdentityWithin(
+  root: string,
+  candidate: string,
+): boolean {
+  return isFilesystemPathIdentityWithin(root, candidate);
+}
+
+export function resolveProjectInputPath(location: string): string {
+  return resolveFilesystemPath(location);
 }

@@ -23,6 +23,7 @@ interface ViewerPayload {
     links: number;
     droppedIgnored?: number;
   };
+  links?: { source: string; target: string }[];
   nodes: { id: string; file: string }[];
 }
 
@@ -83,6 +84,12 @@ const assertProjection = (
     expectedFiles,
     `${label}: id projection`,
   );
+  assert.equal(
+    new Set(result.nodes.map((node) => node.id)).size,
+    new Set(files.map((file, index) => `${file}\0${index}`)).size,
+    `${label}: distinct source nodes retain distinct projected ids`,
+  );
+  assert.equal(result.links?.length, files.length, `${label}: links survive`);
 };
 
 /**
@@ -148,9 +155,9 @@ export const test_ttscgraph_viewer_reducers_preserve_legacy_absolute_filenames =
         expected: ["alpha.ts", "nested/beta.ts"],
       },
       {
-        name: "case-insensitive Windows drive",
+        name: "ambiguous Windows drive directories preserve spelling",
         files: ["C:\\Work\\src\\alpha.ts", "c:\\work\\SRC\\nested\\beta.ts"],
-        expected: ["alpha.ts", "nested/beta.ts"],
+        expected: ["Work/src/alpha.ts", "work/SRC/nested/beta.ts"],
       },
       {
         name: "case-insensitive Windows drive root",
@@ -158,12 +165,25 @@ export const test_ttscgraph_viewer_reducers_preserve_legacy_absolute_filenames =
         expected: ["alpha.ts", "beta.ts"],
       },
       {
-        name: "case-insensitive Windows UNC share",
+        name: "ambiguous Windows UNC directories preserve spelling",
         files: [
           "\\\\Server\\Share\\Work\\src\\alpha.ts",
           "\\\\server\\share\\work\\SRC\\nested\\beta.ts",
         ],
-        expected: ["alpha.ts", "nested/beta.ts"],
+        expected: ["Work/src/alpha.ts", "work/SRC/nested/beta.ts"],
+      },
+      {
+        name: "case-distinct Windows drive paths remain injective",
+        files: ["C:\\work\\src\\same.ts", "c:\\Work\\src\\same.ts"],
+        expected: ["work/src/same.ts", "Work/src/same.ts"],
+      },
+      {
+        name: "case-distinct Windows UNC paths remain injective",
+        files: [
+          "\\\\Server\\Share\\work\\src\\same.ts",
+          "\\\\server\\share\\Work\\src\\same.ts",
+        ],
+        expected: ["work/src/same.ts", "Work/src/same.ts"],
       },
       {
         // On a case-sensitive filesystem `/work` and `/Work` are different

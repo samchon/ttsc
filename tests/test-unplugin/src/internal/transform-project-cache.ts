@@ -347,11 +347,10 @@ async function assertFirstModuleDeliveriesDoNotRehashProject(): Promise<void> {
  *
  * Watch-input derivation must pay the graph's identity computations once per
  * generation; after that a delivery costs only its own memoized lookups. The
- * probe counter simulates both filesystem calls made by the macOS
- * `pathIdentityKey` branch, `existsSync` and `realpathSync.native`, on any
- * host, so the bound holds identically across CI platforms. Before the fix
- * every delivery re-walked the whole edge set with two syscalls per path, which
- * scaled O(modules x edges) into the #970 residual stall.
+ * probe counter observes the shared path-identity resolver's physical-path
+ * lookup on every host, so the bound holds identically across CI platforms.
+ * Before the fix every delivery re-walked the whole edge set with filesystem
+ * work per path, which scaled O(modules x edges) into the #970 residual stall.
  */
 async function assertSiblingDeliveriesDoNotReprobeGraph(): Promise<void> {
   const {
@@ -388,14 +387,11 @@ async function assertSiblingDeliveriesDoNotReprobeGraph(): Promise<void> {
   await deliver(modules[0]!);
 
   const probes = countFsIdentityProbes();
-  const platform = Object.getOwnPropertyDescriptor(process, "platform")!;
-  Object.defineProperty(process, "platform", { value: "darwin" });
   try {
     for (const file of modules.slice(1)) {
       await deliver(file);
     }
   } finally {
-    Object.defineProperty(process, "platform", platform);
     probes.restore();
   }
 
@@ -421,20 +417,12 @@ async function assertSiblingDeliveriesDoNotReprobeGraph(): Promise<void> {
 }
 
 /**
- * Wrap the two fs calls the macOS `pathIdentityKey` branch pays per call
- * (`existsSync` and `realpathSync.native`) with pass-through counters.
+ * Wrap the shared identity resolver's physical lookup with a pass-through
+ * counter.
  */
 function countFsIdentityProbes(): { calls: number; restore: () => void } {
   const counter = { calls: 0, restore: () => undefined };
-  const originalExists = fs.existsSync;
   const originalRealpath = fs.realpathSync.native;
-  (fs as { existsSync: typeof fs.existsSync }).existsSync = function (
-    this: unknown,
-    ...args: Parameters<typeof fs.existsSync>
-  ) {
-    counter.calls += 1;
-    return originalExists.apply(this, args as never);
-  } as typeof fs.existsSync;
   (fs.realpathSync as { native: typeof fs.realpathSync.native }).native =
     function (
       this: unknown,
@@ -444,7 +432,6 @@ function countFsIdentityProbes(): { calls: number; restore: () => void } {
       return originalRealpath.apply(this, args as never);
     } as typeof fs.realpathSync.native;
   counter.restore = () => {
-    (fs as { existsSync: typeof fs.existsSync }).existsSync = originalExists;
     (fs.realpathSync as { native: typeof fs.realpathSync.native }).native =
       originalRealpath;
   };

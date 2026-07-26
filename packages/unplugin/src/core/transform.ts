@@ -7,6 +7,10 @@ import type {
   ITtscCompilerTransformation,
 } from "ttsc";
 import { TtscCompiler } from "ttsc";
+import {
+  type FilesystemPathIdentityContext,
+  createFilesystemPathIdentityContext,
+} from "ttsc/path-identity";
 import type { TransformResult } from "unplugin";
 
 import type { ResolvedTtscUnpluginOptions } from "./options";
@@ -113,6 +117,12 @@ export type TtscTransformCache = Map<
  */
 const BUILD_SCOPED_TRANSFORM_CACHES = new WeakSet<TtscTransformCache>();
 
+function createHostPathIdentityContext(): FilesystemPathIdentityContext {
+  return createFilesystemPathIdentityContext({
+    throwOnRealpathError: false,
+  });
+}
+
 /** Create an empty persistent transform cache. */
 export function createTtscTransformCache(): TtscTransformCache {
   return new Map();
@@ -142,9 +152,6 @@ export function resetTtscTransformCache(cache: TtscTransformCache): void {
   cache.clear();
   BUILD_SCOPED_TRANSFORM_CACHES.delete(cache);
 }
-
-/** Cached case-insensitivity probes for existing macOS filesystem locations. */
-const CASE_INSENSITIVE_FILESYSTEMS = new Map<string, boolean>();
 
 /**
  * Hooks the bundler adapter passes into {@link transformTtsc} so transform
@@ -386,9 +393,9 @@ function evictGeneration(
  * Building the direct-edge index, the candidate entries, the declared-file
  * identity sets, or the output/dependency key indexes per delivery costs
  * O(envelope) `pathIdentityKey` computations per module — and each of those
- * costs real `existsSync`/`realpathSync.native` syscalls on macOS
+ * costs real path-resolution and case-semantics probes
  * ({@link pathIdentityKey}). A graph-bearing envelope (typia >= 13.1.19) turned
- * that into O(modules x edges) syscalls per build, which is the
+ * that into O(modules x edges) filesystem work per build, which is the
  * samchon/ttsc#1007 stall. All deliveries of one generation share this state,
  * so a delivery pays only its own reachability closure with memoized
  * identities.
@@ -404,6 +411,8 @@ function evictGeneration(
  * itself, so the state dies when the generation does.
  */
 interface TtscEnvelopeDerivation {
+  /** One filesystem snapshot for every identity comparison in this envelope. */
+  readonly identityContext: FilesystemPathIdentityContext;
   /** Memoized {@link pathIdentityKey} results, keyed by the exact input. */
   readonly identities: Map<string, string>;
   /**
@@ -470,6 +479,7 @@ function envelopeDerivation(props: {
     return existing;
   }
   const created: TtscEnvelopeDerivation = {
+    identityContext: createHostPathIdentityContext(),
     identities: new Map(),
     watchInputs: new Map(),
   };
@@ -552,7 +562,7 @@ function derivationIdentity(
   if (existing !== undefined) {
     return existing;
   }
-  const identity = pathIdentityKey(file);
+  const identity = pathIdentityKey(file, state.identityContext);
   state.identities.set(file, identity);
   return identity;
 }
@@ -914,9 +924,13 @@ function selectFileDependencies(props: {
   if (dependencies === undefined) {
     return [];
   }
-  const key = toProjectKey(props.projectRoot, props.file);
-  let entries = dependencies[key];
   const state = envelopeDerivation(props);
+  const key = toProjectKey(
+    props.projectRoot,
+    props.file,
+    state.identityContext,
+  );
+  let entries = dependencies[key];
   if (entries === undefined) {
     const index = (state.dependencyIndex ??= createEnvelopeKeyIndex(
       state,
@@ -1040,14 +1054,21 @@ function matchesCachedSource(
   source: string,
   buildScoped: boolean,
 ): boolean {
-  const currentKey = toProjectKey(cached.projectRoot, file);
+  const identities = envelopeDerivation(cached).identityContext;
+  const currentKey = toProjectKey(cached.projectRoot, file, identities);
   if (cached.inputHashes[currentKey] !== hashText(source)) {
     return false;
   }
-  if (buildScoped && !cached.servedFiles?.has(pathIdentityKey(file))) {
+  if (
+    buildScoped &&
+    !cached.servedFiles?.has(pathIdentityKey(file, identities))
+  ) {
     return true;
   }
-  const currentHashes = collectProjectInputHashes(cached.projectRoot);
+  const currentHashes = collectProjectInputHashes(
+    cached.projectRoot,
+    identities,
+  );
   currentHashes[currentKey] = hashText(source);
   if (!sameHashes(cached.inputHashes, currentHashes)) {
     return false;
@@ -1074,7 +1095,9 @@ function markCachedSourceServed(
   cached: TtscCachedProjectTransform,
   file: string,
 ): void {
-  (cached.servedFiles ??= new Set()).add(pathIdentityKey(file));
+  (cached.servedFiles ??= new Set()).add(
+    pathIdentityKey(file, envelopeDerivation(cached).identityContext),
+  );
 }
 
 /**
@@ -1095,11 +1118,11 @@ function collectInputHashes(props: {
   currentSource: string;
   projectRoot: string;
 }): Record<string, string> {
-  const hashes = collectProjectInputHashes(props.projectRoot);
+  const identities = createHostPathIdentityContext();
+  const hashes = collectProjectInputHashes(props.projectRoot, identities);
   // Overlay the in-memory source so unsaved edits invalidate the cache.
-  hashes[toProjectKey(props.projectRoot, props.currentFile)] = hashText(
-    props.currentSource,
-  );
+  hashes[toProjectKey(props.projectRoot, props.currentFile, identities)] =
+    hashText(props.currentSource);
   return hashes;
 }
 
@@ -1111,11 +1134,14 @@ function collectInputHashes(props: {
  */
 export function collectProjectInputHashes(
   projectRoot: string,
+  identities: FilesystemPathIdentityContext = createHostPathIdentityContext(),
 ): Record<string, string> {
   const hashes: Record<string, string> = {};
   for (const file of listProjectInputFiles(projectRoot)) {
     try {
-      hashes[toProjectKey(projectRoot, file)] = hashText(fs.readFileSync(file));
+      hashes[toProjectKey(projectRoot, file, identities)] = hashText(
+        fs.readFileSync(file),
+      );
     } catch {
       // File watchers may observe a transform while another process is moving
       // or deleting files. The missing key invalidates older cache entries.
@@ -1168,8 +1194,17 @@ function listProjectInputFiles(root: string): string[] {
  * Missing paths and files reached through symlinks or Windows junctions are
  * out-of-walk inputs that only the reference graph can prove relevant.
  */
-export function isProjectWalkPath(root: string, file: string): boolean {
-  const relative = path.relative(pathIdentityKey(root), pathIdentityKey(file));
+export function isProjectWalkPath(
+  root: string,
+  file: string,
+  identities: FilesystemPathIdentityContext = createHostPathIdentityContext(),
+): boolean {
+  if (!identities.isWithin(root, file)) {
+    return false;
+  }
+  const rootKey = pathIdentityKey(root, identities);
+  const fileKey = pathIdentityKey(file, identities);
+  const relative = fileKey.slice(rootKey.length).replace(/^[/\\]+/, "");
   if (
     relative.length === 0 ||
     relative === ".." ||
@@ -1215,8 +1250,9 @@ export function collectExternalInputHashes(
   paths: readonly string[],
 ): Record<string, string> {
   const hashes: Record<string, string> = {};
+  const identities = createHostPathIdentityContext();
   for (const file of paths) {
-    const identity = pathIdentityKey(file);
+    const identity = pathIdentityKey(file, identities);
     if (identity in hashes) {
       continue;
     }
@@ -1256,6 +1292,7 @@ function selectExternalInputPaths(props: {
     return [];
   }
   const members: string[] = [];
+  const identities = createHostPathIdentityContext();
   const resolutionCandidates = new Set<string>();
   const graph = props.result.graph;
   if (graph !== undefined) {
@@ -1280,7 +1317,7 @@ function selectExternalInputPaths(props: {
         }
         const absolute = path.resolve(props.projectRoot, candidate);
         members.push(candidate);
-        resolutionCandidates.add(pathIdentityKey(absolute));
+        resolutionCandidates.add(pathIdentityKey(absolute, identities));
       }
     }
   }
@@ -1292,7 +1329,7 @@ function selectExternalInputPaths(props: {
   const excluded =
     props.temporaryTsconfig === undefined
       ? undefined
-      : pathIdentityKey(props.temporaryTsconfig);
+      : pathIdentityKey(props.temporaryTsconfig, identities);
   const output: string[] = [];
   const seen = new Set<string>();
   for (const member of members) {
@@ -1300,13 +1337,14 @@ function selectExternalInputPaths(props: {
       continue;
     }
     const absolute = path.resolve(props.projectRoot, member);
-    const identity = pathIdentityKey(absolute);
+    const identity = pathIdentityKey(absolute, identities);
     const missingCandidate =
       resolutionCandidates.has(identity) && !fs.existsSync(absolute);
     if (
       identity === excluded ||
       seen.has(identity) ||
-      (!missingCandidate && isProjectWalkPath(props.projectRoot, absolute))
+      (!missingCandidate &&
+        isProjectWalkPath(props.projectRoot, absolute, identities))
     ) {
       continue;
     }
@@ -1695,14 +1733,18 @@ function selectTransformedSource(props: {
   }
 
   // Fast path: the compiler key matches the normalised project-relative path.
-  const key = toProjectKey(props.projectRoot, props.file);
+  const state = envelopeDerivation(props);
+  const key = toProjectKey(
+    props.projectRoot,
+    props.file,
+    state.identityContext,
+  );
   const direct = props.result.typescript[key];
   if (direct !== undefined) {
     return direct;
   }
   // Slow path: the first-match identity index of the envelope's `typescript`
   // keys, built once per generation instead of scanned per delivery.
-  const state = envelopeDerivation(props);
   const index = (state.outputIndex ??= createEnvelopeKeyIndex(
     state,
     props.projectRoot,
@@ -1807,10 +1849,17 @@ function resolveTsconfig(file: string, tsconfig?: string): string {
   return path.resolve(process.cwd(), "tsconfig.json");
 }
 
-function toProjectKey(root: string, file: string): string {
-  return normalizePath(
-    path.relative(pathIdentityKey(root), pathIdentityKey(file)),
-  );
+function toProjectKey(
+  root: string,
+  file: string,
+  identities: FilesystemPathIdentityContext = createHostPathIdentityContext(),
+): string {
+  const rootKey = pathIdentityKey(root, identities);
+  const fileKey = pathIdentityKey(file, identities);
+  if (!identities.isWithin(root, file)) {
+    return normalizePath(fileKey);
+  }
+  return normalizePath(fileKey.slice(rootKey.length).replace(/^[/\\]+/, ""));
 }
 
 /**
@@ -1818,55 +1867,11 @@ function toProjectKey(root: string, file: string): string {
  * filesystem or bundler. Windows is case-insensitive; macOS is probed per
  * existing filesystem location so case-sensitive volumes keep distinct paths.
  */
-export function pathIdentityKey(file: string): string {
-  const absolute = path.resolve(file);
-  return filesystemIsCaseInsensitive(absolute)
-    ? absolute.toLowerCase()
-    : absolute;
-}
-
-function filesystemIsCaseInsensitive(file: string): boolean {
-  if (process.platform === "win32") {
-    return true;
-  }
-  if (process.platform !== "darwin") {
-    return false;
-  }
-  let existing = file;
-  while (!fs.existsSync(existing)) {
-    const parent = path.dirname(existing);
-    if (parent === existing) {
-      return false;
-    }
-    existing = parent;
-  }
-  let resolved: string;
-  try {
-    resolved = fs.realpathSync.native(existing);
-  } catch {
-    return false;
-  }
-  const cached = CASE_INSENSITIVE_FILESYSTEMS.get(resolved);
-  if (cached !== undefined) {
-    return cached;
-  }
-  const alternate = togglePathCase(resolved);
-  const insensitive = alternate !== undefined && fs.existsSync(alternate);
-  CASE_INSENSITIVE_FILESYSTEMS.set(resolved, insensitive);
-  return insensitive;
-}
-
-function togglePathCase(file: string): string | undefined {
-  for (let index = file.length - 1; index >= 0; --index) {
-    const character = file[index]!;
-    if (character >= "a" && character <= "z") {
-      return `${file.slice(0, index)}${character.toUpperCase()}${file.slice(index + 1)}`;
-    }
-    if (character >= "A" && character <= "Z") {
-      return `${file.slice(0, index)}${character.toLowerCase()}${file.slice(index + 1)}`;
-    }
-  }
-  return undefined;
+export function pathIdentityKey(
+  file: string,
+  identities: FilesystemPathIdentityContext = createHostPathIdentityContext(),
+): string {
+  return identities.resolve(file).key;
 }
 
 function normalizePath(file: string): string {

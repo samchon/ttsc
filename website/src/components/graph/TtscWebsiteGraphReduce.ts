@@ -19,11 +19,6 @@ function isAbsolute(p: string): boolean {
   return /^(?:[A-Za-z]:)?\//.test(posix(p));
 }
 
-function isWindowsPath(p: string): boolean {
-  const normalized = posix(p);
-  return /^[A-Za-z]:(?:\/|$)/.test(normalized) || normalized.startsWith("//");
-}
-
 function directoryOf(file: string): string {
   const normalized = posix(file).replace(/\/+$/, "");
   const slash = normalized.lastIndexOf("/");
@@ -35,22 +30,54 @@ function directoryOf(file: string): string {
 function commonRoot(directories: string[]): string {
   if (directories.length === 0) return "";
   let parts = posix(directories[0]!).split("/");
-  const caseInsensitive = directories.every(isWindowsPath);
   for (const directory of directories.slice(1)) {
     const other = posix(directory).split("/");
     let i = 0;
     while (
       i < parts.length &&
       i < other.length &&
-      (caseInsensitive
-        ? parts[i]!.toLowerCase() === other[i]!.toLowerCase()
-        : parts[i] === other[i])
+      legacyPathSegmentsEqual(parts, other, i)
     )
       i++;
     parts = parts.slice(0, i);
     if (parts.length === 0) break;
   }
   return parts.join("/");
+}
+
+function legacyPathSegmentsEqual(
+  left: readonly string[],
+  right: readonly string[],
+  index: number,
+): boolean {
+  const leftVolume = windowsVolumeSegmentCount(left);
+  const rightVolume = windowsVolumeSegmentCount(right);
+  return leftVolume !== 0 && leftVolume === rightVolume && index < leftVolume
+    ? left[index]!.toLowerCase() === right[index]!.toLowerCase()
+    : left[index] === right[index];
+}
+
+function windowsVolumeSegmentCount(parts: readonly string[]): number {
+  if (/^[A-Za-z]:$/.test(parts[0] ?? "")) return 1;
+  return parts[0] === "" &&
+    parts[1] === "" &&
+    parts[2] !== undefined &&
+    parts[2] !== "" &&
+    parts[3] !== undefined &&
+    parts[3] !== ""
+    ? 4
+    : 0;
+}
+
+function legacyPathIsWithin(candidate: string, root: string): boolean {
+  const candidateParts = posix(candidate).split("/");
+  const rootParts = posix(root).split("/");
+  return (
+    rootParts.length <= candidateParts.length &&
+    rootParts.every((_, index) =>
+      legacyPathSegmentsEqual(rootParts, candidateParts, index),
+    )
+  );
 }
 
 /**
@@ -64,15 +91,7 @@ function relativize(abs: string, root: string | null): string {
   if (root === null) return a;
   const normalizedRoot = posix(root);
   const r = normalizedRoot === "/" ? "/" : normalizedRoot.replace(/\/+$/, "");
-  const caseInsensitive = isWindowsPath(a) && isWindowsPath(r);
-  const comparedPath = caseInsensitive ? a.toLowerCase() : a;
-  const comparedRoot = caseInsensitive ? r.toLowerCase() : r;
-  if (
-    comparedRoot &&
-    (comparedRoot === "/" ||
-      comparedPath === comparedRoot ||
-      comparedPath.startsWith(comparedRoot + "/"))
-  )
+  if (r && (r === "/" || legacyPathIsWithin(a, r)))
     return a.slice(r.length).replace(/^\/+/, "");
   const nm = a.lastIndexOf("node_modules/");
   // A package tail is a deliberate normalization: the same dependency reached

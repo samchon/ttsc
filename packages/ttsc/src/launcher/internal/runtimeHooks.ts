@@ -15,6 +15,10 @@ import { resolveEmittedJavaScript } from "../../compiler/internal/resolveEmitted
 import { resolveTsgo } from "../../compiler/internal/resolveTsgo";
 import { runBuild } from "../../compiler/internal/runBuild";
 import { outputText, spawnNative } from "../../compiler/internal/spawnNative";
+import {
+  type FilesystemPathIdentityContext,
+  createFilesystemPathIdentityContext,
+} from "../../internal/projectInputPathIdentity";
 import { inlineServedSourceMap } from "./servedSourceMap";
 
 /**
@@ -1143,23 +1147,19 @@ function serveEntryEmit(real: string): ServedSource | null {
  * Both sides are normalized to native separators first: a manifest `rootDir`
  * arrives slash-normalized from the synthesized tsconfig (`C:/` on Windows)
  * while `real` paths are native, and a raw prefix comparison across the two
- * forms silently never matches. Windows paths also compare case-insensitively
- * (a lowercase `TEMP` yields a `c:`-rooted `rootDir` for the same volume the
- * real paths spell `C:`). Exported for direct exercise by the ttsx e2e suite —
- * spawned runs cannot pin the Windows normalization branches on CI.
+ * forms silently never matches. Filesystem identity preserves ordinary Windows
+ * aliases while keeping case-distinct paths under an opted-in directory
+ * separate. Exported for direct exercise by the ttsx e2e suite — spawned runs
+ * cannot pin both Windows case-semantics branches on CI.
  */
-export function isWithin(real: string, directory: string): boolean {
-  const fold = (value: string): string =>
-    process.platform === "win32"
-      ? path.normalize(value).toLowerCase()
-      : path.normalize(value);
-  const target = fold(real);
-  const dir = fold(directory);
-  if (target === dir) {
-    return true;
-  }
-  const prefix = dir.endsWith(path.sep) ? dir : dir + path.sep;
-  return target.startsWith(prefix);
+export function isWithin(
+  real: string,
+  directory: string,
+  identities: FilesystemPathIdentityContext = createFilesystemPathIdentityContext(
+    { throwOnRealpathError: false },
+  ),
+): boolean {
+  return identities.isWithin(directory, real);
 }
 
 /**

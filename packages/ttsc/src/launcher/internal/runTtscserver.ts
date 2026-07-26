@@ -553,7 +553,7 @@ function lspProjectInputPhysicalPathIdentity(
 ): Buffer {
   if (process.platform === "win32") {
     return Buffer.from(
-      identities.resolve(location).key.replaceAll("\\", "/"),
+      identities.resolve(location).path.replaceAll("\\", "/"),
       "utf8",
     );
   }
