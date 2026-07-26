@@ -26,6 +26,8 @@ npx @ttsc/graph view
 
 It resolves the project from the working directory and `tsconfig.json` by default; `--cwd`, `--tsconfig`, `--port`, `--max-nodes`, and `--no-open` override that. `--port` accepts an integer from 0 through 65,535, and `--max-nodes` accepts a positive integer. A missing, malformed, or unknown option stops before the graph is built. Like the MCP server, it needs `ttsc` installed so the native `ttscgraph` binary is present.
 
+If the requested port cannot be bound, the command reports the endpoint and operating-system error, then exits non-zero.
+
 ### Export the graph as JSON
 
 For the data as a file instead:
