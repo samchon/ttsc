@@ -107,8 +107,9 @@ func (s *NativePluginSource) ProjectInputReloadMatchesURI(uri string) bool {
 // ProjectInputReloadMatchesChange reports whether an LSP filesystem change
 // invalidates executable plugin selection. Exact reload files are content
 // inputs. Reload directories are topology inputs, so only a change to the
-// directory itself or an immediate entry can qualify, and it qualifies only
-// when the current name/type/symlink-target digest differs from the snapshot.
+// directory itself always qualifies. An immediate entry qualifies only when
+// the current name/type/symlink-target digest differs from the snapshot and
+// the entry is not data territory under a declared glob's literal root.
 func (s *NativePluginSource) ProjectInputReloadMatchesChange(
   uri string,
   changeType *int,
@@ -147,9 +148,20 @@ func (s *NativePluginSource) ProjectInputReloadMatchesChange(
     // under an aliased spelling would fall through to the digest compare and
     // report no change at all.
     if projectInputPathKey(realProjectInputPath(directory)) ==
-      candidateEntryKey &&
-      (changeType == nil || *changeType != fileChangeTypeChanged) {
+      candidateEntryKey {
       return true
+    }
+    // A glob root appearing immediately inside a resolution directory is a
+    // data-population transition, not a plugin-selection transition. The data
+    // watcher already reports it and invalidates the Program in the resident
+    // process. Only a root strictly below this directory can explain away its
+    // digest delta; a glob rooted on or above the directory cannot.
+    if projectInputGlobExemptsReloadEntry(
+      snapshot,
+      directory,
+      candidateEntry,
+    ) {
+      continue
     }
     if projectInputReloadDirectoryDigest(directory) !=
       snapshot.ReloadDirectoryDigests[key] {
@@ -668,6 +680,43 @@ func projectInputDirectoryContainsImmediate(
   return relativeKey != ".." &&
     !strings.HasPrefix(relativeKey, "../") &&
     !strings.Contains(relativeKey, "/")
+}
+
+func projectInputGlobExemptsReloadEntry(
+  snapshot LSPProjectInputSnapshot,
+  directory string,
+  candidate string,
+) bool {
+  resolvedDirectory := realProjectInputPath(directory)
+  directoryKey := projectInputPathKey(resolvedDirectory)
+  for _, pattern := range snapshot.Globs {
+    globRoot, _ := projectInputGlobRelativePattern(pattern)
+    resolvedGlobRoot := realProjectInputPath(globRoot)
+    if projectInputPathKey(resolvedGlobRoot) == directoryKey {
+      continue
+    }
+    if projectInputPathContains(resolvedDirectory, resolvedGlobRoot) &&
+      projectInputPathContains(resolvedGlobRoot, candidate) {
+      return true
+    }
+  }
+  return false
+}
+
+func projectInputPathContains(
+  directory string,
+  candidate string,
+) bool {
+  relative, err := filepath.Rel(
+    projectInputFilesystemPath(directory),
+    projectInputFilesystemPath(candidate),
+  )
+  if err != nil || filepath.IsAbs(relative) {
+    return false
+  }
+  relativeKey := projectInputPathKey(relative)
+  return relativeKey == "." ||
+    (relativeKey != ".." && !strings.HasPrefix(relativeKey, "../"))
 }
 
 func preserveProjectInputReloadFingerprints(
