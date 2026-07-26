@@ -5,18 +5,21 @@ import (
   "testing"
 )
 
-// TestProjectInputSnapshotNormalizesWindowsCaseAndSeparators verifies Windows
-// path identity is stable independently of the host running this test.
+// TestProjectInputSnapshotNormalizesWindowsSeparatorsWithoutFoldingCase
+// verifies a producer does not erase a declaration before a filesystem-aware
+// consumer can determine its identity.
 //
-// Windows paths that differ only by drive/directory case or slash spelling
-// must own one watcher. Glob metacharacters remain intact while their directory
-// spelling is normalized; otherwise one declared dependency can create duplicate
-// watchers and rebuilds.
+// Windows directories may opt into case-sensitive lookup, so paths differing
+// only by case can name different files. The producer normalizes separators and
+// glob shape but preserves exact case; the consumer later converges aliases on
+// ordinary case-insensitive directories.
 //
 //  1. Supply exact paths and globs with mixed case and separators.
-//  2. Normalize them under an explicitly case-insensitive filesystem.
-//  3. Assert each physical dependency has one stable slash-form identity.
-func TestProjectInputSnapshotNormalizesWindowsCaseAndSeparators(t *testing.T) {
+//  2. Normalize them under Windows path rules.
+//  3. Assert every case spelling survives in stable slash form.
+func TestProjectInputSnapshotNormalizesWindowsSeparatorsWithoutFoldingCase(
+  t *testing.T,
+) {
   got := uniqueProjectInputPatternsForFilesystem([]string{
     `C:\Repo\Docs\Spec.md`,
     `c:/repo/docs/spec.md`,
@@ -24,6 +27,8 @@ func TestProjectInputSnapshotNormalizesWindowsCaseAndSeparators(t *testing.T) {
     `c:/repo/api/**/*.json`,
   }, true)
   want := []string{
+    "C:/Repo/Api/**/*.JSON",
+    "C:/Repo/Docs/Spec.md",
     "c:/repo/api/**/*.json",
     "c:/repo/docs/spec.md",
   }

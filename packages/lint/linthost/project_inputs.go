@@ -195,22 +195,21 @@ func realProjectGlob(pattern string) string {
 func uniqueProjectInputPatterns(patterns []string) []string {
   return uniqueProjectInputPatternsForFilesystem(
     patterns,
-    isCaseInsensitiveFilesystem(),
+    usesWindowsPathSyntax(),
   )
 }
 
 func uniqueProjectInputPatternsForFilesystem(
   patterns []string,
-  caseInsensitive bool,
+  windowsPaths bool,
 ) []string {
   seen := map[string]string{}
   for _, pattern := range patterns {
-    normalized := normalizeProjectInputPattern(pattern, caseInsensitive)
-    key := normalized
-    if caseInsensitive {
-      key = strings.ToLower(key)
-    }
-    seen[key] = normalized
+    normalized := normalizeProjectInputPattern(pattern, windowsPaths)
+    // The producer cannot decide Windows identity globally: a directory can
+    // opt into case-sensitive lookup. Preserve every normalized spelling and
+    // let each consumer resolve aliases against that directory's semantics.
+    seen[normalized] = normalized
   }
   out := make([]string, 0, len(seen))
   for _, pattern := range seen {
@@ -222,9 +221,9 @@ func uniqueProjectInputPatternsForFilesystem(
 
 func normalizeProjectInputPattern(
   pattern string,
-  caseInsensitive bool,
+  windowsPaths bool,
 ) string {
-  if !caseInsensitive {
+  if !windowsPaths {
     return filepath.ToSlash(filepath.Clean(filepath.FromSlash(pattern)))
   }
   slashed := strings.ReplaceAll(pattern, "\\", "/")
@@ -236,6 +235,6 @@ func normalizeProjectInputPattern(
   return normalized
 }
 
-func isCaseInsensitiveFilesystem() bool {
+func usesWindowsPathSyntax() bool {
   return filepath.Separator == '\\'
 }

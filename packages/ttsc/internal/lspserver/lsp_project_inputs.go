@@ -919,14 +919,6 @@ func projectInputFilesystemPath(location string) string {
   return normalized
 }
 
-func projectInputPathKey(location string) string {
-  key := filepath.ToSlash(filepath.Clean(filepath.FromSlash(location)))
-  if runtime.GOOS == "windows" {
-    key = strings.ToLower(key)
-  }
-  return key
-}
-
 func matchProjectInputGlob(pattern []string, candidate []string) bool {
   type position struct {
     pattern   int

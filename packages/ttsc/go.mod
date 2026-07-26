@@ -41,6 +41,7 @@ require (
 	github.com/microsoft/typescript-go/shim/vfs v0.0.0
 	github.com/microsoft/typescript-go/shim/vfs/cachedvfs v0.0.0
 	github.com/microsoft/typescript-go/shim/vfs/osvfs v0.0.0
+	golang.org/x/sys v0.43.0
 )
 
 require (
@@ -49,6 +50,5 @@ require (
 	github.com/microsoft/typescript-go v0.0.0-20260429010842-56ab4af42157 // indirect
 	github.com/zeebo/xxh3 v1.1.0 // indirect
 	golang.org/x/sync v0.20.0 // indirect
-	golang.org/x/sys v0.43.0 // indirect
 	golang.org/x/text v0.36.0 // indirect
 )
