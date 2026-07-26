@@ -10,17 +10,21 @@ import {
 import { WATCH_EVENT_DEADLINE_MS } from "../../internal/watch";
 
 /**
- * Verifies referenced-project outputs stay quiet while absolute inputs outside
- * the logical project remain live.
+ * Verifies a referenced-project build-info output stays quiet while absolute
+ * inputs outside the logical project remain live.
  *
  * A solution watch owns every referenced compiler configuration, but project
  * rules may also depend on a sibling documentation checkout. Output filtering
- * must therefore retain per-reference exact outputs without constraining
+ * must therefore retain per-reference exact products without constraining
  * declared inputs to the TypeScript solution root.
  *
- * 1. Build a solution with one referenced project and exact JSON outputs.
+ * TypeScript-Go 7 removed `outFile`, so a configured JSON bundle is not a
+ * product and must not be used as the quiet twin. The referenced project's
+ * explicit `tsBuildInfoFile` remains a real exact JSON product.
+ *
+ * 1. Build a solution with one referenced project and one JSON build-info file.
  * 2. Declare a referenced-project JSON glob and a missing external exact file.
- * 3. Prove compiler outputs are quiet and both legitimate locations wake.
+ * 3. Prove the build-info product is quiet and both legitimate inputs wake.
  */
 export const test_watch_topology_tracks_external_inputs_across_project_references =
   async (): Promise<void> => {
@@ -38,7 +42,6 @@ export const test_watch_topology_tracks_external_inputs_across_project_reference
       JSON.stringify({
         compilerOptions: {
           composite: true,
-          outFile: "api/bundle.json",
           tsBuildInfoFile: "api/state.json",
         },
         files: ["src/index.ts"],
@@ -53,6 +56,7 @@ export const test_watch_topology_tracks_external_inputs_across_project_reference
       }),
       "utf8",
     );
+    fs.mkdirSync(path.join(referenced, "api"), { recursive: true });
 
     const changes: WatchInputChange[] = [];
     const topology = new WatchTopology(
@@ -78,9 +82,7 @@ export const test_watch_topology_tracks_external_inputs_across_project_reference
         globs: [path.join(referenced, "api", "**", "*.json")],
       });
 
-      fs.mkdirSync(path.join(referenced, "api"), { recursive: true });
       fs.writeFileSync(path.join(referenced, "api", "state.json"), "{}\n");
-      fs.writeFileSync(path.join(referenced, "api", "bundle.json"), "{}\n");
       await quiet(changes);
 
       fs.mkdirSync(path.join(external, "docs"), { recursive: true });
