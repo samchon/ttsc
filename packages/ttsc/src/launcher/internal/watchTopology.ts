@@ -1237,23 +1237,16 @@ function listCompilerInputs(
       `ttsc: failed to list compiler inputs: ${result.error.message}`,
     );
   }
-  const outputs = resolveCompilerOutputs(project, options);
-  const listed = outputText(result.stdout)
+  // `--listFilesOnly` is the authority for compiler inputs. A path may also be
+  // a predicted product of another input, but that collision does not revoke
+  // its Program membership—especially while the compiler is reporting an
+  // overwrite diagnostic. Product inference is used only to classify future
+  // filesystem events, never to subtract from the compiler's answer.
+  const inputs = outputText(result.stdout)
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter((line) => path.isAbsolute(line))
     .map((line) => path.resolve(line));
-  const exactOutputs = new Set(
-    [
-      ...outputs.files,
-      ...inferPerSourceCompilerOutputs(project, options, listed),
-    ].map(pathKey),
-  );
-  // `--listFilesOnly` is the authority for compiler inputs. A configured
-  // output directory may overlap a source tree, so directory containment
-  // cannot overrule that answer. Only products whose exact paths can be
-  // derived independently are removed from a self-referential configuration.
-  const inputs = listed.filter((file) => !exactOutputs.has(pathKey(file)));
   if (result.status !== 0 && inputs.length === 0) {
     throw new Error(
       `ttsc: failed to list compiler inputs:\n${outputText(result.stderr) || outputText(result.stdout)}`,
@@ -1309,12 +1302,10 @@ function inferPerSourceCompilerOutputs(
     emit.rootDir ??
     (emit.composite
       ? project.root
-      : (commonCompilerSourceRoot(inputs) ?? project.root));
+      : (commonCompilerSourceRoot(inputs, emit.resolveJsonModule) ??
+        project.root));
   for (const input of inputs) {
     const extension = path.extname(input).toLowerCase();
-    if (!isCompilerEmittableSourceExtension(extension)) {
-      continue;
-    }
     if (/\.d\.(?:ts|mts|cts)$/i.test(input)) continue;
     const stem = input.slice(0, -extension.length);
     const mappedStem = (directory: string | undefined): string | undefined => {
@@ -1322,6 +1313,19 @@ function inferPerSourceCompilerOutputs(
       if (!isPathWithin(sourceRoot, input)) return undefined;
       return path.resolve(directory, path.relative(sourceRoot, stem));
     };
+    if (extension === ".json") {
+      if (
+        emit.javascript &&
+        emit.resolveJsonModule &&
+        emit.outDir !== undefined &&
+        emit.outFile === undefined
+      ) {
+        const jsonStem = mappedStem(emit.outDir);
+        if (jsonStem !== undefined) outputs.add(`${jsonStem}.json`);
+      }
+      continue;
+    }
+    if (!isCompilerEmittableSourceExtension(extension)) continue;
     if (
       emit.javascript &&
       emit.outFile === undefined &&
@@ -1330,9 +1334,9 @@ function inferPerSourceCompilerOutputs(
         (extension === ".jsx" && emit.jsx !== "preserve"))
     ) {
       const javascriptExtension =
-        extension === ".mts"
+        extension === ".mts" || extension === ".mjs"
           ? ".mjs"
-          : extension === ".cts"
+          : extension === ".cts" || extension === ".cjs"
             ? ".cjs"
             : (extension === ".tsx" || extension === ".jsx") &&
                 emit.jsx === "preserve"
@@ -1365,12 +1369,14 @@ function inferPerSourceCompilerOutputs(
 
 function commonCompilerSourceRoot(
   inputs: readonly string[],
+  resolveJsonModule: boolean,
 ): string | undefined {
   const directories = inputs
     .filter((input) => {
       const extension = path.extname(input).toLowerCase();
       return (
-        isCompilerEmittableSourceExtension(extension) &&
+        (isCompilerEmittableSourceExtension(extension) ||
+          (resolveJsonModule && extension === ".json")) &&
         !/\.d\.(?:ts|mts|cts)$/i.test(input)
       );
     })
@@ -1415,6 +1421,7 @@ type EffectiveCompilerEmit = {
   jsx?: unknown;
   outDir?: string;
   outFile?: string;
+  resolveJsonModule: boolean;
   rootDir?: string;
   sourceMap: boolean;
   tsBuildInfoFile?: string;
@@ -1508,6 +1515,9 @@ function effectiveCompilerEmit(
           : typeof compilerOptions.outFile === "string"
             ? path.resolve(compilerOptions.outFile)
             : undefined,
+    resolveJsonModule:
+      passthroughBooleanOption(passthrough, "--resolveJsonModule") ??
+      compilerOptions.resolveJsonModule === true,
     rootDir:
       cliRootDir === null
         ? undefined
