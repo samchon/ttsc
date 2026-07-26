@@ -264,7 +264,9 @@ function verifyRawDirectoryIdentity(root: string): void {
     .update(
       Buffer.concat([
         Buffer.from("directory\0"),
-        fs.realpathSync(Buffer.from(rawLink), { encoding: "buffer" }),
+        (fs.realpathSync.native ?? fs.realpathSync)(Buffer.from(rawLink), {
+          encoding: "buffer",
+        }),
         Buffer.from([0]),
         Buffer.from(topology),
       ]),

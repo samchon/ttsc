@@ -121,6 +121,7 @@ export const test_watch_topology_keeps_compiler_inputs_when_outdir_contains_proj
 
         if (test.projectInput !== undefined) {
           const projectInput = test.projectInput(root);
+          fs.writeFileSync(projectInput, '{"external":false}\n', "utf8");
           topology.setProjectInputs({
             root,
             files: [projectInput],

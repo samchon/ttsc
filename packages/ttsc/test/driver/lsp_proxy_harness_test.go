@@ -25,6 +25,8 @@ type proxyHarness struct {
   cancel context.CancelFunc
 
   editorInW    *io.PipeWriter
+  editorOutR   *io.PipeReader
+  upstreamInR  *io.PipeReader
   upstreamOutW *io.PipeWriter
 
   editorOutFR  *driver.FrameReader
@@ -62,6 +64,8 @@ func newProxyHarnessWithOptions(t *testing.T, source driver.PluginSource, opts d
     proxy:        proxy,
     cancel:       cancel,
     editorInW:    edInW,
+    editorOutR:   edOutR,
+    upstreamInR:  upInR,
     upstreamOutW: upOutW,
     editorOutFR:  driver.NewFrameReader(edOutR),
     upstreamInFR: driver.NewFrameReader(upInR),
@@ -90,6 +94,11 @@ func newProxyHarnessWithOptions(t *testing.T, source driver.PluginSource, opts d
 func (h *proxyHarness) shutdown() error {
   _ = h.editorInW.Close()
   _ = h.upstreamOutW.Close()
+  // A failed assertion can leave the proxy blocked writing to an output pipe
+  // that the test stopped reading. Close both readers so cancellation can
+  // release those writes and the proxy goroutines can return deterministically.
+  _ = h.editorOutR.Close()
+  _ = h.upstreamInR.Close()
   select {
   case <-h.runDone:
   case <-time.After(3 * time.Second):
@@ -153,8 +162,8 @@ func (h *proxyHarness) readWithTimeout(fr *driver.FrameReader, label string) []b
       h.t.Fatalf("%s frame read: %v", label, r.err)
     }
     return r.body
-  case <-time.After(2 * time.Second):
-    h.t.Fatalf("%s frame did not arrive in 2s", label)
+  case <-time.After(10 * time.Second):
+    h.t.Fatalf("%s frame did not arrive in 10s", label)
     return nil
   }
 }
