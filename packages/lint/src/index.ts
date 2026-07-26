@@ -9,6 +9,8 @@ import { pathToFileURL } from "node:url";
 
 import {
   CONFIG_EVALUATOR_PROCESS_OPTIONS,
+  CONFIG_EVALUATOR_STATUS_FD,
+  configEvaluatorBoundaryEnvironment,
   configEvaluatorProcessFailure,
 } from "./internal/configEvaluatorFailure";
 import type { ITtscLintPlugin, ITtscLintPluginConfig } from "./structures";
@@ -1745,14 +1747,25 @@ function evaluateTtsxConfigPlugins(
     if (process.env.TTSC_TSGO_BINARY) {
       args.unshift("--binary", process.env.TTSC_TSGO_BINARY);
     }
-    const env = nodeConfigLoaderEnv(configPath);
+    const env = {
+      ...nodeConfigLoaderEnv(configPath),
+      ...configEvaluatorBoundaryEnvironment(),
+    };
     const command = ttsxThroughNodeIfNeeded(ttsxBinary);
     const result = spawnSync(command.binary, [...command.prefix, ...args], {
       cwd: tempDir,
       env,
       encoding: "utf8",
       ...CONFIG_EVALUATOR_PROCESS_OPTIONS,
-      stdio: ["ignore", "pipe", "pipe"],
+      stdio: [
+        "ignore",
+        "pipe",
+        "pipe",
+        ...Array.from(
+          { length: CONFIG_EVALUATOR_STATUS_FD - 2 },
+          () => "pipe" as const,
+        ),
+      ],
       windowsHide: true,
     });
     forwardConfigEvaluatorStreams(result.stdout, result.stderr);

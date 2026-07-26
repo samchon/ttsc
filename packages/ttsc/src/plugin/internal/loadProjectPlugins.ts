@@ -18,6 +18,8 @@ import { buildSourcePlugin } from "./buildSourcePlugin";
 import {
   PLUGIN_DESCRIPTOR_MAX_BUFFER_BYTES,
   PLUGIN_DESCRIPTOR_PROCESS_OPTIONS,
+  PLUGIN_DESCRIPTOR_STATUS_FD,
+  pluginDescriptorBoundaryEnvironment,
   pluginDescriptorProcessFailure,
 } from "./descriptorProcessFailure";
 
@@ -771,8 +773,18 @@ function loadDescriptorViaTtsx(
         TTSC_PLUGIN_DESCRIPTOR_LOAD: "1",
         TTSC_PLUGIN_DESCRIPTOR_OUT: out,
         TTSC_PLUGIN_ENTRY: request,
+        ...pluginDescriptorBoundaryEnvironment(),
       },
       ...PLUGIN_DESCRIPTOR_PROCESS_OPTIONS,
+      stdio: [
+        "ignore",
+        "pipe",
+        "pipe",
+        ...Array.from(
+          { length: PLUGIN_DESCRIPTOR_STATUS_FD - 2 },
+          () => "pipe" as const,
+        ),
+      ],
       windowsHide: true,
     });
     const processFailure = pluginDescriptorProcessFailure(result, request);

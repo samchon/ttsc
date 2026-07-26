@@ -1,13 +1,16 @@
 export const PLUGIN_DESCRIPTOR_MAX_BUFFER_BYTES = 16 * 1024 * 1024;
 export const PLUGIN_DESCRIPTOR_TIMEOUT_MS = 60_000;
+export const PLUGIN_DESCRIPTOR_TEARDOWN_GRACE_MS = 5_000;
+export const PLUGIN_DESCRIPTOR_STATUS_FD = 3;
 export const PLUGIN_DESCRIPTOR_PROCESS_OPTIONS = Object.freeze({
   killSignal: "SIGKILL" as const,
   maxBuffer: PLUGIN_DESCRIPTOR_MAX_BUFFER_BYTES,
-  timeout: PLUGIN_DESCRIPTOR_TIMEOUT_MS,
+  timeout: PLUGIN_DESCRIPTOR_TIMEOUT_MS + PLUGIN_DESCRIPTOR_TEARDOWN_GRACE_MS,
 });
 
 interface DescriptorProcessResult {
   error?: Error;
+  output?: readonly (string | null)[] | null;
   signal: NodeJS.Signals | null;
   status: number | null;
   stderr: string | null | undefined;
@@ -27,14 +30,15 @@ export function pluginDescriptorProcessFailure(
   request: string,
 ): Error | undefined {
   const code = (result.error as NodeJS.ErrnoException | undefined)?.code;
-  if (code === "ETIMEDOUT") {
+  const nestedCode = result.output?.[PLUGIN_DESCRIPTOR_STATUS_FD]?.trim() ?? "";
+  if (code === "ETIMEDOUT" || nestedCode === "ETIMEDOUT") {
     return new Error(
       `ttsc: plugin descriptor "${request}" evaluation through ttsx timed out after ` +
         `${PLUGIN_DESCRIPTOR_TIMEOUT_MS / 1_000} seconds. ` +
         "Descriptor modules and factories must finish their setup within that window.",
     );
   }
-  if (code === "ENOBUFS") {
+  if (code === "ENOBUFS" || nestedCode === "ENOBUFS") {
     return new Error(
       `ttsc: plugin descriptor "${request}" evaluation through ttsx exceeded the ` +
         `${PLUGIN_DESCRIPTOR_MAX_BUFFER_BYTES / (1024 * 1024)} MiB process output limit. ` +
@@ -61,6 +65,22 @@ export function pluginDescriptorProcessFailure(
     );
   }
   return undefined;
+}
+
+/**
+ * Pass the semantic deadline and private status pipe through the `ttsx` wrapper
+ * to the runtime child that actually executes the descriptor.
+ */
+export function pluginDescriptorBoundaryEnvironment(
+  now: number = Date.now(),
+): NodeJS.ProcessEnv {
+  return {
+    TTSC_TTSX_EVALUATOR_DEADLINE_MS: String(now + PLUGIN_DESCRIPTOR_TIMEOUT_MS),
+    TTSC_TTSX_EVALUATOR_MAX_BUFFER_BYTES: String(
+      PLUGIN_DESCRIPTOR_MAX_BUFFER_BYTES,
+    ),
+    TTSC_TTSX_EVALUATOR_STATUS_FD: String(PLUGIN_DESCRIPTOR_STATUS_FD),
+  };
 }
 
 function hasText(value: string | null | undefined): value is string {
