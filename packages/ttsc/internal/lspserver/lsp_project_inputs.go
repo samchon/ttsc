@@ -793,6 +793,16 @@ func validProjectInputFingerprint(digest string) bool {
 }
 
 func projectInputReloadDirectoryDigest(directory string) string {
+  topology := projectInputReloadDirectoryTopologyDigest(directory)
+  digest := sha256.New()
+  digest.Write([]byte("directory\x00"))
+  digest.Write([]byte(projectInputPhysicalPathKey(directory)))
+  digest.Write([]byte{0})
+  digest.Write([]byte(topology))
+  return fmt.Sprintf("%x", digest.Sum(nil))
+}
+
+func projectInputReloadDirectoryTopologyDigest(directory string) string {
   entries, err := os.ReadDir(projectInputFilesystemPath(directory))
   if err != nil {
     missing := sha256.Sum256([]byte("missing\x00"))

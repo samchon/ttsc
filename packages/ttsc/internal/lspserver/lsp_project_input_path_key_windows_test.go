@@ -289,6 +289,9 @@ func TestProjectInputPathKeyRespectsDirectoryCaseSemantics(t *testing.T) {
       plugins: []NativeLSPPluginEntry{first},
     }
     junctionSource.storeProjectInputs(first, 1, snapshot)
+    if !junctionSource.ProjectInputReloadFingerprintsAreCurrent() {
+      t.Fatal("junction reload baseline began stale")
+    }
     assertProjectInputOwners(
       t,
       junctionSource,
@@ -371,6 +374,9 @@ func TestProjectInputPathKeyRespectsDirectoryCaseSemantics(t *testing.T) {
     }
 
     createProjectInputJunction(t, junction, secondTarget)
+    if junctionSource.ProjectInputReloadFingerprintsAreCurrent() {
+      t.Fatal("same-topology junction retarget kept startup fingerprint current")
+    }
     changed := fileChangeTypeChanged
     if !junctionSource.ProjectInputReloadMatchesChange(
       testFileURI(junction),

@@ -8,7 +8,10 @@ import { createNativeProjectContextArgs } from "../../compiler/internal/project/
 import { readProjectConfig } from "../../compiler/internal/project/readProjectConfig";
 import { resolveBinary } from "../../compiler/internal/resolveBinary";
 import { resolveTsgo } from "../../compiler/internal/resolveTsgo";
-import { resolveProjectInputPath } from "../../internal/projectInputPathIdentity";
+import {
+  createProjectInputPathIdentityContext,
+  resolveProjectInputPath,
+} from "../../internal/projectInputPathIdentity";
 import {
   hasProjectPluginEntries,
   loadProjectPlugins,
@@ -471,9 +474,8 @@ export function fingerprintInitialLSPProjectInputSnapshot(
   const reloadDirectoryDigests: Record<string, string> = {};
   const reloadFileDigests: Record<string, string> = {};
   for (const directory of snapshot.reloadDirectories ?? []) {
-    reloadDirectoryDigests[directory] = lspProjectInputDirectoryDigest(
-      realLSPProjectInputPath(directory),
-    );
+    reloadDirectoryDigests[directory] =
+      lspProjectInputReloadDirectoryDigest(directory);
   }
   for (const file of snapshot.reloadFiles ?? []) {
     reloadFileDigests[file] = lspProjectInputFileDigest(
@@ -494,7 +496,7 @@ export function initialLSPProjectInputSnapshotIsCurrent(
     (snapshot.reloadDirectories ?? []).every(
       (directory) =>
         snapshot.reloadDirectoryDigests[directory] ===
-        lspProjectInputDirectoryDigest(realLSPProjectInputPath(directory)),
+        lspProjectInputReloadDirectoryDigest(directory),
     ) &&
     (snapshot.reloadFiles ?? []).every(
       (file) =>
@@ -523,7 +525,19 @@ function lspSelectionSignature(
   });
 }
 
-function lspProjectInputDirectoryDigest(location: string): string {
+function lspProjectInputReloadDirectoryDigest(location: string): string {
+  const identities = createProjectInputPathIdentityContext();
+  const identity = identities.resolve(location).key.replaceAll("\\", "/");
+  return createHash("sha256")
+    .update(
+      `directory\0${identity}\0${lspProjectInputDirectoryTopologyDigest(
+        identities.resolve(location).path,
+      )}`,
+    )
+    .digest("hex");
+}
+
+function lspProjectInputDirectoryTopologyDigest(location: string): string {
   const entries: Buffer[] = [];
   try {
     if (process.platform === "win32") {

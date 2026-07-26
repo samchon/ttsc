@@ -25,9 +25,11 @@ import {
  *    makes the selection stale.
  * 5. Where supported, retarget an exact-file symlink and prove its lexical
  *    identity remains part of the selection fingerprint.
- * 6. Where the filesystem preserves them, prove raw non-UTF-8 symlink-target bytes
+ * 6. Retarget a same-topology reload-directory link and prove its physical target
+ *    identity invalidates the startup selection.
+ * 7. Where the filesystem preserves them, prove raw non-UTF-8 symlink-target bytes
  *    use the same explicit digest framing as the Go validator.
- * 7. Materialize a manifest larger than a practical Windows environment block,
+ * 8. Materialize a manifest larger than a practical Windows environment block,
  *    prove the transport carries it by private file, and dispose it
  *    idempotently.
  */
@@ -105,6 +107,45 @@ export const test_ttscserver_selection_snapshot_retains_reload_fingerprints =
           initialLSPProjectInputSnapshotIsCurrent(linked),
           false,
           "exact reload-file symlink retarget must invalidate startup selection",
+        );
+      }
+
+      const firstDirectoryTarget = path.join(root, "first-directory-target");
+      const secondDirectoryTarget = path.join(root, "second-directory-target");
+      const reloadDirectoryLink = path.join(root, "reload-directory-link");
+      fs.mkdirSync(firstDirectoryTarget);
+      fs.mkdirSync(secondDirectoryTarget);
+      let directoryLinkSupported = true;
+      try {
+        fs.symlinkSync(
+          firstDirectoryTarget,
+          reloadDirectoryLink,
+          process.platform === "win32" ? "junction" : "dir",
+        );
+      } catch {
+        directoryLinkSupported = false;
+      }
+      if (directoryLinkSupported) {
+        const linkedDirectory = fingerprintInitialLSPProjectInputSnapshot({
+          files: [],
+          globs: [],
+          reloadDirectories: [reloadDirectoryLink],
+          root,
+        });
+        assert.equal(
+          initialLSPProjectInputSnapshotIsCurrent(linkedDirectory),
+          true,
+        );
+        fs.rmSync(reloadDirectoryLink, { force: true, recursive: true });
+        fs.symlinkSync(
+          secondDirectoryTarget,
+          reloadDirectoryLink,
+          process.platform === "win32" ? "junction" : "dir",
+        );
+        assert.equal(
+          initialLSPProjectInputSnapshotIsCurrent(linkedDirectory),
+          false,
+          "same-topology reload-directory retarget must invalidate startup selection",
         );
       }
 
