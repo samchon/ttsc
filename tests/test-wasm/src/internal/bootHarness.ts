@@ -34,6 +34,15 @@ export interface IBootStubOptions {
    */
   fetchStatuses?: number[];
   /**
+   * Optional fetch implementation for stalled, rejected, and cancellation
+   * cases. Receives the exact signal passed by `bootTtsc`.
+   */
+  onFetch?: (
+    url: string,
+    signal: AbortSignal | undefined,
+    call: number,
+  ) => Promise<{ ok: boolean; status: number }>;
+  /**
    * Fake `go.run` body, invoked once per attempt that reaches instantiation.
    * Return the promise that represents the Go runtime's lifetime: a normal host
    * returns a never-settling promise after `signalReady`; an early exit returns
@@ -105,9 +114,14 @@ export async function withBootStubs<T>(
     g.Go = FakeGo;
   };
 
-  g.fetch = ((): Promise<{ ok: boolean; status: number }> => {
-    const status = statuses[Math.min(fetchCall, statuses.length - 1)]!;
-    fetchCall += 1;
+  g.fetch = ((
+    input: string | URL | Request,
+    init?: RequestInit,
+  ): Promise<{ ok: boolean; status: number }> => {
+    const call = fetchCall++;
+    if (options.onFetch)
+      return options.onFetch(String(input), init?.signal ?? undefined, call);
+    const status = statuses[Math.min(call, statuses.length - 1)]!;
     return Promise.resolve({ ok: status < 400, status });
   }) as unknown as typeof fetch;
 

@@ -58,6 +58,12 @@ export interface IPlaygroundShellProps {
    * union to `createSandboxRequire` — without this channel the in-page Execute
    * sandbox cannot resolve any npm dependency the user installed.
    *
+   * `sandbox.signal` aborts when source or compiler options change, a newer
+   * Execute starts, or the shell unmounts. Implementations must pass it through
+   * to cancellable setup such as runtime-pack fetches. Synchronous evaluated
+   * user code cannot be preempted and still requires an isolated executor when
+   * untrusted code is accepted.
+   *
    * When omitted, the Execute UI is hidden.
    */
   executeBundle?: (
@@ -65,6 +71,7 @@ export interface IPlaygroundShellProps {
     sandbox: {
       console: Record<string, (...args: unknown[]) => void>;
       runtimeFiles: Record<string, string>;
+      signal: AbortSignal;
     },
   ) => Promise<void>;
 

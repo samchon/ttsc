@@ -4,6 +4,7 @@ export * from "./IConsoleMessage";
 export * from "./ICreateCompilerClientOptions";
 export * from "./ICreateWorkerCompilerOptions";
 export * from "./IInstallTypiaSourcePackOptions";
+export * from "./ILoadTypiaRuntimePackOptions";
 export * from "./ILintPluginConfig";
 export * from "./IOptionToggle";
 export * from "./IPlaygroundDependencyInstallOptions";

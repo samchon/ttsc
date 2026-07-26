@@ -38,7 +38,10 @@ export { packageNameFromSpecifier } from "./npm/packageNameFromSpecifier";
 
 // ── typia runtime sandbox (CJS-flavoured require over a pack JSON) ────────
 export { createSandboxRequire } from "./sandbox/createSandboxRequire";
-export { loadTypiaRuntimePack } from "./sandbox/loadTypiaRuntimePack";
+export {
+  DEFAULT_RUNTIME_PACK_TIMEOUT_MS,
+  loadTypiaRuntimePack,
+} from "./sandbox/loadTypiaRuntimePack";
 
 // ── React UI surface ──────────────────────────────────────────────────────
 export { ConsoleViewer } from "./react/ConsoleViewer";

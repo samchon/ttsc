@@ -56,10 +56,13 @@ Then boot it from a Worker:
 ```ts
 import { type ITtscCompileResult, bootTtsc, parseResult } from "@ttsc/wasm";
 
+const controller = new AbortController();
 const { api, host } = await bootTtsc({
   wasmUrl: "/compiler/ttsc.wasm",
   wasmExecUrl: "/compiler/wasm_exec.js",
   apiName: "ttsc",
+  signal: controller.signal,
+  timeoutMs: 60_000,
 });
 
 host.writeFile(
@@ -85,6 +88,10 @@ postMessage({
   stderr: raw.stderr,
 });
 ```
+
+`timeoutMs` defaults to 60 seconds and covers time queued behind an earlier boot, fetch, instantiation, and the Go readiness signal. Aborting any caller that joined the same in-flight boot cancels that shared attempt. Rejection clears its cache entry and readiness callbacks so a later call can retry.
+
+`importScripts` is synchronous. `bootTtsc` checks cancellation immediately before and after it but cannot interrupt script evaluation. JavaScript also cannot terminate a Go runtime after `go.run` starts; if cancellation occurs while waiting for readiness, terminate that Worker before retrying.
 
 `api.build` returns the same compile payload plus an `output` map keyed by project-relative file names:
 
@@ -255,6 +262,7 @@ GOOS=js GOARCH=wasm go build -trimpath \
 | `importScripts is not defined` | The worker was emitted as a module worker or the code ran on the main thread. Use a classic Worker-style bundle. |
 | `global was not set` | `apiName` does not match the name passed to `host.Expose`, or the wasm panicked before registering. |
 | Boot rejects with `exited before signaling readiness` | The Go host exited or panicked before calling `Ready` — often a `host.Expose` misconfiguration such as duplicate plugin names. `bootTtsc` now rejects with the cause instead of hanging forever; check the wasm stderr. |
+| Boot times out or is aborted while waiting for readiness | Terminate the Worker before retrying. The old Go runtime cannot be interrupted after `go.run` starts and must not share a new readiness bridge. |
 | `failed to fetch` | The `.wasm` URL is wrong, blocked by CORS, or not copied into the static output. |
 | `WebAssembly.instantiateStreaming` fails | Serve `.wasm` with `Content-Type: application/wasm`. |
 | The page locks up | Booted wasm on the main thread. Move it into a Worker. |

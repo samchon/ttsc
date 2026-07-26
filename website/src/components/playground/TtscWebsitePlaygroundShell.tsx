@@ -69,9 +69,12 @@ const executeBundle = async (
   sandbox: {
     console: Record<string, (...args: unknown[]) => void>;
     runtimeFiles: Record<string, string>;
+    signal: AbortSignal;
   },
 ): Promise<void> => {
-  const runtimePack = await loadTypiaRuntimePack(TYPIA_RUNTIME_PACK_URL);
+  const runtimePack = await loadTypiaRuntimePack(TYPIA_RUNTIME_PACK_URL, {
+    signal: sandbox.signal,
+  });
   const sandboxRequire = createSandboxRequire(
     { ...runtimePack, ...sandbox.runtimeFiles },
     { console: sandbox.console },

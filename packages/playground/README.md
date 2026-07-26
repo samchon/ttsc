@@ -91,12 +91,15 @@ export default function SitePlayground() {
       brand={<a href="/">my-site</a>}
       executeBundle={async (code, sandbox) => {
         // run the compiled JS however you like; route console.* into sandbox.console
+        sandbox.signal.throwIfAborted();
         new Function("console", code)(sandbox.console);
       }}
     />
   );
 }
 ```
+
+`sandbox.signal` aborts when source or compiler options change, another Execute starts, or the shell unmounts. Pass it to setup work such as `loadTypiaRuntimePack(url, { signal: sandbox.signal })`. Runtime-pack loads default to a 30-second deadline, share one request per URL, and evict a rejected request so the next Execute retries. A signal cannot preempt synchronous evaluated user code; use an isolated executor with its own termination mechanism when that boundary matters.
 
 ## Typia integration (optional)
 

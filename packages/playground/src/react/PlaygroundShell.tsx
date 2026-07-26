@@ -25,6 +25,7 @@ import { OptionsPanel } from "./OptionsPanel";
 import { ResultViewer } from "./ResultViewer";
 import { SourceEditor } from "./SourceEditor";
 import { createCompilerClient } from "./createCompilerClient";
+import { PlaygroundExecutionLifecycle } from "./internal/PlaygroundExecutionLifecycle";
 
 const DEFAULT_OPTIONS: ITransformOptions = {
   typia: true,
@@ -87,6 +88,7 @@ export function PlaygroundShell({
   const dependencyProgressTimer = useRef<number | null>(null);
   const dependencyInstallChain = useRef<Promise<void>>(Promise.resolve());
   const dependencyAbort = useRef<AbortController | null>(null);
+  const executionLifecycle = useRef(new PlaygroundExecutionLifecycle());
   // Exact mounted identities and active requests. A name-only set cannot
   // validate a later transitive range or distinguish an npm alias target.
   const installedDependencies = useRef<
@@ -103,14 +105,11 @@ export function PlaygroundShell({
   const runtimeDependencyFiles = useRef<Record<string, string>>({});
   const sourceVersion = useRef(0);
   const latestSource = useRef(source);
-  // Race guards: each pipeline (compile/run vs Execute) owns its own epoch.
-  // Sharing one epoch would make a fresh Execute click invalidate an in-
-  // flight compile (and vice versa) and leave the spinner/button flags
-  // stuck because the older pipeline's finally would see a stale epoch.
-  // `updateSource` bumps the COMPILE epoch only — typing aborts a stale
-  // compile but does not interrupt a click-driven Execute.
+  // Compile/run uses an epoch, while Execute uses an abortable lifecycle.
+  // The boundaries stay separate so starting Execute does not invalidate an
+  // in-flight compile. Source and option changes explicitly invalidate both
+  // pipelines because either makes an older result obsolete.
   const compileEpoch = useRef(0);
-  const executeEpoch = useRef(0);
   // Retry epoch: each Retry click bumps it; only the latest retry's
   // async block is allowed to write boot state. Prior retries' bodies
   // bail on epoch mismatch so a fast double-Retry can't leave a stale
@@ -125,19 +124,21 @@ export function PlaygroundShell({
   const updateSource = useCallback((next: string) => {
     sourceVersion.current++;
     latestSource.current = next;
-    // Bump BOTH epochs: typing must abort an in-flight compile (the
-    // result would be stale) AND an in-flight Execute (the bundled code
-    // would not match what's on screen). Without bumping executeEpoch,
-    // an Execute whose dependency install was aborted by this typing
-    // would silently treat the abort as success and bundle against an
-    // incomplete MemFS — emitting JS for packages the user just edited
-    // away from, or failing in confusing ways.
+    // Typing invalidates both the compile result and any click-driven Execute.
     compileEpoch.current++;
-    executeEpoch.current++;
+    executionLifecycle.current.invalidate("source changed");
     dependencyAbort.current?.abort(createAbortError("source changed"));
+    setExecuting(false);
     setDependencyProgress(null);
     setDependencyPackageNames([]);
     setSource(next);
+  }, []);
+
+  const updateOptions = useCallback((next: ITransformOptions) => {
+    compileEpoch.current++;
+    executionLifecycle.current.invalidate("compiler options changed");
+    setExecuting(false);
+    setOptions(next);
   }, []);
 
   // ── Decode source from URL on mount ──
@@ -360,9 +361,8 @@ export function PlaygroundShell({
         // Only the winning epoch clears the flag. Older pipelines that
         // returned early on an epoch mismatch must NOT clear running, or
         // a fresh in-flight compile would show "ready" while it's still
-        // working. compileEpoch is bumped only by updateSource and by the
-        // next run() — Execute uses its own executeEpoch — so this guard
-        // does not stick the spinner across pipeline boundaries.
+        // working. Execute has its own lifecycle, so it cannot stick this
+        // spinner across pipeline boundaries.
         if (compileEpoch.current === epoch) setRunning(false);
       }
     },
@@ -413,6 +413,7 @@ export function PlaygroundShell({
       if (dependencyProgressTimer.current !== null)
         window.clearTimeout(dependencyProgressTimer.current);
       dependencyAbort.current?.abort(createAbortError("playground unmounted"));
+      executionLifecycle.current.invalidate("playground unmounted");
     },
     [],
   );
@@ -453,10 +454,7 @@ export function PlaygroundShell({
 
   const onExecute = useCallback(async () => {
     if (!executeBundle) return;
-    // Bump the executeEpoch so a second Execute click invalidates the
-    // in-flight Execute. compileEpoch is unaffected — the user can edit
-    // the source mid-Execute without the running compile being torn down.
-    const epoch = ++executeEpoch.current;
+    const attempt = executionLifecycle.current.begin();
     setExecuting(true);
     setBundleError(null);
     // Clear the previous run's console output up front. Without this the
@@ -467,7 +465,7 @@ export function PlaygroundShell({
     setConsoleMessages([]);
     const messages: IConsoleMessage[] = [];
     const push = (type: IConsoleMessage["type"], args: unknown[]) => {
-      if (executeEpoch.current !== epoch) return;
+      if (!attempt.isCurrent()) return;
       messages.push({ type, value: args });
       setConsoleMessages([...messages]);
     };
@@ -484,7 +482,7 @@ export function PlaygroundShell({
         currentSource,
         currentVersion,
       );
-      if (executeEpoch.current !== epoch) return;
+      if (!attempt.isCurrent()) return;
       if (dependencyError) {
         push("error", [dependencyError]);
         return;
@@ -494,7 +492,7 @@ export function PlaygroundShell({
         source: currentSource,
         options,
       });
-      if (executeEpoch.current !== epoch) return;
+      if (!attempt.isCurrent()) return;
       if (compiled.type === "error") {
         const message =
           typeof compiled.value === "string"
@@ -519,18 +517,16 @@ export function PlaygroundShell({
         await executeBundle(code, {
           console: sandboxConsole,
           runtimeFiles: runtimeDependencyFiles.current,
+          signal: attempt.signal,
         });
       } catch (error) {
         push("error", [error]);
       }
     } catch (error) {
-      if (executeEpoch.current !== epoch) return;
+      if (!attempt.isCurrent()) return;
       push("error", [error]);
     } finally {
-      // Only the winning epoch clears the flag — same rationale as
-      // compileEpoch above. With a separate executeEpoch this is robust
-      // against concurrent click + edit interleavings.
-      if (executeEpoch.current === epoch) setExecuting(false);
+      if (attempt.finish()) setExecuting(false);
     }
     // `source` is intentionally NOT a dep: the body snapshots
     // `latestSource.current` (always fresh ref) rather than reading the
@@ -805,7 +801,7 @@ export function PlaygroundShell({
       {optionsOpen && (
         <OptionsPanel
           options={options}
-          onChange={setOptions}
+          onChange={updateOptions}
           onClose={() => setOptionsOpen(false)}
           toggles={optionToggles}
         />

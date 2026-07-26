@@ -22,7 +22,18 @@ declare const importScripts: (...urls: string[]) => void;
  * composite key lets HMR / cache-busting query strings get a fresh boot while
  * still single-flighting genuine concurrent duplicate calls.
  */
-const bootsInFlight = new Map<string, Promise<IBootResult>>();
+interface BootInFlight {
+  controller: AbortController;
+  promise: Promise<IBootResult>;
+}
+
+interface BootCancellationReason {
+  kind: "abort" | "timeout";
+  reason?: unknown;
+  timeoutMs?: number;
+}
+
+const bootsInFlight = new Map<string, BootInFlight>();
 
 /**
  * Per-apiName serialization chain. Two concurrent boots with the same apiName
@@ -33,6 +44,9 @@ const bootsInFlight = new Map<string, Promise<IBootResult>>();
  *   Go-side`Ready.Invoke()` always lands on the resolver that boot installed.
  */
 const bootChainByApiName = new Map<string, Promise<unknown>>();
+
+/** Finite default for queueing, fetch, instantiation, and Go readiness. */
+export const DEFAULT_BOOT_TIMEOUT_MS = 60_000;
 
 function bootKey(apiName: string, wasmUrl: string): string {
   return `${apiName}|${resolveWasmUrl(wasmUrl)}`;
@@ -76,26 +90,49 @@ function resolveWasmUrl(wasmUrl: string): string {
 export function bootTtsc(options: IBootTtscOptions): Promise<IBootResult> {
   const apiName = options.apiName ?? "ttsc";
   const key = bootKey(apiName, options.wasmUrl);
+  const timeoutMs = resolveBootTimeout(options.timeoutMs);
   const inflight = bootsInFlight.get(key);
-  if (inflight) return inflight;
+  if (inflight) {
+    attachBootCancellation(inflight, options.signal, timeoutMs);
+    return inflight.promise;
+  }
+  const controller = new AbortController();
   const prior = bootChainByApiName.get(apiName) ?? Promise.resolve();
-  const promise = prior
+  const queuedCancellation = createBootCancellationPromise(
+    controller.signal,
+    apiName,
+    () => "waiting for an earlier boot",
+  );
+  const queued = prior
     .catch(() => {
       /* don't propagate a prior boot's rejection — let this one run */
     })
-    .then(() => bootTtscOnce(options, apiName))
-    .catch((err) => {
-      bootsInFlight.delete(key);
-      throw err;
+    .then(() => {
+      throwIfBootCanceled(
+        controller.signal,
+        apiName,
+        "waiting for an earlier boot",
+      );
+      queuedCancellation.dispose();
+      return bootTtscOnce(options, apiName, controller.signal);
     });
-  bootsInFlight.set(key, promise);
+  let entry!: BootInFlight;
+  const promise = Promise.race([queued, queuedCancellation.promise])
+    .catch((err) => {
+      if (bootsInFlight.get(key) === entry) bootsInFlight.delete(key);
+      throw err;
+    })
+    .finally(queuedCancellation.dispose);
+  entry = { controller, promise };
+  bootsInFlight.set(key, entry);
+  attachBootCancellation(entry, options.signal, timeoutMs);
   // Track the chain head for this apiName so the next boot waits on it.
   // Swallow on the chain head specifically: we already throw to the
   // immediate caller; surfacing it through the chain would reject every
   // subsequent boot just because this one failed.
   bootChainByApiName.set(
     apiName,
-    promise.catch(() => {}),
+    queued.catch(() => {}),
   );
   return promise;
 }
@@ -103,9 +140,18 @@ export function bootTtsc(options: IBootTtscOptions): Promise<IBootResult> {
 async function bootTtscOnce(
   options: IBootTtscOptions,
   apiName: string,
+  signal: AbortSignal,
 ): Promise<IBootResult> {
   const wasmUrl = options.wasmUrl;
   const wasmExecUrl = options.wasmExecUrl ?? defaultWasmExecUrl(wasmUrl);
+  let phase = "preparing the wasm host";
+  const cancellation = createBootCancellationPromise(
+    signal,
+    apiName,
+    () => phase,
+  );
+  let readyCb: (() => void) | undefined;
+  let failedCb: ((err: unknown) => void) | undefined;
 
   const host = options.host ?? createMemFS();
   const globalAny = globalThis as Record<string, unknown>;
@@ -137,15 +183,19 @@ async function bootTtscOnce(
   };
 
   try {
+    throwIfBootCanceled(signal, apiName, phase);
     // wasm_exec.js installs `globalThis.Go`. It also reads globalThis.fs at
     // module-eval time, so this import must follow the assignment above.
+    phase = `loading ${wasmExecUrl}`;
     importScripts(wasmExecUrl);
+    // importScripts is synchronous and therefore cannot be interrupted while
+    // the script evaluates. Observe a cancellation that arrived around that
+    // boundary before starting any asynchronous work.
+    throwIfBootCanceled(signal, apiName, phase);
 
     // Race the Ready resolver against a Failed signal so a wasm-side fault
     // (e.g. `host.Expose` refusing a duplicate call) surfaces here instead of
     // hanging on `await ready` forever.
-    let readyCb!: () => void;
-    let failedCb!: (err: unknown) => void;
     const ready = new Promise<void>((resolve, reject) => {
       readyCb = () => {
         delete globalAny[apiName + "Failed"];
@@ -167,15 +217,26 @@ async function bootTtscOnce(
     }
     const go = new goCtor();
 
-    const response = await fetch(wasmUrl);
+    phase = `fetching ${wasmUrl}`;
+    const response = await raceBootCancellation(
+      fetch(wasmUrl, { signal }),
+      cancellation.promise,
+      signal,
+      apiName,
+      () => phase,
+    );
     if (!response.ok) {
       throw new Error(
         `bootTtsc: failed to fetch ${wasmUrl}: ${response.status}`,
       );
     }
-    const wasm = await WebAssembly.instantiateStreaming(
-      response,
-      go.importObject,
+    phase = `instantiating ${wasmUrl}`;
+    const wasm = await raceBootCancellation(
+      WebAssembly.instantiateStreaming(response, go.importObject),
+      cancellation.promise,
+      signal,
+      apiName,
+      () => phase,
     );
 
     // A normal host keeps `go.run` pending forever after signaling Ready, so a
@@ -206,16 +267,14 @@ async function bootTtscOnce(
     // the losing branch.
     earlyExit.catch(() => {});
 
-    try {
-      await Promise.race([ready, earlyExit]);
-    } finally {
-      // Drop this attempt's readiness bridge so a later boot for the same
-      // apiName installs a clean pair and no stale resolver survives.
-      if (globalAny[apiName + "Ready"] === readyCb)
-        delete globalAny[apiName + "Ready"];
-      if (globalAny[apiName + "Failed"] === failedCb)
-        delete globalAny[apiName + "Failed"];
-    }
+    phase = `waiting for ${apiName} readiness`;
+    await raceBootCancellation(
+      Promise.race([ready, earlyExit]),
+      cancellation.promise,
+      signal,
+      apiName,
+      () => phase,
+    );
 
     const api = (globalAny as Record<string, ITtscApi | undefined>)[apiName];
     if (!api)
@@ -226,7 +285,127 @@ async function bootTtscOnce(
   } catch (err) {
     restoreGlobals();
     throw err;
+  } finally {
+    cancellation.dispose();
+    // Drop this attempt's readiness bridge on every path so failed fetches,
+    // instantiation failures, and cancellations cannot poison the next boot.
+    if (globalAny[apiName + "Ready"] === readyCb)
+      delete globalAny[apiName + "Ready"];
+    if (globalAny[apiName + "Failed"] === failedCb)
+      delete globalAny[apiName + "Failed"];
   }
+}
+
+interface BootCancellation {
+  promise: Promise<never>;
+  dispose: () => void;
+}
+
+function resolveBootTimeout(timeoutMs: number | undefined): number {
+  const value = timeoutMs ?? DEFAULT_BOOT_TIMEOUT_MS;
+  if (!Number.isSafeInteger(value) || value <= 0 || value > 2_147_483_647)
+    throw new RangeError(
+      "bootTtsc: timeoutMs must be a positive integer no greater than 2147483647.",
+    );
+  return value;
+}
+
+/**
+ * Couple every caller's cancellation policy to the shared single-flight. A
+ * duplicate caller is joining the same mutable boot, so its cancellation
+ * cancels that shared attempt rather than pretending only one waiter left.
+ */
+function attachBootCancellation(
+  entry: BootInFlight,
+  callerSignal: AbortSignal | undefined,
+  timeoutMs: number,
+): void {
+  const abortFromCaller = (): void => {
+    if (!entry.controller.signal.aborted)
+      entry.controller.abort({
+        kind: "abort",
+        reason: callerSignal?.reason,
+      } satisfies BootCancellationReason);
+  };
+  if (callerSignal?.aborted) abortFromCaller();
+  else callerSignal?.addEventListener("abort", abortFromCaller, { once: true });
+
+  const timer = setTimeout(() => {
+    if (!entry.controller.signal.aborted)
+      entry.controller.abort({
+        kind: "timeout",
+        timeoutMs,
+      } satisfies BootCancellationReason);
+  }, timeoutMs);
+  const cleanup = (): void => {
+    clearTimeout(timer);
+    callerSignal?.removeEventListener("abort", abortFromCaller);
+  };
+  void entry.promise.then(cleanup, cleanup);
+}
+
+function createBootCancellationPromise(
+  signal: AbortSignal,
+  apiName: string,
+  getPhase: () => string,
+): BootCancellation {
+  let rejectCancellation!: (error: Error) => void;
+  const promise = new Promise<never>((_resolve, reject) => {
+    rejectCancellation = reject;
+  });
+  // Some synchronous boundaries observe cancellation with throwIfBootCanceled
+  // before a Promise.race consumes this branch. Keep that rejection owned.
+  void promise.catch(() => {});
+  const onAbort = (): void => {
+    rejectCancellation(bootCancellationError(signal, apiName, getPhase()));
+  };
+  signal.addEventListener("abort", onAbort, { once: true });
+  if (signal.aborted) onAbort();
+  return {
+    promise,
+    dispose: () => signal.removeEventListener("abort", onAbort),
+  };
+}
+
+async function raceBootCancellation<T>(
+  work: Promise<T>,
+  cancellation: Promise<never>,
+  signal: AbortSignal,
+  apiName: string,
+  getPhase: () => string,
+): Promise<T> {
+  try {
+    return await Promise.race([work, cancellation]);
+  } catch (error) {
+    if (signal.aborted)
+      throw bootCancellationError(signal, apiName, getPhase());
+    throw error;
+  }
+}
+
+function throwIfBootCanceled(
+  signal: AbortSignal,
+  apiName: string,
+  phase: string,
+): void {
+  if (signal.aborted) throw bootCancellationError(signal, apiName, phase);
+}
+
+function bootCancellationError(
+  signal: AbortSignal,
+  apiName: string,
+  phase: string,
+): Error {
+  const reason = signal.reason as BootCancellationReason | undefined;
+  if (reason?.kind === "timeout")
+    return new Error(
+      `bootTtsc: timed out after ${reason.timeoutMs}ms while ${phase} for ${apiName}.`,
+    );
+
+  const error = new Error(`bootTtsc: aborted while ${phase} for ${apiName}.`);
+  const cause = reason?.kind === "abort" ? reason.reason : signal.reason;
+  if (cause !== undefined) (error as Error & { cause?: unknown }).cause = cause;
+  return error;
 }
 
 /**

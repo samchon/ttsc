@@ -4,6 +4,16 @@ import type { IMemFSHost } from "./IMemFSHost";
 export interface IBootTtscOptions {
   /** URL of the .wasm to fetch. */
   wasmUrl: string;
+  /** Cancel this boot attempt, including a shared in-flight attempt. */
+  signal?: AbortSignal;
+  /**
+   * Maximum initialization time in milliseconds. Defaults to 60 seconds.
+   *
+   * The deadline covers queued, fetch, instantiate, and readiness phases.
+   * `importScripts` is synchronous and can only observe cancellation before or
+   * after it returns.
+   */
+  timeoutMs?: number;
   /** URL of wasm_exec.js. Defaults to the same directory as wasmUrl. */
   wasmExecUrl?: string;
   /**
