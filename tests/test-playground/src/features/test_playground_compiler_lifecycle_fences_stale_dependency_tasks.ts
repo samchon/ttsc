@@ -5,10 +5,10 @@ import { PlaygroundCompilerLifecycle } from "../../../../packages/playground/lib
 /**
  * Verifies Worker generation invalidation fences active and queued mutations.
  *
- * A terminal boot failure can arrive while one dependency task is active and
- * another is queued. The active task may finish its external work, but it must
- * not publish into the replacement generation; the queued old-generation task
- * must never start. An old token also cannot invalidate the replacement.
+ * 1. A terminal boot failure fences active and queued dependency tasks.
+ * 2. A source edit during a Worker reset clears that Worker's metadata.
+ * 3. A source edit during an install RPC resets every mutated cache, after which
+ *    the current source can install into the clean Worker.
  */
 export const test_playground_compiler_lifecycle_fences_stale_dependency_tasks =
   async (): Promise<void> => {
@@ -115,4 +115,71 @@ export const test_playground_compiler_lifecycle_fences_stale_dependency_tasks =
       "replacement-worker",
       "a stale reset cannot clear replacement-generation metadata",
     );
+
+    const installGeneration = lifecycle.capture();
+    const installVersion = sourceVersion;
+    let releaseInstall!: () => void;
+    let installStarted!: () => void;
+    const installDidStart = new Promise<void>((resolve) => {
+      installStarted = resolve;
+    });
+    const installBlocked = new Promise<void>((resolve) => {
+      releaseInstall = resolve;
+    });
+    let workerFiles = new Set(["A/compiler.d.ts"]);
+    let installedPackages = new Map([["A", "1.0.0"]]);
+    let dependencyRoots = new Set(["A"]);
+    let editorLibs: Record<string, string> = {
+      "file:///node_modules/A/index.d.ts": "export {};",
+    };
+    let runtimeFiles: Record<string, string> = {
+      "/node_modules/A/index.js": "module.exports = {};",
+    };
+    let resets = 0;
+    const clearDependencyGraph = (): void => {
+      installedPackages = new Map();
+      dependencyRoots = new Set();
+      editorLibs = {};
+      runtimeFiles = {};
+    };
+    const staleInstall = lifecycle.mutateWorkerIfCurrent(
+      installGeneration,
+      () => sourceVersion === installVersion,
+      async () => {
+        installStarted();
+        await installBlocked;
+        workerFiles.add("B/compiler.d.ts");
+      },
+      async () => {
+        resets++;
+        workerFiles = new Set();
+      },
+      clearDependencyGraph,
+    );
+    await installDidStart;
+    sourceVersion++;
+    releaseInstall();
+    assert.equal(await staleInstall, false);
+    assert.equal(resets, 1);
+    assert.deepEqual([...workerFiles], []);
+    assert.deepEqual([...installedPackages], []);
+    assert.deepEqual([...dependencyRoots], []);
+    assert.deepEqual(editorLibs, {});
+    assert.deepEqual(runtimeFiles, {});
+
+    const currentInstall = await lifecycle.mutateWorkerIfCurrent(
+      installGeneration,
+      () => true,
+      async () => {
+        workerFiles.add("current/compiler.d.ts");
+      },
+      async () => {
+        resets++;
+        workerFiles = new Set();
+      },
+      clearDependencyGraph,
+    );
+    assert.equal(currentInstall, true);
+    assert.deepEqual([...workerFiles], ["current/compiler.d.ts"]);
+    assert.equal(resets, 1);
   };

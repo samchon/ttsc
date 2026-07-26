@@ -334,18 +334,22 @@ export function PlaygroundShell({
               const service = await createCompilerService();
               if (!isCurrent()) return null;
               workerMutated = true;
-              await service.installDependencies({
-                files: installed.compilerFiles,
-                packages: installed.packages.map(({ name, version }) => ({
-                  name,
-                  version,
-                })),
-              });
-              if (!generation.isCurrent()) return null;
-              if (sourceVersion.current !== version) {
-                await resetWorker();
-                return null;
-              }
+              const installedForSource =
+                await compilerLifecycle.current.mutateWorkerIfCurrent(
+                  generation,
+                  () => sourceVersion.current === version,
+                  () =>
+                    service.installDependencies({
+                      files: installed.compilerFiles,
+                      packages: installed.packages.map(({ name, version }) => ({
+                        name,
+                        version,
+                      })),
+                    }),
+                  client.reset,
+                  clearDependencyGraph,
+                );
+              if (!installedForSource) return null;
             }
             installedDependencies.current = new Map(
               installed.resolvedDependencies.map(

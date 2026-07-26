@@ -56,6 +56,28 @@ export class PlaygroundCompilerLifecycle {
     return true;
   }
 
+  /**
+   * Run a Worker mutation and reconcile a source edit that lands during it.
+   *
+   * An RPC cannot be cancelled after it has started mutating the Worker's
+   * MemFS. If its source becomes stale before completion, reset that Worker and
+   * clear the matching dependency metadata before another source can reuse it.
+   */
+  public async mutateWorkerIfCurrent(
+    generation: IPlaygroundCompilerGeneration,
+    isSourceCurrent: () => boolean,
+    mutate: () => Promise<unknown>,
+    reset: () => Promise<void>,
+    clear: () => void,
+  ): Promise<boolean> {
+    if (!generation.isCurrent() || !isSourceCurrent()) return false;
+    await mutate();
+    if (!generation.isCurrent()) return false;
+    if (isSourceCurrent()) return true;
+    await this.resetWorkerIfCurrent(generation, reset, clear);
+    return false;
+  }
+
   public enqueue<T>(
     task: (generation: IPlaygroundCompilerGeneration) => Promise<T>,
   ): Promise<T | undefined> {
