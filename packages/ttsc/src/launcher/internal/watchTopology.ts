@@ -102,6 +102,7 @@ export class WatchTopology {
   };
   private projectInputRecoveryScheduled = false;
   private projectInputRejectedWatchRoots = new Set<string>();
+  private projectInputRequiredWatchRoots = new Map<string, string>();
   private projectInputUnobservedWatchRoots = new Map<string, string>();
   private projectInputWatchRoots = new Map<string, string>();
   private projectInputWatchers = new Map<string, fs.FSWatcher>();
@@ -265,6 +266,7 @@ export class WatchTopology {
           },
         ),
       (location, error) => this.callbacks.onError(location, error),
+      () => this.closed === false,
     );
   }
 
@@ -348,6 +350,7 @@ export class WatchTopology {
           },
         ),
       (location, error) => this.callbacks.onError(location, error),
+      () => this.closed === false,
     );
   }
 
@@ -422,6 +425,7 @@ export class WatchTopology {
           },
         ),
       (location, error) => this.callbacks.onError(location, error),
+      () => this.closed === false,
     );
   }
 
@@ -499,6 +503,7 @@ export class WatchTopology {
       const identity = identities.resolve(location);
       active.set(identity.key, identity.path);
     }
+    this.projectInputRequiredWatchRoots = required;
     syncWatchers(
       this.projectInputWatchers,
       active,
@@ -519,10 +524,16 @@ export class WatchTopology {
         const firstFailure = !this.projectInputRejectedWatchRoots.has(key);
         this.projectInputRejectedWatchRoots.add(key);
         this.callbacks.onError(location, error);
-        if (firstFailure) this.scheduleProjectInputWatcherRecovery();
+        if (firstFailure && !this.closed) {
+          this.scheduleProjectInputWatcherRecovery();
+        }
       },
+      () => this.closed === false,
     );
-    this.reportUnobservedProjectInputWatchRoots(required);
+    if (this.closed) return;
+    if (!this.projectInputRecoveryScheduled) {
+      this.reportUnobservedProjectInputWatchRoots(required);
+    }
     this.syncProjectInputLinkWatchers(identities);
     this.callbacks.onProjectInputWatchRoots?.(
       [...this.projectInputWatchers.keys()].sort(),
@@ -576,6 +587,7 @@ export class WatchTopology {
           },
         ),
       (location, error) => this.callbacks.onError(location, error),
+      () => this.closed === false,
     );
   }
 
@@ -626,10 +638,12 @@ export class WatchTopology {
    * the session.
    *
    * This immediate recovery pass still honors the rejected root so it can
-   * install a safe ancestor where one exists. Once that pass has reported any
-   * uncovered lane, the rejection expires. A later compiler refresh or an
-   * unchanged project-input republication can then retry the original root,
-   * while a permanently failing backend costs at most one attempt per sync.
+   * install a safe ancestor where one exists. Only the recovery fixpoint
+   * reports a genuinely uncovered lane; transient gaps between fallback
+   * candidates are not user-visible. The rejection then expires. A later
+   * compiler refresh or an unchanged project-input republication can retry the
+   * original root, while a permanently failing backend costs at most one
+   * attempt per sync.
    */
   private scheduleProjectInputWatcherRecovery(): void {
     if (this.projectInputRecoveryScheduled) return;
@@ -647,6 +661,11 @@ export class WatchTopology {
       } finally {
         this.projectInputRejectedWatchRoots.clear();
         this.projectInputRecoveryScheduled = false;
+        if (!this.closed) {
+          this.reportUnobservedProjectInputWatchRoots(
+            this.projectInputRequiredWatchRoots,
+          );
+        }
       }
     });
   }
@@ -1657,9 +1676,14 @@ export function syncWatchers<T extends SynchronizedWatcher>(
   desired: ReadonlyMap<string, string>,
   create: (location: string, key: string) => T,
   onError: (location: string, error: unknown) => void,
+  shouldContinue: () => boolean = () => true,
 ): boolean {
   let complete = true;
   for (const [key, location] of desired) {
+    if (!shouldContinue()) {
+      complete = false;
+      break;
+    }
     if (watchers.has(key)) continue;
     try {
       const watcher = create(location, key);

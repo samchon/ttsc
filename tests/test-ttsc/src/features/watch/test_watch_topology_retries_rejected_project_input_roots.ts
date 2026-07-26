@@ -38,7 +38,7 @@ export const test_watch_topology_retries_rejected_project_input_roots =
           error.code = "EMFILE";
           throw error;
         }
-        return new FakeWatcher() as fs.FSWatcher;
+        return new FakeWatcher() as unknown as fs.FSWatcher;
       }) as typeof fs.watch,
       writable: true,
     });
@@ -101,6 +101,7 @@ export const test_watch_topology_retries_rejected_project_input_roots =
     }
 
     await verifyFallbackChain();
+    await verifyCloseDuringFailure();
   };
 
 async function verifyFallbackChain(): Promise<void> {
@@ -114,6 +115,7 @@ async function verifyFallbackChain(): Promise<void> {
   const originalWatch = fs.watch;
   const attempts: string[] = [];
   const errors: string[] = [];
+  const unavailable: string[][] = [];
   let activeRoots: readonly string[] = [];
   Object.defineProperty(fs, "watch", {
     configurable: true,
@@ -123,7 +125,7 @@ async function verifyFallbackChain(): Promise<void> {
       if (attempts.length <= 2) {
         throw new Error(`reject ${resolved}`);
       }
-      return new FakeWatcher() as fs.FSWatcher;
+      return new FakeWatcher() as unknown as fs.FSWatcher;
     }) as typeof fs.watch,
     writable: true,
   });
@@ -139,6 +141,9 @@ async function verifyFallbackChain(): Promise<void> {
       onError: (location) => errors.push(path.resolve(location)),
       onInputChange: () => {
         throw new Error("watch setup must not report an input change");
+      },
+      onProjectInputWatchUnavailable: (roots) => {
+        unavailable.push([...roots]);
       },
       onProjectInputWatchRoots: (roots) => {
         activeRoots = [...roots];
@@ -167,6 +172,72 @@ async function verifyFallbackChain(): Promise<void> {
     );
     assert.equal(activeRoots.length, 1);
     assert.equal(realpath(activeRoots[0]!), realpath(externalRoot));
+    assert.deepEqual(
+      unavailable,
+      [],
+      "a successful safe fallback must not report a transient observation loss",
+    );
+  } finally {
+    topology.close();
+    Object.defineProperty(fs, "watch", {
+      configurable: true,
+      value: originalWatch,
+      writable: true,
+    });
+  }
+}
+
+async function verifyCloseDuringFailure(): Promise<void> {
+  const projectRoot = TestProject.tmpdir("ttsc-project-input-close-project-");
+  const firstRoot = TestProject.tmpdir("ttsc-project-input-close-first-");
+  const secondRoot = TestProject.tmpdir("ttsc-project-input-close-second-");
+  const originalWatch = fs.watch;
+  const created: FakeWatcher[] = [];
+  let attempts = 0;
+
+  Object.defineProperty(fs, "watch", {
+    configurable: true,
+    value: (() => {
+      attempts += 1;
+      if (attempts === 1) throw new Error("close during watch failure");
+      const watcher = new FakeWatcher();
+      created.push(watcher);
+      return watcher as unknown as fs.FSWatcher;
+    }) as typeof fs.watch,
+    writable: true,
+  });
+
+  let topology: WatchTopology;
+  topology = new WatchTopology(
+    {
+      cwd: projectRoot,
+      files: [],
+      projectRoot,
+      tsconfig: path.join(projectRoot, "tsconfig.json"),
+    },
+    {
+      onError: () => topology.close(),
+      onInputChange: () => {
+        throw new Error("watch setup must not report an input change");
+      },
+      onTopologyChange: () => {
+        throw new Error("watch setup must not report a topology change");
+      },
+    },
+  );
+  try {
+    topology.setProjectInputs({
+      files: [
+        path.join(firstRoot, "first.json"),
+        path.join(secondRoot, "second.json"),
+      ],
+      globs: [],
+      root: projectRoot,
+    });
+    await Promise.resolve();
+
+    assert.equal(attempts, 1, "close() did not stop the in-flight sync pass");
+    assert.deepEqual(created, [], "a watcher was installed after close()");
   } finally {
     topology.close();
     Object.defineProperty(fs, "watch", {
@@ -178,7 +249,11 @@ async function verifyFallbackChain(): Promise<void> {
 }
 
 class FakeWatcher {
-  public close(): void {}
+  public closeCount = 0;
+
+  public close(): void {
+    this.closeCount += 1;
+  }
 
   public on(_event: "error", _listener: (error: Error) => void): FakeWatcher {
     return this;
