@@ -1,8 +1,8 @@
 import { BootTtscWorkerTerminationError } from "@ttsc/wasm";
 
 export interface ITerminalCompilerWorkerRecovery {
-  /** Fence work that belongs to the failed Worker generation. */
-  invalidate(): void;
+  /** Atomically claim and fence the failed Worker generation. */
+  claim(): boolean;
   /** Close and clear that Worker generation. */
   reset(): Promise<void>;
   /** Publish the terminal error after the old Worker is no longer reachable. */
@@ -18,7 +18,7 @@ export async function recoverTerminalCompilerWorker(
   recovery: ITerminalCompilerWorkerRecovery,
 ): Promise<boolean> {
   if (!requiresCompilerWorkerReplacement(error)) return false;
-  recovery.invalidate();
+  if (!recovery.claim()) return true;
   try {
     await recovery.reset();
   } finally {
@@ -30,11 +30,12 @@ export async function recoverTerminalCompilerWorker(
 /** Recognize both local errors and their plain tgrid/JSON transport shape. */
 export function requiresCompilerWorkerReplacement(error: unknown): boolean {
   const code = BootTtscWorkerTerminationError.CODE;
-  if (typeof error === "string") return error.includes(code);
+  const prefix = `[${code}] `;
+  if (typeof error === "string") return error.startsWith(prefix);
   if (!error || typeof error !== "object") return false;
   const record = error as { code?: unknown; message?: unknown };
   return (
     record.code === code ||
-    (typeof record.message === "string" && record.message.includes(code))
+    (typeof record.message === "string" && record.message.startsWith(prefix))
   );
 }
