@@ -108,12 +108,12 @@ export const test_watch_topology_keeps_compiler_inputs_when_outdir_contains_proj
       );
       try {
         topology.refresh(false);
-        // fs.watch has no ready event for the macOS FSEvents registration.
-        // Let the native backend arm before issuing the event this test must
-        // observe; a deadline cannot recover an edit sent before registration.
-        await delay(1000);
-        fs.writeFileSync(source, "export const value = 2;\n", "utf8");
-        await waitForCompilerChange(changes, 0, test.name);
+        await writeUntilCompilerChange(
+          source,
+          changes,
+          changes.length,
+          test.name,
+        );
         const previous = await waitForStableCount(
           () => compilerChangeCount(changes),
           test.name,
@@ -150,18 +150,33 @@ export const test_watch_topology_keeps_compiler_inputs_when_outdir_contains_proj
     }
   };
 
-async function waitForCompilerChange(
+async function writeUntilCompilerChange(
+  source: string,
   changes: readonly WatchInputChange[],
-  previous: number,
+  previousLength: number,
   label: string,
 ): Promise<void> {
   const deadline = Date.now() + WATCH_EVENT_DEADLINE_MS;
-  while (compilerChangeCount(changes) <= previous) {
-    if (Date.now() >= deadline) {
-      assert.fail(`${label}: source edit did not reach compiler watch lane`);
+  let revision = 2;
+  while (Date.now() < deadline) {
+    fs.writeFileSync(source, `export const value = ${revision++};\n`, "utf8");
+    const retryAt = Math.min(deadline, Date.now() + 250);
+    while (Date.now() < retryAt) {
+      if (
+        changes
+          .slice(previousLength)
+          .some(
+            (change) =>
+              change.kind === "compiler" &&
+              change.path !== undefined &&
+              path.resolve(change.path) === path.resolve(source),
+          )
+      )
+        return;
+      await delay(25);
     }
-    await delay(25);
   }
+  assert.fail(`${label}: source edit did not reach compiler watch lane`);
 }
 
 function compilerChangeCount(changes: readonly WatchInputChange[]): number {
