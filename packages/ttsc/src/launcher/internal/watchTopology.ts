@@ -1109,7 +1109,7 @@ function resolveWatchTopology(
       addPaths(outputFiles, compilerOutputs.files);
       addPaths(
         outputFiles,
-        inferAdjacentCompilerOutputs(project, options, compilerInputs),
+        inferPerSourceCompilerOutputs(project, options, compilerInputs),
       );
       addPaths(outputs, compilerOutputs.directories);
       addPaths(files, compilerInputs);
@@ -1219,12 +1219,22 @@ function listCompilerInputs(
     );
   }
   const outputs = resolveCompilerOutputs(project, options);
-  const inputs = outputText(result.stdout)
+  const listed = outputText(result.stdout)
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter((line) => path.isAbsolute(line))
-    .map((line) => path.resolve(line))
-    .filter((file) => isCompilerOutput(file, outputs, project.root) === false);
+    .map((line) => path.resolve(line));
+  const exactOutputs = new Set(
+    [
+      ...outputs.files,
+      ...inferPerSourceCompilerOutputs(project, options, listed),
+    ].map(pathKey),
+  );
+  // `--listFilesOnly` is the authority for compiler inputs. A configured
+  // output directory may overlap a source tree, so directory containment
+  // cannot overrule that answer. Only products whose exact paths can be
+  // derived independently are removed from a self-referential configuration.
+  const inputs = listed.filter((file) => !exactOutputs.has(pathKey(file)));
   if (result.status !== 0 && inputs.length === 0) {
     throw new Error(
       `ttsc: failed to list compiler inputs:\n${outputText(result.stderr) || outputText(result.stdout)}`,
@@ -1269,13 +1279,18 @@ function resolveCompilerOutputs(
   };
 }
 
-function inferAdjacentCompilerOutputs(
+function inferPerSourceCompilerOutputs(
   project: ITtscParsedProjectConfig,
   options: WatchTopologyOptions,
   inputs: readonly string[],
 ): string[] {
   const emit = effectiveCompilerEmit(project, options);
   const outputs = new Set<string>();
+  const sourceRoot =
+    emit.rootDir ??
+    (emit.composite
+      ? project.root
+      : (commonCompilerSourceRoot(inputs) ?? project.root));
   for (const input of inputs) {
     const extension = path.extname(input).toLowerCase();
     if (!isCompilerEmittableSourceExtension(extension)) {
@@ -1283,11 +1298,16 @@ function inferAdjacentCompilerOutputs(
     }
     if (/\.d\.(?:ts|mts|cts)$/i.test(input)) continue;
     const stem = input.slice(0, -extension.length);
+    const mappedStem = (directory: string | undefined): string | undefined => {
+      if (directory === undefined) return stem;
+      if (!isPathWithin(sourceRoot, input)) return undefined;
+      return path.resolve(directory, path.relative(sourceRoot, stem));
+    };
     if (
       emit.javascript &&
-      emit.outDir === undefined &&
       emit.outFile === undefined &&
-      (!isJavaScriptSourceExtension(extension) ||
+      (emit.outDir !== undefined ||
+        !isJavaScriptSourceExtension(extension) ||
         (extension === ".jsx" && emit.jsx !== "preserve"))
     ) {
       const javascriptExtension =
@@ -1295,31 +1315,58 @@ function inferAdjacentCompilerOutputs(
           ? ".mjs"
           : extension === ".cts"
             ? ".cjs"
-            : extension === ".tsx" && emit.jsx === "preserve"
+            : (extension === ".tsx" || extension === ".jsx") &&
+                emit.jsx === "preserve"
               ? ".jsx"
               : ".js";
-      const javascript = stem + javascriptExtension;
-      outputs.add(javascript);
-      if (emit.sourceMap) outputs.add(`${javascript}.map`);
+      const javascriptStem = mappedStem(emit.outDir);
+      if (javascriptStem !== undefined) {
+        const javascript = javascriptStem + javascriptExtension;
+        outputs.add(javascript);
+        if (emit.sourceMap) outputs.add(`${javascript}.map`);
+      }
     }
-    if (
-      emit.declaration &&
-      emit.outDir === undefined &&
-      emit.declarationDir === undefined &&
-      emit.outFile === undefined
-    ) {
+    if (emit.declaration && emit.outFile === undefined) {
       const declarationExtension =
         extension === ".mts" || extension === ".mjs"
           ? ".d.mts"
           : extension === ".cts" || extension === ".cjs"
             ? ".d.cts"
             : ".d.ts";
-      const declaration = stem + declarationExtension;
-      outputs.add(declaration);
-      if (emit.declarationMap) outputs.add(`${declaration}.map`);
+      const declarationStem = mappedStem(emit.declarationDir ?? emit.outDir);
+      if (declarationStem !== undefined) {
+        const declaration = declarationStem + declarationExtension;
+        outputs.add(declaration);
+        if (emit.declarationMap) outputs.add(`${declaration}.map`);
+      }
     }
   }
   return [...outputs];
+}
+
+function commonCompilerSourceRoot(
+  inputs: readonly string[],
+): string | undefined {
+  const directories = inputs
+    .filter((input) => {
+      const extension = path.extname(input).toLowerCase();
+      return (
+        isCompilerEmittableSourceExtension(extension) &&
+        !/\.d\.(?:ts|mts|cts)$/i.test(input)
+      );
+    })
+    .map((input) => path.dirname(input));
+  let common = directories[0];
+  if (common === undefined) return undefined;
+  while (true) {
+    const current = common;
+    if (directories.every((directory) => isPathWithin(current, directory))) {
+      return current;
+    }
+    const parent = path.dirname(common);
+    if (parent === common) return undefined;
+    common = parent;
+  }
 }
 
 function isCompilerEmittableSourceExtension(extension: string): boolean {
@@ -1340,6 +1387,7 @@ function isJavaScriptSourceExtension(extension: string): boolean {
 }
 
 type EffectiveCompilerEmit = {
+  composite: boolean;
   declaration: boolean;
   declarationDir?: string;
   declarationMap: boolean;
@@ -1410,6 +1458,7 @@ function effectiveCompilerEmit(
   const jsx =
     passthroughStringOption(passthrough, "--jsx") ?? compilerOptions.jsx;
   return {
+    composite,
     declaration,
     declarationDir:
       cliDeclarationDir === null
@@ -1530,25 +1579,6 @@ function passthroughOptionMatches(token: string, name: string): boolean {
   if (!token.startsWith("-")) return false;
   if (token.includes("=")) return false;
   return resolveFlagSpec(token)?.name === resolveFlagSpec(name)?.name;
-}
-
-function isCompilerOutput(
-  file: string,
-  outputs: { directories: readonly string[]; files: readonly string[] },
-  projectRoot: string,
-): boolean {
-  return (
-    outputs.files.some((output) => pathKey(output) === pathKey(file)) ||
-    outputs.directories.some(
-      (directory) =>
-        // An output directory that contains the project contains its sources
-        // too. Treating the directory as product-only would discard every
-        // compiler input and silently end the watch lane. Exact output files
-        // remain excluded independently.
-        isPathWithin(directory, projectRoot) === false &&
-        isPathWithin(directory, file),
-    )
-  );
 }
 
 function collectTopologyDirectories(

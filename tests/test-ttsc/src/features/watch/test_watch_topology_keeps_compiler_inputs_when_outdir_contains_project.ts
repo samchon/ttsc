@@ -20,9 +20,10 @@ import { WATCH_EVENT_DEADLINE_MS } from "../../internal/watch";
  *
  * 1. Emit into the project root and prove source edits remain live.
  * 2. Emit into the project's parent and prove the same boundary.
- * 3. Keep proper-subdirectory output exclusion unchanged.
- * 4. Keep the no-emit lane unchanged.
- * 5. In every case, prove a predicted JavaScript product stays quiet.
+ * 3. Put a source inside a descendant output directory and retain it.
+ * 4. Keep a product-only output subtree unchanged.
+ * 5. Keep the no-emit lane unchanged.
+ * 6. In every case, prove a predicted JavaScript product stays quiet.
  */
 export const test_watch_topology_keeps_compiler_inputs_when_outdir_contains_project =
   async (): Promise<void> => {
@@ -39,6 +40,13 @@ export const test_watch_topology_keeps_compiler_inputs_when_outdir_contains_proj
         name: "project ancestor",
         outDir: "..",
         output: (container: string) => path.join(container, "src", "main.js"),
+      },
+      {
+        emit: true,
+        name: "source-overlapping output subtree",
+        outDir: "src",
+        output: (_container: string, root: string) =>
+          path.join(root, "src", "src", "main.js"),
       },
       {
         emit: true,
