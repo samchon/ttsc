@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 
-import { pluginDescriptorProcessFailure } from "../../../../../packages/ttsc/lib/plugin/internal/descriptorProcessFailure.js";
+import {
+  PLUGIN_DESCRIPTOR_PROCESS_OPTIONS,
+  pluginDescriptorProcessFailure,
+} from "../../../../../packages/ttsc/lib/plugin/internal/descriptorProcessFailure.js";
 
 /**
  * Verifies executable plugin-descriptor failures preserve their real cause.
@@ -20,7 +24,7 @@ export const test_plugin_descriptor_process_failures_are_classified_by_cause =
     const timeout = pluginDescriptorProcessFailure(
       processResult({
         error: processError("ETIMEDOUT"),
-        signal: "SIGTERM",
+        signal: PLUGIN_DESCRIPTOR_PROCESS_OPTIONS.killSignal,
       }),
       request,
     );
@@ -30,7 +34,7 @@ export const test_plugin_descriptor_process_failures_are_classified_by_cause =
     const overflow = pluginDescriptorProcessFailure(
       processResult({
         error: processError("ENOBUFS"),
-        signal: "SIGTERM",
+        signal: PLUGIN_DESCRIPTOR_PROCESS_OPTIONS.killSignal,
       }),
       request,
     );
@@ -92,11 +96,37 @@ export const test_plugin_descriptor_process_failures_are_classified_by_cause =
     );
     assert.match(stdout?.message ?? "", /stdout-only descriptor cause$/);
 
+    assertTimeoutCannotBeDefeatedBySigtermHandler();
+
     assert.equal(
       pluginDescriptorProcessFailure(processResult({ status: 0 }), request),
       undefined,
     );
   };
+
+function assertTimeoutCannotBeDefeatedBySigtermHandler(): void {
+  const result = spawnSync(
+    process.execPath,
+    [
+      "-e",
+      [
+        'process.on("SIGTERM", () => {});',
+        "setTimeout(() => process.exit(0), 2_000);",
+      ].join(""),
+    ],
+    {
+      ...PLUGIN_DESCRIPTOR_PROCESS_OPTIONS,
+      encoding: "utf8",
+      timeout: 50,
+      windowsHide: true,
+    },
+  );
+  assert.equal(
+    (result.error as NodeJS.ErrnoException | undefined)?.code,
+    "ETIMEDOUT",
+  );
+  assert.equal(result.signal, "SIGKILL");
+}
 
 function processError(code: string): Error {
   return Object.assign(new Error(`spawnSync node ${code}`), { code });

@@ -1,5 +1,10 @@
 export const CONFIG_EVALUATOR_MAX_BUFFER = 16 * 1024 * 1024;
 export const CONFIG_EVALUATOR_TIMEOUT_MS = 60_000;
+export const CONFIG_EVALUATOR_PROCESS_OPTIONS = Object.freeze({
+  killSignal: "SIGKILL" as const,
+  maxBuffer: CONFIG_EVALUATOR_MAX_BUFFER,
+  timeout: CONFIG_EVALUATOR_TIMEOUT_MS,
+});
 
 interface ConfigEvaluatorProcessResult {
   error?: Error;
@@ -11,10 +16,12 @@ interface ConfigEvaluatorProcessResult {
 /**
  * Classify the ways the isolated lint-config evaluator can stop.
  *
- * Node reports both timeout and max-buffer termination with `SIGTERM`, so the
- * process error code must take precedence over the signal. A bare signal is an
- * external termination and a non-zero status is an evaluator failure whose
- * stderr tail contains the useful user-config diagnostic.
+ * Node reports both timeout and max-buffer termination with the configured
+ * signal, so the process error code must take precedence over the signal. The
+ * evaluator uses `SIGKILL`: Node's synchronous process API otherwise keeps
+ * waiting when a POSIX child handles the default `SIGTERM` without exiting. A
+ * bare signal is an external termination and a non-zero status is an evaluator
+ * failure whose stderr tail contains the useful user-config diagnostic.
  */
 export function configEvaluatorProcessFailure(
   result: ConfigEvaluatorProcessResult,

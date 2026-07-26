@@ -8,8 +8,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 
 import {
-  CONFIG_EVALUATOR_MAX_BUFFER,
-  CONFIG_EVALUATOR_TIMEOUT_MS,
+  CONFIG_EVALUATOR_PROCESS_OPTIONS,
   configEvaluatorProcessFailure,
 } from "./internal/configEvaluatorFailure";
 import type { ITtscLintPlugin, ITtscLintPluginConfig } from "./structures";
@@ -1752,9 +1751,8 @@ function evaluateTtsxConfigPlugins(
       cwd: tempDir,
       env,
       encoding: "utf8",
-      maxBuffer: CONFIG_EVALUATOR_MAX_BUFFER,
+      ...CONFIG_EVALUATOR_PROCESS_OPTIONS,
       stdio: ["ignore", "pipe", "pipe"],
-      timeout: CONFIG_EVALUATOR_TIMEOUT_MS,
       windowsHide: true,
     });
     forwardConfigEvaluatorStreams(result.stdout, result.stderr);

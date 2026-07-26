@@ -1,5 +1,10 @@
 export const PLUGIN_DESCRIPTOR_MAX_BUFFER_BYTES = 16 * 1024 * 1024;
 export const PLUGIN_DESCRIPTOR_TIMEOUT_MS = 60_000;
+export const PLUGIN_DESCRIPTOR_PROCESS_OPTIONS = Object.freeze({
+  killSignal: "SIGKILL" as const,
+  maxBuffer: PLUGIN_DESCRIPTOR_MAX_BUFFER_BYTES,
+  timeout: PLUGIN_DESCRIPTOR_TIMEOUT_MS,
+});
 
 interface DescriptorProcessResult {
   error?: Error;
@@ -12,8 +17,10 @@ interface DescriptorProcessResult {
 /**
  * Classify the ways the isolated TypeScript descriptor evaluator can stop.
  *
- * Node reports both timeout and max-buffer termination with `SIGTERM`, so the
- * process error code must take precedence over the signal.
+ * Node reports both timeout and max-buffer termination with the configured
+ * signal, so the process error code must take precedence over the signal. The
+ * evaluator uses `SIGKILL`: Node's synchronous process API otherwise keeps
+ * waiting when a POSIX child handles the default `SIGTERM` without exiting.
  */
 export function pluginDescriptorProcessFailure(
   result: DescriptorProcessResult,

@@ -17,7 +17,7 @@ import type { ITtscParsedProjectConfig } from "../../structures/internal/ITtscPa
 import { buildSourcePlugin } from "./buildSourcePlugin";
 import {
   PLUGIN_DESCRIPTOR_MAX_BUFFER_BYTES,
-  PLUGIN_DESCRIPTOR_TIMEOUT_MS,
+  PLUGIN_DESCRIPTOR_PROCESS_OPTIONS,
   pluginDescriptorProcessFailure,
 } from "./descriptorProcessFailure";
 
@@ -772,8 +772,7 @@ function loadDescriptorViaTtsx(
         TTSC_PLUGIN_DESCRIPTOR_OUT: out,
         TTSC_PLUGIN_ENTRY: request,
       },
-      maxBuffer: PLUGIN_DESCRIPTOR_MAX_BUFFER_BYTES,
-      timeout: PLUGIN_DESCRIPTOR_TIMEOUT_MS,
+      ...PLUGIN_DESCRIPTOR_PROCESS_OPTIONS,
       windowsHide: true,
     });
     const processFailure = pluginDescriptorProcessFailure(result, request);
