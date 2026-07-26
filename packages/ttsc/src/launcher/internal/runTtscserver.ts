@@ -313,8 +313,7 @@ function loadLSPProjectPlugins(
         binary: resolveBinary() ?? "",
         cwd,
         pluginConfigDir: pluginConfigOrigin,
-        projectRoot: project.root,
-        tsconfig: project.path,
+        tsconfig: project.identity.logicalConfigPath,
       })
     : { nativePlugins: [], project };
 }

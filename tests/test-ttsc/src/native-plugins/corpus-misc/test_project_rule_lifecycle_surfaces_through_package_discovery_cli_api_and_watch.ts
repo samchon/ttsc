@@ -344,6 +344,21 @@ module.exports = {
         ).length,
         1,
       );
+      const lspProjectDiagnostic = failedParams.diagnostics?.find(
+        (diagnostic) => diagnostic.code === "guard/project",
+      );
+      assert.equal(
+        lspProjectDiagnostic?.message?.includes(`logical=${logicalConfig}`),
+        true,
+      );
+      assert.equal(
+        lspProjectDiagnostic?.message?.includes(`physical=${physicalConfig}`),
+        true,
+      );
+      assert.equal(
+        lspProjectDiagnostic?.message?.includes(`invocation=${logicalRoot}`),
+        true,
+      );
 
       fs.writeFileSync(guardState, "clean\n");
       const cleanPublication =
