@@ -66,6 +66,14 @@ test("command and JSON failures cannot report green", () => {
   assert.match(malformed.message, /unreadable JSON/);
   assert.match(malformed.message, /registry failed/);
 
+  const stdoutOnly = evaluateAudit({
+    status: 1,
+    stdout: "registry returned an invalid body",
+    stderr: "",
+  });
+  assert.equal(stdoutOnly.ok, false);
+  assert.match(stdoutOnly.message, /registry returned an invalid body/);
+
   const empty = evaluateAudit({
     status: 0,
     stdout: "{}",

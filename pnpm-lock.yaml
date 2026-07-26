@@ -47,8 +47,8 @@ catalogs:
       version: 6.1.3
 
 overrides:
-  postcss@>=8.0.0 <8.5.18: 8.5.23
-  sharp@<0.35.0: 0.35.0
+  next@15.5.22>postcss: 8.5.23
+  next@15.5.22>sharp: 0.35.0
 
 importers:
 
@@ -727,7 +727,7 @@ importers:
         version: 5.9.3
       typia:
         specifier: catalog:samchon
-        version: 13.2.0(@types/node@20.19.41)(ttsc@0.22.0)
+        version: 13.2.0(@types/node@20.19.41)(ttsc@packages+ttsc)
     devDependencies:
       '@resvg/resvg-js':
         specifier: ^2.6.2
@@ -765,6 +765,9 @@ importers:
       ts-loader:
         specifier: ^9.5.1
         version: 9.5.7(typescript@5.9.3)(webpack@5.107.1(postcss@8.5.23))
+      ttsc:
+        specifier: workspace:*
+        version: link:../packages/ttsc
 
 packages:
 
@@ -2894,41 +2897,6 @@ packages:
         optional: true
       svelte:
         optional: true
-
-  '@ttsc/darwin-arm64@0.22.0':
-    resolution: {integrity: sha512-UVXV6gerO3r+lK8lJbhOS1HtLKrGRTKTleean1IDKmXC7JqEiKqpbOhhRynb7qbMG2LOl/nqTLQBLjSs4sHl/A==}
-    cpu: [arm64]
-    os: [darwin]
-
-  '@ttsc/darwin-x64@0.22.0':
-    resolution: {integrity: sha512-OZQCk0wNNmGxX39HPf8Rj9kFqC5Aax/i1SJST1XWGkCQMP6d3A4BGNSJ6TNCBoMT7pU//jCj7xMmV4Av0g4seg==}
-    cpu: [x64]
-    os: [darwin]
-
-  '@ttsc/linux-arm64@0.22.0':
-    resolution: {integrity: sha512-6x5UprHcy29/hC5aTqkJnkBWuXyKCV2X9a4yhhhsM94JXqqKAifWos8HgJ1roUvmGG8zaEHNJrR0LtIvbFwBdA==}
-    cpu: [arm64]
-    os: [linux]
-
-  '@ttsc/linux-arm@0.22.0':
-    resolution: {integrity: sha512-wEG7Jq11AhuSLPOv6sE+kexSBlpDCCHoWjO5QgdN3WJ5oqhuBJyYoQoyujxXDxHGCi60a2vFpJiALk3uQU5lTw==}
-    cpu: [arm]
-    os: [linux]
-
-  '@ttsc/linux-x64@0.22.0':
-    resolution: {integrity: sha512-u1mC/ch4+Tpvmb2uNfJagHROo/OlpQt6FLXQrY7dPfPhRIgFbpoEy/rW2IgBumYIIwYBAB9hDfgUdO5ue3l9iw==}
-    cpu: [x64]
-    os: [linux]
-
-  '@ttsc/win32-arm64@0.22.0':
-    resolution: {integrity: sha512-RyZq5qgjZjm5H14Bw/5tkRqCLwSk4sXnExGjfoPj4hmv8Ia+MxsAJkh0ZQZQNq0JCZkRlxLfOxfFIMbbJJ/swQ==}
-    cpu: [arm64]
-    os: [win32]
-
-  '@ttsc/win32-x64@0.22.0':
-    resolution: {integrity: sha512-l0l8dVSU6aSdBKFqCT3n32Tjx6Q7QmoPP4gD7J3apZ+5pJC4H5gmQs+EJwKd9zjnmx0LPI3TVhXtJ5pcr61mrg==}
-    cpu: [x64]
-    os: [win32]
 
   '@tweenjs/tween.js@23.1.3':
     resolution: {integrity: sha512-vJmvvwFxYuGnF2axRtPYocag6Clbb5YS7kLL+SO/TeVFzHqDIWrNKYtcsPMibjDx9O+bu+psAy9NKfWklassUA==}
@@ -6799,11 +6767,6 @@ packages:
   tstl@3.0.0:
     resolution: {integrity: sha512-pR83y6/tbJx6jeGRqGJXk2t/eCUynaHEE6zsOLB0Zga8ej61LXtPfoeiROdhezpoCT15+1QMbqKB1Um5kasSKg==}
 
-  ttsc@0.22.0:
-    resolution: {integrity: sha512-rjxf2KqOE9ajhALXQT5MQmTLuV+yolJby76nLEWSTtXVLgdA0ZXvlmnncHSbK+axhDp0KG9jhle40+n19dlS3Q==}
-    engines: {node: '>=22.15.0'}
-    hasBin: true
-
   tunnel-agent@0.6.0:
     resolution: {integrity: sha512-McnNiV1l8RYeY8tBgEpuodCC1mLUdbSN+CYBL7kJsJNInOP8UjDDEwdk6Mw60vdLLrr5NHKZhMAOSrR2NZuQ+w==}
 
@@ -9463,27 +9426,6 @@ snapshots:
       prettier: 3.8.3
     transitivePeerDependencies:
       - supports-color
-
-  '@ttsc/darwin-arm64@0.22.0':
-    optional: true
-
-  '@ttsc/darwin-x64@0.22.0':
-    optional: true
-
-  '@ttsc/linux-arm64@0.22.0':
-    optional: true
-
-  '@ttsc/linux-arm@0.22.0':
-    optional: true
-
-  '@ttsc/linux-x64@0.22.0':
-    optional: true
-
-  '@ttsc/win32-arm64@0.22.0':
-    optional: true
-
-  '@ttsc/win32-x64@0.22.0':
-    optional: true
 
   '@tweenjs/tween.js@23.1.3': {}
 
@@ -14372,17 +14314,6 @@ snapshots:
 
   tstl@3.0.0: {}
 
-  ttsc@0.22.0:
-    optionalDependencies:
-      '@ttsc/darwin-arm64': 0.22.0
-      '@ttsc/darwin-x64': 0.22.0
-      '@ttsc/linux-arm': 0.22.0
-      '@ttsc/linux-arm64': 0.22.0
-      '@ttsc/linux-x64': 0.22.0
-      '@ttsc/win32-arm64': 0.22.0
-      '@ttsc/win32-x64': 0.22.0
-    optional: true
-
   tunnel-agent@0.6.0:
     dependencies:
       safe-buffer: 5.2.1
@@ -14448,7 +14379,7 @@ snapshots:
       '@typescript/typescript-win32-arm64': 7.0.2
       '@typescript/typescript-win32-x64': 7.0.2
 
-  typia@13.2.0(@types/node@20.19.41)(ttsc@0.22.0):
+  typia@13.2.0(@types/node@20.19.41)(ttsc@packages+ttsc):
     dependencies:
       '@standard-schema/spec': 1.1.0
       '@typia/interface': 13.2.0
@@ -14458,7 +14389,7 @@ snapshots:
       randexp: 0.5.3
       tinyglobby: 0.2.16
     optionalDependencies:
-      ttsc: 0.22.0
+      ttsc: link:packages/ttsc
     transitivePeerDependencies:
       - '@types/node'
 

@@ -59,7 +59,7 @@ function evaluateAudit(result) {
       message:
         `dependency audit returned unreadable JSON (exit ${String(result.status)}): ` +
         `${error instanceof Error ? error.message : String(error)}\n` +
-        String(result.stderr ?? result.stdout ?? ""),
+        String(result.stderr || result.stdout || ""),
     };
   }
 

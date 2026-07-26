@@ -4,8 +4,13 @@ packages:
   - "tests/*"
   - "website"
 overrides:
-  "postcss@>=8.0.0 <8.5.18": 8.5.23
-  "sharp@<0.35.0": 0.35.0
+  # Next 15.5.22 pins vulnerable PostCSS 8.4.31. Keep the override on that
+  # parent edge; the website production build verifies the PostCSS 8 API.
+  "next@15.5.22>postcss": 8.5.23
+  # Sharp's patched line starts at 0.35.0, outside Next's ^0.34.3 optional
+  # range. Scope that compatibility exception to Next and verify every static
+  # export in the website production build.
+  "next@15.5.22>sharp": 0.35.0
 catalogs:
   typescript:
     typescript: ^7.0.2
