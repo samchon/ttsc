@@ -19,9 +19,12 @@ import { WATCH_EVENT_DEADLINE_MS } from "../../internal/watch";
  *    incorrectly changed extension.
  * 3. Suppress nested products emitted above the project without `rootDir`.
  * 4. Treat removed `outFile` as a diagnostic, not an output-layout contract.
- * 5. Resolve launcher and passthrough output paths from the compiler's cwd.
+ * 5. Resolve launcher-owned output paths from the execution cwd and passthrough
+ *    paths from the compiler's project cwd.
  * 6. Suppress TS/JS diagnostic-recovery products outside the mapping root, while
  *    retaining an adjacent JSON negative twin.
+ * 7. Classify a source-overlapping output once per identity transaction rather
+ *    than rescanning every compiler input for every declared project input.
  */
 export const test_watch_topology_preserves_authoritative_inputs_and_json_outputs =
   async (): Promise<void> => {
@@ -29,8 +32,9 @@ export const test_watch_topology_preserves_authoritative_inputs_and_json_outputs
     await verifyJavaScriptExtensionInputs();
     await verifyJsonCopyIsProduct();
     await verifyRemovedOutFileLayout();
-    await verifyPassthroughPathsUseProjectRoot();
+    await verifyCompilerFacingPathsUseTheirExecutionRoots();
     await verifyOutOfRootDiagnosticRecoveryOutputs();
+    verifyOutputOverlapClassificationIsBounded();
   };
 
 async function verifyDeclarationInputCollision(): Promise<void> {
@@ -208,7 +212,7 @@ async function verifyRemovedOutFileLayout(): Promise<void> {
   }
 }
 
-async function verifyPassthroughPathsUseProjectRoot(): Promise<void> {
+async function verifyCompilerFacingPathsUseTheirExecutionRoots(): Promise<void> {
   const container = TestProject.tmpdir("ttsc-passthrough-output-base-");
   const root = path.join(container, "project");
   const source = path.join(root, "src", "main.ts");
@@ -234,7 +238,7 @@ async function verifyPassthroughPathsUseProjectRoot(): Promise<void> {
   try {
     topology.refresh(false);
     for (const output of [
-      path.join(root, "javascript", "src", "main.js"),
+      path.join(container, "javascript", "src", "main.js"),
       path.join(root, "types", "src", "main.d.ts"),
       path.join(root, "cache", "state.tsbuildinfo"),
     ]) {
@@ -243,7 +247,7 @@ async function verifyPassthroughPathsUseProjectRoot(): Promise<void> {
       fs.writeFileSync(output, "compiler product\n");
       await expectProjectQuiet(
         changes,
-        `${path.relative(root, output)} used the launcher's outer cwd`,
+        `${output} used the wrong compiler execution root`,
       );
     }
 
@@ -255,6 +259,61 @@ async function verifyPassthroughPathsUseProjectRoot(): Promise<void> {
       changes,
       nearbyChanges,
       "nearby passthrough-relative data was classified as build info",
+    );
+  } finally {
+    topology.close();
+  }
+}
+
+function verifyOutputOverlapClassificationIsBounded(): void {
+  const root = path.resolve("synthetic-watch-overlap");
+  const output = path.join(root, "generated");
+  const topology = createTopology(root, []);
+  const classifier = topology as unknown as {
+    files: Map<string, string>;
+    outputs: Map<string, string>;
+    projectInputs: { root: string };
+    isProjectInputCompilerOutputDirectory(
+      location: string,
+      identities: { isWithin(root: string, candidate: string): boolean },
+    ): boolean;
+  };
+  classifier.projectInputs = { root: path.join(root, "source") };
+  classifier.outputs = new Map([[output, output]]);
+  classifier.files = new Map(
+    Array.from({ length: 1_000 }, (_, index) => {
+      const input =
+        index === 999
+          ? path.join(output, "compiler.ts")
+          : path.join(root, "source", `${index}.ts`);
+      return [input, input];
+    }),
+  );
+  let containmentChecks = 0;
+  const identities = {
+    isWithin: (parent: string, candidate: string): boolean => {
+      containmentChecks++;
+      return (
+        candidate === parent ||
+        candidate.startsWith(
+          parent.endsWith(path.sep) ? parent : `${parent}${path.sep}`,
+        )
+      );
+    },
+  };
+  try {
+    for (let index = 0; index < 1_000; index++) {
+      assert.equal(
+        classifier.isProjectInputCompilerOutputDirectory(
+          path.join(output, `plugin-${index}.json`),
+          identities,
+        ),
+        false,
+      );
+    }
+    assert.ok(
+      containmentChecks < 5_000,
+      `source-overlap classification repeated ${containmentChecks} containment checks`,
     );
   } finally {
     topology.close();

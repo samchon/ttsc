@@ -107,6 +107,10 @@ export class WatchTopology {
   private projectInputWatchRoots = new Map<string, string>();
   private projectInputWatchers = new Map<string, fs.FSWatcher>();
   private projectInputLinkWatchers = new Map<string, fs.FSWatcher>();
+  private projectInputCompilerOutputOverlaps = new WeakMap<
+    ProjectInputPathIdentityContext,
+    Map<string, boolean>
+  >();
   private reloadFiles = new Map<string, string>();
 
   public constructor(
@@ -987,6 +991,11 @@ export class WatchTopology {
     identities: ProjectInputPathIdentityContext,
   ): boolean {
     const root = this.projectInputs.root;
+    let overlaps = this.projectInputCompilerOutputOverlaps.get(identities);
+    if (overlaps === undefined) {
+      overlaps = new Map();
+      this.projectInputCompilerOutputOverlaps.set(identities, overlaps);
+    }
     return [...this.outputs.values()].some((output) => {
       if (!identities.isWithin(output, location)) return false;
       // An output directory that is the project itself, or holds it, is not a
@@ -997,13 +1006,14 @@ export class WatchTopology {
       // is the safe side here: a product that gets watched costs an extra
       // rebuild, while an input that does not is never seen again.
       if (root !== "" && identities.isWithin(output, root)) return false;
-      if (
-        [...this.files.values()].some((input) =>
+      let overlapsCompilerInput = overlaps.get(output);
+      if (overlapsCompilerInput === undefined) {
+        overlapsCompilerInput = [...this.files.values()].some((input) =>
           identities.isWithin(output, input),
-        )
-      ) {
-        return false;
+        );
+        overlaps.set(output, overlapsCompilerInput);
       }
+      if (overlapsCompilerInput) return false;
       return true;
     });
   }
@@ -1475,7 +1485,7 @@ function effectiveCompilerEmit(
         : cliOutDir !== undefined
           ? path.resolve(compilerCwd, cliOutDir)
           : options.outDir !== undefined
-            ? path.resolve(compilerCwd, options.outDir)
+            ? path.resolve(options.cwd, options.outDir)
             : typeof compilerOptions.outDir === "string"
               ? path.resolve(compilerOptions.outDir)
               : undefined,
