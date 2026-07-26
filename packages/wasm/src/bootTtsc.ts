@@ -7,6 +7,7 @@
 // The boot helper is parameterized by `apiName` so any wasm built with
 // `host.Expose(...)` can be loaded the same way. The base wasm uses "ttsc";
 // downstream consumers pick their own (e.g. "ttscPlayground", "ttscTypia").
+import { BootTtscWorkerTerminationError } from "./BootTtscWorkerTerminationError";
 import { createMemFS } from "./createMemFS";
 import type { IBootResult } from "./structures/IBootResult";
 import type { IBootTtscOptions } from "./structures/IBootTtscOptions";
@@ -34,6 +35,16 @@ interface BootCancellationReason {
 }
 
 const bootsInFlight = new Map<string, BootInFlight>();
+
+/**
+ * Terminal failures keyed by the global API bridge they own. A failed runtime
+ * cannot be stopped after `go.run` starts, so no later boot may install another
+ * readiness bridge for that API name inside the same Worker.
+ */
+const terminalBootFailuresByApiName = new Map<
+  string,
+  BootTtscWorkerTerminationError
+>();
 
 /**
  * Per-apiName serialization chain. Two concurrent boots with the same apiName
@@ -75,8 +86,10 @@ function resolveWasmUrl(wasmUrl: string): string {
  * Concurrent calls with the same `(apiName, wasmUrl)` pair share the same
  * in-flight boot. Calls with the same `apiName` but different `wasmUrl` are
  * serialized via `bootChainByApiName` so they don't race on the shared
- * `globalThis[apiName+"Ready"]` resolver slot. On rejection the cache entries
- * are cleared so the next call retries from scratch.
+ * `globalThis[apiName+"Ready"]` resolver slot. A rejection before `go.run`
+ * clears the cache entries so the next call can retry from scratch. A rejection
+ * after `go.run` terminally poisons that API name because JavaScript cannot
+ * stop the old runtime; replace the Worker before retrying.
  *
  * **Single-Worker caveat.** Even with the chain, a second boot loaded into the
  * SAME Worker after a first boot completes will overlay its Go runtime on top
@@ -91,6 +104,8 @@ export function bootTtsc(options: IBootTtscOptions): Promise<IBootResult> {
   const apiName = options.apiName ?? "ttsc";
   const key = bootKey(apiName, options.wasmUrl);
   const timeoutMs = resolveBootTimeout(options.timeoutMs);
+  const terminalFailure = terminalBootFailuresByApiName.get(apiName);
+  if (terminalFailure) return Promise.reject(terminalFailure);
   const inflight = bootsInFlight.get(key);
   if (inflight) {
     attachBootCancellation(inflight, options.signal, timeoutMs);
@@ -108,6 +123,7 @@ export function bootTtsc(options: IBootTtscOptions): Promise<IBootResult> {
       /* don't propagate a prior boot's rejection — let this one run */
     })
     .then(() => {
+      throwIfBootWorkerTerminated(apiName);
       throwIfBootCanceled(
         controller.signal,
         apiName,
@@ -152,6 +168,7 @@ async function bootTtscOnce(
   );
   let readyCb: (() => void) | undefined;
   let failedCb: ((err: unknown) => void) | undefined;
+  let runtimeStarted = false;
 
   const host = options.host ?? createMemFS();
   const globalAny = globalThis as Record<string, unknown>;
@@ -247,6 +264,7 @@ async function bootTtscOnce(
     // The standard Go runner discards the exit code, so an unknown early exit
     // can only synthesize a generic message; known host validation failures
     // reject through Failed above and keep their original cause.
+    runtimeStarted = true;
     const runPromise = Promise.resolve(go.run(wasm.instance));
     const earlyExit = runPromise.then(
       () => {
@@ -284,6 +302,7 @@ async function bootTtscOnce(
     return { api, host };
   } catch (err) {
     restoreGlobals();
+    if (runtimeStarted) throw poisonBootWorker(apiName, err);
     throw err;
   } finally {
     cancellation.dispose();
@@ -294,6 +313,22 @@ async function bootTtscOnce(
     if (globalAny[apiName + "Failed"] === failedCb)
       delete globalAny[apiName + "Failed"];
   }
+}
+
+function throwIfBootWorkerTerminated(apiName: string): void {
+  const failure = terminalBootFailuresByApiName.get(apiName);
+  if (failure) throw failure;
+}
+
+function poisonBootWorker(
+  apiName: string,
+  cause: unknown,
+): BootTtscWorkerTerminationError {
+  const existing = terminalBootFailuresByApiName.get(apiName);
+  if (existing) return existing;
+  const failure = new BootTtscWorkerTerminationError(apiName, cause);
+  terminalBootFailuresByApiName.set(apiName, failure);
+  return failure;
 }
 
 interface BootCancellation {

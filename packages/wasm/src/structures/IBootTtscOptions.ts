@@ -11,7 +11,8 @@ export interface IBootTtscOptions {
    *
    * The deadline covers queued, fetch, instantiate, and readiness phases.
    * `importScripts` is synchronous and can only observe cancellation before or
-   * after it returns.
+   * after it returns. A failure after `go.run` starts requires terminating the
+   * Worker; later boots of the same API name reject terminally.
    */
   timeoutMs?: number;
   /** URL of wasm_exec.js. Defaults to the same directory as wasmUrl. */

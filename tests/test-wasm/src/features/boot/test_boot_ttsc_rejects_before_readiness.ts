@@ -1,5 +1,5 @@
 import { TestValidator } from "@nestia/e2e";
-import { bootTtsc } from "@ttsc/wasm";
+import { BootTtscWorkerTerminationError, bootTtsc } from "@ttsc/wasm";
 
 import { withBootStubs } from "../../internal/bootHarness";
 
@@ -37,13 +37,14 @@ export const test_boot_ttsc_rejects_before_readiness =
       },
     );
 
+    const rejection: unknown = caught;
     TestValidator.predicate(
       "boot rejected instead of hanging",
-      caught !== null,
+      rejection !== null,
     );
     TestValidator.predicate(
       "rejection names the pre-readiness exit",
-      caught !== null &&
-        /exited before signaling readiness/.test((caught as Error).message),
+      rejection instanceof BootTtscWorkerTerminationError &&
+        /exited before signaling readiness/.test(rejection.message),
     );
   };

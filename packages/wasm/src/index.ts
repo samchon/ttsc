@@ -6,6 +6,7 @@
 // imported from JS.
 
 export * from "./bootTtsc";
+export * from "./BootTtscWorkerTerminationError";
 export * from "./createMemFS";
 export * from "./MemFSError";
 export * from "./parseResult";

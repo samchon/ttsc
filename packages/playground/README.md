@@ -72,6 +72,8 @@ const service = createWorkerCompiler({
 await new WorkerServer().open(service);
 ```
 
+If wasm boot fails after `go.run` starts, `createWorkerCompiler` retains the terminal boot rejection instead of retrying inside the same Worker. Replace the Worker before retrying. `PlaygroundShell` does this through its compiler-client reset path.
+
 Bundle this file with rspack/webpack/vite as a webworker target and serve the output (e.g. at `/compiler/index.js`).
 
 ## UI shell (site-side)

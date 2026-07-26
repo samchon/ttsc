@@ -1,5 +1,5 @@
 import { TestValidator } from "@nestia/e2e";
-import { bootTtsc } from "@ttsc/wasm";
+import { BootTtscWorkerTerminationError, bootTtsc } from "@ttsc/wasm";
 
 import { withBootStubs } from "../../internal/bootHarness";
 
@@ -16,7 +16,8 @@ import { withBootStubs } from "../../internal/bootHarness";
  * 1. Stub a runtime that fires `Failed` with a duplicate-plugin-name error then
  *    exits.
  * 2. Boot it and let the losing branch settle.
- * 3. Assert the rejection preserves the duplicate-name cause and nothing leaked.
+ * 3. Assert the terminal rejection preserves the duplicate-name cause and nothing
+ *    leaked.
  */
 export const test_boot_ttsc_preserves_explicit_failed_cause =
   async (): Promise<void> => {
@@ -50,11 +51,19 @@ export const test_boot_ttsc_preserves_explicit_failed_cause =
       );
 
       await new Promise<void>((resolve) => setTimeout(resolve, 20));
-      TestValidator.predicate("boot rejected", caught !== null);
-      TestValidator.equals(
+      const rejection: unknown = caught;
+      TestValidator.predicate("boot rejected", rejection !== null);
+      TestValidator.predicate(
+        "post-run failure requires Worker replacement",
+        rejection instanceof BootTtscWorkerTerminationError &&
+          rejection.code === "TTSC_WASM_WORKER_TERMINATION_REQUIRED",
+      );
+      TestValidator.predicate(
         "original Failed cause is preserved",
-        caught !== null ? (caught as Error).message : "",
-        cause,
+        rejection instanceof BootTtscWorkerTerminationError &&
+          rejection.cause instanceof Error &&
+          rejection.cause.message === cause &&
+          rejection.message.includes(cause),
       );
       TestValidator.equals(
         "no unhandled rejection from the losing branch",

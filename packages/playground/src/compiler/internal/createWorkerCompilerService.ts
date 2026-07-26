@@ -6,11 +6,12 @@
 // service — including plugin success/failure interpretation — can be exercised
 // against a fake `IBootResult` without building or booting WASM. The public
 // wrapper supplies the real `bootTtsc` / `parseResult`.
-import type {
-  IBootResult,
-  IBootTtscOptions,
-  ITtscCompileResult,
-  ITtscResult,
+import {
+  BootTtscWorkerTerminationError,
+  type IBootResult,
+  type IBootTtscOptions,
+  type ITtscCompileResult,
+  type ITtscResult,
 } from "@ttsc/wasm";
 
 import type { ICompilerService } from "../../structures/ICompilerService";
@@ -84,10 +85,11 @@ export function createWorkerCompilerService(
     compilerOptions: extraCompilerOptions,
   });
 
-  // Cache the boot promise across calls. If the boot rejects we clear the
-  // cache so the next call retries — otherwise every later compile/bundle/
-  // lint would replay the same rejection forever (page reload required).
-  // Mirrors the createCompilerClient (UI-side) pattern.
+  // Cache the boot promise across calls. Pre-runtime failures clear the cache
+  // so the next call can retry. A post-go.run failure stays cached because the
+  // old runtime cannot be stopped and must never receive a replacement Ready
+  // bridge in the same Worker. The UI retry resets the compiler client, which
+  // terminates this Worker and creates a safe replacement.
   let boot: Promise<IBootResult> | null = null;
   function getBoot(): Promise<IBootResult> {
     if (boot) return boot;
@@ -100,7 +102,7 @@ export function createWorkerCompilerService(
       if (typiaPlugin?.mount) await typiaPlugin.mount(result.host, workDir);
       return result;
     })().catch((err) => {
-      boot = null;
+      if (!(err instanceof BootTtscWorkerTerminationError)) boot = null;
       throw err;
     });
     return boot;

@@ -1,7 +1,15 @@
-import { DEFAULT_BOOT_TIMEOUT_MS, bootTtsc } from "@ttsc/wasm";
+import {
+  BootTtscWorkerTerminationError,
+  DEFAULT_BOOT_TIMEOUT_MS,
+  bootTtsc,
+} from "@ttsc/wasm";
 import assert from "node:assert/strict";
 
-import { FAKE_API, withBootStubs } from "../../internal/bootHarness";
+import {
+  FAKE_API,
+  type IFakeRuntime,
+  withBootStubs,
+} from "../../internal/bootHarness";
 
 function signal(): { promise: Promise<void>; resolve: () => void } {
   let resolve!: () => void;
@@ -13,7 +21,7 @@ function signal(): { promise: Promise<void>; resolve: () => void } {
 
 /**
  * Verifies timeout and caller cancellation settle every asynchronous boot phase
- * and release the shared cache and readiness bridge for a retry.
+ * and enforce the pre-runtime versus running-runtime retry boundary.
  *
  * A stalled fetch or Go runtime previously left the per-key single-flight and
  * per-api serialization chain pending forever. These cases use the same key for
@@ -23,8 +31,9 @@ function signal(): { promise: Promise<void>; resolve: () => void } {
  * 2. Assert phase-specific timeout ownership and readiness callback cleanup.
  * 3. Retry the same key and resolve normally.
  * 4. Join and cancel a shared same-key fetch, then retry it.
- * 5. Abort during Go readiness, verify the exact cause, then retry that key.
- * 6. Cancel a different-URL boot while queued and retry it after its predecessor.
+ * 5. Abort during Go readiness and prove queued and later boots are terminal.
+ * 6. Fire stale Ready/Failed signals and prove no replacement bridge is exposed.
+ * 7. Cancel a different-URL pre-runtime boot and retry after its predecessor.
  */
 export const test_boot_ttsc_bounds_and_recovers_initialization =
   async (): Promise<void> => {
@@ -133,16 +142,15 @@ export const test_boot_ttsc_bounds_and_recovers_initialization =
     const readyApiName = "ttscBoundedReadiness";
     const readyUrl = "http://local/bounded-readiness.wasm";
     const runStarted = signal();
+    let staleRuntime: IFakeRuntime | undefined;
     let run = 0;
     await withBootStubs(
       readyApiName,
       {
         onRun: async (runtime) => {
-          if (run++ === 0) {
-            runStarted.resolve();
-            return new Promise<void>(() => undefined);
-          }
-          runtime.signalReady(FAKE_API);
+          run++;
+          staleRuntime = runtime;
+          runStarted.resolve();
           return new Promise<void>(() => undefined);
         },
       },
@@ -156,24 +164,50 @@ export const test_boot_ttsc_bounds_and_recovers_initialization =
           timeoutMs: 1_000,
         });
         await runStarted.promise;
+        const queued = bootTtsc({
+          apiName: readyApiName,
+          wasmUrl: readyUrl + "?queued=1",
+          timeoutMs: 1_000,
+        });
         controller.abort(cause);
-        await assert.rejects(first, (error) => {
+        let terminal!: BootTtscWorkerTerminationError;
+        await assert.rejects(first, (error: unknown) => {
+          assert.ok(error instanceof BootTtscWorkerTerminationError);
+          terminal = error;
           assert.match(
-            (error as Error).message,
+            error.message,
             /aborted while waiting for ttscBoundedReadiness readiness/,
           );
-          assert.equal((error as Error & { cause?: unknown }).cause, cause);
+          assert.equal(
+            (
+              error.cause as Error & {
+                cause?: unknown;
+              }
+            ).cause,
+            cause,
+          );
+          assert.equal(error.code, "TTSC_WASM_WORKER_TERMINATION_REQUIRED");
+          assert.match(error.message, /terminate and replace this Worker/);
           return true;
         });
+        await assert.rejects(queued, (error: unknown) => error === terminal);
         assert.equal(Object.hasOwn(globalThis, readyApiName + "Ready"), false);
         assert.equal(Object.hasOwn(globalThis, readyApiName + "Failed"), false);
 
-        const retried = await bootTtsc({
-          apiName: readyApiName,
-          wasmUrl: readyUrl,
-          timeoutMs: 1_000,
-        });
-        assert.equal(retried.api as unknown, FAKE_API);
+        await assert.rejects(
+          bootTtsc({
+            apiName: readyApiName,
+            wasmUrl: readyUrl,
+            timeoutMs: 1_000,
+          }),
+          (error: unknown) => error === terminal,
+        );
+        staleRuntime!.signalReady({ version: "old-stale-api" });
+        staleRuntime!.signalFailed(new Error("late stale failure"));
+        await Promise.resolve();
+        assert.equal(run, 1);
+        assert.equal(Object.hasOwn(globalThis, readyApiName + "Ready"), false);
+        assert.equal(Object.hasOwn(globalThis, readyApiName + "Failed"), false);
       },
     );
 
