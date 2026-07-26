@@ -99,7 +99,83 @@ export const test_watch_topology_retries_rejected_project_input_roots =
         writable: true,
       });
     }
+
+    await verifyFallbackChain();
   };
+
+async function verifyFallbackChain(): Promise<void> {
+  const projectRoot = TestProject.tmpdir("ttsc-project-input-project-");
+  const externalRoot = TestProject.tmpdir("ttsc-project-input-fallback-");
+  const firstFallback = path.join(externalRoot, "a");
+  const requested = path.join(firstFallback, "b");
+  const input = path.join(requested, "missing", "schema.json");
+  fs.mkdirSync(requested, { recursive: true });
+
+  const originalWatch = fs.watch;
+  const attempts: string[] = [];
+  const errors: string[] = [];
+  let activeRoots: readonly string[] = [];
+  Object.defineProperty(fs, "watch", {
+    configurable: true,
+    value: ((location: fs.PathLike) => {
+      const resolved = path.resolve(location.toString());
+      attempts.push(resolved);
+      if (attempts.length <= 2) {
+        throw new Error(`reject ${resolved}`);
+      }
+      return new FakeWatcher() as fs.FSWatcher;
+    }) as typeof fs.watch,
+    writable: true,
+  });
+
+  const topology = new WatchTopology(
+    {
+      cwd: projectRoot,
+      files: [],
+      projectRoot,
+      tsconfig: path.join(projectRoot, "tsconfig.json"),
+    },
+    {
+      onError: (location) => errors.push(path.resolve(location)),
+      onInputChange: () => {
+        throw new Error("watch setup must not report an input change");
+      },
+      onProjectInputWatchRoots: (roots) => {
+        activeRoots = [...roots];
+      },
+      onTopologyChange: () => {
+        throw new Error("watch setup must not report a topology change");
+      },
+    },
+  );
+  try {
+    topology.setProjectInputs({
+      files: [input],
+      globs: [],
+      root: projectRoot,
+    });
+    await Promise.resolve();
+
+    assert.deepEqual(
+      attempts.map(realpath),
+      [requested, firstFallback, externalRoot].map(realpath),
+      "recovery did not exhaust the finite safe-ancestor chain",
+    );
+    assert.deepEqual(
+      errors.map(realpath),
+      [requested, firstFallback].map(realpath),
+    );
+    assert.equal(activeRoots.length, 1);
+    assert.equal(realpath(activeRoots[0]!), realpath(externalRoot));
+  } finally {
+    topology.close();
+    Object.defineProperty(fs, "watch", {
+      configurable: true,
+      value: originalWatch,
+      writable: true,
+    });
+  }
+}
 
 class FakeWatcher {
   public close(): void {}

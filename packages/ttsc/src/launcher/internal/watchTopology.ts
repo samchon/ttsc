@@ -636,7 +636,14 @@ export class WatchTopology {
     this.projectInputRecoveryScheduled = true;
     queueMicrotask(() => {
       try {
-        this.syncProjectInputWatchers();
+        let previousRejectionCount = -1;
+        while (
+          this.closed === false &&
+          previousRejectionCount !== this.projectInputRejectedWatchRoots.size
+        ) {
+          previousRejectionCount = this.projectInputRejectedWatchRoots.size;
+          this.syncProjectInputWatchers();
+        }
       } finally {
         this.projectInputRejectedWatchRoots.clear();
         this.projectInputRecoveryScheduled = false;
