@@ -77,24 +77,9 @@ test("an unclaimed owner fails, and a stale claim fails too", () => {
 
 test("generated test-shaped files are excluded until Git tracks them", (t) => {
   const vendorRoot = path.join(root, "packages", "wasm", "shim-vendor");
-  const createdVendorRoot = !fs.existsSync(vendorRoot);
   fs.mkdirSync(vendorRoot, { recursive: true });
   const fixtureDirectory = fs.mkdtempSync(path.join(vendorRoot, "test-owner-"));
-  t.after(() => {
-    fs.rmSync(fixtureDirectory, { force: true, recursive: true });
-    if (!createdVendorRoot) return;
-    try {
-      fs.rmdirSync(vendorRoot);
-    } catch (error) {
-      if (
-        error instanceof Error &&
-        "code" in error &&
-        (error.code === "ENOENT" || error.code === "ENOTEMPTY")
-      )
-        return;
-      throw error;
-    }
-  });
+  t.after(() => fs.rmSync(fixtureDirectory, { force: true, recursive: true }));
   const fixture = path.join(fixtureDirectory, "generated_owner_test.go");
   fs.writeFileSync(fixture, "package generated\n");
   const generatedGo = path.relative(root, fixture).split(path.sep).join("/");
