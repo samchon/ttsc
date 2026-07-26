@@ -127,10 +127,30 @@ export function runView(argv: readonly string[]): number | void {
     }
   });
 
+  let endpoint = `127.0.0.1:${opts.port}`;
+  let failed = false;
+  server.on("error", (error: NodeJS.ErrnoException) => {
+    if (failed) return;
+    failed = true;
+    const detail =
+      typeof error.code === "string"
+        ? `${error.code}: ${error.message}`
+        : error.message;
+    process.stderr.write(
+      `@ttsc/graph: could not serve the 3D viewer at ${endpoint} (${detail}).\n`,
+    );
+    process.exitCode = 1;
+    if (server.listening) {
+      server.close();
+      server.closeAllConnections?.();
+    }
+  });
   server.listen(opts.port, "127.0.0.1", () => {
+    if (failed) return;
     const address = server.address();
     const port =
       typeof address === "object" && address ? address.port : opts.port;
+    endpoint = `127.0.0.1:${port}`;
     const url = `http://127.0.0.1:${port}/`;
     const counts = payload.counts;
     process.stderr.write(
