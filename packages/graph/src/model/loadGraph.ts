@@ -96,7 +96,7 @@ export function loadGraph(
  * on disk may be from any build — so the version is the first question to ask
  * of it.
  */
-function parseDump(json: string): ITtscGraphDump {
+export function parseDump(json: string): ITtscGraphDump {
   let value: unknown;
   try {
     value = JSON.parse(json);
@@ -121,5 +121,14 @@ function parseDump(json: string): ITtscGraphDump {
         "project, or from TTSC_GRAPH_BINARY).",
     );
   }
-  return typia.assert<ITtscGraphDump>(value);
+  try {
+    return typia.assert<ITtscGraphDump>(value);
+  } catch (error) {
+    throw new Error(
+      `@ttsc/graph: dump output does not match schema v${String(
+        DUMP_SCHEMA_VERSION,
+      )}: ${error instanceof Error ? error.message : String(error)}`,
+      { cause: error },
+    );
+  }
 }

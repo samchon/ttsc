@@ -9,8 +9,9 @@ import {
   positiveIntegerOption,
   projectOptions,
 } from "./launcherArgs";
+import { parseDump } from "./model/loadGraph";
 import { ensureExecutable } from "./nativeExecutable";
-import { type RawDump, reduce } from "./reduce";
+import { reduce } from "./reduce";
 import { resolveGraphBinary } from "./resolveGraphBinary";
 
 interface ViewOptions {
@@ -83,12 +84,15 @@ export function runView(argv: readonly string[]): number | void {
     return dump.status ?? 1;
   }
 
-  let raw: RawDump;
+  let raw: ReturnType<typeof parseDump>;
   try {
-    raw = JSON.parse(dump.stdout) as RawDump;
-  } catch (err) {
+    raw = parseDump(dump.stdout);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
     process.stderr.write(
-      `@ttsc/graph: could not parse the graph dump: ${String(err)}\n`,
+      message.startsWith("@ttsc/graph:")
+        ? `${message}\n`
+        : `@ttsc/graph: could not validate the graph dump: ${message}\n`,
     );
     return 1;
   }
