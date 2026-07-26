@@ -38,8 +38,8 @@ func TestLSPProxyClearsCleanProjectPublication(t *testing.T) {
   _ = h.recvEditor()
 
   h.sendEditor([]byte(fmt.Sprintf(`{"jsonrpc":"2.0","method":"textDocument/didSave","params":{"textDocument":{"uri":%q,"version":2}}}`, uri)))
-  _ = h.recvUpstream()
   body := h.recvEditor()
+  _ = h.recvUpstream()
   var decoded struct {
     Params struct {
       URI         string            `json:"uri"`

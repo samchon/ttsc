@@ -44,9 +44,12 @@ func TestLSPProxyClearsOldProjectURIBeforeNewSelection(t *testing.T) {
   _ = h.recvEditor()
 
   h.sendEditor([]byte(fmt.Sprintf(`{"jsonrpc":"2.0","method":"textDocument/didSave","params":{"textDocument":{"uri":%q,"version":2}}}`, uri)))
-  _ = h.recvUpstream()
+  // Upstream forwarding and asynchronous editor publication are independent
+  // streams. Drain the ordered editor pair first instead of imposing an
+  // unsupported cross-stream ordering on the proxy.
   oldClear := decodeProjectPublishForSelectionTest(t, h.recvEditor())
   replacement := decodeProjectPublishForSelectionTest(t, h.recvEditor())
+  _ = h.recvUpstream()
   if oldClear.URI != oldURI || len(oldClear.Diagnostics) != 0 {
     t.Fatalf("old config should be cleared first: %#v", oldClear)
   }

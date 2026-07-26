@@ -85,6 +85,9 @@ export const test_watch_topology_keeps_compiler_inputs_when_outdir_contains_proj
         }),
         "utf8",
       );
+      const projectInput = test.projectInput?.(root);
+      if (projectInput !== undefined)
+        fs.writeFileSync(projectInput, '{"external":false}\n', "utf8");
 
       const changes: WatchInputChange[] = [];
       const topology = new WatchTopology(
@@ -107,10 +110,14 @@ export const test_watch_topology_keeps_compiler_inputs_when_outdir_contains_proj
         topology.refresh(false);
         fs.writeFileSync(source, "export const value = 2;\n", "utf8");
         await waitForCompilerChange(changes, 0, test.name);
+        const previous = await waitForStableCount(
+          () => compilerChangeCount(changes),
+          test.name,
+          "compiler watch lane",
+        );
 
         const output = test.output(container, root);
         fs.mkdirSync(path.dirname(output), { recursive: true });
-        const previous = compilerChangeCount(changes);
         fs.writeFileSync(output, "export const value = 2;\n", "utf8");
         await delay();
         assert.equal(
@@ -119,15 +126,17 @@ export const test_watch_topology_keeps_compiler_inputs_when_outdir_contains_proj
           `${test.name}: emitted JavaScript retriggered the compiler lane`,
         );
 
-        if (test.projectInput !== undefined) {
-          const projectInput = test.projectInput(root);
-          fs.writeFileSync(projectInput, '{"external":false}\n', "utf8");
+        if (projectInput !== undefined) {
           topology.setProjectInputs({
             root,
             files: [projectInput],
             globs: [],
           });
-          const projectChanges = projectChangeCount(changes);
+          const projectChanges = await waitForStableCount(
+            () => projectChangeCount(changes),
+            test.name,
+            "project watch lane",
+          );
           fs.writeFileSync(projectInput, '{"external":true}\n', "utf8");
           await waitForProjectChange(changes, projectChanges, test.name);
         }
@@ -173,6 +182,27 @@ async function waitForProjectChange(
 
 function projectChangeCount(changes: readonly WatchInputChange[]): number {
   return changes.filter((change) => change.kind === "project").length;
+}
+
+async function waitForStableCount(
+  count: () => number,
+  label: string,
+  lane: string,
+): Promise<number> {
+  const deadline = Date.now() + WATCH_EVENT_DEADLINE_MS;
+  let current = count();
+  let stableSince = Date.now();
+  while (Date.now() - stableSince < 750) {
+    if (Date.now() >= deadline)
+      assert.fail(`${label}: ${lane} did not reach a quiet boundary`);
+    await delay(25);
+    const next = count();
+    if (next !== current) {
+      current = next;
+      stableSince = Date.now();
+    }
+  }
+  return current;
 }
 
 function delay(milliseconds = 500): Promise<void> {
