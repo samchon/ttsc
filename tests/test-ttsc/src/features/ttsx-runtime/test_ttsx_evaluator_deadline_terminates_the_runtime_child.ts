@@ -23,6 +23,7 @@ export const test_ttsx_evaluator_deadline_terminates_the_runtime_child =
         "declare const process: {",
         "  env: Record<string, string | undefined>;",
         "  exit(code: number): never;",
+        '  on(signal: "SIGTERM", listener: () => void): void;',
         "};",
         'declare function require(name: "node:fs"): {',
         "  writeFileSync(path: string, data: string): void;",
@@ -32,6 +33,7 @@ export const test_ttsx_evaluator_deadline_terminates_the_runtime_child =
       ].join("\n"),
       "src/main.ts": [
         'const fs = require("node:fs");',
+        'process.on("SIGTERM", () => {});',
         'fs.writeFileSync(String(process.env.TTSC_TEST_READY), "ready");',
         "setTimeout(",
         "  () =>",
