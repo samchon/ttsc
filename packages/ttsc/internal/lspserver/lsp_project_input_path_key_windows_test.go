@@ -331,6 +331,54 @@ func TestProjectInputPathKeyRespectsDirectoryCaseSemantics(t *testing.T) {
       t.Fatal("external junction creation did not select plugin reload")
     }
   })
+
+  t.Run("junction reload directory retains entry identity", func(t *testing.T) {
+    parent := t.TempDir()
+    firstTarget := t.TempDir()
+    secondTarget := t.TempDir()
+    junction := filepath.Join(parent, "selection")
+    createProjectInputJunction(t, junction, firstTarget)
+    snapshot, err := normalizeLSPProjectInputSnapshot(
+      LSPProjectInputSnapshot{
+        Root:              parent,
+        ReloadDirectories: []string{junction},
+      },
+      parent,
+    )
+    if err != nil {
+      t.Fatalf("normalize junction reload directory: %v", err)
+    }
+    if len(snapshot.ReloadDirectories) != 2 {
+      t.Fatalf(
+        "junction reload identities = %#v, want physical and entry spellings",
+        snapshot.ReloadDirectories,
+      )
+    }
+    junctionSource := &NativePluginSource{
+      plugins: []NativeLSPPluginEntry{first},
+    }
+    junctionSource.storeProjectInputs(first, 1, snapshot)
+
+    if err := os.Remove(junction); err != nil {
+      t.Fatal(err)
+    }
+    deleted := fileChangeTypeDeleted
+    if !junctionSource.ProjectInputReloadMatchesChange(
+      testFileURI(junction),
+      &deleted,
+    ) {
+      t.Fatal("junction reload directory deletion was not selected")
+    }
+
+    createProjectInputJunction(t, junction, secondTarget)
+    changed := fileChangeTypeChanged
+    if !junctionSource.ProjectInputReloadMatchesChange(
+      testFileURI(junction),
+      &changed,
+    ) {
+      t.Fatal("junction reload directory retarget was not selected")
+    }
+  })
 }
 
 func enableProjectInputCaseSensitivity(t *testing.T, directory string) {

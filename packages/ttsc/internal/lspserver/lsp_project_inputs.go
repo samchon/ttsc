@@ -96,6 +96,10 @@ func (s *NativePluginSource) ProjectInputReloadMatchesURI(uri string) bool {
     }
   }
   for _, directory := range s.projectInputs.ReloadDirectories {
+    if projectInputPathKey(realProjectInputEntryPath(directory)) ==
+      candidateEntryKey {
+      return true
+    }
     if projectInputDirectoryContainsImmediate(directory, candidateEntry) {
       return true
     }
@@ -137,6 +141,10 @@ func (s *NativePluginSource) ProjectInputReloadMatchesChange(
   }
   matched := false
   for _, directory := range snapshot.ReloadDirectories {
+    if projectInputPathKey(realProjectInputEntryPath(directory)) ==
+      candidateEntryKey {
+      return true
+    }
     if !projectInputDirectoryContainsImmediate(directory, candidateEntry) {
       continue
     }
@@ -436,8 +444,12 @@ func normalizeLSPProjectInputSnapshot(
         directory,
       )
     }
-    normalized := filepath.ToSlash(realProjectInputPath(directory))
-    reloadDirectories[projectInputPathKey(normalized)] = normalized
+    for _, normalized := range []string{
+      filepath.ToSlash(realProjectInputPath(directory)),
+      filepath.ToSlash(realProjectInputEntryPath(directory)),
+    } {
+      reloadDirectories[projectInputPathKey(normalized)] = normalized
+    }
   }
   globs := map[string]string{}
   for _, pattern := range snapshot.Globs {
