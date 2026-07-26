@@ -64,10 +64,9 @@ func (s *NativePluginSource) ProjectInputMatchesURI(uri string) bool {
   if !ok {
     return false
   }
-  candidate := projectInputPathKey(realProjectInputPath(location))
   s.projectInputsMu.RLock()
   defer s.projectInputsMu.RUnlock()
-  return projectInputSnapshotMatchesCandidate(s.projectInputs, candidate)
+  return projectInputSnapshotMatchesCandidate(s.projectInputs, location)
 }
 
 // ProjectInputReloadMatchesURI reports whether uri names an exact reload file,
@@ -183,7 +182,6 @@ func (s *NativePluginSource) ProjectInputOwnersForURI(uri string) []string {
   if !ok {
     return nil
   }
-  candidate := projectInputPathKey(realProjectInputPath(location))
   s.projectInputsMu.RLock()
   defer s.projectInputsMu.RUnlock()
   owners := []string{}
@@ -194,7 +192,7 @@ func (s *NativePluginSource) ProjectInputOwnersForURI(uri string) []string {
   ) {
     key := pluginKey(plugin, s.projectContextJSON)
     record, ok := s.pluginProjectInputs[key]
-    if !ok || !projectInputSnapshotMatchesCandidate(record.snapshot, candidate) {
+    if !ok || !projectInputSnapshotMatchesCandidate(record.snapshot, location) {
       continue
     }
     owners = append(owners, key)
@@ -202,32 +200,25 @@ func (s *NativePluginSource) ProjectInputOwnersForURI(uri string) []string {
   return owners
 }
 
-// projectInputSnapshotMatchesCandidate compares a declaration against a
-// candidate both sides of which have been resolved to one filesystem identity.
+// projectInputSnapshotMatchesCandidate compares each declaration and candidate
+// in one filesystem identity domain.
 //
-// The candidate arrives from an editor URI and is resolved physically, so a
-// declaration compared lexically can never match it wherever the two spellings
-// differ: a Windows short (8.3) component, which `%TEMP%` routinely carries, or
-// a symlinked ancestor such as macOS `/var`. Normalization already resolves
-// every lane, so this resolution is idempotent for any snapshot that arrived
-// through it; it is what makes a snapshot stored directly, as the unit cases
-// do, answer on the same terms as one the ingestion boundary normalized.
+// An editor URI may use a Windows short component or a symlinked ancestor such
+// as macOS `/var`. Exact files resolve both spellings physically. Glob matching
+// additionally retains the candidate path so Windows can apply the semantics
+// of the directory that owns each matched segment.
 func projectInputSnapshotMatchesCandidate(
   snapshot LSPProjectInputSnapshot,
   candidate string,
 ) bool {
+  candidateKey := projectInputPathKey(realProjectInputPath(candidate))
   for _, file := range snapshot.Files {
-    if projectInputPathKey(realProjectInputPath(file)) == candidate {
+    if projectInputPathKey(realProjectInputPath(file)) == candidateKey {
       return true
     }
   }
   for _, pattern := range snapshot.Globs {
-    // A pattern has no filesystem object of its own; realProjectInputPath
-    // resolves its longest existing prefix and rejoins the wildcards.
-    if matchProjectInputGlob(
-      strings.Split(projectInputPathKey(realProjectInputPath(pattern)), "/"),
-      strings.Split(candidate, "/"),
-    ) {
+    if projectInputGlobMatchesCandidate(pattern, candidate) {
       return true
     }
   }
@@ -665,21 +656,11 @@ func projectInputDirectoryContainsImmediate(
   // declared directory lexical would never match it under a Windows short
   // component or a symlinked ancestor.
   resolvedDirectory := realProjectInputPath(directory)
-  relative, err := filepath.Rel(
-    projectInputFilesystemPath(resolvedDirectory),
-    projectInputFilesystemPath(candidate),
+  relative, within := projectInputPathIdentityRelative(
+    resolvedDirectory,
+    candidate,
   )
-  if err != nil || filepath.IsAbs(relative) {
-    return false
-  }
-  relativeKey := projectInputPathKey(relative)
-  if relativeKey == "." {
-    return projectInputPathKey(resolvedDirectory) ==
-      projectInputPathKey(candidate)
-  }
-  return relativeKey != ".." &&
-    !strings.HasPrefix(relativeKey, "../") &&
-    !strings.Contains(relativeKey, "/")
+  return within && !strings.Contains(relative, "/")
 }
 
 func projectInputGlobExemptsReloadEntry(
@@ -707,16 +688,24 @@ func projectInputPathContains(
   directory string,
   candidate string,
 ) bool {
-  relative, err := filepath.Rel(
-    projectInputFilesystemPath(directory),
-    projectInputFilesystemPath(candidate),
-  )
-  if err != nil || filepath.IsAbs(relative) {
-    return false
+  _, within := projectInputPathIdentityRelative(directory, candidate)
+  return within
+}
+
+func projectInputPathIdentityRelative(
+  directory string,
+  candidate string,
+) (string, bool) {
+  root := strings.TrimRight(projectInputPathKey(directory), "/")
+  location := strings.TrimRight(projectInputPathKey(candidate), "/")
+  if root == location {
+    return "", true
   }
-  relativeKey := projectInputPathKey(relative)
-  return relativeKey == "." ||
-    (relativeKey != ".." && !strings.HasPrefix(relativeKey, "../"))
+  prefix := root + "/"
+  if !strings.HasPrefix(location, prefix) {
+    return "", false
+  }
+  return strings.TrimPrefix(location, prefix), true
 }
 
 func preserveProjectInputReloadFingerprints(
@@ -919,7 +908,11 @@ func projectInputFilesystemPath(location string) string {
   return normalized
 }
 
-func matchProjectInputGlob(pattern []string, candidate []string) bool {
+func matchProjectInputGlob(
+  pattern []string,
+  candidate []string,
+  candidateCaseSensitive []bool,
+) bool {
   type position struct {
     pattern   int
     candidate int
@@ -942,9 +935,13 @@ func matchProjectInputGlob(pattern []string, candidate []string) bool {
         (candidateIndex != len(candidate) &&
           visit(patternIndex, candidateIndex+1))
     case candidateIndex != len(candidate):
+      sensitive :=
+        candidateIndex >= len(candidateCaseSensitive) ||
+          candidateCaseSensitive[candidateIndex]
       matched = matchProjectInputGlobSegment(
         pattern[patternIndex],
         candidate[candidateIndex],
+        sensitive,
       ) && visit(patternIndex+1, candidateIndex+1)
     }
     memo[key] = matched
@@ -953,7 +950,15 @@ func matchProjectInputGlob(pattern []string, candidate []string) bool {
   return visit(0, 0)
 }
 
-func matchProjectInputGlobSegment(pattern string, candidate string) bool {
+func matchProjectInputGlobSegment(
+  pattern string,
+  candidate string,
+  caseSensitive bool,
+) bool {
+  if !caseSensitive {
+    pattern = strings.ToLower(pattern)
+    candidate = strings.ToLower(candidate)
+  }
   expression := []rune(pattern)
   input := []rune(candidate)
   matches := make([][]bool, len(expression)+1)
