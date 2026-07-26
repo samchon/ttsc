@@ -102,9 +102,9 @@
   },
   "devDependencies": {
     "@types/node": "catalog:utils",
-    "@types/vscode": "^1.94.0",
+    "@types/vscode": "^1.125.0",
     "@vscode/vsce": "^3.9.2",
-    "esbuild": "^0.25.12",
+    "esbuild": "^0.28.1",
     "rimraf": "catalog:utils",
     "ttsc": "workspace:*",
     "typescript": "catalog:typescript",

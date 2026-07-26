@@ -44,9 +44,9 @@
   "devDependencies": {
     "@trivago/prettier-plugin-sort-imports": "^6.0.2",
     "@types/node": "catalog:utils",
-    "bumpp": "^10.4.1",
-    "prettier": "^3.8.3",
-    "prettier-plugin-jsdoc": "^1.8.0",
+    "bumpp": "^12.0.0",
+    "prettier": "^3.9.6",
+    "prettier-plugin-jsdoc": "^1.8.1",
     "rimraf": "catalog:utils",
     "rollup": "catalog:rollup",
     "typescript": "catalog:typescript"

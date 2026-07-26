@@ -95,23 +95,23 @@
     "src"
   ],
   "dependencies": {
-    "unplugin": "^2.3.11"
+    "unplugin": "^3.3.0"
   },
   "peerDependencies": {
     "ttsc": "workspace:^"
   },
   "devDependencies": {
-    "@rollup/plugin-commonjs": "^29.0.2",
+    "@rollup/plugin-commonjs": "^29.0.3",
     "@rollup/plugin-node-resolve": "^16.0.3",
     "@types/node": "catalog:utils",
-    "esbuild": "^0.25.12",
+    "esbuild": "^0.28.1",
     "rimraf": "catalog:utils",
-    "rollup": "^4.60.3",
-    "tinyglobby": "^0.2.16",
+    "rollup": "^4.62.3",
+    "tinyglobby": "^0.2.17",
     "tslib": "^2.8.1",
     "ttsc": "workspace:*",
     "typescript": "catalog:typescript",
-    "vite": "^7.3.5"
+    "vite": "^8.1.5"
   },
   "repository": {
     "type": "git",

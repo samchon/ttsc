@@ -34,12 +34,12 @@
   "homepage": "https://ttsc.dev",
   "dependencies": {
     "lz-string": "^1.5.0",
-    "semver": "^7.8.1"
+    "semver": "^7.8.5"
   },
   "peerDependencies": {
     "@monaco-editor/react": "^4.6.0",
     "@ttsc/wasm": "workspace:^",
-    "monaco-editor": "^0.52.0",
+    "monaco-editor": "^0.56.0",
     "react": "^18.0.0",
     "react-dom": "^18.0.0",
     "tgrid": "^1.0.3"
@@ -49,10 +49,10 @@
     "@ttsc/wasm": "workspace:^",
     "@types/semver": "^7.7.1",
     "@types/node": "catalog:utils",
-    "@types/react": "^18.3.1",
-    "monaco-editor": "^0.52.0",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
+    "@types/react": "^19.2.17",
+    "monaco-editor": "^0.56.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
     "rimraf": "catalog:utils",
     "tgrid": "^1.0.3",
     "typescript": "catalog:typescript"
