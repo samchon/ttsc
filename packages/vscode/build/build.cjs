@@ -11,6 +11,12 @@ async function bundle() {
   await esbuild.build({
     entryPoints: [path.join(root, "src/extension.ts")],
     outfile: path.join(root, "lib/extension.js"),
+    alias: {
+      "ttsc/path-identity": path.resolve(
+        root,
+        "../ttsc/src/internal/projectInputPathIdentity.ts",
+      ),
+    },
     bundle: true,
     platform: "node",
     target: "node18",

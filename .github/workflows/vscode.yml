@@ -7,6 +7,7 @@ on:
     paths:
       - ".github/workflows/vscode.yml"
       - "packages/vscode/**"
+      - "packages/ttsc/src/internal/projectInputPathIdentity.ts"
       - "scripts/assert-vscode-package.cjs"
       - "scripts/smoke-vscode-install.cjs"
       - "tests/test-ttsc/src/features/ttscserver/test_vscode_install_script_uses_windows_command_shim.ts"
@@ -17,6 +18,7 @@ on:
     paths:
       - ".github/workflows/vscode.yml"
       - "packages/vscode/**"
+      - "packages/ttsc/src/internal/projectInputPathIdentity.ts"
       - "scripts/assert-vscode-package.cjs"
       - "scripts/smoke-vscode-install.cjs"
       - "tests/test-ttsc/src/features/ttscserver/test_vscode_install_script_uses_windows_command_shim.ts"
