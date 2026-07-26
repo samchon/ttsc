@@ -15,6 +15,11 @@ import (
 // TestProjectInputPathKeyRespectsDirectoryCaseSemantics verifies the Go host
 // keeps case-distinct Windows dependencies without splitting ordinary aliases.
 //
+// The original global case fold merged distinct files below an opted-in
+// case-sensitive directory, while preserving every spelling instead split
+// ordinary NTFS, UNC, and recreated-directory aliases. Identity must instead
+// follow the case semantics of the directory that owns each path segment.
+//
 //  1. Enable case sensitivity on a disposable directory and create two real
 //     dependencies whose paths differ only by case.
 //  2. Prove merged publication and owner matching retain both identities.
