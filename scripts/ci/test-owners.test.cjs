@@ -7,6 +7,8 @@
 // current ones.
 
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
 const { test } = require("node:test");
 
 const {
@@ -17,6 +19,8 @@ const {
   ownershipFailures,
   trackedFiles,
 } = require("./test-owners.cjs");
+
+const root = path.resolve(__dirname, "..", "..");
 
 test("every committed test owner is claimed by an executor", () => {
   assert.deepEqual(ownershipFailures(), []);
@@ -71,9 +75,29 @@ test("an unclaimed owner fails, and a stale claim fails too", () => {
   assert.equal(claimOf("node:scripts/does-not-exist.test.cjs"), undefined);
 });
 
-test("generated test-shaped files are excluded until Git tracks them", () => {
+test("generated test-shaped files are excluded until Git tracks them", (t) => {
+  const fixtureDirectory = path.join(
+    root,
+    "packages",
+    "wasm",
+    "shim-vendor",
+    `test-owner-${process.pid}`,
+  );
+  const fixture = path.join(fixtureDirectory, "generated_owner_test.go");
+  fs.mkdirSync(fixtureDirectory, { recursive: true });
+  fs.writeFileSync(fixture, "package generated\n");
+  t.after(() => fs.rmSync(fixtureDirectory, { force: true, recursive: true }));
+  const generatedGo = path.relative(root, fixture).split(path.sep).join("/");
+  const generatedGoOwner = `go:${path.posix.dirname(generatedGo)}`;
+  assert.equal(fs.existsSync(fixture), true, "ignored fixture was not created");
+  assert.equal(
+    discoverOwners().includes(generatedGoOwner),
+    false,
+    "an on-disk ignored Go suite became a committed test owner",
+  );
+
   const generated = [
-    "packages/wasm/shim-vendor/shim/ast/test/generated_owner_test.go",
+    generatedGo,
     "experimental/test-generated-owner/package.json",
     "scripts/ci/generated-owner.test.cjs",
   ];
@@ -84,7 +108,7 @@ test("generated test-shaped files are excluded until Git tracks them", () => {
   );
   const failures = ownershipFailures([...trackedFiles(), ...generated]);
   for (const owner of [
-    "go:packages/wasm/shim-vendor/shim/ast/test",
+    generatedGoOwner,
     "e2e:experimental/test-generated-owner",
     "node:scripts/ci/generated-owner.test.cjs",
   ])
@@ -92,6 +116,11 @@ test("generated test-shaped files are excluded until Git tracks them", () => {
       failures.some((failure) => failure.startsWith(`unclaimed: ${owner} `)),
       `tracked owner ${owner} did not enter the two-way invariant`,
     );
+});
+
+test("a top-level test-prefixed file is not an e2e package", () => {
+  assert.deepEqual(discoverOwners(["tests/test-notes.md"]), []);
+  assert.deepEqual(discoverOwners(["experimental/test-notes.md"]), []);
 });
 
 test("the lint corpus is claimed by rule, not by enumeration", () => {

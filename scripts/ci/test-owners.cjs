@@ -150,8 +150,12 @@ function discoverOwners(files = trackedFiles()) {
       owners.add(`go:${path.posix.dirname(file)}`);
   for (const dir of E2E_ROOTS)
     for (const file of files) {
-      const [root_, packageName] = file.split("/");
-      if (root_ === dir && packageName?.startsWith("test-"))
+      const [root_, packageName, child] = file.split("/");
+      if (
+        root_ === dir &&
+        packageName?.startsWith("test-") &&
+        child !== undefined
+      )
         owners.add(`e2e:${dir}/${packageName}`);
     }
   for (const file of files)
