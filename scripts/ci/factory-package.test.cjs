@@ -106,6 +106,24 @@ test("the factory publication entry points load from built artifacts", async () 
     );
     assertCrossCopyComments(commonjs, duplicate, "physical package split");
 
+    const hardenedConsumer = [
+      '"use strict";',
+      "Object.preventExtensions(globalThis);",
+      `const mod = require(${JSON.stringify(path.join(packageRoot, "lib", "index.js"))});`,
+      "const node = Object.freeze(mod.default.createIdentifier('hardened'));",
+      "mod.addSyntheticLeadingComment(node, mod.SyntaxKind.SingleLineCommentTrivia, ' retained ', true);",
+      "if (mod.getSyntheticLeadingComments(node)?.[0]?.text !== ' retained ') throw new Error('comment was not retained');",
+      "if (new mod.TsPrinter().print(node) !== '// retained\\nhardened') throw new Error('printer lost the comment');",
+    ].join("\n");
+    assertSucceeded(
+      childProcess.spawnSync(process.execPath, ["-e", hardenedConsumer], {
+        cwd: workspace,
+        encoding: "utf8",
+        windowsHide: true,
+      }),
+      "non-extensible global fallback",
+    );
+
     const esmConsumer = path.join(workspace, "consumer.mjs");
     fs.writeFileSync(
       esmConsumer,

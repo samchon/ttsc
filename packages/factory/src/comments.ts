@@ -80,20 +80,30 @@ const SYNTHETIC_COMMENT_STORES = Symbol.for(
   "@ttsc/factory.syntheticComments.v1",
 );
 
+const createCommentStores = (): SyntheticCommentStores => ({
+  leading: new WeakMap<object, SynthesizedComment[]>(),
+  trailing: new WeakMap<object, SynthesizedComment[]>(),
+});
+
+const localCommentStores = createCommentStores();
+
 const commentStores = (): SyntheticCommentStores => {
   const existing: unknown = Reflect.get(globalThis, SYNTHETIC_COMMENT_STORES);
   if (existing !== undefined) return existing as SyntheticCommentStores;
-  const created: SyntheticCommentStores = {
-    leading: new WeakMap<object, SynthesizedComment[]>(),
-    trailing: new WeakMap<object, SynthesizedComment[]>(),
-  };
-  Object.defineProperty(globalThis, SYNTHETIC_COMMENT_STORES, {
-    configurable: false,
-    enumerable: false,
-    value: created,
-    writable: false,
-  });
-  return created;
+  try {
+    Object.defineProperty(globalThis, SYNTHETIC_COMMENT_STORES, {
+      configurable: false,
+      enumerable: false,
+      value: localCommentStores,
+      writable: false,
+    });
+    return localCommentStores;
+  } catch {
+    // Hardened realms can prohibit new global properties. Preserve the
+    // historical single-module behaviour there instead of making package load
+    // fail; cross-copy sharing necessarily requires a realm-owned rendezvous.
+    return localCommentStores;
+  }
 };
 
 const { leading: leadingStore, trailing: trailingStore } = commentStores();

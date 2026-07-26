@@ -123,7 +123,7 @@ new TsPrinter().print(node);
 
 Companion helpers: `addSyntheticTrailingComment`, `get`/`setSyntheticLeadingComments`, `get`/`setSyntheticTrailingComments`.
 
-Synthetic comments are side-band data: they do not add properties to the node, so comments can be attached to frozen nodes. Compatible copies loaded in the same JavaScript realm share the versioned weak stores, including a CommonJS `require()` and an ES module `import()` of one installation or multiple installed copies. A copy from an older release that predates this registry cannot see comments written by a newer copy (or expose its private comments to one); upgrade every copy that exchanges nodes.
+Synthetic comments are side-band data: they do not add properties to the node, so comments can be attached to frozen nodes. Compatible copies loaded in the same JavaScript realm share the versioned weak stores, including a CommonJS `require()` and an ES module `import()` of one installation or multiple installed copies. If a hardened realm prevents adding the registry to its global object before the first copy loads, each module falls back to private weak stores: comments and frozen nodes still work within that copy, but copies cannot exchange comments. A copy from an older release that predates this registry likewise cannot see comments written by a newer copy (or expose its private comments to one); upgrade every copy that exchanges nodes.
 
 ## Coverage
 
