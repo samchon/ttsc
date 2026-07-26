@@ -6,11 +6,17 @@ updates:
     directory: "/"
     schedule:
       interval: "daily"
-    allow:
-      - dependency-name: "typescript"
+    groups:
+      typescript-go:
+        patterns:
+          - "typescript"
+      routine-dependencies:
+        patterns:
+          - "*"
+        exclude-patterns:
+          - "typescript"
     labels:
       - "dependencies"
-      - "typescript-go"
     commit-message:
-      prefix: "deps(tsgo)"
+      prefix: "deps"
     open-pull-requests-limit: 25

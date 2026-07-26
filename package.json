@@ -13,6 +13,7 @@
     "experimental:unplugin-perf": "pnpm --dir experimental/unplugin-perf start",
     "assert:project-layout": "node scripts/assert-project-layout.cjs",
     "assert:platform-packages": "node scripts/assert-platform-package.cjs --source",
+    "check:dependencies": "node scripts/ci/dependency-audit.cjs",
     "format": "pnpm run gen:flags && prettier --write \"**/*.ts\" \"**/*.md\" \"**/*.mdx\" && pnpm run format:go",
     "format:go": "git ls-files -z \"*.go\" | xargs -0 ./.vscode/gofmt-2spaces.sh -w",
     "gen:flags": "node --experimental-strip-types packages/ttsc/scripts/gen-flags.mts",

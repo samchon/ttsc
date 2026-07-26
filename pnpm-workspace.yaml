@@ -1,8 +1,11 @@
 packages:
-  - 'config'
-  - 'packages/*'
-  - 'tests/*'
-  - 'website'
+  - "config"
+  - "packages/*"
+  - "tests/*"
+  - "website"
+overrides:
+  "postcss@>=8.0.0 <8.5.18": 8.5.23
+  "sharp@<0.35.0": 0.35.0
 catalogs:
   typescript:
     typescript: ^7.0.2
@@ -10,17 +13,17 @@ catalogs:
     # compiler is retained under the `ts-legacy` alias for
     # `@rollup/plugin-typescript`, `typescript-eslint`, and the factory parity
     # oracle.
-    ts-legacy: 'npm:typescript@~6.0.3'
+    ts-legacy: "npm:typescript@~6.0.3"
   rollup:
-    '@rollup/plugin-commonjs': ^29.0.0
-    '@rollup/plugin-node-resolve': ^16.0.3
+    "@rollup/plugin-commonjs": ^29.0.0
+    "@rollup/plugin-node-resolve": ^16.0.3
     rollup: ^4.56.0
   samchon:
     typia: &typia 13.2.0
-    '@typia/interface': *typia
-    '@typia/mcp': *typia
-    '@typia/utils': *typia
+    "@typia/interface": *typia
+    "@typia/mcp": *typia
+    "@typia/utils": *typia
   utils:
-    '@nestia/e2e': ^12.0.0
-    '@types/node': ^25.3.0
+    "@nestia/e2e": ^12.0.0
+    "@types/node": ^25.3.0
     rimraf: ^6.1.2
