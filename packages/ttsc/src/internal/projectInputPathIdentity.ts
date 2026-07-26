@@ -265,16 +265,57 @@ function filesystemDirectoryIsCaseSensitive(
   if (platform !== "win32") return true;
   // Node does not expose the Windows per-directory flag. Prefer fsutil's
   // read-only answer, then conservatively preserve distinct declarations.
+  const queried = queryWindowsDirectoryCaseSensitivity(directory);
+  if (queried !== undefined) return queried;
+  return unprovenCaseSensitivity(platform);
+}
+
+/**
+ * Read the per-directory flag without depending on fsutil's display language.
+ *
+ * English output is cheap to recognize directly. Other Windows locales write
+ * console-code-page bytes that Node cannot reliably decode, so compare their
+ * message suffix with the same query for the volume root. The root carries the
+ * ordinary case-insensitive volume semantics and supplies the localized
+ * "disabled" suffix without translating it or modifying the target.
+ */
+function queryWindowsDirectoryCaseSensitivity(
+  directory: string,
+): boolean | undefined {
+  const result = queryWindowsDirectoryCaseSensitivityBytes(directory);
+  if (result === undefined) return undefined;
+  const text = result.toString("utf8");
+  if (/\bdisabled\b/iu.test(text)) return false;
+  if (/\benabled\b/iu.test(text)) return true;
+
+  const volumeRoot = path.win32.parse(directory).root;
+  const volume = queryWindowsDirectoryCaseSensitivityBytes(volumeRoot);
+  if (volume === undefined) return undefined;
+  const encodedRoot = Buffer.from(volumeRoot, "utf8");
+  const rootOffset = volume.indexOf(encodedRoot);
+  if (rootOffset === -1) return undefined;
+  const disabledSuffix = volume.subarray(rootOffset + encodedRoot.length);
+  if (disabledSuffix.length === 0 || result.length < disabledSuffix.length) {
+    return undefined;
+  }
+  return !result
+    .subarray(result.length - disabledSuffix.length)
+    .equals(disabledSuffix);
+}
+
+function queryWindowsDirectoryCaseSensitivityBytes(
+  directory: string,
+): Buffer | undefined {
   const result = childProcess.spawnSync(
     "fsutil.exe",
     ["file", "queryCaseSensitiveInfo", directory],
-    { encoding: "utf8", windowsHide: true },
+    { windowsHide: true },
   );
-  if (result.error === undefined && result.status === 0) {
-    if (/\bdisabled\b/iu.test(result.stdout)) return false;
-    if (/\benabled\b/iu.test(result.stdout)) return true;
-  }
-  return unprovenCaseSensitivity(platform);
+  return result.error === undefined &&
+    result.status === 0 &&
+    Buffer.isBuffer(result.stdout)
+    ? result.stdout
+    : undefined;
 }
 
 /**

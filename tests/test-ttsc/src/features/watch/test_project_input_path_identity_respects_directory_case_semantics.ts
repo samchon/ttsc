@@ -134,10 +134,11 @@ export const test_project_input_path_identity_respects_directory_case_semantics 
       },
     );
     assert.equal(enabled.status, 0, enabled.error?.message ?? enabled.stderr);
-    fs.writeFileSync(path.join(sensitiveRoot, "Marker.txt"), "", "utf8");
     const sensitiveActual = createProjectInputPathIdentityContext();
     assert.notEqual(
       sensitiveActual.resolve(path.join(sensitiveRoot, "Spec.md")).key,
       sensitiveActual.resolve(path.join(sensitiveRoot, "spec.md")).key,
+      "an empty sensitive directory must not depend on localized fsutil text",
     );
+    fs.writeFileSync(path.join(sensitiveRoot, "Marker.txt"), "", "utf8");
   };
