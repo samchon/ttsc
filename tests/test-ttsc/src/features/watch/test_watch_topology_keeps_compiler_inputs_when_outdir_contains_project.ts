@@ -108,6 +108,10 @@ export const test_watch_topology_keeps_compiler_inputs_when_outdir_contains_proj
       );
       try {
         topology.refresh(false);
+        // fs.watch has no ready event for the macOS FSEvents registration.
+        // Let the native backend arm before issuing the event this test must
+        // observe; a deadline cannot recover an edit sent before registration.
+        await delay(1000);
         fs.writeFileSync(source, "export const value = 2;\n", "utf8");
         await waitForCompilerChange(changes, 0, test.name);
         const previous = await waitForStableCount(
