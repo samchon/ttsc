@@ -17,13 +17,15 @@ import { WATCH_EVENT_DEADLINE_MS } from "../../internal/watch";
  *    while the compiler reports its overwrite diagnostic.
  * 2. Preserve `.mjs` and `.cjs` inputs whose paths collide only with an
  *    incorrectly changed extension.
- * 3. Suppress a `resolveJsonModule` copy emitted above the project root.
+ * 3. Suppress nested products emitted above the project without `rootDir`.
+ * 4. Treat removed `outFile` as a diagnostic, not an output-layout contract.
  */
 export const test_watch_topology_preserves_authoritative_inputs_and_json_outputs =
   async (): Promise<void> => {
     await verifyDeclarationInputCollision();
     await verifyJavaScriptExtensionInputs();
     await verifyJsonCopyIsProduct();
+    await verifyRemovedOutFileLayout();
   };
 
 async function verifyDeclarationInputCollision(): Promise<void> {
@@ -111,8 +113,10 @@ async function verifyJsonCopyIsProduct(): Promise<void> {
   const container = TestProject.tmpdir("ttsc-json-copy-product-");
   const root = path.join(container, "project");
   const source = path.join(root, "src", "main.ts");
-  const json = path.join(root, "data.json");
-  const output = path.join(container, "data.json");
+  const json = path.join(root, "src", "data.json");
+  const javascriptOutput = path.join(container, "src", "main.js");
+  const jsonOutput = path.join(container, "src", "data.json");
+  const nearbyNonProduct = path.join(container, "src", "external.json");
   fs.mkdirSync(path.dirname(source), { recursive: true });
   fs.writeFileSync(source, "export const value = 1;\n");
   fs.writeFileSync(json, '{"value":1}\n');
@@ -122,21 +126,77 @@ async function verifyJsonCopyIsProduct(): Promise<void> {
       outDir: "..",
       resolveJsonModule: true,
     },
-    files: ["src/main.ts", "data.json"],
+    files: ["src/main.ts", "src/data.json"],
   });
 
   const changes: WatchInputChange[] = [];
   const topology = createTopology(root, changes);
   try {
     topology.refresh(false);
-    topology.setProjectInputs({ root, files: [output], globs: [] });
-    fs.mkdirSync(path.dirname(output), { recursive: true });
-    fs.writeFileSync(output, '{"value":2}\n');
-    await delay();
-    assert.equal(
-      projectChangeCount(changes),
+    for (const output of [javascriptOutput, jsonOutput]) {
+      topology.setProjectInputs({ root, files: [output], globs: [] });
+      fs.mkdirSync(path.dirname(output), { recursive: true });
+      fs.writeFileSync(output, "compiler product\n");
+      await expectProjectQuiet(
+        changes,
+        `${path.basename(output)} retriggered the project-input lane`,
+      );
+    }
+
+    topology.setProjectInputs({
+      root,
+      files: [nearbyNonProduct],
+      globs: [],
+    });
+    const previous = projectChangeCount(changes);
+    fs.writeFileSync(nearbyNonProduct, "external data\n");
+    await waitForProjectChange(
+      changes,
+      previous,
+      "nearby external data was classified as a product",
+    );
+  } finally {
+    topology.close();
+  }
+}
+
+async function verifyRemovedOutFileLayout(): Promise<void> {
+  const root = TestProject.tmpdir("ttsc-removed-outfile-layout-");
+  const source = path.join(root, "src", "main.ts");
+  const configuredBundle = path.join(root, "dist", "bundle.js");
+  const actualOutput = path.join(root, "src", "main.js");
+  fs.mkdirSync(path.dirname(source), { recursive: true });
+  fs.writeFileSync(source, "export const value = 1;\n");
+  writeConfig(root, {
+    compilerOptions: {
+      module: "preserve",
+      outFile: "dist/bundle.js",
+    },
+    files: ["src/main.ts"],
+  });
+
+  const changes: WatchInputChange[] = [];
+  const topology = createTopology(root, changes);
+  try {
+    topology.refresh(false);
+    topology.setProjectInputs({
+      root,
+      files: [configuredBundle],
+      globs: [],
+    });
+    fs.mkdirSync(path.dirname(configuredBundle), { recursive: true });
+    fs.writeFileSync(configuredBundle, "external bundle\n");
+    await waitForProjectChange(
+      changes,
       0,
-      "copied JSON product retriggered the project-input lane",
+      "removed outFile was still classified as a product",
+    );
+
+    topology.setProjectInputs({ root, files: [actualOutput], globs: [] });
+    fs.writeFileSync(actualOutput, "export const value = 1;\n");
+    await expectProjectQuiet(
+      changes,
+      "actual per-source output retriggered the project-input lane",
     );
   } finally {
     topology.close();
@@ -188,12 +248,35 @@ async function waitForCompilerChange(
   }
 }
 
+async function waitForProjectChange(
+  changes: readonly WatchInputChange[],
+  previous: number,
+  label: string,
+): Promise<void> {
+  const deadline = Date.now() + WATCH_EVENT_DEADLINE_MS;
+  while (projectChangeCount(changes) <= previous) {
+    if (Date.now() >= deadline) {
+      assert.fail(label);
+    }
+    await delay(25);
+  }
+}
+
 function compilerChangeCount(changes: readonly WatchInputChange[]): number {
   return changes.filter((change) => change.kind === "compiler").length;
 }
 
 function projectChangeCount(changes: readonly WatchInputChange[]): number {
   return changes.filter((change) => change.kind === "project").length;
+}
+
+async function expectProjectQuiet(
+  changes: readonly WatchInputChange[],
+  message: string,
+): Promise<void> {
+  const previous = projectChangeCount(changes);
+  await delay();
+  assert.equal(projectChangeCount(changes), previous, message);
 }
 
 function delay(milliseconds = 500): Promise<void> {

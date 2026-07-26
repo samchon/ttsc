@@ -1271,17 +1271,6 @@ function resolveCompilerOutputs(
   if (emit.declaration && emit.declarationDir !== undefined) {
     directories.add(emit.declarationDir);
   }
-  if (emit.outFile !== undefined) {
-    if (emit.javascript) {
-      files.add(emit.outFile);
-      if (emit.sourceMap) files.add(`${emit.outFile}.map`);
-    }
-    if (emit.declaration) {
-      const declaration = replaceOutputExtension(emit.outFile, ".d.ts");
-      files.add(declaration);
-      if (emit.declarationMap) files.add(`${declaration}.map`);
-    }
-  }
   if (emit.incremental) {
     files.add(defaultTsBuildInfoFile(project, emit));
   }
@@ -1298,12 +1287,11 @@ function inferPerSourceCompilerOutputs(
 ): string[] {
   const emit = effectiveCompilerEmit(project, options);
   const outputs = new Set<string>();
-  const sourceRoot =
-    emit.rootDir ??
-    (emit.composite
-      ? project.root
-      : (commonCompilerSourceRoot(inputs, emit.resolveJsonModule) ??
-        project.root));
+  // TypeScript-Go 7 requires an explicit rootDir when output layout would
+  // otherwise need inference. While reporting TS5011 it still emits relative
+  // to the config directory, so the watch model must use that same recovery
+  // layout rather than the legacy common-source-directory rule.
+  const sourceRoot = emit.rootDir ?? project.root;
   for (const input of inputs) {
     const extension = path.extname(input).toLowerCase();
     if (/\.d\.(?:ts|mts|cts)$/i.test(input)) continue;
@@ -1317,8 +1305,7 @@ function inferPerSourceCompilerOutputs(
       if (
         emit.javascript &&
         emit.resolveJsonModule &&
-        emit.outDir !== undefined &&
-        emit.outFile === undefined
+        emit.outDir !== undefined
       ) {
         const jsonStem = mappedStem(emit.outDir);
         if (jsonStem !== undefined) outputs.add(`${jsonStem}.json`);
@@ -1328,7 +1315,6 @@ function inferPerSourceCompilerOutputs(
     if (!isCompilerEmittableSourceExtension(extension)) continue;
     if (
       emit.javascript &&
-      emit.outFile === undefined &&
       (emit.outDir !== undefined ||
         !isJavaScriptSourceExtension(extension) ||
         (extension === ".jsx" && emit.jsx !== "preserve"))
@@ -1349,7 +1335,7 @@ function inferPerSourceCompilerOutputs(
         if (emit.sourceMap) outputs.add(`${javascript}.map`);
       }
     }
-    if (emit.declaration && emit.outFile === undefined) {
+    if (emit.declaration) {
       const declarationExtension =
         extension === ".mts" || extension === ".mjs"
           ? ".d.mts"
@@ -1365,33 +1351,6 @@ function inferPerSourceCompilerOutputs(
     }
   }
   return [...outputs];
-}
-
-function commonCompilerSourceRoot(
-  inputs: readonly string[],
-  resolveJsonModule: boolean,
-): string | undefined {
-  const directories = inputs
-    .filter((input) => {
-      const extension = path.extname(input).toLowerCase();
-      return (
-        (isCompilerEmittableSourceExtension(extension) ||
-          (resolveJsonModule && extension === ".json")) &&
-        !/\.d\.(?:ts|mts|cts)$/i.test(input)
-      );
-    })
-    .map((input) => path.dirname(input));
-  let common = directories[0];
-  if (common === undefined) return undefined;
-  while (true) {
-    const current = common;
-    if (directories.every((directory) => isPathWithin(current, directory))) {
-      return current;
-    }
-    const parent = path.dirname(common);
-    if (parent === common) return undefined;
-    common = parent;
-  }
 }
 
 function isCompilerEmittableSourceExtension(extension: string): boolean {
@@ -1412,7 +1371,6 @@ function isJavaScriptSourceExtension(extension: string): boolean {
 }
 
 type EffectiveCompilerEmit = {
-  composite: boolean;
   declaration: boolean;
   declarationDir?: string;
   declarationMap: boolean;
@@ -1420,7 +1378,6 @@ type EffectiveCompilerEmit = {
   javascript: boolean;
   jsx?: unknown;
   outDir?: string;
-  outFile?: string;
   resolveJsonModule: boolean;
   rootDir?: string;
   sourceMap: boolean;
@@ -1475,7 +1432,6 @@ function effectiveCompilerEmit(
     passthrough,
     "--declarationDir",
   );
-  const cliOutFile = passthroughPathOption(passthrough, "--outFile");
   const cliRootDir = passthroughPathOption(passthrough, "--rootDir");
   const cliTsBuildInfoFile = passthroughPathOption(
     passthrough,
@@ -1484,7 +1440,6 @@ function effectiveCompilerEmit(
   const jsx =
     passthroughStringOption(passthrough, "--jsx") ?? compilerOptions.jsx;
   return {
-    composite,
     declaration,
     declarationDir:
       cliDeclarationDir === null
@@ -1507,14 +1462,6 @@ function effectiveCompilerEmit(
             : typeof compilerOptions.outDir === "string"
               ? path.resolve(compilerOptions.outDir)
               : undefined,
-    outFile:
-      cliOutFile === null
-        ? undefined
-        : cliOutFile !== undefined
-          ? path.resolve(options.cwd, cliOutFile)
-          : typeof compilerOptions.outFile === "string"
-            ? path.resolve(compilerOptions.outFile)
-            : undefined,
     resolveJsonModule:
       passthroughBooleanOption(passthrough, "--resolveJsonModule") ??
       compilerOptions.resolveJsonModule === true,

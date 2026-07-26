@@ -365,7 +365,8 @@ export const FLAG_SCHEMA: readonly FlagSpec[] = [
     subcommands: ["ttsc", "ttsx", "build", "check", "fix", "format"],
     consumedBy: ["tsgo"],
     forwardTo: "tsgo",
-    description: "Bundle emitted JavaScript and declarations into one file.",
+    description:
+      "Forward the removed legacy option for TypeScript-Go's diagnostic.",
   },
   {
     name: "--rootDir",
