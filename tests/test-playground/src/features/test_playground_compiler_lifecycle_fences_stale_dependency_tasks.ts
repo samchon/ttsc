@@ -5,6 +5,10 @@ import { PlaygroundCompilerLifecycle } from "../../../../packages/playground/lib
 /**
  * Verifies Worker generation invalidation fences active and queued mutations.
  *
+ * Cancelling an install RPC cannot undo MemFS writes that already completed. If
+ * the matching dependency metadata survives, the next source can then skip the
+ * reinstall needed by its empty or stale Worker.
+ *
  * 1. A terminal boot failure fences active and queued dependency tasks.
  * 2. A source edit during a Worker reset clears that Worker's metadata.
  * 3. A source edit during an install RPC resets every mutated cache, after which
