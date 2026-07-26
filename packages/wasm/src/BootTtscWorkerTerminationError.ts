@@ -7,15 +7,17 @@
  * until the caller terminates the Worker.
  */
 export class BootTtscWorkerTerminationError extends Error {
+  public static readonly CODE = "TTSC_WASM_WORKER_TERMINATION_REQUIRED";
+
   public readonly apiName: string;
-  public readonly code = "TTSC_WASM_WORKER_TERMINATION_REQUIRED";
+  public readonly code = BootTtscWorkerTerminationError.CODE;
   public override readonly cause: unknown;
 
   public constructor(apiName: string, cause: unknown) {
     const causeMessage =
       cause instanceof Error ? cause.message : String(cause ?? "boot failed");
     super(
-      `${causeMessage} bootTtsc: the ${apiName} Go runtime already started; terminate and replace this Worker before retrying.`,
+      `[${BootTtscWorkerTerminationError.CODE}] ${causeMessage} bootTtsc: the ${apiName} Go runtime already started; terminate and replace this Worker before retrying.`,
     );
     this.name = "BootTtscWorkerTerminationError";
     this.apiName = apiName;

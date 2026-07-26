@@ -6,6 +6,7 @@ import {
 } from "lz-string";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import { normalizeError } from "../compiler/normalizeError";
 import { BUILT_IN_PLAYGROUND_PACKAGES } from "../npm/BUILT_IN_PLAYGROUND_PACKAGES";
 import { collectExternalPackageNames } from "../npm/collectExternalPackageNames";
 import { installPlaygroundDependencies } from "../npm/installPlaygroundDependencies";
@@ -26,6 +27,7 @@ import { ResultViewer } from "./ResultViewer";
 import { SourceEditor } from "./SourceEditor";
 import { createCompilerClient } from "./createCompilerClient";
 import { PlaygroundExecutionLifecycle } from "./internal/PlaygroundExecutionLifecycle";
+import { recoverTerminalCompilerWorker } from "./internal/recoverTerminalCompilerWorker";
 
 const DEFAULT_OPTIONS: ITransformOptions = {
   typia: true,
@@ -119,6 +121,38 @@ export function PlaygroundShell({
   const mergedExtraLibs = useMemo(
     () => ({ ...staticEditorLibs, ...editorExtraLibs }),
     [staticEditorLibs, editorExtraLibs],
+  );
+
+  const recoverTerminalWorker = useCallback(
+    (error: unknown): Promise<boolean> =>
+      recoverTerminalCompilerWorker(error, {
+        invalidate: () => {
+          retryEpoch.current++;
+          compileEpoch.current++;
+          executionLifecycle.current.invalidate(
+            "compiler Worker replacement required",
+          );
+          dependencyAbort.current?.abort(
+            createAbortError("compiler Worker replacement required"),
+          );
+          installedDependencies.current = new Map();
+          dependencyRoots.current = new Set();
+          runtimeDependencyFiles.current = {};
+          setEditorExtraLibs({});
+          setDependencyProgress(null);
+          setDependencyPackageNames([]);
+          setRunning(false);
+          setExecuting(false);
+          setBundleError(null);
+          setBootPhase("booting");
+        },
+        reset: client.reset,
+        fail: (terminalError) => {
+          setBootError(terminalError);
+          setBootPhase("failed");
+        },
+      }),
+    [client],
   );
 
   const updateSource = useCallback((next: string) => {
@@ -320,10 +354,11 @@ export function PlaygroundShell({
         );
         if (compileEpoch.current !== epoch) return;
         if (dependencyError) {
+          if (await recoverTerminalWorker(dependencyError)) return;
           setResult({
             type: "error",
             target: "javascript",
-            value: normalizeClientError(dependencyError),
+            value: normalizeError(dependencyError),
           });
           // Keep prior lintDiagnostics intact — a dependency-install blip
           // shouldn't wipe the user's most recent successful lint output.
@@ -335,6 +370,8 @@ export function PlaygroundShell({
           options: opts,
         });
         if (compileEpoch.current !== epoch) return;
+        if (next.type === "error" && (await recoverTerminalWorker(next.value)))
+          return;
         setResult(next);
         if (opts.lint !== false) {
           const lint = await service.lint({ source: input, options: opts });
@@ -345,6 +382,7 @@ export function PlaygroundShell({
         }
       } catch (err) {
         if (compileEpoch.current !== epoch) return;
+        if (await recoverTerminalWorker(err)) return;
         // Surface the error in the diagnostics pane via an error result —
         // a transient compile/lint/install rejection (tgrid timeout,
         // message-channel disconnect) must NOT tear the playground into
@@ -353,7 +391,7 @@ export function PlaygroundShell({
         setResult({
           type: "error",
           target: "javascript",
-          value: normalizeClientError(err),
+          value: normalizeError(err),
         });
         // Leave lintDiagnostics alone — clearing them on a transient
         // compile blip would wipe the user's last good lint output.
@@ -366,7 +404,11 @@ export function PlaygroundShell({
         if (compileEpoch.current === epoch) setRunning(false);
       }
     },
-    [createCompilerService, installDependenciesForSource],
+    [
+      createCompilerService,
+      installDependenciesForSource,
+      recoverTerminalWorker,
+    ],
   );
 
   useEffect(() => {
@@ -484,6 +526,7 @@ export function PlaygroundShell({
       );
       if (!attempt.isCurrent()) return;
       if (dependencyError) {
+        if (await recoverTerminalWorker(dependencyError)) return;
         push("error", [dependencyError]);
         return;
       }
@@ -494,6 +537,7 @@ export function PlaygroundShell({
       });
       if (!attempt.isCurrent()) return;
       if (compiled.type === "error") {
+        if (await recoverTerminalWorker(compiled.value)) return;
         const message =
           typeof compiled.value === "string"
             ? compiled.value
@@ -524,6 +568,7 @@ export function PlaygroundShell({
       }
     } catch (error) {
       if (!attempt.isCurrent()) return;
+      if (await recoverTerminalWorker(error)) return;
       push("error", [error]);
     } finally {
       if (attempt.finish()) setExecuting(false);
@@ -538,6 +583,7 @@ export function PlaygroundShell({
     executeBundle,
     installDependenciesForSource,
     options,
+    recoverTerminalWorker,
   ]);
 
   const allDiagnostics = useMemo(() => {
@@ -826,13 +872,6 @@ function describeUnknownError(error: unknown): string {
   } catch {
     return String(error);
   }
-}
-
-function normalizeClientError(error: unknown): unknown {
-  if (error instanceof Error) {
-    return { name: error.name, message: error.message, stack: error.stack };
-  }
-  return { name: "Error", message: describeUnknownError(error) };
 }
 
 function wait(ms: number): Promise<void> {

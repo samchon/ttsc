@@ -42,6 +42,14 @@ export const test_worker_compiler_caches_terminal_boot_failures =
     assert.equal(terminalCalls, 1);
     assert.equal(terminalFirst.type, "error");
     assert.equal(terminalSecond.type, "error");
+    assert.equal(
+      errorCode(terminalFirst.value),
+      BootTtscWorkerTerminationError.CODE,
+    );
+    assert.equal(
+      errorCode(terminalSecond.value),
+      BootTtscWorkerTerminationError.CODE,
+    );
     assert.match(
       errorMessage(terminalFirst.value),
       /terminate and replace this Worker/,
@@ -93,4 +101,9 @@ function dependencies(
 function errorMessage(value: unknown): string {
   assert.ok(value && typeof value === "object" && "message" in value);
   return String((value as { message: unknown }).message);
+}
+
+function errorCode(value: unknown): string {
+  assert.ok(value && typeof value === "object" && "code" in value);
+  return String((value as { code: unknown }).code);
 }
