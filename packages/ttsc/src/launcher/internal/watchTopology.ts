@@ -36,6 +36,7 @@ type WatchTopologyOptions = Pick<
 type WatchTopologyCallbacks = {
   onError(location: string, error: unknown): void;
   onInputChange(change: WatchInputChange): void;
+  onProjectInputWatchUnavailable?(roots: readonly string[]): void;
   onProjectInputWatchRoots?(roots: readonly string[]): void;
   onTopologyChange(): void;
 };
@@ -99,7 +100,9 @@ export class WatchTopology {
     reloadFiles: [],
     root: "",
   };
+  private projectInputRecoveryScheduled = false;
   private projectInputRejectedWatchRoots = new Set<string>();
+  private projectInputUnobservedWatchRoots = new Map<string, string>();
   private projectInputWatchRoots = new Map<string, string>();
   private projectInputWatchers = new Map<string, fs.FSWatcher>();
   private projectInputLinkWatchers = new Map<string, fs.FSWatcher>();
@@ -426,6 +429,7 @@ export class WatchTopology {
     if (this.closed) return;
     const identities = createProjectInputPathIdentityContext();
     const desired = new Map<string, string>();
+    const required = new Map<string, string>();
     for (const file of this.projectInputDeclarations("file")) {
       if (this.isProjectInputCompilerOutput(file, identities)) continue;
       const location = this.projectInputWatchRoot(
@@ -433,9 +437,13 @@ export class WatchTopology {
         file,
         path.dirname(file),
       );
-      if (location !== undefined) {
-        this.retainProjectInputWatchRoot(desired, identities, location);
-      }
+      this.retainProjectInputWatchRoot(
+        required,
+        desired,
+        identities,
+        location,
+        path.dirname(file),
+      );
     }
     for (const glob of this.projectInputDeclarations("glob")) {
       const root = literalGlobRoot(glob);
@@ -443,9 +451,13 @@ export class WatchTopology {
         continue;
       }
       const location = this.projectInputWatchRoot("glob", glob, root);
-      if (location !== undefined) {
-        this.retainProjectInputWatchRoot(desired, identities, location);
-      }
+      this.retainProjectInputWatchRoot(
+        required,
+        desired,
+        identities,
+        location,
+        root,
+      );
     }
     for (const file of this.projectInputDeclarations("reload")) {
       if (this.isProjectInputCompilerOutput(file, identities)) continue;
@@ -454,9 +466,13 @@ export class WatchTopology {
         file,
         path.dirname(file),
       );
-      if (location !== undefined) {
-        this.retainProjectInputWatchRoot(desired, identities, location);
-      }
+      this.retainProjectInputWatchRoot(
+        required,
+        desired,
+        identities,
+        location,
+        path.dirname(file),
+      );
     }
     for (const directory of this.projectInputDeclarations("reload-directory")) {
       if (this.isProjectInputCompilerOutputDirectory(directory, identities)) {
@@ -467,9 +483,13 @@ export class WatchTopology {
         directory,
         directory,
       );
-      if (location !== undefined) {
-        this.retainProjectInputWatchRoot(desired, identities, location);
-      }
+      this.retainProjectInputWatchRoot(
+        required,
+        desired,
+        identities,
+        location,
+        directory,
+      );
     }
     const active = new Map<string, string>();
     for (const location of projectInputActiveWatchDirectories(
@@ -499,11 +519,10 @@ export class WatchTopology {
         const firstFailure = !this.projectInputRejectedWatchRoots.has(key);
         this.projectInputRejectedWatchRoots.add(key);
         this.callbacks.onError(location, error);
-        if (firstFailure) {
-          queueMicrotask(() => this.syncProjectInputWatchers());
-        }
+        if (firstFailure) this.scheduleProjectInputWatcherRecovery();
       },
     );
+    this.reportUnobservedProjectInputWatchRoots(required);
     this.syncProjectInputLinkWatchers(identities);
     this.callbacks.onProjectInputWatchRoots?.(
       [...this.projectInputWatchers.keys()].sort(),
@@ -582,10 +601,15 @@ export class WatchTopology {
   }
 
   private retainProjectInputWatchRoot(
+    required: Map<string, string>,
     desired: Map<string, string>,
     identities: ProjectInputPathIdentityContext,
-    location: string,
+    location: string | undefined,
+    target: string,
   ): void {
+    const requiredIdentity = identities.resolve(location ?? target);
+    required.set(requiredIdentity.key, requiredIdentity.path);
+    if (location === undefined) return;
     const available = projectInputAvailableWatchDirectory(
       location,
       this.projectInputRejectedWatchRoots,
@@ -595,6 +619,49 @@ export class WatchTopology {
     if (available === undefined) return;
     const identity = identities.resolve(available);
     desired.set(identity.key, identity.path);
+  }
+
+  /**
+   * Retry a failed root on the next reconciliation instead of retiring it for
+   * the session.
+   *
+   * This immediate recovery pass still honors the rejected root so it can
+   * install a safe ancestor where one exists. Once that pass has reported any
+   * uncovered lane, the rejection expires. A later compiler refresh or an
+   * unchanged project-input republication can then retry the original root,
+   * while a permanently failing backend costs at most one attempt per sync.
+   */
+  private scheduleProjectInputWatcherRecovery(): void {
+    if (this.projectInputRecoveryScheduled) return;
+    this.projectInputRecoveryScheduled = true;
+    queueMicrotask(() => {
+      try {
+        this.syncProjectInputWatchers();
+      } finally {
+        this.projectInputRejectedWatchRoots.clear();
+        this.projectInputRecoveryScheduled = false;
+      }
+    });
+  }
+
+  /** Report only newly uncovered project-input roots as an observation loss. */
+  private reportUnobservedProjectInputWatchRoots(
+    required: ReadonlyMap<string, string>,
+  ): void {
+    const active = [...this.projectInputWatchers.keys()];
+    const unavailable = new Map(
+      [...required].filter(([key]) =>
+        active.every((root) => !isProjectInputPathIdentityWithin(root, key)),
+      ),
+    );
+    const newlyUnavailable = [...unavailable]
+      .filter(([key]) => !this.projectInputUnobservedWatchRoots.has(key))
+      .map(([, location]) => location)
+      .sort();
+    this.projectInputUnobservedWatchRoots = unavailable;
+    if (newlyUnavailable.length !== 0) {
+      this.callbacks.onProjectInputWatchUnavailable?.(newlyUnavailable);
+    }
   }
 
   /**

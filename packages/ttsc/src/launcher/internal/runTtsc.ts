@@ -762,6 +762,13 @@ function runWatch(
         `[ttsc] watch error on ${path.relative(cwd, location) || "."}: ${formatError(error)}\n`,
       );
     },
+    onProjectInputWatchUnavailable: (roots) => {
+      for (const root of roots) {
+        process.stderr.write(
+          `[ttsc] project-input watch unavailable on ${path.relative(cwd, root) || "."}; changes under this root are not being observed\n`,
+        );
+      }
+    },
     onInputChange: (change) => {
       debugWatchInputs(
         `change ${change.kind}${change.invalidate === true ? " invalidate" : ""} ${
