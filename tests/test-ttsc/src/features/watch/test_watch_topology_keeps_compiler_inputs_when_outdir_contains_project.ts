@@ -157,6 +157,7 @@ async function writeUntilCompilerChange(
   label: string,
 ): Promise<void> {
   const deadline = Date.now() + WATCH_EVENT_DEADLINE_MS;
+  const physicalSource = physicalPath(source);
   let revision = 2;
   while (Date.now() < deadline) {
     fs.writeFileSync(source, `export const value = ${revision++};\n`, "utf8");
@@ -169,7 +170,7 @@ async function writeUntilCompilerChange(
             (change) =>
               change.kind === "compiler" &&
               change.path !== undefined &&
-              path.resolve(change.path) === path.resolve(source),
+              physicalPath(change.path) === physicalSource,
           )
       )
         return;
@@ -226,4 +227,8 @@ async function waitForStableCount(
 
 function delay(milliseconds = 500): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
+function physicalPath(location: string): string {
+  return fs.realpathSync.native?.(location) ?? fs.realpathSync(location);
 }
