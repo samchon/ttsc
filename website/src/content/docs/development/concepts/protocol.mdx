@@ -50,6 +50,8 @@ module.exports = (context) => ({
 
 `context.filename` is the absolute path to the resolved descriptor module `ttsc` loaded for this entry, and `context.dirname` is its containing directory. They are the load-mode-independent replacement for `__filename`/`__dirname` (see ESM-safety below).
 
+Keep executable descriptor setup synchronous and lightweight. When a `.ts` descriptor needs the `ttsx` fallback, `ttsc` gives its module evaluation and factory 60 seconds and caps captured process output and descriptor JSON at 16 MiB. A timeout, output overflow, launch failure, signal, non-zero exit, missing result, or invalid JSON stops CLI, API, and LSP setup with a cause-specific error; move long-running work into the native plugin command instead.
+
 **Descriptors must be ESM-safe.** A descriptor compiled to CommonJS and loaded by `ttsc`'s direct `require()` keeps `__dirname`/`__filename`/`require`. But when `ttsc` loads a descriptor shipped as `.ts` source — through `ttsx` — or as ESM, those ambient globals are **undefined**, so a `source` derived from `__dirname` silently mis-resolves. Use `context.dirname`/`context.filename` instead — `ttsc` populates them in every load mode, so they are the direct drop-in for `__dirname`/`__filename`:
 
 ```ts
