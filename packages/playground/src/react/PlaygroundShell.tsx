@@ -122,6 +122,13 @@ export function PlaygroundShell({
     [staticEditorLibs, editorExtraLibs],
   );
 
+  const clearDependencyGraph = useCallback((publishEditorLibs = true) => {
+    installedDependencies.current = new Map();
+    dependencyRoots.current = new Set();
+    runtimeDependencyFiles.current = {};
+    if (publishEditorLibs) setEditorExtraLibs({});
+  }, []);
+
   const invalidateCompilerGeneration = useCallback(
     (
       reason: string,
@@ -143,11 +150,8 @@ export function PlaygroundShell({
         window.clearTimeout(dependencyProgressTimer.current);
         dependencyProgressTimer.current = null;
       }
-      installedDependencies.current = new Map();
-      dependencyRoots.current = new Set();
-      runtimeDependencyFiles.current = {};
+      clearDependencyGraph(publishState);
       if (publishState) {
-        setEditorExtraLibs({});
         setDependencyProgress(null);
         setDependencyPackageNames([]);
         setRunning(false);
@@ -158,7 +162,7 @@ export function PlaygroundShell({
       }
       return replacement;
     },
-    [],
+    [clearDependencyGraph],
   );
 
   const recoverTerminalWorker = useCallback(
@@ -265,6 +269,12 @@ export function PlaygroundShell({
         async (generation): Promise<unknown | null> => {
           const isCurrent = (): boolean =>
             generation.isCurrent() && sourceVersion.current === version;
+          const resetWorker = (): Promise<boolean> =>
+            compilerLifecycle.current.resetWorkerIfCurrent(
+              generation,
+              client.reset,
+              clearDependencyGraph,
+            );
           if (!isCurrent()) return null;
 
           const firstPassPackageNames = collectExternalPackageNames(
@@ -316,12 +326,8 @@ export function PlaygroundShell({
 
             if (replacing) {
               workerMutated = true;
-              await client.reset();
+              if (!(await resetWorker())) return null;
               if (!isCurrent()) return null;
-              installedDependencies.current = new Map();
-              dependencyRoots.current = new Set();
-              runtimeDependencyFiles.current = {};
-              setEditorExtraLibs({});
             }
             if (Object.keys(installed.compilerFiles).length > 0) {
               if (!isCurrent()) return null;
@@ -335,7 +341,11 @@ export function PlaygroundShell({
                   version,
                 })),
               });
-              if (!isCurrent()) return null;
+              if (!generation.isCurrent()) return null;
+              if (sourceVersion.current !== version) {
+                await resetWorker();
+                return null;
+              }
             }
             installedDependencies.current = new Map(
               installed.resolvedDependencies.map(
@@ -369,12 +379,7 @@ export function PlaygroundShell({
           } catch (error) {
             if (!generation.isCurrent()) return null;
             if (workerMutated) {
-              await client.reset();
-              if (!generation.isCurrent()) return null;
-              installedDependencies.current = new Map();
-              dependencyRoots.current = new Set();
-              runtimeDependencyFiles.current = {};
-              setEditorExtraLibs({});
+              if (!(await resetWorker())) return null;
             }
             if (!isCurrent()) return null;
             if (isAbortError(error)) {
@@ -409,7 +414,12 @@ export function PlaygroundShell({
       );
       return result ?? null;
     },
-    [client, createCompilerService, preinstalledPackages],
+    [
+      clearDependencyGraph,
+      client,
+      createCompilerService,
+      preinstalledPackages,
+    ],
   );
 
   // ── Run compile when source / options change ──

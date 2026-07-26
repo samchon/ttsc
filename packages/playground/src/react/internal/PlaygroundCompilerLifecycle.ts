@@ -35,6 +35,27 @@ export class PlaygroundCompilerLifecycle {
     return this.invalidate();
   }
 
+  /**
+   * Reset a Worker owned by `generation`, then clear its dependency metadata.
+   *
+   * The clear deliberately happens before a caller checks any independent
+   * source version. A source edit during reset still leaves an empty Worker, so
+   * its metadata must become empty too. A Worker-generation replacement
+   * performs its own synchronous clear and prevents this stale reset from
+   * clearing the replacement.
+   */
+  public async resetWorkerIfCurrent(
+    generation: IPlaygroundCompilerGeneration,
+    reset: () => Promise<void>,
+    clear: () => void,
+  ): Promise<boolean> {
+    if (!generation.isCurrent()) return false;
+    await reset();
+    if (!generation.isCurrent()) return false;
+    clear();
+    return true;
+  }
+
   public enqueue<T>(
     task: (generation: IPlaygroundCompilerGeneration) => Promise<T>,
   ): Promise<T | undefined> {

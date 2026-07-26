@@ -54,4 +54,65 @@ export const test_playground_compiler_lifecycle_fences_stale_dependency_tasks =
       replacementCommitted = true;
     });
     assert.equal(replacementCommitted, true);
+
+    let sourceVersion = 0;
+    let dependencyMetadata = "installed:A";
+    let releaseReset!: () => void;
+    let resetStarted!: () => void;
+    const resetDidStart = new Promise<void>((resolve) => {
+      resetStarted = resolve;
+    });
+    const resetBlocked = new Promise<void>((resolve) => {
+      releaseReset = resolve;
+    });
+    const reset = lifecycle.resetWorkerIfCurrent(
+      replacement,
+      async () => {
+        resetStarted();
+        await resetBlocked;
+      },
+      () => {
+        dependencyMetadata = "";
+      },
+    );
+    await resetDidStart;
+    sourceVersion++;
+    releaseReset();
+    assert.equal(await reset, true);
+    assert.equal(sourceVersion, 1);
+    assert.equal(
+      dependencyMetadata,
+      "",
+      "a source change during reset cannot preserve the old Worker's metadata",
+    );
+
+    const beforeClientReplacement = lifecycle.capture();
+    dependencyMetadata = "replacement-worker";
+    let releaseStaleReset!: () => void;
+    let staleResetStarted!: () => void;
+    const staleResetDidStart = new Promise<void>((resolve) => {
+      staleResetStarted = resolve;
+    });
+    const staleResetBlocked = new Promise<void>((resolve) => {
+      releaseStaleReset = resolve;
+    });
+    const staleReset = lifecycle.resetWorkerIfCurrent(
+      beforeClientReplacement,
+      async () => {
+        staleResetStarted();
+        await staleResetBlocked;
+      },
+      () => {
+        dependencyMetadata = "";
+      },
+    );
+    await staleResetDidStart;
+    lifecycle.invalidate();
+    releaseStaleReset();
+    assert.equal(await staleReset, false);
+    assert.equal(
+      dependencyMetadata,
+      "replacement-worker",
+      "a stale reset cannot clear replacement-generation metadata",
+    );
   };
