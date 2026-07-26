@@ -1217,7 +1217,7 @@ function listCompilerInputs(
     .map((line) => line.trim())
     .filter((line) => path.isAbsolute(line))
     .map((line) => path.resolve(line))
-    .filter((file) => isCompilerOutput(file, outputs) === false);
+    .filter((file) => isCompilerOutput(file, outputs, project.root) === false);
   if (result.status !== 0 && inputs.length === 0) {
     throw new Error(
       `ttsc: failed to list compiler inputs:\n${outputText(result.stderr) || outputText(result.stdout)}`,
@@ -1528,10 +1528,19 @@ function passthroughOptionMatches(token: string, name: string): boolean {
 function isCompilerOutput(
   file: string,
   outputs: { directories: readonly string[]; files: readonly string[] },
+  projectRoot: string,
 ): boolean {
   return (
     outputs.files.some((output) => pathKey(output) === pathKey(file)) ||
-    outputs.directories.some((directory) => isPathWithin(directory, file))
+    outputs.directories.some(
+      (directory) =>
+        // An output directory that contains the project contains its sources
+        // too. Treating the directory as product-only would discard every
+        // compiler input and silently end the watch lane. Exact output files
+        // remain excluded independently.
+        isPathWithin(directory, projectRoot) === false &&
+        isPathWithin(directory, file),
+    )
   );
 }
 
