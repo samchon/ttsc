@@ -9,6 +9,7 @@ import { readProjectConfig } from "../../compiler/internal/project/readProjectCo
 import { resolveBinary } from "../../compiler/internal/resolveBinary";
 import { resolveTsgo } from "../../compiler/internal/resolveTsgo";
 import {
+  type ProjectInputPathIdentityContext,
   createProjectInputPathIdentityContext,
   resolveProjectInputPath,
 } from "../../internal/projectInputPathIdentity";
@@ -527,26 +528,82 @@ function lspSelectionSignature(
 
 function lspProjectInputReloadDirectoryDigest(location: string): string {
   const identities = createProjectInputPathIdentityContext();
-  const identity = identities.resolve(location).key.replaceAll("\\", "/");
+  const identity = lspProjectInputPhysicalPathIdentity(location, identities);
   return createHash("sha256")
     .update(
-      `directory\0${identity}\0${lspProjectInputDirectoryTopologyDigest(
-        identities.resolve(location).path,
-      )}`,
+      Buffer.concat([
+        Buffer.from("directory\0"),
+        identity,
+        Buffer.from([0]),
+        Buffer.from(
+          lspProjectInputDirectoryTopologyDigest(
+            process.platform === "win32"
+              ? identities.resolve(location).path
+              : identity,
+          ),
+        ),
+      ]),
     )
     .digest("hex");
 }
 
-function lspProjectInputDirectoryTopologyDigest(location: string): string {
+function lspProjectInputPhysicalPathIdentity(
+  location: string,
+  identities: ProjectInputPathIdentityContext,
+): Buffer {
+  if (process.platform === "win32") {
+    return Buffer.from(
+      identities.resolve(location).key.replaceAll("\\", "/"),
+      "utf8",
+    );
+  }
+  let existing = path.resolve(location);
+  const missing: Buffer[] = [];
+  while (true) {
+    try {
+      const realpath = fs.realpathSync.native ?? fs.realpathSync;
+      let physical = realpath(Buffer.from(existing), {
+        encoding: "buffer",
+      });
+      for (const segment of missing) {
+        physical = Buffer.concat([
+          physical,
+          physical.at(-1) === 0x2f ? Buffer.alloc(0) : Buffer.from("/"),
+          segment,
+        ]);
+      }
+      return physical;
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        "code" in error &&
+        error.code !== "ENOENT" &&
+        error.code !== "ENOTDIR"
+      ) {
+        throw error;
+      }
+      const parent = path.dirname(existing);
+      if (parent === existing) return Buffer.from(existing);
+      missing.unshift(Buffer.from(path.basename(existing)));
+      existing = parent;
+    }
+  }
+}
+
+function lspProjectInputDirectoryTopologyDigest(
+  location: string | Buffer,
+): string {
   const entries: Buffer[] = [];
   try {
     if (process.platform === "win32") {
-      for (const entry of fs.readdirSync(location, { withFileTypes: true })) {
+      const directory =
+        typeof location === "string" ? location : location.toString("utf8");
+      for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
         let target = Buffer.alloc(0);
         if (entry.isSymbolicLink()) {
           try {
             target = Buffer.from(
-              fs.readlinkSync(path.join(location, entry.name)),
+              fs.readlinkSync(path.join(directory, entry.name)),
               "utf8",
             );
           } catch {
@@ -571,7 +628,7 @@ function lspProjectInputDirectoryTopologyDigest(location: string): string {
           try {
             target = fs.readlinkSync(
               Buffer.concat([
-                Buffer.from(location),
+                Buffer.isBuffer(location) ? location : Buffer.from(location),
                 Buffer.from(path.sep),
                 entry.name,
               ]),

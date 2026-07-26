@@ -27,9 +27,11 @@ import {
  *    identity remains part of the selection fingerprint.
  * 6. Retarget a same-topology reload-directory link and prove its physical target
  *    identity invalidates the startup selection.
- * 7. Where the filesystem preserves them, prove raw non-UTF-8 symlink-target bytes
+ * 7. On POSIX, prove directory identity preserves backslashes and raw non-UTF-8
+ *    physical target bytes exactly as the Go validator does.
+ * 8. Where the filesystem preserves them, prove raw non-UTF-8 symlink-target bytes
  *    use the same explicit digest framing as the Go validator.
- * 8. Materialize a manifest larger than a practical Windows environment block,
+ * 9. Materialize a manifest larger than a practical Windows environment block,
  *    prove the transport carries it by private file, and dispose it
  *    idempotently.
  */
@@ -149,6 +151,10 @@ export const test_ttscserver_selection_snapshot_retains_reload_fingerprints =
         );
       }
 
+      if (process.platform !== "win32") {
+        verifyRawDirectoryIdentity(root);
+      }
+
       const invalidTarget = Buffer.from([0xff, 0x78]);
       const invalidLink = path.join(root, "invalid-target-link");
       let rawTargetSupported = true;
@@ -213,3 +219,60 @@ export const test_ttscserver_selection_snapshot_retains_reload_fingerprints =
       fs.rmSync(root, { force: true, recursive: true });
     }
   };
+
+function verifyRawDirectoryIdentity(root: string): void {
+  const topology = createHash("sha256").update(Buffer.alloc(0)).digest("hex");
+  const backslashDirectory = path.join(root, String.raw`back\slash`);
+  fs.mkdirSync(backslashDirectory);
+  const backslashSnapshot = fingerprintInitialLSPProjectInputSnapshot({
+    files: [],
+    globs: [],
+    reloadDirectories: [backslashDirectory],
+    root,
+  });
+  const expectedBackslash = createHash("sha256")
+    .update(
+      Buffer.concat([
+        Buffer.from("directory\0"),
+        Buffer.from(backslashDirectory),
+        Buffer.from([0]),
+        Buffer.from(topology),
+      ]),
+    )
+    .digest("hex");
+  assert.equal(
+    backslashSnapshot.reloadDirectoryDigests[backslashDirectory],
+    expectedBackslash,
+    "POSIX backslash filename was rewritten as a path separator",
+  );
+
+  const rawTarget = Buffer.concat([
+    Buffer.from(root),
+    Buffer.from(path.sep),
+    Buffer.from([0xff, 0x2d, 0x64, 0x69, 0x72]),
+  ]);
+  const rawLink = path.join(root, "raw-directory-link");
+  fs.mkdirSync(rawTarget);
+  fs.symlinkSync(rawTarget, Buffer.from(rawLink), "dir");
+  const rawSnapshot = fingerprintInitialLSPProjectInputSnapshot({
+    files: [],
+    globs: [],
+    reloadDirectories: [rawLink],
+    root,
+  });
+  const expectedRaw = createHash("sha256")
+    .update(
+      Buffer.concat([
+        Buffer.from("directory\0"),
+        fs.realpathSync(Buffer.from(rawLink), { encoding: "buffer" }),
+        Buffer.from([0]),
+        Buffer.from(topology),
+      ]),
+    )
+    .digest("hex");
+  assert.equal(
+    rawSnapshot.reloadDirectoryDigests[rawLink],
+    expectedRaw,
+    "POSIX physical directory identity lost non-UTF-8 bytes",
+  );
+}

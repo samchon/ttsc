@@ -110,14 +110,25 @@ func physicalProjectInputPath(location string) (string, error) {
 }
 
 func projectInputPhysicalPathKey(location string) string {
-  physical := realProjectInputPath(location)
-  volume := filepath.VolumeName(physical)
-  return windowsProjectInputKey(
-    physical,
-    splitWindowsProjectInputSegments(
-      strings.TrimPrefix(physical, volume),
-    ),
+  resolved := resolveWindowsProjectInputPath(location)
+  volume := filepath.VolumeName(resolved.physical)
+  segments := splitWindowsProjectInputSegments(
+    strings.TrimPrefix(resolved.physical, volume),
   )
+  if len(resolved.missing) != 0 {
+    missing := append([]string{}, resolved.missing...)
+    if !queryProjectInputDirectoryCaseSensitivity(resolved.physical) {
+      for index := range missing {
+        missing[index] = strings.ToLower(missing[index])
+      }
+    }
+    segments = append(segments, missing...)
+  }
+  prefix := filepath.ToSlash(volume)
+  if len(segments) == 0 {
+    return prefix + "/"
+  }
+  return prefix + "/" + strings.Join(segments, "/")
 }
 
 func windowsProjectInputSegments(
