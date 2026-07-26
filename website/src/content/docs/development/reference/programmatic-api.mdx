@@ -14,6 +14,7 @@ Reach for the programmatic API when you need to:
 - Capture every emitted text artifact in memory without writing JS or `.d.ts` files into the user's project tree.
 - Pay the lazy plugin-build cost ahead of time in CI warmup steps.
 - Manage the ttsc cache directory from your tool's own lifecycle.
+- Compare watched or cached filesystem paths with the same physical-path and per-directory case rules as ttsc.
 
 If you only need to run the same command a user would type, shell out to `npx ttsc` instead. The CLI is the public, stable surface for that.
 
@@ -185,6 +186,28 @@ The service is resident within one process. It does not share a host across sepa
 | `cacheDir` | Root for compiled ttsc artifacts. Relative paths resolve against `cwd`. Defaults to `TTSC_CACHE_DIR`, else the workspace-local `node_modules/.cache/ttsc`. |
 | `plugins` | `undefined` = read project plugins. `false` = ignore project plugins for this instance. Array = explicit entries. |
 
+## Filesystem path identity
+
+Tool hosts that deduplicate watch inputs, cache keys, or workspace roots can use the same filesystem identity contract as ttsc through the `ttsc/path-identity` subpath.
+
+```ts
+import { createFilesystemPathIdentityContext } from "ttsc/path-identity";
+
+const identities = createFilesystemPathIdentityContext();
+const workspace = identities.resolve("/work/project");
+const config = identities.resolve("/work/project/tsconfig.json");
+
+console.log(config.key); // canonical comparison key
+console.log(config.path); // canonical physical spelling
+console.log(identities.isWithin(workspace.path, config.path)); // true
+```
+
+Create one context per filesystem transaction and reuse it for every comparison in that transaction. The context caches realpaths and directory case semantics so one scan cannot compare paths from different filesystem snapshots. Existing path segments use their physical spelling. Missing suffixes preserve spelling under a case-sensitive directory and fold it under a case-insensitive directory. Windows drive and UNC roots are always matched case-insensitively, while descendant segments follow the directory's configured case semantics.
+
+`resolve(location)` returns `{ key, path }`. Use `key` for maps and sets, and retain `path` when a filesystem operation needs canonical spelling. `isWithin(root, candidate)` compares the same canonical identities instead of applying a process-wide lowercase rule. `caseSensitive(directory)` exposes the probed directory behavior when a host needs to make the same missing-path decision itself.
+
+Realpath errors other than a missing entry throw by default. A bundler or editor that deliberately tolerates files moving during a scan can construct the context with `{ throwOnRealpathError: false }`; unreadable locations are then treated as missing for that transaction. The optional `platform`, `realpath`, and `caseSensitive` operations are for controlled host integration and tests. Most callers should use the defaults.
+
 ## Diagnostics
 
 [`ITtscCompilerDiagnostic`](https://github.com/samchon/ttsc/blob/master/packages/ttsc/src/structures/ITtscCompilerDiagnostic.ts) is a flat, JSON-friendly shape independent of TypeScript-Go's internal Go types.
@@ -244,4 +267,4 @@ Pair this with caching `TTSC_CACHE_DIR` between CI runs to skip the rebuild on s
 
 ## Stability
 
-`TtscCompiler`, `TtscService`, the result types, and `ITtscCompilerContext` are the public programmatic surface. CLI launchers, binary resolution helpers, project config parsing utilities, and native build helpers stay internal, depending on them will break. The package `exports` field enforces this.
+`TtscCompiler`, `TtscService`, the result types, `ITtscCompilerContext`, and the `ttsc/path-identity` subpath are the public programmatic surface. CLI launchers, binary resolution helpers, project config parsing utilities, and native build helpers stay internal, depending on them will break. The package `exports` field enforces this.
