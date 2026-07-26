@@ -18,6 +18,7 @@ import { WatchTopology } from "../../../../../packages/ttsc/lib/launcher/interna
  * 2. Prove the ordinary watch error and the distinct uncovered-lane report.
  * 3. Let the recovery microtask honor the project-root ceiling.
  * 4. Republish the unchanged snapshot and prove it retries successfully.
+ * 5. Reject a replacement root and keep reporting the old live handle.
  */
 export const test_watch_topology_retries_rejected_project_input_roots =
   async (): Promise<void> => {
@@ -102,6 +103,7 @@ export const test_watch_topology_retries_rejected_project_input_roots =
 
     await verifyFallbackChain();
     await verifyCloseDuringFailure();
+    await verifyLiveRootReportingSurvivesFailedReplacement();
   };
 
 async function verifyFallbackChain(): Promise<void> {
@@ -246,6 +248,74 @@ async function verifyCloseDuringFailure(): Promise<void> {
       writable: true,
     });
   }
+}
+
+async function verifyLiveRootReportingSurvivesFailedReplacement(): Promise<void> {
+  const projectRoot = TestProject.tmpdir("ttsc-project-input-report-project-");
+  const firstRoot = TestProject.tmpdir("ttsc-project-input-report-first-");
+  const secondRoot = TestProject.tmpdir("ttsc-project-input-report-second-");
+  const originalWatch = fs.watch;
+  const errors: string[] = [];
+  let activeRoots: readonly string[] = [];
+  let attempts = 0;
+  Object.defineProperty(fs, "watch", {
+    configurable: true,
+    value: ((location: fs.PathLike) => {
+      attempts += 1;
+      if (attempts === 2) throw new Error("reject replacement");
+      return new FakeWatcher() as unknown as fs.FSWatcher;
+    }) as typeof fs.watch,
+    writable: true,
+  });
+
+  const topology = new WatchTopology(
+    {
+      cwd: projectRoot,
+      files: [],
+      projectRoot,
+      tsconfig: path.join(projectRoot, "tsconfig.json"),
+    },
+    {
+      onError: (location) => errors.push(path.resolve(location)),
+      onInputChange: () => {
+        throw new Error("watch setup must not report an input change");
+      },
+      onProjectInputWatchRoots: (roots) => {
+        activeRoots = [...roots];
+      },
+      onTopologyChange: () => {
+        throw new Error("watch setup must not report a topology change");
+      },
+    },
+  );
+  try {
+    topology.setProjectInputs({
+      files: [path.join(firstRoot, "first.json")],
+      globs: [],
+      root: projectRoot,
+    });
+    assert.deepEqual(activeRoots, [realpath(firstRoot)]);
+
+    topology.setProjectInputs({
+      files: [path.join(secondRoot, "second.json")],
+      globs: [],
+      root: projectRoot,
+    });
+    assert.deepEqual(errors.map(realpath), [realpath(secondRoot)]);
+    assert.deepEqual(
+      activeRoots,
+      [realpath(firstRoot)],
+      "a failed replacement must not hide its still-live predecessor",
+    );
+  } finally {
+    topology.close();
+    Object.defineProperty(fs, "watch", {
+      configurable: true,
+      value: originalWatch,
+      writable: true,
+    });
+  }
+  await Promise.resolve();
 }
 
 class FakeWatcher {

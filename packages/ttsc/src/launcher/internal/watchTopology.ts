@@ -541,10 +541,7 @@ export class WatchTopology {
     this.syncProjectInputLinkWatchers(identities);
     this.callbacks.onProjectInputWatchRoots?.(
       [...this.projectInputWatchers.keys()]
-        .flatMap((key) => {
-          const location = active.get(key);
-          return location === undefined ? [] : [location];
-        })
+        .map((key) => active.get(key) ?? identities.resolve(key).path)
         .sort(),
     );
   }

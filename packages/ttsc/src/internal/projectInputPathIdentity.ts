@@ -2,6 +2,8 @@ import childProcess from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 
+import { parseWindowsDirectoryCaseSensitivity } from "./windowsDirectoryCaseSensitivity";
+
 export type FilesystemPathIdentity = {
   key: string;
   path: string;
@@ -274,33 +276,23 @@ function filesystemDirectoryIsCaseSensitive(
  * Read the per-directory flag without depending on fsutil's display language.
  *
  * English output is cheap to recognize directly. Other Windows locales write
- * console-code-page bytes that Node cannot reliably decode, so compare their
- * message suffix with the same query for the volume root. The root carries the
- * ordinary case-insensitive volume semantics and supplies the localized
- * "disabled" suffix without translating it or modifying the target.
+ * console-code-page bytes that Node cannot reliably decode, so their raw
+ * message is interpreted against the volume-root query.
  */
 function queryWindowsDirectoryCaseSensitivity(
   directory: string,
 ): boolean | undefined {
   const result = queryWindowsDirectoryCaseSensitivityBytes(directory);
   if (result === undefined) return undefined;
-  const text = result.toString("utf8");
-  if (/\bdisabled\b/iu.test(text)) return false;
-  if (/\benabled\b/iu.test(text)) return true;
-
   const volumeRoot = path.win32.parse(directory).root;
+  const direct = parseWindowsDirectoryCaseSensitivity(
+    result,
+    undefined,
+    volumeRoot,
+  );
+  if (direct !== undefined) return direct;
   const volume = queryWindowsDirectoryCaseSensitivityBytes(volumeRoot);
-  if (volume === undefined) return undefined;
-  const encodedRoot = Buffer.from(volumeRoot, "utf8");
-  const rootOffset = volume.indexOf(encodedRoot);
-  if (rootOffset === -1) return undefined;
-  const disabledSuffix = volume.subarray(rootOffset + encodedRoot.length);
-  if (disabledSuffix.length === 0 || result.length < disabledSuffix.length) {
-    return undefined;
-  }
-  return !result
-    .subarray(result.length - disabledSuffix.length)
-    .equals(disabledSuffix);
+  return parseWindowsDirectoryCaseSensitivity(result, volume, volumeRoot);
 }
 
 function queryWindowsDirectoryCaseSensitivityBytes(
