@@ -316,7 +316,10 @@ module.exports = {
     fs.writeFileSync(secondFile, "export const second = 2;\n");
     const configURI = pathToFileURL(logicalConfig).href;
     const client = TtscserverClient.startLauncher(logicalRoot, {
-      env: { TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR },
+      env: {
+        TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
+        TTSC_PLUGIN_CONFIG_DIR: "",
+      },
     });
     try {
       await initializeTtscserverClient(client, logicalRoot);
@@ -365,7 +368,7 @@ module.exports = {
         true,
       );
       assert.equal(
-        lspProjectDiagnostic?.message?.includes("explicit= origin="),
+        lspProjectDiagnostic?.message?.includes("explicit= origin= sources="),
         true,
       );
 
