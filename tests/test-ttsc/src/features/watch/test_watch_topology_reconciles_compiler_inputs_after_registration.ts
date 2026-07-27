@@ -19,16 +19,18 @@ import {
  * 1. Swallow every startup event and report one config change plus parse error.
  * 2. Swallow a new included source event and refresh compiler membership once.
  * 3. Let a real source event win the race without producing a duplicate.
- * 4. Rebind a same-stamp POSIX replacement without reporting identical bytes.
- * 5. Keep a source rearm from repeating a failed config membership refresh.
- * 6. Observe the rebound POSIX file's next in-place edit.
- * 7. Close before reconciliation and drain every fake watcher exactly once.
+ * 4. Hand a Windows JSON membership change across project/compiler watchers.
+ * 5. Rebind a same-stamp POSIX replacement without reporting identical bytes.
+ * 6. Keep a source rearm from repeating a failed config membership refresh.
+ * 7. Observe the rebound POSIX file's next in-place edit.
+ * 8. Close before reconciliation and drain every fake watcher exactly once.
  */
 export const test_watch_topology_reconciles_compiler_inputs_after_registration =
   async (): Promise<void> => {
     await verifySwallowedConfigDeletion();
     await verifySwallowedCompilerMembership();
     await verifyBackendEventWinsReconciliation();
+    await verifyWindowsProjectCompilerMembershipHandoff();
     await verifyAtomicReplacementRebindsPosixFileWatcher();
     await verifyFileRearmDoesNotRepeatCompilerRefresh();
     await verifyCloseCancelsReconciliation();
@@ -187,6 +189,127 @@ async function verifyBackendEventWinsReconciliation(): Promise<void> {
   assert.ok(
     registrations.every(({ watcher }) => watcher.closeCount === 1),
     "close did not drain every event-wins watcher",
+  );
+}
+
+async function verifyWindowsProjectCompilerMembershipHandoff(): Promise<void> {
+  if (process.platform !== "win32") return;
+
+  const fixture = createFixture("ttsc-watch-membership-handoff-", {
+    compilerOptions: {
+      esModuleInterop: true,
+      module: "commonjs",
+      noEmit: true,
+      resolveJsonModule: true,
+    },
+    include: ["src"],
+  });
+  const first = path.join(fixture.root, "api", "first.json");
+  const second = path.join(fixture.root, "api", "second.json");
+  fs.writeFileSync(
+    fixture.source,
+    [
+      'import first from "../api/first.json";',
+      'import second from "../api/second.json";',
+      "JSON.stringify([first, second]);",
+      "",
+    ].join("\n"),
+    "utf8",
+  );
+
+  const changes: WatchInputChange[] = [];
+  const errors: unknown[] = [];
+  const registrations: Array<{
+    listener: fs.WatchListener<string>;
+    location: string;
+    watcher: FakeWatcher;
+  }> = [];
+  const originalWatch = fs.watch;
+  Object.defineProperty(fs, "watch", {
+    configurable: true,
+    value: ((
+      location: fs.PathLike,
+      _options: fs.WatchOptions,
+      listener: fs.WatchListener<string>,
+    ) => {
+      const watcher = new FakeWatcher();
+      registrations.push({
+        listener,
+        location: path.resolve(location.toString()),
+        watcher,
+      });
+      return watcher as unknown as fs.FSWatcher;
+    }) as typeof fs.watch,
+    writable: true,
+  });
+
+  const topology = createTopology(fixture.root, changes, errors);
+  try {
+    topology.refresh(false);
+    await Promise.resolve();
+    const compiler = registrations[0];
+    assert.ok(compiler, "the compiler watcher was not registered");
+    const beforeProjectInputs = registrations.length;
+    topology.setProjectInputs({
+      files: [],
+      globs: [path.join(fixture.root, "api", "**", "*.json")],
+      root: fixture.root,
+    });
+    const project = registrations[beforeProjectInputs];
+    assert.ok(project, "the project-input watcher was not registered");
+
+    fs.mkdirSync(path.dirname(first), { recursive: true });
+    fs.writeFileSync(first, '{"name":"created"}\n', "utf8");
+    topology.refresh(true);
+    assert.deepEqual(changes, [
+      { invalidate: true, kind: "project", path: first },
+    ]);
+
+    project.listener(
+      "rename",
+      path.relative(project.location, path.dirname(first)),
+    );
+    compiler.listener("change", path.relative(compiler.location, first));
+    await Promise.resolve();
+    assert.equal(
+      changes.length,
+      1,
+      "delayed project/compiler deliveries repeated one consumed creation",
+    );
+
+    fs.writeFileSync(second, '{"name":"created"}\n', "utf8");
+    topology.refresh(true);
+    assert.deepEqual(changes.at(-1), {
+      invalidate: true,
+      kind: "project",
+      path: second,
+    });
+    const stamp = fs.statSync(second);
+    fs.writeFileSync(second, '{"name":"altered"}\n', "utf8");
+    fs.utimesSync(second, stamp.atime, stamp.mtime);
+    assert.equal(
+      fs.statSync(second).size,
+      stamp.size,
+      "the strong-fingerprint case changed file size",
+    );
+    compiler.listener("change", path.relative(compiler.location, second));
+    await Promise.resolve();
+    assert.deepEqual(changes.at(-1), {
+      kind: "compiler",
+      path: second,
+    });
+    assert.deepEqual(errors, []);
+  } finally {
+    topology.close();
+    Object.defineProperty(fs, "watch", {
+      configurable: true,
+      value: originalWatch,
+      writable: true,
+    });
+  }
+  assert.ok(
+    registrations.every(({ watcher }) => watcher.closeCount === 1),
+    "close did not drain every handoff watcher",
   );
 }
 

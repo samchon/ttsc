@@ -125,6 +125,7 @@ export class WatchTopology {
     ProjectInputPathIdentityContext,
     Map<string, boolean>
   >();
+  private projectInputCompilerAcknowledgements = new Map<string, string>();
   private reloadFiles = new Map<string, string>();
 
   public constructor(
@@ -180,6 +181,14 @@ export class WatchTopology {
     this.outputFiles = next.outputFiles;
     this.outputs = next.outputs;
     this.reloadFiles = next.reloadFiles;
+    for (const key of this.projectInputCompilerAcknowledgements.keys()) {
+      if (!next.files.has(key)) {
+        this.projectInputCompilerAcknowledgements.delete(key);
+      }
+    }
+    if (projectInputProgramChange !== undefined) {
+      this.acknowledgeProjectInputCompilerMembership(projectInputProgramChange);
+    }
     const fileWatcherRegistered = this.syncFileWatchers();
     const directoryWatcherRegistered = this.syncDirectoryWatchers();
     this.syncExtraWatchers();
@@ -202,6 +211,37 @@ export class WatchTopology {
         });
       } else {
         this.callbacks.onTopologyChange();
+      }
+    }
+  }
+
+  /**
+   * Hand one Program-membership transition from the compiler lane to the
+   * overlapping project-input lane.
+   *
+   * Windows can deliver the compiler membership refresh before the recursive
+   * project watcher names the same creation. The rebuild scheduled here already
+   * consumes the current project bytes, so publishing their strong fingerprints
+   * keeps the later parent event from rediscovering the same population delta.
+   * A newly tracked compiler file also remembers that fingerprint until its
+   * first named content delivery; identical bytes are the delayed creation,
+   * while different bytes are a real later edit and remain observable even
+   * inside filesystem timestamp resolution.
+   */
+  private acknowledgeProjectInputCompilerMembership(
+    changed: readonly string[],
+  ): void {
+    const matches = this.collectProjectInputMatches();
+    const fingerprints = fingerprintProjectInputMatches(matches);
+    const identities = createProjectInputPathIdentityContext();
+    this.projectInputMatches = matches;
+    this.projectInputFingerprints = fingerprints;
+    for (const location of changed) {
+      const compilerKey = pathKey(location);
+      if (!this.files.has(compilerKey)) continue;
+      const fingerprint = fingerprints.get(identities.resolve(location).key);
+      if (fingerprint !== undefined && fingerprint !== "") {
+        this.projectInputCompilerAcknowledgements.set(compilerKey, fingerprint);
       }
     }
   }
@@ -488,8 +528,16 @@ export class WatchTopology {
     // Those two are decided from the bytes, and the rearm they drive is
     // unaffected, because rebinding is about the inode and not the content.
     if (changed !== undefined && event !== "rename") {
-      for (const file of changes) this.recordCompilerFileSnapshot(file);
-      return [...changes];
+      return changes.filter((file) => {
+        const key = pathKey(file);
+        const acknowledged = this.projectInputCompilerAcknowledgements.get(key);
+        this.projectInputCompilerAcknowledgements.delete(key);
+        this.recordCompilerFileSnapshot(file);
+        return (
+          acknowledged === undefined ||
+          acknowledged !== fingerprintProjectInputFile(file)
+        );
+      });
     }
     return changes.filter((file) => this.compilerFileMovement(file).content);
   }
@@ -2530,21 +2578,25 @@ function fingerprintProjectInputMatches(
 ): Map<string, string> {
   const fingerprints = new Map<string, string>();
   for (const [key, location] of matches) {
-    try {
-      fingerprints.set(
-        key,
-        isDirectory(location)
-          ? fingerprintProjectInputDirectory(location)
-          : crypto
-              .createHash("sha256")
-              .update(fs.readFileSync(location))
-              .digest("hex"),
-      );
-    } catch {
-      fingerprints.set(key, "");
-    }
+    fingerprints.set(
+      key,
+      isDirectory(location)
+        ? fingerprintProjectInputDirectory(location)
+        : fingerprintProjectInputFile(location),
+    );
   }
   return fingerprints;
+}
+
+function fingerprintProjectInputFile(location: string): string {
+  try {
+    return crypto
+      .createHash("sha256")
+      .update(fs.readFileSync(location))
+      .digest("hex");
+  } catch {
+    return "";
+  }
 }
 
 function fingerprintProjectInputDirectory(location: string): string {
