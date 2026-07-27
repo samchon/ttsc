@@ -290,7 +290,7 @@ ttsc: multiple transform native backends cannot share one source-to-source pass;
       compose transform libraries through one aggregate native host
 ```
 
-The first fires during `ttsc build` / `ttsc check`; the second during `ttsc transform`. To combine transform libraries from different vendors (`typia` + `nestia`-style), pick one aggregate executable plugin and list the others in its `composes: [...]` array, or make the additional transforms linked packages that implement the driver plugin hooks. See [Reference → Pitfalls](/docs/development/reference/pitfalls#combining-plugins) for the full failure catalogue.
+The first fires during `ttsc build` / `ttsc check`; the second when a bundler adapter or `TtscCompiler.transform()` requests source-to-source transformation. To combine transform libraries from different vendors (`typia` + `nestia`-style), pick one aggregate executable plugin and list the others in its `composes: [...]` array, or make the additional transforms linked packages that implement the driver plugin hooks. See [Reference → Pitfalls](/docs/development/reference/pitfalls#combining-plugins) for the full failure catalogue.
 
 ### Composing across binaries
 

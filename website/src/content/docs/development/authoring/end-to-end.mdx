@@ -406,13 +406,28 @@ npx ttsc --emit
 
 The first run builds and caches the Go binary. Later runs reuse it until the plugin source, `ttsc` version, TypeScript-Go version, platform, or source entry changes. The emitted `dist/main.js` should contain `value` but not the `debugger` statement.
 
-Run the transform path:
+The CLI has no public transform subcommand. To inspect the source-to-source result, create `transform.mjs` in the consumer root and use the [`TtscCompiler` programmatic API](/docs/development/reference/programmatic-api#transform):
 
-```bash
-npx ttsc transform
+```js
+import { TtscCompiler } from "ttsc";
+
+const result = new TtscCompiler({ cwd: process.cwd() }).transform();
+if (result.type === "exception") throw result.error;
+if (result.type === "failure") {
+  console.error(JSON.stringify(result.diagnostics, null, 2));
+  process.exit(1);
+}
+
+console.log(result.typescript["src/main.ts"]);
 ```
 
-The JSON written to stdout under `typescript["src/main.ts"]` should contain `export const value = 1;` without `debugger;`.
+Run the script:
+
+```bash
+node transform.mjs
+```
+
+The printed TypeScript should contain `export const value = 1;` without `debugger;`.
 
 ## Next Step
 
