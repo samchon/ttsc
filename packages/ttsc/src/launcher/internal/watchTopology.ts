@@ -57,6 +57,16 @@ type ResolvedWatchTopology = {
   reloadFiles: Map<string, string>;
 };
 
+type CompilerFileSnapshot = {
+  content: string;
+  owner: string;
+};
+
+type CompilerFileMovement = {
+  content: boolean;
+  owner: boolean;
+};
+
 export type CompilerDirectoryWatchEventPlan = {
   changes: string[];
   rearm: string[];
@@ -74,12 +84,14 @@ export type CompilerDirectoryWatchEventPlan = {
 export class WatchTopology {
   private analysisOnly = false;
   private closed = false;
+  private compilerPostRegistrationMembershipRefresh = false;
   private compilerPostRegistrationReconciliationScheduled = false;
+  private compilerPostRegistrationSkipUnobservedProjectInputWatchRoots = true;
   private directories = new Map<string, string>();
   private directoryWatchers = new Map<string, fs.FSWatcher>();
   private extraInputs: readonly string[] = [];
   private extraWatchers = new Map<string, fs.FSWatcher>();
-  private compilerFileStamps = new Map<string, string>();
+  private compilerFileSnapshots = new Map<string, CompilerFileSnapshot>();
   private files = new Map<string, string>();
   private fileWatchers = new Map<string, fs.FSWatcher>();
   private observedDirectories = new Map<string, string>();
@@ -153,15 +165,15 @@ export class WatchTopology {
     // Stamp the tracked set as it is resolved, so the first event that cannot
     // name what changed compares against the state the compiler just saw rather
     // than against nothing, which would make it nominate everything once.
-    for (const key of [...this.compilerFileStamps.keys()]) {
-      if (!next.files.has(key)) this.compilerFileStamps.delete(key);
+    for (const key of [...this.compilerFileSnapshots.keys()]) {
+      if (!next.files.has(key)) this.compilerFileSnapshots.delete(key);
     }
     for (const [key, file] of next.files) {
       // Only a file with no stamp yet is seeded. Restamping one that already
       // has a baseline would advance it past a change nobody reported, and the
       // next unnamed event would then read that change as no change at all.
-      if (!this.compilerFileStamps.has(key)) {
-        this.compilerFileStamps.set(key, compilerFileStamp(file));
+      if (!this.compilerFileSnapshots.has(key)) {
+        this.compilerFileSnapshots.set(key, compilerFileSnapshot(file));
       }
     }
     this.directories = next.directories;
@@ -173,7 +185,10 @@ export class WatchTopology {
     this.syncExtraWatchers();
     this.syncProjectInputWatchers(skipUnobservedProjectInputWatchRoots);
     if (fileWatcherRegistered || directoryWatcherRegistered) {
-      this.scheduleCompilerPostRegistrationReconciliation();
+      this.scheduleCompilerPostRegistrationReconciliation(
+        directoryWatcherRegistered,
+        skipUnobservedProjectInputWatchRoots,
+      );
     }
     if (notify && changed) {
       if (projectInputProgramChange !== undefined) {
@@ -215,7 +230,6 @@ export class WatchTopology {
         : { ...inputs.declared, root: inputs.root };
     if (projectInputSnapshotsEqual(this.projectInputs, next)) {
       this.syncProjectInputWatchers();
-      this.scheduleProjectInputPostRegistrationReconciliation();
       return;
     }
     this.projectInputs = next;
@@ -230,7 +244,6 @@ export class WatchTopology {
       this.projectInputMatches,
     );
     this.syncProjectInputWatchers();
-    this.scheduleProjectInputPostRegistrationReconciliation();
   }
 
   /** Close every watcher so SIGINT/SIGTERM can drain the event loop. */
@@ -265,7 +278,9 @@ export class WatchTopology {
             // receives, and it carries no filename to distinguish an edit from
             // a touch. It answers the same question the unnamed directory event
             // answers, so it answers it the same way: from the bytes.
-            if (!this.compilerFileMoved(location)) return;
+            const movement = this.compilerFileMovement(location);
+            if (movement.owner) this.rearmFileWatchers([location], true);
+            if (!movement.content) return;
             this.callbacks.onInputChange({
               kind: this.classifyCompilerInput(location),
               path: location,
@@ -280,13 +295,16 @@ export class WatchTopology {
     );
   }
 
-  /** Whether a tracked file's bytes differ from the last stamp taken. */
-  private compilerFileMoved(location: string): boolean {
+  /** Compare a tracked file's content and physical owner with its snapshot. */
+  private compilerFileMovement(location: string): CompilerFileMovement {
     const key = pathKey(location);
-    const stamp = compilerFileStamp(location);
-    if (this.compilerFileStamps.get(key) === stamp) return false;
-    this.compilerFileStamps.set(key, stamp);
-    return true;
+    const previous = this.compilerFileSnapshots.get(key);
+    const next = compilerFileSnapshot(location);
+    this.compilerFileSnapshots.set(key, next);
+    return {
+      content: previous?.content !== next.content,
+      owner: previous?.owner !== next.owner,
+    };
   }
 
   private syncDirectoryWatchers(): boolean {
@@ -377,37 +395,53 @@ export class WatchTopology {
    * handoff window. A real event updates the same stamp first and makes this
    * bounded scan a no-op.
    */
-  private scheduleCompilerPostRegistrationReconciliation(): void {
-    if (this.closed || this.compilerPostRegistrationReconciliationScheduled) {
-      return;
+  private scheduleCompilerPostRegistrationReconciliation(
+    refreshMembership: boolean,
+    skipUnobservedProjectInputWatchRoots: boolean,
+  ): void {
+    if (this.closed) return;
+    if (refreshMembership) {
+      this.compilerPostRegistrationMembershipRefresh = true;
+      this.compilerPostRegistrationSkipUnobservedProjectInputWatchRoots =
+        this.compilerPostRegistrationSkipUnobservedProjectInputWatchRoots &&
+        skipUnobservedProjectInputWatchRoots;
     }
+    if (this.compilerPostRegistrationReconciliationScheduled) return;
     this.compilerPostRegistrationReconciliationScheduled = true;
     queueMicrotask(() => {
       this.compilerPostRegistrationReconciliationScheduled = false;
       if (this.closed) return;
-      const changed = this.compilerChangesToReport(
-        [...this.files.values()],
-        undefined,
-        "rename",
-      );
-      if (changed.length !== 0) {
-        // A replacement can move the path to a new inode without changing its
-        // topology key. Rebind before reporting so a later in-place edit is not
-        // stranded on the old per-file watcher. Missing entries remain covered
-        // by their parent directory and are retried when recreation is observed.
-        this.rearmFileWatchers(changed, true);
-        for (const file of changed) {
-          this.callbacks.onInputChange({
-            kind: this.classifyCompilerInput(file),
-            path: file,
-          });
-        }
+      const refreshCompilerMembership =
+        this.compilerPostRegistrationMembershipRefresh;
+      const skipUnobservedProjectInputWatchRoots =
+        this.compilerPostRegistrationSkipUnobservedProjectInputWatchRoots;
+      this.compilerPostRegistrationMembershipRefresh = false;
+      this.compilerPostRegistrationSkipUnobservedProjectInputWatchRoots = true;
+
+      const changed: string[] = [];
+      const rearm: string[] = [];
+      for (const file of this.files.values()) {
+        const movement = this.compilerFileMovement(file);
+        if (movement.content) changed.push(file);
+        if (movement.owner) rearm.push(file);
       }
+      // A replacement can move the path to a new inode without changing its
+      // cheap content stamp or topology key. Rebind its physical owner without
+      // inventing a content notification. Missing entries remain covered by
+      // their parent directory and are retried when recreation is observed.
+      this.rearmFileWatchers(rearm, true);
+      for (const file of changed) {
+        this.callbacks.onInputChange({
+          kind: this.classifyCompilerInput(file),
+          path: file,
+        });
+      }
+      if (!refreshCompilerMembership) return;
       try {
         // Directory watchers own files not present in the current Program.
         // Re-resolve even when every tracked stamp is unchanged so a swallowed
         // startup event cannot strand a newly included source.
-        this.refreshCompilerInputs(true, false);
+        this.refreshCompilerInputs(true, skipUnobservedProjectInputWatchRoots);
       } catch (error) {
         const reported = new Set(changed.map(pathKey));
         const reconciledChange = changed.length === 1 ? changed[0]! : undefined;
@@ -454,14 +488,14 @@ export class WatchTopology {
     // Those two are decided from the bytes, and the rearm they drive is
     // unaffected, because rebinding is about the inode and not the content.
     if (changed !== undefined && event !== "rename") {
-      for (const file of changes) this.recordCompilerFileStamp(file);
+      for (const file of changes) this.recordCompilerFileSnapshot(file);
       return [...changes];
     }
-    return changes.filter((file) => this.compilerFileMoved(file));
+    return changes.filter((file) => this.compilerFileMovement(file).content);
   }
 
-  private recordCompilerFileStamp(file: string): void {
-    this.compilerFileStamps.set(pathKey(file), compilerFileStamp(file));
+  private recordCompilerFileSnapshot(file: string): void {
+    this.compilerFileSnapshots.set(pathKey(file), compilerFileSnapshot(file));
   }
 
   private rearmFileWatchers(
@@ -474,7 +508,7 @@ export class WatchTopology {
       this.fileWatchers.delete(key);
     }
     if (this.syncFileWatchers(skipMissing)) {
-      this.scheduleCompilerPostRegistrationReconciliation();
+      this.scheduleCompilerPostRegistrationReconciliation(false, true);
     }
   }
 
@@ -512,6 +546,8 @@ export class WatchTopology {
     skipUnobservedProjectInputWatchRoots = false,
   ): void {
     if (this.closed) return;
+    const previous = new Map(this.projectInputWatchers);
+    const previousLinks = new Map(this.projectInputLinkWatchers);
     const identities = createProjectInputPathIdentityContext();
     const desired = new Map<string, string>();
     const required = new Map<string, string>();
@@ -620,6 +656,16 @@ export class WatchTopology {
       this.reportUnobservedProjectInputWatchRoots(required);
     }
     this.syncProjectInputLinkWatchers(identities);
+    const watcherRegistered =
+      [...this.projectInputWatchers].some(
+        ([key, watcher]) => previous.get(key) !== watcher,
+      ) ||
+      [...this.projectInputLinkWatchers].some(
+        ([key, watcher]) => previousLinks.get(key) !== watcher,
+      );
+    if (watcherRegistered) {
+      this.scheduleProjectInputPostRegistrationReconciliation();
+    }
     this.callbacks.onProjectInputWatchRoots?.(
       [...this.projectInputWatchers.keys()]
         .map((key) => active.get(key) ?? identities.resolve(key).path)
@@ -768,7 +814,6 @@ export class WatchTopology {
           this.reportUnobservedProjectInputWatchRoots(
             this.projectInputRequiredWatchRoots,
           );
-          this.scheduleProjectInputPostRegistrationReconciliation();
         }
       }
     });
@@ -2091,18 +2136,22 @@ function projectInputRecursiveWatchRoot(
 }
 
 /**
- * A cheap identity for a tracked file's current bytes.
+ * Cheap content and physical-owner identities for a tracked file.
  *
- * Modification time and size together answer "did this move" without reading
- * the file, which is all the unnamed-event path needs; a file that vanished
- * answers as absent rather than as unchanged.
+ * Modification time and size answer "did the bytes move" without reading the
+ * file. Device and inode answer whether a POSIX per-file watcher still owns the
+ * path. Keeping the answers separate lets an identical atomic replacement
+ * rebind its watcher without inventing a compiler notification.
  */
-function compilerFileStamp(location: string): string {
+function compilerFileSnapshot(location: string): CompilerFileSnapshot {
   try {
     const stats = fs.statSync(location);
-    return `${stats.mtimeMs}:${stats.size}`;
+    return {
+      content: `${stats.mtimeMs}:${stats.size}`,
+      owner: `${stats.dev}:${stats.ino}`,
+    };
   } catch {
-    return "";
+    return { content: "", owner: "" };
   }
 }
 

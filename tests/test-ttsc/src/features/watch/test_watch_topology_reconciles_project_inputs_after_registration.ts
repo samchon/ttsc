@@ -21,6 +21,7 @@ import {
  * 3. Close before reconciliation and prove the queued scan stays silent.
  * 4. Reject one root while a healthy root still completes its handoff scan.
  * 5. Materialize a symlink and retain both its declared and physical owners.
+ * 6. Keep an unchanged republication from starting a polling-style rescan.
  */
 export const test_watch_topology_reconciles_project_inputs_after_registration =
   async (): Promise<void> => {
@@ -95,9 +96,14 @@ async function verifySwallowedStartupEvent(
     assert.deepEqual(changes, [
       { kind: "project", path: fs.realpathSync.native(input) },
     ]);
+    fs.writeFileSync(input, '{"updated":true}\n', "utf8");
     topology.setProjectInputs(snapshot);
     await Promise.resolve();
-    assert.equal(changes.length, 1, "unchanged population reported twice");
+    assert.equal(
+      changes.length,
+      1,
+      "unchanged republication started an event-independent rescan",
+    );
   } finally {
     topology.close();
   }
