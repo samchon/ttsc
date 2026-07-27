@@ -16,6 +16,10 @@ const child = require("node:child_process");
 const fs = require("node:fs");
 const path = require("node:path");
 
+const {
+  STRIP_TYPES_NODE_ARGS,
+} = require("../../../scripts/node-strip-types.cjs");
+
 const here = __dirname;
 const ttscRoot = path.resolve(here, "..");
 const repoRoot = path.resolve(ttscRoot, "../..");
@@ -32,7 +36,7 @@ function main() {
 
   const result = child.spawnSync(
     process.execPath,
-    ["--experimental-strip-types", path.join(here, "gen-flags.mts")],
+    [...STRIP_TYPES_NODE_ARGS, path.join(here, "gen-flags.mts")],
     { stdio: "inherit" },
   );
   if (result.status !== 0) {
@@ -78,7 +82,7 @@ function main() {
 
   const kinds = child.spawnSync(
     process.execPath,
-    ["--experimental-strip-types", path.join(here, "check-flag-kinds.mts")],
+    [...STRIP_TYPES_NODE_ARGS, path.join(here, "check-flag-kinds.mts")],
     { stdio: "inherit" },
   );
   if (kinds.error) {

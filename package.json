@@ -16,7 +16,7 @@
     "check:dependencies": "node scripts/ci/dependency-audit.cjs",
     "format": "pnpm run gen:flags && prettier --write \"**/*.ts\" \"**/*.md\" \"**/*.mdx\" && pnpm run format:go",
     "format:go": "git ls-files -z \"*.go\" | xargs -0 ./.vscode/gofmt-2spaces.sh -w",
-    "gen:flags": "node --experimental-strip-types packages/ttsc/scripts/gen-flags.mts",
+    "gen:flags": "node scripts/node-strip-types.cjs packages/ttsc/scripts/gen-flags.mts",
     "check:flags": "node packages/ttsc/scripts/check-flags.cjs",
     "package:latest": "pnpm build && pnpm run package:latest:publish",
     "package:latest:publish": "pnpm run assert:platform-packages && pnpm --filter=./packages/* --filter=!ttsc -r publish --tag latest --access public --no-git-checks --provenance && pnpm --filter ttsc publish --tag latest --access public --no-git-checks --provenance",

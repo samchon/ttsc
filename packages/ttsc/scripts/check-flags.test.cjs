@@ -14,15 +14,62 @@
 // synthetic stand-in.
 
 const assert = require("node:assert/strict");
+const childProcess = require("node:child_process");
 const fs = require("node:fs");
+const os = require("node:os");
+const path = require("node:path");
 const { test } = require("node:test");
 
+const {
+  STRIP_TYPES_NODE_ARGS,
+} = require("../../../scripts/node-strip-types.cjs");
+const station = require("../../../package.json");
 const {
   computeDrift,
   normalizeEol,
   snapshot,
   targets,
 } = require("./check-flags.cjs");
+
+test("the strip-types loader suppresses only the deliberate module warning", () => {
+  assert.deepEqual(STRIP_TYPES_NODE_ARGS, [
+    "--disable-warning=MODULE_TYPELESS_PACKAGE_JSON",
+    "--experimental-strip-types",
+  ]);
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-strip-types-"));
+  try {
+    const fixture = path.join(root, "fixture.ts");
+    fs.writeFileSync(
+      fixture,
+      [
+        'process.emitWarning("still visible", { code: "TTSC_TEST_WARNING" });',
+        "const answer: number = 42;",
+        "console.log(answer);",
+        "export {};",
+        "",
+      ].join("\n"),
+      "utf8",
+    );
+    const result = childProcess.spawnSync(
+      process.execPath,
+      [...STRIP_TYPES_NODE_ARGS, fixture],
+      { encoding: "utf8" },
+    );
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.stdout.trim(), "42");
+    assert.doesNotMatch(result.stderr, /MODULE_TYPELESS_PACKAGE_JSON/);
+    assert.match(result.stderr, /TTSC_TEST_WARNING/);
+  } finally {
+    fs.rmSync(root, { force: true, recursive: true });
+  }
+});
+
+test("the canonical flag generator enters through the targeted loader", () => {
+  assert.equal(
+    station.scripts["gen:flags"],
+    "node scripts/node-strip-types.cjs packages/ttsc/scripts/gen-flags.mts",
+  );
+});
 
 // The committed LF content of every target, regardless of how this checkout
 // materialized them on disk. This is the "after" a clean regeneration produces.
