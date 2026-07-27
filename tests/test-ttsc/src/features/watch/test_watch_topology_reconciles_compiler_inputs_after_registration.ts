@@ -19,7 +19,7 @@ import {
  * 1. Swallow every startup event and report one config change plus parse error.
  * 2. Swallow a new included source event and refresh compiler membership once.
  * 3. Let a real source event win the race without producing a duplicate.
- * 4. Hand a Windows JSON membership change across project/compiler watchers.
+ * 4. Hand pure and mixed Windows memberships across project/compiler watchers.
  * 5. Contain and recover a transient reload-directory fingerprint race.
  * 6. Rebind a same-stamp POSIX replacement without reporting identical bytes.
  * 7. Keep a source rearm from repeating a failed config membership refresh.
@@ -208,6 +208,9 @@ async function verifyWindowsProjectCompilerMembershipHandoff(): Promise<void> {
   });
   const first = path.join(fixture.root, "api", "first.json");
   const firstPeer = path.join(fixture.root, "api", "first-peer.json");
+  const other = path.join(fixture.root, "contracts", "other.json");
+  const mixed = path.join(fixture.root, "api", "mixed.json");
+  const mixedSource = path.join(fixture.root, "src", "added.ts");
   const second = path.join(fixture.root, "api", "second.json");
   const third = path.join(fixture.root, "api", "third.json");
   const reloadDirectory = path.join(fixture.root, "config-deps");
@@ -217,9 +220,11 @@ async function verifyWindowsProjectCompilerMembershipHandoff(): Promise<void> {
     [
       'import first from "../api/first.json";',
       'import firstPeer from "../api/first-peer.json";',
+      'import other from "../contracts/other.json";',
+      'import mixed from "../api/mixed.json";',
       'import second from "../api/second.json";',
       'import third from "../api/third.json";',
-      "JSON.stringify([first, firstPeer, second, third]);",
+      "JSON.stringify([first, firstPeer, other, mixed, second, third]);",
       "",
     ].join("\n"),
     "utf8",
@@ -227,6 +232,7 @@ async function verifyWindowsProjectCompilerMembershipHandoff(): Promise<void> {
 
   const changes: WatchInputChange[] = [];
   const errors: unknown[] = [];
+  let topologyChanges = 0;
   const registrations: Array<{
     listener: fs.WatchListener<string>;
     location: string;
@@ -251,7 +257,12 @@ async function verifyWindowsProjectCompilerMembershipHandoff(): Promise<void> {
     writable: true,
   });
 
-  const topology = createTopology(fixture.root, changes, errors);
+  const topology = createTopology(
+    fixture.root,
+    changes,
+    errors,
+    () => (topologyChanges += 1),
+  );
   try {
     topology.refresh(false);
     await Promise.resolve();
@@ -260,7 +271,10 @@ async function verifyWindowsProjectCompilerMembershipHandoff(): Promise<void> {
     const beforeProjectInputs = registrations.length;
     topology.setProjectInputs({
       files: [],
-      globs: [path.join(fixture.root, "api", "**", "*.json")],
+      globs: [
+        path.join(fixture.root, "api", "**", "*.json"),
+        path.join(fixture.root, "contracts", "**", "*.json"),
+      ],
       reloadDirectories: [fixture.root, reloadDirectory],
       reloadFiles: [second],
       root: fixture.root,
@@ -269,8 +283,10 @@ async function verifyWindowsProjectCompilerMembershipHandoff(): Promise<void> {
     assert.ok(project, "the project-input watcher was not registered");
 
     fs.mkdirSync(path.dirname(first), { recursive: true });
+    fs.mkdirSync(path.dirname(other), { recursive: true });
     fs.writeFileSync(first, '{"name":"created"}\n', "utf8");
     fs.writeFileSync(firstPeer, '{"name":"created"}\n', "utf8");
+    fs.writeFileSync(other, '{"name":"created"}\n', "utf8");
     topology.refresh(true);
     assert.deepEqual(changes, [
       { invalidate: true, kind: "project", path: undefined },
@@ -280,13 +296,59 @@ async function verifyWindowsProjectCompilerMembershipHandoff(): Promise<void> {
       "rename",
       path.relative(project.location, path.dirname(first)),
     );
+    project.listener(
+      "rename",
+      path.relative(project.location, path.dirname(other)),
+    );
     compiler.listener("change", path.relative(compiler.location, first));
     compiler.listener("change", path.relative(compiler.location, firstPeer));
+    compiler.listener("change", path.relative(compiler.location, other));
     await Promise.resolve();
     assert.equal(
       changes.length,
       1,
       "delayed project/compiler deliveries repeated one consumed warm creation",
+    );
+    assert.equal(topologyChanges, 0);
+
+    topology.setProjectInputs({
+      files: [],
+      globs: [
+        path.join(fixture.root, "api", "**", "*.json"),
+        path.join(fixture.root, "contracts", "**", "*.json"),
+      ],
+      reloadDirectories: [reloadDirectory],
+      reloadFiles: [second],
+      root: fixture.root,
+    });
+    fs.writeFileSync(mixed, '{"name":"created"}\n', "utf8");
+    fs.writeFileSync(mixedSource, "export const added = true;\n", "utf8");
+    topology.refresh(true);
+    assert.equal(
+      topologyChanges,
+      1,
+      "mixed compiler membership did not retain its broader topology reload",
+    );
+    assert.equal(
+      changes.length,
+      1,
+      "mixed compiler membership invented a narrower input callback",
+    );
+    project.listener(
+      "rename",
+      path.relative(project.location, path.dirname(mixed)),
+    );
+    compiler.listener("change", path.relative(compiler.location, mixed));
+    await Promise.resolve();
+    assert.equal(
+      topologyChanges,
+      1,
+      "delayed mixed membership repeated its topology reload",
+    );
+    assert.equal(
+      changes.length,
+      1,
+      "delayed project/compiler delivery escaped a mixed membership handoff",
     );
 
     fs.writeFileSync(second, '{"name":"created"}\n', "utf8");

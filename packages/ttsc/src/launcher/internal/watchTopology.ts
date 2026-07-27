@@ -143,16 +143,22 @@ export class WatchTopology {
     skipUnobservedProjectInputWatchRoots: boolean,
   ): void {
     const next = resolveWatchTopology(this.options, this.extraInputs);
-    const projectInputProgramChange =
+    const compilerProgramMembershipChange =
       next.analysisOnly &&
       mapsEqual(this.reloadFiles, next.reloadFiles) &&
       mapsEqual(this.outputFiles, next.outputFiles) &&
       mapsEqual(this.outputs, next.outputs)
-        ? projectInputCompilerMembershipChange(
-            this.projectInputs,
-            this.files,
-            next.files,
-          )
+        ? compilerMembershipChange(this.files, next.files)
+        : [];
+    const projectInputProgramOverlap = projectInputCompilerMembershipChange(
+      this.projectInputs,
+      compilerProgramMembershipChange,
+    );
+    const projectInputProgramChange =
+      compilerProgramMembershipChange.length !== 0 &&
+      projectInputProgramOverlap.length ===
+        compilerProgramMembershipChange.length
+        ? projectInputProgramOverlap
         : undefined;
     const changed =
       this.analysisOnly !== next.analysisOnly ||
@@ -187,10 +193,10 @@ export class WatchTopology {
       }
     }
     const projectInputProgramReload =
-      projectInputProgramChange === undefined
+      projectInputProgramOverlap.length === 0
         ? false
         : this.acknowledgeProjectInputCompilerMembership(
-            projectInputProgramChange,
+            projectInputProgramOverlap,
           );
     const fileWatcherRegistered = this.syncFileWatchers();
     const directoryWatcherRegistered = this.syncDirectoryWatchers();
@@ -249,12 +255,13 @@ export class WatchTopology {
       previousFingerprints: this.projectInputFingerprints,
     });
     const population = this.projectInputPopulation();
-    const changedPath = projectInputCompilerMembershipProjectChange(
+    const causedBy = projectInputCompilerMembershipProjectChanges(
       changed,
       population.globs,
     );
     const reload = projectInputReloadEventShouldNotify({
-      changed: changedPath,
+      causedBy,
+      changed: causedBy.length === 1 ? causedBy[0] : undefined,
       changedInputs,
       globs: population.globs,
       reloadDirectories: population.reloadDirectories,
@@ -2427,6 +2434,7 @@ function projectInputChangedPaths(input: {
  * bytes remain quiet before this classifier is observed.
  */
 export function projectInputReloadEventShouldNotify(input: {
+  causedBy?: readonly string[];
   changed?: string;
   changedInputs: readonly string[];
   reloadDirectories?: readonly string[];
@@ -2496,13 +2504,16 @@ export function projectInputReloadEventShouldNotify(input: {
   // resolution moved. A missed reselection is a wrong answer; a spare restart is
   // a slow one.
   const explains = (directory: ProjectInputPathIdentity): boolean => {
-    if (input.changed === undefined) return false;
+    const causes =
+      input.causedBy ?? (input.changed === undefined ? [] : [input.changed]);
     // Only an immediate entry can move this directory's digest, so only an
     // immediate entry can account for the delta. Asking whether the event was
     // data somewhere else answers a different directory's question, and one
     // exemption would then cancel every other directory's evidence.
-    const parent = identities.resolve(path.dirname(input.changed)).key;
-    return parent === directory.key && exemptedFrom(directory, input.changed);
+    return causes.some((location) => {
+      const parent = identities.resolve(path.dirname(location)).key;
+      return parent === directory.key && exemptedFrom(directory, location);
+    });
   };
   const isReloadDirectoryEvent = (location: string): boolean =>
     namesDirectory(location) || holdsAsImmediateEntry(location);
@@ -2579,11 +2590,10 @@ function projectInputPathMayAffectProgram(location: string): boolean {
   return extension === ".json" || isCompilerEmittableSourceExtension(extension);
 }
 
-function projectInputCompilerMembershipChange(
-  snapshot: ITtscProjectInputSnapshot,
+function compilerMembershipChange(
   previous: ReadonlyMap<string, string>,
   next: ReadonlyMap<string, string>,
-): string[] | undefined {
+): string[] {
   const changed = new Map<string, string>();
   for (const [key, location] of previous) {
     if (next.has(key) === false) changed.set(key, location);
@@ -2591,17 +2601,18 @@ function projectInputCompilerMembershipChange(
   for (const [key, location] of next) {
     if (previous.has(key) === false) changed.set(key, location);
   }
-  if (
-    changed.size === 0 ||
-    [...changed.values()].some(
-      (location) =>
-        matchesProjectInput(snapshot, location) === false ||
-        projectInputPathMayAffectProgram(location) === false,
-    )
-  ) {
-    return undefined;
-  }
   return [...changed.values()].sort();
+}
+
+function projectInputCompilerMembershipChange(
+  snapshot: ITtscProjectInputSnapshot,
+  changed: readonly string[],
+): string[] {
+  return changed.filter(
+    (location) =>
+      matchesProjectInput(snapshot, location) &&
+      projectInputPathMayAffectProgram(location),
+  );
 }
 
 /**
@@ -2613,22 +2624,22 @@ function projectInputCompilerMembershipChange(
  * immediate-entry delta instead of turning ordinary project data into a cold
  * selection reload. The deepest matching glob owns the most specific delivery.
  */
-function projectInputCompilerMembershipProjectChange(
+function projectInputCompilerMembershipProjectChanges(
   locations: readonly string[],
   globs: readonly string[],
-): string | undefined {
-  if (locations.length === 0) return undefined;
+): string[] {
   const identities = createProjectInputPathIdentityContext();
-  const candidates = locations.map((location) => identities.resolve(location));
-  const roots = globs
-    .map((glob) => identities.resolve(literalGlobRoot(glob)))
-    .filter((root) =>
-      candidates.every((candidate) =>
-        identities.isWithin(root.path, candidate.path),
-      ),
-    )
-    .sort((left, right) => right.path.length - left.path.length);
-  return roots[0]?.path ?? (locations.length === 1 ? locations[0] : undefined);
+  const roots = globs.map((glob) => identities.resolve(literalGlobRoot(glob)));
+  const changes = new Map<string, string>();
+  for (const location of locations) {
+    const candidate = identities.resolve(location);
+    const root = roots
+      .filter((entry) => identities.isWithin(entry.path, candidate.path))
+      .sort((left, right) => right.path.length - left.path.length)[0];
+    const change = root ?? candidate;
+    changes.set(change.key, change.path);
+  }
+  return [...changes.values()].sort();
 }
 
 function fingerprintProjectInputMatches(
