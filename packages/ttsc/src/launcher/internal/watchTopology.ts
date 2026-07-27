@@ -101,6 +101,7 @@ export class WatchTopology {
     root: "",
   };
   private projectInputRecoveryScheduled = false;
+  private projectInputPostRegistrationReconciliationScheduled = false;
   private projectInputRejectedWatchRoots = new Set<string>();
   private projectInputRequiredWatchRoots = new Map<string, string>();
   private projectInputUnobservedWatchRoots = new Map<string, string>();
@@ -203,6 +204,7 @@ export class WatchTopology {
         : { ...inputs.declared, root: inputs.root };
     if (projectInputSnapshotsEqual(this.projectInputs, next)) {
       this.syncProjectInputWatchers();
+      this.scheduleProjectInputPostRegistrationReconciliation();
       return;
     }
     this.projectInputs = next;
@@ -235,6 +237,7 @@ export class WatchTopology {
       this.projectInputMatches,
     );
     this.syncProjectInputWatchers();
+    this.scheduleProjectInputPostRegistrationReconciliation();
   }
 
   /** Close every watcher so SIGINT/SIGTERM can drain the event loop. */
@@ -671,8 +674,37 @@ export class WatchTopology {
           this.reportUnobservedProjectInputWatchRoots(
             this.projectInputRequiredWatchRoots,
           );
+          this.scheduleProjectInputPostRegistrationReconciliation();
         }
       }
+    });
+  }
+
+  /**
+   * Reconcile the snapshot-to-watcher handoff after the caller's current turn.
+   *
+   * A recursive watcher can return before its backend is ready to deliver the
+   * first event. The publication baseline is necessarily captured before that
+   * watcher exists, so an input materialized synchronously after
+   * `setProjectInputs()` would otherwise depend entirely on that startup event.
+   * The ordinary fingerprint update makes this scan and a real backend event
+   * race safely: whichever arrives first records the new population and the
+   * other becomes a no-op.
+   */
+  private scheduleProjectInputPostRegistrationReconciliation(): void {
+    if (
+      this.closed ||
+      this.projectInputRecoveryScheduled ||
+      this.projectInputUnobservedWatchRoots.size !== 0 ||
+      this.projectInputPostRegistrationReconciliationScheduled
+    ) {
+      return;
+    }
+    this.projectInputPostRegistrationReconciliationScheduled = true;
+    queueMicrotask(() => {
+      this.projectInputPostRegistrationReconciliationScheduled = false;
+      if (this.closed) return;
+      this.refreshProjectInputs(this.projectInputs.root);
     });
   }
 
@@ -824,19 +856,21 @@ export class WatchTopology {
         previous,
         previousFingerprints: this.projectInputFingerprints,
       });
+      const reconciledChange =
+        changed ?? (changedInputs.length === 1 ? changedInputs[0] : undefined);
       // Both spellings classify the event. The normalized form names the file a
       // link pointed at when the snapshot was published, so after a retarget it
       // names the wrong one; only the declared form resolves to what the link
       // points at now, which is the selection this lane exists to protect.
       const reload = projectInputReloadEventShouldNotify({
-        changed,
+        changed: reconciledChange,
         changedInputs,
         globs: population.globs,
         reloadDirectories: population.reloadDirectories ?? [],
         reloadFiles: population.reloadFiles ?? [],
       });
       const invalidate = projectInputMembershipInvalidatesProgram({
-        changed,
+        changed: reconciledChange,
         changedInputs,
         contentChanged,
         next,
@@ -856,16 +890,17 @@ export class WatchTopology {
           directlyMatched,
           membershipChanged,
         }) &&
-        (changed === undefined ||
-          this.isProjectInputCompilerOutput(changed, identities) === false)
+        (reconciledChange === undefined ||
+          this.isProjectInputCompilerOutput(reconciledChange, identities) ===
+            false)
       ) {
         this.callbacks.onInputChange(
           reload
-            ? { kind: "config", path: changed }
+            ? { kind: "config", path: reconciledChange }
             : {
                 ...(invalidate ? { invalidate: true } : {}),
                 kind: "project",
-                path: changed,
+                path: reconciledChange,
               },
         );
       }
