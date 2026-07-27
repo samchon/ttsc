@@ -15,6 +15,11 @@ import {
  * The post-registration reconciliation must discover an input created in that
  * window, coalesce repeated publications, deduplicate a real event that wins
  * the race, and stay silent after close.
+ *
+ * 1. Swallow the startup event and recover the synchronous input change once.
+ * 2. Let a backend event win the race without producing a duplicate.
+ * 3. Close before reconciliation and prove the queued scan stays silent.
+ * 4. Reject one root while a healthy root still completes its handoff scan.
  */
 export const test_watch_topology_reconciles_project_inputs_after_registration =
   async (): Promise<void> => {
@@ -60,6 +65,7 @@ export const test_watch_topology_reconciles_project_inputs_after_registration =
         writable: true,
       });
     }
+    await verifyUncoveredRootDoesNotDisableHealthyReconciliation();
   };
 
 async function verifySwallowedStartupEvent(
@@ -123,6 +129,84 @@ async function verifyCloseCancelsReconciliation(root: string): Promise<void> {
   await Promise.resolve();
 
   assert.deepEqual(changes, []);
+}
+
+async function verifyUncoveredRootDoesNotDisableHealthyReconciliation(): Promise<void> {
+  const root = TestProject.tmpdir("ttsc-project-input-registration-mixed-");
+  const externalRoot = TestProject.tmpdir(
+    "ttsc-project-input-registration-unavailable-",
+  );
+  const healthyInput = path.join(root, "healthy.md");
+  const unavailableInput = path.join(externalRoot, "unavailable.md");
+  const originalWatch = fs.watch;
+  const changes: WatchInputChange[] = [];
+  const errors: NodeJS.ErrnoException[] = [];
+  const unavailable: string[][] = [];
+
+  Object.defineProperty(fs, "watch", {
+    configurable: true,
+    value: ((location: fs.PathLike) => {
+      if (
+        fs.realpathSync.native(location) ===
+        fs.realpathSync.native(externalRoot)
+      ) {
+        const error = new Error(
+          "project-input watcher unavailable",
+        ) as NodeJS.ErrnoException;
+        error.code = "ENOSPC";
+        throw error;
+      }
+      return new FakeWatcher() as unknown as fs.FSWatcher;
+    }) as typeof fs.watch,
+    writable: true,
+  });
+
+  const topology = new WatchTopology(
+    {
+      cwd: root,
+      files: [],
+      projectRoot: root,
+      tsconfig: path.join(root, "tsconfig.json"),
+    },
+    {
+      onError: (_location, error) =>
+        errors.push(error as NodeJS.ErrnoException),
+      onInputChange: (change) => changes.push(change),
+      onProjectInputWatchUnavailable: (roots) => {
+        unavailable.push([...roots]);
+      },
+      onTopologyChange: () => {
+        throw new Error(
+          "project-input reconciliation changed compiler topology",
+        );
+      },
+    },
+  );
+  try {
+    topology.setProjectInputs({
+      files: [healthyInput, unavailableInput],
+      globs: [],
+      root,
+    });
+    fs.writeFileSync(healthyInput, "{}\n", "utf8");
+    await Promise.resolve();
+    await Promise.resolve();
+
+    assert.deepEqual(changes, [{ kind: "project", path: healthyInput }]);
+    assert.deepEqual(
+      errors.map((error) => error.code),
+      ["ENOSPC"],
+    );
+    assert.equal(unavailable.length, 1);
+    assert.equal(unavailable[0]?.length, 1);
+  } finally {
+    topology.close();
+    Object.defineProperty(fs, "watch", {
+      configurable: true,
+      value: originalWatch,
+      writable: true,
+    });
+  }
 }
 
 function createTopology(

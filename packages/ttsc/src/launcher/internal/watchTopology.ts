@@ -694,8 +694,6 @@ export class WatchTopology {
   private scheduleProjectInputPostRegistrationReconciliation(): void {
     if (
       this.closed ||
-      this.projectInputRecoveryScheduled ||
-      this.projectInputUnobservedWatchRoots.size !== 0 ||
       this.projectInputPostRegistrationReconciliationScheduled
     ) {
       return;
@@ -704,7 +702,7 @@ export class WatchTopology {
     queueMicrotask(() => {
       this.projectInputPostRegistrationReconciliationScheduled = false;
       if (this.closed) return;
-      this.refreshProjectInputs(this.projectInputs.root);
+      this.refreshProjectInputs(this.projectInputs.root, undefined, false);
     });
   }
 
@@ -800,7 +798,11 @@ export class WatchTopology {
     return resolved;
   }
 
-  private refreshProjectInputs(location: string, changed?: string): void {
+  private refreshProjectInputs(
+    location: string,
+    changed?: string,
+    synchronizeWatchers = true,
+  ): void {
     try {
       const previous = this.projectInputMatches;
       const identities = createProjectInputPathIdentityContext();
@@ -878,7 +880,7 @@ export class WatchTopology {
       });
       this.projectInputMatches = next;
       this.projectInputFingerprints = nextFingerprints;
-      this.syncProjectInputWatchers();
+      if (synchronizeWatchers) this.syncProjectInputWatchers();
       // A JSON/TS/JS project-input member can simultaneously enter or leave
       // the compiler Program. Reconcile the compiler watch snapshot before
       // scheduling its resident invalidation, so runWatch's post-cycle refresh
@@ -909,7 +911,7 @@ export class WatchTopology {
       // replacement is readable. Rebind ancestor ownership even when the
       // population scan races that transient gap, so a later create cannot be
       // stranded without a watcher.
-      this.syncProjectInputWatchers();
+      if (synchronizeWatchers) this.syncProjectInputWatchers();
       this.callbacks.onError(location, error);
     }
   }
