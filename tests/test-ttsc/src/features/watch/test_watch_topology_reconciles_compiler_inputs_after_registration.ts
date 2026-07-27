@@ -424,6 +424,7 @@ async function verifyTransientReloadDirectoryFingerprintRace(): Promise<void> {
   const fixture = createFixture("ttsc-watch-reload-directory-race-");
   const reloadDirectory = path.join(fixture.root, "config-deps");
   fs.mkdirSync(reloadDirectory, { recursive: true });
+  const reloadDirectoryIdentity = fs.realpathSync.native(reloadDirectory);
   fs.writeFileSync(
     path.join(reloadDirectory, "selection.cjs"),
     "module.exports = 1;\n",
@@ -450,7 +451,7 @@ async function verifyTransientReloadDirectoryFingerprintRace(): Promise<void> {
     value: ((location: fs.PathLike, options?: unknown) => {
       if (
         !injected &&
-        path.resolve(location.toString()) === path.resolve(reloadDirectory)
+        fs.realpathSync.native(location) === reloadDirectoryIdentity
       ) {
         injected = true;
         const error = new Error(
@@ -484,7 +485,7 @@ async function verifyTransientReloadDirectoryFingerprintRace(): Promise<void> {
     assert.deepEqual(changes, [
       {
         kind: "config",
-        path: fs.realpathSync.native(reloadDirectory),
+        path: reloadDirectoryIdentity,
       },
     ]);
     assert.deepEqual(errors, []);
