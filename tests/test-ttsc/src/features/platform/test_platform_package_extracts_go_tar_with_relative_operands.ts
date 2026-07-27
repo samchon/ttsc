@@ -20,7 +20,7 @@ import {
  *
  * 1. Build a small real Go-shaped tar.gz beneath paths containing spaces.
  * 2. Drive the verified-extraction owner and assert its tar process boundary.
- * 3. Pin checksum-first recovery, cache reuse, and failure-marker behavior.
+ * 3. Pin checksum-first recovery, zip preservation, and marker boundaries.
  */
 export const test_platform_package_extracts_go_tar_with_relative_operands =
   () => {
@@ -209,6 +209,55 @@ export const test_platform_package_extracts_go_tar_with_relative_operands =
         fs.existsSync(path.join(missingBinaryDir, markerName)),
         false,
       );
+
+      const zipArchive = path.join(cacheRoot, "go-sdk.zip");
+      const zipExtractDir = path.join(cacheRoot, "zip extraction");
+      const zipGoBinary = path.join(zipExtractDir, "go", "bin", "go.exe");
+      fs.writeFileSync(zipArchive, "verified zip fixture", "utf8");
+      const zipChecksum = createHash("sha256")
+        .update(fs.readFileSync(zipArchive))
+        .digest("hex");
+      let zipExtractionCount = 0;
+      extraction.ensureVerifiedGoExtraction({
+        archivePath: zipArchive,
+        checksum: zipChecksum,
+        extractDir: zipExtractDir,
+        extractZipArchive: (file, destination) => {
+          zipExtractionCount++;
+          assert.equal(file, zipArchive);
+          assert.equal(destination, zipExtractDir);
+          fs.mkdirSync(path.dirname(zipGoBinary), { recursive: true });
+          fs.writeFileSync(zipGoBinary, "go compiler fixture\n", "utf8");
+        },
+        goBinary: zipGoBinary,
+        verifyArchive,
+      });
+      assert.equal(zipExtractionCount, 1);
+      assert.equal(
+        integrity.hasVerifiedGoExtraction(
+          zipExtractDir,
+          zipGoBinary,
+          zipChecksum,
+        ),
+        true,
+      );
+
+      const failedZipDir = path.join(cacheRoot, "failed zip extraction");
+      assert.throws(
+        () =>
+          extraction.ensureVerifiedGoExtraction({
+            archivePath: zipArchive,
+            checksum: zipChecksum,
+            extractDir: failedZipDir,
+            extractZipArchive: () => {
+              throw new Error("zip extraction failed");
+            },
+            goBinary: path.join(failedZipDir, "go", "bin", "go.exe"),
+            verifyArchive,
+          }),
+        /zip extraction failed/,
+      );
+      assert.equal(fs.existsSync(path.join(failedZipDir, markerName)), false);
 
       const invalidArchive = path.join(cacheRoot, "invalid.tar.gz");
       const failedExtractDir = path.join(cacheRoot, "failed extraction");

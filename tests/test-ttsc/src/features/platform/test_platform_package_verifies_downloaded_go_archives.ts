@@ -91,6 +91,11 @@ export const test_platform_package_verifies_downloaded_go_archives = () => {
         ),
       /checksum mismatch/,
     );
+    assert.equal(
+      fs.existsSync(temporary),
+      false,
+      "a failed replacement must remove its temporary download",
+    );
 
     const extractDir = path.join(root, "extract");
     const goBinary = path.join(extractDir, "go", "bin", "go");
@@ -119,6 +124,9 @@ export const test_platform_package_verifies_downloaded_go_archives = () => {
   );
   assert.match(packager, /https:\/\/go\.dev\/dl\/\?mode=json&include=all/);
   assert.match(packager, /fetchGoArchiveChecksum/);
-  assert.match(packager, /ensureVerifiedGoArchive/);
-  assert.match(packager, /ensureVerifiedGoExtraction/);
+  assert.match(
+    packager,
+    /ensureVerifiedGoExtraction\(\{\s*archivePath,\s*checksum,\s*extractDir,\s*extractZipArchive,\s*goBinary,\s*verifyArchive: \(file, expected\) =>\s*ensureVerifiedGoArchive\(file, url, expected\),\s*\}\)/,
+    "the package owner must authenticate the same archive before extraction",
+  );
 };
