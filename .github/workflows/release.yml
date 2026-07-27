@@ -37,16 +37,16 @@ jobs:
             /usr/share/swift
           sudo docker image prune --all --force >/dev/null 2>&1 || true
           df -h /
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v6
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 24.x
           registry-url: https://registry.npmjs.org/
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v7
         with:
           go-version-file: packages/ttsc/go.mod
           cache-dependency-path: packages/ttsc/go.sum
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: Preflight - validate release tag and package versions
@@ -99,7 +99,7 @@ jobs:
     timeout-minutes: 15
     needs: publish
     steps:
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: 24.x
           registry-url: https://registry.npmjs.org/
@@ -117,8 +117,8 @@ jobs:
     timeout-minutes: 15
     needs: publish
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v6
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 24.x
           registry-url: https://registry.npmjs.org/
@@ -164,10 +164,10 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
       - run: pnpm dlx changelogithub
         env:
           GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}

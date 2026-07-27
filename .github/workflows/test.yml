@@ -48,13 +48,13 @@ jobs:
           - macos-latest
           - windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 24.x
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v7
         with:
           go-version-file: packages/ttsc/go.mod
           cache-dependency-path: |
@@ -62,7 +62,7 @@ jobs:
             packages/ttsc/tools/shim_audit/go.sum
             tests/go-transformer/go.mod
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         with:
           version: 10.6.4
 
@@ -282,13 +282,13 @@ jobs:
               run: "node experimental/benchmark/graph/bench.mjs --runs=3",
             }
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ matrix.node || '24.x' }}
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v7
         with:
           go-version-file: packages/ttsc/go.mod
           cache-dependency-path: |
@@ -296,7 +296,7 @@ jobs:
             packages/ttsc/tools/shim_audit/go.sum
             tests/go-transformer/go.mod
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         with:
           version: 10.6.4
 
