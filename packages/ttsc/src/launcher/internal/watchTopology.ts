@@ -186,9 +186,12 @@ export class WatchTopology {
         this.projectInputCompilerAcknowledgements.delete(key);
       }
     }
-    if (projectInputProgramChange !== undefined) {
-      this.acknowledgeProjectInputCompilerMembership(projectInputProgramChange);
-    }
+    const projectInputProgramReload =
+      projectInputProgramChange === undefined
+        ? false
+        : this.acknowledgeProjectInputCompilerMembership(
+            projectInputProgramChange,
+          );
     const fileWatcherRegistered = this.syncFileWatchers();
     const directoryWatcherRegistered = this.syncDirectoryWatchers();
     this.syncExtraWatchers();
@@ -201,14 +204,19 @@ export class WatchTopology {
     }
     if (notify && changed) {
       if (projectInputProgramChange !== undefined) {
-        this.callbacks.onInputChange({
-          invalidate: true,
-          kind: "project",
-          path:
-            projectInputProgramChange.length === 1
-              ? projectInputProgramChange[0]
-              : undefined,
-        });
+        const changedPath =
+          projectInputProgramChange.length === 1
+            ? projectInputProgramChange[0]
+            : undefined;
+        this.callbacks.onInputChange(
+          projectInputProgramReload
+            ? { kind: "config", path: changedPath }
+            : {
+                invalidate: true,
+                kind: "project",
+                path: changedPath,
+              },
+        );
       } else {
         this.callbacks.onTopologyChange();
       }
@@ -230,10 +238,32 @@ export class WatchTopology {
    */
   private acknowledgeProjectInputCompilerMembership(
     changed: readonly string[],
-  ): void {
+  ): boolean {
     const matches = this.collectProjectInputMatches();
     const fingerprints = fingerprintProjectInputMatches(matches);
     const identities = createProjectInputPathIdentityContext();
+    const changedInputs = projectInputChangedPaths({
+      next: matches,
+      nextFingerprints: fingerprints,
+      previous: this.projectInputMatches,
+      previousFingerprints: this.projectInputFingerprints,
+    });
+    const population = this.projectInputPopulation();
+    const changedPath = projectInputCompilerMembershipProjectChange(
+      changed,
+      population.globs,
+    );
+    const reload = projectInputReloadEventShouldNotify({
+      changed: changedPath,
+      changedInputs,
+      globs: population.globs,
+      reloadDirectories: population.reloadDirectories,
+      reloadFiles: population.reloadFiles ?? [],
+    });
+    // The callback below consumes the complete population observed by this
+    // scan. Crucially, reload classification runs against the old baseline
+    // first, so a concurrent selection delta becomes one cold transition
+    // instead of disappearing behind the warm compiler-membership handoff.
     this.projectInputMatches = matches;
     this.projectInputFingerprints = fingerprints;
     for (const location of changed) {
@@ -244,6 +274,7 @@ export class WatchTopology {
         this.projectInputCompilerAcknowledgements.set(compilerKey, fingerprint);
       }
     }
+    return reload;
   }
 
   /** Add Go plugin source trees discovered by the real build lane. */
@@ -2573,6 +2604,33 @@ function projectInputCompilerMembershipChange(
   return [...changed.values()].sort();
 }
 
+/**
+ * Name a compiler-membership transition as the recursive project watcher does.
+ *
+ * Creating the first member below a missing glob root makes Windows report the
+ * root directory before it reports the member. Reload-directory fingerprints
+ * must see that same causal path: the new root then explains its ancestor's
+ * immediate-entry delta instead of turning ordinary project data into a cold
+ * selection reload. The deepest matching glob owns the most specific delivery.
+ */
+function projectInputCompilerMembershipProjectChange(
+  locations: readonly string[],
+  globs: readonly string[],
+): string | undefined {
+  if (locations.length === 0) return undefined;
+  const identities = createProjectInputPathIdentityContext();
+  const candidates = locations.map((location) => identities.resolve(location));
+  const roots = globs
+    .map((glob) => identities.resolve(literalGlobRoot(glob)))
+    .filter((root) =>
+      candidates.every((candidate) =>
+        identities.isWithin(root.path, candidate.path),
+      ),
+    )
+    .sort((left, right) => right.path.length - left.path.length);
+  return roots[0]?.path ?? (locations.length === 1 ? locations[0] : undefined);
+}
+
 function fingerprintProjectInputMatches(
   matches: ReadonlyMap<string, string>,
 ): Map<string, string> {
@@ -2600,28 +2658,32 @@ function fingerprintProjectInputFile(location: string): string {
 }
 
 function fingerprintProjectInputDirectory(location: string): string {
-  const entries = fs
-    .readdirSync(location, { withFileTypes: true })
-    .map((entry) => {
-      const kind = entry.isDirectory()
-        ? "directory"
-        : entry.isFile()
-          ? "file"
-          : entry.isSymbolicLink()
-            ? "symlink"
-            : "other";
-      let target = "";
-      if (entry.isSymbolicLink()) {
-        try {
-          target = fs.readlinkSync(path.join(location, entry.name));
-        } catch {
-          target = "<unreadable>";
+  try {
+    const entries = fs
+      .readdirSync(location, { withFileTypes: true })
+      .map((entry) => {
+        const kind = entry.isDirectory()
+          ? "directory"
+          : entry.isFile()
+            ? "file"
+            : entry.isSymbolicLink()
+              ? "symlink"
+              : "other";
+        let target = "";
+        if (entry.isSymbolicLink()) {
+          try {
+            target = fs.readlinkSync(path.join(location, entry.name));
+          } catch {
+            target = "<unreadable>";
+          }
         }
-      }
-      return entry.name + "\0" + kind + "\0" + target;
-    })
-    .sort();
-  return crypto.createHash("sha256").update(entries.join("\0")).digest("hex");
+        return entry.name + "\0" + kind + "\0" + target;
+      })
+      .sort();
+    return crypto.createHash("sha256").update(entries.join("\0")).digest("hex");
+  } catch {
+    return "";
+  }
 }
 
 function matchesProjectInputGlob(

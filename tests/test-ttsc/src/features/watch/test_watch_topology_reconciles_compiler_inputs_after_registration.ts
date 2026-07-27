@@ -20,10 +20,11 @@ import {
  * 2. Swallow a new included source event and refresh compiler membership once.
  * 3. Let a real source event win the race without producing a duplicate.
  * 4. Hand a Windows JSON membership change across project/compiler watchers.
- * 5. Rebind a same-stamp POSIX replacement without reporting identical bytes.
- * 6. Keep a source rearm from repeating a failed config membership refresh.
- * 7. Observe the rebound POSIX file's next in-place edit.
- * 8. Close before reconciliation and drain every fake watcher exactly once.
+ * 5. Contain and recover a transient reload-directory fingerprint race.
+ * 6. Rebind a same-stamp POSIX replacement without reporting identical bytes.
+ * 7. Keep a source rearm from repeating a failed config membership refresh.
+ * 8. Observe the rebound POSIX file's next in-place edit.
+ * 9. Close before reconciliation and drain every fake watcher exactly once.
  */
 export const test_watch_topology_reconciles_compiler_inputs_after_registration =
   async (): Promise<void> => {
@@ -31,6 +32,7 @@ export const test_watch_topology_reconciles_compiler_inputs_after_registration =
     await verifySwallowedCompilerMembership();
     await verifyBackendEventWinsReconciliation();
     await verifyWindowsProjectCompilerMembershipHandoff();
+    await verifyTransientReloadDirectoryFingerprintRace();
     await verifyAtomicReplacementRebindsPosixFileWatcher();
     await verifyFileRearmDoesNotRepeatCompilerRefresh();
     await verifyCloseCancelsReconciliation();
@@ -205,13 +207,19 @@ async function verifyWindowsProjectCompilerMembershipHandoff(): Promise<void> {
     include: ["src"],
   });
   const first = path.join(fixture.root, "api", "first.json");
+  const firstPeer = path.join(fixture.root, "api", "first-peer.json");
   const second = path.join(fixture.root, "api", "second.json");
+  const third = path.join(fixture.root, "api", "third.json");
+  const reloadDirectory = path.join(fixture.root, "config-deps");
+  fs.mkdirSync(reloadDirectory, { recursive: true });
   fs.writeFileSync(
     fixture.source,
     [
       'import first from "../api/first.json";',
+      'import firstPeer from "../api/first-peer.json";',
       'import second from "../api/second.json";',
-      "JSON.stringify([first, second]);",
+      'import third from "../api/third.json";',
+      "JSON.stringify([first, firstPeer, second, third]);",
       "",
     ].join("\n"),
     "utf8",
@@ -253,6 +261,8 @@ async function verifyWindowsProjectCompilerMembershipHandoff(): Promise<void> {
     topology.setProjectInputs({
       files: [],
       globs: [path.join(fixture.root, "api", "**", "*.json")],
+      reloadDirectories: [fixture.root, reloadDirectory],
+      reloadFiles: [second],
       root: fixture.root,
     });
     const project = registrations[beforeProjectInputs];
@@ -260,9 +270,10 @@ async function verifyWindowsProjectCompilerMembershipHandoff(): Promise<void> {
 
     fs.mkdirSync(path.dirname(first), { recursive: true });
     fs.writeFileSync(first, '{"name":"created"}\n', "utf8");
+    fs.writeFileSync(firstPeer, '{"name":"created"}\n', "utf8");
     topology.refresh(true);
     assert.deepEqual(changes, [
-      { invalidate: true, kind: "project", path: first },
+      { invalidate: true, kind: "project", path: undefined },
     ]);
 
     project.listener(
@@ -270,20 +281,31 @@ async function verifyWindowsProjectCompilerMembershipHandoff(): Promise<void> {
       path.relative(project.location, path.dirname(first)),
     );
     compiler.listener("change", path.relative(compiler.location, first));
+    compiler.listener("change", path.relative(compiler.location, firstPeer));
     await Promise.resolve();
     assert.equal(
       changes.length,
       1,
-      "delayed project/compiler deliveries repeated one consumed creation",
+      "delayed project/compiler deliveries repeated one consumed warm creation",
     );
 
     fs.writeFileSync(second, '{"name":"created"}\n', "utf8");
     topology.refresh(true);
     assert.deepEqual(changes.at(-1), {
-      invalidate: true,
-      kind: "project",
+      kind: "config",
       path: second,
     });
+    project.listener(
+      "rename",
+      path.relative(project.location, path.dirname(second)),
+    );
+    compiler.listener("change", path.relative(compiler.location, second));
+    await Promise.resolve();
+    assert.equal(
+      changes.length,
+      2,
+      "a consumed reload-file delta survived its cold handoff",
+    );
     const stamp = fs.statSync(second);
     fs.writeFileSync(second, '{"name":"altered"}\n', "utf8");
     fs.utimesSync(second, stamp.atime, stamp.mtime);
@@ -298,6 +320,29 @@ async function verifyWindowsProjectCompilerMembershipHandoff(): Promise<void> {
       kind: "compiler",
       path: second,
     });
+
+    fs.writeFileSync(third, '{"name":"created"}\n', "utf8");
+    fs.writeFileSync(
+      path.join(reloadDirectory, "selection.cjs"),
+      "module.exports = 1;\n",
+      "utf8",
+    );
+    topology.refresh(true);
+    assert.deepEqual(changes.at(-1), {
+      kind: "config",
+      path: third,
+    });
+    project.listener(
+      "rename",
+      path.relative(project.location, path.dirname(third)),
+    );
+    compiler.listener("change", path.relative(compiler.location, third));
+    await Promise.resolve();
+    assert.equal(
+      changes.length,
+      4,
+      "a consumed reload-directory delta survived its cold handoff",
+    );
     assert.deepEqual(errors, []);
   } finally {
     topology.close();
@@ -310,6 +355,93 @@ async function verifyWindowsProjectCompilerMembershipHandoff(): Promise<void> {
   assert.ok(
     registrations.every(({ watcher }) => watcher.closeCount === 1),
     "close did not drain every handoff watcher",
+  );
+}
+
+async function verifyTransientReloadDirectoryFingerprintRace(): Promise<void> {
+  const fixture = createFixture("ttsc-watch-reload-directory-race-");
+  const reloadDirectory = path.join(fixture.root, "config-deps");
+  fs.mkdirSync(reloadDirectory, { recursive: true });
+  fs.writeFileSync(
+    path.join(reloadDirectory, "selection.cjs"),
+    "module.exports = 1;\n",
+    "utf8",
+  );
+
+  const changes: WatchInputChange[] = [];
+  const errors: unknown[] = [];
+  const watchers: FakeWatcher[] = [];
+  const originalWatch = fs.watch;
+  const originalReaddirSync = fs.readdirSync;
+  let injected = false;
+  Object.defineProperty(fs, "watch", {
+    configurable: true,
+    value: (() => {
+      const watcher = new FakeWatcher();
+      watchers.push(watcher);
+      return watcher as unknown as fs.FSWatcher;
+    }) as typeof fs.watch,
+    writable: true,
+  });
+  Object.defineProperty(fs, "readdirSync", {
+    configurable: true,
+    value: ((location: fs.PathLike, options?: unknown) => {
+      if (
+        !injected &&
+        path.resolve(location.toString()) === path.resolve(reloadDirectory)
+      ) {
+        injected = true;
+        const error = new Error(
+          "simulated transient directory race",
+        ) as NodeJS.ErrnoException;
+        error.code = "ENOENT";
+        throw error;
+      }
+      return Reflect.apply(originalReaddirSync, fs, [location, options]);
+    }) as typeof fs.readdirSync,
+    writable: true,
+  });
+
+  const topology = createTopology(fixture.root, changes, errors);
+  try {
+    topology.setProjectInputs({
+      files: [],
+      globs: [],
+      reloadDirectories: [reloadDirectory],
+      reloadFiles: [],
+      root: fixture.root,
+    });
+    assert.equal(injected, true, "the transient fingerprint race was not run");
+    Object.defineProperty(fs, "readdirSync", {
+      configurable: true,
+      value: originalReaddirSync,
+      writable: true,
+    });
+    await Promise.resolve();
+
+    assert.deepEqual(changes, [
+      {
+        kind: "config",
+        path: fs.realpathSync.native(reloadDirectory),
+      },
+    ]);
+    assert.deepEqual(errors, []);
+  } finally {
+    topology.close();
+    Object.defineProperty(fs, "readdirSync", {
+      configurable: true,
+      value: originalReaddirSync,
+      writable: true,
+    });
+    Object.defineProperty(fs, "watch", {
+      configurable: true,
+      value: originalWatch,
+      writable: true,
+    });
+  }
+  assert.ok(
+    watchers.every((watcher) => watcher.closeCount === 1),
+    "close did not drain every reload-directory watcher",
   );
 }
 
