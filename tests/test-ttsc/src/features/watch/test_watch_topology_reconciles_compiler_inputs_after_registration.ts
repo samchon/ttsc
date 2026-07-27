@@ -57,7 +57,9 @@ async function verifySwallowedConfigDeletion(): Promise<void> {
     fs.rmSync(fixture.config);
     await Promise.resolve();
 
-    assert.deepEqual(changes, [{ kind: "config", path: fixture.config }]);
+    assert.deepEqual(changes, [
+      { kind: "config", path: fixture.reportedConfig },
+    ]);
     assert.equal(errors.length, 1, "the failed refresh was not reported");
   } finally {
     topology.close();
@@ -170,7 +172,9 @@ async function verifyBackendEventWinsReconciliation(): Promise<void> {
     );
     await Promise.resolve();
 
-    assert.deepEqual(changes, [{ kind: "compiler", path: fixture.source }]);
+    assert.deepEqual(changes, [
+      { kind: "compiler", path: fixture.reportedSource },
+    ]);
     assert.deepEqual(errors, []);
   } finally {
     topology.close();
@@ -252,7 +256,9 @@ async function verifyAtomicReplacementRebindsPosixFileWatcher(): Promise<void> {
     sourceRegistrations[1]?.listener("change", path.basename(fixture.source));
     await Promise.resolve();
 
-    assert.deepEqual(changes, [{ kind: "compiler", path: fixture.source }]);
+    assert.deepEqual(changes, [
+      { kind: "compiler", path: fixture.reportedSource },
+    ]);
     assert.deepEqual(errors, []);
   } finally {
     topology.close();
@@ -386,6 +392,8 @@ function createFixture(
 ): {
   config: string;
   physicalSource: string;
+  reportedConfig: string;
+  reportedSource: string;
   root: string;
   source: string;
 } {
@@ -395,9 +403,17 @@ function createFixture(
   fs.mkdirSync(path.dirname(source), { recursive: true });
   fs.writeFileSync(source, "export const value = 1;\n", "utf8");
   fs.writeFileSync(config, JSON.stringify(configJson), "utf8");
+  // tsgo canonicalizes POSIX aliases such as `/var` to `/private/var`, while
+  // Windows retains the declared 8.3 spelling returned by the temp-directory
+  // API. Registration is physical on every platform; notification follows the
+  // compiler topology's spelling.
   return {
     config,
     physicalSource: fs.realpathSync.native(source),
+    reportedConfig:
+      process.platform === "win32" ? config : fs.realpathSync.native(config),
+    reportedSource:
+      process.platform === "win32" ? source : fs.realpathSync.native(source),
     root,
     source,
   };
