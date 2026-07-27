@@ -92,7 +92,9 @@ async function verifySwallowedStartupEvent(
     assert.equal(watchers.length, 1, "unchanged publication added a watcher");
     await Promise.resolve();
 
-    assert.deepEqual(changes, [{ kind: "project", path: input }]);
+    assert.deepEqual(changes, [
+      { kind: "project", path: fs.realpathSync.native(input) },
+    ]);
     topology.setProjectInputs(snapshot);
     await Promise.resolve();
     assert.equal(changes.length, 1, "unchanged population reported twice");
@@ -115,7 +117,9 @@ async function verifyBackendEventWins(
     callbacks.at(-1)?.("rename", path.basename(input));
     await Promise.resolve();
 
-    assert.deepEqual(changes, [{ kind: "project", path: input }]);
+    assert.deepEqual(changes, [
+      { kind: "project", path: fs.realpathSync.native(input) },
+    ]);
   } finally {
     topology.close();
   }
@@ -194,7 +198,9 @@ async function verifyUncoveredRootDoesNotDisableHealthyReconciliation(): Promise
     await Promise.resolve();
     await Promise.resolve();
 
-    assert.deepEqual(changes, [{ kind: "project", path: healthyInput }]);
+    assert.deepEqual(changes, [
+      { kind: "project", path: fs.realpathSync.native(healthyInput) },
+    ]);
     assert.deepEqual(
       errors.map((error) => error.code),
       ["ENOSPC"],
@@ -260,7 +266,9 @@ async function verifyReconciliationRegistersNewPhysicalOwner(): Promise<void> {
     );
     await Promise.resolve();
 
-    assert.deepEqual(changes, [{ kind: "project", path: first }]);
+    assert.deepEqual(changes, [
+      { kind: "project", path: fs.realpathSync.native(first) },
+    ]);
     const externalRegistration = registrations.find(
       ({ location }) => location === fs.realpathSync.native(externalRoot),
     );
@@ -272,8 +280,8 @@ async function verifyReconciliationRegistersNewPhysicalOwner(): Promise<void> {
     fs.writeFileSync(second, "# second\n", "utf8");
     externalRegistration.listener("rename", path.basename(second));
     assert.deepEqual(changes, [
-      { kind: "project", path: first },
-      { kind: "project", path: second },
+      { kind: "project", path: fs.realpathSync.native(first) },
+      { kind: "project", path: fs.realpathSync.native(second) },
     ]);
   } finally {
     topology.close();
