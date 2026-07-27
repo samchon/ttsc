@@ -243,10 +243,16 @@ export class WatchTopology {
     closeWatchers(this.projectInputLinkWatchers);
   }
 
-  private syncFileWatchers(): boolean {
+  private syncFileWatchers(skipMissing = false): boolean {
     const previous = new Map(this.fileWatchers);
     const files =
-      process.platform === "win32" ? new Map<string, string>() : this.files;
+      process.platform === "win32"
+        ? new Map<string, string>()
+        : skipMissing
+          ? new Map(
+              [...this.files].filter(([, location]) => fs.existsSync(location)),
+            )
+          : this.files;
     syncWatchers(
       this.fileWatchers,
       files,
@@ -384,15 +390,23 @@ export class WatchTopology {
         undefined,
         "rename",
       );
-      if (changed.length === 0) return;
-
-      for (const file of changed) {
-        this.callbacks.onInputChange({
-          kind: this.classifyCompilerInput(file),
-          path: file,
-        });
+      if (changed.length !== 0) {
+        // A replacement can move the path to a new inode without changing its
+        // topology key. Rebind before reporting so a later in-place edit is not
+        // stranded on the old per-file watcher. Missing entries remain covered
+        // by their parent directory and are retried when recreation is observed.
+        this.rearmFileWatchers(changed, true);
+        for (const file of changed) {
+          this.callbacks.onInputChange({
+            kind: this.classifyCompilerInput(file),
+            path: file,
+          });
+        }
       }
       try {
+        // Directory watchers own files not present in the current Program.
+        // Re-resolve even when every tracked stamp is unchanged so a swallowed
+        // startup event cannot strand a newly included source.
         this.refreshCompilerInputs(true, false);
       } catch (error) {
         const reported = new Set(changed.map(pathKey));
@@ -450,13 +464,16 @@ export class WatchTopology {
     this.compilerFileStamps.set(pathKey(file), compilerFileStamp(file));
   }
 
-  private rearmFileWatchers(files: readonly string[]): void {
+  private rearmFileWatchers(
+    files: readonly string[],
+    skipMissing = false,
+  ): void {
     for (const file of files) {
       const key = pathKey(file);
       this.fileWatchers.get(key)?.close();
       this.fileWatchers.delete(key);
     }
-    if (this.syncFileWatchers()) {
+    if (this.syncFileWatchers(skipMissing)) {
       this.scheduleCompilerPostRegistrationReconciliation();
     }
   }
