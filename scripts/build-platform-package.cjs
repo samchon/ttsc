@@ -9,6 +9,7 @@ const {
   recordVerifiedGoExtraction,
   verifyOrReplaceGoArchive,
 } = require("./go-sdk-integrity.cjs");
+const { extractTarGzArchive } = require("./go-sdk-extraction.cjs");
 const { resolveGoTarget } = require("./platform-target.cjs");
 
 const GO_DOWNLOADS_URL = "https://go.dev/dl/?mode=json&include=all";
@@ -217,9 +218,7 @@ function ensureDownloadedGoRoot() {
   fs.rmSync(extractDir, { recursive: true, force: true });
   fs.mkdirSync(extractDir, { recursive: true });
   if (archive.endsWith(".tar.gz")) {
-    cp.execFileSync("tar", ["-xzf", archivePath, "-C", extractDir], {
-      stdio: "inherit",
-    });
+    extractTarGzArchive(archivePath, extractDir);
   } else {
     extractZipArchive(archivePath, extractDir);
   }
