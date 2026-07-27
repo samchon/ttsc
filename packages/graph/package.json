@@ -39,10 +39,10 @@
   ],
   "devDependencies": {
     "@types/node": "catalog:utils",
-    "@types/three": "^0.184.1",
-    "esbuild": "^0.25.12",
+    "@types/three": "^0.185.1",
+    "esbuild": "^0.28.1",
     "rimraf": "catalog:utils",
-    "three": "^0.184.0",
+    "three": "^0.185.1",
     "three-forcegraph": "^1.43.4",
     "ttsc": "workspace:*",
     "typescript": "catalog:typescript"
