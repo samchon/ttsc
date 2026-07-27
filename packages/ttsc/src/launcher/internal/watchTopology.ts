@@ -121,6 +121,13 @@ export class WatchTopology {
 
   /** Re-resolve compiler inputs and notify only when their membership changed. */
   public refresh(notify: boolean): void {
+    this.refreshCompilerInputs(notify, false);
+  }
+
+  private refreshCompilerInputs(
+    notify: boolean,
+    skipUnobservedProjectInputWatchRoots: boolean,
+  ): void {
     const next = resolveWatchTopology(this.options, this.extraInputs);
     const projectInputProgramChange =
       next.analysisOnly &&
@@ -163,7 +170,7 @@ export class WatchTopology {
     this.syncFileWatchers();
     this.syncDirectoryWatchers();
     this.syncExtraWatchers();
-    this.syncProjectInputWatchers();
+    this.syncProjectInputWatchers(skipUnobservedProjectInputWatchRoots);
     if (notify && changed) {
       if (projectInputProgramChange !== undefined) {
         this.callbacks.onInputChange({
@@ -209,29 +216,11 @@ export class WatchTopology {
     }
     this.projectInputs = next;
     this.projectInputRejectedWatchRoots.clear();
-    const declarations = new Set(
-      [
-        next,
-        inputs,
-        { ...(inputs.declared ?? inputs), root: inputs.root },
-      ].flatMap((snapshot) => [
-        ...snapshot.files.map((file) =>
-          projectInputDeclarationKey("file", file),
-        ),
-        ...snapshot.globs.map((glob) =>
-          projectInputDeclarationKey("glob", glob),
-        ),
-        ...(snapshot.reloadFiles ?? []).map((file) =>
-          projectInputDeclarationKey("reload", file),
-        ),
-        ...(snapshot.reloadDirectories ?? []).map((directory) =>
-          projectInputDeclarationKey("reload-directory", directory),
-        ),
-      ]),
-    );
-    for (const key of this.projectInputWatchRoots.keys()) {
-      if (!declarations.has(key)) this.projectInputWatchRoots.delete(key);
-    }
+    this.pruneProjectInputWatchRoots([
+      next,
+      inputs,
+      { ...(inputs.declared ?? inputs), root: inputs.root },
+    ]);
     this.projectInputMatches = this.collectProjectInputMatches();
     this.projectInputFingerprints = fingerprintProjectInputMatches(
       this.projectInputMatches,
@@ -436,7 +425,9 @@ export class WatchTopology {
     );
   }
 
-  private syncProjectInputWatchers(): void {
+  private syncProjectInputWatchers(
+    skipUnobservedProjectInputWatchRoots = false,
+  ): void {
     if (this.closed) return;
     const identities = createProjectInputPathIdentityContext();
     const desired = new Map<string, string>();
@@ -454,6 +445,7 @@ export class WatchTopology {
         identities,
         location,
         path.dirname(file),
+        skipUnobservedProjectInputWatchRoots,
       );
     }
     for (const glob of this.projectInputDeclarations("glob")) {
@@ -468,6 +460,7 @@ export class WatchTopology {
         identities,
         location,
         root,
+        skipUnobservedProjectInputWatchRoots,
       );
     }
     for (const file of this.projectInputDeclarations("reload")) {
@@ -483,6 +476,7 @@ export class WatchTopology {
         identities,
         location,
         path.dirname(file),
+        skipUnobservedProjectInputWatchRoots,
       );
     }
     for (const directory of this.projectInputDeclarations("reload-directory")) {
@@ -500,6 +494,7 @@ export class WatchTopology {
         identities,
         location,
         directory,
+        skipUnobservedProjectInputWatchRoots,
       );
     }
     const active = new Map<string, string>();
@@ -627,10 +622,26 @@ export class WatchTopology {
     identities: ProjectInputPathIdentityContext,
     location: string | undefined,
     target: string,
+    skipUnobservedProjectInputWatchRoots: boolean,
   ): void {
     const requiredIdentity = identities.resolve(location ?? target);
     required.set(requiredIdentity.key, requiredIdentity.path);
-    if (location === undefined) return;
+    if (skipUnobservedProjectInputWatchRoots) {
+      const retainedActiveRoot = [...this.projectInputWatchers.keys()].find(
+        (root) => isProjectInputPathIdentityWithin(root, requiredIdentity.key),
+      );
+      if (retainedActiveRoot !== undefined) {
+        desired.set(retainedActiveRoot, retainedActiveRoot);
+        return;
+      }
+    }
+    if (
+      location === undefined ||
+      (skipUnobservedProjectInputWatchRoots &&
+        this.projectInputUnobservedWatchRoots.has(requiredIdentity.key))
+    ) {
+      return;
+    }
     const available = projectInputAvailableWatchDirectory(
       location,
       this.projectInputRejectedWatchRoots,
@@ -702,8 +713,49 @@ export class WatchTopology {
     queueMicrotask(() => {
       this.projectInputPostRegistrationReconciliationScheduled = false;
       if (this.closed) return;
-      this.refreshProjectInputs(this.projectInputs.root, undefined, false);
+      this.refreshPublishedProjectInputIdentities();
+      this.refreshProjectInputs(this.projectInputs.root, undefined, true);
     });
+  }
+
+  /**
+   * Re-resolve declarations after watcher registration.
+   *
+   * A missing path can become a symlink before the handoff scan. The retained
+   * normalized snapshot still names the pre-link spelling in that case, so a
+   * scan can find the first target file without installing the physical owner
+   * that must observe later target changes.
+   */
+  private refreshPublishedProjectInputIdentities(): void {
+    const next = normalizeProjectInputSnapshot(this.declaredProjectInputs);
+    if (projectInputSnapshotsEqual(this.projectInputs, next)) return;
+    this.projectInputs = next;
+    this.pruneProjectInputWatchRoots([next, this.declaredProjectInputs]);
+  }
+
+  /** Drop retained owner choices for declarations no longer published. */
+  private pruneProjectInputWatchRoots(
+    snapshots: readonly ITtscProjectInputSnapshot[],
+  ): void {
+    const declarations = new Set(
+      snapshots.flatMap((snapshot) => [
+        ...snapshot.files.map((file) =>
+          projectInputDeclarationKey("file", file),
+        ),
+        ...snapshot.globs.map((glob) =>
+          projectInputDeclarationKey("glob", glob),
+        ),
+        ...(snapshot.reloadFiles ?? []).map((file) =>
+          projectInputDeclarationKey("reload", file),
+        ),
+        ...(snapshot.reloadDirectories ?? []).map((directory) =>
+          projectInputDeclarationKey("reload-directory", directory),
+        ),
+      ]),
+    );
+    for (const key of this.projectInputWatchRoots.keys()) {
+      if (!declarations.has(key)) this.projectInputWatchRoots.delete(key);
+    }
   }
 
   /** Report only newly uncovered project-input roots as an observation loss. */
@@ -801,7 +853,7 @@ export class WatchTopology {
   private refreshProjectInputs(
     location: string,
     changed?: string,
-    synchronizeWatchers = true,
+    skipUnobservedProjectInputWatchRoots = false,
   ): void {
     try {
       const previous = this.projectInputMatches;
@@ -880,12 +932,14 @@ export class WatchTopology {
       });
       this.projectInputMatches = next;
       this.projectInputFingerprints = nextFingerprints;
-      if (synchronizeWatchers) this.syncProjectInputWatchers();
+      this.syncProjectInputWatchers(skipUnobservedProjectInputWatchRoots);
       // A JSON/TS/JS project-input member can simultaneously enter or leave
       // the compiler Program. Reconcile the compiler watch snapshot before
       // scheduling its resident invalidation, so runWatch's post-cycle refresh
       // does not rediscover the same delta as a broader execution reload.
-      if (invalidate) this.refresh(false);
+      if (invalidate) {
+        this.refreshCompilerInputs(false, skipUnobservedProjectInputWatchRoots);
+      }
       if (
         projectInputEventShouldNotify({
           contentChanged,
@@ -911,7 +965,7 @@ export class WatchTopology {
       // replacement is readable. Rebind ancestor ownership even when the
       // population scan races that transient gap, so a later create cannot be
       // stranded without a watcher.
-      if (synchronizeWatchers) this.syncProjectInputWatchers();
+      this.syncProjectInputWatchers(skipUnobservedProjectInputWatchRoots);
       this.callbacks.onError(location, error);
     }
   }

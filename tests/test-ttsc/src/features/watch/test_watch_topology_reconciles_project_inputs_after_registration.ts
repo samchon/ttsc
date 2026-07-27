@@ -20,6 +20,7 @@ import {
  * 2. Let a backend event win the race without producing a duplicate.
  * 3. Close before reconciliation and prove the queued scan stays silent.
  * 4. Reject one root while a healthy root still completes its handoff scan.
+ * 5. Materialize a symlink and retain both its declared and physical owners.
  */
 export const test_watch_topology_reconciles_project_inputs_after_registration =
   async (): Promise<void> => {
@@ -66,6 +67,7 @@ export const test_watch_topology_reconciles_project_inputs_after_registration =
       });
     }
     await verifyUncoveredRootDoesNotDisableHealthyReconciliation();
+    await verifyReconciliationRegistersNewPhysicalOwner();
   };
 
 async function verifySwallowedStartupEvent(
@@ -207,6 +209,84 @@ async function verifyUncoveredRootDoesNotDisableHealthyReconciliation(): Promise
       writable: true,
     });
   }
+}
+
+async function verifyReconciliationRegistersNewPhysicalOwner(): Promise<void> {
+  const root = TestProject.tmpdir("ttsc-project-input-registration-link-");
+  const externalRoot = TestProject.tmpdir(
+    "ttsc-project-input-registration-target-",
+  );
+  const link = path.join(root, "linked");
+  const first = path.join(externalRoot, "first.md");
+  const second = path.join(externalRoot, "second.md");
+  const originalWatch = fs.watch;
+  const changes: WatchInputChange[] = [];
+  const registrations: Array<{
+    listener: fs.WatchListener<string>;
+    location: string;
+    watcher: FakeWatcher;
+  }> = [];
+
+  Object.defineProperty(fs, "watch", {
+    configurable: true,
+    value: ((
+      location: fs.PathLike,
+      _options: fs.WatchOptions,
+      listener: fs.WatchListener<string>,
+    ) => {
+      const watcher = new FakeWatcher();
+      registrations.push({
+        listener,
+        location: fs.realpathSync.native(location),
+        watcher,
+      });
+      return watcher as unknown as fs.FSWatcher;
+    }) as typeof fs.watch,
+    writable: true,
+  });
+
+  const topology = createTopology(root, changes);
+  try {
+    topology.setProjectInputs({
+      files: [],
+      globs: [path.join(link, "**", "*.md").split(path.sep).join("/")],
+      root,
+    });
+    fs.writeFileSync(first, "# first\n", "utf8");
+    fs.symlinkSync(
+      externalRoot,
+      link,
+      process.platform === "win32" ? "junction" : "dir",
+    );
+    await Promise.resolve();
+
+    assert.deepEqual(changes, [{ kind: "project", path: first }]);
+    const externalRegistration = registrations.find(
+      ({ location }) => location === fs.realpathSync.native(externalRoot),
+    );
+    assert.ok(
+      externalRegistration,
+      "handoff did not register the new physical owner",
+    );
+
+    fs.writeFileSync(second, "# second\n", "utf8");
+    externalRegistration.listener("rename", path.basename(second));
+    assert.deepEqual(changes, [
+      { kind: "project", path: first },
+      { kind: "project", path: second },
+    ]);
+  } finally {
+    topology.close();
+    Object.defineProperty(fs, "watch", {
+      configurable: true,
+      value: originalWatch,
+      writable: true,
+    });
+  }
+  assert.ok(
+    registrations.every(({ watcher }) => watcher.closeCount === 1),
+    "close did not drain every declared and physical owner",
+  );
 }
 
 function createTopology(
