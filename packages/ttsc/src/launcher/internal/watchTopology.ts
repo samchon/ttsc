@@ -74,6 +74,7 @@ export type CompilerDirectoryWatchEventPlan = {
 export class WatchTopology {
   private analysisOnly = false;
   private closed = false;
+  private compilerPostRegistrationReconciliationScheduled = false;
   private directories = new Map<string, string>();
   private directoryWatchers = new Map<string, fs.FSWatcher>();
   private extraInputs: readonly string[] = [];
@@ -167,10 +168,13 @@ export class WatchTopology {
     this.outputFiles = next.outputFiles;
     this.outputs = next.outputs;
     this.reloadFiles = next.reloadFiles;
-    this.syncFileWatchers();
-    this.syncDirectoryWatchers();
+    const fileWatcherRegistered = this.syncFileWatchers();
+    const directoryWatcherRegistered = this.syncDirectoryWatchers();
     this.syncExtraWatchers();
     this.syncProjectInputWatchers(skipUnobservedProjectInputWatchRoots);
+    if (fileWatcherRegistered || directoryWatcherRegistered) {
+      this.scheduleCompilerPostRegistrationReconciliation();
+    }
     if (notify && changed) {
       if (projectInputProgramChange !== undefined) {
         this.callbacks.onInputChange({
@@ -239,7 +243,8 @@ export class WatchTopology {
     closeWatchers(this.projectInputLinkWatchers);
   }
 
-  private syncFileWatchers(): void {
+  private syncFileWatchers(): boolean {
+    const previous = new Map(this.fileWatchers);
     const files =
       process.platform === "win32" ? new Map<string, string>() : this.files;
     syncWatchers(
@@ -264,6 +269,9 @@ export class WatchTopology {
       (location, error) => this.callbacks.onError(location, error),
       () => this.closed === false,
     );
+    return [...this.fileWatchers].some(
+      ([key, watcher]) => previous.get(key) !== watcher,
+    );
   }
 
   /** Whether a tracked file's bytes differ from the last stamp taken. */
@@ -275,7 +283,8 @@ export class WatchTopology {
     return true;
   }
 
-  private syncDirectoryWatchers(): void {
+  private syncDirectoryWatchers(): boolean {
+    const previous = new Map(this.directoryWatchers);
     const desired = new Map(this.directories);
     for (const [key, location] of this.observedDirectories) {
       if (
@@ -348,6 +357,61 @@ export class WatchTopology {
       (location, error) => this.callbacks.onError(location, error),
       () => this.closed === false,
     );
+    return [...this.directoryWatchers].some(
+      ([key, watcher]) => previous.get(key) !== watcher,
+    );
+  }
+
+  /**
+   * Reconcile tracked compiler files after a newly registered watcher returns.
+   *
+   * A file or directory watcher can be returned before its backend is ready to
+   * deliver the first event. The compiler-file stamps were captured before
+   * registration, so one coalesced microtask can recover a change in that
+   * handoff window. A real event updates the same stamp first and makes this
+   * bounded scan a no-op.
+   */
+  private scheduleCompilerPostRegistrationReconciliation(): void {
+    if (this.closed || this.compilerPostRegistrationReconciliationScheduled) {
+      return;
+    }
+    this.compilerPostRegistrationReconciliationScheduled = true;
+    queueMicrotask(() => {
+      this.compilerPostRegistrationReconciliationScheduled = false;
+      if (this.closed) return;
+      const changed = this.compilerChangesToReport(
+        [...this.files.values()],
+        undefined,
+        "rename",
+      );
+      if (changed.length === 0) return;
+
+      for (const file of changed) {
+        this.callbacks.onInputChange({
+          kind: this.classifyCompilerInput(file),
+          path: file,
+        });
+      }
+      try {
+        this.refreshCompilerInputs(true, false);
+      } catch (error) {
+        const reported = new Set(changed.map(pathKey));
+        const reconciledChange = changed.length === 1 ? changed[0]! : undefined;
+        for (const reload of reloadInputsForFailedTopologyRefresh(
+          this.reloadFiles.values(),
+          reconciledChange,
+        )) {
+          if (reported.has(pathKey(reload))) continue;
+          this.callbacks.onInputChange({ kind: "config", path: reload });
+        }
+        this.callbacks.onError(
+          reconciledChange === undefined
+            ? (this.options.projectRoot ?? this.options.cwd)
+            : path.dirname(reconciledChange),
+          error,
+        );
+      }
+    });
   }
 
   /**
@@ -392,7 +456,9 @@ export class WatchTopology {
       this.fileWatchers.get(key)?.close();
       this.fileWatchers.delete(key);
     }
-    this.syncFileWatchers();
+    if (this.syncFileWatchers()) {
+      this.scheduleCompilerPostRegistrationReconciliation();
+    }
   }
 
   private syncExtraWatchers(): void {
