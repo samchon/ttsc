@@ -1,5 +1,6 @@
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
+const { createRequire } = require("node:module");
 const path = require("node:path");
 const { test } = require("node:test");
 
@@ -13,6 +14,10 @@ const {
 const { PLATFORM_TARGETS, SCOPES } = require("../build-current.cjs");
 
 const root = path.resolve(__dirname, "..", "..");
+const testTtscRequire = createRequire(
+  path.join(root, "tests", "test-ttsc", "package.json"),
+);
+const { parse: parseYaml } = testTtscRequire("yaml");
 
 function ids(files) {
   return planForPaths(files).laneIds;
@@ -244,39 +249,54 @@ test("remaining workflow path filters match the repository contract", () => {
     path.join(root, ".github", "workflows", "nestia.yml"),
     "utf8",
   );
-  const nestiaJob = workflowJob(nestiaWorkflow, "nestia");
+  const nestiaDocument = parseYaml(nestiaWorkflow);
   assert.deepEqual(
-    workflowJobs(nestiaWorkflow),
+    Object.keys(nestiaDocument.jobs),
     ["nestia"],
     "nestia compatibility must stay in one broad job",
   );
-  assert.doesNotMatch(
-    nestiaJob,
-    /actions\/(?:upload|download)-artifact/,
+  const nestiaJob = nestiaDocument.jobs.nestia;
+  assert.equal(
+    Object.hasOwn(nestiaJob, "needs"),
+    false,
+    "the single nestia job must not wait for another producer",
+  );
+  assert.equal(nestiaJob["timeout-minutes"], 60);
+  assert.equal(nestiaJob.env.TTSC_TARBALLS_CURRENT, "1");
+  const steps = nestiaJob.steps;
+  assert.ok(Array.isArray(steps));
+  assert.equal(
+    steps.some(
+      (step) =>
+        typeof step.uses === "string" &&
+        /^actions\/(?:upload|download)-artifact@/.test(step.uses),
+    ),
+    false,
     "nestia must consume local tarballs without an artifact handoff",
   );
   assert.equal(
-    commandCount(nestiaJob, "pnpm package:tgz"),
+    pnpmScriptCount(steps, "package:tgz"),
     1,
     "nestia must build current-platform tarballs exactly once",
   );
   assert.equal(
-    commandCount(nestiaJob, "pnpm test"),
+    pnpmScriptCount(steps, "test"),
     1,
     "nestia must run the complete upstream suite exactly once",
   );
   assert.equal(
-    commandCount(nestiaJob, "pnpm build"),
+    pnpmScriptCount(steps, "build"),
     0,
     "the upstream test command already performs the nestia build",
   );
-  const tarballSteps = exactRunSteps(nestiaJob, "pnpm package:tgz");
-  assert.equal(tarballSteps.length, 1);
-  const upstreamTestSteps = exactRunSteps(nestiaJob, "pnpm test");
+  const upstreamTestSteps = steps.filter(
+    (step) =>
+      typeof step.run === "string" && pnpmScriptCount([step], "test") === 1,
+  );
   assert.equal(upstreamTestSteps.length, 1);
-  assert.match(
-    upstreamTestSteps[0],
-    /^\s+working-directory: experimental\/nestia$/m,
+  assert.equal(
+    upstreamTestSteps[0]["working-directory"],
+    "experimental/nestia",
     "the complete upstream suite must run from the pinned nestia checkout",
   );
   for (const action of [
@@ -285,15 +305,13 @@ test("remaining workflow path filters match the repository contract", () => {
     "actions/setup-go",
   ])
     assert.equal(
-      actionCount(nestiaJob, action),
+      steps.filter(
+        (step) =>
+          typeof step.uses === "string" && step.uses.startsWith(`${action}@`),
+      ).length,
       1,
       `${action} must be configured exactly once`,
     );
-  assert.doesNotMatch(
-    nestiaJob,
-    /^\s+needs:/m,
-    "the single nestia job must not wait for another producer",
-  );
 });
 
 test("portable path normalization accepts git and Windows spellings", () => {
@@ -381,57 +399,18 @@ function workflowJob(source, name) {
   return lines.slice(start, end).join("\n");
 }
 
-function workflowJobs(source) {
-  const lines = source.split(/\r?\n/);
-  const start = lines.findIndex((line) => line === "jobs:");
-  assert.notEqual(start, -1, "missing workflow jobs");
-  return lines
-    .slice(start + 1)
-    .map((line) => /^  ([^\s].*):$/.exec(line)?.[1])
-    .filter(Boolean);
-}
-
-function commandCount(source, command) {
-  const escaped = command.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const pattern = new RegExp(`\\b${escaped}(?![\\w:-])`, "g");
-  return source
-    .split(/\r?\n/)
-    .filter((line) => !line.trimStart().startsWith("#"))
-    .reduce((count, line) => count + [...line.matchAll(pattern)].length, 0);
-}
-
-function actionCount(source, action) {
-  const escaped = action.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const pattern = new RegExp(`\\buses:\\s*[\"']?${escaped}@`, "g");
-  return source
-    .split(/\r?\n/)
-    .filter((line) => !line.trimStart().startsWith("#"))
-    .reduce((count, line) => count + [...line.matchAll(pattern)].length, 0);
-}
-
-function workflowSteps(source) {
-  const lines = source.split(/\r?\n/);
-  const start = lines.findIndex((line) => line === "    steps:");
-  assert.notEqual(start, -1, "missing workflow steps");
-  const steps = [];
-  for (let index = start + 1; index < lines.length; index++) {
-    if (!/^      -\s/.test(lines[index])) continue;
-    let end = lines.length;
-    for (let cursor = index + 1; cursor < lines.length; cursor++)
-      if (/^      -\s/.test(lines[cursor])) {
-        end = cursor;
-        break;
-      }
-    steps.push(lines.slice(index, end).join("\n"));
-  }
-  return steps;
-}
-
-function exactRunSteps(source, command) {
-  const escaped = command.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+function pnpmScriptCount(steps, script) {
+  const escaped = script.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const pattern = new RegExp(
-    `^\\s+(?:-\\s+)?run:\\s*[\"']?${escaped}[\"']?\\s*$`,
-    "m",
+    `(?:^|[\\n;&|()])\\s*pnpm\\s+(?:run\\s+)?${escaped}(?![\\w:-])`,
+    "g",
   );
-  return workflowSteps(source).filter((step) => pattern.test(step));
+  return steps.reduce(
+    (count, step) =>
+      count +
+      (typeof step.run === "string"
+        ? [...step.run.matchAll(pattern)].length
+        : 0),
+    0,
+  );
 }
