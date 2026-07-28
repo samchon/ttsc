@@ -31,11 +31,18 @@ test("a leaf package selects shared quality and its own executor", () => {
     "typecheck",
     "bundler-defenses",
   ]);
+  assert.deepEqual(ids(["packages/banner/src/index.ts"]), [
+    "typecheck",
+    "package-defenses",
+    "ttsc-native",
+    "bundler-defenses",
+  ]);
   assert.deepEqual(ids(["packages/strip/src/index.ts"]), [
     "typecheck",
     "package-defenses",
     "ttsc-core",
     "ttsc-native",
+    "bundler-defenses",
   ]);
 });
 

@@ -368,7 +368,7 @@ function planForPaths(files) {
       continue;
     }
     if (file.startsWith("packages/banner/")) {
-      add(["package-defenses", "ttsc-native"], file);
+      add(["package-defenses", "ttsc-native", "bundler-defenses"], file);
       continue;
     }
     if (file.startsWith("packages/paths/")) {
@@ -376,7 +376,10 @@ function planForPaths(files) {
       continue;
     }
     if (file.startsWith("packages/strip/")) {
-      add(["package-defenses", "ttsc-core", "ttsc-native"], file);
+      add(
+        ["package-defenses", "ttsc-core", "ttsc-native", "bundler-defenses"],
+        file,
+      );
       continue;
     }
     if (file.startsWith("packages/factory/")) {
