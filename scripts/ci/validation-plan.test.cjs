@@ -274,24 +274,23 @@ test("remaining workflow path filters match the repository contract", () => {
     false,
     "nestia must consume local tarballs without an artifact handoff",
   );
-  assert.equal(
-    pnpmScriptCount(steps, "package:tgz"),
-    1,
-    "nestia must build current-platform tarballs exactly once",
-  );
-  assert.equal(
-    pnpmScriptCount(steps, "test"),
-    1,
-    "nestia must run the complete upstream suite exactly once",
-  );
-  assert.equal(
-    pnpmScriptCount(steps, "build"),
-    0,
-    "the upstream test command already performs the nestia build",
+  assert.deepEqual(
+    steps
+      .map((step) =>
+        typeof step.run === "string" ? executableRun(step.run) : "",
+      )
+      .filter(containsPnpmCommand),
+    [
+      "pnpm install --frozen-lockfile",
+      "pnpm package:tgz",
+      "pnpm install --no-frozen-lockfile",
+      "pnpm test",
+    ],
+    "nestia must keep one tarball build and one complete upstream test command",
   );
   const upstreamTestSteps = steps.filter(
     (step) =>
-      typeof step.run === "string" && pnpmScriptCount([step], "test") === 1,
+      typeof step.run === "string" && executableRun(step.run) === "pnpm test",
   );
   assert.equal(upstreamTestSteps.length, 1);
   assert.equal(
@@ -399,18 +398,16 @@ function workflowJob(source, name) {
   return lines.slice(start, end).join("\n");
 }
 
-function pnpmScriptCount(steps, script) {
-  const escaped = script.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const pattern = new RegExp(
-    `(?:^|[\\n;&|()])\\s*pnpm\\s+(?:run\\s+)?${escaped}(?![\\w:-])`,
-    "g",
-  );
-  return steps.reduce(
-    (count, step) =>
-      count +
-      (typeof step.run === "string"
-        ? [...step.run.matchAll(pattern)].length
-        : 0),
-    0,
-  );
+function executableRun(run) {
+  return run
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line !== "" && !line.startsWith("#"))
+    .join("\n");
+}
+
+function containsPnpmCommand(run) {
+  return run
+    .split(/\r?\n/)
+    .some((line) => /(?:^|[;&|()]\s*)pnpm(?:\s|$)/.test(line));
 }
