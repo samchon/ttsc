@@ -2,8 +2,8 @@ name: plugin-cache
 
 # Regression gate for issue #326: a source plugin must build ONCE per workspace
 # and be reused across packages and processes, for every workspace-capable
-# package manager. Each job scaffolds a real monorepo, installs it with one
-# manager, and runs scripts/ci/plugin-cache-persistence.mjs, which fails if a
+# package manager. Each OS job builds the native compiler once, then the harness
+# scaffolds and installs a fresh real monorepo for every manager. It fails if a
 # second package rebuilds the plugin or if anything is written to a global cache.
 
 on:
