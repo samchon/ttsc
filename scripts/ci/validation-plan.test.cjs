@@ -142,6 +142,28 @@ test("lane identities and workflow matrix names stay unique", () => {
     true,
     "format-check invokes gofmt and must use the pinned Go toolchain",
   );
+  const typecheckBuild = LANES.find(
+    (lane) => lane.id === "typecheck",
+  )?.build;
+  for (const prerequisite of [
+    "@ttsc/banner",
+    "@ttsc/lint",
+    "@ttsc/wasm",
+    "@ttsc/playground",
+    "@ttsc/graph",
+    "--filter ttsc exec tsc --emitDeclarationOnly",
+    "@ttsc/unplugin",
+  ])
+    assert.match(
+      typecheckBuild ?? "",
+      new RegExp(prerequisite.replace("/", "\\/")),
+      `typecheck fresh-checkout build lost ${prerequisite}`,
+    );
+  assert.doesNotMatch(
+    typecheckBuild ?? "",
+    /build:current/,
+    "typecheck prerequisites must not rebuild native binaries",
+  );
   assert.deepEqual(
     SCOPES["plugin-cache"].filter((target) => typeof target === "string"),
     ["ttsc"],

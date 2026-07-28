@@ -39,6 +39,17 @@ const LANES = [
     id: "typecheck",
     name: "typecheck",
     needsGo: true,
+    build:
+      "pnpm --filter @ttsc/banner build && " +
+      "pnpm --filter @ttsc/lint build && " +
+      "pnpm --filter @ttsc/wasm build:ts && " +
+      "pnpm --filter @ttsc/playground build && " +
+      "pnpm --filter @ttsc/graph exec rimraf lib && " +
+      "pnpm --filter @ttsc/graph exec tsc --emitDeclarationOnly && " +
+      "pnpm --filter ttsc exec rimraf lib && " +
+      "pnpm --filter ttsc exec tsc --emitDeclarationOnly && " +
+      "pnpm --filter @ttsc/unplugin exec rimraf lib && " +
+      "pnpm --filter @ttsc/unplugin exec tsc --emitDeclarationOnly",
     run:
       "pnpm run check:flags && pnpm run check:dependencies && " +
       "node --test packages/ttsc/scripts/check-flags.test.cjs && " +
