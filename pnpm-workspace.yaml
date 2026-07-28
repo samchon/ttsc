@@ -27,15 +27,15 @@ catalogs:
     # oracle.
     ts-legacy: "npm:typescript@~6.0.3"
   rollup:
-    "@rollup/plugin-commonjs": ^29.0.0
+    "@rollup/plugin-commonjs": ^29.0.3
     "@rollup/plugin-node-resolve": ^16.0.3
-    rollup: ^4.56.0
+    rollup: ^4.62.3
   samchon:
     typia: &typia 13.2.0
     "@typia/interface": *typia
     "@typia/mcp": *typia
     "@typia/utils": *typia
   utils:
-    "@nestia/e2e": ^12.0.0
-    "@types/node": ^25.3.0
+    "@nestia/e2e": ^12.1.0
+    "@types/node": ^26.1.2
     rimraf: ^6.1.2
