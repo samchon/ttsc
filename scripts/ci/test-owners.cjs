@@ -78,7 +78,7 @@ const OWNERSHIP = {
   // Lives under experimental/, and is run by two workflows. Discovery read only
   // tests/ before, so this suite was invisible to the gate that certifies it.
   "e2e:experimental/test-unplugin":
-    "test.yml lane: bundler defenses; bun.yml",
+    "experimental.yml install matrix; bun.yml Unplugin",
 
   // ---- node test files ----
   // Five of these ran only because scripts/test-go.cjs named them in a literal

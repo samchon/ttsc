@@ -38,6 +38,7 @@ const LANES = [
   {
     id: "typecheck",
     name: "typecheck",
+    needsGo: true,
     run:
       "pnpm run check:flags && pnpm run check:dependencies && " +
       "node --test packages/ttsc/scripts/check-flags.test.cjs && " +
@@ -327,10 +328,12 @@ const WORKFLOW_PATHS = {
     ".github/workflows/website.yml",
     "config/**",
     "packages/ttsc/**",
+    "packages/lint/**",
     "packages/wasm/**",
     "packages/playground/**",
     "scripts/go-build-cache.cjs",
     "website/**",
+    "README.md",
     "package.json",
     "pnpm-lock.yaml",
     "pnpm-workspace.yaml",
@@ -485,6 +488,7 @@ function planForPaths(files) {
           : [...LINT_LANE_IDS, "ttsc-plugins"],
         file,
       );
+      if (file.startsWith("tests/utils/")) watch = true;
       continue;
     }
     if (file.startsWith("tests/projects/")) {
@@ -514,12 +518,34 @@ function planForPaths(files) {
       add(["shim-audit"], file);
       continue;
     }
-    if (file.startsWith("scripts/ci/")) {
-      add(["typecheck"], file);
+    if (file === "scripts/ci/factory-package.test.cjs") {
+      add(["factory"], file);
+      continue;
+    }
+    if (
+      [
+        "scripts/ci/go-test-overlay.cjs",
+        "scripts/ci/go-test-runners.test.cjs",
+        "scripts/ci/website-compiler-module.test.cjs",
+      ].includes(file)
+    ) {
+      add(["go", "windows-go"], file);
+      continue;
+    }
+    if (
+      [
+        "scripts/ci/dependency-audit.cjs",
+        "scripts/ci/dependency-audit.test.cjs",
+        "scripts/ci/format-check.cjs",
+        "scripts/ci/line-endings.test.cjs",
+        "scripts/ci/plugin-cache-persistence.mjs",
+        "scripts/ci/test-owners.cjs",
+        "scripts/ci/test-owners.test.cjs",
+      ].includes(file)
+    ) {
       continue;
     }
     if (file.startsWith("experimental/test-unplugin/")) {
-      add(["bundler-defenses"], file);
       continue;
     }
     if (

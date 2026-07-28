@@ -78,6 +78,11 @@ test("package-owned tests select only their topology owner", () => {
   ]);
   assert.deepEqual(watch.laneIds, ["typecheck"]);
   assert.equal(watch.watch, true);
+
+  const helpers = planForPaths(["tests/utils/src/TestProject.ts"]);
+  assert.equal(helpers.watch, true);
+  assert.ok(helpers.laneIds.includes("ttsc-core"));
+  assert.ok(helpers.laneIds.includes("lint-1"));
 });
 
 test("root topology, workflow, planner, and unknown inputs fail open", () => {
@@ -85,6 +90,7 @@ test("root topology, workflow, planner, and unknown inputs fail open", () => {
     "pnpm-lock.yaml",
     ".github/workflows/test.yml",
     "scripts/ci/validation-plan.cjs",
+    "scripts/ci/a-future-owner.cjs",
     "scripts/a-future-shared-runner.cjs",
     "a-future-executable.xyz",
   ]) {
@@ -97,6 +103,23 @@ test("root topology, workflow, planner, and unknown inputs fail open", () => {
 test("documentation keeps only the lightweight shared contract", () => {
   assert.deepEqual(ids(["README.md"]), ["typecheck"]);
   assert.deepEqual(ids(["website/src/content/docs/index.mdx"]), ["typecheck"]);
+});
+
+test("CI support files select their actual executors", () => {
+  assert.deepEqual(ids(["scripts/ci/factory-package.test.cjs"]), [
+    "typecheck",
+    "factory",
+  ]);
+  for (const file of [
+    "scripts/ci/go-test-overlay.cjs",
+    "scripts/ci/go-test-runners.test.cjs",
+    "scripts/ci/website-compiler-module.test.cjs",
+  ])
+    assert.deepEqual(ids([file]), ["go", "windows-go", "typecheck"], file);
+  assert.deepEqual(
+    ids(["experimental/test-unplugin/src/index.ts"]),
+    ["typecheck"],
+  );
 });
 
 test("every E2E directory has exactly one normal topology owner", () => {
@@ -114,6 +137,11 @@ test("lane identities and workflow matrix names stay unique", () => {
     if (lane.scope !== undefined)
       assert.ok(SCOPES[lane.scope], `${lane.id} has unknown build scope`);
   }
+  assert.equal(
+    LANES.find((lane) => lane.id === "typecheck")?.needsGo,
+    true,
+    "format-check invokes gofmt and must use the pinned Go toolchain",
+  );
   assert.deepEqual(
     SCOPES["plugin-cache"].filter((target) => typeof target === "string"),
     ["ttsc"],
