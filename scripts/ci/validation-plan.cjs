@@ -207,6 +207,47 @@ const PLATFORM_IDS = [
 ];
 
 /**
+ * Physical runners for shipped native packages.
+ *
+ * Watch backends and VS Code installation differ by OS, not CPU architecture,
+ * so only the representative x64 row for each OS owns those checks. When an
+ * experimental package surface changes, all six rows still verify the shipped
+ * native artifacts.
+ */
+const PLATFORM_ROWS = [
+  {
+    name: "linux-x64",
+    runner: "ubuntu-24.04",
+    representative: true,
+  },
+  {
+    name: "linux-arm64",
+    runner: "ubuntu-24.04-arm",
+    representative: false,
+  },
+  {
+    name: "darwin-x64",
+    runner: "macos-15-intel",
+    representative: true,
+  },
+  {
+    name: "darwin-arm64",
+    runner: "macos-15",
+    representative: false,
+  },
+  {
+    name: "win32-x64",
+    runner: "windows-2025",
+    representative: true,
+  },
+  {
+    name: "win32-arm64",
+    runner: "windows-11-arm",
+    representative: false,
+  },
+];
+
+/**
  * Exact workflow path contracts that remain at workflow creation time.
  *
  * The main test workflow intentionally has no path filter: GitHub can leave a
@@ -240,11 +281,6 @@ const WORKFLOW_PATHS = {
     "pnpm-workspace.yaml",
   ],
   bun: integrationPaths("bun", "experimental/test-unplugin/**"),
-  experimental: integrationPaths(
-    "experimental",
-    "experimental/install/**",
-    "experimental/test-unplugin/**",
-  ),
   nestia: integrationPaths("nestia"),
   "plugin-cache": [
     ".github/workflows/plugin-cache.yml",
@@ -267,20 +303,6 @@ const WORKFLOW_PATHS = {
     "experimental/source-map/**",
   ),
   typia: integrationPaths("typia"),
-  vscode: [
-    ".github/workflows/vscode.yml",
-    "config/**",
-    "packages/vscode/**",
-    "packages/ttsc/package.json",
-    "packages/ttsc/src/**",
-    "scripts/assert-vscode-package.cjs",
-    "scripts/smoke-vscode-install.cjs",
-    "tests/test-ttsc/src/features/ttscserver/test_vscode_install_script_uses_windows_command_shim.ts",
-    "LICENSE",
-    "package.json",
-    "pnpm-lock.yaml",
-    "pnpm-workspace.yaml",
-  ],
   website: [
     ".github/workflows/website.yml",
     "config/**",
@@ -297,9 +319,35 @@ const WORKFLOW_PATHS = {
   ],
 };
 
+const PLATFORM_INTEGRATION_PATHS = {
+  experimental: integrationSurfacePaths(
+    "experimental/install/**",
+    "experimental/test-unplugin/**",
+  ),
+  vscode: [
+    "config/**",
+    "packages/vscode/**",
+    "packages/ttsc/package.json",
+    "packages/ttsc/src/**",
+    "scripts/assert-vscode-package.cjs",
+    "scripts/smoke-vscode-install.cjs",
+    "tests/test-ttsc/src/features/ttscserver/test_vscode_install_script_uses_windows_command_shim.ts",
+    "LICENSE",
+    "package.json",
+    "pnpm-lock.yaml",
+    "pnpm-workspace.yaml",
+  ],
+};
+
 function integrationPaths(workflow, ...harnesses) {
   return [
     `.github/workflows/${workflow}.yml`,
+    ...integrationSurfacePaths(...harnesses),
+  ];
+}
+
+function integrationSurfacePaths(...harnesses) {
+  return [
     ...harnesses,
     "experimental/tarballs/**",
     "config/**",
@@ -336,6 +384,13 @@ function planForPaths(files) {
 
   const selected = new Set(["typecheck"]);
   let watch = false;
+  const integrations = {
+    experimental: matchesAnyPath(
+      normalized,
+      PLATFORM_INTEGRATION_PATHS.experimental,
+    ),
+    vscode: matchesAnyPath(normalized, PLATFORM_INTEGRATION_PATHS.vscode),
+  };
   const reasons = [];
   const add = (ids, reason) => {
     for (const id of ids) selected.add(id);
@@ -480,6 +535,14 @@ function planForPaths(files) {
     }
     if (
       [
+        "scripts/assert-vscode-package.cjs",
+        "scripts/smoke-vscode-install.cjs",
+      ].includes(file)
+    ) {
+      continue;
+    }
+    if (
+      [
         "scripts/ci/go-test-overlay.cjs",
         "scripts/ci/go-test-runners.test.cjs",
         "scripts/ci/website-compiler-module.test.cjs",
@@ -517,7 +580,7 @@ function planForPaths(files) {
     return fullPlan(`unknown input: ${file}`);
   }
 
-  return createPlan(selected, watch, reasons);
+  return createPlan(selected, watch, reasons, integrations);
 }
 
 function planTtscTest(file) {
@@ -569,18 +632,49 @@ function isDocumentation(file) {
 }
 
 function fullPlan(reason) {
-  return createPlan(new Set(FULL_LANE_IDS), true, [reason]);
+  return createPlan(new Set(FULL_LANE_IDS), true, [reason], {
+    experimental: true,
+    vscode: true,
+  });
 }
 
-function createPlan(selected, watch, reasons) {
+function createPlan(selected, watch, reasons, integrations) {
   const include = LANES.filter((lane) => selected.has(lane.id)).map(
     workflowLane,
   );
+  const platform = createPlatformPlan({
+    experimental: integrations.experimental,
+    vscode: integrations.vscode,
+    watch,
+  });
   return {
     matrix: { include },
     laneIds: include.map((lane) => lane.id),
+    platformMatrix: platform.matrix,
+    platformSelected: platform.matrix.include.length > 0,
+    platformTasks: platform.tasks,
     watch,
     reasons: [...new Set(reasons)],
+  };
+}
+
+function createPlatformPlan(tasks) {
+  const include = PLATFORM_ROWS.filter(
+    (row) => tasks.experimental || row.representative,
+  )
+    .map((row) => ({
+      name: row.name,
+      runner: row.runner,
+      experimental: tasks.experimental,
+      watch: tasks.watch && row.representative,
+      vscode: tasks.vscode && row.representative,
+    }))
+    .filter((row) => row.experimental || row.watch || row.vscode);
+  return {
+    matrix: { include },
+    tasks: Object.entries(tasks)
+      .filter(([, selected]) => selected)
+      .map(([task]) => task),
   };
 }
 
@@ -636,6 +730,18 @@ function normalizePath(file) {
   return String(file).replaceAll("\\", "/").replace(/^\.\/+/, "");
 }
 
+function matchesAnyPath(files, patterns) {
+  return files.some((file) =>
+    patterns.some((pattern) => {
+      const expression = pattern
+        .split("*")
+        .map((part) => part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+        .join(".*");
+      return new RegExp(`^${expression}$`).test(file);
+    }),
+  );
+}
+
 function parseArguments(argv) {
   const options = {};
   for (let index = 0; index < argv.length; index++) {
@@ -662,10 +768,13 @@ function main(argv = process.argv.slice(2)) {
   const plan =
     diff.files === null ? fullPlan(diff.reason) : planForPaths(diff.files);
   const matrix = JSON.stringify(plan.matrix);
+  const platformMatrix = JSON.stringify(plan.platformMatrix);
   const output = [
     `matrix=${matrix}`,
-    `watch=${String(plan.watch)}`,
     `lanes=${plan.laneIds.join(",")}`,
+    `platform_matrix=${platformMatrix}`,
+    `platform=${String(plan.platformSelected)}`,
+    `platform_tasks=${plan.platformTasks.join(",")}`,
   ].join("\n");
   if (options["github-output"]) {
     fs.appendFileSync(options["github-output"], `${output}\n`);
@@ -673,7 +782,8 @@ function main(argv = process.argv.slice(2)) {
     process.stdout.write(`${output}\n`);
   }
   process.stderr.write(
-    `validation plan: ${plan.laneIds.join(", ")}; watch=${plan.watch}; ` +
+    `validation plan: ${plan.laneIds.join(", ")}; ` +
+      `platform=${plan.platformTasks.join(",") || "none"}; ` +
       `${plan.reasons.join("; ") || "no expensive owner"}\n`,
   );
 }
@@ -682,6 +792,8 @@ module.exports = {
   E2E_LANE_IDS,
   FULL_LANE_IDS,
   LANES,
+  PLATFORM_INTEGRATION_PATHS,
+  PLATFORM_ROWS,
   WORKFLOW_PATHS,
   changedPaths,
   fullPlan,

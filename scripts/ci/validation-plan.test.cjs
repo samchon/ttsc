@@ -7,6 +7,8 @@ const { test } = require("node:test");
 const {
   FULL_LANE_IDS,
   LANES,
+  PLATFORM_INTEGRATION_PATHS,
+  PLATFORM_ROWS,
   WORKFLOW_PATHS,
   normalizePath,
   planForPaths,
@@ -77,12 +79,70 @@ test("compiler and platform changes select verified reverse consumers", () => {
   ])
     assert.ok(compiler.laneIds.includes(id), `compiler change lost ${id}`);
   assert.equal(compiler.watch, true);
+  assert.equal(compiler.platformMatrix.include.length, 6);
+  assert.ok(
+    compiler.platformMatrix.include.every((row) => row.experimental),
+    "compiler changes must verify every shipped platform package",
+  );
+  assert.deepEqual(
+    compiler.platformMatrix.include
+      .filter((row) => row.watch && row.vscode)
+      .map((row) => row.name),
+    ["linux-x64", "darwin-x64", "win32-x64"],
+    "OS behavior belongs to one representative architecture per OS",
+  );
 
   const platform = ids(["packages/ttsc-linux-x64/package.json"]);
   assert.ok(platform.includes("ttsc-core"));
   assert.ok(platform.includes("ttsc-native"));
   assert.ok(platform.includes("graph"));
   assert.ok(platform.includes("package-defenses"));
+});
+
+test("platform integrations reuse only the physical rows they need", () => {
+  assert.equal(PLATFORM_ROWS.length, 6);
+  assert.equal(
+    PLATFORM_ROWS.filter((row) => row.representative).length,
+    3,
+  );
+  assert.ok(
+    PLATFORM_INTEGRATION_PATHS.experimental.includes("packages/ttsc-*/**"),
+  );
+
+  const watch = planForPaths([
+    "tests/test-ttsc/src/features/watch/test_example.ts",
+  ]).platformMatrix.include;
+  assert.deepEqual(
+    watch.map((row) => row.name),
+    ["linux-x64", "darwin-x64", "win32-x64"],
+  );
+  assert.ok(
+    watch.every((row) => row.watch && !row.experimental && !row.vscode),
+  );
+
+  const vscode = planForPaths([
+    "packages/vscode/src/extension.ts",
+  ]).platformMatrix.include;
+  assert.deepEqual(
+    vscode.map((row) => row.name),
+    ["linux-x64", "darwin-x64", "win32-x64"],
+  );
+  assert.ok(
+    vscode.every((row) => row.vscode && !row.experimental && !row.watch),
+  );
+  const vscodeHarness = planForPaths(["scripts/smoke-vscode-install.cjs"]);
+  assert.deepEqual(vscodeHarness.laneIds, ["typecheck"]);
+  assert.equal(vscodeHarness.platformMatrix.include.length, 3);
+
+  const experimental = planForPaths([
+    "experimental/install/src/index.ts",
+  ]).platformMatrix.include;
+  assert.equal(experimental.length, 6);
+  assert.ok(
+    experimental.every(
+      (row) => row.experimental && !row.watch && !row.vscode,
+    ),
+  );
 });
 
 test("package-owned tests select only their topology owner", () => {
@@ -125,12 +185,14 @@ test("root topology, workflow, planner, and unknown inputs fail open", () => {
     const plan = planForPaths([file]);
     assert.deepEqual(plan.laneIds, FULL_LANE_IDS, file);
     assert.equal(plan.watch, true, file);
+    assert.equal(plan.platformMatrix.include.length, 6, file);
   }
 });
 
 test("documentation keeps only the lightweight shared contract", () => {
   assert.deepEqual(ids(["README.md"]), ["typecheck"]);
   assert.deepEqual(ids(["website/src/content/docs/index.mdx"]), ["typecheck"]);
+  assert.deepEqual(planForPaths(["README.md"]).platformMatrix.include, []);
 });
 
 test("CI support files select their actual executors", () => {
@@ -161,7 +223,7 @@ test("lane identities and workflow matrix names stay unique", () => {
   assert.equal(
     LANES.filter((lane) => lane.build === "pnpm run build:current").length,
     7,
-    "full plan must use seven matrix native builds plus three watch builds",
+    "full logical plan must keep seven scoped native builds",
   );
   assert.equal(new Set(LANES.map((lane) => lane.id)).size, LANES.length);
   assert.equal(new Set(LANES.map((lane) => lane.name)).size, LANES.length);
@@ -238,12 +300,71 @@ test("remaining workflow path filters match the repository contract", () => {
     path.join(root, ".github", "workflows", "test.yml"),
     "utf8",
   );
+  const testDocument = parseYaml(testWorkflow);
+  assert.deepEqual(Object.keys(testDocument.jobs), [
+    "plan",
+    "platform-integrations",
+    "test",
+    "ci",
+  ]);
+  assert.equal(
+    fs.existsSync(
+      path.join(root, ".github", "workflows", "experimental.yml"),
+    ),
+    false,
+  );
+  assert.equal(
+    fs.existsSync(path.join(root, ".github", "workflows", "vscode.yml")),
+    false,
+  );
   assert.equal(eventPaths(testWorkflow, "push"), null);
   assert.equal(eventPaths(testWorkflow, "pull_request"), null);
   assert.match(
     workflowJob(testWorkflow, "ci"),
     /if: \$\{\{ always\(\) && !cancelled\(\) \}\}/,
     "a superseded run must not queue its aggregate behind cancellation",
+  );
+  const platformJob = testDocument.jobs["platform-integrations"];
+  assert.equal(platformJob["runs-on"], "${{ matrix.runner }}");
+  assert.equal(
+    platformJob.strategy.matrix,
+    "${{ fromJSON(needs.plan.outputs.platform_matrix) }}",
+  );
+  const platformSteps = platformJob.steps;
+  assert.equal(
+    platformSteps.find(
+      (step) =>
+        typeof step.uses === "string" &&
+        step.uses.startsWith("actions/setup-go@"),
+    ).if,
+    "matrix.experimental || matrix.watch",
+  );
+  assert.equal(
+    platformSteps.find(
+      (step) => step.name === "Build Current Platform For Watch",
+    ).env.TTSC_BUILD_SCOPE,
+    "experimental",
+  );
+  assert.equal(
+    platformSteps.find(
+      (step) => step.name === "Verify Installed Tarballs With Bundled Go",
+    ).run,
+    "pnpm run experimental",
+  );
+  assert.equal(
+    platformSteps.find((step) => step.name === "Run watch tests").env
+      .TTSC_TEST_DIR,
+    "features/watch",
+  );
+  assert.equal(
+    platformSteps.find((step) => step.name === "Build @ttsc/vscode").run,
+    "pnpm --filter @ttsc/vscode build",
+  );
+  assert.equal(
+    platformSteps.find(
+      (step) => step.name === "Smoke-install @ttsc/vscode in VS Code",
+    ).run,
+    "node scripts/smoke-vscode-install.cjs packages/vscode",
   );
 
   const nestiaWorkflow = fs.readFileSync(
