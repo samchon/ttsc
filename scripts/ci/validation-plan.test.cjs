@@ -407,7 +407,5 @@ function executableRun(run) {
 }
 
 function containsPnpmCommand(run) {
-  return run
-    .split(/\r?\n/)
-    .some((line) => /(?:^|[;&|()]\s*)pnpm(?:\s|$)/.test(line));
+  return run.split(/\r?\n/).some((line) => /\bpnpm(?=\s|$)/.test(line));
 }
