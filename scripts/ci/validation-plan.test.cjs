@@ -431,31 +431,19 @@ test("remaining workflow path filters match the repository contract", () => {
       ).length,
       expected.bun,
     );
-    assert.equal(
-      job.steps.filter(
-        (step) =>
-          typeof step.run === "string" &&
-          step.run.trim() === "pnpm install --frozen-lockfile",
-      ).length,
-      1,
-      `${jobName} must install the repository exactly once`,
-    );
     const systemGo = job.steps.find(
       (step) => step.name === "Use System Go For Source Plugin Builds",
     );
     assert.equal(systemGo.shell, "bash");
-    assert.match(systemGo.run, /TTSC_GO_BINARY=.*go env GOROOT/);
-    const buildSteps = job.steps.filter(
-      (step) =>
-        typeof step.run === "string" &&
-        step.run.trim() === "pnpm run build:current",
-    );
     assert.equal(
-      buildSteps.length,
-      1,
-      `${jobName} must build the native compiler exactly once`,
+      systemGo.run,
+      'echo "TTSC_GO_BINARY=$(go env GOROOT)/bin/go" >> "$GITHUB_ENV"',
     );
-    assert.equal(buildSteps[0].env.TTSC_BUILD_SCOPE, "plugin-cache");
+    const build = job.steps.find(
+      (step) => step.name === "Build Current Platform",
+    );
+    assert.equal(build.run, "pnpm run build:current");
+    assert.equal(build.env.TTSC_BUILD_SCOPE, "plugin-cache");
     const verification = job.steps.find(
       (step) =>
         typeof step.name === "string" &&
@@ -464,20 +452,33 @@ test("remaining workflow path filters match the repository contract", () => {
     );
     assert.ok(verification, `${jobName} lost package-manager verification`);
     assert.equal(verification.shell, "bash");
+    const verificationLines = [
+      "status=0",
+      ...expected.managers.map(
+        (manager) =>
+          `node scripts/ci/plugin-cache-persistence.mjs --pm=${manager} || status=1`,
+      ),
+      'exit "$status"',
+    ];
     assert.deepEqual(
       verification.run
         .split(/\r?\n/)
         .map((line) => line.trim())
         .filter(Boolean),
-      [
-        "status=0",
-        ...expected.managers.map(
-          (manager) =>
-            `node scripts/ci/plugin-cache-persistence.mjs --pm=${manager} || status=1`,
-        ),
-        'exit "$status"',
-      ],
+      verificationLines,
       `${jobName} must run every manager before reporting failure`,
+    );
+    assert.deepEqual(
+      job.steps
+        .filter((step) => typeof step.run === "string")
+        .map((step) => step.run.trim()),
+      [
+        "pnpm install --frozen-lockfile",
+        'echo "TTSC_GO_BINARY=$(go env GOROOT)/bin/go" >> "$GITHUB_ENV"',
+        "pnpm run build:current",
+        verificationLines.join("\n"),
+      ],
+      `${jobName} must install and build exactly once before verification`,
     );
   }
 });
