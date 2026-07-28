@@ -172,6 +172,10 @@ test("lane identities and workflow matrix names stay unique", () => {
   assert.equal(PLATFORM_TARGETS["plugin-cache"], "ttsc");
   assert.equal(PLATFORM_TARGETS["test-packages"], "ttsc");
   assert.equal(PLATFORM_TARGETS["test-graph"], "ttsc,ttscgraph");
+  assert.ok(
+    SCOPES["test-metro"].includes("@ttsc/banner"),
+    "bundler defenses execute banner plugin configuration tests",
+  );
 });
 
 test("remaining workflow path filters match the repository contract", () => {

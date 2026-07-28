@@ -51,7 +51,13 @@ const SCOPES = {
   // Package-owned feature lanes do not need the graph, editor, bundler, or
   // playground builds. They still drive the real current-platform compiler.
   "test-packages": ["ttsc", "@ttsc/banner", PLATFORM],
-  "test-metro": ["ttsc", "@ttsc/unplugin", "@ttsc/metro", PLATFORM],
+  "test-metro": [
+    "ttsc",
+    "@ttsc/banner",
+    "@ttsc/unplugin",
+    "@ttsc/metro",
+    PLATFORM,
+  ],
   "test-graph": ["ttsc", PLATFORM, "@ttsc/graph"],
   // The persistence harness only builds and runs source plugins through ttsc.
   // Building every unrelated workspace package six times obscured the cache
