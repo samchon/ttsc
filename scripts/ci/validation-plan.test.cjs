@@ -389,26 +389,73 @@ test("remaining workflow path filters match the repository contract", () => {
     "cache-linux",
     "cache-windows",
   ]);
-  const expectedPluginManagers = {
-    "cache-linux": ["pnpm", "yarn", "bun", "npm"],
-    "cache-windows": ["npm", "pnpm"],
+  const expectedPluginJobs = {
+    "cache-linux": {
+      runner: "ubuntu-latest",
+      managers: ["pnpm", "yarn", "bun", "npm"],
+      bun: 1,
+    },
+    "cache-windows": {
+      runner: "windows-latest",
+      managers: ["npm", "pnpm"],
+      bun: 0,
+    },
   };
-  for (const [jobName, managers] of Object.entries(expectedPluginManagers)) {
+  for (const [jobName, expected] of Object.entries(expectedPluginJobs)) {
     const job = pluginCacheDocument.jobs[jobName];
+    assert.equal(job["runs-on"], expected.runner);
     assert.equal(
       job.strategy,
       undefined,
       `${jobName} must not expand a matrix`,
     );
+    for (const action of [
+      "actions/checkout",
+      "actions/setup-node",
+      "actions/setup-go",
+      "pnpm/action-setup",
+    ])
+      assert.equal(
+        job.steps.filter(
+          (step) =>
+            typeof step.uses === "string" && step.uses.startsWith(`${action}@`),
+        ).length,
+        1,
+        `${jobName} must configure ${action} exactly once`,
+      );
+    assert.equal(
+      job.steps.filter(
+        (step) =>
+          typeof step.uses === "string" &&
+          step.uses.startsWith("oven-sh/setup-bun@"),
+      ).length,
+      expected.bun,
+    );
     assert.equal(
       job.steps.filter(
         (step) =>
           typeof step.run === "string" &&
-          step.run.trim() === "pnpm run build:current",
+          step.run.trim() === "pnpm install --frozen-lockfile",
       ).length,
+      1,
+      `${jobName} must install the repository exactly once`,
+    );
+    const systemGo = job.steps.find(
+      (step) => step.name === "Use System Go For Source Plugin Builds",
+    );
+    assert.equal(systemGo.shell, "bash");
+    assert.match(systemGo.run, /TTSC_GO_BINARY=.*go env GOROOT/);
+    const buildSteps = job.steps.filter(
+      (step) =>
+        typeof step.run === "string" &&
+        step.run.trim() === "pnpm run build:current",
+    );
+    assert.equal(
+      buildSteps.length,
       1,
       `${jobName} must build the native compiler exactly once`,
     );
+    assert.equal(buildSteps[0].env.TTSC_BUILD_SCOPE, "plugin-cache");
     const verification = job.steps.find(
       (step) =>
         typeof step.name === "string" &&
@@ -416,14 +463,20 @@ test("remaining workflow path filters match the repository contract", () => {
         step.name.endsWith(" Package Managers"),
     );
     assert.ok(verification, `${jobName} lost package-manager verification`);
+    assert.equal(verification.shell, "bash");
     assert.deepEqual(
-      [...verification.run.matchAll(/--pm=([a-z]+)/g)].map((match) => match[1]),
-      managers,
-      `${jobName} package-manager coverage drifted`,
-    );
-    assert.match(
-      verification.run,
-      /status=0[\s\S]+exit "\$status"/,
+      verification.run
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter(Boolean),
+      [
+        "status=0",
+        ...expected.managers.map(
+          (manager) =>
+            `node scripts/ci/plugin-cache-persistence.mjs --pm=${manager} || status=1`,
+        ),
+        'exit "$status"',
+      ],
       `${jobName} must run every manager before reporting failure`,
     );
   }
