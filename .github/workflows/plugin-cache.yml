@@ -48,22 +48,12 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  cache:
-    name: ${{ matrix.pm }} (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        # All four workspace-capable managers on Linux, plus Windows lanes so the
-        # per-OS cache-path resolution (node_modules/.cache/ttsc) is exercised on
-        # a non-POSIX filesystem. bun on Windows is omitted (flaky in Actions).
-        include:
-          - { os: ubuntu-latest, pm: pnpm }
-          - { os: ubuntu-latest, pm: yarn }
-          - { os: ubuntu-latest, pm: bun }
-          - { os: ubuntu-latest, pm: npm }
-          - { os: windows-latest, pm: npm }
-          - { os: windows-latest, pm: pnpm }
+  # Package managers need distinct real workspace installs, but they do not need
+  # distinct runners or native compiler builds. Run every supported layout
+  # sequentially after one current-platform build per irreducible OS boundary.
+  cache-linux:
+    name: managers (ubuntu-latest)
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
 
@@ -82,8 +72,7 @@ jobs:
         with:
           version: 10.6.4
 
-      - if: matrix.pm == 'bun'
-        uses: oven-sh/setup-bun@v2
+      - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
 
@@ -99,5 +88,53 @@ jobs:
         env:
           TTSC_BUILD_SCOPE: plugin-cache
 
-      - name: Verify Plugin Cache Persistence (${{ matrix.pm }})
-        run: node scripts/ci/plugin-cache-persistence.mjs --pm=${{ matrix.pm }}
+      - name: Verify Linux Package Managers
+        shell: bash
+        run: |
+          status=0
+          node scripts/ci/plugin-cache-persistence.mjs --pm=pnpm || status=1
+          node scripts/ci/plugin-cache-persistence.mjs --pm=yarn || status=1
+          node scripts/ci/plugin-cache-persistence.mjs --pm=bun || status=1
+          node scripts/ci/plugin-cache-persistence.mjs --pm=npm || status=1
+          exit "$status"
+
+  cache-windows:
+    name: managers (windows-latest)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24.x
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: packages/ttsc/go.mod
+          cache-dependency-path: |
+            packages/ttsc/go.sum
+            tests/go-transformer/go.mod
+
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 10.6.4
+
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Use System Go For Source Plugin Builds
+        shell: bash
+        run: echo "TTSC_GO_BINARY=$(go env GOROOT)/bin/go" >> "$GITHUB_ENV"
+
+      - name: Build Current Platform
+        run: pnpm run build:current
+        env:
+          TTSC_BUILD_SCOPE: plugin-cache
+
+      - name: Verify Windows Package Managers
+        shell: bash
+        run: |
+          status=0
+          node scripts/ci/plugin-cache-persistence.mjs --pm=npm || status=1
+          node scripts/ci/plugin-cache-persistence.mjs --pm=pnpm || status=1
+          exit "$status"

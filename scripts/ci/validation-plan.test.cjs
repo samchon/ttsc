@@ -378,6 +378,55 @@ test("remaining workflow path filters match the repository contract", () => {
       distSmokeIndex < tarballSmokeIndex,
     "the broad build must produce artifacts before every smoke assertion",
   );
+
+  const pluginCacheDocument = parseYaml(
+    fs.readFileSync(
+      path.join(root, ".github", "workflows", "plugin-cache.yml"),
+      "utf8",
+    ),
+  );
+  assert.deepEqual(Object.keys(pluginCacheDocument.jobs), [
+    "cache-linux",
+    "cache-windows",
+  ]);
+  const expectedPluginManagers = {
+    "cache-linux": ["pnpm", "yarn", "bun", "npm"],
+    "cache-windows": ["npm", "pnpm"],
+  };
+  for (const [jobName, managers] of Object.entries(expectedPluginManagers)) {
+    const job = pluginCacheDocument.jobs[jobName];
+    assert.equal(
+      job.strategy,
+      undefined,
+      `${jobName} must not expand a matrix`,
+    );
+    assert.equal(
+      job.steps.filter(
+        (step) =>
+          typeof step.run === "string" &&
+          step.run.trim() === "pnpm run build:current",
+      ).length,
+      1,
+      `${jobName} must build the native compiler exactly once`,
+    );
+    const verification = job.steps.find(
+      (step) =>
+        typeof step.name === "string" &&
+        step.name.startsWith("Verify ") &&
+        step.name.endsWith(" Package Managers"),
+    );
+    assert.ok(verification, `${jobName} lost package-manager verification`);
+    assert.deepEqual(
+      [...verification.run.matchAll(/--pm=([a-z]+)/g)].map((match) => match[1]),
+      managers,
+      `${jobName} package-manager coverage drifted`,
+    );
+    assert.match(
+      verification.run,
+      /status=0[\s\S]+exit "\$status"/,
+      `${jobName} must run every manager before reporting failure`,
+    );
+  }
 });
 
 test("portable path normalization accepts git and Windows spellings", () => {
