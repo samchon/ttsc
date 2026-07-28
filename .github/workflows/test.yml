@@ -141,7 +141,9 @@ jobs:
       - plan
       - watch-platforms
       - test
-    if: always()
+    # A superseding PR push cancels this run. Do not leave this always-job
+    # queued behind the cancellation and block the next run's concurrency slot.
+    if: ${{ always() && !cancelled() }}
     runs-on: ubuntu-latest
     steps:
       - name: Require every selected validation

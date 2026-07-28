@@ -226,6 +226,11 @@ test("remaining workflow path filters match the repository contract", () => {
   );
   assert.equal(eventPaths(testWorkflow, "push"), null);
   assert.equal(eventPaths(testWorkflow, "pull_request"), null);
+  assert.match(
+    testWorkflow,
+    /if: \$\{\{ always\(\) && !cancelled\(\) \}\}/,
+    "a superseded run must not queue its aggregate behind cancellation",
+  );
 });
 
 test("portable path normalization accepts git and Windows spellings", () => {
