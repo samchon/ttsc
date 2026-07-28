@@ -74,7 +74,7 @@ const TSGO_BINARY = (function resolveTsgoBinary() {
 // Plugin builds (Go) take ~1-2s the first time; share the cache dir
 // across the whole test run so subsequent cases reuse the binary. The
 // shared TestProject cleanup hook removes it on process exit.
-const SHARED_CACHE_DIR = TestProject.tmpdir("ttsc-lint-e2e-cache-");
+const SHARED_CACHE_DIR = TestProject.sharedPluginCache();
 
 export namespace TestLint {
   /** Normalized severities produced by the native lint plugin. */

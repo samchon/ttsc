@@ -6,17 +6,19 @@ on:
       - master
     paths:
       - ".github/workflows/benchmark.yml"
-      - "experimental/benchmark/assets/**"
-      - "experimental/benchmark/package.json"
-      - "experimental/benchmark/src/**"
-      - "experimental/benchmark/tsconfig.json"
+      - "experimental/benchmark/**"
+      - "packages/ttsc/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
   pull_request:
     paths:
       - ".github/workflows/benchmark.yml"
-      - "experimental/benchmark/assets/**"
-      - "experimental/benchmark/package.json"
-      - "experimental/benchmark/src/**"
-      - "experimental/benchmark/tsconfig.json"
+      - "experimental/benchmark/**"
+      - "packages/ttsc/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
 
 concurrency:
   group: benchmark-${{ github.event_name == 'pull_request' && github.head_ref || github.ref }}

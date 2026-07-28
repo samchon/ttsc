@@ -63,20 +63,22 @@ const OWNERSHIP = {
   "go:tests/go-transformer/transformer": "scripts/test-go-transformer.cjs",
 
   // ---- e2e workspace packages ----
-  "e2e:tests/test-banner": "test.yml lane: banner",
+  "e2e:tests/test-banner": "test.yml lane: package defenses",
   "e2e:tests/test-factory": "test.yml lane: factory",
   "e2e:tests/test-graph": "test.yml lane: graph",
-  "e2e:tests/test-lint": "test.yml lanes: lint fast, lint native *",
-  "e2e:tests/test-metro": "test.yml lane: metro",
-  "e2e:tests/test-paths": "test.yml lane: paths",
+  "e2e:tests/test-lint": "test.yml lanes: lint end-to-end defenses 1-4",
+  "e2e:tests/test-metro": "test.yml lane: bundler defenses",
+  "e2e:tests/test-paths": "test.yml lane: package defenses",
   "e2e:tests/test-playground": "test.yml lane: playground",
-  "e2e:tests/test-strip": "test.yml lane: strip",
-  "e2e:tests/test-ttsc": "test.yml lanes: ttsc fast, ttsc native *",
-  "e2e:tests/test-unplugin": "test.yml lane: unplugin",
+  "e2e:tests/test-strip": "test.yml lane: package defenses",
+  "e2e:tests/test-ttsc":
+    "test.yml lanes: ttsc core, plugin defenses, service defenses, watch",
+  "e2e:tests/test-unplugin": "test.yml lane: bundler defenses",
   "e2e:tests/test-wasm": "test.yml lane: wasm",
   // Lives under experimental/, and is run by two workflows. Discovery read only
   // tests/ before, so this suite was invisible to the gate that certifies it.
-  "e2e:experimental/test-unplugin": "test.yml lane: unplugin; bun.yml",
+  "e2e:experimental/test-unplugin":
+    "test.yml lane: bundler defenses; bun.yml",
 
   // ---- node test files ----
   // Five of these ran only because scripts/test-go.cjs named them in a literal
@@ -88,6 +90,7 @@ const OWNERSHIP = {
   "node:scripts/ci/factory-package.test.cjs": "test.yml lane: factory",
   "node:scripts/ci/line-endings.test.cjs": "test.yml lane: typecheck",
   "node:scripts/ci/test-owners.test.cjs": "test.yml lane: typecheck",
+  "node:scripts/ci/validation-plan.test.cjs": "test.yml lane: typecheck",
   "node:scripts/ci/go-test-runners.test.cjs": "scripts/test-go.cjs harness",
   "node:scripts/ci/website-compiler-module.test.cjs":
     "scripts/test-go.cjs harness",

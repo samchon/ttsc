@@ -21,6 +21,4 @@
  */
 import { TestProject } from "@ttsc/testing";
 
-export const SHARED_PLUGIN_CACHE_DIR = TestProject.tmpdir(
-  "ttsc-shared-plugin-cache-",
-);
+export const SHARED_PLUGIN_CACHE_DIR = TestProject.sharedPluginCache();

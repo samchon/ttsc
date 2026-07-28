@@ -1,46 +1,50 @@
 name: test
 
+# Keep the stable planner/aggregate check present on every pull request.
+# Workflow-level path filters can strand a required check in Pending and GitHub
+# evaluates only the first 300 changed files. The planner below skips expensive
+# jobs after inspecting the complete local Git diff.
 on:
   push:
     branches:
       - master
-    paths:
-      - ".gitattributes"
-      - ".github/workflows/test.yml"
-      - "config/**"
-      - "experimental/**"
-      - "!experimental/benchmark/**"
-      - "scripts/**"
-      - "packages/**"
-      - "tests/**"
-      - "package.json"
-      - "pnpm-lock.yaml"
-      - "pnpm-workspace.yaml"
   pull_request:
-    paths:
-      - ".gitattributes"
-      - ".github/workflows/test.yml"
-      - "config/**"
-      - "experimental/**"
-      - "!experimental/benchmark/**"
-      - "scripts/**"
-      - "packages/**"
-      - "tests/**"
-      - "package.json"
-      - "pnpm-lock.yaml"
-      - "pnpm-workspace.yaml"
 
 concurrency:
   group: test-${{ github.event_name == 'pull_request' && github.head_ref || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  plan:
+    name: plan
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+      watch: ${{ steps.plan.outputs.watch }}
+      lanes: ${{ steps.plan.outputs.lanes }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Select affected validation
+        id: plan
+        env:
+          BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.sha }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: >-
+          node scripts/ci/validation-plan.cjs
+          --base "$BASE_SHA"
+          --head "$HEAD_SHA"
+          --event "$EVENT_NAME"
+          --github-output "$GITHUB_OUTPUT"
+
   watch-platforms:
     name: watch (${{ matrix.os }})
+    needs: plan
+    if: needs.plan.outputs.watch == 'true'
     runs-on: ${{ matrix.os }}
-    # These tests block on filesystem notifications, so a platform that stops
-    # delivering one does not fail — it waits. Without a bound that becomes the
-    # six-hour default, three times over.
     timeout-minutes: 60
     strategy:
       fail-fast: false
@@ -87,206 +91,20 @@ jobs:
 
   test:
     name: ${{ matrix.name }}
-    runs-on: ${{ matrix.os || 'ubuntu-latest' }}
+    needs: plan
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - { name: go, run: "pnpm run test:go && pnpm --filter ttsc go:vet" }
-          # Minimal Windows safety net: the Go unit suites cover the
-          # platform-sensitive layers (config loaders, path handling) without
-          # the e2e runner, which is POSIX-only. Only the ttsx launcher build
-          # is needed (test-go-lint drives real ttsx), so the full
-          # build:current is skipped.
-          - {
-              name: windows-go,
-              os: windows-latest,
-              build: "pnpm --filter ttsc build",
-              run: "node --test packages/ttsc/scripts/check-flags.test.cjs && pnpm run test:go",
-            }
-          - {
-              name: shim-audit,
-              run: "pnpm --filter ttsc shim:audit:test && pnpm --filter ttsc shim:audit",
-            }
-          - {
-              name: typecheck,
-              run: "pnpm run check:flags && pnpm run check:dependencies && node --test packages/ttsc/scripts/check-flags.test.cjs && node --test scripts/ci/test-owners.test.cjs scripts/ci/line-endings.test.cjs scripts/ci/dependency-audit.test.cjs && node scripts/ci/format-check.cjs && pnpm run test:typecheck",
-            }
-          - { name: banner, run: "pnpm --filter @ttsc/test-banner start" }
-          # test-playground exercises the @ttsc/playground worker plugin-failure
-          # boundary, npm dependency discovery, and Execute sandbox against the
-          # built playground lib with fakes — no browser and no real WASM boot.
-          # It needs only the wasm TS types (build:ts, no Go→WASM binary) and the
-          # playground build, so it skips the full build:current graph/native cost.
-          - {
-              name: playground,
-              build: "pnpm --filter @ttsc/wasm build:ts && pnpm --filter @ttsc/playground build",
-              run: "pnpm --filter @ttsc/test-playground start",
-            }
-          # test-wasm stubs Go, fetch and WebAssembly through its own boot
-          # harness, so it needs the wasm TypeScript surface and no Go→WASM
-          # binary — the same shape as the playground lane above.
-          - {
-              name: wasm,
-              build: "pnpm --filter @ttsc/wasm build:ts",
-              run: "pnpm --filter @ttsc/test-wasm start",
-            }
-          - {
-              name: factory,
-              run: "node --test scripts/ci/factory-package.test.cjs && pnpm --filter @ttsc/test-factory start",
-            }
-          - { name: paths, run: "pnpm --filter @ttsc/test-paths start" }
-          - { name: strip, run: "pnpm --filter @ttsc/test-strip start" }
-          # test-lint and test-ttsc build real Go plugin binaries; those
-          # go-binary scenarios dominate wall time and live under `src/native-plugins/`
-          # (the fast tests stay under `src/features/`). Each lane points
-          # `TTSC_TEST_DIR` at one subtree and trims its build to only the
-          # packages that subtree exercises (`TTSC_BUILD_SCOPE`), skipping the
-          # heavy @ttsc/graph build that neither suite needs.
-          - {
-              name: "ttsc fast",
-              run: "pnpm --filter @ttsc/test-ttsc start",
-              dir: features,
-              scope: test-ttsc,
-            }
-          - {
-              name: "ttsx node 22.15",
-              node: "22.15.0",
-              build: "pnpm --filter ttsc build",
-              run: "pnpm --filter @ttsc/test-ttsc start -- --include=commonjs_loads_prefix_only_node_builtins",
-              dir: features/ttsx-runtime,
-            }
-          - {
-              name: "ttsc native corpus-source",
-              run: "pnpm --filter @ttsc/test-ttsc start",
-              dir: native-plugins/corpus-source,
-              scope: test-ttsc,
-            }
-          - {
-              name: "ttsc native corpus-ttsc",
-              run: "pnpm --filter @ttsc/test-ttsc start",
-              dir: native-plugins/corpus-ttsc,
-              scope: test-ttsc,
-            }
-          - {
-              name: "ttsc native corpus-misc",
-              run: "pnpm --filter @ttsc/test-ttsc start",
-              dir: native-plugins/corpus-misc,
-              scope: test-ttsc,
-            }
-          - {
-              name: "ttsc native source-plugin",
-              run: "pnpm --filter @ttsc/test-ttsc start",
-              dir: native-plugins/source-plugin,
-              scope: test-ttsc,
-            }
-          - {
-              name: "ttsc native service",
-              run: "pnpm --filter @ttsc/test-ttsc start",
-              dir: native-plugins/service,
-              scope: test-ttsc,
-            }
-          - {
-              name: "ttsc native service-incremental",
-              run: "pnpm --filter @ttsc/test-ttsc start",
-              dir: native-plugins/service-incremental,
-              scope: test-ttsc,
-            }
-          - {
-              name: "ttsc native server",
-              run: "pnpm --filter @ttsc/test-ttsc start",
-              dir: native-plugins/server,
-              scope: test-ttsc,
-            }
-          - {
-              name: "ttsc native driver",
-              run: "pnpm --filter @ttsc/test-ttsc start",
-              dir: native-plugins/driver,
-              scope: test-ttsc,
-            }
-          - {
-              name: "ttsc native cli",
-              run: "pnpm --filter @ttsc/test-ttsc start",
-              dir: native-plugins/cli,
-              scope: test-ttsc,
-            }
-          - {
-              name: "ttsc native compiler",
-              run: "pnpm --filter @ttsc/test-ttsc start",
-              dir: native-plugins/compiler,
-              scope: test-ttsc,
-            }
-          - {
-              name: "ttsc native utility",
-              run: "pnpm --filter @ttsc/test-ttsc start",
-              dir: native-plugins/utility,
-              scope: test-ttsc,
-            }
-          - {
-              name: "ttsc native utility-host",
-              run: "pnpm --filter @ttsc/test-ttsc start",
-              dir: native-plugins/utility-host,
-              scope: test-ttsc,
-            }
-          - {
-              name: "lint fast",
-              run: "pnpm --filter @ttsc/test-lint start",
-              dir: features,
-              scope: test-lint,
-            }
-          - {
-              name: "lint native corpus",
-              run: "pnpm --filter @ttsc/test-lint start",
-              dir: native-plugins/corpus,
-              scope: test-lint,
-            }
-          - {
-              name: "lint native corpus-2",
-              run: "pnpm --filter @ttsc/test-lint start",
-              dir: native-plugins/corpus-2,
-              scope: test-lint,
-            }
-          - {
-              name: "lint native corpus-3",
-              run: "pnpm --filter @ttsc/test-lint start",
-              dir: native-plugins/corpus-3,
-              scope: test-lint,
-            }
-          - {
-              name: "lint native corpus-4",
-              run: "pnpm --filter @ttsc/test-lint start",
-              dir: native-plugins/corpus-4,
-              scope: test-lint,
-            }
-          - {
-              name: "lint native format",
-              run: "pnpm --filter @ttsc/test-lint start",
-              dir: native-plugins/format,
-              scope: test-lint,
-            }
-          - {
-              name: "lint native config",
-              run: "pnpm --filter @ttsc/test-lint start",
-              dir: native-plugins/config,
-              scope: test-lint,
-            }
-          - {
-              name: "lint native fix",
-              run: "pnpm --filter @ttsc/test-lint start",
-              dir: native-plugins/fix,
-              scope: test-lint,
-            }
-          - { name: unplugin, run: "pnpm --filter @ttsc/test-unplugin start" }
-          - { name: metro, run: "pnpm --filter @ttsc/test-metro start" }
-          - { name: graph, run: "pnpm --filter @ttsc/test-graph start" }
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
     steps:
       - uses: actions/checkout@v7
 
       - uses: actions/setup-node@v7
         with:
-          node-version: ${{ matrix.node || '24.x' }}
+          node-version: ${{ matrix.node }}
 
       - uses: actions/setup-go@v7
+        if: matrix.needsGo
         with:
           go-version-file: packages/ttsc/go.mod
           cache-dependency-path: |
@@ -302,19 +120,45 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Use System Go For Source Plugin Tests
+        if: matrix.needsGo
         shell: bash
         run: echo "TTSC_GO_BINARY=$(go env GOROOT)/bin/go" >> "$GITHUB_ENV"
 
-      - name: Build Current Platform
-        run: ${{ matrix.build || 'pnpm run build:current' }}
+      - name: Build ${{ matrix.name }}
+        if: matrix.build != ''
+        run: ${{ matrix.build }}
         env:
-          # Empty (full build) for ordinary lanes; the test lanes set a scope so
-          # build:current skips packages they never exercise (notably @ttsc/graph).
           TTSC_BUILD_SCOPE: ${{ matrix.scope }}
 
       - name: Run ${{ matrix.name }}
         run: ${{ matrix.run }}
         env:
-          # Empty for ordinary lanes → the runner scans the whole suite. A test
-          # lane points this at one subtree (`features` or `native-plugins/<category>`).
-          TTSC_TEST_DIR: ${{ matrix.dir }}
+          TTSC_TEST_DIRS: ${{ matrix.dirs }}
+
+  ci:
+    name: ci
+    needs:
+      - plan
+      - watch-platforms
+      - test
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require every selected validation
+        shell: bash
+        env:
+          PLAN_RESULT: ${{ needs.plan.result }}
+          TEST_RESULT: ${{ needs.test.result }}
+          WATCH_RESULT: ${{ needs.watch-platforms.result }}
+          WATCH_SELECTED: ${{ needs.plan.outputs.watch }}
+          SELECTED_LANES: ${{ needs.plan.outputs.lanes }}
+        run: |
+          echo "selected lanes: $SELECTED_LANES"
+          echo "plan=$PLAN_RESULT test=$TEST_RESULT watch=$WATCH_RESULT selected=$WATCH_SELECTED"
+          test "$PLAN_RESULT" = "success"
+          test "$TEST_RESULT" = "success"
+          if [ "$WATCH_SELECTED" = "true" ]; then
+            test "$WATCH_RESULT" = "success"
+          else
+            test "$WATCH_RESULT" = "skipped"
+          fi

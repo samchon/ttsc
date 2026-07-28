@@ -48,6 +48,15 @@ const SCOPES = {
     PLATFORM,
     "lint-contributor-demo",
   ],
+  // Package-owned feature lanes do not need the graph, editor, bundler, or
+  // playground builds. They still drive the real current-platform compiler.
+  "test-packages": ["ttsc", "@ttsc/banner", PLATFORM],
+  "test-metro": ["ttsc", "@ttsc/unplugin", "@ttsc/metro", PLATFORM],
+  "test-graph": ["ttsc", PLATFORM, "@ttsc/graph"],
+  // The persistence harness only builds and runs source plugins through ttsc.
+  // Building every unrelated workspace package six times obscured the cache
+  // invariant behind roughly forty runner-minutes of setup.
+  "plugin-cache": ["ttsc", PLATFORM],
   // Experimental tarball smoke tests pack only ttsc, the current platform, and
   // first-party packages consumed by the install/unplugin checks. paths/strip
   // ship source files directly and have no build script.
@@ -58,6 +67,18 @@ const SCOPES = {
     "@ttsc/unplugin",
     PLATFORM,
   ],
+};
+
+// Most focused lanes only execute `ttsc`; linking the server and graph binaries
+// in every one of those jobs is another independent Go build with no consumer.
+// Broad compiler coverage and the graph lane retain the binaries they exercise.
+const PLATFORM_TARGETS = {
+  "test-lint": "ttsc",
+  "test-packages": "ttsc",
+  "test-metro": "ttsc",
+  "plugin-cache": "ttsc",
+  experimental: "ttsc",
+  "test-graph": "ttsc,ttscgraph",
 };
 
 function main() {
@@ -79,7 +100,9 @@ function main() {
     if (target === PLATFORM) {
       run(
         ["--dir", platformDir, "build"],
-        scope === "experimental" ? { TTSC_PLATFORM_BUILD_TARGETS: "ttsc" } : {},
+        PLATFORM_TARGETS[scope] === undefined
+          ? {}
+          : { TTSC_PLATFORM_BUILD_TARGETS: PLATFORM_TARGETS[scope] },
       );
     } else if (typeof target === "object") {
       // `{ filter, script }` — build a package via a non-default script (e.g.
@@ -118,4 +141,4 @@ function pnpmCommand(args) {
 
 if (require.main === module) main();
 
-module.exports = { PLATFORM, SCOPES };
+module.exports = { PLATFORM, PLATFORM_TARGETS, SCOPES };

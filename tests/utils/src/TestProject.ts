@@ -10,6 +10,7 @@ import path from "node:path";
 // (the symptom that surfaced as Go-build ENOSPC when /tmp is a small tmpfs).
 const TRACKED_TEMP_DIRS = new Set<string>();
 let cleanupHookRegistered = false;
+let sharedPluginCacheDir: string | undefined;
 
 function ensureCleanupHook(): void {
   if (cleanupHookRegistered) return;
@@ -92,6 +93,22 @@ export namespace TestProject {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
     TRACKED_TEMP_DIRS.add(dir);
     return dir;
+  }
+
+  /**
+   * Return the process-wide cache root for ordinary source-plugin scenarios.
+   *
+   * E2E topology lanes intentionally load helpers from several packages and
+   * directories in one process. Keeping this owner here prevents each helper
+   * module from allocating a different "shared" cache and paying the same Go
+   * plugin build again. Tests that observe cold builds or cache lifecycle still
+   * pass their own explicit `tmpdir`.
+   */
+  export function sharedPluginCache(): string {
+    return (
+      process.env.TTSC_TEST_CACHE_DIR ??
+      (sharedPluginCacheDir ??= tmpdir("ttsc-shared-plugin-cache-"))
+    );
   }
 
   /**
