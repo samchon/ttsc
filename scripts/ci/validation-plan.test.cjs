@@ -255,12 +255,35 @@ test("remaining workflow path filters match the repository contract", () => {
     /actions\/(?:upload|download)-artifact/,
     "nestia must consume local tarballs without an artifact handoff",
   );
-  assert.match(nestiaJob, /run: pnpm package:tgz/);
-  assert.match(nestiaJob, /run: pnpm test/);
+  assert.equal(
+    commandCount(nestiaJob, "pnpm package:tgz"),
+    1,
+    "nestia must build current-platform tarballs exactly once",
+  );
+  assert.equal(
+    commandCount(nestiaJob, "pnpm test"),
+    1,
+    "nestia must run the complete upstream suite exactly once",
+  );
+  assert.equal(
+    commandCount(nestiaJob, "pnpm build"),
+    0,
+    "the upstream test command already performs the nestia build",
+  );
+  for (const action of [
+    "pnpm/action-setup",
+    "actions/setup-node",
+    "actions/setup-go",
+  ])
+    assert.equal(
+      actionCount(nestiaJob, action),
+      1,
+      `${action} must be configured exactly once`,
+    );
   assert.doesNotMatch(
     nestiaJob,
-    /name: Build nestia/,
-    "the upstream test command already performs the nestia build",
+    /needs: tarballs/,
+    "nestia must not wait for a separate tarball producer",
   );
 });
 
@@ -357,4 +380,16 @@ function workflowJobs(source) {
     .slice(start + 1)
     .map((line) => /^  ([^\s].*):$/.exec(line)?.[1])
     .filter(Boolean);
+}
+
+function commandCount(source, command) {
+  return source
+    .split(/\r?\n/)
+    .filter((line) => line.trim() === `run: ${command}`).length;
+}
+
+function actionCount(source, action) {
+  return source
+    .split(/\r?\n/)
+    .filter((line) => line.trim().startsWith(`- uses: ${action}@`)).length;
 }
