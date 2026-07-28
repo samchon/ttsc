@@ -324,7 +324,8 @@ test("remaining workflow path filters match the repository contract", () => {
     ["Ubuntu"],
     "the broad build job must also own wasm package smoke checks",
   );
-  const buildRuns = buildDocument.jobs.Ubuntu.steps
+  const buildSteps = buildDocument.jobs.Ubuntu.steps;
+  const buildRuns = buildSteps
     .map((step) => (typeof step.run === "string" ? step.run : ""))
     .filter(Boolean);
   assert.equal(
@@ -356,6 +357,26 @@ test("remaining workflow path filters match the repository contract", () => {
         run.includes("grep -q dist/ttsc.wasm"),
     ),
     "the broad job must retain wasm tarball smoke",
+  );
+  const stepIndex = (predicate) =>
+    buildSteps.findIndex(
+      (step) => typeof step.run === "string" && predicate(step.run),
+    );
+  const buildIndex = stepIndex((run) => run.trim() === "pnpm run build");
+  const releaseSmokeIndex = stepIndex((run) =>
+    run.includes("assert-ttscgraph-release-candidate.cjs"),
+  );
+  const distSmokeIndex = stepIndex((run) =>
+    run.includes("test -f packages/wasm/dist/ttsc.wasm"),
+  );
+  const tarballSmokeIndex = stepIndex((run) =>
+    run.includes("pnpm pack --pack-destination /tmp"),
+  );
+  assert.ok(
+    buildIndex < releaseSmokeIndex &&
+      releaseSmokeIndex < distSmokeIndex &&
+      distSmokeIndex < tarballSmokeIndex,
+    "the broad build must produce artifacts before every smoke assertion",
   );
 });
 
