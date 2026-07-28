@@ -76,6 +76,10 @@ test("package-owned tests select only their topology owner", () => {
     ["typecheck", "ttsc-native"],
   );
   assert.deepEqual(
+    ids(["tests/test-ttsc/src/native-plugins/corpus-source/test_example.ts"]),
+    ["typecheck", "ttsc-core"],
+  );
+  assert.deepEqual(
     ids([
       "tests/test-ttsc/src/features/ttsx-runtime/test_ttsx_commonjs_loads_prefix_only_node_builtins.ts",
     ]),

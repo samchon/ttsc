@@ -91,6 +91,8 @@ const LANES = [
       "features/utility-plugins",
       "native-plugins/cli",
       "native-plugins/compiler",
+      "native-plugins/corpus-source",
+      "native-plugins/corpus-ttsc",
       "native-plugins/driver",
       "native-plugins/source-plugin",
     ],
@@ -103,8 +105,6 @@ const LANES = [
     build: "pnpm run build:current",
     run: "pnpm --filter @ttsc/test-ttsc start",
     dirs: [
-      "native-plugins/corpus-source",
-      "native-plugins/corpus-ttsc",
       "native-plugins/corpus-misc",
       "native-plugins/server",
       "native-plugins/service",
