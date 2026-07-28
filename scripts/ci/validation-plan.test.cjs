@@ -44,6 +44,15 @@ test("a leaf package selects shared quality and its own executor", () => {
     "ttsc-native",
     "bundler-defenses",
   ]);
+  assert.deepEqual(ids(["packages/lint/src/index.ts"]), [
+    "go",
+    "windows-go",
+    "typecheck",
+    "ttsc-core",
+    "ttsc-native",
+    "lint-1",
+    "lint-2",
+  ]);
 });
 
 test("compiler and platform changes select verified reverse consumers", () => {

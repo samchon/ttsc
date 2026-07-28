@@ -361,6 +361,7 @@ function planForPaths(files) {
           "go",
           "windows-go",
           ...LINT_LANE_IDS,
+          "ttsc-core",
           "ttsc-native",
         ],
         file,
