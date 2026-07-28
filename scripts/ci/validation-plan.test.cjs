@@ -270,6 +270,15 @@ test("remaining workflow path filters match the repository contract", () => {
     0,
     "the upstream test command already performs the nestia build",
   );
+  const tarballSteps = exactRunSteps(nestiaJob, "pnpm package:tgz");
+  assert.equal(tarballSteps.length, 1);
+  const upstreamTestSteps = exactRunSteps(nestiaJob, "pnpm test");
+  assert.equal(upstreamTestSteps.length, 1);
+  assert.match(
+    upstreamTestSteps[0],
+    /^\s+working-directory: experimental\/nestia$/m,
+    "the complete upstream suite must run from the pinned nestia checkout",
+  );
   for (const action of [
     "pnpm/action-setup",
     "actions/setup-node",
@@ -282,8 +291,8 @@ test("remaining workflow path filters match the repository contract", () => {
     );
   assert.doesNotMatch(
     nestiaJob,
-    /needs: tarballs/,
-    "nestia must not wait for a separate tarball producer",
+    /^\s+needs:/m,
+    "the single nestia job must not wait for another producer",
   );
 });
 
@@ -383,13 +392,46 @@ function workflowJobs(source) {
 }
 
 function commandCount(source, command) {
+  const escaped = command.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const pattern = new RegExp(`\\b${escaped}(?![\\w:-])`, "g");
   return source
     .split(/\r?\n/)
-    .filter((line) => line.trim() === `run: ${command}`).length;
+    .filter((line) => !line.trimStart().startsWith("#"))
+    .reduce((count, line) => count + [...line.matchAll(pattern)].length, 0);
 }
 
 function actionCount(source, action) {
+  const escaped = action.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const pattern = new RegExp(`\\buses:\\s*[\"']?${escaped}@`, "g");
   return source
     .split(/\r?\n/)
-    .filter((line) => line.trim().startsWith(`- uses: ${action}@`)).length;
+    .filter((line) => !line.trimStart().startsWith("#"))
+    .reduce((count, line) => count + [...line.matchAll(pattern)].length, 0);
+}
+
+function workflowSteps(source) {
+  const lines = source.split(/\r?\n/);
+  const start = lines.findIndex((line) => line === "    steps:");
+  assert.notEqual(start, -1, "missing workflow steps");
+  const steps = [];
+  for (let index = start + 1; index < lines.length; index++) {
+    if (!/^      -\s/.test(lines[index])) continue;
+    let end = lines.length;
+    for (let cursor = index + 1; cursor < lines.length; cursor++)
+      if (/^      -\s/.test(lines[cursor])) {
+        end = cursor;
+        break;
+      }
+    steps.push(lines.slice(index, end).join("\n"));
+  }
+  return steps;
+}
+
+function exactRunSteps(source, command) {
+  const escaped = command.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const pattern = new RegExp(
+    `^\\s+(?:-\\s+)?run:\\s*[\"']?${escaped}[\"']?\\s*$`,
+    "m",
+  );
+  return workflowSteps(source).filter((step) => pattern.test(step));
 }
