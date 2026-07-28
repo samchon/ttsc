@@ -72,9 +72,7 @@ test("compiler and platform changes select verified reverse consumers", () => {
 
 test("package-owned tests select only their topology owner", () => {
   assert.deepEqual(
-    ids([
-      "tests/test-ttsc/src/native-plugins/server/test_example.ts",
-    ]),
+    ids(["tests/test-ttsc/src/native-plugins/server/test_example.ts"]),
     ["typecheck", "ttsc-native"],
   );
   assert.deepEqual(
@@ -127,10 +125,9 @@ test("CI support files select their actual executors", () => {
     "scripts/ci/website-compiler-module.test.cjs",
   ])
     assert.deepEqual(ids([file]), ["go", "windows-go", "typecheck"], file);
-  assert.deepEqual(
-    ids(["experimental/test-unplugin/src/index.ts"]),
-    ["typecheck"],
-  );
+  assert.deepEqual(ids(["experimental/test-unplugin/src/index.ts"]), [
+    "typecheck",
+  ]);
 });
 
 test("every E2E directory has exactly one normal topology owner", () => {
@@ -159,9 +156,7 @@ test("lane identities and workflow matrix names stay unique", () => {
     true,
     "format-check invokes gofmt and must use the pinned Go toolchain",
   );
-  const typecheckBuild = LANES.find(
-    (lane) => lane.id === "typecheck",
-  )?.build;
+  const typecheckBuild = LANES.find((lane) => lane.id === "typecheck")?.build;
   for (const prerequisite of [
     "@ttsc/banner",
     "@ttsc/lint",
@@ -227,7 +222,7 @@ test("remaining workflow path filters match the repository contract", () => {
   assert.equal(eventPaths(testWorkflow, "push"), null);
   assert.equal(eventPaths(testWorkflow, "pull_request"), null);
   assert.match(
-    testWorkflow,
+    workflowJob(testWorkflow, "ci"),
     /if: \$\{\{ always\(\) && !cancelled\(\) \}\}/,
     "a superseded run must not queue its aggregate behind cancellation",
   );
@@ -276,9 +271,7 @@ function discoverTestDirectories(sourceRoot) {
         (entry) => entry.isFile() && /^test_.+\.ts$/.test(entry.name),
       )
     )
-      directories.add(
-        normalizePath(path.relative(sourceRoot, directory)),
-      );
+      directories.add(normalizePath(path.relative(sourceRoot, directory)));
     for (const entry of entries)
       if (entry.isDirectory()) visit(path.join(directory, entry.name));
   };
@@ -305,4 +298,17 @@ function eventPaths(source, event) {
     }
   }
   return paths;
+}
+
+function workflowJob(source, name) {
+  const lines = source.split(/\r?\n/);
+  const start = lines.findIndex((line) => line === `  ${name}:`);
+  assert.notEqual(start, -1, `missing workflow job: ${name}`);
+  let end = lines.length;
+  for (let index = start + 1; index < lines.length; index++)
+    if (/^  [^\s].*:$/.test(lines[index])) {
+      end = index;
+      break;
+    }
+  return lines.slice(start, end).join("\n");
 }
