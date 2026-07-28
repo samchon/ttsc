@@ -21,12 +21,11 @@ function ids(files) {
 test("a leaf package selects shared quality and its own executor", () => {
   assert.deepEqual(ids(["packages/factory/src/index.ts"]), [
     "typecheck",
-    "factory",
+    "package-defenses",
   ]);
   assert.deepEqual(ids(["packages/wasm/src/index.ts"]), [
     "typecheck",
-    "playground",
-    "wasm",
+    "package-defenses",
   ]);
   assert.deepEqual(ids(["packages/unplugin/src/index.ts"]), [
     "typecheck",
@@ -40,14 +39,10 @@ test("compiler and platform changes select verified reverse consumers", () => {
     "go",
     "windows-go",
     "package-defenses",
-    "ttsc-core",
+    "ttsc-defenses",
     "ttsx-node-22",
-    "ttsc-plugins",
-    "ttsc-services",
     "lint-1",
     "lint-2",
-    "lint-3",
-    "lint-4",
     "bundler-defenses",
     "graph",
   ])
@@ -55,9 +50,9 @@ test("compiler and platform changes select verified reverse consumers", () => {
   assert.equal(compiler.watch, true);
 
   const platform = ids(["packages/ttsc-linux-x64/package.json"]);
-  assert.ok(platform.includes("ttsc-core"));
+  assert.ok(platform.includes("ttsc-defenses"));
   assert.ok(platform.includes("graph"));
-  assert.equal(platform.includes("factory"), false);
+  assert.ok(platform.includes("package-defenses"));
 });
 
 test("package-owned tests select only their topology owner", () => {
@@ -65,13 +60,13 @@ test("package-owned tests select only their topology owner", () => {
     ids([
       "tests/test-ttsc/src/native-plugins/server/test_example.ts",
     ]),
-    ["typecheck", "ttsc-services"],
+    ["typecheck", "ttsc-defenses"],
   );
   assert.deepEqual(
     ids([
       "tests/test-ttsc/src/features/ttsx-runtime/test_ttsx_commonjs_loads_prefix_only_node_builtins.ts",
     ]),
-    ["typecheck", "ttsc-core", "ttsx-node-22"],
+    ["typecheck", "ttsc-defenses", "ttsx-node-22"],
   );
   const watch = planForPaths([
     "tests/test-ttsc/src/features/watch/test_example.ts",
@@ -81,7 +76,7 @@ test("package-owned tests select only their topology owner", () => {
 
   const helpers = planForPaths(["tests/utils/src/TestProject.ts"]);
   assert.equal(helpers.watch, true);
-  assert.ok(helpers.laneIds.includes("ttsc-core"));
+  assert.ok(helpers.laneIds.includes("ttsc-defenses"));
   assert.ok(helpers.laneIds.includes("lint-1"));
 });
 
@@ -108,7 +103,7 @@ test("documentation keeps only the lightweight shared contract", () => {
 test("CI support files select their actual executors", () => {
   assert.deepEqual(ids(["scripts/ci/factory-package.test.cjs"]), [
     "typecheck",
-    "factory",
+    "package-defenses",
   ]);
   for (const file of [
     "scripts/ci/go-test-overlay.cjs",
@@ -130,6 +125,12 @@ test("every E2E directory has exactly one normal topology owner", () => {
 });
 
 test("lane identities and workflow matrix names stay unique", () => {
+  assert.equal(LANES.length, 11, "full main matrix must stay consolidated");
+  assert.equal(
+    LANES.filter((lane) => lane.build === "pnpm run build:current").length,
+    6,
+    "full plan must use six matrix native builds plus three watch builds",
+  );
   assert.equal(new Set(LANES.map((lane) => lane.id)).size, LANES.length);
   assert.equal(new Set(LANES.map((lane) => lane.name)).size, LANES.length);
   for (const lane of LANES) {
@@ -172,6 +173,20 @@ test("lane identities and workflow matrix names stay unique", () => {
   assert.equal(PLATFORM_TARGETS["plugin-cache"], "ttsc");
   assert.equal(PLATFORM_TARGETS["test-packages"], "ttsc");
   assert.equal(PLATFORM_TARGETS["test-graph"], "ttsc,ttscgraph");
+  for (const prerequisite of [
+    "@ttsc/factory",
+    "@ttsc/banner",
+    "@ttsc/wasm",
+    "@ttsc/playground",
+  ])
+    assert.ok(
+      SCOPES["test-packages"].some(
+        (target) =>
+          target === prerequisite ||
+          (typeof target === "object" && target.filter === prerequisite),
+      ),
+      `package defenses lost ${prerequisite}`,
+    );
   assert.ok(
     SCOPES["test-metro"].includes("@ttsc/banner"),
     "bundler defenses execute banner plugin configuration tests",

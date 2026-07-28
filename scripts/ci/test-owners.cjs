@@ -64,17 +64,16 @@ const OWNERSHIP = {
 
   // ---- e2e workspace packages ----
   "e2e:tests/test-banner": "test.yml lane: package defenses",
-  "e2e:tests/test-factory": "test.yml lane: factory",
+  "e2e:tests/test-factory": "test.yml lane: package defenses",
   "e2e:tests/test-graph": "test.yml lane: graph",
-  "e2e:tests/test-lint": "test.yml lanes: lint end-to-end defenses 1-4",
+  "e2e:tests/test-lint": "test.yml lanes: lint end-to-end defenses 1-2",
   "e2e:tests/test-metro": "test.yml lane: bundler defenses",
   "e2e:tests/test-paths": "test.yml lane: package defenses",
-  "e2e:tests/test-playground": "test.yml lane: playground",
+  "e2e:tests/test-playground": "test.yml lane: package defenses",
   "e2e:tests/test-strip": "test.yml lane: package defenses",
-  "e2e:tests/test-ttsc":
-    "test.yml lanes: ttsc core, plugin defenses, service defenses, watch",
+  "e2e:tests/test-ttsc": "test.yml lanes: ttsc defenses, Node 22, watch",
   "e2e:tests/test-unplugin": "test.yml lane: bundler defenses",
-  "e2e:tests/test-wasm": "test.yml lane: wasm",
+  "e2e:tests/test-wasm": "test.yml lane: package defenses",
   // Lives under experimental/, and is run by two workflows. Discovery read only
   // tests/ before, so this suite was invisible to the gate that certifies it.
   "e2e:experimental/test-unplugin":
@@ -87,7 +86,8 @@ const OWNERSHIP = {
   "node:packages/ttsc/scripts/check-flags.test.cjs":
     "test.yml lanes: typecheck, windows-go",
   "node:scripts/ci/dependency-audit.test.cjs": "test.yml lane: typecheck",
-  "node:scripts/ci/factory-package.test.cjs": "test.yml lane: factory",
+  "node:scripts/ci/factory-package.test.cjs":
+    "test.yml lane: package defenses",
   "node:scripts/ci/line-endings.test.cjs": "test.yml lane: typecheck",
   "node:scripts/ci/test-owners.test.cjs": "test.yml lane: typecheck",
   "node:scripts/ci/validation-plan.test.cjs": "test.yml lane: typecheck",

@@ -65,35 +65,17 @@ const LANES = [
     scope: "test-packages",
     build: "pnpm run build:current",
     run:
+      "node --test scripts/ci/factory-package.test.cjs && " +
       "pnpm --filter @ttsc/test-banner start && " +
       "pnpm --filter @ttsc/test-paths start && " +
-      "pnpm --filter @ttsc/test-strip start",
-  },
-  {
-    id: "playground",
-    name: "playground",
-    build:
-      "pnpm --filter @ttsc/wasm build:ts && " +
-      "pnpm --filter @ttsc/playground build",
-    run: "pnpm --filter @ttsc/test-playground start",
-  },
-  {
-    id: "wasm",
-    name: "wasm",
-    build: "pnpm --filter @ttsc/wasm build:ts",
-    run: "pnpm --filter @ttsc/test-wasm start",
-  },
-  {
-    id: "factory",
-    name: "factory",
-    build: "pnpm --filter @ttsc/factory build",
-    run:
-      "node --test scripts/ci/factory-package.test.cjs && " +
+      "pnpm --filter @ttsc/test-strip start && " +
+      "pnpm --filter @ttsc/test-playground start && " +
+      "pnpm --filter @ttsc/test-wasm start && " +
       "pnpm --filter @ttsc/test-factory start",
   },
   {
-    id: "ttsc-core",
-    name: "ttsc core",
+    id: "ttsc-defenses",
+    name: "ttsc defenses",
     needsGo: true,
     scope: "test-ttsc",
     build: "pnpm run build:current",
@@ -109,8 +91,16 @@ const LANES = [
       "features/utility-plugins",
       "native-plugins/cli",
       "native-plugins/compiler",
+      "native-plugins/corpus-source",
+      "native-plugins/corpus-ttsc",
+      "native-plugins/corpus-misc",
       "native-plugins/driver",
+      "native-plugins/server",
+      "native-plugins/service",
+      "native-plugins/service-incremental",
       "native-plugins/source-plugin",
+      "native-plugins/utility",
+      "native-plugins/utility-host",
     ],
   },
   {
@@ -124,34 +114,6 @@ const LANES = [
     dirs: ["features/ttsx-runtime"],
   },
   {
-    id: "ttsc-plugins",
-    name: "ttsc plugin defenses",
-    needsGo: true,
-    scope: "test-ttsc",
-    build: "pnpm run build:current",
-    run: "pnpm --filter @ttsc/test-ttsc start",
-    dirs: [
-      "native-plugins/corpus-source",
-      "native-plugins/corpus-ttsc",
-      "native-plugins/corpus-misc",
-      "native-plugins/utility",
-      "native-plugins/utility-host",
-    ],
-  },
-  {
-    id: "ttsc-services",
-    name: "ttsc service defenses",
-    needsGo: true,
-    scope: "test-ttsc",
-    build: "pnpm run build:current",
-    run: "pnpm --filter @ttsc/test-ttsc start",
-    dirs: [
-      "native-plugins/service",
-      "native-plugins/service-incremental",
-      "native-plugins/server",
-    ],
-  },
-  {
     id: "lint-1",
     name: "lint defense 1",
     needsGo: true,
@@ -161,7 +123,10 @@ const LANES = [
     dirs: [
       "features/config",
       "features/contributor",
+      "features/harness",
+      "features/plugin",
       "native-plugins/corpus",
+      "native-plugins/corpus-2",
     ],
   },
   {
@@ -172,31 +137,8 @@ const LANES = [
     build: "pnpm run build:current",
     run: "pnpm --filter @ttsc/test-lint start",
     dirs: [
-      "features/harness",
-      "features/plugin",
-      "native-plugins/corpus-2",
-    ],
-  },
-  {
-    id: "lint-3",
-    name: "lint defense 3",
-    needsGo: true,
-    scope: "test-lint",
-    build: "pnpm run build:current",
-    run: "pnpm --filter @ttsc/test-lint start",
-    dirs: [
       "native-plugins/corpus-3",
       "native-plugins/config",
-    ],
-  },
-  {
-    id: "lint-4",
-    name: "lint defense 4",
-    needsGo: true,
-    scope: "test-lint",
-    build: "pnpm run build:current",
-    run: "pnpm --filter @ttsc/test-lint start",
-    dirs: [
       "native-plugins/corpus-4",
       "native-plugins/fix",
       "native-plugins/format",
@@ -224,16 +166,11 @@ const LANES = [
 
 const LANE_BY_ID = new Map(LANES.map((lane) => [lane.id, lane]));
 const FULL_LANE_IDS = LANES.map((lane) => lane.id);
-const LINT_LANE_IDS = ["lint-1", "lint-2", "lint-3", "lint-4"];
+const LINT_LANE_IDS = ["lint-1", "lint-2"];
 const E2E_LANE_IDS = [
   "package-defenses",
-  "playground",
-  "wasm",
-  "factory",
-  "ttsc-core",
+  "ttsc-defenses",
   "ttsx-node-22",
-  "ttsc-plugins",
-  "ttsc-services",
   ...LINT_LANE_IDS,
   "bundler-defenses",
   "graph",
@@ -242,19 +179,15 @@ const TTSC_DOWNSTREAM_IDS = [
   "go",
   "windows-go",
   "package-defenses",
-  "ttsc-core",
+  "ttsc-defenses",
   "ttsx-node-22",
-  "ttsc-plugins",
-  "ttsc-services",
   ...LINT_LANE_IDS,
   "bundler-defenses",
   "graph",
 ];
 const PLATFORM_IDS = [
   "package-defenses",
-  "ttsc-core",
-  "ttsc-plugins",
-  "ttsc-services",
+  "ttsc-defenses",
   ...LINT_LANE_IDS,
   "bundler-defenses",
   "graph",
@@ -415,35 +348,34 @@ function planForPaths(files) {
           "go",
           "windows-go",
           ...LINT_LANE_IDS,
-          "ttsc-plugins",
-          "ttsc-services",
+          "ttsc-defenses",
         ],
         file,
       );
       continue;
     }
     if (file.startsWith("packages/banner/")) {
-      add(["package-defenses", "ttsc-plugins"], file);
+      add(["package-defenses", "ttsc-defenses"], file);
       continue;
     }
     if (file.startsWith("packages/paths/")) {
-      add(["package-defenses", "ttsc-plugins"], file);
+      add(["package-defenses", "ttsc-defenses"], file);
       continue;
     }
     if (file.startsWith("packages/strip/")) {
-      add(["package-defenses", "ttsc-plugins"], file);
+      add(["package-defenses", "ttsc-defenses"], file);
       continue;
     }
     if (file.startsWith("packages/factory/")) {
-      add(["factory"], file);
+      add(["package-defenses"], file);
       continue;
     }
     if (file.startsWith("packages/wasm/")) {
-      add(["wasm", "playground"], file);
+      add(["package-defenses"], file);
       continue;
     }
     if (file.startsWith("packages/playground/")) {
-      add(["playground"], file);
+      add(["package-defenses"], file);
       continue;
     }
     if (file.startsWith("packages/graph/")) {
@@ -459,7 +391,7 @@ function planForPaths(files) {
       continue;
     }
     if (file.startsWith("packages/vscode/")) {
-      add(["ttsc-core"], file);
+      add(["ttsc-defenses"], file);
       continue;
     }
     if (file.startsWith("tests/test-ttsc/")) {
@@ -471,7 +403,11 @@ function planForPaths(files) {
     const packageTest = /^tests\/test-([^/]+)\//.exec(file);
     if (packageTest !== null) {
       const lane = packageTest[1];
-      if (["banner", "paths", "strip"].includes(lane)) {
+      if (
+        ["banner", "factory", "paths", "playground", "strip", "wasm"].includes(
+          lane,
+        )
+      ) {
         add(["package-defenses"], file);
         continue;
       }
@@ -496,22 +432,14 @@ function planForPaths(files) {
       add(
         file.startsWith("tests/utils/")
           ? E2E_LANE_IDS
-          : [...LINT_LANE_IDS, "ttsc-plugins"],
+          : [...LINT_LANE_IDS, "ttsc-defenses"],
         file,
       );
       if (file.startsWith("tests/utils/")) watch = true;
       continue;
     }
     if (file.startsWith("tests/projects/")) {
-      add(
-        [
-          "ttsc-core",
-          "ttsc-plugins",
-          "ttsc-services",
-          ...LINT_LANE_IDS,
-        ],
-        file,
-      );
+      add(["ttsc-defenses", ...LINT_LANE_IDS], file);
       continue;
     }
     if (file.startsWith("tests/go-transformer/")) {
@@ -530,7 +458,7 @@ function planForPaths(files) {
       continue;
     }
     if (file === "scripts/ci/factory-package.test.cjs") {
-      add(["factory"], file);
+      add(["package-defenses"], file);
       continue;
     }
     if (
@@ -582,8 +510,9 @@ function planTtscTest(file) {
       "/test_ttsx_commonjs_loads_prefix_only_node_builtins.ts",
     )
   )
-    return { lanes: ["ttsc-core", "ttsx-node-22"], watch: false };
-  if (file.includes("/features/")) return { lanes: ["ttsc-core"], watch: false };
+    return { lanes: ["ttsc-defenses", "ttsx-node-22"], watch: false };
+  if (file.includes("/features/"))
+    return { lanes: ["ttsc-defenses"], watch: false };
   for (const lane of LANES.filter((item) => item.id.startsWith("ttsc-"))) {
     if (
       lane.dirs?.some((directory) =>

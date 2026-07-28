@@ -48,9 +48,17 @@ const SCOPES = {
     PLATFORM,
     "lint-contributor-demo",
   ],
-  // Package-owned feature lanes do not need the graph, editor, bundler, or
-  // playground builds. They still drive the real current-platform compiler.
-  "test-packages": ["ttsc", "@ttsc/banner", PLATFORM],
+  // Package-owned feature defenses share one current-platform compiler build.
+  // The remaining entries are small TypeScript-only packages; co-locating them
+  // avoids four separate installs/jobs without adding another native build.
+  "test-packages": [
+    "ttsc",
+    "@ttsc/factory",
+    "@ttsc/banner",
+    PLATFORM,
+    { filter: "@ttsc/wasm", script: "build:ts" },
+    "@ttsc/playground",
+  ],
   "test-metro": [
     "ttsc",
     "@ttsc/banner",
