@@ -91,6 +91,19 @@ test("compiler and platform changes select verified reverse consumers", () => {
     ["linux-x64", "darwin-x64", "win32-x64"],
     "OS behavior belongs to one representative architecture per OS",
   );
+  const compilerLinux = compiler.platformMatrix.include.find(
+    (row) => row.name === "linux-x64",
+  );
+  assert.equal(compilerLinux.bun, true);
+  assert.equal(compilerLinux.plugin_cache, true);
+  assert.equal(compilerLinux.source_map, true);
+  assert.equal(compilerLinux.build, false);
+  const compilerWindows = compiler.platformMatrix.include.find(
+    (row) => row.name === "win32-x64",
+  );
+  assert.equal(compilerWindows.plugin_cache, true);
+  assert.equal(compilerWindows.bun, false);
+  assert.equal(compilerWindows.source_map, false);
 
   const platform = ids(["packages/ttsc-linux-x64/package.json"]);
   assert.ok(platform.includes("ttsc-core"));
@@ -143,6 +156,31 @@ test("platform integrations reuse only the physical rows they need", () => {
       (row) => row.experimental && !row.watch && !row.vscode,
     ),
   );
+
+  const sourceMap = planForPaths([
+    "experimental/source-map/src/index.ts",
+  ]).platformMatrix.include;
+  assert.deepEqual(sourceMap.map((row) => row.name), ["linux-x64"]);
+  assert.equal(sourceMap[0].source_map, true);
+  assert.equal(sourceMap[0].build, false);
+
+  const pluginCache = planForPaths([
+    "scripts/ci/plugin-cache-persistence.mjs",
+  ]).platformMatrix.include;
+  assert.deepEqual(
+    pluginCache.map((row) => row.name),
+    ["linux-x64", "win32-x64"],
+  );
+  assert.ok(
+    pluginCache.every(
+      (row) =>
+        row.plugin_cache &&
+        row.build &&
+        row.build_scope === "plugin-cache",
+    ),
+  );
+  assert.equal(pluginCache[0].setup_bun, true);
+  assert.equal(pluginCache[1].setup_bun, false);
 });
 
 test("package-owned tests select only their topology owner", () => {
@@ -317,6 +355,13 @@ test("remaining workflow path filters match the repository contract", () => {
     fs.existsSync(path.join(root, ".github", "workflows", "vscode.yml")),
     false,
   );
+  for (const workflow of ["bun", "plugin-cache", "source-map"])
+    assert.equal(
+      fs.existsSync(
+        path.join(root, ".github", "workflows", `${workflow}.yml`),
+      ),
+      false,
+    );
   assert.equal(eventPaths(testWorkflow, "push"), null);
   assert.equal(eventPaths(testWorkflow, "pull_request"), null);
   assert.match(
@@ -337,13 +382,13 @@ test("remaining workflow path filters match the repository contract", () => {
         typeof step.uses === "string" &&
         step.uses.startsWith("actions/setup-go@"),
     ).if,
-    "matrix.experimental || matrix.watch",
+    "matrix.needs_go",
   );
   assert.equal(
     platformSteps.find(
-      (step) => step.name === "Build Current Platform For Watch",
+      (step) => step.name === "Build Current Platform For Selected Tasks",
     ).env.TTSC_BUILD_SCOPE,
-    "experimental",
+    "${{ matrix.build_scope }}",
   );
   assert.equal(
     platformSteps.find(
@@ -366,7 +411,18 @@ test("remaining workflow path filters match the repository contract", () => {
     ).run,
     "node scripts/smoke-vscode-install.cjs packages/vscode",
   );
-
+  assert.equal(
+    platformSteps.find(
+      (step) => step.name === "Verify typia source maps with shared tarballs",
+    ).run,
+    "pnpm --dir experimental/source-map start -- --skip-pack",
+  );
+  assert.equal(
+    platformSteps.find(
+      (step) => step.name === "Verify typia source maps with current tarballs",
+    ).run,
+    "pnpm --dir experimental/source-map start -- --pack-current",
+  );
   const nestiaWorkflow = fs.readFileSync(
     path.join(root, ".github", "workflows", "nestia.yml"),
     "utf8",
@@ -500,82 +556,42 @@ test("remaining workflow path filters match the repository contract", () => {
     "the broad build must produce artifacts before every smoke assertion",
   );
 
-  const pluginCacheDocument = parseYaml(
-    fs.readFileSync(
-      path.join(root, ".github", "workflows", "plugin-cache.yml"),
-      "utf8",
-    ),
+  const setupBun = platformSteps.find(
+    (step) =>
+      typeof step.uses === "string" &&
+      step.uses.startsWith("oven-sh/setup-bun@"),
   );
-  assert.deepEqual(Object.keys(pluginCacheDocument.jobs), [
-    "cache-linux",
-    "cache-windows",
-  ]);
-  const expectedPluginJobs = {
-    "cache-linux": {
-      runner: "ubuntu-latest",
-      managers: ["pnpm", "yarn", "bun", "npm"],
-      bun: 1,
-    },
-    "cache-windows": {
-      runner: "windows-latest",
-      managers: ["npm", "pnpm"],
-      bun: 0,
-    },
-  };
-  for (const [jobName, expected] of Object.entries(expectedPluginJobs)) {
-    const job = pluginCacheDocument.jobs[jobName];
-    assert.equal(job["runs-on"], expected.runner);
-    assert.equal(
-      job.strategy,
-      undefined,
-      `${jobName} must not expand a matrix`,
-    );
-    for (const action of [
-      "actions/checkout",
-      "actions/setup-node",
-      "actions/setup-go",
-      "pnpm/action-setup",
-    ])
-      assert.equal(
-        job.steps.filter(
-          (step) =>
-            typeof step.uses === "string" && step.uses.startsWith(`${action}@`),
-        ).length,
-        1,
-        `${jobName} must configure ${action} exactly once`,
-      );
-    assert.equal(
-      job.steps.filter(
-        (step) =>
-          typeof step.uses === "string" &&
-          step.uses.startsWith("oven-sh/setup-bun@"),
-      ).length,
-      expected.bun,
-    );
-    const systemGo = job.steps.find(
-      (step) => step.name === "Use System Go For Source Plugin Builds",
-    );
-    assert.equal(systemGo.shell, "bash");
-    assert.equal(
-      systemGo.run,
-      'echo "TTSC_GO_BINARY=$(go env GOROOT)/bin/go" >> "$GITHUB_ENV"',
-    );
-    const build = job.steps.find(
-      (step) => step.name === "Build Current Platform",
-    );
-    assert.equal(build.run, "pnpm run build:current");
-    assert.equal(build.env.TTSC_BUILD_SCOPE, "plugin-cache");
-    const verification = job.steps.find(
+  assert.equal(setupBun.if, "matrix.setup_bun");
+  const systemGo = platformSteps.find(
+    (step) => step.name === "Use System Go For Source Plugin Tests",
+  );
+  assert.equal(systemGo.if, "matrix.watch || matrix.plugin_cache");
+  assert.equal(systemGo.shell, "bash");
+  assert.equal(
+    systemGo.run,
+    'echo "TTSC_GO_BINARY=$(go env GOROOT)/bin/go" >> "$GITHUB_ENV"',
+  );
+  assert.equal(
+    platformSteps.filter(
       (step) =>
-        typeof step.name === "string" &&
-        step.name.startsWith("Verify ") &&
-        step.name.endsWith(" Package Managers"),
+        typeof step.run === "string" &&
+        step.run.trim() === "pnpm run build:current",
+    ).length,
+    1,
+    "one platform row must expose only one conditional native build step",
+  );
+  const expectedManagers = {
+    Linux: ["pnpm", "yarn", "bun", "npm"],
+    Windows: ["npm", "pnpm"],
+  };
+  for (const [os, managers] of Object.entries(expectedManagers)) {
+    const verification = platformSteps.find(
+      (step) => step.name === `Verify ${os} Package Managers`,
     );
-    assert.ok(verification, `${jobName} lost package-manager verification`);
     assert.equal(verification.shell, "bash");
     const verificationLines = [
       "status=0",
-      ...expected.managers.map(
+      ...managers.map(
         (manager) =>
           `node scripts/ci/plugin-cache-persistence.mjs --pm=${manager} || status=1`,
       ),
@@ -587,19 +603,7 @@ test("remaining workflow path filters match the repository contract", () => {
         .map((line) => line.trim())
         .filter(Boolean),
       verificationLines,
-      `${jobName} must run every manager before reporting failure`,
-    );
-    assert.deepEqual(
-      job.steps
-        .filter((step) => typeof step.run === "string")
-        .map((step) => step.run.trim()),
-      [
-        "pnpm install --frozen-lockfile",
-        'echo "TTSC_GO_BINARY=$(go env GOROOT)/bin/go" >> "$GITHUB_ENV"',
-        "pnpm run build:current",
-        verificationLines.join("\n"),
-      ],
-      `${jobName} must install and build exactly once before verification`,
+      `${os} must run every manager before reporting failure`,
     );
   }
 });

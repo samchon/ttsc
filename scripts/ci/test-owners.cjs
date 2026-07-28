@@ -75,11 +75,9 @@ const OWNERSHIP = {
     "test.yml lanes: ttsc core/native defenses, Node 22, watch",
   "e2e:tests/test-unplugin": "test.yml lane: bundler defenses",
   "e2e:tests/test-wasm": "test.yml lane: package defenses",
-  // Lives under experimental/, and is run by two integration lanes. Discovery
-  // read only tests/ before, so this suite was invisible to the gate that
-  // certifies it.
-  "e2e:experimental/test-unplugin":
-    "test.yml platform integrations; bun.yml Unplugin",
+  // Lives under experimental/. Discovery read only tests/ before, so this
+  // suite was invisible to the gate that certifies it.
+  "e2e:experimental/test-unplugin": "test.yml platform integrations",
 
   // ---- node test files ----
   // Five of these ran only because scripts/test-go.cjs named them in a literal

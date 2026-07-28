@@ -60,7 +60,7 @@ jobs:
           node-version: 24.x
 
       - uses: actions/setup-go@v7
-        if: matrix.experimental || matrix.watch
+        if: matrix.needs_go
         with:
           go-version-file: packages/ttsc/go.mod
           cache-dependency-path: |
@@ -72,6 +72,11 @@ jobs:
         with:
           version: 10.6.4
 
+      - uses: oven-sh/setup-bun@v2
+        if: matrix.setup_bun
+        with:
+          bun-version: latest
+
       - name: Install Dependencies
         run: pnpm install --frozen-lockfile
 
@@ -80,21 +85,49 @@ jobs:
         run: pnpm run experimental
 
       - name: Use System Go For Source Plugin Tests
-        if: matrix.watch
+        if: matrix.watch || matrix.plugin_cache
         shell: bash
         run: echo "TTSC_GO_BINARY=$(go env GOROOT)/bin/go" >> "$GITHUB_ENV"
 
-      - name: Build Current Platform For Watch
-        if: matrix.watch && !matrix.experimental
+      - name: Build Current Platform For Selected Tasks
+        if: matrix.build
         run: pnpm run build:current
         env:
-          TTSC_BUILD_SCOPE: experimental
+          TTSC_BUILD_SCOPE: ${{ matrix.build_scope }}
 
       - name: Run watch tests
         if: matrix.watch
         run: pnpm --filter @ttsc/test-ttsc start
         env:
           TTSC_TEST_DIR: features/watch
+
+      - name: Verify Linux Package Managers
+        if: matrix.plugin_cache && matrix.os == 'linux'
+        shell: bash
+        run: |
+          status=0
+          node scripts/ci/plugin-cache-persistence.mjs --pm=pnpm || status=1
+          node scripts/ci/plugin-cache-persistence.mjs --pm=yarn || status=1
+          node scripts/ci/plugin-cache-persistence.mjs --pm=bun || status=1
+          node scripts/ci/plugin-cache-persistence.mjs --pm=npm || status=1
+          exit "$status"
+
+      - name: Verify Windows Package Managers
+        if: matrix.plugin_cache && matrix.os == 'win32'
+        shell: bash
+        run: |
+          status=0
+          node scripts/ci/plugin-cache-persistence.mjs --pm=npm || status=1
+          node scripts/ci/plugin-cache-persistence.mjs --pm=pnpm || status=1
+          exit "$status"
+
+      - name: Verify typia source maps with shared tarballs
+        if: matrix.source_map && matrix.experimental
+        run: pnpm --dir experimental/source-map start -- --skip-pack
+
+      - name: Verify typia source maps with current tarballs
+        if: matrix.source_map && !matrix.experimental
+        run: pnpm --dir experimental/source-map start -- --pack-current
 
       - name: Ensure VS Code CLI (Ubuntu)
         if: matrix.vscode && runner.os == 'Linux'
