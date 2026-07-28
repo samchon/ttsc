@@ -39,7 +39,8 @@ test("compiler and platform changes select verified reverse consumers", () => {
     "go",
     "windows-go",
     "package-defenses",
-    "ttsc-defenses",
+    "ttsc-core",
+    "ttsc-native",
     "ttsx-node-22",
     "lint-1",
     "lint-2",
@@ -50,7 +51,8 @@ test("compiler and platform changes select verified reverse consumers", () => {
   assert.equal(compiler.watch, true);
 
   const platform = ids(["packages/ttsc-linux-x64/package.json"]);
-  assert.ok(platform.includes("ttsc-defenses"));
+  assert.ok(platform.includes("ttsc-core"));
+  assert.ok(platform.includes("ttsc-native"));
   assert.ok(platform.includes("graph"));
   assert.ok(platform.includes("package-defenses"));
 });
@@ -60,13 +62,13 @@ test("package-owned tests select only their topology owner", () => {
     ids([
       "tests/test-ttsc/src/native-plugins/server/test_example.ts",
     ]),
-    ["typecheck", "ttsc-defenses"],
+    ["typecheck", "ttsc-native"],
   );
   assert.deepEqual(
     ids([
       "tests/test-ttsc/src/features/ttsx-runtime/test_ttsx_commonjs_loads_prefix_only_node_builtins.ts",
     ]),
-    ["typecheck", "ttsc-defenses", "ttsx-node-22"],
+    ["typecheck", "ttsc-core", "ttsx-node-22"],
   );
   const watch = planForPaths([
     "tests/test-ttsc/src/features/watch/test_example.ts",
@@ -76,7 +78,8 @@ test("package-owned tests select only their topology owner", () => {
 
   const helpers = planForPaths(["tests/utils/src/TestProject.ts"]);
   assert.equal(helpers.watch, true);
-  assert.ok(helpers.laneIds.includes("ttsc-defenses"));
+  assert.ok(helpers.laneIds.includes("ttsc-core"));
+  assert.ok(helpers.laneIds.includes("ttsc-native"));
   assert.ok(helpers.laneIds.includes("lint-1"));
 });
 
@@ -125,11 +128,11 @@ test("every E2E directory has exactly one normal topology owner", () => {
 });
 
 test("lane identities and workflow matrix names stay unique", () => {
-  assert.equal(LANES.length, 11, "full main matrix must stay consolidated");
+  assert.equal(LANES.length, 12, "full main matrix must stay consolidated");
   assert.equal(
     LANES.filter((lane) => lane.build === "pnpm run build:current").length,
-    6,
-    "full plan must use six matrix native builds plus three watch builds",
+    7,
+    "full plan must use seven matrix native builds plus three watch builds",
   );
   assert.equal(new Set(LANES.map((lane) => lane.id)).size, LANES.length);
   assert.equal(new Set(LANES.map((lane) => lane.name)).size, LANES.length);

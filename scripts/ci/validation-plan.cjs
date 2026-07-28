@@ -74,8 +74,8 @@ const LANES = [
       "pnpm --filter @ttsc/test-factory start",
   },
   {
-    id: "ttsc-defenses",
-    name: "ttsc defenses",
+    id: "ttsc-core",
+    name: "ttsc core defenses",
     needsGo: true,
     scope: "test-ttsc",
     build: "pnpm run build:current",
@@ -91,14 +91,24 @@ const LANES = [
       "features/utility-plugins",
       "native-plugins/cli",
       "native-plugins/compiler",
+      "native-plugins/driver",
+      "native-plugins/source-plugin",
+    ],
+  },
+  {
+    id: "ttsc-native",
+    name: "ttsc native defenses",
+    needsGo: true,
+    scope: "test-ttsc",
+    build: "pnpm run build:current",
+    run: "pnpm --filter @ttsc/test-ttsc start",
+    dirs: [
       "native-plugins/corpus-source",
       "native-plugins/corpus-ttsc",
       "native-plugins/corpus-misc",
-      "native-plugins/driver",
       "native-plugins/server",
       "native-plugins/service",
       "native-plugins/service-incremental",
-      "native-plugins/source-plugin",
       "native-plugins/utility",
       "native-plugins/utility-host",
     ],
@@ -169,7 +179,8 @@ const FULL_LANE_IDS = LANES.map((lane) => lane.id);
 const LINT_LANE_IDS = ["lint-1", "lint-2"];
 const E2E_LANE_IDS = [
   "package-defenses",
-  "ttsc-defenses",
+  "ttsc-core",
+  "ttsc-native",
   "ttsx-node-22",
   ...LINT_LANE_IDS,
   "bundler-defenses",
@@ -179,7 +190,8 @@ const TTSC_DOWNSTREAM_IDS = [
   "go",
   "windows-go",
   "package-defenses",
-  "ttsc-defenses",
+  "ttsc-core",
+  "ttsc-native",
   "ttsx-node-22",
   ...LINT_LANE_IDS,
   "bundler-defenses",
@@ -187,7 +199,8 @@ const TTSC_DOWNSTREAM_IDS = [
 ];
 const PLATFORM_IDS = [
   "package-defenses",
-  "ttsc-defenses",
+  "ttsc-core",
+  "ttsc-native",
   ...LINT_LANE_IDS,
   "bundler-defenses",
   "graph",
@@ -348,22 +361,22 @@ function planForPaths(files) {
           "go",
           "windows-go",
           ...LINT_LANE_IDS,
-          "ttsc-defenses",
+          "ttsc-native",
         ],
         file,
       );
       continue;
     }
     if (file.startsWith("packages/banner/")) {
-      add(["package-defenses", "ttsc-defenses"], file);
+      add(["package-defenses", "ttsc-native"], file);
       continue;
     }
     if (file.startsWith("packages/paths/")) {
-      add(["package-defenses", "ttsc-defenses"], file);
+      add(["package-defenses", "ttsc-native"], file);
       continue;
     }
     if (file.startsWith("packages/strip/")) {
-      add(["package-defenses", "ttsc-defenses"], file);
+      add(["package-defenses", "ttsc-native"], file);
       continue;
     }
     if (file.startsWith("packages/factory/")) {
@@ -391,7 +404,7 @@ function planForPaths(files) {
       continue;
     }
     if (file.startsWith("packages/vscode/")) {
-      add(["ttsc-defenses"], file);
+      add(["ttsc-core"], file);
       continue;
     }
     if (file.startsWith("tests/test-ttsc/")) {
@@ -432,14 +445,14 @@ function planForPaths(files) {
       add(
         file.startsWith("tests/utils/")
           ? E2E_LANE_IDS
-          : [...LINT_LANE_IDS, "ttsc-defenses"],
+          : [...LINT_LANE_IDS, "ttsc-native"],
         file,
       );
       if (file.startsWith("tests/utils/")) watch = true;
       continue;
     }
     if (file.startsWith("tests/projects/")) {
-      add(["ttsc-defenses", ...LINT_LANE_IDS], file);
+      add(["ttsc-core", "ttsc-native", ...LINT_LANE_IDS], file);
       continue;
     }
     if (file.startsWith("tests/go-transformer/")) {
@@ -510,9 +523,9 @@ function planTtscTest(file) {
       "/test_ttsx_commonjs_loads_prefix_only_node_builtins.ts",
     )
   )
-    return { lanes: ["ttsc-defenses", "ttsx-node-22"], watch: false };
+    return { lanes: ["ttsc-core", "ttsx-node-22"], watch: false };
   if (file.includes("/features/"))
-    return { lanes: ["ttsc-defenses"], watch: false };
+    return { lanes: ["ttsc-core"], watch: false };
   for (const lane of LANES.filter((item) => item.id.startsWith("ttsc-"))) {
     if (
       lane.dirs?.some((directory) =>
