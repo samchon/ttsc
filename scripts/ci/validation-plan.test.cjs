@@ -31,6 +31,12 @@ test("a leaf package selects shared quality and its own executor", () => {
     "typecheck",
     "bundler-defenses",
   ]);
+  assert.deepEqual(ids(["packages/strip/src/index.ts"]), [
+    "typecheck",
+    "package-defenses",
+    "ttsc-core",
+    "ttsc-native",
+  ]);
 });
 
 test("compiler and platform changes select verified reverse consumers", () => {
