@@ -57,6 +57,7 @@ jobs:
           go-version-file: packages/ttsc/go.mod
           cache-dependency-path: |
             packages/ttsc/go.sum
+            packages/wasm/go.sum
             tests/go-transformer/go.mod
 
       - uses: pnpm/action-setup@v6
@@ -71,32 +72,6 @@ jobs:
 
       - name: Smoke release-candidate ttscgraph snapshot
         run: node scripts/assert-ttscgraph-release-candidate.cjs
-
-  wasm-build:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24.x
-
-      - uses: actions/setup-go@v7
-        with:
-          go-version-file: packages/ttsc/go.mod
-          cache-dependency-path: |
-            packages/ttsc/go.sum
-            packages/wasm/go.sum
-
-      - uses: pnpm/action-setup@v6
-        with:
-          version: 10.6.4
-
-      - name: Install Dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Build @ttsc/wasm
-        run: pnpm --filter @ttsc/wasm build
 
       - name: Assert dist artifacts exist
         run: |
