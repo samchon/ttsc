@@ -30,10 +30,12 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  # Pack the current-platform ttsc tarballs once and share them with every
-  # matrix job below, instead of rebuilding them six times.
-  tarballs:
+  # Build the current-platform tarballs and run nestia's complete upstream
+  # suite in one broad last-defense job. Keeping producer and consumer on the
+  # same runner avoids an artifact handoff and duplicated toolchain setup.
+  nestia:
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     env:
       # Only build + pack the current platform (ttsc-linux-x64) — nestia's
       # overrides pull in ttsc.tgz + ttsc-linux-x64.tgz only. The full
@@ -64,44 +66,6 @@ jobs:
 
       - name: Build ttsc tarballs (current platform only)
         run: pnpm package:tgz
-
-      - name: Upload tarballs
-        uses: actions/upload-artifact@v4
-        with:
-          name: ttsc-tarballs
-          path: experimental/tarballs/*.tgz
-          if-no-files-found: error
-          retention-days: 1
-
-  # Run nestia's standard test suite against the local ttsc tarballs
-  # instead of the published release.
-  nestia:
-    needs: tarballs
-    runs-on: ubuntu-latest
-    timeout-minutes: 60
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10.6.4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24.x
-
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: packages/ttsc/go.mod
-          cache-dependency-path: |
-            packages/ttsc/go.sum
-            tests/go-transformer/go.mod
-
-      - name: Download ttsc tarballs
-        uses: actions/download-artifact@v4
-        with:
-          name: ttsc-tarballs
-          path: experimental/tarballs
 
       # Keep this integration gate attributable to ttsc. nestia master became
       # red in its own sdk lane after this revision (PR #1594, openapi_v2), so a
@@ -146,16 +110,10 @@ jobs:
       - name: Use System Go For Source Plugin Build
         run: echo "TTSC_GO_BINARY=$(go env GOROOT)/bin/go" >> "$GITHUB_ENV"
 
-      - name: Build nestia
+      - name: Test nestia
         working-directory: experimental/nestia
         env:
           # Mirror nestia's own test.yml: keep Node's native TS strip / module
           # detection off so the e2e run matches nestia's CI environment.
-          NODE_OPTIONS: --no-experimental-strip-types --no-experimental-detect-module
-        run: pnpm build
-
-      - name: Test nestia
-        working-directory: experimental/nestia
-        env:
           NODE_OPTIONS: --no-experimental-strip-types --no-experimental-detect-module
         run: pnpm test

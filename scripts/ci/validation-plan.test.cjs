@@ -239,6 +239,29 @@ test("remaining workflow path filters match the repository contract", () => {
     /if: \$\{\{ always\(\) && !cancelled\(\) \}\}/,
     "a superseded run must not queue its aggregate behind cancellation",
   );
+
+  const nestiaWorkflow = fs.readFileSync(
+    path.join(root, ".github", "workflows", "nestia.yml"),
+    "utf8",
+  );
+  const nestiaJob = workflowJob(nestiaWorkflow, "nestia");
+  assert.deepEqual(
+    workflowJobs(nestiaWorkflow),
+    ["nestia"],
+    "nestia compatibility must stay in one broad job",
+  );
+  assert.doesNotMatch(
+    nestiaJob,
+    /actions\/(?:upload|download)-artifact/,
+    "nestia must consume local tarballs without an artifact handoff",
+  );
+  assert.match(nestiaJob, /run: pnpm package:tgz/);
+  assert.match(nestiaJob, /run: pnpm test/);
+  assert.doesNotMatch(
+    nestiaJob,
+    /name: Build nestia/,
+    "the upstream test command already performs the nestia build",
+  );
 });
 
 test("portable path normalization accepts git and Windows spellings", () => {
@@ -324,4 +347,14 @@ function workflowJob(source, name) {
       break;
     }
   return lines.slice(start, end).join("\n");
+}
+
+function workflowJobs(source) {
+  const lines = source.split(/\r?\n/);
+  const start = lines.findIndex((line) => line === "jobs:");
+  assert.notEqual(start, -1, "missing workflow jobs");
+  return lines
+    .slice(start + 1)
+    .map((line) => /^  ([^\s].*):$/.exec(line)?.[1])
+    .filter(Boolean);
 }
