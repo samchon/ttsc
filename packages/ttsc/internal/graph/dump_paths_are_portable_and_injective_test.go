@@ -1,6 +1,8 @@
 package graph
 
 import (
+  "os"
+  "path/filepath"
   "strings"
   "testing"
 )
@@ -48,6 +50,30 @@ func TestDumpPathMapperUsesPortableCoordinates(t *testing.T) {
         t.Fatalf("mapPath(%q): %v", test.file, err)
       }
     })
+  }
+}
+
+func TestDumpPathMapperCanonicalizesSymlinkedProjectPaths(t *testing.T) {
+  project := t.TempDir()
+  source := filepath.Join(project, "src", "main.ts")
+  if err := os.MkdirAll(filepath.Dir(source), 0o755); err != nil {
+    t.Fatal(err)
+  }
+  if err := os.WriteFile(source, []byte("export {};\n"), 0o644); err != nil {
+    t.Fatal(err)
+  }
+
+  alias := filepath.Join(t.TempDir(), "project")
+  if err := os.Symlink(project, alias); err != nil {
+    t.Skipf("symlinks are unavailable: %v", err)
+  }
+
+  mapper := newDumpPathMapper(alias)
+  if got := mapper.mapPath(source); got != "src/main.ts" {
+    t.Fatalf("mapPath(%q) = %q, want project-relative path", source, got)
+  }
+  if err := mapper.err(); err != nil {
+    t.Fatalf("mapPath(%q): %v", source, err)
   }
 }
 

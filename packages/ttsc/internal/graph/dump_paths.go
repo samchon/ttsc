@@ -2,6 +2,7 @@ package graph
 
 import (
   "fmt"
+  "path/filepath"
   "strings"
 
   shimtspath "github.com/microsoft/typescript-go/shim/tspath"
@@ -21,7 +22,7 @@ type dumpPathMapper struct {
 }
 
 func newDumpPathMapper(project string) *dumpPathMapper {
-  normalized := shimtspath.NormalizePath(shimtspath.NormalizeSlashes(project))
+  normalized := canonicalDumpPath(project)
   mapper := &dumpPathMapper{
     project:        normalized,
     caseSensitive:  dumpPathRootIsCaseSensitive(normalized),
@@ -53,7 +54,7 @@ func (m *dumpPathMapper) mapPath(file string) string {
   if strings.HasPrefix(normalized, "bundled:///") {
     return m.claim(normalized, normalized)
   }
-  normalized = shimtspath.NormalizePath(normalized)
+  normalized = canonicalDumpPath(normalized)
   if m.project == "" || shimtspath.GetRootLength(m.project) == 0 {
     return normalized
   }
@@ -84,6 +85,26 @@ func (m *dumpPathMapper) mapPath(file string) string {
     return normalized
   }
   return m.claim(physical, wire)
+}
+
+// canonicalDumpPath resolves host filesystem aliases before applying the
+// compiler's portable path grammar. On macOS, for example, a temporary
+// directory can be observed as both /var/... and /private/var/...; treating
+// those spellings as different trees would make an in-project source appear
+// outside the graph's project root.
+//
+// Synthetic Windows and UNC paths used by portable tests do not resolve on a
+// non-Windows host. In that case (and for paths that do not exist yet), retain
+// the lexical path so the mapper can still enforce its root rules.
+func canonicalDumpPath(path string) string {
+  normalized := shimtspath.NormalizeSlashes(path)
+  if shimtspath.GetRootLength(normalized) == 0 {
+    return shimtspath.NormalizePath(normalized)
+  }
+  if resolved, err := filepath.EvalSymlinks(filepath.FromSlash(normalized)); err == nil {
+    normalized = filepath.ToSlash(resolved)
+  }
+  return shimtspath.NormalizePath(normalized)
 }
 
 // claim records both directions of the projection. The reverse map is the
