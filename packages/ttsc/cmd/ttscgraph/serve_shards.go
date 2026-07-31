@@ -74,6 +74,9 @@ type serveGraphStore struct {
   shards                map[string]committedServeGraphShard
   nodes                 map[string]*graph.Node
   provenance            graph.Provenance
+  wireProvenance        graph.Provenance
+  wireSources           map[string]string
+  identity              serveGraphIdentity
   resolutionDigests     map[string]string
   sourceKeys            map[string]string
   dumpNodeFiles         map[string]string
@@ -135,7 +138,7 @@ func (s *graphSession) buildFullShardSnapshot() (*serveGraphSnapshot, *serveGrap
     texts,
     s.diskDigests,
   )
-  identity, wireProvenance, err := newServeGraphIdentity(s.cwd, s.tsconfig, provenance)
+  identity, wireProvenance, wireSources, err := newServeGraphIdentity(s.cwd, s.tsconfig, provenance)
   if err != nil {
     return nil, nil, err
   }
@@ -181,6 +184,9 @@ func (s *graphSession) buildFullShardSnapshot() (*serveGraphSnapshot, *serveGrap
     shards:                map[string]committedServeGraphShard{},
     nodes:                 maps.Clone(built.Nodes),
     provenance:            provenance,
+    wireProvenance:        wireProvenance,
+    wireSources:           wireSources,
+    identity:              identity,
     resolutionDigests:     resolutionDigests,
     sourceKeys:            sourceKeys,
     dumpNodeFiles:         dumpNodeFiles,
@@ -265,14 +271,18 @@ func (s *graphSession) buildIncrementalShardSnapshot(changed, publicChanged []st
     }
   }
   texts := graph.SourceTextsForFiles(program, sortedSelectedFiles(projectionFiles))
-  provenance, ok := advanceServeGraphProvenance(prior.provenance, program, changed, s.diskDigests)
+  provenance, wireProvenance, ok := advanceServeGraphProvenance(
+    prior.provenance,
+    prior.wireProvenance,
+    prior.wireSources,
+    program,
+    changed,
+    s.diskDigests,
+  )
   if !ok {
     return s.buildFullShardSnapshot()
   }
-  identity, wireProvenance, err := newServeGraphIdentity(s.cwd, s.tsconfig, provenance)
-  if err != nil {
-    return nil, nil, err
-  }
+  identity := prior.identity
   facts, err := graph.NewDumpFacts(
     partial,
     s.cwd,
@@ -420,6 +430,9 @@ func (s *graphSession) buildIncrementalShardSnapshot(changed, publicChanged []st
     shards:                committed,
     nodes:                 nextNodes,
     provenance:            provenance,
+    wireProvenance:        wireProvenance,
+    wireSources:           maps.Clone(prior.wireSources),
+    identity:              identity,
     resolutionDigests:     prior.resolutionDigests,
     sourceKeys:            nextSourceKeys,
     dumpNodeFiles:         nextDumpNodeFiles,
@@ -969,13 +982,13 @@ func digestJSON(value any) (string, error) {
   return hex.EncodeToString(sum[:]), nil
 }
 
-func newServeGraphIdentity(project, tsconfig string, provenance graph.Provenance) (serveGraphIdentity, graph.Provenance, error) {
+func newServeGraphIdentity(project, tsconfig string, provenance graph.Provenance) (serveGraphIdentity, graph.Provenance, map[string]string, error) {
   if !filepath.IsAbs(project) {
-    return serveGraphIdentity{}, graph.Provenance{}, fmt.Errorf("ttscgraph: project root must be absolute: %s", project)
+    return serveGraphIdentity{}, graph.Provenance{}, nil, fmt.Errorf("ttscgraph: project root must be absolute: %s", project)
   }
   wireProject, err := graph.WireProject(project)
   if err != nil {
-    return serveGraphIdentity{}, graph.Provenance{}, err
+    return serveGraphIdentity{}, graph.Provenance{}, nil, err
   }
   target := tsconfig
   if !filepath.IsAbs(target) {
@@ -983,38 +996,40 @@ func newServeGraphIdentity(project, tsconfig string, provenance graph.Provenance
   }
   target, err = serveGraphFile(project, filepath.Clean(target))
   if err != nil {
-    return serveGraphIdentity{}, graph.Provenance{}, err
+    return serveGraphIdentity{}, graph.Provenance{}, nil, err
   }
-  normalized, err := normalizeServeGraphProvenance(project, provenance)
+  normalized, wireSources, err := normalizeServeGraphProvenance(project, provenance)
   if err != nil {
-    return serveGraphIdentity{}, graph.Provenance{}, err
+    return serveGraphIdentity{}, graph.Provenance{}, nil, err
   }
   universe, err := digestJSON(normalized.Universe)
   if err != nil {
-    return serveGraphIdentity{}, graph.Provenance{}, err
+    return serveGraphIdentity{}, graph.Provenance{}, nil, err
   }
   return serveGraphIdentity{
     project:  wireProject,
     target:   target,
     universe: universe,
     producer: provenance.Producer,
-  }, normalized, nil
+  }, normalized, wireSources, nil
 }
 
-func normalizeServeGraphProvenance(project string, provenance graph.Provenance) (graph.Provenance, error) {
+func normalizeServeGraphProvenance(project string, provenance graph.Provenance) (graph.Provenance, map[string]string, error) {
   normalized := provenance
   normalized.Capabilities = append([]string{}, provenance.Capabilities...)
   normalized.Sources = make([]graph.SourceDigest, 0, len(provenance.Sources))
+  wireSources := make(map[string]string, len(provenance.Sources))
   sourceOwners := map[string]string{}
   for _, source := range provenance.Sources {
     file, err := serveGraphFile(project, source.File)
     if err != nil {
-      return graph.Provenance{}, err
+      return graph.Provenance{}, nil, err
     }
     if previous, exists := sourceOwners[file]; exists {
-      return graph.Provenance{}, fmt.Errorf("ttscgraph: source paths %q and %q collide at wire identity %q", previous, source.File, file)
+      return graph.Provenance{}, nil, fmt.Errorf("ttscgraph: source paths %q and %q collide at wire identity %q", previous, source.File, file)
     }
     sourceOwners[file] = source.File
+    wireSources[source.File] = file
     normalized.Sources = append(normalized.Sources, graph.SourceDigest{
       File:    file,
       Checker: source.Checker,
@@ -1026,10 +1041,10 @@ func normalizeServeGraphProvenance(project string, provenance graph.Provenance) 
   for _, config := range provenance.Universe.Configs {
     file, err := serveGraphFile(project, config.File)
     if err != nil {
-      return graph.Provenance{}, err
+      return graph.Provenance{}, nil, err
     }
     if previous, exists := configOwners[file]; exists {
-      return graph.Provenance{}, fmt.Errorf("ttscgraph: config paths %q and %q collide at wire identity %q", previous, config.File, file)
+      return graph.Provenance{}, nil, fmt.Errorf("ttscgraph: config paths %q and %q collide at wire identity %q", previous, config.File, file)
     }
     configOwners[file] = config.File
     normalized.Universe.Configs = append(normalized.Universe.Configs, graph.FileDigest{File: file, Digest: config.Digest})
@@ -1038,11 +1053,11 @@ func normalizeServeGraphProvenance(project string, provenance graph.Provenance) 
   for _, root := range provenance.Universe.Roots {
     config, err := serveGraphFile(project, root.Config)
     if err != nil {
-      return graph.Provenance{}, err
+      return graph.Provenance{}, nil, err
     }
     file, err := serveGraphFile(project, root.File)
     if err != nil {
-      return graph.Provenance{}, err
+      return graph.Provenance{}, nil, err
     }
     normalized.Universe.Roots = append(normalized.Universe.Roots, graph.RootFile{Config: config, File: file})
   }
@@ -1056,41 +1071,66 @@ func normalizeServeGraphProvenance(project string, provenance graph.Provenance) 
     }
     return normalized.Universe.Roots[i].File < normalized.Universe.Roots[j].File
   })
-  return normalized, nil
+  return normalized, wireSources, nil
 }
 
 func advanceServeGraphProvenance(
   previous graph.Provenance,
+  previousWire graph.Provenance,
+  wireSources map[string]string,
   program *driver.Program,
   changed []string,
   diskDigests map[string]string,
-) (graph.Provenance, bool) {
+) (graph.Provenance, graph.Provenance, bool) {
   next := previous
   next.Capabilities = append([]string{}, previous.Capabilities...)
   next.Sources = append([]graph.SourceDigest{}, previous.Sources...)
   next.Universe.Configs = append([]graph.FileDigest{}, previous.Universe.Configs...)
   next.Universe.Roots = append([]graph.RootFile{}, previous.Universe.Roots...)
+  nextWire := previousWire
+  nextWire.Capabilities = append([]string{}, previousWire.Capabilities...)
+  nextWire.Sources = append([]graph.SourceDigest{}, previousWire.Sources...)
+  nextWire.Universe.Configs = append([]graph.FileDigest{}, previousWire.Universe.Configs...)
+  nextWire.Universe.Roots = append([]graph.RootFile{}, previousWire.Universe.Roots...)
+  if len(nextWire.Sources) != len(next.Sources) {
+    return graph.Provenance{}, graph.Provenance{}, false
+  }
   positions := make(map[string]int, len(next.Sources))
   for index, source := range next.Sources {
     positions[source.File] = index
   }
+  wirePositions := make(map[string]int, len(nextWire.Sources))
+  for index, source := range nextWire.Sources {
+    wirePositions[source.File] = index
+  }
   for _, file := range changed {
     source := program.SourceFile(file)
     if source == nil {
-      return graph.Provenance{}, false
+      return graph.Provenance{}, graph.Provenance{}, false
     }
     physical := source.FileName()
     index, ok := positions[physical]
     if !ok {
-      return graph.Provenance{}, false
+      return graph.Provenance{}, graph.Provenance{}, false
     }
-    next.Sources[index] = graph.SourceDigest{
+    updated := graph.SourceDigest{
       File:    physical,
       Checker: graph.Digest(sha256.Sum256([]byte(source.Text()))),
       Disk:    diskDigests[physical],
     }
+    wireFile, ok := wireSources[physical]
+    if !ok {
+      return graph.Provenance{}, graph.Provenance{}, false
+    }
+    wireIndex, ok := wirePositions[wireFile]
+    if !ok {
+      return graph.Provenance{}, graph.Provenance{}, false
+    }
+    next.Sources[index] = updated
+    nextWire.Sources[wireIndex].Checker = updated.Checker
+    nextWire.Sources[wireIndex].Disk = updated.Disk
   }
-  return next, true
+  return next, nextWire, true
 }
 
 func sourceServeGraphShardKey(identity serveGraphIdentity, file string, source graph.SourceDigest, resolutionDigest string) string {

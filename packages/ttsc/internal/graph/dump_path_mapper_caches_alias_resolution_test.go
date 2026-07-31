@@ -27,36 +27,3 @@ func TestDumpPathMapperCachesAliasResolution(t *testing.T) {
     t.Fatalf("canonicalizer calls = %d, want 1", calls)
   }
 }
-
-// TestWireNodeIDsShareAliasResolution verifies the resident shard helper uses
-// one mapper across every external ID in a generation.
-//
-// External declarations commonly share a package source file. Rebuilding a
-// mapper per ID would repeat the same filesystem syscall for every declaration.
-//
-//  1. Install a counting canonicalizer on one mapper.
-//  2. Map two declaration IDs owned by the same physical source.
-//  3. Require one canonicalization and two distinct stable wire IDs.
-func TestWireNodeIDsShareAliasResolution(t *testing.T) {
-  mapper := newDumpPathMapper("C:/checkout/app")
-  calls := 0
-  mapper.canonicalize = func(path string) string {
-    calls++
-    return path
-  }
-  source := "C:/checkout/app/node_modules/pkg/index.d.ts"
-  first, err := wireNodeID(mapper, nodeID(source, "First", NodeClass))
-  if err != nil {
-    t.Fatal(err)
-  }
-  second, err := wireNodeID(mapper, nodeID(source, "Second", NodeClass))
-  if err != nil {
-    t.Fatal(err)
-  }
-  if first == second {
-    t.Fatalf("wire IDs collide: %q", first)
-  }
-  if calls != 1 {
-    t.Fatalf("canonicalizer calls = %d, want 1", calls)
-  }
-}

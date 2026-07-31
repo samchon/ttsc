@@ -3,6 +3,7 @@ package main
 import (
   "os"
   "path/filepath"
+  "runtime"
   "testing"
 )
 
@@ -10,6 +11,10 @@ import (
 // only the changed content-addressed source shard. TypeScript's forced
 // declaration output proves the public shape stayed fixed, so neither the
 // dependent nor unrelated source is re-extracted or retransmitted.
+//
+//  1. Commit a project where one source has a dependent and an unrelated peer.
+//  2. Change only the source's private function body and request another shard snapshot.
+//  3. Require one extracted source and no dependent or unrelated shard replacement.
 func TestServeShardsReuseUnaffectedSources(t *testing.T) {
   root := t.TempDir()
   writeGraphFile(t, filepath.Join(root, "tsconfig.json"), `{
@@ -47,6 +52,26 @@ func TestServeShardsReuseUnaffectedSources(t *testing.T) {
   initialValueKey := session.graphStore.sourceKeys[valueKeyFile]
   initialConsumerKey := session.graphStore.sourceKeys[consumerKeyFile]
   initialUnrelatedKey := session.graphStore.sourceKeys[unrelatedKeyFile]
+  unrelatedWireFile := ""
+  for index := range session.graphStore.provenance.Sources {
+    if session.graphStore.provenance.Sources[index].File != unrelatedKeyFile {
+      continue
+    }
+    unrelatedWireFile = session.graphStore.wireProvenance.Sources[index].File
+    if runtime.GOOS == "windows" {
+      volume := "C:"
+      if filepath.VolumeName(root) == volume {
+        volume = "Z:"
+      }
+      session.graphStore.provenance.Sources[index].File = volume + "/unrelated.ts"
+    } else {
+      session.graphStore.provenance.Sources[index].File = "//foreign/share/unrelated.ts"
+    }
+    break
+  }
+  if unrelatedWireFile == "" {
+    t.Fatal("unrelated source was absent from physical/wire provenance")
+  }
   if err := os.WriteFile(valueFile, []byte("export function value(): number { return 2; }\n"), 0o644); err != nil {
     t.Fatal(err)
   }
@@ -69,6 +94,16 @@ func TestServeShardsReuseUnaffectedSources(t *testing.T) {
   }
   if len(session.graphStore.extractedFiles) != 1 || session.graphStore.extractedFiles[0] != valueKeyFile {
     t.Fatalf("private body edit extracted %v, want only %s", session.graphStore.extractedFiles, valueKeyFile)
+  }
+  wireFilePreserved := false
+  for _, source := range session.graphStore.wireProvenance.Sources {
+    if source.File == unrelatedWireFile {
+      wireFilePreserved = true
+      break
+    }
+  }
+  if !wireFilePreserved {
+    t.Fatalf("unchanged wire provenance lost %q", unrelatedWireFile)
   }
   for _, upsert := range delta.Upserts {
     if upsert.Shard.Key == initialConsumerKey || upsert.Shard.Key == initialUnrelatedKey {
