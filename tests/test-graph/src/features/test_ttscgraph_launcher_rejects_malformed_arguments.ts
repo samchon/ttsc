@@ -13,7 +13,8 @@ import { assert, resolveGraphLauncher } from "../internal/ttsgraph";
  * Every invalid invocation below points at a sentinel binary, so a usage error
  * must return before native resolution or graph construction can reach it.
  *
- * 1. Run malformed viewer, MCP, and dump argument vectors through the built CLI.
+ * 1. Run malformed viewer, MCP, dump, and inspect argument vectors through the
+ *    built CLI.
  * 2. Assert each exits with a usage error and leaves the sentinel untouched.
  * 3. On executable hosts, run valid dump forms and preserve the native exit code
  *    and forwarded arguments.
@@ -71,6 +72,11 @@ export const test_ttscgraph_launcher_rejects_malformed_arguments = () => {
     ["dump", "--cwd"],
     ["dump", "--tsconfig"],
     ["dump", "--tsconfig="],
+    ["inspect"],
+    ["inspect", "lookup"],
+    ["inspect", "lookup", "Service", "--limit", "0"],
+    ["inspect", "trace", "Service", "--direction", "sideways"],
+    ["inspect", "tour", "question", "--hint"],
   ];
   for (const args of malformed) {
     fs.rmSync(marker, { force: true });
@@ -96,7 +102,6 @@ export const test_ttscgraph_launcher_rejects_malformed_arguments = () => {
     for (const args of [
       ["dump", "--cwd", root, "--tsconfig", "project.json", "--pretty"],
       ["dump", `--cwd=${root}`, "--tsconfig=project.json", "--pretty=false"],
-      ["dump", "--help"],
     ]) {
       fs.rmSync(marker, { force: true });
       const result = run(args);
@@ -111,5 +116,31 @@ export const test_ttscgraph_launcher_rejects_malformed_arguments = () => {
         `${args.join(" ")} preserves the native dump argv`,
       );
     }
+  }
+
+  for (const args of [
+    ["--help"],
+    ["help"],
+    ["dump", "--help"],
+    ["view", "--help"],
+    ["inspect", "--help"],
+  ]) {
+    fs.rmSync(marker, { force: true });
+    const result = run(args);
+    assert.equal(
+      result.status,
+      0,
+      `${args.join(" ")} exits successfully without graph work\nstderr: ${result.stderr}`,
+    );
+    assert.match(
+      result.stdout ?? "",
+      /^Usage: ttsc-graph/m,
+      `${args.join(" ")} writes command help`,
+    );
+    assert.equal(
+      fs.existsSync(marker),
+      false,
+      `${args.join(" ")} does not invoke the native graph binary`,
+    );
   }
 };

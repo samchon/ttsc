@@ -35,6 +35,18 @@ Start the client from the project root. The server builds one resident graph and
 
 `@ttsc/graph` reads the graph from the program `ttsc` type-checked, so the project needs `ttsc` and `typescript` installed alongside it. `ttsc` runs on the native TypeScript 7 compiler from the `typescript` package; it does not run on the legacy TypeScript v6.x compiler. There is no separate index step and no static-parser fallback: the graph is a byproduct of the type-check the compiler already runs, or it is not built at all.
 
+## CLI
+
+The default `ttsc-graph` command is the MCP stdio server. For one-off shell work, `inspect` exposes the same compiler-resolved request union and writes the same `{ audit, next, result }` JSON envelope:
+
+```bash
+npx -y @ttsc/graph inspect overview --cwd .
+npx -y @ttsc/graph inspect trace Service.run --to helper --focus execution
+npx -y @ttsc/graph inspect tour "How does the request flow work?" --hint Service.run
+```
+
+Run `ttsc-graph inspect --help` for `entrypoints`, `lookup`, `details`, `trace`, `overview`, and `tour` arguments. Every invocation synchronizes one current disk snapshot; use MCP when a client can reuse a resident session for several requests. `ttsc-graph dump --help` and `ttsc-graph view --help` are also local help pages and do not launch native graph work.
+
 ## Benchmark
 
 Each repository is measured with one headless agent run per arm (`baseline` with no MCP, `@ttsc/graph`, `codegraph`, `codebase-memory`, `serena`) on two prompt families, across two agent CLIs (`codex` and Claude Code). The corpus pins eight real TypeScript repositories.

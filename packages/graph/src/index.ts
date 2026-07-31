@@ -1,6 +1,9 @@
 import { spawnSync } from "node:child_process";
 
+import { printDumpHelp, printGraphHelp, printViewHelp } from "./help";
+import { runInspect } from "./inspect";
 import {
+  GraphArgumentError,
   PROJECT_OPTIONS,
   parseLauncherOptions,
   projectOptions,
@@ -59,28 +62,42 @@ const DUMP_OPTIONS = [
  * - `view`: JS-orchestrated 3D viewer (dump -> reduce -> serve -> open).
  * - `dump`: pass through to the native `ttscgraph dump`, which prints the whole
  *   graph as JSON for piping or the viewer.
+ * - `inspect`: run one semantic request and print the same result shape as MCP.
  * - Default: serve the MCP graph over stdio. The TypeScript server keeps a native
  *   incremental compiler session resident, checks the disk snapshot before each
  *   graph operation, and reuses the in-memory graph when unchanged; the agent's
  *   MCP client speaks JSON-RPC over this process's stdin/stdout.
  */
-export function runGraph(
+export async function runGraph(
   argv: readonly string[] = process.argv.slice(2),
-): number | void {
-  if (argv[0] === "view") return runView(argv.slice(1));
+): Promise<number | void> {
+  if (
+    argv[0] === "help" ||
+    ((argv[0] === undefined || argv[0].startsWith("-")) &&
+      (argv.includes("--help") || argv.includes("-h")))
+  ) {
+    printGraphHelp();
+    return 0;
+  }
+  if (argv[0] === "view") {
+    if (argv.slice(1).includes("--help") || argv.slice(1).includes("-h")) {
+      printViewHelp();
+      return 0;
+    }
+    return runView(argv.slice(1));
+  }
   if (argv[0] === "dump") return runDump(argv.slice(1));
+  if (argv[0] === "inspect") return runInspect(argv.slice(1));
+  if (argv[0] !== undefined && !argv[0].startsWith("-")) {
+    throw new GraphArgumentError(
+      `unknown command ${argv[0]}; run 'ttsc-graph --help' for usage`,
+    );
+  }
 
   const { cwd, tsconfig } = projectOptions(
     parseLauncherOptions(argv, PROJECT_OPTIONS),
   );
-  void startServer({ cwd, tsconfig, version: VERSION }).catch(
-    (error: unknown) => {
-      process.stderr.write(
-        `@ttsc/graph: ${error instanceof Error ? error.message : String(error)}\n`,
-      );
-      process.exit(1);
-    },
-  );
+  await startServer({ cwd, tsconfig, version: VERSION });
 }
 
 /**
@@ -88,6 +105,14 @@ export function runGraph(
  * on this process's stdout. Returns the child's exit code.
  */
 function runDump(argv: readonly string[]): number {
+  if (
+    argv.includes("--help") ||
+    argv.includes("-help") ||
+    argv.includes("-h")
+  ) {
+    printDumpHelp();
+    return 0;
+  }
   // Resolve the native binary from the target project the caller named with
   // `--cwd`, not from wherever the launcher process happened to start.
   const { cwd } = projectOptions(parseLauncherOptions(argv, DUMP_OPTIONS));
