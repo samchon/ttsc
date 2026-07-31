@@ -7,9 +7,9 @@ import (
 )
 
 // TestServeShardsReuseUnaffectedSources verifies a private body edit advances
-// only the changed content-addressed source shard on the wire. The compiler's
-// reference closure is rebuilt for correctness, but byte-identical dependent
-// and unrelated shards remain in the committed manifest without retransmission.
+// only the changed content-addressed source shard. TypeScript's forced
+// declaration output proves the public shape stayed fixed, so neither the
+// dependent nor unrelated source is re-extracted or retransmitted.
 func TestServeShardsReuseUnaffectedSources(t *testing.T) {
   root := t.TempDir()
   writeGraphFile(t, filepath.Join(root, "tsconfig.json"), `{
@@ -66,6 +66,9 @@ func TestServeShardsReuseUnaffectedSources(t *testing.T) {
   }
   if session.graphStore.sourceKeys[consumerKeyFile] != initialConsumerKey || session.graphStore.sourceKeys[unrelatedKeyFile] != initialUnrelatedKey {
     t.Fatal("body edit moved an unchanged source shard identity")
+  }
+  if len(session.graphStore.extractedFiles) != 1 || session.graphStore.extractedFiles[0] != valueKeyFile {
+    t.Fatalf("private body edit extracted %v, want only %s", session.graphStore.extractedFiles, valueKeyFile)
   }
   for _, upsert := range delta.Upserts {
     if upsert.Shard.Key == initialConsumerKey || upsert.Shard.Key == initialUnrelatedKey {

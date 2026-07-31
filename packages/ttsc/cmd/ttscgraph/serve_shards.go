@@ -85,6 +85,9 @@ type serveGraphStore struct {
   implementationSources map[string]map[string]bool
   nodeOwners            map[string]string
   incomingEdges         map[string]map[string]int
+  // extractedFiles records the exact authored closure read for this generation.
+  // It supports phase/closure evidence without retaining an older generation.
+  extractedFiles []string
 }
 
 type serveGraphIdentity struct {
@@ -95,7 +98,7 @@ type serveGraphIdentity struct {
 }
 
 func (s *graphSession) SnapshotShards() (*serveGraphSnapshot, string, bool, error) {
-  change, err := s.nextChange()
+  change, err := s.nextChange(true)
   if err != nil {
     return nil, "", false, err
   }
@@ -117,7 +120,7 @@ func (s *graphSession) buildShardSnapshot(change *graphChange) (*serveGraphSnaps
   if change.full || s.graphStore == nil {
     return s.buildFullShardSnapshot()
   }
-  return s.buildIncrementalShardSnapshot(change.files)
+  return s.buildIncrementalShardSnapshot(change.files, change.publicFiles)
 }
 
 func (s *graphSession) buildFullShardSnapshot() (*serveGraphSnapshot, *serveGraphStore, error) {
@@ -187,6 +190,7 @@ func (s *graphSession) buildFullShardSnapshot() (*serveGraphSnapshot, *serveGrap
     externalReferences:    externalReferences,
     externalNodeWireIDs:   externalNodeWireIDs,
     implementationSources: cloneServeGraphStringSets(built.ImplementationSources),
+    extractedFiles:        sortedSelectedFiles(authoredGraphFiles(program)),
   }
   snapshot, committed, nodeOwners, incomingEdges, err := commitServeGraphSnapshot(
     identity,
@@ -207,10 +211,10 @@ func (s *graphSession) buildFullShardSnapshot() (*serveGraphSnapshot, *serveGrap
   return snapshot, store, nil
 }
 
-func (s *graphSession) buildIncrementalShardSnapshot(changed []string) (*serveGraphSnapshot, *serveGraphStore, error) {
+func (s *graphSession) buildIncrementalShardSnapshot(changed, publicChanged []string) (*serveGraphSnapshot, *serveGraphStore, error) {
   prior := s.graphStore
   program := s.compiler.Program()
-  selected := invalidatedGraphFiles(program, prior.reverseDependencies, changed)
+  selected := invalidatedGraphFiles(program, prior.reverseDependencies, changed, publicChanged)
   if len(selected) == 0 {
     // A changed declaration or virtual input outside the authored graph can
     // alter external endpoints and global types. Rebuild when no exact source
@@ -379,14 +383,11 @@ func (s *graphSession) buildIncrementalShardSnapshot(changed []string) (*serveGr
     nextNodes[id] = node
   }
   nextExternalNodeWireIDs := maps.Clone(prior.externalNodeWireIDs)
-  for id, node := range partial.Nodes {
-    if !node.External {
-      continue
-    }
-    wireID, err := graph.WireNodeID(s.cwd, id)
-    if err != nil {
-      return nil, nil, err
-    }
+  changedExternalNodeWireIDs, err := serveGraphExternalNodeWireIDs(s.cwd, partial.Nodes)
+  if err != nil {
+    return nil, nil, err
+  }
+  for id, wireID := range changedExternalNodeWireIDs {
     nextExternalNodeWireIDs[id] = wireID
   }
   for id, node := range nextNodes {
@@ -430,6 +431,7 @@ func (s *graphSession) buildIncrementalShardSnapshot(changed []string) (*serveGr
     implementationSources: nextImplementationSources,
     nodeOwners:            nodeOwners,
     incomingEdges:         incomingEdges,
+    extractedFiles:        append([]string{}, selectedFiles...),
   }
   return snapshot, store, nil
 }
@@ -732,18 +734,14 @@ func cloneServeGraphStringSets(input map[string]map[string]bool) map[string]map[
 }
 
 func serveGraphExternalNodeWireIDs(project string, nodes map[string]*graph.Node) (map[string]string, error) {
-  out := map[string]string{}
+  ids := []string{}
   for id, node := range nodes {
-    if !node.External {
-      continue
+    if node.External {
+      ids = append(ids, id)
     }
-    wireID, err := graph.WireNodeID(project, id)
-    if err != nil {
-      return nil, err
-    }
-    out[id] = wireID
   }
-  return out, nil
+  sort.Strings(ids)
+  return graph.WireNodeIDs(project, ids)
 }
 
 func addServeGraphIncomingEdge(incoming map[string]map[string]int, target, owner string) {
@@ -975,11 +973,15 @@ func newServeGraphIdentity(project, tsconfig string, provenance graph.Provenance
   if !filepath.IsAbs(project) {
     return serveGraphIdentity{}, graph.Provenance{}, fmt.Errorf("ttscgraph: project root must be absolute: %s", project)
   }
+  wireProject, err := graph.WireProject(project)
+  if err != nil {
+    return serveGraphIdentity{}, graph.Provenance{}, err
+  }
   target := tsconfig
   if !filepath.IsAbs(target) {
     target = filepath.Join(project, target)
   }
-  target, err := serveGraphFile(project, filepath.Clean(target))
+  target, err = serveGraphFile(project, filepath.Clean(target))
   if err != nil {
     return serveGraphIdentity{}, graph.Provenance{}, err
   }
@@ -992,7 +994,7 @@ func newServeGraphIdentity(project, tsconfig string, provenance graph.Provenance
     return serveGraphIdentity{}, graph.Provenance{}, err
   }
   return serveGraphIdentity{
-    project:  project,
+    project:  wireProject,
     target:   target,
     universe: universe,
     producer: provenance.Producer,
@@ -1147,13 +1149,21 @@ func invalidatedGraphFiles(
   program *driver.Program,
   reverse map[string][]string,
   changed []string,
+  publicChanged []string,
 ) map[string]bool {
-  authored := map[string]bool{}
-  for _, file := range program.SourceFiles() {
-    authored[file.FileName()] = true
-  }
+  authored := authoredGraphFiles(program)
   selected := map[string]bool{}
-  pending := append([]string{}, changed...)
+  for _, file := range changed {
+    source := graphSourceFile(program, file)
+    if source == nil {
+      return nil
+    }
+    if shimcompiler.FileAffectsGlobalScope(source) {
+      return authored
+    }
+    selected[file] = true
+  }
+  pending := append([]string{}, publicChanged...)
   for len(pending) > 0 {
     file := pending[0]
     pending = pending[1:]
@@ -1164,13 +1174,23 @@ func invalidatedGraphFiles(
     if shimcompiler.FileAffectsGlobalScope(source) {
       return authored
     }
-    if selected[file] {
-      continue
-    }
     selected[file] = true
-    pending = append(pending, reverse[file]...)
+    for _, dependent := range reverse[file] {
+      if !selected[dependent] {
+        selected[dependent] = true
+        pending = append(pending, dependent)
+      }
+    }
   }
   return selected
+}
+
+func authoredGraphFiles(program *driver.Program) map[string]bool {
+  authored := map[string]bool{}
+  for _, file := range program.SourceFiles() {
+    authored[file.FileName()] = true
+  }
+  return authored
 }
 
 func reverseGraphDependencies(program *driver.Program) map[string][]string {

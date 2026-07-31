@@ -160,7 +160,7 @@ func (s *graphSession) Close() error {
 }
 
 func (s *graphSession) Snapshot() (*graph.Dump, string, bool, error) {
-  change, err := s.nextChange()
+  change, err := s.nextChange(false)
   if err != nil {
     return nil, "", false, err
   }
@@ -177,16 +177,17 @@ func (s *graphSession) Snapshot() (*graph.Dump, string, bool, error) {
 }
 
 type graphChange struct {
-  mode  string
-  files []string
-  full  bool
+  mode        string
+  files       []string
+  publicFiles []string
+  full        bool
 }
 
 // nextChange advances only the resident compiler and its captured input state.
 // Projection is deliberately outside this method so the legacy full-dump and
 // incremental shard protocols share exactly one invalidation decision without
 // forcing either representation onto the other.
-func (s *graphSession) nextChange() (*graphChange, error) {
+func (s *graphSession) nextChange(trackPublicShape bool) (*graphChange, error) {
   if !s.initialized {
     // The captured compiler state is initialized even when its first dump is
     // not publishable. Mark the attempt before building so a later request can
@@ -255,6 +256,28 @@ func (s *graphSession) nextChange() (*graphChange, error) {
     paths = append(paths, path)
   }
   sort.Strings(paths)
+  oldShapes := make(map[string]string, len(paths))
+  for _, path := range paths {
+    source := s.compiler.Program().SourceFile(path)
+    if source == nil {
+      if err := s.reload(); err != nil {
+        return nil, err
+      }
+      return &graphChange{mode: serveModeReload, full: true}, nil
+    }
+    if source.IsDeclarationFile {
+      mode = serveModeRebuild
+      full = true
+      continue
+    }
+    if trackPublicShape {
+      shape, err := s.compiler.Program().DeclarationShapeDigest(source)
+      if err != nil {
+        return nil, err
+      }
+      oldShapes[path] = shape
+    }
+  }
   for _, path := range paths {
     if reused := s.compiler.Apply(path, changed[path]); !reused {
       mode = serveModeRebuild
@@ -281,7 +304,31 @@ func (s *graphSession) nextChange() (*graphChange, error) {
     }
   }
   if err := s.captureState(); err != nil {
+    // The compiler already accepted the edit. Preserve a full retry marker so
+    // a transient hashing/input failure cannot make the next request compare
+    // public shape against the uncommitted compiler generation and publish an
+    // incomplete closure.
+    s.pending = &graphChange{mode: serveModeRebuild, full: true}
     return nil, err
+  }
+  publicFiles := []string{}
+  if trackPublicShape && !full {
+    for _, path := range paths {
+      source := s.compiler.Program().SourceFile(path)
+      if source == nil {
+        return &graphChange{mode: serveModeRebuild, full: true}, nil
+      }
+      shape, err := s.compiler.Program().DeclarationShapeDigest(source)
+      if err != nil {
+        mode = serveModeRebuild
+        full = true
+        publicFiles = nil
+        break
+      }
+      if shape != oldShapes[path] {
+        publicFiles = append(publicFiles, path)
+      }
+    }
   }
   if s.pending != nil {
     if s.pending.full {
@@ -290,9 +337,10 @@ func (s *graphSession) nextChange() (*graphChange, error) {
       paths = nil
     } else if !full {
       paths = compactSortedStrings(append(paths, s.pending.files...))
+      publicFiles = compactSortedStrings(append(publicFiles, s.pending.publicFiles...))
     }
   }
-  return &graphChange{mode: mode, files: paths, full: full}, nil
+  return &graphChange{mode: mode, files: paths, publicFiles: publicFiles, full: full}, nil
 }
 
 func (s *graphSession) reload() error {

@@ -9,6 +9,11 @@ import (
 // TestServeShardsRefreshDependentDiagnostics proves a public API edit rebuilds
 // the reverse semantic closure. The dependent source text is unchanged while
 // its checker diagnostic changes, so reusing that shard would be stale.
+//
+//  1. Commit a producer and consumer whose public types initially agree.
+//  2. Change only the producer's exported return type.
+//  3. Require both sources to be re-extracted and the new consumer diagnostic
+//     to be transmitted in its replacement shard.
 func TestServeShardsRefreshDependentDiagnostics(t *testing.T) {
   root := t.TempDir()
   writeGraphFile(t, filepath.Join(root, "tsconfig.json"), `{
@@ -58,6 +63,18 @@ func TestServeShardsRefreshDependentDiagnostics(t *testing.T) {
   }
   if !upserted {
     t.Fatal("public API edit did not transmit the changed dependent shard")
+  }
+  valueKeyFile := session.compiler.Program().SourceFile(value).FileName()
+  consumerKeyFile := consumerSource.FileName()
+  if len(session.graphStore.extractedFiles) != 2 ||
+    session.graphStore.extractedFiles[0] != consumerKeyFile ||
+    session.graphStore.extractedFiles[1] != valueKeyFile {
+    t.Fatalf(
+      "public API edit extracted %v, want reverse closure [%s %s]",
+      session.graphStore.extractedFiles,
+      consumerKeyFile,
+      valueKeyFile,
+    )
   }
   assertServeShardFactsMatchFullDump(t, session)
 }

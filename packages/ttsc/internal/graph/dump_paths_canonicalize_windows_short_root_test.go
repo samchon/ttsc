@@ -29,6 +29,10 @@ func TestDumpPathMapperCanonicalizesWindowsShortRoot(t *testing.T) {
   if got := mapper.mapPath(source); got != "src/main.ts" {
     t.Fatalf("mapPath(%q) = %q, want project-relative identity", source, got)
   }
+  missing := filepath.Join(project, "future", "main.ts")
+  if got := mapper.mapPath(missing); got != "future/main.ts" {
+    t.Fatalf("mapPath(%q) = %q, want stable missing-root identity", missing, got)
+  }
   if err := mapper.err(); err != nil {
     t.Fatal(err)
   }

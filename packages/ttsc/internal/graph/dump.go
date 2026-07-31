@@ -192,10 +192,14 @@ func NewDump(g *Graph, project, tsconfig string, ignored map[string]bool, source
   if diagnostics == nil {
     diagnostics = []Diagnostic{}
   }
+  target := ctx.rel(tsconfig)
+  if err := ctx.pathError(); err != nil {
+    return Dump{}, err
+  }
 
   return Dump{
-    Project:     project,
-    Tsconfig:    ctx.rel(tsconfig),
+    Project:     ctx.paths.project,
+    Tsconfig:    target,
     Provenance:  provenance,
     Diagnostics: diagnostics,
     Nodes:       facts.Nodes,
@@ -263,10 +267,8 @@ func newDumpFacts(g *Graph, project string, ignored map[string]bool, sources map
 
   edges := make([]DumpEdge, 0, len(g.Edges))
   for _, e := range g.Edges {
-    evidence := ctx.edgeEvidence(e)
-    if e.File == "" || e.File == nodeFile(e.From) {
-      evidence = withoutFile(evidence)
-    }
+    includeEvidenceFile := e.File != "" && e.File != nodeFile(e.From)
+    evidence := ctx.edgeEvidence(e, includeEvidenceFile)
     edges = append(edges, DumpEdge{
       From:     ctx.relID(e.From),
       To:       ctx.relID(e.To),
@@ -473,6 +475,10 @@ func (c *dumpContext) relID(id string) string {
 // evidence builds the line/col span for a byte range in file, or nil when the
 // span is absent or no source is available.
 func (c *dumpContext) evidence(file string, pos, end int) *DumpEvidence {
+  return c.evidenceWithFile(file, pos, end, true)
+}
+
+func (c *dumpContext) evidenceWithFile(file string, pos, end int, includeFile bool) *DumpEvidence {
   if pos < 0 || c.sources == nil {
     return nil
   }
@@ -494,7 +500,10 @@ func (c *dumpContext) evidence(file string, pos, end int) *DumpEvidence {
   // or its indentation.
   pos = FirstCodeOffset(text, pos)
   sl, sc := ls.at(pos)
-  ev := &DumpEvidence{File: c.rel(file), StartLine: sl, StartCol: sc}
+  ev := &DumpEvidence{StartLine: sl, StartCol: sc}
+  if includeFile {
+    ev.File = c.rel(file)
+  }
   if end > pos && end <= len(text) {
     ev.EndLine, ev.EndCol = ls.at(end)
   }
@@ -676,7 +685,7 @@ func regularExpressionEnd(text string, start int) int {
 }
 
 // edgeEvidence is the evidence range for an edge's source expression.
-func (c *dumpContext) edgeEvidence(e *Edge) *DumpEvidence {
+func (c *dumpContext) edgeEvidence(e *Edge, includeFile bool) *DumpEvidence {
   file := e.File
   if file == "" {
     file = nodeFile(e.From)
@@ -684,7 +693,7 @@ func (c *dumpContext) edgeEvidence(e *Edge) *DumpEvidence {
   if file == "" {
     return nil
   }
-  return c.evidence(file, e.Pos, e.End)
+  return c.evidenceWithFile(file, e.Pos, e.End, includeFile)
 }
 
 // withoutFile drops a span file the reader reconstructs from the node or edge

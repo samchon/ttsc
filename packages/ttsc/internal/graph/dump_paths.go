@@ -3,6 +3,7 @@ package graph
 import (
   "fmt"
   "path/filepath"
+  "runtime"
   "strings"
 
   shimtspath "github.com/microsoft/typescript-go/shim/tspath"
@@ -13,19 +14,26 @@ import (
 // reject both an unportable filesystem root and a non-injective projection
 // before any JSON is written.
 type dumpPathMapper struct {
+  rawProject    string
   project       string
   caseSensitive bool
+  canonicalize  func(string) string
 
+  rawToWire      map[string]string
   physicalToWire map[string]string
   wireToPhysical map[string]string
   mappingErr     error
 }
 
 func newDumpPathMapper(project string) *dumpPathMapper {
-  normalized := canonicalDumpPath(project)
+  raw := shimtspath.NormalizePath(shimtspath.NormalizeSlashes(project))
+  normalized := canonicalDumpPath(raw)
   mapper := &dumpPathMapper{
+    rawProject:     raw,
     project:        normalized,
     caseSensitive:  dumpPathRootIsCaseSensitive(normalized),
+    canonicalize:   canonicalDumpPath,
+    rawToWire:      map[string]string{},
     physicalToWire: map[string]string{},
     wireToPhysical: map[string]string{},
   }
@@ -33,6 +41,13 @@ func newDumpPathMapper(project string) *dumpPathMapper {
     mapper.mappingErr = fmt.Errorf("ttscgraph: project root %q is not absolute", project)
   }
   return mapper
+}
+
+// WireProject returns the canonical filesystem base that owns every relative
+// wire path emitted by this package.
+func WireProject(project string) (string, error) {
+  mapper := newDumpPathMapper(project)
+  return mapper.project, mapper.err()
 }
 
 // WirePath maps one compiler path into the portable schema-v6 vocabulary used
@@ -51,17 +66,37 @@ func WirePath(project, file string) (string, error) {
 // wire-level external reference count must be reconciled with the immutable
 // graph.Node cache, whose keys retain compiler-physical paths.
 func WireNodeID(project, id string) (string, error) {
+  ids, err := WireNodeIDs(project, []string{id})
+  return ids[id], err
+}
+
+// WireNodeIDs maps a set of internal node IDs through one path mapper. Sharing
+// the mapper preserves cross-ID collision detection and resolves each repeated
+// filesystem alias only once per snapshot generation.
+func WireNodeIDs(project string, ids []string) (map[string]string, error) {
+  mapper := newDumpPathMapper(project)
+  wireIDs := make(map[string]string, len(ids))
+  for _, id := range ids {
+    wire, err := wireNodeID(mapper, id)
+    if err != nil {
+      return nil, err
+    }
+    wireIDs[id] = wire
+  }
+  return wireIDs, mapper.err()
+}
+
+func wireNodeID(mapper *dumpPathMapper, id string) (string, error) {
   parts, ok := parseNodeID(id)
   if !ok {
     return "", fmt.Errorf("ttscgraph: invalid internal graph node id %q", id)
   }
-  mapper := newDumpPathMapper(project)
   name := parts.name
   if parts.kind == NodeModule {
     name = mapper.mapPath(name)
   }
   wire := nodeID(mapper.mapPath(parts.path), name, parts.kind)
-  return wire, mapper.err()
+  return wire, nil
 }
 
 // mapPath returns one portable, slash-normalized coordinate:
@@ -79,26 +114,30 @@ func (m *dumpPathMapper) mapPath(file string) string {
   if file == "" {
     return ""
   }
-  normalized := shimtspath.NormalizeSlashes(file)
+  normalized := shimtspath.NormalizePath(shimtspath.NormalizeSlashes(file))
   if strings.HasPrefix(normalized, "bundled:///") {
     return m.claim(normalized, normalized)
   }
-  normalized = canonicalDumpPath(normalized)
   if m.project == "" || shimtspath.GetRootLength(m.project) == 0 {
     return normalized
   }
 
-  physical := normalized
-  if shimtspath.GetRootLength(physical) == 0 {
-    physical = shimtspath.GetNormalizedAbsolutePath(physical, m.project)
+  rawPhysical := normalized
+  if shimtspath.GetRootLength(rawPhysical) == 0 {
+    rawPhysical = shimtspath.GetNormalizedAbsolutePath(rawPhysical, m.rawProject)
   }
+  rawKey := m.pathKey(rawPhysical)
+  if wire, ok := m.rawToWire[rawKey]; ok {
+    return wire
+  }
+  physical := m.canonicalize(rawPhysical)
   if !dumpPathRootsEqual(m.project, physical, m.caseSensitive) {
     m.fail(fmt.Errorf(
       "ttscgraph: source path %q cannot be represented relative to project %q because they are on different filesystem roots",
-      normalized,
+      rawPhysical,
       m.project,
     ))
-    return normalized
+    return rawPhysical
   }
   options := shimtspath.ComparePathsOptions{
     CurrentDirectory:          m.project,
@@ -108,12 +147,21 @@ func (m *dumpPathMapper) mapPath(file string) string {
   if shimtspath.GetRootLength(wire) != 0 {
     m.fail(fmt.Errorf(
       "ttscgraph: source path %q cannot be represented relative to project %q because they are on different filesystem roots",
-      normalized,
+      rawPhysical,
       m.project,
     ))
-    return normalized
+    return rawPhysical
   }
-  return m.claim(physical, wire)
+  wire = m.claim(physical, wire)
+  m.rawToWire[rawKey] = wire
+  return wire
+}
+
+func (m *dumpPathMapper) pathKey(path string) string {
+  if !m.caseSensitive {
+    return strings.ToLower(path)
+  }
+  return path
 }
 
 // claim records both directions of the projection. The reverse map is the
@@ -172,11 +220,34 @@ func canonicalDumpPath(location string) string {
   if normalized == "" || shimtspath.GetRootLength(normalized) == 0 {
     return normalized
   }
-  physical, err := filepath.EvalSymlinks(filepath.FromSlash(normalized))
-  if err != nil {
+  if !dumpPathUsesHostFilesystem(normalized) {
     return normalized
   }
-  return shimtspath.NormalizePath(shimtspath.NormalizeSlashes(physical))
+  candidate := filepath.Clean(filepath.FromSlash(normalized))
+  suffix := []string{}
+  for {
+    physical, err := filepath.EvalSymlinks(candidate)
+    if err == nil {
+      for index := len(suffix) - 1; index >= 0; index-- {
+        physical = filepath.Join(physical, suffix[index])
+      }
+      return shimtspath.NormalizePath(shimtspath.NormalizeSlashes(physical))
+    }
+    parent := filepath.Dir(candidate)
+    if parent == candidate {
+      break
+    }
+    suffix = append(suffix, filepath.Base(candidate))
+    candidate = parent
+  }
+  return normalized
+}
+
+func dumpPathUsesHostFilesystem(path string) bool {
+  if runtime.GOOS == "windows" {
+    return strings.HasPrefix(path, "//") || (len(path) >= 2 && path[1] == ':')
+  }
+  return strings.HasPrefix(path, "/") && !strings.HasPrefix(path, "//")
 }
 
 // Windows drive and UNC roots use case-insensitive path comparison. POSIX

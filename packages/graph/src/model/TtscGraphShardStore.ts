@@ -1,3 +1,4 @@
+import { Buffer } from "node:buffer";
 import { createHash } from "node:crypto";
 
 import { ITtscGraphDump } from "../structures/ITtscGraphDump";
@@ -236,17 +237,21 @@ function assemble(
       }
     }
   }
-  if (configInputs.size !== transaction.universe.configs.length) {
-    throw new Error(
-      "@ttsc/graph: native config shards do not cover the build universe",
-    );
-  }
+  const unmatchedConfigs = new Map(configInputs);
   for (const config of transaction.universe.configs) {
-    if (configInputs.get(config.file) !== config.digest) {
+    if (
+      unmatchedConfigs.get(config.file) !== config.digest ||
+      !unmatchedConfigs.delete(config.file)
+    ) {
       throw new Error(
         `@ttsc/graph: native config shard disagrees with universe input ${config.file}`,
       );
     }
+  }
+  if (unmatchedConfigs.size !== 0) {
+    throw new Error(
+      "@ttsc/graph: native config shards do not cover the build universe",
+    );
   }
   nodes.sort((left, right) => compareText(left.id, right.id));
   edges.sort(
@@ -341,7 +346,7 @@ function assertShardKey(key: string): void {
 }
 
 function compareText(left: string, right: string): number {
-  return left < right ? -1 : left > right ? 1 : 0;
+  return Buffer.compare(Buffer.from(left, "utf8"), Buffer.from(right, "utf8"));
 }
 
 function goJSON(value: unknown): string {

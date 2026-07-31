@@ -9,9 +9,14 @@ import { assert } from "../internal/ttsgraph";
 /**
  * Verifies a duplicate manifest key cannot hide another committed shard.
  *
- * 1. Upsert two valid shards but describe the first one twice in the manifest.
- * 2. Reject the non-strict manifest and wait for the child to exit.
- * 3. Start a clean child and accept its complete initial generation.
+ * Locks the restart boundary after an already committed native generation. A
+ * missing store reset would make the replacement child's sequence-one
+ * transaction look stale even though it is the only trustworthy new base.
+ *
+ * 1. Commit one valid shard generation, then hide a second upsert behind a
+ *    duplicate manifest key in the next delta.
+ * 2. Reject the non-strict manifest and wait for the first child to exit.
+ * 3. Start a clean child and accept its complete sequence-one shard generation.
  */
 export const test_ttscgraph_duplicate_native_shard_manifest_restarts_session =
   async () => {
@@ -20,6 +25,7 @@ export const test_ttscgraph_duplicate_native_shard_manifest_restarts_session =
       requestTimeoutMs: 5_000,
     });
     try {
+      assert.deepEqual((await session.graph()).nodes, []);
       await assert.rejects(
         session.graph(),
         /manifest must be strictly key-sorted/,
