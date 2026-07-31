@@ -9,6 +9,7 @@ import (
   "path/filepath"
   "sort"
   "strings"
+  "time"
 
   shimast "github.com/microsoft/typescript-go/shim/ast"
   shimcompiler "github.com/microsoft/typescript-go/shim/compiler"
@@ -101,22 +102,31 @@ type serveGraphIdentity struct {
 }
 
 func (s *graphSession) SnapshotShards() (*serveGraphSnapshot, string, bool, error) {
+  snapshot, mode, changed, _, _, err := s.snapshotShardsWithTiming()
+  return snapshot, mode, changed, err
+}
+
+func (s *graphSession) snapshotShardsWithTiming() (*serveGraphSnapshot, string, bool, time.Duration, time.Duration, error) {
+  semanticStarted := time.Now()
   change, err := s.nextChange(true)
+  semanticDuration := time.Since(semanticStarted)
   if err != nil {
-    return nil, "", false, err
+    return nil, "", false, semanticDuration, 0, err
   }
   if change == nil {
-    return nil, serveModeUnchanged, false, nil
+    return nil, serveModeUnchanged, false, semanticDuration, 0, nil
   }
 
+  exportStarted := time.Now()
   snapshot, store, err := s.buildShardSnapshot(change)
+  exportDuration := time.Since(exportStarted)
   if err != nil {
     s.pending = change
-    return nil, "", false, err
+    return nil, "", false, semanticDuration, exportDuration, err
   }
   s.graphStore = store
   s.pending = nil
-  return snapshot, change.mode, true, nil
+  return snapshot, change.mode, true, semanticDuration, exportDuration, nil
 }
 
 func (s *graphSession) buildShardSnapshot(change *graphChange) (*serveGraphSnapshot, *serveGraphStore, error) {

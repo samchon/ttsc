@@ -13,6 +13,7 @@ import (
   "slices"
   "sort"
   "strings"
+  "time"
 
   shimtsoptions "github.com/microsoft/typescript-go/shim/tsoptions"
   shimtspath "github.com/microsoft/typescript-go/shim/tspath"
@@ -96,6 +97,8 @@ type serveResponse struct {
   Capabilities []string `json:"capabilities"`
   Changed      bool     `json:"changed"`
 }
+
+const graphPhaseTraceEnvironment = "SAMCHON_GRAPH_TTSC_PHASE_TRACE"
 
 // newServeResponse stamps the fields every response owes the client, so no exit
 // from the serve loop can forget one.
@@ -842,6 +845,7 @@ func serveSnapshots(input io.Reader, output io.Writer, cwd, tsconfig string) int
       fmt.Fprintf(stderr, "ttscgraph: unaddressable serve request: %v\n", err)
       return 1
     }
+    requestStarted := time.Now()
     if request.GraphSnapshotVersion != 0 && request.GraphSnapshotVersion != graphSnapshotProtocolVersion {
       _ = encoder.Encode(errorResponse(
         request.ID,
@@ -853,8 +857,11 @@ func serveSnapshots(input io.Reader, output io.Writer, cwd, tsconfig string) int
       ))
       continue
     }
+    var loadDuration time.Duration
     if session == nil {
+      loadStarted := time.Now()
       created, err := newGraphSession(cwd, tsconfig)
+      loadDuration = time.Since(loadStarted)
       if err != nil {
         _ = encoder.Encode(errorResponse(request.ID, err.Error()))
         continue
@@ -874,9 +881,11 @@ func serveSnapshots(input io.Reader, output io.Writer, cwd, tsconfig string) int
     var snapshot *serveGraphSnapshot
     var mode string
     var changed bool
+    var semanticDuration time.Duration
+    var exportDuration time.Duration
     var err error
     if request.GraphSnapshotVersion == graphSnapshotProtocolVersion {
-      snapshot, mode, changed, err = session.SnapshotShards()
+      snapshot, mode, changed, semanticDuration, exportDuration, err = session.snapshotShardsWithTiming()
     } else {
       dump, mode, changed, err = session.Snapshot()
     }
@@ -892,14 +901,60 @@ func serveSnapshots(input io.Reader, output io.Writer, cwd, tsconfig string) int
       response.Mode = serveModeError
       response.Changed = false
     }
+    encodeStarted := time.Now()
     if err := encoder.Encode(response); err != nil {
       fmt.Fprintf(stderr, "ttscgraph: write serve response: %v\n", err)
       return 1
     }
+    encodeDuration := time.Since(encodeStarted)
+    writeServePhaseTrace(
+      request.ID,
+      response.Mode,
+      loadDuration,
+      semanticDuration,
+      exportDuration,
+      encodeDuration,
+      time.Since(requestStarted),
+    )
   }
   if err := scanner.Err(); err != nil {
     fmt.Fprintf(stderr, "ttscgraph: read serve request: %v\n", err)
     return 1
   }
   return 0
+}
+
+// writeServePhaseTrace emits opt-in timings without source paths or payloads.
+func writeServePhaseTrace(
+  request int,
+  mode string,
+  load time.Duration,
+  semantic time.Duration,
+  export time.Duration,
+  encode time.Duration,
+  total time.Duration,
+) {
+  if os.Getenv(graphPhaseTraceEnvironment) != "1" {
+    return
+  }
+  phases := []struct {
+    name     string
+    duration time.Duration
+  }{
+    {name: "native-load", duration: load},
+    {name: "semantic-refresh", duration: semantic},
+    {name: "shard-export", duration: export},
+    {name: "encode", duration: encode},
+    {name: "producer-total", duration: total},
+  }
+  for _, phase := range phases {
+    fmt.Fprintf(
+      stderr,
+      "@samchon/graph: ttscgraph-phase owner=producer request=%d mode=%s phase=%s durationMs=%.3f\n",
+      request,
+      mode,
+      phase.name,
+      float64(phase.duration)/float64(time.Millisecond),
+    )
+  }
 }
