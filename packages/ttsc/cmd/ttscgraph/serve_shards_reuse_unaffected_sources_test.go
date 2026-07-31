@@ -52,12 +52,11 @@ func TestServeShardsReuseUnaffectedSources(t *testing.T) {
   initialValueKey := session.graphStore.sourceKeys[valueKeyFile]
   initialConsumerKey := session.graphStore.sourceKeys[consumerKeyFile]
   initialUnrelatedKey := session.graphStore.sourceKeys[unrelatedKeyFile]
-  unrelatedWireFile := ""
+  unrelatedWireFile := session.graphStore.wireSources[unrelatedKeyFile]
   for index := range session.graphStore.provenance.Sources {
     if session.graphStore.provenance.Sources[index].File != unrelatedKeyFile {
       continue
     }
-    unrelatedWireFile = session.graphStore.wireProvenance.Sources[index].File
     if runtime.GOOS == "windows" {
       volume := "C:"
       if filepath.VolumeName(root) == volume {
