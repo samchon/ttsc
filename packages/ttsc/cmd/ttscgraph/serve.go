@@ -847,14 +847,17 @@ func serveSnapshots(input io.Reader, output io.Writer, cwd, tsconfig string) int
     }
     requestStarted := time.Now()
     if request.GraphSnapshotVersion != 0 && request.GraphSnapshotVersion != graphSnapshotProtocolVersion {
-      _ = encoder.Encode(errorResponse(
+      if err := encodeServeResponseWithTrace(encoder, errorResponse(
         request.ID,
         fmt.Sprintf(
           "ttscgraph: unsupported graph snapshot protocol v%d (supported: v%d)",
           request.GraphSnapshotVersion,
           graphSnapshotProtocolVersion,
         ),
-      ))
+      ), requestStarted, 0, 0, 0); err != nil {
+        fmt.Fprintf(stderr, "ttscgraph: write serve response: %v\n", err)
+        return 1
+      }
       continue
     }
     var loadDuration time.Duration
@@ -863,16 +866,29 @@ func serveSnapshots(input io.Reader, output io.Writer, cwd, tsconfig string) int
       created, err := newGraphSession(cwd, tsconfig)
       loadDuration = time.Since(loadStarted)
       if err != nil {
-        _ = encoder.Encode(errorResponse(request.ID, err.Error()))
+        if err := encodeServeResponseWithTrace(
+          encoder,
+          errorResponse(request.ID, err.Error()),
+          requestStarted,
+          loadDuration,
+          0,
+          0,
+        ); err != nil {
+          fmt.Fprintf(stderr, "ttscgraph: write serve response: %v\n", err)
+          return 1
+        }
         continue
       }
       session = created
     }
     if session.requestProtocolSelected && session.requestProtocol != request.GraphSnapshotVersion {
-      _ = encoder.Encode(errorResponse(
+      if err := encodeServeResponseWithTrace(encoder, errorResponse(
         request.ID,
         "ttscgraph: graphSnapshotVersion cannot change within one resident session",
-      ))
+      ), requestStarted, loadDuration, 0, 0); err != nil {
+        fmt.Fprintf(stderr, "ttscgraph: write serve response: %v\n", err)
+        return 1
+      }
       continue
     }
     session.requestProtocol = request.GraphSnapshotVersion
@@ -901,27 +917,49 @@ func serveSnapshots(input io.Reader, output io.Writer, cwd, tsconfig string) int
       response.Mode = serveModeError
       response.Changed = false
     }
-    encodeStarted := time.Now()
-    if err := encoder.Encode(response); err != nil {
-      fmt.Fprintf(stderr, "ttscgraph: write serve response: %v\n", err)
-      return 1
-    }
-    encodeDuration := time.Since(encodeStarted)
-    writeServePhaseTrace(
-      request.ID,
-      response.Mode,
+    if err := encodeServeResponseWithTrace(
+      encoder,
+      response,
+      requestStarted,
       loadDuration,
       semanticDuration,
       exportDuration,
-      encodeDuration,
-      time.Since(requestStarted),
-    )
+    ); err != nil {
+      fmt.Fprintf(stderr, "ttscgraph: write serve response: %v\n", err)
+      return 1
+    }
   }
   if err := scanner.Err(); err != nil {
     fmt.Fprintf(stderr, "ttscgraph: read serve request: %v\n", err)
     return 1
   }
   return 0
+}
+
+// encodeServeResponseWithTrace accounts for every addressed response, including
+// failures that occur before a graph session exists.
+func encodeServeResponseWithTrace(
+  encoder *json.Encoder,
+  response serveResponse,
+  requestStarted time.Time,
+  loadDuration time.Duration,
+  semanticDuration time.Duration,
+  exportDuration time.Duration,
+) error {
+  encodeStarted := time.Now()
+  if err := encoder.Encode(response); err != nil {
+    return err
+  }
+  writeServePhaseTrace(
+    response.ID,
+    response.Mode,
+    loadDuration,
+    semanticDuration,
+    exportDuration,
+    time.Since(encodeStarted),
+    time.Since(requestStarted),
+  )
+  return nil
 }
 
 // writeServePhaseTrace emits opt-in timings without source paths or payloads.
