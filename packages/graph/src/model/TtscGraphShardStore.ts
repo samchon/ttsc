@@ -52,13 +52,16 @@ export class TtscGraphShardStore {
     }
 
     const manifest = [...transaction.manifest];
-    const ordered = [...manifest].sort((left, right) =>
-      compareText(left.key, right.key),
-    );
-    if (!sameManifest(manifest, ordered)) {
-      throw new Error(
-        "@ttsc/graph: native shard manifest must be strictly key-sorted",
-      );
+    for (let index = 0; index < manifest.length; index++) {
+      const reference = manifest[index]!;
+      if (
+        index !== 0 &&
+        compareText(manifest[index - 1]!.key, reference.key) >= 0
+      ) {
+        throw new Error(
+          "@ttsc/graph: native shard manifest must be strictly key-sorted",
+        );
+      }
     }
     if (manifest.length !== next.size) {
       throw new Error(
@@ -335,20 +338,6 @@ function assertShardKey(key: string): void {
   if (key === "" || key.includes("\0")) {
     throw new Error(`@ttsc/graph: native shard key is invalid: ${key}`);
   }
-}
-
-function sameManifest(
-  left: readonly ITtscGraphSnapshot.IShardReference[],
-  right: readonly ITtscGraphSnapshot.IShardReference[],
-): boolean {
-  return (
-    left.length === right.length &&
-    left.every(
-      (value, index) =>
-        value.key === right[index]?.key &&
-        value.digest === right[index]?.digest,
-    )
-  );
 }
 
 function compareText(left: string, right: string): number {

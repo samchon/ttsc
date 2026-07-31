@@ -113,8 +113,71 @@ func main() {
       }
       return
     }
+  case "duplicate-shard-manifest-once":
+    if claimFirst(cwd) {
+      scanner := bufio.NewScanner(os.Stdin)
+      if scanner.Scan() {
+        var req request
+        if err := json.Unmarshal(scanner.Bytes(), &req); err != nil {
+          os.Exit(3)
+        }
+        response, err := duplicateShardManifestResponse(req.ID, cwd, cfg.SchemaVersion)
+        if err != nil {
+          os.Exit(4)
+        }
+        if err := json.NewEncoder(os.Stdout).Encode(response); err != nil {
+          os.Exit(4)
+        }
+        hangForever()
+      }
+      return
+    }
   }
   serve(cwd, cfg, cfg.Mode == "respond-then-hang" && claimFirst(cwd))
+}
+
+func duplicateShardManifestResponse(id int, cwd string, schemaVersion int) (map[string]any, error) {
+  response, err := shardResponse(id, cwd, schemaVersion, "")
+  if err != nil {
+    return nil, err
+  }
+  snapshot := response["snapshot"].(map[string]any)
+  second := map[string]any{
+    "key":         "0:metadata:test-2",
+    "nodes":       []any{},
+    "edges":       []any{},
+    "diagnostics": []any{},
+  }
+  secondDigest, err := digestJSON(second)
+  if err != nil {
+    return nil, err
+  }
+  upserts := snapshot["upserts"].([]any)
+  snapshot["upserts"] = append(upserts, map[string]any{
+    "digest": secondDigest,
+    "shard":  second,
+  })
+  first := snapshot["manifest"].([]any)[0]
+  manifest := []any{first, first}
+  snapshot["manifest"] = manifest
+  generation, err := digestJSON(struct {
+    Tsconfig     string         `json:"tsconfig"`
+    Producer     map[string]any `json:"producer"`
+    Capabilities []string       `json:"capabilities"`
+    Universe     map[string]any `json:"universe"`
+    Manifest     []any          `json:"manifest"`
+  }{
+    Tsconfig:     snapshot["tsconfig"].(string),
+    Producer:     snapshot["producer"].(map[string]any),
+    Capabilities: snapshot["capabilities"].([]string),
+    Universe:     snapshot["universe"].(map[string]any),
+    Manifest:     manifest,
+  })
+  if err != nil {
+    return nil, err
+  }
+  snapshot["generation"] = generation
+  return response, nil
 }
 
 func shardResponse(id int, cwd string, schemaVersion int, forcedDigest string) (map[string]any, error) {
