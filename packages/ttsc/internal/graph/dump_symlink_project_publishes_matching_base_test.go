@@ -65,7 +65,15 @@ func TestDumpSymlinkProjectPublishesMatchingBase(t *testing.T) {
     t.Fatalf("published project = %q, want %q", dump.Project, physicalProject)
   }
   resolvedSibling := filepath.Clean(filepath.Join(filepath.FromSlash(dump.Project), filepath.FromSlash("../shared.ts")))
-  if resolvedSibling != filepath.Clean(shared) {
+  resolvedSiblingInfo, err := os.Stat(resolvedSibling)
+  if err != nil {
+    t.Fatal(err)
+  }
+  sharedInfo, err := os.Stat(shared)
+  if err != nil {
+    t.Fatal(err)
+  }
+  if !os.SameFile(resolvedSiblingInfo, sharedInfo) {
     t.Fatalf("published base resolves sibling to %q, want %q", resolvedSibling, shared)
   }
   if dump.Tsconfig != "../config/tsconfig.json" {
