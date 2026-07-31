@@ -14,17 +14,44 @@ import (
 // is workspace source: External is false. External boundary leaves enter the
 // graph only as the resolved target of an edge (see Resolve).
 func Build(prog *driver.Program) *Graph {
+  return BuildFiles(prog, nil, nil)
+}
+
+// BuildFiles resolves graph facts owned by selected source files against one
+// immutable Program. A nil selection preserves Build's complete-project
+// behavior. A non-nil selection emits only replacement nodes and outgoing
+// facts for those files while using baseNodes as a read-only endpoint index.
+//
+// This is the semantic primitive a resident shard store needs: an ordinary edit
+// asks the new checker only about its invalidated closure instead of walking
+// every declaration again, while cross-file targets retain the exact stable IDs
+// established by the preceding committed generation.
+func BuildFiles(prog *driver.Program, selected []string, baseNodes map[string]*Node) *Graph {
+  selectedFiles := map[string]bool{}
+  if selected != nil {
+    for _, file := range selected {
+      selectedFiles[file] = true
+    }
+  }
   g := &Graph{
-    Nodes:     map[string]*Node{},
-    bodyNodes: map[string]bool{},
-    seen:      map[edgeKey]struct{}{},
-    resolved:  map[*shimast.Node]*Target{},
+    Nodes:                 map[string]*Node{},
+    bodyNodes:             map[string]bool{},
+    seen:                  map[edgeKey]struct{}{},
+    resolved:              map[*shimast.Node]*Target{},
+    edgeEvidenceFiles:     map[string]string{},
+    baseNodes:             baseNodes,
+    selectedFiles:         selectedFiles,
+    ExportedTargets:       map[string]bool{},
+    ImplementationSources: map[string]map[string]bool{},
   }
   for _, file := range prog.SourceFiles() {
+    if selected != nil && !selectedFiles[file.FileName()] {
+      continue
+    }
     g.putModuleNode(file)
     collectDeclarations(g, file)
   }
-  g.addEdges(prog)
+  g.addEdges(prog, selectedFiles, selected != nil)
   return g
 }
 
@@ -45,6 +72,28 @@ func SourceTexts(prog *driver.Program) map[string]string {
       continue
     }
     out[file.FileName()] = file.Text()
+  }
+  return out
+}
+
+// SourceTextsForFiles returns resident checker text only for the named source
+// files. It is the partial-build counterpart of SourceTexts: selected graph
+// shards still receive exact evidence and signatures, without walking or
+// retaining every unchanged source body again.
+func SourceTextsForFiles(prog *driver.Program, files []string) map[string]string {
+  if prog == nil || prog.TSProgram == nil {
+    return map[string]string{}
+  }
+  _ = prog.ApplyLinkedPlugins()
+  selected := make(map[string]bool, len(files))
+  for _, file := range files {
+    selected[file] = true
+  }
+  out := make(map[string]string, len(files))
+  for _, source := range prog.TSProgram.SourceFiles() {
+    if source != nil && selected[source.FileName()] {
+      out[source.FileName()] = source.Text()
+    }
   }
   return out
 }

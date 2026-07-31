@@ -108,10 +108,17 @@ func (g *Graph) markExportedSymbol(symbol *shimast.Symbol) (string, bool) {
   if name == "" {
     return "", false
   }
-  node, ok := g.Nodes[nodeID(file.FileName(), name, kind)]
+  node, ok := g.lookupNode(nodeID(file.FileName(), name, kind))
   if !ok {
     return "", false
   }
-  node.Exported = true
+  g.ExportedTargets[node.ID] = true
+  // A complete build and an invalidation transaction that includes the
+  // declaration owner both hold a fresh node and may stamp it directly. Never
+  // mutate a base node: it belongs to the last committed generation until the
+  // caller has assembled and validated every replacement shard.
+  if current, exists := g.Nodes[node.ID]; exists {
+    current.Exported = true
+  }
   return node.ID, true
 }

@@ -5,6 +5,7 @@ import (
   "encoding/hex"
   "sort"
 
+  shimast "github.com/microsoft/typescript-go/shim/ast"
   shimcore "github.com/microsoft/typescript-go/shim/core"
 
   "github.com/samchon/ttsc/packages/ttsc/driver"
@@ -273,7 +274,16 @@ func NewProvenance(
 // every file the graph would otherwise only have bound. Callers that do not
 // publish diagnostics should not call it.
 func NewDiagnostics(prog *driver.Program) []Diagnostic {
-  raw := prog.Diagnostics()
+  return newDiagnostics(prog.Diagnostics())
+}
+
+// NewDiagnosticsForFiles projects compiler findings for one invalidated source
+// closure without forcing semantic diagnostics for every unchanged file.
+func NewDiagnosticsForFiles(prog *driver.Program, files []*shimast.SourceFile) []Diagnostic {
+  return newDiagnostics(prog.DiagnosticsForFiles(files))
+}
+
+func newDiagnostics(raw []driver.Diagnostic) []Diagnostic {
   out := make([]Diagnostic, 0, len(raw))
   for _, diagnostic := range raw {
     out = append(out, Diagnostic{

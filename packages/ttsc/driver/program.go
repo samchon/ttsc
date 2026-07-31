@@ -564,6 +564,19 @@ func (p *Program) HasLinkedProgramPlugins() bool {
 // Diagnostics returns project diagnostics that must block compilation or
 // runtime execution before any JavaScript is emitted or evaluated.
 func (p *Program) Diagnostics() []Diagnostic {
+  return p.diagnostics(nil)
+}
+
+// DiagnosticsForFiles returns diagnostics whose semantic work is restricted to
+// selected source files, plus the program/global diagnostics that qualify the
+// same immutable Program generation. The resident graph shard producer uses it
+// for the compiler-invalidated closure; callers that need the complete project
+// continue to use Diagnostics.
+func (p *Program) DiagnosticsForFiles(files []*ast.SourceFile) []Diagnostic {
+  return p.diagnostics(files)
+}
+
+func (p *Program) diagnostics(files []*ast.SourceFile) []Diagnostic {
   if p == nil || p.TSProgram == nil {
     return []Diagnostic{{Message: "driver: nil program"}}
   }
@@ -600,14 +613,28 @@ func (p *Program) Diagnostics() []Diagnostic {
     })
   }
   ctx := context.Background()
-  raw := shimcompiler.GetDiagnosticsOfAnyProgram(
-    ctx,
-    p.TSProgram,
-    nil,
-    false,
-    p.TSProgram.GetBindDiagnostics,
-    p.TSProgram.GetSemanticDiagnostics,
-  )
+  var raw []*ast.Diagnostic
+  if files == nil {
+    raw = shimcompiler.GetDiagnosticsOfAnyProgram(
+      ctx,
+      p.TSProgram,
+      nil,
+      false,
+      p.TSProgram.GetBindDiagnostics,
+      p.TSProgram.GetSemanticDiagnostics,
+    )
+  } else {
+    for _, file := range files {
+      raw = append(raw, shimcompiler.GetDiagnosticsOfAnyProgram(
+        ctx,
+        p.TSProgram,
+        file,
+        false,
+        p.TSProgram.GetBindDiagnostics,
+        p.TSProgram.GetSemanticDiagnostics,
+      )...)
+    }
+  }
   raw = filterDiagnostics(raw)
   return append(out, convertDiagnostics(shimcompiler.SortAndDeduplicateDiagnostics(raw))...)
 }

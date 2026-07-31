@@ -36,13 +36,13 @@ func TestServeSessionKeepsChangeDetectionLiveAfterInitialDumpError(t *testing.T)
   if err == nil || !strings.Contains(err.Error(), "project root") {
     t.Fatalf("initial dump error = %v, want absolute-root rejection", err)
   }
-  if dump != nil || changed || !session.initialized || session.pendingDumpMode != serveModeInitial {
+  if dump != nil || changed || !session.initialized || session.pending == nil || session.pending.mode != serveModeInitial {
     t.Fatalf(
       "failed initial state = dump:%v changed:%v initialized:%v pending:%q",
       dump != nil,
       changed,
       session.initialized,
-      session.pendingDumpMode,
+      session.pending.mode,
     )
   }
 
@@ -71,11 +71,11 @@ func TestServeSessionRetriesAPendingDumpBeforeUnchanged(t *testing.T) {
     t.Fatalf("NewSession returned nil session (diagnostics: %v)", diags)
   }
   session := &graphSession{
-    cwd:             root,
-    tsconfig:        "tsconfig.json",
-    compiler:        compiler,
-    initialized:     true,
-    pendingDumpMode: serveModeReload,
+    cwd:         root,
+    tsconfig:    "tsconfig.json",
+    compiler:    compiler,
+    initialized: true,
+    pending:     &graphChange{mode: serveModeReload, full: true},
   }
   defer session.Close()
   if err := session.captureState(); err != nil {
@@ -89,8 +89,8 @@ func TestServeSessionRetriesAPendingDumpBeforeUnchanged(t *testing.T) {
   if dump == nil || mode != serveModeReload || !changed {
     t.Fatalf("pending dump retry = dump:%v mode:%q changed:%v", dump != nil, mode, changed)
   }
-  if session.pendingDumpMode != "" {
-    t.Fatalf("successful retry left pending mode %q", session.pendingDumpMode)
+  if session.pending != nil {
+    t.Fatalf("successful retry left pending change %#v", session.pending)
   }
 
   dump, mode, changed, err = session.Snapshot()

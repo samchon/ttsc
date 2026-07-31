@@ -30,7 +30,8 @@ import (
 // expression. It is display/expansion only, never identity.
 //
 // File is omitted when the reader reconstructs it exactly: a node's span is in
-// the node's file, and an edge's span is in the file its `from` id names. The
+// the node's file, and an ordinary edge's span is in the file its `from` id
+// names. Cross-file assigned implementations keep the actual evidence file. The
 // path is long, it rode the wire once per node and once per edge, and on VS Code
 // those two copies are 55 MB of a 323 MB document that then has to be encoded,
 // piped, parsed and validated. An `implementation` span keeps its file — that one
@@ -131,6 +132,14 @@ type Dump struct {
   Edges       []DumpEdge   `json:"edges"`
 }
 
+// DumpFacts is the path-normalized fact payload of one graph shard. It omits
+// project-wide provenance and diagnostics so an incremental producer can
+// project one invalidated closure without reconstructing a complete Dump.
+type DumpFacts struct {
+  Nodes []DumpNode `json:"nodes"`
+  Edges []DumpEdge `json:"edges"`
+}
+
 // DumpOrigin is the snapshot evidence a caller attaches to a dump: who built it
 // and what the same program generation had to say about the code. It is a
 // separate struct because only the commands that own a compiler session can
@@ -153,6 +162,57 @@ type DumpOrigin struct {
 // error before serialization when a path is on another filesystem root or two
 // physical sources would collide at one wire identity.
 func NewDump(g *Graph, project, tsconfig string, ignored map[string]bool, sources map[string]string, origin DumpOrigin) (Dump, error) {
+  facts, ctx, err := newDumpFacts(g, project, ignored, sources)
+  if err != nil {
+    return Dump{}, err
+  }
+
+  // The schema version describes this code, not the caller's belief about it,
+  // so stamp it here rather than trusting what came in.
+  provenance := ctx.provenance(origin.Provenance)
+  provenance.SchemaVersion = DumpSchemaVersion
+
+  // A nil slice encodes as JSON null, and null is not an empty list: a reader
+  // validating `string[]` rejects it, and a reader that does not would have to
+  // guess which of the two the producer meant. Every list on the wire is a list.
+  if provenance.Capabilities == nil {
+    provenance.Capabilities = []string{}
+  }
+  if provenance.Sources == nil {
+    provenance.Sources = []SourceDigest{}
+  }
+  if provenance.Universe.Configs == nil {
+    provenance.Universe.Configs = []FileDigest{}
+  }
+  if provenance.Universe.Roots == nil {
+    provenance.Universe.Roots = []RootFile{}
+  }
+
+  diagnostics := ctx.diagnostics(origin.Diagnostics)
+  if diagnostics == nil {
+    diagnostics = []Diagnostic{}
+  }
+
+  return Dump{
+    Project:     project,
+    Tsconfig:    ctx.rel(tsconfig),
+    Provenance:  provenance,
+    Diagnostics: diagnostics,
+    Nodes:       facts.Nodes,
+    Edges:       facts.Edges,
+  }, nil
+}
+
+// NewDumpFacts projects only one graph's nodes and edges through the complete
+// dump path/evidence codec. The caller may pass a partial graph produced by
+// BuildFiles; no project-wide provenance, diagnostic walk or full Dump is
+// constructed.
+func NewDumpFacts(g *Graph, project string, ignored map[string]bool, sources map[string]string) (DumpFacts, error) {
+  facts, _, err := newDumpFacts(g, project, ignored, sources)
+  return facts, err
+}
+
+func newDumpFacts(g *Graph, project string, ignored map[string]bool, sources map[string]string) (DumpFacts, *dumpContext, error) {
   ctx := newDumpContext(project, sources)
 
   // Decorators ride on their target node; group by the internal node id before
@@ -203,11 +263,15 @@ func NewDump(g *Graph, project, tsconfig string, ignored map[string]bool, source
 
   edges := make([]DumpEdge, 0, len(g.Edges))
   for _, e := range g.Edges {
+    evidence := ctx.edgeEvidence(e)
+    if e.File == "" || e.File == nodeFile(e.From) {
+      evidence = withoutFile(evidence)
+    }
     edges = append(edges, DumpEdge{
       From:     ctx.relID(e.From),
       To:       ctx.relID(e.To),
       Kind:     dumpEdgeKind(e),
-      Evidence: withoutFile(ctx.edgeEvidence(e)),
+      Evidence: evidence,
     })
   }
   sort.Slice(edges, func(i, j int) bool {
@@ -220,44 +284,10 @@ func NewDump(g *Graph, project, tsconfig string, ignored map[string]bool, source
     return edges[i].Kind < edges[j].Kind
   })
 
-  // The schema version describes this code, not the caller's belief about it,
-  // so stamp it here rather than trusting what came in.
-  provenance := ctx.provenance(origin.Provenance)
-  provenance.SchemaVersion = DumpSchemaVersion
-
-  // A nil slice encodes as JSON null, and null is not an empty list: a reader
-  // validating `string[]` rejects it, and a reader that does not would have to
-  // guess which of the two the producer meant. Every list on the wire is a list.
-  if provenance.Capabilities == nil {
-    provenance.Capabilities = []string{}
-  }
-  if provenance.Sources == nil {
-    provenance.Sources = []SourceDigest{}
-  }
-  if provenance.Universe.Configs == nil {
-    provenance.Universe.Configs = []FileDigest{}
-  }
-  if provenance.Universe.Roots == nil {
-    provenance.Universe.Roots = []RootFile{}
-  }
-
-  diagnostics := ctx.diagnostics(origin.Diagnostics)
-  if diagnostics == nil {
-    diagnostics = []Diagnostic{}
-  }
-
-  dump := Dump{
-    Project:     project,
-    Tsconfig:    ctx.rel(tsconfig),
-    Provenance:  provenance,
-    Diagnostics: diagnostics,
-    Nodes:       nodes,
-    Edges:       edges,
-  }
   if err := ctx.pathError(); err != nil {
-    return Dump{}, err
+    return DumpFacts{}, ctx, err
   }
-  return dump, nil
+  return DumpFacts{Nodes: nodes, Edges: edges}, ctx, nil
 }
 
 // dumpEnumMembers projects an enum's members onto the wire shape, nil for a
@@ -647,8 +677,10 @@ func regularExpressionEnd(text string, start int) int {
 
 // edgeEvidence is the evidence range for an edge's source expression.
 func (c *dumpContext) edgeEvidence(e *Edge) *DumpEvidence {
-  // The edge's span lives in the From node's file.
-  file := nodeFile(e.From)
+  file := e.File
+  if file == "" {
+    file = nodeFile(e.From)
+  }
   if file == "" {
     return nil
   }

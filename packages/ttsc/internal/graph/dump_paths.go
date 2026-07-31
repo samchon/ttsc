@@ -2,6 +2,7 @@ package graph
 
 import (
   "fmt"
+  "path/filepath"
   "strings"
 
   shimtspath "github.com/microsoft/typescript-go/shim/tspath"
@@ -21,7 +22,7 @@ type dumpPathMapper struct {
 }
 
 func newDumpPathMapper(project string) *dumpPathMapper {
-  normalized := shimtspath.NormalizePath(shimtspath.NormalizeSlashes(project))
+  normalized := canonicalDumpPath(project)
   mapper := &dumpPathMapper{
     project:        normalized,
     caseSensitive:  dumpPathRootIsCaseSensitive(normalized),
@@ -32,6 +33,35 @@ func newDumpPathMapper(project string) *dumpPathMapper {
     mapper.mappingErr = fmt.Errorf("ttscgraph: project root %q is not absolute", project)
   }
   return mapper
+}
+
+// WirePath maps one compiler path into the portable schema-v6 vocabulary used
+// by dumps and resident graph shards. Callers that project a complete graph
+// keep one dumpPathMapper so collision detection spans every path; callers
+// shaping a single source/config coordinate use this helper and receive the
+// same filesystem-alias and cross-root behavior.
+func WirePath(project, file string) (string, error) {
+  mapper := newDumpPathMapper(project)
+  wire := mapper.mapPath(file)
+  return wire, mapper.err()
+}
+
+// WireNodeID maps the filesystem-bearing portions of one internal node ID into
+// the same portable vocabulary as NewDumpFacts. Resident stores use it when a
+// wire-level external reference count must be reconciled with the immutable
+// graph.Node cache, whose keys retain compiler-physical paths.
+func WireNodeID(project, id string) (string, error) {
+  parts, ok := parseNodeID(id)
+  if !ok {
+    return "", fmt.Errorf("ttscgraph: invalid internal graph node id %q", id)
+  }
+  mapper := newDumpPathMapper(project)
+  name := parts.name
+  if parts.kind == NodeModule {
+    name = mapper.mapPath(name)
+  }
+  wire := nodeID(mapper.mapPath(parts.path), name, parts.kind)
+  return wire, mapper.err()
 }
 
 // mapPath returns one portable, slash-normalized coordinate:
@@ -53,7 +83,7 @@ func (m *dumpPathMapper) mapPath(file string) string {
   if strings.HasPrefix(normalized, "bundled:///") {
     return m.claim(normalized, normalized)
   }
-  normalized = shimtspath.NormalizePath(normalized)
+  normalized = canonicalDumpPath(normalized)
   if m.project == "" || shimtspath.GetRootLength(m.project) == 0 {
     return normalized
   }
@@ -126,6 +156,28 @@ func (m *dumpPathMapper) fail(err error) {
 }
 
 func (m *dumpPathMapper) err() error { return m.mappingErr }
+
+// canonicalDumpPath collapses filesystem aliases for an existing path before
+// it enters the wire-coordinate mapper. TypeScript reports physical source
+// names, while a caller may select the same project through a symlink or a
+// Windows 8.3 spelling; comparing those raw strings would leak a producer-local
+// absolute path into an otherwise portable snapshot.
+//
+// Synthetic paths in mapper unit tests and missing paths retain their lexical
+// spelling. Real graph inputs exist by construction, so the best-effort branch
+// covers their physical identity without weakening the mapper's explicit
+// cross-root and collision checks.
+func canonicalDumpPath(location string) string {
+  normalized := shimtspath.NormalizePath(shimtspath.NormalizeSlashes(location))
+  if normalized == "" || shimtspath.GetRootLength(normalized) == 0 {
+    return normalized
+  }
+  physical, err := filepath.EvalSymlinks(filepath.FromSlash(normalized))
+  if err != nil {
+    return normalized
+  }
+  return shimtspath.NormalizePath(shimtspath.NormalizeSlashes(physical))
+}
 
 // Windows drive and UNC roots use case-insensitive path comparison. POSIX
 // roots remain case-sensitive. This decision follows the path's own grammar so

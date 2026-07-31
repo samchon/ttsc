@@ -171,9 +171,11 @@ const (
 )
 
 // Edge is a directed, checker-resolved relationship from one node to another,
-// both referenced by Node.ID. Pos and End bound the source expression in the
-// From node's file that produced the edge. They are evidence, not identity; a
-// duplicate relationship keeps the first source-order span.
+// both referenced by Node.ID. File, Pos, and End bound the source expression
+// that produced the edge. File is empty when the From node names it and is set
+// only when an assigned implementation attributes an expression in another
+// file to the declaration node it implements. They are evidence, not identity;
+// a duplicate relationship keeps the first source-order span.
 type Edge struct {
   From string
   To   string
@@ -186,6 +188,7 @@ type Edge struct {
   // "jsx", or "tagged"; for EdgeHeritage it is "extends" or "implements";
   // for EdgeMemberRelation it is "implements" or "overrides".
   Origin string
+  File   string
   Pos    int
   End    int
 }
@@ -213,6 +216,43 @@ type Graph struct {
   // build: the edge pass visits the same node several times, and a resolution
   // cannot change while the program is fixed.
   resolved map[*shimast.Node]*Target
+
+  // edgeEvidenceFiles temporarily overrides a declaration node's source while
+  // an assigned implementation in another file is walked. Builds are
+  // single-threaded, and the helper that installs an override restores it
+  // before the traversal returns.
+  edgeEvidenceFiles map[string]string
+
+  // baseNodes is the immutable endpoint index of the preceding committed
+  // generation during a partial build. Nodes owned by selectedFiles are never
+  // read through it: a changed file may delete or re-key a declaration, so its
+  // old nodes must disappear before the new checker walk begins.
+  baseNodes     map[string]*Node
+  selectedFiles map[string]bool
+
+  // ExportedTargets records every declaration reached through a selected
+  // module's checker export table. A partial caller uses it to add re-exported
+  // owner files to the same invalidation transaction before publishing.
+  ExportedTargets map[string]bool
+
+  // ImplementationSources records every source that assigns a function body
+  // to a modeled declaration, including candidates after the first assignment
+  // that supplied the node's display span. A partial caller uses the complete
+  // set to rebuild a declaration owner and all competing assignments together.
+  ImplementationSources map[string]map[string]bool
+}
+
+// lookupNode returns a node from this build, then from the preceding committed
+// endpoint index when that node's file is not being replaced.
+func (g *Graph) lookupNode(id string) (*Node, bool) {
+  if node, ok := g.Nodes[id]; ok {
+    return node, true
+  }
+  node, ok := g.baseNodes[id]
+  if !ok || g.selectedFiles[node.File] {
+    return nil, false
+  }
+  return node, true
 }
 
 // edgeKey identifies an edge by its two ends and the wire kind it will surface

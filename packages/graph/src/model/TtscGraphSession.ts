@@ -6,6 +6,7 @@ import { ensureExecutable } from "../nativeExecutable";
 import { resolveGraphBinary } from "../resolveGraphBinary";
 import { ITtscGraphSnapshot } from "../structures/ITtscGraphSnapshot";
 import { TtscGraphMemory } from "./TtscGraphMemory";
+import { TtscGraphShardStore } from "./TtscGraphShardStore";
 import { DUMP_SCHEMA_VERSION } from "./loadGraph";
 
 /**
@@ -17,6 +18,7 @@ import { DUMP_SCHEMA_VERSION } from "./loadGraph";
  * constant out of this file and fails if the pair drifts.
  */
 const PROTOCOL_VERSION = 1;
+const GRAPH_SNAPSHOT_PROTOCOL_VERSION = 1;
 const DEFAULT_REQUEST_TIMEOUT_MS = 300_000;
 const MAX_TIMER_MS = 2_147_483_647;
 const TERMINATION_GRACE_MS = 1_000;
@@ -75,6 +77,7 @@ export class TtscGraphSession {
   private readonly pending = new Map<number, Pending>();
   private queue: Promise<void> = Promise.resolve();
   private current: TtscGraphMemory | undefined;
+  private shardStore = new TtscGraphShardStore();
   private closed = false;
 
   public constructor(options: TtscGraphSessionOptions) {
@@ -167,16 +170,30 @@ export class TtscGraphSession {
     // The protocol version and the envelope shape were both settled in onLine,
     // before this frame was ever routed here.
     const response = await this.request(signal);
+    this.assertResponseSemantics(response);
     if (response.error !== undefined) {
       throw new Error(`@ttsc/graph: ${response.error}`);
     }
     if (response.changed) {
-      if (response.dump === undefined) {
+      if (response.snapshot !== undefined) {
+        try {
+          this.current = TtscGraphMemory.from(
+            this.shardStore.apply(response.snapshot),
+          );
+        } catch (error) {
+          const failure = asError(error);
+          if (this.child !== undefined) this.failChild(this.child, failure);
+          throw failure;
+        }
+      } else if (response.dump !== undefined) {
+        // A serve-protocol-v1 binary predating graph shard negotiation ignores
+        // the optional request field and retains the complete-dump response.
+        this.current = TtscGraphMemory.from(response.dump);
+      } else {
         throw new Error(
-          `@ttsc/graph: native ${response.mode} response omitted its dump`,
+          `@ttsc/graph: native ${response.mode} response omitted both graph snapshot protocol v${String(GRAPH_SNAPSHOT_PROTOCOL_VERSION)} data and a compatible dump`,
         );
       }
-      this.current = TtscGraphMemory.from(response.dump);
     }
     if (this.current === undefined) {
       throw new Error(
@@ -184,6 +201,30 @@ export class TtscGraphSession {
       );
     }
     return this.current;
+  }
+
+  private assertResponseSemantics(response: ITtscGraphSnapshot): void {
+    const bodies =
+      Number(response.dump !== undefined) +
+      Number(response.snapshot !== undefined);
+    let problem: string | undefined;
+    if (response.error !== undefined) {
+      if (response.mode !== "error" || response.changed || bodies !== 0) {
+        problem = "an error response carried snapshot state";
+      }
+    } else if (response.mode === "error") {
+      problem = "an error-mode response omitted its error";
+    } else if (response.changed) {
+      if (response.mode === "unchanged" || bodies !== 1) {
+        problem = "a changed response did not carry exactly one snapshot body";
+      }
+    } else if (response.mode !== "unchanged" || bodies !== 0) {
+      problem = "an unchanged response carried changed mode or snapshot state";
+    }
+    if (problem === undefined) return;
+    const error = new Error(`@ttsc/graph: native session returned ${problem}`);
+    if (this.child !== undefined) this.failChild(this.child, error);
+    throw error;
   }
 
   private request(signal?: AbortSignal): Promise<ITtscGraphSnapshot> {
@@ -216,16 +257,19 @@ export class TtscGraphSession {
         pending.abort!();
         return;
       }
-      child.process.stdin.write(`${JSON.stringify({ id })}\n`, (error) => {
-        if (error === null || error === undefined) return;
-        if (this.pending.get(id) !== pending) return;
-        this.failChild(
-          child,
-          new Error(
-            `@ttsc/graph: could not request native snapshot: ${error.message}`,
-          ),
-        );
-      });
+      child.process.stdin.write(
+        `${JSON.stringify({ id, graphSnapshotVersion: GRAPH_SNAPSHOT_PROTOCOL_VERSION })}\n`,
+        (error) => {
+          if (error === null || error === undefined) return;
+          if (this.pending.get(id) !== pending) return;
+          this.failChild(
+            child,
+            new Error(
+              `@ttsc/graph: could not request native snapshot: ${error.message}`,
+            ),
+          );
+        },
+      );
     });
   }
 
@@ -344,8 +388,10 @@ export class TtscGraphSession {
     // looking like a type with no members. Hold the body to its own number too,
     // once the frame is understood.
     if (
-      response.dump !== undefined &&
-      response.dump.provenance.schemaVersion !== DUMP_SCHEMA_VERSION
+      (response.dump !== undefined &&
+        response.dump.provenance.schemaVersion !== DUMP_SCHEMA_VERSION) ||
+      (response.snapshot !== undefined &&
+        response.snapshot.schemaVersion !== DUMP_SCHEMA_VERSION)
     ) {
       // Session-wide, for the same reason the protocol mismatch above is: it is
       // the wrong binary, not one bad frame.
@@ -353,7 +399,8 @@ export class TtscGraphSession {
         child,
         new Error(
           `@ttsc/graph: ttscgraph sends dump schema v${String(
-            response.dump.provenance.schemaVersion,
+            response.dump?.provenance.schemaVersion ??
+              response.snapshot?.schemaVersion,
           )}, this client reads v${String(DUMP_SCHEMA_VERSION)}. ` +
             "Install a matching `ttsc` (the binary resolves from the target " +
             "project, or from TTSC_GRAPH_BINARY).",
@@ -371,6 +418,7 @@ export class TtscGraphSession {
     if (this.child !== child) return;
     this.child = undefined;
     this.current = undefined;
+    this.shardStore = new TtscGraphShardStore();
     child.lines.close();
     this.failPending(error, child);
     if (terminate) terminateChild(child.process);

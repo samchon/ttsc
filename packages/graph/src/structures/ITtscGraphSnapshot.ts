@@ -44,11 +44,52 @@ export interface ITtscGraphSnapshot {
   /** The snapshot, present exactly when `changed` is true. */
   dump?: ITtscGraphDump;
 
+  /** Native graph-shard transaction, present for an opted-in changed request. */
+  snapshot?: ITtscGraphSnapshot.ITransaction;
+
   /** Set when the request produced no snapshot; `mode` is then `"error"`. */
   error?: string;
 }
 
 export namespace ITtscGraphSnapshot {
+  /** Versioned content-addressed transaction emitted by `ttscgraph serve`. */
+  export interface ITransaction {
+    protocolVersion: number;
+    schemaVersion: number;
+    project: string;
+    tsconfig: string;
+    producer: ITtscGraphDump.IProducer;
+    capabilities: string[];
+    universe: ITtscGraphDump.IUniverse;
+    sequence: number;
+    generation: string;
+    baseSequence?: number;
+    baseGeneration?: string;
+    upserts: IShardUpsert[];
+    deletes: string[];
+    manifest: IShardReference[];
+  }
+
+  export interface IShardUpsert {
+    digest: string;
+    shard: IShard;
+  }
+
+  export interface IShardReference {
+    key: string;
+    digest: string;
+  }
+
+  /** One source/config or metadata-owned raw compiler fact shard. */
+  export interface IShard {
+    key: string;
+    source?: ITtscGraphDump.ISourceDigest;
+    config?: ITtscGraphDump.IFileDigest;
+    nodes: ITtscGraphDump.INode[];
+    edges: ITtscGraphDump.IEdge[];
+    diagnostics: ITtscGraphDump.IDiagnostic[];
+  }
+
   /**
    * The computation modes the producer reports, plus the transport's `error`.
    *
@@ -56,7 +97,7 @@ export namespace ITtscGraphSnapshot {
    * - `reload`: the build universe moved, so the program was reloaded whole.
    * - `unchanged`: nothing moved; no dump rides it and the last one still holds.
    * - `incremental`: edits applied onto the reused resident program.
-   * - `rebuild`: edits applied, but the program could not be reused.
+   * - `rebuild`: edits applied, but graph projection required a complete build.
    * - `error`: no snapshot was produced.
    */
   export type Mode =

@@ -31,7 +31,7 @@ npm install -D @ttsc/graph
 }
 ```
 
-Start the client from the project root. The server builds one resident graph and answers every MCP call from memory.
+Start the client from the project root. The server builds one resident graph, refreshes changed compiler-owned shards atomically, and answers every MCP call from memory.
 
 `@ttsc/graph` reads the graph from the program `ttsc` type-checked, so the project needs `ttsc` and `typescript` installed alongside it. `ttsc` runs on the native TypeScript 7 compiler from the `typescript` package; it does not run on the legacy TypeScript v6.x compiler. There is no separate index step and no static-parser fallback: the graph is a byproduct of the type-check the compiler already runs, or it is not built at all.
 

@@ -18,9 +18,12 @@ import (
 // it annotates, a literal value set on the type that admits it. Both need the
 // same checker and the same walk, so they are resolved here and written to the
 // node the build pass keyed.
-func (g *Graph) addEdges(prog *driver.Program) {
+func (g *Graph) addEdges(prog *driver.Program, selected map[string]bool, partial bool) {
   checker := prog.Checker
   for _, file := range prog.SourceFiles() {
+    if partial && !selected[file.FileName()] {
+      continue
+    }
     g.markExports(checker, file)
     g.collectHeritage(checker, file)
     g.collectCalls(checker, file)
@@ -54,7 +57,8 @@ func (g *Graph) addEdgeAt(from, to string, kind EdgeKind, origin string, pos, en
     return
   }
   g.seen[key] = struct{}{}
-  g.Edges = append(g.Edges, &Edge{From: from, To: to, Kind: kind, Origin: origin, Pos: pos, End: end})
+  file := g.edgeEvidenceFiles[from]
+  g.Edges = append(g.Edges, &Edge{From: from, To: to, Kind: kind, Origin: origin, File: file, Pos: pos, End: end})
 }
 
 // collectHeritage adds a heritage edge for every base of every class and
@@ -320,7 +324,7 @@ func graphMemberNodeID(g *Graph, member *shimast.Node) string {
     return ""
   }
   id := nodeID(file.FileName(), name, kind)
-  stored, ok := g.Nodes[id]
+  stored, ok := g.lookupNode(id)
   if !ok {
     return ""
   }
@@ -576,8 +580,10 @@ func (g *Graph) callsWithin(checker *shimchecker.Checker, from string, node *shi
       }
     case shimast.KindBinaryExpression:
       if target := g.assignedFunctionTarget(checker, from, child); target != "" {
-        g.recordImplementation(target, child)
-        g.callsWithin(checker, target, child.AsBinaryExpression().Right)
+        file := g.recordImplementation(target, child)
+        g.withEdgeEvidenceFile(target, file, func() {
+          g.callsWithin(checker, target, child.AsBinaryExpression().Right)
+        })
       }
     case shimast.KindJsxSelfClosingElement:
       // `<Component />` is a use of the component; an intrinsic tag (`<div />`)
@@ -615,18 +621,45 @@ func (g *Graph) assignedFunctionTarget(checker *shimchecker.Checker, from string
   return to
 }
 
-func (g *Graph) recordImplementation(id string, assignment *shimast.Node) {
-  node := g.Nodes[id]
-  if node == nil || node.External || node.ImplementationFile != "" {
-    return
+func (g *Graph) recordImplementation(id string, assignment *shimast.Node) string {
+  node, ok := g.lookupNode(id)
+  if !ok || node.External {
+    return ""
   }
   file := shimast.GetSourceFileOfNode(assignment)
   if file == nil {
+    return ""
+  }
+  sources := g.ImplementationSources[id]
+  if sources == nil {
+    sources = map[string]bool{}
+    g.ImplementationSources[id] = sources
+  }
+  sources[file.FileName()] = true
+  current := g.Nodes[id]
+  if current != nil && current.ImplementationFile == "" {
+    current.ImplementationFile = file.FileName()
+    current.ImplementationPos = assignment.Pos()
+    current.ImplementationEnd = assignment.End()
+  }
+  return file.FileName()
+}
+
+func (g *Graph) withEdgeEvidenceFile(from, file string, visit func()) {
+  if file == "" {
+    visit()
     return
   }
-  node.ImplementationFile = file.FileName()
-  node.ImplementationPos = assignment.Pos()
-  node.ImplementationEnd = assignment.End()
+  previous, existed := g.edgeEvidenceFiles[from]
+  g.edgeEvidenceFiles[from] = file
+  defer func() {
+    if existed {
+      g.edgeEvidenceFiles[from] = previous
+    } else {
+      delete(g.edgeEvidenceFiles, from)
+    }
+  }()
+  visit()
 }
 
 func isInvokedAccess(access *shimast.Node) bool {
@@ -745,7 +778,13 @@ func (g *Graph) typeRefsWithin(checker *shimchecker.Checker, from string, node *
       }
     case shimast.KindBinaryExpression:
       if target := g.assignedFunctionTarget(checker, from, child); target != "" {
-        g.typeRefsWithin(checker, target, child.AsBinaryExpression().Right)
+        file := ""
+        if source := shimast.GetSourceFileOfNode(child); source != nil {
+          file = source.FileName()
+        }
+        g.withEdgeEvidenceFile(target, file, func() {
+          g.typeRefsWithin(checker, target, child.AsBinaryExpression().Right)
+        })
       }
     }
     g.typeRefsWithin(checker, from, child)
@@ -795,7 +834,7 @@ func (g *Graph) ensureTargetNode(target *Target) string {
       return ""
     }
     id := nodeID(target.File, name, NodeMethod)
-    if _, exists := g.Nodes[id]; exists {
+    if _, exists := g.lookupNode(id); exists {
       return id
     }
     return ""
@@ -805,7 +844,7 @@ func (g *Graph) ensureTargetNode(target *Target) string {
   }
   name := qualifiedName(target.Symbol)
   id := nodeID(target.File, name, kind)
-  if _, exists := g.Nodes[id]; exists {
+  if _, exists := g.lookupNode(id); exists {
     return id
   }
   if !target.External {
@@ -851,7 +890,7 @@ func (g *Graph) closureTargetID(target *Target) string {
       kind = NodeVariable
     }
     id := nodeID(target.File, name, kind)
-    if _, exists := g.Nodes[id]; exists {
+    if _, exists := g.lookupNode(id); exists {
       return id
     }
   }
