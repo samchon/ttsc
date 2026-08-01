@@ -2787,7 +2787,14 @@ function recordPackagePathCandidate(
       }
     }
     if (index === components.length - 1) {
-      recordDirectoryDependency(isDirectory ? next : current, owners);
+      // A resolved file is observed through its parent, so a sibling that would
+      // win extension resolution still invalidates. That reasoning does not
+      // reach the filesystem root: it owns no candidate this trace could pick,
+      // and digesting it is the same out-of-boundary root listing the branches
+      // above were narrowed to avoid.
+      if (isDirectory) recordDirectoryDependency(next, owners);
+      else if (current === parsed.root) recordEntryDependency(next, owners);
+      else recordDirectoryDependency(current, owners);
       return;
     }
     if (!isDirectory) {
@@ -2796,7 +2803,10 @@ function recordPackagePathCandidate(
     }
     current = next;
   }
-  recordDirectoryDependency(current, owners);
+  // Reached only when the candidate resolved to the filesystem root itself,
+  // which names no package. Record its existence, not its listing.
+  if (current === parsed.root) recordEntryDependency(current, owners);
+  else recordDirectoryDependency(current, owners);
 }
 
 function modulePackageName(specifier) {
@@ -3985,7 +3995,14 @@ function recordPackagePathCandidate(
       }
     }
     if (index === components.length - 1) {
-      recordDirectoryDependency(isDirectory ? next : current, owners);
+      // A resolved file is observed through its parent, so a sibling that would
+      // win extension resolution still invalidates. That reasoning does not
+      // reach the filesystem root: it owns no candidate this trace could pick,
+      // and digesting it is the same out-of-boundary root listing the branches
+      // above were narrowed to avoid.
+      if (isDirectory) recordDirectoryDependency(next, owners);
+      else if (current === parsed.root) recordEntryDependency(next, owners);
+      else recordDirectoryDependency(current, owners);
       return;
     }
     if (!isDirectory) {
@@ -3994,7 +4011,10 @@ function recordPackagePathCandidate(
     }
     current = next;
   }
-  recordDirectoryDependency(current, owners);
+  // Reached only when the candidate resolved to the filesystem root itself,
+  // which names no package. Record its existence, not its listing.
+  if (current === parsed.root) recordEntryDependency(current, owners);
+  else recordDirectoryDependency(current, owners);
 }
 
 function modulePackageName(specifier: string): string | undefined {

@@ -25,7 +25,9 @@ import (
 //     exact ancestor is recorded as an `entry`.
 //  2. Resolve a package through a symlink ancestor and a non-directory ancestor
 //     inside the project, and require the same treatment for both.
-//  3. Retarget the symlink ancestor and require the evaluation to refresh, so
+//  3. Resolve a candidate that lands directly on the root and require the root
+//     to stay absent there too.
+//  4. Retarget the symlink ancestor and require the evaluation to refresh, so
 //     the narrower record still observes link topology.
 func TestConfigDependencyGraphNeverPublishesTheFilesystemRoot(t *testing.T) {
   t.Setenv("TTSC_LINT_DISABLE_CONFIG_CACHE", "")
@@ -136,7 +138,28 @@ func TestConfigDependencyGraphNeverPublishesTheFilesystemRoot(t *testing.T) {
   // resolution topology records deliberately and which stay inside the project.
   assertConfigWatchDependenciesWithin(t, ancestors.dependencyDigests, root)
 
-  // 3. Retarget the symlink. The recorded entry digest is the link target, so a
+  // 3. A candidate whose resolved path sits directly on the root. The walk
+  //    reaches its last component while `current` is still the root, so the
+  //    parent-digest reasoning would enumerate the root one more way.
+  rootLevelMain := filepath.Join(filesystemRoot, "ttsc-lint-absent-root-main.js")
+  rootLevelPackage := filepath.Join(root, "node_modules", "root-level-main")
+  write(
+    filepath.Join(rootLevelPackage, "package.json"),
+    `{"main":`+quoteJSONPath(rootLevelMain)+`}`,
+  )
+  write(filepath.Join(rootLevelPackage, "index.js"), `module.exports = "warning";`)
+
+  rootLevelConfig := filepath.Join(root, "lint.rootlevel.cjs")
+  write(rootLevelConfig, `module.exports = { rules: { "no-var": require("root-level-main") } };`)
+
+  rootLevel, err := loadConfigFileEvaluation(rootLevelConfig)
+  if err != nil {
+    t.Fatalf("load config resolving a root-level main: %v", err)
+  }
+  assertConfigRuleSeverity(t, rootLevel.value, "no-var", "warning")
+  assertConfigDependencyAbsent(t, rootLevel.dependencyDigests, filesystemRoot)
+
+  // 4. Retarget the symlink. The recorded entry digest is the link target, so a
   //    repoint has to produce a different selection rather than a cache hit.
   retarget := filepath.Join(root, "other-packages")
   write(filepath.Join(retarget, "via-link", "package.json"), `{"main":"index.cjs"}`)
