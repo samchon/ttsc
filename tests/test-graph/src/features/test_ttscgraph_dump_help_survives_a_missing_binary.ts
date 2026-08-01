@@ -14,27 +14,32 @@ import { assert, resolveGraphLauncher } from "../internal/ttsgraph";
  * The fallback must stay a fallback: an ordinary `dump` with no binary is still
  * an error, and a resolvable binary must keep owning help.
  *
- * 1. Point `TTSC_GRAPH_BINARY` at a path that does not exist.
+ * 1. Run from an empty project with no resolvable binary and no override.
  * 2. Assert every help spelling exits 0 with usage naming the native authority.
  * 3. Assert an ordinary `dump` still fails, and that a resolvable binary receives
  *    `--help` instead of the launcher answering for it.
  */
 export const test_ttscgraph_dump_help_survives_a_missing_binary = () => {
+  // An empty temporary project: no `ttsc` to resolve a platform package from,
+  // and no `TTSC_GRAPH_BINARY` override. Pointing the override at a missing
+  // file would not model this — `resolveGraphBinary` returns an absolute
+  // override unchecked, so that produces a spawn failure, not an unresolved
+  // binary, and would exercise the wrong branch entirely.
   const root = TestProject.tmpdir("ttscgraph-dump-help-");
-  const absent = path.join(root, "does-not-exist", "ttscgraph");
 
-  const run = (args: string[], binary: string, marker?: string) =>
+  const run = (args: string[], binary?: string, marker?: string) =>
     TestProject.spawn(process.execPath, [resolveGraphLauncher(), ...args], {
       cwd: root,
       env: {
-        TTSC_GRAPH_BINARY: binary,
+        ...process.env,
+        TTSC_GRAPH_BINARY: binary ?? "",
         ...(marker === undefined ? {} : { TTSCGRAPH_MARKER: marker }),
       },
       timeout: 30_000,
     });
 
   for (const flag of ["--help", "-help", "-h"]) {
-    const result = run(["dump", flag], absent);
+    const result = run(["dump", flag]);
     assert.equal(
       result.status,
       0,
@@ -56,7 +61,7 @@ export const test_ttscgraph_dump_help_survives_a_missing_binary = () => {
 
   // The fallback is scoped to help. Resolution failure is still an error for
   // the command that actually needs the binary.
-  const ordinary = run(["dump", "--pretty"], absent);
+  const ordinary = run(["dump", "--pretty"]);
   assert.notEqual(
     ordinary.status,
     0,
