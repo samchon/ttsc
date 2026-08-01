@@ -97,7 +97,19 @@ export async function runGraph(
   const { cwd, tsconfig } = projectOptions(
     parseLauncherOptions(argv, PROJECT_OPTIONS),
   );
-  await startServer({ cwd, tsconfig, version: VERSION });
+  try {
+    await startServer({ cwd, tsconfig, version: VERSION });
+  } catch (error) {
+    // `startServer` refs stdin before it awaits the transport connect, so that
+    // listener keeps the event loop alive. Letting this reach the bin wrapper,
+    // which only sets `process.exitCode`, would leave a live process with no
+    // server attached — an MCP client sees a launcher that started and never
+    // answers. Exit rather than fall out of the call.
+    process.stderr.write(
+      `@ttsc/graph: ${error instanceof Error ? error.message : String(error)}\n`,
+    );
+    process.exit(1);
+  }
 }
 
 /**
@@ -105,11 +117,7 @@ export async function runGraph(
  * on this process's stdout. Returns the child's exit code.
  */
 function runDump(argv: readonly string[]): number {
-  if (
-    argv.includes("--help") ||
-    argv.includes("-help") ||
-    argv.includes("-h")
-  ) {
+  if (argv.includes("--help") || argv.includes("-h")) {
     printDumpHelp();
     return 0;
   }

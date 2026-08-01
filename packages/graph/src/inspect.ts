@@ -69,6 +69,11 @@ function parseInvocation(argv: readonly string[]): IInspectInvocation {
       "inspect requires a request; run 'ttsc-graph inspect --help' for usage",
     );
   }
+  if (!isInspectRequest(command)) {
+    throw new GraphArgumentError(
+      `unknown inspect request ${command}; run 'ttsc-graph inspect --help' for usage`,
+    );
+  }
   const parsed = parseInspectArgs(argv.slice(1), optionsFor(command));
   const project = projectOptions(parsed.values);
   const pretty = parsed.values.get("pretty") === true;
@@ -193,11 +198,47 @@ function parseInvocation(argv: readonly string[]): IInspectInvocation {
           : {}),
       });
     }
-    default:
+    default: {
+      // `command` is narrowed to the projected union above, so this branch is
+      // unreachable and the assignment is the second half of the drift guard:
+      // a new member that reaches here fails to compile.
+      const unhandled: never = command;
       throw new GraphArgumentError(
-        `unknown inspect request ${command}; run 'ttsc-graph inspect --help' for usage`,
+        `unknown inspect request ${String(unhandled)}; run 'ttsc-graph inspect --help' for usage`,
       );
+    }
   }
+}
+
+/**
+ * Every graph-reading request this CLI projects.
+ *
+ * `escape` is the one union member with no shell equivalent: it performs no
+ * graph work and only tells an MCP client the answer is outside the graph.
+ *
+ * The `satisfies` is the contract, not decoration. The CLI hand-mirrors the
+ * request union, and both switches below fall through silently — an added
+ * member would keep compiling and keep passing, since the tests can only
+ * enumerate the requests that exist when they are written. Keying this record
+ * by the union's own discriminator makes `tsc` fail until the new member is
+ * named here, so drift becomes a type error instead of a silent gap.
+ */
+const INSPECT_REQUESTS = {
+  overview: true,
+  entrypoints: true,
+  lookup: true,
+  details: true,
+  trace: true,
+  tour: true,
+} as const satisfies Record<
+  Exclude<ITtscGraphApplication.IProps["request"]["type"], "escape">,
+  true
+>;
+
+type InspectRequest = keyof typeof INSPECT_REQUESTS;
+
+function isInspectRequest(command: string): command is InspectRequest {
+  return Object.prototype.hasOwnProperty.call(INSPECT_REQUESTS, command);
 }
 
 function optionsFor(command: string): readonly IInspectOption[] {
