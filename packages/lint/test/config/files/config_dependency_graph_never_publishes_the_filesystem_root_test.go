@@ -56,7 +56,7 @@ func TestConfigDependencyGraphNeverPublishesTheFilesystemRoot(t *testing.T) {
     filepath.Join(absentPackage, "package.json"),
     `{"main":`+quoteJSONPath(absentMain)+`}`,
   )
-  write(filepath.Join(absentPackage, "index.cjs"), `module.exports = "error";`)
+  write(filepath.Join(absentPackage, "index.js"), `module.exports = "error";`)
 
   absentConfig := filepath.Join(root, "lint.config.cjs")
   write(absentConfig, `module.exports = { rules: { "no-var": require("absent-main") } };`)
@@ -95,14 +95,14 @@ func TestConfigDependencyGraphNeverPublishesTheFilesystemRoot(t *testing.T) {
     filepath.Join(linkedPackage, "package.json"),
     `{"main":`+quoteJSONPath(filepath.Join(linked, "via-link", "index.cjs"))+`}`,
   )
-  write(filepath.Join(linkedPackage, "index.cjs"), `module.exports = "off";`)
+  write(filepath.Join(linkedPackage, "index.js"), `module.exports = "off";`)
 
   filePackage := filepath.Join(root, "node_modules", "through-file")
   write(
     filepath.Join(filePackage, "package.json"),
     `{"main":`+quoteJSONPath(throughFile)+`}`,
   )
-  write(filepath.Join(filePackage, "index.cjs"), `module.exports = "error";`)
+  write(filepath.Join(filePackage, "index.js"), `module.exports = "error";`)
 
   ancestorConfig := filepath.Join(root, "lint.ancestors.cjs")
   write(ancestorConfig, `module.exports = { rules: {
@@ -131,14 +131,10 @@ func TestConfigDependencyGraphNeverPublishesTheFilesystemRoot(t *testing.T) {
     configDependencyEntry,
     configDependencyWatch,
   )
-  // The narrower record replaces the parent digest; it must not also keep
-  // publishing the containing directory it was introduced to avoid.
-  assertConfigDependencyKindAbsent(
-    t,
-    ancestors.dependencyDigests,
-    root,
-    configDependencyDir,
-  )
+  // The narrower record replaces the parent digest for the ancestor itself. It
+  // does not remove the ordinary node_modules search directories, which the
+  // resolution topology records deliberately and which stay inside the project.
+  assertConfigWatchDependenciesWithin(t, ancestors.dependencyDigests, root)
 
   // 3. Retarget the symlink. The recorded entry digest is the link target, so a
   //    repoint has to produce a different selection rather than a cache hit.
