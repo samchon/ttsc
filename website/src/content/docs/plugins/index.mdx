@@ -23,6 +23,15 @@ Each ships on its own release schedule with its own docs. The pages above cover 
 
 PRs adding plugins to this list are welcome. The bar is "installs and works on a current `ttsc` release."
 
+## Finding plugins
+
+Community packages are discoverable by npm keyword rather than by a registry this project owns:
+
+- [`ttsc-plugin`](https://www.npmjs.com/search?q=keywords:ttsc-plugin): top-level compiler plugins.
+- [`ttsc-lint-plugin`](https://www.npmjs.com/search?q=keywords:ttsc-lint-plugin): `@ttsc/lint` rule contributors.
+
+Publishing your own? See [Community package naming](/docs/development/authoring/publishing#community-package-naming) for the recommended names and keywords, and [Publishing rule contributors](/docs/lint/contributing) for the lint-specific surface. The prefixes are conventions, not requirements — branded packages like `typia` and `nestia` stay discoverable through the same keywords.
+
 ## Writing your own
 
 → [Plugin Development](/docs/development), the audience-walled section for plugin authors.
