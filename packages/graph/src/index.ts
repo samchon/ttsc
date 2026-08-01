@@ -83,6 +83,37 @@ export function runGraph(
   );
 }
 
+/** The help spellings `ttscgraph` itself accepts, mirrored for the fallback. */
+const DUMP_HELP_FLAGS = new Set(["--help", "-help", "-h"]);
+
+/**
+ * Print a `dump` usage summary when the native binary cannot be resolved.
+ *
+ * This is a fallback, not a second contract: `cmd/ttscgraph/main.go` owns these
+ * flags and answers whenever it is installed. Keep this short and point at that
+ * authority, so a drift degrades to a stale summary rather than a wrong
+ * answer.
+ */
+function printDumpHelp(): void {
+  process.stdout.write(
+    [
+      "Usage: ttsc-graph dump [options]",
+      "",
+      "Write the whole compiler graph as JSON to stdout: every node and edge,",
+      "none of the MCP response caps.",
+      "",
+      "Options:",
+      "  --cwd <dir>        Project root (default: current directory).",
+      "  --tsconfig <path>  Project tsconfig path (default: tsconfig.json).",
+      "  --pretty           Indent the JSON output.",
+      "",
+      "The native `ttscgraph` binary owns these flags and is not installed here,",
+      "so this summary may lag it. Install `ttsc` and rerun for the exact list.",
+      "",
+    ].join("\n"),
+  );
+}
+
 /**
  * Pass `dump` through to the native binary, inheriting stdio so the JSON lands
  * on this process's stdout. Returns the child's exit code.
@@ -93,6 +124,15 @@ function runDump(argv: readonly string[]): number {
   const { cwd } = projectOptions(parseLauncherOptions(argv, DUMP_OPTIONS));
   const binary = resolveGraphBinary(process.env, cwd);
   if (binary === null) {
+    // `ttscgraph` owns the flag contract, so a resolvable binary always answers
+    // `--help` itself and stays the single source of truth. It cannot answer
+    // when it is absent, and that is exactly when a caller is most likely to be
+    // asking what the command needs — so fall back to a summary that names the
+    // authority rather than making usage unreachable behind an install error.
+    if (argv.some((argument) => DUMP_HELP_FLAGS.has(argument))) {
+      printDumpHelp();
+      return 0;
+    }
     process.stderr.write(
       "@ttsc/graph: could not resolve the ttscgraph binary. " +
         "Install `ttsc` so its platform package is present, " +
