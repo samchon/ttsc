@@ -55,8 +55,8 @@ export function main(): void {
   if err := json.Unmarshal(data, &dump); err != nil {
     t.Fatalf("dump is not valid JSON: %v\n%s", err, data)
   }
-  if dump.Project != root || dump.Tsconfig != "tsconfig.json" {
-    t.Fatalf("project/tsconfig not echoed: %q / %q", dump.Project, dump.Tsconfig)
+  if dump.Project != canonicalDumpPath(root) || dump.Tsconfig != "tsconfig.json" {
+    t.Fatalf("project/tsconfig coordinates are not canonical: %q / %q", dump.Project, dump.Tsconfig)
   }
   if len(dump.Nodes) != len(g.Nodes) {
     t.Fatalf("dumped %d nodes, graph has %d", len(dump.Nodes), len(g.Nodes))

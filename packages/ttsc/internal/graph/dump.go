@@ -246,8 +246,12 @@ func NewDump(g *Graph, project, tsconfig string, ignored map[string]bool, source
     diagnostics = []Diagnostic{}
   }
 
+  // Every relative coordinate above is relative to the mapper's canonical base,
+  // not to the spelling the caller happened to select. Publishing the raw
+  // spelling would leave a consumer resolving `../sibling.ts` against a symlink
+  // whose parent is a different directory entirely.
   dump := Dump{
-    Project:     project,
+    Project:     ctx.paths.project,
     Tsconfig:    ctx.rel(tsconfig),
     Provenance:  provenance,
     Diagnostics: diagnostics,
