@@ -2179,6 +2179,20 @@ function recordDirectoryDependency(location, owners) {
 // does not own -- /var on macOS is a symlink whose parent is the filesystem
 // root -- and digesting that parent both reaches outside the project boundary
 // and reads the whole directory to learn one entry's state.
+// A path candidate is observed through the directory that would own a
+// competing resolution, so a sibling winning extension resolution still
+// invalidates. That reasoning is what the parent digest is for and it stays.
+//
+// It does not reach the filesystem root. The root owns no candidate this trace
+// could pick, and a resolution path routinely passes through an ancestor
+// directly beneath it -- /var on macOS is a symlink whose parent is the root --
+// so digesting the parent there enumerates the entire filesystem root on every
+// config load, outside the project boundary. Record that one ancestor instead.
+function recordAncestorDependency(parent, entry, root, owners) {
+  if (parent === root) recordEntryDependency(entry, owners);
+  else recordDirectoryDependency(parent, owners);
+}
+
 function recordEntryDependency(location, owners) {
   recordDependency("entry", location, entryDigest(location), owners);
 }
@@ -2761,11 +2775,11 @@ function recordPackagePathCandidate(
     try {
       entry = fs.lstatSync(next);
     } catch {
-      recordEntryDependency(next, owners);
+      recordAncestorDependency(current, next, parsed.root, owners);
       return;
     }
     if (entry.isSymbolicLink()) {
-      recordEntryDependency(next, owners);
+      recordAncestorDependency(current, next, parsed.root, owners);
       try {
         const target = fs.readlinkSync(next);
         const remainder = components.slice(index + 1);
@@ -2787,18 +2801,12 @@ function recordPackagePathCandidate(
       }
     }
     if (index === components.length - 1) {
-      // A resolved file is observed through its parent, so a sibling that would
-      // win extension resolution still invalidates. That reasoning does not
-      // reach the filesystem root: it owns no candidate this trace could pick,
-      // and digesting it is the same out-of-boundary root listing the branches
-      // above were narrowed to avoid.
       if (isDirectory) recordDirectoryDependency(next, owners);
-      else if (current === parsed.root) recordEntryDependency(next, owners);
-      else recordDirectoryDependency(current, owners);
+      else recordAncestorDependency(current, next, parsed.root, owners);
       return;
     }
     if (!isDirectory) {
-      recordEntryDependency(next, owners);
+      recordAncestorDependency(current, next, parsed.root, owners);
       return;
     }
     current = next;
@@ -3356,6 +3364,25 @@ function recordDirectoryDependency(
 // does not own -- /var on macOS is a symlink whose parent is the filesystem
 // root -- and digesting that parent both reaches outside the project boundary
 // and reads the whole directory to learn one entry's state.
+// A path candidate is observed through the directory that would own a
+// competing resolution, so a sibling winning extension resolution still
+// invalidates. That reasoning is what the parent digest is for and it stays.
+//
+// It does not reach the filesystem root. The root owns no candidate this trace
+// could pick, and a resolution path routinely passes through an ancestor
+// directly beneath it -- /var on macOS is a symlink whose parent is the root --
+// so digesting the parent there enumerates the entire filesystem root on every
+// config load, outside the project boundary. Record that one ancestor instead.
+function recordAncestorDependency(
+  parent: string,
+  entry: string,
+  root: string,
+  owners: readonly string[],
+): void {
+  if (parent === root) recordEntryDependency(entry, owners);
+  else recordDirectoryDependency(parent, owners);
+}
+
 function recordEntryDependency(
   location: string,
   owners: readonly string[],
@@ -3969,11 +3996,11 @@ function recordPackagePathCandidate(
     try {
       entry = fs.lstatSync(next);
     } catch {
-      recordEntryDependency(next, owners);
+      recordAncestorDependency(current, next, parsed.root, owners);
       return;
     }
     if (entry.isSymbolicLink()) {
-      recordEntryDependency(next, owners);
+      recordAncestorDependency(current, next, parsed.root, owners);
       try {
         const target = fs.readlinkSync(next);
         const remainder = components.slice(index + 1);
@@ -3995,18 +4022,12 @@ function recordPackagePathCandidate(
       }
     }
     if (index === components.length - 1) {
-      // A resolved file is observed through its parent, so a sibling that would
-      // win extension resolution still invalidates. That reasoning does not
-      // reach the filesystem root: it owns no candidate this trace could pick,
-      // and digesting it is the same out-of-boundary root listing the branches
-      // above were narrowed to avoid.
       if (isDirectory) recordDirectoryDependency(next, owners);
-      else if (current === parsed.root) recordEntryDependency(next, owners);
-      else recordDirectoryDependency(current, owners);
+      else recordAncestorDependency(current, next, parsed.root, owners);
       return;
     }
     if (!isDirectory) {
-      recordEntryDependency(next, owners);
+      recordAncestorDependency(current, next, parsed.root, owners);
       return;
     }
     current = next;

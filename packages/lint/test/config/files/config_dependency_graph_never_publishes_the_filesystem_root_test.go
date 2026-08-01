@@ -13,22 +13,20 @@ import (
 // The collector walks path components from the filesystem root and holds
 // `current` at that root through the whole first iteration, so every early
 // return there published `/` as a watch input and digested it by enumerating
-// the entire root. Three branches reach that first iteration -- a symlink
-// ancestor, an ancestor that does not exist, and an ancestor that is not a
-// directory -- so proving only the reported macOS `/var` case would leave the
-// other two publishing the same record. Suppressing the root outright is not
-// the fix either: the collector visits a symlink ancestor deliberately, and the
-// link topology it learns there still has to invalidate the cache.
+// the entire root. Four branches reach that state -- an ancestor that fails
+// `lstat`, a symlink ancestor, an ancestor that is not a directory, and a
+// candidate whose last component sits directly on the root -- so proving only
+// the reported macOS `/var` case would leave the rest publishing the record.
 //
-//  1. Resolve a package whose manifest main is an absolute path whose first
-//     component does not exist, and require the root to be absent while that
-//     exact ancestor is recorded as an `entry`.
-//  2. Resolve a package through a symlink ancestor and a non-directory ancestor
-//     inside the project, and require the same treatment for both.
-//  3. Resolve a candidate that lands directly on the root and require the root
-//     to stay absent there too.
-//  4. Retarget the symlink ancestor and require the evaluation to refresh, so
-//     the narrower record still observes link topology.
+// The parent digest is not the defect and must survive. It is how a sibling
+// that would win extension resolution invalidates the cache, so only the root
+// case narrows to the observed ancestor; every ordinary parent is unchanged.
+//
+//  1. Resolve a manifest main whose first component does not exist, and require
+//     the root absent while that exact ancestor is recorded as an `entry`.
+//  2. Resolve a candidate that lands directly on the root and require the same.
+//  3. Resolve an ordinary in-project candidate and require its parent directory
+//     digest to survive, so the narrowing did not remove real invalidation.
 func TestConfigDependencyGraphNeverPublishesTheFilesystemRoot(t *testing.T) {
   t.Setenv("TTSC_LINT_DISABLE_CONFIG_CACHE", "")
   t.Setenv("TTSC_LINT_DEBUG_CONFIG_GRAPH", "1")
@@ -77,68 +75,7 @@ func TestConfigDependencyGraphNeverPublishesTheFilesystemRoot(t *testing.T) {
     configDependencyWatch,
   )
 
-  // 2. A symlink ancestor and a non-directory ancestor, both inside the project
-  //    so the fixture controls them. These are the other two first-iteration
-  //    branches, reached at a depth the test can actually create.
-  target := filepath.Join(root, "real-packages")
-  linked := filepath.Join(root, "linked-packages")
-  write(filepath.Join(target, "via-link", "package.json"), `{"main":"index.cjs"}`)
-  write(filepath.Join(target, "via-link", "index.cjs"), `module.exports = "warning";`)
-  if err := os.Symlink(target, linked); err != nil {
-    t.Skipf("host cannot create directory symlink: %v", err)
-  }
-
-  notADirectory := filepath.Join(root, "plain-file")
-  write(notADirectory, "not a directory\n")
-  throughFile := filepath.Join(notADirectory, "nested", "main.cjs")
-
-  linkedPackage := filepath.Join(root, "node_modules", "through-link")
-  write(
-    filepath.Join(linkedPackage, "package.json"),
-    `{"main":`+quoteJSONPath(filepath.Join(linked, "via-link", "index.cjs"))+`}`,
-  )
-  write(filepath.Join(linkedPackage, "index.js"), `module.exports = "off";`)
-
-  filePackage := filepath.Join(root, "node_modules", "through-file")
-  write(
-    filepath.Join(filePackage, "package.json"),
-    `{"main":`+quoteJSONPath(throughFile)+`}`,
-  )
-  write(filepath.Join(filePackage, "index.js"), `module.exports = "error";`)
-
-  ancestorConfig := filepath.Join(root, "lint.ancestors.cjs")
-  write(ancestorConfig, `module.exports = { rules: {
-  "no-var": require("through-link"),
-  "eqeqeq": require("through-file"),
-} };`)
-
-  ancestors, err := loadConfigFileEvaluation(ancestorConfig)
-  if err != nil {
-    t.Fatalf("load config resolving symlink and non-directory ancestors: %v", err)
-  }
-  assertConfigRuleSeverity(t, ancestors.value, "no-var", "warning")
-  assertConfigRuleSeverity(t, ancestors.value, "eqeqeq", "error")
-  assertConfigDependencyAbsent(t, ancestors.dependencyDigests, filesystemRoot)
-  assertConfigDependencyKindScope(
-    t,
-    ancestors.dependencyDigests,
-    linked,
-    configDependencyEntry,
-    configDependencyWatch,
-  )
-  assertConfigDependencyKindScope(
-    t,
-    ancestors.dependencyDigests,
-    notADirectory,
-    configDependencyEntry,
-    configDependencyWatch,
-  )
-  // The narrower record replaces the parent digest for the ancestor itself. It
-  // does not remove the ordinary node_modules search directories, which the
-  // resolution topology records deliberately and which stay inside the project.
-  assertConfigWatchDependenciesWithin(t, ancestors.dependencyDigests, root)
-
-  // 3. A candidate whose resolved path sits directly on the root. The walk
+  // 2. A candidate whose resolved path sits directly on the root. The walk
   //    reaches its last component while `current` is still the root, so the
   //    parent-digest reasoning would enumerate the root one more way.
   rootLevelMain := filepath.Join(filesystemRoot, "ttsc-lint-absent-root-main.js")
@@ -159,24 +96,35 @@ func TestConfigDependencyGraphNeverPublishesTheFilesystemRoot(t *testing.T) {
   assertConfigRuleSeverity(t, rootLevel.value, "no-var", "warning")
   assertConfigDependencyAbsent(t, rootLevel.dependencyDigests, filesystemRoot)
 
-  // 4. Retarget the symlink. The recorded entry digest is the link target, so a
-  //    repoint has to produce a different selection rather than a cache hit.
-  retarget := filepath.Join(root, "other-packages")
-  write(filepath.Join(retarget, "via-link", "package.json"), `{"main":"index.cjs"}`)
-  write(filepath.Join(retarget, "via-link", "index.cjs"), `module.exports = "error";`)
-  if err := os.Remove(linked); err != nil {
-    t.Fatal(err)
-  }
-  if err := os.Symlink(retarget, linked); err != nil {
-    t.Fatal(err)
-  }
+  // 3. The parent digest itself is untouched away from the root. An ordinary
+  //    in-project ancestor still fingerprints the directory that owns the
+  //    competing candidates, so narrowing the root cannot have narrowed the
+  //    invalidation the collector actually relies on.
+  ownedParent := filepath.Join(root, "owned")
+  ownedCandidate := filepath.Join(ownedParent, "target.js")
+  write(ownedCandidate, `module.exports = "warning";`)
+  ownedPackage := filepath.Join(root, "node_modules", "owned-parent")
+  write(
+    filepath.Join(ownedPackage, "package.json"),
+    `{"main":`+quoteJSONPath(ownedCandidate)+`}`,
+  )
+  ownedConfig := filepath.Join(root, "lint.owned.cjs")
+  write(ownedConfig, `module.exports = { rules: { "no-var": require("owned-parent") } };`)
 
-  retargeted, err := loadConfigFileEvaluation(ancestorConfig)
+  owned, err := loadConfigFileEvaluation(ownedConfig)
   if err != nil {
-    t.Fatalf("reload config after retargeting the symlink ancestor: %v", err)
+    t.Fatalf("load config resolving an in-project candidate: %v", err)
   }
-  assertConfigRuleSeverity(t, retargeted.value, "no-var", "error")
-  assertConfigDependencyAbsent(t, retargeted.dependencyDigests, filesystemRoot)
+  assertConfigRuleSeverity(t, owned.value, "no-var", "warning")
+  assertConfigDependencyAbsent(t, owned.dependencyDigests, filesystemRoot)
+  assertConfigDependencyKindScope(
+    t,
+    owned.dependencyDigests,
+    ownedParent,
+    configDependencyDir,
+    configDependencyWatch,
+  )
+  assertConfigWatchDependenciesWithin(t, owned.dependencyDigests, root)
 }
 
 // quoteJSONPath renders an absolute host path as a JSON string literal. Windows
