@@ -23,12 +23,23 @@ export function printGraphHelp(): void {
   ]);
 }
 
-/** Print `ttsc-graph dump` help without starting the native binary. */
+/**
+ * Print `ttsc-graph dump` help without starting the native binary.
+ *
+ * `dump` forwards to `ttscgraph`, which owns the flag contract, so this page is
+ * a summary and not the source of truth. Answering locally is still right —
+ * help has to work when no platform package is installed — but the page names
+ * the authority so a reader who needs the exact current set knows where it
+ * lives rather than trusting a copy that can drift.
+ */
 export function printDumpHelp(): void {
   write([
     "Usage: ttsc-graph dump [options]",
     "",
-    "Write the compiler graph as JSON to stdout.",
+    "Write the whole compiler graph as JSON to stdout: every node and edge,",
+    "none of the MCP response caps. The native `ttscgraph` binary owns these",
+    "flags; run `ttscgraph dump --help` through an installed ttsc for its",
+    "authoritative list.",
     "",
     "Options:",
     "  --cwd <path>          Project root (default: current directory).",
