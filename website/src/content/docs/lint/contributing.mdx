@@ -1,0 +1,123 @@
+# Publishing Rule Contributors
+
+A contributor package adds rules to `@ttsc/lint` under its own namespace. It is not a top-level `ttsc` plugin: the compiler never loads it, `lint.config.*` imports it, and its rules run inside the lint engine's own binary.
+
+## Package contents
+
+One npm package carries a JS descriptor and the Go source of its rules:
+
+- the built descriptor entry (`lib/index.js` plus `lib/index.d.ts`);
+- the Go rules directory the descriptor's `source` points at;
+- `go.mod`, and `go.sum` when present;
+- `README.md` and license.
+
+`ttsc` statically links that Go source into `@ttsc/lint`'s binary on first build, so the tarball ships source, not a prebuilt binary. Verify with `npm pack --dry-run` before publishing.
+
+## Naming and discovery
+
+Follow the [community naming convention](/docs/development/authoring/publishing#community-package-naming):
+
+```text
+ttsc-lint-plugin-<name>
+@scope/ttsc-lint-plugin-<name>
+```
+
+```json
+{
+  "keywords": ["ttsc", "ttsc-plugin", "ttsc-lint-plugin", "tsgo", "lint"]
+}
+```
+
+The prefix is a convention, not a runtime requirement. `@ttsc/*` is reserved for packages this project maintains.
+
+## Peer dependencies
+
+The consumer project supplies the lint engine and the active TypeScript runtime; a contributor should not carry either in `dependencies`:
+
+```json
+"peerDependencies": {
+  "@ttsc/lint": ">=0.23.0 <0.24.0",
+  "typescript": "*"
+}
+```
+
+Pin the `@ttsc/lint` minor range you actually tested against. The `rule` package and its `rule/astutil` helpers are the public Go surface for third-party rules; a new minor may add helpers, and a major may change the `rule` contract.
+
+## `meta.name` versus `meta.namespace`
+
+Three names do three different jobs, and only the last one appears in a user's config:
+
+| Name             | Purpose                            |
+| ---------------- | ---------------------------------- |
+| npm package name | installation and package discovery |
+| `meta.name`      | informational package identity     |
+| `meta.namespace` | the rule-id prefix users write     |
+
+```ts
+import type { ITtscLintPlugin } from "@ttsc/lint";
+import path from "node:path";
+
+const plugin = {
+  meta: {
+    name: "ttsc-lint-plugin-example",
+    version: "1.0.0",
+    namespace: "example",
+  },
+  rules: ["some-rule"] as const,
+  source: path.resolve(__dirname, "..", "rules"),
+} satisfies ITtscLintPlugin;
+
+export default plugin;
+```
+
+That descriptor produces rule ids under `example/*`, whatever the package is installed as. Keep the `rules` tuple `as const` so [`ITtscLintConfig`](/docs/lint/rules) can suggest your rule keys in the user's `rules` map. The array is advisory; registration happens in the Go `init()` through `rule.Register`.
+
+## Registration is explicit
+
+A contributor is never auto-loaded. The consumer imports it and names it in `lint.config.*`:
+
+```ts
+import type { ITtscLintConfig } from "@ttsc/lint";
+import example from "ttsc-lint-plugin-example";
+
+export default {
+  plugins: {
+    example,
+  },
+  rules: {
+    "example/some-rule": "error",
+  },
+} satisfies ITtscLintConfig;
+```
+
+Unless the package also ships an independent top-level transform, it needs no `ttsc.plugin` manifest entry.
+
+## Before publishing
+
+Test the package the way a consumer installs it, so a missing file in `files` fails here instead of downstream:
+
+```bash
+# 1. Pack the tarball.
+pnpm pack
+TARBALL=$(ls *.tgz | tail -n1)
+
+# 2. Stand up a clean-room consumer.
+WORKDIR=$(mktemp -d)
+cd "$WORKDIR"
+npm init -y >/dev/null
+npm install --no-save "${OLDPWD}/${TARBALL}" ttsc typescript @ttsc/lint
+
+# 3. Register the contributor and a source file that must report.
+# ... write lint.config.ts and src/main.ts ...
+
+# 4. Build the native contributor and assert the rule fires.
+npx ttsc-lint src
+```
+
+Step 4 is the one that matters: it forces the Go source to link into the lint binary on the consumer machine. A contributor that type-checks but omits its `source` directory from the tarball passes every earlier step and fails only here.
+
+Pin `TTSC_GO_BINARY` and `TTSC_CACHE_DIR` in CI so that build is deterministic across matrix runs.
+
+## Next
+
+→ [Rules](/docs/lint/rules), the in-tree families and the namespaces already taken.

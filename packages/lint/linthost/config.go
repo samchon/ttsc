@@ -1315,6 +1315,7 @@ const (
   configDependencyWatch        = "watch"
   configDependencyFile         = "file"
   configDependencyDir          = "directory"
+  configDependencyEntry        = "entry"
   configDependencyOptionalFile = "optional-file"
 )
 
@@ -1376,7 +1377,10 @@ func loadConfigFileEvaluationWithin(
 // configCacheVersion namespaces the on-disk config cache. Bump it whenever
 // the shape of a cached config object changes so that entries written by an
 // older @ttsc/lint binary are treated as a miss rather than silently reused.
-const configCacheVersion = "v5"
+// v6 adds the `entry` dependency kind. A v5 cache records a resolution trace's
+// ancestors as directory digests, so reusing it would keep republishing the
+// filesystem root as a watch input for as long as the entry survives.
+const configCacheVersion = "v6"
 
 // configEvalCache memoizes evaluated .ts/.js lint config objects for the
 // lifetime of one process; the on-disk cache (configCacheDir) extends the
@@ -1615,6 +1619,36 @@ func configDependencyDigest(
     }
     return hex.EncodeToString(h.Sum(nil)), nil
   }
+  // The `entry` digest observes one path's own existence and link topology.
+  // It must reproduce the loader script's encoding byte for byte, because the
+  // script writes the fingerprint and this function is what later decides the
+  // cached evaluation is still current.
+  if dependency.Kind == configDependencyEntry {
+    info, err := os.Lstat(dependency.Path)
+    if err != nil {
+      digest := sha256.Sum256([]byte("missing\x00"))
+      return hex.EncodeToString(digest[:]), nil
+    }
+    if info.Mode()&os.ModeSymlink != 0 {
+      target, err := os.Readlink(dependency.Path)
+      if err != nil {
+        target = "<unreadable>"
+      }
+      h := sha256.New()
+      h.Write([]byte("symlink\x00"))
+      h.Write([]byte(target))
+      return hex.EncodeToString(h.Sum(nil)), nil
+    }
+    kind := "other"
+    switch {
+    case info.IsDir():
+      kind = "directory"
+    case info.Mode().IsRegular():
+      kind = "file"
+    }
+    digest := sha256.Sum256([]byte(kind + "\x00"))
+    return hex.EncodeToString(digest[:]), nil
+  }
   if dependency.Kind == configDependencyOptionalFile {
     info, err := os.Stat(dependency.Path)
     if err != nil || !info.Mode().IsRegular() {
@@ -1836,6 +1870,7 @@ func normalizeConfigDependencyFingerprints(
       strings.ToLower(dependency.Digest) != dependency.Digest ||
       (dependency.Kind != configDependencyFile &&
         dependency.Kind != configDependencyDir &&
+        dependency.Kind != configDependencyEntry &&
         dependency.Kind != configDependencyOptionalFile) ||
       (dependency.Scope != configDependencyCache &&
         dependency.Scope != configDependencyWatch) {
@@ -2137,6 +2172,55 @@ function recordDirectoryDependency(location, owners) {
   } catch {
     recordDependency("directory", location, "", owners);
   }
+}
+
+// Observe one path's own existence and link topology instead of enumerating the
+// directory that contains it. A resolution trace passes through ancestors it
+// does not own -- /var on macOS is a symlink whose parent is the filesystem
+// root -- and digesting that parent both reaches outside the project boundary
+// and reads the whole directory to learn one entry's state.
+// A path candidate is observed through the directory that would own a
+// competing resolution, so a sibling winning extension resolution still
+// invalidates. That reasoning is what the parent digest is for and it stays.
+//
+// It does not reach the filesystem root. The root owns no candidate this trace
+// could pick, and a resolution path routinely passes through an ancestor
+// directly beneath it -- /var on macOS is a symlink whose parent is the root --
+// so digesting the parent there enumerates the entire filesystem root on every
+// config load, outside the project boundary. Record that one ancestor instead.
+function recordAncestorDependency(parent, entry, root, owners) {
+  if (parent === root) recordEntryDependency(entry, owners);
+  else recordDirectoryDependency(parent, owners);
+}
+
+function recordEntryDependency(location, owners) {
+  recordDependency("entry", location, entryDigest(location), owners);
+}
+
+function entryDigest(location) {
+  let entry;
+  try {
+    entry = fs.lstatSync(location);
+  } catch {
+    return createHash("sha256").update("missing\0").digest("hex");
+  }
+  if (entry.isSymbolicLink()) {
+    let target;
+    try {
+      target = fs.readlinkSync(location, { encoding: "buffer" });
+    } catch {
+      target = Buffer.from("<unreadable>");
+    }
+    return createHash("sha256")
+      .update(Buffer.concat([Buffer.from("symlink\0"), target]))
+      .digest("hex");
+  }
+  const kind = entry.isDirectory()
+    ? "directory"
+    : entry.isFile()
+      ? "file"
+      : "other";
+  return createHash("sha256").update(kind + "\0").digest("hex");
 }
 
 function directoryDigest(location) {
@@ -2691,11 +2775,11 @@ function recordPackagePathCandidate(
     try {
       entry = fs.lstatSync(next);
     } catch {
-      recordDirectoryDependency(current, owners);
+      recordAncestorDependency(current, next, parsed.root, owners);
       return;
     }
     if (entry.isSymbolicLink()) {
-      recordDirectoryDependency(current, owners);
+      recordAncestorDependency(current, next, parsed.root, owners);
       try {
         const target = fs.readlinkSync(next);
         const remainder = components.slice(index + 1);
@@ -2717,16 +2801,20 @@ function recordPackagePathCandidate(
       }
     }
     if (index === components.length - 1) {
-      recordDirectoryDependency(isDirectory ? next : current, owners);
+      if (isDirectory) recordDirectoryDependency(next, owners);
+      else recordAncestorDependency(current, next, parsed.root, owners);
       return;
     }
     if (!isDirectory) {
-      recordDirectoryDependency(current, owners);
+      recordAncestorDependency(current, next, parsed.root, owners);
       return;
     }
     current = next;
   }
-  recordDirectoryDependency(current, owners);
+  // Reached only when the candidate resolved to the filesystem root itself,
+  // which names no package. Record its existence, not its listing.
+  if (current === parsed.root) recordEntryDependency(current, owners);
+  else recordDirectoryDependency(current, owners);
 }
 
 function modulePackageName(specifier) {
@@ -3045,7 +3133,7 @@ const resolutionRoot = path.resolve(%s);
 const CONFIG_KEYS = new Set<string>([%s]);
 const dependencies = new Map<string, {
   digest: string;
-  kind: "directory" | "file" | "optional-file";
+  kind: "directory" | "entry" | "file" | "optional-file";
   path: string;
   owners: Set<string>;
 }>();
@@ -3207,7 +3295,7 @@ function isObject(value: unknown): value is Record<string, unknown> {
 }
 
 function recordDependency(
-  kind: "directory" | "file" | "optional-file",
+  kind: "directory" | "entry" | "file" | "optional-file",
   location: string,
   digest: string,
   owners: readonly string[],
@@ -3269,6 +3357,63 @@ function recordDirectoryDependency(
   } catch {
     recordDependency("directory", location, "", owners);
   }
+}
+
+// Observe one path's own existence and link topology instead of enumerating the
+// directory that contains it. A resolution trace passes through ancestors it
+// does not own -- /var on macOS is a symlink whose parent is the filesystem
+// root -- and digesting that parent both reaches outside the project boundary
+// and reads the whole directory to learn one entry's state.
+// A path candidate is observed through the directory that would own a
+// competing resolution, so a sibling winning extension resolution still
+// invalidates. That reasoning is what the parent digest is for and it stays.
+//
+// It does not reach the filesystem root. The root owns no candidate this trace
+// could pick, and a resolution path routinely passes through an ancestor
+// directly beneath it -- /var on macOS is a symlink whose parent is the root --
+// so digesting the parent there enumerates the entire filesystem root on every
+// config load, outside the project boundary. Record that one ancestor instead.
+function recordAncestorDependency(
+  parent: string,
+  entry: string,
+  root: string,
+  owners: readonly string[],
+): void {
+  if (parent === root) recordEntryDependency(entry, owners);
+  else recordDirectoryDependency(parent, owners);
+}
+
+function recordEntryDependency(
+  location: string,
+  owners: readonly string[],
+): void {
+  recordDependency("entry", location, entryDigest(location), owners);
+}
+
+function entryDigest(location: string): string {
+  let entry: ReturnType<typeof fs.lstatSync>;
+  try {
+    entry = fs.lstatSync(location);
+  } catch {
+    return createHash("sha256").update("missing\0").digest("hex");
+  }
+  if (entry.isSymbolicLink()) {
+    let target: Buffer;
+    try {
+      target = fs.readlinkSync(location, { encoding: "buffer" });
+    } catch {
+      target = Buffer.from("<unreadable>");
+    }
+    return createHash("sha256")
+      .update(Buffer.concat([Buffer.from("symlink\0"), target]))
+      .digest("hex");
+  }
+  const kind = entry.isDirectory()
+    ? "directory"
+    : entry.isFile()
+      ? "file"
+      : "other";
+  return createHash("sha256").update(kind + "\0").digest("hex");
 }
 
 function directoryDigest(location: string): string {
@@ -3851,11 +3996,11 @@ function recordPackagePathCandidate(
     try {
       entry = fs.lstatSync(next);
     } catch {
-      recordDirectoryDependency(current, owners);
+      recordAncestorDependency(current, next, parsed.root, owners);
       return;
     }
     if (entry.isSymbolicLink()) {
-      recordDirectoryDependency(current, owners);
+      recordAncestorDependency(current, next, parsed.root, owners);
       try {
         const target = fs.readlinkSync(next);
         const remainder = components.slice(index + 1);
@@ -3877,16 +4022,20 @@ function recordPackagePathCandidate(
       }
     }
     if (index === components.length - 1) {
-      recordDirectoryDependency(isDirectory ? next : current, owners);
+      if (isDirectory) recordDirectoryDependency(next, owners);
+      else recordAncestorDependency(current, next, parsed.root, owners);
       return;
     }
     if (!isDirectory) {
-      recordDirectoryDependency(current, owners);
+      recordAncestorDependency(current, next, parsed.root, owners);
       return;
     }
     current = next;
   }
-  recordDirectoryDependency(current, owners);
+  // Reached only when the candidate resolved to the filesystem root itself,
+  // which names no package. Record its existence, not its listing.
+  if (current === parsed.root) recordEntryDependency(current, owners);
+  else recordDirectoryDependency(current, owners);
 }
 
 function modulePackageName(specifier: string): string | undefined {
@@ -3964,7 +4113,7 @@ function realPath(location: string): string {
 
 function finalizeDependencies(): Array<{
   digest: string;
-  kind: "directory" | "file" | "optional-file";
+  kind: "directory" | "entry" | "file" | "optional-file";
   path: string;
   scope: "cache" | "watch";
 }> {

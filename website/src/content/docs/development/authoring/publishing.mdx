@@ -2,17 +2,42 @@
 
 A plugin is one npm package containing a JS descriptor and Go source.
 
+## Community package naming
+
+`ttsc` resolves plugins by the name you publish under, so no prefix is required and nothing is enforced at runtime. The names below are the ecosystem convention: they make a package recognizable on npm and let the keywords below find it.
+
+| Package type | Unscoped | Scoped |
+| --- | --- | --- |
+| Top-level `ttsc` plugin | `ttsc-plugin-<name>` | `@scope/ttsc-plugin-<name>` |
+| [`@ttsc/lint` rule contributor](/docs/lint/contributing) | `ttsc-lint-plugin-<name>` | `@scope/ttsc-lint-plugin-<name>` |
+
+The two are different extension surfaces. A top-level plugin loads through `compilerOptions.plugins` or the `ttsc.plugin` manifest and transforms the emit; a lint contributor is imported by `lint.config.*` and adds rules. A package that does both publishes both entries.
+
+Pair the name with keywords, which are what npm search actually matches:
+
+```json
+{
+  "keywords": ["ttsc", "ttsc-plugin", "tsgo"]
+}
+```
+
+A lint contributor adds `ttsc-lint-plugin` and `lint` to that list.
+
+The `@ttsc/*` scope is reserved for packages this project owns and maintains. Publish community packages unscoped or under your own scope; do not use `@ttsc/*` to signal compatibility.
+
+Existing and branded names stay valid and need no rename — `typia` and `nestia` are plugins under their own names. Keywords, peer dependencies, and the [ecosystem page](/docs/plugins) are how those stay discoverable.
+
 ## `package.json`
 
 ```json
 {
-  "name": "my-ttsc-plugin",
+  "name": "ttsc-plugin-example",
   "version": "0.1.0",
   "description": "What the plugin does.",
   "main": "plugin.cjs",
   "ttsc": {
     "plugin": {
-      "transform": "my-ttsc-plugin"
+      "transform": "ttsc-plugin-example"
     }
   },
   "files": ["plugin.cjs", "plugin", "driver"],
