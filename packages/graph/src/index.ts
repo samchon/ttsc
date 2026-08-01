@@ -117,14 +117,20 @@ export async function runGraph(
  * on this process's stdout. Returns the child's exit code.
  */
 function runDump(argv: readonly string[]): number {
-  if (argv.includes("--help") || argv.includes("-h")) {
-    printDumpHelp();
-    return 0;
-  }
   // Resolve the native binary from the target project the caller named with
   // `--cwd`, not from wherever the launcher process happened to start.
   const { cwd } = projectOptions(parseLauncherOptions(argv, DUMP_OPTIONS));
   const binary = resolveGraphBinary(process.env, cwd);
+  if (argv.includes("--help") || argv.includes("-h")) {
+    // The native binary owns this command's full flag contract. Keep the
+    // launcher usable without a platform package by falling back to a compact
+    // local page only when no native binary can be resolved.
+    if (binary === null) {
+      printDumpHelp();
+      return 0;
+    }
+    return runNativeDump(binary, argv);
+  }
   if (binary === null) {
     process.stderr.write(
       "@ttsc/graph: could not resolve the ttscgraph binary. " +
@@ -133,6 +139,10 @@ function runDump(argv: readonly string[]): number {
     );
     return 1;
   }
+  return runNativeDump(binary, argv);
+}
+
+function runNativeDump(binary: string, argv: readonly string[]): number {
   ensureExecutable(binary);
   const result = spawnSync(binary, ["dump", ...argv], {
     stdio: "inherit",

@@ -35,6 +35,76 @@ const SHARED_OPTIONS = [
   { key: "pretty", flags: ["--pretty"], kind: "flag" },
 ] as const satisfies readonly IInspectOption[];
 
+type InspectRequest = Exclude<
+  ITtscGraphApplication.IProps["request"]["type"],
+  "escape"
+>;
+
+/**
+ * Per-request CLI options, keyed by the producer request discriminator.
+ *
+ * The CLI projects the MCP request union by hand. Keeping this table keyed by
+ * that union means a new graph-reading request fails type-checking until both
+ * its option set and `parseInvocation` branch are intentionally defined.
+ */
+const INSPECT_OPTIONS = {
+  overview: [
+    { key: "aspect", flags: ["--aspect"], kind: "value" },
+  ],
+  entrypoints: [
+    { key: "limit", flags: ["--limit"], kind: "value" },
+    { key: "neighbors", flags: ["--neighbors"], kind: "value" },
+  ],
+  lookup: [
+    { key: "limit", flags: ["--limit"], kind: "value" },
+    {
+      key: "include_external",
+      flags: ["--include-external"],
+      kind: "flag",
+    },
+  ],
+  details: [
+    { key: "neighbors", flags: ["--neighbors"], kind: "flag" },
+    {
+      key: "neighbor_limit",
+      flags: ["--neighbor-limit"],
+      kind: "value",
+    },
+    {
+      key: "member_limit",
+      flags: ["--member-limit"],
+      kind: "value",
+    },
+    {
+      key: "dependency_limit",
+      flags: ["--dependency-limit"],
+      kind: "value",
+    },
+    {
+      key: "include_external",
+      flags: ["--include-external"],
+      kind: "flag",
+    },
+  ],
+  trace: [
+    { key: "to", flags: ["--to"], kind: "value" },
+    { key: "direction", flags: ["--direction"], kind: "value" },
+    { key: "focus", flags: ["--focus"], kind: "value" },
+    { key: "max_depth", flags: ["--max-depth"], kind: "value" },
+    { key: "max_nodes", flags: ["--max-nodes"], kind: "value" },
+    {
+      key: "include_external",
+      flags: ["--include-external"],
+      kind: "flag",
+    },
+  ],
+  tour: [
+    { key: "hint", flags: ["--hint"], kind: "value", multiple: true },
+    { key: "limit", flags: ["--limit"], kind: "value" },
+    { key: "no_tests", flags: ["--no-tests"], kind: "flag" },
+  ],
+} as const satisfies Record<InspectRequest, readonly IInspectOption[]>;
+
 /**
  * Run one semantic graph request outside MCP.
  *
@@ -210,109 +280,12 @@ function parseInvocation(argv: readonly string[]): IInspectInvocation {
   }
 }
 
-/**
- * Every graph-reading request this CLI projects.
- *
- * `escape` is the one union member with no shell equivalent: it performs no
- * graph work and only tells an MCP client the answer is outside the graph.
- *
- * The `satisfies` is the contract, not decoration. The CLI hand-mirrors the
- * request union, and both switches below fall through silently — an added
- * member would keep compiling and keep passing, since the tests can only
- * enumerate the requests that exist when they are written. Keying this record
- * by the union's own discriminator makes `tsc` fail until the new member is
- * named here, so drift becomes a type error instead of a silent gap.
- */
-const INSPECT_REQUESTS = {
-  overview: true,
-  entrypoints: true,
-  lookup: true,
-  details: true,
-  trace: true,
-  tour: true,
-} as const satisfies Record<
-  Exclude<ITtscGraphApplication.IProps["request"]["type"], "escape">,
-  true
->;
-
-type InspectRequest = keyof typeof INSPECT_REQUESTS;
-
 function isInspectRequest(command: string): command is InspectRequest {
-  return Object.prototype.hasOwnProperty.call(INSPECT_REQUESTS, command);
+  return Object.prototype.hasOwnProperty.call(INSPECT_OPTIONS, command);
 }
 
-function optionsFor(command: string): readonly IInspectOption[] {
-  switch (command) {
-    case "overview":
-      return [
-        ...SHARED_OPTIONS,
-        { key: "aspect", flags: ["--aspect"], kind: "value" },
-      ];
-    case "entrypoints":
-      return [
-        ...SHARED_OPTIONS,
-        { key: "limit", flags: ["--limit"], kind: "value" },
-        { key: "neighbors", flags: ["--neighbors"], kind: "value" },
-      ];
-    case "lookup":
-      return [
-        ...SHARED_OPTIONS,
-        { key: "limit", flags: ["--limit"], kind: "value" },
-        {
-          key: "include_external",
-          flags: ["--include-external"],
-          kind: "flag",
-        },
-      ];
-    case "details":
-      return [
-        ...SHARED_OPTIONS,
-        { key: "neighbors", flags: ["--neighbors"], kind: "flag" },
-        {
-          key: "neighbor_limit",
-          flags: ["--neighbor-limit"],
-          kind: "value",
-        },
-        {
-          key: "member_limit",
-          flags: ["--member-limit"],
-          kind: "value",
-        },
-        {
-          key: "dependency_limit",
-          flags: ["--dependency-limit"],
-          kind: "value",
-        },
-        {
-          key: "include_external",
-          flags: ["--include-external"],
-          kind: "flag",
-        },
-      ];
-    case "trace":
-      return [
-        ...SHARED_OPTIONS,
-        { key: "to", flags: ["--to"], kind: "value" },
-        { key: "direction", flags: ["--direction"], kind: "value" },
-        { key: "focus", flags: ["--focus"], kind: "value" },
-        { key: "max_depth", flags: ["--max-depth"], kind: "value" },
-        { key: "max_nodes", flags: ["--max-nodes"], kind: "value" },
-        {
-          key: "include_external",
-          flags: ["--include-external"],
-          kind: "flag",
-        },
-      ];
-    case "tour":
-      return [
-        ...SHARED_OPTIONS,
-        { key: "hint", flags: ["--hint"], kind: "value", multiple: true },
-        { key: "limit", flags: ["--limit"], kind: "value" },
-        { key: "no_tests", flags: ["--no-tests"], kind: "flag" },
-      ];
-    default:
-      return SHARED_OPTIONS;
-  }
+function optionsFor(command: InspectRequest): readonly IInspectOption[] {
+  return [...SHARED_OPTIONS, ...INSPECT_OPTIONS[command]];
 }
 
 function parseInspectArgs(

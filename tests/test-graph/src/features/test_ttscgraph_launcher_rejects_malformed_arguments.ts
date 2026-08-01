@@ -42,6 +42,15 @@ export const test_ttscgraph_launcher_rejects_malformed_arguments = () => {
       env: { TTSC_GRAPH_BINARY: binary, TTSCGRAPH_MARKER: marker },
       timeout: 30_000,
     });
+  const runWithoutNative = (args: string[]) => {
+    const env = { ...process.env, TTSCGRAPH_MARKER: marker };
+    delete env.TTSC_GRAPH_BINARY;
+    return TestProject.spawn(process.execPath, [resolveGraphLauncher(), ...args], {
+      cwd: root,
+      env,
+      timeout: 30_000,
+    });
+  };
 
   const malformed = [
     ["view", "--max-nodes", "oops"],
@@ -74,7 +83,12 @@ export const test_ttscgraph_launcher_rejects_malformed_arguments = () => {
     ["dump", "--tsconfig="],
     ["inspect"],
     ["inspect", "lookup"],
+    ["inspect", "lookup", "--literal-handle"],
     ["inspect", "lookup", "Service", "--limit", "0"],
+    ["inspect", "lookup", "Service", "--limit", "-1"],
+    ["inspect", "lookup", "Service", "--include-external=true"],
+    ["inspect", "details"],
+    ["inspect", "overview", "--aspect=not-a-facet"],
     ["inspect", "trace", "Service", "--direction", "sideways"],
     ["inspect", "tour", "question", "--hint"],
   ];
@@ -116,12 +130,24 @@ export const test_ttscgraph_launcher_rejects_malformed_arguments = () => {
         `${args.join(" ")} preserves the native dump argv`,
       );
     }
+
+    fs.rmSync(marker, { force: true });
+    const nativeHelp = run(["dump", "--help"]);
+    assert.equal(
+      nativeHelp.status,
+      23,
+      `dump --help preserves the native exit code\nstderr: ${nativeHelp.stderr}`,
+    );
+    assert.deepEqual(
+      JSON.parse(fs.readFileSync(marker, "utf8")),
+      ["dump", "--help"],
+      "dump --help forwards to the resolved native binary",
+    );
   }
 
   for (const args of [
     ["--help"],
     ["help"],
-    ["dump", "--help"],
     ["view", "--help"],
     ["inspect", "--help"],
   ]) {
@@ -143,4 +169,22 @@ export const test_ttscgraph_launcher_rejects_malformed_arguments = () => {
       `${args.join(" ")} does not invoke the native graph binary`,
     );
   }
+
+  fs.rmSync(marker, { force: true });
+  const fallbackHelp = runWithoutNative(["dump", "--help"]);
+  assert.equal(
+    fallbackHelp.status,
+    0,
+    `dump --help falls back without a native binary\nstderr: ${fallbackHelp.stderr}`,
+  );
+  assert.match(
+    fallbackHelp.stdout ?? "",
+    /^Usage: ttsc-graph dump/m,
+    "fallback dump help writes the local summary",
+  );
+  assert.equal(
+    fs.existsSync(marker),
+    false,
+    "fallback dump help does not invoke the unavailable native binary",
+  );
 };

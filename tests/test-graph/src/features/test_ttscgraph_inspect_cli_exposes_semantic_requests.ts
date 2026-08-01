@@ -97,6 +97,17 @@ export const test_ttscgraph_inspect_cli_exposes_semantic_requests = () => {
     `overview includes the requested public API facet: ${JSON.stringify(overview.result)}`,
   );
 
+  const inlineOverview = run([
+    "overview",
+    `--cwd=${root}`,
+    "--aspect=publicApi",
+  ]);
+  assertResult(inlineOverview, "overview");
+  assert.ok(
+    Array.isArray(inlineOverview.result.publicApi),
+    `inline option values reach overview: ${JSON.stringify(inlineOverview.result)}`,
+  );
+
   const entrypoints = run([
     "entrypoints",
     "How does Service.run reach helper?",
@@ -122,6 +133,24 @@ export const test_ttscgraph_inspect_cli_exposes_semantic_requests = () => {
     `lookup resolves a concrete symbol: ${JSON.stringify(lookup.result)}`,
   );
 
+  const escapedLookup = run([
+    "lookup",
+    "--cwd",
+    root,
+    "--",
+    "--literal-handle",
+  ]);
+  assertResult(escapedLookup, "lookup");
+
+  const externalLookup = run([
+    "lookup",
+    "Service",
+    "--cwd",
+    root,
+    "--include-external",
+  ]);
+  assertResult(externalLookup, "lookup");
+
   const details = run([
     "details",
     "Service.run",
@@ -137,6 +166,21 @@ export const test_ttscgraph_inspect_cli_exposes_semantic_requests = () => {
       (node) => node.name === "Service.run",
     ),
     `details resolves the requested handle: ${JSON.stringify(details.result)}`,
+  );
+
+  const multipleDetails = run([
+    "details",
+    "Service.run",
+    "helper",
+    "--cwd",
+    root,
+  ]);
+  assertResult(multipleDetails, "details");
+  const detailNames = (multipleDetails.result.nodes as Array<{ name?: string }>)
+    .map((node) => node.name);
+  assert.ok(
+    detailNames.includes("Service.run") && detailNames.includes("helper"),
+    `details preserves every supplied handle: ${JSON.stringify(multipleDetails.result)}`,
   );
 
   const trace = run([

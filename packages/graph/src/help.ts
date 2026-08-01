@@ -24,13 +24,11 @@ export function printGraphHelp(): void {
 }
 
 /**
- * Print `ttsc-graph dump` help without starting the native binary.
+ * Print fallback `ttsc-graph dump` help when no native binary is available.
  *
- * `dump` forwards to `ttscgraph`, which owns the flag contract, so this page is
- * a summary and not the source of truth. Answering locally is still right —
- * help has to work when no platform package is installed — but the page names
- * the authority so a reader who needs the exact current set knows where it
- * lives rather than trusting a copy that can drift.
+ * When `ttscgraph` resolves, the launcher forwards its help verbatim. This
+ * compact page keeps help usable without a platform package and identifies the
+ * native binary as the authority for its complete flag contract.
  */
 export function printDumpHelp(): void {
   write([
