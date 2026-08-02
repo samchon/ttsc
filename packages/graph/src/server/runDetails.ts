@@ -26,10 +26,9 @@ const MAX_DEPENDENCIES = 4;
 // Structural relationships are navigation, not the dependency picture details is for.
 const STRUCTURAL_KINDS = new Set<string>(["contains", "exports"]);
 // Kinds whose value is their member outline, not implementation text.
-const CONTAINER_KINDS = new Set<string>([
+const CONTAINER_KINDS = new Set<ITtscGraphNode["kind"]>([
   "class",
   "interface",
-  "module",
   "enum",
   "file",
 ]);

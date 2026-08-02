@@ -56,13 +56,12 @@ const EXECUTION_KINDS = new Set<string>([
   "accesses",
   "renders",
 ]);
-const TOUR_SEED_KINDS = new Set<string>([
+const TOUR_SEED_KINDS = new Set<ITtscGraphNode["kind"]>([
   "class",
   "function",
   "method",
   "property",
   "variable",
-  "module",
   "enum",
 ]);
 

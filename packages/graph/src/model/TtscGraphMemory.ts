@@ -27,7 +27,7 @@ export class TtscGraphMemory {
 
   /** The absolute project root the dump was built for. */
   readonly project: string;
-  /** Every node, raw plus synthesized (file containers). */
+  /** Every post-fold node, including refined properties and file containers. */
   readonly nodes: readonly ITtscGraphNode[];
   /** Every edge, raw plus synthesized containment. */
   readonly edges: readonly ITtscGraphEdge[];
