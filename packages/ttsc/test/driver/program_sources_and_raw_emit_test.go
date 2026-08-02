@@ -22,8 +22,8 @@ import (
 func TestDriverProgramSourcesAndRawEmit(t *testing.T) {
   root := t.TempDir()
 
-  // Scenario setup: the declaration file is included deliberately so
-  // SourceFiles can prove it exposes user-authored implementation files only.
+  // Scenario setup: the declaration file is included deliberately so this
+  // fixture can prove SourceFiles excludes declaration entries.
   writeProjectFile(t, root, "tsconfig.json", `{
   "compilerOptions": {
     "module": "commonjs",

@@ -513,8 +513,10 @@ func ApplySourcePreamble(text string, preamble string) string {
   return bom + preamble + rest
 }
 
-// SourceFiles exposes the program's user-authored source files (declaration
-// files filtered out).
+// SourceFiles exposes the program's resident non-declaration source files.
+// Imported implementation files from source-distributed dependencies can be
+// present; consumers that need project-owned files must apply their own root
+// predicate.
 func (p *Program) SourceFiles() []*ast.SourceFile {
   // Discarded on purpose; see SourceFile. `Diagnostics` carries the failure.
   _ = p.ApplyLinkedPlugins()

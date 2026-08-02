@@ -12,6 +12,10 @@ import (
 // package whose public entry is raw TypeScript remains a referenced leaf rather
 // than becoming authored graph content. The resident source text is retained as
 // provenance evidence even though its declarations are not walked.
+//
+// 1. Load one workspace source that imports a raw TypeScript package entry.
+// 2. Assert only the referenced dependency symbol becomes an external leaf.
+// 3. Assert provenance retains the dependency source text without its facts.
 func TestBuildKeepsSourceDistributedDependenciesAtTheExternalBoundary(t *testing.T) {
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), `{

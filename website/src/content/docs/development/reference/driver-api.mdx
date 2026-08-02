@@ -31,7 +31,7 @@ checker := prog.Checker                  // type-aware queries
 - builds the tsgo `Program` through `shim/compiler.NewProgram` and leases a `*shimchecker.Checker` from the pool.
 - returns a `*driver.Program` carrying the parsed config, the host, the FS, and the lease release function.
 
-`Program.SourceFiles()` filters declaration files for you. `Program.Diagnostics()` runs `GetDiagnosticsOfAnyProgram` + `SortAndDeduplicateDiagnostics` and drops the unused-overload-signature noise that tsgo emits internally. **Always `defer prog.Close()`**, without it the checker pool fills up and subsequent loads stall.
+`Program.SourceFiles()` returns the Program's resident non-declaration implementation files. Imported raw TypeScript or JavaScript dependencies can be present, so a consumer that needs project-owned files must apply its own root predicate. `Program.Diagnostics()` runs `GetDiagnosticsOfAnyProgram` + `SortAndDeduplicateDiagnostics` and drops the unused-overload-signature noise that tsgo emits internally. **Always `defer prog.Close()`**, without it the checker pool fills up and subsequent loads stall.
 
 ## Emit
 

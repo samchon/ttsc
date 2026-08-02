@@ -8,7 +8,7 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// Build walks the program's user-authored source files and records a node for
+// Build walks the program's workspace source files and records a node for
 // each top-level declaration. The checker can load a dependency's raw `.ts`
 // entry, so IsWorkspaceSourceFile owns the declaration boundary instead of
 // assuming every non-declaration source is authored here. External boundary

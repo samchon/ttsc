@@ -264,7 +264,7 @@ func (plugin) ApplyProgram(prog *driver.Program, ctx driver.PluginContext) error
 
 `loadStripConfigMap` (in `driver/config.go`) rejects unsupported inline keys on the tsconfig entry, then resolves the config file: an explicit `configFile` wins, otherwise `strip.config.*` is discovered by upward walk. The resulting map feeds `parseStrip` from step 1.
 
-`prog.SourceFiles()` already drops declaration files, so `file` is always user-authored TypeScript.
+`prog.SourceFiles()` drops declaration files, but it returns every non-declaration implementation source resident in the Program, including imported raw TypeScript or JavaScript dependencies. This plugin deliberately applies the strip rules to that complete implementation-source set; filter paths explicitly if a plugin should mutate project-owned files only.
 
 Then `(*stripRewriter).apply`:
 

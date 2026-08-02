@@ -9,8 +9,14 @@ import (
 // TestServeShardsKeepSourceDistributedDependenciesAtTheBoundary proves the
 // incremental store owns only workspace declarations while provenance still
 // attests to every source the resident checker loaded.
+//
+// 1. Snapshot one workspace source that imports a raw TypeScript package.
+// 2. Assert the dependency owns provenance but no authored graph facts.
+// 3. Edit the dependency and assert the store publishes a complete replacement.
+// 4. Compare the replacement store with the full-dump oracle.
 func TestServeShardsKeepSourceDistributedDependenciesAtTheBoundary(t *testing.T) {
   root := t.TempDir()
+  dependencyPath := filepath.Join(root, "node_modules", "dep-src", "src", "index.ts")
   writeGraphFile(t, filepath.Join(root, "tsconfig.json"), `{
   "compilerOptions": { "target": "ES2022", "module": "commonjs", "strict": true },
   "files": ["src/main.ts"]
@@ -20,7 +26,7 @@ func TestServeShardsKeepSourceDistributedDependenciesAtTheBoundary(t *testing.T)
   "version": "1.0.0",
   "main": "src/index.ts"
 }`)
-  writeGraphFile(t, filepath.Join(root, "node_modules", "dep-src", "src", "index.ts"), "export function dependencyValue(): number { return 1; }\nexport function dependencyInternal(): number { return dependencyValue(); }\n")
+  writeGraphFile(t, dependencyPath, "export function dependencyValue(): number { return 1; }\nexport function dependencyInternal(): number { return dependencyValue(); }\n")
   writeGraphFile(t, filepath.Join(root, "src", "main.ts"), "import { dependencyValue } from 'dep-src';\nexport function workspaceValue(): number { return dependencyValue() + 1; }\n")
 
   session, err := newGraphSession(root, "tsconfig.json")
@@ -33,9 +39,11 @@ func TestServeShardsKeepSourceDistributedDependenciesAtTheBoundary(t *testing.T)
   }
 
   dependencyFile := ""
+  dependencyDigest := ""
   for _, source := range session.graphStore.provenance.Sources {
     if strings.Contains(filepath.ToSlash(source.File), "/node_modules/dep-src/") {
       dependencyFile = source.File
+      dependencyDigest = source.Checker
       break
     }
   }
@@ -67,6 +75,33 @@ func TestServeShardsKeepSourceDistributedDependenciesAtTheBoundary(t *testing.T)
   }
   if !boundaryFound {
     t.Fatal("referenced dependency boundary leaf is absent")
+  }
+
+  writeGraphFile(t, dependencyPath, "export function dependencyValue(): number { return 2; }\nexport function dependencyInternal(): number { return dependencyValue(); }\n")
+  replacement, _, changed, err := session.SnapshotShards()
+  if err != nil {
+    t.Fatal(err)
+  }
+  if replacement == nil {
+    t.Fatal("dependency edit did not publish a shard snapshot")
+  }
+  if !changed || len(replacement.Upserts) != len(replacement.Manifest) {
+    t.Fatalf(
+      "dependency edit should publish every shard: changed=%v manifest=%d upserts=%d",
+      changed,
+      len(replacement.Manifest),
+      len(replacement.Upserts),
+    )
+  }
+  dependencyDigestChanged := false
+  for _, source := range session.graphStore.provenance.Sources {
+    if source.File == dependencyFile && source.Checker != dependencyDigest {
+      dependencyDigestChanged = true
+      break
+    }
+  }
+  if !dependencyDigestChanged {
+    t.Fatal("raw dependency edit did not refresh checker provenance")
   }
   assertServeShardFactsMatchFullDump(t, session)
 }

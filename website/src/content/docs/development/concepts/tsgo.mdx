@@ -99,7 +99,7 @@ diags := prog.Diagnostics()     // pre-deduped, unused-overload-signature noise 
 checker := prog.Checker         // ready to query
 ```
 
-`prog.SourceFiles()` filters declaration files for you. `prog.Diagnostics()` runs `GetDiagnosticsOfAnyProgram` + `SortAndDeduplicateDiagnostics`. Always `defer prog.Close()`, without it the checker pool fills up and subsequent loads stall.
+`prog.SourceFiles()` filters declaration files for you, but imported raw TypeScript or JavaScript dependencies can still be resident in the returned implementation-source set. `prog.Diagnostics()` runs `GetDiagnosticsOfAnyProgram` + `SortAndDeduplicateDiagnostics`. Always `defer prog.Close()`, without it the checker pool fills up and subsequent loads stall.
 
 Most shipped third-party-shaped consumers in this repo use this path:
 
@@ -112,7 +112,7 @@ For the full driver surface (rewrites, emit, source preambles, LSP host), see [R
 
 ## Finding the Target File
 
-`prog.SourceFiles()` returns every user file in the Program (declaration files are filtered). Normalize paths before comparing:
+`prog.SourceFiles()` returns every resident non-declaration implementation file in the Program, including imported raw TypeScript or JavaScript dependencies. Normalize paths before comparing:
 
 ```go
 func findSourceFile(prog *driver.Program, target string) *shimast.SourceFile {
@@ -611,7 +611,7 @@ The page-level traps:
 - Comparing raw paths without `filepath.ToSlash`.
 - Slicing `file.Text()[node.Pos():node.End()]` and accidentally including comments/whitespace.
 - Calling `AsX()` and assuming it cannot be nil.
-- Walking declaration files when you meant user code (use `prog.SourceFiles()`; it filters them).
+- Treating `prog.SourceFiles()` as project ownership: it filters declarations, but imported raw TypeScript or JavaScript dependencies can remain, so filter roots when you mean project-owned code.
 - Treating a type node as a resolved type.
 - Editing text when an AST mutation would express the same change.
 - Editing text from the start of the file toward the end.

@@ -490,7 +490,7 @@ When in doubt, set both. The cost is zero and the failure mode is silent.
 The pattern generalizes to any plugin that needs to query _project-level_ information:
 
 - Need `compilerOptions.target` / `module` / `jsx`? Read them from `prog.ParsedConfig.ParsedConfig.CompilerOptions`.
-- Need the list of user source files? `prog.SourceFiles()`.
+- Need the resident non-declaration implementation files? `prog.SourceFiles()`; imported raw TypeScript or JavaScript dependencies can be present, so apply an ownership predicate when you need project files only.
 - Need types? `prog.Checker.GetTypeAtLocation(node)`. See [AST & Checker → Checker Basics](/docs/development/concepts/tsgo#checker-basics).
 - Need `tsconfig.json` extends-chain or include paths? `prog.ParsedConfig.ParsedConfig` carries the resolved configuration.
 
