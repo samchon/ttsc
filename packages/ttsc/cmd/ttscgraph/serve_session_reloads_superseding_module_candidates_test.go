@@ -22,9 +22,10 @@ import (
 //     the newly preferred file. Package internals remain external boundaries.
 func TestServeSessionReloadsSupersedingModuleCandidates(t *testing.T) {
   cases := []struct {
-    name  string
-    setup func(*testing.T, string) string
-    add   func(*testing.T, string)
+    name           string
+    setup          func(*testing.T, string) string
+    add            func(*testing.T, string)
+    wantDiagnostic string
   }{
     {
       name: "relative_extension",
@@ -118,6 +119,7 @@ func TestServeSessionReloadsSupersedingModuleCandidates(t *testing.T) {
       add: func(t *testing.T, root string) {
         writeGraphFile(t, filepath.Join(root, "node_modules", "fixture-package", "dist", "first.js"), "export function winner() {}\n")
       },
+      wantDiagnostic: "node_modules/fixture-package/dist/first.js",
     },
     {
       name: "conditional_package_exports",
@@ -211,8 +213,10 @@ func TestServeSessionReloadsSupersedingModuleCandidates(t *testing.T) {
       if err != nil {
         t.Fatal(err)
       }
-      if dump == nil || mode != serveModeReload || !changed || (want != "" && !hasDumpNodeAt(*dump, "winner", want)) {
-        t.Fatalf("superseding candidate = dump:%v mode:%q changed:%v want-file:%q", dump != nil, mode, changed, want)
+      if dump == nil || mode != serveModeReload || !changed ||
+        (want != "" && !hasDumpNodeAt(*dump, "winner", want)) ||
+        (test.wantDiagnostic != "" && !hasDumpDiagnosticContaining(*dump, test.wantDiagnostic)) {
+        t.Fatalf("superseding candidate = dump:%v mode:%q changed:%v want-file:%q want-diagnostic:%q", dump != nil, mode, changed, want, test.wantDiagnostic)
       }
     })
   }
@@ -222,6 +226,15 @@ func hasDumpNodeAt(dump graph.Dump, name, fileSuffix string) bool {
   suffix := filepath.ToSlash(fileSuffix)
   for _, node := range dump.Nodes {
     if node.Name == name && strings.HasSuffix(filepath.ToSlash(node.File), suffix) {
+      return true
+    }
+  }
+  return false
+}
+
+func hasDumpDiagnosticContaining(dump graph.Dump, fragment string) bool {
+  for _, diagnostic := range dump.Diagnostics {
+    if strings.Contains(filepath.ToSlash(diagnostic.Message), filepath.ToSlash(fragment)) {
       return true
     }
   }
