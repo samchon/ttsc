@@ -85,9 +85,9 @@ func TestServeShardsKeepSourceDistributedDependenciesAtTheBoundary(t *testing.T)
   if replacement == nil {
     t.Fatal("dependency edit did not publish a shard snapshot")
   }
-  if mode != serveModeIncremental || !changed || len(replacement.Upserts) != len(replacement.Manifest) {
+  if mode != serveModeRebuild || !changed || len(replacement.Upserts) != len(replacement.Manifest) {
     t.Fatalf(
-      "dependency edit should reuse the compiler and publish every shard: mode=%q changed=%v manifest=%d upserts=%d",
+      "dependency edit should report and publish a complete rebuild: mode=%q changed=%v manifest=%d upserts=%d",
       mode,
       changed,
       len(replacement.Manifest),

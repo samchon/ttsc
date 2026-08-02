@@ -133,7 +133,7 @@ func (s *graphSession) buildShardSnapshot(change *graphChange) (*serveGraphSnaps
   if change.full || s.graphStore == nil {
     return s.buildFullShardSnapshot()
   }
-  return s.buildIncrementalShardSnapshot(change.files, change.publicFiles)
+  return s.buildIncrementalShardSnapshot(change)
 }
 
 func (s *graphSession) buildFullShardSnapshot() (*serveGraphSnapshot, *serveGraphStore, error) {
@@ -227,15 +227,15 @@ func (s *graphSession) buildFullShardSnapshot() (*serveGraphSnapshot, *serveGrap
   return snapshot, store, nil
 }
 
-func (s *graphSession) buildIncrementalShardSnapshot(changed, publicChanged []string) (*serveGraphSnapshot, *serveGraphStore, error) {
+func (s *graphSession) buildIncrementalShardSnapshot(change *graphChange) (*serveGraphSnapshot, *serveGraphStore, error) {
   prior := s.graphStore
   program := s.compiler.Program()
-  selected := invalidatedGraphFiles(program, prior.reverseDependencies, changed, publicChanged)
+  selected := invalidatedGraphFiles(program, prior.reverseDependencies, change.files, change.publicFiles)
   if len(selected) == 0 {
     // A changed declaration or virtual input outside the authored graph can
     // alter external endpoints and global types. Rebuild when no exact source
     // owner can be established instead of publishing an empty semantic delta.
-    return s.buildFullShardSnapshot()
+    return s.buildCompleteShardFallback(change)
   }
 
   // Re-export edges can stamp a declaration owned by a forward dependency.
@@ -286,11 +286,11 @@ func (s *graphSession) buildIncrementalShardSnapshot(changed, publicChanged []st
     prior.wireProvenance,
     prior.wireSources,
     program,
-    changed,
+    change.files,
     s.diskDigests,
   )
   if !ok {
-    return s.buildFullShardSnapshot()
+    return s.buildCompleteShardFallback(change)
   }
   identity := prior.identity
   facts, err := graph.NewDumpFacts(
@@ -307,7 +307,7 @@ func (s *graphSession) buildIncrementalShardSnapshot(changed, publicChanged []st
   for _, file := range selectedFiles {
     source := graphSourceFile(program, file)
     if source == nil {
-      return s.buildFullShardSnapshot()
+      return s.buildCompleteShardFallback(change)
     }
     selectedSources = append(selectedSources, source)
   }
@@ -457,6 +457,12 @@ func (s *graphSession) buildIncrementalShardSnapshot(changed, publicChanged []st
     extractedFiles:        append([]string{}, selectedFiles...),
   }
   return snapshot, store, nil
+}
+
+func (s *graphSession) buildCompleteShardFallback(change *graphChange) (*serveGraphSnapshot, *serveGraphStore, error) {
+  change.mode = serveModeRebuild
+  change.full = true
+  return s.buildFullShardSnapshot()
 }
 
 func commitServeGraphSnapshot(
