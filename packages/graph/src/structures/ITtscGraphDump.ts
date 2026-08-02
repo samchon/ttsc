@@ -1,6 +1,8 @@
 import { ITtscGraphEdge } from "./ITtscGraphEdge";
 import { ITtscGraphNode } from "./ITtscGraphNode";
 import { ITtscGraphSpan } from "./ITtscGraphSpan";
+import { TtscGraphDumpEdgeKind } from "./TtscGraphDumpEdgeKind";
+import { TtscGraphDumpNodeKind } from "./TtscGraphDumpNodeKind";
 
 /**
  * The whole-graph export `ttscgraph dump` writes and the MCP server loads — the
@@ -229,8 +231,11 @@ export namespace ITtscGraphDump {
    */
   export interface INode extends Omit<
     ITtscGraphNode,
-    "evidence" | "implementation"
+    "evidence" | "implementation" | "kind"
   > {
+    /** Declaration kind written by the native producer. */
+    kind: TtscGraphDumpNodeKind;
+
     /** Declaration span; its file is this node's `file`. */
     evidence?: ITtscGraphSpan;
 
@@ -246,7 +251,10 @@ export namespace ITtscGraphDump {
    * names — the id is `path#Qualified.Name:kind` — so the path rode the wire a
    * second time on every edge, and edges outnumber nodes several times over.
    */
-  export interface IEdge extends Omit<ITtscGraphEdge, "evidence"> {
+  export interface IEdge extends Omit<ITtscGraphEdge, "evidence" | "kind"> {
+    /** Relationship kind written by the native producer. */
+    kind: TtscGraphDumpEdgeKind;
+
     /** Expression span; its file is the one embedded in `from`. */
     evidence?: ITtscGraphSpan;
   }

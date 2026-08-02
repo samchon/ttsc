@@ -39,7 +39,7 @@ export const test_ttscgraph_view_payload_drops_git_ignored_generated_code =
         {
           id: "e",
           name: "external",
-          kind: "external_symbol",
+          kind: "function",
           file: "node_modules/x/index.d.ts",
           external: true,
         },

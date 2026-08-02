@@ -190,20 +190,22 @@ function synthesize(dump: ITtscGraphDump): {
   // small — the two copies are 17% of the document, 55 MB of VS Code's 323 MB,
   // paid again in the encode, the pipe, the parse and the validation. Nothing
   // downstream of this line sees a span without its file.
-  const nodes: ITtscGraphNode[] = dump.nodes
-    .filter((n) => n.kind !== "module")
-    .map((n) => {
-      const { evidence, implementation, ...rest } = n;
-      return {
+  const nodes: ITtscGraphNode[] = dump.nodes.flatMap((n): ITtscGraphNode[] => {
+    if (n.kind === "module") return [];
+    const { evidence, implementation, ...rest } = n;
+    return [
+      {
         ...rest,
+        kind: n.kind,
         ...(evidence !== undefined
           ? { evidence: spanIn(evidence, n.file) }
           : {}),
         ...(implementation !== undefined
           ? { implementation: spanIn(implementation, n.file) }
           : {}),
-      };
-    });
+      },
+    ];
+  });
   const edges: ITtscGraphEdge[] = dump.edges.map((edge) => {
     const { evidence, ...rest } = edge;
     const from = moduleIds.get(edge.from);

@@ -260,7 +260,7 @@ function degree(graph: TtscGraphMemory, id: string): number {
 }
 
 function isStructural(kind: string): boolean {
-  return kind === "contains" || kind === "exports" || kind === "imports";
+  return kind === "contains" || kind === "exports";
 }
 
 function isTestFile(file: string): boolean {

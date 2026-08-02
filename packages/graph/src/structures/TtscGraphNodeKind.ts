@@ -1,19 +1,15 @@
 /**
  * What a graph node represents.
  *
- * The symbol kinds (`file` through `parameter`) are declarations the TypeScript
- * program owns and the checker resolves. `external_symbol` is a
- * dependency-boundary leaf the workspace references but does not declare. The
- * graph keeps it as a named endpoint without walking into the dependency's
- * internals.
+ * The native builder emits declaration kinds from `module` through `method`.
+ * The TypeScript memory layer replaces each module with a `file` container and
+ * refines class/interface member variables to `property`. An external boundary
+ * leaf keeps its real declaration kind and sets `external: true`.
  *
  * Used as the `kind` discriminant on {@link ITtscGraphNode}.
  */
 export type TtscGraphNodeKind =
   | "file"
-  | "package"
-  | "namespace"
-  | "module"
   | "function"
   | "class"
   | "interface"
@@ -21,6 +17,4 @@ export type TtscGraphNodeKind =
   | "enum"
   | "variable"
   | "method"
-  | "property"
-  | "parameter"
-  | "external_symbol";
+  | "property";

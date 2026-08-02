@@ -199,10 +199,10 @@ type Graph struct {
   Nodes map[string]*Node
   Edges []*Edge
   // Decorators holds the decorators written on the workspace's declarations,
-  // captured syntactically so the JSON dump can emit `decorates` edges and a
-  // consumer can interpret `@Controller`/`@Get` conventions without re-parsing
-  // source. It is dump-only metadata, separate from Edges so the existing
-  // checker-resolved relationships are untouched.
+  // captured syntactically so the JSON dump can attach raw facts to each target
+  // node and a consumer can interpret `@Controller`/`@Get` conventions without
+  // re-parsing source. It is dump-only metadata, separate from Edges so the
+  // existing checker-resolved relationships are untouched.
   Decorators []*Decorator
   // bodyNodes tracks whether a callable node's display span is the overload
   // implementation rather than an overload signature. It is build-only metadata

@@ -21,5 +21,7 @@ export * from "./ITtscGraphSnapshot";
 export * from "./ITtscGraphSpan";
 export * from "./ITtscGraphTour";
 export * from "./TtscGraphEdgeKind";
+export * from "./TtscGraphDumpEdgeKind";
+export * from "./TtscGraphDumpNodeKind";
 export * from "./TtscGraphNodeKind";
 export * from "./TtscGraphNodeModifier";

@@ -29,11 +29,7 @@ const MAX_STEPS = 12;
 const DISPATCH_KINDS = new Set<string>(["overrides", "implements"]);
 // A declaration whose kind is a type surface never carries a body, and an
 // external leaf carries one the graph deliberately does not hold.
-const BODYLESS_KINDS = new Set<string>([
-  "interface",
-  "type",
-  "external_symbol",
-]);
+const BODYLESS_KINDS = new Set<string>(["interface", "type"]);
 // `abstract` and `declare` are the two keywords that take the body away from a
 // declaration that would otherwise have to have one.
 const BODYLESS_MODIFIERS = new Set<string>(["abstract", "declare"]);
@@ -48,11 +44,10 @@ const BODYLESS_MODIFIERS = new Set<string>(["abstract", "declare"]);
 const DISPATCH_HUB = 12;
 
 /**
- * Breadth-first trace along the dependency graph. Structural
- * (contains/exports/imports) edges are excluded so the path is real call/type
- * flow; forward walks callees, reverse and impact walk callers. Impact
- * additionally tags each reached node's role so the blast radius on the public
- * surface is legible.
+ * Breadth-first trace along the dependency graph. Structural (contains/exports)
+ * edges are excluded so the path is real call/type flow; forward walks callees,
+ * reverse and impact walk callers. Impact additionally tags each reached node's
+ * role so the blast radius on the public surface is legible.
  */
 export function runTrace(
   graph: TtscGraphMemory,
@@ -946,7 +941,7 @@ function traversable(
   kind: string,
   focus: ITtscGraphTrace.IRequest["focus"],
 ): boolean {
-  if (kind === "contains" || kind === "exports" || kind === "imports") {
+  if (kind === "contains" || kind === "exports") {
     return false;
   }
   if (kind === "dispatches") return focus !== "types";
@@ -963,8 +958,7 @@ function traversable(
       kind === "type_ref" ||
       kind === "extends" ||
       kind === "implements" ||
-      kind === "overrides" ||
-      kind === "decorates"
+      kind === "overrides"
     );
   }
   return true;
@@ -985,16 +979,13 @@ function edgeKindRank(kind: string): number {
       return 2;
     case "accesses":
       return 3;
-    case "tests":
-      return 4;
     case "overrides":
-    case "decorates":
-      return 5;
+      return 4;
     case "extends":
     case "implements":
-      return 6;
+      return 5;
     case "type_ref":
-      return 7;
+      return 6;
     default:
       return 10;
   }

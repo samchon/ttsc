@@ -4,8 +4,7 @@ import { TtscGraphNodeKind } from "./TtscGraphNodeKind";
 import { TtscGraphNodeModifier } from "./TtscGraphNodeModifier";
 
 /**
- * One node in the graph: a declared symbol or a structural container (file,
- * package).
+ * One node in the graph: a declared symbol or a synthesized file container.
  *
  * The `id` is position-invariant: `path#qualifiedName:kind` (e.g.
  * `src/order.ts#OrderService.create:method`), so inserting a line above a

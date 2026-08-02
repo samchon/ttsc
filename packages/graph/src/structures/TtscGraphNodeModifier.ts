@@ -15,5 +15,4 @@ export type TtscGraphNodeModifier =
   | "const"
   | "public"
   | "private"
-  | "protected"
-  | "optional";
+  | "protected";

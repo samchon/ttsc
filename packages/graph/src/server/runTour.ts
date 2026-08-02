@@ -49,7 +49,7 @@ const MAX_READ_NEXT = 14;
 const FLOW_OVERLAP = 0.6;
 const TOUR_TRACE_MAX_DEPTH = 6;
 const TOUR_TRACE_MAX_NODES = 18;
-const STRUCTURAL_KINDS = new Set<string>(["contains", "exports", "imports"]);
+const STRUCTURAL_KINDS = new Set<string>(["contains", "exports"]);
 const EXECUTION_KINDS = new Set<string>([
   "calls",
   "instantiates",
@@ -63,7 +63,6 @@ const TOUR_SEED_KINDS = new Set<string>([
   "property",
   "variable",
   "module",
-  "namespace",
   "enum",
 ]);
 
@@ -845,11 +844,11 @@ function isTourHop(graph: TtscGraphMemory, hop: ITtscGraphTrace.IHop): boolean {
 // floor makes it a no-op on small graphs that have no genuine hub. The `out <= 1`
 // guard keeps thin pass-throughs out but never prunes a real branching step.
 //
-// The fan-in counted is EXECUTION fan-in. `realDegree` also counts `type_ref`,
-// `extends`, `decorates`, and `tests`, and a widely referenced type or a
-// widely decorated symbol is not a call hub: a `Config` class named in twelve
-// parameter positions and constructed once was read as a hub and cut out of the
-// flow that constructs it. Popularity as a name is not popularity as a call.
+// The fan-in counted is EXECUTION fan-in. `realDegree` also counts `type_ref`
+// and `extends`, and a widely referenced type is not a call hub: a `Config`
+// class named in twelve parameter positions and constructed once was read as a
+// hub and cut out of the flow that constructs it. Popularity as a name is not
+// popularity as a call.
 function isSharedUtility(graph: TtscGraphMemory, id: string): boolean {
   const execution = executionDegree(graph, id);
   return execution.in >= 12 && execution.out <= 1;
@@ -932,11 +931,7 @@ function ownerOf(graph: TtscGraphMemory, id: string): string | undefined {
   for (const edge of graph.incoming(id)) {
     if (edge.kind !== "contains") continue;
     const owner = graph.node(edge.from);
-    if (
-      owner !== undefined &&
-      owner.kind !== "file" &&
-      owner.kind !== "module"
-    ) {
+    if (owner !== undefined && owner.kind !== "file") {
       return owner.id;
     }
   }

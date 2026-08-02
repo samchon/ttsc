@@ -12,7 +12,7 @@ const MAX_LIMIT = 8;
 const DEFAULT_NEIGHBORS = 0;
 const MAX_NEIGHBORS = 2;
 const MAX_SEEDS = 3;
-const STRUCTURAL_KINDS = new Set<string>(["contains", "exports", "imports"]);
+const STRUCTURAL_KINDS = new Set<string>(["contains", "exports"]);
 
 /**
  * Build the first source-free entrypoints list for a code question. The result
@@ -198,16 +198,13 @@ function edgeKindRank(kind: string): number {
     case "accesses":
     case "renders":
       return 2;
-    case "tests":
-      return 3;
     case "overrides":
-    case "decorates":
-      return 4;
+      return 3;
     case "extends":
     case "implements":
-      return 5;
+      return 4;
     case "type_ref":
-      return 6;
+      return 5;
     default:
       return 10;
   }

@@ -87,7 +87,7 @@ export const enum Mode {
   union := map[string]bool{
     "export": true, "default": true, "declare": true, "abstract": true,
     "static": true, "readonly": true, "async": true, "const": true,
-    "public": true, "private": true, "protected": true, "optional": true,
+    "public": true, "private": true, "protected": true,
   }
   for _, n := range dump.Nodes {
     for _, m := range n.Modifiers {

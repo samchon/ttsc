@@ -24,12 +24,11 @@ const MAX_NEIGHBORS = 3;
 const DEFAULT_DEPENDENCIES = 2;
 const MAX_DEPENDENCIES = 4;
 // Structural relationships are navigation, not the dependency picture details is for.
-const STRUCTURAL_KINDS = new Set<string>(["contains", "exports", "imports"]);
+const STRUCTURAL_KINDS = new Set<string>(["contains", "exports"]);
 // Kinds whose value is their member outline, not implementation text.
 const CONTAINER_KINDS = new Set<string>([
   "class",
   "interface",
-  "namespace",
   "module",
   "enum",
   "file",
@@ -464,16 +463,13 @@ function edgeKindRank(kind: string): number {
     case "accesses":
     case "renders":
       return 2;
-    case "tests":
-      return 3;
     case "overrides":
-    case "decorates":
-      return 4;
+      return 3;
     case "extends":
     case "implements":
-      return 5;
+      return 4;
     case "type_ref":
-      return 6;
+      return 5;
     default:
       return 10;
   }

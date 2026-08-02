@@ -5,7 +5,7 @@ import { isPublicApiNoisePath, isSupportPath } from "./pathPolicy";
 import { IRunnerOutput, resultNext } from "./resultNext";
 
 /** Edges that express nesting/packaging, not code dependency. */
-const STRUCTURAL_KINDS = new Set<string>(["contains", "exports", "imports"]);
+const STRUCTURAL_KINDS = new Set<string>(["contains", "exports"]);
 
 /**
  * Project a compact, source-read-free architecture map: counts by kind, folder
@@ -83,8 +83,8 @@ function layers(graph: TtscGraphMemory): ITtscGraphOverview.ILayer[] {
 
 /**
  * The symbols at the center of the dependency graph, ranked by real fan-in and
- * fan-out. Structural `contains`/`exports`/`imports` edges are excluded so the
- * ranking reflects code dependency, not nesting.
+ * fan-out. Structural `contains`/`exports` edges are excluded so the ranking
+ * reflects code dependency, not nesting.
  */
 function hotspots(graph: TtscGraphMemory): ITtscGraphOverview.IHotspot[] {
   const real = (id: string, side: "in" | "out"): number => {
