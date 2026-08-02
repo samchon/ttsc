@@ -62,7 +62,7 @@ A text search or a tree-sitter parse stops where the syntax stops. A real type c
 - **pnpm / workspace monorepos.** A `workspace:*` dependency is followed into the sibling package's real source. A call across packages lands on the true declaration, not the barrel it passed through.
 - **Path aliases.** A `@app/*` import from `tsconfig` is resolved to the real file, so the edge is right where a text tool sees only the alias string.
 - **Barrel re-exports.** An `index.ts` that only re-exports is unwrapped to the file that actually declares the symbol.
-- **Your code vs the world.** Anything in `node_modules` or a `.d.ts` is reported as an outside boundary, not walked into. The graph stays your code.
+- **Your code vs the world.** Anything in `node_modules` or a `.d.ts` is reported as an outside boundary, not walked into. This includes packages whose entry point is raw `.ts`: the compiler may load that source for type checking, but the graph still stops at the imported symbol. The graph stays your code.
 - **Generated code stays out of the way.** A source file your `.gitignore` covers, such as a Prisma client or other codegen emitted as `.ts`, is de-ranked: it never dominates a broad or keyword match, though it stays reachable as an edge target and by its exact name. The graph surfaces what you wrote, not what a generator did.
 - **Object-literal ownership.** `details` lists direct, statically named properties in declaration order. Spread properties do not promote names from another object, dynamic computed names are omitted, and nested members stay with their nested object.
 

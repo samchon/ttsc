@@ -9,10 +9,10 @@ import (
 )
 
 // Build walks the program's user-authored source files and records a node for
-// each top-level declaration. driver.SourceFiles already drops declaration files
-// and the program never compiles a dependency's `.ts`, so every node Build emits
-// is workspace source: External is false. External boundary leaves enter the
-// graph only as the resolved target of an edge (see Resolve).
+// each top-level declaration. The checker can load a dependency's raw `.ts`
+// entry, so IsWorkspaceSourceFile owns the declaration boundary instead of
+// assuming every non-declaration source is authored here. External boundary
+// leaves enter the graph only as the resolved target of an edge (see Resolve).
 func Build(prog *driver.Program) *Graph {
   return BuildFiles(prog, nil, nil)
 }
@@ -45,6 +45,9 @@ func BuildFiles(prog *driver.Program, selected []string, baseNodes map[string]*N
     ImplementationSources: map[string]map[string]bool{},
   }
   for _, file := range prog.SourceFiles() {
+    if !IsWorkspaceSourceFile(file) {
+      continue
+    }
     if selected != nil && !selectedFiles[file.FileName()] {
       continue
     }

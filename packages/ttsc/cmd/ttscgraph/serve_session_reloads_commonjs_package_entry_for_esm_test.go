@@ -39,12 +39,12 @@ func TestServeSessionReloadsCommonJSPackageEntryForESM(t *testing.T) {
     t.Fatal(err)
   }
 
-  writeGraphFile(t, filepath.Join(root, "node_modules", "fixture-package", "dist", "main.ts"), "export function winner(): void {}\nexport function packageEntryWinner(): void {}\n")
+  writeGraphFile(t, filepath.Join(root, "node_modules", "fixture-package", "dist", "main.ts"), "export function winner(): void {}\n")
   dump, mode, changed, err := session.Snapshot()
   if err != nil {
     t.Fatal(err)
   }
-  if dump == nil || mode != serveModeReload || !changed || !hasDumpNode(*dump, "packageEntryWinner") {
+  if dump == nil || mode != serveModeReload || !changed || !hasDumpNodeAt(*dump, "winner", "node_modules/fixture-package/dist/main.ts") {
     t.Fatalf("CommonJS package main.ts = dump:%v mode:%q changed:%v", dump != nil, mode, changed)
   }
 }

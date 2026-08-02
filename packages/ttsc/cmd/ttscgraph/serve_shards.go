@@ -1238,6 +1238,9 @@ func invalidatedGraphFiles(
 func authoredGraphFiles(program *driver.Program) map[string]bool {
   authored := map[string]bool{}
   for _, file := range program.SourceFiles() {
+    if !graph.IsWorkspaceSourceFile(file) {
+      continue
+    }
     authored[file.FileName()] = true
   }
   return authored
@@ -1248,6 +1251,9 @@ func reverseGraphDependencies(program *driver.Program) map[string][]string {
   authored := map[string]bool{}
   authoredByPath := map[string]string{}
   for _, file := range program.SourceFiles() {
+    if !graph.IsWorkspaceSourceFile(file) {
+      continue
+    }
     authored[file.FileName()] = true
     authoredByPath[string(file.Path())] = file.FileName()
   }
@@ -1263,6 +1269,9 @@ func reverseGraphDependencies(program *driver.Program) map[string][]string {
     values[dependent] = true
   }
   for _, source := range program.SourceFiles() {
+    if !graph.IsWorkspaceSourceFile(source) {
+      continue
+    }
     for _, referencedPath := range shimcompiler.GetReferencedFilePaths(program.TSProgram, source) {
       if target, ok := authoredByPath[referencedPath]; ok {
         add(target, source.FileName())
@@ -1306,7 +1315,7 @@ func serveGraphResolutionDigests(program *driver.Program, project string) (map[s
 
 func graphSourceFile(program *driver.Program, file string) *shimast.SourceFile {
   for _, source := range program.SourceFiles() {
-    if source.FileName() == file {
+    if graph.IsWorkspaceSourceFile(source) && source.FileName() == file {
       return source
     }
   }

@@ -18,8 +18,6 @@
 package graph
 
 import (
-  "strings"
-
   shimast "github.com/microsoft/typescript-go/shim/ast"
   shimchecker "github.com/microsoft/typescript-go/shim/checker"
 )
@@ -80,8 +78,7 @@ func Resolve(checker *shimchecker.Checker, ref *shimast.Node) *Target {
     target.End = declaration.End()
     if file := shimast.GetSourceFileOfNode(declaration); file != nil {
       target.File = file.FileName()
-      target.External = file.IsDeclarationFile ||
-        strings.Contains(target.File, "/node_modules/")
+      target.External = !IsWorkspaceSourceFile(file)
     }
   }
   return target

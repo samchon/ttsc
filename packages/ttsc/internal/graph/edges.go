@@ -21,6 +21,9 @@ import (
 func (g *Graph) addEdges(prog *driver.Program, selected map[string]bool, partial bool) {
   checker := prog.Checker
   for _, file := range prog.SourceFiles() {
+    if !IsWorkspaceSourceFile(file) {
+      continue
+    }
     if partial && !selected[file.FileName()] {
       continue
     }
