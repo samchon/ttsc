@@ -78,16 +78,17 @@ func TestServeShardsKeepSourceDistributedDependenciesAtTheBoundary(t *testing.T)
   }
 
   writeGraphFile(t, dependencyPath, "export function dependencyValue(): number { return 2; }\nexport function dependencyInternal(): number { return dependencyValue(); }\n")
-  replacement, _, changed, err := session.SnapshotShards()
+  replacement, mode, changed, err := session.SnapshotShards()
   if err != nil {
     t.Fatal(err)
   }
   if replacement == nil {
     t.Fatal("dependency edit did not publish a shard snapshot")
   }
-  if !changed || len(replacement.Upserts) != len(replacement.Manifest) {
+  if mode != serveModeIncremental || !changed || len(replacement.Upserts) != len(replacement.Manifest) {
     t.Fatalf(
-      "dependency edit should publish every shard: changed=%v manifest=%d upserts=%d",
+      "dependency edit should reuse the compiler and publish every shard: mode=%q changed=%v manifest=%d upserts=%d",
+      mode,
       changed,
       len(replacement.Manifest),
       len(replacement.Upserts),
