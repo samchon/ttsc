@@ -42,6 +42,15 @@ type program struct {
   checker      *shimchecker.Checker
   identity     publicrule.ProjectIdentity
   projectCycle *projectCycle
+  // projectRoots memoizes projectSourceFileNames, which resolves every
+  // selected file's path and therefore costs filesystem work. The tsconfig
+  // selection cannot change while one program is loaded — a config edit or a
+  // new or removed file forces a full reload upstream rather than an
+  // applyChange — while every read and every write consults the set at least
+  // once per cycle, and a fix or format cascade repeats that per pass. Filled
+  // lazily under the same single-threaded assumption projectCycle already
+  // makes, and read-only to its callers.
+  projectRoots map[string]struct{}
 }
 
 type loadProgramOptions struct {
@@ -451,18 +460,24 @@ func (p *program) projectSourceFiles() []*shimast.SourceFile {
 // would leave the file readable and unwritable, turning a fixable diagnostic
 // into one `fix` refuses to touch, so ownership resolves the alias.
 func (p *program) projectSourceFileNames() map[string]struct{} {
+  if p == nil {
+    return map[string]struct{}{}
+  }
+  if p.projectRoots != nil {
+    return p.projectRoots
+  }
   out := make(map[string]struct{})
-  if p == nil || p.parsed == nil || p.parsed.ParsedConfig == nil {
-    return out
-  }
-  for _, fileName := range p.parsed.ParsedConfig.FileNames {
-    if !isLintSourceFileName(fileName) {
-      continue
+  if p.parsed != nil && p.parsed.ParsedConfig != nil {
+    for _, fileName := range p.parsed.ParsedConfig.FileNames {
+      if !isLintSourceFileName(fileName) {
+        continue
+      }
+      absolute := absoluteProjectPath(p.cwd, fileName)
+      out[canonicalProjectPath(p.cwd, absolute)] = struct{}{}
+      out[canonicalProjectPath(p.cwd, realProjectPath(absolute))] = struct{}{}
     }
-    absolute := absoluteProjectPath(p.cwd, fileName)
-    out[canonicalProjectPath(p.cwd, absolute)] = struct{}{}
-    out[canonicalProjectPath(p.cwd, realProjectPath(absolute))] = struct{}{}
   }
+  p.projectRoots = out
   return out
 }
 
@@ -471,18 +486,18 @@ func (p *program) projectSourceFileNames() map[string]struct{} {
 //
 // Indexing both spellings above already catches the ordinary link, so this
 // fallback exists for a Program spelling that matches neither, such as a
-// Windows 8.3 short name. Its cost is one resolution per file the config did
-// not select, which the imported set pays on every cycle and which stays far
-// below the rule walk those same files are about to receive.
+// Windows 8.3 short name. It costs one resolution per file the config did not
+// select, paid by the imported set on every cycle, against the rule walk those
+// same files are about to receive.
 func (p *program) selectedByProject(
   roots map[string]struct{},
   fileName string,
 ) bool {
+  if p == nil || len(roots) == 0 {
+    return false
+  }
   if _, ok := roots[canonicalProjectPath(p.cwd, fileName)]; ok {
     return true
-  }
-  if len(roots) == 0 {
-    return false
   }
   resolved := realProjectPath(absoluteProjectPath(p.cwd, fileName))
   _, ok := roots[canonicalProjectPath(p.cwd, resolved)]
