@@ -2215,11 +2215,16 @@ function declaredNodeModulesPackageType(
   return declaredPackageType(filename);
 }
 
-/** Whether any path segment of `filename` is literally `node_modules`. */
+/**
+ * Whether any path segment of `filename` is literally `node_modules`.
+ *
+ * Case-sensitive on every platform, because the upstream test this mirrors is a
+ * case-sensitive substring search and Node's own resolver recognises only the
+ * exact spelling. A directory named `Node_Modules` is a package store to
+ * neither of them, and must not become one here.
+ */
 function pathHasNodeModulesSegment(filename: string): boolean {
-  return filename
-    .split(/[\\/]/)
-    .some((segment) => segment.toLowerCase() === "node_modules");
+  return filename.split(/[\\/]/).includes("node_modules");
 }
 
 /**
