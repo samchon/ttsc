@@ -43,7 +43,7 @@ export const test_ttsx_dependency_cache_reader_never_mixes_metadata_with_a_parti
       metaPath,
       JSON.stringify({
         generation: genA,
-        moduleOption: "commonjs",
+        moduleOptions: { module: "commonjs" },
         rootDir: "/root",
       }),
       "utf8",
@@ -75,7 +75,7 @@ export const test_ttsx_dependency_cache_reader_never_mixes_metadata_with_a_parti
         `  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 10);`,
         `}`,
         `const tmp = metaPath + ".tmp";`,
-        `fs.writeFileSync(tmp, JSON.stringify({ generation: genB, moduleOption: "commonjs", rootDir: "/root" }), "utf8");`,
+        `fs.writeFileSync(tmp, JSON.stringify({ generation: genB, moduleOptions: { module: "commonjs" }, rootDir: "/root" }), "utf8");`,
         `fs.renameSync(tmp, metaPath);`,
         ``,
       ].join("\n"),
@@ -111,7 +111,7 @@ export const test_ttsx_dependency_cache_reader_never_mixes_metadata_with_a_parti
       metaPath,
       JSON.stringify({
         generation: genC,
-        moduleOption: "commonjs",
+        moduleOptions: { module: "commonjs" },
         rootDir: "/root",
       }),
       "utf8",

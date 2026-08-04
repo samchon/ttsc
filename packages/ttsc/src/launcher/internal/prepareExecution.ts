@@ -6,7 +6,7 @@ import { readProjectConfig } from "../../compiler/internal/project/readProjectCo
 import { resolveEmittedJavaScript } from "../../compiler/internal/resolveEmittedJavaScript";
 import { runBuild } from "../../compiler/internal/runBuild";
 import type { TtscCommonOptions } from "../../structures/internal/TtscCommonOptions";
-import type { OwningModuleOptions } from "./runtimeHooks";
+import { type OwningModuleOptions, projectModuleOptions } from "./runtimeHooks";
 
 /** Subdirectory name that isolates concurrent ttsx processes by PID. */
 const PROCESS_CACHE_KEY = String(process.pid);
@@ -125,7 +125,7 @@ function createProjectContext(
     // `target` belongs here as much as `module` does: with `module` absent tsgo
     // derives the module kind from `target`, so publishing only `module` makes
     // the hooks guess.
-    moduleOptions: emitModuleOptions(project),
+    moduleOptions: projectModuleOptions(project.compilerOptions),
     // Force a source map on the transient runtime emit only when the project
     // configures none — when it already emits `sourceMap` or `inlineSourceMap`,
     // the serve path inlines/absolutizes that map, so no override is needed
@@ -135,24 +135,6 @@ function createProjectContext(
       project.compilerOptions.inlineSourceMap !== true,
     built: false,
     emittedFiles: undefined as string[] | undefined,
-  };
-}
-
-/**
- * The pair of compiler options that decides a file's emit format. Kept together
- * because tsgo's own rule needs both: `module` when it is declared, and the
- * kind implied by `target` when it is not.
- */
-function emitModuleOptions(
-  project: ReturnType<typeof readProjectConfig>,
-): OwningModuleOptions {
-  return {
-    ...(typeof project.compilerOptions.module === "string"
-      ? { module: project.compilerOptions.module }
-      : {}),
-    ...(typeof project.compilerOptions.target === "string"
-      ? { target: project.compilerOptions.target }
-      : {}),
   };
 }
 
@@ -238,10 +220,13 @@ function buildProject(
  * any other location silently retargets them. It is removed as soon as the
  * build returns.
  *
- * `rootDir` becomes the entry's volume root — the same widest-containing root
- * the config loaders use — because the entry and everything it imports have no
- * other guaranteed common ancestor. The runtime manifest is repointed at this
- * build, since its program is exactly the set of files the run executes.
+ * `rootDir` widens to the nearest directory holding both the project root and
+ * the entry, which for the layout this exists for is the project root itself.
+ * It has to widen at all because the inherited `rootDir` (`src`) does not
+ * contain the entry, and it must not widen further: the manifest's `rootDir` is
+ * what bounds the files the runtime hooks will try to serve from this emit, and
+ * a volume-root bound would offer every raw `.ts` on disk to a lookup that
+ * falls back to matching trailing path segments.
  */
 function buildEntryProject(
   context: ReturnType<typeof createProjectContext>,
@@ -249,7 +234,7 @@ function buildEntryProject(
   entryFile: string,
 ): void {
   const entry = path.resolve(entryFile);
-  const rootDir = path.parse(entry).root.replace(/\\/g, "/");
+  const rootDir = commonAncestorDirectory(path.dirname(entry), context.root);
   const tsconfig = path.join(
     context.root,
     `.ttsx-entry.${PROCESS_CACHE_KEY}.tsconfig.json`,
@@ -259,7 +244,7 @@ function buildEntryProject(
     JSON.stringify(
       {
         extends: context.tsconfig.replace(/\\/g, "/"),
-        compilerOptions: { rootDir },
+        compilerOptions: { rootDir: rootDir.replace(/\\/g, "/") },
         // `files` alone does not displace an inherited `include`, and an
         // inherited `exclude` could drop the entry back out of the program, so
         // both are overridden explicitly.
@@ -311,7 +296,7 @@ function buildEntryProject(
     }
     context.emitDir = emitDir;
     context.runtimeRootDir = rootDir;
-    context.moduleOptions = emitModuleOptions(project);
+    context.moduleOptions = projectModuleOptions(project.compilerOptions);
     context.emittedFiles =
       result.emittedFiles && result.emittedFiles.length !== 0
         ? result.emittedFiles
@@ -325,6 +310,39 @@ function buildEntryProject(
       // project config.
     }
   }
+}
+
+/**
+ * The nearest directory containing both `left` and `right`.
+ *
+ * Falls back to `left` when the two sit on different Windows volumes, where no
+ * common ancestor exists at all: the entry still has to compile, and a root
+ * that contains the entry is the closest thing to correct available.
+ */
+function commonAncestorDirectory(left: string, right: string): string {
+  const a = path.resolve(left);
+  const b = path.resolve(right);
+  if (path.parse(a).root !== path.parse(b).root) {
+    return a;
+  }
+  let current = a;
+  while (!isWithinDirectory(b, current)) {
+    const parent = path.dirname(current);
+    if (parent === current) {
+      return current;
+    }
+    current = parent;
+  }
+  return current;
+}
+
+/** Whether `target` is `directory` itself or sits beneath it. */
+function isWithinDirectory(target: string, directory: string): boolean {
+  const relative = path.relative(directory, target);
+  return (
+    relative === "" ||
+    (!relative.startsWith("..") && !path.isAbsolute(relative))
+  );
 }
 
 function removeRuntimeOutput(directory: string): void {

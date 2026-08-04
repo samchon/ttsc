@@ -490,7 +490,7 @@ function owningModuleOptions(filename: string): OwningModuleOptions | null {
 }
 
 /** Narrow a resolved project's compiler options to the emit-format pair. */
-function projectModuleOptions(
+export function projectModuleOptions(
   compilerOptions: Record<string, unknown>,
 ): OwningModuleOptions {
   return {
@@ -1382,7 +1382,14 @@ export function readDependencyCache(
   }
   if (
     !isDependencyGeneration(meta.generation) ||
-    typeof meta.rootDir !== "string"
+    typeof meta.rootDir !== "string" ||
+    // A marker with no `moduleOptions` object predates this field and cannot
+    // say which format its emit carries. Treating the absence as "no options"
+    // would classify a CommonJS emit as an ES module, so the generation is
+    // rejected and rebuilt instead. Every marker this version writes carries
+    // the object, empty or not.
+    typeof meta.moduleOptions !== "object" ||
+    meta.moduleOptions === null
   ) {
     return null;
   }
@@ -1394,7 +1401,7 @@ export function readDependencyCache(
     emitDir,
     emittedFiles: undefined,
     moduleOptions: projectModuleOptions(
-      (meta.moduleOptions ?? {}) as Record<string, unknown>,
+      meta.moduleOptions as Record<string, unknown>,
     ),
     rootDir: meta.rootDir,
   };
