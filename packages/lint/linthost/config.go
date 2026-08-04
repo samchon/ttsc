@@ -1771,9 +1771,9 @@ func serializableConfigKeysLiteral() string {
 
 // runConfigLoaderCommand runs a prepared config-loader subprocess (`cmd`),
 // then turns its result into a parsed config object. It owns the shared tail
-// of both subprocess-backed loaders: discarding user stdout, announcing a
-// long-running evaluation, reading the private result file, JSON-parsing its
-// envelope, and rejecting a non-object result. `location` is the config file
+// of both subprocess-backed loaders: discarding user stdout, streaming user
+// stderr through, reading the private result file, JSON-parsing its envelope,
+// and rejecting a non-object result. `location` is the config file
 // path for error messages; `label` is the human-readable subject (e.g. "config
 // file" or "TypeScript config file") spliced into the load/parse error
 // prefixes so each loader keeps its own wording.

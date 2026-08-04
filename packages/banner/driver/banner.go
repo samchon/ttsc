@@ -335,13 +335,9 @@ function toSerializableBanner(value) {
   cmd.Stderr = os.Stderr
   output, err := cmd.Output()
   if err != nil {
-    stderr := ""
-    if exit, ok := err.(*exec.ExitError); ok {
-      stderr = strings.TrimSpace(string(exit.Stderr))
-    }
-    if stderr != "" {
-      return nil, fmt.Errorf("@ttsc/banner: load config file %s: %s", location, stderr)
-    }
+    // The loader wrote its own diagnostic to this process's stderr as it
+    // ran, so `cmd.Output` never collected it and there is nothing to
+    // repeat here. This names what failed.
     return nil, fmt.Errorf("@ttsc/banner: load config file %s: %w", location, err)
   }
   var out any
@@ -403,13 +399,9 @@ func loadBannerTypeScriptConfigFile(location string) (any, error) {
   cmd.Stderr = os.Stderr
   output, err := cmd.Output()
   if err != nil {
-    stderr := ""
-    if exit, ok := err.(*exec.ExitError); ok {
-      stderr = strings.TrimSpace(string(exit.Stderr))
-    }
-    if stderr != "" {
-      return nil, fmt.Errorf("@ttsc/banner: load TypeScript config file %s: %s", location, stderr)
-    }
+    // The loader wrote its own diagnostic to this process's stderr as it
+    // ran, so `cmd.Output` never collected it and there is nothing to
+    // repeat here. This names what failed.
     return nil, fmt.Errorf("@ttsc/banner: load TypeScript config file %s: %w", location, err)
   }
   var out any
