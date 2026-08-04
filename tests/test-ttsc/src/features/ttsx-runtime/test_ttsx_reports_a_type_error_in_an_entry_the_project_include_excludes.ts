@@ -13,8 +13,13 @@ import assert from "node:assert/strict";
  * and the message names the entry rather than the internal "emitted entry not
  * found" that used to surface here.
  *
- * 1. Create a project with `include: ["src"]` and a root-level script with a type
- *    error.
+ * The error is one only `strict` produces: `null` is assignable to `number`
+ * without it. So this also pins that the synthesized entry project inherits the
+ * real tsconfig's options rather than compiling under a default set — if it
+ * dropped them, this entry would compile and run.
+ *
+ * 1. Create a project with `strict`, `include: ["src"]`, and a root-level script
+ *    whose only error requires `strict` to exist.
  * 2. Run ttsx against that script.
  * 3. Assert the run fails, reports the entry's own diagnostic, and never executes
  *    the script's side effect.
@@ -37,7 +42,7 @@ export const test_ttsx_reports_a_type_error_in_an_entry_the_project_include_excl
         include: ["src"],
       }),
       "src/index.ts": `export const hello = (): string => "world";\n`,
-      "clear.ts": `const broken: number = "not a number";\nconsole.log("must-not-run", broken);\n`,
+      "clear.ts": `const broken: number = null;\nconsole.log("must-not-run", broken);\n`,
     });
 
     const result = TestProject.spawn(

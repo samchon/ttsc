@@ -2,25 +2,28 @@ import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 
 /**
- * Verifies an entry outside the project's `include` compiles under that
- * project's own compiler options rather than a default set.
+ * Verifies an entry outside the project's `include` takes its module format
+ * from that project rather than from a default.
  *
- * "ttsx targets the tsconfig" is the whole contract for an excluded entry. A
- * synthesized entry-only project that dropped the real options would type-check
- * the entry under different rules than the project it belongs to, so the two
- * options with visible, opposite consequences are the ones pinned here:
- * `strict`, which decides whether the entry compiles at all, and the module
- * format, which decides whether Node hands it `__dirname`.
+ * "ttsx targets the tsconfig" is the whole contract for an excluded entry, and
+ * the module option is the part of it with a consequence the run can show:
+ * under the project's `nodenext` the package's missing `"type"` makes this a
+ * CommonJS module and Node hands it `__dirname`. A synthesized entry project
+ * that dropped the option would derive the kind from `target` instead, emit an
+ * ES module, and print `esm` — so the two answers are distinguishable at run
+ * time rather than merely asserted.
  *
- * `paths` is deliberately not part of this. It is a compile-time mapping that
- * tsgo does not rewrite into the emit, so no `ttsx` entry resolves an alias at
- * runtime — inside `include` or outside it — and asserting otherwise here would
- * pin a behaviour the product does not have.
+ * Two options are deliberately not pinned here. `strict` cannot be, because
+ * dropping it only makes a program compile that otherwise would not: its
+ * inheritance is proved by the twin case, whose entry fails on an error
+ * `strict` alone produces. `paths` cannot be either — it is a compile-time
+ * mapping tsgo does not rewrite into the emit, so no ttsx entry resolves an
+ * alias at run time, inside `include` or outside it.
  *
- * 1. Create a project whose tsconfig sets `strict` and `include: ["src"]`.
- * 2. Run ttsx against a root-level script whose body only compiles under `strict`
- *    and which reads `__dirname`.
- * 3. Assert it ran, and that the CommonJS package type decided the format.
+ * 1. Create a CommonJS-package project with `module: "nodenext"` and `include:
+ *    ["src"]`.
+ * 2. Run ttsx against a root-level script that reads `__dirname`.
+ * 3. Assert it ran and reported `cjs`.
  */
 export const test_ttsx_runs_an_excluded_entry_under_the_project_compiler_options =
   () => {
