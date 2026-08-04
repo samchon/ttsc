@@ -271,12 +271,19 @@ function buildProject(
  * build returns.
  *
  * `rootDir` widens to the nearest directory holding both the project root and
- * the entry, which for the layout this exists for is the project root itself.
- * It has to widen at all because the inherited `rootDir` (`src`) does not
- * contain the entry, and it must not widen further: the manifest's `rootDir` is
- * what bounds the files the runtime hooks will try to serve from this emit, and
- * a volume-root bound would offer every raw `.ts` on disk to a lookup that
- * falls back to matching trailing path segments.
+ * the entry — for the layout this exists for, the project root itself; for an
+ * entry that is a symlink out of the tree, the ancestor the two trees share. It
+ * has to widen at least that far, because the inherited `rootDir` (`src`) does
+ * not contain the entry and tsgo emits an input outside `rootDir` to its own
+ * source path.
+ *
+ * Widening costs precision, not safety. The manifest's `rootDir` bounds which
+ * files the runtime hooks will try to serve from this emit, so a wide one
+ * admits more sources to the lookup — but the lookup only ever answers with a
+ * file from this build's own emit directory, whether from `emittedFiles` or a
+ * scan of `outDir` (`resolveEmittedJavaScript`). What a wide root risks is the
+ * exact mirror missing and the trailing-stem matcher picking the wrong output
+ * _of this build_; it cannot reach a raw source on disk.
  */
 function buildEntryProject(
   context: ReturnType<typeof createProjectContext>,
