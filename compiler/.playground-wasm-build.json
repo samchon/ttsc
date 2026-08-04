@@ -5,7 +5,7 @@
     {
       "path": "/home/runner/work/ttsc/ttsc/website/public/compiler/playground.wasm",
       "type": "file",
-      "sha256": "badd4580c9a14ee3be0b162a9939e24e964aec0a2ccf888adfe53fd6f10bec1c"
+      "sha256": "d52e5888fe898eed88e246ce57904794fe8d8e4ec958df1ec5ffff2b66dbcb6c"
     },
     {
       "path": "/home/runner/work/ttsc/ttsc/website/public/compiler/wasm_exec.js",
