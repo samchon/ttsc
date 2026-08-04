@@ -677,7 +677,9 @@ const hooks = registerHooks({
 // envelope is honoured there, so a partially written or unrelated file leaves
 // the process status to speak for itself.
 function reportLoaderFailure(error: unknown): never {
-  process.stderr.write(error instanceof Error && error.stack ? error.stack : String(error));
+  // The trailing newline ends the stack as a line of its own. Without it the
+  // parent's own message, written to this same stream, starts mid-line.
+  process.stderr.write((error instanceof Error && error.stack ? error.stack : String(error)) + "\\n");
   try {
     fs.writeFileSync(
       outputPath,

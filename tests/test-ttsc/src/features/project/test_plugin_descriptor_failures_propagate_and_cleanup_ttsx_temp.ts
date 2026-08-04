@@ -11,8 +11,8 @@ import path from "node:path";
  * must therefore preserve its cause without leaving loader artifacts; a
  * successful evaluator must clean up before later descriptor validation too.
  *
- * 1. Drive non-zero, enveloped, foreign-result, missing, malformed, and successful
- *    results.
+ * 1. Drive non-zero, stdout-only, enveloped, foreign-result, missing, malformed,
+ *    and successful results.
  * 2. Assert each API result is distinct and its loader directory is removed.
  * 3. Assert only a well-formed envelope becomes the failure reason.
  * 4. Assert the non-zero cause also reaches CLI and LSP startup unchanged.
