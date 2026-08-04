@@ -38,7 +38,7 @@ export default {
 
 A `banner.config.*` file always exports an object with a `text` string.
 
-The config is a Node module and runs under the module format Node would give it: an explicit `.cts`/`.mts` extension decides on its own, and an ambiguous `.ts` or `.js` config follows the nearest `package.json` `"type"`. So `__dirname` works in a CommonJS package and `import.meta.dirname` in a `"type": "module"` package, and Node's globals need no `/// <reference types="node" />` directive.
+The config is a Node module and runs under the module format Node would give it: an explicit `.cts`/`.mts` extension decides on its own, and an ambiguous `.ts` or `.js` config follows the nearest `package.json` `"type"`. So `__dirname` works in a CommonJS package and `import.meta.dirname` in a `"type": "module"` package, and Node's globals need no `/// <reference types="node" />` directive as long as `@types/node` is installed beside the config.
 
 Run `ttsc`. Every emitted `.js` and `.d.ts` gets:
 

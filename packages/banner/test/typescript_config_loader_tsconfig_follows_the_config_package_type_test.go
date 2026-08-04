@@ -7,28 +7,35 @@ import (
   "testing"
 )
 
-// TestTypeScriptConfigLoaderTsconfigFollowsTheConfigPackageType verifies the
-// ephemeral loader tsconfig derives `module` from the config file's nearest
-// package.json "type" and asks for every installed `@types` package.
+// TestTypeScriptConfigLoaderTsconfigFollowsTheConfigPackageType
+// verifies the ephemeral loader tsconfig derives `module` from the config file's package scope the way
+// Node resolves it.
 //
 // A `banner.config.ts` is a Node module, and Node decides its format from the
-// nearest package.json "type". Hardcoding "ESNext" ran every ambiguous `.ts`
-// config as ESM, so `__dirname` threw in an ordinary CommonJS package, and
-// without a wildcard `types` entry TypeScript 7 gave the loader Program no
-// ambient type package at all (#1069). An explicit `.cts`/`.mts` extension
-// already decides the format downstream, so those keep the ES-module setting.
+// package scope it sits in. Hardcoding "ESNext" ran every ambiguous `.ts`
+// config as ESM, so `__dirname` threw in an ordinary CommonJS package (#1069).
+// Matching Node means matching the whole lookup, and the part that is easy to
+// get wrong is where it stops: the FIRST manifest found bounds the scope, so a
+// manifest declaring no "type" answers CommonJS instead of deferring to a
+// module-typed ancestor. An explicit `.cts`/`.mts` extension decides the format
+// downstream on its own, so those keep the ES-module setting either way.
 //
-//  1. Write a CommonJS package and a "type": "module" package.
+//  1. Build a tree covering each step of the lookup: a manifest with no "type",
+//     a "type": "module" package, nested manifests that override an ancestor in
+//     both directions, a manifest that does not parse, and a directory with no
+//     manifest of its own.
 //  2. Synthesize the loader tsconfig for a config in each.
-//  3. Assert the ambiguous `.ts` config follows the package type, that a `.mts`
-//     config is left to its extension, and that `types` is the wildcard.
+//  3. Assert every `module` matches what Node would conclude.
 func TestTypeScriptConfigLoaderTsconfigFollowsTheConfigPackageType(t *testing.T) {
   root := t.TempDir()
   for name, manifest := range map[string]string{
-    "cjs": `{"name":"cjs"}`,
-    "esm": `{"name":"esm","type":"module"}`,
+    "cjs":                 `{"name":"cjs"}`,
+    "cjs/declared-module": `{"name":"declared","type":"module"}`,
+    "esm":                 `{"name":"esm","type":"module"}`,
+    "esm/nested":          `{"name":"nested"}`,
+    "esm/unparseable":     `{"name":`,
   } {
-    dir := filepath.Join(root, name)
+    dir := filepath.Join(root, filepath.FromSlash(name))
     if err := os.MkdirAll(dir, 0o755); err != nil {
       t.Fatalf("create %s: %v", dir, err)
     }
@@ -36,15 +43,25 @@ func TestTypeScriptConfigLoaderTsconfigFollowsTheConfigPackageType(t *testing.T)
       t.Fatalf("write manifest in %s: %v", dir, err)
     }
   }
+  deep := filepath.Join(root, "esm", "deep")
+  if err := os.MkdirAll(deep, 0o755); err != nil {
+    t.Fatalf("create %s: %v", deep, err)
+  }
 
   for _, testCase := range []struct {
     config string
     expect string
     label  string
   }{
-    {filepath.Join(root, "cjs", "banner.config.ts"), "CommonJS", "ambiguous .ts in a CommonJS package"},
-    {filepath.Join(root, "esm", "banner.config.ts"), "ESNext", "ambiguous .ts in a module package"},
-    {filepath.Join(root, "cjs", "banner.config.mts"), "ESNext", ".mts in a CommonJS package"},
+    {filepath.Join(root, "cjs", "banner.config.ts"), "CommonJS", `a manifest with no "type" means CommonJS`},
+    {filepath.Join(root, "esm", "banner.config.ts"), "ESNext", `an explicit "type": "module"`},
+    {filepath.Join(root, "esm", "nested", "banner.config.ts"), "CommonJS", "the nearest manifest outranks a module-typed ancestor"},
+    {filepath.Join(root, "cjs", "declared-module", "banner.config.ts"), "ESNext", "the nearest manifest outranks a CommonJS ancestor"},
+    {filepath.Join(root, "esm", "unparseable", "banner.config.ts"), "CommonJS", "a manifest that does not parse still bounds the scope"},
+    {filepath.Join(deep, "banner.config.ts"), "ESNext", "a directory with no manifest defers to the enclosing package"},
+    {filepath.Join(root, "esm", "banner.config.cts"), "ESNext", ".cts is left to its extension"},
+    {filepath.Join(root, "cjs", "banner.config.mts"), "ESNext", ".mts is left to its extension"},
+    {filepath.Join(root, "cjs", "banner.config.js"), "CommonJS", "an ambiguous .js follows the same scope"},
   } {
     dir := t.TempDir()
     raw := bannerTypeScriptConfigLoaderTsconfig(
@@ -68,9 +85,6 @@ func TestTypeScriptConfigLoaderTsconfigFollowsTheConfigPackageType(t *testing.T)
         parsed.CompilerOptions.Module,
         testCase.expect,
       )
-    }
-    if len(parsed.CompilerOptions.Types) != 1 || parsed.CompilerOptions.Types[0] != "*" {
-      t.Fatalf("%s: types = %#v, want [\"*\"]", testCase.label, parsed.CompilerOptions.Types)
     }
   }
 }

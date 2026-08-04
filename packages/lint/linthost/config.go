@@ -3239,22 +3239,28 @@ const hooks = registerHooks({
   },
 });
 
-try {
-  const importedConfig = await import(configUrl);
-  const value = await resolveConfig(importedConfig, true);
-  if (!isObject(value) || Array.isArray(value)) {
-    throw new Error("config file must export an ITtscLintConfig object");
+// Wrapped rather than written as a top-level await: the loader tsconfig's
+// "module" now follows the config's own package, and TS1378 rejects
+// top-level await under a CommonJS module option no matter that this .mts
+// file still emits as ESM.
+void (async () => {
+  try {
+    const importedConfig = await import(configUrl);
+    const value = await resolveConfig(importedConfig, true);
+    if (!isObject(value) || Array.isArray(value)) {
+      throw new Error("config file must export an ITtscLintConfig object");
+    }
+    fs.writeFileSync(outputPath, JSON.stringify({
+      dependencies: finalizeDependencies(),
+      value: toSerializableConfig(value),
+    }), "utf8");
+  } catch (error) {
+    process.stderr.write(error instanceof Error && error.stack ? error.stack : String(error));
+    process.exit(1);
+  } finally {
+    hooks.deregister();
   }
-  fs.writeFileSync(outputPath, JSON.stringify({
-    dependencies: finalizeDependencies(),
-    value: toSerializableConfig(value),
-  }), "utf8");
-} catch (error) {
-  process.stderr.write(error instanceof Error && error.stack ? error.stack : String(error));
-  process.exit(1);
-} finally {
-  hooks.deregister();
-}
+})();
 
 async function resolveConfig(value: unknown, allowNamedConfig: boolean): Promise<unknown> {
   let current = value;
@@ -4292,22 +4298,30 @@ func configModuleOption(location string) string {
   return "ESNext"
 }
 
-// nearestPackageType mirrors Node's own lookup for the nearest package.json
-// "type" at or above location: the first manifest carrying a "type" string
-// wins, an unreadable or "type"-less manifest keeps the walk going, and
-// reaching the filesystem root means CommonJS.
+// nearestPackageType mirrors Node's package-scope lookup for the nearest
+// package.json above location: the walk stops at the FIRST manifest it finds,
+// and a manifest declaring no "type" means CommonJS rather than a reason to
+// keep climbing. Reaching the filesystem root without any manifest also means
+// CommonJS. The location is made absolute first, so a relative config path
+// cannot end the walk at "." after a single step.
 func nearestPackageType(location string) string {
-  dir := filepath.Dir(location)
+  absolute, err := filepath.Abs(location)
+  if err != nil {
+    absolute = location
+  }
+  dir := filepath.Dir(absolute)
   for {
-    if raw, err := os.ReadFile(filepath.Join(dir, "package.json")); err == nil {
+    raw, err := os.ReadFile(filepath.Join(dir, "package.json"))
+    if err == nil {
       var manifest struct {
         Type string `json:"type"`
       }
-      if json.Unmarshal(raw, &manifest) == nil {
-        if manifest.Type == "module" || manifest.Type == "commonjs" {
-          return manifest.Type
-        }
+      // A manifest that does not parse still bounds the package scope; Node
+      // refuses to look past it, and CommonJS is the format it defaults to.
+      if json.Unmarshal(raw, &manifest) == nil && manifest.Type == "module" {
+        return "module"
       }
+      return "commonjs"
     }
     parent := filepath.Dir(dir)
     if parent == dir {

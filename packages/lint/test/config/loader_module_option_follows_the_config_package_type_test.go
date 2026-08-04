@@ -8,28 +8,34 @@ import (
 )
 
 // TestLoaderModuleOptionFollowsTheConfigPackageType verifies the ephemeral
-// loader tsconfig derives `module` from the config file's nearest package.json
-// "type" instead of hardcoding one answer.
+// loader tsconfig derives `module` from the config file's package scope the way
+// Node resolves it.
 //
 // A `lint.config.ts` is a Node module, and Node decides its format from the
-// nearest package.json "type". Hardcoding "ESNext" ran every ambiguous `.ts`
+// package scope it sits in. Hardcoding "ESNext" ran every ambiguous `.ts`
 // config as ESM, so `__dirname` threw in an ordinary CommonJS package (#1068).
-// An explicit `.cts`/`.mts` extension already decides the format downstream, so
-// those keep the ES-module setting and let the extension win.
+// Matching Node means matching the whole lookup, and the part that is easy to
+// get wrong is where it stops: the FIRST manifest found bounds the scope, so a
+// manifest declaring no "type" answers CommonJS instead of deferring to a
+// module-typed ancestor. An explicit `.cts`/`.mts` extension decides the format
+// downstream on its own, so those keep the ES-module setting either way.
 //
-//  1. Write a CommonJS package, a "type": "module" package, and a tree with no
-//     manifest at all.
+//  1. Build a tree covering each step of the lookup: a manifest with no "type",
+//     a "type": "module" package, nested manifests that override an ancestor in
+//     both directions, a manifest that does not parse, and a directory with no
+//     manifest of its own.
 //  2. Synthesize the loader tsconfig for a config in each.
-//  3. Assert the ambiguous `.ts` config follows the package type, that a
-//     manifest-less tree falls back to CommonJS the way Node does, and that a
-//     `.cts` config in a module package is left to its extension.
+//  3. Assert every `module` matches what Node would conclude.
 func TestLoaderModuleOptionFollowsTheConfigPackageType(t *testing.T) {
   root := t.TempDir()
   for name, manifest := range map[string]string{
-    "cjs": `{"name":"cjs"}`,
-    "esm": `{"name":"esm","type":"module"}`,
+    "cjs":                 `{"name":"cjs"}`,
+    "cjs/declared-module": `{"name":"declared","type":"module"}`,
+    "esm":                 `{"name":"esm","type":"module"}`,
+    "esm/nested":          `{"name":"nested"}`,
+    "esm/unparseable":     `{"name":`,
   } {
-    dir := filepath.Join(root, name)
+    dir := filepath.Join(root, filepath.FromSlash(name))
     if err := os.MkdirAll(dir, 0o755); err != nil {
       t.Fatalf("create %s: %v", dir, err)
     }
@@ -37,9 +43,9 @@ func TestLoaderModuleOptionFollowsTheConfigPackageType(t *testing.T) {
       t.Fatalf("write manifest in %s: %v", dir, err)
     }
   }
-  bare := filepath.Join(root, "bare")
-  if err := os.MkdirAll(bare, 0o755); err != nil {
-    t.Fatalf("create %s: %v", bare, err)
+  deep := filepath.Join(root, "esm", "deep")
+  if err := os.MkdirAll(deep, 0o755); err != nil {
+    t.Fatalf("create %s: %v", deep, err)
   }
 
   for _, testCase := range []struct {
@@ -47,11 +53,15 @@ func TestLoaderModuleOptionFollowsTheConfigPackageType(t *testing.T) {
     expect string
     label  string
   }{
-    {filepath.Join(root, "cjs", "lint.config.ts"), "CommonJS", "ambiguous .ts in a CommonJS package"},
-    {filepath.Join(root, "esm", "lint.config.ts"), "ESNext", "ambiguous .ts in a module package"},
-    {filepath.Join(bare, "lint.config.ts"), "CommonJS", "ambiguous .ts with no manifest above it"},
-    {filepath.Join(root, "esm", "lint.config.cts"), "ESNext", ".cts in a module package"},
-    {filepath.Join(root, "cjs", "lint.config.mts"), "ESNext", ".mts in a CommonJS package"},
+    {filepath.Join(root, "cjs", "lint.config.ts"), "CommonJS", `a manifest with no "type" means CommonJS`},
+    {filepath.Join(root, "esm", "lint.config.ts"), "ESNext", `an explicit "type": "module"`},
+    {filepath.Join(root, "esm", "nested", "lint.config.ts"), "CommonJS", "the nearest manifest outranks a module-typed ancestor"},
+    {filepath.Join(root, "cjs", "declared-module", "lint.config.ts"), "ESNext", "the nearest manifest outranks a CommonJS ancestor"},
+    {filepath.Join(root, "esm", "unparseable", "lint.config.ts"), "CommonJS", "a manifest that does not parse still bounds the scope"},
+    {filepath.Join(deep, "lint.config.ts"), "ESNext", "a directory with no manifest defers to the enclosing package"},
+    {filepath.Join(root, "esm", "lint.config.cts"), "ESNext", ".cts is left to its extension"},
+    {filepath.Join(root, "cjs", "lint.config.mts"), "ESNext", ".mts is left to its extension"},
+    {filepath.Join(root, "cjs", "lint.config.js"), "CommonJS", "an ambiguous .js follows the same scope"},
   } {
     dir := t.TempDir()
     raw := typeScriptConfigLoaderTsconfig(
@@ -61,7 +71,8 @@ func TestLoaderModuleOptionFollowsTheConfigPackageType(t *testing.T) {
     )
     var parsed struct {
       CompilerOptions struct {
-        Module string `json:"module"`
+        Module string   `json:"module"`
+        Types  []string `json:"types"`
       } `json:"compilerOptions"`
     }
     if err := json.Unmarshal([]byte(raw), &parsed); err != nil {

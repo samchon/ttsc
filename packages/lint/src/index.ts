@@ -630,34 +630,40 @@ const hooks = registerHooks({
   },
 });
 
-try {
-  const importedConfig = configLocation.toLowerCase().endsWith(".json")
-    ? JSON.parse(fs.readFileSync(configLocation, "utf8").replace(/^\uFEFF/, ""))
-    : await import(configUrl);
-  const current = await resolveConfig(importedConfig, true);
-  const pluginMaps = collectPluginObjects(current);
-  const entries: Array<{ namespace: string; source: string }> = [];
-  for (const map of pluginMaps) {
-    for (const [namespace, value] of Object.entries(map)) {
-      const source = extractPluginSource(value);
-      if (source === undefined || source.length === 0) {
-        throw new Error(
-          \`contributor \${JSON.stringify(namespace)} must resolve to an object with a non-empty "source" string\`,
-        );
+// Wrapped rather than written as a top-level await: the loader tsconfig's
+// "module" now follows the config's own package, and TS1378 rejects
+// top-level await under a CommonJS module option no matter that this .mts
+// file still emits as ESM.
+void (async () => {
+  try {
+    const importedConfig = configLocation.toLowerCase().endsWith(".json")
+      ? JSON.parse(fs.readFileSync(configLocation, "utf8").replace(/^\uFEFF/, ""))
+      : await import(configUrl);
+    const current = await resolveConfig(importedConfig, true);
+    const pluginMaps = collectPluginObjects(current);
+    const entries: Array<{ namespace: string; source: string }> = [];
+    for (const map of pluginMaps) {
+      for (const [namespace, value] of Object.entries(map)) {
+        const source = extractPluginSource(value);
+        if (source === undefined || source.length === 0) {
+          throw new Error(
+            \`contributor \${JSON.stringify(namespace)} must resolve to an object with a non-empty "source" string\`,
+          );
+        }
+        entries.push({ namespace, source });
       }
-      entries.push({ namespace, source });
     }
+    fs.writeFileSync(outputPath, JSON.stringify({
+      dependencies: finalizeDependencies(),
+      entries,
+    }), "utf8");
+  } catch (error) {
+    process.stderr.write(error instanceof Error && error.stack ? error.stack : String(error));
+    process.exit(1);
+  } finally {
+    hooks.deregister();
   }
-  fs.writeFileSync(outputPath, JSON.stringify({
-    dependencies: finalizeDependencies(),
-    entries,
-  }), "utf8");
-} catch (error) {
-  process.stderr.write(error instanceof Error && error.stack ? error.stack : String(error));
-  process.exit(1);
-} finally {
-  hooks.deregister();
-}
+})();
 
 function isObject(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object";
@@ -2299,27 +2305,30 @@ function configModuleOption(configPath: string): string {
 
 /**
  * Nearest `package.json` `"type"` at or above `configPath`, mirroring Node's
- * own lookup: the first manifest with a `"type"` string wins, an unreadable or
- * `"type"`-less manifest keeps the walk going, and reaching the filesystem root
- * means CommonJS.
+ * package-scope lookup: the walk stops at the **first** manifest it finds, and
+ * a manifest that declares no `"type"` means CommonJS rather than a reason to
+ * keep climbing. Reaching the filesystem root without any manifest also means
+ * CommonJS.
  */
 function nearestPackageType(configPath: string): "commonjs" | "module" {
   let dir = path.dirname(path.resolve(configPath));
   for (;;) {
-    try {
-      const manifest: unknown = JSON.parse(
-        fs.readFileSync(path.join(dir, "package.json"), "utf8"),
-      );
-      const type =
-        typeof manifest === "object" && manifest !== null
-          ? (manifest as { type?: unknown }).type
-          : undefined;
-      if (type === "module" || type === "commonjs") {
-        return type;
+    const manifestPath = path.join(dir, "package.json");
+    if (fs.existsSync(manifestPath)) {
+      try {
+        const manifest: unknown = JSON.parse(
+          fs.readFileSync(manifestPath, "utf8"),
+        );
+        const type =
+          typeof manifest === "object" && manifest !== null
+            ? (manifest as { type?: unknown }).type
+            : undefined;
+        return type === "module" ? "module" : "commonjs";
+      } catch {
+        // A manifest that does not parse still bounds the package scope; Node
+        // refuses to look past it, and CommonJS is the format it defaults to.
+        return "commonjs";
       }
-    } catch {
-      // No manifest here, or an unreadable one: Node keeps walking up, and a
-      // malformed manifest must not decide the format by accident.
     }
     const parent = path.dirname(dir);
     if (parent === dir) {

@@ -6,7 +6,11 @@ import { readProjectConfig } from "../../compiler/internal/project/readProjectCo
 import { resolveEmittedJavaScript } from "../../compiler/internal/resolveEmittedJavaScript";
 import { runBuild } from "../../compiler/internal/runBuild";
 import type { TtscCommonOptions } from "../../structures/internal/TtscCommonOptions";
-import { type OwningModuleOptions, projectModuleOptions } from "./runtimeHooks";
+import {
+  type OwningModuleOptions,
+  isWithin,
+  projectModuleOptions,
+} from "./runtimeHooks";
 
 /** Subdirectory name that isolates concurrent ttsx processes by PID. */
 const PROCESS_CACHE_KEY = String(process.pid);
@@ -47,23 +51,10 @@ export function prepareExecution(
   );
   try {
     buildProject(context, options);
-    // `projectRoot` here is the source root the emit mirrors, not the directory
-    // holding the tsconfig: tsgo strips that prefix, and the runtime hooks look
-    // the entry up against exactly the same root.
-    let emittedEntry = resolveEmittedJavaScript({
-      emittedFiles: context.emittedFiles ?? undefined,
-      outDir: context.emitDir,
-      projectRoot: context.runtimeRootDir,
-      sourceFile: entryFile,
-    });
+    let emittedEntry = emittedEntryOf(context, entryFile);
     if (emittedEntry === null) {
       buildEntryProject(context, options, entryFile);
-      emittedEntry = resolveEmittedJavaScript({
-        emittedFiles: context.emittedFiles ?? undefined,
-        outDir: context.emitDir,
-        projectRoot: context.runtimeRootDir,
-        sourceFile: entryFile,
-      });
+      emittedEntry = emittedEntryOf(context, entryFile);
     }
     if (emittedEntry === null) {
       throw new Error(`ttsx: emitted entry not found for ${entryFile}`);
@@ -81,6 +72,35 @@ export function prepareExecution(
     removeRuntimeOutput(context.processDir);
     throw error;
   }
+}
+
+/**
+ * The JavaScript this build emitted for `entryFile`, or `null` when it emitted
+ * none — which is the signal that the entry sits outside the project's file
+ * set.
+ *
+ * The `isWithin` guard is what makes this an ownership answer rather than a
+ * guess. tsgo strips `runtimeRootDir` from every output path, so a file outside
+ * that root cannot have an output under `outDir` at all; without the guard the
+ * lookup falls through to `resolveEmittedJavaScript`'s trailing-stem matcher,
+ * and a `build/release.ts` would happily match the `release.js` emitted for an
+ * unrelated `src/release.ts` — running the wrong file instead of compiling the
+ * requested one. It is also the same guard `serveEntryEmit` applies, so the
+ * gate and the runtime hooks agree on which files this emit owns.
+ */
+function emittedEntryOf(
+  context: ReturnType<typeof createProjectContext>,
+  entryFile: string,
+): string | null {
+  if (!isWithin(path.resolve(entryFile), context.runtimeRootDir)) {
+    return null;
+  }
+  return resolveEmittedJavaScript({
+    emittedFiles: context.emittedFiles ?? undefined,
+    outDir: context.emitDir,
+    projectRoot: context.runtimeRootDir,
+    sourceFile: entryFile,
+  });
 }
 
 function createProjectContext(
@@ -315,34 +335,32 @@ function buildEntryProject(
 /**
  * The nearest directory containing both `left` and `right`.
  *
- * Falls back to `left` when the two sit on different Windows volumes, where no
- * common ancestor exists at all: the entry still has to compile, and a root
- * that contains the entry is the closest thing to correct available.
+ * Containment is asked through the same filesystem-identity predicate the
+ * runtime hooks use to consume this value, not through raw path arithmetic. The
+ * project root arrives realpath-resolved while the entry does not, so on any
+ * host where the two spellings differ — macOS `/var` against `/private/var`, a
+ * Windows drive letter cased differently by `TEMP` than by the canonical path —
+ * a textual comparison finds no shared ancestor and walks all the way to the
+ * volume root, which is precisely the bound this function exists to avoid.
+ *
+ * Falls back to `left` when there genuinely is no shared ancestor, as on two
+ * different Windows volumes: the entry still has to compile, and a root that
+ * contains the entry is the closest thing to correct available.
  */
 function commonAncestorDirectory(left: string, right: string): string {
-  const a = path.resolve(left);
-  const b = path.resolve(right);
-  if (path.parse(a).root !== path.parse(b).root) {
-    return a;
-  }
-  let current = a;
-  while (!isWithinDirectory(b, current)) {
+  const from = path.resolve(left);
+  const target = path.resolve(right);
+  let current = from;
+  for (;;) {
+    if (isWithin(target, current)) {
+      return current;
+    }
     const parent = path.dirname(current);
     if (parent === current) {
-      return current;
+      return from;
     }
     current = parent;
   }
-  return current;
-}
-
-/** Whether `target` is `directory` itself or sits beneath it. */
-function isWithinDirectory(target: string, directory: string): boolean {
-  const relative = path.relative(directory, target);
-  return (
-    relative === "" ||
-    (!relative.startsWith("..") && !path.isAbsolute(relative))
-  );
 }
 
 function removeRuntimeOutput(directory: string): void {

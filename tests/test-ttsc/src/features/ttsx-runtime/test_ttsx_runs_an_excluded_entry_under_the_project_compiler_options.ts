@@ -32,15 +32,18 @@ export const test_ttsx_runs_an_excluded_entry_under_the_project_compiler_options
           strict: true,
           outDir: "lib",
           rootDir: "src",
-          baseUrl: ".",
           paths: { "@lib/*": ["./src/*"] },
         },
         include: ["src"],
       }),
       "src/message.ts": `export const message: string = "aliased";\n`,
-      "globals.d.ts": `declare const __dirname: string;\n`,
+      // The declaration lives in the entry itself: the synthesized entry
+      // project declares only this file, so a root-level `.d.ts` would sit
+      // outside its program.
       "clear.ts": [
         `import { message } from "@lib/message";`,
+        ``,
+        `declare const __dirname: string;`,
         ``,
         `console.log(message, typeof __dirname === "string" ? "cjs" : "esm");`,
         ``,
