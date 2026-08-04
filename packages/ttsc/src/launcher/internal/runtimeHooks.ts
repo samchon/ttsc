@@ -2048,7 +2048,7 @@ function readFileOrNull(file: string | null): string | null {
  * would put a `..` in `path.relative(rootDir, real)`, drop the exact-mirror
  * lane, and leave the entry to whatever the trailing-stem matcher picks.
  */
-function realPath(target: string): string {
+export function realPath(target: string): string {
   try {
     return fs.realpathSync.native?.(target) ?? fs.realpathSync(target);
   } catch {

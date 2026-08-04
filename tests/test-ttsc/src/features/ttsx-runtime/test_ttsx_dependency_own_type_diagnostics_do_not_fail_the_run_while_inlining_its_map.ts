@@ -1,9 +1,9 @@
 import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
-import fs from "node:fs";
 import path from "node:path";
 
 import {
+  physicalRealpath,
   runTtsxWithCoverage,
   sourceMapSourcePath,
 } from "../../internal/ttsx-source-map";
@@ -90,7 +90,7 @@ export const test_ttsx_dependency_own_type_diagnostics_do_not_fail_the_run_while
       "the dependency's map must still inline (data present)",
     );
     const mapped = sourceMapSourcePath(script);
-    const real = fs.realpathSync(
+    const real = physicalRealpath(
       path.join(root, "node_modules", "built-dep", "src", "index.ts"),
     );
     assert.ok(mapped, "the inlined map must list a source path");

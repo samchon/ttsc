@@ -231,3 +231,15 @@ function listJsonFiles(dir: string): string[] {
 function normalizeUrl(url: string): string {
   return url.replace(/\\/g, "/");
 }
+
+/**
+ * The physical path in the same spelling the product produces.
+ *
+ * `fs.realpathSync` resolves reparse points but leaves a Windows 8.3 component
+ * alone, and the launcher and runtime hooks both use `fs.realpathSync.native`,
+ * which expands it. An expectation built with the plain form silently stops
+ * matching the value under test on any host whose `TEMP` carries a short name.
+ */
+export function physicalRealpath(location: string): string {
+  return fs.realpathSync.native?.(location) ?? fs.realpathSync(location);
+}

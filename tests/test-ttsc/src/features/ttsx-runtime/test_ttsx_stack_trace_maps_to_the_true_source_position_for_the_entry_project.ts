@@ -1,11 +1,11 @@
 import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
-import fs from "node:fs";
 import path from "node:path";
 
 import {
   THROWER_THROW_COLUMN,
   THROWER_THROW_LINE,
+  physicalRealpath,
   tallCommentThrowerSource,
 } from "../../internal/ttsx-source-map";
 
@@ -53,7 +53,7 @@ export const test_ttsx_stack_trace_maps_to_the_true_source_position_for_the_entr
     );
 
     assert.notEqual(result.status, 0, "the thrown error must fail the run");
-    const real = fs.realpathSync(path.join(root, "src", "boom.ts"));
+    const real = physicalRealpath(path.join(root, "src", "boom.ts"));
     assertMappedFrame(result.stderr, "boom", real);
   };
 

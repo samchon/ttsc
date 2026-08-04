@@ -1,7 +1,11 @@
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
-import { entryModuleFormat, installRuntimeHooks } from "./runtimeHooks";
+import {
+  entryModuleFormat,
+  installRuntimeHooks,
+  realPath,
+} from "./runtimeHooks";
 
 /**
  * Bootstrap `ttsx` spawns as the child's main module: it installs the runtime
@@ -29,7 +33,12 @@ process.argv = [process.argv[0]!, entry, ...forwarded];
 
 installRuntimeHooks();
 
-const kind = entryModuleFormat(path.resolve(entry));
+// The physical path, because the format question is a runtime question: the
+// hooks serve the entry under its real path, and `moduleFormat` walks from the
+// path it is handed to find the `package.json` that decides. Asking from a
+// symlink's own directory reads the wrong package scope and hands an ESM emit
+// to `require`.
+const kind = entryModuleFormat(realPath(path.resolve(entry)));
 
 function fail(error: unknown): never {
   // Match Node's own uncaught-exception surfacing for a thrown entry error.

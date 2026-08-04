@@ -1,10 +1,10 @@
 import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
-import fs from "node:fs";
 import path from "node:path";
 
 import {
   maxFunctionCount,
+  physicalRealpath,
   runTtsxWithCoverage,
   sourceMapSourcePath,
   tallCommentLibrarySource,
@@ -59,7 +59,7 @@ export const test_ttsx_coverage_source_map_is_inlined_when_the_entry_project_emi
     );
 
     const mapped = sourceMapSourcePath(script);
-    const real = fs.realpathSync(path.join(root, "src", "lib.ts"));
+    const real = physicalRealpath(path.join(root, "src", "lib.ts"));
     assert.ok(mapped, "the inlined map must list a source path");
     assert.equal(
       caseFold(path.normalize(mapped)),

@@ -98,10 +98,12 @@ export function prepareExecution(
  * requested one.
  *
  * It is lexical on purpose, and it is the same test `resolveEmittedJavaScript`
- * then applies — including its rejection of an entry that _is_ the root. Both
- * sides already carry the one spelling `resolveEntrySpelling` decided on, so
- * there is no spelling left to fold, and folding again could only disagree with
- * the mirror that runs immediately after it.
+ * then applies — including its rejection of an entry that _is_ the root. That
+ * only holds because both sides are _produced_ physically: the entry by
+ * `resolveEntrySpelling`, the root by `resolveRuntimeSourceRoot`. Folding here
+ * instead would paper over a mixed pair and disagree with the mirror that runs
+ * immediately after; keeping the pair honest is what makes folding
+ * unnecessary.
  */
 function emittedEntryOf(
   context: ReturnType<typeof createProjectContext>,
@@ -122,15 +124,18 @@ function emittedEntryOf(
 /**
  * The entry in the filesystem's own spelling, symlinked file included.
  *
- * Every other party to this decision already speaks that spelling. The project
- * root arrives physically resolved; tsgo emits from the path it actually opens;
- * and the runtime hooks identify a served file by `fs.realpathSync`, because
- * that is how Node itself keys a module without `--preserve-symlinks`. An entry
- * spelled any other way is not a nicer name for the same file — it is a fourth
- * answer nobody else gives, and the disagreements are not symmetric: the gate
- * would claim to own an emit the runtime then refuses to serve, so the entry
- * would run through the orphan type-strip lane with the project's transform
- * plugins, `target`, `paths`, and source map all silently dropped.
+ * Node is what forces the choice. Without `--preserve-symlinks` it keys a
+ * module by its real path, so the runtime hooks identify a served file that way
+ * too — and the emit has to be findable under the same name. tsgo does not
+ * force anything: it takes `files` verbatim and never resolves them, which is
+ * exactly why it must be handed the spelling Node will use rather than a
+ * different one.
+ *
+ * An entry spelled any other way is not a nicer name for the same file. The
+ * gate would claim to own an emit the runtime then refuses to serve, and the
+ * entry would run through the orphan type-strip lane with the project's
+ * transform plugins, `target`, `paths`, and source map all silently dropped —
+ * from a run that still prints and still exits zero.
  *
  * Resolving the link widens `rootDir` to the ancestor the two trees share,
  * which is not a cost but the requirement: the file genuinely lives outside the
@@ -205,17 +210,37 @@ function createProjectContext(
   };
 }
 
+/**
+ * The source-tree root the emit mirrors, in the same physical spelling as the
+ * entry it will be compared against.
+ *
+ * Resolving it is the other half of `resolveEntrySpelling`, and skipping it
+ * leaves the comparison mixed rather than merely imprecise. `project.root`
+ * arrives through plain `fs.realpathSync`, which resolves reparse points but
+ * leaves a Windows 8.3 component alone, while the entry arrives through
+ * `fs.realpathSync.native`, which expands it — and `path.relative` folds case
+ * but not 8.3. A declared `rootDir` is worse still: it is joined verbatim, so a
+ * `rootDir` that is itself a symlinked directory never resolves at all. Either
+ * way the gate reads an in-project entry as outside its own root, pays a second
+ * whole build for it, and publishes a wider root than the project has.
+ *
+ * `path.dirname(entry)` is already physical, so only the declared branch needs
+ * the pass.
+ */
 function resolveRuntimeSourceRoot(
   project: ReturnType<typeof readProjectConfig>,
-  filename: string,
+  entry: string,
 ): string {
   const rootDir = project.compilerOptions.rootDir;
-  if (typeof rootDir === "string") {
-    return path.isAbsolute(rootDir)
-      ? rootDir
-      : path.resolve(project.root, rootDir);
+  if (typeof rootDir !== "string") {
+    return path.dirname(entry);
   }
-  return path.dirname(filename);
+  const identities = createFilesystemPathIdentityContext({
+    throwOnRealpathError: false,
+  });
+  return identities.resolve(
+    path.isAbsolute(rootDir) ? rootDir : path.resolve(project.root, rootDir),
+  ).path;
 }
 
 function buildProject(
