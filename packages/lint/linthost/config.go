@@ -1791,8 +1791,12 @@ func runConfigLoaderCommand(
   cmd.Stderr = os.Stderr
   err := cmd.Run()
   if err != nil {
-    // The loader's own diagnostic already reached the user's stderr as it was
-    // written, so this names what failed rather than repeating the text.
+    // The loader's stack already reached the user's stderr as it was written.
+    // What it could not put there is a reason a caller can act on, so that
+    // arrives through the result file instead.
+    if reason := loaderFailureReason(outputPath); reason != "" {
+      return evaluatedConfigFile{}, fmt.Errorf("@ttsc/lint: load %s %s: %s", label, location, reason)
+    }
     return evaluatedConfigFile{}, fmt.Errorf("@ttsc/lint: load %s %s: %w", label, location, err)
   }
   output, err := os.ReadFile(outputPath)
@@ -2049,6 +2053,12 @@ const hooks = registerHooks({
   }
 })().catch((error) => {
   process.stderr.write(error && error.stack ? error.stack : String(error));
+  // The stack above is for the reader. This is for the caller: the parent reads
+  // the result file either way, so a failure reason travels as data rather than
+  // as text scraped back out of a captured stream.
+  try {
+    fs.writeFileSync(outputPath, JSON.stringify({ error: error && error.message ? String(error.message) : String(error) }), "utf8");
+  } catch {}
   process.exit(1);
 });
 
@@ -3241,6 +3251,12 @@ const hooks = registerHooks({
   }
 })().catch((error) => {
   process.stderr.write(error instanceof Error && error.stack ? error.stack : String(error));
+  // The stack above is for the reader. This is for the caller: the parent reads
+  // the result file either way, so a failure reason travels as data rather than
+  // as text scraped back out of a captured stream.
+  try {
+    fs.writeFileSync(outputPath, JSON.stringify({ error: error instanceof Error ? error.message : String(error) }), "utf8");
+  } catch {}
   process.exit(1);
 });
 
@@ -4770,4 +4786,26 @@ func (c RuleConfig) Severity(name string) Severity {
     return sev
   }
   return SeverityOff
+}
+
+// loaderFailureReason reads the failure envelope a config loader writes to its
+// private result file when it stops on an error it can name.
+//
+// The loader's stack goes to this process's stderr as it runs, which is where a
+// reader wants it. But the reason — "config file must export an ITtscLintConfig
+// object" — is a fact about the user's config, and a caller deserves it in the
+// error rather than having to go find it in the log. Only a well-formed
+// envelope is honoured; anything else leaves the process status to speak.
+func loaderFailureReason(outputPath string) string {
+  raw, err := os.ReadFile(outputPath)
+  if err != nil {
+    return ""
+  }
+  var envelope struct {
+    Error string `json:"error"`
+  }
+  if json.Unmarshal(raw, &envelope) != nil {
+    return ""
+  }
+  return strings.TrimSpace(envelope.Error)
 }

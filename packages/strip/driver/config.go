@@ -200,6 +200,10 @@ const { pathToFileURL } = require("node:url");
   process.stdout.write(JSON.stringify(value));
 })().catch((error) => {
   process.stderr.write(error && error.stack ? error.stack : String(error));
+  // The stack above is for the reader. This line is for the caller: the parent
+  // reads stdout as the payload channel either way, so a failure reason travels
+  // as data rather than as text scraped back out of a captured stream.
+  process.stdout.write(JSON.stringify({ __ttscLoaderError: error && error.message ? String(error.message) : String(error) }));
   process.exit(1);
 });
 `
@@ -223,9 +227,12 @@ func loadStripScriptConfigFile(location string) (any, error) {
   cmd.Stderr = os.Stderr
   output, err := cmd.Output()
   if err != nil {
-    // The loader wrote its own diagnostic to this process's stderr as it
-    // ran, so `cmd.Output` never collected it and there is nothing to
-    // repeat here. This names what failed.
+    // The loader's stack already reached this process's stderr as it ran.
+    // What it could not put there is a reason a caller can act on, so that
+    // arrives through the payload channel instead.
+    if reason := loaderFailureReason(output); reason != "" {
+      return nil, fmt.Errorf("@ttsc/strip: load config file %s: %s", location, reason)
+    }
     return nil, fmt.Errorf("@ttsc/strip: load config file %s: %w", location, err)
   }
   var out any
@@ -277,6 +284,10 @@ declare const process: {
   }
 })().catch((error) => {
   process.stderr.write(error instanceof Error && error.stack ? error.stack : String(error));
+  // The stack above is for the reader. This line is for the caller: the parent
+  // reads stdout as the payload channel either way, so a failure reason travels
+  // as data rather than as text scraped back out of a captured stream.
+  process.stdout.write(JSON.stringify({ __ttscLoaderError: error instanceof Error ? error.message : String(error) }));
   process.exit(1);
 });
 `, importLiteral)
@@ -340,9 +351,12 @@ func loadStripTypeScriptConfigFile(location string) (any, error) {
   cmd.Stderr = os.Stderr
   output, err := cmd.Output()
   if err != nil {
-    // The loader wrote its own diagnostic to this process's stderr as it
-    // ran, so `cmd.Output` never collected it and there is nothing to
-    // repeat here. This names what failed.
+    // The loader's stack already reached this process's stderr as it ran.
+    // What it could not put there is a reason a caller can act on, so that
+    // arrives through the payload channel instead.
+    if reason := loaderFailureReason(output); reason != "" {
+      return nil, fmt.Errorf("@ttsc/strip: load TypeScript config file %s: %s", location, reason)
+    }
     return nil, fmt.Errorf("@ttsc/strip: load TypeScript config file %s: %w", location, err)
   }
   var out any
@@ -632,4 +646,24 @@ func stripSetEnv(env []string, key, value string) []string {
     }
   }
   return append(env, prefix+value)
+}
+
+// loaderFailureReason reads the failure envelope a config loader writes to its
+// payload channel when it stops on an error it can name.
+//
+// The loader's stack goes to this process's stderr as it runs, which is where a
+// reader wants it. But the *reason* — "config file must export an object with a
+// non-empty text string" — is a fact about the user's config, and a caller
+// deserves it in the error rather than having to go find it in the log. So it
+// travels as data through the same stdout the payload uses, and only a
+// well-formed envelope is honoured: anything else leaves the process status to
+// speak for itself.
+func loaderFailureReason(output []byte) string {
+  var envelope struct {
+    Message string `json:"__ttscLoaderError"`
+  }
+  if json.Unmarshal(output, &envelope) != nil {
+    return ""
+  }
+  return strings.TrimSpace(envelope.Message)
 }
