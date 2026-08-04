@@ -274,11 +274,36 @@ func (p *program) runProjectCycle(engine *Engine) *projectCycle {
   return p.projectCycle
 }
 
+// runLintCycle walks everything the invocation reads: the project's own sources
+// and the TypeScript it imported. Every caller here reports its findings, so a
+// source the type-check pass read must be able to produce one.
 func (p *program) runLintCycle(engine *Engine) []*Finding {
+  return p.runCycleOver(engine, p.userSourceFiles())
+}
+
+// runFormatCycle walks the project's own sources alone.
+//
+// Format is write-only: it prints nothing and it must not rewrite a sibling
+// package it merely imports, so a finding outside the project has nowhere to
+// go. Reading wider would spend a full walk, once per cascade pass, on findings
+// the command discards. Scope is enforced by what format reads rather than by
+// filtering afterwards.
+func (p *program) runFormatCycle(engine *Engine) []*Finding {
+  return p.runCycleOver(engine, p.projectSourceFiles())
+}
+
+// runCycleOver evaluates the project rules and the file rules over one file set,
+// memoizing the project cycle on the program so a second verb against the same
+// program does not re-evaluate a rule. The caller owns the scope decision.
+//
+// That memo makes the scope a property of the program, not of the call: the
+// first cycle fixes the population every later verb observes. One loaded
+// program therefore serves one scope, and a caller must not ask the same
+// program for both a lint cycle and a format cycle.
+func (p *program) runCycleOver(engine *Engine, files []*shimast.SourceFile) []*Finding {
   if p == nil || engine == nil {
     return nil
   }
-  files := p.userSourceFiles()
   if p.projectCycle == nil {
     p.projectCycle = engine.evaluateProject(p.identity, files, p.checker)
   }
@@ -388,13 +413,31 @@ func (p *program) userSourceFiles() []*shimast.SourceFile {
   return out
 }
 
+// projectSourceFiles returns the Program's copy of the files the tsconfig itself
+// selected — the project's own sources, the set `format` walks and the set any
+// lint write stays inside.
+func (p *program) projectSourceFiles() []*shimast.SourceFile {
+  roots := p.projectSourceFileNames()
+  out := make([]*shimast.SourceFile, 0, len(roots))
+  for _, f := range p.tsProgram.SourceFiles() {
+    if f == nil {
+      continue
+    }
+    if _, ok := roots[canonicalProjectPath(p.cwd, f.FileName())]; !ok {
+      continue
+    }
+    out = append(out, f)
+  }
+  return out
+}
+
 // projectSourceFileNames returns the canonical paths of the TS/JS files the
-// tsconfig itself selected — the project's own source set.
+// tsconfig itself selected.
 //
-// This is the narrow half of the boundary above: `fix` and `format` write
-// files, and a project must not rewrite a sibling package's sources merely
-// because it imports them, so the write side stays inside this set even while
-// the read side reports beyond it. See projectWritableFindings.
+// This is the narrow half of the boundary above. `format` reads nothing else at
+// all, and `fix` reads wider but writes only here, because a project must not
+// rewrite a sibling package's sources merely because it imports them. See
+// projectWritableFindings.
 func (p *program) projectSourceFileNames() map[string]struct{} {
   out := make(map[string]struct{})
   if p == nil || p.parsed == nil || p.parsed.ParsedConfig == nil {
@@ -412,11 +455,13 @@ func (p *program) projectSourceFileNames() map[string]struct{} {
 // the ones sitting in a tsconfig-selected source, dropping every edit aimed at a
 // source the Program reached only through an import.
 //
-// The read side reports on an imported first-party source so the diagnostic is
-// not silently lost, but applying its edit here would rewrite a file this
-// project does not own — the package that owns the file fixes it from its own
-// lint run, under its own config. A finding without a source file (a project
-// rule's detached report) never reaches disk either and is dropped with them.
+// This is `fix`'s guard alone, because `fix` is the one command that must read
+// wider than it writes: it prints the diagnostics that survive the cascade, so
+// an imported source has to reach its report while its edit must not reach
+// disk. The package that owns the file fixes it from its own run, under its own
+// config. Commands that only write walk the narrow set to begin with. A finding
+// without a source file (a project rule's detached report) never reaches disk
+// either and is dropped with them.
 func (p *program) projectWritableFindings(findings []*Finding) []*Finding {
   roots := p.projectSourceFileNames()
   out := make([]*Finding, 0, len(findings))

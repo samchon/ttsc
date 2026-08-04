@@ -68,14 +68,10 @@ func runFormat(opts *subcommandOpts) int {
   totalFixes := 0
   cascadeConverged := false
   for pass := 0; pass < maxFormatPasses; pass++ {
-    findings := prog.runLintCycle(engine)
-    // Format is write-only and prints nothing, so an imported source the
-    // Program reached outside this project's file list has no effect here at
-    // all: the project must not reformat a sibling package it merely imports.
-    fixed, err := applyFindingFixes(
-      opts.cwd,
-      filterFormatFindings(prog.projectWritableFindings(findings)),
-    )
+    // Format's cycle stays inside the project's own sources, so every finding
+    // it sees is one it may write.
+    findings := prog.runFormatCycle(engine)
+    fixed, err := applyFindingFixes(opts.cwd, filterFormatFindings(findings))
     if err != nil {
       fmt.Fprintln(os.Stderr, err)
       return 3

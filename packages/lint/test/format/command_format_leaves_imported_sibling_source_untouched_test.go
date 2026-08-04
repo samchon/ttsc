@@ -10,11 +10,12 @@ import (
 // TestCommandFormatLeavesImportedSiblingSourceUntouched verifies format stays
 // inside the project it was invoked for.
 //
-// Format is write-only and prints nothing, so widening what the lint cycle
-// reads must have no observable effect here at all. A sibling workspace package
-// resolving to source is read by the same Program, but reformatting it would
-// rewrite files this project does not own — the one boundary samchon/ttsc#1065
-// asks to keep closed while the reporting side opens.
+// Format is write-only and prints nothing, so it walks its own file list rather
+// than the wider set the lint cycle reads: a sibling workspace package resolving
+// to source is in the same Program, but reformatting it would rewrite files this
+// project does not own. That is the one boundary samchon/ttsc#1065 asks to keep
+// closed while the reporting side opens, and it is enforced by what format reads
+// rather than by discarding findings afterwards.
 //
 //  1. Give the consumer and the sibling the identical over-wide object literal.
 //  2. Run format with `printWidth: 20`, which reflows that literal.

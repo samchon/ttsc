@@ -981,15 +981,11 @@ func lspWorkspaceEditForSeededCommand(
       prog.close()
       return nil, 0
     }
-    // Ownership first, then the document filter: the cycle now also reports on
-    // TypeScript sources the Program reached through an import, and a read-scope
-    // widening must not open a write the project never had. Every disk write in
-    // lint stays inside the tsconfig-selected set, here as in `fix` and
-    // `format`.
-    findings := filterFindingsForPath(
-      prog.projectWritableFindings(prog.runLintCycle(engine)),
-      tempTarget,
-    )
+    // This command edits a document, so it walks the project's own sources the
+    // way `format` does. Reading the imported TypeScript the lint cycle covers
+    // would widen nothing here: the edit is bounded to one target below, and a
+    // read-scope widening must not open a write the project never had.
+    findings := filterFindingsForPath(prog.runFormatCycle(engine), tempTarget)
     prog.close()
     if opts.command == commandFormatDocument {
       findings = filterFormatFindings(findings)

@@ -53,7 +53,7 @@ The lint pass reads the TypeScript the type-check pass reads: your `tsconfig.jso
 
 Declaration files and JavaScript stay selection-driven. A `.d.ts` is typings rather than authored source, and JavaScript enters the Program only through `allowJs`, so both are linted only when your own `tsconfig.json` selects them. An import never pulls either into scope.
 
-Writes stay inside the project. `ttsc fix` and `ttsc format` rewrite only the files your `tsconfig.json` selected, so importing a sibling package never reformats it. A diagnostic on an imported source is still reported, and the package that owns the file fixes it from its own run.
+Writes stay inside the project. `ttsc format` never leaves your own file list at all, so importing a sibling package cannot reformat it. `ttsc fix` reports on an imported source, because it prints diagnostics when the cascade settles, and applies edits only to the files your `tsconfig.json` selected. The package that owns the file fixes it from its own run.
 
 ## What you don't get (yet)
 
