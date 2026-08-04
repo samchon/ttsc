@@ -27,9 +27,10 @@ const packCache = new Map<string, RuntimePackEntry>();
 /**
  * Fetches the prebuilt runtime pack once per URL.
  *
- * Concurrent callers share one load. A caller abort or deadline cancels that
- * shared attempt; rejection removes it from the cache so the next call retries
- * from scratch. Successful packs remain cached.
+ * Concurrent callers share one load. A caller abort cancels that shared
+ * attempt; rejection removes it from the cache so the next call retries from
+ * scratch. Successful packs remain cached. Nothing else ends the load: how long
+ * a fetch takes belongs to the network, not to a number chosen here.
  */
 export function loadTypiaRuntimePack(
   url: string,

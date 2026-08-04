@@ -20,9 +20,10 @@ const packCache = new Map<string, SourcePackEntry>();
 /**
  * Fetch the typia source pack JSON once per URL.
  *
- * Concurrent callers share one load. A caller abort or deadline cancels that
- * shared attempt; rejection removes it from the cache so the next call retries
- * from scratch. The deadline covers both the response and its JSON body.
+ * Concurrent callers share one load. A caller abort cancels that shared
+ * attempt; rejection removes it from the cache so the next call retries from
+ * scratch. Nothing else ends the load: how long a fetch takes belongs to the
+ * network, not to a number chosen here.
  */
 export function loadTypiaSourcePack(
   options: IInstallTypiaSourcePackOptions,

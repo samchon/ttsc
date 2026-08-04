@@ -137,9 +137,7 @@ In that case the parent cache root itself is never removed (it may be shared wit
 ```ts
 import { TtscService } from "ttsc";
 
-const service = new TtscService(
-  { cwd: "/abs/path/to/project" },
-);
+const service = new TtscService({ cwd: "/abs/path/to/project" });
 try {
   // The file's post-plugin TypeScript, or undefined when it is not in the program.
   const request = new AbortController();

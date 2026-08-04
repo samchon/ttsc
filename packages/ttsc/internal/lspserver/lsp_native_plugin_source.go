@@ -823,6 +823,10 @@ func (s *NativePluginSource) runWithStdin(plugin NativeLSPPluginEntry, command s
   if strings.TrimSpace(plugin.Binary) == "" {
     return nil, fmt.Errorf("ttscserver: %s has no binary", pluginLabel(plugin))
   }
+  // No deadline: the command is running the user's own rules, and how long
+  // that takes is not this process's call. The context still exists so the
+  // child is reaped rather than orphaned if this function ever returns before
+  // the wait completes.
   ctx, cancel := context.WithCancel(context.Background())
   defer cancel()
   allArgs := []string{
@@ -846,9 +850,6 @@ func (s *NativePluginSource) runWithStdin(plugin NativeLSPPluginEntry, command s
   cmd.Stdout = &stdout
   cmd.Stderr = &stderr
   err := cmd.Run()
-  if ctx.Err() != nil {
-    return nil, fmt.Errorf("ttscserver: %s %s timed out", pluginLabel(plugin), command)
-  }
   if err != nil {
     msg := strings.TrimSpace(stderr.String())
     if msg == "" {

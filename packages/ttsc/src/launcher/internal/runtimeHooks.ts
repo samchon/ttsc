@@ -2196,16 +2196,21 @@ function moduleFormat(
 /**
  * The `"type"` a `node_modules` package states for `filename`, or `null`.
  *
- * Tsgo populates a file's `packageJsonType` only for paths under `node_modules`
- * (`fileloader.go`), and `getImpliedNodeFormatForEmitWorker` consults that
- * field for **every** module kind, not just the `node*` family. So a
- * source-shipping dependency that declares `"type": "commonjs"` is emitted as
+ * Tsgo's `GetImpliedNodeFormatForEmitWorker` consults a file's
+ * `packageJsonType` for **every** module kind, not just the `node*` family. So
+ * a source-shipping dependency that declares `"type": "commonjs"` is emitted as
  * CommonJS even while the compiling project asks for `esnext`, and the mirror
  * has to honour the same override or Node is handed the wrong format.
  *
- * Outside `node_modules` the field is empty upstream, and answering from the
- * manifest there would override the project's own `module` option — the very
- * confusion this classifier exists to end.
+ * Outside `node_modules` that field is empty for every module kind this
+ * override can change. `loadSourceFileMetaData` does fill it elsewhere — for a
+ * file with no explicit extension whose project sets `moduleResolution` to the
+ * `node16`…`nodenext` family — but `program.go` rejects that resolution unless
+ * `module` is in the same family, and for a `node*` `module` the package `type`
+ * is already the whole answer, which the caller's own `node*` branch produces.
+ * So answering from a manifest outside `node_modules` could only override the
+ * project's own `module` option, the very confusion this classifier exists to
+ * end.
  */
 function declaredNodeModulesPackageType(
   filename: string,

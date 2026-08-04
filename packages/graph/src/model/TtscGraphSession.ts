@@ -43,10 +43,6 @@ export interface TtscGraphSessionOptions {
   tsconfig: string;
   /** Absolute native binary path, resolved from `cwd` when omitted. */
   binary?: string;
-  /**
-   * Maximum time for one native snapshot response. Defaults to five minutes,
-   * which is more than ten times the published 28.7-second VS Code cold index.
-   */
 }
 
 /** Per-call controls for a native graph refresh. */
