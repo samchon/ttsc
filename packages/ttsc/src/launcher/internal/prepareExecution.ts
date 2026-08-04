@@ -46,12 +46,7 @@ export function prepareExecution(
   // project root arrives physically resolved, and `rootDir` and emitted-output
   // paths are compared against it lexically, so an entry spelled any other way
   // is "not under `rootDir`" — which sends emit to the source tree and sends
-  // the output lookup to trailing-stem guessing.
-  //
-  // Only the directory is resolved. A symlinked entry *file* is one the user
-  // asked to run by that name: retargeting it would move the entry into another
-  // tree, resolve its relative imports from there, and widen `rootDir` to
-  // whatever ancestor the two trees share.
+  // the output lookup to trailing-stem guessing. See `resolveEntrySpelling`.
   const cwd = path.resolve(options.cwd ?? process.cwd());
   const entry = resolveEntrySpelling(cwd, entryFile);
   const context = createProjectContext(cwd, entry, options);
