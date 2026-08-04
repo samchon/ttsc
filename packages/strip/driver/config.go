@@ -10,17 +10,10 @@ import (
   "path/filepath"
   "runtime"
   "strings"
-  "time"
 
   "github.com/samchon/ttsc/packages/ttsc/driver"
   "github.com/samchon/ttsc/packages/ttsc/driver/windowsjunction"
 )
-
-// configLoaderTimeout caps every `ttsx`/`node -e` subprocess that evaluates a
-// user-supplied strip config. Mirrors the lint package budget: 60 s is generous
-// for cold ttsx starts on CI runners and tight enough to keep user-visible
-// feedback under a minute.
-const configLoaderTimeout = 60 * time.Second
 
 // stripConfigFilenames is the ordered list of candidate filenames that
 // findStripConfigFile checks in each directory during upward discovery.
@@ -219,15 +212,12 @@ func loadStripScriptConfigFile(location string) (any, error) {
   if node == "" {
     node = "node"
   }
-  ctx, cancel := context.WithTimeout(context.Background(), configLoaderTimeout)
+  ctx, cancel := context.WithCancel(context.Background())
   defer cancel()
   cmd := exec.CommandContext(ctx, node, "-e", stripScriptLoaderSource, location)
   cmd.Env = stripNodeConfigLoaderEnv(location)
   output, err := cmd.Output()
   if err != nil {
-    if ctx.Err() == context.DeadlineExceeded {
-      return nil, fmt.Errorf("@ttsc/strip: load config file %s: timed out after %s", location, configLoaderTimeout)
-    }
     stderr := ""
     if exit, ok := err.(*exec.ExitError); ok {
       stderr = strings.TrimSpace(string(exit.Stderr))
@@ -293,7 +283,7 @@ declare const process: {
 
 // loadStripTypeScriptConfigFile evaluates a .ts/.cts/.mts config file by writing
 // an ephemeral loader script and tsconfig into a temp directory, symlinking the
-// nearest node_modules, then running ttsx with a configLoaderTimeout deadline.
+// nearest node_modules, then running ttsx.
 //
 // The ttsx build runs with `--no-plugins`: the loader only needs to
 // type-check and execute the strip config file, so loading the host
@@ -338,15 +328,12 @@ func loadStripTypeScriptConfigFile(location string) (any, error) {
   }
   args = append(args, loader)
 
-  ctx, cancel := context.WithTimeout(context.Background(), configLoaderTimeout)
+  ctx, cancel := context.WithCancel(context.Background())
   defer cancel()
   cmd := stripTtsxCommandContext(ctx, args...)
   cmd.Env = stripNodeConfigLoaderEnv(location)
   output, err := cmd.Output()
   if err != nil {
-    if ctx.Err() == context.DeadlineExceeded {
-      return nil, fmt.Errorf("@ttsc/strip: load TypeScript config file %s: timed out after %s", location, configLoaderTimeout)
-    }
     stderr := ""
     if exit, ok := err.(*exec.ExitError); ok {
       stderr = strings.TrimSpace(string(exit.Stderr))

@@ -16,19 +16,9 @@ import (
   "sort"
   "strings"
   "sync"
-  "time"
 
   "github.com/samchon/ttsc/packages/ttsc/driver/windowsjunction"
 )
-
-// configLoaderTimeout caps every `ttsx`/`node -e` subprocess that
-// evaluates a user-supplied lint config. The JS factory imposes the
-// same 60 s budget on its mirroring spawnSync; without the Go-side cap
-// a runaway user config would hang `ttsc-lint` forever, while
-// `ttsc`/`pnpm` upstream of it stays responsive. 60 s is generous
-// enough for cold ttsx starts on CI runners and tight enough to keep
-// user-visible feedback under a minute.
-const configLoaderTimeout = 60 * time.Second
 
 // Severity is the `error | warning | off` ladder.
 type Severity int
@@ -1808,9 +1798,6 @@ func runConfigLoaderCommand(
     }
   }
   if err != nil {
-    if ctx.Err() == context.DeadlineExceeded {
-      return evaluatedConfigFile{}, fmt.Errorf("@ttsc/lint: load %s %s: timed out after %s", label, location, configLoaderTimeout)
-    }
     stderrText := strings.TrimSpace(stderr.String())
     if stderrText != "" {
       return evaluatedConfigFile{}, fmt.Errorf("@ttsc/lint: load %s %s: %s", label, location, stderrText)
@@ -1908,7 +1895,6 @@ func normalizeConfigDependencyFingerprints(
 // Node subprocess that dynamic-imports the file, resolves the exported config
 // through the same 8-hop default/config normalization used by the TS loader,
 // and serializes the result into a private result file. The subprocess has a
-// configLoaderTimeout deadline to prevent user code from hanging indefinitely.
 func loadScriptConfigFile(location string) (any, error) {
   evaluated, err := loadScriptConfigEvaluation(location)
   return evaluated.value, err
@@ -1933,7 +1919,7 @@ func loadScriptConfigEvaluationWithin(
   if node == "" {
     node = "node"
   }
-  ctx, cancel := context.WithTimeout(context.Background(), configLoaderTimeout)
+  ctx, cancel := context.WithCancel(context.Background())
   defer cancel()
   cmd := exec.CommandContext(
     ctx,
@@ -2965,7 +2951,7 @@ function toSerializableConfig(value) {
 
 // loadTypeScriptConfigFile evaluates a .ts/.cts/.mts config file by writing
 // an ephemeral loader script and tsconfig into a temp directory, symlinking the
-// nearest node_modules, then running `ttsx` with a configLoaderTimeout deadline.
+// nearest node_modules, then running `ttsx`.
 // The loader script imports the config file, resolves it through the same
 // normalization chain used by loadScriptConfigFile, and writes a private JSON
 // result file so user stdout cannot corrupt the protocol.
@@ -3046,7 +3032,7 @@ func loadTypeScriptConfigEvaluationWithin(
   }
   args = append(args, loader)
 
-  ctx, cancel := context.WithTimeout(context.Background(), configLoaderTimeout)
+  ctx, cancel := context.WithCancel(context.Background())
   defer cancel()
   cmd := ttsxCommandContext(ctx, args...)
   cmd.Env = nodeConfigLoaderEnv(location)
@@ -4417,15 +4403,15 @@ func resolveDirLink(dir string) string {
 }
 
 // ttsxCommand returns a ttsx exec.Cmd bound to a background context. Use
-// ttsxCommandContext when a deadline is needed (e.g. config file loading).
+// ttsxCommandContext when the caller owns a cancellable context.
 func ttsxCommand(args ...string) *exec.Cmd {
   return ttsxCommandContext(context.Background(), args...)
 }
 
-// ttsxCommandContext is the timeout-aware variant. Callers that
-// evaluate user-supplied config should wrap their context with
-// `context.WithTimeout(parent, configLoaderTimeout)` so a runaway
-// `ttsx` subprocess can never hang the lint binary indefinitely.
+// ttsxCommandContext is the cancellable variant, used by the config loaders so
+// their subprocess is torn down with the call that started it. It carries no
+// deadline: evaluating a user config is the user's own code running, and how
+// long that is allowed to take is not this binary's decision.
 func ttsxCommandContext(ctx context.Context, args ...string) *exec.Cmd {
   ttsx := os.Getenv("TTSC_TTSX_BINARY")
   if ttsx == "" {

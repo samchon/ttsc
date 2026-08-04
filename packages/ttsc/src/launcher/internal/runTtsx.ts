@@ -309,7 +309,6 @@ function runPreparedEntry(
       TTSC_TSGO_BINARY: process.env.TTSC_TSGO_BINARY ?? tsgo,
       TTSX_RUNTIME_MANIFEST: manifestPath,
     };
-    delete runtimeEnv[TTSC_TTSX_EVALUATOR_DEADLINE_ENV];
     delete runtimeEnv[TTSC_TTSX_EVALUATOR_MAX_BUFFER_ENV];
     delete runtimeEnv[TTSC_TTSX_EVALUATOR_STATUS_FD_ENV];
 
@@ -319,13 +318,6 @@ function runPreparedEntry(
       ...(evaluatorBoundary
         ? {
             killSignal: "SIGKILL" as const,
-            timeout: Math.max(
-              1,
-              Math.min(
-                MAX_CHILD_PROCESS_TIMEOUT_MS,
-                evaluatorBoundary.deadlineMs - Date.now(),
-              ),
-            ),
             maxBuffer: evaluatorBoundary.maxBuffer,
             stdio: ["inherit", "pipe", "pipe"] as const,
           }
@@ -334,10 +326,7 @@ function runPreparedEntry(
     });
     const nestedCode = (result.error as NodeJS.ErrnoException | undefined)
       ?.code;
-    if (
-      evaluatorBoundary &&
-      (nestedCode === "ETIMEDOUT" || nestedCode === "ENOBUFS")
-    ) {
+    if (evaluatorBoundary && nestedCode === "ENOBUFS") {
       reportEvaluatorFailure(evaluatorBoundary.statusFd, nestedCode);
       return 1;
     }
@@ -356,41 +345,45 @@ function runPreparedEntry(
 }
 
 interface TtsxEvaluatorBoundary {
-  deadlineMs: number;
   maxBuffer: number;
   statusFd: number;
 }
 
-const TTSC_TTSX_EVALUATOR_DEADLINE_ENV = "TTSC_TTSX_EVALUATOR_DEADLINE_MS";
 const TTSC_TTSX_EVALUATOR_MAX_BUFFER_ENV =
   "TTSC_TTSX_EVALUATOR_MAX_BUFFER_BYTES";
 const TTSC_TTSX_EVALUATOR_STATUS_FD_ENV = "TTSC_TTSX_EVALUATOR_STATUS_FD";
 const TTSC_TTSX_EVALUATOR_STATUS_FD = 3;
-const MAX_CHILD_PROCESS_TIMEOUT_MS = 2_147_483_647;
+/**
+ * Upper bound on the output cap, not on time. Node rejects a `maxBuffer` above
+ * its 32-bit signed limit.
+ */
+const MAX_CHILD_PROCESS_BUFFER_BYTES = 2_147_483_647;
 
+/**
+ * The bounds a parent evaluator imposes on this run: how much output it will
+ * hold and which descriptor carries the private status back.
+ *
+ * There is no deadline here on purpose. A config or descriptor that takes a
+ * long time is a slow build the user can watch and interrupt; one killed
+ * mid-evaluation is a failed build with nothing to act on.
+ */
 function readEvaluatorBoundary(
   env: NodeJS.ProcessEnv,
 ): TtsxEvaluatorBoundary | undefined {
-  const deadlineMs = Number(env[TTSC_TTSX_EVALUATOR_DEADLINE_ENV]);
   const maxBuffer = Number(env[TTSC_TTSX_EVALUATOR_MAX_BUFFER_ENV]);
   const statusFd = Number(env[TTSC_TTSX_EVALUATOR_STATUS_FD_ENV]);
   if (
-    !Number.isSafeInteger(deadlineMs) ||
-    deadlineMs <= 0 ||
     !Number.isSafeInteger(maxBuffer) ||
     maxBuffer <= 0 ||
-    maxBuffer > MAX_CHILD_PROCESS_TIMEOUT_MS ||
+    maxBuffer > MAX_CHILD_PROCESS_BUFFER_BYTES ||
     statusFd !== TTSC_TTSX_EVALUATOR_STATUS_FD
   ) {
     return undefined;
   }
-  return { deadlineMs, maxBuffer, statusFd };
+  return { maxBuffer, statusFd };
 }
 
-function reportEvaluatorFailure(
-  statusFd: number,
-  code: "ENOBUFS" | "ETIMEDOUT",
-): void {
+function reportEvaluatorFailure(statusFd: number, code: "ENOBUFS"): void {
   try {
     fs.writeSync(statusFd, code);
   } catch {

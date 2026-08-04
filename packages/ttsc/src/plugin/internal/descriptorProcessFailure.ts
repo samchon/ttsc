@@ -1,11 +1,8 @@
 export const PLUGIN_DESCRIPTOR_MAX_BUFFER_BYTES = 16 * 1024 * 1024;
-export const PLUGIN_DESCRIPTOR_TIMEOUT_MS = 60_000;
-export const PLUGIN_DESCRIPTOR_TEARDOWN_GRACE_MS = 5_000;
 export const PLUGIN_DESCRIPTOR_STATUS_FD = 3;
 export const PLUGIN_DESCRIPTOR_PROCESS_OPTIONS = Object.freeze({
   killSignal: "SIGKILL" as const,
   maxBuffer: PLUGIN_DESCRIPTOR_MAX_BUFFER_BYTES,
-  timeout: PLUGIN_DESCRIPTOR_TIMEOUT_MS + PLUGIN_DESCRIPTOR_TEARDOWN_GRACE_MS,
 });
 
 interface DescriptorProcessResult {
@@ -20,10 +17,14 @@ interface DescriptorProcessResult {
 /**
  * Classify the ways the isolated TypeScript descriptor evaluator can stop.
  *
- * Node reports both timeout and max-buffer termination with the configured
- * signal, so the process error code must take precedence over the signal. The
- * evaluator uses `SIGKILL`: Node's synchronous process API otherwise keeps
- * waiting when a POSIX child handles the default `SIGTERM` without exiting.
+ * Node reports max-buffer termination with the configured signal, so the
+ * process error code must take precedence over the signal. The evaluator uses
+ * `SIGKILL`: Node's synchronous process API otherwise keeps waiting when a
+ * POSIX child handles the default `SIGTERM` without exiting.
+ *
+ * There is deliberately no deadline. A descriptor that takes a long time is a
+ * slow build, which the user can see and interrupt; a descriptor killed
+ * mid-evaluation is a failed build with no output, which they cannot act on.
  */
 export function pluginDescriptorProcessFailure(
   result: DescriptorProcessResult,
@@ -31,13 +32,6 @@ export function pluginDescriptorProcessFailure(
 ): Error | undefined {
   const code = (result.error as NodeJS.ErrnoException | undefined)?.code;
   const nestedCode = result.output?.[PLUGIN_DESCRIPTOR_STATUS_FD]?.trim() ?? "";
-  if (code === "ETIMEDOUT" || nestedCode === "ETIMEDOUT") {
-    return new Error(
-      `ttsc: plugin descriptor "${request}" evaluation through ttsx timed out after ` +
-        `${PLUGIN_DESCRIPTOR_TIMEOUT_MS / 1_000} seconds. ` +
-        "Descriptor modules and factories must finish their setup within that window.",
-    );
-  }
   if (code === "ENOBUFS" || nestedCode === "ENOBUFS") {
     return new Error(
       `ttsc: plugin descriptor "${request}" evaluation through ttsx exceeded the ` +
@@ -75,7 +69,6 @@ export function pluginDescriptorBoundaryEnvironment(
   now: number = Date.now(),
 ): NodeJS.ProcessEnv {
   return {
-    TTSC_TTSX_EVALUATOR_DEADLINE_MS: String(now + PLUGIN_DESCRIPTOR_TIMEOUT_MS),
     TTSC_TTSX_EVALUATOR_MAX_BUFFER_BYTES: String(
       PLUGIN_DESCRIPTOR_MAX_BUFFER_BYTES,
     ),

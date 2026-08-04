@@ -5,7 +5,6 @@ import {
   CONFIG_EVALUATOR_MAX_BUFFER,
   CONFIG_EVALUATOR_PROCESS_OPTIONS,
   CONFIG_EVALUATOR_STATUS_FD,
-  CONFIG_EVALUATOR_TIMEOUT_MS,
   configEvaluatorBoundaryEnvironment,
   configEvaluatorProcessFailure,
 } from "../../../../../packages/lint/lib/internal/configEvaluatorFailure.js";
@@ -13,29 +12,19 @@ import {
 /**
  * Verifies isolated lint-config process failures preserve their real cause.
  *
- * Node attaches the configured termination signal to both timeout and
- * max-buffer errors. Treating the signal first made those distinct failures
- * indistinguishable, while bounding only the outer ttsx wrapper left its
- * runtime child alive.
+ * Node attaches the configured termination signal to a max-buffer error, so
+ * treating the signal first made an output overflow indistinguishable from an
+ * external kill. The evaluator imposes no deadline, so a `ETIMEDOUT` can only
+ * ever arrive from outside and must read as the external termination it is.
  *
- * 1. Classify timeout, output overflow, spawn, signal, and exit failures.
- * 2. Assert process error codes take precedence over their shared signal.
- * 3. Recognize the runtime child's private timeout/output status and boundary env.
+ * 1. Classify output overflow, spawn, signal, and exit failures.
+ * 2. Assert the process error code takes precedence over its shared signal.
+ * 3. Recognize the runtime child's private overflow status and boundary env.
  * 4. Assert evaluator stderr is bounded and a successful result has no error.
  */
 export const test_config_evaluator_process_failures_are_classified_by_cause =
   (): void => {
     const configPath = "/project/lint.config.ts";
-    const timeout = configEvaluatorProcessFailure(
-      processResult({
-        error: processError("ETIMEDOUT"),
-        signal: CONFIG_EVALUATOR_PROCESS_OPTIONS.killSignal,
-      }),
-      configPath,
-    );
-    assert.match(timeout?.message ?? "", /timed out after 60 seconds/);
-    assert.doesNotMatch(timeout?.message ?? "", /killed by signal/);
-
     const overflow = configEvaluatorProcessFailure(
       processResult({
         error: processError("ENOBUFS"),
@@ -58,7 +47,7 @@ export const test_config_evaluator_process_failures_are_classified_by_cause =
       configPath,
     );
     assert.match(signal?.message ?? "", /killed by signal SIGKILL/);
-    assert.doesNotMatch(signal?.message ?? "", /timeout/i);
+    assert.doesNotMatch(signal?.message ?? "", /timeout|timed out/i);
 
     const exit = configEvaluatorProcessFailure(
       processResult({
@@ -88,16 +77,6 @@ export const test_config_evaluator_process_failures_are_classified_by_cause =
     );
     assert.ok((bounded?.message.length ?? Number.POSITIVE_INFINITY) < 8_500);
 
-    const nestedTimeout = configEvaluatorProcessFailure(
-      processResult({
-        output: [null, "", "", "ETIMEDOUT"],
-        status: 1,
-      }),
-      configPath,
-    );
-    assert.match(nestedTimeout?.message ?? "", /timed out after 60 seconds/);
-    assert.doesNotMatch(nestedTimeout?.message ?? "", /exit code 1/);
-
     const nestedOverflow = configEvaluatorProcessFailure(
       processResult({
         output: [null, "", "", "ENOBUFS"],
@@ -111,15 +90,14 @@ export const test_config_evaluator_process_failures_are_classified_by_cause =
     );
     assert.doesNotMatch(nestedOverflow?.message ?? "", /exit code 1/);
 
+    // No deadline is published: the evaluator runs the user's own config and
+    // does not decide how long that is allowed to take.
     assert.deepEqual(configEvaluatorBoundaryEnvironment(1_000), {
-      TTSC_TTSX_EVALUATOR_DEADLINE_MS: String(
-        1_000 + CONFIG_EVALUATOR_TIMEOUT_MS,
-      ),
       TTSC_TTSX_EVALUATOR_MAX_BUFFER_BYTES: String(CONFIG_EVALUATOR_MAX_BUFFER),
       TTSC_TTSX_EVALUATOR_STATUS_FD: String(CONFIG_EVALUATOR_STATUS_FD),
     });
 
-    assertTimeoutCannotBeDefeatedBySigtermHandler();
+    assertOverflowCannotBeDefeatedBySigtermHandler();
 
     assert.equal(
       configEvaluatorProcessFailure(processResult({ status: 0 }), configPath),
@@ -127,26 +105,31 @@ export const test_config_evaluator_process_failures_are_classified_by_cause =
     );
   };
 
-function assertTimeoutCannotBeDefeatedBySigtermHandler(): void {
+/**
+ * The evaluator's `SIGKILL` still has to be unignorable, because the output cap
+ * is enforced by killing the child and a config that installs a `SIGTERM`
+ * handler would otherwise survive its own overflow.
+ */
+function assertOverflowCannotBeDefeatedBySigtermHandler(): void {
   const result = spawnSync(
     process.execPath,
     [
       "-e",
       [
         'process.on("SIGTERM", () => {});',
-        "setTimeout(() => process.exit(0), 2_000);",
+        'setInterval(() => process.stdout.write("x".repeat(4096)), 0);',
       ].join(""),
     ],
     {
       ...CONFIG_EVALUATOR_PROCESS_OPTIONS,
       encoding: "utf8",
-      timeout: 50,
+      maxBuffer: 1_024,
       windowsHide: true,
     },
   );
   assert.equal(
     (result.error as NodeJS.ErrnoException | undefined)?.code,
-    "ETIMEDOUT",
+    "ENOBUFS",
   );
   assert.equal(result.signal, "SIGKILL");
 }

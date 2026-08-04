@@ -5,7 +5,6 @@ import {
   PLUGIN_DESCRIPTOR_MAX_BUFFER_BYTES,
   PLUGIN_DESCRIPTOR_PROCESS_OPTIONS,
   PLUGIN_DESCRIPTOR_STATUS_FD,
-  PLUGIN_DESCRIPTOR_TIMEOUT_MS,
   pluginDescriptorBoundaryEnvironment,
   pluginDescriptorProcessFailure,
 } from "../../../../../packages/ttsc/lib/plugin/internal/descriptorProcessFailure.js";
@@ -13,29 +12,19 @@ import {
 /**
  * Verifies executable plugin-descriptor failures preserve their real cause.
  *
- * Node attaches the configured termination signal to both timeout and
- * max-buffer errors. Checking the signal first would hide whether descriptor
- * setup stalled or emitted too much output, while bounding only the outer ttsx
- * wrapper would leave its runtime child alive.
+ * Node attaches the configured termination signal to a max-buffer error, so
+ * checking the signal first would hide an output overflow behind an apparent
+ * external kill. The loader imposes no deadline, so an `ETIMEDOUT` can only
+ * arrive from outside and must read as the external termination it is.
  *
- * 1. Classify timeout, output overflow, spawn, signal, and exit failures.
- * 2. Assert process error codes take precedence over their shared signal.
- * 3. Recognize the runtime child's private timeout/output status and boundary env.
+ * 1. Classify output overflow, spawn, signal, and exit failures.
+ * 2. Assert the process error code takes precedence over its shared signal.
+ * 3. Recognize the runtime child's private overflow status and boundary env.
  * 4. Bound the non-zero stderr suffix and accept a successful result.
  */
 export const test_plugin_descriptor_process_failures_are_classified_by_cause =
   (): void => {
     const request = "/project/plugin.ts";
-    const timeout = pluginDescriptorProcessFailure(
-      processResult({
-        error: processError("ETIMEDOUT"),
-        signal: PLUGIN_DESCRIPTOR_PROCESS_OPTIONS.killSignal,
-      }),
-      request,
-    );
-    assert.match(timeout?.message ?? "", /timed out after 60 seconds/);
-    assert.doesNotMatch(timeout?.message ?? "", /killed by signal/);
-
     const overflow = pluginDescriptorProcessFailure(
       processResult({
         error: processError("ENOBUFS"),
@@ -101,16 +90,6 @@ export const test_plugin_descriptor_process_failures_are_classified_by_cause =
     );
     assert.match(stdout?.message ?? "", /stdout-only descriptor cause$/);
 
-    const nestedTimeout = pluginDescriptorProcessFailure(
-      processResult({
-        output: [null, "", "", "ETIMEDOUT"],
-        status: 1,
-      }),
-      request,
-    );
-    assert.match(nestedTimeout?.message ?? "", /timed out after 60 seconds/);
-    assert.doesNotMatch(nestedTimeout?.message ?? "", /exit code 1/);
-
     const nestedOverflow = pluginDescriptorProcessFailure(
       processResult({
         output: [null, "", "", "ENOBUFS"],
@@ -124,17 +103,16 @@ export const test_plugin_descriptor_process_failures_are_classified_by_cause =
     );
     assert.doesNotMatch(nestedOverflow?.message ?? "", /exit code 1/);
 
+    // No deadline is published: the loader runs the user's own descriptor and
+    // does not decide how long that is allowed to take.
     assert.deepEqual(pluginDescriptorBoundaryEnvironment(1_000), {
-      TTSC_TTSX_EVALUATOR_DEADLINE_MS: String(
-        1_000 + PLUGIN_DESCRIPTOR_TIMEOUT_MS,
-      ),
       TTSC_TTSX_EVALUATOR_MAX_BUFFER_BYTES: String(
         PLUGIN_DESCRIPTOR_MAX_BUFFER_BYTES,
       ),
       TTSC_TTSX_EVALUATOR_STATUS_FD: String(PLUGIN_DESCRIPTOR_STATUS_FD),
     });
 
-    assertTimeoutCannotBeDefeatedBySigtermHandler();
+    assertOverflowCannotBeDefeatedBySigtermHandler();
 
     assert.equal(
       pluginDescriptorProcessFailure(processResult({ status: 0 }), request),
@@ -142,26 +120,31 @@ export const test_plugin_descriptor_process_failures_are_classified_by_cause =
     );
   };
 
-function assertTimeoutCannotBeDefeatedBySigtermHandler(): void {
+/**
+ * The loader's `SIGKILL` still has to be unignorable, because the output cap is
+ * enforced by killing the child and a descriptor that installs a `SIGTERM`
+ * handler would otherwise survive its own overflow.
+ */
+function assertOverflowCannotBeDefeatedBySigtermHandler(): void {
   const result = spawnSync(
     process.execPath,
     [
       "-e",
       [
         'process.on("SIGTERM", () => {});',
-        "setTimeout(() => process.exit(0), 2_000);",
+        'setInterval(() => process.stdout.write("x".repeat(4096)), 0);',
       ].join(""),
     ],
     {
       ...PLUGIN_DESCRIPTOR_PROCESS_OPTIONS,
       encoding: "utf8",
-      timeout: 50,
+      maxBuffer: 1_024,
       windowsHide: true,
     },
   );
   assert.equal(
     (result.error as NodeJS.ErrnoException | undefined)?.code,
-    "ETIMEDOUT",
+    "ENOBUFS",
   );
   assert.equal(result.signal, "SIGKILL");
 }

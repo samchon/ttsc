@@ -10,16 +10,10 @@ import (
   "path/filepath"
   "runtime"
   "strings"
-  "time"
 
   "github.com/samchon/ttsc/packages/ttsc/driver"
   "github.com/samchon/ttsc/packages/ttsc/driver/windowsjunction"
 )
-
-// configLoaderTimeout caps subprocesses that evaluate user-supplied banner
-// config files. This matches the strip/lint loaders so a hanging config does
-// not block the compiler indefinitely.
-const configLoaderTimeout = 60 * time.Second
 
 func init() {
   driver.RegisterPlugin(plugin{})
@@ -330,15 +324,12 @@ function toSerializableBanner(value) {
   if node == "" {
     node = "node"
   }
-  ctx, cancel := context.WithTimeout(context.Background(), configLoaderTimeout)
+  ctx, cancel := context.WithCancel(context.Background())
   defer cancel()
   cmd := exec.CommandContext(ctx, node, "-e", script, location)
   cmd.Env = nodeConfigLoaderEnv(location)
   output, err := cmd.Output()
   if err != nil {
-    if ctx.Err() == context.DeadlineExceeded {
-      return nil, fmt.Errorf("@ttsc/banner: load config file %s: timed out after %s", location, configLoaderTimeout)
-    }
     stderr := ""
     if exit, ok := err.(*exec.ExitError); ok {
       stderr = strings.TrimSpace(string(exit.Stderr))
@@ -396,15 +387,12 @@ func loadBannerTypeScriptConfigFile(location string) (any, error) {
   }
   args = append(args, loader)
 
-  ctx, cancel := context.WithTimeout(context.Background(), configLoaderTimeout)
+  ctx, cancel := context.WithCancel(context.Background())
   defer cancel()
   cmd := ttsxCommandContext(ctx, args...)
   cmd.Env = nodeConfigLoaderEnv(location)
   output, err := cmd.Output()
   if err != nil {
-    if ctx.Err() == context.DeadlineExceeded {
-      return nil, fmt.Errorf("@ttsc/banner: load TypeScript config file %s: timed out after %s", location, configLoaderTimeout)
-    }
     stderr := ""
     if exit, ok := err.(*exec.ExitError); ok {
       stderr = strings.TrimSpace(string(exit.Stderr))

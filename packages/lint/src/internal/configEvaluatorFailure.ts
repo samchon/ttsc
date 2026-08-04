@@ -1,11 +1,8 @@
 export const CONFIG_EVALUATOR_MAX_BUFFER = 16 * 1024 * 1024;
-export const CONFIG_EVALUATOR_TIMEOUT_MS = 60_000;
-export const CONFIG_EVALUATOR_TEARDOWN_GRACE_MS = 5_000;
 export const CONFIG_EVALUATOR_STATUS_FD = 3;
 export const CONFIG_EVALUATOR_PROCESS_OPTIONS = Object.freeze({
   killSignal: "SIGKILL" as const,
   maxBuffer: CONFIG_EVALUATOR_MAX_BUFFER,
-  timeout: CONFIG_EVALUATOR_TIMEOUT_MS + CONFIG_EVALUATOR_TEARDOWN_GRACE_MS,
 });
 
 interface ConfigEvaluatorProcessResult {
@@ -19,12 +16,18 @@ interface ConfigEvaluatorProcessResult {
 /**
  * Classify the ways the isolated lint-config evaluator can stop.
  *
- * Node reports both timeout and max-buffer termination with the configured
- * signal, so the process error code must take precedence over the signal. The
- * evaluator uses `SIGKILL`: Node's synchronous process API otherwise keeps
- * waiting when a POSIX child handles the default `SIGTERM` without exiting. A
- * bare signal is an external termination and a non-zero status is an evaluator
- * failure whose stderr tail contains the useful user-config diagnostic.
+ * Node reports max-buffer termination with the configured signal, so the
+ * process error code must take precedence over the signal. The evaluator uses
+ * `SIGKILL`: Node's synchronous process API otherwise keeps waiting when a
+ * POSIX child handles the default `SIGTERM` without exiting. A bare signal is
+ * an external termination and a non-zero status is an evaluator failure whose
+ * stderr tail contains the useful user-config diagnostic.
+ *
+ * There is deliberately no deadline. A config that takes a long time is a slow
+ * build, which the user can see and interrupt; a config killed mid-evaluation
+ * is a failed build with no output, which they cannot act on. The evaluator
+ * runs the user's own code, and how long that code is allowed to take is not
+ * the compiler's decision to make.
  */
 export function configEvaluatorProcessFailure(
   result: ConfigEvaluatorProcessResult,
@@ -32,13 +35,6 @@ export function configEvaluatorProcessFailure(
 ): Error | undefined {
   const code = (result.error as NodeJS.ErrnoException | undefined)?.code;
   const nestedCode = result.output?.[CONFIG_EVALUATOR_STATUS_FD]?.trim() ?? "";
-  if (code === "ETIMEDOUT" || nestedCode === "ETIMEDOUT") {
-    return new Error(
-      `@ttsc/lint: ttsx evaluation of ${configPath} timed out after ` +
-        `${CONFIG_EVALUATOR_TIMEOUT_MS / 1_000} seconds. ` +
-        "Simplify the config or move heavy work out of top-level.",
-    );
-  }
   if (code === "ENOBUFS" || nestedCode === "ENOBUFS") {
     return new Error(
       `@ttsc/lint: ttsx evaluation of ${configPath} exceeded the ` +
@@ -74,7 +70,6 @@ export function configEvaluatorBoundaryEnvironment(
   now: number = Date.now(),
 ): NodeJS.ProcessEnv {
   return {
-    TTSC_TTSX_EVALUATOR_DEADLINE_MS: String(now + CONFIG_EVALUATOR_TIMEOUT_MS),
     TTSC_TTSX_EVALUATOR_MAX_BUFFER_BYTES: String(CONFIG_EVALUATOR_MAX_BUFFER),
     TTSC_TTSX_EVALUATOR_STATUS_FD: String(CONFIG_EVALUATOR_STATUS_FD),
   };

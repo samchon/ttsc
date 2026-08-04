@@ -54,7 +54,6 @@ export const test_ttsx_evaluator_output_limit_terminates_the_runtime_child =
         env: {
           TTSC_TEST_LATE: late,
           TTSC_TEST_READY: ready,
-          TTSC_TTSX_EVALUATOR_DEADLINE_MS: String(Date.now() + 10_000),
           TTSC_TTSX_EVALUATOR_MAX_BUFFER_BYTES: "1024",
           TTSC_TTSX_EVALUATOR_STATUS_FD: "3",
         },
