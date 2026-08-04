@@ -310,11 +310,13 @@ const { pathToFileURL } = require("node:url");
   process.stdout.write(JSON.stringify(toSerializableBanner(value)));
 })().catch((error) => {
   process.stderr.write(error && error.stack ? error.stack : String(error));
-  // The stack above is for the reader. This line is for the caller: the parent
-  // reads stdout as the payload channel either way, so a failure reason travels
-  // as data rather than as text scraped back out of a captured stream.
-  // Exit only once the envelope has left this process: process.exit abandons a
-  // pending pipe write, and losing the reason returns the caller to a bare status.
+  // The stack above is for the reader. This is for the caller: the parent reads
+  // stdout as the payload channel either way, so a failure reason travels as
+  // data rather than as text scraped back out of a captured stream. The exit
+  // code is set before the write so a callback that never fires still fails the
+  // load, and the write's completion is what triggers the exit, because
+  // process.exit abandons a pending pipe write.
+  process.exitCode = 1;
   process.stdout.write(JSON.stringify({ __ttscLoaderError: error && error.message ? String(error.message) : String(error) }), () => process.exit(1));
 });
 
