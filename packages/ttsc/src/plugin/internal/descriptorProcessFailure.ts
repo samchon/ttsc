@@ -62,12 +62,10 @@ export function pluginDescriptorProcessFailure(
 }
 
 /**
- * Pass the semantic deadline and private status pipe through the `ttsx` wrapper
- * to the runtime child that actually executes the descriptor.
+ * Pass the output bound and private status pipe through the `ttsx` wrapper to
+ * the runtime child that actually executes the descriptor.
  */
-export function pluginDescriptorBoundaryEnvironment(
-  now: number = Date.now(),
-): NodeJS.ProcessEnv {
+export function pluginDescriptorBoundaryEnvironment(): NodeJS.ProcessEnv {
   return {
     TTSC_TTSX_EVALUATOR_MAX_BUFFER_BYTES: String(
       PLUGIN_DESCRIPTOR_MAX_BUFFER_BYTES,

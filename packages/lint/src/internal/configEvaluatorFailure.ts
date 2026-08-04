@@ -63,12 +63,10 @@ export function configEvaluatorProcessFailure(
 }
 
 /**
- * Pass the semantic deadline and private status pipe through the `ttsx` wrapper
- * to the runtime child that actually executes the config.
+ * Pass the output bound and private status pipe through the `ttsx` wrapper to
+ * the runtime child that actually executes the config.
  */
-export function configEvaluatorBoundaryEnvironment(
-  now: number = Date.now(),
-): NodeJS.ProcessEnv {
+export function configEvaluatorBoundaryEnvironment(): NodeJS.ProcessEnv {
   return {
     TTSC_TTSX_EVALUATOR_MAX_BUFFER_BYTES: String(CONFIG_EVALUATOR_MAX_BUFFER),
     TTSC_TTSX_EVALUATOR_STATUS_FD: String(CONFIG_EVALUATOR_STATUS_FD),

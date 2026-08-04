@@ -92,7 +92,7 @@ export const test_config_evaluator_process_failures_are_classified_by_cause =
 
     // No deadline is published: the evaluator runs the user's own config and
     // does not decide how long that is allowed to take.
-    assert.deepEqual(configEvaluatorBoundaryEnvironment(1_000), {
+    assert.deepEqual(configEvaluatorBoundaryEnvironment(), {
       TTSC_TTSX_EVALUATOR_MAX_BUFFER_BYTES: String(CONFIG_EVALUATOR_MAX_BUFFER),
       TTSC_TTSX_EVALUATOR_STATUS_FD: String(CONFIG_EVALUATOR_STATUS_FD),
     });

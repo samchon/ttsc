@@ -105,7 +105,7 @@ export const test_plugin_descriptor_process_failures_are_classified_by_cause =
 
     // No deadline is published: the loader runs the user's own descriptor and
     // does not decide how long that is allowed to take.
-    assert.deepEqual(pluginDescriptorBoundaryEnvironment(1_000), {
+    assert.deepEqual(pluginDescriptorBoundaryEnvironment(), {
       TTSC_TTSX_EVALUATOR_MAX_BUFFER_BYTES: String(
         PLUGIN_DESCRIPTOR_MAX_BUFFER_BYTES,
       ),
