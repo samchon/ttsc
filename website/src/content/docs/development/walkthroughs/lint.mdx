@@ -665,6 +665,8 @@ func init() { rule.RegisterProject(noCycles{}) }
 
 `ctx.Sources` is the population the host read for that cycle: the project's own tsconfig file list plus every TypeScript source the Program pulled in through an import, minus globally ignored paths. A rule that selects its population by glob therefore reaches a sibling workspace package resolving to source, the same way the type-check pass does. See [Which files are linted](/docs/lint#which-files-are-linted).
 
+One exception is worth knowing when a rule reasons about coverage. `ttsc format` writes files and reports nothing, so it walks the project's own file list alone, and a project rule evaluated during a format run receives that narrower population. Draw a conclusion that must hold for the whole workspace from a lint or check run.
+
 The host runs each project rule once per Program, before file rules, even when `ctx.Sources` is empty. `ctx.Identity` keeps the caller's logical config and root spelling separate from the real paths used by the compiler, and also carries the invocation cwd, optional explicit project root, plugin-config origin, and lifecycle id. `ctx.Report` records a project finding and fails the rule; `ctx.Fail` fails it silently. A later file rule reads the same cycle through `ctx.ProjectResult(name)`, whose status is one of `absent`, `off`, `not_evaluated`, `passed`, or `failed`.
 
 If the rule reads local files that are not TypeScript Program inputs, publish their configured topology through the optional `rule.ProjectInputRule` contract:
