@@ -15,11 +15,12 @@ import { assert } from "../internal/ttsgraph";
  * the matching frame follows immediately, and the session has to answer from it
  * and stay usable.
  *
- * This half of the contract outlived the deadline it used to be tested beside.
- * The watchdog whose clearing the original case also asserted is gone, and the
- * id-pairing invariant left with it by accident.
+ * The unknown frame deliberately carries a graph rather than an unchanged
+ * reply, so a client that settled on it would answer with a graph the request
+ * never asked for — and both calls detect that, instead of only the first.
  *
- * 1. Make the fake emit an unknown response id before each matching response.
+ * 1. Make the fake emit an unknown response id, carrying its own graph, before
+ *    each matching response.
  * 2. Call the session twice.
  * 3. Assert both answers are the resident one, the child never restarted, and no
  *    pending entry leaked.

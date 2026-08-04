@@ -489,7 +489,11 @@ func serve(cwd string, cfg config, stallAfterFirst bool) {
       hangForever()
     }
     if cfg.Mode == "unknown-then-respond" {
-      if err := encoder.Encode(response(req.ID+1000, false, cwd, cfg.SchemaVersion)); err != nil {
+      // Carries a graph, not an unchanged reply. A client that settled on this
+      // frame would hand the caller a graph the request never asked for, and
+      // that is exactly the harm the id check exists to prevent — an unchanged
+      // frame could be mistaken for the right answer by accident.
+      if err := encoder.Encode(response(req.ID+1000, true, cwd, cfg.SchemaVersion)); err != nil {
         os.Exit(4)
       }
     }

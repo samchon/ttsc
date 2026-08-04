@@ -45,21 +45,28 @@ export function prepareExecution(
   projectRoot: string;
   rootDir: string;
 } {
+  // One spelling of the entry, decided once, for every consumer below. The
+  // project root arrives physically resolved, and `rootDir` and emitted-output
+  // paths are compared against it lexically, so an entry spelled any other way
+  // is "not under `rootDir`" — which sends emit to the source tree and sends
+  // the output lookup to trailing-stem guessing.
+  //
+  // Only the directory is resolved. A symlinked entry *file* is one the user
+  // asked to run by that name: retargeting it would move the entry into another
+  // tree, resolve its relative imports from there, and widen `rootDir` to
+  // whatever ancestor the two trees share.
+  const entry = resolveEntrySpelling(entryFile);
   const context = createProjectContext(
     path.resolve(options.cwd ?? process.cwd()),
-    entryFile,
+    entry,
     options,
   );
   try {
     buildProject(context, options);
-    let emittedEntry = emittedEntryOf(context, entryFile);
+    let emittedEntry = emittedEntryOf(context, entry);
     if (emittedEntry === null) {
-      // The entry project answers in its own spelling of the entry, and the
-      // lookup has to ask in that same spelling — see `buildEntryProject`.
-      emittedEntry = emittedEntryOf(
-        context,
-        buildEntryProject(context, options, entryFile),
-      );
+      buildEntryProject(context, options, entry);
+      emittedEntry = emittedEntryOf(context, entry);
     }
     if (emittedEntry === null) {
       throw new Error(`ttsx: emitted entry not found for ${entryFile}`);
@@ -80,9 +87,13 @@ export function prepareExecution(
 }
 
 /**
- * The JavaScript this build emitted for `entryFile`, or `null` when it emitted
- * none — which is the signal that the entry sits outside the project's file
- * set.
+ * The JavaScript this build emitted for `entry`, or `null` when it emitted none
+ * — which is the signal that the entry sits outside the project's file set.
+ *
+ * `entry` carries the spelling `resolveEntrySpelling` decided on. The guard
+ * below folds spellings but `resolveEmittedJavaScript`'s exact-mirror lane
+ * compares paths lexically, so asking in any other spelling would pass the
+ * guard and then silently fall through to the stem matcher below.
  *
  * The `isWithin` guard is what makes this an ownership answer rather than a
  * guess. tsgo strips `runtimeRootDir` from every output path, so a file outside
@@ -95,17 +106,37 @@ export function prepareExecution(
  */
 function emittedEntryOf(
   context: ReturnType<typeof createProjectContext>,
-  entryFile: string,
+  entry: string,
 ): string | null {
-  if (!isWithin(path.resolve(entryFile), context.runtimeRootDir)) {
+  if (!isWithin(entry, context.runtimeRootDir)) {
     return null;
   }
   return resolveEmittedJavaScript({
     emittedFiles: context.emittedFiles ?? undefined,
     outDir: context.emitDir,
     projectRoot: context.runtimeRootDir,
-    sourceFile: entryFile,
+    sourceFile: entry,
   });
+}
+
+/**
+ * The entry's path with its directory in the filesystem's own spelling.
+ *
+ * The project root arrives physically resolved, and everything downstream —
+ * `rootDir` containment, emitted-output mirroring, the runtime manifest — is
+ * compared against it lexically, so the entry has to agree with it. Only the
+ * directory is resolved: a symlinked entry file is one the user named, and
+ * following it would relocate the entry into another tree.
+ */
+function resolveEntrySpelling(entryFile: string): string {
+  const absolute = path.resolve(entryFile);
+  const identities = createFilesystemPathIdentityContext({
+    throwOnRealpathError: false,
+  });
+  return path.join(
+    identities.resolve(path.dirname(absolute)).path,
+    path.basename(absolute),
+  );
 }
 
 function createProjectContext(
@@ -256,26 +287,16 @@ function buildProject(
 function buildEntryProject(
   context: ReturnType<typeof createProjectContext>,
   options: NonNullable<Parameters<typeof prepareExecution>[1]>,
-  entryFile: string,
-): string {
-  // One spelling decides both halves of this project. `rootDir` and the file
-  // list are compared by tsgo textually — `GetCommonSourceDirectory` takes
-  // `rootDir` verbatim and `ContainsPath` is lexical — so an entry spelled any
-  // other way than its own root is simply "not under `rootDir`", and tsgo then
-  // emits it to the source path with the extension changed instead of under
-  // `outDir`. That writes a `.js` (and its map) beside the user's `.ts`, in a
-  // directory nothing here cleans up. The project root already arrives
-  // physically resolved, so the entry is resolved the same way rather than
-  // left as `path.resolve` returned it.
-  const identities = createFilesystemPathIdentityContext({
-    throwOnRealpathError: false,
-  });
-  const entry = identities.resolve(path.resolve(entryFile)).path;
-  const rootDir = commonAncestorDirectory(
-    path.dirname(entry),
-    context.root,
-    identities,
-  );
+  entry: string,
+): void {
+  // `entry` already carries the one spelling `prepareExecution` decided on.
+  // tsgo compares it against `rootDir` textually — `GetCommonSourceDirectory`
+  // takes `rootDir` verbatim and `ContainsPath` is lexical — so a mismatch here
+  // is not a near miss: the entry counts as outside `rootDir`, and tsgo emits
+  // it to its own source path with the extension changed instead of under
+  // `outDir`, writing a `.js` and its map beside the user's `.ts` where nothing
+  // cleans them up.
+  const rootDir = commonAncestorDirectory(path.dirname(entry), context.root);
   const tsconfig = path.join(
     context.root,
     `.ttsx-entry.${PROCESS_CACHE_KEY}.tsconfig.json`,
@@ -342,7 +363,6 @@ function buildEntryProject(
       result.emittedFiles && result.emittedFiles.length !== 0
         ? result.emittedFiles
         : undefined;
-    return entry;
   } finally {
     try {
       fs.rmSync(tsconfig, { force: true });
@@ -373,13 +393,10 @@ function buildEntryProject(
  * compile, and a root that contains it is the closest thing to correct
  * available.
  */
-function commonAncestorDirectory(
-  left: string,
-  right: string,
-  identities: ReturnType<
-    typeof createFilesystemPathIdentityContext
-  > = createFilesystemPathIdentityContext({ throwOnRealpathError: false }),
-): string {
+function commonAncestorDirectory(left: string, right: string): string {
+  const identities = createFilesystemPathIdentityContext({
+    throwOnRealpathError: false,
+  });
   const from = identities.resolve(path.resolve(left)).path;
   const target = identities.resolve(path.resolve(right)).path;
   let current = from;
