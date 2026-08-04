@@ -93,17 +93,17 @@ export function prepareExecution(
  * requested one.
  *
  * It is lexical on purpose, and it is the same test `resolveEmittedJavaScript`
- * then applies. Both sides already carry the one spelling
- * `resolveEntrySpelling` decided on, so there is no spelling left to fold — and
- * a filesystem-identity test would resolve a symlinked entry _file_ to its
- * target, place it outside a `rootDir` that was never widened to reach that
- * target, and reject an entry that compiles and runs perfectly well.
+ * then applies — including its rejection of an entry that _is_ the root. Both
+ * sides already carry the one spelling `resolveEntrySpelling` decided on, so
+ * there is no spelling left to fold, and folding again could only disagree with
+ * the mirror that runs immediately after it.
  */
 function emittedEntryOf(
   context: ReturnType<typeof createProjectContext>,
   entry: string,
 ): string | null {
-  if (isOutsideRelativePath(path.relative(context.runtimeRootDir, entry))) {
+  const relative = path.relative(context.runtimeRootDir, entry);
+  if (relative === "" || isOutsideRelativePath(relative)) {
     return null;
   }
   return resolveEmittedJavaScript({
@@ -115,23 +115,27 @@ function emittedEntryOf(
 }
 
 /**
- * The entry's path with its directory in the filesystem's own spelling.
+ * The entry in the filesystem's own spelling, symlinked file included.
  *
- * The project root arrives physically resolved, and everything downstream —
- * `rootDir` containment, emitted-output mirroring, the runtime manifest — is
- * compared against it lexically, so the entry has to agree with it. Only the
- * directory is resolved: a symlinked entry file is one the user named, and
- * following it would relocate the entry into another tree.
+ * Every other party to this decision already speaks that spelling. The project
+ * root arrives physically resolved; tsgo emits from the path it actually opens;
+ * and the runtime hooks identify a served file by `fs.realpathSync`, because
+ * that is how Node itself keys a module without `--preserve-symlinks`. An entry
+ * spelled any other way is not a nicer name for the same file — it is a fourth
+ * answer nobody else gives, and the disagreements are not symmetric: the gate
+ * would claim to own an emit the runtime then refuses to serve, so the entry
+ * would run through the orphan type-strip lane with the project's transform
+ * plugins, `target`, `paths`, and source map all silently dropped.
+ *
+ * Resolving the link widens `rootDir` to the ancestor the two trees share,
+ * which is not a cost but the requirement: the file genuinely lives outside the
+ * project, and no root that excludes it can compile it.
  */
 function resolveEntrySpelling(cwd: string, entryFile: string): string {
-  const absolute = path.resolve(cwd, entryFile);
   const identities = createFilesystemPathIdentityContext({
     throwOnRealpathError: false,
   });
-  return path.join(
-    identities.resolve(path.dirname(absolute)).path,
-    path.basename(absolute),
-  );
+  return identities.resolve(path.resolve(cwd, entryFile)).path;
 }
 
 function createProjectContext(
