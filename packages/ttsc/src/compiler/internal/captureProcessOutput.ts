@@ -17,7 +17,7 @@ export interface CapturedProcessOutput {
 /**
  * A pair of temporary files standing in for a child process's pipes.
  *
- * `spawnSync` holds a *piped* stream in this process's memory and refuses to
+ * `spawnSync` holds a _piped_ stream in this process's memory and refuses to
  * keep more than `maxBuffer` bytes, so any piped capture has to name a ceiling
  * — and a ceiling is a number nobody chose for this machine, deciding on the
  * user's behalf that a large but legitimate build said too much. Handing the
@@ -33,18 +33,22 @@ export function captureProcessOutput(): CapturedProcessOutput {
   const stdoutPath = path.join(directory, "stdout");
   const stderrPath = path.join(directory, "stderr");
   const stdoutFd = fs.openSync(stdoutPath, "w+");
-  const stderrFd = fs.openSync(stderrPath, "w+");
+  let stderrFd: number;
+  try {
+    stderrFd = fs.openSync(stderrPath, "w+");
+  } catch (error) {
+    // The first descriptor and the directory are already live. Nothing else
+    // will ever hold them, so they are released here rather than left for a
+    // caller that never received a handle to dispose.
+    closeQuietly(stdoutFd);
+    removeQuietly(directory);
+    throw error;
+  }
   return {
     dispose(): void {
-      for (const fd of [stdoutFd, stderrFd]) {
-        try {
-          fs.closeSync(fd);
-        } catch {
-          // Already closed. Removing the directory below is what reclaims the
-          // space either way.
-        }
-      }
-      fs.rmSync(directory, { force: true, recursive: true });
+      closeQuietly(stdoutFd);
+      closeQuietly(stderrFd);
+      removeQuietly(directory);
     },
     read(stream, encoding): string | Buffer {
       const location = stream === "stdout" ? stdoutPath : stderrPath;
@@ -61,4 +65,29 @@ export function captureProcessOutput(): CapturedProcessOutput {
     stderrFd,
     stdoutFd,
   };
+}
+
+/** Close a descriptor, ignoring one that is already closed. */
+function closeQuietly(fd: number): void {
+  try {
+    fs.closeSync(fd);
+  } catch {
+    // Already closed; removing the directory is what reclaims the space.
+  }
+}
+
+/**
+ * Remove the capture directory without letting cleanup replace a result.
+ *
+ * `dispose` runs from a `finally`, so a throw here would surface instead of the
+ * spawn's own outcome — and on Windows a grandchild that inherited the handle
+ * can hold the file long enough to make removal fail. Leaving bytes in the
+ * system temp directory is the lesser outcome by far.
+ */
+function removeQuietly(directory: string): void {
+  try {
+    fs.rmSync(directory, { force: true, recursive: true });
+  } catch {
+    // Best effort.
+  }
 }

@@ -50,17 +50,21 @@ export function captureProcessOutput(): CapturedProcessOutput {
   const stdoutPath = path.join(directory, "stdout");
   const stderrPath = path.join(directory, "stderr");
   const stdoutFd = fs.openSync(stdoutPath, "w+");
-  const stderrFd = fs.openSync(stderrPath, "w+");
+  let stderrFd: number;
+  try {
+    stderrFd = fs.openSync(stderrPath, "w+");
+  } catch (error) {
+    // The first descriptor and the directory are already live, and no caller
+    // ever received a handle to dispose of them.
+    closeQuietly(stdoutFd);
+    removeQuietly(directory);
+    throw error;
+  }
   return {
     dispose(): void {
-      for (const fd of [stdoutFd, stderrFd]) {
-        try {
-          fs.closeSync(fd);
-        } catch {
-          // Already closed; removing the directory is what reclaims the space.
-        }
-      }
-      fs.rmSync(directory, { force: true, recursive: true });
+      closeQuietly(stdoutFd);
+      closeQuietly(stderrFd);
+      removeQuietly(directory);
     },
     read(stream): string {
       const location = stream === "stdout" ? stdoutPath : stderrPath;
@@ -74,4 +78,28 @@ export function captureProcessOutput(): CapturedProcessOutput {
     stderrFd,
     stdoutFd,
   };
+}
+
+/** Close a descriptor, ignoring one that is already closed. */
+function closeQuietly(fd: number): void {
+  try {
+    fs.closeSync(fd);
+  } catch {
+    // Already closed; removing the directory is what reclaims the space.
+  }
+}
+
+/**
+ * Remove the capture directory without letting cleanup replace a result.
+ *
+ * `dispose` runs from a `finally`, so a throw here would surface instead of the
+ * spawn's own outcome — and on Windows a grandchild that inherited the handle
+ * can hold the file long enough to make removal fail.
+ */
+function removeQuietly(directory: string): void {
+  try {
+    fs.rmSync(directory, { force: true, recursive: true });
+  } catch {
+    // Best effort.
+  }
 }
