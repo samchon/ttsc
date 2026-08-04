@@ -22,7 +22,6 @@ export const test_ttscgraph_queued_native_request_can_abort_before_start =
   async () => {
     const { root, session } = createNativeSessionFixture({
       mode: "hang",
-      requestTimeoutMs: 10_000,
     });
     const first = session.graph();
     try {

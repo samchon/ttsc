@@ -2,7 +2,6 @@ import { type ChildProcess, spawn } from "node:child_process";
 import { type Interface, createInterface } from "node:readline";
 
 import type { TtscBuildResult } from "../../structures/internal/TtscBuildResult";
-import { normalizeRequestTimeoutMs } from "./residentTransformProcess";
 
 const STDERR_TAIL_LIMIT = 64 * 1024;
 const REPLY_ECHO_LIMIT = 200;
@@ -13,7 +12,6 @@ export interface ResidentCheckProcessOptions {
   binary: string;
   cwd: string;
   env: NodeJS.ProcessEnv;
-  requestTimeoutMs?: number;
 }
 
 export interface ResidentCheckRequest {
@@ -36,7 +34,6 @@ export type ResidentCheckResult = TtscBuildResult & {
 type PendingRequest = {
   reject(reason: Error): void;
   resolve(result: ResidentCheckResult): void;
-  timer: NodeJS.Timeout;
 };
 
 /**
@@ -51,12 +48,10 @@ export class ResidentCheckProcess {
   private readonly child: ChildProcess;
   private readonly pending: PendingRequest[] = [];
   private readonly reader: Interface;
-  private readonly requestTimeoutMs: number;
   private failure: Error | undefined;
   private stderr = "";
 
   public constructor(options: ResidentCheckProcessOptions) {
-    this.requestTimeoutMs = normalizeRequestTimeoutMs(options.requestTimeoutMs);
     this.child = spawn(options.binary, [...options.args], {
       cwd: options.cwd,
       env: options.env,
@@ -98,21 +93,7 @@ export class ResidentCheckProcess {
       return Promise.reject(asError(error));
     }
     return new Promise<ResidentCheckResult>((resolve, reject) => {
-      const pending: PendingRequest = {
-        reject,
-        resolve,
-        timer: setTimeout(() => {
-          const detail = stderrSuffix(this.stderr);
-          const timeout = new Error(
-            `ttsc: resident check request timed out after ${String(
-              this.requestTimeoutMs,
-            )} ms${detail}`,
-          );
-          this.settle(pending, timeout);
-          this.fail(timeout);
-        }, this.requestTimeoutMs),
-      };
-      pending.timer.unref();
+      const pending: PendingRequest = { reject, resolve };
       this.pending.push(pending);
       try {
         stdin.write(line, (error) => {
@@ -161,7 +142,6 @@ export class ResidentCheckProcess {
     const index = this.pending.indexOf(pending);
     if (index === -1) return;
     this.pending.splice(index, 1);
-    clearTimeout(pending.timer);
     if (result instanceof Error) pending.reject(result);
     else pending.resolve(result);
   }

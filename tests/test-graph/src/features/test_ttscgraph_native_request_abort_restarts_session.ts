@@ -21,7 +21,6 @@ export const test_ttscgraph_native_request_abort_restarts_session =
   async () => {
     const { root, session } = createNativeSessionFixture({
       mode: "hang-once",
-      requestTimeoutMs: 10_000,
     });
     try {
       const controller = new AbortController();

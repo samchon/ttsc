@@ -6,17 +6,14 @@ interface SourcePackEntry {
 }
 
 interface SourcePackCancellationReason {
-  kind: "abort" | "timeout";
+  kind: "abort";
   reason?: unknown;
-  timeoutMs?: number;
 }
 
 interface SourcePackCancellation {
   promise: Promise<never>;
   dispose: () => void;
 }
-
-export const DEFAULT_SOURCE_PACK_TIMEOUT_MS = 30_000;
 
 const packCache = new Map<string, SourcePackEntry>();
 
@@ -30,10 +27,9 @@ const packCache = new Map<string, SourcePackEntry>();
 export function loadTypiaSourcePack(
   options: IInstallTypiaSourcePackOptions,
 ): Promise<Record<string, string>> {
-  const timeoutMs = resolveSourcePackTimeout(options.timeoutMs);
   const cached = packCache.get(options.url);
   if (cached) {
-    attachSourcePackCancellation(cached, options.signal, timeoutMs);
+    attachSourcePackCancellation(cached, options.signal);
     return cached.promise;
   }
 
@@ -81,24 +77,13 @@ export function loadTypiaSourcePack(
 
   entry = { controller, promise };
   packCache.set(url, entry);
-  attachSourcePackCancellation(entry, options.signal, timeoutMs);
+  attachSourcePackCancellation(entry, options.signal);
   return promise;
-}
-
-function resolveSourcePackTimeout(timeoutMs: number | undefined): number {
-  const value = timeoutMs ?? DEFAULT_SOURCE_PACK_TIMEOUT_MS;
-  if (!Number.isSafeInteger(value) || value <= 0 || value > 2_147_483_647) {
-    throw new RangeError(
-      "loadTypiaSourcePack: timeoutMs must be a positive integer no greater than 2147483647.",
-    );
-  }
-  return value;
 }
 
 function attachSourcePackCancellation(
   entry: SourcePackEntry,
   callerSignal: AbortSignal | undefined,
-  timeoutMs: number,
 ): void {
   const abortFromCaller = (): void => {
     if (!entry.controller.signal.aborted) {
@@ -111,16 +96,7 @@ function attachSourcePackCancellation(
   if (callerSignal?.aborted) abortFromCaller();
   else callerSignal?.addEventListener("abort", abortFromCaller, { once: true });
 
-  const timer = setTimeout(() => {
-    if (!entry.controller.signal.aborted) {
-      entry.controller.abort({
-        kind: "timeout",
-        timeoutMs,
-      } satisfies SourcePackCancellationReason);
-    }
-  }, timeoutMs);
   const cleanup = (): void => {
-    clearTimeout(timer);
     callerSignal?.removeEventListener("abort", abortFromCaller);
   };
   void entry.promise.then(cleanup, cleanup);
@@ -166,12 +142,6 @@ function sourcePackCancellationError(
   phase: string,
 ): Error {
   const reason = signal.reason as SourcePackCancellationReason | undefined;
-  if (reason?.kind === "timeout") {
-    return new Error(
-      `loadTypiaSourcePack: timed out after ${reason.timeoutMs}ms while ${phase}.`,
-    );
-  }
-
   const error = new Error(`loadTypiaSourcePack: aborted while ${phase}.`);
   const cause = reason?.kind === "abort" ? reason.reason : signal.reason;
   if (cause !== undefined) (error as Error & { cause?: unknown }).cause = cause;

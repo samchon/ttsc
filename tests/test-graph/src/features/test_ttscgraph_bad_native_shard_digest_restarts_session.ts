@@ -21,7 +21,6 @@ export const test_ttscgraph_bad_native_shard_digest_restarts_session =
   async () => {
     const { root, session } = createNativeSessionFixture({
       mode: "bad-shard-digest-once",
-      requestTimeoutMs: 5_000,
     });
     try {
       await assert.rejects(

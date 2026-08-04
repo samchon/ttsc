@@ -20,7 +20,6 @@ export const test_ttscgraph_duplicate_native_config_universe_restarts_session =
   async () => {
     const { root, session } = createNativeSessionFixture({
       mode: "duplicate-config-universe-once",
-      requestTimeoutMs: 5_000,
     });
     try {
       await assert.rejects(

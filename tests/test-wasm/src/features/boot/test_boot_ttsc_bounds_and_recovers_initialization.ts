@@ -1,8 +1,4 @@
-import {
-  BootTtscWorkerTerminationError,
-  DEFAULT_BOOT_TIMEOUT_MS,
-  bootTtsc,
-} from "@ttsc/wasm";
+import { BootTtscWorkerTerminationError, bootTtsc } from "@ttsc/wasm";
 import assert from "node:assert/strict";
 
 import {
@@ -20,15 +16,20 @@ function signal(): { promise: Promise<void>; resolve: () => void } {
 }
 
 /**
- * Verifies timeout and caller cancellation settle every asynchronous boot phase
- * and enforce the pre-runtime versus running-runtime retry boundary.
+ * Verifies caller cancellation settles every asynchronous boot phase and
+ * enforces the pre-runtime versus running-runtime retry boundary.
  *
  * A stalled fetch or Go runtime previously left the per-key single-flight and
  * per-api serialization chain pending forever. These cases use the same key for
  * each retry so a fresh URL cannot hide a poisoned entry.
  *
- * 1. Stall fetch, reach the finite deadline, and observe its forwarded signal.
- * 2. Assert phase-specific timeout ownership and readiness callback cleanup.
+ * There is no boot deadline to exercise. How long a fetch and instantiation
+ * take belongs to the network and the machine, so `signal` is the only way a
+ * boot ends early — which makes it the thing that must release the cache
+ * entry.
+ *
+ * 1. Stall fetch, abort it, and observe the forwarded signal.
+ * 2. Assert phase-specific abort ownership and readiness callback cleanup.
  * 3. Retry the same key and resolve normally.
  * 4. Join and cancel a shared same-key fetch, then retry it.
  * 5. Abort during Go readiness and prove queued and later boots are terminal.
@@ -37,17 +38,6 @@ function signal(): { promise: Promise<void>; resolve: () => void } {
  */
 export const test_boot_ttsc_bounds_and_recovers_initialization =
   async (): Promise<void> => {
-    assert.equal(DEFAULT_BOOT_TIMEOUT_MS, 60_000);
-    assert.throws(
-      () =>
-        bootTtsc({
-          apiName: "ttscInvalidDeadline",
-          wasmUrl: "http://local/invalid-deadline.wasm",
-          timeoutMs: 0,
-        }),
-      /timeoutMs must be a positive integer/,
-    );
-
     const fetchApiName = "ttscBoundedFetch";
     const fetchUrl = "http://local/bounded-fetch.wasm";
     const fetchStarted = signal();
@@ -70,15 +60,17 @@ export const test_boot_ttsc_bounds_and_recovers_initialization =
         },
       },
       async () => {
+        const fetchController = new AbortController();
         const first = bootTtsc({
           apiName: fetchApiName,
           wasmUrl: fetchUrl,
-          timeoutMs: 50,
+          signal: fetchController.signal,
         });
         await fetchStarted.promise;
+        fetchController.abort(new Error("page navigated away"));
         await assert.rejects(
           first,
-          /timed out after 50ms while fetching .*bounded-fetch\.wasm/,
+          /aborted while fetching .*bounded-fetch\.wasm/,
         );
         await fetchAborted.promise;
         assert.equal(Object.hasOwn(globalThis, fetchApiName + "Ready"), false);
@@ -87,7 +79,6 @@ export const test_boot_ttsc_bounds_and_recovers_initialization =
         const retried = await bootTtsc({
           apiName: fetchApiName,
           wasmUrl: fetchUrl,
-          timeoutMs: 1_000,
         });
         assert.equal(retried.api as unknown, FAKE_API);
       },
@@ -115,7 +106,6 @@ export const test_boot_ttsc_bounds_and_recovers_initialization =
         const first = bootTtsc({
           apiName: sharedApiName,
           wasmUrl: sharedUrl,
-          timeoutMs: 1_000,
         });
         await sharedFetchStarted.promise;
         const controller = new AbortController();
@@ -123,7 +113,6 @@ export const test_boot_ttsc_bounds_and_recovers_initialization =
           apiName: sharedApiName,
           wasmUrl: sharedUrl,
           signal: controller.signal,
-          timeoutMs: 1_000,
         });
         assert.equal(first, second);
         controller.abort(new Error("joined caller canceled"));
@@ -133,7 +122,6 @@ export const test_boot_ttsc_bounds_and_recovers_initialization =
         const retried = await bootTtsc({
           apiName: sharedApiName,
           wasmUrl: sharedUrl,
-          timeoutMs: 1_000,
         });
         assert.equal(retried.api as unknown, FAKE_API);
       },
@@ -161,13 +149,11 @@ export const test_boot_ttsc_bounds_and_recovers_initialization =
           apiName: readyApiName,
           wasmUrl: readyUrl,
           signal: controller.signal,
-          timeoutMs: 1_000,
         });
         await runStarted.promise;
         const queued = bootTtsc({
           apiName: readyApiName,
           wasmUrl: readyUrl + "?queued=1",
-          timeoutMs: 1_000,
         });
         controller.abort(cause);
         let terminal!: BootTtscWorkerTerminationError;
@@ -198,7 +184,6 @@ export const test_boot_ttsc_bounds_and_recovers_initialization =
           bootTtsc({
             apiName: readyApiName,
             wasmUrl: readyUrl,
-            timeoutMs: 1_000,
           }),
           (error: unknown) => error === terminal,
         );
@@ -236,16 +221,18 @@ export const test_boot_ttsc_bounds_and_recovers_initialization =
           apiName: queueApiName,
           wasmUrl: firstQueueUrl,
           signal: firstQueueController.signal,
-          timeoutMs: 1_000,
         });
         await queueFetchStarted.promise;
+        const queuedController = new AbortController();
+        const queued = bootTtsc({
+          apiName: queueApiName,
+          wasmUrl: secondQueueUrl,
+          signal: queuedController.signal,
+        });
+        queuedController.abort(new Error("caller stopped queueing"));
         await assert.rejects(
-          bootTtsc({
-            apiName: queueApiName,
-            wasmUrl: secondQueueUrl,
-            timeoutMs: 50,
-          }),
-          /timed out after 50ms while waiting for an earlier boot/,
+          queued,
+          /aborted while waiting for an earlier boot/,
         );
 
         firstQueueController.abort(new Error("release queue predecessor"));
@@ -253,7 +240,6 @@ export const test_boot_ttsc_bounds_and_recovers_initialization =
         const retried = await bootTtsc({
           apiName: queueApiName,
           wasmUrl: secondQueueUrl,
-          timeoutMs: 1_000,
         });
         assert.equal(retried.api as unknown, FAKE_API);
       },

@@ -22,7 +22,6 @@ export const test_ttscgraph_native_session_close_terminates_child_once =
   async () => {
     const { root, session } = createNativeSessionFixture({
       mode: "hang",
-      requestTimeoutMs: 10_000,
     });
     let activeSettlements = 0;
     let queuedSettlements = 0;

@@ -6,15 +6,6 @@ export interface IBootTtscOptions {
   wasmUrl: string;
   /** Cancel this boot attempt, including a shared in-flight attempt. */
   signal?: AbortSignal;
-  /**
-   * Maximum initialization time in milliseconds. Defaults to 60 seconds.
-   *
-   * The deadline covers queued, fetch, instantiate, and readiness phases.
-   * `importScripts` is synchronous and can only observe cancellation before or
-   * after it returns. A failure after `go.run` starts requires terminating the
-   * Worker; later boots of the same API name reject terminally.
-   */
-  timeoutMs?: number;
   /** URL of wasm_exec.js. Defaults to the same directory as wasmUrl. */
   wasmExecUrl?: string;
   /**

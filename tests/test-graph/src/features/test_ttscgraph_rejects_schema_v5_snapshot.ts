@@ -16,7 +16,6 @@ import { assert } from "../internal/ttsgraph";
 export const test_ttscgraph_rejects_schema_v5_snapshot = async () => {
   const { session } = createNativeSessionFixture({
     mode: "respond",
-    requestTimeoutMs: 5_000,
     schemaVersion: 5,
   });
   try {

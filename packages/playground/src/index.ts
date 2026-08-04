@@ -24,10 +24,7 @@ export { DEFAULT_WORK_DIR } from "./compiler/DEFAULT_WORK_DIR";
 export { installDependenciesIntoMemFS } from "./compiler/installDependenciesIntoMemFS";
 export { installTypiaSourcePack } from "./compiler/installTypiaSourcePack";
 export { lineColumnOf } from "./compiler/lineColumnOf";
-export {
-  DEFAULT_SOURCE_PACK_TIMEOUT_MS,
-  loadTypiaSourcePack,
-} from "./compiler/loadTypiaSourcePack";
+export { loadTypiaSourcePack } from "./compiler/loadTypiaSourcePack";
 export { mapDiagnostic } from "./compiler/mapDiagnostic";
 export { normalizeError } from "./compiler/normalizeError";
 export { normalizeNodeModulePath } from "./compiler/normalizeNodeModulePath";
@@ -41,10 +38,7 @@ export { packageNameFromSpecifier } from "./npm/packageNameFromSpecifier";
 
 // ── typia runtime sandbox (CJS-flavoured require over a pack JSON) ────────
 export { createSandboxRequire } from "./sandbox/createSandboxRequire";
-export {
-  DEFAULT_RUNTIME_PACK_TIMEOUT_MS,
-  loadTypiaRuntimePack,
-} from "./sandbox/loadTypiaRuntimePack";
+export { loadTypiaRuntimePack } from "./sandbox/loadTypiaRuntimePack";
 
 // ── React UI surface ──────────────────────────────────────────────────────
 export { ConsoleViewer } from "./react/ConsoleViewer";

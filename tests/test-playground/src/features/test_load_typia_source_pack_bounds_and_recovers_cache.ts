@@ -3,28 +3,22 @@ import assert from "node:assert/strict";
 import { loadTypiaSourcePack } from "../../../../packages/playground/lib/src/compiler/loadTypiaSourcePack.js";
 
 /**
- * Verifies source-pack fetch and JSON reads are bounded, caller-cancellable,
- * retryable, and single-flight while healthy.
+ * Verifies source-pack fetch and JSON reads are caller-cancellable, retryable,
+ * and single-flight while healthy.
  *
  * A response can deliver headers but leave its body pending forever. Because
  * the URL cache held that pending promise, every later worker boot inherited
- * the same dead request instead of attempting recovery.
+ * the same dead request instead of attempting recovery. Nothing here imposes a
+ * deadline — how long a network fetch takes is the network's business — so the
+ * caller's `signal` is the whole recovery story and it has to actually release
+ * the cache entry.
  *
- * 1. Time out a stalled JSON body, then retry that URL successfully.
+ * 1. Abort a stalled JSON body, then retry that URL successfully.
  * 2. Abort two callers sharing a stalled fetch, then retry from a fresh fetch.
  * 3. Resolve two healthy callers through one fetch and one shared promise.
  */
 export const test_load_typia_source_pack_bounds_and_recovers_cache =
   async (): Promise<void> => {
-    assert.throws(
-      () =>
-        loadTypiaSourcePack({
-          url: "https://pack.invalid/deadline.json",
-          timeoutMs: Number.POSITIVE_INFINITY,
-        }),
-      /timeoutMs must be a positive integer/,
-    );
-
     const jsonUrl = "https://pack.invalid/source-stalled-json.json";
     let jsonCalls = 0;
     let jsonSignal: AbortSignal | undefined;
@@ -45,20 +39,22 @@ export const test_load_typia_source_pack_bounds_and_recovers_cache =
       } as Response;
     };
 
+    const stalledController = new AbortController();
+    const stalled = loadTypiaSourcePack({
+      url: jsonUrl,
+      fetch: jsonFetch,
+      signal: stalledController.signal,
+    });
+    stalledController.abort(new Error("reader gave up"));
     await assert.rejects(
-      loadTypiaSourcePack({
-        url: jsonUrl,
-        fetch: jsonFetch,
-        timeoutMs: 50,
-      }),
-      /timed out after 50ms while reading JSON from .*source-stalled-json\.json/,
+      stalled,
+      /aborted while reading JSON from .*source-stalled-json\.json/,
     );
     assert.equal(jsonSignal?.aborted, true);
     assert.deepEqual(
       await loadTypiaSourcePack({
         url: jsonUrl,
         fetch: jsonFetch,
-        timeoutMs: 1_000,
       }),
       { "typia/index.ts": "export {};" },
     );
@@ -82,14 +78,12 @@ export const test_load_typia_source_pack_bounds_and_recovers_cache =
     const first = loadTypiaSourcePack({
       url: sharedUrl,
       fetch: sharedFetch,
-      timeoutMs: 1_000,
     });
     const controller = new AbortController();
     const second = loadTypiaSourcePack({
       url: sharedUrl,
       fetch: sharedFetch,
       signal: controller.signal,
-      timeoutMs: 1_000,
     });
     assert.equal(first, second);
     const cause = new Error("worker boot cancelled");
@@ -108,7 +102,6 @@ export const test_load_typia_source_pack_bounds_and_recovers_cache =
       await loadTypiaSourcePack({
         url: sharedUrl,
         fetch: sharedFetch,
-        timeoutMs: 1_000,
       }),
       { "typia/lib/index.ts": "export {};" },
     );
@@ -127,12 +120,10 @@ export const test_load_typia_source_pack_bounds_and_recovers_cache =
     const healthyFirst = loadTypiaSourcePack({
       url: healthyUrl,
       fetch: healthyFetch,
-      timeoutMs: 1_000,
     });
     const healthySecond = loadTypiaSourcePack({
       url: healthyUrl,
       fetch: healthyFetch,
-      timeoutMs: 1_000,
     });
     assert.equal(healthyFirst, healthySecond);
     assert.equal(healthyCalls, 1);

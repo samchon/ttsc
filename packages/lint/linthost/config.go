@@ -16,6 +16,7 @@ import (
   "sort"
   "strings"
   "sync"
+  "time"
 
   "github.com/samchon/ttsc/packages/ttsc/driver/windowsjunction"
 )
@@ -1771,15 +1772,13 @@ func serializableConfigKeysLiteral() string {
 
 // runConfigLoaderCommand runs a prepared config-loader subprocess (`cmd`),
 // then turns its result into a parsed config object. It owns the shared tail
-// of both subprocess-backed loaders: discarding user stdout, distinguishing a
-// timeout from a process error, reading the private result file, JSON-parsing
-// its envelope, and rejecting a non-object result. `ctx` is the
-// timeout context the caller bound `cmd` to; `location` is the config file path
-// for error messages; `label` is the human-readable subject (e.g. "config
+// of both subprocess-backed loaders: discarding user stdout, announcing a
+// long-running evaluation, reading the private result file, JSON-parsing its
+// envelope, and rejecting a non-object result. `location` is the config file
+// path for error messages; `label` is the human-readable subject (e.g. "config
 // file" or "TypeScript config file") spliced into the load/parse error
 // prefixes so each loader keeps its own wording.
 func runConfigLoaderCommand(
-  ctx context.Context,
   cmd *exec.Cmd,
   location string,
   label string,
@@ -1788,7 +1787,9 @@ func runConfigLoaderCommand(
   var stderr bytes.Buffer
   cmd.Stdout = io.Discard
   cmd.Stderr = &stderr
+  stopHeartbeat := configEvaluationHeartbeat(label, location)
   err := cmd.Run()
+  stopHeartbeat()
   // A loader diagnostic is only useful when the load succeeds, because a
   // failure already carries the same text in its message. Forward it so an
   // assertion about what the loader recorded can name what it resolved.
@@ -1894,7 +1895,7 @@ func normalizeConfigDependencyFingerprints(
 // loadScriptConfigFile evaluates a .js/.cjs/.mjs config file by running a
 // Node subprocess that dynamic-imports the file, resolves the exported config
 // through the same 8-hop default/config normalization used by the TS loader,
-// and serializes the result into a private result file. The subprocess has a
+// and serializes the result into a private result file.
 func loadScriptConfigFile(location string) (any, error) {
   evaluated, err := loadScriptConfigEvaluation(location)
   return evaluated.value, err
@@ -1930,7 +1931,7 @@ func loadScriptConfigEvaluationWithin(
     outputPath,
     resolutionRoot,
   )
-  return runConfigLoaderCommand(ctx, cmd, location, "config file", outputPath)
+  return runConfigLoaderCommand(cmd, location, "config file", outputPath)
 }
 
 // scriptConfigLoaderSource returns the CommonJS source of the loader script
@@ -3036,7 +3037,7 @@ func loadTypeScriptConfigEvaluationWithin(
   defer cancel()
   cmd := ttsxCommandContext(ctx, args...)
   cmd.Env = nodeConfigLoaderEnv(location)
-  return runConfigLoaderCommand(ctx, cmd, location, "TypeScript config file", outputPath)
+  return runConfigLoaderCommand(cmd, location, "TypeScript config file", outputPath)
 }
 
 // isConfigObject reports whether `value` is a top-level config object. A lint
@@ -4780,3 +4781,49 @@ func (c RuleConfig) Severity(name string) Severity {
   }
   return SeverityOff
 }
+
+// configEvaluationHeartbeat reports, on stderr, that a config evaluation is
+// still running, once every heartbeatInterval until the returned stop func is
+// called.
+//
+// Nothing bounds how long a user's config may take: it is their code, and this
+// compiler does not get to decide when it has run too long. But the loader
+// captures the child's streams and flushes them only after it exits, so without
+// this a config that never finishes produces a process that prints nothing at
+// all — indistinguishable from a hang, and impossible to attribute. The
+// heartbeat costs nothing on an ordinary build (it fires only after the first
+// interval) and turns an unbounded evaluation into one the user can see and
+// interrupt, which is the whole premise of not killing it.
+func configEvaluationHeartbeat(label, location string) func() {
+  done := make(chan struct{})
+  finished := make(chan struct{})
+  go func() {
+    defer close(finished)
+    started := time.Now()
+    ticker := time.NewTicker(heartbeatInterval)
+    defer ticker.Stop()
+    for {
+      select {
+      case <-done:
+        return
+      case <-ticker.C:
+        fmt.Fprintf(
+          os.Stderr,
+          "%s: still evaluating %s (%s)\n",
+          label,
+          location,
+          time.Since(started).Round(time.Second),
+        )
+      }
+    }
+  }()
+  return func() {
+    close(done)
+    <-finished
+  }
+}
+
+// heartbeatInterval is how long an evaluation runs before it starts announcing
+// itself, and how often it repeats. Long enough that an ordinary config never
+// prints, short enough that a stuck one is visible well inside a coffee break.
+const heartbeatInterval = 15 * time.Second

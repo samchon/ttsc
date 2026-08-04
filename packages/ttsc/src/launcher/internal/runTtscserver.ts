@@ -43,7 +43,6 @@ type TtscserverEnvironment = {
 };
 
 const LSP_SELECTION_STABILITY_ATTEMPTS = 3;
-const LSP_PROJECT_INPUT_TIMEOUT_MS = 30_000;
 const LSP_PROJECT_INPUT_MAX_BUFFER = 4 * 1024 * 1024;
 
 /**
@@ -364,7 +363,6 @@ function captureInitialLSPProjectInputs(options: {
       encoding: "utf8",
       env,
       maxBuffer: LSP_PROJECT_INPUT_MAX_BUFFER,
-      timeout: LSP_PROJECT_INPUT_TIMEOUT_MS,
       windowsHide: true,
     });
     if (result.error) {

@@ -29,14 +29,10 @@ process.stdin.on("data", (chunk) => {
 `;
 }
 
-function spawnStub(
-  stub: string,
-  requestTimeoutMs: number,
-): ResidentTransformProcess {
+function spawnStub(stub: string): ResidentTransformProcess {
   return new ResidentTransformProcess({
     args: ["-e", stub],
     binary: process.execPath,
-    requestTimeoutMs,
   });
 }
 
@@ -53,37 +49,32 @@ function delay(ms: number): Promise<void> {
 }
 
 /**
- * Verifies the resident client bounds a live-silent FIFO host without losing
- * reply ownership.
+ * Verifies the resident client keeps reply ownership when a request leaves the
+ * FIFO early.
  *
- * A timeout or in-flight cancellation cannot remove one positional slot and
- * continue reading, because a reply that arrives later would then be paired to
- * the wrong caller. The process is consequently retired and this client fails
- * closed. The request that caused retirement retains its specific error, while
- * other pending calls receive the host-retirement error.
+ * The client cannot remove one positional slot and keep reading: a reply that
+ * arrived later would be paired to the wrong caller. So a cancellation retires
+ * the host and this client fails closed, with the request that caused
+ * retirement keeping its own error while the others receive the retirement
+ * one.
  *
- * 1. Reject invalid deadlines and preserve a delayed reply within the bound.
- * 2. Time out two pipelined requests, clear their pending state, and fail a later
- *    call closed.
- * 3. Preserve cancellation before write as one caller's concern, then prove an
- *    in-flight cancellation retires a shared host without leaving another
+ * There is no deadline to exercise. A slow host is the user's own transform
+ * running, and the client waits for it; a _dead_ host still settles every
+ * pending call, because the reader closing is the signal that matters and it is
+ * one the host cannot withhold.
+ *
+ * 1. Preserve a delayed reply, however late it lands.
+ * 2. Keep a pre-write cancellation as one caller's concern, leaving the host
+ *    healthy for the next.
+ * 3. Prove an in-flight cancellation retires a shared host without leaving another
  *    pending request behind.
  * 4. Deliver a synthetic late protocol line after retirement and prove it cannot
- *    settle a later caller; dispose remains idempotent after timeout.
+ *    settle a later caller; dispose remains idempotent.
  */
 export const test_residenttransformprocess_request_bounds = async () => {
-  for (const value of [0, -1, 1.5, Number.NaN, Number.POSITIVE_INFINITY]) {
-    assert.throws(() => spawnStub(SILENT_STUB, value), /requestTimeoutMs/);
-  }
-  assert.throws(
-    () => spawnStub(SILENT_STUB, 2_147_483_648),
-    /requestTimeoutMs/,
-  );
-
-  // A host may be slow without being failed. Its reply remains valid while it
-  // lands inside the caller-selected bound.
+  // A host may be slow without being failed, and nothing bounds how slow.
   {
-    const proc = spawnStub(delayedReplyStub(40), 500);
+    const proc = spawnStub(delayedReplyStub(40));
     try {
       const reply = await proc.request({ file: "slow.ts" }, "transform");
       assert.equal(reply.typescript, "slow.ts");
@@ -92,35 +83,10 @@ export const test_residenttransformprocess_request_bounds = async () => {
     }
   }
 
-  // A silent host leaves no request pending forever. Every concurrent entry
-  // settles, and future requests fail closed instead of reusing an untrusted
-  // FIFO stream.
-  {
-    const proc = spawnStub(SILENT_STUB, 60);
-    try {
-      const first = proc.request({ file: "first.ts" }, "transform");
-      const second = proc.request({ file: "second.ts" }, "transform");
-      await assert.rejects(() => first, /timed out after 60 ms/);
-      await assert.rejects(
-        () => second,
-        /retired after another request timed out/,
-      );
-      assert.equal(pendingCount(proc), 0);
-      await assert.rejects(
-        () => proc.request({ file: "after.ts" }, "transform"),
-        /retired after another request timed out/,
-      );
-      proc.dispose();
-      proc.dispose();
-    } finally {
-      proc.dispose();
-    }
-  }
-
   // An already-aborted signal is never written into the FIFO. It rejects only
   // that call and leaves the still-healthy host available to another caller.
   {
-    const proc = spawnStub(delayedReplyStub(0), 500);
+    const proc = spawnStub(delayedReplyStub(0));
     const controller = new AbortController();
     controller.abort("caller stopped before write");
     try {
@@ -144,7 +110,7 @@ export const test_residenttransformprocess_request_bounds = async () => {
   // caller sees AbortError, while a concurrent request settles with a distinct
   // collateral failure instead of hanging or receiving a mismatched reply.
   {
-    const proc = spawnStub(SILENT_STUB, 500);
+    const proc = spawnStub(SILENT_STUB);
     const controller = new AbortController();
     try {
       const cancelled = proc.request({ file: "cancelled.ts" }, "transform", {
@@ -172,11 +138,16 @@ export const test_residenttransformprocess_request_bounds = async () => {
   // reader boundary directly models that late pipe tail without relying on a
   // platform-specific child-process kill race.
   {
-    const proc = spawnStub(SILENT_STUB, 40);
+    const proc = spawnStub(SILENT_STUB);
+    const controller = new AbortController();
     try {
+      const cancelled = proc.request({ file: "late.ts" }, "transform", {
+        signal: controller.signal,
+      });
+      controller.abort("caller gave up");
       await assert.rejects(
-        () => proc.request({ file: "late.ts" }, "transform"),
-        /timed out after 40 ms/,
+        cancelled,
+        (error: Error) => error.name === "AbortError",
       );
       (
         proc as unknown as {
@@ -186,7 +157,7 @@ export const test_residenttransformprocess_request_bounds = async () => {
       await delay(10);
       await assert.rejects(
         () => proc.request({ file: "later.ts" }, "transform"),
-        /retired after another request timed out/,
+        /retired after another request was cancelled/,
       );
     } finally {
       proc.dispose();

@@ -11,10 +11,8 @@ import (
   "strings"
   "sync"
   "sync/atomic"
-  "time"
 )
 
-const nativePluginCommandTimeout = 30 * time.Second
 const nativePluginCommandStdoutLimit = 4 * 1024 * 1024
 const nativePluginCommandStderrLimit = 1024 * 1024
 
@@ -825,7 +823,7 @@ func (s *NativePluginSource) runWithStdin(plugin NativeLSPPluginEntry, command s
   if strings.TrimSpace(plugin.Binary) == "" {
     return nil, fmt.Errorf("ttscserver: %s has no binary", pluginLabel(plugin))
   }
-  ctx, cancel := context.WithTimeout(context.Background(), nativePluginCommandTimeout)
+  ctx, cancel := context.WithCancel(context.Background())
   defer cancel()
   allArgs := []string{
     command,

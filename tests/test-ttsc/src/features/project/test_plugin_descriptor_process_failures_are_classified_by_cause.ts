@@ -14,8 +14,8 @@ import {
  *
  * Node attaches the configured termination signal to a max-buffer error, so
  * checking the signal first would hide an output overflow behind an apparent
- * external kill. The loader imposes no deadline, so an `ETIMEDOUT` can only
- * arrive from outside and must read as the external termination it is.
+ * external kill. The loader imposes no deadline at all, so `spawnSync` has no
+ * mechanism left to report one and the classifier carries no timeout arm.
  *
  * 1. Classify output overflow, spawn, signal, and exit failures.
  * 2. Assert the process error code takes precedence over its shared signal.
@@ -133,6 +133,10 @@ function assertOverflowCannotBeDefeatedBySigtermHandler(): void {
       [
         'process.on("SIGTERM", () => {});',
         'setInterval(() => process.stdout.write("x".repeat(4096)), 0);',
+        // A self-exit, so a broken kill fails this assertion in seconds
+        // instead of blocking the event loop forever: `spawnSync` is
+        // synchronous, so no test-harness timer could rescue the lane.
+        "setTimeout(() => process.exit(0), 30_000);",
       ].join(""),
     ],
     {

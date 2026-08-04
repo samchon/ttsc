@@ -10,6 +10,7 @@ import (
   "path/filepath"
   "runtime"
   "strings"
+  "time"
 
   "github.com/samchon/ttsc/packages/ttsc/driver"
   "github.com/samchon/ttsc/packages/ttsc/driver/windowsjunction"
@@ -328,7 +329,9 @@ function toSerializableBanner(value) {
   defer cancel()
   cmd := exec.CommandContext(ctx, node, "-e", script, location)
   cmd.Env = nodeConfigLoaderEnv(location)
+  stopHeartbeat := bannerEvaluationHeartbeat(location)
   output, err := cmd.Output()
+  stopHeartbeat()
   if err != nil {
     stderr := ""
     if exit, ok := err.(*exec.ExitError); ok {
@@ -391,7 +394,9 @@ func loadBannerTypeScriptConfigFile(location string) (any, error) {
   defer cancel()
   cmd := ttsxCommandContext(ctx, args...)
   cmd.Env = nodeConfigLoaderEnv(location)
+  stopHeartbeat := bannerEvaluationHeartbeat(location)
   output, err := cmd.Output()
+  stopHeartbeat()
   if err != nil {
     stderr := ""
     if exit, ok := err.(*exec.ExitError); ok {
@@ -658,7 +663,9 @@ func ttsxCommand(args ...string) *exec.Cmd {
   return ttsxCommandContext(context.Background(), args...)
 }
 
-// ttsxCommandContext is the timeout-aware variant used by config loaders.
+// ttsxCommandContext is the context-bound variant used by config loaders. It
+// carries no deadline: evaluating a user config is the user's own code running,
+// and how long that is allowed to take is not this binary's decision.
 func ttsxCommandContext(ctx context.Context, args ...string) *exec.Cmd {
   ttsx := os.Getenv("TTSC_TTSX_BINARY")
   if ttsx == "" {
@@ -765,3 +772,47 @@ func setEnv(env []string, key, value string) []string {
 func sanitizeJSDocLine(line string) string {
   return strings.ReplaceAll(line, "*/", "* /")
 }
+
+// bannerEvaluationHeartbeat reports, on stderr, that a config evaluation is still
+// running, once every bannerHeartbeatInterval until the returned stop func is called.
+//
+// Nothing bounds how long a user's config may take: it is their code, and this
+// compiler does not get to decide when it has run too long. But the loader
+// captures the child's streams and flushes them only after it exits, so without
+// this a config that never finishes produces a process that prints nothing at
+// all — indistinguishable from a hang, and impossible to attribute. The
+// heartbeat costs nothing on an ordinary build (it fires only after the first
+// interval) and turns an unbounded evaluation into one the user can see and
+// interrupt, which is the whole premise of not killing it.
+func bannerEvaluationHeartbeat(location string) func() {
+  done := make(chan struct{})
+  finished := make(chan struct{})
+  go func() {
+    defer close(finished)
+    started := time.Now()
+    ticker := time.NewTicker(bannerHeartbeatInterval)
+    defer ticker.Stop()
+    for {
+      select {
+      case <-done:
+        return
+      case <-ticker.C:
+        fmt.Fprintf(
+          os.Stderr,
+          "@ttsc/banner: still evaluating %s (%s)\n",
+          location,
+          time.Since(started).Round(time.Second),
+        )
+      }
+    }
+  }()
+  return func() {
+    close(done)
+    <-finished
+  }
+}
+
+// bannerHeartbeatInterval is how long an evaluation runs before it starts announcing
+// itself, and how often it repeats. Long enough that an ordinary config never
+// prints, short enough that a stuck one is visible well inside a coffee break.
+const bannerHeartbeatInterval = 15 * time.Second

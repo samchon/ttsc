@@ -62,7 +62,6 @@ const { api, host } = await bootTtsc({
   wasmExecUrl: "/compiler/wasm_exec.js",
   apiName: "ttsc",
   signal: controller.signal,
-  timeoutMs: 60_000,
 });
 
 host.writeFile(
@@ -89,7 +88,7 @@ postMessage({
 });
 ```
 
-`timeoutMs` defaults to 60 seconds and covers time queued behind an earlier boot, fetch, instantiation, and the Go readiness signal. Aborting any caller that joined the same in-flight boot cancels that shared attempt. A rejection before `go.run` clears its cache entry and readiness callbacks so a later call can retry.
+There is no boot deadline. How long a fetch and instantiation take belongs to the network and the machine, not to a number chosen here, and a boot cancelled on that number is a failure the page cannot retry into success. Pass a `signal` to end a boot deliberately: aborting any caller that joined the same in-flight boot cancels that shared attempt. A rejection before `go.run` clears its cache entry and readiness callbacks so a later call can retry.
 
 `importScripts` is synchronous. `bootTtsc` checks cancellation immediately before and after it but cannot interrupt script evaluation. JavaScript also cannot terminate a Go runtime after `go.run` starts. A failure from that point throws `BootTtscWorkerTerminationError` with code `TTSC_WASM_WORKER_TERMINATION_REQUIRED`; later boots for the same `apiName` reject without exposing another readiness bridge. Terminate and replace that Worker before retrying.
 

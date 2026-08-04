@@ -19,7 +19,6 @@ import { assert } from "../internal/ttsgraph";
 export const test_ttscgraph_exited_native_child_restarts_session = async () => {
   const { root, session } = createNativeSessionFixture({
     mode: "exit-once",
-    requestTimeoutMs: 5_000,
   });
   try {
     await assert.rejects(

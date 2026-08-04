@@ -63,7 +63,8 @@ export function pluginDescriptorProcessFailure(
 
 /**
  * Pass the output bound and private status pipe through the `ttsx` wrapper to
- * the runtime child that actually executes the descriptor.
+ * the runtime child that actually executes the descriptor. No deadline travels
+ * with them; there is none.
  */
 export function pluginDescriptorBoundaryEnvironment(): NodeJS.ProcessEnv {
   return {

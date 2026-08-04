@@ -29,9 +29,8 @@ interface BootInFlight {
 }
 
 interface BootCancellationReason {
-  kind: "abort" | "timeout";
+  kind: "abort";
   reason?: unknown;
-  timeoutMs?: number;
 }
 
 const bootsInFlight = new Map<string, BootInFlight>();
@@ -55,9 +54,6 @@ const terminalBootFailuresByApiName = new Map<
  *   Go-side`Ready.Invoke()` always lands on the resolver that boot installed.
  */
 const bootChainByApiName = new Map<string, Promise<unknown>>();
-
-/** Finite default for queueing, fetch, instantiation, and Go readiness. */
-export const DEFAULT_BOOT_TIMEOUT_MS = 60_000;
 
 function bootKey(apiName: string, wasmUrl: string): string {
   return `${apiName}|${resolveWasmUrl(wasmUrl)}`;
@@ -103,12 +99,11 @@ function resolveWasmUrl(wasmUrl: string): string {
 export function bootTtsc(options: IBootTtscOptions): Promise<IBootResult> {
   const apiName = options.apiName ?? "ttsc";
   const key = bootKey(apiName, options.wasmUrl);
-  const timeoutMs = resolveBootTimeout(options.timeoutMs);
   const terminalFailure = terminalBootFailuresByApiName.get(apiName);
   if (terminalFailure) return Promise.reject(terminalFailure);
   const inflight = bootsInFlight.get(key);
   if (inflight) {
-    attachBootCancellation(inflight, options.signal, timeoutMs);
+    attachBootCancellation(inflight, options.signal);
     return inflight.promise;
   }
   const controller = new AbortController();
@@ -141,7 +136,7 @@ export function bootTtsc(options: IBootTtscOptions): Promise<IBootResult> {
     .finally(queuedCancellation.dispose);
   entry = { controller, promise };
   bootsInFlight.set(key, entry);
-  attachBootCancellation(entry, options.signal, timeoutMs);
+  attachBootCancellation(entry, options.signal);
   // Track the chain head for this apiName so the next boot waits on it.
   // Swallow on the chain head specifically: we already throw to the
   // immediate caller; surfacing it through the chain would reject every
@@ -336,15 +331,6 @@ interface BootCancellation {
   dispose: () => void;
 }
 
-function resolveBootTimeout(timeoutMs: number | undefined): number {
-  const value = timeoutMs ?? DEFAULT_BOOT_TIMEOUT_MS;
-  if (!Number.isSafeInteger(value) || value <= 0 || value > 2_147_483_647)
-    throw new RangeError(
-      "bootTtsc: timeoutMs must be a positive integer no greater than 2147483647.",
-    );
-  return value;
-}
-
 /**
  * Couple every caller's cancellation policy to the shared single-flight. A
  * duplicate caller is joining the same mutable boot, so its cancellation
@@ -353,7 +339,6 @@ function resolveBootTimeout(timeoutMs: number | undefined): number {
 function attachBootCancellation(
   entry: BootInFlight,
   callerSignal: AbortSignal | undefined,
-  timeoutMs: number,
 ): void {
   const abortFromCaller = (): void => {
     if (!entry.controller.signal.aborted)
@@ -365,15 +350,7 @@ function attachBootCancellation(
   if (callerSignal?.aborted) abortFromCaller();
   else callerSignal?.addEventListener("abort", abortFromCaller, { once: true });
 
-  const timer = setTimeout(() => {
-    if (!entry.controller.signal.aborted)
-      entry.controller.abort({
-        kind: "timeout",
-        timeoutMs,
-      } satisfies BootCancellationReason);
-  }, timeoutMs);
   const cleanup = (): void => {
-    clearTimeout(timer);
     callerSignal?.removeEventListener("abort", abortFromCaller);
   };
   void entry.promise.then(cleanup, cleanup);
@@ -432,11 +409,6 @@ function bootCancellationError(
   phase: string,
 ): Error {
   const reason = signal.reason as BootCancellationReason | undefined;
-  if (reason?.kind === "timeout")
-    return new Error(
-      `bootTtsc: timed out after ${reason.timeoutMs}ms while ${phase} for ${apiName}.`,
-    );
-
   const error = new Error(`bootTtsc: aborted while ${phase} for ${apiName}.`);
   const cause = reason?.kind === "abort" ? reason.reason : signal.reason;
   if (cause !== undefined) (error as Error & { cause?: unknown }).cause = cause;

@@ -22,7 +22,6 @@ export const test_ttscgraph_duplicate_native_shard_manifest_restarts_session =
   async () => {
     const { root, session } = createNativeSessionFixture({
       mode: "duplicate-shard-manifest-once",
-      requestTimeoutMs: 5_000,
     });
     try {
       assert.deepEqual((await session.graph()).nodes, []);

@@ -15,7 +15,6 @@ import { assert } from "../internal/ttsgraph";
 export const test_ttscgraph_native_manifest_uses_go_utf8_order = async () => {
   const { session } = createNativeSessionFixture({
     mode: "unicode-shard-manifest",
-    requestTimeoutMs: 5_000,
   });
   try {
     const graph = await session.graph();

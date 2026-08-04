@@ -13,7 +13,6 @@ export interface NativeSessionFixture {
 
 export function createNativeSessionFixture(options: {
   mode: string;
-  requestTimeoutMs: number;
   stderr?: string;
   delayMs?: number;
   schemaVersion?: number;
@@ -35,7 +34,6 @@ export function createNativeSessionFixture(options: {
       cwd: root,
       tsconfig: "tsconfig.json",
       binary: resolveNativeSessionFake(),
-      requestTimeoutMs: options.requestTimeoutMs,
     }),
   };
 }

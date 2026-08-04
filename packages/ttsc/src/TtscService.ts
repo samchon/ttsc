@@ -4,12 +4,6 @@ import type { ResidentTransformProcess } from "./compiler/internal/residentTrans
 import { startResidentTransform } from "./compiler/internal/startResidentTransform";
 import type { ITtscCompilerContext } from "./structures/ITtscCompilerContext";
 
-/** Construction controls for the resident transform request lifecycle. */
-export interface TtscServiceOptions {
-  /** Maximum time one transform or update request may await the host's reply. */
-  requestTimeoutMs?: number;
-}
-
 /** Per-call controls for a resident transform or update request. */
 export interface TtscServiceRequestOptions {
   /** Abort this call before it receives a reply. */
@@ -49,20 +43,14 @@ export class TtscService {
    * host. The context is the same shape {@link TtscCompiler} accepts; it is not
    * replaceable per call.
    */
-  public constructor(
-    context: ITtscCompilerContext = {},
-    options: TtscServiceOptions = {},
-  ) {
-    const started = startResidentTransform(
-      {
-        ...context,
-        env: context.env ? { ...context.env } : undefined,
-        plugins: Array.isArray(context.plugins)
-          ? [...context.plugins]
-          : context.plugins,
-      },
-      options,
-    );
+  public constructor(context: ITtscCompilerContext = {}) {
+    const started = startResidentTransform({
+      ...context,
+      env: context.env ? { ...context.env } : undefined,
+      plugins: Array.isArray(context.plugins)
+        ? [...context.plugins]
+        : context.plugins,
+    });
     this.resident = started.process;
     this.projectRoot = started.projectRoot;
   }

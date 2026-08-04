@@ -17,7 +17,6 @@ export const test_ttscgraph_semantically_malformed_native_frame_restarts_session
   async () => {
     const { root, session } = createNativeSessionFixture({
       mode: "bad-envelope-once",
-      requestTimeoutMs: 5_000,
     });
     try {
       await assert.rejects(

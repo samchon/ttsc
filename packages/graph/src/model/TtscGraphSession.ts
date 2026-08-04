@@ -19,15 +19,12 @@ import { DUMP_SCHEMA_VERSION } from "./loadGraph";
  */
 const PROTOCOL_VERSION = 1;
 const GRAPH_SNAPSHOT_PROTOCOL_VERSION = 1;
-const DEFAULT_REQUEST_TIMEOUT_MS = 300_000;
-const MAX_TIMER_MS = 2_147_483_647;
 const TERMINATION_GRACE_MS = 1_000;
 
 interface Pending {
   child: NativeChild;
   resolve: (response: ITtscGraphSnapshot) => void;
   reject: (error: Error) => void;
-  timer: NodeJS.Timeout;
   signal?: AbortSignal;
   abort?: () => void;
 }
@@ -50,7 +47,6 @@ export interface TtscGraphSessionOptions {
    * Maximum time for one native snapshot response. Defaults to five minutes,
    * which is more than ten times the published 28.7-second VS Code cold index.
    */
-  requestTimeoutMs?: number;
 }
 
 /** Per-call controls for a native graph refresh. */
@@ -71,7 +67,6 @@ export class TtscGraphSession {
   private readonly cwd: string;
   private readonly tsconfig: string;
   private readonly binary: string;
-  private readonly requestTimeoutMs: number;
   private child: NativeChild | undefined;
   private nextId = 0;
   private readonly pending = new Map<number, Pending>();
@@ -81,17 +76,6 @@ export class TtscGraphSession {
   private closed = false;
 
   public constructor(options: TtscGraphSessionOptions) {
-    const requestTimeoutMs =
-      options.requestTimeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS;
-    if (
-      !Number.isSafeInteger(requestTimeoutMs) ||
-      requestTimeoutMs <= 0 ||
-      requestTimeoutMs > MAX_TIMER_MS
-    ) {
-      throw new TypeError(
-        `@ttsc/graph: requestTimeoutMs must be an integer between 1 and ${String(MAX_TIMER_MS)}`,
-      );
-    }
     // Resolve the platform binary from the project this session serves, so the
     // MCP server started from an unrelated directory still finds the target's
     // installed `ttsc`.
@@ -108,7 +92,6 @@ export class TtscGraphSession {
     this.cwd = options.cwd;
     this.tsconfig = options.tsconfig;
     this.binary = binary;
-    this.requestTimeoutMs = requestTimeoutMs;
   }
 
   /** Return a graph for the current disk snapshot, serialized per tool call. */
@@ -236,17 +219,8 @@ export class TtscGraphSession {
         child,
         resolve,
         reject,
-        timer: setTimeout(() => {
-          this.failChild(
-            child,
-            new Error(
-              `@ttsc/graph: native snapshot request timed out after ${String(this.requestTimeoutMs)} ms${stderrSuffix(child)}`,
-            ),
-          );
-        }, this.requestTimeoutMs),
         signal,
       };
-      pending.timer.unref();
       if (signal !== undefined) {
         pending.abort = () =>
           this.failChild(child, cancelledError(signal, child));
@@ -439,7 +413,6 @@ export class TtscGraphSession {
   ): void {
     if (this.pending.get(id) !== pending) return;
     this.pending.delete(id);
-    clearTimeout(pending.timer);
     if (pending.signal !== undefined && pending.abort !== undefined) {
       pending.signal.removeEventListener("abort", pending.abort);
     }

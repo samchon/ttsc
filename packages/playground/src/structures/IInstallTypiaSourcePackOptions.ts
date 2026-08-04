@@ -12,8 +12,6 @@ export interface IInstallTypiaSourcePackOptions {
   mountRoot?: string;
   /** Cancel the shared in-flight load. */
   signal?: AbortSignal;
-  /** Maximum fetch and JSON-read time. Defaults to 30 seconds. */
-  timeoutMs?: number;
   /**
    * Optional fetcher. Defaults to `globalThis.fetch`. Override for tests or for
    * sites that want their own caching strategy.

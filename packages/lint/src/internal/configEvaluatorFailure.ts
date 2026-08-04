@@ -64,7 +64,8 @@ export function configEvaluatorProcessFailure(
 
 /**
  * Pass the output bound and private status pipe through the `ttsx` wrapper to
- * the runtime child that actually executes the config.
+ * the runtime child that actually executes the config. No deadline travels with
+ * them; there is none.
  */
 export function configEvaluatorBoundaryEnvironment(): NodeJS.ProcessEnv {
   return {

@@ -7,12 +7,6 @@ const STDERR_TAIL_LIMIT = 64 * 1024;
 /** Cap on how much of an offending line an error message echoes back. */
 const REPLY_ECHO_LIMIT = 200;
 
-/** Default deadline for one request to the resident transform host. */
-const DEFAULT_REQUEST_TIMEOUT_MS = 300_000;
-
-/** Node clamps timers beyond this signed 32-bit millisecond duration. */
-const MAX_TIMER_MS = 2_147_483_647;
-
 /** Allow a cooperative host a short shutdown window before forcing it down. */
 const TERMINATION_GRACE_MS = 1_000;
 
@@ -32,8 +26,6 @@ export interface ResidentTransformProcessOptions {
   binary: string;
   cwd?: string;
   env?: NodeJS.ProcessEnv;
-  /** Maximum time one request may wait for the resident host's reply. */
-  requestTimeoutMs?: number;
 }
 
 /** Per-request lifecycle controls for a resident transform host. */
@@ -49,7 +41,6 @@ interface PendingRequest {
   resolve: (reply: Record<string, unknown>) => void;
   settled: boolean;
   signal?: AbortSignal;
-  timer: NodeJS.Timeout;
 }
 
 /**
@@ -70,12 +61,10 @@ export class ResidentTransformProcess {
   private readonly child: ChildProcess;
   private readonly reader: Interface;
   private readonly pending: PendingRequest[] = [];
-  private readonly requestTimeoutMs: number;
   private stderr = "";
   private failure: Error | undefined;
 
   public constructor(options: ResidentTransformProcessOptions) {
-    this.requestTimeoutMs = normalizeRequestTimeoutMs(options.requestTimeoutMs);
     // Default stdio is "pipe" for stdin/stdout/stderr, which is exactly what the
     // line protocol needs; spelling it out as a string[] would not narrow to
     // StdioOptions, so it is left implicit.
@@ -153,9 +142,7 @@ export class ResidentTransformProcess {
         resolve,
         settled: false,
         signal: options.signal,
-        timer: setTimeout(() => this.timeout(pending), this.requestTimeoutMs),
       };
-      pending.timer.unref();
       if (options.signal !== undefined) {
         pending.abort = () => this.cancel(pending, options.signal!);
         options.signal.addEventListener("abort", pending.abort, { once: true });
@@ -285,29 +272,11 @@ export class ResidentTransformProcess {
     pending.settled = true;
     const index = this.pending.indexOf(pending);
     if (index !== -1) this.pending.splice(index, 1);
-    clearTimeout(pending.timer);
     if (pending.signal !== undefined && pending.abort !== undefined) {
       pending.signal.removeEventListener("abort", pending.abort);
     }
     if (result instanceof Error) pending.reject(result);
     else pending.resolve(result);
-  }
-
-  private timeout(pending: PendingRequest): void {
-    if (pending.settled) return;
-    const timeout = new Error(
-      `ttsc: resident transform request timed out after ${String(
-        this.requestTimeoutMs,
-      )} ms${stderrSuffix(this.stderr)}`,
-    );
-    this.settlePending(pending, timeout);
-    this.fail(
-      new Error(
-        `ttsc: resident transform host retired after another request timed out${stderrSuffix(
-          this.stderr,
-        )}`,
-      ),
-    );
   }
 
   private cancel(pending: PendingRequest, signal: AbortSignal): void {
@@ -360,17 +329,6 @@ export class ResidentTransformProcess {
       `ttsc: resident transform host exited (code ${code ?? "null"}${signal})`,
     );
   }
-}
-
-/** Validate and normalize the caller-visible resident request deadline. */
-export function normalizeRequestTimeoutMs(requestTimeoutMs?: number): number {
-  const value = requestTimeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS;
-  if (!Number.isSafeInteger(value) || value <= 0 || value > MAX_TIMER_MS) {
-    throw new TypeError(
-      `ttsc: requestTimeoutMs must be an integer between 1 and ${String(MAX_TIMER_MS)}`,
-    );
-  }
-  return value;
 }
 
 function cancelledError(signal: AbortSignal): Error {

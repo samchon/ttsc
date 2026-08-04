@@ -9,14 +9,7 @@ import (
   "os/exec"
   "strings"
   "sync"
-  "time"
 )
-
-// residentRequestTimeout bounds one resident verb round trip, mirroring the
-// spawn-per-verb path's nativePluginCommandTimeout. A rule that hangs must not
-// wedge the daemon's request mutex forever; on timeout the sidecar is killed and
-// the caller falls back to a fresh spawn.
-const residentRequestTimeout = nativePluginCommandTimeout
 
 // The serve verbs below are routed to the resident daemon because they load a
 // Program.
@@ -162,11 +155,11 @@ func (sc *residentSidecar) call(s *NativePluginSource, plugin NativeLSPPluginEnt
     raw, err := sc.stdout.ReadBytes('\n')
     done <- readResult{line: raw, err: err}
   }()
-  select {
-  case <-time.After(residentRequestTimeout):
-    sc.kill()
-    return nil, 0, fmt.Errorf("ttscserver: %s %s (resident) timed out", pluginLabel(plugin), req.Verb)
-  case res := <-done:
+  // No deadline: a rule that takes a long time is the user's own code running,
+  // and the read still ends the moment the sidecar dies, because closing its
+  // stdout surfaces here as a read error.
+  {
+    res := <-done
     if res.err != nil {
       sc.kill()
       return nil, 0, res.err
