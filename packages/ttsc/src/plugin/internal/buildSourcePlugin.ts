@@ -1,6 +1,7 @@
 import {
   type SpawnSyncOptionsWithStringEncoding,
   type SpawnSyncReturns,
+  type StdioOptions,
   spawnSync,
 } from "node:child_process";
 import crypto from "node:crypto";
@@ -10,6 +11,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { captureProcessOutput } from "../../compiler/internal/captureProcessOutput";
 import { findNearestGoMod } from "../../compiler/internal/paths";
 
 const GO_MOD_SEARCH_MAX_DEPTH = 3;
@@ -1646,7 +1648,6 @@ function readGoModInfo(
     cwd: dir,
     encoding: "utf8",
     env: goBuildEnv(goBinary, undefined, env),
-    maxBuffer: 1024 * 1024 * 16,
     windowsHide: true,
   });
   if (result.error) {
@@ -1737,7 +1738,6 @@ function runGoBuild(
     cwd,
     encoding: "utf8",
     env: goBuildEnv(goBinary, goBuildCacheRoot, env),
-    maxBuffer: 1024 * 1024 * 64,
     windowsHide: true,
   });
   if (result.error) {
@@ -1764,6 +1764,40 @@ function goToolchainNotFoundMessage(pluginName: string): string {
 }
 
 export function spawnGoTool(
+  goBinary: string,
+  args: readonly string[],
+  options: SpawnSyncOptionsWithStringEncoding,
+): SpawnSyncReturns<string> {
+  // The child's streams go to files rather than pipes, so no output ceiling
+  // applies: `spawnSync` only bounds what it must hold in this process's
+  // memory, and a `go build` that says a great deal is not a failure to invent
+  // a limit for. See `captureProcessOutput`.
+  const capture = captureProcessOutput();
+  const spawnOptions = {
+    ...options,
+    stdio: ["ignore", capture.stdoutFd, capture.stderrFd] as StdioOptions,
+  };
+  try {
+    const result = spawnGoToolProcess(goBinary, args, spawnOptions);
+    const stdout = capture.read("stdout", "utf8") as string;
+    const stderr = capture.read("stderr", "utf8") as string;
+    return {
+      ...result,
+      output: [null, stdout, stderr],
+      stderr,
+      stdout,
+    };
+  } finally {
+    capture.dispose();
+  }
+}
+
+/**
+ * Launch the Go tool, routing through cmd.exe only where Windows needs a
+ * wrapper. Output routing is the caller's concern; this owns process
+ * selection.
+ */
+function spawnGoToolProcess(
   goBinary: string,
   args: readonly string[],
   options: SpawnSyncOptionsWithStringEncoding,
@@ -2734,7 +2768,6 @@ function resolveGoBuildEnvironment(
         cwd,
         encoding: "utf8",
         env: goBuildEnv(goBinary, undefined, env),
-        maxBuffer: 1024 * 1024,
         windowsHide: true,
       },
     );

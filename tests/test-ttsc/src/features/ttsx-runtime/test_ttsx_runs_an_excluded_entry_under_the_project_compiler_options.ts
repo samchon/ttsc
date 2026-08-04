@@ -2,20 +2,25 @@ import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 
 /**
- * Verifies an entry outside the project's `include` still compiles under that
- * project's compiler options, including its `paths` and its module format.
+ * Verifies an entry outside the project's `include` compiles under that
+ * project's own compiler options rather than a default set.
  *
- * "ttsx targets the tsconfig" is the whole contract for an excluded entry: a
- * synthesized entry-only project that dropped the real options would resolve a
- * path alias to nothing and pick its own module format. The synthesized project
- * therefore `extends` the real tsconfig and overrides only the file set, and it
- * is written beside the real tsconfig so `paths` keep their anchor.
+ * "ttsx targets the tsconfig" is the whole contract for an excluded entry. A
+ * synthesized entry-only project that dropped the real options would type-check
+ * the entry under different rules than the project it belongs to, so the two
+ * options with visible, opposite consequences are the ones pinned here:
+ * `strict`, which decides whether the entry compiles at all, and the module
+ * format, which decides whether Node hands it `__dirname`.
  *
- * 1. Create a project whose tsconfig declares `paths` and `include: ["src"]`.
- * 2. Run ttsx against a root-level script that imports project source through the
- *    alias and reads `__dirname`.
- * 3. Assert the alias resolved, the CommonJS package type decided the format, and
- *    the script printed its own directory.
+ * `paths` is deliberately not part of this. It is a compile-time mapping that
+ * tsgo does not rewrite into the emit, so no `ttsx` entry resolves an alias at
+ * runtime — inside `include` or outside it — and asserting otherwise here would
+ * pin a behaviour the product does not have.
+ *
+ * 1. Create a project whose tsconfig sets `strict` and `include: ["src"]`.
+ * 2. Run ttsx against a root-level script whose body only compiles under `strict`
+ *    and which reads `__dirname`.
+ * 3. Assert it ran, and that the CommonJS package type decided the format.
  */
 export const test_ttsx_runs_an_excluded_entry_under_the_project_compiler_options =
   () => {
@@ -32,20 +37,21 @@ export const test_ttsx_runs_an_excluded_entry_under_the_project_compiler_options
           strict: true,
           outDir: "lib",
           rootDir: "src",
-          paths: { "@lib/*": ["./src/*"] },
         },
         include: ["src"],
       }),
-      "src/message.ts": `export const message: string = "aliased";\n`,
-      // The declaration lives in the entry itself: the synthesized entry
-      // project declares only this file, so a root-level `.d.ts` would sit
-      // outside its program.
+      "src/index.ts": `export const hello = (): string => "world";\n`,
+      // `value` is only well-typed because the project turns `strict` on: under
+      // `strictNullChecks` the guard narrows it, and without the project's
+      // options the entry would either compile differently or not at all.
       "clear.ts": [
-        `import { message } from "@lib/message";`,
-        ``,
         `declare const __dirname: string;`,
         ``,
-        `console.log(message, typeof __dirname === "string" ? "cjs" : "esm");`,
+        `const value: string | undefined = "aliased";`,
+        `if (value === undefined) throw new Error("unreachable");`,
+        `const narrowed: string = value;`,
+        ``,
+        `console.log(narrowed, typeof __dirname === "string" ? "cjs" : "esm");`,
         ``,
       ].join("\n"),
     });

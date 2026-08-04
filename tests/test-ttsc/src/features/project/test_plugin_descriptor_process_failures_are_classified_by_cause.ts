@@ -1,157 +1,62 @@
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
 
-import {
-  PLUGIN_DESCRIPTOR_MAX_BUFFER_BYTES,
-  PLUGIN_DESCRIPTOR_PROCESS_OPTIONS,
-  PLUGIN_DESCRIPTOR_STATUS_FD,
-  pluginDescriptorBoundaryEnvironment,
-  pluginDescriptorProcessFailure,
-} from "../../../../../packages/ttsc/lib/plugin/internal/descriptorProcessFailure.js";
+import { pluginDescriptorProcessFailure } from "../../../../../packages/ttsc/lib/plugin/internal/descriptorProcessFailure.js";
 
 /**
  * Verifies executable plugin-descriptor failures preserve their real cause.
  *
- * Node attaches the configured termination signal to a max-buffer error, so
- * checking the signal first would hide an output overflow behind an apparent
- * external kill. The loader imposes no deadline at all, so `spawnSync` has no
- * mechanism left to report one and the classifier carries no timeout arm.
+ * The loader writes the child's own output straight to this process's stderr,
+ * so by the time a failure is classified the user has already seen whatever the
+ * descriptor said. What is left to report is how the process ended, and the
+ * three endings are genuinely different: it never launched, something outside
+ * killed it, or it ran and chose a non-zero status.
  *
- * 1. Classify output overflow, spawn, signal, and exit failures.
- * 2. Assert the process error code takes precedence over its shared signal.
- * 3. Recognize the runtime child's private overflow status and boundary env.
- * 4. Bound the non-zero stderr suffix and accept a successful result.
+ * Nothing here is bounded. A deadline and an output ceiling both used to live
+ * on this path, and both were the compiler deciding — on numbers nobody chose
+ * for the machine running the build — that a user's own descriptor had taken
+ * too long or said too much. The absence of those branches is part of the
+ * contract this pins: a killed evaluation must read as the external kill it is,
+ * never as a limit this toolchain imposed.
+ *
+ * 1. Classify a launch failure, an external signal, and a non-zero exit.
+ * 2. Assert none of them is described as a timeout or an output limit.
+ * 3. Assert a clean exit produces no error at all.
  */
 export const test_plugin_descriptor_process_failures_are_classified_by_cause =
   (): void => {
     const request = "/project/plugin.ts";
-    const overflow = pluginDescriptorProcessFailure(
-      processResult({
-        error: processError("ENOBUFS"),
-        signal: PLUGIN_DESCRIPTOR_PROCESS_OPTIONS.killSignal,
-      }),
-      request,
-    );
-    assert.match(
-      overflow?.message ?? "",
-      /exceeded the 16 MiB process output limit/,
-    );
-    assert.doesNotMatch(overflow?.message ?? "", /killed by signal/);
 
-    const spawn = pluginDescriptorProcessFailure(
+    const launch = pluginDescriptorProcessFailure(
       processResult({ error: processError("ENOENT") }),
       request,
     );
-    assert.match(spawn?.message ?? "", /failed to launch ttsx/);
-    assert.match(spawn?.message ?? "", /ENOENT/);
+    assert.match(launch?.message ?? "", /failed to launch ttsx/);
+    assert.match(launch?.message ?? "", /ENOENT/);
 
     const signal = pluginDescriptorProcessFailure(
       processResult({ signal: "SIGKILL" }),
       request,
     );
     assert.match(signal?.message ?? "", /killed by signal SIGKILL/);
-    assert.doesNotMatch(signal?.message ?? "", /timeout/i);
 
     const exit = pluginDescriptorProcessFailure(
-      processResult({
-        status: 2,
-        stderr: [
-          "discarded one",
-          "discarded two",
-          "kept three",
-          "kept four",
-          "kept five",
-          "kept six",
-          "kept seven",
-        ].join("\n"),
-      }),
+      processResult({ status: 5 }),
       request,
     );
-    assert.match(exit?.message ?? "", /failed with exit code 2/);
-    assert.doesNotMatch(exit?.message ?? "", /discarded one|discarded two/);
-    assert.match(
-      exit?.message ?? "",
-      /kept three\nkept four\nkept five\nkept six\nkept seven$/,
-    );
+    assert.match(exit?.message ?? "", /failed with exit code 5/);
 
-    const bounded = pluginDescriptorProcessFailure(
-      processResult({ status: 3, stderr: "x".repeat(100_000) }),
-      request,
-    );
-    assert.ok((bounded?.message.length ?? Number.POSITIVE_INFINITY) < 8_500);
-
-    const stdout = pluginDescriptorProcessFailure(
-      processResult({
-        status: 4,
-        stderr: "   ",
-        stdout: "stdout-only descriptor cause",
-      }),
-      request,
-    );
-    assert.match(stdout?.message ?? "", /stdout-only descriptor cause$/);
-
-    const nestedOverflow = pluginDescriptorProcessFailure(
-      processResult({
-        output: [null, "", "", "ENOBUFS"],
-        status: 1,
-      }),
-      request,
-    );
-    assert.match(
-      nestedOverflow?.message ?? "",
-      /exceeded the 16 MiB process output limit/,
-    );
-    assert.doesNotMatch(nestedOverflow?.message ?? "", /exit code 1/);
-
-    // No deadline is published: the loader runs the user's own descriptor and
-    // does not decide how long that is allowed to take.
-    assert.deepEqual(pluginDescriptorBoundaryEnvironment(), {
-      TTSC_TTSX_EVALUATOR_MAX_BUFFER_BYTES: String(
-        PLUGIN_DESCRIPTOR_MAX_BUFFER_BYTES,
-      ),
-      TTSC_TTSX_EVALUATOR_STATUS_FD: String(PLUGIN_DESCRIPTOR_STATUS_FD),
-    });
-
-    assertOverflowCannotBeDefeatedBySigtermHandler();
+    // A kill this process did not order is reported as what it is. Neither a
+    // deadline nor an output ceiling exists to be blamed for it.
+    for (const failure of [launch, signal, exit]) {
+      assert.doesNotMatch(failure?.message ?? "", /timed out|timeout/i);
+      assert.doesNotMatch(failure?.message ?? "", /output limit|MiB/i);
+    }
 
     assert.equal(
       pluginDescriptorProcessFailure(processResult({ status: 0 }), request),
       undefined,
     );
   };
-
-/**
- * The loader's `SIGKILL` still has to be unignorable, because the output cap is
- * enforced by killing the child and a descriptor that installs a `SIGTERM`
- * handler would otherwise survive its own overflow.
- */
-function assertOverflowCannotBeDefeatedBySigtermHandler(): void {
-  const result = spawnSync(
-    process.execPath,
-    [
-      "-e",
-      [
-        'process.on("SIGTERM", () => {});',
-        'setInterval(() => process.stdout.write("x".repeat(4096)), 0);',
-        // A self-exit, so a broken kill fails this assertion in seconds
-        // instead of blocking the event loop forever: `spawnSync` is
-        // synchronous, so no test-harness timer could rescue the lane.
-        "setTimeout(() => process.exit(0), 30_000);",
-      ].join(""),
-    ],
-    {
-      ...PLUGIN_DESCRIPTOR_PROCESS_OPTIONS,
-      encoding: "utf8",
-      maxBuffer: 1_024,
-      windowsHide: true,
-    },
-  );
-  assert.equal(
-    (result.error as NodeJS.ErrnoException | undefined)?.code,
-    "ENOBUFS",
-  );
-  assert.equal(result.signal, "SIGKILL");
-}
 
 function processError(code: string): Error {
   return Object.assign(new Error(`spawnSync node ${code}`), { code });
@@ -162,23 +67,15 @@ function processResult(
     error: Error;
     signal: NodeJS.Signals;
     status: number;
-    stderr: string;
-    stdout: string;
-    output: readonly (string | null)[];
   }>,
 ): {
   error?: Error;
-  output?: readonly (string | null)[];
   signal: NodeJS.Signals | null;
   status: number | null;
-  stderr: string | null;
-  stdout: string | null;
 } {
   return {
     signal: null,
     status: null,
-    stderr: null,
-    stdout: null,
     ...input,
   };
 }

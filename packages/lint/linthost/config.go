@@ -16,7 +16,6 @@ import (
   "sort"
   "strings"
   "sync"
-  "time"
 
   "github.com/samchon/ttsc/packages/ttsc/driver/windowsjunction"
 )
@@ -1784,25 +1783,19 @@ func runConfigLoaderCommand(
   label string,
   outputPath string,
 ) (evaluatedConfigFile, error) {
-  var stderr bytes.Buffer
+  // The child's stderr is human output and goes straight to this process's
+  // stderr as it is written. Collecting it only to replay it afterwards is what
+  // made a long evaluation print nothing at all, and what would make a loud one
+  // grow this process's memory without bound.
   cmd.Stdout = io.Discard
-  cmd.Stderr = &stderr
-  stopHeartbeat := configEvaluationHeartbeat(label, location)
+  cmd.Stderr = os.Stderr
   err := cmd.Run()
-  stopHeartbeat()
   // A loader diagnostic is only useful when the load succeeds, because a
   // failure already carries the same text in its message. Forward it so an
   // assertion about what the loader recorded can name what it resolved.
-  if err == nil && os.Getenv("TTSC_LINT_DEBUG_CONFIG_GRAPH") != "" {
-    if text := strings.TrimSpace(stderr.String()); text != "" {
-      fmt.Fprintln(os.Stderr, text)
-    }
-  }
   if err != nil {
-    stderrText := strings.TrimSpace(stderr.String())
-    if stderrText != "" {
-      return evaluatedConfigFile{}, fmt.Errorf("@ttsc/lint: load %s %s: %s", label, location, stderrText)
-    }
+    // The loader's own diagnostic already reached the user's stderr as it was
+    // written, so this names what failed rather than repeating the text.
     return evaluatedConfigFile{}, fmt.Errorf("@ttsc/lint: load %s %s: %w", label, location, err)
   }
   output, err := os.ReadFile(outputPath)
@@ -4781,49 +4774,3 @@ func (c RuleConfig) Severity(name string) Severity {
   }
   return SeverityOff
 }
-
-// configEvaluationHeartbeat reports, on stderr, that a config evaluation is
-// still running, once every heartbeatInterval until the returned stop func is
-// called.
-//
-// Nothing bounds how long a user's config may take: it is their code, and this
-// compiler does not get to decide when it has run too long. But the loader
-// captures the child's streams and flushes them only after it exits, so without
-// this a config that never finishes produces a process that prints nothing at
-// all — indistinguishable from a hang, and impossible to attribute. The
-// heartbeat costs nothing on an ordinary build (it fires only after the first
-// interval) and turns an unbounded evaluation into one the user can see and
-// interrupt, which is the whole premise of not killing it.
-func configEvaluationHeartbeat(label, location string) func() {
-  done := make(chan struct{})
-  finished := make(chan struct{})
-  go func() {
-    defer close(finished)
-    started := time.Now()
-    ticker := time.NewTicker(heartbeatInterval)
-    defer ticker.Stop()
-    for {
-      select {
-      case <-done:
-        return
-      case <-ticker.C:
-        fmt.Fprintf(
-          os.Stderr,
-          "%s: still evaluating %s (%s)\n",
-          label,
-          location,
-          time.Since(started).Round(time.Second),
-        )
-      }
-    }
-  }()
-  return func() {
-    close(done)
-    <-finished
-  }
-}
-
-// heartbeatInterval is how long an evaluation runs before it starts announcing
-// itself, and how often it repeats. Long enough that an ordinary config never
-// prints, short enough that a stuck one is visible well inside a coffee break.
-const heartbeatInterval = 15 * time.Second

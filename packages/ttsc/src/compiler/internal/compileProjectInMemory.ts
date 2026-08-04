@@ -1,4 +1,3 @@
-import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -12,6 +11,7 @@ import { buildNativeCompiler } from "./buildNativeCompiler";
 import { isOutsideRelativePath, packageRootDir } from "./paths";
 import { readProjectConfig } from "./project/readProjectConfig";
 import { runBuild } from "./runBuild";
+import { outputText, spawnNative } from "./spawnNative";
 
 /**
  * Compile a project and capture emitted files without writing to the project
@@ -45,15 +45,12 @@ export function compileProjectInMemory(options: ITtscCompilerContext): {
     cacheDir: options.cacheDir ?? options.env?.TTSC_CACHE_DIR,
     packageRoot: packageRootDir(),
   });
-  const res = spawnSync(
+  const res = spawnNative(
     binary,
     ["api-compile", "--cwd", project.root, "--tsconfig", tsconfig],
     {
       cwd: project.root,
-      encoding: "utf8",
       env: { ...process.env, ...options.env },
-      maxBuffer: 1024 * 1024 * 256,
-      windowsHide: true,
     },
   );
   if (res.error) {
@@ -62,14 +59,17 @@ export function compileProjectInMemory(options: ITtscCompilerContext): {
     );
   }
 
-  const output = parseNativeCompileOutput(res.stdout, res.stderr);
+  const output = parseNativeCompileOutput(
+    outputText(res.stdout),
+    outputText(res.stderr),
+  );
   return {
     output: output.output,
     result: {
       diagnostics: output.diagnostics,
       status: res.status ?? 1,
       stdout: "",
-      stderr: res.stderr,
+      stderr: outputText(res.stderr),
     },
   };
 }

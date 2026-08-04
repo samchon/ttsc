@@ -1,7 +1,7 @@
 import { spawnSync } from "node:child_process";
 import typia from "typia";
 
-import { ensureExecutable } from "../nativeExecutable";
+import { captureProcessOutput, ensureExecutable } from "../nativeExecutable";
 import { resolveGraphBinary } from "../resolveGraphBinary";
 import { ITtscGraphDump } from "../structures/ITtscGraphDump";
 import { TtscGraphMemory } from "./TtscGraphMemory";
@@ -9,7 +9,6 @@ import { TtscGraphMemory } from "./TtscGraphMemory";
 // A full-project dump is the whole fact graph as one JSON document; a large
 // monorepo runs to many megabytes, well past spawnSync's 1 MiB default, so the
 // buffer is raised to a ceiling no real graph reaches.
-const MAX_DUMP_BYTES = 1024 * 1024 * 1024;
 
 /**
  * The dump schema version this client reads.
@@ -64,11 +63,23 @@ export function loadGraph(
   }
   ensureExecutable(binary);
 
-  const result = spawnSync(
-    binary,
-    ["dump", "--cwd", cwd, "--tsconfig", tsconfig],
-    { encoding: "utf8", maxBuffer: MAX_DUMP_BYTES, windowsHide: true },
-  );
+  // The dump goes to a file rather than a pipe, so no output ceiling applies:
+  // a graph is as large as the repository is, and any limit named here would be
+  // a guess about someone else's monorepo. See `captureProcessOutput`.
+  const capture = captureProcessOutput();
+  let result;
+  let stdout: string;
+  let stderr: string;
+  try {
+    result = spawnSync(binary, ["dump", "--cwd", cwd, "--tsconfig", tsconfig], {
+      stdio: ["ignore", capture.stdoutFd, capture.stderrFd],
+      windowsHide: true,
+    });
+    stdout = capture.read("stdout");
+    stderr = capture.read("stderr");
+  } finally {
+    capture.dispose();
+  }
   if (result.error) {
     throw new Error(
       `@ttsc/graph: ttscgraph dump failed: ${result.error.message}`,
@@ -76,11 +87,11 @@ export function loadGraph(
   }
   if (result.status !== 0) {
     throw new Error(
-      `@ttsc/graph: ttscgraph dump exited with ${result.status}: ${(result.stderr ?? "").trim()}`,
+      `@ttsc/graph: ttscgraph dump exited with ${result.status}: ${stderr.trim()}`,
     );
   }
 
-  return TtscGraphMemory.from(parseDump(result.stdout));
+  return TtscGraphMemory.from(parseDump(stdout));
 }
 
 /**

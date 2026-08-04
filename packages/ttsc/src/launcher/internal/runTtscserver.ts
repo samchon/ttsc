@@ -8,6 +8,7 @@ import { createNativeProjectContextArgs } from "../../compiler/internal/project/
 import { readProjectConfig } from "../../compiler/internal/project/readProjectConfig";
 import { resolveBinary } from "../../compiler/internal/resolveBinary";
 import { resolveTsgo } from "../../compiler/internal/resolveTsgo";
+import { outputText, spawnNative } from "../../compiler/internal/spawnNative";
 import {
   type ProjectInputPathIdentityContext,
   createProjectInputPathIdentityContext,
@@ -43,7 +44,6 @@ type TtscserverEnvironment = {
 };
 
 const LSP_SELECTION_STABILITY_ATTEMPTS = 3;
-const LSP_PROJECT_INPUT_MAX_BUFFER = 4 * 1024 * 1024;
 
 /**
  * Drive the ttscserver native binary from a node launcher. The launcher is
@@ -358,21 +358,18 @@ function captureInitialLSPProjectInputs(options: {
       pluginConfigOrigin: options.pluginConfigOrigin,
       tsgoBinary: options.tsgoBinary,
     });
-    const result = spawnSync(plugin.binary, args, {
+    const result = spawnNative(plugin.binary, args, {
       cwd: options.project.root,
-      encoding: "utf8",
       env,
-      maxBuffer: LSP_PROJECT_INPUT_MAX_BUFFER,
-      windowsHide: true,
     });
     if (result.error) {
       throw new Error(
         `ttscserver: ${plugin.name ?? plugin.binary} project-inputs failed: ${result.error.message}`,
       );
     }
-    const stdout = result.stdout.trim();
+    const stdout = outputText(result.stdout).trim();
     if (result.status !== 0) {
-      const detail = result.stderr.trim() || stdout;
+      const detail = outputText(result.stderr).trim() || stdout;
       throw new Error(
         `ttscserver: ${plugin.name ?? plugin.binary} project-inputs failed${detail ? `: ${detail}` : ""}`,
       );

@@ -11,7 +11,7 @@ import path from "node:path";
  * must therefore preserve its cause without leaving loader artifacts; a
  * successful evaluator must clean up before later descriptor validation too.
  *
- * 1. Drive non-zero, missing, malformed, oversized, and successful results.
+ * 1. Drive non-zero, missing, malformed, and successful results.
  * 2. Assert each API result is distinct and its loader directory is removed.
  * 3. Assert the non-zero cause also reaches CLI and LSP startup unchanged.
  */
@@ -70,12 +70,6 @@ export const test_plugin_descriptor_failures_propagate_and_cleanup_ttsx_temp =
         '  case "malformed":',
         '    fs.writeFileSync(process.env.TTSC_PLUGIN_DESCRIPTOR_OUT, "{bad", "utf8");',
         "    process.exit(0);",
-        '  case "oversize":',
-        "    fs.writeFileSync(",
-        "      process.env.TTSC_PLUGIN_DESCRIPTOR_OUT,",
-        "      Buffer.alloc(16 * 1024 * 1024 + 1, 0x20),",
-        "    );",
-        "    process.exit(0);",
         '  case "success":',
         "    fs.writeFileSync(",
         "      process.env.TTSC_PLUGIN_DESCRIPTOR_OUT,",
@@ -116,12 +110,13 @@ export const test_plugin_descriptor_failures_propagate_and_cleanup_ttsx_temp =
     const apiCases = [
       {
         mode: "nonzero",
-        pattern:
-          /failed with exit code 2\ndescriptor failure 3\ndescriptor failure 4\ndescriptor failure 5\ndescriptor failure 6\ndescriptor failure 7/,
+        // The descriptor's own lines reach stderr as it writes them, so they
+        // are present in the output but not folded into the failure message.
+        pattern: /descriptor failure 7[\s\S]*failed with exit code 2/,
       },
       {
         mode: "stdout-nonzero",
-        pattern: /failed with exit code 5\nstdout-only descriptor failure/,
+        pattern: /stdout-only descriptor failure[\s\S]*failed with exit code 5/,
       },
       {
         mode: "missing",
@@ -130,10 +125,6 @@ export const test_plugin_descriptor_failures_propagate_and_cleanup_ttsx_temp =
       {
         mode: "malformed",
         pattern: /produced invalid JSON/,
-      },
-      {
-        mode: "oversize",
-        pattern: /exceeding the 16 MiB descriptor output limit/,
       },
       {
         mode: "success",

@@ -10,7 +10,7 @@ import {
   projectOptions,
 } from "./launcherArgs";
 import { parseDump } from "./model/loadGraph";
-import { ensureExecutable } from "./nativeExecutable";
+import { captureProcessOutput, ensureExecutable } from "./nativeExecutable";
 import { reduce } from "./reduce";
 import { resolveGraphBinary } from "./resolveGraphBinary";
 
@@ -70,11 +70,25 @@ export function runView(argv: readonly string[]): number | void {
   process.stderr.write(
     `@ttsc/graph: building the graph for ${opts.cwd} (${opts.tsconfig})...\n`,
   );
-  const dump = spawnSync(
-    binary,
-    ["dump", "--cwd", opts.cwd, "--tsconfig", opts.tsconfig],
-    { encoding: "utf8", maxBuffer: 1024 * 1024 * 1024 },
-  );
+  // The dump goes to a file rather than a pipe, so no output ceiling applies.
+  const capture = captureProcessOutput();
+  let dump;
+  let dumpStdout: string;
+  let dumpStderr: string;
+  try {
+    dump = spawnSync(
+      binary,
+      ["dump", "--cwd", opts.cwd, "--tsconfig", opts.tsconfig],
+      {
+        stdio: ["ignore", capture.stdoutFd, capture.stderrFd],
+        windowsHide: true,
+      },
+    );
+    dumpStdout = capture.read("stdout");
+    dumpStderr = capture.read("stderr");
+  } finally {
+    capture.dispose();
+  }
   if (dump.error) {
     process.stderr.write(`@ttsc/graph: ${dump.error.message}\n`);
     return 1;
@@ -86,7 +100,7 @@ export function runView(argv: readonly string[]): number | void {
 
   let raw: ReturnType<typeof parseDump>;
   try {
-    raw = parseDump(dump.stdout);
+    raw = parseDump(dumpStdout);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     process.stderr.write(

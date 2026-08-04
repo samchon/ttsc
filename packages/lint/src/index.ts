@@ -8,9 +8,6 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 
 import {
-  CONFIG_EVALUATOR_PROCESS_OPTIONS,
-  CONFIG_EVALUATOR_STATUS_FD,
-  configEvaluatorBoundaryEnvironment,
   configEvaluatorProcessFailure,
 } from "./internal/configEvaluatorFailure";
 import type { ITtscLintPlugin, ITtscLintPluginConfig } from "./structures";
@@ -1772,26 +1769,19 @@ function evaluateTtsxConfigPlugins(
     }
     const env = {
       ...nodeConfigLoaderEnv(configPath),
-      ...configEvaluatorBoundaryEnvironment(),
     };
     const command = ttsxThroughNodeIfNeeded(ttsxBinary);
     const result = spawnSync(command.binary, [...command.prefix, ...args], {
       cwd: tempDir,
       env,
-      encoding: "utf8",
-      ...CONFIG_EVALUATOR_PROCESS_OPTIONS,
-      stdio: [
-        "ignore",
-        "pipe",
-        "pipe",
-        ...Array.from(
-          { length: CONFIG_EVALUATOR_STATUS_FD - 2 },
-          () => "pipe" as const,
-        ),
-      ],
+      // Both child streams are human output, and they go straight to this
+      // process's stderr as they are written. Nothing is collected here: the
+      // parent's stdout is reserved for compiler JSON and LSP frames, and
+      // buffering the child only to replay it afterwards is what forced an
+      // invented output ceiling and made a long evaluation print nothing at all.
+      stdio: ["ignore", 2, 2],
       windowsHide: true,
     });
-    forwardConfigEvaluatorStreams(result.stdout, result.stderr);
     const processFailure = configEvaluatorProcessFailure(result, configPath);
     if (processFailure) throw processFailure;
     let payload: {
@@ -1866,16 +1856,6 @@ function evaluateTtsxConfigPlugins(
   } finally {
     fs.rmSync(tempDir, { recursive: true, force: true });
   }
-}
-
-function forwardConfigEvaluatorStreams(
-  stdout: string | null | undefined,
-  stderr: string | null | undefined,
-): void {
-  // Both child streams are human output. Parent stdout is reserved for compiler
-  // JSON or LSP frames, so even a user console.log is redirected.
-  if (stdout) process.stderr.write(stdout);
-  if (stderr) process.stderr.write(stderr);
 }
 
 // ────────────────────────────────────────────────────────────────────────────
