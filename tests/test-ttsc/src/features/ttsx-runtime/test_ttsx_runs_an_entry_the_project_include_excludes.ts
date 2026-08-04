@@ -46,7 +46,7 @@ export const test_ttsx_runs_an_entry_the_project_include_excludes = () => {
 
   const compiled = TestProject.spawn(
     TestProject.TTSC_BIN,
-    ["-p", "tsconfig.json"],
+    ["--cwd", root, "-p", "tsconfig.json"],
     { cwd: root },
   );
   assert.equal(compiled.status, 0, compiled.stderr);
