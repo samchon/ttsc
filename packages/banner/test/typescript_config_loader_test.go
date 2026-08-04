@@ -137,10 +137,21 @@ func TestTypeScriptConfigLoader(t *testing.T) {
   if _, err := bannerLoadBannerTypeScriptConfigFile(config); err == nil || !strings.Contains(err.Error(), "parse TypeScript config file") {
     t.Fatalf("expected invalid stdout error, got %v", err)
   }
+  // A loader that writes to stderr sends that text straight to this process's
+  // stderr as it runs, so it is never collected and cannot be repeated in the
+  // error. What the error owes the caller is which config failed and how the
+  // process ended.
   stderrLauncher := writeDirectLauncher(t, filepath.Join(root, "fake-ttsx-stderr"), "", "ts failed", 8)
   t.Setenv("TTSC_TTSX_BINARY", stderrLauncher)
-  if _, err := bannerLoadBannerTypeScriptConfigFile(config); err == nil || !strings.Contains(err.Error(), "ts failed") {
-    t.Fatalf("expected stderr error, got %v", err)
+  err = nil
+  if _, err = bannerLoadBannerTypeScriptConfigFile(config); err == nil ||
+    !strings.Contains(err.Error(), "load TypeScript config file") ||
+    !strings.Contains(err.Error(), config) ||
+    !strings.Contains(err.Error(), "exit status 8") {
+    t.Fatalf("expected a named non-zero exit, got %v", err)
+  }
+  if strings.Contains(err.Error(), "ts failed") {
+    t.Fatalf("loader stderr must reach the user directly, not the error: %v", err)
   }
   silentLauncher := writeDirectLauncher(t, filepath.Join(root, "fake-ttsx-silent"), "", "", 8)
   t.Setenv("TTSC_TTSX_BINARY", silentLauncher)

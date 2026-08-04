@@ -44,9 +44,6 @@ export const test_ttsx_runs_an_excluded_entry_under_the_project_compiler_options
         include: ["src"],
       }),
       "src/index.ts": `export const hello = (): string => "world";\n`,
-      // `value` is only well-typed because the project turns `strict` on: under
-      // `strictNullChecks` the guard narrows it, and without the project's
-      // options the entry would either compile differently or not at all.
       "clear.ts": [
         `declare const __dirname: string;`,
         ``,

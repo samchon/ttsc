@@ -41,9 +41,11 @@ export interface CapturedProcessOutput {
  * keep more than `maxBuffer` bytes, so any piped capture has to name a ceiling
  * — and a ceiling is a number nobody chose for this machine, deciding that a
  * large but legitimate graph said too much. Handing the child a file descriptor
- * instead means the bytes never pass through this heap, so there is nothing to
- * bound: how much a process may write is the filesystem's business, and it is
- * the same answer everywhere.
+ * instead means the bytes never pass through this heap on their way out of the
+ * child: how much a process may write is the filesystem's business, and that is
+ * the same answer everywhere. Reading the result back still materializes a
+ * string, so V8's own maximum string length remains the outer bound — a
+ * property of the runtime rather than a budget chosen here.
  */
 export function captureProcessOutput(): CapturedProcessOutput {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), "ttscgraph-spawn-"));

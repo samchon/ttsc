@@ -55,10 +55,20 @@ func TestScriptConfigLoader(t *testing.T) {
     t.Fatalf("expected invalid stdout error, got %v", err)
   }
 
+  // A loader that writes to stderr sends that text straight to this process's
+  // stderr as it runs, so it is never collected and cannot be repeated in the
+  // error. What the error owes the caller is which config failed and how the
+  // process ended.
   stderrNode := writeDirectLauncher(t, filepath.Join(root, "fake-node-stderr"), "", "loader failed", 7)
   t.Setenv("TTSC_NODE_BINARY", stderrNode)
-  if _, err := bannerLoadBannerScriptConfigFile(cjs); err == nil || !strings.Contains(err.Error(), "loader failed") {
-    t.Fatalf("expected stderr error, got %v", err)
+  stderrErr := error(nil)
+  if _, stderrErr = bannerLoadBannerScriptConfigFile(cjs); stderrErr == nil ||
+    !strings.Contains(stderrErr.Error(), "load config file") ||
+    !strings.Contains(stderrErr.Error(), "exit status 7") {
+    t.Fatalf("expected a named non-zero exit, got %v", stderrErr)
+  }
+  if strings.Contains(stderrErr.Error(), "loader failed") {
+    t.Fatalf("loader stderr must reach the user directly, not the error: %v", stderrErr)
   }
 
   silentNode := writeDirectLauncher(t, filepath.Join(root, "fake-node-silent"), "", "", 7)

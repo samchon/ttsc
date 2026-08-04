@@ -22,8 +22,11 @@ export interface CapturedProcessOutput {
  * — and a ceiling is a number nobody chose for this machine, deciding on the
  * user's behalf that a large but legitimate build said too much. Handing the
  * child a file descriptor instead means the bytes never pass through this heap
- * at all, so there is nothing to bound: how much a process may write is the
- * filesystem's business, and it is the same answer on every machine.
+ * on their way out of the child: how much a process may write is the
+ * filesystem's business, and that is the same answer on every machine. Reading
+ * the result back still materializes a string, so V8's own maximum string
+ * length remains the outer bound — but that is a property of the runtime rather
+ * than a budget chosen here, and it is identical everywhere this runs.
  *
  * The directory is per-call, so two concurrent spawns cannot read each other's
  * bytes.

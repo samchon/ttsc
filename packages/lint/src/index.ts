@@ -7,9 +7,7 @@ import os from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
-import {
-  configEvaluatorProcessFailure,
-} from "./internal/configEvaluatorFailure";
+import { configEvaluatorProcessFailure } from "./internal/configEvaluatorFailure";
 import type { ITtscLintPlugin, ITtscLintPluginConfig } from "./structures";
 
 export * from "./defaultFormat";

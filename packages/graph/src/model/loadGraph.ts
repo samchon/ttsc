@@ -6,10 +6,6 @@ import { resolveGraphBinary } from "../resolveGraphBinary";
 import { ITtscGraphDump } from "../structures/ITtscGraphDump";
 import { TtscGraphMemory } from "./TtscGraphMemory";
 
-// A full-project dump is the whole fact graph as one JSON document; a large
-// monorepo runs to many megabytes, well past spawnSync's 1 MiB default, so the
-// buffer is raised to a ceiling no real graph reaches.
-
 /**
  * The dump schema version this client reads.
  *

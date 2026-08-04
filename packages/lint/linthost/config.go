@@ -1790,9 +1790,6 @@ func runConfigLoaderCommand(
   cmd.Stdout = io.Discard
   cmd.Stderr = os.Stderr
   err := cmd.Run()
-  // A loader diagnostic is only useful when the load succeeds, because a
-  // failure already carries the same text in its message. Forward it so an
-  // assertion about what the loader recorded can name what it resolved.
   if err != nil {
     // The loader's own diagnostic already reached the user's stderr as it was
     // written, so this names what failed rather than repeating the text.

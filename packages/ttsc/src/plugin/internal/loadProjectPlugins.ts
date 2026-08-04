@@ -15,9 +15,7 @@ import type { TtscPluginStage } from "../../structures/TtscPluginStage";
 import type { ITtscLoadedNativePlugin } from "../../structures/internal/ITtscLoadedNativePlugin";
 import type { ITtscParsedProjectConfig } from "../../structures/internal/ITtscParsedProjectConfig";
 import { buildSourcePlugin } from "./buildSourcePlugin";
-import {
-  pluginDescriptorProcessFailure,
-} from "./descriptorProcessFailure";
+import { pluginDescriptorProcessFailure } from "./descriptorProcessFailure";
 
 const GO_MOD_SEARCH_MAX_DEPTH = 3;
 
