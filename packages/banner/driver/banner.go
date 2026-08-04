@@ -447,11 +447,13 @@ declare const process: {
   exit(code?: number): never;
 };
 
-// Wrapped rather than written as a top-level await: the loader tsconfig's
-// "module" now follows the config's own package, and TS1378 rejects top-level
-// await under a CommonJS module option no matter that this .mts file still
-// emits as ESM.
-void (async () => {
+// Wrapped and settled explicitly rather than written as a top-level await.
+// The loader tsconfig's "module" now follows the config's own package, and
+// TS1378 rejects top-level await under a CommonJS module option however this
+// .mts file emits. The trailing catch is what a top-level await gave for
+// free: without it a throw from the finally would leave the promise
+// unsettled instead of failing the load.
+(async () => {
   try {
     const value = await resolveConfig(importedConfig);
     process.stdout.write(JSON.stringify(toSerializableBanner(value)));
@@ -459,7 +461,10 @@ void (async () => {
     process.stderr.write(error instanceof Error && error.stack ? error.stack : String(error));
     process.exit(1);
   }
-})();
+})().catch((error) => {
+  process.stderr.write(error instanceof Error && error.stack ? error.stack : String(error));
+  process.exit(1);
+});
 
 async function resolveConfig(value: unknown): Promise<unknown> {
   let current = isObject(value) && hasOwn(value, "default") ? value.default : value;
