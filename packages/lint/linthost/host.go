@@ -397,6 +397,8 @@ func (p *program) applyChange(absPath string) bool {
 //   - a JSON module carries no lint source at all.
 //
 // A project that selects any of those explicitly keeps them, exactly as before.
+// A published dependency reaches the Program through its typings, so its own
+// `.ts` sources stay out without a dependency-shaped rule here.
 func (p *program) userSourceFiles() []*shimast.SourceFile {
   roots := p.projectSourceFileNames()
   out := make([]*shimast.SourceFile, 0)
@@ -404,7 +406,7 @@ func (p *program) userSourceFiles() []*shimast.SourceFile {
     if f == nil {
       continue
     }
-    if _, ok := roots[canonicalProjectPath(p.cwd, f.FileName())]; ok {
+    if p.selectedByProject(roots, f.FileName()) {
       out = append(out, f)
       continue
     }
@@ -425,7 +427,7 @@ func (p *program) projectSourceFiles() []*shimast.SourceFile {
     if f == nil {
       continue
     }
-    if _, ok := roots[canonicalProjectPath(p.cwd, f.FileName())]; !ok {
+    if !p.selectedByProject(roots, f.FileName()) {
       continue
     }
     out = append(out, f)
@@ -434,23 +436,57 @@ func (p *program) projectSourceFiles() []*shimast.SourceFile {
 }
 
 // projectSourceFileNames returns the canonical paths of the TS/JS files the
-// tsconfig itself selected.
+// tsconfig itself selected, indexed under both the configured spelling and the
+// resolved one.
 //
 // This is the narrow half of the boundary above. `format` reads nothing else at
 // all, and `fix` reads wider but writes only here, because a project must not
 // rewrite a sibling package's sources merely because it imports them. See
 // projectWritableFindings.
+//
+// Both spellings are indexed because a project can be reached through a
+// junction, a symlink, or a Windows 8.3 short name, and the Program need not
+// report a file under the spelling the config used. Before the read scope
+// widened, an alias mismatch merely dropped the file from every pass. Now it
+// would leave the file readable and unwritable, turning a fixable diagnostic
+// into one `fix` refuses to touch, so ownership resolves the alias.
 func (p *program) projectSourceFileNames() map[string]struct{} {
   out := make(map[string]struct{})
   if p == nil || p.parsed == nil || p.parsed.ParsedConfig == nil {
     return out
   }
   for _, fileName := range p.parsed.ParsedConfig.FileNames {
-    if isLintSourceFileName(fileName) {
-      out[canonicalProjectPath(p.cwd, fileName)] = struct{}{}
+    if !isLintSourceFileName(fileName) {
+      continue
     }
+    absolute := absoluteProjectPath(p.cwd, fileName)
+    out[canonicalProjectPath(p.cwd, absolute)] = struct{}{}
+    out[canonicalProjectPath(p.cwd, realProjectPath(absolute))] = struct{}{}
   }
   return out
+}
+
+// selectedByProject reports whether the tsconfig selected fileName, resolving
+// the path only when its own spelling misses.
+//
+// Indexing both spellings above already catches the ordinary link, so this
+// fallback exists for a Program spelling that matches neither, such as a
+// Windows 8.3 short name. Its cost is one resolution per file the config did
+// not select, which the imported set pays on every cycle and which stays far
+// below the rule walk those same files are about to receive.
+func (p *program) selectedByProject(
+  roots map[string]struct{},
+  fileName string,
+) bool {
+  if _, ok := roots[canonicalProjectPath(p.cwd, fileName)]; ok {
+    return true
+  }
+  if len(roots) == 0 {
+    return false
+  }
+  resolved := realProjectPath(absoluteProjectPath(p.cwd, fileName))
+  _, ok := roots[canonicalProjectPath(p.cwd, resolved)]
+  return ok
 }
 
 // projectWritableFindings keeps the findings whose file this project may write:
@@ -471,7 +507,7 @@ func (p *program) projectWritableFindings(findings []*Finding) []*Finding {
     if finding == nil || finding.File == nil {
       continue
     }
-    if _, ok := roots[canonicalProjectPath(p.cwd, finding.File.FileName())]; !ok {
+    if !p.selectedByProject(roots, finding.File.FileName()) {
       continue
     }
     out = append(out, finding)
