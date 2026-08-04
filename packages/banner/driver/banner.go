@@ -313,8 +313,9 @@ const { pathToFileURL } = require("node:url");
   // The stack above is for the reader. This line is for the caller: the parent
   // reads stdout as the payload channel either way, so a failure reason travels
   // as data rather than as text scraped back out of a captured stream.
-  process.stdout.write(JSON.stringify({ __ttscLoaderError: error && error.message ? String(error.message) : String(error) }));
-  process.exit(1);
+  // Exit only once the envelope has left this process: process.exit abandons a
+  // pending pipe write, and losing the reason returns the caller to a bare status.
+  process.stdout.write(JSON.stringify({ __ttscLoaderError: error && error.message ? String(error.message) : String(error) }), () => process.exit(1));
 });
 
 function toSerializableBanner(value) {
@@ -466,8 +467,9 @@ declare const process: {
   // The stack above is for the reader. This line is for the caller: the parent
   // reads stdout as the payload channel either way, so a failure reason travels
   // as data rather than as text scraped back out of a captured stream.
-  process.stdout.write(JSON.stringify({ __ttscLoaderError: error instanceof Error ? error.message : String(error) }));
-  process.exit(1);
+  // Exit only once the envelope has left this process: process.exit abandons a
+  // pending pipe write, and losing the reason returns the caller to a bare status.
+  process.stdout.write(JSON.stringify({ __ttscLoaderError: error instanceof Error ? error.message : String(error) }), () => process.exit(1));
 });
 
 async function resolveConfig(value: unknown): Promise<unknown> {
