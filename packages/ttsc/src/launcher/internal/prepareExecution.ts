@@ -42,14 +42,24 @@ export function prepareExecution(
   projectRoot: string;
   rootDir: string;
 } {
-  // One spelling of the entry, decided once, for every consumer below. The
-  // project root arrives physically resolved, and `rootDir` and emitted-output
-  // paths are compared against it lexically, so an entry spelled any other way
-  // is "not under `rootDir`" — which sends emit to the source tree and sends
-  // the output lookup to trailing-stem guessing. See `resolveEntrySpelling`.
+  // Two paths, because two different questions are being asked.
+  //
+  // *Which project compiles this?* is answered from the path the user named.
+  // Project discovery walks up from it, so resolving a symlinked entry first
+  // would start that walk in the target's tree — finding another project's
+  // tsconfig, or none at all.
+  //
+  // *Where does the compiler put the output, and what does the runtime load?*
+  // is answered from the physical path, because that is the spelling tsgo and
+  // Node both use. See `resolveEntrySpelling`.
   const cwd = path.resolve(options.cwd ?? process.cwd());
   const entry = resolveEntrySpelling(cwd, entryFile);
-  const context = createProjectContext(cwd, entry, options);
+  const context = createProjectContext(
+    cwd,
+    path.resolve(cwd, entryFile),
+    entry,
+    options,
+  );
   try {
     buildProject(context, options);
     let emittedEntry = emittedEntryOf(context, entry);
@@ -133,9 +143,16 @@ function resolveEntrySpelling(cwd: string, entryFile: string): string {
   return identities.resolve(path.resolve(cwd, entryFile)).path;
 }
 
+/**
+ * @param discoveryFile - The entry as the user named it. Project discovery
+ *   walks up from here, so it must not be retargeted through a symlink.
+ * @param entry - The entry in its physical spelling, which is what the emit
+ *   layout and the runtime hooks both speak.
+ */
 function createProjectContext(
   cwd: string,
-  filename: string,
+  discoveryFile: string,
+  entry: string,
   options: NonNullable<Parameters<typeof prepareExecution>[1]>,
 ) {
   const project = readProjectConfig(
@@ -145,7 +162,7 @@ function createProjectContext(
           projectRoot: options.projectRoot,
           tsconfig: path.resolve(cwd, options.project),
         }
-      : { cwd, file: filename, projectRoot: options.projectRoot },
+      : { cwd, file: discoveryFile, projectRoot: options.projectRoot },
   );
   const tsconfig = project.path;
   const root = project.root;
@@ -165,11 +182,11 @@ function createProjectContext(
     virtualRoot,
     emitDir: project.compilerOptions.outDir
       ? virtualPath(virtualRoot, project.compilerOptions.outDir)
-      : virtualPath(virtualRoot, resolveRuntimeSourceRoot(project, filename)),
+      : virtualPath(virtualRoot, resolveRuntimeSourceRoot(project, entry)),
     // The source-tree root the emit mirrors (tsgo strips this prefix). Used to
     // map a source `.ts` back to its emitted `.js` when the runtime hooks serve
     // the built entry under its source URL.
-    runtimeRootDir: resolveRuntimeSourceRoot(project, filename),
+    runtimeRootDir: resolveRuntimeSourceRoot(project, entry),
     // The tsconfig options that decide the emit format, so the runtime hooks
     // classify each served file the same way tsgo chose when emitting it.
     // `target` belongs here as much as `module` does: with `module` absent tsgo

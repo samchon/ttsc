@@ -3,27 +3,32 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
+import { runTtsxWithCoverage } from "../../internal/ttsx-source-map";
+
 /**
- * Verifies an entry that is itself a symlink still runs.
+ * Verifies an entry that is itself a symlink is served by the project's own
+ * emit, not by the orphan type-strip lane.
  *
- * Every party to the entry's identity speaks the physical spelling: the project
- * root arrives resolved, tsgo emits from the path it opens, and the runtime
- * hooks key a served file by `fs.realpathSync`, because that is how Node itself
- * identifies a module without `--preserve-symlinks`. Resolving the entry any
- * other way is a fourth answer, and the disagreements are not symmetric — a
- * containment guard that folds the link while the spelling does not rejects the
- * entry outright, and the reverse leaves the gate owning an emit the runtime
- * refuses to serve.
+ * Two different questions are asked about an entry, and they have two different
+ * answers. _Which project compiles this?_ comes from the path the user named,
+ * because discovery walks up from it — resolving the link first would look for
+ * a tsconfig in the target's tree. _Where is the output and what does the
+ * runtime load?_ comes from the physical path, because tsgo emits from the file
+ * it opens and Node keys a module by `fs.realpathSync` without
+ * `--preserve-symlinks`.
  *
- * This pins the observable half: the run succeeds and the linked script's own
- * output arrives. That the _project's_ emit is what served it follows from the
- * spellings agreeing, and is not separately observable here — both lanes can
- * print. The link's target sits outside the project on purpose; a target inside
- * it would satisfy every spelling rule and prove nothing.
+ * Getting either half wrong is silent. One spelling too few and the gate claims
+ * an emit the runtime then refuses to serve, so the file falls to the orphan
+ * lane and the project's transform plugins, `target`, `paths`, and source map
+ * are all dropped from a run that still prints and still exits zero.
+ *
+ * So printing is not the assertion. The served script's source map is: the
+ * entry-project lane inlines one (forced on when the project configures none),
+ * and the orphan lane emits with `--ignoreConfig` and no `--sourceMap` at all.
  *
  * 1. Put the real script outside the project and link to it from inside.
- * 2. Run ttsx against the link.
- * 3. Assert it ran and printed what the target says.
+ * 2. Run ttsx against the link under V8 coverage.
+ * 3. Assert it ran and that the served script carries a source map.
  */
 export const test_ttsx_runs_an_entry_that_is_itself_a_symlink = () => {
   const root = TestProject.createProject({
@@ -63,11 +68,14 @@ export const test_ttsx_runs_an_entry_that_is_itself_a_symlink = () => {
     // contract this pins cannot be exercised at all.
     return;
   }
-  const result = TestProject.spawn(
-    TestProject.TTSX_BIN,
-    ["--cwd", root, "clear.ts"],
-    { cwd: root },
+  const run = runTtsxWithCoverage(root, "clear.ts");
+  assert.equal(run.status, 0, run.stderr);
+  assert.match(run.stdout, /ran-through-the-link/);
+
+  const script = run.scriptEndingWith("clear.ts");
+  assert.ok(script, "coverage must record the served clear.ts script");
+  assert.ok(
+    script.sourceMap !== null,
+    "a served entry carries the project emit's source map; the orphan lane has none",
   );
-  assert.equal(result.status, 0, result.stderr);
-  assert.match(result.stdout, /ran-through-the-link/);
 };
