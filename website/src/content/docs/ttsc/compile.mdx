@@ -96,63 +96,17 @@ Any flag `ttsc` does not own is forwarded as-is to `tsc`, so classic `tsc` compi
 
 ## Plugin cache
 
-The plugin binary cache is **project-local**. By default it lives in the workspace's `node_modules/.cache/ttsc` (the `find-cache-dir` convention). In a monorepo it resolves to the workspace root's `node_modules`, so every package builds a given plugin once and shares it; `rm -rf node_modules` (or deleting the repo) reclaims everything and ttsc keeps no machine-global cache. Plugin binaries live under `<cache-dir>/plugins` and ttsc's Go object cache under `<cache-dir>/go-build`, unless `TTSC_GO_CACHE_DIR` or a user `GOCACHE` redirects it. Override the root with `--cache-dir` or `TTSC_CACHE_DIR` (relative `--cache-dir` resolves from `--cwd`, relative `TTSC_CACHE_DIR`/`TTSC_GO_CACHE_DIR` from the project root). Point these at a directory **dedicated to ttsc** — ttsc owns everything under the root and `ttsc clean` removes its `plugins/` and `go-build/` there, so do not set `TTSC_CACHE_DIR` to a shared cache such as `~/.cache`. The cache is safe to delete at any time (`ttsc clean`); binaries rebuild on next use, and the default cache prunes entries unused for 30 days automatically. `ttsc clean` also reclaims the machine-global cache left by pre-0.17 releases.
+The plugin binary cache is **project-local**. By default it lives in the workspace's `node_modules/.cache/ttsc` (the `find-cache-dir` convention). In a monorepo it resolves to the workspace root's `node_modules`, so every package builds a given plugin once and shares it; `rm -rf node_modules` (or deleting the repo) reclaims everything and ttsc keeps no machine-global cache. Plugin binaries live under `<cache-dir>/plugins` and ttsc's Go object cache under `<cache-dir>/go-build`, unless `TTSC_GO_CACHE_DIR` or a user `GOCACHE` redirects it.
 
-### Persisting the cache across split CI jobs
+Override the root with `--cache-dir` or `TTSC_CACHE_DIR` (relative `--cache-dir` resolves from `--cwd`, relative `TTSC_CACHE_DIR`/`TTSC_GO_CACHE_DIR` from the project root). Point these at a directory **dedicated to ttsc**: ttsc owns everything under the root and `ttsc clean` removes its `plugins/` and `go-build/` there, so do not set `TTSC_CACHE_DIR` to a shared cache such as `~/.cache`.
 
-Every CI job runs on a fresh runner, so a build cache only survives between jobs — for example separate `build` and `test` workflows — if the workflow persists it. Because `npm ci` (and equivalents) wipe `node_modules`, point `TTSC_CACHE_DIR` at a directory **outside** `node_modules` and cache that single path — it covers both the plugin binaries and the Go object cache:
+The cache is safe to delete at any time (`ttsc clean`); binaries rebuild on next use, and the default cache prunes entries unused for 30 days automatically. `ttsc clean` also reclaims the machine-global cache left by pre-0.17 releases.
 
-```yaml
-env:
-  TTSC_CACHE_DIR: .ttsc-cache
-
-steps:
-  - uses: actions/cache@v4
-    with:
-      path: .ttsc-cache
-      key: ${{ runner.os }}-ttsc-${{ hashFiles('pnpm-lock.yaml', '**/go.mod', '**/go.sum') }}
-  - run: pnpm exec ttsc prepare # warm the cache before build/test
-```
-
-Run `npx ttsc cache paths --json` to discover the exact directories instead of hardcoding them: the `cacheableRoots` field lists the minimal set a CI cache must persist (it adds `TTSC_GO_CACHE_DIR`/`GOCACHE` when either points outside the ttsc cache root). This works the same for pnpm, yarn, bun, and npm workspaces.
-
-### Persisting the cache in containers
-
-A container image build (Docker, Google Cloud Build, Cloud Run) is not a persistent runner: each build starts from a clean filesystem, so a source plugin recompiles cold on every deploy unless the compiled binary is carried forward. This is a different mechanism from the split-CI recipe above. There the cache is a directory persisted with `actions/cache`; here it has to travel inside the image build, as a build layer or a build-scoped cache.
-
-Warm the binary in its own layer, ordered before the app source is copied, and pin `TTSC_CACHE_DIR` at a stable absolute path whose basename is `ttsc`, so `ttsc clean` still owns its `plugins/` and `go-build/`:
-
-```dockerfile
-FROM node:24
-WORKDIR /app
-ENV TTSC_CACHE_DIR=/root/.cache/ttsc
-COPY package*.json ./
-RUN npm ci
-COPY tsconfig*.json ./
-RUN npx ttsc prepare        # the cold Go build happens here, once
-COPY . .
-RUN npm run build           # the bundler build reuses the warm cache
-```
-
-`ttsc prepare` builds whatever `tsconfig.json` declares, so `tsconfig.json` must be copied before it runs, or the build fails to find a project. A bundler build through `@ttsc/unplugin` reads the same tsconfig, so the warmed binary is the exact one the later build looks up. If `prepare` prints `no source plugins found`, the plugin is declared only in the bundler config; add it to `tsconfig.json` `compilerOptions.plugins` so both steps compute the same content key.
-
-An ephemeral builder (Google Cloud Build, most CI Docker builds) discards its local layer and BuildKit cache between builds, so the warm layer is reused only through a cache that outlives the build: a registry-backed layer cache (`docker build --cache-from <pushed-image> --build-arg BUILDKIT_INLINE_CACHE=1`, then deploy the built image) or a bucket-backed cache. A bare `RUN --mount=type=cache` or plain layer caching starts empty on every fresh build VM and silently recompiles. `gcloud run deploy --source` passes no cache flag and, under buildpacks, offers no layer to hold the binary; to reuse it you must take over the build (`gcloud builds submit` with a registry cache, or a prebuilt base image) rather than deploy from source.
-
-On GitHub Actions, `docker/build-push-action` reaches the same registry-backed cache through the Actions cache backend. Set `cache-to: type=gha,mode=max` so the intermediate `ttsc prepare` layer is exported, not only the final image: the default `mode=min` caches just the last layer, so the plugin recompiles on every run.
-
-```yaml
-- uses: docker/setup-buildx-action@v3
-- uses: docker/build-push-action@v6
-  with:
-    context: .
-    cache-from: type=gha
-    cache-to: type=gha,mode=max
-```
-
-Verify the cache actually hit: on the second build the cold-build line (`ttsc: building source plugin ... this runs once per cache key`) must not appear, and `npx ttsc cache paths --json` reports the directories that hold the binary.
+Every CI job and every container build starts from a clean filesystem, so a source plugin recompiles on each one unless the cache is carried across. [Build cache](/docs/ttsc/cache) covers that: what invalidates the cache, why a CI key has to separate architectures and not only operating systems, the `npm ci` ordering trap that silently disables the cache, and worked GitHub Actions and Docker recipes.
 
 ## See also
 
+- [TTSC · Build cache](/docs/ttsc/cache): persisting the plugin binary across CI jobs and container builds.
 - [TTSC · `ttsx` runner](/docs/ttsc/execute): same compile, then runs the result.
 - [Lint & Prettier](/docs/lint): `ttsc fix` / `ttsc format` and the `lint.config.ts` surface.
 - [FAQ](/docs/faq): common build failures and migration questions.
