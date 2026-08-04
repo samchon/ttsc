@@ -16,6 +16,22 @@ npx ttsx src/index.ts
 
 Type errors stop execution. So do `@ttsc/lint` errors (warnings don't).
 
+## Scripts your tsconfig does not include
+
+`ttsc` and `ttsx` select different things from the same `tsconfig.json`. `ttsc` selects a **file set**: a project whose `include` is `["src"]` compiles only `src` into `outDir`, and a `clear.ts`, a `build/release.ts`, or a `lint.config.ts` sitting beside the tsconfig stays out of the output. `ttsx` selects an **entry**: it needs that project's compiler options, not its file list.
+
+```
+build/release.ts     ← runs under ttsx, never lands in lib/
+clear.ts             ← runs under ttsx, never lands in lib/
+lint.config.ts       ← never lands in lib/
+src/**/*.ts          ← the only thing ttsc compiles into lib/
+tsconfig.json
+```
+
+So `npx ttsx clear.ts` works even though `npx ttsc` ignores that file. The entry is compiled through a project that inherits every option from the discovered `tsconfig.json` — `paths`, `strict`, `target`, `types`, and the module format — and declares only that entry, so your `outDir` never gains a file. The entry is still type-checked: a type error in `clear.ts` stops the run exactly as one in `src` would.
+
+The module format follows the same rule everywhere: an explicit `.cts`/`.mts` extension wins, otherwise the project's `module` option decides, and only the `node16`/`node18`/`node20`/`nodenext` family (plus a file no project compiles at all) takes its answer from the nearest `package.json` `"type"`. With no `module` option set, the format is derived from `target`, which is what the compiler does when it emits.
+
 Projects that enable `allowImportingTsExtensions` are supported. During the runtime emit, `ttsx` rewrites relative `.ts`, `.tsx`, `.mts`, and `.cts` import specifiers to the matching JavaScript extensions so Node can execute the output. The emitted JavaScript lives in a per-run cache directory and is removed after the script exits.
 
 ## Raw-TypeScript dependencies
