@@ -31,6 +31,10 @@ export const test_ttsx_classifies_a_symlinked_entry_from_the_target_package_type
           module: "nodenext",
           moduleResolution: "nodenext",
           outDir: "lib",
+          // Explicit: tsgo raises TS5011 when `outDir` is set and the common
+          // source directory would have to be inferred. It also puts the linked
+          // entry outside the project's file set, which is the shape under test.
+          rootDir: "src",
           strict: true,
           target: "ES2022",
         },
