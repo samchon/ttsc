@@ -3226,12 +3226,11 @@ const hooks = registerHooks({
   },
 });
 
-// Wrapped and settled explicitly rather than written as a top-level await.
-// The loader tsconfig's "module" now follows the config's own package, and
-// TS1378 rejects top-level await under a CommonJS module option however this
-// .mts file emits. The trailing catch is what a top-level await gave for
-// free: without it a throw from the finally would leave the promise
-// unsettled instead of failing the load.
+// Wrapped rather than written as a top-level await: the loader tsconfig's
+// "module" follows the config's own package, and TS1378 rejects top-level await
+// under a CommonJS module option however this .mts file emits. The body's own
+// catch is the only failure path — it ends the process — so there is nothing
+// left for a trailing handler to settle.
 (async () => {
   try {
     const importedConfig = await import(configUrl);
@@ -3245,20 +3244,18 @@ const hooks = registerHooks({
     }), "utf8");
   } catch (error) {
     process.stderr.write(error instanceof Error && error.stack ? error.stack : String(error));
+    // The stack above is for the reader. This is for the caller: the parent
+    // reads the result file either way, so a failure reason travels as data
+    // rather than as text scraped back out of a captured stream. A write that
+    // itself fails leaves the process status to speak.
+    try {
+      fs.writeFileSync(outputPath, JSON.stringify({ error: error instanceof Error ? error.message : String(error) }), "utf8");
+    } catch {}
     process.exit(1);
   } finally {
     hooks.deregister();
   }
-})().catch((error) => {
-  process.stderr.write(error instanceof Error && error.stack ? error.stack : String(error));
-  // The stack above is for the reader. This is for the caller: the parent reads
-  // the result file either way, so a failure reason travels as data rather than
-  // as text scraped back out of a captured stream.
-  try {
-    fs.writeFileSync(outputPath, JSON.stringify({ error: error instanceof Error ? error.message : String(error) }), "utf8");
-  } catch {}
-  process.exit(1);
-});
+})();
 
 async function resolveConfig(value: unknown, allowNamedConfig: boolean): Promise<unknown> {
   let current = value;

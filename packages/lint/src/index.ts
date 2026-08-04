@@ -1852,7 +1852,7 @@ function evaluateTtsxConfigPlugins(
     }
     return { dependencies, entries };
   } finally {
-    fs.rmSync(tempDir, { recursive: true, force: true });
+    removeEvaluationTempDir(tempDir);
   }
 }
 
@@ -2458,4 +2458,20 @@ function ttsxThroughNodeIfNeeded(binary: string): {
     return { binary: process.execPath, prefix: [binary] };
   }
   return { binary, prefix: [] };
+}
+
+/**
+ * Remove an evaluation temp directory without letting cleanup replace a result.
+ *
+ * This runs from a `finally`, so a throw here would surface instead of the
+ * evaluation's own outcome — and on Windows a grandchild that inherited a
+ * handle, or a scanner holding the file, can make removal fail. Leaving bytes
+ * in the system temp directory is by far the lesser outcome.
+ */
+function removeEvaluationTempDir(directory: string): void {
+  try {
+    fs.rmSync(directory, { force: true, recursive: true });
+  } catch {
+    // Best effort.
+  }
 }

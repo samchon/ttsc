@@ -443,34 +443,36 @@ func bannerTypeScriptConfigLoaderSource(importLiteral string) string {
   return fmt.Sprintf(`import * as importedConfig from %s;
 
 declare const process: {
-  stdout: { write(value: string): void };
+  exitCode?: number;
+  stdout: { write(value: string, callback?: () => void): void };
   stderr: { write(value: string): void };
   exit(code?: number): never;
 };
 
-// Wrapped and settled explicitly rather than written as a top-level await.
-// The loader tsconfig's "module" now follows the config's own package, and
-// TS1378 rejects top-level await under a CommonJS module option however this
-// .mts file emits. The trailing catch is what a top-level await gave for
-// free: without it a throw from the finally would leave the promise
-// unsettled instead of failing the load.
+// Wrapped rather than written as a top-level await: the loader tsconfig's
+// "module" follows the config's own package, and TS1378 rejects top-level await
+// under a CommonJS module option however this .mts file emits. The body's own
+// catch is the only failure path — it ends the process — so there is nothing
+// left for a trailing handler to settle.
 (async () => {
   try {
     const value = await resolveConfig(importedConfig);
     process.stdout.write(JSON.stringify(toSerializableBanner(value)));
   } catch (error) {
     process.stderr.write(error instanceof Error && error.stack ? error.stack : String(error));
-    process.exit(1);
+    // The stack above is for the reader. This is for the caller: the parent
+    // reads stdout as the payload channel either way, so a failure reason
+    // travels as data rather than as text scraped back out of a captured
+    // stream. The exit code is set before the write so a callback that never
+    // fires still fails the load, and the write's completion is what triggers
+    // the exit, because process.exit abandons a pending pipe write.
+    process.exitCode = 1;
+    process.stdout.write(
+      JSON.stringify({ __ttscLoaderError: error instanceof Error ? error.message : String(error) }),
+      () => process.exit(1),
+    );
   }
-})().catch((error) => {
-  process.stderr.write(error instanceof Error && error.stack ? error.stack : String(error));
-  // The stack above is for the reader. This line is for the caller: the parent
-  // reads stdout as the payload channel either way, so a failure reason travels
-  // as data rather than as text scraped back out of a captured stream.
-  // Exit only once the envelope has left this process: process.exit abandons a
-  // pending pipe write, and losing the reason returns the caller to a bare status.
-  process.stdout.write(JSON.stringify({ __ttscLoaderError: error instanceof Error ? error.message : String(error) }), () => process.exit(1));
-});
+})();
 
 async function resolveConfig(value: unknown): Promise<unknown> {
   let current = isObject(value) && hasOwn(value, "default") ? value.default : value;

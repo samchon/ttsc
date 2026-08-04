@@ -738,9 +738,20 @@ function loadDescriptorViaTtsx(
       `const mod = await import(pathToFileURL(process.env.TTSC_PLUGIN_ENTRY).href);`,
       `const context = JSON.parse(process.env.TTSC_PLUGIN_CONTEXT);`,
       `const candidate = mod.createTtscPlugin ?? mod.default ?? mod.plugin ?? mod;`,
-      `const descriptor =`,
-      `  typeof candidate === "function" ? candidate(context) : candidate;`,
-      `writeFileSync(process.env.TTSC_PLUGIN_DESCRIPTOR_OUT, JSON.stringify(descriptor));`,
+      `try {`,
+      `  const descriptor =`,
+      `    typeof candidate === "function" ? candidate(context) : candidate;`,
+      `  writeFileSync(process.env.TTSC_PLUGIN_DESCRIPTOR_OUT, JSON.stringify(descriptor));`,
+      `} catch (error) {`,
+      // The stack streams to the user's stderr on its own. This puts the reason
+      // a caller can act on into the channel the parent already reads, so the
+      // failure is not reduced to a bare exit status.
+      `  process.stderr.write(error instanceof Error && error.stack ? error.stack : String(error));`,
+      `  try {`,
+      `    writeFileSync(process.env.TTSC_PLUGIN_DESCRIPTOR_OUT, JSON.stringify({ __ttscLoaderError: error instanceof Error ? error.message : String(error) }));`,
+      `  } catch {}`,
+      `  process.exit(1);`,
+      `}`,
       ``,
     ].join("\n"),
   );
@@ -776,7 +787,16 @@ function loadDescriptorViaTtsx(
       windowsHide: true,
     });
     const processFailure = pluginDescriptorProcessFailure(result, request);
-    if (processFailure) throw processFailure;
+    if (processFailure) {
+      // The descriptor's stack already reached the user's stderr as it ran.
+      // What it could not put there is a reason a caller can act on, so that
+      // arrives through the result file instead.
+      const reason = descriptorFailureReason(out);
+      throw reason === ""
+        ? processFailure
+        : new Error(`${processFailure.message}
+${reason}`);
+    }
     if (!fs.existsSync(out)) {
       throw new Error(
         `ttsc: plugin descriptor "${request}" evaluation through ttsx produced no descriptor output.`,
@@ -791,7 +811,7 @@ function loadDescriptorViaTtsx(
       );
     }
   } finally {
-    fs.rmSync(dir, { force: true, recursive: true });
+    removeEvaluationTempDir(dir);
   }
 }
 
@@ -1368,5 +1388,40 @@ function readTsgoVersion(projectRoot: string): string {
     return pkg.version ?? "unknown";
   } catch {
     return "unknown";
+  }
+}
+
+/**
+ * Remove an evaluation temp directory without letting cleanup replace a result.
+ *
+ * This runs from a `finally`, so a throw here would surface instead of the
+ * evaluation's own outcome — and on Windows a grandchild that inherited a
+ * handle, or a scanner holding the file, can make removal fail. Leaving bytes
+ * in the system temp directory is by far the lesser outcome.
+ */
+function removeEvaluationTempDir(directory: string): void {
+  try {
+    fs.rmSync(directory, { force: true, recursive: true });
+  } catch {
+    // Best effort.
+  }
+}
+
+/**
+ * Read the failure envelope the descriptor shim writes to its result file when
+ * it stops on an error it can name.
+ *
+ * Only a well-formed envelope is honoured. A real descriptor never carries this
+ * key, and anything else leaves the process status to speak for itself.
+ */
+function descriptorFailureReason(out: string): string {
+  try {
+    const parsed: unknown = JSON.parse(fs.readFileSync(out, "utf8"));
+    if (typeof parsed !== "object" || parsed === null) return "";
+    const message = (parsed as { __ttscLoaderError?: unknown })
+      .__ttscLoaderError;
+    return typeof message === "string" ? message.trim() : "";
+  } catch {
+    return "";
   }
 }
