@@ -51,6 +51,8 @@ npx ttsc format         # rewrite source files with the format rules only
 
 The lint pass reads the TypeScript the type-check pass reads: your `tsconfig.json` file list, plus every `.ts`, `.tsx`, `.mts`, and `.cts` source the Program pulled in through an import. In a pnpm workspace where a package publishes `./src/index.ts` as its entry, every consumer resolves that package to first-party TypeScript, so a consumer's run reports on it and a project rule receives it in `ctx.Sources`.
 
+Your config decides what runs there. A `files` selector scopes an entry to the paths it names, and a path outside the config's own directory matches no selector, so a config written as `files: ["src/**/*.ts"]` reports nothing on an imported sibling. A config with no selector applies its rules everywhere it reads, including that sibling. Either way a global `ignores` entry removes a file from the walk.
+
 Declaration files and JavaScript stay selection-driven. A `.d.ts` is typings rather than authored source, and JavaScript enters the Program only through `allowJs`, so both are linted only when your own `tsconfig.json` selects them. An import never pulls either into scope.
 
 Writes stay inside the project. `ttsc format` never leaves your own file list at all, so importing a sibling package cannot reformat it. `ttsc fix` reports on an imported source, because it prints diagnostics when the cascade settles, and applies edits only to the files your `tsconfig.json` selected. The package that owns the file fixes it from its own run.
