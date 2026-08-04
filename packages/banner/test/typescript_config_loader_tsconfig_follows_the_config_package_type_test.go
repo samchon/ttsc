@@ -7,9 +7,9 @@ import (
   "testing"
 )
 
-// TestTypeScriptConfigLoaderTsconfigFollowsTheConfigPackageType
-// verifies the ephemeral loader tsconfig derives `module` from the config file's package scope the way
-// Node resolves it.
+// TestTypeScriptConfigLoaderTsconfigFollowsTheConfigPackageType verifies the
+// ephemeral loader tsconfig derives `module` from the config file's package
+// scope the way Node resolves it.
 //
 // A `banner.config.ts` is a Node module, and Node decides its format from the
 // package scope it sits in. Hardcoding "ESNext" ran every ambiguous `.ts`
