@@ -47,6 +47,14 @@ npx ttsc format         # rewrite source files with the format rules only
 
 `ttsc fix` and `ttsc format` differ on defaults: `ttsc format` applies the always-on default formatter even when no `format` block is configured, while `ttsc fix` applies formatting only from a configured `format` block. With no `format` block, `ttsc fix` is a pure lint autofix pass — add a `format` block (or run `ttsc format`) to reformat as well.
 
+## Which files are linted
+
+The lint pass reads the TypeScript the type-check pass reads: your `tsconfig.json` file list, plus every `.ts`, `.tsx`, `.mts`, and `.cts` source the Program pulled in through an import. In a pnpm workspace where a package publishes `./src/index.ts` as its entry, every consumer resolves that package to first-party TypeScript, so a consumer's run reports on it and a project rule receives it in `ctx.Sources`.
+
+Declaration files and JavaScript stay selection-driven. A `.d.ts` is typings rather than authored source, and JavaScript enters the Program only through `allowJs`, so both are linted when your own `tsconfig.json` selects them and not because an import reached them.
+
+Writes stay inside the project. `ttsc fix` and `ttsc format` rewrite only the files your `tsconfig.json` selected, so importing a sibling package never reformats it. A diagnostic on an imported source is still reported, and the package that owns the file fixes it from its own run.
+
 ## What you don't get (yet)
 
 **Custom rule authoring inside `@ttsc/lint`** is plugin-author territory. See [Plugin Development · Walkthroughs](/docs/development/walkthroughs) for how `@ttsc/lint` is itself written.

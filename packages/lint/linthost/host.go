@@ -348,27 +348,54 @@ func (p *program) applyChange(absPath string) bool {
   return reused
 }
 
-// userSourceFiles returns the tsconfig-selected source files the lint engine
-// owns. The tsconfig file list is the boundary: imported libraries, generated
-// output, and JSON modules may still appear in Program.SourceFiles(), but lint
-// and format should not walk them unless the project selected them as TS/JS
-// source roots.
+// userSourceFiles returns the source files the lint engine reads for one cycle:
+// the tsconfig-selected TS/JS roots plus every TypeScript source the Program
+// pulled in through an import.
+//
+// The tsconfig file list alone is not the boundary. `ttsc` type-checks a
+// first-party sibling workspace package that resolves to its own `src`, so a
+// reporting pass restricted to the file list would hold a second, narrower view
+// of the single Program the invocation loaded — the file is checked but never
+// linted, and never reaches a project rule's ctx.Sources (samchon/ttsc#1065).
+// A consumer cannot close that gap from configuration either: adding the
+// sibling to `include` also changes what the project emits.
+//
+// The widening admits authored TypeScript only — `.ts`, `.tsx`, `.mts`, `.cts`
+// that are not declaration files. Everything else stays selection-driven:
+//   - a declaration file is typings rather than authored source, and the bundled
+//     `lib.*.d.ts` set plus every published package's `.d.ts` reach
+//     Program.SourceFiles() as well;
+//   - JavaScript enters the Program only under `allowJs`, where the project's own
+//     file list already selects the JS it owns;
+//   - a JSON module carries no lint source at all.
+//
+// A project that selects any of those explicitly keeps them, exactly as before.
 func (p *program) userSourceFiles() []*shimast.SourceFile {
-  roots := p.userSourceFileNames()
+  roots := p.projectSourceFileNames()
   out := make([]*shimast.SourceFile, 0)
   for _, f := range p.tsProgram.SourceFiles() {
     if f == nil {
       continue
     }
-    if _, ok := roots[canonicalProjectPath(p.cwd, f.FileName())]; !ok {
+    if _, ok := roots[canonicalProjectPath(p.cwd, f.FileName())]; ok {
+      out = append(out, f)
       continue
     }
-    out = append(out, f)
+    if isImportedLintSourceFile(f) {
+      out = append(out, f)
+    }
   }
   return out
 }
 
-func (p *program) userSourceFileNames() map[string]struct{} {
+// projectSourceFileNames returns the canonical paths of the TS/JS files the
+// tsconfig itself selected — the project's own source set.
+//
+// This is the narrow half of the boundary above: `fix` and `format` write
+// files, and a project must not rewrite a sibling package's sources merely
+// because it imports them, so the write side stays inside this set even while
+// the read side reports beyond it. See projectOwnedFixableFindings.
+func (p *program) projectSourceFileNames() map[string]struct{} {
   out := make(map[string]struct{})
   if p == nil || p.parsed == nil || p.parsed.ParsedConfig == nil {
     return out
@@ -381,6 +408,30 @@ func (p *program) userSourceFileNames() map[string]struct{} {
   return out
 }
 
+// projectOwnedFixableFindings keeps the fixable findings whose file the project
+// itself selected, dropping every edit aimed at a source the Program reached
+// only through an import.
+//
+// The read side reports on an imported first-party source so the diagnostic is
+// not silently lost, but applying its edit here would rewrite a file this
+// project does not own — the package that owns the file fixes it from its own
+// lint run, under its own config. A finding without a source file (a project
+// rule's detached report) never reaches disk either and is dropped with them.
+func (p *program) projectOwnedFixableFindings(findings []*Finding) []*Finding {
+  roots := p.projectSourceFileNames()
+  out := make([]*Finding, 0, len(findings))
+  for _, finding := range findings {
+    if finding == nil || finding.File == nil {
+      continue
+    }
+    if _, ok := roots[canonicalProjectPath(p.cwd, finding.File.FileName())]; !ok {
+      continue
+    }
+    out = append(out, finding)
+  }
+  return out
+}
+
 func canonicalProjectPath(cwd, fileName string) string {
   if !filepath.IsAbs(fileName) {
     fileName = filepath.Join(cwd, fileName)
@@ -388,9 +439,33 @@ func canonicalProjectPath(cwd, fileName string) string {
   return filepath.ToSlash(filepath.Clean(fileName))
 }
 
+// isImportedLintSourceFile reports whether a Program source file the tsconfig
+// did not select is authored TypeScript the lint pass must still read.
+func isImportedLintSourceFile(file *shimast.SourceFile) bool {
+  if file == nil || file.IsDeclarationFile {
+    return false
+  }
+  return isTypeScriptSourceFileName(file.FileName())
+}
+
+// isLintSourceFileName reports whether a tsconfig-selected file is a lint/format
+// source root. The project's own selection governs here, so both TypeScript and
+// JavaScript qualify: a project that lists `.js` under `allowJs` owns it.
 func isLintSourceFileName(fileName string) bool {
   switch strings.ToLower(filepath.Ext(fileName)) {
   case ".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs":
+    return true
+  default:
+    return false
+  }
+}
+
+// isTypeScriptSourceFileName reports whether a path names TypeScript source.
+// `.d.ts` shares the `.ts` extension, so callers pair this with the source
+// file's IsDeclarationFile flag rather than reading the suffix twice.
+func isTypeScriptSourceFileName(fileName string) bool {
+  switch strings.ToLower(filepath.Ext(fileName)) {
+  case ".ts", ".tsx", ".mts", ".cts":
     return true
   default:
     return false

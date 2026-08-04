@@ -84,7 +84,13 @@ func runFix(opts *subcommandOpts) int {
   cascadeConverged := false
   for pass := 0; pass < maxFixPasses; pass++ {
     findings := prog.runLintCycle(engine)
-    fixed, err := applyFindingFixes(opts.cwd, findings)
+    // The cycle also reports on TypeScript sources the Program reached through
+    // an import; those are read-only here, so only the project's own files
+    // receive edits. The diagnostics for the rest still print below.
+    fixed, err := applyFindingFixes(
+      opts.cwd,
+      prog.projectOwnedFixableFindings(findings),
+    )
     if err != nil {
       fmt.Fprintln(os.Stderr, err)
       return 3

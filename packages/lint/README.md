@@ -1169,9 +1169,10 @@ type noCycles struct{}
 
 func (noCycles) Name() string { return "architecture/no-cycles" }
 func (noCycles) Check(ctx *rule.ProjectContext) {
-  // ctx.Sources is the tsconfig-selected user-source set, including an empty set.
-  // ctx.Checker is the Program checker, and ctx.Identity keeps logical and
-  // physical project paths separate.
+  // ctx.Sources is the user-source set the host read: the tsconfig file list
+  // plus every TypeScript source the Program reached through an import, and it
+  // may be empty. ctx.Checker is the Program checker, and ctx.Identity keeps
+  // logical and physical project paths separate.
   if cycle := findCycle(ctx.Sources, ctx.Checker); cycle != "" {
     ctx.Report(cycle)
   }

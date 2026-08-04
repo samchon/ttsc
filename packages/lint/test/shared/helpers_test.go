@@ -456,6 +456,50 @@ func seedLintProject(t *testing.T, source string) string {
   return seedLintProjectFile(t, "main.ts", source)
 }
 
+// seedLintSiblingSourceProject materializes a two-package workspace whose
+// consumer project imports a sibling package's TypeScript source, and returns
+// the consumer project root together with the sibling source path.
+//
+// This is the pnpm-workspace shape from samchon/ttsc#1065: a package publishes
+// `./src/index.ts` as its entry, so every workspace consumer resolves it to
+// first-party TypeScript. The consumer tsconfig selects its own file alone, so
+// the sibling can only enter the Program through the import — exactly the file
+// the type-check pass reads and the lint pass used to skip.
+//
+//  1. Write a consumer project whose `files` list names `src/main.ts` only.
+//  2. Write the sibling package's source outside that project directory.
+//  3. Return the consumer root and the absolute sibling source path.
+//
+// The consumer config sets `noEmit` rather than the usual rootDir/outDir pair:
+// an import that resolves above rootDir is a TS6059 emit error, which would
+// mask the lint-scope behavior every caller of this helper is asserting.
+func seedLintSiblingSourceProject(
+  t *testing.T,
+  consumerSource string,
+  siblingSource string,
+) (string, string) {
+  t.Helper()
+  workspace := t.TempDir()
+  consumer := filepath.Join(workspace, "consumer")
+  sibling := filepath.Join(workspace, "api", "src", "index.ts")
+  config, err := json.MarshalIndent(map[string]any{
+    "compilerOptions": map[string]any{
+      "target": "ES2022",
+      "module": "commonjs",
+      "strict": true,
+      "noEmit": true,
+    },
+    "files": []string{"src/main.ts"},
+  }, "", "  ")
+  if err != nil {
+    t.Fatalf("marshal tsconfig: %v", err)
+  }
+  writeFile(t, filepath.Join(consumer, "tsconfig.json"), string(config)+"\n")
+  writeFile(t, filepath.Join(consumer, "src", "main.ts"), consumerSource)
+  writeFile(t, sibling, siblingSource)
+  return consumer, sibling
+}
+
 // seedLintProjectFile is seedLintProject with a caller-selected source name.
 // Snapshot tests use it when the filename controls TypeScript's grammar, while
 // command-frontdoor tests keep the main.ts default above.

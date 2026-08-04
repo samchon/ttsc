@@ -7,18 +7,19 @@ import (
   "testing"
 )
 
-// TestUserSourceFilesFollowsTsconfigRoots verifies lint and format walk the
-// same source roots selected by tsconfig.
+// TestUserSourceFilesSpanProgramTypeScriptSources verifies the lint read scope
+// covers TypeScript the Program reached through an import.
 //
-// Program.SourceFiles can contain imported implementation files and JSON
-// modules that are not part of the root tsconfig file list. Benchmark parity
-// requires the host to use parsedConfig.fileNames as the boundary, while still
-// keeping user-authored declaration files selected by the project.
+// The tsconfig file list used to be the whole boundary, so a source that
+// entered the Program through an import was type-checked and never linted —
+// one invocation holding two views of one Program (samchon/ttsc#1065). The
+// widening is limited to authored TypeScript: a JSON module carries no lint
+// source, so it must stay out even though the Program reads it.
 //
 // 1. Materialize a tsconfig with TS, declaration, and JSON root files.
-// 2. Import an extra TS file that is not a tsconfig root.
-// 3. Assert userSourceFiles returns only TS/JS roots from parsedConfig.fileNames.
-func TestUserSourceFilesFollowsTsconfigRoots(t *testing.T) {
+// 2. Import an extra TS file and a JSON module that are not tsconfig roots.
+// 3. Assert the imported TS file joins the selected roots and the JSON does not.
+func TestUserSourceFilesSpanProgramTypeScriptSources(t *testing.T) {
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), `{
   "compilerOptions": {
@@ -59,7 +60,7 @@ func TestUserSourceFilesFollowsTsconfigRoots(t *testing.T) {
   }
   sort.Strings(names)
 
-  expected := []string{"src/root.d.ts", "src/root.ts"}
+  expected := []string{"src/extra.ts", "src/root.d.ts", "src/root.ts"}
   if !reflect.DeepEqual(names, expected) {
     t.Fatalf("userSourceFiles() = %v, want %v", names, expected)
   }
