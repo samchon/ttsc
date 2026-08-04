@@ -26,6 +26,11 @@ import (
 //     manifest of its own.
 //  2. Synthesize the loader tsconfig for a config in each.
 //  3. Assert every `module` matches what Node would conclude.
+//
+// The wildcard `types` entry is pinned alongside, as a regression guard rather
+// than a proof: deleting it costs the loader Program every ambient type package
+// TypeScript 7 would otherwise withhold, and the behaviour that depends on it is
+// proved end to end by the lint suite's `__dirname` case.
 func TestLoaderModuleOptionFollowsTheConfigPackageType(t *testing.T) {
   root := t.TempDir()
   for name, manifest := range map[string]string{
@@ -85,6 +90,9 @@ func TestLoaderModuleOptionFollowsTheConfigPackageType(t *testing.T) {
         parsed.CompilerOptions.Module,
         testCase.expect,
       )
+    }
+    if len(parsed.CompilerOptions.Types) != 1 || parsed.CompilerOptions.Types[0] != "*" {
+      t.Fatalf("%s: types = %#v, want [\"*\"]", testCase.label, parsed.CompilerOptions.Types)
     }
   }
 }

@@ -5,6 +5,7 @@ import path from "node:path";
 import { readProjectConfig } from "../../compiler/internal/project/readProjectConfig";
 import { resolveEmittedJavaScript } from "../../compiler/internal/resolveEmittedJavaScript";
 import { runBuild } from "../../compiler/internal/runBuild";
+import { createFilesystemPathIdentityContext } from "../../internal/projectInputPathIdentity";
 import type { TtscCommonOptions } from "../../structures/internal/TtscCommonOptions";
 import {
   type OwningModuleOptions,
@@ -333,26 +334,33 @@ function buildEntryProject(
 }
 
 /**
- * The nearest directory containing both `left` and `right`.
+ * The nearest directory containing both `left` and `right`, in the physical
+ * spelling both of them share.
  *
  * Containment is asked through the same filesystem-identity predicate the
- * runtime hooks use to consume this value, not through raw path arithmetic. The
- * project root arrives realpath-resolved while the entry does not, so on any
- * host where the two spellings differ — macOS `/var` against `/private/var`, a
- * Windows drive letter cased differently by `TEMP` than by the canonical path —
- * a textual comparison finds no shared ancestor and walks all the way to the
- * volume root, which is precisely the bound this function exists to avoid.
+ * runtime hooks use to consume this value, and the answer is resolved through
+ * it too. The project root arrives realpath-resolved while the entry does not,
+ * so on any host where the two spellings differ — macOS `/var` against
+ * `/private/var`, a Windows drive letter cased differently by `TEMP` than by
+ * the canonical path — a textual walk finds no shared ancestor and climbs to
+ * the volume root. Returning the entry's own spelling instead would satisfy the
+ * identity predicate while leaving tsgo, which takes `rootDir` verbatim, unable
+ * to place any sibling source under it.
  *
- * Falls back to `left` when there genuinely is no shared ancestor, as on two
- * different Windows volumes: the entry still has to compile, and a root that
- * contains the entry is the closest thing to correct available.
+ * Falls back to the entry's directory when there genuinely is no shared
+ * ancestor, as on two different Windows volumes: the entry still has to
+ * compile, and a root that contains it is the closest thing to correct
+ * available.
  */
 function commonAncestorDirectory(left: string, right: string): string {
-  const from = path.resolve(left);
-  const target = path.resolve(right);
+  const identities = createFilesystemPathIdentityContext({
+    throwOnRealpathError: false,
+  });
+  const from = identities.resolve(path.resolve(left)).path;
+  const target = identities.resolve(path.resolve(right)).path;
   let current = from;
   for (;;) {
-    if (isWithin(target, current)) {
+    if (identities.isWithin(current, target)) {
       return current;
     }
     const parent = path.dirname(current);

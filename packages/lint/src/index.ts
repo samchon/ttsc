@@ -2318,12 +2318,18 @@ function configModuleOption(configPath: string): string {
 function nearestPackageType(configPath: string): "commonjs" | "module" {
   let dir = path.dirname(path.resolve(configPath));
   for (;;) {
-    const manifestPath = path.join(dir, "package.json");
-    if (fs.existsSync(manifestPath)) {
+    // One read rather than a stat-then-read: an unreadable entry and a missing
+    // one are the same answer here — keep walking — and the Go loaders resolve
+    // it the same way, so the four implementations of this rule cannot drift.
+    let raw: string | undefined;
+    try {
+      raw = fs.readFileSync(path.join(dir, "package.json"), "utf8");
+    } catch {
+      raw = undefined;
+    }
+    if (raw !== undefined) {
       try {
-        const manifest: unknown = JSON.parse(
-          fs.readFileSync(manifestPath, "utf8"),
-        );
+        const manifest: unknown = JSON.parse(raw);
         const type =
           typeof manifest === "object" && manifest !== null
             ? (manifest as { type?: unknown }).type

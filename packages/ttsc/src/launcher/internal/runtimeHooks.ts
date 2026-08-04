@@ -2187,8 +2187,9 @@ function moduleFormat(
   // Everything that remains (es2015 … esnext, and `preserve`, which keeps the
   // authored ESM syntax verbatim whatever the package `type` says) is emitted
   // as ECMAScript modules. `amd`, `umd`, and `system` are not among them:
-  // TypeScript 7 removed all three, so a project declaring one never reaches
-  // emit and never reaches this classifier.
+  // TypeScript 7 removed all three, so a project declaring one cannot build,
+  // and a file it would have owned reaches the run through the orphan lane
+  // instead.
   return "module";
 }
 
