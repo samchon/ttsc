@@ -80,7 +80,8 @@ export async function waitFor(
   }
 }
 
-export function delay(ms: number): Promise<void> {
+/** Internal to `waitFor`; the timeout tests that imported it are gone. */
+function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
