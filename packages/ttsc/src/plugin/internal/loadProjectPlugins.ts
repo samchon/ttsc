@@ -735,10 +735,15 @@ function loadDescriptorViaTtsx(
       `// @ts-nocheck`,
       `import { writeFileSync } from "node:fs";`,
       `import { pathToFileURL } from "node:url";`,
-      `const mod = await import(pathToFileURL(process.env.TTSC_PLUGIN_ENTRY).href);`,
-      `const context = JSON.parse(process.env.TTSC_PLUGIN_CONTEXT);`,
-      `const candidate = mod.createTtscPlugin ?? mod.default ?? mod.plugin ?? mod;`,
+      // The import is inside the try, not above it. A descriptor that cannot be
+      // found, or whose module body throws, fails exactly where a descriptor
+      // whose factory throws does, and a caller deserves the same reason for
+      // both — "Cannot find module ./missing" is as actionable as anything the
+      // factory could have said.
       `try {`,
+      `  const mod = await import(pathToFileURL(process.env.TTSC_PLUGIN_ENTRY).href);`,
+      `  const context = JSON.parse(process.env.TTSC_PLUGIN_CONTEXT);`,
+      `  const candidate = mod.createTtscPlugin ?? mod.default ?? mod.plugin ?? mod;`,
       `  const descriptor =`,
       `    typeof candidate === "function" ? candidate(context) : candidate;`,
       `  writeFileSync(process.env.TTSC_PLUGIN_DESCRIPTOR_OUT, JSON.stringify(descriptor));`,

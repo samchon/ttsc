@@ -11,9 +11,11 @@ import path from "node:path";
  * must therefore preserve its cause without leaving loader artifacts; a
  * successful evaluator must clean up before later descriptor validation too.
  *
- * 1. Drive non-zero, missing, malformed, and successful results.
+ * 1. Drive non-zero, enveloped, foreign-result, missing, malformed, and successful
+ *    results.
  * 2. Assert each API result is distinct and its loader directory is removed.
- * 3. Assert the non-zero cause also reaches CLI and LSP startup unchanged.
+ * 3. Assert only a well-formed envelope becomes the failure reason.
+ * 4. Assert the non-zero cause also reaches CLI and LSP startup unchanged.
  */
 export const test_plugin_descriptor_failures_propagate_and_cleanup_ttsx_temp =
   (): void => {
@@ -65,6 +67,21 @@ export const test_plugin_descriptor_failures_propagate_and_cleanup_ttsx_temp =
         '  case "stdout-nonzero":',
         '    console.log("stdout-only descriptor failure");',
         "    process.exit(5);",
+        '  case "envelope":',
+        '    console.error("envelope stack line");',
+        "    fs.writeFileSync(",
+        "      process.env.TTSC_PLUGIN_DESCRIPTOR_OUT,",
+        '      JSON.stringify({ __ttscLoaderError: "  the descriptor said why  " }),',
+        '      "utf8",',
+        "    );",
+        "    process.exit(4);",
+        '  case "foreign-result":',
+        "    fs.writeFileSync(",
+        "      process.env.TTSC_PLUGIN_DESCRIPTOR_OUT,",
+        '      JSON.stringify({ name: "not-an-envelope", source: "./absent" }),',
+        '      "utf8",',
+        "    );",
+        "    process.exit(6);",
         '  case "missing":',
         "    process.exit(0);",
         '  case "malformed":',
@@ -119,6 +136,22 @@ export const test_plugin_descriptor_failures_propagate_and_cleanup_ttsx_temp =
         pattern: /stdout-only descriptor failure[\s\S]*failed with exit code 5/,
       },
       {
+        // A well-formed envelope is the loader's one way to hand the caller a
+        // reason it can act on, now that the child's output streams past this
+        // process instead of being collected out of it. The reason is trimmed
+        // and joined to the status on its own line.
+        mode: "envelope",
+        pattern: /failed with exit code 4\nthe descriptor said why\n/,
+      },
+      {
+        // The negative twin: a result file that parses but carries no envelope
+        // key is not a reason. Honouring it would let any descriptor output
+        // become the failure message.
+        absent: /not-an-envelope/,
+        mode: "foreign-result",
+        pattern: /failed with exit code 6/,
+      },
+      {
         mode: "missing",
         pattern: /produced no descriptor output/,
       },
@@ -141,6 +174,9 @@ export const test_plugin_descriptor_failures_propagate_and_cleanup_ttsx_temp =
       });
       assert.equal(result.status, 1, testCase.mode);
       assert.match(result.stderr, testCase.pattern, testCase.mode);
+      if ("absent" in testCase) {
+        assert.doesNotMatch(result.stderr, testCase.absent, testCase.mode);
+      }
       assertLoaderRemoved(
         path.join(root, `api-${testCase.mode}.txt`),
         testCase.mode,
