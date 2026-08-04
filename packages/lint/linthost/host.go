@@ -394,7 +394,7 @@ func (p *program) userSourceFiles() []*shimast.SourceFile {
 // This is the narrow half of the boundary above: `fix` and `format` write
 // files, and a project must not rewrite a sibling package's sources merely
 // because it imports them, so the write side stays inside this set even while
-// the read side reports beyond it. See projectOwnedFixableFindings.
+// the read side reports beyond it. See projectWritableFindings.
 func (p *program) projectSourceFileNames() map[string]struct{} {
   out := make(map[string]struct{})
   if p == nil || p.parsed == nil || p.parsed.ParsedConfig == nil {
@@ -408,16 +408,16 @@ func (p *program) projectSourceFileNames() map[string]struct{} {
   return out
 }
 
-// projectOwnedFixableFindings keeps the fixable findings whose file the project
-// itself selected, dropping every edit aimed at a source the Program reached
-// only through an import.
+// projectWritableFindings keeps the findings whose file this project may write:
+// the ones sitting in a tsconfig-selected source, dropping every edit aimed at a
+// source the Program reached only through an import.
 //
 // The read side reports on an imported first-party source so the diagnostic is
 // not silently lost, but applying its edit here would rewrite a file this
 // project does not own — the package that owns the file fixes it from its own
 // lint run, under its own config. A finding without a source file (a project
 // rule's detached report) never reaches disk either and is dropped with them.
-func (p *program) projectOwnedFixableFindings(findings []*Finding) []*Finding {
+func (p *program) projectWritableFindings(findings []*Finding) []*Finding {
   roots := p.projectSourceFileNames()
   out := make([]*Finding, 0, len(findings))
   for _, finding := range findings {

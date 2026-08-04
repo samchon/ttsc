@@ -89,7 +89,7 @@ func runFix(opts *subcommandOpts) int {
     // receive edits. The diagnostics for the rest still print below.
     fixed, err := applyFindingFixes(
       opts.cwd,
-      prog.projectOwnedFixableFindings(findings),
+      prog.projectWritableFindings(findings),
     )
     if err != nil {
       fmt.Fprintln(os.Stderr, err)

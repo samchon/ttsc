@@ -74,7 +74,7 @@ func runFormat(opts *subcommandOpts) int {
     // all: the project must not reformat a sibling package it merely imports.
     fixed, err := applyFindingFixes(
       opts.cwd,
-      filterFormatFindings(prog.projectOwnedFixableFindings(findings)),
+      filterFormatFindings(prog.projectWritableFindings(findings)),
     )
     if err != nil {
       fmt.Fprintln(os.Stderr, err)

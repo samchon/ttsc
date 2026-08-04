@@ -987,7 +987,7 @@ func lspWorkspaceEditForSeededCommand(
     // lint stays inside the tsconfig-selected set, here as in `fix` and
     // `format`.
     findings := filterFindingsForPath(
-      prog.projectOwnedFixableFindings(prog.runLintCycle(engine)),
+      prog.projectWritableFindings(prog.runLintCycle(engine)),
       tempTarget,
     )
     prog.close()
