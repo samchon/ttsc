@@ -301,7 +301,7 @@ func (p *program) runWriteScopedCycle(engine *Engine) []*Finding {
 // That memo makes the scope a property of the program, not of the call: the
 // first cycle fixes the population every later verb observes. One loaded
 // program therefore serves one scope, and a caller must not ask the same
-// program for both a lint cycle and a format cycle.
+// program for both a lint cycle and a write-scoped one.
 func (p *program) runCycleOver(engine *Engine, files []*shimast.SourceFile) []*Finding {
   if p == nil || engine == nil {
     return nil
