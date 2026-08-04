@@ -357,10 +357,16 @@ func loadStripTypeScriptConfigFile(location string) (any, error) {
 func stripTypeScriptLoaderTsconfig(loader, location, outDir string) string {
   content := map[string]any{
     "compilerOptions": map[string]any{
-      "allowImportingTsExtensions":      true,
-      "allowJs":                         true,
-      "checkJs":                         false,
-      "module":                          "ESNext",
+      "allowImportingTsExtensions": true,
+      "allowJs":                    true,
+      "checkJs":                    false,
+      // The config is a Node module, so Node's rule decides its format: the
+      // nearest package.json "type" above it. Hardcoding one answer ran every
+      // ambiguous `.ts` config as ESM and broke __dirname in an ordinary
+      // CommonJS package (#1069). moduleResolution stays "bundler", which tsgo
+      // accepts for both kinds, so extensionless relative imports keep
+      // resolving either way.
+      "module":                          stripConfigModuleOption(location),
       "moduleResolution":                "bundler",
       "noImplicitAny":                   false,
       "outDir":                          filepath.ToSlash(filepath.Join(outDir, "out")),
@@ -369,6 +375,12 @@ func stripTypeScriptLoaderTsconfig(loader, location, outDir string) string {
       "skipLibCheck":                    true,
       "strict":                          false,
       "target":                          "ES2022",
+      // TypeScript 7 includes no ambient type package unless "types" asks for
+      // it, and this Program extends nothing, so without the wildcard a config
+      // could not name a single Node global (#1069). The loader directory links
+      // the config's nearest node_modules, so the default typeRoots walk finds
+      // exactly what the project installed.
+      "types": []string{"*"},
     },
     "files": []string{
       filepath.ToSlash(loader),
@@ -380,6 +392,48 @@ func stripTypeScriptLoaderTsconfig(loader, location, outDir string) string {
     panic(err)
   }
   return string(body)
+}
+
+// stripConfigModuleOption returns the loader tsconfig's "module" for a config
+// file: the module kind Node itself would give that file.
+//
+// An explicit .cts/.cjs or .mts/.mjs extension already decides the emit format
+// on its own, so those keep the ES-module setting and let the extension win —
+// the same precedence tsgo applies. Everything ambiguous walks up for the
+// nearest package.json "type", exactly as Node does when it loads the file.
+func stripConfigModuleOption(location string) string {
+  switch strings.ToLower(filepath.Ext(location)) {
+  case ".ts", ".tsx", ".js":
+    if stripNearestPackageType(location) == "commonjs" {
+      return "CommonJS"
+    }
+  }
+  return "ESNext"
+}
+
+// stripNearestPackageType mirrors Node's own lookup for the nearest
+// package.json "type" at or above location: the first manifest carrying a
+// "type" string wins, an unreadable or "type"-less manifest keeps the walk
+// going, and reaching the filesystem root means CommonJS.
+func stripNearestPackageType(location string) string {
+  dir := filepath.Dir(location)
+  for {
+    if raw, err := os.ReadFile(filepath.Join(dir, "package.json")); err == nil {
+      var manifest struct {
+        Type string `json:"type"`
+      }
+      if json.Unmarshal(raw, &manifest) == nil {
+        if manifest.Type == "module" || manifest.Type == "commonjs" {
+          return manifest.Type
+        }
+      }
+    }
+    parent := filepath.Dir(dir)
+    if parent == dir {
+      return "commonjs"
+    }
+    dir = parent
+  }
 }
 
 // stripLoaderRootDir returns the widest rootDir that still contains the

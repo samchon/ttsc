@@ -6,6 +6,7 @@ import { readProjectConfig } from "../../compiler/internal/project/readProjectCo
 import { resolveEmittedJavaScript } from "../../compiler/internal/resolveEmittedJavaScript";
 import { runBuild } from "../../compiler/internal/runBuild";
 import type { TtscCommonOptions } from "../../structures/internal/TtscCommonOptions";
+import type { OwningModuleOptions } from "./runtimeHooks";
 
 /** Subdirectory name that isolates concurrent ttsx processes by PID. */
 const PROCESS_CACHE_KEY = String(process.pid);
@@ -16,6 +17,12 @@ const PROCESS_CACHE_KEY = String(process.pid);
  * resolve correctly without reaching an unsafe boundary.
  */
 const MAX_VIRTUAL_PARENT_DEPTH = 3;
+/**
+ * Emit directory of the entry-only fallback build, a sibling of the virtual
+ * layout's volume-label directories so it can never collide with a mirrored
+ * project path.
+ */
+const ENTRY_PROJECT_EMIT_DIR = "entry-project";
 
 /** Build the owning project and locate the emitted JavaScript entry for `ttsx`. */
 export function prepareExecution(
@@ -29,7 +36,7 @@ export function prepareExecution(
   emitDir: string;
   emittedFiles?: readonly string[];
   entryFile: string;
-  moduleOption?: string;
+  moduleOptions: OwningModuleOptions;
   projectRoot: string;
   rootDir: string;
 } {
@@ -40,12 +47,24 @@ export function prepareExecution(
   );
   try {
     buildProject(context, options);
-    const emittedEntry = resolveEmittedJavaScript({
+    // `projectRoot` here is the source root the emit mirrors, not the directory
+    // holding the tsconfig: tsgo strips that prefix, and the runtime hooks look
+    // the entry up against exactly the same root.
+    let emittedEntry = resolveEmittedJavaScript({
       emittedFiles: context.emittedFiles ?? undefined,
       outDir: context.emitDir,
-      projectRoot: context.root,
+      projectRoot: context.runtimeRootDir,
       sourceFile: entryFile,
     });
+    if (emittedEntry === null) {
+      buildEntryProject(context, options, entryFile);
+      emittedEntry = resolveEmittedJavaScript({
+        emittedFiles: context.emittedFiles ?? undefined,
+        outDir: context.emitDir,
+        projectRoot: context.runtimeRootDir,
+        sourceFile: entryFile,
+      });
+    }
     if (emittedEntry === null) {
       throw new Error(`ttsx: emitted entry not found for ${entryFile}`);
     }
@@ -54,7 +73,7 @@ export function prepareExecution(
       emitDir: context.emitDir,
       emittedFiles: context.emittedFiles ?? undefined,
       entryFile: emittedEntry,
-      moduleOption: context.moduleOption,
+      moduleOptions: context.moduleOptions,
       projectRoot: context.root,
       rootDir: context.runtimeRootDir,
     };
@@ -101,12 +120,12 @@ function createProjectContext(
     // map a source `.ts` back to its emitted `.js` when the runtime hooks serve
     // the built entry under its source URL.
     runtimeRootDir: resolveRuntimeSourceRoot(project, filename),
-    // The tsconfig `module` option, so the runtime hooks classify each served
-    // file's format the same way tsgo chose when emitting it.
-    moduleOption:
-      typeof project.compilerOptions.module === "string"
-        ? project.compilerOptions.module
-        : undefined,
+    // The tsconfig options that decide the emit format, so the runtime hooks
+    // classify each served file the same way tsgo chose when emitting it.
+    // `target` belongs here as much as `module` does: with `module` absent tsgo
+    // derives the module kind from `target`, so publishing only `module` makes
+    // the hooks guess.
+    moduleOptions: emitModuleOptions(project),
     // Force a source map on the transient runtime emit only when the project
     // configures none — when it already emits `sourceMap` or `inlineSourceMap`,
     // the serve path inlines/absolutizes that map, so no override is needed
@@ -116,6 +135,24 @@ function createProjectContext(
       project.compilerOptions.inlineSourceMap !== true,
     built: false,
     emittedFiles: undefined as string[] | undefined,
+  };
+}
+
+/**
+ * The pair of compiler options that decides a file's emit format. Kept together
+ * because tsgo's own rule needs both: `module` when it is declared, and the
+ * kind implied by `target` when it is not.
+ */
+function emitModuleOptions(
+  project: ReturnType<typeof readProjectConfig>,
+): OwningModuleOptions {
+  return {
+    ...(typeof project.compilerOptions.module === "string"
+      ? { module: project.compilerOptions.module }
+      : {}),
+    ...(typeof project.compilerOptions.target === "string"
+      ? { target: project.compilerOptions.target }
+      : {}),
   };
 }
 
@@ -182,6 +219,112 @@ function buildProject(
     .filter((line) => line.trim().length !== 0)
     .join("\n");
   throw new Error(detail);
+}
+
+/**
+ * Build an entry the owning project's file set does not contain.
+ *
+ * `ttsc` selects a _file set_: a project whose `include` is `src` must emit
+ * only `src` into `outDir`, and a `clear.ts`, a `build/release.ts`, or a
+ * `lint.config.ts` beside the tsconfig has no business in `lib`. `ttsx` selects
+ * an _entry_: it needs that same project's compiler options, not its file list.
+ * Those two requirements are not in conflict, but the whole-project build
+ * cannot satisfy the second one, so an entry it did not emit is compiled here
+ * through a project that inherits every option and declares only the entry.
+ *
+ * The synthesized tsconfig is written beside the real one on purpose. `extends`
+ * with an absolute path would resolve from anywhere, but `${configDir}` and
+ * `paths` are anchored to the directory of the config that consumes them, so
+ * any other location silently retargets them. It is removed as soon as the
+ * build returns.
+ *
+ * `rootDir` becomes the entry's volume root — the same widest-containing root
+ * the config loaders use — because the entry and everything it imports have no
+ * other guaranteed common ancestor. The runtime manifest is repointed at this
+ * build, since its program is exactly the set of files the run executes.
+ */
+function buildEntryProject(
+  context: ReturnType<typeof createProjectContext>,
+  options: NonNullable<Parameters<typeof prepareExecution>[1]>,
+  entryFile: string,
+): void {
+  const entry = path.resolve(entryFile);
+  const rootDir = path.parse(entry).root.replace(/\\/g, "/");
+  const tsconfig = path.join(
+    context.root,
+    `.ttsx-entry.${PROCESS_CACHE_KEY}.tsconfig.json`,
+  );
+  fs.writeFileSync(
+    tsconfig,
+    JSON.stringify(
+      {
+        extends: context.tsconfig.replace(/\\/g, "/"),
+        compilerOptions: { rootDir },
+        // `files` alone does not displace an inherited `include`, and an
+        // inherited `exclude` could drop the entry back out of the program, so
+        // both are overridden explicitly.
+        files: [entry.replace(/\\/g, "/")],
+        include: [],
+        exclude: [],
+      },
+      null,
+      2,
+    ),
+    "utf8",
+  );
+  try {
+    const project = readProjectConfig({
+      cwd: context.root,
+      projectRoot: options.projectRoot,
+      tsconfig,
+    });
+    const emitDir = path.join(context.virtualRoot, ENTRY_PROJECT_EMIT_DIR);
+    fs.mkdirSync(emitDir, { recursive: true });
+    const result = runBuild({
+      binary: options.binary,
+      checkers: options.checkers,
+      cwd: context.root,
+      emit: true,
+      env: options.env,
+      forceListEmittedFiles: true,
+      cacheDir: context.pluginCacheDir,
+      outDir: emitDir,
+      passthrough: options.passthrough,
+      forceRuntimeSourceMap: context.forceRuntimeSourceMap,
+      pluginConfigDir: options.pluginConfigDir,
+      plugins: options.plugins,
+      quiet: true,
+      resolvedProject: project,
+      singleThreaded: options.singleThreaded,
+      tsconfig,
+    });
+    if (result.status !== 0) {
+      removeRuntimeOutput(context.processDir);
+      throw new Error(
+        [
+          `ttsx: entry check failed for ${entry}`,
+          result.stderr || result.stdout,
+        ]
+          .filter((line) => line.trim().length !== 0)
+          .join("\n"),
+      );
+    }
+    context.emitDir = emitDir;
+    context.runtimeRootDir = rootDir;
+    context.moduleOptions = emitModuleOptions(project);
+    context.emittedFiles =
+      result.emittedFiles && result.emittedFiles.length !== 0
+        ? result.emittedFiles
+        : undefined;
+  } finally {
+    try {
+      fs.rmSync(tsconfig, { force: true });
+    } catch {
+      // Best effort: a leftover synthesized tsconfig must not mask a build
+      // failure, and it is PID-scoped so it can never be mistaken for a real
+      // project config.
+    }
+  }
 }
 
 function removeRuntimeOutput(directory: string): void {

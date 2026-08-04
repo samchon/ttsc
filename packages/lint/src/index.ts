@@ -1702,7 +1702,13 @@ function evaluateTtsxConfigPlugins(
             allowImportingTsExtensions: true,
             allowJs: true,
             checkJs: false,
-            module: "ESNext",
+            // The config is a Node module, so Node's rule decides its format:
+            // the nearest `package.json` `type` above it. Hardcoding one answer
+            // ran every ambiguous `.ts` config as ESM and broke `__dirname` in
+            // an ordinary CommonJS package (#1068). `moduleResolution` stays
+            // `bundler`, which tsgo accepts for both kinds, so extensionless
+            // relative imports keep resolving either way.
+            module: configModuleOption(configPath),
             moduleResolution: "bundler",
             noImplicitAny: false,
             outDir: path.join(tempDir, "out").replace(/\\/g, "/"),
@@ -1711,6 +1717,12 @@ function evaluateTtsxConfigPlugins(
             skipLibCheck: true,
             strict: false,
             target: "ES2022",
+            // TypeScript 7 includes no ambient type package unless `types` asks
+            // for it, and this Program extends nothing, so without the wildcard
+            // a config could not name a single Node global (#1068). The loader
+            // directory links the config's nearest `node_modules`, so the
+            // default `typeRoots` walk finds exactly what the project installed.
+            types: ["*"],
           },
           files: [
             loaderPath.replace(/\\/g, "/"),
@@ -2264,6 +2276,55 @@ function findNearestNodeModules(start: string): string | undefined {
     }
     const parent = path.dirname(dir);
     if (parent === dir) return undefined;
+    dir = parent;
+  }
+}
+
+/**
+ * The loader tsconfig's `module` for a given config file: the module kind Node
+ * would give the file itself.
+ *
+ * An explicit `.cts`/`.cjs` or `.mts`/`.mjs` extension already decides the emit
+ * format on its own, so those keep the ES-module setting and let the extension
+ * win — the same precedence tsgo applies. Everything ambiguous walks up for the
+ * nearest `package.json` `type`, exactly as Node does when it loads the file.
+ */
+function configModuleOption(configPath: string): string {
+  const extension = path.extname(configPath).toLowerCase();
+  if (extension !== ".ts" && extension !== ".tsx" && extension !== ".js") {
+    return "ESNext";
+  }
+  return nearestPackageType(configPath) === "commonjs" ? "CommonJS" : "ESNext";
+}
+
+/**
+ * Nearest `package.json` `"type"` at or above `configPath`, mirroring Node's
+ * own lookup: the first manifest with a `"type"` string wins, an unreadable or
+ * `"type"`-less manifest keeps the walk going, and reaching the filesystem root
+ * means CommonJS.
+ */
+function nearestPackageType(configPath: string): "commonjs" | "module" {
+  let dir = path.dirname(path.resolve(configPath));
+  for (;;) {
+    try {
+      const manifest: unknown = JSON.parse(
+        fs.readFileSync(path.join(dir, "package.json"), "utf8"),
+      );
+      const type =
+        typeof manifest === "object" && manifest !== null
+          ? (manifest as { type?: unknown }).type
+          : undefined;
+      if (type === "module" || type === "commonjs") {
+        return type;
+      }
+    } catch {
+      // No manifest here, or an unreadable one: Node keeps walking up, and a
+      // malformed manifest must not decide the format by accident.
+    }
+    const parent = path.dirname(dir);
+    if (parent === dir) {
+      return "commonjs";
+    }
     dir = parent;
   }
 }
