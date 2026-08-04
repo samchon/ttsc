@@ -30,11 +30,11 @@ func (r importedSourcePopulationRule) Check(ctx *publicrule.ProjectContext) {
 // TestProjectRuleSourcesIncludeImportedSiblingSource verifies a project rule
 // receives the sibling workspace source the Program read.
 //
-// A project rule that declares a population by glob — a coverage claim rooted
-// at `../api`, say — used to receive an empty population once that sibling was
-// reached by import rather than by `include`. An empty population demands
-// nothing, so the claim reported full coverage while checking nothing: a silent
-// pass, which is what made the gap costly (samchon/ttsc#1065).
+// A project rule that selects its population by glob used to receive an empty
+// one whenever the files it named were reached by import rather than by the
+// tsconfig selection. An empty population demands nothing, so such a rule
+// passed while checking nothing: a silent pass, which is what made the gap
+// costly (samchon/ttsc#1065).
 //
 // 1. Register a project rule that records every ctx.Sources basename.
 // 2. Evaluate one project cycle over a consumer importing a sibling source.

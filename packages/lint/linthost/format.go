@@ -70,7 +70,7 @@ func runFormat(opts *subcommandOpts) int {
   for pass := 0; pass < maxFormatPasses; pass++ {
     // Format's cycle stays inside the project's own sources, so every finding
     // it sees is one it may write.
-    findings := prog.runFormatCycle(engine)
+    findings := prog.runWriteScopedCycle(engine)
     fixed, err := applyFindingFixes(opts.cwd, filterFormatFindings(findings))
     if err != nil {
       fmt.Fprintln(os.Stderr, err)

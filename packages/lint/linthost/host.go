@@ -281,14 +281,16 @@ func (p *program) runLintCycle(engine *Engine) []*Finding {
   return p.runCycleOver(engine, p.userSourceFiles())
 }
 
-// runFormatCycle walks the project's own sources alone.
+// runWriteScopedCycle walks the project's own sources alone. It serves the
+// commands that edit files and report nothing: `format` and the LSP document
+// fix and format verbs.
 //
-// Format is write-only: it prints nothing and it must not rewrite a sibling
-// package it merely imports, so a finding outside the project has nowhere to
-// go. Reading wider would spend a full walk, once per cascade pass, on findings
-// the command discards. Scope is enforced by what format reads rather than by
-// filtering afterwards.
-func (p *program) runFormatCycle(engine *Engine) []*Finding {
+// Such a command must not rewrite a sibling package it merely imports, and it
+// prints no diagnostic, so a finding outside the project has nowhere to go.
+// Reading wider would spend a full walk, once per cascade pass, on findings the
+// command discards. Scope is enforced by what these commands read rather than
+// by filtering afterwards, which leaves projectWritableFindings to `fix` alone.
+func (p *program) runWriteScopedCycle(engine *Engine) []*Finding {
   return p.runCycleOver(engine, p.projectSourceFiles())
 }
 
