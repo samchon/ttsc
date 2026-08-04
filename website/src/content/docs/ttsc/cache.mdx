@@ -14,7 +14,7 @@ Both are build outputs, not inputs. Deleting the cache is always safe. The next 
 
 A cached binary is reused only when a key computed from the build inputs matches exactly. Those inputs include the `ttsc` version, the resolved `typescript` version, `platform/arch`, the Go toolchain's content, the effective Go build environment, and the plugin's own source bytes. [Architecture → Cache Key Inputs](/docs/development/reference/architecture#cache-key-inputs) lists all nine in order.
 
-This has a consequence worth stating before any of the CI recipes below: **the key you give `actions/cache` affects your hit rate, never your correctness.** A restored cache that does not match misses on the internal key and rebuilds. A cache keyed too narrowly costs you a rebuild you did not need; one keyed too broadly costs you a rebuild you did not avoid. Neither can hand you a binary built from different inputs than the ones you are building with.
+**The key you give `actions/cache` affects your hit rate, never your correctness.** A restored cache that does not match misses on the internal key and rebuilds. A cache keyed too narrowly costs you a rebuild you did not need; one keyed too broadly costs you a rebuild you did not avoid. Neither can hand you a binary built from different inputs than the ones you are building with.
 
 ### It is specific to OS and architecture
 
@@ -62,13 +62,19 @@ jobs:
       - run: npm run build
 ```
 
+### Which paths to persist
+
+One path is usually enough, because the Go object cache nests under the cache root by default. It is not always enough: `TTSC_GO_CACHE_DIR`, or a user `GOCACHE` when that variable is unset, can put the object cache outside the root, and then a single cached directory silently leaves it behind.
+
+`npx ttsc cache paths --json` settles it. The `cacheableRoots` array is the minimal set a CI cache must persist under any layout, and it carries the Go object cache as a second entry whenever that cache sits outside the root. Read the paths from that command rather than hardcoding them. This works the same for npm, pnpm, yarn, and bun, and for workspaces under any of them.
+
 ### Why the cache step goes after the install
 
 `npm ci` removes `node_modules` before it installs, and `.cache` lives inside it. The conventional workflow shape puts cache restore above install, which means the restore lands and the install immediately deletes it.
 
 Nothing errors when that happens. `ttsc prepare` cold-builds, the post step saves an entry identical to the one that was just discarded, and every run pays the full compile while the logs look healthy. Read [Confirm the cache is working](#confirm-the-cache-is-working) rather than assuming a cache step is enough.
 
-`pnpm` and `yarn` reconcile `node_modules` in place instead of deleting it, so the ordering is less load-bearing there. Placing the cache step after the install works under every package manager, which makes it the shape worth memorizing.
+`npm ci` is the documented case, and other package managers may reconcile `node_modules` in place rather than deleting it. Rather than track which does what, put the cache step after the install in every workflow. That ordering is correct under all of them.
 
 ### Key the cache correctly
 
@@ -97,44 +103,33 @@ env:
   TTSC_CACHE_DIR: .ttsc-cache
 ```
 
-Then cache `.ttsc-cache`. One path covers both the plugin binaries and the Go object cache. Point it at a directory dedicated to `ttsc`: `ttsc` owns everything under that root, and `ttsc clean` removes its `plugins/` and `go-build/` there, so a shared location such as `~/.cache` is the wrong target.
+Then cache `.ttsc-cache`. That one path covers both the plugin binaries and the Go object cache, because the object cache nests under the root by default. Point it at a directory dedicated to `ttsc`: `ttsc` owns everything under that root, and `ttsc clean` removes its `plugins/` and `go-build/` there, so a shared location such as `~/.cache` is the wrong target.
 
 Relocating costs you automatic cleanup. `ttsc` prunes entries unused for 30 days and trims by least-recently-used order past a size budget, but only for the default project-local cache. A root named explicitly through `TTSC_CACHE_DIR` or `--cache-dir` is never garbage collected, on the assumption that a caller who named a path owns it. With `restore-keys` accumulating entries across dependency bumps, bound it yourself: drop `restore-keys`, or run `npx ttsc clean` before the save.
-
-`npx ttsc cache paths --json` reports a `cacheableRoots` array under either layout, which is the minimal set of directories a CI cache has to persist. Use it instead of hardcoding paths.
 
 ### pnpm
 
 The same shape, with the lockfile and the install command swapped:
 
 ```yaml
-      - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - uses: actions/cache@v4
-        with:
-          path: node_modules/.cache/ttsc
-          key: ${{ runner.os }}-${{ runner.arch }}-ttsc-${{ hashFiles('pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-${{ runner.arch }}-ttsc-
-      - run: pnpm exec ttsc prepare
-      - run: pnpm run build
+steps:
+  - uses: pnpm/action-setup@v6
+  - uses: actions/setup-node@v7
+    with:
+      node-version: 24
+      cache: pnpm
+  - run: pnpm install --frozen-lockfile
+  - uses: actions/cache@v4
+    with:
+      path: node_modules/.cache/ttsc
+      key: ${{ runner.os }}-${{ runner.arch }}-ttsc-${{ hashFiles('pnpm-lock.yaml') }}
+      restore-keys: |
+        ${{ runner.os }}-${{ runner.arch }}-ttsc-
+  - run: pnpm exec ttsc prepare
+  - run: pnpm run build
 ```
 
 In a pnpm workspace the cache root resolves to the workspace root's `node_modules`, so one entry covers every package. Run `ttsc prepare` from the project directory the build actually uses, so the warmed binary matches the key that build looks up.
-
-### Confirm the cache is working
-
-A cache that never hits is indistinguishable from one that works, unless you look. On a cold build `ttsc` prints:
-
-```text
-ttsc: building source plugin ... this runs once per cache key
-```
-
-On the second run of an unchanged workflow that line must be absent. If it appears every time, the cache is restoring nothing useful: check that the cache step runs after the install, that the key includes `runner.arch`, and that the path matches what `npx ttsc cache paths --json` reports.
 
 ## Containers
 
@@ -168,6 +163,18 @@ On GitHub Actions, `docker/build-push-action` reaches the same registry-backed c
     cache-from: type=gha
     cache-to: type=gha,mode=max
 ```
+
+## Confirm the cache is working
+
+A cache that never hits is indistinguishable from one that works, unless you look. On a cold build `ttsc` prints:
+
+```text
+ttsc: building source plugin ... this runs once per cache key
+```
+
+On the second run of an unchanged workflow, or the second build of an unchanged image, that line must be absent. If it appears every time, the cache is restoring nothing useful.
+
+In CI, check that the cache step runs after the install, that the key includes `runner.arch`, and that the persisted paths match what `npx ttsc cache paths --json` reports. In a container build, check that the builder has a cache that outlives the build at all, and that `cache-to` is set to `mode=max` so the `ttsc prepare` layer is exported rather than only the final one.
 
 ## See also
 
