@@ -15,8 +15,14 @@ import path from "node:path";
  * demand an emit for the entry from the whole-project build and abort with
  * "emitted entry not found", so no project script was runnable at all.
  *
- * 1. Create the ordinary layout: `src/**` plus `clear.ts`, `build/release.ts`, and
- *    `lint.config.ts` outside a `rootDir`/`include` of `src`.
+ * `src/release.ts` shares the entry's stem on purpose. Emitted-file lookup
+ * falls back to matching trailing path segments, so without an ownership guard
+ * the whole-project build's `release.js` answers for `build/release.ts` and
+ * ttsx runs the wrong file — a failure that reports nothing at all.
+ *
+ * 1. Create the ordinary layout: `src/**` — including a same-stem `src/release.ts`
+ *    — plus `clear.ts`, `build/release.ts`, and `lint.config.ts` outside a
+ *    `rootDir`/`include` of `src`.
  * 2. Run ttsc, then run ttsx against each out-of-`include` entry.
  * 3. Assert every entry ran, that `lib` still holds only the `src` emit, and that
  *    no synthesized tsconfig was left behind.
@@ -39,6 +45,9 @@ export const test_ttsx_runs_an_entry_the_project_include_excludes = () => {
       include: ["src"],
     }),
     "src/index.ts": `export const hello = (): string => "world";\n`,
+    // Same stem as `build/release.ts`, and the only file the project emits
+    // under that name. It is what a lookup that guesses would return.
+    "src/release.ts": `console.log("compiled-into-lib");\n`,
     "clear.ts": `console.log("cleared");\n`,
     "build/release.ts": `console.log("released");\n`,
     "lint.config.ts": `export default { files: ["src/**/*.ts"], rules: {} };\n`,
@@ -50,7 +59,10 @@ export const test_ttsx_runs_an_entry_the_project_include_excludes = () => {
     { cwd: root },
   );
   assert.equal(compiled.status, 0, compiled.stderr);
-  assert.deepEqual(fs.readdirSync(path.join(root, "lib")).sort(), ["index.js"]);
+  assert.deepEqual(fs.readdirSync(path.join(root, "lib")).sort(), [
+    "index.js",
+    "release.js",
+  ]);
 
   for (const [entry, expected] of [
     ["clear.ts", "cleared"],
@@ -65,7 +77,10 @@ export const test_ttsx_runs_an_entry_the_project_include_excludes = () => {
     assert.equal(result.stdout.trim(), expected);
   }
 
-  assert.deepEqual(fs.readdirSync(path.join(root, "lib")).sort(), ["index.js"]);
+  assert.deepEqual(fs.readdirSync(path.join(root, "lib")).sort(), [
+    "index.js",
+    "release.js",
+  ]);
   assert.deepEqual(
     fs.readdirSync(root).filter((name) => name.startsWith(".ttsx-entry")),
     [],

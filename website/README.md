@@ -67,6 +67,6 @@ The playground keeps typia's worker-boundary architecture (tgrid `WorkerConnecto
 2. **`public/compiler/wasm_exec.js`**: Go's bootstrap shim, copied from `@ttsc/wasm`.
 3. **`public/compiler/index.js`**: the rspack-bundled Web Worker from `src/compiler/index.ts`, which wires the site's URL conventions and the typia source pack into `createWorkerCompiler` from `@ttsc/playground`.
 
-The Typia source-pack mount has a 30-second deadline covering the response and JSON body. Concurrent loads share one request; a timeout, caller abort, or other rejection evicts that request so the next compiler request can fetch a fresh copy without starting another WASM runtime.
+The Typia source-pack mount has no deadline over the response or JSON body; the network decides how long they take. Concurrent loads share one request; a caller abort or other rejection evicts that request so the next compiler request can fetch a fresh copy without starting another WASM runtime.
 
 `build/typia-types.cjs` packs typia's declaration sources into `src/compiler/typia-types.json` so Monaco's `addExtraLib` sees the same type surface the compiler does.

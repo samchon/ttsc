@@ -7,7 +7,10 @@ import os from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
-import { configEvaluatorProcessFailure } from "./internal/configEvaluatorFailure";
+import {
+  configEvaluatorFailureReason,
+  configEvaluatorProcessFailure,
+} from "./internal/configEvaluatorFailure";
 import type { ITtscLintPlugin, ITtscLintPluginConfig } from "./structures";
 
 export * from "./defaultFormat";
@@ -2503,26 +2506,5 @@ function removeEvaluationTempDir(directory: string): void {
     fs.rmSync(directory, { force: true, recursive: true });
   } catch {
     // Best effort.
-  }
-}
-
-/**
- * Read the failure envelope the extractor writes to its result file when it
- * stops on an error it can name.
- *
- * Only a well-formed envelope is honoured. A real evaluation payload never
- * carries this key, and anything else — an absent file, a build that failed
- * before the loader ran, a half-written result — leaves the process status to
- * speak for itself.
- */
-function configEvaluatorFailureReason(outputPath: string): string {
-  try {
-    const parsed: unknown = JSON.parse(fs.readFileSync(outputPath, "utf8"));
-    if (typeof parsed !== "object" || parsed === null) return "";
-    const message = (parsed as { __ttscLoaderError?: unknown })
-      .__ttscLoaderError;
-    return typeof message === "string" ? message.trim() : "";
-  } catch {
-    return "";
   }
 }

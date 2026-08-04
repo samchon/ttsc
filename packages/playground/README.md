@@ -101,7 +101,7 @@ export default function SitePlayground() {
 }
 ```
 
-`sandbox.signal` aborts when source or compiler options change, another Execute starts, or the shell unmounts. Pass it to setup work such as `loadTypiaRuntimePack(url, { signal: sandbox.signal })`. Runtime-pack loads default to a 30-second deadline, share one request per URL, and evict a rejected request so the next Execute retries. A signal cannot preempt synchronous evaluated user code; use an isolated executor with its own termination mechanism when that boundary matters.
+`sandbox.signal` aborts when source or compiler options change, another Execute starts, or the shell unmounts. Pass it to setup work such as `loadTypiaRuntimePack(url, { signal: sandbox.signal })`. Runtime-pack loads share one request per URL and evict a rejected request so the next Execute retries. Nothing else ends the load: how long a fetch takes belongs to the network, not to a number chosen here. A signal cannot preempt synchronous evaluated user code; use an isolated executor with its own termination mechanism when that boundary matters.
 
 ## Typia integration (optional)
 
@@ -128,7 +128,7 @@ const service = createWorkerCompiler({
 
 The typia pack itself is built by the site (typically with a `pack-typia-sources.cjs`-style script that bundles `typia/`, `@typia/utils`, and `@typia/interface` into a flat JSON map). See the ttsc website's [`build/pack-typia-sources.cjs`](https://github.com/samchon/ttsc/blob/master/website/build/pack-typia-sources.cjs) for the reference implementation.
 
-Source-pack loads have a 30-second default deadline covering both the fetch and JSON body read. Calls for one URL share a single in-flight request; any caller's `signal` or deadline cancels that shared attempt, and a rejected attempt is evicted so the next compiler request retries the mount without starting another WASM runtime. Override the policy with `createTypiaSourcePackMount({ url, signal, timeoutMs })`.
+Calls for one URL share a single in-flight request; any caller's `signal` cancels that shared attempt, and a rejected attempt is evicted so the next compiler request retries the mount without starting another WASM runtime. There is no deadline over the fetch or the JSON body read — the network decides how long it takes. Pass the policy with `createTypiaSourcePackMount({ url, signal })`.
 
 ## Runtime npm dependency installer
 

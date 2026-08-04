@@ -105,7 +105,6 @@ const { api, host } = await bootTtsc({
   wasmUrl: "/your.wasm",
   apiName: "yourApi",
   signal: controller.signal,
-  timeoutMs: 60_000,
 });
 
 host.writeFile("/work/tsconfig.json", '{"compilerOptions":{"strict":true}}');
@@ -115,7 +114,7 @@ const result = await api.build({ cwd: "/work" });
 console.log(result.result); // JSON: { diagnostics, output }
 ```
 
-`timeoutMs` defaults to 60 seconds and covers serialization behind an earlier boot, fetch, instantiation, and the Go readiness signal. A caller abort or deadline cancels the shared in-flight boot. Failures before `go.run` clear cache and callback state so a later call can retry. `importScripts` is synchronous, so cancellation is observed immediately before and after that call but cannot interrupt the script while it evaluates.
+There is no boot deadline. How long a fetch and instantiation take belongs to the network and the machine, not to a number chosen here, and a boot cancelled on that number is a failure the page cannot retry into success. A caller abort cancels the shared in-flight boot; aborting any caller that joined the same boot cancels that shared attempt. Failures before `go.run` clear cache and callback state so a later call can retry. `importScripts` is synchronous, so cancellation is observed immediately before and after that call but cannot interrupt the script while it evaluates.
 
 Once `go.run` starts, JavaScript cannot terminate the Go wasm runtime. A boot failure from that point throws `BootTtscWorkerTerminationError` with code `TTSC_WASM_WORKER_TERMINATION_REQUIRED`, and later boots for the same `apiName` reject without installing another readiness bridge. Terminate and replace that Worker before retrying.
 

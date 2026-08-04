@@ -2057,7 +2057,7 @@ const hooks = registerHooks({
   // the result file either way, so a failure reason travels as data rather than
   // as text scraped back out of a captured stream.
   try {
-    fs.writeFileSync(outputPath, JSON.stringify({ error: error && error.message ? String(error.message) : String(error) }), "utf8");
+    fs.writeFileSync(outputPath, JSON.stringify({ __ttscLoaderError: error && error.message ? String(error.message) : String(error) }), "utf8");
   } catch {}
   process.exit(1);
 });
@@ -3249,7 +3249,7 @@ const hooks = registerHooks({
     // rather than as text scraped back out of a captured stream. A write that
     // itself fails leaves the process status to speak.
     try {
-      fs.writeFileSync(outputPath, JSON.stringify({ error: error instanceof Error ? error.message : String(error) }), "utf8");
+      fs.writeFileSync(outputPath, JSON.stringify({ __ttscLoaderError: error instanceof Error ? error.message : String(error) }), "utf8");
     } catch {}
     process.exit(1);
   } finally {
@@ -4793,13 +4793,18 @@ func (c RuleConfig) Severity(name string) Severity {
 // object" — is a fact about the user's config, and a caller deserves it in the
 // error rather than having to go find it in the log. Only a well-formed
 // envelope is honoured; anything else leaves the process status to speak.
+//
+// The key is `__ttscLoaderError` — the same spelling every other ttsc loader
+// writes, and namespaced so it cannot collide with a payload field. This file
+// spends "error" on rule severity, which is exactly the confusion a shared,
+// prefixed key avoids.
 func loaderFailureReason(outputPath string) string {
   raw, err := os.ReadFile(outputPath)
   if err != nil {
     return ""
   }
   var envelope struct {
-    Error string `json:"error"`
+    Error string `json:"__ttscLoaderError"`
   }
   if json.Unmarshal(raw, &envelope) != nil {
     return ""

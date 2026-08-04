@@ -2165,9 +2165,9 @@ function moduleFormat(
     return nearestPackageType(filename);
   }
   // A package that states its `type` outright decides for the files inside it
-  // whatever the module kind is. tsgo reads that manifest field only for paths
-  // under `node_modules`, so this is where a source-shipping dependency's own
-  // declaration overrides the compiling project's `module`.
+  // whatever the module kind is. This is where a source-shipping dependency's
+  // own declaration overrides the compiling project's `module`; see
+  // `declaredNodeModulesPackageType` for why `node_modules` bounds it.
   const declared = declaredNodeModulesPackageType(filename);
   if (declared !== null) {
     return declared;
@@ -2204,7 +2204,8 @@ function moduleFormat(
  *
  * Outside `node_modules` that field is empty for every module kind this
  * override can change. `loadSourceFileMetaData` does fill it elsewhere — for a
- * file with no explicit extension whose project sets `moduleResolution` to the
+ * file whose extension does not itself state the format (anything but `.mts`,
+ * `.cts`, `.mjs`, `.cjs`) whose project sets `moduleResolution` to the
  * `node16`…`nodenext` family — but `program.go` rejects that resolution unless
  * `module` is in the same family, and for a `node*` `module` the package `type`
  * is already the whole answer, which the caller's own `node*` branch produces.

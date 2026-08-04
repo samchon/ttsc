@@ -824,9 +824,9 @@ func (s *NativePluginSource) runWithStdin(plugin NativeLSPPluginEntry, command s
     return nil, fmt.Errorf("ttscserver: %s has no binary", pluginLabel(plugin))
   }
   // No deadline: the command is running the user's own rules, and how long
-  // that takes is not this process's call. The context still exists so the
-  // child is reaped rather than orphaned if this function ever returns before
-  // the wait completes.
+  // that takes is not this process's call. The context stays so that a future
+  // early return cannot leave the child running — cancelling it kills the
+  // process rather than abandoning it.
   ctx, cancel := context.WithCancel(context.Background())
   defer cancel()
   allArgs := []string{

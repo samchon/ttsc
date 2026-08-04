@@ -1,3 +1,5 @@
+import fs from "node:fs";
+
 interface ConfigEvaluatorProcessResult {
   error?: Error;
   signal: NodeJS.Signals | null;
@@ -40,4 +42,29 @@ export function configEvaluatorProcessFailure(
     );
   }
   return undefined;
+}
+
+/**
+ * Read the failure envelope the evaluator writes to its result file when it
+ * stops on an error it can name.
+ *
+ * This is the other half of classifying how the evaluation ended, which is why
+ * it lives beside {@link configEvaluatorProcessFailure} rather than at the call
+ * site: the status says that it failed, and this says why.
+ *
+ * Only a well-formed envelope is honoured. A real evaluation payload never
+ * carries this key, and every other shape — an absent file, a build that failed
+ * before the loader ran, a half-written result, a payload written before a
+ * later non-zero exit — leaves the process status to speak for itself.
+ */
+export function configEvaluatorFailureReason(outputPath: string): string {
+  try {
+    const parsed: unknown = JSON.parse(fs.readFileSync(outputPath, "utf8"));
+    if (typeof parsed !== "object" || parsed === null) return "";
+    const message = (parsed as { __ttscLoaderError?: unknown })
+      .__ttscLoaderError;
+    return typeof message === "string" ? message.trim() : "";
+  } catch {
+    return "";
+  }
 }

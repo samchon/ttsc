@@ -54,8 +54,12 @@ export function prepareExecution(
     buildProject(context, options);
     let emittedEntry = emittedEntryOf(context, entryFile);
     if (emittedEntry === null) {
-      buildEntryProject(context, options, entryFile);
-      emittedEntry = emittedEntryOf(context, entryFile);
+      // The entry project answers in its own spelling of the entry, and the
+      // lookup has to ask in that same spelling — see `buildEntryProject`.
+      emittedEntry = emittedEntryOf(
+        context,
+        buildEntryProject(context, options, entryFile),
+      );
     }
     if (emittedEntry === null) {
       throw new Error(`ttsx: emitted entry not found for ${entryFile}`);
@@ -253,9 +257,25 @@ function buildEntryProject(
   context: ReturnType<typeof createProjectContext>,
   options: NonNullable<Parameters<typeof prepareExecution>[1]>,
   entryFile: string,
-): void {
-  const entry = path.resolve(entryFile);
-  const rootDir = commonAncestorDirectory(path.dirname(entry), context.root);
+): string {
+  // One spelling decides both halves of this project. `rootDir` and the file
+  // list are compared by tsgo textually — `GetCommonSourceDirectory` takes
+  // `rootDir` verbatim and `ContainsPath` is lexical — so an entry spelled any
+  // other way than its own root is simply "not under `rootDir`", and tsgo then
+  // emits it to the source path with the extension changed instead of under
+  // `outDir`. That writes a `.js` (and its map) beside the user's `.ts`, in a
+  // directory nothing here cleans up. The project root already arrives
+  // physically resolved, so the entry is resolved the same way rather than
+  // left as `path.resolve` returned it.
+  const identities = createFilesystemPathIdentityContext({
+    throwOnRealpathError: false,
+  });
+  const entry = identities.resolve(path.resolve(entryFile)).path;
+  const rootDir = commonAncestorDirectory(
+    path.dirname(entry),
+    context.root,
+    identities,
+  );
   const tsconfig = path.join(
     context.root,
     `.ttsx-entry.${PROCESS_CACHE_KEY}.tsconfig.json`,
@@ -322,6 +342,7 @@ function buildEntryProject(
       result.emittedFiles && result.emittedFiles.length !== 0
         ? result.emittedFiles
         : undefined;
+    return entry;
   } finally {
     try {
       fs.rmSync(tsconfig, { force: true });
@@ -352,10 +373,13 @@ function buildEntryProject(
  * compile, and a root that contains it is the closest thing to correct
  * available.
  */
-function commonAncestorDirectory(left: string, right: string): string {
-  const identities = createFilesystemPathIdentityContext({
-    throwOnRealpathError: false,
-  });
+function commonAncestorDirectory(
+  left: string,
+  right: string,
+  identities: ReturnType<
+    typeof createFilesystemPathIdentityContext
+  > = createFilesystemPathIdentityContext({ throwOnRealpathError: false }),
+): string {
   const from = identities.resolve(path.resolve(left)).path;
   const target = identities.resolve(path.resolve(right)).path;
   let current = from;

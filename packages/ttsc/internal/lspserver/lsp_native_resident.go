@@ -114,8 +114,10 @@ func (s *NativePluginSource) serveRun(plugin NativeLSPPluginEntry, verb string, 
 }
 
 // call sends one request to the daemon and reads its reply, serializing access
-// to the single pipe. It spawns the child on first use or after a death, and
-// enforces a per-request timeout so a hung rule cannot wedge the mutex.
+// to the single pipe. It spawns the child on first use or after a death. The
+// read is unbounded — the rule is the user's own code — and the mutex is held
+// only as long as the sidecar is alive, because its death closes stdout and
+// ends the read.
 func (sc *residentSidecar) call(s *NativePluginSource, plugin NativeLSPPluginEntry, req serveClientRequest) ([]byte, int, error) {
   sc.mu.Lock()
   defer sc.mu.Unlock()
@@ -158,20 +160,18 @@ func (sc *residentSidecar) call(s *NativePluginSource, plugin NativeLSPPluginEnt
   // No deadline: a rule that takes a long time is the user's own code running,
   // and the read still ends the moment the sidecar dies, because closing its
   // stdout surfaces here as a read error.
-  {
-    res := <-done
-    if res.err != nil {
-      sc.kill()
-      return nil, 0, res.err
-    }
-    var resp serveClientResponse
-    if err := json.Unmarshal(res.line, &resp); err != nil {
-      sc.kill()
-      return nil, 0, err
-    }
-    sc.everServed = true
-    return resp.Result, resp.Code, nil
+  res := <-done
+  if res.err != nil {
+    sc.kill()
+    return nil, 0, res.err
   }
+  var resp serveClientResponse
+  if err := json.Unmarshal(res.line, &resp); err != nil {
+    sc.kill()
+    return nil, 0, err
+  }
+  sc.everServed = true
+  return resp.Result, resp.Code, nil
 }
 
 // spawn starts the resident child with the base project args and the lsp-serve
