@@ -655,15 +655,37 @@ const hooks = registerHooks({
       entries,
     }), "utf8");
   } catch (error) {
-    process.stderr.write(error instanceof Error && error.stack ? error.stack : String(error));
-    process.exit(1);
+    reportLoaderFailure(error);
   } finally {
     hooks.deregister();
   }
 })().catch((error) => {
-  process.stderr.write(error instanceof Error && error.stack ? error.stack : String(error));
-  process.exit(1);
+  // Reached only when the finally above throws: the catch already ends the
+  // process, so this is the deregistration's own failure, not the config's.
+  reportLoaderFailure(error);
 });
+
+// reportLoaderFailure ends this loader on an error it can name, on both of the
+// channels the parent uses.
+//
+// The stack is for a reader and streams to stderr as it is written. The reason
+// is a fact about the user's config that a caller has to act on, so it travels
+// as data through the result file the parent already reads. Only a well-formed
+// envelope is honoured there, so a partially written or unrelated file leaves
+// the process status to speak for itself.
+function reportLoaderFailure(error: unknown): never {
+  process.stderr.write(error instanceof Error && error.stack ? error.stack : String(error));
+  try {
+    fs.writeFileSync(
+      outputPath,
+      JSON.stringify({ __ttscLoaderError: error instanceof Error ? error.message : String(error) }),
+      "utf8",
+    );
+  } catch {
+    // A reason that cannot be written leaves the exit status as the report.
+  }
+  return process.exit(1);
+}
 
 function isObject(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object";
@@ -1781,7 +1803,15 @@ function evaluateTtsxConfigPlugins(
       windowsHide: true,
     });
     const processFailure = configEvaluatorProcessFailure(result, configPath);
-    if (processFailure) throw processFailure;
+    if (processFailure) {
+      // The evaluator's stack already reached the user's stderr as it ran. What
+      // it could not put there is a reason a caller can act on, so that arrives
+      // through the result file instead.
+      const reason = configEvaluatorFailureReason(outputPath);
+      throw reason === ""
+        ? processFailure
+        : new Error(`${processFailure.message}\n${reason}`);
+    }
     let payload: {
       dependencies?: ConfigDependencyFingerprint[];
       entries?: ConfigPluginEntry[];
@@ -2473,5 +2503,26 @@ function removeEvaluationTempDir(directory: string): void {
     fs.rmSync(directory, { force: true, recursive: true });
   } catch {
     // Best effort.
+  }
+}
+
+/**
+ * Read the failure envelope the extractor writes to its result file when it
+ * stops on an error it can name.
+ *
+ * Only a well-formed envelope is honoured. A real evaluation payload never
+ * carries this key, and anything else — an absent file, a build that failed
+ * before the loader ran, a half-written result — leaves the process status to
+ * speak for itself.
+ */
+function configEvaluatorFailureReason(outputPath: string): string {
+  try {
+    const parsed: unknown = JSON.parse(fs.readFileSync(outputPath, "utf8"));
+    if (typeof parsed !== "object" || parsed === null) return "";
+    const message = (parsed as { __ttscLoaderError?: unknown })
+      .__ttscLoaderError;
+    return typeof message === "string" ? message.trim() : "";
+  } catch {
+    return "";
   }
 }
