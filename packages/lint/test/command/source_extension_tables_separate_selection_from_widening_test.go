@@ -10,9 +10,9 @@ import (
 // A project's own selection may name JavaScript, because a project that lists
 // `.js` under `allowJs` owns it. The widening may not: JavaScript reaches the
 // Program only when an import pulls it in, and lint would then judge a file the
-// project never chose. The tables are one letter apart in the source, so a
-// future edit that unifies them would silently widen lint onto imported
-// JavaScript (samchon/ttsc#1065). This case is the guard against that.
+// project never chose. The two tables are adjacent functions differing only by
+// the JavaScript suffixes, so an edit that unified them would silently widen
+// lint onto imported JavaScript (samchon/ttsc#1065). This case guards that.
 //
 // 1. Assert every TypeScript source extension satisfies both tables.
 // 2. Assert every JavaScript extension satisfies selection but not widening.
