@@ -32,7 +32,11 @@ export const test_lint_config_descriptor_extractor_emits_parseable_source =
         `the extractor leaves a string literal open: ${line}`,
       );
       assert.equal(
-        /[\u0000-\u0008\u000b\u000c\u000e-\u001f]/.test(line),
+        // A carriage return is in the class even though a newline is not: the
+        // split above already turns a stray newline into an unterminated literal
+        // the scanner catches, while a stray carriage return neither splits the
+        // line nor unbalances a quote - and it is still a syntax error.
+        /[\u0000-\u0008\u000b\u000c\r\u000e-\u001f]/.test(line),
         false,
         `the extractor emitted a raw control character: ${JSON.stringify(line)}`,
       );

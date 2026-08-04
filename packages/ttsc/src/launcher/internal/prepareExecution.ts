@@ -2,16 +2,13 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
+import { isOutsideRelativePath } from "../../compiler/internal/paths";
 import { readProjectConfig } from "../../compiler/internal/project/readProjectConfig";
 import { resolveEmittedJavaScript } from "../../compiler/internal/resolveEmittedJavaScript";
 import { runBuild } from "../../compiler/internal/runBuild";
 import { createFilesystemPathIdentityContext } from "../../internal/projectInputPathIdentity";
 import type { TtscCommonOptions } from "../../structures/internal/TtscCommonOptions";
-import {
-  type OwningModuleOptions,
-  isWithin,
-  projectModuleOptions,
-} from "./runtimeHooks";
+import { type OwningModuleOptions, projectModuleOptions } from "./runtimeHooks";
 
 /** Subdirectory name that isolates concurrent ttsx processes by PID. */
 const PROCESS_CACHE_KEY = String(process.pid);
@@ -55,12 +52,9 @@ export function prepareExecution(
   // asked to run by that name: retargeting it would move the entry into another
   // tree, resolve its relative imports from there, and widen `rootDir` to
   // whatever ancestor the two trees share.
-  const entry = resolveEntrySpelling(entryFile);
-  const context = createProjectContext(
-    path.resolve(options.cwd ?? process.cwd()),
-    entry,
-    options,
-  );
+  const cwd = path.resolve(options.cwd ?? process.cwd());
+  const entry = resolveEntrySpelling(cwd, entryFile);
+  const context = createProjectContext(cwd, entry, options);
   try {
     buildProject(context, options);
     let emittedEntry = emittedEntryOf(context, entry);
@@ -90,25 +84,26 @@ export function prepareExecution(
  * The JavaScript this build emitted for `entry`, or `null` when it emitted none
  * — which is the signal that the entry sits outside the project's file set.
  *
- * `entry` carries the spelling `resolveEntrySpelling` decided on. The guard
- * below folds spellings but `resolveEmittedJavaScript`'s exact-mirror lane
- * compares paths lexically, so asking in any other spelling would pass the
- * guard and then silently fall through to the stem matcher below.
- *
- * The `isWithin` guard is what makes this an ownership answer rather than a
- * guess. tsgo strips `runtimeRootDir` from every output path, so a file outside
- * that root cannot have an output under `outDir` at all; without the guard the
- * lookup falls through to `resolveEmittedJavaScript`'s trailing-stem matcher,
- * and a `build/release.ts` would happily match the `release.js` emitted for an
+ * The guard is what makes this an ownership answer rather than a guess. tsgo
+ * strips `runtimeRootDir` from every output path, so a file outside that root
+ * cannot have an output under `outDir` at all; without the guard the lookup
+ * falls through to `resolveEmittedJavaScript`'s trailing-stem matcher, and a
+ * `build/release.ts` would happily match the `release.js` emitted for an
  * unrelated `src/release.ts` — running the wrong file instead of compiling the
- * requested one. It is also the same guard `serveEntryEmit` applies, so the
- * gate and the runtime hooks agree on which files this emit owns.
+ * requested one.
+ *
+ * It is lexical on purpose, and it is the same test `resolveEmittedJavaScript`
+ * then applies. Both sides already carry the one spelling
+ * `resolveEntrySpelling` decided on, so there is no spelling left to fold — and
+ * a filesystem-identity test would resolve a symlinked entry _file_ to its
+ * target, place it outside a `rootDir` that was never widened to reach that
+ * target, and reject an entry that compiles and runs perfectly well.
  */
 function emittedEntryOf(
   context: ReturnType<typeof createProjectContext>,
   entry: string,
 ): string | null {
-  if (!isWithin(entry, context.runtimeRootDir)) {
+  if (isOutsideRelativePath(path.relative(context.runtimeRootDir, entry))) {
     return null;
   }
   return resolveEmittedJavaScript({
@@ -128,8 +123,8 @@ function emittedEntryOf(
  * directory is resolved: a symlinked entry file is one the user named, and
  * following it would relocate the entry into another tree.
  */
-function resolveEntrySpelling(entryFile: string): string {
-  const absolute = path.resolve(entryFile);
+function resolveEntrySpelling(cwd: string, entryFile: string): string {
+  const absolute = path.resolve(cwd, entryFile);
   const identities = createFilesystemPathIdentityContext({
     throwOnRealpathError: false,
   });
@@ -379,14 +374,11 @@ function buildEntryProject(
  * spelling both of them share.
  *
  * Containment is asked through the same filesystem-identity predicate the
- * runtime hooks use to consume this value, and the answer is resolved through
- * it too. The project root arrives realpath-resolved while the entry does not,
- * so on any host where the two spellings differ — macOS `/var` against
- * `/private/var`, a Windows drive letter cased differently by `TEMP` than by
- * the canonical path — a textual walk finds no shared ancestor and climbs to
- * the volume root. Returning the entry's own spelling instead would satisfy the
- * identity predicate while leaving tsgo, which takes `rootDir` verbatim, unable
- * to place any sibling source under it.
+ * runtime hooks use, and the answer is resolved through it too. Its caller now
+ * passes an already-resolved directory, so the two spellings agree before the
+ * walk starts; the predicate stays because this returns a `rootDir` that tsgo
+ * takes verbatim, and answering in anything but the physical spelling would
+ * leave tsgo unable to place a sibling source under it.
  *
  * Falls back to the entry's directory when there genuinely is no shared
  * ancestor, as on two different Windows volumes: the entry still has to
