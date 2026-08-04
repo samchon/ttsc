@@ -13,9 +13,10 @@ import { runTtsxWithCoverage } from "../../internal/ttsx-source-map";
  * answers. _Which project compiles this?_ comes from the path the user named,
  * because discovery walks up from it — resolving the link first would look for
  * a tsconfig in the target's tree. _Where is the output and what does the
- * runtime load?_ comes from the physical path, because tsgo emits from the file
- * it opens and Node keys a module by `fs.realpathSync` without
- * `--preserve-symlinks`.
+ * runtime load?_ comes from the physical path, because Node keys a module by
+ * `fs.realpathSync` without `--preserve-symlinks`. tsgo forces nothing — it
+ * takes `files` verbatim — which is exactly why it must be handed Node's
+ * spelling rather than a different one.
  *
  * Getting either half wrong is silent. One spelling too few and the gate claims
  * an emit the runtime then refuses to serve, so the file falls to the orphan

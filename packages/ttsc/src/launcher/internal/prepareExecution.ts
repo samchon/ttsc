@@ -50,8 +50,8 @@ export function prepareExecution(
   // tsconfig, or none at all.
   //
   // *Where does the compiler put the output, and what does the runtime load?*
-  // is answered from the physical path, because that is the spelling tsgo and
-  // Node both use. See `resolveEntrySpelling`.
+  // is answered from the physical path, because that is the spelling Node
+  // forces. See `resolveEntrySpelling`.
   const cwd = path.resolve(options.cwd ?? process.cwd());
   const entry = resolveEntrySpelling(cwd, entryFile);
   const context = createProjectContext(
@@ -177,6 +177,9 @@ function createProjectContext(
     path.join(root, "node_modules", ".cache", "ttsc", "ttsx");
   const processDir = path.join(cacheDir, "project", PROCESS_CACHE_KEY);
   const virtualRoot = path.join(processDir, "fs");
+  // Resolved once: it now costs a realpath (and, for a missing directory on
+  // Windows, a case-sensitivity probe) rather than a string join.
+  const runtimeRootDir = resolveRuntimeSourceRoot(project, entry);
   return {
     project,
     tsconfig,
@@ -187,11 +190,11 @@ function createProjectContext(
     virtualRoot,
     emitDir: project.compilerOptions.outDir
       ? virtualPath(virtualRoot, project.compilerOptions.outDir)
-      : virtualPath(virtualRoot, resolveRuntimeSourceRoot(project, entry)),
+      : virtualPath(virtualRoot, runtimeRootDir),
     // The source-tree root the emit mirrors (tsgo strips this prefix). Used to
     // map a source `.ts` back to its emitted `.js` when the runtime hooks serve
     // the built entry under its source URL.
-    runtimeRootDir: resolveRuntimeSourceRoot(project, entry),
+    runtimeRootDir,
     // The tsconfig options that decide the emit format, so the runtime hooks
     // classify each served file the same way tsgo chose when emitting it.
     // `target` belongs here as much as `module` does: with `module` absent tsgo
