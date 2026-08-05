@@ -1,11 +1,11 @@
 {
   "schema": 1,
-  "identity": "c112890bfbc31f10e4cc75e34a402d2e2af1936576e35ef6cc36ec817643a54d",
+  "identity": "e509ddeb11c08ee691d46d7d21b5e1a2315910c827b105a102e49d9f1881017d",
   "artifacts": [
     {
       "path": "/home/runner/work/ttsc/ttsc/website/public/compiler/playground.wasm",
       "type": "file",
-      "sha256": "0fd52cb255bc64ddc152fb59883e1f40578edc621ac0486842268aa7a397ec75"
+      "sha256": "a2d3946aea2418a439892c4514c5f2b3eb09fc3b745c863e9ad79a71d6b96a13"
     },
     {
       "path": "/home/runner/work/ttsc/ttsc/website/public/compiler/wasm_exec.js",
