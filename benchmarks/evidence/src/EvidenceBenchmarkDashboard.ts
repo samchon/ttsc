@@ -158,14 +158,55 @@ export const collectEvidenceBenchmarkReport = (
   const byRunId: ReadonlyMap<string, IDashboardRun> = new Map(
     scanned.map((run) => [run.file.cell.runId, run]),
   );
+  const origin: string | undefined = readRepositoryOrigin(repository);
   return {
     generatedAt: generatedAt.toISOString(),
+    ...(origin === undefined ? {} : { origin }),
     cells: ordered.flatMap(([, runs]) =>
       runs
         .sort(compareRuns)
         .map((run) => summarizeRun(run, includeApiCost, byRunId)),
     ),
   };
+};
+
+/**
+ * Names the repository whose run records this collection just read.
+ *
+ * Every cell already carries the revision its launcher read from `HEAD`, and a
+ * bare SHA resolves nowhere on its own. Recording where it resolves is what
+ * separates a cohort this repository measured from one vendored in, which is
+ * the distinction the published figures otherwise lose.
+ *
+ * The manifest is the source rather than a Git remote: `report` runs from a
+ * checkout whose remote an operator may have renamed or removed, while the
+ * manifest is the tracked declaration of what the repository is.
+ *
+ * The value is normalized to `owner/name` because the aggregate already states
+ * an origin that way. `coverage.json` carries `source.origin` as
+ * `samchon/lint-plugin-evidence`, written by hand when a cohort was vendored in,
+ * and two artifacts in one directory answering the same question in two
+ * vocabularies is how a comparison between them comes to be skipped.
+ */
+const readRepositoryOrigin = (repository: string): string | undefined => {
+  const manifest: string = path.join(path.resolve(repository), "package.json");
+  if (!fs.existsSync(manifest)) return undefined;
+  const parsed: unknown = JSON.parse(fs.readFileSync(manifest, "utf8"));
+  const declared: unknown = (
+    parsed as { repository?: { url?: unknown } | string } | null
+  )?.repository;
+  const url: unknown =
+    typeof declared === "string"
+      ? declared
+      : (declared as { url?: unknown } | undefined)?.url;
+  return typeof url === "string" ? normalizeRepositoryOrigin(url) : undefined;
+};
+
+/** Reduces a declared repository URL to the `owner/name` the aggregate uses. */
+const normalizeRepositoryOrigin = (url: string): string => {
+  const match: RegExpExecArray | null =
+    /(?:^|[/:])([^/:]+)\/([^/]+?)(?:\.git)?\/?$/u.exec(url.trim());
+  return match === null ? url.trim() : `${match[1]}/${match[2]}`;
 };
 
 const selectRuns = (

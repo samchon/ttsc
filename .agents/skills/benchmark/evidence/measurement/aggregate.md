@@ -18,6 +18,20 @@ pnpm --filter @ttsc/benchmark-evidence report
 
 The aggregate holds the measurement and the charts are a rendering of it, so the charts live where they are served. `report` refuses to write when the collection is empty, because a checkout with no run tree would otherwise replace the tracked measurement with nothing.
 
+### One Cohort Per Directory
+
+`report` replaces `summary.json` and rebuilds `cells/` from nothing. It has never written `coverage.json`, which is counted by hand from a completed workspace, so a second cohort published over a first would leave the first's coverage beside the second's spend — and the renderer keeps every row whose model and subject appear in the report, which for a repeated subject is all of them.
+
+Two things tie a coverage file to a cohort, and `report` checks both. `source.origin` names the repository it was counted in — the tracked file carries `samchon/lint-plugin-evidence`, written by hand when the cohort was vendored in — so a file from another project announces itself whatever its rows say. Within one repository every origin agrees, and there each row's `runId` is what distinguishes cohorts.
+
+`report` refuses to publish over a coverage file counted in another repository, over a row naming a run this cohort is not publishing, or over a row naming none. Recount it against this cohort's runs, or delete it and publish without the block. A cohort with no coverage at all still publishes; that state is ordinary and stays ordinary.
+
+### Whose Cohort It Is
+
+`summary.json` carries an `origin`, the repository whose run records the collection read, taken from that repository's own manifest and written as `owner/name` so it reads the way `coverage.json` already states the same fact. Every cell carries the `benchmarkRevision` its launcher read from `HEAD`, and a bare SHA resolves nowhere on its own — so without the origin an aggregate vendored from another project is indistinguishable from one measured here, and the figures drawn from it read as this repository's own.
+
+An aggregate published before the field existed does not have one, and it is not back-filled: writing a value into a generated artifact that nothing derived is the failure the field exists to prevent. Whatever publishes such an aggregate states its origin in prose instead.
+
 Redraw the charts without collecting anything:
 
 ```bash

@@ -33,6 +33,7 @@ export const writeEvidenceBenchmarkReport = (
     throw new Error(
       `No benchmark cells were collected from ${path.join(EvidenceBenchmarkLayout.assetsRoot(options.repository), "output")}. Refusing to replace the tracked aggregate at ${output} with an empty one; render the charts from the tracked aggregate instead with the \`charts\` command.`,
     );
+  assertCoverageBelongsToCohort(output, report);
   fs.mkdirSync(output, { recursive: true });
   for (const entry of fs.readdirSync(output, { withFileTypes: true }))
     if (entry.isFile() && /\.(?:png|svg)$/u.test(entry.name))
@@ -59,6 +60,66 @@ export const writeEvidenceBenchmarkReport = (
     collected: report,
   });
   return report;
+};
+
+/**
+ * Refuses a publication that would leave a cohort boundary inside the aggregate.
+ *
+ * `report` replaces `summary.json` and rebuilds `cells/` from nothing, and it
+ * never wrote `coverage.json` — that file is counted by hand from a completed
+ * workspace. So a second cohort published over a first leaves the first's
+ * coverage beside the second's spend, and the renderer keeps every row whose
+ * model and subject appear in the report, which for a repeated subject is all
+ * of them. Both artifacts stay internally consistent and the combination is two
+ * cohorts, with nothing in the rendered result saying so.
+ *
+ * Two ties, each catching what the other cannot. `source.origin` names the
+ * repository the coverage was counted in, so a file vendored from another
+ * project announces itself whatever its rows say. Within one repository every
+ * origin agrees, and there the run each row was counted from is what
+ * distinguishes cohorts: a row naming a run this cohort is not publishing
+ * belongs to another one, and a row naming no run cannot be attributed at all.
+ *
+ * Either refuses the publication rather than being dropped silently, because a
+ * chart that quietly lost its coverage block is indistinguishable from one that
+ * never had it.
+ */
+const assertCoverageBelongsToCohort = (
+  output: string,
+  report: ITtscEvidenceBenchmarkReport,
+): void => {
+  const file: string = path.join(output, "coverage.json");
+  if (fs.existsSync(file) === false) return;
+  const origin: string | undefined = readEvidenceBenchmarkCoverageOrigin(file);
+  if (
+    origin !== undefined &&
+    report.origin !== undefined &&
+    origin !== report.origin
+  )
+    throw new Error(
+      `${file} was counted in ${origin} and this cohort was collected from ${report.origin}. Recount it here, or delete it and publish without a coverage block; refusing to leave two cohorts in ${output}.`,
+    );
+  const rows: readonly ICoverageRow[] = readEvidenceBenchmarkCoverageRows(file);
+  const published: ReadonlyMap<string, string> = new Map(
+    report.cells.map((cell) => [
+      `${cell.model}/${cell.subject}/${cell.arm}`,
+      cell.runId,
+    ]),
+  );
+  const foreign: string[] = [];
+  for (const row of rows) {
+    const key: string = `${row.model}/${row.subject}/${row.arm}`;
+    const expected: string | undefined = published.get(key);
+    if (row.runId === undefined) foreign.push(`${key} names no run`);
+    else if (expected === undefined)
+      foreign.push(`${key} (${row.runId}) is not in this cohort`);
+    else if (expected !== row.runId)
+      foreign.push(`${key} was counted from ${row.runId}, not ${expected}`);
+  }
+  if (foreign.length !== 0)
+    throw new Error(
+      `${file} belongs to a different cohort than the one being published: ${foreign.join("; ")}. Recount it against this cohort's runs, or delete it and publish without a coverage block; refusing to leave two cohorts in ${output}.`,
+    );
 };
 
 /**
@@ -140,13 +201,15 @@ ${String(error)}`);
 };
 
 /**
- * Reads the coverage the `coverage` command composed, when a cohort has one.
+ * Reads the hand-counted coverage of a cohort, when one has been counted.
  *
- * Absence is an ordinary state: coverage is counted by hand from a completed
- * Plain workspace, so a cohort can be published before anyone has read one. It
- * is the one state that yields no rows rather than an error. A file that is
- * present and malformed is the opposite, because a chart that quietly skipped a
- * coverage block would be indistinguishable from one that never had it.
+ * Nothing in this repository writes this file. It is counted by hand from a
+ * completed workspace, which is why absence is an ordinary state: a cohort can
+ * be published before anyone has read one, and that is the single state which
+ * yields no rows rather than an error. A file that is present and malformed is
+ * the opposite, because a chart that quietly skipped a coverage block would be
+ * indistinguishable from one that never had it — and a file present but
+ * belonging to another cohort is refused earlier, at publication.
  *
  * A null `score` is neither. It is what the composing command emits for a
  * codebase with no requirement anchors at all, which was never asked the
@@ -157,40 +220,84 @@ const readEvidenceBenchmarkCoverage = (
 ): readonly EvidenceBenchmarkChart.ICoverage[] => {
   const file: string = path.join(output, "coverage.json");
   if (fs.existsSync(file) === false) return [];
-  const parsed: unknown = JSON.parse(fs.readFileSync(file, "utf8"));
-  const cells: unknown = (parsed as { cells?: unknown } | null)?.cells;
-  if (Array.isArray(cells) === false)
-    throw new Error(`${file} has no \`cells\` array.`);
-  return cells
-    .map((cell, index) => {
-      const row = cell as {
-        model?: unknown;
-        subject?: unknown;
-        arm?: unknown;
-        coverage?: { score?: unknown; measured?: unknown };
-      };
-      const score: unknown = row.coverage?.score;
-      if (
-        typeof row.model !== "string" ||
-        typeof row.subject !== "string" ||
-        (row.arm !== "plain" && row.arm !== "evidence") ||
-        (typeof score !== "number" && score !== null) ||
-        typeof row.coverage?.measured !== "boolean"
-      )
-        throw new Error(
-          `${file} cell ${index} is not a coverage row: it needs a string \`model\` and \`subject\`, an \`arm\` of "plain" or "evidence", and a \`coverage\` carrying a \`score\` that is a number or null and a boolean \`measured\`.`,
-        );
-      return score === null
+  return readEvidenceBenchmarkCoverageRows(file)
+    .map((row) =>
+      row.score === null
         ? null
         : {
             model: row.model,
             subject: row.subject,
             arm: row.arm,
-            score,
-            measured: row.coverage.measured,
-          };
-    })
+            score: row.score,
+            measured: row.measured,
+          },
+    )
     .filter((row): row is EvidenceBenchmarkChart.ICoverage => row !== null);
+};
+
+/** One hand-counted coverage row, with the run it was counted from. */
+interface ICoverageRow {
+  model: string;
+  subject: string;
+  arm: "plain" | "evidence";
+  /** `null` for a codebase with no requirement anchors to score at all. */
+  score: number | null;
+  measured: boolean;
+  /**
+   * Run this row was counted from, absent in a file written before the field
+   * existed. Publication treats absence as unattributable rather than as
+   * belonging to whatever cohort is being written.
+   */
+  runId?: string;
+}
+
+/** Reads the repository a hand-counted coverage file says it was counted in. */
+const readEvidenceBenchmarkCoverageOrigin = (
+  file: string,
+): string | undefined => {
+  const parsed: unknown = JSON.parse(fs.readFileSync(file, "utf8"));
+  const origin: unknown = (
+    parsed as { source?: { origin?: unknown } } | null
+  )?.source?.origin;
+  return typeof origin === "string" ? origin : undefined;
+};
+
+const readEvidenceBenchmarkCoverageRows = (
+  file: string,
+): readonly ICoverageRow[] => {
+  const parsed: unknown = JSON.parse(fs.readFileSync(file, "utf8"));
+  const cells: unknown = (parsed as { cells?: unknown } | null)?.cells;
+  if (Array.isArray(cells) === false)
+    throw new Error(`${file} has no \`cells\` array.`);
+  return cells.map((cell, index) => {
+    const row = cell as {
+      model?: unknown;
+      subject?: unknown;
+      arm?: unknown;
+      runId?: unknown;
+      coverage?: { score?: unknown; measured?: unknown };
+    };
+    const score: unknown = row.coverage?.score;
+    if (
+      typeof row.model !== "string" ||
+      typeof row.subject !== "string" ||
+      (row.arm !== "plain" && row.arm !== "evidence") ||
+      (typeof score !== "number" && score !== null) ||
+      typeof row.coverage?.measured !== "boolean" ||
+      (row.runId !== undefined && typeof row.runId !== "string")
+    )
+      throw new Error(
+        `${file} cell ${index} is not a coverage row: it needs a string \`model\` and \`subject\`, an \`arm\` of "plain" or "evidence", a \`coverage\` carrying a \`score\` that is a number or null and a boolean \`measured\`, and an optional string \`runId\`.`,
+      );
+    return {
+      model: row.model,
+      subject: row.subject,
+      arm: row.arm,
+      score,
+      measured: row.coverage.measured,
+      ...(row.runId === undefined ? {} : { runId: row.runId }),
+    };
+  });
 };
 
 const pathSegment = (value: string): string => {

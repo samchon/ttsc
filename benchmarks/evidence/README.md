@@ -86,6 +86,10 @@ The suspension audit compares each latest run with Windows Kernel-Power disconne
 
 The command writes `benchmarks/evidence/aggregate/summary.json` and stable per-cell JSON under `benchmarks/evidence/aggregate/cells/<model>/<subject>/<arm>.json`, then draws `summary.svg` and one `<model>-<subject>.svg` per subject into `website/public/benchmark/evidence/`, where the site serves them. Every artifact renders or copies values from the same retained aggregate without recalculating them. An empty collection is refused rather than published, so a checkout without run records cannot replace the tracked measurement with nothing.
 
+`summary.json` records an `origin`, the repository whose run records the collection read, taken from that repository's manifest. Each cell carries the `benchmarkRevision` its launcher read from `HEAD`, and a bare SHA resolves nowhere on its own, so the origin is what separates a cohort measured here from one vendored in.
+
+`coverage.json` is the one aggregate artifact nothing in this repository writes; it is counted by hand from a completed workspace. Each of its rows names the `runId` it was counted from, and `report` refuses to publish over a row naming a run the cohort is not publishing, or naming none — otherwise a second cohort's spend would be drawn beside the first cohort's coverage. A cohort with no coverage at all publishes normally.
+
 The charts redraw from the tracked aggregate alone, with no run records present:
 
 ```bash

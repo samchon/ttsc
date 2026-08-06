@@ -8,6 +8,8 @@ One coding engine builds the same application twice from the same frozen require
 
 Four subjects in ascending size. Every figure comes from `benchmarks/evidence/aggregate` and from nowhere else.
 
+This cohort was run in [`samchon/evidence`](https://github.com/samchon/evidence), the repository `benchmarks/evidence` is vendored from, at revisions `cdbda421` and `0f465f52` — the two `benchmarkRevision` values its cells carry, neither of which is a commit of this repository. Its template, instructions, and toolchain have moved since, so the commands below reproduce the procedure rather than the numbers, and a later cohort measured here is not comparable with this one.
+
 ## Coverage
 
 <TtscWebsiteBenchmarkEvidenceCoverage />
@@ -48,7 +50,7 @@ Reddit and Shopping ran their two arms at different benchmark revisions. Shoppin
 
 ## Reproduce
 
-Clone the repository and tell Claude Code to run the benchmark following the benchmark skill. That skill is the procedure this cohort was produced under, and it owns setup, launch, supervision, recovery, and publication.
+Clone the repository and tell Claude Code to run the benchmark following the benchmark skill. That skill is the procedure this cohort was produced under, and it owns setup, launch, supervision, recovery, and publication. It produces a new cohort rather than this one; `summary.json` records the repository each cohort was collected from, and every cell records the revision its launcher read.
 
 ```bash
 git clone https://github.com/samchon/ttsc.git
