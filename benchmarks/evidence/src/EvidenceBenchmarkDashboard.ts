@@ -199,14 +199,28 @@ const readRepositoryOrigin = (repository: string): string | undefined => {
     typeof declared === "string"
       ? declared
       : (declared as { url?: unknown } | undefined)?.url;
-  return typeof url === "string" ? normalizeRepositoryOrigin(url) : undefined;
+  return typeof url === "string"
+    ? normalizeEvidenceBenchmarkOrigin(url)
+    : undefined;
 };
 
-/** Reduces a declared repository URL to the `owner/name` the aggregate uses. */
-const normalizeRepositoryOrigin = (url: string): string => {
+/**
+ * Reduces a declared repository URL to the `owner/name` the aggregate uses.
+ *
+ * A value that does not reduce to that shape yields nothing rather than being
+ * recorded as it stands. The whole point of the field is that a reader can
+ * resolve it, and writing an unresolvable string into a generated artifact is
+ * the failure it exists to prevent, so an unrecorded origin is the honest
+ * outcome for a manifest that does not declare one usefully.
+ */
+export const normalizeEvidenceBenchmarkOrigin = (
+  url: string,
+): string | undefined => {
   const match: RegExpExecArray | null =
     /(?:^|[/:])([^/:]+)\/([^/]+?)(?:\.git)?\/?$/u.exec(url.trim());
-  return match === null ? url.trim() : `${match[1]}/${match[2]}`;
+  if (match === null) return undefined;
+  const origin = `${match[1]}/${match[2]}`;
+  return /^[^/\s]+\/[^/\s]+$/u.test(origin) ? origin : undefined;
 };
 
 const selectRuns = (

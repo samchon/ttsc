@@ -8,7 +8,7 @@ One coding engine builds the same application twice from the same frozen require
 
 Four subjects in ascending size. Every figure comes from `benchmarks/evidence/aggregate` and from nowhere else.
 
-This cohort was run in [`samchon/evidence`](https://github.com/samchon/evidence), the repository `benchmarks/evidence` is vendored from, at revisions `cdbda421` and `0f465f52` — the two `benchmarkRevision` values its cells carry, neither of which is a commit of this repository. Its template, instructions, and toolchain have moved since, so the commands below reproduce the procedure rather than the numbers, and a later cohort measured here is not comparable with this one.
+This cohort was run in [`samchon/lint-plugin-evidence`](https://github.com/samchon/lint-plugin-evidence), the repository `benchmarks/evidence` is vendored from, at revisions `cdbda421` and `0f465f52`, the two `benchmarkRevision` values its cells carry, neither of which is a commit of this repository. Its template, instructions, and toolchain have moved since, so the commands below reproduce the procedure rather than the numbers, and a later cohort measured here is not comparable with this one.
 
 ## Coverage
 
@@ -50,7 +50,7 @@ Reddit and Shopping ran their two arms at different benchmark revisions. Shoppin
 
 ## Reproduce
 
-Clone the repository and tell Claude Code to run the benchmark following the benchmark skill. That skill is the procedure this cohort was produced under, and it owns setup, launch, supervision, recovery, and publication. It produces a new cohort rather than this one; `summary.json` records the repository each cohort was collected from, and every cell records the revision its launcher read.
+Clone the repository and tell Claude Code to run the benchmark following the benchmark skill. That skill is the procedure this cohort was produced under, and it owns setup, launch, supervision, recovery, and publication. It produces a new cohort rather than this one. Every cell records the revision its launcher read, and a cohort collected after this one also records the repository it was collected from; the aggregate served here predates that field, which is why the attribution above is written out.
 
 ```bash
 git clone https://github.com/samchon/ttsc.git
@@ -71,4 +71,4 @@ pnpm --filter @ttsc/benchmark-evidence charts
 
 `<subject>` is a directory under `benchmarks/evidence/requirements`. The runner refuses to launch while anything is uncommitted and records the repository `HEAD` as the run's benchmark revision. `report` writes the aggregate under `benchmarks/evidence/aggregate` and its charts under `website/public/benchmark/evidence`; `charts` redraws those from the published aggregate alone, with no run records present.
 
-`benchmarks/evidence/README.md` documents the runner, the arms, and what a run retains.
+`report` refuses to publish over a `coverage.json` it cannot attribute to the cohort being written, so an operator republishing here recounts that file against their own runs or removes it first. `benchmarks/evidence/README.md` documents the runner, the arms, and what a run retains.

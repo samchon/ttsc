@@ -104,6 +104,12 @@ export namespace ITtscWebsiteBenchmarkEvidence {
     model: string;
     subject: string;
     arm: Arm;
+    /**
+     * Run this row was counted from, absent in a file counted before the field
+     * existed. Publication refuses a row that cannot be attributed to the
+     * cohort being written, so a file published after that check carries one.
+     */
+    runId?: string;
     coverage: Coverage;
   }
 

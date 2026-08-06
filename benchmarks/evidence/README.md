@@ -86,9 +86,26 @@ The suspension audit compares each latest run with Windows Kernel-Power disconne
 
 The command writes `benchmarks/evidence/aggregate/summary.json` and stable per-cell JSON under `benchmarks/evidence/aggregate/cells/<model>/<subject>/<arm>.json`, then draws `summary.svg` and one `<model>-<subject>.svg` per subject into `website/public/benchmark/evidence/`, where the site serves them. Every artifact renders or copies values from the same retained aggregate without recalculating them. An empty collection is refused rather than published, so a checkout without run records cannot replace the tracked measurement with nothing.
 
-`summary.json` records an `origin`, the repository whose run records the collection read, taken from that repository's manifest. Each cell carries the `benchmarkRevision` its launcher read from `HEAD`, and a bare SHA resolves nowhere on its own, so the origin is what separates a cohort measured here from one vendored in.
+`summary.json` records an `origin`, the repository whose run records the collection read, taken from that repository's manifest and reduced to `owner/name`. Each cell carries the `benchmarkRevision` its launcher read from `HEAD`, and a bare SHA resolves nowhere on its own, so the origin is what separates a cohort measured here from one vendored in. An aggregate published before the field existed does not carry one and is not back-filled, which is the tracked aggregate's state today.
 
-`coverage.json` is the one aggregate artifact nothing in this repository writes; it is counted by hand from a completed workspace. Each of its rows names the `runId` it was counted from, and `report` refuses to publish over a row naming a run the cohort is not publishing, or naming none. Otherwise a second cohort's spend would be drawn beside the first cohort's coverage. A cohort with no coverage at all publishes normally.
+`coverage.json` is the one aggregate artifact nothing in this repository writes; it is counted by hand from a completed workspace. Its `source.origin` names the repository it was counted in, and each row names the run it was counted from beside the cell it describes:
+
+```json
+{
+  "source": { "origin": "samchon/ttsc" },
+  "cells": [
+    {
+      "model": "gpt-5.6-luna",
+      "subject": "todo",
+      "arm": "plain",
+      "runId": "2a44f046-1acb-4607-b826-30a3e7fa784b",
+      "coverage": { "score": 0.42, "measured": true }
+    }
+  ]
+}
+```
+
+`report` refuses to publish over a file counted in another repository, over a row naming a run the cohort is not publishing, or over a row naming none. Otherwise a second cohort's spend would be drawn beside the first cohort's coverage. The tracked file predates the `runId` field and was counted upstream, so it is refused until it is recounted or removed. A cohort with no coverage at all publishes normally.
 
 The charts redraw from the tracked aggregate alone, with no run records present:
 

@@ -33,7 +33,7 @@ export const writeEvidenceBenchmarkReport = (
     throw new Error(
       `No benchmark cells were collected from ${path.join(EvidenceBenchmarkLayout.assetsRoot(options.repository), "output")}. Refusing to replace the tracked aggregate at ${output} with an empty one; render the charts from the tracked aggregate instead with the \`charts\` command.`,
     );
-  assertCoverageBelongsToCohort(output, report);
+  assertEvidenceBenchmarkCoverageCohort(output, report);
   fs.mkdirSync(output, { recursive: true });
   for (const entry of fs.readdirSync(output, { withFileTypes: true }))
     if (entry.isFile() && /\.(?:png|svg)$/u.test(entry.name))
@@ -73,33 +73,35 @@ export const writeEvidenceBenchmarkReport = (
  * of them. Both artifacts stay internally consistent and the combination is two
  * cohorts, with nothing in the rendered result saying so.
  *
- * Two ties, each catching what the other cannot. `source.origin` names the
- * repository the coverage was counted in, so a file vendored from another
- * project announces itself whatever its rows say. Within one repository every
- * origin agrees, and there the run each row was counted from is what
- * distinguishes cohorts: a row naming a run this cohort is not publishing
- * belongs to another one, and a row naming no run cannot be attributed at all.
+ * Two ties. `source.origin` names the repository the coverage was counted in,
+ * so a file vendored from another project announces itself before any row is
+ * read, and it is the only tie a file with an empty `cells` array has. Within
+ * one repository every origin agrees, and there the run each row was counted
+ * from is what distinguishes cohorts: a row naming a run this cohort is not
+ * publishing belongs to another one, and a row naming no run cannot be
+ * attributed at all.
  *
  * Either refuses the publication rather than being dropped silently, because a
  * chart that quietly lost its coverage block is indistinguishable from one that
  * never had it.
  */
-const assertCoverageBelongsToCohort = (
+export const assertEvidenceBenchmarkCoverageCohort = (
   output: string,
   report: ITtscEvidenceBenchmarkReport,
 ): void => {
-  const file: string = path.join(output, "coverage.json");
+  const file: string = path.join(path.resolve(output), "coverage.json");
   if (fs.existsSync(file) === false) return;
-  const origin: string | undefined = readEvidenceBenchmarkCoverageOrigin(file);
+  const parsed: unknown = parse(file);
+  const origin: unknown = (parsed as { source?: { origin?: unknown } } | null)
+    ?.source?.origin;
   if (
-    origin !== undefined &&
+    typeof origin === "string" &&
     report.origin !== undefined &&
     origin !== report.origin
   )
     throw new Error(
-      `${file} was counted in ${origin} and this cohort was collected from ${report.origin}. Recount it here, or delete it and publish without a coverage block; refusing to leave two cohorts in ${output}.`,
+      `${file} was counted in ${origin} and this cohort was collected from ${report.origin}. Recount it here against this cohort's runs, adding each row's \`runId\`, or delete it and publish without a coverage block; refusing to leave two cohorts in ${output}.`,
     );
-  const rows: readonly ICoverageRow[] = readEvidenceBenchmarkCoverageRows(file);
   const published: ReadonlyMap<string, string> = new Map(
     report.cells.map((cell) => [
       `${cell.model}/${cell.subject}/${cell.arm}`,
@@ -107,10 +109,11 @@ const assertCoverageBelongsToCohort = (
     ]),
   );
   const foreign: string[] = [];
-  for (const row of rows) {
+  for (const row of readEvidenceBenchmarkCoverageRows(file, parsed)) {
     const key: string = `${row.model}/${row.subject}/${row.arm}`;
     const expected: string | undefined = published.get(key);
-    if (row.runId === undefined) foreign.push(`${key} names no run`);
+    if (row.runId === undefined)
+      foreign.push(`${key} carries no \`runId\` naming the run it was counted from`);
     else if (expected === undefined)
       foreign.push(`${key} (${row.runId}) is not in this cohort`);
     else if (expected !== row.runId)
@@ -251,22 +254,11 @@ interface ICoverageRow {
   runId?: string;
 }
 
-/** Reads the repository a hand-counted coverage file says it was counted in. */
-const readEvidenceBenchmarkCoverageOrigin = (
-  file: string,
-): string | undefined => {
-  const parsed: unknown = JSON.parse(fs.readFileSync(file, "utf8"));
-  const origin: unknown = (
-    parsed as { source?: { origin?: unknown } } | null
-  )?.source?.origin;
-  return typeof origin === "string" ? origin : undefined;
-};
-
 const readEvidenceBenchmarkCoverageRows = (
   file: string,
+  content: unknown = parse(file),
 ): readonly ICoverageRow[] => {
-  const parsed: unknown = JSON.parse(fs.readFileSync(file, "utf8"));
-  const cells: unknown = (parsed as { cells?: unknown } | null)?.cells;
+  const cells: unknown = (content as { cells?: unknown } | null)?.cells;
   if (Array.isArray(cells) === false)
     throw new Error(`${file} has no \`cells\` array.`);
   return cells.map((cell, index) => {

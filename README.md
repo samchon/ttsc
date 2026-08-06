@@ -105,6 +105,8 @@ Without those tags, the build fails once per obligation, because one reference n
 
 ![Coverage and token spend, Plain against Evidence](https://raw.githubusercontent.com/samchon/ttsc/gh-pages/benchmark/png/evidence-summary.png)
 
+That cohort was run in [`samchon/lint-plugin-evidence`](https://github.com/samchon/lint-plugin-evidence), the repository `benchmarks/evidence` is vendored from, at the two revisions its cells record. Neither is a commit of this repository.
+
 ## Compiler Knowledge Graph
 
 Your coding agent answers from the compiler instead of grepping and re-reading files.

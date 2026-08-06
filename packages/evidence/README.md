@@ -50,6 +50,8 @@ An AI coding agent has to clear them to finish, and clearing them means citing e
 
 ![Coverage and token spend across all four subjects](https://raw.githubusercontent.com/samchon/ttsc/gh-pages/benchmark/png/evidence-summary.png)
 
+That cohort was run in [`samchon/lint-plugin-evidence`](https://github.com/samchon/lint-plugin-evidence), which this package is vendored from, at the two revisions its cells record.
+
 ## Setup
 
 ### Install
