@@ -1,0 +1,135 @@
+{
+  "engine": "codex",
+  "subject": "reddit",
+  "arm": "plain",
+  "runId": "b8e996fe-3b6c-42c9-bfe0-ea36ccd5799a",
+  "benchmarkRevision": "cdbda42111ecc8f459f2772065caf067b6db3f91",
+  "model": "gpt-5.6-luna",
+  "effort": "high",
+  "status": "completed",
+  "stage": "overall-final",
+  "launchedAt": "2026-08-04T22:56:34.736Z",
+  "tokens": 507893364,
+  "tokenUsage": {
+    "totalTokens": 507893364,
+    "inputTokens": 507204295,
+    "cachedInputTokens": 501348608,
+    "cacheWriteInputTokens": 0,
+    "outputTokens": 689069,
+    "reasoningOutputTokens": 172430
+  },
+  "inspection": {
+    "attempts": 1,
+    "failures": 0,
+    "tokenUsage": {
+      "totalTokens": 2485559,
+      "inputTokens": 2473832,
+      "cachedInputTokens": 2307072,
+      "cacheWriteInputTokens": 0,
+      "outputTokens": 11727,
+      "reasoningOutputTokens": 6732
+    },
+    "elapsedMs": 450292.7752
+  },
+  "apiCost": {
+    "provider": "openrouter",
+    "pricingAsOf": "2026-08-01",
+    "priceSource": "https://openrouter.ai/api/v1/models",
+    "currency": "USD",
+    "amountUsd": 6.37637004,
+    "requests": 4060,
+    "shortContextRequests": 4060,
+    "longContextRequests": 0,
+    "longContextThresholdTokens": 272000
+  },
+  "suspendedMs": 0,
+  "suspensions": [],
+  "workElapsedMs": 50074428.7455,
+  "worktree": {
+    "files": 157,
+    "additions": 21480,
+    "deletions": 145
+  },
+  "reviewVerdicts": [
+    {
+      "scope": "backend",
+      "attempt": 0,
+      "decision": "fail",
+      "action": "retry",
+      "goalIndex": 1,
+      "terminalTurnId": "364e8d8d-2bc1-4880-868b-4b3044d87457",
+      "rationale": "The prescribed loop did not run to dryness. The attempt announced its final edit-free round at backend-review.log:L22582, built a manifest at L22583, but the purported full reads at L22676-L22908 only returned character counts (e.g. `read ... chars=...`), not file contents. workspace/.agents/skills/review/SKILL.md:L48-L55 explicitly says counts/summaries are zero and requires complete contents, so the final round was not a valid full round; the completion claim at backend-review.log:L23927 is contradicted by the stream. Tests are also improperly written. The workspace testing rules require a business assertion in every test and say type validation alone proves only shape (workspace/.agents/skills/backend/testing.md:L149-L160). `test_api_reddit_recovery_complete` has no assertion and merely awaits the call (workspace/packages/backend/test/features/api/reddit/test_api_reddit_operations.ts:L24-L25), while subscription, ban-list, ban-history, and report-history tests only call `typia.assert` with no business assertion (same file:L38-L39, L62-L65, L68-L69).",
+      "pausedAt": "2026-08-05T03:00:48.182Z",
+      "decidedAt": "2026-08-05T03:08:32.471Z",
+      "resumedAt": "2026-08-05T03:08:32.481Z",
+      "verdictRelativePath": "supervision/00-backend-0-verdict.json",
+      "verdictSha256": "97147aa65d5ac93cbcf5dadd67d88b64788cb32661f77d4e8cf28ce05aa0cff0",
+      "workspaceMaterialSha256": "97b3cde17ec572337133b2d5cb076ca69184613563b1998c9e9a475e95c91315"
+    }
+  ],
+  "stages": [
+    {
+      "name": "backend-start",
+      "tokens": 17450090,
+      "elapsedMs": 2301000,
+      "tokenPercent": 3,
+      "timePercent": 5
+    },
+    {
+      "name": "backend-review",
+      "tokens": 165158901,
+      "elapsedMs": 12800292.7752,
+      "tokenPercent": 33,
+      "timePercent": 26
+    },
+    {
+      "name": "backend-remind-1",
+      "tokens": 138892661,
+      "elapsedMs": 8309000,
+      "tokenPercent": 27,
+      "timePercent": 17
+    },
+    {
+      "name": "backend-final",
+      "tokens": 48759929,
+      "elapsedMs": 2486000,
+      "tokenPercent": 10,
+      "timePercent": 5
+    },
+    {
+      "name": "frontend-start",
+      "tokens": 31723600,
+      "elapsedMs": 15381000,
+      "tokenPercent": 6,
+      "timePercent": 31
+    },
+    {
+      "name": "frontend-review",
+      "tokens": 50035842,
+      "elapsedMs": 3662000,
+      "tokenPercent": 10,
+      "timePercent": 7
+    },
+    {
+      "name": "frontend-final",
+      "tokens": 38799644,
+      "elapsedMs": 3376000,
+      "tokenPercent": 8,
+      "timePercent": 7
+    },
+    {
+      "name": "overall-review",
+      "tokens": 14809736,
+      "elapsedMs": 1768000,
+      "tokenPercent": 3,
+      "timePercent": 4
+    },
+    {
+      "name": "overall-final",
+      "tokens": 1895546,
+      "elapsedMs": 441000,
+      "tokenPercent": 0,
+      "timePercent": 1
+    }
+  ]
+}

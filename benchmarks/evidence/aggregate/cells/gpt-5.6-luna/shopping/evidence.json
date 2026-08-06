@@ -1,0 +1,112 @@
+{
+  "engine": "codex",
+  "subject": "shopping",
+  "arm": "evidence",
+  "runId": "9f03b6ac-ec6a-4792-b331-170925f71769",
+  "benchmarkRevision": "0f465f52c69b4b7e6b25fab1c1676de5ea6db15f",
+  "model": "gpt-5.6-luna",
+  "effort": "high",
+  "status": "completed",
+  "stage": "overall-final",
+  "launchedAt": "2026-08-05T11:43:04.638Z",
+  "tokens": 271608864,
+  "tokenUsage": {
+    "totalTokens": 271608864,
+    "inputTokens": 271102963,
+    "cachedInputTokens": 267391232,
+    "cacheWriteInputTokens": 0,
+    "outputTokens": 505901,
+    "reasoningOutputTokens": 142867
+  },
+  "inspection": {
+    "attempts": 0,
+    "failures": 0,
+    "tokenUsage": {
+      "totalTokens": 0,
+      "inputTokens": 0,
+      "cachedInputTokens": 0,
+      "cacheWriteInputTokens": 0,
+      "outputTokens": 0,
+      "reasoningOutputTokens": 0
+    },
+    "elapsedMs": 0
+  },
+  "apiCost": {
+    "provider": "openrouter",
+    "pricingAsOf": "2026-08-01",
+    "priceSource": "https://openrouter.ai/api/v1/models",
+    "currency": "USD",
+    "amountUsd": 3.34862602,
+    "requests": 1949,
+    "shortContextRequests": 1949,
+    "longContextRequests": 0,
+    "longContextThresholdTokens": 272000
+  },
+  "suspendedMs": 0,
+  "suspensions": [],
+  "workElapsedMs": 30704076.0124,
+  "worktree": {
+    "files": 304,
+    "additions": 22398,
+    "deletions": 64
+  },
+  "reviewVerdicts": [],
+  "stages": [
+    {
+      "name": "backend-start",
+      "tokens": 77076340,
+      "elapsedMs": 6936000,
+      "tokenPercent": 28,
+      "timePercent": 23
+    },
+    {
+      "name": "backend-review",
+      "tokens": 142169643,
+      "elapsedMs": 11055000,
+      "tokenPercent": 52,
+      "timePercent": 36
+    },
+    {
+      "name": "backend-final",
+      "tokens": 1450772,
+      "elapsedMs": 40000,
+      "tokenPercent": 1,
+      "timePercent": 0
+    },
+    {
+      "name": "frontend-start",
+      "tokens": 19691264,
+      "elapsedMs": 1736000,
+      "tokenPercent": 7,
+      "timePercent": 6
+    },
+    {
+      "name": "frontend-review",
+      "tokens": 12937317,
+      "elapsedMs": 1051000,
+      "tokenPercent": 5,
+      "timePercent": 3
+    },
+    {
+      "name": "frontend-final",
+      "tokens": 1350449,
+      "elapsedMs": 59000,
+      "tokenPercent": 0,
+      "timePercent": 0
+    },
+    {
+      "name": "overall-review",
+      "tokens": 15019791,
+      "elapsedMs": 1382000,
+      "tokenPercent": 6,
+      "timePercent": 5
+    },
+    {
+      "name": "overall-final",
+      "tokens": 1913288,
+      "elapsedMs": 125000,
+      "tokenPercent": 1,
+      "timePercent": 0
+    }
+  ]
+}
