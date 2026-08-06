@@ -53,7 +53,7 @@ patched = (message: string): void => {
   if initial.Error != "" {
     t.Fatalf("shard assembly refused a project that implements its own ambient declaration: %s", initial.Error)
   }
-  if initial.Mode != serveModeInitial || !initial.Changed || initial.Snapshot == nil {
+  if initial.Mode != serveModeInitial || !initial.Changed || initial.Dump != nil || initial.Snapshot == nil {
     t.Fatalf("negotiated initial response: %#v", initial)
   }
   if len(initial.Snapshot.Manifest) == 0 ||

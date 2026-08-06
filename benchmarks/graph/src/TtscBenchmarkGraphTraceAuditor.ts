@@ -490,16 +490,28 @@ export namespace TtscBenchmarkGraphTraceAuditor {
       if (cells === undefined) {
         throw new Error(`report has neither traceDir nor cells: ${file}`);
       }
-      return cells
-        .filter(
-          (cell) => cell.harness === undefined || cell.harness === "codex",
-        )
-        .map((cell) => optionalString(cell.report))
-        .filter((reportPath): reportPath is string => reportPath !== undefined)
-        .map((reportPath) =>
-          path.isAbsolute(reportPath) ? reportPath : path.resolve(reportPath),
-        )
-        .filter((reportPath) => fs.existsSync(reportPath));
+      return (
+        cells
+          .filter(
+            (cell) => cell.harness === undefined || cell.harness === "codex",
+          )
+          .map((cell) => optionalString(cell.report))
+          .filter(
+            (reportPath): reportPath is string => reportPath !== undefined,
+          )
+          // A relative cell path resolves against the report that recorded it,
+          // the one base every reader of this field now uses. Resolving against
+          // the current directory made the answer depend on where the audit was
+          // typed: it worked only because the runner spawns this from the
+          // repository root, and the documented `pnpm --dir benchmarks/graph run
+          // audit -- --report ...` invocation audited zero cells in silence.
+          .map((reportPath) =>
+            path.isAbsolute(reportPath)
+              ? reportPath
+              : path.resolve(path.dirname(file), reportPath),
+          )
+          .filter((reportPath) => fs.existsSync(reportPath))
+      );
     }
 
     function auditCell(

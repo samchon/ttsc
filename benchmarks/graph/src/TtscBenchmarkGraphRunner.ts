@@ -32,9 +32,11 @@ import { ITtscBenchmarkGraphWebsiteAgentCell } from "./structures/ITtscBenchmark
  * Runs the complete graph-agent benchmark while keeping its executable a
  * location-only bootstrap.
  *
- * All harness paths derive from the supplied executable directory, so
- * relocating this implementation never changes which child entrypoints are
- * launched.
+ * Every child entrypoint it launches is derived from the supplied executable
+ * directory, so relocating this implementation never changes which bootstrap
+ * runs. Roots the harness reads or writes — the repository, the fixture work
+ * directory, the report directory, the website JSON — come from
+ * `TtscBenchmarkConstant` instead and are unaffected either way.
  */
 export namespace TtscBenchmarkGraphRunner {
   /**
@@ -622,7 +624,15 @@ export namespace TtscBenchmarkGraphRunner {
           repoDir,
           tsconfig: spec.tsconfig,
           log: path.relative(repoRoot, `${path.join(outDir, logStem)}.out.log`),
-          report: path.relative(repoRoot, copyPath),
+          // Absolute, like the suite runner already records the same field.
+          // Every reader of a cell report - the publisher, the trace auditor,
+          // the suite - then needs no base at all, and a run directory named by
+          // `--out` stays readable from whatever directory the publish is typed
+          // in. Recorded relative to the repository root it was readable from
+          // exactly one place, and only by a reader that knew to try that base.
+          // `log` stays repository-relative: it is provenance a human reads,
+          // and nothing resolves it.
+          report: copyPath,
           summary: summarize(data),
         },
         websiteCell,

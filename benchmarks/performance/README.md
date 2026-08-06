@@ -96,7 +96,7 @@ Per-project commands, install/prepare overrides, and prerequisites live in `src/
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
-| `TTSC_BENCH_WORK` | `benchmarks/performance/.work` | Working directory for this run: clones, report, and checkpoint. Each benchmark package resolves its own root, so this package never writes into a sibling's. |
+| `TTSC_BENCH_WORK` | `benchmarks/performance/.work` | Working directory for this run: clones, report, and checkpoint. `<WORK>` below is its resolved value. Each benchmark package resolves its own root, so this package never writes into a sibling's. |
 | `TTSC_BENCH_TGZ` | `<tmpdir>/ttsc-tgz-<pid>` (`<tmpdir>/ttsc-tgz` with `--no-pack`) | Tarball staging directory. |
 | `TTSC_BENCH_OUT` | `<WORK>/report.md` | Report destination; sibling `.json` is written alongside. |
 | `TTSC_BENCH_CHECKPOINT` | `<WORK>/benchmark.checkpoint.json` | Intermediate snapshot rewritten after each cell so an interrupted run is resumable. |

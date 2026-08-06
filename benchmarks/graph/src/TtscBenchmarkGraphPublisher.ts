@@ -23,6 +23,11 @@
 //   pnpm --dir benchmarks/graph run publish -- --from <dir>
 //   pnpm --dir benchmarks/graph run publish -- --reset
 //   pnpm --dir benchmarks/graph run publish -- --dry-run
+//
+// A relative --from resolves against the current directory, the same base the
+// runners' --out uses. Every source directory must contribute a measurement,
+// the defaulted `.work/graph` included; one that contributes none fails before
+// the website JSON is written.
 import fs from "node:fs";
 import path from "node:path";
 
@@ -186,13 +191,13 @@ export namespace TtscBenchmarkGraphPublisher {
 
     for (const sourceDir of sourceDirs) {
       if (!foldSourceDir(context, sourceDir)) {
-        // Publication writes a committed file. A source directory that
-        // contributed nothing is indistinguishable from one whose cells were
-        // already present, so accepting it reported a successful publish of
-        // nothing - and with `--reset`, which empties the agent block before
-        // the first fold, it replaced the served dashboard with an empty one.
+        // Publication writes a committed file. A source directory that added
+        // nothing is indistinguishable from one whose cells were already
+        // present, so accepting it reported a successful publish of nothing -
+        // and with `--reset`, which empties the agent block before the first
+        // fold, it replaced the served dashboard with an empty one.
         throw new Error(
-          `graph benchmark source directory holds no report: ${sourceDir}`,
+          `graph benchmark source directory contributed no measurement: ${sourceDir}`,
         );
       }
     }
@@ -209,7 +214,16 @@ export namespace TtscBenchmarkGraphPublisher {
     );
   }
 
-  /** Folds one source directory, reporting whether it contributed a report. */
+  /**
+   * Folds one source directory, reporting whether it changed the document.
+   *
+   * The answer counts upserted cells and a replaced structural block, not files
+   * that happened to be present. A run that produced a `report.json` whose
+   * every cell was rejected contributed nothing, and a publish that accepted it
+   * would report success for a document it did not add to - which with
+   * `--reset`, already emptied before the first fold, is how the served
+   * dashboard loses its cells.
+   */
   function foldSourceDir(
     context: IPublisherContext,
     sourceDir: string,
@@ -219,8 +233,7 @@ export namespace TtscBenchmarkGraphPublisher {
     let folded = false;
     let structuralReport: IStructuralReport | null = null;
     if (mainReport !== null && isSuiteReport(mainReport)) {
-      foldSuite(context, mainReport, sourceDir);
-      folded = true;
+      folded = foldSuite(context, mainReport, sourceDir) !== 0;
     } else if (mainReport !== null && isStructuralReport(mainReport)) {
       structuralReport = mainReport;
     } else if (mainReport !== null) {
@@ -279,12 +292,14 @@ export namespace TtscBenchmarkGraphPublisher {
     );
   }
 
+  /** Folds a suite report, reporting how many cells it actually upserted. */
   function foldSuite(
     context: IPublisherContext,
     report: ISuiteReport,
     sourceDir: string,
-  ): void {
+  ): number {
     const seenReports = new Set<string>();
+    let upserted = 0;
     for (const cell of report.cells) {
       const sourceReportPath = resolveReportPath(cell.report, sourceDir);
       const reportKey = pathIdentity(sourceReportPath);
@@ -361,15 +376,17 @@ export namespace TtscBenchmarkGraphPublisher {
         question: sourceReport.question,
         samples,
       });
+      upserted += 1;
     }
     console.log(
-      `suite: ${path.relative(context.repositoryRoot, sourceDir)} (${
+      `suite: ${path.relative(context.repositoryRoot, sourceDir)} (${upserted} of ${
         report.cells.length
       } cell(s))`,
     );
+    return upserted;
   }
 
-  /** Folds one agent report, reporting whether the file was there to fold. */
+  /** Folds one agent report, reporting whether it upserted a cell. */
   function foldAgentFile(
     context: IPublisherContext,
     file: string,
@@ -380,17 +397,18 @@ export namespace TtscBenchmarkGraphPublisher {
     if (!isAgentReport(report)) {
       throw new TypeError(`invalid graph agent report: ${file}`);
     }
-    foldAgent(context, report, harness);
-    return true;
+    return foldAgent(context, report, harness);
   }
 
+  /** Folds one agent report, reporting whether it upserted a cell. */
   function foldAgent(
     context: IPublisherContext,
     report: Record<string, unknown>,
     harness: string,
-  ): void {
+  ): boolean {
     const samples = sanitizeSamples(report.samples, report.runs);
-    if (samples.baseline.length === 0 && samples.graph.length === 0) return;
+    if (samples.baseline.length === 0 && samples.graph.length === 0)
+      return false;
     const rawModel =
       stringValue(report.modelVersion) ??
       stringValue(report.model) ??
@@ -441,6 +459,7 @@ export namespace TtscBenchmarkGraphPublisher {
         stringValue(report.model) ?? rawModel
       } (${n} graph runs)`,
     );
+    return true;
   }
 
   function stableAgentModel(
@@ -571,14 +590,15 @@ export namespace TtscBenchmarkGraphPublisher {
   }
 
   /**
-   * Resolves a suite cell's recorded report path against the suite file that
-   * recorded it, which is `<sourceDir>/report.json`.
+   * Resolves a cell's recorded report path against the report that recorded it,
+   * which is `<sourceDir>/report.json`.
    *
-   * `TtscBenchmarkGraphSuite` resolves the same field against the same
-   * directory when it republishes a suite of its own, so one relative spelling
-   * cannot mean two files depending on which entrypoint reads it. Suites this
-   * repository writes record absolute paths, so only a hand-edited or foreign
-   * suite reaches the relative branch at all.
+   * Both writers record the field absolute, so the relative branch is for a
+   * hand-edited or older report. It resolves against the recording report
+   * rather than the repository root or the current directory, which is the one
+   * base `TtscBenchmarkGraphSuite` and the trace auditor also use, so a
+   * relative spelling cannot mean two files depending on which entrypoint reads
+   * it.
    */
   function resolveReportPath(reportPath: string, sourceDir: string): string {
     if (!reportPath) return "";

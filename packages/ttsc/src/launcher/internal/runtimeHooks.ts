@@ -1427,12 +1427,14 @@ export function readDependencyCache(
     moduleOptions: projectModuleOptions(
       meta.moduleOptions as Record<string, unknown>,
     ),
-    // Resolved on the way out, not trusted as written. The pass is idempotent —
-    // a physical path resolves to itself — so it costs one realpath on a hit
-    // and makes a marker written by an earlier ttsc usable instead of
-    // rebuilding. That only arises under the shared `os.tmpdir()/ttsx-dep`
-    // fallback root: the manifest's own `depCacheDir` is per-process and
-    // removed with the run.
+    // Resolved on the way out, not trusted as written. `rootDir` never gated
+    // reuse — the marker's generation, module options, and a non-empty emit do
+    // — so a marker carrying an unresolved spelling was already being reused,
+    // and then served every file of that dependency through the whole-tree stem
+    // rescan. The pass is idempotent and runs only on a hit, which
+    // `ensureProjectBuilt` memoizes per tsconfig. A marker from an earlier ttsc
+    // survives only under the shared `os.tmpdir()/ttsx-dep` fallback root; the
+    // manifest's own `depCacheDir` is per-process and removed with the run.
     rootDir: resolvePhysicalPath(meta.rootDir),
   };
 }
@@ -2064,15 +2066,28 @@ export function realPath(target: string): string {
  * be compared against are produced.
  *
  * `createFilesystemPathIdentityContext` is the same resolver the entry lane
- * uses (`prepareExecution.ts::resolveRuntimeSourceRoot`), and it answers for a
- * path that does not exist yet by resolving as far as the filesystem goes and
- * keeping the rest — so a root the build has not created is still normalized
- * rather than thrown on.
+ * uses (`prepareExecution.ts::resolveRuntimeSourceRoot`). For a path that
+ * exists it is one `realpathSync.native`. For one that does not it resolves as
+ * far as the filesystem goes and folds the missing tail by the case semantics
+ * of the surviving ancestor, which costs a directory read and, on Windows, can
+ * cost an `fsutil` query — worth knowing, but off the path a real dependency
+ * root takes.
+ *
+ * Total on purpose. `throwOnRealpathError: false` silences a failed realpath,
+ * but the case-sensitivity probe can still fail on its own (an unreadable
+ * ancestor, a denied alternate-case `lstat`), and neither caller has anywhere
+ * to put that: `readDependencyCache` is contracted to answer `null` rather than
+ * throw, and `buildDependency` has already produced its emit. The unresolved
+ * spelling is exactly what both had before this pass, so it is the fallback.
  */
 function resolvePhysicalPath(location: string): string {
-  return createFilesystemPathIdentityContext({
-    throwOnRealpathError: false,
-  }).resolve(location).path;
+  try {
+    return createFilesystemPathIdentityContext({
+      throwOnRealpathError: false,
+    }).resolve(location).path;
+  } catch {
+    return location;
+  }
 }
 
 /**
@@ -2091,7 +2106,9 @@ function resolvePhysicalPath(location: string): string {
  * tree per file because a dependency build publishes no emitted-file list.
  *
  * This is the pass the entry lane settled on for the same mixed pair; the two
- * lanes now read alike.
+ * lanes now read alike, `path.isAbsolute` guard included. `readProjectConfig`
+ * absolutizes every path option against the config that declared it, so that
+ * guard is a mirror of the entry lane rather than a live branch.
  */
 function resolveDependencySourceRoot(
   project: ReturnType<typeof readProjectConfig>,

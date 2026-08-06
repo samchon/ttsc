@@ -22,12 +22,18 @@ import path from "node:path";
  * this observable: a `rootDir` equal to its own physical path is exactly the
  * property the lookup needs.
  *
- * 1. Install a dependency whose `rootDir` is `src`, a symlink to the real
- *    `sources` directory holding its entry.
- * 2. Run ttsx against an entry that requires it, then prints every dependency
+ * Both branches are covered. One dependency declares `rootDir: "src"`, a
+ * symlink to the real `sources` directory, which diverges on every platform.
+ * The other declares no `rootDir` at all and falls back to the project root,
+ * which diverges only on Windows, where the runner's temp root carries an 8.3
+ * component that plain `fs.realpathSync` keeps and `fs.realpathSync.native`
+ * expands.
+ *
+ * 1. Install those two dependencies.
+ * 2. Run ttsx against an entry that requires both, then prints every dependency
  *    marker's `rootDir`.
- * 3. Assert the dependency ran and every published `rootDir` is its own physical
- *    path.
+ * 3. Assert both dependencies ran and every published `rootDir` is its own
+ *    physical path.
  */
 export const test_ttsx_publishes_a_physical_root_for_a_dependency_whose_rootdir_is_a_symlink =
   () => {
@@ -61,6 +67,27 @@ export const test_ttsx_publishes_a_physical_root_for_a_dependency_whose_rootdir_
         files: ["src/index.ts"],
       }),
       "node_modules/dep/sources/index.ts": `export const VALUE: string = "dep-value";\n`,
+      // A second dependency that declares no `rootDir`, so the build falls back
+      // to the project root. That arrives through plain `fs.realpathSync`,
+      // which leaves a Windows 8.3 component alone while the served source
+      // arrives through `fs.realpathSync.native`, which expands it. The two
+      // spellings diverge only on Windows, where the temp root really is
+      // `C:\\Users\\RUNNER~1\\...` on a GitHub runner.
+      "node_modules/dep2/package.json": JSON.stringify({
+        name: "dep2",
+        version: "1.0.0",
+        main: "index.ts",
+      }),
+      "node_modules/dep2/tsconfig.json": JSON.stringify({
+        compilerOptions: {
+          target: "ES2022",
+          module: "commonjs",
+          strict: true,
+          outDir: "lib",
+        },
+        files: ["index.ts"],
+      }),
+      "node_modules/dep2/index.ts": `export const VALUE2: string = "dep2-value";\n`,
       // The entry reads the runtime manifest to find the shared dependency
       // cache, then reports the `rootDir` of every marker the run published.
       // The markers live under a per-process directory ttsx deletes when the
@@ -70,6 +97,7 @@ export const test_ttsx_publishes_a_physical_root_for_a_dependency_whose_rootdir_
         `declare const process: { env: Record<string, string | undefined> };`,
         ``,
         `const dep = require<{ VALUE: string }>("dep");`,
+        `const dep2 = require<{ VALUE2: string }>("dep2");`,
         `const fs = require<{`,
         `  readFileSync(file: string, encoding: string): string;`,
         `  readdirSync(directory: string): string[];`,
@@ -93,7 +121,7 @@ export const test_ttsx_publishes_a_physical_root_for_a_dependency_whose_rootdir_
         `      ).rootDir,`,
         `  );`,
         ``,
-        `console.log("VALUE:" + dep.VALUE);`,
+        `console.log("VALUE:" + dep.VALUE + "/" + dep2.VALUE2);`,
         `console.log("ROOTS:" + JSON.stringify(roots));`,
         ``,
       ].join("\n"),
@@ -117,16 +145,17 @@ export const test_ttsx_publishes_a_physical_root_for_a_dependency_whose_rootdir_
     );
 
     assert.equal(result.status, 0, result.stderr);
-    assert.match(result.stdout, /VALUE:dep-value/);
+    assert.match(result.stdout, /VALUE:dep-value\/dep2-value/);
 
     const line = result.stdout
       .split(/\r?\n/)
       .find((text) => text.startsWith("ROOTS:"));
     assert.notEqual(line, undefined, result.stdout);
     const roots = JSON.parse(line!.slice("ROOTS:".length)) as string[];
-    assert.ok(
-      roots.length !== 0,
-      `the dependency lane published no build marker: ${result.stdout}`,
+    assert.equal(
+      roots.length,
+      2,
+      `the dependency lane did not publish a marker per dependency: ${result.stdout}`,
     );
     for (const published of roots) {
       assert.equal(

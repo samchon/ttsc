@@ -52,7 +52,7 @@ pnpm --dir benchmarks/graph run publish -- --from <out-dir>
 
 Never let concurrent runners write `graph.json` directly.
 
-A relative `--out` and a relative `--from` resolve against the same directory, so name the run the same way in both. Publication refuses a source directory that holds no report instead of writing a dashboard nothing contributed to; that refusal is what keeps `--reset` from replacing the served cells with an empty set.
+A relative `--out` and a relative `--from` resolve against the same directory, so name the run the same way in both. Publication refuses a source directory that contributes no measurement, the defaulted one included, instead of writing a dashboard nothing added to; that refusal is what keeps `--reset` from replacing the served cells with an empty set.
 
 `benchmarks/graph/src/TtscBenchmarkGraphWebsiteCell.ts` is the single published-cell key. Key only by fields the website renders. Metadata such as fixture branch, reasoning effort, or setup time must not create a second visible copy of the same cell.
 

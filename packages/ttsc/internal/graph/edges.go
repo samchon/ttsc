@@ -46,17 +46,6 @@ func (g *Graph) addEdge(from, to string, kind EdgeKind) {
 }
 
 func (g *Graph) addEdgeAt(from, to string, kind EdgeKind, origin string, pos, end int) {
-  // An external leaf is a boundary, and a boundary has no outgoing side. The
-  // graph never walks a dependency's internals, so it holds no fact about what
-  // one does — and an edge claiming otherwise has nowhere to live: an external
-  // node is owned by the non-source external shard, and no non-source shard may
-  // own edges (`serve_shards.go`, `TtscGraphShardStore.assertShardContents`).
-  // The producer of such an edge is `assignedFunctionTarget`, which now refuses
-  // one; this is the invariant that outlives any single producer, because a
-  // violation is not a wrong edge but a snapshot no session can assemble.
-  if node, ok := g.lookupNode(from); ok && node.External {
-    return
-  }
   // Key on the emitted wire kind, not the internal kind, so two uses of one
   // target that surface as different relationships (a call and a `new`, an
   // `extends` and an `implements` of the same base) are both kept, while
