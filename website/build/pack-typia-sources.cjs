@@ -17,10 +17,14 @@ function main() {
   const graph = createTypiaDependencyGraph({ websiteRoot });
   const closure = graph.collect("source");
   const pack = {};
-  for (const [key, file] of [...closure.files].sort(([left], [right]) => left.localeCompare(right))) {
+  for (const [key, file] of [...closure.files].sort(([left], [right]) =>
+    left.localeCompare(right),
+  )) {
     pack[key] = fs.readFileSync(file, "utf8");
   }
-  for (const [name, pkg] of [...closure.packages].sort(([left], [right]) => left.localeCompare(right))) {
+  for (const [name, pkg] of [...closure.packages].sort(([left], [right]) =>
+    left.localeCompare(right),
+  )) {
     pack[`${name}/package.json`] = JSON.stringify(
       rewriteSourceManifest(pkg.manifest, pkg.root),
       null,

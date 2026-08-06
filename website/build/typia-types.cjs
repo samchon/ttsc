@@ -14,10 +14,14 @@ function main() {
   const graph = createTypiaDependencyGraph({ websiteRoot });
   const closure = graph.collect("types");
   const pack = {};
-  for (const [key, file] of [...closure.files].sort(([left], [right]) => left.localeCompare(right))) {
+  for (const [key, file] of [...closure.files].sort(([left], [right]) =>
+    left.localeCompare(right),
+  )) {
     pack[`file:///node_modules/${key}`] = fs.readFileSync(file, "utf8");
   }
-  for (const [name, pkg] of [...closure.packages].sort(([left], [right]) => left.localeCompare(right))) {
+  for (const [name, pkg] of [...closure.packages].sort(([left], [right]) =>
+    left.localeCompare(right),
+  )) {
     pack[`file:///node_modules/${name}/package.json`] = JSON.stringify(
       pkg.manifest,
       null,

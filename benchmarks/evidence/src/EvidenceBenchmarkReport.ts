@@ -3,6 +3,7 @@ import path from "node:path";
 
 import { EvidenceBenchmarkChart } from "./EvidenceBenchmarkChart";
 import { collectEvidenceBenchmarkReport } from "./EvidenceBenchmarkDashboard";
+import { EvidenceBenchmarkLayout } from "./EvidenceBenchmarkLayout";
 import type { ITtscEvidenceBenchmarkReport } from "./structures/ITtscEvidenceBenchmarkReport";
 
 export interface ITtscEvidenceBenchmarkReportOptions {
@@ -30,7 +31,7 @@ export const writeEvidenceBenchmarkReport = (
   // destructive.
   if (report.cells.length === 0)
     throw new Error(
-      `No benchmark cells were collected from ${path.join(options.repository, "benchmarks", "evidence", "output")}. Refusing to replace the tracked aggregate at ${output} with an empty one; render the charts from the tracked aggregate instead with the \`charts\` command.`,
+      `No benchmark cells were collected from ${path.join(EvidenceBenchmarkLayout.assetsRoot(options.repository), "output")}. Refusing to replace the tracked aggregate at ${output} with an empty one; render the charts from the tracked aggregate instead with the \`charts\` command.`,
     );
   fs.mkdirSync(output, { recursive: true });
   for (const entry of fs.readdirSync(output, { withFileTypes: true }))
@@ -52,7 +53,11 @@ export const writeEvidenceBenchmarkReport = (
     fs.mkdirSync(path.dirname(file), { recursive: true });
     fs.writeFileSync(file, `${JSON.stringify(cell, null, 2)}\n`);
   }
-  writeEvidenceBenchmarkCharts(output, report);
+  writeEvidenceBenchmarkCharts({
+    aggregate: output,
+    charts: EvidenceBenchmarkLayout.chartsRoot(options.repository),
+    collected: report,
+  });
   return report;
 };
 
@@ -65,39 +70,41 @@ export const writeEvidenceBenchmarkReport = (
  * from being written to disk and read back; omitting it is how a clone with no
  * run tree reproduces every published chart.
  */
-export const writeEvidenceBenchmarkCharts = (
-  output: string,
-  collected?: ITtscEvidenceBenchmarkReport,
-): ITtscEvidenceBenchmarkReport => {
-  const root: string = path.resolve(output);
+export const writeEvidenceBenchmarkCharts = (props: {
+  /** Directory holding `summary.json` and, when it exists, `coverage.json`. */
+  aggregate: string;
+  /** Directory the charts are written to, one flat file per chart. */
+  charts: string;
+  collected?: ITtscEvidenceBenchmarkReport;
+}): ITtscEvidenceBenchmarkReport => {
+  const aggregate: string = path.resolve(props.aggregate);
+  const charts: string = path.resolve(props.charts);
   const report: ITtscEvidenceBenchmarkReport =
-    collected ?? readEvidenceBenchmarkAggregate(root);
+    props.collected ?? readEvidenceBenchmarkAggregate(aggregate);
   const coverage: readonly EvidenceBenchmarkChart.ICoverage[] =
-    readEvidenceBenchmarkCoverage(root);
-  fs.mkdirSync(root, { recursive: true });
+    readEvidenceBenchmarkCoverage(aggregate);
+  fs.mkdirSync(charts, { recursive: true });
+  // Every chart this run does not write is one a previous cohort left. A
+  // subject dropped from the aggregate would otherwise keep being served under
+  // a name the measurement no longer carries.
+  for (const name of fs.readdirSync(charts))
+    if (name.endsWith(".svg")) fs.rmSync(path.join(charts, name));
   fs.writeFileSync(
-    path.join(root, "summary.svg"),
+    path.join(charts, "summary.svg"),
     EvidenceBenchmarkChart.summary({ report, coverage }),
   );
-  // A subject's chart belongs beside the JSON holding the same run's figures,
-  // so opening a subject's directory gives its numbers and its picture at once.
+  // One flat directory, so the name carries what the path used to. A model and
+  // a subject both appear in it because two models over one subject are two
+  // charts.
   for (const [model, subjects] of Map.groupBy(
     report.cells,
     (cell) => cell.model,
   ))
-    for (const subject of new Set(subjects.map((cell) => cell.subject))) {
-      const directory: string = path.join(
-        root,
-        "cells",
-        pathSegment(model),
-        pathSegment(subject),
-      );
-      fs.mkdirSync(directory, { recursive: true });
+    for (const subject of new Set(subjects.map((cell) => cell.subject)))
       fs.writeFileSync(
-        path.join(directory, "arms.svg"),
+        path.join(charts, `${pathSegment(model)}-${pathSegment(subject)}.svg`),
         EvidenceBenchmarkChart.arms({ report, coverage, model, subject }),
       );
-    }
   return report;
 };
 

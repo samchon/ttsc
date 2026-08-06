@@ -38,4 +38,16 @@ export namespace EvidenceBenchmarkLayout {
    */
   export const assetsRoot = (repository: string): string =>
     path.join(repository, ...PACKAGE_PATH);
+
+  /**
+   * Where the published charts are written, inside `repository`.
+   *
+   * The aggregate holds the measurement and the charts are a rendering of it,
+   * so they live where they are served rather than beside the JSON they were
+   * drawn from. Keeping them under the benchmark meant the website copied them
+   * across at build time, which put a second copy of every chart in the tree
+   * for a directory nothing but the site reads.
+   */
+  export const chartsRoot = (repository: string): string =>
+    path.join(repository, "website", "public", "benchmark", "evidence");
 }

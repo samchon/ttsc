@@ -47,14 +47,11 @@ function toRoute(mdxRel) {
 
 function rewriteContent(text, currentSourceName) {
   // 1) Intra-docs links: ./00-foo.md or 00-foo.md anywhere inside (./ ... )
-  text = text.replace(
-    /\.\/([\w-]+\.md)(#[\w-]+)?/g,
-    (_match, file, anchor) => {
-      const dst = MAP[file];
-      if (!dst) return _match;
-      return toRoute(dst) + (anchor || "");
-    },
-  );
+  text = text.replace(/\.\/([\w-]+\.md)(#[\w-]+)?/g, (_match, file, anchor) => {
+    const dst = MAP[file];
+    if (!dst) return _match;
+    return toRoute(dst) + (anchor || "");
+  });
 
   // 2) Bare README.md references (rare)
   text = text.replace(/\(README\.md\)/g, "(/docs)");

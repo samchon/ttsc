@@ -82,7 +82,7 @@ pnpm --filter @ttsc/benchmark-evidence report
 
 The suspension audit compares each latest run with Windows Kernel-Power disconnected-standby intervals. It records an interval in the run's `suspensions.json` only when retained events prove the same native process existed on both sides and emitted nothing during the interval. Reports exclude those verified intervals from total and stage work time without modifying `state.json`. The audit is Windows-only and throws elsewhere rather than reporting zero intervals.
 
-The command writes `benchmarks/evidence/aggregate/summary.json`, stable per-cell JSON under `benchmarks/evidence/aggregate/cells/<model>/<subject>/<arm>.json`, `summary.svg`, and one `arms.svg` beside each subject's cell JSON. Every artifact renders or copies values from the same retained aggregate without recalculating them. An empty collection is refused rather than published, so a checkout without run records cannot replace the tracked measurement with nothing.
+The command writes `benchmarks/evidence/aggregate/summary.json` and stable per-cell JSON under `benchmarks/evidence/aggregate/cells/<model>/<subject>/<arm>.json`, then draws `summary.svg` and one `<model>-<subject>.svg` per subject into `website/public/benchmark/evidence/`, where the site serves them. Every artifact renders or copies values from the same retained aggregate without recalculating them. An empty collection is refused rather than published, so a checkout without run records cannot replace the tracked measurement with nothing.
 
 The charts redraw from the tracked aggregate alone, with no run records present:
 

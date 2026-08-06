@@ -26,7 +26,12 @@ if (require.main === module) {
 
 // resvg rasterizes in-process (no browser); `scale` zooms the intrinsic
 // width/height for a crisp 2x export. Text uses whatever system font resolves
-// from the chart's font-family stack (DejaVu Sans on Linux, Arial on Windows).
+// from the chart's font-family stack (DejaVu Sans on Linux, Arial on Windows),
+// so a stack naming only CSS keywords rasterizes in resvg's own fallback
+// rather than in the font the browser drew.
+//
+// `name` overrides the output basename, for a caller whose charts are
+// namespaced by their directory and share this one.
 function renderPng(svgPath, options = {}) {
   const outDir = options.outDir ?? DEFAULT_OUT_DIR;
   const scale = options.scale ?? DEFAULT_SCALE;
@@ -35,7 +40,10 @@ function renderPng(svgPath, options = {}) {
   const svg = fs.readFileSync(svgPath, "utf8");
   const { width, height } = readSvgSize(svg);
   fs.mkdirSync(outDir, { recursive: true });
-  const outFile = path.join(outDir, `${path.basename(svgPath, ".svg")}.png`);
+  const outFile = path.join(
+    outDir,
+    `${options.name ?? path.basename(svgPath, ".svg")}.png`,
+  );
 
   const rendered = new Resvg(svg, {
     fitTo: { mode: "zoom", value: scale },

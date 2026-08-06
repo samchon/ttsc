@@ -67,6 +67,6 @@ pnpm --filter @ttsc/benchmark-evidence report
 pnpm --filter @ttsc/benchmark-evidence charts
 ```
 
-`<subject>` is a directory under `benchmarks/evidence/requirements`. The runner refuses to launch while anything is uncommitted and records the repository `HEAD` as the run's benchmark revision. `charts` redraws every chart from the published aggregate alone, with no run records present.
+`<subject>` is a directory under `benchmarks/evidence/requirements`. The runner refuses to launch while anything is uncommitted and records the repository `HEAD` as the run's benchmark revision. `report` writes the aggregate under `benchmarks/evidence/aggregate` and its charts under `website/public/benchmark/evidence`; `charts` redraws those from the published aggregate alone, with no run records present.
 
 `benchmarks/evidence/README.md` documents the runner, the arms, and what a run retains.

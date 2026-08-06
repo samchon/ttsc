@@ -6,10 +6,10 @@
 // page draws would drift from the one the charts are rendered from. This copies
 // instead, and the copy is ignored.
 //
-// The charts come across the same way. `@ttsc/benchmark-evidence` owns the
-// renderer and writes them beside the JSON they were drawn from, so this step
-// republishes those exact files rather than drawing a second set that could
-// disagree with the tracked one.
+// The charts need no copying at all. `@ttsc/benchmark-evidence` owns the
+// renderer and writes them straight into `public/benchmark/evidence`, so this
+// step only rasterizes what is already there. Drawing a second set here would
+// be a second thing to keep in agreement with the aggregate.
 const fs = require("node:fs");
 const path = require("node:path");
 
@@ -24,7 +24,8 @@ const AGGREGATE = path.resolve(
   "aggregate",
 );
 const OUT_DIR = path.join(ROOT, "public", "benchmark");
-const SVG_DIR = path.join(OUT_DIR, "svg");
+/** Written by `pnpm --filter @ttsc/benchmark-evidence charts`, and tracked. */
+const SVG_DIR = path.join(OUT_DIR, "evidence");
 const PNG_DIR = path.join(OUT_DIR, "png");
 
 /** `summary.json` plus whatever optional artifacts a cohort has published. */
@@ -65,78 +66,36 @@ function publishData(artifact) {
   );
 }
 
-/**
- * Republish the tracked charts under names that survive one flat directory.
- *
- * Every subject's chart is called `arms.svg` inside its own directory, which
- * collides the moment they share one. The published name carries the subject,
- * matching how the graph track names its own exports.
- */
+/** Rasterize each tracked chart at 2x, for a reader who needs a PNG. */
 function publishCharts(png) {
-  fs.mkdirSync(SVG_DIR, { recursive: true });
-  if (png) fs.mkdirSync(PNG_DIR, { recursive: true });
-  // A subject dropped from a cohort leaves its chart behind otherwise, and a
+  const charts = fs.existsSync(SVG_DIR)
+    ? fs.readdirSync(SVG_DIR).filter((name) => name.endsWith(".svg"))
+    : [];
+  if (charts.length === 0)
+    throw new Error(
+      `No charts under ${SVG_DIR}. They are tracked; redraw them with \`pnpm --filter @ttsc/benchmark-evidence charts\`.`,
+    );
+  if (png === false) return;
+  fs.mkdirSync(PNG_DIR, { recursive: true });
+  // A chart dropped from a cohort leaves its raster behind otherwise, and a
   // stale export is worse than a missing one: it is a measurement the site
   // still serves under a name the aggregate no longer carries.
-  for (const [directory, extension] of [
-    [SVG_DIR, ".svg"],
-    [PNG_DIR, ".png"],
-  ])
-    if (fs.existsSync(directory))
-      for (const name of fs.readdirSync(directory))
-        if (name.startsWith("evidence-") && name.endsWith(extension))
-          fs.rmSync(path.join(directory, name), { force: true });
-  for (const chart of charts()) {
-    const target = path.join(SVG_DIR, chart.name);
-    fs.copyFileSync(chart.source, target);
+  const expected = new Set(
+    charts.map((name) => `evidence-${name.replace(/\.svg$/u, ".png")}`),
+  );
+  for (const name of fs.readdirSync(PNG_DIR))
+    if (name.startsWith("evidence-") && expected.has(name) === false)
+      fs.rmSync(path.join(PNG_DIR, name), { force: true });
+  for (const name of charts) {
+    const out = renderPng(path.join(SVG_DIR, name), {
+      outDir: PNG_DIR,
+      name: `evidence-${path.basename(name, ".svg")}`,
+    });
     process.stdout.write(
-      `[evidence-benchmark] ${path.relative(AGGREGATE, chart.source).replaceAll("\\", "/")} -> public/benchmark/svg/${chart.name}\n`,
-    );
-    if (png === false) continue;
-    const out = renderPng(target, { outDir: PNG_DIR });
-    process.stdout.write(
-      `[evidence-benchmark] ${chart.name} -> public/benchmark/png/${path.basename(out.file)} (${out.width}x${out.height})\n`,
+      `[evidence-benchmark] evidence/${name} -> public/benchmark/png/${path.basename(out.file)} (${out.width}x${out.height})
+`,
     );
   }
-}
-
-function charts() {
-  const found = [];
-  const summary = path.join(AGGREGATE, "summary.svg");
-  if (fs.existsSync(summary))
-    found.push({ source: summary, name: "evidence-summary.svg" });
-  const cells = path.join(AGGREGATE, "cells");
-  if (fs.existsSync(cells) === false) return found;
-  for (const model of directories(cells))
-    for (const subject of directories(path.join(cells, model))) {
-      const source = path.join(cells, model, subject, "arms.svg");
-      if (fs.existsSync(source))
-        found.push({
-          source,
-          name: `evidence-${slug(model)}-${slug(subject)}.svg`,
-        });
-    }
-  if (found.length === 0)
-    throw new Error(
-      `No charts under ${AGGREGATE}. They are tracked; redraw them with \`pnpm --filter @ttsc/benchmark-evidence charts\`.`,
-    );
-  return found;
-}
-
-/** Only directories, so a stray file under `cells/` is skipped, not opened. */
-function directories(root) {
-  return fs
-    .readdirSync(root, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory())
-    .map((entry) => entry.name);
-}
-
-/** A directory name from the aggregate is percent-encoded and may carry dots. */
-function slug(value) {
-  return decodeURIComponent(value)
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "");
 }
 
 main();

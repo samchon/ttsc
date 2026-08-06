@@ -694,7 +694,13 @@ export namespace EvidenceBenchmarkChart {
   /** One stylesheet for every chart this module writes. */
   const CHART_STYLE: string = [
     "<style>",
-    "  text { font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; fill: #172033; }",
+    // The tail is what a rasterizer can actually resolve. A browser takes
+    // `ui-sans-serif` and stops, but those are CSS keywords rather than
+    // families, and resvg skipped the whole list and fell back to a condensed
+    // default, which is why the exported PNG did not look like the SVG. The
+    // two named families are the ones the graph track's charts already rely
+    // on, so both tracks export in one typeface.
+    "  text { font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'DejaVu Sans', Arial, sans-serif; fill: #172033; }",
     "  .title { font-size: 27px; font-weight: 700; }",
     "  .subtitle, .generated, .group-meta, .row-status { font-size: 13px; fill: #667085; }",
     "  .group { fill: #e8f2fb; }",
