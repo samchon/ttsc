@@ -23,6 +23,8 @@ pnpm --dir benchmarks/graph run publish -- --from <out-dir>             # publis
 
 `publish` is also a pnpm subcommand, so always spell these as `pnpm run <script>` rather than `pnpm <script>`.
 
+Every directory these commands take — `--out`, `--from`, `--dir`, `--report` — resolves against the current directory, which `pnpm --dir benchmarks/graph` sets to this package. A `--from` directory holding no report is refused rather than published as a run that contributed nothing.
+
 ## Layout
 
 - `src/executable/`: Short, export-free CLI bootstraps.

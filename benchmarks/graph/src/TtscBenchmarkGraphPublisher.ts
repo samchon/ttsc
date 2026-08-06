@@ -157,7 +157,6 @@ export namespace TtscBenchmarkGraphPublisher {
     const dryRun: boolean = args.includes("--dry-run");
     const sourceDirs: string[] = parseSourceDirs(
       args,
-      repositoryRoot,
       path.join(benchmarkRoot, ".work"),
     );
 
@@ -186,7 +185,16 @@ export namespace TtscBenchmarkGraphPublisher {
     };
 
     for (const sourceDir of sourceDirs) {
-      foldSourceDir(context, sourceDir);
+      if (!foldSourceDir(context, sourceDir)) {
+        // Publication writes a committed file. A source directory that
+        // contributed nothing is indistinguishable from one whose cells were
+        // already present, so accepting it reported a successful publish of
+        // nothing - and with `--reset`, which empties the agent block before
+        // the first fold, it replaced the served dashboard with an empty one.
+        throw new Error(
+          `graph benchmark source directory holds no report: ${sourceDir}`,
+        );
+      }
     }
 
     if (!dryRun) {
@@ -201,12 +209,18 @@ export namespace TtscBenchmarkGraphPublisher {
     );
   }
 
-  function foldSourceDir(context: IPublisherContext, sourceDir: string): void {
+  /** Folds one source directory, reporting whether it contributed a report. */
+  function foldSourceDir(
+    context: IPublisherContext,
+    sourceDir: string,
+  ): boolean {
     const mainReportPath = path.join(sourceDir, "report.json");
     const mainReport = readJson(mainReportPath);
+    let folded = false;
     let structuralReport: IStructuralReport | null = null;
     if (mainReport !== null && isSuiteReport(mainReport)) {
       foldSuite(context, mainReport, sourceDir);
+      folded = true;
     } else if (mainReport !== null && isStructuralReport(mainReport)) {
       structuralReport = mainReport;
     } else if (mainReport !== null) {
@@ -232,19 +246,25 @@ export namespace TtscBenchmarkGraphPublisher {
       }
       structuralReport = nestedStructural;
     }
-    if (structuralReport !== null) foldStructural(context, structuralReport);
+    if (structuralReport !== null) {
+      foldStructural(context, structuralReport);
+      folded = true;
+    }
 
     // Agent cells: upsert each available report by harness/tool/repo/model.
-    foldAgentFile(
-      context,
-      path.join(sourceDir, "agent-ab-report.json"),
-      "claude-code",
-    );
-    foldAgentFile(
-      context,
-      path.join(sourceDir, "agent-ab-codex-report.json"),
-      "codex",
-    );
+    folded =
+      foldAgentFile(
+        context,
+        path.join(sourceDir, "agent-ab-report.json"),
+        "claude-code",
+      ) || folded;
+    folded =
+      foldAgentFile(
+        context,
+        path.join(sourceDir, "agent-ab-codex-report.json"),
+        "codex",
+      ) || folded;
+    return folded;
   }
 
   function foldStructural(
@@ -266,11 +286,7 @@ export namespace TtscBenchmarkGraphPublisher {
   ): void {
     const seenReports = new Set<string>();
     for (const cell of report.cells) {
-      const sourceReportPath = resolveReportPath(
-        cell.report,
-        sourceDir,
-        context.repositoryRoot,
-      );
+      const sourceReportPath = resolveReportPath(cell.report, sourceDir);
       const reportKey = pathIdentity(sourceReportPath);
       if (seenReports.has(reportKey)) {
         throw new Error(`duplicate suite cell report: ${cell.report}`);
@@ -353,17 +369,19 @@ export namespace TtscBenchmarkGraphPublisher {
     );
   }
 
+  /** Folds one agent report, reporting whether the file was there to fold. */
   function foldAgentFile(
     context: IPublisherContext,
     file: string,
     harness: string,
-  ): void {
+  ): boolean {
     const report = readJson(file);
-    if (report === null) return;
+    if (report === null) return false;
     if (!isAgentReport(report)) {
       throw new TypeError(`invalid graph agent report: ${file}`);
     }
     foldAgent(context, report, harness);
+    return true;
   }
 
   function foldAgent(
@@ -552,21 +570,35 @@ export namespace TtscBenchmarkGraphPublisher {
     return parseJsonFile(file);
   }
 
-  function resolveReportPath(
-    reportPath: string,
-    sourceDir: string,
-    repositoryRoot: string,
-  ): string {
+  /**
+   * Resolves a suite cell's recorded report path against the suite file that
+   * recorded it, which is `<sourceDir>/report.json`.
+   *
+   * `TtscBenchmarkGraphSuite` resolves the same field against the same
+   * directory when it republishes a suite of its own, so one relative spelling
+   * cannot mean two files depending on which entrypoint reads it. Suites this
+   * repository writes record absolute paths, so only a hand-edited or foreign
+   * suite reaches the relative branch at all.
+   */
+  function resolveReportPath(reportPath: string, sourceDir: string): string {
     if (!reportPath) return "";
-    if (path.isAbsolute(reportPath)) return reportPath;
-    const fromRoot = path.resolve(repositoryRoot, reportPath);
-    if (fs.existsSync(fromRoot)) return fromRoot;
-    return path.resolve(sourceDir, reportPath);
+    return path.isAbsolute(reportPath)
+      ? reportPath
+      : path.resolve(sourceDir, reportPath);
   }
 
+  /**
+   * Selects the run directories to fold, defaulting to the package work root.
+   *
+   * A relative operator-supplied directory resolves against the current
+   * directory, the way `--out` on both runners and `--dir` / `--report` /
+   * `--out` on the trace auditor already resolve one. Resolving it against the
+   * repository root instead made the same relative string name the run
+   * directory on the way out and a different, non-existent one on the way in,
+   * which is the whole documented parallel-sweep workflow.
+   */
   function parseSourceDirs(
     argv: readonly string[],
-    repositoryRoot: string,
     workRoot: string,
   ): string[] {
     const dirs: string[] = [];
@@ -575,11 +607,11 @@ export namespace TtscBenchmarkGraphPublisher {
       if (arg === "--from" || arg === "--source") {
         const next = argv[++i];
         if (!next) throw new Error(`${arg} requires a directory`);
-        dirs.push(path.resolve(repositoryRoot, next));
+        dirs.push(path.resolve(next));
       } else if (arg.startsWith("--from=")) {
-        dirs.push(path.resolve(repositoryRoot, arg.slice("--from=".length)));
+        dirs.push(path.resolve(arg.slice("--from=".length)));
       } else if (arg.startsWith("--source=")) {
-        dirs.push(path.resolve(repositoryRoot, arg.slice("--source=".length)));
+        dirs.push(path.resolve(arg.slice("--source=".length)));
       }
     }
     const selected = dirs.length > 0 ? dirs : [path.join(workRoot, "graph")];
