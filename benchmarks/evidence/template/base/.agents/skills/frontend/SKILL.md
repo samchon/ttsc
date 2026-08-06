@@ -58,7 +58,7 @@ The frontend gate requires:
 - every requirement-backed journey represented by a browser spec, and every screen walked by one of them;
 - every published SDK operation called by a domain hook, and every hook used by a screen;
 - every product-facing operation reachable from a screen, or a recorded omission for its missing page;
-- `pnpm plan` green, so every requirement section is delivered by a screen or recorded as an omission;
+- `pnpm plan` green, so every requirement section is named by a screen entry or an omission;
 - every production component consumed by a screen or necessary shared boundary;
 - responsive and accessible behavior at required viewports;
 - every screen driven in the interactive browser, with `packages/frontend/wiki/interactive-review.md` recording what was observed;

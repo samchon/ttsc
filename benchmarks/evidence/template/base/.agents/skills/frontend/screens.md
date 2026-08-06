@@ -4,21 +4,27 @@ A screen is a route page under `src/components/<domain>/<name>-page.tsx`. Every 
 
 ## Requirement Ownership
 
-Every requirement section is delivered by a screen or recorded as an omission. The set is not yours to choose: it is every H2 and H3 under `docs/analysis`, which is the same population the backend answers to. From the workspace root:
+Every requirement section is delivered by a screen or recorded as an omission. The set is not yours to choose: it is every H2 and H3 under `docs/analysis`. From the workspace root:
 
 ```bash
 rg --no-filename -o '^#{2,3} .+' docs/analysis | sort
 ```
 
+Each heading opens with its own identifier, and that identifier is what a record cites.
+
 | Rule | Detail |
 | --- | --- |
-| one owning screen | the screen a reader reaches to satisfy this requirement, named in `screen-plan.md` |
-| every section named | each enumerated section appears in `screen-plan.md`, or in `omissions.md` with what covers it instead |
-| an omission is a decision | it names the owner or observable alternative and the condition that would make it false |
+| one owning screen | a line in `screen-plan.md` naming both the identifier and the page file that delivers it |
+| an omission is a decision | a line in `omissions.md` naming the identifier, what owns the requirement instead, and the condition that would make the decision false |
+| a family is one decision | an omission naming an H2 identifier covers its H3 children, so a concept no browser delivers is written down once |
+
+The family rule is what makes the largest subject tractable. `erp` has 1487 sections and 253 of them are H2, so its non-visual concepts are 253 decisions rather than 1487.
 
 "No screen needed" is a conclusion, not a reason. A section a browser genuinely does not deliver, a persistence rule or an authorization boundary the backend enforces alone, belongs in `omissions.md` with that owner named.
 
-`pnpm plan` from `packages/frontend` decides it. It reads the corpus, reads both records, prints the covered count, and lists every section named by neither. It reads and never writes.
+`pnpm plan` from `packages/frontend` decides it. It reads the corpus, reads both records, prints the covered count, and lists every section that is neither. It matches identifiers as whole tokens, so a screen for `REQ-X-1` does not silently deliver `REQ-X`, and it accepts the identifier however it is written, so a heading anchor and a bare identifier are the same citation. It reads and never writes.
+
+A copy of the enumeration is not a plan, and the script says so: a screen line without a page file and an omission line without a reason both count as nothing.
 
 ## Plan And Declare
 
