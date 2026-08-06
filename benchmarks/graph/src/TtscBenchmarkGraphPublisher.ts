@@ -359,7 +359,7 @@ export namespace TtscBenchmarkGraphPublisher {
         typeof sourceReport.daemon === "boolean"
           ? sourceReport.daemon
           : undefined;
-      upsertAgentCell(context, {
+      const changed = upsertAgentCell(context, {
         harness,
         tool,
         ...(toolSetupMs !== undefined ? { toolSetupMs } : {}),
@@ -376,7 +376,7 @@ export namespace TtscBenchmarkGraphPublisher {
         question: sourceReport.question,
         samples,
       });
-      upserted += 1;
+      if (changed) upserted += 1;
     }
     console.log(
       `suite: ${path.relative(context.repositoryRoot, sourceDir)} (${upserted} of ${
@@ -433,7 +433,7 @@ export namespace TtscBenchmarkGraphPublisher {
     const daemon =
       typeof report.daemon === "boolean" ? report.daemon : undefined;
     const toolSetupMs = numberValueOrUndefined(report.toolSetupMs);
-    upsertAgentCell(context, {
+    const changed = upsertAgentCell(context, {
       harness: websiteHarness,
       tool,
       repo,
@@ -459,7 +459,7 @@ export namespace TtscBenchmarkGraphPublisher {
         stringValue(report.model) ?? rawModel
       } (${n} graph runs)`,
     );
-    return true;
+    return changed;
   }
 
   function stableAgentModel(
@@ -498,10 +498,11 @@ export namespace TtscBenchmarkGraphPublisher {
     return `codex-${tier}`;
   }
 
+  /** Upserts one agent cell, reporting whether the document changed. */
   function upsertAgentCell(
     context: IPublisherContext,
     cell: IPublishedAgentCell,
-  ): void {
+  ): boolean {
     // A manifest promptId narrows the cell within a family, so two prompt variants
     // of the same family upsert separately instead of clobbering. Plain --repo
     // runs (no promptId) keep keying by family, as before.
@@ -524,10 +525,11 @@ export namespace TtscBenchmarkGraphPublisher {
             cell.promptFamily ?? "project-specific"
           } (${nextBaseline}/${nextGraph} < ${existingBaseline}/${existingGraph})`,
         );
-        return;
+        return false;
       }
       context.out.agent.cells[at] = { ...existing, ...cell };
     } else context.out.agent.cells.push(cell);
+    return true;
   }
 
   function sanitizeSamples(

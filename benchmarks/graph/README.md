@@ -123,7 +123,7 @@ Use `pnpm --dir benchmarks/graph run audit -- --compare=<before>,<after>` on aud
 
 ## Environment overrides
 
-This table is the list. Every variable either runner reads is here.
+This table is the list. Every environment variable this package consults, `PATH` aside, is here.
 
 | Variable | Default | Meaning |
 | --- | --- | --- |

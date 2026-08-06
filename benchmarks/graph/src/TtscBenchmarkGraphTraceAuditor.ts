@@ -510,7 +510,19 @@ export namespace TtscBenchmarkGraphTraceAuditor {
               ? reportPath
               : path.resolve(path.dirname(file), reportPath),
           )
-          .filter((reportPath) => fs.existsSync(reportPath))
+          // A cell the suite listed and this audit cannot open is a failure to
+          // report, not one to drop. Discarding it silently is the other half
+          // of the zero-cell audit: with the paths wrong the run still exited
+          // zero, and the reader had no way to tell an empty suite from an
+          // unreadable one.
+          .map((reportPath) => {
+            if (!fs.existsSync(reportPath)) {
+              throw new Error(
+                `suite cell report is missing: ${reportPath} (recorded in ${file})`,
+              );
+            }
+            return reportPath;
+          })
       );
     }
 
@@ -538,7 +550,12 @@ export namespace TtscBenchmarkGraphTraceAuditor {
       });
 
       const cell: AuditCell = {
-        report: path.relative(process.cwd(), reportPath),
+        // Absolute, so this audit's own `cells[].report` reads back under the
+        // same rule the runner's does. Recorded against the current directory
+        // it named a different file the moment the audit was read from
+        // anywhere else, and this file is itself accepted as a `--report`
+        // input.
+        report: reportPath,
         traceDir: path.relative(process.cwd(), traceDir),
         repo: report.repo,
         fixtureBranch: report.fixtureBranch,
