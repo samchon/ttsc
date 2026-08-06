@@ -193,7 +193,10 @@ function SpendRow({
                 event.stopPropagation();
                 onHover(detail(segment.key))(event);
               }}
-              className="outline-2 -outline-offset-2 outline-white/85 transition-[filter,outline-color] hover:brightness-110 hover:outline"
+              // Every outline utility sits behind `hover:`. Setting the width
+              // outside it draws the ring at rest too, because a width alone
+              // turns the style on.
+              className="transition-[filter] hover:-outline-offset-2 hover:brightness-110 hover:outline-2 hover:outline-white/85"
               style={{
                 width: `${(segment.value / maximum) * 100}%`,
                 background: segment.color,
