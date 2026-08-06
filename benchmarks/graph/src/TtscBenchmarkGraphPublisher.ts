@@ -414,7 +414,16 @@ export namespace TtscBenchmarkGraphPublisher {
     if (!isAgentReport(report)) {
       throw new TypeError(`invalid graph agent report: ${file}`);
     }
-    return foldAgent(context, report, harness);
+    const measured = foldAgent(context, report, harness);
+    if (!measured) {
+      // Named the way its twin in `foldSuite` names a cell, and named here
+      // because this is where the file is: a report that measured nothing is
+      // otherwise indistinguishable from one the publisher never looked at,
+      // and with several `--from` directories the harness alone does not say
+      // which one lost its cell.
+      console.warn(`skip report with no measured sample: ${file}`);
+    }
+    return measured;
   }
 
   /** Folds one agent report, reporting whether it carried a measurement. */
@@ -425,10 +434,6 @@ export namespace TtscBenchmarkGraphPublisher {
   ): boolean {
     const samples = sanitizeSamples(report.samples, report.runs);
     if (samples.baseline.length === 0 && samples.graph.length === 0) {
-      // Named for the same reason its twin in `foldSuite` is: a report that
-      // measured nothing is otherwise indistinguishable from one the publisher
-      // never looked at.
-      console.warn(`skip ${harness} report with no measured sample`);
       return false;
     }
     const rawModel =
@@ -521,7 +526,8 @@ export namespace TtscBenchmarkGraphPublisher {
   }
 
   /**
-   * Upserts one agent cell, declining when the published sample set is thicker.
+   * Upserts one agent cell, declining when either arm of the stored cell holds
+   * more samples than the one offered.
    *
    * The decline is the rule this namespace's header states, not a failure, so
    * it warns and returns rather than reporting anything the caller must act

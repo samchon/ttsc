@@ -530,12 +530,16 @@ export namespace TtscBenchmarkGraphTraceAuditor {
       baselineIndex: Map<string, Baseline> | null,
     ): AuditCell {
       const report = readRawCellReport(reportPath);
-      const traceDir = path.resolve(report.traceDir);
-      // The last link of the same chain. A cell whose traces are unreachable
-      // used to die on a bare ENOENT that named neither the cell nor the report
-      // recording it, and a cell whose trace directory is empty audited as
-      // `runs: 0` at exit zero - folding a median of zero into the suite
-      // summary, which is a published number stating something no trace says.
+      // Against the report that recorded it, the base `cells[].report` uses
+      // three functions up. Both harnesses record this absolute, so the base
+      // only decides what a relative one means - and it decides what the error
+      // below is allowed to name.
+      const traceDir = path.resolve(path.dirname(reportPath), report.traceDir);
+      // The last link of the per-cell reachability chain. A cell whose traces
+      // are unreachable used to die on a bare ENOENT that named neither the
+      // cell nor the report recording it, and a cell whose trace directory is
+      // empty audited as `runs: 0` at exit zero - folding a median of zero into
+      // the suite summary, a recorded number stating something no trace says.
       if (!fs.existsSync(traceDir)) {
         throw new Error(
           `cell trace directory is missing: ${traceDir} (recorded in ${reportPath})`,
@@ -547,7 +551,7 @@ export namespace TtscBenchmarkGraphTraceAuditor {
         .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
       if (traces.length === 0) {
         throw new Error(
-          `cell trace directory holds no trace: ${traceDir} (recorded in ${reportPath})`,
+          `cell trace directory holds no *.stream.jsonl: ${traceDir} (recorded in ${reportPath})`,
         );
       }
       const runs: AuditRun[] = traces.map((file) => {
