@@ -96,9 +96,9 @@ Per-project commands, install/prepare overrides, and prerequisites live in `src/
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
-| `TTSC_BENCH_WORK` | `benchmarks/performance/.work` | Clone working directory. Each benchmark package resolves its own root, so this package never writes into a sibling's. |
+| `TTSC_BENCH_WORK` | `benchmarks/performance/.work` | Working directory for this run: clones, report, and checkpoint. Each benchmark package resolves its own root, so this package never writes into a sibling's. |
 | `TTSC_BENCH_TGZ` | `<tmpdir>/ttsc-tgz-<pid>` (`<tmpdir>/ttsc-tgz` with `--no-pack`) | Tarball staging directory. |
-| `TTSC_BENCH_OUT` | `benchmarks/performance/.work/report.md` | Report destination; sibling `.json` is written alongside. |
+| `TTSC_BENCH_OUT` | `<WORK>/report.md` | Report destination; sibling `.json` is written alongside. |
 | `TTSC_BENCH_CHECKPOINT` | `<WORK>/benchmark.checkpoint.json` | Intermediate snapshot rewritten after each cell so an interrupted run is resumable. |
 | `TTSC_BENCH_RUNS` | `5` | Measured runs per cell. |
 | `TTSC_BENCH_WARMUP` | `1` | Warmup runs per cell (excluded from reported samples). |
@@ -123,9 +123,9 @@ Per-project commands, install/prepare overrides, and prerequisites live in `src/
 
 | File | Contents |
 | --- | --- |
-| `.work/report.md` | Per-project Markdown table (`Branch \| Op \| Threading \| Min \| lint timings \| Samples \| Failure`) preceded by a `Host` block (OS, kernel, CPU, RAM, `node` / `ttsc` / `typescript` / `tsgo` versions). |
-| `.work/report.json` | Same content plus per-sample timings, retry counts, and exit statuses. |
-| `.work/benchmark.checkpoint.json` | Same shape as `report.json`, rewritten after every cell so a Ctrl-C run leaves a resumable snapshot. |
+| `<WORK>/report.md` | Per-project Markdown table (`Branch \| Op \| Threading \| Min \| lint timings \| Samples \| Failure`) preceded by a `Host` block (OS, kernel, CPU, RAM, `node` / `ttsc` / `typescript` / `tsgo` versions). |
+| `<WORK>/report.json` | Same content plus per-sample timings, retry counts, and exit statuses. |
+| `<WORK>/benchmark.checkpoint.json` | Same shape as `report.json`, rewritten after every cell so a Ctrl-C run leaves a resumable snapshot. |
 | `website/public/benchmark/performance.json` | Dashboard view consumed by https://ttsc.dev/benchmark. Merged in place, cells not re-measured in this run keep their previous values. Skip with `--no-website`, wipe and replace with `--reset`. |
 
 `.work/` is git-ignored; results are an ephemeral artifact and never committed.

@@ -123,7 +123,9 @@ Use `pnpm --dir benchmarks/graph run audit -- --compare=<before>,<after>` on aud
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
-| `TTSC_GRAPH_BENCH_WORK` | `../graph-benchmark-work` | Fixture clone directory. It defaults outside the repo so a measured agent does not inherit ttsc's `CLAUDE.md` / `AGENTS.md` from a parent directory. |
+| `TTSC_GRAPH_BENCH_WORK` | `../graph-benchmark-work` | Fixture clone directory, checkouts only. It defaults outside the repo so a measured agent does not inherit ttsc's `CLAUDE.md` / `AGENTS.md` from a parent directory. Reports never follow it; they stay under `.work/`. |
+| `TTSC_GRAPH_BENCH_OUT` | `.work/graph/<timestamp>` | Report directory for `src/executable/index.ts`, below `--out` and above the default. |
+| `TTSC_GRAPH_BENCH_TIMEOUT_MS` | `1800000` | Per-child timeout for an agent sample (`src/executable/index.ts`) and a cold-index build step (`src/executable/index-time.ts`). |
 | `CODEBASE_MEMORY_MCP_BINARY` | `codebase-memory-mcp` | Binary used by the `codebase-memory` comparator when `--codebase-memory-binary` is not passed. |
 | `SERENA_MCP_COMMAND` | `uvx` | Command used to launch Serena when `--serena-command` is not passed. |
 | `SERENA_MCP_ARGS` | Serena's `uvx --from git+https://github.com/oraios/serena ...` args | Argument list used to launch Serena when `--serena-args` is not passed. |
@@ -136,6 +138,7 @@ Use `pnpm --dir benchmarks/graph run audit -- --compare=<before>,<after>` on aud
 | `.work/graph/<timestamp>/report.json` | Per-cell agent samples: tokens, cached and reasoning tokens, turns, tool calls, reads, greps, shell calls, graph calls, source touches, cost, wall time, and attempt counts. |
 | `.work/graph/<timestamp>/codex-trace-audit.json` | Codex trace audit written automatically for Codex cells: full exposed message timeline, tool-call ledger, reasoning token counts, visible-input ledger, baseline-median savings, duplicate-output exact savings, graph-replaceable shell-output surface, candidate MCP overfetch estimates, and observed later-turn prompt replay exposure. |
 | `.work/graph/structural/report.json` | Deterministic structural metrics from `src/executable/bench.ts`: load time, graph build time, and the share the build adds on top of the load it rides. |
+| `.work/graph-index/<timestamp>/report.json` | Cold index build time per (tool × fixture) from `src/executable/index-time.ts`, with the per-fixture scale block and the host it ran on. |
 | `website/public/benchmark/graph.json` | Graph dashboard data consumed by https://ttsc.dev/benchmark. `src/executable/index.ts` upserts measured agent cells by the visible axes: harness, tool, repo, prompt id or family, stable model tier, and daemon mode. Fixture branch, effort, and setup time remain metadata and never fork a visible cell. `src/executable/publish.ts` folds local reports in, replacing the `structural` block whole and upserting agent cells by key. `src/executable/index-time.ts` owns only the top-level `index` key (`{ host, scale, cells }`), upserted by (project, tool). |
 
 `.work/` is git-ignored; results are an ephemeral artifact and never committed. For parallel `--no-website` runs, publish afterward with `pnpm --dir benchmarks/graph run publish -- --from <out-dir>`; never let concurrent runners write `graph.json` directly.

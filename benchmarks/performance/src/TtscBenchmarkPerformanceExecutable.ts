@@ -43,9 +43,12 @@ export namespace TtscBenchmarkPerformanceExecutable {
         os.tmpdir(),
         flags.has("--no-pack") ? "ttsc-tgz" : `ttsc-tgz-${process.pid}`,
       );
+    // Anchored to the root this run resolved, not to the package constant.
+    // `TTSC_BENCH_WORK` exists so a sweep can put its clones on another volume;
+    // leaving the report behind splits one run's state across two roots and
+    // lets two runs isolated by that variable overwrite each other's report.
     const outputMarkdown =
-      process.env.TTSC_BENCH_OUT ??
-      path.resolve(TtscBenchmarkConstant.WORK_ROOT, "report.md");
+      process.env.TTSC_BENCH_OUT ?? path.resolve(workRoot, "report.md");
     const websiteJson = path.resolve(
       repositoryRoot,
       "website",

@@ -147,8 +147,14 @@ export namespace TtscBenchmarkGraphIndexTime {
     const tools = selectTools(
       parsed.values.tools ?? parsed.values.tool ?? "all",
     );
+    // A report is an artifact of this package, so it lands under the package
+    // work root like every sibling harness's. `workDir` is the fixture clone
+    // root, and it sits outside the repository for a reason that belongs to
+    // checkouts alone: a measured agent walks parent directories for
+    // `CLAUDE.md` and `AGENTS.md`.
     const outDir = path.resolve(
-      parsed.values.out ?? path.join(workDir, "graph-index", timestamp()),
+      parsed.values.out ??
+        path.join(TtscBenchmarkConstant.WORK_ROOT, "graph-index", timestamp()),
     );
     const reportPath = path.join(outDir, "report.json");
     const runRoot = path.join(outDir, `.run-${process.pid}`);
