@@ -6,7 +6,4 @@ export default {
   // Prisma owns this generated client, and `include` selects it with the rest
   // of `src`.
   ignores: ["src/prisma/**/*.ts"],
-  rules: {
-    "no-duplicate-imports": ["error", { allowSeparateTypeImports: true }],
-  },
 } satisfies ITtscLintConfig;
