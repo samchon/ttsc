@@ -4,6 +4,9 @@ import type { ITtscWebsiteBenchmarkEvidence } from "../../../structures/ITtscWeb
 import TtscWebsiteBenchmarkGraphUi from "../graph/TtscWebsiteBenchmarkGraphUi";
 import TtscWebsiteBenchmarkEvidenceData from "./TtscWebsiteBenchmarkEvidenceData";
 import useTtscWebsiteBenchmarkEvidenceData from "./useTtscWebsiteBenchmarkEvidenceData";
+import useTtscWebsiteBenchmarkEvidenceHover, {
+  setTtscWebsiteBenchmarkEvidenceHover,
+} from "./useTtscWebsiteBenchmarkEvidenceHover";
 
 type Cell = ITtscWebsiteBenchmarkEvidence.Cell;
 
@@ -19,6 +22,7 @@ const { ARM_COLOR, formatInteger, title } = TtscWebsiteBenchmarkEvidenceData;
  */
 export default function TtscWebsiteBenchmarkEvidenceCounters() {
   const { report, loading, error } = useTtscWebsiteBenchmarkEvidenceData();
+  const hovered = useTtscWebsiteBenchmarkEvidenceHover();
 
   if (error)
     return (
@@ -58,7 +62,15 @@ export default function TtscWebsiteBenchmarkEvidenceCounters() {
             {report.cells.map((cell: Cell) => (
               <tr
                 key={cell.runId}
-                className="border-b border-[#eef4fa] text-slate-600"
+                onMouseEnter={() =>
+                  setTtscWebsiteBenchmarkEvidenceHover(cell.runId)
+                }
+                onMouseLeave={() => setTtscWebsiteBenchmarkEvidenceHover(null)}
+                className={`border-b border-[#eef4fa] transition-colors ${
+                  hovered === cell.runId
+                    ? "bg-[#eef6ff] text-[#102a43]"
+                    : "text-slate-600"
+                }`}
               >
                 <td className="px-4 py-2 font-medium text-[#102a43]">
                   {title(cell.subject)}

@@ -13,6 +13,9 @@ import useTtscWebsiteBenchmarkEvidenceTooltip, {
   type TooltipContent,
 } from "./TtscWebsiteBenchmarkEvidenceTooltip";
 import useTtscWebsiteBenchmarkEvidenceData from "./useTtscWebsiteBenchmarkEvidenceData";
+import useTtscWebsiteBenchmarkEvidenceHover, {
+  setTtscWebsiteBenchmarkEvidenceHover,
+} from "./useTtscWebsiteBenchmarkEvidenceHover";
 
 const {
   AXES,
@@ -140,6 +143,7 @@ function SpendRow({
   onHover: (content: TooltipContent) => (event: React.MouseEvent) => void;
   onLeave: () => void;
 }) {
+  const hovered = useTtscWebsiteBenchmarkEvidenceHover() === row.cell.runId;
   const stacked = row.segments.reduce((sum, segment) => sum + segment.value, 0);
   const share = (value: number): string =>
     stacked <= 0 ? "" : `${Math.round((value / stacked) * 100)}%`;
@@ -168,7 +172,13 @@ function SpendRow({
   });
 
   return (
-    <div className="flex items-center gap-3">
+    <div
+      className={`flex items-center gap-3 rounded-md px-1.5 py-0.5 transition-colors ${
+        hovered ? "bg-[#eef6ff]" : ""
+      }`}
+      onMouseEnter={() => setTtscWebsiteBenchmarkEvidenceHover(row.cell.runId)}
+      onMouseLeave={() => setTtscWebsiteBenchmarkEvidenceHover(null)}
+    >
       <span
         className="w-[74px] shrink-0 text-[13px] font-semibold"
         style={{ color: row.color }}
