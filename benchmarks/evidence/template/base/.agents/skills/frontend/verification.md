@@ -77,16 +77,21 @@ Inspect the gallery during authoring at mobile, tablet, and desktop widths. Prod
 
 ## Interactive Review
 
-Drive every main journey in an interactive browser. Verify:
+Drive every main journey in an interactive browser against the live backend. The workspace provides one: a Playwright MCP server is attached to your session, so navigating, clicking, filling, resizing, and taking an accessibility snapshot are tools you already have.
 
-- each control causes its promised observable change;
-- search, sort, pagination, page size, toggles, dialogs, and forms work;
-- expected refusals are actionable;
-- session and actor changes do not leak cached data;
-- the layout works at required widths; and
-- copy and values match the contract.
+For every screen, observe:
 
-Turn every discovered defect into a stable browser assertion. When interactive browser control is unavailable, record the exact fallback and unverified boundary.
+- the accessibility snapshot, and that each control's accessible name is the one a user is meant to hear rather than the primitive's default;
+- each control causing its promised observable change;
+- search, sort, pagination, page size, toggles, dialogs, and forms working;
+- expected refusals arriving as something a user can act on;
+- session and actor changes not leaking cached data;
+- the layout at each required width; and
+- copy and values matching the contract.
+
+Turn every discovered defect into a stable browser assertion, and record the pass as `packages/frontend/wiki/interactive-review.md`: the date, the screens driven, the widths, what each control did, and every defect found with the assertion that now pins it. A screen absent from that record was not driven.
+
+The accessibility snapshot is the one observation that pays for itself immediately. An input primitive with a hard-coded `aria-label` announces every field in the application by that one name, and the snapshot shows it in a single call while source reading and a passing suite both miss it.
 
 ## Record
 
@@ -122,6 +127,7 @@ Frontend verification passes only when:
 
 - no implementation stub remains;
 - `pnpm plan` reports every requirement section named by the plan or its omissions record;
+- every screen was driven in the interactive browser and appears in `packages/frontend/wiki/interactive-review.md`;
 - every requirement journey has executed live, against a running backend;
 - every requirement journey asserts the concrete effect its requirement names, and would fail if that behavior disappeared;
 - every screen and required state was inspected;

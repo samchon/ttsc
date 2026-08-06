@@ -61,6 +61,7 @@ The frontend gate requires:
 - `pnpm plan` green, so every requirement section is delivered by a screen or recorded as an omission;
 - every production component consumed by a screen or necessary shared boundary;
 - responsive and accessible behavior at required viewports;
+- every screen driven in the interactive browser, with `packages/frontend/wiki/interactive-review.md` recording what was observed;
 - every requirement journey green with `VITE_API_SIMULATE=false` against the live backend, each asserting the concrete effect its requirement names; and
 - `packages/frontend/wiki/verification.md` recording what actually ran.
 

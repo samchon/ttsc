@@ -32,6 +32,7 @@ packages/frontend/
   wiki/
     screen-plan.md
     omissions.md
+    interactive-review.md
     verification.md
 ```
 

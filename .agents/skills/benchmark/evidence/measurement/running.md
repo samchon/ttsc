@@ -15,7 +15,7 @@ One cell is one native session driven through its arm's eight objectives. The op
 Freeze every input before launch, and never launch an unauthorized cell or rerun:
 
 - **Identity** — subject, arm, engine, model, effort.
-- **Material** — requirements, template, instructions, package archive.
+- **Material** — requirements, template, instructions, package archive, browser server version.
 - **Version** — CLI version, benchmark revision.
 
 [intervention/boundary.md](../intervention/boundary.md) owns what may change and when.
@@ -121,6 +121,8 @@ One native session receives its arm's frozen base sequence, read from `benchmark
 `EvidenceBenchmarkInstruction.entries()` is the only authority on that sequence.
 
 The runner joins each objective with the same arm's `instructions/<arm>/continue.md` once, and a Plain reminder or Final also carries its own scope's Review instruction quoted beneath it. An operator warning is the one exception: outside a Plain reminder or Final it replaces the continuation rather than joining it, which keeps the objective inside the 4000 characters Codex accepts however long the warning runs.
+
+Every session is attached to a pinned Playwright MCP server through the same argument list, which has no arm branch. It is a frozen material input like the template: `EvidenceBenchmarkRuntime.BROWSER_MCP_SPECIFIER` names the version, the retained process record carries the arguments, and a cohort whose cells disagree about it is not one cohort.
 
 The arms share no runtime instruction bytes. Do not add operator prose.
 

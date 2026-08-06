@@ -7,6 +7,40 @@ export namespace EvidenceBenchmarkRuntime {
   /** Default first port of the allocation, one disjoint block per cell. */
   export const DEFAULT_PORT_BASE = 46_000;
 
+  /**
+   * Pinned Playwright MCP server every cell drives its browser through.
+   *
+   * The frontend guidance requires driving every main journey in an interactive
+   * browser and the workspace provided no way to do it, so every cell took the
+   * escape clause and shipped defects that one accessibility snapshot would
+   * have shown. The capability is therefore delivered rather than assumed, and
+   * it is delivered to both arms by the same code path: the invocation this
+   * appears in has no arm branch, which is what keeps it out of the variable
+   * the campaign measures.
+   *
+   * The version is pinned because it is a frozen material input like the
+   * requirements and the template. A floating specifier would let two cells in
+   * one cohort drive different browsers, and the retained process record would
+   * say they did not.
+   */
+  export const BROWSER_MCP_SPECIFIER = "@playwright/mcp@0.0.79";
+
+  /**
+   * Native arguments that attach the browser server to a cell's thread.
+   *
+   * Codex reads `mcp_servers.<name>` from its configuration, and `--config`
+   * overrides reach the same table without writing a file into the measured
+   * workspace, which would be an input a cell could edit.
+   */
+  export function browserServerArguments(): string[] {
+    return [
+      "--config",
+      "mcp_servers.playwright.command=npx",
+      "--config",
+      `mcp_servers.playwright.args=["-y","${BROWSER_MCP_SPECIFIER}"]`,
+    ];
+  }
+
   /** Network endpoints reserved for one subject and arm. */
   export interface IAssignment {
     /** Nest application port inherited by backend commands and tests. */

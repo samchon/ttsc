@@ -5,6 +5,7 @@ import typia from "typia";
 import { EvidenceBenchmarkInspection } from "./EvidenceBenchmarkInspection";
 import { EvidenceBenchmarkInstruction } from "./EvidenceBenchmarkInstruction";
 import { EvidenceBenchmarkReviewLedger } from "./EvidenceBenchmarkReviewLedger";
+import { EvidenceBenchmarkRuntime } from "./EvidenceBenchmarkRuntime";
 import { EvidenceBenchmarkSupervision } from "./EvidenceBenchmarkSupervision";
 import type { ITtscEvidenceBenchmarkCheckpointStorage } from "./structures/ITtscEvidenceBenchmarkCheckpointStorage";
 import type { ITtscEvidenceBenchmarkExecutable } from "./structures/ITtscEvidenceBenchmarkExecutable";
@@ -300,6 +301,7 @@ export namespace EvidenceBenchmarkRunner {
       "goals",
       "--config",
       `model_reasoning_effort="${props.effort}"`,
+      ...EvidenceBenchmarkRuntime.browserServerArguments(),
     ]);
     const processIndex: number = state.processes.length;
     const processRecord: ITtscEvidenceBenchmarkProcessRecord = {

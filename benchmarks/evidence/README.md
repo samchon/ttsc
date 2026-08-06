@@ -142,6 +142,8 @@ The sequence is adaptive, not fixed. A failing Plain review verdict inserts that
 
 For each Plain Reminder and Final step, the runner appends the matching Review instruction as a Markdown blockquote at the bottom of the prescribed instruction. It then combines the prescribed instruction and that arm's `instructions/<arm>/continue.md` once as the objective. An operator warning replaces the continuation instead of joining it, except on a Plain Reminder or Final, where it is inserted above the quoted Review. No runtime instruction bytes are shared across arms.
 
+Every session is attached to a pinned Playwright MCP server, identically for both arms, so a cell can drive its own application in a browser. `EvidenceBenchmarkRuntime.BROWSER_MCP_SPECIFIER` names the exact version, and the retained process record carries the arguments that attached it.
+
 Codex receives each objective as a native Goal in one app-server thread. It advances after Goal completion, terminal-turn completion, and an idle thread.
 
 Engine completion is recorded execution behavior, not a quality verdict.
