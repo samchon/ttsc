@@ -12,7 +12,8 @@ const readBoolean = (value: string | undefined, fallback: boolean): boolean => {
  * checked-in workspace runs in, and a default of on means the application never
  * contacts the backend unless someone opts in, while the gate that decides
  * whether the product works is the live one. `pnpm test:contract` turns it on
- * for its own suite through `.env.contract` and `vite build --mode contract`.
+ * for its own suite through `vite build --mode contract`, which `vite.config.ts`
+ * owns.
  */
 export const config = {
   apiHost: import.meta.env.VITE_API_HOST ?? "http://127.0.0.1:37001",

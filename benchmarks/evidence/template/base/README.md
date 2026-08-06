@@ -16,7 +16,7 @@ pnpm test
 pnpm format
 ```
 
-The backend `.env` is required for local server and test processes. The frontend defaults to the live backend; copy `packages/frontend/.env.example` to `packages/frontend/.env` only when overriding a default, and set `VITE_API_SIMULATE=true` there to build screens against the simulated client.
+The backend `.env` is required for local server and test processes. The frontend defaults to the live backend; copy `packages/frontend/.env.example` to `packages/frontend/.env` only when overriding a default. Simulation is selected by the mode rather than by that file: `pnpm --filter {{frontendPackageName}} test:contract` and `pnpm --filter {{frontendPackageName}} dev --mode contract` build against the simulated client.
 
 Run `pnpm schema:database` after changing the Prisma schema. This workspace uses disposable SQLite data, so the command resets the local database. Install Chromium once with `pnpm --filter {{frontendPackageName}} playwright:install` before running the browser suite.
 

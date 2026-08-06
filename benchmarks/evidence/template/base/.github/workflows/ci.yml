@@ -54,21 +54,19 @@ jobs:
         run: pnpm test:backend
 
       - name: Install Chromium
-        run: pnpm --filter {{frontendPackageName}} exec playwright install --with-deps chromium
+        run: pnpm --filter {{frontendPackageName}} --fail-if-no-match exec playwright install --with-deps chromium
 
       # The contract pass answers with `typia.random`, so it proves the typed
       # client boundary is wired and nothing about what the data means.
       - name: Test frontend contract
-        env:
-          VITE_API_SIMULATE: "true"
-        run: pnpm --filter {{frontendPackageName}} test:contract
+        run: pnpm --filter {{frontendPackageName}} --fail-if-no-match test:contract
 
       # The live pass is the gate, and it needs the server it asserts against.
       # Without it the job could only ever run the simulated lane, which is the
       # one that cannot observe persistence, sessions, or any side effect.
       - name: Start backend
         run: |
-          nohup pnpm --filter {{backendPackageName}} start > backend.log 2>&1 &
+          nohup pnpm --filter {{backendPackageName}} --fail-if-no-match start > backend.log 2>&1 &
           for _ in $(seq 1 120); do
             if curl --silent --fail "$VITE_API_HOST/health" > /dev/null; then
               exit 0
