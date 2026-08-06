@@ -495,33 +495,29 @@ export namespace TtscBenchmarkGraphTraceAuditor {
           .filter(
             (cell) => cell.harness === undefined || cell.harness === "codex",
           )
-          .map((cell) => optionalString(cell.report))
-          .filter(
-            (reportPath): reportPath is string => reportPath !== undefined,
-          )
-          // A relative cell path resolves against the report that recorded it,
-          // the one base every reader of this field now uses. Resolving against
-          // the current directory made the answer depend on where the audit was
-          // typed: it worked only because the runner spawns this from the
-          // repository root, and the documented `pnpm --dir benchmarks/graph run
-          // audit -- --report ...` invocation audited zero cells in silence.
-          .map((reportPath) =>
-            path.isAbsolute(reportPath)
+          // A cell the suite listed and this audit cannot reach is a failure to
+          // report, not one to drop. Silence here was the other half of the
+          // zero-cell audit: whatever went wrong, the run exited zero and the
+          // reader could not tell an empty suite from an unreadable one.
+          .map((cell) => {
+            const reportPath = optionalString(cell.report);
+            if (reportPath === undefined) {
+              throw new Error(`suite cell records no report path in ${file}`);
+            }
+            // Resolved against the report that recorded it, the one base every
+            // reader of this field uses. Against the current directory it named
+            // a different file whenever the run directory was not the directory
+            // the audit was typed in, which the documented `pnpm --dir
+            // benchmarks/graph run audit -- --report ...` invocation always is.
+            const resolved = path.isAbsolute(reportPath)
               ? reportPath
-              : path.resolve(path.dirname(file), reportPath),
-          )
-          // A cell the suite listed and this audit cannot open is a failure to
-          // report, not one to drop. Discarding it silently is the other half
-          // of the zero-cell audit: with the paths wrong the run still exited
-          // zero, and the reader had no way to tell an empty suite from an
-          // unreadable one.
-          .map((reportPath) => {
-            if (!fs.existsSync(reportPath)) {
+              : path.resolve(path.dirname(file), reportPath);
+            if (!fs.existsSync(resolved)) {
               throw new Error(
-                `suite cell report is missing: ${reportPath} (recorded in ${file})`,
+                `suite cell report is missing: ${resolved} (recorded in ${file})`,
               );
             }
-            return reportPath;
+            return resolved;
           })
       );
     }
@@ -551,10 +547,14 @@ export namespace TtscBenchmarkGraphTraceAuditor {
 
       const cell: AuditCell = {
         // Absolute, so this audit's own `cells[].report` reads back under the
-        // same rule the runner's does. Recorded against the current directory
-        // it named a different file the moment the audit was read from
-        // anywhere else, and this file is itself accepted as a `--report`
-        // input.
+        // same rule the runner's does - and this file is itself accepted as a
+        // `--report` input. Recorded against the current directory it named a
+        // different file whenever the run directory was not the directory the
+        // audit was typed in, which is every documented invocation.
+        //
+        // `traceDir` and `runsDetail[].file` stay current-directory relative on
+        // purpose: nothing resolves them, they are provenance a human reads,
+        // and a short path reads better than an absolute one.
         report: reportPath,
         traceDir: path.relative(process.cwd(), traceDir),
         repo: report.repo,
@@ -3381,7 +3381,9 @@ export namespace TtscBenchmarkGraphTraceAuditor {
         ...parsed,
       };
       const cell: AuditCell = {
-        report: path.relative(process.cwd(), reportPath),
+        // Same spelling the real audit path records, so the self-test models
+        // the shape this file actually produces rather than a superseded one.
+        report: reportPath,
         traceDir: path.relative(process.cwd(), report.traceDir),
         repo: report.repo,
         fixtureBranch: report.fixtureBranch,

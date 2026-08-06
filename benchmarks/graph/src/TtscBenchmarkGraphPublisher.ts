@@ -215,14 +215,18 @@ export namespace TtscBenchmarkGraphPublisher {
   }
 
   /**
-   * Folds one source directory, reporting whether it changed the document.
+   * Folds one source directory, reporting whether it carried a measurement.
    *
-   * The answer counts upserted cells and a replaced structural block, not files
-   * that happened to be present. A run that produced a `report.json` whose
-   * every cell was rejected contributed nothing, and a publish that accepted it
-   * would report success for a document it did not add to - which with
-   * `--reset`, already emptied before the first fold, is how the served
-   * dashboard loses its cells.
+   * The answer counts measured cells and a structural report, not files that
+   * happened to be present: a `report.json` whose sample sets are all empty is
+   * a run that measured nothing, and a publish that accepted it would report
+   * success for a document it did not add to - which with `--reset`, already
+   * emptied before the first fold, is how the served dashboard loses its
+   * cells.
+   *
+   * A cell the publisher measured and then deliberately kept out, because what
+   * is already published is thicker, still counts. That skip is the publisher's
+   * own rule working, not an empty directory.
    */
   function foldSourceDir(
     context: IPublisherContext,
@@ -292,14 +296,22 @@ export namespace TtscBenchmarkGraphPublisher {
     );
   }
 
-  /** Folds a suite report, reporting how many cells it actually upserted. */
+  /**
+   * Folds a suite report, reporting how many of its cells carried a
+   * measurement.
+   *
+   * A cell the publisher considered and deliberately kept out of the document -
+   * one thinner than the sample set already published - still counted: the run
+   * measured it, and refusing the directory over a policy the publisher applied
+   * on purpose would fail a publish for succeeding at its own rule.
+   */
   function foldSuite(
     context: IPublisherContext,
     report: ISuiteReport,
     sourceDir: string,
   ): number {
     const seenReports = new Set<string>();
-    let upserted = 0;
+    let measured = 0;
     for (const cell of report.cells) {
       const sourceReportPath = resolveReportPath(cell.report, sourceDir);
       const reportKey = pathIdentity(sourceReportPath);
@@ -330,6 +342,11 @@ export namespace TtscBenchmarkGraphPublisher {
       const version = modelVersionId(rawModel);
       const samples = sanitizeSamples(sourceReport.samples, sourceReport.runs);
       if (samples.baseline.length === 0 && samples.graph.length === 0) {
+        // Named, not dropped in silence. The count below would otherwise be the
+        // only trace of a cell the suite listed and that measured nothing, and
+        // the difference between the two numbers is what a reader has to
+        // explain.
+        console.warn(`skip cell with no measured sample: ${sourceReportPath}`);
         continue;
       }
       const toolSetupMs =
@@ -359,7 +376,7 @@ export namespace TtscBenchmarkGraphPublisher {
         typeof sourceReport.daemon === "boolean"
           ? sourceReport.daemon
           : undefined;
-      const changed = upsertAgentCell(context, {
+      upsertAgentCell(context, {
         harness,
         tool,
         ...(toolSetupMs !== undefined ? { toolSetupMs } : {}),
@@ -376,17 +393,17 @@ export namespace TtscBenchmarkGraphPublisher {
         question: sourceReport.question,
         samples,
       });
-      if (changed) upserted += 1;
+      measured += 1;
     }
     console.log(
-      `suite: ${path.relative(context.repositoryRoot, sourceDir)} (${upserted} of ${
+      `suite: ${path.relative(context.repositoryRoot, sourceDir)} (${measured} of ${
         report.cells.length
       } cell(s))`,
     );
-    return upserted;
+    return measured;
   }
 
-  /** Folds one agent report, reporting whether it upserted a cell. */
+  /** Folds one agent report, reporting whether it carried a measurement. */
   function foldAgentFile(
     context: IPublisherContext,
     file: string,
@@ -400,7 +417,7 @@ export namespace TtscBenchmarkGraphPublisher {
     return foldAgent(context, report, harness);
   }
 
-  /** Folds one agent report, reporting whether it upserted a cell. */
+  /** Folds one agent report, reporting whether it carried a measurement. */
   function foldAgent(
     context: IPublisherContext,
     report: Record<string, unknown>,
@@ -433,7 +450,7 @@ export namespace TtscBenchmarkGraphPublisher {
     const daemon =
       typeof report.daemon === "boolean" ? report.daemon : undefined;
     const toolSetupMs = numberValueOrUndefined(report.toolSetupMs);
-    const changed = upsertAgentCell(context, {
+    upsertAgentCell(context, {
       harness: websiteHarness,
       tool,
       repo,
@@ -459,7 +476,7 @@ export namespace TtscBenchmarkGraphPublisher {
         stringValue(report.model) ?? rawModel
       } (${n} graph runs)`,
     );
-    return changed;
+    return true;
   }
 
   function stableAgentModel(
@@ -498,11 +515,10 @@ export namespace TtscBenchmarkGraphPublisher {
     return `codex-${tier}`;
   }
 
-  /** Upserts one agent cell, reporting whether the document changed. */
   function upsertAgentCell(
     context: IPublisherContext,
     cell: IPublishedAgentCell,
-  ): boolean {
+  ): void {
     // A manifest promptId narrows the cell within a family, so two prompt variants
     // of the same family upsert separately instead of clobbering. Plain --repo
     // runs (no promptId) keep keying by family, as before.
@@ -525,11 +541,10 @@ export namespace TtscBenchmarkGraphPublisher {
             cell.promptFamily ?? "project-specific"
           } (${nextBaseline}/${nextGraph} < ${existingBaseline}/${existingGraph})`,
         );
-        return false;
+        return;
       }
       context.out.agent.cells[at] = { ...existing, ...cell };
     } else context.out.agent.cells.push(cell);
-    return true;
   }
 
   function sanitizeSamples(
