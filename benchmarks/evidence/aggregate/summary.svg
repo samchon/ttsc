@@ -178,7 +178,7 @@
 <text x="1145.27" y="1323" text-anchor="middle" class="segment-label">Overall</text>
 <text x="1404" y="1315" text-anchor="end" class="value">777.6M tokens (+9%)</text>
 <text x="1404" y="1339" text-anchor="end" class="cost-value">26h 15m · $9.50</text>
-<text x="36" y="1425" class="table-note">API cost uses OpenRouter rates from 2026-08-01, emitted only after every measured request reconciles with retained counters.</text>
+<text x="36" y="1425" class="table-note">API cost uses openrouter rates from 2026-08-01, emitted only after every measured request reconciles with retained counters.</text>
 <text x="36" y="1440" class="table-note">Review inspection runs on the cell&apos;s own model and effort, so its tokens, time and price all sit inside these totals.</text>
 <text x="36" y="1460" class="generated">Generated 2026-08-06T11:33:32.869Z</text>
 </svg>

@@ -132,7 +132,7 @@
 <rect x="515.54" y="957" width="18.16" height="36" fill="#f58518" fill-opacity="0.84" class="phase-segment" data-phase="frontend-review"/>
 <rect x="533.70" y="957" width="21.52" height="36" fill="#f58518" fill-opacity="1" class="phase-segment" data-phase="overall-review"/>
 <text x="1404" y="980" text-anchor="end" class="value">$3.35 (-65%)</text>
-<text x="36" y="1067" class="table-note">API cost uses OpenRouter rates from 2026-08-01, emitted only after every measured request reconciles with retained counters.</text>
+<text x="36" y="1067" class="table-note">API cost uses openrouter rates from 2026-08-01, emitted only after every measured request reconciles with retained counters.</text>
 <text x="36" y="1082" class="table-note">Review inspection runs on the cell&apos;s own model and effort, so its tokens, time and price all sit inside these totals.</text>
 <text x="36" y="1100" class="generated">Generated 2026-08-06T11:33:32.869Z</text>
 </svg>

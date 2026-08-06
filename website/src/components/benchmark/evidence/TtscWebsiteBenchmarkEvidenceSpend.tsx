@@ -195,8 +195,10 @@ function SpendRow({
               }}
               // Every outline utility sits behind `hover:`. Setting the width
               // outside it draws the ring at rest too, because a width alone
-              // turns the style on.
-              className="transition-[filter] hover:-outline-offset-2 hover:brightness-110 hover:outline-2 hover:outline-white/85"
+              // turns the style on. The ring is dark rather than white: the
+              // page behind the bar is white, and so is the gap between two
+              // adjacent bands, so a white ring disappears into both.
+              className="transition-[filter] hover:-outline-offset-2 hover:brightness-105 hover:outline-2 hover:outline-[#102a43]/70"
               style={{
                 width: `${(segment.value / maximum) * 100}%`,
                 background: segment.color,

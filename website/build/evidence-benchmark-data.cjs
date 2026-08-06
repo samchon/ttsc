@@ -75,6 +75,17 @@ function publishData(artifact) {
 function publishCharts(png) {
   fs.mkdirSync(SVG_DIR, { recursive: true });
   if (png) fs.mkdirSync(PNG_DIR, { recursive: true });
+  // A subject dropped from a cohort leaves its chart behind otherwise, and a
+  // stale export is worse than a missing one: it is a measurement the site
+  // still serves under a name the aggregate no longer carries.
+  for (const [directory, extension] of [
+    [SVG_DIR, ".svg"],
+    [PNG_DIR, ".png"],
+  ])
+    if (fs.existsSync(directory))
+      for (const name of fs.readdirSync(directory))
+        if (name.startsWith("evidence-") && name.endsWith(extension))
+          fs.rmSync(path.join(directory, name), { force: true });
   for (const chart of charts()) {
     const target = path.join(SVG_DIR, chart.name);
     fs.copyFileSync(chart.source, target);
@@ -96,8 +107,8 @@ function charts() {
     found.push({ source: summary, name: "evidence-summary.svg" });
   const cells = path.join(AGGREGATE, "cells");
   if (fs.existsSync(cells) === false) return found;
-  for (const model of fs.readdirSync(cells))
-    for (const subject of fs.readdirSync(path.join(cells, model))) {
+  for (const model of directories(cells))
+    for (const subject of directories(path.join(cells, model))) {
       const source = path.join(cells, model, subject, "arms.svg");
       if (fs.existsSync(source))
         found.push({
@@ -110,6 +121,14 @@ function charts() {
       `No charts under ${AGGREGATE}. They are tracked; redraw them with \`pnpm --filter @ttsc/benchmark-evidence charts\`.`,
     );
   return found;
+}
+
+/** Only directories, so a stray file under `cells/` is skipped, not opened. */
+function directories(root) {
+  return fs
+    .readdirSync(root, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name);
 }
 
 /** A directory name from the aggregate is percent-encoded and may carry dots. */

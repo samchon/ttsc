@@ -48,7 +48,7 @@ export namespace EvidenceBenchmarkChart {
         "Coverage of the provenance graph per subject, then token spend per subject with stacked shades for backend development and review, frontend development and review, and overall review. Work time and API cost read beside each bar.",
       subtitle:
         "Coverage is higher-is-better. Token spend is lower-is-better and shares one axis across subjects; stacked shades show development and review phases, and work time and cost sit beside each bar.",
-      notes: API_PRICE_NOTES,
+      notes: apiPriceNotes(props.report),
       dataAttribute: "tokens",
       cellValue: (cell) => cell.tokens,
       stageValue: (stage) => stage.tokens,
@@ -76,9 +76,7 @@ export namespace EvidenceBenchmarkChart {
         (cell) => cell.model === props.model && cell.subject === props.subject,
       )
       .sort((left, right) => armOrder(left.arm) - armOrder(right.arm));
-    const models: string = [
-      ...new Set(cells.map((cell) => displayModel(cell.model))),
-    ].join(", ");
+    const models: string = [...new Set(cells.map(displayModel))].join(", ");
     const axes: readonly {
       label: string;
       hint: string;
@@ -129,6 +127,7 @@ export namespace EvidenceBenchmarkChart {
     );
     const coverageHeight: number =
       coverage.height === 0 ? 0 : coverage.height + 24 + coverage.notes * 15;
+    const notes: readonly string[] = apiPriceNotes(props.report);
     const height: number =
       HEADER_HEIGHT + coverageHeight + axes.length * (blockHeight + 16) + 62;
     const body: string[] = [...coverage.body];
@@ -183,7 +182,7 @@ export namespace EvidenceBenchmarkChart {
           axis.value(baseline) !== 0 &&
           cell.arm !== "plain";
         const delta: string = comparable
-          ? ` (${Math.round((axis.value(cell) / axis.value(baseline!) - 1) * 100)}%)`
+          ? ` (${signed(Math.round((axis.value(cell) / axis.value(baseline!) - 1) * 100))})`
           : "";
         body.push(
           `<text x="${VALUE_X}" y="${y + 26}" text-anchor="end" class="value">${escapeXml(measured ? `${axis.format(axis.value(cell))}${delta}` : "unavailable")}</text>`,
@@ -198,7 +197,7 @@ export namespace EvidenceBenchmarkChart {
         "Coverage of the provenance graph, then token spend, work time and API cost. Every spend axis carries the same stacked phase shades.",
       subtitle: `One subject, one instruction sequence, ${models}. The Evidence arm adds a compiler-enforced provenance graph.`,
       body,
-      notes: API_PRICE_NOTES.map(
+      notes: notes.map(
         (note, index) =>
           `<text x="${MARGIN}" y="${height - 47 + index * 15}" class="table-note">${escapeXml(note)}</text>`,
       ),
@@ -464,9 +463,7 @@ export namespace EvidenceBenchmarkChart {
           left.model.localeCompare(right.model),
       );
       const blockHeight: number = groupHeight(cells);
-      const models: string = [
-        ...new Set(cells.map((cell) => displayModel(cell.model))),
-      ].join(", ");
+      const models: string = [...new Set(cells.map(displayModel))].join(", ");
       body.push(
         `<rect x="${MARGIN - 8}" y="${cursor}" width="${WIDTH - 2 * MARGIN + 16}" height="${blockHeight}" rx="10" class="group" fill-opacity="${groupIndex % 2 === 0 ? "0.78" : "0.42"}"/>`,
         `<text x="${LABEL_X}" y="${cursor + 29}" class="group-title">${escapeXml(title(subject))}</text>`,
@@ -549,8 +546,10 @@ export namespace EvidenceBenchmarkChart {
     const measured: ICoverage[] = subjects.flatMap((subject) =>
       relevant.filter((entry) => entry.subject === subject && entry.measured),
     );
-    const asserted: ICoverage[] = relevant.filter(
-      (entry) => entry.measured === false,
+    const asserted: ICoverage[] = subjects.flatMap((subject) =>
+      relevant.filter(
+        (entry) => entry.subject === subject && entry.measured === false,
+      ),
     );
     const collapsed: boolean =
       asserted.length > 1 &&
@@ -660,11 +659,34 @@ export namespace EvidenceBenchmarkChart {
 
   const UNATTRIBUTED_COLOR: string = "#94a3b8";
 
-  /** Two lines rather than one: a single note ran 130px past the canvas. */
-  const API_PRICE_NOTES: readonly string[] = [
-    "API cost uses OpenRouter rates from 2026-08-01, emitted only after every measured request reconciles with retained counters.",
-    "Review inspection runs on the cell's own model and effort, so its tokens, time and price all sit inside these totals.",
-  ];
+  /**
+   * Two lines rather than one: a single note ran 130px past the canvas.
+   *
+   * The provider and the rate date are read from the cells rather than written
+   * here. A cohort priced by another provider or on another day would otherwise
+   * print this one's, silently, in an artifact whose whole claim is that every
+   * figure on it came from the record.
+   */
+  const apiPriceNotes = (
+    report: ITtscEvidenceBenchmarkReport,
+  ): readonly string[] => {
+    const priced: readonly { provider: string; pricingAsOf: string }[] =
+      report.cells.map((cell) => cell.apiCost).filter((cost) => cost !== null);
+    const providers: string[] = [
+      ...new Set(priced.map((cost) => cost.provider)),
+    ];
+    const dates: string[] = [
+      ...new Set(priced.map((cost) => cost.pricingAsOf)),
+    ];
+    const source: string =
+      providers.length === 0
+        ? "the provider's published rates"
+        : `${providers.join(", ")} rates${dates.length === 0 ? "" : ` from ${dates.sort().join(", ")}`}`;
+    return [
+      `API cost uses ${source}, emitted only after every measured request reconciles with retained counters.`,
+      "Review inspection runs on the cell's own model and effort, so its tokens, time and price all sit inside these totals.",
+    ];
+  };
 
   const COVERAGE_COMPOSITION_NOTE: string =
     "Coverage composes thirteen reference-graph edges so serial hops multiply and branches average; each edge's population is in the aggregate.";
@@ -706,9 +728,17 @@ export namespace EvidenceBenchmarkChart {
       baselineValue <= 0
     )
       return metric.format(value);
-    const change: number = Math.round((value / baselineValue - 1) * 100);
-    return `${metric.format(value)} (${change > 0 ? "+" : ""}${change}%)`;
+    return `${metric.format(value)} (${signed(Math.round((value / baselineValue - 1) * 100))})`;
   };
+
+  /**
+   * A change against the Plain arm, with its direction on it.
+   *
+   * A bare `(9%)` reads as nine percent of Plain as readily as nine percent
+   * above it, and the two are the opposite conclusion.
+   */
+  const signed = (change: number): string =>
+    `${change > 0 ? "+" : ""}${change}%`;
 
   /**
    * The two axes that carry no bar of their own.
@@ -764,7 +794,8 @@ export namespace EvidenceBenchmarkChart {
    * session or the price list calls it. A reader who wants to reproduce a
    * figure needs the string those accept, and the engine is part of it.
    */
-  const displayModel = (model: string): string => `codex ${model}`;
+  const displayModel = (cell: ITtscEvidenceBenchmarkReportCell): string =>
+    `${cell.engine} ${cell.model}`;
 
   const escapeXml = (value: string): string =>
     value

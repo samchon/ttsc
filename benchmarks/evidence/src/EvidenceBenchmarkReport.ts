@@ -110,9 +110,26 @@ export const readEvidenceBenchmarkAggregate = (
     throw new Error(
       `No tracked aggregate at ${file}. Publish one with the \`report\` command from a checkout that holds the run records.`,
     );
-  return JSON.parse(
-    fs.readFileSync(file, "utf8"),
-  ) as ITtscEvidenceBenchmarkReport;
+  const parsed: unknown = parse(file);
+  const report = parsed as Partial<ITtscEvidenceBenchmarkReport>;
+  if (
+    typeof report.generatedAt !== "string" ||
+    Array.isArray(report.cells) === false
+  )
+    throw new Error(
+      `${file} is not a benchmark report: it needs a string \`generatedAt\` and a \`cells\` array.`,
+    );
+  return report as ITtscEvidenceBenchmarkReport;
+};
+
+/** Parsing that says which file failed, which `JSON.parse` does not. */
+const parse = (file: string): unknown => {
+  try {
+    return JSON.parse(fs.readFileSync(file, "utf8"));
+  } catch (error) {
+    throw new Error(`${file} is not readable JSON.
+${String(error)}`);
+  }
 };
 
 /**
@@ -121,8 +138,12 @@ export const readEvidenceBenchmarkAggregate = (
  * Absence is an ordinary state: coverage is counted by hand from a completed
  * Plain workspace, so a cohort can be published before anyone has read one. It
  * is the one state that yields no rows rather than an error. A file that is
- * present and unreadable is the opposite, because a chart that quietly skipped
- * a coverage block would be indistinguishable from one that never had it.
+ * present and malformed is the opposite, because a chart that quietly skipped a
+ * coverage block would be indistinguishable from one that never had it.
+ *
+ * A null `score` is neither. It is what the composing command emits for a
+ * codebase with no requirement anchors at all, which was never asked the
+ * question, so the row is dropped and the block draws the subjects that were.
  */
 const readEvidenceBenchmarkCoverage = (
   output: string,
@@ -133,32 +154,36 @@ const readEvidenceBenchmarkCoverage = (
   const cells: unknown = (parsed as { cells?: unknown } | null)?.cells;
   if (Array.isArray(cells) === false)
     throw new Error(`${file} has no \`cells\` array.`);
-  return cells.map((cell, index) => {
-    const row = cell as {
-      model?: unknown;
-      subject?: unknown;
-      arm?: unknown;
-      coverage?: { score?: unknown; measured?: unknown };
-    };
-    const score: unknown = row.coverage?.score;
-    if (
-      typeof row.model !== "string" ||
-      typeof row.subject !== "string" ||
-      (row.arm !== "plain" && row.arm !== "evidence") ||
-      typeof score !== "number" ||
-      typeof row.coverage?.measured !== "boolean"
-    )
-      throw new Error(
-        `${file} cell ${index} is not a coverage row: it needs a string \`model\` and \`subject\`, an \`arm\` of "plain" or "evidence", and a \`coverage\` carrying a numeric \`score\` and a boolean \`measured\`.`,
-      );
-    return {
-      model: row.model,
-      subject: row.subject,
-      arm: row.arm,
-      score,
-      measured: row.coverage.measured,
-    };
-  });
+  return cells
+    .map((cell, index) => {
+      const row = cell as {
+        model?: unknown;
+        subject?: unknown;
+        arm?: unknown;
+        coverage?: { score?: unknown; measured?: unknown };
+      };
+      const score: unknown = row.coverage?.score;
+      if (
+        typeof row.model !== "string" ||
+        typeof row.subject !== "string" ||
+        (row.arm !== "plain" && row.arm !== "evidence") ||
+        (typeof score !== "number" && score !== null) ||
+        typeof row.coverage?.measured !== "boolean"
+      )
+        throw new Error(
+          `${file} cell ${index} is not a coverage row: it needs a string \`model\` and \`subject\`, an \`arm\` of "plain" or "evidence", and a \`coverage\` carrying a \`score\` that is a number or null and a boolean \`measured\`.`,
+        );
+      return score === null
+        ? null
+        : {
+            model: row.model,
+            subject: row.subject,
+            arm: row.arm,
+            score,
+            measured: row.coverage.measured,
+          };
+    })
+    .filter((row): row is EvidenceBenchmarkChart.ICoverage => row !== null);
 };
 
 const pathSegment = (value: string): string => {
