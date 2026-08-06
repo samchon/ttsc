@@ -73,11 +73,12 @@ From `packages/frontend`:
 
 ```bash
 pnpm dev
+pnpm plan
 pnpm test:e2e
 pnpm test:contract
 ```
 
-`pnpm build:prisma` generates the client and ERD. `pnpm schema` resets the disposable SQLite database. `pnpm build:sdk` generates the SDK and compiles the API package. `pnpm test` runs the backend suite. Frontend `pnpm test:e2e` builds the production bundle and runs the live browser journeys; `pnpm test:contract` builds with `--mode contract` and runs the simulated smoke pass.
+`pnpm build:prisma` generates the client and ERD. `pnpm schema` resets the disposable SQLite database. `pnpm build:sdk` generates the SDK and compiles the API package. `pnpm test` runs the backend suite. Frontend `pnpm plan` checks the screen plan against every requirement section and writes nothing. `pnpm test:e2e` builds the production bundle and runs the live browser journeys; `pnpm test:contract` builds with `--mode contract` and runs the simulated smoke pass.
 
 Follow your current objective's instruction for `check:watch`. Run generators only after their complete authored input settles, and run mutating generators and runtime tests one at a time because they share generated files and the SQLite database.
 

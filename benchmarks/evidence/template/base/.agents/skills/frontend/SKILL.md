@@ -18,7 +18,7 @@ The frontend delivers requirement-backed user journeys through the settled gener
 ## Implementation Order
 
 1. Read every requirement and all authored and generated API source under `packages/api/src/`.
-2. Map requirements and SDK operations to screens in `packages/frontend/wiki/screen-plan.md`, taking the operation list from the `@accessor` tag every generated accessor carries.
+2. Map requirements and SDK operations to screens in `packages/frontend/wiki/screen-plan.md`, taking the operation list from the `@accessor` tag every generated accessor carries and the requirement list from the enumeration in `screens.md`. `pnpm plan` decides whether the plan accounts for every section.
 3. Declare every page and journey surface before implementation.
 4. Build the shared shell, primitives, providers, route table, connection, domain hooks, and view models.
 5. Implement screens and their loading, empty, error, refusal, retry, and post-mutation states.
@@ -58,6 +58,7 @@ The frontend gate requires:
 - every requirement-backed journey represented by a browser spec, and every screen walked by one of them;
 - every published SDK operation called by a domain hook, and every hook used by a screen;
 - every product-facing operation reachable from a screen, or a recorded omission for its missing page;
+- `pnpm plan` green, so every requirement section is delivered by a screen or recorded as an omission;
 - every production component consumed by a screen or necessary shared boundary;
 - responsive and accessible behavior at required viewports;
 - every requirement journey green with `VITE_API_SIMULATE=false` against the live backend, each asserting the concrete effect its requirement names; and

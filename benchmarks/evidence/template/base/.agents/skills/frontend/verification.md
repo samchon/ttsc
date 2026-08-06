@@ -122,6 +122,7 @@ Record the date, mode, commands, viewports, ordered flow steps, findings, and an
 Frontend verification passes only when:
 
 - no implementation stub remains;
+- `pnpm plan` reports every requirement section named by the plan or its omissions record;
 - every requirement journey has executed live, against a running backend;
 - every requirement journey asserts the concrete effect its requirement names, and would fail if that behavior disappeared;
 - every screen and required state was inspected;

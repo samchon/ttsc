@@ -1,10 +1,28 @@
 # Screens
 
-A screen is a route page under `src/components/<domain>/<name>-page.tsx`. Every user-facing requirement needs a screen or a recorded requirement-backed omission, and every screen needs a requirement and the domain hooks that supply its data. Screens do not call accessors directly; `architecture.md` owns that boundary.
+A screen is a route page under `src/components/<domain>/<name>-page.tsx`. Every screen needs a requirement and the domain hooks that supply its data. Screens do not call accessors directly; `architecture.md` owns that boundary.
+
+## Requirement Ownership
+
+Every requirement section is delivered by a screen or recorded as an omission. The set is not yours to choose: it is every H2 and H3 under `docs/analysis`, which is the same population the backend answers to. From the workspace root:
+
+```bash
+rg --no-filename -o '^#{2,3} .+' docs/analysis | sort
+```
+
+| Rule | Detail |
+| --- | --- |
+| one owning screen | the screen a reader reaches to satisfy this requirement, named in `screen-plan.md` |
+| every section named | each enumerated section appears in `screen-plan.md`, or in `omissions.md` with what covers it instead |
+| an omission is a decision | it names the owner or observable alternative and the condition that would make it false |
+
+"No screen needed" is a conclusion, not a reason. A section a browser genuinely does not deliver, a persistence rule or an authorization boundary the backend enforces alone, belongs in `omissions.md` with that owner named.
+
+`pnpm plan` from `packages/frontend` decides it. It reads the corpus, reads both records, prints the covered count, and lists every section named by neither. It reads and never writes.
 
 ## Plan And Declare
 
-Before implementation, write `packages/frontend/wiki/screen-plan.md` with each screen, its requirement, actor, operations, and user journey.
+Before implementation, write `packages/frontend/wiki/screen-plan.md` with each screen, its requirement, actor, operations, and user journey. Run `pnpm plan` while writing it rather than at the end; the enumeration is exact from the first line, so a plan that grows against it never needs reconciling later.
 
 Declare the whole page surface before realizing it:
 

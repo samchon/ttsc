@@ -9,6 +9,7 @@
     "dev": "vite --host 0.0.0.0",
     "format": "ttsc format",
     "lint": "ttsc --noEmit",
+    "plan": "node scripts/screen-plan.mjs",
     "playwright:install": "playwright install chromium",
     "preview": "vite preview --host 0.0.0.0",
     "readme:screens": "pnpm build && playwright test tests/readme.spec.ts",
