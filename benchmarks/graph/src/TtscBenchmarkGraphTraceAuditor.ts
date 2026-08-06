@@ -502,13 +502,16 @@ export namespace TtscBenchmarkGraphTraceAuditor {
           .map((cell) => {
             const reportPath = optionalString(cell.report);
             if (reportPath === undefined) {
-              throw new Error(`suite cell records no report path in ${file}`);
+              throw new Error(
+                `${file} holds a cell with no report path, so it is not an auditable suite report`,
+              );
             }
             // Resolved against the report that recorded it, the one base every
             // reader of this field uses. Against the current directory it named
             // a different file whenever the run directory was not the directory
-            // the audit was typed in, which the documented `pnpm --dir
-            // benchmarks/graph run audit -- --report ...` invocation always is.
+            // the audit was typed in, which is every documented invocation:
+            // `pnpm --dir benchmarks/graph` puts the audit in the package while
+            // the run directory is always somewhere below it.
             const resolved = path.isAbsolute(reportPath)
               ? reportPath
               : path.resolve(path.dirname(file), reportPath);
@@ -528,10 +531,25 @@ export namespace TtscBenchmarkGraphTraceAuditor {
     ): AuditCell {
       const report = readRawCellReport(reportPath);
       const traceDir = path.resolve(report.traceDir);
+      // The last link of the same chain. A cell whose traces are unreachable
+      // used to die on a bare ENOENT that named neither the cell nor the report
+      // recording it, and a cell whose trace directory is empty audited as
+      // `runs: 0` at exit zero - folding a median of zero into the suite
+      // summary, which is a published number stating something no trace says.
+      if (!fs.existsSync(traceDir)) {
+        throw new Error(
+          `cell trace directory is missing: ${traceDir} (recorded in ${reportPath})`,
+        );
+      }
       const traces = fs
         .readdirSync(traceDir)
         .filter((file) => file.endsWith(".stream.jsonl"))
         .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+      if (traces.length === 0) {
+        throw new Error(
+          `cell trace directory holds no trace: ${traceDir} (recorded in ${reportPath})`,
+        );
+      }
       const runs: AuditRun[] = traces.map((file) => {
         const match = /^(.*)-run-(\d+)\.stream\.jsonl$/.exec(file);
         const parsed = parseTrace(
@@ -3257,6 +3275,15 @@ export namespace TtscBenchmarkGraphTraceAuditor {
         throw new Error("self-test setup did not produce expected audit data");
       }
       assertSelf(reasoningText.available, "reasoning text should be detected");
+      // `auditSyntheticCell` rebuilds the cell literal instead of calling
+      // `auditCell`, and that duplication is how the recorded spelling drifted
+      // apart in the first place: an audit's own cells are read back through
+      // `--report`, so a relative one names a different file. Pin the property
+      // rather than the duplicate.
+      assertSelf(
+        path.isAbsolute(cell.report),
+        "an audit cell must record its report path absolute",
+      );
       assertSelf(
         comparisonDelta.deltaFromFirst.medianTokens === -12,
         "comparison should track median token deltas",

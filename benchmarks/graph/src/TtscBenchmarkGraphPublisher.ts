@@ -301,7 +301,7 @@ export namespace TtscBenchmarkGraphPublisher {
    * measurement.
    *
    * A cell the publisher considered and deliberately kept out of the document -
-   * one thinner than the sample set already published - still counted: the run
+   * one thinner than the sample set already published - still counts: the run
    * measured it, and refusing the directory over a policy the publisher applied
    * on purpose would fail a publish for succeeding at its own rule.
    */
@@ -398,7 +398,7 @@ export namespace TtscBenchmarkGraphPublisher {
     console.log(
       `suite: ${path.relative(context.repositoryRoot, sourceDir)} (${measured} of ${
         report.cells.length
-      } cell(s))`,
+      } cell(s) measured)`,
     );
     return measured;
   }
@@ -424,8 +424,13 @@ export namespace TtscBenchmarkGraphPublisher {
     harness: string,
   ): boolean {
     const samples = sanitizeSamples(report.samples, report.runs);
-    if (samples.baseline.length === 0 && samples.graph.length === 0)
+    if (samples.baseline.length === 0 && samples.graph.length === 0) {
+      // Named for the same reason its twin in `foldSuite` is: a report that
+      // measured nothing is otherwise indistinguishable from one the publisher
+      // never looked at.
+      console.warn(`skip ${harness} report with no measured sample`);
       return false;
+    }
     const rawModel =
       stringValue(report.modelVersion) ??
       stringValue(report.model) ??
@@ -515,6 +520,13 @@ export namespace TtscBenchmarkGraphPublisher {
     return `codex-${tier}`;
   }
 
+  /**
+   * Upserts one agent cell, declining when the published sample set is thicker.
+   *
+   * The decline is the rule this namespace's header states, not a failure, so
+   * it warns and returns rather than reporting anything the caller must act
+   * on.
+   */
   function upsertAgentCell(
     context: IPublisherContext,
     cell: IPublishedAgentCell,
