@@ -184,8 +184,16 @@ function SpendRow({
           {row.segments.map((segment) => (
             <div
               key={segment.key}
-              className="transition-[filter] hover:brightness-110"
-              onMouseMove={onHover(detail(segment.key))}
+              // The band's own move handler has to stop here. The track behind
+              // it carries one too, for the gap a bar leaves when it does not
+              // fill its scale, and letting the event bubble replaced the
+              // band's detail with the row's a frame later, so the highlight
+              // this exists for never survived long enough to be seen.
+              onMouseMove={(event) => {
+                event.stopPropagation();
+                onHover(detail(segment.key))(event);
+              }}
+              className="outline-2 -outline-offset-2 outline-white/85 transition-[filter,outline-color] hover:brightness-110 hover:outline"
               style={{
                 width: `${(segment.value / maximum) * 100}%`,
                 background: segment.color,

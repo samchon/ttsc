@@ -85,17 +85,25 @@ function TooltipCard({
           {content.subtitle}
         </p>
       ) : null}
-      <dl className="mt-2 space-y-1">
+      <dl className="mt-2 space-y-0.5">
         {content.lines.map((line) => (
+          // The pointer is over exactly one band, and the card lists six. The
+          // active line is the answer to what the pointer is on, so it carries
+          // a filled row and a ring on its swatch rather than a weight change
+          // that six shades of one colour already spend.
           <div
             key={line.label}
-            className={`flex items-center gap-2 ${
-              line.active ? "font-semibold text-[#102a43]" : "text-slate-500"
+            className={`flex items-center gap-2 rounded px-1.5 py-0.5 ${
+              line.active
+                ? "bg-[#eef6ff] font-semibold text-[#102a43] ring-1 ring-[#c7dff4]"
+                : "text-slate-500"
             }`}
           >
             {line.color ? (
               <span
-                className="h-2.5 w-2.5 shrink-0 rounded-sm"
+                className={`h-2.5 w-2.5 shrink-0 rounded-sm ${
+                  line.active ? "ring-2 ring-[#3178c6] ring-offset-1" : ""
+                }`}
                 style={{
                   background: line.color,
                   opacity: line.opacity ?? 1,
