@@ -11,7 +11,7 @@ const USE = [
   { name: "Runner (ttsx)", href: "/docs/ttsc/execute" },
   { name: "Lint & Prettier", href: "/docs/lint" },
   { name: "Evidence Graph", href: "/docs/evidence" },
-  { name: "Code Knowledge Graph", href: "/docs/graph" },
+  { name: "Compiler Knowledge Graph", href: "/docs/graph" },
   { name: "Plugin Ecosystem", href: "/docs/plugins" },
   { name: "Playground", href: "/playground" },
 ];

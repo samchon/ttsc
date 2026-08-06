@@ -8,7 +8,7 @@ const meta: MetaRecord = {
   ttsc: "TTSC",
   lint: "Lint & Format",
   evidence: "Evidence Graph",
-  graph: "Code Knowledge Graph",
+  graph: "Compiler Knowledge Graph",
   plugins: "Plugin Ecosystem",
 
   "-- authoring": { type: "separator", title: "🧰 Authoring" },

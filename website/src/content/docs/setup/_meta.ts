@@ -5,7 +5,7 @@ const meta: MetaRecord = {
   ttsc: "CLI & Scripts",
   lint: "Lint & Format",
   evidence: "Evidence Graph",
-  graph: "Code Knowledge Graph",
+  graph: "Compiler Knowledge Graph",
   vscode: "VS Code Plugin",
   unplugin: "Unplugin (Bundlers)",
   metro: "Metro (React Native, Expo)",

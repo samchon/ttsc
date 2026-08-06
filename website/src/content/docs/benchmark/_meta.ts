@@ -2,8 +2,8 @@ import type { MetaRecord } from "nextra";
 
 const meta: MetaRecord = {
   index: "Overview",
-  performance: "Compiler Performance",
   evidence: "Evidence Graph",
-  graph: "Code Knowledge Graph",
+  graph: "Compiler Knowledge Graph",
+  performance: "Compiler Performance",
 };
 export default meta;
