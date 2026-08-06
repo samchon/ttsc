@@ -807,6 +807,9 @@ importers:
       '@typia/utils':
         specifier: catalog:samchon
         version: 13.2.0
+      katex:
+        specifier: ^0.16.22
+        version: 0.16.47
       lz-string:
         specifier: ^1.5.0
         version: 1.5.0

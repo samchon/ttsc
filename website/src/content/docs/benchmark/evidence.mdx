@@ -12,26 +12,29 @@ Four subjects in ascending size. Every figure comes from `benchmarks/evidence/ag
 
 <TtscWebsiteBenchmarkEvidenceCoverage />
 
-Thirteen edges, folded from the leaves up. Serial hops multiply, branches average, and every edge enters once. `C(a→b)` is the share of `a` that reaches `b`; `Q(x)` is how whole an `x` is below itself.
+Thirteen edges, folded from the leaves up. Serial hops multiply, branches average, and every edge enters once. $C_{a \to b}$ is the share of $a$ that reaches $b$, and $Q_x$ is how whole an $x$ is below itself.
 
-```
-Q(test) = Q(journey) = Q(property) = 1
+$$
+\begin{aligned}
+Q_{\text{test}} &= Q_{\text{journey}} = Q_{\text{property}} = 1 \\[2pt]
+Q_{\text{dto}} &= C_{\text{column} \to \text{property}} \\[2pt]
+Q_{\text{screen}} &= C_{\text{screen} \to \text{journey}} \\[2pt]
+Q_{\text{hook}} &= C_{\text{hook} \to \text{screen}} \cdot Q_{\text{screen}} \\[2pt]
+Q_{\text{op}} &= \tfrac{1}{2}\left( C_{\text{accessor} \to \text{test}} \cdot Q_{\text{test}} + C_{\text{accessor} \to \text{hook}} \cdot Q_{\text{hook}} \right) \\[2pt]
+Q_{\text{model}} &= \tfrac{1}{2}\left( C_{\text{model} \to \text{op}} \cdot Q_{\text{op}} + C_{\text{model} \to \text{dto}} \cdot Q_{\text{dto}} \right)
+\end{aligned}
+$$
 
-Q(DTO)       = C(column→property)
-Q(screen)    = C(screen→journey)
-Q(hook)      = C(hook→screen)      × Q(screen)
-Q(operation) = mean( C(accessor→test) × Q(test),      C(accessor→hook) × Q(hook) )
-Q(model)     = mean( C(model→operation) × Q(operation), C(model→DTO)   × Q(DTO)  )
+A requirement carries six obligations, and each is worth its own rate times the wholeness of what it reaches.
 
-score = mean(
-  C(requirement→model)     × Q(model),
-  C(requirement→operation) × Q(operation),
-  C(requirement→DTO)       × Q(DTO),
-  C(requirement→test),
-  C(requirement→screen)    × Q(screen),
-  C(requirement→journey),
-)
-```
+$$
+\text{score} = \frac{1}{6} \left(
+\begin{aligned}
+& C_{\text{req} \to \text{model}} \cdot Q_{\text{model}} + C_{\text{req} \to \text{op}} \cdot Q_{\text{op}} + C_{\text{req} \to \text{dto}} \cdot Q_{\text{dto}} \\
+& {} + C_{\text{req} \to \text{test}} + C_{\text{req} \to \text{screen}} \cdot Q_{\text{screen}} + C_{\text{req} \to \text{journey}}
+\end{aligned}
+\right)
+$$
 
 Averaging the thirteen rates instead scored one subject 58.4% while 76 of its 557 published accessors had an asserting test. Multiplying them scored the same subject 0.003%. [#1088](https://github.com/samchon/ttsc/issues/1088) derives the operators.
 

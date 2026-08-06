@@ -1,3 +1,4 @@
+import "katex/dist/katex.min.css";
 import Script from "next/script";
 import { Footer, Layout, Navbar } from "nextra-theme-docs";
 import { Head } from "nextra/components";

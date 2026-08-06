@@ -40,6 +40,7 @@
     "@ttsc/wasm": "workspace:^",
     "@typia/interface": "catalog:samchon",
     "@typia/utils": "catalog:samchon",
+    "katex": "^0.16.22",
     "lz-string": "^1.5.0",
     "monaco-editor": "^0.52.0",
     "next": "^15.5.21",
