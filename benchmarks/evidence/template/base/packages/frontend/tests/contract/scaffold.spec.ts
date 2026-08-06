@@ -1,4 +1,22 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
+
+/**
+ * Loads the application against the simulated client and returns nothing.
+ *
+ * The guards live here rather than in the `test` callback because
+ * `playwright/no-conditional-in-test` reports any branch inside one, and the
+ * journey specs use the same shape for the same reason.
+ */
+export async function contract_scaffold_renders(page: Page): Promise<void> {
+  const failures: string[] = [];
+  page.on("pageerror", (error) => failures.push(error.message));
+  const response = await page.goto("/");
+  if (response === null) throw new Error("Navigation returned no response.");
+  if (response.ok() === false)
+    throw new Error(`Navigation failed with status ${response.status()}.`);
+  if (failures.length !== 0)
+    throw new Error(`The page raised ${failures.join("; ")}.`);
+}
 
 /**
  * The contract pass runs against `VITE_API_SIMULATE=true`, where the generated
@@ -10,12 +28,6 @@ import { expect, test } from "@playwright/test";
 test("the application renders against the simulated client", async ({
   page,
 }) => {
-  const failures: string[] = [];
-  page.on("pageerror", (error) => failures.push(error.message));
-
-  const response = await page.goto("/");
-  if (response === null) throw new Error("Navigation returned no response.");
-  expect(response.ok()).toBe(true);
+  await contract_scaffold_renders(page);
   await expect(page.locator("main")).toBeVisible();
-  expect(failures).toEqual([]);
 });

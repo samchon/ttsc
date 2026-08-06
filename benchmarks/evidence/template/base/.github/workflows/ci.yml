@@ -33,6 +33,14 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # Every gate below runs against this file, not against the job env alone,
+      # so it is provisioned once here. A value a cell adds to
+      # `MyGlobal.IEnvironments` and `.env.example` then reaches the database
+      # reset and the backend suite too, and the workflow is frozen against the
+      # cell, so it cannot repair a copy that happened too late.
+      - name: Provision environment
+        run: cp packages/backend/.env.example packages/backend/.env
+
       - name: Build
         run: pnpm build
 
@@ -60,15 +68,14 @@ jobs:
       # one that cannot observe persistence, sessions, or any side effect.
       - name: Start backend
         run: |
-          cp packages/backend/.env.example packages/backend/.env
           nohup pnpm --filter {{backendPackageName}} start > backend.log 2>&1 &
-          for attempt in $(seq 1 60); do
+          for _ in $(seq 1 120); do
             if curl --silent --fail "$VITE_API_HOST/health" > /dev/null; then
               exit 0
             fi
             sleep 1
           done
-          echo "The backend did not answer /health within 60 seconds." >&2
+          echo "The backend did not answer /health within 120 seconds." >&2
           cat backend.log >&2
           exit 1
 

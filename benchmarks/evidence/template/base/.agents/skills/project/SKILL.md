@@ -25,7 +25,8 @@ The scaffold already provides package wiring, lint and compiler configuration, S
 | `packages/frontend/src/` | React application |
 | `packages/frontend/src/lib/<domain>/hooks.ts` | The only callers of the generated accessors |
 | `packages/frontend/src/components/<domain>/` | Screens and their components |
-| `packages/frontend/tests/journeys/` | Browser journeys |
+| `packages/frontend/tests/journeys/` | Browser journeys, run live |
+| `packages/frontend/tests/contract/` | Typed-client smoke pass, run under simulation |
 
 Import the API package from its package entry. Do not add a `structures` subpath export or import.
 
@@ -73,9 +74,10 @@ From `packages/frontend`:
 ```bash
 pnpm dev
 pnpm test:e2e
+pnpm test:contract
 ```
 
-`pnpm build:prisma` generates the client and ERD. `pnpm schema` resets the disposable SQLite database. `pnpm build:sdk` generates the SDK and compiles the API package. `pnpm test` runs the backend suite. Frontend `pnpm test:e2e` builds the production bundle and runs browser journeys.
+`pnpm build:prisma` generates the client and ERD. `pnpm schema` resets the disposable SQLite database. `pnpm build:sdk` generates the SDK and compiles the API package. `pnpm test` runs the backend suite. Frontend `pnpm test:e2e` builds the production bundle and runs the live browser journeys; `pnpm test:contract` builds with `--mode contract` and runs the simulated smoke pass.
 
 Follow your current objective's instruction for `check:watch`. Run generators only after their complete authored input settles, and run mutating generators and runtime tests one at a time because they share generated files and the SQLite database.
 

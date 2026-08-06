@@ -54,13 +54,13 @@ The two modes prove different things, so they are two suites and not one suite r
 | `tests/journeys/` | `VITE_API_SIMULATE=false`, against backend `pnpm dev` | anything, and it must assert the concrete effect its requirement names |
 | `tests/contract/` | `VITE_API_SIMULATE=true` | that a screen reaches its typed client boundary and renders without error |
 
-Under simulation the generated SDK answers with `typia.random`, so a value is type-correct and otherwise arbitrary. An assertion about a concrete effect — the post just created appears under its title, the dashboard shows the totals it fetched — cannot pass against it. A suite required to be green in both modes can therefore contain only assertions that observe neither mode's data, which is a suite that proves nothing while reporting success.
+Under simulation the generated SDK answers with `typia.random`, so a value is type-correct and otherwise arbitrary. An assertion about a concrete effect cannot pass against it: not that the post just created appears under its title, not that the dashboard shows the totals it fetched. A suite required to be green in both modes can therefore contain only assertions that observe neither mode's data, which is a suite that proves nothing while reporting success.
 
 **The live run is the gate.** The contract pass is an early check that the typed boundary is wired, and it is worth what it is worth: it cannot observe persistence, sessions, authorization, or any side effect. Never record it as live integration.
 
 Generated simulation data does not reliably produce empty, refusal, boundary, or long-content states either. Inspect those through deterministic fixtures.
 
-An effect assertion belongs in `tests/journeys/`. Quarantining one behind a mode check inside a registered test is the shape this split exists to remove — the test registers, runs, and asserts nothing it names.
+An effect assertion belongs in `tests/journeys/`. Quarantining one behind a mode check inside a registered test is the shape this split exists to remove, because the test registers, runs, and asserts nothing it names.
 
 ## State Gallery
 
@@ -125,6 +125,6 @@ Frontend verification passes only when:
 - every requirement journey has executed live, against a running backend;
 - every requirement journey asserts the concrete effect its requirement names, and would fail if that behavior disappeared;
 - every screen and required state was inspected;
-- `test:e2e`, `test:contract`, and required presentation suites pass on the current source;
+- `test:e2e` and the required presentation suites pass on the current source;
 - the live run actually used `VITE_API_SIMULATE=false`; and
 - the verification record matches what ran.

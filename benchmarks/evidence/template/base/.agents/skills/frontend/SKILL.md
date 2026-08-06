@@ -60,7 +60,6 @@ The frontend gate requires:
 - every product-facing operation reachable from a screen, or a recorded omission for its missing page;
 - every production component consumed by a screen or necessary shared boundary;
 - responsive and accessible behavior at required viewports;
-- the contract pass green under simulation;
 - every requirement journey green with `VITE_API_SIMULATE=false` against the live backend, each asserting the concrete effect its requirement names; and
 - `packages/frontend/wiki/verification.md` recording what actually ran.
 

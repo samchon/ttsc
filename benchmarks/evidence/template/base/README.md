@@ -16,8 +16,8 @@ pnpm test
 pnpm format
 ```
 
-The backend `.env` is required for local server and test processes. The frontend already has working defaults; copy `packages/frontend/.env.example` to `packages/frontend/.env` only when overriding them.
+The backend `.env` is required for local server and test processes. The frontend defaults to the live backend; copy `packages/frontend/.env.example` to `packages/frontend/.env` only when overriding a default, and set `VITE_API_SIMULATE=true` there to build screens against the simulated client.
 
 Run `pnpm schema:database` after changing the Prisma schema. This workspace uses disposable SQLite data, so the command resets the local database. Install Chromium once with `pnpm --filter {{frontendPackageName}} playwright:install` before running the browser suite.
 
-The included GitHub Actions workflow performs a frozen install, build, lint, SQLite preparation, backend tests, and Chromium frontend tests on every push and pull request. It uses only local CI environment values and requires no repository secrets.
+The included GitHub Actions workflow performs a frozen install, build, lint, SQLite preparation, backend tests, the simulated frontend contract pass, and the live frontend journeys against a backend it starts itself, on every push and pull request. It uses only local CI environment values and requires no repository secrets.

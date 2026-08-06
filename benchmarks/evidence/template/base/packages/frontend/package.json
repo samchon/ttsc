@@ -5,6 +5,7 @@
   "description": "React and Vite frontend for {{name}}",
   "scripts": {
     "build": "rimraf dist && pnpm lint && vite build",
+    "build:contract": "rimraf dist && pnpm lint && vite build --mode contract",
     "dev": "vite --host 0.0.0.0",
     "format": "ttsc format",
     "lint": "ttsc --noEmit",
@@ -12,7 +13,7 @@
     "preview": "vite preview --host 0.0.0.0",
     "readme:screens": "pnpm build && playwright test tests/readme.spec.ts",
     "test": "pnpm test:e2e",
-    "test:contract": "pnpm build && playwright test tests/contract",
+    "test:contract": "pnpm build:contract && playwright test tests/contract",
     "test:e2e": "pnpm build && playwright test tests/journeys",
     "ui:review": "pnpm build && playwright test tests/ui-review.spec.ts"
   },
