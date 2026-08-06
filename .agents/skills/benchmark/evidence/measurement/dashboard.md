@@ -17,7 +17,7 @@ pnpm --filter @ttsc/benchmark-evidence dashboard
 
 It is Windows-only and says so by throwing: off `win32` it refuses rather than reporting zero intervals, because silently crediting a suspended run with its idle time as work would inflate the arm that happened to be running when the machine slept. On another platform the campaign runs, and its work time carries whatever suspensions the record could not subtract.
 
-`dashboard` takes no arguments and always renders the latest launched run of each cell. It cannot be pointed at a historical cohort; `--run-id` belongs to `audit-suspensions` and `report`, and [aggregate.md](aggregate.md) owns that path. Passing it here is accepted silently and changes nothing, so a cohort reported that way would be the live one wearing a historical label.
+`dashboard` takes no arguments and always renders the latest launched run of each cell. It cannot be pointed at a historical cohort; `--run-id` belongs to `audit-suspensions` and `report`, and [aggregate.md](aggregate.md) owns that path. Passing it here is refused, so a run ID appended to all three commands fails loudly instead of publishing the live cohort under a historical label.
 
 Refresh every 5 minutes, and immediately after a state change or an anomaly.
 

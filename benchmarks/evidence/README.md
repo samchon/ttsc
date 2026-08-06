@@ -61,7 +61,7 @@ The runner produces the verdict itself: at the boundary it spawns a fresh Codex 
 pnpm --filter @ttsc/benchmark-evidence supervise <subject> <run-id> <verdict.json>
 ```
 
-A verdict carries `decision` and `rationale` only; the runner refuses one carrying `feedback`, so no verdict text ever reaches the cell. A failing scope receives the identical prescribed reminder, and eight supplementation attempts are permitted before the run retains `quality-failed`.
+A verdict carries `decision` and `rationale` only; the runner refuses one carrying `feedback`, so no verdict text ever reaches the cell. A failing scope receives the identical prescribed reminder, and four supplementation attempts are permitted before the run retains `quality-failed`. `EvidenceBenchmarkInstruction.REVIEW_SUPPLEMENT_LIMIT` owns that bound and its own comment records why it is four.
 
 `--review-ledger` additionally makes the backend review loop mechanically provable. During `backend-review` the runner holds the cell's sandbox read-only and injects the only tools that receive review credit, then refuses to complete `backend-review` or `backend-final` unless a runner-owned round ended dry and the workspace manifest still hashes to what that round read. It does not replace the verdict boundary, which still fires.
 
