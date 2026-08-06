@@ -7,6 +7,10 @@ out
 # `pnpm prepare`, PNGs via `pnpm build`)
 public/benchmark/svg/
 public/benchmark/png/
+# Copied from the tracked benchmarks/evidence/aggregate by
+# build/evidence-benchmark-data.cjs. One measurement, one source.
+public/benchmark/evidence.json
+public/benchmark/evidence-coverage.json
 public/compiler/index.js
 public/compiler/*.map
 public/compiler/playground.wasm

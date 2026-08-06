@@ -5,12 +5,13 @@
   "private": true,
   "scripts": {
     "build": "pnpm run prebuild && pnpm run build:next && pnpm run postbuild",
-    "prebuild": "rimraf .next && rimraf out && pnpm run build:compiler && pnpm run build:blog:rss && pnpm run build:benchmark:png",
+    "prebuild": "rimraf .next && rimraf out && pnpm run build:compiler && pnpm run build:blog:rss && pnpm run build:benchmark:png && pnpm run build:benchmark:evidence",
     "build:next": "next build",
     "build:compiler": "node build/compiler.cjs",
     "build:blog:rss": "node build/blog.cjs",
     "test:rss-autodiscovery": "node --test test/rss-autodiscovery.test.cjs",
     "test:typia-dependency-graph": "node --test test/typia-dependency-graph.test.cjs",
+    "build:benchmark:evidence": "node build/evidence-benchmark-data.cjs",
     "build:benchmark:graph": "node build/graph-benchmark-svg.cjs",
     "build:benchmark:png": "node build/graph-benchmark-svg.cjs --png",
     "charts:png": "node build/svg-to-png.cjs",
@@ -19,7 +20,7 @@
     "build:pagefind": "pagefind --site .next/server/app --output-path out/_pagefind",
     "build:sitemap": "next-sitemap",
     "deploy": "node build/deploy.cjs",
-    "dev": "pnpm run build:compiler && next dev"
+    "dev": "pnpm run build:compiler && pnpm run build:benchmark:evidence && next dev"
   },
   "repository": {
     "type": "git",

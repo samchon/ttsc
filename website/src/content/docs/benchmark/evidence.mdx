@@ -1,12 +1,30 @@
+import TtscWebsiteBenchmarkEvidenceCounters from "../../../components/benchmark/evidence/TtscWebsiteBenchmarkEvidenceCounters";
+import TtscWebsiteBenchmarkEvidenceCoverage from "../../../components/benchmark/evidence/TtscWebsiteBenchmarkEvidenceCoverage";
+import TtscWebsiteBenchmarkEvidenceSpend from "../../../components/benchmark/evidence/TtscWebsiteBenchmarkEvidenceSpend";
+
 # Evidence Graph
 
 The other two tracks measure `ttsc` against competing tools. This one measures a coding agent against itself.
 
 One coding engine builds the same application twice from the same requirements: once with [`@ttsc/evidence`](/docs/evidence) installed and its guidance in the workspace, once with neither. The question is not how fast a compiler runs. It is whether a declarable, compiler-enforced provenance graph changes how an agent builds software when nobody is watching it.
 
-One subject and one arm is a **cell**. One execution of a cell is a **run**. This page is for the maintainer operating a campaign or reading its record; the harness lives in `benchmarks/evidence`.
+One subject and one arm is a **cell**. One execution of a cell is a **run**. The rest of this page is for the maintainer operating a campaign or reading its record; the harness lives in `benchmarks/evidence`.
 
-It documents the measurement, not a result. Any figure a campaign publishes comes from the tracked aggregate described below and from nowhere else.
+Every figure below is read from the tracked aggregate at `benchmarks/evidence/aggregate` and from nowhere else. Nothing on this page is recomputed from a run.
+
+## The published cohort
+
+<TtscWebsiteBenchmarkEvidenceCoverage />
+
+<TtscWebsiteBenchmarkEvidenceSpend />
+
+<TtscWebsiteBenchmarkEvidenceCounters />
+
+Two caveats belong beside those numbers, because the record carries them and a chart cannot.
+
+The cohort is not uniform. The Reddit and Shopping Evidence cells ran at benchmark revision `0f465f52c` and every other cell at `cdbda4211`, so those two subjects compare their arms across two harnesses rather than one. The Shopping Plain cell also published as `completed` while its backend review had terminally failed quality after five attempts, and its figures include that work.
+
+Engine completion is recorded execution behavior, never a verdict on the application a cell produced. The rest of this page is how the measurement is run.
 
 ## The two arms
 
