@@ -6,7 +6,7 @@ These scripts are branch-local tooling for the migration pull request. They are 
 
 ## Refreshing the vendored trees
 
-Upstream is expected at `D:/github/samchon/lint-plugin-evidence` (edit the constants if it lives elsewhere).
+Upstream defaults to `D:/github/samchon/evidence`, which is where `samchon/lint-plugin-evidence` is cloned on this machine; the directory is not named after the repository. `parity.cjs` takes another location from `EVIDENCE_UPSTREAM` or from its first argument, so a checkout that lives elsewhere needs no edit.
 
 ```bash
 # 1. Copy. Never exclude a directory named `lib` — the benchmark template ships
@@ -53,7 +53,7 @@ npx prettier --write "packages/evidence/src/**/*.ts" \
 # 4. Sweep for assumptions the copy carried over, then prove that every
 #    remaining difference from upstream is a declared adaptation.
 node experimental/evidence-vendor/audit.cjs
-node experimental/evidence-vendor/parity.cjs
+node experimental/evidence-vendor/parity.cjs                     # or: parity.cjs <upstream>
 ```
 
 Do not run Prettier over `benchmarks/evidence/{template,requirements,instructions}`. `.prettierignore` exempts them, and the reason is in that file.
