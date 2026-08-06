@@ -530,10 +530,10 @@ export namespace TtscBenchmarkGraphTraceAuditor {
       baselineIndex: Map<string, Baseline> | null,
     ): AuditCell {
       const report = readRawCellReport(reportPath);
-      // Against the report that recorded it, the base `cells[].report` uses
-      // three functions up. Both harnesses record this absolute, so the base
-      // only decides what a relative one means - and it decides what the error
-      // below is allowed to name.
+      // Against the report that recorded it, the base `cells[].report` uses in
+      // `rawReportsFromSuiteReport` just above. Both harnesses record this
+      // absolute, so the base only decides what a relative one would mean - and
+      // it decides what the error below is allowed to name.
       const traceDir = path.resolve(path.dirname(reportPath), report.traceDir);
       // The last link of the per-cell reachability chain. A cell whose traces
       // are unreachable used to die on a bare ENOENT that named neither the
