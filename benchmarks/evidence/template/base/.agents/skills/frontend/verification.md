@@ -6,7 +6,8 @@ Compilation cannot prove that a control works, a journey completes, or the layou
 
 ```text
 packages/frontend/tests/
-  journeys/            one spec per requirement-backed journey
+  journeys/            one spec per requirement-backed journey, run live
+  contract/            typed-client smoke pass, run under simulation
   ui-review.spec.ts    production layout and interaction review
   readme.spec.ts       documentation screenshots
 ```
@@ -15,6 +16,7 @@ The package scripts build the production bundle before Playwright:
 
 ```bash
 pnpm test:e2e
+pnpm test:contract
 pnpm ui:review
 pnpm readme:screens
 ```
@@ -45,12 +47,20 @@ A screen may stay outside the journeys only on a reviewed decision that names wh
 
 ## Simulation And Live Execution
 
-Run the same journey suite twice:
+The two modes prove different things, so they are two suites and not one suite run twice.
 
-1. with `VITE_API_SIMULATE=true` for typed client flow; and
-2. with `VITE_API_SIMULATE=false` against backend `pnpm dev` for persistence, sessions, authorization, and side effects.
+| Suite | Mode | What it may assert |
+| --- | --- | --- |
+| `tests/journeys/` | `VITE_API_SIMULATE=false`, against backend `pnpm dev` | anything, and it must assert the concrete effect its requirement names |
+| `tests/contract/` | `VITE_API_SIMULATE=true` | that a screen reaches its typed client boundary and renders without error |
 
-Generated simulation data is random and does not reliably produce empty, refusal, boundary, or long-content states. Inspect those through deterministic fixtures.
+Under simulation the generated SDK answers with `typia.random`, so a value is type-correct and otherwise arbitrary. An assertion about a concrete effect — the post just created appears under its title, the dashboard shows the totals it fetched — cannot pass against it. A suite required to be green in both modes can therefore contain only assertions that observe neither mode's data, which is a suite that proves nothing while reporting success.
+
+**The live run is the gate.** The contract pass is an early check that the typed boundary is wired, and it is worth what it is worth: it cannot observe persistence, sessions, authorization, or any side effect. Never record it as live integration.
+
+Generated simulation data does not reliably produce empty, refusal, boundary, or long-content states either. Inspect those through deterministic fixtures.
+
+An effect assertion belongs in `tests/journeys/`. Quarantining one behind a mode check inside a registered test is the shape this split exists to remove — the test registers, runs, and asserts nothing it names.
 
 ## State Gallery
 
@@ -91,7 +101,8 @@ Keep `packages/frontend/wiki/verification.md` current:
 
 ## Automated
 
-- `pnpm test:e2e`
+- `pnpm test:e2e` (live)
+- `pnpm test:contract` (simulated)
 - `pnpm ui:review`
 
 ## Browser Flows
@@ -111,8 +122,9 @@ Record the date, mode, commands, viewports, ordered flow steps, findings, and an
 Frontend verification passes only when:
 
 - no implementation stub remains;
-- every requirement journey has executed in simulation and live mode;
+- every requirement journey has executed live, against a running backend;
+- every requirement journey asserts the concrete effect its requirement names, and would fail if that behavior disappeared;
 - every screen and required state was inspected;
-- `test:e2e` and required presentation suites pass on the current source;
-- the live backend integration actually used `VITE_API_SIMULATE=false`; and
+- `test:e2e`, `test:contract`, and required presentation suites pass on the current source;
+- the live run actually used `VITE_API_SIMULATE=false`; and
 - the verification record matches what ran.

@@ -12,6 +12,7 @@
     "preview": "vite preview --host 0.0.0.0",
     "readme:screens": "pnpm build && playwright test tests/readme.spec.ts",
     "test": "pnpm test:e2e",
+    "test:contract": "pnpm build && playwright test tests/contract",
     "test:e2e": "pnpm build && playwright test tests/journeys",
     "ui:review": "pnpm build && playwright test tests/ui-review.spec.ts"
   },

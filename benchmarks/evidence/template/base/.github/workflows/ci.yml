@@ -13,7 +13,7 @@ env:
   JWT_ACCESS_TTL_SECONDS: "3600"
   JWT_REFRESH_TTL_SECONDS: "2592000"
   VITE_API_HOST: http://127.0.0.1:37001
-  VITE_API_SIMULATE: "true"
+  VITE_API_SIMULATE: "false"
 
 jobs:
   test:
@@ -47,6 +47,30 @@ jobs:
 
       - name: Install Chromium
         run: pnpm --filter {{frontendPackageName}} exec playwright install --with-deps chromium
+
+      # The contract pass answers with `typia.random`, so it proves the typed
+      # client boundary is wired and nothing about what the data means.
+      - name: Test frontend contract
+        env:
+          VITE_API_SIMULATE: "true"
+        run: pnpm --filter {{frontendPackageName}} test:contract
+
+      # The live pass is the gate, and it needs the server it asserts against.
+      # Without it the job could only ever run the simulated lane, which is the
+      # one that cannot observe persistence, sessions, or any side effect.
+      - name: Start backend
+        run: |
+          cp packages/backend/.env.example packages/backend/.env
+          nohup pnpm --filter {{backendPackageName}} start > backend.log 2>&1 &
+          for attempt in $(seq 1 60); do
+            if curl --silent --fail "$VITE_API_HOST/health" > /dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "The backend did not answer /health within 60 seconds." >&2
+          cat backend.log >&2
+          exit 1
 
       - name: Test frontend
         run: pnpm test:frontend
