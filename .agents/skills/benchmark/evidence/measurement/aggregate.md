@@ -46,6 +46,8 @@ Review every completed workspace read-only. Accept `docs/analysis/**` as the spe
 
 Report each run ID, retained status, instruction, session and CLI identity, token categories, cost, instruction and process time, exit code, signal, interruption, and remaining unknown. A measurement the runner did not retain is reported as unknown, never reconstructed.
 
+**Cross-check every published number against one computed another way.** A figure the generator produced is still a figure one derivation produced, and a second derivation is how a wrong one is caught before it is published. Wall-clock derived from log mtimes once came out shorter than the work time it contained, which no single reading would have revealed. When the two disagree, publish neither until the disagreement is explained.
+
 Run directories are the record. Nothing in them is deleted at the end of a campaign.
 
 ## Close The Pull Request

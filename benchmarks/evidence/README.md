@@ -31,6 +31,8 @@ pnpm --filter @ttsc/benchmark-evidence start codex <subject> <evidence|plain> <m
 
 Omit `run-id` to create a cell under `benchmarks/evidence/output/<subject>/<engine>/<arm>/runs/<run-id>/`. Pass an existing run ID only to resume that exact engine, subject, arm, model, effort, workspace, and session; the runner compares all of them against the retained cell and refuses on any difference.
 
+`<subject>` names a directory under `benchmarks/evidence/requirements/`, and `EvidenceBenchmarkRuntime.assign` decides which ones are launchable and what port block each one owns. There are five: `todo`, `reddit`, `shopping`, `erp`, and `todo2`. The last is a byte-identical copy of `todo` that exists so one subject can be run twice under identical requirements, which is the only way to take a repeat draw from a corpus that is frozen.
+
 The launcher also reads the repository `HEAD` as the campaign's benchmark revision and refuses to start while anything is uncommitted or untracked.
 
 Three options change what a run does:

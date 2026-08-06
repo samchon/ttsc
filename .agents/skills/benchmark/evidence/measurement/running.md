@@ -31,6 +31,21 @@ pnpm --filter @ttsc/benchmark-evidence start codex <subject> <evidence|plain> gp
 - **`codex`** is the only engine the command line accepts.
 - **`gpt-5.6-luna`** is the default model. `report` also prices `gpt-5.6-terra` and `gpt-5.6-sol`, and an unpriced string still launches and is measured but publishes no USD cost.
 - **`high`** is the default effort. The parser also accepts `low`, `medium`, `xhigh`, `max`, and `ultra`.
+- **The subject** names a directory under `benchmarks/evidence/requirements/`, and `EvidenceBenchmarkRuntime.assign` is the authority on which ones a cell may take. There are five, below.
+
+### Subjects
+
+| subject | what it is |
+| --- | --- |
+| `todo` | the smallest corpus, 19 H2 and 54 H3 sections |
+| `reddit` | 44 H2, 150 H3 |
+| `shopping` | 73 H2, 354 H3 |
+| `erp` | the largest, 253 H2 and 1234 H3 across six documents |
+| `todo2` | a byte-identical copy of `todo`, with its own port block |
+
+`todo2` exists so one subject can be run twice under identical requirements. A cohort's cells are one run each, so a repeat draw is the only way to separate what a rule selects for from what one model did once — and the requirement corpus is frozen, so a duplicate cannot be created on demand. It arrived with the vendoring from `samchon/evidence`, where three such duplicates were added at once.
+
+It is not part of the default matrix. Running it is an explicit authorization like any other cell, recorded in the pull-request body with the rest.
 
 The model and effort are defaults, not a menu you pick from. Change either only when the user names it, and record what they authorized in the pull-request body. Cost is why the default is what it is, and a cell run at another model or effort is not comparable with a cohort that used these.
 
@@ -52,6 +67,10 @@ Every cell owns a disjoint block of four ports from base 46000, so two cells nev
 | shopping | plain    | 46050 | 46051   | 46052 | 46053      |
 | erp      | evidence | 46060 | 46061   | 46062 | 46063      |
 | erp      | plain    | 46070 | 46071   | 46072 | 46073      |
+| todo2    | evidence | 46080 | 46081   | 46082 | 46083      |
+| todo2    | plain    | 46090 | 46091   | 46092 | 46093      |
+
+Every subject `EvidenceBenchmarkRuntime.assign` accepts has a row here. A subject added to that function and not to this table has no block a recovery can free, so add both together.
 
 The block reaches the workspace as `API_PORT`, `SWAGGER_PORT`, `VITE_DEV_PORT`, `VITE_API_HOST`, and `PLAYWRIGHT_TEST_PORT`, so the cell's own commands and tests inherit it without being told.
 

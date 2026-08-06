@@ -48,6 +48,14 @@ Four rather than eight because a cell that answers a reminder answers the first 
 
 The runner retains each decision's exact bytes and digest alongside the workspace digest and Goal boundary, and refuses a decision whose earlier retained verdict files no longer match their digests.
 
+## Reading How Far A Cell Has Got
+
+`instructionPlan` grows mid-run, because a `retry` verdict inserts a supplementation into it. A cell sitting at index N of an N+1-length plan is therefore not necessarily one instruction from the end: the pending verdict may add two more.
+
+**Read the plan after a transition, never before.** A plan read while a cell sits at `awaiting-review-verdict`, or immediately on the status change back to `running`, describes the cell as further along than it is. That produced two wrong conclusions in the first `0.6.0` cohort — "the supplementation bound is spent" and "the cell is one instruction from completing" — both wrong, both from a pre-transition snapshot.
+
+**The reliable trigger is the appearance of a new verdict file under `supervision/`**, not a status change and not the plan's length.
+
 ## When The Inspection Cannot Decide
 
 A spawn failure, a failed turn, an unreadable decision, an unaccountable token report, or the inspection timeout leaves the pause undecided. The reason lands on that attempt's `failure`, naming what did not match with the raw text excerpted.
