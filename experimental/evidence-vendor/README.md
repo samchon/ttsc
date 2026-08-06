@@ -61,6 +61,25 @@ node experimental/evidence-vendor/parity.cjs <upstream>          # a checkout el
 
 Do not run Prettier over `benchmarks/evidence/{template,requirements,instructions}`. `.prettierignore` exempts them, and the reason is in that file.
 
+## Before refreshing: this repository now carries corrections upstream does not
+
+`robocopy /MIR` mirrors, so it deletes. Everything the round-two preparation of
+ttsc#1096 changed inside a vendored tree is a local correction to a defect the
+first cohort exposed, and a refresh removes all of it unless it is reapplied.
+
+`readapt.cjs` cannot help here. It re-derives mechanical adaptations, identifier
+renames and re-rooted paths, and these are product decisions rather than
+mechanical ones.
+
+`EXCEPTIONS` in `parity.cjs` is the list. Every round-two entry names the issue
+that owns it, so a refresh walks that list once, and for each entry either reads
+upstream and finds the correction already there, or reapplies it here from the
+issue. An entry that compares clean after a refresh is reported as excused, which
+is how the list shrinks as upstream catches up rather than growing forever.
+
+Run `parity.cjs` immediately after the copy, before `readapt.cjs`, if you want to
+see which of those files upstream has changed under you.
+
 ## What `readapt.cjs` does
 
 0. Normalizes CRLF to LF, because robocopy preserves upstream line endings and a text anchor written with `\n` does not match a file carrying `\r\n`.

@@ -196,15 +196,15 @@ const EXCEPTIONS = new Map([
   ],
   [
     "benchmarks/evidence/src/EvidenceBenchmarkReport.ts",
-    "rendering moved to EvidenceBenchmarkChart, re-rooted through EvidenceBenchmarkLayout, and an empty collection is refused rather than published over the tracked aggregate",
+    "rendering moved to EvidenceBenchmarkChart, re-rooted through EvidenceBenchmarkLayout, an empty collection is refused rather than published over the tracked aggregate, and ttsc#1108 refuses a publication that would leave a coverage file from another cohort beside it",
   ],
   [
     "benchmarks/evidence/README.md",
-    "documents the chart set this repository publishes, `summary.svg` and a per-subject `arms.svg`, plus the `charts` command upstream has no equivalent of",
+    "documents the chart set this repository publishes, `summary.svg` and a per-subject `arms.svg`, plus the `charts` command upstream has no equivalent of; ttsc#1107, ttsc#1110, ttsc#1111, and ttsc#1094 add the aggregate origin, the corrected supplementation bound, the subject inventory, and the browser server",
   ],
   [
     ".agents/skills/benchmark/evidence/measurement/aggregate.md",
-    "same as the README: four published artifacts rather than upstream's three, and the redraw command beside them",
+    "same as the README: four published artifacts rather than upstream's three, and the redraw command beside them; ttsc#1107 and ttsc#1108 add the origin and the one-cohort-per-directory rules, and ttsc#1109 the number cross-check",
   ],
   [
     "tests/test-evidence-benchmark/src/features/test_benchmark_chart_draws_every_published_chart_from_the_tracked_aggregate.ts",
@@ -228,7 +228,7 @@ const EXCEPTIONS = new Map([
   ],
   [
     "benchmarks/evidence/src/EvidenceBenchmarkDashboard.ts",
-    "re-rooted through EvidenceBenchmarkLayout",
+    "re-rooted through EvidenceBenchmarkLayout, and ttsc#1107 records the repository the collection read from",
   ],
   [
     "benchmarks/evidence/src/EvidenceBenchmarkSuspensionAudit.ts",
@@ -240,7 +240,7 @@ const EXCEPTIONS = new Map([
   ],
   [
     "benchmarks/evidence/src/executable/EvidenceBenchmarkDashboard.ts",
-    "re-rooted through EvidenceBenchmarkLayout",
+    "re-rooted through EvidenceBenchmarkLayout, and ttsc#1110 refuses an argument this command cannot honor rather than ignoring one",
   ],
   [
     "benchmarks/evidence/src/executable/EvidenceBenchmarkReconcile.ts",
@@ -285,6 +285,136 @@ const EXCEPTIONS = new Map([
   [
     "tests/test-evidence-benchmark/src/features/test_benchmark_command_line_runs_from_its_own_entry.ts",
     "runs the command line from `benchmarkRoot` rather than the repository root, which are the same directory upstream and not here",
+  ],
+
+  // ttsc#1096 round-two preparation. Everything below is this repository's own
+  // correction to a defect the first cohort exposed, made here rather than
+  // upstream because round two runs here. Each entry names the issue that owns
+  // it, so a later refresh can decide per file whether upstream has caught up
+  // rather than treating the whole set as one unexplained residual.
+  [
+    "benchmarks/evidence/template/base/config/lint.config.ts",
+    "ttsc#1090: the generated SDK's separate type import is accepted in the shared config every package extends, because the api package's own ignore does not travel with files a source-consuming workspace pulls into another Program",
+  ],
+  [
+    "benchmarks/evidence/template/base/packages/backend/lint.config.ts",
+    "ttsc#1090: the package-local `no-duplicate-imports` override the shared config makes redundant",
+  ],
+  [
+    "benchmarks/evidence/template/base/.agents/skills/frontend/verification.md",
+    "ttsc#1091 and ttsc#1094: the simulated and live suites are separated so no assertion has to satisfy both, and the interactive review is a named gate with a recorded artifact rather than a section with an escape clause",
+  ],
+  [
+    "benchmarks/evidence/template/base/.agents/skills/frontend/SKILL.md",
+    "ttsc#1091, ttsc#1094, ttsc#1105: the frontend gate list carries the live journeys, the interactive review, and the requirement-section count",
+  ],
+  [
+    "benchmarks/evidence/template/base/.agents/skills/frontend/sdk.md",
+    "ttsc#1091: simulation is selected by the Vite mode rather than by an env file, and the quoted default matches the code",
+  ],
+  [
+    "benchmarks/evidence/template/base/.agents/skills/frontend/screens.md",
+    "ttsc#1105: requirement ownership is countable, with the enumeration command and the rule table the backend already had",
+  ],
+  [
+    "benchmarks/evidence/template/base/.agents/skills/frontend/architecture.md",
+    "ttsc#1094: the wiki layout carries the interactive review record",
+  ],
+  [
+    "benchmarks/evidence/template/base/.agents/skills/api/SKILL.md",
+    "ttsc#1091: the one-suite-in-both-modes rule is replaced by the two-suite split",
+  ],
+  [
+    "benchmarks/evidence/template/base/.agents/skills/project/SKILL.md",
+    "ttsc#1091 and ttsc#1105: the layout and command list carry `tests/contract/`, `pnpm test:contract`, and `pnpm plan`",
+  ],
+  [
+    "benchmarks/evidence/template/base/packages/frontend/package.json",
+    "ttsc#1091 and ttsc#1105: `build:contract`, `test:contract`, and `plan`",
+  ],
+  [
+    "benchmarks/evidence/template/base/packages/frontend/vite.config.ts",
+    "ttsc#1091: `--mode contract` sets simulation, so no env file a cell writes can govern the live gate",
+  ],
+  [
+    "benchmarks/evidence/template/base/packages/frontend/src/lib/config.ts",
+    "ttsc#1091: simulation defaults off, so the checked-in state of a workspace contacts the backend",
+  ],
+  [
+    "benchmarks/evidence/template/base/packages/frontend/.env.example",
+    "ttsc#1091: the simulation flag is deliberately absent, because a value here is promoted into the process environment before Vite resolves a mode",
+  ],
+  [
+    "benchmarks/evidence/template/base/packages/frontend/tests/contract/scaffold.spec.ts",
+    "ttsc#1091: local only, the simulated smoke pass the split creates",
+  ],
+  [
+    "benchmarks/evidence/template/base/packages/frontend/scripts/screen-plan.mjs",
+    "ttsc#1105: local only, the validator that decides the screen plan against the requirement sections",
+  ],
+  [
+    "benchmarks/evidence/template/base/.github/workflows/ci.yml",
+    "ttsc#1091: the workflow provisions the backend environment once, runs the simulated contract lane, and boots the backend for the live lane it previously advertised and could not run",
+  ],
+  [
+    "benchmarks/evidence/template/base/README.md",
+    "ttsc#1091 and ttsc#1094: the two frontend lanes, the mode that selects simulation, and the reversed MCP exclusion",
+  ],
+  [
+    "benchmarks/evidence/template/plain/.agents/skills/review/overall.md",
+    "ttsc#1091: the frontend boundary gains the falsifiability clause its backend boundary already had",
+  ],
+  [
+    "benchmarks/evidence/template/plain/.agents/skills/review/frontend.md",
+    "ttsc#1105: requirement coverage propagates in the shape operation coverage already did",
+  ],
+  [
+    "benchmarks/evidence/instructions/plain/frontend/start.md",
+    "ttsc#1094: the interactive review is a checklist item, because a gate no instruction names is a gate a cell can satisfy without running",
+  ],
+  [
+    "benchmarks/evidence/instructions/evidence/frontend/start.md",
+    "ttsc#1094: the same checklist item, identically, because a capability change reaches both arms or it confounds the measurement",
+  ],
+  [
+    "benchmarks/evidence/src/EvidenceBenchmarkRuntime.ts",
+    "ttsc#1094 and ttsc#1111: the pinned browser MCP server both arms receive, and a port bound derived from the populations rather than written down",
+  ],
+  [
+    "benchmarks/evidence/src/EvidenceBenchmarkRunner.ts",
+    "ttsc#1094: the browser server joins the invocation, on the one code path that has no arm branch",
+  ],
+  [
+    "benchmarks/evidence/src/structures/ITtscEvidenceBenchmarkReport.ts",
+    "ttsc#1107: the aggregate records the repository it was collected from, because a bare revision resolves nowhere",
+  ],
+  [
+    "tests/test-evidence-benchmark/src/features/test_benchmark_report_refuses_coverage_from_another_cohort.ts",
+    "ttsc#1108: local only, upstream has no cohort refusal to prove",
+  ],
+  [
+    "tests/test-evidence-benchmark/src/features/test_benchmark_report_records_a_resolvable_origin_or_none.ts",
+    "ttsc#1107: local only, upstream records no origin",
+  ],
+  [
+    ".agents/skills/benchmark/evidence/intervention/SKILL.md",
+    "ttsc#1109: the triage table carries the three observations round one misread",
+  ],
+  [
+    ".agents/skills/benchmark/evidence/intervention/recovery.md",
+    "ttsc#1109: the failure-notice lag, the snapshot before resume, and the two states that read as a stall",
+  ],
+  [
+    ".agents/skills/benchmark/evidence/measurement/plain-review.md",
+    "ttsc#1109: how far a cell has got is read from the verdict rather than from the plan's length",
+  ],
+  [
+    ".agents/skills/benchmark/evidence/measurement/running.md",
+    "ttsc#1109, ttsc#1111, ttsc#1094: the subject inventory, the complete port table, and the browser server among the frozen material inputs",
+  ],
+  [
+    ".agents/skills/benchmark/evidence/measurement/dashboard.md",
+    "ttsc#1110: the dashboard refuses an argument it cannot honor instead of ignoring one",
   ],
 ]);
 
