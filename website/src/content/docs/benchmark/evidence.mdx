@@ -6,23 +6,27 @@ import TtscWebsiteBenchmarkEvidenceSpend from "../../../components/benchmark/evi
 
 The other two tracks measure `ttsc` against competing tools. This one measures a coding agent against itself.
 
-One coding engine builds the same application twice from the same requirements: once with [`@ttsc/evidence`](/docs/evidence) installed and its guidance in the workspace, once with neither. The question is not how fast a compiler runs. It is whether a declarable, compiler-enforced provenance graph changes how an agent builds software when nobody is watching it.
+One coding engine builds the same application twice from the same frozen requirements: once with [`@ttsc/evidence`](/docs/evidence) installed and its guidance in the workspace, once with neither. Same template, same instruction order, same model and effort. The variable is the graph.
 
-One subject and one arm is a **cell**. One execution of a cell is a **run**. The rest of this page is for the maintainer operating a campaign or reading its record; the harness lives in `benchmarks/evidence`.
+One subject and one arm is a **cell**. Four subjects, in ascending size. Every figure here is read from the tracked aggregate at `benchmarks/evidence/aggregate` and from nowhere else.
 
-Every figure below is read from the tracked aggregate at `benchmarks/evidence/aggregate` and from nowhere else. Nothing on this page is recomputed from a run.
+## Coverage
 
-## The published cohort
+How much of the provenance graph a delivered codebase actually satisfies. Thirteen reference edges run from a requirement anchor down to tests, properties, and journeys, composed so serial hops multiply and branches average.
+
+Plain is counted by hand from the finished workspace. Evidence is complete by construction, because the plugin rejects a missing edge at compile time. What the numbers show is that coverage collapses as the subject grows, and only in the arm where nothing enforces it.
 
 <TtscWebsiteBenchmarkEvidenceCoverage />
+
+## Cost
+
+What holding that graph costs, on three axes. Lower is better on all of them, and the Evidence arm is not consistently cheaper.
 
 <TtscWebsiteBenchmarkEvidenceSpend />
 
 <TtscWebsiteBenchmarkEvidenceCounters />
 
-Two caveats belong beside those numbers, because the record carries them and a chart cannot.
-
-The cohort is not uniform. The Reddit and Shopping Evidence cells ran at benchmark revision `0f465f52c` and every other cell at `cdbda4211`, so those two subjects compare their arms across two harnesses rather than one. The Shopping Plain cell also published as `completed` while its backend review had terminally failed quality after five attempts, and its figures include that work.
+Two things the record carries that a chart cannot. Reddit and Shopping ran their Evidence cells at a different benchmark revision from their Plain cells, so those two subjects compare across two harnesses. Shopping Plain published as `completed` with a backend review that had terminally failed quality, and its figures include that work.
 
 Engine completion is recorded execution behavior, never a verdict on the application a cell produced. The rest of this page is how the measurement is run.
 
@@ -150,13 +154,20 @@ pnpm --filter @ttsc/benchmark-evidence audit-suspensions
 pnpm --filter @ttsc/benchmark-evidence report
 ```
 
-`report` writes three things:
+`report` writes four things:
 
 - `benchmarks/evidence/aggregate/summary.json`.
 - Stable per-cell JSON under `benchmarks/evidence/aggregate/cells/<model>/<subject>/<arm>.json`.
-- The `tokens.svg` and `time.svg` comparison charts.
+- `summary.svg`, every subject on one token axis under the coverage block.
+- One `arms.svg` beside each subject's cell JSON, carrying that subject's tokens, work time, and API cost.
 
-Every artifact renders or copies values from that same retained aggregate without recalculating them. USD cost is reconstructed from each request's token categories and context tier, and published only when those requests exactly match the retained total. Pass repeated `--run-id <run-id>` arguments to both commands to publish an explicit historical cohort instead of the latest run of each cell.
+Every artifact renders or copies values from that same retained aggregate without recalculating them, and an empty collection is refused rather than published. USD cost is reconstructed from each request's token categories and context tier, and published only when those requests exactly match the retained total. Pass repeated `--run-id <run-id>` arguments to both commands to publish an explicit historical cohort instead of the latest run of each cell.
+
+The charts alone redraw from the tracked aggregate, in a clone with no run records:
+
+```bash
+pnpm --filter @ttsc/benchmark-evidence charts
+```
 
 A cell is execution-complete only when `state.json` is `completed`, every objective in its arm's sequence has a terminal checkpoint, and the final process either exits zero without a signal or records a runner-owned forced shutdown after those checkpoints completed. A measurement the runner did not retain is reported as unknown, never reconstructed. Run directories are the record, and nothing in them is deleted when a campaign ends.
 

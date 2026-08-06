@@ -187,6 +187,38 @@ const EXCEPTIONS = new Map([
     "local only: upstream's benchmark sits at `<repository>/benchmark`, so one root answered both questions and no such module exists there",
   ],
   [
+    "benchmarks/evidence/src/EvidenceBenchmarkChart.ts",
+    "local only: upstream renders inside its report writer, which reaches the charts only through the ignored run tree. Rendering is separated here so the tracked aggregate is a first-class input, and the coverage figures it draws are read from that aggregate rather than from a table hardcoded in the renderer",
+  ],
+  [
+    "benchmarks/evidence/src/executable/EvidenceBenchmarkChart.ts",
+    "local only: the entry point for redrawing the charts from the tracked aggregate, which upstream has no equivalent of",
+  ],
+  [
+    "benchmarks/evidence/src/EvidenceBenchmarkReport.ts",
+    "rendering moved to EvidenceBenchmarkChart, re-rooted through EvidenceBenchmarkLayout, and an empty collection is refused rather than published over the tracked aggregate",
+  ],
+  [
+    "benchmarks/evidence/README.md",
+    "documents the chart set this repository publishes, `summary.svg` and a per-subject `arms.svg`, plus the `charts` command upstream has no equivalent of",
+  ],
+  [
+    ".agents/skills/benchmark/evidence/measurement/aggregate.md",
+    "same as the README: four published artifacts rather than upstream's three, and the redraw command beside them",
+  ],
+  [
+    "tests/test-evidence-benchmark/src/features/test_benchmark_chart_draws_every_published_chart_from_the_tracked_aggregate.ts",
+    "local only: upstream has no render path that takes the tracked aggregate, so it has nothing to prove here",
+  ],
+  [
+    "tests/test-evidence-benchmark/src/features/test_benchmark_chart_closes_a_bar_against_the_total_its_row_prints.ts",
+    "local only: pins both directions of the stage-to-total mismatch, which upstream's renderer handles in one direction and does not test",
+  ],
+  [
+    "tests/test-evidence-benchmark/src/features/test_benchmark_chart_omits_coverage_it_was_not_given.ts",
+    "local only: upstream's coverage figures are a table in its renderer, so there is no data-driven block for it to test",
+  ],
+  [
     "benchmarks/evidence/src/EvidenceBenchmarkWorkspace.ts",
     "re-rooted through EvidenceBenchmarkLayout, and `workspacePackageVersions` is restored because a workspace never lists itself in a catalog",
   ],

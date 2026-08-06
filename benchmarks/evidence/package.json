@@ -14,6 +14,7 @@
     "warn": "node ../../packages/ttsc/lib/launcher/ttsx.js --project tsconfig.json src/executable/EvidenceBenchmarkWarning.ts",
     "dashboard": "node ../../packages/ttsc/lib/launcher/ttsx.js --project tsconfig.json src/executable/EvidenceBenchmarkDashboard.ts",
     "report": "node ../../packages/ttsc/lib/launcher/ttsx.js --project tsconfig.json src/executable/EvidenceBenchmarkReport.ts",
+    "charts": "node ../../packages/ttsc/lib/launcher/ttsx.js --project tsconfig.json src/executable/EvidenceBenchmarkChart.ts",
     "reconcile": "node ../../packages/ttsc/lib/launcher/ttsx.js --project tsconfig.json src/executable/EvidenceBenchmarkReconcile.ts",
     "check": "tsc --noEmit -p tsconfig.json"
   },
