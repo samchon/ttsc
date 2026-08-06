@@ -8,6 +8,12 @@ These scripts are branch-local tooling for the migration pull request. They are 
 
 Upstream defaults to `D:/github/samchon/evidence`, which is where `samchon/lint-plugin-evidence` is cloned on this machine; the directory is not named after the repository. `parity.cjs` takes another location from its first argument, then from `EVIDENCE_UPSTREAM`, so a checkout that lives elsewhere needs no edit. The argument wins, and it is what the `robocopy` recipe's `<upstream>` placeholder below stands for; neither the variable nor the argument feeds those copy commands.
 
+This repository now carries corrections upstream does not. `robocopy /MIR` mirrors, so it deletes: everything the round-two preparation of ttsc#1096 changed inside a vendored tree is a local correction to a defect the first cohort exposed, and a refresh removes all of it unless it is reapplied.
+
+`EXCEPTIONS` in `parity.cjs` is the list. Every round-two entry names the issue that owns it, so a refresh walks that list once and, for each entry, either reads upstream and finds the correction already there or reapplies it here from the issue. An entry that compares clean afterwards is reported as excused, which is how the list shrinks as upstream catches up rather than growing forever.
+
+`readapt.cjs` carries a mechanical subset and not the rest. Its `edit()` is general anchored substitution and step 3 writes whole files, so an anchored deletion or a local-only file is exactly its shape; a restructured skill document is not, because upstream restructuring destroys the anchors, which is the argument its own step 6 already makes. Nothing under `.agents/skills/benchmark/evidence/` or `benchmarks/evidence/template/base/.agents/` is encodable that way today.
+
 ```bash
 # 1. Copy. Never exclude a directory named `lib` — the benchmark template ships
 #    frontend sources in `src/lib`, and excluding it silently delivers a
@@ -60,25 +66,6 @@ node experimental/evidence-vendor/parity.cjs <upstream>          # a checkout el
 `parity.cjs` does not see `benchmarks/evidence/aggregate`. The aggregate is a measurement this repository publishes for itself, so its cells and `generatedAt` are expected to diverge from upstream's rather than to match them, and comparing the two would report a residual on every regeneration.
 
 Do not run Prettier over `benchmarks/evidence/{template,requirements,instructions}`. `.prettierignore` exempts them, and the reason is in that file.
-
-## Before refreshing: this repository now carries corrections upstream does not
-
-`robocopy /MIR` mirrors, so it deletes. Everything the round-two preparation of
-ttsc#1096 changed inside a vendored tree is a local correction to a defect the
-first cohort exposed, and a refresh removes all of it unless it is reapplied.
-
-`readapt.cjs` cannot help here. It re-derives mechanical adaptations, identifier
-renames and re-rooted paths, and these are product decisions rather than
-mechanical ones.
-
-`EXCEPTIONS` in `parity.cjs` is the list. Every round-two entry names the issue
-that owns it, so a refresh walks that list once, and for each entry either reads
-upstream and finds the correction already there, or reapplies it here from the
-issue. An entry that compares clean after a refresh is reported as excused, which
-is how the list shrinks as upstream catches up rather than growing forever.
-
-Run `parity.cjs` immediately after the copy, before `readapt.cjs`, if you want to
-see which of those files upstream has changed under you.
 
 ## What `readapt.cjs` does
 

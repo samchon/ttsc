@@ -200,7 +200,7 @@ const EXCEPTIONS = new Map([
   ],
   [
     "benchmarks/evidence/README.md",
-    "documents the chart set this repository publishes, `summary.svg` and a per-subject `arms.svg`, plus the `charts` command upstream has no equivalent of; ttsc#1107, ttsc#1110, ttsc#1111, and ttsc#1094 add the aggregate origin, the corrected supplementation bound, the subject inventory, and the browser server",
+    "documents the chart set this repository publishes, `summary.svg` and a per-subject `arms.svg`, plus the `charts` command upstream has no equivalent of; ttsc#1107, ttsc#1108, ttsc#1110, ttsc#1111, and ttsc#1094 add the aggregate origin, the one-cohort-per-directory refusal, the corrected supplementation bound, the subject inventory, and the browser server",
   ],
   [
     ".agents/skills/benchmark/evidence/measurement/aggregate.md",
@@ -302,7 +302,7 @@ const EXCEPTIONS = new Map([
   ],
   [
     "benchmarks/evidence/template/base/.agents/skills/frontend/verification.md",
-    "ttsc#1091 and ttsc#1094: the simulated and live suites are separated so no assertion has to satisfy both, and the interactive review is a named gate with a recorded artifact rather than a section with an escape clause",
+    "ttsc#1091, ttsc#1094, ttsc#1105: the simulated and live suites are separated so no assertion has to satisfy both, the interactive review is a named gate with a recorded artifact rather than a section with an escape clause, and the requirement-section count joins the gate list",
   ],
   [
     "benchmarks/evidence/template/base/.agents/skills/frontend/SKILL.md",
@@ -420,6 +420,11 @@ const EXCEPTIONS = new Map([
 
 // ------------------------------------------------------------------ compare
 const TEXT = new Set([
+  // `.example` is here because `.env.example` is text a declaration has to be
+  // able to excuse. The byte-comparison branch below never consults
+  // EXCEPTIONS, so an extension missing from this set is an extension no
+  // entry can cover.
+  ".example",
   ".ts",
   ".tsx",
   ".go",
