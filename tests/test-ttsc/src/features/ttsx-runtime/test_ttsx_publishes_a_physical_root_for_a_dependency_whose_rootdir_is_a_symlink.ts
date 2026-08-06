@@ -15,8 +15,8 @@ import path from "node:path";
  * `path.relative` answers `../sources/index.ts`, the exact-mirror lane is
  * dropped, and every served file of that dependency falls to the trailing-stem
  * matcher, which rescans the whole emit tree per file. The marker the build
- * publishes carries that spelling, so the state outlives the process that
- * wrote it.
+ * publishes carries that spelling, so the state outlives the process that wrote
+ * it.
  *
  * The run still produces the right file either way, so the marker is what makes
  * this observable: a `rootDir` equal to its own physical path is exactly the
@@ -26,8 +26,8 @@ import path from "node:path";
  *    `sources` directory holding its entry.
  * 2. Run ttsx against an entry that requires it, then prints every dependency
  *    marker's `rootDir`.
- * 3. Assert the dependency ran and every published `rootDir` is its own
- *    physical path.
+ * 3. Assert the dependency ran and every published `rootDir` is its own physical
+ *    path.
  */
 export const test_ttsx_publishes_a_physical_root_for_a_dependency_whose_rootdir_is_a_symlink =
   () => {
