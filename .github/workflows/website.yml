@@ -12,6 +12,10 @@ on:
       - "packages/wasm/**"
       - "packages/playground/**"
       - "scripts/go-build-cache.cjs"
+      # The evidence benchmark page is drawn from this tracked aggregate, and
+      # its charts are republished from it at build time. A new cohort changes
+      # what the site shows without touching a file under `website/`.
+      - "benchmarks/evidence/aggregate/**"
       - "website/**"
       - "README.md"
       - "package.json"
@@ -26,6 +30,10 @@ on:
       - "packages/wasm/**"
       - "packages/playground/**"
       - "scripts/go-build-cache.cjs"
+      # The evidence benchmark page is drawn from this tracked aggregate, and
+      # its charts are republished from it at build time. A new cohort changes
+      # what the site shows without touching a file under `website/`.
+      - "benchmarks/evidence/aggregate/**"
       - "website/**"
       - "README.md"
       - "package.json"
