@@ -50,9 +50,9 @@ The runner retains each decision's exact bytes and digest alongside the workspac
 
 ## Reading How Far A Cell Has Got
 
-`instructionPlan` grows mid-run, because a `retry` verdict inserts a supplementation into it. A cell sitting at index N of an N+1-length plan is therefore not necessarily one instruction from the end: the pending verdict may add two more.
+`instructionPlan` grows mid-run, because a failing verdict splices one supplementation into it. A cell sitting at index N of an N+1-length plan is therefore not necessarily one instruction from the end: a scope can take four of them, and each undecided boundary is another one waiting to be added.
 
-**Read the plan after a transition, never before.** A plan read while a cell sits at `awaiting-review-verdict`, or immediately on the status change back to `running`, describes the cell as further along than it is. That produced two wrong conclusions in the first `0.6.0` cohort — "the supplementation bound is spent" and "the cell is one instruction from completing" — both wrong, both from a pre-transition snapshot.
+**Read the plan only after the verdict that may extend it has been written.** A plan read while a cell sits at `awaiting-review-verdict` describes the cell as further along than it is. That produced two wrong conclusions in the first `0.6.0` cohort, "the supplementation bound is spent" and "the cell is one instruction from completing", both from a pre-verdict snapshot.
 
 **The reliable trigger is the appearance of a new verdict file under `supervision/`**, not a status change and not the plan's length.
 

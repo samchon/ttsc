@@ -4,7 +4,7 @@ import type { EvidenceBenchmarkArm } from "./typings/EvidenceBenchmarkArm";
 
 /** Assigns and validates process-level resources owned by one benchmark cell. */
 export namespace EvidenceBenchmarkRuntime {
-  /** Default first port in the eight-cell benchmark allocation. */
+  /** Default first port of the allocation, one disjoint block per cell. */
   export const DEFAULT_PORT_BASE = 46_000;
 
   /** Network endpoints reserved for one subject and arm. */
@@ -39,13 +39,14 @@ export namespace EvidenceBenchmarkRuntime {
     const armIndex: number = arms.indexOf(arm);
     if (subjectIndex === -1 || armIndex === -1)
       throw new Error(`Unknown benchmark cell: ${subject}/${arm}.`);
-    if (
-      !Number.isInteger(portBase) ||
-      portBase < 1 ||
-      portBase + (subjects.length * arms.length - 1) * 10 + 3 > 65_535
-    )
+    // The highest base whose last cell's last port still fits, derived from the
+    // populations rather than written down: a subject added to the array above
+    // moves this bound, and a literal would keep naming the previous one.
+    const highestBase: number =
+      65_535 - ((subjects.length * arms.length - 1) * 10 + 3);
+    if (!Number.isInteger(portBase) || portBase < 1 || portBase > highestBase)
       throw new Error(
-        `Benchmark port base must be an integer between 1 and 65462: ${String(portBase)}.`,
+        `Benchmark port base must be an integer between 1 and ${highestBase}: ${String(portBase)}.`,
       );
     const base: number =
       portBase + (subjectIndex * arms.length + armIndex) * 10;

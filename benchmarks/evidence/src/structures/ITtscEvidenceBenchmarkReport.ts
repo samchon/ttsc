@@ -20,7 +20,7 @@ export interface ITtscEvidenceBenchmarkReport {
    * `report` writes it from the repository it scanned. It is optional because
    * an aggregate published before this field existed does not have one, and
    * back-filling it would put a value into a generated artifact that nothing
-   * derived — which is the failure the field exists to prevent. Absence means
+   * derived, which is the failure the field exists to prevent. Absence means
    * the origin is unrecorded, and whatever publishes such an aggregate states
    * it in prose instead.
    */

@@ -88,7 +88,7 @@ The command writes `benchmarks/evidence/aggregate/summary.json` and stable per-c
 
 `summary.json` records an `origin`, the repository whose run records the collection read, taken from that repository's manifest. Each cell carries the `benchmarkRevision` its launcher read from `HEAD`, and a bare SHA resolves nowhere on its own, so the origin is what separates a cohort measured here from one vendored in.
 
-`coverage.json` is the one aggregate artifact nothing in this repository writes; it is counted by hand from a completed workspace. Each of its rows names the `runId` it was counted from, and `report` refuses to publish over a row naming a run the cohort is not publishing, or naming none — otherwise a second cohort's spend would be drawn beside the first cohort's coverage. A cohort with no coverage at all publishes normally.
+`coverage.json` is the one aggregate artifact nothing in this repository writes; it is counted by hand from a completed workspace. Each of its rows names the `runId` it was counted from, and `report` refuses to publish over a row naming a run the cohort is not publishing, or naming none. Otherwise a second cohort's spend would be drawn beside the first cohort's coverage. A cohort with no coverage at all publishes normally.
 
 The charts redraw from the tracked aggregate alone, with no run records present:
 
@@ -100,7 +100,7 @@ The report reconstructs OpenRouter API-equivalent USD cost from each native requ
 
 Pass repeated `--run-id <run-id>` arguments to both commands to audit and publish an explicit historical cohort instead of the latest launched cell for each subject and arm.
 
-The live campaign dashboard is a separate command that takes no arguments and always renders the latest launched run of each cell:
+The live campaign dashboard is a separate command that takes no arguments and always renders the latest launched run of each cell. It cannot be pointed at a historical cohort, and it refuses an argument rather than ignoring one, so a run ID appended to all three commands fails here instead of labelling the live cohort as a historical one:
 
 ```bash
 pnpm --filter @ttsc/benchmark-evidence dashboard

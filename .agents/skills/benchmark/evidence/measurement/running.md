@@ -33,6 +33,12 @@ pnpm --filter @ttsc/benchmark-evidence start codex <subject> <evidence|plain> gp
 - **`high`** is the default effort. The parser also accepts `low`, `medium`, `xhigh`, `max`, and `ultra`.
 - **The subject** names a directory under `benchmarks/evidence/requirements/`, and `EvidenceBenchmarkRuntime.assign` is the authority on which ones a cell may take. There are five, below.
 
+The model and effort are defaults, not a menu you pick from. Change either only when the user names it, and record what they authorized in the pull-request body. Cost is why the default is what it is, and a cell run at another model or effort is not comparable with a cohort that used these.
+
+Never run two commands against the same run ID at once. A resume reuses the run ID by design, so the rule is about concurrency, not about a second invocation.
+
+A launch that fails before native work does not consume the authorized cell, as long as its identity and frozen inputs are unchanged. Two such failures are ordinary: an unclean repository, and an occupied port from the cell's own block.
+
 ### Subjects
 
 | subject | what it is |
@@ -43,15 +49,9 @@ pnpm --filter @ttsc/benchmark-evidence start codex <subject> <evidence|plain> gp
 | `erp` | the largest, 253 H2 and 1234 H3 across six documents |
 | `todo2` | a byte-identical copy of `todo`, with its own port block |
 
-`todo2` exists so one subject can be run twice under identical requirements. A cohort's cells are one run each, so a repeat draw is the only way to separate what a rule selects for from what one model did once — and the requirement corpus is frozen, so a duplicate cannot be created on demand. It arrived with the vendoring from `samchon/evidence`, where three such duplicates were added at once.
+`todo2` exists so one subject can be run twice under identical requirements. A cohort's cells are one run each, so a repeat draw is the only way to separate what a rule selects for from what one model did once, and the requirement corpus is frozen, so a duplicate cannot be created on demand. It arrived with the vendoring from `samchon/lint-plugin-evidence`.
 
 It is not part of the default matrix. Running it is an explicit authorization like any other cell, recorded in the pull-request body with the rest.
-
-The model and effort are defaults, not a menu you pick from. Change either only when the user names it, and record what they authorized in the pull-request body. Cost is why the default is what it is, and a cell run at another model or effort is not comparable with a cohort that used these.
-
-Never run two commands against the same run ID at once. A resume reuses the run ID by design, so the rule is about concurrency, not about a second invocation.
-
-A launch that fails before native work does not consume the authorized cell, as long as its identity and frozen inputs are unchanged. Two such failures are ordinary: an unclean repository, and an occupied port from the cell's own block.
 
 ### Port Blocks
 

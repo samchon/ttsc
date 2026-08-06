@@ -15,7 +15,7 @@ Every remedy lands outside the measured workspace or in this repository.
 | A cell's ports have a listener but no live runner of its own | [Free the ports](recovery.md), then resume |
 | A Plain cell sits at `awaiting-review-verdict` | Resume to retry the inspection. [plain-review.md](../measurement/plain-review.md) owns the loop |
 | A cell's goal update carries status `blocked` | The agent declared its own goal blocked. That is a measurement outcome; [resume it](recovery.md) |
-| An `inspection/` directory holds only a prompt and a schema | An inspection in flight, not a stall. Wait for the decision |
+| An `inspection/` directory holds only a prompt and a schema | An inspection in flight while its runner is alive, a stopped cell otherwise. [Confirm liveness first](recovery.md) |
 | A failure notice names a cell | Read `state.json` first. The notice lags its event, and [the cell is often already running again](recovery.md) |
 | The dashboard disagrees with `state.json` | Regenerate it. [dashboard.md](../measurement/dashboard.md) owns the commands |
 | A template, instruction, or runner defect | Fix it where [boundary.md](boundary.md) permits |
