@@ -1,7 +1,8 @@
 // One sweep over every assumption the vendored tree can carry from upstream.
 const fs = require("node:fs");
 const path = require("node:path");
-const ROOT = "D:/github/samchon/ttsc";
+// Two directories below the repository root, derived rather than spelled.
+const ROOT = path.resolve(__dirname, "..", "..");
 process.chdir(ROOT);
 
 const TREES = [

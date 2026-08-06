@@ -17,16 +17,25 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { execFileSync } = require("node:child_process");
 
-const ROOT = "D:/github/samchon/ttsc";
+// This file sits two directories below the repository root, so the root is
+// derived rather than spelled. A path written into the source is a path that
+// stops being true without anything saying so.
+const ROOT = path.resolve(__dirname, "..", "..");
 // Where the upstream checkout is, which is a property of the machine rather
 // than of the vendoring. The directory does not have to be named after the
 // repository, and this one is not: `samchon/lint-plugin-evidence` is cloned as
-// `evidence`. A path spelled once in the source is a path that stops being true
-// without anything saying so, so the location is supplied and this is only the
-// default.
+// `evidence`.
+//
+// The argument wins over the environment, because it is the more specific
+// statement: an exported variable is ambient and easy to forget, and a run that
+// names a path on the command line means that path. An empty value is unset
+// rather than a location, since `path.resolve("")` is the current directory,
+// which would point the whole comparison at this repository.
+const supplied = (value) =>
+  typeof value === "string" && value.trim() !== "" ? value : undefined;
 const UP = path.resolve(
-  process.env.EVIDENCE_UPSTREAM ??
-    process.argv[2] ??
+  supplied(process.argv[2]) ??
+    supplied(process.env.EVIDENCE_UPSTREAM) ??
     "D:/github/samchon/evidence",
 );
 // Upstream PR #189 carries live logic fixes on top of master, and it is a live
@@ -46,15 +55,19 @@ process.chdir(ROOT);
  */
 function upstreamCommit() {
   const hint =
-    `Set EVIDENCE_UPSTREAM or pass the path as the first argument:\n` +
-    `  node experimental/evidence-vendor/parity.cjs <path-to-lint-plugin-evidence>`;
+    `Pass the checkout as the first argument, or export EVIDENCE_UPSTREAM:\n` +
+    `  node ${path.relative(process.cwd(), __filename).replaceAll("\\", "/")} <path-to-lint-plugin-evidence>`;
   if (fs.existsSync(path.join(UP, ".git")) === false)
     throw new Error(
-      `No upstream checkout of samchon/lint-plugin-evidence at ${UP}.\n${hint}`,
+      `No git checkout at ${UP}, which is where samchon/lint-plugin-evidence is expected.\n${hint}`,
     );
   try {
+    // git's own stderr is captured rather than inherited. Letting it through
+    // printed `fatal: ambiguous argument` above the explanation below it, which
+    // is the raw report this wrapper exists to replace.
     return execFileSync("git", ["-C", UP, "rev-parse", BRANCH_REF], {
       encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
     }).trim();
   } catch (error) {
     throw new Error(

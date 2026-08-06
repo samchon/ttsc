@@ -2,7 +2,8 @@
 // Idempotent: safe to run after any re-copy. Ends in a measurement.
 const fs = require("node:fs");
 const path = require("node:path");
-const ROOT = "D:/github/samchon/ttsc";
+// Two directories below the repository root, derived rather than spelled.
+const ROOT = path.resolve(__dirname, "..", "..");
 process.chdir(ROOT);
 
 const TREES = [

@@ -6,7 +6,7 @@ These scripts are branch-local tooling for the migration pull request. They are 
 
 ## Refreshing the vendored trees
 
-Upstream defaults to `D:/github/samchon/evidence`, which is where `samchon/lint-plugin-evidence` is cloned on this machine; the directory is not named after the repository. `parity.cjs` takes another location from `EVIDENCE_UPSTREAM` or from its first argument, so a checkout that lives elsewhere needs no edit.
+Upstream defaults to `D:/github/samchon/evidence`, which is where `samchon/lint-plugin-evidence` is cloned on this machine; the directory is not named after the repository. `parity.cjs` takes another location from its first argument, then from `EVIDENCE_UPSTREAM`, so a checkout that lives elsewhere needs no edit. The argument wins, and it is what the `robocopy` recipe's `<upstream>` placeholder below stands for; neither the variable nor the argument feeds those copy commands.
 
 ```bash
 # 1. Copy. Never exclude a directory named `lib` — the benchmark template ships
@@ -53,8 +53,11 @@ npx prettier --write "packages/evidence/src/**/*.ts" \
 # 4. Sweep for assumptions the copy carried over, then prove that every
 #    remaining difference from upstream is a declared adaptation.
 node experimental/evidence-vendor/audit.cjs
-node experimental/evidence-vendor/parity.cjs                     # or: parity.cjs <upstream>
+node experimental/evidence-vendor/parity.cjs
+node experimental/evidence-vendor/parity.cjs <upstream>          # a checkout elsewhere
 ```
+
+`parity.cjs` does not see `benchmarks/evidence/aggregate`. The aggregate is a measurement this repository publishes for itself, so its cells and `generatedAt` are expected to diverge from upstream's rather than to match them, and comparing the two would report a residual on every regeneration.
 
 Do not run Prettier over `benchmarks/evidence/{template,requirements,instructions}`. `.prettierignore` exempts them, and the reason is in that file.
 
