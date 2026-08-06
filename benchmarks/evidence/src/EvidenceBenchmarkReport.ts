@@ -95,7 +95,7 @@ export const writeEvidenceBenchmarkCharts = (
       fs.mkdirSync(directory, { recursive: true });
       fs.writeFileSync(
         path.join(directory, "arms.svg"),
-        EvidenceBenchmarkChart.arms({ report, coverage, subject }),
+        EvidenceBenchmarkChart.arms({ report, coverage, model, subject }),
       );
     }
   return report;

@@ -61,6 +61,11 @@ const UNATTRIBUTED_COLOR = "#94a3b8";
  * of them a scope needed. An unknown name is attributed to nothing rather than
  * to a neighbouring phase, so a new stage shows up as a gap the remainder
  * segment absorbs instead of silently inflating a phase it never ran in.
+ *
+ * The SVG renderer throws on a name it does not know and this returns null on
+ * purpose. A publication step that cannot classify a stage should stop and be
+ * fixed; a page that a reader opened should show the measurement it has rather
+ * than a blank panel, and the unclassified spend is still visible as tail.
  */
 function stagePhase(stage: string): PhaseKey | null {
   const supplement =
@@ -93,6 +98,15 @@ export interface Axis {
   value: (cell: Cell) => number;
   stage: (stage: ITtscWebsiteBenchmarkEvidence.Stage, cell: Cell) => number;
   format: (value: number) => string;
+  /**
+   * Whether this cell carries the axis at all.
+   *
+   * A price is emitted only after every retained request reconciles with the
+   * cell's own counters, so it can be absent. Drawing that as `$0.00` reports a
+   * cell that cost nothing, and comparing it with its arm reports a saving of
+   * everything.
+   */
+  measured: (cell: Cell) => boolean;
 }
 
 const AXES: readonly Axis[] = [
@@ -103,6 +117,7 @@ const AXES: readonly Axis[] = [
     value: (cell) => cell.tokens,
     stage: (stage) => stage.tokens,
     format: formatTokens,
+    measured: () => true,
   },
   {
     id: "time",
@@ -111,6 +126,7 @@ const AXES: readonly Axis[] = [
     value: (cell) => cell.workElapsedMs,
     stage: (stage) => stage.elapsedMs,
     format: formatDuration,
+    measured: () => true,
   },
   {
     id: "cost",
@@ -121,6 +137,7 @@ const AXES: readonly Axis[] = [
       ((cell.apiCost?.amountUsd ?? 0) * stage.tokens) /
       Math.max(1, cell.tokens),
     format: (value) => `$${value.toFixed(2)}`,
+    measured: (cell) => cell.apiCost !== null,
   },
 ];
 
@@ -137,45 +154,61 @@ export interface Row {
   cell: Cell;
   color: string;
   total: number;
+  /** The total as drawn, or the reason there is none. */
+  label: string;
+  /** False when the axis has no measurement for this cell. */
+  measured: boolean;
   /** Percent against the Plain cell of the same subject, null on Plain itself. */
   delta: number | null;
   segments: Segment[];
 }
 
 export interface SubjectGroup {
+  /** `<model>/<subject>`, unique per drawn group. */
+  id: string;
   subject: string;
+  model: string;
   label: string;
   models: string;
   rows: Row[];
 }
 
 /**
- * One group per subject, in the order the report lists them.
+ * One group per model and subject, in the order the report lists them.
  *
  * That order is ascending subject size, which is the reading every view of this
  * benchmark supports, and taking it from the report rather than from a list
  * written here keeps the groups and the coverage block from disagreeing about
  * which subject comes first.
+ *
+ * The model is part of the group because two of them over one subject are four
+ * cells, not two. Grouping on the subject alone would draw them in one box with
+ * two rows sharing a key, and would compare one model's Evidence arm against
+ * the other model's Plain.
  */
 function buildSubjects(report: Report | null, axis: Axis): SubjectGroup[] {
   if (!report) return [];
   const order: string[] = [];
   const bySubject = new Map<string, Cell[]>();
   for (const cell of report.cells) {
-    if (!bySubject.has(cell.subject)) {
-      bySubject.set(cell.subject, []);
-      order.push(cell.subject);
+    const id = `${cell.model}/${cell.subject}`;
+    if (!bySubject.has(id)) {
+      bySubject.set(id, []);
+      order.push(id);
     }
-    bySubject.get(cell.subject)!.push(cell);
+    bySubject.get(id)!.push(cell);
   }
-  return order.map((subject) => {
-    const cells = [...bySubject.get(subject)!].sort(
+  return order.map((id) => {
+    const cells = [...bySubject.get(id)!].sort(
       (a, b) => armOrder(a.arm) - armOrder(b.arm),
     );
+    const head = cells[0]!;
     const baseline = cells.find((cell) => cell.arm === "plain");
     return {
-      subject,
-      label: title(subject),
+      id,
+      subject: head.subject,
+      model: head.model,
+      label: title(head.subject),
       models: [...new Set(cells.map((cell) => displayModel(cell.model)))].join(
         ", ",
       ),
@@ -212,16 +245,23 @@ function buildSubjects(report: Report | null, axis: Axis): SubjectGroup[] {
             color: UNATTRIBUTED_COLOR,
             opacity: 1,
           });
+        const measured = axis.measured(cell);
         return {
           arm: cell.arm,
           cell,
           color: ARM_COLOR[cell.arm],
           total,
+          label: measured ? axis.format(total) : "unavailable",
+          measured,
           delta:
-            baseline === undefined || cell.arm === "plain" || base <= 0
+            baseline === undefined ||
+            cell.arm === "plain" ||
+            base <= 0 ||
+            measured === false ||
+            axis.measured(baseline) === false
               ? null
               : Math.round((total / base - 1) * 100),
-          segments,
+          segments: measured ? segments : [],
         };
       }),
     };
@@ -229,6 +269,8 @@ function buildSubjects(report: Report | null, axis: Axis): SubjectGroup[] {
 }
 
 export interface CoverageRow {
+  /** Unique per drawn row, including when two models share a subject. */
+  id: string;
   label: string;
   percent: number;
   color: string;
@@ -326,12 +368,28 @@ function buildCoverage(
       charted.has(`${cell.model}/${cell.subject}`) &&
       typeof cell.coverage.score === "number",
   );
-  const measured = relevant.filter((cell) => cell.coverage.measured);
-  const asserted = relevant.filter((cell) => !cell.coverage.measured);
+  // Ordered by the report rather than by the coverage file, so this block and
+  // the spend groups below it cannot disagree about which subject comes first.
+  const order: string[] = [
+    ...new Set(report.cells.map((cell) => `${cell.model}/${cell.subject}`)),
+  ];
+  const measured = order.flatMap((id) =>
+    relevant.filter(
+      (cell) =>
+        `${cell.model}/${cell.subject}` === id && cell.coverage.measured,
+    ),
+  );
+  const asserted = order.flatMap((id) =>
+    relevant.filter(
+      (cell) =>
+        `${cell.model}/${cell.subject}` === id && !cell.coverage.measured,
+    ),
+  );
   const row = (
     label: string,
     cell: ITtscWebsiteBenchmarkEvidence.CoverageCell,
   ): CoverageRow => ({
+    id: `${cell.model}/${cell.subject}/${cell.arm}`,
     label,
     percent: (cell.coverage.score ?? 0) * 100,
     color: ARM_COLOR[cell.arm],

@@ -7,16 +7,15 @@ import useTtscWebsiteBenchmarkEvidenceData from "./useTtscWebsiteBenchmarkEviden
 
 type Cell = ITtscWebsiteBenchmarkEvidence.Cell;
 
-const { formatCost, formatDuration, formatInteger, title } =
-  TtscWebsiteBenchmarkEvidenceData;
+const { ARM_COLOR, formatInteger, title } = TtscWebsiteBenchmarkEvidenceData;
 
 /**
- * The native counters behind every bar above, one row per cell.
+ * The native token counters behind every bar above, one row per cell.
  *
- * A chart shows a total, and the totals here are made of categories that bill
- * differently and mean different things: cached input is inside input, and
- * reasoning is inside output. A reader checking a figure against the aggregate
- * needs the categories rather than the sum.
+ * A bar shows a total, and this total is made of categories that bill
+ * differently: cached input is inside input and reasoning is inside output, so
+ * the categories do not sum to it. A reader checking a figure against the
+ * aggregate needs the categories rather than the sum.
  */
 export default function TtscWebsiteBenchmarkEvidenceCounters() {
   const { report, loading, error } = useTtscWebsiteBenchmarkEvidenceData();
@@ -37,13 +36,13 @@ export default function TtscWebsiteBenchmarkEvidenceCounters() {
   return (
     <div className={`not-prose my-6 ${TtscWebsiteBenchmarkGraphUi.panelClass}`}>
       <TtscWebsiteBenchmarkGraphUi.SectionHeader
-        eyebrow="counter detail"
+        eyebrow="token counters"
         title="Every cell, as the record holds it"
-        description="Native counters, the reconciled price, the work time behind it, and the diff the cell left in its own workspace. Cached input is inside input and reasoning is inside output, so the categories do not sum to the total."
+        description="Cached input is inside input and reasoning is inside output, so the categories do not sum to the total."
         aside={`${report.cells.length} cells`}
       />
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[900px] border-collapse text-[12px]">
+        <table className="w-full min-w-[600px] border-collapse text-[12px]">
           <thead>
             <tr className="border-b border-[#dbe4ee] text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500">
               <th className="px-4 py-2.5">Subject</th>
@@ -53,11 +52,6 @@ export default function TtscWebsiteBenchmarkEvidenceCounters() {
               <th className="px-4 py-2.5 text-right">Cached</th>
               <th className="px-4 py-2.5 text-right">Output</th>
               <th className="px-4 py-2.5 text-right">Reasoning</th>
-              <th className="px-4 py-2.5 text-right">Cost</th>
-              <th className="px-4 py-2.5 text-right">Work time</th>
-              <th className="px-4 py-2.5 text-right">Diff</th>
-              <th className="px-4 py-2.5 text-right">Verdicts</th>
-              <th className="px-4 py-2.5">Revision</th>
             </tr>
           </thead>
           <tbody>
@@ -71,9 +65,7 @@ export default function TtscWebsiteBenchmarkEvidenceCounters() {
                 </td>
                 <td
                   className="px-4 py-2 font-semibold"
-                  style={{
-                    color: TtscWebsiteBenchmarkEvidenceData.ARM_COLOR[cell.arm],
-                  }}
+                  style={{ color: ARM_COLOR[cell.arm] }}
                 >
                   {title(cell.arm)}
                 </td>
@@ -92,38 +84,11 @@ export default function TtscWebsiteBenchmarkEvidenceCounters() {
                 <td className="px-4 py-2 text-right tabular-nums">
                   {formatInteger(cell.tokenUsage.reasoningOutputTokens)}
                 </td>
-                <td className="px-4 py-2 text-right tabular-nums">
-                  {formatCost(cell)}
-                </td>
-                <td className="px-4 py-2 text-right tabular-nums">
-                  {formatDuration(cell.workElapsedMs)}
-                </td>
-                <td className="px-4 py-2 text-right tabular-nums">
-                  +{formatInteger(cell.worktree.additions)} / -
-                  {formatInteger(cell.worktree.deletions)}
-                </td>
-                <td className="px-4 py-2 text-right tabular-nums">
-                  {cell.reviewVerdicts.length === 0
-                    ? "0"
-                    : `${cell.reviewVerdicts.filter((v) => v.decision === "fail").length} fail / ${cell.reviewVerdicts.length}`}
-                </td>
-                <td
-                  className="px-4 py-2 font-mono text-[11px]"
-                  title={cell.runId}
-                >
-                  {cell.benchmarkRevision.slice(0, 9)}
-                </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-      <p className="border-t border-[#c7dff4] bg-[#f7fbff] px-5 py-3 text-[11px] leading-relaxed text-slate-500">
-        Verdicts are the Plain arm's external review decisions; Evidence stops
-        for none. A cell's revision is the benchmark commit its run was frozen
-        at, so two cells at different revisions were not measured against the
-        same harness.
-      </p>
     </div>
   );
 }

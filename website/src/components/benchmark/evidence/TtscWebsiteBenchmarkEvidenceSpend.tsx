@@ -73,7 +73,7 @@ export default function TtscWebsiteBenchmarkEvidenceSpend() {
       <TtscWebsiteBenchmarkGraphUi.SectionHeader
         eyebrow="plain against evidence"
         title="What each arm spent"
-        description="One shared axis across every subject, lower is better. Hover a band for its phase, its own figure, and its share of the row."
+        description="One shared axis across every subject, lower is better. Hover a band for its phase, its own figure, and its share of the row. A bar longer than the figure beside it is a cell whose stage records sum above its own total, which excludes idleness they keep."
         aside={
           report ? `generated ${report.generatedAt.slice(0, 10)}` : undefined
         }
@@ -97,7 +97,7 @@ export default function TtscWebsiteBenchmarkEvidenceSpend() {
       </div>
       <div className="space-y-5 px-5 py-5">
         {subjects.map((group) => (
-          <section key={group.subject}>
+          <section key={group.id}>
             <header className="mb-2 flex items-baseline justify-between gap-3">
               <h4 className="text-[15px] font-semibold text-[#102a43]">
                 {group.label}
@@ -109,7 +109,7 @@ export default function TtscWebsiteBenchmarkEvidenceSpend() {
             <div className="space-y-2">
               {group.rows.map((row) => (
                 <SpendRow
-                  key={`${group.subject}-${row.arm}`}
+                  key={`${group.id}-${row.arm}`}
                   row={row}
                   axis={axis}
                   maximum={maximum}
@@ -154,7 +154,15 @@ function SpendRow({
         opacity: segment.opacity,
         active: segment.key === active,
       })),
-      { label: "Total", value: axis.format(row.total) },
+      { label: "Total", value: row.label },
+      ...(stacked > row.total
+        ? [
+            {
+              label: "Stages over total",
+              value: axis.format(stacked - row.total),
+            },
+          ]
+        : []),
     ],
     footer: `${formatInteger(row.cell.tokenUsage.totalTokens)} tokens · ${formatDuration(row.cell.workElapsedMs)} · ${formatCost(row.cell)} · +${formatInteger(row.cell.worktree.additions)}/-${formatInteger(row.cell.worktree.deletions)} in ${formatInteger(row.cell.worktree.files)} files`,
   });
@@ -188,7 +196,7 @@ function SpendRow({
         </div>
       </div>
       <span className="w-[140px] shrink-0 text-right text-[13px] font-semibold text-[#102a43]">
-        {axis.format(row.total)}
+        {row.label}
         {row.delta === null ? null : (
           <span
             className={`ml-1 font-mono text-[11px] ${

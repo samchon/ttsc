@@ -1,3 +1,4 @@
+import TtscWebsiteBenchmarkEvidenceCoverage from "../../../components/benchmark/evidence/TtscWebsiteBenchmarkEvidenceCoverage";
 import TtscWebsiteBenchmarkGraphCommon from "../../../components/benchmark/graph/TtscWebsiteBenchmarkGraphCommon";
 import TtscWebsiteBenchmarkPerformanceSummary from "../../../components/benchmark/TtscWebsiteBenchmarkPerformanceSummary";
 
@@ -17,7 +18,9 @@ vscode, 6,093 TypeScript files across a large application monorepo, is the flags
 
 [The Evidence Graph benchmark](/docs/benchmark/evidence) asks a different question from the other two. Instead of comparing `ttsc` with another tool, it has one coding engine build the same application twice from the same frozen requirements: once with [`@ttsc/evidence`](/docs/evidence) and its guidance in the workspace, once with neither. Both arms get an overlay, the same instruction sequence, and the same model and effort, so the only variable is the graph.
 
-The page covers the two arms, the subjects, workspace preparation, the commands that launch and supervise a run, and the rules that decide whether a finished run still counts.
+Coverage is the axis the other two cannot stand in for: how much of the provenance graph each delivered codebase actually satisfies. The detailed page adds token, work time, and API cost per subject.
+
+<TtscWebsiteBenchmarkEvidenceCoverage />
 
 ## Code Knowledge Graph
 

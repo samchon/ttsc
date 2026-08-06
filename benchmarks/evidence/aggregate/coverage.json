@@ -1,9 +1,12 @@
 {
   "source": {
     "origin": "samchon/lint-plugin-evidence",
-    "method": "Thirteen reference-graph edges read from each completed Plain workspace by hand, composed so serial hops multiply and branches average. See ttsc#1088 for the derivation.",
-    "populations": "Retained as counts for shopping and erp. Todo and reddit were published as rates only, so their eligible and reached populations are null rather than reconstructed.",
-    "evidenceArm": "Complete by construction and never counted: the plugin enforces every edge as a build gate, so a cell that compiled satisfied the graph."
+    "symbol": "COVERAGE_EDGES in benchmark/src/EvidenceBenchmarkReport.ts",
+    "method": "Thirteen reference-graph edges read from each completed Plain workspace by Claude Code Opus 5, composed so serial hops multiply and branches average. See ttsc#1088 for the derivation.",
+    "populations": "Retained wherever upstream recorded a count ratio. An edge upstream published as a bare rate carries a null population rather than a reconstructed one, which is every edge of todo and reddit and shopping's modelToOperation.",
+    "precision": "Seven of the thirteen edges a machine can settle exactly; the other five need a judgement, and two independent readings of an unchanged workspace moved those by up to 0.09, every one upward. Read a score as a whole percent.",
+    "evidenceArm": "Complete by construction and never counted: the plugin enforces every edge as a build gate, so a cell that compiled satisfied the graph.",
+    "regeneration": "This describes an imported cohort. Measuring coverage here replaces the file with the `coverage` command's own output, and this block with it."
   },
   "cells": [
     {
@@ -24,6 +27,50 @@
           "api": 0.9,
           "model": 0.8029999999999999
         },
+        "obligations": [
+          {
+            "name": "model",
+            "edge": "requirementToModel",
+            "rate": 1,
+            "wholeness": 0.8029999999999999,
+            "value": 0.8029999999999999
+          },
+          {
+            "name": "operation",
+            "edge": "requirementToOperation",
+            "rate": 1,
+            "wholeness": 0.9,
+            "value": 0.9
+          },
+          {
+            "name": "dto",
+            "edge": "requirementToDto",
+            "rate": 0.733,
+            "wholeness": 0.706,
+            "value": 0.517498
+          },
+          {
+            "name": "test",
+            "edge": "requirementToTest",
+            "rate": 1,
+            "wholeness": 1,
+            "value": 1
+          },
+          {
+            "name": "screen",
+            "edge": "requirementToScreen",
+            "rate": 0.969,
+            "wholeness": 0.8,
+            "value": 0.7752
+          },
+          {
+            "name": "journey",
+            "edge": "requirementToJourney",
+            "rate": 0.813,
+            "wholeness": 1,
+            "value": 0.813
+          }
+        ],
         "edges": [
           {
             "name": "columnToProperty",
@@ -124,6 +171,7 @@
           "api": 1,
           "model": 1
         },
+        "obligations": [],
         "edges": []
       }
     },
@@ -145,6 +193,50 @@
           "api": 0.889,
           "model": 0.733047
         },
+        "obligations": [
+          {
+            "name": "model",
+            "edge": "requirementToModel",
+            "rate": 0.982,
+            "wholeness": 0.733047,
+            "value": 0.719852154
+          },
+          {
+            "name": "operation",
+            "edge": "requirementToOperation",
+            "rate": 1,
+            "wholeness": 0.889,
+            "value": 0.889
+          },
+          {
+            "name": "dto",
+            "edge": "requirementToDto",
+            "rate": 0.893,
+            "wholeness": 0.674,
+            "value": 0.601882
+          },
+          {
+            "name": "test",
+            "edge": "requirementToTest",
+            "rate": 0.758,
+            "wholeness": 1,
+            "value": 0.758
+          },
+          {
+            "name": "screen",
+            "edge": "requirementToScreen",
+            "rate": 0.886,
+            "wholeness": 0.778,
+            "value": 0.689308
+          },
+          {
+            "name": "journey",
+            "edge": "requirementToJourney",
+            "rate": 0.086,
+            "wholeness": 1,
+            "value": 0.086
+          }
+        ],
         "edges": [
           {
             "name": "columnToProperty",
@@ -245,6 +337,7 @@
           "api": 1,
           "model": 1
         },
+        "obligations": [],
         "edges": []
       }
     },
@@ -266,6 +359,50 @@
           "api": 0.4629529561347743,
           "model": 0.5599063081491996
         },
+        "obligations": [
+          {
+            "name": "model",
+            "edge": "requirementToModel",
+            "rate": 0.9906542056074766,
+            "wholeness": 0.5599063081491996,
+            "value": 0.5546735389141604
+          },
+          {
+            "name": "operation",
+            "edge": "requirementToOperation",
+            "rate": 0.9617021276595744,
+            "wholeness": 0.4629529561347743,
+            "value": 0.44522284292110204
+          },
+          {
+            "name": "dto",
+            "edge": "requirementToDto",
+            "rate": 0.9626168224299065,
+            "wholeness": 0.73568281938326,
+            "value": 0.7081806579109886
+          },
+          {
+            "name": "test",
+            "edge": "requirementToTest",
+            "rate": 0.5914893617021276,
+            "wholeness": 1,
+            "value": 0.5914893617021276
+          },
+          {
+            "name": "screen",
+            "edge": "requirementToScreen",
+            "rate": 0.21774193548387097,
+            "wholeness": 0.38461538461538464,
+            "value": 0.0837468982630273
+          },
+          {
+            "name": "journey",
+            "edge": "requirementToJourney",
+            "rate": 0.024193548387096774,
+            "wholeness": 1,
+            "value": 0.024193548387096774
+          }
+        ],
         "edges": [
           {
             "name": "columnToProperty",
@@ -299,8 +436,8 @@
           },
           {
             "name": "modelToOperation",
-            "eligible": 1,
-            "reached": 1,
+            "eligible": null,
+            "reached": null,
             "rate": 1
           },
           {
@@ -366,6 +503,7 @@
           "api": 1,
           "model": 1
         },
+        "obligations": [],
         "edges": []
       }
     },
@@ -387,6 +525,50 @@
           "api": 0.09794534211051267,
           "model": 0.44055087930770354
         },
+        "obligations": [
+          {
+            "name": "model",
+            "edge": "requirementToModel",
+            "rate": 0.6252771618625277,
+            "wholeness": 0.44055087930770354,
+            "value": 0.27546640346956186
+          },
+          {
+            "name": "operation",
+            "edge": "requirementToOperation",
+            "rate": 0.9429778247096093,
+            "wholeness": 0.09794534211051267,
+            "value": 0.09236028564380974
+          },
+          {
+            "name": "dto",
+            "edge": "requirementToDto",
+            "rate": 0.6252771618625277,
+            "wholeness": 0.8299120234604106,
+            "value": 0.518925034624913
+          },
+          {
+            "name": "test",
+            "edge": "requirementToTest",
+            "rate": 0.6589229144667371,
+            "wholeness": 1,
+            "value": 0.6589229144667371
+          },
+          {
+            "name": "screen",
+            "edge": "requirementToScreen",
+            "rate": 0.29088277858176553,
+            "wholeness": 1,
+            "value": 0.29088277858176553
+          },
+          {
+            "name": "journey",
+            "edge": "requirementToJourney",
+            "rate": 0.06367583212735166,
+            "wholeness": 1,
+            "value": 0.06367583212735166
+          }
+        ],
         "edges": [
           {
             "name": "columnToProperty",
@@ -487,6 +669,7 @@
           "api": 1,
           "model": 1
         },
+        "obligations": [],
         "edges": []
       }
     }

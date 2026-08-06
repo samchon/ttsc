@@ -68,9 +68,13 @@ export namespace EvidenceBenchmarkChart {
    * request was billed at one rate and an apportionment otherwise; the footnote
    * says so rather than letting the bar imply a measurement.
    */
-  export const arms = (props: IProps & { subject: string }): string => {
+  export const arms = (
+    props: IProps & { model: string; subject: string },
+  ): string => {
     const cells: ITtscEvidenceBenchmarkReportCell[] = props.report.cells
-      .filter((cell) => cell.subject === props.subject)
+      .filter(
+        (cell) => cell.model === props.model && cell.subject === props.subject,
+      )
       .sort((left, right) => armOrder(left.arm) - armOrder(right.arm));
     const models: string = [
       ...new Set(cells.map((cell) => displayModel(cell.model))),
@@ -78,6 +82,7 @@ export namespace EvidenceBenchmarkChart {
     const axes: readonly {
       label: string;
       hint: string;
+      measured?: (cell: ITtscEvidenceBenchmarkReportCell) => boolean;
       value: (cell: ITtscEvidenceBenchmarkReportCell) => number;
       phase: (cell: ITtscEvidenceBenchmarkReportCell) => readonly IPhaseValue[];
       format: (value: number) => string;
@@ -99,6 +104,11 @@ export namespace EvidenceBenchmarkChart {
       {
         label: "API cost",
         hint: "lower is better · apportioned by token share",
+        // A price is emitted only after every retained request reconciles with
+        // the cell's own counters, so it can be absent. Drawing that as $0.00
+        // reports a cell that cost nothing, and comparing it with its arm
+        // reports a saving of everything.
+        measured: (cell) => cell.apiCost !== null,
         value: (cell) => cell.apiCost?.amountUsd ?? 0,
         phase: (cell) => {
           const price: number = cell.apiCost?.amountUsd ?? 0;
@@ -129,12 +139,14 @@ export namespace EvidenceBenchmarkChart {
       // alone let a bar run past its own track and off the canvas.
       const maximum: number = Math.max(
         1,
-        ...cells.map((cell) =>
-          Math.max(
-            axis.value(cell),
-            axis.phase(cell).reduce((sum, phase) => sum + phase.value, 0),
+        ...cells
+          .filter((cell) => axis.measured?.(cell) ?? true)
+          .map((cell) =>
+            Math.max(
+              axis.value(cell),
+              axis.phase(cell).reduce((sum, phase) => sum + phase.value, 0),
+            ),
           ),
-        ),
       );
       body.push(
         `<rect x="${MARGIN - 8}" y="${cursor}" width="${WIDTH - 2 * MARGIN + 16}" height="${blockHeight}" rx="10" class="group" fill-opacity="${axisIndex % 2 === 0 ? "0.78" : "0.42"}"/>`,
@@ -148,28 +160,33 @@ export namespace EvidenceBenchmarkChart {
           `<text x="${LABEL_X}" y="${y + 44}" class="row-status">${escapeXml(cell.status)}</text>`,
           `<rect x="${BAR_X}" y="${y + 3}" width="${BAR_MAXIMUM_WIDTH}" height="36" rx="7" class="track"/>`,
         );
-        const phases: readonly IPhaseValue[] = axis.phase(cell);
-        body.push(
-          ...segments(phases, {
-            arm: cell.arm,
-            y,
-            maximum,
-            dataAttribute: "",
-            remainder:
-              axis.value(cell) -
-              phases.reduce((sum, phase) => sum + phase.value, 0),
-          }),
-        );
+        const measured: boolean = axis.measured?.(cell) ?? true;
+        const phases: readonly IPhaseValue[] = measured ? axis.phase(cell) : [];
+        if (measured)
+          body.push(
+            ...segments(phases, {
+              arm: cell.arm,
+              y,
+              maximum,
+              dataAttribute: "",
+              remainder:
+                axis.value(cell) -
+                phases.reduce((sum, phase) => sum + phase.value, 0),
+            }),
+          );
         const baseline: ITtscEvidenceBenchmarkReportCell | undefined =
           cells.find((candidate) => candidate.arm === "plain");
-        const delta: string =
-          baseline === undefined ||
-          cell.arm === "plain" ||
-          axis.value(baseline) === 0
-            ? ""
-            : ` (${Math.round((axis.value(cell) / axis.value(baseline) - 1) * 100)}%)`;
+        const comparable: boolean =
+          measured &&
+          baseline !== undefined &&
+          (axis.measured?.(baseline) ?? true) &&
+          axis.value(baseline) !== 0 &&
+          cell.arm !== "plain";
+        const delta: string = comparable
+          ? ` (${Math.round((axis.value(cell) / axis.value(baseline!) - 1) * 100)}%)`
+          : "";
         body.push(
-          `<text x="${VALUE_X}" y="${y + 26}" text-anchor="end" class="value">${escapeXml(`${axis.format(axis.value(cell))}${delta}`)}</text>`,
+          `<text x="${VALUE_X}" y="${y + 26}" text-anchor="end" class="value">${escapeXml(measured ? `${axis.format(axis.value(cell))}${delta}` : "unavailable")}</text>`,
         );
       });
       cursor += blockHeight + 16;

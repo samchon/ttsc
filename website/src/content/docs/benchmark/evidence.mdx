@@ -45,22 +45,25 @@ Reddit and Shopping ran their two arms at different benchmark revisions. Shoppin
 
 ## Reproduce
 
+Clone the repository and tell Claude Code to run the benchmark following the benchmark skill. That skill is the procedure this cohort was produced under, and it owns setup, launch, supervision, recovery, and publication.
+
 ```bash
 git clone https://github.com/samchon/ttsc.git
 cd ttsc
 corepack enable
 pnpm install
-pnpm --filter @ttsc/benchmark-evidence start codex <subject> <evidence|plain> <model> <effort>
+claude "run the evidence benchmark following .agents/skills/benchmark/evidence"
 ```
 
-`<subject>` is a directory under `benchmarks/evidence/requirements`. The runner refuses to launch while anything is uncommitted, and records the repository `HEAD` as the run's benchmark revision.
-
-Publish a cohort, then redraw its charts from the published aggregate alone:
+The commands it drives, if you would rather drive them yourself:
 
 ```bash
+pnpm --filter @ttsc/benchmark-evidence start codex <subject> <evidence|plain> <model> <effort>
 pnpm --filter @ttsc/benchmark-evidence audit-suspensions
 pnpm --filter @ttsc/benchmark-evidence report
 pnpm --filter @ttsc/benchmark-evidence charts
 ```
 
-`benchmarks/evidence/README.md` documents the runner, the arms, and what a run retains. `.agents/skills/benchmark/evidence/` is the operating procedure for a campaign.
+`<subject>` is a directory under `benchmarks/evidence/requirements`. The runner refuses to launch while anything is uncommitted and records the repository `HEAD` as the run's benchmark revision. `charts` redraws every chart from the published aggregate alone, with no run records present.
+
+`benchmarks/evidence/README.md` documents the runner, the arms, and what a run retains.

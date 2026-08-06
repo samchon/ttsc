@@ -44,14 +44,14 @@ export default function TtscWebsiteBenchmarkEvidenceCoverage() {
       <div className="divide-y divide-[#eef4fa] px-5 py-2">
         {rows.map((row) => {
           const expandable = row.edges.length > 0;
-          const expanded = open === row.label;
+          const expanded = open === row.id;
           return (
-            <div key={row.label} className="py-2">
+            <div key={row.id} className="py-2">
               <button
                 type="button"
                 disabled={expandable === false}
                 aria-expanded={expandable ? expanded : undefined}
-                onClick={() => setOpen(expanded ? null : row.label)}
+                onClick={() => setOpen(expanded ? null : row.id)}
                 className={`flex w-full items-center gap-3 rounded-md text-left ${
                   expandable ? "cursor-pointer" : "cursor-default"
                 }`}
