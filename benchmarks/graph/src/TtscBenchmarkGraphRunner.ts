@@ -32,9 +32,9 @@ import { ITtscBenchmarkGraphWebsiteAgentCell } from "./structures/ITtscBenchmark
  * Runs the complete graph-agent benchmark while keeping its executable a
  * location-only bootstrap.
  *
- * All harness paths derive from the supplied executable directory so moving
- * this implementation out of `src/executable/graph` does not change which child
- * entrypoints are launched.
+ * All harness paths derive from the supplied executable directory, so
+ * relocating this implementation never changes which child entrypoints are
+ * launched.
  */
 export namespace TtscBenchmarkGraphRunner {
   /**

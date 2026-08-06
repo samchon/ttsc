@@ -29,9 +29,9 @@
 // `codex` (logged in) and `go` on PATH, and a built `@ttsc/graph` (packages/graph/lib).
 //
 // Usage:
-//   pnpm --dir benchmarks/graph agent:codex -- --prompt-family=dedicated --repo=excalidraw --runs=4
-//   pnpm --dir benchmarks/graph agent:codex -- --prompt-family=common --repo=vscode --runs=4
-//   pnpm --dir benchmarks/graph agent:codex -- --prompt-id=typeorm-dedicated-v1 --runs=4
+//   pnpm --dir benchmarks/graph run agent:codex -- --prompt-family=dedicated --repo=excalidraw --runs=4
+//   pnpm --dir benchmarks/graph run agent:codex -- --prompt-family=common --repo=vscode --runs=4
+//   pnpm --dir benchmarks/graph run agent:codex -- --prompt-id=typeorm-dedicated-v1 --runs=4
 import cp from "node:child_process";
 import crypto from "node:crypto";
 import fs from "node:fs";

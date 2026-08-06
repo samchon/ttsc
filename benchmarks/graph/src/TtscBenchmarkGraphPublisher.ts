@@ -19,10 +19,10 @@
 // https://ttsc.dev/docs/benchmark#code-graph-mcp.
 //
 // Usage:
-//   pnpm --dir benchmarks/graph publish
-//   pnpm --dir benchmarks/graph publish -- --from <dir>
-//   pnpm --dir benchmarks/graph publish -- --reset
-//   pnpm --dir benchmarks/graph publish -- --dry-run
+//   pnpm --dir benchmarks/graph run publish
+//   pnpm --dir benchmarks/graph run publish -- --from <dir>
+//   pnpm --dir benchmarks/graph run publish -- --reset
+//   pnpm --dir benchmarks/graph run publish -- --dry-run
 import fs from "node:fs";
 import path from "node:path";
 

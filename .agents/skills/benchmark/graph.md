@@ -56,7 +56,7 @@ Never let concurrent runners write `graph.json` directly.
 
 ## Trace Audit
 
-Codex suites write `codex-trace-audit.json` automatically. Use the `graph:audit` package command only to re-audit existing output or compare before and after runs.
+Codex suites write `codex-trace-audit.json` automatically. Use the `audit` package command only to re-audit existing output or compare before and after runs.
 
 The audit records exposed assistant messages, shell and MCP calls in timeline order, per-turn usage, and `reasoning_output_tokens`. Codex does not expose hidden reasoning text; never invent it.
 

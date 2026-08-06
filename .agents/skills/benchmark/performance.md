@@ -15,7 +15,7 @@ Cell ID is `project:branch:op:threading`.
 | Operation | `build`, `noEmit`, `eslint` (legacy only), `format` |
 | Threading | `single`, `checkers2`, `checkers4`, `checkers8`; format uses `single` and default `multi` |
 
-The detailed methodology and dashboard interpretation live in `website/src/content/docs/benchmark/performance.mdx`. The full flag and environment-variable table lives in `benchmarks/README.md`.
+The detailed methodology and dashboard interpretation live in `website/src/content/docs/benchmark/performance.mdx`. The full flag and environment-variable table lives in `benchmarks/performance/README.md`.
 
 ## Fixture Contract
 
