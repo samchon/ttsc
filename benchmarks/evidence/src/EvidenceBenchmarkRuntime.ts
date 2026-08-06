@@ -19,11 +19,24 @@ export namespace EvidenceBenchmarkRuntime {
    * the campaign measures.
    *
    * The version is pinned because it is a frozen material input like the
-   * requirements and the template. A floating specifier would let two cells in
-   * one cohort drive different browsers, and the retained process record would
-   * say they did not.
+   * requirements and the template, and the retained process record carries the
+   * arguments that attached it. What the pin does not fix is the browser: the
+   * server drives a channel installed on the host, so two cells run days apart
+   * can drive two different builds of it while the record shows one specifier.
+   * Pinning that too is a separate decision the operator has to make about the
+   * machine, and `measurement/running.md` states it as a launch prerequisite
+   * rather than leaving it implied.
    */
   export const BROWSER_MCP_SPECIFIER = "@playwright/mcp@0.0.79";
+
+  /**
+   * Seconds the browser server may take to answer its handshake.
+   *
+   * The first launch on a machine installs the server and its own Playwright
+   * from the registry, which is far longer than a warm start and is exactly the
+   * launch whose failure would be least expected.
+   */
+  export const BROWSER_MCP_STARTUP_TIMEOUT_SECONDS = 300;
 
   /**
    * Native arguments that attach the browser server to a cell's thread.
@@ -31,6 +44,12 @@ export namespace EvidenceBenchmarkRuntime {
    * Codex reads `mcp_servers.<name>` from its configuration, and `--config`
    * overrides reach the same table without writing a file into the measured
    * workspace, which would be an input a cell could edit.
+   *
+   * `required` is the load-bearing one. Without it a server that misses its
+   * handshake is dropped from the tool list and the thread runs on, so a cohort
+   * would launch without the capability the frontend gate now demands and
+   * nothing would say so until a cell reported it could not drive a browser.
+   * With it the launch fails, which is the outcome a frozen input deserves.
    */
   export function browserServerArguments(): string[] {
     return [
@@ -38,6 +57,10 @@ export namespace EvidenceBenchmarkRuntime {
       "mcp_servers.playwright.command=npx",
       "--config",
       `mcp_servers.playwright.args=["-y","${BROWSER_MCP_SPECIFIER}"]`,
+      "--config",
+      "mcp_servers.playwright.required=true",
+      "--config",
+      `mcp_servers.playwright.startup_timeout_sec=${BROWSER_MCP_STARTUP_TIMEOUT_SECONDS}`,
     ];
   }
 
