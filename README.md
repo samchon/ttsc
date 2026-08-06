@@ -9,8 +9,8 @@ A `typescript-go` toolchain for compiler-powered plugins and type-safe execution
 - **`ttsc`**: build, check, and transform.
 - **`ttsx`**: execute TypeScript with type checking.
 - [**`@ttsc/lint`**](https://github.com/samchon/ttsc/tree/master/packages/lint): lint violations as compiler errors.
-- [**`@ttsc/evidence`**](https://github.com/samchon/ttsc/tree/master/packages/evidence): requirements as compiler errors until code acknowledges them.
-- [**`@ttsc/graph`**](https://github.com/samchon/ttsc/tree/master/packages/graph): code knowledge graph that reduces agent token usage.
+- [**`@ttsc/evidence`**](https://github.com/samchon/ttsc/tree/master/packages/evidence): 100% requirement coverage, or the build fails.
+- [**`@ttsc/graph`**](https://github.com/samchon/ttsc/tree/master/packages/graph): compiler knowledge graph that cuts agent tokens by 92%.
 - **plugin support**: compiler-powered libraries, such as `typia`.
 
 ## Setup
@@ -38,135 +38,76 @@ That covers the CLI. The integrations each have a short guide:
 
 ## Lint
 
-Lint and format at compiler speed: up to 800x faster than ESLint.
-
-`@ttsc/lint` replaces ESLint and Prettier with rules that run inside the type-check. It shares one AST pass with the compiler, so linting and formatting add almost nothing to the build you already run.
-
-Configuration is a single file. Each rule takes `"error"`, `"warning"`, or `"off"`, and the `format` block mirrors `.prettierrc`.
-
-```bash
-npm install -D @ttsc/lint
-```
-
-```ts
-// lint.config.ts
-import type { ITtscLintConfig } from "@ttsc/lint";
-
-export default {
-  rules: {
-    "no-var": "error",
-    "prefer-const": "error",
-    "typescript/no-explicit-any": "warning",
-  },
-  format: {
-    printWidth: 100,
-    singleQuote: true,
-    trailingComma: "all",
-  },
-} satisfies ITtscLintConfig;
-```
-
-Violations surface as compiler diagnostics, in the same stream as type errors, so the CI step that already runs `ttsc --noEmit` gates lint without a second job:
+Lint and format inside the type-check you already run. 720+ rules across 21 families, plus a formatter that reproduces Prettier's output.
 
 ```ts
 // src/index.ts
-var count = 3;
-let total = count;
+var x: number = 3;
+let y: number = 4;
+const z: string = 5;
 ```
 
-```text
+```bash
 $ npx ttsc --noEmit
-src/index.ts:1:1 - error TS11966: [no-var] Unexpected var, use let or const instead.
+src/index.ts:3:7 - error TS2322: Type 'number' is not assignable to type 'string'.
 
-1 var count = 3;
-  ~~~
+3 const z: string = 5;
+        ~
 
 src/index.ts:2:5 - error TS17397: [prefer-const] Use const instead of let.
 
-2 let total = count;
-    ~~~~~
+2 let y: number = 4;
+      ~~~~~~~~~~~~~
 
-Found 2 errors in the same file, starting at: src/index.ts:1
+src/index.ts:1:1 - error TS11966: [no-var] Unexpected var, use let or const instead.
+
+1 var x: number = 3;
+  ~~~~~~~~~~~~~~~~~~
+
+Found 3 errors in the same file, starting at: src/index.ts:3
 ```
 
-Clean the project in place:
+Type errors and lint violations arrive in one stream, so the CI step that already runs `ttsc --noEmit` gates lint with no second job and no second parse. On vscode's 6,093 files the rules take 73 ms inside that check, where ESLint spends 66.7 s as its own command.
 
-```bash
-npx ttsc fix      # lint autofixes + format edits
-npx ttsc format   # format edits only, never changes behavior
-```
+`npx ttsc fix` applies autofixes and formatting; `npx ttsc format` only formats. Rules and every `format` key are in the [Lint and Format guide](https://ttsc.dev/docs/lint).
 
-The rule catalog and every `format` key are in the [Lint & Format guide](https://ttsc.dev/docs/lint).
+## Evidence Graph
 
-## Evidence
-
-Your spec becomes a compile error. An agent can still lie, but it cannot lie by omission.
-
-`@ttsc/evidence` makes every requirement you configure demand an explicit acknowledgement from the code, test, or document that claims to satisfy it. A requirement nothing acknowledges fails the build, by name.
-
-It is a rule contributor to `@ttsc/lint` rather than a top-level `ttsc` plugin, so it registers in the same `lint.config.ts`:
-
-```bash
-npm install -D @ttsc/lint @ttsc/evidence
-```
-
-```ts
-// lint.config.ts
-import { evidence, type ITtscEvidenceGraphConfig } from "@ttsc/evidence";
-import type { ITtscLintConfig } from "@ttsc/lint";
-
-const graph: ITtscEvidenceGraphConfig = {
-  claims: [
-    {
-      type: "typescript",
-      files: ["src/components/**/*.tsx"],
-      symbol: "function",
-      reference: {
-        type: "markdown",
-        files: ["docs/requirements/**/*.md"],
-        symbol: ["h2", "h3"],
-      },
-    },
-  ],
-};
-
-export default {
-  plugins: { evidence },
-  rules: { "evidence/graph": ["error", graph] },
-} satisfies ITtscLintConfig;
-```
-
-That claim reads as one sentence: the components under `src` implement the requirements, so every H2 and H3 under `docs/requirements` must be cited by a component. A citation names the target and states why it applies:
+Your spec becomes a compile error, so requirement coverage is 100% or the build does not pass. An agent can still lie, but it cannot lie by omission.
 
 ```tsx
 /**
- * @evidence docs/requirements/discount.md#coupon-stacking Renders the combination limit defined by this rule.
+ * @evidence docs/discount.md#coupon-stacking
+ *           States the per-issuer stacking limit
+ *           this section defines, in the buyer's words.
+ * @evidence POST:/orders/{orderId}/coupons
+ *           Explains the rejection this endpoint returns
+ *           for an over-stacked coupon set.
+ * @evidence {@link hooks.useCouponStacking} Renders the limit this hook resolves.
  */
-export function CouponStackingNotice() {
-  return <p>One seller coupon and one platform coupon may be combined.</p>;
-}
+export function CouponStackingNotice(props: IProps): JSX.Element;
 ```
 
-Without it, the next build stops:
-
-```text
-$ npx ttsc --noEmit
-error TS16411: [evidence/graph] Missing acknowledgement for 'docs/requirements/discount.md#coupon-stacking' (Markdown H2 'Coupon Stacking' at docs/requirements/discount.md:3) in Claim 1 reference 1 (markdown, symbols: h2, h3). Use @evidence on a selected typescript host or @evidenceExclude on an eligible carrier.
-```
-
-Markdown sections, Prisma models and columns, Swagger operations, and TypeScript symbols can all ground an obligation. Coverage is counted per obligation and never pooled, so a rule the backend honored and the frontend forgot is a compile error naming the section rather than a percentage. The claim surface, tag grammar, and adoption path are in the [Evidence Graph guide](https://ttsc.dev/docs/evidence).
-
-## Graph
-
-Your coding agent answers from the compiler, spending roughly 90% fewer tokens.
-
-`@ttsc/graph` is an MCP server that gives the agent a compiler-resolved graph of your project: what calls what, what a change would touch, and where to start reading. The agent asks the type checker instead of grepping and re-reading files.
-
-Register it with your MCP client. For Claude Code, a `.mcp.json` in the project root:
+`@evidence <target> <reason>` names one unit of the spec and why this declaration answers for it. A target is a document section, an API operation, a database schema model, or a TypeScript symbol as an inline link.
 
 ```bash
-npm install -D ttsc @ttsc/graph typescript
+$ npx ttsc
+error TS16411: [evidence/graph] Missing acknowledgement for 'docs/discount.md#coupon-stacking'
+  (Markdown H2 'Coupon Stacking' at docs/discount.md:3)
+  in Claim 1 reference 1 (markdown, symbols: h2, h3).
+
+  Use @evidence on a selected typescript host or @evidenceExclude on an eligible carrier.
+
+Found 3 errors.
 ```
+
+Without those tags, the build fails once per obligation, because one reference never covers another. An AI coding agent has to clear them to finish, and clearing them means citing each target and writing down why its code answers for it.
+
+![Coverage and token spend, Plain against Evidence](https://ttsc.dev/benchmark/png/evidence-summary.png)
+
+## Compiler Knowledge Graph
+
+Your coding agent answers from the compiler instead of grepping and re-reading files.
 
 ```json
 {
@@ -179,7 +120,9 @@ npm install -D ttsc @ttsc/graph typescript
 }
 ```
 
-On the agent-cost benchmark, Claude agents answer reading zero files, cutting tokens by roughly 90% and tool calls by 93% to 96%. The design and per-repository numbers are in the [Compiler Knowledge Graph guide](https://ttsc.dev/docs/graph) and the [benchmark](https://ttsc.dev/docs/benchmark/graph).
+One typed MCP tool over a graph the type checker resolved: what calls what, what a change would touch, where to start reading. Answers carry names, signatures, edges, and spans, never file bodies, so a large repository cannot inflate the response.
+
+Across 64 measured question and model pairs, the median answer costs 92% fewer tokens and 95% fewer tool calls than the same agent with no MCP. The design and the comparators are in [`@ttsc/graph`](https://github.com/samchon/ttsc/tree/master/packages/graph).
 
 ![Median tokens on the shared onboarding question, lower is better](https://ttsc.dev/benchmark/svg/graph-common-codex-gpt-5.6-sol.svg)
 
