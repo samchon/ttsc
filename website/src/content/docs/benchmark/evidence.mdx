@@ -4,195 +4,63 @@ import TtscWebsiteBenchmarkEvidenceSpend from "../../../components/benchmark/evi
 
 # Evidence Graph
 
-The other two tracks measure `ttsc` against competing tools. This one measures a coding agent against itself.
+One coding engine builds the same application twice from the same frozen requirements: once with [`@ttsc/evidence`](/docs/evidence) in the workspace, once with neither. Same template, same instruction sequence, same model and effort. The variable is the graph.
 
-One coding engine builds the same application twice from the same frozen requirements: once with [`@ttsc/evidence`](/docs/evidence) installed and its guidance in the workspace, once with neither. Same template, same instruction order, same model and effort. The variable is the graph.
-
-One subject and one arm is a **cell**. Four subjects, in ascending size. Every figure here is read from the tracked aggregate at `benchmarks/evidence/aggregate` and from nowhere else.
+Four subjects in ascending size. Every figure comes from `benchmarks/evidence/aggregate` and from nowhere else.
 
 ## Coverage
 
-How much of the provenance graph a delivered codebase actually satisfies. Thirteen reference edges run from a requirement anchor down to tests, properties, and journeys, composed so serial hops multiply and branches average.
-
-Plain is counted by hand from the finished workspace. Evidence is complete by construction, because the plugin rejects a missing edge at compile time. What the numbers show is that coverage collapses as the subject grows, and only in the arm where nothing enforces it.
-
 <TtscWebsiteBenchmarkEvidenceCoverage />
 
-## Cost
+Thirteen edges, folded from the leaves up. Serial hops multiply, branches average, and every edge enters once. `C(a→b)` is the share of `a` that reaches `b`; `Q(x)` is how whole an `x` is below itself.
 
-What holding that graph costs, on three axes. Lower is better on all of them, and the Evidence arm is not consistently cheaper.
+```
+Q(test) = Q(journey) = Q(property) = 1
+
+Q(DTO)       = C(column→property)
+Q(screen)    = C(screen→journey)
+Q(hook)      = C(hook→screen)      × Q(screen)
+Q(operation) = mean( C(accessor→test) × Q(test),      C(accessor→hook) × Q(hook) )
+Q(model)     = mean( C(model→operation) × Q(operation), C(model→DTO)   × Q(DTO)  )
+
+score = mean(
+  C(requirement→model)     × Q(model),
+  C(requirement→operation) × Q(operation),
+  C(requirement→DTO)       × Q(DTO),
+  C(requirement→test),
+  C(requirement→screen)    × Q(screen),
+  C(requirement→journey),
+)
+```
+
+Averaging the thirteen rates instead scored one subject 58.4% while 76 of its 557 published accessors had an asserting test. Multiplying them scored the same subject 0.003%. [#1088](https://github.com/samchon/ttsc/issues/1088) derives the operators.
+
+## Cost
 
 <TtscWebsiteBenchmarkEvidenceSpend />
 
 <TtscWebsiteBenchmarkEvidenceCounters />
 
-Two things the record carries that a chart cannot. Reddit and Shopping ran their Evidence cells at a different benchmark revision from their Plain cells, so those two subjects compare across two harnesses. Shopping Plain published as `completed` with a backend review that had terminally failed quality, and its figures include that work.
+Reddit and Shopping ran their two arms at different benchmark revisions. Shopping Plain published as `completed` with a backend review that had terminally failed quality.
 
-Engine completion is recorded execution behavior, never a verdict on the application a cell produced. The rest of this page is how the measurement is run.
-
-## The two arms
-
-Both arms receive the same subject requirements, the same base template, the same base instruction order, and the same engine, model, and effort. Both receive an arm overlay. Only one of them receives the package.
-
-|  | Evidence | Plain |
-| --- | --- | --- |
-| Requirements | `requirements/<subject>/`, byte-for-byte | the same bytes |
-| Base template | `template/base` | `template/base` |
-| Overlay | own `AGENTS.md` and review skill | own `AGENTS.md` and review skill |
-| `@ttsc/evidence` | installed from a locally packed archive, SHA-256 pinned to the cell | never installed, never read |
-| Claims, `@evidence` tags, graph guidance | supplied by the overlay | absent |
-| Objectives | eight, run without stopping | the same eight, stopping for a verdict at each review |
-
-The overlay is why the comparison holds. If only the Evidence arm were overlaid, the measurement would compare a treated workspace with an untreated one, and every difference in the result could be attributed to the treatment rather than to the package. Both arms are treated. The variable is the graph.
-
-Plain has no legitimate `lint.config.ts` edit at all, because the base template declares no claim and no `evidence/*` rule. Everything the graph needs arrives with the Evidence overlay.
-
-## Subjects
-
-A subject is a frozen application specification under `benchmarks/evidence/requirements/<subject>/`: `todo`, `reddit`, `shopping`, and `erp`, in ascending order of size. Each is a numbered Markdown set covering actors and authentication, the domain model, functional requirements, business rules, and non-functional requirements. The runner copies the directory into the workspace's `docs/analysis/` without touching a byte.
-
-`todo2` is a fifth slot holding a byte-identical copy of `todo`. It exists so the same specification can be measured a second time under its own port block and its own output path, without either measurement standing in for the other.
-
-Requirements are inputs a run is identified by, not source the repository maintains. Reformatting one, renaming a file, correcting a typo, or normalizing a heading changes what the measured agent read, and the run is then no longer comparable with any run launched before it. Nothing in that directory is edited, added, deleted, summarized, validated, or challenged, in either arm, for any reason.
-
-## How a workspace is prepared
-
-Each cell gets a new ignored workspace, built before any model use:
-
-1. Copy `benchmarks/evidence/template/base` into the workspace and render its variables.
-2. Apply `benchmarks/evidence/template/<arm>` over it.
-3. Copy `benchmarks/evidence/requirements/<subject>/` byte-for-byte into the workspace's `docs/analysis/`.
-4. For the Evidence arm only, install the locally packed `@ttsc/evidence` archive and pin its SHA-256 to the cell.
-5. Run `pnpm install`.
-6. Initialize the workspace as a Git repository and commit the prepared baseline.
-
-Instructions are never copied into the workspace. The runner reads each Markdown file from `benchmarks/evidence/instructions/<arm>/` when its objective starts and records the exact text it sent, so a cell cannot read ahead to a step it has not reached.
-
-When several Evidence cells run at once, pack the archive once and export its path, so every cell measures the same artifact instead of a separately built one:
+## Reproduce
 
 ```bash
-pnpm --dir packages/evidence pack --out /tmp/evidence.tgz
-export EVIDENCE_BENCHMARK_ARCHIVE=/tmp/evidence.tgz
-```
-
-The runner strips that variable from every child environment, so a measured cell never sees it.
-
-Every cell also owns a disjoint block of four ports from base 46000, delivered to the workspace as `API_PORT`, `SWAGGER_PORT`, `VITE_DEV_PORT`, `VITE_API_HOST`, and `PLAYWRIGHT_TEST_PORT`. The runner assigns them before any model use and refuses to launch when one is occupied, so a cell's own orphaned server never contends with its next run.
-
-## The objective sequence
-
-One Codex session receives its arm's eight objectives, in order:
-
-`backend-start` -> `backend-review` -> `backend-final` -> `frontend-start` -> `frontend-review` -> `frontend-final` -> `overall-review` -> `overall-final`
-
-The runner joins each objective once with the same arm's `instructions/<arm>/continue.md`. The arms share no runtime instruction bytes, and no operator prose is added to either.
-
-Only Plain stops. After each Backend, Frontend, and Overall Review, and again after each supplementation goal, the run retains `awaiting-review-verdict`. The runner then spawns a fresh Codex thread on the cell's own model and effort, which reads that attempt's stage log and the measured workspace and returns a decision. Three inspection attempts are permitted at one boundary, and resuming the run retries a failed one.
-
-A verdict carries `decision` and `rationale` only. The runner refuses one carrying `feedback`, so no verdict text ever reaches the cell, and every failing scope receives the identical prescribed reminder instead. Four supplementation attempts are permitted per scope; a failure after the last retains `quality-failed`, which cannot resume.
-
-The measured agent is never told it is being judged or by what criteria. A cell that knows the criteria satisfies the criteria instead of meeting them, and every later cell then measures something else.
-
-## Launch and supervise a run
-
-Every command runs from the repository root under `pnpm --filter @ttsc/benchmark-evidence`.
-
-```bash
+git clone https://github.com/samchon/ttsc.git
+cd ttsc
+corepack enable
+pnpm install
 pnpm --filter @ttsc/benchmark-evidence start codex <subject> <evidence|plain> <model> <effort>
 ```
 
-`codex` is the only engine the command line accepts. Keep the model and effort identical across a cohort: a cell run at another model or effort is not comparable with the cells around it. The runner reads the repository `HEAD` as the run's benchmark revision and refuses to launch while anything is uncommitted or untracked.
+`<subject>` is a directory under `benchmarks/evidence/requirements`. The runner refuses to launch while anything is uncommitted, and records the repository `HEAD` as the run's benchmark revision.
 
-Passing an existing run ID as the last argument resumes that exact cell. The runner compares engine, subject, arm, model, effort, workspace, session, and checkpoint against the retained record and refuses on any difference.
-
-```bash
-pnpm --filter @ttsc/benchmark-evidence start codex <subject> <evidence|plain> <model> <effort> <run-id>
-```
-
-Three flags change what a run does:
-
-- `--stop-after-backend-start` ends the run once `backend-start` completes and its durable checkpoint exists, retaining status `checkpointed`. That run never resumes; it continues only as a derived run.
-- `--from-backend-start <source-run-id>` starts a new run from a retained checkpoint. It restores that workspace, reinstalls its dependencies, reapplies the current `AGENTS.md` and `.agents/` surface, forks the Codex thread through the retained terminal turn, and continues at `backend-review` with the current downstream instructions. Use it when a defect is confined to an instruction after `backend-start`, instead of restarting the cell.
-- `--review-ledger` makes the Plain backend review mechanically provable. During `backend-review` the runner holds the cell's sandbox read-only and injects the only tools that earn review credit, then refuses to complete `backend-review` or `backend-final` unless a runner-owned round ended dry and the workspace manifest still hashes to what that round read. It needs a detached checkpoint thread, so it accompanies a run ID or a derivation.
-
-The live record of a campaign is generated, never written by hand:
-
-```bash
-pnpm --filter @ttsc/benchmark-evidence audit-suspensions
-pnpm --filter @ttsc/benchmark-evidence dashboard
-```
-
-`dashboard` takes no arguments and always renders the latest launched run of each cell. `audit-suspensions` compares each reported run with Windows Kernel-Power disconnected-standby intervals and records a verified idle interval in that run's `suspensions.json`, which is the only file it may write. It is Windows-only and throws elsewhere rather than reporting zero intervals, because silently crediting a suspended run's idle time as work would inflate whichever arm happened to be running when the machine slept.
-
-Two operator commands act on a stopped cell:
-
-```bash
-pnpm --filter @ttsc/benchmark-evidence warn <subject> <evidence|plain> <run-id> <warning.json>
-pnpm --filter @ttsc/benchmark-evidence supervise <subject> <run-id> <verdict.json>
-```
-
-`warn` delivers an operator warning to the cell's current objective. `supervise` applies a hand-written Plain review verdict, and is needed only after the third inspection failure at one boundary.
-
-## What a run retains
-
-Every run keeps its record under `benchmarks/evidence/output/<subject>/<engine>/<arm>/runs/<run-id>/`:
-
-- `state.json`: cell identity, frozen inputs, instruction plan and cursor, status, token usage, checkpoints, processes, operator warnings, and review history.
-- `events.jsonl`: the complete Codex stream with observation and process-relative times.
-- `<stage>.log`: one file per objective, named after the goal that owned the thread. Reading them in objective order reproduces the stream exactly, and a resumed run appends to the same file.
-- `supervision/`: the exact submitted bytes of every applied warning and verdict.
-- `inspection/`: every inspecting-thread attempt, including its prompt, response schema, event stream, standard error, and final message.
-
-Setup time stays separate from model-process time. The record adds no build, lint, requirement, quality, or completion verdict of its own; engine completion is recorded execution behavior, not a judgment of the application it produced.
-
-## Publish
-
-Raw run records and measured workspaces stay under the ignored `benchmarks/evidence/output/`. Only the aggregate is tracked.
+Publish a cohort, then redraw its charts from the published aggregate alone:
 
 ```bash
 pnpm --filter @ttsc/benchmark-evidence audit-suspensions
 pnpm --filter @ttsc/benchmark-evidence report
-```
-
-`report` writes four things:
-
-- `benchmarks/evidence/aggregate/summary.json`.
-- Stable per-cell JSON under `benchmarks/evidence/aggregate/cells/<model>/<subject>/<arm>.json`.
-- `summary.svg`, every subject on one token axis under the coverage block.
-- One `arms.svg` beside each subject's cell JSON, carrying that subject's tokens, work time, and API cost.
-
-Every artifact renders or copies values from that same retained aggregate without recalculating them, and an empty collection is refused rather than published. USD cost is reconstructed from each request's token categories and context tier, and published only when those requests exactly match the retained total. Pass repeated `--run-id <run-id>` arguments to both commands to publish an explicit historical cohort instead of the latest run of each cell.
-
-The charts alone redraw from the tracked aggregate, in a clone with no run records:
-
-```bash
 pnpm --filter @ttsc/benchmark-evidence charts
 ```
 
-A cell is execution-complete only when `state.json` is `completed`, every objective in its arm's sequence has a terminal checkpoint, and the final process either exits zero without a signal or records a runner-owned forced shutdown after those checkpoints completed. A measurement the runner did not retain is reported as unknown, never reconstructed. Run directories are the record, and nothing in them is deleted when a campaign ends.
-
-## Measurement integrity
-
-A measurement is worth exactly two guarantees: the arms differed in one thing only, and every number came from the retained record rather than from someone's reconstruction. The operator's rules and the cell's rules are separate contracts, and applying one to the other breaks both.
-
-What the operator may change, and when:
-
-| Surface | When it may be edited |
-| --- | --- |
-| `benchmarks/evidence/src/**` | Any time. Commit first: a resume requires a clean revision descending from the cell's frozen benchmark revision. |
-| `benchmarks/evidence/instructions/**` | Never while a cell that will reach it is alive. Stop and preserve the cohort first. |
-| `benchmarks/evidence/template/**` | Any time, except the three files below. It reaches future launches only, never a prepared workspace. |
-| `tsconfig.json`, `lint.config.ts`, and `package.json` `main`/`exports`/`publishConfig` under `template/**` | Never without an explicit instruction naming the file. |
-| `benchmarks/evidence/requirements/**` | Never. |
-| A measured workspace | Never. What a cell did to its own workspace is the measurement. |
-
-Those three template files decide what each Program contains and where each package resolves to, so together they decide what every evidence population selects from. That is why an unrequested change voids a measurement instead of failing it: a claim whose population is empty demands nothing and reports full coverage while checking nothing, and a voided cohort looks exactly like a healthy one.
-
-The operator has one channel into a live cell, and it carries only what no agent can derive from inside its own workspace: an authorization, or a frozen boundary the cell has crossed. It never carries a review finding, and it never mentions the machinery outside the workspace, because a cell told it is being measured stops being a measurement. On a confirmed violation, warn the cell and resume it. Never restart it, and never repair the workspace by hand.
-
-Editing its own workspace is what a cell is there to do, and two Evidence edits are prescribed rather than tolerated: deleting a predeclared `disabled` property once its layer is complete, and staging `evidence/todo` from `"off"` to `"error"` in the backend test configuration. A cell that never makes them has failed to advance.
-
-## Related
-
-- [`@ttsc/evidence`](/docs/evidence) is the plugin this benchmark measures.
-- `benchmarks/evidence/README.md` documents the runner itself, and `.agents/skills/benchmark/evidence/` holds the operating procedure for a campaign.
+`benchmarks/evidence/README.md` documents the runner, the arms, and what a run retains. `.agents/skills/benchmark/evidence/` is the operating procedure for a campaign.

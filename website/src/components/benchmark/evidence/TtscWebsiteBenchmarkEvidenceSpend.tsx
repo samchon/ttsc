@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import type React from "react";
 
 import TtscWebsiteBenchmarkGraphUi from "../graph/TtscWebsiteBenchmarkGraphUi";
 import TtscWebsiteBenchmarkEvidenceData, {
@@ -8,18 +9,29 @@ import TtscWebsiteBenchmarkEvidenceData, {
   type Row,
   type SubjectGroup,
 } from "./TtscWebsiteBenchmarkEvidenceData";
+import useTtscWebsiteBenchmarkEvidenceTooltip, {
+  type TooltipContent,
+} from "./TtscWebsiteBenchmarkEvidenceTooltip";
 import useTtscWebsiteBenchmarkEvidenceData from "./useTtscWebsiteBenchmarkEvidenceData";
 
-const { AXES, PHASES, PHASE_OPACITY, ARM_COLOR, INSPECTION_COLOR } =
-  TtscWebsiteBenchmarkEvidenceData;
+const {
+  AXES,
+  PHASES,
+  PHASE_OPACITY,
+  ARM_COLOR,
+  UNATTRIBUTED_COLOR,
+  formatCost,
+  formatDuration,
+  formatInteger,
+  title,
+} = TtscWebsiteBenchmarkEvidenceData;
 
 /**
  * What both arms spent on each subject, split by phase.
  *
  * One axis at a time rather than three charts, because work time and price
  * track token spend closely enough that showing all three at once says one
- * thing three times. The tabs keep the comparison and let a reader who wants
- * another axis have it in the same shape.
+ * thing three times.
  */
 export default function TtscWebsiteBenchmarkEvidenceSpend() {
   const { report, loading, error } = useTtscWebsiteBenchmarkEvidenceData();
@@ -29,6 +41,7 @@ export default function TtscWebsiteBenchmarkEvidenceSpend() {
     () => TtscWebsiteBenchmarkEvidenceData.buildSubjects(report, axis),
     [report, axis],
   );
+  const tooltip = useTtscWebsiteBenchmarkEvidenceTooltip();
 
   if (error)
     return (
@@ -60,7 +73,7 @@ export default function TtscWebsiteBenchmarkEvidenceSpend() {
       <TtscWebsiteBenchmarkGraphUi.SectionHeader
         eyebrow="plain against evidence"
         title="What each arm spent"
-        description="One instruction sequence per subject, both arms, one shared axis across every subject. Lower is better. Shades separate the development and review phases; the grey tail is spend the stage records do not account for."
+        description="One shared axis across every subject, lower is better. Hover a band for its phase, its own figure, and its share of the row."
         aside={
           report ? `generated ${report.generatedAt.slice(0, 10)}` : undefined
         }
@@ -81,9 +94,6 @@ export default function TtscWebsiteBenchmarkEvidenceSpend() {
             {entry.label}
           </button>
         ))}
-        <span className="ml-auto self-center text-[11px] text-slate-500">
-          {axis.hint}
-        </span>
       </div>
       <div className="space-y-5 px-5 py-5">
         {subjects.map((group) => (
@@ -103,6 +113,8 @@ export default function TtscWebsiteBenchmarkEvidenceSpend() {
                   row={row}
                   axis={axis}
                   maximum={maximum}
+                  onHover={tooltip.show}
+                  onLeave={tooltip.hide}
                 />
               ))}
             </div>
@@ -110,6 +122,7 @@ export default function TtscWebsiteBenchmarkEvidenceSpend() {
         ))}
       </div>
       <Legend />
+      {tooltip.node}
     </div>
   );
 }
@@ -118,25 +131,53 @@ function SpendRow({
   row,
   axis,
   maximum,
+  onHover,
+  onLeave,
 }: {
   row: Row;
   axis: Axis;
   maximum: number;
+  onHover: (content: TooltipContent) => (event: React.MouseEvent) => void;
+  onLeave: () => void;
 }) {
+  const stacked = row.segments.reduce((sum, segment) => sum + segment.value, 0);
+  const share = (value: number): string =>
+    stacked <= 0 ? "" : `${Math.round((value / stacked) * 100)}%`;
+  const detail = (active?: string): TooltipContent => ({
+    title: `${title(row.cell.subject)} ${title(row.arm)}`,
+    subtitle: `${axis.label} · ${row.cell.status} · ${row.cell.effort} effort`,
+    lines: [
+      ...row.segments.map((segment) => ({
+        label: segment.label,
+        value: `${axis.format(segment.value)}${share(segment.value) ? ` · ${share(segment.value)}` : ""}`,
+        color: segment.color,
+        opacity: segment.opacity,
+        active: segment.key === active,
+      })),
+      { label: "Total", value: axis.format(row.total) },
+    ],
+    footer: `${formatInteger(row.cell.tokenUsage.totalTokens)} tokens · ${formatDuration(row.cell.workElapsedMs)} · ${formatCost(row.cell)} · +${formatInteger(row.cell.worktree.additions)}/-${formatInteger(row.cell.worktree.deletions)} in ${formatInteger(row.cell.worktree.files)} files`,
+  });
+
   return (
     <div className="flex items-center gap-3">
       <span
         className="w-[74px] shrink-0 text-[13px] font-semibold"
         style={{ color: row.color }}
       >
-        {TtscWebsiteBenchmarkEvidenceData.title(row.arm)}
+        {title(row.arm)}
       </span>
-      <div className="relative h-7 flex-1 overflow-hidden rounded-md bg-[#e7f0f8]">
+      <div
+        className="relative h-7 flex-1 overflow-hidden rounded-md bg-[#e7f0f8]"
+        onMouseMove={onHover(detail())}
+        onMouseLeave={onLeave}
+      >
         <div className="flex h-full">
           {row.segments.map((segment) => (
             <div
               key={segment.key}
-              title={`${segment.label}: ${axis.format(segment.value)}`}
+              className="transition-[filter] hover:brightness-110"
+              onMouseMove={onHover(detail(segment.key))}
               style={{
                 width: `${(segment.value / maximum) * 100}%`,
                 background: segment.color,
@@ -188,7 +229,7 @@ function Legend() {
       >
         <span
           className="h-2.5 w-4 rounded-sm"
-          style={{ background: INSPECTION_COLOR }}
+          style={{ background: UNATTRIBUTED_COLOR }}
         />
         Unattributed
       </span>

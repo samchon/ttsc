@@ -112,5 +112,29 @@ export namespace ITtscWebsiteBenchmarkEvidence {
     measured: boolean;
     /** Share of the reference graph satisfied, from 0 to 1. */
     score: number | null;
+    /** How whole an artifact of each kind is below itself, from 0 to 1. */
+    wholeness: Wholeness;
+    /** The thirteen measured edges the score is folded from. */
+    edges: CoverageEdge[];
+  }
+
+  export interface Wholeness {
+    test: number | null;
+    journey: number | null;
+    property: number | null;
+    dto: number | null;
+    screen: number | null;
+    hook: number | null;
+    api: number | null;
+    model: number | null;
+  }
+
+  /** One reference edge: what share of its sources reach their target. */
+  export interface CoverageEdge {
+    name: string;
+    /** Null when the populations behind the rate were not retained. */
+    eligible: number | null;
+    reached: number | null;
+    rate: number | null;
   }
 }

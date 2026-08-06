@@ -52,7 +52,7 @@ const ARM_COLOR: Record<Arm, string> = {
 };
 
 /** Spend that belongs to no stage, drawn as its own segment. */
-const INSPECTION_COLOR = "#94a3b8";
+const UNATTRIBUTED_COLOR = "#94a3b8";
 
 /**
  * Which phase a stage belongs to.
@@ -206,10 +206,10 @@ function buildSubjects(report: Report | null, axis: Axis): SubjectGroup[] {
           total - segments.reduce((sum, segment) => sum + segment.value, 0);
         if (remainder > 0)
           segments.push({
-            key: "review-inspection",
-            label: "Review inspection",
+            key: "unattributed",
+            label: "Unattributed",
             value: remainder,
-            color: INSPECTION_COLOR,
+            color: UNATTRIBUTED_COLOR,
             opacity: 1,
           });
         return {
@@ -232,7 +232,78 @@ export interface CoverageRow {
   label: string;
   percent: number;
   color: string;
+  /** Empty for an arm that is complete by construction. */
+  edges: CoverageEdgeRow[];
+  /** The fold's intermediates, in the order the composition produces them. */
+  wholeness: CoverageWholenessRow[];
 }
+
+/**
+ * One intermediate of the fold, named for the artifact it describes.
+ *
+ * `Q(model)` is how whole a schema model is below itself, and the composite is
+ * built from these rather than from the edges directly. Showing them is what
+ * makes the published score checkable by hand instead of asserted.
+ */
+export interface CoverageWholenessRow {
+  key: string;
+  label: string;
+  percent: number | null;
+}
+
+/**
+ * One reference edge under a subject's composite.
+ *
+ * The composite answers how whole a codebase is and nothing about where it
+ * broke. These are what it was folded from, so a reader can see that a subject
+ * scoring 31.7% did not fail evenly: it published almost every operation its
+ * requirements name and tested a seventh of its accessors.
+ */
+export interface CoverageEdgeRow {
+  name: string;
+  label: string;
+  percent: number | null;
+  /** `reached of eligible`, or null when those populations were not retained. */
+  population: string | null;
+}
+
+/**
+ * What each edge means, in the direction it is measured.
+ *
+ * The stored names are the graph's own vocabulary, and `columnToProperty` says
+ * nothing to a reader who has not read the rule set. The label says which
+ * population is being asked about and what it has to reach.
+ */
+/**
+ * The fold's intermediates, leaves first, in the order the composition needs
+ * them. A reader checking the score by hand works down this list.
+ */
+const WHOLENESS_ORDER: readonly {
+  key: keyof ITtscWebsiteBenchmarkEvidence.Wholeness;
+  label: string;
+}[] = [
+  { key: "dto", label: "Q(DTO)" },
+  { key: "screen", label: "Q(screen)" },
+  { key: "hook", label: "Q(hook)" },
+  { key: "api", label: "Q(operation)" },
+  { key: "model", label: "Q(model)" },
+];
+
+const EDGE_LABELS: Record<string, string> = {
+  requirementToModel: "Requirement reaches a schema model",
+  requirementToOperation: "Requirement reaches a published operation",
+  requirementToDto: "Requirement reaches a DTO type",
+  requirementToTest: "Requirement reaches a proving test",
+  requirementToScreen: "Requirement reaches a screen",
+  requirementToJourney: "Requirement reaches a journey",
+  modelToOperation: "Model reaches an operation",
+  modelToDto: "Model reaches a DTO type",
+  columnToProperty: "Column reaches a DTO property",
+  accessorToTest: "Accessor reaches an asserting test",
+  accessorToHook: "Accessor reaches a hook",
+  hookToScreen: "Hook reaches a screen",
+  screenToJourney: "Screen reaches a journey",
+};
 
 /**
  * The coverage rows, or none at all.
@@ -257,10 +328,32 @@ function buildCoverage(
   );
   const measured = relevant.filter((cell) => cell.coverage.measured);
   const asserted = relevant.filter((cell) => !cell.coverage.measured);
-  const row = (label: string, arm: Arm, score: number | null): CoverageRow => ({
+  const row = (
+    label: string,
+    cell: ITtscWebsiteBenchmarkEvidence.CoverageCell,
+  ): CoverageRow => ({
     label,
-    percent: (score ?? 0) * 100,
-    color: ARM_COLOR[arm],
+    percent: (cell.coverage.score ?? 0) * 100,
+    color: ARM_COLOR[cell.arm],
+    wholeness: WHOLENESS_ORDER.filter(
+      (entry) => cell.coverage.wholeness?.[entry.key] !== undefined,
+    ).map((entry) => ({
+      key: entry.key,
+      label: entry.label,
+      percent:
+        cell.coverage.wholeness[entry.key] === null
+          ? null
+          : cell.coverage.wholeness[entry.key]! * 100,
+    })),
+    edges: (cell.coverage.edges ?? []).map((edge) => ({
+      name: edge.name,
+      label: EDGE_LABELS[edge.name] ?? edge.name,
+      percent: edge.rate === null ? null : edge.rate * 100,
+      population:
+        edge.eligible === null || edge.reached === null
+          ? null
+          : `${formatInteger(edge.reached)} of ${formatInteger(edge.eligible)}`,
+    })),
   });
   const collapsed =
     asserted.length > 1 &&
@@ -268,26 +361,12 @@ function buildCoverage(
       .size === 1;
   return [
     ...measured.map((cell) =>
-      row(
-        `${title(cell.subject)} ${title(cell.arm)}`,
-        cell.arm,
-        cell.coverage.score,
-      ),
+      row(`${title(cell.subject)} ${title(cell.arm)}`, cell),
     ),
     ...(collapsed
-      ? [
-          row(
-            `${title(asserted[0]!.arm)} (every)`,
-            asserted[0]!.arm,
-            asserted[0]!.coverage.score,
-          ),
-        ]
+      ? [row(`${title(asserted[0]!.arm)} (every)`, asserted[0]!)]
       : asserted.map((cell) =>
-          row(
-            `${title(cell.subject)} ${title(cell.arm)}`,
-            cell.arm,
-            cell.coverage.score,
-          ),
+          row(`${title(cell.subject)} ${title(cell.arm)}`, cell),
         )),
   ];
 }
@@ -341,7 +420,7 @@ function stripZero(value: string): string {
 const TtscWebsiteBenchmarkEvidenceData = {
   ARM_COLOR,
   AXES,
-  INSPECTION_COLOR,
+  UNATTRIBUTED_COLOR,
   PHASES,
   PHASE_OPACITY,
   buildCoverage,
