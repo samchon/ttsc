@@ -65,6 +65,11 @@ export interface ITtscEvidenceGraphReferenceBase<Type extends string> {
    * naming another relation, or naming none, leaves the unit uncovered and its
    * diagnostic says which relation was wanted.
    *
+   * It constrains positive evidence only. An `@evidenceExclude` names no
+   * relation and still answers, because it states that the claim does not cover
+   * the target rather than how it does; {@link noEvidenceExclude} is the
+   * property that refuses one, and a reference wanting both declares both.
+   *
    * Every other constraint here counts acknowledgements. This one is the only
    * one that asks what an acknowledgement _is_, and without it every obligation
    * is a reachability obligation: some host cites some unit. That cannot say a

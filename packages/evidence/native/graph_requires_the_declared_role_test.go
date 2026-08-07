@@ -172,16 +172,6 @@ export function testHistory(): void {}
 /**
  * Verifies a relation no obligation wanted is reported where it is written.
  *
- * A declaration that discharges nothing is the one case the graph has always reported, because a resolving tag must discharge at least one obligation. A relation nobody asked for would otherwise be the first way to write a tag that pays into nothing and says nothing, and the unit's own diagnostic names the reference rather than the tag.
- *
- *  1. Require the `produces` relation on the only reference.
- *  2. Acknowledge its unit from a host declaring `prduces`, a typo.
- *  3. Assert the tag reports at its own location naming both relations.
- */
-
-/**
- * Verifies a relation no obligation wanted is reported where it is written.
- *
  * A resolving tag must discharge at least one obligation, which is why a declaration that discharges nothing has always been reported. A relation nobody asked for would otherwise be the first way to write a tag that pays into nothing and says nothing, because the unit's own diagnostic names the reference rather than the tag.
  *
  *  1. Require the `produces` relation on the only reference.
@@ -349,4 +339,178 @@ model Reset {
   if len(markdown) != 0 {
     t.Fatalf("expected a clean Markdown graph, got:\n%s", strings.Join(markdown, "\n"))
   }
+}
+
+/**
+ * Verifies a declaration that answered for one obligation is not reported for another that refused it.
+ *
+ * This is the whole of the finding's condition. A declaration is eligible for every obligation that refused it, so eligibility cannot decide the question, and the sentence the finding emits — that every obligation selecting the target wants another relation — is false the moment one of them took it. Without this the finding fires on a correct tag.
+ *
+ *  1. Select one target through a claim requiring `produces` and a claim requiring nothing.
+ *  2. Acknowledge it once, naming no relation, from a host both claims select.
+ *  3. Assert the relation-free claim's obligation is discharged and the tag is never reported.
+ */
+func TestRefusedDeclarationThatAnsweredElsewhereIsNotReported(t *testing.T) {
+  messages := runIndexRule(t, map[string]string{
+    "docs/spec.md": "## Recovery {#recovery}\n",
+    "src/test.ts": `/** @evidence docs/spec.md#recovery Implements recovery. */
+export function testRecovery(): void {}
+`,
+  }, `{"claims":[
+    {
+      "type":"typescript",
+      "files":["src/**"],
+      "symbol":"function",
+      "reference":{
+        "type":"markdown",
+        "files":["docs/spec.md"],
+        "symbol":"h2",
+        "role":"produces"
+      }
+    },
+    {
+      "type":"typescript",
+      "files":["src/**"],
+      "symbol":"function",
+      "reference":{
+        "type":"markdown",
+        "files":["docs/spec.md"],
+        "symbol":"h2"
+      }
+    }
+  ]}`)
+  if countProblemsContaining(messages, "Unwanted relation") != 0 {
+    t.Fatalf(
+      "a declaration that answered for an obligation was reported anyway:\n%s",
+      strings.Join(messages, "\n"),
+    )
+  }
+  if countProblemsContaining(messages, "Non-participating") != 0 {
+    t.Fatalf(
+      "a participating declaration was reported as participating in nothing:\n%s",
+      strings.Join(messages, "\n"),
+    )
+  }
+  if count := countProblemsContaining(messages, "Missing acknowledgement"); count != 1 {
+    t.Fatalf(
+      "expected only the relation-requiring claim to still owe its unit, got %d:\n%s",
+      count,
+      strings.Join(messages, "\n"),
+    )
+  }
+}
+
+/**
+ * Verifies a relation followed by no separator reports rather than disappearing.
+ *
+ * `@evidence(produces)docs/spec.md#recovery` is the typo the relation grammar makes possible, and it is one keystroke from a correct tag. Refusing to treat it as a declaration would drop an acknowledgement the author believes they wrote, and the missing-unit diagnostic names the reference rather than the tag, so nothing would point at the line.
+ *
+ *  1. Write a well-formed relation with no space before the target.
+ *  2. Run a graph requiring that relation.
+ *  3. Assert the whole unconsumed text is reported as the target.
+ */
+func TestRelationWithoutASeparatorReportsItself(t *testing.T) {
+  messages := runIndexRule(t, map[string]string{
+    "docs/spec.md": "## Recovery {#recovery}\n",
+    "src/test.ts": `/** @evidence(produces)docs/spec.md#recovery Issues the proof. */
+export function testRecovery(): void {}
+`,
+  }, `{"claims":[{
+    "type":"typescript",
+    "files":["src/**"],
+    "symbol":"function",
+    "reference":{
+      "type":"markdown",
+      "files":["docs/spec.md"],
+      "symbol":"h2",
+      "role":"produces"
+    }
+  }]}`)
+  assertProblemContains(t, messages, "Unresolved evidence target '(produces)docs/spec.md#recovery'")
+}
+
+/**
+ * Verifies a relation the configuration would refuse is not one a tag can name.
+ *
+ * The parser and the decoder have to agree on what a relation is, or a tag names a relation no reference is permitted to require, which is a relation that can never be asked for and never be wrong. A closing parenthesis cannot survive the scan to the first one; an opening parenthesis can, and is the only shape where the two could drift.
+ *
+ *  1. Write a relation containing an opening parenthesis.
+ *  2. Run a graph requiring no relation, so nothing but the parse decides the outcome.
+ *  3. Assert the opener is reported as the target rather than consumed.
+ */
+func TestRelationCharsetMatchesTheConfiguration(t *testing.T) {
+  messages := runIndexRule(t, map[string]string{
+    "docs/spec.md": "## Recovery {#recovery}\n",
+    "src/test.ts": `/** @evidence((x) docs/spec.md#recovery Issues the proof. */
+export function testRecovery(): void {}
+`,
+  }, `{"claims":[{
+    "type":"typescript",
+    "files":["src/**"],
+    "symbol":"function",
+    "reference":{
+      "type":"markdown",
+      "files":["docs/spec.md"],
+      "symbol":"h2"
+    }
+  }]}`)
+  assertProblemContains(t, messages, "Unresolved evidence target '((x)'")
+}
+
+/**
+ * Verifies an exclusion carries no relation and says so.
+ *
+ * A relation names how a host answers for a target. An exclusion answers that the claim does not cover it at all, so there is no relation to name, and silently swallowing the word would let an author write a sentence the tag cannot mean and read a passing build as agreement.
+ *
+ *  1. Write a relation on an exclusion.
+ *  2. Run a graph that would accept the exclusion without one.
+ *  3. Assert the parenthesis is reported as the target rather than consumed.
+ */
+func TestExclusionCarriesNoRelation(t *testing.T) {
+  messages := runIndexRule(t, map[string]string{
+    "docs/spec.md": "## Recovery {#recovery}\n",
+    "src/test.ts": `/** @evidenceExclude(produces) docs/spec.md#recovery The gateway issues it; false once a screen must. */
+export function testRecovery(): void {}
+`,
+  }, `{"claims":[{
+    "type":"typescript",
+    "files":["src/**"],
+    "symbol":"function",
+    "reference":{
+      "type":"markdown",
+      "files":["docs/spec.md"],
+      "symbol":"h2"
+    }
+  }]}`)
+  assertProblemContains(t, messages, "Unresolved evidence target '(produces)'")
+}
+
+/**
+ * Verifies a cardinality count says which relation it counted.
+ *
+ * A host citing the target under another relation counts zero here. The bare count would tell an author their one visible citation is not there, which sends them looking for a missing tag instead of at the word inside the one they wrote.
+ *
+ *  1. Require a relation and exactly one unit per host.
+ *  2. Cite the unit naming another relation.
+ *  3. Assert the cardinality diagnostic names the relation it counted.
+ */
+func TestCardinalityNamesTheRelationItCounted(t *testing.T) {
+  messages := runIndexRule(t, map[string]string{
+    "docs/spec.md": "## Recovery {#recovery}\n",
+    "src/test.ts": `/** @evidence(reads) docs/spec.md#recovery Reads the proof. */
+export function testRecovery(): void {}
+`,
+  }, `{"claims":[{
+    "type":"typescript",
+    "files":["src/**"],
+    "symbol":"function",
+    "reference":{
+      "type":"markdown",
+      "files":["docs/spec.md"],
+      "symbol":"h2",
+      "role":"produces",
+      "singleEvidencePerSymbol":true
+    }
+  }]}`)
+  assertProblemContains(t, messages, "cites 0 distinct selected evidence unit(s) naming the 'produces' relation")
 }

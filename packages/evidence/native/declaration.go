@@ -130,11 +130,25 @@ func declarationLine(line string) (tagKind, string, string, bool) {
       continue
     }
     remainder := line[len(candidate.marker):]
-    role, body := splitDeclarationRole(remainder)
+    role, body := "", remainder
+    // Only positive evidence carries a relation. An exclusion states that the
+    // claim does not cover the target rather than how it does, so a relation
+    // written on one claims something the tag cannot mean; leaving it in the
+    // body makes it the target, which reports.
+    if candidate.tag == tagEvidence {
+      role, body = splitDeclarationRole(remainder)
+      // A well-formed relation followed by no separator is the typo the
+      // relation grammar makes possible, and it is the same failure a
+      // malformed opener is: putting the remainder back sends the whole of it
+      // to the target instead of quietly dropping the acknowledgement.
+      if body != "" && body[0] != ' ' && body[0] != '\t' {
+        role, body = "", remainder
+      }
+    }
     // An opening parenthesis separates the tag from its body as surely as a
     // space does, and only this tag can precede one, so accepting it here is
-    // what lets a malformed opener reach the target and report itself rather
-    // than stop being a declaration.
+    // what lets every one of those unconsumed openers reach the target and
+    // report itself rather than stop being a declaration.
     if body != "" && body[0] != ' ' && body[0] != '\t' && body[0] != '(' {
       continue
     }
@@ -165,7 +179,11 @@ func splitDeclarationRole(remainder string) (string, string) {
     return "", remainder
   }
   role := remainder[1:closing]
-  if role == "" || containsWhitespace(role) {
+  // The same shapes the configuration refuses, so a relation a reference can
+  // require and a relation a tag can name are one set. A closing parenthesis
+  // cannot survive the scan above; an opening one has to be refused here, or
+  // `@evidence((x)` parses a relation no reference is allowed to ask for.
+  if role == "" || containsWhitespace(role) || strings.Contains(role, "(") {
     return "", remainder
   }
   return role, remainder[closing+1:]

@@ -287,7 +287,7 @@ model password_resets {}
 
 Without it every obligation is a reachability obligation: some host cites some unit. That cannot say a unit must be **produced** rather than merely mentioned, that a **read** is not discharged by a **write**, or that a test must prove an operation **works** rather than that it refuses. A model covered by a host that only consumes it reads as covered while nothing anywhere issues the rows.
 
-A reference declaring a role is discharged only by a tag naming the same word. One naming another relation, or naming none, leaves the unit uncovered and the diagnostic says which relation it wanted. The vocabulary is yours: the rule checks that the relation asked for is the relation claimed, never that the claim is true, which is what a reviewer reads the reason for.
+A reference declaring a role is discharged only by positive evidence naming the same word. One naming another relation, or naming none, leaves the unit uncovered and the diagnostic says which relation it wanted. An `@evidenceExclude` names no relation and still answers, because it states that the claim does not cover the target rather than how it does; pair `role` with `noEvidenceExclude` where neither answer is acceptable. The vocabulary is yours: the rule checks that the relation asked for is the relation claimed, never that the claim is true, which is what a reviewer reads the reason for.
 
 ## Sponsors
 

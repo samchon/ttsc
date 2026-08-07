@@ -47,6 +47,8 @@ While the rule reports nothing, it publishes its configured targets as completio
 
 At the `@evidenceExclude` trigger, a target selected only by references that refuse exclusions is omitted. A target any enabled reference still allows stays on offer, because the completion API has no cursor-specific claim context to narrow it further.
 
+A reference declaring a `role` earns its own trigger, `@evidence(<relation>) `, carrying the targets that relation discharges. The host matches a trigger against the line prefix, so `@evidence ` never matches a line that opens a parenthesis; without the extra trigger the one tag such a reference accepts would be the one tag with no completion at all. The plain `@evidence ` trigger correspondingly offers only the targets a relation-free citation can discharge.
+
 ## `evidence/documented`
 
 Requires a JSDoc block on every selected export.

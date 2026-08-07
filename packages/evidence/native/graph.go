@@ -924,7 +924,7 @@ func evaluateEvidenceGraph(
       reportedRefusal[id] = true
       problems = append(
         problems,
-        "Unwanted relation on @"+string(declaration.Tag)+" at "+declaration.location()+", target '"+displayTarget(declaration.Target)+"': this declaration names "+declared+" and every obligation selecting the target wants another ("+strings.Join(obligations, "; ")+"). Name the relation the obligation asks for, or move the tag to the host that owns the relation this one claims.",
+        "Unwanted relation on @"+string(declaration.Tag)+" at "+declaration.location()+", target '"+displayTarget(declaration.Target)+"': this declaration names "+declared+" and every obligation it reached wants another ("+strings.Join(obligations, "; ")+"). Name the relation the obligation asks for, or move the tag to the host that owns the relation this one claims.",
       )
       continue
     }

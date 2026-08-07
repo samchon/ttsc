@@ -4,6 +4,7 @@ Two tags satisfy every obligation the graph declares.
 
 ```text
 @evidence <target> <reason>
+@evidence(<relation>) <target> <reason>
 @evidenceExclude <target> <reason>
 ```
 
@@ -12,6 +13,10 @@ These are not tags you maintain by hand. Your agent writes each one as it implem
 ## Grammar
 
 The target is one whitespace-delimited token, except that a target opening with `{@link`, `{@linkcode`, or `{@linkplain` runs to its closing brace. Everything after the target is prose.
+
+The parenthesized relation is optional, and only `@evidence` takes one — an exclusion says the claim does not cover the target rather than how it does, so there is no relation for it to name. Write it immediately after the tag name, as one word with no space and no parenthesis inside. The space is what keeps `@evidence (target)` meaning what it always meant, so a citation written before relations existed is untouched.
+
+Anything else in that position is left where the author wrote it and becomes the target, which reports as unresolved: `@evidence(produces here)`, `@evidence(produces)docs/spec.md#x` with the space missing, and `@evidenceExclude(produces)` all name a target rather than quietly ceasing to be declarations. A dropped acknowledgement is the one outcome the graph exists to prevent, so nothing here fails silently.
 
 The reason is required. A citation that cannot say why it exists is filler, and the reason is what makes review possible: it sits beside the exact section it claims to honor, so a misreading surfaces where a reader can see both.
 
@@ -131,7 +136,7 @@ Resolving through the module's own imports also removes an ambiguity that has no
 - Repeating the same resolved scope on one declaration is rejected. Keep the truthful reason, or fold the useful detail into it.
 - A citation may sit on any declaration of a merged identity. Placement changes neither resolution nor coverage.
 
-`uniqueEvidence` and `singleEvidencePerSymbol` on a reference tighten the first two rules where an obligation needs an owner. `role` tightens a different axis: written as `@evidence(produces) <target> <reason>`, the parenthesized word is the relation this host claims, and a reference declaring `role` is discharged only by that relation. [Reference policies](/docs/evidence/claims#reference-policies) covers all three.
+`uniqueEvidence` and `singleEvidencePerSymbol` on a reference tighten the first two rules where an obligation needs an owner, and `noAggregateEvidence` turns the second one off entirely, so a parent target stops accepting responsibility for its subtree. `role` tightens a different axis: the parenthesized word is the relation this host claims, and a reference declaring `role` is discharged by positive evidence naming that relation and by no other positive evidence. An `@evidenceExclude` still answers it, because a reference refuses exclusions through `noEvidenceExclude` and through nothing else. [Reference policies](/docs/evidence/claims#reference-policies) covers all five.
 
 ## Exclusions
 
