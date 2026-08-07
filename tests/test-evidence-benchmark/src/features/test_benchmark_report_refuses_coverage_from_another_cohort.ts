@@ -69,7 +69,9 @@ export const test_benchmark_report_refuses_coverage_from_another_cohort =
           throw new Error(
             `A refusal was raised but did not name ${expected}: ${message}`,
           );
-        if (message.includes("delete it and publish without a coverage") === false)
+        if (
+          message.includes("delete it and publish without a coverage") === false
+        )
           throw new Error(
             `The refusal does not say how to proceed: ${message}`,
           );

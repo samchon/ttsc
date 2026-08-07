@@ -6,7 +6,7 @@ Preserve the run and identify the exact instruction, process result, native sess
 
 Always read the launcher's own output after a resume. A refused launch says so there and nowhere else, which is how a cell that is merely unable to start comes to look dead.
 
-**Read `state.json` before acting on any failure notice.** A notice describes the moment a benchmark process exited, not the moment you read it, and the supervision cadence in between is minutes long. A cell that declared its own goal blocked, exited non-zero, had its ports freed and was resumed is running again on a new runner by the time its original failure surfaces. Acting on the notice alone means touching a cell that was already recovered, which happened three times in the first cohort. The retained state says which of the two it is.
+**Read `state.json` before acting on any failure notice.** A notice describes the moment a benchmark process exited, not the moment you read it, and what happens in between is a recovery: diagnosing, freeing the cell's ports, and resuming take minutes even at a 30-second observation cadence. So a cell that declared its own goal blocked, exited non-zero, and was resumed is running again on a new runner by the time its original failure surfaces, and acting on the notice alone means touching a cell that was already recovered, which happened three times in the first cohort. The retained state is what separates that cell from one still down.
 
 Two states read as a stall and are usually not one:
 

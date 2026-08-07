@@ -49,13 +49,13 @@ A launch that fails before native work does not consume the authorized cell, as 
 
 ### Subjects
 
-| subject | what it is |
-| --- | --- |
-| `todo` | the smallest corpus, 19 H2 and 54 H3 sections |
-| `reddit` | 44 H2, 150 H3 |
-| `shopping` | 73 H2, 354 H3 |
-| `erp` | the largest, 253 H2 and 1234 H3 across six documents |
-| `todo2` | a byte-identical copy of `todo`, with its own port block |
+| subject    | what it is                                               |
+| ---------- | -------------------------------------------------------- |
+| `todo`     | the smallest corpus, 19 H2 and 54 H3 sections            |
+| `reddit`   | 44 H2, 150 H3                                            |
+| `shopping` | 73 H2, 354 H3                                            |
+| `erp`      | the largest, 253 H2 and 1234 H3 across six documents     |
+| `todo2`    | a byte-identical copy of `todo`, with its own port block |
 
 `todo2` exists so one subject can be run twice under identical requirements. A cohort's cells are one run each, so a repeat draw is the only way to separate what a rule selects for from what one model did once, and the requirement corpus is frozen, so a duplicate cannot be created on demand. It arrived with the vendoring from `samchon/lint-plugin-evidence`.
 

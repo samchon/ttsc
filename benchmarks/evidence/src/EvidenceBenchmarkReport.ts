@@ -63,7 +63,8 @@ export const writeEvidenceBenchmarkReport = (
 };
 
 /**
- * Refuses a publication that would leave a cohort boundary inside the aggregate.
+ * Refuses a publication that would leave a cohort boundary inside the
+ * aggregate.
  *
  * `report` replaces `summary.json` and rebuilds `cells/` from nothing, and it
  * never wrote `coverage.json`, which is counted by hand from a completed
@@ -113,7 +114,9 @@ export const assertEvidenceBenchmarkCoverageCohort = (
     const key: string = `${row.model}/${row.subject}/${row.arm}`;
     const expected: string | undefined = published.get(key);
     if (row.runId === undefined)
-      foreign.push(`${key} carries no \`runId\` naming the run it was counted from`);
+      foreign.push(
+        `${key} carries no \`runId\` naming the run it was counted from`,
+      );
     else if (expected === undefined)
       foreign.push(`${key} (${row.runId}) is not in this cohort`);
     else if (expected !== row.runId)
@@ -211,8 +214,8 @@ ${String(error)}`);
  * be published before anyone has read one, and that is the single state which
  * yields no rows rather than an error. A file that is present and malformed is
  * the opposite, because a chart that quietly skipped a coverage block would be
- * indistinguishable from one that never had it. A file present but
- * belonging to another cohort is refused earlier, at publication.
+ * indistinguishable from one that never had it. A file present but belonging to
+ * another cohort is refused earlier, at publication.
  *
  * A null `score` is neither. It is what the composing command emits for a
  * codebase with no requirement anchors at all, which was never asked the

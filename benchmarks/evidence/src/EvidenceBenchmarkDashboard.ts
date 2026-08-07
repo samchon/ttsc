@@ -184,8 +184,8 @@ export const collectEvidenceBenchmarkReport = (
  *
  * The value is normalized to `owner/name` because the aggregate already states
  * an origin that way. `coverage.json` carries `source.origin` as
- * `samchon/lint-plugin-evidence`, written by hand when a cohort was vendored in,
- * and two artifacts in one directory answering the same question in two
+ * `samchon/lint-plugin-evidence`, written by hand when a cohort was vendored
+ * in, and two artifacts in one directory answering the same question in two
  * vocabularies is how a comparison between them comes to be skipped.
  */
 const readRepositoryOrigin = (repository: string): string | undefined => {

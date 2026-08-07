@@ -59,16 +59,18 @@ export namespace EvidenceBenchmarkRunner {
       typia.assert<ITtscEvidenceBenchmarkRunState>(
         structuredClone(props.state),
       );
-    state.instructionPlan ??=
-      state.arm === "plain"
-        ? EvidenceBenchmarkInstruction.legacyPlan(state.arm)
-        : EvidenceBenchmarkInstruction.plan(state.arm);
+    // A state with no retained plan predates the adaptive one, whichever arm
+    // it belongs to, and `legacyPlan` is what says so: its entries carry no
+    // review boundary, so a run from before the boundary existed is never
+    // asked for pauses it could not have retained.
+    state.instructionPlan ??= EvidenceBenchmarkInstruction.legacyPlan(
+      state.arm,
+    );
     const entries: ITtscEvidenceBenchmarkInstructionPlanEntry[] =
       state.instructionPlan;
     validateInstructionPlan(state, entries);
     const undecidedPause = state.supervisionPauses?.at(-1);
     if (
-      state.arm === "plain" &&
       undecidedPause !== undefined &&
       undecidedPause.verdict === undefined &&
       state.status === "running" &&
@@ -78,12 +80,9 @@ export namespace EvidenceBenchmarkRunner {
       await props.onState?.(structuredClone(state));
       return state;
     }
-    if (
-      state.arm === "plain" &&
-      state.supervisionPauses?.some((pause) => pause.verdict !== undefined)
-    ) {
+    if (state.supervisionPauses?.some((pause) => pause.verdict !== undefined)) {
       if (props.runRoot === undefined)
-        throw new Error("Plain review history lacks its retained root.");
+        throw new Error("Review history lacks its retained root.");
       EvidenceBenchmarkSupervision.assertHistory(props.runRoot, state);
     }
     if (state.status === "quality-failed") {
@@ -92,7 +91,7 @@ export namespace EvidenceBenchmarkRunner {
     }
     if (state.status === "awaiting-review-verdict") {
       if (props.runRoot === undefined)
-        throw new Error("Plain review-verdict resume lacks its retained root.");
+        throw new Error("Review-verdict resume lacks its retained root.");
       // A resume retries an inspection that failed rather than waiting for a
       // hand-written verdict, because the common failures — a spawn that lost
       // a race, a timeout — are transient and an operator adds nothing to
@@ -580,10 +579,9 @@ export namespace EvidenceBenchmarkRunner {
         await publication;
         if (outcome !== undefined) return;
       }
-      reviewBoundary =
-        state.arm === "plain"
-          ? EvidenceBenchmarkInstruction.reviewBoundary(entries[record.index]!)
-          : undefined;
+      reviewBoundary = EvidenceBenchmarkInstruction.reviewBoundary(
+        entries[record.index]!,
+      );
       state.nextInstructionIndex++;
       if (reviewBoundary !== undefined) {
         state.supervisionPauses ??= [];
@@ -1882,10 +1880,9 @@ export namespace EvidenceBenchmarkRunner {
           final <= review ||
           supplements.some(
             (entry, index) =>
-              state.arm !== "plain" ||
               entry.kind !== "review-supplement" ||
               entry.name !== `${scope}-remind-${index + 1}` ||
-              entry.relativePath !== `plain/${scope}/remind.md` ||
+              entry.relativePath !== `${state.arm}/${scope}/remind.md` ||
               entry.reviewScope !== scope ||
               entry.reviewAttempt !== index + 1 ||
               entry.reviewFeedback?.trim().length === 0,
@@ -1947,13 +1944,12 @@ export namespace EvidenceBenchmarkRunner {
         } => value.boundary !== undefined,
       );
     const pauses = state.supervisionPauses ?? [];
-    if (state.arm === "evidence") {
-      if (pauses.length !== 0)
-        throw new Error("Evidence run retained a Plain review decision.");
-      return;
-    }
     if (pauses.length !== completedBoundaries.length)
-      throw new Error("Plain review boundaries do not match retained pauses.");
+      throw new Error(
+        pauses.length === 0 && completedBoundaries.length !== 0
+          ? "This run completed a Review before the boundary existed and retained no decision for it, so it cannot be resumed under the current instruction plan. Its record stands as it is; continue from its backend-start checkpoint as a derived run instead."
+          : "Review boundaries do not match retained pauses.",
+      );
     pauses.forEach((pause, index) => {
       const completed = completedBoundaries[index]!;
       const goal = state.goals.find(
@@ -1971,9 +1967,7 @@ export namespace EvidenceBenchmarkRunner {
         !goal.terminalTurnCompleted ||
         !goal.threadIdle
       )
-        throw new Error(
-          "Plain review pause does not match its completed Goal.",
-        );
+        throw new Error("Review pause does not match its completed Goal.");
       if (verdict === undefined) {
         if (
           !latest ||
@@ -1982,7 +1976,7 @@ export namespace EvidenceBenchmarkRunner {
           pause.resumedAt !== undefined ||
           state.nextInstructionIndex !== pause.goalIndex + 1
         )
-          throw new Error("Plain review pause lacks its required verdict.");
+          throw new Error("Review pause lacks its required verdict.");
         return;
       }
       const next = entries[pause.goalIndex + 1];
@@ -2020,7 +2014,7 @@ export namespace EvidenceBenchmarkRunner {
               state.nextInstructionIndex !== pause.goalIndex + 1
             : pause.resumedAt === undefined)
       )
-        throw new Error("Plain review verdict transition is invalid.");
+        throw new Error("Review verdict transition is invalid.");
     });
   }
 

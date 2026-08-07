@@ -82,7 +82,7 @@ rg --no-filename -o '^#{2,3} .+' docs/analysis | sort
 This is a cross-check index, not a read. It does not shorten the literal full reading of `docs/analysis/`. `pnpm plan` from `packages/frontend` reports the forward direction of item 1 mechanically and neither part of item 2, so those remain yours. Work it entry by entry.
 
 1. Name, for each section, the screen that delivers it and the journey that walks that screen.
-   - A section named by neither the plan nor `omissions.md` is a finding, whatever the interface looks like.
+   - A section that neither a screen entry delivers nor an omission decides is a finding, whatever the interface looks like.
    - An omission that concludes rather than naming an owner and an invalidating condition is a finding of its own.
 2. Verify the reverse direction.
    - A screen no requirement section asks for is over-implementation and a finding.

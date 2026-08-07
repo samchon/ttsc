@@ -13,7 +13,7 @@ export namespace EvidenceBenchmarkInstruction {
   export const OPERATOR_WARNING_HEADING = "# Correct This Before Continuing";
 
   /**
-   * Supplementation attempts a Plain review scope may take before it fails.
+   * Supplementation attempts a review scope may take before it fails.
    *
    * The bound exists so a cell that cannot reach the bar terminates instead of
    * looping, and the attempt it stops on is itself the measurement.
@@ -120,7 +120,7 @@ export namespace EvidenceBenchmarkInstruction {
     // which is why substituting it loses nothing.
     const warned: boolean =
       props.entry.reviewFeedback !== undefined &&
-      !isPlainSupplement(props.entry.relativePath);
+      !isSupplement(props.entry.relativePath);
     const continuationText: string = warned
       ? `${OPERATOR_WARNING_HEADING}\n\n${props.entry.reviewFeedback!.trim()}`
       : fs.readFileSync(
@@ -174,12 +174,7 @@ export namespace EvidenceBenchmarkInstruction {
       path.join(props.instructionsRoot, ...props.entry.relativePath.split("/")),
       "utf8",
     );
-    if (
-      !props.entry.relativePath.startsWith("plain/") ||
-      !/\/(?:remind|final)\.md$/u.test(props.entry.relativePath)
-    ) {
-      return prescribedText;
-    }
+    if (!isSupplement(props.entry.relativePath)) return prescribedText;
     const reviewPath: string = props.entry.relativePath.replace(
       /\/(?:remind|final)\.md$/u,
       "/review.md",
@@ -196,11 +191,25 @@ export namespace EvidenceBenchmarkInstruction {
     return `${prescribedText}${separator}${feedback}${quoteMarkdown(reviewText)}`;
   }
 
-  /** Reports whether an entry is a Plain reminder, which quotes its Review. */
-  function isPlainSupplement(relativePath: string): boolean {
+  /**
+   * Reports whether an entry carries its own scope's Review quoted beneath it.
+   *
+   * A reminder does, in either arm: it asserts that the report was rejected and
+   * orders the Review again, so the cell re-reads the standard it was given
+   * rather than a summary of it, and quoting is what makes those the same bytes
+   * both times.
+   *
+   * A Final does only where the Final is itself written to verify against that
+   * Review, which is the Plain arm's. The Evidence arm's Final confirms that
+   * every claim stayed enabled and that the compiler processes are clean, and
+   * quoting a review procedure under a claim-and-gate confirmation would change
+   * what that objective asks for. The difference is in the instruction text and
+   * this reads it rather than inventing one.
+   */
+  function isSupplement(relativePath: string): boolean {
     return (
-      relativePath.startsWith("plain/") &&
-      /\/(?:remind|final)\.md$/u.test(relativePath)
+      /\/remind\.md$/u.test(relativePath) ||
+      (relativePath.startsWith("plain/") && /\/final\.md$/u.test(relativePath))
     );
   }
 

@@ -238,13 +238,13 @@ export namespace EvidenceBenchmarkSupervision {
       const attempt: number = pause.attempt + 1;
       const entry = {
         name: `${pause.scope}-remind-${attempt}`,
-        relativePath: `plain/${pause.scope}/remind.md`,
+        relativePath: `${retained.state.arm}/${pause.scope}/remind.md`,
         kind: "review-supplement" as const,
         reviewScope: pause.scope,
         reviewAttempt: attempt,
       };
       EvidenceBenchmarkInstruction.objective({
-        arm: "plain",
+        arm: retained.state.arm,
         instructionsRoot: props.instructionsRoot,
         entry,
       });
@@ -376,13 +376,12 @@ export namespace EvidenceBenchmarkSupervision {
     if (retained.cell.subject !== current.subject)
       throw new Error("Review verdict does not match its subject.");
     if (
-      retained.cell.arm !== "plain" ||
       retained.cell.runId !== path.basename(runRoot) ||
       !samePath(retained.records.root, runRoot) ||
       !samePath(retained.records.state, statePath) ||
       !samePath(retained.records.workspace, path.join(runRoot, "workspace"))
     )
-      throw new Error("Run is not an exact undecided Plain review boundary.");
+      throw new Error("Run is not an exact undecided review boundary.");
     assertUndecidedBoundary(retained.state);
   }
 
@@ -407,7 +406,6 @@ export namespace EvidenceBenchmarkSupervision {
         : EvidenceBenchmarkInstruction.reviewBoundary(planEntry);
     const process = state.processes.at(-1);
     if (
-      state.arm !== "plain" ||
       typeof state.sessionId !== "string" ||
       typeof state.cliVersion !== "string" ||
       state.status !== "awaiting-review-verdict" ||

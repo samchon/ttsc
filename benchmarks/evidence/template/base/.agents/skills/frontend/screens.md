@@ -10,21 +10,24 @@ Every requirement section is delivered by a screen or recorded as an omission. T
 rg --no-filename -o '^#{2,3} .+' docs/analysis | sort
 ```
 
-Each heading opens with its own identifier, and that identifier is what a record cites.
+Each heading opens with its own identifier, and that identifier is what a record cites. The graph's own anchor for the heading cites it too, so either form reads.
 
 | Rule | Detail |
 | --- | --- |
-| one owning screen | a line in `screen-plan.md` naming both the identifier and the page file that delivers it |
-| an omission is a decision | a line in `omissions.md` naming the identifier, what owns the requirement instead, and the condition that would make the decision false |
+| one entry, one section | an entry names its section's identifier and no other, so a line listing many of them decides none |
+| one owning screen | a line in `screen-plan.md` naming the identifier and a page file that exists under `src/components` |
+| an omission is a decision | an entry in `omissions.md` naming the identifier, what owns the requirement instead, and the condition that would make the decision false |
 | a family is one decision | an omission naming an H2 identifier covers its H3 children, so a concept no browser delivers is written down once |
 
 The family rule is what makes the largest subject tractable. `erp` has 1487 sections and 253 of them are H2, so its non-visual concepts are 253 decisions rather than 1487.
 
 "No screen needed" is a conclusion, not a reason. A section a browser genuinely does not deliver, a persistence rule or an authorization boundary the backend enforces alone, belongs in `omissions.md` with that owner named.
 
-`pnpm plan` from `packages/frontend` decides it. It reads the corpus, reads both records, prints the covered count, and lists every section that is neither. It matches identifiers as whole tokens, so a screen for `REQ-X-1` does not silently deliver `REQ-X`, and it accepts the identifier however it is written, so a heading anchor and a bare identifier are the same citation. It reads and never writes.
+`pnpm plan` from `packages/frontend` decides it. It reads the corpus, reads both records, prints the covered count, and lists every section that is neither. It reads and never writes.
 
-A copy of the enumeration is not a plan, and the script says so: a screen line without a page file and an omission line without a reason both count as nothing.
+It matches identifiers as whole tokens, so a screen for `REQ-X-1` does not silently deliver `REQ-X`. An omission entry is the line naming its section plus the lines beneath it that name none, so wrapping a reason across lines is one entry rather than a fragment. The reason is measured with the identifiers removed, so an identifier cannot pay for its own length.
+
+A copy of the enumeration is not a plan, whatever is appended to it: a line naming many sections decides none of them, a page file that does not exist delivers nothing, and an identifier with no sentence after it excuses nothing.
 
 ## Plan And Declare
 
