@@ -48,11 +48,11 @@ Eight claims, thirteen claim-reference pairs, thirteen independent obligations. 
 
 ## What these thirteen obligations measure
 
-Those same thirteen pairs are the edges the benchmark's coverage score is folded from. Each row below is one codebase, and opening it names the pair that broke.
+Those same thirteen pairs are the edges the benchmark's coverage score is folded from, so opening a Plain row below names the pair that broke in that codebase.
 
 <TtscWebsiteBenchmarkEvidenceCoverage />
 
-The Evidence rows are whole by construction, because a build carrying this configuration does not finish while a pair is open. The Plain rows are the same four applications built without it, and their edges are where a codebase that looked finished was not: an operation nothing tests and a hook nothing renders are invisible to a type checker and to a reviewer reading a diff.
+The Evidence arm is one row because every subject scored alike: a build carrying this configuration does not finish while a pair is open, so it has no edges to open onto. The Plain rows are the same four applications built without it, and their edges are where a codebase that looked finished was not. An operation nothing tests and a hook nothing renders are invisible to a type checker and to a reviewer reading a diff.
 
 ## Backend
 

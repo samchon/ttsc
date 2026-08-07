@@ -65,7 +65,7 @@ export default function TtscWebsiteBenchmarkEvidenceCoverage({
       <div className="divide-y divide-[#eef4fa] px-5 py-2">
         {rows.map((row) => {
           const expandable = expandableRows && row.edges.length > 0;
-          const expanded = open === row.id;
+          const expanded = expandable && open === row.id;
           return (
             <div key={row.id} className="py-2">
               <button

@@ -121,7 +121,8 @@ Use `import type`. It is erased at emit, so a citation creates no runtime depend
 $ npx ttsc check
 error TS16411: [evidence/graph] Unimported evidence target '{@link contracts.ISale}' at src/ui/SalePrice.ts:2
   for Claim 1 across reference 1 (typescript, symbols: type): 'contracts' is not imported by this module,
-  so the citation names a symbol this file does not reference. Import it; 'import type' is enough.
+  so the citation names a symbol this file does not reference. Import it; 'import type' is enough and is
+  erased at emit.
 ```
 
 Resolving through the module's own imports also removes an ambiguity that has no fix. A generated SDK puts the same leaf name in many modules, so `get` alone names several symbols. Resolved from one file's bindings, `{@link api.functional.questions.get}` names exactly one.

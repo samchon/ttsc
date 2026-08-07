@@ -78,8 +78,8 @@ export default function TtscWebsiteLandingEvidenceGraph() {
                 declaration answers for it.
               </p>
               <p className="mt-4 max-w-xl text-base leading-relaxed text-[#526b82]">
-                An AI coding agent has to clear them to finish. Coverage reaches
-                100% on its own, as the residue of the errors it closed.
+                An AI coding agent has to clear those errors to finish. Coverage
+                reaches 100% on its own, as the residue of the ones it closed.
               </p>
 
               <div className="mt-8 flex flex-wrap gap-3">
