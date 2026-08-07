@@ -43,7 +43,9 @@
   "packageManager": "pnpm@10.6.4",
   "pnpm": {
     "overrides": {
-      "js-yaml": "^4.3.1"
+      "js-yaml": "^4.3.1",
+      "postcss": "^8.5.18",
+      "sharp": "^0.35.0"
     }
   },
   "devDependencies": {

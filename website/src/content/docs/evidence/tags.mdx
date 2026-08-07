@@ -1,6 +1,6 @@
 # Evidence Tags
 
-Two tags satisfy every obligation the graph declares, and a third records that one was verified.
+Two tags satisfy every obligation the graph declares, and a third records that one of them was verified.
 
 ```text
 @evidence <target> <reason>
@@ -17,24 +17,7 @@ The target is one whitespace-delimited token, except that a target opening with 
 
 The reason is required. It sits beside the exact unit it claims to honor, so a misreading surfaces where a reader can see both. The compiler never judges whether a reason is true; it forces a concrete claim, and a claim is reviewable in a way that silence is not.
 
-A reason may run past one line. Continuation lines join it until the next `@evidence` or `@evidenceExclude`, and inside a JSDoc or Prisma comment any other line-opening `@tag` ends it too. That boundary is what keeps a neighboring `@param` or another tool's `@namespace` out of the reason above it.
-
-## Reviews
-
-`@evidenceReview` answers a different question from the reason beside it. The reason says why this declaration answers for a target; the review says what was checked. Only the first is written unless something asks for the second, which is what [`evidence/review`](/docs/evidence/rules) does.
-
-```ts
-/**
- * @evidence docs/discount.md#coupon-stacking <reason>
- * @evidenceReview docs/discount.md#coupon-stacking <what you checked>
- */
-```
-
-The target is spelled exactly as the citation spells it, including the inline-link form, and it is compared as a token rather than resolved a second time. A review is not an acknowledgement: it discharges no coverage and changes no `evidence/graph` diagnostic.
-
-The `#`-prefixed token is a fingerprint of the cited content. It is optional in the grammar and required by a reference declaring [`requireReview`](/docs/evidence/claims), and it is what makes a review expire: when the cited section, operation, model, or symbol changes, the fingerprint stops matching and the build fails again with the new value stated in the diagnostic. Without it a review is written once and stays green forever, which is the same as never having asked.
-
-The `#` is required rather than inferred. A bare fixed-width hex token would have to be guessed at, and ordinary prose supplies the counter-examples, so the boundary character carries the discrimination the way it does for a braced code target.
+A reason may run past one line. Continuation lines join it until the next tag of this grammar, and inside a JSDoc or Prisma comment any other line-opening `@tag` ends it too. That boundary is what keeps a neighboring `@param` or another tool's `@namespace` out of the reason above it. An HTML comment has no field syntax, so there `@architecture approved this` stays prose and only this grammar's own tags close a reason.
 
 ## Target forms
 
@@ -198,6 +181,23 @@ export const CONTROLLER_EVIDENCE_EXCLUDE = true;
 ```
 
 Never auto-exclude, auto-retarget, or delete an artifact to make a graph green. Every diagnostic names the repair, and the repair belongs to the author.
+
+## Reviews
+
+`@evidenceReview` answers a different question from the reason beside it. The reason says why this declaration answers for a target; the review says what was checked. Only the first is written unless something asks for the second, which is what [`evidence/review`](/docs/evidence/rules) does.
+
+```ts
+/**
+ * @evidence docs/discount.md#coupon-stacking <reason>
+ * @evidenceReview docs/discount.md#coupon-stacking <what you checked>
+ */
+```
+
+The target is spelled exactly as the citation spells it, including the inline-link form, and it is compared as a token rather than resolved a second time. A review is not an acknowledgement: it discharges no coverage and changes no `evidence/graph` diagnostic.
+
+The `#`-prefixed token is a fingerprint of the cited content, optional in the grammar and required by a reference declaring [`requireReview`](/docs/evidence/claims). It is what makes a review expire: when the cited section, operation, model, or symbol changes, the fingerprint stops matching and the build fails again with the new value stated in the diagnostic. Without it a review is written once and stays green forever, which is the same as never having asked.
+
+The `#` is required rather than inferred, the way a braced code target's braces are. A bare fixed-width hex token would have to be guessed at, and ordinary prose supplies the counter-examples.
 
 ## Editor completions
 

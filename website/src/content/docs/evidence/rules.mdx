@@ -125,13 +125,18 @@ The citation states why this declaration answers for a target. Nothing asks what
  */
 ```
 
-A review is an annotation of a citation, never an acknowledgement of a unit. It discharges no coverage, contributes no host to `uniqueEvidence`, and counts toward no `singleEvidencePerSymbol` total. Enabling this rule cannot change an `evidence/graph` diagnostic.
+A review is an annotation of a citation, never an acknowledgement of a unit. It discharges no coverage, contributes no host to `uniqueEvidence`, and counts toward no `singleEvidencePerSymbol` total, so enabling this rule cannot change an `evidence/graph` diagnostic.
 
-Four states are judged, all inside one documentation block on one public identity. A citation with no review of its target is unreviewed. A review naming a target this identity does not cite is an orphan, which is what turns a mistyped target into a finding instead of a silent hole. A second review of one target is a duplicate, since one citation is verified once. A review with no description is malformed.
+Four findings, most structural first.
 
-The unit judged is an identity rather than a declaration, so a review on `namespace ISale` answers a citation on `interface ISale`. A declaration withdrawn by `@internal`, `@hidden`, or `@ignore` owes nothing, because it can carry no citation the graph will read.
+- **A citation with no review of its target.** The verification statement was never written.
+- **A review naming a target this identity does not cite.** An orphan, which is what turns a mistyped target into a finding rather than a silent hole: the typo leaves one citation unreviewed and one review answering nothing.
+- **A second review of one target in one block.** One citation is verified once. Copying a block onto each half of a merged identity is not this, since the count is per block.
+- **A review with no description.** A target and a fingerprint state what was reviewed, never what was checked.
 
-The rule does not judge whether the description is sincere, and it is not built to. A second prose block is as hedgeable as the first. What makes a review expire when the thing it reviewed moves is the optional `#`-prefixed fingerprint, which this rule carries without interpreting and [`requireReview`](/docs/evidence/claims) validates against the cited content.
+The unit judged is an identity rather than a declaration, so a review on `namespace ISale` answers a citation on `interface ISale`. A declaration withdrawn by `@internal`, `@hidden`, or `@ignore` owes nothing, because it can carry no citation the graph would read.
+
+Presence is the whole check here too. A second prose block is as hedgeable as the first, and a rule that tried to judge sincerity would only teach authors to write filler that satisfies it. What makes a review expire when the thing it reviewed moves is the optional `#`-prefixed fingerprint, which this rule carries without interpreting and [`requireReview`](/docs/evidence/claims) validates against the cited content.
 
 ## Where they surface
 
