@@ -102,7 +102,7 @@ Keep `packages/frontend/wiki/verification.md` current:
 
 - Production frontend build
 - Backend running at the configured API host
-- `VITE_API_SIMULATE=false`
+- Built with no mode, so the SDK is live
 
 ## Automated
 
@@ -132,5 +132,5 @@ Frontend verification passes only when:
 - every requirement journey asserts the concrete effect its requirement names, and would fail if that behavior disappeared;
 - every screen and required state was inspected;
 - `test:e2e` and the required presentation suites pass on the current source;
-- the live run actually used `VITE_API_SIMULATE=false`; and
+- the live run was built with no mode, so its bundle carries the live SDK; and
 - the verification record matches what ran.

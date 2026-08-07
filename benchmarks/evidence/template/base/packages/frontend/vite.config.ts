@@ -32,14 +32,19 @@ const configuration: UserConfig = {
  * The `contract` mode is the simulated one, and the mode decides it.
  *
  * Vite lets `process.env` win over every `.env*` file, and the eager
- * `loadEnvFile` above promotes a workspace `.env` into `process.env` before that
- * resolution happens. A mode expressed as an env file would therefore be
+ * `loadEnvFile` above promotes a workspace `.env` into `process.env` before Vite
+ * reads any of them. A mode expressed as an env file would therefore be
  * overridden by any `.env` a cell wrote for an unrelated reason, silently, and
  * the contract suite would build live while every document called it simulated.
- * Setting it here puts the decision where the command already is: `--mode
- * contract` is simulated, everything else is live, and no file can disagree.
+ *
+ * The write is unconditional in both directions on purpose. Setting it only for
+ * the contract mode would close that lane and leave the live one exactly as
+ * defeatable: a `.env` carrying `VITE_API_SIMULATE=true` would still make
+ * `pnpm test:e2e` build simulated, which is the failure the split exists to
+ * end. `--mode contract` is simulated, every other mode is live, and no file
+ * can disagree with either.
  */
 export default defineConfig(({ mode }) => {
-  if (mode === "contract") process.env.VITE_API_SIMULATE = "true";
+  process.env.VITE_API_SIMULATE = String(mode === "contract");
   return configuration;
 });
