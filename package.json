@@ -41,6 +41,11 @@
   },
   "homepage": "https://ttsc.dev",
   "packageManager": "pnpm@10.6.4",
+  "pnpm": {
+    "overrides": {
+      "js-yaml": "^4.3.1"
+    }
+  },
   "devDependencies": {
     "@trivago/prettier-plugin-sort-imports": "^6.0.2",
     "@types/node": "catalog:utils",
