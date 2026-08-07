@@ -9,7 +9,7 @@ import type { EvidenceBenchmarkReviewScope } from "./typings/EvidenceBenchmarkRe
 export namespace EvidenceBenchmarkInstruction {
   export const GOAL_OBJECTIVE_MAX_CHARACTERS = 4_000;
 
-  /** Opens an operator warning that replaces an Evidence continuation. */
+  /** Opens an operator warning that replaces an arm continuation. */
   export const OPERATOR_WARNING_HEADING = "# Correct This Before Continuing";
 
   /**
@@ -27,7 +27,7 @@ export namespace EvidenceBenchmarkInstruction {
    */
   export const REVIEW_SUPPLEMENT_LIMIT = 4;
 
-  /** Returns the frozen base sequence. Plain reminders are adaptive, not base. */
+  /** Returns the frozen base sequence. A reminder is adaptive, not base. */
   export function entries(
     arm: EvidenceBenchmarkArm,
   ): readonly (readonly [string, string])[] {

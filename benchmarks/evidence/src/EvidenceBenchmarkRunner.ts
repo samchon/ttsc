@@ -132,7 +132,7 @@ export namespace EvidenceBenchmarkRunner {
         pause.goalIndex !== previous.index
       )
         throw new Error(
-          "Plain review-verdict resume lacks its exact retained Goal boundary.",
+          "Review-verdict resume lacks its exact retained Goal boundary.",
         );
       pause.resumedAt = new Date().toISOString();
     }

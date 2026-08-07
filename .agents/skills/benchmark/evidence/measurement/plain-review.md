@@ -35,7 +35,9 @@ A Plain review is a reading loop, so what can be checked is whether the loop ran
 1. **Did the prescribed review loop run to dryness?** Pass an attempt that read its full scope every round and ended on a round that read everything and changed nothing, despite checklist or formatting slips. Fail one that substituted counts, summaries, searches, or green commands for reading; divided its scope across rounds; skipped the re-read after its last edit; or reported a dry round the stage log shows it never performed.
 2. **Are the tests properly written?** Judge them against the workspace's own testing instructions. A suite that names one test for a hundred published operations, that asserts nothing, that asserts only that a call did not throw, or that pins the implementation's current output instead of the behavior it owes, is not properly written however green it runs.
 
-An Evidence review inspects its own acknowledgements, and the compiler has already proved that every target resolves, so what is left is whether each citation is true. Six questions: whether every hook cites the operations it calls, whether every screen uses the hooks it cites and renders data serving the requirement it cites, whether every journey asserts an observable outcome for each requirement it cites, whether every exclusion is a reviewed non-applicability decision with a condition that would invalidate it, whether any citation names an ancestor whose subtree the host does not own, and the same test question.
+An Evidence review inspects its own acknowledgements, and the compiler has already proved that every target resolves, so what is left is whether each citation is true. Seven questions: whether every hook cites the operations it calls, whether every screen uses the hooks it cites and renders data serving the requirement it cites, whether every journey asserts an observable outcome for each requirement it cites, whether every exclusion is a reviewed non-applicability decision with a condition that would invalidate it, whether every citation names only targets whose subtree the host owns, whether any `@todo` remains under the workspace source, and the same test question.
+
+That is seven conjunctive criteria against Plain's two, under a rule that fails on any one. All else equal it raises the Evidence arm's expected supplementation count for reasons unrelated to the graph, which points the opposite way from the confound this boundary removes. It belongs in the analysis plan beside the cost, not in a footnote afterwards.
 
 A question an arm passes is still worth asking; it is what makes the ones it fails mean something.
 
@@ -80,12 +82,12 @@ After the third failure the run stays at `awaiting-review-verdict` and a resume 
 ```
 
 ```bash
-pnpm --filter @ttsc/benchmark-evidence supervise <subject> <run-id> <verdict.json>
+pnpm --filter @ttsc/benchmark-evidence supervise <subject> <evidence|plain> <run-id> <verdict.json>
 ```
 
 Then resume the same run command.
 
-A hand-written verdict answers the same two questions and obeys the same rules: no `feedback` property, and the reasoning stays in the retained `rationale`, which the cell never sees.
+A hand-written verdict answers that arm's own questions and obeys the same rules: no `feedback` property, and the reasoning stays in the retained `rationale`, which the cell never sees.
 
 An operator warning is a different channel with its own command and contents, and [intervention/warning.md](../intervention/warning.md) owns it. Do not reach for a verdict to deliver one.
 
@@ -105,6 +107,6 @@ During `backend-review` the runner holds the cell's sandbox read-only and inject
 
 `backend-review` and `backend-final` then refuse to complete unless a runner-owned round ended `dry` and the workspace manifest still hashes to what that round read. A shell inventory, a self-authored manifest, or a summary earns nothing.
 
-**The verdict boundary still fires.** `backend-review` stops at `awaiting-review-verdict` exactly as it does without the flag, because the boundary is computed from the arm and the instruction alone. The inspecting thread also knows nothing about the ledger, so it still judges the loop from the stage log. Expect a ledger run to stop for a verdict, and do not read that stop as a stall.
+**The verdict boundary still fires.** `backend-review` stops at `awaiting-review-verdict` exactly as it does without the flag, because the boundary is computed from the instruction alone. The inspecting thread also knows nothing about the ledger, so it still judges the loop from the stage log. Expect a ledger run to stop for a verdict, and do not read that stop as a stall.
 
 The fresh thread restarts its token counter at zero, and the dashboard adds the inherited pre-thread goals back into the cell's total. Report what the generator printed and never hand-compute a ledger run's totals.

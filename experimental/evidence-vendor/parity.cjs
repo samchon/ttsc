@@ -382,7 +382,7 @@ const EXCEPTIONS = new Map([
   ],
   [
     "benchmarks/evidence/src/EvidenceBenchmarkRunner.ts",
-    "ttsc#1094: the browser server joins the invocation, on the one code path that has no arm branch",
+    "ttsc#1094 and ttsc#1095: the browser server joins the invocation on the one code path that has no arm branch, and the review boundary is computed for either arm rather than one, with a named refusal for a run that completed a Review before the boundary existed",
   ],
   [
     "benchmarks/evidence/src/structures/ITtscEvidenceBenchmarkReport.ts",
@@ -398,7 +398,7 @@ const EXCEPTIONS = new Map([
   ],
   [
     ".agents/skills/benchmark/evidence/intervention/SKILL.md",
-    "ttsc#1109: the triage table carries the three observations round one misread",
+    "ttsc#1109 and ttsc#1095: the triage table carries the three observations round one misread, and the verdict loop belongs to either arm",
   ],
   [
     ".agents/skills/benchmark/evidence/intervention/recovery.md",
@@ -410,11 +410,11 @@ const EXCEPTIONS = new Map([
   ],
   [
     ".agents/skills/benchmark/evidence/measurement/running.md",
-    "ttsc#1109, ttsc#1111, ttsc#1094: the subject inventory, the complete port table, and the browser server among the frozen material inputs",
+    "ttsc#1109, ttsc#1111, ttsc#1094, ttsc#1095: the subject inventory, the complete port table, the browser server among the frozen material inputs, and both arms stopping at a review boundary",
   ],
   [
     ".agents/skills/benchmark/evidence/measurement/dashboard.md",
-    "ttsc#1110: the dashboard refuses an argument it cannot honor instead of ignoring one",
+    "ttsc#1110 and ttsc#1095: the dashboard refuses an argument it cannot honor instead of ignoring one, and its status table distinguishes a stopped cell from an inspection running under the same status",
   ],
   [
     ".agents/skills/benchmark/evidence/intervention/boundary.md",
@@ -506,6 +506,10 @@ const EXCEPTIONS = new Map([
   [
     "packages/evidence/src/structures/ITtscEvidenceGraphReferenceBase.ts",
     "ttsc#1106: `role` joins the published reference contract",
+  ],
+  [
+    "benchmarks/evidence/src/executable/EvidenceBenchmarkSupervision.ts",
+    "ttsc#1095: a hand-written verdict names its arm, because both arms now stop for one and the command could only reach a Plain run",
   ],
 ]);
 

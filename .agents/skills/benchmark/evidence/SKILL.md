@@ -28,5 +28,5 @@ Under `pnpm --filter @ttsc/benchmark-evidence`:
 - `start` — launch, resume, or derive a run. [running.md](measurement/running.md), [recovery.md](intervention/recovery.md)
 - `dashboard`, `audit-suspensions` — the live pull-request record. [dashboard.md](measurement/dashboard.md)
 - `report` — the tracked `benchmarks/evidence/aggregate` artifacts. [aggregate.md](measurement/aggregate.md)
-- `supervise` — apply a hand-written review verdict. [plain-review.md](measurement/plain-review.md)
+- `supervise` — apply a hand-written review verdict, in either arm. [plain-review.md](measurement/plain-review.md)
 - `warn` — deliver an operator warning to a running cell. [warning.md](intervention/warning.md)

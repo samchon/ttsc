@@ -31,18 +31,18 @@ interface ISubmittedVerdict {
   feedback?: string;
 }
 
-/** Retains and verifies Plain review decisions outside the measured thread. */
+/** Retains and verifies review decisions outside the measured thread. */
 export namespace EvidenceBenchmarkSupervision {
   /**
-   * Attaches one operator warning to a stopped Evidence cell's current
-   * objective.
+   * Attaches one operator warning to a stopped cell's current objective.
    *
-   * The Evidence arm never pauses for a verdict, and `thread/goal/set` is the
-   * runner's only channel into the thread, so a warning reaches an Evidence
-   * cell exactly one way: stop the cell, attach the warning, resume. The
-   * warning replaces the arm continuation rather than extending the objective,
-   * because `backend/start` already expands to within 77 characters of the
-   * limit Codex accepts.
+   * `thread/goal/set` is the runner's only channel into the thread, so a
+   * warning reaches a cell exactly one way: stop the cell, attach the warning,
+   * resume. Outside a reminder it replaces the arm continuation rather than
+   * extending the objective, because an objective that grows past the limit
+   * Codex accepts cannot be delivered at all, and the composed objectives leave
+   * less room than they look: an Evidence Overall reminder carries its quoted
+   * Review and leaves under a thousand characters for a warning.
    *
    * A warning states the frozen boundary and the edit that crossed it. It is
    * the alternative to restarting a cell over a correctable violation, which
@@ -370,7 +370,7 @@ export namespace EvidenceBenchmarkSupervision {
   ): void {
     // The cell records its own frozen inputs and revision, which is the audit
     // trail. Comparing them with the repository as it stands would lock every
-    // running Plain cell out of supervision the moment the operator commits a
+    // running cell out of supervision the moment the operator commits a
     // correction the benchmark skill tells them to commit, and the verdict
     // concerns a review that already ran against the retained workspace.
     if (retained.cell.subject !== current.subject)

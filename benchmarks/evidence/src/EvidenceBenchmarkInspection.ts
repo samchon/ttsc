@@ -408,11 +408,11 @@ export namespace EvidenceBenchmarkInspection {
   /**
    * Builds the objective the inspecting thread receives.
    *
-   * It judges two questions and nothing else. The first is whether the loop the
-   * attempt was told to run actually ran; the second is whether the tests are
-   * real. Everything else the inspection notices is recorded in the rationale
-   * the operator reads, never handed to the cell — a cell that corrects what it
-   * was told about has shown it can act on a finding, not reach one.
+   * It judges the questions its arm's review is answerable for and nothing
+   * else, and `questions` owns which those are. Everything the inspection
+   * notices beyond them is recorded in the rationale the operator reads, never
+   * handed to the cell: a cell that corrects what it was told about has shown
+   * it can act on a finding, not reach one.
    */
   function composePrompt(props: {
     arm: EvidenceBenchmarkArm;
@@ -478,7 +478,7 @@ export namespace EvidenceBenchmarkInspection {
         `2. ${tests}`,
       ];
     return [
-      "## Judge Exactly Six Questions",
+      "## Judge Exactly Seven Questions",
       "",
       "The workspace carries `@evidence` and `@evidenceExclude` tags whose targets the compiler has already resolved. Resolution is not truth, and truth is what you are judging.",
       "",
@@ -486,8 +486,9 @@ export namespace EvidenceBenchmarkInspection {
       "2. **Does every screen use the hooks it cites, and render data serving the requirement it cites?** A page that mounts a hook and renders nothing from it, or whose cited requirement describes values the page discards, fails this.",
       "3. **Does every journey assert an observable outcome for each requirement it cites?** A journey that opens a screen, asserts a status code or a non-empty body, and never performs the action its cited requirement names, proves availability rather than behavior.",
       "4. **Is every `@evidenceExclude` a reviewed non-applicability decision?** It must name what owns the target instead and a condition that would make the decision false. An exclusion standing in for work this layer owes is the one outcome the graph exists to prevent, and it looks exactly like a passing build.",
-      "5. **Does any citation name an ancestor whose subtree the host does not own?** A parent target acknowledges every selected descendant, so citing one is truthful only when the host owns the whole subtree.",
-      `6. ${tests}`,
+      "5. **Does every citation name only targets whose subtree the host owns?** A parent target acknowledges every selected descendant, so citing one is truthful only when the host owns the whole subtree, and a citation reaching past what the host delivers discharges obligations nobody met.",
+      "6. **Does any `@todo` remain under the workspace source?** The backend stages a rule that fails the build on one; the frontend has only a sweep the author runs and reports, so a stub shipped as done survives every gate the workspace has.",
+      `7. ${tests}`,
     ];
   }
 
