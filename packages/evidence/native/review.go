@@ -202,6 +202,8 @@ func readHostTags(
           cited.byTarget[declaration.Target] = declaration.Tag
         }
       }
+      // Reset per block, because that is the scope a duplicate lives in.
+      seenReviewBlocks := map[string]bool{}
       for _, review := range parseReviews(comment) {
         if review.Target == "" {
           // A review with no target at all is reported against the identity
@@ -209,8 +211,19 @@ func readHostTags(
           recordTargetlessReview(&reviewed)
           continue
         }
-        if _, found := reviewed.byTarget[review.Target]; found {
+        // A duplicate is two reviews in one block, not one review on each
+        // declaration of an identity. An overload set and an `interface` beside
+        // its `namespace` are normally written by copying the block, so each
+        // half carries the same citation and the same review; counting across
+        // blocks reported that idiom as a duplicate while every citation was in
+        // fact reviewed exactly once. Citations are already deduplicated across
+        // blocks the same way, and the asymmetry was the whole defect.
+        if _, found := seenReviewBlocks[review.Target]; found {
           reviewed.duplicated = appendUniqueString(reviewed.duplicated, review.Target)
+          continue
+        }
+        seenReviewBlocks[review.Target] = true
+        if _, found := reviewed.byTarget[review.Target]; found {
           continue
         }
         stored := review

@@ -132,7 +132,7 @@ One direction is closed. Markdown cannot cite a TypeScript symbol, because a sym
 
 ## Where it runs
 
-`@ttsc/evidence` is a rule contributor to [`@ttsc/lint`](/docs/lint), not a top-level `ttsc` plugin. The compiler never loads it. `lint.config.ts` does, and its four rules run inside the lint engine's own binary, on the AST and types the type-check pass already built.
+`@ttsc/evidence` is a rule contributor to [`@ttsc/lint`](/docs/lint), not a top-level `ttsc` plugin. The compiler never loads it. `lint.config.ts` does, and its five rules run inside the lint engine's own binary, on the AST and types the type-check pass already built.
 
 ## The shape of the chapter
 
@@ -140,7 +140,7 @@ Install, one claim, and the first failing build are in [Setup → Evidence Graph
 
 1. [Claims and References](/docs/evidence/claims): the whole configuration surface, from symbol selectors to monorepo roots and reference policies.
 2. [Evidence Tags](/docs/evidence/tags): the tag grammar, target forms, and where a tag may live in each artifact kind.
-3. [Rules](/docs/evidence/rules): `evidence/graph`, `evidence/documented`, `evidence/singular`, and `evidence/todo`.
+3. [Rules](/docs/evidence/rules): `evidence/graph`, `evidence/documented`, `evidence/singular`, `evidence/todo`, and `evidence/review`.
 4. [Full-Stack Wiring](/docs/evidence/wiring): a real monorepo chain, from requirements through schema, API, tests, hooks, screens, and journeys.
 5. [Adoption](/docs/evidence/adoption): the smallest useful wiring, document-to-document chains, and staged rollout on a legacy codebase.
 

@@ -310,6 +310,12 @@ type referenceState struct {
   Paths  []string
   Units  []*evidenceUnit
   Scopes []*evidenceUnit
+  // Population is every unit this reference's files materialized, selected or
+  // not. Units and Scopes are both narrowed by the `symbol` selector, so
+  // neither can answer what a cited scope structurally contains, and a review
+  // fingerprint has to be a property of the cited address rather than of the
+  // reference that asked for it.
+  Population []*evidenceUnit
   // Published names the module-and-address pairs a citation may use, for a
   // population selected by walking module exports. Left empty when the
   // population's addresses belong to the files that declare them.

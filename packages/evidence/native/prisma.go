@@ -622,6 +622,26 @@ func prismaDeclarationsFromComments(
         inventory.Declarations = append(inventory.Declarations, declaration)
       }
     }
+    // Reviews are read here for the same reason the citations are. Without
+    // this, a Prisma claim citing a reference that requires a review reports
+    // every citation unreviewed forever, and the repair the message names —
+    // write the tag in this documentation comment — has no effect, because
+    // nothing reads the tag back out. A diagnostic must never name a repair the
+    // author cannot perform.
+    for _, review := range parseReviews(run.Body) {
+      shared := &evidenceReview{
+        HostID:      host.ID,
+        Type:        artifactPrisma,
+        Target:      review.Target,
+        Fingerprint: review.Fingerprint,
+        Description: review.Description,
+        Path:        run.Path,
+        Line:        run.Line + review.LineOffset,
+      }
+      for _, inventory := range hosted {
+        inventory.Reviews = append(inventory.Reviews, shared)
+      }
+    }
   }
   return problems
 }

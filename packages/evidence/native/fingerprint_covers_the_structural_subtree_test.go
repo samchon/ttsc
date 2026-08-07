@@ -1,6 +1,7 @@
 package evidence
 
 import (
+  "strings"
   "testing"
 )
 
@@ -93,7 +94,15 @@ export interface ISale {
 `,
   }, requireReviewConfig)
   assertProblemContains(t, messages, "Unresolved evidence target 'docs/spec.md#refunds'")
-  if count := countProblemsContaining(messages, "for 'docs/spec.md#refunds'"); count != 1 {
-    t.Fatalf("expected only the resolution finding for the unresolved target, got %d:\n%v", count, messages)
+  // The property is that no *review* finding is derived from the unresolved
+  // citation, so both halves are matched rather than one phrase that happened to
+  // appear in the resolution message. An earlier form of this assertion counted
+  // `for '<target>'`, which the resolution diagnostic spells `target '<target>'`,
+  // so it counted zero and failed while the behavior under test was correct.
+  for _, message := range messages {
+    if strings.Contains(message, "@evidenceReview") &&
+      strings.Contains(message, "docs/spec.md#refunds") {
+      t.Fatalf("an unresolved citation produced a review finding:\n%s", message)
+    }
   }
 }

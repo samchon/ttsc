@@ -259,7 +259,14 @@ func scanMarkdownInventory(
       continue
     }
     comment := content[match[2]:match[3]]
-    for _, parsed := range parseDeclarations(comment) {
+    // Tag boundaries are on. Without them a line opening with another `@tag`
+    // does not close the declaration above it, so an `@evidenceReview` written
+    // under an `@evidence` inside one HTML comment was swallowed into that
+    // citation's reason: the review vanished and the reason grew a sentence the
+    // author addressed to a different question. JSDoc gets the boundary from its
+    // own syntax and Prisma asks for it explicitly; Markdown needs it for the
+    // same reason and had been left without it.
+    for _, parsed := range parseCommentDeclarations(comment, true) {
       sequence++
       inventory.Declarations = append(inventory.Declarations, &evidenceDeclaration{
         ID:              "markdown:" + address.Key + ":" + decimal(line+parsed.LineOffset) + ":" + decimal(sequence),
@@ -308,16 +315,42 @@ func assignMarkdownDigests(
   hostIDAtLine []string,
   commentAtLine []bool,
 ) {
+  // Only a line whose host is a real unit can be attributed directly. A heading
+  // deeper than H4, and one whose title yields no anchor, both advance the
+  // current host to an ID no unit carries, so their bodies would land in a
+  // bucket nothing ever reads: rewriting an `##### Details` section under a
+  // cited H4 would change no digest and expire no review. Those lines are
+  // folded into the nearest ancestor that is a unit instead, which is the unit a
+  // citation of that region actually names.
+  units := map[string]*evidenceUnit{}
+  for _, unit := range inventory.Units {
+    units[unit.ID] = unit
+  }
   owned := map[string][]string{}
+  fallback := ""
   for index := range lines {
+    id := hostIDAtLine[index]
+    if units[id] != nil {
+      fallback = id
+    } else {
+      id = fallback
+    }
     if index < len(commentAtLine) && commentAtLine[index] {
       continue
     }
-    id := hostIDAtLine[index]
     if id == "" {
       continue
     }
-    owned[id] = append(owned[id], strings.TrimSuffix(lines[index], "\r"))
+    // A comment opening after prose on the same line is still a tag position:
+    // the declaration scan runs over the whole document, so it finds a citation
+    // or a review there. Only the comment span comes out, never the line, or the
+    // prose beside it would vanish from the digest and a real content change
+    // would stop expiring anything.
+    content := markdownCommentPattern.ReplaceAllString(
+      strings.TrimSuffix(lines[index], "\r"),
+      "",
+    )
+    owned[id] = append(owned[id], content)
   }
   for _, unit := range inventory.Units {
     unit.Digest = contentDigest(strings.Join(owned[unit.ID], "\n"))

@@ -353,6 +353,18 @@ func splitReviewFingerprint(remainder string) (string, string) {
     }
   }
   if len(candidate) != reviewFingerprintLength || !isLowerHex(candidate) {
+    // A rejected token stays in the description, because it is usually prose: a
+    // requirement anchor such as `#req-search-policies` opens a sentence in
+    // exactly this shape and the author's words must survive.
+    //
+    // Unless it is the whole body. `#A3F9C1D` alone is a fingerprint whose case
+    // is wrong, not a description, and treating it as prose would let the
+    // shortest wrong path an author can take pass silently: paste the expected
+    // value, get the case wrong, stop, and ship a review that states nothing
+    // while satisfying the non-empty test. Reported as malformed instead.
+    if description == "" {
+      return "", ""
+    }
     return "", remainder
   }
   return candidate, description

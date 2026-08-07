@@ -393,6 +393,19 @@ func materializeClaimStates(
         }
       }
       sortUnits(referenceState.Scopes)
+      // The complete materialized population is kept because a review
+      // fingerprint must not depend on this reference's `symbol` selector.
+      // Units and Scopes hold only what this reference selected plus the
+      // ancestors of those, so an unselected descendant appears in neither, and
+      // composing a scope digest from them made the value a function of the
+      // reference rather than of the cited address: a narrowed selector dropped
+      // the subtree from the digest, and two references over one scope demanded
+      // two different values from a tag that carries one token, which no author
+      // could satisfy.
+      for _, unit := range availableUnits {
+        referenceState.Population = append(referenceState.Population, unit)
+      }
+      sortUnits(referenceState.Population)
       if len(referencePaths) != 0 &&
         len(referenceState.Units) == 0 &&
         referenceState.Healthy &&
@@ -921,16 +934,15 @@ func reviewProblems(
   if declaration == nil || scope == nil {
     return nil
   }
-  // Both slices are needed and neither alone is enough. A cited aggregate may
-  // be an ancestor that is resolvable without being selected, so it appears in
-  // Scopes and not in Units; its descendants are the selected units. Passing one
-  // would silently drop either the root or the subtree, and a fingerprint over a
-  // smaller scope is not a smaller failure, it is a review that stops expiring.
-  // `collectScopeUnits` dedupes by identity, so the overlap costs nothing.
-  expected := scopeFingerprint(
-    append(append([]*evidenceUnit{}, reference.Scopes...), reference.Units...),
-    scope.ID,
-  )
+  // The complete population is what the digest walks, never Units or Scopes.
+  // Both of those are narrowed by this reference's `symbol` selector, so an
+  // unselected descendant is absent from each: a Markdown reference selecting
+  // only `h2` would fingerprint a cited section without the H3 bodies inside it,
+  // and a review of it would never expire however much of that subtree was
+  // rewritten. Worse, two references over one scope under different selectors
+  // would then expect two different digests from a tag that carries exactly one
+  // fingerprint token, and no value an author could write would satisfy both.
+  expected := scopeFingerprint(reference.Population, scope.ID)
   if expected == "" {
     return nil
   }
@@ -1100,6 +1112,10 @@ func applyTraversedScopes(state *referenceState, reached []*evidenceUnit) {
     }
   }
   sortUnits(state.Scopes)
+  // Every reached declaration, selected or not, so a review fingerprint over a
+  // cited scope walks the structure rather than this reference's selection.
+  state.Population = append(state.Population, reached...)
+  sortUnits(state.Population)
 }
 
 // materializeLocalTypeScriptReference selects modules of the active project

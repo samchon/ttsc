@@ -31,6 +31,25 @@ func normalizeFingerprintText(text string) string {
   for len(lines) != 0 && lines[len(lines)-1] == "" {
     lines = lines[:len(lines)-1]
   }
+  // Leading blank lines go for a sharper reason. A TypeScript node's position is
+  // its *full* start, meaning the end of the previous token, so an undocumented
+  // declaration's span begins with whatever blank lines and `//` comments sit
+  // above it. Keeping them made inserting one blank line elsewhere in the file
+  // expire a review, and inconsistently: the same edit above a *documented*
+  // declaration is neutral, because the whole leading run through `*/` is
+  // excluded as a tag position. Dropping them makes both cases agree and honors
+  // the rule that a reformat which changes no content expires nothing.
+  // A leading `//` comment goes with them, and only a leading one. It sits in
+  // the span for the same reason the blank lines do, it is not content of the
+  // declaration, and an interior one is left alone because inside a declaration
+  // body a comment is part of what the author wrote there.
+  for len(lines) != 0 {
+    first := strings.TrimSpace(lines[0])
+    if first != "" && !strings.HasPrefix(first, "//") {
+      break
+    }
+    lines = lines[1:]
+  }
   return strings.Join(lines, "\n")
 }
 
