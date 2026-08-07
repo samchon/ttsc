@@ -495,17 +495,38 @@ const EXCEPTIONS = new Map([
     "packages/evidence/native/prisma.go",
     "ttsc#1106: as above, for both Prisma declaration hosts",
   ],
-  [
-    "packages/evidence/native/typescript.go",
-    "ttsc#1106: as above",
-  ],
+  ["packages/evidence/native/typescript.go", "ttsc#1106: as above"],
   [
     "packages/evidence/native/graph_requires_the_declared_role_test.go",
     "ttsc#1106: local only, upstream has no relation to prove",
   ],
   [
+    "packages/evidence/native/hints_offer_the_declared_role_test.go",
+    "ttsc#1106: local only, as above for the completion corpus",
+  ],
+  [
+    "packages/evidence/native/hints.go",
+    "ttsc#1106: a configured relation earns its own completion trigger, because `@evidence ` cannot match the one tag the reference accepts",
+  ],
+  [
+    "packages/evidence/native/hints_project_the_configured_population_test.go",
+    "ttsc#1106: the trigger-separation case reads the relation trigger too",
+  ],
+  [
+    "packages/evidence/native/configuration_validates_reference_policy_test.go",
+    "ttsc#1106: `role` joins the shared policy cases and brings the negative table its value type needs",
+  ],
+  [
     "packages/evidence/src/structures/ITtscEvidenceGraphReferenceBase.ts",
     "ttsc#1106: `role` joins the published reference contract",
+  ],
+  [
+    ".agents/skills/project/evidence/SKILL.md",
+    "ttsc#1106: the rule contract carries the relation grammar, the policy, and its completion trigger",
+  ],
+  [
+    "tests/test-evidence-benchmark/src/internal/stripCitations.ts",
+    "ttsc#1106: a citation carrying a relation is still a citation, and a cell must not start with one",
   ],
   [
     "benchmarks/evidence/src/executable/EvidenceBenchmarkSupervision.ts",

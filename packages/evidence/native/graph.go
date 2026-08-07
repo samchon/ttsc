@@ -619,6 +619,13 @@ func evaluateEvidenceGraph(
   // carrier globs its message must name.
   outsideCarrier := map[string][]string{}
   outsideCarrierGlobs := map[string]string{}
+  // A declaration whose relation no obligation wanted discharges nothing, and
+  // the missing-unit diagnostic names the reference rather than the tag. Both
+  // ends of that need saying, so the refusals are collected here alongside the
+  // obligations the declaration did answer for, which is what separates a tag
+  // refused everywhere from one that answers reference A and not reference B.
+  refusedRole := map[string][]string{}
+  discharges := map[string]bool{}
   for _, state := range states {
     if len(state.Paths) == 0 {
       continue
@@ -711,15 +718,26 @@ func evaluateEvidenceGraph(
           )
           continue
         }
-        // A reference that requires a role is discharged by the relation it
-        // names and by no other. The declaration still participates, so it is
-        // not reported as a tag that discharges nothing; it pays into the
-        // obligations whose relation it actually claims, and a unit it did not
-        // cover reports itself with the role it wanted.
-        if reference.Spec.Policy.Role != "" &&
+        // A reference that requires a relation is discharged by that relation
+        // and by no other. It constrains positive evidence only: an exclusion
+        // states that the claim does not cover the target, so asking it to
+        // claim the relation would make an author write the opposite of what
+        // the tag means, and noEvidenceExclude is what decides whether a
+        // reference accepts one at all.
+        if declaration.Tag == tagEvidence &&
+          reference.Spec.Policy.Role != "" &&
           declaration.Role != reference.Spec.Policy.Role {
+          refusedRole[declaration.ID] = appendUniqueString(
+            refusedRole[declaration.ID],
+            claimLabel(state.Spec)+" "+referenceLabel(reference.Spec)+
+              " wants '"+reference.Spec.Policy.Role+"'",
+          )
           continue
         }
+        // Past every gate this obligation raises, so the declaration answers
+        // for it. Eligibility alone cannot say that: a declaration is eligible
+        // for the obligations that refused it too.
+        discharges[declaration.ID] = true
         if declaration.Tag == tagEvidence && declaration.HostID != "" {
           byScope := evidenceByHostAndScope[declaration.HostID]
           if byScope == nil {
@@ -817,9 +835,16 @@ func evaluateEvidenceGraph(
           if count == 1 {
             continue
           }
+          // A host citing this reference under another relation counts zero
+          // here, and the count alone would tell an author their one visible
+          // citation is not there.
+          cited := "cites " + decimal(count) + " distinct selected evidence unit(s)"
+          if role := reference.Spec.Policy.Role; role != "" {
+            cited += " naming the '" + role + "' relation"
+          }
           problems = append(
             problems,
-            "Evidence host "+host.Readable+" at "+host.location()+" in "+claimLabel(state.Spec)+" "+referenceLabel(reference.Spec)+" cites "+decimal(count)+" distinct selected evidence unit(s); singleEvidencePerSymbol requires exactly 1. Keep positive @evidence citations on this semantic host to exactly one distinct unit.",
+            "Evidence host "+host.Readable+" at "+host.location()+" in "+claimLabel(state.Spec)+" "+referenceLabel(reference.Spec)+" "+cited+"; singleEvidencePerSymbol requires exactly 1. Keep positive @evidence citations on this semantic host to exactly one distinct unit.",
           )
         }
       }
@@ -830,7 +855,10 @@ func evaluateEvidenceGraph(
             repair = "Use @evidence on a selected " + string(state.Spec.Type) + " host; this reference forbids @evidenceExclude."
           }
           if role := reference.Spec.Policy.Role; role != "" {
-            repair += " This reference is discharged only by a declaration naming the '" + role + "' relation, written as @evidence(" + role + ") before the target."
+            repair = "Use @evidence(" + role + ") on a selected " + string(state.Spec.Type) + " host; this reference is discharged only by a declaration naming the '" + role + "' relation."
+            if !reference.Spec.Policy.NoExclude {
+              repair += " An @evidenceExclude on an eligible carrier still answers for it, because an exclusion states that this claim does not cover the target rather than how it does."
+            }
           }
           problems = append(
             problems,
@@ -847,6 +875,25 @@ func evaluateEvidenceGraph(
         )
       }
     }
+  }
+  // Reported before the non-participation pass and separately from it. A
+  // refused declaration is eligible everywhere it was refused, so it never
+  // reaches that pass, and the two findings are mutually exclusive rather than
+  // ordered: this one fires only when the declaration answered for nothing.
+  for _, id := range declarationIDs {
+    obligations := refusedRole[id]
+    if len(obligations) == 0 || discharges[id] || uncertain[id] {
+      continue
+    }
+    declaration := declarations[id]
+    declared := "no relation"
+    if declaration.Role != "" {
+      declared = "'" + declaration.Role + "'"
+    }
+    problems = append(
+      problems,
+      "Unwanted relation on @"+string(declaration.Tag)+" at "+declaration.location()+", target '"+displayTarget(declaration.Target)+"': this declaration names "+declared+" and every obligation selecting the target wants another ("+strings.Join(obligations, "; ")+"). Name the relation the obligation asks for, or move the tag to the host that owns the relation this one claims.",
+    )
   }
   for _, id := range declarationIDs {
     if resolved[id] == "" || participates[id] {

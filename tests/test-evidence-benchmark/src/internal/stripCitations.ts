@@ -15,13 +15,20 @@ import path from "node:path";
  * Only a tag opening a JSDoc line is removed. The overlay's exclusion carriers
  * describe the tags in prose and inside backticks, and those are documentation
  * for the cell rather than citations.
+ *
+ * The optional parenthesis is the relation a reference may require. A tag
+ * carrying one is the same citation written for a stricter obligation, and a
+ * pattern demanding whitespace after the tag name would leave exactly those
+ * behind — a contaminated cell that still reports a clean strip.
  */
 export const stripCitations = (directory: string): void => {
   for (const file of walk(directory)) {
     const source: string = fs.readFileSync(file, "utf8");
     const stripped: string = source
       .split("\n")
-      .filter((line) => !/^\s*\*\s*@evidence(Exclude)?\s/.test(line))
+      .filter(
+        (line) => !/^\s*\*\s*@evidence(Exclude)?(\([^\s()]+\))?\s/.test(line),
+      )
       .join("\n");
     if (stripped !== source) fs.writeFileSync(file, stripped, "utf8");
   }

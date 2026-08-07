@@ -130,14 +130,15 @@ func declarationLine(line string) (tagKind, string, string, bool) {
       continue
     }
     remainder := line[len(candidate.marker):]
-    role, remainder, ok := splitDeclarationRole(remainder)
-    if !ok {
+    role, body := splitDeclarationRole(remainder)
+    // An opening parenthesis separates the tag from its body as surely as a
+    // space does, and only this tag can precede one, so accepting it here is
+    // what lets a malformed opener reach the target and report itself rather
+    // than stop being a declaration.
+    if body != "" && body[0] != ' ' && body[0] != '\t' && body[0] != '(' {
       continue
     }
-    if remainder != "" && remainder[0] != ' ' && remainder[0] != '\t' {
-      continue
-    }
-    return candidate.tag, role, strings.TrimSpace(remainder), true
+    return candidate.tag, role, strings.TrimSpace(body), true
   }
   return "", "", "", false
 }
@@ -153,20 +154,21 @@ func declarationLine(line string) (tagKind, string, string, bool) {
 //
 // A malformed opener is deliberately not consumed. Left in place it becomes the
 // target and reports as unresolved, naming the text the author actually wrote,
-// where swallowing it would drop the acknowledgement without a word.
-func splitDeclarationRole(remainder string) (string, string, bool) {
+// where swallowing it would drop the acknowledgement without a word. That is the
+// same choice splitInlineLinkBody makes for an unterminated `{@link`.
+func splitDeclarationRole(remainder string) (string, string) {
   if !strings.HasPrefix(remainder, "(") {
-    return "", remainder, true
+    return "", remainder
   }
   closing := strings.IndexByte(remainder, ')')
   if closing < 0 {
-    return "", remainder, false
+    return "", remainder
   }
   role := remainder[1:closing]
   if role == "" || containsWhitespace(role) {
-    return "", remainder, false
+    return "", remainder
   }
-  return role, remainder[closing+1:], true
+  return role, remainder[closing+1:]
 }
 
 // inlineLinkTags are the JSDoc inline link forms a TypeScript target may use.

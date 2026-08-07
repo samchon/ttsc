@@ -15,10 +15,13 @@ The graph is configurable. Claims select the files and declaration hosts that ow
 
 ```text
 @evidence <target> <reason>
+@evidence(<relation>) <target> <reason>
 @evidenceExclude <target> <reason>
 ```
 
 The target is one whitespace-delimited token, except that a target opening with `{@link`, `{@linkcode`, or `{@linkplain` runs to its closing brace. Everything after the target is prose. A declaration may carry any number of tags. Every tag requires a target and non-empty reason and is validated independently.
+
+The parenthesized relation is optional and names what the acknowledgement claims, for the references that require one. It is one whitespace-free token immediately after the tag name, so `@evidence (target)` keeps its historical meaning: the space makes the parenthesis part of the target. A malformed opener is not consumed and becomes the target, reporting the text the author wrote rather than silently ceasing to be a declaration.
 
 ```ts
 /** @evidence docs/spec.md#pricing Sale price derives from this section. */
@@ -124,14 +127,15 @@ Several declaration hosts may acknowledge the same unit with `@evidence`, unless
 
 ## Reference Policies
 
-A reference may strengthen its own acknowledgement relation with `noExclude`, `uniqueEvidence`, and `singleEvidencePerSymbol`, declared flat on the reference object. Every option is opt-in, its false value is the historical behavior, and constraints never cross or pool between reference-array elements — including identical and overlapping references.
+A reference may strengthen its own acknowledgement relation with `noEvidenceExclude`, `uniqueEvidence`, `role`, and `singleEvidencePerSymbol`, declared flat on the reference object. Every option is opt-in, its zero value is the historical behavior, and constraints never cross or pool between reference-array elements — including identical and overlapping references.
 
 - **A refused exclusion is reference-local.** Report one diagnostic for the declaration and reference, give that reference no coverage from it, and leave the missing positive coverage visible. The same declaration may still satisfy another reference that allows exclusions.
 - **`uniqueEvidence` counts distinct semantic claim hosts per selected unit.** Declaration merging and overloads remain one host, several tags on one host count once, and an exclusion never contributes a host. A unit no host cites is reported as missing coverage instead.
 - **`singleEvidencePerSymbol` counts distinct selected units per claim host.** Begin from the complete selected host population so a host with no tag counts as zero, and count reference-unit identities reached by `@evidence`, including every selected descendant of an aggregate scope. Do not count tags, source positions, or exclusions.
+- **`role` asks what an acknowledgement is rather than how many there are.** It constrains positive evidence only: only `@evidence(<role>)` naming the same word discharges the reference, while an exclusion still answers because it states that the claim does not cover the target rather than how it does, and `noEvidenceExclude` is what refuses one. A declaration every selecting obligation refuses the relation of reports at its own location, since the missing-unit diagnostic names the reference rather than the tag. Reject a configured relation carrying whitespace or a parenthesis: no tag could name it, so every unit would owe an acknowledgement no author could write.
 - **Incomplete populations establish no cardinality.** Preserve the loader failure and derive no count from a partial denominator. A healthy population that is merely empty is a complete denominator, so a host still truthfully cites zero units against it.
 
-Completion keeps every positive target. At the exclusion trigger, omit a target selected only by references that refuse exclusions, and keep one any enabled reference still allows. The hint API has no cursor or claim context, so cardinality stays an evaluation diagnostic rather than a completion filter.
+Completion keeps every positive target. At the exclusion trigger, omit a target selected only by references that refuse exclusions, and keep one any enabled reference still allows. A configured relation earns its own trigger, `@evidence(<relation>) `, carrying the targets that relation discharges and no others, because the host matches a trigger against the line prefix and `@evidence ` never matches a line that opens a parenthesis. The hint API has no cursor or claim context, so cardinality stays an evaluation diagnostic rather than a completion filter.
 
 ## Exclusions
 

@@ -77,8 +77,6 @@ export interface ITtscEvidenceGraphReferenceBase<Type extends string> {
    * The vocabulary is yours. The rule checks that the relation a reference asks
    * for is the relation a declaration claims, and never that the claim is true;
    * that remains what a reviewer reads the reason for.
-   *
-   * @default undefined
    */
   role?: string;
 

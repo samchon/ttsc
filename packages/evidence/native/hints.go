@@ -88,39 +88,84 @@ func (graphRule) Hints(ctx *rule.HintContext) []rule.Hint {
   }
   corpus := cycle.Corpus
   hints := []rule.Hint{}
-  for _, trigger := range evidenceHintTriggers {
-    exclusion := trigger.After == "@evidenceExclude "
+  for _, audience := range evidenceHintAudiences(corpus.Config) {
     units := selectedCompletionUnits(
       corpus.Config,
       corpus.Markdown,
       corpus.Prisma,
       corpus.Swagger,
-      exclusion,
+      audience,
     )
-    routes := selectsTypeScriptReference(corpus.Config, exclusion)
+    routes := selectsTypeScriptReference(corpus.Config, audience)
     if routes {
-      hints = append(hints, typeScriptRouteHint(trigger))
+      hints = append(hints, typeScriptRouteHint(audience.Trigger))
     }
     for _, unit := range units {
       hints = append(hints, rule.Hint{
         Insert:  unit.Target,
         Detail:  unit.Readable,
-        Trigger: trigger,
+        Trigger: audience.Trigger,
       })
     }
   }
   return hints
 }
 
-// evidenceHintTriggers names both tag positions a target can be written in.
+// hintAudience is one tag position and the obligations writable at it.
+//
+// A trigger is not enough on its own. `@evidence ` and `@evidence(produces) `
+// are different positions offering different populations, and the difference is
+// the reference policy rather than anything about the text.
+type hintAudience struct {
+  Trigger   rule.HintTrigger
+  Exclusion bool
+  Role      string
+}
+
+// evidenceHintAudiences names every tag position a target can be written in.
 //
 // Each `After` ends where the target begins, which is what makes the text the
 // author has typed so far the editor's filter. The trailing space also keeps
-// the two apart: `"@evidence "` cannot occur inside `"@evidenceExclude "`,
-// because the character following `@evidence` there is `E`.
-var evidenceHintTriggers = []rule.HintTrigger{
-  {Scope: rule.HintScopeJSDoc, After: "@evidence "},
-  {Scope: rule.HintScopeJSDoc, After: "@evidenceExclude "},
+// them apart: `"@evidence "` occurs inside neither `"@evidenceExclude "` nor
+// `"@evidence(produces) "`, because the character following `@evidence` is `E`
+// in the first and `(` in the second.
+//
+// A configured relation earns its own position because it is a position an
+// author must type: a reference declaring one is discharged by `@evidence(role)`
+// and by nothing else, so completing only the role-free tag would hand the
+// author a target the obligation refuses, and completing nothing after the
+// relation would leave the tag the rule demands as the one tag with no help at
+// all. Offering the plain position only the role-free obligations is the same
+// rule read from the other side.
+func evidenceHintAudiences(config graphConfig) []hintAudience {
+  audiences := []hintAudience{
+    {Trigger: rule.HintTrigger{Scope: rule.HintScopeJSDoc, After: "@evidence "}},
+    {
+      Trigger:   rule.HintTrigger{Scope: rule.HintScopeJSDoc, After: "@evidenceExclude "},
+      Exclusion: true,
+    },
+  }
+  roles := []string{}
+  seen := map[string]bool{}
+  for _, claim := range config.Claims {
+    for _, reference := range claim.References {
+      if role := reference.Policy.Role; role != "" && !seen[role] {
+        seen[role] = true
+        roles = append(roles, role)
+      }
+    }
+  }
+  sort.Strings(roles)
+  for _, role := range roles {
+    audiences = append(audiences, hintAudience{
+      Trigger: rule.HintTrigger{
+        Scope: rule.HintScopeJSDoc,
+        After: "@evidence(" + role + ") ",
+      },
+      Role: role,
+    })
+  }
+  return audiences
 }
 
 // typeScriptRouteHint routes the author into TypeScript's own completion.
@@ -156,16 +201,29 @@ func typeScriptRouteHint(trigger rule.HintTrigger) rule.Hint {
 // a repository mixing a TypeScript-citing claim with a Markdown-only one offers
 // the entry in both. Narrowing that needs a per-file corpus, which the contract
 // deliberately does not have.
-func selectsTypeScriptReference(config graphConfig, exclusion bool) bool {
+func selectsTypeScriptReference(config graphConfig, audience hintAudience) bool {
   for _, claim := range config.Claims {
     for _, reference := range claim.References {
       if reference.Type == artifactTypeScript &&
-        (!exclusion || !reference.Policy.NoExclude) {
+        audience.accepts(reference) {
         return true
       }
     }
   }
   return false
+}
+
+// accepts reports whether a reference can be discharged from this position.
+//
+// A relation constrains positive evidence only, which is why the exclusion
+// position ignores it: an exclusion states that the claim does not cover the
+// target rather than how it does, and `noEvidenceExclude` is what decides
+// whether a reference accepts one at all.
+func (audience hintAudience) accepts(reference referenceSpec) bool {
+  if audience.Exclusion {
+    return !reference.Policy.NoExclude
+  }
+  return reference.Policy.Role == audience.Role
 }
 
 // selectedCompletionUnits collects the units some configured reference selects,
@@ -199,13 +257,13 @@ func selectedCompletionUnits(
   markdown map[string]*artifactInventory,
   prisma map[string]*artifactInventory,
   swagger map[string]*artifactInventory,
-  exclusion bool,
+  audience hintAudience,
 ) []*evidenceUnit {
   ranked := map[string][]*evidenceUnit{}
   seen := map[string]bool{}
   for _, claim := range config.Claims {
     for _, reference := range claim.References {
-      if exclusion && reference.Policy.NoExclude {
+      if !audience.accepts(reference) {
         continue
       }
       inventories := inventoriesOf(
