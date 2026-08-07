@@ -189,10 +189,20 @@ type evidenceUnit struct {
   // never selected and never hosts a declaration; it is retained only so a
   // citation of it can be told why the target it names is not there.
   Hidden string
-  // Digest is this unit's own content, hashed after normalization and with
-  // every position a tag can live in removed. Descendants are not folded in
-  // here; `scopeFingerprint` composes them, so one unit's digest stays a
-  // property of that unit alone.
+  // Digest is this unit's content, hashed after normalization and with every
+  // position a tag can live in removed.
+  //
+  // How much "its content" is depends on the artifact, and the difference is
+  // load-bearing rather than incidental. A Markdown heading owns the lines
+  // between it and the next heading, so a subsection's body belongs to the
+  // subsection. A TypeScript unit owns its whole declaration text, which
+  // **contains** every nested member's text, because that is what a declaration
+  // is: there is no reading of `interface ISale` that excludes its properties.
+  //
+  // So a nested change moves both its own unit's digest and every enclosing
+  // unit's. `scopeIndex` composes ancestors and descendants anyway, so detection
+  // is unaffected, but nothing here may assume a unit's digest is independent of
+  // its subtree. A feature built on that assumption was reverted once already.
   //
   // Removing the documentation comment is what stops the review from
   // invalidating itself: writing an `@evidenceReview` inside a unit that is

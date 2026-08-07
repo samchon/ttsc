@@ -100,6 +100,13 @@ export interface ITtscEvidenceGraphReferenceBase<Type extends string> {
    * that demanded it. One tag therefore carries one fingerprint no matter how
    * many references it acknowledges.
    *
+   * Expect a citation of a TypeScript symbol to expire on any change inside
+   * that declaration, including one behind `@internal`. A declaration's digest
+   * is its own text and a nested member sits inside it, so the subtree cannot
+   * be carved out the way a Markdown section's subsections can. Cite the
+   * narrowest symbol that actually answers for the requirement if that breadth
+   * is unwelcome.
+   *
    * Only Markdown and TypeScript references accept this today. A Swagger or
    * Prisma reference is refused at decode, because those loaders report unit
    * identities rather than unit content and no per-unit fingerprint exists to
