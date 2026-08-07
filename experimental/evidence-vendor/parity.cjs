@@ -544,6 +544,14 @@ const EXCEPTIONS = new Map([
     "ttsc#1092: local only, upstream has no confined coverage to prove",
   ],
   [
+    "packages/evidence/native/documented.go",
+    "ttsc#1092 and ttsc#1106: a file rule has no claim binding, so it stops naming a citation shape it cannot know a reference will accept",
+  ],
+  [
+    "packages/evidence/native/markdown.go",
+    "ttsc#1092 and ttsc#1106: the repair is about the filename, so it says what the path must be rather than spelling the tag around it",
+  ],
+  [
     "packages/evidence/native/prescriptions_speak_with_one_voice_test.go",
     "ttsc#1092 and ttsc#1106: local only, the check that every sentence prescribing a citation for one target names one tag",
   ],

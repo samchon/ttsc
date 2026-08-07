@@ -1,6 +1,9 @@
 package evidence
 
 import (
+  "go/ast"
+  "go/parser"
+  "go/token"
   "os"
   "regexp"
   "sort"
@@ -20,6 +23,14 @@ var prescribedGrammars = regexp.MustCompile(
   `(?:Use |Write '|cite the target with ')(@evidence(?:Exclude)?(?:\([^\s()]+\))?)`,
 )
 
+// collectPrescribedGrammars reads what one evaluation prescribes for one
+// target.
+//
+// A message naming another target is another obligation's business and may
+// prescribe another tag; the rule binds the sentences about one cited thing. A
+// malformed declaration may name no target at all, so it belongs to every
+// group: whatever it prescribes has to agree with everything the author will be
+// told once the target is there.
 func collectPrescribedGrammars(messages []string, target string) []string {
   seen := map[string]bool{}
   found := []string{}
@@ -184,79 +195,72 @@ export function testExcluded(): void {}
 }
 
 /**
- * Verifies every site that prescribes a citation is one the check above can read.
+ * Verifies no source in this package spells a citation grammar of its own.
  *
- * `prescribedGrammars` matches message prose, so a site phrased in a way it does not know is a site nobody checks. That is not hypothetical: the exclusion repair shipped saying something the other three sites did not, and the check saw nothing, because it read two of the four shapes. Reading the call sites out of the source rather than the messages is what makes a new one fail here instead of silently.
+ * The collector reads message prose, so a site phrased in a way its pattern does not know is a site nobody checks; that is how the exclusion repair shipped disagreeing with three others. Reading lines for two helper names checked the wrong thing in both directions at once: it rejected a refactor that changed no message, and it admitted a fifth helper, a lead-in the collector cannot follow, a hand-spelled grammar under a new phrase, and a second call on one line. The property that actually holds is narrower and mechanical, and it reaches every file rather than the one the last check knew about.
  *
- *  1. Find every call to the two grammar helpers in the rule's own source.
- *  2. Assert each one is introduced by a phrase the collector recognizes.
- *  3. Assert the helpers are the only way a prescription is built.
+ *  1. Parse every non-test source in the package.
+ *  2. Find every string literal spelling the shape an author is told to type.
+ *  3. Assert each one is inside a function whose job is to answer what that grammar is.
  */
-func TestEveryPrescribingSiteIsRead(t *testing.T) {
-  source, err := os.ReadFile("graph.go")
+func TestNoSourceSpellsACitationGrammar(t *testing.T) {
+  // `@evidenceExclude` never carries a relation, so its spelling cannot go
+  // stale and every site may write it. The parenthesized form is the one a
+  // reference changes, and the marker constants are the parser's own alphabet
+  // rather than advice to an author.
+  answering := map[string]bool{
+    "writtenTagGrammar":       true,
+    "requiredCitationGrammar": true,
+    "evidenceHintAudiences":   true,
+  }
+  // Naming the tag family is not prescribing a citation: "Duplicate @evidence
+  // for 'x'" says which tag it found. What goes stale is the shape an author is
+  // told to type, which is the template and the relation opener.
+  spellings := []string{"@evidence <target>", "@evidence("}
+  entries, err := os.ReadDir(".")
   if err != nil {
-    t.Fatalf("could not read the rule's own source: %v", err)
+    t.Fatalf("could not read the package: %v", err)
   }
-  leadIns := []string{"Use ", "Write '", "cite the target with '"}
-  sites := 0
-  for index, line := range strings.Split(string(source), "\n") {
-    for _, helper := range []string{
-      "writtenTagGrammar(",
-      "requiredCitationGrammar(",
-    } {
-      at := strings.Index(line, helper)
-      // A definition or a doc comment is not a prescription.
-      if at < 0 || strings.HasPrefix(strings.TrimSpace(line), "func ") ||
-        strings.HasPrefix(strings.TrimSpace(line), "//") {
-        continue
-      }
-      sites++
-      prefix := line[:at]
-      introduced := false
-      for _, leadIn := range leadIns {
-        if strings.Contains(prefix, leadIn) {
-          introduced = true
-          break
-        }
-      }
-      if !introduced {
-        t.Fatalf(
-          "graph.go:%d prescribes a citation with a phrase collectPrescribedGrammars cannot read.\nTeach prescribedGrammars the new phrase, or use one of %v:\n%s",
-          index+1,
-          leadIns,
-          strings.TrimSpace(line),
-        )
-      }
-    }
-  }
-  if sites < 4 {
-    t.Fatalf("expected every prescribing site to be found, got %d", sites)
-  }
-
-  // A tag whose grammar can vary is prescribed through a helper or not at all.
-  // `@evidenceExclude` never carries a relation, so spelling that one is right;
-  // a literal `@evidence` after a lead-in is a site inventing its own answer.
-  for index, line := range strings.Split(string(source), "\n") {
-    trimmed := strings.TrimSpace(line)
-    if strings.HasPrefix(trimmed, "//") {
+  fileSet := token.NewFileSet()
+  spelled := []string{}
+  for _, entry := range entries {
+    name := entry.Name()
+    if !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") {
       continue
     }
-    for _, leadIn := range leadIns {
-      at := strings.Index(line, leadIn)
-      if at < 0 {
-        continue
-      }
-      rest := line[at+len(leadIn):]
-      if !strings.HasPrefix(rest, "@evidence") ||
-        strings.HasPrefix(rest, "@evidenceExclude") {
-        continue
-      }
-      t.Fatalf(
-        "graph.go:%d spells a citation grammar instead of asking for it:\n%s",
-        index+1,
-        trimmed,
-      )
+    parsed, err := parser.ParseFile(fileSet, name, nil, 0)
+    if err != nil {
+      t.Fatalf("could not parse %s: %v", name, err)
     }
+    for _, declaration := range parsed.Decls {
+      function, isFunction := declaration.(*ast.FuncDecl)
+      if !isFunction || answering[function.Name.Name] {
+        continue
+      }
+      ast.Inspect(function, func(node ast.Node) bool {
+        literal, isLiteral := node.(*ast.BasicLit)
+        if !isLiteral || literal.Kind != token.STRING {
+          return true
+        }
+        for _, spelling := range spellings {
+          if !strings.Contains(literal.Value, spelling) {
+            continue
+          }
+          spelled = append(
+            spelled,
+            fileSet.Position(literal.Pos()).String()+": "+literal.Value,
+          )
+          return false
+        }
+        return true
+      })
+    }
+  }
+  if len(spelled) != 0 {
+    t.Fatalf(
+      "these spell a citation grammar instead of asking for it, so nothing keeps them agreeing with the rest of the build:\n%s",
+      strings.Join(spelled, "\n"),
+    )
   }
 }
 
@@ -292,7 +296,7 @@ func TestPrescriptionNamesOnlyWhatTheAddressedHostCouldSatisfy(t *testing.T) {
     }
   ]}`
   sources := map[string]string{
-    "docs/spec.md":     "## Refund {#refund}\n",
+    "docs/spec.md": "## Refund {#refund}\n",
     "src/api/refund.ts": `export function refund(): void {}
 `,
     "src/test/refund.ts": `export function testRefund(): void {}
@@ -331,6 +335,98 @@ export function testRefund(): void {}
   if clean := runIndexRule(t, sources, config); len(clean) != 0 {
     t.Fatalf(
       "following both prescriptions did not clear the build:\n%s",
+      strings.Join(clean, "\n"),
+    )
+  }
+}
+
+/**
+ * Verifies a target naming an aggregate scope is prescribed the relation its units want.
+ *
+ * A repair runs before resolution and has only the text the author wrote, so the lookup has to answer for what a target can name rather than for what a reference selects. Keyed on selected units alone it answers nothing for a scope, and the site then prescribes the bare tag while the diagnostic beside it asks for the relation. The inversion is the tell: a target resolving to nothing would have been served better than one resolving correctly.
+ *
+ *  1. Require a relation on a reference selecting headings.
+ *  2. Cite the file, which is their containing scope and not itself selected.
+ *  3. Assert the repair and the owed unit name the same relation.
+ */
+func TestAggregateTargetIsPrescribedItsUnitsRelation(t *testing.T) {
+  messages := runIndexRule(t, map[string]string{
+    "docs/spec.md": "## Contract {#contract}\n",
+    "src/test.ts": `/** @evidence docs/spec.md */
+export function testContract(): void {}
+`,
+  }, `{"claims":[{
+    "type":"typescript",
+    "files":["src/**"],
+    "symbol":"function",
+    "reference":{
+      "type":"markdown",
+      "files":["docs/spec.md"],
+      "symbol":"h2",
+      "role":"implements"
+    }
+  }]}`)
+  assertProblemContains(t, messages, "Write '@evidence(implements) <target> <reason>'")
+  grammars := collectPrescribedGrammars(messages, "docs/spec.md#contract")
+  if len(grammars) != 1 || grammars[0] != "@evidence(implements)" {
+    t.Fatalf(
+      "the scope and the unit it covers were prescribed differently: %v\n%s",
+      grammars,
+      strings.Join(messages, "\n"),
+    )
+  }
+}
+
+/**
+ * Verifies a host owing two claims is told one tag both of them take.
+ *
+ * Where two claims select the same files, one host answers to both, so the claim that noticed a missing unit is not the whole of what its repair must satisfy. Naming only its own requirement prescribes the one tag that cannot clear the build, and the author writes it, rebuilds, and is refused by the claim nobody mentioned.
+ *
+ *  1. Point two claims at one file population, one requiring a relation and one requiring none.
+ *  2. Read what each tells the shared host to write.
+ *  3. Assert both name the relation, and that writing it clears the build.
+ */
+func TestSharedHostHearsOneTagFromBothClaims(t *testing.T) {
+  const config = `{"claims":[
+    {
+      "name":"implementation",
+      "type":"typescript",
+      "files":["src/**"],
+      "symbol":"function",
+      "reference":{"type":"markdown","files":["docs/spec.md"],"symbol":"h2"}
+    },
+    {
+      "name":"proofs",
+      "type":"typescript",
+      "files":["src/**"],
+      "symbol":"function",
+      "reference":{
+        "type":"markdown",
+        "files":["docs/spec.md"],
+        "symbol":"h2",
+        "role":"proves"
+      }
+    }
+  ]}`
+  sources := map[string]string{
+    "docs/spec.md": "## Refund {#refund}\n",
+    "src/refund.ts": `export function refund(): void {}
+`,
+  }
+  grammars := collectPrescribedGrammars(
+    runIndexRule(t, sources, config),
+    "docs/spec.md#refund",
+  )
+  if len(grammars) != 1 || grammars[0] != "@evidence(proves)" {
+    t.Fatalf("a shared host was told two different tags: %v", grammars)
+  }
+
+  sources["src/refund.ts"] = `/** @evidence(proves) docs/spec.md#refund Proves the refund works. */
+export function refund(): void {}
+`
+  if clean := runIndexRule(t, sources, config); len(clean) != 0 {
+    t.Fatalf(
+      "the one prescribed tag did not clear both claims:\n%s",
       strings.Join(clean, "\n"),
     )
   }

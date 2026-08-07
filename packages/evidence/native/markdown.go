@@ -136,7 +136,7 @@ func scanMarkdownInventory(
       Readable: "Markdown file",
     })
   } else {
-    problem := "Markdown file '" + address.Display + "' cannot form an evidence target because its path contains whitespace. Rename the file so '@evidence <target> <reason>' can represent its path as one target token."
+    problem := "Markdown file '" + address.Display + "' cannot form an evidence target because its path contains whitespace. Rename the file so its path is one whitespace-free token an evidence target can carry."
     problems = append(problems, problem)
     inventory.Problems = append(inventory.Problems, inventoryProblem{
       Symbol:  "*",

@@ -528,30 +528,75 @@ type claimUnit struct {
   Unit  string
 }
 
-func requiredRoles(states []claimState) map[claimUnit]string {
-  divided := map[claimUnit]bool{}
-  roles := map[claimUnit]string{}
+type requiredRoleIndex struct {
+  Role    map[claimUnit]string
+  Divided map[claimUnit]bool
+}
+
+func requiredRoles(states []claimState) requiredRoleIndex {
+  index := requiredRoleIndex{
+    Role:    map[claimUnit]string{},
+    Divided: map[claimUnit]bool{},
+  }
+  record := func(key claimUnit, role string) {
+    if index.Divided[key] {
+      return
+    }
+    if previous, seen := index.Role[key]; seen && previous != role {
+      index.Divided[key] = true
+      delete(index.Role, key)
+      return
+    }
+    index.Role[key] = role
+  }
   for _, state := range states {
     for _, reference := range state.References {
       role := reference.Spec.Policy.Role
       if role == "" {
         continue
       }
-      for _, unit := range reference.Units {
-        key := claimUnit{Claim: state.Spec.Index, Unit: unit.ID}
-        if divided[key] {
-          continue
+      // Keyed by scope as well as by unit, because a target may name either
+      // and the site prescribing has only the text the author wrote. A scope
+      // takes the relation its covered units agree on; the scope of a selected
+      // unit contains that unit, so this subsumes the unit case rather than
+      // sitting beside it.
+      for scopeID, covered := range reference.UnitsByScope {
+        for _, unit := range covered {
+          record(claimUnit{Claim: state.Spec.Index, Unit: unit.ID}, role)
+          record(claimUnit{Claim: state.Spec.Index, Unit: scopeID}, role)
         }
-        if previous, seen := roles[key]; seen && previous != role {
-          divided[key] = true
-          delete(roles, key)
-          continue
-        }
-        roles[key] = role
       }
     }
   }
-  return roles
+  return index
+}
+
+// addressedClaims are the claims a host of this one could also answer to.
+//
+// A prescription names only a relation the addressed host could satisfy, and
+// the reporting claim is not the whole of that: where two claims select the
+// same files, one host owes both, so a repair naming only this claim's
+// requirement tells the author to write the one tag that cannot clear the
+// build. Overlap is decided on the matched paths rather than on the globs,
+// because two spellings can select one file.
+func addressedClaims(states []claimState, state claimState) []claimState {
+  claims := []claimState{state}
+  owned := map[string]bool{}
+  for _, path := range state.Paths {
+    owned[path] = true
+  }
+  for _, other := range states {
+    if other.Spec.Index == state.Spec.Index {
+      continue
+    }
+    for _, path := range other.Paths {
+      if owned[path] {
+        claims = append(claims, other)
+        break
+      }
+    }
+  }
+  return claims
 }
 
 // agreedRoleFor is the relation every owning claim requires of one unit.
@@ -561,14 +606,21 @@ func requiredRoles(states []claimState) map[claimUnit]string {
 // is the absence of a constraint, not a constraint of its own. Empty where two
 // owning claims require different relations, because then no one tag answers.
 func agreedRoleFor(
-  roles map[claimUnit]string,
+  roles requiredRoleIndex,
   owners []claimState,
   unitIDs []string,
 ) string {
   agreed := ""
   for _, owner := range owners {
     for _, unitID := range unitIDs {
-      role := roles[claimUnit{Claim: owner.Spec.Index, Unit: unitID}]
+      key := claimUnit{Claim: owner.Spec.Index, Unit: unitID}
+      // An absent key is nobody constraining this, which constrains nothing. A
+      // divided one is two obligations wanting different relations, which no
+      // single tag answers; the two look alike in the map and must not here.
+      if roles.Divided[key] {
+        return ""
+      }
+      role := roles.Role[key]
       if role == "" {
         continue
       }
@@ -600,7 +652,7 @@ func coveredUnitIDs(reference referenceState, scopeID string) []string {
 // name what they are citing and half do not. Reading the unit when it is there
 // is what keeps this site agreeing with the diagnostic that follows it.
 func malformedRepairRole(
-  roles map[claimUnit]string,
+  roles requiredRoleIndex,
   owners []claimState,
   declaration *evidenceDeclaration,
   targets map[string]map[string]*evidenceUnit,
@@ -621,10 +673,17 @@ func resolvedUnitIDs(
   targets map[string]map[string]*evidenceUnit,
   markdownTargets map[string]map[string]*evidenceUnit,
 ) []string {
+  seen := map[string]bool{}
   ids := []string{}
-  for _, index := range []map[string]map[string]*evidenceUnit{targets, markdownTargets} {
-    for id := range index[target] {
-      ids = append(ids, id)
+  for _, address := range []string{target, normalizeMarkdownTarget(target)} {
+    for _, index := range []map[string]map[string]*evidenceUnit{targets, markdownTargets} {
+      for id := range index[address] {
+        if seen[id] {
+          continue
+        }
+        seen[id] = true
+        ids = append(ids, id)
+      }
     }
   }
   sort.Strings(ids)
@@ -866,6 +925,7 @@ func evaluateEvidenceGraph(
     if len(state.Paths) == 0 {
       continue
     }
+    addressed := addressedClaims(states, state)
     if !state.Healthy {
       for _, declaration := range state.Declarations {
         uncertain[declaration.ID] = true
@@ -950,7 +1010,7 @@ func evaluateEvidenceGraph(
         if declaration.Tag == tagExclude && reference.Spec.Policy.NoExclude {
           problems = append(
             problems,
-            "Forbidden @evidenceExclude for '"+scopesByID[scopeID].Target+"' at "+declaration.location()+" in "+claimLabel(state.Spec)+" "+referenceLabel(reference.Spec)+": noEvidenceExclude requires positive @evidence for this reference. Remove the exclusion and cite the target with '"+requiredCitationGrammar(reference.Spec, agreedRoleFor(agreedRoles, []claimState{state}, coveredUnitIDs(reference, scopeID)))+"' from a selected "+string(state.Spec.Type)+" host."+confinementCaveat(reference, scopeID),
+            "Forbidden @evidenceExclude for '"+scopesByID[scopeID].Target+"' at "+declaration.location()+" in "+claimLabel(state.Spec)+" "+referenceLabel(reference.Spec)+": noEvidenceExclude requires positive @evidence for this reference. Remove the exclusion and cite the target with '"+requiredCitationGrammar(reference.Spec, agreedRoleFor(agreedRoles, addressed, coveredUnitIDs(reference, scopeID)))+"' from a selected "+string(state.Spec.Type)+" host."+confinementCaveat(reference, scopeID),
           )
           continue
         }
@@ -1133,7 +1193,7 @@ func evaluateEvidenceGraph(
           // one that wrote itself over the other left a reference refusing
           // exclusions saying nothing about them.
           role := reference.Spec.Policy.Role
-          positive := "Use " + requiredCitationGrammar(reference.Spec, agreedRoleFor(agreedRoles, []claimState{state}, []string{unit.ID})) + " on a selected " + string(state.Spec.Type) + " host"
+          positive := "Use " + requiredCitationGrammar(reference.Spec, agreedRoleFor(agreedRoles, addressed, []string{unit.ID})) + " on a selected " + string(state.Spec.Type) + " host"
           repair := positive + " or @evidenceExclude on an eligible carrier."
           if reference.Spec.Policy.NoExclude {
             repair = positive + "; this reference forbids @evidenceExclude."

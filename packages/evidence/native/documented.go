@@ -67,7 +67,7 @@ func (documentedRule) Check(ctx *rule.Context, node *shimast.Node) {
       ctx.Report(
         host.Node,
         "Empty JSDoc on "+host.describe()+
-          ". The block states nothing and carries no tag, so it documents nothing and cites nothing. Describe what this declaration is for, or cite its evidence with '@evidence <target> <reason>'.",
+          ". The block states nothing and carries no tag, so it documents nothing and cites nothing. Describe what this declaration is for, or cite the evidence it answers for.",
       )
     default:
       ctx.Report(
