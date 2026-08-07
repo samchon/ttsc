@@ -308,13 +308,14 @@ func scanMarkdownInventory(
     }
     for _, review := range parseReviews(comment) {
       inventory.Reviews = append(inventory.Reviews, &evidenceReview{
-        HostID:      hostIDAtLine[line-1],
-        Type:        artifactMarkdown,
-        Target:      review.Target,
-        Fingerprint: review.Fingerprint,
-        Description: review.Description,
-        Path:        address.Display,
-        Line:        line + review.LineOffset,
+        HostID:          hostIDAtLine[line-1],
+        SemanticHostIDs: []string{hostIDAtLine[line-1]},
+        Type:            artifactMarkdown,
+        Target:          review.Target,
+        Fingerprint:     review.Fingerprint,
+        Description:     review.Description,
+        Path:            address.Display,
+        Line:            line + review.LineOffset,
       })
     }
   }

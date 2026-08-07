@@ -1011,13 +1011,14 @@ func collectTypeScriptDeclarations(
     // from every acknowledgement map in evaluation.
     for _, review := range parseReviews(content[entry.node.Pos():entry.node.End()]) {
       inventory.Reviews = append(inventory.Reviews, &evidenceReview{
-        HostID:      hostID,
-        Type:        artifactTypeScript,
-        Target:      review.Target,
-        Fingerprint: review.Fingerprint,
-        Description: review.Description,
-        Path:        location,
-        Line:        baseLine + review.LineOffset,
+        HostID:          hostID,
+        SemanticHostIDs: semanticHostIDs,
+        Type:            artifactTypeScript,
+        Target:          review.Target,
+        Fingerprint:     review.Fingerprint,
+        Description:     review.Description,
+        Path:            location,
+        Line:            baseLine + review.LineOffset,
       })
     }
   }

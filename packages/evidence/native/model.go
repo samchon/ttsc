@@ -104,13 +104,22 @@ type referencePolicy struct {
 // its review spell one address, and resolving twice would let a review answer a
 // scope its citation does not name.
 type evidenceReview struct {
-  HostID      string
-  Type        artifactKind
-  Target      string
-  Fingerprint string
-  Description string
-  Path        string
-  Line        int
+  // HostID is the source-position identity, kept only so a carrier with no
+  // semantic identity can still be matched. It must not be the primary key: a
+  // merged identity's halves sit at different positions and therefore carry
+  // different HostIDs, so matching on it alone refuses a review written on
+  // `namespace I` for a citation on `interface I` — placement the graph
+  // elsewhere calls not worth a diagnostic, and which `evidence/review` accepts.
+  HostID string
+  // SemanticHostIDs are the selected graph identities this review is written on,
+  // which is what a citation is matched by.
+  SemanticHostIDs []string
+  Type            artifactKind
+  Target          string
+  Fingerprint     string
+  Description     string
+  Path            string
+  Line            int
 }
 
 func (review *evidenceReview) location() string {

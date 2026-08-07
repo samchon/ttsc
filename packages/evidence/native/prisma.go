@@ -575,13 +575,14 @@ func prismaDeclarationsFromComments(
       // nothing reads back — the same dead end the attached case just escaped.
       for _, review := range parseReviews(run.Body) {
         shared := &evidenceReview{
-          HostID:      "prisma:" + run.Path + ":file",
-          Type:        artifactPrisma,
-          Target:      review.Target,
-          Fingerprint: review.Fingerprint,
-          Description: review.Description,
-          Path:        run.Path,
-          Line:        run.Line + review.LineOffset,
+          HostID:          "prisma:" + run.Path + ":file",
+          SemanticHostIDs: []string{"prisma:" + run.Path + ":file"},
+          Type:            artifactPrisma,
+          Target:          review.Target,
+          Fingerprint:     review.Fingerprint,
+          Description:     review.Description,
+          Path:            run.Path,
+          Line:            run.Line + review.LineOffset,
         }
         for _, inventory := range hosted {
           inventory.Reviews = append(inventory.Reviews, shared)
@@ -651,13 +652,14 @@ func prismaDeclarationsFromComments(
     // author cannot perform.
     for _, review := range parseReviews(run.Body) {
       shared := &evidenceReview{
-        HostID:      host.ID,
-        Type:        artifactPrisma,
-        Target:      review.Target,
-        Fingerprint: review.Fingerprint,
-        Description: review.Description,
-        Path:        run.Path,
-        Line:        run.Line + review.LineOffset,
+        HostID:          host.ID,
+        SemanticHostIDs: []string{host.ID},
+        Type:            artifactPrisma,
+        Target:          review.Target,
+        Fingerprint:     review.Fingerprint,
+        Description:     review.Description,
+        Path:            run.Path,
+        Line:            run.Line + review.LineOffset,
       }
       for _, inventory := range hosted {
         inventory.Reviews = append(inventory.Reviews, shared)

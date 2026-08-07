@@ -645,6 +645,10 @@ func evaluateEvidenceGraph(
         uncertain[declaration.ID] = true
       }
     }
+    // One ledger per claim, because reviews belong to the claim rather than to
+    // any one of its references, and built on first use so a claim with no
+    // reviewing reference pays nothing.
+    var reviewLedgerForClaim *reviewLedger
     for _, reference := range state.References {
       if !reference.Healthy {
         for _, declaration := range state.Declarations {
@@ -745,12 +749,16 @@ func evaluateEvidenceGraph(
               ),
             )
           }
+          if reviewLedgerForClaim == nil {
+            reviewLedgerForClaim = newReviewLedger(state.Reviews)
+          }
           problems = append(problems, reviewProblems(
             declaration,
             scopesByID[scopeID],
             reference,
             state,
             reviewScopes,
+            reviewLedgerForClaim,
           )...)
         }
         if declaration.Tag == tagEvidence && declaration.HostID != "" {
@@ -948,6 +956,7 @@ func reviewProblems(
   reference referenceState,
   state claimState,
   scopes *scopeIndex,
+  reviews *reviewLedger,
 ) []string {
   if declaration == nil || scope == nil {
     return nil
@@ -966,7 +975,7 @@ func reviewProblems(
   }
   where := " at " + declaration.location() + " in " +
     claimLabel(state.Spec) + " " + referenceLabel(reference.Spec)
-  review := findReview(state.Reviews, declaration)
+  review := reviews.find(declaration)
   if review == nil {
     return []string{
       "Unreviewed @" + string(declaration.Tag) + " for '" + displayTarget(declaration.Target) + "'" + where +
@@ -991,21 +1000,70 @@ func reviewProblems(
   return nil
 }
 
-// findReview locates the review bound to one declaration's host and target.
-func findReview(
-  reviews []*evidenceReview,
-  declaration *evidenceDeclaration,
-) *evidenceReview {
+// reviewLedger indexes a claim's reviews by the identity they were written on.
+//
+// Two properties are load-bearing and neither is obvious.
+//
+// The key is a *semantic* host identity, never `HostID`. `HostID` is a source
+// position, so the two halves of a merged identity carry different ones: keying on
+// it refused a review written on `namespace I` for a citation on `interface I`,
+// which is placement the graph elsewhere calls not worth a diagnostic and which
+// `evidence/review` accepts. The two rules then disagreed about the same file.
+// `model.go` says as much where it defines the field.
+//
+// It is built once per claim rather than scanned per citation. A linear search
+// over every review, for every declaration, for every reference, is cubic in the
+// three things a large project has most of.
+type reviewLedger struct {
+  byHostAndTarget map[string]*evidenceReview
+}
+
+func newReviewLedger(reviews []*evidenceReview) *reviewLedger {
+  ledger := &reviewLedger{
+    byHostAndTarget: make(map[string]*evidenceReview, len(reviews)),
+  }
   for _, review := range reviews {
-    if review == nil || review.Target != declaration.Target {
+    if review == nil {
       continue
     }
-    // The host is compared so a review on one declaration cannot answer for a
-    // citation of the same target on a different one. HostID is the physical
-    // position identity the scanners already compose for declarations, and a
-    // merged identity shares it, which is what lets a review on `namespace I`
-    // answer a citation on `interface I`.
-    if review.HostID == declaration.HostID {
+    for _, hostID := range reviewLedgerHostIDs(review) {
+      key := hostID + "\x00" + review.Target
+      if ledger.byHostAndTarget[key] == nil {
+        ledger.byHostAndTarget[key] = review
+      }
+    }
+  }
+  return ledger
+}
+
+// reviewLedgerHostIDs is every identity a review answers on.
+//
+// The position identity is kept as a fallback for a carrier that has no semantic
+// host at all, such as an unattached Prisma documentation run, whose declarations
+// are keyed the same way.
+func reviewLedgerHostIDs(review *evidenceReview) []string {
+  if len(review.SemanticHostIDs) != 0 {
+    return review.SemanticHostIDs
+  }
+  if review.HostID == "" {
+    return nil
+  }
+  return []string{review.HostID}
+}
+
+// find locates the review bound to one declaration's identity and target.
+func (ledger *reviewLedger) find(
+  declaration *evidenceDeclaration,
+) *evidenceReview {
+  if ledger == nil {
+    return nil
+  }
+  hostIDs := declaration.SemanticHostIDs
+  if len(hostIDs) == 0 && declaration.HostID != "" {
+    hostIDs = []string{declaration.HostID}
+  }
+  for _, hostID := range hostIDs {
+    if review := ledger.byHostAndTarget[hostID+"\x00"+declaration.Target]; review != nil {
       return review
     }
   }
