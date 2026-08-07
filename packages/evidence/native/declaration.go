@@ -102,6 +102,21 @@ func parseCommentDeclarations(
       }
       continue
     }
+    // A review closes the declaration above it in every host, and it does so
+    // regardless of tagBoundaries. That flag answers whether *another tool's*
+    // `@tag` is a boundary, which is a property of the host's comment grammar:
+    // an HTML comment has no field syntax, so `@architecture approved this` is
+    // ordinary prose belonging to the reason above it, and a test pins that.
+    //
+    // A review is not another tool's tag. It belongs to this grammar, so it is
+    // always a boundary. Without this, an `@evidenceReview` written under an
+    // `@evidence` inside one Markdown comment was swallowed into that citation's
+    // reason: the review vanished and the reason grew a sentence its author
+    // addressed to a different question.
+    if _, opened := reviewLine(line); opened {
+      flush()
+      continue
+    }
     if jsdoc && strings.HasPrefix(line, "@") {
       flush()
       continue

@@ -259,14 +259,7 @@ func scanMarkdownInventory(
       continue
     }
     comment := content[match[2]:match[3]]
-    // Tag boundaries are on. Without them a line opening with another `@tag`
-    // does not close the declaration above it, so an `@evidenceReview` written
-    // under an `@evidence` inside one HTML comment was swallowed into that
-    // citation's reason: the review vanished and the reason grew a sentence the
-    // author addressed to a different question. JSDoc gets the boundary from its
-    // own syntax and Prisma asks for it explicitly; Markdown needs it for the
-    // same reason and had been left without it.
-    for _, parsed := range parseCommentDeclarations(comment, true) {
+    for _, parsed := range parseDeclarations(comment) {
       sequence++
       inventory.Declarations = append(inventory.Declarations, &evidenceDeclaration{
         ID:              "markdown:" + address.Key + ":" + decimal(line+parsed.LineOffset) + ":" + decimal(sequence),

@@ -5,19 +5,26 @@ import (
 )
 
 /**
- * Verifies a Markdown review is read rather than swallowed into the citation's
- * reason.
+ * Verifies a Markdown review closes the citation above it without making every
+ * `@tag` a boundary.
  *
- * An Individual Self-Review caught this. `parseCommentDeclarations` closes a
- * declaration at any other line-opening `@tag` only when tag boundaries are on,
- * and Markdown passed them off. So a review written under a citation inside one
- * HTML comment disappeared and the citation's reason grew a sentence addressed to
- * a different question. JSDoc gets the boundary from its own syntax and Prisma
- * asks for it explicitly; Markdown had been left without it.
+ * An Individual Self-Review caught the first half: a review written under a
+ * citation inside one HTML comment was swallowed into that citation's reason, so
+ * the review vanished and the reason grew a sentence its author addressed to a
+ * different question.
+ *
+ * The obvious repair, turning tag boundaries on for Markdown, is wrong and CI
+ * said so by breaking `TestMarkdownDeclarationReasonMayBeginWithAtSign`. That
+ * flag answers whether *another tool's* `@tag` ends a reason, which is a property
+ * of the host's comment grammar: an HTML comment has no field syntax, so
+ * `@architecture approved this` is prose the reason keeps. A review is not
+ * another tool's tag. It belongs to this grammar, so it is a boundary in every
+ * host and the flag does not govern it.
  *
  *  1. Scan a document whose HTML comment holds a citation and then a review.
- *  2. Assert the citation's reason stops at its own sentence.
- *  3. Assert the review was collected with its own target and description.
+ *  2. Assert the citation's reason stops at its own sentence and the review was
+ *     collected with its own target and description.
+ *  3. Assert an unrelated `@tag` is still absorbed into a Markdown reason.
  */
 func TestMarkdownReadsAReviewBesideACitation(t *testing.T) {
   inventory, problems := scanProjectMarkdown("docs/spec.md", `# Pricing
@@ -43,6 +50,22 @@ func TestMarkdownReadsAReviewBesideACitation(t *testing.T) {
   }
   if review.Description != "Read the minutes; the limit matches." {
     t.Fatalf("unexpected review description: %q", review.Description)
+  }
+
+  // The negative twin, and the one CI had to teach me. Another tool's tag has no
+  // field grammar inside an HTML comment, so it stays in the reason. Making the
+  // review a boundary must not make every `@tag` one.
+  foreign, foreignProblems := scanProjectMarkdown("docs/ref.md", `<!--
+@evidence docs/meetings/a.md#policy Carries the limit agreed in that meeting.
+@architecture approved this adoption.
+-->
+`)
+  assertNoProblems(t, foreignProblems)
+  if len(foreign.Declarations) != 1 {
+    t.Fatalf("expected one citation, got %d", len(foreign.Declarations))
+  }
+  if reason := foreign.Declarations[0].Reason; reason != "Carries the limit agreed in that meeting.\n@architecture approved this adoption." {
+    t.Fatalf("an unrelated @tag stopped being prose in a Markdown reason: %q", reason)
   }
 }
 
