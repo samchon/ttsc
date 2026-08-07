@@ -114,12 +114,16 @@ type evidenceReview struct {
   // SemanticHostIDs are the selected graph identities this review is written on,
   // which is what a citation is matched by.
   SemanticHostIDs []string
-  Type            artifactKind
-  Target          string
-  Fingerprint     string
-  Description     string
-  Path            string
-  Line            int
+  // Reviews names which acknowledgement this review answers for. It is part of
+  // the match, never inferred: verifying a citation and verifying an exclusion
+  // are opposite questions, so a review of one must not discharge the other.
+  Reviews     tagKind
+  Type        artifactKind
+  Target      string
+  Fingerprint string
+  Description string
+  Path        string
+  Line        int
 }
 
 func (review *evidenceReview) location() string {

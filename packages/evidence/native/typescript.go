@@ -1013,6 +1013,7 @@ func collectTypeScriptDeclarations(
       inventory.Reviews = append(inventory.Reviews, &evidenceReview{
         HostID:          hostID,
         SemanticHostIDs: semanticHostIDs,
+        Reviews:         review.Reviews,
         Type:            artifactTypeScript,
         Target:          review.Target,
         Fingerprint:     review.Fingerprint,

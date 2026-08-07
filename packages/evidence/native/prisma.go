@@ -577,6 +577,7 @@ func prismaDeclarationsFromComments(
         shared := &evidenceReview{
           HostID:          "prisma:" + run.Path + ":file",
           SemanticHostIDs: []string{"prisma:" + run.Path + ":file"},
+          Reviews:         review.Reviews,
           Type:            artifactPrisma,
           Target:          review.Target,
           Fingerprint:     review.Fingerprint,
@@ -654,6 +655,7 @@ func prismaDeclarationsFromComments(
       shared := &evidenceReview{
         HostID:          host.ID,
         SemanticHostIDs: []string{host.ID},
+        Reviews:         review.Reviews,
         Type:            artifactPrisma,
         Target:          review.Target,
         Fingerprint:     review.Fingerprint,

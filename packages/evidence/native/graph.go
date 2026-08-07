@@ -975,24 +975,29 @@ func reviewProblems(
   }
   where := " at " + declaration.location() + " in " +
     claimLabel(state.Spec) + " " + referenceLabel(reference.Spec)
+  // Every message names the review tag that answers for *this* acknowledgement.
+  // A generic `@evidenceReview` in the repair would send the author of an
+  // exclusion to write the tag that does not answer it, which is the one mistake
+  // the split into two tags exists to prevent.
+  marker := reviewMarkerFor(declaration.Tag)
   review := reviews.find(declaration)
   if review == nil {
     return []string{
       "Unreviewed @" + string(declaration.Tag) + " for '" + displayTarget(declaration.Target) + "'" + where +
-        ": requireReview asks what was verified, which the reason does not answer. Add '@evidenceReview " +
+        ": requireReview asks what was verified, which the reason does not answer. Add '" + marker + " " +
         displayTarget(declaration.Target) + " #" + expected + " <what you checked>' to the same documentation block.",
     }
   }
   if review.Fingerprint == "" {
     return []string{
-      "Unfingerprinted @evidenceReview for '" + displayTarget(declaration.Target) + "'" + where +
-        ": the review states what was checked and nothing binds it to what it checked, so it can never expire. Write '@evidenceReview " +
-        displayTarget(declaration.Target) + " #" + expected + " " + firstReviewWords(review.Description) + "'.",
+      "Unfingerprinted " + marker + " for '" + displayTarget(declaration.Target) + "'" + where +
+        ": the review states what was checked and nothing binds it to what it checked, so it can never expire. Write '" +
+        marker + " " + displayTarget(declaration.Target) + " #" + expected + " " + firstReviewWords(review.Description) + "'.",
     }
   }
   if review.Fingerprint != expected {
     return []string{
-      "Stale @evidenceReview for '" + displayTarget(declaration.Target) + "'" + where +
+      "Stale " + marker + " for '" + displayTarget(declaration.Target) + "'" + where +
         ": the review names '#" + review.Fingerprint + "' and that scope now digests to '#" + expected +
         "'. The cited content changed after this review was written. Read it again and replace the review, including the new fingerprint.",
     }
@@ -1027,7 +1032,10 @@ func newReviewLedger(reviews []*evidenceReview) *reviewLedger {
       continue
     }
     for _, hostID := range reviewLedgerHostIDs(review) {
-      key := hostID + "\x00" + review.Target
+      // The acknowledgement kind is part of the key. Verifying a citation and
+      // verifying an exclusion are opposite questions, so a review of one must
+      // never be found for the other.
+      key := hostID + "\x00" + string(review.Reviews) + "\x00" + review.Target
       if ledger.byHostAndTarget[key] == nil {
         ledger.byHostAndTarget[key] = review
       }
@@ -1063,7 +1071,8 @@ func (ledger *reviewLedger) find(
     hostIDs = []string{declaration.HostID}
   }
   for _, hostID := range hostIDs {
-    if review := ledger.byHostAndTarget[hostID+"\x00"+declaration.Target]; review != nil {
+    key := hostID + "\x00" + string(declaration.Tag) + "\x00" + declaration.Target
+    if review := ledger.byHostAndTarget[key]; review != nil {
       return review
     }
   }

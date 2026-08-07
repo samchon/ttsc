@@ -310,6 +310,7 @@ func scanMarkdownInventory(
       inventory.Reviews = append(inventory.Reviews, &evidenceReview{
         HostID:          hostIDAtLine[line-1],
         SemanticHostIDs: []string{hostIDAtLine[line-1]},
+        Reviews:         review.Reviews,
         Type:            artifactMarkdown,
         Target:          review.Target,
         Fingerprint:     review.Fingerprint,

@@ -113,7 +113,7 @@ func parseCommentDeclarations(
     // `@evidence` inside one Markdown comment was swallowed into that citation's
     // reason: the review vanished and the reason grew a sentence its author
     // addressed to a different question.
-    if _, opened := reviewLine(line); opened {
+    if _, _, opened := reviewLine(line); opened {
       flush()
       continue
     }
@@ -235,8 +235,29 @@ func normalizeMarkdownTarget(target string) string {
   return target
 }
 
-// reviewMarker opens a verification statement about one citation.
-const reviewMarker = "@evidenceReview"
+// reviewMarkers open a verification statement, one per acknowledgement tag.
+//
+// There are two because the two acknowledgements answer opposite questions and
+// so do their reviews. Verifying an `@evidence` means checking that this
+// declaration does what the cited unit describes. Verifying an
+// `@evidenceExclude` means checking that the unit genuinely does not apply here,
+// which no amount of reading the code can establish and no coverage number can.
+// One tag for both would leave a reader unable to tell which question was
+// answered without finding the sibling tag first, and would let a review of the
+// easier question discharge the harder one.
+//
+// Order is longest marker first, the way `declarationLine` orders its own, so a
+// prefix never shadows a longer tag. The whitespace boundary keeps the four
+// apart on its own — `@evidenceExcludeReview` reaching the `@evidenceExclude`
+// arm is refused exactly as `@evidenceReview` reaching `@evidence` is — but the
+// ordering means that guard is a second line of defense rather than the only one.
+var reviewMarkers = []struct {
+  marker string
+  tag    tagKind
+}{
+  {marker: "@evidenceExcludeReview", tag: tagExclude},
+  {marker: "@evidenceReview", tag: tagEvidence},
+}
 
 // reviewFingerprintLength is how many hex characters a fingerprint presents.
 //
@@ -258,10 +279,22 @@ const reviewFingerprintLength = 7
 // evidence. A distinct type cannot reach any of them by construction; a shared
 // type could only be kept out by remembering to, at every one of six sites.
 type parsedReview struct {
+  // Reviews names which acknowledgement this review answers for, so a review of
+  // an exclusion can never discharge a citation's obligation or the reverse.
+  Reviews     tagKind
   Target      string
   Fingerprint string
   Description string
   LineOffset  int
+}
+
+// marker spells the tag this review was written as, for a diagnostic that has to
+// name the repair rather than describe it.
+func (review parsedReview) marker() string {
+  if review.Reviews == tagExclude {
+    return "@evidenceExcludeReview"
+  }
+  return "@evidenceReview"
 }
 
 // parseReviews reads every verification statement one comment carries.
@@ -303,9 +336,12 @@ func parseReviews(comment string) []parsedReview {
     line := strings.TrimSpace(rawLine)
     line = strings.TrimSpace(strings.TrimPrefix(line, "*"))
     line = strings.TrimSpace(strings.TrimPrefix(line, "///"))
-    if remainder, opened := reviewLine(line); opened {
+    if reviews, remainder, opened := reviewLine(line); opened {
       flush()
-      pending = &parsedReview{LineOffset: leadingLines + index}
+      pending = &parsedReview{
+        Reviews:    reviews,
+        LineOffset: leadingLines + index,
+      }
       body = []string{remainder}
       continue
     }
@@ -321,20 +357,26 @@ func parseReviews(comment string) []parsedReview {
   return reviews
 }
 
-// reviewLine reports whether a line opens a review, and with what remainder.
+// reviewLine reports whether a line opens a review, which acknowledgement it
+// answers for, and with what remainder.
 //
 // The whitespace boundary keeps a longer tag out. `@evidenceReviewed` is some
 // other tool's tag or a typo, and consuming it would attach a review to a
-// citation the author never reviewed.
-func reviewLine(line string) (string, bool) {
-  if !strings.HasPrefix(line, reviewMarker) {
-    return "", false
+// citation the author never reviewed. The same boundary is what separates
+// `@evidenceExcludeReview` from `@evidenceExclude` in `declarationLine`, so
+// neither parser can claim the other's tag.
+func reviewLine(line string) (tagKind, string, bool) {
+  for _, candidate := range reviewMarkers {
+    if !strings.HasPrefix(line, candidate.marker) {
+      continue
+    }
+    remainder := line[len(candidate.marker):]
+    if remainder != "" && remainder[0] != ' ' && remainder[0] != '\t' {
+      continue
+    }
+    return candidate.tag, strings.TrimSpace(remainder), true
   }
-  remainder := line[len(reviewMarker):]
-  if remainder != "" && remainder[0] != ' ' && remainder[0] != '\t' {
-    return "", false
-  }
-  return strings.TrimSpace(remainder), true
+  return "", "", false
 }
 
 // splitReviewFingerprint separates an optional fingerprint from the description.
