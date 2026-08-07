@@ -39,7 +39,7 @@ Everything else in this repository is fixable, and where the fix lands decides w
 | What you fix | Who reads it | When you may edit it |
 | --- | --- | --- |
 | `benchmarks/evidence/src/**` | A benchmark process, at start | Any time, with one exception below. Commit first: a resume requires a clean revision descending from the cell's frozen `benchmarkRevision`, and the runner retains the correction as that process's `runnerRevision`. |
-| `EvidenceBenchmarkRuntime.BROWSER_MCP_SPECIFIER` | Every session, at every launch and resume | Never while a cohort is open. It is a frozen material input that happens to live in editable source: nothing compares it across processes and no resume refuses a change, so an edit mid-cohort is drift with no record of itself. |
+| `EvidenceBenchmarkRuntime.browserServerArguments()` and the two constants it reads | Every session, at every launch and resume | Never while a cohort is open. The version, the `required` flag, and the startup window are frozen material inputs that happen to live in editable source: nothing compares them across processes and no resume refuses a change, so an edit mid-cohort is drift with no record of itself. |
 | `benchmarks/evidence/instructions/**` | A running cell, at its next objective | Not while a cell that will reach it is alive. Stop and preserve the cohort first. |
 | `benchmarks/evidence/template/**`, except the three files above | Workspace preparation only | Any time. It reaches future launches only, never a prepared workspace. |
 | The three files above | Every evidence population in every cell | Never without the user's explicit instruction. |

@@ -416,6 +416,42 @@ const EXCEPTIONS = new Map([
     ".agents/skills/benchmark/evidence/measurement/dashboard.md",
     "ttsc#1110: the dashboard refuses an argument it cannot honor instead of ignoring one",
   ],
+  [
+    ".agents/skills/benchmark/evidence/intervention/boundary.md",
+    "ttsc#1094: the browser server is a frozen material input that lives in editable source, so the table names the exception it creates",
+  ],
+  [
+    "benchmarks/evidence/src/EvidenceBenchmarkInstruction.ts",
+    "ttsc#1095: the supplementation shape belongs to whichever arm is running, so a reminder quotes its Review in either",
+  ],
+  [
+    "benchmarks/evidence/src/EvidenceBenchmarkSupervision.ts",
+    "ttsc#1095: a verdict inserts the running arm's reminder rather than the Plain one, and the boundary assertions no longer name one arm",
+  ],
+  [
+    "benchmarks/evidence/instructions/evidence/backend/remind.md",
+    "ttsc#1095: local only, the Evidence arm had no supplementation instruction because it had no review boundary",
+  ],
+  [
+    "benchmarks/evidence/instructions/evidence/frontend/remind.md",
+    "ttsc#1095: local only, as above",
+  ],
+  [
+    "benchmarks/evidence/instructions/evidence/overall/remind.md",
+    "ttsc#1095: local only, as above",
+  ],
+  [
+    "benchmarks/evidence/template/evidence/.agents/skills/review/frontend.md",
+    "ttsc#1105: the Evidence arm's own Gates section names `pnpm plan`, which proves the direction coverage from the evidence side cannot see",
+  ],
+  [
+    "tests/test-evidence-benchmark/src/features/test_benchmark_template_screen_plan_refuses_a_pasted_enumeration.ts",
+    "ttsc#1105: local only, upstream has no screen-plan check to prove",
+  ],
+  [
+    "tests/test-evidence-benchmark/src/features/test_benchmark_runtime_attaches_the_browser_server_to_every_cell.ts",
+    "ttsc#1094: local only, upstream attaches no browser server",
+  ],
 ]);
 
 // ------------------------------------------------------------------ compare

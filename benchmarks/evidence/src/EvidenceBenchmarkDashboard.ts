@@ -216,11 +216,24 @@ const readRepositoryOrigin = (repository: string): string | undefined => {
 export const normalizeEvidenceBenchmarkOrigin = (
   url: string,
 ): string | undefined => {
-  const match: RegExpExecArray | null =
-    /(?:^|[/:])([^/:]+)\/([^/]+?)(?:\.git)?\/?$/u.exec(url.trim());
-  if (match === null) return undefined;
-  const origin = `${match[1]}/${match[2]}`;
-  return /^[^/\s]+\/[^/\s]+$/u.test(origin) ? origin : undefined;
+  // The host is dropped rather than counted as an owner. A profile URL is the
+  // likeliest malformed value a manifest carries, and taking its last two
+  // segments would record `github.com/samchon`, which names no repository and
+  // is exactly the unresolvable string this returns nothing for.
+  const trimmed: string = url
+    .trim()
+    .replace(/\.git$/u, "")
+    .replace(/\/$/u, "");
+  const path: string = trimmed
+    .replace(/^[a-z][a-z0-9+.-]*:\/\//iu, "")
+    .replace(/^[^/]*@/u, "")
+    .replace(/^[^/:]+[:/]/u, (host) => (/^[^/:]*[.:]/u.test(host) ? "" : host));
+  const segments: string[] = path.split("/").filter(Boolean);
+  if (segments.length !== 2) return undefined;
+  const origin = segments.join("/");
+  return /^[A-Za-z0-9][\w.-]*\/[A-Za-z0-9][\w.-]*$/u.test(origin)
+    ? origin
+    : undefined;
 };
 
 const selectRuns = (

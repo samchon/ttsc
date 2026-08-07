@@ -26,7 +26,7 @@ The browser server adds three host conditions, and none of them is checked befor
 
 - **A browser channel it can drive.** The server uses one installed on the machine rather than the workspace's own Playwright, so the host needs it and a cohort spread over days can drive two builds of it. Pin the channel on the machine and record which one, the way the model and effort are recorded.
 - **A display, or an explicitly headless server.** It runs headed by default, so a full matrix opens one window per cell and a headless host launches nothing.
-- **A warm package cache, or patience on the first launch.** The first cell on a machine installs the server and its Playwright from the registry inside the handshake window.
+- **A warm package cache, or patience on the first launch.** The first cell on a machine installs the server and its Playwright from the registry inside the handshake window, which `EvidenceBenchmarkRuntime.BROWSER_MCP_STARTUP_TIMEOUT_SECONDS` widens from Codex's ten seconds to three hundred.
 
 A fourth condition is not the host's: `--config` merges into the operator's own `~/.codex/config.toml`, which the runner does not isolate. Whatever MCP servers that file already declares reach every cell, and an entry it declares under the same name merges field by field with the runner's. Read it before a cohort and record what it contained, because the process record shows only the arguments the runner added.
 
@@ -46,6 +46,8 @@ The model and effort are defaults, not a menu you pick from. Change either only 
 Never run two commands against the same run ID at once. A resume reuses the run ID by design, so the rule is about concurrency, not about a second invocation.
 
 A launch that fails before native work does not consume the authorized cell, as long as its identity and frozen inputs are unchanged. Two such failures are ordinary: an unclean repository, and an occupied port from the cell's own block.
+
+A third fails later and reads differently. The browser server is declared `required`, so a handshake it misses aborts the thread rather than dropping the tool, and that happens after the workspace is prepared and installed, surfacing as an `interrupted` run like any other stopped cell. Read the stage log before diagnosing it as a dead model process: `codex doctor` reports an unresolvable server command in a moment and costs nothing.
 
 ### Subjects
 
@@ -130,7 +132,7 @@ One native session receives its arm's frozen base sequence, read from `benchmark
 
 The runner joins each objective with the same arm's `instructions/<arm>/continue.md` once, and a Plain reminder or Final also carries its own scope's Review instruction quoted beneath it. An operator warning is the one exception: outside a Plain reminder or Final it replaces the continuation rather than joining it, which keeps the objective inside the 4000 characters Codex accepts however long the warning runs.
 
-The arms share no instruction file, and the one line they share word for word is the interactive-review checklist item, which is a capability held constant stated identically to both. Do not add operator prose.
+The arms share no instruction file. They do share sentences, and every one is deliberate: a gate over a capability held constant reads the same to both arms, and a supplementation asserts the same rejection in both, because a difference in those words would be a difference in what is measured rather than in what is being measured. Do not add operator prose.
 
 Every session is attached to a pinned Playwright MCP server through the same argument list, which has no arm branch. It is a frozen material input like the template: `EvidenceBenchmarkRuntime.BROWSER_MCP_SPECIFIER` names the version, `required=true` makes a server that misses its handshake a launch failure rather than a silently absent tool, and the retained process record carries the arguments.
 

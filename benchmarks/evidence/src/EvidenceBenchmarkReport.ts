@@ -76,9 +76,12 @@ export const writeEvidenceBenchmarkReport = (
  *
  * Two ties. `source.origin` names the repository the coverage was counted in,
  * so a file vendored from another project announces itself before any row is
- * read, and it is the only tie a file with an empty `cells` array has. Within
- * one repository every origin agrees, and there the run each row was counted
- * from is what distinguishes cohorts: a row naming a run this cohort is not
+ * read, and it is the only tie a file with an empty `cells` array has. It is
+ * skipped when the aggregate being written records no origin, which happens
+ * when the repository's manifest declares no resolvable one; the row tie still
+ * runs, and a foreign file with no rows would then publish. Within one
+ * repository every origin agrees, and there the run each row was counted from
+ * is what distinguishes cohorts: a row naming a run this cohort is not
  * publishing belongs to another one, and a row naming no run cannot be
  * attributed at all.
  *
