@@ -1,8 +1,6 @@
 package evidence
 
 import (
-  "sort"
-
   shimast "github.com/microsoft/typescript-go/shim/ast"
 
   "github.com/samchon/ttsc/packages/lint/rule"
@@ -166,16 +164,16 @@ func readHostTags(
   reviewed := reviewedTargets{byTarget: map[string]*parsedReview{}}
   content := file.Text()
   seen := map[int]bool{}
-  nodes := append([]*shimast.Node{}, host.Nodes...)
+  // Already in source order. `orderIdentityDeclarations` sorts every identity's
+  // declarations by position and dereferences `Pos()` to do it, so a nil node
+  // would have panicked there long before this rule saw the host. Re-sorting here
+  // asserted the opposite: its comparator called a nil pair both less than and
+  // not less than each other, which is not an ordering, and the guard it existed
+  // for could never fire.
+  nodes := host.Nodes
   if len(nodes) == 0 {
-    nodes = append(nodes, host.Node)
+    nodes = []*shimast.Node{host.Node}
   }
-  sort.SliceStable(nodes, func(left int, right int) bool {
-    if nodes[left] == nil || nodes[right] == nil {
-      return nodes[right] == nil
-    }
-    return nodes[left].Pos() < nodes[right].Pos()
-  })
   for _, node := range nodes {
     if node == nil {
       continue
