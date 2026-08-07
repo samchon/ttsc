@@ -105,7 +105,7 @@ A namespace merged with a same-named function is that function's static side, so
 
 Units contain units. A Markdown file contains its heading outline, a heading contains the lower-level headings under it, an interface contains its properties, a namespace contains every nested public unit, and a Prisma model contains its columns and relations. Swagger operations are independent leaves.
 
-A citation covers its target and every selected descendant. So `symbol: "property"` on a reference can still be satisfied by one `@evidence {@link IShoppingSale} ...`, and one `@evidence prisma:Sale ...` discharges every selected column and relation beneath that model. A reference can turn that cascade off with [`noAggregateEvidence`](#reference-policies), which is what a population whose citing hosts do not own whole subtrees wants.
+A citation covers its target and every selected descendant. So `symbol: "property"` on a reference can still be satisfied by one `@evidence {@link IShoppingSale} ...`, and one `@evidence prisma:Sale ...` discharges every selected column and relation beneath that model. A reference can turn that cascade off for `@evidence` with [`noAggregateEvidence`](#reference-policies), which is what a population whose citing hosts do not own whole subtrees wants. An `@evidenceExclude` still covers the descendants of its target there, because one reviewed decision per subtree is what an exclusion is.
 
 An ancestor stays addressable even when its own kind is not in the selector. The selector decides what is counted, not what can be named.
 

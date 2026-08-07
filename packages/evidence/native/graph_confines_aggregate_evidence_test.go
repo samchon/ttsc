@@ -552,11 +552,114 @@ export function testAuthentication(): void {}
       }
     }
   ]}`)
-  assertProblemContains(t, messages, "cites 0 distinct selected evidence unit(s) cited by their own targets")
+  assertProblemContains(t, messages, "cites 0 distinct selected evidence unit(s) cited by their own names")
   if countProblemsContaining(messages, "Aggregate @evidence") != 0 {
     t.Fatalf(
       "the tag answered another obligation and should stay silent:\n%s",
       strings.Join(messages, "\n"),
     )
   }
+}
+
+/**
+ * Verifies every diagnostic that prescribes a citation prescribes one the reference takes.
+ *
+ * Four sites tell an author how to write an acknowledgement, and for three of them the grammar was spelled at the call site. Each option that changes what a citation must look like therefore reached the one site that composes its text and left the others prescribing something the same reference refuses, in the same build. This is the case that makes adding a fifth site fail here rather than in a consumer's editor.
+ *
+ *  1. Refuse an exclusion on a reference that also requires a relation and confines coverage.
+ *  2. Write a malformed tag and an unbraced symbol target, each carrying a relation.
+ *  3. Assert every prescription names the relation, and that the exclusion repair says the scope is not one this reference takes.
+ */
+func TestEveryPrescriptionMatchesTheReferenceItSpeaksFor(t *testing.T) {
+  forbidden := runIndexRule(t, map[string]string{
+    "docs/spec.md": aggregateDocument,
+    "src/test.ts": `/** @evidenceExclude docs/spec.md#authentication The gateway owns it; false once a screen must. */
+export function testAuthentication(): void {}
+`,
+  }, `{"claims":[{
+    "type":"typescript",
+    "files":["src/**"],
+    "symbol":"function",
+    "reference":{
+      "type":"markdown",
+      "files":["docs/spec.md"],
+      "symbol":["h2"],
+      "role":"implements",
+      "noEvidenceExclude":true,
+      "noAggregateEvidence":true
+    }
+  }]}`)
+  assertProblemContains(t, forbidden, "Remove the exclusion and cite the target with '@evidence(implements)'")
+  assertProblemContains(t, forbidden, "noAggregateEvidence refuses a positive citation of a scope containing it")
+
+  malformed := runIndexRule(t, map[string]string{
+    "docs/spec.md": "## Contract {#contract}\n",
+    "src/test.ts": `/** @evidence(implements) */
+export function testContract(): void {}
+`,
+  }, `{"claims":[{
+    "type":"typescript",
+    "files":["src/**"],
+    "symbol":"function",
+    "reference":{
+      "type":"markdown",
+      "files":["docs/spec.md"],
+      "symbol":"h2",
+      "role":"implements"
+    }
+  }]}`)
+  assertProblemContains(t, malformed, "Write '@evidence(implements) <target> <reason>'")
+
+  unbraced := runIndexRule(t, map[string]string{
+    "src/contract.ts": "export interface IContract {}\n",
+    "src/test.ts": `import type { IContract } from "./contract";
+
+void (null as unknown as IContract);
+
+/** @evidence(implements) IContract Implements the contract. */
+export function testContract(): void {}
+`,
+  }, `{"claims":[{
+    "type":"typescript",
+    "files":["src/test.ts"],
+    "symbol":"function",
+    "reference":{
+      "type":"typescript",
+      "files":["src/contract.ts"],
+      "symbol":"type",
+      "role":"implements"
+    }
+  }]}`)
+  assertProblemContains(t, unbraced, "Write '@evidence(implements) {@link IContract} <reason>'")
+}
+
+/**
+ * Verifies one reference refusing a tag two ways says both at once.
+ *
+ * A reference may require a relation and confine coverage together, and a tag can be wrong for both. Reporting whichever gate came first costs the author a whole build: they name the relation, re-run, and only then learn the target was never one this reference takes. The cross-claim shape of this was already closed; this is the same cost from a single reference.
+ *
+ *  1. Declare both refusals on one reference.
+ *  2. Cite an aggregate scope naming no relation.
+ *  3. Assert both findings report at the tag.
+ */
+func TestOneReferenceRefusingTwoWaysSaysBoth(t *testing.T) {
+  messages := runIndexRule(t, map[string]string{
+    "docs/spec.md": aggregateDocument,
+    "src/test.ts": `/** @evidence docs/spec.md#authentication Implements authentication. */
+export function testAuthentication(): void {}
+`,
+  }, `{"claims":[{
+    "type":"typescript",
+    "files":["src/**"],
+    "symbol":"function",
+    "reference":{
+      "type":"markdown",
+      "files":["docs/spec.md"],
+      "symbol":["h2"],
+      "role":"implements",
+      "noAggregateEvidence":true
+    }
+  }]}`)
+  assertProblemContains(t, messages, "Unwanted relation on @evidence at src/test.ts:1")
+  assertProblemContains(t, messages, "Aggregate @evidence at src/test.ts:1")
 }

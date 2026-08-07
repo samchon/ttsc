@@ -405,6 +405,45 @@ func materializeClaimStates(
   return states, problems
 }
 
+// writtenTagGrammar echoes the tag the author actually wrote.
+//
+// Used where the reference is not yet known or several own the declaration, so
+// there is no one policy to prescribe from. Repeating the relation they typed
+// keeps a repair from deleting it, which is what spelling `@evidence` at the
+// call site did.
+func writtenTagGrammar(declaration *evidenceDeclaration) string {
+  if declaration.Role != "" {
+    return "@" + string(declaration.Tag) + "(" + declaration.Role + ")"
+  }
+  return "@" + string(declaration.Tag)
+}
+
+// requiredCitationGrammar is how one reference's own acknowledgement must be
+// written.
+//
+// Every diagnostic that tells an author to cite something goes through one of
+// these two. Four of them spelled `@evidence` themselves, and each option that
+// changed what a citation must look like reached the one that composed its
+// text and left the others prescribing a citation the reference refuses.
+func requiredCitationGrammar(reference referenceSpec) string {
+  if reference.Policy.Role != "" {
+    return "@evidence(" + reference.Policy.Role + ")"
+  }
+  return "@evidence"
+}
+
+// confinementCaveat says the named scope is not a target this reference takes.
+//
+// It belongs beside every prescription rather than only beside the missing-unit
+// one, because a repair naming an ancestor is the shape the option exists to
+// refuse.
+func confinementCaveat(reference referenceSpec) string {
+  if reference.Policy.NoAggregate {
+    return " Name the unit itself: noAggregateEvidence refuses a positive citation of a scope containing it."
+  }
+  return ""
+}
+
 func evaluateEvidenceGraph(
   states []claimState,
   loader *typeScriptLoader,
@@ -525,7 +564,7 @@ func evaluateEvidenceGraph(
     if !declaration.valid() {
       problems = append(
         problems,
-        "Malformed @"+string(declaration.Tag)+" declaration at "+declaration.location()+" for "+context+": target and non-empty reason are mandatory. Write '@"+string(declaration.Tag)+" <target> <reason>'.",
+        "Malformed @"+string(declaration.Tag)+" declaration at "+declaration.location()+" for "+context+": target and non-empty reason are mandatory. Write '"+writtenTagGrammar(declaration)+" <target> <reason>'.",
       )
       continue
     }
@@ -548,7 +587,7 @@ func evaluateEvidenceGraph(
       looksLikeTypeScriptTarget(declaration.Target, targets, markdownTargets) {
       problems = append(
         problems,
-        "Unbraced TypeScript evidence target '"+declaration.Target+"' at "+declaration.location()+" for "+context+": a target naming a symbol is now written as an inline link, so the citing module's import is what resolves it. Write '@"+string(declaration.Tag)+" {@link "+declaration.Target+"} <reason>' and import the symbol; 'import type' is enough.",
+        "Unbraced TypeScript evidence target '"+declaration.Target+"' at "+declaration.location()+" for "+context+": a target naming a symbol is now written as an inline link, so the citing module's import is what resolves it. Write '"+writtenTagGrammar(declaration)+" {@link "+declaration.Target+"} <reason>' and import the symbol; 'import type' is enough.",
       )
       continue
     }
@@ -720,7 +759,7 @@ func evaluateEvidenceGraph(
         if declaration.Tag == tagExclude && reference.Spec.Policy.NoExclude {
           problems = append(
             problems,
-            "Forbidden @evidenceExclude for '"+scopesByID[scopeID].Target+"' at "+declaration.location()+" in "+claimLabel(state.Spec)+" "+referenceLabel(reference.Spec)+": noEvidenceExclude requires positive @evidence for this reference. Remove the exclusion and cite the target from a selected "+string(state.Spec.Type)+" host.",
+            "Forbidden @evidenceExclude for '"+scopesByID[scopeID].Target+"' at "+declaration.location()+" in "+claimLabel(state.Spec)+" "+referenceLabel(reference.Spec)+": noEvidenceExclude requires positive @evidence for this reference. Remove the exclusion and cite the target with '"+requiredCitationGrammar(reference.Spec)+"' from a selected "+string(state.Spec.Type)+" host."+confinementCaveat(reference.Spec),
           )
           continue
         }
@@ -730,6 +769,13 @@ func evaluateEvidenceGraph(
         // claim the relation would make an author write the opposite of what
         // the tag means, and noEvidenceExclude is what decides whether a
         // reference accepts one at all.
+        //
+        // Both refusals are collected before either stops the obligation. One
+        // reference can refuse a tag for its relation and for its scope at
+        // once, and reporting whichever came first costs the author a build:
+        // they name the relation, re-run, and only then learn the target was
+        // never one this reference takes.
+        refused := false
         if declaration.Tag == tagEvidence &&
           reference.Spec.Policy.Role != "" &&
           declaration.Role != reference.Spec.Policy.Role {
@@ -738,7 +784,7 @@ func evaluateEvidenceGraph(
             claimLabel(state.Spec)+" "+referenceLabel(reference.Spec)+
               " wants '"+reference.Spec.Policy.Role+"'",
           )
-          continue
+          refused = true
         }
         // Narrowed after every other gate, and at one place rather than at
         // each consumer. After, because a tag on an ineligible host or an
@@ -760,9 +806,12 @@ func evaluateEvidenceGraph(
               refusedAggregate[declaration.ID],
               claimLabel(state.Spec)+" "+referenceLabel(reference.Spec),
             )
-            continue
+            refused = true
           }
           covered = named
+        }
+        if refused {
+          continue
         }
         // Past every gate this obligation raises, so the declaration answers
         // for it. Eligibility alone cannot say that: a declaration is eligible
@@ -875,7 +924,7 @@ func evaluateEvidenceGraph(
             qualifiers = append(qualifiers, "naming the '"+role+"' relation")
           }
           if reference.Spec.Policy.NoAggregate {
-            qualifiers = append(qualifiers, "cited by their own targets")
+            qualifiers = append(qualifiers, "cited by their own names")
           }
           if len(qualifiers) != 0 {
             cited += " " + strings.Join(qualifiers, " and ")
@@ -893,10 +942,7 @@ func evaluateEvidenceGraph(
           // one that wrote itself over the other left a reference refusing
           // exclusions saying nothing about them.
           role := reference.Spec.Policy.Role
-          positive := "Use @evidence on a selected " + string(state.Spec.Type) + " host"
-          if role != "" {
-            positive = "Use @evidence(" + role + ") on a selected " + string(state.Spec.Type) + " host"
-          }
+          positive := "Use " + requiredCitationGrammar(reference.Spec) + " on a selected " + string(state.Spec.Type) + " host"
           repair := positive + " or @evidenceExclude on an eligible carrier."
           if reference.Spec.Policy.NoExclude {
             repair = positive + "; this reference forbids @evidenceExclude."
@@ -942,7 +988,7 @@ func evaluateEvidenceGraph(
       }
       problems = append(
         problems,
-        "Unwanted relation on @"+string(declaration.Tag)+" at "+declaration.location()+", target '"+displayTarget(declaration.Target)+"': this declaration names "+declared+", and these obligations want another relation ("+strings.Join(obligations, "; ")+"). Name the relation the obligation asks for, or move the tag to the host that owns the relation this one claims.",
+        "Unwanted relation on @evidence at "+declaration.location()+", target '"+displayTarget(declaration.Target)+"': this declaration names "+declared+", and these obligations want another relation ("+strings.Join(obligations, "; ")+"). Name the relation the obligation asks for, or move the tag to the host that owns the relation this one claims.",
       )
     }
     if obligations := refusedAggregate[id]; len(obligations) != 0 {

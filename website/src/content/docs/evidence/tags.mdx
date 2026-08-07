@@ -138,7 +138,7 @@ Resolving through the module's own imports also removes an ambiguity that has no
 - Repeating the same resolved scope on one declaration is rejected. Keep the truthful reason, or fold the useful detail into it.
 - A citation may sit on any declaration of a merged identity. Placement changes neither resolution nor coverage.
 
-`uniqueEvidence` and `singleEvidencePerSymbol` on a reference tighten the first two rules where an obligation needs an owner, and `noAggregateEvidence` turns the second one off entirely, so a parent target stops accepting responsibility for its subtree. `role` tightens a different axis: the parenthesized word is the relation this host claims, and a reference declaring `role` is discharged by positive evidence naming that relation and by no other positive evidence. An `@evidenceExclude` still answers it, because a reference refuses exclusions through `noEvidenceExclude` and through nothing else. [Reference policies](/docs/evidence/claims#reference-policies) covers all five.
+`uniqueEvidence` and `singleEvidencePerSymbol` on a reference tighten the first two rules where an obligation needs an owner, and `noAggregateEvidence` turns the second one off for `@evidence`, so a parent citation stops accepting responsibility for its subtree while a parent exclusion still decides the whole of it. `role` tightens a different axis: the parenthesized word is the relation this host claims, and a reference declaring `role` is discharged by positive evidence naming that relation and by no other positive evidence. An `@evidenceExclude` still answers it, because a reference refuses exclusions through `noEvidenceExclude` and through nothing else. [Reference policies](/docs/evidence/claims#reference-policies) covers all five.
 
 ## Exclusions
 
@@ -150,7 +150,7 @@ Resolving through the module's own imports also removes an ambiguity that has no
 <!-- @evidenceExclude docs/requirements/coupons.md#coupon-stacking This section defines wording and intentionally does not implement coupon behavior. -->
 ```
 
-It follows the same hierarchy as `@evidence`, so excluding an H2 also excludes its selected H3 and H4 descendants, and excluding a type or namespace excludes its selected children.
+It follows the hierarchy `@evidence` follows by default, and keeps following it under `noAggregateEvidence`, which confines positive evidence alone, so excluding an H2 also excludes its selected H3 and H4 descendants, and excluding a type or namespace excludes its selected children.
 
 Three properties decide whether an exclusion is worth anything.
 
