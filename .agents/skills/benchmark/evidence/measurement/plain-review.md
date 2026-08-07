@@ -1,14 +1,14 @@
-# Plain Review
+# Review Boundaries
 
-A Plain cell at `awaiting-review-verdict` is waiting for a decision, and three facts answer most of why:
+A cell at `awaiting-review-verdict` is waiting for a decision, and three facts answer most of why:
 
 - **The runner judges it itself.** A fresh inspecting thread decides, and the cell continues in the same command.
 - **A resume retries a failed inspection.** Three attempts are permitted at one boundary.
 - **Only after the third failure do you write a verdict by hand.**
 
-## Where Plain Stops
+## Where A Cell Stops
 
-Every Plain cell stops after its Backend, Frontend, and Overall Review, and again after each supplementation Goal. Evidence never stops.
+Every cell stops after its Backend, Frontend, and Overall Review, and again after each supplementation Goal. Both arms do, and that is the point: a cell nobody checks is a cell whose only gate is the compiler, and the compiler can enforce that a citation resolves rather than that it is true. Inspecting both arms makes the comparison "graph plus review" against "review", which is the variable the campaign exists to measure.
 
 The retained status is `awaiting-review-verdict`, and the cell cannot continue until a verdict is applied.
 
@@ -28,10 +28,16 @@ The measured agent must not learn that it is being judged or by what criteria. A
 
 ## What A Verdict Judges
 
-Two questions, whose exact wording the inspection prompt in `EvidenceBenchmarkInspection.ts` owns:
+The questions differ by arm, because the two arms are not doing the same work, and `EvidenceBenchmarkInspection.ts` owns their exact wording.
+
+A Plain review is a reading loop, so what can be checked is whether the loop ran:
 
 1. **Did the prescribed review loop run to dryness?** Pass an attempt that read its full scope every round and ended on a round that read everything and changed nothing, despite checklist or formatting slips. Fail one that substituted counts, summaries, searches, or green commands for reading; divided its scope across rounds; skipped the re-read after its last edit; or reported a dry round the stage log shows it never performed.
 2. **Are the tests properly written?** Judge them against the workspace's own testing instructions. A suite that names one test for a hundred published operations, that asserts nothing, that asserts only that a call did not throw, or that pins the implementation's current output instead of the behavior it owes, is not properly written however green it runs.
+
+An Evidence review inspects its own acknowledgements, and the compiler has already proved that every target resolves, so what is left is whether each citation is true. Six questions: whether every hook cites the operations it calls, whether every screen uses the hooks it cites and renders data serving the requirement it cites, whether every journey asserts an observable outcome for each requirement it cites, whether every exclusion is a reviewed non-applicability decision with a condition that would invalidate it, whether any citation names an ancestor whose subtree the host does not own, and the same test question.
+
+A question an arm passes is still worth asking; it is what makes the ones it fails mean something.
 
 Nothing else is a verdict's business. Design taste, formatting, checklist bookkeeping, and commit hygiene are observations for the rationale, never grounds.
 
@@ -40,7 +46,7 @@ Final is a finishing and safety stage after a passed Review, not permission to a
 ## What Each Decision Does
 
 - **Pass** skips the reminder and advances directly to that scope's Final.
-- **Fail** inserts that scope's `plain/<scope>/remind.md`, joined by the runner with that scope's own Review instruction quoted in full. The reminder carries nothing cell-specific — it asserts that the report was rejected, orders the full Review again unconditionally, and states the evidentiary standard the inspection applies. The cell then stops for another decision after the supplementation Goal.
+- **Fail** inserts that scope's `<arm>/<scope>/remind.md`, joined by the runner with that scope's own Review instruction quoted in full. The reminder carries nothing cell-specific — it asserts that the report was rejected, orders the full Review again unconditionally, and states the evidentiary standard the inspection applies. The cell then stops for another decision after the supplementation Goal.
 
 Four supplementation attempts are permitted. A failure after the last one retains `quality-failed`, does not dispatch Final, and cannot be resumed. The attempt a scope stops on is itself a measurement, so the bound is set where a cell that can converge still has room to.
 

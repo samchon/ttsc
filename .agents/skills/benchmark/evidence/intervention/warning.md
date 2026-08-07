@@ -28,4 +28,4 @@ The runner refuses feedback that names the machinery outside the workspace, beca
 
 Write the correction as an instruction about the workspace, naming the file and the state to restore, and none of these appear.
 
-A Plain review verdict is a different channel with its own command and contents, and [plain-review.md](../measurement/plain-review.md) owns it. Do not reach for a warning to deliver one.
+A review verdict is a different channel with its own command and contents, and [plain-review.md](../measurement/plain-review.md) owns it. Do not reach for a warning to deliver one.

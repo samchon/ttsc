@@ -136,7 +136,7 @@ The arms share no instruction file. They do share sentences, and every one is de
 
 Every session is attached to a pinned Playwright MCP server through the same argument list, which has no arm branch. It is a frozen material input like the template: `EvidenceBenchmarkRuntime.BROWSER_MCP_SPECIFIER` names the version, `required=true` makes a server that misses its handshake a launch failure rather than a silently absent tool, and the retained process record carries the arguments.
 
-Only Plain stops at a Review boundary; Evidence runs the eight objectives without stopping. [plain-review.md](plain-review.md) owns that loop.
+Both arms stop at a Review boundary. [plain-review.md](plain-review.md) owns that loop.
 
 ## What Is Retained
 

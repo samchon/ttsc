@@ -406,7 +406,7 @@ const EXCEPTIONS = new Map([
   ],
   [
     ".agents/skills/benchmark/evidence/measurement/plain-review.md",
-    "ttsc#1109: how far a cell has got is read from the verdict rather than from the plan's length",
+    "ttsc#1109 and ttsc#1095: how far a cell has got is read from the verdict rather than from the plan's length, and both arms stop at a review boundary rather than one",
   ],
   [
     ".agents/skills/benchmark/evidence/measurement/running.md",
@@ -451,6 +451,22 @@ const EXCEPTIONS = new Map([
   [
     "tests/test-evidence-benchmark/src/features/test_benchmark_runtime_attaches_the_browser_server_to_every_cell.ts",
     "ttsc#1094: local only, upstream attaches no browser server",
+  ],
+  [
+    "benchmarks/evidence/src/EvidenceBenchmarkInspection.ts",
+    "ttsc#1095: the inspecting thread receives the arm, because an Evidence review is judged on whether its acknowledgements are true rather than on whether a reading loop ran",
+  ],
+  [
+    ".agents/skills/benchmark/evidence/SKILL.md",
+    "ttsc#1095: a verdict belongs to either arm",
+  ],
+  [
+    ".agents/skills/benchmark/evidence/measurement/SKILL.md",
+    "ttsc#1095: the review-boundary topic is no longer one arm's",
+  ],
+  [
+    ".agents/skills/benchmark/evidence/intervention/warning.md",
+    "ttsc#1095: the verdict channel belongs to either arm",
   ],
 ]);
 

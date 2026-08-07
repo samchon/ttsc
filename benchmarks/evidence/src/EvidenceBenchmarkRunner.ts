@@ -1598,6 +1598,7 @@ export namespace EvidenceBenchmarkRunner {
         const request: EvidenceBenchmarkInspection.IRequest =
           EvidenceBenchmarkInspection.prepare({
             runRoot,
+            arm: state.arm,
             pauseIndex: pauses.length - 1,
             attempt,
             goal,

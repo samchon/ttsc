@@ -51,11 +51,11 @@ The derived run verifies the retained cell and exact completed `backend-start` b
 
 When launching Evidence cells concurrently, pack once and export `EVIDENCE_BENCHMARK_ARCHIVE`; every Evidence cell then copies that one file and records its SHA-256. Without the variable, a standalone Evidence cell packs its own archive. The runner strips the variable from every child environment.
 
-## Plain review boundaries
+## Review boundaries
 
-Only the Plain arm stops for a verdict. It stops after every Backend, Frontend, and Overall Review, and again after each supplementation Goal, retaining status `awaiting-review-verdict`.
+Both arms stop for a verdict, after every Backend, Frontend, and Overall Review and again after each supplementation Goal, retaining status `awaiting-review-verdict`. An arm nobody checks has the compiler as its only gate, and the compiler proves that a citation resolves rather than that it is true, so inspecting one arm and not the other would have made the arms differ in two things instead of one.
 
-The runner produces the verdict itself: at the boundary it spawns a fresh Codex thread on the cell's own model and effort, which reads the attempt's stage log and the measured workspace and returns a decision. Three attempts are permitted at one boundary, and a resume retries a failed one. Only after the third failure does the run require a hand-written verdict:
+The runner produces the verdict itself: at the boundary it spawns a fresh Codex thread on the cell's own model and effort, which reads the attempt's stage log and the measured workspace and returns a decision. The questions differ by arm, because a Plain review is a reading loop and an Evidence review inspects its own acknowledgements. Three attempts are permitted at one boundary, and a resume retries a failed one. Only after the third failure does the run require a hand-written verdict:
 
 ```bash
 pnpm --filter @ttsc/benchmark-evidence supervise <subject> <run-id> <verdict.json>
@@ -138,7 +138,7 @@ One native session receives its arm-owned base sequence of eight objectives, in 
 | Overall review | `instructions/evidence/overall/review.md` | `instructions/plain/overall/review.md` |
 | Overall final | `instructions/evidence/overall/final.md` | `instructions/plain/overall/final.md` |
 
-The sequence is adaptive, not fixed. A failing Plain review verdict inserts that scope's `instructions/plain/<scope>/remind.md` as a supplementation Goal named `<scope>-remind-<attempt>`, and a passing verdict advances straight to that scope's Final. `EvidenceBenchmarkInstruction.entries()` owns the base sequence; runs retained before the adaptive plan reconstruct their fixed eleven-step order through `legacyPlan()`.
+The sequence is adaptive, not fixed. A failing review verdict inserts that scope's `instructions/<arm>/<scope>/remind.md` as a supplementation Goal named `<scope>-remind-<attempt>`, and a passing verdict advances straight to that scope's Final. `EvidenceBenchmarkInstruction.entries()` owns the base sequence; runs retained before the adaptive plan reconstruct their fixed eleven-step order through `legacyPlan()`.
 
 For each Plain Reminder and Final step, the runner appends the matching Review instruction as a Markdown blockquote at the bottom of the prescribed instruction. It then combines the prescribed instruction and that arm's `instructions/<arm>/continue.md` once as the objective. An operator warning replaces the continuation instead of joining it, except on a Plain Reminder or Final, where it is inserted above the quoted Review. The arms share no instruction file. The sentences they do share are the gates over a capability held constant and the supplementation's own rejection, which read the same to both arms on purpose.
 

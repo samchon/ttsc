@@ -52,7 +52,7 @@ The Stage column appends the retained status after `·`, and a cell that has ret
 | --- | --- | --- |
 | `ready` | Prepared, no objective dispatched | Wait |
 | `running` | An objective is active | Watch |
-| `awaiting-review-verdict` | A Plain cell stopped for a decision | Resume to retry the inspection — [plain-review.md](plain-review.md) |
+| `awaiting-review-verdict` | A cell stopped for a decision, or an inspection is running under it | With no live runner, resume to retry the inspection; with one, the status only changes after the verdict, so wait. [plain-review.md](plain-review.md) |
 | `checkpointed` | Stopped deliberately after `backend-start` | Finished. Derive from it, never resume it |
 | `quality-failed` | Supplementation attempts exhausted | Finished. It cannot resume |
 | `interrupted` | Stopped abnormally | Diagnose, then resume — [intervention/recovery.md](../intervention/recovery.md) |
