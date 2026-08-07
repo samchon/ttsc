@@ -76,7 +76,7 @@ export interface ITtscEvidenceGraphReferenceBase<Type extends string> {
 
   /**
    * Whether every acknowledgement of this population must carry a reviewed,
-   * unexpired `@evidenceReview`.
+   * unexpired review of its own kind.
    *
    * The reason on a citation says why this declaration answers for a target.
    * Nothing asks what was actually checked, so an unverified citation and a
@@ -107,10 +107,10 @@ export interface ITtscEvidenceGraphReferenceBase<Type extends string> {
    * narrowest symbol that actually answers for the requirement if that breadth
    * is unwelcome.
    *
-   * The withdrawal tags are named in the tag guide rather than here, on purpose:
-   * `stripInternal` is on for this package, so writing one of them inside a
-   * published doc comment deletes the property it documents from the emitted
-   * declarations. That is how this very property went missing once.
+   * The withdrawal tags are named in the tag guide rather than here, on
+   * purpose: `stripInternal` is on for this package, so writing one of them
+   * inside a published doc comment deletes the property it documents from the
+   * emitted declarations. That is how this very property went missing once.
    *
    * Only Markdown and TypeScript references accept this today. A Swagger or
    * Prisma reference is refused at decode, because those loaders report unit

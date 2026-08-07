@@ -34,7 +34,7 @@ declare module "@ttsc/lint" {
     "evidence/todo"?: TtscLintRuleSetting;
 
     /**
-     * Requires an `@evidenceReview` beside every citation.
+     * Requires a review beside every acknowledgement.
      *
      * Every `@evidence` and `@evidenceExclude` on a public identity must be
      * answered by an `@evidenceReview` naming the same target. The citation

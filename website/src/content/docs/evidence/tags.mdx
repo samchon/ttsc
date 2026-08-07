@@ -1,12 +1,14 @@
 # Evidence Tags
 
-Two tags satisfy every obligation the graph declares, and a third records that one of them was verified.
+Two tags satisfy every obligation the graph declares, and two more record that one of them was verified.
 
 ```text
 @evidence <target> <reason>
 @evidenceExclude <target> <reason>
 @evidenceReview <target> <description>
 @evidenceReview <target> #<fingerprint> <description>
+@evidenceExcludeReview <target> <description>
+@evidenceExcludeReview <target> #<fingerprint> <description>
 ```
 
 These are not tags you maintain by hand. An agent writes each one as it implements, and your job is to review the stated reasons. In an agent workflow they cost nothing extra: the citation is written at the moment the author knows why it is true.
@@ -184,16 +186,20 @@ Never auto-exclude, auto-retarget, or delete an artifact to make a graph green. 
 
 ## Reviews
 
-`@evidenceReview` answers a different question from the reason beside it. The reason says why this declaration answers for a target; the review says what was checked. Only the first is written unless something asks for the second, which is what [`evidence/review`](/docs/evidence/rules) does.
+A review answers a different question from the reason beside it. The reason says why this declaration answers for a target; the review says what was checked. Only the first is written unless something asks for the second, which is what [`evidence/review`](/docs/evidence/rules) does.
+
+There are two review tags because there are two acknowledgements, and neither answers the other. `@evidenceReview` verifies a citation: the code does what the cited unit describes. `@evidenceExcludeReview` verifies an exclusion: the unit genuinely does not apply here, which no reading of the code establishes. One tag for both would let the easier check discharge the harder one.
 
 ```ts
 /**
  * @evidence docs/discount.md#coupon-stacking <reason>
  * @evidenceReview docs/discount.md#coupon-stacking <what you checked>
+ * @evidenceExclude docs/discount.md#tax <reason>
+ * @evidenceExcludeReview docs/discount.md#tax <what you checked>
  */
 ```
 
-The target is spelled exactly as the citation spells it, including the inline-link form, and it is compared as a token rather than resolved a second time. A review is not an acknowledgement: it discharges no coverage and changes no `evidence/graph` diagnostic.
+The target is spelled exactly as the acknowledgement spells it, including the inline-link form, and it is compared as a token rather than resolved a second time. The pairing key is the tag together with the target, so one host may both cite and exclude one target and then owes two reviews. A review is not an acknowledgement: it discharges no coverage and changes no `evidence/graph` diagnostic.
 
 The `#`-prefixed token is a fingerprint of the cited content, optional in the grammar and required by a reference declaring [`requireReview`](/docs/evidence/claims). It is what makes a review expire: when the cited section, operation, model, or symbol changes, the fingerprint stops matching and the build fails again with the new value stated in the diagnostic. Without it a review is written once and stays green forever, which is the same as never having asked.
 

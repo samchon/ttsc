@@ -66,6 +66,22 @@ export const test_evidence_review_reports_unreviewed_citation = (): void => {
         "}",
         "",
       ].join("\n"),
+      // The second marker needs the same proof as the first. Losing
+      // `@evidenceExcludeReview` from the packaged binary would look exactly like
+      // a project whose exclusions are all reviewed, which is the argument this
+      // case was written for in the first place.
+      "src/ITax.ts": [
+        "/**",
+        " * @evidenceExclude docs/spec.md#tax The tax engine owns this, not this type.",
+        " * @evidenceExcludeReview docs/spec.md#tax Read the section: every rule in it names a tax authority.",
+        " * @evidenceExclude docs/spec.md#audit The audit log owns this.",
+        " * @evidenceReview docs/spec.md#audit Filed under the wrong question.",
+        " */",
+        "export interface ITax {",
+        "  rate: number;",
+        "}",
+        "",
+      ].join("\n"),
     },
   });
   try {
@@ -102,6 +118,16 @@ export const test_evidence_review_reports_unreviewed_citation = (): void => {
       result,
       "Unreviewed @evidence for 'docs/spec.md#pricing'",
       "A citation answered by a review of the same target must not be reported.",
+    );
+    assertExcludes(
+      result,
+      "Unreviewed @evidenceExclude for 'docs/spec.md#tax'",
+      "An exclusion answered by '@evidenceExcludeReview' must not be reported, so the second marker reached the packaged binary.",
+    );
+    assertIncludes(
+      result,
+      "Mismatched @evidenceReview for 'docs/spec.md#audit'",
+      "A review filed under the wrong question must be named as mismatched rather than left to pass.",
     );
   } finally {
     project.cleanup();

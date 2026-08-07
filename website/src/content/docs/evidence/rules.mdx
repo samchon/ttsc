@@ -110,7 +110,7 @@ Stage it. Keep the rule `"off"` while stubs are the plan of record, and flip it 
 
 ## `evidence/review`
 
-Requires an `@evidenceReview` beside every `@evidence` and `@evidenceExclude`, naming the same target. Takes no options.
+Requires an `@evidenceReview` beside every `@evidence` and an `@evidenceExcludeReview` beside every `@evidenceExclude`, naming the same target. Takes no options.
 
 ```ts
 "evidence/review": "error",
@@ -122,17 +122,20 @@ The citation states why this declaration answers for a target. Nothing asks what
 /**
  * @evidence docs/discount.md#coupon-stacking <reason>
  * @evidenceReview docs/discount.md#coupon-stacking <what you checked>
+ * @evidenceExclude docs/discount.md#tax <reason>
+ * @evidenceExcludeReview docs/discount.md#tax <what you checked>
  */
 ```
 
 A review is an annotation of a citation, never an acknowledgement of a unit. It discharges no coverage, contributes no host to `uniqueEvidence`, and counts toward no `singleEvidencePerSymbol` total, so enabling this rule cannot change an `evidence/graph` diagnostic.
 
-Four findings, most structural first.
+Five findings, most structural first.
 
 - **A citation with no review of its target.** The verification statement was never written.
-- **A review naming a target this identity does not cite.** An orphan, which is what turns a mistyped target into a finding rather than a silent hole: the typo leaves one citation unreviewed and one review answering nothing.
-- **A second review of one target in one block.** One citation is verified once. Copying a block onto each half of a merged identity is not this, since the count is per block.
+- **A review naming a target this identity does not acknowledge with that tag.** An orphan, which is what turns a mistyped target into a finding rather than a silent hole: the typo leaves one citation unreviewed and one review answering nothing.
+- **A second review of one target in one block.** One acknowledgement is verified once. Copying a block onto each half of a merged identity is not this, since the count is per block.
 - **A review with no description.** A target and a fingerprint state what was reviewed, never what was checked.
+- **A review filed under the wrong question.** `@evidenceReview` on a target this identity excludes, or the reverse. The author did the work and filed it against the wrong acknowledgement, so the finding names the tag that answers and what to rewrite rather than sending them after a typo.
 
 The unit judged is an identity rather than a declaration, so a review on `namespace ISale` answers a citation on `interface ISale`. A declaration withdrawn by `@internal`, `@hidden`, or `@ignore` owes nothing, because it can carry no citation the graph would read.
 
