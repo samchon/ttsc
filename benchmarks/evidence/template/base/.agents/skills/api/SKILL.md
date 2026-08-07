@@ -78,4 +78,4 @@ Simulation validates the declared request boundary and returns type-correct gene
 const connection: api.IConnection = { host, simulate: true };
 ```
 
-It proves contract shape and client flow. It does not run providers, persist state, authorize ownership, refresh sessions, or produce deterministic cross-field data. Build frontend flows against simulation, use fixtures for named UI states, and close with the same browser journeys under `VITE_API_SIMULATE=false` against the live backend.
+It proves contract shape and client flow. It does not run providers, persist state, authorize ownership, refresh sessions, or produce deterministic cross-field data. Build frontend flows against simulation and use fixtures for named UI states, then close with the live journey suite under `VITE_API_SIMULATE=false` against the live backend. The two are separate suites, and `.agents/skills/frontend/verification.md` owns why.

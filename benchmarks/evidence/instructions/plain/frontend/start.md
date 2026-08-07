@@ -12,6 +12,8 @@ Ensure `pnpm dev` is running from `packages/backend`. Start `pnpm dev` from `pac
 - [ ] Every published SDK accessor is called by a hook and every hook is used by a screen; every screen is walked by a journey or has a recorded requirement-backed reason.
 - [ ] Every upstream correction regenerated the SDK and re-passed the backend gate.
 - [ ] Backend and frontend processes reloaded cleanly after the latest scoped change.
+- [ ] `pnpm plan` reports every requirement section delivered by a screen entry or decided by an omission.
+- [ ] Every screen driven in the interactive browser, with `packages/frontend/wiki/interactive-review.md` recording the screens, widths, observations, and defects found.
 - [ ] Live-backend `pnpm test:e2e` passed against the current implementation.
 
 Any unchecked item leaves the Goal active. Complete it and rerun every affected current-state gate.

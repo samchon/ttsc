@@ -316,6 +316,111 @@ const EXCEPTIONS = new Map([
     "tests/test-evidence-benchmark/src/features/test_benchmark_report_records_a_resolvable_origin_or_none.ts",
     "ttsc#1107: local only, upstream records no origin",
   ],
+  [
+    "benchmarks/evidence/src/EvidenceBenchmarkInstruction.ts",
+    "ttsc#1095: the Evidence arm has no Overall Review stage, because `evidence/review` proves a citation was reviewed and Frontend Review is the last scope",
+  ],
+  [
+    "benchmarks/evidence/src/EvidenceBenchmarkRunner.ts",
+    "ttsc#1094: every cell is spawned into a generated Codex home, so the operator's own AGENTS.md, hooks, and MCP table cannot reach a measured thread",
+  ],
+  [
+    "benchmarks/evidence/src/EvidenceBenchmarkRuntime.ts",
+    "ttsc#1094 and ttsc#1111: the isolated Codex home carrying the pinned browser server, and a port bound derived from the populations rather than written down",
+  ],
+  [
+    "benchmarks/evidence/template/base/packages/frontend/.env.example",
+    "ttsc#1091: simulation is decided by the build mode, so the example no longer carries the flag a cell could edit",
+  ],
+  [
+    "benchmarks/evidence/template/base/.agents/skills/api/SKILL.md",
+    "ttsc#1091: the simulation clause no longer selects for assertions that prove nothing",
+  ],
+  [
+    "benchmarks/evidence/template/base/.agents/skills/frontend/architecture.md",
+    "ttsc#1094: the interactive review record joins the wiki listing",
+  ],
+  [
+    "benchmarks/evidence/template/base/.agents/skills/frontend/screens.md",
+    "ttsc#1105: a screen needs a requirement, which is the direction coverage from the evidence side cannot see",
+  ],
+  [
+    "benchmarks/evidence/template/base/.agents/skills/frontend/sdk.md",
+    "ttsc#1091: the typed-client smoke pass runs against the live backend",
+  ],
+  [
+    "benchmarks/evidence/template/base/.agents/skills/frontend/SKILL.md",
+    "ttsc#1105 and ttsc#1091: the requirement enumeration and the contract suite join the gates",
+  ],
+  [
+    "benchmarks/evidence/template/base/.agents/skills/frontend/verification.md",
+    "ttsc#1091, ttsc#1094 and ttsc#1105: the live contract pass, the interactive browser review, and the requirement-section count",
+  ],
+  [
+    "benchmarks/evidence/template/base/.agents/skills/project/SKILL.md",
+    "ttsc#1091 and ttsc#1105: the layout and command list carry tests/contract/ and pnpm plan",
+  ],
+  [
+    "benchmarks/evidence/template/base/packages/frontend/package.json",
+    "ttsc#1091 and ttsc#1105: build:contract, test:contract, and plan",
+  ],
+  [
+    "benchmarks/evidence/template/base/packages/frontend/src/lib/config.ts",
+    "ttsc#1091: simulation is read from the build mode rather than from a file a cell may write",
+  ],
+  [
+    "benchmarks/evidence/template/base/packages/frontend/vite.config.ts",
+    "ttsc#1091: the mode decides simulation in both directions",
+  ],
+  [
+    "benchmarks/evidence/template/evidence/.agents/skills/review/frontend.md",
+    "ttsc#1095 and ttsc#1105: the cross-layer deferral check the removed Overall scope owned, and the requirement-section count",
+  ],
+  [
+    "benchmarks/evidence/template/evidence/.agents/skills/review/SKILL.md",
+    "ttsc#1095: two review scopes and no third",
+  ],
+  ["benchmarks/evidence/template/evidence/AGENTS.md", "ttsc#1095: as above"],
+  [
+    "benchmarks/evidence/template/plain/.agents/skills/review/frontend.md",
+    "ttsc#1105: requirement coverage propagates in the shape source propagation already did",
+  ],
+  [
+    "benchmarks/evidence/template/plain/.agents/skills/review/overall.md",
+    "ttsc#1105: requirement coverage joins the Plain overall scope, mirroring the frontend one",
+  ],
+  [
+    "benchmarks/evidence/instructions/evidence/frontend/review.md",
+    "ttsc#1095 and ttsc#1105: the cross-layer deferral check and the requirement count, since Frontend Review is now the last scope",
+  ],
+  [
+    "benchmarks/evidence/instructions/evidence/frontend/start.md",
+    "ttsc#1094 and ttsc#1105: the interactive browser record and the requirement enumeration join the gates",
+  ],
+  [
+    "benchmarks/evidence/instructions/evidence/overall/final.md",
+    "ttsc#1095: reached straight from Frontend Final, so it names that scope rather than a review stage the arm no longer runs",
+  ],
+  [
+    "benchmarks/evidence/instructions/plain/frontend/start.md",
+    "ttsc#1094 and ttsc#1105: as above, held identical across the arms",
+  ],
+  [
+    "benchmarks/evidence/template/base/packages/frontend/scripts/screen-plan.mjs",
+    "ttsc#1105: local only, upstream has no requirement-section count to run",
+  ],
+  [
+    "benchmarks/evidence/template/base/packages/frontend/tests/contract/scaffold.spec.ts",
+    "ttsc#1091: local only, upstream runs no simulated suite separate from the live one",
+  ],
+  [
+    "benchmarks/evidence/instructions/evidence/backend/remind.md",
+    "ttsc#1095: local only, the Evidence arm stops at a Review boundary and needs its own supplementation",
+  ],
+  [
+    "benchmarks/evidence/instructions/evidence/frontend/remind.md",
+    "ttsc#1095: as above",
+  ],
 ]);
 
 // ------------------------------------------------------------------ compare

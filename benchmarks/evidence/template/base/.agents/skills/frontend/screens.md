@@ -1,10 +1,37 @@
 # Screens
 
-A screen is a route page under `src/components/<domain>/<name>-page.tsx`. Every user-facing requirement needs a screen or a recorded requirement-backed omission, and every screen needs a requirement and the domain hooks that supply its data. Screens do not call accessors directly; `architecture.md` owns that boundary.
+A screen is a route page under `src/components/<domain>/<name>-page.tsx`. Every screen needs a requirement and the domain hooks that supply its data. Screens do not call accessors directly; `architecture.md` owns that boundary.
+
+## Requirement Ownership
+
+Every requirement section is delivered by a screen or recorded as an omission. The set is not yours to choose: it is every H2 and H3 under `docs/analysis`. From the workspace root:
+
+```bash
+rg --no-filename -o '^#{2,3} .+' docs/analysis | sort
+```
+
+Each heading opens with its own identifier, and that identifier is what a record cites. The graph's own anchor for the heading cites it too, so either form reads.
+
+| Rule | Detail |
+| --- | --- |
+| one entry, one section | an entry names its section's identifier and no other, so a line listing many of them decides none |
+| one owning screen | a line in `screen-plan.md` naming the identifier and a page file that exists under `src/components` |
+| an omission is a decision | an entry in `omissions.md` naming the identifier, what owns the requirement instead, and the condition that would make the decision false |
+| a family is one decision | an omission naming an H2 identifier covers its H3 children, so a concept no browser delivers is written down once |
+
+The family rule is what makes the largest subject tractable. `erp` has 1487 sections and 253 of them are H2, so its non-visual concepts are 253 decisions rather than 1487.
+
+"No screen needed" is a conclusion, not a reason. A section a browser genuinely does not deliver, a persistence rule or an authorization boundary the backend enforces alone, belongs in `omissions.md` with that owner named.
+
+`pnpm plan` from `packages/frontend` decides it. It reads the corpus, reads both records, prints the covered count, and lists every section that is neither. It reads and never writes.
+
+It matches identifiers as whole tokens, so a screen for `REQ-X-1` does not silently deliver `REQ-X`. An omission entry is the line naming its section plus the lines beneath it that name none, so wrapping a reason across lines is one entry rather than a fragment. The reason is measured with the identifiers removed, so an identifier cannot pay for its own length.
+
+A copy of the enumeration is not a plan, whatever is appended to it: a line naming many sections decides none of them, a page file that does not exist delivers nothing, and an identifier with no sentence after it excuses nothing.
 
 ## Plan And Declare
 
-Before implementation, write `packages/frontend/wiki/screen-plan.md` with each screen, its requirement, actor, operations, and user journey.
+Before implementation, write `packages/frontend/wiki/screen-plan.md` with each screen, its requirement, actor, operations, and user journey. Run `pnpm plan` while writing it rather than at the end; the enumeration is exact from the first line, so a plan that grows against it never needs reconciling later.
 
 Declare the whole page surface before realizing it:
 
