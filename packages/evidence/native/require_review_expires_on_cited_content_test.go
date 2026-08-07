@@ -22,6 +22,18 @@ func reviewedFingerprint(t *testing.T, document string, source string) string {
 }
 
 // reviewedFingerprintAt is the same reading for an arbitrary project shape.
+//
+// The scan cannot simply take the first `#` in the message. Every one of these
+// diagnostics names the cited target too, and a Markdown target carries its own
+// anchor — `for 'docs/spec.md#pricing'` — so the first `#` is the anchor's and
+// the helper would return `pricing` as the fingerprint. Every case built on it
+// would then write a citation whose fingerprint is a word, and they would fail
+// as stale rather than as a broken helper, which is the wrong failure to debug.
+//
+// The token is identified by its shape instead: `#` followed by exactly
+// `reviewFingerprintLength` lowercase hex characters, ending at whitespace, a
+// quote, or the end of the message. That is the same discrimination
+// `splitReviewFingerprint` performs on a tag.
 func reviewedFingerprintAt(
   t *testing.T,
   files map[string]string,
@@ -33,14 +45,39 @@ func reviewedFingerprintAt(
     if !strings.Contains(message, "@evidenceReview") {
       continue
     }
-    if opened := strings.Index(message, "#"); opened >= 0 {
-      remainder := message[opened+1:]
-      if closed := strings.IndexAny(remainder, " '"); closed > 0 {
-        return remainder[:closed]
-      }
+    if found := fingerprintWithin(message); found != "" {
+      return found
     }
   }
-  t.Fatalf("expected a review diagnostic naming the expected fingerprint, got:\n%s", strings.Join(messages, "\n"))
+  t.Fatalf(
+    "expected a review diagnostic naming the expected fingerprint, got:\n%s",
+    strings.Join(messages, "\n"),
+  )
+  return ""
+}
+
+// fingerprintWithin finds the first shaped fingerprint token in a message.
+func fingerprintWithin(message string) string {
+  for index := 0; index < len(message); index++ {
+    if message[index] != '#' {
+      continue
+    }
+    candidate := message[index+1:]
+    if len(candidate) < reviewFingerprintLength {
+      continue
+    }
+    token := candidate[:reviewFingerprintLength]
+    if !isLowerHex(token) {
+      continue
+    }
+    if len(candidate) == reviewFingerprintLength {
+      return token
+    }
+    switch candidate[reviewFingerprintLength] {
+    case ' ', '\t', '\n', '\'', '"', '.', ',', ')':
+      return token
+    }
+  }
   return ""
 }
 
