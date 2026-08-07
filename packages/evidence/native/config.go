@@ -185,6 +185,7 @@ func decodeReference(
       "noEvidenceExclude",
       "uniqueEvidence",
       "singleEvidencePerSymbol",
+      "noAggregateEvidence",
       "role",
       "package",
       "root",
@@ -307,6 +308,7 @@ func decodeReferencePolicy(
   decodeFlag("noEvidenceExclude", &policy.NoExclude)
   decodeFlag("uniqueEvidence", &policy.UniqueEvidence)
   decodeFlag("singleEvidencePerSymbol", &policy.SingleEvidencePerSymbol)
+  decodeFlag("noAggregateEvidence", &policy.NoAggregate)
   if value, exists := object["role"]; exists {
     var role string
     if err := json.Unmarshal(value, &role); err != nil ||

@@ -9,9 +9,9 @@ import (
 /**
  * Verifies reference policy defaults preserve the original reference contract.
  *
- * Each option strengthens a single reference only when it is written as `true`. An omitted option and an explicit `false` therefore need the same zero-value native model, or merely adding the public properties would change every existing graph.
+ * Each switch strengthens a single reference only when it is written as `true`, and `role` only when it names a relation. An omitted option and an explicitly zero one therefore need the same native model, or merely adding the public properties would change every existing graph.
  *
- *  1. Decode one reference with no options and one declaring every option false.
+ *  1. Decode one reference with no options and one declaring every switch false.
  *  2. Inspect both native reference models.
  *  3. Assert every option retains its behavior-preserving zero value.
  */
@@ -26,7 +26,8 @@ func TestReferencePolicyDefaultsPreserveReferenceBehavior(t *testing.T) {
         "files":["docs/b.md"],
         "noEvidenceExclude":false,
         "uniqueEvidence":false,
-        "singleEvidencePerSymbol":false
+        "singleEvidencePerSymbol":false,
+        "noAggregateEvidence":false
       }
     ]
   }]}`))
@@ -38,6 +39,7 @@ func TestReferencePolicyDefaultsPreserveReferenceBehavior(t *testing.T) {
     if policy.NoExclude ||
       policy.UniqueEvidence ||
       policy.SingleEvidencePerSymbol ||
+      policy.NoAggregate ||
       policy.Role != "" {
       t.Fatalf("reference %d did not preserve zero-value behavior: %+v", index, policy)
     }
@@ -51,12 +53,13 @@ func TestReferencePolicyDefaultsPreserveReferenceBehavior(t *testing.T) {
  *
  *  1. Configure all four reference kinds with every option enabled.
  *  2. Decode the graph through the shared reference boundary.
- *  3. Assert each reference retains all three enabled options.
+ *  3. Assert each reference retains every one of them.
  */
 func TestReferencePolicyAppliesToEveryReferenceKind(t *testing.T) {
   policy := `"noEvidenceExclude":true,
     "uniqueEvidence":true,
     "singleEvidencePerSymbol":true,
+    "noAggregateEvidence":true,
     "role":"produces"`
   config, problems := decodeGraphConfig(json.RawMessage(`{"claims":[{
     "type":"typescript",
@@ -79,6 +82,7 @@ func TestReferencePolicyAppliesToEveryReferenceKind(t *testing.T) {
     if !policy.NoExclude ||
       !policy.UniqueEvidence ||
       !policy.SingleEvidencePerSymbol ||
+      !policy.NoAggregate ||
       policy.Role != "produces" {
       t.Fatalf("reference %d lost its policy: %+v", index, policy)
     }
@@ -157,6 +161,7 @@ func TestReferencePolicyRejectsMalformedRuntimeShapes(t *testing.T) {
     "noEvidenceExclude",
     "uniqueEvidence",
     "singleEvidencePerSymbol",
+    "noAggregateEvidence",
   } {
     for _, test := range invalid {
       t.Run(test.name+" "+property, func(t *testing.T) {

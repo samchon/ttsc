@@ -625,7 +625,13 @@ func evaluateEvidenceGraph(
   // obligations the declaration did answer for, which is what separates a tag
   // refused everywhere from one that answers reference A and not reference B.
   refusedRole := map[string][]string{}
+  // A citation of a containing scope that a reference confining coverage to the
+  // named unit answers for nothing. It never reaches the non-participation
+  // pass, which sets its flag earlier, and that pass's sentence would be false
+  // here anyway: the reference does select the target's descendants.
+  refusedAggregate := map[string][]string{}
   discharges := map[string]bool{}
+  reportedRefusal := map[string]bool{}
   for _, state := range states {
     if len(state.Paths) == 0 {
       continue
@@ -678,6 +684,28 @@ func evaluateEvidenceGraph(
       for _, declaration := range state.Declarations {
         scopeID := resolved[declaration.ID]
         covered := reference.UnitsByScope[scopeID]
+        // Narrowed here rather than at each consumer, so every one of them
+        // agrees at once: what is acknowledged, which declarations conflict,
+        // the hosts uniqueEvidence counts, and the units
+        // singleEvidencePerSymbol counts — which stops reading a cited parent
+        // of two selected units as two.
+        if declaration.Tag == tagEvidence &&
+          reference.Spec.Policy.NoAggregate &&
+          len(covered) != 0 {
+          named := []*evidenceUnit{}
+          for _, unit := range covered {
+            if unit.ID == scopeID {
+              named = append(named, unit)
+            }
+          }
+          if len(named) == 0 {
+            refusedAggregate[declaration.ID] = appendUniqueString(
+              refusedAggregate[declaration.ID],
+              claimLabel(state.Spec)+" "+referenceLabel(reference.Spec),
+            )
+          }
+          covered = named
+        }
         if len(covered) == 0 {
           continue
         }
@@ -860,6 +888,9 @@ func evaluateEvidenceGraph(
               repair += " An @evidenceExclude on an eligible carrier still answers for it, because an exclusion states that this claim does not cover the target rather than how it does."
             }
           }
+          if reference.Spec.Policy.NoAggregate {
+            repair += " noAggregateEvidence is set here, so this unit needs its own name: a citation of a scope containing it will not answer for it."
+          }
           problems = append(
             problems,
             "Missing acknowledgement for '"+unit.Target+"' ("+unit.Readable+" at "+unit.location()+") in "+claimLabel(state.Spec)+" "+referenceLabel(reference.Spec)+". "+repair,
@@ -881,22 +912,32 @@ func evaluateEvidenceGraph(
   // reaches that pass, and the two findings are mutually exclusive rather than
   // ordered: this one fires only when the declaration answered for nothing.
   for _, id := range declarationIDs {
-    obligations := refusedRole[id]
-    if len(obligations) == 0 || discharges[id] || uncertain[id] {
+    if discharges[id] || uncertain[id] {
       continue
     }
     declaration := declarations[id]
-    declared := "no relation"
-    if declaration.Role != "" {
-      declared = "'" + declaration.Role + "'"
+    if obligations := refusedRole[id]; len(obligations) != 0 {
+      declared := "no relation"
+      if declaration.Role != "" {
+        declared = "'" + declaration.Role + "'"
+      }
+      reportedRefusal[id] = true
+      problems = append(
+        problems,
+        "Unwanted relation on @"+string(declaration.Tag)+" at "+declaration.location()+", target '"+displayTarget(declaration.Target)+"': this declaration names "+declared+" and every obligation selecting the target wants another ("+strings.Join(obligations, "; ")+"). Name the relation the obligation asks for, or move the tag to the host that owns the relation this one claims.",
+      )
+      continue
     }
-    problems = append(
-      problems,
-      "Unwanted relation on @"+string(declaration.Tag)+" at "+declaration.location()+", target '"+displayTarget(declaration.Target)+"': this declaration names "+declared+" and every obligation selecting the target wants another ("+strings.Join(obligations, "; ")+"). Name the relation the obligation asks for, or move the tag to the host that owns the relation this one claims.",
-    )
+    if obligations := refusedAggregate[id]; len(obligations) != 0 {
+      reportedRefusal[id] = true
+      problems = append(
+        problems,
+        "Aggregate @evidence at "+declaration.location()+" for "+strings.Join(obligations, "; ")+", target '"+displayTarget(declaration.Target)+"': noAggregateEvidence answers each selected unit by its own name, so citing a scope that contains them acknowledges none of them. Cite the units this host actually delivers, or move the tag to the host that owns the whole subtree and cite them there.",
+      )
+    }
   }
   for _, id := range declarationIDs {
-    if resolved[id] == "" || participates[id] {
+    if resolved[id] == "" || participates[id] || reportedRefusal[id] {
       continue
     }
     declaration := declarations[id]

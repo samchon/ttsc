@@ -218,7 +218,7 @@ A unit is addressed the way a consumer reaches it, so `export * as functional` n
 | TypeScript | `type`, `function`, `property` | all three | `type` |
 | Swagger | none, every operation is selected | not applicable | every operation |
 
-Units keep their hierarchy, so a target acknowledges itself and every selected descendant: citing a heading covers its subsections, an interface covers its properties, and `prisma:Sale` covers the columns beneath it. An ancestor stays addressable even when its own kind is not selected.
+Units keep their hierarchy, so a target acknowledges itself and every selected descendant: citing a heading covers its subsections, an interface covers its properties, and `prisma:Sale` covers the columns beneath it. An ancestor stays addressable even when its own kind is not selected. A reference may turn the cascade off with `noAggregateEvidence` where the citing host does not own the whole subtree.
 
 A declaration whose documentation carries `@internal`, `@hidden`, or `@ignore` leaves the population entirely. It owes nothing and can carry nothing, and citing one is reported rather than silently ignored.
 
@@ -263,12 +263,13 @@ Ordinary coverage is permissive, which is right for a document several modules h
 - `noEvidenceExclude` refuses exclusions, so the target still owes positive evidence. A published accessor no hook consumes is an omission rather than a decision.
 - `uniqueEvidence` allows at most one host per unit, so one host is answerable for it rather than several.
 - `singleEvidencePerSymbol` requires exactly one unit from every selected host, so a host citing nothing and a host citing everything both fail.
+- `noAggregateEvidence` answers each unit by its own name, so citing the scope that contains them acknowledges none of them. It closes the path the other three leave open: one tag on a document's top heading otherwise discharges every requirement under it, including the ones nobody implemented.
 
-Counting is by identity rather than by text. Repeated tags for one unit count once, an overload set stays one host, and citing a parent of two selected units counts as two.
+Counting is by identity rather than by text. Repeated tags for one unit count once, an overload set stays one host, and citing a parent of two selected units counts as two, unless `noAggregateEvidence` has already confined the citation to the one unit it names.
 
 ### Relations
 
-Those three count acknowledgements. `role` is the one that asks what an acknowledgement is.
+Those four count acknowledgements or confine them. `role` is the one that asks what an acknowledgement is.
 
 ```ts
 {

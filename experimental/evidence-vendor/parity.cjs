@@ -532,6 +532,15 @@ const EXCEPTIONS = new Map([
     "benchmarks/evidence/src/executable/EvidenceBenchmarkSupervision.ts",
     "ttsc#1095: a hand-written verdict names its arm, because both arms now stop for one and the command could only reach a Plain run",
   ],
+
+  // ttsc#1092 closes the one path a reference refusing exclusions still left
+  // open: a citation of a containing scope discharging its whole subtree.
+  // model.go, config.go, graph.go, and the reference contract are already
+  // declared above for ttsc#1106 and carry this too.
+  [
+    "packages/evidence/native/graph_confines_aggregate_evidence_test.go",
+    "ttsc#1092: local only, upstream has no confined coverage to prove",
+  ],
 ]);
 
 // ------------------------------------------------------------------ compare

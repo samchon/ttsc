@@ -87,6 +87,15 @@ type referencePolicy struct {
   // SingleEvidencePerSymbol requires exactly one distinct selected unit from
   // every selected semantic claim host, including the hosts carrying no tag.
   SingleEvidencePerSymbol bool
+  // NoAggregate confines a positive acknowledgement to the unit its target
+  // names, so a citation of a containing scope stops answering for that
+  // scope's selected descendants.
+  //
+  // Aggregate scope is what lets one truthful tag discharge a whole subtree.
+  // That is right where a host owns the subtree and is the widest way to
+  // discharge a population without saying anything about it otherwise, and it
+  // is the one path a reference refusing exclusions still leaves open.
+  NoAggregate bool
   // Role is the relation an acknowledgement must declare to discharge this
   // reference. Empty accepts any, which is how every reference behaved before
   // roles existed.
