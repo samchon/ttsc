@@ -420,11 +420,6 @@ const EXCEPTIONS = new Map([
 
 // ------------------------------------------------------------------ compare
 const TEXT = new Set([
-  // `.example` is here because `.env.example` is text a declaration has to be
-  // able to excuse. The byte-comparison branch below never consults
-  // EXCEPTIONS, so an extension missing from this set is an extension no
-  // entry can cover.
-  ".example",
   ".ts",
   ".tsx",
   ".go",
@@ -592,10 +587,27 @@ const collect = (upRel, localRel) => {
     return;
   }
   if (!TEXT.has(path.extname(localRel))) {
-    const a = fs.readFileSync(path.join(UP, upRel));
+    // The byte branch has to answer the same two questions the text branch
+    // does, or an extension outside TEXT is an extension no entry can cover.
+    // That is not hypothetical: the trees carry `.gitignore`, `.gitattributes`,
+    // `.node-version`, five `.gitkeep` files, `index.html`, and
+    // `exclude.schema`, all of them text this campaign could have had to
+    // declare, and one of them was edited and reverted inside this cycle.
+    //
+    // It reads through `readUpstream` for the same reason the text branch does:
+    // a file the upstream campaign branch adds exists in no working tree, and
+    // reading the working-tree path directly would throw and take the whole
+    // report with it.
+    const a = Buffer.from(readUpstream(upRel), "utf8");
     const b = fs.readFileSync(localPath);
     skippedBinary++;
-    if (!a.equals(b)) differing.push({ localRel, upRel, note: "binary bytes" });
+    if (a.equals(b)) {
+      if (EXCEPTIONS.has(localRel))
+        excused.push(`${localRel}: listed as adapted but compares clean`);
+      return;
+    }
+    if (EXCEPTIONS.has(localRel)) return;
+    differing.push({ localRel, upRel, note: "binary bytes" });
     return;
   }
   pending.push({ upRel, localRel, text: adapt(readUpstream(upRel), localRel) });
