@@ -15,17 +15,10 @@ The graph is configurable. Claims select the files and declaration hosts that ow
 
 ```text
 @evidence <target> <reason>
-@evidence(<relation>) <target> <reason>
 @evidenceExclude <target> <reason>
 ```
 
 The target is one whitespace-delimited token, except that a target opening with `{@link`, `{@linkcode`, or `{@linkplain` runs to its closing brace. Everything after the target is prose. A declaration may carry any number of tags. Every tag requires a target and non-empty reason and is validated independently.
-
-The parenthesized relation is optional, names what the acknowledgement claims, and only `@evidence` takes one. An exclusion states that the claim does not cover the target rather than how it does, so there is no relation for it to name.
-
-It is one token immediately after the tag name, carrying no whitespace and no parenthesis — the same set the configuration accepts, so a relation a tag can name and a relation a reference can require are one vocabulary. The space in `@evidence (target)` is what keeps that form meaning what it always meant.
-
-Consume nothing else in that position. A malformed opener, a well-formed one with no separator after it, and a relation on an exclusion all stay in the body and become the target, reported as an unresolved target when a reason follows it and as a malformed declaration when the parenthesis was the whole body. Ceasing to be a declaration would drop an acknowledgement without a word, and the missing-unit diagnostic names the reference rather than the tag, so nothing else would point at the line.
 
 ```ts
 /** @evidence docs/spec.md#pricing Sale price derives from this section. */
@@ -54,7 +47,7 @@ Four artifact kinds materialize evidence units.
 
 Units form structural containment scopes. A Markdown file contains its heading outline; a heading contains lower-level headings until the next heading of equal or higher level. A Prisma model contains its columns and relations. A TypeScript interface or object-shaped type alias contains its direct properties, and a namespace contains every nested public unit. Top-level TypeScript functions and properties have no aggregate file node. Swagger operations are independent leaves with no document or path aggregate target.
 
-An `@evidence` target acknowledges the selected target and every selected descendant, unless its reference declares `noAggregateEvidence` and confines it to the target itself. An `@evidenceExclude` target always acknowledges the whole of that scope; what a reference may do about an exclusion is refuse it outright with `noExclude`, which is a different decision from confining one. The reference's `symbol` selector defines the obligation denominator, not the only addressable targets: every structural ancestor of a selected unit remains resolvable as an aggregate scope.
+An `@evidence` target acknowledges the selected target and every selected descendant, and an `@evidenceExclude` target does the same unless its reference declares `noExclude`. The reference's `symbol` selector defines the obligation denominator, not the only addressable targets: every structural ancestor of a selected unit remains resolvable as an aggregate scope.
 
 Keep selected obligations and resolvable scopes separate. Do not make every unselected unit resolvable; only actual ancestors belong to the scope closure, or an unrelated same-name declaration can create false ambiguity.
 
@@ -131,26 +124,14 @@ Several declaration hosts may acknowledge the same unit with `@evidence`, unless
 
 ## Reference Policies
 
-**A prescription names only a relation the host it addresses could satisfy.** A tag written for one claim discharges no other, so a relation another claim requires never crosses into a repair addressed to this one. An author told to claim a relation their own obligation does not read has been asked to write something nothing checks, and the build then goes green on it.
-
-**A prescription belongs to the thing being cited, not to the obligation that noticed it.** Compute every sentence telling an author how to write a tag from the obligations that own the cited thing, narrowed by the target when the target says what it is and widened to every candidate when it does not, and name a tag all of them accept. A diagnostic scoped to one reference may name that reference as its reason, never as its grammar.
-
-The bound on the cited thing is what a target can name, which includes an aggregate scope and not only a selected unit; the bound on the addressed host is every claim that could own it, which is not the claim that noticed. Both come from one value rather than from each site's own reasoning. Three separate computations that agree on the fixtures somebody wrote are not the property; one lookup every site reads is. The same holds of the check: enumerate the prescribing sites from the code, because a site the checker's pattern cannot see is a site nobody checks.
-
-**An option's zero value is the absence of a constraint, never a constraint of its own.** An omitted `role` accepts any relation rather than requiring that none be named, and an omitted switch leaves the historical behavior rather than asserting its opposite. Every reader of a policy field owes that reading, including a diagnostic deciding what to prescribe when several obligations own one declaration.
-
-A reference may strengthen its own acknowledgement relation with `noExclude`, `uniqueEvidence`, `role`, `noAggregateEvidence`, and `singleEvidencePerSymbol`, declared flat on the reference object. Every option is opt-in, its zero value is the historical behavior, and constraints never cross or pool between reference-array elements — including identical and overlapping references.
+A reference may strengthen its own acknowledgement relation with `noExclude`, `uniqueEvidence`, and `singleEvidencePerSymbol`, declared flat on the reference object. Every option is opt-in, its false value is the historical behavior, and constraints never cross or pool between reference-array elements — including identical and overlapping references.
 
 - **A refused exclusion is reference-local.** Report one diagnostic for the declaration and reference, give that reference no coverage from it, and leave the missing positive coverage visible. The same declaration may still satisfy another reference that allows exclusions.
 - **`uniqueEvidence` counts distinct semantic claim hosts per selected unit.** Declaration merging and overloads remain one host, several tags on one host count once, and an exclusion never contributes a host. A unit no host cites is reported as missing coverage instead.
-- **`singleEvidencePerSymbol` counts distinct selected units per claim host.** Begin from the complete selected host population so a host with no tag counts as zero, and count reference-unit identities reached by `@evidence`, including every selected descendant of an aggregate scope the reference has not confined. Do not count tags, source positions, or exclusions.
-- **`noAggregateEvidence` confines a positive acknowledgement to the unit its target names.** Narrow the covered set at the scope lookup rather than at each consumer, so every consumer of coverage reads one answer: acknowledgement, conflict pairing, `uniqueEvidence` hosts, and `singleEvidencePerSymbol` counts, where a cited parent of two selected units then counts as one rather than two. This says nothing about a consumer that reads the cited address rather than the covered set; such a consumer is outside what confinement decides. A citation covering nothing after narrowing reports at its own location, naming only the obligations that refused it, and stays silent when another obligation took the same tag. Narrow behind the carrier, eligibility, and health gates: a tag on an ineligible host is already wrong for a reason this finding would mask, and the repair it offers cannot be performed there. The relation gate is a sibling rather than a predecessor, so one reference refusing a tag both ways records both before either stops the obligation; reporting whichever came first costs the author a build. It constrains positive evidence only, for the reason `role` does.
-- **`role` asks what an acknowledgement is rather than how many there are.** It constrains positive evidence only: only `@evidence(<role>)` naming the same word discharges the reference, while an exclusion still answers because it states that the claim does not cover the target rather than how it does, and `noEvidenceExclude` is what refuses one. A declaration whose relation every obligation it reached refuses reports at its own location, since the missing-unit diagnostic names the reference rather than the tag. Reject a configured relation carrying whitespace or a parenthesis: no tag could name it, so every unit would owe an acknowledgement no author could write.
+- **`singleEvidencePerSymbol` counts distinct selected units per claim host.** Begin from the complete selected host population so a host with no tag counts as zero, and count reference-unit identities reached by `@evidence`, including every selected descendant of an aggregate scope. Do not count tags, source positions, or exclusions.
 - **Incomplete populations establish no cardinality.** Preserve the loader failure and derive no count from a partial denominator. A healthy population that is merely empty is a complete denominator, so a host still truthfully cites zero units against it.
 
-`noAggregateEvidence` needs no completion treatment. Every target the corpus offers is a selected unit, and a selected unit always covers itself, so no offered target is one a confining reference refuses. `role` earns a trigger only because `@evidence ` cannot match a line that opens a parenthesis.
-
-Completion keeps every positive target. At the exclusion trigger, omit a target selected only by references that refuse exclusions, and keep one any enabled reference still allows. A configured relation earns its own trigger, `@evidence(<relation>) `, because the host matches a trigger against the line prefix and `@evidence ` never matches a line that opens a parenthesis. It carries the targets that relation discharges and the targets of every reference requiring no relation, since those accept any; the plain trigger carries only the second set. The hint API has no cursor or claim context, so cardinality stays an evaluation diagnostic rather than a completion filter.
+Completion keeps every positive target. At the exclusion trigger, omit a target selected only by references that refuse exclusions, and keep one any enabled reference still allows. The hint API has no cursor or claim context, so cardinality stays an evaluation diagnostic rather than a completion filter.
 
 ## Exclusions
 

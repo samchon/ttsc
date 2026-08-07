@@ -21,8 +21,6 @@ export function CouponStackingNotice(props: IProps): JSX.Element;
 
 `@evidence <target> <reason>` names one unit of the spec and why this declaration answers for it. A target is a document section, an API operation, a database schema model, or a TypeScript symbol as an inline link.
 
-`@evidence(<role>) <target> <reason>` adds the relation this declaration claims, and a reference can require one.
-
 ```bash
 $ npx ttsc
 error TS16411: [evidence/graph] Missing acknowledgement for 'docs/discount.md#coupon-stacking'
@@ -218,7 +216,7 @@ A unit is addressed the way a consumer reaches it, so `export * as functional` n
 | TypeScript | `type`, `function`, `property` | all three | `type` |
 | Swagger | none, every operation is selected | not applicable | every operation |
 
-Units keep their hierarchy, so a target acknowledges itself and every selected descendant: citing a heading covers its subsections, an interface covers its properties, and `prisma:Sale` covers the columns beneath it. An ancestor stays addressable even when its own kind is not selected. A reference may turn the cascade off for `@evidence` with `noAggregateEvidence` where the citing host does not own the whole subtree; an exclusion still covers the descendants of its target.
+Units keep their hierarchy, so a target acknowledges itself and every selected descendant: citing a heading covers its subsections, an interface covers its properties, and `prisma:Sale` covers the columns beneath it. An ancestor stays addressable even when its own kind is not selected.
 
 A declaration whose documentation carries `@internal`, `@hidden`, or `@ignore` leaves the population entirely. It owes nothing and can carry nothing, and citing one is reported rather than silently ignored.
 
@@ -247,7 +245,7 @@ It is the only acknowledgement that settles an obligation without anything being
 
 ### Strict references
 
-Ordinary coverage is permissive, which is right for a document several modules honor and too weak for a proof obligation, where one exclusion or one host citing everything discharges the whole population. Four properties tighten a single reference, and they never pool across references.
+Ordinary coverage is permissive, which is right for a document several modules honor and too weak for a proof obligation, where one exclusion or one host citing everything discharges the whole population. Three properties tighten a single reference, and they never pool across references.
 
 ```ts
 {
@@ -263,31 +261,8 @@ Ordinary coverage is permissive, which is right for a document several modules h
 - `noEvidenceExclude` refuses exclusions, so the target still owes positive evidence. A published accessor no hook consumes is an omission rather than a decision.
 - `uniqueEvidence` allows at most one host per unit, so one host is answerable for it rather than several.
 - `singleEvidencePerSymbol` requires exactly one unit from every selected host, so a host citing nothing and a host citing everything both fail.
-- `noAggregateEvidence` answers each unit by its own name, so a positive citation of a scope containing them acknowledges none of them, and a citation of a selected unit still answers for that unit alone. It closes the path the other three leave open: one tag on a document's top heading otherwise discharges every requirement under it, including the ones nobody implemented. Like `role` it constrains positive evidence only, so an `@evidenceExclude` on that heading still decides the whole subtree; pair it with `noEvidenceExclude` where that is not an answer either.
 
-Counting is by identity rather than by text. Repeated tags for one unit count once, an overload set stays one host, and citing a parent of two selected units counts as two. Under `noAggregateEvidence` that citation counts as one when the parent is itself selected, and as zero when it is not.
-
-### Relations
-
-Those four count acknowledgements or confine them. `role` is the one that asks what an acknowledgement is.
-
-```ts
-{
-  type: "prisma",
-  files: ["prisma/schema/**/*.prisma"],
-  symbol: "model",
-  role: "produces",
-}
-```
-
-```prisma
-/// @evidence(produces) docs/requirements/recovery.md#reset Issues the one-time proof.
-model password_resets {}
-```
-
-Without it every obligation is a reachability obligation: some host cites some unit. That cannot say a unit must be **produced** rather than merely mentioned, that a **read** is not discharged by a **write**, or that a test must prove an operation **works** rather than that it refuses. A model covered by a host that only consumes it reads as covered while nothing anywhere issues the rows.
-
-A reference declaring a role is discharged only by positive evidence naming the same word. One naming another relation, or naming none, leaves the unit uncovered and the diagnostic says which relation it wanted. An `@evidenceExclude` names no relation and still answers, because it states that the claim does not cover the target rather than how it does; pair `role` with `noEvidenceExclude` where neither answer is acceptable. The vocabulary is yours: the rule checks that the relation asked for is the relation claimed, never that the claim is true, which is what a reviewer reads the reason for.
+Counting is by identity rather than by text. Repeated tags for one unit count once, an overload set stays one host, and citing a parent of two selected units counts as two.
 
 ## Sponsors
 

@@ -185,8 +185,6 @@ func decodeReference(
       "noEvidenceExclude",
       "uniqueEvidence",
       "singleEvidencePerSymbol",
-      "noAggregateEvidence",
-      "role",
       "package",
       "root",
       "file",
@@ -308,24 +306,6 @@ func decodeReferencePolicy(
   decodeFlag("noEvidenceExclude", &policy.NoExclude)
   decodeFlag("uniqueEvidence", &policy.UniqueEvidence)
   decodeFlag("singleEvidencePerSymbol", &policy.SingleEvidencePerSymbol)
-  decodeFlag("noAggregateEvidence", &policy.NoAggregate)
-  if value, exists := object["role"]; exists {
-    var role string
-    if err := json.Unmarshal(value, &role); err != nil ||
-      strings.TrimSpace(role) == "" ||
-      containsWhitespace(role) ||
-      strings.ContainsAny(role, "()") ||
-      strings.Contains(role, "*/") ||
-      strings.Contains(role, "-->") {
-      problems = append(problems, configurationProblem(
-        graphRuleName,
-        path+".role",
-        "expected a non-empty string with no whitespace, parenthesis, or comment terminator.",
-      ))
-    } else {
-      policy.Role = role
-    }
-  }
   return policy, problems
 }
 

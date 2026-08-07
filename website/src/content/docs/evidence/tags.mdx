@@ -4,7 +4,6 @@ Two tags satisfy every obligation the graph declares.
 
 ```text
 @evidence <target> <reason>
-@evidence(<relation>) <target> <reason>
 @evidenceExclude <target> <reason>
 ```
 
@@ -13,10 +12,6 @@ These are not tags you maintain by hand. Your agent writes each one as it implem
 ## Grammar
 
 The target is one whitespace-delimited token, except that a target opening with `{@link`, `{@linkcode`, or `{@linkplain` runs to its closing brace. Everything after the target is prose.
-
-The parenthesized relation is optional, and only `@evidence` takes one. An exclusion says the claim does not cover the target rather than how it does, so it has no relation to name. Write the relation immediately after the tag name, as one word with no space and no parenthesis inside. The space is what keeps `@evidence (target)` meaning what it always meant, so a citation written before relations existed is untouched.
-
-Anything else in that position is left where the author wrote it and becomes the target. `@evidence(produces here)`, `@evidence(produces)docs/spec.md#x` with the space missing, and `@evidenceExclude(produces)` all stay declarations and all report: as an unresolved target when a reason follows, and as a malformed declaration when the parenthesis was the whole body. A dropped acknowledgement is the one outcome the graph exists to prevent, so nothing here fails silently.
 
 The reason is required. A citation that cannot say why it exists is filler, and the reason is what makes review possible: it sits beside the exact section it claims to honor, so a misreading surfaces where a reader can see both.
 
@@ -35,8 +30,6 @@ A reason may run past one line. Continuation lines join it until the next `@evid
 | `POST:/members` | One Swagger or OpenAPI operation |
 | `{@link sales.IShoppingSale}` | An exported type, function, or namespace, with its selected descendants |
 | `{@link sales.IShoppingSale.price}` | One property of an exported type |
-
-Every row above that covers something below its target does so because the reference asks for it by default. A reference setting [`noAggregateEvidence`](/docs/evidence/claims#reference-policies) drops that for `@evidence`, so a citation there answers for the unit it names and nothing beneath it, or for nothing at all when the target it names is not itself a selected unit.
 
 A path-addressed target is one whitespace-delimited token, which is why a Swagger operation is written `POST:/members` rather than `POST /members`. The second form still parses: target `POST`, reason `/members ...`. That grammar is preserved deliberately, because `POST` may be the name of a TypeScript symbol.
 
@@ -138,7 +131,7 @@ Resolving through the module's own imports also removes an ambiguity that has no
 - Repeating the same resolved scope on one declaration is rejected. Keep the truthful reason, or fold the useful detail into it.
 - A citation may sit on any declaration of a merged identity. Placement changes neither resolution nor coverage.
 
-`uniqueEvidence` and `singleEvidencePerSymbol` on a reference tighten the first two rules where an obligation needs an owner, and `noAggregateEvidence` turns the second one off for `@evidence`, so a parent citation stops accepting responsibility for its subtree while a parent exclusion still decides the whole of it. `role` tightens a different axis: the parenthesized word is the relation this host claims, and a reference declaring `role` is discharged by positive evidence naming that relation and by no other positive evidence. An `@evidenceExclude` still answers it, because a reference refuses exclusions through `noEvidenceExclude` and through nothing else. [Reference policies](/docs/evidence/claims#reference-policies) covers all five.
+`uniqueEvidence` and `singleEvidencePerSymbol` on a reference tighten the first two rules where an obligation needs an owner. [Reference policies](/docs/evidence/claims#reference-policies) covers both.
 
 ## Exclusions
 
@@ -150,7 +143,7 @@ Resolving through the module's own imports also removes an ambiguity that has no
 <!-- @evidenceExclude docs/requirements/coupons.md#coupon-stacking This section defines wording and intentionally does not implement coupon behavior. -->
 ```
 
-It follows the hierarchy `@evidence` follows by default, and keeps following it under `noAggregateEvidence`, which confines positive evidence alone, so excluding an H2 also excludes its selected H3 and H4 descendants, and excluding a type or namespace excludes its selected children.
+It follows the same hierarchy as `@evidence`, so excluding an H2 also excludes its selected H3 and H4 descendants, and excluding a type or namespace excludes its selected children.
 
 Three properties decide whether an exclusion is worth anything.
 

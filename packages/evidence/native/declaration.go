@@ -7,7 +7,6 @@ import (
 
 type parsedDeclaration struct {
   Tag        tagKind
-  Role       string
   Target     string
   Reason     string
   LineOffset int
@@ -72,7 +71,6 @@ func parseCommentDeclarations(
   lines := strings.Split(comment, "\n")
   type pendingDeclaration struct {
     tag        tagKind
-    role       string
     body       []string
     lineOffset int
   }
@@ -85,7 +83,6 @@ func parseCommentDeclarations(
     target, reason := splitDeclarationBody(strings.Join(pending.body, "\n"))
     parsed = append(parsed, parsedDeclaration{
       Tag:        pending.tag,
-      Role:       pending.role,
       Target:     target,
       Reason:     reason,
       LineOffset: leadingLines + pending.lineOffset,
@@ -95,12 +92,11 @@ func parseCommentDeclarations(
   for index, rawLine := range lines {
     line := strings.TrimSpace(rawLine)
     line = strings.TrimSpace(strings.TrimPrefix(line, "*"))
-    tag, role, body, found := declarationLine(line)
+    tag, body, found := declarationLine(line)
     if found {
       flush()
       pending = &pendingDeclaration{
         tag:        tag,
-        role:       role,
         body:       []string{body},
         lineOffset: index,
       }
@@ -118,7 +114,7 @@ func parseCommentDeclarations(
   return parsed
 }
 
-func declarationLine(line string) (tagKind, string, string, bool) {
+func declarationLine(line string) (tagKind, string, bool) {
   for _, candidate := range []struct {
     marker string
     tag    tagKind
@@ -130,69 +126,12 @@ func declarationLine(line string) (tagKind, string, string, bool) {
       continue
     }
     remainder := line[len(candidate.marker):]
-    role, body := "", remainder
-    // Only positive evidence carries a relation. An exclusion states that the
-    // claim does not cover the target rather than how it does, so a relation
-    // written on one claims something the tag cannot mean; leaving it in the
-    // body makes it the target, which reports.
-    if candidate.tag == tagEvidence {
-      role, body = splitDeclarationRole(remainder)
-      // A well-formed relation followed by no separator is the typo the
-      // relation grammar makes possible, and it is the same failure a
-      // malformed opener is: putting the remainder back sends the whole of it
-      // to the target instead of quietly dropping the acknowledgement.
-      if body != "" && body[0] != ' ' && body[0] != '\t' {
-        role, body = "", remainder
-      }
-    }
-    // An opening parenthesis separates the tag from its body as surely as a
-    // space does, and only this tag can precede one, so accepting it here is
-    // what lets every one of those unconsumed openers reach the target and
-    // report itself rather than stop being a declaration.
-    if body != "" && body[0] != ' ' && body[0] != '\t' && body[0] != '(' {
+    if remainder != "" && remainder[0] != ' ' && remainder[0] != '\t' {
       continue
     }
-    return candidate.tag, role, strings.TrimSpace(body), true
+    return candidate.tag, strings.TrimSpace(remainder), true
   }
-  return "", "", "", false
-}
-
-// splitDeclarationRole consumes an optional `(role)` immediately after the tag.
-//
-// The role says how this host answers for the target, which the target and the
-// prose together cannot: "Consumes the one-time recovery proof" is a truthful
-// sentence about a host that consumes, and it discharged an obligation whose
-// requirement needed a producer. A reference that declares no required role
-// accepts a declaration that names none, so every tag written before this
-// existed means exactly what it meant.
-//
-// A malformed opener is deliberately not consumed. Left in place it becomes the
-// target and reports as unresolved, naming the text the author actually wrote,
-// where swallowing it would drop the acknowledgement without a word. That is the
-// same choice splitInlineLinkBody makes for an unterminated `{@link`.
-func splitDeclarationRole(remainder string) (string, string) {
-  if !strings.HasPrefix(remainder, "(") {
-    return "", remainder
-  }
-  closing := strings.IndexByte(remainder, ')')
-  if closing < 0 {
-    return "", remainder
-  }
-  role := remainder[1:closing]
-  // The same shapes the configuration refuses, so a relation a reference can
-  // require and a relation a tag can name are one set. A closing parenthesis
-  // cannot survive the scan above; an opening one has to be refused here, or
-  // `@evidence((x)` parses a relation no reference is allowed to ask for. A
-  // comment terminator is refused for the same reason it is there: the tag
-  // could not survive the block it has to live in.
-  if role == "" ||
-    containsWhitespace(role) ||
-    strings.Contains(role, "(") ||
-    strings.Contains(role, "-->") ||
-    strings.Contains(role, "*"+"/") {
-    return "", remainder
-  }
-  return role, remainder[closing+1:]
+  return "", "", false
 }
 
 // inlineLinkTags are the JSDoc inline link forms a TypeScript target may use.

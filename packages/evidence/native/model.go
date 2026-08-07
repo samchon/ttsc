@@ -87,25 +87,6 @@ type referencePolicy struct {
   // SingleEvidencePerSymbol requires exactly one distinct selected unit from
   // every selected semantic claim host, including the hosts carrying no tag.
   SingleEvidencePerSymbol bool
-  // NoAggregate confines a positive acknowledgement to the unit its target
-  // names, so a citation of a containing scope stops answering for that
-  // scope's selected descendants.
-  //
-  // Aggregate scope is what lets one truthful tag discharge a whole subtree.
-  // That is right where a host owns the subtree and is the widest way to
-  // discharge a population without saying anything about it otherwise, and it
-  // is the one path a reference refusing exclusions still leaves open.
-  NoAggregate bool
-  // Role is the relation an acknowledgement must declare to discharge this
-  // reference. Empty accepts any, which is how every reference behaved before
-  // roles existed.
-  //
-  // Every obligation without it is a reachability obligation: some host cites
-  // some unit. That cannot say a unit must be produced rather than mentioned,
-  // that a read is not discharged by a write, or that a test must prove an
-  // operation works rather than that it refuses, and each of those discharged a
-  // real obligation with the wrong side of it.
-  Role string
 }
 
 // entrySelected reports whether this reference materializes by traversal.
@@ -190,13 +171,9 @@ type evidenceDeclaration struct {
   SemanticHostIDs []string
   Type            artifactKind
   Tag             tagKind
-  // Role is how this host answers for the target, declared as `(role)` right
-  // after the tag. Empty means the author declared none, which is what every
-  // tag written before roles existed means.
-  Role   string
-  Target string
-  Reason string
-  Hosts  symbolSet
+  Target          string
+  Reason          string
+  Hosts           symbolSet
   // ExclusionCarrier permits only @evidenceExclude to participate without a
   // selected host kind. File matching, target resolution, and claim-reference
   // ownership still decide the obligations it can discharge.

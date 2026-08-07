@@ -88,88 +88,39 @@ func (graphRule) Hints(ctx *rule.HintContext) []rule.Hint {
   }
   corpus := cycle.Corpus
   hints := []rule.Hint{}
-  for _, audience := range evidenceHintAudiences(corpus.Config) {
+  for _, trigger := range evidenceHintTriggers {
+    exclusion := trigger.After == "@evidenceExclude "
     units := selectedCompletionUnits(
       corpus.Config,
       corpus.Markdown,
       corpus.Prisma,
       corpus.Swagger,
-      audience,
+      exclusion,
     )
-    routes := selectsTypeScriptReference(corpus.Config, audience)
+    routes := selectsTypeScriptReference(corpus.Config, exclusion)
     if routes {
-      hints = append(hints, typeScriptRouteHint(audience.Trigger))
+      hints = append(hints, typeScriptRouteHint(trigger))
     }
     for _, unit := range units {
       hints = append(hints, rule.Hint{
         Insert:  unit.Target,
         Detail:  unit.Readable,
-        Trigger: audience.Trigger,
+        Trigger: trigger,
       })
     }
   }
   return hints
 }
 
-// hintAudience is one tag position and the obligations writable at it.
-//
-// A trigger is not enough on its own. `@evidence ` and `@evidence(produces) `
-// are different positions offering different populations, and the difference is
-// the reference policy rather than anything about the text.
-type hintAudience struct {
-  Trigger   rule.HintTrigger
-  Exclusion bool
-  Role      string
-}
-
-// evidenceHintAudiences names every tag position a target can be written in.
+// evidenceHintTriggers names both tag positions a target can be written in.
 //
 // Each `After` ends where the target begins, which is what makes the text the
 // author has typed so far the editor's filter. The trailing space also keeps
-// them apart: `"@evidence "` occurs inside neither `"@evidenceExclude "` nor
-// `"@evidence(produces) "`, because the character following `@evidence` is `E`
-// in the first and `(` in the second.
-//
-// A configured relation earns its own position because it is a position an
-// author must type: a reference declaring one is discharged by `@evidence(role)`
-// and by nothing else, so completing only the role-free tag would hand the
-// author a target the obligation refuses, and completing nothing after the
-// relation would leave the tag the rule demands as the one tag with no help at
-// all.
-//
-// The plain position is not the mirror of that. It carries the obligations a
-// bare tag discharges, which are exactly the ones requiring no relation; every
-// relation position carries those too, because a reference requiring none
-// accepts any.
-func evidenceHintAudiences(config graphConfig) []hintAudience {
-  audiences := []hintAudience{
-    {Trigger: rule.HintTrigger{Scope: rule.HintScopeJSDoc, After: "@evidence "}},
-    {
-      Trigger:   rule.HintTrigger{Scope: rule.HintScopeJSDoc, After: "@evidenceExclude "},
-      Exclusion: true,
-    },
-  }
-  roles := []string{}
-  seen := map[string]bool{}
-  for _, claim := range config.Claims {
-    for _, reference := range claim.References {
-      if role := reference.Policy.Role; role != "" && !seen[role] {
-        seen[role] = true
-        roles = append(roles, role)
-      }
-    }
-  }
-  sort.Strings(roles)
-  for _, role := range roles {
-    audiences = append(audiences, hintAudience{
-      Trigger: rule.HintTrigger{
-        Scope: rule.HintScopeJSDoc,
-        After: "@evidence(" + role + ") ",
-      },
-      Role: role,
-    })
-  }
-  return audiences
+// the two apart: `"@evidence "` cannot occur inside `"@evidenceExclude "`,
+// because the character following `@evidence` there is `E`.
+var evidenceHintTriggers = []rule.HintTrigger{
+  {Scope: rule.HintScopeJSDoc, After: "@evidence "},
+  {Scope: rule.HintScopeJSDoc, After: "@evidenceExclude "},
 }
 
 // typeScriptRouteHint routes the author into TypeScript's own completion.
@@ -205,38 +156,16 @@ func typeScriptRouteHint(trigger rule.HintTrigger) rule.Hint {
 // a repository mixing a TypeScript-citing claim with a Markdown-only one offers
 // the entry in both. Narrowing that needs a per-file corpus, which the contract
 // deliberately does not have.
-func selectsTypeScriptReference(config graphConfig, audience hintAudience) bool {
+func selectsTypeScriptReference(config graphConfig, exclusion bool) bool {
   for _, claim := range config.Claims {
     for _, reference := range claim.References {
       if reference.Type == artifactTypeScript &&
-        audience.accepts(reference) {
+        (!exclusion || !reference.Policy.NoExclude) {
         return true
       }
     }
   }
   return false
-}
-
-// accepts reports whether a reference can be discharged from this position.
-//
-// A relation constrains positive evidence only, which is why the exclusion
-// position ignores it: an exclusion states that the claim does not cover the
-// target rather than how it does, and `noEvidenceExclude` is what decides
-// whether a reference accepts one at all.
-//
-// The two positive positions are not mirror images. A reference declaring no
-// relation accepts any, so its targets belong at every relation position as
-// well as at the plain one; a reference declaring one is discharged there and
-// nowhere else. Reading the omitted value as a requirement to name nothing
-// withheld a target from the position that can legally cite it.
-func (audience hintAudience) accepts(reference referenceSpec) bool {
-  if audience.Exclusion {
-    return !reference.Policy.NoExclude
-  }
-  if reference.Policy.Role == "" {
-    return true
-  }
-  return reference.Policy.Role == audience.Role
 }
 
 // selectedCompletionUnits collects the units some configured reference selects,
@@ -270,13 +199,13 @@ func selectedCompletionUnits(
   markdown map[string]*artifactInventory,
   prisma map[string]*artifactInventory,
   swagger map[string]*artifactInventory,
-  audience hintAudience,
+  exclusion bool,
 ) []*evidenceUnit {
   ranked := map[string][]*evidenceUnit{}
   seen := map[string]bool{}
   for _, claim := range config.Claims {
     for _, reference := range claim.References {
-      if !audience.accepts(reference) {
+      if exclusion && reference.Policy.NoExclude {
         continue
       }
       inventories := inventoriesOf(

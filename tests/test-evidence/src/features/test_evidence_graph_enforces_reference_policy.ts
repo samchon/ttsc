@@ -23,8 +23,6 @@ const lintConfig: string = [
   "  noEvidenceExclude: true,",
   "  uniqueEvidence: true,",
   "  singleEvidencePerSymbol: true,",
-  "  noAggregateEvidence: true,",
-  '  role: "implements",',
   "};",
   "",
   "// Every reference kind extends the same base, so the strict options are",
@@ -51,12 +49,10 @@ const lintConfig: string = [
 /**
  * Verifies the reference policy options through the published real binary.
  *
- * Native tests pin each evaluator branch against raw JSON, so nothing there
- * would notice a published property whose spelling and decode key disagree.
- * This consumer proves the option shape is exported and flat on the reference,
- * that every one of its JSON names survives config loading, that the shipped Go
- * contributor emits the actionable diagnostics, and that a fully satisfied twin
- * passes.
+ * Native tests pin each evaluator branch, while this consumer proves the public
+ * option shape is exported and flat on the reference, that all three JSON names
+ * survive config loading, that the shipped Go contributor emits the actionable
+ * diagnostics, and that a fully satisfied twin passes.
  *
  * 1. Run a typed strict reference against one exclusion on a silent host.
  * 2. Assert the refusal, the per-symbol count, and the missing-coverage repair all
@@ -95,16 +91,6 @@ export const test_evidence_graph_enforces_reference_policy = (): void => {
       "this reference forbids @evidenceExclude",
       "A refused exclusion must leave ordinary coverage missing.",
     );
-    assertIncludes(
-      result,
-      "naming the 'implements' relation",
-      "A declared relation must survive the native config boundary too.",
-    );
-    assertIncludes(
-      result,
-      "noAggregateEvidence is set here",
-      "Every declared option must reach the repair the author reads.",
-    );
   } finally {
     rejected.cleanup();
   }
@@ -115,12 +101,12 @@ export const test_evidence_graph_enforces_reference_policy = (): void => {
     files: {
       "docs/spec.md": "## Contract {#contract}\n\n## Pricing {#pricing}\n",
       "src/first.ts": [
-        "/** @evidence(implements) docs/spec.md#contract Implements the contract. */",
+        "/** @evidence docs/spec.md#contract Implements the contract. */",
         "export function first(): void {}",
         "",
       ].join("\n"),
       "src/second.ts": [
-        "/** @evidence(implements) docs/spec.md#pricing Implements the pricing rule. */",
+        "/** @evidence docs/spec.md#pricing Implements the pricing rule. */",
         "export function second(): void {}",
         "",
       ].join("\n"),

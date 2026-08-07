@@ -150,46 +150,39 @@ func TestHintsPublishForBothTagPositions(t *testing.T) {
 }
 
 /**
- * Verifies no trigger can match inside another tag position's line.
+ * Verifies the citation trigger cannot match inside an exclusion line.
  *
  * The host matches a trigger with `strings.LastIndex` against the line prefix,
- * so the positions stay apart only because `After` carries a trailing space: the
- * character following `@evidence` is `E` inside `@evidenceExclude` and `(`
- * inside a relation tag. That is a property of the host's matcher rather than of
- * this code, which is why it is pinned rather than trusted — dropping the space
- * would silently merge the corpora.
+ * so the two tags stay apart only because `After` carries a trailing space: the
+ * character following `@evidence` inside `@evidenceExclude` is `E`. That is a
+ * property of the host's matcher rather than of this code, which is why it is
+ * pinned rather than trusted — dropping the space would silently merge the two
+ * corpora.
  *
- *  1. Take the triggers this package publishes for a graph declaring a relation.
+ *  1. Take the triggers this package actually publishes.
  *  2. Apply the host's matching rule to each tag line.
- *  3. Assert each trigger matches its own line and no other's.
+ *  3. Assert each trigger matches its own line and neither matches the other's.
  */
-func TestHintsKeepTheTriggersApart(t *testing.T) {
+func TestHintsKeepTheTwoTriggersApart(t *testing.T) {
   // Read from the published triggers rather than from literals retyped here.
   // A copy of the strings would keep passing after the trailing space was
   // dropped from the corpus, which is the one change this case exists to
   // catch.
-  audiences := evidenceHintAudiences(anchoredGraph("", graphConfig{
-    Claims: []claimSpec{{
-      References: []referenceSpec{{Policy: referencePolicy{Role: "produces"}}},
-    }},
-  }))
   lines := map[string]string{}
-  for _, audience := range audiences {
-    after := audience.Trigger.After
-    lines[after] = " * " + strings.TrimSuffix(after, " ") + " "
+  for _, trigger := range evidenceHintTriggers {
+    lines[trigger.After] = " * " + strings.TrimSuffix(trigger.After, " ") + " "
   }
-  if len(lines) != 3 {
-    t.Fatalf("expected three distinct triggers, got %d", len(lines))
+  if len(lines) != 2 {
+    t.Fatalf("expected two distinct triggers, got %d", len(lines))
   }
-  for _, audience := range audiences {
-    trigger := audience.Trigger.After
+  for _, trigger := range evidenceHintTriggers {
     for after, line := range lines {
-      matched := strings.LastIndex(line, trigger) >= 0
-      if after == trigger && !matched {
-        t.Fatalf("trigger %q must match its own line %q", trigger, line)
+      matched := strings.LastIndex(line, trigger.After) >= 0
+      if after == trigger.After && !matched {
+        t.Fatalf("trigger %q must match its own line %q", trigger.After, line)
       }
-      if after != trigger && matched {
-        t.Fatalf("trigger %q must not match line %q", trigger, line)
+      if after != trigger.After && matched {
+        t.Fatalf("trigger %q must not match line %q", trigger.After, line)
       }
     }
   }
@@ -286,7 +279,7 @@ func TestHintsRankSwaggerOperationsLast(t *testing.T) {
     markdown,
     map[string]*artifactInventory{},
     swagger,
-    hintAudience{},
+    false,
   )
   targets := make([]string, 0, len(units))
   for _, unit := range units {

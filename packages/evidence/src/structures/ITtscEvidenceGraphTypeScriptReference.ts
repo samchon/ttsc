@@ -71,10 +71,9 @@ export interface ITtscEvidenceGraphTypeScriptReference extends ITtscEvidenceGrap
    * Omit this property to select exported interfaces, type aliases, and
    * namespaces. A single value selects one obligation kind; a non-empty array
    * selects the union. Selected units remain independent obligations until an
-   * ancestor type or namespace target acknowledges their shared scope, which
-   * `noAggregateEvidence` turns off for positive evidence. Ancestors of
-   * selected units are addressable even when their own kind is omitted from
-   * this selector.
+   * ancestor type or namespace target acknowledges their shared scope.
+   * Ancestors of selected units are addressable even when their own kind is
+   * omitted from this selector.
    *
    * The exact declaration forms and qualified target identities are documented
    * by {@link TtscEvidenceGraphTypeScriptSymbol}. This is unlike a claim's

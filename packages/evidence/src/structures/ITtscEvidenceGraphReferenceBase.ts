@@ -57,63 +57,6 @@ export interface ITtscEvidenceGraphReferenceBase<Type extends string> {
   uniqueEvidence?: boolean;
 
   /**
-   * The relation positive evidence must declare to discharge this reference.
-   *
-   * Omit it to accept any, which is how every reference behaved before this
-   * property existed. Declare it and only positive evidence written as
-   * `@evidence(<role>) <target> <reason>` with the same word discharges the
-   * obligation; a citation naming another relation, or naming none, leaves the
-   * unit uncovered and its diagnostic says which relation was wanted.
-   *
-   * It constrains positive evidence only. An `@evidenceExclude` names no
-   * relation and still answers, because it states that the claim does not cover
-   * the target rather than how it does; {@link noEvidenceExclude} is the
-   * property that refuses one, and a reference wanting both declares both.
-   *
-   * Every other constraint here counts acknowledgements. This one is the only
-   * one that asks what an acknowledgement _is_, and without it every obligation
-   * is a reachability obligation: some host cites some unit. That cannot say a
-   * unit must be **produced** rather than merely mentioned, that a **read** is
-   * not discharged by a **write**, or that a test must prove an operation
-   * **works** rather than that it refuses. Each of those was discharged in a
-   * real codebase by a truthful tag sitting on the wrong side of the
-   * obligation.
-   *
-   * The vocabulary is yours. The rule checks that the relation a reference asks
-   * for is the relation a declaration claims, and never that the claim is true;
-   * that remains what a reviewer reads the reason for.
-   */
-  role?: string;
-
-  /**
-   * Whether an acknowledgement here answers only for the unit it names.
-   *
-   * Ordinarily a citation of a containing scope answers for every selected unit
-   * inside it, which is right where the citing host owns the whole subtree.
-   * Where it does not, one tag naming a document's top heading discharges every
-   * requirement in that document, including the ones nobody implemented — and
-   * the population reports nothing, because a satisfied obligation and an
-   * obligation nothing was ever owed on look identical.
-   *
-   * Set it and each selected unit needs its own name. A citation of a scope
-   * containing them acknowledges none of them and is reported where it is
-   * written; a citation of a unit that is itself selected still covers that
-   * unit and no longer covers its descendants.
-   *
-   * It constrains positive evidence only. One reviewed decision per subtree is
-   * exactly what `@evidenceExclude` is, and {@link noEvidenceExclude} is the
-   * property that refuses one.
-   *
-   * This is the one remaining way a reference that refuses exclusions can be
-   * discharged without saying anything unit by unit, which is why it exists
-   * separately rather than as part of that refusal: a consumer who wants named
-   * delivery and a consumer who wants no excuses are not the same consumer.
-   *
-   * @default false
-   */
-  noAggregateEvidence?: boolean;
-
-  /**
    * Whether each selected claim host must cite exactly one unit of this
    * population.
    *
@@ -121,10 +64,7 @@ export interface ITtscEvidenceGraphReferenceBase<Type extends string> {
    * carrying no `@evidence` tag counts as zero and fails exactly as a host
    * citing two units does. Repeated tags for one unit count once, while an
    * aggregate target contributes every selected descendant in its scope: citing
-   * a parent of two selected units counts as two. Under
-   * {@link noAggregateEvidence} that citation counts as one when the parent is
-   * itself selected and as zero when it is not, and the diagnostic says which
-   * citations it counted.
+   * a parent of two selected units counts as two.
    *
    * Set it where one host answers for one thing. A test function that proves
    * one operation stays reviewable; the same function citing eight operations

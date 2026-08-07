@@ -8,12 +8,11 @@
  * which usually carries `@relation`, and the back-reference carries no
  * attribute at all.
  *
- * A model contains its columns and relations, so an `@evidence` target, unless
- * its reference sets `noAggregateEvidence`, and an `@evidenceExclude` target
- * allowed by its reference policy acknowledge every selected member of it. A
- * reference selector still defines which members are obligations; a model whose
- * own kind is omitted from the selector remains addressable as their aggregate
- * scope.
+ * A model contains its columns and relations, so an `@evidence` target or an
+ * `@evidenceExclude` target allowed by its reference policy acknowledges every
+ * selected member of it. A reference selector still defines which members are
+ * obligations; a model whose own kind is omitted from the selector remains
+ * addressable as their aggregate scope.
  *
  * Targets carry a `prisma:` prefix and are one whitespace-free token: a model
  * is `prisma:Sale`, and a member is `prisma:Sale.price`. The prefix is what

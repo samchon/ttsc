@@ -7,9 +7,7 @@ import type { ITtscEvidenceGraphReferenceBase } from "./ITtscEvidenceGraphRefere
  * A document is useful as evidence only when a reviewer can identify the scope
  * that supports a claim. This reference makes the obligation levels explicit
  * while allowing one file or heading target to acknowledge its selected
- * descendants, or confining `@evidence` to the target it names with
- * `noAggregateEvidence` where the citing host does not own the whole outline
- * below it. Citations remain anchored in the outline, so an editorial change
+ * descendants. Citations remain anchored in the outline, so an editorial change
  * cannot silently preserve a claim whose grounds disappeared.
  */
 export interface ITtscEvidenceGraphMarkdownReference extends ITtscEvidenceGraphReferenceBase<"markdown"> {
@@ -68,9 +66,8 @@ export interface ITtscEvidenceGraphMarkdownReference extends ITtscEvidenceGraphR
    * Omit this property to select documents and H1 through H4 sections. A single
    * value selects one obligation kind; a non-empty array selects the union.
    * Selected units remain independent obligations until an ancestor target
-   * acknowledges their shared scope, which `noAggregateEvidence` turns off for
-   * positive evidence. Ancestors of selected units are addressable even when
-   * their own kind is omitted from this selector.
+   * acknowledges their shared scope. Ancestors of selected units are
+   * addressable even when their own kind is omitted from this selector.
    *
    * File units use the path inside {@link root} as their target. Heading units
    * use `<path>#<anchor>` as documented by

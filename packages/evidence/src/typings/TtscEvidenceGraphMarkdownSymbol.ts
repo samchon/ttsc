@@ -8,11 +8,11 @@
  *
  * These nodes form the Markdown outline: the file contains every heading, and a
  * heading contains the lower-level headings before the next heading of equal or
- * higher level. An `@evidence` target, unless its reference sets
- * `noAggregateEvidence`, and an `@evidenceExclude` target allowed by its
- * reference policy acknowledge the selected node and every selected descendant.
- * A reference selector still defines which descendants are obligations; an
- * unselected ancestor remains addressable as their aggregate scope.
+ * higher level. An `@evidence` target, or an `@evidenceExclude` target allowed
+ * by its reference policy, acknowledges its selected node and every selected
+ * descendant. A reference selector still defines which descendants are
+ * obligations; an unselected ancestor remains addressable as their aggregate
+ * scope.
  *
  * A file evidence target is its project-relative path with `/` separators. A
  * declaration may spell those separators as `/` or `\`. A heading target

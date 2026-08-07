@@ -997,7 +997,6 @@ func collectTypeScriptDeclarations(
         SemanticHostIDs:  semanticHostIDs,
         Type:             artifactTypeScript,
         Tag:              parsed.Tag,
-        Role:             parsed.Role,
         Target:           parsed.Target,
         Reason:           parsed.Reason,
         Hosts:            entry.hosts,

@@ -75,8 +75,6 @@ The same applies across claims. Two claims referencing one document set are two 
 | `root` | markdown, prisma | Directory the `files` patterns resolve against. |
 | `symbol` | markdown, prisma, typescript | Which unit kinds this obligation covers. |
 | `noEvidenceExclude` | all | Refuse `@evidenceExclude` here. |
-| `role` | all | Only positive evidence naming this relation discharges the reference. |
-| `noAggregateEvidence` | all | An `@evidence` citation covers the unit it names and none of that unit's descendants. |
 | `uniqueEvidence` | all | At most one claim host may cite each unit. |
 | `singleEvidencePerSymbol` | all | Each selected claim host must cite exactly one unit. |
 
@@ -105,7 +103,7 @@ A namespace merged with a same-named function is that function's static side, so
 
 Units contain units. A Markdown file contains its heading outline, a heading contains the lower-level headings under it, an interface contains its properties, a namespace contains every nested public unit, and a Prisma model contains its columns and relations. Swagger operations are independent leaves.
 
-A citation covers its target and every selected descendant. So `symbol: "property"` on a reference can still be satisfied by one `@evidence {@link IShoppingSale} ...`, and one `@evidence prisma:Sale ...` discharges every selected column and relation beneath that model. A reference can turn that cascade off for `@evidence` with [`noAggregateEvidence`](#reference-policies), which is what a population whose citing hosts do not own whole subtrees wants. An `@evidenceExclude` still covers the descendants of its target there, because one reviewed decision per subtree is what an exclusion is.
+A citation covers its target and every selected descendant. So `symbol: "property"` on a reference can still be satisfied by one `@evidence {@link IShoppingSale} ...`, and one `@evidence prisma:Sale ...` discharges every selected column and relation beneath that model.
 
 An ancestor stays addressable even when its own kind is not in the selector. The selector decides what is counted, not what can be named.
 
@@ -269,7 +267,7 @@ An unchanged schema is re-parsed only when its bytes change, keyed on the conten
 
 Ordinary coverage is permissive on purpose. Either tag can acknowledge a unit, one host may cite any number of units, and one citation per unit is enough. That is right for a document several modules honor, and too weak for a proof obligation, where one exclusion or one host citing everything discharges the population without proving anything.
 
-Five opt-in properties tighten a single reference:
+Three opt-in properties tighten a single reference:
 
 ```ts
 {
@@ -285,10 +283,8 @@ Five opt-in properties tighten a single reference:
 - **`noEvidenceExclude`** refuses `@evidenceExclude` here. The exclusion is reported where it is written and gives this reference no coverage, so its target still owes positive `@evidence`. Set it where non-applicability is not an answer the population accepts: a published operation is exercised by its test suite or the suite is incomplete, and "not applicable" is the sentence that hides the second case.
 - **`uniqueEvidence`** allows at most one claim host to cite each unit, so the unit has one host answerable for it rather than several.
 - **`singleEvidencePerSymbol`** requires exactly one distinct unit from every host the claim's `symbol` selector picks. A host with no `@evidence` counts as zero and fails, as does a host citing two units. One test proving one operation stays reviewable; the same function citing eight operations proves only that eight names appear in its JSDoc.
-- **`noAggregateEvidence`** answers each selected unit by its own name. Ordinarily a citation of a containing scope answers for every selected unit inside it, which is right where the citing host owns the whole subtree and wrong everywhere else: one tag naming a document's top heading discharges every requirement in it, including the ones nobody implemented, and the population reports nothing because a satisfied obligation and an obligation that does not exist look identical. Set it and a citation of a scope containing the units acknowledges none of them and is reported where it is written, while a citation of a unit that is itself selected still covers that unit and stops covering its descendants. Like `role` it constrains positive evidence only: one reviewed decision per subtree is what an exclusion is, and `noEvidenceExclude` is what refuses one.
-- **`role`** is the only one that asks what an acknowledgement is rather than how many there are. Without it every obligation is a reachability obligation, some host citing some unit, which cannot say that a unit must be produced rather than mentioned, that a read is not discharged by a write, or that a test must prove an operation works rather than that it refuses. Declare it and only `@evidence(<role>) <target> <reason>` naming the same word discharges the reference; another relation, or none, leaves the unit uncovered and the diagnostic names the relation it wanted. It constrains positive evidence only: an `@evidenceExclude` names no relation and still answers, and `noEvidenceExclude` is what refuses one, so a reference that wants positive evidence under a named relation declares both. The vocabulary is yours, and the rule checks that the relation asked for is the relation claimed rather than that the claim is true.
 
-Counting is by identity, not by text. Repeated tags for one unit count once, merged declarations and overload sets remain one host, and an aggregate target contributes every selected descendant in its scope, so citing a parent of two selected units counts as two. Under `noAggregateEvidence` that same citation counts as one when the parent is itself selected, and as zero when it is not, which is why the count says what it counted.
+Counting is by identity, not by text. Repeated tags for one unit count once, merged declarations and overload sets remain one host, and an aggregate target contributes every selected descendant in its scope, so citing a parent of two selected units counts as two.
 
 The constraints belong to one reference and never pool. An exclusion the package reference above refuses may still satisfy a Markdown reference in the same claim, and two references over the same files stay independent.
 

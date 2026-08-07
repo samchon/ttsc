@@ -9,9 +9,9 @@ import (
 /**
  * Verifies reference policy defaults preserve the original reference contract.
  *
- * Each switch strengthens a single reference only when it is written as `true`, and `role` only when it names a relation. An omitted option and an explicitly zero one therefore need the same native model, or merely adding the public properties would change every existing graph.
+ * Each option strengthens a single reference only when it is written as `true`. An omitted option and an explicit `false` therefore need the same zero-value native model, or merely adding the public properties would change every existing graph.
  *
- *  1. Decode one reference with no options and one declaring every switch false.
+ *  1. Decode one reference with no options and one declaring every option false.
  *  2. Inspect both native reference models.
  *  3. Assert every option retains its behavior-preserving zero value.
  */
@@ -26,8 +26,7 @@ func TestReferencePolicyDefaultsPreserveReferenceBehavior(t *testing.T) {
         "files":["docs/b.md"],
         "noEvidenceExclude":false,
         "uniqueEvidence":false,
-        "singleEvidencePerSymbol":false,
-        "noAggregateEvidence":false
+        "singleEvidencePerSymbol":false
       }
     ]
   }]}`))
@@ -38,9 +37,7 @@ func TestReferencePolicyDefaultsPreserveReferenceBehavior(t *testing.T) {
     policy := reference.Policy
     if policy.NoExclude ||
       policy.UniqueEvidence ||
-      policy.SingleEvidencePerSymbol ||
-      policy.NoAggregate ||
-      policy.Role != "" {
+      policy.SingleEvidencePerSymbol {
       t.Fatalf("reference %d did not preserve zero-value behavior: %+v", index, policy)
     }
   }
@@ -53,14 +50,12 @@ func TestReferencePolicyDefaultsPreserveReferenceBehavior(t *testing.T) {
  *
  *  1. Configure all four reference kinds with every option enabled.
  *  2. Decode the graph through the shared reference boundary.
- *  3. Assert each reference retains every one of them.
+ *  3. Assert each reference retains all three enabled options.
  */
 func TestReferencePolicyAppliesToEveryReferenceKind(t *testing.T) {
   policy := `"noEvidenceExclude":true,
     "uniqueEvidence":true,
-    "singleEvidencePerSymbol":true,
-    "noAggregateEvidence":true,
-    "role":"produces"`
+    "singleEvidencePerSymbol":true`
   config, problems := decodeGraphConfig(json.RawMessage(`{"claims":[{
     "type":"typescript",
     "files":["src/**"],
@@ -81,60 +76,9 @@ func TestReferencePolicyAppliesToEveryReferenceKind(t *testing.T) {
     policy := reference.Policy
     if !policy.NoExclude ||
       !policy.UniqueEvidence ||
-      !policy.SingleEvidencePerSymbol ||
-      !policy.NoAggregate ||
-      policy.Role != "produces" {
+      !policy.SingleEvidencePerSymbol {
       t.Fatalf("reference %d lost its policy: %+v", index, policy)
     }
-  }
-}
-
-/**
- * Verifies the relation option rejects every shape no tag could name.
- *
- * It is the one policy option carrying a value rather than a switch, so its malformed shapes are its own. A relation the grammar cannot express is worse than a rejected config: every unit of the reference would owe an acknowledgement no author could write, and the diagnostic would name that relation as the repair. `@evidence(a b)` and `@evidence(())` are not declarations of it, and a relation carrying a block-comment terminator closes the JSDoc block it would have to live in, as writing that example here would have closed this one.
- *
- *  1. Supply non-strings, an empty and blank string, and strings carrying whitespace or a parenthesis.
- *  2. Decode each through a disabled claim as well as an enabled one.
- *  3. Assert the complete public option path names every rejection.
- */
-func TestReferenceRoleRejectsRelationsNoTagCouldName(t *testing.T) {
-  for _, test := range []struct {
-    name  string
-    value string
-  }{
-    {name: "number", value: "1"},
-    {name: "boolean", value: "true"},
-    {name: "array", value: `[]`},
-    {name: "object", value: `{}`},
-    {name: "null", value: `null`},
-    {name: "empty", value: `""`},
-    {name: "blank", value: `"   "`},
-    {name: "inner space", value: `"issues the proof"`},
-    {name: "tab", value: `"produces\tproof"`},
-    {name: "closing parenthesis", value: `"produces)"`},
-    {name: "wrapped", value: `"(produces)"`},
-    {name: "block comment terminator", value: `"produces*/proof"`},
-    {name: "markdown comment terminator", value: `"produces-->proof"`},
-  } {
-    t.Run(test.name, func(t *testing.T) {
-      for _, disabled := range []string{"false", "true"} {
-        _, problems := decodeGraphConfig(json.RawMessage(`{"claims":[{
-          "type":"typescript",
-          "disabled":` + disabled + `,
-          "files":["src/**"],
-          "reference":{
-            "type":"markdown",
-            "files":["docs/**"],
-            "role":` + test.value + `
-          }
-        }]}`))
-        const expected = "role: expected a non-empty string with no whitespace, parenthesis, or comment terminator"
-        if !strings.Contains(strings.Join(problems, "\n"), expected) {
-          t.Fatalf("disabled=%s did not reject %s at %q: %v", disabled, test.name, expected, problems)
-        }
-      }
-    })
   }
 }
 
@@ -163,7 +107,6 @@ func TestReferencePolicyRejectsMalformedRuntimeShapes(t *testing.T) {
     "noEvidenceExclude",
     "uniqueEvidence",
     "singleEvidencePerSymbol",
-    "noAggregateEvidence",
   } {
     for _, test := range invalid {
       t.Run(test.name+" "+property, func(t *testing.T) {
@@ -216,14 +159,6 @@ func TestReferencePolicyIsRejectedOutsideAReferenceObject(t *testing.T) {
     }
   }]}`))
   assertProblemContains(t, nested, "claims[0].reference.acknowledgement: unknown property")
-
-  _, claimRole := decodeGraphConfig(json.RawMessage(`{"claims":[{
-    "type":"typescript",
-    "files":["src/**"],
-    "role":"produces",
-    "reference":{"type":"markdown","files":["docs/**"]}
-  }]}`))
-  assertProblemContains(t, claimRole, "claims[0].role: unknown property")
 }
 
 /**

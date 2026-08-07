@@ -405,300 +405,11 @@ func materializeClaimStates(
   return states, problems
 }
 
-// writtenTagGrammar is how a repair before resolution must spell the tag.
-//
-// It prescribes the relation the owning claims agree on for the thing being
-// cited, because then there is a right answer and the author's own word may be
-// the wrong one. It echoes what they wrote otherwise: two claims wanting
-// different relations have no single repair, and deleting the word they typed
-// is what spelling `@evidence` at the call site did.
-//
-// An exclusion never carries a relation and never owes one, so it is always
-// echoed.
-func writtenTagGrammar(
-  declaration *evidenceDeclaration,
-  agreed string,
-) string {
-  if declaration.Tag != tagEvidence {
-    return "@" + string(declaration.Tag)
-  }
-  if agreed != "" {
-    return "@evidence(" + agreed + ")"
-  }
-  if declaration.Role != "" {
-    return "@evidence(" + declaration.Role + ")"
-  }
-  return "@evidence"
-}
-
-// requiredCitationGrammar is how an acknowledgement of one thing must be
-// written.
-//
-// Every diagnostic that tells an author to cite something goes through this or
-// through writtenTagGrammar, and both take the relation from one lookup rather
-// than deriving their own.
-func requiredCitationGrammar(reference referenceSpec, agreed string) string {
-  if agreed != "" {
-    return "@evidence(" + agreed + ")"
-  }
-  if reference.Policy.Role != "" {
-    return "@evidence(" + reference.Policy.Role + ")"
-  }
-  return "@evidence"
-}
-
-// confinementCaveat says this target is not one the reference takes, and names
-// what to cite instead.
-//
-// Keyed on the target rather than on the policy. A confining reference still
-// takes a citation of a selected unit, so telling an author naming one to name
-// something else sends them to change what was already right.
-func confinementCaveat(reference referenceState, scopeID string) string {
-  if !reference.Spec.Policy.NoAggregate {
-    return ""
-  }
-  covered := reference.UnitsByScope[scopeID]
-  for _, unit := range covered {
-    if unit.ID == scopeID {
-      return ""
-    }
-  }
-  // Named up to a few and counted after that. Every one of these units also
-  // reports its own missing acknowledgement carrying the same instruction, so a
-  // full list repeats what the build already says once per unit.
-  const shown = 3
-  named := make([]string, 0, shown)
-  for _, unit := range covered {
-    if len(named) == shown {
-      break
-    }
-    named = append(named, "'"+unit.Target+"'")
-  }
-  listed := strings.Join(named, ", ")
-  if rest := len(covered) - len(named); rest > 0 {
-    listed += " and " + decimal(rest) + " more"
-  }
-  return " noAggregateEvidence refuses a positive citation of a scope containing them, so cite " + listed + " instead."
-}
-
-// claimWideRole is the relation every reference of every owning claim requires.
-//
-// The one answer available when the author has named no target at all, which is
-// half of the malformed cases. Every other site knows what is being cited and
-// reads the per-unit value instead.
-func claimWideRole(owners []claimState) string {
-  agreed := ""
-  for _, owner := range owners {
-    for _, reference := range owner.Spec.References {
-      if reference.Policy.Role == "" {
-        continue
-      }
-      if agreed == "" {
-        agreed = reference.Policy.Role
-        continue
-      }
-      if agreed != reference.Policy.Role {
-        return ""
-      }
-    }
-  }
-  return agreed
-}
-
-// requiredRoles is the relation each claim requires of each unit it selects.
-//
-// One value, read by every site that prescribes a citation. Three of them used
-// to recompute a proxy for it — the artifact kind, the absence of a target, an
-// aggregate over a scope — and a one-voice property cannot be established by
-// separate computations that happen to agree on the fixtures somebody wrote.
-//
-// Keyed by the claim as well as the unit, because both bounds are real. A
-// prescription belongs to the thing being cited, so it reads every reference of
-// that claim selecting the unit; and it may name only a relation the host it is
-// addressed to could satisfy, so a relation another claim requires never
-// crosses into it. A tag written for one claim discharges no other, and an
-// author told to claim a relation their own obligation does not read has been
-// asked to write something nothing checks.
-//
-// A claim requiring different relations of one unit through two references maps
-// to empty: no single tag answers both, and the reference reporting is then the
-// one to speak for itself.
-type claimUnit struct {
-  Claim int
-  Unit  string
-}
-
-type requiredRoleIndex struct {
-  Role    map[claimUnit]string
-  Divided map[claimUnit]bool
-}
-
-func requiredRoles(states []claimState) requiredRoleIndex {
-  index := requiredRoleIndex{
-    Role:    map[claimUnit]string{},
-    Divided: map[claimUnit]bool{},
-  }
-  record := func(key claimUnit, role string) {
-    if index.Divided[key] {
-      return
-    }
-    if previous, seen := index.Role[key]; seen && previous != role {
-      index.Divided[key] = true
-      delete(index.Role, key)
-      return
-    }
-    index.Role[key] = role
-  }
-  for _, state := range states {
-    for _, reference := range state.References {
-      role := reference.Spec.Policy.Role
-      if role == "" {
-        continue
-      }
-      // Keyed by scope as well as by unit, because a target may name either
-      // and the site prescribing has only the text the author wrote. A scope
-      // takes the relation its covered units agree on; the scope of a selected
-      // unit contains that unit, so this subsumes the unit case rather than
-      // sitting beside it.
-      for scopeID, covered := range reference.UnitsByScope {
-        for _, unit := range covered {
-          record(claimUnit{Claim: state.Spec.Index, Unit: unit.ID}, role)
-          record(claimUnit{Claim: state.Spec.Index, Unit: scopeID}, role)
-        }
-      }
-    }
-  }
-  return index
-}
-
-// addressedClaims are the claims a host of this one could also answer to.
-//
-// A prescription names only a relation the addressed host could satisfy, and
-// the reporting claim is not the whole of that: where two claims select the
-// same files, one host owes both, so a repair naming only this claim's
-// requirement tells the author to write the one tag that cannot clear the
-// build. Overlap is decided on the matched paths rather than on the globs,
-// because two spellings can select one file.
-func addressedClaims(states []claimState, state claimState) []claimState {
-  claims := []claimState{state}
-  owned := map[string]bool{}
-  for _, path := range state.Paths {
-    owned[path] = true
-  }
-  for _, other := range states {
-    if other.Spec.Index == state.Spec.Index {
-      continue
-    }
-    for _, path := range other.Paths {
-      if owned[path] {
-        claims = append(claims, other)
-        break
-      }
-    }
-  }
-  return claims
-}
-
-// agreedRoleFor is the relation every owning claim requires of one unit.
-//
-// A claim requiring none is skipped rather than counted as disagreement, for
-// the reason every other reader of a policy field skips it: an omitted option
-// is the absence of a constraint, not a constraint of its own. Empty where two
-// owning claims require different relations, because then no one tag answers.
-func agreedRoleFor(
-  roles requiredRoleIndex,
-  owners []claimState,
-  unitIDs []string,
-) string {
-  agreed := ""
-  for _, owner := range owners {
-    for _, unitID := range unitIDs {
-      key := claimUnit{Claim: owner.Spec.Index, Unit: unitID}
-      // An absent key is nobody constraining this, which constrains nothing. A
-      // divided one is two obligations wanting different relations, which no
-      // single tag answers; the two look alike in the map and must not here.
-      if roles.Divided[key] {
-        return ""
-      }
-      role := roles.Role[key]
-      if role == "" {
-        continue
-      }
-      if agreed == "" {
-        agreed = role
-        continue
-      }
-      if agreed != role {
-        return ""
-      }
-    }
-  }
-  return agreed
-}
-
-// coveredUnitIDs names every unit one scope covers in one reference.
-func coveredUnitIDs(reference referenceState, scopeID string) []string {
-  ids := make([]string, 0, len(reference.UnitsByScope[scopeID]))
-  for _, unit := range reference.UnitsByScope[scopeID] {
-    ids = append(ids, unit.ID)
-  }
-  return ids
-}
-
-// malformedRepairRole answers the one prescribing site whose target may or may
-// not be there.
-//
-// `valid()` requires a target and a reason, so half the malformed declarations
-// name what they are citing and half do not. Reading the unit when it is there
-// is what keeps this site agreeing with the diagnostic that follows it.
-func malformedRepairRole(
-  roles requiredRoleIndex,
-  owners []claimState,
-  declaration *evidenceDeclaration,
-  targets map[string]map[string]*evidenceUnit,
-  markdownTargets map[string]map[string]*evidenceUnit,
-) string {
-  if declaration.Target == "" {
-    return claimWideRole(owners)
-  }
-  if ids := resolvedUnitIDs(declaration.Target, targets, markdownTargets); len(ids) != 0 {
-    return agreedRoleFor(roles, owners, ids)
-  }
-  return claimWideRole(owners)
-}
-
-// resolvedUnitIDs names every unit one written target could be citing.
-func resolvedUnitIDs(
-  target string,
-  targets map[string]map[string]*evidenceUnit,
-  markdownTargets map[string]map[string]*evidenceUnit,
-) []string {
-  seen := map[string]bool{}
-  ids := []string{}
-  for _, address := range []string{target, normalizeMarkdownTarget(target)} {
-    for _, index := range []map[string]map[string]*evidenceUnit{targets, markdownTargets} {
-      for id := range index[address] {
-        if seen[id] {
-          continue
-        }
-        seen[id] = true
-        ids = append(ids, id)
-      }
-    }
-  }
-  sort.Strings(ids)
-  return ids
-}
-
 func evaluateEvidenceGraph(
   states []claimState,
   loader *typeScriptLoader,
 ) []string {
   problems := []string{}
-  // Computed once, before any diagnostic is composed, because a prescription
-  // belongs to the thing being cited rather than to the obligation that
-  // noticed it.
-  agreedRoles := requiredRoles(states)
   targets := map[string]map[string]*evidenceUnit{}
   markdownTargets := map[string]map[string]*evidenceUnit{}
   // Scoped targets are keyed by owning file as well as name, which is what
@@ -814,7 +525,7 @@ func evaluateEvidenceGraph(
     if !declaration.valid() {
       problems = append(
         problems,
-        "Malformed @"+string(declaration.Tag)+" declaration at "+declaration.location()+" for "+context+": target and non-empty reason are mandatory. Write '"+writtenTagGrammar(declaration, malformedRepairRole(agreedRoles, owners[id], declaration, targets, markdownTargets))+" <target> <reason>'.",
+        "Malformed @"+string(declaration.Tag)+" declaration at "+declaration.location()+" for "+context+": target and non-empty reason are mandatory. Write '@"+string(declaration.Tag)+" <target> <reason>'.",
       )
       continue
     }
@@ -837,7 +548,7 @@ func evaluateEvidenceGraph(
       looksLikeTypeScriptTarget(declaration.Target, targets, markdownTargets) {
       problems = append(
         problems,
-        "Unbraced TypeScript evidence target '"+declaration.Target+"' at "+declaration.location()+" for "+context+": a target naming a symbol is now written as an inline link, so the citing module's import is what resolves it. Write '"+writtenTagGrammar(declaration, agreedRoleFor(agreedRoles, owners[id], resolvedUnitIDs(declaration.Target, targets, markdownTargets)))+" {@link "+declaration.Target+"} <reason>' and import the symbol; 'import type' is enough.",
+        "Unbraced TypeScript evidence target '"+declaration.Target+"' at "+declaration.location()+" for "+context+": a target naming a symbol is now written as an inline link, so the citing module's import is what resolves it. Write '@"+string(declaration.Tag)+" {@link "+declaration.Target+"} <reason>' and import the symbol; 'import type' is enough.",
       )
       continue
     }
@@ -908,24 +619,10 @@ func evaluateEvidenceGraph(
   // carrier globs its message must name.
   outsideCarrier := map[string][]string{}
   outsideCarrierGlobs := map[string]string{}
-  // A declaration whose relation no obligation wanted discharges nothing, and
-  // the missing-unit diagnostic names the reference rather than the tag. Both
-  // ends of that need saying, so the refusals are collected here alongside the
-  // obligations the declaration did answer for, which is what separates a tag
-  // refused everywhere from one that answers reference A and not reference B.
-  refusedRole := map[string][]string{}
-  // A citation of a containing scope answers for nothing where the reference
-  // confines coverage to the named unit. Collected beside the relation
-  // refusals and reported the same way, because the two are the same shape: a
-  // declaration the obligation selected, was eligible for, and still could not
-  // take.
-  refusedAggregate := map[string][]string{}
-  discharges := map[string]bool{}
   for _, state := range states {
     if len(state.Paths) == 0 {
       continue
     }
-    addressed := addressedClaims(states, state)
     if !state.Healthy {
       for _, declaration := range state.Declarations {
         uncertain[declaration.ID] = true
@@ -1010,64 +707,10 @@ func evaluateEvidenceGraph(
         if declaration.Tag == tagExclude && reference.Spec.Policy.NoExclude {
           problems = append(
             problems,
-            "Forbidden @evidenceExclude for '"+scopesByID[scopeID].Target+"' at "+declaration.location()+" in "+claimLabel(state.Spec)+" "+referenceLabel(reference.Spec)+": noEvidenceExclude requires positive @evidence for this reference. Remove the exclusion and cite the target with '"+requiredCitationGrammar(reference.Spec, agreedRoleFor(agreedRoles, addressed, coveredUnitIDs(reference, scopeID)))+"' from a selected "+string(state.Spec.Type)+" host."+confinementCaveat(reference, scopeID),
+            "Forbidden @evidenceExclude for '"+scopesByID[scopeID].Target+"' at "+declaration.location()+" in "+claimLabel(state.Spec)+" "+referenceLabel(reference.Spec)+": noEvidenceExclude requires positive @evidence for this reference. Remove the exclusion and cite the target from a selected "+string(state.Spec.Type)+" host.",
           )
           continue
         }
-        // A reference that requires a relation is discharged by that relation
-        // and by no other. It constrains positive evidence only: an exclusion
-        // states that the claim does not cover the target, so asking it to
-        // claim the relation would make an author write the opposite of what
-        // the tag means, and noEvidenceExclude is what decides whether a
-        // reference accepts one at all.
-        //
-        // Both refusals are collected before either stops the obligation. One
-        // reference can refuse a tag for its relation and for its scope at
-        // once, and reporting whichever came first costs the author a build:
-        // they name the relation, re-run, and only then learn the target was
-        // never one this reference takes.
-        refused := false
-        if declaration.Tag == tagEvidence &&
-          reference.Spec.Policy.Role != "" &&
-          declaration.Role != reference.Spec.Policy.Role {
-          refusedRole[declaration.ID] = appendUniqueString(
-            refusedRole[declaration.ID],
-            claimLabel(state.Spec)+" "+referenceLabel(reference.Spec)+
-              " wants '"+reference.Spec.Policy.Role+"'",
-          )
-          refused = true
-        }
-        // Narrowed after every other gate, and at one place rather than at
-        // each consumer. After, because a tag on an ineligible host or an
-        // out-of-carrier exclusion is already wrong for a reason this one
-        // would mask, and the repair it offers cannot be taken there. At one
-        // place, so what is acknowledged, which declarations conflict, the
-        // hosts uniqueEvidence counts, and the units singleEvidencePerSymbol
-        // counts all agree, which is what stops a cited parent of two selected
-        // units from reading as two.
-        if declaration.Tag == tagEvidence && reference.Spec.Policy.NoAggregate {
-          named := []*evidenceUnit{}
-          for _, unit := range covered {
-            if unit.ID == scopeID {
-              named = append(named, unit)
-            }
-          }
-          if len(named) == 0 {
-            refusedAggregate[declaration.ID] = appendUniqueString(
-              refusedAggregate[declaration.ID],
-              claimLabel(state.Spec)+" "+referenceLabel(reference.Spec),
-            )
-            refused = true
-          }
-          covered = named
-        }
-        if refused {
-          continue
-        }
-        // Past every gate this obligation raises, so the declaration answers
-        // for it. Eligibility alone cannot say that: a declaration is eligible
-        // for the obligations that refused it too.
-        discharges[declaration.ID] = true
         if declaration.Tag == tagEvidence && declaration.HostID != "" {
           byScope := evidenceByHostAndScope[declaration.HostID]
           if byScope == nil {
@@ -1165,47 +808,17 @@ func evaluateEvidenceGraph(
           if count == 1 {
             continue
           }
-          // A host whose citation this reference does not take counts zero
-          // here, and the count alone would tell an author their one visible
-          // citation is not there. Every option that can refuse one owes the
-          // same sentence.
-          cited := "cites " + decimal(count) + " distinct selected evidence unit(s)"
-          qualifiers := []string{}
-          if role := reference.Spec.Policy.Role; role != "" {
-            qualifiers = append(qualifiers, "naming the '"+role+"' relation")
-          }
-          if reference.Spec.Policy.NoAggregate {
-            qualifiers = append(qualifiers, "cited by their own names")
-          }
-          if len(qualifiers) != 0 {
-            cited += " " + strings.Join(qualifiers, " and ")
-          }
           problems = append(
             problems,
-            "Evidence host "+host.Readable+" at "+host.location()+" in "+claimLabel(state.Spec)+" "+referenceLabel(reference.Spec)+" "+cited+"; singleEvidencePerSymbol requires exactly 1. Keep positive @evidence citations on this semantic host to exactly one distinct unit.",
+            "Evidence host "+host.Readable+" at "+host.location()+" in "+claimLabel(state.Spec)+" "+referenceLabel(reference.Spec)+" cites "+decimal(count)+" distinct selected evidence unit(s); singleEvidencePerSymbol requires exactly 1. Keep positive @evidence citations on this semantic host to exactly one distinct unit.",
           )
         }
       }
       for _, unit := range reference.Units {
         if !acknowledged[unit.ID] {
-          // Composed rather than chosen. Each option narrows a different way,
-          // so a reference declaring two owes the author both sentences; the
-          // one that wrote itself over the other left a reference refusing
-          // exclusions saying nothing about them.
-          role := reference.Spec.Policy.Role
-          positive := "Use " + requiredCitationGrammar(reference.Spec, agreedRoleFor(agreedRoles, addressed, []string{unit.ID})) + " on a selected " + string(state.Spec.Type) + " host"
-          repair := positive + " or @evidenceExclude on an eligible carrier."
+          repair := "Use @evidence on a selected " + string(state.Spec.Type) + " host or @evidenceExclude on an eligible carrier."
           if reference.Spec.Policy.NoExclude {
-            repair = positive + "; this reference forbids @evidenceExclude."
-          }
-          if role != "" {
-            repair += " This reference is discharged only by positive evidence naming the '" + role + "' relation."
-            if !reference.Spec.Policy.NoExclude {
-              repair += " An @evidenceExclude on an eligible carrier still answers for it, because an exclusion states that this claim does not cover the target rather than how it does."
-            }
-          }
-          if reference.Spec.Policy.NoAggregate {
-            repair += " noAggregateEvidence is set here, so this unit needs its own name: a positive citation of a scope containing it will not answer for it."
+            repair = "Use @evidence on a selected " + string(state.Spec.Type) + " host; this reference forbids @evidenceExclude."
           }
           problems = append(
             problems,
@@ -1221,32 +834,6 @@ func evaluateEvidenceGraph(
           "Evidence unit '"+unit.Target+"' ("+unit.Readable+" at "+unit.location()+") in "+claimLabel(state.Spec)+" "+referenceLabel(reference.Spec)+" has "+decimal(hostCount)+" distinct positive evidence host(s); uniqueEvidence allows at most 1. Keep the one selected "+string(state.Spec.Type)+" host that owns this unit and remove the other citation(s).",
         )
       }
-    }
-  }
-  // Reported before the non-participation pass and separately from it. A
-  // refused declaration is eligible everywhere it was refused, so it never
-  // reaches that pass, and the two findings are mutually exclusive rather than
-  // ordered: this one fires only when the declaration answered for nothing.
-  for _, id := range declarationIDs {
-    if discharges[id] || uncertain[id] {
-      continue
-    }
-    declaration := declarations[id]
-    if obligations := refusedRole[id]; len(obligations) != 0 {
-      declared := "no relation"
-      if declaration.Role != "" {
-        declared = "'" + declaration.Role + "'"
-      }
-      problems = append(
-        problems,
-        "Unwanted relation on @evidence at "+declaration.location()+", target '"+displayTarget(declaration.Target)+"': this declaration names "+declared+", and these obligations want another relation ("+strings.Join(obligations, "; ")+"). Name the relation the obligation asks for, or move the tag to the host that owns the relation this one claims.",
-      )
-    }
-    if obligations := refusedAggregate[id]; len(obligations) != 0 {
-      problems = append(
-        problems,
-        "Aggregate @evidence at "+declaration.location()+" for "+strings.Join(obligations, "; ")+", target '"+displayTarget(declaration.Target)+"': noAggregateEvidence answers each selected unit by its own name, so citing a scope that contains them acknowledges none of them. Cite the units this host actually delivers, or move the tag to the host that owns the whole subtree and cite them there.",
-      )
     }
   }
   for _, id := range declarationIDs {
