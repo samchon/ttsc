@@ -18,6 +18,10 @@ overrides:
   # range. Scope that compatibility exception to Next and verify every static
   # export in the website production build.
   "next@15.5.22>sharp": 0.35.0
+  # js-yaml before 4.3.1 resolves `!!omap` in quadratic time. Every dependent
+  # here declares a ^4 range, so the patched line needs no parent scope and one
+  # entry closes the edge for all of them.
+  "js-yaml": ^4.3.1
 catalogs:
   typescript:
     typescript: ^7.0.2
