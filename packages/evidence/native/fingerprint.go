@@ -97,8 +97,12 @@ func contentDigest(text string) string {
 // treating a common prefix as ownership would make an unrelated same-name
 // declaration an ancestor.
 //
-// A withdrawn descendant is folded in like any other. Its withdrawal changed the
-// public surface of the scope, which is a reason to look again.
+// A withdrawn descendant contributes its identity and not its content. Both
+// halves are deliberate. Folding its content in would let private churn behind
+// `@internal` expire a review of the public contract, which is noise the author
+// cannot act on. Leaving it out entirely would hide the withdrawal itself, and
+// removing a member from the public surface is exactly the kind of change a
+// review of that surface should be asked about again.
 //
 // The index is built once per reference and the answers are memoized, because
 // building it per citation is quadratic and the cost is not theoretical: it spans
@@ -172,10 +176,22 @@ func (index *scopeIndex) compute(rootID string) string {
     composite.Write([]byte{0})
     composite.Write([]byte(unit.Symbol))
     composite.Write([]byte{0})
-    composite.Write([]byte(unit.Digest))
+    composite.Write([]byte(scopeContribution(unit)))
     composite.Write([]byte{0})
   }
   return presentedFingerprint(hex.EncodeToString(composite.Sum(nil)))
+}
+
+// scopeContribution is what one unit adds to its scope's composite.
+//
+// A withdrawn unit contributes the tag that withdrew it rather than its content,
+// so the composite moves when a member leaves or rejoins the public surface and
+// stays still while private code behind the tag churns.
+func scopeContribution(unit *evidenceUnit) string {
+  if unit.Hidden != "" {
+    return "\x00withdrawn:" + unit.Hidden
+  }
+  return unit.Digest
 }
 
 // collect gathers one unit and every structural descendant.

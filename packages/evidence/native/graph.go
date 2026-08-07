@@ -735,7 +735,15 @@ func evaluateEvidenceGraph(
         }
         if reference.Spec.Policy.RequireReview {
           if reviewScopes == nil {
-            reviewScopes = newScopeIndex(reference.Population)
+            // Withdrawn units are absent from Population by construction, and
+            // the scope composite still needs their identities so a member
+            // leaving the public surface moves the fingerprint.
+            reviewScopes = newScopeIndex(
+              append(
+                append([]*evidenceUnit{}, reference.Population...),
+                reference.Hidden...,
+              ),
+            )
           }
           problems = append(problems, reviewProblems(
             declaration,
