@@ -48,9 +48,9 @@ declare module "@ttsc/lint" {
      * rule cannot change a single `evidence/graph` diagnostic.
      *
      * The optional `#`-prefixed fingerprint token is carried without being
-     * interpreted here. `evidence/graph` validates it against the cited
-     * content under a reference's `requireReview`, which is what makes a review
-     * expire when the thing it reviewed moves.
+     * interpreted here. `evidence/graph` validates it against the cited content
+     * under a reference's `requireReview`, which is what makes a review expire
+     * when the thing it reviewed moves.
      *
      * The rule takes no options; per-directory scoping belongs in the outer
      * `files` setting of `lint.config.ts`.
