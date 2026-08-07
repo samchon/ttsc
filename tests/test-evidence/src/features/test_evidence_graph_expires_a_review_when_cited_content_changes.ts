@@ -65,19 +65,29 @@ const SPEC_AFTER: string = [
  * one.
  */
 const expectedFingerprint = (result: IRunResult): string => {
-  // Only a diagnostic that *asks for* a value is read. A stale one names the
-  // review's own outdated fingerprint before the expected one, so scanning the
-  // whole output would return the value already in the source and the case would
-  // fail as stale rather than as a broken helper. The Go twin guards the same way.
-  const asking: string | undefined = result.output
-    .split("\n")
-    .find(
-      (line) =>
-        line.includes("Unreviewed @") ||
-        line.includes("Unfingerprinted @evidenceReview"),
-    );
+  // The scan starts at a diagnostic that *asks for* a value and runs forward from
+  // there. Both halves matter.
+  //
+  // Starting there is the guard: a stale diagnostic names the review's own
+  // outdated fingerprint before the expected one, so scanning from the top would
+  // return the value already in the source and the case would fail as stale rather
+  // than as a broken helper. The Go twin guards the same way.
+  //
+  // Running forward rather than within one line is the correction: the host wraps
+  // a graph diagnostic across several lines, so the sentence naming the citation
+  // and the repair clause carrying the fingerprint routinely land on different
+  // ones. Matching inside a single line finds the first and misses the value.
+  const openings: number[] = [
+    result.output.indexOf("Unreviewed @"),
+    result.output.indexOf("Unfingerprinted @evidenceReview"),
+  ]
+    .filter((index) => index >= 0)
+    .sort((left, right) => left - right);
+  const opening: number | undefined = openings[0];
   const match: RegExpMatchArray | null =
-    asking?.match(/#([0-9a-f]{7})(?=[\s'",.)])/) ?? null;
+    opening === undefined
+      ? null
+      : result.output.slice(opening).match(/#([0-9a-f]{7})(?=[\s'",.)])/);
   if (match === null)
     throw new Error(
       `expected a review diagnostic naming a fingerprint, got:\n${result.output}`,

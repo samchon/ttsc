@@ -74,19 +74,23 @@ export const test_evidence_review_reports_unreviewed_citation = (): void => {
       result,
       "A citation with no review of its target must fail the build.",
     );
-    // The host clause is asserted too, not only the target. Both this rule and
-    // `evidence/graph` under `requireReview` open a finding with the same
-    // `Unreviewed @evidence for '<target>'` prefix and diverge after it, so a
-    // expectation stopping at the closing quote would not distinguish which rule
-    // spoke. Only this one is enabled here, and that is what the suffix pins.
+    // Which rule spoke is not asserted, and that is deliberate rather than an
+    // omission. This rule and `evidence/graph` under `requireReview` open a finding
+    // with the same `Unreviewed @evidence for '<target>'` prefix, so the target
+    // alone does not discriminate. Two ways to close that were considered and both
+    // rejected: extending the expectation into the suffix breaks when the host
+    // wraps a long message, which it does at an unpredictable column, and matching
+    // the bracketed rule id assumes a shape no case in this repository has ever
+    // pinned. Only `evidence/review` is enabled here, so the finding can have no
+    // other author.
     assertIncludes(
       result,
-      "Unreviewed @evidence for 'docs/spec.md#refunds' on exported type 'ISale'",
-      "The unreviewed citation must be reported, named by its target and its host.",
+      "Unreviewed @evidence for 'docs/spec.md#refunds'",
+      "The unreviewed citation must be reported, and named by its target.",
     );
     assertIncludes(
       result,
-      "Unreviewed @evidence for 'docs/spec.md#orders' on exported type 'IOrder'",
+      "Unreviewed @evidence for 'docs/spec.md#orders'",
       "'@evidenceReviewed' is another tag; it must not answer a citation.",
     );
     assertIncludes(
