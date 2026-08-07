@@ -564,6 +564,14 @@ const EXCEPTIONS = new Map([
     "ttsc#1092: one citation on a model discharges its members unless the reference says otherwise",
   ],
   [
+    "packages/evidence/src/structures/ITtscEvidenceGraphMarkdownReference.ts",
+    "ttsc#1092: as above, for the outline below a file or heading",
+  ],
+  [
+    "packages/evidence/src/structures/ITtscEvidenceGraphTypeScriptReference.ts",
+    "ttsc#1092: as above, for the units below a type or namespace",
+  ],
+  [
     "tests/test-evidence/src/features/test_evidence_graph_enforces_reference_policy.ts",
     "ttsc#1092 and ttsc#1106: the published spelling of every policy option is proven against the decoder, which raw-JSON native cases cannot do",
   ],

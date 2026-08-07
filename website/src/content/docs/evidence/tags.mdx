@@ -36,7 +36,7 @@ A reason may run past one line. Continuation lines join it until the next `@evid
 | `{@link sales.IShoppingSale}` | An exported type, function, or namespace, with its selected descendants |
 | `{@link sales.IShoppingSale.price}` | One property of an exported type |
 
-Every "and its selected descendants" above is what the reference asks for by default. A reference setting [`noAggregateEvidence`](/docs/evidence/claims#reference-policies) drops it for `@evidence`, so a citation there answers for the unit it names and nothing below it.
+Every row above that covers something below its target does so because the reference asks for it by default. A reference setting [`noAggregateEvidence`](/docs/evidence/claims#reference-policies) drops that for `@evidence`, so a citation there answers for the unit it names and nothing beneath it.
 
 A path-addressed target is one whitespace-delimited token, which is why a Swagger operation is written `POST:/members` rather than `POST /members`. The second form still parses: target `POST`, reason `/members ...`. That grammar is preserved deliberately, because `POST` may be the name of a TypeScript symbol.
 

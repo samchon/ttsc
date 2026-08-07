@@ -865,12 +865,20 @@ func evaluateEvidenceGraph(
           if count == 1 {
             continue
           }
-          // A host citing this reference under another relation counts zero
+          // A host whose citation this reference does not take counts zero
           // here, and the count alone would tell an author their one visible
-          // citation is not there.
+          // citation is not there. Every option that can refuse one owes the
+          // same sentence.
           cited := "cites " + decimal(count) + " distinct selected evidence unit(s)"
+          qualifiers := []string{}
           if role := reference.Spec.Policy.Role; role != "" {
-            cited += " naming the '" + role + "' relation"
+            qualifiers = append(qualifiers, "naming the '"+role+"' relation")
+          }
+          if reference.Spec.Policy.NoAggregate {
+            qualifiers = append(qualifiers, "cited by their own targets")
+          }
+          if len(qualifiers) != 0 {
+            cited += " " + strings.Join(qualifiers, " and ")
           }
           problems = append(
             problems,
@@ -900,7 +908,7 @@ func evaluateEvidenceGraph(
             }
           }
           if reference.Spec.Policy.NoAggregate {
-            repair += " noAggregateEvidence is set here, so this unit needs its own name: a citation of a scope containing it will not answer for it."
+            repair += " noAggregateEvidence is set here, so this unit needs its own name: a positive citation of a scope containing it will not answer for it."
           }
           problems = append(
             problems,

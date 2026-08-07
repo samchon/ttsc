@@ -231,7 +231,7 @@ export function testAuthentication(): void {}
 `,
   }, aggregateConfig)
   assertProblemContains(t, messages, "noAggregateEvidence is set here, so this unit needs its own name")
-  assertProblemContains(t, messages, "a citation of a scope containing it will not answer for it")
+  assertProblemContains(t, messages, "a positive citation of a scope containing it will not answer for it")
 }
 
 /**
@@ -452,4 +452,111 @@ export function testAuthentication(): void {}
   ]}`)
   assertProblemContains(t, messages, "Unwanted relation on @evidence at src/test.ts:1")
   assertProblemContains(t, messages, "Aggregate @evidence at src/test.ts:1")
+}
+
+/**
+ * Verifies a confined citation that answered elsewhere is not reported.
+ *
+ * The silence is what makes the finding trustworthy, and it is shared with the relation refusal through one gate that only the relation twin covers. A tag discharging a reference that accepts aggregate scope is correct; reporting it because a stricter reference beside it refused would make the finding fire on tags nobody should change.
+ *
+ *  1. Select one target through a confining reference and an ordinary one.
+ *  2. Cite the containing scope once from a host both claims select.
+ *  3. Assert the ordinary obligation is discharged and the tag is never reported.
+ */
+func TestConfinedRefusalIsSilentWhenTheTagAnsweredElsewhere(t *testing.T) {
+  messages := runIndexRule(t, map[string]string{
+    "docs/spec.md": aggregateDocument,
+    "src/test.ts": `/** @evidence docs/spec.md#authentication Implements authentication. */
+export function testAuthentication(): void {}
+`,
+  }, `{"claims":[
+    {
+      "type":"typescript",
+      "files":["src/**"],
+      "symbol":"function",
+      "reference":{
+        "type":"markdown",
+        "files":["docs/spec.md"],
+        "symbol":["h2"],
+        "noAggregateEvidence":true
+      }
+    },
+    {
+      "type":"typescript",
+      "files":["src/**"],
+      "symbol":"function",
+      "reference":{
+        "type":"markdown",
+        "files":["docs/spec.md"],
+        "symbol":["h2"]
+      }
+    }
+  ]}`)
+  if countProblemsContaining(messages, "Aggregate @evidence") != 0 {
+    t.Fatalf(
+      "a citation that answered an obligation was reported anyway:\n%s",
+      strings.Join(messages, "\n"),
+    )
+  }
+  if countProblemsContaining(messages, "Non-participating") != 0 {
+    t.Fatalf(
+      "a participating declaration was reported as participating in nothing:\n%s",
+      strings.Join(messages, "\n"),
+    )
+  }
+  if count := countProblemsContaining(messages, "Missing acknowledgement"); count != 2 {
+    t.Fatalf(
+      "expected only the confining claim's two units to stay owed, got %d:\n%s",
+      count,
+      strings.Join(messages, "\n"),
+    )
+  }
+}
+
+/**
+ * Verifies a cardinality count says the citation it would not take.
+ *
+ * A host that cited an ancestor and hears "cites 0" is told its one visible tag is not there. That is the same hazard a required relation already explains itself out of, and it is sharper here: the tag can be silent at its own location, because another obligation took it.
+ *
+ *  1. Confine coverage and count one unit per host on one reference.
+ *  2. Let an ordinary reference beside it accept the same ancestor citation.
+ *  3. Assert the count names what it counted.
+ */
+func TestConfinedCardinalityNamesWhatItCounted(t *testing.T) {
+  messages := runIndexRule(t, map[string]string{
+    "docs/spec.md": aggregateDocument,
+    "src/test.ts": `/** @evidence docs/spec.md#authentication Implements authentication. */
+export function testAuthentication(): void {}
+`,
+  }, `{"claims":[
+    {
+      "type":"typescript",
+      "files":["src/**"],
+      "symbol":"function",
+      "reference":{
+        "type":"markdown",
+        "files":["docs/spec.md"],
+        "symbol":["h2"],
+        "noAggregateEvidence":true,
+        "singleEvidencePerSymbol":true
+      }
+    },
+    {
+      "type":"typescript",
+      "files":["src/**"],
+      "symbol":"function",
+      "reference":{
+        "type":"markdown",
+        "files":["docs/spec.md"],
+        "symbol":["h2"]
+      }
+    }
+  ]}`)
+  assertProblemContains(t, messages, "cites 0 distinct selected evidence unit(s) cited by their own targets")
+  if countProblemsContaining(messages, "Aggregate @evidence") != 0 {
+    t.Fatalf(
+      "the tag answered another obligation and should stay silent:\n%s",
+      strings.Join(messages, "\n"),
+    )
+  }
 }
