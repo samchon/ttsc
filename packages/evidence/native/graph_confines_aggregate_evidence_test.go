@@ -401,7 +401,7 @@ export function testSignIn(): void {}
     }
   }]}`)
   assertProblemContains(t, messages, "Use @evidence(implements) on a selected typescript host; this reference forbids @evidenceExclude.")
-  assertProblemContains(t, messages, "discharged only by a declaration naming the 'implements' relation")
+  assertProblemContains(t, messages, "discharged only by positive evidence naming the 'implements' relation")
   assertProblemContains(t, messages, "noAggregateEvidence is set here")
   if countProblemsContaining(messages, "still answers for it") != 0 {
     t.Fatalf(
@@ -409,4 +409,47 @@ export function testSignIn(): void {}
       strings.Join(messages, "\n"),
     )
   }
+}
+
+/**
+ * Verifies a declaration refused two different ways hears both reasons at once.
+ *
+ * The two refusals are independent, so one tag can be wrong for a relation in one obligation and wrong for its scope in another. Reporting only the first costs the author a whole build cycle: they name the relation, re-run, and only then learn the target was never the right one. It also makes the relation sentence false, because the obligation it did not mention wanted a named unit rather than another relation.
+ *
+ *  1. Require a relation in one claim and confine coverage in another.
+ *  2. Cite an aggregate scope once, naming no relation.
+ *  3. Assert both findings report at the tag.
+ */
+func TestBothRefusalsReportForOneDeclaration(t *testing.T) {
+  messages := runIndexRule(t, map[string]string{
+    "docs/spec.md": aggregateDocument,
+    "src/test.ts": `/** @evidence docs/spec.md#authentication Implements authentication. */
+export function testAuthentication(): void {}
+`,
+  }, `{"claims":[
+    {
+      "type":"typescript",
+      "files":["src/**"],
+      "symbol":"function",
+      "reference":{
+        "type":"markdown",
+        "files":["docs/spec.md"],
+        "symbol":["h2"],
+        "role":"implements"
+      }
+    },
+    {
+      "type":"typescript",
+      "files":["src/**"],
+      "symbol":"function",
+      "reference":{
+        "type":"markdown",
+        "files":["docs/spec.md"],
+        "symbol":["h2"],
+        "noAggregateEvidence":true
+      }
+    }
+  ]}`)
+  assertProblemContains(t, messages, "Unwanted relation on @evidence at src/test.ts:1")
+  assertProblemContains(t, messages, "Aggregate @evidence at src/test.ts:1")
 }

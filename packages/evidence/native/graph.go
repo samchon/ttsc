@@ -894,7 +894,7 @@ func evaluateEvidenceGraph(
             repair = positive + "; this reference forbids @evidenceExclude."
           }
           if role != "" {
-            repair += " This reference is discharged only by a declaration naming the '" + role + "' relation."
+            repair += " This reference is discharged only by positive evidence naming the '" + role + "' relation."
             if !reference.Spec.Policy.NoExclude {
               repair += " An @evidenceExclude on an eligible carrier still answers for it, because an exclusion states that this claim does not cover the target rather than how it does."
             }
@@ -934,9 +934,8 @@ func evaluateEvidenceGraph(
       }
       problems = append(
         problems,
-        "Unwanted relation on @"+string(declaration.Tag)+" at "+declaration.location()+", target '"+displayTarget(declaration.Target)+"': this declaration names "+declared+" and every obligation it reached wants another ("+strings.Join(obligations, "; ")+"). Name the relation the obligation asks for, or move the tag to the host that owns the relation this one claims.",
+        "Unwanted relation on @"+string(declaration.Tag)+" at "+declaration.location()+", target '"+displayTarget(declaration.Target)+"': this declaration names "+declared+", and these obligations want another relation ("+strings.Join(obligations, "; ")+"). Name the relation the obligation asks for, or move the tag to the host that owns the relation this one claims.",
       )
-      continue
     }
     if obligations := refusedAggregate[id]; len(obligations) != 0 {
       problems = append(

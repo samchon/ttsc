@@ -16,7 +16,7 @@ The target is one whitespace-delimited token, except that a target opening with 
 
 The parenthesized relation is optional, and only `@evidence` takes one. An exclusion says the claim does not cover the target rather than how it does, so it has no relation to name. Write the relation immediately after the tag name, as one word with no space and no parenthesis inside. The space is what keeps `@evidence (target)` meaning what it always meant, so a citation written before relations existed is untouched.
 
-Anything else in that position is left where the author wrote it and becomes the target, which reports as unresolved: `@evidence(produces here)`, `@evidence(produces)docs/spec.md#x` with the space missing, and `@evidenceExclude(produces)` all name a target rather than quietly ceasing to be declarations. A dropped acknowledgement is the one outcome the graph exists to prevent, so nothing here fails silently.
+Anything else in that position is left where the author wrote it and becomes the target. `@evidence(produces here)`, `@evidence(produces)docs/spec.md#x` with the space missing, and `@evidenceExclude(produces)` all stay declarations and all report: as an unresolved target when a reason follows, and as a malformed declaration when the parenthesis was the whole body. A dropped acknowledgement is the one outcome the graph exists to prevent, so nothing here fails silently.
 
 The reason is required. A citation that cannot say why it exists is filler, and the reason is what makes review possible: it sits beside the exact section it claims to honor, so a misreading surfaces where a reader can see both.
 

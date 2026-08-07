@@ -290,7 +290,7 @@ export function testContract(): void {}
 /**
  * Verifies Markdown and Prisma parse a relation the way TypeScript does.
  *
- * The relation is threaded through four declaration hosts. Exercising one of them would leave the grammar with three dialects and nothing able to notice.
+ * A relation reaches three declaration hosts: TypeScript JSDoc, a Markdown HTML comment, and an attached Prisma `///` comment. The fourth, an unattached top-level Prisma comment, holds exclusions only and refuses `@evidence` outright, so it can never carry one. Exercising a single host would leave the grammar with two dialects and nothing able to notice.
  *
  *  1. Declare the relation from a Prisma model comment and from a Markdown comment.
  *  2. Require it on the reference each answers to.

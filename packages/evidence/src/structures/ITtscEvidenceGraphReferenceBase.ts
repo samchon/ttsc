@@ -57,13 +57,13 @@ export interface ITtscEvidenceGraphReferenceBase<Type extends string> {
   uniqueEvidence?: boolean;
 
   /**
-   * The relation an acknowledgement must declare to discharge this reference.
+   * The relation positive evidence must declare to discharge this reference.
    *
    * Omit it to accept any, which is how every reference behaved before this
-   * property existed. Declare it and only a tag written as `@evidence(<role>)
-   * <target> <reason>` with the same word discharges the obligation; a tag
-   * naming another relation, or naming none, leaves the unit uncovered and its
-   * diagnostic says which relation was wanted.
+   * property existed. Declare it and only positive evidence written as
+   * `@evidence(<role>) <target> <reason>` with the same word discharges the
+   * obligation; a citation naming another relation, or naming none, leaves the
+   * unit uncovered and its diagnostic says which relation was wanted.
    *
    * It constrains positive evidence only. An `@evidenceExclude` names no
    * relation and still answers, because it states that the claim does not cover

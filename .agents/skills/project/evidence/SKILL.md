@@ -25,7 +25,7 @@ The parenthesized relation is optional, names what the acknowledgement claims, a
 
 It is one token immediately after the tag name, carrying no whitespace and no parenthesis — the same set the configuration accepts, so a relation a tag can name and a relation a reference can require are one vocabulary. The space in `@evidence (target)` is what keeps that form meaning what it always meant.
 
-Consume nothing else in that position. A malformed opener, a well-formed one with no separator after it, and a relation on an exclusion all stay in the body and become the target, which reports the text the author wrote. Ceasing to be a declaration would drop an acknowledgement without a word, and the missing-unit diagnostic names the reference rather than the tag, so nothing else would point at the line.
+Consume nothing else in that position. A malformed opener, a well-formed one with no separator after it, and a relation on an exclusion all stay in the body and become the target, reported as an unresolved target when a reason follows it and as a malformed declaration when the parenthesis was the whole body. Ceasing to be a declaration would drop an acknowledgement without a word, and the missing-unit diagnostic names the reference rather than the tag, so nothing else would point at the line.
 
 ```ts
 /** @evidence docs/spec.md#pricing Sale price derives from this section. */

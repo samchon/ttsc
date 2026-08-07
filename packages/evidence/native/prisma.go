@@ -550,12 +550,14 @@ func prismaDeclarationsFromComments(
           )
           continue
         }
+        // No Role. This carrier holds exclusions only, and a relation is
+        // parsed for @evidence alone, so the field could only ever be empty
+        // here.
         declaration := &evidenceDeclaration{
           ID:               "prisma:" + run.Path + ":" + decimal(line) + ":" + decimal(sequence),
           HostID:           "prisma:" + run.Path + ":file",
           Type:             artifactPrisma,
           Tag:              parsed.Tag,
-          Role:             parsed.Role,
           Target:           parsed.Target,
           Reason:           parsed.Reason,
           ExclusionCarrier: true,
