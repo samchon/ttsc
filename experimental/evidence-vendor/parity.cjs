@@ -413,6 +413,30 @@ const EXCEPTIONS = new Map([
     "benchmarks/evidence/template/base/packages/frontend/tests/contract/scaffold.spec.ts",
     "ttsc#1091: local only, upstream runs no simulated suite separate from the live one",
   ],
+  [
+    "tests/test-evidence-benchmark/src/features/test_benchmark_template_screen_plan_refuses_a_pasted_enumeration.ts",
+    "ttsc#1105: local only, upstream has no requirement-section count to defeat",
+  ],
+  [
+    "tests/test-evidence-benchmark/src/features/test_benchmark_runtime_isolates_the_codex_home.ts",
+    "ttsc#1094: local only, upstream's runner does not generate the home a cell reads",
+  ],
+  [
+    "benchmarks/evidence/template/evidence/.agents/skills/evidence/frontend.md",
+    "ttsc#1091: the live suite is named by its script, because the build mode decides simulation and no environment variable can disagree",
+  ],
+  [
+    "benchmarks/evidence/instructions/evidence/frontend/final.md",
+    "ttsc#1091: as above",
+  ],
+  [
+    "benchmarks/evidence/instructions/plain/frontend/final.md",
+    "ttsc#1091: as above, held identical across the arms",
+  ],
+  [
+    "benchmarks/evidence/instructions/plain/overall/final.md",
+    "ttsc#1091: as above",
+  ],
 ]);
 
 // ------------------------------------------------------------------ compare
