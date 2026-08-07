@@ -32,5 +32,29 @@ declare module "@ttsc/lint" {
      * `files` setting of `lint.config.ts`.
      */
     "evidence/todo"?: TtscLintRuleSetting;
+
+    /**
+     * Requires an `@evidenceReview` beside every citation.
+     *
+     * Every `@evidence` and `@evidenceExclude` on a public identity must be
+     * answered by an `@evidenceReview` naming the same target. The citation
+     * states why this declaration answers for that target; the review states
+     * what was verified. Those are different questions, and only the first one
+     * is written unless something asks for the second.
+     *
+     * A review is an annotation of a citation, never an acknowledgement of a
+     * unit. It discharges no coverage, contributes no host to `uniqueEvidence`,
+     * and counts toward no `singleEvidencePerSymbol` total, so enabling this
+     * rule cannot change a single `evidence/graph` diagnostic.
+     *
+     * The optional `#`-prefixed fingerprint token is carried without being
+     * interpreted here. `evidence/graph` validates it against the cited
+     * content under a reference's `requireReview`, which is what makes a review
+     * expire when the thing it reviewed moves.
+     *
+     * The rule takes no options; per-directory scoping belongs in the outer
+     * `files` setting of `lint.config.ts`.
+     */
+    "evidence/review"?: TtscLintRuleSetting;
   }
 }

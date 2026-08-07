@@ -15,6 +15,8 @@ const documentedRuleName = "evidence/documented"
 
 const todoRuleName = "evidence/todo"
 
+const reviewRuleName = "evidence/review"
+
 type artifactKind string
 
 const (

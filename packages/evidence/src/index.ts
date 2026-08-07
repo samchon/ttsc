@@ -16,7 +16,7 @@ export * from "./typings/index";
  * {@link ITtscEvidenceGraphConfig} that describes which documents and TypeScript
  * symbols must remain connected.
  *
- * The plugin contributes four rules, enabled independently.
+ * The plugin contributes five rules, enabled independently.
  *
  * - `"evidence/graph"` — the configured evidence graph. Every declaration target
  *   must resolve, and every selected evidence unit must be acknowledged. Takes
@@ -32,6 +32,11 @@ export * from "./typings/index";
  *   file, exported or not. Each tag is an unrealized contract reported with its
  *   own text, so the diagnostics read as the ledger of what remains to realize.
  *   Takes no options, so it carries a bare severity.
+ * - `"evidence/review"` — an `@evidenceReview` beside every `@evidence` and
+ *   `@evidenceExclude`, naming the same target. The citation states why this
+ *   declaration answers for a target; the review states what was verified, which
+ *   is a different question nothing else asks. Takes no options, so it carries a
+ *   bare severity.
  *
  * @example <caption>Configure the plugin in `lint.config.ts`</caption>
  *   import { type ITtscEvidenceGraphConfig, evidence } from "@ttsc/evidence";
@@ -67,7 +72,7 @@ export const evidence = {
     namespace: "evidence",
     version,
   } as const,
-  rules: ["graph", "singular", "documented", "todo"] as const,
+  rules: ["graph", "singular", "documented", "todo", "review"] as const,
   source: path.resolve(__dirname, "..", "native"),
 } satisfies ITtscLintPlugin;
 export default evidence;

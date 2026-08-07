@@ -220,6 +220,153 @@ func normalizeMarkdownTarget(target string) string {
   return target
 }
 
+// reviewMarker opens a verification statement about one citation.
+const reviewMarker = "@evidenceReview"
+
+// reviewFingerprintLength is how many hex characters a fingerprint presents.
+//
+// Seven is a staleness detector's length, not a security boundary's. A
+// collision costs one review that failed to expire, while the tag stays short
+// enough that an author reads the target beside it instead of scrolling past a
+// full digest.
+const reviewFingerprintLength = 7
+
+// parsedReview is one verification statement read out of a comment.
+//
+// It is deliberately not a `parsedDeclaration`, and the separation is the whole
+// safety property rather than a matter of taste. Every acknowledgement map in
+// `evaluateEvidenceGraph` consumes the declarations of a claim, so a review
+// arriving as a third `tagKind` would discharge coverage, count as a semantic
+// host under `uniqueEvidence`, count as a cited unit under
+// `singleEvidencePerSymbol`, and conflict with an exclusion of the same scope.
+// Each of those is a build turning green because a review was mistaken for
+// evidence. A distinct type cannot reach any of them by construction; a shared
+// type could only be kept out by remembering to, at every one of six sites.
+type parsedReview struct {
+  Target      string
+  Fingerprint string
+  Description string
+  LineOffset  int
+}
+
+// parseReviews reads every verification statement one comment carries.
+//
+// `declarationLine` needs no change to keep these out of the declaration
+// stream, and that is worth stating because it looks like an omission. It
+// matches `@evidence` only when the next character is whitespace, so
+// `@evidenceReview` falls through its loop exactly as `@evidenceExclude`
+// reaching the `@evidence` arm does. The marker namespace was already reserved.
+//
+// The scan is independent for the same reason `todoEntries` is: one tag, one
+// pass, no shared state with the parser whose output must never contain it. Any
+// other `@`-opening line closes the review above it, so a review sharing a
+// block with `@param` or a following `@evidence` swallows neither.
+func parseReviews(comment string) []parsedReview {
+  trimmed := strings.TrimLeftFunc(comment, unicode.IsSpace)
+  leadingLines := strings.Count(comment[:len(comment)-len(trimmed)], "\n")
+  comment = trimmed
+  comment = strings.TrimPrefix(comment, "/**")
+  comment = strings.TrimPrefix(comment, "/*")
+  comment = strings.TrimSuffix(comment, "*/")
+  reviews := []parsedReview{}
+  var pending *parsedReview
+  var body []string
+  flush := func() {
+    if pending == nil {
+      return
+    }
+    target, remainder := splitDeclarationBody(strings.Join(body, "\n"))
+    fingerprint, description := splitReviewFingerprint(remainder)
+    pending.Target = target
+    pending.Fingerprint = fingerprint
+    pending.Description = description
+    reviews = append(reviews, *pending)
+    pending = nil
+    body = nil
+  }
+  for index, rawLine := range strings.Split(comment, "\n") {
+    line := strings.TrimSpace(rawLine)
+    line = strings.TrimSpace(strings.TrimPrefix(line, "*"))
+    line = strings.TrimSpace(strings.TrimPrefix(line, "///"))
+    if remainder, opened := reviewLine(line); opened {
+      flush()
+      pending = &parsedReview{LineOffset: leadingLines + index}
+      body = []string{remainder}
+      continue
+    }
+    if strings.HasPrefix(line, "@") {
+      flush()
+      continue
+    }
+    if pending != nil {
+      body = append(body, line)
+    }
+  }
+  flush()
+  return reviews
+}
+
+// reviewLine reports whether a line opens a review, and with what remainder.
+//
+// The whitespace boundary keeps a longer tag out. `@evidenceReviewed` is some
+// other tool's tag or a typo, and consuming it would attach a review to a
+// citation the author never reviewed.
+func reviewLine(line string) (string, bool) {
+  if !strings.HasPrefix(line, reviewMarker) {
+    return "", false
+  }
+  remainder := line[len(reviewMarker):]
+  if remainder != "" && remainder[0] != ' ' && remainder[0] != '\t' {
+    return "", false
+  }
+  return strings.TrimSpace(remainder), true
+}
+
+// splitReviewFingerprint separates an optional fingerprint from the description.
+//
+// The `#` prefix is required rather than inferred, for the reason
+// `splitInlineLinkBody` records about targets: the token stays
+// self-discriminating through a boundary character instead of a guess. A bare
+// fixed-width hex token would reintroduce that guess, and ordinary prose
+// supplies the counter-examples — `cafe`, `deadbeef`, `beefed`.
+//
+// The exact length is checked as well as the prefix, because `#` alone is not
+// enough. A requirement anchor such as `#req-search-policies` opens a
+// description in exactly that shape, and eating it would strip the author's
+// first words and then report a malformed fingerprint they did not write.
+//
+// No target begins with `#`: a Markdown target carries its anchor after a path,
+// a Prisma target carries its `prisma:` prefix, a Swagger target its method,
+// and a code target its brace. So this only ever reads the position after a
+// target that has already been consumed.
+func splitReviewFingerprint(remainder string) (string, string) {
+  remainder = strings.TrimSpace(remainder)
+  if !strings.HasPrefix(remainder, "#") {
+    return "", remainder
+  }
+  candidate := remainder[1:]
+  description := ""
+  for index, char := range candidate {
+    if unicode.IsSpace(char) {
+      candidate, description = candidate[:index], strings.TrimSpace(candidate[index:])
+      break
+    }
+  }
+  if len(candidate) != reviewFingerprintLength || !isLowerHex(candidate) {
+    return "", remainder
+  }
+  return candidate, description
+}
+
+func isLowerHex(value string) bool {
+  for _, char := range value {
+    if (char < '0' || char > '9') && (char < 'a' || char > 'f') {
+      return false
+    }
+  }
+  return value != ""
+}
+
 func containsWhitespace(value string) bool {
   for _, char := range value {
     if unicode.IsSpace(char) {

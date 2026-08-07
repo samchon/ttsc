@@ -16,9 +16,15 @@ The graph is configurable. Claims select the files and declaration hosts that ow
 ```text
 @evidence <target> <reason>
 @evidenceExclude <target> <reason>
+@evidenceReview <target> <description>
+@evidenceReview <target> #<fingerprint> <description>
 ```
 
 The target is one whitespace-delimited token, except that a target opening with `{@link`, `{@linkcode`, or `{@linkplain` runs to its closing brace. Everything after the target is prose. A declaration may carry any number of tags. Every tag requires a target and non-empty reason and is validated independently.
+
+**A review is an annotation of a citation, never an acknowledgement of a unit, and it must not be a third `tagKind`.** Every acknowledgement map in evaluation consumes the declarations of a claim, so a review arriving through that parse discharges coverage, contributes a host to `uniqueEvidence`, counts a unit toward `singleEvidencePerSymbol`, and conflicts with an exclusion of the same scope. Each of those is a build going green because a review was mistaken for evidence. A distinct type cannot reach any of them by construction, where a shared one stays out only by being remembered at six sites. `declarationLine` needs no change to keep them apart: it matches `@evidence` only when the next character is whitespace, so `@evidenceReview` falls through exactly as `@evidenceExclude` does.
+
+The `#`-prefixed fingerprint is optional in the grammar and required by a reference declaring `requireReview`. Its `#` is load-bearing for the reason a braced code target's braces are: the token discriminates itself instead of being guessed at, and a bare fixed-width hex token collides with ordinary prose. The exact length is checked as well as the prefix, because a requirement anchor such as `#req-search-policies` opens a description in that same shape.
 
 ```ts
 /** @evidence docs/spec.md#pricing Sale price derives from this section. */
@@ -47,13 +53,13 @@ Four artifact kinds materialize evidence units.
 
 Units form structural containment scopes. A Markdown file contains its heading outline; a heading contains lower-level headings until the next heading of equal or higher level. A Prisma model contains its columns and relations. A TypeScript interface or object-shaped type alias contains its direct properties, and a namespace contains every nested public unit. Top-level TypeScript functions and properties have no aggregate file node. Swagger operations are independent leaves with no document or path aggregate target.
 
-An `@evidence` target acknowledges the selected target and every selected descendant, and an `@evidenceExclude` target does the same unless its reference declares `noExclude`. The reference's `symbol` selector defines the obligation denominator, not the only addressable targets: every structural ancestor of a selected unit remains resolvable as an aggregate scope.
+An `@evidence` target acknowledges the selected target and every selected descendant, and an `@evidenceExclude` target does the same unless its reference declares `noEvidenceExclude`. The reference's `symbol` selector defines the obligation denominator, not the only addressable targets: every structural ancestor of a selected unit remains resolvable as an aggregate scope.
 
 Keep selected obligations and resolvable scopes separate. Do not make every unselected unit resolvable; only actual ancestors belong to the scope closure, or an unrelated same-name declaration can create false ambiguity.
 
 Hierarchy is identity, not spelling. Store explicit parent unit IDs while materializing. Never infer TypeScript ancestry from a dotted-string prefix: literal names may contain dots, and `A.B` can mean one literal segment or two qualified segments.
 
-**A declaration whose documentation comment carries `@internal`, `@hidden`, or `@ignore` materializes no unit, and neither does anything nested inside it.** The three tags are equivalent statements that the declaration is not API; the tag must open its own line, so prose mentioning one is describing something rather than declaring it, and text after it is a comment for humans. The graph honors a decision the source already made: without this, an author's only answers are a false `@evidence` citation or an `@evidenceExclude` whose reason restates the tag — and under `noExclude`, not even the second one.
+**A declaration whose documentation comment carries `@internal`, `@hidden`, or `@ignore` materializes no unit, and neither does anything nested inside it.** The three tags are equivalent statements that the declaration is not API; the tag must open its own line, so prose mentioning one is describing something rather than declaring it, and text after it is a comment for humans. The graph honors a decision the source already made: without this, an author's only answers are a false `@evidence` citation or an `@evidenceExclude` whose reason restates the tag — and under `noEvidenceExclude`, not even the second one.
 
 This applies to both sides and to both authored artifact kinds. A withdrawn declaration is neither a selected reference unit nor a selected claim host, and hosting nothing also makes it ineligible as an exclusion carrier. TypeScript JSDoc and Prisma `///` comments behave identically, and a tagged Prisma model takes its columns and relations with it. Markdown headings and Swagger operations have no authored documentation comment and are out of scope.
 
@@ -124,7 +130,7 @@ Several declaration hosts may acknowledge the same unit with `@evidence`, unless
 
 ## Reference Policies
 
-A reference may strengthen its own acknowledgement relation with `noExclude`, `uniqueEvidence`, and `singleEvidencePerSymbol`, declared flat on the reference object. Every option is opt-in, its false value is the historical behavior, and constraints never cross or pool between reference-array elements — including identical and overlapping references.
+A reference may strengthen its own acknowledgement relation with `noEvidenceExclude`, `uniqueEvidence`, and `singleEvidencePerSymbol`, declared flat on the reference object. Every option is opt-in, its false value is the historical behavior, and constraints never cross or pool between reference-array elements — including identical and overlapping references.
 
 - **A refused exclusion is reference-local.** Report one diagnostic for the declaration and reference, give that reference no coverage from it, and leave the missing positive coverage visible. The same declaration may still satisfy another reference that allows exclusions.
 - **`uniqueEvidence` counts distinct semantic claim hosts per selected unit.** Declaration merging and overloads remain one host, several tags on one host count once, and an exclusion never contributes a host. A unit no host cites is reported as missing coverage instead.

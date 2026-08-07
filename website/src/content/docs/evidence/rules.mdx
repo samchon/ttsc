@@ -1,6 +1,6 @@
 # Rules
 
-`@ttsc/evidence` contributes four rules under the `evidence/` namespace. They are enabled independently, each takes `"error"`, `"warning"`, or `"off"`, and every finding lands in the same diagnostic stream as a type error.
+`@ttsc/evidence` contributes five rules under the `evidence/` namespace. They are enabled independently, each takes `"error"`, `"warning"`, or `"off"`, and every finding lands in the same diagnostic stream as a type error.
 
 ```ts filename="lint.config.ts"
 import { evidence, type ITtscEvidenceGraphConfig } from "@ttsc/evidence";
@@ -17,11 +17,12 @@ export default {
     "evidence/documented": "error",
     "evidence/singular": "error",
     "evidence/todo": "error",
+    "evidence/review": "error",
   },
 } satisfies ITtscLintConfig;
 ```
 
-One is the graph. The other three protect the conditions the graph depends on, and each is a file rule.
+One is the graph. The other four protect the conditions the graph depends on, and each is a file rule.
 
 ## `evidence/graph`
 
@@ -104,6 +105,31 @@ There is nothing to select. A debt on a local helper is as unrealized as one on 
 One physical block is one entry. TypeScript cascades a leading block onto nested nodes, so a variable statement and each of its declarations all answer for one comment; blocks are deduplicated by position.
 
 Stage it. Keep the rule `"off"` while stubs are the plan of record, and flip it to `"error"` once the work is meant to be finished. The stubs that remain enumerate themselves.
+
+## `evidence/review`
+
+Requires an `@evidenceReview` beside every `@evidence` and `@evidenceExclude`, naming the same target. Takes no options.
+
+```ts
+"evidence/review": "error",
+```
+
+The citation states why this declaration answers for a target. Nothing asks what was actually checked. Those are two different questions, and only the first one is written unless something demands the second, so an unverified citation and a verified one are byte-identical in the source.
+
+```ts
+/**
+ * @evidence docs/discount.md#coupon-stacking <reason>
+ * @evidenceReview docs/discount.md#coupon-stacking <what you checked>
+ */
+```
+
+A review is an annotation of a citation, never an acknowledgement of a unit. It discharges no coverage, contributes no host to `uniqueEvidence`, and counts toward no `singleEvidencePerSymbol` total. Enabling this rule cannot change an `evidence/graph` diagnostic.
+
+Four states are judged, all inside one documentation block on one public identity. A citation with no review of its target is unreviewed. A review naming a target this identity does not cite is an orphan, which is what turns a mistyped target into a finding instead of a silent hole. A second review of one target is a duplicate, since one citation is verified once. A review with no description is malformed.
+
+The unit judged is an identity rather than a declaration, so a review on `namespace ISale` answers a citation on `interface ISale`. A declaration withdrawn by `@internal`, `@hidden`, or `@ignore` owes nothing, because it can carry no citation the graph will read.
+
+The rule does not judge whether the description is sincere, and it is not built to. A second prose block is as hedgeable as the first. What makes a review expire when the thing it reviewed moves is the optional `#`-prefixed fingerprint, which this rule carries without interpreting and [`requireReview`](/docs/evidence/claims) validates against the cited content.
 
 ## Where they surface
 

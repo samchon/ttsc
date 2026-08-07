@@ -1,10 +1,12 @@
 # Evidence Tags
 
-Two tags satisfy every obligation the graph declares.
+Two tags satisfy every obligation the graph declares, and a third records that one was verified.
 
 ```text
 @evidence <target> <reason>
 @evidenceExclude <target> <reason>
+@evidenceReview <target> <description>
+@evidenceReview <target> #<fingerprint> <description>
 ```
 
 These are not tags you maintain by hand. Your agent writes each one as it implements, and your job is to review the stated reasons. In an agent workflow they cost nothing extra: the citation is written at the moment the author knows why it is true.
@@ -18,6 +20,23 @@ The reason is required. A citation that cannot say why it exists is filler, and 
 The compiler never judges whether a reason is true. It only forces a concrete claim. An agent can still write a false reason, and it cannot write a missing one.
 
 A reason may run past one line. Continuation lines join it until the next `@evidence` or `@evidenceExclude`, and inside a JSDoc or Prisma comment any other line-opening `@tag` ends it too. That boundary is what keeps a neighboring `@param` or another tool's `@namespace` out of the reason above it.
+
+## Reviews
+
+`@evidenceReview` answers a different question from the reason beside it. The reason says why this declaration answers for a target; the review says what was checked. Only the first is written unless something asks for the second, which is what [`evidence/review`](/docs/evidence/rules) does.
+
+```ts
+/**
+ * @evidence docs/discount.md#coupon-stacking <reason>
+ * @evidenceReview docs/discount.md#coupon-stacking <what you checked>
+ */
+```
+
+The target is spelled exactly as the citation spells it, including the inline-link form, and it is compared as a token rather than resolved a second time. A review is not an acknowledgement: it discharges no coverage and changes no `evidence/graph` diagnostic.
+
+The `#`-prefixed token is a fingerprint of the cited content. It is optional in the grammar and required by a reference declaring [`requireReview`](/docs/evidence/claims), and it is what makes a review expire: when the cited section, operation, model, or symbol changes, the fingerprint stops matching and the build fails again with the new value stated in the diagnostic. Without it a review is written once and stays green forever, which is the same as never having asked.
+
+The `#` is required rather than inferred. A bare fixed-width hex token would have to be guessed at, and ordinary prose supplies the counter-examples, so the boundary character carries the discrimination the way it does for a braced code target.
 
 ## Target forms
 
