@@ -101,11 +101,16 @@ export interface ITtscEvidenceGraphReferenceBase<Type extends string> {
    * many references it acknowledges.
    *
    * Expect a citation of a TypeScript symbol to expire on any change inside
-   * that declaration, including one behind `@internal`. A declaration's digest
-   * is its own text and a nested member sits inside it, so the subtree cannot
-   * be carved out the way a Markdown section's subsections can. Cite the
+   * that declaration, including one behind a withdrawal tag. A declaration's
+   * digest is its own text and a nested member sits inside it, so the subtree
+   * cannot be carved out the way a Markdown section's subsections can. Cite the
    * narrowest symbol that actually answers for the requirement if that breadth
    * is unwelcome.
+   *
+   * The withdrawal tags are named in the tag guide rather than here, on purpose:
+   * `stripInternal` is on for this package, so writing one of them inside a
+   * published doc comment deletes the property it documents from the emitted
+   * declarations. That is how this very property went missing once.
    *
    * Only Markdown and TypeScript references accept this today. A Swagger or
    * Prisma reference is refused at decode, because those loaders report unit
