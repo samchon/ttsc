@@ -321,6 +321,7 @@ const WORKFLOW_PATHS = {
     "packages/wasm/**",
     "packages/playground/**",
     "scripts/go-build-cache.cjs",
+    "benchmarks/evidence/aggregate/**",
     "website/**",
     "README.md",
     "package.json",
