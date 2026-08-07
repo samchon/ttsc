@@ -265,7 +265,7 @@ Ordinary coverage is permissive, which is right for a document several modules h
 - `singleEvidencePerSymbol` requires exactly one unit from every selected host, so a host citing nothing and a host citing everything both fail.
 - `noAggregateEvidence` answers each unit by its own name, so a positive citation of a scope containing them acknowledges none of them, and a citation of a selected unit still answers for that unit alone. It closes the path the other three leave open: one tag on a document's top heading otherwise discharges every requirement under it, including the ones nobody implemented. Like `role` it constrains positive evidence only, so an `@evidenceExclude` on that heading still decides the whole subtree; pair it with `noEvidenceExclude` where that is not an answer either.
 
-Counting is by identity rather than by text. Repeated tags for one unit count once, an overload set stays one host, and citing a parent of two selected units counts as two, unless `noAggregateEvidence` has already confined the citation to the one unit it names.
+Counting is by identity rather than by text. Repeated tags for one unit count once, an overload set stays one host, and citing a parent of two selected units counts as two. Under `noAggregateEvidence` that citation counts as one when the parent is itself selected, and as zero when it is not.
 
 ### Relations
 

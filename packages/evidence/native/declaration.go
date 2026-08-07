@@ -182,8 +182,14 @@ func splitDeclarationRole(remainder string) (string, string) {
   // The same shapes the configuration refuses, so a relation a reference can
   // require and a relation a tag can name are one set. A closing parenthesis
   // cannot survive the scan above; an opening one has to be refused here, or
-  // `@evidence((x)` parses a relation no reference is allowed to ask for.
-  if role == "" || containsWhitespace(role) || strings.Contains(role, "(") {
+  // `@evidence((x)` parses a relation no reference is allowed to ask for. A
+  // comment terminator is refused for the same reason it is there: the tag
+  // could not survive the block it has to live in.
+  if role == "" ||
+    containsWhitespace(role) ||
+    strings.Contains(role, "(") ||
+    strings.Contains(role, "-->") ||
+    strings.Contains(role, "*"+"/") {
     return "", remainder
   }
   return role, remainder[closing+1:]

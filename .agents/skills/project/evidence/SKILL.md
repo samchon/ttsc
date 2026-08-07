@@ -131,6 +131,8 @@ Several declaration hosts may acknowledge the same unit with `@evidence`, unless
 
 ## Reference Policies
 
+**An option's zero value is the absence of a constraint, never a constraint of its own.** An omitted `role` accepts any relation rather than requiring that none be named, and an omitted switch leaves the historical behavior rather than asserting its opposite. Every reader of a policy field owes that reading, including a diagnostic deciding what to prescribe when several obligations own one declaration.
+
 A reference may strengthen its own acknowledgement relation with `noEvidenceExclude`, `uniqueEvidence`, `role`, `noAggregateEvidence`, and `singleEvidencePerSymbol`, declared flat on the reference object. Every option is opt-in, its zero value is the historical behavior, and constraints never cross or pool between reference-array elements — including identical and overlapping references.
 
 - **A refused exclusion is reference-local.** Report one diagnostic for the declaration and reference, give that reference no coverage from it, and leave the missing positive coverage visible. The same declaration may still satisfy another reference that allows exclusions.

@@ -431,14 +431,20 @@ func writtenTagGrammar(
   return "@evidence"
 }
 
-// agreedRequiredRole is the one relation every owning obligation wants, or
-// empty when they want different ones or any of them wants none.
+// agreedRequiredRole is the one relation every obligation that requires one
+// wants, or empty when two of them want different relations.
+//
+// A reference declaring no role accepts any, so it constrains nothing here and
+// is skipped rather than counted as disagreement. Reading its zero value as a
+// requirement to name nothing is what made this prescribe `@evidence` beside a
+// sibling diagnostic asking for `@evidence(implements)`, which the same build
+// then refuses.
 func agreedRequiredRole(owners []claimState) string {
   agreed := ""
   for _, owner := range owners {
     for _, reference := range owner.Spec.References {
       if reference.Policy.Role == "" {
-        return ""
+        continue
       }
       if agreed == "" {
         agreed = reference.Policy.Role
@@ -482,14 +488,22 @@ func confinementCaveat(reference referenceState, scopeID string) string {
       return ""
     }
   }
-  named := make([]string, 0, len(covered))
+  // Named up to a few and counted after that. Every one of these units also
+  // reports its own missing acknowledgement carrying the same instruction, so a
+  // full list repeats what the build already says once per unit.
+  const shown = 3
+  named := make([]string, 0, shown)
   for _, unit := range covered {
+    if len(named) == shown {
+      break
+    }
     named = append(named, "'"+unit.Target+"'")
   }
-  if len(named) == 0 {
-    return " noAggregateEvidence refuses a positive citation of a scope containing the units, and this scope contains none of them."
+  listed := strings.Join(named, ", ")
+  if rest := len(covered) - len(named); rest > 0 {
+    listed += " and " + decimal(rest) + " more"
   }
-  return " noAggregateEvidence refuses a positive citation of a scope containing them, so cite " + strings.Join(named, ", ") + " instead."
+  return " noAggregateEvidence refuses a positive citation of a scope containing them, so cite " + listed + " instead."
 }
 
 func evaluateEvidenceGraph(

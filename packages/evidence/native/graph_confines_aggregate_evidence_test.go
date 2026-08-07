@@ -759,3 +759,152 @@ export function testContract(): void {}
   ]}`)
   assertProblemContains(t, divided, "Write '@evidence(mirrors) <target> <reason>'")
 }
+
+/**
+ * Verifies a reference declaring no relation does not veto the one that does.
+ *
+ * An omitted relation accepts any, which every other reader of the field already knows: the coverage gate fires only on a declared one, and so do the completion corpus and the published contract. Reading the zero value as a reference wanting no relation makes the two obligations look like they disagree, and the repair then prescribes the one grammar the other refuses.
+ *
+ *  1. Give one claim a reference requiring a relation and a second requiring none.
+ *  2. Write a malformed tag, repaired before either resolves.
+ *  3. Assert the repair prescribes the relation, which satisfies both.
+ */
+func TestUnconstrainedReferenceDoesNotVetoTheRequiredRelation(t *testing.T) {
+  messages := runIndexRule(t, map[string]string{
+    "docs/spec.md": "## Contract {#contract}\n",
+    "src/test.ts": `/** @evidence */
+export function testContract(): void {}
+`,
+  }, `{"claims":[{
+    "type":"typescript",
+    "files":["src/**"],
+    "symbol":"function",
+    "reference":[
+      {
+        "type":"markdown",
+        "files":["docs/spec.md"],
+        "symbol":"h2",
+        "role":"implements"
+      },
+      {
+        "type":"markdown",
+        "files":["docs/spec.md"],
+        "symbol":"h2"
+      }
+    ]
+  }]}`)
+  assertProblemContains(t, messages, "Write '@evidence(implements) <target> <reason>'")
+
+  // The prescription has to be one both obligations accept, which is what makes
+  // it a repair rather than the next diagnostic.
+  clean := runIndexRule(t, map[string]string{
+    "docs/spec.md": "## Contract {#contract}\n",
+    "src/test.ts": `/** @evidence(implements) docs/spec.md#contract Implements the contract. */
+export function testContract(): void {}
+`,
+  }, `{"claims":[{
+    "type":"typescript",
+    "files":["src/**"],
+    "symbol":"function",
+    "reference":[
+      {
+        "type":"markdown",
+        "files":["docs/spec.md"],
+        "symbol":"h2",
+        "role":"implements"
+      },
+      {
+        "type":"markdown",
+        "files":["docs/spec.md"],
+        "symbol":"h2"
+      }
+    ]
+  }]}`)
+  if len(clean) != 0 {
+    t.Fatalf(
+      "the prescribed citation did not satisfy both obligations:\n%s",
+      strings.Join(clean, "\n"),
+    )
+  }
+}
+
+/**
+ * Verifies an exclusion is repaired as an exclusion.
+ *
+ * A relation belongs to positive evidence, so prescribing the agreed one on an exclusion would tell the author to write a tag that means the opposite of what they wrote and carries a word the grammar refuses there. The one sentence would contradict itself.
+ *
+ *  1. Require a relation on the only reference.
+ *  2. Write a malformed exclusion.
+ *  3. Assert the repair names the exclusion and no relation.
+ */
+func TestMalformedExclusionIsRepairedAsAnExclusion(t *testing.T) {
+  messages := runIndexRule(t, map[string]string{
+    "docs/spec.md": "## Contract {#contract}\n",
+    "src/test.ts": `/** @evidenceExclude */
+export function testContract(): void {}
+`,
+  }, `{"claims":[{
+    "type":"typescript",
+    "files":["src/**"],
+    "symbol":"function",
+    "reference":{
+      "type":"markdown",
+      "files":["docs/spec.md"],
+      "symbol":"h2",
+      "role":"implements"
+    }
+  }]}`)
+  assertProblemContains(t, messages, "Write '@evidenceExclude <target> <reason>'")
+  if countProblemsContaining(messages, "@evidenceExclude(implements)") != 0 {
+    t.Fatalf(
+      "an exclusion was told to name a relation:\n%s",
+      strings.Join(messages, "\n"),
+    )
+  }
+}
+
+/**
+ * Verifies a relation carrying a comment terminator is refused by the parser too.
+ *
+ * The configuration refuses one because no author could write it. A parser that accepted it would make the two halves disagree about what a relation is, and in a JSDoc block the citation's own comment would end inside the word.
+ *
+ *  1. Write the relation in a Markdown comment, the one host where the block terminator survives as text.
+ *  2. Run a graph requiring no relation, so only the parse decides.
+ *  3. Assert the opener is reported as the target, then that the same relation cannot be written in JSDoc at all.
+ */
+func TestRelationCarryingACommentTerminatorIsRefused(t *testing.T) {
+  terminator := "*" + "/"
+  markdown := runIndexRule(t, map[string]string{
+    "docs/spec.md": "## Contract {#contract}\n",
+    "docs/plan.md": "# Plan\n\n<!-- @evidence(a" + terminator +
+      "b) docs/spec.md#contract Implements it. -->\n",
+  }, `{"claims":[{
+    "type":"markdown",
+    "files":["docs/plan.md"],
+    "symbol":"h1",
+    "reference":{
+      "type":"markdown",
+      "files":["docs/spec.md"],
+      "symbol":"h2"
+    }
+  }]}`)
+  assertProblemContains(t, markdown, "Unresolved evidence target '(a"+terminator+"b)'")
+
+  // The same relation in a JSDoc block ends the comment inside itself, which is
+  // the reason the configuration refuses one rather than merely disliking it.
+  jsdoc := runIndexRule(t, map[string]string{
+    "docs/spec.md": "## Contract {#contract}\n",
+    "src/test.ts": "/** @evidence(a" + terminator +
+      "b) docs/spec.md#contract Implements it. */\nexport function testContract(): void {}\n",
+  }, `{"claims":[{
+    "type":"typescript",
+    "files":["src/**"],
+    "symbol":"function",
+    "reference":{
+      "type":"markdown",
+      "files":["docs/spec.md"],
+      "symbol":"h2"
+    }
+  }]}`)
+  assertProblemContains(t, jsdoc, "Malformed @evidence declaration")
+}
