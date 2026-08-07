@@ -685,6 +685,11 @@ func evaluateEvidenceGraph(
       for _, scope := range reference.Scopes {
         scopesByID[scope.ID] = scope
       }
+      // Built on first use and shared by every citation of this reference. The
+      // index spans the whole materialized population, so building it per
+      // citation is quadratic, and nil until a citation actually needs it so a
+      // reference without the policy pays nothing.
+      var reviewScopes *scopeIndex
       for _, declaration := range state.Declarations {
         scopeID := resolved[declaration.ID]
         covered := reference.UnitsByScope[scopeID]
@@ -729,11 +734,15 @@ func evaluateEvidenceGraph(
           continue
         }
         if reference.Spec.Policy.RequireReview {
+          if reviewScopes == nil {
+            reviewScopes = newScopeIndex(reference.Population)
+          }
           problems = append(problems, reviewProblems(
             declaration,
             scopesByID[scopeID],
             reference,
             state,
+            reviewScopes,
           )...)
         }
         if declaration.Tag == tagEvidence && declaration.HostID != "" {
@@ -930,6 +939,7 @@ func reviewProblems(
   scope *evidenceUnit,
   reference referenceState,
   state claimState,
+  scopes *scopeIndex,
 ) []string {
   if declaration == nil || scope == nil {
     return nil
@@ -942,7 +952,7 @@ func reviewProblems(
   // rewritten. Worse, two references over one scope under different selectors
   // would then expect two different digests from a tag that carries exactly one
   // fingerprint token, and no value an author could write would satisfy both.
-  expected := scopeFingerprint(reference.Population, scope.ID)
+  expected := scopes.fingerprint(scope.ID)
   if expected == "" {
     return nil
   }

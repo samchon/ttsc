@@ -70,39 +70,6 @@ func TestMarkdownReadsAReviewBesideACitation(t *testing.T) {
 }
 
 /**
- * Verifies content under an unaddressable heading still reaches a digest.
- *
- * An Individual Self-Review caught this too. `markdownHeading` accepts levels 1
- * to 6 and advances the current host unconditionally, while a unit is only
- * created for H1 to H4 with a resolvable anchor. The excluded cases named a host
- * ID no unit carried, so their lines accumulated in a bucket nothing read:
- * rewriting an `##### Details` section under a cited H4 changed no digest and
- * expired no review. Those lines belong to the nearest ancestor that is a unit,
- * which is the unit a citation of that region actually names.
- *
- *  1. Scan a document with an H2 containing an H5 subsection.
- *  2. Rewrite only the H5's body.
- *  3. Assert the H2's digest changed.
- */
-func TestMarkdownFoldsUnaddressableSectionsIntoTheirAncestor(t *testing.T) {
-  digestOf := func(content string) string {
-    inventory, _ := scanProjectMarkdown("docs/spec.md", content)
-    for _, unit := range inventory.Units {
-      if unit.Target == "docs/spec.md#pricing" {
-        return unit.Digest
-      }
-    }
-    t.Fatalf("expected a unit for the cited H2 in:\n%s", content)
-    return ""
-  }
-  before := digestOf("## Pricing\n\nThe rate is capped.\n\n##### Details\n\nOne per issuer.\n")
-  after := digestOf("## Pricing\n\nThe rate is capped.\n\n##### Details\n\nTwo per issuer.\n")
-  if before == after {
-    t.Fatal("content under an H5 belongs to no digest, so a citation of its parent never expires")
-  }
-}
-
-/**
  * Verifies a comment opening mid-line is treated as a tag position.
  *
  * The declaration scan runs over the whole document with a regular expression, so

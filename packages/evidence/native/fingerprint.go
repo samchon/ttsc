@@ -73,15 +73,19 @@ func contentDigest(text string) string {
   return hex.EncodeToString(sum[:])
 }
 
-// scopeFingerprint is what a citation of one unit has to name.
+// scopeIndex answers what a citation of one unit has to name, over one
+// reference's whole materialized population.
 //
-// The scope is the unit plus every structural descendant, and it is deliberately
-// **not** a reference's covered set. `UnitsByScope` is built per reference from
-// that reference's `symbol` selector, while one `@evidence` tag may acknowledge
-// several references and carries exactly one fingerprint token. Two references
-// citing one scope, one selecting a narrower symbol set than the other, would
-// otherwise demand two different values from that single token and no value could
-// satisfy both.
+// The scope of a citation is the unit plus every structural descendant, and it is
+// deliberately **not** the reference's covered set. `UnitsByScope` and `Units` are
+// both narrowed by that reference's `symbol` selector, while one `@evidence` tag
+// may acknowledge several references and carries exactly one fingerprint token.
+// Composing from a narrowed set made the value a function of the reference: a
+// selector that skipped the descendants left them out of the digest, so the
+// review never expired, and two references over one scope under different
+// selectors demanded two different values from that single token with no value
+// able to satisfy both. The population is passed instead, which is why this type
+// exists rather than a function over `Units`.
 //
 // So the fingerprint is a property of the address a citation names rather than of
 // what the citation discharges. A reference confining acknowledgement to the
@@ -95,8 +99,55 @@ func contentDigest(text string) string {
 //
 // A withdrawn descendant is folded in like any other. Its withdrawal changed the
 // public surface of the scope, which is a reason to look again.
-func scopeFingerprint(units []*evidenceUnit, rootID string) string {
-  scope := collectScopeUnits(units, rootID)
+//
+// The index is built once per reference and the answers are memoized, because
+// building it per citation is quadratic and the cost is not theoretical: it spans
+// the whole population, so a claim with a citation per selected unit would walk
+// every unit once per citation. On a requirements set of a few thousand headings
+// that is millions of map inserts per Program cycle, paid again on every watch
+// rebuild, for a value that is identical each time.
+type scopeIndex struct {
+  byID     map[string]*evidenceUnit
+  children map[string][]*evidenceUnit
+  cache    map[string]string
+}
+
+func newScopeIndex(units []*evidenceUnit) *scopeIndex {
+  index := &scopeIndex{
+    byID:     make(map[string]*evidenceUnit, len(units)),
+    children: map[string][]*evidenceUnit{},
+    cache:    map[string]string{},
+  }
+  for _, unit := range units {
+    if unit == nil || index.byID[unit.ID] != nil {
+      continue
+    }
+    index.byID[unit.ID] = unit
+    if unit.ParentID != "" {
+      index.children[unit.ParentID] = append(index.children[unit.ParentID], unit)
+    }
+  }
+  return index
+}
+
+// fingerprint answers for one cited scope, remembering the answer.
+//
+// Several citations of one scope are ordinary — a reference may be acknowledged
+// by many hosts — so the memo matters as much as the shared index.
+func (index *scopeIndex) fingerprint(rootID string) string {
+  if index == nil || rootID == "" {
+    return ""
+  }
+  if remembered, seen := index.cache[rootID]; seen {
+    return remembered
+  }
+  computed := index.compute(rootID)
+  index.cache[rootID] = computed
+  return computed
+}
+
+func (index *scopeIndex) compute(rootID string) string {
+  scope := index.collect(rootID)
   if len(scope) == 0 {
     return ""
   }
@@ -127,23 +178,10 @@ func scopeFingerprint(units []*evidenceUnit, rootID string) string {
   return presentedFingerprint(hex.EncodeToString(composite.Sum(nil)))
 }
 
-// collectScopeUnits gathers one unit and every structural descendant.
-func collectScopeUnits(units []*evidenceUnit, rootID string) []*evidenceUnit {
-  if rootID == "" {
-    return nil
-  }
-  children := map[string][]*evidenceUnit{}
-  byID := map[string]*evidenceUnit{}
-  for _, unit := range units {
-    if unit == nil {
-      continue
-    }
-    byID[unit.ID] = unit
-    if unit.ParentID != "" {
-      children[unit.ParentID] = append(children[unit.ParentID], unit)
-    }
-  }
-  root := byID[rootID]
+// collect gathers one unit and every structural descendant.
+func (index *scopeIndex) collect(rootID string) []*evidenceUnit {
+  children := index.children
+  root := index.byID[rootID]
   if root == nil {
     return nil
   }

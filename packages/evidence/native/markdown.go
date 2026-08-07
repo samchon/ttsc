@@ -152,6 +152,12 @@ func scanMarkdownInventory(
   // content digest can leave them out. A fenced block is not marked: an
   // `<!-- -->` inside one hosts no tag, and its text is content of the section.
   commentAtLine := make([]bool, len(lines))
+  // The nearest heading *unit* enclosing each line, which is not the same as its
+  // host: a heading may open a region without materializing a unit. Kept apart
+  // from hostIDAtLine because that value decides where a declaration sits, and
+  // widening it would move citations rather than only digests.
+  digestHostIDAtLine := make([]string, len(lines))
+  currentDigestHostID := fileUnitID
   currentHost := "file"
   currentHostID := fileUnitID
   fenceMarker := rune(0)
@@ -164,6 +170,11 @@ func scanMarkdownInventory(
     if marker, length, remainder, ok := markdownFence(line); ok {
       fencedAtLine[index] = true
       hostIDAtLine[index] = currentHostID
+      // Fenced content is content. It hosts no tag, so it is never excluded as a
+      // tag position, and leaving it unattributed would drop every code block out
+      // of its section's digest: rewriting the example in a cited section would
+      // then expire nothing.
+      digestHostIDAtLine[index] = currentDigestHostID
       if fenceMarker == 0 {
         fenceMarker = marker
         fenceLength = length
@@ -180,6 +191,7 @@ func scanMarkdownInventory(
       fencedAtLine[index] = true
       hostAtLine[index] = currentHost
       hostIDAtLine[index] = currentHostID
+      digestHostIDAtLine[index] = currentDigestHostID
       continue
     }
     if inHTMLComment {
@@ -188,6 +200,7 @@ func scanMarkdownInventory(
       }
       hostAtLine[index] = currentHost
       hostIDAtLine[index] = currentHostID
+      digestHostIDAtLine[index] = currentDigestHostID
       commentAtLine[index] = true
       continue
     }
@@ -198,6 +211,7 @@ func scanMarkdownInventory(
       }
       hostAtLine[index] = currentHost
       hostIDAtLine[index] = currentHostID
+      digestHostIDAtLine[index] = currentDigestHostID
       commentAtLine[index] = true
       continue
     }
@@ -208,6 +222,21 @@ func scanMarkdownInventory(
       if level <= 4 {
         for descendantLevel := level; descendantLevel <= 4; descendantLevel++ {
           headingUnitIDs[descendantLevel] = ""
+        }
+      }
+      // A heading that materializes no unit still opens a region, and that
+      // region's content belongs to the nearest heading unit enclosing it. An
+      // H5, and an H2 whose title yields no anchor, are both such headings.
+      // Carrying the previous unit forward instead would attribute the region to
+      // whatever unit the walk happened to see last, which is a sibling rather
+      // than an ancestor when the skipped heading is shallower: editing text
+      // under an anchorless H2 would then expire a review of the H3 above it,
+      // which does not contain that text.
+      currentDigestHostID = fileUnitID
+      for ancestorLevel := level - 1; ancestorLevel >= 1; ancestorLevel-- {
+        if headingUnitIDs[ancestorLevel] != "" {
+          currentDigestHostID = headingUnitIDs[ancestorLevel]
+          break
         }
       }
       if level <= 4 && targetablePath {
@@ -241,11 +270,13 @@ func scanMarkdownInventory(
           }
           inventory.Units = append(inventory.Units, unit)
           headingUnitIDs[level] = unit.ID
+          currentDigestHostID = unit.ID
         }
       }
     }
     hostAtLine[index] = currentHost
     hostIDAtLine[index] = currentHostID
+    digestHostIDAtLine[index] = currentDigestHostID
   }
 
   sequence := 0
@@ -287,7 +318,7 @@ func scanMarkdownInventory(
       })
     }
   }
-  assignMarkdownDigests(inventory, lines, hostIDAtLine, commentAtLine)
+  assignMarkdownDigests(inventory, lines, digestHostIDAtLine, commentAtLine)
   return inventory, problems
 }
 
@@ -305,29 +336,12 @@ func scanMarkdownInventory(
 func assignMarkdownDigests(
   inventory *artifactInventory,
   lines []string,
-  hostIDAtLine []string,
+  digestHostIDAtLine []string,
   commentAtLine []bool,
 ) {
-  // Only a line whose host is a real unit can be attributed directly. A heading
-  // deeper than H4, and one whose title yields no anchor, both advance the
-  // current host to an ID no unit carries, so their bodies would land in a
-  // bucket nothing ever reads: rewriting an `##### Details` section under a
-  // cited H4 would change no digest and expire no review. Those lines are
-  // folded into the nearest ancestor that is a unit instead, which is the unit a
-  // citation of that region actually names.
-  units := map[string]*evidenceUnit{}
-  for _, unit := range inventory.Units {
-    units[unit.ID] = unit
-  }
   owned := map[string][]string{}
-  fallback := ""
   for index := range lines {
-    id := hostIDAtLine[index]
-    if units[id] != nil {
-      fallback = id
-    } else {
-      id = fallback
-    }
+    id := digestHostIDAtLine[index]
     if index < len(commentAtLine) && commentAtLine[index] {
       continue
     }
