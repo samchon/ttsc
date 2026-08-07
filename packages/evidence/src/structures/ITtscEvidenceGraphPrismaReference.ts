@@ -70,7 +70,8 @@ export interface ITtscEvidenceGraphPrismaReference extends ITtscEvidenceGraphRef
    *
    * A model remains addressable as an aggregate scope even when only its
    * members are selected, so one citation on the model can discharge all of
-   * them.
+   * them. Set `noAggregateEvidence` where that is too much: the citation then
+   * answers for the model alone, and each selected member owes its own.
    *
    * @default ["model"]
    */

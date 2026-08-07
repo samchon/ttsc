@@ -184,3 +184,229 @@ export function testAuthentication(): void {}
     }
   }
 }
+
+/**
+ * Verifies a tag on an ineligible host keeps the diagnostic that can be acted on.
+ *
+ * The confinement check has to run behind every other gate. A tag on a host the claim does not select is already wrong for a reason this one would mask, and the repair it offers cannot be taken there: citing the units the host delivers still leaves the host unselected, so an author who follows the sentence lands on a different error.
+ *
+ *  1. Confine coverage on a claim selecting functions, and keep it active with one.
+ *  2. Cite a containing scope from an interface, which the claim does not select.
+ *  3. Assert the out-of-scope host is named and the confinement finding stays away.
+ */
+func TestConfinedCoverageYieldsToTheHostDiagnostic(t *testing.T) {
+  messages := runIndexRule(t, map[string]string{
+    "docs/spec.md": aggregateDocument,
+    "src/ok.ts": `/** @evidence docs/spec.md#sign-in Implements sign-in. */
+export function testSignIn(): void {}
+`,
+    "src/bad.ts": `/** @evidence docs/spec.md#authentication Implements authentication. */
+export interface IAuthentication {}
+`,
+  }, aggregateConfig)
+  assertProblemContains(t, messages, "Out-of-scope @evidence host at src/bad.ts:1")
+  assertProblemContains(t, messages, "host kind 'type' is not selected")
+  if countProblemsContaining(messages, "Aggregate @evidence") != 0 {
+    t.Fatalf(
+      "the confinement finding masked the reason the tag is actually wrong:\n%s",
+      strings.Join(messages, "\n"),
+    )
+  }
+}
+
+/**
+ * Verifies an owed unit says why an ancestor citation will not answer for it.
+ *
+ * This is the sentence an author reads on every unit the option newly leaves owed, and the only place the rule explains itself to someone who has not read the configuration. Without it the repair reads as ordinary missing coverage, and the tag they already wrote above the file looks like it should have counted.
+ *
+ *  1. Confine coverage and cite the containing scope.
+ *  2. Read the diagnostic of a unit that is now uncovered.
+ *  3. Assert it names the option and what it requires.
+ */
+func TestConfinedCoverageExplainsItselfOnTheOwedUnit(t *testing.T) {
+  messages := runIndexRule(t, map[string]string{
+    "docs/spec.md": aggregateDocument,
+    "src/test.ts": `/** @evidence docs/spec.md#authentication Implements authentication. */
+export function testAuthentication(): void {}
+`,
+  }, aggregateConfig)
+  assertProblemContains(t, messages, "noAggregateEvidence is set here, so this unit needs its own name")
+  assertProblemContains(t, messages, "a citation of a scope containing it will not answer for it")
+}
+
+/**
+ * Verifies the narrowed set is what uniqueEvidence counts and what pairs a conflict.
+ *
+ * Both read coverage through the same set, and both fail by falling silent: a parent and a child cited by different hosts stop being two hosts on one unit, and an exclusion under a cited parent stops being a conflict. A regression in either direction removes a diagnostic rather than adding one, which no assertion on a clean graph would notice.
+ *
+ *  1. Cite the parent from one host and the child from another under uniqueEvidence.
+ *  2. Cite the parent and exclude the child.
+ *  3. Assert each reports while the cascade is on and neither does once it is off.
+ */
+func TestConfinedCoverageDecidesHostsAndConflicts(t *testing.T) {
+  const document = "## Posts {#posts}\n\n### Create A Post {#create-a-post}\n"
+  configure := func(policy string) string {
+    return `{"claims":[{
+      "type":"typescript",
+      "files":["src/**"],
+      "symbol":"function",
+      "reference":{
+        "type":"markdown",
+        "files":["docs/spec.md"],
+        "symbol":["h2","h3"]` + policy + `
+      }
+    }]}`
+  }
+  hosts := map[string]string{
+    "docs/spec.md": document,
+    "src/post.ts": `/** @evidence docs/spec.md#posts Renders the post surface. */
+export function testPosts(): void {}
+`,
+    "src/feed.ts": `/** @evidence docs/spec.md#create-a-post Creates a post. */
+export function testCreate(): void {}
+`,
+  }
+  cascading := runIndexRule(t, hosts, configure(`,"uniqueEvidence":true`))
+  assertProblemContains(t, cascading, "has 2 distinct positive evidence host(s)")
+  confined := runIndexRule(t, hosts, configure(`,"uniqueEvidence":true,"noAggregateEvidence":true`))
+  if len(confined) != 0 {
+    t.Fatalf(
+      "a confined citation still counted as a host on the child:\n%s",
+      strings.Join(confined, "\n"),
+    )
+  }
+
+  conflicting := map[string]string{
+    "docs/spec.md": document,
+    "src/post.ts": `/** @evidence docs/spec.md#posts Renders the post surface. */
+export function testPosts(): void {}
+
+/** @evidenceExclude docs/spec.md#create-a-post The composer owns creation; false once this page composes. */
+export function testCreation(): void {}
+`,
+  }
+  paired := runIndexRule(t, conflicting, configure(""))
+  assertProblemContains(t, paired, "Conflicting acknowledgements for 'docs/spec.md#create-a-post'")
+  separated := runIndexRule(t, conflicting, configure(`,"noAggregateEvidence":true`))
+  if len(separated) != 0 {
+    t.Fatalf(
+      "a confined citation still conflicted with an exclusion below it:\n%s",
+      strings.Join(separated, "\n"),
+    )
+  }
+}
+
+/**
+ * Verifies confinement reaches a TypeScript population, not only a Markdown one.
+ *
+ * The option reads coverage from the resolved scope map, which every artifact kind shares, so a Markdown-only proof leaves that shared path asserted for one caller. An interface citing its own properties is the shape a TypeScript reference actually meets.
+ *
+ *  1. Select properties and cite the interface that contains them.
+ *  2. Confine coverage on that reference.
+ *  3. Assert each property is owed by its own name and the citation reports.
+ */
+func TestConfinedCoverageReachesTypeScriptUnits(t *testing.T) {
+  messages := runIndexRule(t, map[string]string{
+    "src/contract.ts": `export interface ISale {
+  id: string;
+  price: number;
+}
+`,
+    "src/test.ts": `import type { ISale } from "./contract";
+
+/** @evidence {@link ISale} Mirrors the sale contract. */
+export function testSale(): void {}
+`,
+  }, `{"claims":[{
+    "type":"typescript",
+    "files":["src/test.ts"],
+    "symbol":"function",
+    "reference":{
+      "type":"typescript",
+      "files":["src/contract.ts"],
+      "symbol":["property"],
+      "noAggregateEvidence":true
+    }
+  }]}`)
+  assertProblemContains(t, messages, "Aggregate @evidence at src/test.ts:3")
+  for _, target := range []string{"ISale.id", "ISale.price"} {
+    assertProblemContains(t, messages, "Missing acknowledgement for '"+target+"'")
+  }
+}
+
+/**
+ * Verifies the two refusals compose into the obligation the issue is about.
+ *
+ * `noEvidenceExclude` closes the front door and aggregate scope was the side door, so a reference wanting delivery named unit by unit and no excuses declares both. If either half quietly disarmed the other, the configuration that motivated the option would be the one configuration it fails at.
+ *
+ *  1. Declare both refusals on one reference.
+ *  2. Answer one unit with an exclusion and the rest with an ancestor citation.
+ *  3. Assert the exclusion is forbidden and every unit still owes its own name.
+ */
+func TestConfinedCoverageComposesWithRefusedExclusions(t *testing.T) {
+  messages := runIndexRule(t, map[string]string{
+    "docs/spec.md": aggregateDocument,
+    "src/test.ts": `/** @evidence docs/spec.md#authentication Implements authentication. */
+export function testAuthentication(): void {}
+
+/** @evidenceExclude docs/spec.md#sign-out The gateway owns sign-out; false once a screen must. */
+export function testSignOut(): void {}
+`,
+  }, `{"claims":[{
+    "type":"typescript",
+    "files":["src/**"],
+    "symbol":"function",
+    "reference":{
+      "type":"markdown",
+      "files":["docs/spec.md"],
+      "symbol":["h2"],
+      "noEvidenceExclude":true,
+      "noAggregateEvidence":true
+    }
+  }]}`)
+  assertProblemContains(t, messages, "Forbidden @evidenceExclude for 'docs/spec.md#sign-out'")
+  assertProblemContains(t, messages, "Aggregate @evidence at src/test.ts:1")
+  assertProblemContains(t, messages, "this reference forbids @evidenceExclude")
+  for _, target := range []string{"docs/spec.md#sign-in", "docs/spec.md#sign-out"} {
+    assertProblemContains(t, messages, "Missing acknowledgement for '"+target+"'")
+  }
+}
+
+/**
+ * Verifies a reference declaring two refusals says both of them.
+ *
+ * Each option narrows a different way, so the repair has to compose rather than choose. Writing one sentence over the other left a reference that refuses exclusions saying nothing about exclusions, which is the sentence its author most needs: they would try the one answer the reference will never take.
+ *
+ *  1. Require a relation and refuse exclusions and aggregate coverage on one reference.
+ *  2. Leave the unit uncovered.
+ *  3. Assert the repair names all three constraints.
+ */
+func TestRepairComposesEveryRefusalTheReferenceDeclares(t *testing.T) {
+  messages := runIndexRule(t, map[string]string{
+    "docs/spec.md": aggregateDocument,
+    "src/test.ts": `/** @evidence docs/spec.md#sign-in Implements sign-in. */
+export function testSignIn(): void {}
+`,
+  }, `{"claims":[{
+    "type":"typescript",
+    "files":["src/**"],
+    "symbol":"function",
+    "reference":{
+      "type":"markdown",
+      "files":["docs/spec.md"],
+      "symbol":["h2"],
+      "role":"implements",
+      "noEvidenceExclude":true,
+      "noAggregateEvidence":true
+    }
+  }]}`)
+  assertProblemContains(t, messages, "Use @evidence(implements) on a selected typescript host; this reference forbids @evidenceExclude.")
+  assertProblemContains(t, messages, "discharged only by a declaration naming the 'implements' relation")
+  assertProblemContains(t, messages, "noAggregateEvidence is set here")
+  if countProblemsContaining(messages, "still answers for it") != 0 {
+    t.Fatalf(
+      "a reference refusing exclusions offered one as an answer:\n%s",
+      strings.Join(messages, "\n"),
+    )
+  }
+}

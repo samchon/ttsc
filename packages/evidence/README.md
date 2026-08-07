@@ -247,7 +247,7 @@ It is the only acknowledgement that settles an obligation without anything being
 
 ### Strict references
 
-Ordinary coverage is permissive, which is right for a document several modules honor and too weak for a proof obligation, where one exclusion or one host citing everything discharges the whole population. Three properties tighten a single reference, and they never pool across references.
+Ordinary coverage is permissive, which is right for a document several modules honor and too weak for a proof obligation, where one exclusion or one host citing everything discharges the whole population. Four properties tighten a single reference, and they never pool across references.
 
 ```ts
 {

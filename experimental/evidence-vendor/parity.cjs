@@ -534,12 +534,38 @@ const EXCEPTIONS = new Map([
   ],
 
   // ttsc#1092 closes the one path a reference refusing exclusions still left
-  // open: a citation of a containing scope discharging its whole subtree.
-  // model.go, config.go, graph.go, and the reference contract are already
-  // declared above for ttsc#1106 and carry this too.
+  // open: a citation of a containing scope discharging its whole subtree. Its
+  // work also lands in files already declared above for ttsc#1106, which is
+  // every one of model.go, config.go, graph.go, the reference contract, the
+  // reference-policy configuration test, and the rule contract; parity is per
+  // file rather than per change, so those entries carry it without repeating.
   [
     "packages/evidence/native/graph_confines_aggregate_evidence_test.go",
     "ttsc#1092: local only, upstream has no confined coverage to prove",
+  ],
+  [
+    "packages/evidence/README.md",
+    "ttsc#1092 and ttsc#1106: the reference-policy section carries both options and the cascade is stated as the default it now is",
+  ],
+  [
+    "packages/evidence/src/typings/TtscEvidenceGraphMarkdownSymbol.ts",
+    "ttsc#1092: the acknowledgement cascade is conditional on the reference",
+  ],
+  [
+    "packages/evidence/src/typings/TtscEvidenceGraphPrismaSymbol.ts",
+    "ttsc#1092: as above",
+  ],
+  [
+    "packages/evidence/src/typings/TtscEvidenceGraphTypeScriptSymbol.ts",
+    "ttsc#1092: as above",
+  ],
+  [
+    "packages/evidence/src/structures/ITtscEvidenceGraphPrismaReference.ts",
+    "ttsc#1092: one citation on a model discharges its members unless the reference says otherwise",
+  ],
+  [
+    "tests/test-evidence/src/features/test_evidence_graph_enforces_reference_policy.ts",
+    "ttsc#1092 and ttsc#1106: the published spelling of every policy option is proven against the decoder, which raw-JSON native cases cannot do",
   ],
 ]);
 

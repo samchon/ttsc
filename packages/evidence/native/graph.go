@@ -625,13 +625,13 @@ func evaluateEvidenceGraph(
   // obligations the declaration did answer for, which is what separates a tag
   // refused everywhere from one that answers reference A and not reference B.
   refusedRole := map[string][]string{}
-  // A citation of a containing scope that a reference confining coverage to the
-  // named unit answers for nothing. It never reaches the non-participation
-  // pass, which sets its flag earlier, and that pass's sentence would be false
-  // here anyway: the reference does select the target's descendants.
+  // A citation of a containing scope answers for nothing where the reference
+  // confines coverage to the named unit. Collected beside the relation
+  // refusals and reported the same way, because the two are the same shape: a
+  // declaration the obligation selected, was eligible for, and still could not
+  // take.
   refusedAggregate := map[string][]string{}
   discharges := map[string]bool{}
-  reportedRefusal := map[string]bool{}
   for _, state := range states {
     if len(state.Paths) == 0 {
       continue
@@ -684,28 +684,6 @@ func evaluateEvidenceGraph(
       for _, declaration := range state.Declarations {
         scopeID := resolved[declaration.ID]
         covered := reference.UnitsByScope[scopeID]
-        // Narrowed here rather than at each consumer, so every one of them
-        // agrees at once: what is acknowledged, which declarations conflict,
-        // the hosts uniqueEvidence counts, and the units
-        // singleEvidencePerSymbol counts — which stops reading a cited parent
-        // of two selected units as two.
-        if declaration.Tag == tagEvidence &&
-          reference.Spec.Policy.NoAggregate &&
-          len(covered) != 0 {
-          named := []*evidenceUnit{}
-          for _, unit := range covered {
-            if unit.ID == scopeID {
-              named = append(named, unit)
-            }
-          }
-          if len(named) == 0 {
-            refusedAggregate[declaration.ID] = appendUniqueString(
-              refusedAggregate[declaration.ID],
-              claimLabel(state.Spec)+" "+referenceLabel(reference.Spec),
-            )
-          }
-          covered = named
-        }
         if len(covered) == 0 {
           continue
         }
@@ -761,6 +739,30 @@ func evaluateEvidenceGraph(
               " wants '"+reference.Spec.Policy.Role+"'",
           )
           continue
+        }
+        // Narrowed after every other gate, and at one place rather than at
+        // each consumer. After, because a tag on an ineligible host or an
+        // out-of-carrier exclusion is already wrong for a reason this one
+        // would mask, and the repair it offers cannot be taken there. At one
+        // place, so what is acknowledged, which declarations conflict, the
+        // hosts uniqueEvidence counts, and the units singleEvidencePerSymbol
+        // counts all agree, which is what stops a cited parent of two selected
+        // units from reading as two.
+        if declaration.Tag == tagEvidence && reference.Spec.Policy.NoAggregate {
+          named := []*evidenceUnit{}
+          for _, unit := range covered {
+            if unit.ID == scopeID {
+              named = append(named, unit)
+            }
+          }
+          if len(named) == 0 {
+            refusedAggregate[declaration.ID] = appendUniqueString(
+              refusedAggregate[declaration.ID],
+              claimLabel(state.Spec)+" "+referenceLabel(reference.Spec),
+            )
+            continue
+          }
+          covered = named
         }
         // Past every gate this obligation raises, so the declaration answers
         // for it. Eligibility alone cannot say that: a declaration is eligible
@@ -878,12 +880,21 @@ func evaluateEvidenceGraph(
       }
       for _, unit := range reference.Units {
         if !acknowledged[unit.ID] {
-          repair := "Use @evidence on a selected " + string(state.Spec.Type) + " host or @evidenceExclude on an eligible carrier."
-          if reference.Spec.Policy.NoExclude {
-            repair = "Use @evidence on a selected " + string(state.Spec.Type) + " host; this reference forbids @evidenceExclude."
+          // Composed rather than chosen. Each option narrows a different way,
+          // so a reference declaring two owes the author both sentences; the
+          // one that wrote itself over the other left a reference refusing
+          // exclusions saying nothing about them.
+          role := reference.Spec.Policy.Role
+          positive := "Use @evidence on a selected " + string(state.Spec.Type) + " host"
+          if role != "" {
+            positive = "Use @evidence(" + role + ") on a selected " + string(state.Spec.Type) + " host"
           }
-          if role := reference.Spec.Policy.Role; role != "" {
-            repair = "Use @evidence(" + role + ") on a selected " + string(state.Spec.Type) + " host; this reference is discharged only by a declaration naming the '" + role + "' relation."
+          repair := positive + " or @evidenceExclude on an eligible carrier."
+          if reference.Spec.Policy.NoExclude {
+            repair = positive + "; this reference forbids @evidenceExclude."
+          }
+          if role != "" {
+            repair += " This reference is discharged only by a declaration naming the '" + role + "' relation."
             if !reference.Spec.Policy.NoExclude {
               repair += " An @evidenceExclude on an eligible carrier still answers for it, because an exclusion states that this claim does not cover the target rather than how it does."
             }
@@ -921,7 +932,6 @@ func evaluateEvidenceGraph(
       if declaration.Role != "" {
         declared = "'" + declaration.Role + "'"
       }
-      reportedRefusal[id] = true
       problems = append(
         problems,
         "Unwanted relation on @"+string(declaration.Tag)+" at "+declaration.location()+", target '"+displayTarget(declaration.Target)+"': this declaration names "+declared+" and every obligation it reached wants another ("+strings.Join(obligations, "; ")+"). Name the relation the obligation asks for, or move the tag to the host that owns the relation this one claims.",
@@ -929,7 +939,6 @@ func evaluateEvidenceGraph(
       continue
     }
     if obligations := refusedAggregate[id]; len(obligations) != 0 {
-      reportedRefusal[id] = true
       problems = append(
         problems,
         "Aggregate @evidence at "+declaration.location()+" for "+strings.Join(obligations, "; ")+", target '"+displayTarget(declaration.Target)+"': noAggregateEvidence answers each selected unit by its own name, so citing a scope that contains them acknowledges none of them. Cite the units this host actually delivers, or move the tag to the host that owns the whole subtree and cite them there.",
@@ -937,7 +946,7 @@ func evaluateEvidenceGraph(
     }
   }
   for _, id := range declarationIDs {
-    if resolved[id] == "" || participates[id] || reportedRefusal[id] {
+    if resolved[id] == "" || participates[id] {
       continue
     }
     declaration := declarations[id]

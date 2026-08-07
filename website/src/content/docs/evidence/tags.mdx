@@ -14,7 +14,7 @@ These are not tags you maintain by hand. Your agent writes each one as it implem
 
 The target is one whitespace-delimited token, except that a target opening with `{@link`, `{@linkcode`, or `{@linkplain` runs to its closing brace. Everything after the target is prose.
 
-The parenthesized relation is optional, and only `@evidence` takes one — an exclusion says the claim does not cover the target rather than how it does, so there is no relation for it to name. Write it immediately after the tag name, as one word with no space and no parenthesis inside. The space is what keeps `@evidence (target)` meaning what it always meant, so a citation written before relations existed is untouched.
+The parenthesized relation is optional, and only `@evidence` takes one. An exclusion says the claim does not cover the target rather than how it does, so it has no relation to name. Write the relation immediately after the tag name, as one word with no space and no parenthesis inside. The space is what keeps `@evidence (target)` meaning what it always meant, so a citation written before relations existed is untouched.
 
 Anything else in that position is left where the author wrote it and becomes the target, which reports as unresolved: `@evidence(produces here)`, `@evidence(produces)docs/spec.md#x` with the space missing, and `@evidenceExclude(produces)` all name a target rather than quietly ceasing to be declarations. A dropped acknowledgement is the one outcome the graph exists to prevent, so nothing here fails silently.
 
@@ -35,6 +35,8 @@ A reason may run past one line. Continuation lines join it until the next `@evid
 | `POST:/members` | One Swagger or OpenAPI operation |
 | `{@link sales.IShoppingSale}` | An exported type, function, or namespace, with its selected descendants |
 | `{@link sales.IShoppingSale.price}` | One property of an exported type |
+
+Every "and its selected descendants" above is what the reference asks for by default. A reference setting [`noAggregateEvidence`](/docs/evidence/claims#reference-policies) drops it for `@evidence`, so a citation there answers for the unit it names and nothing below it.
 
 A path-addressed target is one whitespace-delimited token, which is why a Swagger operation is written `POST:/members` rather than `POST /members`. The second form still parses: target `POST`, reason `/members ...`. That grammar is preserved deliberately, because `POST` may be the name of a TypeScript symbol.
 
