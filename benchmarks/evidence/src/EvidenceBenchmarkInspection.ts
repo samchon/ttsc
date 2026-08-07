@@ -4,7 +4,6 @@ import path from "node:path";
 import { EvidenceBenchmarkStageLog } from "./EvidenceBenchmarkStageLog";
 import type { ITtscEvidenceBenchmarkGoalRecord } from "./structures/ITtscEvidenceBenchmarkGoalRecord";
 import type { ITtscEvidenceBenchmarkTokenUsage } from "./structures/ITtscEvidenceBenchmarkTokenUsage";
-import type { EvidenceBenchmarkArm } from "./typings/EvidenceBenchmarkArm";
 import type { EvidenceBenchmarkEffort } from "./typings/EvidenceBenchmarkEffort";
 
 /**
@@ -78,7 +77,6 @@ export namespace EvidenceBenchmarkInspection {
    */
   export function prepare(props: {
     runRoot: string;
-    arm: EvidenceBenchmarkArm;
     pauseIndex: number;
     attempt: number;
     goal: ITtscEvidenceBenchmarkGoalRecord;
@@ -107,7 +105,6 @@ export namespace EvidenceBenchmarkInspection {
     const schemaFile: string = path.join(directory, `${prefix}.schema.json`);
     const messageFile: string = path.join(directory, `${prefix}.message.json`);
     const prompt: string = composePrompt({
-      arm: props.arm,
       stageLogName: path.basename(stageLog),
       prescribedText: props.goal.prescribedText,
     });
@@ -408,14 +405,13 @@ export namespace EvidenceBenchmarkInspection {
   /**
    * Builds the objective the inspecting thread receives.
    *
-   * It judges the questions its arm's review is answerable for and nothing
-   * else, and `questions` owns which those are. Everything the inspection
-   * notices beyond them is recorded in the rationale the operator reads, never
-   * handed to the cell: a cell that corrects what it was told about has shown
-   * it can act on a finding, not reach one.
+   * It judges two questions and nothing else. The first is whether the loop the
+   * attempt was told to run actually ran; the second is whether the tests are
+   * real. Everything else the inspection notices is recorded in the rationale
+   * the operator reads, never handed to the cell — a cell that corrects what it
+   * was told about has shown it can act on a finding, not reach one.
    */
   function composePrompt(props: {
-    arm: EvidenceBenchmarkArm;
     stageLogName: string;
     prescribedText: string;
   }): string {
@@ -435,13 +431,16 @@ export namespace EvidenceBenchmarkInspection {
       "",
       quote(props.prescribedText),
       "",
-      ...questions(props.arm),
+      "## Judge Exactly Two Questions",
+      "",
+      "1. **Did the prescribed review loop run to dryness?** The instruction above requires rounds that continue until one round produces no finding and no edit. A loop ran to dryness only if the attempt read its full scope every round and ended on a round that read everything and changed nothing. It did not if the attempt substituted counts, summaries, searches, or a green command for reading; divided its scope across rounds instead of re-reading it; skipped the re-read after its last edit; or reported a dry round the session stream shows it never performed.",
+      "2. **Are the tests properly written?** Judge the tests in the workspace against the workspace's own testing instructions. A suite that names one test for a hundred published operations, that asserts nothing, that asserts only that a call did not throw, or that pins the implementation's current output rather than the behavior it owes, is not properly written however green it runs.",
       "",
       "Judge nothing else. Design taste, formatting, checklist bookkeeping, and commit hygiene are not your business. Where the product and the session stream disagree, the workspace is the evidence and the stream is the claim.",
       "",
       "## Decide",
       "",
-      "Pass only when every question answers yes. Fail when any does not.",
+      "Pass only when both questions answer yes. Fail when either does not.",
       "",
       "Your final message must be exactly one JSON object with two properties and nothing around it:",
       "",
@@ -451,45 +450,6 @@ export namespace EvidenceBenchmarkInspection {
       "The rationale is retained for the record. Nobody acts on its text, so write it for a reader who must be able to check your work, not for the author of the code.",
       "",
     ].join("\n");
-  }
-
-  /**
-   * The questions one arm's review is judged on.
-   *
-   * They are not the same questions, because the two arms are not doing the
-   * same work. A Plain review is a reading loop, so what can be checked is
-   * whether the loop ran. An Evidence review inspects its own acknowledgements,
-   * and the compiler has already proved that every citation resolves, so the
-   * only thing left is whether each one is true: the graph can enforce that a
-   * target resolves and not that the citing artifact delivers what the target
-   * describes.
-   *
-   * Both arms are judged on their tests, because a suite that proves nothing is
-   * the failure neither a reading loop nor a compiler can see.
-   */
-  function questions(arm: EvidenceBenchmarkArm): string[] {
-    const tests: string =
-      "**Are the tests properly written?** Judge the tests in the workspace against the workspace's own testing instructions. A suite that names one test for a hundred published operations, that asserts nothing, that asserts only that a call did not throw, or that pins the implementation's current output rather than the behavior it owes, is not properly written however green it runs.";
-    if (arm === "plain")
-      return [
-        "## Judge Exactly Two Questions",
-        "",
-        "1. **Did the prescribed review loop run to dryness?** The instruction above requires rounds that continue until one round produces no finding and no edit. A loop ran to dryness only if the attempt read its full scope every round and ended on a round that read everything and changed nothing. It did not if the attempt substituted counts, summaries, searches, or a green command for reading; divided its scope across rounds instead of re-reading it; skipped the re-read after its last edit; or reported a dry round the session stream shows it never performed.",
-        `2. ${tests}`,
-      ];
-    return [
-      "## Judge Exactly Seven Questions",
-      "",
-      "The workspace carries `@evidence` and `@evidenceExclude` tags whose targets the compiler has already resolved. Resolution is not truth, and truth is what you are judging.",
-      "",
-      "1. **Does every hook cite the operations it calls?** Open the hook layer and the generated accessors it names, and confirm each citation names an operation that hook's own body reaches.",
-      "2. **Does every screen use the hooks it cites, and render data serving the requirement it cites?** A page that mounts a hook and renders nothing from it, or whose cited requirement describes values the page discards, fails this.",
-      "3. **Does every journey assert an observable outcome for each requirement it cites?** A journey that opens a screen, asserts a status code or a non-empty body, and never performs the action its cited requirement names, proves availability rather than behavior.",
-      "4. **Is every `@evidenceExclude` a reviewed non-applicability decision?** It must name what owns the target instead and a condition that would make the decision false. An exclusion standing in for work this layer owes is the one outcome the graph exists to prevent, and it looks exactly like a passing build.",
-      "5. **Does every citation name only targets whose subtree the host owns?** A parent target acknowledges every selected descendant, so citing one is truthful only when the host owns the whole subtree, and a citation reaching past what the host delivers discharges obligations nobody met.",
-      "6. **Does any `@todo` remain under the workspace source?** The backend stages a rule that fails the build on one; the frontend has only a sweep the author runs and reports, so a stub shipped as done survives every gate the workspace has.",
-      `7. ${tests}`,
-    ];
   }
 
   function quote(text: string): string {

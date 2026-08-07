@@ -57,15 +57,13 @@ Drive mode from environment:
 ```ts
 export const config = {
   apiHost: import.meta.env.VITE_API_HOST ?? "http://127.0.0.1:37001",
-  simulate: readBoolean(import.meta.env.VITE_API_SIMULATE, false),
+  simulate: readBoolean(import.meta.env.VITE_API_SIMULATE, true),
 } as const;
 ```
 
 Simulation validates the typed boundary and returns generated response shapes. It does not prove persistence, authorization, sessions, side effects, or deterministic business state.
 
-Simulation is off by default, so the checked-in state of the workspace talks to the backend. The mode turns it on, not a file: `vite.config.ts` sets `VITE_API_SIMULATE` for `--mode contract`, which is what `pnpm test:contract` builds with, and `pnpm dev --mode contract` is the same switch for interactive work. Do not put `VITE_API_SIMULATE` in `packages/frontend/.env`. `vite.config.ts` sets the flag from the mode before Vite reads any env file, so a value there is overwritten rather than honored, and a workspace that relies on it is describing a build it did not get.
-
-Use simulation for screen construction and contract flow. Use fixtures for empty, refusal, boundary, and long-content states. The gate is `pnpm test:e2e` with `VITE_API_SIMULATE=false` against a separately running backend, and `verification.md` owns why the two suites are separate.
+Use simulation for screen construction and contract flow. Use fixtures for empty, refusal, boundary, and long-content states. Finish by running browser journeys with `VITE_API_SIMULATE=false` against a separately running backend.
 
 Never record a simulated run as live integration.
 

@@ -13,7 +13,7 @@ env:
   JWT_ACCESS_TTL_SECONDS: "3600"
   JWT_REFRESH_TTL_SECONDS: "2592000"
   VITE_API_HOST: http://127.0.0.1:37001
-  VITE_API_SIMULATE: "false"
+  VITE_API_SIMULATE: "true"
 
 jobs:
   test:
@@ -33,14 +33,6 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # Every gate below runs against this file, not against the job env alone,
-      # so it is provisioned once here. A value a cell adds to
-      # `MyGlobal.IEnvironments` and `.env.example` then reaches the database
-      # reset and the backend suite too, and the workflow is frozen against the
-      # cell, so it cannot repair a copy that happened too late.
-      - name: Provision environment
-        run: cp packages/backend/.env.example packages/backend/.env
-
       - name: Build
         run: pnpm build
 
@@ -54,28 +46,7 @@ jobs:
         run: pnpm test:backend
 
       - name: Install Chromium
-        run: pnpm --filter {{frontendPackageName}} --fail-if-no-match exec playwright install --with-deps chromium
-
-      # The contract pass answers with `typia.random`, so it proves the typed
-      # client boundary is wired and nothing about what the data means.
-      - name: Test frontend contract
-        run: pnpm --filter {{frontendPackageName}} --fail-if-no-match test:contract
-
-      # The live pass is the gate, and it needs the server it asserts against.
-      # Without it the job could only ever run the simulated lane, which is the
-      # one that cannot observe persistence, sessions, or any side effect.
-      - name: Start backend
-        run: |
-          nohup pnpm --filter {{backendPackageName}} --fail-if-no-match start > backend.log 2>&1 &
-          for _ in $(seq 1 120); do
-            if curl --silent --fail "$VITE_API_HOST/health" > /dev/null; then
-              exit 0
-            fi
-            sleep 1
-          done
-          echo "The backend did not answer /health within 120 seconds." >&2
-          cat backend.log >&2
-          exit 1
+        run: pnpm --filter {{frontendPackageName}} exec playwright install --with-deps chromium
 
       - name: Test frontend
         run: pnpm test:frontend

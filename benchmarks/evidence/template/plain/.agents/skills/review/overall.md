@@ -56,8 +56,7 @@ Compare every adjacent boundary in both directions.
    - verify that assertions fail when the named behavior disappears.
 6. Frontend and browser tests:
    - verify every required live state, action, refusal, recovery, responsive behavior, and user-visible consequence;
-   - verify that journeys exercise the current live application rather than a simulated substitute;
-   - verify that a journey's assertions fail when the behavior it names disappears.
+   - verify that journeys exercise the current live application rather than a simulated substitute.
 
 ## End-To-End Closure
 

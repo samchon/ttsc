@@ -5,21 +5,18 @@ import { EvidenceBenchmarkLayout } from "../EvidenceBenchmarkLayout";
 import { EvidenceBenchmarkSupervision } from "../EvidenceBenchmarkSupervision";
 
 const main = (): void => {
-  const [subject, arm, runId, verdictFile] = process.argv.slice(2);
+  const [subject, runId, verdictFile] = process.argv.slice(2);
   if (
     subject === undefined ||
     !/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(subject) ||
-    (arm !== "evidence" && arm !== "plain") ||
     runId === undefined ||
     !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
       runId,
     ) ||
     verdictFile === undefined ||
-    process.argv.length !== 6
+    process.argv.length !== 5
   )
-    throw new Error(
-      "Usage: pnpm supervise <subject> <evidence|plain> <run-id> <verdict.json>",
-    );
+    throw new Error("Usage: pnpm supervise <subject> <run-id> <verdict.json>");
   const repository: string = EvidenceBenchmarkLayout.repositoryRoot;
   const verdict = EvidenceBenchmarkSupervision.decide({
     runRoot: path.join(
@@ -27,7 +24,7 @@ const main = (): void => {
       "output",
       subject,
       "codex",
-      arm,
+      "plain",
       "runs",
       runId,
     ),
@@ -40,7 +37,7 @@ const main = (): void => {
     inputIdentity: EvidenceBenchmarkCheckpoint.identifyInputs({
       repository,
       subject,
-      arm,
+      arm: "plain",
     }),
   });
   process.stdout.write(`${JSON.stringify(verdict, null, 2)}\n`);

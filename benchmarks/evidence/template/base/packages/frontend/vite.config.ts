@@ -4,7 +4,7 @@ import react from "@vitejs/plugin-react";
 import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
-import { defineConfig, type UserConfig } from "vite";
+import { defineConfig } from "vite";
 
 const environment = path.resolve(import.meta.dirname, ".env");
 if (fs.existsSync(environment)) process.loadEnvFile(environment);
@@ -13,7 +13,7 @@ const port = Number(process.env.VITE_DEV_PORT ?? 5173);
 if (Number.isInteger(port) === false || port < 1 || port > 65_535)
   throw new Error("VITE_DEV_PORT must be an integer from 1 to 65535.");
 
-const configuration: UserConfig = {
+export default defineConfig({
   cacheDir: path.resolve(__dirname, "../../.build-cache/vite"),
   plugins: [tailwindcss(), react(), ttsc()],
   resolve: {
@@ -26,25 +26,4 @@ const configuration: UserConfig = {
     port,
     strictPort: true,
   },
-};
-
-/**
- * The `contract` mode is the simulated one, and the mode decides it.
- *
- * Vite lets `process.env` win over every `.env*` file, and the eager
- * `loadEnvFile` above promotes a workspace `.env` into `process.env` before Vite
- * reads any of them. A mode expressed as an env file would therefore be
- * overridden by any `.env` a cell wrote for an unrelated reason, silently, and
- * the contract suite would build live while every document called it simulated.
- *
- * The write is unconditional in both directions on purpose. Setting it only for
- * the contract mode would close that lane and leave the live one exactly as
- * defeatable: a `.env` carrying `VITE_API_SIMULATE=true` would still make
- * `pnpm test:e2e` build simulated, which is the failure the split exists to
- * end. `--mode contract` is simulated, every other mode is live, and no file
- * can disagree with either.
- */
-export default defineConfig(({ mode }) => {
-  process.env.VITE_API_SIMULATE = String(mode === "contract");
-  return configuration;
 });

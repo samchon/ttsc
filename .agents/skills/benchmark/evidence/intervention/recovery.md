@@ -6,13 +6,6 @@ Preserve the run and identify the exact instruction, process result, native sess
 
 Always read the launcher's own output after a resume. A refused launch says so there and nowhere else, which is how a cell that is merely unable to start comes to look dead.
 
-**Read `state.json` before acting on any failure notice.** A notice describes the moment a benchmark process exited, not the moment you read it, and what happens in between is a recovery: diagnosing, freeing the cell's ports, and resuming take minutes even at a 30-second observation cadence. So a cell that declared its own goal blocked, exited non-zero, and was resumed is running again on a new runner by the time its original failure surfaces, and acting on the notice alone means touching a cell that was already recovered, which happened three times in the first cohort. The retained state is what separates that cell from one still down.
-
-Two states read as a stall and are usually not one:
-
-- **A goal update with status `blocked`.** That is the agent declaring its own goal blocked, which is a measurement outcome rather than a fault. Resume it.
-- **An `inspection/` directory holding only a prompt and a schema.** That is what an inspection looks like from the moment it is prepared until its decision is written, so it usually means one is in flight and the decision arrives in the same command. A crashed inspector leaves the same two files, so confirm the runner is alive before waiting on it; with no live runner this is a stopped cell to resume, and [plain-review.md](../measurement/plain-review.md) owns the retry.
-
 When the resume conditions below match, resume immediately after diagnosis and any required runner correction. Do not wait for operator prose or the next reporting interval.
 
 ## Free The Cell's Ports
@@ -22,8 +15,6 @@ A cell never contends with another cell — the blocks are disjoint, and [measur
 Before resuming a stopped cell, confirm its four ports have no listener and stop whatever holds one. A listener on a cell's port while no runner of its own is alive means orphans are blocking recovery, and the reporting subagent reports that as its own condition rather than as a dead cell.
 
 ## Resume The Same Run
-
-**Snapshot `state.json` before resuming.** Resuming overwrites the interruption record, and twice the cause of a stop was lost that way. Copy it outside the run directory first; the run directory itself is the record and nothing in it is edited.
 
 Resume only when the cell identity, frozen inputs, workspace, CLI version, objective, and native checkpoint still match:
 

@@ -31,18 +31,18 @@ interface ISubmittedVerdict {
   feedback?: string;
 }
 
-/** Retains and verifies review decisions outside the measured thread. */
+/** Retains and verifies Plain review decisions outside the measured thread. */
 export namespace EvidenceBenchmarkSupervision {
   /**
-   * Attaches one operator warning to a stopped cell's current objective.
+   * Attaches one operator warning to a stopped Evidence cell's current
+   * objective.
    *
-   * `thread/goal/set` is the runner's only channel into the thread, so a
-   * warning reaches a cell exactly one way: stop the cell, attach the warning,
-   * resume. Outside a reminder it replaces the arm continuation rather than
-   * extending the objective, because an objective that grows past the limit
-   * Codex accepts cannot be delivered at all, and the composed objectives leave
-   * less room than they look: an Evidence Overall reminder carries its quoted
-   * Review and leaves under a thousand characters for a warning.
+   * The Evidence arm never pauses for a verdict, and `thread/goal/set` is the
+   * runner's only channel into the thread, so a warning reaches an Evidence
+   * cell exactly one way: stop the cell, attach the warning, resume. The
+   * warning replaces the arm continuation rather than extending the objective,
+   * because `backend/start` already expands to within 77 characters of the
+   * limit Codex accepts.
    *
    * A warning states the frozen boundary and the edit that crossed it. It is
    * the alternative to restarting a cell over a correctable violation, which
@@ -238,13 +238,13 @@ export namespace EvidenceBenchmarkSupervision {
       const attempt: number = pause.attempt + 1;
       const entry = {
         name: `${pause.scope}-remind-${attempt}`,
-        relativePath: `${retained.state.arm}/${pause.scope}/remind.md`,
+        relativePath: `plain/${pause.scope}/remind.md`,
         kind: "review-supplement" as const,
         reviewScope: pause.scope,
         reviewAttempt: attempt,
       };
       EvidenceBenchmarkInstruction.objective({
-        arm: retained.state.arm,
+        arm: "plain",
         instructionsRoot: props.instructionsRoot,
         entry,
       });
@@ -370,18 +370,19 @@ export namespace EvidenceBenchmarkSupervision {
   ): void {
     // The cell records its own frozen inputs and revision, which is the audit
     // trail. Comparing them with the repository as it stands would lock every
-    // running cell out of supervision the moment the operator commits a
+    // running Plain cell out of supervision the moment the operator commits a
     // correction the benchmark skill tells them to commit, and the verdict
     // concerns a review that already ran against the retained workspace.
     if (retained.cell.subject !== current.subject)
       throw new Error("Review verdict does not match its subject.");
     if (
+      retained.cell.arm !== "plain" ||
       retained.cell.runId !== path.basename(runRoot) ||
       !samePath(retained.records.root, runRoot) ||
       !samePath(retained.records.state, statePath) ||
       !samePath(retained.records.workspace, path.join(runRoot, "workspace"))
     )
-      throw new Error("Run is not an exact undecided review boundary.");
+      throw new Error("Run is not an exact undecided Plain review boundary.");
     assertUndecidedBoundary(retained.state);
   }
 
@@ -406,6 +407,7 @@ export namespace EvidenceBenchmarkSupervision {
         : EvidenceBenchmarkInstruction.reviewBoundary(planEntry);
     const process = state.processes.at(-1);
     if (
+      state.arm !== "plain" ||
       typeof state.sessionId !== "string" ||
       typeof state.cliVersion !== "string" ||
       state.status !== "awaiting-review-verdict" ||

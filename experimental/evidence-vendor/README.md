@@ -8,12 +8,6 @@ These scripts are branch-local tooling for the migration pull request. They are 
 
 Upstream defaults to `D:/github/samchon/evidence`, which is where `samchon/lint-plugin-evidence` is cloned on this machine; the directory is not named after the repository. `parity.cjs` takes another location from its first argument, then from `EVIDENCE_UPSTREAM`, so a checkout that lives elsewhere needs no edit. The argument wins, and it is what the `robocopy` recipe's `<upstream>` placeholder below stands for; neither the variable nor the argument feeds those copy commands.
 
-This repository now carries corrections upstream does not. `robocopy /MIR` mirrors, so it deletes: everything the round-two preparation of ttsc#1096 changed inside a vendored tree is a local correction to a defect the first cohort exposed, and a refresh removes all of it unless it is reapplied.
-
-`EXCEPTIONS` in `parity.cjs` is the list. Every round-two entry names the issue that owns it, so a refresh walks that list once and, for each entry, either reads upstream and finds the correction already there or reapplies it here from the issue. An entry that compares clean afterwards is reported as excused, which is how the list shrinks as upstream catches up rather than growing forever.
-
-`readapt.cjs` carries none of them. It was not touched by that work, so a refresh reapplies every round-two entry by hand from its issue and nothing is picked up automatically. Encoding some of them there is possible and simply not done: its `edit()` is general anchored substitution and its step 3 writes whole files, so an anchored deletion, a one-sentence replacement, or a local-only file is exactly its shape. What no anchor survives is upstream restructuring the document it sits in, which is the argument its own step 6 makes and the reason the prose-heavy entries would not stay encoded for long.
-
 ```bash
 # 1. Copy. Never exclude a directory named `lib` — the benchmark template ships
 #    frontend sources in `src/lib`, and excluding it silently delivers a

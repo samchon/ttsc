@@ -15,20 +15,12 @@ One cell is one native session driven through its arm's eight objectives. The op
 Freeze every input before launch, and never launch an unauthorized cell or rerun:
 
 - **Identity** — subject, arm, engine, model, effort.
-- **Material** — requirements, template, instructions, package archive, browser server version.
+- **Material** — requirements, template, instructions, package archive.
 - **Version** — CLI version, benchmark revision.
 
 [intervention/boundary.md](../intervention/boundary.md) owns what may change and when.
 
 The runner reads the benchmark revision from the repository's `HEAD` and refuses to launch while anything is uncommitted or untracked, so commit or stash first.
-
-The browser server adds three host conditions, and none of them is checked before model use:
-
-- **A browser channel it can drive.** The server uses one installed on the machine rather than the workspace's own Playwright, so the host needs it and a cohort spread over days can drive two builds of it. Pin the channel on the machine and record which one, the way the model and effort are recorded.
-- **A display, or an explicitly headless server.** It runs headed by default, so a full matrix opens one window per cell and a headless host launches nothing.
-- **A warm package cache, or patience on the first launch.** The first cell on a machine installs the server and its Playwright from the registry inside the handshake window, which `EvidenceBenchmarkRuntime.BROWSER_MCP_STARTUP_TIMEOUT_SECONDS` widens from Codex's ten seconds to three hundred.
-
-A fourth condition is not the host's: `--config` merges into the operator's own `~/.codex/config.toml`, which the runner does not isolate. Whatever MCP servers that file already declares reach every cell, and an entry it declares under the same name merges field by field with the runner's. Read it before a cohort and record what it contained, because the process record shows only the arguments the runner added.
 
 Unless the user names something else, every campaign runs the same engine, model, and effort. Only the subject and arm vary:
 
@@ -39,29 +31,12 @@ pnpm --filter @ttsc/benchmark-evidence start codex <subject> <evidence|plain> gp
 - **`codex`** is the only engine the command line accepts.
 - **`gpt-5.6-luna`** is the default model. `report` also prices `gpt-5.6-terra` and `gpt-5.6-sol`, and an unpriced string still launches and is measured but publishes no USD cost.
 - **`high`** is the default effort. The parser also accepts `low`, `medium`, `xhigh`, `max`, and `ultra`.
-- **The subject** names a directory under `benchmarks/evidence/requirements/`, and `EvidenceBenchmarkRuntime.assign` is the authority on which ones a cell may take. There are five, below.
 
 The model and effort are defaults, not a menu you pick from. Change either only when the user names it, and record what they authorized in the pull-request body. Cost is why the default is what it is, and a cell run at another model or effort is not comparable with a cohort that used these.
 
 Never run two commands against the same run ID at once. A resume reuses the run ID by design, so the rule is about concurrency, not about a second invocation.
 
 A launch that fails before native work does not consume the authorized cell, as long as its identity and frozen inputs are unchanged. Two such failures are ordinary: an unclean repository, and an occupied port from the cell's own block.
-
-A third fails later and reads differently. The browser server is declared `required`, so a handshake it misses aborts the thread rather than dropping the tool, and that happens after the workspace is prepared and installed, surfacing as an `interrupted` run like any other stopped cell. Read the stage log before diagnosing it as a dead model process: `codex doctor` reports an unresolvable server command in a moment and costs nothing.
-
-### Subjects
-
-| subject    | what it is                                               |
-| ---------- | -------------------------------------------------------- |
-| `todo`     | the smallest corpus, 19 H2 and 54 H3 sections            |
-| `reddit`   | 44 H2, 150 H3                                            |
-| `shopping` | 73 H2, 354 H3                                            |
-| `erp`      | the largest, 253 H2 and 1234 H3 across six documents     |
-| `todo2`    | a byte-identical copy of `todo`, with its own port block |
-
-`todo2` exists so one subject can be run twice under identical requirements. A cohort's cells are one run each, so a repeat draw is the only way to separate what a rule selects for from what one model did once, and the requirement corpus is frozen, so a duplicate cannot be created on demand. It arrived with the vendoring from `samchon/lint-plugin-evidence`.
-
-It is not part of the default matrix. Running it is an explicit authorization like any other cell, recorded in the pull-request body with the rest.
 
 ### Port Blocks
 
@@ -77,10 +52,6 @@ Every cell owns a disjoint block of four ports from base 46000, so two cells nev
 | shopping | plain    | 46050 | 46051   | 46052 | 46053      |
 | erp      | evidence | 46060 | 46061   | 46062 | 46063      |
 | erp      | plain    | 46070 | 46071   | 46072 | 46073      |
-| todo2    | evidence | 46080 | 46081   | 46082 | 46083      |
-| todo2    | plain    | 46090 | 46091   | 46092 | 46093      |
-
-Every subject `EvidenceBenchmarkRuntime.assign` accepts has a row here. A subject added to that function and not to this table has no block a recovery can free, so add both together.
 
 The block reaches the workspace as `API_PORT`, `SWAGGER_PORT`, `VITE_DEV_PORT`, `VITE_API_HOST`, and `PLAYWRIGHT_TEST_PORT`, so the cell's own commands and tests inherit it without being told.
 
@@ -132,11 +103,9 @@ One native session receives its arm's frozen base sequence, read from `benchmark
 
 The runner joins each objective with the same arm's `instructions/<arm>/continue.md` once, and a Plain reminder or Final also carries its own scope's Review instruction quoted beneath it. An operator warning is the one exception: outside a Plain reminder or Final it replaces the continuation rather than joining it, which keeps the objective inside the 4000 characters Codex accepts however long the warning runs.
 
-The arms share no instruction file. They do share sentences, and every one is deliberate: a gate over a capability held constant reads the same to both arms, and a supplementation asserts the same rejection in both, because a difference in those words would be a difference in what is measured rather than in what is being measured. Do not add operator prose.
+The arms share no runtime instruction bytes. Do not add operator prose.
 
-Every session is attached to a pinned Playwright MCP server through the same argument list, which has no arm branch. It is a frozen material input like the template: `EvidenceBenchmarkRuntime.BROWSER_MCP_SPECIFIER` names the version, `required=true` makes a server that misses its handshake a launch failure rather than a silently absent tool, and the retained process record carries the arguments.
-
-Both arms stop at a Review boundary. [plain-review.md](plain-review.md) owns that loop.
+Only Plain stops at a Review boundary; Evidence runs the eight objectives without stopping. [plain-review.md](plain-review.md) owns that loop.
 
 ## What Is Retained
 
