@@ -314,11 +314,13 @@ func decodeReferencePolicy(
     if err := json.Unmarshal(value, &role); err != nil ||
       strings.TrimSpace(role) == "" ||
       containsWhitespace(role) ||
-      strings.ContainsAny(role, "()") {
+      strings.ContainsAny(role, "()") ||
+      strings.Contains(role, "*/") ||
+      strings.Contains(role, "-->") {
       problems = append(problems, configurationProblem(
         graphRuleName,
         path+".role",
-        "expected a non-empty string with no whitespace or parenthesis.",
+        "expected a non-empty string with no whitespace, parenthesis, or comment terminator.",
       ))
     } else {
       policy.Role = role

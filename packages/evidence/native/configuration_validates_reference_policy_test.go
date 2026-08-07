@@ -92,7 +92,7 @@ func TestReferencePolicyAppliesToEveryReferenceKind(t *testing.T) {
 /**
  * Verifies the relation option rejects every shape no tag could name.
  *
- * It is the one policy option carrying a value rather than a switch, so its malformed shapes are its own. A relation the grammar cannot express is worse than a rejected config: `@evidence(a b)` and `@evidence(())` are not declarations of it, so every unit of the reference would owe an acknowledgement no author could write, and the diagnostic would name the relation as the repair.
+ * It is the one policy option carrying a value rather than a switch, so its malformed shapes are its own. A relation the grammar cannot express is worse than a rejected config: every unit of the reference would owe an acknowledgement no author could write, and the diagnostic would name that relation as the repair. `@evidence(a b)` and `@evidence(())` are not declarations of it, and a relation carrying a block-comment terminator closes the JSDoc block it would have to live in, as writing that example here would have closed this one.
  *
  *  1. Supply non-strings, an empty and blank string, and strings carrying whitespace or a parenthesis.
  *  2. Decode each through a disabled claim as well as an enabled one.
@@ -114,6 +114,8 @@ func TestReferenceRoleRejectsRelationsNoTagCouldName(t *testing.T) {
     {name: "tab", value: `"produces\tproof"`},
     {name: "closing parenthesis", value: `"produces)"`},
     {name: "wrapped", value: `"(produces)"`},
+    {name: "block comment terminator", value: `"produces*/proof"`},
+    {name: "markdown comment terminator", value: `"produces-->proof"`},
   } {
     t.Run(test.name, func(t *testing.T) {
       for _, disabled := range []string{"false", "true"} {
@@ -127,7 +129,7 @@ func TestReferenceRoleRejectsRelationsNoTagCouldName(t *testing.T) {
             "role":` + test.value + `
           }
         }]}`))
-        const expected = "role: expected a non-empty string with no whitespace or parenthesis"
+        const expected = "role: expected a non-empty string with no whitespace, parenthesis, or comment terminator"
         if !strings.Contains(strings.Join(problems, "\n"), expected) {
           t.Fatalf("disabled=%s did not reject %s at %q: %v", disabled, test.name, expected, problems)
         }

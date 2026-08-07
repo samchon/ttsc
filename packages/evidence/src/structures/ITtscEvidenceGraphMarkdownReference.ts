@@ -7,10 +7,10 @@ import type { ITtscEvidenceGraphReferenceBase } from "./ITtscEvidenceGraphRefere
  * A document is useful as evidence only when a reviewer can identify the scope
  * that supports a claim. This reference makes the obligation levels explicit
  * while allowing one file or heading target to acknowledge its selected
- * descendants, or refusing that with `noAggregateEvidence` where the citing
- * host does not own the whole outline below it. Citations remain anchored in
- * the outline, so an editorial change cannot silently preserve a claim whose
- * grounds disappeared.
+ * descendants, or confining `@evidence` to the target it names with
+ * `noAggregateEvidence` where the citing host does not own the whole outline
+ * below it. Citations remain anchored in the outline, so an editorial change
+ * cannot silently preserve a claim whose grounds disappeared.
  */
 export interface ITtscEvidenceGraphMarkdownReference extends ITtscEvidenceGraphReferenceBase<"markdown"> {
   /**

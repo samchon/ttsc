@@ -121,9 +121,10 @@ export interface ITtscEvidenceGraphReferenceBase<Type extends string> {
    * carrying no `@evidence` tag counts as zero and fails exactly as a host
    * citing two units does. Repeated tags for one unit count once, while an
    * aggregate target contributes every selected descendant in its scope: citing
-   * a parent of two selected units counts as two, unless
-   * {@link noAggregateEvidence} has already confined that citation to the one
-   * unit it names.
+   * a parent of two selected units counts as two. Under
+   * {@link noAggregateEvidence} that citation counts as one when the parent is
+   * itself selected and as zero when it is not, and the diagnostic says which
+   * citations it counted.
    *
    * Set it where one host answers for one thing. A test function that proves
    * one operation stays reviewable; the same function citing eight operations

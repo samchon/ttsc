@@ -564,7 +564,7 @@ export function testAuthentication(): void {}
 /**
  * Verifies every diagnostic that prescribes a citation prescribes one the reference takes.
  *
- * Four sites tell an author how to write an acknowledgement, and for three of them the grammar was spelled at the call site. Each option that changes what a citation must look like therefore reached the one site that composes its text and left the others prescribing something the same reference refuses, in the same build. This is the case that makes adding a fifth site fail here rather than in a consumer's editor.
+ * Four sites tell an author how to write an acknowledgement, and for three of them the grammar was spelled at the call site. Each option that changes what a citation must look like therefore reached the one site that composes its text and left the others prescribing something the same reference refuses, in the same build. This case holds the three sites that spelled it, so a change to any one of them has to keep agreeing with the reference it speaks for. It cannot stop a new site from spelling its own, which is what the two helpers and this note are for.
  *
  *  1. Refuse an exclusion on a reference that also requires a relation and confines coverage.
  *  2. Write a malformed tag and an unbraced symbol target, each carrying a relation.
@@ -590,7 +590,7 @@ export function testAuthentication(): void {}
     }
   }]}`)
   assertProblemContains(t, forbidden, "Remove the exclusion and cite the target with '@evidence(implements)'")
-  assertProblemContains(t, forbidden, "noAggregateEvidence refuses a positive citation of a scope containing it")
+  assertProblemContains(t, forbidden, "so cite 'docs/spec.md#sign-in', 'docs/spec.md#sign-out' instead")
 
   malformed := runIndexRule(t, map[string]string{
     "docs/spec.md": "## Contract {#contract}\n",
@@ -662,4 +662,100 @@ export function testAuthentication(): void {}
   }]}`)
   assertProblemContains(t, messages, "Unwanted relation on @evidence at src/test.ts:1")
   assertProblemContains(t, messages, "Aggregate @evidence at src/test.ts:1")
+}
+
+/**
+ * Verifies a repair says nothing about confinement when the target is already a unit.
+ *
+ * A confining reference still takes a citation of a selected unit, so a caveat keyed on the option rather than on the target tells an author naming one to name something else. That sends them to change what was already right, which is worse than saying nothing.
+ *
+ *  1. Refuse exclusions and confine coverage on one reference.
+ *  2. Exclude a selected unit rather than a scope containing them.
+ *  3. Assert the repair names the citation and adds no confinement sentence.
+ */
+func TestConfinementCaveatFollowsTheTargetNotThePolicy(t *testing.T) {
+  messages := runIndexRule(t, map[string]string{
+    "docs/spec.md": aggregateDocument,
+    "src/test.ts": `/** @evidenceExclude docs/spec.md#sign-in The gateway owns it; false once a screen must. */
+export function testSignIn(): void {}
+`,
+  }, `{"claims":[{
+    "type":"typescript",
+    "files":["src/**"],
+    "symbol":"function",
+    "reference":{
+      "type":"markdown",
+      "files":["docs/spec.md"],
+      "symbol":["h2"],
+      "noEvidenceExclude":true,
+      "noAggregateEvidence":true
+    }
+  }]}`)
+  assertProblemContains(t, messages, "Remove the exclusion and cite the target with '@evidence'")
+  if countProblemsContaining(messages, "noAggregateEvidence refuses a positive citation") != 0 {
+    t.Fatalf(
+      "a target that is itself a unit was told to name something else:\n%s",
+      strings.Join(messages, "\n"),
+    )
+  }
+}
+
+/**
+ * Verifies a repair before resolution prescribes the relation the obligations agree on.
+ *
+ * A malformed or unbraced tag is repaired before any reference has resolved it, so the call site once spelled the grammar itself and told the author to write a citation the only obligation refuses. Echoing what they typed is right only when the obligations disagree; when every one wants the same relation there is a right answer, and their own word may be the wrong one.
+ *
+ *  1. Give one claim a reference requiring a relation, and write a tag naming another.
+ *  2. Read the repair, which runs before resolution.
+ *  3. Assert it prescribes the relation the obligation wants, then that two obligations wanting different relations fall back to echoing.
+ */
+func TestRepairBeforeResolutionPrescribesTheAgreedRelation(t *testing.T) {
+  agreed := runIndexRule(t, map[string]string{
+    "docs/spec.md": "## Contract {#contract}\n",
+    "src/test.ts": `/** @evidence(mirrors) */
+export function testContract(): void {}
+`,
+  }, `{"claims":[{
+    "type":"typescript",
+    "files":["src/**"],
+    "symbol":"function",
+    "reference":{
+      "type":"markdown",
+      "files":["docs/spec.md"],
+      "symbol":"h2",
+      "role":"implements"
+    }
+  }]}`)
+  assertProblemContains(t, agreed, "Write '@evidence(implements) <target> <reason>'")
+
+  divided := runIndexRule(t, map[string]string{
+    "docs/spec.md": "## Contract {#contract}\n",
+    "src/test.ts": `/** @evidence(mirrors) */
+export function testContract(): void {}
+`,
+  }, `{"claims":[
+    {
+      "type":"typescript",
+      "files":["src/**"],
+      "symbol":"function",
+      "reference":{
+        "type":"markdown",
+        "files":["docs/spec.md"],
+        "symbol":"h2",
+        "role":"implements"
+      }
+    },
+    {
+      "type":"typescript",
+      "files":["src/**"],
+      "symbol":"function",
+      "reference":{
+        "type":"markdown",
+        "files":["docs/spec.md"],
+        "symbol":"h2",
+        "role":"produces"
+      }
+    }
+  ]}`)
+  assertProblemContains(t, divided, "Write '@evidence(mirrors) <target> <reason>'")
 }
