@@ -77,16 +77,16 @@ func judgeReviewedHost(ctx *rule.Context, host documentedHost) {
     if reviewed.byKey[key] != nil {
       continue
     }
-    acknowledgement := cited.byKey[key]
+    unreviewed := cited.byKey[key]
     // The repair names the matching review tag, not a generic one. An exclusion
     // reviewed with `@evidenceReview` stays unreviewed, so telling its author to
     // write that tag would send them into the one mistake this split exists to
     // prevent.
     ctx.Report(
       host.Node,
-      "Unreviewed @"+string(acknowledgement.tag)+" for '"+displayTarget(acknowledgement.target)+"' on "+host.describe()+
-        ". "+acknowledgementQuestion(acknowledgement.tag)+" Nothing states what was verified. Add '"+
-        reviewMarkerFor(acknowledgement.tag)+" "+displayTarget(acknowledgement.target)+" <what you checked>' to the same documentation block.",
+      "Unreviewed @"+string(unreviewed.tag)+" for '"+displayTarget(unreviewed.target)+"' on "+host.describe()+
+        ". "+acknowledgementQuestion(unreviewed.tag)+" Nothing states what was verified. Add '"+
+        reviewMarkerFor(unreviewed.tag)+" "+displayTarget(unreviewed.target)+" <what you checked>' to the same documentation block.",
     )
   }
   for _, key := range reviewed.order {
@@ -124,8 +124,9 @@ func judgeReviewedHost(ctx *rule.Context, host documentedHost) {
         host.Node,
         "Mismatched "+review.marker()+" for '"+displayTarget(review.Target)+"' on "+host.describe()+
           ": that target is acknowledged by @"+string(other.tag)+", which "+reviewMarkerFor(other.tag)+
-          " answers for. The two ask different questions, so rewrite this review as '"+reviewMarkerFor(other.tag)+
-          " "+displayTarget(review.Target)+" <what you checked>'.",
+          " answers for, and the two ask different questions. Rewrite this review as '"+reviewMarkerFor(other.tag)+
+          " "+displayTarget(review.Target)+" <what you checked>', or add the @"+string(review.Reviews)+
+          " it answers for, or remove it. Rewriting is wrong if that review is already written.",
       )
       continue
     }
@@ -314,8 +315,10 @@ func readHostTags(
 //
 // It is filed under the empty target so the judging pass reports it through the
 // same walk as every other review, instead of this collector growing a second
-// reporting path that has to be kept in step with the first. Filing it once is
-// deliberate: two empty review tags on one host are one mistake with one repair.
+// reporting path that has to be kept in step with the first. Filing it once per
+// kind is deliberate: two empty tags of one kind are one mistake with one repair,
+// while an empty citation review and an empty exclusion review are two mistakes
+// whose repairs name different tags.
 func recordTargetlessReview(reviewed *reviewedTargets, reviews tagKind) {
   key := reviewKey(reviews, "")
   if _, found := reviewed.byKey[key]; found {

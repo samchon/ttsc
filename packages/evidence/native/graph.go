@@ -1032,10 +1032,7 @@ func newReviewLedger(reviews []*evidenceReview) *reviewLedger {
       continue
     }
     for _, hostID := range reviewLedgerHostIDs(review) {
-      // The acknowledgement kind is part of the key. Verifying a citation and
-      // verifying an exclusion are opposite questions, so a review of one must
-      // never be found for the other.
-      key := hostID + "\x00" + string(review.Reviews) + "\x00" + review.Target
+      key := reviewLedgerKey(hostID, review.Reviews, review.Target)
       if ledger.byHostAndTarget[key] == nil {
         ledger.byHostAndTarget[key] = review
       }
@@ -1071,12 +1068,23 @@ func (ledger *reviewLedger) find(
     hostIDs = []string{declaration.HostID}
   }
   for _, hostID := range hostIDs {
-    key := hostID + "\x00" + string(declaration.Tag) + "\x00" + declaration.Target
+    key := reviewLedgerKey(hostID, declaration.Tag, declaration.Target)
     if review := ledger.byHostAndTarget[key]; review != nil {
       return review
     }
   }
   return nil
+}
+
+// reviewLedgerKey composes the one key both sides of the ledger use.
+//
+// Spelled once rather than at each site. The acknowledgement kind is part of it,
+// because verifying a citation and verifying an exclusion are opposite questions
+// and a review of one must never be found for the other; two independent
+// three-part spellings would agree only by inspection, and the day they stop
+// agreeing every review silently stops matching.
+func reviewLedgerKey(hostID string, tag tagKind, target string) string {
+  return hostID + "\x00" + reviewKey(tag, target)
 }
 
 // firstReviewWords echoes enough of a description to show where it goes.

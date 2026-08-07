@@ -291,10 +291,7 @@ type parsedReview struct {
 // marker spells the tag this review was written as, for a diagnostic that has to
 // name the repair rather than describe it.
 func (review parsedReview) marker() string {
-  if review.Reviews == tagExclude {
-    return "@evidenceExcludeReview"
-  }
-  return "@evidenceReview"
+  return reviewMarkerFor(review.Reviews)
 }
 
 // parseReviews reads every verification statement one comment carries.

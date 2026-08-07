@@ -99,7 +99,7 @@ One sentence: the components under `src` implement the docs, so every H2 and H3 
 | `evidence/documented` | [`ITtscEvidenceDocumentedConfig`](https://github.com/samchon/ttsc/blob/master/packages/evidence/src/structures/ITtscEvidenceDocumentedConfig.ts) | Requires a JSDoc block on every selected export, since a block is the only place a citation can live. `symbol` narrows the kinds; it defaults to all three. |
 | `evidence/singular` | nothing | Keeps one public identity per file, named after the file. |
 | `evidence/todo` | nothing | Fails on every remaining JSDoc `@todo`, with its own text. |
-| `evidence/review` | nothing | Requires an `@evidenceReview` beside every citation, naming the same target and stating what was checked. |
+| `evidence/review` | nothing | Requires an `@evidenceReview` beside every `@evidence` and an `@evidenceExcludeReview` beside every `@evidenceExclude`, naming the same target and stating what was checked. |
 
 Each takes `"error"`, `"warning"`, or `"off"`.
 
@@ -260,7 +260,7 @@ Ordinary coverage is permissive, which is right for a document several modules h
 - `noEvidenceExclude` refuses exclusions, so the target still owes positive evidence. A published accessor no hook consumes is an omission rather than a decision.
 - `uniqueEvidence` allows at most one host per unit, so one host is answerable for it rather than several.
 - `singleEvidencePerSymbol` requires exactly one unit from every selected host, so a host citing nothing and a host citing everything both fail.
-- `requireReview` makes every acknowledgement owe an `@evidenceReview` carrying a fingerprint of the cited content, so the review fails again once that content changes. Markdown and TypeScript references only.
+- `requireReview` makes every acknowledgement owe an a matching review carrying a fingerprint of the cited content, so the review fails again once that content changes. Markdown and TypeScript references only.
 
 Counting is by identity rather than by text. Repeated tags for one unit count once, an overload set stays one host, and citing a parent of two selected units counts as two.
 
