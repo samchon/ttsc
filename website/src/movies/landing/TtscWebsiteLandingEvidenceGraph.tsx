@@ -1,20 +1,58 @@
 "use client";
 
+import TtscWebsiteBenchmarkEvidenceCoverage from "../../components/benchmark/evidence/TtscWebsiteBenchmarkEvidenceCoverage";
 import TtscWebsiteLandingFadeIn from "./TtscWebsiteLandingFadeIn";
 import TtscWebsiteLandingSectionEyebrow from "./TtscWebsiteLandingSectionEyebrow";
 
-const SOURCES = [
-  { kind: "Markdown", unit: "file, H1 to H4 sections" },
-  { kind: "TypeScript", unit: "type, function, property" },
-  { kind: "Prisma", unit: "model, column, relation" },
-  { kind: "OpenAPI", unit: "every operation under paths" },
+const COMMENT = "text-blue-400";
+
+/**
+ * The three kinds a tag can name: a document section, an API operation and a
+ * TypeScript symbol.
+ *
+ * Every reason is a placeholder. A real one states why this declaration answers
+ * for that unit, in the author's own words, and a specimen short enough for a
+ * landing card would read as the sort of filler the rule exists to refuse.
+ */
+const TARGETS = [
+  "docs/discount.md#coupon-stacking",
+  "POST:/orders/{orderId}/coupons",
+  "{@link hooks.useCouponStacking}",
 ] as const;
 
-const CITATION = [
-  { text: "/**", tone: "text-blue-400", trailing: false },
-  { text: " * @evidence", tone: "text-emerald-300", trailing: true },
-  { text: " */", tone: "text-blue-400", trailing: false },
+/** Column the placeholder reasons align on, one space past the widest target. */
+const REASON_COLUMN = Math.max(...TARGETS.map((target) => target.length)) + 1;
+
+/** The same three targets, as the build reports them before anyone cites one. */
+const UNCITED = [
+  "'docs/discount.md#coupon-stacking'",
+  "'POST:/orders/{orderId}/coupons'",
+  "'useCouponStacking'",
 ] as const;
+
+const CARD =
+  "overflow-hidden rounded-2xl border border-[#235a97] bg-[#102a43] shadow-[0_24px_60px_rgba(35,90,151,0.22)]";
+
+/**
+ * Code type size, small enough that the widest line clears the card.
+ *
+ * The pre is a scroll container, so an overflowing line scrolls in place rather
+ * than widening its grid track, and the headline column beside it keeps the
+ * width the layout gives it.
+ */
+const PRE =
+  "overflow-x-auto p-4 font-mono text-[12px] leading-[1.65] text-blue-50 md:px-5";
+
+function CardChrome({ label }: { label: string }) {
+  return (
+    <div className="flex items-center gap-2 border-b border-[#3f6f99] bg-[#173f66] px-4 py-2">
+      <span className="h-2.5 w-2.5 rounded-full bg-red-500/60" />
+      <span className="h-2.5 w-2.5 rounded-full bg-amber-400/60" />
+      <span className="h-2.5 w-2.5 rounded-full bg-emerald-400/60" />
+      <span className="ml-3 font-mono text-[11px] text-blue-200">{label}</span>
+    </div>
+  );
+}
 
 export default function TtscWebsiteLandingEvidenceGraph() {
   return (
@@ -22,40 +60,27 @@ export default function TtscWebsiteLandingEvidenceGraph() {
       <div className="relative mx-auto max-w-6xl">
         <TtscWebsiteLandingFadeIn>
           <TtscWebsiteLandingSectionEyebrow label="Requirement coverage" />
-          <div className="grid gap-10 lg:grid-cols-[0.86fr_1.14fr] lg:items-start">
+          <div className="grid gap-10 lg:grid-cols-[1.14fr_0.86fr] lg:items-center">
             <div>
               <h2 className="text-3xl font-bold leading-[1.08] tracking-tight text-[#102a43] md:text-5xl">
-                A requirement nobody built should not compile.
+                Your spec, as a compile error no agent can skip.
               </h2>
               <p className="mt-5 max-w-xl text-base leading-relaxed text-[#526b82]">
                 <code className="font-mono font-semibold text-[#235a97]">
                   @ttsc/evidence
                 </code>{" "}
-                makes every requirement you configure demand an acknowledgement
-                from the code, test, or document that claims to satisfy it. An
-                agent can still lie. It cannot lie by omission.
+                fails the build once per obligation, because one reference never
+                covers another.{" "}
+                <code className="font-mono font-semibold text-[#235a97]">
+                  @evidence &lt;target&gt; &lt;reason&gt;
+                </code>{" "}
+                closes one, by naming a unit of the spec and why this
+                declaration answers for it.
               </p>
               <p className="mt-4 max-w-xl text-base leading-relaxed text-[#526b82]">
-                Coverage is counted per obligation and never pooled, so a rule
-                the backend honored and the screen forgot is a compile error
-                naming that section rather than a percentage.
+                An AI coding agent has to clear those errors to finish. Coverage
+                reaches 100% on its own, as the residue of the ones it closed.
               </p>
-
-              <dl className="mt-8 divide-y divide-[#dbeafe] border-y border-[#dbeafe]">
-                {SOURCES.map((source) => (
-                  <div
-                    key={source.kind}
-                    className="flex items-baseline justify-between gap-4 py-2.5"
-                  >
-                    <dt className="font-mono text-sm font-semibold text-[#235a97]">
-                      {source.kind}
-                    </dt>
-                    <dd className="text-right text-sm text-[#60778e]">
-                      {source.unit}
-                    </dd>
-                  </div>
-                ))}
-              </dl>
 
               <div className="mt-8 flex flex-wrap gap-3">
                 <a
@@ -73,80 +98,71 @@ export default function TtscWebsiteLandingEvidenceGraph() {
               </div>
             </div>
 
-            <div className="space-y-4">
-              <div className="overflow-hidden rounded-2xl border border-[#235a97] bg-[#102a43] shadow-[0_24px_60px_rgba(35,90,151,0.22)]">
-                <div className="flex items-center gap-2 border-b border-[#3f6f99] bg-[#173f66] px-4 py-2.5">
-                  <span className="h-2.5 w-2.5 rounded-full bg-red-500/60" />
-                  <span className="h-2.5 w-2.5 rounded-full bg-amber-400/60" />
-                  <span className="h-2.5 w-2.5 rounded-full bg-emerald-400/60" />
-                  <span className="ml-3 font-mono text-xs text-blue-200">
-                    docs/requirements/discount.md
-                  </span>
-                </div>
-                <pre className="overflow-x-auto p-5 font-mono text-[13px] leading-[1.7] text-blue-50 md:px-7">
-                  <div className="text-sky-300">
-                    ## Coupon Stacking{" "}
-                    <span className="text-amber-300">
-                      &#123;#coupon-stacking&#125;
-                    </span>
-                  </div>
-                  {"\n"}
-                  <div className="text-blue-100">
-                    At most one seller coupon and one platform coupon may
-                    combine.
+            <div className="min-w-0 space-y-4">
+              <div className={CARD}>
+                <CardChrome label="CouponStackingNotice.tsx" />
+                <pre className={PRE}>
+                  <div className={COMMENT}>/**</div>
+                  {TARGETS.map((target) => (
+                    <div key={target}>
+                      <span className={COMMENT}> * </span>
+                      <span className="text-emerald-300">@evidence </span>
+                      <span className="text-amber-300">
+                        {target.padEnd(REASON_COLUMN)}
+                      </span>
+                      <span className="text-blue-100">&lt;reason...&gt;</span>
+                    </div>
+                  ))}
+                  <div className={COMMENT}> */</div>
+                  <div>
+                    <span className="text-sky-300">export function </span>
+                    CouponStackingNotice(props: IProps)
                   </div>
                 </pre>
               </div>
 
-              <div className="overflow-hidden rounded-2xl border border-[#235a97] bg-[#102a43] shadow-[0_24px_60px_rgba(35,90,151,0.22)]">
-                <div className="flex items-center gap-2 border-b border-[#3f6f99] bg-[#173f66] px-4 py-2.5">
-                  <span className="h-2.5 w-2.5 rounded-full bg-red-500/60" />
-                  <span className="h-2.5 w-2.5 rounded-full bg-amber-400/60" />
-                  <span className="h-2.5 w-2.5 rounded-full bg-emerald-400/60" />
-                  <span className="ml-3 font-mono text-xs text-blue-200">
-                    $ npx ttsc --noEmit
-                  </span>
-                </div>
-                <pre className="overflow-x-auto p-5 font-mono text-[13px] leading-[1.7] text-blue-50 md:px-7">
-                  <div>
-                    <span className="text-red-300">error </span>
-                    <span className="text-sky-300">TS16411</span>
-                    <span className="text-blue-50">
-                      : [evidence/graph] Missing acknowledgement for
-                    </span>
-                  </div>
-                  <div className="text-amber-300">
-                    {"  "}
-                    &apos;docs/requirements/discount.md#coupon-stacking&apos;
-                  </div>
-                  <div className="text-blue-100">
-                    {"  "}in Claim 1 reference 1 (markdown, symbols: h2, h3).
-                  </div>
-                </pre>
-                <div className="border-t border-white/10 bg-[#173f66] px-5 py-4 font-mono text-[13px] leading-[1.7] md:px-7">
-                  {CITATION.map((line) => (
-                    <div key={line.text} className={line.tone}>
-                      {line.text}
-                      {line.trailing && (
-                        <>
-                          <span className="text-amber-300">
-                            {" "}
-                            docs/requirements/discount.md#coupon-stacking
-                          </span>
-                          <span className="text-blue-100">
-                            {" "}
-                            Renders the combination limit.
-                          </span>
-                        </>
-                      )}
+              <div className={CARD}>
+                <CardChrome label="$ npx ttsc" />
+                <pre className={PRE}>
+                  {UNCITED.map((target) => (
+                    <div key={target}>
+                      <div>
+                        <span className="text-red-300">error </span>
+                        <span className="text-sky-300">TS16411</span>
+                        <span>
+                          : [evidence/graph] Missing acknowledgement for
+                        </span>
+                      </div>
+                      <div className="text-amber-300">
+                        {"  "}
+                        {target}
+                      </div>
                     </div>
                   ))}
-                  <div className="text-blue-100">
-                    export function CouponStackingNotice() &#123;...&#125;
-                  </div>
-                </div>
+                  {"\n"}
+                  <div className="text-blue-300">Found 3 errors.</div>
+                </pre>
               </div>
             </div>
+          </div>
+        </TtscWebsiteLandingFadeIn>
+
+        <TtscWebsiteLandingFadeIn delay={120}>
+          <div className="mt-12">
+            <TtscWebsiteBenchmarkEvidenceCoverage
+              className=""
+              expandable={false}
+            />
+            <p className="mt-3 font-mono text-xs text-[#60778e]">
+              codex gpt-5.6-luna, four subjects. Thirteen edges and token spend:{" "}
+              <a
+                href="/docs/benchmark/evidence"
+                className="text-[#235a97] underline-offset-2 hover:underline"
+              >
+                full benchmark
+              </a>
+              .
+            </p>
           </div>
         </TtscWebsiteLandingFadeIn>
       </div>

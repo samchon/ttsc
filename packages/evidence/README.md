@@ -96,7 +96,7 @@ One sentence: the components under `src` implement the docs, so every H2 and H3 
 | Rule | Takes | What it does |
 | --- | --- | --- |
 | `evidence/graph` | [`ITtscEvidenceGraphConfig`](https://github.com/samchon/ttsc/blob/master/packages/evidence/src/structures/ITtscEvidenceGraphConfig.ts) | The graph itself. Project-scoped, so its entry declares no `files`. |
-| `evidence/documented` | [`ITtscEvidenceDocumentedConfig`](https://github.com/samchon/ttsc/blob/master/packages/evidence/src/structures/ITtscEvidenceDocumentedConfig.ts), or nothing for the default selection | Requires a JSDoc block on every selected export, since a block is the only place a citation can live. |
+| `evidence/documented` | [`ITtscEvidenceDocumentedConfig`](https://github.com/samchon/ttsc/blob/master/packages/evidence/src/structures/ITtscEvidenceDocumentedConfig.ts) | Requires a JSDoc block on every selected export, since a block is the only place a citation can live. `symbol` narrows the kinds; it defaults to all three. |
 | `evidence/singular` | nothing | Keeps one public identity per file, named after the file. |
 | `evidence/todo` | nothing | Fails on every remaining JSDoc `@todo`, with its own text. |
 | `evidence/review` | nothing | Requires an `@evidenceReview` beside every citation, naming the same target and stating what was checked. |

@@ -1,14 +1,12 @@
+import TtscWebsiteBenchmarkEvidenceSpend from "../../../components/benchmark/evidence/TtscWebsiteBenchmarkEvidenceSpend";
+
 # Adoption
 
 Nothing here requires a new process. If your team already keeps requirements in the repository and hands them to an agent, the graph turns those documents into a denominator.
 
-## If you already work from documents
+Keeping the versioned specification as the single source of truth is Spec-Driven Development, the practice GitHub Spec Kit named and AWS built Kiro around. SDD uses the specification as an input and does not count whether it was implemented. That is the gap this fills, which is why adopting it costs a configuration block rather than a workflow.
 
-Keeping the versioned specification as the single source of truth is called Spec-Driven Development. GitHub Spec Kit named the practice in September 2025, and AWS built Kiro on the same idea.
-
-SDD uses the specification as an input. It does not count whether the specification was implemented. That is the gap the evidence graph fills, and it is why adopting it costs a configuration block rather than a workflow.
-
-The smallest useful wiring is one claim:
+## Start with one claim
 
 ```ts
 {
@@ -25,20 +23,13 @@ The smallest useful wiring is one claim:
 
 Read as one sentence: the components under `src` claim to implement the requirements, so every H2 and H3 under `docs/requirements` must be cited by a component.
 
-Turn on that single block and the moment someone adds a section, the build says nobody has built it yet.
+Turn on that single block, and the moment someone adds a section the build says nobody has built it yet.
 
 ## Chain the documents to each other
 
 Code citing documents is the obvious direction. Documents citing documents is the one that changes how planning works.
 
-A document hierarchy usually flows the same way.
-
-1. A decision comes out of a meeting.
-2. The decision becomes a clause in the requirements.
-3. The clause becomes a screen flow in the feature specification.
-4. The flow becomes code and tests.
-
-Wire each step to cite the one before it and the whole chain becomes compiler-checked:
+A document hierarchy usually flows the same way: a decision comes out of a meeting, becomes a clause in the requirements, becomes a screen flow in the feature specification, and becomes code and tests. Wire each step to cite the one before it and the whole chain is compiler-checked.
 
 ```ts
 // 1. Requirements reflect what the meetings decided.
@@ -73,11 +64,7 @@ Citations are HTML comments, so the rendered document is unchanged for whoever r
 <!-- @evidence docs/requirements/pricing.md#coupon-stacking This section turns the coupon stacking rule into a screen flow. -->
 ```
 
-Three failures become build failures:
-
-- a decision made in a meeting that never reached the requirements;
-- a requirement clause no feature specification covers;
-- a feature flow no screen implements.
+Three failures become build failures: a decision made in a meeting that never reached the requirements, a requirement clause no feature specification covers, and a feature flow no screen implements.
 
 The reverse direction closes too. Delete a requirement clause and every feature specification that leaned on it breaks immediately, so a ghost specification with no basis cannot survive in the tree. A gap discovered while writing code becomes a citation that demands the document be written.
 
@@ -85,26 +72,16 @@ One thing changes for the person writing the specification. **You stop asking wh
 
 ## Put the upstream in too
 
-Anything with headings can be an evidence source. Meeting notes are the common one, and they are not the only one.
+Anything with headings can be an evidence source. Meeting notes are the common one, and they are not the only one: idea notes, user research and interview records, competitor analysis, data analysis results, support tickets and customer feedback.
 
-- Idea notes
-- User research and interview records
-- Competitor analysis
-- Data analysis results
-- Support tickets and customer feedback
-
-Idea notes are the most useful of these, precisely because most ideas never become products. Most of them end up excluded, and the exclusion is the record of why they were rejected.
-
-- An adopted idea leaves a citation naming the requirement it became.
-- A rejected idea leaves an exclusion naming why, and what would make the team revisit it.
-- An idea nobody judged blocks the build.
-
-Where an idea note used to be quietly forgotten, the history of what was taken and what was declined stays in the repository.
+Idea notes are the most useful of these, precisely because most ideas never become products. An adopted idea leaves a citation naming the requirement it became, a rejected idea leaves an exclusion naming why and what would make the team revisit it, and an idea nobody judged blocks the build.
 
 ```md
 <!-- @evidenceExclude docs/ideas/2026-q1.md#social-login
      Deferred out of this release; the identity provider contract is unsigned. Reject this exclusion once legal confirms the contract. -->
 ```
+
+Where an idea note used to be quietly forgotten, the history of what was taken and what was declined stays in the repository.
 
 ## Consume an external API specification
 
@@ -123,7 +100,7 @@ If another team hands you an OpenAPI document to implement or to consume, cite i
 
 Every operation under `paths` becomes a unit. When the other team adds an operation, your next build reports that you have not implemented it yet.
 
-A remote document is fetched once per process, so a running watch session keeps the document it started with. A one-shot `ttsc check` in CI always fetches. Pin the document locally when you need the boundary to be reviewable in a diff.
+A remote document is fetched once per process, so a running watch session keeps the document it started with, while a one-shot `ttsc check` in CI always fetches. Pin the document locally when you need the boundary to be reviewable in a diff.
 
 ## Roll it out on an existing codebase
 
@@ -153,6 +130,16 @@ Do not enable everything at once. Staged enabling is the adoption strategy.
 Step 3 is where the value shows up before any enforcement does. What accumulates in the exclusion ledger is the debt list the team had never written down.
 
 Declare `evidenceExcludeCarriers` from the start, so that ledger is one file rather than a grep. Reviewing it is the one review that cannot be skipped: an exclusion is the only acknowledgement that reports an obligation discharged with nothing built.
+
+## What it costs
+
+Clearing an obligation is work an agent has to do, so the honest question is what that does to a run. The benchmark measured both arms on four subjects of ascending size.
+
+<TtscWebsiteBenchmarkEvidenceSpend />
+
+On the three smaller subjects the arm with the graph finished on between a quarter and a half of the tokens. On the largest it spent about 9% more. Four subjects and one engine do not establish where the crossover sits, so treat the saving as measured on these four rather than as one you can assume.
+
+[The full benchmark](/docs/benchmark/evidence) has the phase split, the reconciled prices, and the raw counters.
 
 ## What review looks like afterwards
 

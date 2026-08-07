@@ -11,6 +11,10 @@ import useTtscWebsiteBenchmarkEvidenceTooltip, {
 } from "./TtscWebsiteBenchmarkEvidenceTooltip";
 import useTtscWebsiteBenchmarkEvidenceData from "./useTtscWebsiteBenchmarkEvidenceData";
 
+/** Why the fold produces one number, said the same way wherever it is drawn. */
+const DESCRIPTION =
+  "Thirteen reference edges, folded so serial hops multiply and branches average. Higher is better.";
+
 /**
  * How much of the provenance graph each arm's codebase satisfies.
  *
@@ -21,8 +25,19 @@ import useTtscWebsiteBenchmarkEvidenceData from "./useTtscWebsiteBenchmarkEviden
  *
  * The block draws nothing when no cohort has been counted, rather than zeroes,
  * which would be a claim about a codebase nobody read.
+ *
+ * @param className Spacing around the panel, owned by the page that places it.
+ * @param expandable Whether a row opens onto its edges. The landing draws the
+ *   composite alone and sends a reader wanting the breakdown to the benchmark
+ *   page, so the invitation to open a row has to go with the rows that open.
  */
-export default function TtscWebsiteBenchmarkEvidenceCoverage() {
+export default function TtscWebsiteBenchmarkEvidenceCoverage({
+  className = "my-6",
+  expandable: expandableRows = true,
+}: {
+  className?: string;
+  expandable?: boolean;
+}) {
   const { report, coverage, error } = useTtscWebsiteBenchmarkEvidenceData();
   const rows: CoverageRow[] = useMemo(
     () => TtscWebsiteBenchmarkEvidenceData.buildCoverage(report, coverage),
@@ -34,17 +49,23 @@ export default function TtscWebsiteBenchmarkEvidenceCoverage() {
   if (error || rows.length === 0) return null;
 
   return (
-    <div className={`not-prose my-6 ${TtscWebsiteBenchmarkGraphUi.panelClass}`}>
+    <div
+      className={`not-prose ${className} ${TtscWebsiteBenchmarkGraphUi.panelClass}`}
+    >
       <TtscWebsiteBenchmarkGraphUi.SectionHeader
         eyebrow="requirement coverage"
         title="How much of the graph each arm satisfied"
-        description="Thirteen reference edges, folded so serial hops multiply and branches average. Higher is better. Open a row for the edges behind its score."
+        description={
+          expandableRows
+            ? `${DESCRIPTION} Open a row for the edges behind its score.`
+            : DESCRIPTION
+        }
         aside="higher is better"
       />
       <div className="divide-y divide-[#eef4fa] px-5 py-2">
         {rows.map((row) => {
-          const expandable = row.edges.length > 0;
-          const expanded = open === row.id;
+          const expandable = expandableRows && row.edges.length > 0;
+          const expanded = expandable && open === row.id;
           return (
             <div key={row.id} className="py-2">
               <button
