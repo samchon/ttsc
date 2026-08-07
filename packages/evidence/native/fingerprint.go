@@ -39,10 +39,24 @@ func normalizeFingerprintText(text string) string {
   // declaration is neutral, because the whole leading run through `*/` is
   // excluded as a tag position. Dropping them makes both cases agree and honors
   // the rule that a reformat which changes no content expires nothing.
-  // A leading `//` comment goes with them, and only a leading one. It sits in
-  // the span for the same reason the blank lines do, it is not content of the
-  // declaration, and an interior one is left alone because inside a declaration
-  // body a comment is part of what the author wrote there.
+  return strings.Join(lines, "\n")
+}
+
+// withoutLeadingTrivia drops the leading run a TypeScript span carries but does
+// not own.
+//
+// A node's position is its full start, so an undocumented declaration's text
+// begins at the previous token and arrives with the blank lines and `//` comments
+// above it. Those are not content of the declaration: keeping them made inserting
+// a blank line elsewhere expire a review, and inconsistently, because above a
+// *documented* declaration the whole leading run through the block is already
+// excluded as a tag position.
+//
+// Only the leading run, and only for TypeScript. An interior comment is part of
+// what the author wrote inside the body, and in Markdown a line opening with `//`
+// is ordinary prose that must keep counting.
+func withoutLeadingTrivia(text string) string {
+  lines := strings.Split(text, "\n")
   for len(lines) != 0 {
     first := strings.TrimSpace(lines[0])
     if first != "" && !strings.HasPrefix(first, "//") {
@@ -200,7 +214,9 @@ func typeScriptUnitDigest(
   })
   builder := strings.Builder{}
   for _, node := range ordered {
-    builder.WriteString(withoutDocumentationSpans(content, node, file))
+    builder.WriteString(
+      withoutLeadingTrivia(withoutDocumentationSpans(content, node, file)),
+    )
     builder.WriteByte(0)
   }
   return contentDigest(builder.String())
