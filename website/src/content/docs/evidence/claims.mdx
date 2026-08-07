@@ -77,6 +77,7 @@ The same applies across claims. Two claims referencing one document set are two 
 | `noEvidenceExclude` | all | Refuse `@evidenceExclude` here. |
 | `uniqueEvidence` | all | At most one claim host may cite each unit. |
 | `singleEvidencePerSymbol` | all | Each selected claim host must cite exactly one unit. |
+| `requireReview` | markdown, typescript | Every acknowledgement owes an unexpired `@evidenceReview`. |
 
 ## Symbols
 
@@ -267,7 +268,7 @@ An unchanged schema is re-parsed only when its bytes change, keyed on the conten
 
 Ordinary coverage is permissive on purpose. Either tag can acknowledge a unit, one host may cite any number of units, and one citation per unit is enough. That is right for a document several modules honor, and too weak for a proof obligation, where one exclusion or one host citing everything discharges the population without proving anything.
 
-Three opt-in properties tighten a single reference:
+Four opt-in properties tighten a single reference:
 
 ```ts
 {
@@ -283,6 +284,13 @@ Three opt-in properties tighten a single reference:
 - **`noEvidenceExclude`** refuses `@evidenceExclude` here. The exclusion is reported where it is written and gives this reference no coverage, so its target still owes positive `@evidence`. Set it where non-applicability is not an answer the population accepts: a published operation is exercised by its test suite or the suite is incomplete, and "not applicable" is the sentence that hides the second case.
 - **`uniqueEvidence`** allows at most one claim host to cite each unit, so the unit has one host answerable for it rather than several.
 - **`singleEvidencePerSymbol`** requires exactly one distinct unit from every host the claim's `symbol` selector picks. A host with no `@evidence` counts as zero and fails, as does a host citing two units. One test proving one operation stays reviewable; the same function citing eight operations proves only that eight names appear in its JSDoc.
+- **`requireReview`** makes every acknowledgement here owe an [`@evidenceReview`](/docs/evidence/tags) naming the same target, carrying a fingerprint of the cited scope's current content. When that content changes the fingerprint stops matching and the build fails again with the new value in the diagnostic. Expiry is the point: without it a review is written once and stays green forever, and on a second pass over a large citation set nothing tells you which reviews were written against content that has since moved.
+
+What `requireReview` proves is narrow, and overstating it is worse than not having it. It proves that a separately addressed statement exists and was written against the cited content as it now stands. It does not prove anyone read that content, since the diagnostic states the expected fingerprint, and nothing here judges whether prose is sincere.
+
+The fingerprint covers the cited unit and its structural subtree, so it belongs to the address a citation names rather than to the reference that asked for it. One tag carries one fingerprint however many references it acknowledges.
+
+Markdown and TypeScript references accept it. A Swagger or Prisma reference is refused at decode: those loaders report unit identities rather than unit content, so no per-unit fingerprint exists to compare against, and the whole-document digest they do report would expire every review in a document whenever any part of it changed.
 
 Counting is by identity, not by text. Repeated tags for one unit count once, merged declarations and overload sets remain one host, and an aggregate target contributes every selected descendant in its scope, so citing a parent of two selected units counts as two.
 

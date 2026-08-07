@@ -148,6 +148,10 @@ func scanMarkdownInventory(
   hostAtLine := make([]string, len(lines))
   hostIDAtLine := make([]string, len(lines))
   fencedAtLine := make([]bool, len(lines))
+  // commentAtLine marks the lines a citation or a review can live on, so the
+  // content digest can leave them out. A fenced block is not marked: an
+  // `<!-- -->` inside one hosts no tag, and its text is content of the section.
+  commentAtLine := make([]bool, len(lines))
   currentHost := "file"
   currentHostID := fileUnitID
   fenceMarker := rune(0)
@@ -184,6 +188,7 @@ func scanMarkdownInventory(
       }
       hostAtLine[index] = currentHost
       hostIDAtLine[index] = currentHostID
+      commentAtLine[index] = true
       continue
     }
     if strings.HasPrefix(trimmed, "<!--") {
@@ -193,6 +198,7 @@ func scanMarkdownInventory(
       }
       hostAtLine[index] = currentHost
       hostIDAtLine[index] = currentHostID
+      commentAtLine[index] = true
       continue
     }
     level, title, ok := markdownHeading(line)
@@ -269,8 +275,53 @@ func scanMarkdownInventory(
         Sequence:        sequence,
       })
     }
+    for _, review := range parseReviews(comment) {
+      inventory.Reviews = append(inventory.Reviews, &evidenceReview{
+        HostID:      hostIDAtLine[line-1],
+        Type:        artifactMarkdown,
+        Target:      review.Target,
+        Fingerprint: review.Fingerprint,
+        Description: review.Description,
+        Path:        address.Display,
+        Line:        line + review.LineOffset,
+      })
+    }
   }
+  assignMarkdownDigests(inventory, lines, hostIDAtLine, commentAtLine)
   return inventory, problems
+}
+
+// assignMarkdownDigests gives every unit the text it alone owns.
+//
+// A heading owns its own line and the body under it up to the next heading, and
+// a deeper heading starts a unit of its own, so the partition is exactly what
+// `hostIDAtLine` already records while walking. Composing a subtree is
+// `scopeFingerprint`'s job, which is why nothing is folded in here: an H2 whose
+// own body never changed must keep its own digest even when an H3 beneath it did.
+//
+// HTML comment lines are dropped because that is where a Markdown citation and
+// its review live. Leaving them in would make writing the review change the
+// digest the review's own fingerprint is checked against.
+func assignMarkdownDigests(
+  inventory *artifactInventory,
+  lines []string,
+  hostIDAtLine []string,
+  commentAtLine []bool,
+) {
+  owned := map[string][]string{}
+  for index := range lines {
+    if index < len(commentAtLine) && commentAtLine[index] {
+      continue
+    }
+    id := hostIDAtLine[index]
+    if id == "" {
+      continue
+    }
+    owned[id] = append(owned[id], strings.TrimSuffix(lines[index], "\r"))
+  }
+  for _, unit := range inventory.Units {
+    unit.Digest = contentDigest(strings.Join(owned[unit.ID], "\n"))
+  }
 }
 
 // matchesConfiguredMarkdownFile reports whether a population rooted at this base

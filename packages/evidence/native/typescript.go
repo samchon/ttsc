@@ -1006,11 +1006,29 @@ func collectTypeScriptDeclarations(
         Sequence:         sequence,
       })
     }
+    // Reviews are read from the same block by a separate pass into a separate
+    // slice. Sharing the declaration loop would put a review one field away
+    // from every acknowledgement map in evaluation.
+    for _, review := range parseReviews(content[entry.node.Pos():entry.node.End()]) {
+      inventory.Reviews = append(inventory.Reviews, &evidenceReview{
+        HostID:      hostID,
+        Type:        artifactTypeScript,
+        Target:      review.Target,
+        Fingerprint: review.Fingerprint,
+        Description: review.Description,
+        Path:        location,
+        Line:        baseLine + review.LineOffset,
+      })
+    }
   }
   for _, unit := range inventory.Units {
     // TypeScript AST positions are byte offsets; translate them only after
     // the complete source text is available.
     unit.Line = lineAt(content, unit.Line)
+    // The digest is deferred to the same pass for the same reason: the nodes
+    // are recorded while walking, and their text needs the source file that
+    // only the caller holds.
+    unit.Digest = typeScriptUnitDigest(file, inventory.UnitNodes[unit.ID])
   }
 }
 

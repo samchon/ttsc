@@ -89,6 +89,32 @@ type referencePolicy struct {
   // SingleEvidencePerSymbol requires exactly one distinct selected unit from
   // every selected semantic claim host, including the hosts carrying no tag.
   SingleEvidencePerSymbol bool
+  // RequireReview demands that every acknowledgement of this population carry
+  // an `@evidenceReview` whose fingerprint matches the cited scope's current
+  // content, so a review expires when the thing it reviewed moves.
+  RequireReview bool
+}
+
+// evidenceReview is one verification statement bound to its host and target.
+//
+// It is a sibling of evidenceDeclaration rather than a variant of it. Nothing
+// that counts acknowledgements may reach a review, so the two never share a
+// slice, a map, or a type. Target is the token as written and is compared
+// against a declaration's target rather than resolved again: the citation and
+// its review spell one address, and resolving twice would let a review answer a
+// scope its citation does not name.
+type evidenceReview struct {
+  HostID      string
+  Type        artifactKind
+  Target      string
+  Fingerprint string
+  Description string
+  Path        string
+  Line        int
+}
+
+func (review *evidenceReview) location() string {
+  return review.Path + ":" + decimal(review.Line)
 }
 
 // entrySelected reports whether this reference materializes by traversal.
@@ -154,6 +180,20 @@ type evidenceUnit struct {
   // never selected and never hosts a declaration; it is retained only so a
   // citation of it can be told why the target it names is not there.
   Hidden string
+  // Digest is this unit's own content, hashed after normalization and with
+  // every position a tag can live in removed. Descendants are not folded in
+  // here; `scopeFingerprint` composes them, so one unit's digest stays a
+  // property of that unit alone.
+  //
+  // Removing the documentation comment is what stops the review from
+  // invalidating itself: writing an `@evidenceReview` inside a unit that is
+  // itself cited would otherwise change the digest that the review's own
+  // fingerprint is checked against, and the repair would never terminate.
+  //
+  // Empty when the loader for this artifact kind cannot see the unit's
+  // content. A reference over such a population refuses `requireReview` at
+  // decode rather than comparing against nothing.
+  Digest string
 }
 
 func (unit *evidenceUnit) location() string {
@@ -206,7 +246,10 @@ type artifactInventory struct {
   Type         artifactKind
   Units        []*evidenceUnit
   Declarations []*evidenceDeclaration
-  Problems     []inventoryProblem
+  // Reviews are the verification statements this artifact carries, kept apart
+  // from Declarations so no consumer counting acknowledgements can reach one.
+  Reviews  []*evidenceReview
+  Problems []inventoryProblem
   // LoadFailed distinguishes an unreadable or rejected artifact from a
   // healthy artifact that legitimately materializes no selected units.
   // Coverage is a completeness claim, so a failed inventory cannot be used
@@ -253,6 +296,7 @@ type claimState struct {
   Paths        []string
   Hosts        []*evidenceUnit
   Declarations []*evidenceDeclaration
+  Reviews      []*evidenceReview
   References   []referenceState
   Healthy      bool
   // OutsideCarrier names declarations this claim selected from a file its

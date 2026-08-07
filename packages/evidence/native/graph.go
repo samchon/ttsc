@@ -267,6 +267,10 @@ func materializeClaimStates(
         state.Declarations,
         inventories[path].Declarations...,
       )
+      // Reviews travel beside declarations and never among them. They carry no
+      // obligation of their own; they are looked up by host and target when a
+      // reference demands one.
+      state.Reviews = append(state.Reviews, inventories[path].Reviews...)
       if len(claim.ExclusionCarriers.Patterns) != 0 && !carrierPaths[path] {
         for _, declaration := range inventories[path].Declarations {
           state.OutsideCarrier[declaration.ID] = true
@@ -711,6 +715,14 @@ func evaluateEvidenceGraph(
           )
           continue
         }
+        if reference.Spec.Policy.RequireReview {
+          problems = append(problems, reviewProblems(
+            declaration,
+            scopesByID[scopeID],
+            reference,
+            state,
+          )...)
+        }
         if declaration.Tag == tagEvidence && declaration.HostID != "" {
           byScope := evidenceByHostAndScope[declaration.HostID]
           if byScope == nil {
@@ -879,6 +891,107 @@ func evaluateEvidenceGraph(
     )
   }
   return problems
+}
+
+// reviewProblems judges one acknowledgement against the review it owes.
+//
+// The review is found by host and target rather than resolved again. A citation
+// and its review spell one address, so resolving the review separately would let
+// it answer a scope its citation does not name, and would report an unresolved
+// target for a tag whose only job is to annotate one that already resolved.
+//
+// Three states are reported and they are mutually exclusive, because each repair
+// subsumes the one after it: without a review there is nothing to carry a
+// fingerprint, and without a fingerprint there is nothing to compare. Every
+// message states the expected value, because completions cannot: the host
+// publishes a rule's corpus only on a cycle where the rule reports nothing, and
+// a stale fingerprint is a report.
+//
+// An empty expected value means this population's loader could not see the
+// cited content. Decode already refuses `requireReview` for the artifact kinds
+// where that is true, so reaching it here is a loader gap rather than a
+// configuration one, and reporting a mismatch against nothing would name a
+// repair no author can perform.
+func reviewProblems(
+  declaration *evidenceDeclaration,
+  scope *evidenceUnit,
+  reference referenceState,
+  state claimState,
+) []string {
+  if declaration == nil || scope == nil {
+    return nil
+  }
+  // Both slices are needed and neither alone is enough. A cited aggregate may
+  // be an ancestor that is resolvable without being selected, so it appears in
+  // Scopes and not in Units; its descendants are the selected units. Passing one
+  // would silently drop either the root or the subtree, and a fingerprint over a
+  // smaller scope is not a smaller failure, it is a review that stops expiring.
+  // `collectScopeUnits` dedupes by identity, so the overlap costs nothing.
+  expected := scopeFingerprint(
+    append(append([]*evidenceUnit{}, reference.Scopes...), reference.Units...),
+    scope.ID,
+  )
+  if expected == "" {
+    return nil
+  }
+  where := " at " + declaration.location() + " in " +
+    claimLabel(state.Spec) + " " + referenceLabel(reference.Spec)
+  review := findReview(state.Reviews, declaration)
+  if review == nil {
+    return []string{
+      "Unreviewed @" + string(declaration.Tag) + " for '" + displayTarget(declaration.Target) + "'" + where +
+        ": requireReview asks what was verified, which the reason does not answer. Add '@evidenceReview " +
+        displayTarget(declaration.Target) + " #" + expected + " <what you checked>' to the same documentation block.",
+    }
+  }
+  if review.Fingerprint == "" {
+    return []string{
+      "Unfingerprinted @evidenceReview for '" + displayTarget(declaration.Target) + "'" + where +
+        ": the review states what was checked and nothing binds it to what it checked, so it can never expire. Write '@evidenceReview " +
+        displayTarget(declaration.Target) + " #" + expected + " " + firstReviewWords(review.Description) + "'.",
+    }
+  }
+  if review.Fingerprint != expected {
+    return []string{
+      "Stale @evidenceReview for '" + displayTarget(declaration.Target) + "'" + where +
+        ": the review names '#" + review.Fingerprint + "' and that scope now digests to '#" + expected +
+        "'. The cited content changed after this review was written. Read it again and replace the review, including the new fingerprint.",
+    }
+  }
+  return nil
+}
+
+// findReview locates the review bound to one declaration's host and target.
+func findReview(
+  reviews []*evidenceReview,
+  declaration *evidenceDeclaration,
+) *evidenceReview {
+  for _, review := range reviews {
+    if review == nil || review.Target != declaration.Target {
+      continue
+    }
+    // The host is compared so a review on one declaration cannot answer for a
+    // citation of the same target on a different one. HostID is the physical
+    // position identity the scanners already compose for declarations, and a
+    // merged identity shares it, which is what lets a review on `namespace I`
+    // answer a citation on `interface I`.
+    if review.HostID == declaration.HostID {
+      return review
+    }
+  }
+  return nil
+}
+
+// firstReviewWords echoes enough of a description to show where it goes.
+func firstReviewWords(description string) string {
+  words := strings.Fields(description)
+  if len(words) == 0 {
+    return "<what you checked>"
+  }
+  if len(words) > 6 {
+    words = append(words[:6], "...")
+  }
+  return strings.Join(words, " ")
 }
 
 // declarationEligibleForClaim keeps ownership evidence on the selected host

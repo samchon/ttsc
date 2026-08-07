@@ -244,7 +244,7 @@ It is the only acknowledgement that settles an obligation without anything being
 
 ### Strict references
 
-Ordinary coverage is permissive, which is right for a document several modules honor and too weak for a proof obligation, where one exclusion or one host citing everything discharges the whole population. Three properties tighten a single reference, and they never pool across references.
+Ordinary coverage is permissive, which is right for a document several modules honor and too weak for a proof obligation, where one exclusion or one host citing everything discharges the whole population. Four properties tighten a single reference, and they never pool across references.
 
 ```ts
 {
@@ -260,6 +260,7 @@ Ordinary coverage is permissive, which is right for a document several modules h
 - `noEvidenceExclude` refuses exclusions, so the target still owes positive evidence. A published accessor no hook consumes is an omission rather than a decision.
 - `uniqueEvidence` allows at most one host per unit, so one host is answerable for it rather than several.
 - `singleEvidencePerSymbol` requires exactly one unit from every selected host, so a host citing nothing and a host citing everything both fail.
+- `requireReview` makes every acknowledgement owe an `@evidenceReview` carrying a fingerprint of the cited content, so the review fails again once that content changes. Markdown and TypeScript references only.
 
 Counting is by identity rather than by text. Repeated tags for one unit count once, an overload set stays one host, and citing a parent of two selected units counts as two.
 
