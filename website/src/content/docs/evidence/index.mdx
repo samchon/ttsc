@@ -1,151 +1,122 @@
+import TtscWebsiteBenchmarkEvidenceCoverage from "../../../components/benchmark/evidence/TtscWebsiteBenchmarkEvidenceCoverage";
+
 # Evidence Graph
 
-The guardrail for goal mode: your spec becomes a compile error.
+`@ttsc/evidence` turns a requirement into a compile error until some declaration cites it by name.
 
-`@ttsc/evidence` makes every requirement you configure demand an explicit acknowledgement from the code, test, or document that claims to satisfy it. A requirement nothing acknowledges is not a review comment someone may or may not write. It is a failed build that names the section.
-
-Every acknowledgement names an exact target and states why it applies. The compiler does not judge whether that reason is true. It forces a concrete claim, so a fabricated one can no longer hide inside a plausible diff: it sits beside the declaration it contradicts.
-
-An agent can still lie. It cannot lie by omission.
-
-- **Complete**: every configured obligation is accounted for, or the build fails.
-- **Tested**: every selected export is claimed by a test, by name.
-- **Documented**: decisions and code stay explicitly connected.
-- **Honest**: "done" arrives with a target and a reason.
-- **Integrity**: no citation outlives its target.
-
-## The problem
-
-### A completion report grades itself
-
-A type error is caught by the compiler. Wrong behavior is caught by a test. "The document says this and nobody built it" has always been caught by a person reading a diff, and in an unattended run that person is gone.
-
-So the agent reports done, and the four things it is most likely to have skipped leave no trace:
-
-- a requirement the document states and nobody implemented;
-- a feature that was implemented and never verified;
-- a capability no screen ever reaches;
-- a document that changed while the code leaning on it did not.
-
-### Review loops flatten out below complete
-
-The usual answer is to re-read everything and repeat until nothing new appears. Research calls it self-refine or iterative self-repair. Teams call it the review-fix-repeat loop.
-
-It works, and it stops working before it reaches complete. Most of what a loop will ever find arrives in its first few rounds, and each round after that returns less than the one before, settling on a ceiling rather than on zero.
-
-The ceiling drops as the project grows. One fix touches more surfaces, so a round gets larger at the same time as more rounds are needed, and nothing in the loop is counting either number.
-
-That is the whole defect. A reviewer finds what a reviewer happens to look at.
-
-### The first draft is fast and the last stretch is not
-
-The gap between a working prototype and a finished product is the part teams keep publishing numbers about.
-
-| Source | What it recorded |
-| --- | --- |
-| LinkedIn engineering (2024) | 80% of the target experience in the first month, then four more months to pass 95%. The early pace read as almost done. |
-| Airbnb engineering (2025) | 75% of the target files converted in four hours. The last 3% took another week. |
-| Google, Sundar Pichai (2025) | 30% of new code originates in AI suggestions, against a 10% gain in engineering velocity. |
-| Anthropic engineering (2025) | When building an agent, the final stretch becomes most of the journey. |
-| Google DORA (2025) | AI adoption raises throughput and instability together. Time saved generating is spent verifying. |
-| Stack Overflow developer survey (2025) | The top frustration is AI code that is almost right but not quite, reported by 66% of respondents. |
-| ShiftASIA (2026) | A prototype lands in an afternoon. Security surfaces in week 8, integration in week 10, edge cases in week 16, and rework cycles begin at week 18. |
-
-### Retrieval does not close it
-
-Handing the documents to the agent through embeddings does not help, because this is a counting problem rather than a search problem.
-
-Coverage needs a denominator. If the requirements hold 73 sections, the denominator is 73, and something has to stop the build on the sections that are still empty. A retriever answers the query it was given with its best matches. It never returns the sections nobody asked about, which are exactly the ones that went missing.
-
-## The answer
-
-### The compiler counts
-
-The graph moves the judgment into the build, the one authority an agent already obeys. Each of the four omissions above becomes a diagnostic, in the same stream as type errors, so the agent repairs spec drift inside the loop it already uses to repair types.
-
-There is no separate CI job. Violations surface in every `ttsc` build, every `--noEmit` check, and every `ttsx` run.
-
-### The tag is one line
+You declare the graph in `lint.config.ts`: which files owe answers, and which documents, schema models, API operations, or TypeScript symbols they owe answers to. Every pair is one independently complete obligation. A unit nothing acknowledges fails the build, in the same diagnostic stream as a type error.
 
 ```tsx
 /**
- * @evidence docs/discount.md#coupon-stacking Renders the combination limit defined by this rule.
+ * @evidence docs/discount.md#coupon-stacking
+ *           States the per-issuer stacking limit this section defines.
  */
-export function CouponStackingNotice() {
-  return <p>One seller coupon and one platform coupon may be combined.</p>;
-}
+export function CouponStackingNotice(props: IProps): JSX.Element;
 ```
 
-`@evidence <target> <reason>` states that this declaration implements, expresses, or proves that target. The target names exactly one unit. The reason is mandatory, because a citation that cannot say why it exists is filler.
-
-Without it, the next build stops:
+`@evidence <target> <reason>` names one unit of the spec and why this declaration answers for it. Without it the next build stops:
 
 ```text
 $ npx ttsc
-error TS16411: [evidence/graph] Missing acknowledgement for 'docs/discount.md#coupon-stacking' (Markdown H2 'Coupon Stacking' at docs/discount.md:3) in Claim 1 reference 1 (markdown, symbols: h2, h3). Use @evidence on a selected typescript host or @evidenceExclude on an eligible carrier.
+error TS16411: [evidence/graph] Missing acknowledgement for 'docs/discount.md#coupon-stacking'
+  (Markdown H2 'Coupon Stacking' at docs/discount.md:3)
+  in Claim 1 reference 1 (markdown, symbols: h2, h3).
 
-Found 1 error.
+  Use @evidence on a selected typescript host or @evidenceExclude on an eligible carrier.
 ```
 
-You do not write these tags. The agent writes each one as it implements, and your review shrinks from the whole diff to the list of stated reasons.
+You do not write these tags. An AI coding agent has to clear the errors to finish, and clearing one means citing the target and writing down why its code answers for it.
+
+## What it changes
+
+The omissions it closes, and what closing them measured.
+
+### The four omissions nothing else catches
+
+A type error is caught by the compiler. Wrong behavior is caught by a test. Four failures have only ever been caught by a person reading a diff:
+
+- a requirement the document states and nobody implemented;
+- a feature implemented and never verified;
+- a capability no screen reaches;
+- a document that changed while the code leaning on it did not.
+
+None of them is a search problem, which is why handing the documents to an agent through retrieval does not close them. Coverage needs a denominator. If the requirements hold 73 sections, the denominator is 73, and something has to stop the build on the sections still empty. A retriever answers the query it was given and never returns the sections nobody asked about, which are exactly the ones that went missing.
+
+A review loop does count, badly. Most of what it will ever find arrives in its first rounds, and each round after returns less than the one before, settling on a ceiling rather than on zero. The ceiling drops as the project grows, because one fix touches more surfaces while nothing in the loop is counting either number.
+
+### What that is worth, measured
+
+One coding engine built the same four applications twice from the same frozen requirements, once with the graph in the workspace and once without. Coverage is folded from thirteen reference edges, so a codebase scores on how much of its own provenance graph it actually satisfies.
+
+<TtscWebsiteBenchmarkEvidenceCoverage expandable={false} />
+
+The arm without the graph falls as the subject grows, which is the ceiling above, drawn. The arm with it is whole by construction: the build does not finish while an obligation is open, so coverage reaches 100% as the residue of the errors it closed rather than as a target anyone aimed at.
+
+[The full benchmark](/docs/benchmark/evidence) has the thirteen edges behind each score, what both arms spent, and the method.
+
+## What the graph enforces
+
+The obligation model, in the order it decides things.
+
+### Four artifact kinds
+
+| Artifact | Unit | Hosts a claim | Can be cited | Cites in |
+| --- | --- | --- | --- | --- |
+| Markdown | the file, and every H1 to H4 section | yes | yes | an HTML comment |
+| Prisma | model, column, relation | yes | yes | a `///` comment |
+| TypeScript | exported type, function, property | yes | yes | JSDoc |
+| Swagger / OpenAPI | every operation under `paths` | no | yes | nothing, it cannot host a tag |
+
+Swagger is reference-only: an operation grounds an obligation and has nowhere to write a tag. One direction is closed the other way too. Markdown cannot cite a TypeScript symbol, because a symbol citation resolves through the citing module's imports and a document has no import scope. Wire that relation the other way and let the code cite the document.
+
+### Obligations never pool
+
+A backend that honors a pricing rule and a screen that forgot it is not a 67% project. It is a compile error naming the section the screen ignored.
+
+Pooling is how partial use by several consumers reads as complete use by the project, and how two implementations of one rule drift apart with nobody noticing. So each claim-reference pair is counted on its own, and a citation toward one reference never counts toward another.
+
+A test citation is stricter than line coverage for the same reason. Line coverage credits code a test merely passed through. A citation is a statement of responsibility for a named unit.
 
 ### A recorded no is also an answer
 
-Not every requirement belongs to every layer, and the graph does not pretend otherwise. `@evidenceExclude` discharges a target with a written decision instead of an implementation.
+Not every requirement belongs to every layer. `@evidenceExclude <target> <reason>` discharges a scope with a written decision instead of an implementation.
 
-The reason carries the weight there. "Not applicable", "internal only", and "later" are conclusions rather than reasons; what belongs in one is the actual owner or the observable alternative, plus the condition that would make the exclusion wrong.
+The reason carries the weight. "Not applicable", "internal only", and "later" are conclusions rather than reasons; what belongs in one is the actual owner or the observable alternative, plus the condition that would make the exclusion wrong.
 
-An exclusion is the one acknowledgement that reports an obligation settled with nothing built, so a claim can name the single file its exclusions must live in. Reviewing that ledger is then one file to open rather than a codebase to read.
+It is the only acknowledgement that settles an obligation with nothing built, so it exists to be vetoed. A claim can name the single file its exclusions must live in, which turns reviewing them from reading a codebase into opening one file.
 
-### Coverage is counted per obligation, never pooled
+### Documents gain reference integrity
 
-A backend that honors a pricing rule and a frontend that forgot it is not a 67% project. It is a compile error naming the exact section the screen ignored.
+Code has always had it. Rename a function and every caller fails. Documents never did, which is why they rot: nothing complains when a section goes stale, so nobody trusts the spec, so nobody invests in it.
 
-Pooling is how partial use by several consumers reads as complete use by the project, and how two implementations of one rule drift apart without anyone noticing. So obligations never pool: each claim-reference pair is counted on its own.
+In an evidence graph a document is a set of units other artifacts point at by name, and the link runs both ways. A section nothing implements fails the build, a new export owes a citation to something, and a change on one side alone cannot pass because the citation dies with its target.
 
-A test citation is stricter than line coverage for the same reason. Line coverage credits code a test merely passed through. A citation is an explicit statement of responsibility for a named unit.
+## Get started
 
-### Documents gain the right to break the build
+Install, and where to read next.
 
-Code has always had reference integrity. Rename a function and every caller fails. Documents never had it, which is why they rot: nothing complains when a section goes stale, so nobody trusts the spec, so nobody invests in it.
+### Install
 
-In an evidence graph a document is a set of units other artifacts point at by name, and the link runs both ways.
+`@ttsc/evidence` is a rule contributor to [`@ttsc/lint`](/docs/lint), not a top-level `ttsc` plugin. The compiler never loads it; `lint.config.ts` does, and its four rules run inside the lint engine's own binary on the AST and types the type-check pass already built.
 
-- A strong document exposes thin code, because a section nothing implements fails the build.
-- A gap found while writing code fills the document, because the new export owes a citation to something.
-- A change on one side alone cannot pass, because the citation dies with its target.
+```bash
+npm install -D ttsc @ttsc/lint @ttsc/evidence typescript
+```
 
-That is what "docs as spec" needed all along. Not discipline. A linker.
+There is no CI job to add. Violations surface in every `ttsc` build, every `--noEmit` check, every `ttsx` run, and in the editor through `ttscserver`.
 
-## What can be wired to what
+[Setup → Evidence Graph](/docs/setup/evidence) is the ten-minute path: one claim, the first failing build, and the two ways to clear it.
 
-| Artifact | Unit | Can host a claim | Can be cited |
-| --- | --- | --- | --- |
-| Markdown | the file, and every H1 to H4 section | yes | yes |
-| TypeScript | exported type, function, property | yes | yes |
-| Prisma | model, column, relation | yes | yes |
-| Swagger / OpenAPI | every operation under `paths` | no | yes |
-
-Markdown cites in an HTML comment, TypeScript in JSDoc, Prisma in a `///` comment. Swagger is reference-only: an operation grounds an obligation but has nowhere to write a tag.
-
-One direction is closed. Markdown cannot cite a TypeScript symbol, because a symbol citation resolves through the citing module's imports and a document has no import scope. Wire that relation the other way and let the code cite the document.
-
-## Where it runs
-
-`@ttsc/evidence` is a rule contributor to [`@ttsc/lint`](/docs/lint), not a top-level `ttsc` plugin. The compiler never loads it. `lint.config.ts` does, and its four rules run inside the lint engine's own binary, on the AST and types the type-check pass already built.
-
-## The shape of the chapter
-
-Install, one claim, and the first failing build are in [Setup → Evidence Graph](/docs/setup/evidence). Ten minutes. This chapter is what comes after.
+### Where to next
 
 1. [Claims and References](/docs/evidence/claims): the whole configuration surface, from symbol selectors to monorepo roots and reference policies.
 2. [Evidence Tags](/docs/evidence/tags): the tag grammar, target forms, and where a tag may live in each artifact kind.
 3. [Rules](/docs/evidence/rules): `evidence/graph`, `evidence/documented`, `evidence/singular`, and `evidence/todo`.
-4. [Full-Stack Wiring](/docs/evidence/wiring): a real monorepo chain, from requirements through schema, API, tests, hooks, screens, and journeys.
+4. [Full-Stack Wiring](/docs/evidence/wiring): the monorepo graph the benchmark above was measured on, claim by claim.
 5. [Adoption](/docs/evidence/adoption): the smallest useful wiring, document-to-document chains, and staged rollout on a legacy codebase.
 
 ## Related
 
-- [The Evidence Graph benchmark](/docs/benchmark/evidence) measures this package the only way it can be measured: one coding engine builds the same application twice, once with the graph and once without.
+- [The Evidence Graph benchmark](/docs/benchmark/evidence) is how this package is measured: one engine builds the same application twice, once with the graph and once without.
 - [Rule contributors](/docs/lint/contributing) covers how a contributor package is built and published. `@ttsc/evidence` is the first-party example.
 - The [package README](https://github.com/samchon/ttsc/blob/master/packages/evidence/README.md) is the condensed reference for the same surface.

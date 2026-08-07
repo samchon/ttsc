@@ -1,10 +1,12 @@
+import TtscWebsiteBenchmarkEvidenceCoverage from "../../../components/benchmark/evidence/TtscWebsiteBenchmarkEvidenceCoverage";
+
 # Full-Stack Wiring
 
 A complete graph over a real monorepo: a NestJS and Prisma backend, a generated SDK package, and a React frontend, with requirements in `docs/analysis/**/*.md`.
 
 This is the configuration the [Evidence Graph benchmark](/docs/benchmark/evidence) ships in its template. Two things are dropped here: the long file-header comments, and the `disabled: true` every claim carries there. The template stages claims on one at a time during a run, while this page shows the finished graph; [Adoption](/docs/evidence/adoption) covers the staging.
 
-It is worth reading as a whole because the interesting decisions are about where a claim lives and what it refuses, not about the glob syntax.
+Read it as a whole. The interesting decisions are about where a claim lives and what it refuses, not about glob syntax.
 
 ## The chain
 
@@ -42,7 +44,15 @@ Each block is one evidence population and the claims that must acknowledge it. A
 | `frontend-screens` | frontend config | page components | requirements, hooks | an API wired up with no screen behind it |
 | `frontend-journeys` | frontend config | E2E journeys | requirements, screens | a screen no journey walks |
 
-The benchmark's `todo` subject holds 73 H2 and H3 sections. Six claims cite the requirements, so the requirement side alone opens 438 cells, before the model, column, operation, hook, and screen obligations are counted.
+Eight claims, thirteen claim-reference pairs, thirteen independent obligations. The benchmark's `todo` subject holds 73 H2 and H3 sections, and six claims cite the requirements, so the requirement side alone opens 438 cells before the model, column, operation, hook, and screen obligations are counted.
+
+## What these thirteen obligations measure
+
+Those same thirteen pairs are the edges the benchmark's coverage score is folded from. Each row below is one codebase, and opening it names the pair that broke.
+
+<TtscWebsiteBenchmarkEvidenceCoverage />
+
+The Evidence rows are whole by construction, because a build carrying this configuration does not finish while a pair is open. The Plain rows are the same four applications built without it, and their edges are where a codebase that looked finished was not: an operation nothing tests and a hook nothing renders are invisible to a type checker and to a reviewer reading a diff.
 
 ## Backend
 
@@ -142,7 +152,7 @@ export default {
 
 Four decisions are worth reading.
 
-**Why the backend claims live in the test config.** `test/tsconfig.json` compiles `../src` together with the tests, so it is the only Program that holds controllers and test functions at once. The package Program sees only `src/`, and a TypeScript claim can select nothing the owning `tsconfig.json` did not already supply.
+**Why the backend claims live in the test config.** `test/tsconfig.json` compiles `../src` together with the tests, so it is the only Program holding controllers and test functions at once. The package Program sees only `src/`, and a TypeScript claim can select nothing the owning `tsconfig.json` did not already supply.
 
 **`root` is relative to the package directory.** `..` is the backend package and `../../..` is the repository root, because every backend command runs from the package directory.
 
@@ -150,7 +160,7 @@ Four decisions are worth reading.
 
 **The SDK reference refuses both escapes.** `noEvidenceExclude` denies a published operation the sentence "not applicable", and `singleEvidencePerSymbol` makes one test answer for exactly one operation. Without the second, a single omnibus test citing twenty operations would report the suite complete.
 
-The reference is declared as a `package` rather than by path on purpose. A symbol nothing imports is absent from the Program by definition, and an unconsumed operation is exactly the symbol this obligation has to name, so the generated package is read from disk.
+That reference is declared as a `package` rather than by path on purpose. A symbol nothing imports is absent from the Program by definition, and an unconsumed operation is exactly the symbol this obligation has to name, so the generated package is read from disk.
 
 A test cites the accessor through its own import:
 

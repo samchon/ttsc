@@ -7,15 +7,13 @@ Two tags satisfy every obligation the graph declares.
 @evidenceExclude <target> <reason>
 ```
 
-These are not tags you maintain by hand. Your agent writes each one as it implements, and your job is to review the stated reasons. In an agent workflow they cost nothing extra: the citation is written at the moment the author knows why it is true.
+These are not tags you maintain by hand. An agent writes each one as it implements, and your job is to review the stated reasons. In an agent workflow they cost nothing extra: the citation is written at the moment the author knows why it is true.
 
 ## Grammar
 
-The target is one whitespace-delimited token, except that a target opening with `{@link`, `{@linkcode`, or `{@linkplain` runs to its closing brace. Everything after the target is prose.
+The target is one whitespace-delimited token, except that a target opening with `{@link`, `{@linkcode`, or `{@linkplain` runs to its closing brace. Everything after the target is prose. A declaration may carry any number of tags, and each is validated on its own.
 
-The reason is required. A citation that cannot say why it exists is filler, and the reason is what makes review possible: it sits beside the exact section it claims to honor, so a misreading surfaces where a reader can see both.
-
-The compiler never judges whether a reason is true. It only forces a concrete claim. An agent can still write a false reason, and it cannot write a missing one.
+The reason is required. It sits beside the exact unit it claims to honor, so a misreading surfaces where a reader can see both. The compiler never judges whether a reason is true; it forces a concrete claim, and a claim is reviewable in a way that silence is not.
 
 A reason may run past one line. Continuation lines join it until the next `@evidence` or `@evidenceExclude`, and inside a JSDoc or Prisma comment any other line-opening `@tag` ends it too. That boundary is what keeps a neighboring `@param` or another tool's `@namespace` out of the reason above it.
 
@@ -31,7 +29,9 @@ A reason may run past one line. Continuation lines join it until the next `@evid
 | `{@link sales.IShoppingSale}` | An exported type, function, or namespace, with its selected descendants |
 | `{@link sales.IShoppingSale.price}` | One property of an exported type |
 
-A path-addressed target is one whitespace-delimited token, which is why a Swagger operation is written `POST:/members` rather than `POST /members`. The second form still parses: target `POST`, reason `/members ...`. That grammar is preserved deliberately, because `POST` may be the name of a TypeScript symbol.
+A path-addressed target is one whitespace-delimited token, which is why a Swagger operation is written `POST:/members` rather than `POST /members`. The second form still parses, as target `POST` and reason `/members ...`, and that grammar is preserved deliberately because `POST` may be the name of a TypeScript symbol.
+
+Identity is exact. Paths are case-sensitive on every host, Swagger methods canonicalize to uppercase while Swagger paths do not normalize at all, and a Prisma target always carries its `prisma:` prefix so a model named `Sale` cannot compete with a TypeScript type of the same name.
 
 ### Markdown anchors
 
@@ -94,7 +94,9 @@ model Sale {
 
 A `/* */` block comment hosts one too. Both forms reach the generated client types, which is Prisma's own rule rather than a choice made here.
 
-A `//` line comment is discarded by Prisma itself and cannot host a citation, so a tag written in one is reported rather than ignored. A comment documents whatever declaration immediately follows it: a blank line before a top-level block detaches it, and a comment above a block attribute or a closing brace documents nothing. Each of those placements is reported with the move that fixes it.
+A `//` line comment is discarded by Prisma itself and cannot host a citation, so a tag written in one is reported rather than ignored. So is one buried behind an extra slash: `//// @evidence` arrives as content beginning with a slash and opens no tag.
+
+A comment documents whatever declaration immediately follows it. A blank line before a top-level block detaches it, a blank line inside a field's run does not, an intervening `//` line does not break a run, and a comment above a block attribute or a closing brace documents nothing. Each of those placements is reported with the move that fixes it.
 
 ## Citing a TypeScript symbol
 
@@ -113,11 +115,13 @@ export function SalePrice(): null {
 
 The braces are load-bearing. TypeScript resolves a name inside an inline link and counts it as a use, so an import that exists only to carry a citation survives `noUnusedLocals`. It does not resolve names inside an unknown tag, so a bare `@evidence sales.IShoppingSale` would leave that import unreferenced and raise `TS6133`.
 
-Use `import type`. It is erased at emit, so a citation creates no runtime dependency and no import cycle.
+Use `import type`. It is erased at emit, so a citation creates no runtime dependency and no import cycle. A project also running `@typescript-eslint/no-unused-vars` still sees a false positive there, because that rule does not count JSDoc usage.
 
 ```text
 $ npx ttsc check
-error TS16411: [evidence/graph] Unimported evidence target '{@link contracts.ISale}' at src/ui/SalePrice.ts:2 for Claim 1 across reference 1 (typescript, symbols: type): 'contracts' is not imported by this module, so the citation names a symbol this file does not reference. Import it; 'import type' is enough and is erased at emit.
+error TS16411: [evidence/graph] Unimported evidence target '{@link contracts.ISale}' at src/ui/SalePrice.ts:2
+  for Claim 1 across reference 1 (typescript, symbols: type): 'contracts' is not imported by this module,
+  so the citation names a symbol this file does not reference. Import it; 'import type' is enough.
 ```
 
 Resolving through the module's own imports also removes an ambiguity that has no fix. A generated SDK puts the same leaf name in many modules, so `get` alone names several symbols. Resolved from one file's bindings, `{@link api.functional.questions.get}` names exactly one.
@@ -175,6 +179,12 @@ export const CONTROLLER_EVIDENCE_EXCLUDE = true;
 
 Never auto-exclude, auto-retarget, or delete an artifact to make a graph green. Every diagnostic names the repair, and the repair belongs to the author.
 
+## Editor completions
+
+While `evidence/graph` reports nothing, it publishes its configured targets as completion items in `ttscserver`, so typing `@evidence docs/spec.md#` offers the anchors that actually exist. The host publishes a rule's corpus only on the cycles where that rule passes, so a broken graph never suggests targets from a stale index.
+
+At the `@evidenceExclude` trigger, a target selected only by references that refuse exclusions is omitted. A target any enabled reference still allows stays on offer, because the completion API has no cursor-specific claim context to narrow it further.
+
 ## What a violation looks like
 
 ```md filename="docs/discount.md"
@@ -185,7 +195,11 @@ At most one seller coupon and one platform coupon may combine on a single order.
 
 ```text
 $ npx ttsc check
-error TS16411: [evidence/graph] Missing acknowledgement for 'docs/discount.md#coupon-stacking' (Markdown H2 'Coupon Stacking' at docs/discount.md:3) in Claim 1 reference 1 (markdown, symbols: h2, h3). Use @evidence on a selected typescript host or @evidenceExclude on an eligible carrier.
+error TS16411: [evidence/graph] Missing acknowledgement for 'docs/discount.md#coupon-stacking'
+  (Markdown H2 'Coupon Stacking' at docs/discount.md:3)
+  in Claim 1 reference 1 (markdown, symbols: h2, h3).
+
+  Use @evidence on a selected typescript host or @evidenceExclude on an eligible carrier.
 
 Found 1 error.
 ```

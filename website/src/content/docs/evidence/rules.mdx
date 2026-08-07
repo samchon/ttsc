@@ -21,31 +21,34 @@ export default {
 } satisfies ITtscLintConfig;
 ```
 
-One is the graph. The other three protect the conditions the graph depends on, and each is a file rule.
+| Rule | Takes | Scope |
+| --- | --- | --- |
+| `evidence/graph` | [`ITtscEvidenceGraphConfig`](/docs/evidence/claims) | the whole project |
+| `evidence/documented` | [`ITtscEvidenceDocumentedConfig`](#evidencedocumented) | one file |
+| `evidence/singular` | nothing | one file |
+| `evidence/todo` | nothing | one file |
+
+One is the graph. The other three protect the conditions the graph depends on.
 
 ## `evidence/graph`
 
-The configured graph. It takes an [`ITtscEvidenceGraphConfig`](/docs/evidence/claims) and evaluates the complete declaration once per Program, answering three separate questions.
+The configured graph. It evaluates the complete declaration once per Program and answers three separate questions.
 
 - **Resolution.** Does every declared target resolve to exactly one selected unit or structural ancestor?
 - **Host eligibility.** Does each `@evidence` sit on a symbol kind its claim selects, and each `@evidenceExclude` on an eligible carrier in a matching claim file?
 - **Coverage.** Does every selected reference unit have at least one acknowledgement in this claim, and does that acknowledgement satisfy whatever the reference's own policy demands?
 
-The rule is project-scoped, so its config entry must carry no `files` selector. The host rejects one that does. Scope a file rule in its own entry when you need to.
+The rule is project-scoped, so its config entry must carry no `files` selector; the host rejects one that does. Scope a file rule in its own entry when you need to.
 
 Claim and reference state stay separate. A declaration that satisfies one obligation never leaks coverage into another, even when the physical target is the same.
+
+While the rule reports nothing it also publishes its configured targets as [editor completions](/docs/evidence/tags#editor-completions).
 
 ### Watched inputs
 
 The rule declares its configured Markdown globs, Prisma globs, and local Swagger paths to the `ttsc` host, so editing a spec section or regenerating an OpenAPI document starts the next `ttsc --watch` cycle on its own, with no TypeScript file touched.
 
 A path stays declared while it is missing, which lets a document that has not been generated yet be observed the moment it appears. A source above the project is declared on the same terms. An `http:`/`https:` Swagger source is the one exception: a URL has no filesystem event to observe.
-
-### Editor completions
-
-While the rule reports nothing, it publishes its configured targets as completion items in `ttscserver`, so typing `@evidence docs/spec.md#` offers the anchors that actually exist. The host publishes a rule's corpus only on the cycles where that rule passes, so a broken graph never suggests targets from a stale index.
-
-At the `@evidenceExclude` trigger, a target selected only by references that refuse exclusions is omitted. A target any enabled reference still allows stays on offer, because the completion API has no cursor-specific claim context to narrow it further.
 
 ## `evidence/documented`
 
@@ -65,13 +68,11 @@ The default selects every kind a claim can use as a host, deliberately: the popu
 
 Presence is the whole check. The rule never judges what the prose says, how long it is, or whether it is sincere. A rule that tried would only teach authors to write filler that satisfies it.
 
-For a merged identity the block belongs on the first declaration by source position, which is the one every diagnostic names. Documenting only a later half is reported, because the declaration a reader meets first would otherwise stay unexplained.
-
-A citation is the opposite. `@evidence` may sit on any declaration of a merged identity, since the graph judges the identity rather than the placement.
+For a merged identity the block belongs on the first declaration by source position, which is the one every diagnostic names. Documenting only a later half is reported, because the declaration a reader meets first would otherwise stay unexplained. A citation is the opposite: `@evidence` may sit on any declaration of a merged identity, since the graph judges the identity rather than the placement.
 
 ## `evidence/singular`
 
-One public identity per file, named after the file. Takes no options, so it carries a bare severity.
+One public identity per file, named after the file.
 
 ```ts
 "evidence/singular": "error",
@@ -91,7 +92,7 @@ This matters to the graph because addresses are how citations are written. A fil
 
 ## `evidence/todo`
 
-Reports every remaining JSDoc `@todo` in a checked file, exported or not. Takes no options.
+Reports every remaining JSDoc `@todo` in a checked file, exported or not.
 
 ```ts
 "evidence/todo": "error",
