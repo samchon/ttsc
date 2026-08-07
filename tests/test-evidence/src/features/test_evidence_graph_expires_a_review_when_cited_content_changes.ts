@@ -65,9 +65,19 @@ const SPEC_AFTER: string = [
  * one.
  */
 const expectedFingerprint = (result: IRunResult): string => {
-  const match: RegExpMatchArray | null = result.output.match(
-    /#([0-9a-f]{7})(?=[\s'",.)])/,
-  );
+  // Only a diagnostic that *asks for* a value is read. A stale one names the
+  // review's own outdated fingerprint before the expected one, so scanning the
+  // whole output would return the value already in the source and the case would
+  // fail as stale rather than as a broken helper. The Go twin guards the same way.
+  const asking: string | undefined = result.output
+    .split("\n")
+    .find(
+      (line) =>
+        line.includes("Unreviewed @") ||
+        line.includes("Unfingerprinted @evidenceReview"),
+    );
+  const match: RegExpMatchArray | null =
+    asking?.match(/#([0-9a-f]{7})(?=[\s'",.)])/) ?? null;
   if (match === null)
     throw new Error(
       `expected a review diagnostic naming a fingerprint, got:\n${result.output}`,
@@ -93,6 +103,11 @@ const expectedFingerprint = (result: IRunResult): string => {
  * message did not carry it, the author would have no way to write the review at
  * all.
  *
+ * The config is type-checked here rather than excluded, so the case also proves
+ * a consumer can _declare_ `requireReview` under `satisfies ITtscLintConfig`.
+ * Go accepting the option and the published type admitting it are two different
+ * claims, and only one of them has a Go case behind it.
+ *
  * 1. Cite one H2 with no review and read the fingerprint out of the failure.
  * 2. Write that review and assert the project builds clean.
  * 3. Rewrite the cited section, assert the same source now fails as stale, and
@@ -102,7 +117,6 @@ export const test_evidence_graph_expires_a_review_when_cited_content_changes =
   (): void => {
     const project: ITtscEvidenceProject = createProject({
       name: "require-review-expiry",
-      include: ["src"],
       lintConfig: LINT_CONFIG,
       files: {
         "docs/spec.md": SPEC_BEFORE,

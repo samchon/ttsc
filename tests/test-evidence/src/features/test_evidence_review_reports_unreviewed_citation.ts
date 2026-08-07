@@ -74,14 +74,19 @@ export const test_evidence_review_reports_unreviewed_citation = (): void => {
       result,
       "A citation with no review of its target must fail the build.",
     );
+    // The host clause is asserted too, not only the target. Both this rule and
+    // `evidence/graph` under `requireReview` open a finding with the same
+    // `Unreviewed @evidence for '<target>'` prefix and diverge after it, so a
+    // expectation stopping at the closing quote would not distinguish which rule
+    // spoke. Only this one is enabled here, and that is what the suffix pins.
     assertIncludes(
       result,
-      "Unreviewed @evidence for 'docs/spec.md#refunds'",
-      "The unreviewed citation must be reported, and named by its target.",
+      "Unreviewed @evidence for 'docs/spec.md#refunds' on exported type 'ISale'",
+      "The unreviewed citation must be reported, named by its target and its host.",
     );
     assertIncludes(
       result,
-      "Unreviewed @evidence for 'docs/spec.md#orders'",
+      "Unreviewed @evidence for 'docs/spec.md#orders' on exported type 'IOrder'",
       "'@evidenceReviewed' is another tag; it must not answer a citation.",
     );
     assertIncludes(
