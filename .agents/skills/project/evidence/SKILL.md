@@ -131,7 +131,11 @@ Several declaration hosts may acknowledge the same unit with `@evidence`, unless
 
 ## Reference Policies
 
+**A prescription names only a relation the host it addresses could satisfy.** A tag written for one claim discharges no other, so a relation another claim requires never crosses into a repair addressed to this one. An author told to claim a relation their own obligation does not read has been asked to write something nothing checks, and the build then goes green on it.
+
 **A prescription belongs to the thing being cited, not to the obligation that noticed it.** Compute every sentence telling an author how to write a tag from the obligations that own the cited thing, narrowed by the target when the target says what it is and widened to every candidate when it does not, and name a tag all of them accept. A diagnostic scoped to one reference may name that reference as its reason, never as its grammar.
+
+Both bounds come from one value rather than from each site's own reasoning. Three separate computations that agree on the fixtures somebody wrote are not the property; one lookup every site reads is. The same holds of the check: enumerate the prescribing sites from the code, because a site the checker's pattern cannot see is a site nobody checks.
 
 **An option's zero value is the absence of a constraint, never a constraint of its own.** An omitted `role` accepts any relation rather than requiring that none be named, and an omitted switch leaves the historical behavior rather than asserting its opposite. Every reader of a policy field owes that reading, including a diagnostic deciding what to prescribe when several obligations own one declaration.
 
