@@ -27,7 +27,7 @@ import (
 func TestConfigurationRefusesRequireReviewOnSwagger(t *testing.T) {
   assertProblemContains(t, runIndexRule(t, map[string]string{
     "api/openapi.json": `{"openapi":"3.1.0","paths":{}}`,
-    "src/ISale.ts":      "export interface ISale {}\n",
+    "src/ISale.ts":     "export interface ISale {}\n",
   }, `{"claims":[{
     "type":"typescript",
     "files":["src/**"],

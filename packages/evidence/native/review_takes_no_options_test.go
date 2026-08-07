@@ -18,7 +18,7 @@ import (
  *  2. Assert it refuses.
  */
 func TestReviewTakesNoOptions(t *testing.T) {
-  if reviewRule{}.AcceptsTtscLintOptions() {
+  if (reviewRule{}).AcceptsTtscLintOptions() {
     t.Fatal("evidence/review must refuse options so the host rejects a configured payload")
   }
 }
