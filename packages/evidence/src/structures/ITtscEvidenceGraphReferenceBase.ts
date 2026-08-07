@@ -57,6 +57,32 @@ export interface ITtscEvidenceGraphReferenceBase<Type extends string> {
   uniqueEvidence?: boolean;
 
   /**
+   * The relation an acknowledgement must declare to discharge this reference.
+   *
+   * Omit it to accept any, which is how every reference behaved before this
+   * property existed. Declare it and only a tag written as `@evidence(<role>)
+   * <target> <reason>` with the same word discharges the obligation; a tag
+   * naming another relation, or naming none, leaves the unit uncovered and its
+   * diagnostic says which relation was wanted.
+   *
+   * Every other constraint here counts acknowledgements. This one is the only
+   * one that asks what an acknowledgement _is_, and without it every obligation
+   * is a reachability obligation: some host cites some unit. That cannot say a
+   * unit must be **produced** rather than merely mentioned, that a **read** is
+   * not discharged by a **write**, or that a test must prove an operation
+   * **works** rather than that it refuses. Each of those was discharged in a
+   * real codebase by a truthful tag sitting on the wrong side of the
+   * obligation.
+   *
+   * The vocabulary is yours. The rule checks that the relation a reference asks
+   * for is the relation a declaration claims, and never that the claim is true;
+   * that remains what a reviewer reads the reason for.
+   *
+   * @default undefined
+   */
+  role?: string;
+
+  /**
    * Whether each selected claim host must cite exactly one unit of this
    * population.
    *

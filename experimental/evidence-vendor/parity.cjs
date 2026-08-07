@@ -468,6 +468,45 @@ const EXCEPTIONS = new Map([
     ".agents/skills/benchmark/evidence/intervention/warning.md",
     "ttsc#1095: the verdict channel belongs to either arm",
   ],
+
+  // ttsc#1106 gives an acknowledgement a declarable relation, so a reference
+  // can require one. Every file below carries part of that one change.
+  [
+    "packages/evidence/native/declaration.go",
+    "ttsc#1106: a tag may open with `(role)`, the relation this host claims for the target",
+  ],
+  [
+    "packages/evidence/native/model.go",
+    "ttsc#1106: the declaration carries its relation and a reference may require one",
+  ],
+  [
+    "packages/evidence/native/config.go",
+    "ttsc#1106: `role` decodes on every reference kind",
+  ],
+  [
+    "packages/evidence/native/graph.go",
+    "ttsc#1106: a reference requiring a relation is discharged by that relation and by no other, and its uncovered units say which one they wanted",
+  ],
+  [
+    "packages/evidence/native/markdown.go",
+    "ttsc#1106: the parsed relation reaches the graph declaration",
+  ],
+  [
+    "packages/evidence/native/prisma.go",
+    "ttsc#1106: as above, for both Prisma declaration hosts",
+  ],
+  [
+    "packages/evidence/native/typescript.go",
+    "ttsc#1106: as above",
+  ],
+  [
+    "packages/evidence/native/graph_requires_the_declared_role_test.go",
+    "ttsc#1106: local only, upstream has no relation to prove",
+  ],
+  [
+    "packages/evidence/src/structures/ITtscEvidenceGraphReferenceBase.ts",
+    "ttsc#1106: `role` joins the published reference contract",
+  ],
 ]);
 
 // ------------------------------------------------------------------ compare

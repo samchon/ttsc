@@ -131,7 +131,7 @@ Resolving through the module's own imports also removes an ambiguity that has no
 - Repeating the same resolved scope on one declaration is rejected. Keep the truthful reason, or fold the useful detail into it.
 - A citation may sit on any declaration of a merged identity. Placement changes neither resolution nor coverage.
 
-`uniqueEvidence` and `singleEvidencePerSymbol` on a reference tighten the first two rules where an obligation needs an owner. [Reference policies](/docs/evidence/claims#reference-policies) covers both.
+`uniqueEvidence` and `singleEvidencePerSymbol` on a reference tighten the first two rules where an obligation needs an owner. `role` tightens a different axis: written as `@evidence(produces) <target> <reason>`, the parenthesized word is the relation this host claims, and a reference declaring `role` is discharged only by that relation. [Reference policies](/docs/evidence/claims#reference-policies) covers all three.
 
 ## Exclusions
 

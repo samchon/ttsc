@@ -711,6 +711,15 @@ func evaluateEvidenceGraph(
           )
           continue
         }
+        // A reference that requires a role is discharged by the relation it
+        // names and by no other. The declaration still participates, so it is
+        // not reported as a tag that discharges nothing; it pays into the
+        // obligations whose relation it actually claims, and a unit it did not
+        // cover reports itself with the role it wanted.
+        if reference.Spec.Policy.Role != "" &&
+          declaration.Role != reference.Spec.Policy.Role {
+          continue
+        }
         if declaration.Tag == tagEvidence && declaration.HostID != "" {
           byScope := evidenceByHostAndScope[declaration.HostID]
           if byScope == nil {
@@ -819,6 +828,9 @@ func evaluateEvidenceGraph(
           repair := "Use @evidence on a selected " + string(state.Spec.Type) + " host or @evidenceExclude on an eligible carrier."
           if reference.Spec.Policy.NoExclude {
             repair = "Use @evidence on a selected " + string(state.Spec.Type) + " host; this reference forbids @evidenceExclude."
+          }
+          if role := reference.Spec.Policy.Role; role != "" {
+            repair += " This reference is discharged only by a declaration naming the '" + role + "' relation, written as @evidence(" + role + ") before the target."
           }
           problems = append(
             problems,

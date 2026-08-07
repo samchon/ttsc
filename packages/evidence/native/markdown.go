@@ -261,6 +261,7 @@ func scanMarkdownInventory(
         SemanticHostIDs: []string{hostIDAtLine[line-1]},
         Type:            artifactMarkdown,
         Tag:             parsed.Tag,
+        Role:            parsed.Role,
         Target:          parsed.Target,
         Reason:          parsed.Reason,
         Hosts:           symbolSet{hostAtLine[line-1]: true},

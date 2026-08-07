@@ -7,6 +7,7 @@ import (
 
 type parsedDeclaration struct {
   Tag        tagKind
+  Role       string
   Target     string
   Reason     string
   LineOffset int
@@ -71,6 +72,7 @@ func parseCommentDeclarations(
   lines := strings.Split(comment, "\n")
   type pendingDeclaration struct {
     tag        tagKind
+    role       string
     body       []string
     lineOffset int
   }
@@ -83,6 +85,7 @@ func parseCommentDeclarations(
     target, reason := splitDeclarationBody(strings.Join(pending.body, "\n"))
     parsed = append(parsed, parsedDeclaration{
       Tag:        pending.tag,
+      Role:       pending.role,
       Target:     target,
       Reason:     reason,
       LineOffset: leadingLines + pending.lineOffset,
@@ -92,11 +95,12 @@ func parseCommentDeclarations(
   for index, rawLine := range lines {
     line := strings.TrimSpace(rawLine)
     line = strings.TrimSpace(strings.TrimPrefix(line, "*"))
-    tag, body, found := declarationLine(line)
+    tag, role, body, found := declarationLine(line)
     if found {
       flush()
       pending = &pendingDeclaration{
         tag:        tag,
+        role:       role,
         body:       []string{body},
         lineOffset: index,
       }
@@ -114,7 +118,7 @@ func parseCommentDeclarations(
   return parsed
 }
 
-func declarationLine(line string) (tagKind, string, bool) {
+func declarationLine(line string) (tagKind, string, string, bool) {
   for _, candidate := range []struct {
     marker string
     tag    tagKind
@@ -126,12 +130,43 @@ func declarationLine(line string) (tagKind, string, bool) {
       continue
     }
     remainder := line[len(candidate.marker):]
+    role, remainder, ok := splitDeclarationRole(remainder)
+    if !ok {
+      continue
+    }
     if remainder != "" && remainder[0] != ' ' && remainder[0] != '\t' {
       continue
     }
-    return candidate.tag, strings.TrimSpace(remainder), true
+    return candidate.tag, role, strings.TrimSpace(remainder), true
   }
-  return "", "", false
+  return "", "", "", false
+}
+
+// splitDeclarationRole consumes an optional `(role)` immediately after the tag.
+//
+// The role says how this host answers for the target, which the target and the
+// prose together cannot: "Consumes the one-time recovery proof" is a truthful
+// sentence about a host that consumes, and it discharged an obligation whose
+// requirement needed a producer. A reference that declares no required role
+// accepts a declaration that names none, so every tag written before this
+// existed means exactly what it meant.
+//
+// A malformed opener is deliberately not consumed. Left in place it becomes the
+// target and reports as unresolved, naming the text the author actually wrote,
+// where swallowing it would drop the acknowledgement without a word.
+func splitDeclarationRole(remainder string) (string, string, bool) {
+  if !strings.HasPrefix(remainder, "(") {
+    return "", remainder, true
+  }
+  closing := strings.IndexByte(remainder, ')')
+  if closing < 0 {
+    return "", remainder, false
+  }
+  role := remainder[1:closing]
+  if role == "" || containsWhitespace(role) {
+    return "", remainder, false
+  }
+  return role, remainder[closing+1:], true
 }
 
 // inlineLinkTags are the JSDoc inline link forms a TypeScript target may use.

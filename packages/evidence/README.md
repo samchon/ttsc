@@ -21,6 +21,8 @@ export function CouponStackingNotice(props: IProps): JSX.Element;
 
 `@evidence <target> <reason>` names one unit of the spec and why this declaration answers for it. A target is a document section, an API operation, a database schema model, or a TypeScript symbol as an inline link.
 
+`@evidence(<role>) <target> <reason>` adds the relation this declaration claims, and a reference can require one.
+
 ```bash
 $ npx ttsc
 error TS16411: [evidence/graph] Missing acknowledgement for 'docs/discount.md#coupon-stacking'
@@ -263,6 +265,28 @@ Ordinary coverage is permissive, which is right for a document several modules h
 - `singleEvidencePerSymbol` requires exactly one unit from every selected host, so a host citing nothing and a host citing everything both fail.
 
 Counting is by identity rather than by text. Repeated tags for one unit count once, an overload set stays one host, and citing a parent of two selected units counts as two.
+
+### Relations
+
+Those three count acknowledgements. `role` is the one that asks what an acknowledgement is.
+
+```ts
+{
+  type: "prisma",
+  files: ["prisma/schema/**/*.prisma"],
+  symbol: "model",
+  role: "produces",
+}
+```
+
+```prisma
+/// @evidence(produces) docs/requirements/recovery.md#reset Issues the one-time proof.
+model password_resets {}
+```
+
+Without it every obligation is a reachability obligation: some host cites some unit. That cannot say a unit must be **produced** rather than merely mentioned, that a **read** is not discharged by a **write**, or that a test must prove an operation **works** rather than that it refuses. A model covered by a host that only consumes it reads as covered while nothing anywhere issues the rows.
+
+A reference declaring a role is discharged only by a tag naming the same word. One naming another relation, or naming none, leaves the unit uncovered and the diagnostic says which relation it wanted. The vocabulary is yours: the rule checks that the relation asked for is the relation claimed, never that the claim is true, which is what a reviewer reads the reason for.
 
 ## Sponsors
 

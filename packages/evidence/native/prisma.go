@@ -555,6 +555,7 @@ func prismaDeclarationsFromComments(
           HostID:           "prisma:" + run.Path + ":file",
           Type:             artifactPrisma,
           Tag:              parsed.Tag,
+          Role:             parsed.Role,
           Target:           parsed.Target,
           Reason:           parsed.Reason,
           ExclusionCarrier: true,
@@ -611,6 +612,7 @@ func prismaDeclarationsFromComments(
         SemanticHostIDs: []string{host.ID},
         Type:            artifactPrisma,
         Tag:             parsed.Tag,
+        Role:            parsed.Role,
         Target:          parsed.Target,
         Reason:          parsed.Reason,
         Hosts:           prismaHostSymbols(host),
@@ -644,7 +646,7 @@ func prismaHostSymbols(host *evidenceUnit) symbolSet {
 func prismaCommentCarriesTag(body string) bool {
   for _, line := range strings.Split(body, "\n") {
     trimmed := strings.TrimSpace(line)
-    if _, _, found := declarationLine(trimmed); found {
+    if _, _, _, found := declarationLine(trimmed); found {
       return true
     }
     if prismaBuriedTag(trimmed) {
@@ -667,7 +669,7 @@ func prismaBuriedTagLines(body string) []int {
   offsets := []int{}
   for offset, line := range strings.Split(body, "\n") {
     trimmed := strings.TrimSpace(line)
-    if _, _, found := declarationLine(trimmed); found {
+    if _, _, _, found := declarationLine(trimmed); found {
       continue
     }
     if prismaBuriedTag(trimmed) {
@@ -698,7 +700,7 @@ func prismaBuriedTag(trimmed string) bool {
   if stripped == trimmed {
     return false
   }
-  _, _, found := declarationLine(stripped)
+  _, _, _, found := declarationLine(stripped)
   return found
 }
 
