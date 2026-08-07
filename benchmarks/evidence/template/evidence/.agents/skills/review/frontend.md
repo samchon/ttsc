@@ -29,4 +29,4 @@ Ensure `pnpm dev` is running from `packages/backend` and `packages/frontend`. Th
 
 Run `pnpm plan` from `packages/frontend`. The claim proves a screen cites a requirement; this proves no requirement section is left without one, which is the direction coverage from the evidence side cannot see.
 
-After the last correction, run `pnpm test:e2e` from `packages/frontend` with `VITE_API_SIMULATE=false` and fix every failure. A clean reload proves the bundle compiles, not that a journey still completes.
+After the last correction, run `pnpm test:e2e` from `packages/frontend`, which builds live and fix every failure. A clean reload proves the bundle compiles, not that a journey still completes.

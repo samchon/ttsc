@@ -413,14 +413,6 @@ const EXCEPTIONS = new Map([
     "benchmarks/evidence/template/base/packages/frontend/tests/contract/scaffold.spec.ts",
     "ttsc#1091: local only, upstream runs no simulated suite separate from the live one",
   ],
-  [
-    "benchmarks/evidence/instructions/evidence/backend/remind.md",
-    "ttsc#1095: local only, the Evidence arm stops at a Review boundary and needs its own supplementation",
-  ],
-  [
-    "benchmarks/evidence/instructions/evidence/frontend/remind.md",
-    "ttsc#1095: as above",
-  ],
 ]);
 
 // ------------------------------------------------------------------ compare

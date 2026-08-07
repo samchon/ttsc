@@ -65,7 +65,7 @@ Simulation validates the typed boundary and returns generated response shapes. I
 
 Simulation is off by default, so the checked-in state of the workspace talks to the backend. The mode turns it on, not a file: `vite.config.ts` sets `VITE_API_SIMULATE` for `--mode contract`, which is what `pnpm test:contract` builds with, and `pnpm dev --mode contract` is the same switch for interactive work. Do not put `VITE_API_SIMULATE` in `packages/frontend/.env`. `vite.config.ts` sets the flag from the mode before Vite reads any env file, so a value there is overwritten rather than honored, and a workspace that relies on it is describing a build it did not get.
 
-Use simulation for screen construction and contract flow. Use fixtures for empty, refusal, boundary, and long-content states. The gate is `pnpm test:e2e` with `VITE_API_SIMULATE=false` against a separately running backend, and `verification.md` owns why the two suites are separate.
+Use simulation for screen construction and contract flow. Use fixtures for empty, refusal, boundary, and long-content states. The gate is `pnpm test:e2e` against a separately running backend, which its mode builds live, and `verification.md` owns why the two suites are separate.
 
 Never record a simulated run as live integration.
 

@@ -51,7 +51,7 @@ The two modes prove different things, so they are two suites and not one suite r
 
 | Suite | Mode | What it may assert |
 | --- | --- | --- |
-| `tests/journeys/` | `VITE_API_SIMULATE=false`, against backend `pnpm dev` | anything, and it must assert the concrete effect its requirement names |
+| `tests/journeys/` | `pnpm test:e2e`, whose mode builds live, against backend `pnpm dev` | anything, and it must assert the concrete effect its requirement names |
 | `tests/contract/` | `--mode contract`, which sets `VITE_API_SIMULATE=true` | that a screen reaches its typed client boundary and renders without error |
 
 Under simulation the generated SDK answers with `typia.random`, so a value is type-correct and otherwise arbitrary. An assertion about a concrete effect cannot pass against it: not that the post just created appears under its title, not that the dashboard shows the totals it fetched. A suite required to be green in both modes can therefore contain only assertions that observe neither mode's data, which is a suite that proves nothing while reporting success.
