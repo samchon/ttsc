@@ -1,17 +1,18 @@
 ---
 name: review
-description: Defines the review of @evidence and @evidenceExclude for fake citations, for cited requirements the code contradicts, and for exclusions created solely to evade compiler errors, of configuration edited beyond the one permitted activation, and of the compiler and runtime gates each scope must pass. Read only for a review objective; backend.md, frontend.md, and overall.md carry the per-scope configuration and gates.
+description: Defines the review of @evidence and @evidenceExclude for fake citations, for cited requirements the code contradicts, and for exclusions created solely to evade compiler errors, of configuration edited beyond the one permitted activation, and of the compiler and runtime gates each scope must pass. Read only for a review objective; backend.md and frontend.md carry the per-scope configuration and gates.
 ---
 
 # Review
 
 The compiler owns target resolution, host eligibility, overlap, and coverage. What it cannot own is whether a cited requirement was obeyed, because that is a question about behavior rather than about the graph. Review inspects the full acknowledgement population for fake citations, for cited requirements the code contradicts, and for exclusions created solely to evade compiler errors, then proves the gates its scope names.
 
-Read the per-scope document for the current objective before beginning:
+Two scopes and no third. Read the per-scope document for the current objective before beginning:
 
 - Backend Review: [backend.md](backend.md)
 - Frontend Review: [frontend.md](frontend.md)
-- Overall Review: [overall.md](overall.md)
+
+Frontend Review is the last one, so the checks that need both layers finished belong there rather than to a scope of their own.
 
 ## Tag Inspection
 

@@ -5,6 +5,7 @@ import typia from "typia";
 import { EvidenceBenchmarkInspection } from "./EvidenceBenchmarkInspection";
 import { EvidenceBenchmarkInstruction } from "./EvidenceBenchmarkInstruction";
 import { EvidenceBenchmarkReviewLedger } from "./EvidenceBenchmarkReviewLedger";
+import { EvidenceBenchmarkRuntime } from "./EvidenceBenchmarkRuntime";
 import { EvidenceBenchmarkSupervision } from "./EvidenceBenchmarkSupervision";
 import type { ITtscEvidenceBenchmarkCheckpointStorage } from "./structures/ITtscEvidenceBenchmarkCheckpointStorage";
 import type { ITtscEvidenceBenchmarkExecutable } from "./structures/ITtscEvidenceBenchmarkExecutable";
@@ -301,6 +302,17 @@ export namespace EvidenceBenchmarkRunner {
       "--config",
       `model_reasoning_effort="${props.effort}"`,
     ]);
+    // Every measured thread reads this home and no other. It carries the
+    // browser server and a copied `auth.json`, so the operator's own
+    // `AGENTS.md`, hooks, personality, and MCP table cannot reach a cell and
+    // the retained record describes the whole of what the cell saw.
+    const codexHome: string = EvidenceBenchmarkRuntime.prepareCodexHome(
+      props.runRoot,
+    );
+    const environment: NodeJS.ProcessEnv = {
+      ...(props.environment ?? process.env),
+      CODEX_HOME: codexHome,
+    };
     const processIndex: number = state.processes.length;
     const processRecord: ITtscEvidenceBenchmarkProcessRecord = {
       runnerRevision: props.runnerRevision,
@@ -357,7 +369,7 @@ export namespace EvidenceBenchmarkRunner {
     const child = spawn(command, arguments_, {
       cwd: props.cwd,
       detached: process.platform !== "win32",
-      env: props.environment ?? process.env,
+      env: environment,
       shell: false,
       windowsVerbatimArguments: executable.windowsVerbatimArguments,
       windowsHide: true,

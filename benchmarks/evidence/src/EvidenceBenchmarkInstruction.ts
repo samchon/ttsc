@@ -39,7 +39,6 @@ export namespace EvidenceBenchmarkInstruction {
         ["frontend-start", "evidence/frontend/start.md"],
         ["frontend-review", "evidence/frontend/review.md"],
         ["frontend-final", "evidence/frontend/final.md"],
-        ["overall-review", "evidence/overall/review.md"],
         ["overall-final", "evidence/overall/final.md"],
       ];
     return [

@@ -62,4 +62,4 @@ rg --hidden -n -F '@todo' packages/frontend --glob '*.ts' --glob '*.tsx'
 
 Ensure `pnpm dev` is running from `packages/backend`, and keep both processes running through Overall Final.
 
-Run `pnpm test:e2e` with `VITE_API_SIMULATE=false` against the live backend and fix every failure. After the last fix, require a frontend reload without diagnostics and an E2E exit code of 0.
+Run `pnpm test:e2e`, which builds live against the live backend and fix every failure. After the last fix, require a frontend reload without diagnostics and an E2E exit code of 0.

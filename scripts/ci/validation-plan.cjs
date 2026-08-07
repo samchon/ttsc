@@ -321,9 +321,6 @@ const WORKFLOW_PATHS = {
     "packages/wasm/**",
     "packages/playground/**",
     "scripts/go-build-cache.cjs",
-    // Mirrors the same entry in `website.yml`: the evidence benchmark page is
-    // drawn from this tracked aggregate, so a new cohort changes what the site
-    // shows without touching a file under `website/`.
     "benchmarks/evidence/aggregate/**",
     "website/**",
     "README.md",

@@ -1,11 +1,92 @@
+import fs from "node:fs";
 import net from "node:net";
+import os from "node:os";
+import path from "node:path";
 
 import type { EvidenceBenchmarkArm } from "./typings/EvidenceBenchmarkArm";
 
 /** Assigns and validates process-level resources owned by one benchmark cell. */
 export namespace EvidenceBenchmarkRuntime {
-  /** Default first port in the eight-cell benchmark allocation. */
+  /** Default first port of the allocation, one disjoint block per cell. */
   export const DEFAULT_PORT_BASE = 46_000;
+
+  /**
+   * Pinned Playwright MCP server every cell drives its browser through.
+   *
+   * The frontend guidance requires driving every main journey in an interactive
+   * browser and the workspace provided no way to do it, so every cell took the
+   * escape clause and shipped defects that one accessibility snapshot would
+   * have shown. The capability is delivered rather than assumed, and it is
+   * delivered to both arms by the same code path, which is what keeps it out of
+   * the variable the campaign measures.
+   *
+   * The version is pinned because it is a frozen material input like the
+   * requirements and the template. What the pin does not fix is the browser:
+   * the server drives a channel installed on the host, so two cells run days
+   * apart can drive two different builds of it while the record shows one
+   * specifier. Pinning that is a decision about the machine rather than about
+   * this file.
+   */
+  export const BROWSER_MCP_SPECIFIER = "@playwright/mcp@0.0.79";
+
+  /**
+   * Seconds the browser server may take to answer its handshake.
+   *
+   * The first launch on a machine installs the server and its own Playwright
+   * from the registry, which is far longer than a warm start and is exactly the
+   * launch whose failure would be least expected.
+   */
+  export const BROWSER_MCP_STARTUP_TIMEOUT_SECONDS = 300;
+
+  /**
+   * Builds the one Codex home a cell is allowed to read.
+   *
+   * Without this the runner inherits the operator's `~/.codex`, so every
+   * measured thread reads whatever `AGENTS.md`, hooks, personality, and MCP
+   * servers that machine happens to carry. A cohort compared under those
+   * conditions is comparing the arms plus an untracked per-machine table, and
+   * nothing in the retained record would say so. The graph benchmark's agent
+   * already builds a throwaway home for exactly this reason; this is the same
+   * remedy in the same shape.
+   *
+   * The generated configuration is the whole of what a cell sees: the browser
+   * server, and nothing else. `auth.json` is copied so the thread stays logged
+   * in, and it is the only file taken from the real home.
+   *
+   * `required` is load-bearing. Without it a server that misses its handshake
+   * is dropped from the tool list and the thread runs on, so a cohort would
+   * launch without the capability the frontend gate demands and nothing would
+   * say so until a cell reported it could not drive a browser.
+   */
+  export function prepareCodexHome(runRoot: string | undefined): string {
+    // A run with no retained root still gets an isolated home. Isolation is the
+    // property that matters; keeping the home beside the run record is only a
+    // convenience for reading it afterwards.
+    const home: string =
+      runRoot === undefined
+        ? fs.mkdtempSync(path.join(os.tmpdir(), "evidence-codex-home-"))
+        : path.join(runRoot, "codex-home");
+    fs.mkdirSync(home, { recursive: true });
+    const real: string = path.join(os.homedir(), ".codex", "auth.json");
+    if (!fs.existsSync(real))
+      throw new Error(
+        `Codex is not logged in: ${real} does not exist. Run \`codex login\` before launching a cell.`,
+      );
+    fs.copyFileSync(real, path.join(home, "auth.json"));
+    fs.writeFileSync(
+      path.join(home, "config.toml"),
+      [
+        "[mcp_servers.playwright]",
+        `command = "npx"`,
+        `args = ["-y", "${BROWSER_MCP_SPECIFIER}"]`,
+        "required = true",
+        `startup_timeout_sec = ${BROWSER_MCP_STARTUP_TIMEOUT_SECONDS}`,
+        "",
+      ].join("\n"),
+      "utf8",
+    );
+    return home;
+  }
 
   /** Network endpoints reserved for one subject and arm. */
   export interface IAssignment {
@@ -39,13 +120,14 @@ export namespace EvidenceBenchmarkRuntime {
     const armIndex: number = arms.indexOf(arm);
     if (subjectIndex === -1 || armIndex === -1)
       throw new Error(`Unknown benchmark cell: ${subject}/${arm}.`);
-    if (
-      !Number.isInteger(portBase) ||
-      portBase < 1 ||
-      portBase + (subjects.length * arms.length - 1) * 10 + 3 > 65_535
-    )
+    // The highest base whose last cell's last port still fits, derived from the
+    // populations rather than written down: a subject added to the array above
+    // moves this bound, and a literal would keep naming the previous one.
+    const highestBase: number =
+      65_535 - ((subjects.length * arms.length - 1) * 10 + 3);
+    if (!Number.isInteger(portBase) || portBase < 1 || portBase > highestBase)
       throw new Error(
-        `Benchmark port base must be an integer between 1 and 65462: ${String(portBase)}.`,
+        `Benchmark port base must be an integer between 1 and ${highestBase}: ${String(portBase)}.`,
       );
     const base: number =
       portBase + (subjectIndex * arms.length + armIndex) * 10;

@@ -196,15 +196,15 @@ const EXCEPTIONS = new Map([
   ],
   [
     "benchmarks/evidence/src/EvidenceBenchmarkReport.ts",
-    "rendering moved to EvidenceBenchmarkChart, re-rooted through EvidenceBenchmarkLayout, and an empty collection is refused rather than published over the tracked aggregate",
+    "rendering moved to EvidenceBenchmarkChart, re-rooted through EvidenceBenchmarkLayout, an empty collection is refused rather than published over the tracked aggregate, and ttsc#1108 refuses a publication that would leave a coverage file from another cohort beside it",
   ],
   [
     "benchmarks/evidence/README.md",
-    "documents the chart set this repository publishes, `summary.svg` and a per-subject `arms.svg`, plus the `charts` command upstream has no equivalent of",
+    "documents the chart set this repository publishes, `summary.svg` and a per-subject `arms.svg`, plus the `charts` command upstream has no equivalent of; ttsc#1107, ttsc#1108, ttsc#1110, ttsc#1111, and ttsc#1094 add the aggregate origin, the one-cohort-per-directory refusal, the corrected supplementation bound, the subject inventory, and the browser server",
   ],
   [
     ".agents/skills/benchmark/evidence/measurement/aggregate.md",
-    "same as the README: four published artifacts rather than upstream's three, and the redraw command beside them",
+    "same as the README: four published artifacts rather than upstream's three, and the redraw command beside them; ttsc#1107 and ttsc#1108 add the origin and the one-cohort-per-directory rules, and ttsc#1109 the number cross-check",
   ],
   [
     "tests/test-evidence-benchmark/src/features/test_benchmark_chart_draws_every_published_chart_from_the_tracked_aggregate.ts",
@@ -228,7 +228,7 @@ const EXCEPTIONS = new Map([
   ],
   [
     "benchmarks/evidence/src/EvidenceBenchmarkDashboard.ts",
-    "re-rooted through EvidenceBenchmarkLayout",
+    "re-rooted through EvidenceBenchmarkLayout, and ttsc#1107 records the repository the collection read from",
   ],
   [
     "benchmarks/evidence/src/EvidenceBenchmarkSuspensionAudit.ts",
@@ -240,7 +240,7 @@ const EXCEPTIONS = new Map([
   ],
   [
     "benchmarks/evidence/src/executable/EvidenceBenchmarkDashboard.ts",
-    "re-rooted through EvidenceBenchmarkLayout",
+    "re-rooted through EvidenceBenchmarkLayout, and ttsc#1110 refuses an argument this command cannot honor rather than ignoring one",
   ],
   [
     "benchmarks/evidence/src/executable/EvidenceBenchmarkReconcile.ts",
@@ -285,6 +285,157 @@ const EXCEPTIONS = new Map([
   [
     "tests/test-evidence-benchmark/src/features/test_benchmark_command_line_runs_from_its_own_entry.ts",
     "runs the command line from `benchmarkRoot` rather than the repository root, which are the same directory upstream and not here",
+  ],
+
+  // ttsc#1096 round-two preparation. Everything below is this repository's own
+  // correction to a defect the first cohort exposed, made here rather than
+  // upstream because round two runs here. Each entry names the issue that owns
+  // it, so a later refresh can decide per file whether upstream has caught up
+  // rather than treating the whole set as one unexplained residual.
+  [
+    "benchmarks/evidence/template/base/config/lint.config.ts",
+    "ttsc#1090: the generated SDK's separate type import is accepted in the shared config every package extends, because the api package's own ignore does not travel with files a source-consuming workspace pulls into another Program",
+  ],
+  [
+    "benchmarks/evidence/template/base/packages/backend/lint.config.ts",
+    "ttsc#1090: the package-local `no-duplicate-imports` override the shared config makes redundant",
+  ],
+  [
+    "benchmarks/evidence/src/EvidenceBenchmarkRuntime.ts",
+    "ttsc#1111: a port bound derived from the populations rather than written down, so adding a subject moves the message with it",
+  ],
+  [
+    "benchmarks/evidence/src/structures/ITtscEvidenceBenchmarkReport.ts",
+    "ttsc#1107: the aggregate records the repository it was collected from, because a bare revision resolves nowhere",
+  ],
+  [
+    "tests/test-evidence-benchmark/src/features/test_benchmark_report_refuses_coverage_from_another_cohort.ts",
+    "ttsc#1108: local only, upstream has no cohort refusal to prove",
+  ],
+  [
+    "tests/test-evidence-benchmark/src/features/test_benchmark_report_records_a_resolvable_origin_or_none.ts",
+    "ttsc#1107: local only, upstream records no origin",
+  ],
+  [
+    "benchmarks/evidence/src/EvidenceBenchmarkInstruction.ts",
+    "ttsc#1095: the Evidence arm has no Overall Review stage, because `evidence/review` proves a citation was reviewed and Frontend Review is the last scope",
+  ],
+  [
+    "benchmarks/evidence/src/EvidenceBenchmarkRunner.ts",
+    "ttsc#1094: every cell is spawned into a generated Codex home, so the operator's own AGENTS.md, hooks, and MCP table cannot reach a measured thread",
+  ],
+  [
+    "benchmarks/evidence/src/EvidenceBenchmarkRuntime.ts",
+    "ttsc#1094 and ttsc#1111: the isolated Codex home carrying the pinned browser server, and a port bound derived from the populations rather than written down",
+  ],
+  [
+    "benchmarks/evidence/template/base/packages/frontend/.env.example",
+    "ttsc#1091: simulation is decided by the build mode, so the example no longer carries the flag a cell could edit",
+  ],
+  [
+    "benchmarks/evidence/template/base/.agents/skills/api/SKILL.md",
+    "ttsc#1091: the simulation clause no longer selects for assertions that prove nothing",
+  ],
+  [
+    "benchmarks/evidence/template/base/.agents/skills/frontend/architecture.md",
+    "ttsc#1094: the interactive review record joins the wiki listing",
+  ],
+  [
+    "benchmarks/evidence/template/base/.agents/skills/frontend/screens.md",
+    "ttsc#1105: a screen needs a requirement, which is the direction coverage from the evidence side cannot see",
+  ],
+  [
+    "benchmarks/evidence/template/base/.agents/skills/frontend/sdk.md",
+    "ttsc#1091: the typed-client smoke pass runs against the live backend",
+  ],
+  [
+    "benchmarks/evidence/template/base/.agents/skills/frontend/SKILL.md",
+    "ttsc#1105 and ttsc#1091: the requirement enumeration and the contract suite join the gates",
+  ],
+  [
+    "benchmarks/evidence/template/base/.agents/skills/frontend/verification.md",
+    "ttsc#1091, ttsc#1094 and ttsc#1105: the live contract pass, the interactive browser review, and the requirement-section count",
+  ],
+  [
+    "benchmarks/evidence/template/base/.agents/skills/project/SKILL.md",
+    "ttsc#1091 and ttsc#1105: the layout and command list carry tests/contract/ and pnpm plan",
+  ],
+  [
+    "benchmarks/evidence/template/base/packages/frontend/package.json",
+    "ttsc#1091 and ttsc#1105: build:contract, test:contract, and plan",
+  ],
+  [
+    "benchmarks/evidence/template/base/packages/frontend/src/lib/config.ts",
+    "ttsc#1091: simulation is read from the build mode rather than from a file a cell may write",
+  ],
+  [
+    "benchmarks/evidence/template/base/packages/frontend/vite.config.ts",
+    "ttsc#1091: the mode decides simulation in both directions",
+  ],
+  [
+    "benchmarks/evidence/template/evidence/.agents/skills/review/frontend.md",
+    "ttsc#1095 and ttsc#1105: the cross-layer deferral check the removed Overall scope owned, and the requirement-section count",
+  ],
+  [
+    "benchmarks/evidence/template/evidence/.agents/skills/review/SKILL.md",
+    "ttsc#1095: two review scopes and no third",
+  ],
+  ["benchmarks/evidence/template/evidence/AGENTS.md", "ttsc#1095: as above"],
+  [
+    "benchmarks/evidence/template/plain/.agents/skills/review/frontend.md",
+    "ttsc#1105: requirement coverage propagates in the shape source propagation already did",
+  ],
+  [
+    "benchmarks/evidence/template/plain/.agents/skills/review/overall.md",
+    "ttsc#1105: requirement coverage joins the Plain overall scope, mirroring the frontend one",
+  ],
+  [
+    "benchmarks/evidence/instructions/evidence/frontend/review.md",
+    "ttsc#1095 and ttsc#1105: the cross-layer deferral check and the requirement count, since Frontend Review is now the last scope",
+  ],
+  [
+    "benchmarks/evidence/instructions/evidence/frontend/start.md",
+    "ttsc#1094 and ttsc#1105: the interactive browser record and the requirement enumeration join the gates",
+  ],
+  [
+    "benchmarks/evidence/instructions/evidence/overall/final.md",
+    "ttsc#1095: reached straight from Frontend Final, so it names that scope rather than a review stage the arm no longer runs",
+  ],
+  [
+    "benchmarks/evidence/instructions/plain/frontend/start.md",
+    "ttsc#1094 and ttsc#1105: as above, held identical across the arms",
+  ],
+  [
+    "benchmarks/evidence/template/base/packages/frontend/scripts/screen-plan.mjs",
+    "ttsc#1105: local only, upstream has no requirement-section count to run",
+  ],
+  [
+    "benchmarks/evidence/template/base/packages/frontend/tests/contract/scaffold.spec.ts",
+    "ttsc#1091: local only, upstream runs no simulated suite separate from the live one",
+  ],
+  [
+    "tests/test-evidence-benchmark/src/features/test_benchmark_template_screen_plan_refuses_a_pasted_enumeration.ts",
+    "ttsc#1105: local only, upstream has no requirement-section count to defeat",
+  ],
+  [
+    "tests/test-evidence-benchmark/src/features/test_benchmark_runtime_isolates_the_codex_home.ts",
+    "ttsc#1094: local only, upstream's runner does not generate the home a cell reads",
+  ],
+  [
+    "benchmarks/evidence/template/evidence/.agents/skills/evidence/frontend.md",
+    "ttsc#1091: the live suite is named by its script, because the build mode decides simulation and no environment variable can disagree",
+  ],
+  [
+    "benchmarks/evidence/instructions/evidence/frontend/final.md",
+    "ttsc#1091: as above",
+  ],
+  [
+    "benchmarks/evidence/instructions/plain/frontend/final.md",
+    "ttsc#1091: as above, held identical across the arms",
+  ],
+  [
+    "benchmarks/evidence/instructions/plain/overall/final.md",
+    "ttsc#1091: as above",
   ],
 ]);
 
@@ -457,10 +608,27 @@ const collect = (upRel, localRel) => {
     return;
   }
   if (!TEXT.has(path.extname(localRel))) {
-    const a = fs.readFileSync(path.join(UP, upRel));
+    // The byte branch has to answer the same two questions the text branch
+    // does, or an extension outside TEXT is an extension no entry can cover.
+    // That is not hypothetical: the trees carry `.gitignore`, `.gitattributes`,
+    // `.node-version`, five `.gitkeep` files, `index.html`, and
+    // `exclude.schema`, all of them text this campaign could have had to
+    // declare, and one of them was edited and reverted inside this cycle.
+    //
+    // It reads through `readUpstream` for the same reason the text branch does:
+    // a file the upstream campaign branch adds exists in no working tree, and
+    // reading the working-tree path directly would throw and take the whole
+    // report with it.
+    const a = Buffer.from(readUpstream(upRel), "utf8");
     const b = fs.readFileSync(localPath);
     skippedBinary++;
-    if (!a.equals(b)) differing.push({ localRel, upRel, note: "binary bytes" });
+    if (a.equals(b)) {
+      if (EXCEPTIONS.has(localRel))
+        excused.push(`${localRel}: listed as adapted but compares clean`);
+      return;
+    }
+    if (EXCEPTIONS.has(localRel)) return;
+    differing.push({ localRel, upRel, note: "binary bytes" });
     return;
   }
   pending.push({ upRel, localRel, text: adapt(readUpstream(upRel), localRel) });

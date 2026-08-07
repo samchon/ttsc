@@ -158,14 +158,82 @@ export const collectEvidenceBenchmarkReport = (
   const byRunId: ReadonlyMap<string, IDashboardRun> = new Map(
     scanned.map((run) => [run.file.cell.runId, run]),
   );
+  const origin: string | undefined = readRepositoryOrigin(repository);
   return {
     generatedAt: generatedAt.toISOString(),
+    ...(origin === undefined ? {} : { origin }),
     cells: ordered.flatMap(([, runs]) =>
       runs
         .sort(compareRuns)
         .map((run) => summarizeRun(run, includeApiCost, byRunId)),
     ),
   };
+};
+
+/**
+ * Names the repository whose run records this collection just read.
+ *
+ * Every cell already carries the revision its launcher read from `HEAD`, and a
+ * bare SHA resolves nowhere on its own. Recording where it resolves is what
+ * separates a cohort this repository measured from one vendored in, which is
+ * the distinction the published figures otherwise lose.
+ *
+ * The manifest is the source rather than a Git remote: `report` runs from a
+ * checkout whose remote an operator may have renamed or removed, while the
+ * manifest is the tracked declaration of what the repository is.
+ *
+ * The value is normalized to `owner/name` because the aggregate already states
+ * an origin that way. `coverage.json` carries `source.origin` as
+ * `samchon/lint-plugin-evidence`, written by hand when a cohort was vendored
+ * in, and two artifacts in one directory answering the same question in two
+ * vocabularies is how a comparison between them comes to be skipped.
+ */
+const readRepositoryOrigin = (repository: string): string | undefined => {
+  const manifest: string = path.join(path.resolve(repository), "package.json");
+  if (!fs.existsSync(manifest)) return undefined;
+  const parsed: unknown = JSON.parse(fs.readFileSync(manifest, "utf8"));
+  const declared: unknown = (
+    parsed as { repository?: { url?: unknown } | string } | null
+  )?.repository;
+  const url: unknown =
+    typeof declared === "string"
+      ? declared
+      : (declared as { url?: unknown } | undefined)?.url;
+  return typeof url === "string"
+    ? normalizeEvidenceBenchmarkOrigin(url)
+    : undefined;
+};
+
+/**
+ * Reduces a declared repository URL to the `owner/name` the aggregate uses.
+ *
+ * A value that does not reduce to that shape yields nothing rather than being
+ * recorded as it stands. The whole point of the field is that a reader can
+ * resolve it, and writing an unresolvable string into a generated artifact is
+ * the failure it exists to prevent, so an unrecorded origin is the honest
+ * outcome for a manifest that does not declare one usefully.
+ */
+export const normalizeEvidenceBenchmarkOrigin = (
+  url: string,
+): string | undefined => {
+  // The host is dropped rather than counted as an owner. A profile URL is the
+  // likeliest malformed value a manifest carries, and taking its last two
+  // segments would record `github.com/samchon`, which names no repository and
+  // is exactly the unresolvable string this returns nothing for.
+  const trimmed: string = url
+    .trim()
+    .replace(/\.git$/u, "")
+    .replace(/\/$/u, "");
+  const path: string = trimmed
+    .replace(/^[a-z][a-z0-9+.-]*:\/\//iu, "")
+    .replace(/^[^/]*@/u, "")
+    .replace(/^[^/:]+[:/]/u, (host) => (/^[^/:]*[.:]/u.test(host) ? "" : host));
+  const segments: string[] = path.split("/").filter(Boolean);
+  if (segments.length !== 2) return undefined;
+  const origin = segments.join("/");
+  return /^[A-Za-z0-9][\w.-]*\/[A-Za-z0-9][\w.-]*$/u.test(origin)
+    ? origin
+    : undefined;
 };
 
 const selectRuns = (

@@ -13,6 +13,6 @@ Final gates:
 
 - Backend `pnpm check:watch` and both backend/frontend `pnpm dev` processes remain clean.
 - `packages/backend`: `pnpm test` passes.
-- `packages/frontend`: `pnpm test:e2e` passes with `VITE_API_SIMULATE=false`.
+- `packages/frontend`: `pnpm test:e2e` passes, which builds live.
 
 Complete only after review and gates pass.

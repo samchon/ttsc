@@ -47,7 +47,13 @@ const config = {
     "no-dupe-else-if": "error",
     "no-dupe-keys": "error",
     "no-duplicate-case": "error",
-    "no-duplicate-imports": "error",
+    // A type-only import beside a value import from the same module is the
+    // shape `isolatedModules` forces a generator to emit, and the Nestia SDK
+    // under `packages/api/src/functional` emits it. That tree is generated
+    // output nobody may edit, and it enters every Program that consumes the api
+    // package as source, so the accommodation belongs here rather than in one
+    // package's override.
+    "no-duplicate-imports": ["error", { allowSeparateTypeImports: true }],
     "no-empty-pattern": "error",
     "no-eval": "error",
     "no-ex-assign": "error",

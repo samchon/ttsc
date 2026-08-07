@@ -7,6 +7,25 @@ import type { ITtscEvidenceBenchmarkTokenUsage } from "./ITtscEvidenceBenchmarkT
 /** Publishable aggregate of the latest launched benchmark cells. */
 export interface ITtscEvidenceBenchmarkReport {
   generatedAt: string;
+
+  /**
+   * Repository whose run records this cohort was collected from.
+   *
+   * Each cell already carries the `benchmarkRevision` its launcher read from
+   * `HEAD`, and a bare SHA says nothing about where it resolves. An aggregate
+   * vendored from another project is then indistinguishable from one this
+   * repository measured, and the figures drawn from it read as this
+   * repository's own.
+   *
+   * `report` writes it from the repository it scanned. It is optional because
+   * an aggregate published before this field existed does not have one, and
+   * back-filling it would put a value into a generated artifact that nothing
+   * derived, which is the failure the field exists to prevent. Absence means
+   * the origin is unrecorded, and whatever publishes such an aggregate states
+   * it in prose instead.
+   */
+  origin?: string;
+
   cells: ITtscEvidenceBenchmarkReportCell[];
 }
 

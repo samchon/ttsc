@@ -18,12 +18,12 @@ The frontend delivers requirement-backed user journeys through the settled gener
 ## Implementation Order
 
 1. Read every requirement and all authored and generated API source under `packages/api/src/`.
-2. Map requirements and SDK operations to screens in `packages/frontend/wiki/screen-plan.md`, taking the operation list from the `@accessor` tag every generated accessor carries.
+2. Map requirements and SDK operations to screens in `packages/frontend/wiki/screen-plan.md`, taking the operation list from the `@accessor` tag every generated accessor carries and the requirement list from the enumeration in `screens.md`. `pnpm plan` decides whether the plan accounts for every section.
 3. Declare every page and journey surface before implementation.
 4. Build the shared shell, primitives, providers, route table, connection, domain hooks, and view models.
 5. Implement screens and their loading, empty, error, refusal, retry, and post-mutation states.
 6. Write one exported Playwright journey function for every requirement-backed user flow.
-7. Run the journeys first with SDK simulation and then with `VITE_API_SIMULATE=false` against the live backend.
+7. Run `pnpm test:contract` under simulation while building, and close on `pnpm test:e2e` against the live backend, which its mode builds. The live run is the gate; `verification.md` owns why they are two suites.
 
 Do not turn every endpoint into a page. Do not omit a user capability because it is difficult.
 
@@ -58,10 +58,11 @@ The frontend gate requires:
 - every requirement-backed journey represented by a browser spec, and every screen walked by one of them;
 - every published SDK operation called by a domain hook, and every hook used by a screen;
 - every product-facing operation reachable from a screen, or a recorded omission for its missing page;
+- `pnpm plan` green, so every requirement section is delivered by a screen entry or decided by an omission;
 - every production component consumed by a screen or necessary shared boundary;
 - responsive and accessible behavior at required viewports;
-- simulated browser journeys passing;
-- the same journeys passing with `VITE_API_SIMULATE=false` against the live backend; and
+- every screen driven in the interactive browser, with `packages/frontend/wiki/interactive-review.md` recording what was observed;
+- every requirement journey green under `pnpm test:e2e` against the live backend, each asserting the concrete effect its requirement names; and
 - `packages/frontend/wiki/verification.md` recording what actually ran.
 
 A green build proves that the application bundles. It does not prove that users can complete the product.
