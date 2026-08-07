@@ -506,7 +506,7 @@ const EXCEPTIONS = new Map([
   ],
   [
     "packages/evidence/native/hints.go",
-    "ttsc#1106: a configured relation earns its own completion trigger, because `@evidence ` cannot match the one tag the reference accepts",
+    "ttsc#1106: a configured relation earns its own completion trigger, because `@evidence ` cannot match the one tag the reference accepts, and a reference requiring no relation is offered at every one of them",
   ],
   [
     "packages/evidence/native/hints_project_the_configured_population_test.go",
@@ -542,6 +542,10 @@ const EXCEPTIONS = new Map([
   [
     "packages/evidence/native/graph_confines_aggregate_evidence_test.go",
     "ttsc#1092: local only, upstream has no confined coverage to prove",
+  ],
+  [
+    "packages/evidence/native/prescriptions_speak_with_one_voice_test.go",
+    "ttsc#1092 and ttsc#1106: local only, the check that every sentence prescribing a citation for one target names one tag",
   ],
   [
     "packages/evidence/README.md",

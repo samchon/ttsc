@@ -418,11 +418,12 @@ func materializeClaimStates(
 func writtenTagGrammar(
   declaration *evidenceDeclaration,
   owners []claimState,
+  kind artifactKind,
 ) string {
   if declaration.Tag != tagEvidence {
     return "@" + string(declaration.Tag)
   }
-  if role := agreedRequiredRole(owners); role != "" {
+  if role := agreedRequiredRole(owners, kind); role != "" {
     return "@evidence(" + role + ")"
   }
   if declaration.Role != "" {
@@ -439,11 +440,17 @@ func writtenTagGrammar(
 // requirement to name nothing is what made this prescribe `@evidence` beside a
 // sibling diagnostic asking for `@evidence(implements)`, which the same build
 // then refuses.
-func agreedRequiredRole(owners []claimState) string {
+// The kind narrows the obligations to the ones that could own the target. A
+// target naming a symbol cannot belong to a Markdown reference, so letting that
+// reference's relation vote turns two artifact kinds into a disagreement and
+// prescribes the bare tag the one real owner refuses. An empty kind means the
+// target does not say, which is the malformed case, and every candidate counts.
+func agreedRequiredRole(owners []claimState, kind artifactKind) string {
   agreed := ""
   for _, owner := range owners {
     for _, reference := range owner.Spec.References {
-      if reference.Policy.Role == "" {
+      if reference.Policy.Role == "" ||
+        (kind != "" && reference.Type != kind) {
         continue
       }
       if agreed == "" {
@@ -465,11 +472,73 @@ func agreedRequiredRole(owners []claimState) string {
 // these two. Four of them spelled `@evidence` themselves, and each option that
 // changed what a citation must look like reached the one that composed its
 // text and left the others prescribing a citation the reference refuses.
-func requiredCitationGrammar(reference referenceSpec) string {
+func requiredCitationGrammar(reference referenceSpec, agreed string) string {
+  if agreed != "" {
+    return "@evidence(" + agreed + ")"
+  }
   if reference.Policy.Role != "" {
     return "@evidence(" + reference.Policy.Role + ")"
   }
   return "@evidence"
+}
+
+// agreedRoleByUnit is the relation every reference selecting a unit requires,
+// for each unit any of them selects.
+//
+// A prescription belongs to the thing being cited rather than to the obligation
+// that noticed it. Two references over one unit, one requiring a relation and
+// one requiring none, both accept the relation, so a diagnostic from the
+// second that prescribes the bare tag names a citation the first refuses while
+// a citation satisfying both exists. Empty where two of them require different
+// relations, because then no single tag answers and the reference reporting is
+// the one to speak for.
+// agreedScopeRole is the relation every unit a scope covers agrees on, which
+// is what a repair naming that scope has to prescribe. Empty where the units
+// disagree or the scope covers none.
+func agreedScopeRole(
+  agreed map[string]string,
+  reference referenceState,
+  scopeID string,
+) string {
+  role := ""
+  for _, unit := range reference.UnitsByScope[scopeID] {
+    if agreed[unit.ID] == "" {
+      return ""
+    }
+    if role == "" {
+      role = agreed[unit.ID]
+      continue
+    }
+    if role != agreed[unit.ID] {
+      return ""
+    }
+  }
+  return role
+}
+
+func agreedRoleByUnit(states []claimState) map[string]string {
+  divided := map[string]bool{}
+  agreed := map[string]string{}
+  for _, state := range states {
+    for _, reference := range state.References {
+      role := reference.Spec.Policy.Role
+      if role == "" {
+        continue
+      }
+      for _, unit := range reference.Units {
+        if divided[unit.ID] {
+          continue
+        }
+        if previous, seen := agreed[unit.ID]; seen && previous != role {
+          divided[unit.ID] = true
+          delete(agreed, unit.ID)
+          continue
+        }
+        agreed[unit.ID] = role
+      }
+    }
+  }
+  return agreed
 }
 
 // confinementCaveat says this target is not one the reference takes, and names
@@ -499,6 +568,9 @@ func confinementCaveat(reference referenceState, scopeID string) string {
     }
     named = append(named, "'"+unit.Target+"'")
   }
+  if len(named) == 0 {
+    return " noAggregateEvidence refuses a positive citation of a scope containing the units, and this scope contains none of them."
+  }
   listed := strings.Join(named, ", ")
   if rest := len(covered) - len(named); rest > 0 {
     listed += " and " + decimal(rest) + " more"
@@ -511,6 +583,10 @@ func evaluateEvidenceGraph(
   loader *typeScriptLoader,
 ) []string {
   problems := []string{}
+  // Computed once, before any diagnostic is composed, because a prescription
+  // belongs to the thing being cited rather than to the obligation that
+  // noticed it.
+  agreedRoles := agreedRoleByUnit(states)
   targets := map[string]map[string]*evidenceUnit{}
   markdownTargets := map[string]map[string]*evidenceUnit{}
   // Scoped targets are keyed by owning file as well as name, which is what
@@ -626,7 +702,7 @@ func evaluateEvidenceGraph(
     if !declaration.valid() {
       problems = append(
         problems,
-        "Malformed @"+string(declaration.Tag)+" declaration at "+declaration.location()+" for "+context+": target and non-empty reason are mandatory. Write '"+writtenTagGrammar(declaration, owners[id])+" <target> <reason>'.",
+        "Malformed @"+string(declaration.Tag)+" declaration at "+declaration.location()+" for "+context+": target and non-empty reason are mandatory. Write '"+writtenTagGrammar(declaration, owners[id], "")+" <target> <reason>'.",
       )
       continue
     }
@@ -649,7 +725,7 @@ func evaluateEvidenceGraph(
       looksLikeTypeScriptTarget(declaration.Target, targets, markdownTargets) {
       problems = append(
         problems,
-        "Unbraced TypeScript evidence target '"+declaration.Target+"' at "+declaration.location()+" for "+context+": a target naming a symbol is now written as an inline link, so the citing module's import is what resolves it. Write '"+writtenTagGrammar(declaration, owners[id])+" {@link "+declaration.Target+"} <reason>' and import the symbol; 'import type' is enough.",
+        "Unbraced TypeScript evidence target '"+declaration.Target+"' at "+declaration.location()+" for "+context+": a target naming a symbol is now written as an inline link, so the citing module's import is what resolves it. Write '"+writtenTagGrammar(declaration, owners[id], artifactTypeScript)+" {@link "+declaration.Target+"} <reason>' and import the symbol; 'import type' is enough.",
       )
       continue
     }
@@ -821,7 +897,7 @@ func evaluateEvidenceGraph(
         if declaration.Tag == tagExclude && reference.Spec.Policy.NoExclude {
           problems = append(
             problems,
-            "Forbidden @evidenceExclude for '"+scopesByID[scopeID].Target+"' at "+declaration.location()+" in "+claimLabel(state.Spec)+" "+referenceLabel(reference.Spec)+": noEvidenceExclude requires positive @evidence for this reference. Remove the exclusion and cite the target with '"+requiredCitationGrammar(reference.Spec)+"' from a selected "+string(state.Spec.Type)+" host."+confinementCaveat(reference, scopeID),
+            "Forbidden @evidenceExclude for '"+scopesByID[scopeID].Target+"' at "+declaration.location()+" in "+claimLabel(state.Spec)+" "+referenceLabel(reference.Spec)+": noEvidenceExclude requires positive @evidence for this reference. Remove the exclusion and cite the target with '"+requiredCitationGrammar(reference.Spec, agreedScopeRole(agreedRoles, reference, scopeID))+"' from a selected "+string(state.Spec.Type)+" host."+confinementCaveat(reference, scopeID),
           )
           continue
         }
@@ -1004,7 +1080,7 @@ func evaluateEvidenceGraph(
           // one that wrote itself over the other left a reference refusing
           // exclusions saying nothing about them.
           role := reference.Spec.Policy.Role
-          positive := "Use " + requiredCitationGrammar(reference.Spec) + " on a selected " + string(state.Spec.Type) + " host"
+          positive := "Use " + requiredCitationGrammar(reference.Spec, agreedRoles[unit.ID]) + " on a selected " + string(state.Spec.Type) + " host"
           repair := positive + " or @evidenceExclude on an eligible carrier."
           if reference.Spec.Policy.NoExclude {
             repair = positive + "; this reference forbids @evidenceExclude."

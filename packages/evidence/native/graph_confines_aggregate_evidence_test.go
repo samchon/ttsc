@@ -908,3 +908,66 @@ func TestRelationCarryingACommentTerminatorIsRefused(t *testing.T) {
   }]}`)
   assertProblemContains(t, jsdoc, "Malformed @evidence declaration")
 }
+
+/**
+ * Verifies the Markdown comment terminator is refused in the host that would carry it.
+ *
+ * `-->` is ordinary text inside a JSDoc block, so that is where a relation carrying one can be written and where the parser has to refuse it. Refusing only the block terminator would leave a relation that a Markdown declaration could never carry and that a reference is not allowed to require.
+ *
+ *  1. Write a relation containing a Markdown comment terminator in JSDoc.
+ *  2. Run a graph requiring no relation, so only the parse decides.
+ *  3. Assert the opener is reported as the target rather than consumed.
+ */
+func TestMarkdownTerminatorIsRefusedInTheHostThatCarriesIt(t *testing.T) {
+  messages := runIndexRule(t, map[string]string{
+    "docs/spec.md": "## Contract {#contract}\n",
+    "src/test.ts": `/** @evidence(a-->b) docs/spec.md#contract Implements it. */
+export function testContract(): void {}
+`,
+  }, `{"claims":[{
+    "type":"typescript",
+    "files":["src/**"],
+    "symbol":"function",
+    "reference":{
+      "type":"markdown",
+      "files":["docs/spec.md"],
+      "symbol":"h2"
+    }
+  }]}`)
+  assertProblemContains(t, messages, "Unresolved evidence target '(a-->b)'")
+}
+
+/**
+ * Verifies a repair names a few of the units a scope covers and counts the rest.
+ *
+ * Every one of those units also reports its own missing acknowledgement carrying the same instruction, so naming all of them puts the whole population into one sentence and repeats the build. Naming none would leave an author who cited a scope with nothing to cite instead.
+ *
+ *  1. Give one scope five selected units and refuse the exclusion of it.
+ *  2. Read the repair.
+ *  3. Assert it names the first three in the order every unit list uses and counts the other two.
+ */
+func TestConfinementCaveatNamesAFewAndCountsTheRest(t *testing.T) {
+  messages := runIndexRule(t, map[string]string{
+    "docs/spec.md": "# Authentication {#authentication}\n\n" +
+      "## One {#one}\n\n## Two {#two}\n\n## Three {#three}\n\n## Four {#four}\n\n## Five {#five}\n",
+    "src/test.ts": `/** @evidenceExclude docs/spec.md#authentication The gateway owns it; false once a screen must. */
+export function testAuthentication(): void {}
+`,
+  }, `{"claims":[{
+    "type":"typescript",
+    "files":["src/**"],
+    "symbol":"function",
+    "reference":{
+      "type":"markdown",
+      "files":["docs/spec.md"],
+      "symbol":["h2"],
+      "noEvidenceExclude":true,
+      "noAggregateEvidence":true
+    }
+  }]}`)
+  assertProblemContains(
+    t,
+    messages,
+    "so cite 'docs/spec.md#five', 'docs/spec.md#four', 'docs/spec.md#one' and 2 more instead",
+  )
+}

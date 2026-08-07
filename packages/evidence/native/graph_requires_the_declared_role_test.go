@@ -432,7 +432,7 @@ export function testRecovery(): void {}
 /**
  * Verifies a relation the configuration would refuse is not one a tag can name.
  *
- * The parser and the decoder have to agree on what a relation is, or a tag names a relation no reference is permitted to require, which is a relation that can never be asked for and never be wrong. A closing parenthesis cannot survive the scan to the first one; an opening parenthesis can, and is the only shape where the two could drift.
+ * The parser and the decoder have to agree on what a relation is, or a tag names a relation no reference is permitted to require, which is a relation that can never be asked for and never be wrong. A closing parenthesis cannot survive the scan to the first one, so the shapes where the two could drift are an opening parenthesis and the comment terminators that would end the block a citation lives in.
  *
  *  1. Write a relation containing an opening parenthesis.
  *  2. Run a graph requiring no relation, so nothing but the parse decides the outcome.

@@ -131,6 +131,8 @@ Several declaration hosts may acknowledge the same unit with `@evidence`, unless
 
 ## Reference Policies
 
+**A prescription belongs to the thing being cited, not to the obligation that noticed it.** Compute every sentence telling an author how to write a tag from the obligations that own the cited thing, narrowed by the target when the target says what it is and widened to every candidate when it does not, and name a tag all of them accept. A diagnostic scoped to one reference may name that reference as its reason, never as its grammar.
+
 **An option's zero value is the absence of a constraint, never a constraint of its own.** An omitted `role` accepts any relation rather than requiring that none be named, and an omitted switch leaves the historical behavior rather than asserting its opposite. Every reader of a policy field owes that reading, including a diagnostic deciding what to prescribe when several obligations own one declaration.
 
 A reference may strengthen its own acknowledgement relation with `noEvidenceExclude`, `uniqueEvidence`, `role`, `noAggregateEvidence`, and `singleEvidencePerSymbol`, declared flat on the reference object. Every option is opt-in, its zero value is the historical behavior, and constraints never cross or pool between reference-array elements — including identical and overlapping references.
@@ -144,7 +146,7 @@ A reference may strengthen its own acknowledgement relation with `noEvidenceExcl
 
 `noAggregateEvidence` needs no completion treatment. Every target the corpus offers is a selected unit, and a selected unit always covers itself, so no offered target is one a confining reference refuses. `role` earns a trigger only because `@evidence ` cannot match a line that opens a parenthesis.
 
-Completion keeps every positive target. At the exclusion trigger, omit a target selected only by references that refuse exclusions, and keep one any enabled reference still allows. A configured relation earns its own trigger, `@evidence(<relation>) `, carrying the targets that relation discharges and no others, because the host matches a trigger against the line prefix and `@evidence ` never matches a line that opens a parenthesis. The hint API has no cursor or claim context, so cardinality stays an evaluation diagnostic rather than a completion filter.
+Completion keeps every positive target. At the exclusion trigger, omit a target selected only by references that refuse exclusions, and keep one any enabled reference still allows. A configured relation earns its own trigger, `@evidence(<relation>) `, because the host matches a trigger against the line prefix and `@evidence ` never matches a line that opens a parenthesis. It carries the targets that relation discharges and the targets of every reference requiring no relation, since those accept any; the plain trigger carries only the second set. The hint API has no cursor or claim context, so cardinality stays an evaluation diagnostic rather than a completion filter.
 
 ## Exclusions
 
