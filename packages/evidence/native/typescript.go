@@ -315,10 +315,12 @@ func collectTypeScriptStatements(
       // class-merged one's are reached through the class value that alias does
       // not expose, which is the address the class branch is already
       // suppressed for. Publishing them here would breach that guard at
-      // exactly the address it exists to keep empty. `target.TypeOnly` sees
-      // only a local `export type { Sale }`; a barrel re-exporting one from
-      // another module records no flag, which is the class guard's own gap
-      // rather than this one's.
+      // exactly the address it exists to keep empty. The criterion is the
+      // module specifier rather than the spelling: `target.TypeOnly` sees an
+      // export list in this file, `export type { Sale }` and
+      // `export { type Sale }` alike, while a re-export naming another module
+      // records no mark at all. That gap is the class guard's own and reaches
+      // a plain class too.
       if classNames == nil {
         classNames = collectClassDeclarationNames(statements)
       }

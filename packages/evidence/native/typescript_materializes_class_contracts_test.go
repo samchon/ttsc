@@ -920,9 +920,10 @@ export interface IPlain {
  *
  *  1. Export a class merged with an interface through a type-only alias, and a
  *     second such merge through a type-only namespace projection.
- *  2. Export an unmerged interface through a type-only alias too.
- *  3. Assert both merges expose their names alone while the unmerged interface
- *     exposes its members.
+ *  2. Put an interface no class merges with beside each half, one under the
+ *     type-only alias and one inside the type-only namespace.
+ *  3. Assert both merges expose their names alone while both unmerged
+ *     interfaces expose their members.
  */
 func TestTypeOnlyAliasOverAMergedClassExposesNoMember(t *testing.T) {
   inventory := parseTypeScriptInventory(t, "src/contracts.ts", `

@@ -68,17 +68,21 @@
  * functions, and every class member, the last because a member is addressed
  * through the class value the alias does not expose. An interface merged with a
  * class is withheld with it, since its members are reached through that same
- * value. A member of an object-shaped type alias, or of an interface no class
- * merges with, uses `TypeName.member`, whether it carries data or is written as
- * a callable; one declared by an interface merged with a class is an instance
- * member of that class and uses `ClassName.prototype.member` like the body
- * form. Static class members use `ClassName.member`; instance members use
- * `ClassName.prototype.member`, and a constructor parameter property is an
- * instance member addressed that way. Computed names are not selected, even
- * when their expression is a literal. Literal names must be whitespace-free
- * because a declaration target is one whitespace-delimited token. A dot inside
- * a literal name is rendered unchanged; if that spelling collides with
- * qualification, the target is ambiguous.
+ * value. The withholding follows the module specifier rather than the spelling:
+ * an export list in the declaring file withholds, `export type { Sale }` and
+ * `export { type Sale }` alike, while a re-export naming another module records
+ * no mark and withholds nothing. A member of an object-shaped type alias, or of
+ * an interface no class merges with, uses `TypeName.member`, whether it carries
+ * data or is written as a callable; one declared by an interface merged with a
+ * class is an instance member of that class and uses
+ * `ClassName.prototype.member` like the body form. Static class members use
+ * `ClassName.member`; instance members use `ClassName.prototype.member`, and a
+ * constructor parameter property is an instance member addressed that way.
+ * Computed names are not selected, even when their expression is a literal.
+ * Literal names must be whitespace-free because a declaration target is one
+ * whitespace-delimited token. A dot inside a literal name is rendered
+ * unchanged; if that spelling collides with qualification, the target is
+ * ambiguous.
  *
  * These targets deliberately omit file paths. If selected files expose the same
  * qualified target, a declaration using that target is ambiguous; rename or
