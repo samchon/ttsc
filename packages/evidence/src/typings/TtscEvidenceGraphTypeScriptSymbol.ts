@@ -32,7 +32,8 @@
  *   accessor, including an auto-accessor, is neither. A constructor parameter
  *   carrying `public`, `readonly`, `private`, or `protected` declares a field
  *   and classifies exactly as the same field written in the class body would,
- *   whatever the constructor's own visibility is. Its citation belongs on the
+ *   whatever the constructor's own visibility is — so a `private` or
+ *   `protected` one materializes nothing, exactly as the body form does not. Its citation belongs on the
  *   parameter: a constructor's own block hosts nothing, because two parameter
  *   properties would leave `@evidence` no way to say which field it means.
  *

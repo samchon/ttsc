@@ -104,7 +104,7 @@ A field **written as** a callable is a `function` rather than a `property`, and 
 
 An interface or object-shaped type alias reads differently again, and the difference is worth knowing before you select `symbol: "function"` over one. Only its property signatures materialize, so `charge: () => void` on either is a `property`, and a method signature written `run(): void` is no unit at all.
 
-A constructor parameter carrying `public`, `readonly`, `private`, or `protected` declares a field, so it is selected exactly as the same field written in the class body would be, and it carries its own JSDoc block. The constructor's own visibility does not decide this: a `private constructor` closes construction from outside while `public readonly price` on its parameter is still an instance field.
+A constructor parameter carrying `public`, `readonly`, `private`, or `protected` declares a field, so it is selected exactly as the same field written in the class body would be — which means a `private` or `protected` one is not selected at all — and it carries its own JSDoc block. The constructor's own visibility does not decide this: a `private constructor` closes construction from outside while `public readonly price` on its parameter is still an instance field.
 
 The block has to sit on the parameter, not on the constructor. A constructor's own block cannot host a citation for a field it declares, because two parameter properties would leave `@evidence` no way to say which one it means, so `@param price The amount the customer pays.` on the constructor documents the field for a reader and still leaves it unable to cite anything. `evidence/documented` says so directly, and the repair is to move the text onto the parameter.
 
