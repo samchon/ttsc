@@ -23,18 +23,21 @@ import (
  * interface declares nothing in value space, so there is no value for the alias
  * to withhold. The fixture carried no such member while three surfaces said a
  * type-only alias exposes no callables, which is how that sentence stayed
- * wrong.
+ * wrong. `Options.run` is the same member on an object-shaped type alias, and
+ * it is here because the two containers share one collector: the argument that
+ * nothing can break one without the other is worth stating, and worth being
+ * able to fail.
  *
  *  1. Export one namespace through full and both type-only alias syntaxes.
- *  2. Include nested type and value declarations, an interface callable, and a
- *     class with its members.
+ *  2. Include nested type and value declarations, an interface callable, an
+ *     object-shaped type alias callable, and a class with its members.
  *  3. Assert the exact full and type-only projections.
  */
 func TestTypeScriptTypeOnlyNamespaceAliasesProjectOnlyTypeSpace(t *testing.T) {
   inventory := parseTypeScriptInventory(t, "src/contracts.ts", `
 namespace Local {
   export interface Input { id: string; check(): void; }
-  export type Options = { enabled: boolean };
+  export type Options = { enabled: boolean; run(): void };
   export namespace Nested {
     export interface Request { value: string; }
     export const retries = 1;
@@ -59,6 +62,9 @@ export { type Local as SpecTypes };
   sort.Strings(units)
   want := []string{
     "function:Full.Input.check",
+    "function:Full.Options.run",
+    "function:SpecTypes.Options.run",
+    "function:Types.Options.run",
     "function:Full.Nested.run",
     "function:Full.Service.make",
     "function:Full.Service.prototype.send",

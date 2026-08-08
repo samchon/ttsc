@@ -59,6 +59,74 @@ func TestFirstSelectedTypeScriptExportActivatesCoverage(t *testing.T) {
 }
 
 /**
+ * Verifies a property claim over an interface of callables is inactive.
+ *
+ * This is the quiet direction of the rule that classifies a member by how it is
+ * written. Reclassifying a member moves it out of one selector as well as into
+ * another, and the losing direction produces no diagnostic: a `property` claim
+ * over interfaces whose members are all callables now selects no host, and an
+ * inactive claim drops its whole reference obligation with a bare `continue`.
+ * The interface is still a `type` unit, so nothing but the narrowed selector
+ * makes this happen, which is exactly what makes it easy to miss.
+ *
+ *  1. Match a file whose only interface members are a method signature and a
+ *     function-typed member.
+ *  2. Point a `property` claim at it with an unacknowledged Markdown heading.
+ *  3. Assert the inactive claim reports nothing.
+ */
+func TestPropertyClaimOverACallableOnlyInterfaceIsInactive(t *testing.T) {
+  assertNoProblems(t, runIndexRule(t, map[string]string{
+    "docs/spec.md": "## Contract\n",
+    "src/listener.ts": "export interface IListener {\n" +
+      "  onOpen(): void;\n" +
+      "  onMessage: (data: string) => void;\n" +
+      "}\n",
+  }, `{"claims":[{
+    "type":"typescript",
+    "files":["src/**"],
+    "symbol":"property",
+    "reference":{
+      "type":"markdown",
+      "files":["docs/**/*.md"],
+      "symbol":"h2"
+    }
+  }]}`))
+}
+
+/**
+ * Verifies one data member restores the same claim.
+ *
+ * The firing twin of the case above, and the reason that one is not simply a
+ * rule that stopped working. One member the classifier answers `property` for
+ * is the whole difference between a silent build and a reported obligation, so
+ * the pair also states the repair an upgrading consumer needs: name the kinds
+ * the population really holds, or widen the selector.
+ *
+ *  1. Add a data member to the same interface, changing nothing else.
+ *  2. Evaluate the same `property` claim.
+ *  3. Assert the now-active claim reports its missing acknowledgement.
+ */
+func TestOneDataMemberReactivatesAPropertyClaimOverAnInterface(t *testing.T) {
+  assertProblemContains(t, runIndexRule(t, map[string]string{
+    "docs/spec.md": "## Contract\n",
+    "src/listener.ts": "export interface IListener {\n" +
+      "  onOpen(): void;\n" +
+      "  onMessage: (data: string) => void;\n" +
+      "  id: string;\n" +
+      "}\n",
+  }, `{"claims":[{
+    "type":"typescript",
+    "files":["src/**"],
+    "symbol":"property",
+    "reference":{
+      "type":"markdown",
+      "files":["docs/**/*.md"],
+      "symbol":"h2"
+    }
+  }]}`), "Missing acknowledgement for 'docs/spec.md#contract'")
+}
+
+/**
  * Verifies a healthy claim glob matching zero files is inactive.
  *
  * A typo and an intentionally empty folder are indistinguishable from the

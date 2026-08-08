@@ -63,13 +63,15 @@
  * included, because every member of those two is type-space. What it withholds
  * is value-space: namespace data, namespace functions, and every class member,
  * the last because a member is addressed through the class value the alias does
- * not expose. Type properties use `TypeName.property`. Static class members use
- * `ClassName.member`; instance members use `ClassName.prototype.member`.
- * Computed names are not selected, even when their expression is a literal.
- * Literal names must be whitespace-free because a declaration target is one
- * whitespace-delimited token. A dot inside a literal name is rendered
- * unchanged; if that spelling collides with qualification, the target is
- * ambiguous.
+ * not expose. A member of an interface or object-shaped type alias uses
+ * `TypeName.member`, whether it carries data or is written as a callable.
+ * Static class members use `ClassName.member`; instance members use
+ * `ClassName.prototype.member`, and a constructor parameter property is an
+ * instance member addressed that way. Computed names are not selected, even
+ * when their expression is a literal. Literal names must be whitespace-free
+ * because a declaration target is one whitespace-delimited token. A dot inside
+ * a literal name is rendered unchanged; if that spelling collides with
+ * qualification, the target is ambiguous.
  *
  * These targets deliberately omit file paths. If selected files expose the same
  * qualified target, a declaration using that target is ambiguous; rename or

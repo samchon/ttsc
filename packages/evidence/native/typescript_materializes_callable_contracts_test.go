@@ -245,15 +245,21 @@ export interface Ref {}
 
 /**
  * Verifies the TypeScript source default: omitting symbol selects exported
- * interfaces, type aliases, and namespaces without charging callable or
- * property units.
+ * interfaces, type aliases, classes, and namespaces without charging callable
+ * or property units.
  *
  * The default is intentionally narrower than the claim default. A test that
  * merely inspects decoded options would miss a materializer that ignored the
  * selector and indexed every discovered declaration anyway.
  *
- *  1. Put types, a namespace, properties, and callables in one source file.
- *  2. Acknowledge only the three type identities from a TypeScript claim.
+ * The class carries a field and a method of its own, so it also proves the
+ * default stops at the type: acknowledging the class discharges the whole
+ * subject, and neither member arrives as an obligation the citation did not
+ * name.
+ *
+ *  1. Put types, a class with members, a namespace, properties, and callables
+ *     in one source file.
+ *  2. Acknowledge only the four type identities from a TypeScript claim.
  *  3. Assert the omitted source selector creates no additional obligation.
  */
 func TestTypeScriptSourceDefaultMaterializesOnlyTypes(t *testing.T) {
@@ -261,6 +267,10 @@ func TestTypeScriptSourceDefaultMaterializesOnlyTypes(t *testing.T) {
     "src/contracts.ts": `
 export interface Shape { width: number; }
 export type Options = { enabled: boolean };
+export class Sale {
+  readonly price: number = 0;
+  charge(): void {}
+}
 export namespace Api {
   export const state = "ready";
   export function run(): void {}
@@ -268,11 +278,12 @@ export namespace Api {
 export function draw(): void {}
 export const render = (): void => {};
 `,
-    "src/ledger.ts": `import type { Api, Options, Shape } from "./contracts";
+    "src/ledger.ts": `import type { Api, Options, Sale, Shape } from "./contracts";
 
 /**
  * @evidence {@link Shape} Shape is documented here.
  * @evidence {@link Options} Options are documented here.
+ * @evidence {@link Sale} The subject contract is documented here.
  * @evidence {@link Api} The namespace contract is documented here.
  */
 export interface ILedger {}

@@ -1049,15 +1049,19 @@ func collectTypeScriptModule(
 // switch is written twice, once per container, so a kind added to one and not
 // the other is the drift this pair is most exposed to.
 //
-// The allowlist is the exclusion. A get or set signature is an accessor, which
-// is a get/set pair rather than a member variable and stays out on every
-// container. A call signature, a construct signature, and an index signature
-// have no citable name, so an author could not write a target for one. That
-// last group has a consequence worth stating rather than discovering: a
+// The allowlist and the name check are the exclusion, and both gates matter. A
+// get or set signature is an accessor, which is a get/set pair rather than a
+// member variable and stays out on every container. A call signature, a
+// construct signature, and an index signature have no citable name, so an
+// author could not write a target for one. A computed name passes the switch
+// and is refused after it, for the same reason.
+//
+// That leaves a consequence worth stating rather than discovering: a
 // call-signature-only `interface Handler { (input: string): void }` contributes
-// no unit at all, so a claim narrowed to a file of them selects nothing and
-// deactivates. It is the same silence a nameless member always produces, and
-// the repair is to name the member or widen the claim.
+// no *member* unit, so a claim narrowed to `symbol: "function"` or `"property"`
+// over a file of them selects no host and deactivates silently. The interface
+// itself is still a `type` unit, so the default selector keeps such a claim
+// active; the qualifier is the whole statement here, not a detail of it.
 func collectPropertyMembers(
   file *shimast.SourceFile,
   members *shimast.NodeList,

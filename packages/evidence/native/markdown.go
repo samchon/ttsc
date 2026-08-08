@@ -335,7 +335,7 @@ func scanMarkdownInventory(
 // This is where Markdown and TypeScript genuinely differ. A document can be
 // partitioned into disjoint regions, so a Markdown unit's digest really is
 // independent of its subtree. A declaration cannot: `interface ISale` textually
-// contains its properties, so a TypeScript unit's digest covers its descendants
+// contains the members it declares, so a TypeScript unit's digest covers its descendants
 // whether anything wants it to or not. `evidenceUnit.Digest` records the
 // consequence; do not carry the Markdown intuition across.
 //
