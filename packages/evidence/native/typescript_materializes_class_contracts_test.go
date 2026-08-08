@@ -310,6 +310,41 @@ export class Sale {
 }
 
 /**
+ * Verifies a live class member is an exclusion carrier, under any selector.
+ *
+ * The positive twin of the case above, and what makes that one mean anything:
+ * a refusal reads as "withdrawal took the carrier" only if an untagged member
+ * of the same shape is accepted. Without this the refusal is equally consistent
+ * with a class member never having been a carrier at all.
+ *
+ * The field is deliberately the wrong kind for the claim. Carrier eligibility
+ * is wider than host eligibility by design, so a `property` member carries an
+ * exclusion for a `function` claim, and asserting it here is what keeps the
+ * width from quietly narrowing to the selector.
+ *
+ *  1. Exclude a section from a public field in a `symbol: "function"` claim.
+ *  2. Evaluate the claim.
+ *  3. Assert the exclusion is accepted and discharges the section.
+ */
+func TestLiveClassMemberIsAnExclusionCarrier(t *testing.T) {
+  assertNoProblems(t, runIndexRule(t, map[string]string{
+    "docs/spec.md": "## Pricing {#pricing}\n",
+    "src/Sale.ts": `
+export class Sale {
+  /** @evidenceExclude docs/spec.md#pricing This subject fixes no price. */
+  readonly price: number = 0;
+  charge(): void {}
+}
+`,
+  }, `{"claims":[{
+    "type":"typescript",
+    "files":["src/Sale.ts"],
+    "symbol":"function",
+    "reference":{"type":"markdown","files":["docs/spec.md"],"symbol":"h2"}
+  }]}`))
+}
+
+/**
  * Verifies a static member's withdrawal leaves an instance member of the same
  * name alone.
  *
