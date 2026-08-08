@@ -98,6 +98,8 @@ On a reference, `symbol` sets the obligation's denominator. On a claim, it restr
 
 A class is the subject and its members are what the subject does and carries, so the three map onto the three kinds directly: the class is a `type`, a method is a `function`, and a member variable is a `property`. Instance members are addressed through `prototype` and static members directly, as in `Sale.prototype.price` and `Sale.currency`. Constructors and accessors are not selected: construction is how the subject comes to be, which the class itself answers for, and an accessor is a get/set pair rather than a member variable.
 
+A constructor parameter carrying `public`, `readonly`, `private`, or `protected` declares a field, so it is selected exactly as the same field written in the class body would be, and it carries its own JSDoc block. The constructor's own visibility does not decide this: a `private constructor` closes construction from outside while `public readonly price` on its parameter is still an instance field.
+
 Only public identities materialize. A top-level declaration needs an export modifier or a local export-list alias, and a namespace member needs to be exported from that namespace unless ambient semantics make it implicitly public.
 
 Qualified identities keep their owner. `Orders.Input.id` is a property below `Orders.Input`, while `Orders.state` is namespace data. Exported object and array binding patterns expose each local binding leaf as a property, and a type-only alias of a namespace or a class exposes its public type-space descendants without exposing namespace data, callables, or class members.

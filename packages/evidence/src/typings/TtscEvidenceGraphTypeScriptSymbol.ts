@@ -25,7 +25,10 @@
  *   property. Every exported leaf in an object or array binding pattern is a
  *   property. A class field is a property unless it is function-valued, in
  *   which case it is a function; an accessor, including an auto-accessor, is
- *   neither.
+ *   neither. A constructor parameter carrying `public`, `readonly`, `private`,
+ *   or `protected` declares a field and classifies exactly as the same field
+ *   written in the class body would, whatever the constructor's own visibility
+ *   is.
  *
  * TypeScript units form containment scopes. An interface or object-shaped type
  * alias contains its selected properties. A class contains its selected

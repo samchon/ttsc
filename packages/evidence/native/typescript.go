@@ -586,7 +586,27 @@ func collectClassMembers(
     return
   }
   for _, member := range class.Members.Nodes {
-    if member == nil || !isPublicClassMember(member) {
+    if member == nil {
+      continue
+    }
+    // A constructor is judged before the public check, because its own
+    // visibility is not its parameter properties'. A `private constructor`
+    // closes construction from outside; `public readonly price` on one of its
+    // parameters is still an instance field every holder of the object reads.
+    if member.Kind == shimast.KindConstructor {
+      collectParameterProperties(
+        file,
+        member,
+        classIdentity,
+        classID,
+        inventory,
+        supportedHosts,
+        unitsByID,
+        hidden,
+      )
+      continue
+    }
+    if !isPublicClassMember(member) {
       continue
     }
     symbol := ""
@@ -598,11 +618,7 @@ func collectClassMembers(
         continue
       }
       property := member.AsPropertyDeclaration()
-      symbol = "property"
-      if isFunctionValue(property.Initializer) ||
-        isDirectFunctionType(property.Type) {
-        symbol = "function"
-      }
+      symbol = classMemberSymbol(property.Initializer, property.Type)
     default:
       continue
     }
@@ -620,6 +636,78 @@ func collectClassMembers(
       hidden,
     )
   }
+}
+
+// collectParameterProperties materializes the fields a constructor declares
+// through the parameter-property shorthand.
+//
+// `constructor(public readonly price: number)` declares the same public
+// instance field as `readonly price: number` written in the class body, and
+// TypeScript attaches a leading documentation block to the parameter, so it is
+// a real position a citation can live in. Reading only `class.Members` would
+// leave the shorthand invisible while the body form was selected, which is one
+// defect wearing two syntaxes.
+//
+// Every parameter property is an instance field. A constructor cannot be
+// static, and TypeScript refuses a parameter property on an overload
+// signature, so the implementation constructor is the only one that reaches
+// here with any.
+func collectParameterProperties(
+  file *shimast.SourceFile,
+  constructor *shimast.Node,
+  classIdentity []string,
+  classID string,
+  inventory *artifactInventory,
+  supportedHosts map[*shimast.Node]symbolSet,
+  unitsByID map[string]*evidenceUnit,
+  hidden string,
+) {
+  if constructor.ParameterList() == nil {
+    return
+  }
+  for _, parameter := range constructor.Parameters() {
+    if parameter == nil || !isParameterProperty(parameter) {
+      continue
+    }
+    if !isPublicClassMember(parameter) {
+      continue
+    }
+    value := parameter.AsParameterDeclaration()
+    addClassMemberUnit(
+      file,
+      parameter,
+      declarationName(parameter.Name()),
+      classMemberSymbol(value.Initializer, value.Type),
+      false,
+      classIdentity,
+      classID,
+      inventory,
+      supportedHosts,
+      unitsByID,
+      hidden,
+    )
+  }
+}
+
+// isParameterProperty reports whether a constructor parameter also declares a
+// field, which is exactly what one of the four property modifiers says.
+func isParameterProperty(parameter *shimast.Node) bool {
+  return shimast.GetCombinedModifierFlags(parameter)&
+    shimast.ModifierFlagsParameterPropertyModifier != 0
+}
+
+// classMemberSymbol classifies one class member variable by what it holds.
+//
+// Spelled once so the same field answers to the same selector whether it is
+// written in the class body or through the constructor's parameter-property
+// shorthand. Two independent classifications would let moving a field between
+// the two syntaxes change its symbol kind, which is the syntax dependence this
+// collector exists to remove.
+func classMemberSymbol(initializer *shimast.Node, declared *shimast.Node) string {
+  if isFunctionValue(initializer) || isDirectFunctionType(declared) {
+    return "function"
+  }
+  return "property"
 }
 
 // addClassMemberUnit registers one public class member under the address that
