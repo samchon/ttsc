@@ -896,3 +896,113 @@ export interface IPlain {
     )
   }
 }
+
+/**
+ * Verifies a type-only alias over a merged class exposes no member from either
+ * half.
+ *
+ * The class half is already suppressed under a type-only alias, because every
+ * member address runs through the class value the alias does not expose.
+ * Moving the interface half's members onto that same `prototype` address put
+ * them back at exactly the address the suppression exists to keep empty, so the
+ * guard has to travel with the merge rather than sit on one collector.
+ *
+ * The unmerged interface beside it is the negative twin and the reason the
+ * guard is not simply moved to the interface collector: its members are
+ * type-space, they have always projected, and they must keep projecting.
+ *
+ *  1. Export a class merged with an interface through a type-only alias only.
+ *  2. Export an unmerged interface through a type-only alias too.
+ *  3. Assert the merge exposes its name alone while the unmerged interface
+ *     exposes its members.
+ */
+func TestTypeOnlyAliasOverAMergedClassExposesNoMember(t *testing.T) {
+  inventory := parseTypeScriptInventory(t, "src/contracts.ts", `
+class Sale {
+  charge(): void {}
+}
+interface Sale {
+  extra(): void;
+  rate: number;
+}
+export type { Sale };
+export interface IPlain {
+  run(): void;
+}
+export type { IPlain as PlainAlias };
+`)
+  units := []string{}
+  for _, unit := range inventory.Units {
+    units = append(units, unit.Symbol+":"+unit.Target)
+  }
+  sort.Strings(units)
+  want := []string{
+    "function:IPlain.run",
+    "function:PlainAlias.run",
+    "type:IPlain",
+    "type:PlainAlias",
+    "type:Sale",
+  }
+  if strings.Join(units, "\n") != strings.Join(want, "\n") {
+    t.Fatalf(
+      "type-only merged class projection:\n%s\nwant:\n%s",
+      strings.Join(units, "\n"),
+      strings.Join(want, "\n"),
+    )
+  }
+}
+
+/**
+ * Verifies the class an interface merges with is looked up in its own scope.
+ *
+ * Declaration merging happens inside one declaration space, so a class at
+ * module scope does not merge with an interface of that name inside a
+ * namespace. The index that decides the instance address is built per statement
+ * list for that reason, and a shared one would move a nested interface's
+ * members onto a `prototype` path nothing declares.
+ *
+ * A static member of the outer class beside a merged member of the same name is
+ * the boundary the address move could most plausibly have broken: the two are
+ * different members and must keep two addresses rather than collapsing.
+ *
+ *  1. Declare a class merged with an interface, carrying a static and an
+ *     instance member of one name.
+ *  2. Declare a namespace holding an interface of the class's name.
+ *  3. Assert the nested interface keeps its own address and the static and
+ *     instance members stay apart.
+ */
+func TestClassMergeIsResolvedWithinOneDeclarationSpace(t *testing.T) {
+  inventory := parseTypeScriptInventory(t, "src/contracts.ts", `
+export class Sale {
+  static rate: number = 0;
+}
+export interface Sale {
+  rate: number;
+}
+export namespace Outer {
+  export interface Sale {
+    rate: number;
+  }
+}
+`)
+  units := []string{}
+  for _, unit := range inventory.Units {
+    units = append(units, unit.Symbol+":"+unit.Target)
+  }
+  sort.Strings(units)
+  want := []string{
+    "property:Outer.Sale.rate",
+    "property:Sale.prototype.rate",
+    "property:Sale.rate",
+    "type:Outer",
+    "type:Outer.Sale",
+    "type:Sale",
+  }
+  if strings.Join(units, "\n") != strings.Join(want, "\n") {
+    t.Fatalf(
+      "scoped class merge units:\n%s\nwant:\n%s",
+      strings.Join(units, "\n"),
+      strings.Join(want, "\n"),
+    )
+  }
+}

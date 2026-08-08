@@ -288,7 +288,7 @@ func collectTypeScriptStatements(
       if name == "" {
         continue
       }
-      targets := publicTypeScriptNames(
+      targets := publicTypeScriptExports(
         statement,
         name,
         exports,
@@ -308,12 +308,19 @@ func collectTypeScriptStatements(
       // a member reached as `Sale.prototype.charge`: a path no consumer can
       // walk, a second unit for a method the class already declared, and an
       // obligation that stayed owed however the real member was cited.
+      //
+      // The merge also brings the type-only rule with it. An unmerged
+      // interface's members are type-space and project through a type-only
+      // alias, but a merged one's are reached through the class value that
+      // alias does not expose, which is the address the class branch is
+      // already suppressed for. Publishing them here would breach that guard
+      // at exactly the address it exists to keep empty.
       if classNames == nil {
         classNames = collectClassDeclarationNames(statements)
       }
       mergedWithClass := classNames[name]
-      for _, name := range targets {
-        identity := qualifyTypeScriptName(prefix, name)
+      for _, target := range targets {
+        identity := qualifyTypeScriptName(prefix, target.Public)
         unit := addTypeScriptUnit(
           inventory,
           unitsByID,
@@ -325,6 +332,9 @@ func collectTypeScriptStatements(
         )
         memberOwner := identity
         if mergedWithClass {
+          if typeOnlyProjection || target.TypeOnly {
+            continue
+          }
           memberOwner = qualifyTypeScriptName(identity, "prototype")
         }
         collectPropertyMembers(
