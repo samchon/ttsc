@@ -69,6 +69,12 @@ This applies to both sides and to both authored artifact kinds. A withdrawn decl
 
 Keep a withdrawn unit rather than discarding it, marked with the tag that withdrew it. A citation naming one resolved to a real declaration, so it is answered with the tag as the cause; a bare unresolved target would send the author looking for a typo that is not there.
 
+**Withdrawal belongs to the identity, and the host set is filled per declaration, so reconcile the two after materialization rather than while walking.** An identity may span several declarations, and a tag on any one of them withdraws it: an overload run and a merged interface are both one identity in two places. A collector filling the host set sees only the node in hand, so resolving withdrawal there closes the container it walks and no other, and there is one container per declaration form. Done that way twice, the untagged sibling stayed a claim host and an exclusion carrier, and a declaration the author had taken out of the API went on discharging coverage, silently, because the unit really was marked.
+
+**Give a host position up only when every identity reaching it is withdrawn.** One node can host several: `export const price = 1, live = 2` is two identities sharing the statement TypeScript attaches their block to. Judging the position by the first withdrawn identity that names it refuses a citation on a public sibling nobody tagged, which is the same rule the mixed-variable-statement host set already states from the other direction.
+
+**The reconciliation reaches exactly as far as the unit-to-node association does, and that is not yet everywhere.** A module-scope variable declarator is registered as a host and is not among its unit's recorded nodes, so a withdrawn variable identity keeps that one position and an inner declarator's own tag withdraws nothing. Naming the boundary is the point: this is one pass over finished identities rather than a per-container index, and it covers a declaration form nobody has written yet only to the extent that form records the nodes it hosts on.
+
 ## Swagger Classification
 
 Swagger is reference-only. One `ITtscEvidenceGraphSwaggerReference` owns one exact project-relative file path or HTTP(S) URL through its singular `file` property; multiple documents are separate reference-array obligations. It has no public `symbol` selector because every operation under the normalized document's `paths` object is selected.

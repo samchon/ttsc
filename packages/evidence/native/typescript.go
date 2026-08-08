@@ -184,15 +184,28 @@ func scanTypeScriptInventoryAt(
 // coverage and acting as an exclusion carrier. Measured on both shapes; both
 // were silent, because the unit really was marked.
 //
-// Reconciling here rather than in each collector is what makes that a closed
-// class instead of a list of witnesses. A per-container withdrawal index closes
-// the container it indexes and nothing else, and there is one such container per
-// declaration form. This runs once, over the identities the whole file produced,
-// so a form nobody has thought of yet is covered by construction.
+// Reconciling here rather than in each collector is what turns a list of
+// witnesses into one rule. A per-container withdrawal index closes the container
+// it indexes and nothing else, and there is one such container per declaration
+// form. This runs once, over the identities the whole file produced, so it
+// reaches a form nobody has written yet — but only as far as that form's
+// unit-to-node association goes, which is the condition below and the one place
+// this is not yet a closed class.
 //
-// Only the withdrawn unit's own symbol is removed. One node may host two kinds —
-// a variable statement carrying a callable and a data declaration does — and
-// dropping the node outright would withdraw a sibling the author never tagged.
+// A position is given up only when **every** identity that reaches it is
+// withdrawn. One node can host several: `export const price = 1, live = 2` is
+// two property identities sharing the statement TypeScript attaches their block
+// to, and withdrawing one of them must not take the other's only host position
+// with it. Judging per node alone did exactly that, and refused a citation on a
+// public declaration nobody had tagged.
+//
+// What this does not reach is a host node no unit records. A variable
+// declarator is registered as a host and is not among its unit's nodes, so a
+// withdrawn variable identity keeps that one position; the same gap makes an
+// inner declarator's own `@internal` do nothing at all. Both are the module-
+// scope variable statement's incomplete unit-to-node association rather than
+// this reconciliation's, they predate it, and they are tracked separately
+// because closing them moves every variable unit's digest.
 //
 // `documentedHosts` needs no equivalent: it skips a withdrawn unit before it
 // ever consults the host set.
@@ -200,19 +213,33 @@ func withdrawHiddenHosts(
   inventory *artifactInventory,
   supportedHosts map[*shimast.Node]symbolSet,
 ) {
+  type hostPosition struct {
+    node   *shimast.Node
+    symbol string
+  }
+  live := map[hostPosition]bool{}
+  withdrawn := map[hostPosition]bool{}
   for _, unit := range inventory.Units {
-    if unit.Hidden == "" {
-      continue
-    }
     for _, node := range inventory.UnitNodes[unit.ID] {
-      hosts := supportedHosts[node]
-      if hosts == nil {
+      position := hostPosition{node: node, symbol: unit.Symbol}
+      if unit.Hidden == "" {
+        live[position] = true
         continue
       }
-      delete(hosts, unit.Symbol)
-      if len(hosts) == 0 {
-        delete(supportedHosts, node)
-      }
+      withdrawn[position] = true
+    }
+  }
+  for position := range withdrawn {
+    if live[position] {
+      continue
+    }
+    hosts := supportedHosts[position.node]
+    if hosts == nil {
+      continue
+    }
+    delete(hosts, position.symbol)
+    if len(hosts) == 0 {
+      delete(supportedHosts, position.node)
     }
   }
 }

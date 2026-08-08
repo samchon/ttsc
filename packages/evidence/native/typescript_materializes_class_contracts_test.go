@@ -189,6 +189,81 @@ export interface ISale {
 }
 
 /**
+ * Verifies the withdrawal reaches a run whose tagged half comes second.
+ *
+ * The unit is marked by whichever declaration carries the tag, not by the one
+ * written first, and that back-fill is the whole mechanism the host
+ * reconciliation reads. Every other case here tags the first declaration, so
+ * removing the back-fill left the suite green while an untagged-first run
+ * silently went back to hosting a citation.
+ *
+ *  1. Cite the first declaration of an overload run and withdraw the second.
+ *  2. Evaluate a `symbol: "function"` claim over that file.
+ *  3. Assert the citation is refused and the section stays unacknowledged.
+ */
+func TestWithdrawalReachesARunTaggedAfterTheCitation(t *testing.T) {
+  messages := runIndexRule(t, map[string]string{
+    "docs/spec.md": "## Pricing {#pricing}\n",
+    "src/Sale.ts": `
+export class Sale {
+  /** @evidence docs/spec.md#pricing The untagged half hosts nothing either. */
+  compute(amount: number): void;
+  /**
+   * @internal
+   */
+  compute(amount: string): void;
+  compute(amount: unknown): void {}
+  charge(): void {}
+}
+`,
+  }, `{"claims":[{
+    "type":"typescript",
+    "files":["src/Sale.ts"],
+    "symbol":"function",
+    "reference":{"type":"markdown","files":["docs/spec.md"],"symbol":"h2"}
+  }]}`)
+  assertProblemContains(t, messages, "unsupported or non-exported declaration")
+  assertProblemContains(t, messages, "Missing acknowledgement for 'docs/spec.md#pricing'")
+}
+
+/**
+ * Verifies withdrawing one identity leaves a sibling sharing its host position.
+ *
+ * `export var price, live` is two identities and one statement, because
+ * TypeScript attaches their documentation block to the wrapper. Giving up that
+ * position whenever any identity reaching it is withdrawn refused a citation on
+ * `live`, which nobody had tagged and which is fully public. The rule is that a
+ * position is given up only when every identity reaching it is gone.
+ *
+ *  1. Withdraw one identity through a merged namespace and cite its public
+ *     sibling on the shared statement.
+ *  2. Evaluate a `symbol: "property"` claim over that file.
+ *  3. Assert no diagnostic at all.
+ */
+func TestWithdrawalSparesASiblingSharingTheHostPosition(t *testing.T) {
+  assertNoProblems(t, runIndexRule(t, map[string]string{
+    "docs/spec.md": "## Pricing {#pricing}\n",
+    "src/values.ts": `
+export namespace N {
+  /**
+   * @internal
+   */
+  export var price: number;
+}
+export namespace N {
+  /** @evidence docs/spec.md#pricing The live field answers this. */
+  export var price: number, live: number;
+}
+`,
+  }, `{"claims":[{
+    "type":"typescript",
+    "files":["src/values.ts"],
+    "symbol":"property",
+    "reference":{"type":"markdown","files":["docs/spec.md"],"symbol":"h2"}
+  }]}`))
+}
+
+/**
  * Verifies a withdrawn member is not an exclusion carrier either.
  *
  * Carrier eligibility is wider than host eligibility, and it reads the same

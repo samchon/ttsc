@@ -226,10 +226,14 @@ test("an advisory reporting no findings accounts for none of the count", () => {
 });
 
 test("a counted but unnamed severe finding says so in the message", () => {
+  // `critical` is in the fixture as well as `high`, because the message adds
+  // the two and an assertion reading only `high` would let the sum silently
+  // stop counting critical findings.
   const outcome = evaluateAudit({
     status: 1,
     stdout: payload({
-      high: 4,
+      high: 3,
+      critical: 2,
       advisories: {
         1: unfixable("GHSA-w3rx-r6r6-pgpr"),
         2: unfixable("GHSA-5p2g-fcmc-qvqq"),
@@ -238,8 +242,9 @@ test("a counted but unnamed severe finding says so in the message", () => {
     stderr: "",
   });
   assert.equal(outcome.ok, false);
-  assert.match(outcome.message, /counts 4 severe finding\(s\)/);
+  assert.match(outcome.message, /counts 5 severe finding\(s\)/);
   assert.match(outcome.message, /account for 2/);
+  assert.match(outcome.message, /3 were counted and never named/);
   assert.doesNotMatch(outcome.message, /blocking advisories/);
 });
 

@@ -52,6 +52,25 @@ export class Sale {
 }
 `
 
+// classWithdrawnSource is classReviewSource with the parameter property's block
+// replaced by `@internal` and nothing else touched.
+//
+// Shared by the expiry case and the certificate that the class's own text does
+// not move, because the two only mean anything together: if they held separate
+// copies, one could drift into changing the class text and the expiry case
+// would go back to passing for the textual reason it claims not to depend on.
+const classWithdrawnSource = `
+export class Sale {
+  readonly declared: number = 0;
+  constructor(
+    /**
+     * @internal
+     */
+    public readonly price: number,
+  ) {}
+}
+`
+
 /**
  * Verifies a review of a class expires when a field the constructor declares
  * changes.
@@ -99,17 +118,7 @@ export class Sale {
  *  3. Assert the review is stale.
  */
 func TestClassScopeReviewExpiresWhenAParameterPropertyIsWithdrawn(t *testing.T) {
-  assertClassScopeReviewExpires(t, `
-export class Sale {
-  readonly declared: number = 0;
-  constructor(
-    /**
-     * @internal
-     */
-    public readonly price: number,
-  ) {}
-}
-`)
+  assertClassScopeReviewExpires(t, classWithdrawnSource)
 }
 
 /**
@@ -138,19 +147,8 @@ func TestWithdrawingAParameterPropertyLeavesTheClassTextUnchanged(t *testing.T) 
     t.Fatalf("%s must materialize", target)
     return "", ""
   }
-  withdrawn := `
-export class Sale {
-  readonly declared: number = 0;
-  constructor(
-    /**
-     * @internal
-     */
-    public readonly price: number,
-  ) {}
-}
-`
   baseClass, _ := digestOf(classReviewSource, "Sale")
-  hiddenClass, _ := digestOf(withdrawn, "Sale")
+  hiddenClass, _ := digestOf(classWithdrawnSource, "Sale")
   if baseClass != hiddenClass {
     t.Fatalf(
       "the class's own digest must not move: %s then %s",
@@ -159,7 +157,7 @@ export class Sale {
     )
   }
   baseMember, baseTag := digestOf(classReviewSource, "Sale.prototype.price")
-  hiddenMember, hiddenTag := digestOf(withdrawn, "Sale.prototype.price")
+  hiddenMember, hiddenTag := digestOf(classWithdrawnSource, "Sale.prototype.price")
   if baseMember != hiddenMember {
     t.Fatalf(
       "the member's own digest must not move either: %s then %s",
