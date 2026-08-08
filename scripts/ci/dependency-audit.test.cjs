@@ -18,10 +18,13 @@ function payload({ high = 0, critical = 0, advisories = {} } = {}) {
 
 // `<0.0.0` is npm's sentinel for "no released version fixes this", which is the
 // precondition every waiver in the gate is checked against.
-const unfixable = (id) => ({
+const unfixable = (id, findings = 1) => ({
   severity: "high",
   github_advisory_id: id,
   patched_versions: "<0.0.0",
+  findings: Array.from({ length: findings }, (_unused, index) => ({
+    version: `1.0.${String(index)}`,
+  })),
 });
 
 test("a clean successful audit passes", () => {
@@ -189,10 +192,7 @@ test("a waived advisory reaching two versions counts as two findings", () => {
     stdout: payload({
       high: 3,
       advisories: {
-        1: {
-          ...unfixable("GHSA-w3rx-r6r6-pgpr"),
-          findings: [{ version: "1.2.1" }, { version: "2.0.2" }],
-        },
+        1: unfixable("GHSA-w3rx-r6r6-pgpr", 2),
         2: unfixable("GHSA-5p2g-fcmc-qvqq"),
       },
     }),
@@ -200,6 +200,47 @@ test("a waived advisory reaching two versions counts as two findings", () => {
   });
   assert.equal(outcome.ok, true);
   assert.match(outcome.message, /waived=2/);
+});
+
+test("an advisory reporting no findings accounts for none of the count", () => {
+  // The fallback this replaced assumed one finding per advisory, which absorbed
+  // exactly one counted-but-unnamed severe finding per advisory with an empty
+  // or missing array. That is the hole the cross-check exists to close.
+  const outcome = evaluateAudit({
+    status: 1,
+    stdout: payload({
+      high: 1,
+      advisories: {
+        1: {
+          severity: "high",
+          github_advisory_id: "GHSA-w3rx-r6r6-pgpr",
+          patched_versions: "<0.0.0",
+          findings: [],
+        },
+      },
+    }),
+    stderr: "",
+  });
+  assert.equal(outcome.ok, false);
+  assert.match(outcome.message, /counted and never named/);
+});
+
+test("a counted but unnamed severe finding says so in the message", () => {
+  const outcome = evaluateAudit({
+    status: 1,
+    stdout: payload({
+      high: 4,
+      advisories: {
+        1: unfixable("GHSA-w3rx-r6r6-pgpr"),
+        2: unfixable("GHSA-5p2g-fcmc-qvqq"),
+      },
+    }),
+    stderr: "",
+  });
+  assert.equal(outcome.ok, false);
+  assert.match(outcome.message, /counts 4 severe finding\(s\)/);
+  assert.match(outcome.message, /account for 2/);
+  assert.doesNotMatch(outcome.message, /blocking advisories/);
 });
 
 test("command and JSON failures cannot report green", () => {

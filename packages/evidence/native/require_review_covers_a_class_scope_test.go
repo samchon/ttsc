@@ -34,10 +34,21 @@ export interface ILedger {}
   }
 }
 
+// classReviewSource is the reviewed baseline.
+//
+// The constructor is written out over several lines even though it holds one
+// parameter, so the withdrawal case below can add `@internal` while changing
+// nothing else. Collapsing it would make that case move the class's own text
+// and pass for a reason it does not claim.
 const classReviewSource = `
 export class Sale {
   readonly declared: number = 0;
-  constructor(public readonly price: number) {}
+  constructor(
+    /**
+     * The price the customer pays.
+     */
+    public readonly price: number,
+  ) {}
 }
 `
 
@@ -62,7 +73,12 @@ func TestClassScopeReviewExpiresOnAParameterProperty(t *testing.T) {
   assertClassScopeReviewExpires(t, `
 export class Sale {
   readonly declared: number = 0;
-  constructor(public readonly price: bigint) {}
+  constructor(
+    /**
+     * The price the customer pays.
+     */
+    public readonly price: bigint,
+  ) {}
 }
 `)
 }
@@ -94,6 +110,66 @@ export class Sale {
   ) {}
 }
 `)
+}
+
+/**
+ * Verifies the withdrawal case above moves nothing but the member's own
+ * contribution.
+ *
+ * The case is worth only as much as this. Its baseline and its changed source
+ * differ by the content of one documentation block, and a block is cut out of
+ * every digest as a position a tag can occupy, so the class's own digest has to
+ * come out identical. If it moved, the review would expire for the textual
+ * reason rather than the structural one and the case would prove nothing about
+ * subtree membership.
+ *
+ *  1. Materialize the baseline and the withdrawn source.
+ *  2. Compare the class unit's own digest.
+ *  3. Assert they are equal and that only the member's mark changed.
+ */
+func TestWithdrawingAParameterPropertyLeavesTheClassTextUnchanged(t *testing.T) {
+  digestOf := func(source string, target string) (string, string) {
+    t.Helper()
+    for _, unit := range parseTypeScriptInventory(t, "src/Sale.ts", source).Units {
+      if unit.Target == target {
+        return unit.Digest, unit.Hidden
+      }
+    }
+    t.Fatalf("%s must materialize", target)
+    return "", ""
+  }
+  withdrawn := `
+export class Sale {
+  readonly declared: number = 0;
+  constructor(
+    /**
+     * @internal
+     */
+    public readonly price: number,
+  ) {}
+}
+`
+  baseClass, _ := digestOf(classReviewSource, "Sale")
+  hiddenClass, _ := digestOf(withdrawn, "Sale")
+  if baseClass != hiddenClass {
+    t.Fatalf(
+      "the class's own digest must not move: %s then %s",
+      baseClass,
+      hiddenClass,
+    )
+  }
+  baseMember, baseTag := digestOf(classReviewSource, "Sale.prototype.price")
+  hiddenMember, hiddenTag := digestOf(withdrawn, "Sale.prototype.price")
+  if baseMember != hiddenMember {
+    t.Fatalf(
+      "the member's own digest must not move either: %s then %s",
+      baseMember,
+      hiddenMember,
+    )
+  }
+  if baseTag != "" || hiddenTag != "@internal" {
+    t.Fatalf("only the mark may change, got %q then %q", baseTag, hiddenTag)
+  }
 }
 
 // assertClassScopeReviewExpires reviews the shared class, then asserts the
@@ -141,12 +217,11 @@ func TestClassScopeReviewSurvivesAnEditOutsideTheClass(t *testing.T) {
   )
   review := " * @evidenceReview {@link Sale} #" + expected +
     " Read every field of the subject against the schema.\n"
-  assertNoProblems(t, runIndexRule(t, classReviewProject(`
-export class Sale {
-  readonly declared: number = 0;
-  constructor(public readonly price: number) {}
-}
-
-export interface IUnrelated {}
-`, review), classReviewConfig))
+  // The class is the baseline verbatim, so the only difference is the sibling
+  // below it. Retyping it would move the class's own text and the case would
+  // stop being about the boundary.
+  assertNoProblems(t, runIndexRule(t, classReviewProject(
+    classReviewSource+"\nexport interface IUnrelated {}\n",
+    review,
+  ), classReviewConfig))
 }

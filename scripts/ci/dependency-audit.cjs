@@ -119,13 +119,19 @@ function parseSummary(stdout) {
 
 // findingCount is how many vulnerable paths one advisory covers.
 //
-// One when the field is absent rather than zero: an advisory the report names
-// is at least one finding, and treating it as none would let the cross-check
-// read as if the report had counted something it did not name.
+// Zero when the field is absent, and that is deliberate rather than a fallback.
+// The measured rule is that `metadata[severity]` equals the sum of these
+// lengths, so an advisory that reports no findings accounts for none of the
+// count, and the cross-check should say the report named less than it counted.
+// Assuming one instead would let the gate absorb exactly one unnamed severe
+// finding per advisory with an empty or missing array, which is the hole this
+// check exists to close.
+//
+// A report that stops carrying `findings` therefore turns the lane red rather
+// than green. A cross-check that cannot read the report is not entitled to
+// certify it.
 function findingCount(advisory) {
-  return Array.isArray(advisory.findings) && advisory.findings.length !== 0
-    ? advisory.findings.length
-    : 1;
+  return Array.isArray(advisory.findings) ? advisory.findings.length : 0;
 }
 
 function advisoryIdentity(advisory) {
@@ -206,6 +212,12 @@ function evaluateAudit(result) {
         (summary.repaired.length === 0
           ? ""
           : `\nthese no longer report that no fix exists, so their waiver in dependency-audit.cjs does not hold; take the fix and delete the entry: ${summary.repaired.join(", ")}`) +
+        // Named explicitly, because this is the one trigger with nothing else
+        // to print: the advisory list is empty and the counts still disagree,
+        // so without the two numbers the failure reads as a mystery.
+        (unnamed <= 0
+          ? ""
+          : `\nthe report counts ${String(counts.high + counts.critical)} severe finding(s) and its advisories account for ${String(summary.severeFindings)}; ${String(unnamed)} were counted and never named, so this gate cannot tell what they were`) +
         (result.stderr ? `\n${result.stderr}` : ""),
     };
   return {

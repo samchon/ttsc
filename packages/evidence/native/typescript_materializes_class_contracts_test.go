@@ -148,13 +148,90 @@ export class Sale {
 }
 
 /**
+ * Verifies the same reconciliation reaches a merged interface's members.
+ *
+ * The host set is filled one node at a time by whichever collector walked the
+ * container, and withdrawal belongs to the identity, so every declaration form
+ * that can spell one identity twice has the same leak. An interface declared
+ * twice is the second such form: TypeScript accepts a repeated member whose type
+ * matches, and the untagged copy kept discharging coverage. Closing the class
+ * once rather than per container is what this pins.
+ *
+ *  1. Withdraw a property in one interface declaration and cite it from the
+ *     other.
+ *  2. Evaluate a `symbol: "property"` claim over that file.
+ *  3. Assert the citation is refused and the section stays unacknowledged.
+ */
+func TestWithdrawnInterfacePropertyHostsNothingOnItsOtherDeclaration(t *testing.T) {
+  messages := runIndexRule(t, map[string]string{
+    "docs/spec.md": "## Pricing {#pricing}\n",
+    "src/ISale.ts": `
+export interface ISale {
+  /**
+   * @internal
+   */
+  price: number;
+  live: number;
+}
+export interface ISale {
+  /** @evidence docs/spec.md#pricing A withdrawn property hosts nothing. */
+  price: number;
+}
+`,
+  }, `{"claims":[{
+    "type":"typescript",
+    "files":["src/ISale.ts"],
+    "symbol":"property",
+    "reference":{"type":"markdown","files":["docs/spec.md"],"symbol":"h2"}
+  }]}`)
+  assertProblemContains(t, messages, "unsupported or non-exported declaration")
+  assertProblemContains(t, messages, "Missing acknowledgement for 'docs/spec.md#pricing'")
+}
+
+/**
+ * Verifies a withdrawn member is not an exclusion carrier either.
+ *
+ * Carrier eligibility is wider than host eligibility, and it reads the same
+ * host set, so a leak there is a second way for a withdrawn declaration to
+ * settle an obligation. Excluding through one is worse than citing through one:
+ * the reason field makes it read as a reviewed decision.
+ *
+ *  1. Exclude a section from the untagged half of a withdrawn member.
+ *  2. Evaluate a `symbol: "function"` claim over that file.
+ *  3. Assert the carrier is refused and the section stays unacknowledged.
+ */
+func TestWithdrawnMemberIsNotAnExclusionCarrier(t *testing.T) {
+  messages := runIndexRule(t, map[string]string{
+    "docs/spec.md": "## Pricing {#pricing}\n",
+    "src/Sale.ts": `
+export class Sale {
+  /**
+   * @internal
+   */
+  compute(amount: number): void;
+  /** @evidenceExclude docs/spec.md#pricing A withdrawn method carries nothing. */
+  compute(amount: unknown): void {}
+  charge(): void {}
+}
+`,
+  }, `{"claims":[{
+    "type":"typescript",
+    "files":["src/Sale.ts"],
+    "symbol":"function",
+    "reference":{"type":"markdown","files":["docs/spec.md"],"symbol":"h2"}
+  }]}`)
+  assertProblemContains(t, messages, "not an eligible exclusion carrier")
+  assertProblemContains(t, messages, "Missing acknowledgement for 'docs/spec.md#pricing'")
+}
+
+/**
  * Verifies a static member's withdrawal leaves an instance member of the same
  * name alone.
  *
- * The withdrawal index is keyed on the identity, and an instance member and a
- * static member of one name are two identities with two addresses. Keying on
- * the bare name would let `@internal` on one silently withdraw the other, which
- * is a public declaration leaving the population with nothing said about it.
+ * Withdrawal follows the unit identity, and an instance member and a static
+ * member of one name are two identities with two addresses. Resolving it by the
+ * bare name would let `@internal` on one silently withdraw the other, which is
+ * a public declaration leaving the population with nothing said about it.
  *
  *  1. Withdraw a static member beside an instance member of the same name.
  *  2. Collect the inventory.
@@ -187,6 +264,44 @@ export class Sale {
       strings.Join(want, "\n"),
     )
   }
+}
+
+/**
+ * Verifies the first tag in source order names the withdrawal.
+ *
+ * A citation of a withdrawn target is answered by quoting the tag back, so
+ * which of two competing tags wins decides which line the diagnostic sends the
+ * author to. Last-wins would read identically in every other case, and this is
+ * the same rule a statement list already applies to a merged declaration.
+ *
+ *  1. Tag two declarations of one member with different withdrawal tags.
+ *  2. Collect the inventory.
+ *  3. Assert the first one names the withdrawal.
+ */
+func TestFirstWithdrawalTagInSourceOrderWins(t *testing.T) {
+  inventory := parseTypeScriptInventory(t, "src/Sale.ts", `
+export class Sale {
+  /**
+   * @hidden
+   */
+  compute(amount: number): void;
+  /**
+   * @internal
+   */
+  compute(amount: string): void;
+  compute(amount: unknown): void {}
+}
+`)
+  for _, unit := range inventory.Units {
+    if unit.Target != "Sale.prototype.compute" {
+      continue
+    }
+    if unit.Hidden != "@hidden" {
+      t.Fatalf("the first tag must name the withdrawal, got %q", unit.Hidden)
+    }
+    return
+  }
+  t.Fatal("the withdrawn member must still materialize, marked")
 }
 
 /**

@@ -151,6 +151,7 @@ func scanTypeScriptInventoryAt(
     false,
     "",
   )
+  withdrawHiddenHosts(inventory, supportedHosts)
   collectTypeScriptDeclarations(
     file,
     address.Key,
@@ -169,6 +170,51 @@ func scanTypeScriptInventoryAt(
     return inventory.Units[left].Line < inventory.Units[right].Line
   })
   return inventory
+}
+
+// withdrawHiddenHosts takes every declaration of a withdrawn identity out of
+// the host set, once materialization has decided which identities are withdrawn.
+//
+// Withdrawal is a property of the **identity**, while `supportedHosts` is filled
+// in one node at a time by whichever collector walked that container. Those two
+// facts disagree whenever an identity spans more than one declaration and the
+// author tagged only one of them, which is every overload run and every merged
+// interface: the unit came out marked, and the untagged sibling stayed a host,
+// so a declaration the author had taken out of the API went on discharging
+// coverage and acting as an exclusion carrier. Measured on both shapes; both
+// were silent, because the unit really was marked.
+//
+// Reconciling here rather than in each collector is what makes that a closed
+// class instead of a list of witnesses. A per-container withdrawal index closes
+// the container it indexes and nothing else, and there is one such container per
+// declaration form. This runs once, over the identities the whole file produced,
+// so a form nobody has thought of yet is covered by construction.
+//
+// Only the withdrawn unit's own symbol is removed. One node may host two kinds —
+// a variable statement carrying a callable and a data declaration does — and
+// dropping the node outright would withdraw a sibling the author never tagged.
+//
+// `documentedHosts` needs no equivalent: it skips a withdrawn unit before it
+// ever consults the host set.
+func withdrawHiddenHosts(
+  inventory *artifactInventory,
+  supportedHosts map[*shimast.Node]symbolSet,
+) {
+  for _, unit := range inventory.Units {
+    if unit.Hidden == "" {
+      continue
+    }
+    for _, node := range inventory.UnitNodes[unit.ID] {
+      hosts := supportedHosts[node]
+      if hosts == nil {
+        continue
+      }
+      delete(hosts, unit.Symbol)
+      if len(hosts) == 0 {
+        delete(supportedHosts, node)
+      }
+    }
+  }
 }
 
 // collectTypeScriptStatements materializes the public units one statement list
@@ -589,18 +635,17 @@ func collectClassMembers(
   if class.Members == nil {
     return
   }
-  // Withdrawal is resolved per member *identity* before any member is visited,
-  // for the reason `collectHiddenDeclarationNames` does it for a statement
-  // list. An overload run is one member spelled several times, and the tag sits
-  // on whichever declaration the author documented. Reading the node in hand
-  // withdrew the unit and still registered the untagged sibling as a claim
-  // host, so a method the author had taken out of the API kept discharging
-  // coverage: measured, and silent, because the unit really was marked.
+  // A member's own tag is read from the node in hand, and that is enough for
+  // the unit: `addTypeScriptUnit` keeps the first tag any declaration of an
+  // identity carries, so an overload run tagged on one half comes out marked
+  // whichever half is written first. The host set is reconciled against those
+  // identities afterwards by `withdrawHiddenHosts`, which is what stops the
+  // untagged half of a withdrawn member from staying a claim host.
   //
-  // The constructor is resolved the same way and separately, because it is the
-  // one container here that declares units without being one, so its tag has to
-  // reach the parameter properties rather than a member of its own.
-  hiddenMembers := collectHiddenClassMemberNames(file, class.Members, hidden)
+  // The constructor is resolved separately and up front, because it is the one
+  // container here that declares units without being one: its tag has to reach
+  // the parameter properties rather than a member of its own, and no unit of
+  // its own will carry it there.
   constructorHidden := ""
   constructorResolved := false
   for _, member := range class.Members.Nodes {
@@ -647,10 +692,9 @@ func collectClassMembers(
     default:
       continue
     }
-    name := declarationName(member.Name())
     addClassMemberUnit(
       member,
-      name,
+      declarationName(member.Name()),
       symbol,
       shimast.GetCombinedModifierFlags(member)&shimast.ModifierFlagsStatic != 0,
       classIdentity,
@@ -658,77 +702,9 @@ func collectClassMembers(
       inventory,
       supportedHosts,
       unitsByID,
-      hiddenMembers[classMemberIdentity(member, name)],
+      typeScriptHidingTag(file, member, hidden),
     )
   }
-}
-
-// classMemberIdentity keys one class member identity.
-//
-// Staticness is part of the key because an instance member and a static member
-// may share a name and are two identities with two addresses. Collapsing them
-// would let `@internal` on `static parse` withdraw an unrelated instance
-// `parse`.
-type classMemberIdentityKey struct {
-  name   string
-  static bool
-}
-
-func classMemberIdentity(
-  member *shimast.Node,
-  name string,
-) classMemberIdentityKey {
-  return classMemberIdentityKey{
-    name:   name,
-    static: shimast.GetCombinedModifierFlags(member)&shimast.ModifierFlagsStatic != 0,
-  }
-}
-
-// collectHiddenClassMemberNames indexes the member identities a class withdraws
-// from the public surface, by the tag that withdrew each.
-//
-// An inherited tag short-circuits the walk: once the class is out of the
-// surface every member is, so there is nothing per-member left to decide and a
-// class with `@internal` pays nothing for this index.
-func collectHiddenClassMemberNames(
-  file *shimast.SourceFile,
-  members *shimast.NodeList,
-  inherited string,
-) map[classMemberIdentityKey]string {
-  if file == nil || members == nil {
-    return nil
-  }
-  var names map[classMemberIdentityKey]string
-  for _, member := range members.Nodes {
-    if member == nil || member.Kind == shimast.KindConstructor {
-      continue
-    }
-    name := declarationName(member.Name())
-    if name == "" {
-      continue
-    }
-    key := classMemberIdentity(member, name)
-    if inherited != "" {
-      if names == nil {
-        names = map[classMemberIdentityKey]string{}
-      }
-      names[key] = inherited
-      continue
-    }
-    tag := typeScriptHidingTag(file, member, "")
-    if tag == "" {
-      continue
-    }
-    if names == nil {
-      names = map[classMemberIdentityKey]string{}
-    }
-    // First tag in source order wins, matching how a statement list resolves a
-    // merged declaration's withdrawal.
-    if names[key] == "" {
-      names[key] = tag
-    }
-  }
-  return names
 }
 
 // collectParameterProperties materializes the fields a constructor declares
@@ -848,12 +824,10 @@ func classMemberSymbol(initializer *shimast.Node, declared *shimast.Node) string
 // directly, because those are the two paths a consumer can actually write. The
 // class unit is the parent, so the member is a structural descendant of the
 // subject that declares it rather than a sibling of the class's neighbours.
-// `memberHidden` is the tag that withdrew this member identity, already
-// resolved across every declaration of it by the caller. It is not recomputed
-// from `node`: an overload run is one member spelled several times, and reading
-// the node in hand would withdraw the unit while leaving an untagged sibling
-// registered as a claim host, so a declaration the author took out of the API
-// could still discharge coverage.
+// `memberHidden` is this declaration's own withdrawal tag, inherited from its
+// class. A sibling declaration of the same identity may carry one this node does
+// not; `addTypeScriptUnit` folds that into the unit, and `withdrawHiddenHosts`
+// then takes this node out of the host set.
 func addClassMemberUnit(
   node *shimast.Node,
   name string,
