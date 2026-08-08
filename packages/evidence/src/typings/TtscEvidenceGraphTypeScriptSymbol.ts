@@ -23,14 +23,15 @@
  *   expression remains a function; every other variable, including a
  *   function-typed declaration or function-valued `let` or `var`, is a
  *   property. Every exported leaf in an object or array binding pattern is a
- *   property. A class field is a property unless it is function-valued, in
- *   which case it is a function; an accessor, including an auto-accessor, is
- *   neither. A constructor parameter carrying `public`, `readonly`, `private`,
- *   or `protected` declares a field and classifies exactly as the same field
- *   written in the class body would, whatever the constructor's own visibility
- *   is. Its citation belongs on the parameter: a constructor's own block hosts
- *   nothing, because two parameter properties would leave `@evidence` no way to
- *   say which field it means.
+ *   property. A class field is the one place the opposite rule applies: it is a
+ *   property unless it is function-valued **or** declared with a direct
+ *   function type, either of which makes it a function. An accessor, including
+ *   an auto-accessor, is neither. A constructor parameter carrying `public`,
+ *   `readonly`, `private`, or `protected` declares a field and classifies
+ *   exactly as the same field written in the class body would, whatever the
+ *   constructor's own visibility is. Its citation belongs on the parameter: a
+ *   constructor's own block hosts nothing, because two parameter properties
+ *   would leave `@evidence` no way to say which field it means.
  *
  * TypeScript units form containment scopes. An interface or object-shaped type
  * alias contains its selected properties. A class contains its selected

@@ -463,10 +463,13 @@ export class Order {
  *  3. Assert no diagnostic at all.
  */
 func TestClassCitationAcknowledgesItsParameterProperties(t *testing.T) {
+  // The class declares its field only through the shorthand. A body field
+  // beside it would keep the reference population non-empty on its own, so
+  // parameter properties materializing nothing would leave this green while
+  // the thing it is about had ceased to exist.
   assertNoProblems(t, runIndexRule(t, map[string]string{
     "src/Sale.ts": `
 export class Sale {
-  readonly declared: number = 0;
   constructor(public readonly price: number) {}
 }
 `,

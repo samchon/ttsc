@@ -17,20 +17,26 @@ const classTypeClaimConfig = `{"claims":[{
  * Before the class was a unit, only its methods could answer, which put the
  * obligation one level below the thing that has it.
  *
- *  1. Cite a Markdown section from an exported class.
+ * The uncited second section is what keeps this from passing on an empty
+ * population. A claim whose selected hosts all vanish deactivates and reports
+ * nothing, so a class that had stopped being a `type` unit would leave this
+ * green. Demanding that exactly the uncited section is reported proves the
+ * claim was live and the cited one really was discharged by the class.
+ *
+ *  1. Cite one of two Markdown sections from an exported class.
  *  2. Evaluate a `symbol: "type"` claim over that file.
- *  3. Assert no diagnostic at all.
+ *  3. Assert the uncited section is the only thing reported.
  */
 func TestClassCitationSatisfiesATypeClaim(t *testing.T) {
-  assertNoProblems(t, runIndexRule(t, map[string]string{
-    "docs/spec.md": "## Sale {#sale}\n\nA sale offered to a customer.\n",
+  assertReported(t, runIndexRule(t, map[string]string{
+    "docs/spec.md": "## Sale {#sale}\n\nA sale offered to a customer.\n\n## Uncited {#uncited}\n\nNothing answers for this.\n",
     "src/Sale.ts": `
 /** @evidence docs/spec.md#sale The sale contract this section specifies. */
 export class Sale {
   price: number = 0;
 }
 `,
-  }, classTypeClaimConfig))
+  }, classTypeClaimConfig), "Missing acknowledgement for 'docs/spec.md#uncited'")
 }
 
 /**
@@ -129,20 +135,30 @@ export class Sale {
  * the members, which is the case that proves the ancestor stays addressable
  * even when its own kind is outside the selector.
  *
- *  1. Select a class's callables and fields as the reference population.
- *  2. Cite the class itself, once, from another module.
- *  3. Assert no diagnostic at all.
+ * The uncited sibling class is what keeps this from passing on a population
+ * that shrank. Either half of `Sale`'s members ceasing to materialize would
+ * leave the citation covering whatever survived, and asserting silence would
+ * not notice; demanding that exactly the sibling's field is reported fixes the
+ * count that a shrinking population changes.
+ *
+ *  1. Select two classes' callables and fields as the reference population.
+ *  2. Cite one class itself, once, from another module.
+ *  3. Assert the uncited class's field is the only thing reported.
  */
 func TestClassCitationAcknowledgesItsMembers(t *testing.T) {
-  assertNoProblems(t, runIndexRule(t, map[string]string{
-    "src/Sale.ts": classMemberReferenceSource,
+  assertReported(t, runIndexRule(t, map[string]string{
+    "src/Sale.ts": classMemberReferenceSource + `
+export class Uncited {
+  rate: number = 0;
+}
+`,
     "src/ledger.ts": `
 import type { Sale } from "./Sale.js";
 
 /** @evidence {@link Sale} Records every operation and fact this subject owns. */
 export interface ILedger {}
 `,
-  }, classMemberReferenceConfig))
+  }, classMemberReferenceConfig), "Missing acknowledgement for 'Uncited.prototype.rate'")
 }
 
 /**
@@ -242,4 +258,36 @@ export class Sale {
   }]}`)
   assertProblemContains(t, messages, "is not selected (function)")
   assertProblemContains(t, messages, "Missing acknowledgement for 'docs/spec.md#charge'")
+}
+
+/**
+ * Verifies a class is not a host a property claim can use either.
+ *
+ * The function case beside this one closed one selector and left the other
+ * open: registering the class as a `property` host also passed the whole
+ * suite. Host eligibility has three selectors and the class is a legitimate
+ * host of exactly one of them, so a case per selector is what states that,
+ * and closing them one at a time is how the second stayed open.
+ *
+ *  1. Cite a Markdown section from the class under a `symbol: "property"` claim.
+ *  2. Keep a field as the live host, so the claim is active either way.
+ *  3. Assert the class citation is refused and the section stays unacknowledged.
+ */
+func TestClassIsNotAHostOfAPropertyClaim(t *testing.T) {
+  messages := runIndexRule(t, map[string]string{
+    "docs/spec.md": "## Price {#price}\n\nThe amount the customer pays.\n",
+    "src/Sale.ts": `
+/** @evidence docs/spec.md#price A class hosts nothing a property claim reads. */
+export class Sale {
+  price: number = 0;
+}
+`,
+  }, `{"claims":[{
+    "type":"typescript",
+    "files":["src/**"],
+    "symbol":"property",
+    "reference":{"type":"markdown","files":["docs/**/*.md"],"symbol":"h2"}
+  }]}`)
+  assertProblemContains(t, messages, "is not selected (property)")
+  assertProblemContains(t, messages, "Missing acknowledgement for 'docs/spec.md#price'")
 }

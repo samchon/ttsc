@@ -227,9 +227,11 @@ func withdrawHiddenHosts(
   // percent, and neither reproduced the other's figure, because it moves with
   // how many units a file declares and whether they carry documentation.
   //
-  // A warm rebuild rescans only the files the compiler reparsed, since
-  // `typeScriptInventoryCache` keys on the source file, so this is a cold-scan
-  // and edited-file cost rather than a per-rebuild one.
+  // A warm rebuild mostly rescans only the files the compiler reparsed, since
+  // `typeScriptInventoryCache` keys on the address and the source file, so this
+  // is largely a cold-scan and edited-file cost. Only mostly: the cache keeps
+  // two generations, so a resident host alternating projects pays a miss per
+  // switch, and one file reached through two configured bases is two keys.
   if !anyWithdrawnUnit(inventory) {
     return
   }
@@ -299,10 +301,10 @@ func collectTypeScriptStatements(
   exports := collectLocalExportNames(statements)
   hiddenNames := collectHiddenDeclarationNames(file, statements)
   // Built on the first namespace this list holds rather than up front, so a
-  // file declaring none pays nothing, and most declare none. The saving is on
-  // a cold scan and on the files a rebuild reparsed, not on every rebuild:
-  // `typeScriptInventoryCache` keys on the source file, so an unchanged one is
-  // never rescanned.
+  // file declaring none pays nothing, and most declare none. The saving is
+  // mostly on a cold scan and on the files a rebuild reparsed rather than on
+  // every rebuild, because `typeScriptInventoryCache` remembers an unchanged
+  // file's scan across a cycle.
   var functionNames map[string]bool
   for _, statement := range statements.Nodes {
     if statement == nil {

@@ -1,7 +1,8 @@
 import {
   type ITtscEvidenceProject,
   assertExcludes,
-  assertStatus,
+  assertFailure,
+  assertIncludes,
   createProject,
   runCheck,
 } from "../internal/index";
@@ -14,9 +15,16 @@ import {
  * `property`. Driving it through the real binary is what proves the mapping
  * survives packaging, where the Go suite only proves the collector.
  *
- * 1. Cite one section from a class and another from a public field.
+ * A clean exit would not distinguish a discharged obligation from an absent
+ * one: if both populations went, both claims deactivate and the build exits
+ * clean for the opposite reason. The property document therefore carries a
+ * section nobody cites, and the case demands the build fail naming exactly that
+ * one, with neither cited section among the names.
+ *
+ * 1. Cite one section from a class and another from a public field, leaving a
+ *    third uncited.
  * 2. Enable a `type` claim and a `property` claim over the same file.
- * 3. Assert a clean exit with no missing acknowledgement.
+ * 3. Assert the build fails naming only the uncited section.
  */
 export const test_evidence_graph_cites_a_class_and_its_members = (): void => {
   const project: ITtscEvidenceProject = createProject({
@@ -54,7 +62,16 @@ export const test_evidence_graph_cites_a_class_and_its_members = (): void => {
     ].join("\n"),
     files: {
       "docs/subject.md": "## Sale {#sale}\n\nA sale offered to a customer.\n",
-      "docs/fields.md": "## Price {#price}\n\nThe amount the customer pays.\n",
+      "docs/fields.md": [
+        "## Price {#price}",
+        "",
+        "The amount the customer pays.",
+        "",
+        "## Uncited {#uncited}",
+        "",
+        "Nothing answers for this section.",
+        "",
+      ].join("\n"),
       "src/Sale.ts": [
         "/** @evidence docs/subject.md#sale The sale this section specifies. */",
         "export class Sale {",
@@ -69,15 +86,24 @@ export const test_evidence_graph_cites_a_class_and_its_members = (): void => {
   });
   try {
     const result = runCheck(project.directory);
-    assertStatus(
+    assertFailure(
       result,
-      0,
-      "A class and its public field must be able to answer for their sections.",
+      "The uncited section must keep the build red, which is what proves the claims ran.",
+    );
+    assertIncludes(
+      result,
+      "Missing acknowledgement for 'docs/fields.md#uncited'",
+      "The section nobody cites is the one the build must name.",
     );
     assertExcludes(
       result,
-      "Missing acknowledgement",
-      "Both obligations are cited, so neither may be reported as missing.",
+      "docs/subject.md#sale",
+      "A class must be able to answer for the section describing the subject.",
+    );
+    assertExcludes(
+      result,
+      "docs/fields.md#price",
+      "A public field must be able to answer for the section fixing it.",
     );
   } finally {
     project.cleanup();
