@@ -16,22 +16,34 @@ import (
  * collector that had started selecting every constructor parameter would look
  * identical here.
  *
- *  1. Declare public, modifier-less, private, and protected constructor
- *     parameters beside a body field.
+ * The modifier axis is enumerated rather than sampled. TypeScript's
+ * `ParameterPropertyModifier` mask holds five modifiers, and `override` is the
+ * one that carries no visibility of its own, so a list written from the four
+ * familiar ones selects a field the compiler declares and this collector
+ * already materializes.
+ *
+ *  1. Declare public, readonly, override, modifier-less, private, and
+ *     protected constructor parameters beside a body field.
  *  2. Collect the inventory.
  *  3. Assert only the public parameter properties join the body field.
  */
 func TestTypeScriptMaterializesParameterProperties(t *testing.T) {
   inventory := parseTypeScriptInventory(t, "src/Sale.ts", `
-export class Sale {
+class Base {
+  rate: number = 0;
+}
+export class Sale extends Base {
   readonly declared: number = 0;
   constructor(
     public readonly price: number,
     readonly currency: string,
+    override rate: number,
     plain: number,
     private ledger: number,
     protected audit: number,
-  ) {}
+  ) {
+    super();
+  }
 }
 `)
   units := []string{}
@@ -43,6 +55,7 @@ export class Sale {
     "property:Sale.prototype.currency",
     "property:Sale.prototype.declared",
     "property:Sale.prototype.price",
+    "property:Sale.prototype.rate",
     "type:Sale",
   }
   if strings.Join(units, "\n") != strings.Join(want, "\n") {

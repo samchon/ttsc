@@ -717,3 +717,55 @@ export type TSale = {
     )
   }
 }
+
+/**
+ * Verifies `abstract` changes neither the class nor any member it declares.
+ *
+ * The two predicates a member passes through read modifier flags, so every
+ * modifier that sits beside the ones they test is a case where they must not
+ * act. `abstract` is the one that reaches both a class and its members, states
+ * that an implementation is owed rather than that the contract is absent, and
+ * appeared nowhere in this package. A guard added to either predicate for it
+ * would have left the whole suite green while removing an abstract base's
+ * entire published contract, which is exactly the surface a specification is
+ * most likely to be written against.
+ *
+ * The protected member is the negative twin that keeps the assertion from
+ * reading as "an abstract class materializes everything", and the
+ * function-typed member crosses the modifier axis with the syntactic one.
+ *
+ *  1. Declare an abstract class with abstract data, method, function-typed and
+ *     protected members.
+ *  2. Collect the inventory.
+ *  3. Assert the same unit set a concrete class of that shape would produce.
+ */
+func TestAbstractDecidesNothingAboutAClassOrItsMembers(t *testing.T) {
+  inventory := parseTypeScriptInventory(t, "src/Sale.ts", `
+export abstract class Sale {
+  abstract readonly price: number;
+  abstract handler: () => void;
+  abstract charge(): void;
+  protected abstract audit(): void;
+  static abstract_: number = 0;
+}
+`)
+  units := []string{}
+  for _, unit := range inventory.Units {
+    units = append(units, unit.Symbol+":"+unit.Target)
+  }
+  sort.Strings(units)
+  want := []string{
+    "function:Sale.prototype.charge",
+    "function:Sale.prototype.handler",
+    "property:Sale.abstract_",
+    "property:Sale.prototype.price",
+    "type:Sale",
+  }
+  if strings.Join(units, "\n") != strings.Join(want, "\n") {
+    t.Fatalf(
+      "abstract class units:\n%s\nwant:\n%s",
+      strings.Join(units, "\n"),
+      strings.Join(want, "\n"),
+    )
+  }
+}

@@ -219,7 +219,7 @@ Units keep their hierarchy, so a target acknowledges itself and every selected d
 
 A class is a `type`, its methods are `function`, and its fields are `property`. A member written as a callable joins the methods instead: `handler = () => {}` and `charge: () => void` are both `function`. An interface and an object-shaped type alias are classified by the same rule, so `run(): void` on either is a `function` just as a class method is, and an overload run is one unit. The test is on how the member is written, not on what its type resolves to, because this rule reads no type checker, so `charge: Handler` stays a `property` even where `Handler` is an alias of `() => void`.
 
-A constructor parameter carrying `public`, `readonly`, `private`, or `protected` declares a field, and it classifies exactly as the same field written in the class body would, so a `private` or `protected` one materializes no unit just as the body form does not.
+A class member that is `private` or `protected` materializes no unit, whichever syntax declared it. A constructor parameter carrying any property modifier declares a field, and it classifies exactly as the same field written in the class body would, so a `private` or `protected` one materializes nothing just as the body form does not. The property modifiers are TypeScript's own five: `public`, `protected`, `private`, `readonly`, and `override`, the last of which declares a field while saying nothing about visibility, so `constructor(override rate: number)` is a public instance field.
 
 A declaration whose documentation carries `@internal`, `@hidden`, or `@ignore` leaves the population entirely. It owes nothing and can carry nothing, and citing one is reported rather than silently ignored.
 

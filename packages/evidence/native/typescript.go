@@ -842,7 +842,13 @@ func constructorHidingTag(
 }
 
 // isParameterProperty reports whether a constructor parameter also declares a
-// field, which is exactly what one of the four property modifiers says.
+// field, which is exactly what a property modifier says.
+//
+// The mask is TypeScript's own and holds five: the three accessibility
+// modifiers, `readonly`, and `override`. Naming the familiar four is what a
+// summary reaches for, and it is short by the one that carries no visibility of
+// its own: `constructor(override rate: number)` compiles, emits the assignment,
+// and declares a public instance field. Take the mask rather than restating it.
 func isParameterProperty(parameter *shimast.Node) bool {
   return shimast.GetCombinedModifierFlags(parameter)&
     shimast.ModifierFlagsParameterPropertyModifier != 0

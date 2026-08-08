@@ -30,14 +30,17 @@
  *   and `charge: Handler` is a property even where `Handler` is an alias of the
  *   same type, as are a constructor type and a union. Every exported leaf in an
  *   object or array binding pattern is a property. An accessor, including an
- *   auto-accessor, is neither. A constructor parameter carrying `public`,
- *   `readonly`, `private`, or `protected` declares a field and classifies
- *   exactly as the same field written in the class body would, whatever the
- *   constructor's own visibility is — so a `private` or `protected` one
- *   materializes nothing, exactly as the body form does not. Its citation
- *   belongs on the parameter: a constructor's own block hosts nothing, because
- *   two parameter properties would leave `@evidence` no way to say which field
- *   it means.
+ *   auto-accessor, is neither, and a `private` or `protected` member is not
+ *   selected whichever syntax declared it. A constructor parameter carrying any
+ *   property modifier declares a field and classifies exactly as the same field
+ *   written in the class body would, whatever the constructor's own visibility
+ *   is, so a `private` or `protected` one materializes nothing, exactly as the
+ *   body form does not. The property modifiers are TypeScript's own five:
+ *   `public`, `protected`, `private`, `readonly`, and `override`, the last of
+ *   which declares a field while stating nothing about visibility. A parameter
+ *   property's citation belongs on the parameter: a constructor's own block
+ *   hosts nothing, because two parameter properties would leave `@evidence` no
+ *   way to say which field it means.
  *
  * TypeScript units form containment scopes. An interface or object-shaped type
  * alias contains its selected properties. A class contains its selected
