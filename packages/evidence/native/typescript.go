@@ -597,6 +597,18 @@ func collectFunctionDeclarationNames(
   return names
 }
 
+// collectTypeScriptVariables materializes a variable statement's exported
+// declarators.
+//
+// A variable is a function only when a `const` is initialized with a function
+// value, and that is the inverse of the class-field rule in classMemberSymbol:
+// here the annotation decides nothing, because a variable's declared type
+// describes a value that already exists rather than stating a contract. The
+// three conditions below are each load-bearing and each measured separately, at
+// module and at namespace scope: a binding pattern's initializer belongs to the
+// pattern rather than to any leaf, `let` and `var` are excluded whatever they
+// hold, and the initializer is read syntactically because these rules run with
+// no type checker.
 func collectTypeScriptVariables(
   statement *shimast.Node,
   prefix []string,

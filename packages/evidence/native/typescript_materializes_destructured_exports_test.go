@@ -118,7 +118,12 @@ export const { state } = source;
  * anyway: the guard covers both kinds, nothing else in the package narrows it,
  * and its shape is what this case is for.
  *
- *  1. Destructure a function into an object pattern and into an array pattern.
+ * Scope is the other axis the guard does not read, so it is measured rather
+ * than assumed: a namespace row is here because a guard narrowed to module
+ * scope would otherwise pass.
+ *
+ *  1. Destructure a function into an object pattern and into an array pattern
+ *     at module scope, and into an object pattern inside a namespace.
  *  2. Collect the inventory.
  *  3. Assert every leaf is a property.
  */
@@ -126,6 +131,9 @@ func TestDestructuredLeavesStayPropertiesUnderAFunctionInitializer(t *testing.T)
   inventory := parseTypeScriptInventory(t, "src/contracts.ts", `
 export const { length: named, name: labelled } = function target() {};
 export const [firstLeaf, ...restLeaves] = (): void => {};
+export namespace api {
+  export const { length: nestedLeaf } = function target() {};
+}
 `)
   units := []string{}
   for _, unit := range inventory.Units {
@@ -133,11 +141,14 @@ export const [firstLeaf, ...restLeaves] = (): void => {};
   }
   sort.Strings(units)
   want := []string{
+    "property:api.nestedLeaf",
     "property:firstLeaf",
     "property:labelled",
     "property:named",
     "property:restLeaves",
+    "type:api",
   }
+  sort.Strings(want)
   if strings.Join(units, "\n") != strings.Join(want, "\n") {
     t.Fatalf(
       "destructured leaves under a function initializer:\n%s\nwant:\n%s",

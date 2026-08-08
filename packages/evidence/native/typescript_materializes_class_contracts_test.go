@@ -598,9 +598,10 @@ export class Sale {
  * Both halves and both scopes live here on purpose. Stated apart each reads as
  * an arbitrary rule; together they are what the documents claim, so a change
  * collapsing one onto the other fails here with the relationship named. The
- * positive half at namespace scope is pinned elsewhere and is restated here for
- * the contrast; what only this case holds is that a namespace declaration's
- * annotation and a non-`const`'s initializer both decide nothing.
+ * positive half is pinned elsewhere for a bare `const` at either scope; what
+ * this case adds is the alias-annotated variant of it, and the negatives — that
+ * a declaration's annotation and a non-`const`'s initializer decide nothing,
+ * measured at both scopes rather than at one and assumed at the other.
  *
  *  1. Declare every variable form at module and at namespace scope, beside the
  *     class fields they contrast with.
@@ -615,6 +616,7 @@ export const constInitialized: Handler = () => {};
 export declare const constAnnotated: () => void;
 export let letInitialized: () => void = () => {};
 export declare var varAnnotated: () => void;
+export var varInitialized: () => void = () => {};
 export namespace api {
   export const nestedInitialized: Handler = () => {};
   export declare const nestedAnnotated: () => void;
@@ -642,6 +644,7 @@ export class Sale {
     "property:constAnnotated",
     "property:letInitialized",
     "property:varAnnotated",
+    "property:varInitialized",
     "type:Sale",
     "type:api",
   }
