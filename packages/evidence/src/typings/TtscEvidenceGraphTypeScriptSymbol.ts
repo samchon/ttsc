@@ -43,13 +43,13 @@
  *   way to say which field it means.
  *
  * TypeScript units form containment scopes. An interface or object-shaped type
- * alias contains its selected properties. A class contains its selected
- * members. A namespace contains every selected public unit nested below it,
- * including nested namespaces. An `@evidence` target, or an `@evidenceExclude`
- * target allowed by its reference policy, acknowledges its selected node and
- * every selected descendant. A reference selector defines the obligation kinds
- * while their unselected type ancestors remain addressable as aggregate
- * scopes.
+ * alias contains the members it declares, callables included. A class contains
+ * its selected members. A namespace contains every selected public unit nested
+ * below it, including nested namespaces. An `@evidence` target, or an
+ * `@evidenceExclude` target allowed by its reference policy, acknowledges its
+ * selected node and every selected descendant. A reference selector defines the
+ * obligation kinds while their unselected type ancestors remain addressable as
+ * aggregate scopes.
  *
  * Top-level identities use the public export name, and namespace members
  * prepend their namespace, such as `Orders.create`. A namespace itself uses its

@@ -120,7 +120,7 @@ A class merged with a same-named namespace is one `type` unit, reported from whi
 
 ### Hierarchy
 
-Units contain units. A Markdown file contains its heading outline, a heading contains the lower-level headings under it until the next heading of equal or higher level, an interface contains its properties, a class contains its members, a namespace contains every nested public unit, and a Prisma model contains its columns and relations. Swagger operations are independent leaves.
+Units contain units. A Markdown file contains its heading outline, a heading contains the lower-level headings under it until the next heading of equal or higher level, an interface or an object-shaped type alias contains the members it declares, callables included, a class contains its selected members, a namespace contains every nested public unit, and a Prisma model contains its columns and relations. Swagger operations are independent leaves.
 
 A citation covers its target and every selected descendant. So `symbol: "property"` on a reference can still be satisfied by one `@evidence {@link IShoppingSale} ...`, and one `@evidence prisma:Sale ...` discharges every selected column and relation beneath that model.
 

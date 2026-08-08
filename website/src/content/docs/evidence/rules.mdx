@@ -68,7 +68,9 @@ Evidence declarations are read from JSDoc and nowhere else, so an export without
 
 The default selects every kind a claim can use as a host, deliberately: the population that must be able to hold a tag is exactly the population a claim can select, so a narrower default would leave some potential host unable to cite while the rule reported success.
 
-Members are part of that population, so the rule reaches inside a class, an interface, and an object-shaped type alias. A field, a method, a constructor parameter property, and a method signature each need their own block, because each is a unit a claim can select and therefore a position a citation can live in. A block on the container does not stand in for them: a class explains the subject and a member explains the fact it carries, and the graph counts them separately.
+Members are part of that population, so the rule reaches inside a class, an interface, and an object-shaped type alias. A field, a method, a constructor parameter property, and a method signature each need their own block, because each is a unit a claim can select and therefore a position a citation can live in. A block on the container does not stand in for them: a class explains the subject, a method what it does, and a field the fact it carries, and the graph counts them separately.
+
+It reaches only the members a claim can select, which is the population [the TypeScript kinds](/docs/evidence/claims#typescript-kinds) define. A `private` or `protected` member, an accessor, and the constructor itself are not in it, so none of them is asked for a block.
 
 Presence is the whole check. The rule never judges what the prose says, how long it is, or whether it is sincere. A rule that tried would only teach authors to write filler that satisfies it.
 

@@ -6,9 +6,9 @@ import type { ITtscEvidenceGraphClaimBase } from "./ITtscEvidenceGraphClaimBase"
  *
  * JSDoc puts an evidence edge on the public declaration making the claim,
  * rather than on the file around it. Supported hosts are exported interfaces,
- * type aliases, classes, namespaces, functions, data variables, type
- * properties, and the public class member forms documented by
- * {@link TtscEvidenceGraphTypeScriptSymbol}.
+ * type aliases, classes, namespaces, functions, data variables, and every
+ * public member an interface, an object-shaped type alias, or a class declares,
+ * in each of the forms documented by {@link TtscEvidenceGraphTypeScriptSymbol}.
  *
  * Both `@evidence <target> <reason>` and `@evidenceExclude <target> <reason>`
  * require a target and a non-empty explanation. Ownership evidence must sit on

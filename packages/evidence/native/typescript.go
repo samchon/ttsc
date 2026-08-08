@@ -274,8 +274,7 @@ func collectTypeScriptStatements(
   exports := collectLocalExportNames(statements)
   hiddenNames := collectHiddenDeclarationNames(file, statements)
   // Built on the first namespace this list holds rather than up front, so a
-  // file declaring none pays nothing. Every rebuild scans every configured
-  // source, and most of them have no namespace at all.
+  // file declaring none pays nothing.
   var functionNames map[string]bool
   for _, statement := range statements.Nodes {
     if statement == nil {
@@ -1040,6 +1039,25 @@ func collectTypeScriptModule(
   }
 }
 
+// collectPropertyMembers materializes the members an interface or an
+// object-shaped type alias declares.
+//
+// This is the other half of the four-spelling rule `collectClassMembers` owns,
+// and the two must stay in step: a member signature is a function unit and a
+// data member is a property unit, decided by `memberSymbol` from the annotation
+// as spelled. The classification is single-sourced there, while the member-kind
+// switch is written twice, once per container, so a kind added to one and not
+// the other is the drift this pair is most exposed to.
+//
+// The allowlist is the exclusion. A get or set signature is an accessor, which
+// is a get/set pair rather than a member variable and stays out on every
+// container. A call signature, a construct signature, and an index signature
+// have no citable name, so an author could not write a target for one. That
+// last group has a consequence worth stating rather than discovering: a
+// call-signature-only `interface Handler { (input: string): void }` contributes
+// no unit at all, so a claim narrowed to a file of them selects nothing and
+// deactivates. It is the same silence a nameless member always produces, and
+// the repair is to name the member or widen the claim.
 func collectPropertyMembers(
   file *shimast.SourceFile,
   members *shimast.NodeList,
