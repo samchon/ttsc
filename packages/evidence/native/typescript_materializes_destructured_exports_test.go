@@ -110,8 +110,13 @@ export const { state } = source;
  * pinned only where nothing could have made a leaf callable. A `const`
  * initialized with a function is the one shape that reaches the callable
  * branch, and the binding-pattern guard is what stops the whole pattern's
- * initializer from being attributed to each leaf. Both pattern kinds are here
- * because the guard covers both and a case for one leaves the other open.
+ * initializer from being attributed to each leaf.
+ *
+ * The two pattern kinds are not symmetric. The object row is a program that
+ * compiles, since a function does carry `length` and `name`; the array row is
+ * `TS2488` under a checker, because a function is not iterable. It is here
+ * anyway: the guard covers both kinds, nothing else in the package narrows it,
+ * and its shape is what this case is for.
  *
  *  1. Destructure a function into an object pattern and into an array pattern.
  *  2. Collect the inventory.

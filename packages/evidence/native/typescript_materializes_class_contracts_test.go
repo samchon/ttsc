@@ -597,9 +597,12 @@ export class Sale {
  *
  * Both halves and both scopes live here on purpose. Stated apart each reads as
  * an arbitrary rule; together they are what the documents claim, so a change
- * collapsing one onto the other fails here with the relationship named.
+ * collapsing one onto the other fails here with the relationship named. The
+ * positive half at namespace scope is pinned elsewhere and is restated here for
+ * the contrast; what only this case holds is that a namespace declaration's
+ * annotation and a non-`const`'s initializer both decide nothing.
  *
- *  1. Declare each variable form at module and namespace scope, beside the
+ *  1. Declare every variable form at module and at namespace scope, beside the
  *     class fields they contrast with.
  *  2. Collect the inventory.
  *  3. Assert the only functions are a `const` initialized with a function and
@@ -616,6 +619,7 @@ export namespace api {
   export const nestedInitialized: Handler = () => {};
   export declare const nestedAnnotated: () => void;
   export let nestedLet: () => void = () => {};
+  export var nestedVar: () => void = () => {};
 }
 export class Sale {
   declare annotated: () => void;
@@ -634,6 +638,7 @@ export class Sale {
     "function:constInitialized",
     "property:api.nestedAnnotated",
     "property:api.nestedLet",
+    "property:api.nestedVar",
     "property:constAnnotated",
     "property:letInitialized",
     "property:varAnnotated",
