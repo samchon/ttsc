@@ -16,6 +16,14 @@ function payload({ high = 0, critical = 0, advisories = {} } = {}) {
   });
 }
 
+// `<0.0.0` is npm's sentinel for "no released version fixes this", which is the
+// precondition every waiver in the gate is checked against.
+const unfixable = (id) => ({
+  severity: "high",
+  github_advisory_id: id,
+  patched_versions: "<0.0.0",
+});
+
 test("a clean successful audit passes", () => {
   assert.deepEqual(
     evaluateAudit({ status: 0, stdout: payload(), stderr: "" }),
@@ -75,8 +83,8 @@ test("a waived advisory passes while an unwaived one beside it still fails", () 
     stdout: payload({
       high: 2,
       advisories: {
-        1: { severity: "high", github_advisory_id: "GHSA-w3rx-r6r6-pgpr" },
-        2: { severity: "high", github_advisory_id: "GHSA-5p2g-fcmc-qvqq" },
+        1: unfixable("GHSA-w3rx-r6r6-pgpr"),
+        2: unfixable("GHSA-5p2g-fcmc-qvqq"),
       },
     }),
     stderr: "",
@@ -90,8 +98,8 @@ test("a waived advisory passes while an unwaived one beside it still fails", () 
     stdout: payload({
       high: 3,
       advisories: {
-        1: { severity: "high", github_advisory_id: "GHSA-w3rx-r6r6-pgpr" },
-        2: { severity: "high", github_advisory_id: "GHSA-5p2g-fcmc-qvqq" },
+        1: unfixable("GHSA-w3rx-r6r6-pgpr"),
+        2: unfixable("GHSA-5p2g-fcmc-qvqq"),
         3: { severity: "high", github_advisory_id: "GHSA-real-real-real" },
       },
     }),
@@ -102,14 +110,33 @@ test("a waived advisory passes while an unwaived one beside it still fails", () 
   assert.doesNotMatch(alongsideReal.message, /blocking.*GHSA-w3rx-r6r6-pgpr/);
 });
 
-test("a waiver that stops applying leaves the audit green and unnamed", () => {
+test("a waiver stops applying the moment upstream publishes a fix", () => {
+  const outcome = evaluateAudit({
+    status: 1,
+    stdout: payload({
+      high: 2,
+      advisories: {
+        1: {
+          severity: "high",
+          github_advisory_id: "GHSA-w3rx-r6r6-pgpr",
+          patched_versions: ">=2.0.3",
+        },
+        2: unfixable("GHSA-5p2g-fcmc-qvqq"),
+      },
+    }),
+    stderr: "",
+  });
+  assert.equal(outcome.ok, false);
+  assert.match(outcome.message, /blocking advisories: GHSA-w3rx-r6r6-pgpr/);
+  assert.match(outcome.message, /now have a published fix/);
+});
+
+test("a waiver that matches nothing leaves a clean audit green", () => {
   const outcome = evaluateAudit({
     status: 1,
     stdout: payload({
       high: 1,
-      advisories: {
-        1: { severity: "high", github_advisory_id: "GHSA-w3rx-r6r6-pgpr" },
-      },
+      advisories: { 1: unfixable("GHSA-w3rx-r6r6-pgpr") },
     }),
     stderr: "",
   });
@@ -119,14 +146,14 @@ test("a waiver that stops applying leaves the audit green and unnamed", () => {
   assert.doesNotMatch(outcome.message, /GHSA-5p2g-fcmc-qvqq/);
 });
 
-test("an unlisted high advisory still fails through the metadata counts", () => {
+test("a severe advisory the report counted but did not name still fails", () => {
   const outcome = evaluateAudit({
     status: 1,
     stdout: payload({
       high: 3,
       advisories: {
-        1: { severity: "high", github_advisory_id: "GHSA-w3rx-r6r6-pgpr" },
-        2: { severity: "high", github_advisory_id: "GHSA-5p2g-fcmc-qvqq" },
+        1: unfixable("GHSA-w3rx-r6r6-pgpr"),
+        2: unfixable("GHSA-5p2g-fcmc-qvqq"),
       },
     }),
     stderr: "",

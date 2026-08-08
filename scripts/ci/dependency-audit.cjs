@@ -4,22 +4,30 @@ const HIGH_SEVERITIES = new Set(["high", "critical"]);
 
 // High or critical advisories with no released fix, waived deliberately.
 //
-// pnpm's own ignore list is unreachable at the pinned pnpm 10.6.4, measured
-// before writing this: `package.json#pnpm.auditConfig` is warned about and
-// dropped, and neither `auditConfig` nor its successor `audit.ignore` in
-// `pnpm-workspace.yaml` reaches `pnpm audit`. So the waiver lives here, in the
-// gate that already reads the report.
+// The waiver lives here rather than in pnpm's own ignore list, and the reason is
+// not that pnpm's is unreachable. Measured at the pinned pnpm 10.6.4:
+// `package.json#pnpm.auditConfig.ignoreGhsas` **is** honored and does remove the
+// advisory from the report's `advisories` map, while the same key in
+// `pnpm-workspace.yaml` reaches nothing. But pnpm subtracts nothing from
+// `metadata.vulnerabilities`, which this gate also checks, so an advisory
+// ignored there disappears from the list and still fails the count with no name
+// attached to explain why. Waiving here keeps one place that sees the whole
+// report and says out loud what it let past.
 //
-// An advisory belongs here only when **no released version fixes it**. Anything
-// with a patched line goes in `pnpm.overrides` instead, where the audit keeps
-// checking the edge rather than stopping at it. Each entry states why it is not
-// exposure.
+// (The `[WARN] The "pnpm" field in package.json is no longer read` line that
+// accompanies every command comes from the outer pnpm launcher, not from the
+// 10.6.4 that `packageManager` selects and that actually runs. Do not read it as
+// evidence that the field is inert.)
 //
-// Every waiver this list actually applied is named in the passing message, so a
-// green run states what it waived instead of hiding it. That is the reporting
-// rather than a hard failure on an unmatched entry, because a report that
-// legitimately finds nothing has to stay green: turning a clean audit red is a
-// worse failure mode than an entry that outlives its advisory by a release.
+// An advisory belongs here only when **no released version fixes it**, and that
+// is enforced rather than promised: a waiver applies only while the report still
+// carries npm's no-fix sentinel for it. The day upstream publishes a fix, the
+// advisory names its patched line, the waiver stops applying, and the gate goes
+// red until someone takes the new version. Anything that already has a patched
+// line goes in `pnpm.overrides` instead.
+//
+// Every waiver this list applied is named in the passing message, so a green run
+// states what it let through instead of hiding it.
 const WAIVED = new Map([
   [
     "GHSA-w3rx-r6r6-pgpr",
@@ -55,22 +63,62 @@ function parseSummary(stdout) {
       throw new Error(`audit payload has an invalid ${severity} count`);
     counts[severity] = count;
   }
-  const advisories = Object.values(payload.advisories);
-  const severe = advisories
-    .filter((advisory) => HIGH_SEVERITIES.has(advisory.severity))
-    .map(
-      (advisory) =>
-        advisory.github_advisory_id ??
-        advisory.cves?.[0] ??
-        String(advisory.id ?? advisory.module_name ?? "unknown"),
-    );
+  const severe = Object.values(payload.advisories).filter((advisory) =>
+    HIGH_SEVERITIES.has(advisory.severity),
+  );
+  const blocking = [];
+  const waived = [];
+  const repaired = [];
+  for (const advisory of severe) {
+    const id = advisoryIdentity(advisory);
+    if (!WAIVED.has(id)) {
+      blocking.push(id);
+      continue;
+    }
+    if (!hasNoReleasedFix(advisory)) {
+      // The waiver's own precondition stopped holding. It blocks like any other
+      // advisory, and the caller says so, because "take the fix and delete the
+      // entry" is a different repair from "this one has no fix".
+      blocking.push(id);
+      repaired.push(id);
+      continue;
+    }
+    waived.push(id);
+  }
   return {
     counts,
-    ids: severe.filter((id) => !WAIVED.has(id)).sort(),
-    // Reported back so a waiver that no longer matches anything is a failure
-    // rather than a quietly rotting comment.
-    waived: [...new Set(severe.filter((id) => WAIVED.has(id)))].sort(),
+    ids: [...new Set(blocking)].sort(),
+    // Only the waivers this report actually matched, deduplicated, so the
+    // passing message names what was waived rather than what the list holds.
+    waived: [...new Set(waived)].sort(),
+    repaired: [...new Set(repaired)].sort(),
+    // Every severe advisory the report named, waived or not. The counts are
+    // compared against this rather than against the blocking set, so the two
+    // aggregations stay independent: a waiver can never subtract from the
+    // cross-check that catches a count with no advisory behind it.
+    severeCount: severe.length,
   };
+}
+
+function advisoryIdentity(advisory) {
+  return (
+    advisory.github_advisory_id ??
+    advisory.cves?.[0] ??
+    String(advisory.id ?? advisory.module_name ?? "unknown")
+  );
+}
+
+// hasNoReleasedFix reads npm's sentinel for "nothing fixes this yet".
+//
+// A patched range no version can satisfy is how the registry says a fix does
+// not exist. Requiring it is what stops a waiver from outliving its advisory:
+// nothing else in this file can tell a permanently unfixable edge from one
+// somebody simply has not upgraded.
+function hasNoReleasedFix(advisory) {
+  return (
+    typeof advisory.patched_versions === "string" &&
+    advisory.patched_versions.trim() === "<0.0.0"
+  );
 }
 
 function evaluateAudit(result) {
@@ -105,10 +153,11 @@ function evaluateAudit(result) {
   const unexpectedStatus = result.status !== 0 && result.status !== 1;
   // The counts are the belt to the advisory list's braces: they come from
   // pnpm's own metadata rather than from the map this gate reads, so a report
-  // that counts a high advisory it did not list still fails. Only the waived
-  // ones are subtracted.
-  const severe = counts.high + counts.critical - summary.waived.length;
-  if (unexpectedStatus || severe !== 0 || summary.ids.length !== 0)
+  // that counts a severe advisory it did not name still fails. The comparison
+  // is against every severe advisory the report listed, waived or not, so a
+  // waiver cannot weaken this half.
+  const unnamed = counts.high + counts.critical - summary.severeCount;
+  if (unexpectedStatus || unnamed > 0 || summary.ids.length !== 0)
     return {
       ok: false,
       message:
@@ -116,6 +165,9 @@ function evaluateAudit(result) {
         (summary.ids.length === 0
           ? ""
           : `\nblocking advisories: ${summary.ids.join(", ")}`) +
+        (summary.repaired.length === 0
+          ? ""
+          : `\nthese now have a published fix; take it and delete the waiver from dependency-audit.cjs: ${summary.repaired.join(", ")}`) +
         (result.stderr ? `\n${result.stderr}` : ""),
     };
   return {

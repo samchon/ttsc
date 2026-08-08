@@ -108,7 +108,7 @@ Qualified identities keep their owner. `Orders.Input.id` is a property below `Or
 
 A namespace merged with a same-named function is that function's static side, so nothing inside it materializes. That is the generated SDK accessor shape, `export async function get(...)` beside `export namespace get`, where `get.path` and `get.Output` are the accessor's own machinery rather than authored contract. One operation therefore owes one acknowledgement, cited as `{@link api.functional.health.get}`. A namespace merged with an interface or a class keeps its members, because a companion namespace beside either one is authored contract, and a `const` or `let` cannot merge with a namespace at all.
 
-A class merged with a same-named namespace is one `type` unit, reported from whichever half is written first. That is usually the class, because TypeScript refuses an instantiated namespace written above the class it merges with, but a type-only companion namespace may legally come first and then be the declaration every diagnostic names.
+A class merged with a same-named namespace is one `type` unit, reported from whichever half is written first. That is usually the class, because TypeScript refuses an _instantiated_ namespace written above the class it merges with. The refusal has two gaps, and in both the namespace may legally come first and then be the declaration every diagnostic names: a companion namespace holding only types is not instantiated, and the check is skipped entirely in an ambient context, which is the shape a `.d.ts` presents.
 
 ### Hierarchy
 

@@ -589,6 +589,13 @@ func collectClassMembers(
   if class.Members == nil {
     return
   }
+  // The constructor's withdrawal tag is read across every one of its
+  // declarations, before any of them is visited. An overload run is one
+  // constructor spelled several times and only the implementation carries
+  // parameter properties, so reading the tag from the visited node alone would
+  // drop an `@internal` written on a signature — which is where JSDoc for an
+  // overloaded declaration conventionally goes.
+  constructorHidden := constructorHidingTag(file, class.Members, hidden)
   for _, member := range class.Members.Nodes {
     if member == nil {
       continue
@@ -606,7 +613,7 @@ func collectClassMembers(
         inventory,
         supportedHosts,
         unitsByID,
-        hidden,
+        constructorHidden,
       )
       continue
     }
@@ -657,7 +664,8 @@ func collectClassMembers(
 // signature, so the implementation constructor is the only one that reaches
 // here with any.
 //
-// The constructor's own withdrawal tag is read and inherited. It is the only
+// The tag `hidden` carries is the constructor's, already resolved across every
+// declaration of it by `constructorHidingTag`. The constructor is the only
 // container in this collector that declares units without being one, so
 // forwarding the class's tag alone would leave `@internal` on a constructor
 // inert while the same tag on a class or on the field itself withdraws.
@@ -674,7 +682,6 @@ func collectParameterProperties(
   if constructor.ParameterList() == nil {
     return
   }
-  constructorHidden := typeScriptHidingTag(file, constructor, hidden)
   for _, parameter := range constructor.Parameters() {
     if parameter == nil || !isParameterProperty(parameter) {
       continue
@@ -694,9 +701,37 @@ func collectParameterProperties(
       inventory,
       supportedHosts,
       unitsByID,
-      constructorHidden,
+      hidden,
     )
   }
+}
+
+// constructorHidingTag resolves the withdrawal tag of a class's constructor
+// across every declaration of it.
+//
+// An overload run is one constructor written several times, and the tag may sit
+// on any of them: a signature is where a reader looks for the documentation,
+// while only the implementation declares parameter properties. Reading the tag
+// per node would make the withdrawal depend on which half the author documented,
+// which is the source-order accident every other merged declaration in this
+// collector already refuses.
+func constructorHidingTag(
+  file *shimast.SourceFile,
+  members *shimast.NodeList,
+  inherited string,
+) string {
+  if inherited != "" {
+    return inherited
+  }
+  for _, member := range members.Nodes {
+    if member == nil || member.Kind != shimast.KindConstructor {
+      continue
+    }
+    if tag := typeScriptHidingTag(file, member, ""); tag != "" {
+      return tag
+    }
+  }
+  return ""
 }
 
 // isParameterProperty reports whether a constructor parameter also declares a

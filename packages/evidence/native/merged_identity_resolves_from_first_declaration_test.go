@@ -1,6 +1,10 @@
 package evidence
 
-import "testing"
+import (
+  "sort"
+  "strings"
+  "testing"
+)
 
 const mergedIdentityGraphConfig = `{"claims":[{
   "type":"typescript",
@@ -368,7 +372,7 @@ export namespace Sale {
  *     contributes its members below it.
  */
 func TestTypeOnlyNamespaceAboveItsClassFoundsTheIdentity(t *testing.T) {
-  inventory := parseTypeScriptInventory(t, "src/Sale.ts", `
+  assertMergeFoundedAtLineTwo(t, `
 export namespace Sale {
   export interface IProps {
     id: string;
@@ -378,21 +382,75 @@ export class Sale {
   price: number = 0;
 }
 `)
+}
+
+/**
+ * Verifies an ambient namespace above its class founds the identity too.
+ *
+ * The other half of the same gate. `TS2434` is skipped entirely in an ambient
+ * context, so a `declare namespace` may precede its `declare class` whatever it
+ * holds, and this is the shape a `.d.ts` consumer meets through a `package`
+ * reference. Pinning only the type-only case would leave the rule half proved
+ * and the ambient half asserted in prose alone.
+ *
+ *  1. Declare an ambient value-holding namespace above its ambient class.
+ *  2. Materialize the inventory.
+ *  3. Assert the same one unit, reported from the namespace.
+ */
+func TestAmbientNamespaceAboveItsClassFoundsTheIdentity(t *testing.T) {
+  assertMergeFoundedAtLineTwo(t, `
+export declare namespace Sale {
+  export interface IProps {
+    id: string;
+  }
+}
+export declare class Sale {
+  price: number;
+}
+`)
+}
+
+// assertMergeFoundedAtLineTwo pins one class-and-namespace merge whose namespace
+// half comes first.
+//
+// The exact `symbol:target` set is asserted rather than a lookup by target
+// alone, so a regression that emitted `Sale` under another kind, or emitted a
+// second `Sale` unit beside it, fails here rather than passing a test whose
+// message still claims to check the type unit.
+func assertMergeFoundedAtLineTwo(t *testing.T, source string) {
+  t.Helper()
+  inventory := parseTypeScriptInventory(t, "src/Sale.ts", source)
+  units := []string{}
   byTarget := map[string]*evidenceUnit{}
   for _, unit := range inventory.Units {
+    units = append(units, unit.Symbol+":"+unit.Target)
     byTarget[unit.Target] = unit
   }
+  sort.Strings(units)
+  want := []string{
+    "property:Sale.IProps.id",
+    "property:Sale.prototype.price",
+    "type:Sale",
+    "type:Sale.IProps",
+  }
+  if strings.Join(units, "\n") != strings.Join(want, "\n") {
+    t.Fatalf(
+      "merged identity units:\n%s\nwant:\n%s",
+      strings.Join(units, "\n"),
+      strings.Join(want, "\n"),
+    )
+  }
   class := byTarget["Sale"]
-  if class == nil || class.Line != 2 {
-    t.Fatalf("the type unit 'Sale' must be the namespace at line 2, got %+v", class)
+  if class.Line != 2 {
+    t.Fatalf("the type unit 'Sale' must be the namespace at line 2, got %d", class.Line)
   }
   for _, target := range []string{"Sale.IProps", "Sale.prototype.price"} {
-    member := byTarget[target]
-    if member == nil {
-      t.Fatalf("%s must materialize, got %v", target, byTarget)
-    }
-    if member.ParentID != class.ID {
-      t.Fatalf("%s must hang below the merged identity, got parent %q", target, member.ParentID)
+    if byTarget[target].ParentID != class.ID {
+      t.Fatalf(
+        "%s must hang below the merged identity, got parent %q",
+        target,
+        byTarget[target].ParentID,
+      )
     }
   }
 }

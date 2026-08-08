@@ -13,9 +13,9 @@ import {
  * This is the case that pins "the first declaration that can host a citation is
  * the basis" rather than "a block anywhere will do", and it is the firing twin
  * of the accepting fixture — without it, a rule that had stopped reading
- * placement entirely would look identical. The class fixture is the sharp one:
- * the class here is written above the namespace it merges with, so it founds
- * the identity and a block on the later half cannot stand in for one above it.
+ * placement entirely would look identical. Each fixture puts its block on a
+ * later half of the merge, and every one of them is reported, because the
+ * declaration written first is the identity's basis whichever kind it is.
  *
  * 1. Document the later half of an interface merge and of a class merge, and the
  *    default export rather than its const.

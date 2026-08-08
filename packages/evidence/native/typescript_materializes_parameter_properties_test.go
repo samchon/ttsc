@@ -272,10 +272,10 @@ export class Sale {
  * materialize nothing of their own.
  *
  * The constructor is read now rather than skipped, so the shapes that carry no
- * parameter property have to leave the population exactly as they found it. An
- * overload run is the sharper half: TypeScript refuses a parameter property on
- * a signature, so only the implementation may contribute, and reading the
- * signatures too would double every field.
+ * parameter property have to leave the population exactly as they found it. The
+ * overload half is a boundary rather than a doubling risk, since units dedupe
+ * by identity: what it pins is that walking three constructor nodes instead of
+ * one adds nothing and drops nothing.
  *
  *  1. Declare an empty constructor in one class and an overload run in another.
  *  2. Collect the inventory.
@@ -347,6 +347,52 @@ export class Sale {
   if strings.Join(tagged, "\n") != strings.Join(want, "\n") {
     t.Fatalf(
       "withdrawn constructor units:\n%s\nwant:\n%s",
+      strings.Join(tagged, "\n"),
+      strings.Join(want, "\n"),
+    )
+  }
+}
+
+/**
+ * Verifies a withdrawal on a constructor overload signature still reaches the
+ * fields the implementation declares.
+ *
+ * An overload run is one constructor written several times, and a signature is
+ * where JSDoc for an overloaded declaration conventionally goes, while only the
+ * implementation carries parameter properties. Reading the tag from the node
+ * being visited would make the withdrawal depend on which half the author
+ * documented, which is exactly the shape the tag on a *method* signature
+ * already survives, because both method nodes fold into one unit.
+ *
+ *  1. Withdraw the first constructor signature of an overload run.
+ *  2. Collect the inventory.
+ *  3. Assert the implementation's parameter property carries the tag.
+ */
+func TestWithdrawnConstructorSignatureWithdrawsItsParameterProperties(t *testing.T) {
+  inventory := parseTypeScriptInventory(t, "src/Order.ts", `
+export class Order {
+  readonly declared: number = 0;
+  /**
+   * @internal
+   */
+  constructor(price: number);
+  constructor(price: string);
+  constructor(public readonly price: number | string) {}
+}
+`)
+  tagged := []string{}
+  for _, unit := range inventory.Units {
+    tagged = append(tagged, unit.Symbol+":"+unit.Target+"="+unit.Hidden)
+  }
+  sort.Strings(tagged)
+  want := []string{
+    "property:Order.prototype.declared=",
+    "property:Order.prototype.price=@internal",
+    "type:Order=",
+  }
+  if strings.Join(tagged, "\n") != strings.Join(want, "\n") {
+    t.Fatalf(
+      "withdrawn constructor signature units:\n%s\nwant:\n%s",
       strings.Join(tagged, "\n"),
       strings.Join(want, "\n"),
     )
