@@ -110,10 +110,11 @@ export class Sale {
  * and an alias of that same type is a property on either side, because the test
  * is on how the annotation is written and neither side reads a type checker.
  *
- *  1. Declare function-typed, alias-typed and function-valued parameter
- *     properties beside their body twins.
+ *  1. Declare function-typed, alias-typed, function-valued and plain-data
+ *     parameter properties beside their body twins.
  *  2. Collect the inventory.
- *  3. Assert each pair classifies identically.
+ *  3. Assert each pair classifies identically, the data pair included, so the
+ *     agreement is not one every field would satisfy.
  */
 func TestParameterPropertyClassifiesLikeItsBodyTwin(t *testing.T) {
   inventory := parseTypeScriptInventory(t, "src/Sale.ts", `

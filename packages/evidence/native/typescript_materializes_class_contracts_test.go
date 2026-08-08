@@ -584,3 +584,57 @@ export class Sale {
     )
   }
 }
+
+/**
+ * Verifies the module-scope rule is the inverse of the class-field one.
+ *
+ * A class field is a callable when it is written as one, annotation included.
+ * A module-scope variable is a callable only when a `const` is initialized with
+ * a function: the annotation never decides, and neither does the initializer on
+ * a `let` or a `var`. Four documentation surfaces state that contrast and none
+ * of them was enforced, which is exactly how the class half of it came to be
+ * described wrongly on four surfaces at once.
+ *
+ * Both halves live in one case on purpose. Stated apart, each reads as an
+ * arbitrary rule; together they are the contrast the documents draw, and a
+ * change that collapsed one onto the other would have to break this.
+ *
+ *  1. Declare every module-scope form beside the class field it contrasts with.
+ *  2. Collect the inventory.
+ *  3. Assert only a function-initialized `const` and the class's written-as
+ *     callables are functions.
+ */
+func TestModuleScopeClassificationInvertsTheClassRule(t *testing.T) {
+  inventory := parseTypeScriptInventory(t, "src/contracts.ts", `
+type Handler = () => void;
+export const constInitialized: Handler = () => {};
+export declare const constAnnotated: () => void;
+export let letInitialized: () => void = () => {};
+export declare var varAnnotated: () => void;
+export class Sale {
+  declare annotated: () => void;
+  initialized = (): void => {};
+}
+`)
+  units := []string{}
+  for _, unit := range inventory.Units {
+    units = append(units, unit.Symbol+":"+unit.Target)
+  }
+  sort.Strings(units)
+  want := []string{
+    "function:Sale.prototype.annotated",
+    "function:Sale.prototype.initialized",
+    "function:constInitialized",
+    "property:constAnnotated",
+    "property:letInitialized",
+    "property:varAnnotated",
+    "type:Sale",
+  }
+  if strings.Join(units, "\n") != strings.Join(want, "\n") {
+    t.Fatalf(
+      "module-scope against class classification:\n%s\nwant:\n%s",
+      strings.Join(units, "\n"),
+      strings.Join(want, "\n"),
+    )
+  }
+}
