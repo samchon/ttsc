@@ -71,6 +71,7 @@ export namespace Ordinary {
   }
   sort.Strings(units)
   want := []string{
+    "function:Ambient.Input.method",
     "function:Ambient.Nested.work",
     "function:Ambient.Service.create",
     "function:Ambient.Service.prototype.callback",
@@ -89,6 +90,7 @@ export namespace Ordinary {
     "type:Ambient.Input",
     "type:Ambient.Nested",
     "type:Ambient.Options",
+    "type:Ambient.Service",
     "type:Declared",
     "type:Declared.Input",
     "type:Ordinary",

@@ -151,6 +151,7 @@ func scanTypeScriptInventoryAt(
     false,
     "",
   )
+  withdrawHiddenHosts(inventory, supportedHosts)
   collectTypeScriptDeclarations(
     file,
     address.Key,
@@ -169,6 +170,82 @@ func scanTypeScriptInventoryAt(
     return inventory.Units[left].Line < inventory.Units[right].Line
   })
   return inventory
+}
+
+// withdrawHiddenHosts takes every declaration of a withdrawn identity out of
+// the host set, once materialization has decided which identities are withdrawn.
+//
+// Withdrawal is a property of the **identity**, while `supportedHosts` is filled
+// in one node at a time by whichever collector walked that container. Those two
+// facts disagree whenever an identity spans more than one declaration and the
+// author tagged only one of them, which is every overload run and every merged
+// interface: the unit came out marked, and the untagged sibling stayed a host,
+// so a declaration the author had taken out of the API went on discharging
+// coverage and acting as an exclusion carrier. Measured on both shapes; both
+// were silent, because the unit really was marked.
+//
+// Reconciling here rather than in each collector is what turns a list of
+// witnesses into one rule. A per-container withdrawal index closes the container
+// it indexes and nothing else, and there is one such container per declaration
+// form. This runs once, over the identities the whole file produced, so it
+// reaches a form nobody has written yet — but only as far as that form's
+// unit-to-node association goes, which is the condition below and the one place
+// this is not yet a closed class.
+//
+// A position is given up only when **every** identity that reaches it is
+// withdrawn. One node can host several: `export var price: number, live:
+// number` is two property identities sharing the statement TypeScript attaches
+// their block to, and withdrawing one of them must not take the other's only
+// host position with it. Judging per node alone did exactly that, and refused a
+// citation on a public declaration nobody had tagged. The exemplar is `var`
+// rather than `const` because a partial withdrawal needs a second declaration
+// of one identity, which for `const` is `TS2451`.
+//
+// What this does not reach is a host node no unit records. A variable
+// declarator is registered as a host and is not among its unit's nodes, so a
+// withdrawn variable identity keeps that one position. A second symptom travels
+// with it and has its own cause worth stating separately, or half of #1126 gets
+// closed and called done: an inner declarator's own `@internal` is never read
+// at all, because withdrawal for a variable statement is taken from the
+// statement wrapper. Recording the declarator closes the first and leaves the
+// second exactly where it was. Both predate this reconciliation and are tracked
+// in #1126, because closing them moves every variable unit's digest.
+//
+// `documentedHosts` needs no equivalent: it skips a withdrawn unit before it
+// ever consults the host set.
+func withdrawHiddenHosts(
+  inventory *artifactInventory,
+  supportedHosts map[*shimast.Node]symbolSet,
+) {
+  type hostPosition struct {
+    node   *shimast.Node
+    symbol string
+  }
+  live := map[hostPosition]bool{}
+  withdrawn := map[hostPosition]bool{}
+  for _, unit := range inventory.Units {
+    for _, node := range inventory.UnitNodes[unit.ID] {
+      position := hostPosition{node: node, symbol: unit.Symbol}
+      if unit.Hidden == "" {
+        live[position] = true
+        continue
+      }
+      withdrawn[position] = true
+    }
+  }
+  for position := range withdrawn {
+    if live[position] {
+      continue
+    }
+    hosts := supportedHosts[position.node]
+    if hosts == nil {
+      continue
+    }
+    delete(hosts, position.symbol)
+    if len(hosts) == 0 {
+      delete(supportedHosts, position.node)
+    }
+  }
 }
 
 // collectTypeScriptStatements materializes the public units one statement list
@@ -197,9 +274,10 @@ func collectTypeScriptStatements(
   exports := collectLocalExportNames(statements)
   hiddenNames := collectHiddenDeclarationNames(file, statements)
   // Built on the first namespace this list holds rather than up front, so a
-  // file declaring none pays nothing. Every rebuild scans every configured
-  // source, and most of them have no namespace at all.
+  // file declaring none pays nothing.
   var functionNames map[string]bool
+  // The same, for the class an interface in this list may merge with.
+  var classNames map[string]bool
   for _, statement := range statements.Nodes {
     if statement == nil {
       continue
@@ -224,6 +302,16 @@ func collectTypeScriptStatements(
       if memberHidden == "" {
         addTypeScriptHost(supportedHosts, statement, "type")
       }
+      // An interface merged with a class declares that class's instance
+      // members, so they take the instance address the class body form takes.
+      // Addressing them from the bare name instead published `Sale.charge` for
+      // a member reached as `Sale.prototype.charge`: a path no consumer can
+      // walk, a second unit for a method the class already declared, and an
+      // obligation that stayed owed however the real member was cited.
+      if classNames == nil {
+        classNames = collectClassDeclarationNames(statements)
+      }
+      mergedWithClass := classNames[name]
       for _, name := range targets {
         identity := qualifyTypeScriptName(prefix, name)
         unit := addTypeScriptUnit(
@@ -235,10 +323,14 @@ func collectTypeScriptStatements(
           parentID,
           memberHidden,
         )
+        memberOwner := identity
+        if mergedWithClass {
+          memberOwner = qualifyTypeScriptName(identity, "prototype")
+        }
         collectPropertyMembers(
           file,
           statement.AsInterfaceDeclaration().Members,
-          identity,
+          memberOwner,
           unit.ID,
           inventory,
           supportedHosts,
@@ -347,23 +439,47 @@ func collectTypeScriptStatements(
         addTypeScriptHost(supportedHosts, statement, symbol)
       }
     case shimast.KindClassDeclaration:
-      if typeOnlyProjection {
+      name := declarationName(statement.Name())
+      if name == "" {
         continue
       }
-      name := declarationName(statement.Name())
-      memberHidden := hidingTagFor(hidden, hiddenNames, name)
-      for _, publicName := range publicTypeScriptNames(
+      // A class name is type-space, so a type-only alias exposes it exactly
+      // as it exposes an interface. What the alias withholds is the members:
+      // `C.prototype.field` and `C.staticField` are paths through the class
+      // *value*, and a type-only alias exposes no value to walk them from.
+      targets := publicTypeScriptExports(
         statement,
         name,
         exports,
-        false,
+        true,
         implicitlyExported,
-      ) {
-        collectClassCallables(
+      )
+      if len(targets) == 0 {
+        continue
+      }
+      memberHidden := hidingTagFor(hidden, hiddenNames, name)
+      if memberHidden == "" {
+        addTypeScriptHost(supportedHosts, statement, "type")
+      }
+      for _, target := range targets {
+        identity := qualifyTypeScriptName(prefix, target.Public)
+        unit := addTypeScriptUnit(
+          inventory,
+          unitsByID,
+          statement,
+          "type",
+          identity,
+          parentID,
+          memberHidden,
+        )
+        if typeOnlyProjection || target.TypeOnly {
+          continue
+        }
+        collectClassMembers(
           file,
           statement,
-          qualifyTypeScriptName(prefix, publicName),
-          parentID,
+          identity,
+          unit.ID,
           inventory,
           supportedHosts,
           unitsByID,
@@ -434,11 +550,12 @@ func collectTypeScriptStatements(
 //
 // A namespace merges only with a function, a class, or an enum in the same
 // scope; a `const` or `let` of the same name is `TS2451`, measured against the
-// pinned compiler. Of the three legal partners only a function also
-// materializes a unit under the merged name — a class registers no unit of its
-// own and the collector has no enum case — so the function form is the one
-// shape where a namespace and the declaration it merges with are the same
-// public entity spelled twice.
+// pinned compiler. Only the function partner makes the namespace a static side
+// that materializes nothing. A class partner keeps its namespace, because a
+// companion namespace beside a class is authored contract — `namespace Sale`
+// holding `Sale.IProps` beside `class Sale` — rather than the generated
+// accessor machinery `get.path` and `get.Output` are. The collector has no enum
+// case, so an enum partner reaches nothing either way.
 //
 // The name alone decides, without consulting export modifiers, because
 // TypeScript refuses a merged declaration whose halves disagree on export
@@ -464,6 +581,52 @@ func collectFunctionDeclarationNames(
   return names
 }
 
+// collectClassDeclarationNames indexes the local names a statement list
+// declares as classes, which is what an interface in the same list merges with.
+//
+// The merge is what decides a member's address rather than its kind. An
+// interface merged with a class describes that class's instance side, so
+// `interface Sale { charge(): void }` beside `class Sale` declares the same
+// member the class body would and takes the same `Sale.prototype.charge`
+// address. A namespace is the other partner and adds statics instead, which is
+// why only the interface case moves.
+//
+// The whole list is indexed rather than only the statements already collected,
+// because merging does not depend on which declaration is written first, and
+// export modifiers are not consulted for the reason
+// `collectFunctionDeclarationNames` gives: TypeScript refuses a merge whose
+// halves disagree on export.
+func collectClassDeclarationNames(
+  statements *shimast.NodeList,
+) map[string]bool {
+  names := map[string]bool{}
+  if statements == nil {
+    return names
+  }
+  for _, statement := range statements.Nodes {
+    if statement == nil ||
+      statement.Kind != shimast.KindClassDeclaration {
+      continue
+    }
+    if name := declarationName(statement.Name()); name != "" {
+      names[name] = true
+    }
+  }
+  return names
+}
+
+// collectTypeScriptVariables materializes a variable statement's exported
+// declarators.
+//
+// A variable is a function only when a `const` is initialized with a function
+// value, and that is the inverse of the member rule in memberSymbol:
+// here the annotation decides nothing, because a variable's declared type
+// describes a value that already exists rather than stating a contract. The
+// three conditions below are each load-bearing and each measured separately, at
+// module and at namespace scope: a binding pattern's initializer belongs to the
+// pattern rather than to any leaf, `let` and `var` are excluded whatever they
+// hold, and the initializer is read syntactically because these rules run with
+// no type checker.
 func collectTypeScriptVariables(
   statement *shimast.Node,
   prefix []string,
@@ -531,11 +694,33 @@ func collectTypeScriptVariables(
   return found
 }
 
-func collectClassCallables(
+// collectClassMembers materializes the public contract a class declares.
+//
+// A method is a function unit and a field is a property unit, which is the
+// mapping a reader already assumes: the class is the subject, its methods are
+// what the subject does, and its fields are the measured facts it carries.
+// `memberSymbol` owns the one exception, where a field written as a
+// callable joins the methods, and "written as" is literal: see
+// `isDirectFunctionType`.
+// Every member hangs below the class unit, so a citation on the class
+// acknowledges the members it selected.
+//
+// A constructor is not a unit of its own, now that the class is: construction
+// is how the subject comes to be, and the subject already carries that
+// obligation. It is still read, because the fields it declares through the
+// parameter-property shorthand are the class's fields; `collectParameterProperties`
+// takes those.
+//
+// Two shapes stay out entirely. An accessor, including an auto-accessor, is a
+// get/set pair rather than a member variable, which is the exclusion the
+// published contract has always stated. A member with no citable name — a
+// private identifier, an index signature, a computed name, a static block — has
+// no target an author could write.
+func collectClassMembers(
   file *shimast.SourceFile,
   statement *shimast.Node,
   classIdentity []string,
-  parentID string,
+  classID string,
   inventory *artifactInventory,
   supportedHosts map[*shimast.Node]symbolSet,
   unitsByID map[string]*evidenceUnit,
@@ -545,46 +730,245 @@ func collectClassCallables(
   if class.Members == nil {
     return
   }
+  // A member's own tag is read from the node in hand, and that is enough for
+  // the unit: `addTypeScriptUnit` keeps the first tag any declaration of an
+  // identity carries, so an overload run tagged on one half comes out marked
+  // whichever half is written first. The host set is reconciled against those
+  // identities afterwards by `withdrawHiddenHosts`, which is what stops the
+  // untagged half of a withdrawn member from staying a claim host.
+  //
+  // The constructor is resolved separately and up front, because it is the one
+  // container here that declares units without being one: its tag has to reach
+  // the parameter properties rather than a member of its own, and no unit of
+  // its own will carry it there.
+  constructorHidden := ""
+  constructorResolved := false
   for _, member := range class.Members.Nodes {
-    if member == nil || !isPublicClassMember(member) {
+    if member == nil {
       continue
     }
-    callable := false
+    // A constructor is judged before the public check, because its own
+    // visibility is not its parameter properties'. A `private constructor`
+    // closes construction from outside; `public readonly price` on one of its
+    // parameters is still an instance field every holder of the object reads.
+    if member.Kind == shimast.KindConstructor {
+      // Resolved once per class rather than per declaration, so an overload
+      // run does not rescan the member list for every signature it holds.
+      if !constructorResolved {
+        constructorHidden = constructorHidingTag(file, class.Members, hidden)
+        constructorResolved = true
+      }
+      collectParameterProperties(
+        file,
+        member,
+        classIdentity,
+        classID,
+        inventory,
+        supportedHosts,
+        unitsByID,
+        constructorHidden,
+      )
+      continue
+    }
+    if !isPublicClassMember(member) {
+      continue
+    }
+    symbol := ""
     switch member.Kind {
     case shimast.KindMethodDeclaration:
-      callable = true
+      symbol = "function"
     case shimast.KindPropertyDeclaration:
       if member.ModifierFlags()&shimast.ModifierFlagsAccessor != 0 {
         continue
       }
       property := member.AsPropertyDeclaration()
-      callable = isFunctionValue(property.Initializer) ||
-        isDirectFunctionType(property.Type)
-    }
-    if !callable {
+      symbol = memberSymbol(property.Initializer, property.Type)
+    default:
       continue
     }
-    memberName := declarationName(member.Name())
-    if memberName == "" {
-      continue
-    }
-    identity := qualifyTypeScriptName(classIdentity, "prototype", memberName)
-    if shimast.GetCombinedModifierFlags(member)&shimast.ModifierFlagsStatic != 0 {
-      identity = qualifyTypeScriptName(classIdentity, memberName)
-    }
-    memberHidden := typeScriptHidingTag(file, member, hidden)
-    addTypeScriptUnit(
-      inventory,
-      unitsByID,
+    addClassMemberUnit(
       member,
-      "function",
-      identity,
-      parentID,
-      memberHidden,
+      declarationName(member.Name()),
+      symbol,
+      shimast.GetCombinedModifierFlags(member)&shimast.ModifierFlagsStatic != 0,
+      classIdentity,
+      classID,
+      inventory,
+      supportedHosts,
+      unitsByID,
+      typeScriptHidingTag(file, member, hidden),
     )
-    if memberHidden == "" {
-      addTypeScriptHost(supportedHosts, member, "function")
+  }
+}
+
+// collectParameterProperties materializes the fields a constructor declares
+// through the parameter-property shorthand.
+//
+// `constructor(public readonly price: number)` declares the same public
+// instance field as `readonly price: number` written in the class body, and
+// TypeScript attaches a leading documentation block to the parameter, so it is
+// a real position a citation can live in. Reading only `class.Members` would
+// leave the shorthand invisible while the body form was selected, which is one
+// defect wearing two syntaxes.
+//
+// Every parameter property is an instance field. A constructor cannot be
+// static, and TypeScript refuses a parameter property on an overload
+// signature, so the implementation constructor is the only one that reaches
+// here with any.
+//
+// The tag `hidden` carries is the constructor's, already resolved across every
+// declaration of it by `constructorHidingTag`. The constructor is the only
+// container in this collector that declares units without being one, so
+// forwarding the class's tag alone would leave `@internal` on a constructor
+// inert while the same tag on a class or on the field itself withdraws.
+func collectParameterProperties(
+  file *shimast.SourceFile,
+  constructor *shimast.Node,
+  classIdentity []string,
+  classID string,
+  inventory *artifactInventory,
+  supportedHosts map[*shimast.Node]symbolSet,
+  unitsByID map[string]*evidenceUnit,
+  hidden string,
+) {
+  if constructor.ParameterList() == nil {
+    return
+  }
+  for _, parameter := range constructor.Parameters() {
+    if parameter == nil || !isParameterProperty(parameter) {
+      continue
     }
+    if !isPublicClassMember(parameter) {
+      continue
+    }
+    value := parameter.AsParameterDeclaration()
+    addClassMemberUnit(
+      parameter,
+      declarationName(parameter.Name()),
+      memberSymbol(value.Initializer, value.Type),
+      false,
+      classIdentity,
+      classID,
+      inventory,
+      supportedHosts,
+      unitsByID,
+      // A parameter property is declared exactly once, so its own tag is the
+      // only one below the constructor's and no identity index is needed.
+      typeScriptHidingTag(file, parameter, hidden),
+    )
+  }
+}
+
+// constructorHidingTag resolves the withdrawal tag of a class's constructor
+// across every declaration of it.
+//
+// An overload run is one constructor written several times, and the tag may sit
+// on any of them: a signature is where a reader looks for the documentation,
+// while only the implementation declares parameter properties. Reading the tag
+// per node would make the withdrawal depend on which half the author documented,
+// which is the source-order accident every other merged declaration in this
+// collector already refuses.
+func constructorHidingTag(
+  file *shimast.SourceFile,
+  members *shimast.NodeList,
+  inherited string,
+) string {
+  if inherited != "" {
+    return inherited
+  }
+  if file == nil || members == nil {
+    return ""
+  }
+  for _, member := range members.Nodes {
+    if member == nil || member.Kind != shimast.KindConstructor {
+      continue
+    }
+    if tag := typeScriptHidingTag(file, member, ""); tag != "" {
+      return tag
+    }
+  }
+  return ""
+}
+
+// isParameterProperty reports whether a constructor parameter also declares a
+// field, which is exactly what a property modifier says.
+//
+// The mask is TypeScript's own and holds five: the three accessibility
+// modifiers, `readonly`, and `override`. Naming the familiar four is what a
+// summary reaches for, and it is short by `override`, whose own meaning is
+// about the base class rather than about the field, so it does not read as a
+// field declaration at all. On a class extending one that declares `rate`,
+// `constructor(override rate: number)` compiles, emits the assignment, and
+// declares a public instance field. Take the mask rather than restating it;
+// upstream's own comment beside the constant enumerates four.
+func isParameterProperty(parameter *shimast.Node) bool {
+  return shimast.GetCombinedModifierFlags(parameter)&
+    shimast.ModifierFlagsParameterPropertyModifier != 0
+}
+
+// memberSymbol classifies one member variable by how it is written.
+//
+// Not by what it resolves to: an arrow or function initializer, or a type
+// annotation spelled as a function type, makes a member a callable, and one
+// annotated with an alias of that type does not. `isDirectFunctionType` says
+// why.
+//
+// Spelled once because the answer may not depend on which syntax declared the
+// member. A field in a class body, the same field written as a constructor
+// parameter property, and the same member spelled on an interface or an
+// object-shaped type alias are one contract in four spellings, and letting any
+// of them classify separately is the syntax dependence this collector exists to
+// remove. An interface once answered `property` to `charge: () => void` while a
+// class answered `function`, so a `symbol: "function"` claim over a file of
+// interfaces selected nothing, deactivated, and passed with no coverage.
+func memberSymbol(initializer *shimast.Node, declared *shimast.Node) string {
+  if isFunctionValue(initializer) || isDirectFunctionType(declared) {
+    return "function"
+  }
+  return "property"
+}
+
+// addClassMemberUnit registers one public class member under the address that
+// reaches it from the class.
+//
+// An instance member is addressed through `prototype` and a static member
+// directly, because those are the two paths a consumer can actually write. The
+// class unit is the parent, so the member is a structural descendant of the
+// subject that declares it rather than a sibling of the class's neighbours.
+// `memberHidden` is this declaration's own withdrawal tag, inherited from its
+// class. A sibling declaration of the same identity may carry one this node does
+// not; `addTypeScriptUnit` folds that into the unit, and `withdrawHiddenHosts`
+// then takes this node out of the host set.
+func addClassMemberUnit(
+  node *shimast.Node,
+  name string,
+  symbol string,
+  static bool,
+  classIdentity []string,
+  classID string,
+  inventory *artifactInventory,
+  supportedHosts map[*shimast.Node]symbolSet,
+  unitsByID map[string]*evidenceUnit,
+  memberHidden string,
+) {
+  if name == "" {
+    return
+  }
+  identity := qualifyTypeScriptName(classIdentity, "prototype", name)
+  if static {
+    identity = qualifyTypeScriptName(classIdentity, name)
+  }
+  addTypeScriptUnit(
+    inventory,
+    unitsByID,
+    node,
+    symbol,
+    identity,
+    classID,
+    memberHidden,
+  )
+  if memberHidden == "" {
+    addTypeScriptHost(supportedHosts, node, symbol)
   }
 }
 
@@ -612,6 +996,19 @@ func isFunctionValue(node *shimast.Node) bool {
   return false
 }
 
+// isDirectFunctionType reports whether a type annotation is written as a
+// function type, rather than whether it resolves to one.
+//
+// Syntactic on purpose, and this is the sentence every summary of the class
+// field rule gets wrong. `evidence/graph` declares `NeedsTypeChecker() false`,
+// so nothing here can follow `type Handler = () => void` to its target: a field
+// annotated `Handler` is a property, while the same field annotated
+// `() => void` is a function. Parentheses are unwrapped because they change
+// nothing a reader means; a constructor type, a union with a callable in it,
+// and an alias are all left alone because resolving them is the checker's job.
+//
+// Anyone restating this as "a field that holds a function" has restated
+// something else. Twice now, on shipped surfaces.
 func isDirectFunctionType(node *shimast.Node) bool {
   for node != nil && node.Kind == shimast.KindParenthesizedType {
     parenthesized := node.AsParenthesizedTypeNode()
@@ -695,6 +1092,29 @@ func collectTypeScriptModule(
   }
 }
 
+// collectPropertyMembers materializes the members an interface or an
+// object-shaped type alias declares.
+//
+// This is the other half of the four-spelling rule `collectClassMembers` owns,
+// and the two must stay in step: a member signature is a function unit and a
+// data member is a property unit, decided by `memberSymbol` from the annotation
+// as spelled. The classification is single-sourced there, while the member-kind
+// switch is written twice, once per container, so a kind added to one and not
+// the other is the drift this pair is most exposed to.
+//
+// The allowlist and the name check are the exclusion, and both gates matter. A
+// get or set signature is an accessor, which is a get/set pair rather than a
+// member variable and stays out on every container. A call signature, a
+// construct signature, and an index signature have no citable name, so an
+// author could not write a target for one. A computed name passes the switch
+// and is refused after it, for the same reason.
+//
+// That leaves a consequence worth stating rather than discovering: a
+// call-signature-only `interface Handler { (input: string): void }` contributes
+// no *member* unit, so a claim narrowed to `symbol: "function"` or `"property"`
+// over a file of them selects no host and deactivates silently. The interface
+// itself is still a `type` unit, so the default selector keeps such a claim
+// active; the qualifier is the whole statement here, not a detail of it.
 func collectPropertyMembers(
   file *shimast.SourceFile,
   members *shimast.NodeList,
@@ -709,7 +1129,16 @@ func collectPropertyMembers(
     return
   }
   for _, member := range members.Nodes {
-    if member == nil || member.Kind != shimast.KindPropertySignature {
+    if member == nil {
+      continue
+    }
+    symbol := ""
+    switch member.Kind {
+    case shimast.KindPropertySignature:
+      symbol = memberSymbol(nil, member.AsPropertySignatureDeclaration().Type)
+    case shimast.KindMethodSignature:
+      symbol = "function"
+    default:
       continue
     }
     name := declarationName(member.Name())
@@ -722,13 +1151,13 @@ func collectPropertyMembers(
       inventory,
       unitsByID,
       member,
-      "property",
+      symbol,
       identity,
       parentID,
       memberHidden,
     )
     if memberHidden == "" {
-      addTypeScriptHost(supportedHosts, member, "property")
+      addTypeScriptHost(supportedHosts, member, symbol)
     }
   }
 }

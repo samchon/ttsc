@@ -14,15 +14,30 @@ import (
  * export as fully public creates false function/property obligations, while
  * dropping it loses valid imported type paths.
  *
+ * A nested class is the sharp case. Its name is type-space and projects, while
+ * `Service.prototype.send` and `Service.make` are paths through the class
+ * value, which a type-only alias exposes nothing to walk them from.
+ *
+ * An interface method signature is the case that reads like the class one and
+ * is not. `Input.check` is a `function` unit and it projects, because an
+ * interface declares nothing in value space, so there is no value for the alias
+ * to withhold. The fixture carried no such member while three surfaces said a
+ * type-only alias exposes no callables, which is how that sentence stayed
+ * wrong. `Options.run` is the same member on an object-shaped type alias, and
+ * it is here because the two containers share one collector: the argument that
+ * nothing can break one without the other is worth stating, and worth being
+ * able to fail.
+ *
  *  1. Export one namespace through full and both type-only alias syntaxes.
- *  2. Include nested type and value declarations plus class callables.
+ *  2. Include nested type and value declarations, an interface callable, an
+ *     object-shaped type alias callable, and a class with its members.
  *  3. Assert the exact full and type-only projections.
  */
 func TestTypeScriptTypeOnlyNamespaceAliasesProjectOnlyTypeSpace(t *testing.T) {
   inventory := parseTypeScriptInventory(t, "src/contracts.ts", `
 namespace Local {
-  export interface Input { id: string; }
-  export type Options = { enabled: boolean };
+  export interface Input { id: string; check(): void; }
+  export type Options = { enabled: boolean; run(): void };
   export namespace Nested {
     export interface Request { value: string; }
     export const retries = 1;
@@ -46,6 +61,10 @@ export { type Local as SpecTypes };
   }
   sort.Strings(units)
   want := []string{
+    "function:Full.Input.check",
+    "function:Full.Options.run",
+    "function:SpecTypes.Options.run",
+    "function:Types.Options.run",
     "function:Full.Nested.run",
     "function:Full.Service.make",
     "function:Full.Service.prototype.send",
@@ -55,6 +74,8 @@ export { type Local as SpecTypes };
     "property:Full.Nested.retries",
     "property:Full.Options.enabled",
     "property:Full.count",
+    "function:SpecTypes.Input.check",
+    "function:Types.Input.check",
     "property:SpecTypes.Input.id",
     "property:SpecTypes.Nested.Request.value",
     "property:SpecTypes.Options.enabled",
@@ -66,16 +87,19 @@ export { type Local as SpecTypes };
     "type:Full.Nested",
     "type:Full.Nested.Request",
     "type:Full.Options",
+    "type:Full.Service",
     "type:SpecTypes",
     "type:SpecTypes.Input",
     "type:SpecTypes.Nested",
     "type:SpecTypes.Nested.Request",
     "type:SpecTypes.Options",
+    "type:SpecTypes.Service",
     "type:Types",
     "type:Types.Input",
     "type:Types.Nested",
     "type:Types.Nested.Request",
     "type:Types.Options",
+    "type:Types.Service",
   }
   sort.Strings(want)
   if strings.Join(units, "\n") != strings.Join(want, "\n") {

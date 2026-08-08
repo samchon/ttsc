@@ -68,10 +68,10 @@ export interface ITtscEvidenceGraphTypeScriptReference extends ITtscEvidenceGrap
   /**
    * Symbol kind or kinds eligible to become evidence units.
    *
-   * Omit this property to select exported interfaces, type aliases, and
-   * namespaces. A single value selects one obligation kind; a non-empty array
-   * selects the union. Selected units remain independent obligations until an
-   * ancestor type or namespace target acknowledges their shared scope.
+   * Omit this property to select exported interfaces, type aliases, classes,
+   * and namespaces. A single value selects one obligation kind; a non-empty
+   * array selects the union. Selected units remain independent obligations
+   * until an ancestor type or namespace target acknowledges their shared scope.
    * Ancestors of selected units are addressable even when their own kind is
    * omitted from this selector.
    *

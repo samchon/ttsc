@@ -7,30 +7,52 @@
  * and qualified identities keep nested contracts addressable without adding a
  * file path to every target.
  *
- * - `"type"` selects exported interfaces, type aliases, and namespaces. Classes
- *   and enums do not become type units.
+ * - `"type"` selects exported interfaces, type aliases, classes, and namespaces.
+ *   Enums do not become type units.
  * - `"function"` selects exported function declarations, exported `const`
  *   variables initialized with an arrow function or function expression
  *   (including parentheses and type-only expression wrappers), public instance
- *   and static methods of exported classes, function-valued public class fields
- *   (an arrow/function initializer or direct function type), and the same
- *   callable forms exported from namespaces. Constructors and accessors are not
- *   selected.
- * - `"property"` selects property signatures declared directly by exported
- *   interfaces and object-shaped type aliases, plus exported `const`, `let`,
- *   and `var` declarations at module or namespace scope. A `const` initialized
- *   with an arrow or function expression remains a function; every other
- *   variable, including a function-typed declaration or function-valued `let`
- *   or `var`, is a property. Every exported leaf in an object or array binding
- *   pattern is a property. Class fields and methods are not property units.
+ *   and static methods of exported classes, method signatures of exported
+ *   interfaces and object-shaped type aliases, every member of any of those
+ *   three written as a callable (an arrow/function initializer or a function
+ *   type spelled out), and the same callable forms exported from namespaces. An
+ *   overload run is one unit. Constructors and accessors are not selected.
+ * - `"property"` selects every member declared directly by an exported class,
+ *   interface, or object-shaped type alias that is not written as a callable,
+ *   plus exported `const`, `let`, and `var` declarations at module or namespace
+ *   scope. A `const` initialized with an arrow or function expression remains a
+ *   function; every other variable, including a function-typed declaration or
+ *   function-valued `let` or `var`, is a property. A member is the one place
+ *   that rule reads the other way, on all three containers alike: it is a
+ *   property unless it is function-valued **or** annotated with a function type
+ *   written out, either of which makes it a function. The test is syntactic,
+ *   because this rule reads no type checker: `charge: () => void` is a function
+ *   and `charge: Handler` is a property even where `Handler` is an alias of the
+ *   same type, as are a constructor type and a union. Every exported leaf in an
+ *   object or array binding pattern is a property. An accessor, including an
+ *   auto-accessor, is neither, and a `private` or `protected` member is not
+ *   selected whichever syntax declared it. A constructor parameter carrying any
+ *   property modifier declares a field and classifies exactly as the same field
+ *   written in the class body would, whatever the constructor's own visibility
+ *   is, so a `private` or `protected` one materializes nothing, exactly as the
+ *   body form does not. The property modifiers are TypeScript's own five:
+ *   `public`, `protected`, `private`, `readonly`, and `override`. The last is
+ *   the one to know about, because its meaning is about the base class rather
+ *   than about the field, so it does not read as a field declaration. It still
+ *   declares one: on a class extending one that declares `rate`,
+ *   `constructor(override rate: number)` is a public instance field. A
+ *   parameter property's citation belongs on the parameter: a constructor's own
+ *   block hosts nothing, because two parameter properties would leave
+ *   `@evidence` no way to say which field it means.
  *
  * TypeScript units form containment scopes. An interface or object-shaped type
- * alias contains its selected properties. A namespace contains every selected
- * public unit nested below it, including nested namespaces. An `@evidence`
- * target, or an `@evidenceExclude` target allowed by its reference policy,
- * acknowledges its selected node and every selected descendant. A reference
- * selector defines the obligation kinds while their unselected type ancestors
- * remain addressable as aggregate scopes.
+ * alias contains the members it declares, callables included. A class contains
+ * its selected members. A namespace contains every selected public unit nested
+ * below it, including nested namespaces. An `@evidence` target, or an
+ * `@evidenceExclude` target allowed by its reference policy, acknowledges its
+ * selected node and every selected descendant. A reference selector defines the
+ * obligation kinds while their unselected type ancestors remain addressable as
+ * aggregate scopes.
  *
  * Top-level identities use the public export name, and namespace members
  * prepend their namespace, such as `Orders.create`. A namespace itself uses its
@@ -38,16 +60,21 @@
  * exposed as `export { Local as Public }` therefore uses `Public`. A named
  * default declaration keeps its declaration name; anonymous and default-only
  * aliases have no stable target and are not selected. Members of an ambient
- * namespace are public without their own `export` modifier. A type-only
- * namespace alias exposes the namespace, its public type-space descendants, and
- * their type properties without exposing data, functions, or class callables.
- * Type properties use `TypeName.property`. Static class callables use
- * `ClassName.method`; instance callables use `ClassName.prototype.method`.
- * Computed names are not selected, even when their expression is a literal.
- * Literal names must be whitespace-free because a declaration target is one
- * whitespace-delimited token. A dot inside a literal name is rendered
- * unchanged; if that spelling collides with qualification, the target is
- * ambiguous.
+ * namespace are public without their own `export` modifier. A type-only alias
+ * exposes a namespace or a class, its public type-space descendants, and
+ * everything an interface or object-shaped type alias declares, callables
+ * included, because every member of those two is type-space. What it withholds
+ * is value-space: namespace data, namespace functions, and every class member,
+ * the last because a member is addressed through the class value the alias does
+ * not expose. A member of an interface or object-shaped type alias uses
+ * `TypeName.member`, whether it carries data or is written as a callable.
+ * Static class members use `ClassName.member`; instance members use
+ * `ClassName.prototype.member`, and a constructor parameter property is an
+ * instance member addressed that way. Computed names are not selected, even
+ * when their expression is a literal. Literal names must be whitespace-free
+ * because a declaration target is one whitespace-delimited token. A dot inside
+ * a literal name is rendered unchanged; if that spelling collides with
+ * qualification, the target is ambiguous.
  *
  * These targets deliberately omit file paths. If selected files expose the same
  * qualified target, a declaration using that target is ambiguous; rename or

@@ -13,13 +13,12 @@ import {
  * This is the case that pins "the first declaration that can host a citation is
  * the basis" rather than "a block anywhere will do", and it is the firing twin
  * of the accepting fixture — without it, a rule that had stopped reading
- * placement entirely would look identical. The class fixture is the sharp one:
- * a class hosts nothing, so a block above it documents no type at all, and this
- * is the shape where the rule could most easily send a citation somewhere
- * `evidence/graph` refuses it.
+ * placement entirely would look identical. Every fixture puts its block on a
+ * declaration other than the one that founds the identity, whether the identity
+ * is a merge or a const behind a default export, and every one is reported.
  *
- * 1. Document the namespace half of an interface merge, the class half of a class
- *    merge, and the default export rather than its const.
+ * 1. Document the later half of an interface merge and of a class merge, and the
+ *    default export rather than its const.
  * 2. Enable `evidence/documented` with the default selection.
  * 3. Assert a non-zero exit naming each identity.
  */
@@ -56,8 +55,8 @@ export const test_evidence_documented_reports_undocumented_first_declaration =
           "",
         ].join("\n"),
         "src/Something.ts": [
-          "/** The exported service. */",
           "export class Something {}",
+          "/** The exported service. */",
           "export namespace Something {",
           "  /** Current version. */",
           '  export const version = "1";',
@@ -86,7 +85,7 @@ export const test_evidence_documented_reports_undocumented_first_declaration =
       assertIncludes(
         result,
         "Missing JSDoc on exported type 'Something'",
-        "A class hosts no citation, so a block above it cannot document the type its namespace materializes.",
+        "A class founds the identity it merges with, so a block on the namespace half does not document it.",
       );
       assertIncludes(
         result,

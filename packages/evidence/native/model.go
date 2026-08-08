@@ -201,7 +201,8 @@ type evidenceUnit struct {
   // between it and the next heading, so a subsection's body belongs to the
   // subsection. A TypeScript unit owns its whole declaration text, which
   // **contains** every nested member's text, because that is what a declaration
-  // is: there is no reading of `interface ISale` that excludes its properties.
+  // is: there is no reading of `interface ISale` that excludes the members it
+  // declares, callables included.
   //
   // So a nested change moves both its own unit's digest and every enclosing
   // unit's. `scopeIndex` composes ancestors and descendants anyway, so detection

@@ -7,24 +7,47 @@ import (
 )
 
 /**
- * Verifies auto-accessor classification: callable syntax behind an accessor
- * does not create a function evidence unit.
+ * Verifies accessor classification: neither a callable nor a data accessor
+ * becomes an evidence unit.
  *
- * Auto-accessors share PropertyDeclaration shape with ordinary function-valued
- * fields but retain accessor semantics. The positive fields and instance/static
- * accessor twins pin the modifier boundary.
+ * Auto-accessors share PropertyDeclaration shape with ordinary fields but
+ * retain accessor semantics, and a get/set pair is not a member variable
+ * either. The ordinary field and method in the same class are the positive
+ * controls: without them a collector that had stopped materializing class
+ * members entirely would pass this case.
  *
- *  1. Declare callable fields and callable auto-accessors.
- *  2. Collect the function inventory.
- *  3. Assert only ordinary fields materialize.
+ * An interface accessor is here because the rule has to hold wherever a member
+ * is classified, and the interface collector reaches its member kinds through a
+ * different switch. Adding a get/set case to that switch is a one-line edit and
+ * it left the whole suite green, so the exclusion was stated for a class and
+ * merely assumed for an interface.
+ *
+ *  1. Declare ordinary members beside callable and data accessors, on a class
+ *     and on an interface.
+ *  2. Collect the inventory.
+ *  3. Assert only the ordinary members materialize.
  */
-func TestTypeScriptAutoAccessorsAreNotFunctionUnits(t *testing.T) {
+func TestTypeScriptAccessorsAreNotEvidenceUnits(t *testing.T) {
   inventory := parseTypeScriptInventory(t, "src/contracts.ts", `
 export class Service {
   handler = (): void => {};
   static factory: () => void;
+  retries: number = 3;
   accessor callback = (): void => {};
   static accessor provider: () => void;
+  accessor count = 0;
+  static accessor limit: number;
+  get computed(): number {
+    return 1;
+  }
+  set computed(value: number) {}
+}
+export interface IService {
+  handler: () => void;
+  send(): void;
+  retries: number;
+  get computed(): number;
+  set computed(value: number);
 }
 `)
   targets := []string{}
@@ -33,12 +56,18 @@ export class Service {
   }
   sort.Strings(targets)
   want := []string{
+    "function:IService.handler",
+    "function:IService.send",
     "function:Service.factory",
     "function:Service.prototype.handler",
+    "property:IService.retries",
+    "property:Service.prototype.retries",
+    "type:IService",
+    "type:Service",
   }
   if strings.Join(targets, "\n") != strings.Join(want, "\n") {
     t.Fatalf(
-      "auto-accessor callable units:\n%s\nwant:\n%s",
+      "accessor units:\n%s\nwant:\n%s",
       strings.Join(targets, "\n"),
       strings.Join(want, "\n"),
     )
@@ -71,6 +100,37 @@ export class Service {
     "type":"typescript",
     "files":["src/contracts.ts"],
     "symbol":"function",
+    "reference":{"type":"markdown","files":["docs/spec.md"],"symbol":"h2"}
+  }]}`)
+  assertProblemContains(t, messages, "unsupported or non-exported declaration")
+}
+
+/**
+ * Verifies a data auto-accessor is not a property claim host either.
+ *
+ * The property population is where an accessor most looks like it belongs, so
+ * the exclusion has to hold on that side too. Without this twin, an accessor
+ * refused as a callable could still slip in as a field and quietly discharge an
+ * obligation the class never took.
+ *
+ *  1. Attach evidence to a data auto-accessor beside a real field.
+ *  2. Select property hosts and one Markdown heading.
+ *  3. Assert the declaration is reported as unsupported.
+ */
+func TestTypeScriptAutoAccessorsAreNotPropertyClaimHosts(t *testing.T) {
+  messages := runIndexRule(t, map[string]string{
+    "docs/spec.md": "## Contract\n",
+    "src/contracts.ts": `
+export class Service {
+  /** @evidence docs/spec.md#contract This accessor cannot claim property evidence. */
+  accessor count = 0;
+  retries: number = 3;
+}
+`,
+  }, `{"claims":[{
+    "type":"typescript",
+    "files":["src/contracts.ts"],
+    "symbol":"property",
     "reference":{"type":"markdown","files":["docs/spec.md"],"symbol":"h2"}
   }]}`)
   assertProblemContains(t, messages, "unsupported or non-exported declaration")

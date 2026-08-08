@@ -5,23 +5,24 @@ import "testing"
 /**
  * Verifies the rule demands the block where a citation can actually live.
  *
- * A class is not a type unit, so `class Sale` beside `namespace Sale`
- * materializes the `Sale` type from the namespace alone and the collector
- * registers no host for the class. Demanding the block above the class would
- * send an author's `@evidence` into a position `evidence/graph` rejects as an
- * unsupported host — this rule steering citations somewhere a citation cannot
- * live, which is the failure it exists to prevent.
+ * A class is a type unit, so `class Sale` beside `namespace Sale` is one
+ * identity, founded by whichever half is written first. Here that is the class,
+ * because an instantiated namespace above its class is `TS2434`. Naming a later
+ * half instead would send an author's block somewhere the identity is not
+ * judged from, and this rule's whole job is to name the position a citation can
+ * live in.
  *
- *  1. Document only the class half of a merged class identity.
+ *  1. Document only the namespace half of a merged class identity.
  *  2. Run the rule.
- *  3. Assert the identity is still reported, because the class hosts nothing.
+ *  3. Assert the identity is still reported, because the class founds it.
  */
-func TestDocumentedRejectsABlockOnANonHostingDeclaration(t *testing.T) {
+func TestDocumentedRejectsABlockOnALaterMergedDeclaration(t *testing.T) {
   assertReported(t, runDocumentedRule(t, "src/Sale.ts", `
-/** A sale offered to a customer. */
 export class Sale {
+  /** Price the customer pays. */
   price: number = 0;
 }
+/** A sale offered to a customer. */
 export namespace Sale {
   /** Current version. */
   export const version = "1";
@@ -30,22 +31,23 @@ export namespace Sale {
 }
 
 /**
- * Verifies the namespace half satisfies the same pair.
+ * Verifies the founding declaration satisfies the same pair.
  *
- * The twin of the case above, and the position the rule now names. Together
- * they pin which declaration of the pair is demanded rather than leaving it to
- * be rediscovered from the collector's unit model.
+ * The twin of the case above, and the position the rule names. Together they
+ * pin which declaration of the pair is demanded rather than leaving it to be
+ * rediscovered from the collector's unit model.
  *
- *  1. Document only the namespace half of a merged class identity.
+ *  1. Document only the class half of a merged class identity.
  *  2. Run the rule.
  *  3. Assert silence.
  */
-func TestDocumentedAcceptsABlockOnTheHostingDeclaration(t *testing.T) {
+func TestDocumentedAcceptsABlockOnTheFoundingDeclaration(t *testing.T) {
   assertSilent(t, runDocumentedRule(t, "src/Sale.ts", `
+/** A sale offered to a customer. */
 export class Sale {
+  /** Price the customer pays. */
   price: number = 0;
 }
-/** A sale offered to a customer. */
 export namespace Sale {
   /** Current version. */
   export const version = "1";
@@ -62,7 +64,7 @@ export namespace Sale {
  * graph then refuses, and each rule's own suite would stay green while an
  * author following one diagnostic was handed another.
  *
- *  1. Cite a Markdown section from the namespace half of a merged class.
+ *  1. Cite a Markdown section from the class half of a merged class.
  *  2. Run the graph with a claim selecting `type` hosts.
  *  3. Assert no diagnostic at all.
  */
@@ -70,10 +72,10 @@ func TestGraphAcceptsEvidenceOnTheDeclarationDocumentedDemands(t *testing.T) {
   assertNoProblems(t, runIndexRule(t, map[string]string{
     "docs/spec.md": "## Contract {#contract}\n",
     "src/Sale.ts": `
+/** @evidence docs/spec.md#contract The class half documents this contract. */
 export class Sale {
   price: number = 0;
 }
-/** @evidence docs/spec.md#contract The namespace half documents this contract. */
 export namespace Sale {
   /** Current version. */
   export const version = "1";
@@ -88,27 +90,29 @@ export namespace Sale {
 }
 
 /**
- * Verifies the graph rejects a citation on the declaration this rule refuses.
+ * Verifies the graph rejects a citation on a declaration this rule refuses.
  *
- * The negative twin that makes the agreement falsifiable. If the class ever
- * became a host, this case fails and the narrowing above should be revisited
- * rather than silently kept.
+ * The negative twin that makes the agreement falsifiable. An enum is now the
+ * shape that materializes no unit, so it is the one declaration `documented`
+ * asks nothing of and the graph refuses a tag on. If an enum ever became a
+ * unit, this case fails and both rules should be revisited together rather
+ * than one silently drifting from the other.
  *
- *  1. Cite the same section from the class half instead.
+ *  1. Cite the same section from a class and from an enum in the same file.
  *  2. Run the graph with the same claim.
- *  3. Assert the out-of-scope host diagnostic.
+ *  3. Assert the out-of-scope host diagnostic for the enum.
  */
 func TestGraphRejectsEvidenceOnTheDeclarationDocumentedRefuses(t *testing.T) {
   assertProblemContains(t, runIndexRule(t, map[string]string{
     "docs/spec.md": "## Contract {#contract}\n",
     "src/Sale.ts": `
-/** @evidence docs/spec.md#contract The class half cannot host this. */
+/** @evidence docs/spec.md#contract The class founds the identity and hosts this. */
 export class Sale {
   price: number = 0;
 }
-export namespace Sale {
-  /** Current version. */
-  export const version = "1";
+/** @evidence docs/spec.md#contract An enum materializes no unit, so it hosts nothing. */
+export enum Status {
+  Draft = "draft",
 }
 `,
   }, `{"claims":[{

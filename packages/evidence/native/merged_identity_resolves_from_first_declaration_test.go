@@ -1,6 +1,10 @@
 package evidence
 
-import "testing"
+import (
+  "sort"
+  "strings"
+  "testing"
+)
 
 const mergedIdentityGraphConfig = `{"claims":[{
   "type":"typescript",
@@ -313,22 +317,20 @@ export namespace ISale {
 }
 
 /**
- * Verifies a class beside a namespace is not one unit to the graph.
+ * Verifies a class beside a namespace is one unit reported from the class.
  *
- * A class is not a type unit, so `namespace Sale` is the only declaration of
- * the unit `Sale` the graph knows; the class contributes `Sale.prototype.price`
- * instead. `evidence/documented` demands the block on that same namespace,
- * having been narrowed to the declarations a citation can live on, so the two
- * agree. `evidence/singular` still counts the pair as one identity, which is
- * correct for a rule about a file's public surface rather than about where a
- * tag may sit. The remaining difference is a decision, not an oversight, which
- * is why it is pinned.
+ * Both halves are type units under one identity. This order is the common one,
+ * because an *instantiated* namespace above its class is `TS2434`, and the
+ * namespace here exports a value. The namespace keeps its own members, because
+ * a companion namespace beside a class is authored contract rather than the
+ * static-side machinery a function-merged namespace holds. Its twin below
+ * covers the order TypeScript does allow.
  *
- *  1. Declare a class and a namespace of one name.
+ *  1. Declare a class and a value-exporting namespace of one name.
  *  2. Materialize the inventory.
- *  3. Assert the type unit reports the namespace, not the class.
+ *  3. Assert the type unit reports the class, and both halves contribute.
  */
-func TestClassBesideNamespaceIsNotOneGraphUnit(t *testing.T) {
+func TestClassBesideNamespaceIsOneGraphUnitFromTheClass(t *testing.T) {
   inventory := parseTypeScriptInventory(t, "src/Sale.ts", `
 export class Sale {
   price(): number {
@@ -343,10 +345,120 @@ export namespace Sale {
   for _, unit := range inventory.Units {
     targets[unit.Symbol+":"+unit.Target] = unit.Line
   }
-  if line, exists := targets["type:Sale"]; !exists || line != 7 {
-    t.Fatalf("the type unit 'Sale' must be the namespace at line 7, got %d (exists=%v)", line, exists)
+  if line, exists := targets["type:Sale"]; !exists || line != 2 {
+    t.Fatalf("the type unit 'Sale' must be the class at line 2, got %d (exists=%v)", line, exists)
   }
   if _, exists := targets["function:Sale.prototype.price"]; !exists {
     t.Fatalf("the class must contribute its method as a separate unit, got %v", targets)
+  }
+  if _, exists := targets["property:Sale.version"]; !exists {
+    t.Fatalf("the merged namespace must keep contributing its member, got %v", targets)
+  }
+}
+
+/**
+ * Verifies a type-only namespace above its class founds the merged identity.
+ *
+ * `TS2434` is gated on the namespace being instantiated, measured against the
+ * pinned compiler: a namespace holding only types compiles clean above the
+ * class it merges with, and so does any namespace in an ambient context. The
+ * companion-namespace idiom this feature exists to serve is exactly that shape,
+ * so "the class is always first" is not a rule the graph may lean on. Source
+ * position decides, as it does for every other merge.
+ *
+ *  1. Declare a type-only namespace above a class of one name.
+ *  2. Materialize the inventory.
+ *  3. Assert the type unit reports the namespace, and the class still
+ *     contributes its members below it.
+ */
+func TestTypeOnlyNamespaceAboveItsClassFoundsTheIdentity(t *testing.T) {
+  assertMergeFoundedAtLineTwo(t, "src/Sale.ts", `
+export namespace Sale {
+  export interface IProps {
+    id: string;
+  }
+}
+export class Sale {
+  price: number = 0;
+}
+`, []string{
+    "property:Sale.IProps.id",
+    "property:Sale.prototype.price",
+    "type:Sale",
+    "type:Sale.IProps",
+  }, []string{"Sale.IProps", "Sale.prototype.price"})
+}
+
+/**
+ * Verifies an ambient namespace above its class founds the identity too.
+ *
+ * The other half of the same gate, and the one that needs its own fixture. The
+ * namespace here holds a **value**, which is what `TS2434` refuses everywhere
+ * except an ambient context, so this order is legal for no reason the type-only
+ * case above shares. It is written in a `.d.ts`, because that is where a
+ * consumer meets it: a `package` reference reads declarations from disk.
+ *
+ *  1. Declare an ambient value-holding namespace above its ambient class.
+ *  2. Materialize the inventory.
+ *  3. Assert one unit, reported from the namespace, owning both halves.
+ */
+func TestAmbientNamespaceAboveItsClassFoundsTheIdentity(t *testing.T) {
+  assertMergeFoundedAtLineTwo(t, "src/Sale.d.ts", `
+export declare namespace Sale {
+  const rate: number;
+}
+export declare class Sale {
+  price: number;
+}
+`, []string{
+    "property:Sale.prototype.price",
+    "property:Sale.rate",
+    "type:Sale",
+  }, []string{"Sale.rate", "Sale.prototype.price"})
+}
+
+// assertMergeFoundedAtLineTwo pins one class-and-namespace merge whose namespace
+// half comes first.
+//
+// The exact `symbol:target` set is asserted rather than a lookup by target
+// alone, so a regression that emitted `Sale` under another kind, or emitted a
+// second `Sale` unit beside it, fails here rather than passing a test whose
+// message still claims to check the type unit.
+func assertMergeFoundedAtLineTwo(
+  t *testing.T,
+  path string,
+  source string,
+  want []string,
+  descendants []string,
+) {
+  t.Helper()
+  inventory := parseTypeScriptInventory(t, path, source)
+  units := []string{}
+  byTarget := map[string]*evidenceUnit{}
+  for _, unit := range inventory.Units {
+    units = append(units, unit.Symbol+":"+unit.Target)
+    byTarget[unit.Target] = unit
+  }
+  sort.Strings(units)
+  sort.Strings(want)
+  if strings.Join(units, "\n") != strings.Join(want, "\n") {
+    t.Fatalf(
+      "merged identity units:\n%s\nwant:\n%s",
+      strings.Join(units, "\n"),
+      strings.Join(want, "\n"),
+    )
+  }
+  class := byTarget["Sale"]
+  if class.Line != 2 {
+    t.Fatalf("the type unit 'Sale' must be the namespace at line 2, got %d", class.Line)
+  }
+  for _, target := range descendants {
+    if byTarget[target].ParentID != class.ID {
+      t.Fatalf(
+        "%s must hang below the merged identity, got parent %q",
+        target,
+        byTarget[target].ParentID,
+      )
+    }
   }
 }

@@ -68,6 +68,12 @@ Evidence declarations are read from JSDoc and nowhere else, so an export without
 
 The default selects every kind a claim can use as a host, deliberately: the population that must be able to hold a tag is exactly the population a claim can select, so a narrower default would leave some potential host unable to cite while the rule reported success.
 
+Members are part of that population, so the rule reaches inside a class, an interface, and an object-shaped type alias. A field, a method, a constructor parameter property, and a method signature each need their own block, because each is a unit a claim can select and therefore a position a citation can live in. A block on the container does not stand in for them: a class explains the subject, a method what it does, and a field the fact it carries, and the graph counts them separately.
+
+It reaches only the members a claim can select, which is the population [the TypeScript kinds](/docs/evidence/claims#typescript-kinds) define. A `private` or `protected` member, an accessor, and the constructor itself are not in it, so none of them is asked for a block.
+
+`symbol` narrows that population the same way a claim's does, and narrowing it can stop asking for a block with no message. A configuration of `symbol: ["property"]` over interfaces no longer reaches a member spelled `onOpen: () => void`, because that member is now a `function`. The demand disappears rather than moving, so check a narrowed `symbol` here after upgrading, exactly as you would on a claim.
+
 Presence is the whole check. The rule never judges what the prose says, how long it is, or whether it is sincere. A rule that tried would only teach authors to write filler that satisfies it.
 
 For a merged identity the block belongs on the first declaration by source position, which is the one every diagnostic names. Documenting only a later half is reported, because the declaration a reader meets first would otherwise stay unexplained. A citation is the opposite: `@evidence` may sit on any declaration of a merged identity, since the graph judges the identity rather than the placement.

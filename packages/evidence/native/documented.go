@@ -251,13 +251,15 @@ func documentedHosts(file *shimast.SourceFile) []documentedHost {
 
 // hostNodesOf keeps the declarations that can actually carry a citation.
 //
-// A name can be spelled by a declaration that hosts nothing: a class is not a
-// type unit, so `class C` beside `namespace C` materializes the `C` type from
-// the namespace alone, and the collector registers no host for the class at
-// all. Demanding the block there would send an author's `@evidence` into a
-// position where `evidence/graph` rejects it as an unsupported host — the rule
-// steering citations somewhere a citation cannot live, which is the failure it
-// exists to prevent.
+// A unit's nodes are not all positions a tag can live in. `export const x = 1`
+// records two, the binding identifier that names the unit and the statement
+// wrapper TypeScript attaches the block to, and of those two only the wrapper
+// is a host. Beyond those two, the collector also registers the declarator,
+// which is in the host map and in no unit's node list, so this filter never
+// sees it and #1126 tracks what that costs. Demanding the block at the binding
+// would send an author's `@evidence` where `evidence/graph` rejects it as an
+// unsupported host, the rule steering citations somewhere a citation cannot
+// live, which is the failure it exists to prevent.
 //
 // Narrowing to real hosts also keeps this rule's premise exact. The population
 // that must be able to hold a tag is the population a claim can select as a

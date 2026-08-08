@@ -1,7 +1,8 @@
 import {
   type ITtscEvidenceProject,
   assertExcludes,
-  assertStatus,
+  assertFailure,
+  assertIncludes,
   createProject,
   runCheck,
 } from "../internal/index";
@@ -12,16 +13,23 @@ import {
  *
  * This is the idiom a consumer meets first, and the one `evidence/singular`
  * blesses by name. Each fixture reaches its first declaration through a
- * different route — a type unit, a namespace materializing a merged class, an
- * overload run, a variable statement behind a default export — and the last two
- * document every half, since nothing beyond the first is asked for or objected
- * to. Driving that through the real binary is what proves the agreement between
- * the two rules survives packaging.
+ * different route — an interface founding a type family, a class founding a
+ * merged class identity, an overload run, a variable statement behind a default
+ * export — and two of them document every half, since nothing beyond the first
+ * is asked for or objected to. Driving that through the real binary is what
+ * proves the agreement between the two rules survives packaging.
+ *
+ * A clean exit would not distinguish "every identity is documented" from "the
+ * rule selects nothing", so one deliberately undocumented export stands beside
+ * them and the case demands the build fail naming exactly it. Any of the four
+ * documented identities losing its block, or the rule narrowing what it
+ * selects, moves that count.
  *
  * 1. Declare an interface, a class, an overload set, and a default export, each
- *    documented on its first declaration and some on every half.
+ *    documented on its first declaration and some on every half, beside one
+ *    export left deliberately undocumented.
  * 2. Enable `evidence/documented` with the default selection.
- * 3. Assert a clean exit.
+ * 3. Assert the build fails naming only the undocumented export.
  */
 export const test_evidence_documented_accepts_merged_identities = (): void => {
   const project: ITtscEvidenceProject = createProject({
@@ -55,8 +63,8 @@ export const test_evidence_documented_accepts_merged_identities = (): void => {
         "",
       ].join("\n"),
       "src/Something.ts": [
-        "export class Something {}",
         "/** The exported service. */",
+        "export class Something {}",
         "export namespace Something {",
         "  /** Current version. */",
         '  export const version = "1";',
@@ -81,20 +89,28 @@ export const test_evidence_documented_accepts_merged_identities = (): void => {
         "export default evidence;",
         "",
       ].join("\n"),
+      "src/Undocumented.ts": ["export interface Undocumented {}", ""].join(
+        "\n",
+      ),
     },
   });
   try {
     const result = runCheck(project.directory);
-    assertStatus(
+    assertFailure(
       result,
-      0,
-      "A block on an identity's first declaration must document the whole merge, matching evidence/singular.",
+      "The undocumented export must keep the build red, which is what proves the rule ran.",
     );
-    assertExcludes(
+    assertIncludes(
       result,
-      "evidence/documented",
-      "An identity documented at its first declaration must produce no finding.",
+      "Missing JSDoc on exported type 'Undocumented'",
+      "The one export left undocumented is what the rule must name.",
     );
+    for (const documented of ["ISale", "Something", "format", "evidence"])
+      assertExcludes(
+        result,
+        `'${documented}'`,
+        "A block on an identity's first declaration must document the whole merge, matching evidence/singular.",
+      );
   } finally {
     project.cleanup();
   }

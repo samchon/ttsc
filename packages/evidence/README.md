@@ -96,7 +96,7 @@ One sentence: the components under `src` implement the docs, so every H2 and H3 
 | Rule | Takes | What it does |
 | --- | --- | --- |
 | `evidence/graph` | [`ITtscEvidenceGraphConfig`](https://github.com/samchon/ttsc/blob/master/packages/evidence/src/structures/ITtscEvidenceGraphConfig.ts) | The graph itself. Project-scoped, so its entry declares no `files`. |
-| `evidence/documented` | [`ITtscEvidenceDocumentedConfig`](https://github.com/samchon/ttsc/blob/master/packages/evidence/src/structures/ITtscEvidenceDocumentedConfig.ts) | Requires a JSDoc block on every selected export, since a block is the only place a citation can live. `symbol` narrows the kinds; it defaults to all three. |
+| `evidence/documented` | [`ITtscEvidenceDocumentedConfig`](https://github.com/samchon/ttsc/blob/master/packages/evidence/src/structures/ITtscEvidenceDocumentedConfig.ts) | Requires a JSDoc block on every selected export, since a block is the only place a citation can live. Members count, so a class field, a method, a parameter property, and an interface member each need their own. `symbol` narrows the kinds; it defaults to all three. |
 | `evidence/singular` | nothing | Keeps one public identity per file, named after the file. |
 | `evidence/todo` | nothing | Fails on every remaining JSDoc `@todo`, with its own text. |
 | `evidence/review` | nothing | Requires an `@evidenceReview` beside every `@evidence` and an `@evidenceExcludeReview` beside every `@evidenceExclude`, naming the same target and stating what was checked. |
@@ -215,7 +215,11 @@ A unit is addressed the way a consumer reaches it, so `export * as functional` n
 | TypeScript | `type`, `function`, `property` | all three | `type` |
 | Swagger | none, every operation is selected | not applicable | every operation |
 
-Units keep their hierarchy, so a target acknowledges itself and every selected descendant: citing a heading covers its subsections, an interface covers its properties, and `prisma:Sale` covers the columns beneath it. An ancestor stays addressable even when its own kind is not selected.
+Units keep their hierarchy, so a target acknowledges itself and every selected descendant: citing a heading covers its subsections, an interface or a class covers the members it declares, and `prisma:Sale` covers the columns beneath it. An ancestor stays addressable even when its own kind is not selected.
+
+A class is a `type`, its methods are `function`, and its fields are `property`. A member written as a callable joins the methods instead: `handler = () => {}` and `charge: () => void` are both `function`. An interface and an object-shaped type alias are classified by the same rule, so `run(): void` on either is a `function` just as a class method is, and an overload run is one unit. The test is on how the member is written, not on what its type resolves to, because this rule reads no type checker, so `charge: Handler` stays a `property` even where `Handler` is an alias of `() => void`.
+
+A class member that is `private` or `protected` materializes no unit, whichever syntax declared it. A constructor parameter carrying any property modifier declares a field, and it classifies exactly as the same field written in the class body would, so a `private` or `protected` one materializes nothing just as the body form does not. The property modifiers are TypeScript's own five: `public`, `protected`, `private`, `readonly`, and `override`. The last is the one to know about, because its meaning is about the base class rather than about the field, so it does not read as a field declaration. On a class extending one that declares `rate`, `constructor(override rate: number)` is a public instance field and a selected `property` unit.
 
 A declaration whose documentation carries `@internal`, `@hidden`, or `@ignore` leaves the population entirely. It owes nothing and can carry nothing, and citing one is reported rather than silently ignored.
 
