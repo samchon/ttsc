@@ -595,16 +595,16 @@ export class Sale {
  * asserted as a contrast rather than as two rules that happen to be pinned in
  * files which never mention each other.
  *
- * Both halves and both scopes live here on purpose. Stated apart each reads as
- * an arbitrary rule; together they are what the documents claim, so a change
- * collapsing one onto the other fails here with the relationship named. The
- * positive half is pinned elsewhere for a bare `const` at either scope; what
- * this case adds is the alias-annotated variant of it, and the negatives — that
- * a declaration's annotation and a non-`const`'s initializer decide nothing,
- * measured at both scopes rather than at one and assumed at the other.
+ * Both halves live here on purpose. Stated apart each reads as an arbitrary
+ * rule; together they are what the documents claim, so a change collapsing one
+ * onto the other fails here with the relationship named.
  *
- *  1. Declare every variable form at module and at namespace scope, beside the
- *     class fields they contrast with.
+ * One scope, deliberately. `collectTypeScriptVariables` reads `prefix` to name
+ * a unit and never to classify one, so a namespace row asserts nothing this
+ * case does not already assert — a mutation only reddens it by first
+ * introducing the scope dependence the code does not have.
+ *
+ *  1. Declare every variable form beside the class fields they contrast with.
  *  2. Collect the inventory.
  *  3. Assert the only functions are a `const` initialized with a function and
  *     the class's written-as callables.
@@ -617,12 +617,6 @@ export declare const constAnnotated: () => void;
 export let letInitialized: () => void = () => {};
 export declare var varAnnotated: () => void;
 export var varInitialized: () => void = () => {};
-export namespace api {
-  export const nestedInitialized: Handler = () => {};
-  export declare const nestedAnnotated: () => void;
-  export let nestedLet: () => void = () => {};
-  export var nestedVar: () => void = () => {};
-}
 export class Sale {
   declare annotated: () => void;
   initialized = (): void => {};
@@ -636,17 +630,12 @@ export class Sale {
   want := []string{
     "function:Sale.prototype.annotated",
     "function:Sale.prototype.initialized",
-    "function:api.nestedInitialized",
     "function:constInitialized",
-    "property:api.nestedAnnotated",
-    "property:api.nestedLet",
-    "property:api.nestedVar",
     "property:constAnnotated",
     "property:letInitialized",
     "property:varAnnotated",
     "property:varInitialized",
     "type:Sale",
-    "type:api",
   }
   if strings.Join(units, "\n") != strings.Join(want, "\n") {
     t.Fatalf(

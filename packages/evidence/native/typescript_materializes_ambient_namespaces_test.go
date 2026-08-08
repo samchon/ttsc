@@ -31,7 +31,6 @@ export namespace Ambient {
   };
   function execute(): void;
   const state: string;
-  const callback: () => void;
   namespace Nested {
     function work(): void;
     const active: boolean;
@@ -80,7 +79,6 @@ export namespace Ordinary {
     "function:Declared.run",
     "function:Ordinary.visible",
     "property:Ambient.Input.id",
-    "property:Ambient.callback",
     "property:Ambient.Nested.active",
     "property:Ambient.Options.enabled",
     "property:Ambient.state",

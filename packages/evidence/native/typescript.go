@@ -217,24 +217,6 @@ func withdrawHiddenHosts(
   inventory *artifactInventory,
   supportedHosts map[*shimast.Node]symbolSet,
 ) {
-  // Most files withdraw nothing, so the indexes below are built only once
-  // something needs them. Filling both unconditionally costs milliseconds on a
-  // file of a few thousand module-scope declarations; the guarded pass costs
-  // microseconds, because it is one comparison per unit and stops at the first
-  // withdrawal. That ratio is the reason for the guard, and it is what two
-  // independent measurements agreed on. Its share of a whole scan is not
-  // quoted here: both measurements put it in the low single digits of a
-  // percent, and neither reproduced the other's figure, because it moves with
-  // how many units a file declares and whether they carry documentation.
-  //
-  // A warm rebuild mostly rescans only the files the compiler reparsed, since
-  // `typeScriptInventoryCache` keys on the address and the source file, so this
-  // is largely a cold-scan and edited-file cost. Only mostly: the cache keeps
-  // two generations, so a resident host alternating projects pays a miss per
-  // switch, and one file reached through two configured bases is two keys.
-  if !anyWithdrawnUnit(inventory) {
-    return
-  }
   type hostPosition struct {
     node   *shimast.Node
     symbol string
@@ -266,15 +248,6 @@ func withdrawHiddenHosts(
   }
 }
 
-func anyWithdrawnUnit(inventory *artifactInventory) bool {
-  for _, unit := range inventory.Units {
-    if unit.Hidden != "" {
-      return true
-    }
-  }
-  return false
-}
-
 // collectTypeScriptStatements materializes the public units one statement list
 // declares.
 //
@@ -301,12 +274,8 @@ func collectTypeScriptStatements(
   exports := collectLocalExportNames(statements)
   hiddenNames := collectHiddenDeclarationNames(file, statements)
   // Built on the first namespace this list holds rather than up front, so a
-  // file declaring none pays nothing, and most declare none. The saving is
-  // mostly on a cold scan and on the files a rebuild reparsed rather than on
-  // every rebuild, because `typeScriptInventoryCache` remembers an unchanged
-  // file's scan across a cycle. Mostly, because it keeps two generations and
-  // keys on the address as well, so a resident host alternating projects pays
-  // a miss per switch and one file reached through two bases is two keys.
+  // file declaring none pays nothing. Every rebuild scans every configured
+  // source, and most of them have no namespace at all.
   var functionNames map[string]bool
   for _, statement := range statements.Nodes {
     if statement == nil {
@@ -734,8 +703,8 @@ func collectClassMembers(
     // closes construction from outside; `public readonly price` on one of its
     // parameters is still an instance field every holder of the object reads.
     if member.Kind == shimast.KindConstructor {
-      // Resolved on the first constructor this class holds rather than up
-      // front, so a class declaring none pays nothing, and most declare none.
+      // Resolved once per class rather than per declaration, so an overload
+      // run does not rescan the member list for every signature it holds.
       if !constructorResolved {
         constructorHidden = constructorHidingTag(file, class.Members, hidden)
         constructorResolved = true
