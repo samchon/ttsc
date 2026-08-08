@@ -1,6 +1,6 @@
 ---
 name: review
-description: Defines the review of @evidence and @evidenceExclude for fake citations, for cited requirements the code contradicts, and for exclusions created solely to evade compiler errors, of configuration edited beyond the one permitted activation, and of the compiler and runtime gates each scope must pass. Read only for a review objective; backend.md and frontend.md carry the per-scope configuration and gates.
+description: Defines the review of @evidence and @evidenceExclude for fake citations, of their @evidenceReview statements for checks never performed, for cited requirements the code contradicts, and for exclusions created solely to evade compiler errors, of configuration edited beyond the one permitted activation, and of the compiler and runtime gates each scope must pass. Read only for a review objective; backend.md and frontend.md carry the per-scope configuration and gates.
 ---
 
 # Review
@@ -33,6 +33,10 @@ Decide which by asking what the requirement obliges and whether this host is the
 Where two artifacts cite one target — a type and the provider behind it, an operation and the test that proves it — read them against the target together. A published contract that promises what its implementation refuses is a finding on both.
 
 Several hosts may truthfully cite one target; do not consolidate them. A clean compiler gate does not prove a tag truthful.
+
+Read each acknowledgement's review with it. `evidence/review` proves a review is present and names the same target; whether it describes a check that was performed, and whether that check would detect the host failing this target, is this inspection's question. A review that restates the reason, or that concludes without naming what was read or run, is a finding on the same footing as a fake citation.
+
+A host carrying several acknowledgements is read as one decision about that host. Reviews that cannot be written separately, or that a single check would have to be stretched to cover, mean the citations are not one responsibility. Split the host along the line they expose. Consolidating the reviews instead hides the seam the rule surfaced.
 
 Continue after each finding until the complete active-phase population is inspected. Correct every fake tag, then pass the scope's gates.
 

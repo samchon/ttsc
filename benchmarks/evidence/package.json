@@ -13,6 +13,7 @@
     "supervise": "node ../../packages/ttsc/lib/launcher/ttsx.js --project tsconfig.json src/executable/EvidenceBenchmarkSupervision.ts",
     "warn": "node ../../packages/ttsc/lib/launcher/ttsx.js --project tsconfig.json src/executable/EvidenceBenchmarkWarning.ts",
     "dashboard": "node ../../packages/ttsc/lib/launcher/ttsx.js --project tsconfig.json src/executable/EvidenceBenchmarkDashboard.ts",
+    "coverage": "node ../../packages/ttsc/lib/launcher/ttsx.js --project tsconfig.json src/executable/EvidenceBenchmarkCoverage.ts",
     "report": "node ../../packages/ttsc/lib/launcher/ttsx.js --project tsconfig.json src/executable/EvidenceBenchmarkReport.ts",
     "charts": "node ../../packages/ttsc/lib/launcher/ttsx.js --project tsconfig.json src/executable/EvidenceBenchmarkChart.ts",
     "reconcile": "node ../../packages/ttsc/lib/launcher/ttsx.js --project tsconfig.json src/executable/EvidenceBenchmarkReconcile.ts",

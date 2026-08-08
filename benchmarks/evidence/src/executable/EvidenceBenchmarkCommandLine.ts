@@ -1,4 +1,4 @@
-import { spawn, spawnSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
@@ -11,12 +11,14 @@ import { EvidenceBenchmarkLayout } from "../EvidenceBenchmarkLayout";
 import { EvidenceBenchmarkRunner } from "../EvidenceBenchmarkRunner";
 import { EvidenceBenchmarkRuntime } from "../EvidenceBenchmarkRuntime";
 import { EvidenceBenchmarkStageLog } from "../EvidenceBenchmarkStageLog";
+import { EvidenceBenchmarkToolchain } from "../EvidenceBenchmarkToolchain";
 import { EvidenceBenchmarkWorkspace } from "../EvidenceBenchmarkWorkspace";
 import { sanitizeBenchmarkEnvironment } from "../sanitizeBenchmarkEnvironment";
 import type { ITtscEvidenceBenchmarkCheckpoint } from "../structures/ITtscEvidenceBenchmarkCheckpoint";
 import type { ITtscEvidenceBenchmarkInputIdentity } from "../structures/ITtscEvidenceBenchmarkInputIdentity";
 import type { ITtscEvidenceBenchmarkOutput } from "../structures/ITtscEvidenceBenchmarkOutput";
 import type { ITtscEvidenceBenchmarkRunState } from "../structures/ITtscEvidenceBenchmarkRunState";
+import type { ITtscEvidenceBenchmarkWorkspaceArtifact } from "../structures/ITtscEvidenceBenchmarkWorkspaceArtifact";
 import type { ITtscEvidenceBenchmarkWorkspaceResult } from "../structures/ITtscEvidenceBenchmarkWorkspaceResult";
 import type { EvidenceBenchmarkArm } from "../typings/EvidenceBenchmarkArm";
 import type { EvidenceBenchmarkEffort } from "../typings/EvidenceBenchmarkEffort";
@@ -43,6 +45,7 @@ interface ITtscEvidenceBenchmarkCell {
   runId: string;
   benchmarkRevision: string;
   evidenceArtifactSha256?: string;
+  toolchainArtifacts?: ITtscEvidenceBenchmarkToolchainArtifact[];
   model: string;
   effort: EvidenceBenchmarkEffort;
   runtime?: EvidenceBenchmarkRuntime.IAssignment;
@@ -61,6 +64,25 @@ interface ITtscEvidenceBenchmarkCell {
   };
   stopAfter?: "backend-start";
   reviewLedger?: "backend";
+}
+
+/**
+ * One locally packed workspace package a cell measured, as retained.
+ *
+ * A launch packs this repository's own toolchain instead of letting the
+ * measured workspace install a published release, so the run record has to say
+ * which packages that covered and which bytes each one was. Without it a report
+ * can only claim the workspace used the tree under test.
+ */
+interface ITtscEvidenceBenchmarkToolchainArtifact {
+  /** Package name the prepared workspace resolves to the archive. */
+  name: string;
+
+  /** Archive location inside the workspace, POSIX-relative to its root. */
+  dependency: string;
+
+  /** Lowercase hexadecimal SHA-256 of the archive as it was installed. */
+  sha256: string;
 }
 
 interface ITtscEvidenceBenchmarkRecordPaths {
@@ -199,8 +221,11 @@ const main = async (): Promise<void> => {
       throw new Error(
         "Checkpoint-only runs cannot resume; derive a run from backend-start.",
       );
-    if (retained.state.status === "quality-failed")
-      throw new Error("Quality-failed benchmark runs cannot resume.");
+    // A run retained under the earlier behaviour, where a scope that exhausted
+    // its supplementations ended the cell. Its boundary is already decided and
+    // its plan already points at that scope's Final, so it resumes there and
+    // finishes the remaining scopes. The verdicts keep saying the review was
+    // never proven; the downstream work stops being absent.
     if (
       cell.checkpointSource !== undefined &&
       retained.state.nativeThreadStartInstructionIndex === undefined
@@ -234,20 +259,32 @@ const main = async (): Promise<void> => {
     return;
   }
 
-  const temporary: string | undefined =
-    cell.arm === "evidence"
-      ? fs.mkdtempSync(path.join(os.tmpdir(), "evidence-benchmark-"))
-      : undefined;
+  // Both arms pack the toolchain, so the staging directory is unconditional
+  // where it used to exist for the Evidence archive alone.
+  const temporary: string = fs.mkdtempSync(
+    path.join(os.tmpdir(), "evidence-benchmark-"),
+  );
   const archive: string | undefined =
-    temporary === undefined ? undefined : path.join(temporary, "evidence.tgz");
+    cell.arm === "evidence" ? path.join(temporary, "evidence.tgz") : undefined;
   let prepared: ITtscEvidenceBenchmarkWorkspaceResult;
   try {
     await EvidenceBenchmarkRuntime.assertAvailable([cell.runtime!]);
+    const toolchain: ITtscEvidenceBenchmarkWorkspaceArtifact[] =
+      await EvidenceBenchmarkToolchain.pack(repository, temporary);
+    cell.toolchainArtifacts = toolchain.map((artifact) => ({
+      name: artifact.name,
+      dependency: `.benchmark-deps/${path.basename(artifact.archive)}`,
+      sha256: sha256(artifact.archive),
+    }));
     if (archive !== undefined) {
       const retainedArchive: string | undefined =
         process.env.EVIDENCE_BENCHMARK_ARCHIVE;
       if (retainedArchive === undefined)
-        await packEvidence(repository, archive);
+        await EvidenceBenchmarkToolchain.packPackage(
+          repository,
+          "packages/evidence",
+          archive,
+        );
       else {
         const source: string = path.resolve(retainedArchive);
         if (!fs.statSync(source).isFile())
@@ -276,10 +313,10 @@ const main = async (): Promise<void> => {
               name: EVIDENCE_BENCHMARK_PACKAGE_NAME,
               archive,
             },
+      toolchain,
     });
   } finally {
-    if (temporary !== undefined)
-      fs.rmSync(temporary, { recursive: true, force: true });
+    fs.rmSync(temporary, { recursive: true, force: true });
   }
 
   if (
@@ -359,6 +396,9 @@ const runFromBackendStartCheckpoint = async (props: {
     throw new Error("Checkpoint source lacks an exact backend-start boundary.");
   requested.benchmarkRevision = sourceCell.benchmarkRevision;
   requested.evidenceArtifactSha256 = sourceCell.evidenceArtifactSha256;
+  // The derived run restores the source workspace rather than preparing one, so
+  // it measures the archives that workspace already carries.
+  requested.toolchainArtifacts = sourceCell.toolchainArtifacts;
   requested.runtime = sourceCell.runtime;
   if (requested.runtime !== undefined)
     await EvidenceBenchmarkRuntime.assertAvailable([requested.runtime]);
@@ -467,6 +507,20 @@ const runBenchmark = async (
     assertRegularFile(archive);
     if (sha256(archive) !== cell.evidenceArtifactSha256)
       throw new Error("Evidence benchmark artifact no longer matches its SHA.");
+  }
+  // The toolchain archives decide which compiler every measured command runs,
+  // so a resumed or derived run proves they are still the bytes the cell pinned
+  // for the same reason the Evidence archive does.
+  for (const artifact of cell.toolchainArtifacts ?? []) {
+    const archive: string = path.join(
+      records.workspace,
+      ...artifact.dependency.split("/"),
+    );
+    assertRegularFile(archive);
+    if (sha256(archive) !== artifact.sha256)
+      throw new Error(
+        `Benchmark toolchain artifact ${artifact.name} no longer matches its SHA.`,
+      );
   }
   const repository: string = EvidenceBenchmarkLayout.repositoryRoot;
   const environment: NodeJS.ProcessEnv = sanitizeBenchmarkEnvironment(
@@ -822,43 +876,6 @@ export const assertEvidenceBenchmarkRecoveryRevision = (
 
 const sha256 = (file: string): string =>
   crypto.createHash("sha256").update(fs.readFileSync(file)).digest("hex");
-
-const packEvidence = async (
-  repository: string,
-  archive: string,
-): Promise<void> => {
-  const entrypoint: string | undefined = process.env.npm_execpath;
-  if (entrypoint === undefined)
-    throw new Error(
-      "The benchmark command line must be launched through pnpm.",
-    );
-  await new Promise<void>((resolve, reject) => {
-    const child = spawn(
-      process.execPath,
-      [entrypoint, "pack", "--out", archive],
-      {
-        cwd: path.join(repository, "packages", "evidence"),
-        env: process.env,
-        shell: false,
-        windowsHide: true,
-        stdio: "inherit",
-      },
-    );
-    child.once("error", reject);
-    child.once("close", (exitCode, signal) => {
-      if (exitCode === 0 && signal === null) resolve();
-      else
-        reject(
-          new Error(
-            [
-              "Evidence package pack exited with",
-              `code ${String(exitCode)} and signal ${String(signal)}.`,
-            ].join(" "),
-          ),
-        );
-    });
-  });
-};
 
 const initializeAppendOnly = (file: string): void => {
   const descriptor: number = fs.openSync(file, "wx");

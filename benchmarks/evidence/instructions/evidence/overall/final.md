@@ -1,6 +1,6 @@
 # Evidence Overall Final
 
-Confirm every claim remains enabled. Do not edit `lint.config.ts` or lower `evidence/graph` from `error`.
+Confirm every claim remains enabled. Do not edit `lint.config.ts` or lower `evidence/graph` or `evidence/review` from `error`.
 
 Use the backend `pnpm check:watch` process kept running by Backend Start. Fix every diagnostic and stop it after a rebuild completes without diagnostics.
 
@@ -10,7 +10,7 @@ Frontend Review is the last review and it left both suites passing, so a Final c
 
 ## Final Checklist
 
-- [ ] Every claim remained enabled and `evidence/todo` remained `error`; `lint.config.ts` otherwise remained unchanged and `evidence/graph` remained `error`.
+- [ ] Every claim remained enabled and `evidence/todo` remained `error`; `lint.config.ts` otherwise remained unchanged and `evidence/graph` and `evidence/review` remained `error`.
 - [ ] After the last file change, backend `check:watch` completed a rebuild without diagnostics.
 - [ ] After the last file change, frontend `pnpm dev` completed a reload without diagnostics and remains running.
 - [ ] Backend `check:watch` stopped after that rebuild.

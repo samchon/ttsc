@@ -1,6 +1,6 @@
 ---
 name: evidence
-description: Defines the Evidence Graph tag grammar, truthfulness rules, claim activation, frozen configuration, behavioral proof, citations, exclusions, and the stub marker. Read before Evidence implementation or handling a graph diagnostic; backend.md and frontend.md carry the per-phase claims, placement, examples, and staged unlock.
+description: Defines the Evidence Graph tag grammar, per-citation reviews, truthfulness rules, claim activation, frozen configuration, behavioral proof, citations, exclusions, and the stub marker. Read before Evidence implementation or handling a graph diagnostic; backend.md and frontend.md carry the per-phase claims, placement, examples, and staged unlock.
 ---
 
 # Evidence Graph
@@ -14,12 +14,31 @@ description: Defines the Evidence Graph tag grammar, truthfulness rules, claim a
 
 ```text
 @evidence <target> <reason>
+@evidenceReview <target> <what you checked>
 @evidenceExclude <target> <reason>
+@evidenceExcludeReview <target> <what you checked>
 ```
 
 `@evidence` states that the host implements, represents, or proves the target. `@evidenceExclude` states that the claim does not apply to the target and names the actual owner or observable alternative plus the condition that would invalidate the exclusion.
 
 Target and non-empty reason are mandatory. One acknowledgement covers the selected target and its selected descendants. Write the reason as a specific responsibility current code could falsify, not a restatement of the target name.
+
+## Reviews
+
+Every acknowledgement carries a review of the same target: `@evidenceReview` beside each `@evidence`, `@evidenceExcludeReview` beside each `@evidenceExclude`. A review annotates a citation. It discharges no coverage and satisfies no obligation, so writing one can never change a graph diagnostic.
+
+The reason and the review answer different questions. The reason says why this host answers for that target. The review says what you checked to know it does. Only the first is written unless something asks for the second, which is why an unverified citation and a verified one are otherwise identical bytes.
+
+Name the artifact you read and the behavior you confirmed, in the form you actually worked from. "Confirmed" and "verified" are conclusions, not checks.
+
+```ts
+/**
+ * @evidence docs/analysis/03-functional-requirements.md#req-order-checkout closes a cart into an order and reserves its stock
+ * @evidenceReview docs/analysis/03-functional-requirements.md#req-order-checkout read the section's three rules and ran the checkout test: reservation, total, and the empty-cart refusal
+ */
+```
+
+A symbol accumulating citations is the signal this rule exists to raise. Writing one honest review per target forces each to be defended separately, and citations that cannot share a single defensible check were never one responsibility. Split the symbol along the line the reviews expose rather than writing a review broad enough to cover both.
 
 Every tag must truthfully describe the current host's relation to the target. Never write, move, consolidate, or invent an acknowledgement to pass the compiler: a diagnostic identifies an obligation, not the truthful acknowledgement for it, and a clean gate proves structure, not truth.
 
@@ -48,7 +67,7 @@ Do not add, remove, or change claim objects as implementation advances — after
 
 A claim is declared in the configuration of the Program its hosts live in; [backend.md](backend.md) and [frontend.md](frontend.md) name each claim's configuration and why it lives there.
 
-All three configuration files and every claim object are frozen except the prescribed `disabled` deletions. Keep `evidence/graph` at `error` in every gate; no environment value turns the graph off, and a result produced with it weakened is invalid. Do not create phase-specific config or compiler files, and do not add or remove a rule.
+All three configuration files and every claim object are frozen except the prescribed `disabled` deletions. Keep `evidence/graph` and `evidence/review` at `error` in every gate; no environment value turns either off, and a result produced with one weakened is invalid. Do not create phase-specific config or compiler files, and do not add or remove a rule.
 
 ## Placement
 

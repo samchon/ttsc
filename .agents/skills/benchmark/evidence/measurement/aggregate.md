@@ -32,6 +32,24 @@ USD cost is reconstructed from each native request's token categories and contex
 
 Pass repeated `--run-id <run-id>` arguments to both commands to publish an explicit historical cohort.
 
+## Coverage
+
+Coverage answers how much of the provenance graph a codebase satisfies, over the thirteen reference edges that run from a requirement anchor down to tests, properties, and journeys.
+
+Only Plain is measured. The Evidence arm's plugin enforces every one of those edges as a build gate, so a cell that compiled has already satisfied the graph; its coverage is one by construction, and there is nothing there to analyze or count.
+
+Count the edges while reviewing a completed Plain workspace read-only, and record each as an eligible population and a reached count rather than a ratio. The plugin cannot do this counting. A Plain codebase carries no `@evidence` tags, so every population it selects is empty, and an empty population demands nothing — running the rules against it reports full coverage while checking nothing.
+
+Compose the counts rather than combining them by hand:
+
+```bash
+pnpm --filter @ttsc/benchmark-evidence coverage <measurement.json>
+```
+
+It writes `benchmarks/evidence/aggregate/coverage.json` and prints the comparison table. Run it with no arguments for the input shape.
+
+The composition is not a formality. Averaging the thirteen rates ignores structure and lets a healthy near end average away a broken far end; multiplying them treats branches as a chain and collapses toward zero, because branch failures are correlated rather than independent. One subject scored 58.4% the first way and 0.003% the second. Serial hops multiply, branches average, and every edge enters exactly once — see issue #1088 for the derivation and for the two questions it leaves open, branch weighting and the independence the serial hops still assume.
+
 ## Close A Cohort
 
 A cell is execution-complete only when all three hold:

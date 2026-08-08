@@ -228,12 +228,17 @@ export namespace EvidenceBenchmarkSupervision {
     if (feedback !== undefined)
       throw new Error("A review verdict cannot inject text into the cell.");
 
+    // A scope that exhausts its supplementations proceeds to its Final rather
+    // than ending the cell. Which attempt a scope stopped converging on is
+    // still the measurement, and the retained `decision` keeps it: a verdict
+    // reaching Final with `fail` says the review was never proven. What the
+    // cell then builds downstream stays measurable, and a campaign comparing
+    // two arms keeps both of them building the same application.
     const action: ITtscEvidenceBenchmarkSupervisionVerdict["action"] =
-      submitted.decision === "pass"
+      submitted.decision === "pass" ||
+      pause.attempt >= EvidenceBenchmarkInstruction.REVIEW_SUPPLEMENT_LIMIT
         ? "final"
-        : pause.attempt < EvidenceBenchmarkInstruction.REVIEW_SUPPLEMENT_LIMIT
-          ? "retry"
-          : "quality-failed";
+        : "retry";
     if (action === "retry") {
       const attempt: number = pause.attempt + 1;
       const entry = {
@@ -282,7 +287,6 @@ export namespace EvidenceBenchmarkSupervision {
       workspace,
     };
     pause.verdict = verdict;
-    if (action === "quality-failed") retained.state.status = "quality-failed";
     return verdict;
   }
 
@@ -309,8 +313,7 @@ export namespace EvidenceBenchmarkSupervision {
       verdict.scope !== pause.scope ||
       verdict.attempt !== pause.attempt ||
       verdict.goalIndex !== goal.index ||
-      verdict.terminalTurnId !== goal.terminalTurnId ||
-      verdict.action === "quality-failed"
+      verdict.terminalTurnId !== goal.terminalTurnId
     )
       throw new Error(
         "Review-verdict resume lacks an exact retained decision.",
@@ -319,10 +322,16 @@ export namespace EvidenceBenchmarkSupervision {
     const next =
       props.state.instructionPlan?.[props.state.nextInstructionIndex];
     if (
-      (verdict.action === "final" &&
-        (verdict.decision !== "pass" ||
-          next?.kind !== "base" ||
-          next.name !== `${pause.scope}-final`)) ||
+      // Final is reached either by passing or by exhausting the bound, so the
+      // decision is not constrained here; the continuation is.
+      // `quality-failed` is the same continuation under the earlier behaviour:
+      // a run retained with it resumes into that scope's Final.
+      ((verdict.action === "final" || verdict.action === "quality-failed") &&
+        (next?.kind !== "base" ||
+          next.name !== `${pause.scope}-final` ||
+          (verdict.decision !== "pass" &&
+            pause.attempt <
+              EvidenceBenchmarkInstruction.REVIEW_SUPPLEMENT_LIMIT))) ||
       (verdict.action === "retry" &&
         (verdict.decision !== "fail" ||
           verdict.feedback !== undefined ||

@@ -86,10 +86,14 @@ export namespace EvidenceBenchmarkRunner {
         throw new Error("Plain review history lacks its retained root.");
       EvidenceBenchmarkSupervision.assertHistory(props.runRoot, state);
     }
-    if (state.status === "quality-failed") {
-      await props.onState?.(structuredClone(state));
-      return state;
-    }
+    // A run retained under the earlier behaviour, where exhausting a scope's
+    // supplementations ended the cell. The boundary it stopped at is already
+    // decided and its plan already points at that scope's Final, so a resume
+    // continues from there. What the scope failed to prove stays retained in
+    // its verdicts; what the cell builds afterwards becomes measurable instead
+    // of absent.
+    if (state.status === "quality-failed")
+      state.status = "awaiting-review-verdict";
     if (state.status === "awaiting-review-verdict") {
       if (props.runRoot === undefined)
         throw new Error("Plain review-verdict resume lacks its retained root.");
@@ -306,8 +310,13 @@ export namespace EvidenceBenchmarkRunner {
     // browser server and a copied `auth.json`, so the operator's own
     // `AGENTS.md`, hooks, personality, and MCP table cannot reach a cell and
     // the retained record describes the whole of what the cell saw.
+    // The retained session decides whether this run can be isolated at all. A
+    // run that already owns a thread keeps the home that thread lives in, since
+    // its rollout and Goal state are there and a fresh directory would sever the
+    // resume rather than isolate it.
     const codexHome: string = EvidenceBenchmarkRuntime.prepareCodexHome(
       props.runRoot,
+      state.sessionId,
     );
     const environment: NodeJS.ProcessEnv = {
       ...(props.environment ?? process.env),
@@ -2005,13 +2014,19 @@ export namespace EvidenceBenchmarkRunner {
         verdict.attempt !== pause.attempt ||
         verdict.goalIndex !== pause.goalIndex ||
         verdict.terminalTurnId !== goal.terminalTurnId ||
+        // Final is reached by passing, or by failing the last permitted
+        // supplementation. `quality-failed` remains valid so that a run
+        // retained under the earlier behaviour still validates.
         ((verdict.decision === "pass" || verdict.action === "final") &&
-          (verdict.decision !== "pass" ||
-            verdict.action !== "final" ||
+          (verdict.action !== "final" ||
             next?.kind !== "base" ||
-            next.name !== `${pause.scope}-final`)) ||
+            next.name !== `${pause.scope}-final` ||
+            (verdict.decision !== "pass" &&
+              pause.attempt <
+                EvidenceBenchmarkInstruction.REVIEW_SUPPLEMENT_LIMIT))) ||
         ((verdict.decision === "fail" || verdict.action === "retry") &&
           verdict.action !== "quality-failed" &&
+          verdict.action !== "final" &&
           (verdict.decision !== "fail" ||
             verdict.action !== "retry" ||
             next?.kind !== "review-supplement" ||
@@ -2019,15 +2034,19 @@ export namespace EvidenceBenchmarkRunner {
             next.reviewAttempt !== pause.attempt + 1 ||
             next.reviewFeedback !== verdict.feedback)) ||
         (pendingResume
-          ? pause.resumedAt !== undefined || verdict.action === "quality-failed"
+          ? pause.resumedAt !== undefined
           : verdict.action === "quality-failed"
-            ? !latest ||
-              state.status !== "quality-failed" ||
+            ? // Retained history once the run continued past it. The scope
+              // still ended on the last permitted attempt and still failed,
+              // and that is what stays checkable; the rest described a run
+              // that stopped there, which this one no longer does.
               verdict.decision !== "fail" ||
               pause.attempt !==
                 EvidenceBenchmarkInstruction.REVIEW_SUPPLEMENT_LIMIT ||
-              pause.resumedAt !== undefined ||
-              state.nextInstructionIndex !== pause.goalIndex + 1
+              (latest &&
+                (state.status !== "quality-failed" ||
+                  pause.resumedAt !== undefined ||
+                  state.nextInstructionIndex !== pause.goalIndex + 1))
             : pause.resumedAt === undefined)
       )
         throw new Error("Plain review verdict transition is invalid.");

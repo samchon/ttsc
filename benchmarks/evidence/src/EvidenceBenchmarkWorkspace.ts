@@ -118,6 +118,9 @@ export namespace EvidenceBenchmarkWorkspace {
           throw new Error("Evidence workspace requires a package artifact.");
         injectEvidence(workspace, request.artifact);
       }
+      // Both arms compile with this repository's toolchain, so both receive the
+      // same archives. Only the Evidence plugin is an arm treatment.
+      copyToolchainArchives(workspace, request.toolchain);
       const environment: NodeJS.ProcessEnv = { ...process.env };
       for (const name of Object.keys(environment))
         if (name.toUpperCase() === "EVIDENCE_BENCHMARK_ARCHIVE")
@@ -134,6 +137,7 @@ export namespace EvidenceBenchmarkWorkspace {
       fs.renameSync(stage, output);
       settled = path.join(output, "workspace");
       adoptRepositoryCatalog(request.repository, settled);
+      overrideToolchainResolution(settled, request.toolchain);
       await pnpm(["install", "--no-frozen-lockfile"], settled, environment);
       await run("git", ["init", "-b", "benchmark"], settled, environment);
       await run("git", ["add", "-A"], settled, environment);
@@ -237,6 +241,66 @@ export namespace EvidenceBenchmarkWorkspace {
     fs.writeFileSync(target, output);
   }
 
+  /**
+   * Points every packed toolchain package at its local archive.
+   *
+   * `adoptRepositoryCatalog` binds the catalog to the versions this repository
+   * declares, which is the right answer for a dependency the repository merely
+   * consumes and the wrong one for a package it publishes: `^0.24.0` resolves
+   * to whatever the registry last received, so a cell would measure a released
+   * compiler while reporting on the tree under test.
+   *
+   * The binding lands in `overrides` rather than in the catalog for two
+   * reasons. pnpm refuses a `file:` entry inside a catalog outright
+   * (`ERR_PNPM_CATALOG_ENTRY_INVALID_SPEC`), and the platform package carrying
+   * the native compiler binary never appears in the catalog at all, because
+   * `ttsc` pulls it as an optional dependency. One override reaches both, and
+   * reaches every transitive edge between them as well. Its `file:` path stays
+   * relative because pnpm resolves an override against the workspace root: the
+   * delivered tree therefore keeps working after the atomic rename and after a
+   * checkpoint restore copies it somewhere else.
+   *
+   * A name the template already overrides throws instead of being appended
+   * beside the existing entry. Two keys of one name in one mapping is a file
+   * whose meaning depends on which parser reads it.
+   */
+  function overrideToolchainResolution(
+    workspace: string,
+    toolchain: readonly ITtscEvidenceBenchmarkWorkspaceArtifact[],
+  ): void {
+    if (toolchain.length === 0) return;
+    const target: string = path.join(workspace, "pnpm-workspace.yaml");
+    const source: string = fs.readFileSync(target, "utf8");
+    const declared: Record<string, string> | undefined = typia.assert<{
+      overrides?: Record<string, string>;
+    }>(YAML.parse(source)).overrides;
+    for (const artifact of toolchain)
+      if (declared?.[artifact.name] !== undefined)
+        throw new Error(
+          `Benchmark workspace already overrides "${artifact.name}".`,
+        );
+    // Text insertion rather than a re-emit, for the reason
+    // `adoptRepositoryCatalog` substitutes text: re-emitting the parsed
+    // document would drop the anchors and the comments the template relies on.
+    const eol: string = source.includes("\r\n") ? "\r\n" : "\n";
+    const block: string = toolchain
+      .map(
+        (artifact) =>
+          `  ${JSON.stringify(artifact.name)}: ${JSON.stringify(
+            `file:.benchmark-deps/${path.basename(artifact.archive)}`,
+          )}`,
+      )
+      .join(eol);
+    const heading: RegExpExecArray | null = /^overrides:[ \t]*(?=\r?$)/m.exec(
+      source,
+    );
+    const output: string =
+      heading === null
+        ? `${source.endsWith(eol) ? source : `${source}${eol}`}${eol}overrides:${eol}${block}${eol}`
+        : `${source.slice(0, heading.index + heading[0].length)}${eol}${block}${source.slice(heading.index + heading[0].length)}`;
+    fs.writeFileSync(target, output);
+  }
+
   /** Flattens every repository catalog group into one package-to-version map. */
   function repositoryCatalogVersions(repository: string): Map<string, string> {
     const parsed: unknown = YAML.parse(
@@ -327,6 +391,35 @@ export namespace EvidenceBenchmarkWorkspace {
     manifest.devDependencies ??= {};
     manifest.devDependencies[artifact.name] = `file:${dependency}`;
     fs.writeFileSync(location, `${JSON.stringify(manifest, null, 2)}\n`);
+  }
+  /**
+   * Copies every packed toolchain archive beside the workspace it belongs to.
+   *
+   * The archives live inside the tree, next to the Evidence one, so a snapshot,
+   * a restore, or the publishing rename carries them with the workspace. That
+   * is what lets {@link overrideToolchainResolution} name each one relatively.
+   *
+   * An archive that would land on a name already taken throws. A silent
+   * overwrite would install one package's bytes under another's name, and the
+   * digest a launch pins would still match the file it wrote.
+   */
+  function copyToolchainArchives(
+    workspace: string,
+    toolchain: readonly ITtscEvidenceBenchmarkWorkspaceArtifact[],
+  ): void {
+    for (const artifact of toolchain) {
+      const target: string = path.join(
+        workspace,
+        ".benchmark-deps",
+        path.basename(artifact.archive),
+      );
+      if (fs.existsSync(target))
+        throw new Error(
+          `Benchmark dependency archive already exists: ${path.basename(artifact.archive)}.`,
+        );
+      fs.mkdirSync(path.dirname(target), { recursive: true });
+      fs.copyFileSync(path.resolve(artifact.archive), target);
+    }
   }
   function visitFiles(
     root: string,

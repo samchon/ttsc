@@ -58,20 +58,55 @@ export namespace EvidenceBenchmarkRuntime {
    * launch without the capability the frontend gate demands and nothing would
    * say so until a cell reported it could not drive a browser.
    */
-  export function prepareCodexHome(runRoot: string | undefined): string {
-    // A run with no retained root still gets an isolated home. Isolation is the
-    // property that matters; keeping the home beside the run record is only a
-    // convenience for reading it afterwards.
-    const home: string =
-      runRoot === undefined
-        ? fs.mkdtempSync(path.join(os.tmpdir(), "evidence-codex-home-"))
-        : path.join(runRoot, "codex-home");
-    fs.mkdirSync(home, { recursive: true });
-    const real: string = path.join(os.homedir(), ".codex", "auth.json");
+  export function prepareCodexHome(
+    runRoot: string | undefined,
+    retainedSessionId?: string,
+  ): string {
+    const operatorHome: string = path.join(os.homedir(), ".codex");
+    const real: string = path.join(operatorHome, "auth.json");
     if (!fs.existsSync(real))
       throw new Error(
         `Codex is not logged in: ${real} does not exist. Run \`codex login\` before launching a cell.`,
       );
+
+    // A run that already owns a thread keeps whatever home that thread lives in.
+    //
+    // A home is not only configuration. The rollout a resume replays and the
+    // Goal state the runner reconciles against both live inside it, in separate
+    // stores, and neither can be read from anywhere else. Handing an existing
+    // thread a fresh directory therefore does not isolate that run — it severs
+    // it: the resume asks for a thread that, from where it is now standing, was
+    // never created.
+    //
+    // That is not hypothetical. Isolation arrived mid-cohort, and the first cell
+    // resumed after it stopped with `no rollout found for thread id`. Seeding
+    // the rollout by hand moved the failure rather than fixing it, to
+    // `Retained state has no exact empty Goal boundary`, because the Goal store
+    // is a different file and was equally empty. One cell, two symptoms, one
+    // cause.
+    //
+    // Adopting rather than seeding is deliberate. The stores are shared across
+    // every thread on the machine, so copying enough of them to satisfy one
+    // resume would import other threads' state and defeat the isolation for
+    // every later run in the same directory. A run started before isolation was
+    // never isolated; saying so is honest, and it is recoverable, while a
+    // severed thread is neither.
+    //
+    // Only a run with no isolated home of its own takes this path, so every run
+    // launched under isolation keeps it, including one forked from a
+    // checkpoint — a fork holds no session and starts its thread here.
+    const home: string =
+      runRoot === undefined
+        ? fs.mkdtempSync(path.join(os.tmpdir(), "evidence-codex-home-"))
+        : path.join(runRoot, "codex-home");
+    if (
+      runRoot !== undefined &&
+      retainedSessionId !== undefined &&
+      !fs.existsSync(home)
+    )
+      return operatorHome;
+
+    fs.mkdirSync(home, { recursive: true });
     fs.copyFileSync(real, path.join(home, "auth.json"));
     fs.writeFileSync(
       path.join(home, "config.toml"),
@@ -112,7 +147,16 @@ export namespace EvidenceBenchmarkRuntime {
     arm: EvidenceBenchmarkArm,
     portBase: number = DEFAULT_PORT_BASE,
   ): IAssignment {
-    const subjects = ["todo", "reddit", "shopping", "erp", "todo2"] as const;
+    const subjects = [
+      "todo",
+      "reddit",
+      "shopping",
+      "erp",
+      "todo2",
+      "todo3",
+      "reddit2",
+      "shopping2",
+    ] as const;
     const arms: readonly EvidenceBenchmarkArm[] = ["evidence", "plain"];
     const subjectIndex: number = subjects.indexOf(
       subject as (typeof subjects)[number],

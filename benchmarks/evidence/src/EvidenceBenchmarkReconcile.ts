@@ -83,6 +83,7 @@ export namespace EvidenceBenchmarkReconcile {
 
     const written: IReconciled[] = [];
     let previousCumulative: Record<string, number> = {};
+    let cumulativeSeconds: number = 0;
     let directTotal: number = 0;
     for (let order: number = 0; order < props.stages.length; ++order) {
       const stage: IStage = props.stages[order]!;
@@ -117,9 +118,15 @@ export namespace EvidenceBenchmarkReconcile {
       // Only the timing is reconciled. Replacing the Goal object would drop
       // what the runner put there — the thread it ran on above all — and a
       // checkpoint derivation compares that thread against its own record.
+      //
+      // `timeUsedSeconds` is the thread's running total, not this stage's
+      // share: the report reads a stage as the difference between its own
+      // figure and the one before it. Writing a per-stage value here makes
+      // every published duration a difference of two unrelated numbers.
+      cumulativeSeconds += Math.round(record.elapsedMs / 1000);
       if (record.goal !== null && record.goal !== undefined) {
         record.goal.status = record.goal.status ?? "complete";
-        record.goal.timeUsedSeconds = Math.round(record.elapsedMs / 1000);
+        record.goal.timeUsedSeconds = cumulativeSeconds;
       }
       written.push({
         index: stage.index,

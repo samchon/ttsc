@@ -48,10 +48,16 @@ experimental/nestia/
 benchmarks/*/.work/
 
 # Raw evidence benchmark runs and measured workspaces are local measurement
-# output. A path built without its separator once created the second of these
-# upstream and it was not ignored; the spelling here follows this layout.
+# output. Upstream a path built without its separator once created a second
+# root beside the real one and nothing ignored it, so `/benchmarkoutput/` is
+# ignored there too. This layout was guessed to malform the same way, as
+# `/benchmarks/evidenceoutput/`, and that guess was wrong: what actually
+# appeared is `/benchmarks/output/`, upstream's `benchmark/output/` pluralized
+# to this repository's `benchmarks/` without the `evidence` segment that now
+# sits between them. A tracked fragment of a measured workspace landed there
+# and broke the format gate, so the observed spelling is ignored instead.
 /benchmarks/evidence/output/
-/benchmarks/evidenceoutput/
+/benchmarks/output/
 
 # Promotional media. Clips are rendered locally, published as GitHub-hosted
 # attachments, and referenced by URL from the website, so no binary enters the

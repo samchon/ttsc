@@ -14,6 +14,7 @@ The frontend delivers requirement-backed user journeys through the settled gener
 - [screens.md](screens.md): screen planning, forms, lists, values, states, and responsive behavior.
 - [design.md](design.md): visual discipline and accessibility.
 - [verification.md](verification.md): browser journeys, viewports, simulation, live execution, and the verification record.
+- [debugging.md](debugging.md): assigning a failure to the runtime and the layer that owns it.
 
 ## Implementation Order
 

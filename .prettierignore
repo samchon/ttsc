@@ -35,3 +35,12 @@ website/src/content/docs/ttsc/flags.mdx
 benchmarks/evidence/template/
 benchmarks/evidence/requirements/
 benchmarks/evidence/instructions/
+
+# Measured workspaces, which are the run itself. `pnpm format` writes, so a
+# formatter run during a campaign rewrites source inside workspaces that agents
+# are editing at that moment — changing the artifact under measurement and the
+# diff a reviewer judges it by. Being gitignored is no protection: the write
+# still lands, it simply leaves no trace in `git status`. Nothing here is this
+# repository's code, and a sweep over it also walks tens of thousands of files
+# for nothing.
+benchmarks/evidence/output/

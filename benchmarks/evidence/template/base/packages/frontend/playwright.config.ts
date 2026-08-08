@@ -3,7 +3,17 @@ import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
 
-const environment = path.resolve(import.meta.dirname, ".env");
+// `__dirname` rather than `import.meta.dirname`, because Playwright loads this
+// file through its own TypeScript require hook and the package declares no
+// `"type": "module"`, so it evaluates as CommonJS where `import.meta` does not
+// exist. The failure is not a bad path: it is a syntax-level crash before test
+// discovery, so the end-to-end gate reports zero tests rather than reporting
+// that it could not start.
+//
+// `vite.config.ts` beside this one keeps `import.meta.dirname` and is correct to
+// — Vite evaluates its config through an ESM-capable loader that supplies both
+// forms. The two files disagree because their loaders do.
+const environment = path.resolve(__dirname, ".env");
 if (fs.existsSync(environment)) process.loadEnvFile(environment);
 
 const host = "127.0.0.1";

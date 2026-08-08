@@ -70,8 +70,18 @@ const SCOPES = {
   "test-graph": ["ttsc", PLATFORM, "@ttsc/graph"],
   // The evidence suites drive ttsc plus the lint engine the contributor's rules
   // link into, and the benchmark suite materializes workspaces that install the
-  // contributor itself.
-  "test-evidence": ["ttsc", "@ttsc/lint", "@ttsc/evidence", PLATFORM],
+  // contributor itself. Those workspaces also install this repository's own
+  // toolchain from locally packed tarballs rather than from the registry, so
+  // @ttsc/unplugin has to be built here too: the delivered frontend type-checks
+  // `vite.config.ts`, which imports `@ttsc/unplugin/vite`, and packing that
+  // package unbuilt ships a tarball with no `lib` at all.
+  "test-evidence": [
+    "ttsc",
+    "@ttsc/lint",
+    "@ttsc/unplugin",
+    "@ttsc/evidence",
+    PLATFORM,
+  ],
   // The persistence harness only builds and runs source plugins through ttsc.
   // Building every unrelated workspace package six times obscured the cache
   // invariant behind roughly forty runner-minutes of setup.

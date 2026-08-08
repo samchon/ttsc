@@ -29,7 +29,7 @@ export const test_benchmark_plain_workspace_builds_without_evidence =
   async (): Promise<void> => {
     const workspace: IBenchmarkWorkspace =
       await acquireBenchmarkWorkspace("plain");
-    assertNoEvidenceMachinery(workspace.workspace);
+    assertNoEvidenceMachinery(workspace);
 
     provisionEnvironment(workspace.workspace);
     const backend: string = path.join(
@@ -80,26 +80,65 @@ export const test_benchmark_plain_workspace_builds_without_evidence =
  * overlay file that starts leaking into Plain is caught wherever it lands.
  * `node_modules` is skipped because it is the install, not the delivery, and
  * `.git` because the baseline commit stores the same bytes twice.
+ *
+ * `.benchmark-deps/` is where the archives live, and both arms now carry one:
+ * this repository publishes the compiler a cell runs, so every prepared
+ * workspace installs the packed toolchain and Plain is no exception. What
+ * separates the arms is which archives are in there, so the directory is held
+ * to the packed toolchain exactly — an Evidence artifact delivered here would
+ * be a treatment reaching the control while both arms still went green.
  */
-const assertNoEvidenceMachinery = (workspace: string): void => {
-  const deps: string = path.join(workspace, ".benchmark-deps");
-  if (fs.existsSync(deps))
-    throw new Error(
-      `The Plain arm received a package archive at ${deps}. Plain never reads or installs the Evidence artifact.`,
-    );
+const assertNoEvidenceMachinery = (workspace: IBenchmarkWorkspace): void => {
+  assertOnlyToolchainArchives(workspace);
   const leaks: string[] = [];
-  for (const file of walk(workspace)) {
+  for (const file of walk(workspace.workspace)) {
     // Read as bytes: the delivered tree gains generated and database files
     // once the gates run, and decoding one of those as text would fail on
     // content that has nothing to do with the property under test.
     const source: Buffer = fs.readFileSync(file);
     for (const marker of ["@ttsc/evidence", "@evidence"])
       if (source.includes(marker))
-        leaks.push(`${path.relative(workspace, file)} names ${marker}`);
+        leaks.push(
+          `${path.relative(workspace.workspace, file)} names ${marker}`,
+        );
   }
   if (leaks.length !== 0)
     throw new Error(
       `The Plain arm must differ from Evidence in the graph and nothing else, but the delivered workspace carries evidence material:\n${leaks.join("\n")}`,
+    );
+};
+
+/**
+ * Holds `.benchmark-deps/` to the toolchain archives and nothing besides.
+ *
+ * Named from the artifacts preparation was handed rather than from a list kept
+ * here, so a package added to or dropped from the packed set moves this
+ * assertion with it. An archive under a name nothing packed is an artifact
+ * reaching the control arm by a route no one declared, and the byte scan below
+ * cannot see it: a tarball is compressed, so the plugin's own name does not
+ * appear in it.
+ */
+const assertOnlyToolchainArchives = (workspace: IBenchmarkWorkspace): void => {
+  const deps: string = path.join(workspace.workspace, ".benchmark-deps");
+  const expected = new Set<string>(
+    workspace.toolchain.map((artifact) => path.basename(artifact.archive)),
+  );
+  if (expected.size === 0)
+    throw new Error(
+      "The Plain arm was prepared with no packed toolchain, so this assertion would accept any archive at all.",
+    );
+  const delivered: string[] = fs.existsSync(deps) ? fs.readdirSync(deps) : [];
+  const unexpected: string[] = delivered.filter((name) => !expected.has(name));
+  if (unexpected.length !== 0)
+    throw new Error(
+      `The Plain arm received an archive it never packs: ${unexpected.join(", ")}. Plain installs the same compiler Evidence does and nothing else; the plugin is the one treatment that separates them.`,
+    );
+  const missing: string[] = [...expected].filter(
+    (name) => !delivered.includes(name),
+  );
+  if (missing.length !== 0)
+    throw new Error(
+      `The Plain arm is missing the toolchain archive(s) ${missing.join(", ")}, so it compiles against a published release while Evidence compiles against this tree. The arms would differ in the compiler as well as in the graph.`,
     );
 };
 

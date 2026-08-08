@@ -3,7 +3,9 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
+import { EvidenceBenchmarkToolchain } from "../../../../benchmarks/evidence/src/EvidenceBenchmarkToolchain";
 import { EvidenceBenchmarkWorkspace } from "../../../../benchmarks/evidence/src/EvidenceBenchmarkWorkspace";
+import type { ITtscEvidenceBenchmarkWorkspaceArtifact } from "../../../../benchmarks/evidence/src/structures/ITtscEvidenceBenchmarkWorkspaceArtifact";
 import type { EvidenceBenchmarkArm } from "../../../../benchmarks/evidence/src/typings/EvidenceBenchmarkArm";
 import type { IBenchmarkWorkspace } from "./IBenchmarkWorkspace";
 import { packEvidenceArchive } from "./packEvidenceArchive";
@@ -34,6 +36,9 @@ let suiteDirectory: string | undefined;
 
 /** Prepared workspaces, keyed by arm and reused for the life of the process. */
 const prepared = new Map<EvidenceBenchmarkArm, Promise<IBenchmarkWorkspace>>();
+
+/** The packed toolchain, packed once and copied into every prepared arm. */
+let toolchain: Promise<ITtscEvidenceBenchmarkWorkspaceArtifact[]> | undefined;
 
 /**
  * Prepares one benchmark workspace per arm and hands every case the same tree.
@@ -72,6 +77,8 @@ const create = async (
 ): Promise<IBenchmarkWorkspace> => {
   const suite: string = suiteTemporaryDirectory();
   const apiPackageName = `@benchmark/${SUBJECT}-api`;
+  const packed: ITtscEvidenceBenchmarkWorkspaceArtifact[] =
+    await acquireToolchain(suite);
   const result = await EvidenceBenchmarkWorkspace.prepareWorkspace({
     repository: repositoryRoot,
     output: path.join(suite, arm),
@@ -90,6 +97,7 @@ const create = async (
             name: EVIDENCE_PACKAGE_NAME,
             archive: packEvidenceArchive(path.join(suite, "archive")),
           },
+    toolchain: packed,
   });
   return {
     arm,
@@ -97,8 +105,43 @@ const create = async (
     root: result.root,
     workspace: result.workspace,
     apiPackageName,
+    toolchain: packed,
     restore: () => restore(result.workspace),
   };
+};
+
+/**
+ * Packs this repository's compiler toolchain once for every prepared arm.
+ *
+ * A launch packs `ttsc`, `@ttsc/lint`, `@ttsc/unplugin`, and the platform
+ * package carrying the native compiler binary, then binds all four in both arms
+ * so a cell compiles against the tree under test instead of the last published
+ * release. A suite that skipped this would stand up a workspace no launch
+ * produces: every gate would run a registry compiler, and the whole preparation
+ * path this suite exists to prove would be exercised with the one argument that
+ * turns it off.
+ *
+ * The set comes from `EvidenceBenchmarkToolchain` rather than from a list kept
+ * here, for the same reason {@link acquireBenchmarkWorkspace} materializes
+ * through the real preparation: a list spelled twice can agree with itself
+ * while disagreeing with what a cell installs.
+ *
+ * Packing is shared across arms because the archives are identical by
+ * definition — the toolchain is not an arm treatment — and the platform package
+ * alone is a hundred and forty megabytes of native compiler.
+ * `copyToolchainArchives` copies from these paths into each workspace, so one
+ * pack still delivers two independent trees.
+ */
+const acquireToolchain = async (
+  suite: string,
+): Promise<ITtscEvidenceBenchmarkWorkspaceArtifact[]> => {
+  const existing = toolchain;
+  if (existing !== undefined) return existing;
+  const directory: string = path.join(suite, "toolchain");
+  fs.mkdirSync(directory, { recursive: true });
+  const creation = EvidenceBenchmarkToolchain.pack(repositoryRoot, directory);
+  toolchain = creation;
+  return creation;
 };
 
 /**

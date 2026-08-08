@@ -195,6 +195,10 @@ const EXCEPTIONS = new Map([
     "local only: the entry point for redrawing the charts from the tracked aggregate, which upstream has no equivalent of",
   ],
   [
+    "tests/test-evidence-benchmark/src/features/test_benchmark_chart_reports_what_it_cannot_draw.ts",
+    "local only: covers the chart renderer above, so it exists here for the same reason that module does",
+  ],
+  [
     "benchmarks/evidence/src/EvidenceBenchmarkReport.ts",
     "rendering moved to EvidenceBenchmarkChart, re-rooted through EvidenceBenchmarkLayout, an empty collection is refused rather than published over the tracked aggregate, and ttsc#1108 refuses a publication that would leave a coverage file from another cohort beside it",
   ],
@@ -204,7 +208,7 @@ const EXCEPTIONS = new Map([
   ],
   [
     ".agents/skills/benchmark/evidence/measurement/aggregate.md",
-    "same as the README: four published artifacts rather than upstream's three, and the redraw command beside them; ttsc#1107 and ttsc#1108 add the origin and the one-cohort-per-directory rules, and ttsc#1109 the number cross-check",
+    "same as the README: four published artifacts rather than upstream's three, and the redraw command beside them; ttsc#1107 and ttsc#1108 add the origin and the one-cohort-per-directory rules, ttsc#1109 the number cross-check, and ttsc#1088 the coverage composition, which upstream applied by hand while writing it up rather than publishing as a command",
   ],
   [
     "tests/test-evidence-benchmark/src/features/test_benchmark_chart_draws_every_published_chart_from_the_tracked_aggregate.ts",
@@ -219,8 +223,28 @@ const EXCEPTIONS = new Map([
     "local only: upstream's coverage figures are a table in its renderer, so there is no data-driven block for it to test",
   ],
   [
+    "benchmarks/evidence/src/EvidenceBenchmarkCoverage.ts",
+    "local only: composes the provenance graph's thirteen measured edges into one coverage figure for issue #1088, whose method upstream applied by hand while writing it up",
+  ],
+  [
+    "benchmarks/evidence/src/structures/ITtscEvidenceBenchmarkCoverage.ts",
+    "local only: the coverage composition's measurement input and composed result",
+  ],
+  [
+    "benchmarks/evidence/src/executable/EvidenceBenchmarkCoverage.ts",
+    "local only: publishes the coverage composition beside the aggregate",
+  ],
+  [
+    "tests/test-evidence-benchmark/src/features/test_benchmark_coverage_composes_over_the_reference_graph.ts",
+    "local only: locks the coverage composition's operators, since the arithmetic is the only thing that module contains",
+  ],
+  [
     "benchmarks/evidence/src/EvidenceBenchmarkWorkspace.ts",
-    "re-rooted through EvidenceBenchmarkLayout, and `workspacePackageVersions` is restored because a workspace never lists itself in a catalog",
+    "re-rooted through EvidenceBenchmarkLayout, `workspacePackageVersions` is restored because a workspace never lists itself in a catalog, and the delivered workspace overrides the toolchain to locally packed archives because this repository is ttsc, where upstream's registry resolution would measure a published release",
+  ],
+  [
+    "benchmarks/evidence/src/EvidenceBenchmarkToolchain.ts",
+    "local only: this repository publishes the compiler a cell runs, so a launch packs `ttsc`, `@ttsc/lint`, `@ttsc/unplugin`, and the platform package, and the feature suite reads the set from here rather than spelling it a second time",
   ],
   [
     "benchmarks/evidence/src/EvidenceBenchmarkCheckpoint.ts",
@@ -236,7 +260,15 @@ const EXCEPTIONS = new Map([
   ],
   [
     "benchmarks/evidence/src/executable/EvidenceBenchmarkCommandLine.ts",
-    "re-rooted through EvidenceBenchmarkLayout",
+    "re-rooted through EvidenceBenchmarkLayout, and packs the workspace toolchain per cell through EvidenceBenchmarkToolchain because this repository is ttsc, so the benchmark installs `ttsc`, `@ttsc/lint`, `@ttsc/unplugin`, and the platform package from locally packed archives rather than the registry; and it no longer refuses to resume a quality-failed run",
+  ],
+  [
+    "benchmarks/evidence/src/structures/ITtscEvidenceBenchmarkWorkspaceArtifact.ts",
+    "no longer Evidence-only: this repository is ttsc, so the same archive shape also carries the workspace toolchain both arms install locally",
+  ],
+  [
+    "benchmarks/evidence/src/structures/ITtscEvidenceBenchmarkWorkspaceRequest.ts",
+    "carries the toolchain archives because this repository is ttsc, so the benchmark installs the workspace toolchain from locally packed archives rather than the registry",
   ],
   [
     "benchmarks/evidence/src/executable/EvidenceBenchmarkDashboard.ts",
@@ -268,11 +300,23 @@ const EXCEPTIONS = new Map([
   ],
   [
     "tests/test-evidence-benchmark/src/internal/benchmarkWorkspace.ts",
-    "imports the benchmark source across a package boundary at this workspace's depth",
+    "imports the benchmark source across a package boundary at this workspace's depth, and packs this repository's toolchain once per process so every prepared arm is the workspace a launch here delivers rather than one resolved from the registry",
   ],
   [
     "tests/test-evidence-benchmark/src/internal/IBenchmarkWorkspace.ts",
-    "imports the benchmark source across a package boundary at this workspace's depth",
+    "imports the benchmark source across a package boundary at this workspace's depth, and carries the packed toolchain because a prepared workspace here binds this repository's own compiler",
+  ],
+  [
+    "benchmarks/evidence/src/EvidenceBenchmarkRunner.ts",
+    "a scope that exhausts its supplementations continues into its Final here, and a run retained as quality-failed resumes into it",
+  ],
+  [
+    "benchmarks/evidence/src/EvidenceBenchmarkSupervision.ts",
+    "the supplementation bound chooses the continuation rather than ending the run",
+  ],
+  [
+    "benchmarks/evidence/template/base/.gitignore",
+    "ignores the packed toolchain this repository delivers; upstream installs ttsc from the registry and has no such directory",
   ],
   [
     "tests/test-evidence/src/internal/createProject.ts",
@@ -284,7 +328,15 @@ const EXCEPTIONS = new Map([
   ],
   [
     "tests/test-evidence-benchmark/src/features/test_benchmark_command_line_runs_from_its_own_entry.ts",
-    "runs the command line from `benchmarkRoot` rather than the repository root, which are the same directory upstream and not here",
+    "runs the command line from `benchmarkRoot` rather than the repository root, which are the same directory upstream and not here, so the `node:path` import upstream needs to compute that root is gone with it",
+  ],
+  [
+    "tests/test-evidence-benchmark/src/features/test_benchmark_workspace_resolves_the_packed_toolchain.ts",
+    "local only: upstream consumes `ttsc` from a catalog, so it has no local toolchain binding for a case to prove",
+  ],
+  [
+    "tests/test-evidence-benchmark/src/features/test_benchmark_plain_workspace_builds_without_evidence.ts",
+    "`.benchmark-deps/` exists in both arms here, because both install this repository's packed compiler, so Plain is held to carrying the toolchain archives exactly rather than to carrying no archive at all",
   ],
 
   // ttsc#1096 round-two preparation. Everything below is this repository's own
@@ -622,6 +674,10 @@ const collect = (upRel, localRel) => {
     const a = Buffer.from(readUpstream(upRel), "utf8");
     const b = fs.readFileSync(localPath);
     skippedBinary++;
+    // A declared adaptation is declared whatever the extension. `.gitignore`
+    // and its siblings carry no extension at all, so they reach this branch
+    // rather than the text one, and an exception listed for them must be
+    // honoured here too.
     if (a.equals(b)) {
       if (EXCEPTIONS.has(localRel))
         excused.push(`${localRel}: listed as adapted but compares clean`);
