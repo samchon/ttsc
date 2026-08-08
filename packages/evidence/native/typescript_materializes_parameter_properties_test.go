@@ -97,25 +97,35 @@ export class Sale {
 }
 
 /**
- * Verifies a parameter property classifies by its value, not by its syntax.
+ * Verifies a parameter property classifies the same way whichever syntax
+ * declared it.
  *
- * A field declared with a direct function type is a function unit in the class
- * body, so the shorthand has to agree. If the two disagreed, moving a field
- * into the constructor would change which selector owns it, which is the
- * syntax dependence this shorthand support exists to remove.
+ * A field written as a callable is a function unit in the class body, so the
+ * shorthand has to agree. If the two disagreed, moving a field into the
+ * constructor would change which selector owns it, which is the dependence on
+ * declaration syntax this shorthand support exists to remove.
  *
- *  1. Declare function-typed and function-valued parameter properties.
+ * The alias row is what makes the agreement mean something. Both halves of the
+ * rule travel: a directly spelled function type is a function on either side,
+ * and an alias of that same type is a property on either side, because the test
+ * is on how the annotation is written and neither side reads a type checker.
+ *
+ *  1. Declare function-typed, alias-typed and function-valued parameter
+ *     properties beside their body twins.
  *  2. Collect the inventory.
- *  3. Assert they classify exactly as their body twins do.
+ *  3. Assert each pair classifies identically.
  */
 func TestParameterPropertyClassifiesLikeItsBodyTwin(t *testing.T) {
   inventory := parseTypeScriptInventory(t, "src/Sale.ts", `
+type Handler = () => void;
 export class Sale {
-  bodyTyped: () => void = () => {};
+  declare bodyTyped: () => void;
+  declare bodyAliased: Handler;
   bodyValued = (): void => {};
   bodyData: number = 0;
   constructor(
     public paramTyped: () => void,
+    public paramAliased: Handler,
     public paramValued = (): void => {},
     public paramData: number = 0,
   ) {}
@@ -131,7 +141,9 @@ export class Sale {
     "function:Sale.prototype.bodyValued",
     "function:Sale.prototype.paramTyped",
     "function:Sale.prototype.paramValued",
+    "property:Sale.prototype.bodyAliased",
     "property:Sale.prototype.bodyData",
+    "property:Sale.prototype.paramAliased",
     "property:Sale.prototype.paramData",
     "type:Sale",
   }
