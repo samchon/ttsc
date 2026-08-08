@@ -914,7 +914,7 @@ export interface IPlain {
  * the very member this exists to withhold. The two rows also spell their
  * type-only export differently, `export type { Sale }` against
  * `export { type Space }`, because the flag is set from the declaration or the
- * specifier and a merge asserted only one spelling would not say so.
+ * specifier and a merge asserting only one spelling does not say so.
  *
  * An interface no class merges with sits beside each half as the negative twin,
  * and it is the reason the guard is not simply moved to the interface
