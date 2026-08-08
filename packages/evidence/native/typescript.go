@@ -315,12 +315,9 @@ func collectTypeScriptStatements(
       // class-merged one's are reached through the class value that alias does
       // not expose, which is the address the class branch is already
       // suppressed for. Publishing them here would breach that guard at
-      // exactly the address it exists to keep empty. The criterion is the
-      // module specifier rather than the spelling: `target.TypeOnly` sees an
-      // export list in this file, `export type { Sale }` and
-      // `export { type Sale }` alike, while a re-export naming another module
-      // records no mark at all. That gap is the class guard's own and reaches
-      // a plain class too.
+      // exactly the address it exists to keep empty. What `target.TypeOnly`
+      // reaches, and what it does not, is stated once on the class branch this
+      // guard mirrors.
       if classNames == nil {
         classNames = collectClassDeclarationNames(statements)
       }
@@ -463,6 +460,13 @@ func collectTypeScriptStatements(
       // as it exposes an interface. What the alias withholds is the members:
       // `C.prototype.field` and `C.staticField` are paths through the class
       // *value*, and a type-only alias exposes no value to walk them from.
+      //
+      // Among type-only exports the criterion is the module specifier rather
+      // than the spelling. `target.TypeOnly` sees an export list in this file,
+      // `export type { C }` and `export { type C }` alike, while a re-export
+      // naming another module records no mark at all, so the withholding
+      // simply does not happen there. The interface branch mirrors this guard
+      // for a class-merged interface and points here for the reason.
       targets := publicTypeScriptExports(
         statement,
         name,
