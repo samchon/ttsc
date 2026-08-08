@@ -317,8 +317,9 @@ export class Sale {
  * a refusal reads as "withdrawal took the carrier" only if the same declaration
  * is accepted when nothing withdrew it. The carrier here is therefore the same
  * declaration the refusal names, an overload run's implementation half, with
- * the `@internal` block on its sibling signature removed. The remaining
- * differences between the two fixtures are the ones the assertion shape forces.
+ * the `@internal` block on its sibling signature removed. The other differences
+ * are what the assertions need, plus the second carrier the paragraph below
+ * explains.
  *
  * The field beside it is deliberately the wrong kind for the claim. Carrier
  * eligibility is wider than host eligibility by design, so a `property` member
@@ -832,6 +833,64 @@ export abstract class Sale extends Base {
   if strings.Join(units, "\n") != strings.Join(want, "\n") {
     t.Fatalf(
       "modifier-carrying class units:\n%s\nwant:\n%s",
+      strings.Join(units, "\n"),
+      strings.Join(want, "\n"),
+    )
+  }
+}
+
+/**
+ * Verifies an interface merged with a class declares that class's instance
+ * members.
+ *
+ * The merge is the ordinary way a project adds declarations to a class, and it
+ * describes the instance side, so `interface Sale { charge(): void }` beside
+ * `class Sale` declares the member the class body would. Addressing those
+ * members from the bare name published `Sale.charge` for something reached as
+ * `Sale.prototype.charge`, which cost three separate wrong answers: a path no
+ * consumer can walk, a second unit for a method the class already declares, and
+ * an obligation that stayed owed however the real member was cited.
+ *
+ * A plain interface beside them keeps its own addresses, so the case cannot
+ * pass by sending every interface member through `prototype`, and the data
+ * member crosses the merge axis with the syntactic one.
+ *
+ *  1. Merge an interface into a class, declaring one member the class also
+ *     declares and two it does not, beside an unmerged interface.
+ *  2. Collect the inventory.
+ *  3. Assert the shared member is one unit and every merged member takes the
+ *     instance address, while the unmerged interface is untouched.
+ */
+func TestInterfaceMergedWithAClassDeclaresItsInstanceMembers(t *testing.T) {
+  inventory := parseTypeScriptInventory(t, "src/Sale.ts", `
+export class Sale {
+  charge(): void {}
+}
+export interface Sale {
+  charge(): void;
+  extra(): void;
+  rate: number;
+}
+export interface IPlain {
+  run(): void;
+}
+`)
+  units := []string{}
+  for _, unit := range inventory.Units {
+    units = append(units, unit.Symbol+":"+unit.Target)
+  }
+  sort.Strings(units)
+  want := []string{
+    "function:IPlain.run",
+    "function:Sale.prototype.charge",
+    "function:Sale.prototype.extra",
+    "property:Sale.prototype.rate",
+    "type:IPlain",
+    "type:Sale",
+  }
+  if strings.Join(units, "\n") != strings.Join(want, "\n") {
+    t.Fatalf(
+      "class and interface merge units:\n%s\nwant:\n%s",
       strings.Join(units, "\n"),
       strings.Join(want, "\n"),
     )

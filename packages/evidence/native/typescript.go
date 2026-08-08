@@ -276,6 +276,8 @@ func collectTypeScriptStatements(
   // Built on the first namespace this list holds rather than up front, so a
   // file declaring none pays nothing.
   var functionNames map[string]bool
+  // The same, for the class an interface in this list may merge with.
+  var classNames map[string]bool
   for _, statement := range statements.Nodes {
     if statement == nil {
       continue
@@ -300,6 +302,16 @@ func collectTypeScriptStatements(
       if memberHidden == "" {
         addTypeScriptHost(supportedHosts, statement, "type")
       }
+      // An interface merged with a class declares that class's instance
+      // members, so they take the instance address the class body form takes.
+      // Addressing them from the bare name instead published `Sale.charge` for
+      // a member reached as `Sale.prototype.charge`: a path no consumer can
+      // walk, a second unit for a method the class already declared, and an
+      // obligation that stayed owed however the real member was cited.
+      if classNames == nil {
+        classNames = collectClassDeclarationNames(statements)
+      }
+      mergedWithClass := classNames[name]
       for _, name := range targets {
         identity := qualifyTypeScriptName(prefix, name)
         unit := addTypeScriptUnit(
@@ -311,10 +323,14 @@ func collectTypeScriptStatements(
           parentID,
           memberHidden,
         )
+        memberOwner := identity
+        if mergedWithClass {
+          memberOwner = qualifyTypeScriptName(identity, "prototype")
+        }
         collectPropertyMembers(
           file,
           statement.AsInterfaceDeclaration().Members,
-          identity,
+          memberOwner,
           unit.ID,
           inventory,
           supportedHosts,
@@ -556,6 +572,40 @@ func collectFunctionDeclarationNames(
   for _, statement := range statements.Nodes {
     if statement == nil ||
       statement.Kind != shimast.KindFunctionDeclaration {
+      continue
+    }
+    if name := declarationName(statement.Name()); name != "" {
+      names[name] = true
+    }
+  }
+  return names
+}
+
+// collectClassDeclarationNames indexes the local names a statement list
+// declares as classes, which is what an interface in the same list merges with.
+//
+// The merge is what decides a member's address rather than its kind. An
+// interface merged with a class describes that class's instance side, so
+// `interface Sale { charge(): void }` beside `class Sale` declares the same
+// member the class body would and takes the same `Sale.prototype.charge`
+// address. A namespace is the other partner and adds statics instead, which is
+// why only the interface case moves.
+//
+// The whole list is indexed rather than only the statements already collected,
+// because merging does not depend on which declaration is written first, and
+// export modifiers are not consulted for the reason
+// `collectFunctionDeclarationNames` gives: TypeScript refuses a merge whose
+// halves disagree on export.
+func collectClassDeclarationNames(
+  statements *shimast.NodeList,
+) map[string]bool {
+  names := map[string]bool{}
+  if statements == nil {
+    return names
+  }
+  for _, statement := range statements.Nodes {
+    if statement == nil ||
+      statement.Kind != shimast.KindClassDeclaration {
       continue
     }
     if name := declarationName(statement.Name()); name != "" {
