@@ -19,7 +19,7 @@ const classTypeClaimConfig = `{"claims":[{
  *
  * The uncited second section is what keeps this from passing on an empty
  * population. A claim whose selected hosts all vanish deactivates and reports
- * nothing, so a class that had stopped being a `type` unit would leave this
+ * nothing, so a class that had stopped being a `type` host would leave this
  * green. Demanding that exactly the uncited section is reported proves the
  * claim was live and the cited one really was discharged by the class.
  *
@@ -136,20 +136,22 @@ export class Sale {
  * even when its own kind is outside the selector.
  *
  * The uncited sibling class is what keeps this from passing on a population
- * that shrank. Either half of `Sale`'s members ceasing to materialize would
- * leave the citation covering whatever survived, and asserting silence would
- * not notice; demanding that exactly the sibling's field is reported fixes the
- * count that a shrinking population changes.
+ * that shrank, and it carries a method as well as a field on purpose. The
+ * reference selects both kinds, so a sibling holding only a field would leave
+ * the case green when methods stopped materializing: the citation would cover
+ * whatever survived and the expected count would not move. Two uncited members
+ * of different kinds make the count answer for both halves.
  *
  *  1. Select two classes' callables and fields as the reference population.
  *  2. Cite one class itself, once, from another module.
- *  3. Assert the uncited class's field is the only thing reported.
+ *  3. Assert both of the uncited class's members are reported and nothing else.
  */
 func TestClassCitationAcknowledgesItsMembers(t *testing.T) {
-  assertReported(t, runIndexRule(t, map[string]string{
+  messages := runIndexRule(t, map[string]string{
     "src/Sale.ts": classMemberReferenceSource + `
 export class Uncited {
   rate: number = 0;
+  recalculate(): void {}
 }
 `,
     "src/ledger.ts": `
@@ -158,7 +160,16 @@ import type { Sale } from "./Sale.js";
 /** @evidence {@link Sale} Records every operation and fact this subject owns. */
 export interface ILedger {}
 `,
-  }, classMemberReferenceConfig), "Missing acknowledgement for 'Uncited.prototype.rate'")
+  }, classMemberReferenceConfig)
+  assertProblemContains(t, messages, "Missing acknowledgement for 'Uncited.prototype.rate'")
+  assertProblemContains(t, messages, "Missing acknowledgement for 'Uncited.prototype.recalculate'")
+  if count := countProblemsContaining(messages, "Missing acknowledgement"); count != 2 {
+    t.Fatalf(
+      "only the uncited class's two members may be reported, got %d:\n%v",
+      count,
+      messages,
+    )
+  }
 }
 
 /**

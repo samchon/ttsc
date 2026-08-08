@@ -304,7 +304,9 @@ func collectTypeScriptStatements(
   // file declaring none pays nothing, and most declare none. The saving is
   // mostly on a cold scan and on the files a rebuild reparsed rather than on
   // every rebuild, because `typeScriptInventoryCache` remembers an unchanged
-  // file's scan across a cycle.
+  // file's scan across a cycle. Mostly, because it keeps two generations and
+  // keys on the address as well, so a resident host alternating projects pays
+  // a miss per switch and one file reached through two bases is two keys.
   var functionNames map[string]bool
   for _, statement := range statements.Nodes {
     if statement == nil {
@@ -664,10 +666,12 @@ func collectTypeScriptVariables(
 
 // collectClassMembers materializes the public contract a class declares.
 //
-// A method is a function unit and a member variable is a property unit, which
-// is the mapping a reader already assumes: the class is the subject, its
-// methods are what the subject does, and its fields are the measured facts it
-// carries. Every member hangs below the class unit, so a citation on the class
+// A method is a function unit and a field is a property unit unless it holds a
+// function, which is the mapping a reader already assumes: the class is the
+// subject, its methods are what the subject does, and its fields are the
+// measured facts it carries. `classMemberSymbol` owns the exception, and a
+// field's declared type counts as much as its initializer there.
+// Every member hangs below the class unit, so a citation on the class
 // acknowledges the members it selected.
 //
 // A constructor is not a unit of its own, now that the class is: construction

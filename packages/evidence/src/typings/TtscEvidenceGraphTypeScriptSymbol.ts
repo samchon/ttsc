@@ -22,11 +22,11 @@
  *   module or namespace scope. A `const` initialized with an arrow or function
  *   expression remains a function; every other variable, including a
  *   function-typed declaration or function-valued `let` or `var`, is a
- *   property. Every exported leaf in an object or array binding pattern is a
- *   property. A class field is the one place the opposite rule applies: it is a
- *   property unless it is function-valued **or** declared with a direct
- *   function type, either of which makes it a function. An accessor, including
- *   an auto-accessor, is neither. A constructor parameter carrying `public`,
+ *   property. A class field is the one place that rule reads the other way: it
+ *   is a property unless it is function-valued **or** declared with a direct
+ *   function type, either of which makes it a function. Every exported leaf in
+ *   an object or array binding pattern is a property. An accessor, including an
+ *   auto-accessor, is neither. A constructor parameter carrying `public`,
  *   `readonly`, `private`, or `protected` declares a field and classifies
  *   exactly as the same field written in the class body would, whatever the
  *   constructor's own visibility is. Its citation belongs on the parameter: a

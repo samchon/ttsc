@@ -458,19 +458,27 @@ export class Order {
  * ancestor, and one citation on it has to discharge both syntaxes at once or a
  * project mixing them would be told to cite the same subject twice.
  *
- *  1. Select a class's fields, one body-declared and one parameter-declared.
- *  2. Cite the class itself, once, from another module.
- *  3. Assert no diagnostic at all.
+ * The uncited sibling class is what keeps that checkable, and it declares its
+ * field through the shorthand. A case whose whole population is the shorthand
+ * would go silent when parameter properties stopped materializing, because the
+ * claim would deactivate; a case mixing both syntaxes in the cited class alone
+ * would stay green because the body field survived. The sibling separates the
+ * two: it fixes the expected count, and it is the shorthand that has to
+ * materialize for that count to be one.
+ *
+ *  1. Select two classes' fields, mixing both syntaxes in the cited one.
+ *  2. Cite that class itself, once, from another module.
+ *  3. Assert the uncited class's parameter property is the only thing reported.
  */
 func TestClassCitationAcknowledgesItsParameterProperties(t *testing.T) {
-  // The class declares its field only through the shorthand. A body field
-  // beside it would keep the reference population non-empty on its own, so
-  // parameter properties materializing nothing would leave this green while
-  // the thing it is about had ceased to exist.
-  assertNoProblems(t, runIndexRule(t, map[string]string{
+  assertReported(t, runIndexRule(t, map[string]string{
     "src/Sale.ts": `
 export class Sale {
+  readonly declared: number = 0;
   constructor(public readonly price: number) {}
+}
+export class Uncited {
+  constructor(public readonly rate: number) {}
 }
 `,
     "src/ledger.ts": `
@@ -488,7 +496,7 @@ export interface ILedger {}
       "files":["src/Sale.ts"],
       "symbol":["property"]
     }
-  }]}`))
+  }]}`), "Missing acknowledgement for 'Uncited.prototype.rate'")
 }
 
 /**

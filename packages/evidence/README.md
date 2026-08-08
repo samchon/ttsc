@@ -217,7 +217,7 @@ A unit is addressed the way a consumer reaches it, so `export * as functional` n
 
 Units keep their hierarchy, so a target acknowledges itself and every selected descendant: citing a heading covers its subsections, an interface covers its properties, a class covers its methods and fields, and `prisma:Sale` covers the columns beneath it. An ancestor stays addressable even when its own kind is not selected.
 
-A class is a `type`, its methods are `function`, and its member variables are `property`, whether a field is written in the class body or through the constructor's `public readonly` shorthand.
+A class is a `type` and its methods are `function`, whether a field is written in the class body or through the constructor's `public readonly` shorthand. A field is a `property` unless it holds a function, which a `() => void` type or an arrow initializer both count as; those are `function` beside the methods.
 
 A declaration whose documentation carries `@internal`, `@hidden`, or `@ignore` leaves the population entirely. It owes nothing and can carry nothing, and citing one is reported rather than silently ignored.
 
