@@ -217,10 +217,15 @@ func withdrawHiddenHosts(
   inventory *artifactInventory,
   supportedHosts map[*shimast.Node]symbolSet,
 ) {
-  // Most files withdraw nothing, and every rebuild scans every configured
-  // source, so the indexes below are built only once something needs them.
-  // Filling them unconditionally cost about a fifth of a cold inventory scan,
-  // measured over a file of a few thousand declarations carrying no tag.
+  // Most files withdraw nothing, so the indexes below are built only once
+  // something needs them. Measured over four thousand module-scope
+  // declarations, none of them tagged: filling both unconditionally costs
+  // 2.1ms against a 73ms scan when every declaration carries a documentation
+  // block, and 2.4ms against 37ms when none does, so 3% to 6% of a cold scan.
+  // The guarded pass is under 5µs. A warm rebuild rescans only the files the
+  // compiler reparsed, because `typeScriptInventoryCache` keys on the source
+  // file itself, so this is a cold-scan and edited-file cost rather than a
+  // per-rebuild one.
   if !anyWithdrawnUnit(inventory) {
     return
   }

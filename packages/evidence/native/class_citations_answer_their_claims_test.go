@@ -60,18 +60,25 @@ export class Sale {
  * Verifies a public class field satisfies a property claim while a private one
  * is not selected at all.
  *
- * `singleEvidencePerSymbol` is what makes the second half falsifiable: it
+ * `singleEvidencePerSymbol` is what makes the private half falsifiable: it
  * judges every selected host, including the ones carrying no tag, so a private
  * field that had slipped into the population would be reported for citing zero
  * units. Without the policy the two states are indistinguishable.
  *
- *  1. Cite a Markdown section from a public field beside a private one.
+ * The uncited second section is what makes the public half falsifiable. A claim
+ * whose selected hosts all vanish goes inactive and reports nothing, so
+ * asserting silence would pass just as well if class fields stopped being
+ * property units altogether. Demanding that exactly the uncited section is
+ * reported proves the claim was live and the cited one really was discharged.
+ *
+ *  1. Cite one of two Markdown sections from a public field beside a private
+ *     one.
  *  2. Evaluate a `symbol: "property"` claim under singleEvidencePerSymbol.
- *  3. Assert no diagnostic at all.
+ *  3. Assert the uncited section is the only thing reported.
  */
 func TestPublicClassFieldSatisfiesAPropertyClaim(t *testing.T) {
-  assertNoProblems(t, runIndexRule(t, map[string]string{
-    "docs/spec.md": "## Price {#price}\n\nThe amount the customer pays.\n",
+  assertReported(t, runIndexRule(t, map[string]string{
+    "docs/spec.md": "## Price {#price}\n\nThe amount the customer pays.\n\n## Uncited {#uncited}\n\nNothing answers for this.\n",
     "src/Sale.ts": `
 export class Sale {
   /** @evidence docs/spec.md#price The price this section fixes. */
@@ -89,7 +96,7 @@ export class Sale {
       "symbol":"h2",
       "singleEvidencePerSymbol":true
     }
-  }]}`))
+  }]}`), "Missing acknowledgement for 'docs/spec.md#uncited'")
 }
 
 const classMemberReferenceConfig = `{"claims":[{
@@ -175,13 +182,21 @@ export interface ILedger {}
  * working. A `symbol: "function"` claim selects the methods and not the class,
  * so the class must be neither a host it can use nor an obligation it owes.
  *
- *  1. Cite a Markdown section from a method, leaving the class undocumented.
+ * The uncited second section keeps that promise checkable. A claim whose
+ * selected hosts all vanish goes inactive and reports nothing, so asserting
+ * silence would pass just as well if class methods stopped being function units
+ * at all, which is the opposite of the promise. Demanding that exactly the
+ * uncited section is reported proves the method was a live host and the class
+ * added no obligation beside it.
+ *
+ *  1. Cite one of two Markdown sections from a method, leaving the class
+ *     undocumented.
  *  2. Evaluate a `symbol: "function"` claim.
- *  3. Assert no diagnostic at all.
+ *  3. Assert the uncited section is the only thing reported.
  */
 func TestFunctionClaimOverClassMethodsIsUnaffected(t *testing.T) {
-  assertNoProblems(t, runIndexRule(t, map[string]string{
-    "docs/spec.md": "## Charge {#charge}\n\nHow a sale is charged.\n",
+  assertReported(t, runIndexRule(t, map[string]string{
+    "docs/spec.md": "## Charge {#charge}\n\nHow a sale is charged.\n\n## Uncited {#uncited}\n\nNothing answers for this.\n",
     "src/Sale.ts": `
 export class Sale {
   /** @evidence docs/spec.md#charge Charges the sale as this section describes. */
@@ -193,5 +208,5 @@ export class Sale {
     "files":["src/**"],
     "symbol":"function",
     "reference":{"type":"markdown","files":["docs/**/*.md"],"symbol":"h2"}
-  }]}`))
+  }]}`), "Missing acknowledgement for 'docs/spec.md#uncited'")
 }

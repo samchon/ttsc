@@ -238,9 +238,11 @@ export class Sale {
  * Asserting silence would not do. An empty selected population is silent too,
  * so a change that stopped materializing the second declarator at all would
  * keep this green while the position it is about ceased to exist. The reference
- * therefore carries a second section nobody cites, and the case asserts exactly
- * one unacknowledged section: `live` losing either its unit or its host turns
- * that one into two.
+ * therefore carries a section nobody cites, which makes the expected count one
+ * rather than zero, and it is the exact count that constrains. Measured: `live`
+ * losing its unit takes the count to zero, because the claim then has no
+ * selected host left and deactivates; `live` losing its host takes it to three,
+ * two unacknowledged sections and one refused host.
  *
  *  1. Withdraw one identity through a merged namespace and cite its public
  *     sibling on the shared statement.
