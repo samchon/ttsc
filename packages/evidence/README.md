@@ -217,7 +217,7 @@ A unit is addressed the way a consumer reaches it, so `export * as functional` n
 
 Units keep their hierarchy, so a target acknowledges itself and every selected descendant: citing a heading covers its subsections, an interface covers its properties, a class covers its methods and fields, and `prisma:Sale` covers the columns beneath it. An ancestor stays addressable even when its own kind is not selected.
 
-A class is a `type`, its methods are `function`, and its fields are `property`. A field written as a callable joins the methods instead: `handler = () => {}` and `charge: () => void` are both `function`. The test is on how the field is written, not on what its type resolves to, because this rule reads no type checker, so `charge: Handler` stays a `property` even where `Handler` is an alias of `() => void`.
+A class is a `type`, its methods are `function`, and its fields are `property`. A member written as a callable joins the methods instead: `handler = () => {}` and `charge: () => void` are both `function`. An interface and an object-shaped type alias are classified by the same rule, so `run(): void` on either is a `function` just as a class method is, and an overload run is one unit. The test is on how the member is written, not on what its type resolves to, because this rule reads no type checker, so `charge: Handler` stays a `property` even where `Handler` is an alias of `() => void`.
 
 A constructor parameter carrying `public`, `readonly`, `private`, or `protected` declares a field, and it classifies exactly as the same field written in the class body would, so a `private` or `protected` one materializes no unit just as the body form does not.
 

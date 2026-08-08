@@ -570,7 +570,7 @@ func collectFunctionDeclarationNames(
 // declarators.
 //
 // A variable is a function only when a `const` is initialized with a function
-// value, and that is the inverse of the class-field rule in classMemberSymbol:
+// value, and that is the inverse of the member rule in memberSymbol:
 // here the annotation decides nothing, because a variable's declared type
 // describes a value that already exists rather than stating a contract. The
 // three conditions below are each load-bearing and each measured separately, at
@@ -650,7 +650,7 @@ func collectTypeScriptVariables(
 // A method is a function unit and a field is a property unit, which is the
 // mapping a reader already assumes: the class is the subject, its methods are
 // what the subject does, and its fields are the measured facts it carries.
-// `classMemberSymbol` owns the one exception, where a field written as a
+// `memberSymbol` owns the one exception, where a field written as a
 // callable joins the methods, and "written as" is literal: see
 // `isDirectFunctionType`.
 // Every member hangs below the class unit, so a citation on the class
@@ -733,7 +733,7 @@ func collectClassMembers(
         continue
       }
       property := member.AsPropertyDeclaration()
-      symbol = classMemberSymbol(property.Initializer, property.Type)
+      symbol = memberSymbol(property.Initializer, property.Type)
     default:
       continue
     }
@@ -796,7 +796,7 @@ func collectParameterProperties(
     addClassMemberUnit(
       parameter,
       declarationName(parameter.Name()),
-      classMemberSymbol(value.Initializer, value.Type),
+      memberSymbol(value.Initializer, value.Type),
       false,
       classIdentity,
       classID,
@@ -848,18 +848,22 @@ func isParameterProperty(parameter *shimast.Node) bool {
     shimast.ModifierFlagsParameterPropertyModifier != 0
 }
 
-// classMemberSymbol classifies one class member variable by how it is written.
+// memberSymbol classifies one member variable by how it is written.
 //
 // Not by what it resolves to: an arrow or function initializer, or a type
-// annotation spelled as a function type, makes a field a callable, and a field
-// annotated with an alias of one does not. `isDirectFunctionType` says why.
+// annotation spelled as a function type, makes a member a callable, and one
+// annotated with an alias of that type does not. `isDirectFunctionType` says
+// why.
 //
-// Spelled once so the same field answers to the same selector whether it is
-// written in the class body or through the constructor's parameter-property
-// shorthand. Two independent classifications would let moving a field between
-// the two syntaxes change its symbol kind, which is the syntax dependence this
-// collector exists to remove.
-func classMemberSymbol(initializer *shimast.Node, declared *shimast.Node) string {
+// Spelled once because the answer may not depend on which syntax declared the
+// member. A field in a class body, the same field written as a constructor
+// parameter property, and the same member spelled on an interface or an
+// object-shaped type alias are one contract in four spellings, and letting any
+// of them classify separately is the syntax dependence this collector exists to
+// remove. An interface once answered `property` to `charge: () => void` while a
+// class answered `function`, so a `symbol: "function"` claim over a file of
+// interfaces selected nothing, deactivated, and passed with no coverage.
+func memberSymbol(initializer *shimast.Node, declared *shimast.Node) string {
   if isFunctionValue(initializer) || isDirectFunctionType(declared) {
     return "function"
   }
@@ -1044,7 +1048,16 @@ func collectPropertyMembers(
     return
   }
   for _, member := range members.Nodes {
-    if member == nil || member.Kind != shimast.KindPropertySignature {
+    if member == nil {
+      continue
+    }
+    symbol := ""
+    switch member.Kind {
+    case shimast.KindPropertySignature:
+      symbol = memberSymbol(nil, member.AsPropertySignatureDeclaration().Type)
+    case shimast.KindMethodSignature:
+      symbol = "function"
+    default:
       continue
     }
     name := declarationName(member.Name())
@@ -1057,13 +1070,13 @@ func collectPropertyMembers(
       inventory,
       unitsByID,
       member,
-      "property",
+      symbol,
       identity,
       parentID,
       memberHidden,
     )
     if memberHidden == "" {
-      addTypeScriptHost(supportedHosts, member, "property")
+      addTypeScriptHost(supportedHosts, member, symbol)
     }
   }
 }

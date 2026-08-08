@@ -12,30 +12,32 @@
  * - `"function"` selects exported function declarations, exported `const`
  *   variables initialized with an arrow function or function expression
  *   (including parentheses and type-only expression wrappers), public instance
- *   and static methods of exported classes, public class fields written as
- *   callables (an arrow/function initializer or a function type spelled out),
- *   and the same callable forms exported from namespaces. Constructors and
- *   accessors are not selected.
- * - `"property"` selects property signatures declared directly by exported
- *   interfaces and object-shaped type aliases, public class fields that are not
- *   written as callables, plus exported `const`, `let`, and `var` declarations
- *   at module or namespace scope. A `const` initialized with an arrow or
- *   function expression remains a function; every other variable, including a
- *   function-typed declaration or function-valued `let` or `var`, is a
- *   property. A class field is the one place that rule reads the other way: it
- *   is a property unless it is function-valued **or** annotated with a function
- *   type written out, either of which makes it a function. The test is
- *   syntactic, because this rule reads no type checker: `charge: () => void` is
- *   a function and `charge: Handler` is a property even where `Handler` is an
- *   alias of the same type, as are a constructor type and a union. Every
- *   exported leaf in an object or array binding pattern is a property. An
- *   accessor, including an auto-accessor, is neither. A constructor parameter
- *   carrying `public`, `readonly`, `private`, or `protected` declares a field
- *   and classifies exactly as the same field written in the class body would,
- *   whatever the constructor's own visibility is — so a `private` or
- *   `protected` one materializes nothing, exactly as the body form does not. Its citation belongs on the
- *   parameter: a constructor's own block hosts nothing, because two parameter
- *   properties would leave `@evidence` no way to say which field it means.
+ *   and static methods of exported classes, method signatures of exported
+ *   interfaces and object-shaped type aliases, every member of any of those
+ *   three written as a callable (an arrow/function initializer or a function
+ *   type spelled out), and the same callable forms exported from namespaces. An
+ *   overload run is one unit. Constructors and accessors are not selected.
+ * - `"property"` selects every member declared directly by an exported class,
+ *   interface, or object-shaped type alias that is not written as a callable,
+ *   plus exported `const`, `let`, and `var` declarations at module or namespace
+ *   scope. A `const` initialized with an arrow or function expression remains a
+ *   function; every other variable, including a function-typed declaration or
+ *   function-valued `let` or `var`, is a property. A member is the one place
+ *   that rule reads the other way, on all three containers alike: it is a
+ *   property unless it is function-valued **or** annotated with a function type
+ *   written out, either of which makes it a function. The test is syntactic,
+ *   because this rule reads no type checker: `charge: () => void` is a function
+ *   and `charge: Handler` is a property even where `Handler` is an alias of the
+ *   same type, as are a constructor type and a union. Every exported leaf in an
+ *   object or array binding pattern is a property. An accessor, including an
+ *   auto-accessor, is neither. A constructor parameter carrying `public`,
+ *   `readonly`, `private`, or `protected` declares a field and classifies
+ *   exactly as the same field written in the class body would, whatever the
+ *   constructor's own visibility is — so a `private` or `protected` one
+ *   materializes nothing, exactly as the body form does not. Its citation
+ *   belongs on the parameter: a constructor's own block hosts nothing, because
+ *   two parameter properties would leave `@evidence` no way to say which field
+ *   it means.
  *
  * TypeScript units form containment scopes. An interface or object-shaped type
  * alias contains its selected properties. A class contains its selected
