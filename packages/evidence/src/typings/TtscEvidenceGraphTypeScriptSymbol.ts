@@ -36,11 +36,13 @@
  *   written in the class body would, whatever the constructor's own visibility
  *   is, so a `private` or `protected` one materializes nothing, exactly as the
  *   body form does not. The property modifiers are TypeScript's own five:
- *   `public`, `protected`, `private`, `readonly`, and `override`, the last of
- *   which declares a field while stating nothing about visibility. A parameter
- *   property's citation belongs on the parameter: a constructor's own block
- *   hosts nothing, because two parameter properties would leave `@evidence` no
- *   way to say which field it means.
+ *   `public`, `protected`, `private`, `readonly`, and `override`. The last is
+ *   the one to know about, because its meaning is about the base class rather
+ *   than about the field, so on a class extending one that declares `rate`,
+ *   `constructor(override rate: number)` is a selected instance field. A
+ *   parameter property's citation belongs on the parameter: a constructor's own
+ *   block hosts nothing, because two parameter properties would leave
+ *   `@evidence` no way to say which field it means.
  *
  * TypeScript units form containment scopes. An interface or object-shaped type
  * alias contains the members it declares, callables included. A class contains

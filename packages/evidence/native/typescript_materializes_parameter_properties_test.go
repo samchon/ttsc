@@ -18,9 +18,9 @@ import (
  *
  * The modifier axis is enumerated rather than sampled. TypeScript's
  * `ParameterPropertyModifier` mask holds five modifiers, and `override` is the
- * one that carries no visibility of its own, so a list written from the four
- * familiar ones selects a field the compiler declares and this collector
- * already materializes.
+ * one a list written from memory drops, because its own meaning is about the
+ * base class rather than about the field. It still declares one, so the base
+ * class is here to make the row real rather than to decorate it.
  *
  *  1. Declare public, readonly, override, modifier-less, private, and
  *     protected constructor parameters beside a body field.

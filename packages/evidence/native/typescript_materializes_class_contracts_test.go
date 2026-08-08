@@ -719,33 +719,45 @@ export type TSale = {
 }
 
 /**
- * Verifies `abstract` changes neither the class nor any member it declares.
+ * Verifies the modifiers `isPublicClassMember` does not test decide nothing.
  *
- * The two predicates a member passes through read modifier flags, so every
- * modifier that sits beside the ones they test is a case where they must not
- * act. `abstract` is the one that reaches both a class and its members, states
- * that an implementation is owed rather than that the contract is absent, and
- * appeared nowhere in this package. A guard added to either predicate for it
- * would have left the whole suite green while removing an abstract base's
- * entire published contract, which is exactly the surface a specification is
- * most likely to be written against.
+ * That predicate reads modifier flags and tests exactly two of them, so every
+ * other modifier a member can carry is a case where it must not act. Four of
+ * them reached nothing in this package: a guard added to the collector for
+ * `abstract`, `async`, `override`, or a decorator left the whole suite green
+ * while removing real published contract. `abstract` is the widest, since it
+ * takes an abstract base's entire surface, which is the surface a
+ * specification is most likely to be written against.
  *
- * The protected member is the negative twin that keeps the assertion from
- * reading as "an abstract class materializes everything", and the
- * function-typed member crosses the modifier axis with the syntactic one.
+ * `abstract` is also the one that reaches the class itself, so the class arm is
+ * covered by the same fixture. The protected member is the negative twin that
+ * keeps the assertion from reading as "this class materializes everything",
+ * and the abstract function-typed member crosses the modifier axis with the
+ * syntactic one.
  *
- *  1. Declare an abstract class with abstract data, method, function-typed and
- *     protected members.
+ *  1. Declare an abstract derived class carrying abstract, override, async,
+ *     decorated, static and protected members.
  *  2. Collect the inventory.
- *  3. Assert the same unit set a concrete class of that shape would produce.
+ *  3. Assert the same unit set a plain class of that shape would produce.
  */
-func TestAbstractDecidesNothingAboutAClassOrItsMembers(t *testing.T) {
+func TestModifiersBesideVisibilityDecideNothingAboutAMember(t *testing.T) {
   inventory := parseTypeScriptInventory(t, "src/Sale.ts", `
-export abstract class Sale {
+function log(value: any, context: any): any {
+  return value;
+}
+class Base {
+  rate: number = 0;
+  settle(): void {}
+}
+export abstract class Sale extends Base {
   abstract readonly price: number;
   abstract handler: () => void;
   abstract charge(): void;
   protected abstract audit(): void;
+  override rate: number = 0;
+  override settle(): void {}
+  async load(): Promise<void> {}
+  @log tagged(): void {}
   static abstract_: number = 0;
 }
 `)
@@ -757,13 +769,17 @@ export abstract class Sale {
   want := []string{
     "function:Sale.prototype.charge",
     "function:Sale.prototype.handler",
+    "function:Sale.prototype.load",
+    "function:Sale.prototype.settle",
+    "function:Sale.prototype.tagged",
     "property:Sale.abstract_",
     "property:Sale.prototype.price",
+    "property:Sale.prototype.rate",
     "type:Sale",
   }
   if strings.Join(units, "\n") != strings.Join(want, "\n") {
     t.Fatalf(
-      "abstract class units:\n%s\nwant:\n%s",
+      "modifier-carrying class units:\n%s\nwant:\n%s",
       strings.Join(units, "\n"),
       strings.Join(want, "\n"),
     )

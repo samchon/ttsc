@@ -845,9 +845,12 @@ func constructorHidingTag(
 //
 // The mask is TypeScript's own and holds five: the three accessibility
 // modifiers, `readonly`, and `override`. Naming the familiar four is what a
-// summary reaches for, and it is short by the one that carries no visibility of
-// its own: `constructor(override rate: number)` compiles, emits the assignment,
-// and declares a public instance field. Take the mask rather than restating it.
+// summary reaches for, and it is short by `override`, whose own meaning is
+// about the base class rather than about the field, so it does not read as a
+// field declaration at all. On a class extending one that declares `rate`,
+// `constructor(override rate: number)` compiles, emits the assignment, and
+// declares a public instance field. Take the mask rather than restating it;
+// upstream's own comment beside the constant enumerates four.
 func isParameterProperty(parameter *shimast.Node) bool {
   return shimast.GetCombinedModifierFlags(parameter)&
     shimast.ModifierFlagsParameterPropertyModifier != 0
