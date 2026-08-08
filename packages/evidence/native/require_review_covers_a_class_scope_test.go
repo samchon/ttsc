@@ -45,12 +45,13 @@ export class Sale {
  * Verifies a review of a class expires when a field the constructor declares
  * changes.
  *
- * A class scope's fingerprint composes the class with every descendant, and a
- * parameter property is a descendant that arrives through the constructor
- * rather than through the member list. If the shorthand were left out of the
- * subtree, a reviewer could sign off on a class and have every constructor-
- * declared field rewritten under them without the review ever expiring, which
- * is the exact failure `requireReview` exists to prevent.
+ * This is the behavior a reviewer meets: sign off on a class, have a
+ * constructor-declared field rewritten underneath, and the review expires. It
+ * is deliberately paired with the case below, because on its own it proves
+ * less than it looks. A TypeScript unit's digest is its whole declaration text,
+ * so the constructor's bytes sit inside the class digest whether or not the
+ * shorthand is a subtree member, and this case would pass even if parameter
+ * properties materialized nothing at all.
  *
  *  1. Cite the class from another module and review it with the value the graph
  *     asks for.
@@ -58,6 +59,47 @@ export class Sale {
  *  3. Change the parameter property's type and assert the review is now stale.
  */
 func TestClassScopeReviewExpiresOnAParameterProperty(t *testing.T) {
+  assertClassScopeReviewExpires(t, `
+export class Sale {
+  readonly declared: number = 0;
+  constructor(public readonly price: bigint) {}
+}
+`)
+}
+
+/**
+ * Verifies withdrawing a parameter property expires the review of its class.
+ *
+ * The case that isolates subtree membership, which the type change above
+ * cannot. Every documentation block is cut out of a unit's digest as a position
+ * a tag can occupy, so adding `@internal` to the parameter leaves the class's
+ * own text byte-identical. The composite moves only because the withdrawn
+ * member is in the scope and contributes the tag that withdrew it. If parameter
+ * properties were not subtree members, nothing here would change and the review
+ * would stand while a field left the public surface under it.
+ *
+ *  1. Review the same class with the value the graph asks for.
+ *  2. Withdraw the parameter property with `@internal`.
+ *  3. Assert the review is stale.
+ */
+func TestClassScopeReviewExpiresWhenAParameterPropertyIsWithdrawn(t *testing.T) {
+  assertClassScopeReviewExpires(t, `
+export class Sale {
+  readonly declared: number = 0;
+  constructor(
+    /**
+     * @internal
+     */
+    public readonly price: number,
+  ) {}
+}
+`)
+}
+
+// assertClassScopeReviewExpires reviews the shared class, then asserts the
+// review goes stale against a changed version of it.
+func assertClassScopeReviewExpires(t *testing.T, changed string) {
+  t.Helper()
   expected := reviewedFingerprintAt(
     t,
     classReviewProject(classReviewSource, ""),
@@ -70,12 +112,11 @@ func TestClassScopeReviewExpiresOnAParameterProperty(t *testing.T) {
     classReviewProject(classReviewSource, review),
     classReviewConfig,
   ))
-  assertProblemContains(t, runIndexRule(t, classReviewProject(`
-export class Sale {
-  readonly declared: number = 0;
-  constructor(public readonly price: bigint) {}
-}
-`, review), classReviewConfig), "Stale @evidenceReview for '{@link Sale}'")
+  assertProblemContains(
+    t,
+    runIndexRule(t, classReviewProject(changed, review), classReviewConfig),
+    "Stale @evidenceReview for '{@link Sale}'",
+  )
 }
 
 /**

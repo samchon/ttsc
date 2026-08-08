@@ -372,7 +372,7 @@ export namespace Sale {
  *     contributes its members below it.
  */
 func TestTypeOnlyNamespaceAboveItsClassFoundsTheIdentity(t *testing.T) {
-  assertMergeFoundedAtLineTwo(t, `
+  assertMergeFoundedAtLineTwo(t, "src/Sale.ts", `
 export namespace Sale {
   export interface IProps {
     id: string;
@@ -381,33 +381,40 @@ export namespace Sale {
 export class Sale {
   price: number = 0;
 }
-`)
+`, []string{
+    "property:Sale.IProps.id",
+    "property:Sale.prototype.price",
+    "type:Sale",
+    "type:Sale.IProps",
+  }, []string{"Sale.IProps", "Sale.prototype.price"})
 }
 
 /**
  * Verifies an ambient namespace above its class founds the identity too.
  *
- * The other half of the same gate. `TS2434` is skipped entirely in an ambient
- * context, so a `declare namespace` may precede its `declare class` whatever it
- * holds, and this is the shape a `.d.ts` consumer meets through a `package`
- * reference. Pinning only the type-only case would leave the rule half proved
- * and the ambient half asserted in prose alone.
+ * The other half of the same gate, and the one that needs its own fixture. The
+ * namespace here holds a **value**, which is what `TS2434` refuses everywhere
+ * except an ambient context, so this order is legal for no reason the type-only
+ * case above shares. It is written in a `.d.ts`, because that is where a
+ * consumer meets it: a `package` reference reads declarations from disk.
  *
  *  1. Declare an ambient value-holding namespace above its ambient class.
  *  2. Materialize the inventory.
- *  3. Assert the same one unit, reported from the namespace.
+ *  3. Assert one unit, reported from the namespace, owning both halves.
  */
 func TestAmbientNamespaceAboveItsClassFoundsTheIdentity(t *testing.T) {
-  assertMergeFoundedAtLineTwo(t, `
+  assertMergeFoundedAtLineTwo(t, "src/Sale.d.ts", `
 export declare namespace Sale {
-  export interface IProps {
-    id: string;
-  }
+  const rate: number;
 }
 export declare class Sale {
   price: number;
 }
-`)
+`, []string{
+    "property:Sale.prototype.price",
+    "property:Sale.rate",
+    "type:Sale",
+  }, []string{"Sale.rate", "Sale.prototype.price"})
 }
 
 // assertMergeFoundedAtLineTwo pins one class-and-namespace merge whose namespace
@@ -417,9 +424,15 @@ export declare class Sale {
 // alone, so a regression that emitted `Sale` under another kind, or emitted a
 // second `Sale` unit beside it, fails here rather than passing a test whose
 // message still claims to check the type unit.
-func assertMergeFoundedAtLineTwo(t *testing.T, source string) {
+func assertMergeFoundedAtLineTwo(
+  t *testing.T,
+  path string,
+  source string,
+  want []string,
+  descendants []string,
+) {
   t.Helper()
-  inventory := parseTypeScriptInventory(t, "src/Sale.ts", source)
+  inventory := parseTypeScriptInventory(t, path, source)
   units := []string{}
   byTarget := map[string]*evidenceUnit{}
   for _, unit := range inventory.Units {
@@ -427,12 +440,7 @@ func assertMergeFoundedAtLineTwo(t *testing.T, source string) {
     byTarget[unit.Target] = unit
   }
   sort.Strings(units)
-  want := []string{
-    "property:Sale.IProps.id",
-    "property:Sale.prototype.price",
-    "type:Sale",
-    "type:Sale.IProps",
-  }
+  sort.Strings(want)
   if strings.Join(units, "\n") != strings.Join(want, "\n") {
     t.Fatalf(
       "merged identity units:\n%s\nwant:\n%s",
@@ -444,7 +452,7 @@ func assertMergeFoundedAtLineTwo(t *testing.T, source string) {
   if class.Line != 2 {
     t.Fatalf("the type unit 'Sale' must be the namespace at line 2, got %d", class.Line)
   }
-  for _, target := range []string{"Sale.IProps", "Sale.prototype.price"} {
+  for _, target := range descendants {
     if byTarget[target].ParentID != class.ID {
       t.Fatalf(
         "%s must hang below the merged identity, got parent %q",

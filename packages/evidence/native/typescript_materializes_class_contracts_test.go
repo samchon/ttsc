@@ -110,6 +110,86 @@ func TestClassIsTheContainmentScopeOfItsMembers(t *testing.T) {
 }
 
 /**
+ * Verifies a withdrawn member's other declarations host nothing either.
+ *
+ * An overload run is one member spelled several times, and the tag sits on
+ * whichever declaration the author documented. Resolving withdrawal per node
+ * marked the unit and still registered the untagged sibling as a claim host, so
+ * a method taken out of the API kept discharging coverage, silently, because
+ * the unit really was marked. The unit assertion alone cannot see that: it is
+ * the host side that leaks.
+ *
+ *  1. Withdraw the first declaration of an overload run and cite the second.
+ *  2. Evaluate a `symbol: "function"` claim over that file.
+ *  3. Assert the citation is refused and the section stays unacknowledged.
+ */
+func TestWithdrawnMethodHostsNothingOnItsOtherDeclarations(t *testing.T) {
+  messages := runIndexRule(t, map[string]string{
+    "docs/spec.md": "## Pricing {#pricing}\n",
+    "src/Sale.ts": `
+export class Sale {
+  /**
+   * @internal
+   */
+  compute(amount: number): void;
+  /** @evidence docs/spec.md#pricing A withdrawn method hosts nothing. */
+  compute(amount: unknown): void {}
+  charge(): void {}
+}
+`,
+  }, `{"claims":[{
+    "type":"typescript",
+    "files":["src/Sale.ts"],
+    "symbol":"function",
+    "reference":{"type":"markdown","files":["docs/spec.md"],"symbol":"h2"}
+  }]}`)
+  assertProblemContains(t, messages, "unsupported or non-exported declaration")
+  assertProblemContains(t, messages, "Missing acknowledgement for 'docs/spec.md#pricing'")
+}
+
+/**
+ * Verifies a static member's withdrawal leaves an instance member of the same
+ * name alone.
+ *
+ * The withdrawal index is keyed on the identity, and an instance member and a
+ * static member of one name are two identities with two addresses. Keying on
+ * the bare name would let `@internal` on one silently withdraw the other, which
+ * is a public declaration leaving the population with nothing said about it.
+ *
+ *  1. Withdraw a static member beside an instance member of the same name.
+ *  2. Collect the inventory.
+ *  3. Assert only the static identity carries the tag.
+ */
+func TestWithdrawalIsKeyedOnTheMemberIdentity(t *testing.T) {
+  inventory := parseTypeScriptInventory(t, "src/Sale.ts", `
+export class Sale {
+  /**
+   * @internal
+   */
+  static parse(value: string): void {}
+  parse(value: string): void {}
+}
+`)
+  tagged := []string{}
+  for _, unit := range inventory.Units {
+    tagged = append(tagged, unit.Symbol+":"+unit.Target+"="+unit.Hidden)
+  }
+  sort.Strings(tagged)
+  want := []string{
+    "function:Sale.parse=@internal",
+    "function:Sale.prototype.parse=",
+    "type:Sale=",
+  }
+  if strings.Join(tagged, "\n") != strings.Join(want, "\n") {
+    t.Fatalf(
+      "same-named member withdrawal:\n%s\nwant:\n%s",
+      strings.Join(tagged, "\n"),
+      strings.Join(want, "\n"),
+    )
+  }
+}
+
+/**
  * Verifies a computed member name materializes nothing.
  *
  * A computed name has no target an author could write, even when its expression

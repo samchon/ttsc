@@ -589,13 +589,20 @@ func collectClassMembers(
   if class.Members == nil {
     return
   }
-  // The constructor's withdrawal tag is read across every one of its
-  // declarations, before any of them is visited. An overload run is one
-  // constructor spelled several times and only the implementation carries
-  // parameter properties, so reading the tag from the visited node alone would
-  // drop an `@internal` written on a signature — which is where JSDoc for an
-  // overloaded declaration conventionally goes.
-  constructorHidden := constructorHidingTag(file, class.Members, hidden)
+  // Withdrawal is resolved per member *identity* before any member is visited,
+  // for the reason `collectHiddenDeclarationNames` does it for a statement
+  // list. An overload run is one member spelled several times, and the tag sits
+  // on whichever declaration the author documented. Reading the node in hand
+  // withdrew the unit and still registered the untagged sibling as a claim
+  // host, so a method the author had taken out of the API kept discharging
+  // coverage: measured, and silent, because the unit really was marked.
+  //
+  // The constructor is resolved the same way and separately, because it is the
+  // one container here that declares units without being one, so its tag has to
+  // reach the parameter properties rather than a member of its own.
+  hiddenMembers := collectHiddenClassMemberNames(file, class.Members, hidden)
+  constructorHidden := ""
+  constructorResolved := false
   for _, member := range class.Members.Nodes {
     if member == nil {
       continue
@@ -605,6 +612,13 @@ func collectClassMembers(
     // closes construction from outside; `public readonly price` on one of its
     // parameters is still an instance field every holder of the object reads.
     if member.Kind == shimast.KindConstructor {
+      // Resolved on the first constructor this class holds rather than up
+      // front, so a class declaring none pays nothing. Most classes have none,
+      // and every rebuild scans every configured source.
+      if !constructorResolved {
+        constructorHidden = constructorHidingTag(file, class.Members, hidden)
+        constructorResolved = true
+      }
       collectParameterProperties(
         file,
         member,
@@ -633,10 +647,10 @@ func collectClassMembers(
     default:
       continue
     }
+    name := declarationName(member.Name())
     addClassMemberUnit(
-      file,
       member,
-      declarationName(member.Name()),
+      name,
       symbol,
       shimast.GetCombinedModifierFlags(member)&shimast.ModifierFlagsStatic != 0,
       classIdentity,
@@ -644,9 +658,77 @@ func collectClassMembers(
       inventory,
       supportedHosts,
       unitsByID,
-      hidden,
+      hiddenMembers[classMemberIdentity(member, name)],
     )
   }
+}
+
+// classMemberIdentity keys one class member identity.
+//
+// Staticness is part of the key because an instance member and a static member
+// may share a name and are two identities with two addresses. Collapsing them
+// would let `@internal` on `static parse` withdraw an unrelated instance
+// `parse`.
+type classMemberIdentityKey struct {
+  name   string
+  static bool
+}
+
+func classMemberIdentity(
+  member *shimast.Node,
+  name string,
+) classMemberIdentityKey {
+  return classMemberIdentityKey{
+    name:   name,
+    static: shimast.GetCombinedModifierFlags(member)&shimast.ModifierFlagsStatic != 0,
+  }
+}
+
+// collectHiddenClassMemberNames indexes the member identities a class withdraws
+// from the public surface, by the tag that withdrew each.
+//
+// An inherited tag short-circuits the walk: once the class is out of the
+// surface every member is, so there is nothing per-member left to decide and a
+// class with `@internal` pays nothing for this index.
+func collectHiddenClassMemberNames(
+  file *shimast.SourceFile,
+  members *shimast.NodeList,
+  inherited string,
+) map[classMemberIdentityKey]string {
+  if file == nil || members == nil {
+    return nil
+  }
+  var names map[classMemberIdentityKey]string
+  for _, member := range members.Nodes {
+    if member == nil || member.Kind == shimast.KindConstructor {
+      continue
+    }
+    name := declarationName(member.Name())
+    if name == "" {
+      continue
+    }
+    key := classMemberIdentity(member, name)
+    if inherited != "" {
+      if names == nil {
+        names = map[classMemberIdentityKey]string{}
+      }
+      names[key] = inherited
+      continue
+    }
+    tag := typeScriptHidingTag(file, member, "")
+    if tag == "" {
+      continue
+    }
+    if names == nil {
+      names = map[classMemberIdentityKey]string{}
+    }
+    // First tag in source order wins, matching how a statement list resolves a
+    // merged declaration's withdrawal.
+    if names[key] == "" {
+      names[key] = tag
+    }
+  }
+  return names
 }
 
 // collectParameterProperties materializes the fields a constructor declares
@@ -691,7 +773,6 @@ func collectParameterProperties(
     }
     value := parameter.AsParameterDeclaration()
     addClassMemberUnit(
-      file,
       parameter,
       declarationName(parameter.Name()),
       classMemberSymbol(value.Initializer, value.Type),
@@ -701,7 +782,9 @@ func collectParameterProperties(
       inventory,
       supportedHosts,
       unitsByID,
-      hidden,
+      // A parameter property is declared exactly once, so its own tag is the
+      // only one below the constructor's and no identity index is needed.
+      typeScriptHidingTag(file, parameter, hidden),
     )
   }
 }
@@ -722,6 +805,9 @@ func constructorHidingTag(
 ) string {
   if inherited != "" {
     return inherited
+  }
+  if file == nil || members == nil {
+    return ""
   }
   for _, member := range members.Nodes {
     if member == nil || member.Kind != shimast.KindConstructor {
@@ -762,8 +848,13 @@ func classMemberSymbol(initializer *shimast.Node, declared *shimast.Node) string
 // directly, because those are the two paths a consumer can actually write. The
 // class unit is the parent, so the member is a structural descendant of the
 // subject that declares it rather than a sibling of the class's neighbours.
+// `memberHidden` is the tag that withdrew this member identity, already
+// resolved across every declaration of it by the caller. It is not recomputed
+// from `node`: an overload run is one member spelled several times, and reading
+// the node in hand would withdraw the unit while leaving an untagged sibling
+// registered as a claim host, so a declaration the author took out of the API
+// could still discharge coverage.
 func addClassMemberUnit(
-  file *shimast.SourceFile,
   node *shimast.Node,
   name string,
   symbol string,
@@ -773,7 +864,7 @@ func addClassMemberUnit(
   inventory *artifactInventory,
   supportedHosts map[*shimast.Node]symbolSet,
   unitsByID map[string]*evidenceUnit,
-  hidden string,
+  memberHidden string,
 ) {
   if name == "" {
     return
@@ -782,7 +873,6 @@ func addClassMemberUnit(
   if static {
     identity = qualifyTypeScriptName(classIdentity, name)
   }
-  memberHidden := typeScriptHidingTag(file, node, hidden)
   addTypeScriptUnit(
     inventory,
     unitsByID,

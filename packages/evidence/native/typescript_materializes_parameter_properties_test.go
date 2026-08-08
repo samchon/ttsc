@@ -361,41 +361,86 @@ export class Sale {
  * where JSDoc for an overloaded declaration conventionally goes, while only the
  * implementation carries parameter properties. Reading the tag from the node
  * being visited would make the withdrawal depend on which half the author
- * documented, which is exactly the shape the tag on a *method* signature
- * already survives, because both method nodes fold into one unit.
+ * documented.
  *
- *  1. Withdraw the first constructor signature of an overload run.
- *  2. Collect the inventory.
- *  3. Assert the implementation's parameter property carries the tag.
+ * Three positions are asserted together because each kills a different way of
+ * getting this wrong. A tag on the first signature dies under "read the visited
+ * node". A tag on the implementation alone dies under "read the first
+ * constructor and stop", which is the shape that worked before the scan
+ * existed. Two competing tags pin first-in-source-order, matching how a
+ * statement list resolves a merged declaration's withdrawal.
+ *
+ *  1. Withdraw a different constructor declaration in each of three classes.
+ *  2. Collect each inventory.
+ *  3. Assert the parameter property carries the expected tag every time.
  */
 func TestWithdrawnConstructorSignatureWithdrawsItsParameterProperties(t *testing.T) {
-  inventory := parseTypeScriptInventory(t, "src/Order.ts", `
-export class Order {
-  readonly declared: number = 0;
+  for _, testCase := range []struct {
+    name   string
+    source string
+    want   string
+  }{
+    {
+      name: "on the first signature",
+      source: `
   /**
    * @internal
    */
   constructor(price: number);
   constructor(price: string);
-  constructor(public readonly price: number | string) {}
+  constructor(public readonly price: number | string) {}`,
+      want: "@internal",
+    },
+    {
+      name: "on the implementation alone",
+      source: `
+  constructor(price: number);
+  constructor(price: string);
+  /**
+   * @internal
+   */
+  constructor(public readonly price: number | string) {}`,
+      want: "@internal",
+    },
+    {
+      name: "the first of two competing tags",
+      source: `
+  /**
+   * @hidden
+   */
+  constructor(price: number);
+  /**
+   * @internal
+   */
+  constructor(price: string);
+  constructor(public readonly price: number | string) {}`,
+      want: "@hidden",
+    },
+  } {
+    t.Run(testCase.name, func(t *testing.T) {
+      inventory := parseTypeScriptInventory(t, "src/Order.ts", `
+export class Order {
+  readonly declared: number = 0;`+testCase.source+`
 }
 `)
-  tagged := []string{}
-  for _, unit := range inventory.Units {
-    tagged = append(tagged, unit.Symbol+":"+unit.Target+"="+unit.Hidden)
-  }
-  sort.Strings(tagged)
-  want := []string{
-    "property:Order.prototype.declared=",
-    "property:Order.prototype.price=@internal",
-    "type:Order=",
-  }
-  if strings.Join(tagged, "\n") != strings.Join(want, "\n") {
-    t.Fatalf(
-      "withdrawn constructor signature units:\n%s\nwant:\n%s",
-      strings.Join(tagged, "\n"),
-      strings.Join(want, "\n"),
-    )
+      tagged := []string{}
+      for _, unit := range inventory.Units {
+        tagged = append(tagged, unit.Symbol+":"+unit.Target+"="+unit.Hidden)
+      }
+      sort.Strings(tagged)
+      want := []string{
+        "property:Order.prototype.declared=",
+        "property:Order.prototype.price=" + testCase.want,
+        "type:Order=",
+      }
+      if strings.Join(tagged, "\n") != strings.Join(want, "\n") {
+        t.Fatalf(
+          "withdrawn constructor units:\n%s\nwant:\n%s",
+          strings.Join(tagged, "\n"),
+          strings.Join(want, "\n"),
+        )
+      }
+    })
   }
 }
 

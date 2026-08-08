@@ -128,7 +128,25 @@ test("a waiver stops applying the moment upstream publishes a fix", () => {
   });
   assert.equal(outcome.ok, false);
   assert.match(outcome.message, /blocking advisories: GHSA-w3rx-r6r6-pgpr/);
-  assert.match(outcome.message, /now have a published fix/);
+  assert.match(outcome.message, /does not hold/);
+  assert.match(outcome.message, /patched_versions: >=2\.0\.3/);
+});
+
+test("a waiver whose advisory stops reporting a patched line fails readably", () => {
+  const outcome = evaluateAudit({
+    status: 1,
+    stdout: payload({
+      high: 2,
+      advisories: {
+        1: { severity: "high", github_advisory_id: "GHSA-w3rx-r6r6-pgpr" },
+        2: unfixable("GHSA-5p2g-fcmc-qvqq"),
+      },
+    }),
+    stderr: "",
+  });
+  assert.equal(outcome.ok, false);
+  assert.match(outcome.message, /patched_versions: absent/);
+  assert.doesNotMatch(outcome.message, /take it and delete/);
 });
 
 test("a waiver that matches nothing leaves a clean audit green", () => {
@@ -146,7 +164,7 @@ test("a waiver that matches nothing leaves a clean audit green", () => {
   assert.doesNotMatch(outcome.message, /GHSA-5p2g-fcmc-qvqq/);
 });
 
-test("a severe advisory the report counted but did not name still fails", () => {
+test("a severe finding the report counted but did not name still fails", () => {
   const outcome = evaluateAudit({
     status: 1,
     stdout: payload({
@@ -160,6 +178,28 @@ test("a severe advisory the report counted but did not name still fails", () => 
   });
   assert.equal(outcome.ok, false);
   assert.match(outcome.message, /high=3/);
+});
+
+test("a waived advisory reaching two versions counts as two findings", () => {
+  // pnpm's metadata counts findings rather than advisories, measured against
+  // this repository's own report. Comparing the count against advisories would
+  // have gone red here, naming nothing an author could act on.
+  const outcome = evaluateAudit({
+    status: 1,
+    stdout: payload({
+      high: 3,
+      advisories: {
+        1: {
+          ...unfixable("GHSA-w3rx-r6r6-pgpr"),
+          findings: [{ version: "1.2.1" }, { version: "2.0.2" }],
+        },
+        2: unfixable("GHSA-5p2g-fcmc-qvqq"),
+      },
+    }),
+    stderr: "",
+  });
+  assert.equal(outcome.ok, true);
+  assert.match(outcome.message, /waived=2/);
 });
 
 test("command and JSON failures cannot report green", () => {
