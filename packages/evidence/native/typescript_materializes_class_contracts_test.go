@@ -235,14 +235,22 @@ export class Sale {
  * `live`, which nobody had tagged and which is fully public. The rule is that a
  * position is given up only when every identity reaching it is gone.
  *
+ * Asserting silence would not do. An empty selected population is silent too,
+ * so a change that stopped materializing the second declarator at all would
+ * keep this green while the position it is about ceased to exist. The reference
+ * therefore carries a second section nobody cites, and the case asserts exactly
+ * one unacknowledged section: `live` losing either its unit or its host turns
+ * that one into two.
+ *
  *  1. Withdraw one identity through a merged namespace and cite its public
  *     sibling on the shared statement.
- *  2. Evaluate a `symbol: "property"` claim over that file.
- *  3. Assert no diagnostic at all.
+ *  2. Evaluate a `symbol: "property"` claim over that file, against a reference
+ *     holding one cited and one uncited section.
+ *  3. Assert the uncited section is the only thing reported.
  */
 func TestWithdrawalSparesASiblingSharingTheHostPosition(t *testing.T) {
-  assertNoProblems(t, runIndexRule(t, map[string]string{
-    "docs/spec.md": "## Pricing {#pricing}\n",
+  assertReported(t, runIndexRule(t, map[string]string{
+    "docs/spec.md": "## Pricing {#pricing}\n\n## Uncited {#uncited}\n",
     "src/values.ts": `
 export namespace N {
   /**
@@ -260,7 +268,7 @@ export namespace N {
     "files":["src/values.ts"],
     "symbol":"property",
     "reference":{"type":"markdown","files":["docs/spec.md"],"symbol":"h2"}
-  }]}`))
+  }]}`), "Missing acknowledgement for 'docs/spec.md#uncited'")
 }
 
 /**

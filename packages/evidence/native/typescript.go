@@ -193,19 +193,23 @@ func scanTypeScriptInventoryAt(
 // this is not yet a closed class.
 //
 // A position is given up only when **every** identity that reaches it is
-// withdrawn. One node can host several: `export const price = 1, live = 2` is
-// two property identities sharing the statement TypeScript attaches their block
-// to, and withdrawing one of them must not take the other's only host position
-// with it. Judging per node alone did exactly that, and refused a citation on a
-// public declaration nobody had tagged.
+// withdrawn. One node can host several: `export var price: number, live:
+// number` is two property identities sharing the statement TypeScript attaches
+// their block to, and withdrawing one of them must not take the other's only
+// host position with it. Judging per node alone did exactly that, and refused a
+// citation on a public declaration nobody had tagged. The exemplar is `var`
+// rather than `const` because a partial withdrawal needs a second declaration
+// of one identity, which for `const` is `TS2451`.
 //
 // What this does not reach is a host node no unit records. A variable
 // declarator is registered as a host and is not among its unit's nodes, so a
-// withdrawn variable identity keeps that one position; the same gap makes an
-// inner declarator's own `@internal` do nothing at all. Both are the module-
-// scope variable statement's incomplete unit-to-node association rather than
-// this reconciliation's, they predate it, and they are tracked separately
-// because closing them moves every variable unit's digest.
+// withdrawn variable identity keeps that one position. A second symptom travels
+// with it and has its own cause worth stating separately, or half of #1126 gets
+// closed and called done: an inner declarator's own `@internal` is never read
+// at all, because withdrawal for a variable statement is taken from the
+// statement wrapper. Recording the declarator closes the first and leaves the
+// second exactly where it was. Both predate this reconciliation and are tracked
+// in #1126, because closing them moves every variable unit's digest.
 //
 // `documentedHosts` needs no equivalent: it skips a withdrawn unit before it
 // ever consults the host set.
@@ -213,6 +217,13 @@ func withdrawHiddenHosts(
   inventory *artifactInventory,
   supportedHosts map[*shimast.Node]symbolSet,
 ) {
+  // Most files withdraw nothing, and every rebuild scans every configured
+  // source, so the indexes below are built only once something needs them.
+  // Filling them unconditionally cost about a fifth of a cold inventory scan,
+  // measured over a file of a few thousand declarations carrying no tag.
+  if !anyWithdrawnUnit(inventory) {
+    return
+  }
   type hostPosition struct {
     node   *shimast.Node
     symbol string
@@ -242,6 +253,15 @@ func withdrawHiddenHosts(
       delete(supportedHosts, position.node)
     }
   }
+}
+
+func anyWithdrawnUnit(inventory *artifactInventory) bool {
+  for _, unit := range inventory.Units {
+    if unit.Hidden != "" {
+      return true
+    }
+  }
+  return false
 }
 
 // collectTypeScriptStatements materializes the public units one statement list
