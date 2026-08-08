@@ -30,8 +30,8 @@ A reason may run past one line. Continuation lines join it until the next tag of
 | `prisma:Sale` | A Prisma model and its selected columns and relations |
 | `prisma:Sale.price` | One column or relation |
 | `POST:/members` | One Swagger or OpenAPI operation |
-| `{@link sales.IShoppingSale}` | An exported type, function, or namespace, with its selected descendants |
-| `{@link sales.IShoppingSale.price}` | One property of an exported type |
+| `{@link sales.IShoppingSale}` | An exported type, class, function, or namespace, with its selected descendants |
+| `{@link sales.IShoppingSale.price}` | One member of an exported type, whether it carries data or is written as a callable |
 
 A path-addressed target is one whitespace-delimited token, which is why a Swagger operation is written `POST:/members` rather than `POST /members`. The second form still parses, as target `POST` and reason `/members ...`, and that grammar is preserved deliberately because `POST` may be the name of a TypeScript symbol.
 
