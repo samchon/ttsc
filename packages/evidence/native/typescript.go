@@ -218,14 +218,18 @@ func withdrawHiddenHosts(
   supportedHosts map[*shimast.Node]symbolSet,
 ) {
   // Most files withdraw nothing, so the indexes below are built only once
-  // something needs them. Measured over four thousand module-scope
-  // declarations, none of them tagged: filling both unconditionally costs
-  // 2.1ms against a 73ms scan when every declaration carries a documentation
-  // block, and 2.4ms against 37ms when none does, so 3% to 6% of a cold scan.
-  // The guarded pass is under 5µs. A warm rebuild rescans only the files the
-  // compiler reparsed, because `typeScriptInventoryCache` keys on the source
-  // file itself, so this is a cold-scan and edited-file cost rather than a
-  // per-rebuild one.
+  // something needs them. Filling both unconditionally costs milliseconds on a
+  // file of a few thousand module-scope declarations; the guarded pass costs
+  // microseconds, because it is one comparison per unit and stops at the first
+  // withdrawal. That ratio is the reason for the guard, and it is what two
+  // independent measurements agreed on. Its share of a whole scan is not
+  // quoted here: both measurements put it in the low single digits of a
+  // percent, and neither reproduced the other's figure, because it moves with
+  // how many units a file declares and whether they carry documentation.
+  //
+  // A warm rebuild rescans only the files the compiler reparsed, since
+  // `typeScriptInventoryCache` keys on the source file, so this is a cold-scan
+  // and edited-file cost rather than a per-rebuild one.
   if !anyWithdrawnUnit(inventory) {
     return
   }
@@ -295,8 +299,10 @@ func collectTypeScriptStatements(
   exports := collectLocalExportNames(statements)
   hiddenNames := collectHiddenDeclarationNames(file, statements)
   // Built on the first namespace this list holds rather than up front, so a
-  // file declaring none pays nothing. Every rebuild scans every configured
-  // source, and most of them have no namespace at all.
+  // file declaring none pays nothing, and most declare none. The saving is on
+  // a cold scan and on the files a rebuild reparsed, not on every rebuild:
+  // `typeScriptInventoryCache` keys on the source file, so an unchanged one is
+  // never rescanned.
   var functionNames map[string]bool
   for _, statement := range statements.Nodes {
     if statement == nil {
@@ -710,8 +716,7 @@ func collectClassMembers(
     // parameters is still an instance field every holder of the object reads.
     if member.Kind == shimast.KindConstructor {
       // Resolved on the first constructor this class holds rather than up
-      // front, so a class declaring none pays nothing. Most classes have none,
-      // and every rebuild scans every configured source.
+      // front, so a class declaring none pays nothing, and most declare none.
       if !constructorResolved {
         constructorHidden = constructorHidingTag(file, class.Members, hidden)
         constructorResolved = true

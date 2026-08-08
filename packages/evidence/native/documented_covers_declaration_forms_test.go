@@ -146,14 +146,19 @@ export class Sale {
  *  3. Assert silence.
  */
 func TestDocumentedIgnoresNonPublicClassMembers(t *testing.T) {
-  assertSilent(t, runDocumentedRule(t, "src/Service.ts", `
+  // The undocumented public member is the control. Asserting silence over
+  // non-public members alone would pass just as well if class members had
+  // stopped being selected at all, which is the opposite of what this rule
+  // guarantees, so the case demands that exactly the public one is reported.
+  assertReported(t, runDocumentedRule(t, "src/Service.ts", `
 /** A service the application exposes. */
 export class Service {
   private cache(): void {}
   protected reset(): void {}
   #secret: number = 1;
+  public run(): void {}
 }
-`, ""))
+`, ""), "Missing JSDoc on exported function 'Service.prototype.run'")
 }
 
 /**

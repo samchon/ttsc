@@ -398,9 +398,15 @@ export class Sale {
  * comes from the name rather than from a modifier, and a repair to one filter
  * must not silently open the other.
  *
- *  1. Declare a class whose only members carry computed names.
+ * The ordinary field beside them is the control. Without it the expected set
+ * would be the class alone, which is also what a collector that had stopped
+ * materializing class members entirely produces, and the case would pass while
+ * proving nothing about computed names.
+ *
+ *  1. Declare a class whose members carry computed names beside one ordinary
+ *     field.
  *  2. Collect the inventory.
- *  3. Assert the class alone materializes.
+ *  3. Assert the class and that field are the whole set.
  */
 func TestClassComputedMemberNamesMaterializeNothing(t *testing.T) {
   inventory := parseTypeScriptInventory(t, "src/Sale.ts", `
@@ -409,6 +415,7 @@ export class Sale {
   ["literal"]: number = 0;
   [key]: number = 0;
   [Symbol.iterator](): void {}
+  named: number = 0;
 }
 `)
   units := []string{}
@@ -416,8 +423,16 @@ export class Sale {
     units = append(units, unit.Symbol+":"+unit.Target)
   }
   sort.Strings(units)
-  if strings.Join(units, "\n") != "type:Sale" {
-    t.Fatalf("computed member units:\n%s\nwant:\ntype:Sale", strings.Join(units, "\n"))
+  want := []string{
+    "property:Sale.prototype.named",
+    "type:Sale",
+  }
+  if strings.Join(units, "\n") != strings.Join(want, "\n") {
+    t.Fatalf(
+      "computed member units:\n%s\nwant:\n%s",
+      strings.Join(units, "\n"),
+      strings.Join(want, "\n"),
+    )
   }
 }
 

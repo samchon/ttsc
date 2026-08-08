@@ -196,13 +196,19 @@ export class Sale {
  * the parameter is registered as a claim host too, the field would be visible
  * as evidence while unable to cite anything of its own.
  *
- *  1. Cite a Markdown section from a parameter property.
+ * The uncited second section is what keeps that checkable. A claim whose
+ * selected hosts all vanish deactivates and reports nothing, so asserting
+ * silence would pass just as well if parameter properties stopped being units
+ * at all. Demanding that exactly the uncited section is reported proves the
+ * claim was live and the cited one really was discharged from the parameter.
+ *
+ *  1. Cite one of two Markdown sections from a parameter property.
  *  2. Evaluate a `symbol: "property"` claim over that file.
- *  3. Assert no diagnostic at all.
+ *  3. Assert the uncited section is the only thing reported.
  */
 func TestParameterPropertyIsAClaimHost(t *testing.T) {
-  assertNoProblems(t, runIndexRule(t, map[string]string{
-    "docs/spec.md": "## Price {#price}\n\nThe amount the customer pays.\n",
+  assertReported(t, runIndexRule(t, map[string]string{
+    "docs/spec.md": "## Price {#price}\n\nThe amount the customer pays.\n\n## Uncited {#uncited}\n\nNothing answers for this.\n",
     "src/Sale.ts": `
 export class Sale {
   constructor(
@@ -216,7 +222,7 @@ export class Sale {
     "files":["src/**"],
     "symbol":"property",
     "reference":{"type":"markdown","files":["docs/**/*.md"],"symbol":"h2"}
-  }]}`))
+  }]}`), "Missing acknowledgement for 'docs/spec.md#uncited'")
 }
 
 /**

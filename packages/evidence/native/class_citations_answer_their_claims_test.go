@@ -180,14 +180,15 @@ export interface ILedger {}
  *
  * The adoption promise of this change is that an existing configuration keeps
  * working. A `symbol: "function"` claim selects the methods and not the class,
- * so the class must be neither a host it can use nor an obligation it owes.
+ * so the class adds no obligation beside them.
  *
  * The uncited second section keeps that promise checkable. A claim whose
  * selected hosts all vanish goes inactive and reports nothing, so asserting
  * silence would pass just as well if class methods stopped being function units
  * at all, which is the opposite of the promise. Demanding that exactly the
  * uncited section is reported proves the method was a live host and the class
- * added no obligation beside it.
+ * added nothing beside it. The other half of the promise, that the class is not
+ * a host such a claim can use, is its own case below.
  *
  *  1. Cite one of two Markdown sections from a method, leaving the class
  *     undocumented.
@@ -209,4 +210,36 @@ export class Sale {
     "symbol":"function",
     "reference":{"type":"markdown","files":["docs/**/*.md"],"symbol":"h2"}
   }]}`), "Missing acknowledgement for 'docs/spec.md#uncited'")
+}
+
+/**
+ * Verifies a class is not a host a function claim can use.
+ *
+ * The other half of the adoption promise, and the half nothing enforced:
+ * registering the class as a `function` host beside its `type` one passed the
+ * entire suite. A claim that selected methods would then silently accept a
+ * citation on the class, so an existing configuration would start counting an
+ * acknowledgement it never asked for.
+ *
+ *  1. Cite a Markdown section from the class under a `symbol: "function"` claim.
+ *  2. Keep a method as the live host, so the claim is active either way.
+ *  3. Assert the class citation is refused and the section stays unacknowledged.
+ */
+func TestClassIsNotAHostOfAFunctionClaim(t *testing.T) {
+  messages := runIndexRule(t, map[string]string{
+    "docs/spec.md": "## Charge {#charge}\n\nHow a sale is charged.\n",
+    "src/Sale.ts": `
+/** @evidence docs/spec.md#charge A class hosts nothing a function claim reads. */
+export class Sale {
+  charge(): void {}
+}
+`,
+  }, `{"claims":[{
+    "type":"typescript",
+    "files":["src/**"],
+    "symbol":"function",
+    "reference":{"type":"markdown","files":["docs/**/*.md"],"symbol":"h2"}
+  }]}`)
+  assertProblemContains(t, messages, "is not selected (function)")
+  assertProblemContains(t, messages, "Missing acknowledgement for 'docs/spec.md#charge'")
 }
