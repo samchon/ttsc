@@ -117,7 +117,6 @@ export const { state } = source;
  * `TS2488` under a checker, because a function is not iterable. It is here
  * anyway: the guard covers both kinds, nothing else in the package narrows it,
  * and its shape is what this case is for.
-
  *
  *  1. Destructure a function into an object pattern and into an array pattern.
  *  2. Collect the inventory.
