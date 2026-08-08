@@ -309,12 +309,16 @@ func collectTypeScriptStatements(
       // walk, a second unit for a method the class already declared, and an
       // obligation that stayed owed however the real member was cited.
       //
-      // The merge also brings the type-only rule with it. An unmerged
-      // interface's members are type-space and project through a type-only
-      // alias, but a merged one's are reached through the class value that
-      // alias does not expose, which is the address the class branch is
-      // already suppressed for. Publishing them here would breach that guard
-      // at exactly the address it exists to keep empty.
+      // The merge also brings the type-only rule with it. The members of an
+      // interface no class merges with are type-space and project through a
+      // type-only alias, a namespace or function partner included, but a
+      // class-merged one's are reached through the class value that alias does
+      // not expose, which is the address the class branch is already
+      // suppressed for. Publishing them here would breach that guard at
+      // exactly the address it exists to keep empty. `target.TypeOnly` sees
+      // only a local `export type { Sale }`; a barrel re-exporting one from
+      // another module records no flag, which is the class guard's own gap
+      // rather than this one's.
       if classNames == nil {
         classNames = collectClassDeclarationNames(statements)
       }

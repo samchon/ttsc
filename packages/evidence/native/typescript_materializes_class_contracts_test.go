@@ -907,16 +907,16 @@ export interface IPlain {
  * them back at exactly the address the suppression exists to keep empty, so the
  * guard has to travel with the merge rather than sit on one collector.
  *
- * The guard has two halves and each needs its own row. A type-only export of
- * the merge itself is one; a merge inside a namespace the file exports
- * type-only is the other, and it travels through the projection flag rather
- * than through the target. Keeping only the second half left the whole suite
- * green while the namespace shape republished the very member this exists to
- * withhold.
+ * The guard has two halves and each needs its own row. A merge inside a
+ * namespace the file exports type-only travels through the projection flag; a
+ * type-only export of the merge itself travels through the target. Keeping only
+ * the second left the whole suite green while the namespace shape republished
+ * the very member this exists to withhold.
  *
- * The unmerged interface beside them is the negative twin and the reason the
- * guard is not simply moved to the interface collector: its members are
- * type-space, they have always projected, and they must keep projecting.
+ * An interface no class merges with sits beside each half as the negative twin,
+ * and it is the reason the guard is not simply moved to the interface
+ * collector: its members are type-space, they have always projected, and they
+ * must keep projecting under either half.
  *
  *  1. Export a class merged with an interface through a type-only alias, and a
  *     second such merge through a type-only namespace projection.
@@ -941,6 +941,9 @@ namespace Space {
   export interface Deal {
     rate: number;
   }
+  export interface IScoped {
+    tally(): void;
+  }
 }
 export type { Space };
 export interface IPlain {
@@ -956,11 +959,13 @@ export type { IPlain as PlainAlias };
   want := []string{
     "function:IPlain.run",
     "function:PlainAlias.run",
+    "function:Space.IScoped.tally",
     "type:IPlain",
     "type:PlainAlias",
     "type:Sale",
     "type:Space",
     "type:Space.Deal",
+    "type:Space.IScoped",
   }
   if strings.Join(units, "\n") != strings.Join(want, "\n") {
     t.Fatalf(
