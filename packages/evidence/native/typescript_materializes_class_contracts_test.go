@@ -310,30 +310,42 @@ export class Sale {
 }
 
 /**
- * Verifies a live class member is an exclusion carrier, under any selector.
+ * Verifies a live class member is an exclusion carrier for a claim that does
+ * not select its kind.
  *
  * The positive twin of the case above, and what makes that one mean anything:
- * a refusal reads as "withdrawal took the carrier" only if an untagged member
- * of the same shape is accepted. Without this the refusal is equally consistent
- * with a class member never having been a carrier at all.
+ * a refusal reads as "withdrawal took the carrier" only if the same declaration
+ * without the tag is accepted. Without this the refusal is equally consistent
+ * with a class member never having been a carrier at all. The carrier is the
+ * untagged half of the same overload run for that reason, so the two fixtures
+ * differ by the `@internal` block and nothing else.
  *
- * The field is deliberately the wrong kind for the claim. Carrier eligibility
- * is wider than host eligibility by design, so a `property` member carries an
- * exclusion for a `function` claim, and asserting it here is what keeps the
- * width from quietly narrowing to the selector.
+ * The field beside it is deliberately the wrong kind for the claim. Carrier
+ * eligibility is wider than host eligibility by design, so a `property` member
+ * carries an exclusion for a `function` claim, and the two carriers together
+ * say the width is about the tag rather than about the member kind.
  *
- *  1. Exclude a section from a public field in a `symbol: "function"` claim.
+ * A second section nobody excludes is what keeps the case from passing on
+ * silence. An empty selected population is silent too, and so is a claim whose
+ * glob matches nothing, so asserting the remaining section is reported is the
+ * only assertion that distinguishes an accepted exclusion from a claim that
+ * never ran.
+ *
+ *  1. Exclude one section from an untagged overload half and another from a
+ *     field, under a `symbol: "function"` claim, leaving a third section alone.
  *  2. Evaluate the claim.
- *  3. Assert the exclusion is accepted and discharges the section.
+ *  3. Assert only the untouched section is reported.
  */
 func TestLiveClassMemberIsAnExclusionCarrier(t *testing.T) {
-  assertNoProblems(t, runIndexRule(t, map[string]string{
-    "docs/spec.md": "## Pricing {#pricing}\n",
+  messages := runIndexRule(t, map[string]string{
+    "docs/spec.md": "## Pricing {#pricing}\n\n## Charging {#charging}\n\n## Uncited {#uncited}\n",
     "src/Sale.ts": `
 export class Sale {
   /** @evidenceExclude docs/spec.md#pricing This subject fixes no price. */
   readonly price: number = 0;
-  charge(): void {}
+  compute(amount: number): void;
+  /** @evidenceExclude docs/spec.md#charging This subject charges nowhere. */
+  compute(amount: unknown): void {}
 }
 `,
   }, `{"claims":[{
@@ -341,7 +353,8 @@ export class Sale {
     "files":["src/Sale.ts"],
     "symbol":"function",
     "reference":{"type":"markdown","files":["docs/spec.md"],"symbol":"h2"}
-  }]}`))
+  }]}`)
+  assertReported(t, messages, "Missing acknowledgement for 'docs/spec.md#uncited'")
 }
 
 /**
@@ -754,28 +767,31 @@ export type TSale = {
 }
 
 /**
- * Verifies the modifiers `isPublicClassMember` does not test decide nothing.
+ * Verifies a modifier other than `private` or `protected` decides nothing
+ * about a class or its members.
  *
- * That predicate reads modifier flags and tests exactly two of them, so every
- * other modifier a member can carry is a case where it must not act. Four of
- * them reached nothing in this package: a guard added to the collector for
- * `abstract`, `async`, `override`, or a decorator left the whole suite green
- * while removing real published contract. `abstract` is the widest, since it
- * takes an abstract base's entire surface, which is the surface a
- * specification is most likely to be written against.
+ * `isPublicClassMember` reads modifier flags and tests exactly two of them, so
+ * every other modifier a member can carry is a case where it must not act.
+ * `abstract`, `async`, and a decorator reached nothing in this package at all:
+ * a guard added to the member walk for any of them left the whole suite green
+ * while removing real published contract. `override` reached only the
+ * parameter-property row, so its class-body spelling was equally unguarded.
+ * `abstract` is the widest, since it takes an abstract base's entire surface,
+ * which is the surface a specification is most likely to be written against.
  *
- * `abstract` is also the one that reaches the class itself, so the class arm is
- * covered by the same fixture. The protected member is the negative twin that
- * keeps the assertion from reading as "this class materializes everything",
- * and the abstract function-typed member crosses the modifier axis with the
- * syntactic one.
+ * `abstract` is also the one that reaches the class itself, and this is the
+ * only case that notices a collector refusing to walk an abstract class, so
+ * the class arm belongs to the same fixture. The protected member is the
+ * negative twin that keeps the assertion from reading as "this class
+ * materializes everything", and the abstract function-typed member crosses the
+ * modifier axis with the syntactic one.
  *
  *  1. Declare an abstract derived class carrying abstract, override, async,
  *     decorated, static and protected members.
  *  2. Collect the inventory.
  *  3. Assert the same unit set a plain class of that shape would produce.
  */
-func TestModifiersBesideVisibilityDecideNothingAboutAMember(t *testing.T) {
+func TestModifiersBesideVisibilityDecideNothingAboutAClassOrItsMembers(t *testing.T) {
   inventory := parseTypeScriptInventory(t, "src/Sale.ts", `
 function log(value: any, context: any): any {
   return value;

@@ -38,8 +38,9 @@
  *   body form does not. The property modifiers are TypeScript's own five:
  *   `public`, `protected`, `private`, `readonly`, and `override`. The last is
  *   the one to know about, because its meaning is about the base class rather
- *   than about the field, so on a class extending one that declares `rate`,
- *   `constructor(override rate: number)` is a selected instance field. A
+ *   than about the field, so it does not read as a field declaration. It still
+ *   declares one: on a class extending one that declares `rate`,
+ *   `constructor(override rate: number)` is a public instance field. A
  *   parameter property's citation belongs on the parameter: a constructor's own
  *   block hosts nothing, because two parameter properties would leave
  *   `@evidence` no way to say which field it means.

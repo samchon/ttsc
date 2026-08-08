@@ -36,7 +36,7 @@ A reason may run past one line. Continuation lines join it until the next tag of
 | `{@link sales.ShoppingSale.currency}` | One static member of an exported class |
 | `{@link sales.SALE_LIMIT}` | An exported variable at module or namespace scope |
 
-Each address is the path a consumer would actually write to reach the member, which is why a constructor parameter property takes the instance form of the field it declares. [Claims and References](/docs/evidence/claims#typescript-kinds) covers which members are selected and why the two class forms differ.
+A member address is the path a consumer would actually write to reach it, which is why a constructor parameter property takes the instance form of the field it declares. [Claims and References](/docs/evidence/claims#typescript-kinds) covers which members are selected and why the two class forms differ.
 
 A path-addressed target is one whitespace-delimited token, which is why a Swagger operation is written `POST:/members` rather than `POST /members`. The second form still parses, as target `POST` and reason `/members ...`, and that grammar is preserved deliberately because `POST` may be the name of a TypeScript symbol.
 

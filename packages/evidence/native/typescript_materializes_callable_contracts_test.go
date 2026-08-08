@@ -252,10 +252,11 @@ export interface Ref {}
  * merely inspects decoded options would miss a materializer that ignored the
  * selector and indexed every discovered declaration anyway.
  *
- * The class carries a field and a method of its own, so it also proves the
- * default stops at the type: acknowledging the class discharges the whole
- * subject, and neither member arrives as an obligation the citation did not
- * name.
+ * The class is here because the omitted selector now reaches it: remove it and
+ * `{@link Sale}` stops resolving. Its members are along for the ride rather
+ * than under test, since a citation of the class discharges its descendants
+ * whether or not they are in the denominator, and this case cannot tell those
+ * two apart.
  *
  *  1. Put types, a class with members, a namespace, properties, and callables
  *     in one source file.
