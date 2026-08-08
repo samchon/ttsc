@@ -101,3 +101,43 @@ export const { state } = source;
   }]}`)
   assertNoProblems(t, messages)
 }
+
+/**
+ * Verifies a binding leaf stays a property when the pattern is initialized with
+ * a function.
+ *
+ * The cases above destructure records and arrays of data, so the leaf rule is
+ * pinned only where nothing could have made a leaf callable. A `const`
+ * initialized with a function is the one shape that reaches the callable
+ * branch, and the binding-pattern guard is what stops the whole pattern's
+ * initializer from being attributed to each leaf. Both pattern kinds are here
+ * because the guard covers both and a case for one leaves the other open.
+ *
+ *  1. Destructure a function into an object pattern and into an array pattern.
+ *  2. Collect the inventory.
+ *  3. Assert every leaf is a property.
+ */
+func TestDestructuredLeavesStayPropertiesUnderAFunctionInitializer(t *testing.T) {
+  inventory := parseTypeScriptInventory(t, "src/contracts.ts", `
+export const { length: named, name: labelled } = function target() {};
+export const [firstLeaf, ...restLeaves] = (): void => {};
+`)
+  units := []string{}
+  for _, unit := range inventory.Units {
+    units = append(units, unit.Symbol+":"+unit.Target)
+  }
+  sort.Strings(units)
+  want := []string{
+    "property:firstLeaf",
+    "property:labelled",
+    "property:named",
+    "property:restLeaves",
+  }
+  if strings.Join(units, "\n") != strings.Join(want, "\n") {
+    t.Fatalf(
+      "destructured leaves under a function initializer:\n%s\nwant:\n%s",
+      strings.Join(units, "\n"),
+      strings.Join(want, "\n"),
+    )
+  }
+}

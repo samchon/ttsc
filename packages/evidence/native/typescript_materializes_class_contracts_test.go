@@ -586,42 +586,37 @@ export class Sale {
 }
 
 /**
- * Verifies the module-scope rule is the inverse of the class-field one.
+ * Verifies the variable rule is the inverse of the class-field one.
  *
  * A class field is a callable when it is written as one, annotation included.
- * A module-scope variable is a callable only when a `const` is initialized with
- * a function: the annotation never decides, and neither does the initializer on
- * a `let` or a `var`. Four documentation surfaces draw that contrast.
+ * A variable is a callable only when a `const` is initialized with a function:
+ * the annotation never decides, and neither does the initializer on a `let` or
+ * a `var`. Several documents draw that contrast, and this case is where it is
+ * asserted as a contrast rather than as two rules that happen to be pinned in
+ * files which never mention each other.
  *
- * Each half was already pinned separately — the module one by
- * `TestTypeScriptMaterializesNamespacesAndDataVariables` since the package was
- * vendored, the class one by `TestClassFieldClassificationIsSyntactic` beside
- * this case. What had no home was the contrast itself, so a change collapsing
- * one rule onto the other broke two unrelated files and neither of them said
- * why. Both halves live here on purpose: stated apart each reads as an
- * arbitrary rule, and together they are what the documents actually claim.
+ * Both halves and both scopes live here on purpose. Stated apart each reads as
+ * an arbitrary rule; together they are what the documents claim, so a change
+ * collapsing one onto the other fails here with the relationship named.
  *
- * One row is new coverage rather than restatement. `export declare var` with a
- * function-type annotation is measured nowhere else, and it is the row that
- * separates "an annotation never decides" from "a non-`const` never does".
- *
- * The destructured `const` is the second thing only this case holds: its
- * initializer *is* a function, and every binding leaf is still a property,
- * which is the rule three surfaces state and no test enforced.
- *
- *  1. Declare every module-scope form beside the class field it contrasts with.
+ *  1. Declare each variable form at module and namespace scope, beside the
+ *     class fields they contrast with.
  *  2. Collect the inventory.
- *  3. Assert only a function-initialized `const` and the class's written-as
- *     callables are functions.
+ *  3. Assert the only functions are a `const` initialized with a function and
+ *     the class's written-as callables.
  */
-func TestModuleScopeClassificationInvertsTheClassRule(t *testing.T) {
+func TestVariableClassificationInvertsTheClassRule(t *testing.T) {
   inventory := parseTypeScriptInventory(t, "src/contracts.ts", `
 type Handler = () => void;
 export const constInitialized: Handler = () => {};
 export declare const constAnnotated: () => void;
 export let letInitialized: () => void = () => {};
 export declare var varAnnotated: () => void;
-export const { length: destructured } = function named() {};
+export namespace api {
+  export const nestedInitialized: Handler = () => {};
+  export declare const nestedAnnotated: () => void;
+  export let nestedLet: () => void = () => {};
+}
 export class Sale {
   declare annotated: () => void;
   initialized = (): void => {};
@@ -635,16 +630,19 @@ export class Sale {
   want := []string{
     "function:Sale.prototype.annotated",
     "function:Sale.prototype.initialized",
+    "function:api.nestedInitialized",
     "function:constInitialized",
+    "property:api.nestedAnnotated",
+    "property:api.nestedLet",
     "property:constAnnotated",
-    "property:destructured",
     "property:letInitialized",
     "property:varAnnotated",
     "type:Sale",
+    "type:api",
   }
   if strings.Join(units, "\n") != strings.Join(want, "\n") {
     t.Fatalf(
-      "module-scope against class classification:\n%s\nwant:\n%s",
+      "variable against class classification:\n%s\nwant:\n%s",
       strings.Join(units, "\n"),
       strings.Join(want, "\n"),
     )
