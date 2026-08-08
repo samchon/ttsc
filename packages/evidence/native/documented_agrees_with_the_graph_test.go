@@ -5,11 +5,12 @@ import "testing"
 /**
  * Verifies the rule demands the block where a citation can actually live.
  *
- * A class is a type unit, and TypeScript requires it to precede the namespace
- * it merges with (`TS2434`), so `class Sale` beside `namespace Sale` is one
- * identity founded by the class. Naming a later half instead would send an
- * author's block somewhere the identity is not judged from, and this rule's
- * whole job is to name the position a citation can live in.
+ * A class is a type unit, so `class Sale` beside `namespace Sale` is one
+ * identity, founded by whichever half is written first. Here that is the class,
+ * because an instantiated namespace above its class is `TS2434`. Naming a later
+ * half instead would send an author's block somewhere the identity is not
+ * judged from, and this rule's whole job is to name the position a citation can
+ * live in.
  *
  *  1. Document only the namespace half of a merged class identity.
  *  2. Run the rule.

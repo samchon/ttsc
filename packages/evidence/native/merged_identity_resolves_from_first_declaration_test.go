@@ -315,14 +315,14 @@ export namespace ISale {
 /**
  * Verifies a class beside a namespace is one unit reported from the class.
  *
- * Both halves are type units under one identity, and TypeScript refuses the
- * reverse order (`TS2434`, "A namespace declaration cannot be located prior to
- * a class or function with which it is merged"), so the class is always the
- * declaration the merge reports. The namespace keeps its own members, because a
- * companion namespace beside a class is authored contract rather than the
- * static-side machinery a function-merged namespace holds.
+ * Both halves are type units under one identity. This order is the common one,
+ * because an *instantiated* namespace above its class is `TS2434`, and the
+ * namespace here exports a value. The namespace keeps its own members, because
+ * a companion namespace beside a class is authored contract rather than the
+ * static-side machinery a function-merged namespace holds. Its twin below
+ * covers the order TypeScript does allow.
  *
- *  1. Declare a class and a namespace of one name.
+ *  1. Declare a class and a value-exporting namespace of one name.
  *  2. Materialize the inventory.
  *  3. Assert the type unit reports the class, and both halves contribute.
  */
@@ -349,5 +349,50 @@ export namespace Sale {
   }
   if _, exists := targets["property:Sale.version"]; !exists {
     t.Fatalf("the merged namespace must keep contributing its member, got %v", targets)
+  }
+}
+
+/**
+ * Verifies a type-only namespace above its class founds the merged identity.
+ *
+ * `TS2434` is gated on the namespace being instantiated, measured against the
+ * pinned compiler: a namespace holding only types compiles clean above the
+ * class it merges with, and so does any namespace in an ambient context. The
+ * companion-namespace idiom this feature exists to serve is exactly that shape,
+ * so "the class is always first" is not a rule the graph may lean on. Source
+ * position decides, as it does for every other merge.
+ *
+ *  1. Declare a type-only namespace above a class of one name.
+ *  2. Materialize the inventory.
+ *  3. Assert the type unit reports the namespace, and the class still
+ *     contributes its members below it.
+ */
+func TestTypeOnlyNamespaceAboveItsClassFoundsTheIdentity(t *testing.T) {
+  inventory := parseTypeScriptInventory(t, "src/Sale.ts", `
+export namespace Sale {
+  export interface IProps {
+    id: string;
+  }
+}
+export class Sale {
+  price: number = 0;
+}
+`)
+  byTarget := map[string]*evidenceUnit{}
+  for _, unit := range inventory.Units {
+    byTarget[unit.Target] = unit
+  }
+  class := byTarget["Sale"]
+  if class == nil || class.Line != 2 {
+    t.Fatalf("the type unit 'Sale' must be the namespace at line 2, got %+v", class)
+  }
+  for _, target := range []string{"Sale.IProps", "Sale.prototype.price"} {
+    member := byTarget[target]
+    if member == nil {
+      t.Fatalf("%s must materialize, got %v", target, byTarget)
+    }
+    if member.ParentID != class.ID {
+      t.Fatalf("%s must hang below the merged identity, got parent %q", target, member.ParentID)
+    }
   }
 }

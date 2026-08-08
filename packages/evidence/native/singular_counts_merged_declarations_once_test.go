@@ -130,12 +130,14 @@ export const first = 1, second = 2;
 }
 
 /**
- * Verifies the counting rule covers value-space declarations the evidence graph
- * does not materialize as type units.
+ * Verifies the counting rule covers a declaration the evidence graph does not
+ * materialize as a unit at all.
  *
- * Classes and enums are deliberately not type units for `evidence/graph`, so a
- * rule reusing that classification would let two exported classes share a file.
- * This rule counts public identities, not evidence units.
+ * An enum is deliberately not a unit for `evidence/graph`, so a rule reusing
+ * that classification would let an exported enum share a file with anything.
+ * This rule counts public identities, not evidence units, and the class beside
+ * the enum is the control: it counts here for the same reason, independently of
+ * being a type unit.
  *
  *  1. Export a class and an enum.
  *  2. Run the rule.

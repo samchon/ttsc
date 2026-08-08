@@ -564,13 +564,17 @@ func collectTypeScriptVariables(
 // carries. Every member hangs below the class unit, so a citation on the class
 // acknowledges the members it selected.
 //
-// Three shapes stay out and each for its own reason. A constructor is not
-// separately citable now that the class is: construction is how the subject
-// comes to be, and the subject already carries that obligation. An accessor,
-// including an auto-accessor, is a get/set pair rather than a member variable,
-// which is the exclusion the published contract has always stated. A member
-// with no citable name — a private identifier, an index signature, a computed
-// name, a static block — has no target an author could write.
+// A constructor is not a unit of its own, now that the class is: construction
+// is how the subject comes to be, and the subject already carries that
+// obligation. It is still read, because the fields it declares through the
+// parameter-property shorthand are the class's fields; `collectParameterProperties`
+// takes those.
+//
+// Two shapes stay out entirely. An accessor, including an auto-accessor, is a
+// get/set pair rather than a member variable, which is the exclusion the
+// published contract has always stated. A member with no citable name — a
+// private identifier, an index signature, a computed name, a static block — has
+// no target an author could write.
 func collectClassMembers(
   file *shimast.SourceFile,
   statement *shimast.Node,
@@ -652,6 +656,11 @@ func collectClassMembers(
 // static, and TypeScript refuses a parameter property on an overload
 // signature, so the implementation constructor is the only one that reaches
 // here with any.
+//
+// The constructor's own withdrawal tag is read and inherited. It is the only
+// container in this collector that declares units without being one, so
+// forwarding the class's tag alone would leave `@internal` on a constructor
+// inert while the same tag on a class or on the field itself withdraws.
 func collectParameterProperties(
   file *shimast.SourceFile,
   constructor *shimast.Node,
@@ -665,6 +674,7 @@ func collectParameterProperties(
   if constructor.ParameterList() == nil {
     return
   }
+  constructorHidden := typeScriptHidingTag(file, constructor, hidden)
   for _, parameter := range constructor.Parameters() {
     if parameter == nil || !isParameterProperty(parameter) {
       continue
@@ -684,7 +694,7 @@ func collectParameterProperties(
       inventory,
       supportedHosts,
       unitsByID,
-      hidden,
+      constructorHidden,
     )
   }
 }

@@ -100,13 +100,15 @@ A class is the subject and its members are what the subject does and carries, so
 
 A constructor parameter carrying `public`, `readonly`, `private`, or `protected` declares a field, so it is selected exactly as the same field written in the class body would be, and it carries its own JSDoc block. The constructor's own visibility does not decide this: a `private constructor` closes construction from outside while `public readonly price` on its parameter is still an instance field.
 
+The block has to sit on the parameter, not on the constructor. A constructor's own block cannot host a citation for a field it declares, because two parameter properties would leave `@evidence` no way to say which one it means, so `@param price The amount the customer pays.` on the constructor documents the field for a reader and still leaves it unable to cite anything. `evidence/documented` says so directly, and the repair is to move the text onto the parameter.
+
 Only public identities materialize. A top-level declaration needs an export modifier or a local export-list alias, and a namespace member needs to be exported from that namespace unless ambient semantics make it implicitly public.
 
 Qualified identities keep their owner. `Orders.Input.id` is a property below `Orders.Input`, while `Orders.state` is namespace data. Exported object and array binding patterns expose each local binding leaf as a property, and a type-only alias of a namespace or a class exposes its public type-space descendants without exposing namespace data, callables, or class members.
 
 A namespace merged with a same-named function is that function's static side, so nothing inside it materializes. That is the generated SDK accessor shape, `export async function get(...)` beside `export namespace get`, where `get.path` and `get.Output` are the accessor's own machinery rather than authored contract. One operation therefore owes one acknowledgement, cited as `{@link api.functional.health.get}`. A namespace merged with an interface or a class keeps its members, because a companion namespace beside either one is authored contract, and a `const` or `let` cannot merge with a namespace at all.
 
-A class merged with a same-named namespace is one `type` unit reported from the class, because TypeScript refuses a namespace written before the class it merges with.
+A class merged with a same-named namespace is one `type` unit, reported from whichever half is written first. That is usually the class, because TypeScript refuses an instantiated namespace written above the class it merges with, but a type-only companion namespace may legally come first and then be the declaration every diagnostic names.
 
 ### Hierarchy
 

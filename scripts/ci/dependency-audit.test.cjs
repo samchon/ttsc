@@ -69,6 +69,72 @@ test("a nonzero audit remains red and names blocking advisories", () => {
   assert.match(outcome.message, /GHSA-test-test-test/);
 });
 
+test("a waived advisory passes while an unwaived one beside it still fails", () => {
+  const waivedOnly = evaluateAudit({
+    status: 1,
+    stdout: payload({
+      high: 2,
+      advisories: {
+        1: { severity: "high", github_advisory_id: "GHSA-w3rx-r6r6-pgpr" },
+        2: { severity: "high", github_advisory_id: "GHSA-5p2g-fcmc-qvqq" },
+      },
+    }),
+    stderr: "",
+  });
+  assert.equal(waivedOnly.ok, true);
+  assert.match(waivedOnly.message, /waived=2/);
+  assert.match(waivedOnly.message, /no released fix exists/);
+
+  const alongsideReal = evaluateAudit({
+    status: 1,
+    stdout: payload({
+      high: 3,
+      advisories: {
+        1: { severity: "high", github_advisory_id: "GHSA-w3rx-r6r6-pgpr" },
+        2: { severity: "high", github_advisory_id: "GHSA-5p2g-fcmc-qvqq" },
+        3: { severity: "high", github_advisory_id: "GHSA-real-real-real" },
+      },
+    }),
+    stderr: "",
+  });
+  assert.equal(alongsideReal.ok, false);
+  assert.match(alongsideReal.message, /GHSA-real-real-real/);
+  assert.doesNotMatch(alongsideReal.message, /blocking.*GHSA-w3rx-r6r6-pgpr/);
+});
+
+test("a waiver that stops applying leaves the audit green and unnamed", () => {
+  const outcome = evaluateAudit({
+    status: 1,
+    stdout: payload({
+      high: 1,
+      advisories: {
+        1: { severity: "high", github_advisory_id: "GHSA-w3rx-r6r6-pgpr" },
+      },
+    }),
+    stderr: "",
+  });
+  assert.equal(outcome.ok, true);
+  assert.match(outcome.message, /waived=1/);
+  assert.match(outcome.message, /GHSA-w3rx-r6r6-pgpr/);
+  assert.doesNotMatch(outcome.message, /GHSA-5p2g-fcmc-qvqq/);
+});
+
+test("an unlisted high advisory still fails through the metadata counts", () => {
+  const outcome = evaluateAudit({
+    status: 1,
+    stdout: payload({
+      high: 3,
+      advisories: {
+        1: { severity: "high", github_advisory_id: "GHSA-w3rx-r6r6-pgpr" },
+        2: { severity: "high", github_advisory_id: "GHSA-5p2g-fcmc-qvqq" },
+      },
+    }),
+    stderr: "",
+  });
+  assert.equal(outcome.ok, false);
+  assert.match(outcome.message, /high=3/);
+});
+
 test("command and JSON failures cannot report green", () => {
   const command = evaluateAudit({
     error: new Error("spawn failed"),
@@ -135,6 +201,7 @@ test("the lockfile excludes every campaign high or critical resolution", () => {
     "form-data@4.0.5:",
     "js-yaml@4.1.1:",
     "linkify-it@5.0.0:",
+    "nanoid@3.3.16:",
     "next@15.5.18:",
     "postcss@8.4.31:",
     "postcss@8.5.15:",

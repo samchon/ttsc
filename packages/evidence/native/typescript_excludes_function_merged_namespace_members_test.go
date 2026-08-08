@@ -410,11 +410,11 @@ export namespace IShoppingSale {
 /**
  * Verifies a class merged with a same-named namespace is untouched.
  *
- * A class registers no unit under its own name — only its callables do — so
- * `class Service` beside `namespace Service` has nothing to collide with and
- * never produced the ambiguity this change removes. A correction keyed on the
- * namespace rather than on its merge partner would have caught it anyway and
- * erased the companion object every such class publishes.
+ * Both halves of `class Service` beside `namespace Service` are `type` under one
+ * identity, so they fold into one unit rather than colliding, and the ambiguity
+ * this change removes never arose there. A correction keyed on the namespace
+ * rather than on its merge partner would have caught it anyway and erased the
+ * companion object every such class publishes.
  *
  *  1. Merge a class with a namespace declaring companion members.
  *  2. Collect the inventory.

@@ -14,9 +14,8 @@ import {
  * the basis" rather than "a block anywhere will do", and it is the firing twin
  * of the accepting fixture — without it, a rule that had stopped reading
  * placement entirely would look identical. The class fixture is the sharp one:
- * TypeScript refuses a namespace written before the class it merges with, so
- * the class is unavoidably the identity's basis and a block on the later half
- * can never stand in for one above it.
+ * the class here is written above the namespace it merges with, so it founds
+ * the identity and a block on the later half cannot stand in for one above it.
  *
  * 1. Document the later half of an interface merge and of a class merge, and the
  *    default export rather than its const.

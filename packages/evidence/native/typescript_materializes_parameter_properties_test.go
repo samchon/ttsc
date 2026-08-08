@@ -220,6 +220,210 @@ export class Sale {
 }
 
 /**
+ * Verifies a destructured constructor parameter materializes nothing.
+ *
+ * `constructor(public { a, b }: T)` is `TS1187`, so no unit may come of it. It
+ * is pinned because the sibling collector for destructured exports does the
+ * opposite and expands every binding leaf: aligning the two later would
+ * silently materialize `Sale.prototype.a` from a parameter TypeScript rejects,
+ * with nothing to catch it. The plain parameter property beside it is the
+ * control that keeps the case honest.
+ *
+ *  1. Declare a destructured parameter carrying a property modifier.
+ *  2. Collect the inventory.
+ *  3. Assert only the ordinary parameter property materializes.
+ */
+func TestDestructuredParameterPropertyMaterializesNothing(t *testing.T) {
+  inventory := parseTypeScriptInventory(t, "src/Sale.ts", `
+export interface IOptions {
+  a: number;
+  b: number;
+}
+export class Sale {
+  constructor(
+    public { a, b }: IOptions,
+    public readonly price: number,
+  ) {}
+}
+`)
+  units := []string{}
+  for _, unit := range inventory.Units {
+    units = append(units, unit.Symbol+":"+unit.Target)
+  }
+  sort.Strings(units)
+  want := []string{
+    "property:IOptions.a",
+    "property:IOptions.b",
+    "property:Sale.prototype.price",
+    "type:IOptions",
+    "type:Sale",
+  }
+  if strings.Join(units, "\n") != strings.Join(want, "\n") {
+    t.Fatalf(
+      "destructured parameter units:\n%s\nwant:\n%s",
+      strings.Join(units, "\n"),
+      strings.Join(want, "\n"),
+    )
+  }
+}
+
+/**
+ * Verifies a constructor with no parameters and a constructor overload run
+ * materialize nothing of their own.
+ *
+ * The constructor is read now rather than skipped, so the shapes that carry no
+ * parameter property have to leave the population exactly as they found it. An
+ * overload run is the sharper half: TypeScript refuses a parameter property on
+ * a signature, so only the implementation may contribute, and reading the
+ * signatures too would double every field.
+ *
+ *  1. Declare an empty constructor in one class and an overload run in another.
+ *  2. Collect the inventory.
+ *  3. Assert only the implementation's parameter property materializes.
+ */
+func TestConstructorsWithoutParameterPropertiesAddNothing(t *testing.T) {
+  inventory := parseTypeScriptInventory(t, "src/contracts.ts", `
+export class Empty {
+  constructor() {}
+}
+export class Overloaded {
+  constructor(price: number);
+  constructor(price: string);
+  constructor(public readonly price: number | string) {}
+}
+`)
+  units := []string{}
+  for _, unit := range inventory.Units {
+    units = append(units, unit.Symbol+":"+unit.Target)
+  }
+  sort.Strings(units)
+  want := []string{
+    "property:Overloaded.prototype.price",
+    "type:Empty",
+    "type:Overloaded",
+  }
+  if strings.Join(units, "\n") != strings.Join(want, "\n") {
+    t.Fatalf(
+      "constructor units:\n%s\nwant:\n%s",
+      strings.Join(units, "\n"),
+      strings.Join(want, "\n"),
+    )
+  }
+}
+
+/**
+ * Verifies a withdrawal on the constructor reaches the fields it declares.
+ *
+ * A constructor declares units without being one, so it is the only container
+ * whose withdrawal tag could be dropped on the way to its descendants. The
+ * class-level and field-level tags both already cascade, and an `@internal`
+ * constructor that left its fields in the population would be the one hole in
+ * that rule, silently keeping a field the author withdrew as a claim host.
+ *
+ *  1. Withdraw a constructor with `@internal` beside an ordinary field.
+ *  2. Collect the inventory.
+ *  3. Assert its parameter property carries the tag and the field does not.
+ */
+func TestWithdrawnConstructorWithdrawsItsParameterProperties(t *testing.T) {
+  inventory := parseTypeScriptInventory(t, "src/Sale.ts", `
+export class Sale {
+  readonly declared: number = 0;
+  /**
+   * @internal
+   */
+  private constructor(public readonly price: number) {}
+}
+`)
+  tagged := []string{}
+  for _, unit := range inventory.Units {
+    tagged = append(tagged, unit.Symbol+":"+unit.Target+"="+unit.Hidden)
+  }
+  sort.Strings(tagged)
+  want := []string{
+    "property:Sale.prototype.declared=",
+    "property:Sale.prototype.price=@internal",
+    "type:Sale=",
+  }
+  if strings.Join(tagged, "\n") != strings.Join(want, "\n") {
+    t.Fatalf(
+      "withdrawn constructor units:\n%s\nwant:\n%s",
+      strings.Join(tagged, "\n"),
+      strings.Join(want, "\n"),
+    )
+  }
+}
+
+/**
+ * Verifies a citation on the class acknowledges a parameter property.
+ *
+ * `ParentID` is a proxy for this; the obligation is what the author actually
+ * meets. The reference selects only the fields, so the class is an unselected
+ * ancestor, and one citation on it has to discharge both syntaxes at once or a
+ * project mixing them would be told to cite the same subject twice.
+ *
+ *  1. Select a class's fields, one body-declared and one parameter-declared.
+ *  2. Cite the class itself, once, from another module.
+ *  3. Assert no diagnostic at all.
+ */
+func TestClassCitationAcknowledgesItsParameterProperties(t *testing.T) {
+  assertNoProblems(t, runIndexRule(t, map[string]string{
+    "src/Sale.ts": `
+export class Sale {
+  readonly declared: number = 0;
+  constructor(public readonly price: number) {}
+}
+`,
+    "src/ledger.ts": `
+import type { Sale } from "./Sale.js";
+
+/** @evidence {@link Sale} Records every fact this subject owns. */
+export interface ILedger {}
+`,
+  }, `{"claims":[{
+    "type":"typescript",
+    "files":["src/ledger.ts"],
+    "symbol":"type",
+    "reference":{
+      "type":"typescript",
+      "files":["src/Sale.ts"],
+      "symbol":["property"]
+    }
+  }]}`))
+}
+
+/**
+ * Verifies a citation on a non-public parameter property is refused.
+ *
+ * The unit-set case proves a private parameter property materializes nothing;
+ * this proves the host side agrees. A declaration that is not a unit must not
+ * be a place a tag can sit either, or an author would write a citation the
+ * graph counts for nothing and reports nowhere.
+ *
+ *  1. Cite a Markdown section from a private parameter property.
+ *  2. Evaluate a `symbol: "property"` claim over that file.
+ *  3. Assert the unsupported-host diagnostic.
+ */
+func TestPrivateParameterPropertyIsNotAClaimHost(t *testing.T) {
+  assertProblemContains(t, runIndexRule(t, map[string]string{
+    "docs/spec.md": "## Price {#price}\n\nThe amount the customer pays.\n",
+    "src/Sale.ts": `
+export class Sale {
+  public readonly total: number = 0;
+  constructor(
+    /** @evidence docs/spec.md#price A private field hosts nothing. */
+    private readonly price: number,
+  ) {}
+}
+`,
+  }, `{"claims":[{
+    "type":"typescript",
+    "files":["src/**"],
+    "symbol":"property",
+    "reference":{"type":"markdown","files":["docs/**/*.md"],"symbol":"h2"}
+  }]}`), "unsupported or non-exported declaration")
+}
+
+/**
  * Verifies a citation on the constructor itself is refused.
  *
  * The twin of the case above, and the boundary between them. A constructor
