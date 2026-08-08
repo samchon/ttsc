@@ -65,11 +65,34 @@ export function parse(value: string): string {
  */
 func TestDocumentedSelectsPublicClassMethods(t *testing.T) {
   messages := runDocumentedRule(t, "src/Service.ts", `
+/** A service the application exposes. */
 export class Service {
   public run(): void {}
 }
 `, "")
   assertReported(t, messages, "Missing JSDoc on exported function 'Service.prototype.run'")
+}
+
+/**
+ * Verifies public class member variables are selected.
+ *
+ * A public field is a property unit and a claim host, so it belongs to the
+ * population that must be able to carry a tag. Its twin above covers the
+ * callable half; without this one a field could quietly leave the population
+ * while the suite stayed green.
+ *
+ *  1. Leave one public field undocumented on an exported class.
+ *  2. Run the rule.
+ *  3. Assert the field is reported under its qualified name.
+ */
+func TestDocumentedSelectsPublicClassFields(t *testing.T) {
+  messages := runDocumentedRule(t, "src/Service.ts", `
+/** A service the application exposes. */
+export class Service {
+  public readonly retries: number = 3;
+}
+`, "")
+  assertReported(t, messages, "Missing JSDoc on exported property 'Service.prototype.retries'")
 }
 
 /**
@@ -85,32 +108,36 @@ export class Service {
  */
 func TestDocumentedIgnoresNonPublicClassMembers(t *testing.T) {
   assertSilent(t, runDocumentedRule(t, "src/Service.ts", `
+/** A service the application exposes. */
 export class Service {
   private cache(): void {}
   protected reset(): void {}
+  #secret: number = 1;
 }
 `, ""))
 }
 
 /**
- * Verifies a class or enum declaration is not itself required to be documented.
+ * Verifies a class declaration is itself required to be documented and an enum
+ * is not.
  *
- * Neither is a type unit for `evidence/graph`, so neither can be selected as a
- * claim host, and this rule guarantees exactly the population a claim can
- * select. The asymmetry with class methods is surprising enough that it is
- * pinned rather than left to be rediscovered.
+ * A class is a type unit for `evidence/graph` and an enum is not, so exactly
+ * one of the two can be selected as a claim host, and this rule guarantees
+ * exactly the population a claim can select. The enum is the twin that keeps
+ * the boundary falsifiable: without it, a rule that had started demanding a
+ * block on every declaration would look identical here.
  *
  *  1. Export an undocumented class with no members, and an undocumented enum.
  *  2. Run the rule with the default selection.
- *  3. Assert silence.
+ *  3. Assert the class alone is reported.
  */
-func TestDocumentedIgnoresClassAndEnumDeclarations(t *testing.T) {
-  assertSilent(t, runDocumentedRule(t, "src/Service.ts", `
+func TestDocumentedSelectsAClassAndIgnoresAnEnum(t *testing.T) {
+  assertReported(t, runDocumentedRule(t, "src/Service.ts", `
 export class Service {}
 export enum Mode {
   Fast = "fast",
 }
-`, ""))
+`, ""), "Missing JSDoc on exported type 'Service'")
 }
 
 /**

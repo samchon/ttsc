@@ -313,22 +313,20 @@ export namespace ISale {
 }
 
 /**
- * Verifies a class beside a namespace is not one unit to the graph.
+ * Verifies a class beside a namespace is one unit reported from the class.
  *
- * A class is not a type unit, so `namespace Sale` is the only declaration of
- * the unit `Sale` the graph knows; the class contributes `Sale.prototype.price`
- * instead. `evidence/documented` demands the block on that same namespace,
- * having been narrowed to the declarations a citation can live on, so the two
- * agree. `evidence/singular` still counts the pair as one identity, which is
- * correct for a rule about a file's public surface rather than about where a
- * tag may sit. The remaining difference is a decision, not an oversight, which
- * is why it is pinned.
+ * Both halves are type units under one identity, and TypeScript refuses the
+ * reverse order (`TS2434`, "A namespace declaration cannot be located prior to
+ * a class or function with which it is merged"), so the class is always the
+ * declaration the merge reports. The namespace keeps its own members, because a
+ * companion namespace beside a class is authored contract rather than the
+ * static-side machinery a function-merged namespace holds.
  *
  *  1. Declare a class and a namespace of one name.
  *  2. Materialize the inventory.
- *  3. Assert the type unit reports the namespace, not the class.
+ *  3. Assert the type unit reports the class, and both halves contribute.
  */
-func TestClassBesideNamespaceIsNotOneGraphUnit(t *testing.T) {
+func TestClassBesideNamespaceIsOneGraphUnitFromTheClass(t *testing.T) {
   inventory := parseTypeScriptInventory(t, "src/Sale.ts", `
 export class Sale {
   price(): number {
@@ -343,10 +341,13 @@ export namespace Sale {
   for _, unit := range inventory.Units {
     targets[unit.Symbol+":"+unit.Target] = unit.Line
   }
-  if line, exists := targets["type:Sale"]; !exists || line != 7 {
-    t.Fatalf("the type unit 'Sale' must be the namespace at line 7, got %d (exists=%v)", line, exists)
+  if line, exists := targets["type:Sale"]; !exists || line != 2 {
+    t.Fatalf("the type unit 'Sale' must be the class at line 2, got %d (exists=%v)", line, exists)
   }
   if _, exists := targets["function:Sale.prototype.price"]; !exists {
     t.Fatalf("the class must contribute its method as a separate unit, got %v", targets)
+  }
+  if _, exists := targets["property:Sale.version"]; !exists {
+    t.Fatalf("the merged namespace must keep contributing its member, got %v", targets)
   }
 }

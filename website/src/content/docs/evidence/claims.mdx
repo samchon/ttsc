@@ -92,19 +92,23 @@ On a reference, `symbol` sets the obligation's denominator. On a claim, it restr
 
 ### TypeScript kinds
 
-- `"type"` selects exported interfaces, type aliases, and namespaces. Classes and enums are not type units.
+- `"type"` selects exported interfaces, type aliases, classes, and namespaces. Enums are not type units.
 - `"function"` selects exported callables, including a `const` initialized with an arrow or function expression, public class callables, and the namespace variants of those forms.
-- `"property"` selects direct properties of exported type-level symbols, plus exported `const`, `let`, and `var` at module or namespace scope. Every variable that is not function-valued is a property, including a function-typed declaration.
+- `"property"` selects direct properties of exported type-level symbols, public non-callable fields of exported classes, plus exported `const`, `let`, and `var` at module or namespace scope. Every variable that is not function-valued is a property, including a function-typed declaration.
+
+A class is the subject and its members are what the subject does and carries, so the three map onto the three kinds directly: the class is a `type`, a method is a `function`, and a member variable is a `property`. Instance members are addressed through `prototype` and static members directly, as in `Sale.prototype.price` and `Sale.currency`. Constructors and accessors are not selected: construction is how the subject comes to be, which the class itself answers for, and an accessor is a get/set pair rather than a member variable.
 
 Only public identities materialize. A top-level declaration needs an export modifier or a local export-list alias, and a namespace member needs to be exported from that namespace unless ambient semantics make it implicitly public.
 
-Qualified identities keep their owner. `Orders.Input.id` is a property below `Orders.Input`, while `Orders.state` is namespace data. Exported object and array binding patterns expose each local binding leaf as a property, and a type-only namespace alias exposes its public type-space descendants without exposing namespace data or callables.
+Qualified identities keep their owner. `Orders.Input.id` is a property below `Orders.Input`, while `Orders.state` is namespace data. Exported object and array binding patterns expose each local binding leaf as a property, and a type-only alias of a namespace or a class exposes its public type-space descendants without exposing namespace data, callables, or class members.
 
-A namespace merged with a same-named function is that function's static side, so nothing inside it materializes. That is the generated SDK accessor shape, `export async function get(...)` beside `export namespace get`, where `get.path` and `get.Output` are the accessor's own machinery rather than authored contract. One operation therefore owes one acknowledgement, cited as `{@link api.functional.health.get}`. A namespace merged with an interface or a class is unaffected, and a `const` or `let` cannot merge with a namespace at all.
+A namespace merged with a same-named function is that function's static side, so nothing inside it materializes. That is the generated SDK accessor shape, `export async function get(...)` beside `export namespace get`, where `get.path` and `get.Output` are the accessor's own machinery rather than authored contract. One operation therefore owes one acknowledgement, cited as `{@link api.functional.health.get}`. A namespace merged with an interface or a class keeps its members, because a companion namespace beside either one is authored contract, and a `const` or `let` cannot merge with a namespace at all.
+
+A class merged with a same-named namespace is one `type` unit reported from the class, because TypeScript refuses a namespace written before the class it merges with.
 
 ### Hierarchy
 
-Units contain units. A Markdown file contains its heading outline, a heading contains the lower-level headings under it until the next heading of equal or higher level, an interface contains its properties, a namespace contains every nested public unit, and a Prisma model contains its columns and relations. Swagger operations are independent leaves.
+Units contain units. A Markdown file contains its heading outline, a heading contains the lower-level headings under it until the next heading of equal or higher level, an interface contains its properties, a class contains its members, a namespace contains every nested public unit, and a Prisma model contains its columns and relations. Swagger operations are independent leaves.
 
 A citation covers its target and every selected descendant. So `symbol: "property"` on a reference can still be satisfied by one `@evidence {@link IShoppingSale} ...`, and one `@evidence prisma:Sale ...` discharges every selected column and relation beneath that model.
 

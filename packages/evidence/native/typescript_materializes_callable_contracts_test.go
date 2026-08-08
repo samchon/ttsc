@@ -81,6 +81,7 @@ class Internal {
   sort.Strings(targets)
   want := []string{
     "Api",
+    "Api.Client",
     "Api.Client.open",
     "Api.Client.prototype.connect",
     "Api.fetch",
@@ -90,6 +91,7 @@ class Internal {
     "Outer",
     "Outer.Inner",
     "Outer.Inner.nested",
+    "Service",
     "Service.create",
     "Service.provider",
     "Service.factory",
@@ -370,6 +372,7 @@ export type {
   }
   sort.Strings(targets)
   want := []string{
+    "PublicClass",
     "PublicClass.prototype.run",
     "PublicNamespace",
     "PublicNamespace.act",

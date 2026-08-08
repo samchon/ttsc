@@ -347,23 +347,47 @@ func collectTypeScriptStatements(
         addTypeScriptHost(supportedHosts, statement, symbol)
       }
     case shimast.KindClassDeclaration:
-      if typeOnlyProjection {
+      name := declarationName(statement.Name())
+      if name == "" {
         continue
       }
-      name := declarationName(statement.Name())
-      memberHidden := hidingTagFor(hidden, hiddenNames, name)
-      for _, publicName := range publicTypeScriptNames(
+      // A class name is type-space, so a type-only alias exposes it exactly
+      // as it exposes an interface. What the alias withholds is the members:
+      // `C.prototype.field` and `C.staticField` are paths through the class
+      // *value*, and a type-only alias exposes no value to walk them from.
+      targets := publicTypeScriptExports(
         statement,
         name,
         exports,
-        false,
+        true,
         implicitlyExported,
-      ) {
-        collectClassCallables(
+      )
+      if len(targets) == 0 {
+        continue
+      }
+      memberHidden := hidingTagFor(hidden, hiddenNames, name)
+      if memberHidden == "" {
+        addTypeScriptHost(supportedHosts, statement, "type")
+      }
+      for _, target := range targets {
+        identity := qualifyTypeScriptName(prefix, target.Public)
+        unit := addTypeScriptUnit(
+          inventory,
+          unitsByID,
+          statement,
+          "type",
+          identity,
+          parentID,
+          memberHidden,
+        )
+        if typeOnlyProjection || target.TypeOnly {
+          continue
+        }
+        collectClassMembers(
           file,
           statement,
-          qualifyTypeScriptName(prefix, publicName),
-          parentID,
+          identity,
+          unit.ID,
           inventory,
           supportedHosts,
           unitsByID,
@@ -434,11 +458,12 @@ func collectTypeScriptStatements(
 //
 // A namespace merges only with a function, a class, or an enum in the same
 // scope; a `const` or `let` of the same name is `TS2451`, measured against the
-// pinned compiler. Of the three legal partners only a function also
-// materializes a unit under the merged name — a class registers no unit of its
-// own and the collector has no enum case — so the function form is the one
-// shape where a namespace and the declaration it merges with are the same
-// public entity spelled twice.
+// pinned compiler. Only the function partner makes the namespace a static side
+// that materializes nothing. A class partner keeps its namespace, because a
+// companion namespace beside a class is authored contract — `namespace Sale`
+// holding `Sale.IProps` beside `class Sale` — rather than the generated
+// accessor machinery `get.path` and `get.Output` are. The collector has no enum
+// case, so an enum partner reaches nothing either way.
 //
 // The name alone decides, without consulting export modifiers, because
 // TypeScript refuses a merged declaration whose halves disagree on export
@@ -531,11 +556,26 @@ func collectTypeScriptVariables(
   return found
 }
 
-func collectClassCallables(
+// collectClassMembers materializes the public contract a class declares.
+//
+// A method is a function unit and a member variable is a property unit, which
+// is the mapping a reader already assumes: the class is the subject, its
+// methods are what the subject does, and its fields are the measured facts it
+// carries. Every member hangs below the class unit, so a citation on the class
+// acknowledges the members it selected.
+//
+// Three shapes stay out and each for its own reason. A constructor is not
+// separately citable now that the class is: construction is how the subject
+// comes to be, and the subject already carries that obligation. An accessor,
+// including an auto-accessor, is a get/set pair rather than a member variable,
+// which is the exclusion the published contract has always stated. A member
+// with no citable name — a private identifier, an index signature, a computed
+// name, a static block — has no target an author could write.
+func collectClassMembers(
   file *shimast.SourceFile,
   statement *shimast.Node,
   classIdentity []string,
-  parentID string,
+  classID string,
   inventory *artifactInventory,
   supportedHosts map[*shimast.Node]symbolSet,
   unitsByID map[string]*evidenceUnit,
@@ -549,42 +589,78 @@ func collectClassCallables(
     if member == nil || !isPublicClassMember(member) {
       continue
     }
-    callable := false
+    symbol := ""
     switch member.Kind {
     case shimast.KindMethodDeclaration:
-      callable = true
+      symbol = "function"
     case shimast.KindPropertyDeclaration:
       if member.ModifierFlags()&shimast.ModifierFlagsAccessor != 0 {
         continue
       }
       property := member.AsPropertyDeclaration()
-      callable = isFunctionValue(property.Initializer) ||
-        isDirectFunctionType(property.Type)
-    }
-    if !callable {
+      symbol = "property"
+      if isFunctionValue(property.Initializer) ||
+        isDirectFunctionType(property.Type) {
+        symbol = "function"
+      }
+    default:
       continue
     }
-    memberName := declarationName(member.Name())
-    if memberName == "" {
-      continue
-    }
-    identity := qualifyTypeScriptName(classIdentity, "prototype", memberName)
-    if shimast.GetCombinedModifierFlags(member)&shimast.ModifierFlagsStatic != 0 {
-      identity = qualifyTypeScriptName(classIdentity, memberName)
-    }
-    memberHidden := typeScriptHidingTag(file, member, hidden)
-    addTypeScriptUnit(
-      inventory,
-      unitsByID,
+    addClassMemberUnit(
+      file,
       member,
-      "function",
-      identity,
-      parentID,
-      memberHidden,
+      declarationName(member.Name()),
+      symbol,
+      shimast.GetCombinedModifierFlags(member)&shimast.ModifierFlagsStatic != 0,
+      classIdentity,
+      classID,
+      inventory,
+      supportedHosts,
+      unitsByID,
+      hidden,
     )
-    if memberHidden == "" {
-      addTypeScriptHost(supportedHosts, member, "function")
-    }
+  }
+}
+
+// addClassMemberUnit registers one public class member under the address that
+// reaches it from the class.
+//
+// An instance member is addressed through `prototype` and a static member
+// directly, because those are the two paths a consumer can actually write. The
+// class unit is the parent, so the member is a structural descendant of the
+// subject that declares it rather than a sibling of the class's neighbours.
+func addClassMemberUnit(
+  file *shimast.SourceFile,
+  node *shimast.Node,
+  name string,
+  symbol string,
+  static bool,
+  classIdentity []string,
+  classID string,
+  inventory *artifactInventory,
+  supportedHosts map[*shimast.Node]symbolSet,
+  unitsByID map[string]*evidenceUnit,
+  hidden string,
+) {
+  if name == "" {
+    return
+  }
+  identity := qualifyTypeScriptName(classIdentity, "prototype", name)
+  if static {
+    identity = qualifyTypeScriptName(classIdentity, name)
+  }
+  memberHidden := typeScriptHidingTag(file, node, hidden)
+  addTypeScriptUnit(
+    inventory,
+    unitsByID,
+    node,
+    symbol,
+    identity,
+    classID,
+    memberHidden,
+  )
+  if memberHidden == "" {
+    addTypeScriptHost(supportedHosts, node, symbol)
   }
 }
 

@@ -8,7 +8,7 @@ import "testing"
  *
  * Evaluation-only suppression is too late: an unreadable reference would
  * still fail a graph whose claim has no declaration capable of acknowledging
- * it. A class is exported here but is not a `type` unit, which pins activation
+ * it. An enum is exported here but is not a `type` unit, which pins activation
  * to the claim selector rather than to any export or merely matched file.
  *
  *  1. Match one healthy TypeScript file that exports no selected `type` unit.
@@ -17,7 +17,7 @@ import "testing"
  */
 func TestTypeScriptClaimWithoutASelectedExportSkipsItsReferences(t *testing.T) {
   assertNoProblems(t, runIndexRule(t, map[string]string{
-    "src/placeholder.ts": "export class Placeholder {}\n",
+    "src/placeholder.ts": "export enum Placeholder {\n  Empty = \"empty\",\n}\n",
   }, `{"claims":[{
     "type":"typescript",
     "files":["src/**"],

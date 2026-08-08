@@ -89,6 +89,7 @@ export namespace Ordinary {
     "type:Ambient.Input",
     "type:Ambient.Nested",
     "type:Ambient.Options",
+    "type:Ambient.Service",
     "type:Declared",
     "type:Declared.Input",
     "type:Ordinary",

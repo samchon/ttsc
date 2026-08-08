@@ -7,8 +7,8 @@
  * and qualified identities keep nested contracts addressable without adding a
  * file path to every target.
  *
- * - `"type"` selects exported interfaces, type aliases, and namespaces. Classes
- *   and enums do not become type units.
+ * - `"type"` selects exported interfaces, type aliases, classes, and namespaces.
+ *   Enums do not become type units.
  * - `"function"` selects exported function declarations, exported `const`
  *   variables initialized with an arrow function or function expression
  *   (including parentheses and type-only expression wrappers), public instance
@@ -17,20 +17,24 @@
  *   callable forms exported from namespaces. Constructors and accessors are not
  *   selected.
  * - `"property"` selects property signatures declared directly by exported
- *   interfaces and object-shaped type aliases, plus exported `const`, `let`,
- *   and `var` declarations at module or namespace scope. A `const` initialized
- *   with an arrow or function expression remains a function; every other
- *   variable, including a function-typed declaration or function-valued `let`
- *   or `var`, is a property. Every exported leaf in an object or array binding
- *   pattern is a property. Class fields and methods are not property units.
+ *   interfaces and object-shaped type aliases, public non-callable fields of
+ *   exported classes, plus exported `const`, `let`, and `var` declarations at
+ *   module or namespace scope. A `const` initialized with an arrow or function
+ *   expression remains a function; every other variable, including a
+ *   function-typed declaration or function-valued `let` or `var`, is a
+ *   property. Every exported leaf in an object or array binding pattern is a
+ *   property. A class field is a property unless it is function-valued, in
+ *   which case it is a function; an accessor, including an auto-accessor, is
+ *   neither.
  *
  * TypeScript units form containment scopes. An interface or object-shaped type
- * alias contains its selected properties. A namespace contains every selected
- * public unit nested below it, including nested namespaces. An `@evidence`
- * target, or an `@evidenceExclude` target allowed by its reference policy,
- * acknowledges its selected node and every selected descendant. A reference
- * selector defines the obligation kinds while their unselected type ancestors
- * remain addressable as aggregate scopes.
+ * alias contains its selected properties. A class contains its selected
+ * members. A namespace contains every selected public unit nested below it,
+ * including nested namespaces. An `@evidence` target, or an `@evidenceExclude`
+ * target allowed by its reference policy, acknowledges its selected node and
+ * every selected descendant. A reference selector defines the obligation kinds
+ * while their unselected type ancestors remain addressable as aggregate
+ * scopes.
  *
  * Top-level identities use the public export name, and namespace members
  * prepend their namespace, such as `Orders.create`. A namespace itself uses its
@@ -38,11 +42,12 @@
  * exposed as `export { Local as Public }` therefore uses `Public`. A named
  * default declaration keeps its declaration name; anonymous and default-only
  * aliases have no stable target and are not selected. Members of an ambient
- * namespace are public without their own `export` modifier. A type-only
- * namespace alias exposes the namespace, its public type-space descendants, and
- * their type properties without exposing data, functions, or class callables.
- * Type properties use `TypeName.property`. Static class callables use
- * `ClassName.method`; instance callables use `ClassName.prototype.method`.
+ * namespace are public without their own `export` modifier. A type-only alias
+ * exposes a namespace or a class, its public type-space descendants, and their
+ * type properties, without exposing data, functions, or class members, because
+ * a class member is addressed through the class value the alias does not
+ * expose. Type properties use `TypeName.property`. Static class members use
+ * `ClassName.member`; instance members use `ClassName.prototype.member`.
  * Computed names are not selected, even when their expression is a literal.
  * Literal names must be whitespace-free because a declaration target is one
  * whitespace-delimited token. A dot inside a literal name is rendered
