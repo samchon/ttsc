@@ -17,21 +17,24 @@
  *   callable forms exported from namespaces. Constructors and accessors are not
  *   selected.
  * - `"property"` selects property signatures declared directly by exported
- *   interfaces and object-shaped type aliases, public non-callable fields of
- *   exported classes, plus exported `const`, `let`, and `var` declarations at
- *   module or namespace scope. A `const` initialized with an arrow or function
- *   expression remains a function; every other variable, including a
+ *   interfaces and object-shaped type aliases, public class fields that are not
+ *   written as callables, plus exported `const`, `let`, and `var` declarations
+ *   at module or namespace scope. A `const` initialized with an arrow or
+ *   function expression remains a function; every other variable, including a
  *   function-typed declaration or function-valued `let` or `var`, is a
  *   property. A class field is the one place that rule reads the other way: it
- *   is a property unless it is function-valued **or** declared with a direct
- *   function type, either of which makes it a function. Every exported leaf in
- *   an object or array binding pattern is a property. An accessor, including an
- *   auto-accessor, is neither. A constructor parameter carrying `public`,
- *   `readonly`, `private`, or `protected` declares a field and classifies
- *   exactly as the same field written in the class body would, whatever the
- *   constructor's own visibility is. Its citation belongs on the parameter: a
- *   constructor's own block hosts nothing, because two parameter properties
- *   would leave `@evidence` no way to say which field it means.
+ *   is a property unless it is function-valued **or** annotated with a function
+ *   type written out, either of which makes it a function. The test is
+ *   syntactic, because this rule reads no type checker: `charge: () => void` is
+ *   a function and `charge: Handler` is a property even where `Handler` is an
+ *   alias of the same type, as are a constructor type and a union. Every
+ *   exported leaf in an object or array binding pattern is a property. An
+ *   accessor, including an auto-accessor, is neither. A constructor parameter
+ *   carrying `public`, `readonly`, `private`, or `protected` declares a field
+ *   and classifies exactly as the same field written in the class body would,
+ *   whatever the constructor's own visibility is. Its citation belongs on the
+ *   parameter: a constructor's own block hosts nothing, because two parameter
+ *   properties would leave `@evidence` no way to say which field it means.
  *
  * TypeScript units form containment scopes. An interface or object-shaped type
  * alias contains its selected properties. A class contains its selected

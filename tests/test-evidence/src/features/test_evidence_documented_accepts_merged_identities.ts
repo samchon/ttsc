@@ -89,6 +89,9 @@ export const test_evidence_documented_accepts_merged_identities = (): void => {
         "export default evidence;",
         "",
       ].join("\n"),
+      "src/Undocumented.ts": ["export interface Undocumented {}", ""].join(
+        "\n",
+      ),
     },
   });
   try {

@@ -666,11 +666,12 @@ func collectTypeScriptVariables(
 
 // collectClassMembers materializes the public contract a class declares.
 //
-// A method is a function unit and a field is a property unit unless it holds a
-// function, which is the mapping a reader already assumes: the class is the
-// subject, its methods are what the subject does, and its fields are the
-// measured facts it carries. `classMemberSymbol` owns the exception, and a
-// field's declared type counts as much as its initializer there.
+// A method is a function unit and a field is a property unit, which is the
+// mapping a reader already assumes: the class is the subject, its methods are
+// what the subject does, and its fields are the measured facts it carries.
+// `classMemberSymbol` owns the one exception, where a field written as a
+// callable joins the methods, and "written as" is literal: see
+// `isDirectFunctionType`.
 // Every member hangs below the class unit, so a citation on the class
 // acknowledges the members it selected.
 //
@@ -866,7 +867,11 @@ func isParameterProperty(parameter *shimast.Node) bool {
     shimast.ModifierFlagsParameterPropertyModifier != 0
 }
 
-// classMemberSymbol classifies one class member variable by what it holds.
+// classMemberSymbol classifies one class member variable by how it is written.
+//
+// Not by what it resolves to: an arrow or function initializer, or a type
+// annotation spelled as a function type, makes a field a callable, and a field
+// annotated with an alias of one does not. `isDirectFunctionType` says why.
 //
 // Spelled once so the same field answers to the same selector whether it is
 // written in the class body or through the constructor's parameter-property
@@ -948,6 +953,19 @@ func isFunctionValue(node *shimast.Node) bool {
   return false
 }
 
+// isDirectFunctionType reports whether a type annotation is written as a
+// function type, rather than whether it resolves to one.
+//
+// Syntactic on purpose, and this is the sentence every summary of the class
+// field rule gets wrong. `evidence/graph` declares `NeedsTypeChecker() false`,
+// so nothing here can follow `type Handler = () => void` to its target: a field
+// annotated `Handler` is a property, while the same field annotated
+// `() => void` is a function. Parentheses are unwrapped because they change
+// nothing a reader means; a constructor type, a union with a callable in it,
+// and an alias are all left alone because resolving them is the checker's job.
+//
+// Anyone restating this as "a field that holds a function" has restated
+// something else. Twice now, on shipped surfaces.
 func isDirectFunctionType(node *shimast.Node) bool {
   for node != nil && node.Kind == shimast.KindParenthesizedType {
     parenthesized := node.AsParenthesizedTypeNode()

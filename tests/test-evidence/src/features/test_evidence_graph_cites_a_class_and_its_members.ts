@@ -11,9 +11,10 @@ import {
  * Verifies the packaged rule makes a class and its member variables citable.
  *
  * The three selectors map onto the three declaration kinds a class spells: the
- * class is a `type`, a method is a `function`, and a member variable is a
- * `property`. Driving it through the real binary is what proves the mapping
- * survives packaging, where the Go suite only proves the collector.
+ * class is a `type`, a method is a `function`, and a field is a `property`
+ * unless it is written as a callable. Driving it through the real binary is
+ * what proves the mapping survives packaging, where the Go suite only proves
+ * the collector.
  *
  * A clean exit would not distinguish a discharged obligation from an absent
  * one: if both populations went, both claims deactivate and the build exits
