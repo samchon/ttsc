@@ -907,13 +907,21 @@ export interface IPlain {
  * them back at exactly the address the suppression exists to keep empty, so the
  * guard has to travel with the merge rather than sit on one collector.
  *
- * The unmerged interface beside it is the negative twin and the reason the
+ * The guard has two halves and each needs its own row. A type-only export of
+ * the merge itself is one; a merge inside a namespace the file exports
+ * type-only is the other, and it travels through the projection flag rather
+ * than through the target. Keeping only the second half left the whole suite
+ * green while the namespace shape republished the very member this exists to
+ * withhold.
+ *
+ * The unmerged interface beside them is the negative twin and the reason the
  * guard is not simply moved to the interface collector: its members are
  * type-space, they have always projected, and they must keep projecting.
  *
- *  1. Export a class merged with an interface through a type-only alias only.
+ *  1. Export a class merged with an interface through a type-only alias, and a
+ *     second such merge through a type-only namespace projection.
  *  2. Export an unmerged interface through a type-only alias too.
- *  3. Assert the merge exposes its name alone while the unmerged interface
+ *  3. Assert both merges expose their names alone while the unmerged interface
  *     exposes its members.
  */
 func TestTypeOnlyAliasOverAMergedClassExposesNoMember(t *testing.T) {
@@ -926,6 +934,15 @@ interface Sale {
   rate: number;
 }
 export type { Sale };
+namespace Space {
+  export class Deal {
+    charge(): void {}
+  }
+  export interface Deal {
+    rate: number;
+  }
+}
+export type { Space };
 export interface IPlain {
   run(): void;
 }
@@ -942,6 +959,8 @@ export type { IPlain as PlainAlias };
     "type:IPlain",
     "type:PlainAlias",
     "type:Sale",
+    "type:Space",
+    "type:Space.Deal",
   }
   if strings.Join(units, "\n") != strings.Join(want, "\n") {
     t.Fatalf(
