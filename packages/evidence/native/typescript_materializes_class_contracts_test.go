@@ -591,13 +591,23 @@ export class Sale {
  * A class field is a callable when it is written as one, annotation included.
  * A module-scope variable is a callable only when a `const` is initialized with
  * a function: the annotation never decides, and neither does the initializer on
- * a `let` or a `var`. Four documentation surfaces state that contrast and none
- * of them was enforced, which is exactly how the class half of it came to be
- * described wrongly on four surfaces at once.
+ * a `let` or a `var`. Four documentation surfaces draw that contrast.
  *
- * Both halves live in one case on purpose. Stated apart, each reads as an
- * arbitrary rule; together they are the contrast the documents draw, and a
- * change that collapsed one onto the other would have to break this.
+ * Each half was already pinned separately — the module one by
+ * `TestTypeScriptMaterializesNamespacesAndDataVariables` since the package was
+ * vendored, the class one by `TestClassFieldClassificationIsSyntactic` beside
+ * this case. What had no home was the contrast itself, so a change collapsing
+ * one rule onto the other broke two unrelated files and neither of them said
+ * why. Both halves live here on purpose: stated apart each reads as an
+ * arbitrary rule, and together they are what the documents actually claim.
+ *
+ * One row is new coverage rather than restatement. `export declare var` with a
+ * function-type annotation is measured nowhere else, and it is the row that
+ * separates "an annotation never decides" from "a non-`const` never does".
+ *
+ * The destructured `const` is the second thing only this case holds: its
+ * initializer *is* a function, and every binding leaf is still a property,
+ * which is the rule three surfaces state and no test enforced.
  *
  *  1. Declare every module-scope form beside the class field it contrasts with.
  *  2. Collect the inventory.
@@ -611,6 +621,7 @@ export const constInitialized: Handler = () => {};
 export declare const constAnnotated: () => void;
 export let letInitialized: () => void = () => {};
 export declare var varAnnotated: () => void;
+export const { length: destructured } = function named() {};
 export class Sale {
   declare annotated: () => void;
   initialized = (): void => {};
@@ -626,6 +637,7 @@ export class Sale {
     "function:Sale.prototype.initialized",
     "function:constInitialized",
     "property:constAnnotated",
+    "property:destructured",
     "property:letInitialized",
     "property:varAnnotated",
     "type:Sale",

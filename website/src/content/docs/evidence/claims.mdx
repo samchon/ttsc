@@ -94,7 +94,7 @@ On a reference, `symbol` sets the obligation's denominator. On a claim, it restr
 
 - `"type"` selects exported interfaces, type aliases, classes, and namespaces. Enums are not type units.
 - `"function"` selects exported callables, including a `const` initialized with an arrow or function expression, public class callables, and the namespace variants of those forms.
-- `"property"` selects direct properties of exported type-level symbols, public class fields that are not written as callables, plus exported `const`, `let`, and `var` at module or namespace scope. Every module-scope variable other than a `const` initialized with a function is a property, including a function-typed declaration and a function-valued `let` or `var`; a class field is the one place that reads the other way.
+- `"property"` selects direct properties of exported interfaces and object-shaped type aliases, public class fields that are not written as callables, plus exported `const`, `let`, and `var` at module or namespace scope. At either scope every variable other than a `const` initialized with a function is a property, including a function-typed declaration and a function-valued `let` or `var`; a class field is the one place that reads the other way.
 
 A class is the subject and its members are what the subject does and carries, so the three map onto the three kinds directly: the class is a `type`, a method is a `function`, and a field is a `property`. Instance members are addressed through `prototype` and static members directly, as in `Sale.prototype.price` and `Sale.currency`. Constructors and accessors are not selected: construction is how the subject comes to be, which the class itself answers for, and an accessor is a get/set pair rather than a member variable.
 
