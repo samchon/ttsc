@@ -16,7 +16,14 @@ import (
  * controls: without them a collector that had stopped materializing class
  * members entirely would pass this case.
  *
- *  1. Declare ordinary members beside callable and data accessors.
+ * An interface accessor is here because the rule has to hold wherever a member
+ * is classified, and the interface collector reaches its member kinds through a
+ * different switch. Adding a get/set case to that switch is a one-line edit and
+ * it left the whole suite green, so the exclusion was stated for a class and
+ * merely assumed for an interface.
+ *
+ *  1. Declare ordinary members beside callable and data accessors, on a class
+ *     and on an interface.
  *  2. Collect the inventory.
  *  3. Assert only the ordinary members materialize.
  */
@@ -35,6 +42,13 @@ export class Service {
   }
   set computed(value: number) {}
 }
+export interface IService {
+  handler: () => void;
+  send(): void;
+  retries: number;
+  get computed(): number;
+  set computed(value: number);
+}
 `)
   targets := []string{}
   for _, unit := range inventory.Units {
@@ -42,9 +56,13 @@ export class Service {
   }
   sort.Strings(targets)
   want := []string{
+    "function:IService.handler",
+    "function:IService.send",
     "function:Service.factory",
     "function:Service.prototype.handler",
+    "property:IService.retries",
     "property:Service.prototype.retries",
+    "type:IService",
     "type:Service",
   }
   if strings.Join(targets, "\n") != strings.Join(want, "\n") {
