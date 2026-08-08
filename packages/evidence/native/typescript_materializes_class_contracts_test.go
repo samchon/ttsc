@@ -315,10 +315,10 @@ export class Sale {
  *
  * The positive twin of the case above, and what makes that one mean anything:
  * a refusal reads as "withdrawal took the carrier" only if the same declaration
- * without the tag is accepted. Without this the refusal is equally consistent
- * with a class member never having been a carrier at all. The carrier is the
- * untagged half of the same overload run for that reason, so the two fixtures
- * differ by the `@internal` block and nothing else.
+ * is accepted when nothing withdrew it. The carrier here is therefore the same
+ * declaration the refusal names, an overload run's implementation half, with
+ * the `@internal` block on its sibling signature removed. The remaining
+ * differences between the two fixtures are the ones the assertion shape forces.
  *
  * The field beside it is deliberately the wrong kind for the claim. Carrier
  * eligibility is wider than host eligibility by design, so a `property` member
@@ -331,8 +331,9 @@ export class Sale {
  * only assertion that distinguishes an accepted exclusion from a claim that
  * never ran.
  *
- *  1. Exclude one section from an untagged overload half and another from a
- *     field, under a `symbol: "function"` claim, leaving a third section alone.
+ *  1. Exclude one section from an overload run's implementation half and
+ *     another from a field, under a `symbol: "function"` claim, leaving a third
+ *     section alone.
  *  2. Evaluate the claim.
  *  3. Assert only the untouched section is reported.
  */
