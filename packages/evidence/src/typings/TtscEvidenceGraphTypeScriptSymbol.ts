@@ -55,10 +55,12 @@
  * default declaration keeps its declaration name; anonymous and default-only
  * aliases have no stable target and are not selected. Members of an ambient
  * namespace are public without their own `export` modifier. A type-only alias
- * exposes a namespace or a class, its public type-space descendants, and their
- * type properties, without exposing data, functions, or class members, because
- * a class member is addressed through the class value the alias does not
- * expose. Type properties use `TypeName.property`. Static class members use
+ * exposes a namespace or a class, its public type-space descendants, and
+ * everything an interface or object-shaped type alias declares, callables
+ * included, because every member of those two is type-space. What it withholds
+ * is value-space: namespace data, namespace functions, and every class member,
+ * the last because a member is addressed through the class value the alias does
+ * not expose. Type properties use `TypeName.property`. Static class members use
  * `ClassName.member`; instance members use `ClassName.prototype.member`.
  * Computed names are not selected, even when their expression is a literal.
  * Literal names must be whitespace-free because a declaration target is one

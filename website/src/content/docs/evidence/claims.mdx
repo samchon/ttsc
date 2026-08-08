@@ -110,7 +110,7 @@ The block has to sit on the parameter, not on the constructor. A constructor's o
 
 Only public identities materialize. A top-level declaration needs an export modifier or a local export-list alias, and a namespace member needs to be exported from that namespace unless ambient semantics make it implicitly public.
 
-Qualified identities keep their owner. `Orders.Input.id` is a property below `Orders.Input`, while `Orders.state` is namespace data. Exported object and array binding patterns expose each local binding leaf as a property, and a type-only alias of a namespace or a class exposes its public type-space descendants without exposing namespace data, callables, or class members.
+Qualified identities keep their owner. `Orders.Input.id` is a property below `Orders.Input`, while `Orders.state` is namespace data. Exported object and array binding patterns expose each local binding leaf as a property, and a type-only alias exposes its public type-space descendants, including every member an interface or object-shaped type alias declares, while withholding value-space: namespace data, namespace functions, and every class member.
 
 A namespace merged with a same-named function is that function's static side, so nothing inside it materializes. That is the generated SDK accessor shape, `export async function get(...)` beside `export namespace get`, where `get.path` and `get.Output` are the accessor's own machinery rather than authored contract. One operation therefore owes one acknowledgement, cited as `{@link api.functional.health.get}`. A namespace merged with an interface or a class keeps its members, because a companion namespace beside either one is authored contract, and a `const` or `let` cannot merge with a namespace at all.
 

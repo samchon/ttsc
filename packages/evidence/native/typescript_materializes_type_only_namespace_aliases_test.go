@@ -18,14 +18,22 @@ import (
  * `Service.prototype.send` and `Service.make` are paths through the class
  * value, which a type-only alias exposes nothing to walk them from.
  *
+ * An interface method signature is the case that reads like the class one and
+ * is not. `Input.check` is a `function` unit and it projects, because an
+ * interface declares nothing in value space, so there is no value for the alias
+ * to withhold. The fixture carried no such member while three surfaces said a
+ * type-only alias exposes no callables, which is how that sentence stayed
+ * wrong.
+ *
  *  1. Export one namespace through full and both type-only alias syntaxes.
- *  2. Include nested type and value declarations plus a class and its members.
+ *  2. Include nested type and value declarations, an interface callable, and a
+ *     class with its members.
  *  3. Assert the exact full and type-only projections.
  */
 func TestTypeScriptTypeOnlyNamespaceAliasesProjectOnlyTypeSpace(t *testing.T) {
   inventory := parseTypeScriptInventory(t, "src/contracts.ts", `
 namespace Local {
-  export interface Input { id: string; }
+  export interface Input { id: string; check(): void; }
   export type Options = { enabled: boolean };
   export namespace Nested {
     export interface Request { value: string; }
@@ -50,6 +58,7 @@ export { type Local as SpecTypes };
   }
   sort.Strings(units)
   want := []string{
+    "function:Full.Input.check",
     "function:Full.Nested.run",
     "function:Full.Service.make",
     "function:Full.Service.prototype.send",
@@ -59,6 +68,8 @@ export { type Local as SpecTypes };
     "property:Full.Nested.retries",
     "property:Full.Options.enabled",
     "property:Full.count",
+    "function:SpecTypes.Input.check",
+    "function:Types.Input.check",
     "property:SpecTypes.Input.id",
     "property:SpecTypes.Nested.Request.value",
     "property:SpecTypes.Options.enabled",
