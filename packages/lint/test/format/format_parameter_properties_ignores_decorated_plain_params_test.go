@@ -6,11 +6,12 @@ import "testing"
 // constructor whose parameters carry a decorator but no parameter-property
 // modifier is left inline.
 //
-// This is the negative twin of the `override` case. A decorated parameter has a
-// non-empty modifier list, so a check that merely asks "does this parameter
-// carry modifiers?" would over-match it. `ModifierFlagsParameterPropertyModifier`
-// excludes `ModifierFlagsDecorator`, and this case is what keeps that
-// distinction pinned.
+// A decorator is carried in the same modifier list as an accessibility keyword,
+// and `ModifierFlagsParameterPropertyModifier` deliberately excludes
+// `ModifierFlagsDecorator`. This case pins that boundary against a future
+// simplification to "does this parameter carry modifiers at all". Prettier
+// 3.8.3 leaves the same constructor inline, so the abstention is the oracle's,
+// not the implementation's.
 //
 //  1. Parse a class with `constructor(@Inject() rate: number, kind: string)`.
 //  2. Run format/parameter-properties.

@@ -463,12 +463,12 @@ ctx.ReportFix(node, "use const",
 
 `TextEdit` positions are **byte offsets**, identical to `node.Pos()` / `node.End()`. The host applies edits in a single pass per file; within a pass:
 
-- **Conflicts resolve per finding, not per edit.** The host groups a finding's edits, considers the earliest group first, and accepts a group only when every member coexists with what it already accepted. One colliding member skips the whole group, so a multi-edit fix never half-applies. The skipped finding re-fires on the next cascade pass. The contract is documented on `rule.TextEdit` (the public Go type).
-- **A finding's own edits must not overlap each other**, or the finding can never apply. An exact duplicate inside one finding is collapsed, not treated as a conflict.
+- **Conflicts resolve per finding, not per edit.** The host groups a finding's edits, considers the earliest group first, and accepts a group only when every member coexists with what it already accepted. One colliding member skips the whole group, so a multi-edit fix never half-applies. The skipped finding is re-run on the next cascade pass and applies then, or the cascade converges without it. The contract is documented on `rule.TextEdit` (the public Go type).
+- **A finding's own edits must not overlap each other.** Siblings enter the same group, so a finding that collides with itself can never apply. An exact duplicate inside one finding is collapsed, not treated as a conflict.
 - **Empty `Text` deletes the range.** No special "delete" verb.
 - **Order does not matter.** The host sorts internally and applies right-to-left so earlier edits do not shift later offsets.
 
-Emit the narrowest edits that express the rewrite. Several small non-overlapping edits contend for less source than one wide replacement, and the atomic applier exists so that shape is safe. `no-import-type-side-effects`, `format/whitespace`, `format/indent`, `format/sort-imports`, `unicorn/prevent-abbreviations`, and `unicorn/template-indent` all ship multi-edit fixes.
+Emit the narrowest edits that express the rewrite. Several small non-overlapping edits contend for less source than one wide replacement, and the atomic applier exists so that shape is safe. Built-ins that ship multi-edit fixes include `typescript/no-import-type-side-effects`, `format/whitespace`, `format/indent`, `unicorn/prevent-abbreviations`, and `unicorn/template-indent`.
 
 ## A rule with a choice of fixes: `ReportSuggestion`
 

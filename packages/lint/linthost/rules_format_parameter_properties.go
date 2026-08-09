@@ -154,17 +154,14 @@ func (formatParameterProperties) Check(ctx *Context, node *shimast.Node) {
   )
 }
 
-// anyParameterProperty reports whether any parameter carries a modifier
-// that makes it a parameter property. The compiler's own
-// `ModifierFlagsParameterPropertyModifier` mask is the source: restating
-// the keyword set here is what left `override` out and made the rule
-// abstain on a legal parameter property Prettier breaks.
+// anyParameterProperty reports whether any parameter is a parameter property.
+// It defers to the package's shared `isParameterProperty` so one definition
+// answers the question for every rule that asks it; restating the modifier set
+// here is what left `override` out and made this rule abstain on a legal
+// parameter property Prettier breaks.
 func anyParameterProperty(params []*shimast.Node) bool {
   for _, p := range params {
-    if p == nil {
-      continue
-    }
-    if p.ModifierFlags()&shimast.ModifierFlagsParameterPropertyModifier != 0 {
+    if isParameterProperty(p) {
       return true
     }
   }

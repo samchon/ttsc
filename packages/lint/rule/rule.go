@@ -279,9 +279,10 @@ type RelatedInformation struct {
 //
 // Emit the narrowest edits that express the rewrite. Several small
 // non-overlapping edits contend for less source than one wide replacement and
-// are the shape the atomic applier exists to support; `no-import-type-side-
-// effects`, `format/whitespace`, `format/indent`, and `format/sort-imports`
-// all ship multi-edit fixes.
+// are the shape the atomic applier exists to support. Built-ins that ship
+// multi-edit fixes include `typescript/no-import-type-side-effects`,
+// `format/whitespace`, `format/indent`, `unicorn/prevent-abbreviations`, and
+// `unicorn/template-indent`.
 type TextEdit struct {
   Pos  int
   End  int
