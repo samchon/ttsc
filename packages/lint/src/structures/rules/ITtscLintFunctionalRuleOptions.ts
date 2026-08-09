@@ -80,24 +80,45 @@ export interface ITtscLintFunctionalNoThrowStatementsRuleOptions {
 
 /** `functional/no-mixed-types` rule options. */
 export interface ITtscLintFunctionalNoMixedTypesRuleOptions {
-  /** Check interface member kinds. */
+  /**
+   * Check interface member kinds.
+   *
+   * @default true
+   */
   checkInterfaces?: boolean;
 
-  /** Check type-literal member kinds. */
+  /**
+   * Check type-literal member kinds.
+   *
+   * @default true
+   */
   checkTypeLiterals?: boolean;
 }
 
 /** `functional/no-return-void` rule options. */
 export interface ITtscLintFunctionalNoReturnVoidRuleOptions {
-  /** Permit a function that returns `null` to satisfy the rule. */
+  /**
+   * Permit a function whose declared return type is `null`. Set `false` to
+   * reject it the way a declared `void` is rejected.
+   *
+   * @default true
+   */
   allowNull?: boolean;
 
-  /** Permit a function that returns `undefined` to satisfy the rule. */
+  /**
+   * Permit a function whose declared return type is `undefined`. Set `false` to
+   * reject it the way a declared `void` is rejected.
+   *
+   * @default true
+   */
   allowUndefined?: boolean;
 
   /**
-   * Skip functions whose return type is inferred to be `void` rather than
-   * declared explicitly.
+   * Skip a bare `return;` inside a function that declares no return type. That
+   * statement is the one place the rule rejects a void-ness it inferred rather
+   * than read from an annotation.
+   *
+   * @default false
    */
   ignoreInferredTypes?: boolean;
 }
@@ -105,7 +126,8 @@ export interface ITtscLintFunctionalNoReturnVoidRuleOptions {
 /** `functional/prefer-immutable-types` rule options. */
 export interface ITtscLintFunctionalPreferImmutableTypesRuleOptions extends ITtscLintFunctionalPatternOptions {
   /**
-   * Minimum accepted immutability. The native subset treats any configured
+   * Minimum accepted immutability. Reserved for upstream-compatible configs;
+   * the native subset computes no immutability level and treats any configured
    * value as readonly-required.
    */
   enforcement?:
@@ -118,31 +140,60 @@ export interface ITtscLintFunctionalPreferImmutableTypesRuleOptions extends ITts
 
 /** `functional/prefer-readonly-type` rule options. */
 export interface ITtscLintFunctionalPreferReadonlyTypeRuleOptions extends ITtscLintFunctionalPatternOptions {
-  /** Permit mutation of locals while still policing exported types. */
+  /**
+   * Permit mutation of locals while still policing exported types. Reserved for
+   * upstream-compatible configs; the native subset reads type annotations and
+   * models no local-versus-exported distinction.
+   */
   allowLocalMutation?: boolean;
 
-  /** Permit a mutable return type even when parameters must be readonly. */
+  /**
+   * Permit a mutable return type even when parameters must be readonly.
+   *
+   * @default false
+   */
   allowMutableReturnType?: boolean;
 
-  /** Also check property positions that have no explicit type annotation. */
+  /**
+   * Also check property positions that have no explicit type annotation.
+   * Reserved for upstream-compatible configs; judging an unannotated position
+   * needs the type checker, which this rule does not use.
+   */
   checkImplicit?: boolean;
 
-  /** Skip array / tuple / `Map` / `Set` types. */
+  /**
+   * Skip array / tuple / `Map` / `Set` types.
+   *
+   * @default false
+   */
   ignoreCollections?: boolean;
 
   /**
-   * Skip class fields. `"fieldsOnly"` keeps the rule active for non-field class
-   * members.
+   * Skip class members. `true` skips anything under a class, its heritage
+   * clause and type parameters included; `"fieldsOnly"` narrows that to field
+   * declarations and keeps methods, accessors, and constructor parameters
+   * checked.
+   *
+   * @default false
    */
   ignoreClass?: boolean | "fieldsOnly";
 
-  /** Skip interface members entirely. */
+  /**
+   * Skip interface members entirely.
+   *
+   * @default false
+   */
   ignoreInterface?: boolean;
 }
 
 /** `functional/prefer-tacit` rule options. */
 export interface ITtscLintFunctionalPreferTacitRuleOptions {
-  /** Check member expressions such as `x => service.map(x)`. */
+  /**
+   * Check member expressions such as `x => service.map(x)`. Set `false` to keep
+   * the rule on bare-identifier callees only.
+   *
+   * @default true
+   */
   checkMemberExpressions?: boolean;
 }
 
@@ -167,7 +218,11 @@ export interface ITtscLintFunctionalTypeDeclarationImmutabilityRule {
    */
   immutability?: "ReadonlyShallow" | "ReadonlyDeep" | "Immutable" | "Mutable";
 
-  /** Comparator applied to the immutability level above. */
+  /**
+   * Comparator applied to the immutability level above. Reserved for
+   * upstream-compatible configs alongside `immutability`: the native subset
+   * computes no immutability level, so there is nothing to compare.
+   */
   comparator?:
     | "Less"
     | "AtMost"

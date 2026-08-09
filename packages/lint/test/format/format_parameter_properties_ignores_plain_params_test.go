@@ -3,8 +3,7 @@ package linthost
 import "testing"
 
 // TestFormatParameterPropertiesIgnoresPlainParams verifies a constructor
-// whose parameters carry no accessibility/readonly modifier is left
-// inline.
+// whose parameters carry no parameter-property modifier is left inline.
 //
 // Only parameter properties trigger Prettier's force-break; a plain
 // `constructor(x: Foo, y: Bar)` is governed by ordinary width reflow, so

@@ -289,10 +289,12 @@ func selectTextEdits(sourceLen int, edits []TextEdit) []TextEdit {
   // insert at that same offset must be dropped: two coincident inserts both
   // pass the `edit.Pos < lastEnd` gate, then apply in reverse sort order and
   // concatenate at one point — silently corrupting the source (e.g. a `;`
-  // insert and a `\n` insert at EOF yielding `\n;`). The host contract keeps
-  // one winner and drops the rest (see rule.TextEdit). A zero-width insert
-  // sitting at the end of a prior NON-empty edit is left alone: it applies
-  // cleanly after the replacement and is a legitimate adjacency.
+  // insert and a `\n` insert at EOF yielding `\n;`). This edit-level selector
+  // keeps one winner and drops the rest; selectTextEditGroups turns that drop
+  // into a whole-finding skip, which is the contract rule.TextEdit states. A
+  // zero-width insert sitting at the end of a prior NON-empty edit is left
+  // alone: it applies cleanly after the replacement and is a legitimate
+  // adjacency.
   lastInsertAt := -1
   for _, edit := range sorted {
     if edit.Pos < lastEnd {

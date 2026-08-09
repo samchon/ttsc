@@ -10,9 +10,8 @@ import (
 // formatParameterProperties breaks a constructor's parameter list onto
 // one-parameter-per-line when it declares parameter properties, matching
 // Prettier 3. Prettier forces the break whenever a constructor has more
-// than one parameter and at least one carries an accessibility or
-// `readonly` modifier (a parameter property), regardless of whether the
-// flat form fits printWidth:
+// than one parameter and at least one carries a parameter-property
+// modifier, regardless of whether the flat form fits printWidth:
 //
 //  constructor(
 //    private readonly repo: Repository,
@@ -155,26 +154,15 @@ func (formatParameterProperties) Check(ctx *Context, node *shimast.Node) {
   )
 }
 
-// anyParameterProperty reports whether any parameter carries an
-// accessibility (`public`/`private`/`protected`) or `readonly` modifier,
-// which makes it a parameter property.
+// anyParameterProperty reports whether any parameter is a parameter property.
+// It defers to the package's shared `isParameterProperty` so one definition
+// answers the question for every rule that asks it; restating the modifier set
+// here is what left `override` out and made this rule abstain on a legal
+// parameter property Prettier breaks.
 func anyParameterProperty(params []*shimast.Node) bool {
   for _, p := range params {
-    if p == nil {
-      continue
-    }
-    mods := p.Modifiers()
-    if mods == nil {
-      continue
-    }
-    for _, m := range mods.Nodes {
-      switch m.Kind {
-      case shimast.KindPublicKeyword,
-        shimast.KindPrivateKeyword,
-        shimast.KindProtectedKeyword,
-        shimast.KindReadonlyKeyword:
-        return true
-      }
+    if isParameterProperty(p) {
+      return true
     }
   }
   return false

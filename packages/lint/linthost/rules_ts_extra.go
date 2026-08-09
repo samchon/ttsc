@@ -317,12 +317,14 @@ func parameterPropertyName(param *shimast.Node) (string, bool) {
   return name, name != ""
 }
 
+// isParameterProperty is the package's shared parameter-property predicate.
+// The compiler's own mask is the source: a restated keyword list is what left
+// `override` out of format/parameter-properties (#1131), and this predicate
+// feeds six rules, so a restatement here would be five more chances at the same
+// drift.
 func isParameterProperty(param *shimast.Node) bool {
-  return hasModifier(param, shimast.KindPublicKeyword) ||
-    hasModifier(param, shimast.KindPrivateKeyword) ||
-    hasModifier(param, shimast.KindProtectedKeyword) ||
-    hasModifier(param, shimast.KindReadonlyKeyword) ||
-    hasModifier(param, shimast.KindOverrideKeyword)
+  return param != nil &&
+    param.ModifierFlags()&shimast.ModifierFlagsParameterPropertyModifier != 0
 }
 
 func thisPropertyAssignment(stmt *shimast.Node) (property string, value string, ok bool) {

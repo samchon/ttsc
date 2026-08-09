@@ -13,13 +13,20 @@ import (
 //  if (a)
 //    b();
 //
-// becomes `if (a) b();` when the joined line fits printWidth. The same
-// applies to `for`, `for-in`, `for-of`, and `while` headers. A braced
-// body, a body that already shares the header line, a multi-line body,
-// or a join that would overflow printWidth is left untouched.
+// becomes `if (a) b();` when the joined line fits printWidth. The covered set
+// is Prettier's, not the set whose header happens to end in `)`: the `if`
+// consequent and alternate, the `for`, `for-in`, `for-of`, and `while` bodies,
+// the `do` body, the `with` body, and a labeled statement's body. A braced
+// body, a body that already shares the header line, a multi-line body, or a
+// join that would overflow printWidth is left untouched.
 //
-// The rule only ever rewrites the whitespace gap between a header's
-// closing `)` and the controlled statement, so its edits never overlap
+// Two clauses join unconditionally because Prettier gives them no group of
+// their own: an `else` whose alternate is another `if` (the `else if` chain),
+// and a labeled statement, which prints `label: statement` on one line whatever
+// the statement is, braces included.
+//
+// The rule only ever rewrites the whitespace gap between the clause's own
+// header token and the controlled statement, so its edits never overlap
 // `format/indent` (leading whitespace of a line) or `format/print-width`
 // (interior reflow). Idempotent: once joined the gap holds no newline
 // and the rule abstains.
@@ -46,6 +53,9 @@ func (formatClauseJoin) Visits() []shimast.Kind {
     shimast.KindForStatement,
     shimast.KindForInStatement,
     shimast.KindForOfStatement,
+    shimast.KindDoStatement,
+    shimast.KindWithStatement,
+    shimast.KindLabeledStatement,
   }
 }
 
@@ -63,24 +73,67 @@ func (formatClauseJoin) Check(ctx *Context, node *shimast.Node) {
   if opts.TabWidth != nil && *opts.TabWidth > 0 {
     tabWidth = *opts.TabWidth
   }
-  joinClauseBody(ctx, ctx.File.Text(), node, clauseControlledBody(node), printWidth, tabWidth)
+  src := ctx.File.Text()
+  for _, target := range clauseControlledBodies(node) {
+    joinClauseBody(ctx, src, node, target, printWidth, tabWidth)
+  }
 }
 
-// clauseControlledBody returns the single controlled statement of a
-// control-flow header, the `then` branch for `if`, the loop body for
-// the iteration statements. The `else` branch is intentionally excluded:
-// its body is anchored after the `else` keyword rather than a `)`, so it
-// does not share this rule's `)`-anchored join shape.
-func clauseControlledBody(node *shimast.Node) *shimast.Node {
+// clauseJoinTarget is one joinable clause body plus the token that ends the
+// clause header immediately before it. The anchor is what generalizes the rule
+// past the `)`-headed statements: `else` and `do` end in a keyword, a labeled
+// statement ends in `:`, and requiring the exact token still keeps a comment
+// between header and body from being swallowed.
+type clauseJoinTarget struct {
+  body   *shimast.Node
+  anchor string
+  // alwaysJoin marks a clause Prettier keeps on the header line regardless of
+  // the body's own line count or the joined width: an `else if` chain and a
+  // labeled statement.
+  alwaysJoin bool
+}
+
+// clauseControlledBodies returns every clause body of `node` that Prettier
+// keeps on its header line, paired with the token that header ends in. The set
+// is Prettier's, not the AST's: the `if` consequent and alternate, the loop
+// bodies, the `do` body, the `with` body, and a labeled statement's body.
+func clauseControlledBodies(node *shimast.Node) []clauseJoinTarget {
   switch node.Kind {
   case shimast.KindIfStatement:
-    return node.AsIfStatement().ThenStatement
+    stmt := node.AsIfStatement()
+    if stmt == nil {
+      return nil
+    }
+    targets := []clauseJoinTarget{{body: stmt.ThenStatement, anchor: ")"}}
+    if stmt.ElseStatement != nil {
+      targets = append(targets, clauseJoinTarget{
+        body:   stmt.ElseStatement,
+        anchor: "else",
+        // Prettier prints an `else if` chain flat, so the alternate being an
+        // `if` joins even when that nested statement spans lines.
+        alwaysJoin: stmt.ElseStatement.Kind == shimast.KindIfStatement,
+      })
+    }
+    return targets
   case shimast.KindWhileStatement:
-    return node.AsWhileStatement().Statement
+    return []clauseJoinTarget{{body: node.AsWhileStatement().Statement, anchor: ")"}}
   case shimast.KindForStatement:
-    return node.AsForStatement().Statement
+    return []clauseJoinTarget{{body: node.AsForStatement().Statement, anchor: ")"}}
   case shimast.KindForInStatement, shimast.KindForOfStatement:
-    return node.AsForInOrOfStatement().Statement
+    return []clauseJoinTarget{{body: node.AsForInOrOfStatement().Statement, anchor: ")"}}
+  case shimast.KindDoStatement:
+    return []clauseJoinTarget{{body: node.AsDoStatement().Statement, anchor: "do"}}
+  case shimast.KindWithStatement:
+    return []clauseJoinTarget{{body: node.AsWithStatement().Statement, anchor: ")"}}
+  case shimast.KindLabeledStatement:
+    // A label carries no group of its own in Prettier: `label: statement` is
+    // one line whatever the statement is, so the body may be a block and may
+    // span lines.
+    return []clauseJoinTarget{{
+      body:       node.AsLabeledStatement().Statement,
+      anchor:     ":",
+      alwaysJoin: true,
+    }}
   }
   return nil
 }
@@ -89,18 +142,25 @@ func joinClauseBody(
   ctx *Context,
   src string,
   node *shimast.Node,
-  body *shimast.Node,
+  target clauseJoinTarget,
   printWidth int,
   tabWidth int,
 ) {
-  if body == nil || body.Kind == shimast.KindBlock {
+  body := target.body
+  if body == nil {
     return
   }
-  // An empty-statement body (`while (x)\n;`) glues directly to the header with
-  // NO space: Prettier's adjustClause special-cases EmptyStatement and returns
-  // the bare `;` (`while (x);`), only prepending a space when the empty
-  // statement carries a leading comment. This rule's gap->" " rewrite cannot
-  // produce the spaceless `);` glue, so abstain and leave the source shape.
+  // A braced body already owns its own line layout, except behind a label,
+  // where Prettier writes `label: {`.
+  if body.Kind == shimast.KindBlock && !target.alwaysJoin {
+    return
+  }
+  // An empty-statement body glues directly to the header with NO space:
+  // Prettier's adjustClause special-cases EmptyStatement and returns the bare
+  // `;` (`while (x);`, `else;`, `do;`, `label:;`), only prepending a space when
+  // the empty statement carries a leading comment. This rule joins with a
+  // single space and deliberately does not take on the spaceless variant, so it
+  // abstains and leaves the source shape rather than emitting `while (x) ;`.
   if body.Kind == shimast.KindEmptyStatement {
     return
   }
@@ -110,24 +170,29 @@ func joinClauseBody(
     return
   }
   // The gap is the whitespace run immediately before the body. Walk back
-  // over horizontal whitespace and newlines; the byte before it must be
-  // the header's closing `)` so a comment between header and body (which
+  // over horizontal whitespace and newlines; the bytes before it must be the
+  // clause's own header token so a comment between header and body (which
   // SkipTrivia would have stepped over) can never be swallowed.
   gapStart := bodyStart
   for gapStart > 0 && isClauseGapByte(src[gapStart-1]) {
     gapStart--
   }
-  if gapStart == 0 || src[gapStart-1] != ')' {
+  anchorStart := gapStart - len(target.anchor)
+  if anchorStart < 0 || src[anchorStart:gapStart] != target.anchor {
     return
   }
   gap := src[gapStart:bodyStart]
   if !strings.Contains(gap, "\n") {
     return // body already shares the header line
   }
-  // The header and the body must each be single-line; a multi-line body
-  // (e.g. a nested clause not yet joined) waits for the cascade to settle
-  // its inner join first.
+  // The header line is measured from the token that opens the clause. For a
+  // `)`-headed statement and a label that is the statement's own start; for
+  // `else` and `do` it is the keyword, which is where Prettier starts the line
+  // it would print.
   headerStart := shimscanner.SkipTrivia(src, node.Pos())
+  if isClauseAnchorWord(target.anchor) {
+    headerStart = anchorStart
+  }
   if headerStart < 0 || headerStart > gapStart {
     return
   }
@@ -135,13 +200,17 @@ func joinClauseBody(
   if strings.ContainsRune(src[headerLineStart:gapStart], '\n') {
     return
   }
-  if strings.ContainsRune(src[bodyStart:bodyEnd], '\n') {
-    return
-  }
-  joined := visualWidth(src[headerLineStart:gapStart], tabWidth) + 1 +
-    visualWidth(src[bodyStart:bodyEnd], tabWidth)
-  if joined > printWidth {
-    return
+  if !target.alwaysJoin {
+    // The body must be single-line; a multi-line body (e.g. a nested clause
+    // not yet joined) waits for the cascade to settle its inner join first.
+    if strings.ContainsRune(src[bodyStart:bodyEnd], '\n') {
+      return
+    }
+    joined := visualWidth(src[headerLineStart:gapStart], tabWidth) + 1 +
+      visualWidth(src[bodyStart:bodyEnd], tabWidth)
+    if joined > printWidth {
+      return
+    }
   }
   ctx.ReportRangeFix(
     gapStart,
@@ -155,6 +224,15 @@ func joinClauseBody(
 // the gap between a clause header and its controlled statement.
 func isClauseGapByte(c byte) bool {
   return c == ' ' || c == '\t' || c == '\r' || c == '\n'
+}
+
+// isClauseAnchorWord reports whether an anchor is a keyword rather than
+// punctuation, which decides where the width budget starts measuring. The
+// anchor needs no identifier-boundary check: it is read backward from the AST
+// body's own position, so the token before the gap is the clause's real keyword
+// and an identifier ending in `else` or `do` cannot reach it.
+func isClauseAnchorWord(anchor string) bool {
+  return anchor == "else" || anchor == "do"
 }
 
 // visualWidth returns the display-column width of `s`: a tab expands to a flat
