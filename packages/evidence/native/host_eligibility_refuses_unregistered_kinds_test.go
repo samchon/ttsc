@@ -23,13 +23,23 @@ func refusedHostConfig(symbol string) string {
 // the claim has no selected host, `claimIsInactive` drops it before evaluation,
 // and the run is silent for a reason that has nothing to do with the refusal
 // under test.
-func assertHostRefused(t *testing.T, source string, symbol string) {
+//
+// `kind` is the host set the refused declaration really registers, and asserting
+// it is what makes a row measure a registration rather than a rejection.
+// Matching the selector half alone left every row green when the diagnostic was
+// made to name a kind the declaration does not have, which is exactly the answer
+// an over-broad registration produces.
+func assertHostRefused(t *testing.T, source string, symbol string, kind string) {
   t.Helper()
   messages := runIndexRule(t, map[string]string{
     "docs/spec.md":     "## Contract {#contract}\n",
     "src/contracts.ts": source,
   }, refusedHostConfig(symbol))
-  assertProblemContains(t, messages, "is not selected ("+symbol+")")
+  assertProblemContains(
+    t,
+    messages,
+    "host kind '"+kind+"' is not selected ("+symbol+")",
+  )
   assertProblemContains(t, messages, "Missing acknowledgement for 'docs/spec.md#contract'")
 }
 
@@ -56,7 +66,7 @@ export function activate(): void {}
  *  3. Assert the host is refused and the section stays owed.
  */
 func TestInterfaceIsNotAFunctionHost(t *testing.T) {
-  assertHostRefused(t, refusedInterfaceSource, "function")
+  assertHostRefused(t, refusedInterfaceSource, "function", "type")
 }
 
 /**
@@ -72,7 +82,7 @@ func TestInterfaceIsNotAFunctionHost(t *testing.T) {
  *  3. Assert the host is refused and the section stays owed.
  */
 func TestInterfaceIsNotAPropertyHost(t *testing.T) {
-  assertHostRefused(t, refusedInterfaceSource, "property")
+  assertHostRefused(t, refusedInterfaceSource, "property", "type")
 }
 
 const refusedTypeAliasSource = `
@@ -95,18 +105,22 @@ export function activate(): void {}
  *  3. Assert the host is refused and the section stays owed.
  */
 func TestTypeAliasIsNotAFunctionHost(t *testing.T) {
-  assertHostRefused(t, refusedTypeAliasSource, "function")
+  assertHostRefused(t, refusedTypeAliasSource, "function", "type")
 }
 
 /**
  * Verifies an object-shaped type alias does not host a property claim.
+ *
+ * The other selector, and the likelier mistake of the two: an alias whose whole
+ * body is property members reads as a property host to anyone writing the
+ * registration from what the declaration contains rather than from what it is.
  *
  *  1. Cite the same section from the same alias.
  *  2. Evaluate a `symbol: "property"` claim over that file.
  *  3. Assert the host is refused and the section stays owed.
  */
 func TestTypeAliasIsNotAPropertyHost(t *testing.T) {
-  assertHostRefused(t, refusedTypeAliasSource, "property")
+  assertHostRefused(t, refusedTypeAliasSource, "property", "type")
 }
 
 const refusedNamespaceSource = `
@@ -124,26 +138,29 @@ export function activate(): void {}
  *
  * A namespace contains callables and data, so its own registration is the one
  * most likely to be widened to whatever it holds. It holds only a nested type
- * here, so nothing else in the file could satisfy the selector and mask the
- * refusal.
+ * here, so nothing inside the namespace can satisfy the selector and mask the
+ * refusal; the activating declaration sits outside it for that reason.
  *
  *  1. Cite a Markdown section from an exported namespace.
  *  2. Evaluate a `symbol: "function"` claim over that file.
  *  3. Assert the host is refused and the section stays owed.
  */
 func TestNamespaceIsNotAFunctionHost(t *testing.T) {
-  assertHostRefused(t, refusedNamespaceSource, "function")
+  assertHostRefused(t, refusedNamespaceSource, "function", "type")
 }
 
 /**
  * Verifies a namespace does not host a property claim either.
+ *
+ * The namespace is the only container that holds every kind at once, so both of
+ * its wrong selectors have to be refused rather than one standing for the other.
  *
  *  1. Cite the same section from the same namespace.
  *  2. Evaluate a `symbol: "property"` claim over that file.
  *  3. Assert the host is refused and the section stays owed.
  */
 func TestNamespaceIsNotAPropertyHost(t *testing.T) {
-  assertHostRefused(t, refusedNamespaceSource, "property")
+  assertHostRefused(t, refusedNamespaceSource, "property", "type")
 }
 
 /**
@@ -164,7 +181,7 @@ export const limit = 1;
 export interface IActivate {
   id: string;
 }
-`, "type")
+`, "type", "property")
 }
 
 /**
@@ -173,8 +190,7 @@ export interface IActivate {
  * The other position, and the one the case above cannot reach: a block above
  * the statement is the statement's, so an over-registration on the declarator
  * stayed invisible however many statement-level citations the suite wrote. A
- * tag on an inner declarator is what consults it, and that only resolves to a
- * host at all because the declarator is now recorded against its unit.
+ * tag on an inner declarator is what consults it.
  *
  *  1. Cite a Markdown section from the second declarator of a statement.
  *  2. Evaluate a `symbol: "type"` claim over that file.
@@ -188,5 +204,117 @@ export const alpha = 1,
 export interface IActivate {
   id: string;
 }
-`, "type")
+`, "type", "property")
+}
+
+/**
+ * Verifies a dotted namespace hosts a citation for `type` alone.
+ *
+ * `export namespace Outer.Inner {}` is parsed as nested module declarations, so
+ * it reaches a registration site the module-scope rows never touch. The tag
+ * resolves through the outer declaration, because that is where TypeScript
+ * attaches a leading block, and the inner registration is unreachable by any
+ * citation for the same reason.
+ *
+ *  1. Cite a Markdown section from a dotted namespace.
+ *  2. Evaluate a `symbol: "function"` claim over that file.
+ *  3. Assert the host is refused and the section stays owed.
+ */
+func TestDottedNamespaceIsNotAFunctionHost(t *testing.T) {
+  assertHostRefused(t, `
+/** @evidence docs/spec.md#contract A dotted namespace is not a callable. */
+export namespace Outer.Inner {
+  export interface Input {
+    id: string;
+  }
+}
+export function activate(): void {}
+`, "function", "type")
+}
+
+/**
+ * Verifies a dotted namespace does not host a property claim either.
+ *
+ * Both of its wrong selectors are refused for the reason the module-scope
+ * namespace has two rows: it is the container that holds every kind at once.
+ *
+ *  1. Cite the same section from the same dotted namespace.
+ *  2. Evaluate a `symbol: "property"` claim over that file.
+ *  3. Assert the host is refused and the section stays owed.
+ */
+func TestDottedNamespaceIsNotAPropertyHost(t *testing.T) {
+  assertHostRefused(t, `
+/** @evidence docs/spec.md#contract A dotted namespace is not a property. */
+export namespace Outer.Inner {
+  export interface Input {
+    id: string;
+  }
+}
+export const activate = 1;
+`, "property", "type")
+}
+
+/**
+ * Verifies a function-valued variable hosts no property claim.
+ *
+ * The variable rows above pin the `type` axis on both positions and say nothing
+ * about the two kinds a variable really registers. A `const` initialized with a
+ * function registers `function`, so a `property` claim must refuse it, and the
+ * data `const` beside it is what makes that claim active at all.
+ *
+ *  1. Cite a Markdown section from a function-valued `const`.
+ *  2. Evaluate a `symbol: "property"` claim over that file.
+ *  3. Assert the host is refused and the section stays owed.
+ */
+func TestCallableVariableIsNotAPropertyHost(t *testing.T) {
+  assertHostRefused(t, `
+/** @evidence docs/spec.md#contract A callable variable is not a property. */
+export const parse = (): void => {};
+export const limit = 1;
+`, "property", "function")
+}
+
+/**
+ * Verifies a class field hosts no function claim.
+ *
+ * A class member registers exactly the kind `memberSymbol` gave it, and both
+ * kinds share one registration site, so an over-broad one there reaches every
+ * member of every class at once. The method beside the field activates the
+ * claim and is the member the selector legitimately owns, so the row states the
+ * boundary between them rather than the absence of both.
+ *
+ *  1. Cite a Markdown section from a public class field.
+ *  2. Evaluate a `symbol: "function"` claim over that file.
+ *  3. Assert the host is refused and the section stays owed.
+ */
+func TestClassFieldIsNotAFunctionHost(t *testing.T) {
+  assertHostRefused(t, `
+export class Sale {
+  /** @evidence docs/spec.md#contract A field is not a callable. */
+  readonly price: number = 0;
+  charge(): void {}
+}
+`, "function", "property")
+}
+
+/**
+ * Verifies an interface method signature hosts no property claim.
+ *
+ * The member half of the interface, which the container rows above do not
+ * reach: members register at their own site, and a method signature is a
+ * `function` there, so a `property` claim must refuse it. The data member
+ * beside it activates the claim and is the one the selector owns.
+ *
+ *  1. Cite a Markdown section from an interface method signature.
+ *  2. Evaluate a `symbol: "property"` claim over that file.
+ *  3. Assert the host is refused and the section stays owed.
+ */
+func TestInterfaceMethodSignatureIsNotAPropertyHost(t *testing.T) {
+  assertHostRefused(t, `
+export interface ISale {
+  /** @evidence docs/spec.md#contract A method signature is not a property. */
+  run(): void;
+  label: string;
+}
+`, "property", "function")
 }
