@@ -402,6 +402,11 @@ func decimal(value int) string {
 // an interface member beside a namespace member of the same name. The
 // suppression it feeds is a silent one, so the divergence was a build going
 // green or red on declaration order with no message either way.
+//
+// Every site goes through here, including the ones that can only ever be value
+// space. A site that assigns the field directly is correct until the day its
+// address collides with a type-space one, and that is exactly the day nobody is
+// looking at it.
 func (unit *evidenceUnit) markSpace(valueSpace bool) {
   if valueSpace {
     unit.ValueSpace = true

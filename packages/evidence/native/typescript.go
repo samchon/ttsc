@@ -432,7 +432,7 @@ func collectTypeScriptStatements(
           qualifyTypeScriptName(prefix, name),
           parentID,
           memberHidden,
-        ).ValueSpace = true
+        ).markSpace(true)
       }
     case shimast.KindVariableStatement:
       if typeOnlyProjection {
@@ -734,7 +734,7 @@ func collectTypeScriptVariables(
         // is where a citation for this unit actually lives. The
         // declarator is recorded too, because it is a host position and
         // every consumer that walks a unit's nodes has to reach it.
-        unit.ValueSpace = true
+        unit.markSpace(true)
         inventory.recordUnitNode(unit.ID, statement)
         inventory.recordUnitNode(unit.ID, declaration)
       }
@@ -1016,7 +1016,7 @@ func addClassMemberUnit(
     identity,
     classID,
     memberHidden,
-  ).ValueSpace = true
+  ).markSpace(true)
   if memberHidden == "" {
     addTypeScriptHost(supportedHosts, node, symbol)
   }
