@@ -4,6 +4,8 @@ import (
   "sort"
   "strings"
   "testing"
+
+  shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
 // hostPositionCorpus carries one citation on every declaration form that
@@ -72,34 +74,64 @@ export namespace Outer.Inner {
 /**
  * Verifies every host position a declaration form registers belongs to a unit.
  *
- * This is the invariant behind three separate silent failures, rather than one
+ * This is the invariant behind two separate silent failures, rather than one
  * more shape beside them. `supportedHosts` is keyed by node while every
  * consumer that matters walks from a unit to its declarations, so a position in
  * the first set and in no unit's node list is invisible to all of them: the
  * withdrawal reconciliation cannot take it away, and a citation on it resolves
  * to no semantic identity, so the per-host policies and the review ledger both
  * count it as nothing while the obligation it discharged reports satisfied. The
- * module-scope declarator was the position that had it, and it was found by a
- * citation rather than by reading.
+ * variable declarator was the position that had it, and it was found by writing
+ * a citation rather than by reading.
  *
- * Asserting it once over a corpus of every form is what makes the next
- * declaration form fail here rather than in a consumer. A tag is what makes a
- * position observable, so the corpus carries one on each.
+ * The two sets are compared directly rather than through a citation. A tag
+ * reaches exactly one node, so a corpus of tagged declarations sees only the
+ * positions an author happened to write on: of the positions this one
+ * registers, a third carry no block, and one of those cannot carry one at all.
+ * Orphaning any of them left the whole repository green. Driving the collector
+ * the way `documentedHosts` does gives the case both sets and lets it assert
+ * what it is named for, so the next declaration form fails here instead of in a
+ * consumer.
  *
- *  1. Cite one section from every declaration form that registers a host.
- *  2. Scan the file.
- *  3. Assert no declaration carries hosts without a semantic identity.
+ *  1. Collect one file holding every declaration form that registers a host.
+ *  2. Take the host map and the unit-to-node index the collector filled.
+ *  3. Assert no key of the host map is missing from the index.
  */
 func TestEveryHostPositionBelongsToAUnit(t *testing.T) {
-  inventory := parseTypeScriptInventory(t, "src/contracts.ts", hostPositionCorpus)
+  file := parseTestSourceFile(t, "src/contracts.ts", hostPositionCorpus)
+  inventory := &artifactInventory{
+    Type:      artifactTypeScript,
+    UnitNodes: map[string][]*shimast.Node{},
+  }
+  supported := map[*shimast.Node]symbolSet{}
+  collectTypeScriptStatements(
+    file,
+    file.Statements,
+    nil,
+    "",
+    inventory,
+    supported,
+    map[string]*evidenceUnit{},
+    file.IsDeclarationFile,
+    false,
+    false,
+    "",
+  )
+  recorded := map[*shimast.Node]bool{}
+  for _, nodes := range inventory.UnitNodes {
+    for _, node := range nodes {
+      recorded[node] = true
+    }
+  }
   orphans := []string{}
-  for _, declaration := range inventory.Declarations {
-    if len(declaration.Hosts) == 0 || len(declaration.SemanticHostIDs) != 0 {
+  for node, hosts := range supported {
+    if recorded[node] {
       continue
     }
     orphans = append(
       orphans,
-      declaration.Reason+" at line "+decimal(declaration.Line),
+      node.Kind.String()+" hosting "+hosts.names()+
+        " at line "+decimal(lineAtNode("src/contracts.ts", node)),
     )
   }
   sort.Strings(orphans)

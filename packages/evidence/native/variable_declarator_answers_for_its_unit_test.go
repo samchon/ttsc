@@ -116,6 +116,13 @@ export const alpha = 1,
   assertReported(t, messages, "'alpha' at src/contracts.ts:2")
 }
 
+// internalBlock is the withdrawal the negative twin removes, kept beside the
+// constant it is cut from so the pair stays one edit apart.
+const internalBlock = `  /**
+   * @internal
+   */
+`
+
 // mergedWithdrawnVariable is one identity withdrawn in one declaration and
 // spelled again, untagged, in another.
 //
@@ -199,8 +206,9 @@ func TestWithdrawnIdentityIsNotAnExclusionCarrierOnItsOtherDeclaration(t *testin
  * The negative twin of the two cases above. Both of them assert a refusal, and a
  * refusal is also what an over-applied withdrawal produces, so without this the
  * pair would keep passing if every merged identity started coming out withdrawn.
- * The fixture is the same merge with the `@internal` block removed and nothing
- * else changed.
+ * The fixture is the same merge with the withdrawal removed and nothing else
+ * changed, derived from the shared constant so the two cannot drift apart while
+ * this sentence goes on claiming they are one edit away from each other.
  *
  * A second section nobody cites is what keeps this from passing on silence. An
  * inactive claim is silent too, and so is a claim whose glob matches nothing,
@@ -213,16 +221,12 @@ func TestWithdrawnIdentityIsNotAnExclusionCarrierOnItsOtherDeclaration(t *testin
 func TestLiveIdentityAnswersOnItsOtherDeclaration(t *testing.T) {
   messages := runIndexRule(t, map[string]string{
     "docs/spec.md": "## Pricing {#pricing}\n\n## Uncited {#uncited}\n",
-    "src/contracts.ts": `
-export namespace N {
-  export var price: number;
-}
-export namespace N {
-  export var other: number,
-    /** @evidence docs/spec.md#pricing A live identity answers here. */
-    price: number;
-}
-`,
+    "src/contracts.ts": strings.Replace(
+      strings.Replace(mergedWithdrawnVariable, "%s", "@evidence", 1),
+      internalBlock,
+      "",
+      1,
+    ),
   }, `{"claims":[{
     "type":"typescript",
     "files":["src/**"],
