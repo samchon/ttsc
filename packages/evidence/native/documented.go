@@ -252,16 +252,16 @@ func documentedHosts(file *shimast.SourceFile) []documentedHost {
 // hostNodesOf keeps the declarations that can actually carry a citation.
 //
 // A unit's nodes are the positions the identity owns, and owning a position is
-// not the same as being able to hold a tag there. Withdrawal is where the two
-// part today: `withdrawHiddenHosts` takes a withdrawn identity's declarations
-// out of the host map while the unit goes on recording them, so demanding a
-// block at one would send an author's `@evidence` where `evidence/graph`
-// rejects it as an unsupported host — the rule steering citations somewhere a
-// citation cannot live, which is the failure it exists to prevent.
+// not the same as being able to hold a tag there. Every position a unit records
+// is a host today, so this removes nothing; it states the premise the rule
+// depends on rather than waiting for a form that breaks it. The population that
+// must be able to hold a tag is the population a claim can select as a host,
+// and nothing wider.
 //
-// Narrowing to real hosts also keeps this rule's premise exact. The population
-// that must be able to hold a tag is the population a claim can select as a
-// host, and nothing wider.
+// Demanding a block at a position that is not one would send an author's
+// `@evidence` where `evidence/graph` rejects it as an unsupported host, the
+// rule steering citations somewhere a citation cannot live, which is the
+// failure it exists to prevent.
 func hostNodesOf(
   nodes []*shimast.Node,
   supported map[*shimast.Node]symbolSet,
@@ -280,8 +280,8 @@ func hostNodesOf(
 //
 // The collector records them as it walks, and the merged forms are folded in
 // afterwards, so the slice arrives in neither order. Placement is defined
-// against the declaration that comes first, so that has to be `Node` — and for
-// a variable the enclosing statement wins over its binding, which is where
+// against the declaration that comes first, so that has to be `Node`, and for a
+// variable the enclosing statement wins over its declarator, which is where
 // TypeScript actually attaches the block.
 func orderIdentityDeclarations(hosts []documentedHost) []documentedHost {
   for index := range hosts {

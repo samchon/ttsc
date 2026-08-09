@@ -71,8 +71,8 @@ export const {
 /**
  * Verifies every other declaration form reports what it reported before.
  *
- * The fallback this repairs is reached by more than variables, so the forms
- * that already answered from their own name have to be pinned as unchanged.
+ * A variable is the only kind created from a bare identifier, so every other
+ * form already answered from its own name and has to be pinned as unchanged.
  * Each one here carries a documentation block, which is the trivia that would
  * move an answer taken from a full start, so a repair that widened past
  * identifiers would show up as a line pointing at a comment.

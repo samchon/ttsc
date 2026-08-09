@@ -1329,9 +1329,8 @@ func typeScriptHidingTag(
 // reported. `content` is the node whose text is the identity's content at this
 // declaration. They are the same node for every form whose declaration carries
 // its own name, and they part for a variable, whose unit is named by a binding
-// identifier inside a declarator that declares no sibling identity — though a
-// destructuring pattern's leaves do share one declarator, and share its content
-// because they share the initializer they take their values from.
+// identifier inside a declarator that a destructuring pattern's leaves share
+// and every other declarator has to itself.
 func addTypeScriptUnit(
   inventory *artifactInventory,
   unitsByID map[string]*evidenceUnit,
@@ -1398,16 +1397,18 @@ func addTypeScriptHost(
 // complete source text. A position inside the name is on the declaration
 // itself, while both the parent and name full starts may include leading trivia.
 //
-// Both answers are positions the node occupies. A full start is not: it begins
-// where the previous token ended, so it names that token's line whenever any
-// trivia sits between them. A variable unit is created from its binding
-// identifier, which reports no name of its own, and took that answer — the `{`
-// a line above each leaf of a multi-line destructuring pattern, or the comma
-// two lines above a declarator whose documentation block sits between them.
+// An identifier is its own name and reports none, so it answers from its own
+// end rather than from the full start it would otherwise fall through to. A
+// full start lies in the node's leading trivia rather than among its own
+// tokens: it begins where the previous token ended, so it names that token's
+// line whenever any trivia sits between them. A variable unit is created from
+// its binding identifier and took that answer, which is the `{` a line above
+// each leaf of a multi-line destructuring pattern, and the comma two lines
+// above a declarator whose documentation block sits between the two.
 //
-// The end is inside every node that has one, so the second branch also holds
-// for a declaration that names itself in no other way. No unit kind reaches it
-// today: every form either carries a name or is created from an identifier.
+// The last fallback is left as it was because no unit kind reaches it: every
+// form is created either from a declaration that carries a name or from an
+// identifier.
 func lineAtNode(_ string, node *shimast.Node) int {
   if node == nil {
     return 0
@@ -1415,7 +1416,7 @@ func lineAtNode(_ string, node *shimast.Node) int {
   if name := node.Name(); name != nil && name.End() > 0 {
     return name.End() - 1
   }
-  if node.End() > 0 {
+  if node.Kind == shimast.KindIdentifier && node.End() > 0 {
     return node.End() - 1
   }
   return node.Pos()
