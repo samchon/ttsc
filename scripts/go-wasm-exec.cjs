@@ -45,12 +45,17 @@ for (const key of Object.keys(process.env)) {
 // therefore deliberately slower than the Go budget: whichever fires first ends
 // the process, and the richer artifact must always win the race.
 //
-// The reading is per-handle rather than the type-name summary
-// `getActiveResourcesInfo` returns. That summary is `["PipeWrap","Timeout"]`
-// for this suite whether it is healthy or wedged, because the suite always
-// writes to stdout and `host.Expose` always keeps an hourly timer alive, so it
-// distinguishes nothing. A handle carries an fd, a pending byte count, and a
-// constructor name, which do.
+// The reading is per-handle as well as the type-name summary, because a handle
+// carries an fd, a pending byte count, and a constructor name that a type name
+// does not.
+//
+// An earlier note here claimed the summary reads `["PipeWrap","Timeout"]`
+// whether the suite is healthy or wedged, and so distinguishes nothing. That
+// was measured against this file's own test stub, which writes through
+// `process.stdout` and therefore materializes a socket. The wasm program does
+// not: `wasm_exec_node.js` binds node's `fs` and the program writes through
+// `fs.write`, so no such handle ever exists and the summary does discriminate.
+// The suite's own guard reads it for exactly that reason.
 //
 // The timer is unreferenced, so it can never hold open a process that would
 // otherwise close. That is independent of the budget: a healthy run of this

@@ -59,11 +59,11 @@ func reportStallAndExit() {
   buffer := make([]byte, 1<<20)
   buffer = buffer[:runtime.Stack(buffer, true)]
   // The stacks go out on their own write, before anything else is attempted.
-  // Reading the JS side means calling into node, and a JS exception crossing
-  // back through syscall/js is a panic; composing both halves into one message
-  // would let that panic destroy the half already in hand, and the runtime's
-  // own panic output travels through os.Stderr, the asynchronous write path
-  // this guard exists because it is already suspect.
+  // Reading the JS side means calling into node, and the runtime does not
+  // catch every way that can end: a throwing property accessor reached through
+  // `Value.Get` leaves as an uncaught JS exception and takes the process with
+  // it, printing nothing from Go. Composing both halves into one message would
+  // let that destroy the half already in hand.
   writeStderr(fmt.Sprintf(
     "\nwasm host suite: no exit within %s.\n"+
       "Every goroutine stack follows, and what node was still holding after\n"+
@@ -93,40 +93,55 @@ func reportStallAndExit() {
 // The call is synchronous, in the sense fs.writeSync is, so it cannot depend on
 // the event delivery that is already suspect.
 func nodePendingWork() (reading string) {
-  // A reading that fails says so, rather than taking the process down through
-  // a path that cannot report why. Every operation below crosses into JS, and
-  // a JS exception arrives here as a panic.
+  readings := []string{}
+  // A reading that fails says so and keeps the ones already taken.
+  //
+  // `getActiveResourcesInfo` is collected first and is the discriminator; the
+  // two underscore-prefixed internals after it are the ones likelier to
+  // misbehave, so a failure there must not carry the answer away with it.
+  //
+  // The recover covers less than it looks like it does. `Value.Call` routes a
+  // JS throw back as a Go panic, but `Value.Get` is a bare `Reflect.get` in
+  // the runtime's import table with no catch around it, so a throwing property
+  // accessor escapes as an uncaught JS exception and ends the process without
+  // reaching any Go code at all. That is why the stacks are written before
+  // this runs: the artifact already in hand cannot be lost to it.
   defer func() {
     if recovered := recover(); recovered != nil {
-      reading = fmt.Sprintf("unavailable: reading node panicked (%v)", recovered)
+      reading = strings.Join(append(
+        readings,
+        fmt.Sprintf("(reading panicked: %v)", recovered),
+      ), " ")
     }
   }()
   process := js.Global().Get("process")
   if process.Type() != js.TypeObject {
     return "unavailable: no process object"
   }
-  readings := []string{}
   for _, name := range []string{
     "getActiveResourcesInfo",
     "_getActiveRequests",
     "_getActiveHandles",
   } {
     if process.Get(name).Type() != js.TypeFunction {
+      readings = append(readings, name+"=<absent>")
       continue
     }
     readings = append(readings, name+"="+describeJSList(process.Call(name)))
-  }
-  if len(readings) == 0 {
-    return "unavailable: node exposes none of the resource readings"
   }
   return strings.Join(readings, " ")
 }
 
 // describeJSList renders one reading, naming each entry by constructor and by
-// the fields that tell a wedged pipe from a drained one.
+// the fields that would tell a wedged pipe from a drained one.
+//
+// A list that is not a list is named as such rather than rendered empty. An
+// empty list is not a neutral value here: it is the affirmative verdict that
+// node holds nothing, which is the whole of one candidate cause, so a reading
+// that merely failed to produce a list must not be able to spell it.
 func describeJSList(list js.Value) string {
   if list.Type() != js.TypeObject {
-    return "[]"
+    return "<not a list>"
   }
   entries := []string{}
   for index := 0; index < list.Length(); index++ {
@@ -140,6 +155,12 @@ func describeJSList(list js.Value) string {
   return "[" + strings.Join(entries, ", ") + "]"
 }
 
+// describeJSHandle names one held resource.
+//
+// The detail fields are absent on the pending file request this guard expects
+// to meet, so it usually renders the same token `getActiveResourcesInfo`
+// already printed. They are read anyway because a held socket carries them,
+// and a socket appearing here at all would itself be the finding.
 func describeJSHandle(handle js.Value) string {
   name := "unknown"
   if constructor := handle.Get("constructor"); constructor.Type() == js.TypeObject ||
