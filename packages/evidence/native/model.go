@@ -324,6 +324,18 @@ type artifactInventory struct {
   // physical JSDoc declaration to semantic claim-host identities, then releases
   // it; callers with no such use leave it nil.
   UnitNodes map[string][]*shimast.Node
+  // UnitContent maps a unit ID to the nodes whose text is that identity's
+  // content, and is a subset of UnitNodes.
+  //
+  // Belonging to an identity and being its content are different questions,
+  // and a variable is where they part. TypeScript attaches a variable's
+  // leading documentation to the statement wrapper, so the wrapper is a
+  // position this identity owns — but the wrapper is also where its siblings
+  // are declared, and their text is not this identity's content. Answering the
+  // second question with the first makes one declarator's edit move another
+  // declarator's fingerprint. Each declaration site states which of its nodes
+  // is which; nothing here is derived from spans.
+  UnitContent map[string][]*shimast.Node
 }
 
 func (inventory *artifactInventory) recordUnitNode(id string, node *shimast.Node) {
@@ -331,6 +343,23 @@ func (inventory *artifactInventory) recordUnitNode(id string, node *shimast.Node
     return
   }
   inventory.UnitNodes[id] = append(inventory.UnitNodes[id], node)
+}
+
+// recordUnitContent records a node as this identity's content, and as a
+// position it owns.
+//
+// Content is recorded through the position index rather than beside it, so the
+// subset the field documents holds by construction instead of by two callers
+// agreeing.
+func (inventory *artifactInventory) recordUnitContent(id string, node *shimast.Node) {
+  if inventory == nil || node == nil {
+    return
+  }
+  inventory.recordUnitNode(id, node)
+  if inventory.UnitContent == nil {
+    return
+  }
+  inventory.UnitContent[id] = append(inventory.UnitContent[id], node)
 }
 
 type inventoryProblem struct {

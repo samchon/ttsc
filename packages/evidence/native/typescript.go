@@ -129,12 +129,13 @@ func scanTypeScriptInventoryAt(
   file *shimast.SourceFile,
 ) *artifactInventory {
   inventory := &artifactInventory{
-    Address:   address.Key,
-    Path:      address.Display,
-    Type:      artifactTypeScript,
-    Imports:   collectImportBindings(file),
-    Exports:   collectModuleExports(file),
-    UnitNodes: map[string][]*shimast.Node{},
+    Address:     address.Key,
+    Path:        address.Display,
+    Type:        artifactTypeScript,
+    Imports:     collectImportBindings(file),
+    Exports:     collectModuleExports(file),
+    UnitNodes:   map[string][]*shimast.Node{},
+    UnitContent: map[string][]*shimast.Node{},
   }
   supportedHosts := map[*shimast.Node]symbolSet{}
   unitsByID := map[string]*evidenceUnit{}
@@ -163,6 +164,7 @@ func scanTypeScriptInventoryAt(
   // used to derive them. Declarations now retain those IDs directly, so release
   // the transient index before this inventory enters the immutable graph.
   inventory.UnitNodes = nil
+  inventory.UnitContent = nil
   sort.Slice(inventory.Units, func(left int, right int) bool {
     if inventory.Units[left].Target != inventory.Units[right].Target {
       return inventory.Units[left].Target < inventory.Units[right].Target
@@ -333,6 +335,7 @@ func collectTypeScriptStatements(
           inventory,
           unitsByID,
           statement,
+          statement,
           "type",
           identity,
           parentID,
@@ -385,6 +388,7 @@ func collectTypeScriptStatements(
           inventory,
           unitsByID,
           statement,
+          statement,
           "type",
           identity,
           parentID,
@@ -430,6 +434,7 @@ func collectTypeScriptStatements(
         addTypeScriptUnit(
           inventory,
           unitsByID,
+          statement,
           statement,
           "function",
           qualifyTypeScriptName(prefix, name),
@@ -499,6 +504,7 @@ func collectTypeScriptStatements(
           inventory,
           unitsByID,
           statement,
+          statement,
           "type",
           identity,
           parentID,
@@ -552,6 +558,7 @@ func collectTypeScriptStatements(
         unit := addTypeScriptUnit(
           inventory,
           unitsByID,
+          statement,
           statement,
           "type",
           identity,
@@ -734,19 +741,19 @@ func collectTypeScriptVariables(
           inventory,
           unitsByID,
           binding,
+          declaration,
           symbol,
           qualifyTypeScriptName(prefix, name),
           parentID,
           declaratorHidden,
         )
-        // The binding names the unit, but TypeScript attaches a
-        // variable's leading JSDoc to the statement wrapper, so that
-        // is where a citation for this unit actually lives. The
-        // declarator is recorded too, because it is a host position and
-        // every consumer that walks a unit's nodes has to reach it.
+        // TypeScript attaches a variable's leading JSDoc to the statement
+        // wrapper, so that is where a citation for this unit lives and the
+        // wrapper is a position this identity owns. It is not this
+        // identity's content: the same wrapper declares every sibling of
+        // this declarator, and their text belongs to them.
         unit.markSpace(true)
         inventory.recordUnitNode(unit.ID, statement)
-        inventory.recordUnitNode(unit.ID, declaration)
       }
       found[symbol] = true
     }
@@ -1022,6 +1029,7 @@ func addClassMemberUnit(
     inventory,
     unitsByID,
     node,
+    node,
     symbol,
     identity,
     classID,
@@ -1137,6 +1145,7 @@ func collectTypeScriptModule(
         inventory,
         unitsByID,
         module.Body,
+        module.Body,
         "type",
         identity,
         parentID,
@@ -1218,6 +1227,7 @@ func collectPropertyMembers(
     addTypeScriptUnit(
       inventory,
       unitsByID,
+      member,
       member,
       symbol,
       identity,
@@ -1313,10 +1323,18 @@ func typeScriptHidingTag(
   return ""
 }
 
+// addTypeScriptUnit materializes one declaration of an identity.
+//
+// `named` is the node that names the identity here and answers for where it is
+// reported. `content` is the node whose text is the identity's content at this
+// declaration. They are the same node for every form whose declaration carries
+// its own name, and they part for a variable, whose unit is named by a binding
+// identifier inside a declarator it shares with nothing.
 func addTypeScriptUnit(
   inventory *artifactInventory,
   unitsByID map[string]*evidenceUnit,
-  node *shimast.Node,
+  named *shimast.Node,
+  content *shimast.Node,
   symbol string,
   identity []string,
   parentID string,
@@ -1332,7 +1350,7 @@ func addTypeScriptUnit(
   // declaration that spells it. `interface I` beside `namespace I` is one
   // unit and two nodes, and a rule asking where that unit's JSDoc may live
   // has to see both.
-  inventory.recordUnitNode(id, node)
+  inventory.recordUnitContent(id, content)
   if unit := unitsByID[id]; unit != nil {
     // A merged identity is one unit, so one declaration marking itself
     // internal marks the identity. Both halves of `interface I` beside
@@ -1351,7 +1369,7 @@ func addTypeScriptUnit(
     Type:     artifactTypeScript,
     Symbol:   symbol,
     Path:     inventory.Path,
-    Line:     lineAtNode(inventory.Path, node),
+    Line:     lineAtNode(inventory.Path, named),
     Readable: "TypeScript " + symbol + " '" + target + "'",
     Hidden:   hidden,
   }
@@ -1377,12 +1395,22 @@ func addTypeScriptHost(
 // lineAtNode stores a byte offset until declarations are scanned against the
 // complete source text. A position inside the name is on the declaration
 // itself, while both the parent and name full starts may include leading trivia.
+//
+// An identifier is its own name and reports none of its own, so it needs the
+// same treatment its parent gets rather than the full-start fallback. A
+// variable unit is created from its binding identifier, and a full start
+// answers with the position the previous token ended at: the `{` a line above
+// each leaf of a multi-line destructuring pattern, or the comma two lines above
+// a declarator whose documentation block sits between them.
 func lineAtNode(_ string, node *shimast.Node) int {
   if node == nil {
     return 0
   }
   if name := node.Name(); name != nil && name.End() > 0 {
     return name.End() - 1
+  }
+  if node.Kind == shimast.KindIdentifier && node.End() > 0 {
+    return node.End() - 1
   }
   return node.Pos()
 }
@@ -1527,7 +1555,7 @@ func collectTypeScriptDeclarations(
     // The digest is deferred to the same pass for the same reason: the nodes
     // are recorded while walking, and their text needs the source file that
     // only the caller holds.
-    unit.Digest = typeScriptUnitDigest(file, inventory.UnitNodes[unit.ID])
+    unit.Digest = typeScriptUnitDigest(file, inventory.UnitContent[unit.ID])
   }
 }
 
