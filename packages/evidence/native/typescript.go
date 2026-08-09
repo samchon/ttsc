@@ -14,7 +14,7 @@ func loadTypeScriptInventories(
   config graphConfig,
 ) map[string]*artifactInventory {
   inventories := map[string]*artifactInventory{}
-  extendTypeScriptInventories(root, sources, config, inventories)
+  extendTypeScriptInventories(root, sources, config, inventories, nil)
   return inventories
 }
 
@@ -30,6 +30,7 @@ func extendTypeScriptInventories(
   sources []*shimast.SourceFile,
   config graphConfig,
   inventories map[string]*artifactInventory,
+  governed map[string]bool,
 ) {
   bases := configuredBases(config, artifactTypeScript)
   for _, file := range sources {
@@ -42,6 +43,9 @@ func extendTypeScriptInventories(
         continue
       }
       address := base.addressOf(relative)
+      if governed != nil && matchesConfiguredTypeScriptFile(config, base, relative) {
+        governed[address.Key] = true
+      }
       if inventories[address.Key] != nil {
         continue
       }
@@ -1754,4 +1758,75 @@ func encodeTypeScriptIdentity(identity []string) string {
     builder.WriteByte(';')
   }
   return builder.String()
+}
+
+// matchesConfiguredTypeScriptFile reports whether a population rooted at this
+// base selects the file.
+//
+// The base is compared before the globs, for the reason the Markdown side
+// states: a walk covers one base at a time, and another base's patterns say
+// nothing about a path inside this one.
+func matchesConfiguredTypeScriptFile(
+  config graphConfig,
+  base populationBase,
+  path string,
+) bool {
+  for _, claim := range config.Claims {
+    if claim.Type == artifactTypeScript &&
+      claim.Base.Absolute == base.Absolute &&
+      claim.Files.matches(path) {
+      return true
+    }
+    for _, reference := range claim.References {
+      // A package reference reads an installed package from disk, and its
+      // globs are written as a consumer thinks of that package, so they
+      // resolve against the package root rather than the project. Matching
+      // them here against a project-relative path made `lib/**` claim a
+      // project's own `lib/`, and `**/*.ts` claim every file it has,
+      // including the `node_modules` this confinement exists to release.
+      if reference.Package != "" {
+        continue
+      }
+      if reference.Type == artifactTypeScript &&
+        reference.Base.Absolute == base.Absolute &&
+        reference.Files.matches(path) {
+        return true
+      }
+    }
+  }
+  return false
+}
+
+// recordGovernedTypeScriptFiles marks every address a declared population
+// selects.
+//
+// Separate from the scan because the two answer different questions. Scanning
+// is driven by the active configuration, since an inactive claim must make no
+// loader do work; governance is a property of what an author wrote, and a claim
+// that deactivated still declared its population. Reading them from one pass
+// silenced a file whose declarations were all commented out, which is exactly
+// the shape the diagnostic's second repair clause exists for.
+func recordGovernedTypeScriptFiles(
+  sources []*shimast.SourceFile,
+  declared graphConfig,
+  governed map[string]bool,
+) {
+  if governed == nil {
+    return
+  }
+  bases := configuredBases(declared, artifactTypeScript)
+  for _, file := range sources {
+    if file == nil || !isTypeScriptPath(file.FileName()) {
+      continue
+    }
+    for _, base := range bases {
+      relative, ok := relativeProjectPath(base.Absolute, file.FileName())
+      if !ok || !isTypeScriptPath(relative) {
+        continue
+      }
+      if matchesConfiguredTypeScriptFile(declared, base, relative) {
+        governed[base.addressOf(relative).Key] = true
+      }
+    }
+  }
 }

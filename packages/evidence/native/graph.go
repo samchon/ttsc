@@ -70,15 +70,24 @@ func (graphRule) Check(ctx *rule.ProjectContext) {
   )
   problems = append(problems, markdownClaimProblems...)
   problems = append(problems, prismaClaimProblems...)
+  // Governance is judged against the configuration as declared, before
+  // activation drops a claim whose population materialized no unit of its
+  // symbol kind. The question is whether an author put this file in a
+  // population, and a claim that deactivated still declared one: judging after
+  // activation silenced a file whose every declaration the author had
+  // commented out, which is the shape the second repair clause exists for.
+  declared := config
   config = activeGraphConfig(config, markdownClaims, prismaClaims, typescript)
-  extendTypeScriptInventories(root, ctx.Sources, config, typescript)
+  governed := map[string]bool{}
+  extendTypeScriptInventories(root, ctx.Sources, config, typescript, nil)
+  recordGovernedTypeScriptFiles(ctx.Sources, declared, governed)
   markdown, markdownProblems := loadMarkdownInventories(root, config)
   prisma, prismaProblems := loadPrismaInventories(root, config)
   swagger, swaggerProblems := loadSwaggerInventories(root, config)
   problems = append(problems, markdownProblems...)
   problems = append(problems, prismaProblems...)
   problems = append(problems, swaggerProblems...)
-  problems = append(problems, unreadableTypeScriptTags(typescript)...)
+  problems = append(problems, unreadableTypeScriptTags(typescript, governed)...)
   loader := newTypeScriptLoader(root, typescript)
   states, stateProblems := materializeClaimStates(
     config,

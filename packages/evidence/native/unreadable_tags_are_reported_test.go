@@ -263,3 +263,115 @@ export const other = 2;
   assertReportedAmong(t, messages, "Unreadable @evidence at src/contracts.ts:5")
   assertReportedAmong(t, messages, "Unreadable @evidence at src/contracts.ts:7")
 }
+
+/**
+ * Verifies a tag outside every configured population is not reported.
+ *
+ * A base is a directory and a population is a glob inside it, so a file is
+ * scanned whenever it sits under a declared root and belongs to a population
+ * only if the glob takes it. Reporting every scanned file made the rule answer
+ * for source it does not govern: a stray tag in a consumer's `node_modules`
+ * failed their build and named a repair in a file they did not write.
+ *
+ * The governed file is the negative twin. Confining the report must not silence
+ * the population the rule exists for.
+ *
+ *  1. Write the same unreadable tag inside and outside the claim's glob.
+ *  2. Evaluate the claim.
+ *  3. Assert only the governed one is reported.
+ */
+func TestATagOutsideEveryPopulationIsNotReported(t *testing.T) {
+  config := `{"claims":[{
+    "type":"typescript",
+    "files":["src/**"],
+    "symbol":"property",
+    "reference":{"type":"markdown","files":["docs/**/*.md"],"symbol":"h2"}
+  }]}`
+  cited := `/** @evidence docs/spec.md#pricing The declaration cites this. */
+export const limit = 1;
+`
+  stray := `// @evidence docs/spec.md#pricing A tag the graph does not govern.
+export const other = 2;
+`
+  for _, outside := range []string{
+    "tools/scratch.ts",
+    "node_modules/vendor/index.ts",
+    "unrelated/legacy.ts",
+  } {
+    t.Run(outside, func(t *testing.T) {
+      assertNoProblems(t, runIndexRule(t, map[string]string{
+        "docs/spec.md":     "## Pricing {#pricing}\n",
+        "src/contracts.ts": cited,
+        outside:            stray,
+      }, config))
+    })
+  }
+  assertReported(t, runIndexRule(t, map[string]string{
+    "docs/spec.md": "## Pricing {#pricing}\n",
+    "src/contracts.ts": cited + `
+// @evidence docs/spec.md#pricing A tag the graph does govern.
+export const other = 2;
+`,
+  }, config), "Unreadable @evidence at src/contracts.ts:4")
+}
+
+/**
+ * Verifies a deactivated claim still governs the files it declared.
+ *
+ * Governance was judged against the configuration as activated, and a claim
+ * whose population materializes no unit of its symbol kind is dropped there. A
+ * file whose every declaration an author commented out produces no unit, so the
+ * claim deactivated and the file it declared fell out of the population, and
+ * the citation stranded in that commented-out code went unreported. That is the
+ * exact shape the diagnostic's second repair clause exists for, so the question
+ * is what the author declared rather than what survived activation.
+ *
+ *  1. Comment out every declaration of the only file a claim selects.
+ *  2. Evaluate the claim, which therefore activates nothing.
+ *  3. Assert the stranded citation is still reported.
+ */
+func TestADeactivatedClaimStillGovernsWhatItDeclared(t *testing.T) {
+  assertReported(t, runIndexRule(t, map[string]string{
+    "docs/spec.md": "## Pricing {#pricing}\n",
+    "src/contracts.ts": `// /** @evidence docs/spec.md#pricing The whole file is retired. */
+// export const limit = 1;
+export {};
+`,
+  }, `{"claims":[{
+    "type":"typescript",
+    "files":["src/**"],
+    "symbol":"property",
+    "reference":{"type":"markdown","files":["docs/**/*.md"],"symbol":"h2"}
+  }]}`), "Unreadable @evidence at src/contracts.ts:1")
+}
+
+/**
+ * Verifies a package reference governs no file of the project.
+ *
+ * A package reference reads an installed package from disk, and its globs are
+ * written as a consumer thinks of that package, so they resolve against the
+ * package root. Matched against a project-relative path instead, `**` claimed
+ * every file the project has — `node_modules` included, which is the one the
+ * confinement exists to release, and the one a consumer cannot edit.
+ *
+ *  1. Declare a package reference whose glob would match everything.
+ *  2. Write an unreadable tag in a vendored file.
+ *  3. Assert it is not reported.
+ */
+func TestAPackageReferenceGovernsNoProjectFile(t *testing.T) {
+  assertReported(t, runIndexRule(t, map[string]string{
+    "node_modules/@org/api/package.json": packageManifest,
+    "node_modules/@org/api/lib/index.d.ts": `
+export declare function get(): void;
+`,
+    "node_modules/vendor/index.ts": `// @evidence get A tag in a file the consumer did not write.
+export const other = 2;
+`,
+    "src/views/detail.ts": "export function detail(): void {}\n",
+  }, `{"claims":[{
+    "type":"typescript",
+    "files":["src/views/**"],
+    "symbol":"function",
+    "reference":{"type":"typescript","package":"@org/api","files":["**/*.ts"],"symbol":"function"}
+  }]}`), "Missing acknowledgement for 'get'")
+}
