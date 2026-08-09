@@ -33,6 +33,38 @@ Adapters ship for Vite, Rollup, Rolldown, esbuild, webpack, Rspack, Next.js, Tur
 
 Then register the adapter that matches your bundler.
 
+## Keep the two versions together
+
+`@ttsc/unplugin` declares `ttsc` as a peer dependency pinned to the minor it was published with. Both packages are released from one repository at one version, and the adapter compiles against `ttsc`'s exported compiler surface, so a `0.x` minor is allowed to change what it imports. The pin is what turns that into an install error instead of a runtime failure in your bundler.
+
+The consequence shows up with automated updates. A bot that opens one pull request per package will raise `ttsc` alone, and the install fails:
+
+```text
+npm error While resolving: @ttsc/unplugin@0.25.0
+npm error Found: ttsc@0.26.0
+```
+
+Nothing is wrong with either package. The two updates are one update, so tell the bot that.
+
+```yaml
+# .github/dependabot.yml
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      ttsc:
+        patterns:
+          - "ttsc"
+          - "@ttsc/*"
+```
+
+That raises one pull request carrying every `ttsc` package your project installs, which is the only shape that can pass. Renovate expresses the same thing as a `packageRules` entry with `groupName` over the same patterns.
+
+Pin both to the same version in `package.json` for the same reason. If you upgrade by hand, upgrade them in one commit.
+
 ## Vite
 
 ```ts
