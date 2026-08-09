@@ -1203,7 +1203,7 @@ func collectPropertyMembers(
       identity,
       parentID,
       memberHidden,
-    ).ValueSpace = valueSpace
+    ).markSpace(valueSpace)
     if memberHidden == "" {
       addTypeScriptHost(supportedHosts, member, symbol)
     }

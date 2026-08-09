@@ -188,3 +188,156 @@ func TestTypeOnlyNamespaceReexportWithholdsValueSpace(t *testing.T) {
     []string{"api.IPlain", "api.IPlain.rate", "api.Sale"},
   )
 }
+
+// reexportedFrom is the population one file layout publishes at one entry.
+//
+// The fixed layout above cannot express a barrel of barrels or two paths to one
+// name, and both are where a mark that travels can go wrong.
+func reexportedFrom(t *testing.T, files map[string]string, entry string) []string {
+  t.Helper()
+  files["src/ledger.ts"] = "/** This claim cites nothing. */\nexport interface ILedger {}\n"
+  messages := runIndexRule(t, files, `{"claims":[{
+    "type":"typescript",
+    "files":["src/ledger.ts"],
+    "symbol":"type",
+    "reference":{
+      "type":"typescript",
+      "files":["`+entry+`"],
+      "symbol":["type","function","property"]
+    }
+  }]}`)
+  targets := []string{}
+  for _, message := range messages {
+    if match := missingAcknowledgement.FindStringSubmatch(message); match != nil {
+      targets = append(targets, match[1])
+    }
+  }
+  sort.Strings(targets)
+  return targets
+}
+
+func assertReexportedFrom(
+  t *testing.T,
+  label string,
+  files map[string]string,
+  entry string,
+  want []string,
+) {
+  t.Helper()
+  got := reexportedFrom(t, files, entry)
+  if strings.Join(got, "\n") != strings.Join(want, "\n") {
+    t.Fatalf("%s:\n%s\nwant:\n%s", label, strings.Join(got, "\n"), strings.Join(want, "\n"))
+  }
+}
+
+/**
+ * Verifies a merged identity survives a type-only edge whichever half is first.
+ *
+ * One unit can be written by two collectors: `interface Order { member }`
+ * beside `namespace Order { export const member }` is one `property` unit
+ * spelled by the member collector and by the variable one. Recording which
+ * space it is reached through by assignment made the last writer win, so the
+ * answer followed declaration order, and the suppression it feeds is silent in
+ * both directions. Type-space wins instead, because the interface half really
+ * is reachable without a value.
+ *
+ *  1. Write the merge in both orders behind a type-only re-export.
+ *  2. Read each population.
+ *  3. Assert both keep the member.
+ */
+func TestMergedIdentitySurvivesATypeOnlyEdgeWhicheverHalfIsFirst(t *testing.T) {
+  layout := func(source string) map[string]string {
+    return map[string]string{
+      "src/order.ts": source,
+      "src/index.ts": "export type { Order } from \"./order.js\";\n",
+    }
+  }
+  want := []string{"Order", "Order.member"}
+  assertReexportedFrom(t, "interface first", layout(`
+export interface Order {
+  member: number;
+}
+export namespace Order {
+  export const member: number = 1;
+}
+`), "src/index.ts", want)
+  assertReexportedFrom(t, "namespace first", layout(`
+export namespace Order {
+  export const member: number = 1;
+}
+export interface Order {
+  member: number;
+}
+`), "src/index.ts", want)
+}
+
+/**
+ * Verifies a value path wins over a type-only path to the same name.
+ *
+ * A population is the union of what its paths reach, and the top level already
+ * unions them. One hop down, the surface a barrel is asked for kept whichever
+ * path it saw first, which was fine while two paths to one declaration differed
+ * in nothing and stopped being fine the moment they carried a mark. The two
+ * halves of the traversal have to answer the same way or a middle barrel's
+ * statement order decides the obligation.
+ *
+ *  1. Reach one module through a type-only barrel and a value barrel.
+ *  2. Forward both from a middle barrel, in each order, and re-export by name.
+ *  3. Assert both orders publish the value population.
+ */
+func TestAValuePathWinsOverATypeOnlyPathToTheSameName(t *testing.T) {
+  layout := func(middle string) map[string]string {
+    return map[string]string{
+      "src/sale.ts":   reexportedSurface,
+      "src/type.ts":   "export type * from \"./sale.js\";\n",
+      "src/value.ts":  "export * from \"./sale.js\";\n",
+      "src/middle.ts": middle,
+      "src/index.ts":  "export { Sale, IPlain, run } from \"./middle.js\";\n",
+    }
+  }
+  assertReexportedFrom(t, "type-only forwarded first", layout(
+    "export * from \"./type.js\";\nexport * from \"./value.js\";\n",
+  ), "src/index.ts", valueReexportPopulation)
+  assertReexportedFrom(t, "value forwarded first", layout(
+    "export * from \"./value.js\";\nexport * from \"./type.js\";\n",
+  ), "src/index.ts", valueReexportPopulation)
+}
+
+/**
+ * Verifies a type-only edge withholds through a value barrel above it.
+ *
+ * The mark travels rather than being read at the entry, so a value re-export of
+ * a type-only re-export publishes what the inner edge allowed. Every row above
+ * is one hop, and dropping the term that carries a nested surface's own mark
+ * left the whole suite green.
+ *
+ *  1. Re-export type-only from an inner barrel.
+ *  2. Re-export that barrel by name from the entry.
+ *  3. Assert the entry publishes the type-only population.
+ */
+func TestATypeOnlyEdgeWithholdsThroughAValueBarrelAboveIt(t *testing.T) {
+  assertReexportedFrom(t, "value over type-only", map[string]string{
+    "src/sale.ts":  reexportedSurface,
+    "src/inner.ts": "export type { Sale, IPlain, run } from \"./sale.js\";\n",
+    "src/index.ts": "export { Sale, IPlain, run } from \"./inner.js\";\n",
+  }, "src/index.ts", typeReexportPopulation)
+}
+
+/**
+ * Verifies a type-only star withholds through a value star below it.
+ *
+ * The other direction of the same term, and the one the recursive calls carry:
+ * dropping the inherited mark from the star and namespace branches also left
+ * the whole suite green, because nothing walked two star hops.
+ *
+ *  1. Re-export the module by value from an inner barrel.
+ *  2. Re-export that barrel with `export type * from` at the entry.
+ *  3. Assert the entry publishes the type-only population.
+ */
+func TestATypeOnlyStarWithholdsThroughAValueStarBelowIt(t *testing.T) {
+  assertReexportedFrom(t, "type-only over value", map[string]string{
+    "src/sale.ts":  reexportedSurface,
+    "src/inner.ts": "export * from \"./sale.js\";\n",
+    "src/index.ts": "export type * from \"./inner.js\";\n",
+  }, "src/index.ts", typeReexportPopulation)
+}

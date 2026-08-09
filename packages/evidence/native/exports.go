@@ -258,7 +258,12 @@ func traverseEntryExports(
       if len(nested.Address) != 1 {
         continue
       }
-      if _, taken := surface[nested.Address[0]]; !taken {
+      existing, taken := surface[nested.Address[0]]
+      // First wins on identity, because two paths to one declaration name the
+      // same unit. The type-only mark is the exception: it differs per path,
+      // and the population is the union of what the paths reach, so a value
+      // path replaces a type-only one rather than losing to declaration order.
+      if !taken || (existing.TypeOnly && !nested.TypeOnly) {
         surface[nested.Address[0]] = nested
       }
     }
@@ -356,7 +361,7 @@ func materializeEntryUnits(
         // A type-only edge exposes no value, so nothing reached only through
         // one comes with it. The name itself still arrives, because a type is
         // exactly what such an export carries.
-        if symbol.TypeOnly && unit.ValueSpace {
+        if symbol.TypeOnly && unit.ValueSpace && !unit.TypeSpace {
           continue
         }
         address := append(append([]string{}, symbol.Address...), suffix...)
