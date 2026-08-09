@@ -75,7 +75,11 @@ export const live = 1,
     "symbol":"property",
     "reference":{"type":"markdown","files":["docs/**/*.md"],"symbol":"h2"}
   }]}`)
-  assertProblemContains(t, messages, "unsupported or non-exported declaration")
+  assertProblemContains(
+    t,
+    messages,
+    "host kind 'unsupported or non-exported declaration' is not selected (property)",
+  )
   assertProblemContains(t, messages, "Missing acknowledgement for 'docs/spec.md#pricing'")
 }
 
@@ -170,7 +174,11 @@ func TestWithdrawnIdentityHostsNothingOnItsOtherDeclaration(t *testing.T) {
     "symbol":"property",
     "reference":{"type":"markdown","files":["docs/**/*.md"],"symbol":"h2"}
   }]}`)
-  assertProblemContains(t, messages, "unsupported or non-exported declaration")
+  assertProblemContains(
+    t,
+    messages,
+    "host kind 'unsupported or non-exported declaration' is not selected (property)",
+  )
   assertProblemContains(t, messages, "Missing acknowledgement for 'docs/spec.md#pricing'")
 }
 
@@ -196,7 +204,11 @@ func TestWithdrawnIdentityIsNotAnExclusionCarrierOnItsOtherDeclaration(t *testin
     "symbol":"property",
     "reference":{"type":"markdown","files":["docs/**/*.md"],"symbol":"h2"}
   }]}`)
-  assertProblemContains(t, messages, "not an eligible exclusion carrier")
+  assertProblemContains(
+    t,
+    messages,
+    "'unsupported or non-exported declaration' is not an eligible exclusion carrier",
+  )
   assertProblemContains(t, messages, "Missing acknowledgement for 'docs/spec.md#pricing'")
 }
 
