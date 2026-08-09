@@ -188,12 +188,6 @@ func expandFormatBlock(raw map[string]any) (map[string]any, error) {
   // not alias the print-width blob.
   out["format/clause-join"] = ruleEntry(cloneStringAnyMap(pwOpts))
 
-  // formatBraceContinuation, always on. Places `else`, `catch`, `finally`, and
-  // a do-loop's `while` against the clause they continue; needs only the
-  // indentation and EOL settings, since the pushed-down direction synthesizes a
-  // line break and the pulled-up direction emits a single space.
-  out["format/brace-continuation"] = ruleEntry(cloneStringAnyMap(layoutOpts))
-
   // formatDeclarationHeader, always on. Reflows a class/interface header
   // (type parameters + heritage clauses) to Prettier's break shapes;
   // needs the same printWidth/tabWidth/useTabs budget.
@@ -226,6 +220,12 @@ func expandFormatBlock(raw map[string]any) (map[string]any, error) {
     wsOpts["endOfLine"] = v
   }
   out["format/whitespace"] = ruleEntry(wsOpts)
+
+  // formatBraceContinuation, always on. Needs only endOfLine: the pushed-down
+  // direction copies the owning statement's own indent verbatim rather than
+  // synthesizing one, so it shares the whitespace rule's trimmed surface rather
+  // than the layout one.
+  out["format/brace-continuation"] = ruleEntry(cloneStringAnyMap(wsOpts))
 
   // formatSortImports, opt-in by `sortImports` (a boolean or options object).
   // The top-level `endOfLine` is threaded in (like the other layout rules)

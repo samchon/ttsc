@@ -13,7 +13,7 @@ Each rule name links to the detailed section below.
 Examples come from the checked [lint corpus](https://github.com/samchon/ttsc/tree/master/tests/test-lint/src/cases) or package-level rule tests when project layout matters.
 
 - [`functional/functional-parameters`](#rule-functional-functional-parameters): Enforce functional parameter style: reject `arguments`, reject rest parameters.
-- [`functional/immutable-data`](#rule-functional-immutable-data): Reject property assignment , element assignment , and `Map`/`Set` mutation methods.
+- [`functional/immutable-data`](#rule-functional-immutable-data): Reject property assignment, element assignment, and `Map`/`Set` mutation methods.
 - [`functional/no-class-inheritance`](#rule-functional-no-class-inheritance): Reject `abstract` classes and `extends` clauses on class declarations.
 - [`functional/no-classes`](#rule-functional-no-classes): Reject `class` declarations and class expressions altogether.
 - [`functional/no-conditional-statements`](#rule-functional-no-conditional-statements): Reject `if` and `switch` _statements_.
@@ -81,6 +81,14 @@ Options:
 
   Require functions to declare parameters. `true` maps to the conservative at-least-one policy.
 
+- `ignoreIdentifierPattern?: string | readonly string[]`
+
+  Identifier regex string(s) the rule skips. A declaration whose name matches any of them is left alone.
+
+- `ignoreCodePattern?: string | readonly string[]`
+
+  Source-code regex string(s) the rule skips. The reported node's own text is matched, so an escape hatch can name a shape rather than a name.
+
 Example:
 
 ```ts
@@ -94,7 +102,21 @@ function variadic(...args: number[]): number {
 
 ### `functional/immutable-data`
 
-Reject property assignment (`obj.x = ...`), element assignment (`arr[0] = ...`), and `Map`/`Set` mutation methods. Configurable to allow mutation inside constructors or initialization expressions.
+Reject property assignment (`obj.x = ...`), element assignment (`arr[0] = ...`), and `Map`/`Set` mutation methods.
+
+Options:
+
+- `ignoreMapsAndSets?: boolean`
+
+  Skip the mutating `Map` and `Set` methods while still checking arrays and property assignment.
+
+- `ignoreIdentifierPattern?: string | readonly string[]`
+
+  Identifier regex string(s) the rule skips. A declaration whose name matches any of them is left alone.
+
+- `ignoreCodePattern?: string | readonly string[]`
+
+  Source-code regex string(s) the rule skips. The reported node's own text is matched, so an escape hatch can name a shape rather than a name.
 
 Options:
 
@@ -204,6 +226,14 @@ Options:
 - `allowInFunctions?: boolean`
 
   Permit `let` inside functions while still rejecting module-level `let`.
+
+- `ignoreIdentifierPattern?: string | readonly string[]`
+
+  Identifier regex string(s) the rule skips. A declaration whose name matches any of them is left alone.
+
+- `ignoreCodePattern?: string | readonly string[]`
+
+  Source-code regex string(s) the rule skips. The reported node's own text is matched, so an escape hatch can name a shape rather than a name.
 
 Example:
 
@@ -392,6 +422,14 @@ Options:
 
   Minimum accepted immutability. Reserved for upstream-compatible configs: the native subset computes no immutability level and treats any configured value as readonly-required.
 
+- `ignoreIdentifierPattern?: string | readonly string[]`
+
+  Identifier regex string(s) the rule skips. A declaration whose name matches any of them is left alone.
+
+- `ignoreCodePattern?: string | readonly string[]`
+
+  Source-code regex string(s) the rule skips. The reported node's own text is matched, so an escape hatch can name a shape rather than a name.
+
 Example:
 
 ```ts
@@ -447,6 +485,14 @@ Options:
 - `ignoreInterface?: boolean` (default `false`)
 
   Skip interface members entirely.
+
+- `ignoreIdentifierPattern?: string | readonly string[]`
+
+  Identifier regex string(s) the rule skips. A declaration whose name matches any of them is left alone.
+
+- `ignoreCodePattern?: string | readonly string[]`
+
+  Source-code regex string(s) the rule skips. The reported node's own text is matched, so an escape hatch can name a shape rather than a name.
 
 Example:
 
@@ -513,7 +559,15 @@ Options:
 
   Skip interface declarations and only check type aliases.
 
-Each policy entry accepts `identifiers`, plus `immutability` and `comparator`. The latter two are reserved for upstream-compatible configs: the native subset computes no immutability level, so it treats every policy as readonly-required and compares nothing.
+- `ignoreIdentifierPattern?: string | readonly string[]`
+
+  Identifier regex string(s) the rule skips. A declaration whose name matches any of them is left alone.
+
+- `ignoreCodePattern?: string | readonly string[]`
+
+  Source-code regex string(s) the rule skips. The reported node's own text is matched, so an escape hatch can name a shape rather than a name.
+
+Each policy entry accepts `identifiers`, a type or interface name or regex string (or an array of them) selecting the declarations the policy applies to, plus `immutability` and `comparator`. The latter two are reserved for upstream-compatible configs: the native subset computes no immutability level, so it treats every policy as readonly-required and compares nothing.
 
 Example:
 

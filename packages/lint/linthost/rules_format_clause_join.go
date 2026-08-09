@@ -28,16 +28,22 @@ import (
 // their first line travels, so the join does not settle on output Prettier would
 // still reindent.
 //
-// A body containing a multi-line template literal abstains from the whole join.
-// Its interior newlines carry string content, and shifting a line inside one
-// would change the program's output rather than its layout. Prettier joins such
-// a label; keeping the source is the deliberate trade.
+// A continuation line whose newline sits inside a string, a template, or a
+// block comment is skipped rather than shifted: those bytes are content, and
+// moving them would change what the program prints or what a comment says. The
+// join itself still happens, because abandoning it leaves `format/indent` to
+// move the body's interior anyway and settles the file on a hybrid layout
+// Prettier never emits.
 //
-// The rule only ever rewrites the whitespace gap between the clause's own
-// header token and the controlled statement, so its edits never overlap
-// `format/indent` (leading whitespace of a line) or `format/print-width`
-// (interior reflow). Idempotent: once joined the gap holds no newline
-// and the rule abstains.
+// The rule rewrites the whitespace gap between the clause's own header token
+// and the controlled statement, and, when it hoists a multi-line body, the
+// leading whitespace of that body's continuation lines. The second surface is
+// one `format/indent` cedes: it visits statement-list members, closing-brace
+// lines, and member headers, and a hoisted braceless body is none of the three.
+// Hoisting does contend with a nested join over the same bytes, so a staircase
+// settles one level per cascade pass; the host drops a whole colliding finding
+// and it re-fires. Idempotent: once joined the gap holds no newline, the shift
+// compares against the text it would write, and the rule abstains.
 type formatClauseJoin struct{ optionsRule }
 
 // formatClauseJoinOptions mirrors the printWidth/indent keys the rule
@@ -226,13 +232,9 @@ func joinClauseBody(
   // still reindent (#1139). Only an alwaysJoin clause can reach a multi-line
   // body; the others already abstained above.
   if strings.ContainsRune(src[bodyStart:bodyEnd], '\n') {
-    shifted, ok := reindentJoinedClauseBody(
-      ctx, src, headerLineStart, headerStart, bodyStart, bodyEnd, tabWidth,
-    )
-    if !ok {
-      return
-    }
-    edits = append(edits, shifted...)
+    edits = append(edits, reindentJoinedClauseBody(
+      ctx, src, headerLineStart, bodyStart, bodyEnd, loadFormatLayout(ctx),
+    )...)
   }
   ctx.ReportRangeFix(
     gapStart,
@@ -243,58 +245,117 @@ func joinClauseBody(
 }
 
 // reindentJoinedClauseBody returns the edits that move a hoisted body's
-// continuation lines by the same column delta its first line travels, and
-// reports whether the shift is safe to apply at all.
+// continuation lines by the same column delta its first line travels.
 //
 // The delta is the header line's own indent minus the indent of the line the
 // body currently starts on, because the body's first line lands on the header
-// line and Prettier prints its continuations relative to that. A line inside a
-// template literal carries string content, and a line whose leading whitespace
-// is shorter than an outdent would need is a shape the shift cannot express, so
-// either one abstains from the whole join rather than half-applying it.
+// line and Prettier prints its continuations relative to that. Measuring from
+// the anchor token instead would charge the width of a `} ` prefix and shift
+// every continuation line two columns too far.
+//
+// A line the shift must not touch is skipped, not made to abandon the join.
+// Abandoning is strictly worse: `format/indent` still moves the body's interior
+// to its post-join column, so the file settles on a hybrid layout Prettier never
+// emits, which is the very property this shift exists to remove. Three kinds of
+// line are skipped: one whose newline sits inside a string, template, or block
+// comment, where the bytes are content rather than layout; a blank one, which
+// has no column; and one whose indent is shorter than an outdent needs.
 func reindentJoinedClauseBody(
   ctx *Context,
   src string,
   headerLineStart int,
-  headerStart int,
   bodyStart int,
   bodyEnd int,
-  tabWidth int,
-) ([]TextEdit, bool) {
-  templates := collectTemplateRanges(ctx.File, src)
+  layout formatLayout,
+) []TextEdit {
+  protected := collectClauseJoinProtectedRanges(ctx.File, src)
+  headerIndentEnd := headerLineStart
+  for headerIndentEnd < len(src) &&
+    (src[headerIndentEnd] == ' ' || src[headerIndentEnd] == '\t') {
+    headerIndentEnd++
+  }
   bodyLineStart := lineStartOffset(src, bodyStart)
-  delta := visualWidth(src[headerLineStart:headerStart], tabWidth) -
-    visualWidth(src[bodyLineStart:bodyStart], tabWidth)
+  delta := visualWidth(src[headerLineStart:headerIndentEnd], layout.tabWidth) -
+    visualWidth(src[bodyLineStart:bodyStart], layout.tabWidth)
   if delta == 0 {
-    return nil, true
+    return nil
   }
   var edits []TextEdit
   for offset := bodyStart; offset < bodyEnd; offset++ {
     if src[offset] != '\n' {
       continue
     }
-    if inTemplate(templates, offset) {
-      return nil, false
+    if inTemplate(protected, offset) {
+      continue
     }
     lineStart := offset + 1
     indentEnd := lineStart
     for indentEnd < bodyEnd && (src[indentEnd] == ' ' || src[indentEnd] == '\t') {
       indentEnd++
     }
-    if indentEnd >= bodyEnd {
-      continue // trailing blank line inside the body carries no column
+    if indentEnd >= bodyEnd || src[indentEnd] == '\n' || src[indentEnd] == '\r' {
+      continue // a blank line carries no column
     }
-    width := visualWidth(src[lineStart:indentEnd], tabWidth) + delta
+    width := visualWidth(src[lineStart:indentEnd], layout.tabWidth) + delta
     if width < 0 {
-      return nil, false
+      continue
     }
-    next := strings.Repeat(" ", width)
+    next := clauseJoinIndentOfWidth(layout, width)
     if src[lineStart:indentEnd] == next {
       continue
     }
     edits = append(edits, TextEdit{Pos: lineStart, End: indentEnd, Text: next})
   }
-  return edits, true
+  return edits
+}
+
+// clauseJoinIndentOfWidth renders a column count in the project's own
+// indentation unit, so a tab-indented file keeps its tabs instead of being
+// silently respaced by the shift.
+func clauseJoinIndentOfWidth(layout formatLayout, width int) string {
+  if width <= 0 {
+    return ""
+  }
+  if layout.useTabs && layout.tabWidth > 0 && width%layout.tabWidth == 0 {
+    return layout.indent(width / layout.tabWidth)
+  }
+  return strings.Repeat(" ", width)
+}
+
+// collectClauseJoinProtectedRanges returns every byte span whose interior
+// newlines carry content rather than layout: template literals, string literals
+// spanning a line continuation, and block comments. Shifting a line inside one
+// changes what the program prints or what a comment says.
+func collectClauseJoinProtectedRanges(file *shimast.SourceFile, src string) []byteRange {
+  ranges := collectTemplateRanges(file, src)
+  var walk func(node *shimast.Node)
+  walk = func(node *shimast.Node) {
+    if node == nil {
+      return
+    }
+    if node.Kind == shimast.KindStringLiteral {
+      pos := shimscanner.SkipTrivia(src, node.Pos())
+      end := node.End()
+      if pos >= 0 && end <= len(src) && end > pos {
+        ranges = append(ranges, byteRange{pos: pos, end: end})
+      }
+    }
+    node.ForEachChild(func(child *shimast.Node) bool {
+      walk(child)
+      return false
+    })
+  }
+  if file != nil && file.Statements != nil {
+    for _, stmt := range file.Statements.Nodes {
+      walk(stmt)
+    }
+  }
+  forEachCommentToken(file, func(kind shimast.Kind, start, end int) {
+    if kind == shimast.KindMultiLineCommentTrivia {
+      ranges = append(ranges, byteRange{pos: start, end: end})
+    }
+  })
+  return ranges
 }
 
 // isClauseGapByte reports whether `c` is whitespace that may appear in

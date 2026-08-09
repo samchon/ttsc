@@ -1,8 +1,6 @@
 package linthost
 
 import (
-  "strings"
-
   shimast "github.com/microsoft/typescript-go/shim/ast"
   shimscanner "github.com/microsoft/typescript-go/shim/scanner"
 )
@@ -23,10 +21,13 @@ import (
 // `if (a) x(); else y();` stayed on one line.
 //
 // The rule rewrites only the gap between the preceding clause's last byte and
-// the continuation keyword's first byte. That gap is disjoint from every other
-// format rule's surface: `format/clause-join` rewrites the gap AFTER a header
-// token, `format/statement-split` splits statement-list members, and
-// `format/indent` owns the leading whitespace of a line that already exists.
+// the continuation keyword's first byte. No structural format rule contends for
+// it: `format/clause-join` rewrites the gap AFTER a header token,
+// `format/statement-split` splits statement-list members, and `format/indent`
+// visits statement-list members, closing-brace lines, and member headers.
+// `format/whitespace`'s trailing-whitespace trim does land inside the gap when
+// the clause line ends in spaces; the host drops one of the two findings and the
+// survivor re-fires on the next cascade pass, so the file still converges.
 //
 // A comment in the gap makes the rule abstain rather than relocate it, the same
 // abstention `format/clause-join` and `format/statement-split` apply. Idempotent
@@ -34,12 +35,13 @@ import (
 // holds the target text and the rule emits nothing.
 type formatBraceContinuation struct{ optionsRule }
 
-// formatBraceContinuationOptions carries the indentation and EOL settings the
-// push-down direction needs to synthesize a line break. JSON tags match the
-// `format` block keys the config layer mirrors in (see expandFormatBlock).
+// formatBraceContinuationOptions carries only the EOL setting. The push-down
+// direction copies the owning statement's own indent verbatim rather than
+// synthesizing one, so tabWidth and useTabs would decide nothing here and the
+// rule takes the same trimmed option surface `format/whitespace` does. The JSON
+// tag matches the `format` block key the config layer mirrors in (see
+// expandFormatBlock).
 type formatBraceContinuationOptions struct {
-  TabWidth  *int    `json:"tabWidth"`
-  UseTabs   *bool   `json:"useTabs"`
   EndOfLine *string `json:"endOfLine"`
 }
 
@@ -150,11 +152,14 @@ func placeBraceContinuation(
   want := " "
   if !braceContinuationEndsInBlock(previous) {
     // A non-block clause pushes the keyword onto its own line, indented to the
-    // statement that owns it.
-    if strings.Contains(src[gapStart:keywordStart], "\n") {
+    // statement that owns it. The whole gap is the target, so a keyword already
+    // on its own line at the wrong column is corrected by the same comparison
+    // instead of being ceded to a rule that never visits that line.
+    indent, ok := braceContinuationIndent(src, node)
+    if !ok {
       return
     }
-    want = eol + braceContinuationIndent(src, node)
+    want = eol + indent
   }
   if src[gapStart:keywordStart] == want {
     return
@@ -169,27 +174,35 @@ func placeBraceContinuation(
 
 // braceContinuationIndent returns the leading whitespace of the line the
 // statement starts on, which is the column Prettier gives the pushed-down
-// keyword. A statement that does not start its own line contributes no indent,
-// and `format/indent` owns that line's shape.
-func braceContinuationIndent(src string, node *shimast.Node) string {
+// keyword, and reports whether that column is knowable yet.
+//
+// A statement sharing its line with something else has no column of its own,
+// and nothing would repair a keyword pushed to column zero: `format/indent`
+// visits statement-list members, closing-brace lines, and member headers, and a
+// continuation-keyword line is none of the three. So the rule abstains, lets
+// `format/statement-split` give the statement its own line first, and reads the
+// real column on the next cascade pass. `format/indent` takes the same
+// not-first-on-its-line abstention for the same reason.
+func braceContinuationIndent(src string, node *shimast.Node) (string, bool) {
   start := shimscanner.SkipTrivia(src, node.Pos())
   if start < 0 || start > len(src) {
-    return ""
+    return "", false
   }
   lineStart := lineStartOffset(src, start)
   for i := lineStart; i < start; i++ {
     if src[i] != ' ' && src[i] != '\t' {
-      return ""
+      return "", false
     }
   }
-  return src[lineStart:start]
+  return src[lineStart:start], true
 }
 
-// braceContinuationEndsInBlock reports whether the clause the keyword continues
-// ends in a closing brace, which is what decides the direction. A catch clause
-// is not itself a block and always ends in one by grammar, so asking for the
-// node kind alone would send `finally` after a `catch` down the push-down path
-// and leave it stranded on its own line.
+// braceContinuationEndsInBlock reports whether the keyword shares the preceding
+// clause's last line, which is what decides the direction. The predicate is the
+// clause's kind, not its last byte: a `switch` consequent and an Annex-B
+// `function` consequent both end in `}` and Prettier still pushes `else` onto
+// its own line after them. A catch clause is the one non-block kind that shares
+// its line, because the try printer always spaces `} finally`.
 func braceContinuationEndsInBlock(previous *shimast.Node) bool {
   return previous.Kind == shimast.KindBlock || previous.Kind == shimast.KindCatchClause
 }
