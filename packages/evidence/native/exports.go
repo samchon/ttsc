@@ -259,18 +259,24 @@ func traverseEntryExports(
         continue
       }
       existing, taken := surface[nested.Address[0]]
-      // First wins on identity, because two paths to one declaration name the
-      // same unit. The type-only mark is the exception: it differs per path,
-      // and the population is the union of what the paths reach, so a value
-      // path has to clear a type-only one rather than lose to declaration
-      // order. Only the mark is cleared. Replacing the whole entry would also
-      // swap `Path` and `Local`, and two entries under one name are not always
-      // one declaration: an explicit named re-export shadows a star, and that
-      // resolution is not this loop's to decide.
+      // First wins, because two paths to one declaration name the same unit and
+      // the entry has to keep describing a path that exists.
+      //
+      // The type-only mark is unioned, and only between paths to the same
+      // declaration. It differs per path while the population is the union of
+      // what the paths reach, so a value path has to clear a type-only one
+      // rather than lose to declaration order. Doing that unconditionally is
+      // two different mistakes: replacing the entry swaps `Path` and `Local`,
+      // and clearing the mark alone leaves `Path` from one entry with the mark
+      // from another, which is a combination no path produced. Two entries
+      // under one name are not always one declaration, since an explicit named
+      // re-export shadows a star, and either mistake publishes the value
+      // members of a declaration this module reaches type-only.
       switch {
       case !taken:
         surface[nested.Address[0]] = nested
-      case existing.TypeOnly && !nested.TypeOnly:
+      case existing.TypeOnly && !nested.TypeOnly &&
+        existing.Path == nested.Path && existing.Local == nested.Local:
         existing.TypeOnly = false
         surface[nested.Address[0]] = existing
       }
