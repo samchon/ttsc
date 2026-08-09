@@ -41,6 +41,7 @@ func TestFormatPrettierConformance(t *testing.T) {
     {"format/bracket-spacing", "bindings-and-clauses", "import {read, write} from \"module\";\nexport {read, write};\nconst {value} = source;\ntype Shape = {value: string};\n", nil, false},
     {"format/bracket-spacing", "disabled", "const value = { item: 1 };\n", map[string]any{"bracketSpacing": false}, false},
     {"format/clause-join", "control-flow", "if (ready)\n  run();\nwhile (ready)\n  tick();\nfor (let i = 0; i < count; i++)\n  visit(i);\nfor (const item of items)\n  visit(item);\nfor (const key in record)\n  visit(key);\n", nil, false},
+    {"format/clause-join", "keyword-and-label-anchored", "if (ready)\n  run();\nelse\n  stop();\ndo\n  tick();\nwhile (ready);\nwith (scope)\n  visit();\nouter:\nfor (const item of items) {\n  break outer;\n}\n", nil, false},
     {"format/declaration-header", "interface", "interface Result\nextends Base {}\n", nil, false},
     {"format/declaration-header", "class", "class Result\nextends Base {}\n", nil, false},
     {"format/declaration-header", "multi-type-width", "interface Result extends First, Second, Third, Fourth, Fifth, Sixth {\n  value: number;\n}\n", map[string]any{"printWidth": 50}, false},
