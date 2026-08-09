@@ -143,19 +143,23 @@ export const {
 }
 
 /**
- * Verifies a single-declarator statement answers as it did before.
+ * Verifies a single-declarator statement answers the same way.
  *
  * The ordinary shape is the one every existing fingerprint assertion is written
  * against, and it is the one where the statement wrapper and the declarator
  * differ by only the `export const` prefix. Without this, the two cases above
- * would keep passing if the repair had quietly changed what an ordinary
- * variable's digest covers.
+ * would keep passing if the repair had quietly changed which edits an ordinary
+ * variable responds to.
+ *
+ * The *value* is not preserved and is not asserted to be. Narrowing content
+ * from three nodes to one moves every variable unit's digest once, which is a
+ * migration the documentation records rather than a property a case can pin.
  *
  *  1. Digest a single-declarator statement carrying a block.
  *  2. Reword the block, then change the initializer.
  *  3. Assert the first did not move it and the second did.
  */
-func TestASingleDeclaratorStatementAnswersAsBefore(t *testing.T) {
+func TestASingleDeclaratorStatementAnswersTheSameWay(t *testing.T) {
   first := variableDigestOf(t, "limit", `/** First wording. */
 export const limit = 1;
 `)
@@ -170,6 +174,48 @@ export const limit = 2;
 `)
   if changed == first {
     t.Fatal("a variable's initializer left its digest unmoved")
+  }
+}
+
+/**
+ * Verifies where an ordinary comment between two declarators lands.
+ *
+ * Narrowing content to the declarator moved this line without anyone deciding
+ * it, so the answer is pinned rather than left to be rediscovered. A `//`
+ * comment is leading trivia of the declarator below it and is dropped by the
+ * same rule that drops the blank lines above an undocumented declaration, while
+ * a `/* *\/` comment survives that rule and is interior text of the declarator
+ * it precedes. Neither reaches the declarator above, whose span ends at the
+ * comma.
+ *
+ * A comment can hold no citation the graph reads, so nothing here is a tag
+ * position; what is at stake is only which edits expire a review.
+ *
+ *  1. Digest both declarators with a comment between them.
+ *  2. Rewrite that comment as a line comment, then as a block comment.
+ *  3. Assert the first moves neither and the second moves only the declarator
+ *     below it.
+ */
+func TestACommentBetweenDeclaratorsBelongsToTheOneBelowIt(t *testing.T) {
+  between := func(note string) (string, string) {
+    source := `export const alpha = 1,
+  ` + note + `
+  beta = 2;
+`
+    return variableDigestOf(t, "alpha", source), variableDigestOf(t, "beta", source)
+  }
+  lineBefore, lineBetaBefore := between("// A first note.")
+  lineAfter, lineBetaAfter := between("// A second note, entirely different.")
+  if lineBefore != lineAfter || lineBetaBefore != lineBetaAfter {
+    t.Fatal("a line comment between declarators moved a digest, so a note expires a review")
+  }
+  blockBefore, blockBetaBefore := between("/* A first note. */")
+  blockAfter, blockBetaAfter := between("/* A second note, entirely different. */")
+  if blockBefore != blockAfter {
+    t.Fatal("a block comment below a declarator moved that declarator's digest")
+  }
+  if blockBetaBefore == blockBetaAfter {
+    t.Fatal("a block comment interior to a declarator left its digest unmoved, so content vanished from it")
   }
 }
 

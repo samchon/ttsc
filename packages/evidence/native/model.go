@@ -356,7 +356,7 @@ func (inventory *artifactInventory) recordUnitContent(id string, node *shimast.N
     return
   }
   inventory.recordUnitNode(id, node)
-  if inventory.UnitContent == nil {
+  if inventory.UnitNodes == nil || inventory.UnitContent == nil {
     return
   }
   inventory.UnitContent[id] = append(inventory.UnitContent[id], node)
