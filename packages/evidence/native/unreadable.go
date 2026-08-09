@@ -9,10 +9,23 @@ import (
   "github.com/samchon/ttsc/packages/lint/rule/astutil"
 )
 
-// commentSpan is one comment's byte range in a source file.
-type commentSpan struct {
-  Start int
-  End   int
+// attachedCommentEnds indexes, by end offset, where each attached documentation
+// block's own text begins.
+//
+// The end is what identifies a comment: the parser stops reading one exactly
+// where the scanner does. A block's reported start is not, because it is a full
+// start, and a full start reaches back to the previous token and swallows every
+// blank line and every comment between. Testing containment against that made
+// the reporter answer differently depending on what followed a tag, so a
+// citation in a `//` comment was reported above an undocumented declaration and
+// silent above a documented one, which is the shape an author is most likely to
+// write in a codebase that documents its exports.
+type attachedCommentEnds map[int]int
+
+// holds reports whether a comment is one the parser handed to a node.
+func (ends attachedCommentEnds) holds(start int, end int) bool {
+  attachedStart, taken := ends[end]
+  return taken && attachedStart <= start
 }
 
 // reportUnreadableTypeScriptTags records every tag written in a comment the
@@ -31,26 +44,24 @@ type commentSpan struct {
 //
 // The shapes are ordinary rather than exotic. TypeScript attaches no
 // documentation to a binding element, so a block between the braces of a
-// destructuring pattern reaches nothing; and a `//` comment is not documentation
-// at all, which is one keystroke from a block that is.
+// destructuring pattern is read by nobody; a `//` comment is not documentation
+// at all, which is one keystroke from a block that is; and a documented
+// declaration an author commented out keeps a citation that now proves nothing.
 func reportUnreadableTypeScriptTags(
   file *shimast.SourceFile,
   location string,
-  attached []commentSpan,
+  attached attachedCommentEnds,
   inventory *artifactInventory,
 ) {
   if file == nil || inventory == nil {
     return
   }
-  sort.Slice(attached, func(left int, right int) bool {
-    return attached[left].Start < attached[right].Start
-  })
   content := file.Text()
   astutil.ForEachComment(file, func(_ shimast.Kind, start int, end int) {
     if start < 0 || end > len(content) || start >= end {
       return
     }
-    if spanIsAttached(attached, commentSpan{Start: start, End: end}) {
+    if attached.holds(start, end) {
       return
     }
     body := readableCommentBody(content[start:end])
@@ -72,34 +83,19 @@ func reportUnreadableTypeScriptTags(
   })
 }
 
-// unreadableTagProblem names the position and the move that fixes it, which is
+// unreadableTagProblem names the position and the moves that fix it, which is
 // the whole value of reporting a tag nothing can read.
+//
+// Two moves rather than one, because the tag reaches nothing for two different
+// reasons. A citation an author meant to keep belongs in a documentation block
+// on a declaration; one left behind in code that is commented out belongs
+// nowhere, and naming only the first would send that author to move a tag they
+// should be deleting.
 func unreadableTagProblem(tag string, location string, line int) string {
   return "Unreadable " + tag + " at " + location + ":" + decimal(line) +
     ": the parser attaches this comment to no declaration, so nothing reads the tag." +
-    " Move it into a documentation block written directly above a selected declaration."
-}
-
-// spanIsAttached reports whether a comment is one the parser handed to a node.
-//
-// A documentation node's reported start is its full start, which is where the
-// previous token ended, so its span swallows every blank line and every comment
-// between that token and the block itself. Testing containment against it made
-// the reporter answer differently depending on what followed the tag: a
-// citation in a `//` comment was reported above an undocumented declaration and
-// silent above a documented one, which is the shape an author is most likely to
-// write and the only one that matters in a codebase that documents its exports.
-//
-// The comparison is therefore against where the block's own text begins.
-// Equality on the end is enough to identify it, because the end of a comment is
-// where the parser stopped reading it.
-func spanIsAttached(attached []commentSpan, span commentSpan) bool {
-  for _, current := range attached {
-    if current.End == span.End && current.Start <= span.Start {
-      return true
-    }
-  }
-  return false
+    " Move it into a documentation block written directly above the declaration it answers for," +
+    " or delete it with the code it was written against."
 }
 
 // readableCommentBody strips the syntax a comment opens with, so a line that
@@ -118,11 +114,6 @@ func spanIsAttached(attached []commentSpan, span commentSpan) bool {
 // against itself: the review parser removes `///` and the declaration parser
 // does not, so `/// @evidenceReview` was reported while the `/// @evidence`
 // beside it stayed silent.
-//
-// A line whose text still opens like a documentation block once the slashes are
-// off belongs to commented-out code. The tag in it is unreadable, and saying so
-// would name a repair that is wrong for it: the author's move is to delete the
-// block or restore what it documented, not to put the tag somewhere selected.
 func readableCommentBody(comment string) string {
   lines := strings.Split(comment, "\n")
   for index, line := range lines {
@@ -130,11 +121,7 @@ func readableCommentBody(comment string) string {
     if !strings.HasPrefix(trimmed, "//") {
       continue
     }
-    stripped := strings.TrimSpace(strings.TrimLeft(trimmed, "/"))
-    if strings.HasPrefix(stripped, "/*") || strings.HasPrefix(stripped, "*") {
-      return ""
-    }
-    lines[index] = stripped
+    lines[index] = strings.TrimSpace(strings.TrimLeft(trimmed, "/"))
   }
   return strings.Join(lines, "\n")
 }
@@ -144,9 +131,8 @@ func readableCommentBody(comment string) string {
 //
 // One file reached through two configured roots is two inventories of the same
 // text, so the same comment is found twice. The graph's own reporter sorts and
-// drops exact duplicates, which is what collapses them, and this only has to
-// gather them in a defined order so that reporter's input does not depend on
-// map iteration.
+// drops exact duplicates, which is what collapses them; this only has to gather
+// them in a defined order so its input does not depend on map iteration.
 func unreadableTypeScriptTags(
   inventories map[string]*artifactInventory,
 ) []string {

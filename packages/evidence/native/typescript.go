@@ -212,8 +212,9 @@ func scanTypeScriptInventoryAt(
 // when its statement is one for the same symbol; the invariant is what was
 // broken there rather than an observable answer.
 //
-// A second fault travelled with that one and has its own cause, which is why they are stated apart: a
-// withdrawal tag read from a container is not the tag of the declarations
+// A second fault travelled with that one and has its own cause, which is why
+// they are stated apart: a withdrawal tag read from a container is not the tag
+// of the declarations
 // inside it, so an inner declarator owes its own read, and recording the node
 // would have left that exactly where it was.
 //
@@ -1490,14 +1491,13 @@ func collectTypeScriptDeclarations(
       docs[key] = current
     }
   })
-  attached := make([]commentSpan, 0, len(docs))
+  attached := make(attachedCommentEnds, len(docs))
   keys := make([]string, 0, len(docs))
   for key, entry := range docs {
     keys = append(keys, key)
-    attached = append(attached, commentSpan{
-      Start: entry.node.Pos(),
-      End:   entry.node.End(),
-    })
+    if start, taken := attached[entry.node.End()]; !taken || entry.node.Pos() < start {
+      attached[entry.node.End()] = entry.node.Pos()
+    }
   }
   reportUnreadableTypeScriptTags(file, location, attached, inventory)
   sort.Slice(keys, func(left int, right int) bool {

@@ -254,12 +254,14 @@ func presentedFingerprint(digest string) string {
 // stays in the digest, and that is correct: the graph reads tags only from the
 // blocks a node reports, so no citation can hide in one.
 //
-// Leading text is the other case and reaches the digest in neither of its two
-// forms. Text outside the declaration's span was never in it, which for a
-// variable is everything above its declarator, including the `export const`
-// and any comment above a sibling. Text a full start swallowed is inside the
-// span, and `withoutLeadingTrivia` drops the blank lines and `//` comments
-// among it.
+// Leading text is the other case and reaches the digest in some forms only.
+// Text outside the declaration's span was never in it, which for a variable is
+// everything above its declarator, including the `export const` and any comment
+// above a sibling. Text a full start swallowed is inside the span, and there
+// `withoutLeadingTrivia` drops the blank lines and `//` comments while a
+// documentation block is cut as a tag position. A block comment that is neither
+// is hashed, so editing an ordinary `/* */` above an undocumented declaration
+// expires a review of it.
 //
 // Every declaration of a merged identity contributes, in source order, because
 // `interface I` beside `namespace I` is one unit whose content is both halves.

@@ -209,20 +209,22 @@ export const third = 3;
 }
 
 /**
- * Verifies commented-out documentation is not reported.
+ * Verifies a citation left behind in commented-out code is reported.
  *
- * A tag inside a block an author commented out is unreadable, and saying so
- * would be a diagnostic whose repair is wrong for it: the author's move is to
- * delete the block or restore the code it documented, not to put the tag
- * somewhere a claim selects. The shape is recognizable, because the text under
- * the slashes still opens as a documentation block.
+ * A tag in a block an author commented out reaches nothing, exactly like the
+ * others, and the first repair tried the opposite: it declined the whole
+ * comment on the theory that naming a move would send the author to relocate a
+ * tag they should delete. That silence cost more than it saved, because it
+ * keyed on a line opening like a block after its slashes came off, so it also
+ * swallowed every tag in any comment that happened to contain one such line.
+ * The diagnostic names both moves instead.
  *
  *  1. Comment out a documented declaration whose block carries a citation.
  *  2. Evaluate the same claim.
- *  3. Assert nothing is reported.
+ *  3. Assert the tag is reported.
  */
-func TestCommentedOutDocumentationIsNotReported(t *testing.T) {
-  assertNoProblems(t, runUnreadableRule(t, `/** @evidence docs/spec.md#pricing The declaration cites this. */
+func TestACitationInCommentedOutCodeIsReported(t *testing.T) {
+  assertReported(t, runUnreadableRule(t, `/** @evidence docs/spec.md#pricing The declaration cites this. */
 export const limit = 1;
 
 // /**
@@ -230,5 +232,34 @@ export const limit = 1;
 //  * @evidence docs/spec.md#pricing The old citation.
 //  */
 // export const old = 3;
-`))
+`), "Unreadable @evidence at src/contracts.ts:6")
+}
+
+/**
+ * Verifies every tag in one comment is reported, not only the first.
+ *
+ * A comment is read line by line and each tag in it is its own declaration, so
+ * one unreadable line must not decide for the others. The first repair took the
+ * whole comment out on the strength of a single line, which silenced tags
+ * above and below it in the same block: a regression the shape below is the
+ * smallest witness of.
+ *
+ *  1. Write two citations in one block comment with a slash-prefixed line
+ *     between them.
+ *  2. Evaluate the same claim.
+ *  3. Assert both are reported at their own lines.
+ */
+func TestEveryTagInOneCommentIsReported(t *testing.T) {
+  messages := runUnreadableRule(t, `/** @evidence docs/spec.md#pricing The declaration cites this. */
+export const limit = 1;
+
+/*
+@evidence docs/spec.md#pricing The first tag in the block.
+// * a note somebody pasted in
+@evidence docs/spec.md#pricing The second tag in the block.
+*/
+export const other = 2;
+`)
+  assertReportedAmong(t, messages, "Unreadable @evidence at src/contracts.ts:5")
+  assertReportedAmong(t, messages, "Unreadable @evidence at src/contracts.ts:7")
 }
