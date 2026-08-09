@@ -262,15 +262,26 @@ type RelatedInformation struct {
 // be replaced as a whole.
 //
 // Application policy: a rule may emit several `TextEdit`s in one
-// `ReportFix` / `ReportRangeFix` call, in any order. The host treats the
-// per-pass edit set as a candidate list. Within a single fix pass, edits
-// must not overlap each other; when two edits cover overlapping ranges
-// (either from one rule emitting multiple edits in one call, or from two
-// different rules in the same pass), the host applies the earliest-starting
-// / shortest edit and silently drops the rest. There is no diagnostic for
-// dropped edits, and the host does not currently report when a comment
-// falls inside a deletion range. Design fixes so each finding emits one
-// contiguous TextEdit covering the entire replacement region.
+// `ReportFix` / `ReportRangeFix` call, in any order. The unit the host
+// resolves conflicts on is the FINDING, not the individual edit. Within one
+// fix pass the host considers each finding's edits as one group, earliest
+// group first, and accepts a group only when every member coexists with the
+// edits already accepted. If any member would be dropped, the whole group is
+// skipped, so a multi-edit fix never half-applies. The skipped finding is not
+// lost: the next cascade pass re-runs the rule against the rewritten source
+// and the fix applies then, or the cascade converges without it.
+//
+// A finding's own edits must therefore not overlap each other either, or the
+// finding can never apply. Exact duplicates within one finding are collapsed
+// rather than treated as a conflict, so repeating an identical edit is
+// harmless. Nothing diagnoses a skipped group, and the host does not report
+// when a comment falls inside a deletion range.
+//
+// Emit the narrowest edits that express the rewrite. Several small
+// non-overlapping edits contend for less source than one wide replacement and
+// are the shape the atomic applier exists to support; `no-import-type-side-
+// effects`, `format/whitespace`, `format/indent`, and `format/sort-imports`
+// all ship multi-edit fixes.
 type TextEdit struct {
   Pos  int
   End  int

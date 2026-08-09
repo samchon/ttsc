@@ -463,11 +463,12 @@ ctx.ReportFix(node, "use const",
 
 `TextEdit` positions are **byte offsets**, identical to `node.Pos()` / `node.End()`. The host applies edits in a single pass per file; within a pass:
 
-- **No overlapping edits.** Two edits whose ranges intersect are reduced to the earliest-starting / shortest one. The host silently drops the rest. The contract is documented on `rule.TextEdit` (the public Go type).
+- **Conflicts resolve per finding, not per edit.** The host groups a finding's edits, considers the earliest group first, and accepts a group only when every member coexists with what it already accepted. One colliding member skips the whole group, so a multi-edit fix never half-applies. The skipped finding re-fires on the next cascade pass. The contract is documented on `rule.TextEdit` (the public Go type).
+- **A finding's own edits must not overlap each other**, or the finding can never apply. An exact duplicate inside one finding is collapsed, not treated as a conflict.
 - **Empty `Text` deletes the range.** No special "delete" verb.
 - **Order does not matter.** The host sorts internally and applies right-to-left so earlier edits do not shift later offsets.
 
-Designing fixes that emit one contiguous edit per finding is the safest pattern. `no-import-type-side-effects` is the one production rule that emits multiple edits per finding, and it carefully constructs the edits to be non-overlapping by position.
+Emit the narrowest edits that express the rewrite. Several small non-overlapping edits contend for less source than one wide replacement, and the atomic applier exists so that shape is safe. `no-import-type-side-effects`, `format/whitespace`, `format/indent`, `format/sort-imports`, `unicorn/prevent-abbreviations`, and `unicorn/template-indent` all ship multi-edit fixes.
 
 ## A rule with a choice of fixes: `ReportSuggestion`
 
