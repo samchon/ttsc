@@ -201,15 +201,14 @@ func scanTypeScriptInventoryAt(
 // rather than `const` because a partial withdrawal needs a second declaration
 // of one identity, which for `const` is `TS2451`.
 //
-// What this does not reach is a host node no unit records. A variable
-// declarator is registered as a host and is not among its unit's nodes, so a
-// withdrawn variable identity keeps that one position. A second symptom travels
-// with it and has its own cause worth stating separately, or half of #1126 gets
-// closed and called done: an inner declarator's own `@internal` is never read
-// at all, because withdrawal for a variable statement is taken from the
-// statement wrapper. Recording the declarator closes the first and leaves the
-// second exactly where it was. Both predate this reconciliation and are tracked
-// in #1126, because closing them moves every variable unit's digest.
+// What this cannot reach is a host node no unit records, so a form that
+// registers a position owes that position to its unit. The variable declarator
+// was the one that did not, and a withdrawn variable identity kept it until
+// `collectTypeScriptVariables` began recording it. A second fault travelled
+// with that one and has its own cause, which is why they are stated apart: a
+// withdrawal tag read from a container is not the tag of the declarations
+// inside it, so an inner declarator owes its own read, and recording the node
+// would have left that exactly where it was.
 //
 // `documentedHosts` needs no equivalent: it skips a withdrawn unit before it
 // ever consults the host set.
@@ -434,6 +433,7 @@ func collectTypeScriptStatements(
       }
       memberHidden := typeScriptHidingTag(file, statement, hidden)
       for symbol := range collectTypeScriptVariables(
+        file,
         statement,
         prefix,
         parentID,
@@ -647,7 +647,23 @@ func collectClassDeclarationNames(
 // pattern rather than to any leaf, `let` and `var` are excluded whatever they
 // hold, and the initializer is read syntactically because these rules run with
 // no type checker.
+// A declarator is both a host position and a unit node, and it has to be both.
+// It was only the first: `supportedHosts` held it while no unit recorded it, so
+// nothing that walks from a unit to its declarations could see it. Three
+// answers were wrong at once and all three were silent. `withdrawHiddenHosts`
+// could not take it away from a withdrawn identity, so a declaration the author
+// had removed from the API went on discharging coverage. `hostNodesOf` filtered
+// it out of `evidence/documented`. And a citation written on it resolved to no
+// semantic host, so `singleEvidencePerSymbol` counted the statement's identities
+// as citing zero units while the same run reported the obligation satisfied.
+//
+// Its own withdrawal tag is read here for the same reason, and it is a separate
+// fault rather than the same one: the statement wrapper's tag was taken for
+// every declarator it holds, so `@internal` written on an inner declarator
+// withdrew nothing. Recording the node closes the first three and leaves this
+// one standing, which is why #1126 states them apart.
 func collectTypeScriptVariables(
+  file *shimast.SourceFile,
   statement *shimast.Node,
   prefix []string,
   parentID string,
@@ -678,6 +694,7 @@ func collectTypeScriptVariables(
       isFunctionValue(value.Initializer) {
       symbol = "function"
     }
+    declaratorHidden := typeScriptHidingTag(file, declaration, hidden)
     for _, binding := range bindingIdentifierNodes(declaration.Name()) {
       name := declarationName(binding)
       targets := publicTypeScriptNames(
@@ -690,7 +707,7 @@ func collectTypeScriptVariables(
       if len(targets) == 0 {
         continue
       }
-      if hidden == "" {
+      if declaratorHidden == "" {
         addTypeScriptHost(supportedHosts, declaration, symbol)
       }
       for _, name := range targets {
@@ -701,12 +718,15 @@ func collectTypeScriptVariables(
           symbol,
           qualifyTypeScriptName(prefix, name),
           parentID,
-          hidden,
+          declaratorHidden,
         )
         // The binding names the unit, but TypeScript attaches a
         // variable's leading JSDoc to the statement wrapper, so that
-        // is where a citation for this unit actually lives.
+        // is where a citation for this unit actually lives. The
+        // declarator is recorded too, because it is a host position and
+        // every consumer that walks a unit's nodes has to reach it.
         inventory.recordUnitNode(unit.ID, statement)
+        inventory.recordUnitNode(unit.ID, declaration)
       }
       found[symbol] = true
     }
