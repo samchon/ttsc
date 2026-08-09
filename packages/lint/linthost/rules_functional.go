@@ -192,9 +192,10 @@ type functionalPreferImmutableTypesOptions struct {
 // checked exactly as before.
 type functionalPreferReadonlyTypeOptions struct {
   functionalPatternOptions
-  AllowMutableReturnType bool `json:"allowMutableReturnType"`
-  IgnoreCollections      bool `json:"ignoreCollections"`
-  IgnoreInterface        bool `json:"ignoreInterface"`
+  AllowMutableReturnType bool        `json:"allowMutableReturnType"`
+  IgnoreClass            interface{} `json:"ignoreClass"`
+  IgnoreCollections      bool        `json:"ignoreCollections"`
+  IgnoreInterface        bool        `json:"ignoreInterface"`
 }
 
 type functionalReadonlyTypeOptions struct {
@@ -438,15 +439,17 @@ func (functionalNoReturnVoid) Check(ctx *Context, node *shimast.Node) {
 // nearest function-like ancestor of `node`, or "" when that function declares
 // none. A bare `return;` there is the only place the rule reports a void-ness it
 // inferred instead of reading, which is what `ignoreInferredTypes` spares.
+//
+// The walk stops at the nearest function-like of ANY kind, including the ones
+// that cannot declare a return type at all. Skipping a constructor or an
+// accessor would attribute an enclosing function's annotation to a `return;`
+// that has nothing to do with it.
 func functionalEnclosingReturnTypeText(ctx *Context, node *shimast.Node) string {
   for parent := node.Parent; parent != nil; parent = parent.Parent {
-    switch parent.Kind {
-    case shimast.KindFunctionDeclaration,
-      shimast.KindFunctionExpression,
-      shimast.KindArrowFunction,
-      shimast.KindMethodDeclaration:
-      return functionalReturnTypeText(ctx, parent)
+    if !isFunctionLikeKind(parent) {
+      continue
     }
+    return functionalReturnTypeText(ctx, parent)
   }
   return ""
 }
@@ -499,6 +502,9 @@ func (functionalPreferReadonlyType) Check(ctx *Context, node *shimast.Node) {
   if opts.IgnoreInterface && hasAncestor(node, func(ancestor *shimast.Node) bool {
     return ancestor.Kind == shimast.KindInterfaceDeclaration
   }) {
+    return
+  }
+  if functionalIgnoreClassSkips(opts.IgnoreClass, node) {
     return
   }
   if opts.AllowMutableReturnType && isFunctionLikeReturnTypePosition(node) {
@@ -870,44 +876,102 @@ func nilSafeFile(node *shimast.Node) *shimast.SourceFile {
 }
 
 // isFunctionLikeReturnTypePosition reports whether `node` is the return-type
-// annotation of a function-like declaration or signature, or sits inside one.
-// The rule visits type nodes, so a mutable array nested in the return type is
-// the same position as the return type itself.
+// annotation of any signature-bearing declaration, or sits inside one. The rule
+// visits type nodes, so a mutable array nested in the return type is the same
+// position as the return type itself.
+//
+// Every kind that can carry a return-type annotation is listed: leaving call
+// signatures, construct signatures, constructor types, or a get accessor out
+// would let the same option answer differently for the same position depending
+// on how the signature was spelled.
 func isFunctionLikeReturnTypePosition(node *shimast.Node) bool {
   for current := node; current != nil && current.Parent != nil; current = current.Parent {
-    parent := current.Parent
-    var typeNode *shimast.Node
-    switch parent.Kind {
-    case shimast.KindFunctionDeclaration:
-      if decl := parent.AsFunctionDeclaration(); decl != nil {
-        typeNode = decl.Type
-      }
-    case shimast.KindFunctionExpression:
-      if decl := parent.AsFunctionExpression(); decl != nil {
-        typeNode = decl.Type
-      }
-    case shimast.KindArrowFunction:
-      if decl := parent.AsArrowFunction(); decl != nil {
-        typeNode = decl.Type
-      }
-    case shimast.KindMethodDeclaration:
-      if decl := parent.AsMethodDeclaration(); decl != nil {
-        typeNode = decl.Type
-      }
-    case shimast.KindMethodSignature:
-      if decl := parent.AsMethodSignatureDeclaration(); decl != nil {
-        typeNode = decl.Type
-      }
-    case shimast.KindFunctionType:
-      if decl := parent.AsFunctionTypeNode(); decl != nil {
-        typeNode = decl.Type
-      }
-    }
+    typeNode := signatureReturnTypeNode(current.Parent)
     if typeNode != nil && typeNode == current {
       return true
     }
   }
   return false
+}
+
+// signatureReturnTypeNode returns the declared return-type node of `node`, or
+// nil when `node` carries no signature or declares no return type.
+func signatureReturnTypeNode(node *shimast.Node) *shimast.Node {
+  switch node.Kind {
+  case shimast.KindFunctionDeclaration:
+    if decl := node.AsFunctionDeclaration(); decl != nil {
+      return decl.Type
+    }
+  case shimast.KindFunctionExpression:
+    if decl := node.AsFunctionExpression(); decl != nil {
+      return decl.Type
+    }
+  case shimast.KindArrowFunction:
+    if decl := node.AsArrowFunction(); decl != nil {
+      return decl.Type
+    }
+  case shimast.KindMethodDeclaration:
+    if decl := node.AsMethodDeclaration(); decl != nil {
+      return decl.Type
+    }
+  case shimast.KindMethodSignature:
+    if decl := node.AsMethodSignatureDeclaration(); decl != nil {
+      return decl.Type
+    }
+  case shimast.KindGetAccessor:
+    if decl := node.AsGetAccessorDeclaration(); decl != nil {
+      return decl.Type
+    }
+  case shimast.KindFunctionType:
+    if decl := node.AsFunctionTypeNode(); decl != nil {
+      return decl.Type
+    }
+  case shimast.KindConstructorType:
+    if decl := node.AsConstructorTypeNode(); decl != nil {
+      return decl.Type
+    }
+  case shimast.KindCallSignature:
+    if decl := node.AsCallSignatureDeclaration(); decl != nil {
+      return decl.Type
+    }
+  case shimast.KindConstructSignature:
+    if decl := node.AsConstructSignatureDeclaration(); decl != nil {
+      return decl.Type
+    }
+  }
+  return nil
+}
+
+// isFunctionalClassMemberPosition reports whether `node` sits inside a class
+// body, and whether that position is a field. `ignoreClass: true` skips the
+// whole class body; `"fieldsOnly"` skips only the field declarations, leaving
+// methods, accessors, and constructor parameters checked.
+func isFunctionalClassMemberPosition(node *shimast.Node) (inClass bool, inField bool) {
+  for parent := node.Parent; parent != nil; parent = parent.Parent {
+    switch parent.Kind {
+    case shimast.KindPropertyDeclaration:
+      inField = true
+    case shimast.KindClassDeclaration, shimast.KindClassExpression:
+      return true, inField
+    }
+  }
+  return false, false
+}
+
+// functionalIgnoreClassSkips resolves the `boolean | "fieldsOnly"` option
+// against a visited node's class position.
+func functionalIgnoreClassSkips(option interface{}, node *shimast.Node) bool {
+  if option == nil || option == false {
+    return false
+  }
+  inClass, inField := isFunctionalClassMemberPosition(node)
+  if !inClass {
+    return false
+  }
+  if option == "fieldsOnly" {
+    return inField
+  }
+  return option == true
 }
 
 // isFunctionalCollectionTypeNode reports whether `node` is an array, tuple, or

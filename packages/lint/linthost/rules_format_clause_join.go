@@ -155,11 +155,12 @@ func joinClauseBody(
   if body.Kind == shimast.KindBlock && !target.alwaysJoin {
     return
   }
-  // An empty-statement body (`while (x)\n;`) glues directly to the header with
-  // NO space: Prettier's adjustClause special-cases EmptyStatement and returns
-  // the bare `;` (`while (x);`), only prepending a space when the empty
-  // statement carries a leading comment. This rule's gap->" " rewrite cannot
-  // produce the spaceless `);` glue, so abstain and leave the source shape.
+  // An empty-statement body glues directly to the header with NO space:
+  // Prettier's adjustClause special-cases EmptyStatement and returns the bare
+  // `;` (`while (x);`, `else;`, `do;`, `label:;`), only prepending a space when
+  // the empty statement carries a leading comment. This rule joins with a
+  // single space and deliberately does not take on the spaceless variant, so it
+  // abstains and leaves the source shape rather than emitting `while (x) ;`.
   if body.Kind == shimast.KindEmptyStatement {
     return
   }
@@ -178,12 +179,6 @@ func joinClauseBody(
   }
   anchorStart := gapStart - len(target.anchor)
   if anchorStart < 0 || src[anchorStart:gapStart] != target.anchor {
-    return
-  }
-  // A keyword anchor must be a whole token: `else` may not be the tail of
-  // `myelse`, and `do` may not be the tail of `undo`.
-  if isClauseAnchorWord(target.anchor) &&
-    anchorStart > 0 && isClauseIdentifierByte(src[anchorStart-1]) {
     return
   }
   gap := src[gapStart:bodyStart]
@@ -232,17 +227,12 @@ func isClauseGapByte(c byte) bool {
 }
 
 // isClauseAnchorWord reports whether an anchor is a keyword rather than
-// punctuation, which decides whether it needs an identifier-boundary check and
-// whether it starts the header line the width budget is measured against.
+// punctuation, which decides where the width budget starts measuring. The
+// anchor needs no identifier-boundary check: it is read backward from the AST
+// body's own position, so the token before the gap is the clause's real keyword
+// and an identifier ending in `else` or `do` cannot reach it.
 func isClauseAnchorWord(anchor string) bool {
   return anchor == "else" || anchor == "do"
-}
-
-// isClauseIdentifierByte reports whether `c` can appear inside an identifier,
-// so a keyword anchor is only accepted as a whole token.
-func isClauseIdentifierByte(c byte) bool {
-  return c == '_' || c == '$' ||
-    (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9')
 }
 
 // visualWidth returns the display-column width of `s`: a tab expands to a flat

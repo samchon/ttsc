@@ -169,9 +169,11 @@ export interface ITtscLintFunctionalPreferReadonlyTypeRuleOptions extends ITtscL
   ignoreCollections?: boolean;
 
   /**
-   * Skip class fields. Reserved for upstream-compatible configs; the native
-   * subset visits no class-member position, so class fields are already never
-   * reported.
+   * Skip class members. `true` skips the whole class body; `"fieldsOnly"` skips
+   * only field declarations and keeps methods, accessors, and constructor
+   * parameters checked.
+   *
+   * @default false
    */
   ignoreClass?: boolean | "fieldsOnly";
 

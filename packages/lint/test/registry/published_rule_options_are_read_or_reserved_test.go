@@ -1,6 +1,7 @@
 package linthost
 
 import (
+  "fmt"
   "os"
   "path/filepath"
   "regexp"
@@ -16,22 +17,34 @@ import (
 // change nothing.
 const reservedRuleOptionMarker = "Reserved for upstream-compatible configs"
 
+// publishedRuleOptionField is one declared option property, kept per declaration
+// site rather than per name. Twenty-one option names are declared in more than
+// one family file, so a name-keyed map would let one rule's decoder exempt every
+// other rule that publishes the same key.
+type publishedRuleOptionField struct {
+  File  string
+  Line  int
+  Name  string
+  Doc   string
+  Owner string
+}
+
 // TestPublishedRuleOptionsAreReadOrReserved pins that every option field the
 // package publishes either reaches a decision or says it does not.
 //
 // The existing parity test compares the SET of option-accepting rules against
 // the typed keys, so it cannot see a field that is declared, documented as
-// working, accepted by the config layer, and then never decoded. Seven such
+// working, accepted by the config layer, and then never decoded. Fourteen such
 // fields shipped in the `functional/*` family (#1132): a user set them, nothing
 // warned, and the rule behaved as if the payload were absent. The sweep below is
 // what turns the next one into a failure at build time.
 //
-//  1. Read every option field and its doc comment from
+//  1. Read every option field, its owning interface, and its doc comment from
 //     `src/structures/rules/ITtscLint*RuleOptions.ts`.
 //  2. Scan every Go source in the linthost package for the field's quoted name,
 //     which covers both a `json:"…"` tag and a manual map-key decoder.
-//  3. Require each field to appear in the Go sources or to carry the reserved
-//     marker in its doc comment.
+//  3. Require each declaration to appear in the Go sources or to carry the
+//     reserved marker in its own doc comment.
 //
 // The quoted-name scan is a lower bound, not a proof of use: a field whose name
 // collides with an unrelated string literal somewhere in the engine passes
@@ -40,6 +53,8 @@ const reservedRuleOptionMarker = "Reserved for upstream-compatible configs"
 // reason to appear as a Go string at all. Per-rule behavioral cases carry the
 // proof that a decoded field reaches a decision.
 func TestPublishedRuleOptionsAreReadOrReserved(t *testing.T) {
+  assertReservedRuleOptionMarkerRecognizer(t)
+
   fields, err := readPublishedRuleOptionFields()
   if err != nil {
     t.Fatalf("read published rule option fields: %v", err)
@@ -53,16 +68,16 @@ func TestPublishedRuleOptionsAreReadOrReserved(t *testing.T) {
   }
 
   var inert []string
-  reserved := 0
-  for name, doc := range fields {
-    if strings.Contains(sources, `"`+name+`"`) {
+  for _, field := range fields {
+    if strings.Contains(sources, `"`+field.Name+`"`) {
       continue
     }
-    if strings.Contains(doc, reservedRuleOptionMarker) {
-      reserved++
+    if ruleOptionIsReserved(field.Doc) {
       continue
     }
-    inert = append(inert, name)
+    inert = append(inert, fmt.Sprintf(
+      "%s.%s (%s:%d)", field.Owner, field.Name, field.File, field.Line,
+    ))
   }
   sort.Strings(inert)
   if len(inert) != 0 {
@@ -72,14 +87,34 @@ func TestPublishedRuleOptionsAreReadOrReserved(t *testing.T) {
       inert,
     )
   }
-  if reserved == 0 {
-    t.Fatalf("no field carries the %q marker; the escape hatch is unexercised and the sweep proves nothing", reservedRuleOptionMarker)
+}
+
+// ruleOptionIsReserved reports whether a field's own doc comment declares it
+// accepted-but-inert.
+func ruleOptionIsReserved(doc string) bool {
+  return strings.Contains(doc, reservedRuleOptionMarker)
+}
+
+// assertReservedRuleOptionMarkerRecognizer proves the escape hatch is
+// recognized without depending on the corpus still containing a reserved field.
+// Asserting that some field is reserved would turn the sweep red the day every
+// reserved option becomes implementable, which is the outcome it exists to
+// encourage.
+func assertReservedRuleOptionMarkerRecognizer(t *testing.T) {
+  t.Helper()
+  reserved := "/** Minimum accepted immutability. " + reservedRuleOptionMarker +
+    "; the native subset computes no immutability level."
+  if !ruleOptionIsReserved(reserved) {
+    t.Fatalf("reserved marker not recognized in %q", reserved)
+  }
+  if ruleOptionIsReserved("/** Check interface member kinds. @default true") {
+    t.Fatal("an ordinary doc comment was accepted as reserved")
   }
 }
 
-// readPublishedRuleOptionFields returns each declared option property name
-// mapped to the doc comment immediately above it.
-func readPublishedRuleOptionFields() (map[string]string, error) {
+// readPublishedRuleOptionFields returns every declared option property with the
+// interface that owns it and the doc comment immediately above it.
+func readPublishedRuleOptionFields() ([]publishedRuleOptionField, error) {
   _, thisFile, _, ok := runtime.Caller(0)
   if !ok {
     return nil, errMissingCaller{}
@@ -94,7 +129,8 @@ func readPublishedRuleOptionFields() (map[string]string, error) {
     return nil, err
   }
   property := regexp.MustCompile(`^\s{2}(?:readonly\s+)?"?([\w$-]+)"?\??\s*:`)
-  fields := map[string]string{}
+  declaration := regexp.MustCompile(`^export interface (I[\w]+)`)
+  var fields []publishedRuleOptionField
   for _, entry := range entries {
     name := entry.Name()
     if entry.IsDir() || !strings.HasSuffix(name, "RuleOptions.ts") {
@@ -106,7 +142,8 @@ func readPublishedRuleOptionFields() (map[string]string, error) {
     }
     var doc strings.Builder
     inDoc := false
-    for _, line := range strings.Split(string(body), "\n") {
+    owner := ""
+    for index, line := range strings.Split(string(body), "\n") {
       trimmed := strings.TrimSpace(line)
       switch {
       case strings.HasPrefix(trimmed, "/**"):
@@ -123,10 +160,23 @@ func readPublishedRuleOptionFields() (map[string]string, error) {
         doc.WriteString(" ")
         doc.WriteString(strings.TrimPrefix(trimmed, "* "))
       default:
-        if match := property.FindStringSubmatch(line); match != nil {
-          fields[match[1]] = doc.String()
-          doc.Reset()
+        if match := declaration.FindStringSubmatch(trimmed); match != nil {
+          owner = match[1]
         }
+        if match := property.FindStringSubmatch(line); match != nil {
+          fields = append(fields, publishedRuleOptionField{
+            File:  name,
+            Line:  index + 1,
+            Name:  match[1],
+            Doc:   doc.String(),
+            Owner: owner,
+          })
+        }
+        // Any line that is neither a doc comment nor the property it documents
+        // breaks the association. Without this an interface-level doc carrying
+        // the reserved marker would be inherited by its first undocumented
+        // member and exempt it.
+        doc.Reset()
       }
     }
   }

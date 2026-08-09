@@ -390,7 +390,7 @@ Options:
 
 - `enforcement?: | "ReadonlyShallow" | "ReadonlyDeep" | "Immutable" | "None" | false`
 
-  Minimum accepted immutability. The native subset treats any configured value as readonly-required.
+  Minimum accepted immutability. Reserved for upstream-compatible configs: the native subset computes no immutability level and treats any configured value as readonly-required.
 
 Example:
 
@@ -426,25 +426,25 @@ Options:
 
 - `allowLocalMutation?: boolean`
 
-  Permit mutation of locals while still policing exported types.
+  Permit mutation of locals while still policing exported types. Reserved for upstream-compatible configs: the native subset reads type annotations and models no local-versus-exported distinction.
 
-- `allowMutableReturnType?: boolean`
+- `allowMutableReturnType?: boolean` (default `false`)
 
-  Permit a mutable return type even when parameters must be readonly.
+  Permit a mutable return type even when parameters must be readonly. Covers every signature that can declare one, including call and construct signatures, constructor types, and a get accessor.
 
 - `checkImplicit?: boolean`
 
-  Also check property positions that have no explicit type annotation.
+  Also check property positions that have no explicit type annotation. Reserved for upstream-compatible configs: judging an unannotated position needs the type checker, which this rule does not use.
 
-- `ignoreCollections?: boolean`
+- `ignoreCollections?: boolean` (default `false`)
 
   Skip array / tuple / `Map` / `Set` types.
 
-- `ignoreClass?: boolean | "fieldsOnly"`
+- `ignoreClass?: boolean | "fieldsOnly"` (default `false`)
 
-  Skip class fields. `"fieldsOnly"` keeps the rule active for non-field class members.
+  Skip class members. `true` skips the whole class body; `"fieldsOnly"` skips only field declarations and keeps methods, accessors, and constructor parameters checked.
 
-- `ignoreInterface?: boolean`
+- `ignoreInterface?: boolean` (default `false`)
 
   Skip interface members entirely.
 

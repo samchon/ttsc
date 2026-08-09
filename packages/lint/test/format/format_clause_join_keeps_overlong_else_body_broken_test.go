@@ -2,21 +2,31 @@ package linthost
 
 import "testing"
 
-// TestFormatClauseJoinKeepsOverlongElseBodyBroken verifies an `else` body that would overflow printWidth stays broken.
+// TestFormatClauseJoinKeepsOverlongElseBodyBroken verifies the printWidth budget
+// for an `else` clause is charged at its exact limit.
 //
-// The width budget for the new clauses is measured from the `else` keyword's
-// line, not the enclosing `if`, because that is the line Prettier would print.
-// Measuring from the statement start would charge the wrong column and join a
-// line that does not fit.
+// `else stopEverything();` is 22 display columns. Prettier 3.8.3 joins it at
+// printWidth 22 and leaves it broken at 21, so this case walks the boundary from
+// both sides rather than picking a width comfortably past it. A budget measured
+// from the enclosing `if` instead of the `else` keyword would charge the wrong
+// column here.
 //
-//  1. Parse an `else` whose single-statement body cannot fit a narrow printWidth.
-//  2. Run format/clause-join with printWidth 20.
-//  3. Assert the rule reports nothing.
+//  1. Run format/clause-join on the same source at printWidth 22 and 21.
+//  2. Assert the join lands at 22.
+//  3. Assert nothing is reported at 21.
 func TestFormatClauseJoinKeepsOverlongElseBodyBroken(t *testing.T) {
+  const source = "if (ready) run();\nelse\n  stopEverything();\n"
+  assertFixSnapshotWithOptions(
+    t,
+    "format/clause-join",
+    source,
+    `{"printWidth":22,"tabWidth":2}`,
+    "if (ready) run();\nelse stopEverything();\n",
+  )
   assertRuleSkipsSourceWithOptions(
     t,
     "format/clause-join",
-    "if (ready) run();\nelse\n  stopEverything();\n",
-    `{"printWidth":20,"tabWidth":2}`,
+    source,
+    `{"printWidth":21,"tabWidth":2}`,
   )
 }
