@@ -314,3 +314,64 @@ export const other = 2;
 `,
   }, config), "Unreadable @evidence at src/contracts.ts:4")
 }
+
+/**
+ * Verifies a deactivated claim still governs the files it declared.
+ *
+ * Governance was judged against the configuration as activated, and a claim
+ * whose population materializes no unit of its symbol kind is dropped there. A
+ * file whose every declaration an author commented out produces no unit, so the
+ * claim deactivated and the file it declared fell out of the population, and
+ * the citation stranded in that commented-out code went unreported. That is the
+ * exact shape the diagnostic's second repair clause exists for, so the question
+ * is what the author declared rather than what survived activation.
+ *
+ *  1. Comment out every declaration of the only file a claim selects.
+ *  2. Evaluate the claim, which therefore activates nothing.
+ *  3. Assert the stranded citation is still reported.
+ */
+func TestADeactivatedClaimStillGovernsWhatItDeclared(t *testing.T) {
+  assertReported(t, runIndexRule(t, map[string]string{
+    "docs/spec.md": "## Pricing {#pricing}\n",
+    "src/contracts.ts": `// /** @evidence docs/spec.md#pricing The whole file is retired. */
+// export const limit = 1;
+export {};
+`,
+  }, `{"claims":[{
+    "type":"typescript",
+    "files":["src/**"],
+    "symbol":"property",
+    "reference":{"type":"markdown","files":["docs/**/*.md"],"symbol":"h2"}
+  }]}`), "Unreadable @evidence at src/contracts.ts:1")
+}
+
+/**
+ * Verifies a package reference governs no file of the project.
+ *
+ * A package reference reads an installed package from disk, and its globs are
+ * written as a consumer thinks of that package, so they resolve against the
+ * package root. Matched against a project-relative path instead, `**` claimed
+ * every file the project has — `node_modules` included, which is the one the
+ * confinement exists to release, and the one a consumer cannot edit.
+ *
+ *  1. Declare a package reference whose glob would match everything.
+ *  2. Write an unreadable tag in a vendored file.
+ *  3. Assert it is not reported.
+ */
+func TestAPackageReferenceGovernsNoProjectFile(t *testing.T) {
+  assertReported(t, runIndexRule(t, map[string]string{
+    "node_modules/@org/api/package.json": packageManifest,
+    "node_modules/@org/api/lib/index.d.ts": `
+export declare function get(): void;
+`,
+    "node_modules/vendor/index.ts": `// @evidence get A tag in a file the consumer did not write.
+export const other = 2;
+`,
+    "src/views/detail.ts": "export function detail(): void {}\n",
+  }, `{"claims":[{
+    "type":"typescript",
+    "files":["src/views/**"],
+    "symbol":"function",
+    "reference":{"type":"typescript","package":"@org/api","files":["**/*.ts"],"symbol":"function"}
+  }]}`), "Missing acknowledgement for 'get'")
+}
