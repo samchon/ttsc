@@ -137,9 +137,8 @@ export function activate(): void {}
  * Verifies a namespace hosts a citation for `type` alone.
  *
  * A namespace contains callables and data, so its own registration is the one
- * most likely to be widened to whatever it holds. It holds only a nested type
- * here, so nothing inside the namespace can satisfy the selector and mask the
- * refusal; the activating declaration sits outside it for that reason.
+ * most likely to be widened to whatever it holds. Nothing inside it is
+ * callable, so the activating declaration for this row sits outside it.
  *
  *  1. Cite a Markdown section from an exported namespace.
  *  2. Evaluate a `symbol: "function"` claim over that file.
@@ -153,7 +152,10 @@ func TestNamespaceIsNotAFunctionHost(t *testing.T) {
  * Verifies a namespace does not host a property claim either.
  *
  * The namespace is the only container that holds every kind at once, so both of
- * its wrong selectors have to be refused rather than one standing for the other.
+ * its wrong selectors have to be refused rather than one standing for the
+ * other. What activates this row is the nested member `Orders.Input.id` rather
+ * than the declaration outside the namespace, so removing that member silences
+ * the row instead of changing what it asserts.
  *
  *  1. Cite the same section from the same namespace.
  *  2. Evaluate a `symbol: "property"` claim over that file.
@@ -210,11 +212,13 @@ export interface IActivate {
 /**
  * Verifies a dotted namespace hosts a citation for `type` alone.
  *
- * `export namespace Outer.Inner {}` is parsed as nested module declarations, so
- * it reaches a registration site the module-scope rows never touch. The tag
- * resolves through the outer declaration, because that is where TypeScript
- * attaches a leading block, and the inner registration is unreachable by any
- * citation for the same reason.
+ * `export namespace Outer.Inner {}` is parsed as nested module declarations and
+ * resolves through the same registration the module-scope rows use, so what it
+ * pins is that the outer declaration is still registered when a dotted form
+ * flows through that branch: narrowing the branch to skip a nested body reddens
+ * these two rows and no others. The inner registration is unreachable by any
+ * citation, because TypeScript attaches a leading block to the outer
+ * declaration, so it gets no row.
  *
  *  1. Cite a Markdown section from a dotted namespace.
  *  2. Evaluate a `symbol: "function"` claim over that file.
@@ -316,5 +320,26 @@ export interface ISale {
   run(): void;
   label: string;
 }
+`, "property", "function")
+}
+
+/**
+ * Verifies a callable declarator hosts no property claim.
+ *
+ * The declarator's other axis, and the one the statement row cannot reach. A
+ * declarator chooses `property` or `function` from its own initializer, so a
+ * statement-level citation lands on the wrapper and says nothing about which
+ * kind the declarator registered. The tag goes on the inner declarator for that
+ * reason, and the data declarator beside it activates the claim.
+ *
+ *  1. Cite a Markdown section from a function-valued inner declarator.
+ *  2. Evaluate a `symbol: "property"` claim over that file.
+ *  3. Assert the host is refused and the section stays owed.
+ */
+func TestCallableDeclaratorIsNotAPropertyHost(t *testing.T) {
+  assertHostRefused(t, `
+export const alpha = 1,
+  /** @evidence docs/spec.md#contract A callable declarator is not a property. */
+  beta = (): void => {};
 `, "property", "function")
 }

@@ -262,9 +262,17 @@ func traverseEntryExports(
       // First wins on identity, because two paths to one declaration name the
       // same unit. The type-only mark is the exception: it differs per path,
       // and the population is the union of what the paths reach, so a value
-      // path replaces a type-only one rather than losing to declaration order.
-      if !taken || (existing.TypeOnly && !nested.TypeOnly) {
+      // path has to clear a type-only one rather than lose to declaration
+      // order. Only the mark is cleared. Replacing the whole entry would also
+      // swap `Path` and `Local`, and two entries under one name are not always
+      // one declaration: an explicit named re-export shadows a star, and that
+      // resolution is not this loop's to decide.
+      switch {
+      case !taken:
         surface[nested.Address[0]] = nested
+      case existing.TypeOnly && !nested.TypeOnly:
+        existing.TypeOnly = false
+        surface[nested.Address[0]] = existing
       }
     }
     surfaces[target] = surface

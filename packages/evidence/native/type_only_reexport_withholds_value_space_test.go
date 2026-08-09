@@ -341,3 +341,42 @@ func TestATypeOnlyStarWithholdsThroughAValueStarBelowIt(t *testing.T) {
     "src/index.ts": "export type * from \"./inner.js\";\n",
   }, "src/index.ts", typeReexportPopulation)
 }
+
+/**
+ * Verifies a type-only star withholds through a named re-export below it.
+ *
+ * The named branch inherits the mark from the path that reached it as well as
+ * reading the edge's own, and the inherited half was pinned by nothing: dropping
+ * it left the whole suite green while a type-only star over a named barrel
+ * published every value the declaring file holds.
+ *
+ *  1. Re-export the module by name from an inner barrel.
+ *  2. Re-export that barrel with `export type * from` at the entry.
+ *  3. Assert the entry publishes the type-only population.
+ */
+func TestATypeOnlyStarWithholdsThroughANamedReexportBelowIt(t *testing.T) {
+  assertReexportedFrom(t, "type-only star over named", map[string]string{
+    "src/sale.ts":   reexportedSurface,
+    "src/middle.ts": "export { Sale, IPlain, run } from \"./sale.js\";\n",
+    "src/index.ts":  "export type * from \"./middle.js\";\n",
+  }, "src/index.ts", typeReexportPopulation)
+}
+
+/**
+ * Verifies a type-only star withholds through a namespace re-export below it.
+ *
+ * The third branch that carries an inherited mark, and the last one nothing
+ * pinned. It also keeps the segment, so the row states that the withholding
+ * travels with the address rather than being decided where the address starts.
+ *
+ *  1. Re-export the module as a namespace from an inner barrel.
+ *  2. Re-export that barrel with `export type * from` at the entry.
+ *  3. Assert the entry publishes the type-only population under the segment.
+ */
+func TestATypeOnlyStarWithholdsThroughANamespaceReexportBelowIt(t *testing.T) {
+  assertReexportedFrom(t, "type-only star over namespace", map[string]string{
+    "src/sale.ts":   reexportedSurface,
+    "src/middle.ts": "export * as api from \"./sale.js\";\n",
+    "src/index.ts":  "export type * from \"./middle.js\";\n",
+  }, "src/index.ts", []string{"api.IPlain", "api.IPlain.rate", "api.Sale"})
+}

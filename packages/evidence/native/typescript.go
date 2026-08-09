@@ -1113,6 +1113,13 @@ func collectTypeScriptModule(
     if name != "" {
       identity := qualifyTypeScriptName(qualified, name)
       innerHidden := typeScriptHidingTag(file, module.Body, hidden)
+      // No citation reaches this position today. TypeScript attaches a leading
+      // block to the outer declaration of a dotted namespace, so the tag on
+      // `export namespace Outer.Inner {}` resolves through the outer host and
+      // the inner one is written and never read. It is registered anyway,
+      // because the host set is derived from the unit set and a position a unit
+      // records must be in it; the day a form does attach a block here, the
+      // guard is the thing that was already right.
       if innerHidden == "" {
         addTypeScriptHost(supportedHosts, module.Body, "type")
       }

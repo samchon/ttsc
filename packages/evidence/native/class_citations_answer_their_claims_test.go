@@ -267,7 +267,7 @@ export class Sale {
     "symbol":"function",
     "reference":{"type":"markdown","files":["docs/**/*.md"],"symbol":"h2"}
   }]}`)
-  assertProblemContains(t, messages, "is not selected (function)")
+  assertProblemContains(t, messages, "host kind 'type' is not selected (function)")
   assertProblemContains(t, messages, "Missing acknowledgement for 'docs/spec.md#charge'")
 }
 
@@ -299,6 +299,6 @@ export class Sale {
     "symbol":"property",
     "reference":{"type":"markdown","files":["docs/**/*.md"],"symbol":"h2"}
   }]}`)
-  assertProblemContains(t, messages, "is not selected (property)")
+  assertProblemContains(t, messages, "host kind 'type' is not selected (property)")
   assertProblemContains(t, messages, "Missing acknowledgement for 'docs/spec.md#price'")
 }
