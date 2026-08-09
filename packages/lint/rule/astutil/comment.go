@@ -7,10 +7,11 @@ import (
   shimscanner "github.com/microsoft/typescript-go/shim/scanner"
 )
 
-type commentToken struct {
-  kind shimast.Kind
-  pos  int
-  end  int
+// CommentToken is one comment's kind and exact byte range.
+type CommentToken struct {
+  Kind shimast.Kind
+  Pos  int
+  End  int
 }
 
 type sourceSpan struct {
@@ -35,7 +36,7 @@ func ForEachComment(file *shimast.SourceFile, visit func(kind shimast.Kind, pos,
   }
   text := file.Text()
   opaque := parserOpaqueTokenSpans(file)
-  comments := make([]commentToken, 0)
+  comments := make([]CommentToken, 0)
   seen := make(map[sourceSpan]struct{})
   gapScanner := shimscanner.NewScanner()
   collect := func(kind shimast.Kind, pos, end int) {
@@ -47,30 +48,30 @@ func ForEachComment(file *shimast.SourceFile, visit func(kind shimast.Kind, pos,
       return
     }
     seen[span] = struct{}{}
-    comments = append(comments, commentToken{kind: kind, pos: pos, end: end})
+    comments = append(comments, CommentToken{Kind: kind, Pos: pos, End: end})
   }
 
   cursor := 0
   for _, span := range opaque {
     if cursor < span.pos {
-      scanCommentGap(gapScanner, text, cursor, span.pos, collect)
+      ScanCommentGap(gapScanner, text, cursor, span.pos, collect)
     }
     if span.end > cursor {
       cursor = span.end
     }
   }
   if cursor < len(text) {
-    scanCommentGap(gapScanner, text, cursor, len(text), collect)
+    ScanCommentGap(gapScanner, text, cursor, len(text), collect)
   }
 
   sort.Slice(comments, func(i, j int) bool {
-    if comments[i].pos != comments[j].pos {
-      return comments[i].pos < comments[j].pos
+    if comments[i].Pos != comments[j].Pos {
+      return comments[i].Pos < comments[j].Pos
     }
-    return comments[i].end < comments[j].end
+    return comments[i].End < comments[j].End
   })
   for _, comment := range comments {
-    visit(comment.kind, comment.pos, comment.end)
+    visit(comment.Kind, comment.Pos, comment.End)
   }
 }
 
@@ -133,7 +134,8 @@ func parserOpaqueTokenKind(kind shimast.Kind) bool {
 // returns is a real source comment. Scanning the isolated gap also preserves
 // CRLF and Unicode line-terminator behavior without range arithmetic in a
 // second comment parser.
-func scanCommentGap(scanner *shimscanner.Scanner, text string, from, to int, visit func(kind shimast.Kind, pos, end int)) {
+// ScanCommentGap scans one parser-classified non-token gap for comments.
+func ScanCommentGap(scanner *shimscanner.Scanner, text string, from, to int, visit func(kind shimast.Kind, pos, end int)) {
   if scanner == nil || from < 0 || to <= from || to > len(text) {
     return
   }

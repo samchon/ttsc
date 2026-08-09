@@ -153,3 +153,82 @@ func TestATagShapedLineInATemplateIsNotReported(t *testing.T) {
     "@evidence docs/spec.md#pricing Prose that merely looks like a tag.\n"+
     "`;\n"))
 }
+
+/**
+ * Verifies a line comment above a documented declaration is reported.
+ *
+ * A documentation node's reported start is its full start, so its span reaches
+ * back to the previous token and swallows every comment between. Testing an
+ * enumerated comment for containment in that span therefore answered
+ * differently depending on what followed the tag: reported above an
+ * undocumented declaration, silent above a documented one. The second is the
+ * shape an author writes in a codebase that documents its exports, and it left
+ * the run reporting only the coverage finding that tells them to write the
+ * citation they had already written.
+ *
+ *  1. Write a citation in a line comment directly above a documentation block.
+ *  2. Evaluate the same claim.
+ *  3. Assert the tag is reported.
+ */
+func TestALineCommentAboveADocumentedDeclarationIsReported(t *testing.T) {
+  assertReported(t, runUnreadableRule(t, `/** @evidence docs/spec.md#pricing The declaration cites this. */
+export const limit = 1;
+
+// @evidence docs/spec.md#pricing A tag nothing reads.
+/** The other rate. */
+export const other = 2;
+`), "Unreadable @evidence at src/contracts.ts:4")
+}
+
+/**
+ * Verifies a tag behind any run of slashes is reported.
+ *
+ * Prisma answers a tag buried behind a fourth slash, and the reasons carry
+ * over: the comment is real, the file keeps it, and the tag is unreadable by
+ * one keystroke. Answering only two slashes also split one comment against
+ * itself, because the review parser strips `///` and the declaration parser
+ * does not, so `/// @evidenceReview` was reported while the `/// @evidence`
+ * beside it was not.
+ *
+ *  1. Write a citation behind three slashes and another behind four.
+ *  2. Evaluate the same claim.
+ *  3. Assert both are reported.
+ */
+func TestATagBehindAnyRunOfSlashesIsReported(t *testing.T) {
+  messages := runUnreadableRule(t, `/** @evidence docs/spec.md#pricing The declaration cites this. */
+export const limit = 1;
+
+/// @evidence docs/spec.md#pricing Three slashes read nothing.
+export const other = 2;
+
+//// @evidence docs/spec.md#pricing Four slashes read nothing either.
+export const third = 3;
+`)
+  assertReportedAmong(t, messages, "Unreadable @evidence at src/contracts.ts:4")
+  assertReportedAmong(t, messages, "Unreadable @evidence at src/contracts.ts:7")
+}
+
+/**
+ * Verifies commented-out documentation is not reported.
+ *
+ * A tag inside a block an author commented out is unreadable, and saying so
+ * would be a diagnostic whose repair is wrong for it: the author's move is to
+ * delete the block or restore the code it documented, not to put the tag
+ * somewhere a claim selects. The shape is recognizable, because the text under
+ * the slashes still opens as a documentation block.
+ *
+ *  1. Comment out a documented declaration whose block carries a citation.
+ *  2. Evaluate the same claim.
+ *  3. Assert nothing is reported.
+ */
+func TestCommentedOutDocumentationIsNotReported(t *testing.T) {
+  assertNoProblems(t, runUnreadableRule(t, `/** @evidence docs/spec.md#pricing The declaration cites this. */
+export const limit = 1;
+
+// /**
+//  * Retired.
+//  * @evidence docs/spec.md#pricing The old citation.
+//  */
+// export const old = 3;
+`))
+}

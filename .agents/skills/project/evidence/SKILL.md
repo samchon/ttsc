@@ -83,6 +83,8 @@ A second fault travelled with it and has its own cause, which is why they are st
 
 **A unit's reported position comes from inside the declaration's own name.** A node's full start precedes its leading trivia, so it names the line the previous token ended on. That is a line above each leaf of a multi-line destructuring pattern, and two above a declarator whose documentation block sits between it and the preceding comma. Those are the two shapes where a reader cannot recover the position by eye.
 
+**A tag is read only from a block the parser attached to a node, and one written anywhere else is reported rather than discarded.** That agreement is what keeps a citation, the host it lands on, and the exclusion that cuts it out of a digest all naming one position. Two ordinary shapes fall outside it: TypeScript gives a binding element no documentation, so a block between the braces of a destructuring pattern reaches nothing, and a `//` comment is not documentation at all. Report the tag rather than adopting it, because attaching a binding element's block to the leaf it precedes means inventing an association the parser does not provide. A run of three or four slashes is answered like two, and a tag inside documentation an author commented out is left alone, because there the repair is to delete the block rather than to move the tag.
+
 ## Swagger Classification
 
 Swagger is reference-only. One `ITtscEvidenceGraphSwaggerReference` owns one exact project-relative file path or HTTP(S) URL through its singular `file` property; multiple documents are separate reference-array obligations. It has no public `symbol` selector because every operation under the normalized document's `paths` object is selected.

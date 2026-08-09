@@ -86,18 +86,18 @@ func assertExactCommentTokens(t *testing.T, file *shimast.SourceFile, source str
     if strings.HasPrefix(text, "//") {
       kind = shimast.KindSingleLineCommentTrivia
     }
-    expected = append(expected, commentToken{kind: kind, pos: pos, end: pos + len(text)})
+    expected = append(expected, commentToken{Kind: kind, Pos: pos, End: pos + len(text)})
   }
-  sort.Slice(expected, func(i, j int) bool { return expected[i].pos < expected[j].pos })
+  sort.Slice(expected, func(i, j int) bool { return expected[i].Pos < expected[j].Pos })
 
   actual := make([]commentToken, 0)
   forEachCommentToken(file, func(kind shimast.Kind, pos, end int) {
-    actual = append(actual, commentToken{kind: kind, pos: pos, end: end})
+    actual = append(actual, commentToken{Kind: kind, Pos: pos, End: end})
   })
   if !slices.Equal(actual, expected) {
     actualText := make([]string, 0, len(actual))
     for _, token := range actual {
-      actualText = append(actualText, source[token.pos:token.end])
+      actualText = append(actualText, source[token.Pos:token.End])
     }
     t.Fatalf("want tokens %+v, got %+v (%q)", expected, actual, actualText)
   }

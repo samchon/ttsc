@@ -125,7 +125,7 @@ export function parse(value: string): string {
  */
 func TestDocumentedRejectsLineComments(t *testing.T) {
   messages := runDocumentedRule(t, "src/parse.ts", `
-// @evidence docs/spec.md#parse This tag is invisible to the graph.
+// @evidence docs/spec.md#parse The graph reports this tag rather than reading it.
 export function parse(value: string): string {
   return value;
 }
@@ -145,7 +145,7 @@ export function parse(value: string): string {
  */
 func TestDocumentedRejectsNonJsdocBlockComments(t *testing.T) {
   messages := runDocumentedRule(t, "src/parse.ts", `
-/* @evidence docs/spec.md#parse This tag is invisible to the graph. */
+/* @evidence docs/spec.md#parse The graph reports this tag rather than reading it. */
 export function parse(value: string): string {
   return value;
 }
