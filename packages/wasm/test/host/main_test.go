@@ -176,8 +176,17 @@ func describeJSList(list js.Value) string {
   entries := []string{}
   for index := 0; index < list.Length(); index++ {
     entry := list.Index(index)
+    // The summary reading is a list of type names, and those names are the
+    // discriminator, so a string entry is its own description.
     if entry.Type() == js.TypeString {
       entries = append(entries, entry.String())
+      continue
+    }
+    // Only an object can be asked for a constructor. Reading one off anything
+    // else panics, and a reading that panics costs the readings taken after
+    // it, so an entry that is neither is named by what it is instead.
+    if entry.Type() != js.TypeObject && entry.Type() != js.TypeFunction {
+      entries = append(entries, entry.Type().String())
       continue
     }
     entries = append(entries, describeJSHandle(entry))
