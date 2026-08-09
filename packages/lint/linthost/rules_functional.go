@@ -143,6 +143,34 @@ type functionalNoTryOptions struct {
   AllowFinally bool `json:"allowFinally"`
 }
 
+// functionalNoMixedTypesOptions gates the two container kinds the rule visits.
+// Both default to true (an absent key leaves the container checked), so the
+// pointers distinguish "not configured" from an explicit false.
+type functionalNoMixedTypesOptions struct {
+  CheckInterfaces   *bool `json:"checkInterfaces"`
+  CheckTypeLiterals *bool `json:"checkTypeLiterals"`
+}
+
+// functionalNoReturnVoidOptions narrows what counts as a rejected return.
+//
+// `allowNull` and `allowUndefined` default to true, matching the rule's
+// existing behavior: only a declared `void` return type is rejected. Setting
+// either to false extends the rejection to that declared return type.
+// `ignoreInferredTypes` defaults to false and, when true, spares a bare
+// `return;` whose enclosing function declares no return type, which is the one
+// place the rule reports a void-ness it inferred rather than read.
+type functionalNoReturnVoidOptions struct {
+  AllowNull           *bool `json:"allowNull"`
+  AllowUndefined      *bool `json:"allowUndefined"`
+  IgnoreInferredTypes bool  `json:"ignoreInferredTypes"`
+}
+
+// functionalPreferTacitOptions gates the member-expression callee shape.
+// Defaults to true, keeping `x => service.handler(x)` reported as before.
+type functionalPreferTacitOptions struct {
+  CheckMemberExpressions *bool `json:"checkMemberExpressions"`
+}
+
 type functionalImmutableDataOptions struct {
   functionalPatternOptions
   IgnoreMapsAndSets bool `json:"ignoreMapsAndSets"`
@@ -159,8 +187,14 @@ type functionalPreferImmutableTypesOptions struct {
   functionalPatternOptions
 }
 
+// functionalPreferReadonlyTypeOptions narrows which positions the rule polices.
+// Both gates default to off, so an absent key leaves every visited position
+// checked exactly as before.
 type functionalPreferReadonlyTypeOptions struct {
   functionalPatternOptions
+  AllowMutableReturnType bool `json:"allowMutableReturnType"`
+  IgnoreCollections      bool `json:"ignoreCollections"`
+  IgnoreInterface        bool `json:"ignoreInterface"`
 }
 
 type functionalReadonlyTypeOptions struct {
@@ -332,6 +366,18 @@ func (functionalNoLoopStatements) Check(ctx *Context, node *shimast.Node) {
 }
 
 func (functionalNoMixedTypes) Check(ctx *Context, node *shimast.Node) {
+  var opts functionalNoMixedTypesOptions
+  _ = ctx.DecodeOptions(&opts)
+  switch node.Kind {
+  case shimast.KindInterfaceDeclaration:
+    if opts.CheckInterfaces != nil && !*opts.CheckInterfaces {
+      return
+    }
+  case shimast.KindTypeLiteral:
+    if opts.CheckTypeLiterals != nil && !*opts.CheckTypeLiterals {
+      return
+    }
+  }
   members := containerMembers(node)
   if len(members) < 2 {
     return
@@ -361,16 +407,48 @@ func (functionalNoPromiseReject) Check(ctx *Context, node *shimast.Node) {
 }
 
 func (functionalNoReturnVoid) Check(ctx *Context, node *shimast.Node) {
+  var opts functionalNoReturnVoidOptions
+  _ = ctx.DecodeOptions(&opts)
   if node.Kind == shimast.KindReturnStatement {
     ret := node.AsReturnStatement()
-    if ret != nil && ret.Expression == nil {
-      ctx.Report(node, "Function must return a value.")
+    if ret == nil || ret.Expression != nil {
+      return
     }
+    if opts.IgnoreInferredTypes && functionalEnclosingReturnTypeText(ctx, node) == "" {
+      return
+    }
+    ctx.Report(node, "Function must return a value.")
     return
   }
-  if functionalReturnTypeText(ctx, node) == "void" {
+  switch functionalReturnTypeText(ctx, node) {
+  case "void":
     ctx.Report(node, "Function must return a value.")
+  case "null":
+    if opts.AllowNull != nil && !*opts.AllowNull {
+      ctx.Report(node, "Function must return a value.")
+    }
+  case "undefined":
+    if opts.AllowUndefined != nil && !*opts.AllowUndefined {
+      ctx.Report(node, "Function must return a value.")
+    }
   }
+}
+
+// functionalEnclosingReturnTypeText returns the declared return type text of the
+// nearest function-like ancestor of `node`, or "" when that function declares
+// none. A bare `return;` there is the only place the rule reports a void-ness it
+// inferred instead of reading, which is what `ignoreInferredTypes` spares.
+func functionalEnclosingReturnTypeText(ctx *Context, node *shimast.Node) string {
+  for parent := node.Parent; parent != nil; parent = parent.Parent {
+    switch parent.Kind {
+    case shimast.KindFunctionDeclaration,
+      shimast.KindFunctionExpression,
+      shimast.KindArrowFunction,
+      shimast.KindMethodDeclaration:
+      return functionalReturnTypeText(ctx, parent)
+    }
+  }
+  return ""
 }
 
 func (functionalNoThisExpressions) Check(ctx *Context, node *shimast.Node) {
@@ -418,6 +496,15 @@ func (functionalPreferPropertySignatures) Check(ctx *Context, node *shimast.Node
 func (functionalPreferReadonlyType) Check(ctx *Context, node *shimast.Node) {
   var opts functionalPreferReadonlyTypeOptions
   _ = ctx.DecodeOptions(&opts)
+  if opts.IgnoreInterface && hasAncestorKind(node, shimast.KindInterfaceDeclaration) {
+    return
+  }
+  if opts.AllowMutableReturnType && isFunctionLikeReturnTypePosition(node) {
+    return
+  }
+  if opts.IgnoreCollections && isFunctionalCollectionTypeNode(node) {
+    return
+  }
   switch node.Kind {
   case shimast.KindArrayType:
     if !isReadonlyTypeNode(node) {
@@ -451,10 +538,33 @@ func (functionalPreferReadonlyType) Check(ctx *Context, node *shimast.Node) {
 }
 
 func (functionalPreferTacit) Check(ctx *Context, node *shimast.Node) {
+  var opts functionalPreferTacitOptions
+  _ = ctx.DecodeOptions(&opts)
   text := compactFunctionalWhitespace(nodeText(ctx.File, node))
-  if isTacitWrapperText(text) {
-    ctx.Report(node, "Potentially unnecessary function wrapper.")
+  if !isTacitWrapperText(text) {
+    return
   }
+  if opts.CheckMemberExpressions != nil && !*opts.CheckMemberExpressions &&
+    isTacitWrapperMemberCallee(text) {
+    return
+  }
+  ctx.Report(node, "Potentially unnecessary function wrapper.")
+}
+
+// isTacitWrapperMemberCallee reports whether the wrapper's callee is a member
+// expression (`service.handler`) rather than a bare identifier. `text` has
+// already satisfied isTacitWrapperText, so the split and the `(` are present.
+func isTacitWrapperMemberCallee(text string) bool {
+  parts := strings.Split(text, "=>")
+  if len(parts) != 2 {
+    return false
+  }
+  call := parts[1]
+  open := strings.LastIndex(call, "(")
+  if open <= 0 {
+    return false
+  }
+  return strings.Contains(call[:open], ".")
 }
 
 func (functionalReadonlyType) Check(ctx *Context, node *shimast.Node) {
@@ -755,6 +865,70 @@ func nilSafeFile(node *shimast.Node) *shimast.SourceFile {
     }
   }
   return nil
+}
+
+// hasAncestorKind reports whether any ancestor of `node` has `kind`.
+func hasAncestorKind(node *shimast.Node, kind shimast.Kind) bool {
+  for parent := node.Parent; parent != nil; parent = parent.Parent {
+    if parent.Kind == kind {
+      return true
+    }
+  }
+  return false
+}
+
+// isFunctionLikeReturnTypePosition reports whether `node` is the return-type
+// annotation of a function-like declaration or signature, or sits inside one.
+// The rule visits type nodes, so a mutable array nested in the return type is
+// the same position as the return type itself.
+func isFunctionLikeReturnTypePosition(node *shimast.Node) bool {
+  for current := node; current != nil && current.Parent != nil; current = current.Parent {
+    parent := current.Parent
+    var typeNode *shimast.Node
+    switch parent.Kind {
+    case shimast.KindFunctionDeclaration:
+      if decl := parent.AsFunctionDeclaration(); decl != nil {
+        typeNode = decl.Type
+      }
+    case shimast.KindFunctionExpression:
+      if decl := parent.AsFunctionExpression(); decl != nil {
+        typeNode = decl.Type
+      }
+    case shimast.KindArrowFunction:
+      if decl := parent.AsArrowFunction(); decl != nil {
+        typeNode = decl.Type
+      }
+    case shimast.KindMethodDeclaration:
+      if decl := parent.AsMethodDeclaration(); decl != nil {
+        typeNode = decl.Type
+      }
+    case shimast.KindMethodSignature:
+      if decl := parent.AsMethodSignatureDeclaration(); decl != nil {
+        typeNode = decl.Type
+      }
+    case shimast.KindFunctionType:
+      if decl := parent.AsFunctionTypeNode(); decl != nil {
+        typeNode = decl.Type
+      }
+    }
+    if typeNode != nil && typeNode == current {
+      return true
+    }
+  }
+  return false
+}
+
+// isFunctionalCollectionTypeNode reports whether `node` is an array, tuple, or
+// mutable built-in collection reference, the set `ignoreCollections` spares.
+func isFunctionalCollectionTypeNode(node *shimast.Node) bool {
+  switch node.Kind {
+  case shimast.KindArrayType, shimast.KindTupleType:
+    return true
+  case shimast.KindTypeReference:
+    return isMutableTypeReference(node)
+  default:
+    return false
+  }
 }
 
 func isMutableTypeReference(node *shimast.Node) bool {

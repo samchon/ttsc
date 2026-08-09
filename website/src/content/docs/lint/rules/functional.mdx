@@ -249,13 +249,13 @@ Reject interfaces and type literals that mix property, method, call, and index m
 
 Options:
 
-- `checkInterfaces?: boolean`
+- `checkInterfaces?: boolean` (default `true`)
 
-  Check interface member kinds.
+  Check interface member kinds. Set `false` to leave interfaces alone.
 
-- `checkTypeLiterals?: boolean`
+- `checkTypeLiterals?: boolean` (default `true`)
 
-  Check type-literal member kinds.
+  Check type-literal member kinds. Set `false` to leave type literals alone.
 
 Example:
 
@@ -288,17 +288,17 @@ Reject void returns and functions whose declared return type is `void`; function
 
 Options:
 
-- `allowNull?: boolean`
+- `allowNull?: boolean` (default `true`)
 
-  Permit a function that returns `null` to satisfy the rule.
+  Permit a function whose declared return type is `null`. Set `false` to reject it the way a declared `void` is rejected.
 
-- `allowUndefined?: boolean`
+- `allowUndefined?: boolean` (default `true`)
 
-  Permit a function that returns `undefined` to satisfy the rule.
+  Permit a function whose declared return type is `undefined`. Set `false` to reject it the way a declared `void` is rejected.
 
-- `ignoreInferredTypes?: boolean`
+- `ignoreInferredTypes?: boolean` (default `false`)
 
-  Skip functions whose return type is inferred to be `void` rather than declared explicitly.
+  Skip a bare `return;` inside a function that declares no return type. That statement is the one place the rule rejects a void-ness it inferred rather than read from an annotation.
 
 Example:
 
@@ -463,9 +463,9 @@ Reject trivial wrappers such as `x => f(x)` in favor of the tacit form `f`; redu
 
 Options:
 
-- `checkMemberExpressions?: boolean`
+- `checkMemberExpressions?: boolean` (default `true`)
 
-  Check member expressions such as `x => service.map(x)`.
+  Check member expressions such as `x => service.map(x)`. Set `false` to keep the rule on bare-identifier callees only.
 
 Example:
 
@@ -512,6 +512,8 @@ Options:
 - `ignoreInterfaces?: boolean`
 
   Skip interface declarations and only check type aliases.
+
+Each policy entry accepts `identifiers`, plus `immutability` and `comparator`. The latter two are reserved for upstream-compatible configs: the native subset computes no immutability level, so it treats every policy as readonly-required and compares nothing.
 
 Example:
 
