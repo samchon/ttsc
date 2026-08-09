@@ -207,7 +207,9 @@ func scanTypeScriptInventoryAt(
 // `collectTypeScriptVariables` began recording it. `documentedHosts` filters on
 // the same association and was measured to answer identically either way, since
 // it reads a unit's first node and that is always the statement wrapper; the
-// invariant is what was broken there rather than an observable answer. A second fault travelled
+// invariant is what was broken there rather than an observable answer.
+//
+// A second fault travelled
 // with that one and has its own cause, which is why they are stated apart: a
 // withdrawal tag read from a container is not the tag of the declarations
 // inside it, so an inner declarator owes its own read, and recording the node
@@ -658,19 +660,26 @@ func collectClassDeclarationNames(
 // no type checker.
 // A declarator is both a host position and a unit node, and it has to be both.
 // It was only the first: `supportedHosts` held it while no unit recorded it, so
-// nothing that walks from a unit to its declarations could see it. Three
-// answers were wrong at once and all three were silent. `withdrawHiddenHosts`
-// could not take it away from a withdrawn identity, so a declaration the author
-// had removed from the API went on discharging coverage. `hostNodesOf` filtered
-// it out of `evidence/documented`. And a citation written on it resolved to no
-// semantic host, so `singleEvidencePerSymbol` counted the statement's identities
-// as citing zero units while the same run reported the obligation satisfied.
+// nothing that walks from a unit to its declarations could see it. Two answers
+// were wrong and both were silent. `withdrawHiddenHosts` could not take the
+// position away from a withdrawn identity, so a declaration the author had
+// removed from the API went on discharging coverage and carrying exclusions.
+// And a citation written on it resolved to no semantic host, so
+// `singleEvidencePerSymbol` counted the statement's identities as citing zero
+// units while the same run reported the obligation satisfied.
 //
-// Its own withdrawal tag is read here for the same reason, and it is a separate
-// fault rather than the same one: the statement wrapper's tag was taken for
-// every declarator it holds, so `@internal` written on an inner declarator
-// withdrew nothing. Recording the node closes the first three and leaves this
-// one standing, which is why #1126 states them apart.
+// A third consumer reads the same association and was measured to answer
+// identically either way. `hostNodesOf` keeps a unit's host nodes and takes the
+// first, and a declarator is a host only when its statement is one for the same
+// symbol, so `evidence/documented` always had the wrapper to look at. The
+// invariant was broken there rather than the answer, which is reason enough:
+// the next declaration form to register a position will not be so lucky.
+//
+// Its own withdrawal tag is read here for a separate fault rather than the same
+// one: the statement wrapper's tag was taken for every declarator it holds, so
+// `@internal` written on an inner declarator withdrew nothing. Recording the
+// node closes the first two and leaves this one standing, which is why #1126
+// states them apart.
 func collectTypeScriptVariables(
   file *shimast.SourceFile,
   statement *shimast.Node,

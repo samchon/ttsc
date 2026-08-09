@@ -192,3 +192,37 @@ func TestWithdrawnIdentityIsNotAnExclusionCarrierOnItsOtherDeclaration(t *testin
   assertProblemContains(t, messages, "not an eligible exclusion carrier")
   assertProblemContains(t, messages, "Missing acknowledgement for 'docs/spec.md#pricing'")
 }
+
+/**
+ * Verifies the same position answers normally when nothing withdrew it.
+ *
+ * The negative twin of the two cases above. Both of them assert a refusal, and a
+ * refusal is also what an over-applied withdrawal produces, so without this the
+ * pair would keep passing if every merged identity started coming out withdrawn.
+ * The fixture is the same merge with the `@internal` block removed and nothing
+ * else changed.
+ *
+ *  1. Declare the same merged identity with neither half withdrawn.
+ *  2. Cite a section from the same untagged declarator.
+ *  3. Assert the citation is accepted and the section is discharged.
+ */
+func TestLiveIdentityAnswersOnItsOtherDeclaration(t *testing.T) {
+  assertNoProblems(t, runIndexRule(t, map[string]string{
+    "docs/spec.md": "## Pricing {#pricing}\n",
+    "src/contracts.ts": `
+export namespace N {
+  export var price: number;
+}
+export namespace N {
+  export var other: number,
+    /** @evidence docs/spec.md#pricing A live identity answers here. */
+    price: number;
+}
+`,
+  }, `{"claims":[{
+    "type":"typescript",
+    "files":["src/**"],
+    "symbol":"property",
+    "reference":{"type":"markdown","files":["docs/**/*.md"],"symbol":"h2"}
+  }]}`))
+}
