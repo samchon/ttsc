@@ -4,6 +4,7 @@
 // shells can exceed its command-line limit, even though the test itself needs
 // no inherited configuration beyond the normal process and temporary paths.
 
+const fs = require("node:fs");
 const path = require("node:path");
 
 const wasmExec = process.argv[2];
@@ -13,7 +14,7 @@ if (!wasmExec) {
 
 // Read before the environment is trimmed, so the knob never reaches the wasm
 // program and never has to be kept for it.
-const overrunSeconds = Number(process.env.TTSC_WASM_EXEC_TIMEOUT ?? "120");
+const overrunSeconds = backstopSeconds(process.env.TTSC_WASM_EXEC_TIMEOUT);
 
 const keep = new Set([
   "ComSpec",
@@ -33,36 +34,92 @@ for (const key of Object.keys(process.env)) {
   if (!keep.has(key)) delete process.env[key];
 }
 
-// Report what node is still waiting on when the program overruns, instead of
-// leaving cmd/go to kill it eleven minutes later with nothing to read.
+// Terminate a wasm program whose own guard could not, and say what node was
+// still holding.
 //
-// `packages/wasm/test/host` finishes in under a second on 78 of 81 measured
-// runs and hangs on the rest, always after the suite has printed `PASS`. The
-// kill that follows lands on this node process rather than on a Go one, and
-// node cannot dump goroutines living inside the wasm module, so every
-// occurrence so far produced no evidence at all (#1089).
+// The suite's Go-side guard is the one that produces the useful artifact: it
+// dumps every goroutine stack, which is what `go test`'s eleven-minute kill
+// cannot, because that kill reaches node and node has no goroutines to report
+// (#1089). This exists only for the case that guard cannot cover, where the Go
+// runtime is wedged so completely that its own timer never runs. It is
+// therefore deliberately slower than the Go budget: whichever fires first ends
+// the process, and the richer artifact must always win the race.
 //
-// The wasm program runs inside this process, so its pending work is node's
-// pending work, and node can be asked. The timer is unreferenced, so a healthy
-// run exits before it is ever consulted and nothing here can hold a process
-// open that would otherwise close.
-if (Number.isFinite(overrunSeconds) && overrunSeconds > 0) {
-  const watchdog = setTimeout(() => {
-    const resources =
-      typeof process.getActiveResourcesInfo === "function"
-        ? process.getActiveResourcesInfo()
-        : ["unavailable on this node version"];
-    process.stderr.write(
-      `go-wasm-exec: the wasm program has not exited after ${overrunSeconds}s.
-` +
-        `go-wasm-exec: node is still holding ${JSON.stringify(resources)}.
-` +
-        `go-wasm-exec: see https://github.com/samchon/ttsc/issues/1089.
-`,
+// The reading is per-handle rather than the type-name summary
+// `getActiveResourcesInfo` returns. That summary is `["PipeWrap","Timeout"]`
+// for this suite whether it is healthy or wedged, because the suite always
+// writes to stdout and `host.Expose` always keeps an hourly timer alive, so it
+// distinguishes nothing. A handle carries an fd, a pending byte count, and a
+// constructor name, which do.
+//
+// The timer is unreferenced, so it can never hold open a process that would
+// otherwise close. That is independent of the budget: a healthy run of this
+// suite exits in about a second and never reaches the callback at all.
+if (overrunSeconds > 0) {
+  const backstop = setTimeout(() => {
+    // fs.writeSync rather than process.stderr.write, because stdio to a pipe is
+    // asynchronous on macOS and process.exit does not flush a pending write.
+    // The Go-side guard bypasses its own stderr for a neighbouring reason.
+    fs.writeSync(
+      2,
+      `go-wasm-exec: the wasm program has not exited after ${overrunSeconds}s,` +
+        ` and its own guard did not report first.\n` +
+        `go-wasm-exec: node is still holding ${describeHandles()}\n` +
+        `go-wasm-exec: see https://github.com/samchon/ttsc/issues/1089.\n`,
     );
     process.exit(1);
   }, overrunSeconds * 1000);
-  watchdog.unref();
+  backstop.unref();
+}
+
+// backstopSeconds reads the budget, refusing a value it cannot honor.
+//
+// A misspelled knob used to disable the guard in silence, which is
+// indistinguishable from having it, so a lane could lose its only backstop
+// without saying so. `0` stays a deliberate way to switch it off, and the
+// ceiling is node's own: a delay past a 32-bit millisecond count is clamped to
+// 1ms, so a value meant to mean "effectively never" would fail a healthy run
+// instantly.
+function backstopSeconds(raw) {
+  if (raw === undefined) return 240;
+  const parsed = raw.trim() === "" ? Number.NaN : Number(raw);
+  if (!Number.isFinite(parsed) || parsed < 0 || parsed > 2147483) {
+    throw new Error(
+      `go-wasm-exec.cjs: TTSC_WASM_EXEC_TIMEOUT must be a number of seconds between 0 and 2147483, got ${JSON.stringify(raw)}`,
+    );
+  }
+  return parsed;
+}
+
+// describeHandles names what the event loop is still waiting on.
+function describeHandles() {
+  const handles =
+    typeof process._getActiveHandles === "function"
+      ? process._getActiveHandles()
+      : [];
+  const requests =
+    typeof process._getActiveRequests === "function"
+      ? process._getActiveRequests()
+      : [];
+  const described = [...handles, ...requests].map((held) => {
+    const name = held?.constructor?.name ?? typeof held;
+    const detail = [];
+    if (typeof held?.fd === "number") detail.push(`fd=${held.fd}`);
+    if (typeof held?.writableLength === "number")
+      detail.push(`pending=${held.writableLength}`);
+    if (typeof held?.bytesWritten === "number")
+      detail.push(`written=${held.bytesWritten}`);
+    return detail.length === 0 ? name : `${name}(${detail.join(" ")})`;
+  });
+  const summary =
+    typeof process.getActiveResourcesInfo === "function"
+      ? process.getActiveResourcesInfo()
+      : [];
+  // The type summary is kept beside the handles because node reports a pending
+  // timer only there, and a wedged runtime holding nothing else is still worth
+  // telling apart from one holding a half-written pipe.
+  const held = described.length === 0 ? "no handle" : described.join(", ");
+  return `${held} (resources: ${summary.join(", ") || "none"})`;
 }
 
 process.argv = [
