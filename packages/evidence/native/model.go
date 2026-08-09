@@ -193,6 +193,16 @@ type evidenceUnit struct {
   // never selected and never hosts a declaration; it is retained only so a
   // citation of it can be told why the target it names is not there.
   Hidden string
+  // ValueSpace marks a unit reached only through a value: a function, a
+  // variable, a class member, or a member of an interface merged with a class.
+  //
+  // A type-only export exposes no value, so it exposes none of these either.
+  // The collector answers that for an export written in the declaring file,
+  // where it knows the declaration kind in hand. A re-export naming another
+  // module arrives at traversal time with no such context, which is what this
+  // field supplies: the same question, asked once at materialization and
+  // answered wherever reachability arrives through a type-only edge.
+  ValueSpace bool
   // Digest is this unit's content, hashed after normalization and with every
   // position a tag can live in removed.
   //

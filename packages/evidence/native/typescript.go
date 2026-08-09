@@ -348,6 +348,9 @@ func collectTypeScriptStatements(
           supportedHosts,
           unitsByID,
           memberHidden,
+          // Only the class merge makes these value-space. An interface's own
+          // members are type-space and a type-only export publishes them.
+          mergedWithClass,
         )
       }
     case shimast.KindTypeAliasDeclaration:
@@ -391,6 +394,7 @@ func collectTypeScriptStatements(
             supportedHosts,
             unitsByID,
             memberHidden,
+            false,
           )
         }
       }
@@ -425,7 +429,7 @@ func collectTypeScriptStatements(
           qualifyTypeScriptName(prefix, name),
           parentID,
           memberHidden,
-        )
+        ).ValueSpace = true
       }
     case shimast.KindVariableStatement:
       if typeOnlyProjection {
@@ -461,12 +465,14 @@ func collectTypeScriptStatements(
       // `C.prototype.field` and `C.staticField` are paths through the class
       // *value*, and a type-only alias exposes no value to walk them from.
       //
-      // Among type-only exports the criterion is the module specifier rather
-      // than the spelling. `target.TypeOnly` sees an export list in this file,
-      // `export type { C }` and `export { type C }` alike, while a re-export
-      // naming another module records no mark at all, so the withholding
-      // simply does not happen there. The interface branch mirrors this guard
-      // for a class-merged interface and points here for the reason.
+      // This guard answers an export written in this file, where the
+      // declaration kind is in hand: `target.TypeOnly` sees `export type { C }`
+      // and `export { type C }` alike, and `typeOnlyProjection` sees a
+      // type-only alias of an enclosing namespace. A re-export naming another
+      // module has no such context and is answered at traversal time instead,
+      // from `evidenceUnit.ValueSpace`, which is why these members are marked
+      // there. The interface branch mirrors this guard for a class-merged
+      // interface and points here for the reason.
       targets := publicTypeScriptExports(
         statement,
         name,
@@ -725,6 +731,7 @@ func collectTypeScriptVariables(
         // is where a citation for this unit actually lives. The
         // declarator is recorded too, because it is a host position and
         // every consumer that walks a unit's nodes has to reach it.
+        unit.ValueSpace = true
         inventory.recordUnitNode(unit.ID, statement)
         inventory.recordUnitNode(unit.ID, declaration)
       }
@@ -1006,7 +1013,7 @@ func addClassMemberUnit(
     identity,
     classID,
     memberHidden,
-  )
+  ).ValueSpace = true
   if memberHidden == "" {
     addTypeScriptHost(supportedHosts, node, symbol)
   }
@@ -1164,6 +1171,7 @@ func collectPropertyMembers(
   supportedHosts map[*shimast.Node]symbolSet,
   unitsByID map[string]*evidenceUnit,
   hidden string,
+  valueSpace bool,
 ) {
   if members == nil {
     return
@@ -1195,7 +1203,7 @@ func collectPropertyMembers(
       identity,
       parentID,
       memberHidden,
-    )
+    ).ValueSpace = valueSpace
     if memberHidden == "" {
       addTypeScriptHost(supportedHosts, member, symbol)
     }

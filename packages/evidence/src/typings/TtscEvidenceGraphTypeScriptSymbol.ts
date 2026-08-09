@@ -68,10 +68,10 @@
  * functions, and every class member, the last because a member is addressed
  * through the class value the alias does not expose. An interface merged with a
  * class is withheld with it, since its members are reached through that same
- * value. Among type-only exports the withholding follows the module specifier
- * rather than the spelling: a type-only export list in the declaring file
- * withholds, `export type { Sale }` and `export { type Sale }` alike, while a
- * re-export naming another module records no mark and withholds nothing. A
+ * value. Every type-only export withholds, in every spelling and across every
+ * module boundary: an export list in the declaring file, an inline `export {
+ * type Sale }`, and a re-export in any of `export type { Sale } from`, `export
+ * { type Sale } from`, `export type * from`, and `export type * as api from`. A
  * member of an object-shaped type alias, or of an interface no class merges
  * with, uses `TypeName.member`, whether it carries data or is written as a
  * callable; one declared by an interface merged with a class is an instance
