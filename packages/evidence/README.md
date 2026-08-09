@@ -264,7 +264,7 @@ Ordinary coverage is permissive, which is right for a document several modules h
 - `noEvidenceExclude` refuses exclusions, so the target still owes positive evidence. A published accessor no hook consumes is an omission rather than a decision.
 - `uniqueEvidence` allows at most one host per unit, so one host is answerable for it rather than several.
 - `singleEvidencePerSymbol` requires exactly one unit from every selected host, so a host citing nothing and a host citing everything both fail.
-- `requireReview` makes every acknowledgement owe a matching review carrying a fingerprint of the cited content, so the review fails again once that content changes. A citation is answered by `@evidenceReview` and an exclusion by `@evidenceExcludeReview`; neither answers the other. Markdown and TypeScript references only.
+- `requireReview` makes every acknowledgement owe a matching review carrying a fingerprint of the cited content, so the review fails again once that content changes. A citation is answered by `@evidenceReview` and an exclusion by `@evidenceExcludeReview`; neither answers the other. Every reference kind accepts it, because each bridge digests a unit's content where that content is understood.
 
 Counting is by identity rather than by text. Repeated tags for one unit count once, an overload set stays one host, and citing a parent of two selected units counts as two.
 

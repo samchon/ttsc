@@ -4,6 +4,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { parse } from "yaml";
 
+import { canonicalDigest } from "./canonicalDigest";
 import { normalizeSwaggerDocument } from "./normalizeSwaggerDocument";
 
 const MAX_DOCUMENT_BYTES: number = 16 * 1024 * 1024;
@@ -35,6 +36,15 @@ interface ISwaggerDocumentProblem {
 interface ISwaggerOperation {
   method: string;
   path: string;
+  /**
+   * The operation's own content, digested where it is understood.
+   *
+   * The native side receives identities and cannot recompute this: it never
+   * sees the normalized document. Nothing inside an OpenAPI operation hosts an
+   * evidence tag, so nothing is excluded, and the operation is the unit, so
+   * there is no subtree to compose.
+   */
+  digest: string;
 }
 
 /**
@@ -168,10 +178,12 @@ const operationsOf = (document: OpenApi.IDocument): ISwaggerOperation[] => {
     for (const method of METHODS) {
       const operation: OpenApi.IOperation | undefined = item[method];
       if (operation !== undefined)
-        operations.push(operationOf(method, operationPath));
+        operations.push(operationOf(method, operationPath, operation));
     }
-    for (const method of Object.keys(item.additionalOperations ?? {}))
-      operations.push(operationOf(method, operationPath));
+    for (const [method, operation] of Object.entries(
+      item.additionalOperations ?? {},
+    ))
+      operations.push(operationOf(method, operationPath, operation));
   }
   operations.sort((left, right) => {
     const leftTarget: string = `${left.method}:${left.path}`;
@@ -195,6 +207,7 @@ const operationsOf = (document: OpenApi.IDocument): ISwaggerOperation[] => {
 const operationOf = (
   method: string,
   operationPath: string,
+  operation: OpenApi.IOperation,
 ): ISwaggerOperation => {
   if (!operationPath.startsWith("/"))
     throw new Error(
@@ -210,6 +223,7 @@ const operationOf = (
   return {
     method: method.toUpperCase(),
     path: operationPath,
+    digest: canonicalDigest(operation),
   };
 };
 

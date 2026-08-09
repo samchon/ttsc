@@ -82,6 +82,13 @@ type swaggerDocumentProblem struct {
 type swaggerOperation struct {
   Method string `json:"method"`
   Path   string `json:"path"`
+  // Digest is the operation's content, hashed by the bridge that normalized it.
+  //
+  // This side never sees the document, so the value travels with the identity
+  // rather than being recomputed here. The document-wide digest beside it is a
+  // cache key and answers a different question: one value shared by every
+  // operation expires every review in a document whenever any part of it moves.
+  Digest string `json:"digest"`
 }
 
 func loadSwaggerInventories(
@@ -280,6 +287,7 @@ func swaggerOperationUnit(
     Symbol:   "operation",
     Path:     displaySwaggerSource(source),
     Readable: readable,
+    Digest:   operation.Digest,
   }, ""
 }
 

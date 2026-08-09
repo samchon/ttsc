@@ -94,15 +94,24 @@ type prismaSetProblem struct {
 }
 
 type prismaModel struct {
-  Name          string        `json:"name"`
-  Documentation string        `json:"documentation"`
-  Fields        []prismaField `json:"fields"`
+  Name          string `json:"name"`
+  Documentation string `json:"documentation"`
+  // Digest is the model's own declaration, hashed by the bridge that parsed it,
+  // with its documentation and its fields left out. A field is a unit of its
+  // own and the scope composes them, so folding them in here would make one
+  // field's edit expire a review of every sibling.
+  Digest string        `json:"digest"`
+  Fields []prismaField `json:"fields"`
 }
 
 type prismaField struct {
   Name          string `json:"name"`
   Symbol        string `json:"symbol"`
   Documentation string `json:"documentation"`
+  // Digest is the field's own declaration, with its documentation left out.
+  // Its type, its attributes, and their arguments reach no other part of this
+  // process, so this is the only place a change to them is visible.
+  Digest string `json:"digest"`
 }
 
 // loadPrismaInventories materializes one inventory per configured schema file.
@@ -469,6 +478,7 @@ func prismaModelUnits(model prismaModel) []*evidenceUnit {
     Symbol:   "model",
     Readable: "Prisma model '" + model.Name + "'",
     Hidden:   modelHidden,
+    Digest:   model.Digest,
   }}
   seen := map[string]bool{}
   for _, field := range model.Fields {
@@ -493,6 +503,7 @@ func prismaModelUnits(model prismaModel) []*evidenceUnit {
       Symbol:   field.Symbol,
       Readable: "Prisma " + field.Symbol + " '" + model.Name + "." + field.Name + "'",
       Hidden:   fieldHidden,
+      Digest:   field.Digest,
     })
   }
   return units

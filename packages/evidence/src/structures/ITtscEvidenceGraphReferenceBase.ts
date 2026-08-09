@@ -112,10 +112,12 @@ export interface ITtscEvidenceGraphReferenceBase<Type extends string> {
    * inside a published doc comment deletes the property it documents from the
    * emitted declarations. That is how this very property went missing once.
    *
-   * Only Markdown and TypeScript references accept this today. A Swagger or
-   * Prisma reference is refused at decode, because those loaders report unit
-   * identities rather than unit content and no per-unit fingerprint exists to
-   * compare against.
+   * Every reference kind accepts this. A Swagger or Prisma reference used to be
+   * refused at decode, because those loaders reported unit identities and
+   * nothing else; each bridge now digests a unit's content on the side that
+   * understands it, which for an operation is its normalized definition and for
+   * a Prisma model or member is its parsed declaration without the
+   * documentation comment a review of it is written in.
    *
    * @default false
    */

@@ -1,73 +1,57 @@
 package evidence
 
 import (
+  "encoding/json"
+  "strings"
   "testing"
 )
 
 /**
- * Verifies requireReview is refused on the reference kinds that carry no
- * per-unit content.
+ * Verifies requireReview decodes on the two reference kinds that used to refuse
+ * it.
  *
- * The Swagger and Prisma loaders cross a JavaScript process boundary that
- * reports unit identities: an operation arrives as `{method, path}`, and a model
- * arrives as a name, a documentation comment, and its field names, with every
- * type, attribute, and default left behind. There is nothing to fingerprint, so a
- * review over such a population could never expire.
+ * The option was refused at decode for Swagger and Prisma, because their
+ * loaders reported unit identities and nothing else: an operation arrived as
+ * `{method, path}`, so there was nothing to fingerprint and a review over one
+ * could never expire. Both bridges now digest each unit's content on the side
+ * that understands it, so the refusal has nothing left to protect.
  *
- * The refusal is at decode, and the two silent alternatives are why. Ignoring the
- * flag ships a policy that claims to constrain and does not. Falling back to the
- * whole-source digest both loaders already return makes every unit of a document
- * share one value, so one endpoint change expires every review of every operation
- * in it and the feature communicates nothing.
+ * Decode is the layer this is asserted at, because decode is where the refusal
+ * lived. The behavior it unlocks is pinned separately, against each bridge.
  *
- *  1. Declare a Swagger reference with `requireReview`.
- *  2. Assert the configuration is refused and the message names the reason and
- *     the repair rather than only the rejection.
+ *  1. Declare a Swagger reference and a Prisma reference, both with
+ *     `requireReview`.
+ *  2. Decode the configuration.
+ *  3. Assert no problem is reported and both policies carry the flag.
  */
-func TestConfigurationRefusesRequireReviewOnSwagger(t *testing.T) {
-  assertProblemContains(t, runIndexRule(t, map[string]string{
-    "api/openapi.json": `{"openapi":"3.1.0","paths":{}}`,
-    "src/ISale.ts":     "export interface ISale {}\n",
-  }, `{"claims":[{
-    "type":"typescript",
-    "files":["src/**"],
-    "symbol":"type",
-    "reference":{
-      "type":"swagger",
-      "file":"api/openapi.json",
-      "requireReview":true
+func TestRequireReviewDecodesOnEveryReferenceKind(t *testing.T) {
+  config, problems := decodeGraphConfig(json.RawMessage(`{"claims":[
+    {
+      "type":"typescript",
+      "files":["src/**"],
+      "symbol":"type",
+      "reference":{"type":"swagger","file":"api/openapi.json","requireReview":true}
+    },
+    {
+      "type":"typescript",
+      "files":["src/**"],
+      "symbol":"type",
+      "reference":{
+        "type":"prisma",
+        "files":["prisma/**/*.prisma"],
+        "symbol":"model",
+        "requireReview":true
+      }
     }
-  }]}`), "reference cannot require a review yet")
-}
-
-/**
- * Verifies the same refusal for a Prisma reference.
- *
- * Prisma is the sharper half of the same cause and is pinned separately, because
- * its payload does carry *some* content. A digest built from it would be stable
- * across a field's type changing from `String` to `Int`, a removed `@unique`, and
- * a changed `@default`, which are the changes a specification review most needs
- * to expire on. A partially informed fingerprint is worse than none: it reports
- * fresh for exactly the class of change that matters.
- *
- *  1. Declare a Prisma reference with `requireReview`.
- *  2. Assert the configuration is refused.
- */
-func TestConfigurationRefusesRequireReviewOnPrisma(t *testing.T) {
-  assertProblemContains(t, runIndexRule(t, map[string]string{
-    "prisma/schema/sale.prisma": "model Sale {\n  id String @id\n}\n",
-    "src/ISale.ts":              "export interface ISale {}\n",
-  }, `{"claims":[{
-    "type":"typescript",
-    "files":["src/**"],
-    "symbol":"type",
-    "reference":{
-      "type":"prisma",
-      "files":["prisma/schema/**/*.prisma"],
-      "symbol":"model",
-      "requireReview":true
+  ]}`))
+  if len(problems) != 0 {
+    t.Fatalf("expected no configuration problem, got:\n%s", strings.Join(problems, "\n"))
+  }
+  for index, claim := range config.Claims {
+    if !claim.References[0].Policy.RequireReview {
+      t.Fatalf("claim %d decoded requireReview as false", index+1)
     }
-  }]}`), "reference cannot require a review yet")
+  }
 }
 
 /**

@@ -206,9 +206,6 @@ func decodeReference(
   problems = append(problems, rootProblems...)
   policy, policyProblems := decodeReferencePolicy(object, path)
   problems = append(problems, policyProblems...)
-  if problem := rejectUnreviewableReference(policy, kind, path); problem != "" {
-    problems = append(problems, problem)
-  }
   files := globSet{}
   source := ""
   packageName := ""
@@ -312,43 +309,6 @@ func decodeReferencePolicy(
   decodeFlag("singleEvidencePerSymbol", &policy.SingleEvidencePerSymbol)
   decodeFlag("requireReview", &policy.RequireReview)
   return policy, problems
-}
-
-// rejectUnreviewableReference refuses requireReview where no per-unit content
-// reaches this process.
-//
-// The Swagger and Prisma loaders cross a JavaScript process boundary that
-// carries unit identities rather than unit content: a Swagger operation arrives
-// as `{method, path}`, and a Prisma model arrives as a name, a documentation
-// comment, and its field names, with every type, attribute, and default left
-// behind. There is nothing to fingerprint, so a review over such a population
-// could never expire.
-//
-// Both loaders do return a whole-source digest, and neither is usable here. One
-// value shared by every unit of a document expires every review of every
-// operation in it whenever the document is regenerated, and a feature that
-// expires everything communicates nothing.
-//
-// The refusal is at decode rather than at evaluation because it is a property of
-// the configuration, and because the two silent alternatives are worse: ignoring
-// the flag ships a policy that claims to constrain and does not, while falling
-// back to the whole-source digest ships the mass false-expiry above.
-func rejectUnreviewableReference(
-  policy referencePolicy,
-  referenceKind artifactKind,
-  path string,
-) string {
-  if !policy.RequireReview {
-    return ""
-  }
-  if referenceKind != artifactSwagger && referenceKind != artifactPrisma {
-    return ""
-  }
-  return configurationProblem(
-    graphRuleName,
-    path+".requireReview",
-    "a "+string(referenceKind)+" reference cannot require a review yet, because its loader reports unit identities rather than unit content and no per-unit fingerprint exists to compare against. Remove the option, or move the obligation to a Markdown or TypeScript reference.",
-  )
 }
 
 // rejectForeignTypeScriptReference refuses a code population to a claim that
