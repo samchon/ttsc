@@ -18,12 +18,15 @@ import (
 // the guard runs at all.
 //
 // The source is broken deliberately rather than waited for, because a node
-// that misbehaves on its own is exactly what cannot be arranged.
+// that misbehaves on its own is exactly what cannot be arranged. It throws
+// rather than returning a bad shape, because a bad shape is now named instead
+// of panicking, and the path this case exists for is the one that still ends
+// in a panic: `Value.Call` routes a JS throw back into Go as one.
 func TestStallReadingSurvivesABrokenSource(t *testing.T) {
   process := js.Global().Get("process")
   original := process.Get("_getActiveHandles")
   defer process.Set("_getActiveHandles", original)
-  js.Global().Call("eval", "process._getActiveHandles = () => [null]")
+  js.Global().Call("eval", "process._getActiveHandles = () => { throw new Error('boom') }")
 
   reading := nodePendingWork()
   if !strings.HasPrefix(reading, "getActiveResourcesInfo=[") {
