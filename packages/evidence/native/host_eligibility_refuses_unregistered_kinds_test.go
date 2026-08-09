@@ -216,8 +216,8 @@ export interface IActivate {
  * resolves through the same registration the module-scope rows use, so what it
  * pins is that the outer declaration is still registered when a dotted form
  * flows through that branch: narrowing that registration to skip a nested body
- * reddens these two rows and no others. The inner registration is unreachable by any
- * citation, because TypeScript attaches a leading block to the outer
+ * reddens these two rows and no others. The inner registration is unreachable
+ * by any citation, because TypeScript attaches a leading block to the outer
  * declaration, so it gets no row.
  *
  *  1. Cite a Markdown section from a dotted namespace.
