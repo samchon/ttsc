@@ -337,18 +337,15 @@ func directivePayload(text, marker string) (string, bool) {
   return strings.TrimSpace(rest), true
 }
 
-// parseDirectiveRules converts the payload (the text after the directive
-// marker) into a lintDirectiveRules value. The `--` separator strips an
-// optional human-readable description. An empty rule list means "all rules".
-func parseDirectiveRules(payload string) lintDirectiveRules {
-  return parseDirectivePayload(payload).rules
-}
-
 type parsedDirectivePayload struct {
   rules    lintDirectiveRules
   ruleList []string
 }
 
+// parseDirectivePayload converts the payload (the text after the directive
+// marker) into the directive's rule scope plus the raw list the engine reports
+// unknown names from. The `--` separator strips an optional human-readable
+// description. An empty rule list means "all rules".
 func parseDirectivePayload(payload string) parsedDirectivePayload {
   ruleText := stripDirectiveDescription(payload)
   ruleText = strings.ReplaceAll(ruleText, ",", " ")

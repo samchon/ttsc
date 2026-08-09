@@ -29,6 +29,7 @@ import (
 //   - `format/trailing-comma`, always on with the requested mode.
 //   - `format/print-width`, always on, driven by printWidth/tabWidth/useTabs/endOfLine.
 //   - `format/clause-join`, always on, joins a single-statement clause body that fits printWidth.
+//   - `format/brace-continuation`, always on, places `else`/`catch`/`finally`/do-`while` against the clause they continue.
 //   - `format/declaration-header`, always on, reflows a class/interface header's type params and heritage clauses.
 //   - `format/ternary-nullish-parens`, always on, parenthesizes a `??` operand of a conditional expression.
 //   - `format/orphan-semi`, always on; under semi:false, merges a leading-semicolon ASI guard onto its statement.
@@ -219,6 +220,12 @@ func expandFormatBlock(raw map[string]any) (map[string]any, error) {
     wsOpts["endOfLine"] = v
   }
   out["format/whitespace"] = ruleEntry(wsOpts)
+
+  // formatBraceContinuation, always on. Needs only endOfLine: the pushed-down
+  // direction copies the owning statement's own indent verbatim rather than
+  // synthesizing one, so it shares the whitespace rule's trimmed surface rather
+  // than the layout one.
+  out["format/brace-continuation"] = ruleEntry(cloneStringAnyMap(wsOpts))
 
   // formatSortImports, opt-in by `sortImports` (a boolean or options object).
   // The top-level `endOfLine` is threaded in (like the other layout rules)

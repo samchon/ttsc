@@ -148,7 +148,9 @@ export interface ITtscLintFunctionalPreferReadonlyTypeRuleOptions extends ITtscL
   allowLocalMutation?: boolean;
 
   /**
-   * Permit a mutable return type even when parameters must be readonly.
+   * Permit a mutable return type even when parameters must be readonly. Covers
+   * every signature that can declare one, including call and construct
+   * signatures, constructor types, and a get accessor.
    *
    * @default false
    */

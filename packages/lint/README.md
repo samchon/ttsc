@@ -138,7 +138,7 @@ Each `format` key controls one behavior:
 | `sortImports` (opt-in) | Sort named specifiers and erased type-only imports. Runtime declaration sorting requires `unsafeSortRuntimeImports`. |
 | `jsDoc` (on by default) | Normalize JSDoc blocks toward [prettier-plugin-jsdoc](https://github.com/hosseinmd/prettier-plugin-jsdoc). |
 
-`sortImports` is **opt-in** — it takes effect only when you set it. Every other key takes effect as soon as the `format` block is present (JSDoc normalization included; set `jsDoc: false` to opt out), which also applies several keyless layout behaviors (statement splitting, indentation, whitespace normalization, clause joining, declaration-header reflow, ternary-nullish parens, leading-semicolon merging, and parameter-property breaking).
+`sortImports` is **opt-in** — it takes effect only when you set it. Every other key takes effect as soon as the `format` block is present (JSDoc normalization included; set `jsDoc: false` to opt out), which also applies several keyless layout behaviors (statement splitting, indentation, whitespace normalization, clause joining, continuation-keyword placement, declaration-header reflow, ternary-nullish parens, leading-semicolon merging, and parameter-property breaking).
 
 The safe default preserves the source order of every runtime-bearing import, including default, namespace, named, and bare imports, because each form can evaluate its dependency module. It still alphabetizes named specifiers within one declaration and can sort or merge a block made entirely of erased `import type` declarations. Set `unsafeSortRuntimeImports: true` only when every dependency in the block is order-independent. `combineTypeAndValue` affects a mixed type/value block only under that unsafe opt-in.
 

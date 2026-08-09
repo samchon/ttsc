@@ -29,6 +29,7 @@
   "eqeqeq": 15647,
   "for-direction": 11936,
   "format/arrow-parens": 12778,
+  "format/brace-continuation": 11770,
   "format/bracket-spacing": 17869,
   "format/clause-join": 16481,
   "format/declaration-header": 11817,

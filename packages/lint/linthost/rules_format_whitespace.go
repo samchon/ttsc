@@ -311,7 +311,11 @@ func collectTemplateRanges(file *shimast.SourceFile, src string) []byteRange {
       return
     }
     switch node.Kind {
-    case shimast.KindNoSubstitutionTemplateLiteral, shimast.KindTemplateExpression:
+    case shimast.KindNoSubstitutionTemplateLiteral,
+      shimast.KindTemplateExpression,
+      // A template literal TYPE spans head plus spans like the expression form
+      // and its newlines are equally part of the declared type's text.
+      shimast.KindTemplateLiteralType:
       pos := shimscanner.SkipTrivia(src, node.Pos())
       end := node.End()
       if pos >= 0 && end <= len(src) && end > pos {
