@@ -76,6 +76,15 @@ func reportStallAndExit() {
   os.Exit(1)
 }
 
+// nodeResourceSummary reads the discriminator alone.
+//
+// It exists so a caller that only needs to know the reading works can take it
+// without entering the per-handle detail path, which reads properties off live
+// node objects and cannot survive one that throws. The guard accepts that
+// exposure because it runs only when the suite is already lost and the stacks
+// are already written; a case on the healthy path would be trading something
+// else entirely.
+
 // nodePendingWork asks node what its event loop is still waiting on.
 //
 // The goroutine stacks alone cannot finish the diagnosis. Both candidate
@@ -92,6 +101,23 @@ func reportStallAndExit() {
 //
 // The call is synchronous, in the sense fs.writeSync is, so it cannot depend on
 // the event delivery that is already suspect.
+//
+// Read the result together with the stacks above it, never alone. This runs
+// inside the timer callback node used to resume the runtime, and a healthy
+// program parked there holds nothing at all, so an all-empty reading is only
+// the verdict "node completed the write" when the stacks also show the main
+// goroutine parked in a channel receive inside syscall.fsCall.
+func nodeResourceSummary() string {
+  process := js.Global().Get("process")
+  if process.Type() != js.TypeObject {
+    return "<absent>"
+  }
+  if process.Get("getActiveResourcesInfo").Type() != js.TypeFunction {
+    return "<absent>"
+  }
+  return describeJSList(process.Call("getActiveResourcesInfo"))
+}
+
 func nodePendingWork() (reading string) {
   readings := []string{}
   // A reading that fails says so and keeps the ones already taken.
@@ -110,7 +136,7 @@ func nodePendingWork() (reading string) {
     if recovered := recover(); recovered != nil {
       reading = strings.Join(append(
         readings,
-        fmt.Sprintf("(reading panicked: %v)", recovered),
+        fmt.Sprintf("unavailable: a reading panicked (%v)", recovered),
       ), " ")
     }
   }()
@@ -139,8 +165,12 @@ func nodePendingWork() (reading string) {
 // empty list is not a neutral value here: it is the affirmative verdict that
 // node holds nothing, which is the whole of one candidate cause, so a reading
 // that merely failed to produce a list must not be able to spell it.
+//
+// The test is `Array.isArray` rather than a type check, because a plain object
+// is an object: `Length` on one reads an absent `length` as zero, the loop
+// never runs, and the reading renders as the verdict it is not.
 func describeJSList(list js.Value) string {
-  if list.Type() != js.TypeObject {
+  if !js.Global().Get("Array").Call("isArray", list).Bool() {
     return "<not a list>"
   }
   entries := []string{}
