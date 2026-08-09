@@ -91,7 +91,7 @@ export function SalePrice({ sale }: { sale: IShoppingSale }) {
 
 Rendered prose stays clean, so the document a reader sees is unchanged. A file citation sits before the document's first heading; a heading citation sits right below its heading.
 
-A tag written as prose rather than inside a comment is reported rather than discarded, because the tag renders invisibly either way and an author cannot see which one they wrote. An example is not: a tag inside a fenced or indented code block, or mentioned mid-sentence, stays silent.
+A tag written as prose rather than inside a comment is reported rather than discarded, because the tag renders invisibly either way and an author cannot see which one they wrote. A bullet or a quote marker in front of it changes nothing. The tag has to be the first thing on its line once those markers come off, so a sentence that mentions one goes on describing it, and the line has to be prose: anything that renders as code stays silent, whether it is a fence, an indented block, an HTML `<pre>`, or a template literal handed to an MDX component.
 
 A heading citation belongs to the nearest preceding heading, and that heading's exact level has to be selected by the claim. Under `symbol: ["h2"]`, a tag written below an H3 is an H3 declaration rather than a contribution to the H2 above it, so it hosts nothing and is reported.
 

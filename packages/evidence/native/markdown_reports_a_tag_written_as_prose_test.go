@@ -135,3 +135,83 @@ func TestAMarkdownTagInsideACommentIsNotReported(t *testing.T) {
     "docs/claim/plan.md": "## Plan {#plan}\n\n<!--\n@evidence docs/spec/rules.md#pricing Inside a multi-line comment.\n-->\n",
   }, proseTagConfig))
 }
+
+/**
+ * Verifies a citation carried by a list or a quote is reported.
+ *
+ * A bullet is how a reader most naturally writes a citation into a plan, and a
+ * quote is how they paste one from elsewhere. Both were silent, because the tag
+ * has to be the first content on its line and a marker was counted as content,
+ * so the shape this rule exists for went on reproducing itself in the two
+ * spellings an author is most likely to reach for.
+ *
+ * The mid-sentence row is the negative twin the marker rule must not break: a
+ * line has to open with the tag once its markers come off, or a sentence that
+ * mentions one would be reported as a declaration.
+ *
+ *  1. Write a citation behind each marker, and one mid-sentence.
+ *  2. Evaluate the same claim.
+ *  3. Assert the carried ones are reported and the sentence is not.
+ */
+func TestAMarkdownCitationBehindAMarkerIsReported(t *testing.T) {
+  for name, plan := range map[string]string{
+    "bullet":        "- @evidence docs/spec/rules.md#pricing The bullet form.\n",
+    "asterisk":      "* @evidence docs/spec/rules.md#pricing The asterisk form.\n",
+    "ordered":       "1. @evidence docs/spec/rules.md#pricing The ordered form.\n",
+    "quote":         "> @evidence docs/spec/rules.md#pricing The quoted form.\n",
+    "quoted bullet": "> - @evidence docs/spec/rules.md#pricing Both markers.\n",
+  } {
+    t.Run(name, func(t *testing.T) {
+      assertReported(t, runProseTagRule(t, plan), "Unreadable @evidence at docs/claim/plan.md:5")
+    })
+  }
+  assertNoProblems(t, runProseTagRule(t, "The tag @evidence names a target and a reason.\n"))
+}
+
+/**
+ * Verifies an example that renders as code without being a fence is not
+ * reported.
+ *
+ * A documentation site shows examples through more than one syntax: an MDX page
+ * passes a template literal to a component and an HTML page uses `<pre>`. Both
+ * render as code, so both are examples in the sense a fence is, and the repair
+ * this diagnostic names would delete the example from the rendered page instead
+ * of fixing anything. This repository's own pages use fences, so the exposure
+ * is a consumer's docs site and the cost is their build.
+ *
+ *  1. Write a citation inside each rendered-code syntax.
+ *  2. Evaluate the same claim.
+ *  3. Assert neither is reported.
+ */
+func TestAMarkdownTagInsideRenderedCodeIsNotReported(t *testing.T) {
+  for name, plan := range map[string]string{
+    "mdx component": "<Code lang=\"md\" code={`\n@evidence docs/spec/rules.md#pricing Example.\n`} />\n",
+    "html pre":      "<pre>\n@evidence docs/spec/rules.md#pricing Example.\n</pre>\n",
+  } {
+    t.Run(name, func(t *testing.T) {
+      assertNoProblems(t, runProseTagRule(t, plan))
+    })
+  }
+}
+
+/**
+ * Verifies every prose tag in one document is reported, and that a closed fence
+ * releases the lines after it.
+ *
+ * One report per tag, because each is its own declaration and an author fixing
+ * the first should not have to build again to learn about the second. The fence
+ * row is the state machine's other direction: a reporter that treated every
+ * line after an opening fence as fenced would satisfy the fence cases while
+ * silencing the whole rest of the document.
+ *
+ *  1. Close a fence, then write two citations after it.
+ *  2. Evaluate the same claim.
+ *  3. Assert both are reported at their own lines.
+ */
+func TestEveryMarkdownProseTagIsReported(t *testing.T) {
+  messages := runProseTagRule(t, "```md\n<!-- an example -->\n```\n\n"+
+    "@evidence docs/spec/rules.md#pricing The first.\n\n"+
+    "@evidence docs/spec/rules.md#pricing The second.\n")
+  assertReportedAmong(t, messages, "Unreadable @evidence at docs/claim/plan.md:9")
+  assertReportedAmong(t, messages, "Unreadable @evidence at docs/claim/plan.md:11")
+}

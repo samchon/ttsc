@@ -559,18 +559,26 @@ func reportUnreadableMarkdownTags(
   if inventory == nil {
     return
   }
+  rendered := false
   for index, rawLine := range lines {
+    line := strings.TrimSuffix(rawLine, "")
+    if opens, closes := renderedCodeEdges(line); opens || closes {
+      rendered = opens
+      continue
+    }
+    if rendered {
+      continue
+    }
     if index < len(fencedAtLine) && fencedAtLine[index] {
       continue
     }
     if index < len(commentAtLine) && commentAtLine[index] {
       continue
     }
-    line := strings.TrimSuffix(rawLine, "\r")
-    if strings.HasPrefix(line, "    ") || strings.HasPrefix(line, "\t") {
+    if strings.HasPrefix(line, "    ") || strings.HasPrefix(line, "  ") {
       continue
     }
-    trimmed := strings.TrimSpace(line)
+    trimmed := markdownLineContent(line)
     if tag, _, found := declarationLine(trimmed); found {
       inventory.Unreadable = append(
         inventory.Unreadable,
@@ -587,9 +595,92 @@ func reportUnreadableMarkdownTags(
   }
 }
 
+// markdownLineContent drops the markers that carry a line rather than say
+// anything.
+//
+// A citation written as a bullet or inside a quote is the same mistake as one
+// written bare, and an author reaching for a list is if anything more likely
+// than one writing a lone paragraph. Reading the line without its marker is
+// what lets the report name them, while the tag still has to be the first
+// content on the line, so a sentence mentioning one goes on describing it.
+func markdownLineContent(line string) string {
+  content := strings.TrimSpace(line)
+  for {
+    stripped := strings.TrimSpace(strings.TrimPrefix(content, ">"))
+    if stripped != content {
+      content = stripped
+      continue
+    }
+    if marker := markdownListMarker(content); marker != 0 {
+      content = strings.TrimSpace(content[marker:])
+      continue
+    }
+    return content
+  }
+}
+
+// markdownListMarker reports the length of a leading list marker, or zero.
+func markdownListMarker(content string) int {
+  for _, bullet := range []string{"- ", "* ", "+ "} {
+    if strings.HasPrefix(content, bullet) {
+      return len(bullet)
+    }
+  }
+  digits := 0
+  for digits < len(content) && content[digits] >= '0' && content[digits] <= '9' {
+    digits++
+  }
+  if digits == 0 || digits+1 >= len(content) {
+    return 0
+  }
+  if punctuation := content[digits]; punctuation != '.' && punctuation != ')' {
+    return 0
+  }
+  if content[digits+1] != ' ' {
+    return 0
+  }
+  return digits + 2
+}
+
+// renderedCodeEdges reports whether a line opens or closes a block that renders
+// as code without being a fence.
+//
+// A documentation site shows examples through more than one syntax. An MDX page
+// passes a template literal to a component, and an HTML page uses `<pre>`; both
+// render as code, so both are examples in the sense a fence is, and the repair
+// this diagnostic names would delete the example from the rendered page rather
+// than fix anything. Only the two edges are recognized, because a page that
+// opens one and never closes it is a page whose own build fails first.
+func renderedCodeEdges(line string) (bool, bool) {
+  lowered := strings.ToLower(line)
+  switch {
+  case strings.Contains(lowered, "<pre"):
+    return !strings.Contains(lowered, "</pre>"), strings.Contains(lowered, "</pre>")
+  case strings.Contains(lowered, "</pre>"):
+    return false, true
+  case strings.Contains(line, "={`"):
+    return !strings.Contains(line, "`}"), strings.Contains(line, "`}")
+  case strings.Contains(line, "`}"):
+    return false, true
+  }
+  return false, false
+}
+
 // unreadableMarkdownProblem names the position and the move that fixes it.
 func unreadableMarkdownProblem(tag string, location string, line int) string {
   return "Unreadable " + tag + " at " + location + ":" + decimal(line) +
     ": a Markdown declaration is read from an HTML comment, and this line is prose, so nothing reads the tag." +
-    " Wrap it as '<!-- " + tag + " <target> <reason> -->'."
+    " Wrap it as '<!-- " + tag + " <target> " + unreadableMarkdownField(tag) + " -->'."
+}
+
+// unreadableMarkdownField names what follows a target for this tag.
+//
+// A review carries a description of what was checked rather than a reason, and
+// every other review diagnostic in this package says so. One template for both
+// families would tell an author to write the wrong field.
+func unreadableMarkdownField(tag string) string {
+  if strings.HasSuffix(tag, "Review") {
+    return "<what you checked>"
+  }
+  return "<reason>"
 }
