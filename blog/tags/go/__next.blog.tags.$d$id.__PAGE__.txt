@@ -1,0 +1,24 @@
+1:"$Sreact.fragment"
+2:I[20061,["/_next/static/chunks/1ceixk84dw1fz.js","/_next/static/chunks/2tohiu6ympkc2.js","/_next/static/chunks/2dp1dya3f64q-.js","/_next/static/chunks/3loqpnl-5kuyf.js"],""]
+3:I[10999,["/_next/static/chunks/1ceixk84dw1fz.js","/_next/static/chunks/2tohiu6ympkc2.js","/_next/static/chunks/2dp1dya3f64q-.js","/_next/static/chunks/3loqpnl-5kuyf.js"],"OutletBoundary"]
+4:"$Sreact.suspense"
+8:I[10999,["/_next/static/chunks/1ceixk84dw1fz.js","/_next/static/chunks/2tohiu6ympkc2.js","/_next/static/chunks/2dp1dya3f64q-.js","/_next/static/chunks/3loqpnl-5kuyf.js"],"ViewportBoundary"]
+9:I[10999,["/_next/static/chunks/1ceixk84dw1fz.js","/_next/static/chunks/2tohiu6ympkc2.js","/_next/static/chunks/2dp1dya3f64q-.js","/_next/static/chunks/3loqpnl-5kuyf.js"],"MetadataBoundary"]
+b:I[16403,["/_next/static/chunks/1ceixk84dw1fz.js","/_next/static/chunks/2tohiu6ympkc2.js","/_next/static/chunks/2dp1dya3f64q-.js","/_next/static/chunks/3loqpnl-5kuyf.js"],"default"]
+c:I[127,["/_next/static/chunks/1ceixk84dw1fz.js","/_next/static/chunks/2tohiu6ympkc2.js","/_next/static/chunks/2dp1dya3f64q-.js","/_next/static/chunks/3loqpnl-5kuyf.js"],"default"]
+:HL["/og.jpg","image"]
+:HL["/_next/static/chunks/0y2luaueh5f9c.css","style"]
+7:X
+e:X
+e:C
+0:{"buildId":"D6gwkPy9rHfj8sMdK65ql","data":[{"rsc":["$","$1","c",{"children":[["$","section",null,{"className":"ttsc-blog-list-page","children":[["$","p",null,{"children":["$","$L2",null,{"href":"/blog","children":"Back to all posts"}]}],["$","h1",null,{"children":["#","go"]}],["$","p",null,{"children":[1," post(s) tagged here."]}],["$","div",null,{"className":"ttsc-blog-grid","children":[["$","$L2","/blog/i-moved-linter-into-typescript-go",{"href":"/blog/i-moved-linter-into-typescript-go","className":"ttsc-blog-card","children":[["$","img",null,{"src":"/og.jpg","alt":"800x Faster TypeScript Lint: I Moved Lint Into TypeScript-Go","className":"ttsc-blog-card-image"}],["$","div",null,{"className":"ttsc-blog-card-body","children":[["$","h2",null,{"className":"ttsc-blog-card-title","children":"800x Faster TypeScript Lint: I Moved Lint Into TypeScript-Go"}],["$","p",null,{"className":"ttsc-blog-card-description","children":"@ttsc/lint moves lint into the TypeScript-Go-backed check path and ships a separate native format command: 800x faster lint and 70x faster format on the VS Code fixture."}],["$","div",null,{"className":"ttsc-blog-card-tags","children":[["$","span","typescript",{"children":["#","typescript"]}],["$","span","go",{"children":["#","go"]}],["$","span","eslint",{"children":["#","eslint"]}],["$","span","opensource",{"children":["#","opensource"]}]]}],["$","div",null,{"className":"ttsc-blog-card-meta","children":[["$","span",null,{"children":"5/25/2026"}],["$","span",null,{"children":"Jeongho Nam"}]]}]]}]]}]]}]]}],null,["$","$L3",null,{"children":["$","$4",null,{"name":"Next.MetadataOutlet","children":"$@5"}]}]]}],"isPartial":"$@6","staleTime":"$7","varyParams":null},{"rsc":["$","$1","h",{"children":[null,["$","$L8",null,{"children":[["$","meta","0",{"charSet":"utf-8"}],["$","meta","1",{"name":"viewport","content":"width=device-width, initial-scale=1"}]]}],["$","div",null,{"hidden":true,"children":["$","$L9",null,{"children":["$","$4",null,{"name":"Next.Metadata","children":[["$","title","0",{"children":"#go"}],["$","meta","1",{"name":"description","content":"Posts tagged go on the ttsc blog."}]]}]}]}],null]}],"isPartial":"$@a","staleTime":"$7","varyParams":null},{"rsc":["$","$1","c",{"children":[null,["$","$Lb",null,{"parallelRouterKey":"children","template":["$","$Lc",null,{}]}]]}],"isPartial":"$@d","staleTime":"$7","varyParams":"$e"},{"rsc":["$","$1","c",{"children":[null,["$","$Lb",null,{"parallelRouterKey":"children","template":["$","$Lc",null,{}]}]]}],"isPartial":"$@f","staleTime":"$7","varyParams":"$e"},{"rsc":["$","$1","c",{"children":[[["$","link","0",{"rel":"stylesheet","href":"/_next/static/chunks/0y2luaueh5f9c.css","precedence":"next"}]],["$","div",null,{"className":"ttsc-blog-page","children":["$","$Lb",null,{"parallelRouterKey":"children","template":["$","$Lc",null,{}]}]}]]}],"isPartial":"$@10","staleTime":"$7","varyParams":null}],"isUpgradeableISRFallback":false,"a":"$@11","rootVaryParams":null,"needsRuntimeRequest":"$@12"}
+5:null
+12:true
+7:300
+7:C
+11:0
+a:"$undefined"
+d:"$undefined"
+f:"$undefined"
+10:"$undefined"
+6:"$undefined"
