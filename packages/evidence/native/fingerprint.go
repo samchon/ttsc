@@ -250,12 +250,16 @@ func presentedFingerprint(digest string) string {
 // the digest of every citation of the enclosing type.
 //
 // Blocks are collected from the whole subtree rather than from the declaration
-// alone, for that same reason. An ordinary comment stays in the digest, and
-// that is correct: the graph reads tags only from the blocks a node reports, so
-// no citation can hide in one. Two kinds of leading text are the exception, and
-// both for reasons of their own: `withoutLeadingTrivia` drops the blank lines
-// and `//` comments a full start swallowed, and a comment above a sibling
-// declarator lies outside this declaration's span to begin with.
+// alone, for that same reason. An ordinary comment interior to the declaration
+// stays in the digest, and that is correct: the graph reads tags only from the
+// blocks a node reports, so no citation can hide in one.
+//
+// Leading text is the other case and reaches the digest in neither of its two
+// forms. Text outside the declaration's span was never in it, which for a
+// variable is everything above its declarator, including the `export const`
+// and any comment above a sibling. Text a full start swallowed is inside the
+// span, and `withoutLeadingTrivia` drops the blank lines and `//` comments
+// among it.
 //
 // Every declaration of a merged identity contributes, in source order, because
 // `interface I` beside `namespace I` is one unit whose content is both halves.

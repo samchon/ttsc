@@ -212,8 +212,7 @@ func scanTypeScriptInventoryAt(
 // when its statement is one for the same symbol; the invariant is what was
 // broken there rather than an observable answer.
 //
-// A second fault travelled
-// with that one and has its own cause, which is why they are stated apart: a
+// A second fault travelled with that one and has its own cause, which is why they are stated apart: a
 // withdrawal tag read from a container is not the tag of the declarations
 // inside it, so an inner declarator owes its own read, and recording the node
 // would have left that exactly where it was.
@@ -1329,8 +1328,9 @@ func typeScriptHidingTag(
 // reported. `content` is the node whose text is the identity's content at this
 // declaration. They are the same node for every form whose declaration carries
 // its own name, and they part for a variable, whose unit is named by a binding
-// identifier inside a declarator that a destructuring pattern's leaves share
-// and every other declarator has to itself.
+// identifier inside a declarator. One declarator can name several identities:
+// a destructuring pattern's leaves share it, and so do two aliases of one local
+// in an export list.
 func addTypeScriptUnit(
   inventory *artifactInventory,
   unitsByID map[string]*evidenceUnit,

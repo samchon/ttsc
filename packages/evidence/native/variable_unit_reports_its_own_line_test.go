@@ -74,8 +74,12 @@ export const {
  * A variable is the only kind created from a bare identifier, so every other
  * form already answered from its own name and has to be pinned as unchanged.
  * Each one here carries a documentation block, which is the trivia that would
- * move an answer taken from a full start, so a repair that widened past
- * identifiers would show up as a line pointing at a comment.
+ * move an answer taken from a full start.
+ *
+ * What this cannot pin is the shape of the fallback below the identifier
+ * branch. Every form here answers from its own name and never reaches it, and
+ * no unit kind does, so widening that branch is invisible to the suite. It is
+ * stated here so the gap is a known one.
  *
  *  1. Declare each form with a block above it.
  *  2. Collect the file.

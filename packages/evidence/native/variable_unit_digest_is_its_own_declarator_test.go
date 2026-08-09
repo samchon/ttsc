@@ -188,9 +188,9 @@ export const limit = 2;
  * it precedes. Neither reaches the declarator above, whose span ends at the
  * comma.
  *
- * Neither comment is a position the graph reads a tag from, so nothing here is
- * a tag position the digest has to exclude. What is at stake is only which
- * edits expire a review.
+ * A tag in either comment is reported as unreadable rather than read, so
+ * neither is a position the digest has to exclude. What is at stake here is
+ * only which edits expire a review.
  *
  *  1. Digest both declarators with a comment between them.
  *  2. Rewrite that comment as a line comment, then as a block comment.

@@ -252,13 +252,13 @@ func documentedHosts(file *shimast.SourceFile) []documentedHost {
 // hostNodesOf keeps the declarations that can actually carry a citation.
 //
 // A unit's nodes are the positions the identity owns, and owning a position is
-// not the same as being able to hold a tag there. Every position a unit records
-// is a host today, so this removes nothing; it states the premise the rule
-// depends on rather than waiting for a form that breaks it. The population that
-// must be able to hold a tag is the population a claim can select as a host,
-// and nothing wider.
+// not the same as being able to hold a tag there. A withdrawn identity records
+// declarations that are deliberately not hosts, and the caller has skipped
+// those before asking, so every position reaching this today is one. That makes
+// the filter remove nothing, which is the point: it states the premise the rule
+// depends on rather than waiting for a form that breaks it.
 //
-// Demanding a block at a position that is not one would send an author's
+// Demanding a block at a position that is not a host would send an author's
 // `@evidence` where `evidence/graph` rejects it as an unsupported host, the
 // rule steering citations somewhere a citation cannot live, which is the
 // failure it exists to prevent.
