@@ -37,13 +37,14 @@ import (
 //
 // The rule rewrites the whitespace gap between the clause's own header token
 // and the controlled statement, and, when it hoists a multi-line body, the
-// leading whitespace of that body's continuation lines. The second surface is
-// one `format/indent` cedes: it visits statement-list members, closing-brace
-// lines, and member headers, and a hoisted braceless body is none of the three.
-// Hoisting does contend with a nested join over the same bytes, so a staircase
-// settles one level per cascade pass; the host drops a whole colliding finding
-// and it re-fires. Idempotent: once joined the gap holds no newline, the shift
-// compares against the text it would write, and the rule abstains.
+// leading whitespace of that body's continuation lines. That surface overlaps
+// `format/indent`, which owns the same column for a hoisted body that contains
+// a block and cedes it only for a braceless control-flow body. The two agree on
+// the target column, so a collision costs a dropped finding and a re-fire rather
+// than a fight. Hoisting also contends with a nested join over the same bytes,
+// so a staircase settles roughly one level per cascade pass. Idempotent: once
+// joined the gap holds no newline, the shift compares against the text it would
+// write, and the rule abstains.
 type formatClauseJoin struct{ optionsRule }
 
 // formatClauseJoinOptions mirrors the printWidth/indent keys the rule
@@ -316,8 +317,12 @@ func clauseJoinIndentOfWidth(layout formatLayout, width int) string {
   if width <= 0 {
     return ""
   }
-  if layout.useTabs && layout.tabWidth > 0 && width%layout.tabWidth == 0 {
-    return layout.indent(width / layout.tabWidth)
+  if layout.useTabs && layout.tabWidth > 0 {
+    // A width that is not a whole number of tabs keeps the remainder in spaces
+    // rather than dropping every tab, which is the respacing this render exists
+    // to prevent.
+    return layout.indent(width/layout.tabWidth) +
+      strings.Repeat(" ", width%layout.tabWidth)
   }
   return strings.Repeat(" ", width)
 }
@@ -351,11 +356,39 @@ func collectClauseJoinProtectedRanges(file *shimast.SourceFile, src string) []by
     }
   }
   forEachCommentToken(file, func(kind shimast.Kind, start, end int) {
-    if kind == shimast.KindMultiLineCommentTrivia {
-      ranges = append(ranges, byteRange{pos: start, end: end})
+    if kind != shimast.KindMultiLineCommentTrivia {
+      return
     }
+    // Only a comment Prettier reprints verbatim is content. An indentable one,
+    // every continuation line starting with `*`, is realigned by Prettier to the
+    // current indentation, so protecting it would leave a well-formed JSDoc
+    // block misaligned behind a hoisted body.
+    if isIndentableBlockComment(src, start, end) {
+      return
+    }
+    ranges = append(ranges, byteRange{pos: start, end: end})
   })
   return ranges
+}
+
+// isIndentableBlockComment reports whether every continuation line of a block
+// comment begins with `*`, which is the shape Prettier reindents rather than
+// reproducing byte for byte.
+func isIndentableBlockComment(src string, start, end int) bool {
+  if start < 0 || end > len(src) || end <= start {
+    return false
+  }
+  body := src[start:end]
+  if !strings.Contains(body, "\n") {
+    return false
+  }
+  for _, line := range strings.Split(body, "\n")[1:] {
+    trimmed := strings.TrimLeft(line, " \t\r")
+    if !strings.HasPrefix(trimmed, "*") {
+      return false
+    }
+  }
+  return true
 }
 
 // isClauseGapByte reports whether `c` is whitespace that may appear in

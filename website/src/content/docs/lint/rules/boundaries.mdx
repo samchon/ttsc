@@ -88,7 +88,7 @@ Options:
 
 - `elements?: readonly ITtscLintBoundariesElement[]`
 
-  Element definitions. Each entry declares a `type` name, a `pattern` glob matched against the source path, and optionally `entry`, `private`, and `capture` refinements. Both boundaries rules resolve a file to an element through this list before any policy is consulted.
+  Element definitions. Each entry declares a `type` name, a `pattern` glob matched against the source path, and optionally an `entry` file and a `private` flag. Every rule that takes element definitions resolves a file to an element through this list before any policy is consulted.
 
 - `default?: "allow" | "disallow"`
 

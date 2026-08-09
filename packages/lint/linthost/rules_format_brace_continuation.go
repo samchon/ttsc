@@ -1,6 +1,8 @@
 package linthost
 
 import (
+  "strings"
+
   shimast "github.com/microsoft/typescript-go/shim/ast"
   shimscanner "github.com/microsoft/typescript-go/shim/scanner"
 )
@@ -189,12 +191,41 @@ func braceContinuationIndent(src string, node *shimast.Node) (string, bool) {
     return "", false
   }
   lineStart := lineStartOffset(src, start)
-  for i := lineStart; i < start; i++ {
-    if src[i] != ' ' && src[i] != '\t' {
-      return "", false
-    }
+  indentEnd := lineStart
+  for indentEnd < start && (src[indentEnd] == ' ' || src[indentEnd] == '\t') {
+    indentEnd++
   }
-  return src[lineStart:start], true
+  // A label prefix is part of the statement's own line rather than another
+  // statement sharing it, and nothing downstream would ever give a labeled body
+  // its own line, so refusing here would strand the keyword permanently.
+  if !isBraceContinuationLabelPrefix(src[indentEnd:start]) {
+    return "", false
+  }
+  return src[lineStart:indentEnd], true
+}
+
+// isBraceContinuationLabelPrefix reports whether `prefix` is empty or a run of
+// `identifier :` labels, the only thing allowed to precede a statement on the
+// line whose indent the pushed-down keyword adopts.
+func isBraceContinuationLabelPrefix(prefix string) bool {
+  for {
+    prefix = strings.TrimLeft(prefix, " \t")
+    if prefix == "" {
+      return true
+    }
+    name := 0
+    for name < len(prefix) && isBraceContinuationIdentifierByte(prefix[name]) {
+      name++
+    }
+    if name == 0 {
+      return false
+    }
+    rest := strings.TrimLeft(prefix[name:], " \t")
+    if !strings.HasPrefix(rest, ":") {
+      return false
+    }
+    prefix = rest[1:]
+  }
 }
 
 // braceContinuationEndsInBlock reports whether the keyword shares the preceding
