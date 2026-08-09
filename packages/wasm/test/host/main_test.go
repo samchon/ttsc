@@ -84,6 +84,16 @@ func reportStallAndExit() {
 // exposure because it runs only when the suite is already lost and the stacks
 // are already written; a case on the healthy path would be trading something
 // else entirely.
+func nodeResourceSummary() string {
+  process := js.Global().Get("process")
+  if process.Type() != js.TypeObject {
+    return "<absent>"
+  }
+  if process.Get("getActiveResourcesInfo").Type() != js.TypeFunction {
+    return "<absent>"
+  }
+  return describeJSList(process.Call("getActiveResourcesInfo"))
+}
 
 // nodePendingWork asks node what its event loop is still waiting on.
 //
@@ -107,17 +117,6 @@ func reportStallAndExit() {
 // program parked there holds nothing at all, so an all-empty reading is only
 // the verdict "node completed the write" when the stacks also show the main
 // goroutine parked in a channel receive inside syscall.fsCall.
-func nodeResourceSummary() string {
-  process := js.Global().Get("process")
-  if process.Type() != js.TypeObject {
-    return "<absent>"
-  }
-  if process.Get("getActiveResourcesInfo").Type() != js.TypeFunction {
-    return "<absent>"
-  }
-  return describeJSList(process.Call("getActiveResourcesInfo"))
-}
-
 func nodePendingWork() (reading string) {
   readings := []string{}
   // A reading that fails says so and keeps the ones already taken.
