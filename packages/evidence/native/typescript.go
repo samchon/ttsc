@@ -1489,10 +1489,16 @@ func collectTypeScriptDeclarations(
       docs[key] = current
     }
   })
+  attached := make([]commentSpan, 0, len(docs))
   keys := make([]string, 0, len(docs))
-  for key := range docs {
+  for key, entry := range docs {
     keys = append(keys, key)
+    attached = append(attached, commentSpan{
+      Start: entry.node.Pos(),
+      End:   entry.node.End(),
+    })
   }
+  reportUnreadableTypeScriptTags(file, location, attached, inventory)
   sort.Slice(keys, func(left int, right int) bool {
     leftNode := docs[keys[left]].node
     rightNode := docs[keys[right]].node

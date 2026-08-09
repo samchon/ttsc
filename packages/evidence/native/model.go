@@ -297,6 +297,14 @@ type artifactInventory struct {
   // from Declarations so no consumer counting acknowledgements can reach one.
   Reviews  []*evidenceReview
   Problems []inventoryProblem
+  // Unreadable lists the tags this artifact carries in a position nothing can
+  // read, already worded as diagnostics.
+  //
+  // They are kept apart from Problems because they are not a health question.
+  // The file loaded and its units are complete, so treating one as a failed
+  // population would suppress the obligations the author still owes while
+  // telling them only about a comment.
+  Unreadable []string
   // LoadFailed distinguishes an unreadable or rejected artifact from a
   // healthy artifact that legitimately materializes no selected units.
   // Coverage is a completeness claim, so a failed inventory cannot be used

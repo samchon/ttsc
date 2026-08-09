@@ -67,6 +67,8 @@ export interface IShoppingSale {
 
 A JSDoc block is the only place a TypeScript citation is read from, which is why `evidence/documented` exists: an export with no block cannot cite anything, and the obligation silently shifts onto whichever sibling does have one.
 
+A tag written in a comment the parser attaches to no declaration is reported rather than discarded. A `//` line comment is not documentation to TypeScript, and neither is a block between the braces of a destructuring pattern, because a binding element is given none — both are one edit away from a block that works, and both used to do nothing without saying so. Text that merely looks like a tag inside a string or template literal is not a comment and is not reported.
+
 One declaration stacks as many tags as the rules it honors:
 
 ```tsx

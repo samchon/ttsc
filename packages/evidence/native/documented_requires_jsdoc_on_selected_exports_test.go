@@ -115,8 +115,9 @@ export function parse(value: string): string {
  *
  * This is the rule's correctness constraint made observable: what it accepts
  * must equal what the tag collector can see. A tag written in a `//` comment is
- * silently ignored by the graph today, so accepting one here would certify a
- * declaration that can still never cite anything.
+ * unreadable to the graph, which reports it rather than acting on it, so
+ * accepting one here would certify a declaration that can still never cite
+ * anything.
  *
  *  1. Precede an export with a line comment carrying a citation.
  *  2. Run the rule.

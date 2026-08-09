@@ -78,6 +78,7 @@ func (graphRule) Check(ctx *rule.ProjectContext) {
   problems = append(problems, markdownProblems...)
   problems = append(problems, prismaProblems...)
   problems = append(problems, swaggerProblems...)
+  problems = append(problems, unreadableTypeScriptTags(typescript)...)
   loader := newTypeScriptLoader(root, typescript)
   states, stateProblems := materializeClaimStates(
     config,
