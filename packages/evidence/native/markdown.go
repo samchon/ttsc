@@ -98,6 +98,11 @@ func loadMarkdownBase(
         problems = append(problems, inventoryProblem.Message)
       }
     }
+    // An unreadable tag is not a health question and not a symbol question
+    // either: the file loaded, its units are complete, and the tag reaches no
+    // host whichever symbol a reference selects. The walk already refuses a
+    // path no configured glob takes, so reaching here is enough to report.
+    problems = append(problems, inventory.Unreadable...)
     return nil
   })
   if err != nil {
@@ -278,6 +283,8 @@ func scanMarkdownInventory(
     hostIDAtLine[index] = currentHostID
     digestHostIDAtLine[index] = currentDigestHostID
   }
+
+  reportUnreadableMarkdownTags(inventory, address.Display, lines, fencedAtLine, commentAtLine)
 
   sequence := 0
   for _, match := range markdownCommentPattern.FindAllStringSubmatchIndex(content, -1) {
@@ -521,4 +528,68 @@ func markdownSlug(title string) string {
     }
   }
   return strings.Trim(builder.String(), "-")
+}
+
+// reportUnreadableMarkdownTags records every tag written where this artifact
+// kind cannot read one.
+//
+// A Markdown declaration is read from an HTML comment, so the tag renders
+// invisibly and the author sees the same source either way. Written as prose it
+// reaches no host and used to be discarded without a word, leaving the coverage
+// diagnostic that follows to name the reference and suggest writing the
+// citation the author had already written. TypeScript answers this shape and
+// the Prisma bridge answers its own; this is the kind that was left silent.
+//
+// A fenced block is an example rather than a citation and stays silent, which
+// is not a concession: this product's own documentation shows tags inside
+// fences, and reporting them would fail its build. An indented code block is
+// the same case in another spelling, so four leading spaces are read as code
+// rather than as prose.
+//
+// The tag has to open its line, which is the discrimination every reader in
+// this package performs, so a sentence mentioning one describes it rather than
+// declaring it.
+func reportUnreadableMarkdownTags(
+  inventory *artifactInventory,
+  location string,
+  lines []string,
+  fencedAtLine []bool,
+  commentAtLine []bool,
+) {
+  if inventory == nil {
+    return
+  }
+  for index, rawLine := range lines {
+    if index < len(fencedAtLine) && fencedAtLine[index] {
+      continue
+    }
+    if index < len(commentAtLine) && commentAtLine[index] {
+      continue
+    }
+    line := strings.TrimSuffix(rawLine, "\r")
+    if strings.HasPrefix(line, "    ") || strings.HasPrefix(line, "\t") {
+      continue
+    }
+    trimmed := strings.TrimSpace(line)
+    if tag, _, found := declarationLine(trimmed); found {
+      inventory.Unreadable = append(
+        inventory.Unreadable,
+        unreadableMarkdownProblem("@"+string(tag), location, index+1),
+      )
+      continue
+    }
+    if reviews, _, opened := reviewLine(trimmed); opened {
+      inventory.Unreadable = append(
+        inventory.Unreadable,
+        unreadableMarkdownProblem(reviewMarkerFor(reviews), location, index+1),
+      )
+    }
+  }
+}
+
+// unreadableMarkdownProblem names the position and the move that fixes it.
+func unreadableMarkdownProblem(tag string, location string, line int) string {
+  return "Unreadable " + tag + " at " + location + ":" + decimal(line) +
+    ": a Markdown declaration is read from an HTML comment, and this line is prose, so nothing reads the tag." +
+    " Wrap it as '<!-- " + tag + " <target> <reason> -->'."
 }
