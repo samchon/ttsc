@@ -305,7 +305,11 @@ export class Sale {
     "symbol":"function",
     "reference":{"type":"markdown","files":["docs/spec.md"],"symbol":"h2"}
   }]}`)
-  assertProblemContains(t, messages, "not an eligible exclusion carrier")
+  assertProblemContains(
+    t,
+    messages,
+    "'unsupported or non-exported declaration' is not an eligible exclusion carrier",
+  )
   assertProblemContains(t, messages, "Missing acknowledgement for 'docs/spec.md#pricing'")
 }
 

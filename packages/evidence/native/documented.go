@@ -252,11 +252,10 @@ func documentedHosts(file *shimast.SourceFile) []documentedHost {
 // hostNodesOf keeps the declarations that can actually carry a citation.
 //
 // A unit's nodes are not all positions a tag can live in. `export const x = 1`
-// records three: the binding identifier, which names the unit and is recorded
-// for that, and the statement wrapper and the declarator, which are recorded
-// because they are host positions and every walk from a unit to its
-// declarations has to reach the positions the host map holds. Of the three only
-// the binding is not a host.
+// records three. The binding identifier names the unit and is recorded for
+// that. The statement wrapper and the declarator are recorded because they are
+// host positions, and every walk from a unit to its declarations has to reach
+// the positions the host map holds. Only the binding is not a host.
 //
 // Demanding the block at the binding would send an author's `@evidence` where
 // `evidence/graph` rejects it as an unsupported host, the rule steering
