@@ -355,9 +355,16 @@ func TestASwaggerOperationDigestFollowsTheSchemasItNames(t *testing.T) {
   before := digests("string")
   after := digests("number")
   if before["POST:/members"] == after["POST:/members"] {
-    t.Fatal("changing a referenced schema left the operation's digest unmoved, so a review of the endpoint survives its contract changing")
+    t.Fatalf(
+      "changing a referenced schema left the operation's digest unmoved (%s), so a review of the endpoint survives its contract changing",
+      before["POST:/members"],
+    )
   }
   if before["POST:/sales"] != after["POST:/sales"] {
-    t.Fatal("changing one schema moved an unrelated operation's digest, which is the document-wide expiry this replaces")
+    t.Fatalf(
+      "changing one schema moved an unrelated operation's digest (%s to %s), which is the document-wide expiry this replaces",
+      before["POST:/sales"],
+      after["POST:/sales"],
+    )
   }
 }

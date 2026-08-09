@@ -19,6 +19,7 @@ require (
 	github.com/microsoft/typescript-go/shim/ast v0.0.0
 	github.com/microsoft/typescript-go/shim/core v0.0.0
 	github.com/microsoft/typescript-go/shim/parser v0.0.0
+	github.com/microsoft/typescript-go/shim/scanner v0.0.0
 	github.com/samchon/ttsc/packages/lint v0.0.0
 )
 
@@ -27,7 +28,6 @@ require (
 	github.com/klauspost/cpuid/v2 v2.2.10 // indirect
 	github.com/microsoft/typescript-go v0.0.0-20260429010842-56ab4af42157 // indirect
 	github.com/microsoft/typescript-go/shim/checker v0.0.0 // indirect
-	github.com/microsoft/typescript-go/shim/scanner v0.0.0 // indirect
 	github.com/zeebo/xxh3 v1.1.0 // indirect
 	golang.org/x/sync v0.20.0 // indirect
 	golang.org/x/sys v0.43.0 // indirect

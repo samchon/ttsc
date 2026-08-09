@@ -176,18 +176,22 @@ const decodeUtf8 = (content: Uint8Array): string =>
 
 const operationsOf = (document: OpenApi.IDocument): ISwaggerOperation[] => {
   const operations: ISwaggerOperation[] = [];
-  const schemas: Record<string, unknown> = (document.components?.schemas ??
+  const components: Record<string, unknown> = (document.components ??
     {}) as Record<string, unknown>;
   for (const [operationPath, item] of Object.entries(document.paths ?? {})) {
     for (const method of METHODS) {
       const operation: OpenApi.IOperation | undefined = item[method];
       if (operation !== undefined)
-        operations.push(operationOf(method, operationPath, operation, schemas));
+        operations.push(
+          operationOf(method, operationPath, operation, components),
+        );
     }
     for (const [method, operation] of Object.entries(
       item.additionalOperations ?? {},
     ))
-      operations.push(operationOf(method, operationPath, operation, schemas));
+      operations.push(
+        operationOf(method, operationPath, operation, components),
+      );
   }
   operations.sort((left, right) => {
     const leftTarget: string = `${left.method}:${left.path}`;
@@ -212,7 +216,7 @@ const operationOf = (
   method: string,
   operationPath: string,
   operation: OpenApi.IOperation,
-  schemas: Record<string, unknown>,
+  components: Record<string, unknown>,
 ): ISwaggerOperation => {
   if (!operationPath.startsWith("/"))
     throw new Error(
@@ -228,12 +232,12 @@ const operationOf = (
   return {
     method: method.toUpperCase(),
     path: operationPath,
-    digest: canonicalDigest(withResolvedSchemas(operation, schemas)),
+    digest: canonicalDigest(withResolvedReferences(operation, components)),
   };
 };
 
 /**
- * Replaces every `$ref` into `components.schemas` with the schema it names.
+ * Replaces every local `$ref` into `components` with what it names.
  *
  * The converter preserves references rather than inlining them, so an operation
  * is often no more than `{"$ref": "#/components/schemas/IMember"}` where its
@@ -243,52 +247,96 @@ const operationOf = (
  * That is the failure this feature exists to remove, on the artifact kind whose
  * whole content lives behind a reference.
  *
- * A schema graph is routinely recursive, so a reference already open on the
- * path above is left as it was written. The result is finite, it still differs
- * whenever a reachable schema differs, and two operations reaching the same
- * cycle by different routes are told apart by the route.
+ * Any pointer under `#/components/` is followed, not only one into `schemas`,
+ * because a request body, a response, a parameter, and a header are all
+ * declarable there and each is part of the operation a reviewer read. A pointer
+ * anywhere else is left as written: `#/paths/...` would fold one operation's
+ * content into another's and reintroduce the cross-expiry this replaces.
  *
- * A reference this document does not declare is also left as written. It is a
- * broken document rather than a digest question, and inventing an empty schema
- * for it would make two different broken documents agree.
+ * Siblings of a `$ref` are kept and override what it resolves to, which is what
+ * OpenAPI 3.1 says they do. A reference already open on the path above is left
+ * as written, so a recursive schema terminates while two operations reaching
+ * one cycle by different routes still differ. An undeclared reference is left
+ * as written too: a broken document is not a digest question, and inventing an
+ * empty schema for it would make two different broken documents agree.
  */
-const withResolvedSchemas = (
+const withResolvedReferences = (
   value: unknown,
-  schemas: Record<string, unknown>,
+  components: Record<string, unknown>,
   open: Set<string> = new Set<string>(),
 ): unknown => {
   if (value === null || typeof value !== "object") return value;
   if (Array.isArray(value))
-    return value.map((element) => withResolvedSchemas(element, schemas, open));
-  const entries = Object.entries(value as Record<string, unknown>);
-  const reference: unknown = (value as Record<string, unknown>)["$ref"];
-  if (entries.length === 1 && typeof reference === "string") {
-    const name: string | undefined = schemaNameOf(reference);
-    if (name === undefined || open.has(name) || !(name in schemas))
-      return value;
-    open.add(name);
-    try {
-      return withResolvedSchemas(schemas[name], schemas, open);
-    } finally {
-      open.delete(name);
-    }
-  }
-  return Object.fromEntries(
-    entries.map(([key, element]) => [
-      key,
-      withResolvedSchemas(element, schemas, open),
-    ]),
+    return value.map((element) =>
+      withResolvedReferences(element, components, open),
+    );
+  const entries: Array<[string, unknown]> = Object.entries(
+    value as Record<string, unknown>,
   );
+  const reference: unknown = (value as Record<string, unknown>)["$ref"];
+  if (typeof reference !== "string" || open.has(reference))
+    return Object.fromEntries(
+      entries.map(([key, element]) => [
+        key,
+        withResolvedReferences(element, components, open),
+      ]),
+    );
+  const target: unknown = componentAt(components, reference);
+  if (target === undefined)
+    return Object.fromEntries(
+      entries.map(([key, element]) => [
+        key,
+        withResolvedReferences(element, components, open),
+      ]),
+    );
+  open.add(reference);
+  try {
+    const resolved: unknown = withResolvedReferences(target, components, open);
+    const siblings: Array<[string, unknown]> = entries
+      .filter(([key]) => key !== "$ref")
+      .map(([key, element]) => [
+        key,
+        withResolvedReferences(element, components, open),
+      ]);
+    if (siblings.length === 0) return resolved;
+    if (resolved === null || typeof resolved !== "object")
+      return Object.fromEntries(siblings);
+    return {
+      ...(resolved as Record<string, unknown>),
+      ...Object.fromEntries(siblings),
+    };
+  } finally {
+    open.delete(reference);
+  }
 };
 
-const SCHEMA_REFERENCE_PREFIX = "#/components/schemas/";
+const COMPONENT_REFERENCE_PREFIX = "#/components/";
 
-const schemaNameOf = (reference: string): string | undefined =>
-  reference.startsWith(SCHEMA_REFERENCE_PREFIX)
-    ? decodeURIComponent(
-        reference.slice(SCHEMA_REFERENCE_PREFIX.length).replaceAll("~1", "/"),
-      ).replaceAll("~0", "~")
-    : undefined;
+/** Reads one `#/components/<section>/<name>` pointer, or nothing. */
+const componentAt = (
+  components: Record<string, unknown>,
+  reference: string,
+): unknown => {
+  if (!reference.startsWith(COMPONENT_REFERENCE_PREFIX)) return undefined;
+  const segments: string[] = reference
+    .slice(COMPONENT_REFERENCE_PREFIX.length)
+    .split("/")
+    .map((segment) =>
+      decodeURIComponent(segment).replaceAll("~1", "/").replaceAll("~0", "~"),
+    );
+  let current: unknown = components;
+  for (const segment of segments) {
+    if (
+      current === null ||
+      typeof current !== "object" ||
+      Array.isArray(current)
+    )
+      return undefined;
+    if (!(segment in (current as Record<string, unknown>))) return undefined;
+    current = (current as Record<string, unknown>)[segment];
+  }
+  return current;
+};
 
 const isInventory = (
   value: ISwaggerDocumentInventory | ISwaggerDocumentProblem,

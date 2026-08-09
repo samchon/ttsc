@@ -5,8 +5,6 @@ import (
   "strings"
 
   shimast "github.com/microsoft/typescript-go/shim/ast"
-
-  "github.com/samchon/ttsc/packages/lint/rule/astutil"
 )
 
 // attachedCommentEnds indexes, by end offset, where each attached documentation
@@ -57,7 +55,7 @@ func reportUnreadableTypeScriptTags(
     return
   }
   content := file.Text()
-  astutil.ForEachComment(file, func(_ shimast.Kind, start int, end int) {
+  forEachComment(file, func(_ shimast.Kind, start int, end int) {
     if start < 0 || end > len(content) || start >= end {
       return
     }

@@ -1,4 +1,15 @@
-package astutil
+package evidence
+
+// Parser-aware comment enumeration.
+//
+// This is a copy of the enumeration `@ttsc/lint` performs for its own rules,
+// carried here rather than imported from it. `@ttsc/lint` is a peer dependency
+// with a published range, and this package ships Go **source** into a
+// consumer's build against whichever version they installed. A helper this file
+// took from that package would compile here and fail there for every consumer
+// on a release that predates it, which is what a benchmark fixture proved by
+// refusing `undefined: astutil.ForEachComment`. What crosses that boundary is
+// the published rule API and nothing else.
 
 import (
   "sort"
@@ -7,11 +18,10 @@ import (
   shimscanner "github.com/microsoft/typescript-go/shim/scanner"
 )
 
-// CommentToken is one comment's kind and exact byte range.
-type CommentToken struct {
-  Kind shimast.Kind
-  Pos  int
-  End  int
+type commentToken struct {
+  kind shimast.Kind
+  pos  int
+  end  int
 }
 
 type sourceSpan struct {
@@ -19,7 +29,7 @@ type sourceSpan struct {
   end int
 }
 
-// ForEachComment visits every real comment in `file` in source order.
+// forEachCommentToken visits every real comment in `file` in source order.
 //
 // TypeScript's parser, rather than a context-free scanner, owns the lexical
 // goal for regular expressions, templates, and JSX. The parsed AST retains
@@ -30,13 +40,13 @@ type sourceSpan struct {
 // slash is division, manually tracking template braces, or special-casing JSX
 // strings. Exact ranges are deduplicated before the callback runs because a
 // recovery AST can expose overlapping token nodes for malformed source.
-func ForEachComment(file *shimast.SourceFile, visit func(kind shimast.Kind, pos, end int)) {
+func forEachComment(file *shimast.SourceFile, visit func(kind shimast.Kind, pos, end int)) {
   if file == nil || visit == nil {
     return
   }
   text := file.Text()
   opaque := parserOpaqueTokenSpans(file)
-  comments := make([]CommentToken, 0)
+  comments := make([]commentToken, 0)
   seen := make(map[sourceSpan]struct{})
   gapScanner := shimscanner.NewScanner()
   collect := func(kind shimast.Kind, pos, end int) {
@@ -48,30 +58,30 @@ func ForEachComment(file *shimast.SourceFile, visit func(kind shimast.Kind, pos,
       return
     }
     seen[span] = struct{}{}
-    comments = append(comments, CommentToken{Kind: kind, Pos: pos, End: end})
+    comments = append(comments, commentToken{kind: kind, pos: pos, end: end})
   }
 
   cursor := 0
   for _, span := range opaque {
     if cursor < span.pos {
-      ScanCommentGap(gapScanner, text, cursor, span.pos, collect)
+      scanCommentGap(gapScanner, text, cursor, span.pos, collect)
     }
     if span.end > cursor {
       cursor = span.end
     }
   }
   if cursor < len(text) {
-    ScanCommentGap(gapScanner, text, cursor, len(text), collect)
+    scanCommentGap(gapScanner, text, cursor, len(text), collect)
   }
 
   sort.Slice(comments, func(i, j int) bool {
-    if comments[i].Pos != comments[j].Pos {
-      return comments[i].Pos < comments[j].Pos
+    if comments[i].pos != comments[j].pos {
+      return comments[i].pos < comments[j].pos
     }
-    return comments[i].End < comments[j].End
+    return comments[i].end < comments[j].end
   })
   for _, comment := range comments {
-    visit(comment.Kind, comment.Pos, comment.End)
+    visit(comment.kind, comment.pos, comment.end)
   }
 }
 
@@ -134,8 +144,7 @@ func parserOpaqueTokenKind(kind shimast.Kind) bool {
 // returns is a real source comment. Scanning the isolated gap also preserves
 // CRLF and Unicode line-terminator behavior without range arithmetic in a
 // second comment parser.
-// ScanCommentGap scans one parser-classified non-token gap for comments.
-func ScanCommentGap(scanner *shimscanner.Scanner, text string, from, to int, visit func(kind shimast.Kind, pos, end int)) {
+func scanCommentGap(scanner *shimscanner.Scanner, text string, from, to int, visit func(kind shimast.Kind, pos, end int)) {
   if scanner == nil || from < 0 || to <= from || to > len(text) {
     return
   }

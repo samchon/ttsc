@@ -83,7 +83,7 @@ packages/lint/
 │   └── rules_*.go            ← 30 rule files, one rule family per file
 └── rule/                     ← public Go API for third-party rule contributors
     ├── rule.go               ← Rule, Context, Severity, Register, TextEdit
-    └── astutil/              ← byte-oriented AST helpers contributors can reuse
+    └── astutil/astutil.go    ← byte-oriented AST helpers contributors can reuse
 ```
 
 Two things are different from the earlier transform plugins:
@@ -809,7 +809,7 @@ ctx.ReportFix(node, "drop TODO comment", rule.TextEdit{
 - Older hosts (and most unit-test fake reporters) implement only the legacy `Report` / `ReportRange` methods. In that case, `ReportFix` falls back to `Report` and drops the edits silently. **Design the rule so the diagnostic alone is useful**; treat fixes as best-effort.
 - The host applies edits between the cascading native passes and the final no-emit check. If the user invoked `ttsc check` (no fix mode), edits are dropped entirely, `check` is read-only.
 
-For more autofix shapes, [`rule/astutil`](https://github.com/samchon/ttsc/tree/master/packages/lint/rule/astutil) ships the byte-oriented helpers built-in rules already use: `NodeText`, `KeywordStart`, `FindKeyword`, `TokenRange`, and the comment enumeration `ForEachComment` with its `CommentToken` and the single-gap `ScanCommentGap`.
+For more autofix shapes, [`rule/astutil`](https://github.com/samchon/ttsc/tree/master/packages/lint/rule/astutil) ships four byte-oriented helpers built-in rules already use: `NodeText`, `KeywordStart`, `FindKeyword`, `TokenRange`.
 
 ### Pointing at a second location
 

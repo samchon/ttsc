@@ -1255,7 +1255,7 @@ func unicornPreventAbbreviationsDeclarationIsExportedOrAmbient(declaration *shim
 func collectUnicornPreventAbbreviationsComments(file *shimast.SourceFile) map[int]commentToken {
   comments := make(map[int]commentToken)
   forEachCommentToken(file, func(kind shimast.Kind, pos, end int) {
-    comments[end] = commentToken{Kind: kind, Pos: pos, End: end}
+    comments[end] = commentToken{kind: kind, pos: pos, end: end}
   })
   return comments
 }
@@ -1313,15 +1313,15 @@ func unicornPreventAbbreviationsParameterHasJSDoc(
   text := ctx.File.Text()
   prefix := strings.TrimRightFunc(text[:start], unicode.IsSpace)
   attached, ok := comments[len(prefix)]
-  if !ok || attached.Kind != shimast.KindMultiLineCommentTrivia ||
-    attached.Pos < 0 || attached.End > len(text) ||
-    !strings.HasPrefix(text[attached.Pos:attached.End], "/**") {
+  if !ok || attached.kind != shimast.KindMultiLineCommentTrivia ||
+    attached.pos < 0 || attached.end > len(text) ||
+    !strings.HasPrefix(text[attached.pos:attached.end], "/**") {
     return false
   }
-  if unicornPreventAbbreviationsLineBreakCount(text[attached.End:start]) > 1 {
+  if unicornPreventAbbreviationsLineBreakCount(text[attached.end:start]) > 1 {
     return false
   }
-  comment := text[attached.Pos:attached.End]
+  comment := text[attached.pos:attached.end]
   for offset := 0; ; {
     index := strings.Index(comment[offset:], "@param")
     if index < 0 {
