@@ -2,7 +2,7 @@ package linthost
 
 import "testing"
 
-// TestFormatClauseJoinKeepsOverlongElseBodyBroken verifies the printWidth budget
+// TestFormatClauseJoinChargesTheElseWidthBudgetAtItsLimit verifies the printWidth budget
 // for an `else` clause is charged at its exact limit.
 //
 // `else stopEverything();` is 22 display columns. Prettier 3.8.3 joins it at
@@ -14,7 +14,7 @@ import "testing"
 //  1. Run format/clause-join on the same source at printWidth 22 and 21.
 //  2. Assert the join lands at 22.
 //  3. Assert nothing is reported at 21.
-func TestFormatClauseJoinKeepsOverlongElseBodyBroken(t *testing.T) {
+func TestFormatClauseJoinChargesTheElseWidthBudgetAtItsLimit(t *testing.T) {
   const source = "if (ready) run();\nelse\n  stopEverything();\n"
   assertFixSnapshotWithOptions(
     t,

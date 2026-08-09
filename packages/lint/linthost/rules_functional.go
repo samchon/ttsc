@@ -440,10 +440,11 @@ func (functionalNoReturnVoid) Check(ctx *Context, node *shimast.Node) {
 // none. A bare `return;` there is the only place the rule reports a void-ness it
 // inferred instead of reading, which is what `ignoreInferredTypes` spares.
 //
-// The walk stops at the nearest function-like of ANY kind, including the ones
-// that cannot declare a return type at all. Skipping a constructor or an
-// accessor would attribute an enclosing function's annotation to a `return;`
-// that has nothing to do with it.
+// The walk stops at the nearest function-like of ANY kind. Skipping a
+// constructor or a set accessor, neither of which may annotate a return type,
+// would attribute an enclosing function's annotation to a `return;` that has
+// nothing to do with it. A get accessor may annotate one, and
+// functionalReturnTypeText reads it.
 func functionalEnclosingReturnTypeText(ctx *Context, node *shimast.Node) string {
   for parent := node.Parent; parent != nil; parent = parent.Parent {
     if !isFunctionLikeKind(parent) {
@@ -713,27 +714,12 @@ func isDeclarationName(node *shimast.Node) bool {
   }
 }
 
+// functionalReturnTypeText returns the declared return-type text of a
+// signature-bearing node, or "" when it declares none. It reads the same
+// signature table isFunctionLikeReturnTypePosition uses, so a get accessor is
+// not mistaken for a declaration that cannot annotate its return type.
 func functionalReturnTypeText(ctx *Context, node *shimast.Node) string {
-  var typeNode *shimast.Node
-  switch node.Kind {
-  case shimast.KindFunctionDeclaration:
-    if decl := node.AsFunctionDeclaration(); decl != nil {
-      typeNode = decl.Type
-    }
-  case shimast.KindFunctionExpression:
-    if decl := node.AsFunctionExpression(); decl != nil {
-      typeNode = decl.Type
-    }
-  case shimast.KindArrowFunction:
-    if decl := node.AsArrowFunction(); decl != nil {
-      typeNode = decl.Type
-    }
-  case shimast.KindMethodDeclaration:
-    if decl := node.AsMethodDeclaration(); decl != nil {
-      typeNode = decl.Type
-    }
-  }
-  return strings.TrimSpace(nodeText(ctx.File, typeNode))
+  return strings.TrimSpace(nodeText(ctx.File, signatureReturnTypeNode(node)))
 }
 
 func functionalFunctionLikeName(node *shimast.Node) string {
@@ -942,10 +928,11 @@ func signatureReturnTypeNode(node *shimast.Node) *shimast.Node {
   return nil
 }
 
-// isFunctionalClassMemberPosition reports whether `node` sits inside a class
-// body, and whether that position is a field. `ignoreClass: true` skips the
-// whole class body; `"fieldsOnly"` skips only the field declarations, leaving
-// methods, accessors, and constructor parameters checked.
+// isFunctionalClassMemberPosition reports whether `node` sits inside a class,
+// and whether that position is a field. `ignoreClass: true` skips anything
+// under a class, its heritage clause and type parameters included, the same
+// ancestor test `ignoreInterface` applies. `"fieldsOnly"` narrows that to field
+// declarations, leaving methods, accessors, and constructor parameters checked.
 func isFunctionalClassMemberPosition(node *shimast.Node) (inClass bool, inField bool) {
   for parent := node.Parent; parent != nil; parent = parent.Parent {
     switch parent.Kind {

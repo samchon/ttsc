@@ -156,8 +156,8 @@ export interface ITtscLintFunctionalPreferReadonlyTypeRuleOptions extends ITtscL
 
   /**
    * Also check property positions that have no explicit type annotation.
-   * Reserved for upstream-compatible configs; the native subset visits type
-   * nodes, and an unannotated position has none.
+   * Reserved for upstream-compatible configs; judging an unannotated position
+   * needs the type checker, which this rule does not use.
    */
   checkImplicit?: boolean;
 
@@ -169,9 +169,10 @@ export interface ITtscLintFunctionalPreferReadonlyTypeRuleOptions extends ITtscL
   ignoreCollections?: boolean;
 
   /**
-   * Skip class members. `true` skips the whole class body; `"fieldsOnly"` skips
-   * only field declarations and keeps methods, accessors, and constructor
-   * parameters checked.
+   * Skip class members. `true` skips anything under a class, its heritage
+   * clause and type parameters included; `"fieldsOnly"` narrows that to field
+   * declarations and keeps methods, accessors, and constructor parameters
+   * checked.
    *
    * @default false
    */

@@ -442,7 +442,7 @@ Options:
 
 - `ignoreClass?: boolean | "fieldsOnly"` (default `false`)
 
-  Skip class members. `true` skips the whole class body; `"fieldsOnly"` skips only field declarations and keeps methods, accessors, and constructor parameters checked.
+  Skip class members. `true` skips anything under a class, its heritage clause and type parameters included; `"fieldsOnly"` narrows that to field declarations and keeps methods, accessors, and constructor parameters checked.
 
 - `ignoreInterface?: boolean` (default `false`)
 
