@@ -189,7 +189,7 @@ A TypeScript claim `root` changes only the base used to match files `ttsc` alrea
 
 ## TypeScript populations
 
-**`files` selects modules, and the population is what those modules publish.** A matched module contributes its own exports and everything it re-exports, so a barrel carries in the surface it forwards even when the declaring file is outside the globs.
+**`files` selects modules, and the population is what those modules publish.** A matched module contributes its own exports and everything it re-exports, so a barrel carries in the surface it forwards even when the declaring file is outside the globs. A type-only re-export forwards only the type-space half of what it names, on the terms the class paragraph below states.
 
 ```ts
 // every type those modules publish, addressed as they publish it
