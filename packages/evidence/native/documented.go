@@ -258,10 +258,10 @@ func documentedHosts(file *shimast.SourceFile) []documentedHost {
 // declarations has to reach the positions the host map holds. Of the three only
 // the binding is not a host.
 //
-// Demanding the block at the binding would send an author's
-// `@evidence` where `evidence/graph` rejects it as an unsupported host, the
-// rule steering citations somewhere a citation cannot live, which is the
-// failure it exists to prevent.
+// Demanding the block at the binding would send an author's `@evidence` where
+// `evidence/graph` rejects it as an unsupported host, the rule steering
+// citations somewhere a citation cannot live, which is the failure it exists to
+// prevent.
 //
 // Narrowing to real hosts also keeps this rule's premise exact. The population
 // that must be able to hold a tag is the population a claim can select as a
