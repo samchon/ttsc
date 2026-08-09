@@ -29,6 +29,7 @@ import (
 //   - `format/trailing-comma`, always on with the requested mode.
 //   - `format/print-width`, always on, driven by printWidth/tabWidth/useTabs/endOfLine.
 //   - `format/clause-join`, always on, joins a single-statement clause body that fits printWidth.
+//   - `format/brace-continuation`, always on, places `else`/`catch`/`finally`/do-`while` against the clause they continue.
 //   - `format/declaration-header`, always on, reflows a class/interface header's type params and heritage clauses.
 //   - `format/ternary-nullish-parens`, always on, parenthesizes a `??` operand of a conditional expression.
 //   - `format/orphan-semi`, always on; under semi:false, merges a leading-semicolon ASI guard onto its statement.
@@ -186,6 +187,12 @@ func expandFormatBlock(raw map[string]any) (map[string]any, error) {
   // header when the joined line fits. A distinct map instance so it does
   // not alias the print-width blob.
   out["format/clause-join"] = ruleEntry(cloneStringAnyMap(pwOpts))
+
+  // formatBraceContinuation, always on. Places `else`, `catch`, `finally`, and
+  // a do-loop's `while` against the clause they continue; needs only the
+  // indentation and EOL settings, since the pushed-down direction synthesizes a
+  // line break and the pulled-up direction emits a single space.
+  out["format/brace-continuation"] = ruleEntry(cloneStringAnyMap(layoutOpts))
 
   // formatDeclarationHeader, always on. Reflows a class/interface header
   // (type parameters + heritage clauses) to Prettier's break shapes;
