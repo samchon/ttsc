@@ -496,7 +496,9 @@ func (functionalPreferPropertySignatures) Check(ctx *Context, node *shimast.Node
 func (functionalPreferReadonlyType) Check(ctx *Context, node *shimast.Node) {
   var opts functionalPreferReadonlyTypeOptions
   _ = ctx.DecodeOptions(&opts)
-  if opts.IgnoreInterface && hasAncestorKind(node, shimast.KindInterfaceDeclaration) {
+  if opts.IgnoreInterface && hasAncestor(node, func(ancestor *shimast.Node) bool {
+    return ancestor.Kind == shimast.KindInterfaceDeclaration
+  }) {
     return
   }
   if opts.AllowMutableReturnType && isFunctionLikeReturnTypePosition(node) {
@@ -865,16 +867,6 @@ func nilSafeFile(node *shimast.Node) *shimast.SourceFile {
     }
   }
   return nil
-}
-
-// hasAncestorKind reports whether any ancestor of `node` has `kind`.
-func hasAncestorKind(node *shimast.Node, kind shimast.Kind) bool {
-  for parent := node.Parent; parent != nil; parent = parent.Parent {
-    if parent.Kind == kind {
-      return true
-    }
-  }
-  return false
 }
 
 // isFunctionLikeReturnTypePosition reports whether `node` is the return-type

@@ -32,6 +32,13 @@ const reservedRuleOptionMarker = "Reserved for upstream-compatible configs"
 //     which covers both a `json:"…"` tag and a manual map-key decoder.
 //  3. Require each field to appear in the Go sources or to carry the reserved
 //     marker in its doc comment.
+//
+// The quoted-name scan is a lower bound, not a proof of use: a field whose name
+// collides with an unrelated string literal somewhere in the engine passes
+// without being decoded. It still turns the whole failure mode this test was
+// written for into a build error, because an option nobody implemented has no
+// reason to appear as a Go string at all. Per-rule behavioral cases carry the
+// proof that a decoded field reaches a decision.
 func TestPublishedRuleOptionsAreReadOrReserved(t *testing.T) {
   fields, err := readPublishedRuleOptionFields()
   if err != nil {
