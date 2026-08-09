@@ -65,7 +65,9 @@ interface IReadSource {
  *
  * The native contributor is Go, while the version converter is JavaScript. This
  * function is the narrow process boundary between them: it accepts only source
- * locations and returns only operation identities.
+ * locations and returns operation identities, each carrying a digest of the
+ * operation's content taken here because this is the only side that sees the
+ * document.
  *
  * @internal
  */
@@ -174,16 +176,18 @@ const decodeUtf8 = (content: Uint8Array): string =>
 
 const operationsOf = (document: OpenApi.IDocument): ISwaggerOperation[] => {
   const operations: ISwaggerOperation[] = [];
+  const schemas: Record<string, unknown> = (document.components?.schemas ??
+    {}) as Record<string, unknown>;
   for (const [operationPath, item] of Object.entries(document.paths ?? {})) {
     for (const method of METHODS) {
       const operation: OpenApi.IOperation | undefined = item[method];
       if (operation !== undefined)
-        operations.push(operationOf(method, operationPath, operation));
+        operations.push(operationOf(method, operationPath, operation, schemas));
     }
     for (const [method, operation] of Object.entries(
       item.additionalOperations ?? {},
     ))
-      operations.push(operationOf(method, operationPath, operation));
+      operations.push(operationOf(method, operationPath, operation, schemas));
   }
   operations.sort((left, right) => {
     const leftTarget: string = `${left.method}:${left.path}`;
@@ -208,6 +212,7 @@ const operationOf = (
   method: string,
   operationPath: string,
   operation: OpenApi.IOperation,
+  schemas: Record<string, unknown>,
 ): ISwaggerOperation => {
   if (!operationPath.startsWith("/"))
     throw new Error(
@@ -223,9 +228,67 @@ const operationOf = (
   return {
     method: method.toUpperCase(),
     path: operationPath,
-    digest: canonicalDigest(operation),
+    digest: canonicalDigest(withResolvedSchemas(operation, schemas)),
   };
 };
+
+/**
+ * Replaces every `$ref` into `components.schemas` with the schema it names.
+ *
+ * The converter preserves references rather than inlining them, so an operation
+ * is often no more than `{"$ref": "#/components/schemas/IMember"}` where its
+ * request and response bodies should be. A digest over the operation as written
+ * therefore covers the name of a contract and not the contract, and changing
+ * every property of a DTO expires no review of the endpoint that carries it.
+ * That is the failure this feature exists to remove, on the artifact kind whose
+ * whole content lives behind a reference.
+ *
+ * A schema graph is routinely recursive, so a reference already open on the
+ * path above is left as it was written. The result is finite, it still differs
+ * whenever a reachable schema differs, and two operations reaching the same
+ * cycle by different routes are told apart by the route.
+ *
+ * A reference this document does not declare is also left as written. It is a
+ * broken document rather than a digest question, and inventing an empty schema
+ * for it would make two different broken documents agree.
+ */
+const withResolvedSchemas = (
+  value: unknown,
+  schemas: Record<string, unknown>,
+  open: Set<string> = new Set<string>(),
+): unknown => {
+  if (value === null || typeof value !== "object") return value;
+  if (Array.isArray(value))
+    return value.map((element) => withResolvedSchemas(element, schemas, open));
+  const entries = Object.entries(value as Record<string, unknown>);
+  const reference: unknown = (value as Record<string, unknown>)["$ref"];
+  if (entries.length === 1 && typeof reference === "string") {
+    const name: string | undefined = schemaNameOf(reference);
+    if (name === undefined || open.has(name) || !(name in schemas))
+      return value;
+    open.add(name);
+    try {
+      return withResolvedSchemas(schemas[name], schemas, open);
+    } finally {
+      open.delete(name);
+    }
+  }
+  return Object.fromEntries(
+    entries.map(([key, element]) => [
+      key,
+      withResolvedSchemas(element, schemas, open),
+    ]),
+  );
+};
+
+const SCHEMA_REFERENCE_PREFIX = "#/components/schemas/";
+
+const schemaNameOf = (reference: string): string | undefined =>
+  reference.startsWith(SCHEMA_REFERENCE_PREFIX)
+    ? decodeURIComponent(
+        reference.slice(SCHEMA_REFERENCE_PREFIX.length).replaceAll("~1", "/"),
+      ).replaceAll("~0", "~")
+    : undefined;
 
 const isInventory = (
   value: ISwaggerDocumentInventory | ISwaggerDocumentProblem,

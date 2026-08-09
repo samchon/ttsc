@@ -946,11 +946,12 @@ func evaluateEvidenceGraph(
 // publishes a rule's corpus only on a cycle where the rule reports nothing, and
 // a stale fingerprint is a report.
 //
-// An empty expected value means this population's loader could not see the
-// cited content. Decode already refuses `requireReview` for the artifact kinds
-// where that is true, so reaching it here is a loader gap rather than a
-// configuration one, and reporting a mismatch against nothing would name a
-// repair no author can perform.
+// An empty expected value means this population's loader reported no content
+// for the cited scope. Every bridge digests what it parsed, so that is a loader
+// gap rather than a configuration one, and reporting a mismatch against nothing
+// would name a repair no author can perform. It is silence by design and the
+// only silence here: a bridge that fails reports its own failure, and an
+// unhealthy population is skipped before this runs.
 func reviewProblems(
   declaration *evidenceDeclaration,
   scope *evidenceUnit,

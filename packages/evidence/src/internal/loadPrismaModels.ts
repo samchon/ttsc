@@ -3,7 +3,7 @@ import fs from "node:fs/promises";
 import { createRequire } from "node:module";
 import path from "node:path";
 
-import { canonicalDigest, withoutDocumentation } from "./canonicalDigest";
+import { canonicalDigest, withoutKeys } from "./canonicalDigest";
 
 const MAX_SCHEMA_BYTES: number = 16 * 1024 * 1024;
 const ANSI_PATTERN: RegExp = /\x1b\[[0-9;]*m/gu;
@@ -56,8 +56,8 @@ interface IPrismaModel {
  *
  * Prisma spells the distinction as `kind: "scalar" | "object"`, and translating
  * it here rather than natively is what keeps Prisma's vocabulary out of the Go
- * side entirely — the process boundary carries unit identities, exactly as the
- * Swagger bridge carries operation identities.
+ * side entirely. The process boundary carries unit identities and a digest of
+ * each declaration's content, exactly as the Swagger bridge does.
  */
 interface IPrismaField {
   name: string;
@@ -85,8 +85,9 @@ interface IReadSet {
  *
  * The native contributor is Go and Prisma's parser is a WebAssembly module with
  * a JavaScript entry point. This function is the narrow process boundary
- * between them: it accepts only file locations and returns only model, column,
- * and relation identities with their doc comments.
+ * between them: it accepts only file locations and returns model, column, and
+ * relation identities with their doc comments and a digest of each
+ * declaration's content.
  *
  * One **set** is one request. A Prisma schema folder is several files that form
  * a single namespace — a model in one file may point at a model in another — so
@@ -252,9 +253,7 @@ const modelsOf = (
       // The model's own declaration is everything the parser reports about it
       // except its fields, which are units in their own right, and except its
       // documentation, which is where a review of it is written.
-      digest: canonicalDigest(
-        withoutDocumentation(model, "documentation", "fields"),
-      ),
+      digest: canonicalDigest(withoutKeys(model, "documentation", "fields")),
       fields: (model.fields ?? [])
         .filter(
           (
@@ -274,7 +273,7 @@ const modelsOf = (
           symbol: field.kind === "object" ? "relation" : "column",
           documentation:
             typeof field.documentation === "string" ? field.documentation : "",
-          digest: canonicalDigest(withoutDocumentation(field, "documentation")),
+          digest: canonicalDigest(withoutKeys(field, "documentation")),
         })),
     });
   }

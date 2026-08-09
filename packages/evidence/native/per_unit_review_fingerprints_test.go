@@ -1,6 +1,7 @@
 package evidence
 
 import (
+  "strings"
   "testing"
 )
 
@@ -34,6 +35,9 @@ func TestPrismaUnitsCarryTheirParsedDigests(t *testing.T) {
     "prisma:Sale":        "model-digest",
     "prisma:Sale.price":  "price-digest",
     "prisma:Sale.seller": "seller-digest",
+  }
+  if len(units) != len(want) {
+    t.Fatalf("materialized %d units, want %d", len(units), len(want))
   }
   for _, unit := range units {
     if unit.Digest != want[unit.Target] {
@@ -225,21 +229,135 @@ func TestAnAddedPrismaFieldMovesTheScopeAndNotTheModel(t *testing.T) {
   currency String
 }
 `)
+  for target, digest := range after {
+    if digest == "" {
+      t.Fatalf("%s carries no digest, so every comparison here passes on emptiness", target)
+    }
+  }
   if before["Sale"] != after["Sale"] {
     t.Fatal("adding a field moved the model's own digest, so a review of the model expires on every sibling's edit too")
   }
   if before["Sale.price"] != after["Sale.price"] {
     t.Fatal("adding a field moved an untouched sibling's digest")
   }
-  scope := func(digests map[string]string) string {
-    return newScopeIndex([]*evidenceUnit{
-      {ID: "prisma:Sale", Target: "prisma:Sale", Symbol: "model", Digest: digests["Sale"]},
-      {ID: "prisma:Sale.id", ParentID: "prisma:Sale", Target: "prisma:Sale.id", Symbol: "column", Digest: digests["Sale.id"]},
-      {ID: "prisma:Sale.price", ParentID: "prisma:Sale", Target: "prisma:Sale.price", Symbol: "column", Digest: digests["Sale.price"]},
-      {ID: "prisma:Sale.currency", ParentID: "prisma:Sale", Target: "prisma:Sale.currency", Symbol: "column", Digest: digests["Sale.currency"]},
-    }).fingerprint("prisma:Sale")
-  }
-  if scope(before) == scope(after) {
+  if prismaScopeOf(before) == prismaScopeOf(after) {
     t.Fatal("adding a field left the model's scope digest unmoved, so a review of the model survives a new column")
+  }
+}
+
+// prismaScopeOf composes a model's scope fingerprint from exactly the units one
+// parse produced.
+//
+// Built from the digests in hand rather than from a fixed list, because a fixed
+// list makes the two sides differ only in one unit's digest and never in how
+// many units there are. That is not the composition production performs, and a
+// regression in which a new field materializes no unit at all would leave a
+// fixed-list assertion green.
+func prismaScopeOf(digests map[string]string) string {
+  units := []*evidenceUnit{}
+  for target, digest := range digests {
+    unit := &evidenceUnit{
+      ID:     "prisma:" + target,
+      Target: "prisma:" + target,
+      Symbol: "model",
+      Digest: digest,
+    }
+    if owner, member, split := strings.Cut(target, "."); split {
+      unit.ParentID = "prisma:" + owner
+      unit.Symbol = "column"
+      _ = member
+    }
+    units = append(units, unit)
+  }
+  return newScopeIndex(units).fingerprint("prisma:Sale")
+}
+
+/**
+ * Verifies a cached schema set serves the digests it stored.
+ *
+ * The cache copies a parsed set field by field so that only the field slice is
+ * reallocated, which means every field the copy does not name is served as its
+ * zero value on a hit and correctly on a miss. The model's own digest was one.
+ * A resident host therefore asked for one fingerprint on its first cycle and a
+ * different one on every cycle after, so a single `ttsc check` and a watch
+ * session disagreed permanently on every model citation and no edit could
+ * repair it.
+ *
+ *  1. Store a parsed set carrying model and field digests.
+ *  2. Read it back.
+ *  3. Assert both digests survived.
+ */
+func TestACachedPrismaSetServesTheDigestsItStored(t *testing.T) {
+  cache := newPrismaCache()
+  cache.store("set-key", prismaSetOutcome{Models: []prismaModel{{
+    Name:   "Sale",
+    Digest: "model-digest",
+    Fields: []prismaField{{Name: "price", Symbol: "column", Digest: "price-digest"}},
+  }}})
+  served, found := cache.lookup("set-key")
+  if !found {
+    t.Fatal("the entry just stored was not found")
+  }
+  if len(served.Models) != 1 || len(served.Models[0].Fields) != 1 {
+    t.Fatalf("served %d models", len(served.Models))
+  }
+  if served.Models[0].Digest != "model-digest" {
+    t.Fatalf("served model digest %q, want %q", served.Models[0].Digest, "model-digest")
+  }
+  if served.Models[0].Fields[0].Digest != "price-digest" {
+    t.Fatalf("served field digest %q, want %q", served.Models[0].Fields[0].Digest, "price-digest")
+  }
+}
+
+/**
+ * Verifies an operation's digest reaches the schemas it names.
+ *
+ * The converter preserves `$ref`s rather than inlining them, so an operation is
+ * often no more than the name of a contract where its request and response
+ * bodies belong. A digest over the operation as written therefore covered the
+ * name and not the contract, and changing every property of a DTO expired no
+ * review of the endpoint that carries it. That is the failure this feature
+ * exists to remove, reproduced on the other bridge.
+ *
+ * The unchanged sibling is the negative twin. Resolving references must not
+ * make one document-wide value out of them, which is the mass false-expiry the
+ * whole-source digest would have produced.
+ *
+ *  1. Normalize a document whose two operations reference one schema each.
+ *  2. Change one referenced schema's property type.
+ *  3. Assert that operation's digest moved and the other's did not.
+ */
+func TestASwaggerOperationDigestFollowsTheSchemasItNames(t *testing.T) {
+  digests := func(memberType string) map[string]string {
+    root := swaggerBridgeRoot(t, `{"openapi":"3.1.0","info":{"title":"A","version":"1"},"paths":{
+      "/members":{"post":{"requestBody":{"content":{"application/json":{"schema":{"$ref":"#/components/schemas/IMember"}}}},"responses":{"200":{"description":"OK"}}}},
+      "/sales":{"post":{"requestBody":{"content":{"application/json":{"schema":{"$ref":"#/components/schemas/ISale"}}}},"responses":{"200":{"description":"OK"}}}}
+    },"components":{"schemas":{
+      "IMember":{"type":"object","properties":{"name":{"type":"`+memberType+`"}},"required":["name"]},
+      "ISale":{"type":"object","properties":{"price":{"type":"number"}},"required":["price"]}
+    }}}`)
+    result, err := normalizeSwaggerSources(root, []string{"swagger.json"})
+    if err != nil {
+      t.Fatalf("the bridge must run: %v", err)
+    }
+    if len(result.Documents) != 1 {
+      t.Fatalf("expected one normalized document, got %d (%v)", len(result.Documents), result.Problems)
+    }
+    out := map[string]string{}
+    for _, operation := range result.Documents[0].Operations {
+      if operation.Digest == "" {
+        t.Fatalf("%s %s carries no digest", operation.Method, operation.Path)
+      }
+      out[strings.ToUpper(operation.Method)+":"+operation.Path] = operation.Digest
+    }
+    return out
+  }
+  before := digests("string")
+  after := digests("number")
+  if before["POST:/members"] == after["POST:/members"] {
+    t.Fatal("changing a referenced schema left the operation's digest unmoved, so a review of the endpoint survives its contract changing")
+  }
+  if before["POST:/sales"] != after["POST:/sales"] {
+    t.Fatal("changing one schema moved an unrelated operation's digest, which is the document-wide expiry this replaces")
   }
 }

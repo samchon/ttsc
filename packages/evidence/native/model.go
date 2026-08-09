@@ -237,9 +237,11 @@ type evidenceUnit struct {
   // itself cited would otherwise change the digest that the review's own
   // fingerprint is checked against, and the repair would never terminate.
   //
-  // Empty when the loader for this artifact kind cannot see the unit's
-  // content. A reference over such a population refuses `requireReview` at
-  // decode rather than comparing against nothing.
+  // Empty when the bridge that read this artifact reported no content for the
+  // unit, which is a loader gap rather than a configuration one: every
+  // reference kind may require a review, and every bridge digests what it
+  // parsed. A consumer of an empty digest reports nothing rather than
+  // comparing against nothing.
   Digest string
 }
 

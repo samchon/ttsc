@@ -1400,12 +1400,12 @@ func addTypeScriptHost(
 //
 // An identifier is its own name and reports none, so it answers from its own
 // end rather than from the full start it would otherwise fall through to. A
-// full start lies in the node's leading trivia rather than among its own
-// tokens: it begins where the previous token ended, so it names that token's
-// line whenever any trivia sits between them. A variable unit is created from
-// its binding identifier and took that answer, which is the `{` a line above
-// each leaf of a multi-line destructuring pattern, and the comma two lines
-// above a declarator whose documentation block sits between the two.
+// full start begins where the previous token ended, so it lies in the node's
+// leading trivia rather than among its own tokens whenever any trivia sits
+// between the two. A variable unit is created from its binding identifier and
+// took that answer, which is a line above each leaf of a multi-line
+// destructuring pattern and two above a declarator whose documentation block
+// sits between it and the token before it.
 //
 // The last fallback is left as it was because no unit kind reaches it: every
 // form is created either from a declaration that carries a name or from an

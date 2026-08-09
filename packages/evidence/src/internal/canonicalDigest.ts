@@ -33,17 +33,41 @@ export const canonicalDigest = (value: unknown): string =>
  *
  * @internal
  */
-export const canonicalJson = (value: unknown): string => {
+export const canonicalJson = (value: unknown): string =>
+  render(value, new Set<object>());
+
+/**
+ * Renders one value, refusing to descend into a container already on the path
+ * above it.
+ *
+ * A source document can be cyclic: a YAML anchor referring to its own parent
+ * loads, upgrades, and would then recurse until the stack ends. The failure
+ * that produced was a diagnostic blaming an upgrade that had succeeded, so the
+ * cycle is answered here with a marker instead. Two documents that differ only
+ * in where a cycle closes still differ, because the marker is emitted at the
+ * position the cycle closes at.
+ */
+const render = (value: unknown, seen: Set<object>): string => {
   if (value === null || typeof value !== "object") return stringify(value);
-  if (Array.isArray(value))
-    return `[${value.map((element) => canonicalJson(element ?? null)).join(",")}]`;
-  const entries: Array<[string, unknown]> = Object.entries(
-    value as Record<string, unknown>,
-  ).filter(([, element]) => element !== undefined);
-  entries.sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0));
-  return `{${entries
-    .map(([key, element]) => `${JSON.stringify(key)}:${canonicalJson(element)}`)
-    .join(",")}}`;
+  if (seen.has(value as object)) return '"[circular]"';
+  seen.add(value as object);
+  try {
+    if (Array.isArray(value))
+      return `[${value.map((element) => render(element ?? null, seen)).join(",")}]`;
+    const entries: Array<[string, unknown]> = Object.entries(
+      value as Record<string, unknown>,
+    ).filter(([, element]) => element !== undefined);
+    entries.sort(([left], [right]) =>
+      left < right ? -1 : left > right ? 1 : 0,
+    );
+    return `{${entries
+      .map(
+        ([key, element]) => `${JSON.stringify(key)}:${render(element, seen)}`,
+      )
+      .join(",")}}`;
+  } finally {
+    seen.delete(value as object);
+  }
 };
 
 const stringify = (value: unknown): string => {
@@ -52,7 +76,11 @@ const stringify = (value: unknown): string => {
 };
 
 /**
- * Drops the properties that carry a declaration's documentation.
+ * Drops named properties from a parsed declaration before it is digested.
+ *
+ * Documentation is the reason this exists, and a container of units is the
+ * other: a model's fields are units of their own, so hashing them into the
+ * model would make one field's edit expire a review of every sibling.
  *
  * A review of a declaration is written in that declaration's own comment, so a
  * digest covering the comment moves the moment the review is written and the
@@ -63,10 +91,7 @@ const stringify = (value: unknown): string => {
  *
  * @internal
  */
-export const withoutDocumentation = <Value>(
-  value: Value,
-  ...keys: string[]
-): Value => {
+export const withoutKeys = <Value>(value: Value, ...keys: string[]): Value => {
   const copy: Record<string, unknown> = {
     ...(value as unknown as Record<string, unknown>),
   };

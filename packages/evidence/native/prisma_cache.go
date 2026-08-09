@@ -88,12 +88,19 @@ func (cache *prismaCache) store(digest string, outcome prismaSetOutcome) {
 
 // copyPrismaOutcome deep-copies the models, because a caller builds units from
 // them while another cycle may be reading the same entry.
+//
+// The copy is written field by field so that only `Fields` is reallocated, and
+// that is exactly why it has to name every other field: one left out is served
+// as its zero value on every cache hit and on no cache miss. `Digest` was, so a
+// resident host asked for one model fingerprint on its first cycle and a
+// different one on every cycle after, which no edit could repair.
 func copyPrismaOutcome(outcome prismaSetOutcome) prismaSetOutcome {
   models := make([]prismaModel, 0, len(outcome.Models))
   for _, model := range outcome.Models {
     models = append(models, prismaModel{
       Name:          model.Name,
       Documentation: model.Documentation,
+      Digest:        model.Digest,
       Fields:        append([]prismaField(nil), model.Fields...),
     })
   }
