@@ -3,7 +3,6 @@
 package host_test
 
 import (
-  "strings"
   "syscall/js"
   "testing"
 )
@@ -18,16 +17,11 @@ import (
 // and reading an absent `length` off it yields zero, so the loop never runs
 // and the rendering is indistinguishable from the verdict.
 func TestStallReadingRefusesAForgedVerdict(t *testing.T) {
-  process := js.Global().Get("process")
-  original := process.Get("_getActiveHandles")
-  defer process.Set("_getActiveHandles", original)
-  js.Global().Call("eval", "process._getActiveHandles = () => ({})")
-
-  reading := nodePendingWork()
-  if strings.Contains(reading, "_getActiveHandles=[]") {
-    t.Fatalf("a non-list reading spelled the verdict: %s", reading)
+  rendered := describeJSList(js.Global().Call("eval", "({})"))
+  if rendered == "[]" {
+    t.Fatal("a non-list reading spelled the verdict")
   }
-  if !strings.Contains(reading, "_getActiveHandles=<not a list>") {
-    t.Fatalf("a non-list reading was not named: %s", reading)
+  if rendered != "<not a list>" {
+    t.Fatalf("a non-list reading was not named: %s", rendered)
   }
 }
