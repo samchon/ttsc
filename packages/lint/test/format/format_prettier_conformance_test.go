@@ -49,6 +49,7 @@ func TestFormatPrettierConformance(t *testing.T) {
     {"format/jsdoc", "extension-canonical", "/**\n * @returns A value.\n */\nfunction value(): number {\n  return 1;\n}\n", map[string]any{"jsDoc": true}, true},
     {"format/orphan-semi", "asi-guard", "// guard\n;\n(bar as Baz).qux()\n", map[string]any{"semi": false}, false},
     {"format/parameter-properties", "multiple-properties", "class Value {\n  constructor(private first: First, public second: Second) {}\n}\n", map[string]any{"trailingComma": "none"}, false},
+    {"format/parameter-properties", "override-only", "class Ctrl extends Base {\n  constructor(override rate: number, kind: string) {\n    super();\n  }\n}\n", map[string]any{"trailingComma": "none"}, false},
     {"format/print-width", "object", "const value = { first: 1, second: 2, third: 3 };\n", map[string]any{"printWidth": 20}, false},
     {"format/print-width", "array", "const values = [first, second, third];\n", map[string]any{"printWidth": 20}, false},
     {"format/print-width", "call", "process(aaaaaa, bbbbbb, cccccc);\n", map[string]any{"printWidth": 24}, false},
