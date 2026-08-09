@@ -202,13 +202,17 @@ func TestWithdrawnIdentityIsNotAnExclusionCarrierOnItsOtherDeclaration(t *testin
  * The fixture is the same merge with the `@internal` block removed and nothing
  * else changed.
  *
+ * A second section nobody cites is what keeps this from passing on silence. An
+ * inactive claim is silent too, and so is a claim whose glob matches nothing,
+ * so the acceptance is only visible as the one section that stays owed.
+ *
  *  1. Declare the same merged identity with neither half withdrawn.
- *  2. Cite a section from the same untagged declarator.
- *  3. Assert the citation is accepted and the section is discharged.
+ *  2. Cite one of two sections from the same untagged declarator.
+ *  3. Assert only the uncited section is reported.
  */
 func TestLiveIdentityAnswersOnItsOtherDeclaration(t *testing.T) {
-  assertNoProblems(t, runIndexRule(t, map[string]string{
-    "docs/spec.md": "## Pricing {#pricing}\n",
+  messages := runIndexRule(t, map[string]string{
+    "docs/spec.md": "## Pricing {#pricing}\n\n## Uncited {#uncited}\n",
     "src/contracts.ts": `
 export namespace N {
   export var price: number;
@@ -224,5 +228,6 @@ export namespace N {
     "files":["src/**"],
     "symbol":"property",
     "reference":{"type":"markdown","files":["docs/**/*.md"],"symbol":"h2"}
-  }]}`))
+  }]}`)
+  assertReported(t, messages, "Missing acknowledgement for 'docs/spec.md#uncited'")
 }
