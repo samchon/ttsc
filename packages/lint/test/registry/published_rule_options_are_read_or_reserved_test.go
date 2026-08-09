@@ -159,6 +159,9 @@ func readPublishedRuleOptionFields() ([]publishedRuleOptionField, error) {
       case inDoc:
         doc.WriteString(" ")
         doc.WriteString(strings.TrimPrefix(trimmed, "* "))
+      case trimmed == "":
+        // A blank line between a doc comment and the property it documents is
+        // legal and keeps the association; only real content breaks it.
       default:
         if match := declaration.FindStringSubmatch(trimmed); match != nil {
           owner = match[1]
