@@ -58,15 +58,21 @@ func TestMain(m *testing.M) {
 func reportStallAndExit() {
   buffer := make([]byte, 1<<20)
   buffer = buffer[:runtime.Stack(buffer, true)]
+  // The stacks go out on their own write, before anything else is attempted.
+  // Reading the JS side means calling into node, and a JS exception crossing
+  // back through syscall/js is a panic; composing both halves into one message
+  // would let that panic destroy the half already in hand, and the runtime's
+  // own panic output travels through os.Stderr, the asynchronous write path
+  // this guard exists because it is already suspect.
   writeStderr(fmt.Sprintf(
     "\nwasm host suite: no exit within %s.\n"+
-      "Every goroutine stack follows, and beneath it what node was still\n"+
-      "holding; the suite self-terminates instead of waiting for go test to\n"+
-      "SIGQUIT the node wrapper and report nothing.\n\n%s\nnode was holding: %s\n",
+      "Every goroutine stack follows, and what node was still holding after\n"+
+      "it; the suite self-terminates instead of waiting for go test to\n"+
+      "SIGQUIT the node wrapper and report nothing.\n\n%s\n",
     suiteBudget,
     buffer,
-    nodePendingWork(),
   ))
+  writeStderr("node was holding: " + nodePendingWork() + "\n")
   os.Exit(1)
 }
 
@@ -86,7 +92,15 @@ func reportStallAndExit() {
 //
 // The call is synchronous, in the sense fs.writeSync is, so it cannot depend on
 // the event delivery that is already suspect.
-func nodePendingWork() string {
+func nodePendingWork() (reading string) {
+  // A reading that fails says so, rather than taking the process down through
+  // a path that cannot report why. Every operation below crosses into JS, and
+  // a JS exception arrives here as a panic.
+  defer func() {
+    if recovered := recover(); recovered != nil {
+      reading = fmt.Sprintf("unavailable: reading node panicked (%v)", recovered)
+    }
+  }()
   process := js.Global().Get("process")
   if process.Type() != js.TypeObject {
     return "unavailable: no process object"
