@@ -131,12 +131,20 @@ func readableCommentBody(comment string) string {
 // text, so the same comment is found twice. The graph's own reporter sorts and
 // drops exact duplicates, which is what collapses them; this only has to gather
 // them in a defined order so its input does not depend on map iteration.
+//
+// Only a file some configured glob selects is reported. A base is a directory
+// and a population is a glob inside it, so a file is scanned whenever it sits
+// under a declared root and belongs to a population only if the glob takes it.
+// Reporting every scanned file made the rule answer for source it does not
+// govern: a stray tag in a consumer's `node_modules` failed their build, naming
+// a repair in a file they did not write.
 func unreadableTypeScriptTags(
   inventories map[string]*artifactInventory,
+  governed map[string]bool,
 ) []string {
   reported := []string{}
-  for _, inventory := range inventories {
-    if inventory == nil {
+  for address, inventory := range inventories {
+    if inventory == nil || !governed[address] {
       continue
     }
     reported = append(reported, inventory.Unreadable...)

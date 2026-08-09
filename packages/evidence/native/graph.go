@@ -71,14 +71,15 @@ func (graphRule) Check(ctx *rule.ProjectContext) {
   problems = append(problems, markdownClaimProblems...)
   problems = append(problems, prismaClaimProblems...)
   config = activeGraphConfig(config, markdownClaims, prismaClaims, typescript)
-  extendTypeScriptInventories(root, ctx.Sources, config, typescript)
+  governed := map[string]bool{}
+  extendTypeScriptInventories(root, ctx.Sources, config, typescript, governed)
   markdown, markdownProblems := loadMarkdownInventories(root, config)
   prisma, prismaProblems := loadPrismaInventories(root, config)
   swagger, swaggerProblems := loadSwaggerInventories(root, config)
   problems = append(problems, markdownProblems...)
   problems = append(problems, prismaProblems...)
   problems = append(problems, swaggerProblems...)
-  problems = append(problems, unreadableTypeScriptTags(typescript)...)
+  problems = append(problems, unreadableTypeScriptTags(typescript, governed)...)
   loader := newTypeScriptLoader(root, typescript)
   states, stateProblems := materializeClaimStates(
     config,

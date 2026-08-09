@@ -14,7 +14,7 @@ func loadTypeScriptInventories(
   config graphConfig,
 ) map[string]*artifactInventory {
   inventories := map[string]*artifactInventory{}
-  extendTypeScriptInventories(root, sources, config, inventories)
+  extendTypeScriptInventories(root, sources, config, inventories, nil)
   return inventories
 }
 
@@ -25,11 +25,21 @@ func loadTypeScriptInventories(
 // it is allowed to inspect that claim's references. Once active claims are
 // known, this second pass adds their reference bases without rescanning the
 // claim bases already materialized.
+// extendTypeScriptInventories adds only populations the caller has not already
+// scanned, and records which of them a configured glob actually selects.
+//
+// A base is a directory and a population is a glob inside it, so one base
+// yields an inventory for every TypeScript file beneath it and the glob decides
+// afterwards which of those a claim or reference owns. `selected` is that
+// second answer, kept here because this is the only place holding both the base
+// a path was reached through and the path relative to it. A caller may pass nil
+// when it does not ask the question.
 func extendTypeScriptInventories(
   root string,
   sources []*shimast.SourceFile,
   config graphConfig,
   inventories map[string]*artifactInventory,
+  selected map[string]bool,
 ) {
   bases := configuredBases(config, artifactTypeScript)
   for _, file := range sources {
@@ -42,6 +52,9 @@ func extendTypeScriptInventories(
         continue
       }
       address := base.addressOf(relative)
+      if selected != nil && matchesConfiguredTypeScriptFile(config, base, relative) {
+        selected[address.Key] = true
+      }
       if inventories[address.Key] != nil {
         continue
       }
@@ -1754,4 +1767,32 @@ func encodeTypeScriptIdentity(identity []string) string {
     builder.WriteByte(';')
   }
   return builder.String()
+}
+
+// matchesConfiguredTypeScriptFile reports whether a population rooted at this
+// base selects the file.
+//
+// The base is compared before the globs, for the reason the Markdown side
+// states: a walk covers one base at a time, and another base's patterns say
+// nothing about a path inside this one.
+func matchesConfiguredTypeScriptFile(
+  config graphConfig,
+  base populationBase,
+  path string,
+) bool {
+  for _, claim := range config.Claims {
+    if claim.Type == artifactTypeScript &&
+      claim.Base.Absolute == base.Absolute &&
+      claim.Files.matches(path) {
+      return true
+    }
+    for _, reference := range claim.References {
+      if reference.Type == artifactTypeScript &&
+        reference.Base.Absolute == base.Absolute &&
+        reference.Files.matches(path) {
+        return true
+      }
+    }
+  }
+  return false
 }
