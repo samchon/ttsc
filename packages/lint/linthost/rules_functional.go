@@ -882,6 +882,12 @@ func isFunctionLikeReturnTypePosition(node *shimast.Node) bool {
 
 // signatureReturnTypeNode returns the declared return-type node of `node`, or
 // nil when `node` carries no signature or declares no return type.
+//
+// Do not replace this table with typescript-go's own FunctionLikeData().Type:
+// an index signature embeds the same base, so that accessor also returns the
+// value type of `{ [k: string]: string[] }`, which is not a return type. The
+// three kinds this table omits, a constructor, a set accessor, and an index
+// signature, are exactly the ones whose Type field means something else.
 func signatureReturnTypeNode(node *shimast.Node) *shimast.Node {
   switch node.Kind {
   case shimast.KindFunctionDeclaration:
