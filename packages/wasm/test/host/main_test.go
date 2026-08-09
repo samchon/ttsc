@@ -6,6 +6,7 @@ import (
   "fmt"
   "os"
   "runtime"
+  "strings"
   "syscall/js"
   "testing"
   "time"
@@ -59,12 +60,90 @@ func reportStallAndExit() {
   buffer = buffer[:runtime.Stack(buffer, true)]
   writeStderr(fmt.Sprintf(
     "\nwasm host suite: no exit within %s.\n"+
-      "Every goroutine stack follows; the suite self-terminates instead of\n"+
-      "waiting for go test to SIGQUIT the node wrapper and report nothing.\n\n%s\n",
+      "Every goroutine stack follows, and beneath it what node was still\n"+
+      "holding; the suite self-terminates instead of waiting for go test to\n"+
+      "SIGQUIT the node wrapper and report nothing.\n\n%s\nnode was holding: %s\n",
     suiteBudget,
     buffer,
+    nodePendingWork(),
   ))
   os.Exit(1)
+}
+
+// nodePendingWork asks node what its event loop is still waiting on.
+//
+// The goroutine stacks alone cannot finish the diagnosis. Both candidate
+// causes park the main goroutine in the same place, a channel receive inside
+// syscall.fsCall, so the Go side reads identically whether node never fired
+// the write completion or fired it and the runtime failed to route it. What
+// separates them is whether node still holds a pending file request, and only
+// node can answer that.
+//
+// It is asked from here rather than from the wrapper's own timer, because
+// whichever guard fires first ends the process: a reading the wrapper takes at
+// a later budget is a reading that never happens on any occurrence this guard
+// catches. Both halves therefore come from one stop.
+//
+// The call is synchronous, in the sense fs.writeSync is, so it cannot depend on
+// the event delivery that is already suspect.
+func nodePendingWork() string {
+  process := js.Global().Get("process")
+  if process.Type() != js.TypeObject {
+    return "unavailable: no process object"
+  }
+  readings := []string{}
+  for _, name := range []string{
+    "getActiveResourcesInfo",
+    "_getActiveRequests",
+    "_getActiveHandles",
+  } {
+    if process.Get(name).Type() != js.TypeFunction {
+      continue
+    }
+    readings = append(readings, name+"="+describeJSList(process.Call(name)))
+  }
+  if len(readings) == 0 {
+    return "unavailable: node exposes none of the resource readings"
+  }
+  return strings.Join(readings, " ")
+}
+
+// describeJSList renders one reading, naming each entry by constructor and by
+// the fields that tell a wedged pipe from a drained one.
+func describeJSList(list js.Value) string {
+  if list.Type() != js.TypeObject {
+    return "[]"
+  }
+  entries := []string{}
+  for index := 0; index < list.Length(); index++ {
+    entry := list.Index(index)
+    if entry.Type() == js.TypeString {
+      entries = append(entries, entry.String())
+      continue
+    }
+    entries = append(entries, describeJSHandle(entry))
+  }
+  return "[" + strings.Join(entries, ", ") + "]"
+}
+
+func describeJSHandle(handle js.Value) string {
+  name := "unknown"
+  if constructor := handle.Get("constructor"); constructor.Type() == js.TypeObject ||
+    constructor.Type() == js.TypeFunction {
+    if named := constructor.Get("name"); named.Type() == js.TypeString {
+      name = named.String()
+    }
+  }
+  detail := []string{}
+  for _, field := range []string{"fd", "writableLength", "bytesWritten"} {
+    if value := handle.Get(field); value.Type() == js.TypeNumber {
+      detail = append(detail, fmt.Sprintf("%s=%d", field, value.Int()))
+    }
+  }
+  if len(detail) == 0 {
+    return name
+  }
+  return name + "(" + strings.Join(detail, " ") + ")"
 }
 
 // writeStderr bypasses os.Stderr on purpose.
