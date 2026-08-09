@@ -23,7 +23,15 @@ import (
 // Two clauses join unconditionally because Prettier gives them no group of
 // their own: an `else` whose alternate is another `if` (the `else if` chain),
 // and a labeled statement, which prints `label: statement` on one line whatever
-// the statement is, braces included.
+// the statement is, braces included. Those are the only clauses that can hoist a
+// multi-line body, and their continuation lines move by the same column delta
+// their first line travels, so the join does not settle on output Prettier would
+// still reindent.
+//
+// A body containing a multi-line template literal abstains from the whole join.
+// Its interior newlines carry string content, and shifting a line inside one
+// would change the program's output rather than its layout. Prettier joins such
+// a label; keeping the source is the deliberate trade.
 //
 // The rule only ever rewrites the whitespace gap between the clause's own
 // header token and the controlled statement, so its edits never overlap
@@ -212,12 +220,81 @@ func joinClauseBody(
       return
     }
   }
+  edits := []TextEdit{{Pos: gapStart, End: bodyStart, Text: " "}}
+  // Hoisting the body's first line moves its base column. Every continuation
+  // line has to move with it, or the join settles on output Prettier would
+  // still reindent (#1139). Only an alwaysJoin clause can reach a multi-line
+  // body; the others already abstained above.
+  if strings.ContainsRune(src[bodyStart:bodyEnd], '\n') {
+    shifted, ok := reindentJoinedClauseBody(
+      ctx, src, headerLineStart, headerStart, bodyStart, bodyEnd, tabWidth,
+    )
+    if !ok {
+      return
+    }
+    edits = append(edits, shifted...)
+  }
   ctx.ReportRangeFix(
     gapStart,
     bodyStart,
     "Single-statement clause body should join its header line.",
-    TextEdit{Pos: gapStart, End: bodyStart, Text: " "},
+    edits...,
   )
+}
+
+// reindentJoinedClauseBody returns the edits that move a hoisted body's
+// continuation lines by the same column delta its first line travels, and
+// reports whether the shift is safe to apply at all.
+//
+// The delta is the header line's own indent minus the indent of the line the
+// body currently starts on, because the body's first line lands on the header
+// line and Prettier prints its continuations relative to that. A line inside a
+// template literal carries string content, and a line whose leading whitespace
+// is shorter than an outdent would need is a shape the shift cannot express, so
+// either one abstains from the whole join rather than half-applying it.
+func reindentJoinedClauseBody(
+  ctx *Context,
+  src string,
+  headerLineStart int,
+  headerStart int,
+  bodyStart int,
+  bodyEnd int,
+  tabWidth int,
+) ([]TextEdit, bool) {
+  templates := collectTemplateRanges(ctx.File, src)
+  bodyLineStart := lineStartOffset(src, bodyStart)
+  delta := visualWidth(src[headerLineStart:headerStart], tabWidth) -
+    visualWidth(src[bodyLineStart:bodyStart], tabWidth)
+  if delta == 0 {
+    return nil, true
+  }
+  var edits []TextEdit
+  for offset := bodyStart; offset < bodyEnd; offset++ {
+    if src[offset] != '\n' {
+      continue
+    }
+    if inTemplate(templates, offset) {
+      return nil, false
+    }
+    lineStart := offset + 1
+    indentEnd := lineStart
+    for indentEnd < bodyEnd && (src[indentEnd] == ' ' || src[indentEnd] == '\t') {
+      indentEnd++
+    }
+    if indentEnd >= bodyEnd {
+      continue // trailing blank line inside the body carries no column
+    }
+    width := visualWidth(src[lineStart:indentEnd], tabWidth) + delta
+    if width < 0 {
+      return nil, false
+    }
+    next := strings.Repeat(" ", width)
+    if src[lineStart:indentEnd] == next {
+      continue
+    }
+    edits = append(edits, TextEdit{Pos: lineStart, End: indentEnd, Text: next})
+  }
+  return edits, true
 }
 
 // isClauseGapByte reports whether `c` is whitespace that may appear in
