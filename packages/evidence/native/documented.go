@@ -252,11 +252,11 @@ func documentedHosts(file *shimast.SourceFile) []documentedHost {
 // hostNodesOf keeps the declarations that can actually carry a citation.
 //
 // A unit's nodes are not all positions a tag can live in. `export const x = 1`
-// records two, the binding identifier that names the unit and the statement
-// wrapper TypeScript attaches the block to, and of those two only the wrapper
-// is a host. The declarator is the third and is a host too, which is why it is
-// recorded against the unit rather than left out of every walk from a unit to
-// its declarations. Demanding the block at the binding would send an author's
+// records three, the binding identifier that names the unit, the statement
+// wrapper TypeScript attaches the block to, and the declarator; of those the
+// wrapper and the declarator are hosts and the binding is not. All three are
+// recorded, because every walk from a unit to its declarations has to reach the
+// positions the host map holds. Demanding the block at the binding would send an author's
 // `@evidence` where `evidence/graph` rejects it as an unsupported host, the
 // rule steering citations somewhere a citation cannot live, which is the
 // failure it exists to prevent.

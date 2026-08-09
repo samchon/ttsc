@@ -204,7 +204,10 @@ func scanTypeScriptInventoryAt(
 // What this cannot reach is a host node no unit records, so a form that
 // registers a position owes that position to its unit. The variable declarator
 // was the one that did not, and a withdrawn variable identity kept it until
-// `collectTypeScriptVariables` began recording it. A second fault travelled
+// `collectTypeScriptVariables` began recording it. `documentedHosts` filters on
+// the same association and was measured to answer identically either way, since
+// it reads a unit's first node and that is always the statement wrapper; the
+// invariant is what was broken there rather than an observable answer. A second fault travelled
 // with that one and has its own cause, which is why they are stated apart: a
 // withdrawal tag read from a container is not the tag of the declarations
 // inside it, so an inner declarator owes its own read, and recording the node
