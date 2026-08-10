@@ -1346,10 +1346,7 @@ export namespace EvidenceBenchmarkRunner {
               if (outcome === undefined) await beginGoal();
             } else if (
               resumeSnapshot.status === "complete" &&
-              (record.terminalTurnId === null ||
-                !record.terminalTurnCompleted ||
-                !record.threadIdle ||
-                record.tokenUsageTurnId !== record.terminalTurnId)
+              !terminalGoalBoundaryProven(record, thread)
             )
               finish("interrupted", {
                 name: "EvidenceBenchmarkResumeInterruption",
@@ -1459,6 +1456,71 @@ export namespace EvidenceBenchmarkRunner {
       state.threadTokenUsage = structuredClone(resumeUsageReplay.usage);
       record.tokenUsageTurnId = resumeUsageReplay.turnId;
       resumeUsageReplay = undefined;
+    }
+
+    /**
+     * Whether the Goal's terminal boundary is exact, reading the thread for the
+     * one witness a killed process loses.
+     *
+     * `terminalTurnCompleted` is written from a single `turn/completed`
+     * notification. A process that dies between the turn ending and that line
+     * arriving keeps every other witness — the turn is identified, it owns the
+     * token measurement, and the thread is idle — and loses only the flag, and
+     * the Goal then refuses every resume forever. That is not a hypothetical: a
+     * cell in this cohort freed its ports with `taskkill /F /IM node.exe`,
+     * which ends every runner on the machine mid-notification, and two cells
+     * reached exactly this state.
+     *
+     * The completion is not assumed. It is read from Codex's own turn history,
+     * which still records that turn as `completed`, and only when the thread is
+     * idle now and nothing but interrupted turns follows it — the same proof
+     * shape {@link proveNativeCompletedInterruptedGoal} uses. When the fact is
+     * taken from there the record says so, so a report can distinguish a
+     * boundary that was observed from one that was recovered.
+     */
+    function terminalGoalBoundaryProven(
+      record: ITtscEvidenceBenchmarkGoalRecord,
+      thread: Record<string, unknown>,
+    ): boolean {
+      if (
+        record.terminalTurnId !== null &&
+        !record.terminalTurnCompleted &&
+        record.tokenUsageTurnId === record.terminalTurnId &&
+        threadRecordsTerminalTurnCompleted(record, thread)
+      ) {
+        record.terminalTurnCompleted = true;
+        record.threadIdle = true;
+        record.terminalTurnCompletionReadFromThread = true;
+        publish();
+      }
+      return (
+        record.terminalTurnId !== null &&
+        record.terminalTurnCompleted &&
+        record.threadIdle &&
+        record.tokenUsageTurnId === record.terminalTurnId
+      );
+    }
+
+    /** Whether Codex still records the retained terminal turn as completed. */
+    function threadRecordsTerminalTurnCompleted(
+      record: ITtscEvidenceBenchmarkGoalRecord,
+      thread: Record<string, unknown>,
+    ): boolean {
+      if (object(thread.status, false)?.type !== "idle") return false;
+      const values: unknown = thread.turns;
+      if (!Array.isArray(values)) return false;
+      const turns: Record<string, unknown>[] = values.map((value) =>
+        object(value),
+      );
+      const index: number = turns.findIndex(
+        (turn) => turn.id === record.terminalTurnId,
+      );
+      const terminal: Record<string, unknown> | undefined = turns[index];
+      if (terminal === undefined || terminal.status !== "completed")
+        return false;
+      return turns
+        .slice(index + 1)
+        .every((turn) => turn.status === "interrupted");
     }
 
     function proveNativeCompletedInterruptedGoal(

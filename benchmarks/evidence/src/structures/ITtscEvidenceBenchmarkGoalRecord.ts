@@ -34,6 +34,18 @@ export interface ITtscEvidenceBenchmarkGoalRecord {
   /** Whether the terminal turn emitted completion. */
   terminalTurnCompleted: boolean;
 
+  /**
+   * Whether that completion was read from the thread instead of observed.
+   *
+   * `terminalTurnCompleted` is written from one `turn/completed` notification,
+   * so a process killed between the turn ending and that line arriving loses
+   * the witness permanently and the Goal can never be resumed past — even
+   * though the thread itself still records the turn as completed. A resume may
+   * take the fact from there, and sets this so the record says which of the two
+   * it was.
+   */
+  terminalTurnCompletionReadFromThread?: boolean;
+
   /** Whether the thread returned to idle after the terminal turn. */
   threadIdle: boolean;
 
