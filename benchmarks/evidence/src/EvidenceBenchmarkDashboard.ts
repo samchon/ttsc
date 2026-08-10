@@ -6,6 +6,7 @@ import typia from "typia";
 
 import { collectEvidenceBenchmarkApiCost } from "./EvidenceBenchmarkApiCost";
 import { EvidenceBenchmarkLayout } from "./EvidenceBenchmarkLayout";
+import { EvidenceBenchmarkStageElapsed } from "./EvidenceBenchmarkStageElapsed";
 import { EvidenceBenchmarkStageLog } from "./EvidenceBenchmarkStageLog";
 import type { ITtscEvidenceBenchmarkApiCost } from "./structures/ITtscEvidenceBenchmarkApiCost";
 import type {
@@ -483,6 +484,16 @@ const summarizeRun = (
     threadElapsedMs,
     detached,
     run.suspensions,
+    EvidenceBenchmarkStageElapsed.read(
+      file.records.events,
+      new Map(
+        file.state.processes.map((process, index) => [
+          index,
+          process.elapsedMs,
+        ]),
+      ),
+      run.suspensions,
+    ),
   ).map((measurement) => ({
     ...measurement,
     tokenPercent: percent(measurement.tokens, totalTokens),
@@ -861,6 +872,7 @@ const stageMeasurements = (
   totalElapsed: number,
   detached: boolean,
   suspensions: readonly ITtscEvidenceBenchmarkReportSuspension[],
+  observedElapsed: ReadonlyMap<string, number>,
 ): IStageMeasurement[] => {
   const current: IDashboardInstruction | undefined =
     state.goals.find(
@@ -892,7 +904,21 @@ const stageMeasurements = (
     0,
     state.threadTokenUsage.totalTokens - retainedTokens,
   );
+  // Where the stream says how long each objective held the thread, that is the
+  // measurement. `activeElapsed` is the fallback for a run whose stream cannot
+  // be read, and it hands every unattributed millisecond to the current stage —
+  // which reports a stage as having run longer than it existed as soon as an
+  // earlier turn is killed, because a killed turn contributes nothing to its
+  // own Goal's `elapsedMs`.
+  const observedTotal: number = [...observedElapsed.values()].reduce(
+    (sum, value) => sum + value,
+    0,
+  );
+  const observed: boolean = state.goals.every((instruction) =>
+    observedElapsed.has(instruction.name),
+  );
   const activeElapsed: number = Math.max(0, totalElapsed - retainedElapsed);
+  const unobserved: number = Math.max(0, totalElapsed - observedTotal);
   const inspections: Map<number, IStageMeasurement> = inspectionByGoal(state);
   return state.goals.map((instruction) => {
     const inspected: IStageMeasurement | undefined = inspections.get(
@@ -904,10 +930,13 @@ const stageMeasurements = (
         instruction.tokenUsage.totalTokens +
         (instruction === current ? activeTokens : 0) +
         (inspected?.tokens ?? 0),
-      elapsedMs:
-        correctedInstructionElapsed(state, instruction, suspensions) +
-        (instruction === current ? activeElapsed : 0) +
-        (inspected?.elapsedMs ?? 0),
+      elapsedMs: observed
+        ? (observedElapsed.get(instruction.name) ?? 0) +
+          (instruction === current ? unobserved : 0) +
+          (inspected?.elapsedMs ?? 0)
+        : correctedInstructionElapsed(state, instruction, suspensions) +
+          (instruction === current ? activeElapsed : 0) +
+          (inspected?.elapsedMs ?? 0),
     };
   });
 };
