@@ -27,7 +27,7 @@ Each reviewer still inspects the complete change surface and relevant sources in
 
 ## Parallel Issue Discovery Rounds
 
-Use this mode only through the multi-agent issue-campaign procedure.
+Use this mode only when the user explicitly asks for parallel issue discovery. A multi-agent issue campaign parallelizes implementation only, so its discovery rounds stay solo.
 
 1. Give every discovery reviewer the entire declared campaign scope.
 2. Each reviewer independently audits source, tests, documentation, CI, packaging, generated artifacts, platform behavior, upstream or downstream provenance, and open and closed issue or pull-request history. Audit the current implementation and history against the development skill's **Forbidden** section.

@@ -62,3 +62,5 @@ An empty round can open development while accepted issues remain, but an unresol
 ## Explicit Multi-Agent Reviews
 
 When the user explicitly asks for a team, parallel, or multi-agent review, load the [multi-agent skill](../multi-agent/SKILL.md) and its [review procedure](../multi-agent/review.md) instead of this workflow. It inherits the same whole-surface and fresh-round law while defining independent parallel reviewers and lead adjudication.
+
+A parallel issue campaign's implementation agents use [Batch Self-Review](../multi-agent/issue-campaign.md#batch-self-review) in place of Individual Self-Review. Each agent reviews its own pushed batch under the law above and spawns nothing, and the lead still performs the solo Overall Self-Review over the integrated pull-request diff as the merge gate.

@@ -17,7 +17,7 @@ Solo work never creates a clone or worktree. If the current checkout contains un
 
 Use one commit per coherent unit when the diff is large. Follow the repository's `<type>(<scope>): <subject>` history with an imperative lowercase subject and no trailing period.
 
-Run the validation required by the development skill. Run `pnpm format` before ordinary commits. A solo issue campaign formats its unified implementation branch. Only an explicit multi-agent campaign implementation batch defers the repository-wide formatter result to its integrated cleanup.
+Run the validation required by the development skill. Run `pnpm format` before ordinary commits. An issue campaign formats its unified implementation branch once, and in a multi-agent campaign that formatter run belongs to the lead's finishing phase.
 
 Stage explicit paths when the worktree is mixed. Never include unrelated user changes silently.
 
@@ -31,14 +31,16 @@ Push only the topic branch with upstream tracking. Use a file-backed body for mu
 
 ## Issue Campaign Override
 
-Before any issue-campaign push or pull request, complete `.agents/skills/issue-campaign/development.md`. A solo campaign uses one formatted pull request and the ordinary check loop. Only the explicit multi-agent procedure overrides that flow with worktree batches, exact-SHA campaign-run cancellation, local implementation gates, and integrated cleanup.
+Before any issue-campaign push or pull request, complete `.agents/skills/issue-campaign/development.md`. Every campaign uses one formatted pull request and the ordinary check loop. The explicit multi-agent procedure overrides only the topology: parallel batch agents share that one checkout, topic branch, and pull request, and each records its own Batch Self-Review there.
 
 ## Watch Checks After Every Ordinary Push
 
-After each ordinary push, including every multi-agent integrated-cleanup push, monitor the pull-request checks until every check settles. Solo issue-campaign implementation commits and CI-suspended campaign implementation waves skip this per-push wait. The solo campaign main agent starts the required Individual Self-Review and immediately implements the next ready issue, then reads CI once the integrated head settles as its development procedure requires. On failure, fetch the relevant job log, diagnose the real cause, fix it in place, push a new commit, and resume monitoring. Do not treat a green unrelated job as acceptance for a failed required surface.
+After each ordinary push, monitor the pull-request checks until every check settles. On failure, fetch the relevant job log, diagnose the real cause, fix it in place, push a new commit, and resume monitoring. Do not treat a green unrelated job as acceptance for a failed required surface.
+
+Issue-campaign implementation commits skip that per-push wait. The solo main agent starts the required Individual Self-Review and immediately implements the next ready issue, while a multi-agent batch agent continues its batch and leaves every check to the lead. Both read CI once the integrated head settles, as the development procedure requires.
 
 ## Merge On Explicit Request Or Standing Autonomous Mandate
 
 Do not merge, squash-merge, rebase, or update the target branch on unprompted initiative. Merge when the user explicitly asks, or when a standing autonomous mandate authorizes end-to-end delivery; use the repository's established merge method unless another is specified. Under an autonomous mandate the author that owns the pull request merges it themselves once the merge gate below passes, without separate approval.
 
-Before merging an ordinary or multi-agent integrated-cleanup pull request, confirm required checks pass. For a campaign implementation pull request whose automatic CI is deliberately suspended, confirm the issue-campaign local-verification and lead-review gates instead. If branch protection blocks the requested merge, report the blocker rather than bypassing it.
+Before merging, confirm the required checks pass on the exact head being merged. A campaign implementation pull request also needs its complete clean Overall Self-Review round on that same head. If branch protection blocks the requested merge, report the blocker rather than bypassing it.

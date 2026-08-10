@@ -44,7 +44,7 @@ Default solo Overall Self-Review, mandatory advisory Individual Self-Review for 
 
 ### Multi-Agent Workflows
 
-Explicitly parallel review and issue-campaign variants live under one entry point, `.agents/skills/multi-agent/SKILL.md`. Read it only when the user explicitly asks for a team, parallel, or multi-agent workflow. Multi-agent issue campaigns parallelize discovery and implementation by default and switch to solo implementation only on an explicit discovery-only parallel request. Overall Self-Review remains solo, while Individual Self-Review is the solo campaign's mandatory per-commit advisory subagent workflow.
+Explicitly parallel review and issue-campaign variants live under one entry point, `.agents/skills/multi-agent/SKILL.md`. Read it only when the user explicitly asks for a team, parallel, or multi-agent workflow. A multi-agent issue campaign differs from the solo campaign only in parallel batch implementation inside its one shared checkout, branch, and pull request. Overall Self-Review remains solo, while Individual Self-Review is the solo campaign's mandatory per-commit advisory subagent workflow.
 
 ### Discussion
 
