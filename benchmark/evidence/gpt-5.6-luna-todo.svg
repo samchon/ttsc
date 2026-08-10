@@ -127,5 +127,5 @@
 <text x="1404" y="980" text-anchor="end" class="value">$1.24 (-91%)</text>
 <text x="36" y="1067" class="table-note">API cost uses openrouter rates from 2026-08-01, emitted only after every measured request reconciles with retained counters.</text>
 <text x="36" y="1082" class="table-note">Review inspection runs on the cell&apos;s own model and effort, so its tokens, time and price all sit inside these totals.</text>
-<text x="36" y="1100" class="generated">Generated 2026-08-10T06:50:43.446Z</text>
+<text x="36" y="1100" class="generated">Generated 2026-08-10T06:38:25.909Z</text>
 </svg>
