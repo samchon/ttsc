@@ -3,4 +3,4 @@
 :HL["/_next/static/chunks/0y2luaueh5f9c.css","style"]
 :HC["/",""]
 :HL["/og-graph.png","image"]
-0:{"tree":{"name":"","param":null,"prefetchHints":4112,"slots":{"children":{"name":"blog","param":null,"prefetchHints":4160,"slots":{"children":{"name":"slug","param":{"type":"d","key":"i-made-ts-compiler-graph-mcp","siblings":["tags"]},"prefetchHints":4192,"slots":{"children":{"name":"__PAGE__","param":null,"prefetchHints":4256,"slots":null}}}}}}},"staleTime":300,"buildId":"7Xt0Y_KyQ2-NWEAHRhlGd"}
+0:{"tree":{"name":"","param":null,"prefetchHints":4112,"slots":{"children":{"name":"blog","param":null,"prefetchHints":4160,"slots":{"children":{"name":"slug","param":{"type":"d","key":"i-made-ts-compiler-graph-mcp","siblings":["tags"]},"prefetchHints":4192,"slots":{"children":{"name":"__PAGE__","param":null,"prefetchHints":4256,"slots":null}}}}}}},"staleTime":300,"buildId":"d9qKqFgRWdlGK6de1OkVC"}
