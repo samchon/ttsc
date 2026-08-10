@@ -75,7 +75,7 @@
 <rect x="604.33" y="561" width="147.77" height="36" fill="#4c78a8" fill-opacity="1" class="phase-segment" data-phase="overall-review" data-tokens="329081309"/>
 <text x="678.22" y="585" text-anchor="middle" class="segment-label">Overall</text>
 <text x="1404" y="577" text-anchor="end" class="value">1207.2M tokens</text>
-<text x="1404" y="601" text-anchor="end" class="cost-value">32h 36m · API cost unavailable</text>
+<text x="1404" y="601" text-anchor="end" class="cost-value">32h 36m · $14.50</text>
 <text x="60" y="647" class="row-label" fill="#f58518">Evidence</text>
 <text x="60" y="670" class="row-status">completed</text>
 <rect x="210" y="629" width="994" height="36" rx="7" class="track"/>
@@ -140,5 +140,5 @@
 <text x="1404" y="1089" text-anchor="end" class="cost-value">8h 54m · $4.07</text>
 <text x="36" y="1175" class="table-note">API cost uses openrouter rates from 2026-08-01, emitted only after every measured request reconciles with retained counters.</text>
 <text x="36" y="1190" class="table-note">Review inspection runs on the cell&apos;s own model and effort, so its tokens, time and price all sit inside these totals.</text>
-<text x="36" y="1210" class="generated">Generated 2026-08-10T04:44:08.608Z</text>
+<text x="36" y="1210" class="generated">Generated 2026-08-10T05:15:33.709Z</text>
 </svg>
