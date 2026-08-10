@@ -79,13 +79,13 @@
 <text x="60" y="647" class="row-label" fill="#f58518">Evidence</text>
 <text x="60" y="670" class="row-status">completed</text>
 <rect x="210" y="629" width="994" height="36" rx="7" class="track"/>
-<rect x="210.00" y="629" width="35.49" height="36" fill="#f58518" fill-opacity="0.44" class="phase-segment" data-phase="backend-development" data-tokens="79030606"/>
-<rect x="245.49" y="629" width="6.47" height="36" fill="#f58518" fill-opacity="0.58" class="phase-segment" data-phase="backend-review" data-tokens="14406992"/>
-<rect x="251.96" y="629" width="18.20" height="36" fill="#f58518" fill-opacity="0.7" class="phase-segment" data-phase="frontend-development" data-tokens="40531887"/>
-<rect x="270.16" y="629" width="5.98" height="36" fill="#f58518" fill-opacity="0.84" class="phase-segment" data-phase="frontend-review" data-tokens="13314628"/>
-<rect x="276.14" y="629" width="18.07" height="36" fill="#f58518" fill-opacity="1" class="phase-segment" data-phase="overall-review" data-tokens="40230583"/>
-<text x="1404" y="645" text-anchor="end" class="value">187.5M tokens (-84%)</text>
-<text x="1404" y="669" text-anchor="end" class="cost-value">4h 51m · $2.30</text>
+<rect x="210.00" y="629" width="16.40" height="36" fill="#f58518" fill-opacity="0.44" class="phase-segment" data-phase="backend-development" data-tokens="36526952"/>
+<rect x="226.40" y="629" width="6.26" height="36" fill="#f58518" fill-opacity="0.58" class="phase-segment" data-phase="backend-review" data-tokens="13945646"/>
+<rect x="232.66" y="629" width="13.37" height="36" fill="#f58518" fill-opacity="0.7" class="phase-segment" data-phase="frontend-development" data-tokens="29777795"/>
+<rect x="246.04" y="629" width="4.23" height="36" fill="#f58518" fill-opacity="0.84" class="phase-segment" data-phase="frontend-review" data-tokens="9425590"/>
+<rect x="250.27" y="629" width="1.08" height="36" fill="#f58518" fill-opacity="1" class="phase-segment" data-phase="overall-review" data-tokens="2404927"/>
+<text x="1404" y="645" text-anchor="end" class="value">92.1M tokens (-92%)</text>
+<text x="1404" y="669" text-anchor="end" class="cost-value">3h 00m · $1.24</text>
 <rect x="28" y="724" width="1384" height="194" rx="10" class="group" fill-opacity="0.42"/>
 <text x="60" y="753" class="group-title">Reddit</text>
 <text x="1404" y="752" text-anchor="end" class="group-meta">codex gpt-5.6-luna</text>
@@ -105,13 +105,14 @@
 <text x="60" y="857" class="row-label" fill="#f58518">Evidence</text>
 <text x="60" y="880" class="row-status">completed</text>
 <rect x="210" y="839" width="994" height="36" rx="7" class="track"/>
-<rect x="210.00" y="839" width="48.92" height="36" fill="#f58518" fill-opacity="0.44" class="phase-segment" data-phase="backend-development" data-tokens="108941657"/>
-<rect x="258.92" y="839" width="38.13" height="36" fill="#f58518" fill-opacity="0.58" class="phase-segment" data-phase="backend-review" data-tokens="84909610"/>
-<rect x="297.05" y="839" width="17.89" height="36" fill="#f58518" fill-opacity="0.7" class="phase-segment" data-phase="frontend-development" data-tokens="39844700"/>
-<rect x="314.94" y="839" width="12.62" height="36" fill="#f58518" fill-opacity="0.84" class="phase-segment" data-phase="frontend-review" data-tokens="28106651"/>
-<rect x="327.56" y="839" width="12.50" height="36" fill="#f58518" fill-opacity="1" class="phase-segment" data-phase="overall-review" data-tokens="27843635"/>
-<text x="1404" y="855" text-anchor="end" class="value">289.6M tokens (-70%)</text>
-<text x="1404" y="879" text-anchor="end" class="cost-value">10h 01m · $3.75</text>
+<rect x="210.00" y="839" width="77.59" height="36" fill="#f58518" fill-opacity="0.44" class="phase-segment" data-phase="backend-development" data-tokens="172779712"/>
+<text x="248.79" y="863" text-anchor="middle" class="segment-label">BE Dev</text>
+<rect x="287.59" y="839" width="8.67" height="36" fill="#f58518" fill-opacity="0.58" class="phase-segment" data-phase="backend-review" data-tokens="19315397"/>
+<rect x="296.26" y="839" width="11.36" height="36" fill="#f58518" fill-opacity="0.7" class="phase-segment" data-phase="frontend-development" data-tokens="25307573"/>
+<rect x="307.63" y="839" width="9.05" height="36" fill="#f58518" fill-opacity="0.84" class="phase-segment" data-phase="frontend-review" data-tokens="20147024"/>
+<rect x="316.67" y="839" width="3.36" height="36" fill="#f58518" fill-opacity="1" class="phase-segment" data-phase="overall-review" data-tokens="7474925"/>
+<text x="1404" y="855" text-anchor="end" class="value">245M tokens (-75%)</text>
+<text x="1404" y="879" text-anchor="end" class="cost-value">6h 43m · $3.30</text>
 <rect x="28" y="934" width="1384" height="194" rx="10" class="group" fill-opacity="0.78"/>
 <text x="60" y="963" class="group-title">Shopping</text>
 <text x="1404" y="962" text-anchor="end" class="group-meta">codex gpt-5.6-luna</text>
@@ -131,14 +132,14 @@
 <text x="60" y="1067" class="row-label" fill="#f58518">Evidence</text>
 <text x="60" y="1090" class="row-status">completed</text>
 <rect x="210" y="1049" width="994" height="36" rx="7" class="track"/>
-<rect x="210.00" y="1049" width="39.82" height="36" fill="#f58518" fill-opacity="0.44" class="phase-segment" data-phase="backend-development" data-tokens="88683231"/>
-<rect x="249.82" y="1049" width="41.96" height="36" fill="#f58518" fill-opacity="0.58" class="phase-segment" data-phase="backend-review" data-tokens="93445958"/>
-<rect x="291.79" y="1049" width="21.15" height="36" fill="#f58518" fill-opacity="0.7" class="phase-segment" data-phase="frontend-development" data-tokens="47105487"/>
-<rect x="312.94" y="1049" width="16.48" height="36" fill="#f58518" fill-opacity="0.84" class="phase-segment" data-phase="frontend-review" data-tokens="36702784"/>
-<rect x="329.42" y="1049" width="28.08" height="36" fill="#f58518" fill-opacity="1" class="phase-segment" data-phase="overall-review" data-tokens="62533366"/>
-<text x="1404" y="1065" text-anchor="end" class="value">328.5M tokens (-85%)</text>
-<text x="1404" y="1089" text-anchor="end" class="cost-value">8h 54m · $4.07</text>
+<rect x="210.00" y="1049" width="47.43" height="36" fill="#f58518" fill-opacity="0.44" class="phase-segment" data-phase="backend-development" data-tokens="105617004"/>
+<rect x="257.43" y="1049" width="35.74" height="36" fill="#f58518" fill-opacity="0.58" class="phase-segment" data-phase="backend-review" data-tokens="79589010"/>
+<rect x="293.17" y="1049" width="23.72" height="36" fill="#f58518" fill-opacity="0.7" class="phase-segment" data-phase="frontend-development" data-tokens="52825873"/>
+<rect x="316.89" y="1049" width="11.79" height="36" fill="#f58518" fill-opacity="0.84" class="phase-segment" data-phase="frontend-review" data-tokens="26247663"/>
+<rect x="328.68" y="1049" width="2.83" height="36" fill="#f58518" fill-opacity="1" class="phase-segment" data-phase="overall-review" data-tokens="6301255"/>
+<text x="1404" y="1065" text-anchor="end" class="value">270.6M tokens (-88%)</text>
+<text x="1404" y="1089" text-anchor="end" class="cost-value">7h 26m · $3.48</text>
 <text x="36" y="1175" class="table-note">API cost uses openrouter rates from 2026-08-01, emitted only after every measured request reconciles with retained counters.</text>
 <text x="36" y="1190" class="table-note">Review inspection runs on the cell&apos;s own model and effort, so its tokens, time and price all sit inside these totals.</text>
-<text x="36" y="1210" class="generated">Generated 2026-08-10T05:15:33.709Z</text>
+<text x="36" y="1210" class="generated">Generated 2026-08-10T06:50:43.446Z</text>
 </svg>
