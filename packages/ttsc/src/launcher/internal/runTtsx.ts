@@ -11,6 +11,7 @@ import {
   parseFlags,
 } from "../../flags/parser";
 import { resolveFlagSpec } from "../../flags/schema";
+import { assertNoSolutionBuild } from "./assertNoSolutionBuild";
 import { getCompilerVersionText } from "./getCompilerVersionText";
 import { prepareExecution } from "./prepareExecution";
 import { resolveCacheDir } from "./resolveCacheDir";
@@ -130,6 +131,7 @@ function parseCLI(argv: readonly string[]) {
     isPositional: looksLikeEntryFile,
     subcommand: "ttsx",
   });
+  assertNoSolutionBuild(result, "ttsx:");
 
   const entry = result.positional.find(looksLikeEntryFile);
   if (entry === undefined) {

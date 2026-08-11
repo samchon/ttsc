@@ -236,7 +236,7 @@ export const FLAG_SCHEMA: readonly FlagSpec[] = [
     name: "--build",
     aliases: ["-b"],
     kind: "boolean",
-    subcommands: ["ttsc", "build", "check", "fix", "format"],
+    subcommands: ["ttsc", "ttsx", "build", "check", "fix", "format"],
     consumedBy: ["launcher"],
     description:
       "Refused by the launcher: ttsc pins one resolved project, so tsgo's solution-build mode is unsupported.",

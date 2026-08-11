@@ -21,7 +21,7 @@ one layer and silently disappears at the next boundary.
 | --- | --- | --- | --- | --- | --- | --- |
 | `--help` | `-h` | boolean | ttsc, ttsx, build, check, fix, format | launcher | terminal, consumed-not-forwarded | Show command help and exit. |
 | `--version` | `-v` | boolean | ttsc, ttsx | launcher | terminal, consumed-not-forwarded | Print the launcher version and exit. |
-| `--build` | `-b` | boolean | ttsc, build, check, fix, format | launcher | consumed-not-forwarded | Refused by the launcher: ttsc pins one resolved project, so tsgo's solution-build mode is unsupported. |
+| `--build` | `-b` | boolean | ttsc, ttsx, build, check, fix, format | launcher | consumed-not-forwarded | Refused by the launcher: ttsc pins one resolved project, so tsgo's solution-build mode is unsupported. |
 | `--tsconfig` | `-p`, `--project` | value | ttsc, ttsx, build, cache, check, fix, format, prepare, clean | launcher, host, lint | - | Resolve project settings from this tsconfig. |
 | `--cwd` | - | value | ttsc, ttsx, build, cache, check, fix, format, prepare, clean | launcher, host, lint | - | Resolve project-relative paths from this directory. |
 | `--emit` | - | boolean | ttsc, build, check | launcher, runBuild, host, lint | - | Force emitted files during build. |
