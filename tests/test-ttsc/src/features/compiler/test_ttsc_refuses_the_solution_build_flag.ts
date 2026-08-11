@@ -12,15 +12,15 @@ import {
  * it.
  *
  * Every build lane hands tsgo an argument list that opens with the project ttsc
- * resolved (`-p <tsconfig>`), so a forwarded `--build` always lands after it and
- * tsgo answers TS6369 "Option '--build' must be the first command line
+ * resolved (`-p <tsconfig>`), so a forwarded `--build` always lands after it
+ * and tsgo answers TS6369 "Option '--build' must be the first command line
  * argument" — a diagnostic that contradicts the command line the user typed and
  * that no spelling of the ttsc invocation can satisfy. The launcher now names
  * the real reason (one pinned project, no solution mode) and points at the
  * per-project alternative, for every spelling and every argv position.
  *
- * 1. Materialize the two-package solution from the report: a root tsconfig with
- *    no files and two project references.
+ * 1. Materialize the two-package solution from the report: a root tsconfig with no
+ *    files and two project references.
  * 2. Run the flag leading, trailing, aliased as `-b`, and under `ttsc check`.
  * 3. Assert exit 2 with ttsc's refusal on stderr, no TS6369 anywhere, and no
  *    emitted output under either referenced package.

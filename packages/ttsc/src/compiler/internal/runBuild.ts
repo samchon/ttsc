@@ -42,7 +42,7 @@ export type RunBuildOptions = TtscBuildOptions & {
    * Hand tsgo the `rootDir` it would otherwise infer, for a build whose
    * `outDir` this process injected rather than the project declaring it.
    *
-   * tsgo answers an inferred common source directory with TS5011 the moment an
+   * Tsgo answers an inferred common source directory with TS5011 the moment an
    * `outDir` is in play, so injecting one turns a project that declares no
    * output at all — the `noEmit` check-only shape `tsgo`, `ttsc`, and `ttsc
    * --emit` all accept — into one that must configure the layout of output the
@@ -1301,11 +1301,11 @@ function createTsgoBuildArgs(
  * See {@link RunBuildOptions.pinInferredRootDir} for why an injected `outDir`
  * needs one at all. Three conditions gate it, and each one is load-bearing:
  *
- * - the caller injected the `outDir` itself, so a user `--outDir` keeps tsgo's
+ * - The caller injected the `outDir` itself, so a user `--outDir` keeps tsgo's
  *   own TS5011 answer;
- * - this pass emits, because a no-emit pass has no layout to pin (tsgo skips
- *   the check for `noEmit` too);
- * - the project declares no `rootDir` of its own, so a declared layout is never
+ * - This pass emits, because a no-emit pass has no layout to pin (tsgo skips the
+ *   check for `noEmit` too);
+ * - The project declares no `rootDir` of its own, so a declared layout is never
  *   overridden.
  *
  * `execution.projectRoot` is the directory of the tsconfig ttsc resolved and

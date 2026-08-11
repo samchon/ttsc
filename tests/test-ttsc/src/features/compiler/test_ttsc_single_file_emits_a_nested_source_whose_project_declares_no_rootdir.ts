@@ -15,8 +15,8 @@ import path from "node:path";
  * root, and a root that missed would leave the trailing-stem matcher to choose
  * between two same-named outputs (issue #1172).
  *
- * 1. Build a project with no `outDir` and no `rootDir` holding two sources
- *    named `main.ts` in different directories.
+ * 1. Build a project with no `outDir` and no `rootDir` holding two sources named
+ *    `main.ts` in different directories.
  * 2. Run `ttsc src/main.ts`.
  * 3. Assert the sibling's output was not written and `src/main.js` carries the
  *    requested file's own value.

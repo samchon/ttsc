@@ -20,9 +20,9 @@ import {
  * 1. Materialize a single-project fixture that emits into `dist`.
  * 2. Run the bare `build` subcommand, an unknown `--buildish` flag, and
  *    `--incremental --tsBuildInfoFile <path>`.
- * 3. Assert the subcommand and the forwarded pair still build, `--buildish`
- *    still reaches tsgo's unknown-option diagnostic, and none of the three
- *    prints ttsc's solution-mode refusal.
+ * 3. Assert the subcommand and the forwarded pair still build, `--buildish` still
+ *    reaches tsgo's unknown-option diagnostic, and none of the three prints
+ *    ttsc's solution-mode refusal.
  */
 export const test_ttsc_build_refusal_does_not_over_match_neighboring_arguments =
   () => {

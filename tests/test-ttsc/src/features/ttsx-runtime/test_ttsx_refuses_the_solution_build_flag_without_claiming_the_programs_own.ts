@@ -15,10 +15,9 @@ import assert from "node:assert/strict";
  * breaks the other (issue #1173).
  *
  * 1. Build a project whose entry prints the argv it received.
- * 2. Run ttsx with `--build` before the entry, and again with `--build` after
- *    it.
- * 3. Assert the first is refused by ttsx with no TS6369, and the second runs
- *    and reports `--build` as the program's own argument.
+ * 2. Run ttsx with `--build` before the entry, and again with `--build` after it.
+ * 3. Assert the first is refused by ttsx with no TS6369, and the second runs and
+ *    reports `--build` as the program's own argument.
  */
 export const test_ttsx_refuses_the_solution_build_flag_without_claiming_the_programs_own =
   () => {
@@ -50,10 +49,6 @@ export const test_ttsx_refuses_the_solution_build_flag_without_claiming_the_prog
       ["--cwd", root, "src/main.ts", "--build"],
       { cwd: root },
     );
-    assert.equal(
-      forwarded.status,
-      0,
-      `${forwarded.stdout}${forwarded.stderr}`,
-    );
+    assert.equal(forwarded.status, 0, `${forwarded.stdout}${forwarded.stderr}`);
     assert.deepEqual(JSON.parse(forwarded.stdout.trim()), ["--build"]);
   };

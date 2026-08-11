@@ -24,10 +24,10 @@ import { type ParseResult } from "../../flags/parser";
  * the flag with no diagnostic at all.
  *
  * What this deliberately does not reach is a `--build` that belongs to the
- * program `ttsx` is running. `runTtsx` parses with `forwardAfterFirstPositional`
- * and `honorDoubleDashSeparator`, so a token after the entry lands in
- * `result.tail` and never in `result.values`; reading `values` is what keeps
- * `ttsx script.ts --build` the user program's own flag.
+ * program `ttsx` is running. `runTtsx` parses with
+ * `forwardAfterFirstPositional` and `honorDoubleDashSeparator`, so a token
+ * after the entry lands in `result.tail` and never in `result.values`; reading
+ * `values` is what keeps `ttsx script.ts --build` the user program's own flag.
  */
 export function assertNoSolutionBuild(
   result: ParseResult,

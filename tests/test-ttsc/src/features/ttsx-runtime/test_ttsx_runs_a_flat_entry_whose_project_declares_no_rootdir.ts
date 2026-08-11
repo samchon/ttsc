@@ -14,8 +14,8 @@ import path from "node:path";
  * exists to catch a synthesized root that moves an emit the compiler had
  * already been placing correctly (issue #1172).
  *
- * 1. Build a `noEmit` project whose only source sits beside the tsconfig, with
- *    no `rootDir`.
+ * 1. Build a `noEmit` project whose only source sits beside the tsconfig, with no
+ *    `rootDir`.
  * 2. Run ttsx against `main.ts`.
  * 3. Assert the program ran and left no `.js` beside its source.
  */

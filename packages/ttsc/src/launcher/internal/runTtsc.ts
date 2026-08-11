@@ -481,7 +481,6 @@ function parseBuildArgs(argv: readonly string[]) {
   };
 }
 
-
 /**
  * Collapse the two launcher-owned emit switches into the tri-state consumed by
  * `runBuild` and the single-file lane. A specified boolean is significant even

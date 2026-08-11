@@ -12,10 +12,9 @@ import assert from "node:assert/strict";
  * file — so the probe is an `enum`, whose runtime object only exists if the
  * dependency was really compiled (issue #1172).
  *
- * 1. Install an ESM `enum-dep` shipping its own tsconfig with neither `outDir`
- *    nor `rootDir`, re-exporting a numeric `enum`.
- * 2. Run ttsx against an entry that reads an enum member and its reverse
- *    mapping.
+ * 1. Install an ESM `enum-dep` shipping its own tsconfig with neither `outDir` nor
+ *    `rootDir`, re-exporting a numeric `enum`.
+ * 2. Run ttsx against an entry that reads an enum member and its reverse mapping.
  * 3. Assert the dependency executed and produced both enum runtime values.
  */
 export const test_ttsx_builds_a_dependency_whose_project_declares_no_rootdir =
