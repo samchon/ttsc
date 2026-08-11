@@ -220,6 +220,29 @@ export const FLAG_SCHEMA: readonly FlagSpec[] = [
   },
 
   // -------------------------------------------------------------------------
+  // Solution build mode — declared so the launcher can refuse it in its own
+  // voice instead of forwarding it.
+  //
+  // `createTsgoBuildArgs` opens the forwarded argv with `-p <tsconfig>` because
+  // ttsc resolves the project itself (extends chains, plugin config discovery,
+  // cache keys, resident session identity) and pins the result. A forwarded
+  // `--build` therefore always lands after `-p`, and tsgo answers with TS6369
+  // "Option '--build' must be the first command line argument" — a diagnostic
+  // that contradicts the command line the user actually typed. ttsc's plugin,
+  // cache, and emit architecture is built around one resolved project, so
+  // solution mode is unsupported rather than merely misordered.
+  // -------------------------------------------------------------------------
+  {
+    name: "--build",
+    aliases: ["-b"],
+    kind: "boolean",
+    subcommands: ["ttsc", "build", "check", "fix", "format"],
+    consumedBy: ["launcher"],
+    description:
+      "Refused by the launcher: ttsc pins one resolved project, so tsgo's solution-build mode is unsupported.",
+  },
+
+  // -------------------------------------------------------------------------
   // Project location: shared by every subcommand.
   // -------------------------------------------------------------------------
   {

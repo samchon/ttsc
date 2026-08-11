@@ -11,6 +11,7 @@ import {
 } from "../../compiler/internal/runBuild";
 import { runSingleFileEmit } from "../../compiler/internal/runSingleFileEmit";
 import {
+  type ParseResult,
   getBoolean,
   getNumber,
   getString,
@@ -441,6 +442,7 @@ function parseBuildArgs(argv: readonly string[]) {
     isPositional: looksLikeInputFile,
     subcommand: "build",
   });
+  assertNoSolutionBuild(result);
   // Defaults: pinned by the previous hand-parser. `quiet` defaults true,
   // `--verbose` flips it to false; `emit` defaults `undefined` so the resolved
   // project controls ordinary build mode. `runCompatibleBuild` applies the
@@ -477,6 +479,30 @@ function parseBuildArgs(argv: readonly string[]) {
     tsconfig: getString(result, "--tsconfig"),
     watch: getBoolean(result, "--watch") === true,
   };
+}
+
+/**
+ * Refuse tsgo's solution-build mode (`--build` / `-b`) in ttsc's own voice.
+ *
+ * Every ttsc build lane hands tsgo an argument list that opens with the project
+ * ttsc resolved (`-p <tsconfig>` in `createTsgoBuildArgs`), because ttsc — not
+ * tsgo — owns the `extends` chain, plugin config discovery, cache keys, and the
+ * resident session's identity, and pins that one resolved project instead of
+ * forwarding raw argv. A forwarded `--build` therefore always arrives after
+ * `-p`, and tsgo replies "Option '--build' must be the first command line
+ * argument" even though the user wrote it first. No spelling of the ttsc
+ * command line can satisfy that diagnostic, so the flag is rejected here rather
+ * than forwarded into an error that blames the user's argument order.
+ *
+ * Presence — not the parsed boolean — is what is refused: `--build false` still
+ * asks for a mode ttsc does not implement, and silently consuming it would drop
+ * the flag with no diagnostic at all.
+ */
+function assertNoSolutionBuild(result: ParseResult): void {
+  if (!result.values.has("--build")) return;
+  throw new Error(
+    "ttsc: --build (solution mode) is not supported; ttsc resolves and pins one project per run, so compile each referenced project with its own ttsc -p <tsconfig> run",
+  );
 }
 
 /**
