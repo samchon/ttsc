@@ -13,8 +13,10 @@ import "testing"
 // `,`, which is exactly where both directions scan for a separator. Reading
 // that comma would rewrite it to a `;` the grammar rejects, or delete it and
 // splice two properties together. memberTakesSemicolonTerminator is the
-// guard: a member carrying a body, or one whose list is `,`-separated, never
-// takes a `;`, so its comma is not this rule's to touch.
+// guard, and it decides on the list rather than on the member: only a member
+// whose parent is an interface body, a type literal, or a class body takes a
+// `;` at all. An object literal is none of those, so its comma is not this
+// rule's to touch in either direction.
 //
 //  1. Parse an object literal holding a braced accessor followed by `,`.
 //  2. Run format/semi with default options, then through the fixer with
