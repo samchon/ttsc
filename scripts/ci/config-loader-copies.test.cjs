@@ -184,6 +184,13 @@ test("a region that is missing, doubled, or inverted is an error", () => {
     ],
     [(source) => replaceOnce(source, END_MARKER, "// gone"), /has no .*end/],
     [
+      (source) =>
+        replaceOnce(source, BEGIN_MARKER, "// ttsc:config-loader-shared swap")
+          .replace(END_MARKER, BEGIN_MARKER)
+          .replace("// ttsc:config-loader-shared swap", END_MARKER),
+      /closes the shared region before it opens it/,
+    ],
+    [
       (source) => insertIntoRegion(source, BEGIN_MARKER),
       /opens the shared region twice/,
     ],
