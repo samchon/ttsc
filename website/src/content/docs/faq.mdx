@@ -104,6 +104,8 @@ The [Lint in VS Code](/docs/lint/editor) guide explains which features use the l
 
 Yes. Each package has its own `tsconfig.json` and its own `lint.config.ts`. `ttsc` reads from the directory it's invoked in (or `-p path/to/tsconfig.json`). `pnpm` / `npm` / `yarn` workspaces all work.
 
+What does not work is `tsc --build` / `-b` solution mode. `ttsc` resolves and pins one project per run — its plugin, cache, and emit layers are built around that single resolved project — so it refuses the flag rather than compiling the wrong thing. Drive the packages yourself instead: a workspace `run -r` script, or one `ttsc -p <package>/tsconfig.json` per package in dependency order.
+
 For VS Code, add packages as workspace folders when each package should keep its own `ttsc`, `typescript`, and plugin config. Save files before relying on plugin diagnostics, lint fixes, or format edits.
 
 ## Source maps and declaration maps?
