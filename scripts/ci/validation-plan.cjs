@@ -65,7 +65,8 @@ const LANES = [
       "node --test packages/ttsc/scripts/check-flags.test.cjs && " +
       "node --test scripts/ci/validation-plan.test.cjs " +
       "scripts/ci/test-owners.test.cjs scripts/ci/line-endings.test.cjs " +
-      "scripts/ci/dependency-audit.test.cjs && " +
+      "scripts/ci/dependency-audit.test.cjs " +
+      "scripts/ci/config-loader-copies.test.cjs && " +
       "node scripts/ci/format-check.cjs && pnpm run test:typecheck",
   },
   {
@@ -607,6 +608,11 @@ function planForPaths(files) {
     if (
       [
         "scripts/ci/benchmark-source-contract.mts",
+        // The config-loader drift gate reads three tracked Go files and runs in
+        // `typecheck`, which every plan already selects. Nothing it touches
+        // needs a build, so it adds no lane of its own.
+        "scripts/ci/config-loader-copies.cjs",
+        "scripts/ci/config-loader-copies.test.cjs",
         "scripts/ci/dependency-audit.cjs",
         "scripts/ci/dependency-audit.test.cjs",
         "scripts/ci/format-check.cjs",

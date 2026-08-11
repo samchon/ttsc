@@ -92,6 +92,12 @@ func parseBanner(config map[string]any, cwd, tsconfigPath string) (string, error
   return b.String(), nil
 }
 
+// sanitizeJSDocLine escapes any JSDoc-closing sequence in a banner text line
+// by replacing "*/" with "* /" so the generated block comment stays valid.
+func sanitizeJSDocLine(line string) string {
+  return strings.ReplaceAll(line, "*/", "* /")
+}
+
 // resolveBannerText extracts the banner text from the plugin config.
 // The config entry is validated first: only the "configFile" key (plus
 // framework keys) is accepted. When "configFile" is present its value is
@@ -437,20 +443,6 @@ func loadBannerTypeScriptConfigFile(location, resolutionRoot string) (any, error
   return out, nil
 }
 
-// relativeImportSpecifier returns a "./" or "../"-prefixed slash-separated
-// import specifier for location relative to fromDir.
-func relativeImportSpecifier(fromDir, location string) (string, error) {
-  relative, err := filepath.Rel(fromDir, location)
-  if err != nil {
-    return "", fmt.Errorf("@ttsc/banner: resolve relative config import %s: %w", location, err)
-  }
-  relative = filepath.ToSlash(relative)
-  if strings.HasPrefix(relative, "../") || strings.HasPrefix(relative, "./") {
-    return relative, nil
-  }
-  return "./" + relative, nil
-}
-
 // bannerTypeScriptConfigLoaderSource returns the source of a TypeScript loader
 // module that imports the banner config file specified by importLiteral (a
 // JSON-encoded import specifier) and writes the serialized banner value to stdout.
@@ -563,6 +555,23 @@ func typeScriptConfigLoaderTsconfig(loader, location, outDir string) string {
   body, _ := json.MarshalIndent(content, "", "  ")
   return string(body)
 }
+
+// ttsc:config-loader-shared begin
+//
+// One policy in three Go copies: everything between these markers is
+// duplicated verbatim in packages/lint/linthost/config.go,
+// packages/banner/driver/banner.go and packages/strip/driver/config.go. #1169
+// decided against extracting it — the only home the three modules could share
+// is the public `packages/ttsc/driver` seam, and packages/lint's go.mod
+// deliberately requires no in-tree ttsc module — and replaced the checklist
+// with a gate: `scripts/ci/config-loader-copies.cjs` compares every function
+// between these markers across all three copies on every pull request, so
+// editing one and not the others fails by name. That file's header carries the
+// full decision and the rules for changing this block.
+//
+// The code between the markers must stay identical. Comments may differ, the
+// `@ttsc/<pkg>:` error prefix may differ, and @ttsc/strip spells each name with
+// a `strip` prefix. Anything package-specific belongs outside the markers.
 
 // configModuleOption returns the loader tsconfig's "module" for a config file:
 // the module kind Node itself would give that file.
@@ -702,20 +711,11 @@ func realpathIfPossible(location string) string {
 // the project being compiled, with an explicit environment variable winning
 // and a last resort that invents no path.
 //
-// This is one of four copies of one policy, and they must move together:
-// `@ttsc/lint`'s Go evaluator (packages/lint/linthost/config.go, the reference
-// implementation), `@ttsc/strip`'s (packages/strip/driver/config.go, the same
-// functions under a `strip` prefix), and the JS original `resolveConfigTsgo` /
-// `resolveTtsxLauncher` in packages/lint/src/index.ts. They stay copies rather
-// than one shared implementation on purpose: the loader around them is already
-// triplicated wholesale (loaderTempBase, resolveDirLink, nearestPackageType,
-// findNearestNodeModules, shouldRunTtsxThroughNode, loaderFailureReason and
-// both loader sources), the only home the three plugins could share is
-// `packages/ttsc/driver` — a public seam third-party plugins compile against —
-// and packages/lint's go.mod deliberately carries no requirement on that
-// module, so extracting these would add a permanent public contract while
-// still leaving two implementations of everything around them. Extracting the
-// whole loader is the change worth making, and it is a larger one than this.
+// The three Go copies are held identical by the gate named at the top of this
+// block. The JS original — `resolveConfigTsgo` / `resolveTtsxLauncher` in
+// packages/lint/src/index.ts — is a fourth copy in another language that no Go
+// gate can reach; what it owes is that both policies stay describable in one
+// sentence.
 //
 // The environment alone is the wrong place to ask. `ttsx` exports
 // TTSC_TSGO_BINARY and TTSC_TTSX_BINARY to its own descendants, so a host
@@ -854,9 +854,16 @@ func ttsxLauncherFrom(anchor string) string {
 // A directory already named `node_modules` contributes no candidate of its own,
 // matching Module._nodeModulePaths, so nothing ever resolves through
 // `node_modules/node_modules`.
+//
+// A relative anchor is resolved against the process directory before the walk,
+// again matching Node. Walking a relative path instead would terminate at "."
+// after one step and silently answer nothing for a config named relatively.
 func nodePackageManifestFrom(anchor, pkg string) string {
   if strings.TrimSpace(anchor) == "" || pkg == "" {
     return ""
+  }
+  if absolute, err := filepath.Abs(anchor); err == nil {
+    anchor = absolute
   }
   dir := filepath.Dir(filepath.Clean(anchor))
   for {
@@ -1005,6 +1012,20 @@ func findNearestNodeModules(start string) string {
   }
 }
 
+// relativeImportSpecifier returns a "./" or "../"-prefixed slash-separated
+// import specifier for location relative to fromDir.
+func relativeImportSpecifier(fromDir, location string) (string, error) {
+  relative, err := filepath.Rel(fromDir, location)
+  if err != nil {
+    return "", fmt.Errorf("@ttsc/banner: resolve relative config import %s: %w", location, err)
+  }
+  relative = filepath.ToSlash(relative)
+  if strings.HasPrefix(relative, "../") || strings.HasPrefix(relative, "./") {
+    return relative, nil
+  }
+  return "./" + relative, nil
+}
+
 // setEnv returns a copy of env with key=value. If key already exists in env,
 // its value is updated in-place; otherwise the entry is appended.
 func setEnv(env []string, key, value string) []string {
@@ -1016,12 +1037,6 @@ func setEnv(env []string, key, value string) []string {
     }
   }
   return append(env, prefix+value)
-}
-
-// sanitizeJSDocLine escapes any JSDoc-closing sequence in a banner text line
-// by replacing "*/" with "* /" so the generated block comment stays valid.
-func sanitizeJSDocLine(line string) string {
-  return strings.ReplaceAll(line, "*/", "* /")
 }
 
 // loaderFailureReason reads the failure envelope a config loader writes to its
@@ -1043,3 +1058,5 @@ func loaderFailureReason(output []byte) string {
   }
   return strings.TrimSpace(envelope.Message)
 }
+
+// ttsc:config-loader-shared end

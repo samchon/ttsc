@@ -272,6 +272,13 @@ test("CI support files select their actual executors", () => {
     "scripts/ci/website-compiler-module.test.cjs",
   ])
     assert.deepEqual(ids([file]), ["go", "windows-go", "typecheck"], file);
+  // The config-loader drift gate rides the lane every plan already selects, so
+  // it needs no lane of its own and must not add one.
+  for (const file of [
+    "scripts/ci/config-loader-copies.cjs",
+    "scripts/ci/config-loader-copies.test.cjs",
+  ])
+    assert.deepEqual(ids([file]), ["typecheck"], file);
   assert.deepEqual(ids(["experimental/test-unplugin/src/index.ts"]), [
     "typecheck",
   ]);

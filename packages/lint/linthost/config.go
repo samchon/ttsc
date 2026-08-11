@@ -4277,6 +4277,23 @@ func typeScriptConfigLoaderTsconfig(loader, location, outDir string) string {
   return string(body)
 }
 
+// ttsc:config-loader-shared begin
+//
+// One policy in three Go copies: everything between these markers is
+// duplicated verbatim in packages/lint/linthost/config.go,
+// packages/banner/driver/banner.go and packages/strip/driver/config.go. #1169
+// decided against extracting it — the only home the three modules could share
+// is the public `packages/ttsc/driver` seam, and packages/lint's go.mod
+// deliberately requires no in-tree ttsc module — and replaced the checklist
+// with a gate: `scripts/ci/config-loader-copies.cjs` compares every function
+// between these markers across all three copies on every pull request, so
+// editing one and not the others fails by name. That file's header carries the
+// full decision and the rules for changing this block.
+//
+// The code between the markers must stay identical. Comments may differ, the
+// `@ttsc/<pkg>:` error prefix may differ, and @ttsc/strip spells each name with
+// a `strip` prefix. Anything package-specific belongs outside the markers.
+
 // configModuleOption returns the loader tsconfig's "module" for a config file:
 // the module kind Node itself would give that file.
 //
@@ -4410,10 +4427,14 @@ func resolveDirLink(dir string) string {
 // Both tools the TypeScript config evaluator needs — the `ttsx` launcher it
 // spawns and the native compiler it hands that launcher — are resolved from the
 // project being linted, with an explicit environment variable winning and a
-// last resort that invents no path. This is the Go twin of `resolveConfigTsgo`
-// and `resolveTtsxLauncher` in packages/lint/src/index.ts; the two evaluators
-// must keep one policy, because it was a divergence between them that made a
-// TypeScript lint config unevaluable outside a `ttsx`-launched host.
+// last resort that invents no path.
+//
+// The three Go copies are held identical by the gate named at the top of this
+// block. The JS original — `resolveConfigTsgo` / `resolveTtsxLauncher` in
+// packages/lint/src/index.ts — is a fourth copy in another language that no Go
+// gate can reach; the two evaluators must keep one policy, because it was a
+// divergence between them that made a TypeScript lint config unevaluable
+// outside a `ttsx`-launched host.
 //
 // The environment alone is the wrong place to ask. `ttsx` exports
 // TTSC_TSGO_BINARY and TTSC_TTSX_BINARY to its own descendants, so a host
@@ -4741,6 +4762,8 @@ func setEnv(env []string, key, value string) []string {
   }
   return append(env, prefix+value)
 }
+
+// ttsc:config-loader-shared end
 
 // parseExternalRuleEntry delegates to parseRuleEntry. It is kept under this
 // name because test files in the same package call it directly.

@@ -428,6 +428,23 @@ func stripTypeScriptLoaderTsconfig(loader, location, outDir string) string {
   return string(body)
 }
 
+// ttsc:config-loader-shared begin
+//
+// One policy in three Go copies: everything between these markers is
+// duplicated verbatim in packages/lint/linthost/config.go,
+// packages/banner/driver/banner.go and packages/strip/driver/config.go. #1169
+// decided against extracting it — the only home the three modules could share
+// is the public `packages/ttsc/driver` seam, and packages/lint's go.mod
+// deliberately requires no in-tree ttsc module — and replaced the checklist
+// with a gate: `scripts/ci/config-loader-copies.cjs` compares every function
+// between these markers across all three copies on every pull request, so
+// editing one and not the others fails by name. That file's header carries the
+// full decision and the rules for changing this block.
+//
+// The code between the markers must stay identical. Comments may differ, the
+// `@ttsc/<pkg>:` error prefix may differ, and @ttsc/strip spells each name with
+// a `strip` prefix. Anything package-specific belongs outside the markers.
+
 // stripConfigModuleOption returns the loader tsconfig's "module" for a config
 // file: the module kind Node itself would give that file.
 //
@@ -566,21 +583,11 @@ func stripRealpathIfPossible(location string) string {
 // the project being compiled, with an explicit environment variable winning
 // and a last resort that invents no path.
 //
-// This is one of four copies of one policy, and they must move together:
-// `@ttsc/lint`'s Go evaluator (packages/lint/linthost/config.go, the reference
-// implementation), `@ttsc/banner`'s (packages/banner/driver/banner.go, the same
-// functions without the `strip` prefix), and the JS original
-// `resolveConfigTsgo` / `resolveTtsxLauncher` in packages/lint/src/index.ts.
-// They stay copies rather than one shared implementation on purpose: the loader
-// around them is already triplicated wholesale (stripLoaderTempBase,
-// stripResolveDirLink, stripNearestPackageType, stripFindNearestNodeModules,
-// stripShouldRunThroughNode, loaderFailureReason and both loader sources), the
-// only home the three plugins could share is `packages/ttsc/driver` — a public
-// seam third-party plugins compile against — and packages/lint's go.mod
-// deliberately carries no requirement on that module, so extracting these would
-// add a permanent public contract while still leaving two implementations of
-// everything around them. Extracting the whole loader is the change worth
-// making, and it is a larger one than this.
+// The three Go copies are held identical by the gate named at the top of this
+// block. The JS original — `resolveConfigTsgo` / `resolveTtsxLauncher` in
+// packages/lint/src/index.ts — is a fourth copy in another language that no Go
+// gate can reach; what it owes is that both policies stay describable in one
+// sentence.
 //
 // The environment alone is the wrong place to ask. `ttsx` exports
 // TTSC_TSGO_BINARY and TTSC_TTSX_BINARY to its own descendants, so a host
@@ -719,9 +726,16 @@ func stripTtsxLauncherFrom(anchor string) string {
 // A directory already named `node_modules` contributes no candidate of its own,
 // matching Module._nodeModulePaths, so nothing ever resolves through
 // `node_modules/node_modules`.
+//
+// A relative anchor is resolved against the process directory before the walk,
+// again matching Node. Walking a relative path instead would terminate at "."
+// after one step and silently answer nothing for a config named relatively.
 func stripNodePackageManifestFrom(anchor, pkg string) string {
   if strings.TrimSpace(anchor) == "" || pkg == "" {
     return ""
+  }
+  if absolute, err := filepath.Abs(anchor); err == nil {
+    anchor = absolute
   }
   dir := filepath.Dir(filepath.Clean(anchor))
   for {
@@ -910,3 +924,5 @@ func loaderFailureReason(output []byte) string {
   }
   return strings.TrimSpace(envelope.Message)
 }
+
+// ttsc:config-loader-shared end
