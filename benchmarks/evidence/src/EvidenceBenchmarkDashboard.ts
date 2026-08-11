@@ -464,7 +464,26 @@ const summarizeRun = (
     throw new Error(
       `Benchmark suspension exceeds retained work time: ${file.cell.runId}.`,
     );
-  const threadElapsedMs: number = rawWorkElapsedMs - suspendedMs;
+  // What the thread itself spent working, not how long its process was alive.
+  //
+  // Summing process lifetimes answers "how long was a runner up", and that
+  // includes the thread handshake, the browser server's first install, every
+  // pause at a Review boundary, and the runner's own bookkeeping between
+  // objectives. Codex keeps its own cumulative counter on each Goal snapshot,
+  // and the difference is not small: `todo` Plain's processes lived 12h 41m
+  // while its thread reports 11h 41m of work.
+  //
+  // The counter is cumulative over the thread rather than per Goal, so the last
+  // retained snapshot is the total, and consecutive differences are what each
+  // objective spent. That reads back against the record: `todo` Plain's
+  // `backend-remind-1` differences out to 375 minutes against a stage log
+  // spanning 376.
+  //
+  // Process lifetime stays the fallback for a record whose Goals carry no
+  // counter, and is still what a suspension is subtracted from — a machine
+  // asleep never reaches the thread's own accounting in the first place.
+  const workingMs: number | undefined = threadWorkingElapsed(file.state);
+  const threadElapsedMs: number = workingMs ?? rawWorkElapsedMs - suspendedMs;
   const detached: boolean = file.cell.reviewLedger === "backend";
   // Judging a Review is part of what an arm costs, so the inspecting thread's
   // tokens and time join the cell's totals. They arrive from their own retained
@@ -867,6 +886,44 @@ const emptyTokenUsage = (): ITtscEvidenceBenchmarkTokenUsage => ({
   reasoningOutputTokens: 0,
 });
 
+/**
+ * Total time the native thread reports having worked, or nothing when its Goals
+ * carry no counter.
+ *
+ * The counter is cumulative over the thread, so the last snapshot that has one
+ * is the total. Goals are scanned from the end because an early Goal recorded
+ * before the field existed must not shorten a run whose later Goals have it.
+ */
+const threadWorkingElapsed = (state: IDashboardState): number | undefined => {
+  for (let i: number = state.goals.length - 1; i >= 0; --i) {
+    const seconds: unknown = state.goals[i]?.goal?.timeUsedSeconds;
+    if (typeof seconds === "number" && seconds > 0) return seconds * 1000;
+  }
+  return undefined;
+};
+
+/**
+ * What each objective spent, as consecutive differences of that counter.
+ *
+ * A Goal that never recorded the counter yields nothing for itself and does not
+ * break the chain: the next Goal that has one differences against the last one
+ * that did, so the parts still sum to the whole.
+ */
+const stageWorkingElapsed = (
+  state: IDashboardState,
+): Map<string, number> | undefined => {
+  if (threadWorkingElapsed(state) === undefined) return undefined;
+  const found: Map<string, number> = new Map();
+  let previous: number = 0;
+  for (const instruction of state.goals) {
+    const seconds: unknown = instruction.goal?.timeUsedSeconds;
+    if (typeof seconds !== "number") continue;
+    found.set(instruction.name, Math.max(0, seconds * 1000 - previous));
+    previous = seconds * 1000;
+  }
+  return found;
+};
+
 const stageMeasurements = (
   state: IDashboardState,
   totalElapsed: number,
@@ -910,12 +967,16 @@ const stageMeasurements = (
   // which reports a stage as having run longer than it existed as soon as an
   // earlier turn is killed, because a killed turn contributes nothing to its
   // own Goal's `elapsedMs`.
-  const observedTotal: number = [...observedElapsed.values()].reduce(
+  // The thread's own per-objective accounting wins where it exists; the event
+  // stream is the fallback for a record that predates the counter.
+  const working: Map<string, number> | undefined = stageWorkingElapsed(state);
+  const source: ReadonlyMap<string, number> = working ?? observedElapsed;
+  const observedTotal: number = [...source.values()].reduce(
     (sum, value) => sum + value,
     0,
   );
   const observed: boolean = state.goals.every((instruction) =>
-    observedElapsed.has(instruction.name),
+    source.has(instruction.name),
   );
   const activeElapsed: number = Math.max(0, totalElapsed - retainedElapsed);
   const unobserved: number = Math.max(0, totalElapsed - observedTotal);
@@ -931,7 +992,7 @@ const stageMeasurements = (
         (instruction === current ? activeTokens : 0) +
         (inspected?.tokens ?? 0),
       elapsedMs: observed
-        ? (observedElapsed.get(instruction.name) ?? 0) +
+        ? (source.get(instruction.name) ?? 0) +
           (instruction === current ? unobserved : 0) +
           (inspected?.elapsedMs ?? 0)
         : correctedInstructionElapsed(state, instruction, suspensions) +
