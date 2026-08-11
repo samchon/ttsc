@@ -178,6 +178,12 @@ export namespace TestProject {
    * Create a strict CommonJS fixture project with the repo's default test
    * compiler settings, while still allowing individual cases to override the
    * specific tsconfig fields under test.
+   *
+   * An override of `undefined` removes the default instead of replacing it, so
+   * a case can build a project that declares no `rootDir` (or no `outDir`) at
+   * all: `commonJsProject(files, { compilerOptions: { rootDir: undefined } })`.
+   * That shape is not a variation on the defaults but the one every default
+   * hides — a project whose output layout the compiler has to infer.
    */
   export function commonJsProject(
     files: Record<string, string>,
@@ -185,18 +191,38 @@ export namespace TestProject {
   ) {
     return createProject({
       "tsconfig.json": tsconfig(
-        {
+        withoutUndeclaredOptions({
           target: "ES2022",
           module: "commonjs",
           strict: true,
           outDir: "dist",
           rootDir: "src",
           ...options.compilerOptions,
-        },
+        }),
         options.config ?? {},
       ),
       ...files,
     });
+  }
+
+  /**
+   * Drop every key whose value is `undefined`.
+   *
+   * `commonJsProject` merges its defaults under the caller's overrides, so
+   * `undefined` is the only spelling a case has for "this project declares no
+   * such option". `JSON.stringify` already omits an `undefined` value, but a
+   * fixture whose shape depends on that is a fixture nobody can read; removing
+   * the key here makes the removal the helper's stated behaviour rather than a
+   * side effect of the serializer.
+   */
+  function withoutUndeclaredOptions(
+    compilerOptions: Record<string, unknown>,
+  ): Record<string, unknown> {
+    return Object.fromEntries(
+      Object.entries(compilerOptions).filter(
+        ([, value]) => value !== undefined,
+      ),
+    );
   }
 
   /**
