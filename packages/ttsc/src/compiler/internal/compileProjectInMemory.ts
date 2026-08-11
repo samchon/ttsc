@@ -119,6 +119,13 @@ function compileProjectWithPlugins(
       emit: true,
       forceListEmittedFiles: true,
       outDir: tempOutDir,
+      // The temp directory is an `outDir` this lane injected so the emit can be
+      // read back as strings; the project need not declare one at all. tsgo
+      // answers an inferred common source directory with TS5011 as soon as any
+      // `outDir` is in play, so pin the root it would infer. The keys
+      // `outputKeyMapper` builds are unchanged by it — that root is exactly the
+      // layout tsgo already lays the emit out against (issue #1172).
+      pinInferredRootDir: true,
       quiet: true,
       resolvedProject: project,
       structuredDiagnostics: true,

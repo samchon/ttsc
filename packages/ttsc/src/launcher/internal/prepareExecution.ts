@@ -57,7 +57,6 @@ export function prepareExecution(
   const context = createProjectContext(
     cwd,
     path.resolve(cwd, entryFile),
-    entry,
     options,
   );
   try {
@@ -151,13 +150,10 @@ function resolveEntrySpelling(cwd: string, entryFile: string): string {
 /**
  * @param discoveryFile - The entry as the user named it. Project discovery
  *   walks up from here, so it must not be retargeted through a symlink.
- * @param entry - The entry in its physical spelling, which is what the emit
- *   layout and the runtime hooks both speak.
  */
 function createProjectContext(
   cwd: string,
   discoveryFile: string,
-  entry: string,
   options: NonNullable<Parameters<typeof prepareExecution>[1]>,
 ) {
   const project = readProjectConfig(
@@ -179,7 +175,7 @@ function createProjectContext(
   const virtualRoot = path.join(processDir, "fs");
   // Resolved once: it now costs a realpath (and, for a missing directory on
   // Windows, a case-sensitivity probe) rather than a string join.
-  const runtimeRootDir = resolveRuntimeSourceRoot(project, entry);
+  const runtimeRootDir = resolveRuntimeSourceRoot(project);
   return {
     project,
     tsconfig,
@@ -217,6 +213,16 @@ function createProjectContext(
  * The source-tree root the emit mirrors, in the same physical spelling as the
  * entry it will be compared against.
  *
+ * Undeclared, the root is the project's own directory, because that is the one
+ * tsgo uses: with a config file in play `GetCommonSourceDirectory` answers that
+ * file's directory and never computes a common directory of the input files.
+ * The entry's directory is not that root — it is only the same directory when
+ * the entry happens to sit beside the tsconfig, which is precisely why a
+ * `src/`-shaped project mislaid its emit here (issue #1172) while a flat one
+ * worked. `runtimeHooks.ts::resolveDependencySourceRoot` and
+ * `watchTopology.ts::inferPerSourceCompilerOutputs` already model the same
+ * rule, and `runBuild.ts::pinnedRootDirArgs` pins it for tsgo itself.
+ *
  * Resolving it is the other half of `resolveEntrySpelling`, and skipping it
  * leaves the comparison mixed rather than merely imprecise. `project.root`
  * arrives through plain `fs.realpathSync`, which resolves reparse points but
@@ -227,22 +233,25 @@ function createProjectContext(
  * way the gate reads an in-project entry as outside its own root, pays a second
  * whole build for it, and publishes a wider root than the project has.
  *
- * `path.dirname(entry)` is already physical, so only the declared branch needs
- * the pass.
+ * The pass costs nothing in agreement with the root tsgo was pinned to, which
+ * stays unresolved on purpose so it matches the spelling tsgo gives the input
+ * file names it compares against it. Only the prefix differs between the two;
+ * each side strips its own, so the relative path below the root — the part that
+ * decides where the emit lands and where the lookup reads — is identical.
  */
 function resolveRuntimeSourceRoot(
   project: ReturnType<typeof readProjectConfig>,
-  entry: string,
 ): string {
   const rootDir = project.compilerOptions.rootDir;
-  if (typeof rootDir !== "string") {
-    return path.dirname(entry);
-  }
   const identities = createFilesystemPathIdentityContext({
     throwOnRealpathError: false,
   });
   return identities.resolve(
-    path.isAbsolute(rootDir) ? rootDir : path.resolve(project.root, rootDir),
+    typeof rootDir !== "string"
+      ? project.root
+      : path.isAbsolute(rootDir)
+        ? rootDir
+        : path.resolve(project.root, rootDir),
   ).path;
 }
 
@@ -265,6 +274,13 @@ function buildProject(
     cacheDir: context.pluginCacheDir,
     outDir: context.emitDir,
     passthrough: options.passthrough,
+    // `context.emitDir` is ttsx's own temp directory, not an output the project
+    // asked for, and tsgo demands an explicit `rootDir` (TS5011) as soon as any
+    // `outDir` is in play. Pinning the root tsgo would infer keeps a check-only
+    // project runnable without moving its emit (issue #1172); a project that
+    // declares `rootDir` is left exactly as it is, which is also the root
+    // `resolveRuntimeSourceRoot` published above.
+    pinInferredRootDir: true,
     // Emit a source map on the transient entry emit (a PID-isolated temp dir,
     // never the consumer's `outDir`) so the serve path can inline it under the
     // source URL. Routed as a dedicated build option, not a forwarded tsgo

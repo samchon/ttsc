@@ -41,6 +41,13 @@ export function runSingleFileEmit(options: TtscSingleFileEmitOptions): string {
       forceListEmittedFiles: true,
       isolateOutputsTo: outDir,
       outDir,
+      // The private temp directory above is an `outDir` this lane injected, not
+      // one the project declared, and tsgo answers an inferred common source
+      // directory with TS5011 as soon as any `outDir` is in play. Pinning the
+      // root tsgo would infer keeps `ttsc <file.ts>` working on a project that
+      // declares no output at all, and it is the same root
+      // `resolveEmittedJavaScript` mirrors below (issue #1172).
+      pinInferredRootDir: true,
       resolvedProject: project,
       tsconfig,
     });

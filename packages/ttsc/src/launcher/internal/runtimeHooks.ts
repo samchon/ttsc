@@ -1527,6 +1527,13 @@ function buildDependency(
     emit: true,
     forceListEmittedFiles: true,
     outDir: emitDir,
+    // The generation directory is an `outDir` this lane injected, not one the
+    // dependency declared, and tsgo demands an explicit `rootDir` (TS5011) as
+    // soon as any `outDir` is in play. Pinning the root tsgo would infer keeps
+    // a source-shipping dependency that declares no output buildable, and it is
+    // the same root `resolveDependencySourceRoot` publishes for it below —
+    // without it that dependency falls back to type-stripping (issue #1172).
+    pinInferredRootDir: true,
     // Emit a source map on the transient dependency emit (it never reaches the
     // dependency's published `lib/`) so the serve path can inline it under the
     // source URL, but only when the dependency configures none itself. Routed

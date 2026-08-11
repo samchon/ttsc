@@ -39,6 +39,34 @@ export type RunBuildOptions = TtscBuildOptions & {
   /** Keep every compiler-owned side product inside this private directory. */
   isolateOutputsTo?: string;
   /**
+   * Hand tsgo the `rootDir` it would otherwise infer, for a build whose
+   * `outDir` this process injected rather than the project declaring it.
+   *
+   * tsgo answers an inferred common source directory with TS5011 the moment an
+   * `outDir` is in play, so injecting one turns a project that declares no
+   * output at all — the `noEmit` check-only shape `tsgo`, `ttsc`, and `ttsc
+   * --emit` all accept — into one that must configure the layout of output the
+   * user never asked for and never sees (issue #1172).
+   *
+   * The pinned value is the one tsgo itself infers: with a config file in play
+   * its common source directory is that file's directory, never the computed
+   * common directory of the input files (`outputpaths.GetCommonSourceDirectory`
+   * consults the file list only for a config-less program). Pinning it
+   * therefore silences the demand without moving a single output, and it is the
+   * same source root `prepareExecution.ts::resolveRuntimeSourceRoot`,
+   * `runtimeHooks.ts::resolveDependencySourceRoot`, and
+   * `watchTopology.ts::inferPerSourceCompilerOutputs` already model on the
+   * JavaScript side.
+   *
+   * Ignored when the project declares its own `rootDir`: that project already
+   * satisfies tsgo, and overriding it would relocate the emit out from under
+   * every consumer that mirrors the declared root.
+   *
+   * Never set for a user-supplied `--outDir`. That outDir is the user's own
+   * request, and TS5011 is then tsgo's genuine answer to it.
+   */
+  pinInferredRootDir?: boolean;
+  /**
    * Receives selected native-plugin source roots after the project resolves.
    * The watch launcher uses these roots to invalidate a sidecar when its Go
    * implementation changes between rebuilds.
@@ -1084,7 +1112,7 @@ function forwardsInternalShadowFlag(
  * inside it via the `--plugins-json` flag.
  */
 function buildWithNativeCompilerPlugins(
-  options: TtscBuildOptions,
+  options: RunBuildOptions,
   execution: ReturnType<typeof resolveExecutionContext>,
   plugins: readonly ITtscLoadedNativePlugin[],
   timing: BuildTiming,
@@ -1245,6 +1273,9 @@ function createTsgoBuildArgs(
     if (options.forceRuntimeSourceMap === true) {
       args.push("--sourceMap", "true");
     }
+    // Pushed before passthrough for the same reason: a user `--rootDir` still
+    // wins over the value ttsc pins for its own injected `outDir`.
+    args.push(...pinnedRootDirArgs(execution, options));
   } else if (options.emit === false) {
     args.push("--noEmit");
   }
@@ -1262,6 +1293,37 @@ function createTsgoBuildArgs(
     args.push("--noEmitOnError");
   }
   return args;
+}
+
+/**
+ * The explicit `--rootDir` a caller-injected `outDir` needs, or nothing.
+ *
+ * See {@link RunBuildOptions.pinInferredRootDir} for why an injected `outDir`
+ * needs one at all. Three conditions gate it, and each one is load-bearing:
+ *
+ * - the caller injected the `outDir` itself, so a user `--outDir` keeps tsgo's
+ *   own TS5011 answer;
+ * - this pass emits, because a no-emit pass has no layout to pin (tsgo skips
+ *   the check for `noEmit` too);
+ * - the project declares no `rootDir` of its own, so a declared layout is never
+ *   overridden.
+ *
+ * `execution.projectRoot` is the directory of the tsconfig ttsc resolved and
+ * hands tsgo as `-p`, which is exactly the directory tsgo infers, and it is
+ * spelled the way tsgo will spell the input file names it compares against it —
+ * both come from the same `fs.realpathSync` pass. Resolving it any further (a
+ * Windows 8.3 expansion, say) would leave the comparison lexically mixed, and
+ * `ContainsPath` is lexical: every input would count as outside `rootDir` and
+ * tsgo would emit it beside the user's source instead of under `outDir`.
+ */
+function pinnedRootDirArgs(
+  execution: ReturnType<typeof resolveExecutionContext>,
+  options: RunBuildOptions,
+): string[] {
+  if (options.pinInferredRootDir !== true) return [];
+  if (options.emit !== true) return [];
+  if (typeof execution.project.compilerOptions.rootDir === "string") return [];
+  return ["--rootDir", execution.projectRoot];
 }
 
 /**
@@ -1304,7 +1366,7 @@ function createTsgoThreadingArgs(options: TtscCommonOptions): string[] {
 /** Build the argument list for a native plugin `build`/`check` invocation. */
 function createNativeBuildArgs(
   execution: ReturnType<typeof resolveExecutionContext>,
-  options: TtscBuildOptions,
+  options: RunBuildOptions,
   plugins: readonly ITtscLoadedNativePlugin[],
 ): string[] {
   const args = [
@@ -1339,7 +1401,12 @@ function createNativeBuildArgs(
       args.push("--quiet");
     }
   }
-  args.push(...createNativeTsgoArgs(options));
+  // The sidecar builds its Program in-process, so the pinned `rootDir` has to
+  // travel the same channel every other tsgo option takes to it — the host flag
+  // set does not declare `--rootDir`, and `filterHostArgs` would strip it.
+  args.push(
+    ...createNativeTsgoArgs(options, pinnedRootDirArgs(execution, options)),
+  );
   return args;
 }
 
@@ -1488,8 +1555,14 @@ function transformHostTimingLabel(
  * a plugin build the same way it reaches the plain tsgo lane. Encoded as a
  * single token so the sidecars' unknown-flag filters keep it intact.
  */
-function createNativeTsgoArgs(options: TtscCommonOptions): string[] {
+function createNativeTsgoArgs(
+  options: TtscCommonOptions,
+  leading: readonly string[] = [],
+): string[] {
   const passthrough = [
+    // Ahead of the user's own flags, so the same precedence holds here as on
+    // the direct tsgo lane: whatever the user forwarded wins.
+    ...leading,
     ...(nativeTsgoPassthroughArgs(options) ?? []),
     ...isolatedTsgoOutputArgs(options),
   ];
