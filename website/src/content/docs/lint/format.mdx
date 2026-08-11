@@ -65,7 +65,7 @@ Presence of the block (even empty `format: {}`) configures the format rules at P
 
 | `format` key | Effect |
 | --- | --- |
-| `semi` | Insert trailing semicolons on ASI-terminated statements, and on the interface, type-literal, and class members that carry no body. |
+| `semi` | Insert trailing semicolons on ASI-terminated statements, and own the member separator in interface, type-literal, mapped-type, and class bodies. |
 | `singleQuote` | Convert quoted strings to the preferred quote style. |
 | `arrowParens` | Add or remove parens around a single arrow parameter. |
 | `bracketSpacing` | Spaces inside object, type, and import-attribute braces. |
@@ -103,7 +103,7 @@ When no `format` block is present, VS Code format-on-save reads `editor.tabSize`
 
 ### `semi`
 
-Enforce trailing semicolons on statements that need them, and on the members that need them: an interface, type-literal, or class member carrying no body is terminated once the list it sits in is broken across lines. A member with a braced body is never followed by one, and a comma-separated list (an object literal's accessors) is left alone. Default: required. Autofixable. Driven by `format.semi`.
+Enforce trailing semicolons on statements that need them, and own the separator of the members that need one. Between two members of an interface, type literal, or class body the separator is printed whenever `semi` is on or the list is laid out flat; after the last member it is printed only when `semi` is on and the list is broken across lines. A mapped type's single clause takes the same terminator under the same wrap rule. An authored `,` is the same separator spelled the other way, so one this rule does not drop it rewrites to `;`. A member with a braced body is never followed by one, and an object literal's comma-separated list is left alone. Default: required. Autofixable. Driven by `format.semi`.
 
 ### `singleQuote`
 
