@@ -19,6 +19,7 @@ const {
   readRegion,
   readSources,
   regionFunctions,
+  tableFailures,
 } = require("./config-loader-copies.cjs");
 
 /** The real sources with one copy rewritten. */
@@ -129,6 +130,27 @@ test("a copy borrowing another copy's error prefix fails", () => {
   assert.match(failures[0], /linkNearestNodeModules has drifted/);
 });
 
+test("a declaration the comparison cannot read is an error", () => {
+  // The silent-exemption hole: only `func name(` is compared, so a method, a
+  // generic, or a package-level binding inside a region would be duplicated
+  // without ever being held identical. Each has to stop the gate instead.
+  for (const declaration of [
+    'func (p plugin) sharedHelper() string {\n  return ""\n}',
+    "func sharedHelper[T any](value T) T {\n  return value\n}",
+    "const sharedLoaderKnob = 8",
+    "var sharedLoaderState = 0",
+    "type sharedLoaderShape struct{}",
+  ])
+    assert.throws(
+      () =>
+        driftFailures(
+          withCopy("banner", (source) => insertIntoRegion(source, declaration)),
+        ),
+      /only plain top-level functions are compared/,
+      declaration,
+    );
+});
+
 test("a region that is missing, doubled, or inverted is an error", () => {
   for (const [rewrite, message] of [
     [(source) => source.replace(BEGIN_MARKER, "// gone"), /has no .*begin/],
@@ -149,6 +171,7 @@ test("every copy is claimed for every shared function", () => {
   // The table's own two-way invariant. A copy that is neither declared nor
   // excused would let a deletion pass as an omission, which is the shape the
   // three copies were already in before #1169.
+  assert.deepEqual(tableFailures(), []);
   for (const entry of SHARED) {
     const declared = Object.keys(entry.symbols ?? {});
     const excused = Object.keys(entry.absent ?? {});
@@ -158,6 +181,73 @@ test("every copy is claimed for every shared function", () => {
         `${entry.name} must either declare or excuse the ${id} copy, and not both`,
       );
     assert.ok(declared.length >= 2, `${entry.name} is not shared`);
+  }
+});
+
+test("a table that cannot describe the copies fails", () => {
+  const whole = {
+    lint: "shared",
+    banner: "shared",
+    strip: "stripShared",
+  };
+  for (const [table, message] of [
+    [
+      [{ name: "shared", symbols: { lint: "shared", banner: "shared" } }],
+      /says nothing about the strip copy/,
+    ],
+    [
+      [{ name: "shared", symbols: whole, absent: { strip: "because" } }],
+      /declared for strip and excused from it at the same time/,
+    ],
+    [
+      [
+        {
+          name: "shared",
+          symbols: { lint: "shared", banner: "shared" },
+          absent: { strip: "  " },
+        },
+      ],
+      /excuses strip without a reason/,
+    ],
+    [
+      [
+        {
+          name: "shared",
+          symbols: { lint: "shared" },
+          absent: { banner: "because", strip: "because" },
+        },
+      ],
+      /fewer than two copies/,
+    ],
+    [
+      [
+        { name: "shared", symbols: whole },
+        { name: "shared", symbols: whole },
+      ],
+      /declared twice in SHARED/,
+    ],
+    [
+      [
+        { name: "shared", symbols: whole },
+        { name: "other", symbols: whole },
+      ],
+      /claimed by more than one SHARED entry/,
+    ],
+    [
+      [
+        {
+          name: "shared",
+          symbols: { ...whole, paths: "pathsShared" },
+        },
+      ],
+      /names an unknown copy paths/,
+    ],
+  ]) {
+    const failures = tableFailures(table);
+    assert.ok(
+      failures.some((failure) => message.test(failure)),
+      `${message} not among ${JSON.stringify(failures)}`,
+    );
   }
 });
 

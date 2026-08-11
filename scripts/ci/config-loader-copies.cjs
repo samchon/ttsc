@@ -400,22 +400,36 @@ function readRegion(id, text) {
 /**
  * Every top-level function declared inside the region, by identifier.
  *
- * A declaration is recognized at column 0 only, which is where `gofmt` puts
- * every top-level `func`; methods carry a receiver and are not shared, so the
- * pattern excludes them.
+ * Declarations are recognized at column 0 only, which is where `gofmt` puts
+ * every top-level one. Every declaration inside a region is read, and one the
+ * comparison cannot handle throws rather than being skipped — a skipped
+ * declaration is a copy the gate stops holding without saying so.
  */
 function regionFunctions(region) {
   const kinds = classify(region.source);
   const structural = structuralView(region.source, kinds);
-  const pattern = /^func ([A-Za-z_][A-Za-z0-9_]*)\(/gm;
+  const pattern = /^(func|var|const|type)\b[^\n]*/gm;
   const found = new Map();
   let match;
   while ((match = pattern.exec(structural)) !== null) {
     const start = match.index;
     if (start < region.begin || start > region.end) continue;
-    const stop = closingBrace(structural, start, region.copy.file, match[1]);
-    found.set(match[1], {
-      identifier: match[1],
+    // Anything that is not a plain top-level function would slip past the
+    // comparison unnoticed: a method carries a receiver, a generic carries type
+    // parameters, and a `var`/`const`/`type` block is not scanned at all. The
+    // region holds plain functions, so an unsupported declaration is a loud
+    // error rather than a silent exemption.
+    const declaration = /^func ([A-Za-z_][A-Za-z0-9_]*)\(/.exec(match[0]);
+    if (declaration === null)
+      throw new Error(
+        `${region.copy.file}: ${match[0].trim()} is inside the shared region, and only ` +
+          `plain top-level functions are compared there. Move it outside the markers or ` +
+          `teach scripts/ci/config-loader-copies.cjs to compare its shape.`,
+      );
+    const identifier = declaration[1];
+    const stop = closingBrace(structural, start, region.copy.file, identifier);
+    found.set(identifier, {
+      identifier,
       text: region.source.slice(start, stop),
       kinds: kinds.slice(start, stop),
     });
@@ -459,24 +473,40 @@ function normalize(fn, copyId, symbolToCanonical) {
 function symbolMap(copyId) {
   const map = new Map();
   for (const entry of SHARED) {
-    const symbol = entry.symbols[copyId];
+    const symbol = entry.symbols?.[copyId];
     if (symbol !== undefined) map.set(symbol, entry.name);
   }
   return map;
 }
 
 /**
- * Every way the three copies can disagree, as reader-facing lines.
- *
- * An empty array is the passing state. Every failure names the copies, so a
- * drift report is actionable without reopening the files.
+ * Every way the declaration table itself can be wrong, independent of the Go
+ * sources: a duplicate, an unknown copy, a copy neither declared nor excused,
+ * an excuse without a reason, or an entry that is not shared at all.
  */
-function driftFailures(sources = readSources()) {
+function tableFailures(table = SHARED) {
   const failures = [];
-
-  for (const entry of SHARED) {
+  // The table indexes itself: a canonical name used twice, or one identifier
+  // claimed by two entries in the same copy, would silently make one of them
+  // unreachable and leave that function compared against nothing.
+  const seenNames = new Set();
+  const seenSymbols = new Map(COPY_IDS.map((id) => [id, new Set()]));
+  for (const entry of table) {
+    if (seenNames.has(entry.name))
+      failures.push(`${entry.name} is declared twice in SHARED`);
+    seenNames.add(entry.name);
     const declared = Object.keys(entry.symbols ?? {});
     const excused = Object.keys(entry.absent ?? {});
+    for (const [id, symbol] of Object.entries(entry.symbols ?? {})) {
+      if (seenSymbols.get(id)?.has(symbol))
+        failures.push(
+          `${COPIES[id]?.file ?? id}: ${symbol} is claimed by more than one SHARED entry`,
+        );
+      seenSymbols.get(id)?.add(symbol);
+    }
+    for (const id of [...declared, ...excused])
+      if (!COPY_IDS.includes(id))
+        failures.push(`${entry.name} names an unknown copy ${id}`);
     for (const id of declared)
       if (excused.includes(id))
         failures.push(
@@ -496,16 +526,30 @@ function driftFailures(sources = readSources()) {
         `${entry.name} is declared for fewer than two copies, so it is not shared code`,
       );
   }
+  return failures;
+}
+
+/**
+ * Every way the three copies can disagree, as reader-facing lines.
+ *
+ * An empty array is the passing state. Every failure names the copies, so a
+ * drift report is actionable without reopening the files.
+ */
+function driftFailures(sources = readSources()) {
+  const failures = tableFailures();
 
   const functions = new Map();
-  for (const id of COPY_IDS)
+  const claims = new Map();
+  for (const id of COPY_IDS) {
     functions.set(id, regionFunctions(readRegion(id, sources[id])));
+    claims.set(id, symbolMap(id));
+  }
 
   // Every function inside a region must be claimed. This is the half that
   // catches a helper added to one copy alone: it is undeclared, so it fails
   // before anyone has to notice the other two copies never got it.
   for (const id of COPY_IDS) {
-    const claimed = symbolMap(id);
+    const claimed = claims.get(id);
     for (const identifier of functions.get(id).keys())
       if (!claimed.has(identifier))
         failures.push(
@@ -526,7 +570,7 @@ function driftFailures(sources = readSources()) {
         );
         continue;
       }
-      bodies.set(id, normalize(fn, id, symbolMap(id)));
+      bodies.set(id, normalize(fn, id, claims.get(id)));
     }
     const ids = [...bodies.keys()];
     if (ids.length < 2) continue;
@@ -559,6 +603,7 @@ module.exports = {
   readSources,
   regionFunctions,
   symbolMap,
+  tableFailures,
 };
 
 if (require.main === module) {
