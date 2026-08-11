@@ -34,6 +34,28 @@ function insertIntoRegion(source, text) {
   return source.replace(END_MARKER, `${text}\n\n${END_MARKER}`);
 }
 
+/**
+ * Rewrite `from` to `to`, refusing to pass off an unchanged source as a
+ * divergence. A fixture that stops matching the Go sources would otherwise
+ * make these cases assert against the passing tree and prove nothing.
+ */
+function replaceOnce(source, from, to) {
+  const rewritten = source.replace(from, to);
+  assert.notEqual(
+    rewritten,
+    source,
+    `the fixture ${from} no longer matches the Go source it mutates`,
+  );
+  return rewritten;
+}
+
+/** The index of `needle`, refusing a fixture that no longer locates anything. */
+function indexOfOrFail(source, needle) {
+  const index = source.indexOf(needle);
+  assert.notEqual(index, -1, `the fixture ${needle} is no longer in the source`);
+  return index;
+}
+
 test("the three Go config loader copies carry one implementation", () => {
   assert.deepEqual(driftFailures(), []);
 });
@@ -45,7 +67,8 @@ test("changing one copy's code fails and names it", () => {
   // copy has to fail now instead of a cycle from now.
   const failures = driftFailures(
     withCopy("banner", (source) =>
-      source.replace(
+      replaceOnce(
+        source,
         "  if absolute, err := filepath.Abs(anchor); err == nil {\n    anchor = absolute\n  }\n",
         "",
       ),
@@ -74,7 +97,7 @@ test("a helper added to one copy alone fails as undeclared", () => {
 test("renaming a declared function out of a region fails", () => {
   const failures = driftFailures(
     withCopy("lint", (source) =>
-      source.replace(/\bsetEnv\b/g, "setEnvironmentEntry"),
+      replaceOnce(source, /\bsetEnv\b/g, "setEnvironmentEntry"),
     ),
   );
   assert.ok(
@@ -90,8 +113,8 @@ test("moving a shared function outside the markers fails", () => {
   // exists and still compiles, and only its region membership changed.
   const failures = driftFailures(
     withCopy("banner", (source) => {
-      const start = source.indexOf("func loaderFailureReason(");
-      const stop = source.indexOf(END_MARKER);
+      const start = indexOfOrFail(source, "func loaderFailureReason(");
+      const stop = indexOfOrFail(source, END_MARKER);
       return `${source.slice(0, start)}${source.slice(stop)}\n${source.slice(start, stop)}`;
     }),
   );
@@ -104,7 +127,8 @@ test("comments are free to differ, code is not", () => {
   assert.deepEqual(
     driftFailures(
       withCopy("strip", (source) =>
-        source.replace(
+        replaceOnce(
+          source,
           "func stripSetEnv(env []string, key, value string) []string {",
           "func stripSetEnv(env []string, key, value string) []string {\n  // A comment only this copy carries.",
         ),
@@ -120,7 +144,8 @@ test("a copy borrowing another copy's error prefix fails", () => {
   // `@ttsc/lint:` inside the banner copy is a real mistake.
   const failures = driftFailures(
     withCopy("banner", (source) =>
-      source.replace(
+      replaceOnce(
+        source,
         '"@ttsc/banner: link config node_modules %s: %w"',
         '"@ttsc/lint: link config node_modules %s: %w"',
       ),
@@ -153,8 +178,11 @@ test("a declaration the comparison cannot read is an error", () => {
 
 test("a region that is missing, doubled, or inverted is an error", () => {
   for (const [rewrite, message] of [
-    [(source) => source.replace(BEGIN_MARKER, "// gone"), /has no .*begin/],
-    [(source) => source.replace(END_MARKER, "// gone"), /has no .*end/],
+    [
+      (source) => replaceOnce(source, BEGIN_MARKER, "// gone"),
+      /has no .*begin/,
+    ],
+    [(source) => replaceOnce(source, END_MARKER, "// gone"), /has no .*end/],
     [
       (source) => insertIntoRegion(source, BEGIN_MARKER),
       /opens the shared region twice/,

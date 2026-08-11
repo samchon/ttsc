@@ -17,9 +17,10 @@ import (
 // both resolutions, so one missed hop costs the launcher and the compiler.
 //
 //  1. Install a package under the temp root and work from a nested directory.
-//  2. Resolve from a config named relative to that working directory.
-//  3. Assert the install above is found, at an absolute path a child process
-//     with its own cwd can still use.
+//  2. Resolve from a config named relative to that working directory, then
+//     from one whose own relative walk would have reached the install.
+//  3. Assert both answer the install above, at an absolute path a child
+//     process with its own cwd can still use.
 func TestNodePackageManifestFromResolvesARelativeAnchor(t *testing.T) {
   root := bannerRealpathIfPossible(t.TempDir())
   want := filepath.Join(root, "node_modules", "sibling", "package.json")
@@ -32,8 +33,13 @@ func TestNodePackageManifestFromResolvesARelativeAnchor(t *testing.T) {
   if got != want {
     t.Fatalf("nodePackageManifestFrom = %q, want the install above the cwd %q", got, want)
   }
-  if !filepath.IsAbs(got) {
-    t.Fatalf("nodePackageManifestFrom returned the relative path %q; a child process resolving it against its own cwd would miss", got)
+  // The second witness. `../../banner.config.ts` is the case where the walk
+  // over the unresolved string does stumble onto the install, and answers with
+  // a relative path — which the loader then hands to a child running under
+  // `--cwd <ephemeral loader dir>`, where it resolves against the wrong
+  // directory instead of failing loudly.
+  if got := bannerNodePackageManifestFrom(filepath.Join("..", "..", "banner.config.ts"), "sibling"); got != want {
+    t.Fatalf("nodePackageManifestFrom = %q, want the absolute manifest %q", got, want)
   }
   // The negative twin: resolving the ancestry is not the same as inventing it.
   // A package nothing installed stays unresolved even now that the walk is
