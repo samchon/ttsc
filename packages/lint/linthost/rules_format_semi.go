@@ -24,14 +24,38 @@ import (
 // because Prettier prints a member's `;` between two members in either
 // layout and after the last one only where the list breaks.
 //
-// One consequence is worth stating rather than leaving to be inferred: a
-// type member of a body still written on one line is never terminated, so
-// `interface D { (a: number): void }` keeps its bare call signature.
+// That makes this rule the owner of a type member's SEPARATOR, not just
+// of a terminator, and the whole member surface follows from one rule
+// measured against pinned Prettier 3.8.3. Prettier prints an interface or
+// type-literal separator as `ifBreak(semi, ";")` and its trailing one
+// inside a further `ifBreak`, which resolves to two answers:
+//
+//   - BETWEEN two members: `;` whenever `semi` is on OR the list is laid
+//     out flat, because the flat branch of that `ifBreak` is a literal
+//     `";"` whatever `semi` says.
+//   - AFTER the last member: `;` only when `semi` is on AND the list
+//     breaks; nothing in all three other combinations.
+//
+// Two consequences follow that would otherwise have to be inferred.
+//
+// A `,` is the same separator spelled the other way. TypeScript accepts
+// either in a type member list and the parser folds either into the
+// member, so both answers above apply to it unchanged. Every separator
+// Prettier keeps it spells `;`, in both layouts and both modes, so a `,`
+// this rule does not drop it normalizes rather than leaves as written.
+// That is a separator normalization, not a terminator insert, and neither
+// direction needs a line-structure test to make it.
+//
+// A type member of a body still written on one line is never terminated,
+// so `interface D { (a: number): void }` keeps its bare call signature.
 // Prettier reaches its own terminator by breaking the body first, and
 // breaking it is format/indent's decision, which today covers property,
 // method, and index signatures but not a call or construct signature.
 // Terminating a one-line member here instead would be a layout decision
 // this rule does not own, and would emit a shape Prettier never does.
+//
+// A mapped type is neither a statement nor a member list; it takes its own
+// path in mappedTypeSemicolon.
 type formatSemi struct{ optionsRule }
 
 // formatSemiOptions is the Go mirror of `TtscLintRuleOptions.Semi`. The
@@ -72,6 +96,10 @@ func (formatSemi) Visits() []shimast.Kind {
     shimast.KindConstructSignature,
     shimast.KindGetAccessor,
     shimast.KindSetAccessor,
+    // A mapped type spells its whole body as one clause instead of a
+    // member list, so no member node exists to carry its terminator and
+    // the kind itself has to be visited; see mappedTypeSemicolon.
+    shimast.KindMappedType,
   }
 }
 
@@ -86,6 +114,10 @@ func (formatSemi) Check(ctx *Context, node *shimast.Node) {
   src := ctx.File.Text()
   end := node.End()
   if end <= 0 || end > len(src) {
+    return
+  }
+  if node.Kind == shimast.KindMappedType {
+    mappedTypeSemicolon(ctx, src, node, preferNever)
     return
   }
   // Interface / type-literal members and class fields carry their own
@@ -334,66 +366,108 @@ func isTypeMemberKind(kind shimast.Kind) bool {
   return false
 }
 
-// stripMemberSemicolon removes a redundant trailing `;` from an
-// interface / type-literal member or a class field under semi:false.
+// stripMemberSemicolon settles the separator of an interface /
+// type-literal member or a class field under semi:false.
 //
-// The member-terminating `;` is located robustly. typescript-go consumes
-// it as a separate token before closing the node (parseTypeMemberSemicolon
-// and parseSemicolonAfterPropertyName both run ahead of finishNode), so
-// End() normally sits just past it; an error-recovery path that returns
-// without consuming leaves it outside instead. Accept either a `;`
-// already at End()-1 or the first `;` reached scanning horizontal
-// whitespace forward from End().
+// Two outcomes are possible, because semi:false silences only the
+// separators Prettier itself would omit. A separator the oracle drops is
+// removed; a separator it keeps is spelled `;`, so a `,` that survives is
+// normalized instead of left as written. A `;` that survives is already
+// in that spelling and produces no finding, which is also the
+// idempotency guard: once removed there is nothing left to act on, and
+// once normalized the `;` is what the next pass reads.
 //
-// The `;` is dropped only when it is redundant, see
-// memberSemicolonRedundant, so single-line separators stay intact and
-// ASI-hazardous continuations keep their terminator. Idempotent: once
-// removed, no `;` remains for the rule to act on.
+// See findMemberSeparator for how the byte is located and
+// memberSemicolonRedundant for the drop decision.
 func stripMemberSemicolon(ctx *Context, src string, node *shimast.Node, isClassField bool) {
-  end := node.End()
-  semiPos := -1
-  if end-1 >= 0 && src[end-1] == ';' {
-    semiPos = end - 1
-  } else {
-    i := end
-    for i < len(src) && (src[i] == ' ' || src[i] == '\t') {
-      i++
-    }
-    if i < len(src) && src[i] == ';' {
-      semiPos = i
-    }
-  }
-  if semiPos < 0 {
+  sepPos := findMemberSeparator(src, node, isClassField)
+  if sepPos < 0 {
     return
   }
-  if !memberSemicolonRedundant(src, semiPos+1, isClassField) {
+  if memberSemicolonRedundant(src, node, sepPos+1, isClassField) {
+    message := "Unexpected trailing semicolon."
+    if src[sepPos] == ',' {
+      message = "Unexpected member separator."
+    }
+    ctx.ReportRangeFix(
+      sepPos,
+      sepPos+1,
+      message,
+      TextEdit{Pos: sepPos, End: sepPos + 1, Text: ""},
+    )
     return
   }
-  ctx.ReportRangeFix(
-    semiPos,
-    semiPos+1,
-    "Unexpected trailing semicolon.",
-    TextEdit{Pos: semiPos, End: semiPos + 1, Text: ""},
-  )
+  if src[sepPos] != ',' {
+    return
+  }
+  reportMemberSeparatorNormalization(ctx, sepPos)
 }
 
-// memberSemicolonRedundant reports whether the member terminator `;`
-// whose following byte is at `after` can be dropped without changing the
-// parse. It scans past trivia (whitespace + comments, via
-// scanPastTrivia) to the next significant byte and applies Prettier's
-// semi:false member rules:
+// findMemberSeparator returns the offset of the separator byte that closes
+// `node`, or -1 when the member carries none.
 //
-//   - The closing `}` (or end of file) always makes the `;` redundant.
-//   - A next member on the SAME line (no newline crossed) keeps the `;`
-//     as a required separator, the rule never inserts the newline that
-//     would let ASI take over, so dropping it here would corrupt the
-//     source.
-//   - A newline-separated next member drops the `;` unless its lead token
-//     would re-associate with the prior member: the full expression-ASI
-//     hazard set for class fields (`[ ( ` + - * / ,`), or just a
-//     call/construct/generic signature (`(` / `<`) for type members
-//     (a leading `[` is an index signature there, not a continuation).
-func memberSemicolonRedundant(src string, after int, isClassField bool) bool {
+// The byte is located robustly. typescript-go consumes it as a separate
+// token before closing the node (parseTypeMemberSemicolon and
+// parseSemicolonAfterPropertyName both run ahead of finishNode), so End()
+// normally sits just past it; an error-recovery path that returns without
+// consuming leaves it outside instead. Accept either a separator already
+// at End()-1 or the first one reached scanning horizontal whitespace
+// forward from End().
+//
+// A `,` counts only where Prettier would print a `;`, which is what
+// memberTakesSemicolonTerminator answers. The exclusion is not cosmetic:
+// an object literal's accessor arrives here as the same GetAccessor /
+// SetAccessor kind, its body's `}` leaves the following `,` sitting right
+// where this scan looks, and removing or rewriting that comma would
+// corrupt the literal. A class field is excluded for the same reason from
+// the other side: `,` is not a class-member separator at all, so one found
+// next to a field belongs to some recovered parse.
+func findMemberSeparator(src string, node *shimast.Node, isClassField bool) int {
+  commaCounts := !isClassField && memberTakesSemicolonTerminator(node)
+  matches := func(i int) bool {
+    if i < 0 || i >= len(src) {
+      return false
+    }
+    return src[i] == ';' || (commaCounts && src[i] == ',')
+  }
+  end := node.End()
+  if matches(end - 1) {
+    return end - 1
+  }
+  i := end
+  for i < len(src) && (src[i] == ' ' || src[i] == '\t') {
+    i++
+  }
+  if matches(i) {
+    return i
+  }
+  return -1
+}
+
+// memberSemicolonRedundant reports whether the member separator whose
+// following byte is at `after` can be dropped without changing the parse.
+// It scans past trivia (whitespace + comments, via scanPastTrivia) to the
+// next significant byte and applies Prettier's semi:false member rules:
+//
+//   - The closing `}` (or end of file) always makes the separator
+//     redundant: the trailing one is printed inside an `ifBreak` that
+//     resolves to nothing under semi:false, in either layout.
+//   - A next member on the SAME line (no newline crossed) keeps the
+//     separator, the rule never inserts the newline that would let ASI
+//     take over, so dropping it here would corrupt the source.
+//   - A next member in a list Prettier lays out FLAT keeps it too. Between
+//     two members the separator is `ifBreak(semi, ";")`, whose flat branch
+//     is `";"` whatever `semi` says, so only the trailing one is silenced
+//     by semi:false in a flat list. memberListBreaks is the same question
+//     insertMemberSemicolon asks from the other end.
+//   - A newline-separated next member in a broken list drops the separator
+//     unless its lead token would re-associate with the prior member: the
+//     full expression-ASI hazard set for class fields (`[ ( ` + - * / ,`),
+//     or just a call/construct/generic signature (`(` / `<`) for type
+//     members (a leading `[` is an index signature there, not a
+//     continuation). Prettier defends the same shapes, printing
+//     `a: number;` ahead of a call signature even under semi:false.
+func memberSemicolonRedundant(src string, node *shimast.Node, after int, isClassField bool) bool {
   i, sawNewline := scanPastTrivia(src, after)
   if i >= len(src) {
     return true
@@ -403,6 +477,9 @@ func memberSemicolonRedundant(src string, after int, isClassField bool) bool {
     return true
   }
   if !sawNewline {
+    return false
+  }
+  if !memberListBreaks(src, node.Parent) {
     return false
   }
   if isClassField {
@@ -417,6 +494,18 @@ func memberSemicolonRedundant(src string, after int, isClassField bool) bool {
     }
   }
   return true
+}
+
+// reportMemberSeparatorNormalization rewrites the `,` at `pos` to the `;`
+// Prettier spells every type-member separator it keeps. Both directions
+// share it so the two cannot drift into different spellings.
+func reportMemberSeparatorNormalization(ctx *Context, pos int) {
+  ctx.ReportRangeFix(
+    pos,
+    pos+1,
+    "Normalize the member separator to a semicolon.",
+    TextEdit{Pos: pos, End: pos + 1, Text: ";"},
+  )
 }
 
 // insertMemberSemicolon appends the `;` Prettier prints after an
@@ -464,11 +553,16 @@ func insertMemberSemicolon(ctx *Context, src string, node *shimast.Node, end int
     // Already terminated. Also the idempotency guard.
     return
   case ',':
-    // TypeScript accepts `,` as a member separator and the parser folds
-    // it into the member exactly as it folds a `;`. Prettier rewrites
-    // such a separator to `;`, but that normalization belongs to whoever
-    // owns the separator rather than to the terminator rule; appending
-    // here would emit `a: number,;`.
+    // The same separator spelled the other way, so this is a separator
+    // normalization rather than a terminator insert, and appending would
+    // emit `a: number,;`. It needs neither the line-structure test below
+    // nor memberListBreaks: under semi:"always" Prettier prints `;` for a
+    // separator in both layouts, so no layout knowledge is required to
+    // pick the spelling. The one case the oracle answers differently is a
+    // trailing `,` in a flat list, which it drops outright; this direction
+    // drops nothing, and it already leaves a written `;` standing in that
+    // same position, so normalizing lands on the shape it tolerates.
+    reportMemberSeparatorNormalization(ctx, end-1)
     return
   }
   // Trivia is crossed with scanPastTrivia, so a trailing line comment and
@@ -530,43 +624,204 @@ func memberTakesSemicolonTerminator(node *shimast.Node) bool {
   return false
 }
 
-// memberListBreaks reports whether Prettier lays `parent`'s member list
-// out across lines. Only the last member has to ask: its `;` is the
-// trailing terminator Prettier prints inside an `ifBreak`, while the `;`
-// between two members is printed in either layout.
+// memberListBreaks reports whether Prettier lays `owner`'s braced body out
+// across lines. Both directions ask it, and both ask about a separator
+// whose presence is conditional on the wrap: the trailing terminator
+// Prettier prints inside an `ifBreak`, and (under semi:false) the
+// separator between two members, whose flat branch is a literal `";"`.
 //
-// The caller has already narrowed `parent` to the four `;`-separated
-// owners. Three of them are an interface body or a class body, which
-// always break once they hold a member, so the source's own line structure
-// does not enter into it.
+// `owner` is a member's parent, or a mapped type itself. An interface body
+// and a class body always break once they hold a member, so the source's
+// own line structure does not enter into it.
 //
-// An object type is the exception: it preserves the author's wrap
-// (Prettier's `objectWrap: "preserve"`), breaking when a line terminator
-// separates its `{` from the first member and otherwise staying on one
-// line however the source placed the closing `}`. Prettier 3.8.3 returns
-// `type T = { a: number\n};` as the one-line `type T = { a: number };`,
-// with nothing after `number`, so reading where the `}` landed would
+// An object type is the exception, and a mapped type is decided the same
+// way: both preserve the author's wrap (Prettier's
+// `objectWrap: "preserve"`), breaking when a line terminator separates the
+// `{` from what follows it and otherwise staying on one line however the
+// source placed the closing `}`. Prettier 3.8.3 returns
+// `type T = { a: number\n};` as the one-line `type T = { a: number };` and
+// `type M = { [K in string]: string\n};` as `type M = { [K in string]: string };`,
+// both with nothing before the brace, so reading where the `}` landed would
 // insert a `;` the oracle never prints.
 //
-// The width half of Prettier's break decision (a flat list that overflows
+// The width half of Prettier's break decision (a flat body that overflows
 // its budget breaks) is deliberately absent: no ttsc pass reflows an
-// object type, so a flat one stays flat and a trailing terminator would be
-// one this formatter's own output never justifies. A pass that ever breaks
-// them writes the line terminator this reads.
-func memberListBreaks(src string, parent *shimast.Node) bool {
-  if parent == nil {
+// object or mapped type, so a flat one stays flat and a trailing
+// terminator would be one this formatter's own output never justifies. A
+// pass that ever breaks them writes the line terminator this reads.
+func memberListBreaks(src string, owner *shimast.Node) bool {
+  if owner == nil {
     return false
   }
-  if parent.Kind != shimast.KindTypeLiteral {
+  switch owner.Kind {
+  case shimast.KindTypeLiteral, shimast.KindMappedType:
+  default:
     return true
   }
-  open := shimscanner.SkipTrivia(src, parent.Pos())
+  open := shimscanner.SkipTrivia(src, owner.Pos())
   if open < 0 || open >= len(src) || src[open] != '{' {
     // Not the shape this reads. Keep the author's bytes.
     return false
   }
   _, sawNewline := scanPastTrivia(src, open+1)
   return sawNewline
+}
+
+// mappedTypeSemicolon settles the `;` Prettier prints after a mapped
+// type's clause.
+//
+// A mapped type is not a member list. `{ readonly [K in T as N]?: V }`
+// holds one clause, typescript-go hangs its parts off the MappedTypeNode
+// itself, and parseMappedType consumes the optional `;` with
+// parseSemicolon before finishNode, so no child's range covers it and no
+// member node exists to carry one. Every position is therefore the
+// trailing-terminator position, which Prettier prints as
+// `options.semi ? ifBreak(";") : ""`: present exactly when `semi` is on
+// and the mapped type is one it breaks, absent in every other
+// combination. The `readonly` / `?` modifiers and their `+` and `-`
+// variants do not change that answer, measured rather than assumed.
+//
+// memberListBreaks reads the mapped type's own braces because Prettier
+// decides its wrap the way it decides an object type's. That is also why,
+// unlike insertMemberSemicolon, this needs no "ends its line" test: a
+// member list needs a break before Prettier will print a separator
+// between two same-line members, while a lone terminator needs only the
+// wrap the `{` already decided. Prettier 3.8.3 terminates
+// `type M = {\n  [K in string]: string };` and leaves
+// `type M = { [K in string]: string\n};` bare.
+//
+// Idempotent in both directions: the inserted `;` is what the next pass
+// finds ahead of the `}` and abstains on, and the stripped one leaves the
+// `}` the strip abstains on.
+func mappedTypeSemicolon(ctx *Context, src string, node *shimast.Node, preferNever bool) {
+  clauseEnd := mappedTypeClauseEnd(src, node)
+  if clauseEnd <= 0 {
+    return
+  }
+  next, _ := scanPastTrivia(src, clauseEnd)
+  if next >= len(src) || next >= node.End() {
+    // No closing `}` in range. That source is too broken to reason about.
+    return
+  }
+  if src[next] == ';' {
+    if !preferNever {
+      return // already terminated, and the always direction never strips
+    }
+    ctx.ReportRangeFix(
+      next,
+      next+1,
+      "Unexpected trailing semicolon.",
+      TextEdit{Pos: next, End: next + 1, Text: ""},
+    )
+    return
+  }
+  if preferNever || src[next] != '}' || !memberListBreaks(src, node) {
+    return
+  }
+  pos := mappedTypeTerminatorPos(src, clauseEnd)
+  ctx.ReportRangeFix(
+    pos-1,
+    pos,
+    "Missing semicolon.",
+    TextEdit{Pos: pos, End: pos, Text: ";"},
+  )
+}
+
+// mappedTypeClauseEnd returns the offset just past the last significant
+// byte of a mapped type's clause, or -1 when the node is not the shape
+// this reads.
+//
+// With a type annotation the clause simply ends where that type does. The
+// annotation is optional, though, and the parser's own token nodes stop
+// short of the trailing punctuation in that case: `NameType` and
+// `TypeParameter` both end before the `]`, and a `+`/`-` modifier is
+// parsed as the question token with the `?` it decorates consumed by a
+// bare parseExpected. So the remaining shapes are reached by stepping over
+// exactly the bytes that can follow a clause child, which is why the walk
+// runs only when there is no annotation to end at.
+//
+// A non-empty Members list means the parser recovered from a second member
+// inside the braces (`{ [K in T]: V; a: number }`), which is not a shape
+// with a single terminator position; abstain rather than guess.
+func mappedTypeClauseEnd(src string, node *shimast.Node) int {
+  mapped := node.AsMappedTypeNode()
+  if mapped == nil {
+    return -1
+  }
+  if mapped.Members != nil && len(mapped.Members.Nodes) > 0 {
+    return -1
+  }
+  if mapped.Type != nil {
+    end := mapped.Type.End()
+    if end <= 0 || end > len(src) {
+      return -1
+    }
+    return end
+  }
+  lo := -1
+  switch {
+  case mapped.QuestionToken != nil:
+    lo = mapped.QuestionToken.End()
+  case mapped.NameType != nil:
+    lo = mapped.NameType.End()
+  case mapped.TypeParameter != nil:
+    lo = mapped.TypeParameter.End()
+  }
+  if lo <= 0 || lo > len(src) {
+    return -1
+  }
+  for {
+    next, _ := scanPastTrivia(src, lo)
+    if next >= len(src) {
+      return -1
+    }
+    switch src[next] {
+    case ']', '?', '+', '-':
+      lo = next + 1
+    default:
+      return lo
+    }
+  }
+}
+
+// mappedTypeTerminatorPos returns the offset Prettier's mapped-type `;`
+// occupies, given the clause end.
+//
+// It is the clause end in every ordinary shape, and the two comment cases
+// are the reason it is a function rather than that offset. Prettier
+// attaches a trailing block comment written on the clause's own line to
+// the value type and prints the terminator after it
+// (`[K in string]: string /* note */;`), while a line comment becomes the
+// mapped type's dangling comment and is printed after the terminator
+// (`[K in string]: string; // note`). A block comment that spans lines is
+// a line terminator per ECMA-262 and ends the clause's line, so the walk
+// stops there too. This is the one place a mapped type and a member
+// disagree: a member takes its `;` at End(), ahead of the same block
+// comment.
+func mappedTypeTerminatorPos(src string, clauseEnd int) int {
+  pos := clauseEnd
+  i := clauseEnd
+  for i < len(src) {
+    for i < len(src) && (src[i] == ' ' || src[i] == '\t') {
+      i++
+    }
+    if i+1 >= len(src) || src[i] != '/' || src[i+1] != '*' {
+      return pos
+    }
+    j := i + 2
+    for j+1 < len(src) && !(src[j] == '*' && src[j+1] == '/') {
+      if src[j] == '\n' || src[j] == '\r' {
+        return pos
+      }
+      j++
+    }
+    if j+1 >= len(src) {
+      return pos // unterminated block comment swallows the rest
+    }
+    i = j + 2
+    pos = i
+  }
+  return pos
 }
 
 func init() {

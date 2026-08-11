@@ -89,7 +89,19 @@ func TestFormatPrettierConformance(t *testing.T) {
     // braced class accessor, and the comma-separated object-literal
     // accessor must come back untouched.
     {"format/semi", "broken-member-terminators", "interface Shape {\n  value: string\n  method(): void\n  [key: string]: string\n  (): void\n  new (): Shape\n  get first(): string\n  set first(next: string)\n}\ntype Broken = {\n  name: string\n};\ntype Inline = { name: string };\ndeclare class Ambient {\n  get first(): string\n}\nclass Value {\n  [key: string]: string\n  get first(): string {\n    return \"first\";\n  }\n}\nconst holder = {\n  get first(): string {\n    return \"first\";\n  },\n};\n", nil, false},
+    // A mapped type carries the same terminator through a kind that holds
+    // no member node, and an authored `,` is the same member separator
+    // spelled the other way; both are measured here rather than only at
+    // rule level, because the rule owns the whole separator and not just
+    // the `;` spelling of it.
+    {"format/semi", "broken-mapped-type", "type Mapped = {\n  [Key in string]: string\n};\n", nil, false},
+    {"format/semi", "comma-member-separator", "type Shape = {\n  value: number,\n  name: string\n};\n", nil, false},
     {"format/semi", "disabled", "const value = 1;\n", map[string]any{"semi": false}, false},
+    // The strip direction's own oracle witness: a broken body loses every
+    // separator, while the flat body's inter-member `;` is the one
+    // semi:false keeps, because the flat branch of Prettier's
+    // `ifBreak(semi, ";")` is a literal `";"`.
+    {"format/semi", "disabled-members", "interface Shape {\n  value: number;\n  name: string;\n}\ntype Flat = { first: number; second: string };\n", map[string]any{"semi": false}, false},
     {"format/sort-imports", "extension-canonical", "import { alpha, beta } from \"module\";\n", map[string]any{"sortImports": true}, true},
     {"format/statement-split", "same-line-statements", "const first = 1; const second = 2;\n", nil, false},
     {"format/ternary-nullish-parens", "all-positions", "const value = first ?? second ? third ?? fourth : fifth ?? sixth;\n", nil, false},
