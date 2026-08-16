@@ -412,6 +412,17 @@ if len(sigs) > 0 {
 
 Used by `rules_promise.go` to detect callable `.then` shapes.
 
+**Construct-signature abstractness.**
+
+```go
+sigs := checker.GetSignaturesOfType(t, shimchecker.SignatureKindConstruct)
+for _, sig := range sigs {
+    if sig.Flags()&shimchecker.SignatureFlagsAbstract != 0 { /* not new-able */ }
+}
+```
+
+Read abstractness from `Signature.Flags()`, not from the declaration's modifiers: a constructor-less class's default construct signature has no declaration at all, and an inherited constructor's `Declaration()` points at the base class, so the modifier answer is missing in the first case and wrong in the second. A bare `abstract new (...) => T` type literal sets the same flag.
+
 **Contextual types.**
 
 ```go

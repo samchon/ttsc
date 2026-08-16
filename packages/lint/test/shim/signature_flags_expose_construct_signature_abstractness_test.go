@@ -4,6 +4,7 @@ import (
   "path/filepath"
   "testing"
 
+  shimast "github.com/microsoft/typescript-go/shim/ast"
   shimchecker "github.com/microsoft/typescript-go/shim/checker"
 )
 
@@ -13,19 +14,23 @@ import (
 // Signature.Flags() was already reachable through the full Signature alias,
 // but SignatureFlags itself was not nameable, so the returned value could not
 // be tested against SignatureFlagsAbstract (#1203). The flag is also the only
-// correct general answer: an abstract class without a constructor produces a
-// default construct signature with no declaration at all, and an abstract
-// class inheriting a concrete base clones the base's signature, so
-// Declaration() points at a NON-abstract constructor while the checker forces
-// the Abstract bit on. Declaration-modifier reading returns nothing for the
-// former and the wrong answer for the latter.
+// correct general answer: a constructor-less class produces a default
+// construct signature with no declaration at all, and a class inheriting its
+// base's constructor clones the base signature, so Declaration() points at
+// the OTHER class's constructor while the checker forces the bit to the
+// derived class's abstractness — in both directions. Declaration-modifier
+// reading returns nothing for the former and the wrong answer for the latter.
 //
 //  1. Build a program with abstract/concrete classes and constructor-type
-//     aliases, including the no-constructor and inherited-constructor shapes.
-//  2. Obtain every construct signature only through the exported shim surface.
+//     aliases, covering the declared, constructor-less, and inherited shapes
+//     in both abstract polarities.
+//  2. Obtain every construct signature only through the exported shim surface,
+//     reading flags into a shimchecker.SignatureFlags-typed variable so the
+//     alias itself is pinned, not just the member consts.
 //  3. Assert the Abstract bit exactly where the source says abstract, the
-//     Construct bit on every construct signature, and the nil declaration on
-//     the default-signature boundary.
+//     Construct bit everywhere, the nil declaration on both default-signature
+//     boundaries, and the declaring class's modifier where a declaration
+//     exists — diverging from the flag on both inherited shapes.
 func TestSignatureFlagsExposeConstructSignatureAbstractness(t *testing.T) {
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), `{
@@ -46,10 +51,12 @@ export class ConcreteDeclared {
   constructor(value: string) { void value; }
 }
 export abstract class AbstractDefault {}
+export class ConcreteDefault {}
 export class ConcreteBase {
   constructor(value: number) { void value; }
 }
 export abstract class AbstractInheriting extends ConcreteBase {}
+export class ConcreteInheriting extends AbstractDeclared {}
 export type AbstractOpener = abstract new (value: string) => AbstractDeclared;
 export type ConcreteOpener = new (value: string) => ConcreteDeclared;
 `)
@@ -70,12 +77,20 @@ export type ConcreteOpener = new (value: string) => ConcreteDeclared;
     typeAlias    bool
     wantAbstract bool
     wantNilDecl  bool
+    // checkDeclaringClass asserts the abstract modifier on the class that
+    // lexically declares the signature's constructor. It agrees with the
+    // flag on the declared shapes and diverges on both inherited shapes,
+    // pinning that the flag, not the declaration, carries abstractness.
+    checkDeclaringClass    bool
+    declaringClassAbstract bool
   }{
-    {name: "AbstractDeclared", wantAbstract: true},
-    {name: "ConcreteDeclared"},
+    {name: "AbstractDeclared", wantAbstract: true, checkDeclaringClass: true, declaringClassAbstract: true},
+    {name: "ConcreteDeclared", checkDeclaringClass: true},
     {name: "AbstractDefault", wantAbstract: true, wantNilDecl: true},
-    {name: "ConcreteBase"},
-    {name: "AbstractInheriting", wantAbstract: true},
+    {name: "ConcreteDefault", wantNilDecl: true},
+    {name: "ConcreteBase", checkDeclaringClass: true},
+    {name: "AbstractInheriting", wantAbstract: true, checkDeclaringClass: true},
+    {name: "ConcreteInheriting", checkDeclaringClass: true, declaringClassAbstract: true},
     {name: "AbstractOpener", typeAlias: true, wantAbstract: true},
     {name: "ConcreteOpener", typeAlias: true},
   }
@@ -91,7 +106,7 @@ export type ConcreteOpener = new (value: string) => ConcreteDeclared;
     if len(signatures) != 1 {
       t.Fatalf("%s construct signatures = %d, want 1", tc.name, len(signatures))
     }
-    flags := signatures[0].Flags()
+    var flags shimchecker.SignatureFlags = signatures[0].Flags()
     if flags&shimchecker.SignatureFlagsConstruct == 0 {
       t.Fatalf("%s flags = %d: Construct bit missing on a construct signature", tc.name, flags)
     }
@@ -100,6 +115,12 @@ export type ConcreteOpener = new (value: string) => ConcreteDeclared;
     }
     if got := signatures[0].Declaration() == nil; got != tc.wantNilDecl {
       t.Fatalf("%s nil declaration = %v, want %v", tc.name, got, tc.wantNilDecl)
+    }
+    if tc.checkDeclaringClass {
+      class := signatures[0].Declaration().Parent
+      if got := shimast.GetCombinedModifierFlags(class)&shimast.ModifierFlagsAbstract != 0; got != tc.declaringClassAbstract {
+        t.Fatalf("%s declaring class abstract modifier = %v, want %v", tc.name, got, tc.declaringClassAbstract)
+      }
     }
   }
 }

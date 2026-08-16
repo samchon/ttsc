@@ -217,9 +217,9 @@ func Checker_isSymbolAccessibleAsValue(recv *innerchecker.Checker, symbol *inner
 }
 
 const (
-  SignatureKindCall = innerchecker.SignatureKindCall
-
   SignatureFlagsAbstract = innerchecker.SignatureFlagsAbstract
+
+  SignatureKindCall = innerchecker.SignatureKindCall
 
   TypeMapperKindUnknown = innerchecker.TypeMapperKindUnknown
   TypeMapperKindSimple  = innerchecker.TypeMapperKindSimple
