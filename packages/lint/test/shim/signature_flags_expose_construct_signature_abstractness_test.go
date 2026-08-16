@@ -19,12 +19,12 @@ import (
 // inheriting its base's constructor clones the base signature, so
 // Declaration() points at the OTHER class's constructor while the checker
 // forces the bit to the derived class's abstractness — in both directions.
-// Declaration-modifier reading returns nothing for the former and the wrong
-// answer for the latter.
+// Declaration-modifier reading returns nothing for the former and an answer
+// that tracks the base class for the latter.
 //
 //  1. Build a program with abstract/concrete classes and constructor-type
-//     aliases, covering the declared, constructor-less, and inherited shapes
-//     in both abstract polarities.
+//     aliases, covering the declared, default-signature, and inherited
+//     shapes in both abstract polarities.
 //  2. Obtain every construct signature only through the exported shim surface,
 //     reading flags into a shimchecker.SignatureFlags-typed variable so the
 //     alias itself is pinned, not just the member consts.
@@ -114,11 +114,11 @@ export type ConcreteOpener = new (value: string) => ConcreteDeclared;
     if got := flags&shimchecker.SignatureFlagsAbstract != 0; got != tc.wantAbstract {
       t.Fatalf("%s abstract bit = %v, want %v (flags = %d)", tc.name, got, tc.wantAbstract, flags)
     }
-    if got := signatures[0].Declaration() == nil; got != tc.wantNilDecl {
+    declaration := signatures[0].Declaration()
+    if got := declaration == nil; got != tc.wantNilDecl {
       t.Fatalf("%s nil declaration = %v, want %v", tc.name, got, tc.wantNilDecl)
     }
     if tc.checkDeclaringClass {
-      declaration := signatures[0].Declaration()
       if declaration == nil {
         t.Fatalf("%s has no declaration to read a declaring class from", tc.name)
       }
