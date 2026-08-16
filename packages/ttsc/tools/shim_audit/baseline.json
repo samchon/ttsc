@@ -19,7 +19,6 @@
     "ESCAPE|checker|NodeBuilderContext",
     "ESCAPE|checker|ObjectType",
     "ESCAPE|checker|ReverseMappedType",
-    "ESCAPE|checker|SignatureFlags",
     "ESCAPE|checker|StringMappingType",
     "ESCAPE|checker|StructuredType",
     "ESCAPE|checker|SubstitutionType",

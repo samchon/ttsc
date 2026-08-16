@@ -77,6 +77,17 @@ const (
   ObjectFlagsSingleSignatureType                        = innerchecker.ObjectFlagsSingleSignatureType
   ObjectFlagsTuple                                      = innerchecker.ObjectFlagsTuple
   ObjectFlagsUnresolvedMembers                          = innerchecker.ObjectFlagsUnresolvedMembers
+  SignatureFlagsCallChainFlags                          = innerchecker.SignatureFlagsCallChainFlags
+  SignatureFlagsConstruct                               = innerchecker.SignatureFlagsConstruct
+  SignatureFlagsHasLiteralTypes                         = innerchecker.SignatureFlagsHasLiteralTypes
+  SignatureFlagsHasRestParameter                        = innerchecker.SignatureFlagsHasRestParameter
+  SignatureFlagsIsInnerCallChain                        = innerchecker.SignatureFlagsIsInnerCallChain
+  SignatureFlagsIsNonInferrable                         = innerchecker.SignatureFlagsIsNonInferrable
+  SignatureFlagsIsOuterCallChain                        = innerchecker.SignatureFlagsIsOuterCallChain
+  SignatureFlagsIsSignatureCandidateForOverloadFailure  = innerchecker.SignatureFlagsIsSignatureCandidateForOverloadFailure
+  SignatureFlagsIsUntypedSignatureInJSFile              = innerchecker.SignatureFlagsIsUntypedSignatureInJSFile
+  SignatureFlagsNone                                    = innerchecker.SignatureFlagsNone
+  SignatureFlagsPropagatingFlags                        = innerchecker.SignatureFlagsPropagatingFlags
   SignatureKindConstruct                                = innerchecker.SignatureKindConstruct
   TypeFlagsAnyOrUnknown                                 = innerchecker.TypeFlagsAnyOrUnknown
   TypeFlagsBigInt                                       = innerchecker.TypeFlagsBigInt
