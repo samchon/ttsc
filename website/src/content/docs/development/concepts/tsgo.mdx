@@ -421,7 +421,7 @@ for _, sig := range sigs {
 }
 ```
 
-Read abstractness from `Signature.Flags()`, not from the declaration's modifiers: a constructor-less class's default construct signature has no declaration at all, and an inherited constructor's `Declaration()` points at the base class, so the modifier answer is missing in the first case and wrong in the second. A bare `abstract new (...) => T` type literal sets the same flag.
+Read abstractness from `Signature.Flags()`, not from the declaration's modifiers: a class with no constructor and no base produces a default construct signature with no declaration at all, and an inherited constructor's `Declaration()` points at the base class's constructor declaration, so the modifier answer is missing in the first case and unreliable in the second. A bare `abstract new (...) => T` type literal sets the same flag. Pinned by `packages/lint/test/shim/signature_flags_expose_construct_signature_abstractness_test.go`.
 
 **Contextual types.**
 

@@ -14,12 +14,13 @@ import (
 // Signature.Flags() was already reachable through the full Signature alias,
 // but SignatureFlags itself was not nameable, so the returned value could not
 // be tested against SignatureFlagsAbstract (#1203). The flag is also the only
-// correct general answer: a constructor-less class produces a default
-// construct signature with no declaration at all, and a class inheriting its
-// base's constructor clones the base signature, so Declaration() points at
-// the OTHER class's constructor while the checker forces the bit to the
-// derived class's abstractness — in both directions. Declaration-modifier
-// reading returns nothing for the former and the wrong answer for the latter.
+// correct general answer: a class with no constructor and no base produces a
+// default construct signature with no declaration at all, and a class
+// inheriting its base's constructor clones the base signature, so
+// Declaration() points at the OTHER class's constructor while the checker
+// forces the bit to the derived class's abstractness — in both directions.
+// Declaration-modifier reading returns nothing for the former and the wrong
+// answer for the latter.
 //
 //  1. Build a program with abstract/concrete classes and constructor-type
 //     aliases, covering the declared, constructor-less, and inherited shapes
@@ -29,8 +30,8 @@ import (
 //     alias itself is pinned, not just the member consts.
 //  3. Assert the Abstract bit exactly where the source says abstract, the
 //     Construct bit everywhere, the nil declaration on both default-signature
-//     boundaries, and the declaring class's modifier where a declaration
-//     exists — diverging from the flag on both inherited shapes.
+//     boundaries, and the declaring class's modifier on every class-declared
+//     shape — diverging from the flag on both inherited ones.
 func TestSignatureFlagsExposeConstructSignatureAbstractness(t *testing.T) {
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), `{
@@ -117,7 +118,11 @@ export type ConcreteOpener = new (value: string) => ConcreteDeclared;
       t.Fatalf("%s nil declaration = %v, want %v", tc.name, got, tc.wantNilDecl)
     }
     if tc.checkDeclaringClass {
-      class := signatures[0].Declaration().Parent
+      declaration := signatures[0].Declaration()
+      if declaration == nil {
+        t.Fatalf("%s has no declaration to read a declaring class from", tc.name)
+      }
+      class := declaration.Parent
       if got := shimast.GetCombinedModifierFlags(class)&shimast.ModifierFlagsAbstract != 0; got != tc.declaringClassAbstract {
         t.Fatalf("%s declaring class abstract modifier = %v, want %v", tc.name, got, tc.declaringClassAbstract)
       }
