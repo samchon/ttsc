@@ -47,6 +47,9 @@ func TestMarkdownSurvivesAHeadingBelowTheUnitModel(t *testing.T) {
   // did" is asserted rather than only stated.
   shallow := strings.Replace(document, "###### Deepest\n\n", "", 1)
   shallowEdited := strings.Replace(edited, "###### Deepest\n\n", "", 1)
+  if shallow == document || shallowEdited == edited {
+    t.Fatal("the H6 was not removed, so this arm repeats the H6 case rather than testing an H5")
+  }
   if markdownUnitDigest(t, shallow, "docs/spec.md#limits") ==
     markdownUnitDigest(t, shallowEdited, "docs/spec.md#limits") {
     t.Fatal("text under an H5 reached no enclosing unit")
