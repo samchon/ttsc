@@ -132,6 +132,38 @@ func TestChecklistIsRefusedBesideTheCardinalityOptions(t *testing.T) {
 }
 
 /**
+ * Verifies a checklist is refused beside gathered exclusion carriers.
+ *
+ * The two state opposite intents, and together they leave every host outside the carrier globs with no way to record that an item does not apply: the tag beside the host is refused as misplaced, the tag in the carrier answers for no host, and each diagnostic names the other's file. An author following either repair is sent back to the one they came from, which is a configuration to refuse rather than a state to explain.
+ *
+ *  1. Declare a checklist reference under a claim that confines its exclusions.
+ *  2. Assert the pair is refused at the carriers, naming both repairs.
+ *  3. Drop the checklist and assert the same carriers decode.
+ */
+func TestChecklistIsRefusedBesideGatheredExclusionCarriers(t *testing.T) {
+  claim := func(policy string) json.RawMessage {
+    return json.RawMessage(`{"claims":[{
+      "type":"typescript",
+      "files":["src/**"],
+      "evidenceExcludeCarriers":["src/EXCLUSIONS.ts"],
+      "symbol":"function",
+      "reference":{
+        "type":"markdown",
+        "files":["docs/**"]` + policy + `
+      }
+    }]}`)
+  }
+  _, refused := decodeGraphConfig(claim(`,"checklist":true`))
+  assertProblemContains(t, refused, "claims[0].evidenceExcludeCarriers: a checklist reference cannot be gathered into exclusion carriers")
+  assertProblemContains(t, refused, "no host outside them can record that an item does not apply")
+  assertProblemContains(t, refused, "Drop the carriers, or drop `checklist` from the reference that needs them")
+
+  if _, ordinary := decodeGraphConfig(claim("")); len(ordinary) != 0 {
+    t.Fatalf("carriers must still decode without a checklist: %v", ordinary)
+  }
+}
+
+/**
  * Verifies the options a checklist composes with are left alone.
  *
  * Only the two cardinality options are unsatisfiable beside it. `noEvidenceExclude` and `requireReview` are the intended companions — the first demands positive evidence from every host, the second gives each host's answer its own expiry — so a refusal that over-reached would remove the reason to want a checklist at all.

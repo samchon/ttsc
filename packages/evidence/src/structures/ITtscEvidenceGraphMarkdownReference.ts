@@ -110,9 +110,13 @@ export interface ITtscEvidenceGraphMarkdownReference extends ITtscEvidenceGraphR
    * item, and one host citing an item another host excludes, are the expected
    * state of a checklist rather than a duplicate and a contradiction.
    *
-   * Every acknowledgement is one host's answer, so a tag on a declaration the
-   * claim's `symbol` does not select answers nothing and is reported where it
-   * sits.
+   * Every acknowledgement is one host's answer, so a tag standing on no
+   * selected host of this claim answers nothing and is reported where it sits.
+   * That covers a declaration whose kind the claim does not select and one
+   * whose position materialized no unit at all. `evidenceExcludeCarriers` is
+   * refused beside this option for the same reason: gathering exclusions into
+   * another file leaves every host outside it unable to record that an item
+   * does not apply.
    *
    * `uniqueEvidence` and `singleEvidencePerSymbol` are refused alongside this
    * one, at configuration time rather than as coverage failures. They are not

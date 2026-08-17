@@ -92,6 +92,7 @@ func decodeClaim(raw json.RawMessage, index int) (claimSpec, []string) {
   problems = append(problems, symbolProblems...)
   references, referenceProblems := decodeReferences(kind, object["reference"], path+".reference")
   problems = append(problems, referenceProblems...)
+  problems = append(problems, rejectChecklistCarriers(carriers, references, path)...)
   if len(problems) != 0 {
     return claimSpec{}, problems
   }
@@ -317,6 +318,41 @@ func decodeReferencePolicy(
   decodeFlag("checklist", &policy.Checklist)
   problems = append(problems, rejectChecklistConflicts(policy, kind, path)...)
   return policy, problems
+}
+
+// rejectChecklistCarriers refuses a checklist beside gathered exclusion
+// carriers, which is the third combination no author can satisfy.
+//
+// The two state opposite intents. Carriers gather every exclusion a claim owns
+// into one file so a reviewer reads them by opening it; a checklist makes every
+// acknowledgement one host's own answer. Together they leave every host outside
+// the carrier globs with no way to say an item does not apply: the tag written
+// beside the host is refused as misplaced, and the tag written in the carrier
+// answers for no host. Measured, the two diagnostics name each other's file, so
+// an author following either repair is sent back to the other.
+//
+// Refused here rather than as coverage for the same reason the cardinality
+// pairs are: it is a property of the configuration, and a claim whose every
+// host happens to sit in a carrier file satisfies it by accident.
+func rejectChecklistCarriers(
+  carriers globSet,
+  references []referenceSpec,
+  path string,
+) []string {
+  if len(carriers.Patterns) == 0 {
+    return nil
+  }
+  for _, reference := range references {
+    if !reference.Policy.Checklist {
+      continue
+    }
+    return []string{configurationProblem(
+      graphRuleName,
+      path+".evidenceExcludeCarriers",
+      "a checklist reference cannot be gathered into exclusion carriers: the checklist makes every acknowledgement one host's own answer, while these globs confine exclusions to other files, so no host outside them can record that an item does not apply. Drop the carriers, or drop `checklist` from the reference that needs them.",
+    )}
+  }
+  return nil
 }
 
 // rejectChecklistConflicts refuses the two combinations no author can satisfy
