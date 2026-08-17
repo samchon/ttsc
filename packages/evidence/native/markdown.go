@@ -157,10 +157,20 @@ func scanMarkdownInventory(
   // content digest can leave them out. A fenced block is not marked: an
   // `<!-- -->` inside one hosts no tag, and its text is content of the section.
   commentAtLine := make([]bool, len(lines))
-  // The nearest heading *unit* enclosing each line, which is not the same as its
-  // host: a heading may open a region without materializing a unit. Kept apart
-  // from hostIDAtLine because that value decides where a declaration sits, and
-  // widening it would move citations rather than only digests.
+  // The nearest heading *unit* enclosing each line, which is not always its
+  // host: a heading may open a region without materializing a unit.
+  //
+  // The two agree where that heading could otherwise have hosted a tag, and
+  // they were once kept apart everywhere on the grounds that widening the host
+  // would move citations rather than only digests. It moves them on purpose
+  // now. Leaving the host on a heading that materialized nothing named an
+  // identity no unit stood behind while still reporting a selectable kind, and
+  // a per-host reader admitted the tag on the kind and then found no unit
+  // behind the identity, which is how one tag discharged a whole checklist.
+  //
+  // They still part where the host is a kind no claim can select, an H5 or
+  // deeper, because there the disagreement cannot be acted on and the heading's
+  // own answer is the more precise one.
   digestHostIDAtLine := make([]string, len(lines))
   currentDigestHostID := fileUnitID
   // A file that materializes no unit hosts nothing, so its lines report no host
