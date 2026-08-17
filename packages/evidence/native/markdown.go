@@ -599,7 +599,7 @@ func reportUnreadableMarkdownTags(
   }
   rendered := false
   for index, rawLine := range lines {
-    line := strings.TrimSuffix(rawLine, "")
+    line := strings.TrimSuffix(rawLine, "\r")
     if opens, closes := renderedCodeEdges(line); opens || closes {
       rendered = opens
       continue
