@@ -139,9 +139,9 @@ func TestMarkdownExclusionIsPositionIndependentAcrossEligibleHosts(t *testing.T)
  * distinction between a claim and a reference. Reporting every malformed
  * heading would make the globs stop being a real boundary.
  *
- *  1. Put an empty H2 in the source file, claim file, and unrelated file.
- *  2. Select only H1 source units and assert the graph ignores all empty H2s.
- *  3. Select H2 source units and assert only the configured source is reported.
+ *  1. Put an empty H2 in the reference file, the claim file, and an unrelated file.
+ *  2. Have the reference select H1 and assert no empty H2 is reported, since neither population reads that kind.
+ *  3. Have the reference select H2 and assert only its own file is reported, since the claim still reads only `file`.
  */
 func TestMarkdownProblemsRespectPopulationFilesAndSymbols(t *testing.T) {
   files := map[string]string{
