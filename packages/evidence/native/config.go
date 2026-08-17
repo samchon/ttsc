@@ -186,6 +186,7 @@ func decodeReference(
       "uniqueEvidence",
       "singleEvidencePerSymbol",
       "requireReview",
+      "checklist",
       "package",
       "root",
       "file",
@@ -204,7 +205,7 @@ func decodeReference(
   }
   root, rootProblems := decodeRoot(object["root"], kind, path+".root")
   problems = append(problems, rootProblems...)
-  policy, policyProblems := decodeReferencePolicy(object, path)
+  policy, policyProblems := decodeReferencePolicy(object, kind, path)
   problems = append(problems, policyProblems...)
   files := globSet{}
   source := ""
@@ -278,8 +279,13 @@ func decodeReference(
 // before a disabled claim is filtered. Each option is a flat boolean whose
 // false value means "not configured", so an omitted option and an explicit
 // false preserve the original behavior identically.
+//
+// The reference kind is read only by `checklist`, which the other three do not
+// need: they tighten a count that every artifact kind has, while a per-host
+// obligation is a statement about a document that is read item by item.
 func decodeReferencePolicy(
   object map[string]json.RawMessage,
+  kind artifactKind,
   path string,
 ) (referencePolicy, []string) {
   policy := referencePolicy{}
@@ -308,7 +314,58 @@ func decodeReferencePolicy(
   decodeFlag("uniqueEvidence", &policy.UniqueEvidence)
   decodeFlag("singleEvidencePerSymbol", &policy.SingleEvidencePerSymbol)
   decodeFlag("requireReview", &policy.RequireReview)
+  decodeFlag("checklist", &policy.Checklist)
+  problems = append(problems, rejectChecklistConflicts(policy, kind, path)...)
   return policy, problems
+}
+
+// rejectChecklistConflicts refuses the two combinations no author can satisfy
+// and the artifact kinds a checklist is not a statement about.
+//
+// The kind refusal is silent when the kind itself failed to decode, the way
+// rejectForeignTypeScriptReference is: naming an artifact the author did not
+// successfully spell would send them to the wrong line.
+//
+// The two cardinality refusals are unsatisfiability, not preference. A
+// checklist makes every selected host cite every unit, so uniqueEvidence's
+// one-host-per-unit ceiling breaks the moment a claim has two hosts, and
+// singleEvidencePerSymbol's exactly-one-unit-per-host breaks the moment the
+// population has two units. Both are reported at decode rather than as
+// coverage failures, because a population of one unit and one host satisfies
+// them by accident and would let a contradictory configuration ship until the
+// day a second file arrives.
+func rejectChecklistConflicts(
+  policy referencePolicy,
+  kind artifactKind,
+  path string,
+) []string {
+  if !policy.Checklist {
+    return nil
+  }
+  if kind != artifactMarkdown && kind != "" {
+    return []string{configurationProblem(
+      graphRuleName,
+      path+".checklist",
+      "only a Markdown reference can be a checklist; a "+string(kind)+
+        " population has no reading order in which a host answers one item at a time. Drop the option, or move the items into a Markdown document this reference selects.",
+    )}
+  }
+  problems := []string{}
+  if policy.UniqueEvidence {
+    problems = append(problems, configurationProblem(
+      graphRuleName,
+      path+".checklist",
+      "checklist and uniqueEvidence cannot both hold: a checklist requires every selected host to cite every unit, while uniqueEvidence allows each unit at most one host, so any claim with two hosts fails both ways. Keep the one that states this obligation.",
+    ))
+  }
+  if policy.SingleEvidencePerSymbol {
+    problems = append(problems, configurationProblem(
+      graphRuleName,
+      path+".checklist",
+      "checklist and singleEvidencePerSymbol cannot both hold: a checklist requires every selected host to cite every unit, while singleEvidencePerSymbol allows each host exactly one, so any population with two units fails both ways. Keep the one that states this obligation.",
+    ))
+  }
+  return problems
 }
 
 // rejectForeignTypeScriptReference refuses a code population to a claim that

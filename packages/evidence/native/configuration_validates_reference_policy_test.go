@@ -26,7 +26,8 @@ func TestReferencePolicyDefaultsPreserveReferenceBehavior(t *testing.T) {
         "files":["docs/b.md"],
         "noEvidenceExclude":false,
         "uniqueEvidence":false,
-        "singleEvidencePerSymbol":false
+        "singleEvidencePerSymbol":false,
+        "checklist":false
       }
     ]
   }]}`))
@@ -37,7 +38,8 @@ func TestReferencePolicyDefaultsPreserveReferenceBehavior(t *testing.T) {
     policy := reference.Policy
     if policy.NoExclude ||
       policy.UniqueEvidence ||
-      policy.SingleEvidencePerSymbol {
+      policy.SingleEvidencePerSymbol ||
+      policy.Checklist {
       t.Fatalf("reference %d did not preserve zero-value behavior: %+v", index, policy)
     }
   }
@@ -107,6 +109,7 @@ func TestReferencePolicyRejectsMalformedRuntimeShapes(t *testing.T) {
     "noEvidenceExclude",
     "uniqueEvidence",
     "singleEvidencePerSymbol",
+    "checklist",
   } {
     for _, test := range invalid {
       t.Run(test.name+" "+property, func(t *testing.T) {

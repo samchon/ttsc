@@ -78,6 +78,7 @@ The same holds across claims. Two claims referencing one document set are two ob
 | `uniqueEvidence` | all | At most one claim host may cite each unit. |
 | `singleEvidencePerSymbol` | all | Each selected claim host must cite exactly one unit. |
 | `requireReview` | all | Every acknowledgement owes an unexpired review of its own kind. |
+| `checklist` | markdown | Every selected claim host must acknowledge every unit here. |
 
 ## Symbol selectors
 
@@ -318,11 +319,39 @@ A citation written on an inner declarator now reaches the identity it names. Cov
 
 A variable's content is the declarator that names it, not the statement that wraps it. One `const`, `let`, or `var` statement declares every identity written after the keyword, so a fingerprint taken from the wrapper moved when a sibling changed, and a documentation block written on an inner declarator sat inside the very digest that excludes documentation. Both answers are now taken from the declarator alone, and a destructuring pattern's leaves share one because they share the initializer they take their values from. This moves every variable's fingerprint once: on upgrade, a review naming a variable (or naming a scope, such as a namespace, that contains one) expires and has to be rewritten with the value the diagnostic states.
 
-Counting is by identity, not by text. Repeated tags for one unit count once, merged declarations and overload sets remain one host, and an aggregate target contributes every selected descendant in its scope, so citing a parent of two selected units counts as two.
+Counting is by identity, not by text. Repeated tags for one unit count once, merged declarations and overload sets remain one host, and an aggregate target contributes every selected descendant in its scope, so citing a parent of two selected units counts as two. A `checklist` reference is the one place that last clause does not hold, because it refuses the aggregate citation outright.
 
 The constraints belong to one reference and never pool. An exclusion the package reference above refuses may still satisfy a Markdown reference in the same claim, and two references over the same files stay independent.
 
 A population that failed to load establishes no cardinality at all: the loader failure is preserved rather than turned into a count. A healthy population that is merely empty is a complete denominator, so a host still truthfully cites zero units against it.
+
+### Checklist documents
+
+The four properties above tighten a count inside the per-reference obligation. `checklist` does something else: it gives the obligation a host dimension, so every selected claim host answers every unit rather than the population being discharged once by whichever host got there first.
+
+```ts
+{
+  type: "markdown",
+  files: ["docs/principles.md"],
+  symbol: "h2",
+  checklist: true,
+  requireReview: true,
+}
+```
+
+Set it where a document is read down a column rather than consulted: development principles, review rules, a release gate. The denominator is the claim's complete selected host population, so a host carrying no tag owes every item instead of being absent from the count. Either tag answers an item, and `@evidenceExclude` is how a host records that an item does not apply to it. Pair the option with `noEvidenceExclude` to refuse that answer and demand positive evidence from every host.
+
+Two consequences follow, and both are deliberate.
+
+An `@evidence` target must name a selected unit. A citation naming a scope that merely contains the items answers none of them individually, so the aggregate target is reported and named as such. Without that, one document-wide citation ticks every box and the option proves nothing. `@evidenceExclude` keeps the cascade, because "none of this applies here" is one reviewed decision however many items it covers, and a host that does not participate at all should not owe one tag per item to say so.
+
+Duplicate and conflict detection moves to the host. Two hosts excluding one item, and one host citing an item another host excludes, are the expected state of a checklist rather than a duplicate and a contradiction. An exclusion written on a carrier that is not itself a selected host stays claim-wide: it records that no host owes that item, which is what gathering exclusions into one ledger file is for.
+
+`uniqueEvidence` and `singleEvidencePerSymbol` are refused beside it, at configuration time rather than as coverage failures. They are not merely redundant here. A checklist requires every host to cite every unit, which the first forbids the moment a claim has two hosts and the second forbids the moment the population has two units, and a graph with one host and one unit would satisfy all three by accident until the second file arrived.
+
+Pair it with `requireReview` for the property a checklist is usually wanted for. Each host's acknowledgement then carries the fingerprint of that item alone, so editing one item expires every host's answer to it and nothing else. Under the aggregate behavior the option refuses, one citation carries one fingerprint for the whole document.
+
+Only a Markdown reference accepts it. Per-host coverage is not a statement the other populations support: it would ask every test to exercise every Swagger operation, or every file to cite every Prisma model.
 
 ## Exclusion carriers
 

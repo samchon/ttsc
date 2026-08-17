@@ -149,7 +149,7 @@ Resolving through the module's own imports also removes an ambiguity that has no
 - Repeating the same resolved scope on one declaration is rejected. Keep the truthful reason, or fold the useful detail into it.
 - A citation may sit on any declaration of a merged identity. Placement changes neither resolution nor coverage.
 
-`uniqueEvidence` and `singleEvidencePerSymbol` on a reference tighten the first two rules where an obligation needs an owner. [Reference policies](/docs/evidence/claims#reference-policies) covers both.
+`uniqueEvidence` and `singleEvidencePerSymbol` on a reference tighten the first two rules where an obligation needs an owner, and `checklist` on a Markdown reference reverses the second one: a parent target stops accepting responsibility for the subtree, because a checklist item is answered by name or not at all. [Reference policies](/docs/evidence/claims#reference-policies) covers all three.
 
 ## Exclusions
 
@@ -167,7 +167,7 @@ Three properties decide whether an exclusion is worth anything.
 
 - **The reason is mandatory.** "Not applicable", "internal only", and "later" are conclusions, not reasons. Name the actual owner or the observable alternative, and name the condition that would make this exclusion wrong.
 - **It belongs to one claim.** Another claim referencing the same source still owes its own acknowledgement, and a reference declaring `noEvidenceExclude` refuses it outright.
-- **It must not overlap.** One claim-reference obligation may exclude a selected scope only once, even across different carriers, because the reason needs one reviewable owner. An evidence scope and an exclusion scope covering the same unit are rejected as contradictory intent.
+- **It must not overlap.** One claim-reference obligation may exclude a selected scope only once, even across different carriers, because the reason needs one reviewable owner. An evidence scope and an exclusion scope covering the same unit are rejected as contradictory intent. Under a `checklist` reference the obligation carries the host as well, so two hosts excluding one item, and one host citing an item another host excludes, are the expected state rather than an overlap.
 
 ### Where an exclusion may sit
 

@@ -112,6 +112,24 @@ type referencePolicy struct {
   // an `@evidenceReview` whose fingerprint matches the cited scope's current
   // content, so a review expires when the thing it reviewed moves.
   RequireReview bool
+  // Checklist moves the obligation from the reference to each selected claim
+  // host: every host answers every unit, rather than the population being
+  // discharged once by whichever host got there first.
+  //
+  // It is not a peer of the cardinality options even though it decodes beside
+  // them. Those tighten a count inside the existing per-reference obligation;
+  // this one gives the obligation a host dimension, which is why the duplicate
+  // and conflict keys below it become per host and why `UniqueEvidence` and
+  // `SingleEvidencePerSymbol` are refused alongside it rather than composed
+  // with it.
+  //
+  // It also refuses an aggregate `@evidence` target. A citation naming a scope
+  // that merely contains the items answers none of them individually, and
+  // without that refusal one file-level citation ticks every box — which is
+  // exactly the state the option exists to end. `@evidenceExclude` keeps the
+  // cascade, because "none of this applies here" is one decision however many
+  // items it covers.
+  Checklist bool
 }
 
 // evidenceReview is one verification statement bound to its host and target.

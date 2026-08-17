@@ -667,10 +667,15 @@ func evaluateEvidenceGraph(
       }
       single := reference.Spec.Policy.SingleEvidencePerSymbol
       unique := reference.Spec.Policy.UniqueEvidence
+      checklist := reference.Spec.Policy.Checklist
       // An empty population owes nothing and normally ends the reference
       // here. A healthy empty one still judges hosts under
       // singleEvidencePerSymbol, because every selected host then truthfully
       // cites zero units rather than the one it owes.
+      //
+      // A checklist is not in that company. Its host owes every unit, so an
+      // empty population leaves every host owing nothing and passing
+      // truthfully; there is no count it can fall short of.
       if len(reference.Units) == 0 &&
         (!single || !state.Healthy || !reference.Healthy || len(reference.Paths) == 0) {
         continue
@@ -681,12 +686,36 @@ func evaluateEvidenceGraph(
       evidenceByHostAndScope := map[string]map[string]*evidenceDeclaration{}
       selectedHosts := map[string]*evidenceUnit{}
       evidenceUnitsByHost := map[string]map[string]bool{}
-      if single || unique {
+      if single || unique || checklist {
         for _, host := range state.Hosts {
           selectedHosts[host.ID] = host
           if single {
             evidenceUnitsByHost[host.ID] = map[string]bool{}
           }
+        }
+      }
+      // A checklist gives the obligation a host dimension, so every map below
+      // that answers "was this unit acknowledged" becomes "was it acknowledged
+      // *here*". The ordinary maps keep their global keys: outside a checklist
+      // one acknowledgement anywhere in the claim is the whole obligation, and
+      // that is the behavior every reference written before this option had.
+      acknowledgedByHost := map[string]map[string]bool{}
+      // aggregateByHost records the units a refused aggregate citation reached
+      // on a host. They are not acknowledged, and they are not reported missing
+      // either: the aggregate diagnostic already names them and names the one
+      // repair that answers both, so listing them again on the host would be
+      // the descendant duplication the diagnostics rule forbids.
+      aggregateByHost := map[string]map[string]bool{}
+      selectedUnitIDs := map[string]bool{}
+      selectedHostIDs := []string{}
+      if checklist {
+        for _, unit := range reference.Units {
+          selectedUnitIDs[unit.ID] = true
+        }
+        for _, host := range state.Hosts {
+          selectedHostIDs = append(selectedHostIDs, host.ID)
+          acknowledgedByHost[host.ID] = map[string]bool{}
+          aggregateByHost[host.ID] = map[string]bool{}
         }
       }
       evidenceHostsByUnit := map[string]map[string]bool{}
@@ -745,6 +774,51 @@ func evaluateEvidenceGraph(
             problems,
             "Forbidden @evidenceExclude for '"+scopesByID[scopeID].Target+"' at "+declaration.location()+" in "+claimLabel(state.Spec)+" "+referenceLabel(reference.Spec)+": noEvidenceExclude requires positive @evidence for this reference. Remove the exclusion and cite the target from a selected "+string(state.Spec.Type)+" host that answers for it."+untrueTagWarning,
           )
+          continue
+        }
+        // Which acknowledgement ledgers this declaration writes into. The
+        // single empty key outside a checklist is the historical global
+        // bookkeeping; a checklist writes one entry per selected host the
+        // declaration speaks for.
+        keyHosts := []string{""}
+        if checklist {
+          keyHosts = nil
+          for _, hostID := range declaration.SemanticHostIDs {
+            if selectedHosts[hostID] != nil {
+              keyHosts = append(keyHosts, hostID)
+            }
+          }
+          if len(keyHosts) == 0 && declaration.Tag == tagExclude {
+            // An exclusion carrier that is not itself a selected host — an
+            // unselected declaration kind, or an unattached Prisma
+            // documentation run — states that no host owes this item. That
+            // claim-level decision is what carrier gathering exists for, and
+            // binding it to whichever declaration it happens to sit above
+            // would make a checklist's ledger file unwritable. Expanding it
+            // across the hosts keeps one code path, so a conflict against a
+            // host that does cite the item is still found.
+            keyHosts = selectedHostIDs
+          }
+        }
+        if checklist &&
+          declaration.Tag == tagEvidence &&
+          !selectedUnitIDs[scopeID] {
+          targets := make([]string, 0, len(covered))
+          for _, unit := range covered {
+            targets = append(targets, "'"+unit.Target+"'")
+          }
+          problems = append(
+            problems,
+            "Aggregate @evidence target '"+scopesByID[scopeID].Target+"' at "+declaration.location()+" in "+claimLabel(state.Spec)+" "+referenceLabel(reference.Spec)+": this reference is a checklist, so a citation answers for the item it names, and this target names a scope containing "+decimal(len(covered))+" item(s) ("+strings.Join(targets, ", ")+") rather than one of them. Cite each item this host answers for, or write @evidenceExclude on this scope when none of it applies here."+untrueTagWarning,
+          )
+          for _, hostID := range keyHosts {
+            for _, unit := range covered {
+              if aggregateByHost[hostID] == nil {
+                aggregateByHost[hostID] = map[string]bool{}
+              }
+              aggregateByHost[hostID][unit.ID] = true
+            }
+          }
           continue
         }
         if reference.Spec.Policy.RequireReview {
@@ -817,28 +891,40 @@ func evaluateEvidenceGraph(
         var firstExclusion *evidenceDeclaration
         for _, unit := range covered {
           acknowledged[unit.ID] = true
-          if declaration.Tag == tagEvidence {
-            if first := exclusionByUnit[unit.ID]; first != nil && conflictingUnit == nil {
+          // Outside a checklist keyHosts is one empty string, so the key is the
+          // unit and this reads exactly as it did before the host dimension
+          // existed. Under a checklist two hosts excluding one item, and one
+          // host citing an item another excludes, are the expected state rather
+          // than a duplicate and a conflict — which is only true because the
+          // key carries the host.
+          for _, hostID := range keyHosts {
+            key := hostID + "\x00" + unit.ID
+            if acknowledgedByHost[hostID] != nil {
+              acknowledgedByHost[hostID][unit.ID] = true
+            }
+            if declaration.Tag == tagEvidence {
+              if first := exclusionByUnit[key]; first != nil && conflictingUnit == nil {
+                conflictingUnit = unit
+                conflictingDeclaration = first
+              }
+              if evidenceByUnit[key] == nil {
+                evidenceByUnit[key] = declaration
+              }
+              continue
+            }
+            if first := evidenceByUnit[key]; first != nil && conflictingUnit == nil {
               conflictingUnit = unit
               conflictingDeclaration = first
             }
-            if evidenceByUnit[unit.ID] == nil {
-              evidenceByUnit[unit.ID] = declaration
+            if first := exclusionByUnit[key]; first != nil {
+              if duplicateExclusionUnit == nil {
+                duplicateExclusionUnit = unit
+                firstExclusion = first
+              }
+              continue
             }
-            continue
+            exclusionByUnit[key] = declaration
           }
-          if first := evidenceByUnit[unit.ID]; first != nil && conflictingUnit == nil {
-            conflictingUnit = unit
-            conflictingDeclaration = first
-          }
-          if first := exclusionByUnit[unit.ID]; first != nil {
-            if duplicateExclusionUnit == nil {
-              duplicateExclusionUnit = unit
-              firstExclusion = first
-            }
-            continue
-          }
-          exclusionByUnit[unit.ID] = declaration
         }
         if conflictingUnit != nil {
           evidence := declaration
@@ -874,8 +960,40 @@ func evaluateEvidenceGraph(
           )
         }
       }
+      // A checklist answers coverage per host, and that answer subsumes the
+      // population-wide one: an item no host acknowledged is reported on every
+      // host that owes it. With no selected host there is nobody to report it
+      // on, so the population-wide question is the only one left and stays.
+      perHostCoverage := checklist && len(state.Hosts) != 0
+      if perHostCoverage {
+        for _, host := range state.Hosts {
+          missing := make([]string, 0, len(reference.Units))
+          for _, unit := range reference.Units {
+            if acknowledgedByHost[host.ID][unit.ID] ||
+              aggregateByHost[host.ID][unit.ID] {
+              continue
+            }
+            missing = append(missing, "'"+unit.Target+"'")
+          }
+          if len(missing) == 0 {
+            continue
+          }
+          // Doing the work is named before either tag, for the reason the
+          // population-wide repair below names it first: a repair offering only
+          // the two tags frames an unmet item as a question of which tag to
+          // write.
+          repair := "Do what each item requires and cite it with @evidence on this host, or write @evidenceExclude for an item that does not apply here." + untrueTagWarning
+          if reference.Spec.Policy.NoExclude {
+            repair = "Do what each item requires and cite it with @evidence on this host; this reference forbids @evidenceExclude." + untrueTagWarning
+          }
+          problems = append(
+            problems,
+            "Evidence host "+host.Readable+" at "+host.location()+" in "+claimLabel(state.Spec)+" "+referenceLabel(reference.Spec)+" has not acknowledged "+decimal(len(missing))+" of "+decimal(len(reference.Units))+" checklist item(s): "+strings.Join(missing, ", ")+". "+repair,
+          )
+        }
+      }
       for _, unit := range reference.Units {
-        if !acknowledged[unit.ID] {
+        if !acknowledged[unit.ID] && !perHostCoverage {
           // Building the host is named first because the other two hide it. A
           // repair offering only the two tags frames the whole problem as which
           // tag to write, and an unbuilt unit then leaves as an exclusion.

@@ -16,6 +16,11 @@
  * Every constraint is opt-in and its zero value is the historical behavior, so
  * a reference that declares none of them is the reference that existed before
  * they did.
+ *
+ * A Markdown reference declares one more, `checklist`, which is not a peer of
+ * these. They tighten a count inside the per-reference obligation; that one
+ * gives the obligation a host dimension, and it is documented on the Markdown
+ * reference because no other artifact kind is read item by item.
  */
 export interface ITtscEvidenceGraphReferenceBase<Type extends string> {
   /** Identifies the artifact kind this population materializes. */
