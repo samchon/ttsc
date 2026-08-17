@@ -706,19 +706,13 @@ func evaluateEvidenceGraph(
       // repair that answers both, so listing them again on the host would be
       // the descendant duplication the diagnostics rule forbids.
       aggregateByHost := map[string]map[string]bool{}
-      // The same suppression for the population-wide answer, which is what runs
-      // when no host was selected. Keyed by host alone, that path reported every
-      // unit under a refused aggregate as missing on top of the aggregate
-      // diagnostic that already names them.
-      aggregateAnyHost := map[string]bool{}
       selectedUnitIDs := map[string]bool{}
-      selectedHostIDs := []string{}
       if checklist {
         for _, unit := range reference.Units {
           selectedUnitIDs[unit.ID] = true
         }
         for _, host := range state.Hosts {
-          selectedHostIDs = append(selectedHostIDs, host.ID)
+
           acknowledgedByHost[host.ID] = map[string]bool{}
           aggregateByHost[host.ID] = map[string]bool{}
         }
@@ -793,16 +787,26 @@ func evaluateEvidenceGraph(
               keyHosts = append(keyHosts, hostID)
             }
           }
-          if len(keyHosts) == 0 && declaration.Tag == tagExclude {
-            // An exclusion carrier that is not itself a selected host — an
-            // unselected declaration kind, or an unattached Prisma
-            // documentation run — states that no host owes this item. That
-            // claim-level decision is what carrier gathering exists for, and
-            // binding it to whichever declaration it happens to sit above
-            // would make a checklist's ledger file unwritable. Expanding it
-            // across the hosts keeps one code path, so a conflict against a
-            // host that does cite the item is still found.
-            keyHosts = selectedHostIDs
+          if len(keyHosts) == 0 {
+            // Under a checklist every acknowledgement is one host's answer, so
+            // a tag that speaks for no selected host answers nothing. Report it
+            // rather than letting it sit inert.
+            //
+            // Spreading it across the claim instead was tried and withdrawn.
+            // The reach it bought is the gathered exclusion ledger that
+            // `evidenceExcludeCarriers` exists for, and paying for it here
+            // meant deciding "no selected host" is the same statement as "no
+            // host owes this", which two ordinary Markdown shapes satisfy by
+            // accident: a heading whose title yields no anchor, and a path
+            // containing whitespace. Both report a selectable kind while naming
+            // no unit, so one tag discharged every item for every host in the
+            // claim and reported nothing. The obligation this option states is
+            // per host, so the answer belongs on a host.
+            problems = append(
+              problems,
+              "Unhosted @"+string(declaration.Tag)+" for '"+scopesByID[scopeID].Target+"' at "+declaration.location()+" in "+claimLabel(state.Spec)+" "+referenceLabel(reference.Spec)+": this reference is a checklist, so every acknowledgement answers for one selected "+string(state.Spec.Type)+" host, and this declaration sits on none. Move the tag onto a host the claim selects."+untrueTagWarning,
+            )
+            continue
           }
         }
         if checklist &&
@@ -817,7 +821,6 @@ func evaluateEvidenceGraph(
             "Aggregate @evidence target '"+scopesByID[scopeID].Target+"' at "+declaration.location()+" in "+claimLabel(state.Spec)+" "+referenceLabel(reference.Spec)+": this reference is a checklist, so a citation answers for the item it names, and this target names a scope containing "+decimal(len(covered))+" item(s) ("+strings.Join(targets, ", ")+") rather than one of them. Cite each item this host answers for, or write @evidenceExclude on this scope when none of it applies here."+untrueTagWarning,
           )
           for _, unit := range covered {
-            aggregateAnyHost[unit.ID] = true
             for _, hostID := range keyHosts {
               aggregateByHost[hostID][unit.ID] = true
             }
@@ -1023,7 +1026,7 @@ func evaluateEvidenceGraph(
         }
       }
       for _, unit := range reference.Units {
-        if !acknowledged[unit.ID] && !perHostCoverage && !aggregateAnyHost[unit.ID] {
+        if !acknowledged[unit.ID] && !perHostCoverage {
           // Building the host is named first because the other two hide it. A
           // repair offering only the two tags frames the whole problem as which
           // tag to write, and an unbuilt unit then leaves as an exclusion.

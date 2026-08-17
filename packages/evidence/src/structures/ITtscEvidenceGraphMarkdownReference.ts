@@ -110,13 +110,9 @@ export interface ITtscEvidenceGraphMarkdownReference extends ITtscEvidenceGraphR
    * item, and one host citing an item another host excludes, are the expected
    * state of a checklist rather than a duplicate and a contradiction.
    *
-   * An `@evidenceExclude` whose carrier is not itself a selected host stays
-   * claim-wide, which is how one ledger file drops an item for every host at
-   * once. The reach follows the carrier, never the file it sits in: a
-   * placeholder the claim's `symbol` selects answers for that placeholder alone
-   * and then owes the checklist like any other host. A TypeScript claim has to
-   * narrow `symbol` for an unselected placeholder to exist, since its default
-   * selects every kind, and a Markdown claim has no such placeholder at all.
+   * Every acknowledgement is one host's answer, so a tag on a declaration the
+   * claim's `symbol` does not select answers nothing and is reported where it
+   * sits.
    *
    * `uniqueEvidence` and `singleEvidencePerSymbol` are refused alongside this
    * one, at configuration time rather than as coverage failures. They are not

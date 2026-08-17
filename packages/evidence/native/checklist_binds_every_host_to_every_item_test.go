@@ -362,188 +362,6 @@ export function both(): void {}
 }
 
 /**
- * Verifies a claim-level exclusion carrier answers the item for every host.
- *
- * A carrier that is not itself a selected host records that no host owes the item, which is what gathering exclusions into one ledger file is for. Binding such a tag to whichever declaration it sits above would make that ledger unwritable under a checklist, so the decision has to reach every host in the claim.
- *
- *  1. Select functions as hosts and put an exclusion on an exported interface.
- *  2. Add a second host that writes nothing about the excluded item.
- *  3. Assert both hosts are discharged for it and still owe the other item.
- */
-func TestChecklistSpreadsAnUnhostedExclusionAcrossEveryHost(t *testing.T) {
-  messages := runIndexRule(t, map[string]string{
-    "docs/rules.md": checklistDocument,
-    "src/ledger.ts": `/** @evidenceExclude docs/rules.md#no-whack-a-mole This package has one code path. */
-export interface ILedger {
-  id: string;
-}
-
-/** @evidence docs/rules.md#no-hardcoding The general logic decides. */
-export function first(): void {}
-`,
-    "src/second.ts": `/** @evidence docs/rules.md#no-hardcoding The general logic decides here too. */
-export function second(): void {}
-`,
-  }, checklistConfig)
-  assertNoProblems(t, messages)
-}
-
-/**
- * Verifies exclusion carriers keep their gathering role under a checklist.
- *
- * `evidenceExcludeCarriers` exists so every exclusion a claim owns is read by opening one file, and a checklist is exactly the shape where that matters most, since an item dropped for the whole claim disappears from every host at once. The placement rule must still be judged first, so a tag written outside the carriers is reported rather than quietly spread.
- *
- *  1. Confine the claim's exclusions to one ledger file and drop an item there from a non-host declaration.
- *  2. Assert both hosts are discharged for the dropped item.
- *  3. Move the same tag into an ordinary claim file and assert it is reported as misplaced and discharges nothing.
- */
-func TestChecklistReadsAnExclusionLedgerBeforeSpreadingIt(t *testing.T) {
-  config := `{"claims":[{
-    "type":"typescript",
-    "files":["src/**"],
-    "evidenceExcludeCarriers":["src/EXCLUSIONS.ts"],
-    "symbol":"function",
-    "reference":{
-      "type":"markdown",
-      "files":["docs/rules.md"],
-      "symbol":"h2",
-      "checklist":true
-    }
-  }]}`
-  worker := `/** @evidence docs/rules.md#no-hardcoding The general logic decides. */
-export function worker(): void {}
-`
-  ledger := `/** @evidenceExclude docs/rules.md#no-whack-a-mole This package has one code path. */
-export interface IExclusions {
-  reviewed: string;
-}
-`
-  assertNoProblems(t, runIndexRule(t, map[string]string{
-    "docs/rules.md":     checklistDocument,
-    "src/EXCLUSIONS.ts": ledger,
-    "src/worker.ts":     worker,
-    "src/downstream.ts": `/** @evidence docs/rules.md#no-hardcoding The general logic decides here too. */
-export function downstream(): void {}
-`,
-  }, config))
-
-  misplaced := runIndexRule(t, map[string]string{
-    "docs/rules.md":     checklistDocument,
-    "src/EXCLUSIONS.ts": "export interface IExclusions {\n  reviewed: string;\n}\n",
-    "src/worker.ts":     ledger + worker,
-  }, config)
-  assertProblemContains(t, misplaced, "Misplaced @evidenceExclude")
-  // The title alone would survive a regression that named the wrong target or
-  // dropped the carrier globs, and this is the suite's only runtime coverage of
-  // the message.
-  assertProblemContains(t, misplaced, "target 'docs/rules.md#no-whack-a-mole'")
-  assertProblemContains(t, misplaced, "confines this claim's exclusions to")
-  assertProblemContains(t, misplaced, "src/EXCLUSIONS.ts")
-  assertProblemContains(t, misplaced, "Move the tag there")
-  assertProblemContains(t, misplaced, "has not acknowledged 1 of 2 checklist item(s): 'docs/rules.md#no-whack-a-mole'")
-}
-
-/**
- * Verifies an aggregate exclusion written in a ledger discharges the whole claim.
- *
- * This is the highest-consequence silent pass on the surface: one tag in the carrier file drops every item for every host at once. The ledger case beside it only names a single item, so nothing pinned the combination that removes the entire population, which is exactly the one a reviewer opening the carrier file must be able to trust.
- *
- *  1. Confine the claim's exclusions to one ledger file.
- *  2. Drop the whole document there from a non-host declaration.
- *  3. Assert every host is discharged, then narrow the tag to one item and assert the rest comes back.
- */
-func TestChecklistLetsALedgerDropTheWholeDocument(t *testing.T) {
-  config := `{"claims":[{
-    "type":"typescript",
-    "files":["src/**"],
-    "evidenceExcludeCarriers":["src/EXCLUSIONS.ts"],
-    "symbol":"function",
-    "reference":{
-      "type":"markdown",
-      "files":["docs/rules.md"],
-      "symbol":"h2",
-      "checklist":true
-    }
-  }]}`
-  hosts := map[string]string{
-    "src/worker.ts":     "export function worker(): void {}\n",
-    "src/downstream.ts": "export function downstream(): void {}\n",
-  }
-  ledger := func(target string) map[string]string {
-    files := map[string]string{
-      "docs/rules.md": checklistDocument,
-      "src/EXCLUSIONS.ts": `/** @evidenceExclude ` + target + ` This package is generated end to end. */
-export interface IExclusions {
-  reviewed: string;
-}
-`,
-    }
-    for path, source := range hosts {
-      files[path] = source
-    }
-    return files
-  }
-  assertNoProblems(t, runIndexRule(t, ledger("docs/rules.md"), config))
-
-  // The negative twin: the same ledger dropping one item leaves the other owed
-  // by both hosts, so the arm above is measuring the cascade rather than the
-  // carrier's claim-wide reach on its own.
-  narrowed := runIndexRule(t, ledger("docs/rules.md#no-hardcoding"), config)
-  if count := countProblemsContaining(narrowed, "checklist item(s)"); count != 2 {
-    t.Fatalf("expected both hosts to owe the item the ledger left, got %d:\n%s", count, strings.Join(narrowed, "\n"))
-  }
-  assertProblemContains(t, narrowed, "has not acknowledged 1 of 2 checklist item(s): 'docs/rules.md#no-whack-a-mole'")
-
-  // The reach comes from the carrier not being a host, never from the file it
-  // sits in. A ledger whose placeholder export is itself selected answers for
-  // that export alone, and the export then owes the checklist like any other
-  // host. Getting this backwards is the trap the guide now names.
-  hosted := runIndexRule(t, map[string]string{
-    "docs/rules.md": checklistDocument,
-    "src/EXCLUSIONS.ts": `/** @evidenceExclude docs/rules.md This package is generated. */
-export function ledger(): void {}
-`,
-    "src/worker.ts": "export function worker(): void {}\n",
-  }, config)
-  if count := countProblemsContaining(hosted, "checklist item(s)"); count != 1 {
-    t.Fatalf("expected the exclusion to answer for its own host alone, got %d:\n%s", count, strings.Join(hosted, "\n"))
-  }
-  assertProblemContains(t, hosted, "TypeScript function 'worker'")
-  assertProblemContains(t, hosted, "has not acknowledged 2 of 2 checklist item(s): 'docs/rules.md#no-hardcoding', 'docs/rules.md#no-whack-a-mole'")
-
-  // The guide tells an adopter to give a ledger a placeholder the claim's
-  // `symbol` does not select, and on a TypeScript claim taking the default that
-  // placeholder does not exist: the default selects every kind, so every
-  // eligible carrier is a selected host. The ledger then discharges its own
-  // placeholder and the file contributes a host of its own. Pin the constraint
-  // the advice depends on, or the advice is prose nobody measured.
-  defaulted := runIndexRule(t, map[string]string{
-    "docs/rules.md": checklistDocument,
-    "src/EXCLUSIONS.ts": `/** @evidenceExclude docs/rules.md This package is generated. */
-export interface IExclusions {
-  reviewed: string;
-}
-`,
-    "src/worker.ts": "export function worker(): void {}\n",
-  }, `{"claims":[{
-    "type":"typescript",
-    "files":["src/**"],
-    "evidenceExcludeCarriers":["src/EXCLUSIONS.ts"],
-    "reference":{
-      "type":"markdown",
-      "files":["docs/rules.md"],
-      "symbol":"h2",
-      "checklist":true
-    }
-  }]}`)
-  if count := countProblemsContaining(defaulted, "checklist item(s)"); count != 2 {
-    t.Fatalf("expected the default selector to leave the ledger without an unselected carrier, got %d:\n%s", count, strings.Join(defaulted, "\n"))
-  }
-  assertProblemContains(t, defaulted, "TypeScript function 'worker'")
-  assertProblemContains(t, defaulted, "TypeScript property 'IExclusions.reviewed'")
-}
-
-/**
  * Verifies a reviewed checklist demands a review of the exclusion as well.
  *
  * Verifying that a declaration does what an item describes and verifying that the item does not apply here are opposite questions, and a checklist is where the second one is written most often, once per host that opts out. Placement is the second half: an exclusion whose carrier the claim's `symbol` does not select answers for every host, and it still owes a review of its own, written beside it on the carrier rather than on any host it discharges.
@@ -596,82 +414,6 @@ export function mixed(): void {}
     ` * @evidenceReview docs/rules.md#no-hardcoding #`+expected["docs/rules.md#no-hardcoding"]+` Read the rule against this module.
  * @evidenceExcludeReview docs/rules.md#no-whack-a-mole #`+expected["docs/rules.md#no-whack-a-mole"]+` Confirmed the single code path.
 `), config))
-
-  // Placement is a different branch and the arm above does not reach it: both
-  // tags there sit on a selected host. An exclusion carried by a declaration the
-  // claim's `symbol` does not select answers for every host, and it still owes a
-  // review of its own, written beside it on the carrier rather than on any of
-  // the hosts it discharges.
-  //
-  // The review ledger's source-position fallback is a third shape and this does
-  // not reach it either: an interface registers a semantic host, it is merely
-  // unselected. That fallback wants a declaration with no semantic host at all,
-  // which among the artifact kinds is an unattached Prisma documentation run.
-  // A TypeScript claim cannot write one. A Prisma claim can, and `checklist`
-  // constrains the reference kind rather than the claim kind, so that pairing
-  // reaches the fallback and is where a case for it belongs.
-  carriers := `{"claims":[{
-    "type":"typescript",
-    "files":["src/**"],
-    "evidenceExcludeCarriers":["src/EXCLUSIONS.ts"],
-    "symbol":"function",
-    "reference":{
-      "type":"markdown",
-      "files":["docs/rules.md"],
-      "symbol":"h2",
-      "checklist":true,
-      "requireReview":true
-    }
-  }]}`
-  ledger := func(reviews string) map[string]string {
-    return map[string]string{
-      "docs/rules.md": checklistDocument,
-      "src/EXCLUSIONS.ts": `/**
- * @evidenceExclude docs/rules.md#no-whack-a-mole This package has one code path.
-` + reviews + ` */
-export interface IExclusions {
-  reviewed: string;
-}
-`,
-      "src/worker.ts": `/**
- * @evidence docs/rules.md#no-hardcoding The general logic decides.
- * @evidenceReview docs/rules.md#no-hardcoding #` + expected["docs/rules.md#no-hardcoding"] + ` Read the rule against this module.
- */
-export function worker(): void {}
-`,
-    }
-  }
-  assertProblemContains(
-    t,
-    runIndexRule(t, ledger(""), carriers),
-    "Unreviewed @evidenceExclude for 'docs/rules.md#no-whack-a-mole'",
-  )
-  assertNoProblems(t, runIndexRule(t, ledger(
-    ` * @evidenceExcludeReview docs/rules.md#no-whack-a-mole #`+expected["docs/rules.md#no-whack-a-mole"]+` Confirmed the single code path.
-`), carriers))
-
-  // The negative twin of "beside it on the carrier". A review of a claim-wide
-  // exclusion must not be findable from the hosts that exclusion discharges, or
-  // one review written anywhere would answer for a ledger nobody read. Measured:
-  // letting the ledger fall back to a target-only match leaves the whole package
-  // green.
-  displaced := ledger("")
-  displaced["src/worker.ts"] = `/**
- * @evidence docs/rules.md#no-hardcoding The general logic decides.
- * @evidenceReview docs/rules.md#no-hardcoding #` + expected["docs/rules.md#no-hardcoding"] + ` Read the rule against this module.
- * @evidenceExcludeReview docs/rules.md#no-whack-a-mole #` + expected["docs/rules.md#no-whack-a-mole"] + ` Written on the wrong declaration.
- */
-export function worker(): void {}
-`
-  misplaced := runIndexRule(t, displaced, carriers)
-  // Counted, not just matched. Two substrings can be satisfied by two different
-  // messages, so without this a later change that also reported the stranded
-  // review would stop pinning the carrier as the sole finding.
-  if len(misplaced) != 1 {
-    t.Fatalf("expected the carrier's unreviewed exclusion alone, got:\n%s", strings.Join(misplaced, "\n"))
-  }
-  assertProblemContains(t, misplaced, "Unreviewed @evidenceExclude for 'docs/rules.md#no-whack-a-mole'")
-  assertProblemContains(t, misplaced, "src/EXCLUSIONS.ts")
 }
 
 /**
@@ -717,6 +459,33 @@ export var price: number = 1, live: number = 2;
   assertProblemContains(t, partial, "'price'")
   assertProblemContains(t, partial, "'live'")
   assertProblemContains(t, partial, "has not acknowledged 1 of 2 checklist item(s): 'docs/rules.md#no-whack-a-mole'")
+}
+
+/**
+ * Verifies a tag that speaks for no selected host is reported rather than left inert.
+ *
+ * Under a checklist every acknowledgement is one host's answer, so a tag on a declaration the claim's `symbol` does not select answers nothing. Spreading it across the claim instead was tried and withdrawn: that reach requires reading "no selected host" as "no host owes this", and two ordinary Markdown shapes satisfy it by accident, so one tag discharged every item for every host and reported nothing.
+ *
+ *  1. Select functions as hosts and put an exclusion on an exported interface.
+ *  2. Assert the tag is reported where it sits.
+ *  3. Assert the hosts still owe every item, so nothing was discharged by it.
+ */
+func TestChecklistReportsATagThatAnswersForNoHost(t *testing.T) {
+  messages := runIndexRule(t, map[string]string{
+    "docs/rules.md": checklistDocument,
+    "src/ledger.ts": `/** @evidenceExclude docs/rules.md#no-whack-a-mole This package has one code path. */
+export interface ILedger {
+  id: string;
+}
+
+/** @evidence docs/rules.md#no-hardcoding The general logic decides. */
+export function first(): void {}
+`,
+  }, checklistConfig)
+  assertProblemContains(t, messages, "Unhosted @evidenceExclude for 'docs/rules.md#no-whack-a-mole' at src/ledger.ts:1")
+  assertProblemContains(t, messages, "every acknowledgement answers for one selected typescript host, and this declaration sits on none")
+  assertProblemContains(t, messages, "TypeScript function 'first'")
+  assertProblemContains(t, messages, "has not acknowledged 1 of 2 checklist item(s): 'docs/rules.md#no-whack-a-mole'")
 }
 
 /**
@@ -831,126 +600,6 @@ Gamma plan prose.
   if strings.Contains(strings.Join(messages, "\n"), "plans/alpha.md") {
     t.Fatalf("a plan that answered every item was reported:\n%s", strings.Join(messages, "\n"))
   }
-}
-
-/**
- * Verifies a heading that materializes no unit hosts nothing under a checklist.
- *
- * A Markdown heading whose title yields no anchor reports a selectable symbol while naming a unit that was never created, and eligibility reads the symbol while per-host coverage reads the identity. The two disagreeing sent one `@evidenceExclude` down the fallback meant for a carrier that hosts nothing at all, so it discharged every item for every host in the claim and reported nothing: the exact silent pass this option exists to end, reachable from ordinary Markdown.
- *
- *  1. Select H2 plans as hosts against a two-item checklist.
- *  2. Put an exclusion of the whole document under an anchorless `## ---` in one plan.
- *  3. Assert both real hosts still owe both items and the misplaced tag is reported where it sits.
- */
-func TestChecklistRefusesAHostThatMaterializedNoUnit(t *testing.T) {
-  config := `{"claims":[{
-    "type":"markdown",
-    "files":["plans/**"],
-    "symbol":"h2",
-    "reference":{
-      "type":"markdown",
-      "files":["docs/rules.md"],
-      "symbol":"h2",
-      "checklist":true
-    }
-  }]}`
-  poisoned := runIndexRule(t, map[string]string{
-    "docs/rules.md": checklistDocument,
-    "plans/alpha.md": `## ---
-
-<!-- @evidenceExclude docs/rules.md Generated plan. -->
-
-## Section one
-
-Alpha.
-`,
-    "plans/beta.md": "## Section two\n\nBeta.\n",
-  }, config)
-  if count := countProblemsContaining(poisoned, "checklist item(s)"); count != 2 {
-    t.Fatalf("one anchorless heading discharged the claim, got %d host diagnostics:\n%s", count, strings.Join(poisoned, "\n"))
-  }
-  assertProblemContains(t, poisoned, "Markdown H2 'Section one'")
-  assertProblemContains(t, poisoned, "Markdown H2 'Section two'")
-  assertProblemContains(t, poisoned, "Out-of-scope @evidenceExclude carrier at plans/alpha.md:3")
-
-  // The same disagreement reaches a whole file when its path cannot form a
-  // target, because then no unit exists anywhere in it, not even the file. That
-  // one is worse: the whitespace diagnostic used to be surfaced for reference
-  // files alone, so a claim-only file discharged the claim and said nothing.
-  whitespace := runIndexRule(t, map[string]string{
-    "docs/rules.md": checklistDocument,
-    "plans/alpha beta.md": `## Section one
-
-<!-- @evidenceExclude docs/rules.md Generated plan. -->
-
-Alpha.
-`,
-    "plans/gamma.md": "## Section two\n\nGamma.\n",
-  }, config)
-  assertProblemContains(t, whitespace, "Markdown H2 'Section two'")
-  assertProblemContains(t, whitespace, "has not acknowledged 2 of 2 checklist item(s)")
-  assertProblemContains(t, whitespace, "'plans/alpha beta.md' cannot form an evidence target")
-  assertProblemContains(t, whitespace, "Out-of-scope @evidenceExclude carrier at plans/alpha beta.md:3")
-  assertProblemContains(t, whitespace, "unsupported or non-exported declaration")
-
-  // The positive twin of the same disagreement. A citation there was credited to
-  // no host and drew no diagnostic either, so it was an inert tag with no repair
-  // named; it is now refused on the host it actually sits on.
-  cited := runIndexRule(t, map[string]string{
-    "docs/rules.md": checklistDocument,
-    "plans/alpha.md": `## ---
-
-<!-- @evidence docs/rules.md#no-hardcoding Alpha honors it. -->
-
-## Section one
-
-Alpha.
-`,
-  }, config)
-  assertProblemContains(t, cited, "Out-of-scope @evidence host at plans/alpha.md:3")
-  assertProblemContains(t, cited, "has not acknowledged 2 of 2 checklist item(s)")
-
-  // Reattribution is not refusal, and the difference is the claim's selector.
-  // Where the enclosing unit is a kind the claim selects, the tag is accepted on
-  // it, which is the same answer the digest gives that region's content. Pin
-  // that face too, or the rule reads as "an anchorless heading refuses tags"
-  // and the next reader is surprised by the common configuration.
-  accepted := runIndexRule(t, map[string]string{
-    "docs/rules.md": checklistDocument,
-    "plans/alpha.md": `## ---
-
-<!-- @evidenceExclude docs/rules.md This plan is generated. -->
-
-## Section one
-
-Alpha.
-`,
-    "plans/beta.md": "## Section two\n\nBeta.\n",
-  }, `{"claims":[{
-    "type":"markdown",
-    "files":["plans/**"],
-    "symbol":["file","h2"],
-    "reference":{
-      "type":"markdown",
-      "files":["docs/rules.md"],
-      "symbol":"h2",
-      "checklist":true
-    }
-  }]}`)
-  if strings.Contains(strings.Join(accepted, "\n"), "Out-of-scope") {
-    t.Fatalf("the enclosing file host is selected here, so the tag belongs on it:\n%s", strings.Join(accepted, "\n"))
-  }
-  // Four hosts here: both plans' file units and both plans' H2 sections. The tag
-  // discharges alpha's file host and nothing else, so three still owe.
-  if count := countProblemsContaining(accepted, "checklist item(s)"); count != 3 {
-    t.Fatalf("expected the enclosing host alone to be discharged, got %d:\n%s", count, strings.Join(accepted, "\n"))
-  }
-  if strings.Contains(strings.Join(accepted, "\n"), "Markdown file at plans/alpha.md") {
-    t.Fatalf("the tag's own host was not discharged:\n%s", strings.Join(accepted, "\n"))
-  }
-  // The anchorless heading is now reported to the claim as well, which is the
-  // signal that used to reach reference files alone.
-  assertProblemContains(t, accepted, "Markdown evidence unit at plans/alpha.md:1 has no resolvable anchor")
 }
 
 /**
@@ -1097,77 +746,4 @@ func TestChecklistKeepsPopulationCoverageWithNoSelectedHost(t *testing.T) {
     }},
   }}, nil)
   assertProblemContains(t, messages, "Missing acknowledgement for 'docs/rules.md#only-rule'")
-}
-
-/**
- * Verifies a refused aggregate suppresses the population-wide answer too.
- *
- * The per-host suppression is keyed by host, so the path that runs when no host was selected saw nothing and reported every unit under a refused aggregate as missing on top of the aggregate diagnostic that already names them. That is the descendant duplication the diagnostics rule forbids, and it is invisible from the host path, so it needs the evaluator-level case its sibling above already models.
- *
- *  1. Evaluate a checklist reference whose claim materialized no host.
- *  2. Cite the containing document, which selects no item.
- *  3. Assert the aggregate diagnostic is the only one.
- */
-func TestChecklistSuppressesAggregateItemsWithNoSelectedHost(t *testing.T) {
-  document := &evidenceUnit{
-    ID:       "markdown:docs/rules.md:file",
-    Target:   "docs/rules.md",
-    Type:     artifactMarkdown,
-    Symbol:   "file",
-    Path:     "docs/rules.md",
-    Readable: "Markdown file",
-  }
-  unit := &evidenceUnit{
-    ID:       "markdown:docs/rules.md:h2:1",
-    ParentID: document.ID,
-    Target:   "docs/rules.md#only-rule",
-    Type:     artifactMarkdown,
-    Symbol:   "h2",
-    Path:     "docs/rules.md",
-    Line:     1,
-    Readable: "Markdown H2 'Only rule'",
-  }
-  messages := evaluateEvidenceGraph([]claimState{{
-    Spec: claimSpec{
-      Index:   0,
-      Type:    artifactTypeScript,
-      Symbols: symbolSet{"function": true},
-    },
-    Paths: []string{"src/test.ts"},
-    Declarations: []*evidenceDeclaration{{
-      ID:     "aggregate-citation",
-      HostID: "src/test.ts:0:100",
-      Type:   artifactTypeScript,
-      Tag:    tagEvidence,
-      Target: document.Target,
-      Reason: "Everything in here is honored.",
-      Hosts:  symbolSet{"function": true},
-      Path:   "src/test.ts",
-      Line:   1,
-    }},
-    Healthy: true,
-    References: []referenceState{{
-      Spec: referenceSpec{
-        Index:   0,
-        Type:    artifactMarkdown,
-        Policy:  referencePolicy{Checklist: true},
-        Symbols: symbolSet{"h2": true},
-      },
-      Paths:  []string{"docs/rules.md"},
-      Units:  []*evidenceUnit{unit},
-      Scopes: []*evidenceUnit{document, unit},
-      UnitsByScope: map[string][]*evidenceUnit{
-        document.ID: {unit},
-        unit.ID:     {unit},
-      },
-      Healthy: true,
-    }},
-  }}, nil)
-  if len(messages) != 1 {
-    t.Fatalf("expected the aggregate diagnostic to stand alone, got:\n%s", strings.Join(messages, "\n"))
-  }
-  assertProblemContains(t, messages, "Aggregate @evidence target 'docs/rules.md'")
-  if strings.Contains(strings.Join(messages, "\n"), "Missing acknowledgement") {
-    t.Fatalf("a refused aggregate's items were reported missing as well:\n%s", strings.Join(messages, "\n"))
-  }
 }
