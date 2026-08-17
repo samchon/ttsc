@@ -92,6 +92,12 @@ export interface ITtscEvidenceGraphClaimBase<Type extends string> {
    * This is independent of `noEvidenceExclude`, which decides whether one
    * reference accepts an exclusion at all. A claim whose every reference
    * refuses them gains nothing here.
+   *
+   * A `checklist` reference is refused beside these globs. That option makes
+   * every acknowledgement one host's own answer, so confining exclusions to
+   * other files would leave every host outside them unable to record that an
+   * item does not apply. A checklist reference that also declares
+   * `noEvidenceExclude` accepts no exclusion to gather and is allowed.
    */
   evidenceExcludeCarriers?: string[];
 

@@ -116,7 +116,8 @@ export interface ITtscEvidenceGraphMarkdownReference extends ITtscEvidenceGraphR
    * whose position materialized no unit at all. `evidenceExcludeCarriers` is
    * refused beside this option for the same reason: gathering exclusions into
    * another file leaves every host outside it unable to record that an item
-   * does not apply.
+   * does not apply. Declaring `noEvidenceExclude` here lifts that refusal,
+   * since a reference accepting no exclusion has none to gather.
    *
    * `uniqueEvidence` and `singleEvidencePerSymbol` are refused alongside this
    * one, at configuration time rather than as coverage failures. They are not

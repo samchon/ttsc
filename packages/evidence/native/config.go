@@ -343,13 +343,24 @@ func rejectChecklistCarriers(
     return nil
   }
   for _, reference := range references {
-    if !reference.Policy.Checklist {
+    // A reference refusing exclusions outright has nothing for the carriers to
+    // confine, so the impossibility this refuses does not arise there and the
+    // carriers are governing some other reference's exclusions, which is the
+    // ledger the property exists for. Refusing that pair would contradict the
+    // published guidance that `checklist` and `noEvidenceExclude` are the
+    // intended pairing.
+    if !reference.Policy.Checklist || reference.Policy.NoExclude {
       continue
+    }
+    where := path + ".reference"
+    if len(references) > 1 {
+      where += "[" + decimal(reference.Index) + "]"
     }
     return []string{configurationProblem(
       graphRuleName,
       path+".evidenceExcludeCarriers",
-      "a checklist reference cannot be gathered into exclusion carriers: the checklist makes every acknowledgement one host's own answer, while these globs confine exclusions to other files, so no host outside them can record that an item does not apply. Drop the carriers, or drop `checklist` from the reference that needs them.",
+      "a checklist reference cannot be gathered into exclusion carriers: "+where+
+        " makes every acknowledgement one host's own answer, while these globs confine exclusions to other files, so no host outside them can record that an item does not apply. Drop the carriers, drop `checklist` from that reference, or give it `noEvidenceExclude` so it accepts no exclusion to gather.",
     )}
   }
   return nil

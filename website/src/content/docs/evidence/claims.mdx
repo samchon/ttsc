@@ -60,7 +60,7 @@ The same holds across claims. Two claims referencing one document set are two ob
 | `symbol` | Which declaration kinds may host an `@evidence` tag. It does not restrict `@evidenceExclude`, whose carriers are wider. |
 | `reference` | One reference or an array of them. Must not be empty. |
 | `root` | Directory the `files` patterns resolve against. |
-| `evidenceExcludeCarriers` | Files allowed to host this claim's `@evidenceExclude`. |
+| `evidenceExcludeCarriers` | Files allowed to host this claim's `@evidenceExclude`. Refused beside a `checklist` reference. |
 | `name` | Label shown with this claim's diagnostics. It identifies nothing and relates nothing. |
 | `disabled` | Validates the shape and contributes nothing else: no populations, no obligations, no completion hints, no watched inputs. |
 
@@ -354,6 +354,8 @@ Only a Markdown reference accepts it. Per-host coverage is not a statement the o
 ## Exclusion carriers
 
 `noEvidenceExclude` decides whether a reference accepts an exclusion at all. Where it does, `evidenceExcludeCarriers` decides where that exclusion may be written.
+
+A `checklist` reference is refused beside these globs, because it makes every acknowledgement one host's own answer and confining exclusions to other files would leave every host outside them unable to record that an item does not apply. A checklist reference that also declares `noEvidenceExclude` accepts no exclusion to gather, so that combination is allowed.
 
 ```ts
 {

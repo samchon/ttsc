@@ -153,13 +153,67 @@ func TestChecklistIsRefusedBesideGatheredExclusionCarriers(t *testing.T) {
       }
     }]}`)
   }
-  _, refused := decodeGraphConfig(claim(`,"checklist":true`))
-  assertProblemContains(t, refused, "claims[0].evidenceExcludeCarriers: a checklist reference cannot be gathered into exclusion carriers")
-  assertProblemContains(t, refused, "no host outside them can record that an item does not apply")
-  assertProblemContains(t, refused, "Drop the carriers, or drop `checklist` from the reference that needs them")
+  for _, disabled := range []string{"false", "true"} {
+    _, refused := decodeGraphConfig(json.RawMessage(`{"claims":[{
+      "type":"typescript",
+      "disabled":` + disabled + `,
+      "files":["src/**"],
+      "evidenceExcludeCarriers":["src/EXCLUSIONS.ts"],
+      "symbol":"function",
+      "reference":{"type":"markdown","files":["docs/**"],"checklist":true}
+    }]}`))
+    assertProblemContains(t, refused, "claims[0].evidenceExcludeCarriers: a checklist reference cannot be gathered into exclusion carriers")
+    assertProblemContains(t, refused, "claims[0].reference makes every acknowledgement one host's own answer")
+    assertProblemContains(t, refused, "Drop the carriers, drop `checklist` from that reference, or give it `noEvidenceExclude`")
+  }
 
   if _, ordinary := decodeGraphConfig(claim("")); len(ordinary) != 0 {
     t.Fatalf("carriers must still decode without a checklist: %v", ordinary)
+  }
+
+  // A reference refusing exclusions outright has nothing for the carriers to
+  // confine, so the pair is satisfiable and the carriers are governing the other
+  // reference. Refusing it would contradict the published guidance that these
+  // two options are the intended pairing.
+  _, composed := decodeGraphConfig(json.RawMessage(`{"claims":[{
+    "type":"typescript",
+    "files":["src/**"],
+    "evidenceExcludeCarriers":["src/EXCLUSIONS.ts"],
+    "symbol":"function",
+    "reference":[
+      {"type":"markdown","files":["docs/principles.md"],"checklist":true,"noEvidenceExclude":true},
+      {"type":"markdown","files":["docs/api/**"]}
+    ]
+  }]}`))
+  if len(composed) != 0 {
+    t.Fatalf("a checklist that accepts no exclusion must not refuse the carriers: %v", composed)
+  }
+
+  // The offending element is named, so an author with an array does not have to
+  // open every one to find it.
+  _, second := decodeGraphConfig(json.RawMessage(`{"claims":[{
+    "type":"typescript",
+    "files":["src/**"],
+    "evidenceExcludeCarriers":["src/EXCLUSIONS.ts"],
+    "symbol":"function",
+    "reference":[
+      {"type":"markdown","files":["docs/api/**"]},
+      {"type":"markdown","files":["docs/principles.md"],"checklist":true}
+    ]
+  }]}`))
+  assertProblemContains(t, second, "claims[0].reference[1] makes every acknowledgement one host's own answer")
+
+  // A carriers glob that fails to decode owns its own diagnostic and must not
+  // draw a derivative refusal on top of it.
+  _, malformed := decodeGraphConfig(json.RawMessage(`{"claims":[{
+    "type":"typescript",
+    "files":["src/**"],
+    "evidenceExcludeCarriers":[],
+    "symbol":"function",
+    "reference":{"type":"markdown","files":["docs/**"],"checklist":true}
+  }]}`))
+  if strings.Contains(strings.Join(malformed, "\n"), "cannot be gathered into exclusion carriers") {
+    t.Fatalf("an undecodable carriers glob drew a derivative refusal:\n%s", strings.Join(malformed, "\n"))
   }
 }
 
