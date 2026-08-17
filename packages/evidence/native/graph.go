@@ -712,7 +712,6 @@ func evaluateEvidenceGraph(
           selectedUnitIDs[unit.ID] = true
         }
         for _, host := range state.Hosts {
-
           acknowledgedByHost[host.ID] = map[string]bool{}
           aggregateByHost[host.ID] = map[string]bool{}
         }
