@@ -515,11 +515,11 @@ export function ledger(): void {}
 /**
  * Verifies a reviewed checklist demands a review of the exclusion as well.
  *
- * Verifying that a declaration does what an item describes and verifying that the item does not apply here are opposite questions, and a checklist is where the second one is written most often, once per host that opts out. The hazard worth pinning is placement: an exclusion carried by a non-host declaration answers for every host, so its review has to be writable on the carrier rather than on the hosts it discharges.
+ * Verifying that a declaration does what an item describes and verifying that the item does not apply here are opposite questions, and a checklist is where the second one is written most often, once per host that opts out. Placement is the second half: an exclusion whose carrier the claim's `symbol` does not select answers for every host, and it still owes a review of its own, written beside it on the carrier rather than on any host it discharges.
  *
- *  1. Require reviews on a checklist and answer one item by citation and one by exclusion.
- *  2. Assert each tag owes a review of its own kind before any is written.
- *  3. Write both with the fingerprints the graph asks for and assert the claim passes.
+ *  1. Require reviews on a checklist and answer one item by citation and one by exclusion on one host.
+ *  2. Write both with the fingerprints the graph asks for and assert the claim passes.
+ *  3. Move the exclusion onto an unselected ledger carrier and assert it owes, then accepts, its own review there.
  */
 func TestChecklistDemandsAReviewOfAnExclusionToo(t *testing.T) {
   config := `{"claims":[{
@@ -564,6 +564,57 @@ export function mixed(): void {}
     ` * @evidenceReview docs/rules.md#no-hardcoding #`+expected["docs/rules.md#no-hardcoding"]+` Read the rule against this module.
  * @evidenceExcludeReview docs/rules.md#no-whack-a-mole #`+expected["docs/rules.md#no-whack-a-mole"]+` Confirmed the single code path.
 `), config))
+
+  // Placement is a different branch and the arm above does not reach it: both
+  // tags there sit on a selected host. An exclusion carried by a declaration the
+  // claim's `symbol` does not select answers for every host, and it still owes a
+  // review of its own, written beside it on the carrier rather than on any of
+  // the hosts it discharges.
+  //
+  // The review ledger's source-position fallback is a third shape and this does
+  // not reach it either: an interface registers a semantic host, it is merely
+  // unselected. That fallback wants a declaration with no semantic host at all,
+  // which among the artifact kinds is an unattached Prisma documentation run,
+  // and no Markdown checklist can produce one.
+  carriers := `{"claims":[{
+    "type":"typescript",
+    "files":["src/**"],
+    "evidenceExcludeCarriers":["src/EXCLUSIONS.ts"],
+    "symbol":"function",
+    "reference":{
+      "type":"markdown",
+      "files":["docs/rules.md"],
+      "symbol":"h2",
+      "checklist":true,
+      "requireReview":true
+    }
+  }]}`
+  ledger := func(reviews string) map[string]string {
+    return map[string]string{
+      "docs/rules.md": checklistDocument,
+      "src/EXCLUSIONS.ts": `/**
+ * @evidenceExclude docs/rules.md#no-whack-a-mole This package has one code path.
+` + reviews + ` */
+export interface IExclusions {
+  reviewed: string;
+}
+`,
+      "src/worker.ts": `/**
+ * @evidence docs/rules.md#no-hardcoding The general logic decides.
+ * @evidenceReview docs/rules.md#no-hardcoding #` + expected["docs/rules.md#no-hardcoding"] + ` Read the rule against this module.
+ */
+export function worker(): void {}
+`,
+    }
+  }
+  assertProblemContains(
+    t,
+    runIndexRule(t, ledger(""), carriers),
+    "Unreviewed @evidenceExclude for 'docs/rules.md#no-whack-a-mole'",
+  )
+  assertNoProblems(t, runIndexRule(t, ledger(
+    ` * @evidenceExcludeReview docs/rules.md#no-whack-a-mole #`+expected["docs/rules.md#no-whack-a-mole"]+` Confirmed the single code path.
+`), carriers))
 }
 
 /**
