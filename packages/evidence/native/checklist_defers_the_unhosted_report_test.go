@@ -115,7 +115,7 @@ export function first(): void {}
  *
  *  1. Record one carrier exclusion in two checklist references over one document, with nothing consuming it.
  *  2. Assert exactly one unhosted report fires.
- *  3. Assert it names both obligations and the selected host kind the repair points at.
+ *  3. Assert it names both obligations and the selected host kinds the repair points at.
  */
 func TestChecklistJoinsEveryObligationIntoOneUnhostedReport(t *testing.T) {
   messages := runIndexRule(t, map[string]string{
@@ -151,9 +151,9 @@ export function first(): void {}
     t.Fatalf("expected one joined report, got %d:\n%s", count, strings.Join(messages, "\n"))
   }
   assertProblemContains(t, messages, "for Claim 1 reference 1 (markdown, symbols: h2); Claim 1 reference 2 (markdown, symbols: h2)")
-  // Two selected kinds pin that the parenthetical is derived from the claim's
-  // selection in canonical order rather than spelled anywhere as a literal.
-  assertProblemContains(t, messages, "Move the tag onto a selected host (function, property) of a claim that owes it")
+  // Two selected kinds pin that the parenthetical is derived deterministically
+  // from the claim's selection rather than spelled anywhere as a literal.
+  assertProblemContains(t, messages, "Move the tag onto a host of a selected kind (function, property) in a claim that owes it")
 }
 
 /**

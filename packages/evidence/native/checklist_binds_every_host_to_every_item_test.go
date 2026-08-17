@@ -483,7 +483,7 @@ export function first(): void {}
   }, checklistConfig)
   assertProblemContains(t, messages, "Unhosted @evidenceExclude at src/ledger.ts:1 for Claim 1 reference 1 (markdown, symbols: h2), target 'docs/rules.md#no-whack-a-mole'")
   assertProblemContains(t, messages, "sits on no selected host and discharges no other obligation")
-  assertProblemContains(t, messages, "Move the tag onto a selected host (function) of a claim that owes it")
+  assertProblemContains(t, messages, "Move the tag onto a host of a selected kind (function) in a claim that owes it")
   assertProblemContains(t, messages, "TypeScript function 'first'")
   assertProblemContains(t, messages, "has not acknowledged 1 of 2 checklist item(s): 'docs/rules.md#no-whack-a-mole'")
 }
