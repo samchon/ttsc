@@ -873,6 +873,26 @@ Alpha.
   assertProblemContains(t, poisoned, "Markdown H2 'Section two'")
   assertProblemContains(t, poisoned, "Out-of-scope @evidenceExclude carrier at plans/alpha.md:3")
 
+  // The same disagreement reaches a whole file when its path cannot form a
+  // target, because then no unit exists anywhere in it, not even the file. That
+  // one is worse: the whitespace diagnostic used to be surfaced for reference
+  // files alone, so a claim-only file discharged the claim and said nothing.
+  whitespace := runIndexRule(t, map[string]string{
+    "docs/rules.md": checklistDocument,
+    "plans/alpha beta.md": `## Section one
+
+<!-- @evidenceExclude docs/rules.md Generated plan. -->
+
+Alpha.
+`,
+    "plans/gamma.md": "## Section two\n\nGamma.\n",
+  }, config)
+  assertProblemContains(t, whitespace, "Markdown H2 'Section two'")
+  assertProblemContains(t, whitespace, "has not acknowledged 2 of 2 checklist item(s)")
+  assertProblemContains(t, whitespace, "'plans/alpha beta.md' cannot form an evidence target")
+  assertProblemContains(t, whitespace, "Out-of-scope @evidenceExclude carrier at plans/alpha beta.md:3")
+  assertProblemContains(t, whitespace, "unsupported or non-exported declaration")
+
   // The positive twin of the same disagreement. A citation there was credited to
   // no host and drew no diagnostic either, so it was an inert tag with no repair
   // named; it is now refused on the host it actually sits on.
@@ -889,6 +909,48 @@ Alpha.
   }, config)
   assertProblemContains(t, cited, "Out-of-scope @evidence host at plans/alpha.md:3")
   assertProblemContains(t, cited, "has not acknowledged 2 of 2 checklist item(s)")
+
+  // Reattribution is not refusal, and the difference is the claim's selector.
+  // Where the enclosing unit is a kind the claim selects, the tag is accepted on
+  // it, which is the same answer the digest gives that region's content. Pin
+  // that face too, or the rule reads as "an anchorless heading refuses tags"
+  // and the next reader is surprised by the common configuration.
+  accepted := runIndexRule(t, map[string]string{
+    "docs/rules.md": checklistDocument,
+    "plans/alpha.md": `## ---
+
+<!-- @evidenceExclude docs/rules.md This plan is generated. -->
+
+## Section one
+
+Alpha.
+`,
+    "plans/beta.md": "## Section two\n\nBeta.\n",
+  }, `{"claims":[{
+    "type":"markdown",
+    "files":["plans/**"],
+    "symbol":["file","h2"],
+    "reference":{
+      "type":"markdown",
+      "files":["docs/rules.md"],
+      "symbol":"h2",
+      "checklist":true
+    }
+  }]}`)
+  if strings.Contains(strings.Join(accepted, "\n"), "Out-of-scope") {
+    t.Fatalf("the enclosing file host is selected here, so the tag belongs on it:\n%s", strings.Join(accepted, "\n"))
+  }
+  // Four hosts here: both plans' file units and both plans' H2 sections. The tag
+  // discharges alpha's file host and nothing else, so three still owe.
+  if count := countProblemsContaining(accepted, "checklist item(s)"); count != 3 {
+    t.Fatalf("expected the enclosing host alone to be discharged, got %d:\n%s", count, strings.Join(accepted, "\n"))
+  }
+  if strings.Contains(strings.Join(accepted, "\n"), "Markdown file at plans/alpha.md") {
+    t.Fatalf("the tag's own host was not discharged:\n%s", strings.Join(accepted, "\n"))
+  }
+  // The anchorless heading is now reported to the claim as well, which is the
+  // signal that used to reach reference files alone.
+  assertProblemContains(t, accepted, "Markdown evidence unit at plans/alpha.md:1 has no resolvable anchor")
 }
 
 /**

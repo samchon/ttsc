@@ -94,7 +94,7 @@ func loadMarkdownBase(
     inventory, _ := scanMarkdownInventory(address, string(content))
     inventories[address.Key] = inventory
     for _, inventoryProblem := range inventory.Problems {
-      if selectedByMarkdownReference(config, base, relative, inventoryProblem.Symbol) {
+      if selectedByMarkdownPopulation(config, base, relative, inventoryProblem.Symbol) {
         problems = append(problems, inventoryProblem.Message)
       }
     }
@@ -163,7 +163,21 @@ func scanMarkdownInventory(
   // widening it would move citations rather than only digests.
   digestHostIDAtLine := make([]string, len(lines))
   currentDigestHostID := fileUnitID
+  // A file that materializes no unit hosts nothing, so its lines report no host
+  // kind at all rather than one no unit stands behind. A whitespace-named path
+  // is the whole of that case: it forms no target, so neither its file unit nor
+  // any heading unit exists.
+  //
+  // Reporting `file` there named a selectable kind against an empty identity,
+  // which is the same disagreement an anchorless heading produced and it bites
+  // the same way. Per-host coverage read the identity, found no selected unit,
+  // and took the fallback meant for a carrier that hosts nothing at all, so one
+  // `@evidenceExclude` in a file named `alpha beta.md` discharged every item for
+  // every host in the claim. Measured: one diagnostic became zero.
   currentHost := "file"
+  if !targetablePath {
+    currentHost = ""
+  }
   currentHostID := fileUnitID
   fenceMarker := rune(0)
   fenceLength := 0
@@ -222,8 +236,14 @@ func scanMarkdownInventory(
     }
     level, title, ok := markdownHeading(line)
     if ok {
-      currentHost = "h" + decimal(level)
-      currentHostID = "markdown:" + address.Key + ":" + currentHost + ":" + decimal(index+1)
+      // Guarded for the reason the initial value is: a heading in an
+      // unaddressable file materializes nothing, so it opens a region and hosts
+      // no tag, and naming a kind here would put the selectable half of that
+      // disagreement back.
+      if targetablePath {
+        currentHost = "h" + decimal(level)
+        currentHostID = "markdown:" + address.Key + ":" + currentHost + ":" + decimal(index+1)
+      }
       if level <= 4 {
         for descendantLevel := level; descendantLevel <= 4; descendantLevel++ {
           headingUnitIDs[descendantLevel] = ""
@@ -271,9 +291,14 @@ func scanMarkdownInventory(
           // every item for every host in the claim and reported nothing.
           // Measured on a two-file plan set: two diagnostics became zero.
           //
-          // An H5 is a different shape and keeps its own answer. It reports `h5`,
-          // which no selector can contain, so it is refused as an out-of-scope
-          // host rather than admitted against a phantom.
+          // What follows differs by claim and is not a refusal either way. The
+          // tag is refused when the enclosing unit's kind is one the claim does
+          // not select, and accepted on that unit when it is, which is the same
+          // answer the digest gives that region's content.
+          //
+          // An H5 or deeper is a different shape and keeps its own answer. It
+          // reports `h5`, which no selector can contain, so the tag is refused
+          // before any identity is read.
           currentHost = enclosingHost
           currentHostID = currentDigestHostID
         } else {
@@ -320,6 +345,15 @@ func scanMarkdownInventory(
     comment := content[match[2]:match[3]]
     for _, parsed := range parseDeclarations(comment) {
       sequence++
+      // An empty kind is the absence of a host rather than a host named "", and
+      // the two read differently in a diagnostic: the message enumerates the
+      // kinds it found, so registering the empty string quotes nothing at the
+      // reader. Leaving the set empty is what selects the wording for a
+      // declaration nothing supports.
+      hosts := symbolSet{}
+      if hostAtLine[line-1] != "" {
+        hosts[hostAtLine[line-1]] = true
+      }
       inventory.Declarations = append(inventory.Declarations, &evidenceDeclaration{
         ID:              "markdown:" + address.Key + ":" + decimal(line+parsed.LineOffset) + ":" + decimal(sequence),
         HostID:          hostIDAtLine[line-1],
@@ -328,7 +362,7 @@ func scanMarkdownInventory(
         Tag:             parsed.Tag,
         Target:          parsed.Target,
         Reason:          parsed.Reason,
-        Hosts:           symbolSet{hostAtLine[line-1]: true},
+        Hosts:           hosts,
         Path:            address.Display,
         Line:            line + parsed.LineOffset,
         Sequence:        sequence,
@@ -453,13 +487,28 @@ func couldContainConfiguredMarkdown(
   return false
 }
 
-func selectedByMarkdownReference(
+// selectedByMarkdownPopulation reports whether any configured population reads
+// this file for the symbol a problem was filed under.
+//
+// Claims are asked as well as references, because a file that materializes
+// nothing is a hole on either side and only the reference side used to say so. A
+// whitespace-named claim file contributes no host, so under a checklist it
+// escapes the obligation entirely, and the author's only clue was silence. The
+// claim is matched on its own symbol set for the same reason a reference is: a
+// problem about a kind this population does not read is not its problem.
+func selectedByMarkdownPopulation(
   config graphConfig,
   base populationBase,
   path string,
   symbol string,
 ) bool {
   for _, claim := range config.Claims {
+    if claim.Type == artifactMarkdown &&
+      claim.Base.Absolute == base.Absolute &&
+      claim.Files.matches(path) &&
+      (symbol == "*" || claim.Symbols.contains(symbol)) {
+      return true
+    }
     for _, reference := range claim.References {
       if reference.Type == artifactMarkdown &&
         reference.Base.Absolute == base.Absolute &&
