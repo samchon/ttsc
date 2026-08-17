@@ -128,8 +128,8 @@ func TestMarkdownExclusionIsPositionIndependentAcrossEligibleHosts(t *testing.T)
 }
 
 /**
- * Verifies Markdown scan diagnostics stay inside the configured source
- * population and symbol selection.
+ * Verifies Markdown scan diagnostics stay inside each configured population's
+ * files and symbol selection.
  *
  * The project walk sees claim documents and unrelated repository Markdown,
  * and a heading needs a resolvable anchor only where some declared population
@@ -142,7 +142,7 @@ func TestMarkdownExclusionIsPositionIndependentAcrossEligibleHosts(t *testing.T)
  *  2. Select only H1 source units and assert the graph ignores all empty H2s.
  *  3. Select H2 source units and assert only the configured source is reported.
  */
-func TestMarkdownProblemsRespectSourceFilesAndSymbols(t *testing.T) {
+func TestMarkdownProblemsRespectPopulationFilesAndSymbols(t *testing.T) {
   files := map[string]string{
     "docs/source.md": "# Selected\n##\n",
     "docs/ref.md":    "<!-- @evidence docs/source.md#selected The claim adopts the H1. -->\n##\n",
