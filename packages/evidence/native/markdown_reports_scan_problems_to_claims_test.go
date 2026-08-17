@@ -69,6 +69,9 @@ func TestMarkdownReportsScanProblemsToClaims(t *testing.T) {
   if strings.Contains(strings.Join(withheld, "\n"), "has no resolvable anchor") {
     t.Fatalf("an H2 problem reached a claim that reads only H1:\n%s", strings.Join(withheld, "\n"))
   }
+  // Anchored on something the graph does report, or a configuration that
+  // produced nothing at all would satisfy the guard above by accident.
+  assertProblemContains(t, withheld, "Missing acknowledgement for 'docs/rules.md#only'")
 
   // One file read by both a claim and a reference reports each problem once.
   // The mechanism is the reporter, not this predicate: the scan runs twice, once
