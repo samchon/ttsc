@@ -147,18 +147,68 @@ export function broad(): void {}
   }
   assertProblemContains(t, aggregate, "TypeScript function 'silent'")
   assertProblemContains(t, aggregate, "has not acknowledged 2 of 2 checklist item(s)")
-  if strings.Contains(strings.Join(aggregate, "\n"), "'broad'") &&
-    countProblemsContaining(aggregate, "'broad'") != 1 {
-    t.Fatalf("the citing host was named by something other than its aggregate diagnostic:\n%s", strings.Join(aggregate, "\n"))
+  // Exactly the refusal and the silent host's shortfall. Counting the messages
+  // is what pins the citing host to one diagnostic; matching its name cannot,
+  // because the aggregate message carries the source path rather than the host's
+  // readable name and such a guard can never fail.
+  if len(aggregate) != 2 {
+    t.Fatalf("expected the aggregate refusal and one shortfall and nothing else, got:\n%s", strings.Join(aggregate, "\n"))
   }
 
+  // The exclusion twin needs the silent host for the same reason the positive
+  // arm does. With one host, an aggregate exclusion that spread across the claim
+  // instead of discharging its own host would be indistinguishable from one that
+  // did not.
   excluded := runIndexRule(t, map[string]string{
     "docs/rules.md": checklistDocument,
     "src/broad.ts": `/** @evidenceExclude docs/rules.md This module is generated. */
 export function broad(): void {}
 `,
+    "src/silent.ts": "export function silent(): void {}\n",
   }, checklistConfig)
-  assertNoProblems(t, excluded)
+  if len(excluded) != 1 {
+    t.Fatalf("expected the silent host's shortfall alone, got:\n%s", strings.Join(excluded, "\n"))
+  }
+  assertProblemContains(t, excluded, "TypeScript function 'silent'")
+  assertProblemContains(t, excluded, "has not acknowledged 2 of 2 checklist item(s)")
+}
+
+/**
+ * Verifies a refused aggregate suppresses only what its own diagnostic named.
+ *
+ * Every other case cites a scope covering the whole population, so the suppression set and the population are indistinguishable there and a widened suppression passes unnoticed. The consequence is a host's remaining, unrelated shortfall disappearing behind an aggregate diagnostic that never mentioned it.
+ *
+ *  1. Select H3 items under two different H2 parents.
+ *  2. Cite one unselected H2, which contains one of the two items.
+ *  3. Assert the refusal names that item and the host still owes the other.
+ */
+func TestChecklistSuppressesOnlyTheItemsARefusedAggregateNamed(t *testing.T) {
+  messages := runIndexRule(t, map[string]string{
+    "docs/rules.md": `## Alpha {#alpha}
+
+### One {#one}
+
+## Beta {#beta}
+
+### Two {#two}
+`,
+    "src/partial.ts": `/** @evidence docs/rules.md#alpha The first branch is honored. */
+export function partial(): void {}
+`,
+  }, `{"claims":[{
+    "type":"typescript",
+    "files":["src/**"],
+    "symbol":"function",
+    "reference":{
+      "type":"markdown",
+      "files":["docs/rules.md"],
+      "symbol":"h3",
+      "checklist":true
+    }
+  }]}`)
+  assertProblemContains(t, messages, "Aggregate @evidence target 'docs/rules.md#alpha'")
+  assertProblemContains(t, messages, "names a scope containing 1 item(s) ('docs/rules.md#one') rather than one of them")
+  assertProblemContains(t, messages, "has not acknowledged 1 of 2 checklist item(s): 'docs/rules.md#two'")
 }
 
 /**
