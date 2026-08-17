@@ -8,7 +8,7 @@ import (
 /**
  * Verifies a heading deeper than the unit model is scanned rather than fatal.
  *
- * `headingUnitIDs` holds one slot per materializable level, H1 through H4, and the digest-host walk read from the heading's own level with no upper clamp. An H5 started at the last valid slot and survived by one; an H6 started past the end and panicked, taking the whole rule down before it materialized anything. The shape is ordinary Markdown. For a document inside a claim's own `files`, nothing but the glob avoided it, since the claim populations are scanned before activation and the crash precedes the symbol selector and every tag. A document reached only through a reference could be spared by deactivating its claim, which is not a repair anyone would choose.
+ * `headingUnitIDs` holds one slot per materializable level, H1 through H4, and the digest-host walk read from the heading's own level with no upper clamp. An H5 started at the last valid slot and survived by one; an H6 started past the end and panicked, taking the whole rule down before it materialized anything. The shape is ordinary Markdown, and only keeping the document out of the scanned population avoided it: the crash precedes the symbol selector and every tag, and for a document inside a claim's own `files` it precedes activation too, since the claim populations are scanned first.
  *
  *  1. Scan a document whose deepest heading is an H6 nested under real units.
  *  2. Assert the scan completes and materializes the file unit with its H1 through H4 sections, and nothing deeper.
