@@ -17,9 +17,10 @@ const scanProblemReference = `{"claims":[{
  *
  * A scan problem says the file materialized less than it looks like it should, and that is a hole on either side: a reference loses evidence units, a claim loses the hosts that owe acknowledgements. Only the reference side was told. The claim side is the one that stayed silent in the worse direction, because a whitespace-named claim file forms no target at all, so it contributes no host, leaves the obligation, and reported nothing on its way out.
  *
- *  1. Point a Markdown claim at a whitespace-named file beside an ordinary one.
- *  2. Assert the unaddressable path is reported and the ordinary file still owes its acknowledgement.
- *  3. Assert an anchorless heading in a claim file is reported too, and only for a claim that reads that kind.
+ *  1. Point a Markdown claim at a whitespace-named file beside an ordinary one, and assert the path is reported while the ordinary file still owes its acknowledgement.
+ *  2. Make that file the claim's only one, so the claim materializes no host and deactivates, and assert it still reports.
+ *  3. Assert an anchorless heading in a claim file is reported, and withheld from a claim that does not read that kind.
+ *  4. Assert a file both populations read reports each problem once.
  */
 func TestMarkdownReportsScanProblemsToClaims(t *testing.T) {
   unaddressable := runIndexRule(t, map[string]string{

@@ -11,7 +11,7 @@ import (
  * `headingUnitIDs` holds one slot per materializable level, H1 through H4, and the digest-host walk read from the heading's own level with no upper clamp. An H5 started at the last valid slot and survived by one; an H6 started past the end and panicked, taking the whole rule down before it materialized anything. The shape is ordinary Markdown, and the only way to avoid it was to keep the document out of every configured `files` glob: the crash precedes the symbol selector, every tag, and activation, so narrowing any of those did not help.
  *
  *  1. Scan a document whose deepest heading is an H6 nested under real units.
- *  2. Assert the scan completes and materializes exactly the H1 through H4 units.
+ *  2. Assert the scan completes and materializes the file unit with its H1 through H4 sections, and nothing deeper.
  *  3. Assert an H6 answers as an H5 already does, for attribution and for a tag written under it.
  */
 func TestMarkdownSurvivesAHeadingBelowTheUnitModel(t *testing.T) {
