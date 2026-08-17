@@ -280,7 +280,7 @@ func decodeReference(
 // false value means "not configured", so an omitted option and an explicit
 // false preserve the original behavior identically.
 //
-// The reference kind is read only by `checklist`, which the other three do not
+// The reference kind is read only by `checklist`, which the other four do not
 // need: they tighten a count that every artifact kind has, while a per-host
 // obligation is a statement about a document that is read item by item.
 func decodeReferencePolicy(

@@ -272,6 +272,54 @@ export function second(): void {}
 }
 
 /**
+ * Verifies exclusion carriers keep their gathering role under a checklist.
+ *
+ * `evidenceExcludeCarriers` exists so every exclusion a claim owns is read by opening one file, and a checklist is exactly the shape where that matters most, since an item dropped for the whole claim disappears from every host at once. The placement rule must still be judged first, so a tag written outside the carriers is reported rather than quietly spread.
+ *
+ *  1. Confine the claim's exclusions to one ledger file and drop an item there from a non-host declaration.
+ *  2. Assert both hosts are discharged for the dropped item.
+ *  3. Move the same tag into an ordinary claim file and assert it is reported as misplaced and discharges nothing.
+ */
+func TestChecklistReadsAnExclusionLedgerBeforeSpreadingIt(t *testing.T) {
+  config := `{"claims":[{
+    "type":"typescript",
+    "files":["src/**"],
+    "evidenceExcludeCarriers":["src/EXCLUSIONS.ts"],
+    "symbol":"function",
+    "reference":{
+      "type":"markdown",
+      "files":["docs/rules.md"],
+      "symbol":"h2",
+      "checklist":true
+    }
+  }]}`
+  worker := `/** @evidence docs/rules.md#no-hardcoding The general logic decides. */
+export function worker(): void {}
+`
+  ledger := `/** @evidenceExclude docs/rules.md#no-whack-a-mole This package has one code path. */
+export interface IExclusions {
+  reviewed: string;
+}
+`
+  assertNoProblems(t, runIndexRule(t, map[string]string{
+    "docs/rules.md":     checklistDocument,
+    "src/EXCLUSIONS.ts": ledger,
+    "src/worker.ts":     worker,
+    "src/downstream.ts": `/** @evidence docs/rules.md#no-hardcoding The general logic decides here too. */
+export function downstream(): void {}
+`,
+  }, config))
+
+  misplaced := runIndexRule(t, map[string]string{
+    "docs/rules.md":     checklistDocument,
+    "src/EXCLUSIONS.ts": "export interface IExclusions {\n  reviewed: string;\n}\n",
+    "src/worker.ts":     ledger + worker,
+  }, config)
+  assertProblemContains(t, misplaced, "Misplaced @evidenceExclude")
+  assertProblemContains(t, misplaced, "has not acknowledged 1 of 2 checklist item(s): 'docs/rules.md#no-whack-a-mole'")
+}
+
+/**
  * Verifies a checklist constrains only the reference that declares it.
  *
  * Reference-local strengthening is the contract every policy option shares, and a checklist changes more machinery than the others — coverage, aggregates, and the duplicate keys. An ordinary twin over the same document must therefore stay satisfied by one host while the checklist reports the other.
@@ -336,6 +384,112 @@ func TestChecklistPassesAgainstAHealthyEmptyPopulation(t *testing.T) {
     t.Fatalf("expected only the empty-population diagnostic, got:\n%s", strings.Join(messages, "\n"))
   }
   assertProblemContains(t, messages, "found no selected evidence units (h2)")
+}
+
+/**
+ * Verifies a Markdown claim answers a checklist the way a TypeScript claim does.
+ *
+ * The option is confined to the Markdown reference, never to the claim, and the case it was asked for is a document set answering a rules document. A claim-kind dependency would leave that shape working only for code, and the file-level host is the granularity that makes the document side usable at all.
+ *
+ *  1. Select whole plan documents as hosts and a two-item rules document as the checklist.
+ *  2. Answer both items in one plan and nothing in the other.
+ *  3. Assert the answering plan passes and the silent plan owes both items.
+ */
+func TestChecklistAnswersFromAMarkdownClaim(t *testing.T) {
+  messages := runIndexRule(t, map[string]string{
+    "docs/rules.md": checklistDocument,
+    "plans/alpha.md": `<!-- @evidence docs/rules.md#no-hardcoding The plan keeps the general path. -->
+<!-- @evidence docs/rules.md#no-whack-a-mole The plan seals the class. -->
+
+Alpha plan prose.
+`,
+    "plans/beta.md": "Beta plan prose with no acknowledgement.\n",
+  }, `{"claims":[{
+    "type":"markdown",
+    "files":["plans/**"],
+    "symbol":"file",
+    "reference":{
+      "type":"markdown",
+      "files":["docs/rules.md"],
+      "symbol":"h2",
+      "checklist":true
+    }
+  }]}`)
+  if count := countProblemsContaining(messages, "checklist item(s)"); count != 1 {
+    t.Fatalf("expected only the silent plan to be reported, got %d:\n%s", count, strings.Join(messages, "\n"))
+  }
+  assertProblemContains(t, messages, "Evidence host Markdown file at plans/beta.md")
+  assertProblemContains(t, messages, "has not acknowledged 2 of 2 checklist item(s)")
+}
+
+/**
+ * Verifies a reviewed checklist expires one item's answers and leaves the rest green.
+ *
+ * Per-item expiry is the property a checklist is documented to buy, and it exists only because the aggregate citation is refused: one document-wide tag would carry one fingerprint for the whole document and every edit would expire everything. Editing one item must therefore reach that item's reviews on every host and no others.
+ *
+ *  1. Answer a two-item checklist from two hosts, each review carrying the fingerprint the graph asks for.
+ *  2. Assert the reviewed checklist passes.
+ *  3. Edit the body of one item and assert both hosts go stale on that item alone.
+ */
+func TestChecklistExpiresReviewsOneItemAtATime(t *testing.T) {
+  config := `{"claims":[{
+    "type":"typescript",
+    "files":["src/**"],
+    "symbol":"function",
+    "reference":{
+      "type":"markdown",
+      "files":["docs/rules.md"],
+      "symbol":"h2",
+      "checklist":true,
+      "requireReview":true
+    }
+  }]}`
+  build := func(document string, first string, second string) map[string]string {
+    return map[string]string{
+      "docs/rules.md": document,
+      "src/first.ts": `/**
+ * @evidence docs/rules.md#no-hardcoding The general logic decides.
+ * @evidenceReview docs/rules.md#no-hardcoding ` + first + ` Read the rule against this module.
+ * @evidence docs/rules.md#no-whack-a-mole Every sibling case is covered.
+ * @evidenceReview docs/rules.md#no-whack-a-mole ` + second + ` Read the rule against this module.
+ */
+export function first(): void {}
+`,
+      "src/second.ts": `/**
+ * @evidence docs/rules.md#no-hardcoding The general logic decides here too.
+ * @evidenceReview docs/rules.md#no-hardcoding ` + first + ` Read the rule against this module.
+ * @evidence docs/rules.md#no-whack-a-mole Every sibling case is covered here too.
+ * @evidenceReview docs/rules.md#no-whack-a-mole ` + second + ` Read the rule against this module.
+ */
+export function second(): void {}
+`,
+    }
+  }
+  expected := everyExpectedFingerprint(t, build(checklistDocument, "", ""), config)
+  reviewed := build(
+    checklistDocument,
+    "#"+expected["docs/rules.md#no-hardcoding"],
+    "#"+expected["docs/rules.md#no-whack-a-mole"],
+  )
+  assertNoProblems(t, runIndexRule(t, reviewed, config))
+
+  edited := strings.Replace(
+    checklistDocument,
+    "Fix the general logic instead of special-casing a fixture.",
+    "Fix the general logic instead of special-casing a fixture or an expected value.",
+    1,
+  )
+  if edited == checklistDocument {
+    t.Fatal("the edit did not reach the first item's body")
+  }
+  reviewed["docs/rules.md"] = edited
+  stale := runIndexRule(t, reviewed, config)
+  if count := countProblemsContaining(stale, "Stale @evidenceReview"); count != 2 {
+    t.Fatalf("expected both hosts to expire on the edited item, got %d:\n%s", count, strings.Join(stale, "\n"))
+  }
+  if strings.Contains(strings.Join(stale, "\n"), "no-whack-a-mole") {
+    t.Fatalf("an untouched item expired with its sibling:\n%s", strings.Join(stale, "\n"))
+  }
 }
 
 /**
