@@ -605,8 +605,10 @@ export function mixed(): void {}
   // The review ledger's source-position fallback is a third shape and this does
   // not reach it either: an interface registers a semantic host, it is merely
   // unselected. That fallback wants a declaration with no semantic host at all,
-  // which among the artifact kinds is an unattached Prisma documentation run,
-  // and no Markdown checklist can produce one.
+  // which among the artifact kinds is an unattached Prisma documentation run.
+  // A TypeScript claim cannot write one. A Prisma claim can, and `checklist`
+  // constrains the reference kind rather than the claim kind, so that pairing
+  // reaches the fallback and is where a case for it belongs.
   carriers := `{"claims":[{
     "type":"typescript",
     "files":["src/**"],
@@ -646,6 +648,23 @@ export function worker(): void {}
   assertNoProblems(t, runIndexRule(t, ledger(
     ` * @evidenceExcludeReview docs/rules.md#no-whack-a-mole #`+expected["docs/rules.md#no-whack-a-mole"]+` Confirmed the single code path.
 `), carriers))
+
+  // The negative twin of "beside it on the carrier". A review of a claim-wide
+  // exclusion must not be findable from the hosts that exclusion discharges, or
+  // one review written anywhere would answer for a ledger nobody read. Measured:
+  // letting the ledger fall back to a target-only match leaves the whole package
+  // green.
+  displaced := ledger("")
+  displaced["src/worker.ts"] = `/**
+ * @evidence docs/rules.md#no-hardcoding The general logic decides.
+ * @evidenceReview docs/rules.md#no-hardcoding #` + expected["docs/rules.md#no-hardcoding"] + ` Read the rule against this module.
+ * @evidenceExcludeReview docs/rules.md#no-whack-a-mole #` + expected["docs/rules.md#no-whack-a-mole"] + ` Written on the wrong declaration.
+ */
+export function worker(): void {}
+`
+  misplaced := runIndexRule(t, displaced, carriers)
+  assertProblemContains(t, misplaced, "Unreviewed @evidenceExclude for 'docs/rules.md#no-whack-a-mole'")
+  assertProblemContains(t, misplaced, "src/EXCLUSIONS.ts")
 }
 
 /**
