@@ -123,12 +123,19 @@ type referencePolicy struct {
   // `SingleEvidencePerSymbol` are refused alongside it rather than composed
   // with it.
   //
-  // It also refuses an aggregate `@evidence` target. A citation naming a scope
-  // that merely contains the items answers none of them individually, and
-  // without that refusal one file-level citation ticks every box — which is
-  // exactly the state the option exists to end. `@evidenceExclude` keeps the
-  // cascade, because "none of this applies here" is one decision however many
-  // items it covers.
+  // It also takes the subtree away from a positive citation. A citation answers
+  // the item it names and nothing beneath it, and a target naming no item at all
+  // is refused outright as an aggregate.
+  //
+  // Both halves are needed, and only measuring shows why. Refusing the
+  // unselected ancestor alone left the default Markdown selector, where the file
+  // is itself an item, discharging every heading from one `@evidence
+  // docs/rules.md` — the option was a no-op in the first configuration an
+  // adopter writes, silently. Any selector admitting an ancestor beside a
+  // descendant opens the same hole.
+  //
+  // `@evidenceExclude` keeps the cascade, because "none of this applies here" is
+  // one decision however many items it covers.
   Checklist bool
 }
 

@@ -197,6 +197,60 @@ export function document(): void {}
 }
 
 /**
+ * Verifies a citation answers the item it names and never the items beneath it.
+ *
+ * Refusing the unselected ancestor is not enough, and only this shape shows it. Under the default Markdown selector the file is itself an item, so one document citation resolves to a selected unit, and if that citation kept the ordinary subtree cascade it would discharge every heading on that host. The option would then be a no-op in the first configuration an adopter writes, with no diagnostic anywhere.
+ *
+ *  1. Cite the document under the default selector, where the file is an item and the headings are items too.
+ *  2. Assert the file item is answered and both headings are still owed.
+ *  3. Repeat with an explicit ancestor and descendant selection and assert the descendant survives its parent's citation.
+ */
+func TestAChecklistCitationAnswersOnlyTheItemItNames(t *testing.T) {
+  defaulted := runIndexRule(t, map[string]string{
+    "docs/rules.md": checklistDocument,
+    "src/broad.ts": `/** @evidence docs/rules.md This module honors the document itself. */
+export function broad(): void {}
+`,
+  }, `{"claims":[{
+    "type":"typescript",
+    "files":["src/**"],
+    "symbol":"function",
+    "reference":{
+      "type":"markdown",
+      "files":["docs/rules.md"],
+      "checklist":true
+    }
+  }]}`)
+  // The file is a selected item here, so the citation is legal and answers one
+  // item. Refusing it as an aggregate would be the opposite error.
+  if strings.Contains(strings.Join(defaulted, "\n"), "Aggregate @evidence target") {
+    t.Fatalf("a citation of a selected file item was refused as an aggregate:\n%s", strings.Join(defaulted, "\n"))
+  }
+  assertProblemContains(t, defaulted, "has not acknowledged 2 of 3 checklist item(s): 'docs/rules.md#no-hardcoding', 'docs/rules.md#no-whack-a-mole'")
+
+  nested := runIndexRule(t, map[string]string{
+    "docs/rules.md": `## No hardcoding {#no-hardcoding}
+
+### Fixtures {#fixtures}
+`,
+    "src/section.ts": `/** @evidence docs/rules.md#no-hardcoding The general logic decides. */
+export function section(): void {}
+`,
+  }, `{"claims":[{
+    "type":"typescript",
+    "files":["src/**"],
+    "symbol":"function",
+    "reference":{
+      "type":"markdown",
+      "files":["docs/rules.md"],
+      "symbol":["h2","h3"],
+      "checklist":true
+    }
+  }]}`)
+  assertProblemContains(t, nested, "has not acknowledged 1 of 2 checklist item(s): 'docs/rules.md#fixtures'")
+}
+
+/**
  * Verifies duplicate and conflict detection carries the host under a checklist.
  *
  * Both keys are obligation-wide without this option, so two hosts excluding one item read as a duplicate and one host citing an item another excludes reads as a contradiction. Under a checklist both are the expected state, and the negative twin proves the keys still fire inside one host.
@@ -316,6 +370,13 @@ export function downstream(): void {}
     "src/worker.ts":     ledger + worker,
   }, config)
   assertProblemContains(t, misplaced, "Misplaced @evidenceExclude")
+  // The title alone would survive a regression that named the wrong target or
+  // dropped the carrier globs, and this is the suite's only runtime coverage of
+  // the message.
+  assertProblemContains(t, misplaced, "target 'docs/rules.md#no-whack-a-mole'")
+  assertProblemContains(t, misplaced, "confines this claim's exclusions to")
+  assertProblemContains(t, misplaced, "src/EXCLUSIONS.ts")
+  assertProblemContains(t, misplaced, "Move the tag there")
   assertProblemContains(t, misplaced, "has not acknowledged 1 of 2 checklist item(s): 'docs/rules.md#no-whack-a-mole'")
 }
 
@@ -403,6 +464,10 @@ func TestChecklistAnswersFromAMarkdownClaim(t *testing.T) {
 
 Alpha plan prose.
 `,
+    "plans/gamma.md": `<!-- @evidence docs/rules.md#no-hardcoding The plan keeps the general path. -->
+
+Gamma plan prose.
+`,
     "plans/beta.md": "Beta plan prose with no acknowledgement.\n",
   }, `{"claims":[{
     "type":"markdown",
@@ -415,11 +480,18 @@ Alpha plan prose.
       "checklist":true
     }
   }]}`)
-  if count := countProblemsContaining(messages, "checklist item(s)"); count != 1 {
-    t.Fatalf("expected only the silent plan to be reported, got %d:\n%s", count, strings.Join(messages, "\n"))
+  if count := countProblemsContaining(messages, "checklist item(s)"); count != 2 {
+    t.Fatalf("expected the partial and the silent plan to be reported, got %d:\n%s", count, strings.Join(messages, "\n"))
   }
   assertProblemContains(t, messages, "Evidence host Markdown file at plans/beta.md")
-  assertProblemContains(t, messages, "has not acknowledged 2 of 2 checklist item(s)")
+  assertProblemContains(t, messages, "has not acknowledged 2 of 2 checklist item(s): 'docs/rules.md#no-hardcoding', 'docs/rules.md#no-whack-a-mole'")
+  assertProblemContains(t, messages, "Evidence host Markdown file at plans/gamma.md")
+  assertProblemContains(t, messages, "has not acknowledged 1 of 2 checklist item(s): 'docs/rules.md#no-whack-a-mole'")
+  // Without the partial plan and this guard, a regression discharging a host on
+  // its first acknowledgement would leave the counts unchanged.
+  if strings.Contains(strings.Join(messages, "\n"), "plans/alpha.md") {
+    t.Fatalf("a plan that answered every item was reported:\n%s", strings.Join(messages, "\n"))
+  }
 }
 
 /**
@@ -489,6 +561,38 @@ export function second(): void {}
   }
   if strings.Contains(strings.Join(stale, "\n"), "no-whack-a-mole") {
     t.Fatalf("an untouched item expired with its sibling:\n%s", strings.Join(stale, "\n"))
+  }
+
+  // Everything above still passes with `checklist` deleted, because a
+  // fingerprint belongs to the cited address and two targets always expire
+  // separately. What the option contributes is that the one-tag shortcut below
+  // is no longer available, so the two arms are asserted against each other.
+  document := map[string]string{
+    "docs/rules.md": checklistDocument,
+    "src/broad.ts": `/**
+ * @evidence docs/rules.md Everything in here is honored.
+ * @evidenceReview docs/rules.md #0000000000000000 Read the whole document.
+ */
+export function broad(): void {}
+`,
+  }
+  ordinary := strings.Replace(config, `"checklist":true,`, "", 1)
+  if ordinary == config {
+    t.Fatal("the ordinary twin did not drop the checklist option")
+  }
+  if _, asked := everyExpectedFingerprint(t, document, ordinary)["docs/rules.md"]; !asked {
+    t.Fatal("the ordinary reference must accept one document-wide review and name its value")
+  }
+
+  refused := runIndexRule(t, document, config)
+  assertProblemContains(t, refused, "Aggregate @evidence target 'docs/rules.md'")
+  // The refusal returns before the review check on purpose: the citation is
+  // already failing, and an Unreviewed message beside it would name a second
+  // repair for a tag that must not exist here at all.
+  for _, marker := range []string{"Unreviewed @evidence", "Stale @evidenceReview"} {
+    if strings.Contains(strings.Join(refused, "\n"), marker) {
+      t.Fatalf("a refused aggregate also reported %q:\n%s", marker, strings.Join(refused, "\n"))
+    }
   }
 }
 

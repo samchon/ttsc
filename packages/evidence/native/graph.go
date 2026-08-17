@@ -706,6 +706,11 @@ func evaluateEvidenceGraph(
       // repair that answers both, so listing them again on the host would be
       // the descendant duplication the diagnostics rule forbids.
       aggregateByHost := map[string]map[string]bool{}
+      // The same suppression for the population-wide answer, which is what runs
+      // when no host was selected. Keyed by host alone, that path reported every
+      // unit under a refused aggregate as missing on top of the aggregate
+      // diagnostic that already names them.
+      aggregateAnyHost := map[string]bool{}
       selectedUnitIDs := map[string]bool{}
       selectedHostIDs := []string{}
       if checklist {
@@ -811,11 +816,9 @@ func evaluateEvidenceGraph(
             problems,
             "Aggregate @evidence target '"+scopesByID[scopeID].Target+"' at "+declaration.location()+" in "+claimLabel(state.Spec)+" "+referenceLabel(reference.Spec)+": this reference is a checklist, so a citation answers for the item it names, and this target names a scope containing "+decimal(len(covered))+" item(s) ("+strings.Join(targets, ", ")+") rather than one of them. Cite each item this host answers for, or write @evidenceExclude on this scope when none of it applies here."+untrueTagWarning,
           )
-          for _, hostID := range keyHosts {
-            for _, unit := range covered {
-              if aggregateByHost[hostID] == nil {
-                aggregateByHost[hostID] = map[string]bool{}
-              }
+          for _, unit := range covered {
+            aggregateAnyHost[unit.ID] = true
+            for _, hostID := range keyHosts {
               aggregateByHost[hostID][unit.ID] = true
             }
           }
@@ -889,7 +892,27 @@ func evaluateEvidenceGraph(
         var conflictingDeclaration *evidenceDeclaration
         var duplicateExclusionUnit *evidenceUnit
         var firstExclusion *evidenceDeclaration
-        for _, unit := range covered {
+        // A checklist citation answers for the item it names and for nothing
+        // beneath it, so it acknowledges the scope alone rather than the scope's
+        // selected subtree.
+        //
+        // Refusing only the unselected ancestor is not enough, and measuring it
+        // is the only way that shows: with the default Markdown selector the
+        // file is itself an item, so one `@evidence docs/rules.md` resolved to a
+        // selected unit, cascaded through the whole document, and discharged
+        // every heading on that host. The option was a no-op in the first
+        // configuration an adopter writes. The same hole opens for any selector
+        // admitting an ancestor and a descendant together, such as `h1` beside
+        // `h2`.
+        //
+        // `@evidenceExclude` keeps the subtree, because "none of this applies
+        // here" is one decision however many items it covers, and so does every
+        // reference that is not a checklist.
+        answered := covered
+        if checklist && declaration.Tag == tagEvidence {
+          answered = []*evidenceUnit{scopesByID[scopeID]}
+        }
+        for _, unit := range answered {
           acknowledged[unit.ID] = true
           // Outside a checklist keyHosts is one empty string, so the key is the
           // unit and this reads exactly as it did before the host dimension
@@ -993,7 +1016,7 @@ func evaluateEvidenceGraph(
         }
       }
       for _, unit := range reference.Units {
-        if !acknowledged[unit.ID] && !perHostCoverage {
+        if !acknowledged[unit.ID] && !perHostCoverage && !aggregateAnyHost[unit.ID] {
           // Building the host is named first because the other two hide it. A
           // repair offering only the two tags frames the whole problem as which
           // tag to write, and an unbuilt unit then leaves as an exclusion.

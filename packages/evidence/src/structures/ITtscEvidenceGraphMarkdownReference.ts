@@ -96,13 +96,15 @@ export interface ITtscEvidenceGraphMarkdownReference extends ITtscEvidenceGraphR
    *
    * Two consequences follow and both are deliberate.
    *
-   * An `@evidence` target must name a selected unit. A citation naming a scope
-   * that merely contains the items answers none of them individually, so the
-   * aggregate target is refused and named as such — without that, one
-   * file-level citation ticks every box and the option proves nothing.
-   * `@evidenceExclude` keeps the cascade, because "none of this applies here"
-   * is one reviewed decision however many items it covers, and a host that does
-   * not participate at all should not owe one tag per item to say so.
+   * A positive citation answers the item it names and nothing beneath it, and a
+   * target naming no item at all is refused as an aggregate. Both halves are
+   * needed. Under the default selector the document itself is an item, so
+   * refusing only the unnamed scope would let one `@evidence docs/rules.md`
+   * cascade through every heading and tick every box, which is the state this
+   * option exists to end. `@evidenceExclude` keeps the cascade, because "none
+   * of this applies here" is one reviewed decision however many items it
+   * covers, and a host that does not participate at all should not owe one tag
+   * per item to say so.
    *
    * Duplicate and conflict detection moves to the host. Two hosts excluding one
    * item, and one host citing an item another host excludes, are the expected
