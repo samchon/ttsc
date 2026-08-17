@@ -551,6 +551,7 @@ export interface IExclusions {
  *  1. Require reviews on a checklist and answer one item by citation and one by exclusion on one host.
  *  2. Write both with the fingerprints the graph asks for and assert the claim passes.
  *  3. Move the exclusion onto an unselected ledger carrier and assert it owes, then accepts, its own review there.
+ *  4. Write that review on a host the exclusion discharges instead and assert the carrier is still unreviewed.
  */
 func TestChecklistDemandsAReviewOfAnExclusionToo(t *testing.T) {
   config := `{"claims":[{
@@ -663,6 +664,12 @@ export function worker(): void {}
 export function worker(): void {}
 `
   misplaced := runIndexRule(t, displaced, carriers)
+  // Counted, not just matched. Two substrings can be satisfied by two different
+  // messages, so without this a later change that also reported the stranded
+  // review would stop pinning the carrier as the sole finding.
+  if len(misplaced) != 1 {
+    t.Fatalf("expected the carrier's unreviewed exclusion alone, got:\n%s", strings.Join(misplaced, "\n"))
+  }
   assertProblemContains(t, misplaced, "Unreviewed @evidenceExclude for 'docs/rules.md#no-whack-a-mole'")
   assertProblemContains(t, misplaced, "src/EXCLUSIONS.ts")
 }
