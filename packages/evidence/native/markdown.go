@@ -94,7 +94,7 @@ func loadMarkdownBase(
     inventory, _ := scanMarkdownInventory(address, string(content))
     inventories[address.Key] = inventory
     for _, inventoryProblem := range inventory.Problems {
-      if selectedByMarkdownReference(config, base, relative, inventoryProblem.Symbol) {
+      if selectedByMarkdownPopulation(config, base, relative, inventoryProblem.Symbol) {
         problems = append(problems, inventoryProblem.Message)
       }
     }
@@ -441,13 +441,34 @@ func couldContainConfiguredMarkdown(
   return false
 }
 
-func selectedByMarkdownReference(
+// selectedByMarkdownPopulation reports whether any configured population reads
+// this file for the symbol a scan problem was filed under.
+//
+// Claims are asked as well as references. A scan problem says the file
+// materialized less than it looks like it should, and that is a hole on either
+// side: a reference loses evidence units, while a claim loses the hosts that owe
+// acknowledgements. The claim side was the silent one. A whitespace-named claim
+// file forms no target, so it contributes no host, drops out of the obligation,
+// and said nothing at all; the same file pointed at by a reference reported the
+// path immediately.
+//
+// The claim is matched on its own symbol set for the reason a reference is: a
+// problem about a kind this population does not read is not its problem. The
+// wildcard symbol still reaches both, which is what carries the unaddressable
+// path, since that one is about the file rather than about any heading kind.
+func selectedByMarkdownPopulation(
   config graphConfig,
   base populationBase,
   path string,
   symbol string,
 ) bool {
   for _, claim := range config.Claims {
+    if claim.Type == artifactMarkdown &&
+      claim.Base.Absolute == base.Absolute &&
+      claim.Files.matches(path) &&
+      (symbol == "*" || claim.Symbols.contains(symbol)) {
+      return true
+    }
     for _, reference := range claim.References {
       if reference.Type == artifactMarkdown &&
         reference.Base.Absolute == base.Absolute &&
