@@ -1094,7 +1094,7 @@ func evaluateEvidenceGraph(
       !answers[id] && !uncertain[id] {
       problems = append(
         problems,
-        "Unhosted @"+string(declaration.Tag)+" at "+declaration.location()+" for "+strings.Join(obligations, "; ")+", target '"+displayTarget(declaration.Target)+"': a checklist acknowledgement answers for one selected host of its claim, and this declaration sits on no selected host and discharges no other obligation. Move the tag onto a selected host ("+unhostedSelections[id].names()+") of the claim that owes it."+untrueTagWarning,
+        "Unhosted @"+string(declaration.Tag)+" at "+declaration.location()+" for "+strings.Join(obligations, "; ")+", target '"+displayTarget(declaration.Target)+"': a checklist acknowledgement answers for one selected host of its claim, and this declaration sits on no selected host and discharges no other obligation. Move the tag onto a selected host ("+unhostedSelections[id].names()+") of a claim that owes it."+untrueTagWarning,
       )
     }
     if participates[id] {

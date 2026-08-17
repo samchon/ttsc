@@ -131,7 +131,7 @@ export function first(): void {}
   }, `{"claims":[{
     "type":"typescript",
     "files":["src/**"],
-    "symbol":"function",
+    "symbol":["function","property"],
     "reference":[
       {
         "type":"markdown",
@@ -151,7 +151,9 @@ export function first(): void {}
     t.Fatalf("expected one joined report, got %d:\n%s", count, strings.Join(messages, "\n"))
   }
   assertProblemContains(t, messages, "for Claim 1 reference 1 (markdown, symbols: h2); Claim 1 reference 2 (markdown, symbols: h2)")
-  assertProblemContains(t, messages, "Move the tag onto a selected host (function) of the claim that owes it")
+  // Two selected kinds pin that the parenthetical is derived from the claim's
+  // selection in canonical order rather than spelled anywhere as a literal.
+  assertProblemContains(t, messages, "Move the tag onto a selected host (function, property) of a claim that owes it")
 }
 
 /**
