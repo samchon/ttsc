@@ -364,12 +364,11 @@ export function both(): void {}
 /**
  * Verifies a reviewed checklist demands a review of the exclusion as well.
  *
- * Verifying that a declaration does what an item describes and verifying that the item does not apply here are opposite questions, and a checklist is where the second one is written most often, once per host that opts out. Placement is the second half: an exclusion whose carrier the claim's `symbol` does not select answers for every host, and it still owes a review of its own, written beside it on the carrier rather than on any host it discharges.
+ * Verifying that a declaration does what an item describes and verifying that the item does not apply here are opposite questions, and a checklist is where the second one is written most often, once per host that opts out. Both answers stand on the one host that gives them, so both owe their reviews there and each review carries its own item's fingerprint; a checklist acknowledgement never comes from a carrier ledger, so there is no other placement for either review to live on.
  *
  *  1. Require reviews on a checklist and answer one item by citation and one by exclusion on one host.
- *  2. Write both with the fingerprints the graph asks for and assert the claim passes.
- *  3. Move the exclusion onto an unselected ledger carrier and assert it owes, then accepts, its own review there.
- *  4. Write that review on a host the exclusion discharges instead and assert the carrier is still unreviewed.
+ *  2. Assert each tag is reported unreviewed and owes a fingerprint of its own item.
+ *  3. Write both reviews with the fingerprints the graph asks for and assert the claim passes.
  */
 func TestChecklistDemandsAReviewOfAnExclusionToo(t *testing.T) {
   config := `{"claims":[{
