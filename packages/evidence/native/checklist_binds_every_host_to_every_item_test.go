@@ -146,11 +146,13 @@ export function broad(): void {}
     t.Fatalf("expected the silent host alone to owe items, got %d:\n%s", count, strings.Join(aggregate, "\n"))
   }
   assertProblemContains(t, aggregate, "TypeScript function 'silent'")
-  assertProblemContains(t, aggregate, "has not acknowledged 2 of 2 checklist item(s)")
+  assertProblemContains(t, aggregate, "has not acknowledged 2 of 2 checklist item(s): 'docs/rules.md#no-hardcoding', 'docs/rules.md#no-whack-a-mole'")
   // Exactly the refusal and the silent host's shortfall. Counting the messages
-  // is what pins the citing host to one diagnostic; matching its name cannot,
-  // because the aggregate message carries the source path rather than the host's
-  // readable name and such a guard can never fail.
+  // is what pins the citing host to one diagnostic, and no guard matching its
+  // name can: the aggregate message carries the source path rather than the
+  // host's readable name, so such a condition is false today, and a guard that
+  // fires only when the name appears more than once would still miss every
+  // regression that makes it appear exactly once.
   if len(aggregate) != 2 {
     t.Fatalf("expected the aggregate refusal and one shortfall and nothing else, got:\n%s", strings.Join(aggregate, "\n"))
   }
@@ -170,7 +172,7 @@ export function broad(): void {}
     t.Fatalf("expected the silent host's shortfall alone, got:\n%s", strings.Join(excluded, "\n"))
   }
   assertProblemContains(t, excluded, "TypeScript function 'silent'")
-  assertProblemContains(t, excluded, "has not acknowledged 2 of 2 checklist item(s)")
+  assertProblemContains(t, excluded, "has not acknowledged 2 of 2 checklist item(s): 'docs/rules.md#no-hardcoding', 'docs/rules.md#no-whack-a-mole'")
 }
 
 /**
@@ -439,6 +441,157 @@ export function downstream(): void {}
   assertProblemContains(t, misplaced, "src/EXCLUSIONS.ts")
   assertProblemContains(t, misplaced, "Move the tag there")
   assertProblemContains(t, misplaced, "has not acknowledged 1 of 2 checklist item(s): 'docs/rules.md#no-whack-a-mole'")
+}
+
+/**
+ * Verifies an aggregate exclusion written in a ledger discharges the whole claim.
+ *
+ * This is the highest-consequence silent pass on the surface: one tag in the carrier file drops every item for every host at once. The ledger case beside it only names a single item, so nothing pinned the combination that removes the entire population, which is exactly the one a reviewer opening the carrier file must be able to trust.
+ *
+ *  1. Confine the claim's exclusions to one ledger file.
+ *  2. Drop the whole document there from a non-host declaration.
+ *  3. Assert every host is discharged, then narrow the tag to one item and assert the rest comes back.
+ */
+func TestChecklistLetsALedgerDropTheWholeDocument(t *testing.T) {
+  config := `{"claims":[{
+    "type":"typescript",
+    "files":["src/**"],
+    "evidenceExcludeCarriers":["src/EXCLUSIONS.ts"],
+    "symbol":"function",
+    "reference":{
+      "type":"markdown",
+      "files":["docs/rules.md"],
+      "symbol":"h2",
+      "checklist":true
+    }
+  }]}`
+  hosts := map[string]string{
+    "src/worker.ts":     "export function worker(): void {}\n",
+    "src/downstream.ts": "export function downstream(): void {}\n",
+  }
+  ledger := func(target string) map[string]string {
+    files := map[string]string{
+      "docs/rules.md": checklistDocument,
+      "src/EXCLUSIONS.ts": `/** @evidenceExclude ` + target + ` This package is generated end to end. */
+export interface IExclusions {
+  reviewed: string;
+}
+`,
+    }
+    for path, source := range hosts {
+      files[path] = source
+    }
+    return files
+  }
+  assertNoProblems(t, runIndexRule(t, ledger("docs/rules.md"), config))
+
+  // The negative twin: the same ledger dropping one item leaves the other owed
+  // by both hosts, so the arm above is measuring the cascade rather than the
+  // carrier's claim-wide reach on its own.
+  narrowed := runIndexRule(t, ledger("docs/rules.md#no-hardcoding"), config)
+  if count := countProblemsContaining(narrowed, "checklist item(s)"); count != 2 {
+    t.Fatalf("expected both hosts to owe the item the ledger left, got %d:\n%s", count, strings.Join(narrowed, "\n"))
+  }
+  assertProblemContains(t, narrowed, "has not acknowledged 1 of 2 checklist item(s): 'docs/rules.md#no-whack-a-mole'")
+}
+
+/**
+ * Verifies a reviewed checklist demands a review of the exclusion as well.
+ *
+ * Verifying that a declaration does what an item describes and verifying that the item does not apply here are opposite questions, and a checklist is where the second one is written most often, once per host that opts out. The hazard worth pinning is placement: an exclusion carried by a non-host declaration answers for every host, so its review has to be writable on the carrier rather than on the hosts it discharges.
+ *
+ *  1. Require reviews on a checklist and answer one item by citation and one by exclusion.
+ *  2. Assert each tag owes a review of its own kind before any is written.
+ *  3. Write both with the fingerprints the graph asks for and assert the claim passes.
+ */
+func TestChecklistDemandsAReviewOfAnExclusionToo(t *testing.T) {
+  config := `{"claims":[{
+    "type":"typescript",
+    "files":["src/**"],
+    "symbol":"function",
+    "reference":{
+      "type":"markdown",
+      "files":["docs/rules.md"],
+      "symbol":"h2",
+      "checklist":true,
+      "requireReview":true
+    }
+  }]}`
+  // The reviews are omitted entirely in the probing pass rather than written
+  // with an empty token, because the shared fingerprint reader recognizes
+  // `Unreviewed @<tag>` for either kind but only `Unfingerprinted
+  // @evidenceReview`, so a blank exclusion review would report no expected
+  // value and the case would silently probe the citation alone.
+  build := func(reviews string) map[string]string {
+    return map[string]string{
+      "docs/rules.md": checklistDocument,
+      "src/mixed.ts": `/**
+ * @evidence docs/rules.md#no-hardcoding The general logic decides.
+ * @evidenceExclude docs/rules.md#no-whack-a-mole This helper has one case.
+` + reviews + ` */
+export function mixed(): void {}
+`,
+    }
+  }
+  unreviewed := runIndexRule(t, build(""), config)
+  assertProblemContains(t, unreviewed, "Unreviewed @evidence for 'docs/rules.md#no-hardcoding'")
+  assertProblemContains(t, unreviewed, "Unreviewed @evidenceExclude for 'docs/rules.md#no-whack-a-mole'")
+
+  expected := everyExpectedFingerprint(t, build(""), config)
+  for _, target := range []string{"docs/rules.md#no-hardcoding", "docs/rules.md#no-whack-a-mole"} {
+    if expected[target] == "" {
+      t.Fatalf("both tags must owe a fingerprint; %s did not: %v", target, expected)
+    }
+  }
+  assertNoProblems(t, runIndexRule(t, build(
+    ` * @evidenceReview docs/rules.md#no-hardcoding #`+expected["docs/rules.md#no-hardcoding"]+` Read the rule against this module.
+ * @evidenceExcludeReview docs/rules.md#no-whack-a-mole #`+expected["docs/rules.md#no-whack-a-mole"]+` Confirmed the single code path.
+`), config))
+}
+
+/**
+ * Verifies one declaration hosting several identities answers for each of them.
+ *
+ * A mixed variable statement is one node that declares two selected hosts, and TypeScript attaches its documentation to the statement rather than to either declarator. Under a checklist that makes one tag block the answer for two hosts at once, so a per-host ledger keyed on the wrong side of that relation would credit one identity and leave its sibling owing everything.
+ *
+ *  1. Select properties and declare two of them in one statement under one block.
+ *  2. Answer both items there and assert the claim passes.
+ *  3. Drop one item and assert both identities report it.
+ */
+func TestChecklistCreditsEveryIdentityOfOneDeclaration(t *testing.T) {
+  config := `{"claims":[{
+    "type":"typescript",
+    "files":["src/**"],
+    "symbol":"property",
+    "reference":{
+      "type":"markdown",
+      "files":["docs/rules.md"],
+      "symbol":"h2",
+      "checklist":true
+    }
+  }]}`
+  assertNoProblems(t, runIndexRule(t, map[string]string{
+    "docs/rules.md": checklistDocument,
+    "src/rates.ts": `/**
+ * @evidence docs/rules.md#no-hardcoding Both rates come from configuration.
+ * @evidence docs/rules.md#no-whack-a-mole Both rates cover every tier.
+ */
+export var price: number = 1, live: number = 2;
+`,
+  }, config))
+
+  partial := runIndexRule(t, map[string]string{
+    "docs/rules.md": checklistDocument,
+    "src/rates.ts": `/** @evidence docs/rules.md#no-hardcoding Both rates come from configuration. */
+export var price: number = 1, live: number = 2;
+`,
+  }, config)
+  if count := countProblemsContaining(partial, "checklist item(s)"); count != 2 {
+    t.Fatalf("expected both identities of the statement to owe the dropped item, got %d:\n%s", count, strings.Join(partial, "\n"))
+  }
+  assertProblemContains(t, partial, "'price'")
+  assertProblemContains(t, partial, "'live'")
+  assertProblemContains(t, partial, "has not acknowledged 1 of 2 checklist item(s): 'docs/rules.md#no-whack-a-mole'")
 }
 
 /**
