@@ -43,6 +43,18 @@ func TestMarkdownSurvivesAHeadingBelowTheUnitModel(t *testing.T) {
     markdownUnitDigest(t, edited, "docs/spec.md#coupons") {
     t.Fatal("text under an H6 was attributed past its nearest enclosing unit")
   }
+  // The same comparison for an H5, so "an H6 answers exactly as an H5 already
+  // did" is asserted rather than only stated.
+  shallow := strings.Replace(document, "###### Deepest\n\n", "", 1)
+  shallowEdited := strings.Replace(edited, "###### Deepest\n\n", "", 1)
+  if markdownUnitDigest(t, shallow, "docs/spec.md#limits") ==
+    markdownUnitDigest(t, shallowEdited, "docs/spec.md#limits") {
+    t.Fatal("text under an H5 reached no enclosing unit")
+  }
+  if markdownUnitDigest(t, shallow, "docs/spec.md#coupons") !=
+    markdownUnitDigest(t, shallowEdited, "docs/spec.md#coupons") {
+    t.Fatal("text under an H5 was attributed past its nearest enclosing unit")
+  }
 
   // A tag under one is refused on its own kind, which is the answer an H5 gives
   // and the reason neither needs a unit to be safe.

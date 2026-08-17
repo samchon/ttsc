@@ -265,6 +265,11 @@ func scanMarkdownInventory(
             Message: problems[len(problems)-1],
           })
         } else {
+          // This walk indexes from the heading's own level with no clamp of its
+          // own, and it is in bounds only because the `level <= 4` above it
+          // makes that level a materializable one. Moving it out of that
+          // condition reintroduces the read that took the whole rule down for
+          // an H6; clamp it there as the digest walk does.
           parentID := fileUnitID
           for ancestorLevel := level - 1; ancestorLevel >= 1; ancestorLevel-- {
             if headingUnitIDs[ancestorLevel] != "" {
