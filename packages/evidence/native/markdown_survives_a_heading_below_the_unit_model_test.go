@@ -84,6 +84,12 @@ func TestMarkdownSurvivesAHeadingBelowTheUnitModel(t *testing.T) {
       "symbol":"h2",
       "reference":{"type":"markdown","files":["docs/rules.md"],"symbol":"h2"}
     }]}`)
+    // Exactly one, so the citation on the selected H2 above is still discharging
+    // its obligation. Without the count, a file that had stopped working
+    // entirely would satisfy both assertions below.
+    if len(messages) != 1 {
+      t.Fatalf("expected the deep heading's tag alone to be refused, got:\n%s", strings.Join(messages, "\n"))
+    }
     assertProblemContains(t, messages, "Out-of-scope @evidence host at plans/alpha.md:7")
     assertProblemContains(t, messages, "host kind '"+deep.kind+"' is not selected")
   }
