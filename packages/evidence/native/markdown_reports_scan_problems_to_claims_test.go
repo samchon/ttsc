@@ -5,7 +5,7 @@ import (
   "testing"
 )
 
-const scanProblemReference = `{"claims":[{
+const scanProblemGraph = `{"claims":[{
   "type":"markdown",
   "files":["plans/**"],
   "symbol":"h2",
@@ -27,7 +27,7 @@ func TestMarkdownReportsScanProblemsToClaims(t *testing.T) {
     "docs/rules.md":       "## Only {#only}\n",
     "plans/alpha beta.md": "## Section one\n\nAlpha.\n",
     "plans/gamma.md":      "## Section two {#section-two}\n\nGamma.\n",
-  }, scanProblemReference)
+  }, scanProblemGraph)
   assertProblemContains(t, unaddressable, "Markdown file 'plans/alpha beta.md' cannot form an evidence target because its path contains whitespace")
   // The obligation the surviving file owes is unchanged, so the new report adds
   // a diagnostic rather than replacing one.
@@ -42,7 +42,7 @@ func TestMarkdownReportsScanProblemsToClaims(t *testing.T) {
   alone := runIndexRule(t, map[string]string{
     "docs/rules.md":       "## Only {#only}\n",
     "plans/alpha beta.md": "## Section one\n\nAlpha.\n",
-  }, scanProblemReference)
+  }, scanProblemGraph)
   if len(alone) != 1 {
     t.Fatalf("expected the unaddressable path alone, got:\n%s", strings.Join(alone, "\n"))
   }
@@ -51,7 +51,7 @@ func TestMarkdownReportsScanProblemsToClaims(t *testing.T) {
   anchorless := runIndexRule(t, map[string]string{
     "docs/rules.md":  "## Only {#only}\n",
     "plans/alpha.md": "## ---\n\nAlpha.\n\n## Section one {#section-one}\n\nMore.\n",
-  }, scanProblemReference)
+  }, scanProblemGraph)
   assertProblemContains(t, anchorless, "Markdown evidence unit at plans/alpha.md:1 has no resolvable anchor")
 
   // A problem filed under a kind this population does not read stays withheld,
