@@ -834,6 +834,64 @@ Gamma plan prose.
 }
 
 /**
+ * Verifies a heading that materializes no unit hosts nothing under a checklist.
+ *
+ * A Markdown heading whose title yields no anchor reports a selectable symbol while naming a unit that was never created, and eligibility reads the symbol while per-host coverage reads the identity. The two disagreeing sent one `@evidenceExclude` down the fallback meant for a carrier that hosts nothing at all, so it discharged every item for every host in the claim and reported nothing: the exact silent pass this option exists to end, reachable from ordinary Markdown.
+ *
+ *  1. Select H2 plans as hosts against a two-item checklist.
+ *  2. Put an exclusion of the whole document under an anchorless `## ---` in one plan.
+ *  3. Assert both real hosts still owe both items and the misplaced tag is reported where it sits.
+ */
+func TestChecklistRefusesAHostThatMaterializedNoUnit(t *testing.T) {
+  config := `{"claims":[{
+    "type":"markdown",
+    "files":["plans/**"],
+    "symbol":"h2",
+    "reference":{
+      "type":"markdown",
+      "files":["docs/rules.md"],
+      "symbol":"h2",
+      "checklist":true
+    }
+  }]}`
+  poisoned := runIndexRule(t, map[string]string{
+    "docs/rules.md": checklistDocument,
+    "plans/alpha.md": `## ---
+
+<!-- @evidenceExclude docs/rules.md Generated plan. -->
+
+## Section one
+
+Alpha.
+`,
+    "plans/beta.md": "## Section two\n\nBeta.\n",
+  }, config)
+  if count := countProblemsContaining(poisoned, "checklist item(s)"); count != 2 {
+    t.Fatalf("one anchorless heading discharged the claim, got %d host diagnostics:\n%s", count, strings.Join(poisoned, "\n"))
+  }
+  assertProblemContains(t, poisoned, "Markdown H2 'Section one'")
+  assertProblemContains(t, poisoned, "Markdown H2 'Section two'")
+  assertProblemContains(t, poisoned, "Out-of-scope @evidenceExclude carrier at plans/alpha.md:3")
+
+  // The positive twin of the same disagreement. A citation there was credited to
+  // no host and drew no diagnostic either, so it was an inert tag with no repair
+  // named; it is now refused on the host it actually sits on.
+  cited := runIndexRule(t, map[string]string{
+    "docs/rules.md": checklistDocument,
+    "plans/alpha.md": `## ---
+
+<!-- @evidence docs/rules.md#no-hardcoding Alpha honors it. -->
+
+## Section one
+
+Alpha.
+`,
+  }, config)
+  assertProblemContains(t, cited, "Out-of-scope @evidence host at plans/alpha.md:3")
+  assertProblemContains(t, cited, "has not acknowledged 2 of 2 checklist item(s)")
+}
+
+/**
  * Verifies a reviewed checklist expires one item's answers and leaves the rest green.
  *
  * Per-item expiry is the property a checklist is documented to buy, and it exists only because the aggregate citation is refused: one document-wide tag would carry one fingerprint for the whole document and every edit would expire everything. Editing one item must therefore reach that item's reviews on every host and no others.

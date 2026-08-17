@@ -238,9 +238,11 @@ func scanMarkdownInventory(
       // under an anchorless H2 would then expire a review of the H3 above it,
       // which does not contain that text.
       currentDigestHostID = fileUnitID
+      enclosingHost := "file"
       for ancestorLevel := level - 1; ancestorLevel >= 1; ancestorLevel-- {
         if headingUnitIDs[ancestorLevel] != "" {
           currentDigestHostID = headingUnitIDs[ancestorLevel]
+          enclosingHost = "h" + decimal(ancestorLevel)
           break
         }
       }
@@ -255,6 +257,25 @@ func scanMarkdownInventory(
             Symbol:  currentHost,
             Message: problems[len(problems)-1],
           })
+          // The heading materialized no unit, so it hosts nothing either. It
+          // still opened a region, and that region belongs to the nearest
+          // enclosing unit, which is the attribution the digest above already
+          // made for the same lines.
+          //
+          // Leaving the host on this heading named an ID matching no unit while
+          // still reporting a selectable symbol, and the two disagreeing is the
+          // whole defect. Eligibility read the symbol and admitted the tag;
+          // per-host coverage read the ID, found no selected unit behind it, and
+          // took the fallback meant for a carrier that hosts nothing at all. One
+          // `@evidenceExclude` under an anchorless heading therefore discharged
+          // every item for every host in the claim and reported nothing.
+          // Measured on a two-file plan set: two diagnostics became zero.
+          //
+          // An H5 is a different shape and keeps its own answer. It reports `h5`,
+          // which no selector can contain, so it is refused as an out-of-scope
+          // host rather than admitted against a phantom.
+          currentHost = enclosingHost
+          currentHostID = currentDigestHostID
         } else {
           parentID := fileUnitID
           for ancestorLevel := level - 1; ancestorLevel >= 1; ancestorLevel-- {
