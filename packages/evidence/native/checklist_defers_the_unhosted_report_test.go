@@ -109,6 +109,52 @@ export function first(): void {}
 }
 
 /**
+ * Verifies one declaration unhosted in several obligations draws one report naming all of them.
+ *
+ * The eager report was per reference, so one tag drew one message per checklist that recorded it. The deferred report is per declaration, and nothing else pins that: a regression emitting one message per obligation, or dropping an obligation from the join, leaves every other arm green.
+ *
+ *  1. Record one carrier exclusion in two checklist references over one document, with nothing consuming it.
+ *  2. Assert exactly one unhosted report fires.
+ *  3. Assert it names both obligations and the selected host kind the repair points at.
+ */
+func TestChecklistJoinsEveryObligationIntoOneUnhostedReport(t *testing.T) {
+  messages := runIndexRule(t, map[string]string{
+    "docs/rules.md": checklistDocument,
+    "src/ledger.ts": `/** @evidenceExclude docs/rules.md#no-whack-a-mole This package has one code path. */
+export interface ILedger {
+  id: string;
+}
+`,
+    "src/first.ts": `/** @evidence docs/rules.md#no-hardcoding The general logic decides. */
+export function first(): void {}
+`,
+  }, `{"claims":[{
+    "type":"typescript",
+    "files":["src/**"],
+    "symbol":"function",
+    "reference":[
+      {
+        "type":"markdown",
+        "files":["docs/rules.md"],
+        "symbol":"h2",
+        "checklist":true
+      },
+      {
+        "type":"markdown",
+        "files":["docs/rules.md"],
+        "symbol":"h2",
+        "checklist":true
+      }
+    ]
+  }]}`)
+  if count := countProblemsContaining(messages, "Unhosted"); count != 1 {
+    t.Fatalf("expected one joined report, got %d:\n%s", count, strings.Join(messages, "\n"))
+  }
+  assertProblemContains(t, messages, "for Claim 1 reference 1 (markdown, symbols: h2); Claim 1 reference 2 (markdown, symbols: h2)")
+  assertProblemContains(t, messages, "Move the tag onto a selected host (function) of the claim that owes it")
+}
+
+/**
  * Verifies a loader failure withholds the unhosted report rather than guessing.
  *
  * The report claims the tag discharges nothing anywhere, and a failed sibling population makes that unknowable: the tag may be exactly what that population consumes once it loads. Reporting anyway would derive a second claim from an incomplete graph, which is the same ghost-finding rule the non-participation chain already follows.
@@ -139,6 +185,7 @@ func TestChecklistWithholdsTheUnhostedReportWhenALoaderFailureHidesConsumption(t
     }
     exclusion := &evidenceDeclaration{
       ID:               "declaration:src/ledger.ts:1",
+      SemanticHostIDs:  []string{"typescript:src/ledger.ts:type:1"},
       Type:             artifactTypeScript,
       Tag:              tagExclude,
       Target:           "docs/rules.md#only-rule",

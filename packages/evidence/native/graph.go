@@ -654,6 +654,7 @@ func evaluateEvidenceGraph(
   // elsewhere — so the finding is recorded here and judged after the walk,
   // when `answers` can say whether anything consumed the tag.
   unhosted := map[string][]string{}
+  unhostedSelections := map[string]symbolSet{}
   // answers marks a declaration that wrote at least one acknowledgement
   // ledger, or was refused as an aggregate, which is that citation's own
   // diagnostic. A tag the noEvidenceExclude policy refused answers nothing
@@ -826,6 +827,12 @@ func evaluateEvidenceGraph(
               unhosted[declaration.ID],
               claimLabel(state.Spec)+" "+referenceLabel(reference.Spec),
             )
+            if unhostedSelections[declaration.ID] == nil {
+              unhostedSelections[declaration.ID] = symbolSet{}
+            }
+            for symbol := range state.Spec.Symbols {
+              unhostedSelections[declaration.ID][symbol] = true
+            }
             continue
           }
         }
@@ -1087,7 +1094,7 @@ func evaluateEvidenceGraph(
       !answers[id] && !uncertain[id] {
       problems = append(
         problems,
-        "Unhosted @"+string(declaration.Tag)+" at "+declaration.location()+" for "+strings.Join(obligations, "; ")+", target '"+displayTarget(declaration.Target)+"': a checklist acknowledgement answers for one selected host of its claim, and this declaration sits on no selected host and discharges no other obligation. Move the tag onto a host the claim selects."+untrueTagWarning,
+        "Unhosted @"+string(declaration.Tag)+" at "+declaration.location()+" for "+strings.Join(obligations, "; ")+", target '"+displayTarget(declaration.Target)+"': a checklist acknowledgement answers for one selected host of its claim, and this declaration sits on no selected host and discharges no other obligation. Move the tag onto a selected host ("+unhostedSelections[id].names()+") of the claim that owes it."+untrueTagWarning,
       )
     }
     if participates[id] {

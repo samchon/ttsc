@@ -364,10 +364,10 @@ export function both(): void {}
 /**
  * Verifies a reviewed checklist demands a review of the exclusion as well.
  *
- * Verifying that a declaration does what an item describes and verifying that the item does not apply here are opposite questions, and a checklist is where the second one is written most often, once per host that opts out. Both answers stand on the one host that gives them, so both owe their reviews there and each review carries its own item's fingerprint; a checklist acknowledgement never comes from a carrier ledger, so there is no other placement for either review to live on.
+ * Verifying that a declaration does what an item describes and verifying that the item does not apply here are opposite questions, and a checklist is where the second one is written most often, once per host that opts out. Both answers stand on the one host that gives them, so both owe their reviews beside them, each carrying the fingerprint the graph asks for its item; a checklist acknowledgement never comes from an exclusion ledger.
  *
  *  1. Require reviews on a checklist and answer one item by citation and one by exclusion on one host.
- *  2. Assert each tag is reported unreviewed and owes a fingerprint of its own item.
+ *  2. Assert each tag is reported unreviewed and the graph names a fingerprint for its item.
  *  3. Write both reviews with the fingerprints the graph asks for and assert the claim passes.
  */
 func TestChecklistDemandsAReviewOfAnExclusionToo(t *testing.T) {
@@ -483,6 +483,7 @@ export function first(): void {}
   }, checklistConfig)
   assertProblemContains(t, messages, "Unhosted @evidenceExclude at src/ledger.ts:1 for Claim 1 reference 1 (markdown, symbols: h2), target 'docs/rules.md#no-whack-a-mole'")
   assertProblemContains(t, messages, "sits on no selected host and discharges no other obligation")
+  assertProblemContains(t, messages, "Move the tag onto a selected host (function) of the claim that owes it")
   assertProblemContains(t, messages, "TypeScript function 'first'")
   assertProblemContains(t, messages, "has not acknowledged 1 of 2 checklist item(s): 'docs/rules.md#no-whack-a-mole'")
 }
