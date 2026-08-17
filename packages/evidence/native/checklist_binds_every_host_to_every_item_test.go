@@ -510,6 +510,37 @@ export function ledger(): void {}
   }
   assertProblemContains(t, hosted, "TypeScript function 'worker'")
   assertProblemContains(t, hosted, "has not acknowledged 2 of 2 checklist item(s): 'docs/rules.md#no-hardcoding', 'docs/rules.md#no-whack-a-mole'")
+
+  // The guide tells an adopter to give a ledger a placeholder the claim's
+  // `symbol` does not select, and on a TypeScript claim taking the default that
+  // placeholder does not exist: the default selects every kind, so every
+  // eligible carrier is a selected host. The ledger then discharges its own
+  // placeholder and the file contributes a host of its own. Pin the constraint
+  // the advice depends on, or the advice is prose nobody measured.
+  defaulted := runIndexRule(t, map[string]string{
+    "docs/rules.md": checklistDocument,
+    "src/EXCLUSIONS.ts": `/** @evidenceExclude docs/rules.md This package is generated. */
+export interface IExclusions {
+  reviewed: string;
+}
+`,
+    "src/worker.ts": "export function worker(): void {}\n",
+  }, `{"claims":[{
+    "type":"typescript",
+    "files":["src/**"],
+    "evidenceExcludeCarriers":["src/EXCLUSIONS.ts"],
+    "reference":{
+      "type":"markdown",
+      "files":["docs/rules.md"],
+      "symbol":"h2",
+      "checklist":true
+    }
+  }]}`)
+  if count := countProblemsContaining(defaulted, "checklist item(s)"); count != 2 {
+    t.Fatalf("expected the default selector to leave the ledger without an unselected carrier, got %d:\n%s", count, strings.Join(defaulted, "\n"))
+  }
+  assertProblemContains(t, defaulted, "TypeScript function 'worker'")
+  assertProblemContains(t, defaulted, "TypeScript property 'IExclusions.reviewed'")
 }
 
 /**
