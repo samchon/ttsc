@@ -123,22 +123,33 @@ export function mixed(): void {}
  *
  * The whole point of the option collapses if one file-level citation ticks every box, so a positive target naming a scope that merely contains the items is refused by name. The negative twin matters just as much: "none of this applies here" is one reviewed decision however many items it covers, so the same target must still discharge the host as an exclusion.
  *
- *  1. Cite the containing document from one host under an H2 checklist.
- *  2. Assert the aggregate target is reported and its items are not listed again as missing.
- *  3. Exclude the same document from the same host and assert it passes.
+ *  1. Cite the containing document from one host under an H2 checklist, beside a second host carrying no tag.
+ *  2. Assert the aggregate target is reported, its items are not listed again on its own host, and the silent host still owes both.
+ *  3. Exclude the same document from the citing host and assert it passes.
  */
 func TestChecklistRefusesAnAggregateCitationButNotAnAggregateExclusion(t *testing.T) {
+  // The silent host is what separates per-host suppression from claim-wide
+  // suppression. With only the citing host present, a regression that let one
+  // host's refused aggregate silence every other host's shortfall passed the
+  // whole suite.
   aggregate := runIndexRule(t, map[string]string{
     "docs/rules.md": checklistDocument,
     "src/broad.ts": `/** @evidence docs/rules.md Everything in here is honored. */
 export function broad(): void {}
 `,
+    "src/silent.ts": "export function silent(): void {}\n",
   }, checklistConfig)
   assertProblemContains(t, aggregate, "Aggregate @evidence target 'docs/rules.md'")
   assertProblemContains(t, aggregate, "names a scope containing 2 item(s) ('docs/rules.md#no-hardcoding', 'docs/rules.md#no-whack-a-mole') rather than one of them")
   assertProblemContains(t, aggregate, "Cite each item this host answers for")
-  if count := countProblemsContaining(aggregate, "checklist item(s)"); count != 0 {
-    t.Fatalf("the aggregate diagnostic must not be doubled by a per-item missing list, got %d:\n%s", count, strings.Join(aggregate, "\n"))
+  if count := countProblemsContaining(aggregate, "checklist item(s)"); count != 1 {
+    t.Fatalf("expected the silent host alone to owe items, got %d:\n%s", count, strings.Join(aggregate, "\n"))
+  }
+  assertProblemContains(t, aggregate, "TypeScript function 'silent'")
+  assertProblemContains(t, aggregate, "has not acknowledged 2 of 2 checklist item(s)")
+  if strings.Contains(strings.Join(aggregate, "\n"), "'broad'") &&
+    countProblemsContaining(aggregate, "'broad'") != 1 {
+    t.Fatalf("the citing host was named by something other than its aggregate diagnostic:\n%s", strings.Join(aggregate, "\n"))
   }
 
   excluded := runIndexRule(t, map[string]string{
@@ -704,6 +715,9 @@ func TestChecklistSuppressesAggregateItemsWithNoSelectedHost(t *testing.T) {
       Healthy: true,
     }},
   }}, nil)
+  if len(messages) != 1 {
+    t.Fatalf("expected the aggregate diagnostic to stand alone, got:\n%s", strings.Join(messages, "\n"))
+  }
   assertProblemContains(t, messages, "Aggregate @evidence target 'docs/rules.md'")
   if strings.Contains(strings.Join(messages, "\n"), "Missing acknowledgement") {
     t.Fatalf("a refused aggregate's items were reported missing as well:\n%s", strings.Join(messages, "\n"))
