@@ -238,7 +238,16 @@ func scanMarkdownInventory(
       // under an anchorless H2 would then expire a review of the H3 above it,
       // which does not contain that text.
       currentDigestHostID = fileUnitID
-      for ancestorLevel := level - 1; ancestorLevel >= 1; ancestorLevel-- {
+      // Start at the deepest level the array holds rather than at this
+      // heading's own. Only H1 through H4 ever write a slot, so a deeper
+      // heading's first candidate ancestor is H4, and reading from its own
+      // level indexed past the end: an H6 walked from 5 into a five-slot array
+      // and took the whole rule down before it materialized anything. An H5
+      // survived that only because it starts at the last valid slot.
+      //
+      // Clamp rather than widen the array. A wider one would carry slots
+      // nothing writes and leave the same read one heading level further out.
+      for ancestorLevel := min(level-1, len(headingUnitIDs)-1); ancestorLevel >= 1; ancestorLevel-- {
         if headingUnitIDs[ancestorLevel] != "" {
           currentDigestHostID = headingUnitIDs[ancestorLevel]
           break
