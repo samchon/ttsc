@@ -493,6 +493,23 @@ export interface IExclusions {
     t.Fatalf("expected both hosts to owe the item the ledger left, got %d:\n%s", count, strings.Join(narrowed, "\n"))
   }
   assertProblemContains(t, narrowed, "has not acknowledged 1 of 2 checklist item(s): 'docs/rules.md#no-whack-a-mole'")
+
+  // The reach comes from the carrier not being a host, never from the file it
+  // sits in. A ledger whose placeholder export is itself selected answers for
+  // that export alone, and the export then owes the checklist like any other
+  // host. Getting this backwards is the trap the guide now names.
+  hosted := runIndexRule(t, map[string]string{
+    "docs/rules.md": checklistDocument,
+    "src/EXCLUSIONS.ts": `/** @evidenceExclude docs/rules.md This package is generated. */
+export function ledger(): void {}
+`,
+    "src/worker.ts": "export function worker(): void {}\n",
+  }, config)
+  if count := countProblemsContaining(hosted, "checklist item(s)"); count != 1 {
+    t.Fatalf("expected the exclusion to answer for its own host alone, got %d:\n%s", count, strings.Join(hosted, "\n"))
+  }
+  assertProblemContains(t, hosted, "TypeScript function 'worker'")
+  assertProblemContains(t, hosted, "has not acknowledged 2 of 2 checklist item(s): 'docs/rules.md#no-hardcoding', 'docs/rules.md#no-whack-a-mole'")
 }
 
 /**
