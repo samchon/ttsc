@@ -639,3 +639,73 @@ func TestChecklistKeepsPopulationCoverageWithNoSelectedHost(t *testing.T) {
   }}, nil)
   assertProblemContains(t, messages, "Missing acknowledgement for 'docs/rules.md#only-rule'")
 }
+
+/**
+ * Verifies a refused aggregate suppresses the population-wide answer too.
+ *
+ * The per-host suppression is keyed by host, so the path that runs when no host was selected saw nothing and reported every unit under a refused aggregate as missing on top of the aggregate diagnostic that already names them. That is the descendant duplication the diagnostics rule forbids, and it is invisible from the host path, so it needs the evaluator-level case its sibling above already models.
+ *
+ *  1. Evaluate a checklist reference whose claim materialized no host.
+ *  2. Cite the containing document, which selects no item.
+ *  3. Assert the aggregate diagnostic is the only one.
+ */
+func TestChecklistSuppressesAggregateItemsWithNoSelectedHost(t *testing.T) {
+  document := &evidenceUnit{
+    ID:       "markdown:docs/rules.md:file",
+    Target:   "docs/rules.md",
+    Type:     artifactMarkdown,
+    Symbol:   "file",
+    Path:     "docs/rules.md",
+    Readable: "Markdown file",
+  }
+  unit := &evidenceUnit{
+    ID:       "markdown:docs/rules.md:h2:1",
+    ParentID: document.ID,
+    Target:   "docs/rules.md#only-rule",
+    Type:     artifactMarkdown,
+    Symbol:   "h2",
+    Path:     "docs/rules.md",
+    Line:     1,
+    Readable: "Markdown H2 'Only rule'",
+  }
+  messages := evaluateEvidenceGraph([]claimState{{
+    Spec: claimSpec{
+      Index:   0,
+      Type:    artifactTypeScript,
+      Symbols: symbolSet{"function": true},
+    },
+    Paths: []string{"src/test.ts"},
+    Declarations: []*evidenceDeclaration{{
+      ID:     "aggregate-citation",
+      HostID: "src/test.ts:0:100",
+      Type:   artifactTypeScript,
+      Tag:    tagEvidence,
+      Target: document.Target,
+      Reason: "Everything in here is honored.",
+      Hosts:  symbolSet{"function": true},
+      Path:   "src/test.ts",
+      Line:   1,
+    }},
+    Healthy: true,
+    References: []referenceState{{
+      Spec: referenceSpec{
+        Index:   0,
+        Type:    artifactMarkdown,
+        Policy:  referencePolicy{Checklist: true},
+        Symbols: symbolSet{"h2": true},
+      },
+      Paths:  []string{"docs/rules.md"},
+      Units:  []*evidenceUnit{unit},
+      Scopes: []*evidenceUnit{document, unit},
+      UnitsByScope: map[string][]*evidenceUnit{
+        document.ID: {unit},
+        unit.ID:     {unit},
+      },
+      Healthy: true,
+    }},
+  }}, nil)
+  assertProblemContains(t, messages, "Aggregate @evidence target 'docs/rules.md'")
+  if strings.Contains(strings.Join(messages, "\n"), "Missing acknowledgement") {
+    t.Fatalf("a refused aggregate's items were reported missing as well:\n%s", strings.Join(messages, "\n"))
+  }
+}

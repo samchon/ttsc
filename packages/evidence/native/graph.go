@@ -863,6 +863,13 @@ func evaluateEvidenceGraph(
             byScope[scopeID] = declaration
           }
         }
+        // These two count the whole selected subtree, which is the aggregate
+        // behavior a checklist takes away from a positive tag. They stay on
+        // `covered` rather than on `answered` because `rejectChecklistConflicts`
+        // refuses both options beside `checklist` at decode, and a reference
+        // carrying a decode problem never reaches evaluation. Relaxing that
+        // refusal would restore the cascade here silently, so move this to
+        // `answered` in the same change.
         if declaration.Tag == tagEvidence && (single || unique) {
           for _, hostID := range declaration.SemanticHostIDs {
             if selectedHosts[hostID] == nil {
