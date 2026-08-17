@@ -40,6 +40,15 @@ export interface Conflict {}
     "reference":{"type":"markdown","files":["docs/spec.md"],"symbol":"h2"}
   }]}`)
   assertProblemContains(t, messages, "Malformed @evidence declaration")
+  // The warning is a constant appended outside the literal, and asserting the
+  // joint through the constant itself is what catches its name slipping
+  // inside the quotes — where the message leaked '.+untrueTagWarning' and
+  // dropped the warning from the one diagnostic class most likely to be
+  // repaired by writing a hasty tag.
+  assertProblemContains(t, messages, "Write '@evidence <target> <reason>'."+untrueTagWarning)
+  if strings.Contains(strings.Join(messages, "\n"), "+untrueTagWarning") {
+    t.Fatalf("a diagnostic leaked a constant's name:\n%s", strings.Join(messages, "\n"))
+  }
   assertProblemContains(t, messages, "Unresolved evidence target 'docs/spec.md#unknown'")
   assertProblemContains(t, messages, "Conflicting acknowledgements for 'docs/spec.md#contract'")
   if countProblemsContaining(messages, "Missing acknowledgement") != 0 {

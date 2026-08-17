@@ -552,7 +552,7 @@ func evaluateEvidenceGraph(
     if !declaration.valid() {
       problems = append(
         problems,
-        "Malformed @"+string(declaration.Tag)+" declaration at "+declaration.location()+" for "+context+": target and non-empty reason are mandatory. Write '@"+string(declaration.Tag)+" <target> <reason>'.+untrueTagWarning",
+        "Malformed @"+string(declaration.Tag)+" declaration at "+declaration.location()+" for "+context+": target and non-empty reason are mandatory. Write '@"+string(declaration.Tag)+" <target> <reason>'."+untrueTagWarning,
       )
       continue
     }
