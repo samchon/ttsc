@@ -32,6 +32,21 @@ func TestMarkdownReportsScanProblemsToClaims(t *testing.T) {
   // a diagnostic rather than replacing one.
   assertProblemContains(t, unaddressable, "Missing acknowledgement for 'docs/rules.md#only'")
 
+  // The headline shape, and the one the whole fix rests on: the claim's only
+  // file is the unaddressable one, so the claim materializes no host and
+  // deactivates. It still reports, because the claim pass reads the declared
+  // configuration and appends before activation drops the claim. Routing that
+  // report through the activated config instead would restore the exact silence
+  // this fix exists to end, and every other arm here would stay green.
+  alone := runIndexRule(t, map[string]string{
+    "docs/rules.md":       "## Only {#only}\n",
+    "plans/alpha beta.md": "## Section one\n\nAlpha.\n",
+  }, scanProblemReference)
+  if len(alone) != 1 {
+    t.Fatalf("expected the unaddressable path alone, got:\n%s", strings.Join(alone, "\n"))
+  }
+  assertProblemContains(t, alone, "Markdown file 'plans/alpha beta.md' cannot form an evidence target")
+
   anchorless := runIndexRule(t, map[string]string{
     "docs/rules.md":  "## Only {#only}\n",
     "plans/alpha.md": "## ---\n\nAlpha.\n\n## Section one {#section-one}\n\nMore.\n",
@@ -55,6 +70,12 @@ func TestMarkdownReportsScanProblemsToClaims(t *testing.T) {
   }
 
   // One file read by both a claim and a reference reports each problem once.
+  // The mechanism is the reporter, not this predicate: the scan runs twice, once
+  // over the declared claim populations and once over the activated config, and
+  // each pass appends the same message. `reportProblems` sorts and drops the
+  // adjacent duplicate. That reliance predates this change, since an unreadable
+  // tag is already appended by both passes; the case is a regression guard on
+  // the reporter rather than on the line above it.
   both := runIndexRule(t, map[string]string{
     "plans/alpha.md": "## ---\n\n<!-- @evidence plans/alpha.md#kept Self. -->\n\n## Kept {#kept}\n\nBody.\n",
   }, `{"claims":[{

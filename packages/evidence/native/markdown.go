@@ -245,8 +245,11 @@ func scanMarkdownInventory(
       // and took the whole rule down before it materialized anything. An H5
       // survived that only because it starts at the last valid slot.
       //
-      // Clamp rather than widen the array. A wider one would carry slots
-      // nothing writes and leave the same read one heading level further out.
+      // Clamp rather than widen the array. Widening would also seal it, since
+      // `markdownHeading` refuses a level past 6, so this is a choice about
+      // what the type says rather than about safety: the length is the model,
+      // one slot per materializable level, and a wider array would carry slots
+      // nothing writes and stop saying so.
       for ancestorLevel := min(level-1, len(headingUnitIDs)-1); ancestorLevel >= 1; ancestorLevel-- {
         if headingUnitIDs[ancestorLevel] != "" {
           currentDigestHostID = headingUnitIDs[ancestorLevel]
@@ -265,13 +268,12 @@ func scanMarkdownInventory(
             Message: problems[len(problems)-1],
           })
         } else {
-          // This walk indexes from the heading's own level with no clamp of its
-          // own, and it is in bounds only because the `level <= 4` above it
-          // makes that level a materializable one. Moving it out of that
-          // condition reintroduces the read that took the whole rule down for
-          // an H6; clamp it there as the digest walk does.
+          // Clamped like the digest walk above, though the `level <= 4` around
+          // this block already bounds it. Both walks read the same array, so
+          // both state the same bound rather than one of them depending on a
+          // condition someone could move.
           parentID := fileUnitID
-          for ancestorLevel := level - 1; ancestorLevel >= 1; ancestorLevel-- {
+          for ancestorLevel := min(level-1, len(headingUnitIDs)-1); ancestorLevel >= 1; ancestorLevel-- {
             if headingUnitIDs[ancestorLevel] != "" {
               parentID = headingUnitIDs[ancestorLevel]
               break

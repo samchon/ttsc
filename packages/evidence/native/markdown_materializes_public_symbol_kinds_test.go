@@ -132,9 +132,11 @@ func TestMarkdownExclusionIsPositionIndependentAcrossEligibleHosts(t *testing.T)
  * population and symbol selection.
  *
  * The project walk sees claim documents and unrelated repository Markdown,
- * but only a heading selected as source evidence needs a resolvable anchor.
- * Reporting every malformed heading would make the files globs stop being a
- * real boundary.
+ * and a heading needs a resolvable anchor only where some declared population
+ * reads it. Both sides ask that question now, so the boundary is each
+ * population's own `files` globs and its own symbol set rather than the
+ * distinction between a claim and a reference. Reporting every malformed
+ * heading would make the globs stop being a real boundary.
  *
  *  1. Put an empty H2 in the source file, claim file, and unrelated file.
  *  2. Select only H1 source units and assert the graph ignores all empty H2s.
