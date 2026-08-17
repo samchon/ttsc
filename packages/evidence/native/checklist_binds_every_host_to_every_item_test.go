@@ -268,7 +268,7 @@ export function document(): void {}
  *  2. Assert the file item is answered and both headings are still owed.
  *  3. Repeat with an explicit ancestor and descendant selection and assert the descendant survives its parent's citation.
  */
-func TestAChecklistCitationAnswersOnlyTheItemItNames(t *testing.T) {
+func TestChecklistCitationAnswersOnlyTheItemItNames(t *testing.T) {
   defaulted := runIndexRule(t, map[string]string{
     "docs/rules.md": checklistDocument,
     "src/broad.ts": `/** @evidence docs/rules.md This module honors the document itself. */
