@@ -111,9 +111,13 @@ export interface ITtscEvidenceGraphMarkdownReference extends ITtscEvidenceGraphR
    * state of a checklist rather than a duplicate and a contradiction.
    *
    * Every acknowledgement is one host's answer, so a tag standing on no
-   * selected host of this claim answers nothing and is reported where it sits.
-   * That covers a declaration whose kind the claim does not select and one
-   * whose position materialized no unit at all. `evidenceExcludeCarriers` is
+   * selected host of this claim answers nothing here, and is reported where it
+   * sits once nothing else consumes it. Carrier eligibility is wider than the
+   * host gate, so the same tag may be an ordinary sibling reference's gathered
+   * exclusion or an overlapping claim's own answer, and only a tag that
+   * discharges no obligation anywhere is refused. The report covers a
+   * declaration whose kind the claim does not select and one whose position
+   * materialized no unit at all. `evidenceExcludeCarriers` is
    * refused beside this option for the same reason: gathering exclusions into
    * another file leaves every host outside it unable to record that an item
    * does not apply. Declaring `noEvidenceExclude` here lifts that refusal,

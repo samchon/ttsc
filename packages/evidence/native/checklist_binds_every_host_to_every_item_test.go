@@ -462,12 +462,12 @@ export var price: number = 1, live: number = 2;
 }
 
 /**
- * Verifies a tag that speaks for no selected host is reported rather than left inert.
+ * Verifies a tag that speaks for no selected host and discharges nothing is reported.
  *
- * Under a checklist every acknowledgement is one host's answer, so a tag on a declaration the claim's `symbol` does not select answers nothing. Spreading it across the claim instead was tried and withdrawn: that reach requires reading "no selected host" as "no host owes this", and two ordinary Markdown shapes satisfy it by accident, so one tag discharged every item for every host and reported nothing.
+ * Under a checklist every acknowledgement is one host's answer, so a tag on a declaration the claim's `symbol` does not select answers nothing there. Spreading it across the claim instead was tried and withdrawn: that reach requires reading "no selected host" as "no host owes this", and two ordinary Markdown shapes satisfy it by accident, so one tag discharged every item for every host and reported nothing. The report is deferred rather than eager, so this case pins the arm where no sibling obligation consumes the tag and the report must still fire.
  *
- *  1. Select functions as hosts and put an exclusion on an exported interface.
- *  2. Assert the tag is reported where it sits.
+ *  1. Select functions as hosts and put an exclusion on an exported interface, with no other obligation to consume it.
+ *  2. Assert the tag is reported with the obligation that recorded it and its target.
  *  3. Assert the hosts still owe every item, so nothing was discharged by it.
  */
 func TestChecklistReportsATagThatAnswersForNoHost(t *testing.T) {
@@ -482,8 +482,8 @@ export interface ILedger {
 export function first(): void {}
 `,
   }, checklistConfig)
-  assertProblemContains(t, messages, "Unhosted @evidenceExclude for 'docs/rules.md#no-whack-a-mole' at src/ledger.ts:1")
-  assertProblemContains(t, messages, "every acknowledgement answers for one selected typescript host, and this declaration sits on none")
+  assertProblemContains(t, messages, "Unhosted @evidenceExclude at src/ledger.ts:1 for Claim 1 reference 1 (markdown, symbols: h2), target 'docs/rules.md#no-whack-a-mole'")
+  assertProblemContains(t, messages, "sits on no selected host and discharges no other obligation")
   assertProblemContains(t, messages, "TypeScript function 'first'")
   assertProblemContains(t, messages, "has not acknowledged 1 of 2 checklist item(s): 'docs/rules.md#no-whack-a-mole'")
 }

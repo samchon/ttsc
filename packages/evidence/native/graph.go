@@ -646,6 +646,20 @@ func evaluateEvidenceGraph(
   // carrier globs its message must name.
   outsideCarrier := map[string][]string{}
   outsideCarrierGlobs := map[string]string{}
+  // A checklist tag speaking for no selected host is a non-participation
+  // finding: within its reference it answers nothing, and whether that earns a
+  // diagnostic depends on every other obligation the same declaration can
+  // discharge. The eligibility comment below promises exactly that for every
+  // overlap — an ineligible overlap must not reject a tag already owned
+  // elsewhere — so the finding is recorded here and judged after the walk,
+  // when `answers` can say whether anything consumed the tag.
+  unhosted := map[string][]string{}
+  // answers marks a declaration that wrote at least one acknowledgement
+  // ledger, or was refused as an aggregate, which is that citation's own
+  // diagnostic. A tag the noEvidenceExclude policy refused answers nothing
+  // and is deliberately absent, so it can still be reported as unhosted
+  // where another reference is a checklist.
+  answers := map[string]bool{}
   for _, state := range states {
     if len(state.Paths) == 0 {
       continue
@@ -788,8 +802,7 @@ func evaluateEvidenceGraph(
           }
           if len(keyHosts) == 0 {
             // Under a checklist every acknowledgement is one host's answer, so
-            // a tag that speaks for no selected host answers nothing. Report it
-            // rather than letting it sit inert.
+            // a tag that speaks for no selected host answers nothing here.
             //
             // Spreading it across the claim instead was tried and withdrawn.
             // The reach it bought is the gathered exclusion ledger that
@@ -801,13 +814,22 @@ func evaluateEvidenceGraph(
             // no unit, so one tag discharged every item for every host in the
             // claim and reported nothing. The obligation this option states is
             // per host, so the answer belongs on a host.
-            problems = append(
-              problems,
-              "Unhosted @"+string(declaration.Tag)+" for '"+scopesByID[scopeID].Target+"' at "+declaration.location()+" in "+claimLabel(state.Spec)+" "+referenceLabel(reference.Spec)+": this reference is a checklist, so every acknowledgement answers for one selected "+string(state.Spec.Type)+" host, and this declaration sits on none. Move the tag onto a host the claim selects."+untrueTagWarning,
+            //
+            // Recorded rather than reported, because "answers nothing here" is
+            // not yet "answers nothing". Carrier eligibility is wider than the
+            // host gate, so the same tag may be an ordinary sibling
+            // reference's gathered exclusion or an overlapping claim's own
+            // answer, and a hard diagnostic here left that valid configuration
+            // no placement to exist in. The end-of-run block reports the tag
+            // once nothing has consumed it.
+            unhosted[declaration.ID] = appendUniqueString(
+              unhosted[declaration.ID],
+              claimLabel(state.Spec)+" "+referenceLabel(reference.Spec),
             )
             continue
           }
         }
+        answers[declaration.ID] = true
         if checklist &&
           declaration.Tag == tagEvidence &&
           !selectedUnitIDs[scopeID] {
@@ -1050,10 +1072,27 @@ func evaluateEvidenceGraph(
     }
   }
   for _, id := range declarationIDs {
-    if resolved[id] == "" || participates[id] {
+    if resolved[id] == "" {
       continue
     }
     declaration := declarations[id]
+    // The unhosted report sits outside the participation guard, because the
+    // checklist claim that recorded it also marked this declaration as
+    // participating the moment it admitted the tag as eligible. Participation
+    // says some claim owns the tag; only `answers` says an obligation
+    // consumed it, and `uncertain` withholds the report when a failed loader
+    // makes consumption unknowable, the way the ghost-finding guard below
+    // withholds its own.
+    if obligations := unhosted[id]; len(obligations) != 0 &&
+      !answers[id] && !uncertain[id] {
+      problems = append(
+        problems,
+        "Unhosted @"+string(declaration.Tag)+" at "+declaration.location()+" for "+strings.Join(obligations, "; ")+", target '"+displayTarget(declaration.Target)+"': a checklist acknowledgement answers for one selected host of its claim, and this declaration sits on no selected host and discharges no other obligation. Move the tag onto a host the claim selects."+untrueTagWarning,
+      )
+    }
+    if participates[id] {
+      continue
+    }
     context := declarationObligationContext(owners[id])
     if obligations := outsideCarrier[id]; len(obligations) != 0 {
       problems = append(
