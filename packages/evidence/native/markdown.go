@@ -247,9 +247,10 @@ func scanMarkdownInventory(
       //
       // Clamp rather than widen the array. Widening would also seal it, since
       // `markdownHeading` refuses a level past 6, so this is a choice about
-      // what the type says rather than about safety: the length is the model,
-      // one slot per materializable level, and a wider array would carry slots
-      // nothing writes and stop saying so.
+      // what the type says rather than about safety: the array is indexed by
+      // heading level and sized to hold every materializable one, so its length
+      // is the model. A wider array would carry slots nothing writes and stop
+      // saying so. It is not indexed by ordinal, so slot zero is unused.
       for ancestorLevel := min(level-1, len(headingUnitIDs)-1); ancestorLevel >= 1; ancestorLevel-- {
         if headingUnitIDs[ancestorLevel] != "" {
           currentDigestHostID = headingUnitIDs[ancestorLevel]

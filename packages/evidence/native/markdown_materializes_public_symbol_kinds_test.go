@@ -132,9 +132,10 @@ func TestMarkdownExclusionIsPositionIndependentAcrossEligibleHosts(t *testing.T)
  * files and symbol selection.
  *
  * The project walk sees claim documents and unrelated repository Markdown,
- * and a heading needs a resolvable anchor only where some declared population
- * reads it. Both sides ask that question now, so the boundary is each
- * population's own `files` globs and its own symbol set rather than the
+ * and a malformed heading is reported only where some configured population
+ * reads it. Materializing no unit for it is unconditional; the diagnostic is
+ * what the population gates. Both sides ask that question now, so the boundary
+ * is each population's own `files` globs and its own symbol set rather than the
  * distinction between a claim and a reference. Reporting every malformed
  * heading would make the globs stop being a real boundary.
  *
