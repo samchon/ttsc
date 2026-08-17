@@ -231,7 +231,8 @@ func scanMarkdownInventory(
       }
       // A heading that materializes no unit still opens a region, and that
       // region's content belongs to the nearest heading unit enclosing it. An
-      // H5, and an H2 whose title yields no anchor, are both such headings.
+      // H5 or deeper, and an H2 whose title yields no anchor, are both such
+      // headings.
       // Carrying the previous unit forward instead would attribute the region to
       // whatever unit the walk happened to see last, which is a sibling rather
       // than an ancestor when the skipped heading is shallower: editing text
