@@ -1468,13 +1468,14 @@ function matchesNarrowPersistentInputs(
  * Sibling deliveries of one generation share most of their derived inputs, and
  * `graph.globals` is shared by every one of them, so re-reading and re-hashing
  * the whole derived set per delivery multiplies one generation's proven bytes
- * by the module count. This is the same nanosecond manifest
+ * by the module count. This extends the nanosecond manifest
  * {@link matchesUniversalHostInputs} applies to universal descriptor inputs,
- * extended to the derived set: an unchanged signature stands in for the content
- * comparison, and any signature change falls back to the full comparison. A
- * signature is recorded only around a read nothing raced, only for a
- * modification time the filesystem clock can already separate from a later
- * write ({@link settledMetadata}), and only for content a read produced.
+ * which keeps its own capture discipline, to the derived set: an unchanged
+ * signature stands in for the content comparison, and any signature change
+ * falls back to the full comparison. A signature is recorded only around a read
+ * nothing raced, only for a modification time the filesystem clock can already
+ * separate from a later write ({@link settledMetadata}), and only for a recorded
+ * state that came from reading the input rather than from failing to.
  *
  * The signature carries the physical identity of both the lexical path and its
  * link target ({@link inputMetadataSignature}), so retargeting a symlink or
@@ -1897,9 +1898,14 @@ function settledMetadata(
 }
 
 /**
- * The recorded state of an input the generation could not read: absent,
- * unreadable, or of a kind with no content. It is deliberately not a hash, so
- * no signature may ever stand in for it.
+ * The recorded state of an input the generation read nothing from: absent, or
+ * present but unreadable. It is deliberately not a hash, so no signature may
+ * stand in for it: the metadata of an unreadable path holds still while the
+ * bytes behind it appear.
+ *
+ * A directory is not this state. It records the hash of a marker instead, which
+ * a signature may stand for, because the mode both halves of the signature
+ * carry cannot change without the path ceasing to be that directory.
  */
 const MISSING_INPUT_STATE = "missing";
 

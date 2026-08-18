@@ -1460,14 +1460,16 @@ async function assertPersistentValidationProvesSharedInputsOnce(): Promise<void>
   assert.equal(pluginRuns(), 1, "a steady generation must not recompile");
   // Every module reaches every sibling plus `shared` externals, `shared`
   // globals and one aliased spelling of a global, so the pre-fix path read ~56
-  // files per delivery here. Only the generation's own current file lacks a
-  // disk signature (its recorded hash came from the bundler's buffer), so a
-  // proven generation reads at most that, and the bound keeps one slot of
-  // headroom. It also fails if the alias and its target overwrite each other's
-  // proof, which costs two more reads per delivery on every POSIX host.
-  assert.ok(
-    reads / modules.length <= 1,
-    `persistent validation read ${(reads / modules.length).toFixed(1)} files per module for a shared closure (bound: 1)`,
+  // files per delivery here. Every input of this generation is proven by now,
+  // the generation's own current file included: the first loop's second
+  // delivery compared its disk bytes against the recorded hash and recorded
+  // the signature then. So a proven generation reads nothing at all, and any
+  // read means an input lost its proof -- which is what the alias and its
+  // target do to each other under a per-identity manifest.
+  assert.equal(
+    reads,
+    0,
+    `persistent validation read ${reads} files across ${modules.length} deliveries of a proven generation`,
   );
 
   // One delivery in isolation, once every input of this generation has been
