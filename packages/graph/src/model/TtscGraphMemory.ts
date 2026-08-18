@@ -111,8 +111,8 @@ export class TtscGraphMemory {
   }
 
   /**
-   * Every declaration whose documentation carries a tag whose text opens with
-   * this token — the reverse of the citation question.
+   * Every declaration whose documentation names this address — the reverse of
+   * the citation question.
    *
    * The forward direction costs a reader one file: the tag sits above the
    * declaration they already found. The reverse direction is what an index is
@@ -120,11 +120,11 @@ export class TtscGraphMemory {
    * across every file that implements it, and finding them otherwise means
    * searching the whole repository.
    *
-   * The token is a selection rule rather than a producer fact. Which part of a
-   * tag's text names a thing belongs to whatever convention wrote the tag, so
-   * the index treats the leading whitespace-delimited token as the candidate
-   * and lets the ranked operations judge — which is the layer whose audit
-   * already declares its selection heuristic.
+   * The address is exact and is spelled as {@link documentationTarget} decides,
+   * so a caller passes that function's output rather than a raw query. Which
+   * part of a tag's text names a thing belongs to whatever convention wrote the
+   * tag, so this is a selection rule of the consuming layer rather than a fact
+   * the producer claims.
    */
   citing(target: string): readonly ITtscGraphNode[] {
     return this.byDocTagTarget.get(target) ?? [];

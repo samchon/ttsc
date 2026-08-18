@@ -8,10 +8,11 @@ import { decoratorsOf, docTagsOf, signatureOf } from "./runDetails";
 
 // One file should not crowd out the rest of the ranking, so cap hits per file.
 const PER_FILE = 3;
-// The score a citation carrier reports. Above every name score by construction,
-// because an exact documentation-target match is not a better fuzzy match than a
-// name hit — it is a different and certain kind of answer, and the two are never
-// ranked against each other.
+// The score a citation carrier reports. Citation hits are placed ahead of the
+// ranked list rather than sorted into it, so this value decides no order: it
+// exists because every hit owes a score, and it is high to say what kind of
+// answer this is — an exact match on an address the caller and the author spell
+// identically, not a better guess at a name.
 const CITATION_SCORE = 1000;
 const DEFAULT_LIMIT = 5;
 const MAX_LIMIT = 6;
@@ -317,16 +318,19 @@ function subwords(text: string): string[] {
 }
 
 /**
- * The declarations whose documentation tags name this query, in file order.
+ * The declarations whose documentation names the address this query spells, in
+ * file order.
  *
  * A caller writing `docs/pricing.md#sale` or `POST:/orders` is asking the
  * reverse citation question: not what a symbol is, but which code answers to
  * this specification. Nothing else in the graph can answer it, because the
  * other end of the relation is a document section rather than a declaration.
  *
- * The match is exact on the tag text's leading token. Fuzzy matching is what
- * the name scoring above does, and it is wrong here: a target is a token the
- * author and the caller both spell exactly, and a near-miss would put a
+ * The match is exact, and only a token shaped like an address is one at all —
+ * `documentationTarget` decides that for the query and for every indexed tag,
+ * so the two sides can never disagree about what counts. Fuzzy matching is what
+ * the name scoring above does, and it is wrong here: an address is spelled
+ * identically by the author and the caller, and a near-miss would put a
  * different specification's implementers in the answer under the same confident
  * heading.
  *
