@@ -1371,8 +1371,9 @@ async function assertPersistentValidationProvesSharedInputsOnce(): Promise<void>
   // the generation's own current file included: the first loop's second
   // delivery compared its disk bytes against the recorded hash and recorded
   // the signature then. So a proven generation reads nothing at all, and any
-  // read means an input lost its proof -- which is what the alias and its
-  // target do to each other under a per-identity manifest.
+  // read means an input lost its proof — which is what the alias and its
+  // target do to each other under a per-identity manifest. The envelope stamps
+  // no resolution candidates, so no absent path costs a probe read either.
   assert.equal(
     reads,
     0,

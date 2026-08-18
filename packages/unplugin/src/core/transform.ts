@@ -129,6 +129,16 @@ export interface TtscCachedProjectTransform {
   projectDirectories?: TtscProjectDirectorySnapshot[];
   /** Live notification state for universal host-input changes. */
   hostInputMutationTracker?: TtscProjectMutationTracker;
+  /**
+   * Universal descriptor/config inputs proven once at generation time, then by
+   * metadata.
+   *
+   * Recorded state of the generation, like the input hashes and the directory
+   * snapshot beside it, rather than state derived from the envelope: an entry
+   * carries the manifest that proved it, so nothing can present one
+   * generation's recorded inputs under another envelope's proof.
+   */
+  hostInputValidation?: TtscHostInputValidation;
   /** Live notification state for file/directory creation, deletion, and rename. */
   projectMutationTracker?: TtscProjectMutationTracker;
   /**
@@ -628,8 +638,6 @@ interface TtscEnvelopeDerivation {
    * files, `undefined` until the first completeness predicate.
    */
   dependenciesComplete?: Set<string>;
-  /** Universal inputs validated once at generation time and then by metadata. */
-  hostInputValidation?: TtscHostInputValidation;
   /**
    * Lazily built identity -> output source index of the `typescript` map (first
    * match wins, mirroring the historical scan). `undefined` until the first
@@ -1456,7 +1464,7 @@ function matchesNarrowPersistentInputs(
     return undefined;
   }
   const state = envelopeDerivation(cached);
-  const hostValidation = state.hostInputValidation;
+  const hostValidation = cached.hostInputValidation;
   if (hostValidation === undefined) {
     return undefined;
   }
@@ -1490,13 +1498,12 @@ function matchesNarrowPersistentInputs(
  * Sibling deliveries of one generation share most of their derived inputs, and
  * `graph.globals` is shared by every one of them, so re-reading and re-hashing
  * the whole derived set per delivery multiplies one generation's proven bytes
- * by the module count. This extends the nanosecond manifest
- * {@link matchesUniversalHostInputs} applies to universal descriptor inputs,
- * which applies the same rules, to the derived set: an unchanged signature
- * stands in for the content comparison, and any signature change falls back to
- * the full comparison. A signature is recorded only around a read nothing
- * raced, and only for a recorded state that came from reading the input rather
- * than from failing to.
+ * by the module count. The derived set is proven the same way the universal
+ * descriptor inputs are ({@link matchesUniversalHostInputs}), under the same
+ * rules: an unchanged signature stands in for the content comparison, and any
+ * signature change falls back to the full comparison. A signature is recorded
+ * only around a read nothing raced, and only for a recorded state that came
+ * from reading the input rather than from failing to.
  *
  * The signature carries the physical identity of both the lexical path and its
  * link target ({@link inputMetadataSignature}), so retargeting a symlink or
@@ -1792,7 +1799,7 @@ function captureUniversalHostInputValidation(
       ),
     );
   }
-  state.hostInputValidation = validation;
+  cached.hostInputValidation = validation;
   return validation;
 }
 
@@ -1984,13 +1991,11 @@ function matchesCompleteInputSnapshot(
   // byte-identical file selects a different file, and its own transitive
   // requires with it. Only the graph half of the out-of-walk snapshot records
   // realpaths, so without this the fallback would quietly hold a lower standard
-  // than the narrow path it stands in for. A generation with no manifest has no
-  // universal input to prove: the flag above already required one to be
-  // capturable, so its absence means the envelope carried none.
+  // than the narrow path it stands in for.
   const state = envelopeDerivation(cached);
-  const hostValidation = state.hostInputValidation;
+  const hostValidation = cached.hostInputValidation;
   if (
-    hostValidation !== undefined &&
+    hostValidation === undefined ||
     !matchesUniversalHostInputEntries(cached, hostValidation)
   ) {
     return false;
