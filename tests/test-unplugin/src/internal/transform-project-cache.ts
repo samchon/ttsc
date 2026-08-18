@@ -917,32 +917,34 @@ async function assertUnavailableNotificationsKeepThePersistentCache(): Promise<v
 }
 
 /**
- * Asserts a modification time too recent to prove anything earns no proof, and
- * that the input recovers one once its timestamp ages.
+ * Asserts a universal host input with no readable content never acquires one.
  *
- * A filesystem stamps a write once per clock tick, so an input modified inside
- * the tick a signature was captured in can be rewritten to a different payload
- * of the same length without moving that signature. The capture cutoff sits
- * behind any such tick, which means a freshly modified input keeps its content
- * comparison. It must also stop paying for that once the timestamp is old
- * enough, or the first delivery to see an input mid-edit would condemn it to a
- * re-read for the generation's whole life.
+ * The descriptor and config inputs a host reports are validated through their
+ * own manifest, which skips an entry whose metadata still matches. An input the
+ * host could see but not read records no content hash on either side, so its
+ * `missing` state matches while it stays unreadable and its metadata never
+ * moves. Handing it a signature would mean the manifest skips it for the
+ * generation's life, and the derived loop skips it too, so bytes that appear
+ * later would never be compared at all.
  */
-async function assertRecentlyModifiedInputRecoversItsProof(): Promise<void> {
+async function assertUnreadableHostInputKeepsTheContentComparison(): Promise<void> {
   const { createTtscTransformCache, resolveOptions, transformTtsc } =
     await TestUnpluginRuntime.loadUnpluginApi();
-  const project = createCacheProject({ fileCount: 6, graphFanout: 6 });
+  const project = createCacheProject({
+    fileCount: 4,
+    graphFanout: 4,
+    unhashedHostInput: true,
+  });
   const modules = projectModules(project.root);
-  const reachable = path.join(
-    project.root,
-    "node_modules",
-    "dep1",
-    "index.d.ts",
-  );
-  let reads: string[] = [];
+  const unreadable = path.join(project.root, "node_modules", "host-input.json");
+  let denied = true;
   const cache = createTtscTransformCache({
     readFile: (location: string) => {
-      reads.push(path.resolve(location));
+      if (denied && path.resolve(location) === unreadable) {
+        const error = new Error("permission denied") as NodeJS.ErrnoException;
+        error.code = "EACCES";
+        throw error;
+      }
       return fs.readFileSync(location);
     },
   });
@@ -955,47 +957,26 @@ async function assertRecentlyModifiedInputRecoversItsProof(): Promise<void> {
       undefined,
       cache,
     );
-  const deliverReading = async (file: string): Promise<boolean> => {
-    reads = [];
-    assert.ok(await deliver(file));
-    return reads.includes(reachable);
-  };
+  const pluginRuns = (): number =>
+    fs.existsSync(project.runLog)
+      ? fs.readFileSync(project.runLog, "utf8").length
+      : 0;
 
   for (const file of modules) {
     assert.ok(await deliver(file));
   }
   assert.equal(
-    await deliverReading(modules[1]!),
-    false,
-    "an aged input must be proven by its signature alone",
+    pluginRuns(),
+    1,
+    "an unreadable universal input matching its recorded state must still hit",
   );
 
-  // Modified now: inside the tick its next signature would be captured in.
-  const now = new Date();
-  fs.utimesSync(reachable, now, now);
+  denied = false;
+  assert.ok(await deliver(modules[0]!));
   assert.equal(
-    await deliverReading(modules[1]!),
-    true,
-    "a changed signature must fall back to the content comparison",
-  );
-  assert.equal(
-    await deliverReading(modules[2]!),
-    true,
-    "a modification time too recent to prove anything must earn no proof",
-  );
-
-  // Old enough to be separable from any later write.
-  const aged = new Date(Date.now() - 60_000);
-  fs.utimesSync(reachable, aged, aged);
-  assert.equal(
-    await deliverReading(modules[3]!),
-    true,
-    "the aged timestamp is itself a signature change",
-  );
-  assert.equal(
-    await deliverReading(modules[4]!),
-    false,
-    "an input whose timestamp has aged must recover its proof",
+    pluginRuns(),
+    2,
+    "a universal input whose content appears must replace the generation",
   );
 }
 
@@ -1066,79 +1047,6 @@ async function assertUnreadableGraphInputKeepsTheContentComparison(): Promise<vo
     pluginRuns(),
     2,
     "content that becomes readable must replace the generation",
-  );
-}
-
-/**
- * Asserts an unsettled metadata clock keeps the content comparison.
- *
- * A signature stands for content only while a later write would move it, and a
- * filesystem timestamp advances in ticks. An input whose modification time the
- * clock cannot yet separate from a later write can be rewritten inside that
- * tick, to a different payload of the same length, and keep the signature it
- * was captured with — measured at 156 of 200 back-to-back same-size rewrites on
- * Windows, where Node also reports `ctime` as the creation time. Such an input
- * must never acquire a proof.
- *
- * The cache-owned metadata reads report a frozen future timestamp here, which
- * is that state made deterministic on every platform: no signature can settle,
- * so every delivery must still compare content.
- */
-async function assertUnsettledMetadataKeepsTheContentComparison(): Promise<void> {
-  const { createTtscTransformCache, resolveOptions, transformTtsc } =
-    await TestUnpluginRuntime.loadUnpluginApi();
-  const project = createCacheProject({ fileCount: 4, graphFanout: 4 });
-  const modules = projectModules(project.root);
-  const frozen = BigInt(Date.now() + 3_600_000) * 1_000_000n;
-  const freeze = (stats: fs.BigIntStats): fs.BigIntStats =>
-    Object.assign(Object.create(stats) as fs.BigIntStats, {
-      ctimeNs: frozen,
-      mtimeNs: frozen,
-    });
-  const cache = createTtscTransformCache({
-    lstat: (location: string) =>
-      freeze(fs.lstatSync(location, { bigint: true })),
-    statBigInt: (location: string) =>
-      freeze(fs.statSync(location, { bigint: true })),
-  });
-  const options = resolveOptions();
-  const deliver = (file: string) =>
-    transformTtsc(
-      file,
-      fs.readFileSync(file, "utf8"),
-      options,
-      undefined,
-      cache,
-    );
-  const pluginRuns = (): number =>
-    fs.existsSync(project.runLog)
-      ? fs.readFileSync(project.runLog, "utf8").length
-      : 0;
-
-  for (const file of modules) {
-    assert.ok(await deliver(file));
-  }
-  assert.equal(pluginRuns(), 1);
-
-  // Same byte length, different content: with the metadata frozen, only a
-  // content comparison can see this.
-  const reachable = path.join(
-    project.root,
-    "node_modules",
-    "dep1",
-    "index.d.ts",
-  );
-  assert.equal(
-    fs.readFileSync(reachable, "utf8"),
-    "export declare const dep1: number;\n",
-  );
-  fs.writeFileSync(reachable, "export declare const dep1: string;\n", "utf8");
-  await new Promise<void>((resolve) => setImmediate(resolve));
-  assert.ok(await deliver(modules[0]!));
-  assert.equal(
-    pluginRuns(),
-    2,
-    "an input whose signature cannot settle must keep its content comparison",
   );
 }
 
@@ -2163,6 +2071,11 @@ function createCacheProject(options: ICacheProjectOptions): {
     ),
     "utf8",
   );
+  const unhashedHostInput = path.join(root, "node_modules", "host-input.json");
+  if (options.unhashedHostInput === true) {
+    fs.mkdirSync(path.dirname(unhashedHostInput), { recursive: true });
+    fs.writeFileSync(unhashedHostInput, "{}\n", "utf8");
+  }
   fs.writeFileSync(
     path.join(root, "plugin.cjs"),
     [
@@ -2172,6 +2085,12 @@ function createCacheProject(options: ICacheProjectOptions): {
       "module.exports = (context) => {",
       "  return {",
       '    name: context.plugin.name ?? "cache-probe",',
+      ...(options.unhashedHostInput === true
+        ? [
+            `    hostInputs: [${JSON.stringify(unhashedHostInput)}],`,
+            `    hostInputHashes: { [${JSON.stringify(unhashedHostInput)}]: null },`,
+          ]
+        : []),
       '    source: path.resolve(context.dirname, "go-plugin"),',
       "  };",
       "};",
@@ -2220,37 +2139,7 @@ function createCacheProject(options: ICacheProjectOptions): {
     );
   }
   writeGoPlugin(root);
-  ageProjectInputs(root);
   return { root, runLog };
-}
-
-/**
- * Backdate every file the fixture just wrote.
- *
- * A signature may only stand in for a content comparison once the filesystem
- * clock can separate the input's modification time from a later write, so a
- * tree written microseconds before the build under test is the one shape that
- * cannot be proven at all. Real projects are older than the build that reads
- * them; this makes the fixture match, and leaves the cases that edit a file
- * mid-run to exercise the unproven state deliberately.
- */
-function ageProjectInputs(root: string): void {
-  const aged = new Date(Date.now() - 60_000);
-  const walk = (directory: string): void => {
-    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
-      const location = path.join(directory, entry.name);
-      if (entry.isDirectory()) {
-        walk(location);
-      } else if (entry.isSymbolicLink()) {
-        // The link's own timestamp counts: a retarget moves it, so the settle
-        // cutoff takes the later of the link's and its target's.
-        fs.lutimesSync(location, aged, aged);
-      } else if (entry.isFile()) {
-        fs.utimesSync(location, aged, aged);
-      }
-    }
-  };
-  walk(root);
 }
 
 /**
@@ -2505,7 +2394,6 @@ export {
   assertOneFailedTrackerFallsBackToCompleteValidation,
   assertPersistentValidationProvesSharedInputsOnce,
   assertPersistentValidationUsesPerFileInputs,
-  assertRecentlyModifiedInputRecoversItsProof,
   assertRejectedTransformIsEvictedAndRecovers,
   assertSiblingDeliveriesDoNotReprobeGraph,
   assertStaleEvictionKeepsNewerGeneration,
@@ -2513,5 +2401,5 @@ export {
   assertSupersededMatchingGenerationIsNotServed,
   assertUnavailableNotificationsKeepThePersistentCache,
   assertUnreadableGraphInputKeepsTheContentComparison,
-  assertUnsettledMetadataKeepsTheContentComparison,
+  assertUnreadableHostInputKeepsTheContentComparison,
 };

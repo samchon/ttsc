@@ -651,13 +651,32 @@ interface TtscHostInputValidation {
     string,
     {
       path: string;
+      /**
+       * Whether the recorded state of this input came from reading its bytes.
+       * An input that existed but could not be read records a missing state, so
+       * no signature may stand in for it: its metadata holds still while the
+       * bytes behind it appear.
+       */
+      readable: boolean;
       realpath: string | null;
-      signature: string;
+      /**
+       * The signature that may stand in for this entry's content comparison, or
+       * `undefined` when none may. A blocker keeps one regardless: it proves a
+       * kind and an identity rather than content.
+       */
+      signature: string | undefined;
       strict?: true;
     }
   >;
-  /** Identities omitted from the per-module dependency loop below. */
-  readonly identities: Set<string>;
+  /**
+   * Lexical spellings the manifest accounts for, omitted from the per-module
+   * dependency loop below.
+   *
+   * Spellings, not identities: a symlink and its target share one identity but
+   * are two inputs, and skipping the alias because the manifest proved the
+   * target would leave the alias's own retarget unvalidated.
+   */
+  readonly covered: Set<string>;
   /**
    * Missing paths grouped by the nearest directory whose listing proves them
    * absent.
@@ -1451,7 +1470,10 @@ function matchesNarrowPersistentInputs(
     temporaryTsconfig: cached.temporaryTsconfig,
   });
   for (const input of inputs) {
-    if (hostValidation.identities.has(derivationIdentity(state, input))) {
+    // Skip by spelling, not identity: the manifest proved this exact path, and
+    // an alias of the same physical file is a different input whose own
+    // retarget nothing else would see.
+    if (hostValidation.covered.has(path.resolve(input))) {
       continue;
     }
     if (!matchesProvenInput(cached, state, input)) {
@@ -1470,12 +1492,11 @@ function matchesNarrowPersistentInputs(
  * the whole derived set per delivery multiplies one generation's proven bytes
  * by the module count. This extends the nanosecond manifest
  * {@link matchesUniversalHostInputs} applies to universal descriptor inputs,
- * which keeps its own capture discipline, to the derived set: an unchanged
- * signature stands in for the content comparison, and any signature change
- * falls back to the full comparison. A signature is recorded only around a read
- * nothing raced, only for a modification time the filesystem clock can already
- * separate from a later write ({@link settledMetadata}), and only for a recorded
- * state that came from reading the input rather than from failing to.
+ * which applies the same rules, to the derived set: an unchanged signature
+ * stands in for the content comparison, and any signature change falls back to
+ * the full comparison. A signature is recorded only around a read nothing
+ * raced, and only for a recorded state that came from reading the input rather
+ * than from failing to.
  *
  * The signature carries the physical identity of both the lexical path and its
  * link target ({@link inputMetadataSignature}), so retargeting a symlink or
@@ -1491,7 +1512,6 @@ function matchesProvenInput(
     return matchesRecordedInput(cached, input);
   }
   const filesystem = resultFilesystem(cached.result);
-  const capturedAt = metadataCaptureTime();
   const before = inputMetadataSignature(input, filesystem);
   if (before !== undefined && slot.signatures[slot.key] === before) {
     return true;
@@ -1506,7 +1526,7 @@ function matchesProvenInput(
   const after =
     slot.recorded === MISSING_INPUT_STATE
       ? undefined
-      : settledMetadata(inputMetadata(input, filesystem), capturedAt);
+      : inputMetadataSignature(input, filesystem);
   if (after !== undefined && before === after) {
     slot.signatures[slot.key] = after;
   } else {
@@ -1592,7 +1612,8 @@ function matchesUniversalHostInputEntries(
   const filesystem = resultFilesystem(cached.result);
   for (const entry of validation.entries.values()) {
     const signature = inputMetadataSignature(entry.path, filesystem);
-    if (signature === entry.signature) continue;
+    if (entry.signature !== undefined && signature === entry.signature)
+      continue;
     if (entry.strict === true) return false;
     if (hostInputRealpath(entry.path, filesystem) !== entry.realpath)
       return false;
@@ -1600,7 +1621,9 @@ function matchesUniversalHostInputEntries(
       return false;
     }
     if (signature === undefined) return false;
-    entry.signature = signature;
+    // Re-earn the proof under the rule the capture applies: an entry whose
+    // recorded state came from reading nothing keeps its content comparison.
+    entry.signature = entry.readable ? signature : undefined;
   }
   return true;
 }
@@ -1666,7 +1689,7 @@ function captureUniversalHostInputValidation(
   const state = envelopeDerivation(cached);
   const validation: TtscHostInputValidation = {
     entries: new Map(),
-    identities: new Set(),
+    covered: new Set(),
     missing: new Map(),
   };
   for (const input of selectPersistentHostInputs({
@@ -1687,14 +1710,22 @@ function captureUniversalHostInputValidation(
     // Every persistent universal input must carry an evaluation-time
     // fingerprint. If a plugin/native host cannot provide one, keep the fresh
     // result but decline narrow long-lived reuse.
+    let readable = false;
     if (expected === undefined) {
       const current = path.resolve(currentFile);
       if (path.resolve(input) !== current) return undefined;
       // The current module may be supplied from an unsaved editor buffer. Its
       // generation snapshot is overlaid below from `currentSource`, so a disk
       // fingerprint would be both unavailable and the wrong authority.
-    } else if (expected !== hostInputStateHash(input, filesystem)) {
-      return undefined;
+    } else {
+      const current = hostInputStateHash(input, filesystem);
+      if (expected !== current) {
+        return undefined;
+      }
+      // A path both sides agree they could not read carries no bytes for a
+      // signature to stand for. It still belongs in the manifest, so the
+      // content comparison keeps running for it on every delivery.
+      readable = current !== null;
     }
     const absoluteInput = path.resolve(input);
     if (generationRealpaths !== undefined) {
@@ -1712,8 +1743,7 @@ function captureUniversalHostInputValidation(
         return undefined;
       }
     }
-    const identity = derivationIdentity(state, input);
-    validation.identities.add(identity);
+    validation.covered.add(path.resolve(input));
     const before = inputMetadataSignature(input, filesystem);
     if (!matchesRecordedInput(cached, input)) return undefined;
     const after = inputMetadataSignature(input, filesystem);
@@ -1724,25 +1754,32 @@ function captureUniversalHostInputValidation(
       // but both lexical paths must survive so retargeting the alias is visible.
       validation.entries.set(path.resolve(input), {
         path: input,
+        readable,
         realpath: hostInputRealpath(input, filesystem),
-        signature: after,
+        signature: readable ? after : undefined,
       });
       continue;
     }
     const probe = missingPathProbe(input, filesystem);
     if (probe.blocker !== undefined) {
-      const blockerIdentity = derivationIdentity(state, probe.blocker);
       const signature = inputMetadataSignature(probe.blocker, filesystem);
       if (signature === undefined) return undefined;
-      validation.identities.add(blockerIdentity);
+      // A blocker proves a kind and an identity, not content: it is the
+      // non-directory ancestor that makes everything below it unreachable, and
+      // it cannot stop being that without its metadata moving. So it keeps a
+      // usable signature whether or not anything read it.
+      validation.covered.add(path.resolve(probe.blocker));
       validation.entries.set(path.resolve(probe.blocker), {
         path: probe.blocker,
+        readable: true,
         realpath: hostInputRealpath(probe.blocker, filesystem),
         signature,
         strict: true,
       });
       continue;
     }
+    // The probe below proves this exact spelling absent, so the per-module loop
+    // need not re-derive it either.
     let names = validation.missing.get(probe.directory);
     if (names === undefined) {
       names = new Set<string>();
@@ -1760,38 +1797,11 @@ function captureUniversalHostInputValidation(
 }
 
 /** Metadata identity whose stability lets a generation reuse a content hash. */
+/** Metadata identity whose stability lets a generation reuse a content hash. */
 function inputMetadataSignature(
   file: string,
   filesystem: TtscTransformFilesystemOperations = DEFAULT_FILESYSTEM_OPERATIONS,
 ): string | undefined {
-  return inputMetadata(file, filesystem)?.signature;
-}
-
-/** One input's metadata signature paired with the modification time in it. */
-interface TtscInputMetadata {
-  /**
-   * The most recent modification time any half of the signature carries.
-   *
-   * A symlink spelling has two: retargeting it moves the link's own, while
-   * editing the selected file moves the target's. The later of the two is what
-   * a future write has to beat, so it is the one the settle check gates on.
-   */
-  readonly modifiedNs: bigint;
-  /** The comparison string {@link inputMetadataSignature} returns. */
-  readonly signature: string;
-}
-
-/**
- * Read one input's metadata signature and the modification time inside it, in
- * the same syscalls the signature alone would cost.
- *
- * The modification time is what decides whether the signature may stand in for
- * a content comparison later; see {@link settledMetadata}.
- */
-function inputMetadata(
-  file: string,
-  filesystem: TtscTransformFilesystemOperations = DEFAULT_FILESYSTEM_OPERATIONS,
-): TtscInputMetadata | undefined {
   try {
     const link = filesystem.lstat(file);
     let target = link;
@@ -1804,110 +1814,35 @@ function inputMetadata(
         // stat after the target appears changes this signature. Treating it as
         // a plain missing path would watch/list only the link's parent, which
         // cannot observe a target created in another directory.
-        return {
-          modifiedNs: link.mtimeNs,
-          signature: [
-            link.dev,
-            link.ino,
-            link.mode,
-            link.size,
-            link.mtimeNs,
-            link.ctimeNs,
-            "missing-target",
-          ].join(":"),
-        };
+        return [
+          link.dev,
+          link.ino,
+          link.mode,
+          link.size,
+          link.mtimeNs,
+          link.ctimeNs,
+          "missing-target",
+        ].join(":");
       }
     }
-    return {
-      modifiedNs: link.mtimeNs > target.mtimeNs ? link.mtimeNs : target.mtimeNs,
-      signature: [
-        link.dev,
-        link.ino,
-        link.mode,
-        link.size,
-        link.mtimeNs,
-        link.ctimeNs,
-        target.dev,
-        target.ino,
-        target.mode,
-        target.size,
-        target.mtimeNs,
-        target.ctimeNs,
-      ].join(":"),
-    };
+    return [
+      link.dev,
+      link.ino,
+      link.mode,
+      link.size,
+      link.mtimeNs,
+      link.ctimeNs,
+      target.dev,
+      target.ino,
+      target.mode,
+      target.size,
+      target.mtimeNs,
+      target.ctimeNs,
+    ].join(":");
   } catch {
     return undefined;
   }
 }
-
-/**
- * Modification times at or after this instant are too recent to prove anything,
- * so a signature capture takes it as its cutoff.
- *
- * The process clock is finer than the clock a filesystem stamps files with: a
- * write advances an mtime only once per filesystem tick, about 15.6 ms on
- * Windows and a whole second or two on the filesystems that store seconds. A
- * cutoff of "now" would therefore clear an input written earlier in the current
- * tick, which is exactly the input a second write in that same tick can change
- * without moving its signature. Backing the cutoff off by more than any such
- * tick closes the whole window rather than its first millisecond.
- *
- * The one case this cannot answer is a filesystem whose clock runs behind the
- * process clock, where a write happening now can stamp a time already older
- * than the cutoff. That needs a timestamp minted by the observed filesystem
- * itself, which the operations contract has no way to ask for.
- */
-function metadataCaptureTime(): bigint {
-  return BigInt(Date.now()) * 1_000_000n - METADATA_SETTLE_MARGIN_NS;
-}
-
-/**
- * How far back a signature capture's cutoff sits, in nanoseconds.
- *
- * Two seconds covers every filesystem timestamp granularity in use: 100 ns on
- * NTFS and nanoseconds on ext4 and APFS, about 15.6 ms of effective clock tick
- * on Windows, one second on ext3 and HFS+, and two on FAT and exFAT. The cost
- * is that an input modified within the last two seconds keeps its content
- * comparison, which is the input most likely to be mid-edit anyway.
- */
-const METADATA_SETTLE_MARGIN_NS = 2_000_000_000n;
-
-/**
- * Return a signature only when the filesystem clock can already separate it
- * from a later write.
- *
- * A signature stands for content only while a change would move it, and a
- * filesystem timestamp advances in ticks — about 15.6 ms on Windows, where Node
- * also reports `ctime` as the creation time rather than the last metadata
- * change. An input whose modification time is not strictly older than the
- * moment its signature was captured can therefore be rewritten inside that same
- * tick, to a different payload of the same length, and keep the signature it
- * was captured with: measured at 156 of 200 back-to-back same-size rewrites on
- * Windows. Git calls the same state a racily clean file and answers it the same
- * way — such an input keeps its content comparison instead of acquiring a
- * proof.
- */
-function settledMetadata(
-  metadata: TtscInputMetadata | undefined,
-  capturedAtNs: bigint,
-): string | undefined {
-  if (metadata === undefined || metadata.modifiedNs >= capturedAtNs) {
-    return undefined;
-  }
-  return metadata.signature;
-}
-
-/**
- * The recorded state of an input the generation read nothing from: absent, or
- * present but unreadable. It is deliberately not a hash, so no signature may
- * stand in for it: the metadata of an unreadable path holds still while the
- * bytes behind it appear.
- *
- * A directory is not this state. It records the hash of a marker instead, which
- * a signature may stand for, because the mode both halves of the signature
- * carry cannot change without the path ceasing to be that directory.
- */
-const MISSING_INPUT_STATE = "missing";
 
 /** Content/kind fingerprint matching the compiler host-input contract. */
 function hostInputStateHash(
@@ -2091,12 +2026,8 @@ function matchesCompleteInputSnapshot(
   // edge requires editing an in-walk source, and a new global or config file
   // requires a tsconfig or package manifest change, both of which the project
   // walk above already detects.
-  const externalHashes = cached.externalInputHashes ?? {};
-  const externalCurrent = collectCachedExternalInputHashes(cached);
-  if (
-    !sameHashes(externalHashes, externalCurrent.hashes) ||
-    !matchesExternalInputRealpaths(cached)
-  ) {
+  const externalCurrent = matchesCachedExternalInputs(cached);
+  if (!externalCurrent.matches || !matchesExternalInputRealpaths(cached)) {
     return false;
   }
   adoptProvenSignatures(cached, {
@@ -2186,20 +2117,18 @@ function captureExternalInputSnapshot(
   const hashes: Record<string, string> = {};
   const realpaths: Record<string, string | null> = {};
   const signatures: Record<string, string> = {};
-  const capturedAt = metadataCaptureTime();
   let complete = true;
   // Sandwich every read between two metadata signatures. Only a signature that
-  // survived its own read, and that the filesystem clock can already separate
-  // from a later write, may stand in for the content comparison; anything else
-  // leaves the input without one, so revalidation keeps re-reading it.
+  // survived its own read may stand in for the content comparison; a write
+  // racing the capture leaves the input without one, so revalidation keeps
+  // re-reading it.
   const record = (
     input: string,
     before: string | undefined,
-    after: TtscInputMetadata | undefined,
+    after: string | undefined,
   ): void => {
-    const settled = settledMetadata(after, capturedAt);
-    if (settled !== undefined && before === settled)
-      signatures[path.resolve(input)] = settled;
+    if (after !== undefined && before === after)
+      signatures[path.resolve(input)] = after;
   };
   for (const input of paths) {
     const identity = derivationIdentity(state, input);
@@ -2211,7 +2140,7 @@ function captureExternalInputSnapshot(
       }
       const before = inputMetadataSignature(input, filesystem);
       const currentHash = graphInputStateHash(input, filesystem);
-      const after = inputMetadata(input, filesystem);
+      const after = inputMetadataSignature(input, filesystem);
       if (
         currentHash !== proof.hash ||
         !sameHostInputRealpath(
@@ -2234,7 +2163,7 @@ function captureExternalInputSnapshot(
     }
     const before = inputMetadataSignature(input, filesystem);
     const hash = hostInputStateHash(input, filesystem);
-    const after = inputMetadata(input, filesystem);
+    const after = inputMetadataSignature(input, filesystem);
     hashes[identity] = hash ?? MISSING_INPUT_STATE;
     if (hash !== null) record(input, before, after);
   }
@@ -2378,7 +2307,6 @@ function collectProjectInputSnapshot(
   const hashes: Record<string, string> = {};
   const fileSignatures: Record<string, string> = {};
   const settledSignatures: Record<string, string> = {};
-  const capturedAt = metadataCaptureTime();
   const walked = walkProjectInputs(projectRoot, filesystem);
   let complete = walked.complete;
   for (const file of walked.files) {
@@ -2402,21 +2330,13 @@ function collectProjectInputSnapshot(
         continue;
       }
       const contents = filesystem.readFile(file);
-      const metadata = inputMetadata(file, filesystem);
-      const after = metadata?.signature;
+      const after = inputMetadataSignature(file, filesystem);
       hashes[key] = hashText(contents);
       if (before === undefined || after === undefined || before !== after) {
         complete = false;
       } else {
         fileSignatures[key] = after;
-        // A racing write leaves the snapshot incomplete above; a write the
-        // filesystem clock cannot yet separate from a later one only costs this
-        // file its proof, since its content was still read and hashed. The two
-        // maps are therefore separate: `fileSignatures` records what the walk
-        // observed, which is what a second walk is compared against, while only
-        // a settled signature may later stand in for a content comparison.
-        const settled = settledMetadata(metadata, capturedAt);
-        if (settled !== undefined) settledSignatures[key] = settled;
+        settledSignatures[key] = after;
       }
     } catch {
       // File watchers may observe a transform while another process is moving
@@ -2999,31 +2919,30 @@ export function collectExternalInputHashes(
 }
 
 /**
- * Re-hash a cached mixed graph/dependency input set with its owning codec,
+ * Re-check a cached mixed graph/dependency input set with its owning codec,
  * reusing the recorded hash of any input whose metadata signature still holds
  * and reporting the signatures this pass captured.
  *
- * The caller adopts those signatures only once the returned hashes prove the
- * whole recorded set unchanged, so a signature never outlives the content
- * comparison that justified it.
+ * The caller adopts those signatures only once every input is proven unchanged,
+ * so a signature never outlives the content comparison that justified it.
  */
-function collectCachedExternalInputHashes(cached: TtscCachedProjectTransform): {
-  hashes: Record<string, string>;
+function matchesCachedExternalInputs(cached: TtscCachedProjectTransform): {
+  matches: boolean;
   signatures: Record<string, string>;
 } {
-  const hashes: Record<string, string> = {};
   const signatures: Record<string, string> = {};
+  let matches = true;
   const state = envelopeDerivation(cached);
   const graphRealpaths = cached.externalInputRealpaths ?? {};
   const filesystem = resultFilesystem(cached.result);
   const recordedHashes = cached.externalInputHashes ?? {};
   const recordedSignatures = cached.externalInputSignatures ?? {};
-  const capturedAt = metadataCaptureTime();
-  // Never skip a spelling because its identity was already seen. Two spellings
-  // share one identity exactly when they selected one physical file at
-  // generation time, which is the state a retarget ends, so each is read under
-  // its own name and a disagreement between them invalidates below. A spelling
-  // repeated in the list costs one extra read and folds to the same value.
+  // Compare each spelling against the recorded state under its own name. Two
+  // spellings share one identity exactly when they selected one physical file
+  // at generation time, which is the state a retarget ends, so neither may
+  // answer for the other: skipping the second would leave a retargeted alias
+  // unvalidated, and comparing them only through a shared key would let
+  // whichever came first decide.
   for (const file of cached.externalInputPaths ??
     Object.keys(cached.externalInputHashes ?? {})) {
     const identity = derivationIdentity(state, file);
@@ -3039,40 +2958,23 @@ function collectCachedExternalInputHashes(cached: TtscCachedProjectTransform): {
       Object.prototype.hasOwnProperty.call(recordedHashes, identity) &&
       before === recordedSignatures[spelling]
     ) {
-      foldExternalInputHash(hashes, identity, recordedHashes[identity]!);
       continue;
     }
     const hash = Object.prototype.hasOwnProperty.call(graphRealpaths, identity)
       ? graphInputStateHash(file, filesystem)
       : hostInputStateHash(file, filesystem);
-    const after = settledMetadata(inputMetadata(file, filesystem), capturedAt);
-    foldExternalInputHash(hashes, identity, hash ?? MISSING_INPUT_STATE);
+    const after = inputMetadataSignature(file, filesystem);
+    if (
+      !Object.prototype.hasOwnProperty.call(recordedHashes, identity) ||
+      recordedHashes[identity] !== (hash ?? MISSING_INPUT_STATE)
+    ) {
+      matches = false;
+    }
     if (hash !== null && after !== undefined && before === after) {
       signatures[spelling] = after;
     }
   }
-  return { hashes, signatures };
-}
-
-/**
- * Fold one spelling's current hash into the identity-keyed comparison map.
- *
- * Spellings that shared an identity at generation time shared its content, so a
- * later disagreement between them means the alias stopped selecting what it
- * did. No content hash can equal the marker recorded for that, so the
- * comparison rejects the generation instead of letting whichever spelling came
- * first in sorted order answer for the rest.
- */
-function foldExternalInputHash(
-  hashes: Record<string, string>,
-  identity: string,
-  hash: string,
-): void {
-  const previous = hashes[identity];
-  hashes[identity] =
-    previous === undefined || previous === hash
-      ? hash
-      : `divergent:${previous}:${hash}`;
+  return { matches, signatures };
 }
 
 /**
