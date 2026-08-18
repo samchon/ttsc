@@ -695,16 +695,25 @@ func evaluateEvidenceGraph(
       single := reference.Spec.Policy.SingleEvidencePerSymbol
       unique := reference.Spec.Policy.UniqueEvidence
       checklist := reference.Spec.Policy.Checklist
-      // An empty population owes nothing and normally ends the reference
-      // here. A healthy empty one still judges hosts under
-      // singleEvidencePerSymbol, because every selected host then truthfully
-      // cites zero units rather than the one it owes.
+      // An empty population ends the reference, for every policy alike.
       //
-      // A checklist is not in that company. Its host owes every unit, so an
-      // empty population leaves every host owing nothing and passing
-      // truthfully; there is no count it can fall short of.
-      if len(reference.Units) == 0 &&
-        (!single || !state.Healthy || !reference.Healthy || len(reference.Paths) == 0) {
+      // singleEvidencePerSymbol used to be excepted, on the argument that each
+      // selected host then truthfully cites zero units rather than the one it
+      // owes. The count is true and the conclusion does not follow: the
+      // materializer has already reported why the population is empty, and this
+      // added one message per host asking each of them to cite a unit that does
+      // not exist — a repair the population makes impossible, scaled by host
+      // count. It is the same derived finding the loader-failure path refuses
+      // to produce, and it was refused there for the same reason.
+      //
+      // The exception was also conditional on len(Paths) != 0, so the identical
+      // empty population was judged or skipped depending on whether any file
+      // happened to match, which no argument ever covered.
+      //
+      // Nothing else is lost by leaving early. Every diagnostic below reaches a
+      // declaration through reference.UnitsByScope, which an empty population
+      // leaves empty, so each one already skips every declaration it visits.
+      if len(reference.Units) == 0 {
         continue
       }
       acknowledged := map[string]bool{}
@@ -1018,7 +1027,10 @@ func evaluateEvidenceGraph(
           )
         }
       }
-      if !state.Healthy || !reference.Healthy || len(reference.Paths) == 0 {
+      // Health alone gates the per-host policies. The path count that used to
+      // sit here answered the empty-population question a second time, and a
+      // reference with units has matched a path by construction.
+      if !state.Healthy || !reference.Healthy {
         continue
       }
       if single {

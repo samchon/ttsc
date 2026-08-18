@@ -478,17 +478,93 @@ export function parse(value: string | number): string {
 }
 
 /**
- * Verifies cardinality still judges hosts against an empty healthy reference.
+ * Verifies cardinality derives nothing from an empty healthy reference.
  *
- * A successfully loaded document can contain no selected units. That is a complete denominator, not a loader failure, so a selected host cites zero units and must fail a policy demanding exactly one.
+ * A successfully loaded document can contain no selected unit, and the
+ * materializer reports that population as empty on its own. Judging hosts on
+ * top of it added one message per host asking each to cite a unit that does not
+ * exist, which is the derived finding the loader-failure path already refuses.
+ * The count of zero is true; the demand it produced was not answerable.
  *
- *  1. Select one TypeScript function and an empty Markdown document.
+ *  1. Select one TypeScript function and a Markdown document with no heading.
  *  2. Require exactly one Markdown unit per selected symbol.
- *  3. Assert the function reports its truthful zero count.
+ *  3. Assert the population is named once and no host is named at all.
  */
-func TestSingleEvidencePerSymbolRejectsAHealthyEmptyReference(t *testing.T) {
+func TestSingleEvidencePerSymbolDerivesNothingFromAHealthyEmptyReference(t *testing.T) {
   messages := runIndexRule(t, map[string]string{
     "docs/spec.md": "Plain prose with no selected heading.\n",
+    "src/test.ts":  "export function testContract(): void {}\n",
+  }, `{"claims":[{
+    "type":"typescript",
+    "files":["src/**"],
+    "symbol":"function",
+    "reference":{
+      "type":"markdown",
+      "files":["docs/spec.md"],
+      "symbol":"h2",
+      "singleEvidencePerSymbol":true
+    }
+  }]}`)
+  assertProblemContains(t, messages, "found no selected evidence units")
+  if countProblemsContaining(messages, "singleEvidencePerSymbol requires exactly 1") != 0 {
+    t.Fatalf(
+      "an empty population must not be re-reported per host:\n%s",
+      strings.Join(messages, "\n"),
+    )
+  }
+}
+
+/**
+ * Verifies an empty reference answers the same way whether or not a file matched.
+ *
+ * The removed exception was conditional on the reference having matched at
+ * least one path, so the identical empty population produced per-host findings
+ * or none depending on a fact the question does not turn on. This is the other
+ * half of that pair: same policy, same zero units, no matched file.
+ *
+ *  1. Point the same policy at a glob no document occupies.
+ *  2. Evaluate.
+ *  3. Assert the population is named and no host is named.
+ */
+func TestSingleEvidencePerSymbolAnswersAnUnmatchedGlobTheSameWay(t *testing.T) {
+  messages := runIndexRule(t, map[string]string{
+    "docs/spec.md": "## Discounts {#discounts}\n",
+    "src/test.ts":  "export function testContract(): void {}\n",
+  }, `{"claims":[{
+    "type":"typescript",
+    "files":["src/**"],
+    "symbol":"function",
+    "reference":{
+      "type":"markdown",
+      "files":["docs/absent.md"],
+      "symbol":"h2",
+      "singleEvidencePerSymbol":true
+    }
+  }]}`)
+  assertProblemContains(t, messages, "matched no markdown files")
+  if countProblemsContaining(messages, "singleEvidencePerSymbol requires exactly 1") != 0 {
+    t.Fatalf(
+      "an unmatched glob must not be re-reported per host:\n%s",
+      strings.Join(messages, "\n"),
+    )
+  }
+}
+
+/**
+ * Verifies cardinality still judges a host against a population that has units.
+ *
+ * This is the negative twin of the two cases above and the reason the early
+ * return is bounded by emptiness rather than by policy. A host that cites none
+ * of a population that really holds units is the failure singleEvidencePerSymbol
+ * exists to catch, and the suppression must not reach it.
+ *
+ *  1. Select one TypeScript function and a document with two headings.
+ *  2. Require exactly one Markdown unit per selected symbol, and cite neither.
+ *  3. Assert the host is named with its zero count.
+ */
+func TestSingleEvidencePerSymbolStillJudgesAPopulatedReference(t *testing.T) {
+  messages := runIndexRule(t, map[string]string{
+    "docs/spec.md": "## Discounts {#discounts}\n\n## Coupons {#coupons}\n",
     "src/test.ts":  "export function testContract(): void {}\n",
   }, `{"claims":[{
     "type":"typescript",
