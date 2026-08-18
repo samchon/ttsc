@@ -13,8 +13,8 @@ import { assertSeparatedStampReEarnsItsSignature } from "../../internal/transfor
  *
  * 1. Deliver a project whose every stamp sits in one pinned tick and assert a
  *    steady delivery keeps re-reading inputs while keeping the cache.
- * 2. Move one input's reported stamp to the next tick, delivering twice so the
- *    raised clock floor lets every other input prove itself.
+ * 2. Move one input's reported stamp to the next tick, then deliver every module
+ *    once so the raised clock floor lets every other input prove itself.
  * 3. Assert a later delivery reads only the input at the clock floor, with the
  *    generation never replaced.
  */
