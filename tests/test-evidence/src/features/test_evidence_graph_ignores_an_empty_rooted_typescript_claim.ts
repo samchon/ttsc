@@ -60,8 +60,8 @@ export const test_evidence_graph_ignores_an_empty_rooted_typescript_claim =
       );
       assertExcludes(
         result,
-        "matched no typescript files",
-        "Healthy zero-host activation must not report a claim population error.",
+        "could not resolve the typescript root",
+        "A root that exists is resolvable, whatever its globs then select.",
       );
       assertExcludes(
         result,
