@@ -148,8 +148,10 @@ type referencePolicy struct {
 // its review spell one address, and resolving twice would let a review answer a
 // scope its citation does not name.
 type evidenceReview struct {
-  // SemanticHostIDs are the selected graph identities this review is written on,
-  // which is what a citation is matched by.
+  // SemanticHostIDs are the ledger keys this review is written on. They are
+  // normally selected graph identities; an unattached Prisma review uses its
+  // synthetic file identity so the declaration-side position fallback can meet
+  // it. A citation is matched by these keys.
   SemanticHostIDs []string
   // Reviews names which acknowledgement this review answers for. It is part of
   // the match, never inferred: verifying a citation and verifying an exclusion
