@@ -293,8 +293,9 @@ type evidenceDeclaration struct {
   ID     string
   HostID string
   // SemanticHostIDs names the selected graph identities that physically host
-  // this declaration. HostID remains the source-position identity used only
-  // for same-block duplicate detection; policy cardinality must not confuse a
+  // this declaration. HostID remains the source-position identity used for
+  // same-block duplicate detection and as the review lookup fallback for a
+  // valid carrier with no semantic host. Policy cardinality must not confuse a
   // declaration position with the public symbol identity it represents.
   SemanticHostIDs []string
   Type            artifactKind

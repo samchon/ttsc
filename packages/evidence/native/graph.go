@@ -1226,11 +1226,13 @@ func reviewProblems(
 // `evidence/review` accepts. The two rules then disagreed about the same file.
 // `model.go` says as much where it defines the field.
 //
-// Reviews always carry semantic identities. Declarations are asymmetric: an
+// Only reviews carrying semantic identities enter this ledger. A parser may
+// collect a review from an unsupported position with no graph identity, but
+// there is no host key to index it by. Declarations are asymmetric: an
 // unattached Prisma documentation run carries an exclusion at a file position
 // that materializes no graph unit, so only lookup keeps a position fallback.
-// Indexing a review by its position too described a producer that does not
-// exist and obscured the one live exception.
+// Indexing a review by its position too described a producer that does not exist
+// and obscured the one live exception.
 //
 // It is built once per claim rather than scanned per citation. A linear search
 // over every review, for every declaration, for every reference, is cubic in the
