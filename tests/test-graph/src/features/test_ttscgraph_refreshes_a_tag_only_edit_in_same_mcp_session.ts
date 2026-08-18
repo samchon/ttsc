@@ -118,6 +118,11 @@ export const test_ttscgraph_refreshes_a_tag_only_edit_in_same_mcp_session =
       );
     } finally {
       client.endStdin();
-      await client.waitForExit();
     }
+
+    // The refresh has to leave the session healthy, not merely answer: a graph
+    // that reloads correctly and then crashes its native child on shutdown
+    // would pass every assertion above.
+    const code = await client.waitForExit();
+    assert.equal(code, 0, client.stderrText());
   };

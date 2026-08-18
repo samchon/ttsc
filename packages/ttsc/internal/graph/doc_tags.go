@@ -65,7 +65,11 @@ func collectDocTags(g *Graph, targetID, path string, declaration *shimast.Node) 
   if file == nil {
     return
   }
-  for _, doc := range documentationOf(declaration, file) {
+  docs := documentationOf(declaration, file)
+  if len(docs) > 0 {
+    g.recordDocHost(targetID, declaration)
+  }
+  for _, doc := range docs {
     if doc == nil || doc.Kind != shimast.KindJSDoc {
       continue
     }
@@ -252,11 +256,61 @@ func joinDocTagLines(text string) string {
 // relation, and privileging a tag would put one convention's name inside the
 // compiler host.
 func (g *Graph) collectDocRefs(checker *shimchecker.Checker, file *shimast.SourceFile) {
-  forEachContainer(file.FileName(), file, func(from string, node *shimast.Node) {
-    for _, doc := range documentationOf(node, file) {
-      g.docRefsWithin(checker, from, doc)
+  for _, host := range g.docHosts {
+    if host.file != file.FileName() {
+      continue
     }
+    for _, doc := range documentationOf(host.declaration, file) {
+      g.docRefsWithin(checker, host.target, doc)
+    }
+  }
+}
+
+// recordDocHost remembers that a declaration carries documentation, so the edge
+// pass resolves its links from exactly the declarations the build pass
+// attributed documentation to.
+//
+// The two passes cannot share a walk — one runs before the checker exists and
+// the other needs it — so they would otherwise share only a convention, and a
+// convention is what drifted. The container walk the edge pass would naturally
+// reuse never visits a class, an interface, or a namespace as a node of its
+// own: it descends straight into their members. So a link written on a class's
+// own documentation resolved to nothing while the tag beside it was indexed,
+// and the two halves a reader is meant to compose disagreed exactly where a
+// type is documented. Recording the host here means the edge pass covers every
+// declaration form the node pass records, including forms nobody has written
+// yet.
+//
+// It also fixes the attribution: the container walk hands a property member's
+// subtree to the property *and* to its class, which is deliberate for the
+// dependency edges but would make a class's documentation appear to name a
+// symbol only its member's documentation mentions.
+func (g *Graph) recordDocHost(target string, declaration *shimast.Node) {
+  file := shimast.GetSourceFileOfNode(declaration)
+  if file == nil {
+    return
+  }
+  key := docTagKey{target: target, pos: declaration.Pos(), end: declaration.End()}
+  if g.docHostPositions == nil {
+    g.docHostPositions = map[docTagKey]struct{}{}
+  }
+  if _, seen := g.docHostPositions[key]; seen {
+    return
+  }
+  g.docHostPositions[key] = struct{}{}
+  g.docHosts = append(g.docHosts, docHost{
+    target:      target,
+    file:        file.FileName(),
+    declaration: declaration,
   })
+}
+
+// docHost is one declaration that carries documentation, paired with the graph
+// node the build pass attributed it to.
+type docHost struct {
+  target      string
+  file        string
+  declaration *shimast.Node
 }
 
 // docRefsWithin resolves every inline link inside one documentation comment.

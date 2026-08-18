@@ -53,7 +53,12 @@ export function runLookup(
     };
 
   const scored: ITtscGraphLookup.IHit[] = [];
-  for (const node of graph.nodes) {
+  // With no term to match, nothing is a name match. The whole-query bonus below
+  // is awarded when every term landed, and no terms trivially satisfies that —
+  // so a query the tokenizer cannot read (an address in another script) would
+  // otherwise return the citation hit followed by arbitrary central symbols,
+  // presented as answers to a name it never matched.
+  for (const node of terms.length === 0 ? [] : graph.nodes) {
     if (node.kind === "file") continue;
     if (!includeExternal && isExternalNode(node)) continue;
     const score = scoreNode(
@@ -318,8 +323,8 @@ function subwords(text: string): string[] {
 }
 
 /**
- * The declarations whose documentation names the address this query spells, in
- * file order.
+ * The declarations whose documentation opens a tag with the address this query
+ * opens with, in file order.
  *
  * A caller writing `docs/pricing.md#sale` or `POST:/orders` is asking the
  * reverse citation question: not what a symbol is, but which code answers to

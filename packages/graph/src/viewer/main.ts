@@ -40,6 +40,7 @@ const NODE_COLORS: Record<string, string> = {
 const LINK_COLORS: Record<string, string> = {
   "value-call": "#3fb950",
   "type-ref": "#f5b042",
+  "doc-ref": "#c07de0",
   heritage: "#6ea8ff",
 };
 

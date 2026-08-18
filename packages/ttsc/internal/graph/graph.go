@@ -229,6 +229,12 @@ type Graph struct {
   // declaration presented to putDeclaredNode more than once contributes its tags
   // once. Build-only, like bodyNodes.
   docTagPositions map[docTagKey]struct{}
+  // docHosts are the declarations the node pass found documentation on, paired
+  // with the node it attributed them to. The edge pass resolves documentation
+  // links from this set rather than from a walk of its own, so both halves of a
+  // citation cover the same declarations. Build-only.
+  docHosts         []docHost
+  docHostPositions map[docTagKey]struct{}
   // bodyNodes tracks whether a callable node's display span is the overload
   // implementation rather than an overload signature. It is build-only metadata
   // and intentionally stays out of JSON dumps.

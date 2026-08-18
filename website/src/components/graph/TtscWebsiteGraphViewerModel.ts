@@ -34,12 +34,14 @@ const NODE_COLORS: Record<string, string> = {
 const LINK_COLORS: Record<string, string> = {
   "value-call": "#15803d",
   "type-ref": "#b45309",
+  "doc-ref": "#9333ea",
   heritage: "#2563eb",
 };
 
 const LINK_KIND_LABEL: Record<string, string> = {
   "value-call": "value-call (runtime use)",
   "type-ref": "type-ref",
+  "doc-ref": "doc-ref (documentation link)",
   heritage: "heritage (extends / implements / overrides)",
 };
 

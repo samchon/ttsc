@@ -187,13 +187,19 @@ export function documentationTarget(
     : undefined;
 }
 
-/** The first whitespace-delimited token, or the whole brace group it opens. */
+/**
+ * The first whitespace-delimited token, or the whole brace group it opens.
+ *
+ * An unclosed brace group is not a token: `{@link ISale` with the brace
+ * forgotten would otherwise fall through to the whitespace split and index the
+ * address `{@link`, which every link in the project shares.
+ */
 export function leadingToken(text: string | undefined): string | undefined {
   const trimmed = text?.trim();
   if (trimmed === undefined || trimmed === "") return undefined;
   if (trimmed.startsWith("{")) {
     const close = trimmed.indexOf("}");
-    if (close > 0) return trimmed.slice(0, close + 1);
+    return close > 0 ? trimmed.slice(0, close + 1) : undefined;
   }
   const stop = trimmed.search(/\s/u);
   return stop < 0 ? trimmed : trimmed.slice(0, stop);

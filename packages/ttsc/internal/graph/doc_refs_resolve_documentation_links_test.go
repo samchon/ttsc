@@ -47,6 +47,12 @@ export function fromProse(): void {}
 /** @evidence {@linkcode ISale} Code form. */
 export function fromCode(): void {}
 
+/** @evidence {@linkplain ISale} Plain form. */
+export function fromPlain(): void {}
+
+/** Two links, {@link ISale} and {@link Shopping.ICoupon}, plus {@link ISale} twice. */
+export function severalLinks(): void {}
+
 /** @evidence {@link Shopping.ICoupon} Qualified. */
 export function fromQualified(): void {}
 
@@ -67,6 +73,25 @@ export function selfLinked(): void {}
 
 /** Carries documentation but no link. */
 export function noLink(): void {}
+
+/** A class documented with {@link ISale} on the class itself. */
+export class Documented {
+  /** @evidence {@link Shopping.ICoupon} On the member, not the class. */
+  public readonly coupon: string = "";
+
+  /** Method documentation naming {@link ISale}. */
+  public run(): void {}
+}
+
+/** An interface documented with {@link ISale}. */
+export interface IDocumented {
+  value: number;
+}
+
+/** A namespace documented with {@link ISale}. */
+export namespace Documented2 {
+  export const value = 1;
+}
 `)
 
   prog, diags, err := driver.LoadProgram(root, "tsconfig.json", driver.LoadProgramOptions{})
@@ -84,6 +109,11 @@ export function noLink(): void {}
   // The tag decides nothing: a link in ordinary prose is the same relation.
   assertDocRef(t, g, "#fromProse:function", "#ISale:interface")
   assertDocRef(t, g, "#fromCode:function", "#ISale:interface")
+  assertDocRef(t, g, "#fromPlain:function", "#ISale:interface")
+  // Distinct targets each get an edge; a target named twice collapses under the
+  // uniqueness rule every edge kind shares, keeping the first span.
+  assertDocRef(t, g, "#severalLinks:function", "#ISale:interface")
+  assertDocRef(t, g, "#severalLinks:function", "#Shopping.ICoupon:interface")
   assertDocRef(t, g, "#fromQualified:function", "#Shopping.ICoupon:interface")
   // A link under a tag TypeScript recognizes is the same relation. Reading a
   // tag's comment through its per-kind struct crashed on the first `@param`
@@ -97,6 +127,40 @@ export function noLink(): void {}
   assertNoDocRef(t, g, "#selfLinked:function")
   assertNoDocRef(t, g, "#noLink:function")
   assertNoDocRef(t, g, "#withKnownTags:function")
+
+  // A class, an interface, and a namespace carry documentation of their own,
+  // and the container walk the edge pass would naturally reuse never visits any
+  // of them as a node: it descends straight into their members. Each of these
+  // resolved to nothing while the tag beside it was indexed, so the two halves
+  // a reader composes disagreed exactly where a type is documented.
+  assertDocRef(t, g, "#Documented:class", "#ISale:interface")
+  assertDocRef(t, g, "#IDocumented:interface", "#ISale:interface")
+  // A namespace is a grouping container the graph models as no node at all, so
+  // its own documentation has nothing to hang on — and the tag half agrees,
+  // because `putDeclaredNode` is never called for one either. The two halves
+  // being absent together is the invariant; one of them answering alone is the
+  // defect this pairing exists to catch.
+  assertNoDocRef(t, g, "#Documented2:")
+  assertNoDocRefTo(t, g, "#Documented2.value:variable", "#ISale:interface")
+
+  // A member's link belongs to the member. The same walk hands a property's
+  // subtree to its class as well, which is right for dependency edges and wrong
+  // here: the class's own documentation names nothing.
+  assertDocRef(t, g, "#Documented.coupon:variable", "#Shopping.ICoupon:interface")
+  assertNoDocRefTo(t, g, "#Documented:class", "#Shopping.ICoupon:interface")
+  assertDocRef(t, g, "#Documented.run:method", "#ISale:interface")
+}
+
+// assertNoDocRefTo fails when a doc_ref edge runs between these two nodes.
+func assertNoDocRefTo(t *testing.T, g *Graph, fromSuffix, toSuffix string) {
+  t.Helper()
+  for _, edge := range g.Edges {
+    if edge.Kind == EdgeDocRef &&
+      suffixMatch(edge.From, fromSuffix) &&
+      suffixMatch(edge.To, toSuffix) {
+      t.Fatalf("%s must not name %s; that link is its member's", fromSuffix, toSuffix)
+    }
+  }
 }
 
 // assertDocRef fails unless exactly one doc_ref edge runs between the two nodes

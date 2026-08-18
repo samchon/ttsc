@@ -1,4 +1,4 @@
-import { TtscGraphMemory } from "../model/TtscGraphMemory";
+import { TtscGraphMemory, leadingToken } from "../model/TtscGraphMemory";
 import { ITtscGraphDecorator } from "../structures/ITtscGraphDecorator";
 import { ITtscGraphDetails } from "../structures/ITtscGraphDetails";
 import { ITtscGraphDocTag } from "../structures/ITtscGraphDocTag";
@@ -514,11 +514,24 @@ export function docTagsOf(
   );
 }
 
-/** Cut a tag text to the doc budget without cutting the address it opens with. */
+/**
+ * Cut a tag text to the doc budget without cutting the address it opens with.
+ *
+ * The protected prefix is whatever the index calls the address, taken from the
+ * same function the reverse lookup keys on, so the two cannot disagree about
+ * where it ends: a braced link holds spaces inside its group, and measuring the
+ * prefix to the first whitespace instead would return `{@link` and cut the rest
+ * of the group away.
+ *
+ * A text that is nothing but an over-long address comes back whole, with no
+ * marker — an ellipsis on text that was never cut says something false about
+ * the one field a caller reads to know whether to go on reading.
+ */
 function elideTagText(text: string): string {
-  const stop = text.search(/\s/u);
-  const address = stop < 0 ? text.length : stop;
-  return text.slice(0, Math.max(MAX_DOC_CHARS, address)).trimEnd() + "…";
+  const address = leadingToken(text)?.length ?? 0;
+  const keep = Math.max(MAX_DOC_CHARS, address);
+  if (keep >= text.length) return text;
+  return text.slice(0, keep).trimEnd() + "…";
 }
 
 /** Relationship evidence as public coordinates, omitted when absent. */
