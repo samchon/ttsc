@@ -39,9 +39,11 @@ type DocTag struct {
   // and per-line indentation removed and its lines joined by single spaces.
   // Empty when the tag carries no text.
   Text string
-  File string
-  Pos  int
-  End  int
+  // Pos and End bound the written tag. They are not published — a tag rides its
+  // target node, which carries the span a reader cites — and exist so one
+  // declaration presented to the node pass twice contributes its tags once.
+  Pos int
+  End int
 }
 
 // collectDocTags records a DocTag for every unrecognized documentation tag on
@@ -57,7 +59,7 @@ type DocTag struct {
 //
 // Positions deduplicate, because the same declaration node can be presented to
 // putDeclaredNode more than once and a tag is a property of where it is written.
-func collectDocTags(g *Graph, targetID, path string, declaration *shimast.Node) {
+func collectDocTags(g *Graph, targetID string, declaration *shimast.Node) {
   if g == nil || declaration == nil || targetID == "" {
     return
   }
@@ -66,8 +68,12 @@ func collectDocTags(g *Graph, targetID, path string, declaration *shimast.Node) 
     return
   }
   docs := documentationOf(declaration, file)
-  if len(docs) > 0 {
-    g.recordDocHost(targetID, declaration)
+  if len(docs) == 0 {
+    return
+  }
+  g.recordDocHost(targetID, declaration)
+  if g.docTagPositions == nil {
+    g.docTagPositions = map[docTagKey]struct{}{}
   }
   for _, doc := range docs {
     if doc == nil || doc.Kind != shimast.KindJSDoc {
@@ -83,10 +89,6 @@ func collectDocTags(g *Graph, targetID, path string, declaration *shimast.Node) 
         continue
       }
       fact.Target = targetID
-      fact.File = path
-      if g.docTagPositions == nil {
-        g.docTagPositions = map[docTagKey]struct{}{}
-      }
       key := docTagKey{target: targetID, pos: fact.Pos, end: fact.End}
       if _, seen := g.docTagPositions[key]; seen {
         continue

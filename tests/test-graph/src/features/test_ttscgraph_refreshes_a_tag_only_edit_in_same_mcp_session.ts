@@ -117,12 +117,14 @@ export const test_ttscgraph_refreshes_a_tag_only_edit_in_same_mcp_session =
         "the replaced address must stop answering",
       );
     } finally {
+      // Closing stdin is what asks the server to exit, so it belongs here: a
+      // failing assertion above must not leave a resident compiler behind.
       client.endStdin();
     }
 
     // The refresh has to leave the session healthy, not merely answer: a graph
     // that reloads correctly and then crashes its native child on shutdown
-    // would pass every assertion above.
-    const code = await client.waitForExit();
-    assert.equal(code, 0, client.stderrText());
+    // would pass every assertion above. Awaited outside the block because
+    // waiting twice on one child is what times out.
+    assert.equal(await client.waitForExit(), 0, client.stderrText());
   };

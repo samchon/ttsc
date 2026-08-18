@@ -2,6 +2,7 @@ package graph
 
 import (
   "path/filepath"
+  "strings"
   "testing"
 
   "github.com/samchon/ttsc/packages/ttsc/driver"
@@ -140,7 +141,7 @@ export namespace Documented2 {
   // because `putDeclaredNode` is never called for one either. The two halves
   // being absent together is the invariant; one of them answering alone is the
   // defect this pairing exists to catch.
-  assertNoDocRef(t, g, "#Documented2:")
+  assertNoNamespaceNode(t, g, "#Documented2:")
   assertNoDocRefTo(t, g, "#Documented2.value:variable", "#ISale:interface")
 
   // A member's link belongs to the member. The same walk hands a property's
@@ -149,6 +150,27 @@ export namespace Documented2 {
   assertDocRef(t, g, "#Documented.coupon:variable", "#Shopping.ICoupon:interface")
   assertNoDocRefTo(t, g, "#Documented:class", "#Shopping.ICoupon:interface")
   assertDocRef(t, g, "#Documented.run:method", "#ISale:interface")
+}
+
+// assertNoNamespaceNode fails when the graph holds a node for this namespace,
+// or any doc_ref edge leaving one.
+//
+// A suffix match cannot express this: every node id ends in its kind, so
+// "#Documented2:" is a suffix of nothing and an assertion written that way
+// passes against an implementation that records the namespace and cites from
+// it — the exact defect the pairing exists to catch.
+func assertNoNamespaceNode(t *testing.T, g *Graph, infix string) {
+  t.Helper()
+  for id := range g.Nodes {
+    if strings.Contains(id, infix) {
+      t.Fatalf("graph recorded %s; a namespace is modelled as no node, so its documentation has no host", id)
+    }
+  }
+  for _, edge := range g.Edges {
+    if edge.Kind == EdgeDocRef && strings.Contains(edge.From, infix) {
+      t.Fatalf("a namespace node cited %s", edge.To)
+    }
+  }
 }
 
 // assertNoDocRefTo fails when a doc_ref edge runs between these two nodes.

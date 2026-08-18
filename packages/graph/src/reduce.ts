@@ -205,7 +205,7 @@ function degreeOf(
 /**
  * Collapse the fine-grained wire kinds `ttscgraph dump` emits (calls,
  * instantiates, renders, accesses, type_ref, doc_ref, extends, implements,
- * overrides) into the three display families the viewer colors and its legend
+ * overrides) into the four display families the viewer colors and its legend
  * name. An unknown kind passes through and renders with the fallback color.
  */
 const DISPLAY_KIND: Record<string, string> = {

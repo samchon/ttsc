@@ -228,9 +228,9 @@ export namespace TtscBenchmarkGraphReduce {
 
   /**
    * Collapse the fine-grained wire kinds `ttscgraph dump` emits (calls,
-   * instantiates, renders, accesses, type_ref, extends, implements, overrides)
-   * into the three display families the viewer colors and its legend name. An
-   * unknown kind passes through and renders with the fallback color.
+   * instantiates, renders, accesses, type_ref, doc_ref, extends, implements,
+   * overrides) into the four display families the viewer colors and its legend
+   * name. An unknown kind passes through and renders with the fallback color.
    */
   const DISPLAY_KIND: Record<string, string> = {
     calls: "value-call",
@@ -238,6 +238,7 @@ export namespace TtscBenchmarkGraphReduce {
     renders: "value-call",
     accesses: "value-call",
     type_ref: "type-ref",
+    doc_ref: "doc-ref",
     extends: "heritage",
     implements: "heritage",
     overrides: "heritage",

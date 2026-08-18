@@ -491,13 +491,13 @@ export function decoratorsOf(
  * length a doc summary is, optionally narrowed to the ones a caller matched.
  *
  * The text is a reason written for a human reader, so the same budget applies:
- * enough to judge what the declaration claims, not the whole paragraph.
+ * enough to judge what the declaration claims, not the whole paragraph. What
+ * the budget may never reach is the address the text opens with, which is a
+ * hit's explanation of why it is in the result; {@link elideTagText} keeps it.
  *
- * The elision never cuts the address the text opens with. A long URL is one
- * token and can exceed the budget by itself, and cutting it returns a hit whose
- * text no longer contains the thing the caller searched for — so where the cut
- * would land inside the first token, the token is kept whole and the prose
- * after it goes instead.
+ * The optional filter narrows to the tags a caller matched. It runs on the
+ * node's own tags, before any elision, so a tag found by an address longer than
+ * the budget is still recognized as the one that matched.
  */
 export function docTagsOf(
   node: ITtscGraphNode,
