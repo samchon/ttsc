@@ -1,4 +1,5 @@
 import { ITtscGraphDecorator } from "./ITtscGraphDecorator";
+import { ITtscGraphDocTag } from "./ITtscGraphDocTag";
 
 /** Targeted symbol lookup when a concrete name or handle is being resolved. */
 export interface ITtscGraphLookup {
@@ -62,6 +63,15 @@ export namespace ITtscGraphLookup {
 
     /** Decorators written on this declaration, when any. */
     decorators?: ITtscGraphDecorator[];
+
+    /**
+     * The documentation tags that matched the query, when the query named one.
+     *
+     * Present only on a hit found through its tags, so it says why this
+     * declaration is here: the query named a specification and this is the code
+     * that answers to it. A hit matched by name carries none.
+     */
+    docTags?: ITtscGraphDocTag[];
 
     /** Relative relevance; higher is a better match. */
     score: number;

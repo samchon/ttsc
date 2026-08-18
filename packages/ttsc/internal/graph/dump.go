@@ -57,6 +57,15 @@ type DumpDecorator struct {
   Arguments []DumpDecoratorArgument `json:"arguments"`
 }
 
+// DumpDocTag is one documentation tag TypeScript does not recognize, carried on
+// the declaration it was written on. `name` is the tag without its `@` and
+// `text` is everything after it, joined into one line. Neither is interpreted:
+// which part of a text names a thing belongs to whichever convention wrote it.
+type DumpDocTag struct {
+  Name string `json:"name"`
+  Text string `json:"text,omitempty"`
+}
+
 // DumpEnumMember is one member of an enum on the wire: the name a caller writes
 // and the value it carries. `value` is omitted for a member the checker could
 // not fold to a constant — the name still stands, and the name is what a caller
@@ -102,6 +111,7 @@ type DumpNode struct {
   Evidence       *DumpEvidence      `json:"evidence,omitempty"`
   Implementation *DumpEvidence      `json:"implementation,omitempty"`
   Decorators     []DumpDecorator    `json:"decorators,omitempty"`
+  DocTags        []DumpDocTag       `json:"docTags,omitempty"`
 }
 
 // DumpEdge is the wire shape of a graph edge. Lowercase json keys are the
@@ -233,6 +243,13 @@ func newDumpFacts(g *Graph, project string, ignored map[string]bool, sources map
     decByNode[d.Target] = append(decByNode[d.Target], DumpDecorator{Name: d.Name, Arguments: args})
   }
 
+  // Documentation tags ride on their target node the same way, grouped before
+  // relativization for the same reason.
+  tagsByNode := make(map[string][]DumpDocTag, len(g.DocTags))
+  for _, t := range g.DocTags {
+    tagsByNode[t.Target] = append(tagsByNode[t.Target], DumpDocTag{Name: t.Name, Text: t.Text})
+  }
+
   nodes := make([]DumpNode, 0, len(g.Nodes))
   for _, n := range g.Nodes {
     name, qualified := nodeNames(n)
@@ -261,6 +278,7 @@ func newDumpFacts(g *Graph, project string, ignored map[string]bool, sources map
       Evidence:       withoutFile(ctx.evidence(n.File, n.Pos, n.End)),
       Implementation: ctx.evidence(n.ImplementationFile, n.ImplementationPos, n.ImplementationEnd),
       Decorators:     decByNode[n.ID],
+      DocTags:        tagsByNode[n.ID],
     })
   }
   sort.Slice(nodes, func(i, j int) bool { return nodes[i].ID < nodes[j].ID })

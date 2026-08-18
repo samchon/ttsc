@@ -1,6 +1,7 @@
 import { TtscGraphMemory } from "../model/TtscGraphMemory";
 import { ITtscGraphDecorator } from "../structures/ITtscGraphDecorator";
 import { ITtscGraphDetails } from "../structures/ITtscGraphDetails";
+import { ITtscGraphDocTag } from "../structures/ITtscGraphDocTag";
 import { ITtscGraphEdge } from "../structures/ITtscGraphEdge";
 import { ITtscGraphEvidence } from "../structures/ITtscGraphEvidence";
 import { ITtscGraphNode } from "../structures/ITtscGraphNode";
@@ -106,6 +107,8 @@ export function runDetails(
     if (doc !== undefined) detail.doc = doc;
     const decorators = decoratorsOf(node);
     if (decorators !== undefined) detail.decorators = decorators;
+    const docTags = docTagsOf(node);
+    if (docTags !== undefined) detail.docTags = docTags;
     const implementation = evidenceCoordinatesOf(node.implementation);
     if (implementation !== undefined) detail.implementation = implementation;
     const span = implementation ?? evidenceCoordinatesOf(node.evidence);
@@ -481,6 +484,26 @@ export function decoratorsOf(
   return node.decorators !== undefined && node.decorators.length > 0
     ? node.decorators
     : undefined;
+}
+
+/**
+ * The declaration's documentation tags, with each text elided at the same
+ * length a doc summary is.
+ *
+ * The text is a reason written for a human reader, so the same budget applies:
+ * enough to judge what the declaration claims, not the whole paragraph. The tag
+ * name and the target that opens the text are never cut, because those are what
+ * a reader matches on — the cap only ever reaches the prose after them.
+ */
+export function docTagsOf(
+  node: ITtscGraphNode,
+): ITtscGraphDocTag[] | undefined {
+  if (node.docTags === undefined || node.docTags.length === 0) return undefined;
+  return node.docTags.map((tag) =>
+    tag.text !== undefined && tag.text.length > MAX_DOC_CHARS
+      ? { ...tag, text: tag.text.slice(0, MAX_DOC_CHARS).trimEnd() + "…" }
+      : tag,
+  );
 }
 
 /** Relationship evidence as public coordinates, omitted when absent. */

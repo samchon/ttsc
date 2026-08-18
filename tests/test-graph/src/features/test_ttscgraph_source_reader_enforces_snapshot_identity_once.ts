@@ -113,7 +113,7 @@ export const test_ttscgraph_source_reader_enforces_snapshot_identity_once =
     assert.equal(
       siblingPath,
       path.resolve("/checkout/app", "../shared/sibling.ts"),
-      "schema-v6 sibling coordinates resolve against the project locator",
+      "sibling coordinates resolve against the project locator",
     );
 
     const before = "export const before = 1;\n";

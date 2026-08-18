@@ -89,7 +89,9 @@ The interactive charts, every model, and the method are on the benchmark page: h
  * - `tour`: architecture, runtime flow, orientation, or a code tour. One call is
  *   the whole answer; do not split it.
  * - `entrypoints`: find where execution starts when entry points are unknown.
- * - `lookup`: locate a named symbol.
+ * - `lookup`: locate a named symbol, or — with a documentation target as the
+ *   query (`docs/pricing.md#sale`, `POST:/orders`) — the declarations whose
+ *   documentation cites it.
  * - `trace`: follow calls or data flow forward or backward from a symbol, or —
  *   with `to` — the path between two symbols when both ends are known, which is
  *   the one call that answers "how does A reach B".

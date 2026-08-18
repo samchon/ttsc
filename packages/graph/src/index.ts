@@ -35,7 +35,7 @@ export { resolveGraphBinary } from "./resolveGraphBinary";
  */
 export { reduce } from "./reduce";
 export type { RawDump, RawEdge, RawNode, ViewerPayload } from "./reduce";
-export { loadGraph } from "./model/loadGraph";
+export { DUMP_SCHEMA_VERSION, loadGraph } from "./model/loadGraph";
 export {
   TtscGraphSession,
   type TtscGraphRequestOptions,

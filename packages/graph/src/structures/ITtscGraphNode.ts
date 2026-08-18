@@ -1,4 +1,5 @@
 import { ITtscGraphDecorator } from "./ITtscGraphDecorator";
+import { ITtscGraphDocTag } from "./ITtscGraphDocTag";
 import { ITtscGraphEvidence } from "./ITtscGraphEvidence";
 import { TtscGraphNodeKind } from "./TtscGraphNodeKind";
 import { TtscGraphNodeModifier } from "./TtscGraphNodeModifier";
@@ -104,6 +105,21 @@ export interface ITtscGraphNode {
    * (`@Controller`, `@Get`) a consumer interprets without re-parsing source.
    */
   decorators?: ITtscGraphDecorator[];
+
+  /**
+   * Documentation tags TypeScript does not recognize, in source order: raw
+   * facts (`@evidence docs/pricing.md#sale`, `@reference …`) a consumer
+   * interprets without re-parsing source.
+   *
+   * This is where a declaration says what outside the type system it answers
+   * to, and it is the only place the graph holds it: the other end of such a
+   * relation is a document section or an API operation, which is not a node.
+   *
+   * Read it only when `provenance.capabilities` lists `docTags`. Without that
+   * claim the field is absent because the producer never looked, which is a
+   * different fact from a declaration that carries none.
+   */
+  docTags?: ITtscGraphDocTag[];
 
   /**
    * The declaration head, cut by the producer where the compiler says the body

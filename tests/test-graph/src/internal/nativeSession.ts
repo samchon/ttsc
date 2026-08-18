@@ -1,9 +1,8 @@
-import { TtscGraphSession } from "@ttsc/graph";
+import { DUMP_SCHEMA_VERSION, TtscGraphSession } from "@ttsc/graph";
 import { TestProject } from "@ttsc/testing";
 import fs from "node:fs";
 import path from "node:path";
 
-const DUMP_SCHEMA_VERSION = 6;
 let fakeBinary: string | undefined;
 
 export interface NativeSessionFixture {

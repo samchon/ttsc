@@ -454,6 +454,11 @@ func collectMembers(g *Graph, path string, statement *shimast.Node) {
 
 func putDeclaredNode(g *Graph, path, name string, kind NodeKind, declaration *shimast.Node) {
   id := nodeID(path, name, kind)
+  // Tags belong to the identity, not to whichever declaration of it wins the
+  // display span below. An overload run documented on its first signature and
+  // implemented underneath returns early from the node branch, so collecting
+  // there would drop exactly the declaration authors write documentation on.
+  collectDocTags(g, id, path, declaration)
   hasBody := declarationHasImplementation(declaration, kind)
   if _, exists := g.Nodes[id]; exists {
     if !hasBody || g.bodyNodes[id] {

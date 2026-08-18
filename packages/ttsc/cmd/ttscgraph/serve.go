@@ -57,13 +57,15 @@ const (
 )
 
 // fullSnapshotCapabilities is what a snapshot from a resident compiler session
-// proves. Both commands that own a real Program declare all three; the constant
-// exists so the envelope's claim and the dump's claim cannot drift apart.
+// proves. Both commands that own a real Program declare every one of them; the
+// constant exists so the envelope's claim and the dump's claim cannot drift
+// apart.
 var fullSnapshotCapabilities = []string{
   graph.CapabilityUniverse,
   graph.CapabilitySourceDigests,
   graph.CapabilityDiskDigests,
   graph.CapabilityDiagnostics,
+  graph.CapabilityDocTags,
 }
 
 // serveCapabilities is what this server can prove, answered before a consumer
@@ -75,8 +77,7 @@ var serveCapabilities = fullSnapshotCapabilities
 type serveRequest struct {
   ID int `json:"id"`
   // GraphSnapshotVersion opts into the incremental shard protocol. Omitted
-  // requests retain the schema-v6 full-dump response for existing
-  // @ttsc/graph clients.
+  // requests retain the full-dump response for existing @ttsc/graph clients.
   GraphSnapshotVersion int `json:"graphSnapshotVersion,omitempty"`
 }
 

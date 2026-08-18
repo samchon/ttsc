@@ -1,4 +1,5 @@
 import { ITtscGraphDecorator } from "./ITtscGraphDecorator";
+import { ITtscGraphDocTag } from "./ITtscGraphDocTag";
 import { ITtscGraphEvidence } from "./ITtscGraphEvidence";
 
 /**
@@ -134,6 +135,18 @@ export namespace ITtscGraphDetails {
 
     /** Decorators written on this declaration, when any. */
     decorators?: ITtscGraphDecorator[];
+
+    /**
+     * Documentation tags naming what outside the type system this declaration
+     * answers to: a specification section, an API operation, a reference
+     * document (`@evidence docs/pricing.md#sale`, `@reference …`).
+     *
+     * Part of what the declaration is, so it is returned whole like its members
+     * and its values — long text is elided, and nothing else is cut. The tag is
+     * reported as written and never interpreted: the graph does not say the
+     * text resolves to anything or that the claim is true.
+     */
+    docTags?: ITtscGraphDocTag[];
 
     /** Assigned implementation span, when source comes from one. */
     implementation?: ITtscGraphEvidence;

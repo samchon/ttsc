@@ -15,7 +15,7 @@ import (
 // field is added, removed, or given a new meaning, independently of the serve
 // envelope's protocol version: a one-shot `ttscgraph dump` written to a file has
 // a schema but never rode the protocol.
-const DumpSchemaVersion = 6
+const DumpSchemaVersion = 7
 
 // The capabilities a snapshot can declare. Each names one class of evidence a
 // consumer may rely on when, and only when, the snapshot lists it.
@@ -37,6 +37,15 @@ const (
   // CapabilityDiagnostics means Diagnostics is the compiler's complete
   // findings for this generation, as opposed to not having been collected.
   CapabilityDiagnostics = "diagnostics"
+  // CapabilityDocTags means every node carries the documentation tags
+  // TypeScript does not recognize, so an absent `docTags` genuinely means the
+  // declaration carries none.
+  //
+  // It is a separate claim rather than an inference from emptiness for the
+  // reason CapabilityDiskDigests is: a producer built before the field existed
+  // emits nothing, and a consumer reading that as "this declaration cites
+  // nothing" would answer a citation question with a confident, wrong "no".
+  CapabilityDocTags = "docTags"
 )
 
 // Provenance is the snapshot's evidence about the program that produced it.
@@ -219,7 +228,7 @@ func TypescriptVersion() string { return shimcore.Version() }
 
 // NewProvenance assembles the evidence for a snapshot while retaining the
 // compiler's physical paths. NewDump projects those paths together with every
-// node, edge, span, and diagnostic through its one cached schema-v6 mapper.
+// node, edge, span, and diagnostic through its one cached path mapper.
 // texts maps a source file's path to the text the checker read (as SourceTexts
 // returns it); disk maps that path to the hex digest of its on-disk bytes, and
 // a path absent from it is reported with an empty Disk. configs and roots come

@@ -24,6 +24,7 @@ export class TtscGraphMemory {
   private readonly inEdges: Map<string, ITtscGraphEdge[]>;
   private readonly byNameIndex: Map<string, ITtscGraphNode[]>;
   private readonly bySymbolIndex: Map<string, ITtscGraphNode[]>;
+  private readonly byDocTagTarget: Map<string, ITtscGraphNode[]>;
 
   /** The absolute project root the dump was built for. */
   readonly project: string;
@@ -48,6 +49,7 @@ export class TtscGraphMemory {
     this.byId = new Map(nodes.map((n) => [n.id, n]));
     this.byNameIndex = new Map();
     this.bySymbolIndex = new Map();
+    this.byDocTagTarget = new Map();
     for (const node of nodes) {
       const bucket = this.byNameIndex.get(node.name);
       if (bucket) bucket.push(node);
@@ -57,6 +59,11 @@ export class TtscGraphMemory {
         if (node.qualifiedName !== undefined) {
           push(this.bySymbolIndex, node.qualifiedName, node);
         }
+      }
+      for (const target of docTagTargetsOf(node)) {
+        const carriers = this.byDocTagTarget.get(target);
+        if (carriers === undefined) this.byDocTagTarget.set(target, [node]);
+        else if (!carriers.includes(node)) carriers.push(node);
       }
     }
     this.outEdges = new Map();
@@ -102,6 +109,58 @@ export class TtscGraphMemory {
   exported(): ITtscGraphNode[] {
     return this.nodes.filter((n) => n.exported && !n.external);
   }
+
+  /**
+   * Every declaration whose documentation carries a tag whose text opens with
+   * this token — the reverse of the citation question.
+   *
+   * The forward direction costs a reader one file: the tag sits above the
+   * declaration they already found. The reverse direction is what an index is
+   * for, because the declarations implementing one specification are scattered
+   * across every file that implements it, and finding them otherwise means
+   * searching the whole repository.
+   *
+   * The token is a selection rule rather than a producer fact. Which part of a
+   * tag's text names a thing belongs to whatever convention wrote the tag, so
+   * the index treats the leading whitespace-delimited token as the candidate
+   * and lets the ranked operations judge — which is the layer whose audit
+   * already declares its selection heuristic.
+   */
+  citing(target: string): readonly ITtscGraphNode[] {
+    return this.byDocTagTarget.get(target) ?? [];
+  }
+}
+
+/**
+ * The leading token of each of a node's documentation tags, deduplicated.
+ *
+ * A braced inline link is one token including its braces (`{@link ISale}`),
+ * because that is how the author wrote the target and how a reader searching
+ * for it will spell it. Splitting on whitespace alone would key it under
+ * `{@link`, which is every link in the project.
+ */
+function docTagTargetsOf(node: ITtscGraphNode): string[] {
+  if (node.docTags === undefined) return [];
+  const targets: string[] = [];
+  for (const tag of node.docTags) {
+    const token = leadingTargetToken(tag.text);
+    if (token !== undefined && !targets.includes(token)) targets.push(token);
+  }
+  return targets;
+}
+
+/** The first whitespace-delimited token, or the whole brace group it opens. */
+export function leadingTargetToken(
+  text: string | undefined,
+): string | undefined {
+  const trimmed = text?.trim();
+  if (trimmed === undefined || trimmed === "") return undefined;
+  if (trimmed.startsWith("{")) {
+    const close = trimmed.indexOf("}");
+    if (close > 0) return trimmed.slice(0, close + 1);
+  }
+  const stop = trimmed.search(/\s/u);
+  return stop < 0 ? trimmed : trimmed.slice(0, stop);
 }
 
 /** Append value to the slice stored at key, creating the slice on first use. */
@@ -136,7 +195,7 @@ function ownerKey(node: ITtscGraphNode): string | undefined {
   return owner === "" ? undefined : owner;
 }
 
-/** A file's id and node name from its schema-v6 path coordinate. */
+/** A file's id and node name from its dump path coordinate. */
 function fileNodeId(file: string): string {
   return file;
 }

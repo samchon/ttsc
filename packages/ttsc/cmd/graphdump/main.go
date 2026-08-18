@@ -28,7 +28,7 @@ func run() int {
   flag.Parse()
 
   // Resolve the project root the same way LoadProgram does (absolute, then
-  // tsgo-normalized) so the schema-v6 mapper receives the same canonical root
+  // tsgo-normalized) so the dump path mapper receives the same canonical root
   // grammar and drive-letter case as the compiler's source paths.
   root := *cwd
   if abs, err := filepath.Abs(root); err == nil {

@@ -19,7 +19,7 @@ import { TtscGraphMemory } from "./TtscGraphMemory";
  * the body's are independent, so a producer can speak this protocol and still
  * send a body from another schema.
  */
-export const DUMP_SCHEMA_VERSION = 6;
+export const DUMP_SCHEMA_VERSION = 7;
 
 /**
  * Build the resident {@link TtscGraphMemory} for a project by running `ttscgraph

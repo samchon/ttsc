@@ -16,7 +16,7 @@ import { TtscGraphDumpNodeKind } from "./TtscGraphDumpNodeKind";
  * the same dump.
  *
  * `project` is the producer-local absolute locator. Every identity-bearing path
- * uses one schema-v6 coordinate relative to it: project files are ordinary
+ * uses one portable coordinate relative to it: project files are ordinary
  * relative paths; same-filesystem siblings use `../` segments; package files
  * keep their full resolution context (including version/peer-store segments);
  * and a virtual compiler source stays `bundled:///…`. Raw absolute identities
@@ -76,8 +76,8 @@ export namespace ITtscGraphDump {
      * guessing from a field's emptiness, because an empty list and an
      * uncollected one look identical on the wire.
      *
-     * The known members are `universe`, `sourceDigests`, `diskDigests`, and
-     * `diagnostics`. The type stays `string[]` rather than a union of those on
+     * The known members are `universe`, `sourceDigests`, `diskDigests`,
+     * `diagnostics`, and `docTags`. The type stays `string[]` rather than a union of those on
      * purpose: a union would make `typia.assert` reject a newer producer for
      * naming a capability this client has not heard of, turning "proves more
      * than you know about" into a hard failure. An unknown capability is

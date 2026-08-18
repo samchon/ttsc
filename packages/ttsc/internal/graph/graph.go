@@ -204,6 +204,18 @@ type Graph struct {
   // re-parsing source. It is dump-only metadata, separate from Edges so the
   // existing checker-resolved relationships are untouched.
   Decorators []*Decorator
+  // DocTags holds the documentation tags TypeScript does not recognize, written
+  // on the workspace's declarations and captured verbatim so the JSON dump can
+  // attach them to each target node. A convention that attaches a declaration to
+  // something outside the type system — a specification section, an API
+  // operation, a reference document — writes it here and nowhere the graph could
+  // otherwise see. Dump-only metadata, separate from Edges for the same reason
+  // Decorators is.
+  DocTags []*DocTag
+  // docTagPositions deduplicates DocTags by where each tag is written, so a
+  // declaration presented to putDeclaredNode more than once contributes its tags
+  // once. Build-only, like bodyNodes.
+  docTagPositions map[docTagKey]struct{}
   // bodyNodes tracks whether a callable node's display span is the overload
   // implementation rather than an overload signature. It is build-only metadata
   // and intentionally stays out of JSON dumps.

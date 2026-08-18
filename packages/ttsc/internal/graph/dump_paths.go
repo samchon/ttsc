@@ -9,7 +9,7 @@ import (
   shimtspath "github.com/microsoft/typescript-go/shim/tspath"
 )
 
-// dumpPathMapper owns the schema-v6 path vocabulary for one dump. Every
+// dumpPathMapper owns the dump path vocabulary for one dump. Every
 // identity-bearing path passes through this one cache, so the producer can
 // reject both an unportable filesystem root and a non-injective projection
 // before any JSON is written.
@@ -50,7 +50,7 @@ func WireProject(project string) (string, error) {
   return mapper.project, mapper.err()
 }
 
-// WirePath maps one compiler path into the portable schema-v6 vocabulary used
+// WirePath maps one compiler path into the portable dump vocabulary used
 // by dumps and resident graph shards. Callers that project a complete graph
 // keep one dumpPathMapper so collision detection spans every path; callers
 // shaping a single source/config coordinate use this helper and receive the

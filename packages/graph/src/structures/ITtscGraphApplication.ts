@@ -34,7 +34,9 @@ import { ITtscGraphTrace } from "./ITtscGraphTrace";
  *   the whole answer; do not split it. Name the machinery you expect it to be
  *   made of in its `reinterpretations`, or send none.
  * - `entrypoints`: find where execution starts when entry points are unknown.
- * - `lookup`: locate a named symbol.
+ * - `lookup`: locate a named symbol, or — with a documentation target as the
+ *   query (`docs/pricing.md#sale`, `POST:/orders`) — the declarations whose
+ *   documentation cites it.
  * - `trace`: follow calls or data flow forward or backward from a symbol, or —
  *   with `to` — the path between two symbols when both ends are known, which is
  *   the one call that answers "how does A reach B".
@@ -103,7 +105,8 @@ export interface ITtscGraphApplication {
    *   in one call
    * - `trace`: what a symbol calls, what calls it, or the path from A to B
    * - `details`: signatures, members, and what implements an interface
-   * - `lookup`: where a named symbol is declared
+   * - `lookup`: where a named symbol is declared, or which declarations cite a
+   *   documentation target
    * - `entrypoints`: where execution starts, when the entry is unknown
    * - `overview`: the project's layers and folder structure
    *
