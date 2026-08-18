@@ -92,6 +92,10 @@ export function noLink(): void {}
 /** Names {@link ISale}, of which this file imports exactly one. */
 export function ambiguousName(): void {}
 
+/** Names a library type: {@link Promise}. */
+export function linksExternal(): void {}
+
+
 /** A class documented with {@link ISale} on the class itself. */
 export class Documented {
   /** @evidence {@link Shopping.ICoupon} On the member, not the class. */
@@ -174,6 +178,36 @@ export namespace Documented2 {
   assertNodeExists(t, g, "other.ts#ISale:interface")
   assertDocRef(t, g, "#ambiguousName:function", "sale.ts#ISale:interface")
   assertNoDocRefTo(t, g, "#ambiguousName:function", "other.ts#ISale:interface")
+
+  // A link to a library type follows the external-boundary policy every other
+  // edge kind keeps: the target is a named endpoint, not walked into.
+  assertExternalDocRef(t, g, "#linksExternal:function", "Promise")
+}
+
+// assertExternalDocRef fails unless exactly one doc_ref edge leaves the node and
+// lands on an external declaration of this name.
+func assertExternalDocRef(t *testing.T, g *Graph, fromSuffix, name string) {
+  t.Helper()
+  found := 0
+  for _, edge := range g.Edges {
+    if edge.Kind != EdgeDocRef || !suffixMatch(edge.From, fromSuffix) {
+      continue
+    }
+    target := g.Nodes[edge.To]
+    if target == nil {
+      t.Fatalf("%s cited %s, which is no node", fromSuffix, edge.To)
+    }
+    if target.Simple != name {
+      continue
+    }
+    found++
+    if !target.External {
+      t.Fatalf("%s is a library declaration and must be an external boundary leaf", edge.To)
+    }
+  }
+  if found != 1 {
+    t.Fatalf("%s -> external %s edges = %d, want 1", fromSuffix, name, found)
+  }
 }
 
 // assertNoNamespaceNode fails when the graph holds a node for this namespace,
