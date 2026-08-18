@@ -57,6 +57,13 @@ interface ICacheProjectOptions {
   fileCount?: number;
   graphFanout?: number;
   graphGlobals?: number;
+  /**
+   * Stamp one graph member with no compiler-time content hash while keeping its
+   * physical-identity proof, the shape a host reports for an input it could see
+   * but not read. Pairs with a cache whose `readFile` refuses that path, which
+   * makes the state deterministic on every platform.
+   */
+  unhashedGraphInput?: boolean;
   independentGraphLeaf?: string;
   partitionGraph?: boolean;
   snapshotAbaRace?: boolean;
@@ -906,6 +913,76 @@ async function assertUnavailableNotificationsKeepThePersistentCache(): Promise<v
     pluginRuns(),
     5,
     "a steady project must not recompile once its snapshot matches again",
+  );
+}
+
+/**
+ * Asserts a graph member with no readable content never acquires a proof.
+ *
+ * A signature stands for the bytes a read proved, so an input that has none
+ * cannot have one. A member the compiler recorded without a content hash, and
+ * that the host can stat but not read, matches its recorded `missing` state
+ * exactly while unreadable; if it were handed a signature at capture, becoming
+ * readable without a metadata change would leave the narrow path skipping it
+ * forever and replaying output computed from nothing.
+ */
+async function assertUnreadableGraphInputKeepsTheContentComparison(): Promise<void> {
+  const { createTtscTransformCache, resolveOptions, transformTtsc } =
+    await TestUnpluginRuntime.loadUnpluginApi();
+  const project = createCacheProject({
+    fileCount: 4,
+    graphFanout: 4,
+    unhashedGraphInput: true,
+  });
+  const modules = projectModules(project.root);
+  const unreadable = path.join(
+    project.root,
+    "node_modules",
+    "dep0",
+    "index.d.ts",
+  );
+  let denied = true;
+  const cache = createTtscTransformCache({
+    readFile: (location: string) => {
+      if (denied && path.resolve(location) === unreadable) {
+        const error = new Error("permission denied") as NodeJS.ErrnoException;
+        error.code = "EACCES";
+        throw error;
+      }
+      return fs.readFileSync(location);
+    },
+  });
+  const options = resolveOptions();
+  const deliver = (file: string) =>
+    transformTtsc(
+      file,
+      fs.readFileSync(file, "utf8"),
+      options,
+      undefined,
+      cache,
+    );
+  const pluginRuns = (): number =>
+    fs.existsSync(project.runLog)
+      ? fs.readFileSync(project.runLog, "utf8").length
+      : 0;
+
+  for (const file of modules) {
+    assert.ok(await deliver(file));
+  }
+  assert.equal(
+    pluginRuns(),
+    1,
+    "an unreadable member matching its recorded state must still hit the cache",
+  );
+
+  // Readable again, with every byte of metadata unchanged: only a content
+  // comparison can see this.
+  denied = false;
+  assert.ok(await deliver(modules[0]!));
+  assert.equal(
+    pluginRuns(),
+    2,
+    "content that becomes readable must replace the generation",
   );
 }
 
@@ -1972,6 +2049,7 @@ function createCacheProject(options: ICacheProjectOptions): {
                 options.aliasedGlobal === true && process.platform !== "win32",
               graphFanout: options.graphFanout ?? 0,
               graphGlobals: options.graphGlobals ?? 0,
+              unhashedGraphInput: options.unhashedGraphInput === true,
               independentGraphLeaf: options.independentGraphLeaf,
               partitionGraph: options.partitionGraph === true,
               ...(options.snapshotAbaRace === true
@@ -2227,6 +2305,9 @@ function writeGoPlugin(root: string): void {
       "    for input, observed := range observedInputs { addGraphInputProof(result.Graph, root, input, observed) }",
       '    addGraphInputProof(result.Graph, root, "tsconfig.json", "")',
       '    for _, input := range externals { addGraphInputProof(result.Graph, root, input, "") }',
+      '    if boolValue(cfg, "unhashedGraphInput") {',
+      '      result.Graph.InputHashes["node_modules/dep0/index.d.ts"] = nil',
+      "    }",
       '    if boolValue(cfg, "aliasedGlobal") {',
       '      alias := "node_modules/global0/alias.d.ts"',
       "      result.Graph.Globals = append(result.Graph.Globals, alias)",
@@ -2293,8 +2374,8 @@ function writeGoPlugin(root: string): void {
 
 export {
   assertCacheHitsDespiteOutOfWalkOutputKey,
-  assertCompleteValidationProvesEachInputOnce,
   assertCacheTransformsMultiFileProjectOnce,
+  assertCompleteValidationProvesEachInputOnce,
   assertCompileSnapshotRaceCannotAuthorizeStaleOutput,
   assertCompileSnapshotAbaRaceCannotAuthorizeStaleOutput,
   assertIndependentGraphLeafCompileSnapshotAbaRaceCannotAuthorizeStaleOutput,
@@ -2316,5 +2397,6 @@ export {
   assertStaleMismatchUsesNewerGeneration,
   assertSupersededMatchingGenerationIsNotServed,
   assertUnavailableNotificationsKeepThePersistentCache,
+  assertUnreadableGraphInputKeepsTheContentComparison,
   assertUnsettledMetadataKeepsTheContentComparison,
 };
