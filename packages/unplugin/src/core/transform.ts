@@ -2043,11 +2043,13 @@ function matchesCompleteInputSnapshot(
   // byte-identical file selects a different file, and its own transitive
   // requires with it. Only the graph half of the out-of-walk snapshot records
   // realpaths, so without this the fallback would quietly hold a lower standard
-  // than the narrow path it stands in for.
+  // than the narrow path it stands in for. A generation with no manifest has no
+  // universal input to prove: the flag above already required one to be
+  // capturable, so its absence means the envelope carried none.
   const state = envelopeDerivation(cached);
   const hostValidation = state.hostInputValidation;
   if (
-    hostValidation === undefined ||
+    hostValidation !== undefined &&
     !matchesUniversalHostInputEntries(cached, hostValidation)
   ) {
     return false;
