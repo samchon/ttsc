@@ -1219,12 +1219,13 @@ func reviewProblems(
 //
 // Two properties are load-bearing and neither is obvious.
 //
-// The key is a *semantic* host identity, never `HostID`. `HostID` is a source
-// position, so the two halves of a merged identity carry different ones: keying on
-// it refused a review written on `namespace I` for a citation on `interface I`,
-// which is placement the graph elsewhere calls not worth a diagnostic and which
-// `evidence/review` accepts. The two rules then disagreed about the same file.
-// `model.go` says as much where it defines the field.
+// The key comes from a review's SemanticHostIDs, never from a declaration's
+// HostID. On graph hosts the latter is a source position, so the two halves of a
+// merged identity carry different ones: keying on it refused a review written on
+// `namespace I` for a citation on `interface I`, which is placement the graph
+// elsewhere calls not worth a diagnostic and which `evidence/review` accepts.
+// The two rules then disagreed about the same file. `model.go` says as much where
+// it defines the fields.
 //
 // Every indexable review supplies its ledger keys in SemanticHostIDs. Most are
 // graph identities. An unattached Prisma review instead supplies its synthetic
@@ -1263,7 +1264,7 @@ func newReviewLedger(reviews []*evidenceReview) *reviewLedger {
 //
 // The position fallback is declaration-only. A Prisma file-level exclusion is
 // a valid carrier without a semantic graph host, while the review parsed from
-// the same unattached run carries the file position as a semantic ledger key.
+// the same unattached run carries the file position as a synthetic ledger key.
 // Dropping this fallback makes that exclusion impossible to review.
 func (ledger *reviewLedger) find(
   declaration *evidenceDeclaration,
