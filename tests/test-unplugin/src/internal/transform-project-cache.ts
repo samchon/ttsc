@@ -32,11 +32,20 @@ import path from "node:path";
 interface ICacheProjectOptions {
   /**
    * Add a second lexical spelling of one global — a file symlink beside it —
-   * and stamp both into `graph.globals`. The two share one physical identity
-   * but not their metadata, which is what separates a per-spelling proof from a
-   * per-identity one. POSIX only: creating a file symlink on Windows needs
-   * elevation, so the option is dropped there and the case keeps its other
-   * assertions on every platform.
+   * and stamp both into `graph.globals`, the alias first.
+   *
+   * The two share one physical identity but not their metadata, which is what
+   * separates a per-spelling proof from a per-identity one. Order matters:
+   * `deriveWatchInputs` deduplicates graph inputs by identity, so only the
+   * first spelling is validated per delivery, while the out-of-walk snapshot
+   * keeps both and records the _last_ one under a shared identity key. Stamping
+   * the alias first therefore makes a per-identity manifest answer the wrong
+   * spelling and re-read the file on every delivery, which is the cost the
+   * per-spelling proof exists to avoid.
+   *
+   * POSIX only: creating a file symlink on Windows needs elevation, so the
+   * option is dropped there and the case keeps its other assertions on every
+   * platform.
    */
   aliasedGlobal?: boolean;
   emitExternalKey?: boolean;
@@ -1118,6 +1127,16 @@ async function assertPersistentValidationProvesSharedInputsOnce(): Promise<void>
     `persistent validation read ${(reads / modules.length).toFixed(1)} files per module for a shared closure (bound: 2)`,
   );
 
+  // One delivery in isolation: only the generation's own current file may be
+  // read. A second read means the aliased global lost its own proof to its
+  // target's, which a per-identity manifest does on every delivery.
+  reads = 0;
+  assert.ok(await deliver(modules[1]!));
+  assert.ok(
+    reads <= 1,
+    `an aliased spelling must keep its own proof (read ${reads} files)`,
+  );
+
   // A metadata-only change must revalidate by content, keep the generation, and
   // then stop being re-read.
   const touched = path.join(
@@ -2018,15 +2037,15 @@ function writeGoPlugin(root: string): void {
       "    for input, observed := range observedInputs { addGraphInputProof(result.Graph, root, input, observed) }",
       '    addGraphInputProof(result.Graph, root, "tsconfig.json", "")',
       '    for _, input := range externals { addGraphInputProof(result.Graph, root, input, "") }',
-      '    for j := 0; j < int(numberValue(cfg, "graphGlobals")); j++ {',
-      '      global := fmt.Sprintf("node_modules/global%d/index.d.ts", j)',
-      "      result.Graph.Globals = append(result.Graph.Globals, global)",
-      '      addGraphInputProof(result.Graph, root, global, "")',
-      "    }",
       '    if boolValue(cfg, "aliasedGlobal") {',
       '      alias := "node_modules/global0/alias.d.ts"',
       "      result.Graph.Globals = append(result.Graph.Globals, alias)",
       '      addGraphInputProof(result.Graph, root, alias, "")',
+      "    }",
+      '    for j := 0; j < int(numberValue(cfg, "graphGlobals")); j++ {',
+      '      global := fmt.Sprintf("node_modules/global%d/index.d.ts", j)',
+      "      result.Graph.Globals = append(result.Graph.Globals, global)",
+      '      addGraphInputProof(result.Graph, root, global, "")',
       "    }",
       '    if externalRaceFile != "" {',
       '      result.Graph.Edges["src/mod0.ts"] = append(result.Graph.Edges["src/mod0.ts"], externalRaceFile)',
