@@ -105,7 +105,7 @@ async function main(): Promise<void> {
     "  invariant: per-module reads stay bounded when every module reaches the",
   );
   console.log(
-    "  same closure and the same global-scope declarations (the real shape)\n",
+    "  same externals and the same global-scope declarations (the real shape)\n",
   );
   const sharedClosureModules = 50;
   recordFailure(
@@ -417,10 +417,11 @@ async function measureGraphBuild(
  * `partitionExternalInputs` each module owns one disjoint external graph input,
  * so rereading the whole envelope union shows up as reads growing with the
  * union rather than with the delivered file's own inputs. Without it every
- * module reaches the same closure and the same globals — the shape a real
- * program has — so reads grow with the closure unless one generation's proof of
- * a shared input is reused across its sibling deliveries. Both are gated by the
- * same per-file read budget; the stat budget is per scenario, because missing
+ * module reaches the same externals and the same globals — the shape a real
+ * program has, since a program's global-scope declarations belong to all of it
+ * — so reads grow with that shared set unless one generation's proof of an
+ * input is reused across its sibling deliveries. Both are gated by the same
+ * per-file read budget; the stat budget is per scenario, because missing
  * resolution candidates cannot be proven absent by metadata.
  */
 async function measureServeValidation(

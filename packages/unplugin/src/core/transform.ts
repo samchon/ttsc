@@ -1952,8 +1952,8 @@ function matchesCompleteInputSnapshot(
  * Adopt the signatures captured while this walk proved every recorded input
  * still carries its recorded content.
  *
- * Without this, a metadata-only change (a touch, a rewrite of identical bytes,
- * a restored file) costs a re-read on every later delivery for the rest of the
+ * Without this, a metadata-only change — a touch, or a rewrite of identical
+ * bytes — costs a re-read on every later delivery for the rest of the
  * generation's life, because the recorded signature can never match again. The
  * narrow path self-heals through {@link matchesProvenInput}; this is the same
  * refresh for the path that proves the whole snapshot at once.
@@ -2060,9 +2060,11 @@ function captureExternalInputSnapshot(
         )
       ) {
         complete = false;
-      } else {
+      } else if (currentHash !== null) {
         // The recorded hash is the compiler's own proof, so a signature may
         // only stand for it once the current bytes were shown to match it.
+        // A path with no readable content has no bytes to stand for: it can
+        // hold stable metadata while becoming readable, so it keeps the read.
         record(input, before, after);
       }
       hashes[identity] = proof.hash ?? "missing";
