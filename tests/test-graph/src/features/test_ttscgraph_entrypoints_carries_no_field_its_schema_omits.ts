@@ -95,7 +95,14 @@ export const test_ttscgraph_entrypoints_carries_no_field_its_schema_omits =
           result?: Record<string, unknown>;
         };
         if (value.result === undefined)
-          throw new Error(`Unexpected graph result: ${JSON.stringify(value)}`);
+          // The tool validates its own output, so an undeclared property is
+          // rejected before the result is built and this is where a schema
+          // drift surfaces. Carry the whole payload out, or the failure names
+          // the absence and not the field that caused it.
+          throw new Error(
+            `The graph returned no result for ${JSON.stringify(request)}. ` +
+              `Payload: ${JSON.stringify(result)}`,
+          );
         return value.result;
       };
 

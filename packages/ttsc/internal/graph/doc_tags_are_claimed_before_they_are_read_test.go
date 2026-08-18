@@ -3,28 +3,22 @@ package graph
 import (
   "encoding/json"
   "path/filepath"
-  "slices"
+  "reflect"
   "strings"
   "testing"
 
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestDocTagsAreClaimedBeforeTheyAreRead verifies that a dump carrying
-// documentation tags declares the capability that says so, and that a project
-// with no tags is unchanged apart from that claim.
+// TestDocTagsAreClaimedBeforeTheyAreRead verifies that the projection carries a
+// tag onto the wire and that a project with no tag is unchanged beside it.
 //
-// The claim is the whole contract. A consumer cannot tell "this declaration
-// cites nothing" from "this producer never looked" by inspecting the field —
-// both are an absent array — so a graph built before the field existed would be
-// read as a repository where nothing cites anything, which is a confident wrong
-// answer to the one question the field exists for. The claim is also what makes
-// the untagged case safe to ship: nothing else about that dump may move.
-//
-//  1. Marshal a dump for a project whose one declaration carries a tag.
-//  2. Marshal one for a project with the same declaration and no tag.
-//  3. Assert the capability is declared in both, that only the first carries a
-//     tag, and that the second's nodes and edges are otherwise identical.
+// The capability the shipped commands declare is asserted where it is made, in
+// `cmd/ttscgraph`: a test that hands a capability list to the marshaller and
+// reads it back proves only that the slice was copied, and would leave the
+// production list free to lose the member with nothing failing. What this one
+// owns is the other half — that a tag reaches the document, and that a project
+// using no convention pays nothing for the feature.
 func TestDocTagsAreClaimedBeforeTheyAreRead(t *testing.T) {
   tagged := dumpDocTagFixture(t, `/** @evidence docs/a.md#x Cited. */
 export function subject(): void {}
@@ -33,25 +27,19 @@ export function subject(): void {}
 export function subject(): void {}
 `)
 
-  for name, parsed := range map[string]dumpDocTagProbe{"tagged": tagged, "untagged": untagged} {
-    if !slices.Contains(parsed.Provenance.Capabilities, CapabilityDocTags) {
-      t.Fatalf("%s dump declares %v, missing %q — an absent field would then be unreadable",
-        name, parsed.Provenance.Capabilities, CapabilityDocTags)
-    }
-  }
-
   if got := docTagTexts(tagged); len(got) != 1 || got[0] != "docs/a.md#x Cited." {
     t.Fatalf("tagged dump carried %v", got)
   }
   if got := docTagTexts(untagged); len(got) != 0 {
-    t.Fatalf("untagged dump carried %v; the field must be absent, not empty", got)
+    t.Fatalf("untagged dump carried %v", got)
   }
 
-  // Everything else about the untagged dump is what it was: the feature costs a
-  // project that uses no convention exactly nothing on the wire.
-  if len(tagged.Nodes) != len(untagged.Nodes) || len(tagged.Edges) != len(untagged.Edges) {
-    t.Fatalf("node/edge counts diverged: tagged %d/%d, untagged %d/%d",
-      len(tagged.Nodes), len(tagged.Edges), len(untagged.Nodes), len(untagged.Edges))
+  // The rest of the untagged document is what it was: the feature costs a
+  // project using no convention exactly nothing. Compared structurally rather
+  // than by count, because equal counts survive a changed id, name, or span.
+  if !reflect.DeepEqual(strippedDocTags(tagged), untagged) {
+    t.Fatalf("the two documents differ beyond the tag: tagged %+v, untagged %+v",
+      strippedDocTags(tagged), untagged)
   }
 }
 
@@ -60,13 +48,35 @@ type dumpDocTagProbe struct {
   Provenance struct {
     Capabilities []string `json:"capabilities"`
   } `json:"provenance"`
-  Nodes []struct {
-    ID      string       `json:"id"`
-    DocTags []DumpDocTag `json:"docTags"`
-  } `json:"nodes"`
-  Edges []struct {
-    Kind string `json:"kind"`
-  } `json:"edges"`
+  Nodes []dumpDocTagNode `json:"nodes"`
+  Edges []dumpDocTagEdge `json:"edges"`
+}
+
+type dumpDocTagNode struct {
+  ID        string       `json:"id"`
+  Kind      string       `json:"kind"`
+  Name      string       `json:"name"`
+  Signature string       `json:"signature"`
+  Evidence  any          `json:"evidence"`
+  DocTags   []DumpDocTag `json:"docTags"`
+}
+
+type dumpDocTagEdge struct {
+  From     string `json:"from"`
+  To       string `json:"to"`
+  Kind     string `json:"kind"`
+  Evidence any    `json:"evidence"`
+}
+
+// strippedDocTags is the tagged document with its tags removed, which is what
+// the untagged one must equal.
+func strippedDocTags(parsed dumpDocTagProbe) dumpDocTagProbe {
+  out := parsed
+  out.Nodes = append([]dumpDocTagNode(nil), parsed.Nodes...)
+  for index := range out.Nodes {
+    out.Nodes[index].DocTags = nil
+  }
+  return out
 }
 
 func docTagTexts(parsed dumpDocTagProbe) []string {

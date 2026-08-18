@@ -68,8 +68,6 @@ import type { IArchive } from "./archive";
 import type { ISale, Shopping } from "./sale";
 import type { IVendor } from "./vendor";
 
-
-
 /** @evidence {@link ISale} Cited from a tag. */
 export function fromTag(): void {}
 
@@ -117,7 +115,6 @@ export function usesVendor(): void {}
 
 /** Names a library type: {@link Promise}. */
 export function linksExternal(): void {}
-
 
 /** A class documented with {@link ISale} on the class itself. */
 export class Documented {
