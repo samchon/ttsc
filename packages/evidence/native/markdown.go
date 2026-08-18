@@ -315,7 +315,6 @@ func scanMarkdownInventory(
     }
     for _, review := range parseReviews(comment) {
       inventory.Reviews = append(inventory.Reviews, &evidenceReview{
-        HostID:          hostIDAtLine[line-1],
         SemanticHostIDs: []string{hostIDAtLine[line-1]},
         Reviews:         review.Reviews,
         Type:            artifactMarkdown,

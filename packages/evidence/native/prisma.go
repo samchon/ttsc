@@ -586,7 +586,6 @@ func prismaDeclarationsFromComments(
       // nothing reads back — the same dead end the attached case just escaped.
       for _, review := range parseReviews(run.Body) {
         shared := &evidenceReview{
-          HostID:          "prisma:" + run.Path + ":file",
           SemanticHostIDs: []string{"prisma:" + run.Path + ":file"},
           Reviews:         review.Reviews,
           Type:            artifactPrisma,
@@ -664,7 +663,6 @@ func prismaDeclarationsFromComments(
     // author cannot perform.
     for _, review := range parseReviews(run.Body) {
       shared := &evidenceReview{
-        HostID:          host.ID,
         SemanticHostIDs: []string{host.ID},
         Reviews:         review.Reviews,
         Type:            artifactPrisma,

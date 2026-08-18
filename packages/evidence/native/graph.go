@@ -1226,6 +1226,12 @@ func reviewProblems(
 // `evidence/review` accepts. The two rules then disagreed about the same file.
 // `model.go` says as much where it defines the field.
 //
+// Reviews always carry semantic identities. Declarations are asymmetric: an
+// unattached Prisma documentation run carries an exclusion at a file position
+// that materializes no graph unit, so only lookup keeps a position fallback.
+// Indexing a review by its position too described a producer that does not
+// exist and obscured the one live exception.
+//
 // It is built once per claim rather than scanned per citation. A linear search
 // over every review, for every declaration, for every reference, is cubic in the
 // three things a large project has most of.
@@ -1241,7 +1247,7 @@ func newReviewLedger(reviews []*evidenceReview) *reviewLedger {
     if review == nil {
       continue
     }
-    for _, hostID := range reviewLedgerHostIDs(review) {
+    for _, hostID := range review.SemanticHostIDs {
       key := reviewLedgerKey(hostID, review.Reviews, review.Target)
       if ledger.byHostAndTarget[key] == nil {
         ledger.byHostAndTarget[key] = review
@@ -1251,22 +1257,12 @@ func newReviewLedger(reviews []*evidenceReview) *reviewLedger {
   return ledger
 }
 
-// reviewLedgerHostIDs is every identity a review answers on.
-//
-// The position identity is kept as a fallback for a carrier that has no semantic
-// host at all, such as an unattached Prisma documentation run, whose declarations
-// are keyed the same way.
-func reviewLedgerHostIDs(review *evidenceReview) []string {
-  if len(review.SemanticHostIDs) != 0 {
-    return review.SemanticHostIDs
-  }
-  if review.HostID == "" {
-    return nil
-  }
-  return []string{review.HostID}
-}
-
 // find locates the review bound to one declaration's identity and target.
+//
+// The position fallback is declaration-only. A Prisma file-level exclusion is
+// a valid carrier without a semantic graph host, while the review parsed from
+// the same unattached run carries the file position as a semantic ledger key.
+// Dropping this fallback makes that exclusion impossible to review.
 func (ledger *reviewLedger) find(
   declaration *evidenceDeclaration,
 ) *evidenceReview {
