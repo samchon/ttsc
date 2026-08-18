@@ -177,6 +177,8 @@ reference := ec.Factory.NewPropertyAccessExpression(
 )
 ```
 
+Synthesizing that import is the only way to reach a module from injected code. The driver marks linked references on the parse tree, before your transform runs, so a value reference your transform injects cannot keep an import alive that the source itself uses only in type position — TypeScript-Go's import elision has already decided that import carries no runtime value. Your own synthetic import is never at risk: it has no parse-tree original, so elision cannot reason about it and preserves it unconditionally. The reverse also holds. When your transform removes the last value use of an import the source really had, that import survives, because the marks describe the file the checker analyzed rather than the file you produced. This is the same contract `ts-patch` had on TypeScript 5 and 6, where the marks were fixed at check time.
+
 Do not derive an injected import binding with `NewGeneratedNameForNode(moduleSpecifier)` when `moduleSpecifier` is a string literal. Tsgo routes that node kind through its temp-name channel (`_a`, `_b`, and so on). ES2015-ES2019 lowering can allocate the same names inside a nested function for optional chaining or nullish coalescing, shadowing the module-level import at runtime. `NewUniqueNameEx` uses the non-conflicting unique-name channel; `FileLevel` checks source bindings and `Optimistic` keeps the unsuffixed base name when it is available.
 
 ## Hosting `ttscserver`

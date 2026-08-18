@@ -93,8 +93,11 @@ func TestPrototypeAssembledAlias(t *testing.T) {
   shimast.SetParentInChildren(transformed.AsNode())
 
   // builtin emit chain (type-erase, import-elision, module-transform, ...) in
-  // the SAME EmitContext, applied after the plugin transformer.
-  builtins := shimcompiler.GetScriptTransformers(ec, host, transformed)
+  // the SAME EmitContext, applied after the plugin transformer. The chain is
+  // built from the PARSE tree and applied to the transformed one, exactly as
+  // EmitWithPluginTransformers does it: the file handed to GetScriptTransformers
+  // is the reference-marking target, not the file being transformed.
+  builtins := shimcompiler.GetScriptTransformers(ec, host, sf)
   out := transformed
   for _, tr := range builtins {
     out = tr.TransformSourceFile(out)

@@ -96,13 +96,22 @@ func (p *Program) EmitLinkedTransforms(writeFile shimcompiler.WriteFile) ([]Diag
 // because the emit context's update hook only records the original, it does not
 // copy `DeclarationBase.Symbol`.
 //
-// tsgo's emit resolver then walks the transformed tree in
-// MarkLinkedReferencesRecursively and, when it resolves an identifier whose
-// scope chain passes through one of those rebuilt containers, calls
+// A rebuilt container is indistinguishable from a parse node to tsgo's own
+// guards. The emit context stamps NodeFlagsSynthesized when its factory creates
+// a node, but ast.updateNode then ASSIGNS `updated.Flags = original.Flags` and
+// clears it again, so ast.IsParseTreeNode reports true for a container that
+// carries no symbol. Every EmitResolver reference method (GetReferenced*,
+// IsReferencedAliasDeclaration, ...) tests exactly that predicate on the node it
+// is handed, so the builtin module and runtime-syntax transformers still reach
+// checker name resolution through such a container, and resolveName then calls
 // getSymbolOfDeclaration(container) — which reads container.Symbol() and nil-
-// panics on a rebuilt class/interface/enum. Restoring the symbol from the
-// original (the symbol object is shared and node-independent for lookup) lets
-// the resolver mark references the same way it would on the parse tree.
+// panics on a rebuilt class/interface/enum.
+//
+// Restoring the symbol from the original (the symbol object is shared and
+// node-independent for lookup) lets the resolver resolve through the rebuilt
+// container the same way it would on the parse tree. EmitContext.ParseNode is
+// not affected either way: it walks MostOriginal before testing the predicate,
+// so it always lands on the genuine parse node.
 func restoreOriginalDeclarationSymbols(ec *shimprinter.EmitContext, node *shimast.Node) {
   if node == nil {
     return
@@ -180,7 +189,30 @@ func (p *Program) EmitWithPluginTransformers(transforms []PluginTransform, write
       }
       shimast.SetParentInChildrenUnset(out.AsNode())
       restoreOriginalDeclarationSymbols(ec, out.AsNode())
-      for _, tr := range shimcompiler.GetScriptTransformers(ec, host, out) {
+      // Build the chain from the PARSE tree and transform the plugin's tree.
+      // The two roles are one argument in tsgo's own emitter only because it
+      // has no plugin pass between them: emitJSFile hands getScriptTransformers
+      // the file it parsed, then reassigns it to the transform result. Here
+      // they are genuinely different files, and only the parse tree belongs on
+      // the left.
+      //
+      // getScriptTransformers reads its file for three things: whether it is a
+      // JS file, whether its language variant is JSX, and
+      // emitResolver.MarkLinkedReferencesRecursively. The first two are fixed
+      // per file and survive UpdateSourceFile, so marking is the whole
+      // difference — and marking is a per-node checker resolution walk under
+      // the single checker mutex, which on a plugin-expanded tree runs over
+      // nodes the binder never saw.
+      //
+      // Those marks are read back through EmitContext.ParseNode, so their key
+      // space is the parse tree; marking it is the write side that matches.
+      // Nothing is lost by not walking the plugin's nodes: UpdateSourceFile
+      // rebuilds a SourceFile without its Locals, and a module-scope import
+      // binding is only reachable through Locals, so a synthetic identifier
+      // could never resolve to one anyway. Marking the parse tree also keeps an
+      // import alive when a transform removes its last value use, which is what
+      // ts-patch and TypeScript 5-6 did by marking at check time.
+      for _, tr := range shimcompiler.GetScriptTransformers(ec, host, sf) {
         out = tr.TransformSourceFile(out)
       }
       // Print through the source-map-aware helper so a `sourceMap` /
