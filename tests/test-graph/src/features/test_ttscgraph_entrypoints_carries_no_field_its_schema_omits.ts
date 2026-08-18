@@ -31,10 +31,17 @@ const graphArguments = (props: {
  * every assertion about entrypoints, and exactly the kind of drift a typed
  * contract exists to prevent.
  *
+ * The query has to be one that reaches the citation path, or the assertion is
+ * vacuous: `entrypoints` inherits the field only when `lookup` would have
+ * produced it, and a plain symbol name produces none. So the same address is
+ * asked of both operations, and `lookup` carrying the field is what proves the
+ * `entrypoints` absence is the schema being kept rather than nothing
+ * happening.
+ *
  * 1. Materialize a project whose entry declaration carries a documentation tag.
- * 2. Ask for `entrypoints`, then for `lookup` on the same words.
- * 3. Assert no entrypoints hit carries the field, while `details` still does — so
- *    the absence is the schema being kept, not the tag being lost.
+ * 2. Ask both operations for the address that tag names.
+ * 3. Assert `lookup` carries the field, `entrypoints` does not, and `details`
+ *    still returns the tag.
  */
 export const test_ttscgraph_entrypoints_carries_no_field_its_schema_omits =
   async () => {
@@ -92,9 +99,22 @@ export const test_ttscgraph_entrypoints_carries_no_field_its_schema_omits =
         return value.result;
       };
 
+      const address = "docs/boot.md#start";
+
+      // The control. Without this the assertion below proves nothing: a plain
+      // name reaches no citation, so `entrypoints` would carry no tag whatever
+      // the copy did.
+      const lookup = (await call({ type: "lookup", query: address })) as {
+        hits?: Record<string, unknown>[];
+      };
+      assert.ok(
+        (lookup.hits ?? []).some((hit) => "docTags" in hit),
+        `lookup must carry the matching tag for this query: ${JSON.stringify(lookup.hits)}`,
+      );
+
       const entrypoints = (await call({
         type: "entrypoints",
-        query: "bootstrap",
+        query: address,
       })) as { hits?: Record<string, unknown>[] };
       assert.ok(
         (entrypoints.hits ?? []).length > 0,
