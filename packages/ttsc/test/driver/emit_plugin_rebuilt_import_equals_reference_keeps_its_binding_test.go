@@ -13,15 +13,17 @@ import (
 )
 
 // TestEmitWithPluginTransformerRebuiltImportEqualsReferenceKeepsItsBinding
-// closes the last of the three predicates that linked-reference marking feeds.
+// covers the one alias declaration kind that is not part of an import clause.
 //
-// Import elision asks the resolver three questions, and each one has its own
-// mark: IsReferencedAliasDeclaration for an import clause, specifier, or
-// namespace import, IsValueAliasDeclaration for an export specifier, and
-// IsTopLevelValueImportEqualsWithEntityName for `import x = require(...)`. The
-// sibling tests exercise the first. This one exercises the third, so the fix is
-// pinned on a predicate the others never reach rather than assumed to
-// generalize across them.
+// Elision reaches this node through shouldEmitImportEqualsDeclaration rather
+// than the clause path the sibling tests take. That predicate is a disjunction,
+// and inside an external module only its first arm can be true, so the outcome
+// still comes down to IsReferencedAliasDeclaration on the ImportEqualsDeclaration
+// itself: the second arm, IsTopLevelValueImportEqualsWithEntityName, returns
+// false outright for an ExternalModuleReference. Of the three predicates elision
+// consults, that first one is in fact the only mark-dependent one, which is why
+// this shape belongs with the rebuilt-reference family even though it reaches it
+// by a different route.
 //
 //  1. `index.ts` binds `./dep` with `import dep = require("./dep")` and reads
 //     `dep.foo`.
