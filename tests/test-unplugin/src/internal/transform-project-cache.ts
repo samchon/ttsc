@@ -1500,6 +1500,334 @@ async function assertPersistentValidationProvesSharedInputsOnce(): Promise<void>
   );
 }
 
+/** The one synthetic clock tick every pinned metadata observation reports. */
+const PINNED_TICK = 1_000_000_000_000_000_000n;
+
+/**
+ * Cache-owned filesystem operations whose write-mintable stamps the test
+ * controls, reproducing the clock-tick collapse deterministically.
+ *
+ * A filesystem stamps a write once per clock tick, so a same-length rewrite
+ * inside the tick that minted an input's recorded stamp leaves its metadata
+ * signature unchanged. Real timing cannot pin that window reliably, so these
+ * operations report one constant tick for every path (overridable per path
+ * through `stamps`) while every other observation — kind, size, identity, bytes
+ * — remains the real filesystem's. With every stamp in one tick, the observed
+ * filesystem's clock never provably leaves it, which is exactly the state a
+ * freshly written tree is in on a coarse-tick filesystem.
+ *
+ * `watch` is a seam too: `"silent"` registers healthy watchers that never
+ * report, keeping the narrow validation path live without real watcher races,
+ * while `"refused"` throws so the generation validates through its recorded
+ * whole-snapshot state.
+ */
+function createTickPinnedFilesystem(props: {
+  reads?: string[];
+  watch: "refused" | "silent";
+}): {
+  operations: Record<string, unknown>;
+  stamps: Map<string, bigint>;
+} {
+  const stamps = new Map<string, bigint>();
+  const reported = (location: string): bigint =>
+    stamps.get(path.resolve(location)) ?? PINNED_TICK;
+  const pin = (location: string, stats: fs.BigIntStats): fs.BigIntStats =>
+    Object.assign(
+      Object.create(Object.getPrototypeOf(stats)) as fs.BigIntStats,
+      stats,
+      {
+        atimeNs: reported(location),
+        birthtimeNs: reported(location),
+        ctimeNs: reported(location),
+        mtimeNs: reported(location),
+      },
+    );
+  return {
+    operations: {
+      lstat: (location: string) =>
+        pin(location, fs.lstatSync(location, { bigint: true })),
+      statBigInt: (location: string) =>
+        pin(location, fs.statSync(location, { bigint: true })),
+      readFile: (location: string) => {
+        props.reads?.push(path.resolve(location));
+        return fs.readFileSync(location);
+      },
+      watch: () => {
+        if (props.watch === "silent") {
+          return { close: () => undefined };
+        }
+        const error = new Error(
+          "watch registration refused",
+        ) as NodeJS.ErrnoException;
+        error.code = "ENOSPC";
+        throw error;
+      },
+    },
+    stamps,
+  };
+}
+
+/**
+ * Asserts a same-tick, same-length rewrite of a derived input still replaces
+ * the generation on the narrow validation path.
+ *
+ * With every stamp pinned to one tick, no signature may be recorded: the clock
+ * never provably leaves the tick, so a later write is not guaranteed to move
+ * any stamp. A recorded signature here would make the rewrite invisible — the
+ * pre-fix state — while the retained content comparison must see it.
+ */
+async function assertSameTickDerivedRewriteReplacesTheGeneration(): Promise<void> {
+  const { createTtscTransformCache, resolveOptions, transformTtsc } =
+    await TestUnpluginRuntime.loadUnpluginApi();
+  const project = createCacheProject({
+    fileCount: 4,
+    graphFanout: 4,
+    graphGlobals: 4,
+  });
+  const modules = projectModules(project.root);
+  const pinned = createTickPinnedFilesystem({ watch: "silent" });
+  const cache = createTtscTransformCache(pinned.operations);
+  const options = resolveOptions();
+  const deliver = (file: string) =>
+    transformTtsc(
+      file,
+      fs.readFileSync(file, "utf8"),
+      options,
+      undefined,
+      cache,
+    );
+  const pluginRuns = (): number =>
+    fs.existsSync(project.runLog)
+      ? fs.readFileSync(project.runLog, "utf8").length
+      : 0;
+
+  for (const file of modules) {
+    assert.ok(await deliver(file));
+  }
+  assert.equal(pluginRuns(), 1);
+  const steadyGeneration = [...cache.values()][0];
+
+  // Unchanged content keeps the generation even though nothing is proven by
+  // metadata: declining a signature costs reads, never the cache.
+  for (const file of modules) {
+    assert.ok(await deliver(file));
+  }
+  assert.equal(pluginRuns(), 1, "a steady same-tick tree must not recompile");
+  assert.equal([...cache.values()][0], steadyGeneration);
+
+  // The rewrite the metadata signature cannot see: same length, same tick.
+  const touched = path.join(
+    project.root,
+    "node_modules",
+    "global0",
+    "index.d.ts",
+  );
+  fs.writeFileSync(touched, "declare const ambient0: string;\n", "utf8");
+  assert.ok(await deliver(modules[1]!));
+  assert.notEqual(
+    [...cache.values()][0],
+    steadyGeneration,
+    "a same-tick rewrite of a derived input must replace the generation",
+  );
+  assert.equal(
+    pluginRuns(),
+    2,
+    "the retained content comparison must force one recompile",
+  );
+}
+
+/**
+ * Asserts a same-tick, same-length rewrite of a universal descriptor/config
+ * input still replaces the generation.
+ *
+ * The universal manifest is the more exposed half in practice — its inputs are
+ * `tsconfig.json`, plugin descriptors, and package manifests, which tooling
+ * rewrites in place. A capture-time signature for a stamp whose tick the clock
+ * has not provably left would let this rewrite replay stale output.
+ */
+async function assertSameTickUniversalRewriteReplacesTheGeneration(): Promise<void> {
+  const { createTtscTransformCache, resolveOptions, transformTtsc } =
+    await TestUnpluginRuntime.loadUnpluginApi();
+  const project = createCacheProject({ fileCount: 4, graphFanout: 4 });
+  const modules = projectModules(project.root);
+  const pinned = createTickPinnedFilesystem({ watch: "silent" });
+  const cache = createTtscTransformCache(pinned.operations);
+  const options = resolveOptions();
+  const deliver = (file: string) =>
+    transformTtsc(
+      file,
+      fs.readFileSync(file, "utf8"),
+      options,
+      undefined,
+      cache,
+    );
+  const pluginRuns = (): number =>
+    fs.existsSync(project.runLog)
+      ? fs.readFileSync(project.runLog, "utf8").length
+      : 0;
+
+  for (const file of modules) {
+    assert.ok(await deliver(file));
+  }
+  assert.equal(pluginRuns(), 1);
+  const firstGeneration = [...cache.values()][0];
+
+  // Same bytes reordered: the length, and with the pinned tick every stamp,
+  // survive the rewrite untouched.
+  fs.writeFileSync(
+    path.join(project.root, "package.json"),
+    JSON.stringify({ type: "commonjs", private: true }, null, 2),
+    "utf8",
+  );
+  assert.ok(await deliver(modules[0]!));
+  assert.notEqual(
+    [...cache.values()][0],
+    firstGeneration,
+    "a same-tick rewrite of a universal input must replace the generation",
+  );
+  assert.equal(pluginRuns(), 2);
+}
+
+/**
+ * Asserts the whole-snapshot path keeps its content comparison against
+ * same-tick rewrites too, on both the project walk and the out-of-walk
+ * re-check.
+ *
+ * A generation whose watchers could not be opened re-proves its recorded
+ * snapshot from disk on every delivery. The walk may reuse a recorded hash for
+ * a file whose proven signature still holds, so a signature recorded inside an
+ * unfinished tick would let a sibling delivery replay output computed from
+ * bytes a rewrite already replaced.
+ */
+async function assertSameTickRewriteReplacesTheSnapshotGeneration(): Promise<void> {
+  const { createTtscTransformCache, resolveOptions, transformTtsc } =
+    await TestUnpluginRuntime.loadUnpluginApi();
+  const project = createCacheProject({ fileCount: 4, graphFanout: 4 });
+  const modules = projectModules(project.root);
+  const pinned = createTickPinnedFilesystem({ watch: "refused" });
+  const cache = createTtscTransformCache(pinned.operations);
+  const options = resolveOptions();
+  const deliver = (file: string) =>
+    transformTtsc(
+      file,
+      fs.readFileSync(file, "utf8"),
+      options,
+      undefined,
+      cache,
+    );
+  const pluginRuns = (): number =>
+    fs.existsSync(project.runLog)
+      ? fs.readFileSync(project.runLog, "utf8").length
+      : 0;
+
+  for (const file of modules) {
+    assert.ok(await deliver(file));
+  }
+  assert.equal(pluginRuns(), 1);
+  const firstGeneration = [...cache.values()][0];
+
+  // Rewrite one project file and deliver a sibling, so only the walk — not the
+  // delivered module's own source comparison — can see the edit.
+  fs.writeFileSync(
+    path.join(project.root, "src", "mod2.ts"),
+    'export const value2: string = "PROBF";\n',
+    "utf8",
+  );
+  assert.ok(await deliver(modules[1]!));
+  assert.notEqual(
+    [...cache.values()][0],
+    firstGeneration,
+    "the walk must re-read a project file whose tick never provably ended",
+  );
+  assert.equal(pluginRuns(), 2);
+
+  // And the out-of-walk half of the same snapshot.
+  const externalGeneration = [...cache.values()][0];
+  fs.writeFileSync(
+    path.join(project.root, "node_modules", "dep0", "index.d.ts"),
+    "export declare const dep0: string;\n",
+    "utf8",
+  );
+  assert.ok(await deliver(modules[0]!));
+  assert.notEqual(
+    [...cache.values()][0],
+    externalGeneration,
+    "the out-of-walk re-check must re-read an unseparated external input",
+  );
+  assert.equal(pluginRuns(), 3);
+}
+
+/**
+ * Asserts an input re-earns its signature once the observed filesystem's clock
+ * provably leaves its stamp's tick, and that until then the content comparison
+ * keeps running without costing the generation.
+ */
+async function assertSeparatedStampReEarnsItsSignature(): Promise<void> {
+  const { createTtscTransformCache, resolveOptions, transformTtsc } =
+    await TestUnpluginRuntime.loadUnpluginApi();
+  const project = createCacheProject({
+    fileCount: 4,
+    graphFanout: 4,
+    graphGlobals: 4,
+  });
+  const modules = projectModules(project.root);
+  const reads: string[] = [];
+  const pinned = createTickPinnedFilesystem({ reads, watch: "silent" });
+  const cache = createTtscTransformCache(pinned.operations);
+  const options = resolveOptions();
+  const deliver = (file: string) =>
+    transformTtsc(
+      file,
+      fs.readFileSync(file, "utf8"),
+      options,
+      undefined,
+      cache,
+    );
+  const pluginRuns = (): number =>
+    fs.existsSync(project.runLog)
+      ? fs.readFileSync(project.runLog, "utf8").length
+      : 0;
+
+  for (const file of modules) {
+    assert.ok(await deliver(file));
+  }
+  assert.equal(pluginRuns(), 1);
+  const generation = [...cache.values()][0];
+
+  // Inside one unfinished tick nothing may be proven by metadata, so a steady
+  // delivery keeps re-reading its inputs.
+  reads.length = 0;
+  assert.ok(await deliver(modules[0]!));
+  assert.ok(
+    reads.length > 0,
+    "an unseparated stamp must keep the content comparison",
+  );
+
+  // The filesystem's clock provably moves past the pinned tick: one observed
+  // stamp lands in a later tick. The next content comparisons may then record
+  // their signatures, and later deliveries stop re-reading everything...
+  const touched = path.join(
+    project.root,
+    "node_modules",
+    "global0",
+    "index.d.ts",
+  );
+  pinned.stamps.set(touched, PINNED_TICK + 1n);
+  assert.ok(await deliver(modules[1]!));
+  assert.ok(await deliver(modules[2]!));
+  reads.length = 0;
+  assert.ok(await deliver(modules[3]!));
+  // ...except the one input now sitting at the clock floor itself, whose own
+  // tick is not provably over: exactly it keeps the read.
+  assert.deepEqual(
+    reads,
+    [path.resolve(touched)],
+    "a re-proven generation must re-read only the input at the clock floor",
+  );
+  assert.equal(pluginRuns(), 1, "re-earning must never cost the generation");
+  assert.equal([...cache.values()][0], generation);
+}
+
 /**
  * Asserts a generation-time walk failure cannot bless a partial snapshot as a
  * permanently valid narrow cache entry.
@@ -2444,6 +2772,10 @@ export {
   assertPersistentValidationProvesSharedInputsOnce,
   assertPersistentValidationUsesPerFileInputs,
   assertRejectedTransformIsEvictedAndRecovers,
+  assertSameTickDerivedRewriteReplacesTheGeneration,
+  assertSameTickRewriteReplacesTheSnapshotGeneration,
+  assertSameTickUniversalRewriteReplacesTheGeneration,
+  assertSeparatedStampReEarnsItsSignature,
   assertSiblingDeliveriesDoNotReprobeGraph,
   assertStaleEvictionKeepsNewerGeneration,
   assertStaleMismatchUsesNewerGeneration,

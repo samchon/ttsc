@@ -100,8 +100,10 @@ export interface TtscCachedProjectTransform {
   externalInputPaths?: string[];
   /**
    * Metadata signature of each out-of-walk input, captured around the read that
-   * proved its {@link externalInputHashes} entry. An input whose signature still
-   * holds carries the recorded content, so revalidation may skip the read.
+   * proved its {@link externalInputHashes} entry and recorded only once the
+   * observed filesystem's clock provably left the stamp's tick
+   * ({@link stampSeparable}). An input whose signature still holds carries the
+   * recorded content, so revalidation may skip the read.
    *
    * Keyed by lexical spelling rather than by physical identity, for the reason
    * {@link TtscHostInputValidation} states: a symlink or junction spelling and
@@ -117,7 +119,8 @@ export interface TtscCachedProjectTransform {
   inputHashes: Record<string, string>;
   /**
    * Metadata signature of each {@link inputHashes} entry whose hash was proven
-   * against an unracing read of the file on disk.
+   * against an unracing read of the file on disk, in a tick the observed
+   * filesystem's clock had provably left ({@link stampSeparable}).
    *
    * The generation's own current file is absent at capture: its recorded hash
    * comes from the bundler's in-memory source, so the walk that produced it
@@ -1502,8 +1505,11 @@ function matchesNarrowPersistentInputs(
  * descriptor inputs are ({@link matchesUniversalHostInputs}), under the same
  * rules: an unchanged signature stands in for the content comparison, and any
  * signature change falls back to the full comparison. A signature is recorded
- * only around a read nothing raced, and only for a recorded state that came
- * from reading the input rather than from failing to.
+ * only around a read nothing raced, only for a recorded state that came from
+ * reading the input rather than from failing to, and only while the observed
+ * filesystem's own clock has provably left the stamp's tick
+ * ({@link stampSeparable}), so a same-length rewrite inside that tick cannot
+ * hide behind an unchanged signature.
  *
  * The signature carries the physical identity of both the lexical path and its
  * link target ({@link inputMetadataSignature}), so retargeting a symlink or
@@ -1519,8 +1525,8 @@ function matchesProvenInput(
     return matchesRecordedInput(cached, input);
   }
   const filesystem = resultFilesystem(cached.result);
-  const before = inputMetadataSignature(input, filesystem);
-  if (before !== undefined && slot.signatures[slot.key] === before) {
+  const before = inputMetadataEvidence(input, filesystem);
+  if (before !== undefined && slot.signatures[slot.key] === before.signature) {
     return true;
   }
   if (!matchesRecordedInput(cached, input)) {
@@ -1534,7 +1540,7 @@ function matchesProvenInput(
     slot.recorded === MISSING_INPUT_STATE
       ? undefined
       : inputMetadataSignature(input, filesystem);
-  if (after !== undefined && before === after) {
+  if (after !== undefined && before?.signature === after && before.separable) {
     slot.signatures[slot.key] = after;
   } else {
     delete slot.signatures[slot.key];
@@ -1618,8 +1624,11 @@ function matchesUniversalHostInputEntries(
 ): boolean {
   const filesystem = resultFilesystem(cached.result);
   for (const entry of validation.entries.values()) {
-    const signature = inputMetadataSignature(entry.path, filesystem);
-    if (entry.signature !== undefined && signature === entry.signature)
+    const evidence = inputMetadataEvidence(entry.path, filesystem);
+    if (
+      entry.signature !== undefined &&
+      evidence?.signature === entry.signature
+    )
       continue;
     if (entry.strict === true) return false;
     if (hostInputRealpath(entry.path, filesystem) !== entry.realpath)
@@ -1627,13 +1636,16 @@ function matchesUniversalHostInputEntries(
     if (!matchesRecordedInput(cached, entry.path)) {
       return false;
     }
-    if (signature === undefined) return false;
+    if (evidence === undefined) return false;
     // Re-earn the proof under the rules the capture applies: an entry whose
-    // recorded state came from reading nothing keeps its content comparison,
-    // and a write racing the read that just proved it records nothing.
+    // recorded state came from reading nothing keeps its content comparison, a
+    // write racing the read that just proved it records nothing, and a stamp
+    // the filesystem's clock has not provably left records nothing either.
     const after = inputMetadataSignature(entry.path, filesystem);
     entry.signature =
-      entry.readable && after === signature ? signature : undefined;
+      entry.readable && evidence.separable && after === evidence.signature
+        ? evidence.signature
+        : undefined;
   }
   return true;
 }
@@ -1756,11 +1768,11 @@ function captureUniversalHostInputValidation(
       }
     }
     validation.covered.add(path.resolve(input));
-    const before = inputMetadataSignature(input, filesystem);
+    const before = inputMetadataEvidence(input, filesystem);
     if (!matchesRecordedInput(cached, input)) return undefined;
     const after = inputMetadataSignature(input, filesystem);
-    if (before !== after) return undefined;
-    if (after !== undefined) {
+    if (before?.signature !== after) return undefined;
+    if (before !== undefined) {
       // Do not key this manifest by physical identity. A symlink/junction
       // spelling and its selected target deliberately share that identity,
       // but both lexical paths must survive so retargeting the alias is visible.
@@ -1768,7 +1780,11 @@ function captureUniversalHostInputValidation(
         path: input,
         readable,
         realpath: hostInputRealpath(input, filesystem),
-        signature: readable ? after : undefined,
+        // The signature stands in for content only when the read produced the
+        // recorded bytes and the filesystem's clock has provably left the
+        // stamp's tick; otherwise the content comparison keeps running until
+        // the re-earn path can prove both.
+        signature: readable && before.separable ? before.signature : undefined,
       });
       continue;
     }
@@ -1779,7 +1795,9 @@ function captureUniversalHostInputValidation(
       // A blocker proves a kind and an identity, not content: it is the
       // non-directory ancestor that makes everything below it unreachable, and
       // it cannot stop being that without its metadata moving. So it keeps a
-      // usable signature whether or not anything read it.
+      // usable signature whether or not anything read it, and exempt from the
+      // clock-separability rule content signatures need — a same-tick rewrite
+      // of its bytes leaves it exactly as blocking as before.
       validation.covered.add(path.resolve(probe.blocker));
       validation.entries.set(path.resolve(probe.blocker), {
         path: probe.blocker,
@@ -1820,48 +1838,183 @@ function captureUniversalHostInputValidation(
  */
 const MISSING_INPUT_STATE = "missing";
 
+/**
+ * The highest stamp each observed filesystem clock has provably minted, keyed
+ * by the operations object that observes it and, inside, by reporting device.
+ *
+ * A filesystem stamps a write once per clock tick, so two same-length writes
+ * inside one tick are indistinguishable by metadata alone. A signature may
+ * therefore stand for content only while a later write is guaranteed to move
+ * it, and that guarantee needs a reference instant the observed filesystem
+ * itself produced: once some stamp on the same device is strictly newer than an
+ * input's modification stamp, that input's tick is provably over, so any later
+ * write must mint a newer stamp and move the signature. This is git's
+ * racily-clean index rule under a read-only contract — where git compares
+ * entries against the index file's own timestamp, this floor accumulates every
+ * stamp the cache-owned operations report, seeded per generation by
+ * {@link mintFilesystemClockReference}.
+ *
+ * The process clock never participates: both sides of every comparison are
+ * stamps the same filesystem clock minted, at the same granularity, so a
+ * filesystem clock running behind (or ahead of) the host process changes
+ * nothing. The floor's own boundary is the clock itself — a stamp imported from
+ * a machine whose clock ran ahead (archive extraction, stamp-preserving
+ * copies), or a clock stepped backwards, can defeat any stamp-based freshness
+ * proof, git's included.
+ */
+const FILESYSTEM_CLOCK_FLOORS = new WeakMap<
+  TtscTransformFilesystemOperations,
+  Map<bigint, bigint>
+>();
+
+/** Return one observed filesystem's per-device clock floor, creating it. */
+function filesystemClockFloors(
+  filesystem: TtscTransformFilesystemOperations,
+): Map<bigint, bigint> {
+  let floors = FILESYSTEM_CLOCK_FLOORS.get(filesystem);
+  if (floors === undefined) {
+    floors = new Map();
+    FILESYSTEM_CLOCK_FLOORS.set(filesystem, floors);
+  }
+  return floors;
+}
+
+/** Raise a device's clock floor with the stamps one observation reported. */
+function observeFilesystemClock(
+  filesystem: TtscTransformFilesystemOperations,
+  stats: fs.BigIntStats,
+): void {
+  const floors = filesystemClockFloors(filesystem);
+  const stamp = stats.mtimeNs > stats.ctimeNs ? stats.mtimeNs : stats.ctimeNs;
+  const current = floors.get(stats.dev);
+  if (current === undefined || stamp > current) {
+    floors.set(stats.dev, stamp);
+  }
+}
+
+/**
+ * Report whether a later write to the observed path is guaranteed to move its
+ * modification stamp: the device's clock floor holds a stamp strictly newer, so
+ * the tick that minted the stamp is provably over. The floor was observed
+ * before the caller's content read began, which is the ordering the guarantee
+ * needs — a stamp minted before the read proves every post-read write lands in
+ * a newer tick.
+ */
+function stampSeparable(
+  filesystem: TtscTransformFilesystemOperations,
+  stats: fs.BigIntStats,
+): boolean {
+  const floor = filesystemClockFloors(filesystem).get(stats.dev);
+  return floor !== undefined && stats.mtimeNs < floor;
+}
+
+/**
+ * Mint a reference instant for this generation and feed it into the observed
+ * filesystem's clock floor.
+ *
+ * The scratch directory is a write the adapter already owns, deliberately
+ * outside the project root, so stamping a probe file there produces a
+ * freshly-minted "now" without touching the user's project — the analogue of
+ * git writing its index. The probe is observed through the cache-owned
+ * operations and keyed by the device those operations report, so it only ever
+ * separates stamps on the filesystem that actually minted it; when the scratch
+ * volume differs from the inputs' volume, or the observed filesystem cannot see
+ * the probe at all, nothing is proven and signature recording simply stays
+ * declined until passively observed stamps separate an input on their own.
+ */
+function mintFilesystemClockReference(
+  scratchDirectory: string,
+  filesystem: TtscTransformFilesystemOperations,
+): void {
+  try {
+    const probe = path.join(scratchDirectory, "clock-reference");
+    fs.writeFileSync(probe, "");
+    observeFilesystemClock(filesystem, filesystem.lstat(probe));
+  } catch {
+    // The absence of a reference declines signature recording; it never
+    // invalidates a generation.
+  }
+}
+
+/**
+ * One metadata observation: the signature plus whether the observed filesystem
+ * has provably moved past every write-mintable stamp inside it.
+ */
+interface TtscInputMetadataEvidence {
+  /** The joined metadata signature of the lexical path and its link target. */
+  signature: string;
+  /**
+   * Whether a later write is guaranteed to move this signature. Only a
+   * signature captured with this evidence may be recorded to stand in for a
+   * content comparison; without it, a same-length rewrite inside the stamp's
+   * own clock tick would leave the signature unchanged.
+   */
+  separable: boolean;
+}
+
 /** Metadata identity whose stability lets a generation reuse a content hash. */
 function inputMetadataSignature(
   file: string,
   filesystem: TtscTransformFilesystemOperations = DEFAULT_FILESYSTEM_OPERATIONS,
 ): string | undefined {
+  return inputMetadataEvidence(file, filesystem)?.signature;
+}
+
+/** Observe one input's metadata signature and its clock separability. */
+function inputMetadataEvidence(
+  file: string,
+  filesystem: TtscTransformFilesystemOperations = DEFAULT_FILESYSTEM_OPERATIONS,
+): TtscInputMetadataEvidence | undefined {
   try {
     const link = filesystem.lstat(file);
+    observeFilesystemClock(filesystem, link);
     let target = link;
     if (link.isSymbolicLink()) {
       try {
         target = filesystem.statBigInt(file);
+        observeFilesystemClock(filesystem, target);
       } catch {
         // Keep a broken link in the existing-input manifest. Its own metadata
         // stays stable while the target is missing, and the first successful
         // stat after the target appears changes this signature. Treating it as
         // a plain missing path would watch/list only the link's parent, which
-        // cannot observe a target created in another directory.
-        return [
-          link.dev,
-          link.ino,
-          link.mode,
-          link.size,
-          link.mtimeNs,
-          link.ctimeNs,
-          "missing-target",
-        ].join(":");
+        // cannot observe a target created in another directory. It carries no
+        // readable bytes, so it never needs to be separable.
+        return {
+          signature: [
+            link.dev,
+            link.ino,
+            link.mode,
+            link.size,
+            link.mtimeNs,
+            link.ctimeNs,
+            "missing-target",
+          ].join(":"),
+          separable: false,
+        };
       }
     }
-    return [
-      link.dev,
-      link.ino,
-      link.mode,
-      link.size,
-      link.mtimeNs,
-      link.ctimeNs,
-      target.dev,
-      target.ino,
-      target.mode,
-      target.size,
-      target.mtimeNs,
-      target.ctimeNs,
-    ].join(":");
+    return {
+      signature: [
+        link.dev,
+        link.ino,
+        link.mode,
+        link.size,
+        link.mtimeNs,
+        link.ctimeNs,
+        target.dev,
+        target.ino,
+        target.mode,
+        target.size,
+        target.mtimeNs,
+        target.ctimeNs,
+      ].join(":"),
+      // Both halves must be separable: a write remints the target's stamp, a
+      // link retarget the link's own, and either one hiding inside its recorded
+      // tick would evade the skipped content and realpath comparisons.
+      separable:
+        stampSeparable(filesystem, link) && stampSeparable(filesystem, target),
+    };
   } catch {
     return undefined;
   }
@@ -2054,7 +2207,7 @@ function matchesCompleteInputSnapshot(
   adoptProvenSignatures(cached, {
     currentKey,
     external: externalCurrent.signatures,
-    project: current.fileSignatures,
+    project: current.provenSignatures,
   });
   return true;
 }
@@ -2140,15 +2293,17 @@ function captureExternalInputSnapshot(
   const signatures: Record<string, string> = {};
   let complete = true;
   // Sandwich every read between two metadata signatures. Only a signature that
-  // survived its own read may stand in for the content comparison; a write
-  // racing the capture leaves the input without one, so revalidation keeps
+  // survived its own read, and whose stamp's tick the filesystem's clock has
+  // provably left ({@link stampSeparable}), may stand in for the content
+  // comparison; a write racing the capture, or a stamp a same-tick rewrite
+  // could still reproduce, leaves the input without one, so revalidation keeps
   // re-reading it.
   const record = (
     input: string,
-    before: string | undefined,
+    before: TtscInputMetadataEvidence | undefined,
     after: string | undefined,
   ): void => {
-    if (after !== undefined && before === after)
+    if (after !== undefined && before?.signature === after && before.separable)
       signatures[path.resolve(input)] = after;
   };
   for (const input of paths) {
@@ -2159,7 +2314,7 @@ function captureExternalInputSnapshot(
         complete = false;
         continue;
       }
-      const before = inputMetadataSignature(input, filesystem);
+      const before = inputMetadataEvidence(input, filesystem);
       const currentHash = graphInputStateHash(input, filesystem);
       const after = inputMetadataSignature(input, filesystem);
       if (
@@ -2182,7 +2337,7 @@ function captureExternalInputSnapshot(
       realpaths[identity] = proof.realpath;
       continue;
     }
-    const before = inputMetadataSignature(input, filesystem);
+    const before = inputMetadataEvidence(input, filesystem);
     const hash = hostInputStateHash(input, filesystem);
     const after = inputMetadataSignature(input, filesystem);
     hashes[identity] = hash ?? MISSING_INPUT_STATE;
@@ -2323,35 +2478,51 @@ function collectProjectInputSnapshot(
   fileSignatures: Record<string, string>;
   hashes: Record<string, string>;
   projectDirectories: TtscProjectDirectorySnapshot[];
+  provenSignatures: Record<string, string>;
 } {
   const hashes: Record<string, string> = {};
   const fileSignatures: Record<string, string> = {};
+  const provenSignatures: Record<string, string> = {};
   const walked = walkProjectInputs(projectRoot, filesystem);
   let complete = walked.complete;
   for (const file of walked.files) {
     try {
-      const before = inputMetadataSignature(file, filesystem);
+      const before = inputMetadataEvidence(file, filesystem);
       const key = toProjectKey(projectRoot, file, identities);
       // A file whose signature still equals the one captured around the read
       // that produced the recorded hash carries that content, so the whole
-      // project does not have to be re-read to prove one delivery.
+      // project does not have to be re-read to prove one delivery. A signature
+      // that was already proven stays proven: its stamp has not moved since the
+      // clock provably left its tick.
       if (
         before !== undefined &&
         proven !== undefined &&
-        proven.signatures[key] === before &&
+        proven.signatures[key] === before.signature &&
         Object.prototype.hasOwnProperty.call(proven.hashes, key)
       ) {
         hashes[key] = proven.hashes[key]!;
-        fileSignatures[key] = before;
+        fileSignatures[key] = before.signature;
+        provenSignatures[key] = before.signature;
         continue;
       }
       const contents = filesystem.readFile(file);
       const after = inputMetadataSignature(file, filesystem);
       hashes[key] = hashText(contents);
-      if (before === undefined || after === undefined || before !== after) {
+      if (
+        before === undefined ||
+        after === undefined ||
+        before.signature !== after
+      ) {
         complete = false;
       } else {
         fileSignatures[key] = after;
+        // Only a signature whose stamp's tick the filesystem's clock provably
+        // left before this read may later stand in for the content comparison
+        // ({@link stampSeparable}); the raw signature above still participates
+        // in the generation-time stability comparison.
+        if (before.separable) {
+          provenSignatures[key] = after;
+        }
       }
     } catch {
       // File watchers may observe a transform while another process is moving
@@ -2364,6 +2535,7 @@ function collectProjectInputSnapshot(
     fileSignatures,
     hashes,
     projectDirectories: walked.directories,
+    provenSignatures,
   };
 }
 
@@ -2439,6 +2611,9 @@ function projectDirectorySignature(
 ): string | undefined {
   try {
     const stats = filesystem.statBigInt(directory);
+    // Directory stamps are minted by the same clock as file stamps, so every
+    // walk observation also raises the clock floor that separates them.
+    observeFilesystemClock(filesystem, stats);
     if (!stats.isDirectory()) {
       return undefined;
     }
@@ -2965,12 +3140,12 @@ function matchesCachedExternalInputs(cached: TtscCachedProjectTransform): {
     // equals the one captured around the read that proved it. The signature is
     // keyed by this exact spelling, so an alias of the same physical file
     // cannot answer for it.
-    const before = inputMetadataSignature(file, filesystem);
+    const before = inputMetadataEvidence(file, filesystem);
     if (
       before !== undefined &&
       Object.prototype.hasOwnProperty.call(recordedSignatures, spelling) &&
       Object.prototype.hasOwnProperty.call(recordedHashes, identity) &&
-      before === recordedSignatures[spelling]
+      before.signature === recordedSignatures[spelling]
     ) {
       continue;
     }
@@ -2984,7 +3159,12 @@ function matchesCachedExternalInputs(cached: TtscCachedProjectTransform): {
     ) {
       matches = false;
     }
-    if (hash !== null && after !== undefined && before === after) {
+    if (
+      hash !== null &&
+      after !== undefined &&
+      before?.signature === after &&
+      before.separable
+    ) {
       signatures[spelling] = after;
     }
   }
@@ -3183,6 +3363,10 @@ async function transformProject(props: {
       }).transform(),
     );
     TRANSFORM_RESULT_FILESYSTEM.set(result, props.filesystem);
+    // Mint the generation's clock reference after the compile and before any
+    // signature-recording read below, so every input written before the
+    // compile sits in a provably finished tick when its signature is captured.
+    mintFilesystemClockReference(scratchDirectory, props.filesystem);
     const persistentHostInputs = selectPersistentHostInputs({
       filesystem: props.filesystem,
       projectRoot,
@@ -3234,7 +3418,7 @@ async function transformProject(props: {
     inputSnapshot.hashes[currentFileKey] = hashText(props.currentSource);
     // That overlay makes this one key the only recorded hash a disk signature
     // cannot stand for: the bytes it names came from the bundler, not the file.
-    delete inputSnapshot.fileSignatures[currentFileKey];
+    delete inputSnapshot.provenSignatures[currentFileKey];
     const cached: TtscCachedProjectTransform = {
       // Capture the out-of-walk input hashes while the generation is fresh so
       // cache validation can re-check them; computed before dispose so the
@@ -3243,7 +3427,7 @@ async function transformProject(props: {
       externalInputRealpaths: {},
       externalInputPaths,
       inputHashes: inputSnapshot.hashes,
-      inputSignatures: inputSnapshot.fileSignatures,
+      inputSignatures: inputSnapshot.provenSignatures,
       projectDirectories: inputSnapshot.projectDirectories,
       projectSnapshotComplete: false,
       projectRoot,
