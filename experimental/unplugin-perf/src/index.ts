@@ -98,6 +98,27 @@ async function main(): Promise<void> {
     }),
   );
 
+  console.log(
+    "\nScenario E — serve validation over a shared closure with globals:",
+  );
+  console.log(
+    "  invariant: per-module reads stay bounded when every module reaches the",
+  );
+  console.log(
+    "  same closure and the same global-scope declarations (the real shape)\n",
+  );
+  recordFailure(
+    failures,
+    await measureServeValidation(adapter, {
+      count: 50,
+      emitExternalKey: false,
+      graphFanout: 50,
+      graphGlobals: 50,
+      partitionExternalInputs: false,
+      unrelatedDirectoryCount: 100,
+    }),
+  );
+
   if (failures.length !== 0) {
     console.error(
       `\nFAIL: a scenario violated its invariant:\n  ${failures.join("\n  ")}`,
@@ -178,6 +199,13 @@ interface MeasureOptions {
    * graph-bearing shape typia >= 13.1.19 produces.
    */
   graphFanout?: number;
+  /**
+   * Number of `node_modules/global{j}/index.d.ts` files stamped into the
+   * envelope's `graph.globals`. Globals belong to every delivered module at
+   * once, which is the shape a real `@types/*` package produces and the input
+   * class a per-delivery revalidation multiplies by module count.
+   */
+  graphGlobals?: number;
   /** Give each module one disjoint external edge instead of the whole union. */
   partitionExternalInputs?: boolean;
   /** Unrelated nested project directories used to gate membership-stat cost. */
@@ -414,6 +442,8 @@ async function measureServeValidation(
   console.log(
     `  N=${String(options.count).padStart(3)}  ` +
       `externals=${String(options.graphFanout ?? 0).padStart(4)}  ` +
+      `globals=${String(options.graphGlobals ?? 0).padStart(4)}  ` +
+      `shared=${options.partitionExternalInputs === true ? "no " : "yes"}  ` +
       `pluginRuns=${String(pluginRuns).padStart(3)}  ` +
       `reads=${String(harness.counters.reads).padStart(8)}  ` +
       `reads/file=${(harness.counters.reads / options.count).toFixed(1).padStart(8)}  ` +
@@ -423,14 +453,14 @@ async function measureServeValidation(
   const readsPerFile = harness.counters.reads / options.count;
   const statsPerFile = harness.counters.stats / options.count;
   if (pluginRuns !== 1) {
-    return `scenario D N=${options.count} K=${options.graphFanout}: pluginRuns=${pluginRuns} (expected 1)`;
+    return `serve validation N=${options.count} K=${options.graphFanout} G=${options.graphGlobals ?? 0}: pluginRuns=${pluginRuns} (expected 1)`;
   }
   if (readsPerFile > 16) {
-    return `scenario D N=${options.count} K=${options.graphFanout}: reads/file=${readsPerFile.toFixed(1)} exceeds the per-file validation budget of 16`;
+    return `serve validation N=${options.count} K=${options.graphFanout} G=${options.graphGlobals ?? 0}: reads/file=${readsPerFile.toFixed(1)} exceeds the per-file validation budget of 16`;
   }
   return statsPerFile <= 8
     ? undefined
-    : `scenario D N=${options.count} dirs=${options.unrelatedDirectoryCount}: stats/file=${statsPerFile.toFixed(1)} exceeds the shared membership budget of 8`;
+    : `serve validation N=${options.count} dirs=${options.unrelatedDirectoryCount}: stats/file=${statsPerFile.toFixed(1)} exceeds the shared membership budget of 8`;
 }
 
 /**
@@ -560,9 +590,20 @@ function createProject(options: MeasureOptions): string {
       );
     }
   }
+  const graphGlobals = options.graphGlobals ?? 0;
+  for (let index = 0; index < graphGlobals; index += 1) {
+    const globalDir = path.join(project, "node_modules", `global${index}`);
+    fs.mkdirSync(globalDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(globalDir, "index.d.ts"),
+      `declare const ambient${index}: number;\n`,
+      "utf8",
+    );
+  }
   // The Go sidecar keys its extra output entry only when asked.
   process.env.TTSC_PERF_EMIT_EXTERNAL = options.emitExternalKey ? "1" : "0";
   process.env.TTSC_PERF_GRAPH_FANOUT = String(graphFanout);
+  process.env.TTSC_PERF_GRAPH_GLOBALS = String(graphGlobals);
   process.env.TTSC_PERF_PARTITION_EXTERNAL = options.partitionExternalInputs
     ? "1"
     : "0";
@@ -694,9 +735,14 @@ function writeGoPlugin(project: string): void {
       '      candidates[key] = []string{fmt.Sprintf("node_modules/dep%d/index.ts", i%fanout)}',
       "    }",
       "    result.Dependencies = deps",
+      '    globalCount, _ := strconv.Atoi(os.Getenv("TTSC_PERF_GRAPH_GLOBALS"))',
+      "    globals := []string{}",
+      "    for j := 0; j < globalCount; j++ {",
+      '      globals = append(globals, fmt.Sprintf("node_modules/global%d/index.d.ts", j))',
+      "    }",
       "    result.Graph = &referenceGraph{",
       "      Edges:      edges,",
-      "      Globals:    []string{},",
+      "      Globals:    globals,",
       '      Configs:    []string{"tsconfig.json"},',
       "      Candidates: candidates,",
       "      InputHashes: map[string]*string{},",

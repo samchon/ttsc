@@ -19,12 +19,19 @@ import path from "node:path";
  * a reference-graph envelope where every module edges to every sibling plus
  * that many planted `node_modules/dep{j}/index.d.ts` declarations — the shape
  * typia >= 13.1.19 produces.
+ *
+ * `graphGlobals` plants that many `node_modules/global{j}/index.d.ts` files and
+ * stamps them into the envelope's `graph.globals`, the shape a real program
+ * produces for every global-scope declaration package (`@types/node` first of
+ * all). Unlike edges, globals belong to every delivered module at once, so they
+ * are the input class a per-delivery revalidation multiplies by module count.
  */
 interface ICacheProjectOptions {
   emitExternalKey?: boolean;
   externalSnapshotAbaRace?: boolean;
   fileCount?: number;
   graphFanout?: number;
+  graphGlobals?: number;
   independentGraphLeaf?: string;
   partitionGraph?: boolean;
   snapshotAbaRace?: boolean;
@@ -779,6 +786,155 @@ async function assertPersistentValidationUsesPerFileInputs(): Promise<void> {
 }
 
 /**
+ * Asserts a generation proves each shared input once instead of once per
+ * delivered module, without loosening any invalidation.
+ *
+ * {@link assertPersistentValidationUsesPerFileInputs} partitions the graph so
+ * every module owns a disjoint external input, which hides the cost this pins:
+ * a real program gives every module the same reachable closure and the same
+ * `graph.globals`, so re-reading each delivered file's inputs multiplies one
+ * generation's proven bytes by the module count. The bound below is met only
+ * when an unchanged metadata signature stands in for the content comparison.
+ */
+async function assertPersistentValidationProvesSharedInputsOnce(): Promise<void> {
+  const { createTtscTransformCache, resolveOptions, transformTtsc } =
+    await TestUnpluginRuntime.loadUnpluginApi();
+  const count = 8;
+  const shared = 24;
+  const project = createCacheProject({
+    fileCount: count,
+    graphFanout: shared,
+    graphGlobals: shared,
+  });
+  const modules = projectModules(project.root);
+  let reads = 0;
+  const cache = createTtscTransformCache({
+    readFile: (location: string) => {
+      reads += 1;
+      return fs.readFileSync(location);
+    },
+  });
+  const options = resolveOptions();
+  const deliver = (file: string) =>
+    transformTtsc(
+      file,
+      fs.readFileSync(file, "utf8"),
+      options,
+      undefined,
+      cache,
+    );
+  const pluginRuns = (): number =>
+    fs.existsSync(project.runLog)
+      ? fs.readFileSync(project.runLog, "utf8").length
+      : 0;
+
+  for (const file of modules) {
+    assert.ok(await deliver(file));
+  }
+  assert.equal(pluginRuns(), 1);
+
+  reads = 0;
+  for (const file of modules) {
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    assert.ok(await deliver(file));
+  }
+  assert.equal(pluginRuns(), 1, "a steady generation must not recompile");
+  // Every module reaches every sibling plus `shared` externals and `shared`
+  // globals, so the pre-fix path read ~55 files per delivery here. Only the
+  // generation's own current file lacks a disk signature (its recorded hash
+  // came from the bundler's buffer), so a proven generation reads at most that.
+  assert.ok(
+    reads / modules.length <= 4,
+    `persistent validation read ${(reads / modules.length).toFixed(1)} files per module for a shared closure (bound: 4)`,
+  );
+
+  // A metadata-only change must revalidate by content, keep the generation, and
+  // then stop being re-read.
+  const touched = path.join(
+    project.root,
+    "node_modules",
+    "global0",
+    "index.d.ts",
+  );
+  const shifted = new Date(Date.now() + 4000);
+  fs.utimesSync(touched, shifted, shifted);
+  const beforeTouch = [...cache.values()][0];
+  reads = 0;
+  assert.ok(await deliver(modules[0]!));
+  assert.equal(
+    [...cache.values()][0],
+    beforeTouch,
+    "a metadata-only change must not replace the generation",
+  );
+  assert.ok(
+    reads >= 1,
+    "a changed metadata signature must fall back to the content comparison",
+  );
+  reads = 0;
+  assert.ok(await deliver(modules[1]!));
+  assert.ok(
+    reads <= 4,
+    `a revalidated input must be proven again, not reread per delivery (read ${reads})`,
+  );
+
+  // The globals half must still invalidate every module, not just one.
+  fs.writeFileSync(touched, "declare const ambient0: string;\n", "utf8");
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  assert.ok(await deliver(modules[2]!));
+  assert.notEqual(
+    [...cache.values()][0],
+    beforeTouch,
+    "an edited global-scope declaration must replace the generation",
+  );
+  assert.equal(pluginRuns(), 2, "the edited global must force one recompile");
+
+  // A reachable external edit must still invalidate through the same path.
+  const generationAfterGlobal = [...cache.values()][0];
+  fs.writeFileSync(
+    path.join(project.root, "node_modules", "dep3", "index.d.ts"),
+    "export declare const dep3: string;\n",
+    "utf8",
+  );
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  assert.ok(await deliver(modules[3]!));
+  assert.notEqual(
+    [...cache.values()][0],
+    generationAfterGlobal,
+    "a reachable external edit must replace the generation",
+  );
+
+  // And so must a project-membership change.
+  const generationAfterExternal = [...cache.values()][0];
+  fs.writeFileSync(
+    path.join(project.root, "src", "added.d.ts"),
+    "declare const added: string;\n",
+    "utf8",
+  );
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  assert.ok(await deliver(modules[4]!));
+  assert.notEqual(
+    [...cache.values()][0],
+    generationAfterExternal,
+    "a project-membership change must replace the generation",
+  );
+
+  // A sibling source edit must still be seen by the modules that reach it.
+  const generationAfterMembership = [...cache.values()][0];
+  fs.writeFileSync(
+    path.join(project.root, "src", "mod5.ts"),
+    'export const value5: string = "PROBE-EDITED";\n',
+    "utf8",
+  );
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  assert.ok(await deliver(modules[6]!));
+  assert.notEqual(
+    [...cache.values()][0],
+    generationAfterMembership,
+    "an edited reachable project source must replace the generation",
+  );
+}
+
+/**
  * Asserts a generation-time walk failure cannot bless a partial snapshot as a
  * permanently valid narrow cache entry.
  */
@@ -1330,6 +1486,7 @@ function createCacheProject(options: ICacheProjectOptions): {
               runLog,
               emitExternal: options.emitExternalKey === true,
               graphFanout: options.graphFanout ?? 0,
+              graphGlobals: options.graphGlobals ?? 0,
               independentGraphLeaf: options.independentGraphLeaf,
               partitionGraph: options.partitionGraph === true,
               ...(options.snapshotAbaRace === true
@@ -1391,6 +1548,17 @@ function createCacheProject(options: ICacheProjectOptions): {
     fs.writeFileSync(
       path.join(depDir, "index.d.ts"),
       `export declare const dep${index}: number;\n`,
+      "utf8",
+    );
+  }
+  for (let index = 0; index < (options.graphGlobals ?? 0); index += 1) {
+    // Global-scope declarations the envelope reports for every module. They sit
+    // outside the project walk exactly like a real `@types/*` package.
+    const globalDir = path.join(root, "node_modules", `global${index}`);
+    fs.mkdirSync(globalDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(globalDir, "index.d.ts"),
+      `declare const ambient${index}: number;\n`,
       "utf8",
     );
   }
@@ -1564,6 +1732,11 @@ function writeGoPlugin(root: string): void {
       "    for input, observed := range observedInputs { addGraphInputProof(result.Graph, root, input, observed) }",
       '    addGraphInputProof(result.Graph, root, "tsconfig.json", "")',
       '    for _, input := range externals { addGraphInputProof(result.Graph, root, input, "") }',
+      '    for j := 0; j < int(numberValue(cfg, "graphGlobals")); j++ {',
+      '      global := fmt.Sprintf("node_modules/global%d/index.d.ts", j)',
+      "      result.Graph.Globals = append(result.Graph.Globals, global)",
+      '      addGraphInputProof(result.Graph, root, global, "")',
+      "    }",
       '    if externalRaceFile != "" {',
       '      result.Graph.Edges["src/mod0.ts"] = append(result.Graph.Edges["src/mod0.ts"], externalRaceFile)',
       "      addGraphInputProof(result.Graph, root, externalRaceFile, externalRaceText)",
@@ -1632,6 +1805,7 @@ export {
   assertHostExceptionTransformIsEvictedAndRecovers,
   assertIncompleteProjectSnapshotFallsBackAndRecovers,
   assertPersistentCacheValidatesAnUnservedModule,
+  assertPersistentValidationProvesSharedInputsOnce,
   assertPersistentValidationUsesPerFileInputs,
   assertRejectedTransformIsEvictedAndRecovers,
   assertSiblingDeliveriesDoNotReprobeGraph,

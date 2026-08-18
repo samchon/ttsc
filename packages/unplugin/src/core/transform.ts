@@ -99,10 +99,23 @@ export interface TtscCachedProjectTransform {
    */
   externalInputPaths?: string[];
   /**
+   * Metadata signature of each {@link externalInputHashes} entry, captured
+   * around the read that proved its hash. An input whose signature still holds
+   * carries the recorded content, so revalidation may skip the read.
+   */
+  externalInputSignatures?: Record<string, string>;
+  /**
    * SHA-256 hash of each project-relative input path at the time of the
    * transform.
    */
   inputHashes: Record<string, string>;
+  /**
+   * Metadata signature of each {@link inputHashes} entry whose hash was proven
+   * against an unracing read of the file on disk. The generation's own current
+   * file is deliberately absent: its recorded hash comes from the bundler's
+   * in-memory source, which no disk signature can stand for.
+   */
+  inputSignatures?: Record<string, string>;
   /** Metadata snapshot of every directory in the stable generation walk. */
   projectDirectories?: TtscProjectDirectorySnapshot[];
   /** Live notification state for universal host-input changes. */
@@ -1404,11 +1417,93 @@ function matchesNarrowPersistentInputs(
     if (hostValidation.identities.has(derivationIdentity(state, input))) {
       continue;
     }
-    if (!matchesRecordedInput(cached, input)) {
+    if (!matchesProvenInput(cached, state, input)) {
       return false;
     }
   }
   return true;
+}
+
+/**
+ * Validate one derived input against the generation, skipping the content read
+ * while the recorded metadata signature still holds.
+ *
+ * Sibling deliveries of one generation share most of their derived inputs, and
+ * `graph.globals` is shared by every one of them, so re-reading and re-hashing
+ * the whole derived set per delivery multiplies one generation's proven bytes
+ * by the module count. This is the same nanosecond manifest
+ * {@link matchesUniversalHostInputs} applies to universal descriptor inputs,
+ * extended to the derived set: an unchanged signature stands in for the content
+ * comparison, any signature change falls back to the full comparison, and a
+ * signature captured around a racing write is never recorded.
+ *
+ * The signature carries the physical identity of both the lexical path and its
+ * link target ({@link inputMetadataSignature}), so retargeting a symlink or
+ * junction moves it and the skipped realpath comparison cannot be evaded.
+ */
+function matchesProvenInput(
+  cached: TtscCachedProjectTransform,
+  state: TtscEnvelopeDerivation,
+  input: string,
+): boolean {
+  const slot = inputSignatureSlot(cached, state, input);
+  if (slot === undefined) {
+    return matchesRecordedInput(cached, input);
+  }
+  const filesystem = resultFilesystem(cached.result);
+  const before = inputMetadataSignature(input, filesystem);
+  if (before !== undefined && slot.signatures[slot.key] === before) {
+    return true;
+  }
+  if (!matchesRecordedInput(cached, input)) {
+    return false;
+  }
+  const after = inputMetadataSignature(input, filesystem);
+  if (after !== undefined && before === after) {
+    slot.signatures[slot.key] = after;
+  } else {
+    delete slot.signatures[slot.key];
+  }
+  return true;
+}
+
+/**
+ * Locate the signature manifest entry that owns one recorded input, mirroring
+ * {@link matchesRecordedInput}'s own preference for the out-of-walk spelling's
+ * snapshot over the walked project's. Returns `undefined` for an input the
+ * generation never proved by an unracing disk read, which keeps the full
+ * content comparison as the only authority for it.
+ */
+function inputSignatureSlot(
+  cached: TtscCachedProjectTransform,
+  state: TtscEnvelopeDerivation,
+  input: string,
+): { key: string; signatures: Record<string, string> } | undefined {
+  const identity = derivationIdentity(state, input);
+  const externalSignatures = cached.externalInputSignatures;
+  if (
+    Object.prototype.hasOwnProperty.call(
+      cached.externalInputHashes ?? {},
+      identity,
+    )
+  ) {
+    return externalSignatures !== undefined &&
+      Object.prototype.hasOwnProperty.call(externalSignatures, identity)
+      ? { key: identity, signatures: externalSignatures }
+      : undefined;
+  }
+  const projectSignatures = cached.inputSignatures;
+  if (projectSignatures === undefined) {
+    return undefined;
+  }
+  const projectKey = toProjectKey(
+    cached.projectRoot,
+    input,
+    state.identityContext,
+  );
+  return Object.prototype.hasOwnProperty.call(projectSignatures, projectKey)
+    ? { key: projectKey, signatures: projectSignatures }
+    : undefined;
 }
 
 /**
@@ -1745,6 +1840,9 @@ function matchesCompleteInputSnapshot(
     cached.projectRoot,
     envelopeDerivation(cached).identityContext,
     resultFilesystem(cached.result),
+    cached.inputSignatures === undefined
+      ? undefined
+      : { hashes: cached.inputHashes, signatures: cached.inputSignatures },
   );
   if (!current.complete) {
     return false;
@@ -1806,13 +1904,26 @@ function captureExternalInputSnapshot(
   complete: boolean;
   hashes: Record<string, string>;
   realpaths: Record<string, string | null>;
+  signatures: Record<string, string>;
 } {
   const state = envelopeDerivation(cached);
   const filesystem = resultFilesystem(cached.result);
   const graph = envelopeGraphIndexes(state, cached);
   const hashes: Record<string, string> = {};
   const realpaths: Record<string, string | null> = {};
+  const signatures: Record<string, string> = {};
   let complete = true;
+  // Sandwich every read between two metadata signatures. Only a signature that
+  // survived its own read may later stand in for the content comparison; a
+  // write racing the capture leaves the input without one, so revalidation
+  // keeps re-reading it.
+  const record = (
+    identity: string,
+    before: string | undefined,
+    after: string | undefined,
+  ): void => {
+    if (after !== undefined && before === after) signatures[identity] = after;
+  };
   for (const input of paths) {
     const identity = derivationIdentity(state, input);
     if (graph.members.has(identity)) {
@@ -1821,7 +1932,9 @@ function captureExternalInputSnapshot(
         complete = false;
         continue;
       }
+      const before = inputMetadataSignature(input, filesystem);
       const currentHash = graphInputStateHash(input, filesystem);
+      const after = inputMetadataSignature(input, filesystem);
       if (
         currentHash !== proof.hash ||
         !sameHostInputRealpath(
@@ -1831,14 +1944,22 @@ function captureExternalInputSnapshot(
         )
       ) {
         complete = false;
+      } else {
+        // The recorded hash is the compiler's own proof, so a signature may
+        // only stand for it once the current bytes were shown to match it.
+        record(identity, before, after);
       }
       hashes[identity] = proof.hash ?? "missing";
       realpaths[identity] = proof.realpath;
       continue;
     }
-    hashes[identity] = hostInputStateHash(input, filesystem) ?? "missing";
+    const before = inputMetadataSignature(input, filesystem);
+    const hash = hostInputStateHash(input, filesystem);
+    const after = inputMetadataSignature(input, filesystem);
+    hashes[identity] = hash ?? "missing";
+    if (hash !== null) record(identity, before, after);
   }
-  return { complete, hashes, realpaths };
+  return { complete, hashes, realpaths, signatures };
 }
 
 /** Verify every graph member still has the state read by the compiler. */
@@ -1964,6 +2085,10 @@ function collectProjectInputSnapshot(
   projectRoot: string,
   identities: FilesystemPathIdentityContext,
   filesystem: TtscTransformFilesystemOperations = DEFAULT_FILESYSTEM_OPERATIONS,
+  proven?: {
+    hashes: Record<string, string>;
+    signatures: Record<string, string>;
+  },
 ): {
   complete: boolean;
   fileSignatures: Record<string, string>;
@@ -1977,9 +2102,22 @@ function collectProjectInputSnapshot(
   for (const file of walked.files) {
     try {
       const before = inputMetadataSignature(file, filesystem);
+      const key = toProjectKey(projectRoot, file, identities);
+      // A file whose signature still equals the one captured around the read
+      // that produced the recorded hash carries that content, so the whole
+      // project does not have to be re-read to prove one delivery.
+      if (
+        before !== undefined &&
+        proven !== undefined &&
+        proven.signatures[key] === before &&
+        Object.prototype.hasOwnProperty.call(proven.hashes, key)
+      ) {
+        hashes[key] = proven.hashes[key]!;
+        fileSignatures[key] = before;
+        continue;
+      }
       const contents = filesystem.readFile(file);
       const after = inputMetadataSignature(file, filesystem);
-      const key = toProjectKey(projectRoot, file, identities);
       hashes[key] = hashText(contents);
       if (before === undefined || after === undefined || before !== after) {
         complete = false;
@@ -2524,10 +2662,22 @@ function collectCachedExternalInputHashes(
   const state = envelopeDerivation(cached);
   const graphRealpaths = cached.externalInputRealpaths ?? {};
   const filesystem = resultFilesystem(cached.result);
+  const recordedHashes = cached.externalInputHashes ?? {};
+  const recordedSignatures = cached.externalInputSignatures ?? {};
   for (const file of cached.externalInputPaths ??
     Object.keys(cached.externalInputHashes ?? {})) {
     const identity = derivationIdentity(state, file);
     if (identity in hashes) continue;
+    // Reuse the recorded hash of an out-of-walk input whose signature still
+    // equals the one captured around the read that proved it.
+    if (
+      Object.prototype.hasOwnProperty.call(recordedSignatures, identity) &&
+      Object.prototype.hasOwnProperty.call(recordedHashes, identity) &&
+      inputMetadataSignature(file, filesystem) === recordedSignatures[identity]
+    ) {
+      hashes[identity] = recordedHashes[identity]!;
+      continue;
+    }
     hashes[identity] =
       (Object.prototype.hasOwnProperty.call(graphRealpaths, identity)
         ? graphInputStateHash(file, filesystem)
@@ -2766,9 +2916,15 @@ async function transformProject(props: {
       hostInputTracker?.membershipChanged !== true;
     // Overlay the in-memory source only after proving the two on-disk snapshots
     // stable; an unsaved editor buffer must not look like a compile-time race.
-    inputSnapshot.hashes[
-      toProjectKey(projectRoot, props.currentFile, identities)
-    ] = hashText(props.currentSource);
+    const currentFileKey = toProjectKey(
+      projectRoot,
+      props.currentFile,
+      identities,
+    );
+    inputSnapshot.hashes[currentFileKey] = hashText(props.currentSource);
+    // That overlay makes this one key the only recorded hash a disk signature
+    // cannot stand for: the bytes it names came from the bundler, not the file.
+    delete inputSnapshot.fileSignatures[currentFileKey];
     const cached: TtscCachedProjectTransform = {
       // Capture the out-of-walk input hashes while the generation is fresh so
       // cache validation can re-check them; computed before dispose so the
@@ -2777,6 +2933,7 @@ async function transformProject(props: {
       externalInputRealpaths: {},
       externalInputPaths,
       inputHashes: inputSnapshot.hashes,
+      inputSignatures: inputSnapshot.fileSignatures,
       projectDirectories: inputSnapshot.projectDirectories,
       projectSnapshotComplete: false,
       projectRoot,
@@ -2793,6 +2950,7 @@ async function transformProject(props: {
     );
     cached.externalInputHashes = externalInputSnapshot.hashes;
     cached.externalInputRealpaths = externalInputSnapshot.realpaths;
+    cached.externalInputSignatures = externalInputSnapshot.signatures;
     stableProjectSnapshot =
       stableProjectSnapshot &&
       matchesCompilerGraphInputProofs(cached) &&
