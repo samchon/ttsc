@@ -236,7 +236,7 @@ func writeDocTagLink(out *strings.Builder, opener string, node *shimast.Node) {
 // whitespace runs a documentation comment adds around them.
 //
 // strings.Fields splits on every Unicode space, which covers the four
-// ECMAScript line terminators - LF, CR, U+2028, U+2029 - so a CRLF checkout and
+// ECMAScript line terminators — LF, CR, U+2028, U+2029 — so a CRLF checkout and
 // an LF one produce the same string, and a reason written across three comment
 // lines becomes one.
 func joinDocTagLines(text string) string {
@@ -330,6 +330,13 @@ type docHost struct {
 // explicitly beside the tags; that is the same reason the existing edge passes
 // never reached a link.
 func (g *Graph) docRefsWithin(checker *shimchecker.Checker, from string, doc *shimast.Node) {
+  // Guarded on the kind before the conversion, the way the tag walk is. A
+  // documentation block is what this is handed and an AsJSDoc on anything else
+  // panics rather than returning nil — which is exactly how reading a tag's
+  // comment through its own struct crashed on the first `@param`.
+  if doc == nil || doc.Kind != shimast.KindJSDoc {
+    return
+  }
   comment := doc.AsJSDoc()
   if comment == nil {
     return
