@@ -227,8 +227,11 @@ func (p *Program) EmitWithPluginTransformers(transforms []PluginTransform, write
       //
       // Nothing is lost by not walking the plugin's nodes. The marks they could
       // contribute are unreachable anyway — UpdateSourceFile rebuilds a
-      // SourceFile without its Locals, where an ordinary import binding lives,
-      // so a synthetic identifier cannot resolve to one — and an
+      // SourceFile through copyFrom, which carries over neither Locals nor
+      // Symbol, and an ordinary import binds into Locals (declareModuleMember
+      // routes an alias to Exports only for an export specifier or an exported
+      // import-equals), so neither resolveName branch can reach an import from a
+      // synthetic identifier — and an
       // import the plugin synthesized needs no mark at all, because it has no
       // parse original and elision preserves it unconditionally.
       //

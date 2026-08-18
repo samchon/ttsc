@@ -18,12 +18,18 @@ import (
 //
 // Rewriting a decorator call on a controller method is the canonical ttsc
 // transform, named as the example in restoreOriginalDeclarationSymbols itself,
-// and it is what a nestia-style host does. It reaches reference marking through
-// markDecoratorAliasReferenced rather than the plain identifier path the other
-// rebuilt-reference tests exercise, and it forces the visitor to rebuild the
-// method and the class around the changed decorator. Both properties have to
-// hold at once here: the rebuilt containers must still resolve, and the
-// decorator's import must still be marked from the parse tree.
+// and it is what a nestia-style host does. What it adds over the sibling
+// rebuilt-reference tests is the legacy decorator lowering: the reference is
+// moved out of the class body into a `__decorate` call emitted after the class,
+// so the alias and the binding it needs end up in different statements. The
+// broken form is correspondingly harder to spot by eye, `(0, dep_1.Route)()`
+// sitting inside `__decorate` with nothing in the file defining `dep_1`.
+//
+// Marking still reaches `Route` through markIdentifierAliasReferenced, the same
+// path as the siblings. markDecoratorAliasReferenced is not involved: the
+// unspecified-hint branch returns before it unless emitDecoratorMetadata is on,
+// and it marks only parameter and return type nodes, never the decorator
+// callee.
 //
 //  1. `index.ts` imports `Route` and applies `@Route()` to a class method.
 //  2. A plugin rebuilds the decorator's call expression, SetOriginal-linking a

@@ -3,7 +3,6 @@ package driver_test
 import (
   "path/filepath"
   "regexp"
-  "strings"
   "testing"
 
   shimast "github.com/microsoft/typescript-go/shim/ast"
@@ -88,7 +87,10 @@ func TestEmitWithPluginTransformerRebuiltDefaultImportReferenceKeepsItsBinding(t
   if alias == nil {
     t.Fatalf("rebuilt default-import reference was not aliased to <ns>.default.run():\n%s", js)
   }
-  if !strings.Contains(js, "const "+alias[1]+" = ") || !strings.Contains(js, `require("./dep")`) {
-    t.Fatalf("reference aliased to %s but no require binding for ./dep was emitted, so the module throws ReferenceError:\n%s", alias[1], js)
+  // Tie the binding to the alias in one pattern rather than asserting the two
+  // independently. esModuleInterop wraps the call in __importDefault, so the
+  // middle is left open instead of matching that helper by name.
+  if !regexp.MustCompile(`const ` + alias[1] + ` = [^\n]*require\("\./dep"\)`).MatchString(js) {
+    t.Fatalf("reference aliased to %s but no require binding for ./dep was emitted under that name, so the module throws ReferenceError:\n%s", alias[1], js)
   }
 }

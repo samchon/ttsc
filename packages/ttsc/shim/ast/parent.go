@@ -6,13 +6,19 @@ import innerast "github.com/microsoft/typescript-go/internal/ast"
 // its containing node.
 //
 // A transform that splices freshly built (synthetic) nodes onto a SourceFile
-// must call this before emit: the builtin transformers that then walk the
-// spliced tree — module transform, runtime syntax, printer — dereference Parent
-// and would hit nil on a synthetic node otherwise.
+// must call this before emit, because the passes that then walk the spliced tree
+// dereference Parent and would hit nil on a synthetic node. The printer is the
+// example that holds up: getContainingNodeArray reads node.Parent unguarded for
+// a parameter, template span, decorator, and heritage clause.
 //
-// The emit resolver's reference marking used to be the example here. It no
-// longer walks the spliced tree in ttsc's plugin emit lane, which builds the
-// builtin chain from the parse tree instead (see driver.EmitWithPluginTransformers).
+// Two earlier examples were dropped rather than the rule. The emit resolver's
+// reference marking no longer walks the spliced tree at all in ttsc's plugin
+// emit lane, which builds the builtin chain from the parse tree (see
+// driver.EmitWithPluginTransformers). The module transform's own Parent reads
+// carry upstream //nolint:customlint notes saying they deliberately inspect
+// parse-tree parents. Whether any other builtin pass needs this is unproven:
+// disabling the call leaves the driver suite green, which measures the coverage
+// rather than the hazard.
 func SetParentInChildren(node *Node) {
   innerast.SetParentInChildren(node)
 }
