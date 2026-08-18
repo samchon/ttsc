@@ -256,10 +256,7 @@ func joinDocTagLines(text string) string {
 // relation, and privileging a tag would put one convention's name inside the
 // compiler host.
 func (g *Graph) collectDocRefs(checker *shimchecker.Checker, file *shimast.SourceFile) {
-  for _, host := range g.docHosts {
-    if host.file != file.FileName() {
-      continue
-    }
+  for _, host := range g.docHosts[file.FileName()] {
     for _, doc := range documentationOf(host.declaration, file) {
       g.docRefsWithin(checker, host.target, doc)
     }
@@ -298,18 +295,22 @@ func (g *Graph) recordDocHost(target string, declaration *shimast.Node) {
     return
   }
   g.docHostPositions[key] = struct{}{}
-  g.docHosts = append(g.docHosts, docHost{
+  if g.docHosts == nil {
+    g.docHosts = map[string][]docHost{}
+  }
+  path := file.FileName()
+  g.docHosts[path] = append(g.docHosts[path], docHost{
     target:      target,
-    file:        file.FileName(),
     declaration: declaration,
   })
 }
 
 // docHost is one declaration that carries documentation, paired with the graph
-// node the build pass attributed it to.
+// node the build pass attributed it to. They are grouped by file, because the
+// edge pass asks once per file and a flat slice would make that a scan of every
+// documented declaration in the project for each one.
 type docHost struct {
   target      string
-  file        string
   declaration *shimast.Node
 }
 

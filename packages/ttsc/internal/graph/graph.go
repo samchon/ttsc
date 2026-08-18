@@ -230,10 +230,12 @@ type Graph struct {
   // once. Build-only, like bodyNodes.
   docTagPositions map[docTagKey]struct{}
   // docHosts are the declarations the node pass found documentation on, paired
-  // with the node it attributed them to. The edge pass resolves documentation
-  // links from this set rather than from a walk of its own, so both halves of a
-  // citation cover the same declarations. Build-only.
-  docHosts         []docHost
+  // with the node it attributed them to and keyed by their file. The edge pass
+  // resolves documentation links from this set rather than from a walk of its
+  // own, so both halves of a citation cover the same declarations, and it asks
+  // per file so a project's whole documented population is never rescanned for
+  // each one. Build-only.
+  docHosts         map[string][]docHost
   docHostPositions map[docTagKey]struct{}
   // bodyNodes tracks whether a callable node's display span is the overload
   // implementation rather than an overload signature. It is build-only metadata
