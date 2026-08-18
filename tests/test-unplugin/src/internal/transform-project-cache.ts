@@ -1817,8 +1817,9 @@ async function assertSeparatedStampReEarnsItsSignature(): Promise<void> {
   // a delivery validates its reachable siblings before the globals that carry
   // it. The module delivered while the floor rose therefore leaves its siblings
   // unproven, and no delivery proves the module it is delivering (a file is
-  // excluded from its own derived set). A pass covers every module through some
-  // other module's post-floor delivery.
+  // excluded from its own derived set). The three post-floor deliveries of this
+  // four-module mesh jointly prove all four, since every module belongs to some
+  // other module's closure.
   for (const file of modules) {
     assert.ok(await deliver(file));
   }

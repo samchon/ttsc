@@ -1848,8 +1848,8 @@ const MISSING_INPUT_STATE = "missing";
  * it, and that guarantee needs a reference instant the observed filesystem
  * itself produced: once some stamp on the same device is strictly newer than an
  * input's modification stamp, that input's tick is provably over, so any later
- * write must mint a newer stamp and move the signature. This is git's
- * racily-clean index rule under a read-only contract — where git compares
+ * write must mint a newer stamp and move the signature. That is git's
+ * racily-clean index rule, adapted to a read-only contract: where git compares
  * entries against the index file's own timestamp, this floor accumulates every
  * stamp the cache-owned operations report, seeded per generation by
  * {@link mintFilesystemClockReference}.
@@ -1865,12 +1865,14 @@ const MISSING_INPUT_STATE = "missing";
  * stamp-preserving copy from a machine whose clock ran ahead — and one such
  * future-dated file raises its device's floor past the present, reopening the
  * same-tick window for every other input on that device until the clock catches
- * up. The minted probe is not enough on its own to replace them: it lands on
- * the scratch volume, which is frequently not the inputs' volume (a project on
- * `D:` with `TEMP` on `C:`), and a probe-only floor would then decline every
- * signature and re-read every input on every delivery. Observed stamps keep the
- * common case working; the probe covers the case they cannot, a tree whose
- * files were all written inside one tick.
+ * up. A clock stepped backwards leaves the floor above the present the same
+ * way. The minted probe is not enough on its own to replace observed stamps: it
+ * lands on the scratch volume, which is frequently not the inputs' volume (a
+ * project on `D:` with `TEMP` on `C:`), and a probe-only floor would then
+ * decline every signature, so every input carrying bytes would be re-read on
+ * every delivery. Observed stamps keep the common case working; the probe
+ * covers the case they cannot, a tree whose files were all written inside one
+ * tick.
  */
 const FILESYSTEM_CLOCK_FLOORS = new WeakMap<
   TtscTransformFilesystemOperations,
