@@ -115,6 +115,9 @@ async function main(): Promise<void> {
       graphFanout: 50,
       graphGlobals: 50,
       partitionExternalInputs: false,
+      // The chain graph makes ~N/2 missing candidates reachable per module on
+      // average, one failed stat each, on top of the shared membership budget.
+      statsBudget: 34,
       unrelatedDirectoryCount: 100,
     }),
   );
@@ -208,6 +211,18 @@ interface MeasureOptions {
   graphGlobals?: number;
   /** Give each module one disjoint external edge instead of the whole union. */
   partitionExternalInputs?: boolean;
+  /**
+   * Synchronous `stat` budget per delivered module, defaulting to the shared
+   * membership budget of 8.
+   *
+   * A missing resolution candidate cannot be proven absent by metadata, so each
+   * one reachable from the delivered file costs one failed `stat` per delivery.
+   * That set is bounded by the file's reachable _source_ set, which a shared
+   * closure makes large by construction, so a scenario that stamps a shared
+   * closure states its own budget instead of hiding the cost under the
+   * membership one.
+   */
+  statsBudget?: number;
   /** Unrelated nested project directories used to gate membership-stat cost. */
   unrelatedDirectoryCount?: number;
 }
@@ -458,9 +473,10 @@ async function measureServeValidation(
   if (readsPerFile > 16) {
     return `serve validation N=${options.count} K=${options.graphFanout} G=${options.graphGlobals ?? 0}: reads/file=${readsPerFile.toFixed(1)} exceeds the per-file validation budget of 16`;
   }
-  return statsPerFile <= 8
+  const statsBudget = options.statsBudget ?? 8;
+  return statsPerFile <= statsBudget
     ? undefined
-    : `serve validation N=${options.count} dirs=${options.unrelatedDirectoryCount}: stats/file=${statsPerFile.toFixed(1)} exceeds the shared membership budget of 8`;
+    : `serve validation N=${options.count} dirs=${options.unrelatedDirectoryCount}: stats/file=${statsPerFile.toFixed(1)} exceeds the budget of ${statsBudget}`;
 }
 
 /**

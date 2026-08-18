@@ -99,9 +99,15 @@ export interface TtscCachedProjectTransform {
    */
   externalInputPaths?: string[];
   /**
-   * Metadata signature of each {@link externalInputHashes} entry, captured
-   * around the read that proved its hash. An input whose signature still holds
-   * carries the recorded content, so revalidation may skip the read.
+   * Metadata signature of each out-of-walk input, captured around the read that
+   * proved its {@link externalInputHashes} entry. An input whose signature still
+   * holds carries the recorded content, so revalidation may skip the read.
+   *
+   * Keyed by lexical spelling rather than by physical identity, for the reason
+   * {@link TtscHostInputValidation} states: a symlink or junction spelling and
+   * its selected target deliberately share one identity but have different
+   * metadata, so an identity key would let the two overwrite each other's
+   * signature and force both to be re-read on every delivery.
    */
   externalInputSignatures?: Record<string, string>;
   /**
@@ -1507,9 +1513,13 @@ function inputSignatureSlot(
       identity,
     )
   ) {
+    // The recorded hash is identity-keyed because aliases of one physical file
+    // share its content; the signature is spelling-keyed because they do not
+    // share its metadata.
+    const spelling = path.resolve(input);
     return externalSignatures !== undefined &&
-      Object.prototype.hasOwnProperty.call(externalSignatures, identity)
-      ? { key: identity, signatures: externalSignatures }
+      Object.prototype.hasOwnProperty.call(externalSignatures, spelling)
+      ? { key: spelling, signatures: externalSignatures }
       : undefined;
   }
   const projectSignatures = cached.inputSignatures;
@@ -1957,11 +1967,12 @@ function captureExternalInputSnapshot(
   // write racing the capture leaves the input without one, so revalidation
   // keeps re-reading it.
   const record = (
-    identity: string,
+    input: string,
     before: string | undefined,
     after: string | undefined,
   ): void => {
-    if (after !== undefined && before === after) signatures[identity] = after;
+    if (after !== undefined && before === after)
+      signatures[path.resolve(input)] = after;
   };
   for (const input of paths) {
     const identity = derivationIdentity(state, input);
@@ -1986,7 +1997,7 @@ function captureExternalInputSnapshot(
       } else {
         // The recorded hash is the compiler's own proof, so a signature may
         // only stand for it once the current bytes were shown to match it.
-        record(identity, before, after);
+        record(input, before, after);
       }
       hashes[identity] = proof.hash ?? "missing";
       realpaths[identity] = proof.realpath;
@@ -1996,7 +2007,7 @@ function captureExternalInputSnapshot(
     const hash = hostInputStateHash(input, filesystem);
     const after = inputMetadataSignature(input, filesystem);
     hashes[identity] = hash ?? "missing";
-    if (hash !== null) record(identity, before, after);
+    if (hash !== null) record(input, before, after);
   }
   return { complete, hashes, realpaths, signatures };
 }
@@ -2756,11 +2767,14 @@ function collectCachedExternalInputHashes(
     const identity = derivationIdentity(state, file);
     if (identity in hashes) continue;
     // Reuse the recorded hash of an out-of-walk input whose signature still
-    // equals the one captured around the read that proved it.
+    // equals the one captured around the read that proved it. The signature is
+    // keyed by this exact spelling, so an alias of the same physical file
+    // cannot answer for it.
+    const spelling = path.resolve(file);
     if (
-      Object.prototype.hasOwnProperty.call(recordedSignatures, identity) &&
+      Object.prototype.hasOwnProperty.call(recordedSignatures, spelling) &&
       Object.prototype.hasOwnProperty.call(recordedHashes, identity) &&
-      inputMetadataSignature(file, filesystem) === recordedSignatures[identity]
+      inputMetadataSignature(file, filesystem) === recordedSignatures[spelling]
     ) {
       hashes[identity] = recordedHashes[identity]!;
       continue;
