@@ -43,6 +43,10 @@ interface ICacheProjectOptions {
    * spelling and re-read the file on every delivery, which is the cost the
    * per-spelling proof exists to avoid.
    *
+   * Requires a positive `graphGlobals` (the directory it links inside is one of
+   * those globals) and a positive `graphFanout` (the fixture builds the whole
+   * `graph` section only for a graph-bearing envelope).
+   *
    * POSIX only: creating a file symlink on Windows needs elevation, so the
    * option is dropped there and the case keeps its other assertions on every
    * platform.
@@ -906,6 +910,83 @@ async function assertUnavailableNotificationsKeepThePersistentCache(): Promise<v
 }
 
 /**
+ * Asserts an unsettled metadata clock keeps the content comparison.
+ *
+ * A signature stands for content only while a later write would move it, and a
+ * filesystem timestamp advances in ticks. An input whose modification time the
+ * clock cannot yet separate from a later write can be rewritten inside that
+ * tick, to a different payload of the same length, and keep the signature it
+ * was captured with — measured at 156 of 200 back-to-back same-size rewrites on
+ * Windows, where Node also reports `ctime` as the creation time. Such an input
+ * must never acquire a proof.
+ *
+ * The cache-owned metadata reads report a frozen future timestamp here, which
+ * is that state made deterministic on every platform: no signature can settle,
+ * so every delivery must still compare content.
+ */
+async function assertUnsettledMetadataKeepsTheContentComparison(): Promise<void> {
+  const { createTtscTransformCache, resolveOptions, transformTtsc } =
+    await TestUnpluginRuntime.loadUnpluginApi();
+  const project = createCacheProject({ fileCount: 4, graphFanout: 4 });
+  const modules = projectModules(project.root);
+  const frozen = BigInt(Date.now() + 3_600_000) * 1_000_000n;
+  const freeze = (stats: fs.BigIntStats): fs.BigIntStats =>
+    Object.assign(Object.create(stats) as fs.BigIntStats, {
+      ctimeNs: frozen,
+      mtimeNs: frozen,
+    });
+  const cache = createTtscTransformCache({
+    lstat: (location: string) =>
+      freeze(fs.lstatSync(location, { bigint: true })),
+    statBigInt: (location: string) =>
+      freeze(fs.statSync(location, { bigint: true })),
+  });
+  const options = resolveOptions();
+  const deliver = (file: string) =>
+    transformTtsc(
+      file,
+      fs.readFileSync(file, "utf8"),
+      options,
+      undefined,
+      cache,
+    );
+  const pluginRuns = (): number =>
+    fs.existsSync(project.runLog)
+      ? fs.readFileSync(project.runLog, "utf8").length
+      : 0;
+
+  for (const file of modules) {
+    assert.ok(await deliver(file));
+  }
+  assert.equal(pluginRuns(), 1);
+
+  // Same byte length, different content: with the metadata frozen, only a
+  // content comparison can see this.
+  const reachable = path.join(
+    project.root,
+    "node_modules",
+    "dep1",
+    "index.d.ts",
+  );
+  assert.equal(
+    fs.readFileSync(reachable, "utf8"),
+    "export declare const dep1: number;" + String.fromCharCode(10),
+  );
+  fs.writeFileSync(
+    reachable,
+    "export declare const dep1: string;" + String.fromCharCode(10),
+    "utf8",
+  );
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  assert.ok(await deliver(modules[0]!));
+  assert.equal(
+    pluginRuns(),
+    2,
+    "an input whose signature cannot settle must keep its content comparison",
+  );
+}
+
+/**
  * Asserts the whole-snapshot path proves each input once per generation.
  *
  * With notifications unavailable every delivery re-proves the recorded snapshot
@@ -960,7 +1041,10 @@ async function assertCompleteValidationProvesEachInputOnce(): Promise<void> {
 
   // A metadata-only change to a project input and to an out-of-walk input costs
   // one re-read each, once.
-  const shifted = new Date(Date.now() + 4000);
+  // Backwards: a signature the filesystem clock cannot yet separate from a
+  // later write is deliberately refused, so a future stamp would never regain
+  // its proof. A restored-from-backup timestamp exercises the same path.
+  const shifted = new Date(Date.now() - 4000);
   fs.utimesSync(path.join(project.root, "src", "mod4.ts"), shifted, shifted);
   fs.utimesSync(
     path.join(project.root, "node_modules", "dep2", "index.d.ts"),
@@ -1024,7 +1108,9 @@ async function assertOneFailedTrackerFallsBackToCompleteValidation(): Promise<vo
     watch: () => {
       // The project tracker registers before the compile and the host-input
       // tracker after it, so the fixture's own run log separates the two
-      // phases: this refuses the host-input registrations and no others.
+      // phases: on the first generation this refuses the host-input
+      // registrations only. A later recompile finds the log already written and
+      // refuses both, which the assertions after it do not depend on.
       if (!fs.existsSync(project.runLog)) {
         return { close: () => undefined };
       }
@@ -1246,7 +1332,10 @@ async function assertPersistentValidationProvesSharedInputsOnce(): Promise<void>
     "global0",
     "index.d.ts",
   );
-  const shifted = new Date(Date.now() + 4000);
+  // Backwards: a signature the filesystem clock cannot yet separate from a
+  // later write is deliberately refused, so a future stamp would never regain
+  // its proof. A restored-from-backup timestamp exercises the same path.
+  const shifted = new Date(Date.now() - 4000);
   fs.utimesSync(touched, shifted, shifted);
   const beforeTouch = [...cache.values()][0];
   reads = 0;
@@ -2227,4 +2316,5 @@ export {
   assertStaleMismatchUsesNewerGeneration,
   assertSupersededMatchingGenerationIsNotServed,
   assertUnavailableNotificationsKeepThePersistentCache,
+  assertUnsettledMetadataKeepsTheContentComparison,
 };

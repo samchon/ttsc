@@ -10,7 +10,8 @@ import { assertOneFailedTrackerFallsBackToCompleteValidation } from "../../inter
  * that consulted a single tracker would keep them green while serving modules
  * whose universal inputs nothing is watching.
  *
- * 1. Refuse only the host-input watch registrations through the cache-owned seam.
+ * 1. Refuse the first generation's host-input watch registrations, and only those,
+ *    through the cache-owned seam.
  * 2. Deliver every module and assert one compile plus neither tracker attached.
  * 3. Edit a project source and assert the fallback still invalidates.
  */

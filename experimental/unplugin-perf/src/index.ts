@@ -123,7 +123,7 @@ async function main(): Promise<void> {
       // `(count + 1) / 2` per module on average, one failed stat each, on top
       // of the shared membership budget. Derived from the scenario's own size
       // so raising it neither hides a regression nor invents a failure.
-      statsBudget: (sharedClosureModules + 1) / 2 + 8,
+      statsBudget: (sharedClosureModules + 1) / 2 + MEMBERSHIP_STAT_BUDGET,
       unrelatedDirectoryCount: 100,
     }),
   );
@@ -198,6 +198,13 @@ function requireFromUnplugin(specifier: string): unknown {
   );
 }
 
+/**
+ * Synchronous `stat` calls one delivery may spend proving project membership,
+ * independent of the project's directory count. Scenarios that add a cost of
+ * their own state a budget derived from this one.
+ */
+const MEMBERSHIP_STAT_BUDGET = 8;
+
 interface MeasureOptions {
   count: number;
   emitExternalKey: boolean;
@@ -220,8 +227,8 @@ interface MeasureOptions {
   /** Give each module one disjoint external edge instead of the whole union. */
   partitionExternalInputs?: boolean;
   /**
-   * Synchronous `stat` budget per delivered module, defaulting to the shared
-   * membership budget of 8.
+   * Synchronous `stat` budget per delivered module, defaulting to
+   * {@link MEMBERSHIP_STAT_BUDGET}.
    *
    * A missing resolution candidate cannot be proven absent by metadata, so each
    * one reachable from the delivered file costs one failed `stat` per delivery.
@@ -490,7 +497,7 @@ async function measureServeValidation(
   if (readsPerFile > 16) {
     return `serve validation N=${options.count} K=${options.graphFanout} G=${options.graphGlobals ?? 0}: reads/file=${readsPerFile.toFixed(1)} exceeds the per-file validation budget of 16`;
   }
-  const statsBudget = options.statsBudget ?? 8;
+  const statsBudget = options.statsBudget ?? MEMBERSHIP_STAT_BUDGET;
   return statsPerFile <= statsBudget
     ? undefined
     : `serve validation N=${options.count} dirs=${options.unrelatedDirectoryCount}: stats/file=${statsPerFile.toFixed(1)} exceeds the budget of ${statsBudget}`;

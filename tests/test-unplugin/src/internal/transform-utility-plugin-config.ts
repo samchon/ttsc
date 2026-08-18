@@ -880,6 +880,11 @@ async function assertUnnotifiedUtilityConfigLinkRetargetInvalidatesTransform() {
   assert.ok(first);
   assert.match(first.code, /OLD LINK TARGET/);
   const firstGeneration = [...cache.values()][0];
+  assert.equal(
+    (await firstGeneration!).projectSnapshotComplete,
+    true,
+    "an unprovable generation would recompile for the wrong reason below",
+  );
 
   // Every watcher stops reporting, so validation can only use recorded state.
   assert.ok(failures.length > 0, "the seam must have registered a watcher");
