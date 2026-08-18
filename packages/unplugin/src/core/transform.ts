@@ -1857,10 +1857,20 @@ const MISSING_INPUT_STATE = "missing";
  * The process clock never participates: both sides of every comparison are
  * stamps the same filesystem clock minted, at the same granularity, so a
  * filesystem clock running behind (or ahead of) the host process changes
- * nothing. The floor's own boundary is the clock itself — a stamp imported from
- * a machine whose clock ran ahead (archive extraction, stamp-preserving
- * copies), or a clock stepped backwards, can defeat any stamp-based freshness
- * proof, git's included.
+ * nothing.
+ *
+ * Accumulating observed stamps is deliberately weaker than git's own reference,
+ * which is a single stamp git minted itself. A stamp this floor accepts may
+ * instead have been _set_ rather than minted — archive extraction or a
+ * stamp-preserving copy from a machine whose clock ran ahead — and one such
+ * future-dated file raises its device's floor past the present, reopening the
+ * same-tick window for every other input on that device until the clock catches
+ * up. The minted probe is not enough on its own to replace them: it lands on
+ * the scratch volume, which is frequently not the inputs' volume (a project on
+ * `D:` with `TEMP` on `C:`), and a probe-only floor would then decline every
+ * signature and re-read every input on every delivery. Observed stamps keep the
+ * common case working; the probe covers the case they cannot, a tree whose
+ * files were all written inside one tick.
  */
 const FILESYSTEM_CLOCK_FLOORS = new WeakMap<
   TtscTransformFilesystemOperations,
@@ -1921,6 +1931,13 @@ function stampSeparable(
  * volume differs from the inputs' volume, or the observed filesystem cannot see
  * the probe at all, nothing is proven and signature recording simply stays
  * declined until passively observed stamps separate an input on their own.
+ *
+ * Relocating the scratch directory onto the inputs' volume would make the probe
+ * universal, but it would also move every compiler and plugin temporary write
+ * into the project's parent (frequently a monorepo root or a home directory)
+ * for those layouts. That is a product decision about where ttsc writes, not a
+ * property of this rule, so the cross-volume case degrades to more reads here
+ * rather than being bought with it.
  */
 function mintFilesystemClockReference(
   scratchDirectory: string,

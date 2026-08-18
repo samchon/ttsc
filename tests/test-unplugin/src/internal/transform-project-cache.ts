@@ -1813,8 +1813,15 @@ async function assertSeparatedStampReEarnsItsSignature(): Promise<void> {
     "index.d.ts",
   );
   pinned.stamps.set(touched, PINNED_TICK + 1n);
-  assert.ok(await deliver(modules[1]!));
-  assert.ok(await deliver(modules[2]!));
+  // One full pass, because the floor rises only when `touched` is observed, and
+  // a delivery validates its reachable siblings before the globals that carry
+  // it. The module delivered while the floor rose therefore leaves its siblings
+  // unproven, and no delivery proves the module it is delivering (a file is
+  // excluded from its own derived set). A pass covers every module through some
+  // other module's post-floor delivery.
+  for (const file of modules) {
+    assert.ok(await deliver(file));
+  }
   reads.length = 0;
   assert.ok(await deliver(modules[3]!));
   // ...except the one input now sitting at the clock floor itself, whose own
