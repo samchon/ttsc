@@ -233,11 +233,16 @@ func populationRootLabel(base populationBase) string {
 // edit, and the absolute one is where that property actually landed — which is
 // the whole question the moment a root ascends out of the project.
 //
-// TypeScript is told apart in the repair clause alone. Its root re-bases
-// addressing over sources the Program already holds and never scans a
+// TypeScript is told apart in the verb and in the repair clause. Its root
+// re-bases addressing over sources the Program already holds and never scans a
 // directory, so a message about reading one would name an access this artifact
 // kind never attempts, and creating the directory on its own would leave the
 // population just as empty until the project also compiles something under it.
+//
+// The verb also has to stay clear of the two path senses beside it. "Resolves
+// to" and "re-bases against" are both composition; a lead clause saying the
+// root could not be resolved would make one sentence carry that sense and its
+// opposite, in the one diagnostic whose whole job is to stop a misreading.
 func unreadableBaseProblem(base populationBase, kind artifactKind) string {
   if base.Default {
     return ""
@@ -247,9 +252,10 @@ func unreadableBaseProblem(base populationBase, kind artifactKind) string {
     return ""
   }
   if kind == artifactTypeScript {
-    return "Evidence graph could not resolve the typescript root '" +
+    return "Evidence graph found no directory at the " + string(kind) + " root '" +
       populationRootLabel(base) + "', which resolves to '" + filepath.ToSlash(base.Absolute) +
-      "'. Correct the 'root' property, or make that directory part of the project; it resolves against the ttsc project root and re-bases Program sources rather than scanning the filesystem."
+      "'. Correct the 'root' property, or add that directory to the project; a " + string(kind) +
+      " root re-bases Program sources against the ttsc project root rather than scanning the filesystem."
   }
   return "Evidence graph could not read the " + string(kind) + " root '" +
     populationRootLabel(base) + "', which resolves to '" + filepath.ToSlash(base.Absolute) +

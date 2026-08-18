@@ -71,6 +71,9 @@ export interface ITtscEvidenceGraphReferenceBase<Type extends string> {
    * aggregate target contributes every selected descendant in its scope: citing
    * a parent of two selected units counts as two.
    *
+   * A reference whose population came back empty is reported as empty and
+   * judges no host, because there is no unit any host could have cited.
+   *
    * Set it where one host answers for one thing. A test function that proves
    * one operation stays reviewable; the same function citing eight operations
    * proves only that eight names appear in its JSDoc.

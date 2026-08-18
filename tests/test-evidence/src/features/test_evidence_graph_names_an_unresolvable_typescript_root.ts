@@ -57,7 +57,7 @@ export const test_evidence_graph_names_an_unresolvable_typescript_root =
       assertFailure(result, "An unresolvable claim root must fail the build.");
       assertIncludes(
         result,
-        "could not resolve the typescript root '../absent'",
+        "found no directory at the typescript root '../absent'",
         "The diagnostic must name the property the author has to edit.",
       );
       assertExcludes(

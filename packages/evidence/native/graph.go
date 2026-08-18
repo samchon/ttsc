@@ -206,6 +206,12 @@ func claimIsInactive(
   claim claimSpec,
   inventories map[string]*artifactInventory,
 ) bool {
+  // The default arm is unreachable: decodeClaim refuses a reference-only kind
+  // and any kind problem returns from Check before activation runs. It stays as
+  // the place a fourth claim-capable kind announces itself, and such a kind
+  // owes this switch a case and a population loader that records its failures —
+  // without both it would go active and empty with nothing to say, which is the
+  // shape this function's own history is about.
   switch claim.Type {
   case artifactMarkdown, artifactPrisma, artifactTypeScript:
   default:

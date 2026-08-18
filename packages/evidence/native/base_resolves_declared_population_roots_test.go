@@ -625,7 +625,7 @@ func TestAnUnresolvableTypeScriptClaimRootIsReportedAsARoot(t *testing.T) {
   assertProblemContains(
     t,
     messages,
-    "could not resolve the typescript root '../nowhere', which resolves to '",
+    "found no directory at the typescript root '../nowhere', which resolves to '",
   )
   if countProblemsContaining(messages, "matched no typescript files") != 0 {
     t.Fatalf(
@@ -706,32 +706,37 @@ func TestAResolvableTypeScriptRootSelectingNothingStaysSilent(t *testing.T) {
 }
 
 /**
- * Verifies a reference whose globs match nothing still names those globs.
+ * Verifies a resolvable declared root stays quiet while its reference speaks.
  *
- * The claim-side empty-match diagnostic was removed because an active claim has
- * always matched a path, and a suppression argued from population health is the
- * kind that widens by accident. The reference half is the one that must survive
- * it: there a glob matching nothing is real, reachable, and the only thing
- * standing between an author and a vacuously satisfied obligation.
+ * Both halves need a declared root to mean anything. A claim with no `root` has
+ * the default base, which `unreadableBaseProblem` returns on before it stats
+ * anything and which `Check` has already validated, so an absence assertion
+ * there could not fail however the new pass behaved. With a declared root that
+ * does exist, the pass genuinely evaluates it and must produce nothing — while
+ * the reference-side empty-match diagnostic, which the claim-side removal must
+ * not have widened onto, still fires.
  *
- *  1. Point a reference at a path no source occupies, under a healthy root.
- *  2. Read the diagnostics.
- *  3. Assert the reference names its own attempted population, with no root.
+ * The root also has to differ from the project root, which resolves as the
+ * default base and short-circuits before the stat for that reason alone.
+ *
+ *  1. Root a claim above the project, where its own source still matches.
+ *  2. Point its reference at a path no document occupies.
+ *  3. Assert the reference names its globs and the root names nothing.
  */
-func TestAReferenceMatchingNothingStillNamesItsGlobs(t *testing.T) {
+func TestAResolvableRootStaysQuietWhileItsReferenceSpeaks(t *testing.T) {
   messages := runRootedGraph(t, map[string]string{
     "project/src/sale.ts": "export interface ISale {}\n",
   }, `{"claims":[{
     "type":"typescript",
-    "files":["src/**/*.ts"],
+    "root":"..",
+    "files":["project/src/**/*.ts"],
     "symbol":"type",
     "reference":{"type":"markdown","files":["docs/**"],"symbol":"h2"}
   }]}`)
   assertProblemContains(t, messages, "matched no markdown files")
-  if countProblemsContaining(messages, "could not read the") != 0 ||
-    countProblemsContaining(messages, "could not resolve the") != 0 {
+  if countProblemsContaining(messages, "found no directory at") != 0 {
     t.Fatalf(
-      "a default base must not be reported as an unresolvable root:\n%s",
+      "a root that exists must not be reported as missing:\n%s",
       strings.Join(messages, "\n"),
     )
   }

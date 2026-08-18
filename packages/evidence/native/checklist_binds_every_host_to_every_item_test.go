@@ -538,7 +538,7 @@ export function complete(): void {}
 /**
  * Verifies a healthy empty population leaves every checklist host passing.
  *
- * `singleEvidencePerSymbol` keeps judging an empty population because a host still owes the one unit it cannot find. A checklist has no such floor — a host owes each item and there are none — so the same shape must leave the host alone and report only the empty population the materializer already names.
+ * No policy judges an empty population any more; the materializer names it once and nothing derives a per-host finding beneath it. A checklist reaches that outcome through its own host loop rather than the shared one, so the case is asserted here separately. It once stood as the counter-example to `singleEvidencePerSymbol`, which kept judging an empty population on the argument that a host still owed the one unit it could not find — that exception is gone and the two now agree.
  *
  *  1. Select a document containing no H2 section.
  *  2. Run a checklist reference over it with one selected host.
