@@ -224,10 +224,12 @@ func TestFailedPrismaClaimPopulationDoesNotBecomeInactive(t *testing.T) {
  *
  * No files match when the root cannot be opened, but that absence is not a
  * healthy empty population. The claim remains active so the root problem
- * produced by the claim-side loader is reported.
+ * produced by the claim-side loader is reported, and the loader's own record of
+ * the failed base is what activation reads to tell the two apart. Handing this
+ * an empty map would test a state the loader cannot hand it.
  *
  *  1. Resolve a Markdown claim against a missing root.
- *  2. Apply activation with no materialized inventory.
+ *  2. Record the population failure the claim-side loader records.
  *  3. Assert the unreadable claim remains active for diagnosis.
  */
 func TestUnreadableMarkdownClaimRootDoesNotBecomeInactive(t *testing.T) {
@@ -239,9 +241,11 @@ func TestUnreadableMarkdownClaimRootDoesNotBecomeInactive(t *testing.T) {
     "symbol":"h2",
     "reference":{"type":"prisma","files":["prisma/**/*.prisma"],"symbol":"model"}
   }]}`)
+  markdown := map[string]*artifactInventory{}
+  recordPopulationFailure(markdown, artifactMarkdown, config.Claims[0].Base)
   active := activeGraphConfig(
     config,
-    map[string]*artifactInventory{},
+    markdown,
     map[string]*artifactInventory{},
     map[string]*artifactInventory{},
   )

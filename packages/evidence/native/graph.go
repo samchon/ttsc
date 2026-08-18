@@ -68,6 +68,13 @@ func (graphRule) Check(ctx *rule.ProjectContext) {
     root,
     claimPopulationConfig(config, artifactPrisma),
   )
+  problems = append(
+    problems,
+    typeScriptBaseProblems(
+      claimPopulationConfig(config, artifactTypeScript),
+      typescript,
+    )...,
+  )
   problems = append(problems, markdownClaimProblems...)
   problems = append(problems, prismaClaimProblems...)
   // Governance is judged against the configuration as declared, before
@@ -163,8 +170,14 @@ func claimPopulationConfig(
 //
 // TypeScript, Prisma, and Markdown are the three claim-capable artifact kinds.
 // A healthy zero-file match is empty and therefore inactive, including when a
-// typo caused it. Unhealthy or unreadable populations stay active because
-// failed input cannot prove the selected population is empty.
+// typo caused it. An unhealthy population stays active because failed input
+// cannot prove the selected population is empty.
+//
+// Health is the whole test, and an unresolvable declared root is one of the
+// things it now answers for every kind rather than for two of them. Asking
+// unreadableBaseProblem again here kept a TypeScript claim alive on a fact this
+// function then had no way to report, which is how a bad root came to be
+// answered with a glob diagnostic.
 func activeGraphConfig(
   config graphConfig,
   markdown map[string]*artifactInventory,
@@ -199,8 +212,7 @@ func claimIsInactive(
     return false
   }
   paths := matchingInventoryPaths(inventories, claim.Base, claim.Files)
-  if !populationIsHealthy(inventories, claim.Base, paths) ||
-    unreadableBaseProblem(claim.Base, claim.Type) != "" {
+  if !populationIsHealthy(inventories, claim.Base, paths) {
     return false
   }
   for _, path := range paths {
@@ -256,12 +268,12 @@ func materializeClaimStates(
         )
       }
     }
-    if len(paths) == 0 && state.Healthy {
-      problems = append(
-        problems,
-        claimLabel(claim)+" matched no "+string(claim.Type)+" files for "+describePopulation(claim.Base, claim.Files)+". Fix the globs or the root they resolve against; '*' stays within one segment, '**' crosses segments, and a bare directory is not recursive.",
-      )
-    }
+    // No claim-side empty-match diagnostic belongs here. A claim arrives
+    // already active, which means it either selected a host — so it matched a
+    // path — or its population is unhealthy, and an unhealthy one is reported
+    // at its own cause by the loader that failed. The message this replaced
+    // told the author to fix globs that were fine; its only live caller was a
+    // TypeScript root that did not resolve, which now says so itself.
     hostsByID := map[string]bool{}
     for _, path := range paths {
       for _, unit := range inventories[path].Units {

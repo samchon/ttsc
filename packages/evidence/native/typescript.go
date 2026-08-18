@@ -54,6 +54,42 @@ func extendTypeScriptInventories(
   }
 }
 
+// typeScriptBaseProblems reports every declared TypeScript root that does not
+// resolve and marks the population behind it failed.
+//
+// The other two claim-capable kinds get this from their loaders: the Markdown
+// and Prisma walkers meet the root before they list anything, report it, and
+// record a population failure that suppresses the glob diagnostic as its
+// derivative. TypeScript materializes from `ctx.Sources` and walks nothing, so
+// no loader is ever in a position to notice, and the population came back
+// healthy and empty — which routed the author to `matched no typescript files`
+// and a lecture on glob syntax for a mistake that was one directory name. The
+// rule had already computed the right sentence and used it as a boolean.
+//
+// Recording the failure rather than only reporting the string is what makes the
+// three kinds converge: health alone now decides that the claim stays active,
+// and the population it names is the one the author has to repair.
+//
+// Only claim bases can reach this. A TypeScript reference selects the active
+// program with `files` or an installed package with `package` and is refused a
+// `root` outright, so every reference base of this kind is the default one and
+// the default base is never judged here.
+func typeScriptBaseProblems(
+  config graphConfig,
+  inventories map[string]*artifactInventory,
+) []string {
+  problems := []string{}
+  for _, base := range configuredBases(config, artifactTypeScript) {
+    problem := unreadableBaseProblem(base, artifactTypeScript)
+    if problem == "" {
+      continue
+    }
+    recordPopulationFailure(inventories, artifactTypeScript, base)
+    problems = append(problems, problem)
+  }
+  return problems
+}
+
 // isTypeScriptPath is asked once per source file per configured base on every
 // rebuild, so it compares the suffix in place rather than lowercasing the whole
 // path into a fresh string to answer four fixed questions.

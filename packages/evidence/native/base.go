@@ -232,6 +232,12 @@ func populationRootLabel(base populationBase) string {
 // Both spellings appear. The relative one is the property the author has to
 // edit, and the absolute one is where that property actually landed — which is
 // the whole question the moment a root ascends out of the project.
+//
+// TypeScript is told apart in the repair clause alone. Its root re-bases
+// addressing over sources the Program already holds and never scans a
+// directory, so a message about reading one would name an access this artifact
+// kind never attempts, and creating the directory on its own would leave the
+// population just as empty until the project also compiles something under it.
 func unreadableBaseProblem(base populationBase, kind artifactKind) string {
   if base.Default {
     return ""
@@ -239,6 +245,11 @@ func unreadableBaseProblem(base populationBase, kind artifactKind) string {
   info, err := os.Stat(base.Absolute)
   if err == nil && info.IsDir() {
     return ""
+  }
+  if kind == artifactTypeScript {
+    return "Evidence graph could not resolve the typescript root '" +
+      populationRootLabel(base) + "', which resolves to '" + filepath.ToSlash(base.Absolute) +
+      "'. Correct the 'root' property, or make that directory part of the project; it resolves against the ttsc project root and re-bases Program sources rather than scanning the filesystem."
   }
   return "Evidence graph could not read the " + string(kind) + " root '" +
     populationRootLabel(base) + "', which resolves to '" + filepath.ToSlash(base.Absolute) +
