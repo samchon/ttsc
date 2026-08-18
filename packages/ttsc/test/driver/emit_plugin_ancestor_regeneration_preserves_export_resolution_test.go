@@ -26,6 +26,14 @@ import (
 // resolve so the `exports.a =` writeback survives. A broken original/parent
 // wiring would drop the alias (printing bare `foo + 41`) or drop the export
 // assignment.
+//
+// The require binding is asserted separately from the alias, and that is the
+// point rather than a belt-and-braces extra. An alias without its binding is
+// exactly what this lane used to emit while the builtin chain was built from
+// the post-plugin tree: `exports.a = dep_1.foo + 41;` with no
+// `const dep_1 = require("./dep");` anywhere in the file, which throws
+// `ReferenceError: dep_1 is not defined` the moment the module loads. This test
+// passed on that output for as long as it only matched the alias.
 func TestEmitWithPluginTransformerAncestorRegenerationPreservesExportResolution(t *testing.T) {
   root := t.TempDir()
   writeProjectFile(t, root, "tsconfig.json", `{
@@ -97,6 +105,13 @@ func TestEmitWithPluginTransformerAncestorRegenerationPreservesExportResolution(
   }
   if strings.Contains(js, "= foo + 41") {
     t.Fatalf("reference printed as bare `foo`, import alias was lost:\n%s", js)
+  }
+  // The alias is worthless without the binding it names. Import elision decides
+  // that binding from the linked references the checker marked, so this is the
+  // assertion that fails when the builtin chain is built from the post-plugin
+  // tree instead of the parse tree.
+  if !strings.Contains(js, "const "+alias[1]+" = require(\"./dep\")") {
+    t.Fatalf("reference aliased to %s but its require binding was elided, so the emitted module throws ReferenceError:\n%s", alias[1], js)
   }
   // The binder symbol of `a` must still resolve so the export writeback survives
   // on the regenerated ancestor.

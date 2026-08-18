@@ -111,4 +111,11 @@ func TestPrototypeAssembledAlias(t *testing.T) {
   if !strings.Contains(text, "dep_1.foo") {
     t.Fatalf("synthetic foo was NOT aliased by module-transform:\n%s", text)
   }
+  // Assert the binding the alias names, not just the alias. Building the chain
+  // from `transformed` instead of `sf` still prints `dep_1.foo` while import
+  // elision drops `const dep_1 = require("./dep")`, so without this the
+  // assembly above could regress to the post-plugin tree unnoticed.
+  if !strings.Contains(text, `require("./dep")`) {
+    t.Fatalf("alias dep_1.foo has no require binding, so the assembled output would throw at runtime:\n%s", text)
+  }
 }

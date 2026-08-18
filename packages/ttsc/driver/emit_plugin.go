@@ -96,22 +96,30 @@ func (p *Program) EmitLinkedTransforms(writeFile shimcompiler.WriteFile) ([]Diag
 // because the emit context's update hook only records the original, it does not
 // copy `DeclarationBase.Symbol`.
 //
-// A rebuilt container is indistinguishable from a parse node to tsgo's own
-// guards. The emit context stamps NodeFlagsSynthesized when its factory creates
-// a node, but ast.updateNode then ASSIGNS `updated.Flags = original.Flags` and
-// clears it again, so ast.IsParseTreeNode reports true for a container that
-// carries no symbol. Every EmitResolver reference method (GetReferenced*,
-// IsReferencedAliasDeclaration, ...) tests exactly that predicate on the node it
-// is handed, so the builtin module and runtime-syntax transformers still reach
-// checker name resolution through such a container, and resolveName then calls
-// getSymbolOfDeclaration(container) — which reads container.Symbol() and nil-
-// panics on a rebuilt class/interface/enum.
+// #201 added this against a real panic in the walk that
+// MarkLinkedReferencesRecursively used to run over the transformed tree. That
+// walk no longer happens here — the builtin chain is built from the parse tree
+// below — so the original trigger is gone, and no probe reproduces a panic with
+// this call stubbed out.
+//
+// Keep it anyway, because the remaining exposure is real and unproven rather
+// than absent. tsgo's own defense against a plugin-built node is
+// ast.IsParseTreeNode, and a REBUILT container defeats it: the emit context
+// stamps NodeFlagsSynthesized when its factory creates a node, but
+// ast.updateNode then ASSIGNS `updated.Flags = original.Flags` and clears the
+// marker again, so a container carrying no symbol still reports as a parse-tree
+// node. Most EmitResolver reference methods bail on that predicate and would
+// therefore let such a container through to checker name resolution, where
+// resolveName reaches getSymbolOfDeclaration(container) — an unguarded
+// dereference for a class, class expression, or interface (enum and module are
+// nil-checked upstream). Whether the builtin transformers actually route a
+// rebuilt container there is what the probes could not settle.
 //
 // Restoring the symbol from the original (the symbol object is shared and
-// node-independent for lookup) lets the resolver resolve through the rebuilt
-// container the same way it would on the parse tree. EmitContext.ParseNode is
-// not affected either way: it walks MostOriginal before testing the predicate,
-// so it always lands on the genuine parse node.
+// node-independent for lookup) makes that path resolve the way it would on the
+// parse tree, at the cost of one walk per file. EmitContext.ParseNode is
+// unaffected either way: it walks MostOriginal before testing the predicate, so
+// it always lands on the genuine parse node.
 func restoreOriginalDeclarationSymbols(ec *shimprinter.EmitContext, node *shimast.Node) {
   if node == nil {
     return
@@ -204,14 +212,28 @@ func (p *Program) EmitWithPluginTransformers(transforms []PluginTransform, write
       // the single checker mutex, which on a plugin-expanded tree runs over
       // nodes the binder never saw.
       //
-      // Those marks are read back through EmitContext.ParseNode, so their key
-      // space is the parse tree; marking it is the write side that matches.
-      // Nothing is lost by not walking the plugin's nodes: UpdateSourceFile
-      // rebuilds a SourceFile without its Locals, and a module-scope import
-      // binding is only reachable through Locals, so a synthetic identifier
-      // could never resolve to one anyway. Marking the parse tree also keeps an
-      // import alive when a transform removes its last value use, which is what
-      // ts-patch and TypeScript 5-6 did by marking at check time.
+      // Marking the plugin's tree instead does not merely cost time, it emits
+      // broken JavaScript. Import elision reads those marks back for the file's
+      // parse-tree imports, so a reference the plugin REBUILT — a fresh
+      // identifier linked with SetOriginal, which is what any partial rewrite
+      // produces — leaves its import unmarked. The module transform still
+      // aliases the reference, and elision still drops the binding it names, so
+      // the file ends up with `dep_1.foo` and no `const dep_1 = require(...)`:
+      // ReferenceError at load. Walking the parse tree marks the reference the
+      // checker actually analyzed and keeps the binding.
+      //
+      // The same reasoning covers a transform that removes an import's last
+      // value use: the marks describe the checked file, so the import survives,
+      // which is what ts-patch and TypeScript 5-6 did by marking at check time.
+      //
+      // Nothing is lost by not walking the plugin's nodes. A synthetic node has
+      // no NodeLinks of its own, and the marks it could contribute either
+      // duplicate one the parse tree already carries or belong to an import the
+      // plugin synthesized, which elision preserves unconditionally because it
+      // has no parse original. Marking the parse tree is also idempotent across
+      // repeated emits on one Program: marks are monotonic and never cleared,
+      // so a watch rebuild no longer inherits whatever the previous pass's
+      // plugin tree happened to mark.
       for _, tr := range shimcompiler.GetScriptTransformers(ec, host, sf) {
         out = tr.TransformSourceFile(out)
       }
