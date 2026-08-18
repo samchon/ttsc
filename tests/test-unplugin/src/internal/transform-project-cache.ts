@@ -25,6 +25,9 @@ import path from "node:path";
  * produces for every global-scope declaration package (`@types/node` first of
  * all). Unlike edges, globals belong to every delivered module at once, so they
  * are the input class a per-delivery revalidation multiplies by module count.
+ * It requires a positive `graphFanout`: the fixture builds the whole `graph`
+ * section only for a graph-bearing envelope, so globals alone would produce no
+ * graph at all and silently exercise complete-snapshot validation instead.
  */
 interface ICacheProjectOptions {
   emitExternalKey?: boolean;
@@ -1048,8 +1051,12 @@ async function assertPersistentValidationProvesSharedInputsOnce(): Promise<void>
   );
   reads = 0;
   assert.ok(await deliver(modules[1]!));
+  // Exactly one read is available to this delivery: the generation's own
+  // current file, whose recorded hash came from the bundler's buffer and so
+  // carries no disk signature. A second read means the touched global was not
+  // re-proven and is being reread on every delivery.
   assert.ok(
-    reads <= 4,
+    reads <= 1,
     `a revalidated input must be proven again, not reread per delivery (read ${reads})`,
   );
 

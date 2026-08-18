@@ -1909,10 +1909,52 @@ function matchesCompleteInputSnapshot(
   // requires a tsconfig or package manifest change, both of which the project
   // walk above already detects.
   const externalHashes = cached.externalInputHashes ?? {};
-  return (
-    sameHashes(externalHashes, collectCachedExternalInputHashes(cached)) &&
-    matchesExternalInputRealpaths(cached)
-  );
+  const externalCurrent = collectCachedExternalInputHashes(cached);
+  if (
+    !sameHashes(externalHashes, externalCurrent.hashes) ||
+    !matchesExternalInputRealpaths(cached)
+  ) {
+    return false;
+  }
+  adoptProvenSignatures(cached, {
+    currentKey,
+    external: externalCurrent.signatures,
+    project: current.fileSignatures,
+  });
+  return true;
+}
+
+/**
+ * Adopt the signatures captured while this walk proved every recorded input
+ * still carries its recorded content.
+ *
+ * Without this, a metadata-only change (a touch, a rewrite of identical bytes,
+ * a restored file) costs a re-read on every later delivery for the rest of the
+ * generation's life, because the recorded signature can never match again. The
+ * narrow path self-heals through {@link matchesProvenInput}; this is the same
+ * refresh for the path that proves the whole snapshot at once.
+ *
+ * The delivered file is the single exclusion: its recorded hash is the source
+ * the bundler supplied, so the disk bytes this walk read for it were compared
+ * against nothing.
+ */
+function adoptProvenSignatures(
+  cached: TtscCachedProjectTransform,
+  proven: {
+    currentKey: string;
+    external: Record<string, string>;
+    project: Record<string, string>;
+  },
+): void {
+  const projectSignatures = (cached.inputSignatures ??= {});
+  for (const [key, signature] of Object.entries(proven.project)) {
+    if (key === proven.currentKey) continue;
+    projectSignatures[key] = signature;
+  }
+  const externalSignatures = (cached.externalInputSignatures ??= {});
+  for (const [spelling, signature] of Object.entries(proven.external)) {
+    externalSignatures[spelling] = signature;
+  }
 }
 
 /** Re-check graph-owned physical identities in complete-snapshot fallback. */
@@ -2752,11 +2794,21 @@ export function collectExternalInputHashes(
   return hashes;
 }
 
-/** Re-hash a cached mixed graph/dependency input set with its owning codec. */
-function collectCachedExternalInputHashes(
-  cached: TtscCachedProjectTransform,
-): Record<string, string> {
+/**
+ * Re-hash a cached mixed graph/dependency input set with its owning codec,
+ * reusing the recorded hash of any input whose metadata signature still holds
+ * and reporting the signatures this pass captured.
+ *
+ * The caller adopts those signatures only once the returned hashes prove the
+ * whole recorded set unchanged, so a signature never outlives the content
+ * comparison that justified it.
+ */
+function collectCachedExternalInputHashes(cached: TtscCachedProjectTransform): {
+  hashes: Record<string, string>;
+  signatures: Record<string, string>;
+} {
   const hashes: Record<string, string> = {};
+  const signatures: Record<string, string> = {};
   const state = envelopeDerivation(cached);
   const graphRealpaths = cached.externalInputRealpaths ?? {};
   const filesystem = resultFilesystem(cached.result);
@@ -2771,20 +2823,26 @@ function collectCachedExternalInputHashes(
     // keyed by this exact spelling, so an alias of the same physical file
     // cannot answer for it.
     const spelling = path.resolve(file);
+    const before = inputMetadataSignature(file, filesystem);
     if (
+      before !== undefined &&
       Object.prototype.hasOwnProperty.call(recordedSignatures, spelling) &&
       Object.prototype.hasOwnProperty.call(recordedHashes, identity) &&
-      inputMetadataSignature(file, filesystem) === recordedSignatures[spelling]
+      before === recordedSignatures[spelling]
     ) {
       hashes[identity] = recordedHashes[identity]!;
       continue;
     }
-    hashes[identity] =
-      (Object.prototype.hasOwnProperty.call(graphRealpaths, identity)
-        ? graphInputStateHash(file, filesystem)
-        : hostInputStateHash(file, filesystem)) ?? "missing";
+    const hash = Object.prototype.hasOwnProperty.call(graphRealpaths, identity)
+      ? graphInputStateHash(file, filesystem)
+      : hostInputStateHash(file, filesystem);
+    const after = inputMetadataSignature(file, filesystem);
+    hashes[identity] = hash ?? "missing";
+    if (hash !== null && after !== undefined && before === after) {
+      signatures[spelling] = after;
+    }
   }
-  return hashes;
+  return { hashes, signatures };
 }
 
 /**

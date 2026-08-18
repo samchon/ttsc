@@ -206,7 +206,9 @@ interface MeasureOptions {
    * Number of `node_modules/global{j}/index.d.ts` files stamped into the
    * envelope's `graph.globals`. Globals belong to every delivered module at
    * once, which is the shape a real `@types/*` package produces and the input
-   * class a per-delivery revalidation multiplies by module count.
+   * class a per-delivery revalidation multiplies by module count. Requires a
+   * positive `graphFanout`: the sidecar builds the whole `graph` section only
+   * for a graph-bearing envelope.
    */
   graphGlobals?: number;
   /** Give each module one disjoint external edge instead of the whole union. */
@@ -403,9 +405,17 @@ async function measureGraphBuild(
 
 /**
  * Gate the serve-mode path: with no `buildStart` boundary the cache stays in
- * persistent-validation mode. Each module owns one disjoint external graph
- * input, so rereading the envelope union is visible as linear reads per module
- * while per-file validation stays under a fixed budget.
+ * persistent-validation mode, so every delivery revalidates.
+ *
+ * Shared by two scenarios with opposite input shapes. With
+ * `partitionExternalInputs` each module owns one disjoint external graph input,
+ * so rereading the whole envelope union shows up as reads growing with the
+ * union rather than with the delivered file's own inputs. Without it every
+ * module reaches the same closure and the same globals — the shape a real
+ * program has — so reads grow with the closure unless one generation's proof of
+ * a shared input is reused across its sibling deliveries. Both are gated by the
+ * same per-file read budget; the stat budget is per scenario, because missing
+ * resolution candidates cannot be proven absent by metadata.
  */
 async function measureServeValidation(
   adapter: Adapter,
