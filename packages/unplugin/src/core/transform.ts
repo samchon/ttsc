@@ -1726,8 +1726,9 @@ function captureUniversalHostInputValidation(
       if (path.resolve(input) !== current) return undefined;
       // The current module may be supplied from an unsaved editor buffer. Its
       // generation snapshot is overlaid below from `currentSource`, so a disk
-      // fingerprint would be both unavailable and the wrong authority, and no
-      // signature may stand for a state the disk did not produce.
+      // fingerprint would be both unavailable and the wrong authority. The
+      // recorded state is the bundler's, so a signature of the disk cannot
+      // stand for it however readable that disk is.
     } else {
       const current = hostInputStateHash(input, filesystem);
       if (expected !== current) {

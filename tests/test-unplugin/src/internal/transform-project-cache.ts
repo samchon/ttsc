@@ -68,7 +68,10 @@ interface ICacheProjectOptions {
    * Declare one out-of-walk universal host input that exists but cannot be
    * read, as a link with no target. The host and the adapter then record the
    * same missing state for it, which is the state no signature may stand for.
-   * POSIX only: creating a file symlink on Windows needs elevation.
+   *
+   * Windows links to a directory instead: a file symlink needs elevation there
+   * while a junction does not, and a junction with no target reports the same
+   * state this needs, a readable link whose every traversal fails.
    */
   unreadableHostInput?: boolean;
   independentGraphLeaf?: string;
@@ -933,18 +936,12 @@ async function assertUnavailableNotificationsKeepThePersistentCache(): Promise<v
  * be skipped for the generation's life, and the per-module loop skips the same
  * spelling, so bytes appearing later would never be compared at all.
  *
- * The input is a link with no target, which is the one shape both the host's
- * own filesystem and the adapter's fail to read for the same reason. Its
- * content then appears through the cache-owned read alone, so no metadata moves
- * and only a retained content comparison can see it.
+ * The input is a link with no target, the one shape both the host's own
+ * filesystem and the adapter's fail to read for the same reason. Its content
+ * then appears through the cache-owned read alone, so no metadata moves and
+ * only a retained content comparison can see it.
  */
 async function assertUnreadableHostInputKeepsTheContentComparison(): Promise<void> {
-  if (process.platform === "win32") {
-    // Creating a file symlink requires elevation on Windows, and nothing else
-    // portable produces a path that exists and cannot be read. POSIX CI owns
-    // this edge; the rule it pins is shared by every platform.
-    return;
-  }
   const { createTtscTransformCache, resolveOptions, transformTtsc } =
     await TestUnpluginRuntime.loadUnpluginApi();
   const project = createCacheProject({
@@ -2098,23 +2095,37 @@ function createCacheProject(options: ICacheProjectOptions): {
     fs.symlinkSync(
       path.join(root, "node_modules", "host-input-target.json"),
       unreadableHostInput,
-      "file",
+      process.platform === "win32" ? "junction" : "file",
     );
   }
   fs.writeFileSync(
     path.join(root, "plugin.cjs"),
     [
+      'const crypto = require("node:crypto");',
       'const fs = require("node:fs");',
       'const path = require("node:path");',
+      "",
+      "function observedHash(file) {",
+      '  try { return crypto.createHash("sha256").update(fs.readFileSync(file)).digest("hex"); }',
+      "  catch { return null; }",
+      "}",
+      "function observedRealpath(file) {",
+      "  try { return fs.realpathSync.native(file); }",
+      "  catch { return null; }",
+      "}",
       "",
       "module.exports = (context) => {",
       "  return {",
       '    name: context.plugin.name ?? "cache-probe",',
       ...(options.unreadableHostInput === true
         ? [
+            // Report what this host actually observed, exactly as the
+            // descriptor of the neighbouring case does. A declared constant
+            // would encode one classification of an unreadable path, and ttsc
+            // revalidates a declared hash against its own filesystem.
             `    hostInputs: [${JSON.stringify(unreadableHostInput)}],`,
-            `    hostInputHashes: { [${JSON.stringify(unreadableHostInput)}]: null },`,
-            `    hostInputRealpaths: { [${JSON.stringify(unreadableHostInput)}]: null },`,
+            `    hostInputHashes: { [${JSON.stringify(unreadableHostInput)}]: observedHash(${JSON.stringify(unreadableHostInput)}) },`,
+            `    hostInputRealpaths: { [${JSON.stringify(unreadableHostInput)}]: observedRealpath(${JSON.stringify(unreadableHostInput)}) },`,
           ]
         : []),
       '    source: path.resolve(context.dirname, "go-plugin"),',
