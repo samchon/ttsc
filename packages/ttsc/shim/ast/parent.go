@@ -16,9 +16,7 @@ import innerast "github.com/microsoft/typescript-go/internal/ast"
 // emit lane, which builds the builtin chain from the parse tree (see
 // driver.EmitWithPluginTransformers). The module transform's own Parent reads
 // carry upstream //nolint:customlint notes saying they deliberately inspect
-// parse-tree parents. Whether any other builtin pass needs this is unproven:
-// disabling the call leaves the driver suite green, which measures the coverage
-// rather than the hazard.
+// parse-tree parents.
 func SetParentInChildren(node *Node) {
   innerast.SetParentInChildren(node)
 }
@@ -30,6 +28,11 @@ func SetParentInChildren(node *Node) {
 // kept verbatim while sibling statements were rewritten) makes tsgo's
 // runtime-syntax/printer mis-resolve the declaration and drop it from emit.
 // Only freshly built (synthetic) nodes need a parent wired, and those start nil.
+//
+// This is the form ttsc's plugin emit lane calls. How much it currently carries
+// is unproven: stubbing the call out leaves the whole driver suite green, which
+// measures the suite's coverage of parent-dependent emit rather than the hazard.
+// Keep it for the reason above, not on the strength of a failing test.
 func SetParentInChildrenUnset(node *Node) {
   node.ForEachChild(func(child *Node) bool {
     if child.Parent == nil {

@@ -216,7 +216,8 @@ func (p *Program) EmitWithPluginTransformers(transforms []PluginTransform, write
       // transform still aliases that reference and elision still drops the
       // binding the alias names: `dep_1.foo` with no `const dep_1 =
       // require(...)`, a ReferenceError at load. The emit_plugin_rebuilt_*
-      // tests pin one binding shape each, across both module kinds.
+      // tests pin each import binding shape, plus the ES module lane where the
+      // whole import declaration disappears instead of just its binding.
       //
       // Nothing is lost by skipping the plugin's nodes. UpdateSourceFile
       // rebuilds a SourceFile through copyFrom, which carries over neither
