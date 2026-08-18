@@ -17,10 +17,11 @@ import (
 //
 // The builtin chain is built from the parse tree, so the checker sees the value
 // use of `foo` that the source really contains, even after a transform replaced
-// it. Marking the post-plugin tree instead would find no use left and let
-// elision drop `require("./dep")`, silently discarding whatever side effects
-// that module performs — a behavior change from `ts-patch` and TypeScript 5-6,
-// which fixed the marks at check time on the parse tree.
+// it. Marking the post-plugin tree instead finds no use left and lets elision
+// drop `require("./dep")`, silently discarding whatever side effects that module
+// performs. This is the quieter half of the same cause: the loud half, a rebuilt
+// reference left with an alias and no binding, is pinned by
+// emit_plugin_ancestor_regeneration_preserves_export_resolution_test.go.
 //
 //  1. `index.ts` imports `foo` and uses it as the initializer of `a`.
 //  2. A plugin replaces that initializer with the literal 42, removing the only

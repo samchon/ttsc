@@ -6,9 +6,13 @@ import innerast "github.com/microsoft/typescript-go/internal/ast"
 // its containing node.
 //
 // A transform that splices freshly built (synthetic) nodes onto a SourceFile
-// must call this before emit: passes that walk parents — e.g. the emit
-// resolver's reference marking (MarkLinkedReferencesRecursively) — dereference
-// Parent and would hit nil on a synthetic node otherwise.
+// must call this before emit: the builtin transformers that then walk the
+// spliced tree — module transform, runtime syntax, printer — dereference Parent
+// and would hit nil on a synthetic node otherwise.
+//
+// The emit resolver's reference marking used to be the example here. It no
+// longer walks the spliced tree in ttsc's plugin emit lane, which builds the
+// builtin chain from the parse tree instead (see driver.EmitWithPluginTransformers).
 func SetParentInChildren(node *Node) {
   innerast.SetParentInChildren(node)
 }

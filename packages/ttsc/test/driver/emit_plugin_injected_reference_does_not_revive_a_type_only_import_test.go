@@ -19,10 +19,12 @@ import (
 // A plugin cannot keep a pre-existing import alive by referencing it from
 // injected code: it must synthesize its own import, which elision preserves
 // unconditionally because a synthetic import has no parse original. This holds
-// no matter which tree the builtin chain is built from — a rebuilt SourceFile
-// carries no Locals, and a module-scope import binding is only reachable
-// through Locals, so a synthetic identifier can never resolve to one. The test
-// exists because the alternative is plausible enough to be assumed.
+// no matter which tree the builtin chain is built from, so the case is a stated
+// limit rather than a consequence of that choice — which is exactly why it needs
+// a test. It is adjacent enough to
+// emit_plugin_ancestor_regeneration_preserves_export_resolution_test.go, where a
+// REBUILT reference does keep its import, that assuming the two behave alike is
+// the natural mistake.
 //
 //  1. `index.ts` imports the class `Foo` and uses it only in a type position.
 //  2. A plugin appends a synthetic `Foo.bar();` statement, a value use that

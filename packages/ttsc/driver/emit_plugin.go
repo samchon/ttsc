@@ -102,18 +102,18 @@ func (p *Program) EmitLinkedTransforms(writeFile shimcompiler.WriteFile) ([]Diag
 // below — so the original trigger is gone, and no probe reproduces a panic with
 // this call stubbed out.
 //
-// Keep it anyway, because the remaining exposure is real and unproven rather
-// than absent. tsgo's own defense against a plugin-built node is
-// ast.IsParseTreeNode, and a REBUILT container defeats it: the emit context
-// stamps NodeFlagsSynthesized when its factory creates a node, but
-// ast.updateNode then ASSIGNS `updated.Flags = original.Flags` and clears the
-// marker again, so a container carrying no symbol still reports as a parse-tree
-// node. Most EmitResolver reference methods bail on that predicate and would
-// therefore let such a container through to checker name resolution, where
-// resolveName reaches getSymbolOfDeclaration(container) — an unguarded
-// dereference for a class, class expression, or interface (enum and module are
-// nil-checked upstream). Whether the builtin transformers actually route a
-// rebuilt container there is what the probes could not settle.
+// Keep it anyway, because the remaining exposure is unproven rather than
+// absent. tsgo's own defense against a plugin-built node is ast.IsParseTreeNode,
+// which most EmitResolver reference methods test to bail out early — and a
+// REBUILT container does not trip it. The emit context stamps
+// NodeFlagsSynthesized when its factory creates a node, but ast.updateNode then
+// ASSIGNS `updated.Flags = original.Flags` and clears the marker again, so a
+// container carrying no symbol still answers "parse tree node" and is let
+// through to checker name resolution. There resolveName reaches
+// getSymbolOfDeclaration(container), an unguarded dereference for a class,
+// class expression, or interface (enum and module are nil-checked upstream).
+// What the probes could not settle is whether the builtin transformers ever
+// actually hand a rebuilt container to one of those methods.
 //
 // Restoring the symbol from the original (the symbol object is shared and
 // node-independent for lookup) makes that path resolve the way it would on the
@@ -223,17 +223,20 @@ func (p *Program) EmitWithPluginTransformers(transforms []PluginTransform, write
       // checker actually analyzed and keeps the binding.
       //
       // The same reasoning covers a transform that removes an import's last
-      // value use: the marks describe the checked file, so the import survives,
-      // which is what ts-patch and TypeScript 5-6 did by marking at check time.
+      // value use: the marks describe the checked file, so the import survives.
       //
-      // Nothing is lost by not walking the plugin's nodes. A synthetic node has
-      // no NodeLinks of its own, and the marks it could contribute either
-      // duplicate one the parse tree already carries or belong to an import the
-      // plugin synthesized, which elision preserves unconditionally because it
-      // has no parse original. Marking the parse tree is also idempotent across
-      // repeated emits on one Program: marks are monotonic and never cleared,
-      // so a watch rebuild no longer inherits whatever the previous pass's
-      // plugin tree happened to mark.
+      // Nothing is lost by not walking the plugin's nodes. The marks they could
+      // contribute are unreachable anyway — UpdateSourceFile rebuilds a
+      // SourceFile without its Locals, where an ordinary import binding lives,
+      // so a synthetic identifier cannot resolve to one — and an
+      // import the plugin synthesized needs no mark at all, because it has no
+      // parse original and elision preserves it unconditionally.
+      //
+      // Marking one fixed tree per file also makes the lane's elision
+      // independent of how often it runs. Marks accumulate on the checker and
+      // are never cleared, so a second EmitWithPluginTransformers call on the
+      // same Program used to inherit whatever the first pass's plugin tree
+      // happened to mark.
       for _, tr := range shimcompiler.GetScriptTransformers(ec, host, sf) {
         out = tr.TransformSourceFile(out)
       }
