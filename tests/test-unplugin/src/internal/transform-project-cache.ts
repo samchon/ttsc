@@ -2104,11 +2104,11 @@ function createCacheProject(options: ICacheProjectOptions): {
   fs.writeFileSync(
     path.join(root, "plugin.cjs"),
     [
-      'const fs = require("node:fs");',
       'const path = require("node:path");',
       ...(options.unreadableHostInput === true
         ? [
             'const crypto = require("node:crypto");',
+            'const fs = require("node:fs");',
             "function observedHash(file) {",
             '  try { if (fs.statSync(file).isDirectory()) return crypto.createHash("sha256").update("ttsc:host-input:directory\\0").digest("hex"); } catch {}',
             '  try { return crypto.createHash("sha256").update(fs.readFileSync(file)).digest("hex"); }',
