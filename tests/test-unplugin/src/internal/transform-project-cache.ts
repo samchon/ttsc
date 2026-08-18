@@ -30,6 +30,15 @@ import path from "node:path";
  * graph at all and silently exercise complete-snapshot validation instead.
  */
 interface ICacheProjectOptions {
+  /**
+   * Add a second lexical spelling of one global — a file symlink beside it —
+   * and stamp both into `graph.globals`. The two share one physical identity
+   * but not their metadata, which is what separates a per-spelling proof from a
+   * per-identity one. POSIX only: creating a file symlink on Windows needs
+   * elevation, so the option is dropped there and the case keeps its other
+   * assertions on every platform.
+   */
+  aliasedGlobal?: boolean;
   emitExternalKey?: boolean;
   externalSnapshotAbaRace?: boolean;
   fileCount?: number;
@@ -888,6 +897,82 @@ async function assertUnavailableNotificationsKeepThePersistentCache(): Promise<v
 }
 
 /**
+ * Asserts one failed tracker is enough to leave the narrow path.
+ *
+ * Membership has two halves — the project walk and the universal inputs — and a
+ * generation may take the narrow path only while both are still proven by
+ * notification. The neighbouring cases refuse or fail every watcher at once, so
+ * a regression that consulted a single tracker would keep them green while
+ * serving a module whose universal inputs nothing is watching.
+ */
+async function assertOneFailedTrackerFallsBackToCompleteValidation(): Promise<void> {
+  const { createTtscTransformCache, resolveOptions, transformTtsc } =
+    await TestUnpluginRuntime.loadUnpluginApi();
+  const project = createCacheProject({ fileCount: 6, graphFanout: 6 });
+  const modules = projectModules(project.root);
+  const cache = createTtscTransformCache({
+    watch: () => {
+      // The project tracker registers before the compile and the host-input
+      // tracker after it, so the fixture's own run log separates the two
+      // phases: this refuses the host-input registrations and no others.
+      if (!fs.existsSync(project.runLog)) {
+        return { close: () => undefined };
+      }
+      const error = new Error(
+        "watch registration refused",
+      ) as NodeJS.ErrnoException;
+      error.code = "ENOSPC";
+      throw error;
+    },
+  });
+  const options = resolveOptions();
+  const deliver = (file: string) =>
+    transformTtsc(
+      file,
+      fs.readFileSync(file, "utf8"),
+      options,
+      undefined,
+      cache,
+    );
+  const pluginRuns = (): number =>
+    fs.existsSync(project.runLog)
+      ? fs.readFileSync(project.runLog, "utf8").length
+      : 0;
+
+  for (const file of modules) {
+    assert.ok(await deliver(file));
+  }
+  assert.equal(
+    pluginRuns(),
+    1,
+    "one unusable tracker must not cost the cache its generation",
+  );
+  const generation = await [...cache.values()][0]!;
+  assert.equal(
+    generation.hostInputMutationTracker,
+    undefined,
+    "the tracker that could not register must not be attached",
+  );
+  assert.equal(
+    generation.projectMutationTracker,
+    undefined,
+    "its healthy sibling must not be attached either: the narrow path needs both",
+  );
+
+  fs.writeFileSync(
+    path.join(project.root, "src", "mod3.ts"),
+    'export const value3: string = "PROBE-EDITED";\n',
+    "utf8",
+  );
+  assert.ok(await deliver(modules[0]!));
+  assert.equal(
+    pluginRuns(),
+    2,
+    "an edit must still invalidate through the fallback",
+  );
+}
+
+/**
  * Asserts a watcher that fails after generation falls back instead of evicting.
  *
  * A failed notification is the absence of a membership proof, never evidence of
@@ -973,7 +1058,9 @@ async function assertFailedNotificationsFallBackToCompleteValidation(): Promise<
  * a real program gives every module the same reachable closure and the same
  * `graph.globals`, so re-reading each delivered file's inputs multiplies one
  * generation's proven bytes by the module count. The bound below is met only
- * when an unchanged metadata signature stands in for the content comparison.
+ * when an unchanged metadata signature stands in for the content comparison,
+ * and only when one physical file's two spellings each keep their own proof
+ * instead of overwriting it.
  */
 async function assertPersistentValidationProvesSharedInputsOnce(): Promise<void> {
   const { createTtscTransformCache, resolveOptions, transformTtsc } =
@@ -981,6 +1068,7 @@ async function assertPersistentValidationProvesSharedInputsOnce(): Promise<void>
   const count = 8;
   const shared = 24;
   const project = createCacheProject({
+    aliasedGlobal: true,
     fileCount: count,
     graphFanout: shared,
     graphGlobals: shared,
@@ -1018,13 +1106,16 @@ async function assertPersistentValidationProvesSharedInputsOnce(): Promise<void>
     assert.ok(await deliver(file));
   }
   assert.equal(pluginRuns(), 1, "a steady generation must not recompile");
-  // Every module reaches every sibling plus `shared` externals and `shared`
-  // globals, so the pre-fix path read ~55 files per delivery here. Only the
-  // generation's own current file lacks a disk signature (its recorded hash
-  // came from the bundler's buffer), so a proven generation reads at most that.
+  // Every module reaches every sibling plus `shared` externals, `shared`
+  // globals and one aliased spelling of a global, so the pre-fix path read ~56
+  // files per delivery here. Only the generation's own current file lacks a
+  // disk signature (its recorded hash came from the bundler's buffer), so a
+  // proven generation reads at most that, and the bound keeps one slot of
+  // headroom. It also fails if the alias and its target overwrite each other's
+  // proof, which costs two more reads per delivery on every POSIX host.
   assert.ok(
-    reads / modules.length <= 4,
-    `persistent validation read ${(reads / modules.length).toFixed(1)} files per module for a shared closure (bound: 4)`,
+    reads / modules.length <= 2,
+    `persistent validation read ${(reads / modules.length).toFixed(1)} files per module for a shared closure (bound: 2)`,
   );
 
   // A metadata-only change must revalidate by content, keep the generation, and
@@ -1668,6 +1759,8 @@ function createCacheProject(options: ICacheProjectOptions): {
               name: "cache-probe",
               runLog,
               emitExternal: options.emitExternalKey === true,
+              aliasedGlobal:
+                options.aliasedGlobal === true && process.platform !== "win32",
               graphFanout: options.graphFanout ?? 0,
               graphGlobals: options.graphGlobals ?? 0,
               independentGraphLeaf: options.independentGraphLeaf,
@@ -1743,6 +1836,16 @@ function createCacheProject(options: ICacheProjectOptions): {
       path.join(globalDir, "index.d.ts"),
       `declare const ambient${index}: number;\n`,
       "utf8",
+    );
+  }
+  if (options.aliasedGlobal === true && process.platform !== "win32") {
+    // One physical file under two spellings: the alias and its target share an
+    // identity but not their metadata.
+    const globalDir = path.join(root, "node_modules", "global0");
+    fs.symlinkSync(
+      path.join(globalDir, "index.d.ts"),
+      path.join(globalDir, "alias.d.ts"),
+      "file",
     );
   }
   writeGoPlugin(root);
@@ -1920,6 +2023,11 @@ function writeGoPlugin(root: string): void {
       "      result.Graph.Globals = append(result.Graph.Globals, global)",
       '      addGraphInputProof(result.Graph, root, global, "")',
       "    }",
+      '    if boolValue(cfg, "aliasedGlobal") {',
+      '      alias := "node_modules/global0/alias.d.ts"',
+      "      result.Graph.Globals = append(result.Graph.Globals, alias)",
+      '      addGraphInputProof(result.Graph, root, alias, "")',
+      "    }",
       '    if externalRaceFile != "" {',
       '      result.Graph.Edges["src/mod0.ts"] = append(result.Graph.Edges["src/mod0.ts"], externalRaceFile)',
       "      addGraphInputProof(result.Graph, root, externalRaceFile, externalRaceText)",
@@ -1989,6 +2097,7 @@ export {
   assertIncompleteProjectSnapshotFallsBackAndRecovers,
   assertPersistentCacheValidatesAnUnservedModule,
   assertFailedNotificationsFallBackToCompleteValidation,
+  assertOneFailedTrackerFallsBackToCompleteValidation,
   assertPersistentValidationProvesSharedInputsOnce,
   assertPersistentValidationUsesPerFileInputs,
   assertRejectedTransformIsEvictedAndRecovers,

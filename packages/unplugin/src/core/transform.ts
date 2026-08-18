@@ -194,6 +194,11 @@ export interface TtscTransformFilesystemOperations {
    * and an isolated broker process on Windows. An embedder observing another
    * filesystem supplies its own; a generation whose watch cannot be opened
    * keeps validating from recorded state instead of losing its cache.
+   *
+   * Supplying one replaces the Windows broker as well, so an embedder that
+   * wraps Node's own `fs.watch` there gives up the isolation that contains the
+   * native abort Node's Windows fs-event backend can raise when a watched
+   * temporary tree is deleted.
    */
   watch?(
     directory: string,
@@ -1411,9 +1416,12 @@ function matchesCachedSource(
  * so sibling module deliveries share one directory-metadata pass instead of
  * multiplying it by module count.
  *
- * Returns `undefined` when live notifications can no longer prove membership.
- * That is the absence of a proof, not evidence of a change, so the caller falls
- * back to complete-snapshot validation instead of discarding the generation.
+ * Returns `undefined` when this narrow proof is unavailable — live
+ * notifications can no longer prove membership, or the generation carries no
+ * universal-input manifest. That is the absence of a proof, not evidence of a
+ * change, so the caller falls back to complete-snapshot validation instead of
+ * discarding the generation. A reported membership event, a changed universal
+ * input, or a changed derived input is evidence, and returns `false`.
  */
 function matchesNarrowPersistentInputs(
   cached: TtscCachedProjectTransform,
@@ -1873,7 +1881,23 @@ function matchesCompleteInputSnapshot(
   currentKey: string,
   source: string,
 ): boolean {
-  if (cached.projectSnapshotComplete !== true) {
+  if (
+    cached.projectSnapshotComplete !== true ||
+    cached.projectDirectories === undefined
+  ) {
+    return false;
+  }
+  // Universal descriptor/config inputs carry a physical-identity proof that no
+  // content comparison can replace: retargeting a symlinked input to a
+  // byte-identical file selects a different file, and its own transitive
+  // requires with it. Only the graph half of the out-of-walk snapshot records
+  // realpaths, so without this the fallback would quietly hold a lower standard
+  // than the narrow path it stands in for.
+  const hostValidation = envelopeDerivation(cached).hostInputValidation;
+  if (
+    hostValidation === undefined ||
+    !matchesUniversalHostInputs(cached, hostValidation)
+  ) {
     return false;
   }
   const current = collectProjectInputSnapshot(
@@ -1888,7 +1912,6 @@ function matchesCompleteInputSnapshot(
     return false;
   }
   if (
-    cached.projectDirectories !== undefined &&
     !sameProjectDirectories(
       cached.projectDirectories,
       current.projectDirectories,
@@ -2814,15 +2837,22 @@ function collectCachedExternalInputHashes(cached: TtscCachedProjectTransform): {
   const filesystem = resultFilesystem(cached.result);
   const recordedHashes = cached.externalInputHashes ?? {};
   const recordedSignatures = cached.externalInputSignatures ?? {};
+  const visited = new Set<string>();
   for (const file of cached.externalInputPaths ??
     Object.keys(cached.externalInputHashes ?? {})) {
     const identity = derivationIdentity(state, file);
-    if (identity in hashes) continue;
+    // Deduplicate by spelling, not by identity. Two spellings share one
+    // identity exactly when they selected one physical file at generation
+    // time, which is the state a retarget ends: skipping the second spelling
+    // would leave the alias unvalidated, so each is read under its own name and
+    // a disagreement between them invalidates below.
+    const spelling = path.resolve(file);
+    if (visited.has(spelling)) continue;
+    visited.add(spelling);
     // Reuse the recorded hash of an out-of-walk input whose signature still
     // equals the one captured around the read that proved it. The signature is
     // keyed by this exact spelling, so an alias of the same physical file
     // cannot answer for it.
-    const spelling = path.resolve(file);
     const before = inputMetadataSignature(file, filesystem);
     if (
       before !== undefined &&
@@ -2830,19 +2860,40 @@ function collectCachedExternalInputHashes(cached: TtscCachedProjectTransform): {
       Object.prototype.hasOwnProperty.call(recordedHashes, identity) &&
       before === recordedSignatures[spelling]
     ) {
-      hashes[identity] = recordedHashes[identity]!;
+      foldExternalInputHash(hashes, identity, recordedHashes[identity]!);
       continue;
     }
     const hash = Object.prototype.hasOwnProperty.call(graphRealpaths, identity)
       ? graphInputStateHash(file, filesystem)
       : hostInputStateHash(file, filesystem);
     const after = inputMetadataSignature(file, filesystem);
-    hashes[identity] = hash ?? "missing";
+    foldExternalInputHash(hashes, identity, hash ?? "missing");
     if (hash !== null && after !== undefined && before === after) {
       signatures[spelling] = after;
     }
   }
   return { hashes, signatures };
+}
+
+/**
+ * Fold one spelling's current hash into the identity-keyed comparison map.
+ *
+ * Spellings that shared an identity at generation time shared its content, so a
+ * later disagreement between them means the alias stopped selecting what it
+ * did. No content hash can equal the marker recorded for that, so the
+ * comparison rejects the generation instead of letting whichever spelling came
+ * first in sorted order answer for the rest.
+ */
+function foldExternalInputHash(
+  hashes: Record<string, string>,
+  identity: string,
+  hash: string,
+): void {
+  const previous = hashes[identity];
+  hashes[identity] =
+    previous === undefined || previous === hash
+      ? hash
+      : `divergent:${previous}:${hash}`;
 }
 
 /**

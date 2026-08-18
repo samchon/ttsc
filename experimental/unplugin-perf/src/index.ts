@@ -107,17 +107,23 @@ async function main(): Promise<void> {
   console.log(
     "  same closure and the same global-scope declarations (the real shape)\n",
   );
+  const sharedClosureModules = 50;
   recordFailure(
     failures,
     await measureServeValidation(adapter, {
-      count: 50,
+      count: sharedClosureModules,
       emitExternalKey: false,
-      graphFanout: 50,
+      // At least one distinct missing candidate per module, so the reachable
+      // candidate count below is the module count rather than the fanout.
+      graphFanout: sharedClosureModules,
       graphGlobals: 50,
       partitionExternalInputs: false,
-      // The chain graph makes ~N/2 missing candidates reachable per module on
-      // average, one failed stat each, on top of the shared membership budget.
-      statsBudget: 34,
+      // `selectReachableSources` includes the delivered file, so the chain
+      // graph makes `count - i` candidates reachable at sorted position `i`:
+      // `(count + 1) / 2` per module on average, one failed stat each, on top
+      // of the shared membership budget. Derived from the scenario's own size
+      // so raising it neither hides a regression nor invents a failure.
+      statsBudget: (sharedClosureModules + 1) / 2 + 8,
       unrelatedDirectoryCount: 100,
     }),
   );

@@ -10,8 +10,8 @@ import { assertPersistentValidationProvesSharedInputsOnce } from "../../internal
  * per-file-inputs test cannot observe that. An unchanged metadata signature
  * must stand in for the content comparison without loosening any invalidation.
  *
- * 1. Replay a shared graph closure with global-scope declarations and assert
- *    per-module reads stay bounded.
+ * 1. Replay a shared graph closure with global-scope declarations, one of them
+ *    reported under two spellings, and assert per-module reads stay bounded.
  * 2. Touch one global: the generation survives, the content comparison runs once,
  *    and later deliveries stop re-reading it.
  * 3. Edit a global, a reachable external, project membership, and a reachable
