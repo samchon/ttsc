@@ -786,6 +786,178 @@ async function assertPersistentValidationUsesPerFileInputs(): Promise<void> {
 }
 
 /**
+ * Asserts a generation whose watchers cannot be registered still validates.
+ *
+ * Folding watcher health into the generation's own completeness flag left an
+ * entry that neither validation path would accept, so every delivery evicted it
+ * and re-ran a whole-project compile — the state an inotify-exhausted or
+ * network-filesystem dev server lands in. Losing notifications must cost the
+ * narrow path, not the cache, and the recorded snapshot must keep proving every
+ * class of change on its own.
+ */
+async function assertUnavailableNotificationsKeepThePersistentCache(): Promise<void> {
+  const { createTtscTransformCache, resolveOptions, transformTtsc } =
+    await TestUnpluginRuntime.loadUnpluginApi();
+  const project = createCacheProject({ fileCount: 6, graphFanout: 6 });
+  const modules = projectModules(project.root);
+  const cache = createTtscTransformCache({
+    watch: () => {
+      const error = new Error(
+        "watch registration refused",
+      ) as NodeJS.ErrnoException;
+      error.code = "ENOSPC";
+      throw error;
+    },
+  });
+  const options = resolveOptions();
+  const deliver = (file: string) =>
+    transformTtsc(
+      file,
+      fs.readFileSync(file, "utf8"),
+      options,
+      undefined,
+      cache,
+    );
+  const pluginRuns = (): number =>
+    fs.existsSync(project.runLog)
+      ? fs.readFileSync(project.runLog, "utf8").length
+      : 0;
+
+  for (const file of modules) {
+    const result = await deliver(file);
+    assert.ok(result);
+    assert.match(result.code, /PROBED/);
+  }
+  assert.equal(
+    pluginRuns(),
+    1,
+    "a generation with no notifications must still be validated from its snapshot",
+  );
+  const generation = [...cache.values()][0];
+  assert.equal(
+    (await generation!).projectMutationTracker,
+    undefined,
+    "an unusable watcher must not be attached to the generation",
+  );
+
+  // Every change class must still invalidate without a single notification.
+  fs.writeFileSync(
+    path.join(project.root, "src", "mod4.ts"),
+    'export const value4: string = "PROBE-EDITED";\n',
+    "utf8",
+  );
+  assert.ok(await deliver(modules[0]!));
+  assert.equal(pluginRuns(), 2, "an edited project source must recompile");
+
+  fs.writeFileSync(
+    path.join(project.root, "src", "added.d.ts"),
+    "declare const added: string;\n",
+    "utf8",
+  );
+  assert.ok(await deliver(modules[0]!));
+  assert.equal(pluginRuns(), 3, "a new project input must recompile");
+
+  fs.writeFileSync(
+    path.join(project.root, "node_modules", "dep2", "index.d.ts"),
+    "export declare const dep2: string;\n",
+    "utf8",
+  );
+  assert.ok(await deliver(modules[0]!));
+  assert.equal(pluginRuns(), 4, "an edited out-of-walk graph member must recompile");
+
+  fs.rmSync(path.join(project.root, "src", "added.d.ts"));
+  assert.ok(await deliver(modules[0]!));
+  assert.equal(pluginRuns(), 5, "a removed project input must recompile");
+
+  // A steady project must then stop recompiling.
+  for (const file of modules) {
+    assert.ok(await deliver(file));
+  }
+  assert.equal(
+    pluginRuns(),
+    5,
+    "a steady project must not recompile once its snapshot matches again",
+  );
+}
+
+/**
+ * Asserts a watcher that fails after generation falls back instead of evicting.
+ *
+ * A failed notification is the absence of a membership proof, never evidence of
+ * a change. The generation must keep serving through complete-snapshot
+ * validation, while a real membership event — which is evidence — still
+ * replaces it.
+ */
+async function assertFailedNotificationsFallBackToCompleteValidation(): Promise<void> {
+  const { createTtscTransformCache, resolveOptions, transformTtsc } =
+    await TestUnpluginRuntime.loadUnpluginApi();
+  const project = createCacheProject({ fileCount: 6, graphFanout: 6 });
+  const modules = projectModules(project.root);
+  const failures: (() => void)[] = [];
+  const cache = createTtscTransformCache({
+    watch: (_directory, _listener, onError) => {
+      failures.push(onError);
+      return { close: () => undefined };
+    },
+  });
+  const options = resolveOptions();
+  const deliver = (file: string) =>
+    transformTtsc(
+      file,
+      fs.readFileSync(file, "utf8"),
+      options,
+      undefined,
+      cache,
+    );
+  const pluginRuns = (): number =>
+    fs.existsSync(project.runLog)
+      ? fs.readFileSync(project.runLog, "utf8").length
+      : 0;
+
+  for (const file of modules) {
+    assert.ok(await deliver(file));
+  }
+  assert.equal(pluginRuns(), 1);
+  const generation = [...cache.values()][0];
+  assert.notEqual(
+    (await generation!).projectMutationTracker,
+    undefined,
+    "a healthy watcher must be attached so the narrow path stays available",
+  );
+
+  // The watchers stop reporting after the generation was produced.
+  assert.ok(failures.length > 0, "the seam must have registered a watcher");
+  for (const fail of failures) {
+    fail();
+  }
+  for (const file of modules) {
+    assert.ok(await deliver(file));
+  }
+  assert.equal(
+    pluginRuns(),
+    1,
+    "a failed watcher must fall back to complete validation, not evict",
+  );
+  assert.equal(
+    [...cache.values()][0],
+    generation,
+    "the fallback must keep the same generation",
+  );
+
+  fs.writeFileSync(
+    path.join(project.root, "src", "mod2.ts"),
+    'export const value2: string = "PROBE-EDITED";\n',
+    "utf8",
+  );
+  assert.ok(await deliver(modules[0]!));
+  assert.equal(
+    pluginRuns(),
+    2,
+    "an edit must still invalidate once notifications have failed",
+  );
+}
+
+/**
  * Asserts a generation proves each shared input once instead of once per
  * delivered module, without loosening any invalidation.
  *
@@ -1805,6 +1977,7 @@ export {
   assertHostExceptionTransformIsEvictedAndRecovers,
   assertIncompleteProjectSnapshotFallsBackAndRecovers,
   assertPersistentCacheValidatesAnUnservedModule,
+  assertFailedNotificationsFallBackToCompleteValidation,
   assertPersistentValidationProvesSharedInputsOnce,
   assertPersistentValidationUsesPerFileInputs,
   assertRejectedTransformIsEvictedAndRecovers,
@@ -1812,4 +1985,5 @@ export {
   assertStaleEvictionKeepsNewerGeneration,
   assertStaleMismatchUsesNewerGeneration,
   assertSupersededMatchingGenerationIsNotServed,
+  assertUnavailableNotificationsKeepThePersistentCache,
 };

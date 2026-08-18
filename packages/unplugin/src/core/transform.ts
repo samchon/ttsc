@@ -180,6 +180,20 @@ export interface TtscTransformFilesystemOperations {
   statBigInt(location: string): fs.BigIntStats;
   /** Override path parsing when the observed filesystem is not the host. */
   platform?: NodeJS.Platform;
+  /**
+   * Open one directory's change notification, or throw when the observed
+   * filesystem cannot provide one.
+   *
+   * Left undefined, generations watch the host filesystem: `fs.watch` on POSIX
+   * and an isolated broker process on Windows. An embedder observing another
+   * filesystem supplies its own; a generation whose watch cannot be opened
+   * keeps validating from recorded state instead of losing its cache.
+   */
+  watch?(
+    directory: string,
+    listener: (eventType: string, filename: string | null) => void,
+    onError: () => void,
+  ): { close: () => void };
 }
 
 const DEFAULT_FILESYSTEM_OPERATIONS: TtscTransformFilesystemOperations =
@@ -247,6 +261,7 @@ export function createTtscTransformCache(
     statBigInt:
       operations.statBigInt ?? DEFAULT_FILESYSTEM_OPERATIONS.statBigInt,
     platform: operations.platform,
+    watch: operations.watch,
   });
   return cache;
 }
@@ -1373,7 +1388,13 @@ function matchesCachedSource(
     cached.projectMutationTracker !== undefined &&
     cached.hostInputMutationTracker !== undefined
   ) {
-    return matchesNarrowPersistentInputs(cached, file);
+    const narrow = matchesNarrowPersistentInputs(cached, file);
+    if (narrow !== undefined) {
+      return narrow;
+    }
+    // Notifications stopped proving membership after this generation was
+    // produced. Losing the proof is not evidence of a change, so fall through
+    // to the snapshot the entry still carries.
   }
   return matchesCompleteInputSnapshot(cached, currentKey, source);
 }
@@ -1383,28 +1404,27 @@ function matchesCachedSource(
  * affect that file. Project membership is validated once per event-loop turn,
  * so sibling module deliveries share one directory-metadata pass instead of
  * multiplying it by module count.
+ *
+ * Returns `undefined` when live notifications can no longer prove membership.
+ * That is the absence of a proof, not evidence of a change, so the caller falls
+ * back to complete-snapshot validation instead of discarding the generation.
  */
 function matchesNarrowPersistentInputs(
   cached: TtscCachedProjectTransform,
   file: string,
-): boolean {
-  if (!matchesProjectMembership(cached)) {
+): boolean | undefined {
+  if (reportsMembershipChange(cached)) {
     return false;
   }
-  const hostTracker = cached.hostInputMutationTracker;
-  if (
-    hostTracker === undefined ||
-    hostTracker.failed ||
-    hostTracker.membershipChanged
-  ) {
-    return false;
+  if (!notificationsProveMembership(cached)) {
+    return undefined;
   }
   const state = envelopeDerivation(cached);
   const hostValidation = state.hostInputValidation;
-  if (
-    hostValidation === undefined ||
-    !matchesUniversalHostInputs(cached, hostValidation)
-  ) {
+  if (hostValidation === undefined) {
+    return undefined;
+  }
+  if (!matchesUniversalHostInputs(cached, hostValidation)) {
     return false;
   }
   const inputs = selectWatchInputs({
@@ -1827,7 +1847,17 @@ function missingPathProbe(
   }
 }
 
-/** Fall back to the historical whole-envelope validation without a graph. */
+/**
+ * Prove one generation from its own recorded snapshot, with no help from live
+ * notifications.
+ *
+ * This is the fallback for a graph-free envelope and for a generation whose
+ * watchers could not be opened or have since failed: losing the notification
+ * proof must cost the narrow path, not the cache. The walk re-proves membership
+ * directly — the recorded directory signatures plus the recorded file-key
+ * universe — so a created, deleted, or renamed input still invalidates without
+ * any watcher.
+ */
 function matchesCompleteInputSnapshot(
   cached: TtscCachedProjectTransform,
   currentKey: string,
@@ -1845,6 +1875,15 @@ function matchesCompleteInputSnapshot(
       : { hashes: cached.inputHashes, signatures: cached.inputSignatures },
   );
   if (!current.complete) {
+    return false;
+  }
+  if (
+    cached.projectDirectories !== undefined &&
+    !sameProjectDirectories(
+      cached.projectDirectories,
+      current.projectDirectories,
+    )
+  ) {
     return false;
   }
   current.hashes[currentKey] = hashText(source);
@@ -2241,6 +2280,30 @@ function sameProjectDirectories(
   );
 }
 
+/**
+ * Open one directory's change notification through the cache-owned watch seam,
+ * falling back to the host's own `fs.watch`. Throws exactly where the
+ * underlying watch does, so callers classify a registration failure themselves.
+ */
+function openDirectoryWatch(
+  filesystem: TtscTransformFilesystemOperations,
+  directory: string,
+  listener: (eventType: string, filename: string | null) => void,
+  onError: () => void,
+): { close: () => void } {
+  if (filesystem.watch !== undefined) {
+    return filesystem.watch(directory, listener, onError);
+  }
+  const watcher = fs.watch(
+    directory,
+    { persistent: false },
+    (eventType, filename) =>
+      listener(eventType, filename === null ? null : String(filename)),
+  );
+  watcher.on("error", onError);
+  return { close: () => watcher.close() };
+}
+
 /** Watch every walked directory for membership changes after generation. */
 async function createProjectMutationTracker(
   directories: readonly TtscProjectDirectorySnapshot[],
@@ -2251,7 +2314,7 @@ async function createProjectMutationTracker(
     failed: false,
     membershipChanged: false,
   };
-  if (process.platform === "win32") {
+  if (process.platform === "win32" && filesystem.watch === undefined) {
     await registerWindowsProjectMutationTracker(
       tracker,
       directories.map((directory) => ({ directory: directory.path })),
@@ -2260,24 +2323,25 @@ async function createProjectMutationTracker(
     );
     return tracker;
   }
-  const watchers: fs.FSWatcher[] = [];
+  const watchers: { close: () => void }[] = [];
   tracker.close = () => {
     for (const watcher of watchers) watcher.close();
     watchers.length = 0;
   };
   for (const directory of directories) {
     try {
-      const watcher = fs.watch(
-        directory.path,
-        { persistent: false },
-        (eventType) => {
-          if (eventType === "rename") tracker.membershipChanged = true;
-        },
+      watchers.push(
+        openDirectoryWatch(
+          filesystem,
+          directory.path,
+          (eventType) => {
+            if (eventType === "rename") tracker.membershipChanged = true;
+          },
+          () => {
+            tracker.failed = true;
+          },
+        ),
       );
-      watcher.on("error", () => {
-        tracker.failed = true;
-      });
-      watchers.push(watcher);
     } catch {
       tracker.failed = true;
     }
@@ -2325,7 +2389,7 @@ async function createHostInputMutationTracker(
     failed: false,
     membershipChanged: false,
   };
-  if (process.platform === "win32") {
+  if (process.platform === "win32" && filesystem.watch === undefined) {
     await registerWindowsProjectMutationTracker(
       tracker,
       locations,
@@ -2334,7 +2398,7 @@ async function createHostInputMutationTracker(
     );
     return tracker;
   }
-  const watchers: fs.FSWatcher[] = [];
+  const watchers: { close: () => void }[] = [];
   tracker.close = () => {
     for (const watcher of watchers) watcher.close();
     watchers.length = 0;
@@ -2343,23 +2407,24 @@ async function createHostInputMutationTracker(
     try {
       const names = new Set(location.names);
       const caseSensitive = identities.caseSensitive(location.directory);
-      const watcher = fs.watch(
-        location.directory,
-        { persistent: false },
-        (_eventType, filename) => {
-          const reported =
-            filename === null
-              ? null
-              : normalizeHostInputName(String(filename), caseSensitive);
-          if (reported === null || names.has(reported)) {
-            tracker.membershipChanged = true;
-          }
-        },
+      watchers.push(
+        openDirectoryWatch(
+          filesystem,
+          location.directory,
+          (_eventType, filename) => {
+            const reported =
+              filename === null
+                ? null
+                : normalizeHostInputName(filename, caseSensitive);
+            if (reported === null || names.has(reported)) {
+              tracker.membershipChanged = true;
+            }
+          },
+          () => {
+            tracker.failed = true;
+          },
+        ),
       );
-      watcher.on("error", () => {
-        tracker.failed = true;
-      });
-      watchers.push(watcher);
     } catch {
       tracker.failed = true;
     }
@@ -2536,14 +2601,35 @@ const WINDOWS_WATCH_BROKER_SOURCE = [
   "}",
 ].join("\n");
 
-/** Report whether live directory notifications preserve project membership. */
-function matchesProjectMembership(cached: TtscCachedProjectTransform): boolean {
-  const tracker = cached.projectMutationTracker;
+/**
+ * Report whether either live notification observed a membership event. This is
+ * positive evidence that the generation is stale, so it outranks the question
+ * of whether the notifications still work.
+ */
+function reportsMembershipChange(cached: TtscCachedProjectTransform): boolean {
   return (
-    tracker !== undefined &&
-    tracker.failed === false &&
-    tracker.membershipChanged === false
+    cached.projectMutationTracker?.membershipChanged === true ||
+    cached.hostInputMutationTracker?.membershipChanged === true
   );
+}
+
+/**
+ * Report whether both live notifications can still prove membership. A watcher
+ * that failed to register, or that errored after the generation was produced,
+ * proves nothing either way — it never proves the generation stale.
+ */
+function notificationsProveMembership(
+  cached: TtscCachedProjectTransform,
+): boolean {
+  for (const tracker of [
+    cached.projectMutationTracker,
+    cached.hostInputMutationTracker,
+  ]) {
+    if (tracker === undefined || tracker.failed) {
+      return false;
+    }
+  }
+  return true;
 }
 
 /**
@@ -2901,6 +2987,11 @@ async function transformProject(props: {
       identities,
       props.filesystem,
     );
+    // Whether the recorded snapshot describes one coherent state of the
+    // project. A membership event during the compile taints it exactly like an
+    // unstable walk pair; whether notifications can be *opened* is a separate
+    // fact, tracked below, because a generation with no watcher is still
+    // provable from its own recorded state.
     let stableProjectSnapshot =
       before.complete &&
       inputSnapshot.complete &&
@@ -2910,10 +3001,10 @@ async function transformProject(props: {
         before.projectDirectories,
         inputSnapshot.projectDirectories,
       ) &&
-      tracker?.failed !== true &&
       tracker?.membershipChanged !== true &&
-      hostInputTracker?.failed !== true &&
       hostInputTracker?.membershipChanged !== true;
+    const notificationsAvailable =
+      tracker?.failed !== true && hostInputTracker?.failed !== true;
     // Overlay the in-memory source only after proving the two on-disk snapshots
     // stable; an unsaved editor buffer must not look like a compile-time race.
     const currentFileKey = toProjectKey(
@@ -2958,16 +3049,18 @@ async function transformProject(props: {
       captureUniversalHostInputValidation(cached, props.currentFile) !==
         undefined;
     cached.projectSnapshotComplete = stableProjectSnapshot;
-    if (stableProjectSnapshot && tracker !== undefined) {
+    // Attach notifications only while they can actually prove membership. A
+    // generation that could not open its watchers keeps its recorded snapshot
+    // and validates through it, rather than losing the cache entirely.
+    const notifying = stableProjectSnapshot && notificationsAvailable;
+    if (notifying && tracker !== undefined) {
       cached.projectMutationTracker = tracker;
     }
-    if (stableProjectSnapshot && hostInputTracker !== undefined) {
+    if (notifying && hostInputTracker !== undefined) {
       cached.hostInputMutationTracker = hostInputTracker;
     }
     retainTracker =
-      stableProjectSnapshot &&
-      tracker !== undefined &&
-      hostInputTracker !== undefined;
+      notifying && tracker !== undefined && hostInputTracker !== undefined;
     return cached;
   } finally {
     try {
