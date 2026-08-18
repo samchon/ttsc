@@ -24,14 +24,31 @@ import (
 //     declaration the checker resolved.
 //  3. Assert the unresolvable link, the self-link, and the untagged declaration
 //     produced none.
+//  4. Declare the same name in two more modules that flank it alphabetically,
+//     import all three, and assert every link resolves to the one this module
+//     imports the name from — the claim the rest of the file now rests on,
+//     since three declarations of `ISale` exist here.
 func TestDocRefsResolveDocumentationLinks(t *testing.T) {
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), fixtureTSConfig)
-  writeFile(t, filepath.Join(root, "src", "other.ts"), `export interface ISale {
-  other: boolean;
+  // Two rivals, one sorting before `sale` and one after, each imported so the
+  // program holds it. One rival is not enough: a text matcher has to break the
+  // tie somehow, and whichever end it picks — lowest id, highest id, first or
+  // last in program order — a single rival leaves half of those choices landing
+  // on the right answer by luck. Flanking the real module closes every one.
+  writeFile(t, filepath.Join(root, "src", "archive.ts"), `export interface ISale {
+  archived: boolean;
 }
 
-export interface IOther {
+export interface IArchive {
+  flag: boolean;
+}
+`)
+  writeFile(t, filepath.Join(root, "src", "vendor.ts"), `export interface ISale {
+  vendored: boolean;
+}
+
+export interface IVendor {
   flag: boolean;
 }
 `)
@@ -45,13 +62,13 @@ export namespace Shopping {
   }
 }
 `)
-  writeFile(t, filepath.Join(root, "src", "main.ts"), `import type { ISale, Shopping } from "./sale";
-// Pulls the second module into the program, so both declarations of the name
-// exist and the resolution below is a real choice rather than the only option.
-import type { IOther } from "./other";
+  writeFile(t, filepath.Join(root, "src", "main.ts"), `// The real module is imported between its two rivals, so no end of the import
+// order is the right answer either.
+import type { IArchive } from "./archive";
+import type { ISale, Shopping } from "./sale";
+import type { IVendor } from "./vendor";
 
-/** Uses {@link IOther} so the import is not merely present. */
-export function usesOther(): void {}
+
 
 /** @evidence {@link ISale} Cited from a tag. */
 export function fromTag(): void {}
@@ -92,6 +109,12 @@ export function noLink(): void {}
 /** Names {@link ISale}, of which this file imports exactly one. */
 export function ambiguousName(): void {}
 
+/** Names {@link IArchive}, which only the first rival declares. */
+export function usesArchive(): void {}
+
+/** Names {@link IVendor}, which only the second rival declares. */
+export function usesVendor(): void {}
+
 /** Names a library type: {@link Promise}. */
 export function linksExternal(): void {}
 
@@ -127,20 +150,20 @@ export namespace Documented2 {
 
   g := Build(prog)
 
-  assertDocRef(t, g, "#fromTag:function", "#ISale:interface")
+  assertDocRef(t, g, "#fromTag:function", "sale.ts#ISale:interface")
   // The tag decides nothing: a link in ordinary prose is the same relation.
-  assertDocRef(t, g, "#fromProse:function", "#ISale:interface")
-  assertDocRef(t, g, "#fromCode:function", "#ISale:interface")
-  assertDocRef(t, g, "#fromPlain:function", "#ISale:interface")
+  assertDocRef(t, g, "#fromProse:function", "sale.ts#ISale:interface")
+  assertDocRef(t, g, "#fromCode:function", "sale.ts#ISale:interface")
+  assertDocRef(t, g, "#fromPlain:function", "sale.ts#ISale:interface")
   // Distinct targets each get an edge; a target named twice collapses under the
   // uniqueness rule every edge kind shares, keeping the first span.
-  assertDocRef(t, g, "#severalLinks:function", "#ISale:interface")
+  assertDocRef(t, g, "#severalLinks:function", "sale.ts#ISale:interface")
   assertDocRef(t, g, "#severalLinks:function", "#Shopping.ICoupon:interface")
   assertDocRef(t, g, "#fromQualified:function", "#Shopping.ICoupon:interface")
   // A link under a tag TypeScript recognizes is the same relation. Reading a
   // tag's comment through its per-kind struct crashed on the first `@param`
   // instead, so this case and the one below are one fix and one regression.
-  assertDocRef(t, g, "#fromSee:function", "#ISale:interface")
+  assertDocRef(t, g, "#fromSee:function", "sale.ts#ISale:interface")
 
   // A name the checker cannot resolve is not a relation, and must not
   // fabricate a node to point at.
@@ -155,29 +178,35 @@ export namespace Documented2 {
   // of them as a node: it descends straight into their members. Each of these
   // resolved to nothing while the tag beside it was indexed, so the two halves
   // a reader composes disagreed exactly where a type is documented.
-  assertDocRef(t, g, "#Documented:class", "#ISale:interface")
-  assertDocRef(t, g, "#IDocumented:interface", "#ISale:interface")
+  assertDocRef(t, g, "#Documented:class", "sale.ts#ISale:interface")
+  assertDocRef(t, g, "#IDocumented:interface", "sale.ts#ISale:interface")
   // A namespace is a grouping container the graph models as no node at all, so
   // its own documentation has nothing to hang on — and the tag half agrees,
   // because `putDeclaredNode` is never called for one either. The two halves
   // being absent together is the invariant; one of them answering alone is the
   // defect this pairing exists to catch.
   assertNoNamespaceNode(t, g, "#Documented2:")
-  assertNoDocRefTo(t, g, "#Documented2.value:variable", "#ISale:interface")
+  assertNoDocRefTo(t, g, "#Documented2.value:variable", "sale.ts#ISale:interface")
 
   // A member's link belongs to the member. The same walk hands a property's
   // subtree to its class as well, which is right for dependency edges and wrong
   // here: the class's own documentation names nothing.
   assertDocRef(t, g, "#Documented.coupon:variable", "#Shopping.ICoupon:interface")
   assertNoDocRefTo(t, g, "#Documented:class", "#Shopping.ICoupon:interface")
-  assertDocRef(t, g, "#Documented.run:method", "#ISale:interface")
+  assertDocRef(t, g, "#Documented.run:method", "sale.ts#ISale:interface")
 
   // Two modules declare `ISale`, and only the checker knows which one a link
   // means: it resolves the name through this module's imports. A text match on
   // the written token could not tell them apart, and would have to guess.
-  assertNodeExists(t, g, "other.ts#ISale:interface")
+  assertNodeExists(t, g, "archive.ts#ISale:interface")
+  assertNodeExists(t, g, "vendor.ts#ISale:interface")
+  // Each rival is reached for a name only it declares, which is what keeps its
+  // import from being the kind a stricter project would remove.
+  assertDocRef(t, g, "#usesArchive:function", "archive.ts#IArchive:interface")
+  assertDocRef(t, g, "#usesVendor:function", "vendor.ts#IVendor:interface")
   assertDocRef(t, g, "#ambiguousName:function", "sale.ts#ISale:interface")
-  assertNoDocRefTo(t, g, "#ambiguousName:function", "other.ts#ISale:interface")
+  assertNoDocRefTo(t, g, "#ambiguousName:function", "archive.ts#ISale:interface")
+  assertNoDocRefTo(t, g, "#ambiguousName:function", "vendor.ts#ISale:interface")
 
   // A link to a library type follows the external-boundary policy every other
   // edge kind keeps: the target is a named endpoint, not walked into.
@@ -250,7 +279,7 @@ func assertNoDocRefTo(t *testing.T, g *Graph, fromSuffix, toSuffix string) {
     if edge.Kind == EdgeDocRef &&
       suffixMatch(edge.From, fromSuffix) &&
       suffixMatch(edge.To, toSuffix) {
-      t.Fatalf("%s must not name %s; that link is its member's", fromSuffix, toSuffix)
+      t.Fatalf("%s must not name %s", fromSuffix, toSuffix)
     }
   }
 }
