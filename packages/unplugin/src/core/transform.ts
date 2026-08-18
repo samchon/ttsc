@@ -1756,7 +1756,13 @@ function inputMetadataSignature(
 
 /** One input's metadata signature paired with the modification time in it. */
 interface TtscInputMetadata {
-  /** Modification time the signature's content half was read at. */
+  /**
+   * The most recent modification time any half of the signature carries.
+   *
+   * A symlink spelling has two: retargeting it moves the link's own, while
+   * editing the selected file moves the target's. The later of the two is what
+   * a future write has to beat, so it is the one the settle check gates on.
+   */
   readonly modifiedNs: bigint;
   /** The comparison string {@link inputMetadataSignature} returns. */
   readonly signature: string;
@@ -1800,7 +1806,7 @@ function inputMetadata(
       }
     }
     return {
-      modifiedNs: target.mtimeNs,
+      modifiedNs: link.mtimeNs > target.mtimeNs ? link.mtimeNs : target.mtimeNs,
       signature: [
         link.dev,
         link.ino,
