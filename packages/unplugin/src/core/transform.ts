@@ -1863,22 +1863,22 @@ const MISSING_INPUT_STATE = "missing";
  * which is a single stamp git minted itself. A stamp this floor accepts may
  * instead have been _set_ rather than minted, and a set stamp is dangerous only
  * when it lands in the future: the floor is a maximum, so a restored past stamp
- * never raises it. One future-dated file — a stamp-preserving extraction or copy
- * from a machine whose clock ran ahead — pushes its device's floor past the
- * present and reopens the same-tick window for every other input on that device
- * until the clock catches up. A clock that jumps backwards strands the floor
- * above the present the same way, which is the opposite of the constant offset
- * the paragraph above is about: an offset moves both operands together and
- * changes nothing, a jump moves only the present.
+ * never raises it. One future-dated file — a stamp-preserving extraction or
+ * copy from a machine whose clock ran ahead — pushes its device's floor past
+ * the present and reopens the same-tick window for every other input on that
+ * device until the clock catches up. A clock that jumps backwards strands the
+ * floor above the present the same way, a different hazard from the constant
+ * offset the paragraph above is about: an offset moves both operands together
+ * and changes nothing, a jump moves only the present.
  *
- * The minted probe is not enough on its own to replace observed stamps: it lands
- * on the scratch volume, which is frequently not the inputs' volume (a project
- * on `D:` with `TEMP` on `C:`), and a probe-only floor would then decline every
- * _content_ signature, so every input carrying bytes would be re-read on every
- * delivery. A strict blocker keeps its signature either way, because it proves a
- * kind rather than content. Observed stamps keep the common case working; the
- * probe covers the case they cannot, a tree whose files were all written inside
- * one tick.
+ * The minted probe is not enough on its own to replace observed stamps: it
+ * lands on the scratch volume, which is frequently not the inputs' volume (a
+ * project on `D:` with `TEMP` on `C:`), and a probe-only floor would then
+ * decline every _content_ signature, so every input carrying bytes would be
+ * re-read on every delivery. A strict blocker keeps its signature either way,
+ * because it proves a kind rather than content. Observed stamps keep the common
+ * case working; the probe covers the case they cannot, a tree whose files were
+ * all written inside one tick.
  */
 const FILESYSTEM_CLOCK_FLOORS = new WeakMap<
   TtscTransformFilesystemOperations,
