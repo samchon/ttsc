@@ -1,0 +1,85 @@
+package driver_test
+
+import (
+  "path/filepath"
+  "strings"
+  "testing"
+
+  shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimcompiler "github.com/microsoft/typescript-go/shim/compiler"
+  shimprinter "github.com/microsoft/typescript-go/shim/printer"
+
+  "github.com/samchon/ttsc/packages/ttsc/driver"
+)
+
+// TestEmitWithPluginTransformerRebuiltImportEqualsReferenceKeepsItsBinding
+// closes the last of the three predicates that linked-reference marking feeds.
+//
+// Import elision asks the resolver three questions, and each one has its own
+// mark: IsReferencedAliasDeclaration for an import clause, specifier, or
+// namespace import, IsValueAliasDeclaration for an export specifier, and
+// IsTopLevelValueImportEqualsWithEntityName for `import x = require(...)`. The
+// sibling tests exercise the first. This one exercises the third, so the fix is
+// pinned on a predicate the others never reach rather than assumed to
+// generalize across them.
+//
+//  1. `index.ts` binds `./dep` with `import dep = require("./dep")` and reads
+//     `dep.foo`.
+//  2. A plugin rebuilds that reference from a fresh ec.Factory identifier,
+//     SetOriginal-linked back to the parse-tree one.
+//  3. Assert the emitted file still declares the require binding and still
+//     reads `foo` through it.
+func TestEmitWithPluginTransformerRebuiltImportEqualsReferenceKeepsItsBinding(t *testing.T) {
+  root := t.TempDir()
+  writeProjectFile(t, root, "tsconfig.json", `{
+  "compilerOptions": { "module": "commonjs", "target": "es2020", "outDir": "bin", "strict": true },
+  "files": ["dep.ts", "index.ts"]
+}
+`)
+  writeProjectFile(t, root, "dep.ts", "export const foo: number = 1;\n")
+  writeProjectFile(t, root, "index.ts", "import dep = require(\"./dep\");\nexport const a = dep.foo;\n")
+
+  prog, diags, err := driver.LoadProgram(root, "tsconfig.json", driver.LoadProgramOptions{ForceEmit: true})
+  if err != nil {
+    t.Fatal(err)
+  }
+  if len(diags) != 0 {
+    t.Fatalf("unexpected config diagnostics: %#v", diags)
+  }
+  defer prog.Close()
+
+  transform := func(ec *shimprinter.EmitContext, sf *shimast.SourceFile) *shimast.SourceFile {
+    var visitor *shimast.NodeVisitor
+    visit := func(node *shimast.Node) *shimast.Node {
+      if node == nil {
+        return node
+      }
+      if node.Kind == shimast.KindIdentifier && node.Text() == "dep" &&
+        node.Parent != nil && node.Parent.Kind == shimast.KindPropertyAccessExpression {
+        syn := ec.Factory.NewIdentifier("dep")
+        ec.SetOriginal(syn, node)
+        return syn
+      }
+      return visitor.VisitEachChild(node)
+    }
+    visitor = ec.NewNodeVisitor(visit)
+    return visitor.VisitSourceFile(sf)
+  }
+
+  emitted := map[string]string{}
+  if _, err := prog.EmitWithPluginTransformer(transform, func(fileName, text string, _ *shimcompiler.WriteFileData) error {
+    emitted[filepath.Base(fileName)] = text
+    return nil
+  }); err != nil {
+    t.Fatal(err)
+  }
+  js := emitted["index.js"]
+  t.Logf("index.js:\n%s", js)
+
+  if !strings.Contains(js, "dep.foo") {
+    t.Fatalf("rebuilt import-equals reference did not survive as dep.foo:\n%s", js)
+  }
+  if !strings.Contains(js, `require("./dep")`) {
+    t.Fatalf("import-equals binding was elided while the emitted file still reads dep.foo, so the module throws ReferenceError:\n%s", js)
+  }
+}
