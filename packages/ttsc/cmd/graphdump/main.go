@@ -62,7 +62,11 @@ func run() int {
       // No version: this tool is built from the tree on demand and never
       // stamped, and an invented one would be worse than an absent one.
       graph.Producer{Tool: "graphdump", Typescript: graph.TypescriptVersion()},
-      []string{graph.CapabilitySourceDigests},
+      // The declaration walk is the shipped one, so this dump carries every
+      // documentation tag and must say so: under the capability contract an
+      // absent claim means the producer never looked, which would make a
+      // consumer read a tagged declaration as citing nothing.
+      []string{graph.CapabilitySourceDigests, graph.CapabilityDocTags},
       nil,
       nil,
       texts,

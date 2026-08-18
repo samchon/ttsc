@@ -31,6 +31,7 @@ func (g *Graph) addEdges(prog *driver.Program, selected map[string]bool, partial
     g.collectHeritage(checker, file)
     g.collectCalls(checker, file)
     g.collectTypeRefs(checker, file)
+    g.collectDocRefs(checker, file)
     g.collectLiterals(checker, file)
     if file.Statements != nil {
       g.collectDecorators(file.FileName(), file.Statements.Nodes)

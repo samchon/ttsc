@@ -132,7 +132,7 @@ export class TtscGraphMemory {
 }
 
 /**
- * The leading token of each of a node's documentation tags, deduplicated.
+ * The address each of a node's documentation tags names, deduplicated.
  *
  * A braced inline link is one token including its braces (`{@link ISale}`),
  * because that is how the author wrote the target and how a reader searching
@@ -143,16 +143,52 @@ function docTagTargetsOf(node: ITtscGraphNode): string[] {
   if (node.docTags === undefined) return [];
   const targets: string[] = [];
   for (const tag of node.docTags) {
-    const token = leadingTargetToken(tag.text);
+    const token = documentationTarget(tag.text);
     if (token !== undefined && !targets.includes(token)) targets.push(token);
   }
   return targets;
 }
 
-/** The first whitespace-delimited token, or the whole brace group it opens. */
-export function leadingTargetToken(
+/**
+ * The address a documentation tag's text opens with, or undefined when its
+ * first token is ordinary prose.
+ *
+ * Every unrecognized tag arrives here, and most of them are not citations:
+ * TypeScript has no AST kind for `@remarks`, `@example`, `@todo`, `@internal`,
+ * or `@default` either, so their first word reaches this function exactly as a
+ * citation target does. Indexing those turned `@todo Add caching here` into a
+ * carrier of the address `Add`, and a query opening with that word answered
+ * with it — above every real name match, and labelled a certain citation.
+ *
+ * So a token qualifies only when it carries a separator that prose does not: a
+ * path or anchor (`docs/pricing.md#sale`), a namespaced or method-prefixed
+ * address (`POST:/orders`, `prisma:Sale`), an inline link, or a URL. An English
+ * word carries none of these, and neither does a bare number, so `@default 4`
+ * and `@todo Add caching` index nothing while every address form in use does.
+ *
+ * This is a selection rule, not a claim about the source. It lives here rather
+ * than in the producer for that reason: the graph reports the tag as written
+ * and this decides only what the ranked operations will match on, which is the
+ * layer whose audit already declares its selection heuristic. A convention
+ * whose addresses look like prose is simply not indexed; nothing is lost from
+ * the tag itself, which `details` still returns in full.
+ */
+export function documentationTarget(
   text: string | undefined,
 ): string | undefined {
+  const token = leadingToken(text);
+  if (token === undefined) return undefined;
+  if (token.startsWith("{")) return token;
+  // A separator anywhere but the last position: a trailing one is sentence
+  // punctuation ("Uses the cache." ends in a dot and names nothing), while an
+  // interior one is what every address form spells.
+  return /[/#:][^\s]/u.test(token) || /\.[^\s.]/u.test(token)
+    ? token
+    : undefined;
+}
+
+/** The first whitespace-delimited token, or the whole brace group it opens. */
+export function leadingToken(text: string | undefined): string | undefined {
   const trimmed = text?.trim();
   if (trimmed === undefined || trimmed === "") return undefined;
   if (trimmed.startsWith("{")) {

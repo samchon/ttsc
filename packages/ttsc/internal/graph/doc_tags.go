@@ -4,6 +4,7 @@ import (
   "strings"
 
   shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimchecker "github.com/microsoft/typescript-go/shim/checker"
 )
 
 // DocTag is one documentation tag TypeScript itself does not recognize, written
@@ -233,5 +234,119 @@ func writeDocTagLink(out *strings.Builder, opener string, node *shimast.Node) {
 // an LF one produce the same string, and a reason written across three comment
 // lines becomes one.
 func joinDocTagLines(text string) string {
-	return strings.Join(strings.Fields(text), " ")
+  return strings.Join(strings.Fields(text), " ")
+}
+
+// collectDocRefs records an edge from each declaration to the symbols its own
+// documentation names through an inline link.
+//
+// The checker resolves such a name and counts it as a use — a `noUnusedLocals`
+// project keeps an import that exists only to support a link — so this is a
+// compiler fact, not a text match, and it was the one class of resolved
+// reference the graph held no edge for. The link node carries an EntityName,
+// which is the node class typeRefEdge already resolves, so the resolution and
+// the external-boundary and self-reference rules are the existing ones.
+//
+// Links are read from the whole documentation comment rather than from tags
+// alone: a link under `@evidence`, under `@see`, and in ordinary prose are one
+// relation, and privileging a tag would put one convention's name inside the
+// compiler host.
+func (g *Graph) collectDocRefs(checker *shimchecker.Checker, file *shimast.SourceFile) {
+  forEachContainer(file.FileName(), file, func(from string, node *shimast.Node) {
+    for _, doc := range documentationOf(node, file) {
+      g.docRefsWithin(checker, from, doc)
+    }
+  })
+}
+
+// docRefsWithin resolves every inline link inside one documentation comment.
+//
+// The walk descends through each tag with ForEachChild rather than reading a
+// tag's comment field, because that field lives on a per-kind struct: a
+// type-asserted read crashes on the first `@param` it meets, and a switch over
+// the kinds that carry one would cover the thirty tag shapes TypeScript models
+// only until it missed one. Every tag node visits its own comment list, so one
+// recursion reaches a link under `@evidence`, under `@see`, and under whatever
+// tag a consumer invents, which is the rule this edge is defined by.
+//
+// The JSDoc node itself reports no children, so its prose comment is walked
+// explicitly beside the tags; that is the same reason the existing edge passes
+// never reached a link.
+func (g *Graph) docRefsWithin(checker *shimchecker.Checker, from string, doc *shimast.Node) {
+  comment := doc.AsJSDoc()
+  if comment == nil {
+    return
+  }
+  g.docRefsInComment(checker, from, comment.Comment)
+  if comment.Tags == nil {
+    return
+  }
+  for _, tag := range comment.Tags.Nodes {
+    g.docRefsInSubtree(checker, from, tag)
+  }
+}
+
+// docRefsInSubtree resolves the links anywhere under one documentation node.
+func (g *Graph) docRefsInSubtree(checker *shimchecker.Checker, from string, node *shimast.Node) {
+  if node == nil {
+    return
+  }
+  if name := docLinkName(node); name != nil {
+    g.docRefEdge(checker, from, name)
+    // A link's own subtree is the name just resolved; descending would resolve
+    // it a second time under a different node.
+    return
+  }
+  node.ForEachChild(func(child *shimast.Node) bool {
+    g.docRefsInSubtree(checker, from, child)
+    return false
+  })
+}
+
+// docRefsInComment resolves the link nodes in one comment list.
+func (g *Graph) docRefsInComment(checker *shimchecker.Checker, from string, comment *shimast.NodeList) {
+  if comment == nil {
+    return
+  }
+  for _, node := range comment.Nodes {
+    g.docRefsInSubtree(checker, from, node)
+  }
+}
+
+// docLinkName returns the entity name a link node points at, or nil for a
+// comment node that is not a link or a link that names nothing — `{@link}` with
+// only text is a formatting choice, not a reference.
+func docLinkName(node *shimast.Node) *shimast.Node {
+  if node == nil {
+    return nil
+  }
+  switch node.Kind {
+  case shimast.KindJSDocLink:
+    if link := node.AsJSDocLink(); link != nil {
+      return link.Name()
+    }
+  case shimast.KindJSDocLinkCode:
+    if link := node.AsJSDocLinkCode(); link != nil {
+      return link.Name()
+    }
+  case shimast.KindJSDocLinkPlain:
+    if link := node.AsJSDocLinkPlain(); link != nil {
+      return link.Name()
+    }
+  }
+  return nil
+}
+
+// docRefEdge resolves one link name to its declaration and records the edge,
+// skipping an unresolved name and a self-reference exactly as typeRefEdge does.
+func (g *Graph) docRefEdge(checker *shimchecker.Checker, from string, name *shimast.Node) {
+  target := g.resolve(checker, name)
+  if target == nil || target.Symbol == nil {
+    return
+  }
+  to := g.ensureTargetNode(target)
+  if to == "" || to == from {
+    return
+  }
+  g.addEdgeAt(from, to, EdgeDocRef, "", name.Pos(), name.End())
 }

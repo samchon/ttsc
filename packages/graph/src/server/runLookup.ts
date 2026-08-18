@@ -1,4 +1,4 @@
-import { TtscGraphMemory, leadingTargetToken } from "../model/TtscGraphMemory";
+import { TtscGraphMemory, documentationTarget } from "../model/TtscGraphMemory";
 import { ITtscGraphLookup } from "../structures/ITtscGraphLookup";
 import { ITtscGraphNode } from "../structures/ITtscGraphNode";
 import { exportFanIn } from "./exportSurface";
@@ -34,7 +34,12 @@ export function runLookup(
   const wantsInternal = wantsInternalSymbol(queryLc, codeTerms);
   const wantsSupport = wantsSupportSymbol(queryLc);
   const includeExternal = props.includeExternal === true;
-  if (terms.length === 0)
+  // The reverse citation question is answered before the name tokenizer gets a
+  // veto. `subwords` splits on ASCII alphanumerics, so a target written in
+  // another script, or one made only of punctuation, produces no term and used
+  // to return "no searchable terms" while the index held that exact address.
+  const cited = citationHits(graph, props.query, includeExternal);
+  if (terms.length === 0 && cited.length === 0)
     return {
       result: {
         type: "lookup",
@@ -83,7 +88,6 @@ export function runLookup(
   // the caller typed — `docs/pricing.md#sale`, `POST:/orders` — so a carrier is
   // not a better fuzzy match than the name hits, it is a different and certain
   // kind of answer, and name scoring cannot rank the two against each other.
-  const cited = citationHits(graph, props.query, includeExternal);
   const citedIds = new Set(cited.map((hit) => hit.id));
   const ranked = scored.filter((hit) => !citedIds.has(hit.id));
   ranked.sort((a, b) => b.score - a.score);
@@ -334,14 +338,19 @@ function citationHits(
   query: string,
   includeExternal: boolean,
 ): ITtscGraphLookup.IHit[] {
-  const target = leadingTargetToken(query);
+  const target = documentationTarget(query);
   if (target === undefined) return [];
   const hits: ITtscGraphLookup.IHit[] = [];
   for (const node of graph.citing(target)) {
     if (node.kind === "file") continue;
     if (!includeExternal && isExternalNode(node)) continue;
-    const matched = docTagsOf(node)?.filter(
-      (tag) => leadingTargetToken(tag.text) === target,
+    // Matched on the node's own tags and elided afterwards. Filtering the
+    // elided text instead dropped the explanation from a hit whose address was
+    // longer than the cap: the node was found by the address and then returned
+    // without the tag that said why.
+    const matched = docTagsOf(
+      node,
+      (tag) => documentationTarget(tag.text) === target,
     );
     const hit: ITtscGraphLookup.IHit = {
       id: node.id,

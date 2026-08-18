@@ -38,7 +38,13 @@ export function runEntrypoints(
     query,
     limit,
   }).result;
-  const hits = lookupResult.hits.map((hit) => ({ ...hit }));
+  // Drop what this result's own shape does not declare. `lookup` may carry the
+  // documentation tags that matched a citation query; entrypoints answers a
+  // natural-language "where does this start" and has no such field, so copying
+  // the hit wholesale would put an undeclared field on the wire.
+  const hits = lookupResult.hits.map(({ docTags: _docTags, ...hit }) => ({
+    ...hit,
+  }));
 
   const mentions = directMentions(graph, query).map((handle) => {
     const resolved = resolveGraphHandle(graph, handle, 6);

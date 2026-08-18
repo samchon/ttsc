@@ -5,7 +5,7 @@ import (
   "testing"
 )
 
-// TestDumpPathMapperUsesPortableCoordinates verifies the schema-v6 vocabulary
+// TestDumpPathMapperUsesPortableCoordinates verifies the dump path vocabulary
 // directly, independent of the host OS running the test.
 //
 //  1. Map in-project and sibling paths for POSIX, drive, and UNC layouts.

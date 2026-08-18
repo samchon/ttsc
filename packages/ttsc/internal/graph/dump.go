@@ -416,6 +416,8 @@ func wireEdgeKind(kind EdgeKind, origin string) string {
     return "accesses"
   case EdgeTypeRef:
     return "type_ref"
+  case EdgeDocRef:
+    return "doc_ref"
   case EdgeHeritage:
     if origin == "extends" {
       return "extends"

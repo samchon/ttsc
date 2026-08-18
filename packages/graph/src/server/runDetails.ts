@@ -488,22 +488,37 @@ export function decoratorsOf(
 
 /**
  * The declaration's documentation tags, with each text elided at the same
- * length a doc summary is.
+ * length a doc summary is, optionally narrowed to the ones a caller matched.
  *
  * The text is a reason written for a human reader, so the same budget applies:
- * enough to judge what the declaration claims, not the whole paragraph. The tag
- * name and the target that opens the text are never cut, because those are what
- * a reader matches on — the cap only ever reaches the prose after them.
+ * enough to judge what the declaration claims, not the whole paragraph.
+ *
+ * The elision never cuts the address the text opens with. A long URL is one
+ * token and can exceed the budget by itself, and cutting it returns a hit whose
+ * text no longer contains the thing the caller searched for — so where the cut
+ * would land inside the first token, the token is kept whole and the prose
+ * after it goes instead.
  */
 export function docTagsOf(
   node: ITtscGraphNode,
+  keep?: (tag: ITtscGraphDocTag) => boolean,
 ): ITtscGraphDocTag[] | undefined {
   if (node.docTags === undefined || node.docTags.length === 0) return undefined;
-  return node.docTags.map((tag) =>
+  const selected =
+    keep === undefined ? node.docTags : node.docTags.filter(keep);
+  if (selected.length === 0) return undefined;
+  return selected.map((tag) =>
     tag.text !== undefined && tag.text.length > MAX_DOC_CHARS
-      ? { ...tag, text: tag.text.slice(0, MAX_DOC_CHARS).trimEnd() + "…" }
+      ? { ...tag, text: elideTagText(tag.text) }
       : tag,
   );
+}
+
+/** Cut a tag text to the doc budget without cutting the address it opens with. */
+function elideTagText(text: string): string {
+  const stop = text.search(/\s/u);
+  const address = stop < 0 ? text.length : stop;
+  return text.slice(0, Math.max(MAX_DOC_CHARS, address)).trimEnd() + "…";
 }
 
 /** Relationship evidence as public coordinates, omitted when absent. */

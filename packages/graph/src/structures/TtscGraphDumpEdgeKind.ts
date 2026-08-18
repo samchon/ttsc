@@ -5,6 +5,7 @@ export type TtscGraphDumpEdgeKind =
   | "accesses"
   | "instantiates"
   | "type_ref"
+  | "doc_ref"
   | "extends"
   | "implements"
   | "overrides"

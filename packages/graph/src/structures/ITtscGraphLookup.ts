@@ -20,6 +20,14 @@ export namespace ITtscGraphLookup {
      * short phrase (`request handler`). Exact names are not required, but this
      * is not a second broad entrypoints call; use it for a missing or ambiguous
      * named handle.
+     *
+     * It also answers the other direction. Give it a documentation target — a
+     * document section (`docs/pricing.md#sale`), an API operation
+     * (`POST:/orders`), a data model (`prisma:Sale`) — and the hits are the
+     * declarations whose documentation cites it, each carrying the tag that
+     * matched. That is the question a repository-wide search would otherwise
+     * answer, so it is worth asking here first; a target is matched exactly, so
+     * spell it as the code does.
      */
     query: string;
 

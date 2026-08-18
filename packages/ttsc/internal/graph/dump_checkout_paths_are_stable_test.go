@@ -20,7 +20,7 @@ const portableDumpTSConfig = `{
 }
 `
 
-// TestDumpCheckoutPathsAreStable verifies the whole schema-v6 consequence
+// TestDumpCheckoutPathsAreStable verifies the whole dump-identity consequence
 // surface, not only the path helper.
 //
 //  1. Build the same project plus sibling .ts/.d.ts under two checkout roots.

@@ -105,8 +105,7 @@ export interface ITtscGraphApplication {
    *   in one call
    * - `trace`: what a symbol calls, what calls it, or the path from A to B
    * - `details`: signatures, members, and what implements an interface
-   * - `lookup`: where a named symbol is declared, or which declarations cite a
-   *   documentation target
+   * - `lookup`: where a named symbol is declared
    * - `entrypoints`: where execution starts, when the entry is unknown
    * - `overview`: the project's layers and folder structure
    *
