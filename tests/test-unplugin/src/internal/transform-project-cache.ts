@@ -996,7 +996,7 @@ async function assertFailedNotificationsFallBackToCompleteValidation(): Promise<
   const modules = projectModules(project.root);
   const failures: (() => void)[] = [];
   const cache = createTtscTransformCache({
-    watch: (_directory, _listener, onError) => {
+    watch: (_directory: string, _listener: unknown, onError: () => void) => {
       failures.push(onError);
       return { close: () => undefined };
     },

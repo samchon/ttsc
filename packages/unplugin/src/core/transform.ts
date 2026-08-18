@@ -1893,7 +1893,8 @@ function matchesCompleteInputSnapshot(
   // requires with it. Only the graph half of the out-of-walk snapshot records
   // realpaths, so without this the fallback would quietly hold a lower standard
   // than the narrow path it stands in for.
-  const hostValidation = envelopeDerivation(cached).hostInputValidation;
+  const state = envelopeDerivation(cached);
+  const hostValidation = state.hostInputValidation;
   if (
     hostValidation === undefined ||
     !matchesUniversalHostInputs(cached, hostValidation)
@@ -1902,7 +1903,7 @@ function matchesCompleteInputSnapshot(
   }
   const current = collectProjectInputSnapshot(
     cached.projectRoot,
-    envelopeDerivation(cached).identityContext,
+    state.identityContext,
     resultFilesystem(cached.result),
     cached.inputSignatures === undefined
       ? undefined
