@@ -1485,6 +1485,7 @@ function matchesProvenInput(
     return matchesRecordedInput(cached, input);
   }
   const filesystem = resultFilesystem(cached.result);
+  const capturedAt = metadataCaptureTime();
   const before = inputMetadataSignature(input, filesystem);
   if (before !== undefined && slot.signatures[slot.key] === before) {
     return true;
@@ -1492,10 +1493,7 @@ function matchesProvenInput(
   if (!matchesRecordedInput(cached, input)) {
     return false;
   }
-  const after = settledMetadata(
-    inputMetadata(input, filesystem),
-    metadataCaptureTime(),
-  );
+  const after = settledMetadata(inputMetadata(input, filesystem), capturedAt);
   if (after !== undefined && before === after) {
     slot.signatures[slot.key] = after;
   } else {
@@ -1505,11 +1503,16 @@ function matchesProvenInput(
 }
 
 /**
- * Locate the signature manifest entry that owns one recorded input, mirroring
+ * Locate the signature manifest that owns one recorded input, mirroring
  * {@link matchesRecordedInput}'s own preference for the out-of-walk spelling's
- * snapshot over the walked project's. Returns `undefined` for an input the
- * generation never proved by an unracing disk read, which keeps the full
- * content comparison as the only authority for it.
+ * snapshot over the walked project's.
+ *
+ * The manifest is returned whether or not it currently holds a signature for
+ * the input, so a content comparison that succeeds can record one. Without
+ * that, an input whose capture-time metadata was too recent to prove anything
+ * would keep its content read for the whole life of the generation, since
+ * nothing else ever revisits it. Returns `undefined` only for an input the
+ * generation recorded no hash for, which no signature could stand for.
  */
 function inputSignatureSlot(
   cached: TtscCachedProjectTransform,
@@ -1517,7 +1520,6 @@ function inputSignatureSlot(
   input: string,
 ): { key: string; signatures: Record<string, string> } | undefined {
   const identity = derivationIdentity(state, input);
-  const externalSignatures = cached.externalInputSignatures;
   if (
     Object.prototype.hasOwnProperty.call(
       cached.externalInputHashes ?? {},
@@ -1527,23 +1529,18 @@ function inputSignatureSlot(
     // The recorded hash is identity-keyed because aliases of one physical file
     // share its content; the signature is spelling-keyed because they do not
     // share its metadata.
-    const spelling = path.resolve(input);
-    return externalSignatures !== undefined &&
-      Object.prototype.hasOwnProperty.call(externalSignatures, spelling)
-      ? { key: spelling, signatures: externalSignatures }
-      : undefined;
-  }
-  const projectSignatures = cached.inputSignatures;
-  if (projectSignatures === undefined) {
-    return undefined;
+    return {
+      key: path.resolve(input),
+      signatures: (cached.externalInputSignatures ??= {}),
+    };
   }
   const projectKey = toProjectKey(
     cached.projectRoot,
     input,
     state.identityContext,
   );
-  return Object.prototype.hasOwnProperty.call(projectSignatures, projectKey)
-    ? { key: projectKey, signatures: projectSignatures }
+  return Object.prototype.hasOwnProperty.call(cached.inputHashes, projectKey)
+    ? { key: projectKey, signatures: (cached.inputSignatures ??= {}) }
     : undefined;
 }
 
@@ -1828,12 +1825,36 @@ function inputMetadata(
 }
 
 /**
- * The instant a signature manifest is captured, as a filesystem-comparable
- * nanosecond stamp.
+ * Modification times at or after this instant are too recent to prove anything,
+ * so a signature capture takes it as its cutoff.
+ *
+ * The process clock is finer than the clock a filesystem stamps files with: a
+ * write advances an mtime only once per filesystem tick, about 15.6 ms on
+ * Windows and a whole second or two on the filesystems that store seconds. A
+ * cutoff of "now" would therefore clear an input written earlier in the current
+ * tick, which is exactly the input a second write in that same tick can change
+ * without moving its signature. Backing the cutoff off by more than any such
+ * tick closes the whole window rather than its first millisecond.
+ *
+ * The one case this cannot answer is a filesystem whose clock runs behind the
+ * process clock, where a write happening now can stamp a time already older
+ * than the cutoff. That needs a timestamp minted by the observed filesystem
+ * itself, which the operations contract has no way to ask for.
  */
 function metadataCaptureTime(): bigint {
-  return BigInt(Date.now()) * 1_000_000n;
+  return BigInt(Date.now()) * 1_000_000n - METADATA_SETTLE_MARGIN_NS;
 }
+
+/**
+ * How far back a signature capture's cutoff sits, in nanoseconds.
+ *
+ * Two seconds covers every filesystem timestamp granularity in use: 100 ns on
+ * NTFS and nanoseconds on ext4 and APFS, about 15.6 ms of effective clock tick
+ * on Windows, one second on ext3 and HFS+, and two on FAT and exFAT. The cost
+ * is that an input modified within the last two seconds keeps its content
+ * comparison, which is the input most likely to be mid-edit anyway.
+ */
+const METADATA_SETTLE_MARGIN_NS = 2_000_000_000n;
 
 /**
  * Return a signature only when the filesystem clock can already separate it
@@ -2970,8 +2991,8 @@ function collectCachedExternalInputHashes(cached: TtscCachedProjectTransform): {
   // Never skip a spelling because its identity was already seen. Two spellings
   // share one identity exactly when they selected one physical file at
   // generation time, which is the state a retarget ends, so each is read under
-  // its own name and a disagreement between them invalidates below. The
-  // recorded path list is already unique by spelling.
+  // its own name and a disagreement between them invalidates below. A spelling
+  // repeated in the list costs one extra read and folds to the same value.
   for (const file of cached.externalInputPaths ??
     Object.keys(cached.externalInputHashes ?? {})) {
     const identity = derivationIdentity(state, file);

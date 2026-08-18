@@ -917,6 +917,89 @@ async function assertUnavailableNotificationsKeepThePersistentCache(): Promise<v
 }
 
 /**
+ * Asserts a modification time too recent to prove anything earns no proof, and
+ * that the input recovers one once its timestamp ages.
+ *
+ * A filesystem stamps a write once per clock tick, so an input modified inside
+ * the tick a signature was captured in can be rewritten to a different payload
+ * of the same length without moving that signature. The capture cutoff sits
+ * behind any such tick, which means a freshly modified input keeps its content
+ * comparison. It must also stop paying for that once the timestamp is old
+ * enough, or the first delivery to see an input mid-edit would condemn it to a
+ * re-read for the generation's whole life.
+ */
+async function assertRecentlyModifiedInputRecoversItsProof(): Promise<void> {
+  const { createTtscTransformCache, resolveOptions, transformTtsc } =
+    await TestUnpluginRuntime.loadUnpluginApi();
+  const project = createCacheProject({ fileCount: 6, graphFanout: 6 });
+  const modules = projectModules(project.root);
+  const reachable = path.join(
+    project.root,
+    "node_modules",
+    "dep1",
+    "index.d.ts",
+  );
+  let reads: string[] = [];
+  const cache = createTtscTransformCache({
+    readFile: (location: string) => {
+      reads.push(path.resolve(location));
+      return fs.readFileSync(location);
+    },
+  });
+  const options = resolveOptions();
+  const deliver = (file: string) =>
+    transformTtsc(
+      file,
+      fs.readFileSync(file, "utf8"),
+      options,
+      undefined,
+      cache,
+    );
+  const deliverReading = async (file: string): Promise<boolean> => {
+    reads = [];
+    assert.ok(await deliver(file));
+    return reads.includes(reachable);
+  };
+
+  for (const file of modules) {
+    assert.ok(await deliver(file));
+  }
+  assert.equal(
+    await deliverReading(modules[1]!),
+    false,
+    "an aged input must be proven by its signature alone",
+  );
+
+  // Modified now: inside the tick its next signature would be captured in.
+  const now = new Date();
+  fs.utimesSync(reachable, now, now);
+  assert.equal(
+    await deliverReading(modules[1]!),
+    true,
+    "a changed signature must fall back to the content comparison",
+  );
+  assert.equal(
+    await deliverReading(modules[2]!),
+    true,
+    "a modification time too recent to prove anything must earn no proof",
+  );
+
+  // Old enough to be separable from any later write.
+  const aged = new Date(Date.now() - 60_000);
+  fs.utimesSync(reachable, aged, aged);
+  assert.equal(
+    await deliverReading(modules[3]!),
+    true,
+    "the aged timestamp is itself a signature change",
+  );
+  assert.equal(
+    await deliverReading(modules[4]!),
+    false,
+    "an input whose timestamp has aged must recover its proof",
+  );
+}
+
+/**
  * Asserts a graph member with no readable content never acquires a proof.
  *
  * A signature stands for the bytes a read proved, so an input that has none
@@ -1047,13 +1130,9 @@ async function assertUnsettledMetadataKeepsTheContentComparison(): Promise<void>
   );
   assert.equal(
     fs.readFileSync(reachable, "utf8"),
-    "export declare const dep1: number;" + String.fromCharCode(10),
+    "export declare const dep1: number;\n",
   );
-  fs.writeFileSync(
-    reachable,
-    "export declare const dep1: string;" + String.fromCharCode(10),
-    "utf8",
-  );
+  fs.writeFileSync(reachable, "export declare const dep1: string;\n", "utf8");
   await new Promise<void>((resolve) => setImmediate(resolve));
   assert.ok(await deliver(modules[0]!));
   assert.equal(
@@ -2136,7 +2215,37 @@ function createCacheProject(options: ICacheProjectOptions): {
     );
   }
   writeGoPlugin(root);
+  ageProjectInputs(root);
   return { root, runLog };
+}
+
+/**
+ * Backdate every file the fixture just wrote.
+ *
+ * A signature may only stand in for a content comparison once the filesystem
+ * clock can separate the input's modification time from a later write, so a
+ * tree written microseconds before the build under test is the one shape that
+ * cannot be proven at all. Real projects are older than the build that reads
+ * them; this makes the fixture match, and leaves the cases that edit a file
+ * mid-run to exercise the unproven state deliberately.
+ */
+function ageProjectInputs(root: string): void {
+  const aged = new Date(Date.now() - 60_000);
+  const walk = (directory: string): void => {
+    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+      const location = path.join(directory, entry.name);
+      if (entry.isDirectory()) {
+        walk(location);
+      } else if (entry.isSymbolicLink()) {
+        // The link's own timestamp counts: a retarget moves it, so the settle
+        // cutoff takes the later of the link's and its target's.
+        fs.lutimesSync(location, aged, aged);
+      } else if (entry.isFile()) {
+        fs.utimesSync(location, aged, aged);
+      }
+    }
+  };
+  walk(root);
 }
 
 /**
@@ -2391,6 +2500,7 @@ export {
   assertOneFailedTrackerFallsBackToCompleteValidation,
   assertPersistentValidationProvesSharedInputsOnce,
   assertPersistentValidationUsesPerFileInputs,
+  assertRecentlyModifiedInputRecoversItsProof,
   assertRejectedTransformIsEvictedAndRecovers,
   assertSiblingDeliveriesDoNotReprobeGraph,
   assertStaleEvictionKeepsNewerGeneration,

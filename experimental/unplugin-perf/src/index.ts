@@ -18,6 +18,13 @@ const requireFromTtsc = createRequire(
   path.join(root, "packages", "ttsc", "package.json"),
 );
 
+/**
+ * Synchronous `stat` calls one delivery may spend proving project membership,
+ * independent of the project's directory count. Scenarios that add a cost of
+ * their own state a budget derived from this one.
+ */
+const MEMBERSHIP_STAT_BUDGET = 8;
+
 main()
   .catch((error) => {
     console.error(error);
@@ -197,13 +204,6 @@ function requireFromUnplugin(specifier: string): unknown {
     specifier,
   );
 }
-
-/**
- * Synchronous `stat` calls one delivery may spend proving project membership,
- * independent of the project's directory count. Scenarios that add a cost of
- * their own state a budget derived from this one.
- */
-const MEMBERSHIP_STAT_BUDGET = 8;
 
 interface MeasureOptions {
   count: number;
@@ -532,6 +532,28 @@ async function runBuild(
   }
 }
 
+/**
+ * Backdate the generated tree so its inputs can be proven.
+ *
+ * A metadata signature may stand in for a content comparison only once the
+ * filesystem clock can separate the input's modification time from a later
+ * write, so a tree written microseconds before the run would be measured in the
+ * one state where no input can be proven at all. Real projects are older than
+ * the build that reads them.
+ */
+function ageProjectInputs(project: string): void {
+  const aged = new Date(Date.now() - 60_000);
+  const walk = (directory: string): void => {
+    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+      const location = path.join(directory, entry.name);
+      if (entry.isDirectory()) walk(location);
+      else if (entry.isSymbolicLink()) fs.lutimesSync(location, aged, aged);
+      else if (entry.isFile()) fs.utimesSync(location, aged, aged);
+    }
+  };
+  walk(project);
+}
+
 function projectModules(project: string): string[] {
   const srcDir = path.join(project, "src");
   return fs
@@ -644,6 +666,7 @@ function createProject(options: MeasureOptions): string {
   process.env.TTSC_PERF_EMIT_EXTERNAL = options.emitExternalKey ? "1" : "0";
   process.env.TTSC_PERF_GRAPH_FANOUT = String(graphFanout);
   process.env.TTSC_PERF_GRAPH_GLOBALS = String(graphGlobals);
+  ageProjectInputs(project);
   process.env.TTSC_PERF_PARTITION_EXTERNAL = options.partitionExternalInputs
     ? "1"
     : "0";
