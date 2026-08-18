@@ -1219,21 +1219,19 @@ func reviewProblems(
 //
 // Two properties are load-bearing and neither is obvious.
 //
-// The key comes from a review's SemanticHostIDs, never from a declaration's
-// HostID. On graph hosts the latter is a source position, so the two halves of a
-// merged identity carry different ones: keying on it refused a review written on
-// `namespace I` for a citation on `interface I`, which is placement the graph
-// elsewhere calls not worth a diagnostic and which `evidence/review` accepts.
-// The two rules then disagreed about the same file. `model.go` says as much where
-// it defines the fields.
+// The index side reads every ledger key from the review's SemanticHostIDs. On
+// graph hosts these are semantic identities, so the two halves of a merged
+// identity share a key. Indexing by their distinct source positions instead
+// refused a review written on `namespace I` for a citation on `interface I`,
+// which is placement the graph elsewhere calls not worth a diagnostic and which
+// `evidence/review` accepts. An unattached Prisma review has no graph identity,
+// so it stores its synthetic file-position key in SemanticHostIDs instead.
 //
-// Every indexable review supplies its ledger keys in SemanticHostIDs. Most are
-// graph identities. An unattached Prisma review instead supplies its synthetic
-// file-position key there because no graph unit owns that run. The declaration
-// from the same run is asymmetric: it leaves SemanticHostIDs empty and carries
-// the file position in HostID, so only lookup keeps a position fallback. A
-// second review-side fallback described no producer and obscured the one live
-// exception.
+// The lookup side normally reads the declaration's SemanticHostIDs. The
+// declaration from that Prisma run is asymmetric: it leaves them empty and
+// carries the file position in HostID, so `find` falls back there. Only lookup
+// needs a separate source-position field; the review-side fallback described no
+// producer. `model.go` states both field contracts.
 //
 // It is built once per claim rather than scanned per citation. A linear search
 // over every review, for every declaration, for every reference, is cubic in the
