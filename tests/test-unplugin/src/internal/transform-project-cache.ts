@@ -69,7 +69,7 @@ interface ICacheProjectOptions {
    * read, as a link with no target. The host and the adapter then record the
    * same missing state for it, which is the state no signature may stand for.
    *
-   * Windows links to a directory instead: a file symlink needs elevation there
+   * Windows uses a directory junction: a file symlink needs elevation there
    * while a junction does not, and a junction with no target reports the same
    * state this needs, a readable link whose every traversal fails.
    */
@@ -588,9 +588,12 @@ async function assertPersistentValidationUsesPerFileInputs(): Promise<void> {
           "selection.json",
         );
   if (brokenTarget !== undefined) {
-    // Creating file symlinks requires elevated privileges on Windows. POSIX CI
-    // owns this broken-target edge while the shared test retains every other
-    // validation and performance assertion on all platforms.
+    // A link with no target is reproducible on Windows as a junction, which
+    // needs no elevation. What is not is the second half of this edge: a
+    // junction whose target is later created as a *file* still reports ENOENT
+    // through the link, measured on Windows 11, so the appearance this asserts
+    // below can only be observed through a POSIX file symlink. POSIX CI owns
+    // it while the shared case retains every other assertion on all platforms.
     fs.symlinkSync(brokenTarget, descriptorProbes[1]!, "file");
   }
   fs.writeFileSync(descriptorSelection, 'module.exports = "go-plugin";\n');
@@ -2101,18 +2104,22 @@ function createCacheProject(options: ICacheProjectOptions): {
   fs.writeFileSync(
     path.join(root, "plugin.cjs"),
     [
-      'const crypto = require("node:crypto");',
       'const fs = require("node:fs");',
       'const path = require("node:path");',
-      "",
-      "function observedHash(file) {",
-      '  try { return crypto.createHash("sha256").update(fs.readFileSync(file)).digest("hex"); }',
-      "  catch { return null; }",
-      "}",
-      "function observedRealpath(file) {",
-      "  try { return fs.realpathSync.native(file); }",
-      "  catch { return null; }",
-      "}",
+      ...(options.unreadableHostInput === true
+        ? [
+            'const crypto = require("node:crypto");',
+            "function observedHash(file) {",
+            '  try { if (fs.statSync(file).isDirectory()) return crypto.createHash("sha256").update("ttsc:host-input:directory\\0").digest("hex"); } catch {}',
+            '  try { return crypto.createHash("sha256").update(fs.readFileSync(file)).digest("hex"); }',
+            "  catch { return null; }",
+            "}",
+            "function observedRealpath(file) {",
+            "  try { return fs.realpathSync.native(file); }",
+            "  catch { return null; }",
+            "}",
+          ]
+        : []),
       "",
       "module.exports = (context) => {",
       "  return {",
