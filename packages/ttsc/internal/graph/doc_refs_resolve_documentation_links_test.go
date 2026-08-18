@@ -27,6 +27,14 @@ import (
 func TestDocRefsResolveDocumentationLinks(t *testing.T) {
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), fixtureTSConfig)
+  writeFile(t, filepath.Join(root, "src", "other.ts"), `export interface ISale {
+  other: boolean;
+}
+
+export interface IOther {
+  flag: boolean;
+}
+`)
   writeFile(t, filepath.Join(root, "src", "sale.ts"), `export interface ISale {
   price: number;
 }
@@ -38,6 +46,12 @@ export namespace Shopping {
 }
 `)
   writeFile(t, filepath.Join(root, "src", "main.ts"), `import type { ISale, Shopping } from "./sale";
+// Pulls the second module into the program, so both declarations of the name
+// exist and the resolution below is a real choice rather than the only option.
+import type { IOther } from "./other";
+
+/** Uses {@link IOther} so the import is not merely present. */
+export function usesOther(): void {}
 
 /** @evidence {@link ISale} Cited from a tag. */
 export function fromTag(): void {}
@@ -74,6 +88,9 @@ export function selfLinked(): void {}
 
 /** Carries documentation but no link. */
 export function noLink(): void {}
+
+/** Names {@link ISale}, of which this file imports exactly one. */
+export function ambiguousName(): void {}
 
 /** A class documented with {@link ISale} on the class itself. */
 export class Documented {
@@ -150,6 +167,13 @@ export namespace Documented2 {
   assertDocRef(t, g, "#Documented.coupon:variable", "#Shopping.ICoupon:interface")
   assertNoDocRefTo(t, g, "#Documented:class", "#Shopping.ICoupon:interface")
   assertDocRef(t, g, "#Documented.run:method", "#ISale:interface")
+
+  // Two modules declare `ISale`, and only the checker knows which one a link
+  // means: it resolves the name through this module's imports. A text match on
+  // the written token could not tell them apart, and would have to guess.
+  assertNodeExists(t, g, "other.ts#ISale:interface")
+  assertDocRef(t, g, "#ambiguousName:function", "sale.ts#ISale:interface")
+  assertNoDocRefTo(t, g, "#ambiguousName:function", "other.ts#ISale:interface")
 }
 
 // assertNoNamespaceNode fails when the graph holds a node for this namespace,
@@ -171,6 +195,18 @@ func assertNoNamespaceNode(t *testing.T, g *Graph, infix string) {
       t.Fatalf("a namespace node cited %s", edge.To)
     }
   }
+}
+
+// assertNodeExists fails unless the graph holds a node whose id ends this way.
+// It guards the same-name case from passing because the rival never existed.
+func assertNodeExists(t *testing.T, g *Graph, suffix string) {
+  t.Helper()
+  for id := range g.Nodes {
+    if suffixMatch(id, suffix) {
+      return
+    }
+  }
+  t.Fatalf("the graph holds no %s, so a resolution asserted against it proves nothing", suffix)
 }
 
 // assertNoDocRefTo fails when a doc_ref edge runs between these two nodes.
