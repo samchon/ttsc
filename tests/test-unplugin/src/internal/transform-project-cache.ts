@@ -1105,9 +1105,8 @@ async function assertCompleteValidationProvesEachInputOnce(): Promise<void> {
 
   // A metadata-only change to a project input and to an out-of-walk input costs
   // one re-read each, once.
-  // Backwards: a signature the filesystem clock cannot yet separate from a
-  // later write is deliberately refused, so a future stamp would never regain
-  // its proof. A restored-from-backup timestamp exercises the same path.
+  // A restored-from-backup timestamp: the content is untouched, so only the
+  // signature moves.
   const shifted = new Date(Date.now() - 4000);
   fs.utimesSync(path.join(project.root, "src", "mod4.ts"), shifted, shifted);
   fs.utimesSync(
@@ -1400,9 +1399,8 @@ async function assertPersistentValidationProvesSharedInputsOnce(): Promise<void>
     "global0",
     "index.d.ts",
   );
-  // Backwards: a signature the filesystem clock cannot yet separate from a
-  // later write is deliberately refused, so a future stamp would never regain
-  // its proof. A restored-from-backup timestamp exercises the same path.
+  // A restored-from-backup timestamp: the content is untouched, so only the
+  // signature moves.
   const shifted = new Date(Date.now() - 4000);
   fs.utimesSync(touched, shifted, shifted);
   const beforeTouch = [...cache.values()][0];
