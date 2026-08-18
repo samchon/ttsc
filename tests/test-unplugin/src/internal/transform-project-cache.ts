@@ -863,7 +863,11 @@ async function assertUnavailableNotificationsKeepThePersistentCache(): Promise<v
     "utf8",
   );
   assert.ok(await deliver(modules[0]!));
-  assert.equal(pluginRuns(), 4, "an edited out-of-walk graph member must recompile");
+  assert.equal(
+    pluginRuns(),
+    4,
+    "an edited out-of-walk graph member must recompile",
+  );
 
   fs.rmSync(path.join(project.root, "src", "added.d.ts"));
   assert.ok(await deliver(modules[0]!));

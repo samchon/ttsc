@@ -2283,7 +2283,8 @@ function sameProjectDirectories(
 /**
  * Open one directory's change notification through the cache-owned watch seam,
  * falling back to the host's own `fs.watch`. Throws exactly where the
- * underlying watch does, so callers classify a registration failure themselves.
+ * underlying watch does, so callers classify a registration failure
+ * themselves.
  */
 function openDirectoryWatch(
   filesystem: TtscTransformFilesystemOperations,
