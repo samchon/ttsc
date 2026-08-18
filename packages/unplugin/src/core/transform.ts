@@ -117,9 +117,12 @@ export interface TtscCachedProjectTransform {
   inputHashes: Record<string, string>;
   /**
    * Metadata signature of each {@link inputHashes} entry whose hash was proven
-   * against an unracing read of the file on disk. The generation's own current
-   * file is deliberately absent: its recorded hash comes from the bundler's
-   * in-memory source, which no disk signature can stand for.
+   * against an unracing read of the file on disk.
+   *
+   * The generation's own current file is absent at capture: its recorded hash
+   * comes from the bundler's in-memory source, so the walk that produced it
+   * compared nothing. A later delivery of a sibling does compare that file's
+   * disk bytes against the recorded hash, and may record a signature then.
    */
   inputSignatures?: Record<string, string>;
   /** Metadata snapshot of every directory in the stable generation walk. */
@@ -1468,8 +1471,10 @@ function matchesNarrowPersistentInputs(
  * by the module count. This is the same nanosecond manifest
  * {@link matchesUniversalHostInputs} applies to universal descriptor inputs,
  * extended to the derived set: an unchanged signature stands in for the content
- * comparison, any signature change falls back to the full comparison, and a
- * signature captured around a racing write is never recorded.
+ * comparison, and any signature change falls back to the full comparison. A
+ * signature is recorded only around a read nothing raced, only for a
+ * modification time the filesystem clock can already separate from a later
+ * write ({@link settledMetadata}), and only for content a read produced.
  *
  * The signature carries the physical identity of both the lexical path and its
  * link target ({@link inputMetadataSignature}), so retargeting a symlink or
@@ -1493,7 +1498,14 @@ function matchesProvenInput(
   if (!matchesRecordedInput(cached, input)) {
     return false;
   }
-  const after = settledMetadata(inputMetadata(input, filesystem), capturedAt);
+  // A recorded `missing` state is the one comparison that succeeds without
+  // reading anything: an unreadable path still reports `missing`, so its
+  // metadata can hold still while the bytes behind it appear. Only content a
+  // read produced may be stood for.
+  const after =
+    slot.recorded === MISSING_INPUT_STATE
+      ? undefined
+      : settledMetadata(inputMetadata(input, filesystem), capturedAt);
   if (after !== undefined && before === after) {
     slot.signatures[slot.key] = after;
   } else {
@@ -1518,19 +1530,18 @@ function inputSignatureSlot(
   cached: TtscCachedProjectTransform,
   state: TtscEnvelopeDerivation,
   input: string,
-): { key: string; signatures: Record<string, string> } | undefined {
+):
+  | { key: string; recorded: string; signatures: Record<string, string> }
+  | undefined {
   const identity = derivationIdentity(state, input);
-  if (
-    Object.prototype.hasOwnProperty.call(
-      cached.externalInputHashes ?? {},
-      identity,
-    )
-  ) {
+  const external = cached.externalInputHashes ?? {};
+  if (Object.prototype.hasOwnProperty.call(external, identity)) {
     // The recorded hash is identity-keyed because aliases of one physical file
     // share its content; the signature is spelling-keyed because they do not
     // share its metadata.
     return {
       key: path.resolve(input),
+      recorded: external[identity]!,
       signatures: (cached.externalInputSignatures ??= {}),
     };
   }
@@ -1540,7 +1551,11 @@ function inputSignatureSlot(
     state.identityContext,
   );
   return Object.prototype.hasOwnProperty.call(cached.inputHashes, projectKey)
-    ? { key: projectKey, signatures: (cached.inputSignatures ??= {}) }
+    ? {
+        key: projectKey,
+        recorded: cached.inputHashes[projectKey]!,
+        signatures: (cached.inputSignatures ??= {}),
+      }
     : undefined;
 }
 
@@ -1881,6 +1896,13 @@ function settledMetadata(
   return metadata.signature;
 }
 
+/**
+ * The recorded state of an input the generation could not read: absent,
+ * unreadable, or of a kind with no content. It is deliberately not a hash, so
+ * no signature may ever stand in for it.
+ */
+const MISSING_INPUT_STATE = "missing";
+
 /** Content/kind fingerprint matching the compiler host-input contract. */
 function hostInputStateHash(
   file: string,
@@ -2198,14 +2220,14 @@ function captureExternalInputSnapshot(
         // hold stable metadata while becoming readable, so it keeps the read.
         record(input, before, after);
       }
-      hashes[identity] = proof.hash ?? "missing";
+      hashes[identity] = proof.hash ?? MISSING_INPUT_STATE;
       realpaths[identity] = proof.realpath;
       continue;
     }
     const before = inputMetadataSignature(input, filesystem);
     const hash = hostInputStateHash(input, filesystem);
     const after = inputMetadata(input, filesystem);
-    hashes[identity] = hash ?? "missing";
+    hashes[identity] = hash ?? MISSING_INPUT_STATE;
     if (hash !== null) record(input, before, after);
   }
   return { complete, hashes, realpaths, signatures };
@@ -2298,9 +2320,9 @@ function matchesRecordedInput(
     const current = graphInput
       ? graphInputStateHash(input, filesystem)
       : hostInputStateHash(input, filesystem);
-    return recorded === (current ?? "missing");
+    return recorded === (current ?? MISSING_INPUT_STATE);
   } catch {
-    return recorded === "missing";
+    return recorded === MISSING_INPUT_STATE;
   }
 }
 
@@ -2962,7 +2984,8 @@ export function collectExternalInputHashes(
     if (identity in hashes) {
       continue;
     }
-    hashes[identity] = hostInputStateHash(file, filesystem) ?? "missing";
+    hashes[identity] =
+      hostInputStateHash(file, filesystem) ?? MISSING_INPUT_STATE;
   }
   return hashes;
 }
@@ -3015,7 +3038,7 @@ function collectCachedExternalInputHashes(cached: TtscCachedProjectTransform): {
       ? graphInputStateHash(file, filesystem)
       : hostInputStateHash(file, filesystem);
     const after = settledMetadata(inputMetadata(file, filesystem), capturedAt);
-    foldExternalInputHash(hashes, identity, hash ?? "missing");
+    foldExternalInputHash(hashes, identity, hash ?? MISSING_INPUT_STATE);
     if (hash !== null && after !== undefined && before === after) {
       signatures[spelling] = after;
     }

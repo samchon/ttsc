@@ -1466,18 +1466,20 @@ async function assertPersistentValidationProvesSharedInputsOnce(): Promise<void>
   // headroom. It also fails if the alias and its target overwrite each other's
   // proof, which costs two more reads per delivery on every POSIX host.
   assert.ok(
-    reads / modules.length <= 2,
-    `persistent validation read ${(reads / modules.length).toFixed(1)} files per module for a shared closure (bound: 2)`,
+    reads / modules.length <= 1,
+    `persistent validation read ${(reads / modules.length).toFixed(1)} files per module for a shared closure (bound: 1)`,
   );
 
-  // One delivery in isolation: only the generation's own current file may be
-  // read. A second read means the aliased global lost its own proof to its
-  // target's, which a per-identity manifest does on every delivery.
+  // One delivery in isolation, once every input of this generation has been
+  // proven: nothing may be read at all. One read means the aliased global lost
+  // its own proof to its target's, which a per-identity manifest does on every
+  // delivery.
   reads = 0;
   assert.ok(await deliver(modules[1]!));
-  assert.ok(
-    reads <= 1,
-    `an aliased spelling must keep its own proof (read ${reads} files)`,
+  assert.equal(
+    reads,
+    0,
+    "an aliased spelling must keep its own proof rather than its target's",
   );
 
   // A metadata-only change must revalidate by content, keep the generation, and
@@ -1507,13 +1509,14 @@ async function assertPersistentValidationProvesSharedInputsOnce(): Promise<void>
   );
   reads = 0;
   assert.ok(await deliver(modules[1]!));
-  // Exactly one read is available to this delivery: the generation's own
-  // current file, whose recorded hash came from the bundler's buffer and so
-  // carries no disk signature. A second read means the touched global was not
-  // re-proven and is being reread on every delivery.
-  assert.ok(
-    reads <= 1,
-    `a revalidated input must be proven again, not reread per delivery (read ${reads})`,
+  // Every input of this generation is proven by now, the generation's own
+  // current file included: a sibling delivery compared its disk bytes against
+  // the recorded hash and recorded the signature then. Any read here means the
+  // touched global was not re-proven and is being reread on every delivery.
+  assert.equal(
+    reads,
+    0,
+    "a revalidated input must be proven again, not reread per delivery",
   );
 
   // The globals half must still invalidate every module, not just one.
