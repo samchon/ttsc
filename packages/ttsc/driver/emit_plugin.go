@@ -198,48 +198,36 @@ func (p *Program) EmitWithPluginTransformers(transforms []PluginTransform, write
       shimast.SetParentInChildrenUnset(out.AsNode())
       restoreOriginalDeclarationSymbols(ec, out.AsNode())
       // Build the chain from the PARSE tree and transform the plugin's tree.
-      // The two roles are one argument in tsgo's own emitter only because it
-      // has no plugin pass between them: emitJSFile hands getScriptTransformers
-      // the file it parsed, then reassigns it to the transform result. Here
-      // they are genuinely different files, and only the parse tree belongs on
-      // the left.
+      // Upstream passes one file to both roles only because it has no plugin
+      // pass between them: emitJSFile hands getScriptTransformers the file it
+      // parsed, then reassigns it to the transform result. Here they differ.
       //
-      // getScriptTransformers reads its file for three things: whether it is a
-      // JS file, whether its language variant is JSX, and
-      // emitResolver.MarkLinkedReferencesRecursively. The first two are fixed
-      // per file and survive UpdateSourceFile, so marking is the whole
-      // difference — and marking is a per-node checker resolution walk under
-      // the single checker mutex, which on a plugin-expanded tree runs over
-      // nodes the binder never saw.
+      // getScriptTransformers reads its file for three things: in-JS-file, JSX
+      // language variant, and emitResolver.MarkLinkedReferencesRecursively. The
+      // first two survive UpdateSourceFile, so marking is the whole difference,
+      // and marking is a per-node checker resolution walk under the single
+      // checker mutex.
       //
-      // Marking the plugin's tree instead does not merely cost time, it emits
-      // broken JavaScript. Import elision reads those marks back for the file's
-      // parse-tree imports, so a reference the plugin REBUILT — a fresh
-      // identifier linked with SetOriginal, which is what any partial rewrite
-      // produces — leaves its import unmarked. The module transform still
-      // aliases the reference, and elision still drops the binding it names, so
-      // the file ends up with `dep_1.foo` and no `const dep_1 = require(...)`:
-      // ReferenceError at load. Walking the parse tree marks the reference the
-      // checker actually analyzed and keeps the binding.
+      // Marking the plugin's tree does not merely spend that walk on nodes the
+      // binder never saw, it emits broken JavaScript. Elision reads the marks
+      // back for the file's parse-tree imports, so a reference the plugin
+      // REBUILT (a fresh identifier linked with SetOriginal, which is what any
+      // partial rewrite produces) leaves its import unmarked. The module
+      // transform still aliases that reference and elision still drops the
+      // binding the alias names: `dep_1.foo` with no `const dep_1 =
+      // require(...)`, a ReferenceError at load. The emit_plugin_rebuilt_*
+      // tests pin one binding shape each, across both module kinds.
       //
-      // The same reasoning covers a transform that removes an import's last
-      // value use: the marks describe the checked file, so the import survives.
+      // Nothing is lost by skipping the plugin's nodes. UpdateSourceFile
+      // rebuilds a SourceFile through copyFrom, which carries over neither
+      // Locals nor Symbol, and an ordinary import binds into Locals, so no
+      // resolveName branch reaches an import from a synthetic identifier. An
+      // import the plugin synthesized needs no mark at all: it has no parse
+      // original, and elision preserves it unconditionally.
       //
-      // Nothing is lost by not walking the plugin's nodes. The marks they could
-      // contribute are unreachable anyway — UpdateSourceFile rebuilds a
-      // SourceFile through copyFrom, which carries over neither Locals nor
-      // Symbol, and an ordinary import binds into Locals (declareModuleMember
-      // routes an alias to Exports only for an export specifier or an exported
-      // import-equals), so neither resolveName branch can reach an import from a
-      // synthetic identifier — and an
-      // import the plugin synthesized needs no mark at all, because it has no
-      // parse original and elision preserves it unconditionally.
-      //
-      // Marking one fixed tree per file also makes the lane's elision
-      // independent of how often it runs. Marks accumulate on the checker and
-      // are never cleared, so a second EmitWithPluginTransformers call on the
-      // same Program used to inherit whatever the first pass's plugin tree
-      // happened to mark.
+      // Marks accumulate on the checker and are never cleared, so marking one
+      // fixed tree per file also stops a second emit on the same Program from
+      // inheriting the first pass's plugin-tree marks.
       for _, tr := range shimcompiler.GetScriptTransformers(ec, host, sf) {
         out = tr.TransformSourceFile(out)
       }
