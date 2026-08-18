@@ -1628,9 +1628,12 @@ function matchesUniversalHostInputEntries(
       return false;
     }
     if (signature === undefined) return false;
-    // Re-earn the proof under the rule the capture applies: an entry whose
-    // recorded state came from reading nothing keeps its content comparison.
-    entry.signature = entry.readable ? signature : undefined;
+    // Re-earn the proof under the rules the capture applies: an entry whose
+    // recorded state came from reading nothing keeps its content comparison,
+    // and a write racing the read that just proved it records nothing.
+    const after = inputMetadataSignature(entry.path, filesystem);
+    entry.signature =
+      entry.readable && after === signature ? signature : undefined;
   }
   return true;
 }
@@ -1723,7 +1726,8 @@ function captureUniversalHostInputValidation(
       if (path.resolve(input) !== current) return undefined;
       // The current module may be supplied from an unsaved editor buffer. Its
       // generation snapshot is overlaid below from `currentSource`, so a disk
-      // fingerprint would be both unavailable and the wrong authority.
+      // fingerprint would be both unavailable and the wrong authority, and no
+      // signature may stand for a state the disk did not produce.
     } else {
       const current = hostInputStateHash(input, filesystem);
       if (expected !== current) {
@@ -1803,7 +1807,18 @@ function captureUniversalHostInputValidation(
   return validation;
 }
 
-/** Metadata identity whose stability lets a generation reuse a content hash. */
+/**
+ * The recorded state of an input the generation read nothing from: absent, or
+ * present but unreadable. It is deliberately not a hash, so no signature may
+ * stand in for it: the metadata of an unreadable path holds still while the
+ * bytes behind it appear.
+ *
+ * A directory is not this state. It records the hash of a marker instead, which
+ * a signature may stand for, because the mode both halves of the signature
+ * carry cannot change without the path ceasing to be that directory.
+ */
+const MISSING_INPUT_STATE = "missing";
+
 /** Metadata identity whose stability lets a generation reuse a content hash. */
 function inputMetadataSignature(
   file: string,

@@ -64,6 +64,13 @@ interface ICacheProjectOptions {
    * makes the state deterministic on every platform.
    */
   unhashedGraphInput?: boolean;
+  /**
+   * Declare one out-of-walk universal host input that exists but cannot be
+   * read, as a link with no target. The host and the adapter then record the
+   * same missing state for it, which is the state no signature may stand for.
+   * POSIX only: creating a file symlink on Windows needs elevation.
+   */
+  unreadableHostInput?: boolean;
   independentGraphLeaf?: string;
   partitionGraph?: boolean;
   snapshotAbaRace?: boolean;
@@ -919,31 +926,39 @@ async function assertUnavailableNotificationsKeepThePersistentCache(): Promise<v
 /**
  * Asserts a universal host input with no readable content never acquires one.
  *
- * The descriptor and config inputs a host reports are validated through their
- * own manifest, which skips an entry whose metadata still matches. An input the
- * host could see but not read records no content hash on either side, so its
- * `missing` state matches while it stays unreadable and its metadata never
- * moves. Handing it a signature would mean the manifest skips it for the
- * generation's life, and the derived loop skips it too, so bytes that appear
- * later would never be compared at all.
+ * Descriptor and config inputs are validated through their own manifest, which
+ * skips an entry whose metadata still matches. An input the host could see but
+ * not read records a missing state on both sides, so its comparison succeeds
+ * while nothing reads it and its metadata never moves. A signature for it would
+ * be skipped for the generation's life, and the per-module loop skips the same
+ * spelling, so bytes appearing later would never be compared at all.
+ *
+ * The input is a link with no target, which is the one shape both the host's
+ * own filesystem and the adapter's fail to read for the same reason. Its
+ * content then appears through the cache-owned read alone, so no metadata moves
+ * and only a retained content comparison can see it.
  */
 async function assertUnreadableHostInputKeepsTheContentComparison(): Promise<void> {
+  if (process.platform === "win32") {
+    // Creating a file symlink requires elevation on Windows, and nothing else
+    // portable produces a path that exists and cannot be read. POSIX CI owns
+    // this edge; the rule it pins is shared by every platform.
+    return;
+  }
   const { createTtscTransformCache, resolveOptions, transformTtsc } =
     await TestUnpluginRuntime.loadUnpluginApi();
   const project = createCacheProject({
     fileCount: 4,
     graphFanout: 4,
-    unhashedHostInput: true,
+    unreadableHostInput: true,
   });
   const modules = projectModules(project.root);
   const unreadable = path.join(project.root, "node_modules", "host-input.json");
-  let denied = true;
+  let appeared = false;
   const cache = createTtscTransformCache({
     readFile: (location: string) => {
-      if (denied && path.resolve(location) === unreadable) {
-        const error = new Error("permission denied") as NodeJS.ErrnoException;
-        error.code = "EACCES";
-        throw error;
+      if (appeared && path.resolve(location) === unreadable) {
+        return Buffer.from("{}\n", "utf8");
       }
       return fs.readFileSync(location);
     },
@@ -971,7 +986,7 @@ async function assertUnreadableHostInputKeepsTheContentComparison(): Promise<voi
     "an unreadable universal input matching its recorded state must still hit",
   );
 
-  denied = false;
+  appeared = true;
   assert.ok(await deliver(modules[0]!));
   assert.equal(
     pluginRuns(),
@@ -1107,7 +1122,7 @@ async function assertCompleteValidationProvesEachInputOnce(): Promise<void> {
   // one re-read each, once.
   // A restored-from-backup timestamp: the content is untouched, so only the
   // signature moves.
-  const shifted = new Date(Date.now() - 4000);
+  const shifted = new Date(0);
   fs.utimesSync(path.join(project.root, "src", "mod4.ts"), shifted, shifted);
   fs.utimesSync(
     path.join(project.root, "node_modules", "dep2", "index.d.ts"),
@@ -1402,7 +1417,7 @@ async function assertPersistentValidationProvesSharedInputsOnce(): Promise<void>
   );
   // A restored-from-backup timestamp: the content is untouched, so only the
   // signature moves.
-  const shifted = new Date(Date.now() - 4000);
+  const shifted = new Date(0);
   fs.utimesSync(touched, shifted, shifted);
   const beforeTouch = [...cache.values()][0];
   reads = 0;
@@ -2070,10 +2085,21 @@ function createCacheProject(options: ICacheProjectOptions): {
     ),
     "utf8",
   );
-  const unhashedHostInput = path.join(root, "node_modules", "host-input.json");
-  if (options.unhashedHostInput === true) {
-    fs.mkdirSync(path.dirname(unhashedHostInput), { recursive: true });
-    fs.writeFileSync(unhashedHostInput, "{}\n", "utf8");
+  const unreadableHostInput = path.join(
+    root,
+    "node_modules",
+    "host-input.json",
+  );
+  if (options.unreadableHostInput === true) {
+    fs.mkdirSync(path.dirname(unreadableHostInput), { recursive: true });
+    // A link with no target: it exists, so its own metadata is stable and
+    // readable, while every attempt to read through it fails for the host and
+    // the adapter alike. That is the state a missing marker records.
+    fs.symlinkSync(
+      path.join(root, "node_modules", "host-input-target.json"),
+      unreadableHostInput,
+      "file",
+    );
   }
   fs.writeFileSync(
     path.join(root, "plugin.cjs"),
@@ -2084,10 +2110,11 @@ function createCacheProject(options: ICacheProjectOptions): {
       "module.exports = (context) => {",
       "  return {",
       '    name: context.plugin.name ?? "cache-probe",',
-      ...(options.unhashedHostInput === true
+      ...(options.unreadableHostInput === true
         ? [
-            `    hostInputs: [${JSON.stringify(unhashedHostInput)}],`,
-            `    hostInputHashes: { [${JSON.stringify(unhashedHostInput)}]: null },`,
+            `    hostInputs: [${JSON.stringify(unreadableHostInput)}],`,
+            `    hostInputHashes: { [${JSON.stringify(unreadableHostInput)}]: null },`,
+            `    hostInputRealpaths: { [${JSON.stringify(unreadableHostInput)}]: null },`,
           ]
         : []),
       '    source: path.resolve(context.dirname, "go-plugin"),',
