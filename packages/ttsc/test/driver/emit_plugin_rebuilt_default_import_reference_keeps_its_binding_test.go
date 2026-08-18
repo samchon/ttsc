@@ -88,7 +88,7 @@ func TestEmitWithPluginTransformerRebuiltDefaultImportReferenceKeepsItsBinding(t
   if alias == nil {
     t.Fatalf("rebuilt default-import reference was not aliased to <ns>.default.run():\n%s", js)
   }
-  if !strings.Contains(js, alias[1]+" = ") || !strings.Contains(js, `require("./dep")`) {
+  if !strings.Contains(js, "const "+alias[1]+" = ") || !strings.Contains(js, `require("./dep")`) {
     t.Fatalf("reference aliased to %s but no require binding for ./dep was emitted, so the module throws ReferenceError:\n%s", alias[1], js)
   }
 }

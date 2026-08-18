@@ -81,7 +81,7 @@ func TestEmitWithPluginTransformerRebuiltImportEqualsReferenceKeepsItsBinding(t 
   if !strings.Contains(js, "dep.foo") {
     t.Fatalf("rebuilt import-equals reference did not survive as dep.foo:\n%s", js)
   }
-  if !strings.Contains(js, `require("./dep")`) {
+  if !strings.Contains(js, `const dep = require("./dep")`) {
     t.Fatalf("import-equals binding was elided while the emitted file still reads dep.foo, so the module throws ReferenceError:\n%s", js)
   }
 }

@@ -77,7 +77,7 @@ func TestEmitWithPluginTransformerRebuiltReferenceKeepsItsEsmImport(t *testing.T
   if !strings.Contains(js, "export const a = foo;") {
     t.Fatalf("rebuilt reference did not survive as `foo` on the ESM lane:\n%s", js)
   }
-  if !strings.Contains(js, `from "./dep"`) {
+  if !strings.Contains(js, `import { foo } from "./dep";`) {
     t.Fatalf("import declaration for ./dep was elided while the emitted module still references foo, so the module fails to resolve at load:\n%s", js)
   }
 }
