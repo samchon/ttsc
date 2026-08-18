@@ -2045,7 +2045,7 @@ function matchesCompleteInputSnapshot(
   adoptProvenSignatures(cached, {
     currentKey,
     external: externalCurrent.signatures,
-    project: current.fileSignatures,
+    project: current.settledSignatures,
   });
   return true;
 }
@@ -2316,9 +2316,11 @@ function collectProjectInputSnapshot(
   fileSignatures: Record<string, string>;
   hashes: Record<string, string>;
   projectDirectories: TtscProjectDirectorySnapshot[];
+  settledSignatures: Record<string, string>;
 } {
   const hashes: Record<string, string> = {};
   const fileSignatures: Record<string, string> = {};
+  const settledSignatures: Record<string, string> = {};
   const capturedAt = metadataCaptureTime();
   const walked = walkProjectInputs(projectRoot, filesystem);
   let complete = walked.complete;
@@ -2337,6 +2339,9 @@ function collectProjectInputSnapshot(
       ) {
         hashes[key] = proven.hashes[key]!;
         fileSignatures[key] = before;
+        // Reuse is authorized by the settled manifest itself, so this signature
+        // was settled when it was recorded and has only aged since.
+        settledSignatures[key] = before;
         continue;
       }
       const contents = filesystem.readFile(file);
@@ -2346,11 +2351,15 @@ function collectProjectInputSnapshot(
       if (before === undefined || after === undefined || before !== after) {
         complete = false;
       } else {
+        fileSignatures[key] = after;
         // A racing write leaves the snapshot incomplete above; a write the
         // filesystem clock cannot yet separate from a later one only costs this
-        // file its proof, since its content was still read and hashed.
+        // file its proof, since its content was still read and hashed. The two
+        // maps are therefore separate: `fileSignatures` records what the walk
+        // observed, which is what a second walk is compared against, while only
+        // a settled signature may later stand in for a content comparison.
         const settled = settledMetadata(metadata, capturedAt);
-        if (settled !== undefined) fileSignatures[key] = settled;
+        if (settled !== undefined) settledSignatures[key] = settled;
       }
     } catch {
       // File watchers may observe a transform while another process is moving
@@ -2363,6 +2372,7 @@ function collectProjectInputSnapshot(
     fileSignatures,
     hashes,
     projectDirectories: walked.directories,
+    settledSignatures,
   };
 }
 
@@ -3250,7 +3260,7 @@ async function transformProject(props: {
     inputSnapshot.hashes[currentFileKey] = hashText(props.currentSource);
     // That overlay makes this one key the only recorded hash a disk signature
     // cannot stand for: the bytes it names came from the bundler, not the file.
-    delete inputSnapshot.fileSignatures[currentFileKey];
+    delete inputSnapshot.settledSignatures[currentFileKey];
     const cached: TtscCachedProjectTransform = {
       // Capture the out-of-walk input hashes while the generation is fresh so
       // cache validation can re-check them; computed before dispose so the
@@ -3259,7 +3269,7 @@ async function transformProject(props: {
       externalInputRealpaths: {},
       externalInputPaths,
       inputHashes: inputSnapshot.hashes,
-      inputSignatures: inputSnapshot.fileSignatures,
+      inputSignatures: inputSnapshot.settledSignatures,
       projectDirectories: inputSnapshot.projectDirectories,
       projectSnapshotComplete: false,
       projectRoot,
