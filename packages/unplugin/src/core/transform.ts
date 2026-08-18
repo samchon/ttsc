@@ -2033,7 +2033,7 @@ function matchesCompleteInputSnapshot(
   adoptProvenSignatures(cached, {
     currentKey,
     external: externalCurrent.signatures,
-    project: current.settledSignatures,
+    project: current.fileSignatures,
   });
   return true;
 }
@@ -2302,11 +2302,9 @@ function collectProjectInputSnapshot(
   fileSignatures: Record<string, string>;
   hashes: Record<string, string>;
   projectDirectories: TtscProjectDirectorySnapshot[];
-  settledSignatures: Record<string, string>;
 } {
   const hashes: Record<string, string> = {};
   const fileSignatures: Record<string, string> = {};
-  const settledSignatures: Record<string, string> = {};
   const walked = walkProjectInputs(projectRoot, filesystem);
   let complete = walked.complete;
   for (const file of walked.files) {
@@ -2324,9 +2322,6 @@ function collectProjectInputSnapshot(
       ) {
         hashes[key] = proven.hashes[key]!;
         fileSignatures[key] = before;
-        // Reuse is authorized by the settled manifest itself, so this signature
-        // was settled when it was recorded and has only aged since.
-        settledSignatures[key] = before;
         continue;
       }
       const contents = filesystem.readFile(file);
@@ -2336,7 +2331,6 @@ function collectProjectInputSnapshot(
         complete = false;
       } else {
         fileSignatures[key] = after;
-        settledSignatures[key] = after;
       }
     } catch {
       // File watchers may observe a transform while another process is moving
@@ -2349,7 +2343,6 @@ function collectProjectInputSnapshot(
     fileSignatures,
     hashes,
     projectDirectories: walked.directories,
-    settledSignatures,
   };
 }
 
@@ -3220,7 +3213,7 @@ async function transformProject(props: {
     inputSnapshot.hashes[currentFileKey] = hashText(props.currentSource);
     // That overlay makes this one key the only recorded hash a disk signature
     // cannot stand for: the bytes it names came from the bundler, not the file.
-    delete inputSnapshot.settledSignatures[currentFileKey];
+    delete inputSnapshot.fileSignatures[currentFileKey];
     const cached: TtscCachedProjectTransform = {
       // Capture the out-of-walk input hashes while the generation is fresh so
       // cache validation can re-check them; computed before dispose so the
@@ -3229,7 +3222,7 @@ async function transformProject(props: {
       externalInputRealpaths: {},
       externalInputPaths,
       inputHashes: inputSnapshot.hashes,
-      inputSignatures: inputSnapshot.settledSignatures,
+      inputSignatures: inputSnapshot.fileSignatures,
       projectDirectories: inputSnapshot.projectDirectories,
       projectSnapshotComplete: false,
       projectRoot,
