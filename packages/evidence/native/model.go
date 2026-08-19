@@ -66,6 +66,11 @@ type claimSpec struct {
   // the resolved Base because the two are produced at different times: the
   // spelling decodes from options alone, while the resolution needs a project
   // identity the decoder never sees.
+  //
+  // `Base.Declared` holds the same spelling once a project identity exists, and
+  // the two are not interchangeable. Read this one before resolution, which is
+  // what `ProjectInputs` does to publish a topology without touching the
+  // filesystem, and read the base's after it, which is what a diagnostic does.
   Root  string
   Base  populationBase
   Files globSet
