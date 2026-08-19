@@ -277,6 +277,9 @@ test("CI support files select their actual executors", () => {
   for (const file of [
     "scripts/ci/config-loader-copies.cjs",
     "scripts/ci/config-loader-copies.test.cjs",
+    // Same reason: the gofmt wrapper's completeness gate runs beside the format
+    // check it defends, in the lane every plan already selects.
+    "scripts/ci/gofmt-wrapper.test.cjs",
   ])
     assert.deepEqual(ids([file]), ["typecheck"], file);
   assert.deepEqual(ids(["experimental/test-unplugin/src/index.ts"]), [

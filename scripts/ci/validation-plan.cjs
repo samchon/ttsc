@@ -66,7 +66,8 @@ const LANES = [
       "node --test scripts/ci/validation-plan.test.cjs " +
       "scripts/ci/test-owners.test.cjs scripts/ci/line-endings.test.cjs " +
       "scripts/ci/dependency-audit.test.cjs " +
-      "scripts/ci/config-loader-copies.test.cjs && " +
+      "scripts/ci/config-loader-copies.test.cjs " +
+      "scripts/ci/gofmt-wrapper.test.cjs && " +
       "node scripts/ci/format-check.cjs && pnpm run test:typecheck",
   },
   {
@@ -616,6 +617,7 @@ function planForPaths(files) {
         "scripts/ci/dependency-audit.cjs",
         "scripts/ci/dependency-audit.test.cjs",
         "scripts/ci/format-check.cjs",
+        "scripts/ci/gofmt-wrapper.test.cjs",
         "scripts/ci/line-endings.test.cjs",
         "scripts/ci/plugin-cache-persistence.mjs",
         "scripts/ci/test-owners.cjs",
