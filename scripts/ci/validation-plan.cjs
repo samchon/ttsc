@@ -500,7 +500,13 @@ function planForPaths(files) {
       continue;
     }
     if (file.startsWith("packages/graph/")) {
-      add(["graph"], file);
+      // `tests/test-evidence` drives a resident graph session over a real
+      // evidence project — the only place the chain from a rule's published
+      // units to a graph node is exercised end to end — so a change here has to
+      // run that suite too. Its failure mode is an empty answer, which is also
+      // what a correct project with no publisher produces, and no other lane
+      // can tell those apart.
+      add(["graph", "evidence"], file);
       continue;
     }
     if (file.startsWith("packages/unplugin/")) {
