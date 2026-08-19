@@ -517,7 +517,7 @@ export async function transformTtsc(
     if (cache !== undefined && cache.get(key) !== generation) {
       continue;
     }
-    const { projectRoot, result, temporaryTsconfig } = cached;
+    const { projectRoot, result } = cached;
     reportSuccessDiagnostics(result);
     const code = selectOrEvict(cache, key, generation, {
       file,
