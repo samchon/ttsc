@@ -58,7 +58,7 @@ func loadMarkdownBase(
         return nil
       }
       recordPopulationFailure(inventories, artifactMarkdown, base)
-      problems = append(problems, "Evidence graph could not inspect '"+current+"': "+walkErr.Error()+". Fix filesystem access so configured Markdown sources can be indexed.")
+      problems = append(problems, unreadableWalkEntryProblem(base, relative, "Markdown", walkErr))
       if entry != nil && entry.IsDir() {
         return filepath.SkipDir
       }

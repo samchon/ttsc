@@ -253,7 +253,7 @@ func configuredPrismaAddressesWithHealth(
           return nil
         }
         baseFailed = true
-        problems = append(problems, "Evidence graph could not inspect '"+current+"': "+walkErr.Error()+". Fix filesystem access so configured Prisma sources can be indexed.")
+        problems = append(problems, unreadableWalkEntryProblem(base, relative, "Prisma", walkErr))
         if entry != nil && entry.IsDir() {
           return filepath.SkipDir
         }

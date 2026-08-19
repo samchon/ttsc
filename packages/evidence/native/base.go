@@ -381,6 +381,35 @@ func missingBaseDirectoryProblem(base populationBase, kind artifactKind) string 
   return message + "an empty directory leaves the population just as empty."
 }
 
+// unreadableWalkEntryProblem names one path a population walk could not
+// inspect.
+//
+// The Markdown and Prisma walkers share it because they are otherwise one
+// defect written twice. The path a `filepath.WalkDir` callback receives is the
+// OS-native absolute one, while every other path those two functions print is
+// project-relative and slash-separated, so on Windows the failing line is the
+// only one spelled with backslashes and an author compares it against globs, a
+// root, and file locations that do not line up with it. Repairing one walker
+// and leaving the other reinstates that by artifact kind instead of by line.
+//
+// The walk root itself arrives as ".", because that is its own base-relative
+// path, and composing it onto a declared root would spell `../docs/.`.
+// `path.Clean` collapses that and leaves every other composition untouched.
+//
+// The cause is passed through as the filesystem wrote it. It may embed an
+// OS-native absolute path of its own, and rewriting a sentence this rule did
+// not author is a different claim than spelling its own paths one way.
+func unreadableWalkEntryProblem(
+  base populationBase,
+  relative string,
+  sources string,
+  cause error,
+) string {
+  return "Evidence graph could not inspect '" + path.Clean(base.display(relative)) +
+    "': " + cause.Error() + ". Fix filesystem access so configured " + sources +
+    " sources can be indexed."
+}
+
 // normalizeRootPath validates a declared root without resolving it.
 //
 // Two forms stay refused, and both for the reason the `files` grammar refuses
