@@ -80,7 +80,13 @@ func TestAnUnlistableReferenceRootIsReportedAtItsCause(t *testing.T) {
       "symbol":"h2"
     }
   }]}`)
-  assertProblemContains(t, messages, "could not walk Markdown root '../documents':")
+  if named := countProblemsContaining(messages, "could not walk Markdown root '../documents':"); named != 1 {
+    t.Fatalf(
+      "a base that could not be listed is named once, got %d:\n%s",
+      named,
+      strings.Join(messages, "\n"),
+    )
+  }
   for _, derived := range []string{"matched no markdown files", "could not inspect"} {
     if countProblemsContaining(messages, derived) != 0 {
       t.Fatalf(
@@ -165,7 +171,15 @@ func TestAnUnlistableClaimRootDoesNotDeactivateInSilence(t *testing.T) {
     "symbol":"h2",
     "reference":{"type":"markdown","files":["docs/**/*.md"],"symbol":"h3"}
   }]}`)
-  assertProblemContains(t, messages, "could not walk Markdown root '../documents':")
+  // A claim base is walked twice, once for activation and once after it, so this
+  // also holds the deduplication that keeps one failure one message.
+  if named := countProblemsContaining(messages, "could not walk Markdown root '../documents':"); named != 1 {
+    t.Fatalf(
+      "a claim base that could not be listed is named once, got %d:\n%s",
+      named,
+      strings.Join(messages, "\n"),
+    )
+  }
 }
 
 /**
