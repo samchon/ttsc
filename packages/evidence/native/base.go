@@ -241,10 +241,15 @@ func populationRootLabel(base populationBase) string {
 // TypeScript is told apart in the verb and in the repair clause. Its root
 // re-bases addressing over sources the Program already holds and never scans a
 // directory, so a message about reading one would name an access this artifact
-// kind never attempts. The repair takes two steps for the same reason: this
-// stat is satisfied by an empty directory, which would silence the diagnostic
-// and leave the population exactly as empty, so the message asks for the
-// sources too rather than only for the folder.
+// kind never attempts.
+//
+// Every repair clause takes two steps, and that part is not about TypeScript at
+// all. This stat is satisfied by an empty directory, so creating one silences
+// the diagnostic and leaves the population exactly as empty — and for a claim
+// that is worse than the diagnostic was, because an empty healthy claim
+// deactivates without a word. Both branches therefore ask for what the
+// directory must hold, each naming it the way its own kind materializes: the
+// walkers want the documents, and TypeScript wants the sources compiled.
 //
 // The verb also has to stay clear of the path sense beside it. "Resolves to"
 // and "resolves against" are both composition, and a lead clause saying the
@@ -267,12 +272,13 @@ func unreadableBaseProblem(base populationBase, kind artifactKind) string {
   if kind == artifactTypeScript {
     return "Evidence graph found no directory at the " + string(kind) + " root '" +
       populationRootLabel(base) + "', which resolves to '" + filepath.ToSlash(base.Absolute) +
-      "'. Correct the 'root' property, or add that directory and make its sources part of the project; it resolves against the ttsc project root, and a " + string(kind) +
+      "'. Correct the 'root' property, or add that directory and make its sources part of the compiled Program; it resolves against the ttsc project root, and a " + string(kind) +
       " root re-bases Program sources onto itself rather than scanning the filesystem."
   }
   return "Evidence graph could not read the " + string(kind) + " root '" +
     populationRootLabel(base) + "', which resolves to '" + filepath.ToSlash(base.Absolute) +
-    "'. Create the directory, or correct the 'root' property; it resolves against the ttsc project root."
+    "'. Correct the 'root' property, or create that directory and the " + string(kind) +
+    " sources it should hold; it resolves against the ttsc project root, and an empty directory leaves the population just as empty."
 }
 
 // normalizeRootPath validates a declared root without resolving it.
