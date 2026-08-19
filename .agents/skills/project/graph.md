@@ -6,6 +6,8 @@ Read this before changing `packages/graph`, graph benchmark prompts, graph bench
 
 `@ttsc/graph` is a compiler-derived TypeScript index for coding agents. It should expose declarations, signatures, relationships, decorators, tests, and source spans from the resident `Program` and `TypeChecker`. It must not inline implementation bodies. When source text is needed, return the smallest span and let the agent read it normally.
 
+A citation target that is not a TypeScript declaration — a document section, a data model field, an API operation — may be a node too, published by a lint plugin through the `graphNodes` capability. The boundary is the same one: an artifact node carries its address, its kind, its readable name, and the line it starts on, and never the artifact's content. The graph parses no address and carries no verdict; a coverage, exclusion, or diagnostic fact belongs to the linter, which already delivers it as a compile error. Because those facts come from a plugin's own process, `provenance` names a second producer and `capabilities` lists `artifactNodes` only when the producer asked.
+
 Code inlining is not an acceptable product option. Returning source bodies can make large projects produce huge tool output, prompt replay, redundant follow-up calls, and negative token savings. `@ttsc/graph` must remain an index with spans.
 
 ## Prohibited
