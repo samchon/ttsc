@@ -3622,17 +3622,26 @@ function selectNotifiableAbsentInputs(props: {
       seen.add(spelling);
       output.push(absolute);
       watched.push(absolute);
-      // Watch every component of the lexical path too, by the name it carries
+      // Watch the components of the lexical path too, by the name each carries
       // in its own parent. The watcher a missing path opens follows the
       // spelling to a physical directory, so retargeting a link along the way
       // moves the answer without touching what is watched: in a pnpm layout
       // `node_modules/<pkg>` is exactly such a link, and reinstalling it makes
       // a candidate appear behind a watch that is still looking at the old
-      // store directory. Watching `<pkg>` inside `node_modules` is what
-      // reports that.
+      // store directory. Watching `<pkg>` inside `node_modules` is what reports
+      // that.
+      //
+      // The walk stops at the project's own enclosing directory, and does not
+      // climb past it. Above that line the components are the machine's own
+      // layout rather than the project's — a system temp directory, a home
+      // directory, the filesystem root — which nobody retargets and which
+      // change constantly for reasons that have nothing to do with this
+      // generation. On Linux an entry's attribute change is reported to a watch
+      // on its parent, so watching those would invalidate the cache every time
+      // an unrelated process touched anything inside them.
       for (
         let child = path.dirname(spelling), parent = path.dirname(child);
-        parent !== child;
+        parent !== child && !enclosesProject(child, props.projectRoot);
         child = parent, parent = path.dirname(child)
       ) {
         if (chain.has(child)) break;
@@ -3655,6 +3664,27 @@ function selectNotifiableAbsentInputs(props: {
   output.sort();
   watched.sort();
   return { candidates: output, watched };
+}
+
+/**
+ * Report whether a directory is the project's own root or an ancestor of it.
+ *
+ * The boundary of what a generation may watch on a candidate's behalf: the
+ * project and whatever it reaches below or beside it are its own layout, while
+ * everything above the project root belongs to the machine.
+ */
+function enclosesProject(directory: string, projectRoot: string): boolean {
+  const root = path.resolve(projectRoot);
+  const current = path.resolve(directory);
+  if (current === root) {
+    return true;
+  }
+  const relative = path.relative(current, root);
+  return (
+    relative.length !== 0 &&
+    !relative.startsWith("..") &&
+    !path.isAbsolute(relative)
+  );
 }
 
 /**
