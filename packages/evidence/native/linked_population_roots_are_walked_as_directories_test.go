@@ -859,3 +859,58 @@ func TestAPrismaRootPastTheResolverIsRefusedAsPrisma(t *testing.T) {
     t.Fatalf("a root the walk never reached is recorded failed, got %d", len(failed))
   }
 }
+
+/**
+ * Verifies a TypeScript population on the default base is not refused for a
+ * chain.
+ *
+ * The gate asks the resolver question of a declared root only. A Program spells
+ * its sources against the directory ttsc was invoked with, so the comparison
+ * matches without any resolution, and refusing there failed every claim on the
+ * base nearly every project uses. Measured before the guard: one refusal and no
+ * obligations, over a graph that otherwise reports two.
+ *
+ * The configuration declares no Markdown or Prisma population on purpose, so no
+ * walker can produce the refusal and the assertion is about this gate alone.
+ *
+ *  1. Invoke the rule through a chain longer than the resolver follows.
+ *  2. Declare only TypeScript populations.
+ *  3. Assert the real obligation is reported and no refusal is.
+ */
+func TestADefaultTypeScriptBaseIsNotRefusedForAChain(t *testing.T) {
+  workspace := t.TempDir()
+  real := filepath.Join(workspace, "real")
+  if err := os.MkdirAll(real, 0o755); err != nil {
+    t.Fatal(err)
+  }
+  previous := real
+  for hop := range 34 {
+    link := filepath.Join(workspace, "hop"+decimal(hop))
+    if err := linkDirectory(previous, link); err != nil {
+      t.Skipf("this platform refused to create a link: %v", err)
+    }
+    previous = link
+  }
+  if _, err := os.Stat(previous); err != nil {
+    t.Skipf(
+      "this platform did not follow the chain to a directory either (%v), so nothing reaches the gate",
+      err,
+    )
+  }
+  messages := runIndexRuleAtRoot(t, previous, map[string]string{
+    "src/sale.ts": "export interface ISale {}\n",
+    "src/spec.ts": "export interface ISpec {}\n",
+  }, `{"claims":[{
+    "type":"typescript",
+    "files":["src/sale.ts"],
+    "symbol":"type",
+    "reference":{"type":"typescript","files":["src/spec.ts"],"symbol":"type"}
+  }]}`)
+  assertProblemContains(t, messages, "Missing acknowledgement for 'ISpec'")
+  if countProblemsContaining(messages, "found no directory at the end of") != 0 {
+    t.Fatalf(
+      "the base a Program spells its sources against owes no resolution:\n%s",
+      strings.Join(messages, "\n"),
+    )
+  }
+}

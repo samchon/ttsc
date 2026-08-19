@@ -592,3 +592,53 @@ func TestAReasonKeepsItsWordsAndLosesItsTerminator(t *testing.T) {
 }
 
 var errAlreadyTerminated = errors.New("Access is denied.")
+
+/**
+ * Verifies the resolved path is restated exactly where it says something new.
+ *
+ * Two questions used one predicate. Whether to print the resolved path again is
+ * decided by whether it differs from the label; whether the project root was
+ * composed into the spelling is what gates the clause that says so. They agree
+ * for every shape but one: a UNC root on POSIX is absolute, so the predicate
+ * suppressed the restatement, while `filepath.Clean` collapses its leading
+ * slashes and the two spellings genuinely differ.
+ *
+ * The base is built rather than resolved, because the shape exists on POSIX and
+ * the rule has to hold on both.
+ *
+ *  1. Build a base whose declared spelling and resolved path differ while the
+ *     declared one is absolute.
+ *  2. Render both messages that restate a path.
+ *  3. Assert each restates it, and that an absolute root landing on itself does
+ *     not.
+ */
+func TestAResolvedPathIsRestatedOnlyWhereItDiffers(t *testing.T) {
+  collapsed := populationBase{Declared: "//server/share", Absolute: "/server/share"}
+  for _, message := range []string{
+    describeBaseDirectoryProblem(
+      collapsed,
+      artifactMarkdown,
+      false,
+      &fs.PathError{Op: "stat", Path: collapsed.Absolute, Err: fs.ErrNotExist},
+    ),
+    unresolvedBaseProblem(collapsed, artifactMarkdown),
+  } {
+    if !strings.Contains(message, "which resolves to '/server/share'") {
+      t.Fatalf("a spelling the resolution changed is restated:\n%s", message)
+    }
+  }
+  landed := populationBase{Declared: "C:/contracts", Absolute: `C:\contracts`}
+  for _, message := range []string{
+    describeBaseDirectoryProblem(
+      landed,
+      artifactMarkdown,
+      false,
+      &fs.PathError{Op: "stat", Path: landed.Absolute, Err: fs.ErrNotExist},
+    ),
+    unresolvedBaseProblem(landed, artifactMarkdown),
+  } {
+    if strings.Contains(message, "which resolves to") {
+      t.Fatalf("a root that landed on itself is not named twice:\n%s", message)
+    }
+  }
+}
