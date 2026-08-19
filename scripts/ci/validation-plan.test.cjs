@@ -69,9 +69,18 @@ test("a leaf package selects shared quality and its own executor", () => {
     "evidence",
   ]);
   // Both evidence suites share one lane, and neither directory name is the
-  // lane id, so each is pinned rather than inferred.
+  // lane id, so each is pinned rather than inferred. The Windows Go lane is
+  // pinned too: this package's path handling is what differs between platforms,
+  // so a plan that dropped it would leave those tests running nowhere.
   assert.deepEqual(ids(["packages/evidence/src/index.ts"]), [
     "go",
+    "windows-go",
+    "typecheck",
+    "evidence",
+  ]);
+  assert.deepEqual(ids(["packages/evidence/native/base.go"]), [
+    "go",
+    "windows-go",
     "typecheck",
     "evidence",
   ]);

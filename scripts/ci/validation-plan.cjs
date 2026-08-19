@@ -462,7 +462,15 @@ function planForPaths(files) {
       continue;
     }
     if (file.startsWith("packages/evidence/")) {
-      add(["evidence", "go"], file);
+      // `windows-go` is selected because this package's behavior is decided by
+      // platform path semantics rather than incidentally affected by them:
+      // `filepath.IsAbs` answers differently for `/srv/x`, `filepath.Rel`
+      // errors only across Windows volumes, a drive root carries its own
+      // separator, a junction is read through `os.Readlink` where
+      // `EvalSymlinks` returns it unchanged, and Windows ends its error
+      // messages with a period. Every one of those has a test, and on `go`
+      // alone none of them runs on the platform it is about.
+      add(["evidence", "go", "windows-go"], file);
       continue;
     }
     if (file.startsWith("benchmarks/evidence/")) {
