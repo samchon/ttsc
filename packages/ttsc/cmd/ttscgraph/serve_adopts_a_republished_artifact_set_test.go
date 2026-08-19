@@ -6,7 +6,10 @@ import (
   "fmt"
   "os"
   "path/filepath"
+  "slices"
   "testing"
+
+  "github.com/samchon/ttsc/packages/ttsc/internal/graph"
 )
 
 // TestServeAdoptsARepublishedArtifactSet verifies a resident session replaces
@@ -31,6 +34,7 @@ import (
 //  3. Publish a different set and ask again naming the new file.
 //  4. Require a `rebuild` carrying the new artifact and not the old one.
 //  5. Name a file that does not exist and require an error, not an empty graph.
+//  6. State the empty path and require the artifacts withdrawn.
 func TestServeAdoptsARepublishedArtifactSet(t *testing.T) {
   root := graphSessionFixture(t)
   published := t.TempDir()
@@ -42,11 +46,12 @@ func TestServeAdoptsARepublishedArtifactSet(t *testing.T) {
   var output bytes.Buffer
   code := serveSnapshotsWithArtifacts(
     bytes.NewReader([]byte(fmt.Sprintf(
-      "{\"id\":1,\"artifacts\":%s}\n{\"id\":2,\"artifacts\":%s}\n{\"id\":3,\"artifacts\":%s}\n{\"id\":4,\"artifacts\":%s}\n",
+      "{\"id\":1,\"artifacts\":%s}\n{\"id\":2,\"artifacts\":%s}\n{\"id\":3,\"artifacts\":%s}\n{\"id\":4,\"artifacts\":%s}\n{\"id\":5,\"artifacts\":%s}\n",
       mustJSONString(t, first),
       mustJSONString(t, first),
       mustJSONString(t, second),
       mustJSONString(t, filepath.Join(published, "never-written.json")),
+      `""`,
     ))),
     &output,
     root,
@@ -58,14 +63,14 @@ func TestServeAdoptsARepublishedArtifactSet(t *testing.T) {
   }
 
   decoder := json.NewDecoder(&output)
-  responses := make([]serveResponse, 4)
+  responses := make([]serveResponse, 5)
   for index := range responses {
     if err := decoder.Decode(&responses[index]); err != nil {
       t.Fatalf("response %d: %v", index+1, err)
     }
   }
   initial, repeated, republished := responses[0], responses[1], responses[2]
-  missing := responses[3]
+  missing, withdrawn := responses[3], responses[4]
 
   if initial.Mode != serveModeInitial || !initial.Changed || initial.Dump == nil {
     t.Fatalf("initial response: %#v", initial)
@@ -108,6 +113,20 @@ func TestServeAdoptsARepublishedArtifactSet(t *testing.T) {
   }
   if missing.Dump != nil || missing.Changed {
     t.Fatalf("an error response carried snapshot state: %#v", missing)
+  }
+
+  // The empty path is how a client says it now publishes none — the state a
+  // project reaches by removing its plugin. Without it the only sayable things
+  // are "here is a set" and "no opinion", and the removal would go on being
+  // answered with the artifacts of a plugin that is gone.
+  if withdrawn.Mode != serveModeRebuild || !withdrawn.Changed {
+    t.Fatalf("withdrawing the artifacts answered %#v", withdrawn)
+  }
+  if dumpCarriesArtifact(withdrawn.Dump, "docs/sale.md#discounts") {
+    t.Fatal("a withdrawn artifact is still in the graph")
+  }
+  if slices.Contains(withdrawn.Capabilities, string(graph.CapabilityArtifactNodes)) {
+    t.Fatalf("a session holding no artifacts still claims them: %v", withdrawn.Capabilities)
   }
 }
 
@@ -159,4 +178,63 @@ func dumpCarriesArtifact(dump any, address string) bool {
     }
   }
   return false
+}
+
+// TestServeKeepsAStartupSetAClientNeverMentions verifies that a request saying
+// nothing about artifacts leaves the ones the session started with alone.
+//
+// Three clients reach this path and none of them names a file: one built before
+// the field existed, one driving `ttscgraph serve --artifacts` by hand, and one
+// whose project publishes nothing but whose session was handed a set through
+// the flag. Reading their silence as "I have none" would empty the graph for
+// all three — and it is the same code path that must read an explicit empty
+// statement as exactly that, which is why the two are a pointer apart rather
+// than an empty string apart.
+//
+//  1. Start a session with an artifact set through the flag.
+//  2. Send two requests carrying no artifacts field at all.
+//  3. Require the set to survive both, and the capability to stay claimed.
+func TestServeKeepsAStartupSetAClientNeverMentions(t *testing.T) {
+  root := graphSessionFixture(t)
+
+  var output bytes.Buffer
+  code := serveSnapshotsWithArtifacts(
+    bytes.NewReader([]byte("{\"id\":1}\n{\"id\":2}\n")),
+    &output,
+    root,
+    "tsconfig.json",
+    []graph.Artifact{{
+      Address:  "docs/sale.md#pricing",
+      File:     "docs/sale.md",
+      Kind:     "markdown_section",
+      Line:     7,
+      Readable: "Pricing",
+    }},
+  )
+  if code != 0 {
+    t.Fatalf("serveSnapshotsWithArtifacts exited %d: %s", code, output.String())
+  }
+
+  decoder := json.NewDecoder(&output)
+  var initial serveResponse
+  var second serveResponse
+  if err := decoder.Decode(&initial); err != nil {
+    t.Fatal(err)
+  }
+  if err := decoder.Decode(&second); err != nil {
+    t.Fatal(err)
+  }
+  if !dumpCarriesArtifact(initial.Dump, "docs/sale.md#pricing") {
+    t.Fatalf("the startup set is absent from the initial dump: %#v", initial)
+  }
+  // The second request is where a silence-means-withdrawal reading would show:
+  // the first is the initial projection and carries the set either way.
+  if second.Mode != serveModeUnchanged || second.Changed {
+    t.Fatalf("a request naming no artifacts was treated as a change: %#v", second)
+  }
+  for _, response := range []serveResponse{initial, second} {
+    if !slices.Contains(response.Capabilities, string(graph.CapabilityArtifactNodes)) {
+      t.Fatalf("a session holding the startup set stopped claiming it: %v", response.Capabilities)
+    }
+  }
 }

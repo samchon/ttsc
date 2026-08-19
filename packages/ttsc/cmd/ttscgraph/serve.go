@@ -123,11 +123,16 @@ type serveRequest struct {
   // moved. It rides every request rather than only the changed ones: the client
   // is the only side that can see those inputs, and the server is the only side
   // that knows what it last applied, so the honest exchange is the client
-  // stating the current path and the server comparing it with its own.
+  // stating what it currently has and the server comparing it with its own.
   //
-  // Omitted by a client that publishes nothing and by every client predating
-  // this field, both of which mean the startup set stands.
-  Artifacts string `json:"artifacts,omitempty"`
+  // Three states, which is why it is a pointer. Absent is a client with no
+  // opinion — one predating this field, or one driving a session through the
+  // startup flag — and the set already applied stands. Empty is a client
+  // stating it now has none, which withdraws that set: a project whose
+  // publisher was removed must stop being answered with its artifacts, and
+  // without a way to say so it would be answered with them until the editor
+  // restarted. A path is the set to apply.
+  Artifacts *string `json:"artifacts,omitempty"`
 }
 
 type serveResponse struct {
@@ -232,40 +237,57 @@ func newGraphSessionWithArtifacts(
   return session, nil
 }
 
-// adoptArtifacts makes the set at path the one this session applies, and
-// reports whether that replaced a set some already-built graph carries.
+// adoptArtifacts makes what the request states the set this session applies,
+// and reports whether that replaced a set some already-built graph carries.
 //
-// An empty path is a client that publishes nothing or one predating the field;
-// either way the startup set stands, because dropping it would delete every
-// artifact from the graph on the say-so of a client that never mentioned them.
+// A nil statement is a client with no opinion, and the set already applied
+// stands: dropping it on the say-so of a client that never mentioned artifacts
+// would delete them from the graph of every session driven through the startup
+// flag alone.
 //
 // A read failure is returned rather than swallowed. The client wrote this file
 // moments ago and named it in the same request, so a file that cannot be read
 // is a broken exchange, not a project without artifacts — and answering with a
 // silently artifact-free graph would look exactly like a correct answer.
-func (s *graphSession) adoptArtifacts(path string) (bool, error) {
-  path = strings.TrimSpace(path)
-  if path == "" {
+func (s *graphSession) adoptArtifacts(named *string) (bool, error) {
+  if named == nil {
     return false, nil
+  }
+  path := strings.TrimSpace(*named)
+  if path == "" {
+    return s.applyArtifacts(nil, withdrawnArtifactsDigest), nil
   }
   digest, err := artifactsFileDigest(path)
   if err != nil {
     return false, err
   }
-  if digest == s.artifactsDigest {
-    return false, nil
-  }
   next, err := graph.LoadArtifacts(path)
   if err != nil {
     return false, err
   }
+  return s.applyArtifacts(next, digest), nil
+}
+
+// applyArtifacts installs a set and reports whether it differs from the applied
+// one. The first application of a session reports a change like any other and
+// costs nothing: no graph has been projected yet, so the invalidation it
+// records is discharged by the initial projection that was going to happen
+// regardless.
+func (s *graphSession) applyArtifacts(next []graph.Artifact, digest [sha256.Size]byte) bool {
+  if digest == s.artifactsDigest {
+    return false
+  }
   s.artifacts = next
   s.artifactsDigest = digest
-  // The first adoption of a session reports a change like any other, and costs
-  // nothing: no graph has been projected yet, so the invalidation it records is
-  // discharged by the initial projection that was going to happen regardless.
-  return true, nil
+  return true
 }
+
+// withdrawnArtifactsDigest stands for "the client states it has none".
+//
+// A constant rather than the hash of an empty file, so that the withdrawn state
+// and a file whose contents happen to hash to the same value cannot be confused
+// — and domain-separated so it is not the digest of anything a producer writes.
+var withdrawnArtifactsDigest = sha256.Sum256([]byte("ttscgraph:artifacts:none"))
 
 // invalidateArtifacts records that the next projection must be a full one.
 //

@@ -279,12 +279,15 @@ export class TtscGraphSession {
         `${JSON.stringify({
           id,
           graphSnapshotVersion: GRAPH_SNAPSHOT_PROTOCOL_VERSION,
-          // Omitted when the project publishes nothing, which is what tells a
-          // server holding a startup set to keep it: an absent field is a
-          // client with no opinion, never a client withdrawing one.
-          ...(this.artifacts?.file == null
-            ? {}
-            : { artifacts: this.artifacts.file }),
+          // Empty when the project publishes nothing, which withdraws whatever
+          // the server holds: a publisher the user removed must stop being
+          // answered with, and omitting the field instead would say only that
+          // this client has no opinion. Omitted only before a child exists,
+          // which no request reaches.
+          artifacts:
+            this.artifacts === undefined
+              ? undefined
+              : (this.artifacts.file ?? ""),
         })}\n`,
         (error) => {
           if (error === null || error === undefined) return;
