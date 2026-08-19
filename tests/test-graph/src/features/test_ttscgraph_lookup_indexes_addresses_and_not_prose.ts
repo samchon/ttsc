@@ -83,6 +83,12 @@ export const test_ttscgraph_lookup_indexes_addresses_and_not_prose =
         "/** A function whose name is the prose word. */",
         "export function Add(): void {}",
         "",
+        "/** @evidence 문서/가격.md#할인 A non-Latin address. */",
+        "export function nonAscii(): void {}",
+        "",
+        "/** @evidence */",
+        "export function bareTag(): void {}",
+        "",
       ].join("\n"),
     });
 
@@ -135,6 +141,26 @@ export const test_ttscgraph_lookup_indexes_addresses_and_not_prose =
         number.hits.filter((hit) => hit.docTags !== undefined),
         [],
         "a bare number must not index as a citation target",
+      );
+
+      // An address the name tokenizer cannot read at all still answers. Its
+      // subwords are empty — the tokenizer splits on ASCII alphanumerics — so
+      // before the citation pass ran first, this query was refused as carrying
+      // no searchable terms while the index held that exact address.
+      const korean = await lookup("문서/가격.md#할인");
+      assert.deepStrictEqual(
+        korean.hits.map((hit) => hit.name),
+        ["nonAscii"],
+        "an address outside the tokenizer's alphabet must still be answered",
+      );
+
+      // A tag with no text names nothing, so it indexes nothing — and it is
+      // still carried on the declaration, which `details` shows.
+      const bare = await lookup("bareTag");
+      assert.deepStrictEqual(
+        bare.hits.filter((hit) => hit.docTags !== undefined),
+        [],
+        "a tag with no text must not enter the citation index",
       );
 
       // A URL is: it carries separators and is exactly how a reference is

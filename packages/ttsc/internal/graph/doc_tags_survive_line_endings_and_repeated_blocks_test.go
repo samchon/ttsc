@@ -21,7 +21,8 @@ import (
 // text can be dropped without the target changing.
 //
 //  1. Build a fixture with CRLF sources, a redeclared `var` documented twice, a
-//     multi-binding statement, and a link carrying trailing text.
+//     multi-binding statement, a declaration carrying two documentation blocks,
+//     and a link carrying trailing text.
 //  2. Assert the CRLF reason joins exactly as its LF twin does.
 //  3. Assert both blocks of the merged identity are kept, every binding of the
 //     statement carries its documentation, and the link keeps its text.
@@ -52,6 +53,10 @@ export var merged: number;
 /** @evidence docs/a.md#shared Documents the whole statement. */
 export var first = 1,
   second = 2;
+
+/** @evidence docs/a.md#one First block. */
+/** @evidence docs/a.md#two Second block on the same declaration. */
+export function twoBlocks(): void {}
 `
   // The shared fixture config names one root, and the CRLF twin has to be the
   // same declarations rather than a second set, so the two spellings compile as
@@ -104,6 +109,13 @@ export var first = 1,
       "docs/a.md#shared Documents the whole statement.")
     assertDocTagIn(t, tags, spelling, "#second:variable", "evidence",
       "docs/a.md#shared Documents the whole statement.")
+    // TypeScript attaches more than one documentation block to a declaration
+    // when more than one is written, and each is a place a tag can sit. Reading
+    // only the last would silently drop the first.
+    assertDocTagIn(t, tags, spelling, "#twoBlocks:function", "evidence",
+      "docs/a.md#one First block.")
+    assertDocTagIn(t, tags, spelling, "#twoBlocks:function", "evidence",
+      "docs/a.md#two Second block on the same declaration.")
   }
 }
 
