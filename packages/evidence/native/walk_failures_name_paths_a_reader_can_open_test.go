@@ -146,11 +146,12 @@ func TestAWalkFailureInsideALinkedPopulationNamesTheDeclaredRoot(t *testing.T) {
   if !strings.Contains(problem, "'../documents/requirements/private'") {
     t.Fatalf("the path is spelled through the declared root, got: %s", problem)
   }
-  // Only the quoted segment is this rule's. In production the cause carries the
-  // walked path in the operating system's own spelling, so scanning the whole
-  // message would fire on a message that is right.
-  quoted := problem[strings.Index(problem, "'") : strings.LastIndex(problem, "'")+1]
-  if strings.Contains(filepath.ToSlash(quoted), "/target/") {
+  // Only the quoted segment is this rule's, and in production the cause carries
+  // the walked path in the operating system's own spelling, so the negative is
+  // stated as the quoted form the leak would take rather than by slicing the
+  // message apart.
+  leaked := filepath.Join(from, "requirements", "private")
+  if strings.Contains(problem, "'"+filepath.ToSlash(leaked)+"'") {
     t.Fatalf("the directory the link resolves to is not what a reader opens: %s", problem)
   }
 }

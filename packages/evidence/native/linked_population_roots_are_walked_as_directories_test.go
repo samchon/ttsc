@@ -752,7 +752,9 @@ func TestAWindowsJunctionRootIsReadThrough(t *testing.T) {
  * comparison matches without any resolution and refusing would fail a population
  * that works. The refusal below therefore comes from the Markdown reference.
  *
- *  1. Build a chain longer than the resolver follows and run ttsc through it.
+ *  1. Build a chain longer than the resolver follows and drive the rule with it
+ *     as the project root, which is a state the host's own realpath keeps
+ *     production from reaching at this length.
  *  2. Read the refusal.
  *  3. Assert it names the project root and asks for the invocation, not the
  *     property.
@@ -852,6 +854,9 @@ func TestAPrismaRootPastTheResolverIsRefusedAsPrisma(t *testing.T) {
     problems,
     "found no directory at the end of the prisma root '../schema'",
   )
+  // A schema sits behind the chain, so an implementation that walked through it
+  // would select one. The count is what separates a refusal from a walk that
+  // happened to find nothing.
   if len(addresses) != 0 {
     t.Fatalf("a root the walk never reached selected %d addresses", len(addresses))
   }
@@ -873,8 +878,11 @@ func TestAPrismaRootPastTheResolverIsRefusedAsPrisma(t *testing.T) {
  * The configuration declares no Markdown or Prisma population on purpose, so no
  * walker can produce the refusal and the assertion is about this gate alone.
  *
- *  1. Invoke the rule through a chain longer than the resolver follows.
- *  2. Declare only TypeScript populations.
+ *  1. Drive the rule with a project root that is a chain longer than the
+ *     resolver follows. Both entry points realpath the root before the rule sees
+ *     it, so production reaches this shape only through a chain the platform
+ *     itself refuses; the case builds the state directly instead.
+ *  2. Declare only TypeScript populations, so no walker can produce the refusal.
  *  3. Assert the real obligation is reported and no refusal is.
  */
 func TestADefaultTypeScriptBaseIsNotRefusedForAChain(t *testing.T) {

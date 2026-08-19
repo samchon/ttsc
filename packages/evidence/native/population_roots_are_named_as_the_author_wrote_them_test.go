@@ -627,7 +627,7 @@ func TestAResolvedPathIsRestatedOnlyWhereItDiffers(t *testing.T) {
       t.Fatalf("a spelling the resolution changed is restated:\n%s", message)
     }
   }
-  landed := populationBase{Declared: "C:/contracts", Absolute: `C:\contracts`}
+  landed := populationBase{Declared: "C:/contracts", Absolute: filepath.FromSlash("C:/contracts")}
   for _, message := range []string{
     describeBaseDirectoryProblem(
       landed,

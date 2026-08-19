@@ -88,14 +88,19 @@ func typeScriptBaseProblems(
     // it the population came back empty and the claim deactivated in silence,
     // which is the state a linked root was repaired to remove.
     //
-    // Only a declared root is asked. The default base is the directory ttsc was
-    // invoked with, and a Program spells its sources against that, so the first
-    // comparison matches and no resolution is wanted; refusing there would turn
-    // a population that works into an error, measured as a graph that closes at
-    // zero diagnostics becoming one refusal that fails every claim on the
-    // default base. The two walkers still answer for it, because they generate
-    // the paths they compare and a link they cannot resolve leaves them nothing
-    // to walk.
+    // Only a declared root is asked. The default base is the project root the
+    // host resolved, which both entry points realpath before this rule sees it,
+    // and a Program spells its sources against the same root, so the first
+    // comparison matches and no resolution is wanted here. Refusing anyway turns
+    // a population that works into an error: measured as a graph closing at zero
+    // diagnostics becoming one refusal that fails every claim on the base nearly
+    // every project uses.
+    //
+    // The two walkers still answer for that base, because they generate the paths
+    // they compare and a link they cannot resolve leaves them nothing to walk. A
+    // chain long enough to survive the host's own realpath is longer than the
+    // platform follows, so this is the residue of a shape production does not
+    // reach rather than a hole in what it does.
     if problem == "" && !base.Default {
       if _, resolved := resolvedBaseDirectory(base); !resolved {
         problem = unresolvedBaseProblem(base, artifactTypeScript)
@@ -148,10 +153,12 @@ func typeScriptMatchBases(config graphConfig) []typeScriptMatchBase {
   bases := configuredBases(config, artifactTypeScript)
   entries := make([]typeScriptMatchBase, 0, len(bases))
   for _, base := range bases {
-    // An unresolved chain is reported by the gate, and this comparison then has
-    // only the declared spelling to offer: keeping the link the resolver stopped
-    // on would spend a second comparison against a path no source can sit under,
-    // and the guard in `relativeOf` reads exactly this equality to skip it.
+    // An unresolved chain is reported by the gate for a declared root, and this
+    // comparison then has only the declared spelling to offer: keeping the link
+    // the resolver stopped on would spend a second comparison against a path no
+    // source can sit under, and the guard in `relativeOf` reads exactly this
+    // equality to skip it. For the default base nothing reports it here, which is
+    // the trade the gate's own comment states.
     resolved, ok := resolvedBaseDirectory(base)
     if !ok {
       resolved = base.Absolute

@@ -397,9 +397,10 @@ func baseDirectoryProblem(base populationBase, kind artifactKind) string {
 // Both spellings appear, and only while they differ. The declared one is the
 // property the author has to edit, and the resolved one is where that property
 // actually landed, which is the whole question the moment a root ascends out of
-// the project. An absolute declared root landed on itself, so restating it
-// would name the same path twice and offer the second as an explanation of the
-// first.
+// the project. Restating a path the declaration already names would offer it as
+// an explanation of itself, which is why the test is the difference and not
+// whether the root was absolute: a UNC spelling is absolute and still differs,
+// because `filepath.Clean` collapses its leading slashes.
 //
 // The clause about resolution goes with it, for the stronger reason that it is
 // false there. `resolvePopulationBase` joins the project root into a relative
@@ -442,10 +443,11 @@ func describeBaseDirectoryProblem(
   label := populationRootLabel(base)
   // Two questions, two tests, and they are not the same one. Restating the
   // resolved path tells a reader something only where it differs from the label,
-  // which is false for an absolute declared root and true for a UNC spelling on
-  // POSIX, whose leading slashes `filepath.Clean` collapses. Whether the project
-  // root was composed into the spelling at all is what gates the clause that
-  // says so, and only `declaredRootIsAbsolute` answers that.
+  // which almost every absolute declared root fails and a UNC spelling on POSIX
+  // passes, because `filepath.Clean` collapses its leading slashes while the
+  // declaration keeps them. Whether the project root was composed into the
+  // spelling at all is a different question, it is what gates the clause that
+  // says so, and only `declaredRootIsAbsolute` answers it.
   restate := label != filepath.ToSlash(base.Absolute)
   resolved := !declaredRootIsAbsolute(base.Declared)
   if unexaminable {
@@ -549,7 +551,7 @@ func unresolvedBaseProblem(base populationBase, kind artifactKind) string {
   }
   // The resolved path is restated only when it differs from the label, which is
   // the whole question: an absolute declared root and the default base both name
-  // the path they landed on, and a UNC spelling on POSIX does not, because
+  // the path they landed on, while a UNC spelling on POSIX does not, because
   // `filepath.Clean` collapses its leading slashes and the two genuinely differ.
   // `describeBaseDirectoryProblem` makes the same test for the same reason.
   if resolved := filepath.ToSlash(base.Absolute); label != resolved {
