@@ -132,7 +132,7 @@ func loadSwaggerInventories(
 
   result, err := normalizeSwaggerSources(root, pending)
   if err != nil {
-    message := "Evidence graph could not run its Swagger normalizer: " + err.Error() + ". Swagger references require Node.js and the installed @typia/interface, @typia/utils, and yaml dependencies."
+    message := "Evidence graph could not run its Swagger normalizer: " + causeText(err) + ". Swagger references require Node.js and the installed @typia/interface, @typia/utils, and yaml dependencies."
     for _, source := range pending {
       inventories[source].LoadFailed = true
       inventories[source].Problems = append(

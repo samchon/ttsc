@@ -433,7 +433,7 @@ func describeBaseDirectoryProblem(
     if resolved {
       message += ", which resolves to '" + filepath.ToSlash(base.Absolute) + "'"
     }
-    message += ": " + cause.Error() + ". Correct the 'root' property, or clear the condition the filesystem reported"
+    message += ": " + causeText(cause) + ". Correct the 'root' property, or clear the condition the filesystem reported"
     if resolved {
       message += "; it resolves against the ttsc project root"
     }
@@ -530,6 +530,18 @@ func populationWalkRoot(base populationBase) (string, error) {
   )
 }
 
+// causeText spells a filesystem or subprocess error for a sentence that owns
+// its own terminator.
+//
+// Windows ends its messages with a period and POSIX does not, so a rule that
+// appends one prints "denied.. Correct the" on the one platform and "denied.
+// Correct the" on the other, over the same failure. The terminator belongs to
+// the sentence this rule writes, and the reason belongs to whoever wrote it, so
+// only the punctuation is taken.
+func causeText(cause error) string {
+  return strings.TrimSuffix(cause.Error(), ".")
+}
+
 // unlistableBaseProblem reports a population whose own base could not be
 // listed.
 //
@@ -555,7 +567,7 @@ func unlistableBaseProblem(
   cause error,
 ) string {
   return "Evidence graph could not walk " + sources + " root '" + populationRootLabel(base) +
-    "': " + cause.Error() + ". Make that root a directory this process can list, so its configured " +
+    "': " + causeText(cause) + ". Make that root a directory this process can list, so its configured " +
     sources + " sources can be indexed."
 }
 
@@ -610,7 +622,7 @@ func unreadableWalkEntryProblem(
   cause error,
 ) string {
   return "Evidence graph could not inspect '" + base.display(relative) +
-    "': " + cause.Error() + ". Fix filesystem access so configured " + sources +
+    "': " + causeText(cause) + ". Fix filesystem access so configured " + sources +
     " sources can be indexed."
 }
 

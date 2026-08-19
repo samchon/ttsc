@@ -667,7 +667,7 @@ func normalizeSwaggerSource(value string) (string, string) {
   }
   parsed, err := url.Parse(value)
   if err != nil {
-    return "", "invalid Swagger source '" + value + "': " + err.Error() + "."
+    return "", "invalid Swagger source '" + value + "': " + causeText(err) + "."
   }
   if !drive && parsed.Scheme != "" {
     if parsed.Scheme != "http" && parsed.Scheme != "https" {

@@ -169,7 +169,7 @@ func loadPrismaInventories(
 
   result, err := normalizePrismaSet(root, sources)
   if err != nil {
-    message := "Evidence graph could not run its Prisma schema loader: " + err.Error() + ". Prisma references require Node.js and a resolvable @prisma/prisma-schema-wasm."
+    message := "Evidence graph could not run its Prisma schema loader: " + causeText(err) + ". Prisma references require Node.js and a resolvable @prisma/prisma-schema-wasm."
     return inventories, append(problems, failPrismaSet(inventories, sources, message))
   }
 

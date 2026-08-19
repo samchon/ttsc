@@ -113,7 +113,7 @@ func loadMarkdownBase(
         Type:       artifactMarkdown,
         LoadFailed: true,
       }
-      problems = append(problems, "Evidence graph could not read Markdown file '"+address.Display+"': "+readErr.Error()+". Fix filesystem access or exclude the file from configured globs.")
+      problems = append(problems, "Evidence graph could not read Markdown file '"+address.Display+"': "+causeText(readErr)+". Fix filesystem access or exclude the file from configured globs.")
       return nil
     }
     inventory, _ := scanMarkdownInventory(address, string(content))

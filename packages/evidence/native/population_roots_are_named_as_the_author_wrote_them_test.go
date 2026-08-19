@@ -1,6 +1,7 @@
 package evidence
 
 import (
+  "errors"
   "io/fs"
   "path/filepath"
   "strings"
@@ -445,8 +446,9 @@ func TestAnAbsoluteRootWithBackslashesIsStoredWithSlashes(t *testing.T) {
  *     that said so.
  *  2. Read each rendered sentence, and the TypeScript form of the first.
  *  3. Assert only the absent one asks for the directory to be created, that
- *     neither names a cause the filesystem did not give, and that a TypeScript
- *     root still explains what it does with the directory.
+ *     neither names a cause the filesystem did not give, that a reason ending
+ *     in a period does not double the one this rule writes, and that a
+ *     TypeScript root still explains what it does with the directory.
  */
 func TestARootThatCouldNotBeExaminedIsNotCalledMissing(t *testing.T) {
   base := resolvePopulationBase(filepath.Join(t.TempDir(), "project"), "../contracts")
@@ -465,6 +467,14 @@ func TestARootThatCouldNotBeExaminedIsNotCalledMissing(t *testing.T) {
   }
   if strings.Contains(unexaminable, "reachable by this process") {
     t.Fatalf("the rule names no cause the filesystem did not give:\n%s", unexaminable)
+  }
+  windows := &fs.PathError{
+    Op:   "CreateFile",
+    Path: base.Absolute,
+    Err:  errors.New("The name of the file cannot be resolved by the system."),
+  }
+  if terminated := describeBaseDirectoryProblem(base, artifactMarkdown, false, windows); strings.Contains(terminated, ".. ") {
+    t.Fatalf("the sentence owns its terminator, the reason does not:\n%s", terminated)
   }
   typescript := describeBaseDirectoryProblem(base, artifactTypeScript, false, denied)
   if !strings.Contains(typescript, "re-bases Program sources onto itself") {
