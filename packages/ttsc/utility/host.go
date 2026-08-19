@@ -54,10 +54,10 @@ type transformResult struct {
   DependenciesComplete []string               `json:"dependenciesComplete,omitempty"`
   Diagnostics          []any                  `json:"diagnostics,omitempty"`
   Graph                *driver.TransformGraph `json:"graph,omitempty"`
-  HostInputs         []string               `json:"hostInputs,omitempty"`
-  HostInputHashes    map[string]*string     `json:"hostInputHashes,omitempty"`
-  HostInputRealpaths map[string]*string     `json:"hostInputRealpaths,omitempty"`
-  TypeScript         map[string]string      `json:"typescript"`
+  HostInputs           []string               `json:"hostInputs,omitempty"`
+  HostInputHashes      map[string]*string     `json:"hostInputHashes,omitempty"`
+  HostInputRealpaths   map[string]*string     `json:"hostInputRealpaths,omitempty"`
+  TypeScript           map[string]string      `json:"typescript"`
 }
 
 // RunCheck validates the project and linked plugin configuration without

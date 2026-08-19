@@ -108,10 +108,10 @@ func runAPITransform(args []string) int {
     DependenciesComplete: dependencies.Complete,
     Diagnostics:          make([]apiCompileDiagnostic, 0, len(diags)),
     Graph:                graph,
-    HostInputs:         hostInputs,
-    HostInputHashes:    hostInputHashes,
-    HostInputRealpaths: hostInputRealpaths,
-    TypeScript:         typescript,
+    HostInputs:           hostInputs,
+    HostInputHashes:      hostInputHashes,
+    HostInputRealpaths:   hostInputRealpaths,
+    TypeScript:           typescript,
   }
   for _, diag := range diags {
     result.Diagnostics = append(result.Diagnostics, toAPICompileDiagnostic(diag))

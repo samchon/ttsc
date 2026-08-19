@@ -48,7 +48,10 @@ function aliasFor(root: string): Record<string, string> {
  * real utility plugin package is resolvable from the temporary project without
  * a full install. Mirrors the seeding the per-plugin suites use.
  */
-function seedUtilityPlugin(root: string, name: "banner" | "strip"): void {
+export function seedUtilityPlugin(
+  root: string,
+  name: "banner" | "paths" | "strip",
+): void {
   const linkDir = path.join(root, "node_modules", "@ttsc");
   fs.mkdirSync(linkDir, { recursive: true });
   const target = path.join(TestProject.WORKSPACE_ROOT, "packages", name);

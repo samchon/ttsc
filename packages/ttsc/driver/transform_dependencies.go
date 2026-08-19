@@ -48,6 +48,12 @@ type TransformDependencies struct {
 // has nothing but the host in it. A contributor that declares nothing leaves
 // every file unlisted, which is exactly the behaviour of every producer written
 // before this existed.
+//
+// An embedder that supplies LoadProgramOptions.SourcePreamble itself, rather
+// than obtaining it from a linked plugin, makes the same claim about that text
+// by calling this: the preamble must be a function of inputs its envelope
+// reports elsewhere, the way a plugin's preamble is a function of the config
+// files it reports as host inputs.
 func (p *Program) TransformDependenciesFor(cwd string) TransformDependencies {
   if p == nil {
     return TransformDependencies{}
@@ -66,13 +72,21 @@ func (p *Program) TransformDependenciesFor(cwd string) TransformDependencies {
 // transformDependencies aggregates every contributing plugin's declarations
 // over the envelope keys of the transformed files.
 func (state linkedPluginState) transformDependencies(keys []string) TransformDependencies {
-  contributors := state.transformContributors()
+  return aggregateTransformDependencies(keys, state.transformContributors(), state.declarations)
+}
+
+// aggregateTransformDependencies folds the declarations of the given
+// contributors into one envelope side channel.
+//
+// Separated from the entry classification above so the aggregation rule can be
+// exercised without the process-wide plugin registry that classification reads.
+func aggregateTransformDependencies(keys []string, contributors []int, declarations *pluginFileDeclarations) TransformDependencies {
   out := TransformDependencies{}
   for _, key := range keys {
     declared := 0
     inputs := map[string]struct{}{}
     for _, index := range contributors {
-      declaration := state.declarations.lookup(index)
+      declaration := declarations.lookup(index)
       if declaration == nil {
         continue
       }
