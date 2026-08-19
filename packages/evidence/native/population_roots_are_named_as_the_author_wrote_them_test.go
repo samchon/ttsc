@@ -249,7 +249,8 @@ func TestANonDirectoryAtAMarkdownRootAsksToBeReplaced(t *testing.T) {
  * The two configurations therefore have to produce the same diagnostics, not
  * merely similar ones.
  *
- *  1. Resolve the three spellings that name the project root.
+ *  1. Resolve the omitted root and the two spellings that fold onto the project
+ *     root, one of which the decoder reduces before this is ever reached.
  *  2. Assert each is the default base and carries no declared spelling.
  *  3. Run a claim with `root: "."` and one with no root, and compare the output.
  */

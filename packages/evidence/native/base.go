@@ -276,10 +276,11 @@ func configuredBases(config graphConfig, kind artifactKind) []populationBase {
 // The absolute fallback belongs to the default base alone, which is the only
 // base with no declared spelling, and the project root is then the only thing
 // left to name. Of the three callers, `unlistableBaseProblem` is the one that
-// reaches it: `describePopulation` and `baseDirectoryProblem` both return
-// on the default base before they name anything. That message asks for
-// filesystem access rather than for an edit to a property that is not there,
-// which is what makes the spelling usable where no property exists.
+// reaches it. `describePopulation` returns on the default base before it names
+// anything, and `describeBaseDirectoryProblem` is only ever entered through
+// `baseDirectoryProblem`, which does the same. That message asks for filesystem
+// access rather than for an edit to a property that is not there, which is what
+// makes the spelling usable where no property exists.
 func populationRootLabel(base populationBase) string {
   if base.Declared == "" {
     return filepath.ToSlash(base.Absolute)
@@ -314,7 +315,7 @@ func baseDirectoryProblem(base populationBase, kind artifactKind) string {
   return describeBaseDirectoryProblem(base, kind, err == nil, err)
 }
 
-// describeBaseDirectoryProblem says what a declared root is instead of a directory, and
+// describeBaseDirectoryProblem says what a declared root turned out to be, and
 // what to do about it.
 //
 // Three states reach it, and each one owns a repair the other two cannot be
@@ -455,11 +456,11 @@ func unlistableBaseProblem(
 // belongs to it, and spells it if it does.
 //
 // The Markdown and Prisma walkers share it because they are otherwise one
-// decision written twice, and the halves fail differently. Reporting a path no
-// configured glob reaches turns an unrelated permission on an unrelated
-// directory into a build error; printing the path the walker handed back
-// spells it the way the filesystem API does rather than the way every other
-// message in the same function does.
+// decision written twice, and its two halves fail differently. Reporting a path
+// no configured glob reaches turns an unrelated permission on an unrelated
+// directory into a build error; printing the path the walker was handed spells
+// it the way the filesystem API does rather than the way the rest of the loader
+// spells every path beside it.
 //
 // `reads` is the population's own membership question, which is the only part
 // that differs by artifact kind. The base itself never arrives here: it is not
