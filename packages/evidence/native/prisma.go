@@ -340,6 +340,14 @@ type prismaSourceSet struct {
 // A file that cannot be stat'ed stands alone under its own spelling, which is
 // the behavior every set had before identity was physical: the digest declines
 // it and the loader reports it unreadable at its own path.
+//
+// The cost is one `os.Stat` per distinct configured address, and on Windows one
+// file open beside it for each address that reaches a comparison, because
+// `os.SameFile` loads the volume and file index there through `CreateFile`
+// rather than from the stat — once per result, since the id is cached on it.
+// Against that, the digest now reads one file per physical file rather than one
+// per address, so in the very layout this exists for the reads go down as the
+// stats go up. Both are per pass over a set an adopter counts in files.
 func distinctPrismaSources(root string, addresses []artifactAddress) prismaSourceSet {
   type physicalSchema struct {
     identity  os.FileInfo
