@@ -10,6 +10,7 @@ import {
   projectOptions,
 } from "./launcherArgs";
 import { parseDump } from "./model/loadGraph";
+import { publishArtifacts } from "./model/publishedArtifacts";
 import { captureProcessOutput, ensureExecutable } from "./nativeExecutable";
 import { reduce } from "./reduce";
 import { resolveGraphBinary } from "./resolveGraphBinary";
@@ -76,9 +77,24 @@ export function runView(argv: readonly string[]): number | void {
   let dumpStdout: string;
   let dumpStderr: string;
   try {
+    // The same artifacts the dump, the loader, and the resident session ask
+    // for. Without this the viewer draws a different graph from the one every
+    // other entry point answers with — and it already carries the colours for
+    // the nodes it would be missing.
+    const artifacts = publishArtifacts({
+      cwd: opts.cwd,
+      tsconfig: opts.tsconfig,
+    });
     dump = spawnSync(
       binary,
-      ["dump", "--cwd", opts.cwd, "--tsconfig", opts.tsconfig],
+      [
+        "dump",
+        "--cwd",
+        opts.cwd,
+        "--tsconfig",
+        opts.tsconfig,
+        ...(artifacts === null ? [] : ["--artifacts", artifacts]),
+      ],
       {
         stdio: ["ignore", capture.stdoutFd, capture.stderrFd],
         windowsHide: true,
