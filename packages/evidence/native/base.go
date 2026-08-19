@@ -226,10 +226,11 @@ func populationRootLabel(base populationBase) string {
 // directory.
 //
 // The test is a stat, and any failure of it counts as absence — a path occupied
-// by a file, and an unreachable parent alike. The Markdown message may still
-// lead with "could not read", because it names the read this root exists to
-// serve and that read is what a caller is about to attempt; the predicate's own
-// name may not, because two of its three callers read nothing.
+// by a file, and an unreachable parent alike. The Markdown and Prisma messages
+// may still lead with "could not read", because the walk each of those callers
+// is about to run is the read the root exists to serve, and it is skipped only
+// because the root is not there. The predicate's own name may not, because the
+// third caller reads nothing and asks the same question.
 //
 // The default base is excluded because `Check` already validated the project
 // root, and its diagnostic names the ttsc project identity as the repair rather
