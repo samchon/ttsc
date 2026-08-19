@@ -495,12 +495,22 @@ func describeBaseDirectoryProblem(
 // silence this function exists to remove, reappearing past the bound. Reporting
 // it costs one `Lstat` of a path the walk is about to read anyway.
 //
+// That `Lstat` has two ways to refuse, and only one of them is the chain. A
+// call that failed says nothing about how many links were followed, so its own
+// error is returned rather than a sentence claiming a cause this function did
+// not establish, which is the mistake every repair clause in this file is
+// written to avoid.
+//
 // Only the walk moves. Every address, location, and citation target is still
 // composed from the declared base, so a document reached through a link is
 // spelled exactly as it would be without one.
 func populationWalkRoot(base populationBase) (string, error) {
   from := filepath.FromSlash(resolveLinkedDirectory(base.Absolute))
-  if info, err := os.Lstat(from); err == nil && info.IsDir() {
+  info, err := os.Lstat(from)
+  if err != nil {
+    return from, err
+  }
+  if info.IsDir() {
     return from, nil
   }
   return from, errors.New(
