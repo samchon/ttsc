@@ -10,5 +10,6 @@ export * from "./IWatchSession";
 export * from "./linkDirectory";
 export * from "./pluginCacheDirectory";
 export * from "./privatizeLibrary";
+export * from "./resolveDependency";
 export * from "./runCheck";
 export * from "./startWatch";

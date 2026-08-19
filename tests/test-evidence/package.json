@@ -10,6 +10,7 @@
     "@nestia/e2e": "catalog:utils",
     "@prisma/prisma-schema-wasm": "catalog:prisma",
     "@ttsc/evidence": "workspace:*",
+    "@ttsc/graph": "workspace:*",
     "@ttsc/lint": "workspace:*",
     "@types/node": "catalog:utils",
     "@typia/interface": "catalog:samchon",

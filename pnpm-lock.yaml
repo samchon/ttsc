@@ -507,6 +507,9 @@ importers:
       '@ttsc/evidence':
         specifier: workspace:*
         version: link:../../packages/evidence
+      '@ttsc/graph':
+        specifier: workspace:*
+        version: link:../../packages/graph
       '@ttsc/lint':
         specifier: workspace:*
         version: link:../../packages/lint

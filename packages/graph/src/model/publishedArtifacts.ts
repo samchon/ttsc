@@ -125,6 +125,7 @@ export function publishArtifacts(options: {
         // project declared nothing — an empty answer indistinguishable from a
         // project that genuinely publishes none.
         `--plugins-json=${plugin.manifest}`,
+        ...projectContextArgs(plugin),
       ],
       {
         // The set is one entry per document section, model field, and operation
@@ -226,7 +227,11 @@ function unpublished(options: {
  * same state rather than by two mechanisms that could disagree.
  */
 function artifactInputs(
-  plugins: readonly { binary: string; manifest: string }[],
+  plugins: readonly {
+    binary: string;
+    manifest: string;
+    projectContext?: string;
+  }[],
   options: { cwd: string; tsconfig: string },
 ): IArtifactInputs {
   const files: string[] = [];
@@ -241,6 +246,7 @@ function artifactInputs(
         "--tsconfig",
         options.tsconfig,
         `--plugins-json=${plugin.manifest}`,
+        ...projectContextArgs(plugin),
       ],
       { encoding: "utf8", maxBuffer: 64 * 1024 * 1024, windowsHide: true },
     );
@@ -266,10 +272,16 @@ function artifactInputs(
       if (directory === null) files.push(absolute(pattern, options.cwd));
       else directories.push(directory);
     }
+    // A reload directory is a resolution anchor, not a content tree. `@ttsc/lint`
+    // publishes the directories whose *immediate* topology decides which rules
+    // load — a `node_modules` chain, a config directory — and the LSP host
+    // watches exactly `<dir>/*` for that reason. Walking them recursively both
+    // over-invalidates, restarting on any descendant edit, and states the whole
+    // dependency tree before every graph request.
     for (const directory of snapshot.reloadDirectories ?? [])
       directories.push({
         path: absolute(directory, options.cwd),
-        recursive: true,
+        recursive: false,
       });
   }
   // A directory named twice is walked once, and a recursive claim wins: two
@@ -306,6 +318,26 @@ export function watchedBy(
 ): IArtifactDirectory | null {
   if (pattern.search(GLOB_MAGIC) < 0) return null;
   return { path: globRoot(pattern, cwd), recursive: pattern.includes("**") };
+}
+
+/**
+ * The project identity flag, for a plugin whose descriptor asks for one.
+ *
+ * A rule resolves its own inputs — the documents a claim reads, a schema, an
+ * OpenAPI file — against the project root, and a sidecar is handed that root
+ * rather than deriving it. Without the flag the rule has no base, and it
+ * answers with an empty set rather than an error, because "this project
+ * declares nothing" is a legitimate answer it cannot tell apart from "nobody
+ * told me where the project is". That is why every verb here passes it and why
+ * the case covering this drives a real project: an empty answer is exactly what
+ * a synthetic fixture would also have produced.
+ */
+function projectContextArgs(plugin: {
+  projectContext?: string;
+}): readonly string[] {
+  return plugin.projectContext === undefined
+    ? []
+    : [`--project-context-json=${plugin.projectContext}`];
 }
 
 /** Wildcards a pattern may use; a pattern with none of them names one path. */

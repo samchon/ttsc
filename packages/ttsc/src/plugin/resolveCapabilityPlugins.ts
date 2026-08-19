@@ -1,3 +1,4 @@
+import { createNativeProjectContextJson } from "../compiler/internal/project/createNativeProjectContextArgs";
 import { resolveBinary } from "../compiler/internal/resolveBinary";
 import { loadProjectPlugins } from "./internal/loadProjectPlugins";
 
@@ -12,6 +13,18 @@ import { loadProjectPlugins } from "./internal/loadProjectPlugins";
 export interface ITtscCapabilityPlugin {
   binary: string;
   manifest: string;
+  /**
+   * The `--project-context-json` payload, or `undefined` when the plugin's
+   * descriptor does not declare it wants one.
+   *
+   * A sidecar is handed a project root, not asked to derive one. Without this a
+   * rule that resolves its own inputs — the documents an evidence claim reads,
+   * a Prisma schema, an OpenAPI file — has no base to resolve them against, and
+   * answers with an empty set rather than an error, because "this project
+   * declares nothing" is a legitimate answer it cannot distinguish from "I was
+   * not told where the project is".
+   */
+  projectContext?: string;
 }
 
 /**
@@ -73,7 +86,16 @@ export function resolveCapabilityPlugins(options: {
             options.capability
           ] === true,
       )
-      .map((plugin) => ({ binary: plugin.binary, manifest }));
+      .map((plugin) => ({
+        binary: plugin.binary,
+        manifest,
+        ...((plugin.capabilities as Record<string, unknown> | undefined)
+          ?.projectContextArgs === true
+          ? {
+              projectContext: createNativeProjectContextJson(loaded.project),
+            }
+          : {}),
+      }));
   } catch {
     // A project whose plugin configuration does not load is a project the user
     // already sees an error for, from the command that compiles it. Failing here
