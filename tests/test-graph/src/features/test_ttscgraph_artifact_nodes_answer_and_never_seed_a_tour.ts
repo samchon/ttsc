@@ -145,6 +145,23 @@ export const test_ttscgraph_artifact_nodes_answer_and_never_seed_a_tour =
       "the declaration citing the address is missing from the answer",
     );
 
+    // The sidecar finds its own configured rules in the manifest, so a verb
+    // invoked without one loads an empty configuration and answers `[]` — for
+    // every project, indistinguishable from one that publishes nothing. It
+    // shipped that way once. Nothing observable from here can tell the two
+    // apart, so the invocation itself is what is pinned.
+    const launcher = fs.readFileSync(
+      path.join(
+        path.resolve(graphLib, "..", "..", ".."),
+        "packages/graph/src/model/publishedArtifacts.ts",
+      ),
+      "utf8",
+    );
+    assert.ok(
+      /--plugins-json=\$\{plugin\.manifest\}/.test(launcher),
+      "the artifact verb is invoked without the manifest that carries the project's rules",
+    );
+
     // The tour half is a source-level claim, not a run. A synthetic dump cannot
     // be made to seed a tour without also fabricating the entrypoint and degree
     // conditions a seed depends on, and a tour that selected nothing would pass
