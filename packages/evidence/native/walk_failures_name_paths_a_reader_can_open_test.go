@@ -201,6 +201,12 @@ func TestARealMarkdownWalkFailureNamesTheProjectRelativePath(t *testing.T) {
     "reference":{"type":"markdown","files":["docs/**/*.md"],"symbol":"h2"}
   }]}`)
   assertProblemContains(t, messages, "could not inspect 'docs/private':")
+  if countProblemsContaining(messages, "matched no markdown files") != 0 {
+    t.Fatalf(
+      "an entry the walk could not read fails its population rather than emptying it:\n%s",
+      strings.Join(messages, "\n"),
+    )
+  }
   // The quoted segment is the path this rule chose. The cause after it belongs
   // to the operating system and legitimately carries an absolute path, so the
   // absence is asserted where the rule is the author.
@@ -287,6 +293,58 @@ func TestARealPrismaWalkFailureNamesTheProjectRelativePath(t *testing.T) {
   _, failed, problems := configuredPrismaAddressesWithHealth(config)
   assertProblemContains(t, problems, "could not inspect 'prisma/private':")
   assertProblemContains(t, problems, "configured Prisma sources can be indexed")
+  if len(failed) != 1 {
+    t.Fatalf("a walk failure records its base failed, got %d", len(failed))
+  }
+}
+
+/**
+ * Verifies a real Prisma walk failure under a declared root ascends through it.
+ *
+ * The acceptance for this repair names both base shapes on both walkers, and the
+ * two axes are decided in different places: the artifact kind picks the
+ * membership question, and the base shape picks the composition. Only this
+ * combination leaves the shared function reached through the Prisma callback
+ * with a base that ascends.
+ *
+ *  1. Root a Prisma population above the project.
+ *  2. Make a directory inside it unreadable and collect the addresses.
+ *  3. Assert the failure is spelled through the declared root.
+ */
+func TestARealPrismaWalkFailureUnderADeclaredRootAscendsThroughIt(t *testing.T) {
+  workspace := t.TempDir()
+  root := filepath.Join(workspace, "project")
+  private := filepath.Join(workspace, "schema", "models", "private")
+  for _, directory := range []string{root, private} {
+    if err := os.MkdirAll(directory, 0o755); err != nil {
+      t.Fatal(err)
+    }
+  }
+  if err := os.WriteFile(
+    filepath.Join(private, "hidden.prisma"),
+    []byte("model Hidden {}\n"),
+    0o644,
+  ); err != nil {
+    t.Fatal(err)
+  }
+  unreadableDirectory(t, private)
+  config := decodeInventoryConfig(t, root, `{"claims":[{
+    "type":"typescript",
+    "files":["src/**/*.ts"],
+    "symbol":"type",
+    "reference":{
+      "type":"prisma",
+      "root":"../schema",
+      "files":["models/**/*.prisma"],
+      "symbol":"model"
+    }
+  }]}`)
+  _, failed, problems := configuredPrismaAddressesWithHealth(config)
+  assertProblemContains(
+    t,
+    problems,
+    "could not inspect '../schema/models/private':",
+  )
   if len(failed) != 1 {
     t.Fatalf("a walk failure records its base failed, got %d", len(failed))
   }

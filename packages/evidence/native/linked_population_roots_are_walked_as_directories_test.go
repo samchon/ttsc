@@ -103,8 +103,10 @@ func TestALinkedRootNamesItsDocumentsThroughTheDeclaredSpelling(t *testing.T) {
     "Missing acknowledgement for 'requirements/pricing.md#discounts'",
   )
   assertProblemContains(t, messages, "at ../documents/requirements/pricing.md:1")
-  if countProblemsContaining(messages, "target") != 0 {
-    t.Fatalf("a document behind a link is not named by its target directory")
+  if countProblemsContaining(messages, "/target/") != 0 {
+    t.Fatalf(
+      "a document behind a link is named through the root, not through the link's own target",
+    )
   }
 }
 
@@ -201,5 +203,68 @@ func TestADriveRootBaseComposesOneSeparator(t *testing.T) {
   ascending := populationBase{Absolute: `C:\docs`, Display: "../docs"}
   if got := ascending.display("requirements/pricing.md"); got != "../docs/requirements/pricing.md" {
     t.Fatalf("ascending display = %q", got)
+  }
+}
+
+/**
+ * Verifies a link inside the population is still not followed.
+ *
+ * The negative twin of the repair, and the property it could most easily
+ * overrun. Only the base moves: `filepath.WalkDir` does not descend into a link
+ * it meets during the walk, and a population that silently absorbed one would
+ * take in documents no glob under the declared root reaches and hand them
+ * addresses through a directory that is not the base.
+ *
+ *  1. Put one document under the root and one behind a link inside it.
+ *  2. Leave both uncited.
+ *  3. Assert only the document under the root owes an acknowledgement.
+ */
+func TestALinkInsideThePopulationIsNotFollowed(t *testing.T) {
+  workspace := t.TempDir()
+  hidden := filepath.Join(workspace, "hidden")
+  if err := os.MkdirAll(hidden, 0o755); err != nil {
+    t.Fatal(err)
+  }
+  if err := os.WriteFile(
+    filepath.Join(hidden, "secret.md"),
+    []byte("## Secret {#secret}\n"),
+    0o644,
+  ); err != nil {
+    t.Fatal(err)
+  }
+  documents := filepath.Join(workspace, "documents")
+  if err := os.MkdirAll(filepath.Join(documents, "requirements"), 0o755); err != nil {
+    t.Fatal(err)
+  }
+  if err := os.WriteFile(
+    filepath.Join(documents, "requirements", "pricing.md"),
+    []byte("## Discounts {#discounts}\n"),
+    0o644,
+  ); err != nil {
+    t.Fatal(err)
+  }
+  if err := linkDirectory(hidden, filepath.Join(documents, "requirements", "linked")); err != nil {
+    t.Skipf("this platform refused to create a link: %v", err)
+  }
+  messages := runRootedGraphIn(t, workspace, map[string]string{
+    "project/src/sale.ts": "export interface ISale {}\n",
+  }, `{"claims":[{
+    "type":"typescript",
+    "files":["src/**/*.ts"],
+    "symbol":"type",
+    "reference":{
+      "type":"markdown",
+      "root":"../documents",
+      "files":["requirements/**/*.md"],
+      "symbol":"h2"
+    }
+  }]}`)
+  assertProblemContains(
+    t,
+    messages,
+    "Missing acknowledgement for 'requirements/pricing.md#discounts'",
+  )
+  if countProblemsContaining(messages, "secret") != 0 {
+    t.Fatalf("a link met during the walk is not descended into")
   }
 }
