@@ -6,6 +6,7 @@
 package main
 
 import (
+  "errors"
   "flag"
   "fmt"
   "io"
@@ -38,6 +39,12 @@ func run(args []string) int {
   tsconfig := fs.String("tsconfig", "tsconfig.json", "tsconfig path, relative to cwd")
   pretty := fs.Bool("pretty", false, "indent the JSON output")
   if err := fs.Parse(args); err != nil {
+    // `-h` asks for the usage this just printed, so it is a request that
+    // succeeded rather than an argument that failed. Under the global flag set
+    // this command used to read, `ExitOnError` already exited 0 for it.
+    if errors.Is(err, flag.ErrHelp) {
+      return 0
+    }
     return 2
   }
 

@@ -12,7 +12,13 @@ import type {
 type ViewerLink = ITtscWebsiteGraphViewer.Link;
 type ViewerNode = ITtscWebsiteGraphViewer.Node;
 
-const { LINK_COLORS, NODE_COLORS, linkKey } = TtscWebsiteGraphViewerModel;
+const {
+  LINK_COLORS,
+  NODE_COLORS,
+  UNKNOWN_LINK_COLOR,
+  UNKNOWN_NODE_COLOR,
+  linkKey,
+} = TtscWebsiteGraphViewerModel;
 
 // Dimmed nodes must stay clearly visible against the pale-blue background: a
 // spotlight grays the rest out, it never makes them look removed.
@@ -85,14 +91,14 @@ export async function createGraphScene(
   // restarting the force simulation.
   let highlight: ViewerHighlight | null = null;
   const nodeColor = () => (node: ViewerNode) => {
-    if (!highlight) return NODE_COLORS[node.kind] ?? "#64748b";
+    if (!highlight) return NODE_COLORS[node.kind] ?? UNKNOWN_NODE_COLOR;
     if (node.id === highlight.selectedId) return SELECTED_NODE;
     if (highlight.neighborIds.has(node.id))
-      return NODE_COLORS[node.kind] ?? "#64748b";
+      return NODE_COLORS[node.kind] ?? UNKNOWN_NODE_COLOR;
     return DIMMED_NODE;
   };
   const linkColor = () => (link: ViewerLink) => {
-    const base = LINK_COLORS[link.kind] ?? "#94a3b8";
+    const base = LINK_COLORS[link.kind] ?? UNKNOWN_LINK_COLOR;
     if (!highlight) return base;
     return highlight.linkKeys.has(
       linkKey(endpointId(link.source), endpointId(link.target)),

@@ -10,8 +10,14 @@ type ViewerNode = ITtscWebsiteGraphViewer.Node;
 
 export type SidebarTab = "files" | "symbols";
 
-const { LINK_COLORS, NODE_COLORS, buildFileTree, kindsIn, searchNodes } =
-  TtscWebsiteGraphViewerModel;
+const {
+  LINK_COLORS,
+  NODE_COLORS,
+  UNKNOWN_NODE_COLOR,
+  buildFileTree,
+  kindsIn,
+  searchNodes,
+} = TtscWebsiteGraphViewerModel;
 
 const rowClass =
   "flex w-full items-center gap-1.5 rounded px-1.5 py-0.5 text-left font-mono text-[11px] transition-colors hover:bg-[#eaf4ff]";
@@ -233,7 +239,7 @@ export default function TtscWebsiteGraphViewerSidebar({
                     <span
                       className="inline-block h-2 w-2 shrink-0 rounded-full"
                       style={{
-                        background: NODE_COLORS[node.kind] ?? "#64748b",
+                        background: NODE_COLORS[node.kind] ?? UNKNOWN_NODE_COLOR,
                       }}
                     />
                     <span className="truncate">{node.name}</span>
@@ -274,7 +280,7 @@ export default function TtscWebsiteGraphViewerSidebar({
                   >
                     <span
                       className="inline-block h-1.5 w-1.5 rounded-full"
-                      style={{ background: NODE_COLORS[kind] ?? "#64748b" }}
+                      style={{ background: NODE_COLORS[kind] ?? UNKNOWN_NODE_COLOR }}
                     />
                     {kind}
                   </button>

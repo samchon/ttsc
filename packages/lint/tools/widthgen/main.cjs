@@ -201,6 +201,14 @@ function main() {
   // the formatting specification the tree is checked against, and a generator
   // whose output fails that check turns regeneration into a step someone has to
   // remember rather than a property of the tool.
+  //
+  // The wrapper skips tabs inside string and rune literals, because a tab there
+  // is data; the substitution below does not. The two agree only while nothing
+  // emitted here puts a tab inside a literal, which holds because the two string
+  // literals this writes are a version number and an emoji pattern whose every
+  // non-ASCII character is already a `\x{...}` escape. Emit a literal tab and
+  // this has to go through the wrapper instead, or the generated file disagrees
+  // with the format gate in a way regenerating cannot clear.
   fs.writeFileSync(
     output,
     `${go

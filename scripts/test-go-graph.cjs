@@ -1,6 +1,6 @@
-// Run the Go unit tests for the @ttsc/graph engine and command (the
-// packages/ttsc/internal/graph package plus the ttscgraph and graphbench
-// commands).
+// Run the Go unit tests for the @ttsc/graph engine and its commands (the
+// packages/ttsc/internal/graph and internal/graphsymbols packages plus the
+// ttscgraph, graphbench, and graphdump commands).
 //
 // Mirrors test-go-transformer.cjs: the packages resolve their shim dependencies
 // through packages/ttsc/go.mod's local `replace` directives and the pinned
@@ -16,17 +16,29 @@ const path = require("node:path");
 
 const root = path.resolve(__dirname, "..");
 const goRoot = path.join(os.homedir(), "go-sdk", "go", "bin");
-const result = cp.spawnSync("go", ["test", "-count=1", "./internal/graph/...", "./internal/graphsymbols/...", "./cmd/ttscgraph/...", "./cmd/graphbench/..."], {
-  cwd: path.join(root, "packages", "ttsc"),
-  env: {
-    ...process.env,
-    PATH: fs.existsSync(goRoot)
-      ? `${goRoot}${path.delimiter}${process.env.PATH ?? ""}`
-      : process.env.PATH,
+const result = cp.spawnSync(
+  "go",
+  [
+    "test",
+    "-count=1",
+    "./internal/graph/...",
+    "./internal/graphsymbols/...",
+    "./cmd/ttscgraph/...",
+    "./cmd/graphbench/...",
+    "./cmd/graphdump/...",
+  ],
+  {
+    cwd: path.join(root, "packages", "ttsc"),
+    env: {
+      ...process.env,
+      PATH: fs.existsSync(goRoot)
+        ? `${goRoot}${path.delimiter}${process.env.PATH ?? ""}`
+        : process.env.PATH,
+    },
+    stdio: "inherit",
+    windowsHide: true,
   },
-  stdio: "inherit",
-  windowsHide: true,
-});
+);
 
 if (result.error) {
   throw result.error;

@@ -19,6 +19,7 @@ import (
 //  1. Run the command with an unknown flag, capturing both streams.
 //  2. Assert it returns 2 rather than exiting, and that nothing reached stdout.
 //  3. Assert the usage text went to the command's stderr stream.
+//  4. Assert `-h` still succeeds, because asking for usage is not an error.
 func TestRunReportsAnUnknownFlagWithoutExitingTheProcess(t *testing.T) {
   var out, errOut bytes.Buffer
   restoreStdout, restoreStderr := stdout, stderr
@@ -38,5 +39,18 @@ func TestRunReportsAnUnknownFlagWithoutExitingTheProcess(t *testing.T) {
   }
   if !strings.Contains(errOut.String(), "-tsconfig") {
     t.Fatalf("stderr carried no usage text: %q", errOut.String())
+  }
+
+  // The negative twin of the rejection: `flag.ContinueOnError` reports `-h` as
+  // an error too, and mapping every parse failure to 2 would turn the help flag
+  // into a failed invocation. The global flag set this command used to read
+  // exited 0 for it.
+  out.Reset()
+  errOut.Reset()
+  if code := run([]string{"-h"}); code != 0 {
+    t.Fatalf("graphdump exited %d for -h, want 0", code)
+  }
+  if !strings.Contains(errOut.String(), "-tsconfig") {
+    t.Fatalf("-h printed no usage text: %q", errOut.String())
   }
 }

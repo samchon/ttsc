@@ -62,13 +62,23 @@ function normalized(source) {
   }
 }
 
-/** The write path — the one `pnpm format` runs. Returns each file's content. */
-function written(files) {
+/**
+ * The write path — the one `pnpm format` runs.
+ *
+ * `files` maps a relative path to its content. `args` defaults to every one of
+ * those paths, so a case can pass a directory, or a name that does not exist,
+ * instead. Returns each seeded file's content after the run.
+ */
+function written(files, args) {
   const directory = workspace();
   try {
-    for (const [name, content] of Object.entries(files))
+    for (const [name, content] of Object.entries(files)) {
+      fs.mkdirSync(path.dirname(path.join(directory, name)), {
+        recursive: true,
+      });
       fs.writeFileSync(path.join(directory, name), content);
-    const result = bash(directory, ["-w", ...Object.keys(files)]);
+    }
+    const result = bash(directory, ["-w", ...(args ?? Object.keys(files))]);
     const after = {};
     for (const name of Object.keys(files))
       after[name] = fs
@@ -146,12 +156,16 @@ test("a backtick inside a comment does not open a raw string literal", () => {
 });
 
 test("an apostrophe inside a comment does not open a rune literal", () => {
+  // The tab sits BETWEEN the two apostrophes, which is the only position that
+  // discriminates. A rune-literal arm cannot cross a newline, so a mis-lexed
+  // `'t  it'` span protects exactly that one line; with no tab inside the span
+  // this case passes against an implementation that matches no comment at all.
   const output = normalized(
-    "package a\n\nfunc A() {\n\t// don't, it's a comment\n\tprintln(1)\n}\n",
+    "package a\n\nfunc A() {\n\t// don't\tit's a comment\n\tprintln(1)\n}\n",
   );
   assert.equal(
     output,
-    "package a\n\nfunc A() {\n  // don't, it's a comment\n  println(1)\n}\n",
+    "package a\n\nfunc A() {\n  // don't  it's a comment\n  println(1)\n}\n",
   );
 });
 
@@ -172,12 +186,12 @@ test("a gofmt failure still leaves the files it wrote normalized", () => {
   const result = written({
     "a.go": "package a\n\nfunc A() {\nprintln(1)\n}\n",
     "b.go": "package a\n\nfunc B() {\nprintln(2)\n}\n",
-    "broken.go": "package a\n\nfunc C( {\n",
+    "broken.go": "package a\n\nfunc C( {\n\tprintln(3)\n}\n",
   });
-  assert.notEqual(
+  assert.equal(
     result.status,
-    0,
-    "an unparseable file has to be reported, not swallowed",
+    2,
+    "gofmt's own parse-error status is what the wrapper has to report",
   );
   assert.equal(
     result.after["a.go"],
@@ -187,10 +201,61 @@ test("a gofmt failure still leaves the files it wrote normalized", () => {
     result.after["b.go"],
     "package a\n\nfunc B() {\n  println(2)\n}\n",
   );
+  // The unparseable file is normalized too, and that is the decision rather
+  // than an accident: the pass runs over the files that were named, not over
+  // the subset gofmt happened to accept. gofmt left this one alone, so what it
+  // gets is the tab substitution and nothing else.
   assert.equal(
     result.after["broken.go"],
-    "package a\n\nfunc C( {\n",
-    "gofmt cannot format what it cannot parse, so the file stays as written",
+    "package a\n\nfunc C( {\n  println(3)\n}\n",
+  );
+});
+
+test("a directory argument normalizes every file gofmt wrote under it", () => {
+  // `gofmt -w` accepts a directory and writes every Go file beneath it. The
+  // normalization used to run only over arguments spelled as existing `.go`
+  // paths, so a directory left the whole tree tab-indented and exited 0 — the
+  // silent version of the failure the case above makes loud.
+  const result = written(
+    {
+      "sub/a.go": "package a\n\nfunc A() {\nprintln(1)\n}\n",
+      "sub/deep/b.go": "package b\n\nfunc B() {\nprintln(2)\n}\n",
+    },
+    ["sub"],
+  );
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(
+    result.after["sub/a.go"],
+    "package a\n\nfunc A() {\n  println(1)\n}\n",
+  );
+  assert.equal(
+    result.after["sub/deep/b.go"],
+    "package b\n\nfunc B() {\n  println(2)\n}\n",
+  );
+});
+
+test("a named path that does not exist is reported, not silently skipped", () => {
+  // The negative twin of the directory case. A path matching `*.go` that did not
+  // exist used to be dropped from the gofmt arguments as well as from the
+  // normalization, so a typo in a format command was a silent success.
+  //
+  // The missing name is passed ALONGSIDE a real one, which is the shape that
+  // discriminates: with a missing name alone, gofmt would receive `-w` and no
+  // file and reject that instead, so the case would pass against the defect.
+  const result = written(
+    { "a.go": "package a\n\nfunc A() {\nprintln(1)\n}\n" },
+    ["a.go", "missing.go"],
+  );
+  assert.notEqual(result.status, 0, "a missing path has to be reported");
+  assert.match(
+    result.stderr,
+    /missing\.go/,
+    `stderr does not name the missing path: ${result.stderr}`,
+  );
+  assert.equal(
+    result.after["a.go"],
+    "package a\n\nfunc A() {\n  println(1)\n}\n",
+    "the file that does exist still has to be formatted",
   );
 });
 

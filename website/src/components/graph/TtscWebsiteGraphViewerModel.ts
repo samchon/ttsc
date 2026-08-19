@@ -10,8 +10,16 @@ type ViewerNode = ITtscWebsiteGraphViewer.Node;
 // Display constants (shared by the scene, the sidebar chips, and the legend)
 // ---------------------------------------------------------------------------
 
-/** Node kinds in display order; chips and legends iterate this order. */
+/**
+ * Node kinds in display order; chips and legends iterate this order.
+ *
+ * Total over the kinds a dump can carry (`TtscGraphDumpNodeKind`). `module` was
+ * missing here and from NODE_COLORS below, so a module node had no filter chip
+ * and was drawn in the unknown-kind fallback — which was the same string as
+ * `variable`, so it read as a variable rather than as something unrecognized.
+ */
 const NODE_KIND_ORDER: readonly string[] = [
+  "module",
   "class",
   "interface",
   "function",
@@ -22,6 +30,7 @@ const NODE_KIND_ORDER: readonly string[] = [
 ];
 
 const NODE_COLORS: Record<string, string> = {
+  module: "#be123c",
   class: "#3178c6",
   interface: "#2563eb",
   function: "#15803d",
@@ -42,6 +51,24 @@ const LINK_COLORS: Record<string, string> = {
   heritage: "#2563eb",
   exports: "#475569",
 };
+
+/**
+ * What an unrecognized node kind is drawn in.
+ *
+ * It has to differ from every value in NODE_COLORS, or "I do not know this
+ * kind" and "this is a variable" are the same picture. Four call sites used to
+ * spell this literal themselves, and it was `variable`'s own colour.
+ */
+const UNKNOWN_NODE_COLOR = "#cbd5e1";
+
+/**
+ * What an unrecognized edge kind is drawn in.
+ *
+ * The scene and the detail panel used to spell two different literals for this
+ * one concept, so the same unknown edge had two colours depending on where it
+ * was read.
+ */
+const UNKNOWN_LINK_COLOR = "#94a3b8";
 
 const LINK_KIND_LABEL: Record<string, string> = {
   "value-call": "value-call (runtime use)",
@@ -342,6 +369,8 @@ function edgeSummary(links: ViewerLink[], id: string): EdgeSummaryRow[] {
 
 const TtscWebsiteGraphViewerModel = {
   LINK_COLORS,
+  UNKNOWN_LINK_COLOR,
+  UNKNOWN_NODE_COLOR,
   LINK_KIND_LABEL,
   NODE_COLORS,
   buildFileTree,

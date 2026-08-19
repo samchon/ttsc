@@ -19,6 +19,8 @@ const {
   LINK_COLORS,
   LINK_KIND_LABEL,
   NODE_COLORS,
+  UNKNOWN_LINK_COLOR,
+  UNKNOWN_NODE_COLOR,
   edgeSummary,
   highlightOf,
   isolate,
@@ -424,7 +426,7 @@ export default function TtscWebsiteGraphViewer3D({
                   <span
                     className="mr-1.5 inline-block h-2 w-2 rounded-full align-middle"
                     style={{
-                      background: NODE_COLORS[selected.kind] ?? "#64748b",
+                      background: NODE_COLORS[selected.kind] ?? UNKNOWN_NODE_COLOR,
                     }}
                   />
                   {selected.kind} · {selected.file}
@@ -441,7 +443,7 @@ export default function TtscWebsiteGraphViewer3D({
                       <span
                         className="inline-block h-0.5 w-3 rounded-full"
                         style={{
-                          background: LINK_COLORS[row.kind] ?? "#64748b",
+                          background: LINK_COLORS[row.kind] ?? UNKNOWN_LINK_COLOR,
                         }}
                       />
                       {row.kind}

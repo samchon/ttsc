@@ -51,6 +51,7 @@ const OWNERSHIP = {
   "go:packages/ttsc/internal/graph": "scripts/test-go-graph.cjs",
   "go:packages/ttsc/cmd/ttscgraph": "scripts/test-go-graph.cjs",
   "go:packages/ttsc/internal/graphsymbols": "scripts/test-go-graph.cjs",
+  "go:packages/ttsc/cmd/graphdump": "scripts/test-go-graph.cjs",
   "go:packages/ttsc/shim/ast/test": "scripts/test-go-shim.cjs",
   // Its own Go module with its own runner, called by the shim-audit lane. The
   // point of this map is to name who runs a suite, and something already did.
@@ -92,6 +93,7 @@ const OWNERSHIP = {
   "node:scripts/ci/config-loader-copies.test.cjs": "test.yml lane: typecheck",
   "node:scripts/ci/dependency-audit.test.cjs": "test.yml lane: typecheck",
   "node:scripts/ci/factory-package.test.cjs": "test.yml lane: package defenses",
+  "node:scripts/ci/gofmt-wrapper.test.cjs": "test.yml lane: typecheck",
   "node:scripts/ci/line-endings.test.cjs": "test.yml lane: typecheck",
   "node:scripts/ci/test-owners.test.cjs": "test.yml lane: typecheck",
   "node:scripts/ci/validation-plan.test.cjs": "test.yml lane: typecheck",
