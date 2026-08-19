@@ -435,3 +435,57 @@ func TestTwoClaimsOverOneSharedSchemaEachOweTheirOwnReference(t *testing.T) {
     }
   }
 }
+
+/**
+ * Verifies a diagnostic for a shared schema names the one spelling the set has.
+ *
+ * The guide and the two TSDoc blocks promise this in words: a file both
+ * populations reached is located by one of its spellings rather than by each
+ * population's own, and it opens the same file either way. The unit's own
+ * location is pinned beside the parse; this is the promise as an adopter meets
+ * it, in a message, from the claim rooted at the other name.
+ *
+ *  1. Root two claims at the two names of one hard-linked schema.
+ *  2. Write one citation in it whose target nothing materializes.
+ *  3. Assert the report locates it at the set's spelling and at no other.
+ */
+func TestADiagnosticForASharedSchemaNamesTheSetsSpelling(t *testing.T) {
+  root := prismaBridgeRoot(t, map[string]string{
+    "store/main.prisma": "/// @evidence docs/absent.md#nothing Nothing materializes this target.\nmodel sale {\n  id String @id\n}\n",
+  })
+  if err := os.MkdirAll(filepath.Join(root, "mirror"), 0o755); err != nil {
+    t.Fatal(err)
+  }
+  if err := os.Link(
+    filepath.Join(root, "store", "main.prisma"),
+    filepath.Join(root, "mirror", "main.prisma"),
+  ); err != nil {
+    t.Skipf("this filesystem does not support hard links: %v", err)
+  }
+  messages := runIndexRuleAtRoot(t, root, map[string]string{
+    "docs/pricing.md": "## Discounts {#discounts}\n",
+  }, `{"claims":[
+    {
+      "type":"prisma",
+      "root":"store",
+      "files":["**/*.prisma"],
+      "symbol":"model",
+      "reference":{"type":"markdown","files":["docs/**/*.md"],"symbol":"h2"}
+    },
+    {
+      "type":"prisma",
+      "root":"mirror",
+      "files":["**/*.prisma"],
+      "symbol":"model",
+      "reference":{"type":"markdown","files":["docs/**/*.md"],"symbol":"h2"}
+    }
+  ]}`)
+  assertProblemContains(t, messages, "Unresolved evidence target 'docs/absent.md#nothing' at mirror/main.prisma:1")
+  // The claim rooted at the other name reports the same location, because one
+  // file has one location and both claims read it from the same parse.
+  for _, message := range messages {
+    if strings.Contains(message, "store/main.prisma") {
+      t.Fatalf("a shared schema is located by the set's spelling alone:\n%s", message)
+    }
+  }
+}
