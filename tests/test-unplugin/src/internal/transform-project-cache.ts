@@ -494,12 +494,13 @@ async function assertUnwatchedAbsentCandidateIsStillProbed(): Promise<void> {
  * retargeting the link moves the answer without touching what is watched. That
  * is the pnpm layout exactly, where `node_modules/<package>` is a link into a
  * store, so a reinstall makes a superseding candidate appear behind a watch
- * still looking at the old store directory. Watching each component of the
- * spelling by the name it carries in its own parent is what reports it.
+ * still looking at the old store directory. Such a candidate is therefore never
+ * claimed, and the per-delivery probe it keeps is what reports the retarget.
  *
  * 1. Point a candidate's directory at an empty target through a link, so no
  *    realized input lives under it and only the candidate is at stake.
- * 2. Deliver one module to capture the generation.
+ * 2. Deliver one module to capture the generation, which must decline to claim
+ *    that candidate.
  * 3. Retarget the link at a directory that does carry the candidate, and assert
  *    the next delivery recompiled.
  */

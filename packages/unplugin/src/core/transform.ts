@@ -3595,7 +3595,8 @@ function selectExternalInputPaths(props: {
  * Only absent candidates qualify. One that exists is validated by content and
  * physical identity like any other input, and adding it here would replace the
  * generation for a change that cannot affect a resolution the compiler already
- * declined to take.
+ * declined to take. A candidate reached through a link does not qualify either:
+ * see the claim rule below.
  */
 function selectNotifiableAbsentInputs(props: {
   filesystem: TtscTransformFilesystemOperations;
@@ -3616,15 +3617,10 @@ function selectNotifiableAbsentInputs(props: {
     props.temporaryTsconfig === undefined
       ? undefined
       : pathIdentityKey(props.temporaryTsconfig, identities);
-  const resolvedProjectRoot = path.resolve(props.projectRoot);
   const output: string[] = [];
   const watched: string[] = [];
   const directories = new Set<string>();
-  // Two namespaces, deliberately not one set: candidates are the paths a
-  // delivery may stop probing, while the chain holds the directories that carry
-  // them. Sharing a set would let one silently answer for the other.
   const seen = new Set<string>();
-  const chain = new Set<string>();
   for (const candidates of Object.values(graph.candidates ?? {})) {
     if (!Array.isArray(candidates)) {
       continue;
@@ -3644,35 +3640,21 @@ function selectNotifiableAbsentInputs(props: {
         continue;
       }
       seen.add(spelling);
+      // Claim the candidate only when nothing between it and its own directory
+      // is a link. A watcher opened on a spelling that traverses one follows it
+      // to a physical directory, so retargeting the link moves the answer while
+      // the watch keeps looking at the old target — the pnpm store layout
+      // exactly. Watching the components instead would mean watching directory
+      // entries, whose attributes move whenever anything is written below them,
+      // and a bundler writing into `node_modules` during a dev session would
+      // then replace the generation on every pass. A candidate reached through
+      // a link keeps the per-delivery probe it always had.
+      const parent = path.dirname(spelling);
+      if (path.resolve(identities.resolve(parent).path) !== parent) {
+        continue;
+      }
       output.push(absolute);
       watched.push(absolute);
-      // Watch the components of the lexical path too, by the name each carries
-      // in its own parent. The watcher a missing path opens follows the
-      // spelling to a physical directory, so retargeting a link along the way
-      // moves the answer without touching what is watched: in a pnpm layout
-      // `node_modules/<pkg>` is exactly such a link, and reinstalling it makes
-      // a candidate appear behind a watch that is still looking at the old
-      // store directory. Watching `<pkg>` inside `node_modules` is what reports
-      // that.
-      //
-      // The walk stops at the project's own enclosing directory, and does not
-      // climb past it. Above that line the components are the machine's own
-      // layout rather than the project's — a system temp directory, a home
-      // directory, the filesystem root — which nobody retargets and which
-      // change constantly for reasons that have nothing to do with this
-      // generation. On Linux an entry's attribute change is reported to a watch
-      // on its parent, so watching those would invalidate the cache every time
-      // an unrelated process touched anything inside them.
-      for (
-        let child = path.dirname(spelling), parent = path.dirname(child);
-        parent !== child && !enclosesProject(child, resolvedProjectRoot);
-        child = parent, parent = path.dirname(child)
-      ) {
-        if (chain.has(child)) break;
-        chain.add(child);
-        watched.push(child);
-        directories.add(parent);
-      }
       directories.add(path.dirname(spelling));
     }
   }
@@ -3688,35 +3670,6 @@ function selectNotifiableAbsentInputs(props: {
   output.sort();
   watched.sort();
   return { candidates: output, watched };
-}
-
-/**
- * Report whether a directory is the project's own root or an ancestor of it.
- *
- * The boundary of what a generation may watch on a candidate's behalf: the
- * project and whatever it reaches below or beside it are its own layout, while
- * everything above the project root belongs to the machine.
- */
-function enclosesProject(directory: string, projectRoot: string): boolean {
-  const relative = path.relative(
-    path.resolve(directory),
-    path.resolve(projectRoot),
-  );
-  // An empty result is the platform saying the two name the same directory,
-  // which it answers for spellings that differ only in case as well. Reading it
-  // as "not the root" is what would let the walk climb one level past it on a
-  // case-insensitive filesystem, which is the whole thing this bound prevents.
-  if (relative.length === 0) {
-    return true;
-  }
-  // `..` alone and `../` climb out; a directory literally named `..x` does not,
-  // which a plain prefix test would misread. The project walk's own containment
-  // check spells it the same way.
-  return (
-    relative !== ".." &&
-    !relative.startsWith(`..${path.sep}`) &&
-    !path.isAbsolute(relative)
-  );
 }
 
 /**
