@@ -39,18 +39,29 @@ export function publishArtifacts(options: {
   cwd: string;
   tsconfig: string;
 }): string | null {
-  const binaries = resolveCapabilityPlugins({
+  const plugins = resolveCapabilityPlugins({
     capability: "graphNodes",
     cwd: options.cwd,
     tsconfig: options.tsconfig,
   });
-  if (binaries.length === 0) return null;
+  if (plugins.length === 0) return null;
 
   const published: unknown[] = [];
-  for (const binary of binaries) {
+  for (const plugin of plugins) {
     const result = spawnSync(
-      binary,
-      ["graph-nodes", "--cwd", options.cwd, "--tsconfig", options.tsconfig],
+      plugin.binary,
+      [
+        "graph-nodes",
+        "--cwd",
+        options.cwd,
+        "--tsconfig",
+        options.tsconfig,
+        // The sidecar finds its own configured entry in this manifest. Without
+        // it, it loads an empty rule configuration and answers as though the
+        // project declared nothing — an empty answer indistinguishable from a
+        // project that genuinely publishes none.
+        `--plugins-json=${plugin.manifest}`,
+      ],
       {
         // The set is one entry per document section, model field, and operation
         // — bounded by the project's own documentation, not by its source — so

@@ -2,6 +2,19 @@ import { resolveBinary } from "../compiler/internal/resolveBinary";
 import { loadProjectPlugins } from "./internal/loadProjectPlugins";
 
 /**
+ * One plugin that declared the requested capability.
+ *
+ * `manifest` is the `--plugins-json` payload its sidecar needs to find its own
+ * configured entry. Without it the sidecar loads an empty rule configuration
+ * and answers as though the project declared nothing — an empty answer that
+ * looks exactly like a project which genuinely publishes none.
+ */
+export interface ITtscCapabilityPlugin {
+  binary: string;
+  manifest: string;
+}
+
+/**
  * The built sidecars of a project's configured plugins that declare one
  * capability.
  *
@@ -25,13 +38,13 @@ import { loadProjectPlugins } from "./internal/loadProjectPlugins";
  *   declare.
  * @param options.cwd - Project root. Defaults to the current directory.
  * @param options.tsconfig - Project tsconfig path, relative to `cwd`.
- * @returns Absolute executable paths, in configured plugin order.
+ * @returns One entry per declaring plugin, in configured plugin order.
  */
 export function resolveCapabilityPlugins(options: {
   capability: string;
   cwd?: string;
   tsconfig?: string;
-}): string[] {
+}): ITtscCapabilityPlugin[] {
   const binary = resolveBinary();
   if (binary === null || binary === undefined) return [];
   try {
@@ -40,6 +53,18 @@ export function resolveCapabilityPlugins(options: {
       cwd: options.cwd,
       tsconfig: options.tsconfig,
     });
+    // The manifest carries every configured plugin, not only the declaring one.
+    // A sidecar reads its OWN entry out of it — that entry is where its config
+    // file lives — and a manifest narrowed to the caller's capability would hand
+    // it a project it does not recognize, which is an empty answer rather than an
+    // error. This is the same string `runBuild` passes for a check-stage plugin.
+    const manifest = JSON.stringify(
+      loaded.nativePlugins.map((plugin) => ({
+        config: plugin.config,
+        name: plugin.name,
+        stage: plugin.stage,
+      })),
+    );
     return loaded.nativePlugins
       .filter(
         (plugin) =>
@@ -48,7 +73,7 @@ export function resolveCapabilityPlugins(options: {
             options.capability
           ] === true,
       )
-      .map((plugin) => plugin.binary);
+      .map((plugin) => ({ binary: plugin.binary, manifest }));
   } catch {
     // A project whose plugin configuration does not load is a project the user
     // already sees an error for, from the command that compiles it. Failing here
