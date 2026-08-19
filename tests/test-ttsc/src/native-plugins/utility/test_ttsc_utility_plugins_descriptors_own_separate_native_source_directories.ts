@@ -28,6 +28,7 @@ export const test_ttsc_utility_plugins_descriptors_own_separate_native_source_di
         stage: string;
         capabilities?: {
           diagnosticsTiming?: boolean;
+          graphNodes?: boolean;
           lsp?: boolean;
           projectDiagnostics?: boolean;
           projectInputs?: boolean;
@@ -42,6 +43,11 @@ export const test_ttsc_utility_plugins_descriptors_own_separate_native_source_di
       lint: {
         capabilities: {
           diagnosticsTiming: true,
+          // The artifacts a citation can name. It is declared here rather than
+          // asserted loosely because this case pins the whole set on purpose: a
+          // capability the host stops declaring is a verb a consumer silently
+          // stops being able to ask for.
+          graphNodes: true,
           lsp: true,
           projectDiagnostics: true,
           projectInputs: true,
