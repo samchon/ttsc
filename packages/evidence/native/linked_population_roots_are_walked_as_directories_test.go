@@ -489,3 +489,42 @@ func TestALinkedFileInsideThePopulationIsRead(t *testing.T) {
     "Missing acknowledgement for 'requirements/pricing.md#discounts'",
   )
 }
+
+/**
+ * Verifies a location is spelled the way a reader opens it, in every base shape.
+ *
+ * The guide promises this and had promised something narrower three times: that
+ * a location stays project-relative, which two reachable roots deny. A root on
+ * another Windows volume and a UNC share have no relative spelling from a
+ * drive-letter project, so `filepath.Rel` refuses and the absolute path is what
+ * a reader opens. Pinning the shapes is what keeps the sentence honest.
+ *
+ *  1. Resolve a root inside the project, one above it, one absolute on the same
+ *     volume, one on another volume, and a UNC share.
+ *  2. Compose a location under each.
+ *  3. Assert the first three are project-relative and the last two are not.
+ */
+func TestALocationIsSpelledTheWayAReaderOpensIt(t *testing.T) {
+  if runtime.GOOS != "windows" {
+    t.Skip("a second volume and a UNC share are Windows path shapes")
+  }
+  project := `C:\home\me\project`
+  for _, entry := range []struct {
+    declared string
+    expected string
+  }{
+    {"docs", "docs/requirements/pricing.md"},
+    {"../documents", "../documents/requirements/pricing.md"},
+    {"C:/contracts", "../../../contracts/requirements/pricing.md"},
+    {"D:/contracts", "D:/contracts/requirements/pricing.md"},
+    {"//server/share", "//server/share/requirements/pricing.md"},
+  } {
+    base := resolvePopulationBase(project, entry.declared)
+    if got := base.display("requirements/pricing.md"); got != entry.expected {
+      t.Fatalf("root %q location = %q, want %q", entry.declared, got, entry.expected)
+    }
+    if base.Declared != entry.declared {
+      t.Fatalf("root %q declared = %q", entry.declared, base.Declared)
+    }
+  }
+}
