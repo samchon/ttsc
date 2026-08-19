@@ -27,8 +27,8 @@ import (
 // wiring would drop the alias (printing bare `foo + 41`) or drop the export
 // assignment.
 //
-// The require binding is asserted separately from the alias, and that is the
-// point rather than a belt-and-braces extra. An alias without its binding is
+// The alias and the binding it names are asserted together, which is the point
+// rather than a belt-and-braces extra. An alias without its binding is
 // exactly what this lane used to emit while the builtin chain was built from
 // the post-plugin tree: `exports.a = dep_1.foo + 41;` with no
 // `const dep_1 = require("./dep");` anywhere in the file, which throws

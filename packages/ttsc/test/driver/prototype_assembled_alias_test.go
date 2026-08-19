@@ -114,7 +114,10 @@ func TestPrototypeAssembledAlias(t *testing.T) {
   // Assert the binding the alias names, not just the alias. Building the chain
   // from `transformed` instead of `sf` still prints `dep_1.foo` while import
   // elision drops `const dep_1 = require("./dep")`, so without this the
-  // assembly above could regress to the post-plugin tree unnoticed.
+  // assembly above could regress to the post-plugin tree unnoticed. This guards
+  // the assembly in this test only. The driver's own lane is guarded by the
+  // emit_plugin_rebuilt_* tests, which this one cannot stand in for because it
+  // never calls EmitWithPluginTransformers.
   if !strings.Contains(text, `require("./dep")`) {
     t.Fatalf("alias dep_1.foo has no require binding, so the assembled output would throw at runtime:\n%s", text)
   }
