@@ -443,7 +443,7 @@ style: |
   section.review-checklist td:first-child { background: #eef2f7; }
   section.review-checklist td:nth-child(2) { background: #dce8f6; }
   section.review-checklist td:nth-child(3) { background: #c5d9f0; }
-  .problem-measures { display: flex; flex-direction: column; gap: 12px; width: 94%; margin: 12px auto 0; }
+  .problem-measures { display: flex; flex-direction: column; gap: 12px; width: 94%; margin: 4px auto 0; }
   .problem-measure-title { margin-bottom: 8px; font-size: 32px; font-weight: 700; }
   .problem-bar {
     display: flex;
@@ -461,7 +461,16 @@ style: |
   .problem-legend i { display: inline-block; width: 20px; height: 20px; margin-right: 8px; border-radius: 4px; }
   .problem-legend .build { background: #14284b; }
   .problem-legend .review { background: #9bb4d2; }
-  .problem-context { margin-top: 16px; color: #5b6674; font-size: 28px; text-align: center; }
+  .problem-spend {
+    display: flex;
+    justify-content: center;
+    gap: 60px;
+    margin-top: 14px;
+    color: #5b6674;
+    font-size: 28px;
+  }
+  .problem-spend b { margin-right: 8px; color: #14284b; font-size: 34px; }
+  .problem-context { margin-top: 10px; color: #5b6674; font-size: 28px; text-align: center; }
 
   /* Bars */
   .track {
@@ -515,6 +524,29 @@ style: |
   .b75 { width: 7.5%; }
   .kp { color: #4a76b8; font-weight: 700; }
   .ke { color: #b35c00; font-weight: 700; }
+
+  /* Meme slides */
+  section.meme {
+    padding: 24px;
+    text-align: center;
+  }
+  section.meme p { margin: 0; }
+  section.meme img {
+    display: block;
+    box-sizing: border-box;
+    width: 672px;
+    height: 672px;
+    margin: 0 auto;
+    border: 2px solid #e6eaf0;
+    border-radius: 12px;
+  }
+
+  /* Citation code blocks */
+  section.cite-code pre { font-size: 23px; }
+
+  /* Evidence-backed lists */
+  section.stat-list li { font-size: 36px; margin-bottom: 14px; }
+  section.stat-list blockquote { font-size: 30px; }
 ---
 
 <!-- _class: dark -->
@@ -534,7 +566,7 @@ style: |
 <div class="opening-summary">
 
 - **Evidence Graph, a compiler harness**
-  - No loop until dry required
+  - No Loop Engineering required
   - `@evidence <target> <reason>`
   - `@evidenceReview <target> <reason>`
   - `@evidenceExclude <target> <reason>`
@@ -561,26 +593,66 @@ style: |
 
 ---
 
+<!-- _class: meme -->
+
+![Asked whether every requirement was met, a human explains while the compiler stops the build](https://ttsc.dev/evidence/meme-coverage.svg)
+
+---
+
+<!-- _class: meme -->
+
+![Asked whether the rule document was read, a human reads it out again while the compiler asks at every file](https://ttsc.dev/evidence/meme-checklist.svg)
+
+---
+
 <!-- _class: divider -->
 
-# Current Limitation
+# Current Limitations
 
-<span class="note">Loop Until Dry</span>
+<span class="note">Why we all ended up looping</span>
+
+---
+
+<!-- _class: stat-list -->
+
+# Saying yes is not doing it
+
+- Six top models, given one simple rule: **none** kept it
+- Answered "understood" **10 of 10**, skipped it **10 of 10**
+- People reading the result spotted **0 of 15** honest runs
+- Made to **write down its reason**: **97%** kept it
+
+<span class="note">Measured on tool logs, not on answers ([2605.01771](https://arxiv.org/abs/2605.01771))</span>
+
+---
+
+<!-- _class: stat-list -->
+
+# The longer it runs, the worse it gets
+
+- Goal given in pieces, not at once: worse **16 of 20**
+- Long build: **14.8%** of steps done, **no project finished**
+- In **77%** of runs, code that was already right got worse
+- What is left is **2.3× longer** and **2× messier** than human work
+
+<span class="note">Two 2026 coding-agent benchmarks ([2603.17104](https://arxiv.org/abs/2603.17104)) ([2603.24755](https://arxiv.org/abs/2603.24755))</span>
 
 ---
 
 <!-- _class: loop-slide -->
 
-# Loop Until Dry restarts the full review
+# So we built Loop Engineering
 
-- Read everything from the beginning
-- Fix every finding
-- Restart from the beginning
-- Stop only after an empty round
+- A claim of done proves nothing → **read it all again**
+- Omissions show only when you look → **fix every finding**
+- One fix breaks another → **restart from the top**
+- Nothing else says done → **stop after an empty round**
+
+> Also called Loop Until Dry. It is the state of the art, and it works.
 
 ---
 
-# ERP Plain: 90% review · 51.6% coverage
+# ERP Loop Engineering
 
 <div class="problem-measures">
 <div>
@@ -592,6 +664,11 @@ style: |
 <div class="problem-bar"><div class="problem-build">10%</div><div class="problem-review">90%</div></div>
 <div class="problem-legend"><span><i class="build"></i>Initial development</span><span><i class="review"></i>Review loops</span></div>
 </div>
+</div>
+
+<div class="problem-spend">
+<span><b>102h</b>work time</span>
+<span><b>5,449M</b>tokens</span>
 </div>
 
 <div class="problem-context">ERP · 100+ tables · 150K+ LoC</div>
@@ -637,12 +714,12 @@ files: ["src/components/**/*.tsx"], // sources
 symbol: "function",
 reference: {
   type: "markdown",
-  files: ["docs/**/*.md"], // targets
+  files: ["docs/specifications/*.md"], // targets
   symbol: ["h2", "h3"],
 },
 ```
 
-**Components implement documents.**
+**Components implement specifications.**
 
 ---
 
@@ -659,7 +736,7 @@ reference: {
 
 ```tsx
 /**
- * @evidence docs/discount.md#coupon-stacking
+ * @evidence docs/specifications/discount.md#coupon-stacking
  *           Explains the stacking limit defined by this section.
  * @evidence POST:/orders/{orderId}/coupons
  *           Explains the rejection response from this endpoint.
@@ -676,8 +753,9 @@ export function CouponStackingNotice(props: IProps): JSX.Element;
 ```bash
 $ npx ttsc
 error TS16411: [evidence/graph]
-  Missing acknowledgement for 'docs/discount.md#coupon-stacking'
-  (Markdown H2 'Coupon Stacking' at docs/discount.md:3)
+  Missing acknowledgement for
+  'docs/specifications/discount.md#coupon-stacking'
+  (Markdown H2 'Coupon Stacking' at docs/specifications/discount.md:3)
 ```
 
 - One error per requirement → **the error list is the task list**
@@ -689,7 +767,7 @@ error TS16411: [evidence/graph]
 
 ```ts
 /**
- * @evidence docs/discount.md#coupon-stacking
+ * @evidence docs/specifications/discount.md#coupon-stacking
  *           Explains the per-issuer limit.
  */
 export function CouponStackingNotice(props: IProps): JSX.Element;
@@ -698,15 +776,20 @@ export function CouponStackingNotice(props: IProps): JSX.Element;
 - Inexpensive models **sometimes write facts that do not exist**
 - A false tag removes the error, **not the problem**
 
+<span class="note">Citations make the false claim detectable: 86-88%, no false positives ([2606.30689](https://arxiv.org/abs/2606.30689)).</span>
+
 ---
+
+<!-- _class: cite-code -->
 
 # Review only citation truth
 
 ```ts
 /**
- * @evidence docs/discount.md#coupon-stacking Explains the per-issuer limit.
- * @evidenceReview docs/discount.md#coupon-stacking #a1b2c3d4e5f6
- *                 Verified against policy section 3.
+ * @evidence docs/specifications/discount.md#coupon-stacking
+ *           Explains the per-issuer limit.
+ * @evidenceReview docs/specifications/discount.md#coupon-stacking
+ *                 #a1b2c3d4e5f6 Verified against policy section 3.
  */
 export function CouponStackingNotice(props: IProps): JSX.Element;
 ```
@@ -729,6 +812,65 @@ export function CouponStackingNotice(props: IProps): JSX.Element;
 | Omissions | Search manually     | Compiler reports them |
 
 > **The compiler handles omissions. Humans handle falsehoods.**
+
+---
+
+<!-- _class: divider -->
+
+# Benchmark
+
+<span class="note">Same inputs · engine · model · Plugin only</span>
+
+---
+
+# Coverage: 51.6–85.5% → 100%
+
+| Subject | Plain | Evidence |
+| --- | --- | --- |
+| todo | 85.5% <span class="track"><i class="w855"></i></span> | 100% <span class="track on"><i class="w100"></i></span> |
+| reddit | 80.3% <span class="track"><i class="w803"></i></span> | 100% <span class="track on"><i class="w100"></i></span> |
+| shopping | 63.1% <span class="track"><i class="w631"></i></span> | 100% <span class="track on"><i class="w100"></i></span> |
+| erp | 51.6% <span class="track"><i class="w516"></i></span> | 100% <span class="track on"><i class="w100"></i></span> |
+
+Plain coverage falls with scope. **Evidence remains at 100%.**
+
+---
+
+# Token usage: 4.8–13.3× lower
+
+<div class="rows">
+<div class="row"><span class="lbl">todo</span><span class="bars"><i class="p b159"></i><i class="e b17"></i></span><span class="val">866M → 92M</span></div>
+<div class="row"><span class="lbl">reddit</span><span class="bars"><i class="p b216"></i><i class="e b45"></i></span><span class="val">1,179M → 245M</span></div>
+<div class="row"><span class="lbl">shopping</span><span class="bars"><i class="p b278"></i><i class="e b50"></i></span><span class="val">1,516M → 271M</span></div>
+<div class="row"><span class="lbl">erp</span><span class="bars"><i class="p b1000"></i><i class="e b75"></i></span><span class="val">5,449M → 411M</span></div>
+</div>
+
+<span class="kp">Plain</span> in blue. <span class="ke">Evidence</span> in orange.
+
+<span class="note">Original charts by phase: [https://ttsc.dev/docs/benchmark/evidence](https://ttsc.dev/docs/benchmark/evidence)</span>
+
+---
+
+# ERP: 100% coverage · $4.96 · 14h
+
+<div class="cards">
+<div class="card"><b>13.3×</b>fewer tokens<br/><span class="note">5,449M → 411M</span></div>
+<div class="card"><b>13.9×</b>lower cost<br/><span class="note">$68.72 → $4.96</span></div>
+<div class="card warm"><b>7.5×</b>less time<br/><span class="note">102h → 14h</span></div>
+</div>
+
+---
+
+# Review: 90–95% → 15–41% of tokens
+
+| Subject | Plain | Evidence |
+| --- | --- | --- |
+| todo | <span class="split"><i class="d97"></i><i class="rev"></i></span> Review 90% | <span class="split on"><i class="d720"></i><i class="rev"></i></span> Review 28% |
+| reddit | <span class="split"><i class="d54"></i><i class="rev"></i></span> Review 95% | <span class="split on"><i class="d808"></i><i class="rev"></i></span> Review 19% |
+| shopping | <span class="split"><i class="d47"></i><i class="rev"></i></span> Review 95% | <span class="split on"><i class="d586"></i><i class="rev"></i></span> Review 41% |
+| erp | <span class="split"><i class="d105"></i><i class="rev"></i></span> Review 90% | <span class="split on"><i class="d846"></i><i class="rev"></i></span> Review 15% |
+
+<span class="note">Dark is development. Light is review. Each cell represents 100% of its tokens.</span>
 
 ---
 
@@ -766,7 +908,7 @@ export function CouponStackingNotice(props: IProps): JSX.Element;
 - Humans **review `docs/requirements` directly**
 - Specifications, implementation, and tests are **fully delegated**
 
-> The four benchmark subjects use this method as well.
+> The four subjects you just saw all used this method.
 
 ---
 
@@ -879,65 +1021,6 @@ export function CouponStackingNotice(props: IProps): JSX.Element;
 
 ---
 
-<!-- _class: divider -->
-
-# Benchmark
-
-<span class="note">Same inputs · engine · model · Plugin only</span>
-
----
-
-# Coverage: 51.6–85.5% → 100%
-
-| Subject | Plain | Evidence |
-| --- | --- | --- |
-| todo | 85.5% <span class="track"><i class="w855"></i></span> | 100% <span class="track on"><i class="w100"></i></span> |
-| reddit | 80.3% <span class="track"><i class="w803"></i></span> | 100% <span class="track on"><i class="w100"></i></span> |
-| shopping | 63.1% <span class="track"><i class="w631"></i></span> | 100% <span class="track on"><i class="w100"></i></span> |
-| erp | 51.6% <span class="track"><i class="w516"></i></span> | 100% <span class="track on"><i class="w100"></i></span> |
-
-Plain coverage falls with scope. **Evidence remains at 100%.**
-
----
-
-# Token usage: 4.8–13.3× lower
-
-<div class="rows">
-<div class="row"><span class="lbl">todo</span><span class="bars"><i class="p b159"></i><i class="e b17"></i></span><span class="val">866M → 92M</span></div>
-<div class="row"><span class="lbl">reddit</span><span class="bars"><i class="p b216"></i><i class="e b45"></i></span><span class="val">1,179M → 245M</span></div>
-<div class="row"><span class="lbl">shopping</span><span class="bars"><i class="p b278"></i><i class="e b50"></i></span><span class="val">1,516M → 271M</span></div>
-<div class="row"><span class="lbl">erp</span><span class="bars"><i class="p b1000"></i><i class="e b75"></i></span><span class="val">5,449M → 411M</span></div>
-</div>
-
-<span class="kp">Plain</span> in blue. <span class="ke">Evidence</span> in orange.
-
-<span class="note">Original charts by phase: [https://ttsc.dev/docs/benchmark/evidence](https://ttsc.dev/docs/benchmark/evidence)</span>
-
----
-
-# ERP: 100% coverage · $4.96 · 14h
-
-<div class="cards">
-<div class="card"><b>13.3×</b>fewer tokens<br/><span class="note">5,449M → 411M</span></div>
-<div class="card"><b>13.9×</b>lower cost<br/><span class="note">$68.72 → $4.96</span></div>
-<div class="card warm"><b>7.5×</b>less time<br/><span class="note">102h → 14h</span></div>
-</div>
-
----
-
-# Review: 90–95% → 15–41% of tokens
-
-| Subject | Plain | Evidence |
-| --- | --- | --- |
-| todo | <span class="split"><i class="d97"></i><i class="rev"></i></span> Review 90% | <span class="split on"><i class="d720"></i><i class="rev"></i></span> Review 28% |
-| reddit | <span class="split"><i class="d54"></i><i class="rev"></i></span> Review 95% | <span class="split on"><i class="d808"></i><i class="rev"></i></span> Review 19% |
-| shopping | <span class="split"><i class="d47"></i><i class="rev"></i></span> Review 95% | <span class="split on"><i class="d586"></i><i class="rev"></i></span> Review 41% |
-| erp | <span class="split"><i class="d105"></i><i class="rev"></i></span> Review 90% | <span class="split on"><i class="d846"></i><i class="rev"></i></span> Review 15% |
-
-<span class="note">Dark is development. Light is review. Each cell represents 100% of its tokens.</span>
-
----
-
 <!-- _class: dark -->
 
 # Summary
@@ -957,13 +1040,56 @@ Plain coverage falls with scope. **Evidence remains at 100%.**
 
 ---
 
+<!-- _class: stat-list -->
+
+# Fluency is not authorship
+
+- **Flattening**: competent prose that no one could have signed
+- **Softened conflict**: the antagonist apologizes a paragraph later
+- **Translationese**: borrowed syntax, misplaced honorifics
+
+<span class="note">Studio case: every cool character got silver hair, every genre got the same moral ending.</span>
+
+---
+
+<!-- _class: stat-list -->
+
+# The failure is measured, not just felt
+
+- Training smooths out theme, emotion, and voice
+- Literary fiction loses **the most**
+- Contradictions grow **steadily** with length
+- Facts slip early (**15-30%**), contradictions late (**40-60%**)
+
+<span class="note">Narrative Flattening ([2605.27878](https://arxiv.org/abs/2605.27878)) · ConStory-Bench ([site](https://picrew.github.io/constory-bench.github.io/))</span>
+
+---
+
+<!-- _class: stat-list -->
+
 # A fluent scene can still be false
 
 - **Memory**: uses facts the character never learned
 - **Invention**: breaks history, geography, or motive
+- **Contradiction**: negates a number, a date, or a trait set earlier
 - **Revision**: keeps scenes invalidated by an earlier edit
+- **Amnesia**: 350 settings, and no way to tell which went unused
 
 > Long-form failure is global, not local.
+
+---
+
+<!-- _class: stat-list -->
+
+# Here the loop makes it worse
+
+- Every pass pulls the text toward **the model's own average**
+- Style and fluency rise, **accuracy barely moves**
+- Voice normalizes each time, and **prompts cannot stop it**
+
+> More rounds buy polish, not truth.
+
+<span class="note">Two 2026 revision studies ([2605.13368](https://arxiv.org/abs/2605.13368)) ([2604.22142](https://arxiv.org/abs/2604.22142))</span>
 
 ---
 
@@ -1022,13 +1148,39 @@ Plain coverage falls with scope. **Evidence remains at 100%.**
 <!-- _class: dark -->
 <!-- _paginate: false -->
 
-# References
+# References: `@ttsc/evidence`
 
 - https://github.com/samchon/ttsc
   - https://ttsc.dev/docs/evidence
   - https://ttsc.dev/docs/benchmark/evidence
 - https://github.com/samchon/evidence-benchmark-results
-- https://github.com/samchon/novels
+
+---
+
+<!-- _class: dark -->
+<!-- _paginate: false -->
+
+# References: Coding Agents
+
+- Faithfulness drops when the spec arrives in pieces ([2603.17104](https://arxiv.org/abs/2603.17104))
+- Agents erode their own code over long horizons ([2603.24755](https://arxiv.org/abs/2603.24755))
+- Process instructions agreed to, then bypassed ([2605.01771](https://arxiv.org/abs/2605.01771))
+- Citations make hallucinated requirements detectable ([2606.30689](https://arxiv.org/abs/2606.30689))
+- Specifications as the primary artifact ([2602.00180](https://arxiv.org/abs/2602.00180))
+
+---
+
+<!-- _class: dark -->
+<!-- _paginate: false -->
+
+# References: Long-form Narrative
+
+- Post-training flattens theme, affect, and style ([2605.27878](https://arxiv.org/abs/2605.27878))
+- Narrative tension measured by forecasting ([2604.09854](https://arxiv.org/abs/2604.09854))
+- Consistency bugs scale with story length ([ConStory-Bench](https://picrew.github.io/constory-bench.github.io/))
+- Revision improves style, not accuracy ([2605.13368](https://arxiv.org/abs/2605.13368))
+- Rewriting normalizes personal voice ([2604.22142](https://arxiv.org/abs/2604.22142))
+- Korean honorifics in automatic translation ([LREC 2026](https://lrec.elra.info/lrec2026-ws-iaai-03))
 
 ---
 

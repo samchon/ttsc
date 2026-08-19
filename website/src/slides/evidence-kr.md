@@ -443,7 +443,7 @@ style: |
   section.review-checklist td:first-child { background: #eef2f7; }
   section.review-checklist td:nth-child(2) { background: #dce8f6; }
   section.review-checklist td:nth-child(3) { background: #c5d9f0; }
-  .problem-measures { display: flex; flex-direction: column; gap: 12px; width: 94%; margin: 12px auto 0; }
+  .problem-measures { display: flex; flex-direction: column; gap: 12px; width: 94%; margin: 4px auto 0; }
   .problem-measure-title { margin-bottom: 8px; font-size: 32px; font-weight: 700; }
   .problem-bar {
     display: flex;
@@ -461,7 +461,16 @@ style: |
   .problem-legend i { display: inline-block; width: 20px; height: 20px; margin-right: 8px; border-radius: 4px; }
   .problem-legend .build { background: #14284b; }
   .problem-legend .review { background: #9bb4d2; }
-  .problem-context { margin-top: 16px; color: #5b6674; font-size: 28px; text-align: center; }
+  .problem-spend {
+    display: flex;
+    justify-content: center;
+    gap: 60px;
+    margin-top: 14px;
+    color: #5b6674;
+    font-size: 28px;
+  }
+  .problem-spend b { margin-right: 8px; color: #14284b; font-size: 34px; }
+  .problem-context { margin-top: 10px; color: #5b6674; font-size: 28px; text-align: center; }
 
   /* Bars */
   .track {
@@ -531,6 +540,13 @@ style: |
     border: 2px solid #e6eaf0;
     border-radius: 12px;
   }
+
+  /* Citation code blocks */
+  section.cite-code pre { font-size: 23px; }
+
+  /* Evidence-backed lists */
+  section.stat-list li { font-size: 36px; margin-bottom: 14px; }
+  section.stat-list blockquote { font-size: 30px; }
 ---
 
 <!-- _class: dark -->
@@ -550,7 +566,7 @@ style: |
 <div class="opening-summary">
 
 - **컴파일러 하네스, Evidence Graph**
-  - Loop Until Dry 불필요
+  - Loop Engineering 불필요
   - `@evidence <target> <reason>`
   - `@evidenceReview <target> <reason>`
   - `@evidenceExclude <target> <reason>`
@@ -593,22 +609,50 @@ style: |
 
 # 현재의 한계
 
-<span class="note">Loop Until Dry</span>
+<span class="note">우리가 결국 루프를 돌게 된 이유</span>
+
+---
+
+<!-- _class: stat-list -->
+
+# 알겠다고 답하는 것과 지키는 것은 다르다
+
+- 최상위 모델 6종에 규칙 하나를 줬더니 **아무도** 지키지 않았다
+- **10번 중 10번** 알겠다고 답하고, **10번 중 10번** 건너뛰었다
+- 결과물만 본 사람은 정직한 실행을 **15건 중 0건** 골라냈다
+- <strong>이유를 적게 했더니 97%</strong>가 지켰다
+
+<span class="note">답변이 아니라 도구 실행 로그로 측정했다 ([2605.01771](https://arxiv.org/abs/2605.01771))</span>
+
+---
+
+<!-- _class: stat-list -->
+
+# 오래 돌릴수록 나빠진다
+
+- 목표를 한 번에 안 주고 쪼개 줬더니 **20건 중 16건**이 더 나빴다
+- 장기 작업에서 단계 **14.8%** 완료, **끝낸 프로젝트는 없음**
+- 실행의 <strong>77%</strong>에서 이미 맞던 코드가 나빠졌다
+- 남은 코드는 사람 것보다 **2.3배 길고 2배 지저분하다**
+
+<span class="note">2026년 코딩 에이전트 벤치마크 두 편 ([2603.17104](https://arxiv.org/abs/2603.17104)) ([2603.24755](https://arxiv.org/abs/2603.24755))</span>
 
 ---
 
 <!-- _class: loop-slide -->
 
-# Loop Until Dry는 전체 검토를 다시 시작한다
+# 그래서 Loop Engineering이 나왔다
 
-- 처음부터 전부 다시 읽는다
-- 발견한 문제를 전부 고친다
-- 다시 처음으로 돌아간다
-- 지적이 하나도 없는 회차에서야 멈춘다
+- 다 했다는 말은 증거가 아니다 → **전부 다시 읽는다**
+- 누락은 봐야만 드러난다 → **찾은 문제를 전부 고친다**
+- 하나 고치면 다른 게 깨진다 → **처음으로 되돌아간다**
+- 끝났다고 말해줄 게 없다 → **빈 회차가 나와야 멈춘다**
+
+> Loop Until Dry라고도 한다. 현존 최선의 수단이고, 실제로 작동한다.
 
 ---
 
-# ERP Plain: 검토 90% · 커버리지 51.6%
+# ERP Loop Engineering
 
 <div class="problem-measures">
 <div>
@@ -620,6 +664,11 @@ style: |
 <div class="problem-bar"><div class="problem-build">10%</div><div class="problem-review">90%</div></div>
 <div class="problem-legend"><span><i class="build"></i>최초 개발</span><span><i class="review"></i>검토 루프</span></div>
 </div>
+</div>
+
+<div class="problem-spend">
+<span><b>102시간</b>작업 시간</span>
+<span><b>5,449M</b>토큰</span>
 </div>
 
 <div class="problem-context">ERP · 테이블 100개 이상 · 15만 줄 이상</div>
@@ -665,12 +714,12 @@ files: ["src/components/**/*.tsx"], // sources
 symbol: "function",
 reference: {
   type: "markdown",
-  files: ["docs/**/*.md"], // targets
+  files: ["docs/specifications/*.md"], // targets
   symbol: ["h2", "h3"],
 },
 ```
 
-**컴포넌트는 문서를 구현한다.**
+**컴포넌트는 설계 명세를 구현한다.**
 
 ---
 
@@ -687,7 +736,7 @@ reference: {
 
 ```tsx
 /**
- * @evidence docs/discount.md#coupon-stacking
+ * @evidence docs/specifications/discount.md#coupon-stacking
  *           Explains the stacking limit defined by this section.
  * @evidence POST:/orders/{orderId}/coupons
  *           Explains the rejection response from this endpoint.
@@ -704,8 +753,9 @@ export function CouponStackingNotice(props: IProps): JSX.Element;
 ```bash
 $ npx ttsc
 error TS16411: [evidence/graph]
-  Missing acknowledgement for 'docs/discount.md#coupon-stacking'
-  (Markdown H2 'Coupon Stacking' at docs/discount.md:3)
+  Missing acknowledgement for
+  'docs/specifications/discount.md#coupon-stacking'
+  (Markdown H2 'Coupon Stacking' at docs/specifications/discount.md:3)
 ```
 
 - 요구사항 하나당 에러 하나 → **에러 목록이 곧 작업 목록**
@@ -717,7 +767,7 @@ error TS16411: [evidence/graph]
 
 ```ts
 /**
- * @evidence docs/discount.md#coupon-stacking
+ * @evidence docs/specifications/discount.md#coupon-stacking
  *           Explains the per-issuer limit.
  */
 export function CouponStackingNotice(props: IProps): JSX.Element;
@@ -726,15 +776,20 @@ export function CouponStackingNotice(props: IProps): JSX.Element;
 - 저렴한 모델은 **존재하지 않는 사실을 적기도 한다**
 - 거짓 태그는 에러만 지울 뿐, **문제는 남긴다**
 
+<span class="note">인용이 붙으면 거짓 주장을 86-88%로 탐지하고, 오탐은 0이다 ([2606.30689](https://arxiv.org/abs/2606.30689)).</span>
+
 ---
+
+<!-- _class: cite-code -->
 
 # 검토 대상은 인용의 진위뿐
 
 ```ts
 /**
- * @evidence docs/discount.md#coupon-stacking Explains the per-issuer limit.
- * @evidenceReview docs/discount.md#coupon-stacking #a1b2c3d4e5f6
- *                 Verified against policy section 3.
+ * @evidence docs/specifications/discount.md#coupon-stacking
+ *           Explains the per-issuer limit.
+ * @evidenceReview docs/specifications/discount.md#coupon-stacking
+ *                 #a1b2c3d4e5f6 Verified against policy section 3.
  */
 export function CouponStackingNotice(props: IProps): JSX.Element;
 ```
@@ -757,6 +812,65 @@ export function CouponStackingNotice(props: IProps): JSX.Element;
 | 누락 | 직접 찾는다    | 컴파일러가 보고 |
 
 > **누락은 컴파일러가, 거짓은 사람이 잡는다.**
+
+---
+
+<!-- _class: divider -->
+
+# 벤치마크
+
+<span class="note">동일한 입력 · 엔진 · 모델 · 플러그인만 차이</span>
+
+---
+
+# 커버리지: 51.6–85.5% → 100%
+
+| 과제 | Plain | Evidence |
+| --- | --- | --- |
+| todo | 85.5% <span class="track"><i class="w855"></i></span> | 100% <span class="track on"><i class="w100"></i></span> |
+| reddit | 80.3% <span class="track"><i class="w803"></i></span> | 100% <span class="track on"><i class="w100"></i></span> |
+| shopping | 63.1% <span class="track"><i class="w631"></i></span> | 100% <span class="track on"><i class="w100"></i></span> |
+| erp | 51.6% <span class="track"><i class="w516"></i></span> | 100% <span class="track on"><i class="w100"></i></span> |
+
+Plain은 규모가 커질수록 커버리지가 떨어진다. **Evidence는 100%를 유지한다.**
+
+---
+
+# 토큰 사용량: 4.8–13.3배 절감
+
+<div class="rows">
+<div class="row"><span class="lbl">todo</span><span class="bars"><i class="p b159"></i><i class="e b17"></i></span><span class="val">866M → 92M</span></div>
+<div class="row"><span class="lbl">reddit</span><span class="bars"><i class="p b216"></i><i class="e b45"></i></span><span class="val">1,179M → 245M</span></div>
+<div class="row"><span class="lbl">shopping</span><span class="bars"><i class="p b278"></i><i class="e b50"></i></span><span class="val">1,516M → 271M</span></div>
+<div class="row"><span class="lbl">erp</span><span class="bars"><i class="p b1000"></i><i class="e b75"></i></span><span class="val">5,449M → 411M</span></div>
+</div>
+
+<span class="kp">Plain</span>은 파랑, <span class="ke">Evidence</span>는 주황.
+
+<span class="note">단계별 원본 차트: [https://ttsc.dev/docs/benchmark/evidence](https://ttsc.dev/docs/benchmark/evidence)</span>
+
+---
+
+# ERP: 커버리지 100% · $4.96 · 14시간
+
+<div class="cards">
+<div class="card"><b>13.3×</b>토큰 절감<br/><span class="note">5,449M → 411M</span></div>
+<div class="card"><b>13.9×</b>비용 절감<br/><span class="note">$68.72 → $4.96</span></div>
+<div class="card warm"><b>7.5×</b>시간 단축<br/><span class="note">102h → 14h</span></div>
+</div>
+
+---
+
+# 검토 비중: 토큰의 90–95% → 15–41%
+
+| 과제 | Plain | Evidence |
+| --- | --- | --- |
+| todo | <span class="split"><i class="d97"></i><i class="rev"></i></span> 검토 90% | <span class="split on"><i class="d720"></i><i class="rev"></i></span> 검토 28% |
+| reddit | <span class="split"><i class="d54"></i><i class="rev"></i></span> 검토 95% | <span class="split on"><i class="d808"></i><i class="rev"></i></span> 검토 19% |
+| shopping | <span class="split"><i class="d47"></i><i class="rev"></i></span> 검토 95% | <span class="split on"><i class="d586"></i><i class="rev"></i></span> 검토 41% |
+| erp | <span class="split"><i class="d105"></i><i class="rev"></i></span> 검토 90% | <span class="split on"><i class="d846"></i><i class="rev"></i></span> 검토 15% |
+
+<span class="note">진한 색은 개발, 옅은 색은 검토. 각 칸이 그 과제 토큰의 100%다.</span>
 
 ---
 
@@ -794,7 +908,7 @@ export function CouponStackingNotice(props: IProps): JSX.Element;
 - 사람은 **`docs/requirements`를 직접 검토**한다
 - 설계 명세, 구현, 테스트는 **전부 위임한다**
 
-> 벤치마크의 네 과제도 이 방법을 쓴다.
+> 방금 본 네 과제 모두 이 방법을 썼다.
 
 ---
 
@@ -907,65 +1021,6 @@ export function CouponStackingNotice(props: IProps): JSX.Element;
 
 ---
 
-<!-- _class: divider -->
-
-# 벤치마크
-
-<span class="note">동일한 입력 · 엔진 · 모델 · 플러그인만 차이</span>
-
----
-
-# 커버리지: 51.6–85.5% → 100%
-
-| 과제 | Plain | Evidence |
-| --- | --- | --- |
-| todo | 85.5% <span class="track"><i class="w855"></i></span> | 100% <span class="track on"><i class="w100"></i></span> |
-| reddit | 80.3% <span class="track"><i class="w803"></i></span> | 100% <span class="track on"><i class="w100"></i></span> |
-| shopping | 63.1% <span class="track"><i class="w631"></i></span> | 100% <span class="track on"><i class="w100"></i></span> |
-| erp | 51.6% <span class="track"><i class="w516"></i></span> | 100% <span class="track on"><i class="w100"></i></span> |
-
-Plain은 규모가 커질수록 커버리지가 떨어진다. **Evidence는 100%를 유지한다.**
-
----
-
-# 토큰 사용량: 4.8–13.3배 절감
-
-<div class="rows">
-<div class="row"><span class="lbl">todo</span><span class="bars"><i class="p b159"></i><i class="e b17"></i></span><span class="val">866M → 92M</span></div>
-<div class="row"><span class="lbl">reddit</span><span class="bars"><i class="p b216"></i><i class="e b45"></i></span><span class="val">1,179M → 245M</span></div>
-<div class="row"><span class="lbl">shopping</span><span class="bars"><i class="p b278"></i><i class="e b50"></i></span><span class="val">1,516M → 271M</span></div>
-<div class="row"><span class="lbl">erp</span><span class="bars"><i class="p b1000"></i><i class="e b75"></i></span><span class="val">5,449M → 411M</span></div>
-</div>
-
-<span class="kp">Plain</span>은 파랑, <span class="ke">Evidence</span>는 주황.
-
-<span class="note">단계별 원본 차트: [https://ttsc.dev/docs/benchmark/evidence](https://ttsc.dev/docs/benchmark/evidence)</span>
-
----
-
-# ERP: 커버리지 100% · $4.96 · 14시간
-
-<div class="cards">
-<div class="card"><b>13.3×</b>토큰 절감<br/><span class="note">5,449M → 411M</span></div>
-<div class="card"><b>13.9×</b>비용 절감<br/><span class="note">$68.72 → $4.96</span></div>
-<div class="card warm"><b>7.5×</b>시간 단축<br/><span class="note">102h → 14h</span></div>
-</div>
-
----
-
-# 검토 비중: 토큰의 90–95% → 15–41%
-
-| 과제 | Plain | Evidence |
-| --- | --- | --- |
-| todo | <span class="split"><i class="d97"></i><i class="rev"></i></span> 검토 90% | <span class="split on"><i class="d720"></i><i class="rev"></i></span> 검토 28% |
-| reddit | <span class="split"><i class="d54"></i><i class="rev"></i></span> 검토 95% | <span class="split on"><i class="d808"></i><i class="rev"></i></span> 검토 19% |
-| shopping | <span class="split"><i class="d47"></i><i class="rev"></i></span> 검토 95% | <span class="split on"><i class="d586"></i><i class="rev"></i></span> 검토 41% |
-| erp | <span class="split"><i class="d105"></i><i class="rev"></i></span> 검토 90% | <span class="split on"><i class="d846"></i><i class="rev"></i></span> 검토 15% |
-
-<span class="note">진한 색은 개발, 옅은 색은 검토. 각 칸이 그 과제 토큰의 100%다.</span>
-
----
-
 <!-- _class: dark -->
 
 # 요약
@@ -985,13 +1040,56 @@ Plain은 규모가 커질수록 커버리지가 떨어진다. **Evidence는 100%
 
 ---
 
+<!-- _class: stat-list -->
+
+# 유창함은 작가성이 아니다
+
+- **평탄화**: 못 쓴 글은 아닌데, 누구의 글도 아니다
+- **갈등 소실**: 못되게 굴 인물이 다음 문단에서 사과한다
+- **번역투**: 남의 문장 구조, 관계를 안 따르는 호칭
+
+<span class="note">스튜디오 사례: 쿨한 성격은 죄다 은발, 장르 불문 똑같은 권선징악 엔딩.</span>
+
+---
+
+<!-- _class: stat-list -->
+
+# 느낌이 아니라 측정된 실패다
+
+- 학습이 주제와 감정과 문체를 고르게 깎는다
+- 문예물이 **가장 많이** 잃는다
+- 분량이 늘수록 모순이 **꾸준히** 늘어난다
+- 사실 오류는 앞쪽(**15-30%**), 모순은 뒤쪽(**40-60%**)에 몰린다
+
+<span class="note">Narrative Flattening ([2605.27878](https://arxiv.org/abs/2605.27878)) · ConStory-Bench ([사이트](https://picrew.github.io/constory-bench.github.io/))</span>
+
+---
+
+<!-- _class: stat-list -->
+
 # 매끄러운 장면도 거짓일 수 있다
 
 - **기억**: 인물이 알 리 없는 사실을 쓴다
 - **창작**: 역사, 지리, 동기를 어긴다
+- **모순**: 앞에서 정한 숫자, 연대, 성격을 뒤에서 뒤집는다
 - **개고**: 앞선 수정으로 무효가 된 장면을 남긴다
+- **망각**: 설정 350개 중 안 쓰인 게 뭔지 알 길이 없다
 
 > 장편의 실패는 국소적이지 않고 전역적이다.
+
+---
+
+<!-- _class: stat-list -->
+
+# 여기서는 루프가 오히려 해가 된다
+
+- 회차마다 글이 **모델 자신의 평균**으로 끌려간다
+- 문체와 유창함은 오르고, **정확도는 거의 안 움직인다**
+- 목소리는 매번 평준화되고, **프롬프트로 못 막는다**
+
+> 회차를 늘리면 윤이 날 뿐, 사실이 되지는 않는다.
+
+<span class="note">2026년 개고 연구 두 편 ([2605.13368](https://arxiv.org/abs/2605.13368)) ([2604.22142](https://arxiv.org/abs/2604.22142))</span>
 
 ---
 
@@ -1050,13 +1148,39 @@ Plain은 규모가 커질수록 커버리지가 떨어진다. **Evidence는 100%
 <!-- _class: dark -->
 <!-- _paginate: false -->
 
-# 참고 자료
+# 참고 자료: `@ttsc/evidence`
 
 - https://github.com/samchon/ttsc
   - https://ttsc.dev/docs/evidence
   - https://ttsc.dev/docs/benchmark/evidence
 - https://github.com/samchon/evidence-benchmark-results
-- https://github.com/samchon/novels
+
+---
+
+<!-- _class: dark -->
+<!-- _paginate: false -->
+
+# 참고 자료: 코딩 에이전트
+
+- 명세가 쪼개져 오면 충실도가 떨어진다 ([2603.17104](https://arxiv.org/abs/2603.17104))
+- 장기 작업에서 에이전트가 자기 코드를 침식한다 ([2603.24755](https://arxiv.org/abs/2603.24755))
+- 절차 지시에 동의한 뒤 우회한다 ([2605.01771](https://arxiv.org/abs/2605.01771))
+- 인용이 있으면 지어낸 요구사항을 탐지할 수 있다 ([2606.30689](https://arxiv.org/abs/2606.30689))
+- 명세가 일차 산출물이다 ([2602.00180](https://arxiv.org/abs/2602.00180))
+
+---
+
+<!-- _class: dark -->
+<!-- _paginate: false -->
+
+# 참고 자료: 장편 서사
+
+- 사후 학습이 주제와 정서와 문체를 평탄화한다 ([2605.27878](https://arxiv.org/abs/2605.27878))
+- 결말 예측으로 서사 긴장을 측정한다 ([2604.09854](https://arxiv.org/abs/2604.09854))
+- 일관성 오류가 분량에 비례해 늘어난다 ([ConStory-Bench](https://picrew.github.io/constory-bench.github.io/))
+- 개고는 문체를 올릴 뿐 정확도는 못 올린다 ([2605.13368](https://arxiv.org/abs/2605.13368))
+- 리라이팅이 개인의 목소리를 평준화한다 ([2604.22142](https://arxiv.org/abs/2604.22142))
+- 기계 번역에서의 한국어 경어 ([LREC 2026](https://lrec.elra.info/lrec2026-ws-iaai-03))
 
 ---
 
