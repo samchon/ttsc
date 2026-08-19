@@ -17,6 +17,11 @@ const binary = path.join(
   "ttscgraph",
 );
 const version = require(path.join(root, "package.json")).version;
+// The dump schema version is read from the one place that defines it, rather
+// than repeated here. A copy drifts the moment the real one moves, and this
+// script is the last gate before a release publishes — the failure it produces
+// then looks like a broken binary rather than a stale constant.
+const schemaVersion = readDumpSchemaVersion();
 
 if (!fs.existsSync(binary)) {
   throw new Error(`ttscgraph release smoke: binary does not exist: ${binary}`);
@@ -67,9 +72,9 @@ try {
     "tsconfig.json",
   ]).stdout;
   const graph = JSON.parse(dumped);
-  if (graph.provenance?.schemaVersion !== 6) {
+  if (graph.provenance?.schemaVersion !== schemaVersion) {
     throw new Error(
-      `ttscgraph release smoke: dump schema is ${JSON.stringify(graph.provenance?.schemaVersion)}, want 6`,
+      `ttscgraph release smoke: dump schema is ${JSON.stringify(graph.provenance?.schemaVersion)}, want ${schemaVersion}`,
     );
   }
   if (graph.tsconfig !== "tsconfig.json") {
@@ -115,8 +120,34 @@ try {
 }
 
 console.log(
-  `ttscgraph release smoke: schema v6 portable manifest passed for ${version}`,
+  `ttscgraph release smoke: schema v${schemaVersion} portable manifest passed for ${version}`,
 );
+
+// readDumpSchemaVersion reads the constant out of @ttsc/graph's source.
+//
+// The source rather than the build, because this script runs against a packaged
+// binary in a workflow that has no reason to have built the TypeScript package
+// first. `DUMP_SCHEMA_VERSION` is exported from that module and is the same
+// constant `dump_schema_version_matches_the_typescript_client_test.go` holds the
+// Go producer to, so reading it here puts all three on one number.
+function readDumpSchemaVersion() {
+  const source = path.join(
+    root,
+    "packages",
+    "graph",
+    "src",
+    "model",
+    "loadGraph.ts",
+  );
+  const text = fs.readFileSync(source, "utf8");
+  const match = /export const DUMP_SCHEMA_VERSION = (\d+);/u.exec(text);
+  if (match === null) {
+    throw new Error(
+      `ttscgraph release smoke: could not read DUMP_SCHEMA_VERSION from ${source}`,
+    );
+  }
+  return Number(match[1]);
+}
 
 function run(args) {
   const result = cp.spawnSync(binary, args, {
