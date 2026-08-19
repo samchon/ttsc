@@ -40,8 +40,10 @@ const virtualModulePattern = /\0/;
  * The factory resolves raw options once, creates a per-build transform cache,
  * and captures Vite alias configuration via the `vite.configResolved` hook so
  * that path aliases are forwarded to the generated tsconfig overlay. Real build
- * lifecycles use a per-build cache; Vite's development server keeps persistent
- * validation because its one `buildStart` spans later HMR edits.
+ * lifecycles use a per-build cache; a watching Vite development server keeps
+ * persistent validation because its one `buildStart` spans later HMR edits,
+ * while a dev server configured without a watcher takes the build-scoped path
+ * with them, having declared it will observe no edit at all.
  */
 const unpluginFactory: UnpluginFactory<
   TtscUnpluginOptions | undefined,
@@ -94,7 +96,20 @@ const unpluginFactory: UnpluginFactory<
     },
 
     buildStart() {
-      if (viteCommand === "serve") {
+      // Persistent validation exists for a session that spans later edits, and
+      // a dev server told to open no watcher is not one: `server.watch: null`
+      // leaves Vite with no change channel at all, so nothing in that session
+      // can invalidate, hot-update, or re-request a module after an edit. The
+      // project is therefore no less immutable under it than under a production
+      // build — more so, because a build at least ends and reruns — which is
+      // exactly the premise `beginTtscTransformBuild` rests on. A one-shot
+      // suite configures precisely this (`vitest --run` sets `server.watch =
+      // null`), and it is the workload behind samchon/ttsc#970: routing it to
+      // the persistent path pays a full derived-input validation per delivered
+      // module to detect edits the session could never observe
+      // (samchon/ttsc#1260). The neighbouring watch-registration decision reads
+      // the same two properties for the same reason.
+      if (viteCommand === "serve" && viteWatching) {
         resetTtscTransformCache(transformCache);
       } else {
         beginTtscTransformBuild(transformCache);

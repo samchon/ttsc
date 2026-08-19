@@ -2955,6 +2955,8 @@ function writeGoPlugin(root: string): void {
 }
 
 export {
+  createCacheProject,
+  projectModules,
   assertCacheHitsDespiteOutOfWalkOutputKey,
   assertAppearingCandidateInvalidatesGeneration,
   assertCacheTransformsMultiFileProjectOnce,
