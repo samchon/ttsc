@@ -1,5 +1,12 @@
+import fs from "node:fs";
+import path from "node:path";
+
 import { createNativeProjectContextJson } from "../compiler/internal/project/createNativeProjectContextArgs";
 import { resolveBinary } from "../compiler/internal/resolveBinary";
+import {
+  readCapabilityResolution,
+  writeCapabilityResolution,
+} from "./internal/capabilityResolutionCache";
 import { loadProjectPlugins } from "./internal/loadProjectPlugins";
 
 /**
@@ -58,6 +65,11 @@ export function resolveCapabilityPlugins(options: {
   cwd?: string;
   tsconfig?: string;
 }): ITtscCapabilityPlugin[] {
+  const cwd = path.resolve(options.cwd ?? process.cwd());
+  const tsconfig = options.tsconfig ?? "tsconfig.json";
+  const cached = readCapabilityResolution({ cwd, tsconfig, version });
+  if (cached !== null) return select(cached, options.capability);
+
   const binary = resolveBinary();
   if (binary === null || binary === undefined) return [];
   try {
@@ -78,24 +90,29 @@ export function resolveCapabilityPlugins(options: {
         stage: plugin.stage,
       })),
     );
-    return loaded.nativePlugins
-      .filter(
-        (plugin) =>
-          plugin.binary !== "" &&
-          (plugin.capabilities as Record<string, unknown> | undefined)?.[
-            options.capability
-          ] === true,
-      )
-      .map((plugin) => ({
+    const wantsContext = loaded.nativePlugins.some(
+      (plugin) =>
+        (plugin.capabilities as Record<string, unknown> | undefined)
+          ?.projectContextArgs === true,
+    );
+    const answer = {
+      hostInputs: loaded.hostInputs,
+      manifest,
+      plugins: loaded.nativePlugins.map((plugin) => ({
         binary: plugin.binary,
-        manifest,
-        ...((plugin.capabilities as Record<string, unknown> | undefined)
-          ?.projectContextArgs === true
-          ? {
-              projectContext: createNativeProjectContextJson(loaded.project),
-            }
-          : {}),
-      }));
+        capabilities: Object.fromEntries(
+          Object.entries(
+            (plugin.capabilities as Record<string, unknown> | undefined) ?? {},
+          ).map(([name, declared]) => [name, declared === true] as const),
+        ),
+        source: plugin.source,
+      })),
+      projectContext: wantsContext
+        ? createNativeProjectContextJson(loaded.project)
+        : null,
+    };
+    writeCapabilityResolution({ cwd, tsconfig, version }, answer);
+    return select(answer, options.capability);
   } catch {
     // A project whose plugin configuration does not load is a project the user
     // already sees an error for, from the command that compiles it. Failing here
@@ -104,3 +121,51 @@ export function resolveCapabilityPlugins(options: {
     return [];
   }
 }
+
+/** The declaring plugins, from a resolution however it was obtained. */
+function select(
+  resolution: {
+    manifest: string;
+    projectContext: string | null;
+    plugins: readonly {
+      binary: string;
+      capabilities: Record<string, boolean>;
+    }[];
+  },
+  capability: string,
+): ITtscCapabilityPlugin[] {
+  return resolution.plugins
+    .filter(
+      (plugin) =>
+        plugin.binary !== "" && plugin.capabilities[capability] === true,
+    )
+    .map((plugin) => ({
+      binary: plugin.binary,
+      manifest: resolution.manifest,
+      ...(plugin.capabilities.projectContextArgs === true &&
+      resolution.projectContext !== null
+        ? { projectContext: resolution.projectContext }
+        : {}),
+    }));
+}
+
+/**
+ * This build, as the resolution cache's key material.
+ *
+ * A ttsc upgrade can change what discovery finds — a new descriptor field, a
+ * different resolution order — so an entry written by another build is not this
+ * build's answer.
+ */
+const version = ((): string => {
+  try {
+    const manifest = JSON.parse(
+      fs.readFileSync(
+        path.resolve(__dirname, "..", "..", "package.json"),
+        "utf8",
+      ),
+    ) as { version?: unknown };
+    return typeof manifest.version === "string" ? manifest.version : "0.0.0";
+  } catch {
+    return "0.0.0";
+  }
+})();
