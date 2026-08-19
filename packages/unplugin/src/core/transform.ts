@@ -2884,8 +2884,8 @@ async function createProjectMutationTracker(
 /** Watch exact universal inputs, or their nearest existing parent if missing. */
 async function createHostInputMutationTracker(
   inputs: readonly string[],
-  filesystem: TtscTransformFilesystemOperations = DEFAULT_FILESYSTEM_OPERATIONS,
-  covered?: ReadonlySet<string>,
+  filesystem: TtscTransformFilesystemOperations,
+  covered: ReadonlySet<string>,
 ): Promise<TtscProjectMutationTracker> {
   const identities = createHostPathIdentityContext(filesystem);
   const namesByDirectory = new Map<
@@ -2919,12 +2919,13 @@ async function createHostInputMutationTracker(
   }));
   const tracker: TtscProjectMutationTracker = {
     close: () => undefined,
-    // Coverage is the caller's claim, not this function's: an input is watched
-    // by its exact name here, but only the caller knows whether the whole
-    // lexical path to it is watched as well, which is what a later validation
-    // needs before it trusts the watcher instead of probing the path again
-    // (samchon/ttsc#1261).
-    covered: covered ?? new Set(inputs.map((input) => path.resolve(input))),
+    // Coverage is the caller's claim, and it is required rather than derived
+    // from the input list: an input is watched by its exact name here, but only
+    // the caller knows whether the whole lexical path to it is watched as well,
+    // which is what a later validation needs before it trusts the watcher
+    // instead of probing the path again. Deriving it here would hand that claim
+    // to every future caller by default (samchon/ttsc#1261).
+    covered,
     failed: false,
     membershipChanged: false,
   };
@@ -3595,7 +3596,11 @@ function selectNotifiableAbsentInputs(props: {
   const output: string[] = [];
   const watched: string[] = [];
   const directories = new Set<string>();
+  // Two namespaces, deliberately not one set: candidates are the paths a
+  // delivery may stop probing, while the chain holds the directories that carry
+  // them. Sharing a set would let one silently answer for the other.
   const seen = new Set<string>();
+  const chain = new Set<string>();
   for (const candidates of Object.values(graph.candidates ?? {})) {
     if (!Array.isArray(candidates)) {
       continue;
@@ -3630,8 +3635,8 @@ function selectNotifiableAbsentInputs(props: {
         parent !== child;
         child = parent, parent = path.dirname(child)
       ) {
-        if (seen.has(child)) break;
-        seen.add(child);
+        if (chain.has(child)) break;
+        chain.add(child);
         watched.push(child);
         directories.add(parent);
       }
