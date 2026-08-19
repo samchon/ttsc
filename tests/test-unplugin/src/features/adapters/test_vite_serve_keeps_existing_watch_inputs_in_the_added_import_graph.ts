@@ -16,16 +16,19 @@ import {
  * `this.addWatchFile()`. An input that exists — the tsconfig chain above all —
  * must keep the ordinary registration, which Vite's import-analysis then
  * records as an import edge of the module, preserving HMR invalidation for
- * type-only and config inputs exactly as before the missing-candidate fix.
+ * type-only and config inputs exactly as before the missing-candidate fix. The
+ * server needs its own watcher for that to mean anything: a server configured
+ * without one receives no registration at all, which its own case pins.
  *
- * 1. Serve the linked-workspace fixture and request the entry module once.
+ * 1. Serve the linked-workspace fixture with Vite's own watcher enabled and
+ *    request the entry module once.
  * 2. Read the entry module's import edges from the client module graph.
  * 3. Assert the project tsconfig is among them.
  */
 export const test_vite_serve_keeps_existing_watch_inputs_in_the_added_import_graph =
   async () => {
     const fixture = createLinkedWorkspaceFixture();
-    const server = await startViteServer(fixture);
+    const server = await startViteServer(fixture, { watching: true });
     try {
       await requestMainModule(server);
       const node = await mainModuleNode(server);

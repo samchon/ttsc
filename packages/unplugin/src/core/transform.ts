@@ -345,6 +345,24 @@ function clearTtscTransformCache(cache: TtscTransformCache): void {
 }
 
 /**
+ * What the generation already knows about one derived watch input, handed to
+ * the adapter so it does not rederive it per input per delivery.
+ *
+ * Both facts are generation state: the identity is the memoized
+ * {@link pathIdentityKey} of the input, and `missing` is the existence the
+ * generation recorded and every cache hit revalidates. An adapter that computes
+ * them itself pays a `realpath`, a case-sensitivity directory listing, and an
+ * `existsSync` for every input of every delivered module, which is O(modules x
+ * inputs) for one build (samchon/ttsc#1246).
+ */
+export interface TtscWatchInputEvidence {
+  /** Memoized filesystem identity of the input. */
+  identity: string;
+  /** Whether the generation recorded this input as absent. */
+  missing: boolean;
+}
+
+/**
  * Hooks the bundler adapter passes into {@link transformTtsc} so transform
  * side-channels (plugin-reported dependencies and host resolution candidates)
  * reach the bundler without leaking extra fields on the returned
@@ -363,7 +381,7 @@ export interface TtscTransformHooks {
    * persistent-cache invalidation. See {@link selectWatchInputs} for the exact
    * derivation.
    */
-  addWatchFile?: (file: string) => void;
+  addWatchFile?: (file: string, evidence?: TtscWatchInputEvidence) => void;
   /**
    * Invoked when the plugin declared the transformed file volatile (the
    * envelope's `volatile` list): its output depends on non-file inputs that no
@@ -467,12 +485,7 @@ export async function transformTtsc(
           projectRoot: cached.projectRoot,
           result: cached.result,
         });
-        notifyWatchInputs(hooks, {
-          file,
-          projectRoot: cached.projectRoot,
-          result: cached.result,
-          temporaryTsconfig: cached.temporaryTsconfig,
-        });
+        notifyWatchInputs(hooks, cached, file);
         markCachedSourceServed(cached, file);
         return createTransformResult(source, code);
       }
@@ -511,7 +524,7 @@ export async function transformTtsc(
       projectRoot,
       result,
     });
-    notifyWatchInputs(hooks, { file, projectRoot, result, temporaryTsconfig });
+    notifyWatchInputs(hooks, cached, file);
     markCachedSourceServed(cached, file);
     if (
       isVolatileFile(envelopeDerivation(cached), { file, projectRoot, result })
@@ -654,6 +667,14 @@ interface TtscEnvelopeDerivation {
   dependencyIndex?: Map<string, unknown>;
   /** Per-file memo of the final derived watch-input list. */
   readonly watchInputs: Map<string, string[]>;
+  /**
+   * Lazily built project-walk keys of the envelope's declared inputs, and
+   * whether that build already ran. A graph-free envelope declares no input
+   * set, so `undefined` after a completed build means "compare the whole walk";
+   * see {@link sameHashes}.
+   */
+  declaredInputKeys?: Set<string>;
+  declaredInputKeysBuilt?: boolean;
 }
 
 interface TtscHostInputValidation {
@@ -708,6 +729,22 @@ interface TtscEnvelopeGraphIndexes {
   readonly configs: string[];
   /** Every realized/candidate graph path, keyed by filesystem identity. */
   readonly members: Set<string>;
+  /**
+   * Members the envelope reported only under `graph.candidates`, keyed by
+   * filesystem identity.
+   *
+   * A superseding candidate is by construction a path the compiler did not
+   * select, and usually one it never read at all: resolution stopped at the
+   * target that won, and the host enumerates the higher-priority spellings so
+   * that one appearing later can invalidate the generation. Such a path has no
+   * compile-time read to prove, so it carries the evidence a plugin-declared
+   * dependency path carries (the state recorded when the envelope was produced)
+   * instead of a compiler proof it can never have.
+   *
+   * A candidate that is also a realized input (an edge endpoint, a global, or a
+   * config) is absent from this set and keeps the realized standard.
+   */
+  readonly speculative: Set<string>;
   /** Compiler-time proof for graph members, keyed by filesystem identity. */
   readonly inputProofs: Map<
     string,
@@ -769,6 +806,7 @@ function envelopeGraphIndexes(
     globals: [],
     configs: [],
     members: new Set(),
+    speculative: new Set(),
     inputProofs: new Map(),
     inputProofConflicts: new Set(),
   };
@@ -818,9 +856,15 @@ function envelopeGraphIndexes(
       });
       for (const candidate of candidates) {
         if (typeof candidate !== "string" || candidate.length === 0) continue;
-        built.members.add(
-          derivationIdentity(state, path.resolve(props.projectRoot, candidate)),
+        const identity = derivationIdentity(
+          state,
+          path.resolve(props.projectRoot, candidate),
         );
+        // Edges, globals, and configs are folded in above, so a path still
+        // absent from `members` here is one the envelope reported only as a
+        // candidate.
+        if (!built.members.has(identity)) built.speculative.add(identity);
+        built.members.add(identity);
       }
     }
     for (const [input, hash] of Object.entries(graph.inputHashes ?? {})) {
@@ -930,19 +974,31 @@ function collectDeclaredIdentities(
  */
 function notifyWatchInputs(
   hooks: TtscTransformHooks | undefined,
-  props: {
-    file: string;
-    projectRoot: string;
-    result: ITtscCompilerTransformation;
-    temporaryTsconfig?: string;
-  },
+  cached: TtscCachedProjectTransform,
+  file: string,
 ): void {
   const addWatchFile = hooks?.addWatchFile;
   if (addWatchFile === undefined) {
     return;
   }
-  for (const input of selectWatchInputs(props)) {
-    addWatchFile(input);
+  const state = envelopeDerivation(cached);
+  const external = cached.externalInputHashes ?? {};
+  for (const input of selectWatchInputs({
+    file,
+    projectRoot: cached.projectRoot,
+    result: cached.result,
+    temporaryTsconfig: cached.temporaryTsconfig,
+  })) {
+    // Hand the adapter the identity this generation already resolved and the
+    // existence state it already recorded. Both are memoized per generation,
+    // while an adapter deriving them itself pays a `realpath`, a directory
+    // listing, and an `existsSync` per input on every delivery of every module
+    // (samchon/ttsc#1246).
+    const identity = derivationIdentity(state, input);
+    addWatchFile(input, {
+      identity,
+      missing: external[identity] === MISSING_INPUT_STATE,
+    });
   }
 }
 
@@ -2194,6 +2250,7 @@ function matchesCompleteInputSnapshot(
   ) {
     return false;
   }
+  const declaredInputs = declaredProjectInputKeys(state, cached);
   const current = collectProjectInputSnapshot(
     cached.projectRoot,
     state.identityContext,
@@ -2202,7 +2259,7 @@ function matchesCompleteInputSnapshot(
       ? undefined
       : { hashes: cached.inputHashes, signatures: cached.inputSignatures },
   );
-  if (!current.complete) {
+  if (!walkSnapshotComplete(current, declaredInputs)) {
     return false;
   }
   if (
@@ -2214,7 +2271,7 @@ function matchesCompleteInputSnapshot(
     return false;
   }
   current.hashes[currentKey] = hashText(source);
-  if (!sameHashes(cached.inputHashes, current.hashes)) {
+  if (!sameHashes(cached.inputHashes, current.hashes, declaredInputs)) {
     return false;
   }
   // Re-hash the out-of-walk inputs the compiler reported for this generation
@@ -2333,7 +2390,15 @@ function captureExternalInputSnapshot(
   };
   for (const input of paths) {
     const identity = derivationIdentity(state, input);
-    if (graph.members.has(identity)) {
+    // A member the envelope reported only as a resolution candidate falls
+    // through to the recorded-state branch below, the same evidence a
+    // plugin-declared dependency path carries. Its absence still invalidates
+    // the generation when it appears, because `missing` is recorded state.
+    const speculativeOnly =
+      graph.speculative.has(identity) &&
+      !graph.inputProofs.has(identity) &&
+      !graph.inputProofConflicts.has(identity);
+    if (graph.members.has(identity) && !speculativeOnly) {
       const proof = graph.inputProofs.get(identity);
       if (proof === undefined || graph.inputProofConflicts.has(identity)) {
         complete = false;
@@ -2389,14 +2454,19 @@ function matchesCompilerGraphInputProofs(
   const state = envelopeDerivation(cached);
   const filesystem = resultFilesystem(cached.result);
   const graph = envelopeGraphIndexes(state, cached);
-  if (
-    graph.inputProofConflicts.size !== 0 ||
-    graph.inputProofs.size !== graph.members.size
-  ) {
+  if (graph.inputProofConflicts.size !== 0) {
     return false;
   }
   for (const identity of graph.members) {
     const proof = graph.inputProofs.get(identity);
+    // A speculative candidate has no compile-time read to prove. Requiring one
+    // would void every generation of every project whose resolution passes over
+    // a higher-priority spelling, which is every project with a dependency
+    // typed by a declaration file (samchon/ttsc#1245). It is validated instead
+    // against the state {@link captureExternalInputSnapshot} recorded for it.
+    if (proof === undefined && graph.speculative.has(identity)) {
+      continue;
+    }
     if (
       proof === undefined ||
       graphInputStateHash(proof.path, filesystem) !== proof.hash ||
@@ -2500,14 +2570,18 @@ function collectProjectInputSnapshot(
   },
 ): {
   complete: boolean;
+  directoryComplete: boolean;
   fileSignatures: Record<string, string>;
   hashes: Record<string, string>;
   projectDirectories: TtscProjectDirectorySnapshot[];
   provenSignatures: Record<string, string>;
+  unstableFiles: Set<string>;
 } {
   const hashes: Record<string, string> = {};
   const fileSignatures: Record<string, string> = {};
   const provenSignatures: Record<string, string> = {};
+  const unstableFiles = new Set<string>();
+  let attributed = true;
   const walked = walkProjectInputs(projectRoot, filesystem);
   let complete = walked.complete;
   for (const file of walked.files) {
@@ -2539,6 +2613,7 @@ function collectProjectInputSnapshot(
         before.signature !== after
       ) {
         complete = false;
+        unstableFiles.add(key);
       } else {
         fileSignatures[key] = after;
         // Only a signature whose stamp's tick the filesystem's clock provably
@@ -2553,14 +2628,23 @@ function collectProjectInputSnapshot(
       // File watchers may observe a transform while another process is moving
       // or deleting files. The missing key invalidates older cache entries.
       complete = false;
+      try {
+        unstableFiles.add(toProjectKey(projectRoot, file, identities));
+      } catch {
+        // Without a key the failure cannot be attributed, so it keeps the
+        // whole snapshot incomplete rather than being scoped away.
+        attributed = false;
+      }
     }
   }
   return {
     complete,
+    directoryComplete: walked.complete && attributed,
     fileSignatures,
     hashes,
     projectDirectories: walked.directories,
     provenSignatures,
+    unstableFiles,
   };
 }
 
@@ -3321,16 +3405,179 @@ function isIgnoredProjectDirectory(name: string): boolean {
   );
 }
 
+/**
+ * Compare two project-walk snapshots.
+ *
+ * `keys` narrows the comparison to the generation's declared inputs. The walk
+ * hashes every file under the project root, but only a file the compile
+ * actually consumed can change an output, and a project root is a working
+ * directory: a framework's generated types, a log, a coverage report, or a test
+ * artifact appears and changes there while a compile runs. Comparing those
+ * would declare the generation incoherent and cost a whole-project recompile
+ * for every remaining module (samchon/ttsc#1246). Files entering or leaving the
+ * project remain covered by the directory-membership snapshot, which is the one
+ * thing a content comparison cannot see. An envelope that declares no input set
+ * (a graph-free legacy host) passes `undefined` and keeps the whole-walk
+ * comparison.
+ */
 function sameHashes(
   left: Record<string, string>,
   right: Record<string, string>,
+  keys?: ReadonlySet<string>,
 ): boolean {
+  if (keys !== undefined) {
+    for (const key of keys) {
+      if (left[key] !== right[key]) return false;
+    }
+    return true;
+  }
   const leftKeys = Object.keys(left);
   const rightKeys = Object.keys(right);
   if (leftKeys.length !== rightKeys.length) {
     return false;
   }
   return leftKeys.every((key) => right[key] === left[key]);
+}
+
+/**
+ * Whether a project-walk snapshot is coherent for the inputs that matter.
+ *
+ * The walk reads every file under the project root, so a file nothing compiled
+ * (a log being appended, a coverage report being written, a generated artifact
+ * being replaced) can fail its own read sandwich while every input holds still.
+ * That is not evidence about the generation, and treating it as such costs a
+ * whole-project recompile per delivered module. A walk that could not enumerate
+ * a directory, or a file-level failure this snapshot could not attribute to a
+ * key, still taints everything: neither can be shown to leave the inputs
+ * alone.
+ */
+function walkSnapshotComplete(
+  snapshot: {
+    complete: boolean;
+    directoryComplete: boolean;
+    unstableFiles: Set<string>;
+  },
+  declared: ReadonlySet<string> | undefined,
+): boolean {
+  if (declared === undefined) {
+    return snapshot.complete;
+  }
+  if (!snapshot.directoryComplete) {
+    return false;
+  }
+  for (const key of snapshot.unstableFiles) {
+    if (declared.has(key)) return false;
+  }
+  return true;
+}
+
+/** {@link selectDeclaredProjectInputKeys} memoized per envelope generation. */
+function declaredProjectInputKeys(
+  state: TtscEnvelopeDerivation,
+  cached: TtscCachedProjectTransform,
+): Set<string> | undefined {
+  if (state.declaredInputKeysBuilt !== true) {
+    state.declaredInputKeys = selectDeclaredProjectInputKeys({
+      identities: state.identityContext,
+      projectRoot: cached.projectRoot,
+      result: cached.result,
+    });
+    state.declaredInputKeysBuilt = true;
+  }
+  return state.declaredInputKeys;
+}
+
+/**
+ * Project-walk keys of every input the envelope declares: the reference graph's
+ * edge endpoints, globals, config chain, and resolution candidates, plus the
+ * universal host inputs. Returns `undefined` for an envelope with no graph,
+ * which declares no input set and therefore keeps whole-walk comparison.
+ */
+function selectDeclaredProjectInputKeys(props: {
+  identities: FilesystemPathIdentityContext;
+  projectRoot: string;
+  result: ITtscCompilerTransformation;
+}): Set<string> | undefined {
+  if (props.result.type === "exception" || props.result.graph === undefined) {
+    return undefined;
+  }
+  const graph = props.result.graph;
+  const keys = new Set<string>();
+  const add = (entry: unknown): void => {
+    if (typeof entry !== "string" || entry.length === 0) return;
+    keys.add(
+      toProjectKey(
+        props.projectRoot,
+        path.resolve(props.projectRoot, entry),
+        props.identities,
+      ),
+    );
+  };
+  for (const [source, targets] of Object.entries(graph.edges ?? {})) {
+    add(source);
+    if (Array.isArray(targets)) for (const target of targets) add(target);
+  }
+  for (const input of graph.globals ?? []) add(input);
+  for (const input of graph.configs ?? []) add(input);
+  for (const [source, candidates] of Object.entries(graph.candidates ?? {})) {
+    add(source);
+    if (Array.isArray(candidates)) for (const entry of candidates) add(entry);
+  }
+  for (const input of props.result.hostInputs ?? []) add(input);
+  // Plugin-reported dependencies are inputs the graph never sees: a utility
+  // plugin's own config file is consulted by the plugin, not by the compiler.
+  for (const reported of Object.values(props.result.dependencies ?? {})) {
+    if (Array.isArray(reported)) for (const input of reported) add(input);
+  }
+  return keys;
+}
+
+/**
+ * Project roots already told they cannot reuse a compile, so a build reports
+ * the condition once instead of once per module.
+ */
+const REPORTED_UNREUSABLE_GENERATIONS = new Set<string>();
+
+/**
+ * Report, once per project root, that a generation cannot be reused.
+ *
+ * Every module of the build then recompiles the whole project, so the condition
+ * is the difference between one compile and one compile per module. It stayed
+ * invisible for the whole life of samchon/ttsc#970: consumers saw only a build
+ * that never finished, and each investigation had to rediscover the cause from
+ * outside. A named reason turns the next occurrence into a bug report instead
+ * of an archaeology session.
+ */
+function reportUnreusableGeneration(
+  cached: TtscCachedProjectTransform,
+  evidence: {
+    externalInputs: boolean;
+    graphProofs: boolean;
+    universalInputs: boolean;
+    walkStable: boolean;
+  },
+): void {
+  const missing = [
+    ...(evidence.walkStable ? [] : ["a stable project snapshot"]),
+    ...(evidence.graphProofs ? [] : ["compiler proofs for its graph inputs"]),
+    ...(evidence.externalInputs
+      ? []
+      : ["a complete out-of-walk input snapshot"]),
+    ...(evidence.universalInputs ? [] : ["a universal host-input manifest"]),
+  ];
+  const key = `${cached.projectRoot}\0${missing.join(",")}`;
+  if (REPORTED_UNREUSABLE_GENERATIONS.has(key)) {
+    return;
+  }
+  REPORTED_UNREUSABLE_GENERATIONS.add(key);
+  process.stderr.write(
+    `ttsc: the transform cache cannot reuse this project's compile, so every ` +
+      `module recompiles the whole project.\n` +
+      `  project: ${cached.projectRoot}\n` +
+      `  missing: ${missing.join("; ")}\n` +
+      `  Please report this at https://github.com/samchon/ttsc/issues with ` +
+      `this message.\n`,
+  );
 }
 
 function hashText(input: string | Buffer): string {
@@ -3420,11 +3667,20 @@ async function transformProject(props: {
     // unstable walk pair; whether notifications can be *opened* is a separate
     // fact, tracked below, because a generation with no watcher is still
     // provable from its own recorded state.
-    let stableProjectSnapshot =
-      before.complete &&
-      inputSnapshot.complete &&
-      sameHashes(before.hashes, inputSnapshot.hashes) &&
-      sameHashes(before.fileSignatures, inputSnapshot.fileSignatures) &&
+    const declaredInputs = selectDeclaredProjectInputKeys({
+      identities,
+      projectRoot,
+      result,
+    });
+    const walkStable =
+      walkSnapshotComplete(before, declaredInputs) &&
+      walkSnapshotComplete(inputSnapshot, declaredInputs) &&
+      sameHashes(before.hashes, inputSnapshot.hashes, declaredInputs) &&
+      sameHashes(
+        before.fileSignatures,
+        inputSnapshot.fileSignatures,
+        declaredInputs,
+      ) &&
       sameProjectDirectories(
         before.projectDirectories,
         inputSnapshot.projectDirectories,
@@ -3470,12 +3726,29 @@ async function transformProject(props: {
     cached.externalInputHashes = externalInputSnapshot.hashes;
     cached.externalInputRealpaths = externalInputSnapshot.realpaths;
     cached.externalInputSignatures = externalInputSnapshot.signatures;
-    stableProjectSnapshot =
-      stableProjectSnapshot &&
-      matchesCompilerGraphInputProofs(cached) &&
-      externalInputSnapshot.complete &&
+    // Evaluate every half, rather than short-circuiting, so a generation that
+    // cannot be reused can say which evidence it lacked. The extra work runs
+    // only on the failing path, where the alternative is recompiling the whole
+    // project for every remaining module.
+    const graphProofs = matchesCompilerGraphInputProofs(cached);
+    const universalInputs =
       captureUniversalHostInputValidation(cached, props.currentFile) !==
-        undefined;
+      undefined;
+    const stableProjectSnapshot =
+      walkStable &&
+      graphProofs &&
+      externalInputSnapshot.complete &&
+      universalInputs;
+    // Only a caching host loses anything here: without a cache every delivery
+    // compiles by design, so an unprovable generation costs it nothing.
+    if (!stableProjectSnapshot && props.trackProjectMembership) {
+      reportUnreusableGeneration(cached, {
+        externalInputs: externalInputSnapshot.complete,
+        graphProofs,
+        universalInputs,
+        walkStable,
+      });
+    }
     cached.projectSnapshotComplete = stableProjectSnapshot;
     // Attach notifications only while they can actually prove membership. A
     // generation that could not open its watchers keeps its recorded snapshot

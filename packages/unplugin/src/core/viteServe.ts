@@ -86,8 +86,15 @@ export interface ViteServeMissingInputWatch {
    * config's `command`, as the adapter does.
    */
   serving(): boolean;
-  /** Register one missing watch input derived for `importer`. */
-  watch(input: string, importer: string): void;
+  /**
+   * Register one missing watch input derived for `importer`.
+   *
+   * `identity` is the filesystem identity the transform generation already
+   * resolved for `input`. Resolving it here instead costs a `realpath` and a
+   * case-sensitivity directory listing per input per delivery, because a
+   * per-call identity context memoizes nothing (samchon/ttsc#1246).
+   */
+  watch(input: string, importer: string, identity?: string): void;
 }
 
 /** Poll bookkeeping for one registered missing path. */
@@ -125,9 +132,9 @@ export function createViteServeMissingInputWatch(): ViteServeMissingInputWatch {
     serving() {
       return server !== undefined;
     },
-    watch(input, importer) {
+    watch(input, importer, resolved) {
       const spelling = path.resolve(input);
-      const identity = pathIdentityKey(spelling);
+      const identity = resolved ?? pathIdentityKey(spelling);
       const existing = entries.get(identity);
       if (existing !== undefined) {
         existing.importers.add(path.resolve(importer));

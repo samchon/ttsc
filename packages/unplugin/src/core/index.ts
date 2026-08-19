@@ -52,6 +52,7 @@ const unpluginFactory: UnpluginFactory<
   const missingInputs = createViteServeMissingInputWatch();
   let aliases: unknown;
   let viteCommand: string | undefined;
+  let viteWatching = true;
 
   return {
     name,
@@ -65,6 +66,16 @@ const unpluginFactory: UnpluginFactory<
         // serve-time poll, even though the closed server stays attached
         // (see the dispose note in viteServe.ts).
         viteCommand = config.command;
+        // `server.watch: null` disables Vite's watcher outright, which is how
+        // a one-shot consumer (a `vitest --run` suite above all) configures the
+        // dev server. Nothing can then deliver a change event, so every watch
+        // registration is dead weight, and not cheap dead weight: Vite's
+        // import analysis resolves each registered path like a real import of
+        // the transformed module, once per module, which is the dominant cost
+        // of a delivered module in a project with a real dependency graph
+        // (samchon/ttsc#1246).
+        viteWatching =
+          (config as { server?: { watch?: unknown } }).server?.watch !== null;
       },
       // Vite serve funnels every transform-context `addWatchFile()` into the
       // module's added-import graph (`_addedImports`), which import-analysis
@@ -111,13 +122,28 @@ const unpluginFactory: UnpluginFactory<
         // (a superseding resolution candidate, a not-yet-generated
         // dependency), so those are watched on the filesystem instead and
         // invalidate this module when created.
-        addWatchFile: (watched) => {
-          if (
-            viteCommand === "serve" &&
-            missingInputs.serving() &&
-            !fs.existsSync(watched)
-          ) {
-            missingInputs.watch(watched, path.resolve(file));
+        addWatchFile: (watched, evidence) => {
+          if (viteCommand === "serve" && missingInputs.serving()) {
+            // Trust the generation's recorded existence when it supplied one:
+            // every cache hit revalidates it, and probing each input again
+            // costs one `existsSync` per input per delivered module.
+            const missing = evidence?.missing ?? !fs.existsSync(watched);
+            if (missing) {
+              missingInputs.watch(
+                watched,
+                path.resolve(file),
+                evidence?.identity,
+              );
+              return;
+            }
+          }
+          // A dev server configured without a watcher can never deliver a
+          // change event, so a registration here buys nothing, and it is not
+          // free: Vite's import analysis resolves every registered path like a
+          // real import of the transformed module, once per module. The
+          // adapter's own missing-input poll above stays active either way,
+          // because it never depended on Vite's watcher.
+          if (viteCommand === "serve" && !viteWatching) {
             return;
           }
           this.addWatchFile(watched);
@@ -149,6 +175,7 @@ export type {
 export type {
   TtscTransformFilesystemOperations,
   TtscTransformHooks,
+  TtscWatchInputEvidence,
 } from "./transform";
 export {
   beginTtscTransformBuild,

@@ -56,7 +56,31 @@ interface ICacheProjectOptions {
   externalSnapshotAbaRace?: boolean;
   fileCount?: number;
   graphFanout?: number;
+  /**
+   * Stamp this many superseding resolution candidates per module: higher
+   * priority spellings (`node_modules/dep{j}/index.ts`) that do not exist and
+   * that the fixture deliberately leaves without a compiler proof, exactly as
+   * `driver.SupersedingModuleCandidates` does for every real project whose
+   * resolution passes over a `.ts` spelling on its way to a `.d.ts`.
+   *
+   * Requires a positive `graphFanout`: the fixture builds the whole `graph`
+   * section only for a graph-bearing envelope.
+   */
+  graphCandidates?: number;
   graphGlobals?: number;
+  /**
+   * Project-relative path the fixture transform writes while the compile runs,
+   * for a file that is not an input of that compile (a build log, a coverage
+   * report, a framework's generated artifact). It must not cost the
+   * generation.
+   */
+  nonInputRaceFile?: string;
+  /**
+   * Drop the compiler proof of one realized graph edge target entirely, the
+   * shape a host reports for an input it read but could not prove. Unlike a
+   * candidate, this must refuse reuse.
+   */
+  unprovenGraphInput?: boolean;
   /**
    * Stamp one graph member with no compiler-time content hash while keeping its
    * physical-identity proof, the shape a host reports for an input it could see
@@ -243,6 +267,131 @@ async function assertCacheHitsDespiteOutOfWalkOutputKey(): Promise<void> {
   for (const code of outputs) {
     assert.match(code, /PROBED/);
   }
+}
+
+/**
+ * Asserts samchon/ttsc#1245: a graph carrying superseding resolution candidates
+ * still compiles the project once.
+ *
+ * A candidate is a spelling strictly ahead of the resolution target that won,
+ * so the compiler never selected it and usually never read it: no compile-time
+ * proof for it can exist. Requiring one made `projectSnapshotComplete` false
+ * for every generation of every project that resolves a dependency through a
+ * declaration file, which closed the build-scoped shortcut, the narrow
+ * persistent path, and complete-snapshot validation at once. Each refusal
+ * evicts the generation, so the next module recompiled the whole project and
+ * produced another unprovable generation, forever.
+ *
+ * 1. Build a six-file project whose envelope stamps three unproven candidates per
+ *    module.
+ * 2. Run a transform over every module sharing one persistent cache.
+ * 3. Assert the plugin ran exactly once, not once per module.
+ */
+async function assertUnprovenCandidatesKeepOneCompile(): Promise<void> {
+  const { pluginRuns, outputs } = await runProjectBuild({
+    fileCount: 6,
+    graphCandidates: 3,
+    graphFanout: 4,
+  });
+  assert.equal(pluginRuns, 1);
+  assert.equal(outputs.length, 6);
+  for (const code of outputs) {
+    assert.match(code, /PROBED/);
+  }
+}
+
+/**
+ * Asserts the candidate relaxation keeps its own invalidation: a superseding
+ * candidate that appears must still replace the generation.
+ *
+ * The recorded `missing` marker is state, not the absence of state, so the
+ * negative twin of {@link assertUnprovenCandidatesKeepOneCompile} is that
+ * creating the higher-priority spelling changes resolution and therefore must
+ * recompile the project.
+ *
+ * 1. Deliver one module from a generation that recorded three missing candidates.
+ * 2. Create the first candidate on disk.
+ * 3. Deliver a sibling module and assert the plugin ran a second time.
+ */
+async function assertAppearingCandidateInvalidatesGeneration(): Promise<void> {
+  const { createTtscTransformCache, resolveOptions, transformTtsc } =
+    await TestUnpluginRuntime.loadUnpluginApi();
+  const project = createCacheProject({
+    fileCount: 3,
+    graphCandidates: 3,
+    graphFanout: 4,
+  });
+  const cache = createTtscTransformCache();
+  const modules = projectModules(project.root);
+  const options = resolveOptions();
+  const deliver = async (file: string): Promise<void> => {
+    const result = await transformTtsc(
+      file,
+      fs.readFileSync(file, "utf8"),
+      options,
+      undefined,
+      cache,
+    );
+    assert.ok(result, `expected transformed output for ${file}`);
+  };
+  await deliver(modules[0]!);
+  const runsBefore = fs.readFileSync(project.runLog, "utf8").length;
+  assert.equal(runsBefore, 1);
+  const candidate = path.join(project.root, "node_modules", "dep0", "index.ts");
+  fs.mkdirSync(path.dirname(candidate), { recursive: true });
+  fs.writeFileSync(candidate, "export const superseding = 1;\n", "utf8");
+  await deliver(modules[1]!);
+  assert.equal(fs.readFileSync(project.runLog, "utf8").length, 2);
+}
+
+/**
+ * Asserts a realized graph member with no compiler proof still refuses reuse.
+ *
+ * The candidate relaxation is scoped to paths the envelope reported _only_ as
+ * resolution candidates. An edge target is a file the compile read, so a
+ * missing proof for it means the generation cannot be shown to describe one
+ * coherent state, and replaying it could serve output computed from bytes that
+ * changed during the compile.
+ *
+ * 1. Build a four-file project whose envelope drops the proof of one edge target.
+ * 2. Run a transform over every module sharing one persistent cache.
+ * 3. Assert the project was recompiled for every module.
+ */
+async function assertUnprovenRealizedInputRefusesReuse(): Promise<void> {
+  const { pluginRuns, outputs } = await runProjectBuild({
+    fileCount: 4,
+    graphFanout: 4,
+    unprovenGraphInput: true,
+  });
+  assert.equal(pluginRuns, 4);
+  assert.equal(outputs.length, 4);
+}
+
+/**
+ * Asserts samchon/ttsc#1246: a file written inside the project root during a
+ * compile does not cost the generation when it is not an input of that
+ * compile.
+ *
+ * A project root is a working directory. A framework's generated types, a
+ * coverage report, a log, or a test artifact appears and changes there while a
+ * compile runs, and comparing every walked file made those generations
+ * incoherent, which cost a whole-project recompile per delivered module. Only a
+ * declared input can change an output; files entering or leaving the project
+ * stay covered by the directory-membership snapshot.
+ *
+ * 1. Build a six-file project whose fixture transform rewrites
+ *    `fixtures/build.log` (never an input) on every run.
+ * 2. Run a transform over every module sharing one persistent cache.
+ * 3. Assert the plugin ran exactly once.
+ */
+async function assertNonInputWriteDuringCompileKeepsGeneration(): Promise<void> {
+  const { pluginRuns, outputs } = await runProjectBuild({
+    fileCount: 6,
+    graphFanout: 4,
+    nonInputRaceFile: "fixtures/build.log",
+  });
+  assert.equal(pluginRuns, 1);
+  assert.equal(outputs.length, 6);
 }
 
 /**
@@ -2360,6 +2509,14 @@ function createCacheProject(options: ICacheProjectOptions): {
     JSON.stringify({ private: true, type: "commonjs" }, null, 2),
     "utf8",
   );
+  if (options.nonInputRaceFile !== undefined) {
+    // Materialize it before the first compile: the scenario is a file that
+    // keeps changing, not one that appears. A new file is a membership change,
+    // which the directory snapshot is supposed to catch.
+    const target = path.join(root, options.nonInputRaceFile);
+    fs.mkdirSync(path.dirname(target), { recursive: true });
+    fs.writeFileSync(target, "seed\n", "utf8");
+  }
   for (
     let index = 0;
     index < (options.unrelatedDirectoryCount ?? 0);
@@ -2391,7 +2548,10 @@ function createCacheProject(options: ICacheProjectOptions): {
                 options.aliasedGlobal === true && process.platform !== "win32",
               graphFanout: options.graphFanout ?? 0,
               graphGlobals: options.graphGlobals ?? 0,
+              graphCandidates: options.graphCandidates ?? 0,
+              nonInputRaceFile: options.nonInputRaceFile ?? "",
               unhashedGraphInput: options.unhashedGraphInput === true,
+              unprovenGraphInput: options.unprovenGraphInput === true,
               independentGraphLeaf: options.independentGraphLeaf,
               partitionGraph: options.partitionGraph === true,
               ...(options.snapshotAbaRace === true
@@ -2556,6 +2716,7 @@ function writeGoPlugin(root: string): void {
       '  "os"',
       '  "path/filepath"',
       '  "strings"',
+      '  "time"',
       ")",
       "",
       "type pluginDescriptor struct {",
@@ -2566,6 +2727,7 @@ function writeGoPlugin(root: string): void {
       '  Edges   map[string][]string `json:"edges"`',
       '  Globals []string            `json:"globals"`',
       '  Configs []string            `json:"configs"`',
+      '  Candidates map[string][]string `json:"candidates,omitempty"`',
       '  InputHashes map[string]*string `json:"inputHashes,omitempty"`',
       '  InputRealpaths map[string]*string `json:"inputRealpaths,omitempty"`',
       "}",
@@ -2610,6 +2772,16 @@ function writeGoPlugin(root: string): void {
       "",
       "  ts := map[string]string{}",
       "  observedInputs := map[string]string{}",
+      // Write one file that is not an input of this compile while the compile
+      // runs, the way a framework's type generator, a coverage reporter, or a
+      // log writes inside a project root. The bytes differ on every run, so a
+      // generation that compared it would never be reusable.
+      '  if nonInput := stringValue(cfg, "nonInputRaceFile"); nonInput != "" {',
+      "    target := nonInput",
+      "    if !filepath.IsAbs(target) { target = filepath.Join(root, filepath.FromSlash(nonInput)) }",
+      "    os.MkdirAll(filepath.Dir(target), 0o755)",
+      '    os.WriteFile(target, []byte(fmt.Sprintf("run-%d\\n", time.Now().UnixNano())), 0o644)',
+      "  }",
       '  srcDir := filepath.Join(root, "src")',
       "  entries, err := os.ReadDir(srcDir)",
       "  if err != nil { fmt.Fprintln(os.Stderr, err); return 2 }",
@@ -2696,6 +2868,28 @@ function writeGoPlugin(root: string): void {
       '    if boolValue(cfg, "unhashedGraphInput") {',
       '      result.Graph.InputHashes["node_modules/dep0/index.d.ts"] = nil',
       "    }",
+      // Superseding resolution candidates, exactly as the real host emits
+      // them: higher-priority spellings the resolver never selected, and
+      // therefore never read, so no compiler proof exists for them. The host
+      // enumerates them speculatively (driver/resolution_candidates.go), which
+      // is why addGraphInputProof is deliberately not called here.
+      '    if probes := int(numberValue(cfg, "graphCandidates")); probes > 0 {',
+      "      result.Graph.Candidates = map[string][]string{}",
+      "      for _, name := range names {",
+      "        spellings := make([]string, 0, probes)",
+      "        for j := 0; j < probes; j++ {",
+      '          spellings = append(spellings, fmt.Sprintf("node_modules/dep%d/index.ts", j))',
+      "        }",
+      '        result.Graph.Candidates["src/"+name] = spellings',
+      "      }",
+      "    }",
+      '    if boolValue(cfg, "unprovenGraphInput") {',
+      // A realized edge target whose proof the host could not produce. Unlike a
+      // candidate, the compile read this file, so the generation stays
+      // unprovable and must not be reused.
+      '      delete(result.Graph.InputHashes, "node_modules/dep0/index.d.ts")',
+      '      delete(result.Graph.InputRealpaths, "node_modules/dep0/index.d.ts")',
+      "    }",
       '    if boolValue(cfg, "aliasedGlobal") {',
       '      alias := "node_modules/global0/alias.d.ts"',
       "      result.Graph.Globals = append(result.Graph.Globals, alias)",
@@ -2762,7 +2956,11 @@ function writeGoPlugin(root: string): void {
 
 export {
   assertCacheHitsDespiteOutOfWalkOutputKey,
+  assertAppearingCandidateInvalidatesGeneration,
   assertCacheTransformsMultiFileProjectOnce,
+  assertNonInputWriteDuringCompileKeepsGeneration,
+  assertUnprovenCandidatesKeepOneCompile,
+  assertUnprovenRealizedInputRefusesReuse,
   assertCompleteValidationProvesEachInputOnce,
   assertCompileSnapshotRaceCannotAuthorizeStaleOutput,
   assertCompileSnapshotAbaRaceCannotAuthorizeStaleOutput,

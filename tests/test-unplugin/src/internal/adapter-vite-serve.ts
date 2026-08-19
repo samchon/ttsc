@@ -153,9 +153,20 @@ export async function assertFixtureDerivesMissingCandidate(
   );
 }
 
-/** Start a real Vite dev server over the fixture with the ttsc adapter. */
+/**
+ * Start a real Vite dev server over the fixture with the ttsc adapter.
+ *
+ * `watching` opts into Vite's own chokidar watcher. It stays off by default:
+ * these scenarios assert the adapter's filesystem poll (which must work exactly
+ * where chokidar does not look), and on Windows a chokidar instance can outlive
+ * `server.close()` and keep the test runner process alive. A scenario that
+ * asserts what the adapter hands to Vite's watch graph needs a server that has
+ * one, because a server without a watcher deliberately receives no
+ * registrations at all.
+ */
 export async function startViteServer(
   fixture: IViteServeCandidateFixture,
+  options: { watching?: boolean } = {},
 ): Promise<any> {
   const unpluginVite = await TestUnpluginRuntime.loadUnpluginAdapter("vite");
   return viteCreateServer({
@@ -167,11 +178,11 @@ export async function startViteServer(
     optimizeDeps: { include: [], noDiscovery: true },
     plugins: [unpluginVite()],
     root: fixture.app,
-    // `watch: null` disables the server's own chokidar watcher: these
-    // scenarios assert the adapter's filesystem poll (which must work exactly
-    // where chokidar does not look), and on Windows a chokidar instance can
-    // outlive `server.close()` and keep the test runner process alive.
-    server: { hmr: false, middlewareMode: true, watch: null },
+    server: {
+      hmr: false,
+      middlewareMode: true,
+      ...(options.watching === true ? {} : { watch: null }),
+    },
   });
 }
 
