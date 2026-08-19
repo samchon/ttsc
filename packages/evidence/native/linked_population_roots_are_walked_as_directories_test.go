@@ -2,6 +2,7 @@ package evidence
 
 import (
   "os"
+  "os/exec"
   "path/filepath"
   "runtime"
   "strings"
@@ -384,8 +385,9 @@ func TestALinkChainBeyondTheResolverIsReportedNotWalked(t *testing.T) {
   assertProblemContains(
     t,
     messages,
-    "could not walk Markdown root '../documents': the root is a chain of links this rule stops following",
+    "found no directory at the end of the markdown root '../documents'",
   )
+  assertProblemContains(t, messages, "a chain of links longer than this rule follows")
   if countProblemsContaining(messages, "matched no markdown files") != 0 {
     t.Fatalf(
       "a root the walk never reached is a failed population, not an empty one:\n%s",
@@ -535,9 +537,13 @@ func TestALocationIsSpelledTheWayAReaderOpensIt(t *testing.T) {
  * fails the match, the claim selects nothing, and it deactivates without a word.
  * Measured before the repair: no diagnostic at all.
  *
+ * It sits with the linked-root cases because the root is the subject, not the
+ * walk, and this file's name names the repair rather than the mechanism.
+ *
  *  1. Link a directory onto the project and root a TypeScript claim at the link.
- *  2. Leave its reference's selected section uncited.
- *  3. Assert the claim is active by reading the acknowledgement it owes.
+ *  2. Leave its reference's selected section uncited, and give the host a tag
+ *     the rule reports by position.
+ *  3. Assert the claim is active, and that the position names the declared root.
  */
 func TestALinkedTypeScriptClaimRootKeepsItsHosts(t *testing.T) {
   workspace := t.TempDir()
@@ -550,7 +556,7 @@ func TestALinkedTypeScriptClaimRootKeepsItsHosts(t *testing.T) {
   }
   messages := runRootedGraphIn(t, workspace, map[string]string{
     "project/docs/pricing.md": "## Discounts {#discounts}\n",
-    "project/src/sale.ts":     "export interface ISale {}\n",
+    "project/src/sale.ts":     "/** @evidence */\nexport interface ISale {}\n",
   }, `{"claims":[{
     "type":"typescript",
     "root":"../mirror",
@@ -563,6 +569,11 @@ func TestALinkedTypeScriptClaimRootKeepsItsHosts(t *testing.T) {
     messages,
     "Missing acknowledgement for 'docs/pricing.md#discounts'",
   )
+  // The target above belongs to the default Markdown base, so it would survive a
+  // repair that composed the TypeScript address from the resolved directory. A
+  // location naming the host file is the half that would not, which is why the
+  // source carries a tag the rule has to report by position.
+  assertProblemContains(t, messages, "../mirror/src/sale.ts")
 }
 
 /**
@@ -619,4 +630,111 @@ func TestALinkedBaseAndTheBaseItResolvesOntoStayTwoObligations(t *testing.T) {
   if countProblemsContaining(messages, "Claim 2 reference 1") != 1 {
     t.Fatalf("the default claim reports once:\n%s", strings.Join(messages, "\n"))
   }
+}
+
+/**
+ * Verifies a chain past the resolver is refused for the kind that walks nothing.
+ *
+ * The two walkers refuse it because the directory they were about to walk is
+ * still a link. This kind has no walk, so its gate has to ask, and until it did
+ * the population came back empty and the claim deactivated in silence, over the
+ * same root a Markdown reference beside it reported.
+ *
+ *  1. Build a chain longer than the resolver follows onto the project.
+ *  2. Root a TypeScript claim at its head and run the rule.
+ *  3. Assert the root is refused rather than selecting nothing.
+ */
+func TestALinkChainBeyondTheResolverIsRefusedForTypeScriptToo(t *testing.T) {
+  workspace := t.TempDir()
+  project := filepath.Join(workspace, "project")
+  if err := os.MkdirAll(project, 0o755); err != nil {
+    t.Fatal(err)
+  }
+  previous := project
+  for hop := range 34 {
+    link := filepath.Join(workspace, "hop"+decimal(hop))
+    if err := linkDirectory(previous, link); err != nil {
+      t.Skipf("this platform refused to create a link: %v", err)
+    }
+    previous = link
+  }
+  head := filepath.Join(workspace, "mirror")
+  if err := linkDirectory(previous, head); err != nil {
+    t.Skipf("this platform refused to create a link: %v", err)
+  }
+  if _, err := os.Stat(head); err != nil {
+    t.Skipf(
+      "this platform did not follow the chain to a directory either (%v), so the stat gate answers first",
+      err,
+    )
+  }
+  messages := runRootedGraphIn(t, workspace, map[string]string{
+    "project/docs/pricing.md": "## Discounts {#discounts}\n",
+    "project/src/sale.ts":     "export interface ISale {}\n",
+  }, `{"claims":[{
+    "type":"typescript",
+    "root":"../mirror",
+    "files":["src/**/*.ts"],
+    "symbol":"type",
+    "reference":{"type":"markdown","files":["docs/**/*.md"],"symbol":"h2"}
+  }]}`)
+  assertProblemContains(
+    t,
+    messages,
+    "found no directory at the end of the typescript root '../mirror'",
+  )
+}
+
+/**
+ * Verifies a Windows junction is read through, not only a symbolic link.
+ *
+ * `linkDirectory` prefers `os.Symlink` and falls back to `mklink /J` only where
+ * the process lacks the privilege, so an elevated Windows runner would exercise
+ * symbolic links on both lanes and leave the junction handling proven nowhere.
+ * That handling is the whole reason `resolveLinkedDirectory` exists instead of
+ * `filepath.EvalSymlinks`, which returns a junction unchanged.
+ *
+ *  1. Create the junction directly, without the symbolic-link preference.
+ *  2. Root a Markdown reference at it.
+ *  3. Assert its document materializes.
+ */
+func TestAWindowsJunctionRootIsReadThrough(t *testing.T) {
+  if runtime.GOOS != "windows" {
+    t.Skip("a junction is a Windows reparse point")
+  }
+  workspace := t.TempDir()
+  target := filepath.Join(workspace, "target", "requirements")
+  if err := os.MkdirAll(target, 0o755); err != nil {
+    t.Fatal(err)
+  }
+  if err := os.WriteFile(
+    filepath.Join(target, "pricing.md"),
+    []byte("## Discounts {#discounts}\n"),
+    0o644,
+  ); err != nil {
+    t.Fatal(err)
+  }
+  junction := exec.Command(
+    "cmd", "/c", "mklink", "/J",
+    filepath.FromSlash(filepath.Join(workspace, "documents")),
+    filepath.FromSlash(filepath.Join(workspace, "target")),
+  )
+  if output, err := junction.CombinedOutput(); err != nil {
+    t.Skipf("mklink refused: %v: %s", err, string(output))
+  }
+  messages := runRootedGraphIn(t, workspace, map[string]string{
+    "project/src/sale.ts": "/** @evidence requirements/pricing.md#discounts Discount rules follow this section. */\n" +
+      "export interface ISale {}\n",
+  }, `{"claims":[{
+    "type":"typescript",
+    "files":["src/**/*.ts"],
+    "symbol":"type",
+    "reference":{
+      "type":"markdown",
+      "root":"../documents",
+      "files":["requirements/**/*.md"],
+      "symbol":"h2"
+    }
+  }]}`)
+  assertNoProblems(t, messages)
 }

@@ -45,10 +45,10 @@ func loadMarkdownBase(
     recordPopulationFailure(inventories, artifactMarkdown, base)
     return []string{problem}
   }
-  from, unwalkable := populationWalkRoot(base)
-  if unwalkable != nil {
+  from, resolved := resolvedBaseDirectory(base)
+  if !resolved {
     recordPopulationFailure(inventories, artifactMarkdown, base)
-    return []string{unlistableBaseProblem(base, "Markdown", unwalkable)}
+    return []string{unresolvedBaseProblem(base, artifactMarkdown)}
   }
   err := filepath.WalkDir(from, func(current string, entry fs.DirEntry, walkErr error) error {
     if walkErr != nil {

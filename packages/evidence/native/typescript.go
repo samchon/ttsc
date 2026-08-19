@@ -82,6 +82,15 @@ func typeScriptBaseProblems(
   problems := []string{}
   for _, base := range configuredBases(config, artifactTypeScript) {
     problem := baseDirectoryProblem(base, artifactTypeScript)
+    // The stat accepts a chain of links the resolver will not finish, and this
+    // kind has no walk to notice it afterwards, so the gate asks here. Without
+    // it the population came back empty and the claim deactivated in silence,
+    // which is the state a linked root was repaired to remove.
+    if problem == "" {
+      if _, resolved := resolvedBaseDirectory(base); !resolved {
+        problem = unresolvedBaseProblem(base, artifactTypeScript)
+      }
+    }
     if problem == "" {
       continue
     }
@@ -129,10 +138,11 @@ func typeScriptMatchBases(config graphConfig) []typeScriptMatchBase {
   bases := configuredBases(config, artifactTypeScript)
   entries := make([]typeScriptMatchBase, 0, len(bases))
   for _, base := range bases {
-    entries = append(entries, typeScriptMatchBase{
-      base:     base,
-      resolved: resolvedBaseDirectory(base),
-    })
+    // An unresolved chain is reported by the gate, and this comparison then has
+    // only the declared spelling to offer, which is what the guard in
+    // `relativeOf` reads.
+    resolved, _ := resolvedBaseDirectory(base)
+    entries = append(entries, typeScriptMatchBase{base: base, resolved: resolved})
   }
   return entries
 }

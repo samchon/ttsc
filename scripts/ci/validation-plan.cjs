@@ -470,13 +470,14 @@ function planForPaths(files) {
       // junction is read through `os.Readlink` where `EvalSymlinks` returns it
       // unchanged.
       //
-      // Two kinds of case need this lane, and neither is a skip on the other.
-      // One asserts a different answer per platform, so running it on `go` alone
-      // proves only the POSIX half. The other runs the same assertion over a
-      // junction where POSIX runs it over a symbolic link, so the two lanes
-      // exercise different code inside `resolveLinkedDirectory`. The doubled
-      // terminator Windows writes is pinned from a hand-built error and runs
-      // everywhere, so this lane is not what proves that one.
+      // Two kinds of case need this lane. One asserts a different answer per
+      // platform, so running it on `go` alone proves only the POSIX half. The
+      // other reads a Windows junction, which is a reparse point rather than a
+      // symbolic link, so `resolveLinkedDirectory` takes the same branches over
+      // different operating-system behavior and only this lane exercises that
+      // side of `os.Readlink`. The doubled terminator Windows writes is pinned
+      // from a hand-built error and runs everywhere, so this lane is not what
+      // proves that one.
       add(["evidence", "go", "windows-go"], file);
       continue;
     }

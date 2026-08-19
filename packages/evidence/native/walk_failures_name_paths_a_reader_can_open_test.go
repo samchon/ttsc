@@ -146,7 +146,7 @@ func TestAWalkFailureInsideALinkedPopulationNamesTheDeclaredRoot(t *testing.T) {
   if !strings.Contains(problem, "'../documents/requirements/private'") {
     t.Fatalf("the path is spelled through the declared root, got: %s", problem)
   }
-  if strings.Contains(problem, "/target/") {
+  if strings.Contains(filepath.ToSlash(problem), "/target/") {
     t.Fatalf("the directory the link resolves to is not what a reader opens: %s", problem)
   }
 }

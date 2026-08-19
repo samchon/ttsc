@@ -487,59 +487,55 @@ func describeBaseDirectoryProblem(
   return message + "an empty directory leaves the population just as empty."
 }
 
-// populationWalkRoot is the directory a population walk starts at.
+// resolvedBaseDirectory is the directory a base's files sit in, and reports
+// whether the links naming it end at one.
 //
-// It is the base itself unless the base is a link. `filepath.WalkDir` lstats
-// its root, so a symbolic link or a Windows junction arrives as a plain entry,
-// the walk descends into nothing, and the population comes back empty and
-// healthy — over a directory `baseDirectoryProblem` already accepted, because
-// `os.Stat` follows the link and found one there. The two checks have to agree
-// about what the base is, and the gate's answer is the one an author declared.
+// A declared root may be a link, and `os.Stat` accepts one as a directory when
+// the gate reads it, so a consumer that then compares paths against the base has
+// to compare against what the link names. `resolveLinkedDirectory` is this
+// package's answer for an installed package and handles the Windows junction
+// `filepath.EvalSymlinks` returns unchanged.
 //
-// The default base is asked as well, and it is the one this reaches most often:
-// a project whose own root is a link had every Markdown and Prisma population
-// come back empty without declaring a `root` at all.
+// The answer is verified rather than trusted, and every caller shares that
+// verification. The resolver gives up after a fixed number of hops and returns
+// the link it stopped on, while the stat in `baseDirectoryProblem` follows
+// further on Linux and on Windows, so a long enough chain passes the gate and
+// leaves whoever trusted the resolver holding a link. Darwin and the BSDs stop
+// at the same number of hops, so the gate answers first and this refusal is
+// unreachable there.
 //
-// `resolveLinkedDirectory` is this package's existing answer to the same
-// question for an installed package, and it is used here rather than
-// `filepath.EvalSymlinks` for the reason recorded there: a Windows junction,
-// which is what pnpm creates for a workspace dependency, comes back from
-// `EvalSymlinks` unchanged.
-//
-// The answer is checked rather than trusted. `resolveLinkedDirectory` gives up
-// after a fixed number of hops and returns the link it stopped on, while the
-// stat in `baseDirectoryProblem` follows further than that on Linux and on
-// Windows, so a long enough chain passed the gate and then walked a link —
-// which is the silence this function exists to remove, reappearing past the
-// bound. Reporting it costs one `Lstat` of a path the walk is about to read
-// anyway.
-//
-// The window is not universal. Darwin and the BSDs stop at the same number of
-// hops the resolver does, so a chain the resolver cannot finish fails the stat
-// as well and the gate answers first. That makes this check unreachable there
-// and load-bearing on the two platforms where the limits differ.
-//
-// That `Lstat` has two ways to refuse, and only one of them is the chain. A
-// call that failed says nothing about how many links were followed, so its own
-// error is returned rather than a sentence claiming a cause this function did
-// not establish, which is the mistake every repair clause in this file is
-// written to avoid.
-//
-// Only the walk moves. Every address, location, and citation target is still
-// composed from the declared base, so a document reached through a link is
-// spelled exactly as it would be without one.
-func populationWalkRoot(base populationBase) (string, error) {
-  from := resolvedBaseDirectory(base)
+// A base that is not a link costs one `os.Lstat` inside the resolver and one
+// here, per base and per pass. Only the last component is resolved: a link on an
+// ancestor is transparent to `Lstat` of the leaf, which #1269 records.
+func resolvedBaseDirectory(base populationBase) (string, bool) {
+  from := filepath.FromSlash(resolveLinkedDirectory(base.Absolute))
   info, err := os.Lstat(from)
-  if err != nil {
-    return from, err
+  return from, err == nil && info.IsDir()
+}
+
+// unresolvedBaseProblem reports a declared root whose links this rule stops
+// following before they reach a directory.
+//
+// Every artifact kind gets this sentence, because the failure is the resolver's
+// bound rather than anything a walk or a Program does, and the kind appears only
+// as the noun. The verb stays clear of "resolve" for the reason
+// `describeBaseDirectoryProblem` records: that word is composition everywhere
+// else in these messages, and a lead clause borrowing it for failure would make
+// one sentence carry both senses.
+func unresolvedBaseProblem(base populationBase, kind artifactKind) string {
+  label := populationRootLabel(base)
+  message := "Evidence graph found no directory at the end of the " + string(kind) +
+    " root '" + label + "'"
+  // The resolved path is restated only when it differs from the label, which
+  // covers an absolute declared root and the default base at once. This asks a
+  // narrower question than `declaredRootIsAbsolute` answers: that predicate
+  // decides whether the project root was composed into the spelling, and this
+  // decides whether printing it twice would tell a reader anything.
+  if resolved := filepath.ToSlash(base.Absolute); label != resolved {
+    message += ", which resolves to '" + resolved + "'"
   }
-  if info.IsDir() {
-    return from, nil
-  }
-  return from, errors.New(
-    "the root is a chain of links this rule stops following, so no directory was reached",
-  )
+  return message +
+    ". That path is a chain of links longer than this rule follows. Correct the 'root' property to name the directory those links end at."
 }
 
 // causeText spells a reason for a sentence that owns its own terminator.
@@ -550,10 +546,10 @@ func populationWalkRoot(base populationBase) (string, error) {
 // the sentence this rule writes, and the reason belongs to whoever wrote it, so
 // only the punctuation is taken.
 //
-// The reason may come from the filesystem, a subprocess, a parser reached
-// through one, or this rule's own inner validation. Only the trim happens here;
-// the sentence supplies its terminator, which is what lets a quoted glob error
-// that writes none end with one instead of ending bare.
+// The reason may come from the filesystem, a subprocess, or this rule's own
+// inner validation. Only the trim happens here; the sentence supplies its
+// terminator, which is what lets a quoted glob error that writes none end with
+// one instead of ending bare.
 func causeText(cause error) string {
   return causeReason(cause.Error())
 }
@@ -561,21 +557,9 @@ func causeText(cause error) string {
 // causeReason is the same rule for a failure already reduced to text. A package
 // entry read, a package walk, and a package source read take a string from the
 // loader, and the Prisma and Swagger bridges hand back a parser's own sentence,
-// so five of the sites reach the rule this way rather than through an error.
+// so those five sites reach the rule this way rather than through an error.
 func causeReason(text string) string {
   return strings.TrimSuffix(text, ".")
-}
-
-// resolvedBaseDirectory is the directory a base's files actually sit in.
-//
-// A declared root may be a link, and `os.Stat` accepts one as a directory when
-// the gate reads it, so every consumer that then compares paths against the base
-// has to compare against what the link names. `resolveLinkedDirectory` is this
-// package's answer for an installed package and handles the Windows junction
-// `filepath.EvalSymlinks` returns unchanged; it gives the path back untouched
-// when nothing is a link, which is what keeps the ordinary case free.
-func resolvedBaseDirectory(base populationBase) string {
-  return filepath.FromSlash(resolveLinkedDirectory(base.Absolute))
 }
 
 // unlistableBaseProblem reports a population whose own base could not be

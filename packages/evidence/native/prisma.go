@@ -240,9 +240,9 @@ func configuredPrismaAddressesWithHealth(
       continue
     }
     baseFailed := false
-    from, unwalkable := populationWalkRoot(base)
-    if unwalkable != nil {
-      problems = append(problems, unlistableBaseProblem(base, "Prisma", unwalkable))
+    from, resolved := resolvedBaseDirectory(base)
+    if !resolved {
+      problems = append(problems, unresolvedBaseProblem(base, artifactPrisma))
       failedBases = append(failedBases, base)
       continue
     }

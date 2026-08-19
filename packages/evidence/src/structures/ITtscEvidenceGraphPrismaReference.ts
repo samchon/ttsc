@@ -23,10 +23,11 @@ export interface ITtscEvidenceGraphPrismaReference extends ITtscEvidenceGraphRef
    *
    * The value names one directory, never a glob. It may sit inside the project
    * (`prisma`), above it (`../../prisma`), or on an absolute path
-   * (`/srv/schema`, `C:/schema`), and it may be a symbolic link or a Windows
-   * junction to a directory, which is read through. A drive-relative Windows
-   * path such as `C:prisma` is refused, because it resolves against whatever
-   * directory that drive currently sits on rather than against a stable base.
+   * (`/srv/schema`, `C:/schema`), and it may itself be a symbolic link or a
+   * Windows junction to a directory, which is read through. A drive-relative
+   * Windows path such as `C:prisma` is refused, because it resolves against
+   * whatever directory that drive currently sits on rather than against a
+   * stable base.
    *
    * A Prisma target carries no path, so a declared root changes which files
    * belong to the schema set and where a diagnostic points, never how a model
