@@ -36,7 +36,8 @@ func unreadableDirectory(t *testing.T, directory string) {
 }
 
 /**
- * Verifies a walk failure names its path the way every message beside it does.
+ * Verifies a walk failure names its path the way the file messages beside it
+ * do.
  *
  * The path a `filepath.WalkDir` callback hands back is OS-native and absolute,
  * and it was printed as it arrived, so one loader spelled paths three ways

@@ -326,8 +326,8 @@ func TestOneDirectoryDeclaredTwoWaysKeepsTheFirstSpelling(t *testing.T) {
 }
 
 /**
- * Verifies an absolute root leaves every location exactly where a relative one
- * puts it.
+ * Verifies an absolute declared root does not move the location a reader
+ * opens.
  *
  * Only the name of the configuration property moved. A file's location is
  * derived from `Display`, which this change deliberately leaves alone, so the
