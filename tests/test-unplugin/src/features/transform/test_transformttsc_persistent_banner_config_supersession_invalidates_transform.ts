@@ -10,8 +10,8 @@ import { assertPersistentBannerConfigSupersessionInvalidatesTransform } from "..
  * (samchon/ttsc#1271).
  *
  * 1. Compile a package nested two directories below its banner config.
- * 2. Create a nearer banner config in the directory between them, which is
- *    outside the project walk, so nothing but the reported probe can see it.
+ * 2. Create a nearer banner config in the directory between them, which is outside
+ *    the project walk, so nothing but the reported probe can see it.
  * 3. Assert the next delivery carries the nearer config's text.
  */
 export const test_transformttsc_persistent_banner_config_supersession_invalidates_transform =
