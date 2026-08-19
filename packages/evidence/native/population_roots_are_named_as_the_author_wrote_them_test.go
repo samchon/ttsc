@@ -480,7 +480,10 @@ func TestARootThatCouldNotBeExaminedIsNotCalledMissing(t *testing.T) {
     t.Fatalf("the sentence owns its terminator, the reason does not:\n%s", terminated)
   }
   typescript := describeBaseDirectoryProblem(base, artifactTypeScript, false, denied)
-  if !strings.Contains(typescript, "re-bases Program sources onto itself") {
+  if !strings.Contains(
+    typescript,
+    "A typescript root is checked by this stat alone: it re-bases Program sources onto itself",
+  ) {
     t.Fatalf("a typescript root explains itself in every state:\n%s", typescript)
   }
   if strings.Contains(unexaminable, "create that directory") {
