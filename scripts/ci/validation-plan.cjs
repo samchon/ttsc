@@ -464,15 +464,19 @@ function planForPaths(files) {
     if (file.startsWith("packages/evidence/")) {
       // `windows-go` is selected because this package's behavior is decided by
       // platform path semantics rather than incidentally affected by them.
-      // `filepath.Rel` errors only across Windows volumes, a drive root carries
-      // its own separator, `filepath.IsAbs` calls `/srv/x` relative there, and a
+      // `filepath.IsAbs` calls `/srv/x` relative there and a drive-lettered path
+      // absolute, `filepath.Rel` errors across volumes so a location falls back
+      // to an absolute spelling, a drive root carries its own separator, and a
       // junction is read through `os.Readlink` where `EvalSymlinks` returns it
-      // unchanged. Each of those has a case that only this lane runs.
+      // unchanged.
       //
-      // Windows also ends its error messages with a period, which the rule has
-      // to not double. That one is pinned from a hand-built error and runs
-      // everywhere, so this lane is not what proves it; it is listed because a
-      // reader asking why the lane is here will meet it in the same code.
+      // Two kinds of case need this lane, and neither is a skip on the other.
+      // One asserts a different answer per platform, so running it on `go` alone
+      // proves only the POSIX half. The other runs the same assertion over a
+      // junction where POSIX runs it over a symbolic link, so the two lanes
+      // exercise different code inside `resolveLinkedDirectory`. The doubled
+      // terminator Windows writes is pinned from a hand-built error and runs
+      // everywhere, so this lane is not what proves that one.
       add(["evidence", "go", "windows-go"], file);
       continue;
     }

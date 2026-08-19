@@ -4,6 +4,7 @@ import (
   "errors"
   "io/fs"
   "path/filepath"
+  "runtime"
   "strings"
   "testing"
 )
@@ -439,10 +440,11 @@ func TestAnAbsoluteRootWithBackslashesIsStoredWithSlashes(t *testing.T) {
  * same unfollowable repair a file occupying the path produces: the author does
  * what the message says, nothing changes, and the message returns.
  *
- * The rule does not know which of the two it is looking at, so it says that,
- * names no cause of its own, and passes the operating system's reason through.
- * Only an absent answer is asked whether a link is standing there instead; the
- * rest keep the reason the filesystem gave them.
+ * Between an absent path and a directory it could not reach, the rule does not
+ * know which it is looking at, so it says that, names no cause of its own, and
+ * passes the operating system's reason through. Only an absent answer is asked
+ * whether a link is standing there instead; the rest keep the reason the
+ * filesystem gave them.
  *
  *  1. Describe a stat that failed without saying the path is absent, and one
  *     that said so.
@@ -503,34 +505,42 @@ func TestARootThatCouldNotBeExaminedIsNotCalledMissing(t *testing.T) {
 }
 
 /**
- * Verifies whether a declared root is absolute is decided the way it resolves.
+ * Verifies which declared roots each platform calls absolute.
  *
- * This is the predicate the whole repair turns on, and it had no case. A rooted
- * path carrying no volume, `/srv/contracts`, is absolute on POSIX and relative on
- * Windows, where `filepath.Join` composes the project root into it. A message
- * saying so reads this predicate rather than the spelling, so the sentence and
- * the resolution cannot disagree, and only a platform where they differ proves
- * it.
+ * This is the predicate the whole repair turns on, and asserting it against the
+ * resolution proves nothing, because the resolution decides by calling it. The
+ * answers themselves are the contract: a rooted path carrying no volume,
+ * `/srv/contracts`, is absolute on POSIX and relative on Windows, where
+ * `filepath.Join` composes the project root into it, and a drive-lettered path
+ * is the reverse. A predicate written from the spelling instead would invert
+ * both, which is the defect this cycle removed, so the expectations are per
+ * platform and the case runs on every lane rather than skipping one.
  *
- *  1. Resolve a volume-less rooted path against a project root.
- *  2. Ask the predicate and read what the resolution did.
- *  3. Assert they agree, and that the message's clause follows both.
+ *  1. Ask the predicate for six spellings, with the answers this platform owes.
+ *  2. Read what the resolution then did with each.
+ *  3. Assert the answers are the platform's, and that the message clause about
+ *     resolving against the project root follows them.
  */
-func TestADeclaredRootIsAbsoluteExactlyWhenTheResolutionSaysSo(t *testing.T) {
+func TestEachPlatformCallsItsOwnRootsAbsolute(t *testing.T) {
+  expected := map[string]bool{
+    "contracts":      false,
+    "../contracts":   false,
+    "/srv/contracts": runtime.GOOS != "windows",
+    "C:/contracts":   runtime.GOOS == "windows",
+    "D:/":            runtime.GOOS == "windows",
+    "//server/share": true,
+  }
   project := filepath.Join(t.TempDir(), "project")
-  for _, declared := range []string{"/srv/contracts", "C:/contracts", "../contracts", "contracts"} {
+  for declared, want := range expected {
+    if got := declaredRootIsAbsolute(declared); got != want {
+      t.Fatalf("declaredRootIsAbsolute(%q) = %v, want %v on %s", declared, got, want, runtime.GOOS)
+    }
     base := resolvePopulationBase(project, declared)
-    absolute := declaredRootIsAbsolute(declared)
     joined := base.Absolute == filepath.Clean(
       filepath.Join(project, filepath.FromSlash(declared)),
     )
-    if absolute == joined {
-      t.Fatalf(
-        "root %q: predicate says absolute=%v while the resolution %s the project root",
-        declared,
-        absolute,
-        map[bool]string{true: "joined", false: "did not join"}[joined],
-      )
+    if joined == want {
+      t.Fatalf("root %q: the resolution %s the project root", declared, map[bool]string{true: "joined", false: "did not join"}[joined])
     }
     message := describeBaseDirectoryProblem(
       base,
@@ -538,9 +548,8 @@ func TestADeclaredRootIsAbsoluteExactlyWhenTheResolutionSaysSo(t *testing.T) {
       false,
       &fs.PathError{Op: "stat", Path: base.Absolute, Err: fs.ErrNotExist},
     )
-    resolves := strings.Contains(message, "it resolves against the ttsc project root")
-    if resolves == absolute {
-      t.Fatalf("root %q: the clause and the resolution disagree:\n%s", declared, message)
+    if strings.Contains(message, "it resolves against the ttsc project root") == want {
+      t.Fatalf("root %q: the clause and the answer disagree:\n%s", declared, message)
     }
   }
 }
@@ -555,8 +564,9 @@ func TestADeclaredRootIsAbsoluteExactlyWhenTheResolutionSaysSo(t *testing.T) {
  * which is how one of them stayed unrepaired through two commits that claimed
  * the class was empty.
  *
- *  1. Trim a reason that ends in a period, one that does not, and two edges.
- *  2. Read each result.
+ *  1. Trim a reason ending in a period, one that does not, a doubled one, a
+ *     question mark, a bare period, and an empty string.
+ *  2. Read each result, and the same rule reached through an error.
  *  3. Assert one terminator is removed and nothing else is.
  */
 func TestAReasonKeepsItsWordsAndLosesItsTerminator(t *testing.T) {

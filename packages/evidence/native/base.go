@@ -44,9 +44,9 @@ type populationBase struct {
   Declared string
   // Display is what a location names: project-relative, ascending with `..`
   // when the base sits above the project, and absolute only when no relative
-  // spelling exists, which is a base on another Windows volume. Empty for the
-  // default base, whose files are already named by their project-relative
-  // path.
+  // spelling exists, which on Windows is another volume or a UNC share against a
+  // drive-lettered project. Empty for the default base, whose files are already
+  // named by their project-relative path.
   Display string
   // Default marks the base a population takes when it declares no root. Its
   // addresses stay plain project-relative paths, which is what leaves every
@@ -79,11 +79,12 @@ func (base populationBase) addressOf(relative string) artifactAddress {
 
 // display spells a base-relative path the way a reader must open it.
 //
-// The separator is added only where one is missing. A base on another Windows
-// volume has no relative spelling, so its Display is the absolute path, and a
-// drive root is the one directory whose own separator is part of it: joining
-// `D:/` to a path without this would print `D://requirements`, in every file
-// location as well as in the two walk messages.
+// The separator is added only where one is missing. A base with no relative
+// spelling, which on Windows is another volume or a UNC share against a
+// drive-lettered project, carries its absolute path as its Display, and a drive
+// root is the one directory whose own separator is part of it: joining `D:/` to
+// a path without this would print `D://requirements`, in every file location as
+// well as in the two walk messages.
 func (base populationBase) display(relative string) string {
   if base.Display == "" {
     return relative
@@ -549,17 +550,18 @@ func populationWalkRoot(base populationBase) (string, error) {
 // the sentence this rule writes, and the reason belongs to whoever wrote it, so
 // only the punctuation is taken.
 //
-// The reason may be the filesystem's, a subprocess's, or this rule's own inner
-// validation, and the last of those is why the trim runs in both directions: a
-// glob parser writes no terminator, and the sentence quoting it has to supply
-// one rather than end without any.
+// The reason may come from the filesystem, a subprocess, a parser reached
+// through one, or this rule's own inner validation. Only the trim happens here;
+// the sentence supplies its terminator, which is what lets a quoted glob error
+// that writes none end with one instead of ending bare.
 func causeText(cause error) string {
   return causeReason(cause.Error())
 }
 
-// causeReason is the same rule for a failure already reduced to text, which is
-// how the three package-reference messages carry theirs: an entry read, a walk,
-// and a source read all take a string from the loader rather than an error.
+// causeReason is the same rule for a failure already reduced to text. A package
+// entry read, a package walk, and a package source read take a string from the
+// loader, and the Prisma and Swagger bridges hand back a parser's own sentence,
+// so five of the sites reach the rule this way rather than through an error.
 func causeReason(text string) string {
   return strings.TrimSuffix(text, ".")
 }

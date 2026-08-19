@@ -779,7 +779,7 @@ func prismaBuriedTag(trimmed string) bool {
 // the only place a location survives: a successful parse carries no positions
 // at all, while a rejection names the file and line the author has to open.
 func prismaNormalizationFailure(message string) string {
-  reason := strings.TrimSpace(message)
+  reason := causeReason(strings.TrimSpace(message))
   if reason == "" {
     reason = "the parser reported no reason"
   }
