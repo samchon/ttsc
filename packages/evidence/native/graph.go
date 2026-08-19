@@ -1403,7 +1403,7 @@ func materializeEntryReference(
   if failure := loader.failure(entry); failure != "" {
     state.Healthy = false
     return state, []string{
-      claimLabel(claim) + " " + referenceLabel(reference) + " could not read TypeScript entry '" + entry + "': " + failure + ". Fix filesystem access or the package installation; coverage cannot be evaluated from a partial entry graph.",
+      claimLabel(claim) + " " + referenceLabel(reference) + " could not read TypeScript entry '" + entry + "': " + causeReason(failure) + ". Fix filesystem access or the package installation; coverage cannot be evaluated from a partial entry graph.",
     }
   }
   if len(state.Units) == 0 {
@@ -1529,7 +1529,7 @@ func materializePackageGlobReference(
   if walkProblem != "" {
     state.Healthy = false
     return state, []string{
-      claimLabel(claim) + " " + referenceLabel(reference) + " could not inspect TypeScript package '" + reference.Package + "': " + walkProblem + ". Fix filesystem access or reinstall the package; coverage cannot be evaluated from a partial population.",
+      claimLabel(claim) + " " + referenceLabel(reference) + " could not inspect TypeScript package '" + reference.Package + "': " + causeReason(walkProblem) + ". Fix filesystem access or reinstall the package; coverage cannot be evaluated from a partial population.",
     }
   }
   problems := []string{}

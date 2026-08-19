@@ -539,7 +539,13 @@ func populationWalkRoot(base populationBase) (string, error) {
 // the sentence this rule writes, and the reason belongs to whoever wrote it, so
 // only the punctuation is taken.
 func causeText(cause error) string {
-  return strings.TrimSuffix(cause.Error(), ".")
+  return causeReason(cause.Error())
+}
+
+// causeReason is the same rule for a failure that has already been reduced to
+// text, which is how a package walk and a subprocess carry theirs.
+func causeReason(text string) string {
+  return strings.TrimSuffix(text, ".")
 }
 
 // unlistableBaseProblem reports a population whose own base could not be
