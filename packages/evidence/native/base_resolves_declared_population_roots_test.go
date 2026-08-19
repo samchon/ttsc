@@ -709,9 +709,9 @@ func TestAResolvableTypeScriptRootSelectingNothingStaysSilent(t *testing.T) {
  * Verifies a resolvable declared root stays quiet while its reference speaks.
  *
  * Both halves need a declared root to mean anything. A claim with no `root` has
- * the default base, which `unreadableBaseProblem` returns on before it stats
- * anything and which `Check` has already validated, so an absence assertion
- * there could not fail however the new pass behaved. With a declared root that
+ * the default base, which `missingBaseDirectoryProblem` returns on before it
+ * stats anything and which `Check` has already validated, so an absence
+ * assertion there could not fail however the new pass behaved. With a root that
  * does exist, the pass genuinely evaluates it and must produce nothing — while
  * the reference-side empty-match diagnostic, which the claim-side removal must
  * not have widened onto, still fires.

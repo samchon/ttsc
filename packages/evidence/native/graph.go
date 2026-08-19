@@ -173,11 +173,11 @@ func claimPopulationConfig(
 // typo caused it. An unhealthy population stays active because failed input
 // cannot prove the selected population is empty.
 //
-// Health is the whole test, and an unresolvable declared root is one of the
-// things it now answers for every kind rather than for two of them. Asking
-// unreadableBaseProblem again here kept a TypeScript claim alive on a fact this
-// function then had no way to report, which is how a bad root came to be
-// answered with a glob diagnostic.
+// Health is the whole test, and a declared root that is not a directory is one
+// of the things it now answers for every kind rather than for two of them.
+// Asking missingBaseDirectoryProblem again here kept a TypeScript claim alive
+// on a fact this function then had no way to report, which is how a bad root
+// came to be answered with a glob diagnostic.
 func activeGraphConfig(
   config graphConfig,
   markdown map[string]*artifactInventory,

@@ -222,13 +222,14 @@ func populationRootLabel(base populationBase) string {
   return base.Display
 }
 
-// unreadableBaseProblem reports a declared root that is not an existing
+// missingBaseDirectoryProblem reports a declared root that is not an existing
 // directory.
 //
-// The test is a stat, not an access check, and it always was. The name comes
-// from the Markdown and Prisma reading that follows it and now covers a kind
-// that reads nothing, so say what is measured rather than what the first two
-// callers do with the answer.
+// The test is a stat, not an access check, and it always was. The old name came
+// from the reading the Markdown and Prisma callers do afterwards, which is why
+// it stopped describing anything once a kind that reads nothing began asking
+// the same question. The Markdown message may still say "could not read",
+// because that caller does read; the predicate may not.
 //
 // The default base is excluded because `Check` already validated the project
 // root, and its diagnostic names the ttsc project identity as the repair rather
@@ -243,14 +244,6 @@ func populationRootLabel(base populationBase) string {
 // directory, so a message about reading one would name an access this artifact
 // kind never attempts.
 //
-// Every repair clause takes two steps, and that part is not about TypeScript at
-// all. This stat is satisfied by an empty directory, so creating one silences
-// the diagnostic and leaves the population exactly as empty — and for a claim
-// that is worse than the diagnostic was, because an empty healthy claim
-// deactivates without a word. Both branches therefore ask for what the
-// directory must hold, each naming it the way its own kind materializes: the
-// walkers want the documents, and TypeScript wants the sources compiled.
-//
 // The verb also has to stay clear of the path sense beside it. "Resolves to"
 // and "resolves against" are both composition, and a lead clause saying the
 // root could not be resolved would make one sentence carry that sense and its
@@ -261,7 +254,16 @@ func populationRootLabel(base populationBase) string {
 // into "re-bases Program sources against the ttsc project root" states the
 // reverse of what the property does, and reads as though declaring it changed
 // nothing — which is the one conclusion an author must not draw here.
-func unreadableBaseProblem(base populationBase, kind artifactKind) string {
+//
+// Every repair clause takes two steps, and that part is not about TypeScript at
+// all. This stat is satisfied by an empty directory, so creating one silences
+// the diagnostic and leaves the population exactly as empty — and for a claim
+// that is worse than the diagnostic was, because an empty healthy claim
+// deactivates without a word. Both branches therefore ask for what the
+// directory must hold, and the split is disk against Program rather than one
+// noun against another: the walkers want the sources on disk, and TypeScript
+// wants them in the Program.
+func missingBaseDirectoryProblem(base populationBase, kind artifactKind) string {
   if base.Default {
     return ""
   }
@@ -272,7 +274,7 @@ func unreadableBaseProblem(base populationBase, kind artifactKind) string {
   if kind == artifactTypeScript {
     return "Evidence graph found no directory at the " + string(kind) + " root '" +
       populationRootLabel(base) + "', which resolves to '" + filepath.ToSlash(base.Absolute) +
-      "'. Correct the 'root' property, or add that directory and make its sources part of the compiled Program; it resolves against the ttsc project root, and a " + string(kind) +
+      "'. Correct the 'root' property, or add that directory and make its sources part of the tsconfig Program; it resolves against the ttsc project root, and a " + string(kind) +
       " root re-bases Program sources onto itself rather than scanning the filesystem."
   }
   return "Evidence graph could not read the " + string(kind) + " root '" +

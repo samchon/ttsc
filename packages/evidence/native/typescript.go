@@ -80,7 +80,7 @@ func typeScriptBaseProblems(
 ) []string {
   problems := []string{}
   for _, base := range configuredBases(config, artifactTypeScript) {
-    problem := unreadableBaseProblem(base, artifactTypeScript)
+    problem := missingBaseDirectoryProblem(base, artifactTypeScript)
     if problem == "" {
       continue
     }
