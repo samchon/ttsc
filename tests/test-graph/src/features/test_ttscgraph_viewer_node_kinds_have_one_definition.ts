@@ -26,6 +26,30 @@ import {
  * 3. Assert each viewer's unknown-kind fallback is a colour no kind uses, so
  *    "unknown" stays distinguishable from every named kind.
  */
+/** The node kinds that are TypeScript declarations rather than artifacts. */
+const DECLARATION_KINDS = new Set([
+  "function",
+  "class",
+  "interface",
+  "type",
+  "enum",
+  "variable",
+  "method",
+]);
+
+/** Every `"markdown_*"`, `"prisma_*"`, or `"swagger_*"` literal in a source. */
+const quotedArtifactKinds = (source: string): string[] =>
+  [
+    ...new Set(
+      [...source.matchAll(/"((?:markdown|prisma|swagger)_[a-z]+)"/g)].map(
+        (match) => match[1]!,
+      ),
+    ),
+  ].sort();
+
+const readSource = (root: string, file: string): string =>
+  fs.readFileSync(path.join(root, file), "utf8");
+
 export const test_ttscgraph_viewer_node_kinds_have_one_definition =
   async (): Promise<void> => {
     const root = repositoryRoot();
@@ -125,6 +149,49 @@ export const test_ttscgraph_viewer_node_kinds_have_one_definition =
         `${file} spells a fallback colour as a literal beside a colour map; it has to read the shared constant`,
       );
     }
+
+    // The artifact half of the vocabulary is spelled in three places across two
+    // Go modules and one TypeScript package, because none of them may import
+    // another: the rule API publishes it, the compiler host accepts it, and the
+    // consumer gates its id parser on it. Nothing but this holds them together,
+    // and the failure mode is the quiet one — a kind a rule publishes and the
+    // host does not map is dropped, by declared design, so the feature simply
+    // stops working for that kind with no error anywhere. This pull request
+    // exists because a vocabulary agreed by hand always drifts.
+    const artifactVocabularies: [string, string[]][] = [
+      [
+        "packages/lint/rule/graph.go",
+        quotedArtifactKinds(readSource(root, "packages/lint/rule/graph.go")),
+      ],
+      [
+        "packages/ttsc/internal/graph/artifacts.go",
+        quotedArtifactKinds(
+          readSource(root, "packages/ttsc/internal/graph/artifacts.go"),
+        ),
+      ],
+      [
+        "packages/graph/src/structures/TtscGraphArtifactNodeKind.ts",
+        quotedArtifactKinds(
+          readSource(
+            root,
+            "packages/graph/src/structures/TtscGraphArtifactNodeKind.ts",
+          ),
+        ),
+      ],
+    ];
+    const artifactKinds = kinds
+      .filter((kind) => kind !== "module" && !DECLARATION_KINDS.has(kind))
+      .sort();
+    assert.ok(
+      artifactKinds.length > 0,
+      "the dump vocabulary carries no artifact kind; this case would prove nothing",
+    );
+    for (const [file, spelled] of artifactVocabularies)
+      assert.deepEqual(
+        spelled,
+        artifactKinds,
+        `${file} does not spell exactly the artifact kinds a dump can carry`,
+      );
 
     // Every named kind is its own colour, so the picture stays injective.
     for (const [surface, map] of [
