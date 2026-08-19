@@ -742,10 +742,15 @@ func TestAWindowsJunctionRootIsReadThrough(t *testing.T) {
 /**
  * Verifies the project root itself is refused, and not told to correct a `root`.
  *
- * The default base is checked like any other, and it is the one base that
+ * The default base is checked by the two walkers, and it is the one base that
  * declared no property, so the sentence written for a declared root would send
  * its author looking for a line their configuration does not contain. It is the
  * ttsc project root, so it is named as one and the repair is the invocation.
+ *
+ * The TypeScript gate deliberately does not ask this of the default base: a
+ * Program spells its sources against the directory ttsc was invoked with, so the
+ * comparison matches without any resolution and refusing would fail a population
+ * that works. The refusal below therefore comes from the Markdown reference.
  *
  *  1. Build a chain longer than the resolver follows and run ttsc through it.
  *  2. Read the refusal.
@@ -788,5 +793,69 @@ func TestAProjectRootPastTheResolverIsNotToldToCorrectARoot(t *testing.T) {
       "the base that declared no root has no property to correct:\n%s",
       strings.Join(messages, "\n"),
     )
+  }
+}
+
+/**
+ * Verifies the Prisma walker refuses an unresolved chain with its own noun.
+ *
+ * The refusal is one sentence for every kind, and the kind appears in it, so a
+ * wrong noun or a dropped arm reads as another kind's failure. Markdown and
+ * TypeScript each have a case; without this one the Prisma arm could be handed
+ * either and stay green.
+ *
+ *  1. Build a chain longer than the resolver follows.
+ *  2. Root a Prisma population at its head and collect the addresses.
+ *  3. Assert the refusal names the Prisma root and the base is recorded failed.
+ */
+func TestAPrismaRootPastTheResolverIsRefusedAsPrisma(t *testing.T) {
+  workspace := t.TempDir()
+  root := filepath.Join(workspace, "project")
+  real := filepath.Join(workspace, "real")
+  for _, directory := range []string{root, real} {
+    if err := os.MkdirAll(directory, 0o755); err != nil {
+      t.Fatal(err)
+    }
+  }
+  previous := real
+  for hop := range 34 {
+    link := filepath.Join(workspace, "hop"+decimal(hop))
+    if err := linkDirectory(previous, link); err != nil {
+      t.Skipf("this platform refused to create a link: %v", err)
+    }
+    previous = link
+  }
+  head := filepath.Join(workspace, "schema")
+  if err := linkDirectory(previous, head); err != nil {
+    t.Skipf("this platform refused to create a link: %v", err)
+  }
+  if _, err := os.Stat(head); err != nil {
+    t.Skipf(
+      "this platform did not follow the chain to a directory either (%v), so the stat gate answers first",
+      err,
+    )
+  }
+  config := decodeInventoryConfig(t, root, `{"claims":[{
+    "type":"typescript",
+    "files":["src/**/*.ts"],
+    "symbol":"type",
+    "reference":{
+      "type":"prisma",
+      "root":"../schema",
+      "files":["models/**/*.prisma"],
+      "symbol":"model"
+    }
+  }]}`)
+  addresses, failed, problems := configuredPrismaAddressesWithHealth(config)
+  assertProblemContains(
+    t,
+    problems,
+    "found no directory at the end of the prisma root '../schema'",
+  )
+  if len(addresses) != 0 {
+    t.Fatalf("a root the walk never reached selected %d addresses", len(addresses))
+  }
+  if len(failed) != 1 {
+    t.Fatalf("a root the walk never reached is recorded failed, got %d", len(failed))
   }
 }

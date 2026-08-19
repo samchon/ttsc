@@ -71,10 +71,11 @@ func extendTypeScriptInventories(
 // three kinds converge: health alone now decides that the claim stays active,
 // and the population it names is the one the author has to repair.
 //
-// Only claim bases can reach this. A TypeScript reference selects the active
-// program with `files` or an installed package with `package` and is refused a
-// `root` outright, so every reference base of this kind is the default one and
-// the default base is never judged here.
+// Only claim bases can reach a declared root here. A TypeScript reference selects
+// the active program with `files` or an installed package with `package` and is
+// refused a `root` outright, so every reference base of this kind is the default
+// one, which this pass leaves alone: `baseDirectoryProblem` returns on it, and
+// the resolver question below is asked only of a root someone declared.
 func typeScriptBaseProblems(
   config graphConfig,
   inventories map[string]*artifactInventory,
@@ -86,7 +87,16 @@ func typeScriptBaseProblems(
     // kind has no walk to notice it afterwards, so the gate asks here. Without
     // it the population came back empty and the claim deactivated in silence,
     // which is the state a linked root was repaired to remove.
-    if problem == "" {
+    //
+    // Only a declared root is asked. The default base is the directory ttsc was
+    // invoked with, and a Program spells its sources against that, so the first
+    // comparison matches and no resolution is wanted; refusing there would turn
+    // a population that works into an error, measured as a graph that closes at
+    // zero diagnostics becoming one refusal that fails every claim on the
+    // default base. The two walkers still answer for it, because they generate
+    // the paths they compare and a link they cannot resolve leaves them nothing
+    // to walk.
+    if problem == "" && !base.Default {
       if _, resolved := resolvedBaseDirectory(base); !resolved {
         problem = unresolvedBaseProblem(base, artifactTypeScript)
       }

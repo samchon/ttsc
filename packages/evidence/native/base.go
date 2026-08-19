@@ -288,12 +288,13 @@ func configuredBases(config graphConfig, kind artifactKind) []populationBase {
 //
 // The absolute fallback belongs to the default base alone, which is the only
 // base with no declared spelling, and the project root is then the only thing
-// left to name. Of the three callers, `unlistableBaseProblem` is the one that
-// reaches it. `describePopulation` returns on the default base before it names
-// anything, and `describeBaseDirectoryProblem` is only ever entered through
-// `baseDirectoryProblem`, which does the same. That message asks for filesystem
-// access rather than for an edit to a property that is not there, which is what
-// makes the spelling usable where no property exists.
+// left to name. Of the four callers, two reach it: `unlistableBaseProblem` and
+// `unresolvedBaseProblem`, both of which a base with no declared root can arrive
+// at. `describePopulation` returns on the default base before it names anything,
+// and `describeBaseDirectoryProblem` is only ever entered through
+// `baseDirectoryProblem`, which does the same. Neither of the two that reach it
+// asks for an edit to a property that is not there, which is what makes the
+// spelling usable where no property exists.
 func populationRootLabel(base populationBase) string {
   if base.Declared == "" {
     return filepath.ToSlash(base.Absolute)
@@ -439,10 +440,17 @@ func describeBaseDirectoryProblem(
 ) string {
   unexaminable := !occupied && !errors.Is(cause, fs.ErrNotExist)
   label := populationRootLabel(base)
+  // Two questions, two tests, and they are not the same one. Restating the
+  // resolved path tells a reader something only where it differs from the label,
+  // which is false for an absolute declared root and true for a UNC spelling on
+  // POSIX, whose leading slashes `filepath.Clean` collapses. Whether the project
+  // root was composed into the spelling at all is what gates the clause that
+  // says so, and only `declaredRootIsAbsolute` answers that.
+  restate := label != filepath.ToSlash(base.Absolute)
   resolved := !declaredRootIsAbsolute(base.Declared)
   if unexaminable {
     message := "Evidence graph could not examine the " + string(kind) + " root '" + label + "'"
-    if resolved {
+    if restate {
       message += ", which resolves to '" + filepath.ToSlash(base.Absolute) + "'"
     }
     message += ": " + causeText(cause) + ". Correct the 'root' property, or clear the condition the filesystem reported"
@@ -459,7 +467,7 @@ func describeBaseDirectoryProblem(
   if kind == artifactTypeScript {
     message = "Evidence graph found no directory at the " + string(kind) + " root '" + label + "'"
   }
-  if resolved {
+  if restate {
     message += ", which resolves to '" + filepath.ToSlash(base.Absolute) + "'"
   }
   if occupied {
@@ -500,9 +508,13 @@ func describeBaseDirectoryProblem(
 // verification. The resolver gives up after a fixed number of hops and returns
 // the link it stopped on, while the stat in `baseDirectoryProblem` follows
 // further on Linux and on Windows, so a long enough chain passes the gate and
-// leaves whoever trusted the resolver holding a link. Darwin and the BSDs stop
-// at the same number of hops, so the gate answers first and this refusal is
-// unreachable there.
+// leaves whoever trusted the resolver holding a link.
+//
+// Darwin and the BSDs stop at the same number of hops, so for a declared root the
+// gate answers first and the refusal is unreachable there. The default base is
+// not gated at all, because `baseDirectoryProblem` returns on it without
+// stat'ing anything, so a walker reaches this refusal for the project root on
+// every platform.
 //
 // A base that is not a link costs one `os.Lstat` inside the resolver and one
 // here, per base and per pass. Only the last component is resolved: a link on an
@@ -535,11 +547,11 @@ func unresolvedBaseProblem(base populationBase, kind artifactKind) string {
   } else {
     message += string(kind) + " root '" + label + "'"
   }
-  // The resolved path is restated only when it differs from the label, which
-  // covers an absolute declared root and the default base at once. This asks a
-  // narrower question than `declaredRootIsAbsolute` answers: that predicate
-  // decides whether the project root was composed into the spelling, and this
-  // decides whether printing it twice would tell a reader anything.
+  // The resolved path is restated only when it differs from the label, which is
+  // the whole question: an absolute declared root and the default base both name
+  // the path they landed on, and a UNC spelling on POSIX does not, because
+  // `filepath.Clean` collapses its leading slashes and the two genuinely differ.
+  // `describeBaseDirectoryProblem` makes the same test for the same reason.
   if resolved := filepath.ToSlash(base.Absolute); label != resolved {
     message += ", which resolves to '" + resolved + "'"
   }
