@@ -96,9 +96,9 @@ func TestAnUnlistableReferenceRootIsReportedAtItsCause(t *testing.T) {
  *
  * `couldMatchDescendant(".")` is true for a pattern opening with `**` and false
  * for one opening with a segment, so before the repair an identical filesystem
- * state was reported under `**` and swallowed under `docs/**`. The base belongs
- * to its population by construction, which is a fact about the base and not
- * about the patterns, so both selections have to answer alike.
+ * state was reported under the first shape and swallowed under the second. The
+ * base belongs to its population by construction, which is a fact about the
+ * base and not about the patterns, so both selections have to answer alike.
  *
  *  1. Root one population with a leading `**` pattern and one with a segment.
  *  2. Make the root unlistable in both.
