@@ -54,8 +54,8 @@ func extendTypeScriptInventories(
   }
 }
 
-// typeScriptBaseProblems reports every declared TypeScript root that does not
-// resolve and marks the population behind it failed.
+// typeScriptBaseProblems reports every declared TypeScript root that is not an
+// existing directory and marks the population behind it failed.
 //
 // The other two claim-capable kinds get this from their loaders: the Markdown
 // and Prisma walkers meet the root before they list anything, report it, and
