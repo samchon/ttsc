@@ -104,6 +104,20 @@ export function selfLinked(): void {}
 /** Carries documentation but no link. */
 export function noLink(): void {}
 
+// A link in a line comment: {@link ISale} is not documentation.
+export function lineCommentLink(): void {}
+
+export namespace Reached {
+  /** A namespace member naming {@link ISale}. */
+  export function member(): void {}
+}
+
+export function hostsClosure(): void {
+  /** A closure naming {@link ISale}. */
+  function inner(): void {}
+  inner();
+}
+
 /** Names {@link ISale}, of which this file imports exactly one. */
 export function ambiguousName(): void {}
 
@@ -169,6 +183,14 @@ export namespace Documented2 {
   assertNoDocRef(t, g, "#selfLinked:function")
   assertNoDocRef(t, g, "#noLink:function")
   assertNoDocRef(t, g, "#withKnownTags:function")
+  // A `//` comment is not documentation, so the parser attaches it to nothing
+  // and no link can be read out of it.
+  assertNoDocRef(t, g, "#lineCommentLink:function")
+
+  // Both nested forms are nodes the build pass records, so both resolve their
+  // own links — the edge pass reads the same host set the node pass filled.
+  assertDocRef(t, g, "#Reached.member:function", "sale.ts#ISale:interface")
+  assertDocRef(t, g, "#hostsClosure.inner:function", "sale.ts#ISale:interface")
 
   // A class, an interface, and a namespace carry documentation of their own,
   // and the container walk the edge pass would naturally reuse never visits any

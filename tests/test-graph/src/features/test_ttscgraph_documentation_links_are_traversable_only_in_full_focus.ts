@@ -20,6 +20,7 @@ interface DetailsResult {
     calls?: { name: string; relation: string }[];
     types?: { name: string; relation: string }[];
     dependsOn?: { name: string; relation: string }[];
+    dependedOnBy?: { name: string; relation: string }[];
   }[];
 }
 
@@ -191,6 +192,31 @@ export const test_ttscgraph_documentation_links_are_traversable_only_in_full_foc
           (ref) => ref.name === "ICited" && ref.relation === "doc_ref",
         ),
         `the neighbor summary must carry the link under its own relation: ${JSON.stringify(notice?.dependsOn)}`,
+      );
+
+      // The relation reads from the other end too: asking about the cited type
+      // shows the declaration whose documentation names it. That is the shape a
+      // reader uses to go from a contract to the code answering for it, and it
+      // comes from the same edge rather than a second index.
+      const cited = resultOf<DetailsResult>(
+        (await client.request("tools/call", {
+          name: "inspect_typescript_graph",
+          arguments: graphArguments({
+            thinking: "What answers to ICited?",
+            request: {
+              type: "details",
+              handles: ["ICited"],
+              neighbors: true,
+            },
+          }),
+        })) as ToolResult,
+        "details",
+      );
+      assert.ok(
+        cited.nodes[0]?.dependedOnBy?.some(
+          (ref) => ref.name === "renderNotice" && ref.relation === "doc_ref",
+        ),
+        `the cited type must list its documenter: ${JSON.stringify(cited.nodes[0]?.dependedOnBy)}`,
       );
 
       // Neither bounded operation carries a tag. Both are held to a token
