@@ -188,6 +188,15 @@ type graphSession struct {
   // whose headings did not actually change writes the same bytes and must
   // therefore cost nothing.
   artifactsDigest [sha256.Size]byte
+  // artifactsFile and artifactsStat are what the digest was taken from, kept so
+  // an unchanged file need not be read at all. The set is one entry per
+  // document section, model field, and operation, so it is bounded by the
+  // project's documentation rather than by anything small — and this comparison
+  // runs before every graph request, where reading and hashing that whole file
+  // to learn it did not move is the kind of cost a resident session pays
+  // forever.
+  artifactsFile string
+  artifactsStat artifactsFileState
 
   compiler     *driver.Session
   configHashes map[string][sha256.Size]byte
@@ -257,15 +266,43 @@ func (s *graphSession) adoptArtifacts(named *string) (bool, error) {
   if path == "" {
     return s.applyArtifacts(nil, withdrawnArtifactsDigest), nil
   }
-  digest, err := artifactsFileDigest(path)
+  stat, err := os.Stat(path)
   if err != nil {
     return false, err
   }
-  next, err := graph.LoadArtifacts(path)
+  state := artifactsFileState{size: stat.Size(), modTime: stat.ModTime().UnixNano()}
+  if path == s.artifactsFile && state == s.artifactsStat {
+    return false, nil
+  }
+  // One read, hashed and decoded from the same bytes. Reading twice would let
+  // an overwrite land between them and leave this session recording an identity
+  // for a set it is not holding — after which a later request naming the file
+  // it recorded would be answered as unchanged.
+  contents, err := os.ReadFile(path)
   if err != nil {
     return false, err
   }
-  return s.applyArtifacts(next, digest), nil
+  next, err := graph.ParseArtifacts(contents)
+  if err != nil {
+    return false, err
+  }
+  s.artifactsFile = path
+  s.artifactsStat = state
+  return s.applyArtifacts(next, sha256.Sum256(contents)), nil
+}
+
+// artifactsFileState is what an unchanged published file looks like from the
+// outside: size and modification time, never contents. It exists only to decide
+// whether the file is worth reading, and the digest taken from those contents is
+// still what decides whether the set is worth applying.
+type artifactsFileState struct {
+  size int64
+  // modTime is nanoseconds since the epoch rather than a time.Time, so the
+  // struct compares with == and means it. A time.Time carries a location
+  // pointer and an optional monotonic reading, and comparing two of those with
+  // == is a well-known way to get a false inequality that reads as a changed
+  // file forever.
+  modTime int64
 }
 
 // applyArtifacts installs a set and reports whether it differs from the applied
@@ -306,21 +343,6 @@ func (s *graphSession) invalidateArtifacts() {
     return
   }
   s.pending = &graphChange{mode: serveModeRebuild, full: true}
-}
-
-// artifactsFileDigest hashes the published file.
-//
-// A missing file is an error like any other read failure, and deliberately not
-// an empty set: the client named this path in this request, so its absence is a
-// broken exchange — a cleaned temporary directory, a client that died mid-write
-// — and answering it by emptying the overlay would delete every artifact from
-// the graph while looking exactly like a correct answer.
-func artifactsFileDigest(path string) ([sha256.Size]byte, error) {
-  contents, err := os.ReadFile(path)
-  if err != nil {
-    return [sha256.Size]byte{}, err
-  }
-  return sha256.Sum256(contents), nil
 }
 
 func (s *graphSession) Close() error {

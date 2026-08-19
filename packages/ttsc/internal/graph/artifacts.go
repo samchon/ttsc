@@ -79,6 +79,16 @@ func LoadArtifacts(path string) ([]Artifact, error) {
     }
     return nil, err
   }
+  return ParseArtifacts(data)
+}
+
+// ParseArtifacts decodes a published set from the bytes it was read as.
+//
+// Split from LoadArtifacts for a caller that has to hash the same bytes it
+// parses. Reading the file twice — once to state what it holds and once to
+// decode it — lets an overwrite land between the two, leaving a session whose
+// recorded identity describes a set it is not holding.
+func ParseArtifacts(data []byte) ([]Artifact, error) {
   var artifacts []Artifact
   if err := json.Unmarshal(data, &artifacts); err != nil {
     return nil, err
