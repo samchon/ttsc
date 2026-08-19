@@ -182,6 +182,8 @@ A monorepo usually keeps one requirements set that several packages implement, a
 
 A diagnostic that asks you to correct `root` quotes the spelling you declared, normalized to forward slashes and with `.` and redundant segments removed, rather than a path it derived. File locations stay project-relative in the same message, because one names the property to edit and the other names the path to open.
 
+`root` may name a symbolic link or a Windows junction to a directory, which is what a package manager installs for a linked workspace dependency. The population is read through it and every citation target and file location is still spelled through the `root` you wrote, not through the directory the link points at. Links found inside the population are not followed.
+
 **Moving the root moves the addresses with it.** Under the configuration above a section is cited as `requirements/pricing.md#discounts`, not through the citing package's distance from the documents. That is what lets two packages share one document set: they declare the same base and write the same citation, so adopting the set costs a `root` line and nothing else.
 
 Prisma and TypeScript targets carry no path, so a root there changes which files join the population and where a diagnostic points, never how a model or symbol is cited.

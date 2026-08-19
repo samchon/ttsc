@@ -240,18 +240,21 @@ func configuredPrismaAddressesWithHealth(
       continue
     }
     baseFailed := false
-    err := filepath.WalkDir(base.Absolute, func(current string, entry fs.DirEntry, walkErr error) error {
+    from := populationWalkRoot(base)
+    err := filepath.WalkDir(from, func(current string, entry fs.DirEntry, walkErr error) error {
       if walkErr != nil {
         // The walk root belongs to its population by construction, and the
         // relevance test below answers for an entry inside the base rather than
-        // for the base itself. `loadMarkdownBase` carries the same exemption on
-        // the same reasoning; leaving it in one walker would decide an
-        // identical filesystem state by artifact kind.
-        if current == base.Absolute {
+        // for the base itself. `loadMarkdownBase` carries the same exemption
+        // and records why the base was reached by accident before it; leaving
+        // either in one walker would decide an identical filesystem state by
+        // artifact kind.
+        if current == from {
           return walkErr
         }
         problem, relevant := unreadableEntryProblem(
           base,
+          from,
           "Prisma",
           current,
           walkErr,
@@ -264,22 +267,19 @@ func configuredPrismaAddressesWithHealth(
           baseFailed = true
           problems = append(problems, problem)
         }
-        if entry != nil && entry.IsDir() {
-          return filepath.SkipDir
-        }
-        return nil
+        return filepath.SkipDir
       }
       if entry.IsDir() {
-        if current == base.Absolute {
+        if current == from {
           return nil
         }
-        relative, ok := relativeProjectPath(base.Absolute, current)
+        relative, ok := relativeProjectPath(from, current)
         if !ok || !couldContainConfiguredPrisma(config, base, relative) {
           return filepath.SkipDir
         }
         return nil
       }
-      relative, ok := relativeProjectPath(base.Absolute, current)
+      relative, ok := relativeProjectPath(from, current)
       if !ok || !matchesConfiguredPrismaFile(config, base, relative) {
         return nil
       }

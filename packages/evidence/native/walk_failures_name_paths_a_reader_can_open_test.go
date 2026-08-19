@@ -95,6 +95,7 @@ func TestAWalkerComposesThePathItPrints(t *testing.T) {
   current := filepath.Join(base.Absolute, "requirements", "private")
   problem, relevant := unreadableEntryProblem(
     base,
+    base.Absolute,
     "Markdown",
     current,
     errors.New("permission denied"),
@@ -127,6 +128,7 @@ func TestAWalkFailureOutsideThePopulationIsNotReported(t *testing.T) {
   base := resolvePopulationBase(filepath.Join(t.TempDir(), "project"), "../documents")
   problem, relevant := unreadableEntryProblem(
     base,
+    base.Absolute,
     "Markdown",
     filepath.Join(base.Absolute, "assets", "private"),
     errors.New("permission denied"),

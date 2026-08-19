@@ -438,7 +438,7 @@ func TestAnAbsoluteRootWithBackslashesIsStoredWithSlashes(t *testing.T) {
  * know which state it is in, so it says that and passes the operating system's
  * own reason through.
  *
- *  1. Describe the three states a failed stat leaves behind.
+ *  1. Describe the two states a failed stat leaves behind.
  *  2. Read each rendered sentence.
  *  3. Assert only the absent one asks for the directory to be created.
  */
@@ -450,12 +450,19 @@ func TestARootThatCouldNotBeExaminedIsNotCalledMissing(t *testing.T) {
     "could not examine the markdown root '../contracts'",
     "which resolves to '",
     "permission denied",
-    "make that path reachable by this process",
+    "clear the condition the filesystem reported",
     "it resolves against the ttsc project root",
   } {
     if !strings.Contains(unexaminable, expected) {
       t.Fatalf("expected %q in:\n%s", expected, unexaminable)
     }
+  }
+  if strings.Contains(unexaminable, "reachable by this process") {
+    t.Fatalf("the rule names no cause the filesystem did not give:\n%s", unexaminable)
+  }
+  typescript := describeBaseDirectoryProblem(base, artifactTypeScript, false, denied)
+  if !strings.Contains(typescript, "re-bases Program sources onto itself") {
+    t.Fatalf("a typescript root explains itself in every state:\n%s", typescript)
   }
   if strings.Contains(unexaminable, "create that directory") {
     t.Fatalf("a directory that may already exist is not created:\n%s", unexaminable)

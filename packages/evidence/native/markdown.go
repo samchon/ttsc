@@ -45,25 +45,29 @@ func loadMarkdownBase(
     recordPopulationFailure(inventories, artifactMarkdown, base)
     return []string{problem}
   }
-  err := filepath.WalkDir(base.Absolute, func(current string, entry fs.DirEntry, walkErr error) error {
+  from := populationWalkRoot(base)
+  err := filepath.WalkDir(from, func(current string, entry fs.DirEntry, walkErr error) error {
     if walkErr != nil {
       // The walk root belongs to its population by construction, so a failure
       // to list it is a failure of the population and is never decided by what
       // the globs happen to select. The relevance test below answers for an
-      // entry inside the base and returns false for the base itself, whose
-      // base-relative path is "." and which no pattern is written to match, so
-      // the one failure that empties the whole population was the one failure
-      // this walker discarded. The success branch already exempts the base for
-      // the same reason; this is that exemption on the error side.
+      // entry inside the base, and it answers for the base itself only by
+      // accident: its base-relative path is ".", which `couldMatchDescendant`
+      // calls true under a pattern opening with `**` and false under one
+      // opening with a segment. So the one failure that empties the whole
+      // population was reported or discarded by the shape of the globs. The
+      // success branch already exempts the base; this is that exemption on the
+      // error side.
       //
       // Returning the error ends the walk and carries the failure to the
       // handler below, which is where a population-level finding belongs and
       // where the population is recorded failed rather than healthy and empty.
-      if current == base.Absolute {
+      if current == from {
         return walkErr
       }
       problem, relevant := unreadableEntryProblem(
         base,
+        from,
         "Markdown",
         current,
         walkErr,
@@ -76,21 +80,21 @@ func loadMarkdownBase(
         recordPopulationFailure(inventories, artifactMarkdown, base)
         problems = append(problems, problem)
       }
-      if entry != nil && entry.IsDir() {
-        return filepath.SkipDir
-      }
-      return nil
+      // `WalkDir` passes a nil entry only for its root, which the guard above
+      // answers, so this error belongs to a directory whose listing failed and
+      // the walk continues with its siblings.
+      return filepath.SkipDir
     }
     if entry.IsDir() {
-      if current != base.Absolute {
-        relative, ok := relativeProjectPath(base.Absolute, current)
+      if current != from {
+        relative, ok := relativeProjectPath(from, current)
         if !ok || !couldContainConfiguredMarkdown(config, base, relative) {
           return filepath.SkipDir
         }
       }
       return nil
     }
-    relative, ok := relativeProjectPath(base.Absolute, current)
+    relative, ok := relativeProjectPath(from, current)
     if !ok {
       return nil
     }

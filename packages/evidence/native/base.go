@@ -82,9 +82,18 @@ func (base populationBase) addressOf(relative string) artifactAddress {
 }
 
 // display spells a base-relative path the way a reader must open it.
+//
+// The separator is added only where one is missing. A base on another Windows
+// volume has no relative spelling, so its Display is the absolute path, and a
+// drive root is the one directory whose own separator is part of it: joining
+// `D:/` to a path without this would print `D://requirements`, in every file
+// location as well as in the two walk messages.
 func (base populationBase) display(relative string) string {
   if base.Display == "" {
     return relative
+  }
+  if strings.HasSuffix(base.Display, "/") {
+    return base.Display + relative
   }
   return base.Display + "/" + relative
 }
@@ -319,8 +328,11 @@ func baseDirectoryProblem(base populationBase, kind artifactKind) string {
 // what to do about it.
 //
 // Three states reach it, and each one owns a repair the other two cannot be
-// given. `occupied` means the stat succeeded over something that is not a
-// directory, so the repair has to name what is in the way: told to "add that
+// given. The two parameters are one stat outcome split in two: `occupied` says
+// the call returned without an error over something that is not a directory,
+// and `cause` is that call's error, so exactly one of them is ever set.
+//
+// `occupied` means the repair has to name what is in the way: told to "add that
 // directory" over a file, an author follows the instruction, watches it fail,
 // and reads the same sentence again. An absent path is created. A stat that
 // failed for any other reason is the state where the rule does not know which
@@ -328,11 +340,20 @@ func baseDirectoryProblem(base populationBase, kind artifactKind) string {
 // directory" over a directory an unreadable parent is hiding is the same
 // unfollowable repair a second time.
 //
+// The third repair therefore names no cause of its own. A permission is only
+// the likeliest reason a stat fails without saying the path is absent; a name
+// the filesystem refuses to spell, a path too long, and a link loop arrive the
+// same way, and "make that path reachable" would be a guess in each of them.
+// The operating system already wrote the reason one clause earlier.
+//
 // `fs.ErrNotExist` is what separates the second from the third, and the split
 // is not identical on both platforms. A path whose parent is a file answers
-// `ENOTDIR` on POSIX and a not-found error on Windows, so it lands in different
-// branches there. Both sentences are true where they land, because the third
-// prints the operating system's own reason rather than asserting one.
+// `ENOTDIR` on POSIX and a not-found error on Windows, so POSIX reads the
+// filesystem's own reason while Windows offers "create that directory" over a
+// path `mkdir -p` cannot create. Both lead clauses are true; that one repair
+// clause is not followable, and it is left because separating it needs a stat
+// of every ancestor on a path this rule otherwise touches once. "Correct the
+// 'root' property" is offered first in both, and it is the repair that works.
 //
 // The Markdown and Prisma messages may still lead with "could not read",
 // because the walk each of those callers is about to run is the read the root
@@ -390,11 +411,21 @@ func describeBaseDirectoryProblem(
     if resolved {
       message += ", which resolves to '" + filepath.ToSlash(base.Absolute) + "'"
     }
-    message += ": " + cause.Error() + ". Correct the 'root' property, or make that path reachable by this process"
-    if resolved {
-      message += "; it resolves against the ttsc project root"
+    message += ": " + cause.Error() + ". Correct the 'root' property, or clear the condition the filesystem reported"
+    if resolved || kind == artifactTypeScript {
+      message += "; "
     }
-    return message + "."
+    if resolved {
+      message += "it resolves against the ttsc project root"
+    }
+    if kind != artifactTypeScript {
+      return message + "."
+    }
+    if resolved {
+      message += ", and "
+    }
+    return message + "a " + string(kind) +
+      " root re-bases Program sources onto itself rather than scanning the filesystem."
   }
   message := "Evidence graph could not read the " + string(kind) + " root '" + label + "'"
   if kind == artifactTypeScript {
@@ -426,6 +457,28 @@ func describeBaseDirectoryProblem(
       " root re-bases Program sources onto itself rather than scanning the filesystem."
   }
   return message + "an empty directory leaves the population just as empty."
+}
+
+// populationWalkRoot is the directory a population walk starts at.
+//
+// It is the base itself, until the base is a link. `filepath.WalkDir` lstats
+// its root, so a symbolic link or a Windows junction arrives as a plain entry,
+// the walk descends into nothing, and the population comes back empty and
+// healthy — over a directory `baseDirectoryProblem` already accepted, because
+// `os.Stat` follows the link and found one there. The two checks have to agree
+// about what the base is, and the gate's answer is the one an author declared.
+//
+// `resolveLinkedDirectory` is this package's existing answer to the same
+// question for an installed package, and it is used here rather than
+// `filepath.EvalSymlinks` for the reason recorded there: a Windows junction,
+// which is what pnpm creates for a workspace dependency, comes back from
+// `EvalSymlinks` unchanged.
+//
+// Only the walk moves. Every address, location, and citation target is still
+// composed from the declared base, so a document reached through a link is
+// spelled exactly as it would be without one.
+func populationWalkRoot(base populationBase) string {
+  return filepath.FromSlash(resolveLinkedDirectory(base.Absolute))
 }
 
 // unlistableBaseProblem reports a population whose own base could not be
@@ -463,16 +516,20 @@ func unlistableBaseProblem(
 // spells every path beside it.
 //
 // `reads` is the population's own membership question, which is the only part
-// that differs by artifact kind. The base itself never arrives here: it is not
-// one entry among many, and each walker answers it before this is asked.
+// that differs by artifact kind. `from` is the directory the walk started at,
+// which is the base unless the base is a link, and it is what a callback path
+// is measured against; the spelling still comes from the base, so a reader sees
+// the root they declared either way. The base itself never arrives here: it is
+// not one entry among many, and each walker answers it before this is asked.
 func unreadableEntryProblem(
   base populationBase,
+  from string,
   sources string,
   current string,
   cause error,
   reads func(relative string) bool,
 ) (string, bool) {
-  relative, ok := relativeProjectPath(base.Absolute, current)
+  relative, ok := relativeProjectPath(from, current)
   if !ok || !reads(relative) {
     return "", false
   }

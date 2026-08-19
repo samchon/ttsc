@@ -31,11 +31,10 @@ func TestAnUnlistableBaseIsNamedAsAPopulation(t *testing.T) {
     t.Fatalf("declared root:\n got %s\nwant %s", declared, want)
   }
   fallback := unlistableBaseProblem(resolvePopulationBase(root, ""), "Markdown", cause)
-  if !strings.Contains(fallback, "'"+filepath.ToSlash(root)+"'") {
-    t.Fatalf("a base with no declared root is named where it is, got: %s", fallback)
-  }
-  if strings.Contains(fallback, "Correct the 'root' property") {
-    t.Fatalf("a base with no declared root has no property to correct, got: %s", fallback)
+  wantFallback := "Evidence graph could not walk Markdown root '" + filepath.ToSlash(root) +
+    "': permission denied. Fix filesystem access so configured Markdown sources can be indexed."
+  if fallback != wantFallback {
+    t.Fatalf("default base:\n got %s\nwant %s", fallback, wantFallback)
   }
 }
 
@@ -43,11 +42,12 @@ func TestAnUnlistableBaseIsNamedAsAPopulation(t *testing.T) {
  * Verifies an unlistable reference root is reported instead of being blamed on
  * the globs.
  *
- * The failure guard answered for entries inside the base and returned false for
- * the base itself, whose base-relative path is `.` and which no ordinary pattern
- * matches, so the one failure that empties the whole population was the one the
- * walker discarded. The population then reached evaluation healthy and empty and
- * the author was told their patterns matched nothing.
+ * The failure guard answered for entries inside the base, and answered for the
+ * base itself only by accident: its base-relative path is `.`, which the glob
+ * shape decides. Under this reference's `requirements/**` it is false, so the
+ * one failure that empties the whole population was discarded, the population
+ * reached evaluation healthy and empty, and the author was told their patterns
+ * matched nothing.
  *
  *  1. Root a Markdown reference at a directory the process may not list.
  *  2. Run the rule.
@@ -144,7 +144,8 @@ func TestAnUnlistableRootIsReportedWhateverTheGlobsSelect(t *testing.T) {
  * deactivates without a word and takes its whole obligation with it, so the
  * build goes green over code nobody is answering for.
  *
- *  1. Root a Markdown claim at a directory the process may not list.
+ *  1. Root a Markdown claim at a directory the process may not list, selecting
+ *     with a segment-leading glob, which is the shape that produced the silence.
  *  2. Run the rule.
  *  3. Assert the root is named rather than the claim vanishing.
  */
@@ -160,7 +161,7 @@ func TestAnUnlistableClaimRootDoesNotDeactivateInSilence(t *testing.T) {
   }, `{"claims":[{
     "type":"markdown",
     "root":"../documents",
-    "files":["**/*.md"],
+    "files":["requirements/**/*.md"],
     "symbol":"h2",
     "reference":{"type":"markdown","files":["docs/**/*.md"],"symbol":"h3"}
   }]}`)
