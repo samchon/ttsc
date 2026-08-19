@@ -100,6 +100,16 @@ export function publishArtifacts(options: {
   });
   if (plugins.length === 0) return unpublished(options);
 
+  // The inputs are stated before the set is asked for, never after. A document
+  // edited between the two calls has to read as a change next time, and only
+  // this order gives that: a fingerprint taken first describes a state at least
+  // as old as the set it labels, so the worst it can cost is one republish that
+  // finds nothing new. Taken afterwards it would describe a state newer than
+  // the set, and the edit that landed in the gap would read as already
+  // accounted for — the exact staleness this exists to remove.
+  const inputs = artifactInputs(plugins, options);
+  const fingerprint = fingerprintInputs(inputs);
+
   const published: unknown[] = [];
   for (const plugin of plugins) {
     const result = spawnSync(
@@ -143,9 +153,7 @@ export function publishArtifacts(options: {
       continue;
     }
   }
-  const inputs = artifactInputs(plugins, options);
-  if (published.length === 0)
-    return { file: null, fingerprint: fingerprintInputs(inputs), inputs };
+  if (published.length === 0) return { file: null, fingerprint, inputs };
 
   // One file per process, overwritten, rather than a fresh temp directory per
   // call. A resident session asks once and a one-shot asks once, but `loadGraph`
@@ -157,7 +165,7 @@ export function publishArtifacts(options: {
     `ttsc-graph-artifacts-${String(process.pid)}.json`,
   );
   fs.writeFileSync(file, JSON.stringify(published));
-  return { file, fingerprint: fingerprintInputs(inputs), inputs };
+  return { file, fingerprint, inputs };
 }
 
 /**
