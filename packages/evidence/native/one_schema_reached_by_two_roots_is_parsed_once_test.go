@@ -370,3 +370,68 @@ func TestAnExclusionInASharedFileIsPlacedByEveryNameThatReadsIt(t *testing.T) {
     )
   }
 }
+
+/**
+ * Verifies two claims over one shared schema each owe their own reference.
+ *
+ * The product shape #1262 exists for, at the level an adopter meets it: a
+ * package installed under `node_modules` and rooted again at its workspace
+ * source is one schema owned by two claims, each answering to its own
+ * documents. Before this pull request the whole set was rejected for a model
+ * declared twice and neither claim owed anything. Both must now owe exactly
+ * their own, and the host they name must be a path that opens — which for a
+ * file both claims reached is one of its two spellings rather than each
+ * claim's own, and this is where that becomes visible.
+ *
+ *  1. Hard-link one schema so two rooted claims each own a name for it.
+ *  2. Give each claim a different document to answer to.
+ *  3. Assert one acknowledgement per claim, each naming its own document.
+ */
+func TestTwoClaimsOverOneSharedSchemaEachOweTheirOwnReference(t *testing.T) {
+  root := prismaBridgeRoot(t, map[string]string{
+    "store/main.prisma": "model sale {\n  id String @id\n}\n",
+  })
+  if err := os.MkdirAll(filepath.Join(root, "mirror"), 0o755); err != nil {
+    t.Fatal(err)
+  }
+  if err := os.Link(
+    filepath.Join(root, "store", "main.prisma"),
+    filepath.Join(root, "mirror", "main.prisma"),
+  ); err != nil {
+    t.Skipf("this filesystem does not support hard links: %v", err)
+  }
+  messages := runIndexRuleAtRoot(t, root, map[string]string{
+    "docs/installed.md": "## Installed {#installed}\n",
+    "docs/source.md":    "## Source {#source}\n",
+  }, `{"claims":[
+    {
+      "type":"prisma",
+      "root":"store",
+      "files":["**/*.prisma"],
+      "symbol":"model",
+      "reference":{"type":"markdown","files":["docs/installed.md"],"symbol":"h2"}
+    },
+    {
+      "type":"prisma",
+      "root":"mirror",
+      "files":["**/*.prisma"],
+      "symbol":"model",
+      "reference":{"type":"markdown","files":["docs/source.md"],"symbol":"h2"}
+    }
+  ]}`)
+  if len(messages) != 2 {
+    t.Fatalf(
+      "two claims owe one acknowledgement each, got %d:\n%s",
+      len(messages),
+      strings.Join(messages, "\n"),
+    )
+  }
+  assertProblemContains(t, messages, "Missing acknowledgement for 'docs/installed.md#installed'")
+  assertProblemContains(t, messages, "Missing acknowledgement for 'docs/source.md#source'")
+  // One parse, one model, one location, named the same way to both claims.
+  for _, message := range messages {
+    if !strings.Contains(message, "on a selected prisma host") {
+      t.Fatalf("each claim reports its own prisma obligation:\n%s", message)
+    }
+  }
+}

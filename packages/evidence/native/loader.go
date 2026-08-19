@@ -331,12 +331,13 @@ func (loader *typeScriptLoader) locateInstalledPackage(
 //
 // The bound counts links followed, not answers given. A chain that ends exactly
 // on the last hop this rule follows has landed on its directory with no
-// iteration left to look, and it is a chain that resolves — the filesystem
-// follows more than this on every platform. So the answer costs one `os.Lstat`
-// in that case and nothing at all in every other, since every earlier ending is
-// a return from inside the loop. Refusing it instead would turn a root that
-// works into an error at the boundary, which is what this rule exists to keep
-// from happening in the other direction.
+// iteration left to look, and it is a chain the filesystem resolves: Linux and
+// Windows follow further, and Darwin stops at this same number, so the boundary
+// sits where the strictest platform's does rather than inside it. So the answer
+// costs one `os.Lstat` in that case and nothing at all in every other, since
+// every earlier ending is a return from inside the loop. Refusing it instead
+// would turn a root that works into an error at the boundary, which is what
+// this rule exists to keep from happening in the other direction.
 func resolveLinkedDirectory(directory string) (string, bool) {
   current := directory
   for range 32 {

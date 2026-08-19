@@ -302,8 +302,8 @@ func materializeClaimStates(
       // obligation wherever it is read from. Appending each list would count
       // that citation twice, and every duplicate and conflict rule downstream
       // would then name a repair the author cannot perform: the two are one
-      // tag, on one line. The hosts above are collapsed for the same reason,
-      // one line up.
+      // tag, on one line. The hosts just above are collapsed for the same
+      // reason.
       for _, declaration := range inventories[path].Declarations {
         if declaredByID[declaration.ID] {
           continue
