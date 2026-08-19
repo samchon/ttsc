@@ -345,6 +345,143 @@ async function assertAppearingCandidateInvalidatesGeneration(): Promise<void> {
 }
 
 /**
+ * Asserts samchon/ttsc#1272: a membership change made between two deliveries is
+ * seen by the second one.
+ *
+ * This is what the mutation-settle barrier exists for. A write returns before
+ * its watch event is applied, so a delivery that read the tracker's verdict
+ * immediately would validate against a watcher that had not been told, and
+ * serve a generation the new file already invalidated. The barrier used to be a
+ * fixed wait guessing at that crossing; it is now the watcher's own
+ * acknowledgement, and this case pins that the guarantee did not move with it.
+ *
+ * 1. Deliver one module so the generation is captured.
+ * 2. Write a new source file into the project, synchronously.
+ * 3. Deliver another module and assert the project was recompiled.
+ */
+async function assertSynchronousMembershipChangeReachesTheNextDelivery(): Promise<void> {
+  const { createTtscTransformCache, resolveOptions, transformTtsc } =
+    await TestUnpluginRuntime.loadUnpluginApi();
+  const project = createCacheProject({ fileCount: 4, graphFanout: 2 });
+  const cache = createTtscTransformCache();
+  const modules = projectModules(project.root);
+  const options = resolveOptions();
+  const deliver = async (file: string): Promise<void> => {
+    const result = await transformTtsc(
+      file,
+      fs.readFileSync(file, "utf8"),
+      options,
+      undefined,
+      cache,
+    );
+    assert.ok(result, `expected transformed output for ${file}`);
+  };
+
+  await deliver(modules[0]!);
+  assert.equal(fs.readFileSync(project.runLog, "utf8").length, 1);
+
+  fs.writeFileSync(
+    path.join(project.root, "src", "added.ts"),
+    'export const added: string = "PROBE";\n',
+    "utf8",
+  );
+  await deliver(modules[1]!);
+
+  assert.equal(
+    fs.readFileSync(project.runLog, "utf8").length,
+    2,
+    "a file created between two deliveries must reach the watcher before the second one validates",
+  );
+}
+
+/**
+ * Asserts samchon/ttsc#1261: a delivery stops probing an absent resolution
+ * candidate the generation's watcher already covers.
+ *
+ * A missing candidate is the one input no proof can be memoized for. Its
+ * metadata cannot be read, so the signature that stands in for every other
+ * input's comparison never applies, and each delivery that reaches it probes
+ * the filesystem again — `modules x candidates` for one build, and the only
+ * per-delivery filesystem work a declaring producer has left. Watching the name
+ * answers it once for the whole generation instead, through the channel that
+ * already proves project membership.
+ *
+ * 1. Build a project whose envelope stamps missing candidates.
+ * 2. Deliver one module so the generation is captured, then reset the counters.
+ * 3. Deliver the remaining modules and assert nothing touched a candidate path.
+ */
+async function assertNotifiedAbsentCandidateIsNotReprobed(): Promise<void> {
+  const { createTtscTransformCache, resolveOptions, transformTtsc } =
+    await TestUnpluginRuntime.loadUnpluginApi();
+  const graphCandidates = 3;
+  const project = createCacheProject({
+    fileCount: 4,
+    graphCandidates,
+    graphFanout: 4,
+  });
+  const candidates = new Set(
+    Array.from({ length: graphCandidates }, (_, index) =>
+      path.resolve(
+        path.join(project.root, "node_modules", `dep${index}`, "index.ts"),
+      ),
+    ),
+  );
+  const probes = { calls: 0 };
+  const count = (location: string): void => {
+    if (candidates.has(path.resolve(location))) probes.calls += 1;
+  };
+  const cache = createTtscTransformCache({
+    exists: (location: string) => {
+      count(location);
+      return fs.existsSync(location);
+    },
+    lstat: (location: string) => {
+      count(location);
+      return fs.lstatSync(location, { bigint: true });
+    },
+    readFile: (location: string) => {
+      count(location);
+      return fs.readFileSync(location);
+    },
+    stat: (location: string) => {
+      count(location);
+      return fs.statSync(location);
+    },
+    statBigInt: (location: string) => {
+      count(location);
+      return fs.statSync(location, { bigint: true });
+    },
+  });
+  const modules = projectModules(project.root);
+  const options = resolveOptions();
+  const deliver = async (file: string): Promise<void> => {
+    const result = await transformTtsc(
+      file,
+      fs.readFileSync(file, "utf8"),
+      options,
+      undefined,
+      cache,
+    );
+    assert.ok(result, `expected transformed output for ${file}`);
+  };
+
+  await deliver(modules[0]!);
+  assert.equal(fs.readFileSync(project.runLog, "utf8").length, 1);
+
+  probes.calls = 0;
+  for (const file of modules.slice(1)) {
+    await deliver(file);
+  }
+
+  assert.equal(fs.readFileSync(project.runLog, "utf8").length, 1);
+  assert.equal(
+    probes.calls,
+    0,
+    "a candidate the generation watches must cost no filesystem call per delivery",
+  );
+}
+
+/**
  * Asserts a realized graph member with no compiler proof still refuses reuse.
  *
  * The candidate relaxation is scoped to paths the envelope reported _only_ as
@@ -2959,6 +3096,8 @@ export {
   projectModules,
   assertCacheHitsDespiteOutOfWalkOutputKey,
   assertAppearingCandidateInvalidatesGeneration,
+  assertNotifiedAbsentCandidateIsNotReprobed,
+  assertSynchronousMembershipChangeReachesTheNextDelivery,
   assertCacheTransformsMultiFileProjectOnce,
   assertNonInputWriteDuringCompileKeepsGeneration,
   assertUnprovenCandidatesKeepOneCompile,

@@ -121,16 +121,36 @@ async function main(): Promise<void> {
       count: sharedClosureModules,
       emitExternalKey: false,
       // At least one distinct missing candidate per module, so the reachable
-      // candidate count below is the module count rather than the fanout.
+      // candidate set is the module count rather than the fanout. Every one of
+      // them used to cost a failed probe per delivery — `(count + 1) / 2` on
+      // average, the residual samchon/ttsc#1261 removed — so the shared
+      // membership budget below is now the whole allowance, and a candidate
+      // that starts being probed again breaks it.
       graphFanout: sharedClosureModules,
       graphGlobals: 50,
       partitionExternalInputs: false,
-      // `selectReachableSources` includes the delivered file, so the chain
-      // graph makes `count - i` candidates reachable at sorted position `i`:
-      // `(count + 1) / 2` per module on average, one failed stat each, on top
-      // of the shared membership budget. Derived from the scenario's own size
-      // so raising it neither hides a regression nor invents a failure.
-      statsBudget: (sharedClosureModules + 1) / 2 + MEMBERSHIP_STAT_BUDGET,
+      unrelatedDirectoryCount: 100,
+    }),
+  );
+
+  console.log(
+    "\nScenario F — the same serve shape from a producer that declares completeness:",
+  );
+  console.log(
+    "  invariant: the derived set collapses to the reported dependencies, the",
+  );
+  console.log(
+    "  config chain and the candidates, so only the candidate probe is left\n",
+  );
+  recordFailure(
+    failures,
+    await measureServeValidation(adapter, {
+      count: sharedClosureModules,
+      declareComplete: true,
+      emitExternalKey: false,
+      graphFanout: sharedClosureModules,
+      graphGlobals: 50,
+      partitionExternalInputs: false,
       unrelatedDirectoryCount: 100,
     }),
   );
@@ -224,6 +244,15 @@ interface MeasureOptions {
    * for a graph-bearing envelope.
    */
   graphGlobals?: number;
+  /**
+   * Stamp `dependenciesComplete` for every file the sidecar reports, the shape
+   * a producer takes once it declares what it consulted (samchon/typia#2357,
+   * and what `@ttsc/banner` and `@ttsc/strip` already do). It narrows a
+   * delivery's derived set to the reported dependencies, the config chain, and
+   * the resolution candidates, which is how the closure term is removed soundly
+   * rather than by memoizing a proof.
+   */
+  declareComplete?: boolean;
   /** Give each module one disjoint external edge instead of the whole union. */
   partitionExternalInputs?: boolean;
   /**
@@ -247,7 +276,9 @@ interface TransformHarness {
   cache: Map<string, Promise<unknown>>;
   counters: {
     bytes: number;
+    lstats: number;
     probes: number;
+    readdirs: number;
     reads: number;
     stats: number;
   };
@@ -258,8 +289,26 @@ function createTransformHarness(
   adapter: Adapter,
   project: string,
 ): TransformHarness {
-  const counters = { bytes: 0, probes: 0, reads: 0, stats: 0 };
+  const counters = {
+    bytes: 0,
+    lstats: 0,
+    probes: 0,
+    readdirs: 0,
+    reads: 0,
+    stats: 0,
+  };
   const cache = adapter.createTtscTransformCache({
+    // `lstat` is the metadata call every derived input's validation makes
+    // first, so leaving it uncounted hid the largest per-delivery term behind
+    // the ones below (samchon/ttsc#1261).
+    lstat: (location: string) => {
+      counters.lstats += 1;
+      return fs.lstatSync(location, { bigint: true });
+    },
+    readdir: (location: string) => {
+      counters.readdirs += 1;
+      return fs.readdirSync(location, { withFileTypes: true });
+    },
     readFile: (location: string) => {
       const contents = fs.readFileSync(location);
       counters.bytes += contents.length;
@@ -289,9 +338,22 @@ function createTransformHarness(
   };
 }
 
+/** Every counted filesystem call, which is what a delivery actually costs. */
+function totalSyscalls(harness: TransformHarness): number {
+  return (
+    harness.counters.lstats +
+    harness.counters.probes +
+    harness.counters.readdirs +
+    harness.counters.reads +
+    harness.counters.stats
+  );
+}
+
 function resetCounters(harness: TransformHarness): void {
   harness.counters.bytes = 0;
+  harness.counters.lstats = 0;
   harness.counters.probes = 0;
+  harness.counters.readdirs = 0;
   harness.counters.reads = 0;
   harness.counters.stats = 0;
 }
@@ -484,9 +546,10 @@ async function measureServeValidation(
       `globals=${String(options.graphGlobals ?? 0).padStart(4)}  ` +
       `shared=${options.partitionExternalInputs === true ? "no " : "yes"}  ` +
       `pluginRuns=${String(pluginRuns).padStart(3)}  ` +
-      `reads=${String(harness.counters.reads).padStart(8)}  ` +
-      `reads/file=${(harness.counters.reads / options.count).toFixed(1).padStart(8)}  ` +
+      `reads/file=${(harness.counters.reads / options.count).toFixed(1).padStart(5)}  ` +
+      `lstats/file=${(harness.counters.lstats / options.count).toFixed(1).padStart(6)}  ` +
       `stats/file=${(harness.counters.stats / options.count).toFixed(1).padStart(6)}  ` +
+      `syscalls/file=${(totalSyscalls(harness) / options.count).toFixed(1).padStart(6)}  ` +
       `${elapsedMs.toFixed(0).padStart(7)}ms`,
   );
   const readsPerFile = harness.counters.reads / options.count;
@@ -647,6 +710,7 @@ function createProject(options: MeasureOptions): string {
   process.env.TTSC_PERF_PARTITION_EXTERNAL = options.partitionExternalInputs
     ? "1"
     : "0";
+  process.env.TTSC_PERF_DECLARE_COMPLETE = options.declareComplete ? "1" : "0";
   return project;
 }
 
@@ -693,6 +757,7 @@ function writeGoPlugin(project: string): void {
       "type transformResult struct {",
       '  TypeScript   map[string]string   `json:"typescript"`',
       '  Dependencies map[string][]string `json:"dependencies,omitempty"`',
+      '  DependenciesComplete []string    `json:"dependenciesComplete,omitempty"`',
       '  Graph        *referenceGraph     `json:"graph,omitempty"`',
       "}",
       "",
@@ -775,6 +840,14 @@ function writeGoPlugin(project: string): void {
       '      candidates[key] = []string{fmt.Sprintf("node_modules/dep%d/index.ts", i%fanout)}',
       "    }",
       "    result.Dependencies = deps",
+      '    if os.Getenv("TTSC_PERF_DECLARE_COMPLETE") == "1" {',
+      "      complete := []string{}",
+      "      for key := range deps {",
+      "        complete = append(complete, key)",
+      "      }",
+      "      sort.Strings(complete)",
+      "      result.DependenciesComplete = complete",
+      "    }",
       '    globalCount, _ := strconv.Atoi(os.Getenv("TTSC_PERF_GRAPH_GLOBALS"))',
       "    globals := []string{}",
       "    for j := 0; j < globalCount; j++ {",
