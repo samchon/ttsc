@@ -454,20 +454,6 @@ func acquireRules(pluginsJSON, cwd, tsconfigPath string) (RuleResolver, error) {
   return resolver, nil
 }
 
-// invalidateResidentRules drops the memo. Called for the same control that
-// drops the resident Program, so a client that cannot localize a change gets a
-// full reload of both.
-func invalidateResidentRules() {
-  cache := residentRules
-  if cache == nil {
-    return
-  }
-  cache.mu.Lock()
-  defer cache.mu.Unlock()
-  cache.resolver = nil
-  cache.configs = nil
-}
-
 // hashRuleConfigs records the content of every file the resolver was built
 // from. A resolver naming none records none, and a memo with no recorded file
 // is never reused — it could not prove anything.

@@ -278,8 +278,13 @@ func handleServeLSPLine(line string, base *lspCommandOptions, encoder *json.Enco
     return
   }
   if req.Invalidate {
+    // The Program only. The rule memo validates itself against the files it was
+    // loaded from, so it needs no help from a client — and dropping it here
+    // would re-evaluate the project's configuration on exactly the requests
+    // that carry this control, which is every request from a consumer that
+    // cannot localize a source change. That is the cost the memo exists to
+    // remove.
     residentPrograms.invalidate()
-    invalidateResidentRules()
   }
   if len(req.Changed) > 0 {
     paths := make([]string, 0, len(req.Changed))

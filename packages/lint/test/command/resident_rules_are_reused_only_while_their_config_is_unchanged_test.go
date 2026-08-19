@@ -1,6 +1,8 @@
 package linthost
 
 import (
+  "encoding/json"
+  "io"
   "testing"
 )
 
@@ -23,8 +25,8 @@ import (
 //  1. Install a resident memo and load a project's rules through it.
 //  2. Ask again unchanged and require the very same resolver back.
 //  3. Rewrite the configuration and require a different one.
-//  4. Drop the memo explicitly and require a reload from that alone.
-//  5. Require a one-shot process, which installs no memo, to load every time.
+//  4. Send the client invalidate control and require the memo to survive it.
+//  5. Ask about a second project and require it to load on its own.
 func TestResidentRulesAreReusedOnlyWhileTheirConfigIsUnchanged(t *testing.T) {
   root := seedLintProject(t, "/** Public value. */\nexport const value = 1;\n")
   seedLintRules(t, root, map[string]string{"jsdoc/check-tag-names": "warn"})
@@ -40,7 +42,14 @@ func TestResidentRulesAreReusedOnlyWhileTheirConfigIsUnchanged(t *testing.T) {
 
   cache := &residentRuleCache{}
   residentRules = cache
-  defer func() { residentRules = nil }()
+  // The Program cache too, because the invalidate control below runs the
+  // daemon's real request handler and that handler drops the Program first.
+  residentPrograms = newResidentProgramCache()
+  defer func() {
+    residentRules = nil
+    residentPrograms.invalidate()
+    residentPrograms = nil
+  }()
 
   load := func(what string) {
     t.Helper()
@@ -72,11 +81,19 @@ func TestResidentRulesAreReusedOnlyWhileTheirConfigIsUnchanged(t *testing.T) {
     t.Fatal("the memo did not settle after the edit it had just absorbed")
   }
 
-  // The explicit control, which a client sends when it cannot say what moved.
-  invalidateResidentRules()
-  load("request after invalidate")
-  if cache.loads != 3 {
-    t.Fatal("invalidate left the memo reachable; a client that cannot localize a change has no other way to force a reload")
+  // The client's own invalidate control is deliberately not wired to this memo,
+  // and that is worth pinning: it arrives with every change a consumer cannot
+  // localize, so honouring it here would re-evaluate the configuration exactly
+  // as often as before the memo existed. The Program has no such self-check and
+  // is what that control is for.
+  handleServeLSPLine(`{"invalidate":true}`, &lspCommandOptions{
+    cwd:         root,
+    pluginsJSON: manifest,
+    tsconfig:    "tsconfig.json",
+  }, json.NewEncoder(io.Discard))
+  load("request after a client invalidate")
+  if cache.loads != 2 {
+    t.Fatalf("a client invalidate dropped the rule memo (loads=%d); it would then reload on every unlocalized change, which is every one", cache.loads)
   }
 
   // A different project through the same daemon is a different answer, and the
@@ -87,7 +104,7 @@ func TestResidentRulesAreReusedOnlyWhileTheirConfigIsUnchanged(t *testing.T) {
   if _, err := acquireRules(manifest, other, "tsconfig.json"); err != nil {
     t.Fatalf("second project: %v", err)
   }
-  if cache.loads != 4 {
+  if cache.loads != 3 {
     t.Fatal("a second project reused the first one's rules")
   }
 }
