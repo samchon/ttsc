@@ -133,6 +133,13 @@ export namespace ITtscCompilerTransformation {
      * declares completeness should stamp {@link graph} too; without it a listed
      * file retains no universal input at all.
      *
+     * Ttsc's own hosts stamp it for what they can prove: their source-to-source
+     * output is a syntactic re-print, so the built-in native host and the
+     * linked-plugin host list a file once every linked plugin able to
+     * contribute to it has declared its own contribution complete — which,
+     * where no plugin is active at all, is every file. An executable sidecar
+     * prints its own envelope and decides for itself.
+     *
      * Optional, and never required for correctness: an envelope without this
      * field keeps the sound host-owned bound. A file that is both listed here
      * and in {@link volatile} keeps the union, since the two claims contradict

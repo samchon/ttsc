@@ -96,17 +96,19 @@ const unpluginFactory: UnpluginFactory<
     },
 
     buildStart() {
-      // Persistent validation exists for a session that spans later edits, and
-      // a dev server told to open no watcher is not one: `server.watch: null`
-      // leaves Vite with no change channel at all, so nothing in that session
-      // can invalidate, hot-update, or re-request a module after an edit. The
-      // project is therefore no less immutable under it than under a production
-      // build — more so, because a build at least ends and reruns — which is
-      // exactly the premise `beginTtscTransformBuild` rests on. A one-shot
-      // suite configures precisely this (`vitest --run` sets `server.watch =
-      // null`), and it is the workload behind samchon/ttsc#970: routing it to
-      // the persistent path pays a full derived-input validation per delivered
-      // module to detect edits the session could never observe
+      // Persistent validation exists for a session that spans edits it can
+      // observe, and a dev server told to open no watcher is not one:
+      // `server.watch: null` leaves Vite with no change channel at all, so no
+      // edit can reach the session, nothing invalidates what one touched, and
+      // no client is hot-updated. Validating each delivery there does not buy
+      // freshness, it buys incoherence — modules delivered before an edit and
+      // after it would come from two different compilations of one program —
+      // while costing a full derived-input proof per delivered module. The
+      // build-scoped lifecycle settles each module's first delivery against the
+      // generation the session started from, exactly as a build does, and still
+      // revalidates a module this session already delivered. A one-shot suite
+      // configures precisely this server (`vitest --run` sets `server.watch =
+      // null`) and is the workload behind samchon/ttsc#970
       // (samchon/ttsc#1260). The neighbouring watch-registration decision reads
       // the same two properties for the same reason.
       if (viteCommand === "serve" && viteWatching) {

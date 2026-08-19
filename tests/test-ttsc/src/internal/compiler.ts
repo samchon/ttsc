@@ -46,6 +46,8 @@ const ttscPackageRoot = path.join(
 const tsgo = resolveTsgo({ cwd: ttscPackageRoot }).binary;
 
 interface ICompilerApiProjectOptions {
+  /** Extra `compilerOptions` merged over the fixture's own. */
+  compilerOptions?: Record<string, unknown>;
   files?: Record<string, string>;
   include?: string[];
   outDir?: string;
@@ -99,6 +101,7 @@ function writeBasicProject(
           rootDir: options.rootDir ?? "src",
           sourceMap: true,
           plugins: options.plugins,
+          ...(options.compilerOptions ?? {}),
         },
         include: options.include ?? ["src"],
       },

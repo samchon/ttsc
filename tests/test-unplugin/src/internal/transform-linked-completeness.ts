@@ -1,4 +1,8 @@
-import { TestProject, TestUnpluginRuntime } from "@ttsc/testing";
+import {
+  TestProject,
+  TestUnpluginProject,
+  TestUnpluginRuntime,
+} from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -43,6 +47,10 @@ interface ILinkedPluginProject {
 function createLinkedPluginProject(
   plugins: readonly UtilityPlugin[],
 ): ILinkedPluginProject {
+  // Share one Go build cache across these fixtures; each distinct plugin set
+  // still links its own host, but without this every project would rebuild the
+  // host into its own `node_modules/.cache`.
+  TestUnpluginProject.ensureSharedCacheDir();
   const root = TestProject.tmpdir("ttsc-unplugin-linked-complete-");
   fs.mkdirSync(path.join(root, "src"), { recursive: true });
   const types = path.join(root, "src", "types.ts");
@@ -107,24 +115,35 @@ function createLinkedPluginProject(
   return { main, root, types };
 }
 
-/** Transform the entry once and collect every watch input the adapter derived. */
+/**
+ * Transform the entry once and collect every watch input the adapter derived.
+ *
+ * `aliases` forces the compile through a generated tsconfig in the system temp
+ * directory, which moves the host's cwd off the project root and therefore
+ * changes how every envelope section is keyed.
+ */
 async function collectEntryWatchInputs(
   project: ILinkedPluginProject,
+  aliases?: Record<string, string>,
 ): Promise<string[]> {
   const { resolveOptions, transformTtsc } =
     await TestUnpluginRuntime.loadUnpluginApi();
   const watched: string[] = [];
-  const result = await transformTtsc(
+  // The watch inputs are notified whether or not the transform changed the
+  // text, so the derivation is observable even for a plugin set that leaves
+  // this particular entry alone; an empty list is the only state that would
+  // make the scenario prove nothing.
+  await transformTtsc(
     project.main,
     fs.readFileSync(project.main, "utf8"),
     resolveOptions(),
-    undefined,
+    aliases,
     undefined,
     { addWatchFile: (input: string) => watched.push(input) },
   );
   assert.ok(
-    result,
-    "the fixture's plugins must change the entry, or the scenario proves nothing",
+    watched.length !== 0,
+    "the transform must derive watch inputs, or the scenario proves nothing",
   );
   return watched.map((input) => path.resolve(input));
 }
@@ -222,5 +241,29 @@ export async function assertComposedPluginsKeepTheWiderBound(): Promise<void> {
     watchesTypeSibling(watched, project),
     true,
     `a declaring plugin beside a silent one must keep the union bound; watched: ${watched.join(", ")}`,
+  );
+}
+
+/**
+ * Asserts the declaration survives a compile through the generated tsconfig.
+ *
+ * Any bundler alias makes the adapter compile through a wrapper tsconfig in the
+ * system temp directory, so the host's cwd is no longer the project root and
+ * every envelope section — `typescript`, `graph`, and now
+ * `dependenciesComplete` — is keyed as an absolute path instead of a
+ * project-relative one. A declaration the consumer cannot join back to the file
+ * it names would silently stop narrowing, which is invisible except as the cost
+ * it was supposed to remove.
+ */
+export async function assertBannerNarrowsThroughTheAliasOverlay(): Promise<void> {
+  const project = createLinkedPluginProject(["banner"]);
+  const watched = await collectEntryWatchInputs(project, {
+    "@lib": path.join(project.root, "src"),
+  });
+
+  assert.equal(
+    watchesTypeSibling(watched, project),
+    false,
+    `the declaration must survive the generated tsconfig's key convention; watched: ${watched.join(", ")}`,
   );
 }
