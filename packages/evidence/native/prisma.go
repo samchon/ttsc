@@ -347,7 +347,9 @@ type prismaSourceSet struct {
 // rather than from the stat — once per result, since the id is cached on it.
 // Against that, the digest now reads one file per physical file rather than one
 // per address, so in the very layout this exists for the reads go down as the
-// stats go up. Both are per pass over a set an adopter counts in files.
+// stats go up. Both are per load of this artifact kind, of which a pass
+// performs two — the claim-side populations and then the whole configuration —
+// over a set an adopter counts in files.
 func distinctPrismaSources(root string, addresses []artifactAddress) prismaSourceSet {
   type physicalSchema struct {
     identity  os.FileInfo

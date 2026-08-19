@@ -528,11 +528,14 @@ func describeBaseDirectoryProblem(
 //
 // A base that is not a link costs one `os.Lstat` per path component plus one
 // for this answer, where resolving the leaf alone cost two. It is paid per call
-// rather than per file, and a base belongs to one artifact kind: a Markdown or
-// Prisma base is asked once a pass by its own walker, and a TypeScript base
-// three times, by the gate above and by each of the two passes that build the
-// match table. That is why the price of the comparison being correct stays off
-// the loop this feeds, which is every source file of the project.
+// rather than per file, and the call count is the graph's own shape rather than
+// this function's: claim-side populations are materialized before the whole
+// configuration, so a base is asked once for each load it appears in. That is
+// at most twice for a Markdown or Prisma claim base and once for its reference
+// bases, and twice those numbers for TypeScript, whose gate asks beside the
+// pass that builds its match table and whose governance pass builds one more
+// from the configuration as declared. All of it stays off the loop this feeds,
+// which is every source file of the project.
 func resolvedBaseDirectory(base populationBase) (string, bool) {
   from, resolved := resolveLinkedPath(base.Absolute)
   if !resolved {
