@@ -18,7 +18,7 @@ A complete round must satisfy all four rules:
 - **Whole surface:** read every changed file and hunk. For issue discovery, audit the entire campaign scope. Never partition by file, package, concern, platform, or pass.
 - **Consequence surface:** inspect affected code paths, tests, generated artifacts, CI, packaging, documentation, and consumers. Trace side effects, state transitions, concurrency, platforms, boundaries, compatibility, and failure and recovery paths beyond the named symptom or diff.
 - **Fresh start:** use the current state and repeat the whole inspection. Earlier rounds, sampled files, and a recheck of only the latest fix do not count as coverage.
-- **Unlimited rounds:** whenever the reviewer applies an improvement or accepts a meaningful issue candidate, update the work and start another complete round. Stop only after a complete round produces nothing that survives verification.
+- **Unlimited rounds, one repair pass each:** a round inspects the whole surface before anything is repaired. Collect every finding it produces, apply them together, and only then begin another complete round. Stopping at the first finding to fix it leaves the rest of that round's surface uninspected and turns one round into many partial ones, which the **Whole surface** rule forbids. A round that applied anything is followed by another complete round, and the repeat has no limit; stop only after a complete round produces nothing that survives verification.
 
 ## Overall Self-Review
 
@@ -27,7 +27,7 @@ Overall Self-Review uses this solo workflow. Outside a solo issue campaign, an u
 1. Establish the complete change surface, including the pull-request base-to-head diff and any uncommitted changes.
 2. Perform one complete round under the Non-Negotiable Review Law. Include correctness and boundaries, Windows and POSIX behavior, concurrency and state, data loss and security, cache and recovery invariants, public API and compatibility, test isolation, CI and packaging, generated output, documentation, and migration effects.
 3. Reproduce every suspected defect before accepting it.
-4. Apply every sound improvement and run the narrowest verification authorized by the owning workflow.
+4. Apply every sound improvement the round produced, together, and run the narrowest verification authorized by the owning workflow. Repairing one finding and restarting is not this step, because the round that found it is already complete.
 5. If anything changed, restart at step 1 as a fresh full round.
 6. Finish only when a complete round finds nothing to improve. Report the final clean round and every verification that could not run.
 
