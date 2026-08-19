@@ -1081,6 +1081,13 @@ func TestALinkChainAboveARootIsRefusedForTypeScriptToo(t *testing.T) {
     messages,
     "found no directory at the end of the typescript root '"+declared+"'",
   )
+  // The sentence was written for a chain at the root and reports one above it
+  // too, so it says the path passes through a chain rather than that it is one.
+  assertProblemContains(
+    t,
+    messages,
+    "passes through a chain of links longer than this rule follows",
+  )
 }
 
 /**

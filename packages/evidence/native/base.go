@@ -586,6 +586,13 @@ func resolveLinkedPath(absolute string) (string, bool) {
 // unresolvedBaseProblem reports a base whose links this rule stops following
 // before they reach a directory.
 //
+// The chain may be the root itself or any directory above it, so the sentence
+// says the path passes through one rather than that it is one. Naming the
+// component would be more precise and is deliberately not done: this message
+// already carries the declared spelling and, where they differ, the path it
+// resolves to, and a third path would cost more to read than the component
+// buys — the repair is the same wherever on the path the chain sits.
+//
 // Every artifact kind gets this sentence, because the failure is the resolver's
 // bound rather than anything a walk or a Program does, and the kind appears only
 // as the noun. The verb stays clear of "resolve" for the reason
@@ -613,7 +620,7 @@ func unresolvedBaseProblem(base populationBase, kind artifactKind) string {
   if resolved := filepath.ToSlash(base.Absolute); label != resolved {
     message += ", which resolves to '" + resolved + "'"
   }
-  message += ". That path is a chain of links longer than this rule follows. "
+  message += ". That path passes through a chain of links longer than this rule follows. "
   if base.Default {
     return message + "Run ttsc against the directory those links end at."
   }
