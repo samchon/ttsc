@@ -524,3 +524,43 @@ func TestALocationIsSpelledTheWayAReaderOpensIt(t *testing.T) {
     }
   }
 }
+
+/**
+ * Verifies a TypeScript claim rooted at a link keeps its hosts.
+ *
+ * This kind walks nothing, so the link asymmetry was left out of the walker
+ * repair on the grounds that it had no walk. It does have a comparison: the gate
+ * accepts a linked root because `os.Stat` follows it, and the Program reports
+ * whatever path its tsconfig resolved, so when the two disagree every source
+ * fails the match, the claim selects nothing, and it deactivates without a word.
+ * Measured before the repair: no diagnostic at all.
+ *
+ *  1. Link a directory onto the project and root a TypeScript claim at the link.
+ *  2. Leave its reference's selected section uncited.
+ *  3. Assert the claim is active by reading the acknowledgement it owes.
+ */
+func TestALinkedTypeScriptClaimRootKeepsItsHosts(t *testing.T) {
+  workspace := t.TempDir()
+  project := filepath.Join(workspace, "project")
+  if err := os.MkdirAll(project, 0o755); err != nil {
+    t.Fatal(err)
+  }
+  if err := linkDirectory(project, filepath.Join(workspace, "mirror")); err != nil {
+    t.Skipf("this platform refused to create a link: %v", err)
+  }
+  messages := runRootedGraphIn(t, workspace, map[string]string{
+    "project/docs/pricing.md": "## Discounts {#discounts}\n",
+    "project/src/sale.ts":     "export interface ISale {}\n",
+  }, `{"claims":[{
+    "type":"typescript",
+    "root":"../mirror",
+    "files":["src/**/*.ts"],
+    "symbol":"type",
+    "reference":{"type":"markdown","files":["docs/**/*.md"],"symbol":"h2"}
+  }]}`)
+  assertProblemContains(
+    t,
+    messages,
+    "Missing acknowledgement for 'docs/pricing.md#discounts'",
+  )
+}

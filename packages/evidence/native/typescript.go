@@ -32,13 +32,14 @@ func extendTypeScriptInventories(
   inventories map[string]*artifactInventory,
   governed map[string]bool,
 ) {
-  bases := configuredBases(config, artifactTypeScript)
+  bases := typeScriptMatchBases(config)
   for _, file := range sources {
     if file == nil || !isTypeScriptPath(file.FileName()) {
       continue
     }
-    for _, base := range bases {
-      relative, ok := relativeProjectPath(base.Absolute, file.FileName())
+    for _, entry := range bases {
+      base := entry.base
+      relative, ok := entry.relativeOf(file.FileName())
       if !ok || !isTypeScriptPath(relative) {
         continue
       }
@@ -101,6 +102,49 @@ func isTypeScriptPath(path string) bool {
     }
   }
   return false
+}
+
+// typeScriptMatchBase pairs a configured base with the directory a Program
+// source path is measured against.
+//
+// This kind walks nothing, so the link asymmetry #1258 removed from the two
+// walkers looked like a walk problem and was left here. It is not: `os.Stat`
+// accepts a linked root as a directory, and a Program reports whatever path its
+// tsconfig resolved, so when the two disagree about the link every source fails
+// the comparison, the claim selects nothing, and it deactivates without a word.
+// Measured before the repair: a claim rooted at a junction over its own project
+// produced no diagnostic at all.
+//
+// Both spellings are tried, because the Program may report either, and the
+// address is composed from the declared base in both cases, so a source reached
+// through a link is identified exactly as it would be without one. The
+// resolution is per base and the comparison is per source, so the extra spelling
+// costs nothing where no link is involved.
+type typeScriptMatchBase struct {
+  base     populationBase
+  resolved string
+}
+
+func typeScriptMatchBases(config graphConfig) []typeScriptMatchBase {
+  bases := configuredBases(config, artifactTypeScript)
+  entries := make([]typeScriptMatchBase, 0, len(bases))
+  for _, base := range bases {
+    entries = append(entries, typeScriptMatchBase{
+      base:     base,
+      resolved: resolvedBaseDirectory(base),
+    })
+  }
+  return entries
+}
+
+func (entry typeScriptMatchBase) relativeOf(name string) (string, bool) {
+  if relative, ok := relativeProjectPath(entry.base.Absolute, name); ok {
+    return relative, true
+  }
+  if entry.resolved == entry.base.Absolute {
+    return "", false
+  }
+  return relativeProjectPath(entry.resolved, name)
 }
 
 func relativeProjectPath(root string, absolute string) (string, bool) {
@@ -1849,18 +1893,18 @@ func recordGovernedTypeScriptFiles(
   if governed == nil {
     return
   }
-  bases := configuredBases(declared, artifactTypeScript)
+  bases := typeScriptMatchBases(declared)
   for _, file := range sources {
     if file == nil || !isTypeScriptPath(file.FileName()) {
       continue
     }
-    for _, base := range bases {
-      relative, ok := relativeProjectPath(base.Absolute, file.FileName())
+    for _, entry := range bases {
+      relative, ok := entry.relativeOf(file.FileName())
       if !ok || !isTypeScriptPath(relative) {
         continue
       }
-      if matchesConfiguredTypeScriptFile(declared, base, relative) {
-        governed[base.addressOf(relative).Key] = true
+      if matchesConfiguredTypeScriptFile(declared, entry.base, relative) {
+        governed[entry.base.addressOf(relative).Key] = true
       }
     }
   }

@@ -529,7 +529,7 @@ func describeBaseDirectoryProblem(
 // composed from the declared base, so a document reached through a link is
 // spelled exactly as it would be without one.
 func populationWalkRoot(base populationBase) (string, error) {
-  from := filepath.FromSlash(resolveLinkedDirectory(base.Absolute))
+  from := resolvedBaseDirectory(base)
   info, err := os.Lstat(from)
   if err != nil {
     return from, err
@@ -564,6 +564,18 @@ func causeText(cause error) string {
 // so five of the sites reach the rule this way rather than through an error.
 func causeReason(text string) string {
   return strings.TrimSuffix(text, ".")
+}
+
+// resolvedBaseDirectory is the directory a base's files actually sit in.
+//
+// A declared root may be a link, and `os.Stat` accepts one as a directory when
+// the gate reads it, so every consumer that then compares paths against the base
+// has to compare against what the link names. `resolveLinkedDirectory` is this
+// package's answer for an installed package and handles the Windows junction
+// `filepath.EvalSymlinks` returns unchanged; it gives the path back untouched
+// when nothing is a link, which is what keeps the ordinary case free.
+func resolvedBaseDirectory(base populationBase) string {
+  return filepath.FromSlash(resolveLinkedDirectory(base.Absolute))
 }
 
 // unlistableBaseProblem reports a population whose own base could not be
