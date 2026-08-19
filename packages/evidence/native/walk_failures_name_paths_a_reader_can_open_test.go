@@ -148,9 +148,17 @@ func TestAWalkFailureOutsideThePopulationIsNotReported(t *testing.T) {
  * and would leave a reader unable to match the message against the syscall that
  * produced it.
  *
- *  1. Compose the message over a cause carrying an OS-native absolute path.
+ * Its terminator is the one thing taken, because Windows writes one and POSIX
+ * does not, and the sentence that continues after it supplies its own. Asserting
+ * the cause with its period still passes, since that period is restored by the
+ * rule rather than kept from the cause, so the reason and the punctuation are
+ * asserted apart.
+ *
+ *  1. Compose the message over a cause carrying an OS-native absolute path and
+ *     a terminator of its own.
  *  2. Read the message.
- *  3. Assert the cause appears exactly as it was written.
+ *  3. Assert the reason survives verbatim, that it is not doubled, and that the
+ *     path this rule prints is still its own.
  */
 func TestAWalkFailurePassesItsCauseThroughUnchanged(t *testing.T) {
   root := filepath.Join(t.TempDir(), "project")
@@ -161,8 +169,12 @@ func TestAWalkFailurePassesItsCauseThroughUnchanged(t *testing.T) {
     "Markdown",
     cause,
   )
-  if !strings.Contains(problem, cause.Error()) {
+  reason := strings.TrimSuffix(cause.Error(), ".")
+  if !strings.Contains(problem, reason+". Fix filesystem access") {
     t.Fatalf("the cause is the filesystem's own sentence, got: %s", problem)
+  }
+  if strings.Contains(problem, ".. ") {
+    t.Fatalf("the sentence supplies the terminator the cause already had: %s", problem)
   }
   if !strings.Contains(problem, "'../documents/requirements/private'") {
     t.Fatalf("the path this rule prints is still its own, got: %s", problem)
