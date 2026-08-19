@@ -841,17 +841,25 @@ function envelopeGraphIndexes(
     for (const input of [...built.globals, ...built.configs]) {
       built.members.add(derivationIdentity(state, input));
     }
-    for (const [source, candidates] of Object.entries(graph.candidates ?? {})) {
-      if (!Array.isArray(candidates)) {
-        continue;
-      }
-      const sourceIdentity = derivationIdentity(
-        state,
-        path.resolve(props.projectRoot, source),
+    const candidateEntries = Object.entries(graph.candidates ?? {}).filter(
+      (entry) => Array.isArray(entry[1]),
+    );
+    // Every candidate source is an importing file the compiler read, so fold
+    // the sources in before classifying any candidate. Otherwise one entry's
+    // candidate could be classified speculative before a later entry proves
+    // the same path is a realized source.
+    for (const [source] of candidateEntries) {
+      built.members.add(
+        derivationIdentity(state, path.resolve(props.projectRoot, source)),
       );
-      built.members.add(sourceIdentity);
+    }
+    const realized = new Set(built.members);
+    for (const [source, candidates] of candidateEntries) {
       built.candidates.push({
-        source: sourceIdentity,
+        source: derivationIdentity(
+          state,
+          path.resolve(props.projectRoot, source),
+        ),
         files: selectListedFiles(props.projectRoot, candidates),
       });
       for (const candidate of candidates) {
@@ -860,10 +868,10 @@ function envelopeGraphIndexes(
           state,
           path.resolve(props.projectRoot, candidate),
         );
-        // Edges, globals, and configs are folded in above, so a path still
-        // absent from `members` here is one the envelope reported only as a
-        // candidate.
-        if (!built.members.has(identity)) built.speculative.add(identity);
+        // Edges, globals, configs, and every candidate source are folded in
+        // above, so a path absent from that set is one the envelope reported
+        // only as a candidate.
+        if (!realized.has(identity)) built.speculative.add(identity);
         built.members.add(identity);
       }
     }
@@ -3517,13 +3525,16 @@ function selectDeclaredProjectInputKeys(props: {
     add(source);
     if (Array.isArray(targets)) for (const target of targets) add(target);
   }
-  for (const input of graph.globals ?? []) add(input);
-  for (const input of graph.configs ?? []) add(input);
+  if (Array.isArray(graph.globals))
+    for (const input of graph.globals) add(input);
+  if (Array.isArray(graph.configs))
+    for (const input of graph.configs) add(input);
   for (const [source, candidates] of Object.entries(graph.candidates ?? {})) {
     add(source);
     if (Array.isArray(candidates)) for (const entry of candidates) add(entry);
   }
-  for (const input of props.result.hostInputs ?? []) add(input);
+  if (Array.isArray(props.result.hostInputs))
+    for (const input of props.result.hostInputs) add(input);
   // Plugin-reported dependencies are inputs the graph never sees: a utility
   // plugin's own config file is consulted by the plugin, not by the compiler.
   for (const reported of Object.values(props.result.dependencies ?? {})) {
