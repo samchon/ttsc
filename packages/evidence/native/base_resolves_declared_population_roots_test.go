@@ -733,7 +733,7 @@ func TestAResolvableRootStaysQuietWhileItsReferenceSpeaks(t *testing.T) {
     "symbol":"type",
     "reference":{"type":"markdown","files":["docs/**"],"symbol":"h2"}
   }]}`)
-  assertProblemContains(t, messages, "matched no markdown files")
+  assertProblemContains(t, messages, "matched no markdown files for ['docs/**']")
   if countProblemsContaining(messages, "found no directory at") != 0 {
     t.Fatalf(
       "a root that exists must not be reported as missing:\n%s",

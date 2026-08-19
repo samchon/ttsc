@@ -60,6 +60,11 @@ export const test_evidence_graph_ignores_an_empty_rooted_typescript_claim =
       );
       assertExcludes(
         result,
+        "found no directory at the typescript root",
+        "A root that exists must not be reported missing, whatever it selects.",
+      );
+      assertExcludes(
+        result,
         "Missing acknowledgement",
         "An inactive claim must not evaluate its reference obligations.",
       );
