@@ -96,11 +96,12 @@ func typeScriptBaseProblems(
     // diagnostics becoming one refusal that fails every claim on the base nearly
     // every project uses.
     //
-    // The two walkers still answer for that base, because they generate the paths
-    // they compare and a link they cannot resolve leaves them nothing to walk. A
-    // chain long enough to survive the host's own realpath is longer than the
-    // platform follows, so this is the residue of a shape production does not
-    // reach rather than a hole in what it does.
+    // A Markdown or Prisma population on that base still answers, because those
+    // walkers generate the paths they compare and a link they cannot resolve
+    // leaves them nothing to walk; a project declaring neither has nothing that
+    // reports it. A chain long enough to survive the host's own realpath is
+    // longer than the platform follows, so this is the residue of a shape
+    // production does not reach rather than a hole in what it does.
     if problem == "" && !base.Default {
       if _, resolved := resolvedBaseDirectory(base); !resolved {
         problem = unresolvedBaseProblem(base, artifactTypeScript)

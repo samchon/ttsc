@@ -603,8 +603,10 @@ var errAlreadyTerminated = errors.New("Access is denied.")
  * suppressed the restatement, while `filepath.Clean` collapses its leading
  * slashes and the two spellings genuinely differ.
  *
- * The base is built rather than resolved, because the shape exists on POSIX and
- * the rule has to hold on both.
+ * Both bases are built rather than resolved, because the collapsing shape exists
+ * on POSIX only and the rule has to hold on both. The root that lands on itself
+ * is spelled the way each platform calls absolute, or the negative twin would
+ * exercise nothing on one of them.
  *
  *  1. Build a base whose declared spelling and resolved path differ while the
  *     declared one is absolute.
@@ -627,7 +629,11 @@ func TestAResolvedPathIsRestatedOnlyWhereItDiffers(t *testing.T) {
       t.Fatalf("a spelling the resolution changed is restated:\n%s", message)
     }
   }
-  landed := populationBase{Declared: "C:/contracts", Absolute: filepath.FromSlash("C:/contracts")}
+  onItself := "/srv/contracts"
+  if runtime.GOOS == "windows" {
+    onItself = "C:/contracts"
+  }
+  landed := populationBase{Declared: onItself, Absolute: filepath.FromSlash(onItself)}
   for _, message := range []string{
     describeBaseDirectoryProblem(
       landed,

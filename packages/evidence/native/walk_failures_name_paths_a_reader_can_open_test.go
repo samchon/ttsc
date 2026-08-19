@@ -148,11 +148,14 @@ func TestAWalkFailureInsideALinkedPopulationNamesTheDeclaredRoot(t *testing.T) {
   }
   // Only the quoted segment is this rule's, and in production the cause carries
   // the walked path in the operating system's own spelling, so the negative is
-  // stated as the quoted form the leak would take rather than by slicing the
-  // message apart.
+  // stated as the quoted forms the leak would take rather than by slicing the
+  // message apart. Both spellings are named because the historical leak printed
+  // the callback's own argument, which on Windows carries backslashes.
   leaked := filepath.Join(from, "requirements", "private")
-  if strings.Contains(problem, "'"+filepath.ToSlash(leaked)+"'") {
-    t.Fatalf("the directory the link resolves to is not what a reader opens: %s", problem)
+  for _, spelling := range []string{filepath.ToSlash(leaked), leaked} {
+    if strings.Contains(problem, "'"+spelling+"'") {
+      t.Fatalf("the directory the link resolves to is not what a reader opens: %s", problem)
+    }
   }
 }
 

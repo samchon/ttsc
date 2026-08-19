@@ -819,6 +819,17 @@ func TestAPrismaRootPastTheResolverIsRefusedAsPrisma(t *testing.T) {
       t.Fatal(err)
     }
   }
+  models := filepath.Join(real, "models")
+  if err := os.MkdirAll(models, 0o755); err != nil {
+    t.Fatal(err)
+  }
+  if err := os.WriteFile(
+    filepath.Join(models, "user.prisma"),
+    []byte("model User {\n  id Int @id\n}\n"),
+    0o644,
+  ); err != nil {
+    t.Fatal(err)
+  }
   previous := real
   for hop := range 34 {
     link := filepath.Join(workspace, "hop"+decimal(hop))
@@ -854,9 +865,10 @@ func TestAPrismaRootPastTheResolverIsRefusedAsPrisma(t *testing.T) {
     problems,
     "found no directory at the end of the prisma root '../schema'",
   )
-  // A schema sits behind the chain, so an implementation that walked through it
-  // would select one. The count is what separates a refusal from a walk that
-  // happened to find nothing.
+  // A schema sits behind the chain, so the directory the links end at is not
+  // empty. The count says the refusal is what produced zero rather than an
+  // empty population; it cannot tell a refusal from a walk that declined to
+  // descend a link, which is why the refusal itself is asserted above.
   if len(addresses) != 0 {
     t.Fatalf("a root the walk never reached selected %d addresses", len(addresses))
   }
@@ -873,7 +885,7 @@ func TestAPrismaRootPastTheResolverIsRefusedAsPrisma(t *testing.T) {
  * its sources against the directory ttsc was invoked with, so the comparison
  * matches without any resolution, and refusing there failed every claim on the
  * base nearly every project uses. Measured before the guard: one refusal and no
- * obligations, over a graph that otherwise reports two.
+ * obligations, over a graph that otherwise reports the one it owes.
  *
  * The configuration declares no Markdown or Prisma population on purpose, so no
  * walker can produce the refusal and the assertion is about this gate alone.

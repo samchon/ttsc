@@ -399,8 +399,9 @@ func baseDirectoryProblem(base populationBase, kind artifactKind) string {
 // actually landed, which is the whole question the moment a root ascends out of
 // the project. Restating a path the declaration already names would offer it as
 // an explanation of itself, which is why the test is the difference and not
-// whether the root was absolute: a UNC spelling is absolute and still differs,
-// because `filepath.Clean` collapses its leading slashes.
+// whether the root was absolute: a UNC spelling on POSIX is absolute and still
+// differs, because `filepath.Clean` collapses its leading slashes there while
+// Windows keeps the volume.
 //
 // The clause about resolution goes with it, for the stronger reason that it is
 // false there. `resolvePopulationBase` joins the project root into a relative
