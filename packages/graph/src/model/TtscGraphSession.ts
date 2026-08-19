@@ -163,7 +163,7 @@ export class TtscGraphSession {
   private async refresh(signal?: AbortSignal): Promise<TtscGraphMemory> {
     // The protocol version and the envelope shape were both settled in onLine,
     // before this frame was ever routed here.
-    this.republishArtifacts();
+    this.republishArtifacts(signal);
     const response = await this.request(signal);
     this.assertResponseSemantics(response);
     if (response.error !== undefined) {
@@ -235,8 +235,15 @@ export class TtscGraphSession {
    * Only the overlay is replaced. The child is not restarted and the Program is
    * not reloaded — the native session compares the file it is handed against
    * the one it applied, and re-projects the resident program when they differ.
+   *
+   * Synchronous, and therefore blocking: republishing runs the plugin's sidecar
+   * twice, and one of those builds its own Program. Seconds, on a project that
+   * publishes — the cost samchon/ttsc#1278 is about. An already-cancelled
+   * request does not start it, which is as much as a synchronous call can
+   * honour; nothing can interrupt one in flight.
    */
-  private republishArtifacts(): void {
+  private republishArtifacts(signal?: AbortSignal): void {
+    if (signal?.aborted) return;
     // A child yet to be spawned publishes on the way up, so there is nothing
     // here to keep fresh until one does.
     if (this.child === undefined || this.artifacts === undefined) return;
