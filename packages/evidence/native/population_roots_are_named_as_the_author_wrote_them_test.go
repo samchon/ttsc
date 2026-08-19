@@ -439,10 +439,10 @@ func TestAnAbsoluteRootWithBackslashesIsStoredWithSlashes(t *testing.T) {
  * same unfollowable repair a file occupying the path produces: the author does
  * what the message says, nothing changes, and the message returns.
  *
- * Only an absent answer is asked whether a link is standing there instead. The
- * rest keep the reason the filesystem gave them. The rule
- * does not know which state it is in, so it says that, names no cause of its
- * own, and passes the operating system's reason through.
+ * The rule does not know which of the two it is looking at, so it says that,
+ * names no cause of its own, and passes the operating system's reason through.
+ * Only an absent answer is asked whether a link is standing there instead; the
+ * rest keep the reason the filesystem gave them.
  *
  *  1. Describe a stat that failed without saying the path is absent, and one
  *     that said so.
@@ -501,3 +501,84 @@ func TestARootThatCouldNotBeExaminedIsNotCalledMissing(t *testing.T) {
     t.Fatalf("an absent path is known to be absent:\n%s", absent)
   }
 }
+
+/**
+ * Verifies whether a declared root is absolute is decided the way it resolves.
+ *
+ * This is the predicate the whole repair turns on, and it had no case. A rooted
+ * path carrying no volume, `/srv/contracts`, is absolute on POSIX and relative on
+ * Windows, where `filepath.Join` composes the project root into it. A message
+ * saying so reads this predicate rather than the spelling, so the sentence and
+ * the resolution cannot disagree, and only a platform where they differ proves
+ * it.
+ *
+ *  1. Resolve a volume-less rooted path against a project root.
+ *  2. Ask the predicate and read what the resolution did.
+ *  3. Assert they agree, and that the message's clause follows both.
+ */
+func TestADeclaredRootIsAbsoluteExactlyWhenTheResolutionSaysSo(t *testing.T) {
+  project := filepath.Join(t.TempDir(), "project")
+  for _, declared := range []string{"/srv/contracts", "C:/contracts", "../contracts", "contracts"} {
+    base := resolvePopulationBase(project, declared)
+    absolute := declaredRootIsAbsolute(declared)
+    joined := base.Absolute == filepath.Clean(
+      filepath.Join(project, filepath.FromSlash(declared)),
+    )
+    if absolute == joined {
+      t.Fatalf(
+        "root %q: predicate says absolute=%v while the resolution %s the project root",
+        declared,
+        absolute,
+        map[bool]string{true: "joined", false: "did not join"}[joined],
+      )
+    }
+    message := describeBaseDirectoryProblem(
+      base,
+      artifactMarkdown,
+      false,
+      &fs.PathError{Op: "stat", Path: base.Absolute, Err: fs.ErrNotExist},
+    )
+    resolves := strings.Contains(message, "it resolves against the ttsc project root")
+    if resolves == absolute {
+      t.Fatalf("root %q: the clause and the resolution disagree:\n%s", declared, message)
+    }
+  }
+}
+
+/**
+ * Verifies a reason keeps its words and loses only its terminator.
+ *
+ * Nine messages join a filesystem or subprocess reason to a sentence of their
+ * own, and Windows writes a terminator where POSIX does not, so the rule that
+ * decides which one survives is asserted here rather than nine times. The three
+ * package-reference messages take their reason as text rather than as an error,
+ * which is how one of them stayed unrepaired through two commits that claimed
+ * the class was empty.
+ *
+ *  1. Trim a reason that ends in a period, one that does not, and two edges.
+ *  2. Read each result.
+ *  3. Assert one terminator is removed and nothing else is.
+ */
+func TestAReasonKeepsItsWordsAndLosesItsTerminator(t *testing.T) {
+  for _, entry := range []struct {
+    reason   string
+    expected string
+  }{
+    {"Access is denied.", "Access is denied"},
+    {"permission denied", "permission denied"},
+    {"stat C:/x: not a directory..", "stat C:/x: not a directory."},
+    {"is it?", "is it?"},
+    {".", ""},
+    {"", ""},
+  } {
+    if got := causeReason(entry.reason); got != entry.expected {
+      t.Fatalf("causeReason(%q) = %q, want %q", entry.reason, got, entry.expected)
+    }
+  }
+  wrapped := &fs.PathError{Op: "stat", Path: "C:/x", Err: errAlreadyTerminated}
+  if got := causeText(wrapped); !strings.HasSuffix(got, "denied") {
+    t.Fatalf("causeText kept a terminator: %q", got)
+  }
+}
+
+var errAlreadyTerminated = errors.New("Access is denied.")

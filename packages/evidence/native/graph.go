@@ -1542,7 +1542,7 @@ func materializePackageGlobReference(
       state.Healthy = false
       problems = append(
         problems,
-        claimLabel(claim)+" "+referenceLabel(reference)+" could not read TypeScript source '"+candidate+"': "+loader.failure(candidate)+". Fix filesystem access or reinstall the package; coverage cannot be evaluated from a partial population.",
+        claimLabel(claim)+" "+referenceLabel(reference)+" could not read TypeScript source '"+candidate+"': "+causeReason(loader.failure(candidate))+". Fix filesystem access or reinstall the package; coverage cannot be evaluated from a partial population.",
       )
       continue
     }

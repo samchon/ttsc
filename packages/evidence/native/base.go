@@ -553,8 +553,9 @@ func causeText(cause error) string {
   return causeReason(cause.Error())
 }
 
-// causeReason is the same rule for a failure that has already been reduced to
-// text, which is how a package walk and a subprocess carry theirs.
+// causeReason is the same rule for a failure already reduced to text, which is
+// how the three package-reference messages carry theirs: an entry read, a walk,
+// and a source read all take a string from the loader rather than an error.
 func causeReason(text string) string {
   return strings.TrimSuffix(text, ".")
 }

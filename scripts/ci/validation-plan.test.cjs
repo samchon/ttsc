@@ -72,13 +72,9 @@ test("a leaf package selects shared quality and its own executor", () => {
   // lane id, so each is pinned rather than inferred. The Windows Go lane is
   // pinned too: this package's path handling is what differs between platforms,
   // so a plan that dropped it would leave those tests running nowhere.
+  // The branch is a prefix match, so one path stands for every file in the
+  // package; a second row under it could not fail on its own.
   assert.deepEqual(ids(["packages/evidence/src/index.ts"]), [
-    "go",
-    "windows-go",
-    "typecheck",
-    "evidence",
-  ]);
-  assert.deepEqual(ids(["packages/evidence/native/base.go"]), [
     "go",
     "windows-go",
     "typecheck",

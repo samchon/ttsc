@@ -114,6 +114,44 @@ func TestAWalkerComposesThePathItPrints(t *testing.T) {
 }
 
 /**
+ * Verifies a walk failure inside a linked population still names the declared
+ * root.
+ *
+ * This is the one composition where the two paths a walk error touches come from
+ * different places. A linked base is walked from the directory the link resolves
+ * to, so the callback path is measured against that, while the spelling still
+ * has to come from the base the author declared. Getting it the other way round
+ * would print a directory that appears nowhere in the configuration, which is
+ * the coupling a declared root exists to remove.
+ *
+ *  1. Declare a root and walk from a different directory, as a link does.
+ *  2. Hand the decision a path under the directory actually walked.
+ *  3. Assert the message names the declared root and not the walked one.
+ */
+func TestAWalkFailureInsideALinkedPopulationNamesTheDeclaredRoot(t *testing.T) {
+  workspace := t.TempDir()
+  base := resolvePopulationBase(filepath.Join(workspace, "project"), "../documents")
+  from := filepath.Join(workspace, "target")
+  problem, relevant := unreadableEntryProblem(
+    base,
+    from,
+    "Markdown",
+    filepath.Join(from, "requirements", "private"),
+    errors.New("permission denied"),
+    func(relative string) bool { return relative == "requirements/private" },
+  )
+  if !relevant {
+    t.Fatal("a path the population reads is relevant however the walk reached it")
+  }
+  if !strings.Contains(problem, "'../documents/requirements/private'") {
+    t.Fatalf("the path is spelled through the declared root, got: %s", problem)
+  }
+  if strings.Contains(problem, "target") {
+    t.Fatalf("the directory the link resolves to is not what a reader opens: %s", problem)
+  }
+}
+
+/**
  * Verifies a path outside the configured population stays silent.
  *
  * The negative twin. A permission this population never needed is not its
