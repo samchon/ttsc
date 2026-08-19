@@ -202,7 +202,7 @@ func prismaUnitsFromOutcome(
     for _, unit := range prismaModelUnits(model) {
       key := joinPrismaIdentity(unit.Identity)
       location, found := locations[key]
-      hosted := []*artifactInventory{}
+      var hosted []*artifactInventory
       if found {
         unit.Path = location.Path
         unit.Line = location.Line
