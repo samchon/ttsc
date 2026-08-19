@@ -314,8 +314,12 @@ func materializeClaimStates(
       // Reviews travel beside declarations and never among them. They carry no
       // obligation of their own; they are looked up by host and target when a
       // reference demands one. They are collapsed by object rather than by ID
-      // because a review has no identity of its own, and the duplication this
-      // removes is exactly one object reached twice.
+      // because a review has no identity of its own, and the duplication being
+      // removed is exactly one object reached twice. No message depends on it:
+      // `newReviewLedger` keeps the first review for a key and a repeat of the
+      // same object changes nothing it answers. What this keeps is the list
+      // being the union its name says it is, so a later reader that counts
+      // reviews rather than looking one up is not counting names of files.
       for _, review := range inventories[path].Reviews {
         if reviewed[review] {
           continue

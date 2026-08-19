@@ -1228,3 +1228,66 @@ func TestALinkChainEndingOnTheLastFollowedHopResolves(t *testing.T) {
   // The population loaded, so the claim owes what any loaded population owes.
   assertProblemContains(t, messages, "Missing acknowledgement for 'docs/pricing.md#discounts'")
 }
+
+/**
+ * Verifies the resolver follows exactly the number of links it claims to.
+ *
+ * The two graph cases either side of the boundary bracket it without pinning
+ * it: raising the bound by one leaves both of them green, because the refusal
+ * they assert is built well past either value. The bound is a single number
+ * that decides whether a working root is refused, so it is measured directly
+ * and at the two values that touch it.
+ *
+ *  1. Build one chain and take three lengths of it.
+ *  2. Resolve each from its own head.
+ *  3. Assert the last followed hop settles and the one after it does not.
+ */
+func TestTheResolverFollowsExactlyItsBoundOfLinks(t *testing.T) {
+  workspace := t.TempDir()
+  target := filepath.Join(workspace, "target")
+  if err := os.MkdirAll(target, 0o755); err != nil {
+    t.Fatal(err)
+  }
+  heads := []string{}
+  previous := target
+  for hop := range 33 {
+    link := filepath.Join(workspace, "hop"+decimal(hop))
+    if err := linkDirectory(previous, link); err != nil {
+      t.Skipf("this platform refused to create a link: %v", err)
+    }
+    heads = append(heads, link)
+    previous = link
+  }
+  // `hop[index]` is index+1 links above the directory, and the resolver's own
+  // `os.Stat` walks the whole chain at once — so a platform that stops before
+  // this one does answers the deepest case before the bound can.
+  if _, err := os.Stat(heads[32]); err != nil {
+    t.Skipf("this platform does not follow 33 links either (%v)", err)
+  }
+  for _, expected := range []struct {
+    links   int
+    settles bool
+  }{
+    {links: 31, settles: true},
+    {links: 32, settles: true},
+    {links: 33, settles: false},
+  } {
+    resolved, settled := resolveLinkedDirectory(heads[expected.links-1])
+    if settled != expected.settles {
+      t.Fatalf(
+        "a chain of %d links settled=%v, want %v; resolved to '%s'",
+        expected.links,
+        settled,
+        expected.settles,
+        resolved,
+      )
+    }
+    if !settled {
+      continue
+    }
+    landed, err := os.Lstat(resolved)
+    if err != nil || !landed.IsDir() {
+      t.Fatalf("a chain of %d links settled on '%s', which is not a directory", expected.links, resolved)
+    }
+  }
+}
