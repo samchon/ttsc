@@ -1,6 +1,7 @@
 import { TtscGraphMemory, documentationTarget } from "../model/TtscGraphMemory";
 import { ITtscGraphLookup } from "../structures/ITtscGraphLookup";
 import { ITtscGraphNode } from "../structures/ITtscGraphNode";
+import { isArtifactNodeKind } from "../structures/TtscGraphArtifactNodeKind";
 import { exportFanIn } from "./exportSurface";
 import { isExternalNode, isSupportPath } from "./pathPolicy";
 import { IRunnerOutput, resultNext } from "./resultNext";
@@ -373,6 +374,21 @@ function citationHits(
   const target = documentationTarget(query);
   if (target === undefined) return [];
   const hits: ITtscGraphLookup.IHit[] = [];
+  // The artifact itself leads, when one was published under this address. A
+  // caller asking about `docs/sale.md#pricing` wants what that anchor names —
+  // the heading's own text and where it starts — before it wants the list of
+  // declarations that cite it, and answering only the second half is the gap an
+  // index of tokens had. It is not name-ranked: the address matched exactly.
+  const artifact = graph.node(target);
+  if (artifact !== undefined && isArtifactNodeKind(artifact.kind))
+    hits.push({
+      id: artifact.id,
+      name: artifact.name,
+      kind: artifact.kind,
+      file: artifact.file,
+      line: artifact.evidence?.startLine,
+      score: CITATION_SCORE,
+    });
   for (const node of graph.citing(target)) {
     if (node.kind === "file") continue;
     if (!includeExternal && isExternalNode(node)) continue;
