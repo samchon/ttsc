@@ -461,12 +461,16 @@ func describeBaseDirectoryProblem(
 
 // populationWalkRoot is the directory a population walk starts at.
 //
-// It is the base itself, until the base is a link. `filepath.WalkDir` lstats
+// It is the base itself unless the base is a link. `filepath.WalkDir` lstats
 // its root, so a symbolic link or a Windows junction arrives as a plain entry,
 // the walk descends into nothing, and the population comes back empty and
 // healthy — over a directory `baseDirectoryProblem` already accepted, because
 // `os.Stat` follows the link and found one there. The two checks have to agree
 // about what the base is, and the gate's answer is the one an author declared.
+//
+// The default base is asked as well, and it is the one this reaches most often:
+// a project whose own root is a link had every Markdown and Prisma population
+// come back empty without declaring a `root` at all.
 //
 // `resolveLinkedDirectory` is this package's existing answer to the same
 // question for an installed package, and it is used here rather than
