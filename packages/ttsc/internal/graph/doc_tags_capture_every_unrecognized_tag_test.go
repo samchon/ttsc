@@ -19,7 +19,8 @@ import (
 //
 //  1. Build a fixture whose declarations carry convention tags, known tags, a
 //     tag with no text, and a multi-line reason, across a function, a class, a
-//     class member, an interface member, a variable, and a namespace member.
+//     class member, an interface member, a variable, a namespace member, and a
+//     closure.
 //  2. Assert every unrecognized tag is recorded on its own declaration's node.
 //  3. Assert no known tag is recorded, and that an untagged declaration
 //     contributes nothing.
@@ -61,6 +62,12 @@ export namespace Shopping {
   export function inner(): void {}
 }
 
+export function withClosure(): void {
+  /** @evidence docs/discount.md#closure Declared inside a body. */
+  function inner(): void {}
+  inner();
+}
+
 /** Ordinary documentation with no tag at all. */
 export function untagged(): void {}
 
@@ -95,6 +102,11 @@ export function bareTag(): void {}
     "docs/discount.md#variable Variable citation.")
   assertDocTag(t, tags, "#Shopping.inner:function", "evidence",
     "docs/discount.md#namespace Namespace member citation.")
+  // A function declared inside a body is a node the graph records, so a tag on
+  // it is a fact like any other. It is reached through the same single
+  // collection point, which is why no declaration form needs its own handling.
+  assertDocTag(t, tags, "#withClosure.inner:function", "evidence",
+    "docs/discount.md#closure Declared inside a body.")
   // A tag with a name and no text is a written fact; dropping it would report
   // the declaration as carrying nothing, which is a different claim.
   assertDocTag(t, tags, "#bareTag:function", "bare", "")

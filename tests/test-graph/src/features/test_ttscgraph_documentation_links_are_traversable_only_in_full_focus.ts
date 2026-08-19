@@ -61,8 +61,9 @@ const resultOf = <T extends { type: string }>(
  *    another function, and names a third type in its signature.
  * 2. Trace it under each focus.
  * 3. Assert the documentation target is reached under `all` only, while the call
- *    and the type reference keep their own focuses, and that `details` reports
- *    the link as its own relation rather than folding it into calls or types.
+ *    and the type reference keep their own focuses, that `details` reports the
+ *    link as its own relation rather than folding it into calls or types, and
+ *    that neither bounded operation carries a tag.
  */
 export const test_ttscgraph_documentation_links_are_traversable_only_in_full_focus =
   async () => {
@@ -191,6 +192,34 @@ export const test_ttscgraph_documentation_links_are_traversable_only_in_full_foc
         ),
         `the neighbor summary must carry the link under its own relation: ${JSON.stringify(notice?.dependsOn)}`,
       );
+
+      // Neither bounded operation carries a tag. Both are held to a token
+      // budget that has been cut twice for this reason, and neither answers a
+      // citation question — a tour is asked what the project is and how it
+      // runs, and a trace follows what reaches what. The declaration in this
+      // fixture does carry a tag, so an absence here is a decision rather than
+      // an empty project.
+      for (const request of [
+        { type: "tour", reinterpretations: [] },
+        { type: "trace", from: "renderNotice", direction: "forward" },
+      ]) {
+        const payload = JSON.stringify(
+          resultOf<{ type: string }>(
+            (await client.request("tools/call", {
+              name: "inspect_typescript_graph",
+              arguments: graphArguments({
+                thinking: "What is this project made of?",
+                request,
+              }),
+            })) as ToolResult,
+            request.type,
+          ),
+        );
+        assert.ok(
+          !payload.includes("docTags"),
+          `${request.type} must carry no documentation tag: ${payload.slice(0, 200)}`,
+        );
+      }
     } finally {
       client.endStdin();
       await client.waitForExit();
