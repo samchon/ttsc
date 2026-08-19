@@ -291,6 +291,13 @@ var withdrawnArtifactsDigest = sha256.Sum256([]byte("ttscgraph:artifacts:none"))
 
 // invalidateArtifacts records that the next projection must be a full one.
 //
+// Full, because replacing the published set is not a per-file delta: it moves
+// the artifact nodes and every citation edge into them at once, and the
+// incremental path is built to answer a different question — which sources
+// changed. It happens to reach the same answer here, through the closure
+// expansion that pulls a citing source back in, but that is a property of
+// machinery aimed elsewhere and not a guarantee this depends on.
+//
 // Full, but not a reload: the Program is reused untouched, because no compiler
 // input moved. That is the whole point of keeping documents out of the build
 // universe — a Markdown edit costs one projection, never one typecheck.

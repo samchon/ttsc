@@ -7,6 +7,7 @@ import (
   "os"
   "path/filepath"
   "slices"
+  "strings"
   "testing"
 
   "github.com/samchon/ttsc/packages/ttsc/internal/graph"
@@ -237,4 +238,111 @@ func TestServeKeepsAStartupSetAClientNeverMentions(t *testing.T) {
       t.Fatalf("a session holding the startup set stopped claiming it: %v", response.Capabilities)
     }
   }
+}
+
+// TestServeAdoptsARepublishedSetOverTheShardProtocol verifies the refresh
+// reaches the protocol the product actually speaks.
+//
+// `@ttsc/graph` negotiates incremental shards on every request, so the
+// full-dump response the other cases drive is the compatibility path and not
+// the one a running editor uses. The two share one invalidation decision and
+// then diverge completely — different projection, different snapshot shape,
+// different assembly of what a client ends up holding — so a refresh proven on
+// one is not proven on the other.
+//
+//  1. Negotiate shards and take an initial snapshot naming one artifact set.
+//  2. Name a different set on the next request.
+//  3. Require a full shard snapshot carrying the new artifact and not the old.
+func TestServeAdoptsARepublishedSetOverTheShardProtocol(t *testing.T) {
+  root := t.TempDir()
+  writeGraphFile(t, filepath.Join(root, "tsconfig.json"), `{
+  "compilerOptions": { "target": "ES2022", "module": "commonjs", "strict": true },
+  "include": ["src"]
+}`)
+  // The declaration cites the artifact, so the edge to it lives in this
+  // source's own shard while the artifact node lands in the metadata shard.
+  // Both have to move together: a snapshot that replaced the artifact and left
+  // this shard alone would leave the client holding an edge into an address
+  // nothing publishes any more.
+  writeGraphFile(t, filepath.Join(root, "src", "index.ts"),
+    "/** @evidence docs/sale.md#pricing States the rule. */\nexport class Priced {}\n")
+  published := t.TempDir()
+  first := filepath.Join(published, "first.json")
+  second := filepath.Join(published, "second.json")
+  writeArtifactSet(t, first, "docs/sale.md#pricing", "Pricing")
+  writeArtifactSet(t, second, "docs/sale.md#discounts", "Discounts")
+
+  var output bytes.Buffer
+  code := serveSnapshotsWithArtifacts(
+    bytes.NewReader([]byte(fmt.Sprintf(
+      "{\"id\":1,\"graphSnapshotVersion\":%d,\"artifacts\":%s}\n{\"id\":2,\"graphSnapshotVersion\":%d,\"artifacts\":%s}\n",
+      graphSnapshotProtocolVersion,
+      mustJSONString(t, first),
+      graphSnapshotProtocolVersion,
+      mustJSONString(t, second),
+    ))),
+    &output,
+    root,
+    "tsconfig.json",
+    nil,
+  )
+  if code != 0 {
+    t.Fatalf("serveSnapshotsWithArtifacts exited %d: %s", code, output.String())
+  }
+
+  decoder := json.NewDecoder(&output)
+  var initial serveResponse
+  var republished serveResponse
+  if err := decoder.Decode(&initial); err != nil {
+    t.Fatal(err)
+  }
+  if err := decoder.Decode(&republished); err != nil {
+    t.Fatal(err)
+  }
+  if initial.Snapshot == nil {
+    t.Fatalf("the shard protocol was not negotiated: %#v", initial)
+  }
+  if !shardsCarryArtifact(initial.Snapshot, "docs/sale.md#pricing") {
+    t.Fatal("the initial shard snapshot does not carry the artifact its request named")
+  }
+  if republished.Mode != serveModeRebuild || republished.Snapshot == nil {
+    t.Fatalf("a republished set over the shard protocol answered %#v", republished)
+  }
+  if !shardsCarryArtifact(republished.Snapshot, "docs/sale.md#discounts") {
+    t.Fatal("the republished shard snapshot does not carry the artifact that replaced the old one")
+  }
+  if shardsCarryArtifact(republished.Snapshot, "docs/sale.md#pricing") {
+    t.Fatal("the republished shard snapshot still carries the withdrawn artifact")
+  }
+  // The citing source's shard has to come with it, whichever projection the
+  // session chose. Its edges name the address that just moved, so a client left
+  // holding the previous version of this shard holds a dangling one.
+  if !shardsCarrySource(republished.Snapshot, "src/index.ts") {
+    t.Fatal("the shard owning the citing declaration was not re-emitted, so its edge to the withdrawn address survives in the client")
+  }
+}
+
+// shardsCarrySource reports whether a shard for the named source was upserted.
+func shardsCarrySource(snapshot *serveGraphSnapshot, suffix string) bool {
+  for _, upsert := range snapshot.Upserts {
+    if upsert.Shard.Source == nil {
+      continue
+    }
+    if strings.HasSuffix(upsert.Shard.Source.File, suffix) {
+      return true
+    }
+  }
+  return false
+}
+
+// shardsCarryArtifact reports whether any upserted shard holds the address.
+func shardsCarryArtifact(snapshot *serveGraphSnapshot, address string) bool {
+  for _, upsert := range snapshot.Upserts {
+    for _, node := range upsert.Shard.Nodes {
+      if node.ID == address {
+        return true
+      }
+    }
+  }
+  return false
 }
