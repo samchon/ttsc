@@ -240,14 +240,20 @@ func configuredPrismaAddressesWithHealth(
       continue
     }
     baseFailed := false
-    from := populationWalkRoot(base)
+    from, unwalkable := populationWalkRoot(base)
+    if unwalkable != nil {
+      problems = append(problems, unlistableBaseProblem(base, "Prisma", unwalkable))
+      failedBases = append(failedBases, base)
+      continue
+    }
     err := filepath.WalkDir(from, func(current string, entry fs.DirEntry, walkErr error) error {
       if walkErr != nil {
-        // The walk root belongs to its population by construction, and the
-        // relevance test below answers for an entry inside the base rather than
-        // for the base itself. `loadMarkdownBase` carries the same exemption
-        // and records why the base was reached by accident before it; leaving
-        // either in one walker would decide an identical filesystem state by
+        // The walk root belongs to its population by construction, so a
+        // failure to list it is a failure of the population. The relevance test
+        // below is written for an entry inside the base and reached the base
+        // itself only by accident, on a decision the glob shape made;
+        // `loadMarkdownBase` records that history in full. Leaving this
+        // exemption in one walker would decide an identical filesystem state by
         // artifact kind.
         if current == from {
           return walkErr

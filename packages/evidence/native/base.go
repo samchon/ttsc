@@ -321,16 +321,32 @@ func baseDirectoryProblem(base populationBase, kind artifactKind) string {
   if err == nil && info.IsDir() {
     return ""
   }
-  return describeBaseDirectoryProblem(base, kind, err == nil, err)
+  // A stat that failed still leaves the question of whether anything is there,
+  // and a link with no target is the case where the two answers differ: `Stat`
+  // follows it and reports the absent target, while `Lstat` finds the link
+  // itself. Told to create a directory over one, the author gets `EEXIST` and
+  // reads the same sentence again, which is the repair this predicate exists to
+  // avoid. The second call is made only on the failure path, so an ordinary
+  // root still costs one stat.
+  occupied := err == nil
+  if err != nil {
+    if _, linkErr := os.Lstat(base.Absolute); linkErr == nil {
+      occupied = true
+    }
+  }
+  return describeBaseDirectoryProblem(base, kind, occupied, err)
 }
 
 // describeBaseDirectoryProblem says what a declared root turned out to be, and
 // what to do about it.
 //
 // Three states reach it, and each one owns a repair the other two cannot be
-// given. The two parameters are one stat outcome split in two: `occupied` says
-// the call returned without an error over something that is not a directory,
-// and `cause` is that call's error, so exactly one of them is ever set.
+// given. `occupied` says something that is not a directory is at the path, and
+// `cause` is the stat's error when it had one. They are not exclusive: a link
+// with no target occupies the path and fails the stat at once, and it is
+// `occupied` that decides the sentence, because what the author has to do is
+// replace what is there. `cause` is read only where `occupied` is false, which
+// is the one shape the caller never produces without an error.
 //
 // `occupied` means the repair has to name what is in the way: told to "add that
 // directory" over a file, an author follows the instruction, watches it fail,
@@ -412,20 +428,14 @@ func describeBaseDirectoryProblem(
       message += ", which resolves to '" + filepath.ToSlash(base.Absolute) + "'"
     }
     message += ": " + cause.Error() + ". Correct the 'root' property, or clear the condition the filesystem reported"
-    if resolved || kind == artifactTypeScript {
-      message += "; "
-    }
     if resolved {
-      message += "it resolves against the ttsc project root"
+      message += "; it resolves against the ttsc project root"
     }
     if kind != artifactTypeScript {
       return message + "."
     }
-    if resolved {
-      message += ", and "
-    }
-    return message + "a " + string(kind) +
-      " root re-bases Program sources onto itself rather than scanning the filesystem."
+    return message + ". A " + string(kind) +
+      " root is checked by this stat alone: it re-bases Program sources onto itself rather than scanning the filesystem."
   }
   message := "Evidence graph could not read the " + string(kind) + " root '" + label + "'"
   if kind == artifactTypeScript {
@@ -478,11 +488,24 @@ func describeBaseDirectoryProblem(
 // which is what pnpm creates for a workspace dependency, comes back from
 // `EvalSymlinks` unchanged.
 //
+// The answer is checked rather than trusted. `resolveLinkedDirectory` gives up
+// after a fixed number of hops and returns the link it stopped on, while the
+// stat in `baseDirectoryProblem` follows further than that on every platform,
+// so a long enough chain passed the gate and then walked a link — which is the
+// silence this function exists to remove, reappearing past the bound. Reporting
+// it costs one `Lstat` of a path the walk is about to read anyway.
+//
 // Only the walk moves. Every address, location, and citation target is still
 // composed from the declared base, so a document reached through a link is
 // spelled exactly as it would be without one.
-func populationWalkRoot(base populationBase) string {
-  return filepath.FromSlash(resolveLinkedDirectory(base.Absolute))
+func populationWalkRoot(base populationBase) (string, error) {
+  from := filepath.FromSlash(resolveLinkedDirectory(base.Absolute))
+  if info, err := os.Lstat(from); err == nil && info.IsDir() {
+    return from, nil
+  }
+  return from, errors.New(
+    "the root is a chain of links this rule stops following, so no directory was reached",
+  )
 }
 
 // unlistableBaseProblem reports a population whose own base could not be
@@ -499,14 +522,19 @@ func populationWalkRoot(base populationBase) string {
 // The base is named by its configuration spelling rather than by a location,
 // because that is the property an author edits, and because a base with no
 // declared root has no other name than where it is.
+//
+// One repair covers both causes that reach this. A listing the filesystem
+// refused and a link chain that reached no directory are both answered by
+// making the root a directory this process can list, so the sentence names that
+// rather than an access the second of them has nothing to do with.
 func unlistableBaseProblem(
   base populationBase,
   sources string,
   cause error,
 ) string {
   return "Evidence graph could not walk " + sources + " root '" + populationRootLabel(base) +
-    "': " + cause.Error() + ". Fix filesystem access so configured " + sources +
-    " sources can be indexed."
+    "': " + cause.Error() + ". Make that root a directory this process can list, so its configured " +
+    sources + " sources can be indexed."
 }
 
 // unreadableEntryProblem decides whether a walk failure inside a population

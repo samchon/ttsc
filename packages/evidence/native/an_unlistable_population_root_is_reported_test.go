@@ -26,13 +26,13 @@ func TestAnUnlistableBaseIsNamedAsAPopulation(t *testing.T) {
   cause := errors.New("permission denied")
   declared := unlistableBaseProblem(resolvePopulationBase(root, "../documents"), "Markdown", cause)
   want := "Evidence graph could not walk Markdown root '../documents': permission denied. " +
-    "Fix filesystem access so configured Markdown sources can be indexed."
+    "Make that root a directory this process can list, so its configured Markdown sources can be indexed."
   if declared != want {
     t.Fatalf("declared root:\n got %s\nwant %s", declared, want)
   }
   fallback := unlistableBaseProblem(resolvePopulationBase(root, ""), "Markdown", cause)
   wantFallback := "Evidence graph could not walk Markdown root '" + filepath.ToSlash(root) +
-    "': permission denied. Fix filesystem access so configured Markdown sources can be indexed."
+    "': permission denied. Make that root a directory this process can list, so its configured Markdown sources can be indexed."
   if fallback != wantFallback {
     t.Fatalf("default base:\n got %s\nwant %s", fallback, wantFallback)
   }

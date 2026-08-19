@@ -3,6 +3,8 @@ package evidence
 import (
   "os"
   "path/filepath"
+  "runtime"
+  "strings"
   "testing"
 )
 
@@ -191,11 +193,21 @@ func TestALinkedPrismaRootCollectsItsSchemas(t *testing.T) {
  * blindly printed `D://requirements`, in every file location as well as in the
  * message a failed walk produces.
  *
- *  1. Compose a path under a base whose display already ends in a separator.
- *  2. Compose one under an ordinary ascending base.
+ *  1. Resolve a drive root on another volume, where the display is produced.
+ *  2. Compose a path under it and one under an ordinary ascending base.
  *  3. Assert each carries exactly one separator at the join.
  */
 func TestADriveRootBaseComposesOneSeparator(t *testing.T) {
+  if runtime.GOOS == "windows" {
+    // The premise, from the resolution rather than from a hand-built value: a
+    // drive root on another volume has no relative spelling, so its display is
+    // the absolute path and a drive root carries its own separator. This is
+    // pure path arithmetic and touches no volume.
+    resolved := resolvePopulationBase(`C:\project`, "D:/")
+    if resolved.Display != "D:/" {
+      t.Fatalf("cross-volume drive root display = %q, want %q", resolved.Display, "D:/")
+    }
+  }
   drive := populationBase{Absolute: `D:\`, Display: "D:/"}
   if got := drive.display("requirements/pricing.md"); got != "D:/requirements/pricing.md" {
     t.Fatalf("drive root display = %q", got)
@@ -308,4 +320,109 @@ func TestAProjectRootThatIsALinkStillReadsItsDocuments(t *testing.T) {
     "Missing acknowledgement for 'docs/pricing.md#discounts'",
   )
   assertProblemContains(t, messages, "at docs/pricing.md:1")
+}
+
+/**
+ * Verifies a link chain the resolver stops following is reported, not walked.
+ *
+ * The resolver gives up after a fixed number of hops and returns the link it
+ * stopped on, while the stat that accepts the root follows further than that on
+ * every platform. A long enough chain therefore passed the gate and then walked
+ * a link, which is exactly the silence following a link at all exists to remove,
+ * reappearing past the bound. Nobody writes a chain this long; the class is what
+ * has to be sealed.
+ *
+ *  1. Build a chain of links longer than the resolver follows.
+ *  2. Root a reference at its head and run the rule.
+ *  3. Assert the root is named and no glob diagnostic is derived from it.
+ */
+func TestALinkChainBeyondTheResolverIsReportedNotWalked(t *testing.T) {
+  workspace := t.TempDir()
+  target := filepath.Join(workspace, "target")
+  if err := os.MkdirAll(filepath.Join(target, "requirements"), 0o755); err != nil {
+    t.Fatal(err)
+  }
+  if err := os.WriteFile(
+    filepath.Join(target, "requirements", "pricing.md"),
+    []byte("## Discounts {#discounts}\n"),
+    0o644,
+  ); err != nil {
+    t.Fatal(err)
+  }
+  previous := target
+  for hop := range 34 {
+    link := filepath.Join(workspace, "hop"+decimal(hop))
+    if err := linkDirectory(previous, link); err != nil {
+      t.Skipf("this platform refused to create a link: %v", err)
+    }
+    previous = link
+  }
+  if err := linkDirectory(previous, filepath.Join(workspace, "documents")); err != nil {
+    t.Skipf("this platform refused to create a link: %v", err)
+  }
+  messages := runRootedGraphIn(t, workspace, map[string]string{
+    "project/src/sale.ts": "export interface ISale {}\n",
+  }, `{"claims":[{
+    "type":"typescript",
+    "files":["src/**/*.ts"],
+    "symbol":"type",
+    "reference":{
+      "type":"markdown",
+      "root":"../documents",
+      "files":["requirements/**/*.md"],
+      "symbol":"h2"
+    }
+  }]}`)
+  assertProblemContains(t, messages, "could not walk Markdown root '../documents':")
+  if countProblemsContaining(messages, "matched no markdown files") != 0 {
+    t.Fatalf(
+      "a root the walk never reached is a failed population, not an empty one:\n%s",
+      strings.Join(messages, "\n"),
+    )
+  }
+}
+
+/**
+ * Verifies a root that is a link with no target asks to be replaced.
+ *
+ * `os.Stat` follows the link and reports the absent target, so the root reads as
+ * missing and the repair is to create it. Something is already at that path, and
+ * creating a directory over it fails, which is the unfollowable repair a file
+ * occupying the path produces and the one this predicate exists to avoid.
+ *
+ *  1. Point a link at a directory and then remove the directory.
+ *  2. Root a reference at the link and run the rule.
+ *  3. Assert the diagnostic asks for a replacement rather than a creation.
+ */
+func TestARootLinkWithNoTargetAsksToBeReplaced(t *testing.T) {
+  workspace := t.TempDir()
+  target := filepath.Join(workspace, "target")
+  if err := os.MkdirAll(target, 0o755); err != nil {
+    t.Fatal(err)
+  }
+  if err := linkDirectory(target, filepath.Join(workspace, "documents")); err != nil {
+    t.Skipf("this platform refused to create a link: %v", err)
+  }
+  if err := os.Remove(target); err != nil {
+    t.Fatal(err)
+  }
+  messages := runRootedGraphIn(t, workspace, map[string]string{
+    "project/src/sale.ts": "export interface ISale {}\n",
+  }, `{"claims":[{
+    "type":"typescript",
+    "files":["src/**/*.ts"],
+    "symbol":"type",
+    "reference":{
+      "type":"markdown",
+      "root":"../documents",
+      "files":["requirements/**/*.md"],
+      "symbol":"h2"
+    }
+  }]}`)
+  assertProblemContains(t, messages, "because that path is not a directory")
+  assertProblemContains(
+    t,
+    messages,
+    "replace that path with a directory and the markdown sources it should hold",
+  )
 }

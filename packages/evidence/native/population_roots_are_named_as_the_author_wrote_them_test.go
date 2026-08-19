@@ -440,9 +440,12 @@ func TestAnAbsoluteRootWithBackslashesIsStoredWithSlashes(t *testing.T) {
  * does not know which state it is in, so it says that, names no cause of its
  * own, and passes the operating system's reason through.
  *
- *  1. Describe the two states a failed stat leaves behind.
- *  2. Read each rendered sentence.
- *  3. Assert only the absent one asks for the directory to be created.
+ *  1. Describe a stat that failed without saying the path is absent, and one
+ *     that said so.
+ *  2. Read each rendered sentence, and the TypeScript form of the first.
+ *  3. Assert only the absent one asks for the directory to be created, that
+ *     neither names a cause the filesystem did not give, and that a TypeScript
+ *     root still explains what it does with the directory.
  */
 func TestARootThatCouldNotBeExaminedIsNotCalledMissing(t *testing.T) {
   base := resolvePopulationBase(filepath.Join(t.TempDir(), "project"), "../contracts")
