@@ -225,11 +225,11 @@ func populationRootLabel(base populationBase) string {
 // missingBaseDirectoryProblem reports a declared root that is not an existing
 // directory.
 //
-// The test is a stat, not an access check, and it always was. The old name came
-// from the reading the Markdown and Prisma callers do afterwards, which is why
-// it stopped describing anything once a kind that reads nothing began asking
-// the same question. The Markdown message may still say "could not read",
-// because that caller does read; the predicate may not.
+// The test is a stat, and any failure of it counts as absence — a path occupied
+// by a file, and an unreachable parent alike. The Markdown message may still
+// lead with "could not read", because it names the read this root exists to
+// serve and that read is what a caller is about to attempt; the predicate's own
+// name may not, because two of its three callers read nothing.
 //
 // The default base is excluded because `Check` already validated the project
 // root, and its diagnostic names the ttsc project identity as the repair rather
