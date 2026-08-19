@@ -18,6 +18,13 @@ import { TtscGraphMemory } from "./TtscGraphMemory";
  * protocol and has to hold it to the same number: the envelope's version and
  * the body's are independent, so a producer can speak this protocol and still
  * send a body from another schema.
+ *
+ * `scripts/assert-ttscgraph-release-candidate.cjs` reads this declaration out
+ * of this file with a regular expression, because it runs against a packaged
+ * binary in a workflow that has no reason to have built this package first.
+ * Rewriting the declaration — adding a type annotation, splitting the line —
+ * makes that script fail loudly rather than silently, and its message names
+ * this constant; update its pattern with any such change.
  */
 export const DUMP_SCHEMA_VERSION = 7;
 
