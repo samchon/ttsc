@@ -3,6 +3,7 @@ import { ITtscGraphEdge } from "../structures/ITtscGraphEdge";
 import { ITtscGraphEvidence } from "../structures/ITtscGraphEvidence";
 import { ITtscGraphNode } from "../structures/ITtscGraphNode";
 import { ITtscGraphSpan } from "../structures/ITtscGraphSpan";
+import { isArtifactNodeKind } from "../structures/TtscGraphArtifactNodeKind";
 import { TtscGraphEdgeKind } from "../structures/TtscGraphEdgeKind";
 import { ttscGraphNodeIdPath } from "./TtscGraphNodeId";
 import { TtscGraphSourceReader } from "./TtscGraphSourceReader";
@@ -361,7 +362,7 @@ function synthesize(dump: ITtscGraphDump): {
     });
   };
   for (const node of nodes) {
-    if (node.external) continue;
+    if (node.external || isArtifactNodeKind(node.kind)) continue;
     addFileNode(node.file);
   }
   for (const file of moduleFiles) addFileNode(file);
@@ -375,6 +376,15 @@ function synthesize(dump: ITtscGraphDump): {
   // legacy subpath.
   const structural: ITtscGraphEdge[] = [];
   for (const node of nodes) {
+    // An artifact is contained by the artifact its producer named, and by
+    // nothing when that producer named none. It is never contained by a `file`
+    // node: a document is already its own node, a Prisma address carries no
+    // path on purpose, and an API operation has no file at all.
+    if (isArtifactNodeKind(node.kind)) {
+      if (node.parent !== undefined && node.parent !== "")
+        structural.push({ from: node.parent, to: node.id, kind: "contains" });
+      continue;
+    }
     if (node.external || node.file === "") continue;
     const parent = owner(node);
     const container = parent ? parent.id : fileNodeId(node.file);

@@ -23,6 +23,11 @@ func runDump(args []string) int {
   cwdFlag := fs.String("cwd", "", "project root (defaults to process cwd)")
   tsconfigFlag := fs.String("tsconfig", "tsconfig.json", "project tsconfig path")
   prettyFlag := fs.Bool("pretty", false, "indent the JSON output")
+  artifactsFlag := fs.String(
+    "artifacts",
+    "",
+    "path to the artifacts a plugin published (JSON); absent or missing means none",
+  )
   if err := fs.Parse(args); err != nil {
     return 2
   }
@@ -57,9 +62,19 @@ func runDump(args []string) int {
   defer func() { _ = prog.Close() }()
 
   g := graph.Build(prog)
+  // The artifacts arrive from a plugin that parsed documents this Program never
+  // read, so they are a second producer's facts and the origin says so. Applying
+  // them before the dump is what turns a citation of a document section from a
+  // token into a relation.
+  artifacts, err := graph.LoadArtifacts(strings.TrimSpace(*artifactsFlag))
+  if err != nil {
+    fmt.Fprintf(stderr, "ttscgraph: could not read the published artifacts: %v\n", err)
+    return 1
+  }
+  graph.ApplyArtifacts(g, artifacts)
   ignored := graph.GitIgnoredFiles(cwd, g)
   texts := graph.SourceTexts(prog)
-  origin, err := dumpOrigin(prog, texts)
+  origin, err := dumpOrigin(prog, texts, strings.TrimSpace(*artifactsFlag) != "")
   if err != nil {
     fmt.Fprintf(stderr, "ttscgraph: %v\n", err)
     return 1
@@ -89,7 +104,16 @@ func runDump(args []string) int {
 // saw the project, so it carries the same provenance a served snapshot does:
 // without it the file is a pile of facts with no way to tell which program, or
 // which day, they describe.
-func dumpOrigin(prog *driver.Program, texts map[string]string) (graph.DumpOrigin, error) {
+// dumpOrigin builds the provenance for one dump. askedForArtifacts is what
+// turns the artifact capability from a guess into a claim: a producer that was
+// never pointed at a publisher did not look, and saying it did would make a
+// project with no artifacts indistinguishable from one whose artifacts were
+// never requested.
+func dumpOrigin(
+  prog *driver.Program,
+  texts map[string]string,
+  askedForArtifacts bool,
+) (graph.DumpOrigin, error) {
   configs, err := parsedConfigs(prog)
   if err != nil {
     return graph.DumpOrigin{}, err
@@ -102,15 +126,23 @@ func dumpOrigin(prog *driver.Program, texts map[string]string) (graph.DumpOrigin
   if err != nil {
     return graph.DumpOrigin{}, err
   }
+  capabilities := fullSnapshotCapabilities
+  if askedForArtifacts {
+    capabilities = append(append([]string{}, capabilities...), graph.CapabilityArtifactNodes)
+  }
+  provenance := graph.NewProvenance(
+    serveProducer(),
+    capabilities,
+    fileDigests(configHashes),
+    rootFileEntries(projectRootFilesFromConfigs(configs, false)),
+    texts,
+    diskDigests,
+  )
+  if askedForArtifacts {
+    provenance.ArtifactProducer = &graph.Producer{Tool: "@ttsc/lint graph-nodes"}
+  }
   return graph.DumpOrigin{
-    Provenance: graph.NewProvenance(
-      serveProducer(),
-      fullSnapshotCapabilities,
-      fileDigests(configHashes),
-      rootFileEntries(projectRootFilesFromConfigs(configs, false)),
-      texts,
-      diskDigests,
-    ),
+    Provenance:  provenance,
     Diagnostics: graph.NewDiagnostics(prog),
   }, nil
 }

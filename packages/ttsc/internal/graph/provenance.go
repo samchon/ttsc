@@ -15,7 +15,7 @@ import (
 // field is added, removed, or given a new meaning, independently of the serve
 // envelope's protocol version: a one-shot `ttscgraph dump` written to a file has
 // a schema but never rode the protocol.
-const DumpSchemaVersion = 7
+const DumpSchemaVersion = 8
 
 // The capabilities a snapshot can declare. Each names one class of evidence a
 // consumer may rely on when, and only when, the snapshot lists it.
@@ -26,6 +26,13 @@ const (
   // CapabilitySourceDigests means Sources covers every file the program
   // loaded, each with the digest of the text the checker read.
   CapabilitySourceDigests = "sourceDigests"
+  // CapabilityArtifactNodes means the producer asked the project's configured
+  // plugins for the artifacts a citation can name, so a dump carrying none is a
+  // project that publishes none rather than a producer that never looked. The
+  // two states are otherwise the same absent nodes, and a consumer honouring the
+  // difference is the whole reason a capability is declared rather than
+  // inferred.
+  CapabilityArtifactNodes = "artifactNodes"
   // CapabilityDiskDigests means Sources also carries each file's on-disk
   // digest, so an empty one genuinely means the file could not be read.
   //
@@ -75,6 +82,17 @@ type Provenance struct {
 
   // Producer identifies the binary and the checker behind the facts.
   Producer Producer `json:"producer"`
+
+  // ArtifactProducer identifies the second producer behind the artifact nodes,
+  // and is absent when the dump carries none.
+  //
+  // Every other fact here came from one Program. These did not: a plugin parsed
+  // documents this Program never read, in a process of its own, and saying so is
+  // what keeps the dump's one-generation contract honest instead of letting an
+  // overlay ride the same claim as the compiler's facts. A consumer that must
+  // not mix the two reads this field; one that only answers "what does this
+  // address name" does not care.
+  ArtifactProducer *Producer `json:"artifactProducer,omitempty"`
 
   // Universe fingerprints the inputs that decide which files are in the
   // program at all, as opposed to what is inside them.

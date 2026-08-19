@@ -19,6 +19,17 @@ export interface ITtscGraphNode {
   /** What this node represents. */
   kind: TtscGraphNodeKind;
 
+  /**
+   * The artifact containing this one, by id.
+   *
+   * Present only on an artifact node — a section's document or enclosing
+   * section, a column's model. A declaration's containment is synthesized by
+   * the memory layer from its owner and its file, which an artifact has no
+   * equivalent of: a Prisma model has no file in its address, and an API
+   * operation has no file at all.
+   */
+  parent?: string;
+
   /** The simple, unqualified declared name (`create`, `OrderService`, `App`). */
   name: string;
 

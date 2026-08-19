@@ -24,6 +24,18 @@ const (
   // imports from. A barrel declares nothing, so this is the only node it has,
   // and it is the node a package.json entry path resolves to.
   NodeModule NodeKind = "module"
+  // The artifact kinds. These are not declarations and they are not this
+  // Program's facts: a plugin materialized them from a Markdown document, a
+  // Prisma schema, or an API document, and the graph indexes what it was handed
+  // without interpreting any of it. Their ids are the address a citation names
+  // rather than the `path#name:kind` grammar, which is why a consumer parsing an
+  // id gates on the kind first.
+  NodeMarkdownDocument NodeKind = "markdown_document"
+  NodeMarkdownSection  NodeKind = "markdown_section"
+  NodePrismaModel      NodeKind = "prisma_model"
+  NodePrismaColumn     NodeKind = "prisma_column"
+  NodePrismaRelation   NodeKind = "prisma_relation"
+  NodeSwaggerOperation NodeKind = "swagger_operation"
 )
 
 // Node is one declared symbol. Its ID is position-invariant, built from the file
@@ -39,10 +51,22 @@ type Node struct {
   // (`"a.b"` → Name `C.a.b`), so the simple/qualified boundary cannot be
   // recovered from Name by splitting on a dot. Recording it here keeps the dump
   // split exact instead of guessing.
-  Simple   string
-  Kind     NodeKind
-  File     string
-  External bool
+  Simple string
+  Kind   NodeKind
+  File   string
+  // ArtifactLine is the 1-based line a published artifact starts on, and is 0
+  // for every declaration — a declaration carries a real span, resolved from the
+  // compiler, and does not need this. It exists because an artifact has no AST
+  // position to take a span from: the plugin that parsed the document reports
+  // where the heading is, and that single number is the whole span an index
+  // carries. The section's content is read from the file when someone needs it,
+  // exactly as a function body is.
+  ArtifactLine int
+  // ArtifactParent is the id of the artifact containing this one — a section's
+  // document or enclosing section, a column's model. Empty for every
+  // declaration, whose containment the TypeScript memory layer synthesizes.
+  ArtifactParent string
+  External       bool
   // Exported marks a node that is part of its module's export surface, resolved
   // through the checker's export table so a re-export (`export { Foo } from`) or
   // a barrel (`export *`) counts, not only an inline `export` modifier. It is

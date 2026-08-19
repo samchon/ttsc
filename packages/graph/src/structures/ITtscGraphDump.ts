@@ -88,6 +88,17 @@ export namespace ITtscGraphDump {
     /** What built the snapshot. */
     producer: IProducer;
 
+    /**
+     * The second producer behind the artifact nodes, absent when the dump
+     * carries none.
+     *
+     * Every other fact in this dump came from one Program. These did not: a
+     * plugin parsed documents that Program never read, in a process of its own.
+     * Saying so is what keeps the one-generation contract honest instead of
+     * letting an overlay ride the same claim as the compiler's facts.
+     */
+    artifactProducer?: IProducer;
+
     /** The inputs that decide which files are in the program at all. */
     universe: IUniverse;
 
@@ -233,8 +244,18 @@ export namespace ITtscGraphDump {
     ITtscGraphNode,
     "evidence" | "implementation" | "kind"
   > {
-    /** Declaration kind written by the native producer. */
+    /** Node kind written by the native producer. */
     kind: TtscGraphDumpNodeKind;
+
+    /**
+     * The artifact containing this one, by id.
+     *
+     * Present only on an artifact node: a declaration's containment is
+     * synthesized by the memory layer, and two producers of one relation would
+     * put two answers in the graph. Absent at the top of a chain, and absent
+     * rather than invented when the parent was not published.
+     */
+    parent?: string;
 
     /** Declaration span; its file is this node's `file`. */
     evidence?: ITtscGraphSpan;

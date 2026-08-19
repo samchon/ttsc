@@ -17,4 +17,10 @@ export type TtscGraphNodeKind =
   | "enum"
   | "variable"
   | "method"
-  | "property";
+  | "property"
+  | "markdown_document"
+  | "markdown_section"
+  | "prisma_model"
+  | "prisma_column"
+  | "prisma_relation"
+  | "swagger_operation";
