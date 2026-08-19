@@ -33,6 +33,17 @@ normalize='
   }gsex
 '
 
+# gofmt's filename predicate, so the normalization never rewrites a file gofmt
+# did not format. Without it a named Makefile had its semantic tabs replaced —
+# the same data-loss class this wrapper's normalization exists to avoid.
+isGoFile() {
+  case "$(basename "$1")" in
+    .*) return 1 ;;
+    *.go) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
 space_indent() {
   perl -0777 -pe "$normalize"
 }
@@ -68,10 +79,15 @@ if [ "$write" = true ]; then
         args+=("$arg")
         positional=$((positional + 1))
         if [ -d "$arg" ]; then
+          # gofmt's own walk switches on IsDir and formats every entry whose
+          # name ends in `.go` and does not begin with a dot, so the
+          # normalization set mirrors that predicate rather than approximating
+          # it: `-type f` would skip a symlinked `.go` gofmt just wrote, and
+          # dropping the dot test would edit a `.golden.go` gofmt never read.
           while IFS= read -r -d '' found; do
             files+=("$found")
-          done < <(find "$arg" -type f -name '*.go' -print0)
-        elif [ -f "$arg" ]; then
+          done < <(find "$arg" ! -type d -name '*.go' ! -name '.*' -print0)
+        elif [ -e "$arg" ] && isGoFile "$arg"; then
           files+=("$arg")
         fi
         ;;

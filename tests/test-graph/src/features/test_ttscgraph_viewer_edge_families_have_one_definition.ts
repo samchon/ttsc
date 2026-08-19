@@ -201,6 +201,18 @@ export const test_ttscgraph_viewer_edge_families_have_one_definition =
       Object.entries(LINK_COLORS),
       "the rendered legend is not one entry per family, in order, with its colour",
     );
+    // The classes are what make the entry visible: `index.html` styles
+    // `footer .dot` and `footer .swatch`, so a legend rendered without them is
+    // in the DOM as zero-size inline spans and ships the same page as no legend.
+    for (const dot of swatches) {
+      assert.equal(dot.className, "dot", "a legend entry lost its class");
+      assert.equal(
+        (dot.children[0] as StubElement).className,
+        "swatch",
+        "a legend swatch lost its class, so it renders at zero size",
+      );
+    }
+
     assert.equal(
       host.footer.children[swatches.length],
       "node size = connection count",

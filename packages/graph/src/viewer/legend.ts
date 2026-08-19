@@ -11,8 +11,11 @@
 export interface LegendElement {
   className: string;
   style: { background: string };
-  append(...nodes: (LegendElement | string)[]): void;
-  prepend(...nodes: (LegendElement | string)[]): void;
+  // `unknown[]`, because the real `Document` types these as `(Node | string)[]`
+  // and a narrower parameter is not assignable to it. `src/viewer` is excluded
+  // from the declaration build, so nothing would have reported that.
+  append(...nodes: unknown[]): void;
+  prepend(...nodes: unknown[]): void;
 }
 
 /** The slice of `document` the legend needs. */

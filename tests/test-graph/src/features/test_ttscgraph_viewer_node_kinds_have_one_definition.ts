@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
 
 import {
   dumpVocabulary,
@@ -99,6 +101,28 @@ export const test_ttscgraph_viewer_node_kinds_have_one_definition =
         `${surface}: the unknown-node colour ${fallback} is also ${named
           .map(([kind]) => kind)
           .join(", ")}, so an unrecognized kind is drawn as that kind`,
+      );
+    }
+
+    // The constants have to be what the call sites actually read. Asserting the
+    // declaration alone leaves #1256 restorable green: replacing
+    // `?? UNKNOWN_NODE_COLOR` with the old `?? "#64748b"` literal in the scene,
+    // or `?? "#8b97a8"` in the bundled viewer, is exactly "a module is drawn as
+    // a variable" and changes no declaration.
+    for (const file of [
+      "packages/graph/src/viewer/main.ts",
+      "website/src/components/graph/TtscWebsiteGraphViewerScene.ts",
+      "website/src/components/graph/TtscWebsiteGraphViewer3D.tsx",
+      "website/src/components/graph/TtscWebsiteGraphViewerSidebar.tsx",
+    ]) {
+      const source = fs.readFileSync(path.join(root, file), "utf8");
+      const literal = /(?:NODE_COLORS|LINK_COLORS)\[[^\]]*\]\s*\?\?\s*"#/.exec(
+        source,
+      );
+      assert.equal(
+        literal,
+        null,
+        `${file} spells a fallback colour as a literal beside a colour map; it has to read the shared constant`,
       );
     }
 

@@ -13,10 +13,11 @@ type ViewerNode = ITtscWebsiteGraphViewer.Node;
 /**
  * Node kinds in display order; chips and legends iterate this order.
  *
- * Total over the kinds a dump can carry (`TtscGraphDumpNodeKind`). `module` was
- * missing here and from NODE_COLORS below, so a module node had no filter chip
- * and was drawn in the unknown-kind fallback — which was the same string as
- * `variable`, so it read as a variable rather than as something unrecognized.
+ * Total over the kinds a dump can carry (`TtscGraphDumpNodeKind`). This decides
+ * position, not membership: `kindsIn` appends any present kind the list omits,
+ * so `module` always had a chip — it simply came last, in the unknown-kind
+ * fallback colour, which was the same string as `variable` and therefore read
+ * as a variable rather than as something unrecognized.
  */
 const NODE_KIND_ORDER: readonly string[] = [
   "module",
@@ -59,7 +60,7 @@ const LINK_COLORS: Record<string, string> = {
  * kind" and "this is a variable" are the same picture. Four call sites used to
  * spell this literal themselves, and it was `variable`'s own colour.
  */
-const UNKNOWN_NODE_COLOR = "#cbd5e1";
+const UNKNOWN_NODE_COLOR = "#334155";
 
 /**
  * What an unrecognized edge kind is drawn in.

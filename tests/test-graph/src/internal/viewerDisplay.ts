@@ -108,8 +108,8 @@ export const dumpVocabulary = (
 export interface LegendElement {
   className: string;
   style: { background: string };
-  append(...nodes: (LegendElement | string)[]): void;
-  prepend(...nodes: (LegendElement | string)[]): void;
+  append(...nodes: unknown[]): void;
+  prepend(...nodes: unknown[]): void;
 }
 
 /** The slice of `document` the legend needs. */
