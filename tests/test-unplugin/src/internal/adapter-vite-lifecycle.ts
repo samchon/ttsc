@@ -1,12 +1,12 @@
-import { TestUnpluginRuntime } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
 import {
-  createCacheProject,
-  projectModules,
-} from "./transform-project-cache";
+  invokeVitePluginHook,
+  loadViteAdapterPlugin,
+} from "./adapter-vite-serve";
+import { createCacheProject, projectModules } from "./transform-project-cache";
 
 /**
  * One driven Vite adapter session over a multi-module fixture project.
@@ -28,13 +28,6 @@ interface IViteAdapterSession {
   unrelatedInput: string;
 }
 
-/** Apply one unplugin hook, tolerating both the bare and object hook forms. */
-function invokeHook(hook: any, context: object, ...args: unknown[]): unknown {
-  return typeof hook === "function"
-    ? hook.apply(context, args)
-    : hook?.handler?.apply(context, args);
-}
-
 /**
  * Start a Vite adapter session over a fresh fixture project.
  *
@@ -46,13 +39,9 @@ export async function startViteAdapterSession(options: {
   fileCount?: number;
   watching: boolean;
 }): Promise<IViteAdapterSession> {
-  const unpluginVite = await TestUnpluginRuntime.loadUnpluginAdapter("vite");
-  const plugin: any = [unpluginVite()]
-    .flat()
-    .find((entry: any) => entry?.name === "ttsc-unplugin");
-  assert.ok(plugin, "the vite adapter must expose the ttsc plugin object");
+  const plugin = await loadViteAdapterPlugin();
   const project = createCacheProject({ fileCount: options.fileCount ?? 4 });
-  invokeHook(
+  invokeVitePluginHook(
     plugin.configResolved,
     {},
     {
@@ -61,10 +50,10 @@ export async function startViteAdapterSession(options: {
       server: options.watching ? { watch: {} } : { watch: null },
     },
   );
-  await invokeHook(plugin.buildStart, {});
+  await invokeVitePluginHook(plugin.buildStart, {});
   return {
     deliver: async (file: string) =>
-      invokeHook(
+      invokeVitePluginHook(
         plugin.transform,
         { addWatchFile: () => undefined },
         fs.readFileSync(file, "utf8"),
@@ -92,10 +81,10 @@ function touchUnrelatedInput(session: IViteAdapterSession): void {
  * Asserts samchon/ttsc#1260: a watcherless dev server settles each module's
  * first delivery from the supplied source alone.
  *
- * The session declared it will observe no edit, so the generation is as
- * immutable under it as under a production build. An input changing mid-session
- * therefore may not cost a recompile: nothing in the session could have
- * requested that change, and nothing could deliver it.
+ * The session declared it will observe no edit, so it can neither learn of one
+ * nor invalidate what one touched. Recompiling mid-session would only hand the
+ * remaining modules a second compilation of the same program, so the session
+ * keeps serving the generation it started from, exactly as a build does.
  */
 export async function assertWatcherlessServeTakesTheBuildScopedCache(): Promise<void> {
   const session = await startViteAdapterSession({ watching: false });
@@ -140,9 +129,10 @@ export async function assertWatchingServeKeepsPersistentValidation(): Promise<vo
 /**
  * Asserts the build-scoped shortcut still stops at a module's second delivery.
  *
- * `beginTtscTransformBuild` settles only a module's *first* delivery in the
+ * `beginTtscTransformBuild` settles only a module's _first_ delivery in the
  * session from the supplied source; a repeated request revalidates, because the
- * bundler asking again is the one signal a session without a watcher still has.
+ * bundler asking again is the one signal a session without a watcher still
+ * has.
  */
 export async function assertWatcherlessServeRevalidatesARepeatedModule(): Promise<void> {
   const session = await startViteAdapterSession({ watching: false });

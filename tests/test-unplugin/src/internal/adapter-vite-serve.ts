@@ -287,15 +287,8 @@ export async function collectServeWatchRegistrations(
   fixture: IViteServeCandidateFixture,
   options: { watching: boolean },
 ): Promise<string[]> {
-  const unpluginVite = await TestUnpluginRuntime.loadUnpluginAdapter("vite");
-  const plugin: any = [unpluginVite()]
-    .flat()
-    .find((entry: any) => entry?.name === "ttsc-unplugin");
-  assert.ok(plugin, "the vite adapter must expose the ttsc plugin object");
-  const invoke = (hook: any, context: object, ...args: unknown[]): unknown =>
-    typeof hook === "function"
-      ? hook.apply(context, args)
-      : hook?.handler?.apply(context, args);
+  const plugin = await loadViteAdapterPlugin();
+  const invoke = invokeVitePluginHook;
   invoke(
     plugin.configResolved,
     {},
@@ -314,4 +307,25 @@ export async function collectServeWatchRegistrations(
     fixture.mainFile,
   );
   return watched;
+}
+
+/** Resolve the ttsc plugin object out of the Vite adapter's factory result. */
+export async function loadViteAdapterPlugin(): Promise<any> {
+  const unpluginVite = await TestUnpluginRuntime.loadUnpluginAdapter("vite");
+  const plugin: any = [unpluginVite()]
+    .flat()
+    .find((entry: any) => entry?.name === "ttsc-unplugin");
+  assert.ok(plugin, "the vite adapter must expose the ttsc plugin object");
+  return plugin;
+}
+
+/** Apply one unplugin hook, tolerating both the bare and object hook forms. */
+export function invokeVitePluginHook(
+  hook: any,
+  context: object,
+  ...args: unknown[]
+): unknown {
+  return typeof hook === "function"
+    ? hook.apply(context, args)
+    : hook?.handler?.apply(context, args);
 }

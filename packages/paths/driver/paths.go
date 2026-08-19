@@ -22,6 +22,15 @@ type plugin struct{}
 
 // ApplyProgram rewrites tsconfig paths aliases to relative import specifiers
 // across every source file in the program.
+//
+// It deliberately declares no dependency completeness, unlike its sibling
+// utility plugins. Two of its inputs are outside the file it rewrites: which
+// source files the program contains, since a specifier is rewritten only when a
+// pattern target names one (resolveSource), and the checker, which decides
+// whether a bare `require` is the module loader or a binding some ambient
+// declaration introduced (isModuleLoader). A complete declaration would have to
+// name those, and the second of them is exactly the global-scope set the
+// declaration drops, so silence keeps the sound host-owned bound (samchon/ttsc#1263).
 func (plugin) ApplyProgram(prog *driver.Program, _ driver.PluginContext) error {
   rewriter := newRewriter(prog)
   for _, file := range prog.SourceFiles() {

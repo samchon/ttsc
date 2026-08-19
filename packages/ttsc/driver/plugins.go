@@ -106,6 +106,9 @@ type PluginContext struct {
   reportHostInputHashUnknown     func(string)
   reportHostInputRealpath        func(string, *string)
   reportHostInputRealpathUnknown func(string)
+  reportFileDependency           func(string, string)
+  reportFileComplete             func(string)
+  reportEveryFileComplete        func()
 }
 
 // ReportHostInputHash declares the exact file state consumed by a native
@@ -186,6 +189,81 @@ func (ctx PluginContext) ReportHostInput(file string) {
   ctx.reportHostInput(filepath.Clean(file))
 }
 
+// ReportFileDependency declares one file whose content influenced this
+// plugin's contribution to the transformed file file. Both are resolved
+// against the plugin's cwd and keyed like every other envelope section, so a
+// plugin reports the program's own file names and the host joins the sections
+// by key.
+//
+// Reporting alone only widens what a consumer invalidates on; it is
+// ReportFileDependenciesComplete that turns the reported set into the file's
+// whole input set.
+func (ctx PluginContext) ReportFileDependency(file string, dependency string) {
+  if ctx.reportFileDependency == nil {
+    return
+  }
+  target, ok := ctx.transformKey(file)
+  if !ok {
+    return
+  }
+  input, ok := ctx.transformKey(dependency)
+  if !ok {
+    return
+  }
+  ctx.reportFileDependency(target, input)
+}
+
+// ReportFileDependenciesComplete declares that everything this plugin's
+// contribution to file consumed, beyond file's own text and the universal
+// compiler-option chain, was reported through ReportFileDependency — possibly
+// nothing at all.
+//
+// The declaration is per (plugin, file), the way the protocol's completeness
+// contract defines it: the host lists a file in dependenciesComplete only when
+// every plugin that can contribute to it declared it, because a consumer cannot
+// attribute one plugin's entries back to it.
+func (ctx PluginContext) ReportFileDependenciesComplete(file string) {
+  if ctx.reportFileComplete == nil {
+    return
+  }
+  target, ok := ctx.transformKey(file)
+  if !ok {
+    return
+  }
+  ctx.reportFileComplete(target)
+}
+
+// ReportDependenciesComplete makes the same declaration for every file in the
+// program at once: this plugin's contribution to any transformed file is a
+// function of that file's own text, whatever it reported for that file, its
+// reported host inputs, and the compiler options.
+//
+// That is the honest claim of a syntactic transform — one that decides from the
+// file in front of it and its own configuration rather than from the type
+// system — and it is the only form available to a hook that never sees the
+// program, such as SourcePreamble.
+func (ctx PluginContext) ReportDependenciesComplete() {
+  if ctx.reportEveryFileComplete == nil {
+    return
+  }
+  ctx.reportEveryFileComplete()
+}
+
+// transformKey resolves one plugin-reported path to the key convention every
+// envelope section uses. A plugin reports the spellings its host handed it
+// (absolute program file names, or paths relative to the plugin's cwd), and
+// the compiler's own file names are slash-normalized on every platform, so
+// both sides must pass through TransformOutputKey to meet.
+func (ctx PluginContext) transformKey(file string) (string, bool) {
+  if strings.TrimSpace(file) == "" {
+    return "", false
+  }
+  if !filepath.IsAbs(file) {
+    file = filepath.Join(ctx.Cwd, file)
+  }
+  return TransformOutputKey(ctx.Cwd, filepath.Clean(file)), true
+}
+
 // SourcePreamblePlugin can inject source text before TypeScript-Go parses the
 // project. This is intentionally generic: the driver knows only the registered
 // plugin name and the project plugin manifest.
@@ -214,10 +292,11 @@ type EmitTransformPlugin interface {
 }
 
 type linkedPluginState struct {
-  cwd      string
-  entries  []PluginEntry
-  inputs   *pluginHostInputScopes
-  tsconfig string
+  cwd          string
+  declarations *pluginFileDeclarations
+  entries      []PluginEntry
+  inputs       *pluginHostInputScopes
+  tsconfig     string
 }
 
 // pluginHostInputScopes keeps one observation set per plugin hook. A hash from
@@ -472,17 +551,23 @@ func RegisterPlugin(plugin any) {
 func loadLinkedPluginState(cwd, tsconfigPath string) (linkedPluginState, error) {
   input := strings.TrimSpace(os.Getenv(LinkedPluginsEnv))
   if input == "" {
-    return linkedPluginState{cwd: cwd, inputs: newPluginHostInputScopes(), tsconfig: tsconfigPath}, nil
+    return linkedPluginState{
+      cwd:          cwd,
+      declarations: newPluginFileDeclarations(),
+      inputs:       newPluginHostInputScopes(),
+      tsconfig:     tsconfigPath,
+    }, nil
   }
   var entries []PluginEntry
   if err := json.Unmarshal([]byte(input), &entries); err != nil {
     return linkedPluginState{}, fmt.Errorf("ttsc driver: invalid %s: %w", LinkedPluginsEnv, err)
   }
   return linkedPluginState{
-    cwd:      cwd,
-    entries:  entries,
-    inputs:   newPluginHostInputScopes(),
-    tsconfig: tsconfigPath,
+    cwd:          cwd,
+    declarations: newPluginFileDeclarations(),
+    entries:      entries,
+    inputs:       newPluginHostInputScopes(),
+    tsconfig:     tsconfigPath,
   }, nil
 }
 
@@ -500,7 +585,7 @@ func (state linkedPluginState) sourcePreamble() (string, error) {
     if !ok {
       continue
     }
-    text, err := preamble.SourcePreamble(state.context(entry))
+    text, err := preamble.SourcePreamble(state.contextAt(index, entry))
     if err != nil {
       return "", err
     }
@@ -521,7 +606,7 @@ func (state linkedPluginState) apply(prog *Program) error {
     if !ok {
       continue
     }
-    if err := transform.ApplyProgram(prog, state.context(entry)); err != nil {
+    if err := transform.ApplyProgram(prog, state.contextAt(index, entry)); err != nil {
       return err
     }
   }
@@ -555,7 +640,7 @@ func (state linkedPluginState) emitTransforms() ([]PluginTransform, error) {
     if !ok {
       continue
     }
-    transform, err := emitter.EmitTransform(state.context(entry))
+    transform, err := emitter.EmitTransform(state.contextAt(index, entry))
     if err != nil {
       return nil, err
     }
@@ -576,9 +661,17 @@ func registeredPlugin(index int) (any, bool) {
   return pluginRegistry[index], true
 }
 
-// context builds the PluginContext the driver passes to each plugin hook.
-func (state linkedPluginState) context(entry PluginEntry) PluginContext {
+// contextAt builds the PluginContext the driver passes to one plugin hook.
+//
+// Host-input observations are scoped per hook, because a hash one hook reported
+// cannot prove another hook's dependency on the same path. Dependency
+// declarations are scoped per plugin instead: completeness is a claim about
+// everything one plugin contributes to a file, so the claims of its preamble
+// and program hooks are the same plugin's claim and must not be attributed
+// separately.
+func (state linkedPluginState) contextAt(index int, entry PluginEntry) PluginContext {
   inputs := state.inputs.newScope()
+  declaration := state.declarations.forPlugin(index)
   return PluginContext{
     Cwd:                            state.cwd,
     Entry:                          entry,
@@ -588,6 +681,9 @@ func (state linkedPluginState) context(entry PluginEntry) PluginContext {
     reportHostInputHashUnknown:     inputs.invalidateHash,
     reportHostInputRealpath:        inputs.addRealpath,
     reportHostInputRealpathUnknown: inputs.invalidateRealpath,
+    reportFileDependency:           declaration.addDependency,
+    reportFileComplete:             declaration.addComplete,
+    reportEveryFileComplete:        declaration.completeEveryFile,
   }
 }
 

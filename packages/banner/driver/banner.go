@@ -62,7 +62,18 @@ func validateBannerConfig(config map[string]any) error {
 // SourcePreamble resolves the banner text from the plugin config and returns it
 // formatted as a JSDoc block comment suitable for prepending to each emitted file.
 func (plugin) SourcePreamble(ctx driver.PluginContext) (string, error) {
-  return parseBannerWithReporters(ctx.Entry.Config, ctx.Cwd, ctx.Tsconfig, ctx.ReportHostInput, ctx.ReportHostInputHash, ctx.ReportHostInputRealpath)
+  preamble, err := parseBannerWithReporters(ctx.Entry.Config, ctx.Cwd, ctx.Tsconfig, ctx.ReportHostInput, ctx.ReportHostInputHash, ctx.ReportHostInputRealpath)
+  if err != nil {
+    return "", err
+  }
+  // Every file receives the same text, and that text comes from
+  // banner.config.* alone — including, for a script or TypeScript config, every
+  // module the loader pulled in, each of which was reported above as a host
+  // input. Host inputs stay universal under the completeness contract, so a
+  // config edit still invalidates every file while an unrelated type edit stops
+  // doing so (samchon/ttsc#1263).
+  ctx.ReportDependenciesComplete()
+  return preamble, nil
 }
 
 // parseBanner resolves and formats banner text into a JSDoc block comment.

@@ -26,6 +26,13 @@ type apiTransformResult struct {
   // content can influence a transformed module, so bundler caches invalidate
   // soundly without per-plugin reporting.
   Graph *driver.TransformGraph `json:"graph,omitempty"`
+  // Dependencies and DependenciesComplete are the envelope's dependency side
+  // channel. This lane runs no plugin transform at all — each output is the
+  // file's own parsed text — so every file is complete with an empty list
+  // unless a linked plugin is active and declares otherwise; see
+  // driver.Program.TransformDependenciesFor.
+  Dependencies         map[string][]string `json:"dependencies,omitempty"`
+  DependenciesComplete []string            `json:"dependenciesComplete,omitempty"`
   // HostInputs are absolute native plugin config files evaluated while this
   // generation loaded. JavaScript hosts merge them with descriptor inputs.
   HostInputs         []string           `json:"hostInputs,omitempty"`
@@ -74,6 +81,7 @@ func runAPITransform(args []string) int {
     return 2
   }
   typescript := map[string]string{}
+  var dependencies driver.TransformDependencies
   var graph *driver.TransformGraph
   var hostInputs []string
   var hostInputHashes map[string]*string
@@ -89,14 +97,17 @@ func runAPITransform(args []string) int {
       typescript[apiOutputKey(cwd, file.FileName())] = file.Text()
     }
     diags = append(diags, prog.Diagnostics()...)
+    dependencies = prog.TransformDependenciesFor(cwd)
     hostInputs = prog.PluginHostInputs()
     hostInputHashes = prog.PluginHostInputHashes()
     hostInputRealpaths = prog.PluginHostInputRealpaths()
   }
 
   result := apiTransformResult{
-    Diagnostics:        make([]apiCompileDiagnostic, 0, len(diags)),
-    Graph:              graph,
+    Dependencies:         dependencies.Dependencies,
+    DependenciesComplete: dependencies.Complete,
+    Diagnostics:          make([]apiCompileDiagnostic, 0, len(diags)),
+    Graph:                graph,
     HostInputs:         hostInputs,
     HostInputHashes:    hostInputHashes,
     HostInputRealpaths: hostInputRealpaths,

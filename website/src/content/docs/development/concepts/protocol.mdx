@@ -515,6 +515,16 @@ Malformed members are dropped, never fatal. Dropping is safe in one direction on
 
 There is no host-side audit of a complete list. Verifying it would require computing the reachability the declaration exists to avoid, which would cost exactly what it saves. Diagnose a suspected under-declaration by removing the field: if the stale output goes away, the reported list is missing an input.
 
+##### What ttsc's own hosts declare
+
+Both host-owned lanes declare completeness themselves, and the rule they declare it under is the one every producer needs in order to declare anything at all.
+
+**A source-to-source transform is syntactic.** The built-in native host answers with each file's parsed text, and the linked-plugin generic host prints the parsed AST through a printer that is handed neither a Checker nor an emit resolver. Neither lane runs the emit transformer chain, so none of the type-driven lowerings can reach a transform envelope: no type-driven import elision, no `design:type` metadata under `emitDecoratorMetadata`, no `enum`, `namespace`, or JSX lowering, and no declaration emit. A type-only import survives, an annotation survives, `as const` survives; only printing differs from the original text. **The output of a file the host alone produced is therefore a function of that file's own text and the compiler options**, and nothing the type system knows about any other file can change it. Those lowerings belong to `build`, which emits JavaScript rather than an envelope, so they are not exceptions to the rule here — they are outside it.
+
+What the rule does not cover is the plugins. A source preamble is prepended to a file's text before parsing, and a program plugin mutates the parsed AST, so either can make an output depend on anything it consulted — for a Checker-driven plugin, on the whole type graph. Only that plugin knows what it read, which is why the host lists a file as complete exactly when every plugin that can contribute to it declared it ([linked plugins report through `PluginContext`](/docs/development/reference/driver-api#linked-plugins)). With no plugin at all, the contributor set is empty and every file is complete with an empty list.
+
+An executable sidecar prints its own envelope, so the host declares nothing on its behalf. The rule still transfers: what a sidecar has to decide for itself is not whether printing is type-dependent but what its own transform consulted before deciding what to print.
+
 ### `build`
 
 ```bash

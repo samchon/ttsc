@@ -39,15 +39,23 @@ async function assertViteAdapterTransformsSource() {
 }
 
 /**
- * Asserts Vite serve does not treat its one startup `buildStart` as an HMR
- * generation boundary.
+ * Asserts a dev server with no watcher serves one consistent generation.
  *
- * Vite invokes that hook once when the development plugin container starts, not
- * once per file edit. A cache marked build-scoped there could return an
- * unserved module from the initial whole-project compilation after another
- * project input changed.
+ * A `server.watch: null` session has told Vite it will observe no file change,
+ * so it has no way to learn of an edit, invalidate what the edit reached, or
+ * hot-update a client. What persistent validation buys such a session is not
+ * freshness but incoherence: modules delivered before an edit and after it
+ * would come from two different compilations of one program. The build-scoped
+ * lifecycle it takes instead (samchon/ttsc#1260) settles each module's first
+ * delivery against the generation the session started from, the same contract
+ * `vite build` already runs under.
+ *
+ * A watching dev server keeps the opposite verdict, because its single
+ * `buildStart` really does span later edits it can observe and hot-update. That
+ * invariant is pinned by the watching twin of this configuration in
+ * `features/adapters/test_vite_serve_with_a_watcher_keeps_persistent_validation`.
  */
-async function assertViteServeValidatesFirstUseAfterStartup(): Promise<void> {
+async function assertViteServeWithoutAWatcherServesTheStartupGeneration(): Promise<void> {
   const unpluginVite = await TestUnpluginRuntime.loadUnpluginAdapter("vite");
   const root = TestUnpluginProject.createProject({
     plugins: [
@@ -78,10 +86,15 @@ async function assertViteServeValidatesFirstUseAfterStartup(): Promise<void> {
       "export const broken = true;\n",
       "utf8",
     );
-    await assert.rejects(
-      () => server.transformRequest("/src/lazy.ts"),
-      /expected export const value/,
-      "the first lazy request after an edit must validate the initial generation",
+    const lazyResult = await server.transformRequest("/src/lazy.ts");
+    assert.ok(
+      lazyResult,
+      "a watcherless session must answer an unserved module from the generation it started with",
+    );
+    assert.match(
+      lazyResult.code,
+      /export const lazy/,
+      "the answer must be that generation's own output for the requested module",
     );
   } finally {
     await server.close();
@@ -90,5 +103,5 @@ async function assertViteServeValidatesFirstUseAfterStartup(): Promise<void> {
 
 export {
   assertViteAdapterTransformsSource,
-  assertViteServeValidatesFirstUseAfterStartup,
+  assertViteServeWithoutAWatcherServesTheStartupGeneration,
 };

@@ -27,6 +27,11 @@ func (plugin) ApplyProgram(prog *driver.Program, ctx driver.PluginContext) error
   if err != nil {
     return err
   }
+  // The rewrite reads the statements in front of it and the configured
+  // patterns, never the checker and never another file, so what a file's
+  // output depends on is that file's own text plus strip.config.*, which was
+  // reported above as a host input (samchon/ttsc#1263).
+  ctx.ReportDependenciesComplete()
   for _, file := range prog.SourceFiles() {
     rewriter.apply(file)
   }

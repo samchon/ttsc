@@ -46,8 +46,14 @@ type hostOptions struct {
 // so cache layers can register every file whose content can influence a
 // transformed module without per-plugin reporting.
 type transformResult struct {
-  Diagnostics        []any                  `json:"diagnostics,omitempty"`
-  Graph              *driver.TransformGraph `json:"graph,omitempty"`
+  // Dependencies and DependenciesComplete carry what the linked plugins
+  // declared about their own contribution to each file; the host prints the
+  // parsed AST syntactically, so it adds nothing of its own to either. See
+  // driver.Program.TransformDependenciesFor.
+  Dependencies         map[string][]string    `json:"dependencies,omitempty"`
+  DependenciesComplete []string               `json:"dependenciesComplete,omitempty"`
+  Diagnostics          []any                  `json:"diagnostics,omitempty"`
+  Graph                *driver.TransformGraph `json:"graph,omitempty"`
   HostInputs         []string               `json:"hostInputs,omitempty"`
   HostInputHashes    map[string]*string     `json:"hostInputHashes,omitempty"`
   HostInputRealpaths map[string]*string     `json:"hostInputRealpaths,omitempty"`
@@ -153,6 +159,9 @@ func RunTransformWithIO(args []string, stdout, stderr io.Writer) int {
     text := shimprinter.EmitSourceFile(printer, file)
     out.TypeScript[apiOutputKey(opts.cwd, file.FileName())] = text
   }
+  dependencies := prog.TransformDependenciesFor(opts.cwd)
+  out.Dependencies = dependencies.Dependencies
+  out.DependenciesComplete = dependencies.Complete
   out.HostInputs = prog.PluginHostInputs()
   out.HostInputHashes = prog.PluginHostInputHashes()
   out.HostInputRealpaths = prog.PluginHostInputRealpaths()

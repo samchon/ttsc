@@ -6,10 +6,11 @@ import { assertWatcherlessServeTakesTheBuildScopedCache } from "../../internal/a
  * Pins the `buildStart` branch in `core/index.ts`: `server.watch: null` leaves
  * the session no channel through which any edit could arrive, so persistent
  * per-delivery validation proves the absence of changes nobody could make. That
- * is the `vitest --run` workload behind samchon/ttsc#970 and samchon/ttsc#1260.
+ * is the `vitest --run` workload behind samchon/ttsc#970 and
+ * samchon/ttsc#1260.
  *
- * 1. Resolve the adapter's config as `command: "serve"` with `watch: null` and
- *    run `buildStart`.
+ * 1. Resolve the adapter's config as `command: "serve"` with `watch: null` and run
+ *    `buildStart`.
  * 2. Deliver one module, then change a project input the validation covers.
  * 3. Deliver every remaining module and assert the fixture plugin still ran one
  *    whole-project compile.
