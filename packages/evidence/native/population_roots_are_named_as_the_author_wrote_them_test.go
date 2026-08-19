@@ -431,12 +431,14 @@ func TestAnAbsoluteRootWithBackslashesIsStoredWithSlashes(t *testing.T) {
 /**
  * Verifies a root the rule could not examine is not called missing.
  *
- * A stat fails on more than absence. When an unreadable parent hides the root,
- * the directory may already be there, and "create that directory" is the same
- * unfollowable repair a file occupying the path produces: the author does what
- * the message says, nothing changes, and the message returns. The rule does not
- * know which state it is in, so it says that and passes the operating system's
- * own reason through.
+ * A stat fails on more than absence. An unreadable parent, a name the
+ * filesystem refuses to spell, a path too long, and a link loop all come back
+ * as a failure that does not say the path is absent, and under the first of
+ * them the directory may already be there. "Create that directory" is then the
+ * same unfollowable repair a file occupying the path produces: the author does
+ * what the message says, nothing changes, and the message returns. The rule
+ * does not know which state it is in, so it says that, names no cause of its
+ * own, and passes the operating system's reason through.
  *
  *  1. Describe the two states a failed stat leaves behind.
  *  2. Read each rendered sentence.
