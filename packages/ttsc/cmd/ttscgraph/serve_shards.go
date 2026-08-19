@@ -262,6 +262,15 @@ func (s *graphSession) buildIncrementalShardSnapshot(change *graphChange) (*serv
     expandPriorImplementationSources(selected, prior)
   }
 
+  // The artifacts belong to every generation, not only the full one. A partial
+  // build re-resolves the outgoing facts of the files it selected, and a
+  // citation of an artifact is one of them: without this, editing a declaration
+  // that cites a document section rebuilds it with that edge missing, and the
+  // client's graph loses a relation the full snapshot had. The nodes are added
+  // again because a partial starts with only its selected files' nodes; they are
+  // the same nodes under the same ids, so the store replaces like with like.
+  graph.ApplyArtifacts(partial, s.artifacts)
+
   projectionFiles := maps.Clone(selected)
   for _, node := range partial.Nodes {
     projectionFiles[node.File] = true
