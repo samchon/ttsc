@@ -158,6 +158,16 @@ func ApplyArtifacts(g *Graph, artifacts []Artifact) {
   // A tag's target is its leading token, the same rule the reverse index uses.
   // A tag naming nothing published resolves to nothing and stays what it always
   // was: text on the node, for the linter to judge.
+  //
+  // The edges are appended with a dedup of their own rather than through
+  // addEdge. This runs after the build, and the build releases the scratch it no
+  // longer reads — `seen` among it — so the shared helper would write to a map
+  // that is deliberately nil. Two declarations citing one address are two edges;
+  // one declaration citing it twice, under two tag names, is one.
+  seen := map[edgeKey]struct{}{}
+  for _, edge := range g.Edges {
+    seen[edgeKey{from: edge.From, to: edge.To, kind: wireEdgeKind(edge.Kind, edge.Origin)}] = struct{}{}
+  }
   for _, tag := range g.DocTags {
     if tag == nil {
       continue
@@ -170,7 +180,12 @@ func ApplyArtifacts(g *Graph, artifacts []Artifact) {
     if !resolved {
       continue
     }
-    g.addEdge(tag.Target, address, EdgeDocRef)
+    key := edgeKey{from: tag.Target, to: address, kind: wireEdgeKind(EdgeDocRef, "")}
+    if _, exists := seen[key]; exists {
+      continue
+    }
+    seen[key] = struct{}{}
+    g.Edges = append(g.Edges, &Edge{From: tag.Target, To: address, Kind: EdgeDocRef, Pos: -1, End: -1})
   }
 }
 
