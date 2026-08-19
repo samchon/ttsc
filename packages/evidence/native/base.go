@@ -29,6 +29,22 @@ type populationBase struct {
   // Absolute is the canonical directory, and the identity two populations are
   // judged the same base by.
   Absolute string
+  // Declared is the author's own spelling of this base, empty for the default
+  // base.
+  //
+  // It is kept beside the derived Display because the two answer different
+  // questions. Display is where a reader opens a file; Declared is what they
+  // search their `lint.config.ts` for. The two coincide for a relative root and
+  // diverge for an absolute one, where the derived spelling ascends out of the
+  // project and appears nowhere in the file the diagnostic is asking them to
+  // edit.
+  //
+  // It arrives already normalized and is stored untouched. `normalizeRootPath`
+  // owns that step, refusing the two forms a root may not take and reducing the
+  // rest to one slash-separated spelling before a project identity exists to
+  // resolve against — so a second normalization here would be a branch no
+  // configuration can reach.
+  Declared string
   // Display is what a diagnostic names: project-relative, ascending with `..`
   // when the base sits above the project, and absolute only when no relative
   // spelling exists. Empty for the default base, whose files are already named
@@ -127,13 +143,16 @@ func resolveProjectPath(root string, relative string) string {
 // A declared root that resolves back onto the project root is the default base
 // rather than a second one spelled differently, so `root: "."` and an omitted
 // root produce one population instead of two that address the same files
-// differently.
+// differently. That collapse is also why only a non-default base carries a
+// declared spelling: the base every un-rooted population shares names no
+// configuration property, and giving it one would be a second identity for the
+// one thing this branch exists to keep single.
 func resolvePopulationBase(root string, declared string) populationBase {
   if declared == "" {
     return populationBase{Absolute: root, Default: true}
   }
   absolute := filepath.FromSlash(declared)
-  if !filepath.IsAbs(absolute) {
+  if !declaredRootIsAbsolute(declared) {
     absolute = filepath.Join(root, absolute)
   }
   absolute = filepath.Clean(absolute)
@@ -142,8 +161,27 @@ func resolvePopulationBase(root string, declared string) populationBase {
   }
   return populationBase{
     Absolute: absolute,
+    Declared: declared,
     Display:  projectRelativeDisplay(root, absolute),
   }
+}
+
+// declaredRootIsAbsolute reports whether a declared root names its own location
+// rather than one below the ttsc project root.
+//
+// One predicate answers this for the resolution and for every message that
+// describes it, so the two cannot disagree. A sentence telling an author that
+// their root resolves against the project root, printed over a path the
+// resolution never joined to anything, is the false clause this diagnostic
+// exists to remove — and it would return the moment a message re-derived the
+// question with a test of its own.
+//
+// Windows answers it the way `filepath.Join` does: a rooted path carrying no
+// volume, such as `/srv/contracts`, is relative there and is joined to the
+// project, so a message reading this predicate keeps telling the truth on that
+// platform while one reading the spelling would not.
+func declaredRootIsAbsolute(declared string) bool {
+  return filepath.IsAbs(filepath.FromSlash(declared))
 }
 
 // projectRelativeDisplay spells a directory the way the project sees it.
@@ -187,6 +225,14 @@ func resolveGraphBases(root string, config *graphConfig) {
 // Order is fixed rather than incidental because a loader walks these in
 // sequence and its diagnostics are reported in the order they were produced. A
 // map iteration here would make an unreadable root's message move between runs.
+//
+// Two populations that reach one directory through different spellings are one
+// base, and the surviving spelling is the first one in configuration order,
+// because that is the order this loop admits them in and the `seen` map only
+// answers membership. That decides only the loader-level root messages, which
+// belong to the directory rather than to either declaration. Every per-
+// population diagnostic reads that population's own base and therefore keeps
+// naming the spelling its own author wrote.
 func configuredBases(config graphConfig, kind artifactKind) []populationBase {
   bases := []populationBase{}
   seen := map[string]bool{}
@@ -213,32 +259,60 @@ func configuredBases(config graphConfig, kind artifactKind) []populationBase {
   return bases
 }
 
-// populationRootLabel names a base the way a reader has to think about it: the
-// project-relative spelling when one exists, and the absolute path otherwise.
+// populationRootLabel names the configuration property a reader has to edit,
+// spelled the way they wrote it.
+//
+// This is the one place a declared spelling is preferred over the derived one,
+// and the split is between two questions rather than two formats. A message
+// naming a *location* spells it the way the reader opens it, which is what
+// `display` does and why every file this rule prints stays project-relative. A
+// message naming a *configuration property* spells it the way the configuration
+// does, because the author's first move is to search `lint.config.ts` for it —
+// and the derived spelling of an absolute root is an ascending path that file
+// does not contain.
+//
+// The absolute fallback belongs to the default base alone, which is the only
+// base with no declared spelling, and the project root is then the only thing
+// left to name.
 func populationRootLabel(base populationBase) string {
-  if base.Display == "" {
+  if base.Declared == "" {
     return filepath.ToSlash(base.Absolute)
   }
-  return base.Display
+  return base.Declared
 }
 
 // missingBaseDirectoryProblem reports a declared root that is not an existing
 // directory.
 //
-// The test is a stat, and any failure of it counts as absence — a path occupied
-// by a file, and an unreachable parent alike. The Markdown and Prisma messages
-// may still lead with "could not read", because the walk each of those callers
-// is about to run is the read the root exists to serve, and it is skipped only
-// because the root is not there. The predicate's own name may not, because the
-// third caller reads nothing and asks the same question.
+// The test is a stat, and three states fail it: nothing at the path, an
+// unreachable parent, and a path a non-directory occupies. The first two are one
+// message because the repair is one act — create the directory — while the third
+// is told apart, because "add that directory" cannot be followed while something
+// else stands where it would go, and an author who tries reads the same sentence
+// again.
+//
+// The Markdown and Prisma messages may still lead with "could not read", because
+// the walk each of those callers is about to run is the read the root exists to
+// serve, and it is skipped only because the root is not there. The predicate's
+// own name may not, because the third caller reads nothing and asks the same
+// question.
 //
 // The default base is excluded because `Check` already validated the project
 // root, and its diagnostic names the ttsc project identity as the repair rather
 // than a configuration property that does not exist there.
 //
-// Both spellings appear. The relative one is the property the author has to
-// edit, and the absolute one is where that property actually landed — which is
-// the whole question the moment a root ascends out of the project.
+// Both spellings appear, and only while they differ. The declared one is the
+// property the author has to edit, and the resolved one is where that property
+// actually landed — which is the whole question the moment a root ascends out of
+// the project. An absolute declared root landed on itself, so restating it would
+// name the same path twice and offer the second as an explanation of the first.
+//
+// The clause about resolution goes with it, for the stronger reason that it is
+// false there. `resolvePopulationBase` joins the project root into a relative
+// declared root and into nothing else, so "it resolves against the ttsc project
+// root" describes an act that did not happen whenever the root was absolute.
+// `declaredRootIsAbsolute` is what both the resolution and this sentence read,
+// so the sentence cannot outlive the act it reports.
 //
 // TypeScript is told apart in the verb and in the repair clause. Its root
 // re-bases addressing over sources the Program already holds and never scans a
@@ -272,16 +346,39 @@ func missingBaseDirectoryProblem(base populationBase, kind artifactKind) string 
   if err == nil && info.IsDir() {
     return ""
   }
+  message := "Evidence graph could not read the " + string(kind) + " root '" +
+    populationRootLabel(base) + "'"
   if kind == artifactTypeScript {
-    return "Evidence graph found no directory at the " + string(kind) + " root '" +
-      populationRootLabel(base) + "', which resolves to '" + filepath.ToSlash(base.Absolute) +
-      "'. Correct the 'root' property, or add that directory and make its sources part of the tsconfig Program; it resolves against the ttsc project root, and a " + string(kind) +
+    message = "Evidence graph found no directory at the " + string(kind) + " root '" +
+      populationRootLabel(base) + "'"
+  }
+  if !declaredRootIsAbsolute(base.Declared) {
+    message += ", which resolves to '" + filepath.ToSlash(base.Absolute) + "'"
+  }
+  occupied := err == nil
+  if occupied {
+    message += ", because that path is not a directory"
+  }
+  message += ". Correct the 'root' property, or "
+  switch {
+  case kind == artifactTypeScript && occupied:
+    message += "replace that path with a directory and make its sources part of the tsconfig Program"
+  case kind == artifactTypeScript:
+    message += "add that directory and make its sources part of the tsconfig Program"
+  case occupied:
+    message += "replace that path with a directory and the " + string(kind) + " sources it should hold"
+  default:
+    message += "create that directory and the " + string(kind) + " sources it should hold"
+  }
+  message += "; "
+  if !declaredRootIsAbsolute(base.Declared) {
+    message += "it resolves against the ttsc project root, and "
+  }
+  if kind == artifactTypeScript {
+    return message + "a " + string(kind) +
       " root re-bases Program sources onto itself rather than scanning the filesystem."
   }
-  return "Evidence graph could not read the " + string(kind) + " root '" +
-    populationRootLabel(base) + "', which resolves to '" + filepath.ToSlash(base.Absolute) +
-    "'. Correct the 'root' property, or create that directory and the " + string(kind) +
-    " sources it should hold; it resolves against the ttsc project root, and an empty directory leaves the population just as empty."
+  return message + "an empty directory leaves the population just as empty."
 }
 
 // normalizeRootPath validates a declared root without resolving it.

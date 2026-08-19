@@ -117,7 +117,7 @@ A model name is unique across the whole schema folder, so a target never names t
 
 Selectors classify public contracts semantically.
 
-A TypeScript claim may declare `root` to move the base its `files` globs resolve against. This changes only population addressing: the claim still materializes exclusively from `ctx.Sources`, and the root never scans a directory, follows arbitrary imports, or admits `node_modules`. A sibling package must therefore be an explicit root of the active tsconfig Program. Targets remain symbol identities, while file matching is root-relative and diagnostics retain project-relative locations.
+A TypeScript claim may declare `root` to move the base its `files` globs resolve against. This changes only population addressing: the claim still materializes exclusively from `ctx.Sources`, and the root never scans a directory, follows arbitrary imports, or admits `node_modules`. A sibling package must therefore be an explicit root of the active tsconfig Program. Targets remain symbol identities, while file matching is root-relative and diagnostics retain project-relative locations. A diagnostic that names the `root` property itself spells it as the configuration declares it, on every artifact kind, so an absolute root is repaired by searching `lint.config.ts` for the exact text the message quotes.
 
 - `"type"` selects exported interfaces, type aliases, classes, and namespaces. Enums are not type units.
 - `"function"` selects exported function declarations, exported `const` declarations initialized with a function, every member written as a callable on a class, an interface, or an object-shaped type alias, and namespace variants of those forms.
