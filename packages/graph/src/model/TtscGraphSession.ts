@@ -8,7 +8,11 @@ import { ITtscGraphSnapshot } from "../structures/ITtscGraphSnapshot";
 import { TtscGraphMemory } from "./TtscGraphMemory";
 import { TtscGraphShardStore } from "./TtscGraphShardStore";
 import { DUMP_SCHEMA_VERSION } from "./loadGraph";
-import { publishArtifacts } from "./publishedArtifacts";
+import {
+  type IPublishedArtifacts,
+  artifactsAreStale,
+  publishArtifacts,
+} from "./publishedArtifacts";
 
 /**
  * The serve protocol version this client speaks.
@@ -70,6 +74,15 @@ export class TtscGraphSession {
   private queue: Promise<void> = Promise.resolve();
   private current: TtscGraphMemory | undefined;
   private shardStore = new TtscGraphShardStore();
+  /**
+   * The artifact set the resident child was last handed, and the state of the
+   * inputs it came from.
+   *
+   * `null` once the child exists means the project configures no publisher, so
+   * there is nothing to keep fresh. Otherwise this is what {@link refresh}
+   * re-derives when a document or a lint configuration moved.
+   */
+  private artifacts: IPublishedArtifacts | null = null;
   private closed = false;
 
   public constructor(options: TtscGraphSessionOptions) {
@@ -149,6 +162,7 @@ export class TtscGraphSession {
   private async refresh(signal?: AbortSignal): Promise<TtscGraphMemory> {
     // The protocol version and the envelope shape were both settled in onLine,
     // before this frame was ever routed here.
+    this.republishArtifacts();
     const response = await this.request(signal);
     this.assertResponseSemantics(response);
     if (response.error !== undefined) {
@@ -207,6 +221,36 @@ export class TtscGraphSession {
     throw error;
   }
 
+  /**
+   * Re-derive the artifact set when the documents or configuration behind it
+   * moved, before the request that would otherwise answer with the old one.
+   *
+   * A resident session is invalidated by the compiler's own build universe, and
+   * none of this is in it: the documents a rule reads are not Program inputs,
+   * which is the property that keeps a Markdown edit from costing a typecheck.
+   * The cost of that property is that nothing else notices the edit at all, so
+   * this is what notices it.
+   *
+   * Only the overlay is replaced. The child is not restarted and the Program is
+   * not reloaded — the native session compares the file it is handed against
+   * the one it applied, and re-projects the resident program when they differ.
+   */
+  private republishArtifacts(): void {
+    // A child yet to be spawned publishes on the way up, and a project with no
+    // configured publisher has nothing to refresh. Neither is a stale set.
+    if (this.child === undefined || this.artifacts === null) return;
+    if (!artifactsAreStale(this.artifacts)) return;
+    const next = publishArtifacts({
+      cwd: this.cwd,
+      tsconfig: this.tsconfig,
+    });
+    // A publisher that stopped answering — a config edit mid-save, a plugin
+    // that failed to rebuild — leaves the previous set in place rather than
+    // dropping every artifact out of the graph on a transient failure. The next
+    // request asks again, because the inputs still read as stale.
+    if (next !== null) this.artifacts = next;
+  }
+
   private request(signal?: AbortSignal): Promise<ITtscGraphSnapshot> {
     if (signal?.aborted) throw cancelledError(signal);
     const child = this.ensureChild();
@@ -229,7 +273,13 @@ export class TtscGraphSession {
         return;
       }
       child.process.stdin.write(
-        `${JSON.stringify({ id, graphSnapshotVersion: GRAPH_SNAPSHOT_PROTOCOL_VERSION })}\n`,
+        `${JSON.stringify({
+          id,
+          graphSnapshotVersion: GRAPH_SNAPSHOT_PROTOCOL_VERSION,
+          ...(this.artifacts === null
+            ? {}
+            : { artifacts: this.artifacts.file }),
+        })}\n`,
         (error) => {
           if (error === null || error === undefined) return;
           if (this.pending.get(id) !== pending) return;
@@ -257,15 +307,11 @@ export class TtscGraphSession {
     ) {
       return this.child;
     }
-    // The artifacts are asked for once per resident child, which is the honest
-    // scope of what is wired: they describe documents the compiler's Program
-    // never read, so a source edit does not move them and a document edit does
-    // not move the graph. Refreshing them on a document edit is a separate
-    // invalidation and is not answered here.
     const artifacts = publishArtifacts({
       cwd: this.cwd,
       tsconfig: this.tsconfig,
     });
+    this.artifacts = artifacts;
     const process = spawn(
       this.binary,
       [
@@ -274,7 +320,7 @@ export class TtscGraphSession {
         this.cwd,
         "--tsconfig",
         this.tsconfig,
-        ...(artifacts === null ? [] : ["--artifacts", artifacts]),
+        ...(artifacts === null ? [] : ["--artifacts", artifacts.file]),
       ],
       { stdio: ["pipe", "pipe", "pipe"], windowsHide: true },
     );

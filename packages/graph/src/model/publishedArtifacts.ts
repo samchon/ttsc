@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -35,10 +36,42 @@ import { resolveCapabilityPlugins } from "ttsc";
  * whatever its configured rules published, and a project that configured none
  * gets an empty answer.
  */
+export interface IPublishedArtifacts {
+  /** Path to the JSON the native producer reads. */
+  file: string;
+  /**
+   * Everything the published set was derived from, as paths this process can
+   * stat for itself.
+   *
+   * The artifacts describe documents the compiler's Program never read, so a
+   * source edit does not move them and a document edit does not move the code
+   * graph. Refreshing them is therefore a second invalidation with its own
+   * inputs, and these are those inputs: the plugin's own configuration files
+   * and the document trees its rules declared they read.
+   */
+  inputs: IArtifactInputs;
+  /**
+   * The state of {@link inputs} when the set was published.
+   *
+   * Compared against a freshly taken one to decide whether the set is stale.
+   * When it moved, nothing else in the session can tell: the compiler's own
+   * invalidation watches the build universe, and none of this is in it.
+   */
+  fingerprint: string;
+}
+
+/** Paths a published set was derived from, split by how they are watched. */
+export interface IArtifactInputs {
+  /** Files stated one by one. */
+  files: string[];
+  /** Directory trees walked, which is what notices an added or deleted file. */
+  directories: string[];
+}
+
 export function publishArtifacts(options: {
   cwd: string;
   tsconfig: string;
-}): string | null {
+}): IPublishedArtifacts | null {
   const plugins = resolveCapabilityPlugins({
     capability: "graphNodes",
     cwd: options.cwd,
@@ -101,5 +134,150 @@ export function publishArtifacts(options: {
     `ttsc-graph-artifacts-${String(process.pid)}.json`,
   );
   fs.writeFileSync(file, JSON.stringify(published));
-  return file;
+  const inputs = artifactInputs(plugins, options);
+  return { file, fingerprint: fingerprintInputs(inputs), inputs };
+}
+
+/**
+ * Whether the inputs a published set was derived from have moved since.
+ *
+ * Answered by stating paths this process already knows, not by asking the
+ * plugin again. The question is asked before every graph request in a resident
+ * session, and a sidecar spawn per request would cost more than the refresh it
+ * guards — while a `stat` per document costs less than reading one of them.
+ *
+ * The cost of being wrong in the cheap direction is what makes this worth
+ * paying at all: a developer who edited only a spec section, and nothing the
+ * compiler reads, otherwise saw the graph keep answering with the headings that
+ * section used to have.
+ */
+export function artifactsAreStale(published: IPublishedArtifacts): boolean {
+  return fingerprintInputs(published.inputs) !== published.fingerprint;
+}
+
+/**
+ * Ask the sidecars which paths their rules read.
+ *
+ * Through the `project-inputs` verb that already exists for this exact
+ * question: `@ttsc/lint` publishes it so a host can learn that a rule depends on
+ * files the Program never loads. Its snapshot carries both halves of what is
+ * needed here — the plugin's own configuration files, and the globs the rules
+ * declared — so a configuration edit and a document edit are noticed by the
+ * same state rather than by two mechanisms that could disagree.
+ */
+function artifactInputs(
+  plugins: readonly { binary: string; manifest: string }[],
+  options: { cwd: string; tsconfig: string },
+): IArtifactInputs {
+  const files: string[] = [];
+  const directories: string[] = [];
+  for (const plugin of plugins) {
+    const result = spawnSync(
+      plugin.binary,
+      [
+        "project-inputs",
+        "--cwd",
+        options.cwd,
+        "--tsconfig",
+        options.tsconfig,
+        `--plugins-json=${plugin.manifest}`,
+      ],
+      { encoding: "utf8", maxBuffer: 64 * 1024 * 1024, windowsHide: true },
+    );
+    if (result.status !== 0 || typeof result.stdout !== "string") continue;
+    let snapshot: {
+      files?: string[];
+      globs?: string[];
+      reloadFiles?: string[];
+      reloadDirectories?: string[];
+    };
+    try {
+      snapshot = JSON.parse(result.stdout) as typeof snapshot;
+    } catch {
+      continue;
+    }
+    files.push(...(snapshot.files ?? []), ...(snapshot.reloadFiles ?? []));
+    for (const pattern of [
+      ...(snapshot.globs ?? []),
+      ...(snapshot.reloadDirectories ?? []),
+    ])
+      directories.push(globRoot(pattern, options.cwd));
+  }
+  return {
+    files: [...new Set(files)].sort(),
+    directories: [...new Set(directories)].sort(),
+  };
+}
+
+/**
+ * The state of every input, as one comparable string.
+ *
+ * Files are stated by size and modification time rather than content: this runs
+ * before every graph request, and hashing a documentation corpus per request
+ * would cost more than the refresh it guards. Directories are walked for the
+ * same pair, which is what notices a section added or a document deleted rather
+ * than edited.
+ */
+export function fingerprintInputs(inputs: IArtifactInputs): string {
+  const parts: string[] = [];
+  for (const file of inputs.files) parts.push(stateOf(file));
+  for (const directory of inputs.directories)
+    parts.push(...walkState(directory));
+  parts.sort();
+  return createHash("sha256").update(parts.join("\n")).digest("hex");
+}
+
+/** A path's size and modification time, or a marker when it is absent. */
+function stateOf(file: string): string {
+  try {
+    const stat = fs.statSync(file);
+    return `${file} ${String(stat.size)} ${String(stat.mtimeMs)}`;
+  } catch {
+    return `${file} absent`;
+  }
+}
+
+/**
+ * The fixed directory prefix of a glob, which is what there is to walk.
+ *
+ * A pattern with no directory part at all names the project root, which is the
+ * one reading that keeps a bare `*.md` from being walked as though it were a
+ * directory named `*.md`.
+ */
+function globRoot(pattern: string, cwd: string): string {
+  const magic = pattern.search(/[*?[{]/u);
+  const head = magic < 0 ? pattern : pattern.slice(0, magic);
+  const slash = Math.max(head.lastIndexOf("/"), head.lastIndexOf("\\"));
+  const root = slash < 0 ? "" : head.slice(0, slash);
+  if (root === "") return cwd;
+  return path.isAbsolute(root) ? root : path.join(cwd, root);
+}
+
+/**
+ * Every entry below `directory`, stated.
+ *
+ * Bounded rather than unbounded: a glob root is a documentation directory, not
+ * a repository, and a walk that wandered into `node_modules` would cost more
+ * per request than the whole graph. A directory that does not exist states
+ * itself absent, which is what notices one being created.
+ */
+function walkState(directory: string, depth = 0): string[] {
+  if (depth > 12) return [];
+  let entries: fs.Dirent[];
+  try {
+    entries = fs.readdirSync(directory, { withFileTypes: true });
+  } catch {
+    return [stateOf(directory)];
+  }
+  const states: string[] = [];
+  for (const entry of entries) {
+    const child = path.join(directory, entry.name);
+    if (entry.isDirectory()) {
+      if (entry.name === "node_modules" || entry.name.startsWith(".")) continue;
+      states.push(...walkState(child, depth + 1));
+      continue;
+    }
+    states.push(stateOf(child));
+  }
+  return states;
 }

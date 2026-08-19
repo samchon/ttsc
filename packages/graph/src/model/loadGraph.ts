@@ -88,7 +88,7 @@ export function loadGraph(
         cwd,
         "--tsconfig",
         tsconfig,
-        ...(artifacts === null ? [] : ["--artifacts", artifacts]),
+        ...(artifacts === null ? [] : ["--artifacts", artifacts.file]),
       ],
       {
         stdio: ["ignore", capture.stdoutFd, capture.stderrFd],

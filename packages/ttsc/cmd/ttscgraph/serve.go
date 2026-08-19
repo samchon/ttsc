@@ -118,6 +118,16 @@ type serveRequest struct {
   // GraphSnapshotVersion opts into the incremental shard protocol. Omitted
   // requests retain the full-dump response for existing @ttsc/graph clients.
   GraphSnapshotVersion int `json:"graphSnapshotVersion,omitempty"`
+  // Artifacts is the path to the set a plugin published for this request, which
+  // the client re-derives when the documents or lint configuration behind it
+  // moved. It rides every request rather than only the changed ones: the client
+  // is the only side that can see those inputs, and the server is the only side
+  // that knows what it last applied, so the honest exchange is the client
+  // stating the current path and the server comparing it with its own.
+  //
+  // Omitted by a client that publishes nothing and by every client predating
+  // this field, both of which mean the startup set stands.
+  Artifacts string `json:"artifacts,omitempty"`
 }
 
 type serveResponse struct {
@@ -161,12 +171,19 @@ func errorResponse(id int, message string) serveResponse {
 type graphSession struct {
   cwd      string
   tsconfig string
-  // artifacts is the set a plugin published, read once at startup. It is a
-  // second producer's facts about documents this Program never read, so a
-  // refresh of it is not a refresh of the graph: editing a Markdown heading
-  // moves the artifact and not one compiler fact, and the two invalidations are
-  // therefore separate questions. Only the first is answered today.
-  artifacts    []graph.Artifact
+  // artifacts is the set a plugin published: a second producer's facts about
+  // documents this Program never read. Refreshing it is therefore not a refresh
+  // of the graph — editing a Markdown heading moves the artifact and not one
+  // compiler fact — so the two invalidations stay separate questions, and this
+  // one is answered by adoptArtifacts rather than by the build universe.
+  artifacts []graph.Artifact
+  // artifactsFile and artifactsDigest are the path and content of the set
+  // currently applied. Content, not modification time: the client overwrites one
+  // path per process, so the path never moves and a republish that produced the
+  // same set must cost nothing.
+  artifactsFile   string
+  artifactsDigest [sha256.Size]byte
+
   compiler     *driver.Session
   configHashes map[string][sha256.Size]byte
   auxStates    map[string]diskState
@@ -186,10 +203,12 @@ type graphSession struct {
   graphStore              *serveGraphStore
   requestProtocol         int
   requestProtocolSelected bool
-  // pending remembers a generation whose state was captured but whose selected
-  // projection failed. Until an input change lets the session rebuild, an
-  // unchanged request retries the same full or partial invalidation instead of
-  // falsely confirming the older client graph.
+  // pending remembers work the next request owes regardless of what the build
+  // universe says: a generation whose state was captured but whose selected
+  // projection failed, or an artifact set adopted after the graph carrying the
+  // previous one was built. Until it is discharged, an otherwise unchanged
+  // request retries the recorded invalidation instead of falsely confirming the
+  // older client graph.
   pending *graphChange
 }
 
@@ -211,6 +230,67 @@ func newGraphSessionWithArtifacts(
     return nil, err
   }
   return session, nil
+}
+
+// adoptArtifacts makes the set at path the one this session applies, and
+// reports whether that replaced a set some already-built graph carries.
+//
+// An empty path is a client that publishes nothing or one predating the field;
+// either way the startup set stands, because dropping it would delete every
+// artifact from the graph on the say-so of a client that never mentioned them.
+//
+// A read failure is returned rather than swallowed. The client wrote this file
+// moments ago and named it in the same request, so a file that cannot be read
+// is a broken exchange, not a project without artifacts — and answering with a
+// silently artifact-free graph would look exactly like a correct answer.
+func (s *graphSession) adoptArtifacts(path string) (bool, error) {
+  path = strings.TrimSpace(path)
+  if path == "" {
+    return false, nil
+  }
+  digest, err := artifactsFileDigest(path)
+  if err != nil {
+    return false, err
+  }
+  if path == s.artifactsFile && digest == s.artifactsDigest {
+    return false, nil
+  }
+  next, err := graph.LoadArtifacts(path)
+  if err != nil {
+    return false, err
+  }
+  s.artifacts = next
+  s.artifactsFile = path
+  s.artifactsDigest = digest
+  // The first adoption of a session reports a change like any other, and costs
+  // nothing: no graph has been projected yet, so the invalidation it records is
+  // discharged by the initial projection that was going to happen regardless.
+  return true, nil
+}
+
+// invalidateArtifacts records that the next projection must be a full one.
+//
+// Full, but not a reload: the Program is reused untouched, because no compiler
+// input moved. That is the whole point of keeping documents out of the build
+// universe — a Markdown edit costs one projection, never one typecheck.
+func (s *graphSession) invalidateArtifacts() {
+  if s.pending != nil && s.pending.full {
+    return
+  }
+  s.pending = &graphChange{mode: serveModeRebuild, full: true}
+}
+
+// artifactsFileDigest hashes the published file, treating an absent one as its
+// own state so a set that disappears is noticed exactly once.
+func artifactsFileDigest(path string) ([sha256.Size]byte, error) {
+  contents, err := os.ReadFile(path)
+  if err != nil {
+    if os.IsNotExist(err) {
+      return sha256.Sum256(nil), nil
+    }
+    return [sha256.Size]byte{}, err
+  }
+  return sha256.Sum256(contents), nil
 }
 
 func (s *graphSession) Close() error {
@@ -1040,6 +1120,18 @@ func serveSnapshotsWithArtifacts(
     }
     session.requestProtocol = request.GraphSnapshotVersion
     session.requestProtocolSelected = true
+    if replaced, err := session.adoptArtifacts(request.Artifacts); err != nil {
+      if err := encodeServeResponseWithTrace(encoder, errorResponse(
+        request.ID,
+        fmt.Sprintf("ttscgraph: could not read the published artifacts: %v", err),
+      ), requestStarted, loadDuration, 0, 0); err != nil {
+        fmt.Fprintf(stderr, "ttscgraph: write serve response: %v\n", err)
+        return 1
+      }
+      continue
+    } else if replaced {
+      session.invalidateArtifacts()
+    }
     var dump *graph.Dump
     var snapshot *serveGraphSnapshot
     var mode string
