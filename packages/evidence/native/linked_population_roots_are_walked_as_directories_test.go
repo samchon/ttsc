@@ -186,28 +186,23 @@ func TestALinkedPrismaRootCollectsItsSchemas(t *testing.T) {
 }
 
 /**
- * Verifies a base whose display is a drive root composes one separator.
+ * Verifies a base whose display already ends in a separator composes one.
  *
- * A base on another Windows volume has no relative spelling, so its display is
- * the absolute path, and a drive root carries its own separator. Concatenating
- * blindly printed `D://requirements`, in every file location as well as in the
- * message a failed walk produces.
+ * A drive root is the one directory whose separator is part of it, and a base on
+ * another Windows volume has no relative spelling, so its display is that
+ * absolute path. Concatenating blindly printed `D://requirements`, in every file
+ * location as well as in the message a failed walk produces.
  *
- *  1. Resolve a drive root on another volume, where the display is produced.
- *  2. Compose a path under it and one under an ordinary ascending base.
+ * The composition is asserted here from values rather than from a resolution,
+ * because it is the branch that has to hold on every platform;
+ * `TestALocationIsSpelledTheWayAReaderOpensIt` is where a configuration is shown
+ * to produce such a display at all.
+ *
+ *  1. Compose a path under a base whose display ends in a separator.
+ *  2. Compose one under an ordinary ascending base.
  *  3. Assert each carries exactly one separator at the join.
  */
 func TestADriveRootBaseComposesOneSeparator(t *testing.T) {
-  if runtime.GOOS == "windows" {
-    // The premise, from the resolution rather than from a hand-built value: a
-    // drive root on another volume has no relative spelling, so its display is
-    // the absolute path and a drive root carries its own separator. This is
-    // pure path arithmetic and touches no volume.
-    resolved := resolvePopulationBase(`C:\project`, "D:/")
-    if resolved.Display != "D:/" {
-      t.Fatalf("cross-volume drive root display = %q, want %q", resolved.Display, "D:/")
-    }
-  }
   drive := populationBase{Absolute: `D:\`, Display: "D:/"}
   if got := drive.display("requirements/pricing.md"); got != "D:/requirements/pricing.md" {
     t.Fatalf("drive root display = %q", got)
@@ -500,9 +495,9 @@ func TestALinkedFileInsideThePopulationIsRead(t *testing.T) {
  * a reader opens. Pinning the shapes is what keeps the sentence honest.
  *
  *  1. Resolve a root inside the project, one above it, one absolute on the same
- *     volume, one on another volume, and a UNC share.
+ *     volume, one on another volume, a bare drive root, and a UNC share.
  *  2. Compose a location under each.
- *  3. Assert the first three are project-relative and the last two are not.
+ *  3. Assert the first three are project-relative and the rest are not.
  */
 func TestALocationIsSpelledTheWayAReaderOpensIt(t *testing.T) {
   if runtime.GOOS != "windows" {
@@ -517,6 +512,7 @@ func TestALocationIsSpelledTheWayAReaderOpensIt(t *testing.T) {
     {"../documents", "../documents/requirements/pricing.md"},
     {"C:/contracts", "../../../contracts/requirements/pricing.md"},
     {"D:/contracts", "D:/contracts/requirements/pricing.md"},
+    {"D:/", "D:/requirements/pricing.md"},
     {"//server/share", "//server/share/requirements/pricing.md"},
   } {
     base := resolvePopulationBase(project, entry.declared)
