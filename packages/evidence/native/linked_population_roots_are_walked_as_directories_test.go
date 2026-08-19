@@ -934,3 +934,96 @@ func TestADefaultTypeScriptBaseIsNotRefusedForAChain(t *testing.T) {
     )
   }
 }
+
+/**
+ * Verifies a TypeScript claim rooted inside a linked directory keeps its hosts.
+ *
+ * The link is on an ancestor of the declared root rather than on the root, which
+ * `os.Lstat` of the leaf cannot see: it reports a directory, because traversal
+ * through a link is transparent. Nothing resolved it, the Program spelled its
+ * sources the other way, every comparison failed, and the claim deactivated
+ * without a word. Measured before the repair: no diagnostic at all.
+ *
+ * This is the shape a package manager installs. The workspace dependency is the
+ * link and the root an author declares is a directory inside it.
+ *
+ *  1. Link a directory onto the workspace and root a claim at a path inside it.
+ *  2. Leave the reference's selected section uncited.
+ *  3. Assert the claim is active and its host is named through the declared root.
+ */
+func TestATypeScriptClaimRootedInsideALinkKeepsItsHosts(t *testing.T) {
+  workspace := t.TempDir()
+  project := filepath.Join(workspace, "project")
+  if err := os.MkdirAll(project, 0o755); err != nil {
+    t.Fatal(err)
+  }
+  if err := linkDirectory(workspace, filepath.Join(workspace, "mirror")); err != nil {
+    t.Skipf("this platform refused to create a link: %v", err)
+  }
+  messages := runRootedGraphIn(t, workspace, map[string]string{
+    "project/docs/pricing.md": "## Discounts {#discounts}\n",
+    "project/src/sale.ts":     "/** @evidence */\nexport interface ISale {}\n",
+  }, `{"claims":[{
+    "type":"typescript",
+    "root":"../mirror/project",
+    "files":["src/**/*.ts"],
+    "symbol":"type",
+    "reference":{"type":"markdown","files":["docs/**/*.md"],"symbol":"h2"}
+  }]}`)
+  assertProblemContains(
+    t,
+    messages,
+    "Missing acknowledgement for 'docs/pricing.md#discounts'",
+  )
+  assertProblemContains(t, messages, "../mirror/project/src/sale.ts")
+}
+
+/**
+ * Verifies a walker rooted inside a link is unchanged by the same repair.
+ *
+ * The two walkers were never affected: they generate every path they compare
+ * from the base they were handed, so a linked ancestor is transparent to them in
+ * the way the filesystem intends. The repair moves what the base resolves to, and
+ * this is the negative twin that says their addressing did not move with it.
+ *
+ *  1. Root a Markdown reference at a path inside a linked directory.
+ *  2. Leave its section uncited.
+ *  3. Assert the location is spelled through the declared root, not the link's
+ *     target.
+ */
+func TestAMarkdownRootInsideALinkIsUnchanged(t *testing.T) {
+  workspace := t.TempDir()
+  documents := filepath.Join(workspace, "documents", "requirements")
+  if err := os.MkdirAll(documents, 0o755); err != nil {
+    t.Fatal(err)
+  }
+  if err := os.WriteFile(
+    filepath.Join(documents, "pricing.md"),
+    []byte("## Discounts {#discounts}\n"),
+    0o644,
+  ); err != nil {
+    t.Fatal(err)
+  }
+  if err := linkDirectory(workspace, filepath.Join(workspace, "mirror")); err != nil {
+    t.Skipf("this platform refused to create a link: %v", err)
+  }
+  messages := runRootedGraphIn(t, workspace, map[string]string{
+    "project/src/sale.ts": "export interface ISale {}\n",
+  }, `{"claims":[{
+    "type":"typescript",
+    "files":["src/**/*.ts"],
+    "symbol":"type",
+    "reference":{
+      "type":"markdown",
+      "root":"../mirror/documents",
+      "files":["requirements/**/*.md"],
+      "symbol":"h2"
+    }
+  }]}`)
+  assertProblemContains(
+    t,
+    messages,
+    "Missing acknowledgement for 'requirements/pricing.md#discounts'",
+  )
+  assertProblemContains(t, messages, "at ../mirror/documents/requirements/pricing.md:1")
+}

@@ -503,29 +503,58 @@ func describeBaseDirectoryProblem(
 //
 // A declared root may be a link, and `os.Stat` accepts one as a directory when
 // the gate reads it, so a consumer that then compares paths against the base has
-// to compare against what the link names. `resolveLinkedDirectory` is this
-// package's answer for an installed package and handles the Windows junction
-// `filepath.EvalSymlinks` returns unchanged.
+// to compare against what the link names. The filesystem never needs this: it
+// opens a path through any link transparently. A comparison does, because the
+// two sides are strings and only one of them was spelled by this rule.
 //
-// The answer is verified rather than trusted, and every caller shares that
-// verification. The resolver gives up after a fixed number of hops and returns
-// the link it stopped on, while the stat in `baseDirectoryProblem` follows
-// further on Linux and on Windows, so a long enough chain passes the gate and
-// leaves whoever trusted the resolver holding a link.
+// Every component is resolved, not only the leaf. A link on an ancestor is
+// exactly what `os.Lstat` of the leaf cannot see, and it is the shape a package
+// manager installs: the workspace dependency is the link and the root an author
+// declares is a directory inside it. Resolving only the leaf left that silent,
+// which is what #1269 recorded.
 //
-// Darwin and the BSDs stop at the same number of hops, so for a declared root the
-// gate answers first and the refusal is unreachable there. The default base is
-// not gated at all, because `baseDirectoryProblem` returns on it without
+// The answer is verified rather than trusted. `resolveLinkedDirectory` gives up
+// after a fixed number of hops and returns the link it stopped on, while the stat
+// in `baseDirectoryProblem` follows further on Linux and on Windows, so a long
+// enough chain passes the gate and leaves whoever trusted the resolver holding a
+// link. Darwin and the BSDs stop at the same number of hops, so for a declared
+// root the gate answers first and the refusal is unreachable there. The default
+// base is not gated at all, because `baseDirectoryProblem` returns on it without
 // stat'ing anything, so a walker reaches this refusal for the project root on
 // every platform.
 //
-// A base that is not a link costs one `os.Lstat` inside the resolver and one
-// here, per base and per pass. Only the last component is resolved: a link on an
-// ancestor is transparent to `Lstat` of the leaf, which #1269 records.
+// A base that is not a link costs one `os.Lstat` per path component, per base and
+// per pass, where resolving the leaf alone cost one. That is the price of the
+// comparison being correct, and it is paid once per base rather than once per
+// file, which is the loop this feeds.
 func resolvedBaseDirectory(base populationBase) (string, bool) {
-  from := filepath.FromSlash(resolveLinkedDirectory(base.Absolute))
+  from := resolveLinkedPath(base.Absolute)
   info, err := os.Lstat(from)
   return from, err == nil && info.IsDir()
+}
+
+// resolveLinkedPath resolves a link at any component of an absolute path.
+//
+// `filepath.EvalSymlinks` does this in one call and cannot be used, for the
+// reason `resolveLinkedDirectory` exists at all: it returns a Windows junction
+// unchanged, which is the link a package manager creates there. So the walk is
+// by hand, and it asks the same resolver at every prefix.
+//
+// The volume is taken off first and never split. A Windows drive root and a UNC
+// share are one component whose separator is part of them, and joining their
+// pieces back would name a different location, which is the same hazard
+// `normalizeRootPath` hand-cleans for a declared spelling.
+func resolveLinkedPath(absolute string) string {
+  volume := filepath.VolumeName(absolute)
+  rest := absolute[len(volume):]
+  current := volume + string(filepath.Separator)
+  for _, segment := range strings.Split(filepath.ToSlash(rest), "/") {
+    if segment == "" {
+      continue
+    }
+    current = resolveLinkedDirectory(filepath.Join(current, segment))
+  }
+  return filepath.FromSlash(current)
 }
 
 // unresolvedBaseProblem reports a base whose links this rule stops following
