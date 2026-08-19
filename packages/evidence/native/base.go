@@ -528,8 +528,9 @@ func describeBaseDirectoryProblem(
 //
 // A base that is not a link costs one `os.Lstat` per path component plus one
 // for this answer, where resolving the leaf alone cost two. It is paid per call
-// rather than per file, on the four call sites a pass reaches, which is why the
-// price of the comparison being correct stays off the loop this feeds.
+// rather than per file: four call sites, one of which two entry points share,
+// so a pass asks at most five times per base. That is why the price of the
+// comparison being correct stays off the loop this feeds.
 func resolvedBaseDirectory(base populationBase) (string, bool) {
   from, resolved := resolveLinkedPath(base.Absolute)
   if !resolved {

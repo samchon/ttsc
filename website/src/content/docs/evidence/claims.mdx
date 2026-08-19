@@ -188,6 +188,8 @@ A diagnostic that asks you to correct `root` quotes the spelling you declared, n
 
 Prisma and TypeScript targets carry no path, so a root there changes which files join the population and where a diagnostic points, never how a model or symbol is cited.
 
+One Prisma schema reached through two roots is one file. It is parsed once and both populations are served by that one result, so a package installed under `node_modules` and rooted again at its workspace source does not report the models it declares as declared twice. The location printed for such a file is one of its spellings rather than each population's own, and it opens the same file either way.
+
 Everything a rooted Markdown or Prisma population reads is published to the `ttsc` host as a watched dependency, so editing a document two directories up starts the next `ttsc --watch` cycle exactly as editing one inside the project does.
 
 A TypeScript claim `root` changes only the base used to match files `ttsc` already supplied. It never scans that directory, follows arbitrary imports, or admits `node_modules`, so the owning `tsconfig.json` must include a sibling source root before the claim can select it. TypeScript references take no `root`; `package` is the channel that reaches a population you do not own.

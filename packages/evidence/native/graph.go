@@ -282,6 +282,9 @@ func materializeClaimStates(
     // ever reached it was a TypeScript root that did not resolve, which now
     // says so itself.
     hostsByID := map[string]bool{}
+    declaredByID := map[string]bool{}
+    reviewed := map[*evidenceReview]bool{}
+    insideCarrier := map[string]bool{}
     for _, path := range paths {
       for _, unit := range inventories[path].Units {
         if unit.Hidden != "" ||
@@ -292,16 +295,47 @@ func materializeClaimStates(
         hostsByID[unit.ID] = true
         state.Hosts = append(state.Hosts, unit)
       }
-      state.Declarations = append(
-        state.Declarations,
-        inventories[path].Declarations...,
-      )
+      // One physical file can occupy two of this claim's paths. A hard link is
+      // a second directory entry for one file and a single walk enumerates
+      // both, and the Prisma loader then gives both inventories the same
+      // declaration object rather than a copy each, because one citation is one
+      // obligation wherever it is read from. Appending each list would count
+      // that citation twice, and every duplicate and conflict rule downstream
+      // would then name a repair the author cannot perform: the two are one
+      // tag, on one line. The hosts above are collapsed for the same reason,
+      // one line up.
+      for _, declaration := range inventories[path].Declarations {
+        if declaredByID[declaration.ID] {
+          continue
+        }
+        declaredByID[declaration.ID] = true
+        state.Declarations = append(state.Declarations, declaration)
+      }
       // Reviews travel beside declarations and never among them. They carry no
       // obligation of their own; they are looked up by host and target when a
-      // reference demands one.
-      state.Reviews = append(state.Reviews, inventories[path].Reviews...)
-      if len(claim.ExclusionCarriers.Patterns) != 0 && !carrierPaths[path] {
+      // reference demands one. They are collapsed by object rather than by ID
+      // because a review has no identity of its own, and the duplication this
+      // removes is exactly one object reached twice.
+      for _, review := range inventories[path].Reviews {
+        if reviewed[review] {
+          continue
+        }
+        reviewed[review] = true
+        state.Reviews = append(state.Reviews, review)
+      }
+      if carrierPaths[path] {
         for _, declaration := range inventories[path].Declarations {
+          insideCarrier[declaration.ID] = true
+        }
+      }
+    }
+    // A declaration is outside the carriers only when no path carrying it is a
+    // carrier. Deciding that per path would put one tag in two places at once
+    // for a file the claim selects under two names, and report the placement of
+    // whichever name it read second.
+    if len(claim.ExclusionCarriers.Patterns) != 0 {
+      for _, declaration := range state.Declarations {
+        if !insideCarrier[declaration.ID] {
           state.OutsideCarrier[declaration.ID] = true
         }
       }

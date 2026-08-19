@@ -403,12 +403,12 @@ func prismaInventoriesBySource(
   byDisplay := prismaInventoriesByDisplay(inventories)
   indexed := map[string][]*artifactInventory{}
   for _, source := range set.Sources {
-    hosted := []*artifactInventory{}
+    // Every source is the spelling of an address, and every address owns an
+    // inventory, so no entry here is empty. It is written as an unconditional
+    // fan-out rather than guarded against a state that cannot arise, because a
+    // guard over one would say the opposite of what the loader guarantees.
     for _, spelling := range set.Spellings[source] {
-      hosted = append(hosted, byDisplay[spelling]...)
-    }
-    if len(hosted) != 0 {
-      indexed[source] = hosted
+      indexed[source] = append(indexed[source], byDisplay[spelling]...)
     }
   }
   return indexed
@@ -437,7 +437,8 @@ func prismaInventoriesByDisplay(
   return indexed
 }
 
-// failPrismaSet records one whole-set failure against every file of the set.
+// failPrismaSet records one whole-set failure against every inventory of every
+// file of the set.
 //
 // The symbol is `*` rather than `model`, and the difference is load-bearing. A
 // reference reads an inventory problem only when it selects that problem's

@@ -1094,6 +1094,10 @@ func TestALinkChainAboveARootIsRefusedForTypeScriptToo(t *testing.T) {
  * consumer that asks whether resolution moved the base would answer yes forever
  * on a base with no link in it, and pay the second spelling on every file.
  *
+ * The names below are deliberately fictional. A shape this case can judge only
+ * by its spelling has to be one no machine running it has made real, because a
+ * link anywhere on such a path would change the answer correctly.
+ *
  *  1. Take each volume and root shape this platform can spell.
  *  2. Resolve it with no link anywhere on the path.
  *  3. Assert the answer is the cleaned input, byte for byte.
@@ -1104,20 +1108,21 @@ func TestAPathWithNoLinkResolvesToItsOwnSpelling(t *testing.T) {
     shapes = append(
       shapes,
       `C:\`,
-      `C:\sales`,
-      `C:\sales\schema`,
-      `\\server\share`,
-      `\\server\share\sales`,
-      `//server/share`,
-      `\\?\C:\sales`,
+      `C:\ttsc-evidence-sales`,
+      `C:\ttsc-evidence-sales\schema`,
+      `\\ttsc-evidence-server\share`,
+      `\\ttsc-evidence-server\share\sales`,
+      `//ttsc-evidence-server/share`,
+      `\\?\C:\ttsc-evidence-sales`,
     )
   } else {
-    shapes = append(shapes, "/", "/sales", "/sales/schema")
+    shapes = append(
+      shapes,
+      "/",
+      "/ttsc-evidence-sales",
+      "/ttsc-evidence-sales/schema",
+    )
   }
-  // A real directory on this platform, so the table is not only paths that do
-  // not exist: an absent path ends every chain at its first `os.Lstat`, and a
-  // present one walks the resolver's whole body.
-  shapes = append(shapes, t.TempDir())
   for _, shape := range shapes {
     resolved, ok := resolveLinkedPath(shape)
     if !ok {
@@ -1126,5 +1131,39 @@ func TestAPathWithNoLinkResolvesToItsOwnSpelling(t *testing.T) {
     if want := filepath.Clean(shape); resolved != want {
       t.Fatalf("resolving '%s' gave '%s'; want '%s'", shape, resolved, want)
     }
+  }
+}
+
+/**
+ * Verifies a real directory resolves to the directory it is.
+ *
+ * The case above judges spellings, which only a path nothing has made real can
+ * be judged by. A directory that exists is the other half, and it is asked the
+ * other question: an absent path ends every chain at its first `os.Lstat`,
+ * while a present one walks the resolver's whole body at every component. What
+ * it must answer is the same directory, not the same string — a platform whose
+ * temporary directory sits behind a link of its own, as macOS's `/var` does,
+ * changes the spelling for the very reason this resolution exists.
+ *
+ *  1. Take a real directory this platform allocated.
+ *  2. Resolve it.
+ *  3. Assert the answer is the same directory the filesystem knows.
+ */
+func TestARealDirectoryResolvesToTheDirectoryItIs(t *testing.T) {
+  directory := t.TempDir()
+  resolved, ok := resolveLinkedPath(directory)
+  if !ok {
+    t.Fatalf("resolving '%s' must settle", directory)
+  }
+  declared, err := os.Stat(directory)
+  if err != nil {
+    t.Fatal(err)
+  }
+  answered, err := os.Stat(resolved)
+  if err != nil {
+    t.Fatalf("resolving '%s' gave '%s', which does not open: %v", directory, resolved, err)
+  }
+  if !os.SameFile(declared, answered) {
+    t.Fatalf("resolving '%s' gave '%s', which is another directory", directory, resolved)
   }
 }

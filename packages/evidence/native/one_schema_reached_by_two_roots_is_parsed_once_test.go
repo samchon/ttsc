@@ -93,6 +93,17 @@ func assertBothPopulationsServed(
   if store.Units[0] != mirror.Units[0] {
     t.Fatal("one model reached by two roots must be one unit, not two identities for one declaration")
   }
+  // Which spelling the one result is addressed by is the smallest of them, so
+  // that a location is a property of the configuration rather than of the order
+  // a walk produced. Without this the representative could be either root and
+  // nothing would notice, while a diagnostic's location would move with an
+  // unrelated edit to the other population's globs.
+  if store.Units[0].Path != "mirror/main.prisma" {
+    t.Fatalf(
+      "the shared model is located at '%s'; the set is addressed by the smallest spelling of the file",
+      store.Units[0].Path,
+    )
+  }
   // A citation written in the shared file is one declaration too, for the same
   // reason: `evaluateEvidenceGraph` keys them by ID, and a second copy would be
   // a second obligation nothing can acknowledge twice.
@@ -150,6 +161,12 @@ func TestOneSchemaHardLinkedIntoTwoRootsIsParsedOnce(t *testing.T) {
  * file, which no comparison of paths can collapse and which `os.SameFile`
  * answers without knowing a link was involved at all.
  *
+ * Run beside the case above this is a schema cache hit, because identical bytes
+ * under an identical representative spelling compose one digest. That is the
+ * coverage worth having — the fan-out is then proved on the cache's hit branch
+ * as well as on its miss branch — and the case still measures the whole
+ * round trip when it runs alone.
+ *
  *  1. Write one schema and link its directory under a second name.
  *  2. Root one Prisma reference at each.
  *  3. Assert the set parsed cleanly and both populations carry the one result.
@@ -205,5 +222,52 @@ func TestTwoRootsNamingTwoSchemasKeepBothInTheSet(t *testing.T) {
   }
   if len(mirror.Units) == 0 || mirror.Units[0].ID != "prisma:refund" {
     t.Fatalf("mirror units = %v; want its own model", mirror.Units)
+  }
+}
+
+/**
+ * Verifies a schema hard-linked inside one population is cited once, not twice.
+ *
+ * A hard link is a second directory entry for one file, so a single walk of a
+ * single base enumerates both — which is the one shape where a claim's own
+ * globs select two spellings of one schema. Parsing it once and serving both
+ * entries is what this pull request added, and it made that shape reachable:
+ * the parse's declarations are one object filed into both inventories, and a
+ * claim that appended each inventory's list saw one citation twice. Every
+ * message that follows names a repair the author cannot perform — one tag, on
+ * one line, reported as its own duplicate — which is why the correct
+ * configuration is what this asserts.
+ *
+ *  1. Hard-link one schema inside a single claim's base.
+ *  2. Cite the reference from the model, correctly and exactly once.
+ *  3. Assert the graph closes silently.
+ */
+func TestASchemaHardLinkedInsideOnePopulationIsCitedOnce(t *testing.T) {
+  root := prismaBridgeRoot(t, map[string]string{
+    "store/main.prisma": "/// @evidence docs/pricing.md#discounts Sales are priced by the discount table.\nmodel sale {\n  id String @id\n}\n",
+  })
+  if err := os.MkdirAll(filepath.Join(root, "mirror"), 0o755); err != nil {
+    t.Fatal(err)
+  }
+  if err := os.Link(
+    filepath.Join(root, "store", "main.prisma"),
+    filepath.Join(root, "mirror", "main.prisma"),
+  ); err != nil {
+    t.Skipf("this filesystem does not support hard links: %v", err)
+  }
+  messages := runIndexRuleAtRoot(t, root, map[string]string{
+    "docs/pricing.md": "## Discounts {#discounts}\n",
+  }, `{"claims":[{
+    "type":"prisma",
+    "files":["**/*.prisma"],
+    "symbol":"model",
+    "reference":{"type":"markdown","files":["docs/**/*.md"],"symbol":"h2"}
+  }]}`)
+  if len(messages) != 0 {
+    t.Fatalf(
+      "one citation on one line owes nothing, got %d:\n%s",
+      len(messages),
+      strings.Join(messages, "\n"),
+    )
   }
 }

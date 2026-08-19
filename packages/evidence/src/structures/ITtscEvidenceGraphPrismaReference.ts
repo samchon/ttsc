@@ -35,6 +35,13 @@ export interface ITtscEvidenceGraphPrismaReference extends ITtscEvidenceGraphRef
    * spelling you declared, while a file location beside it is spelled the way
    * you would open the file. The resolved patterns are published to the `ttsc`
    * host as watched inputs.
+   *
+   * One schema file reached through two roots is one file, parsed once, and
+   * both populations are served by that one result — which is the layout a
+   * package manager produces when a package is installed and also rooted at its
+   * workspace source. A location printed for such a file is one of the two
+   * spellings rather than each population's own, and it opens the same file
+   * either way.
    */
   root?: string;
 
