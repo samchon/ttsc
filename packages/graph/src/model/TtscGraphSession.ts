@@ -8,6 +8,7 @@ import { ITtscGraphSnapshot } from "../structures/ITtscGraphSnapshot";
 import { TtscGraphMemory } from "./TtscGraphMemory";
 import { TtscGraphShardStore } from "./TtscGraphShardStore";
 import { DUMP_SCHEMA_VERSION } from "./loadGraph";
+import { publishArtifacts } from "./publishedArtifacts";
 
 /**
  * The serve protocol version this client speaks.
@@ -256,9 +257,25 @@ export class TtscGraphSession {
     ) {
       return this.child;
     }
+    // The artifacts are asked for once per resident child, which is the honest
+    // scope of what is wired: they describe documents the compiler's Program
+    // never read, so a source edit does not move them and a document edit does
+    // not move the graph. Refreshing them on a document edit is a separate
+    // invalidation and is not answered here.
+    const artifacts = publishArtifacts({
+      cwd: this.cwd,
+      tsconfig: this.tsconfig,
+    });
     const process = spawn(
       this.binary,
-      ["serve", "--cwd", this.cwd, "--tsconfig", this.tsconfig],
+      [
+        "serve",
+        "--cwd",
+        this.cwd,
+        "--tsconfig",
+        this.tsconfig,
+        ...(artifacts === null ? [] : ["--artifacts", artifacts]),
+      ],
       { stdio: ["pipe", "pipe", "pipe"], windowsHide: true },
     );
     const lines = readline.createInterface({ input: process.stdout });

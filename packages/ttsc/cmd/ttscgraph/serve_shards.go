@@ -139,15 +139,9 @@ func (s *graphSession) buildShardSnapshot(change *graphChange) (*serveGraphSnaps
 func (s *graphSession) buildFullShardSnapshot() (*serveGraphSnapshot, *serveGraphStore, error) {
   program := s.compiler.Program()
   built := graph.Build(program)
+  graph.ApplyArtifacts(built, s.artifacts)
   texts := graph.SourceTexts(program)
-  provenance := graph.NewProvenance(
-    serveProducer(),
-    fullSnapshotCapabilities,
-    s.configDigests,
-    s.roots,
-    texts,
-    s.diskDigests,
-  )
+  provenance := s.provenance(texts)
   identity, wireProvenance, wireSources, err := newServeGraphIdentity(s.cwd, s.tsconfig, provenance)
   if err != nil {
     return nil, nil, err

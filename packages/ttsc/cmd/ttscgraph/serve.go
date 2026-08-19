@@ -74,6 +74,45 @@ var fullSnapshotCapabilities = []string{
 // dump this server publishes declares for itself.
 var serveCapabilities = fullSnapshotCapabilities
 
+// capabilities is what THIS session proves, which is the shared list plus the
+// artifact claim when a plugin published one.
+//
+// The claim has to be conditional for the same reason it is on the dump command:
+// a project that publishes no artifacts and a session that was never handed any
+// are the same absent nodes, and only the claim separates them.
+func (s *graphSession) capabilities() []string {
+  if len(s.artifacts) == 0 {
+    return fullSnapshotCapabilities
+  }
+  return append(
+    append([]string{}, fullSnapshotCapabilities...),
+    graph.CapabilityArtifactNodes,
+  )
+}
+
+// artifactProducer names the second producer behind this session's artifact
+// nodes, and is nil when it has none.
+// provenance is this session's published origin for one generation.
+func (s *graphSession) provenance(texts map[string]string) graph.Provenance {
+  built := graph.NewProvenance(
+    serveProducer(),
+    s.capabilities(),
+    s.configDigests,
+    s.roots,
+    texts,
+    s.diskDigests,
+  )
+  built.ArtifactProducer = s.artifactProducer()
+  return built
+}
+
+func (s *graphSession) artifactProducer() *graph.Producer {
+  if len(s.artifacts) == 0 {
+    return nil
+  }
+  return &graph.Producer{Tool: "@ttsc/lint graph-nodes"}
+}
+
 type serveRequest struct {
   ID int `json:"id"`
   // GraphSnapshotVersion opts into the incremental shard protocol. Omitted
@@ -120,8 +159,14 @@ func errorResponse(id int, message string) serveResponse {
 }
 
 type graphSession struct {
-  cwd          string
-  tsconfig     string
+  cwd      string
+  tsconfig string
+  // artifacts is the set a plugin published, read once at startup. It is a
+  // second producer's facts about documents this Program never read, so a
+  // refresh of it is not a refresh of the graph: editing a Markdown heading
+  // moves the artifact and not one compiler fact, and the two invalidations are
+  // therefore separate questions. Only the first is answered today.
+  artifacts    []graph.Artifact
   compiler     *driver.Session
   configHashes map[string][sha256.Size]byte
   auxStates    map[string]diskState
@@ -149,7 +194,19 @@ type graphSession struct {
 }
 
 func newGraphSession(cwd, tsconfig string) (*graphSession, error) {
-  session := &graphSession{cwd: cwd, tsconfig: tsconfig}
+  return newGraphSessionWithArtifacts(cwd, tsconfig, nil)
+}
+
+// newGraphSessionWithArtifacts is the constructor the serve command uses, and
+// the plain one above is it with nothing published. The artifacts are read once
+// and held for the session: they are a second producer's facts about documents
+// this Program never read, so refreshing them is a different question from
+// refreshing the graph, and only the first answer is wired today.
+func newGraphSessionWithArtifacts(
+  cwd, tsconfig string,
+  artifacts []graph.Artifact,
+) (*graphSession, error) {
+  session := &graphSession{cwd: cwd, tsconfig: tsconfig, artifacts: artifacts}
   if err := session.reload(); err != nil {
     return nil, err
   }
@@ -442,6 +499,7 @@ func missingRootInputs(configs []*shimtsoptions.ParsedCommandLine, sourceHashes 
 func (s *graphSession) buildDump() (graph.Dump, error) {
   program := s.compiler.Program()
   built := graph.Build(program)
+  graph.ApplyArtifacts(built, s.artifacts)
   // One texts map feeds both the spans and the manifest digests, so the bytes a
   // span points into are provably the bytes the manifest attests to.
   texts := graph.SourceTexts(program)
@@ -452,14 +510,7 @@ func (s *graphSession) buildDump() (graph.Dump, error) {
     graph.GitIgnoredFiles(s.cwd, built),
     texts,
     graph.DumpOrigin{
-      Provenance: graph.NewProvenance(
-        serveProducer(),
-        fullSnapshotCapabilities,
-        s.configDigests,
-        s.roots,
-        texts,
-        s.diskDigests,
-      ),
+      Provenance:  s.provenance(texts),
       Diagnostics: graph.NewDiagnostics(program),
     },
   )
@@ -862,8 +913,22 @@ func runServe(args []string) int {
   fs.SetOutput(stderr)
   cwdFlag := fs.String("cwd", "", "project root (defaults to process cwd)")
   tsconfigFlag := fs.String("tsconfig", "tsconfig.json", "project tsconfig path")
+  artifactsFlag := fs.String(
+    "artifacts",
+    "",
+    "path to the artifacts a plugin published (JSON); absent or missing means none",
+  )
   if err := fs.Parse(args); err != nil {
     return 2
+  }
+  artifacts, artifactsErr := graph.LoadArtifacts(strings.TrimSpace(*artifactsFlag))
+  if artifactsErr != nil {
+    fmt.Fprintf(
+      stderr,
+      "ttscgraph: could not read the published artifacts: %v\n",
+      artifactsErr,
+    )
+    return 1
   }
 
   cwd := strings.TrimSpace(*cwdFlag)
@@ -881,10 +946,22 @@ func runServe(args []string) int {
   cwd = shimtspath.ResolvePath(cwd)
   tsconfig := strings.TrimSpace(*tsconfigFlag)
 
-  return serveSnapshots(os.Stdin, stdout, cwd, tsconfig)
+  return serveSnapshotsWithArtifacts(os.Stdin, stdout, cwd, tsconfig, artifacts)
 }
 
 func serveSnapshots(input io.Reader, output io.Writer, cwd, tsconfig string) int {
+  return serveSnapshotsWithArtifacts(input, output, cwd, tsconfig, nil)
+}
+
+// serveSnapshotsWithArtifacts is the loop the serve command runs, and
+// serveSnapshots is it with nothing published — the shape every existing case
+// drives, unchanged.
+func serveSnapshotsWithArtifacts(
+  input io.Reader,
+  output io.Writer,
+  cwd, tsconfig string,
+  artifacts []graph.Artifact,
+) int {
   scanner := bufio.NewScanner(input)
   scanner.Buffer(make([]byte, 64*1024), 1024*1024)
   encoder := json.NewEncoder(output)
@@ -933,7 +1010,7 @@ func serveSnapshots(input io.Reader, output io.Writer, cwd, tsconfig string) int
     var loadDuration time.Duration
     if session == nil {
       loadStarted := time.Now()
-      created, err := newGraphSession(cwd, tsconfig)
+      created, err := newGraphSessionWithArtifacts(cwd, tsconfig, artifacts)
       loadDuration = time.Since(loadStarted)
       if err != nil {
         if err := encodeServeResponseWithTrace(
