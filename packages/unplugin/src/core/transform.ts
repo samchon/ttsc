@@ -3644,34 +3644,45 @@ function selectNotifiableAbsentInputs(props: {
         continue;
       }
       seen.add(spelling);
-      output.push(absolute);
-      watched.push(absolute);
-      // Watch the components of the lexical path too, by the name each carries
-      // in its own parent. The watcher a missing path opens follows the
-      // spelling to a physical directory, so retargeting a link along the way
-      // moves the answer without touching what is watched: in a pnpm layout
+      // Collect the components of the lexical path, by the name each carries in
+      // its own parent. The watcher a missing path opens follows the spelling
+      // to a physical directory, so retargeting a link along the way moves the
+      // answer without touching what is watched: in a pnpm layout
       // `node_modules/<pkg>` is exactly such a link, and reinstalling it makes
-      // a candidate appear behind a watch that is still looking at the old
-      // store directory. Watching `<pkg>` inside `node_modules` is what reports
-      // that.
+      // a candidate appear behind a watch still looking at the old store
+      // directory. Watching `<pkg>` inside `node_modules` is what reports that.
       //
-      // The walk stops at the project's own enclosing directory, and does not
-      // climb past it. Above that line the components are the machine's own
-      // layout rather than the project's — a system temp directory, a home
-      // directory, the filesystem root — which nobody retargets and which
-      // change constantly for reasons that have nothing to do with this
-      // generation. On Linux an entry's attribute change is reported to a watch
-      // on its parent, so watching those would invalidate the cache every time
-      // an unrelated process touched anything inside them.
+      // The collection stops at the project root, and a spelling that leaves
+      // the project subtree before reaching it is not claimed at all. Above
+      // that line the components are the machine's own layout rather than the
+      // project's, and watching those entries costs a generation whenever an
+      // unrelated process touches anything inside them; a candidate whose path
+      // runs outside the subtree therefore keeps the probe it always had rather
+      // than a proof this cannot complete.
+      const components: string[] = [];
+      let reachedProject = false;
       for (
         let child = path.dirname(spelling), parent = path.dirname(child);
-        parent !== child && !enclosesProject(child, resolvedProjectRoot);
+        parent !== child;
         child = parent, parent = path.dirname(child)
       ) {
-        if (chain.has(child)) break;
-        chain.add(child);
-        watched.push(child);
-        directories.add(parent);
+        if (insideProject(child, resolvedProjectRoot)) {
+          components.push(child);
+          continue;
+        }
+        reachedProject = child === resolvedProjectRoot;
+        break;
+      }
+      if (!reachedProject) {
+        continue;
+      }
+      output.push(absolute);
+      watched.push(absolute);
+      for (const component of components) {
+        if (chain.has(component)) break;
+        chain.add(component);
+        watched.push(component);
+        directories.add(path.dirname(component));
       }
       directories.add(path.dirname(spelling));
     }
@@ -3691,27 +3702,29 @@ function selectNotifiableAbsentInputs(props: {
 }
 
 /**
- * Report whether a directory is the project's own root or an ancestor of it.
+ * Report whether a directory lies strictly below the project root.
  *
- * The boundary of what a generation may watch on a candidate's behalf: the
- * project and whatever it reaches below or beside it are its own layout, while
- * everything above the project root belongs to the machine.
+ * The boundary of what a generation may watch on a candidate's behalf: what the
+ * project contains is its own layout, while the project root and everything
+ * above it belongs to the machine, which nobody retargets and which changes for
+ * reasons no generation should hear about.
  */
-function enclosesProject(directory: string, projectRoot: string): boolean {
+function insideProject(directory: string, projectRoot: string): boolean {
   const relative = path.relative(
-    path.resolve(directory),
     path.resolve(projectRoot),
+    path.resolve(directory),
   );
   // An empty result is the platform saying the two name the same directory,
-  // which it answers for spellings that differ only in case as well. Reading it
-  // as "not the root" is what would let the walk climb one level past it on a
-  // case-insensitive filesystem, which is the whole thing this bound prevents.
+  // which it answers for spellings that differ only in case where the path
+  // module folds case. The root itself is not below itself, so the walk stops
+  // there rather than one level past it.
   if (relative.length === 0) {
-    return true;
+    return false;
   }
-  // `..` alone and `../` climb out; a directory literally named `..x` does not,
-  // which a plain prefix test would misread. The project walk's own containment
-  // check spells it the same way.
+  // `..` alone and `../` climb out, and an absolute answer means another drive
+  // or share entirely; a directory literally named `..x` does neither, which a
+  // plain prefix test would misread. The project walk's own containment check
+  // spells it the same way.
   return (
     relative !== ".." &&
     !relative.startsWith(`..${path.sep}`) &&
@@ -3949,6 +3962,7 @@ async function transformProject(props: {
   let retainTracker = false;
   let hostInputTracker: TtscProjectMutationTracker | undefined;
   let candidateTracker: TtscProjectMutationTracker | undefined;
+  let retainHostInputTracker = false;
   let retainCandidateTracker = false;
   try {
     const configured = createTransformTsconfig(props, scratchDirectory);
@@ -4149,8 +4163,8 @@ async function transformProject(props: {
     // did not is closed below. Naming only two of the three would close a
     // published candidate tracker the moment either of the others was absent,
     // and that is the one tracker whose silence is read as evidence.
-    retainTracker =
-      notifying && tracker !== undefined && hostInputTracker !== undefined;
+    retainTracker = notifying && tracker !== undefined;
+    retainHostInputTracker = notifying && hostInputTracker !== undefined;
     retainCandidateTracker = notifying && candidateTracker !== undefined;
     return cached;
   } finally {
@@ -4160,7 +4174,7 @@ async function transformProject(props: {
       }
     } finally {
       try {
-        if (!retainTracker && hostInputTracker !== undefined) {
+        if (!retainHostInputTracker && hostInputTracker !== undefined) {
           hostInputTracker.close();
         }
       } finally {
