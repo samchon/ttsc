@@ -230,8 +230,9 @@ var bannerConfigFilenames = []string{
 // one match is found per directory, "" when none exists at any level, or an
 // error when multiple candidates exist in the same directory.
 //
-// The second return value is every candidate the walk examined and did not
-// find. Those paths decide the result as much as the file it returned: one
+// The second return value is every candidate the walk examined and rejected,
+// each carrying whether it was absent or a directory wearing the name. Those
+// paths decide the result as much as the file it returned: one
 // created nearer the entry wins the next search outright, and one created
 // beside the match makes that directory ambiguous. The caller reports them so a
 // persistent consumer stops serving output built from a config a cold run would

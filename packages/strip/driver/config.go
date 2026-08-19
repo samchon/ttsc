@@ -112,8 +112,9 @@ func loadStripConfigMapWithReporters(pluginConfig map[string]any, cwd, tsconfigP
 // strip.config.* file. Multiple candidates in the same directory is an error.
 // Returns "" (no error) when the filesystem root is reached without a match.
 //
-// The second return value is every candidate the walk examined and did not
-// find. Those decide the result as much as the file it returned: one created
+// The second return value is every candidate the walk examined and rejected,
+// each carrying whether it was absent or a directory wearing the name. Those
+// decide the result as much as the file it returned: one created
 // nearer the entry wins the next search, and one created beside the match makes
 // that directory ambiguous. Without them a persistent consumer keeps applying
 // the rules of a config a cold run would no longer choose — or keeps stripping
