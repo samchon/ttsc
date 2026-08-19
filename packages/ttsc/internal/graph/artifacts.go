@@ -132,10 +132,26 @@ func ApplyArtifacts(g *Graph, artifacts []Artifact) {
     }
     g.Nodes[artifact.Address] = node
     byAddress[artifact.Address] = artifact.Address
+  }
+
+  // Aliases are registered after every address, and only where nothing claims
+  // the spelling. An alias is an additional name for one artifact, never a
+  // rename of another: registering it in the same pass let one artifact's alias
+  // overwrite an earlier artifact's own address, and a citation of that address
+  // then resolved to the wrong node — a confident wrong answer, which is worse
+  // than the token it replaced.
+  for _, artifact := range sorted {
+    if _, published := g.Nodes[artifact.Address]; !published {
+      continue
+    }
     for _, alias := range artifact.Aliases {
-      if alias != "" && alias != artifact.Address {
-        byAddress[alias] = artifact.Address
+      if alias == "" || alias == artifact.Address {
+        continue
       }
+      if _, claimed := byAddress[alias]; claimed {
+        continue
+      }
+      byAddress[alias] = artifact.Address
     }
   }
 

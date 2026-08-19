@@ -80,10 +80,22 @@ export function unpublished(): void {}
       Line:     12,
     },
     {Address: "docs/sale.md#unknown", Kind: "not_a_kind"},
+    // Its alias is another artifact's own address. An alias is an additional
+    // name for one artifact, never a rename of another, so this must not move
+    // `docs/sale.md#pricing` onto this node — a citation of that address would
+    // then resolve to the wrong section, which is a confident wrong answer.
+    {
+      Address:  "docs/sale.md#shadow",
+      Kind:     "markdown_section",
+      Readable: "Shadow",
+      Aliases:  []string{"docs/sale.md#pricing"},
+      File:     "docs/sale.md",
+      Line:     20,
+    },
   })
 
-  if got := len(g.Nodes) - before; got != 3 {
-    t.Fatalf("added %d nodes, want 3; an unknown kind must contribute none", got)
+  if got := len(g.Nodes) - before; got != 4 {
+    t.Fatalf("added %d nodes, want 4; an unknown kind must contribute none", got)
   }
   if _, fabricated := g.Nodes["docs/sale.md#nobody-published-this"]; fabricated {
     t.Fatal("an address nobody published became a node; the tag text carries it and the linter judges it")
@@ -133,5 +145,10 @@ export function unpublished(): void {}
   }
   if aliasEdges != 2 {
     t.Fatalf("%d declarations resolved to the section, want 2 (its address and its alias)", aliasEdges)
+  }
+  for _, edge := range g.Edges {
+    if edge.Kind == EdgeDocRef && edge.To == "docs/sale.md#shadow" {
+      t.Fatal("an alias claimed another artifact's address; a citation resolved to the wrong node")
+    }
   }
 }
