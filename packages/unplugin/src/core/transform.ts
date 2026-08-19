@@ -3670,7 +3670,10 @@ function selectNotifiableAbsentInputs(props: {
           components.push(child);
           continue;
         }
-        reachedProject = child === resolvedProjectRoot;
+        // Compared through `path.relative` rather than by string, so a
+        // spelling that differs from the root only in case still counts as
+        // having arrived where the platform says it has.
+        reachedProject = path.relative(child, resolvedProjectRoot).length === 0;
         break;
       }
       if (!reachedProject) {
