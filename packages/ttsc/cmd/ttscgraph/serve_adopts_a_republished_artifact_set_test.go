@@ -30,6 +30,7 @@ import (
 //  2. Ask again naming the same file, and require `unchanged`.
 //  3. Publish a different set and ask again naming the new file.
 //  4. Require a `rebuild` carrying the new artifact and not the old one.
+//  5. Name a file that does not exist and require an error, not an empty graph.
 func TestServeAdoptsARepublishedArtifactSet(t *testing.T) {
   root := graphSessionFixture(t)
   published := t.TempDir()
@@ -41,10 +42,11 @@ func TestServeAdoptsARepublishedArtifactSet(t *testing.T) {
   var output bytes.Buffer
   code := serveSnapshotsWithArtifacts(
     bytes.NewReader([]byte(fmt.Sprintf(
-      "{\"id\":1,\"artifacts\":%s}\n{\"id\":2,\"artifacts\":%s}\n{\"id\":3,\"artifacts\":%s}\n",
+      "{\"id\":1,\"artifacts\":%s}\n{\"id\":2,\"artifacts\":%s}\n{\"id\":3,\"artifacts\":%s}\n{\"id\":4,\"artifacts\":%s}\n",
       mustJSONString(t, first),
       mustJSONString(t, first),
       mustJSONString(t, second),
+      mustJSONString(t, filepath.Join(published, "never-written.json")),
     ))),
     &output,
     root,
@@ -56,13 +58,14 @@ func TestServeAdoptsARepublishedArtifactSet(t *testing.T) {
   }
 
   decoder := json.NewDecoder(&output)
-  responses := make([]serveResponse, 3)
+  responses := make([]serveResponse, 4)
   for index := range responses {
     if err := decoder.Decode(&responses[index]); err != nil {
       t.Fatalf("response %d: %v", index+1, err)
     }
   }
   initial, repeated, republished := responses[0], responses[1], responses[2]
+  missing := responses[3]
 
   if initial.Mode != serveModeInitial || !initial.Changed || initial.Dump == nil {
     t.Fatalf("initial response: %#v", initial)
@@ -94,6 +97,17 @@ func TestServeAdoptsARepublishedArtifactSet(t *testing.T) {
   }
   if dumpCarriesArtifact(republished.Dump, "docs/sale.md#pricing") {
     t.Fatal("the republished dump still carries the withdrawn artifact")
+  }
+
+  // A named file that is not there is a broken exchange, not a project without
+  // artifacts. Reading it as the latter empties the overlay and answers with a
+  // graph indistinguishable from a correct one for a project that publishes
+  // none — the one failure this whole exchange has no other way to catch.
+  if missing.Mode != serveModeError || missing.Error == "" {
+    t.Fatalf("a named artifact file that does not exist answered %#v", missing)
+  }
+  if missing.Dump != nil || missing.Changed {
+    t.Fatalf("an error response carried snapshot state: %#v", missing)
   }
 }
 

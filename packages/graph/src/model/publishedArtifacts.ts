@@ -9,10 +9,9 @@ import { resolveCapabilityPlugins } from "ttsc";
  * Ask the project's `@ttsc/lint` for the artifacts a citation can name, and
  * write them where `ttscgraph dump --artifacts` reads them.
  *
- * Returns the file's path, or `null` when no configured plugin declares the
- * capability or none answered. A project without one is the common case and is
- * not an error: the graph it produces is the graph it produced before this
- * existed, and the dump says so by not claiming the capability.
+ * A project that configures no such plugin gets `file: null`, which is the
+ * common case and not an error: the graph it produces is the graph it produced
+ * before this existed, and the dump says so by not claiming the capability.
  *
  * ## Why this runs here and not in the compiler host
  *
@@ -37,47 +36,69 @@ import { resolveCapabilityPlugins } from "ttsc";
  * gets an empty answer.
  */
 export interface IPublishedArtifacts {
-  /** Path to the JSON the native producer reads. */
-  file: string;
   /**
-   * Everything the published set was derived from, as paths this process can
-   * stat for itself.
+   * Path to the JSON the native producer reads, or `null` when no configured
+   * plugin publishes one.
+   *
+   * `null` is a state rather than an absence, which is why it still carries
+   * {@link inputs}. A project that adds an evidence plugin while a session is
+   * running would otherwise never be reconsidered: nothing would be watched, so
+   * nothing could report that the answer had changed from "none" to "some".
+   */
+  file: string | null;
+  /**
+   * Everything the answer was derived from, as paths this process can state for
+   * itself.
    *
    * The artifacts describe documents the compiler's Program never read, so a
    * source edit does not move them and a document edit does not move the code
    * graph. Refreshing them is therefore a second invalidation with its own
-   * inputs, and these are those inputs: the plugin's own configuration files
-   * and the document trees its rules declared they read.
+   * inputs, and these are those inputs.
    */
   inputs: IArtifactInputs;
   /**
-   * The state of {@link inputs} when the set was published.
+   * The state of {@link inputs} when the answer was produced.
    *
-   * Compared against a freshly taken one to decide whether the set is stale.
+   * Compared against a freshly taken one to decide whether the answer is stale.
    * When it moved, nothing else in the session can tell: the compiler's own
    * invalidation watches the build universe, and none of this is in it.
    */
   fingerprint: string;
 }
 
-/** Paths a published set was derived from, split by how they are watched. */
+/** Paths an answer was derived from, split by how they are watched. */
 export interface IArtifactInputs {
   /** Files stated one by one. */
   files: string[];
-  /** Directory trees walked, which is what notices an added or deleted file. */
-  directories: string[];
+  /** Directories walked, which is what notices an added or deleted file. */
+  directories: IArtifactDirectory[];
+}
+
+/** A directory watched on behalf of the pattern that named it. */
+export interface IArtifactDirectory {
+  /** Absolute path of the directory to walk. */
+  path: string;
+  /**
+   * Whether the walk descends.
+   *
+   * Taken from the pattern rather than assumed, because assuming it is
+   * expensive in exactly the case that looks harmless: a rule declaring `*.md`
+   * has the project root for its fixed prefix, and treating that as recursive
+   * would state every file in the repository before every graph request.
+   */
+  recursive: boolean;
 }
 
 export function publishArtifacts(options: {
   cwd: string;
   tsconfig: string;
-}): IPublishedArtifacts | null {
+}): IPublishedArtifacts {
   const plugins = resolveCapabilityPlugins({
     capability: "graphNodes",
     cwd: options.cwd,
     tsconfig: options.tsconfig,
   });
-  if (plugins.length === 0) return null;
+  if (plugins.length === 0) return unpublished(options);
 
   const published: unknown[] = [];
   for (const plugin of plugins) {
@@ -122,7 +143,9 @@ export function publishArtifacts(options: {
       continue;
     }
   }
-  if (published.length === 0) return null;
+  const inputs = artifactInputs(plugins, options);
+  if (published.length === 0)
+    return { file: null, fingerprint: fingerprintInputs(inputs), inputs };
 
   // One file per process, overwritten, rather than a fresh temp directory per
   // call. A resident session asks once and a one-shot asks once, but `loadGraph`
@@ -134,17 +157,17 @@ export function publishArtifacts(options: {
     `ttsc-graph-artifacts-${String(process.pid)}.json`,
   );
   fs.writeFileSync(file, JSON.stringify(published));
-  const inputs = artifactInputs(plugins, options);
   return { file, fingerprint: fingerprintInputs(inputs), inputs };
 }
 
 /**
- * Whether the inputs a published set was derived from have moved since.
+ * Whether the inputs an answer was derived from have moved since.
  *
  * Answered by stating paths this process already knows, not by asking the
  * plugin again. The question is asked before every graph request in a resident
- * session, and a sidecar spawn per request would cost more than the refresh it
- * guards — while a `stat` per document costs less than reading one of them.
+ * session, and re-running plugin discovery per request would cost more than the
+ * refresh it guards — while a `stat` per document costs less than reading one
+ * of them.
  *
  * The cost of being wrong in the cheap direction is what makes this worth
  * paying at all: a developer who edited only a spec section, and nothing the
@@ -153,6 +176,35 @@ export function publishArtifacts(options: {
  */
 export function artifactsAreStale(published: IPublishedArtifacts): boolean {
   return fingerprintInputs(published.inputs) !== published.fingerprint;
+}
+
+/**
+ * The answer for a project that publishes nothing, and what to watch so that
+ * answer can change.
+ *
+ * Configuring a plugin means editing the project's tsconfig or installing a
+ * package that declares one, so those two files are what could turn this answer
+ * into a different one. They are stated rather than the whole discovery being
+ * re-run, because re-running it walks the dependency closure — the cost
+ * samchon/ttsc#1276 is about — and paying that per request to learn nothing
+ * would be worse than the staleness it prevents.
+ *
+ * Bounded, and deliberately: a tsconfig that inherits its plugins from an
+ * extended config is not tracked here, because naming the whole extends chain
+ * means asking the loader that is itself the expense.
+ */
+function unpublished(options: {
+  cwd: string;
+  tsconfig: string;
+}): IPublishedArtifacts {
+  const inputs: IArtifactInputs = {
+    directories: [],
+    files: [
+      path.resolve(options.cwd, options.tsconfig),
+      path.join(options.cwd, "package.json"),
+    ],
+  };
+  return { file: null, fingerprint: fingerprintInputs(inputs), inputs };
 }
 
 /**
@@ -170,7 +222,7 @@ function artifactInputs(
   options: { cwd: string; tsconfig: string },
 ): IArtifactInputs {
   const files: string[] = [];
-  const directories: string[] = [];
+  const directories: IArtifactDirectory[] = [];
   for (const plugin of plugins) {
     const result = spawnSync(
       plugin.binary,
@@ -196,17 +248,64 @@ function artifactInputs(
     } catch {
       continue;
     }
-    files.push(...(snapshot.files ?? []), ...(snapshot.reloadFiles ?? []));
-    for (const pattern of [
-      ...(snapshot.globs ?? []),
-      ...(snapshot.reloadDirectories ?? []),
+    for (const file of [
+      ...(snapshot.files ?? []),
+      ...(snapshot.reloadFiles ?? []),
     ])
-      directories.push(globRoot(pattern, options.cwd));
+      files.push(absolute(file, options.cwd));
+    for (const pattern of snapshot.globs ?? []) {
+      const directory = watchedBy(pattern, options.cwd);
+      if (directory === null) files.push(absolute(pattern, options.cwd));
+      else directories.push(directory);
+    }
+    for (const directory of snapshot.reloadDirectories ?? [])
+      directories.push({
+        path: absolute(directory, options.cwd),
+        recursive: true,
+      });
   }
+  // A directory named twice is walked once, and a recursive claim wins: two
+  // patterns over one tree, one descending and one not, must not leave the
+  // descending one's files unwatched because the other was seen first.
+  const merged = new Map<string, boolean>();
+  for (const directory of directories)
+    merged.set(
+      directory.path,
+      (merged.get(directory.path) ?? false) || directory.recursive,
+    );
   return {
+    directories: [...merged]
+      .map(([directory, recursive]) => ({ path: directory, recursive }))
+      .sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0)),
     files: [...new Set(files)].sort(),
-    directories: [...new Set(directories)].sort(),
   };
+}
+
+/**
+ * The directory a declared pattern makes worth walking, or `null` when the
+ * pattern names one path and should simply be stated.
+ *
+ * Two readings have to be right here, and both are cheap to get wrong. A
+ * pattern carrying no wildcard is a path, not a tree: watching its parent
+ * instead would state every sibling on every request to learn about the one
+ * file that was declared. And a pattern that does not say `**` does not descend
+ * — treating it as though it did is unbounded in exactly the case that looks
+ * harmless, because a bare `*.md` has the project root for its prefix.
+ */
+export function watchedBy(
+  pattern: string,
+  cwd: string,
+): IArtifactDirectory | null {
+  if (pattern.search(GLOB_MAGIC) < 0) return null;
+  return { path: globRoot(pattern, cwd), recursive: pattern.includes("**") };
+}
+
+/** Wildcards a pattern may use; a pattern with none of them names one path. */
+const GLOB_MAGIC = /[*?[{]/u;
+
+/** A declared path resolved against the project root. */
+function absolute(target: string, cwd: string): string {
+  return path.isAbsolute(target) ? target : path.join(cwd, target);
 }
 
 /**
@@ -222,18 +321,25 @@ export function fingerprintInputs(inputs: IArtifactInputs): string {
   const parts: string[] = [];
   for (const file of inputs.files) parts.push(stateOf(file));
   for (const directory of inputs.directories)
-    parts.push(...walkState(directory));
+    parts.push(...walkState(directory.path, directory.recursive));
   parts.sort();
   return createHash("sha256").update(parts.join("\n")).digest("hex");
 }
 
-/** A path's size and modification time, or a marker when it is absent. */
+/**
+ * A path's size and modification time, or a marker when it is absent.
+ *
+ * The fields are joined on a character a path cannot contain. Separated by a
+ * space, a file literally named `a 1 2` states the same string as a one-byte
+ * file named `a`, and an edit to either would then read as no edit at all.
+ */
 function stateOf(file: string): string {
+  const separator = String.fromCharCode(0);
   try {
     const stat = fs.statSync(file);
-    return `${file} ${String(stat.size)} ${String(stat.mtimeMs)}`;
+    return [file, String(stat.size), String(stat.mtimeMs)].join(separator);
   } catch {
-    return `${file} absent`;
+    return [file, "absent"].join(separator);
   }
 }
 
@@ -245,23 +351,26 @@ function stateOf(file: string): string {
  * directory named `*.md`.
  */
 function globRoot(pattern: string, cwd: string): string {
-  const magic = pattern.search(/[*?[{]/u);
+  const magic = pattern.search(GLOB_MAGIC);
   const head = magic < 0 ? pattern : pattern.slice(0, magic);
   const slash = Math.max(head.lastIndexOf("/"), head.lastIndexOf("\\"));
   const root = slash < 0 ? "" : head.slice(0, slash);
-  if (root === "") return cwd;
-  return path.isAbsolute(root) ? root : path.join(cwd, root);
+  return root === "" ? cwd : absolute(root, cwd);
 }
 
 /**
  * Every entry below `directory`, stated.
  *
- * Bounded rather than unbounded: a glob root is a documentation directory, not
- * a repository, and a walk that wandered into `node_modules` would cost more
- * per request than the whole graph. A directory that does not exist states
- * itself absent, which is what notices one being created.
+ * Bounded three ways, because this runs before every graph request: it descends
+ * only when the pattern that named the directory descends, it never enters
+ * `node_modules`, and it stops at a depth no documentation tree reaches. Dotted
+ * directories are skipped below the declared root, which is what the glob that
+ * named it would have matched anyway.
+ *
+ * A directory that does not exist states itself absent, which is what notices
+ * one being created.
  */
-function walkState(directory: string, depth = 0): string[] {
+function walkState(directory: string, recursive: boolean, depth = 0): string[] {
   if (depth > 12) return [];
   let entries: fs.Dirent[];
   try {
@@ -273,8 +382,9 @@ function walkState(directory: string, depth = 0): string[] {
   for (const entry of entries) {
     const child = path.join(directory, entry.name);
     if (entry.isDirectory()) {
+      if (!recursive) continue;
       if (entry.name === "node_modules" || entry.name.startsWith(".")) continue;
-      states.push(...walkState(child, depth + 1));
+      states.push(...walkState(child, recursive, depth + 1));
       continue;
     }
     states.push(stateOf(child));

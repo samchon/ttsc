@@ -93,7 +93,7 @@ export function runView(argv: readonly string[]): number | void {
         opts.cwd,
         "--tsconfig",
         opts.tsconfig,
-        ...(artifacts === null ? [] : ["--artifacts", artifacts.file]),
+        ...(artifacts.file === null ? [] : ["--artifacts", artifacts.file]),
       ],
       {
         stdio: ["ignore", capture.stdoutFd, capture.stderrFd],

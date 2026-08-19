@@ -279,14 +279,16 @@ func (s *graphSession) invalidateArtifacts() {
   s.pending = &graphChange{mode: serveModeRebuild, full: true}
 }
 
-// artifactsFileDigest hashes the published file, treating an absent one as its
-// own state so a set that disappears is noticed exactly once.
+// artifactsFileDigest hashes the published file.
+//
+// A missing file is an error like any other read failure, and deliberately not
+// an empty set: the client named this path in this request, so its absence is a
+// broken exchange — a cleaned temporary directory, a client that died mid-write
+// — and answering it by emptying the overlay would delete every artifact from
+// the graph while looking exactly like a correct answer.
 func artifactsFileDigest(path string) ([sha256.Size]byte, error) {
   contents, err := os.ReadFile(path)
   if err != nil {
-    if os.IsNotExist(err) {
-      return sha256.Sum256(nil), nil
-    }
     return [sha256.Size]byte{}, err
   }
   return sha256.Sum256(contents), nil

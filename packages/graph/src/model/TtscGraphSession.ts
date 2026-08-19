@@ -75,14 +75,15 @@ export class TtscGraphSession {
   private current: TtscGraphMemory | undefined;
   private shardStore = new TtscGraphShardStore();
   /**
-   * The artifact set the resident child was last handed, and the state of the
-   * inputs it came from.
+   * The artifact answer the resident child was last handed, and the state of
+   * the inputs it came from.
    *
-   * `null` once the child exists means the project configures no publisher, so
-   * there is nothing to keep fresh. Otherwise this is what {@link refresh}
-   * re-derives when a document or a lint configuration moved.
+   * `undefined` only before a child exists. Once one does this is always an
+   * answer, including the answer that the project publishes nothing — which
+   * still carries inputs, so that adding a publisher is something a running
+   * session can notice.
    */
-  private artifacts: IPublishedArtifacts | null = null;
+  private artifacts: IPublishedArtifacts | undefined;
   private closed = false;
 
   public constructor(options: TtscGraphSessionOptions) {
@@ -236,19 +237,21 @@ export class TtscGraphSession {
    * the one it applied, and re-projects the resident program when they differ.
    */
   private republishArtifacts(): void {
-    // A child yet to be spawned publishes on the way up, and a project with no
-    // configured publisher has nothing to refresh. Neither is a stale set.
-    if (this.child === undefined || this.artifacts === null) return;
+    // A child yet to be spawned publishes on the way up, so there is nothing
+    // here to keep fresh until one does.
+    if (this.child === undefined || this.artifacts === undefined) return;
     if (!artifactsAreStale(this.artifacts)) return;
     const next = publishArtifacts({
       cwd: this.cwd,
       tsconfig: this.tsconfig,
     });
-    // A publisher that stopped answering — a config edit mid-save, a plugin
-    // that failed to rebuild — leaves the previous set in place rather than
-    // dropping every artifact out of the graph on a transient failure. The next
-    // request asks again, because the inputs still read as stale.
-    if (next !== null) this.artifacts = next;
+    // The new answer is taken whatever it says, including that the project now
+    // publishes nothing. Keeping the old set on a `null` would be guessing that
+    // the publisher failed rather than that it was removed, and guessing wrong
+    // in that direction is the unrecoverable one: a session that answers with
+    // artifacts from a plugin the user deleted keeps doing so until it is
+    // restarted, while a transient failure is repaired by the next edit.
+    this.artifacts = next;
   }
 
   private request(signal?: AbortSignal): Promise<ITtscGraphSnapshot> {
@@ -276,7 +279,10 @@ export class TtscGraphSession {
         `${JSON.stringify({
           id,
           graphSnapshotVersion: GRAPH_SNAPSHOT_PROTOCOL_VERSION,
-          ...(this.artifacts === null
+          // Omitted when the project publishes nothing, which is what tells a
+          // server holding a startup set to keep it: an absent field is a
+          // client with no opinion, never a client withdrawing one.
+          ...(this.artifacts?.file == null
             ? {}
             : { artifacts: this.artifacts.file }),
         })}\n`,
@@ -320,7 +326,7 @@ export class TtscGraphSession {
         this.cwd,
         "--tsconfig",
         this.tsconfig,
-        ...(artifacts === null ? [] : ["--artifacts", artifacts.file]),
+        ...(artifacts.file === null ? [] : ["--artifacts", artifacts.file]),
       ],
       { stdio: ["pipe", "pipe", "pipe"], windowsHide: true },
     );

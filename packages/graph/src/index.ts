@@ -155,7 +155,7 @@ function runDump(argv: readonly string[]): number {
     [
       "dump",
       ...argv,
-      ...(published === null ? [] : ["--artifacts", published.file]),
+      ...(published?.file == null ? [] : ["--artifacts", published.file]),
     ],
     {
       stdio: "inherit",

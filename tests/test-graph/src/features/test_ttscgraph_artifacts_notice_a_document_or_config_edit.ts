@@ -9,22 +9,24 @@ const graphLib = path.dirname(require.resolve("@ttsc/graph"));
 const { artifactsAreStale, fingerprintInputs } = require(
   path.join(graphLib, "model", "publishedArtifacts.js"),
 ) as {
-  artifactsAreStale(published: {
-    file: string;
-    inputs: IArtifactInputs;
-    fingerprint: string;
-  }): boolean;
+  artifactsAreStale(published: IPublished): boolean;
   fingerprintInputs(inputs: IArtifactInputs): string;
 };
 
+interface IPublished {
+  file: string | null;
+  inputs: IArtifactInputs;
+  fingerprint: string;
+}
+
 interface IArtifactInputs {
   files: string[];
-  directories: string[];
+  directories: { path: string; recursive: boolean }[];
 }
 
 /**
- * Verifies the published artifact set goes stale on the edits that move it, and
- * only on those.
+ * Verifies the published artifact answer goes stale on the edits that move it,
+ * and only on those.
  *
  * A resident session is invalidated by the compiler's build universe, and the
  * documents behind an artifact are deliberately not in it — that is the
@@ -33,19 +35,22 @@ interface IArtifactInputs {
  * something else watches those paths, the graph answers with the heading the
  * document used to have for as long as the editor stays open.
  *
- * Both halves are asserted, because both halves are defects. Missing an edit
- * leaves a stale graph; reporting one that did not happen re-runs the publisher
- * on every request, which is a sidecar spawn per graph call for a project that
- * changed nothing.
+ * Both directions are defects, so both are asserted. Missing an edit leaves a
+ * stale graph; reporting one that did not happen re-runs the publisher on every
+ * request, which is plugin discovery plus a sidecar spawn per graph call for a
+ * project that changed nothing.
  *
- * The added and deleted cases are the reason directories are walked rather than
- * files listed: a per-file state cannot notice a document that did not exist
- * when the list was taken.
+ * The added and deleted cases are why directories are walked rather than files
+ * listed: a per-file state cannot notice a document that did not exist when the
+ * list was taken. The shallow case is the other half of that — a pattern that
+ * does not descend must not drag its subdirectories into a walk taken before
+ * every request.
  *
  * 1. Build a project with a lint configuration and a document tree.
  * 2. Take the state, and require it fresh against itself.
  * 3. Edit a document, add one, delete one, and edit the configuration.
  * 4. Require each to read stale, and an unrelated file's edit not to.
+ * 5. Require a non-recursive directory to ignore what lies below it.
  */
 export const test_ttscgraph_artifacts_notice_a_document_or_config_edit =
   (): void => {
@@ -61,8 +66,11 @@ export const test_ttscgraph_artifacts_notice_a_document_or_config_edit =
     write(nested, "# Refund\n");
     write(unrelated, "export const value = 1;\n");
 
-    const inputs: IArtifactInputs = { directories: [docs], files: [config] };
-    const published = {
+    const inputs: IArtifactInputs = {
+      directories: [{ path: docs, recursive: true }],
+      files: [config],
+    };
+    const published: IPublished = {
       file: path.join(root, "artifacts.json"),
       fingerprint: fingerprintInputs(inputs),
       inputs,
@@ -71,7 +79,7 @@ export const test_ttscgraph_artifacts_notice_a_document_or_config_edit =
     assert.equal(
       artifactsAreStale(published),
       false,
-      "a set read stale against the very state it was published from; every request would republish it",
+      "an answer read stale against the very state it was published from; every request would republish it",
     );
 
     // An unrelated source edit is the compiler's business and not this one's.
@@ -94,15 +102,38 @@ export const test_ttscgraph_artifacts_notice_a_document_or_config_edit =
     verifyStale(published, "an edited lint configuration", () =>
       write(config, "export default { rules: { evidence: {} } };\n"),
     );
+
+    // A pattern such as `docs/*.md` names one directory's files. Walking below
+    // it anyway is not merely extra work: on a pattern whose fixed prefix is the
+    // project root — a bare `*.md` — it is every file in the repository, stated
+    // before every graph request.
+    const shallowInputs: IArtifactInputs = {
+      directories: [{ path: docs, recursive: false }],
+      files: [],
+    };
+    const shallow: IPublished = {
+      file: null,
+      fingerprint: fingerprintInputs(shallowInputs),
+      inputs: shallowInputs,
+    };
+    write(path.join(docs, "nested", "voucher.md"), "# Voucher\n");
+    assert.equal(
+      artifactsAreStale(shallow),
+      false,
+      "a non-recursive directory reported a change from a file below it, which means it walked a tree its pattern never named",
+    );
+    verifyStale(shallow, "a file added directly in a shallow directory", () =>
+      write(path.join(docs, "tax.md"), "# Tax\n"),
+    );
   };
 
 /**
- * Apply one edit, require the set to read stale, then republish so the next
+ * Apply one edit, require the answer to read stale, then republish so the next
  * case starts from a fresh state and proves its own edit rather than inheriting
  * the previous one's staleness.
  */
 function verifyStale(
-  published: { inputs: IArtifactInputs; fingerprint: string },
+  published: IPublished,
   what: string,
   edit: () => void,
 ): void {
