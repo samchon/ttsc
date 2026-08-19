@@ -32,14 +32,9 @@ type populationBase struct {
   // judged the same base by.
   Absolute string
   // Declared is the author's own spelling of this base, empty for the default
-  // base.
-  //
-  // It is kept beside the derived Display because the two answer different
-  // questions. Display is where a reader opens a file; Declared is what they
-  // search their `lint.config.ts` for. The two coincide for a relative root and
-  // diverge for an absolute one, where the derived spelling ascends out of the
-  // project and appears nowhere in the file the diagnostic is asking them to
-  // edit.
+  // base. It sits beside the derived Display because a message that names a
+  // configuration property and a message that names a location want different
+  // spellings; `populationRootLabel` owns that split and the reasoning for it.
   //
   // It arrives already normalized and is stored untouched. `normalizeRootPath`
   // owns that step, refusing the two forms a root may not take and reducing the
@@ -47,10 +42,11 @@ type populationBase struct {
   // resolve against — so a second normalization here would be a branch no
   // configuration can reach.
   Declared string
-  // Display is what a diagnostic names: project-relative, ascending with `..`
+  // Display is what a location names: project-relative, ascending with `..`
   // when the base sits above the project, and absolute only when no relative
-  // spelling exists. Empty for the default base, whose files are already named
-  // by their project-relative path.
+  // spelling exists, which is a base on another Windows volume. Empty for the
+  // default base, whose files are already named by their project-relative
+  // path.
   Display string
   // Default marks the base a population takes when it declares no root. Its
   // addresses stay plain project-relative paths, which is what leaves every
