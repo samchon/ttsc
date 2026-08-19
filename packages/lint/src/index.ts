@@ -26,6 +26,7 @@ type TtscPluginContributor = {
 type TtscPluginDescriptor = {
   capabilities?: {
     diagnosticsTiming?: boolean;
+    graphNodes?: boolean;
     lsp?: boolean;
     projectContextArgs?: boolean;
     projectDiagnostics?: boolean;
@@ -143,6 +144,7 @@ export default function createTtscPlugin(
   const descriptor: TtscPluginDescriptor = {
     capabilities: {
       diagnosticsTiming: true,
+      graphNodes: true,
       lsp: true,
       projectContextArgs: true,
       projectDiagnostics: true,
