@@ -21,6 +21,12 @@ type ViewerNode = ITtscWebsiteGraphViewer.Node;
  */
 const NODE_KIND_ORDER: readonly string[] = [
   "module",
+  "markdown_document",
+  "markdown_section",
+  "prisma_model",
+  "prisma_column",
+  "prisma_relation",
+  "swagger_operation",
   "class",
   "interface",
   "function",
@@ -31,6 +37,12 @@ const NODE_KIND_ORDER: readonly string[] = [
 ];
 
 const NODE_COLORS: Record<string, string> = {
+  markdown_document: "#9d174d",
+  markdown_section: "#a21caf",
+  prisma_model: "#4338ca",
+  prisma_column: "#5b21b6",
+  prisma_relation: "#6d28d9",
+  swagger_operation: "#854d0e",
   module: "#be123c",
   class: "#3178c6",
   interface: "#2563eb",

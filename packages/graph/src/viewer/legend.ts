@@ -32,6 +32,14 @@ export interface LegendDocument {
  * module was not merely unnamed — it was drawn as a variable.
  */
 export const NODE_COLORS: Record<string, string> = {
+  // The artifacts. They are one hue family on purpose: a reader tells a document
+  // from a declaration at a glance, and tells the artifacts apart within it.
+  markdown_document: "#e8b4b8",
+  markdown_section: "#d99ba0",
+  prisma_model: "#b8a3e8",
+  prisma_column: "#a08fd0",
+  prisma_relation: "#8a76c0",
+  swagger_operation: "#e8d9a0",
   module: "#d0d7de",
   class: "#36e2ee",
   interface: "#6ea8ff",
