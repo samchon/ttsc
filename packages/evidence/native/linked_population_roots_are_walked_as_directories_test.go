@@ -327,14 +327,20 @@ func TestAProjectRootThatIsALinkStillReadsItsDocuments(t *testing.T) {
  *
  * The resolver gives up after a fixed number of hops and returns the link it
  * stopped on, while the stat that accepts the root follows further than that on
- * every platform. A long enough chain therefore passed the gate and then walked
- * a link, which is exactly the silence following a link at all exists to remove,
- * reappearing past the bound. Nobody writes a chain this long; the class is what
- * has to be sealed.
+ * Linux and on Windows. A long enough chain therefore passed the gate and then
+ * walked a link, which is exactly the silence following a link at all exists to
+ * remove, reappearing past the bound. Nobody writes a chain this long; the class
+ * is what has to be sealed.
  *
- *  1. Build a chain of links longer than the resolver follows.
- *  2. Root a reference at its head and run the rule.
- *  3. Assert the root is named and no glob diagnostic is derived from it.
+ * Darwin and the BSDs stop at the same number of hops the resolver does, so the
+ * gate answers first there and this window does not exist. The case verifies
+ * that rather than assuming it, because a chain the platform itself refuses to
+ * follow proves nothing about the one the resolver refuses.
+ *
+ *  1. Build a chain of 35 links, one longer than the resolver follows.
+ *  2. Skip where the platform stops following at or before the same bound.
+ *  3. Root a reference at its head, run the rule, and assert the root is named
+ *     with no glob diagnostic derived from it.
  */
 func TestALinkChainBeyondTheResolverIsReportedNotWalked(t *testing.T) {
   workspace := t.TempDir()
@@ -357,8 +363,12 @@ func TestALinkChainBeyondTheResolverIsReportedNotWalked(t *testing.T) {
     }
     previous = link
   }
-  if err := linkDirectory(previous, filepath.Join(workspace, "documents")); err != nil {
+  documents := filepath.Join(workspace, "documents")
+  if err := linkDirectory(previous, documents); err != nil {
     t.Skipf("this platform refused to create a link: %v", err)
+  }
+  if _, err := os.Stat(documents); err != nil {
+    t.Skipf("this platform stops following links at or before the resolver's bound: %v", err)
   }
   messages := runRootedGraphIn(t, workspace, map[string]string{
     "project/src/sale.ts": "export interface ISale {}\n",

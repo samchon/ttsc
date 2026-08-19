@@ -321,15 +321,21 @@ func baseDirectoryProblem(base populationBase, kind artifactKind) string {
   if err == nil && info.IsDir() {
     return ""
   }
-  // A stat that failed still leaves the question of whether anything is there,
-  // and a link with no target is the case where the two answers differ: `Stat`
-  // follows it and reports the absent target, while `Lstat` finds the link
-  // itself. Told to create a directory over one, the author gets `EEXIST` and
-  // reads the same sentence again, which is the repair this predicate exists to
-  // avoid. The second call is made only on the failure path, so an ordinary
-  // root still costs one stat.
+  // A link with no target is the one state where the two calls disagree about
+  // whether anything is there: `Stat` follows it and reports the target as
+  // absent, while `Lstat` finds the link itself. Told to create a directory over
+  // one, the author gets `EEXIST` and reads the same sentence again, which is
+  // the repair this predicate exists to avoid.
+  //
+  // Only an absent answer is asked the second question. Every other failure —
+  // a loop, a parent that denies traversal, a share that went away — already
+  // says something the rule cannot improve on, and promoting it here would
+  // trade the operating system's own sentence for an assertion that a
+  // non-directory is in the way, which is the guess the third state exists to
+  // refuse. The second call is made only on that one path, so an ordinary root
+  // still costs one stat.
   occupied := err == nil
-  if err != nil {
+  if errors.Is(err, fs.ErrNotExist) {
     if _, linkErr := os.Lstat(base.Absolute); linkErr == nil {
       occupied = true
     }
@@ -490,10 +496,16 @@ func describeBaseDirectoryProblem(
 //
 // The answer is checked rather than trusted. `resolveLinkedDirectory` gives up
 // after a fixed number of hops and returns the link it stopped on, while the
-// stat in `baseDirectoryProblem` follows further than that on every platform,
-// so a long enough chain passed the gate and then walked a link — which is the
-// silence this function exists to remove, reappearing past the bound. Reporting
-// it costs one `Lstat` of a path the walk is about to read anyway.
+// stat in `baseDirectoryProblem` follows further than that on Linux and on
+// Windows, so a long enough chain passed the gate and then walked a link —
+// which is the silence this function exists to remove, reappearing past the
+// bound. Reporting it costs one `Lstat` of a path the walk is about to read
+// anyway.
+//
+// The window is not universal. Darwin and the BSDs stop at the same number of
+// hops the resolver does, so a chain the resolver cannot finish fails the stat
+// as well and the gate answers first. That makes this check unreachable there
+// and load-bearing on the two platforms where the limits differ.
 //
 // That `Lstat` has two ways to refuse, and only one of them is the chain. A
 // call that failed says nothing about how many links were followed, so its own
