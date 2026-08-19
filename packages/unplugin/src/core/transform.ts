@@ -2936,10 +2936,10 @@ async function createHostInputMutationTracker(
     close: () => undefined,
     // Coverage is the caller's claim, and it is required rather than derived
     // from the input list: an input is watched by its exact name here, but only
-    // the caller knows whether the whole lexical path to it is watched as well,
-    // which is what a later validation needs before it trusts the watcher
-    // instead of probing the path again. Deriving it here would hand that claim
-    // to every future caller by default (samchon/ttsc#1261).
+    // the caller knows whether the path leading to it is watched as well, which
+    // is what a later validation needs before it trusts the watcher instead of
+    // probing the path again. Deriving it here would hand that claim to every
+    // future caller by default (samchon/ttsc#1261).
     covered,
     failed: false,
     membershipChanged: false,
@@ -3164,9 +3164,9 @@ function getWindowsProjectMutationBroker(): WindowsProjectMutationBroker {
 function drainWindowsProjectMutationBroker(
   broker: WindowsProjectMutationBroker,
 ): Promise<void> {
-  // Both of a generation's trackers live in one broker, so one acknowledgement
-  // answers for both. Sharing the in-flight round-trip keeps a settle to a
-  // single crossing.
+  // Every tracker of a generation lives in one broker, so one acknowledgement
+  // answers for all of them. Sharing the in-flight round-trip keeps a settle to
+  // a single crossing.
   broker.draining ??= startWindowsProjectMutationDrain(broker).finally(() => {
     broker.draining = undefined;
   });
@@ -3267,7 +3267,7 @@ function reportsMembershipChange(cached: TtscCachedProjectTransform): boolean {
 }
 
 /**
- * Report whether both live notifications can still prove membership. A watcher
+ * Report whether the live notifications can still prove membership. A watcher
  * that failed to register, or that errored after the generation was produced,
  * proves nothing either way — it never proves the generation stale.
  */
@@ -3595,8 +3595,7 @@ function selectExternalInputPaths(props: {
  * Only absent candidates qualify. One that exists is validated by content and
  * physical identity like any other input, and adding it here would replace the
  * generation for a change that cannot affect a resolution the compiler already
- * declined to take. A candidate reached through a link does not qualify either:
- * see the claim rule below.
+ * declined to take.
  */
 function selectNotifiableAbsentInputs(props: {
   filesystem: TtscTransformFilesystemOperations;
@@ -3617,10 +3616,15 @@ function selectNotifiableAbsentInputs(props: {
     props.temporaryTsconfig === undefined
       ? undefined
       : pathIdentityKey(props.temporaryTsconfig, identities);
+  const resolvedProjectRoot = path.resolve(props.projectRoot);
   const output: string[] = [];
   const watched: string[] = [];
   const directories = new Set<string>();
+  // Two namespaces, deliberately not one set: candidates are the paths a
+  // delivery may stop probing, while the chain holds the directories that carry
+  // them. Sharing a set would let one silently answer for the other.
   const seen = new Set<string>();
+  const chain = new Set<string>();
   for (const candidates of Object.values(graph.candidates ?? {})) {
     if (!Array.isArray(candidates)) {
       continue;
@@ -3640,21 +3644,35 @@ function selectNotifiableAbsentInputs(props: {
         continue;
       }
       seen.add(spelling);
-      // Claim the candidate only when nothing between it and its own directory
-      // is a link. A watcher opened on a spelling that traverses one follows it
-      // to a physical directory, so retargeting the link moves the answer while
-      // the watch keeps looking at the old target — the pnpm store layout
-      // exactly. Watching the components instead would mean watching directory
-      // entries, whose attributes move whenever anything is written below them,
-      // and a bundler writing into `node_modules` during a dev session would
-      // then replace the generation on every pass. A candidate reached through
-      // a link keeps the per-delivery probe it always had.
-      const parent = path.dirname(spelling);
-      if (path.resolve(identities.resolve(parent).path) !== parent) {
-        continue;
-      }
       output.push(absolute);
       watched.push(absolute);
+      // Watch the components of the lexical path too, by the name each carries
+      // in its own parent. The watcher a missing path opens follows the
+      // spelling to a physical directory, so retargeting a link along the way
+      // moves the answer without touching what is watched: in a pnpm layout
+      // `node_modules/<pkg>` is exactly such a link, and reinstalling it makes
+      // a candidate appear behind a watch that is still looking at the old
+      // store directory. Watching `<pkg>` inside `node_modules` is what reports
+      // that.
+      //
+      // The walk stops at the project's own enclosing directory, and does not
+      // climb past it. Above that line the components are the machine's own
+      // layout rather than the project's — a system temp directory, a home
+      // directory, the filesystem root — which nobody retargets and which
+      // change constantly for reasons that have nothing to do with this
+      // generation. On Linux an entry's attribute change is reported to a watch
+      // on its parent, so watching those would invalidate the cache every time
+      // an unrelated process touched anything inside them.
+      for (
+        let child = path.dirname(spelling), parent = path.dirname(child);
+        parent !== child && !enclosesProject(child, resolvedProjectRoot);
+        child = parent, parent = path.dirname(child)
+      ) {
+        if (chain.has(child)) break;
+        chain.add(child);
+        watched.push(child);
+        directories.add(parent);
+      }
       directories.add(path.dirname(spelling));
     }
   }
@@ -3670,6 +3688,35 @@ function selectNotifiableAbsentInputs(props: {
   output.sort();
   watched.sort();
   return { candidates: output, watched };
+}
+
+/**
+ * Report whether a directory is the project's own root or an ancestor of it.
+ *
+ * The boundary of what a generation may watch on a candidate's behalf: the
+ * project and whatever it reaches below or beside it are its own layout, while
+ * everything above the project root belongs to the machine.
+ */
+function enclosesProject(directory: string, projectRoot: string): boolean {
+  const relative = path.relative(
+    path.resolve(directory),
+    path.resolve(projectRoot),
+  );
+  // An empty result is the platform saying the two name the same directory,
+  // which it answers for spellings that differ only in case as well. Reading it
+  // as "not the root" is what would let the walk climb one level past it on a
+  // case-insensitive filesystem, which is the whole thing this bound prevents.
+  if (relative.length === 0) {
+    return true;
+  }
+  // `..` alone and `../` climb out; a directory literally named `..x` does not,
+  // which a plain prefix test would misread. The project walk's own containment
+  // check spells it the same way.
+  return (
+    relative !== ".." &&
+    !relative.startsWith(`..${path.sep}`) &&
+    !path.isAbsolute(relative)
+  );
 }
 
 /**
@@ -3902,6 +3949,7 @@ async function transformProject(props: {
   let retainTracker = false;
   let hostInputTracker: TtscProjectMutationTracker | undefined;
   let candidateTracker: TtscProjectMutationTracker | undefined;
+  let retainCandidateTracker = false;
   try {
     const configured = createTransformTsconfig(props, scratchDirectory);
     const temporaryTsconfig =
@@ -3967,12 +4015,12 @@ async function transformProject(props: {
           new Set(),
         )
       : undefined;
-    // The candidates get their own tracker, listening for renames alone. Their
-    // watched names include the directories that carry them, whose attributes
-    // move whenever anything is written below — a bundler writing into
-    // `node_modules` during a dev session, above all — while the events that
-    // can actually change a candidate's answer, its creation and a retarget of
-    // the link leading to it, are renames.
+    // The candidates and the directories carrying them get their own tracker,
+    // listening for renames alone. Those directory entries have their
+    // attributes moved by anything written below them — a bundler writing into
+    // `node_modules` during a dev session, above all — while every event that
+    // can change a candidate's answer is a rename: the file appearing, a
+    // component of the path being created, replaced, or retargeted.
     candidateTracker =
       props.trackProjectMembership && notifiableAbsence.watched.length !== 0
         ? await createHostInputMutationTracker(
@@ -4097,8 +4145,13 @@ async function transformProject(props: {
     if (notifying && candidateTracker !== undefined) {
       cached.candidateMutationTracker = candidateTracker;
     }
+    // Every tracker the generation published is retained, and every tracker it
+    // did not is closed below. Naming only two of the three would close a
+    // published candidate tracker the moment either of the others was absent,
+    // and that is the one tracker whose silence is read as evidence.
     retainTracker =
       notifying && tracker !== undefined && hostInputTracker !== undefined;
+    retainCandidateTracker = notifying && candidateTracker !== undefined;
     return cached;
   } finally {
     try {
@@ -4112,7 +4165,7 @@ async function transformProject(props: {
         }
       } finally {
         try {
-          if (!retainTracker && candidateTracker !== undefined) {
+          if (!retainCandidateTracker && candidateTracker !== undefined) {
             candidateTracker.close();
           }
         } finally {

@@ -7,8 +7,7 @@ import { assertRetargetedCandidateLinkInvalidatesGeneration } from "../../intern
  * The boundary samchon/ttsc#1261's notification proof stands or falls on. A
  * watcher opened on a spelling that traverses a link follows it, so the link's
  * retarget moves the answer while the watch keeps looking at the old target,
- * which is the pnpm store layout exactly. Such a candidate is therefore never
- * claimed, and the probe it keeps is what reports the retarget.
+ * which is the pnpm store layout exactly.
  *
  * 1. Point an unused candidate directory at an empty target through a junction.
  * 2. Deliver one module to capture the generation.
