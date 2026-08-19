@@ -12,9 +12,9 @@ import "github.com/samchon/ttsc/packages/lint/rule"
 // a consumer holding a second copy would hold an unmaintained one.
 //
 // Only selected units are published, which is what makes a document nobody
-// configured a reference for contribute nothing. A withdrawn unit — one that
-// named the tag it hid itself behind — is skipped for the same reason it is
-// never selected: the rule's own answer is that it is not part of the surface.
+// configured a reference for contribute nothing, and what withdraws a unit that
+// named the tag it hid itself behind: selection is where the rule's own answer
+// about its surface already lives, so this asks it rather than repeating it.
 //
 // TypeScript units are not published. The graph already holds every TypeScript
 // declaration as a real node resolved by the checker, and a second node for the
@@ -59,7 +59,12 @@ func (graphRule) GraphNodes(ctx *rule.GraphContext) []rule.GraphNode {
   )
   nodes := make([]rule.GraphNode, 0, len(selected))
   for _, unit := range selected {
-    if unit == nil || unit.Hidden != "" {
+    // No withdrawal check here on purpose. `selectedCompletionUnits` already
+    // excludes a unit that named the tag it hid itself behind, so a second check
+    // would be a branch nothing can reach — and an unreachable guard reads as a
+    // load-bearing one to the next author, who then trusts it instead of the
+    // selection that actually enforces it.
+    if unit == nil {
       continue
     }
     kind, ok := graphNodeKindOf(unit)
