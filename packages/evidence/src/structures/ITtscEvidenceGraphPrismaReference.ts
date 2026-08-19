@@ -30,9 +30,9 @@ export interface ITtscEvidenceGraphPrismaReference extends ITtscEvidenceGraphRef
    * A Prisma target carries no path, so a declared root changes which files
    * belong to the schema set and where a diagnostic points, never how a model
    * is cited. A diagnostic that asks you to correct this property quotes the
-   * spelling you declared, while the file locations beside it stay
-   * project-relative. The resolved patterns are published to the `ttsc` host as
-   * watched inputs.
+   * spelling you declared, while a file location beside it is spelled the way
+   * you would open the file. The resolved patterns are published to the `ttsc`
+   * host as watched inputs.
    */
   root?: string;
 

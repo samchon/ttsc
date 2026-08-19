@@ -47,8 +47,9 @@ export interface ITtscEvidenceGraphClaimBase<Type extends string> {
    * directory that drive currently sits on rather than against a stable base.
    *
    * A diagnostic that asks you to correct this property quotes the spelling you
-   * declared, while the file locations beside it stay project-relative. The
-   * resolved patterns are published to the `ttsc` host as watched inputs.
+   * declared, while a file location beside it is spelled the way you would open
+   * the file. The resolved patterns are published to the `ttsc` host as watched
+   * inputs.
    */
   root?: string;
 

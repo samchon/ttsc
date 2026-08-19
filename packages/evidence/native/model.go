@@ -330,10 +330,12 @@ func (declaration *evidenceDeclaration) valid() bool {
 type artifactInventory struct {
   // Address is the population-relative identity used for units and
   // declarations. It differs from Path when a configured root moves the
-  // address space while diagnostics remain project-relative.
+  // address space while a diagnostic keeps naming the file the way a reader
+  // opens it.
   Address string
-  // Path is the location a diagnostic names: project-relative, ascending with
-  // `..` when the file sits above the project root. It is not the key this
+  // Path is the location a diagnostic names, spelled the way a reader opens it:
+  // project-relative, ascending with `..` when the file sits above the project
+  // root, and absolute when no relative spelling exists. It is not the key this
   // inventory is filed under — that key carries the population base as well,
   // because one file reached through two roots owns two sets of targets.
   Path         string
