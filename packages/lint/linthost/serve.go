@@ -235,9 +235,11 @@ func RunLSPServe(in io.Reader, out io.Writer, args []string) int {
     return 2
   }
   residentPrograms = newResidentProgramCache()
+  residentRules = &residentRuleCache{}
   defer func() {
     residentPrograms.invalidate()
     residentPrograms = nil
+    residentRules = nil
   }()
   encoder := json.NewEncoder(out)
   // ReadString imposes no line-length limit: a request is small, but keeping the
@@ -277,6 +279,7 @@ func handleServeLSPLine(line string, base *lspCommandOptions, encoder *json.Enco
   }
   if req.Invalidate {
     residentPrograms.invalidate()
+    invalidateResidentRules()
   }
   if len(req.Changed) > 0 {
     paths := make([]string, 0, len(req.Changed))

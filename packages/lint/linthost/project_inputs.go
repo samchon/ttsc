@@ -41,7 +41,7 @@ func RunProjectInputs(args []string) int {
 // from RunProjectInputs so the resident daemon can answer the same verb without
 // a process per question, the same split hints and graph-nodes take.
 func computeProjectInputs(opts *lspCommandOptions) (ProjectInputSnapshot, int) {
-  resolver, err := loadRules(opts.pluginsJSON, opts.cwd, opts.tsconfig)
+  resolver, err := acquireRules(opts.pluginsJSON, opts.cwd, opts.tsconfig)
   if err != nil {
     fmt.Fprintln(os.Stderr, err)
     return ProjectInputSnapshot{}, 2

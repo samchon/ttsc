@@ -35,7 +35,7 @@ func RunGraphNodes(args []string) int {
 // RunGraphNodes so a resident loop can reuse it over a warm Program, the same
 // split computeLSPHints takes.
 func computeGraphNodes(opts *lspCommandOptions) ([]publicrule.GraphNode, int) {
-  rules, err := loadRules(opts.pluginsJSON, opts.cwd, opts.tsconfig)
+  rules, err := acquireRules(opts.pluginsJSON, opts.cwd, opts.tsconfig)
   if err != nil {
     fmt.Fprintln(os.Stderr, err)
     return nil, 2

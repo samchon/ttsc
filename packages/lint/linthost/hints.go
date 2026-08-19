@@ -36,7 +36,7 @@ func RunLSPHints(args []string) int {
 // the resident lsp-serve loop reuses it over a warm Program, the same split
 // computeLSPDiagnostics and computeLSPCodeActions already take.
 func computeLSPHints(opts *lspCommandOptions) ([]publicrule.Hint, int) {
-  rules, err := loadRules(opts.pluginsJSON, opts.cwd, opts.tsconfig)
+  rules, err := acquireRules(opts.pluginsJSON, opts.cwd, opts.tsconfig)
   if err != nil {
     fmt.Fprintln(os.Stderr, err)
     return nil, 2

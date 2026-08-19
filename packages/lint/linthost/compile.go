@@ -13,6 +13,7 @@ package linthost
 
 import (
   "context"
+  "crypto/sha256"
   "encoding/json"
   "errors"
   "flag"
@@ -21,6 +22,7 @@ import (
   "os"
   "path/filepath"
   "strings"
+  "sync"
   "time"
 
   shimast "github.com/microsoft/typescript-go/shim/ast"
@@ -391,6 +393,116 @@ func runProject(opts *subcommandOpts) int {
 // loadRules decodes `--plugins-json`, locates the `@ttsc/lint` entry, and
 // returns its resolved RuleResolver. Returns an empty RuleConfig (no rules
 // enabled) when the lint entry is absent from the plugin manifest.
+// residentRules is the resident daemon's memo of one project's loaded rule
+// configuration, installed by RunLSPServe and nil in every one-shot process.
+//
+// Loading rules evaluates the project's `lint.config.ts`, which means standing
+// up a JavaScript runtime — the dominant cost of a verb that builds no Program
+// at all. A one-shot pays it once and exits; the daemon was paying it per
+// request, which is per document edit for a consumer that asks again whenever a
+// file it watches moves.
+var residentRules *residentRuleCache
+
+type residentRuleCache struct {
+  mu       sync.Mutex
+  key      string
+  resolver RuleResolver
+  configs  map[string][sha256.Size]byte
+  // loads counts the evaluations this memo did not avoid.
+  //
+  // It exists because a reuse is otherwise unobservable: a RuleResolver holds
+  // maps, so it is not a comparable type and two of them cannot be asked
+  // whether they are the same one. Without a count, a memo that silently never
+  // hit would satisfy every other property asked of it.
+  loads int
+}
+
+// acquireRules returns the loaded rule configuration, reusing the daemon's memo
+// while the files it was loaded from are unchanged.
+//
+// Validated against those files rather than trusted for the daemon's life. The
+// configuration is a file on disk that an author edits, and a rule set the user
+// has just changed is exactly what a resident consumer must not keep answering
+// from. The set is small — the config and whatever it extends — so re-hashing
+// it costs nothing beside the evaluation it avoids.
+func acquireRules(pluginsJSON, cwd, tsconfigPath string) (RuleResolver, error) {
+  cache := residentRules
+  if cache == nil {
+    return loadRules(pluginsJSON, cwd, tsconfigPath)
+  }
+  key := strings.Join([]string{pluginsJSON, cwd, tsconfigPath}, "\x00")
+  cache.mu.Lock()
+  defer cache.mu.Unlock()
+  if cache.resolver != nil &&
+    cache.key == key &&
+    ruleConfigsUnchanged(cache.configs) {
+    return cache.resolver, nil
+  }
+  cache.loads++
+  resolver, err := loadRules(pluginsJSON, cwd, tsconfigPath)
+  if err != nil {
+    // A failed load clears the memo rather than leaving the previous answer
+    // reachable: the next request has to see the same failure, not a rule set
+    // from before the edit that broke it.
+    cache.resolver = nil
+    cache.configs = nil
+    return nil, err
+  }
+  cache.key = key
+  cache.resolver = resolver
+  cache.configs = hashRuleConfigs(resolver)
+  return resolver, nil
+}
+
+// invalidateResidentRules drops the memo. Called for the same control that
+// drops the resident Program, so a client that cannot localize a change gets a
+// full reload of both.
+func invalidateResidentRules() {
+  cache := residentRules
+  if cache == nil {
+    return
+  }
+  cache.mu.Lock()
+  defer cache.mu.Unlock()
+  cache.resolver = nil
+  cache.configs = nil
+}
+
+// hashRuleConfigs records the content of every file the resolver was built
+// from. A resolver naming none records none, and a memo with no recorded file
+// is never reused — it could not prove anything.
+func hashRuleConfigs(resolver RuleResolver) map[string][sha256.Size]byte {
+  source, ok := resolver.(interface{ ConfigPaths() []string })
+  if !ok {
+    return nil
+  }
+  configs := map[string][sha256.Size]byte{}
+  for _, location := range source.ConfigPaths() {
+    contents, err := os.ReadFile(location)
+    if err != nil {
+      return nil
+    }
+    configs[location] = sha256.Sum256(contents)
+  }
+  if len(configs) == 0 {
+    return nil
+  }
+  return configs
+}
+
+func ruleConfigsUnchanged(configs map[string][sha256.Size]byte) bool {
+  if len(configs) == 0 {
+    return false
+  }
+  for location, recorded := range configs {
+    contents, err := os.ReadFile(location)
+    if err != nil || sha256.Sum256(contents) != recorded {
+      return false
+    }
+  }
+  return true
+}
+
 func loadRules(pluginsJSON, cwd, tsconfigPath string) (RuleResolver, error) {
   entries, err := ParsePlugins(pluginsJSON)
   if err != nil {
