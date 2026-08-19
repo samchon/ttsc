@@ -252,6 +252,7 @@ function artifactInputs(
     );
     if (result.status !== 0 || typeof result.stdout !== "string") continue;
     let snapshot: {
+      root?: string;
       files?: string[];
       globs?: string[];
       reloadFiles?: string[];
@@ -262,14 +263,20 @@ function artifactInputs(
     } catch {
       continue;
     }
+    // The snapshot names the base its own paths are relative to. It normalizes
+    // them to absolute today, so this changes nothing now and is what keeps a
+    // relative answer from being resolved against the wrong directory later —
+    // silently, since a path that does not exist states itself absent and reads
+    // as a project whose documents were all deleted.
+    const base = snapshot.root ?? options.cwd;
     for (const file of [
       ...(snapshot.files ?? []),
       ...(snapshot.reloadFiles ?? []),
     ])
-      files.push(absolute(file, options.cwd));
+      files.push(absolute(file, base));
     for (const pattern of snapshot.globs ?? []) {
-      const directory = watchedBy(pattern, options.cwd);
-      if (directory === null) files.push(absolute(pattern, options.cwd));
+      const directory = watchedBy(pattern, base);
+      if (directory === null) files.push(absolute(pattern, base));
       else directories.push(directory);
     }
     // A reload directory is a resolution anchor, not a content tree. `@ttsc/lint`
@@ -279,10 +286,7 @@ function artifactInputs(
     // over-invalidates, restarting on any descendant edit, and states the whole
     // dependency tree before every graph request.
     for (const directory of snapshot.reloadDirectories ?? [])
-      directories.push({
-        path: absolute(directory, options.cwd),
-        recursive: false,
-      });
+      directories.push({ path: absolute(directory, base), recursive: false });
   }
   // A directory named twice is walked once, and a recursive claim wins: two
   // patterns over one tree, one descending and one not, must not leave the
