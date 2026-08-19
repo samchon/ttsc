@@ -444,7 +444,7 @@ func TestAnAbsoluteRootWithBackslashesIsStoredWithSlashes(t *testing.T) {
 func TestARootThatCouldNotBeExaminedIsNotCalledMissing(t *testing.T) {
   base := resolvePopulationBase(filepath.Join(t.TempDir(), "project"), "../contracts")
   denied := &fs.PathError{Op: "stat", Path: base.Absolute, Err: fs.ErrPermission}
-  unexaminable := baseDirectoryProblem(base, artifactMarkdown, false, denied)
+  unexaminable := describeBaseDirectoryProblem(base, artifactMarkdown, false, denied)
   for _, expected := range []string{
     "could not examine the markdown root '../contracts'",
     "which resolves to '",
@@ -460,7 +460,7 @@ func TestARootThatCouldNotBeExaminedIsNotCalledMissing(t *testing.T) {
     t.Fatalf("a directory that may already exist is not created:\n%s", unexaminable)
   }
 
-  absent := baseDirectoryProblem(
+  absent := describeBaseDirectoryProblem(
     base,
     artifactMarkdown,
     false,

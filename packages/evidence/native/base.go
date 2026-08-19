@@ -275,7 +275,11 @@ func configuredBases(config graphConfig, kind artifactKind) []populationBase {
 //
 // The absolute fallback belongs to the default base alone, which is the only
 // base with no declared spelling, and the project root is then the only thing
-// left to name.
+// left to name. Of the three callers, `unlistableBaseProblem` is the one that
+// reaches it: `describePopulation` and `baseDirectoryProblem` both return
+// on the default base before they name anything. That message asks for
+// filesystem access rather than for an edit to a property that is not there,
+// which is what makes the spelling usable where no property exists.
 func populationRootLabel(base populationBase) string {
   if base.Declared == "" {
     return filepath.ToSlash(base.Absolute)
@@ -283,17 +287,23 @@ func populationRootLabel(base populationBase) string {
   return base.Declared
 }
 
-// missingBaseDirectoryProblem reports a declared root that is not an existing
-// directory.
+// baseDirectoryProblem reports a declared root that is not a usable directory.
 //
 // The observation and the sentence are separate functions because the sentence
-// has four shapes and the observation has one, and only the sentence can be put
-// in front of a reader without a filesystem in the state it describes.
+// branches on the artifact kind as well as on what the stat found, while the
+// observation is one call, and because only the sentence can be put in front of
+// a reader without a filesystem in the state it describes.
+//
+// The name says neither "missing" nor "read". Not missing, because the path may
+// be occupied by a file or hidden behind a parent this process may not enter,
+// and both of those are present. Not read, because the third of its three
+// callers materializes from the Program and reads nothing while asking the same
+// question the two walkers ask.
 //
 // The default base is excluded because `Check` already validated the project
 // root, and its diagnostic names the ttsc project identity as the repair rather
 // than a configuration property that does not exist there.
-func missingBaseDirectoryProblem(base populationBase, kind artifactKind) string {
+func baseDirectoryProblem(base populationBase, kind artifactKind) string {
   if base.Default {
     return ""
   }
@@ -301,10 +311,10 @@ func missingBaseDirectoryProblem(base populationBase, kind artifactKind) string 
   if err == nil && info.IsDir() {
     return ""
   }
-  return baseDirectoryProblem(base, kind, err == nil, err)
+  return describeBaseDirectoryProblem(base, kind, err == nil, err)
 }
 
-// baseDirectoryProblem says what a declared root is instead of a directory, and
+// describeBaseDirectoryProblem says what a declared root is instead of a directory, and
 // what to do about it.
 //
 // Three states reach it, and each one owns a repair the other two cannot be
@@ -325,9 +335,7 @@ func missingBaseDirectoryProblem(base populationBase, kind artifactKind) string 
 //
 // The Markdown and Prisma messages may still lead with "could not read",
 // because the walk each of those callers is about to run is the read the root
-// exists to serve, and it is skipped only because the root is not there. The
-// predicate's own name may not, because the third caller reads nothing and asks
-// the same question.
+// exists to serve, and it is skipped only because the root is not there.
 //
 // Both spellings appear, and only while they differ. The declared one is the
 // property the author has to edit, and the resolved one is where that property
@@ -367,7 +375,7 @@ func missingBaseDirectoryProblem(base populationBase, kind artifactKind) string 
 // for what the directory must hold, and the split is disk against Program
 // rather than one noun against another: the walkers want the sources on disk,
 // and TypeScript wants them in the Program.
-func baseDirectoryProblem(
+func describeBaseDirectoryProblem(
   base populationBase,
   kind artifactKind,
   occupied bool,

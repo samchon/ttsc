@@ -234,7 +234,7 @@ func configuredPrismaAddressesWithHealth(
   failedBases := []populationBase{}
   problems := []string{}
   for _, base := range configuredBases(config, artifactPrisma) {
-    if problem := missingBaseDirectoryProblem(base, artifactPrisma); problem != "" {
+    if problem := baseDirectoryProblem(base, artifactPrisma); problem != "" {
       problems = append(problems, problem)
       failedBases = append(failedBases, base)
       continue

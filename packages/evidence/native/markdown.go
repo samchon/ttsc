@@ -41,7 +41,7 @@ func loadMarkdownBase(
   inventories map[string]*artifactInventory,
 ) []string {
   problems := []string{}
-  if problem := missingBaseDirectoryProblem(base, artifactMarkdown); problem != "" {
+  if problem := baseDirectoryProblem(base, artifactMarkdown); problem != "" {
     recordPopulationFailure(inventories, artifactMarkdown, base)
     return []string{problem}
   }

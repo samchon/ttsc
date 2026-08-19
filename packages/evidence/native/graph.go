@@ -175,7 +175,7 @@ func claimPopulationConfig(
 //
 // Health is the whole test, and a declared root that is not a directory is one
 // of the things it now answers for every kind rather than for two of them.
-// Asking missingBaseDirectoryProblem again here kept a TypeScript claim alive
+// Asking baseDirectoryProblem again here kept a TypeScript claim alive
 // on a fact this function then had no way to report, which is how a bad root
 // came to be answered with a glob diagnostic.
 func activeGraphConfig(
