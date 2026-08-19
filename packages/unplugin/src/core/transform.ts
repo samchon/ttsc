@@ -154,6 +154,18 @@ export interface TtscCachedProjectTransform {
   /** Live notification state for universal host-input changes. */
   hostInputMutationTracker?: TtscProjectMutationTracker;
   /**
+   * Live notification state for the generation's absent resolution candidates
+   * and the directories that carry them.
+   *
+   * Separate from the universal-input tracker because it listens for a
+   * different thing. A candidate appears, or the link leading to it is
+   * retargeted, and both are renames; the entries it watches are directories
+   * whose attributes move whenever anything is written below them, which in a
+   * dev server is constantly. Listening for every event on those names would
+   * replace the generation each time a bundler wrote inside `node_modules`.
+   */
+  candidateMutationTracker?: TtscProjectMutationTracker;
+  /**
    * Universal descriptor/config inputs proven once at generation time, then by
    * metadata.
    *
@@ -624,9 +636,11 @@ function disposeCachedTransform(cached: TtscCachedProjectTransform): void {
   const trackers = [
     cached.projectMutationTracker,
     cached.hostInputMutationTracker,
+    cached.candidateMutationTracker,
   ];
   cached.projectMutationTracker = undefined;
   cached.hostInputMutationTracker = undefined;
+  cached.candidateMutationTracker = undefined;
   for (const tracker of trackers) tracker?.close();
 }
 
@@ -1653,7 +1667,7 @@ function notifiesAbsence(
   cached: TtscCachedProjectTransform,
   input: string,
 ): boolean {
-  const tracker = cached.hostInputMutationTracker;
+  const tracker = cached.candidateMutationTracker;
   return (
     tracker !== undefined &&
     !tracker.failed &&
@@ -2886,6 +2900,7 @@ async function createHostInputMutationTracker(
   inputs: readonly string[],
   filesystem: TtscTransformFilesystemOperations,
   covered: ReadonlySet<string>,
+  events: "all" | "rename" = "all",
 ): Promise<TtscProjectMutationTracker> {
   const identities = createHostPathIdentityContext(filesystem);
   const namesByDirectory = new Map<
@@ -2933,7 +2948,7 @@ async function createHostInputMutationTracker(
     await registerWindowsProjectMutationTracker(
       tracker,
       locations,
-      true,
+      events === "all",
       filesystem,
     );
     return tracker;
@@ -2951,7 +2966,10 @@ async function createHostInputMutationTracker(
         openDirectoryWatch(
           filesystem,
           location.directory,
-          (_eventType, filename) => {
+          (eventType, filename) => {
+            if (events === "rename" && eventType !== "rename") {
+              return;
+            }
             const reported =
               filename === null
                 ? null
@@ -3243,7 +3261,8 @@ const WINDOWS_WATCH_BROKER_SOURCE = [
 function reportsMembershipChange(cached: TtscCachedProjectTransform): boolean {
   return (
     cached.projectMutationTracker?.membershipChanged === true ||
-    cached.hostInputMutationTracker?.membershipChanged === true
+    cached.hostInputMutationTracker?.membershipChanged === true ||
+    cached.candidateMutationTracker?.membershipChanged === true
   );
 }
 
@@ -3263,7 +3282,10 @@ function notificationsProveMembership(
       return false;
     }
   }
-  return true;
+  // The candidate tracker is optional: a generation with no absent candidate
+  // opens none, and one that declined to watch them left the per-delivery probe
+  // in place. Only a tracker that exists and has failed withdraws the proof.
+  return cached.candidateMutationTracker?.failed !== true;
 }
 
 /**
@@ -3295,6 +3317,7 @@ async function settleProjectMutationEvents(
   const trackers = [
     cached.projectMutationTracker,
     cached.hostInputMutationTracker,
+    cached.candidateMutationTracker,
   ].filter(
     (tracker): tracker is TtscProjectMutationTracker => tracker !== undefined,
   );
@@ -3593,6 +3616,7 @@ function selectNotifiableAbsentInputs(props: {
     props.temporaryTsconfig === undefined
       ? undefined
       : pathIdentityKey(props.temporaryTsconfig, identities);
+  const resolvedProjectRoot = path.resolve(props.projectRoot);
   const output: string[] = [];
   const watched: string[] = [];
   const directories = new Set<string>();
@@ -3641,7 +3665,7 @@ function selectNotifiableAbsentInputs(props: {
       // an unrelated process touched anything inside them.
       for (
         let child = path.dirname(spelling), parent = path.dirname(child);
-        parent !== child && !enclosesProject(child, props.projectRoot);
+        parent !== child && !enclosesProject(child, resolvedProjectRoot);
         child = parent, parent = path.dirname(child)
       ) {
         if (chain.has(child)) break;
@@ -3674,15 +3698,23 @@ function selectNotifiableAbsentInputs(props: {
  * everything above the project root belongs to the machine.
  */
 function enclosesProject(directory: string, projectRoot: string): boolean {
-  const root = path.resolve(projectRoot);
-  const current = path.resolve(directory);
-  if (current === root) {
+  const relative = path.relative(
+    path.resolve(directory),
+    path.resolve(projectRoot),
+  );
+  // An empty result is the platform saying the two name the same directory,
+  // which it answers for spellings that differ only in case as well. Reading it
+  // as "not the root" is what would let the walk climb one level past it on a
+  // case-insensitive filesystem, which is the whole thing this bound prevents.
+  if (relative.length === 0) {
     return true;
   }
-  const relative = path.relative(current, root);
+  // `..` alone and `../` climb out; a directory literally named `..x` does not,
+  // which a plain prefix test would misread. The project walk's own containment
+  // check spells it the same way.
   return (
-    relative.length !== 0 &&
-    !relative.startsWith("..") &&
+    relative !== ".." &&
+    !relative.startsWith(`..${path.sep}`) &&
     !path.isAbsolute(relative)
   );
 }
@@ -3916,6 +3948,7 @@ async function transformProject(props: {
   let tracker: TtscProjectMutationTracker | undefined;
   let retainTracker = false;
   let hostInputTracker: TtscProjectMutationTracker | undefined;
+  let candidateTracker: TtscProjectMutationTracker | undefined;
   try {
     const configured = createTransformTsconfig(props, scratchDirectory);
     const temporaryTsconfig =
@@ -3973,15 +4006,29 @@ async function transformProject(props: {
     });
     hostInputTracker = props.trackProjectMembership
       ? await createHostInputMutationTracker(
-          [...persistentHostInputs, ...notifiableAbsence.watched],
+          persistentHostInputs,
           props.filesystem,
-          // Only the candidates are claimed. A universal input never reaches
-          // the per-input loop that consults this: an absent one is proven by
-          // its directory listing instead, which re-resolves the spelling every
-          // delivery and needs no claim from here.
-          new Set(notifiableAbsence.candidates),
+          // A universal input never reaches the per-input loop that consults a
+          // coverage claim: an absent one is proven by its directory listing
+          // instead, which re-resolves the spelling every delivery.
+          new Set(),
         )
       : undefined;
+    // The candidates get their own tracker, listening for renames alone. Their
+    // watched names include the directories that carry them, whose attributes
+    // move whenever anything is written below — a bundler writing into
+    // `node_modules` during a dev session, above all — while the events that
+    // can actually change a candidate's answer, its creation and a retarget of
+    // the link leading to it, are renames.
+    candidateTracker =
+      props.trackProjectMembership && notifiableAbsence.watched.length !== 0
+        ? await createHostInputMutationTracker(
+            notifiableAbsence.watched,
+            props.filesystem,
+            new Set(notifiableAbsence.candidates),
+            "rename",
+          )
+        : undefined;
     const externalInputPaths = selectExternalInputPaths({
       filesystem: props.filesystem,
       projectRoot,
@@ -4017,9 +4064,12 @@ async function transformProject(props: {
         inputSnapshot.projectDirectories,
       ) &&
       tracker?.membershipChanged !== true &&
-      hostInputTracker?.membershipChanged !== true;
+      hostInputTracker?.membershipChanged !== true &&
+      candidateTracker?.membershipChanged !== true;
     const notificationsAvailable =
-      tracker?.failed !== true && hostInputTracker?.failed !== true;
+      tracker?.failed !== true &&
+      hostInputTracker?.failed !== true &&
+      candidateTracker?.failed !== true;
     // Overlay the in-memory source only after proving the two on-disk snapshots
     // stable; an unsaved editor buffer must not look like a compile-time race.
     const currentFileKey = toProjectKey(
@@ -4091,6 +4141,9 @@ async function transformProject(props: {
     if (notifying && hostInputTracker !== undefined) {
       cached.hostInputMutationTracker = hostInputTracker;
     }
+    if (notifying && candidateTracker !== undefined) {
+      cached.candidateMutationTracker = candidateTracker;
+    }
     retainTracker =
       notifying && tracker !== undefined && hostInputTracker !== undefined;
     return cached;
@@ -4105,7 +4158,13 @@ async function transformProject(props: {
           hostInputTracker.close();
         }
       } finally {
-        fs.rmSync(scratchDirectory, { force: true, recursive: true });
+        try {
+          if (!retainTracker && candidateTracker !== undefined) {
+            candidateTracker.close();
+          }
+        } finally {
+          fs.rmSync(scratchDirectory, { force: true, recursive: true });
+        }
       }
     }
   }
