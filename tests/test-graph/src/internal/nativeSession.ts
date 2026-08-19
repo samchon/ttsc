@@ -45,6 +45,28 @@ export function pendingCount(session: TtscGraphSession): number {
   ).pending.size;
 }
 
+/** Every request line the fake child received, in order, parsed. */
+export function readRequests(root: string): Record<string, unknown>[] {
+  return readLines(path.join(root, "requests.log")).map(
+    (line) => JSON.parse(line) as Record<string, unknown>,
+  );
+}
+
+/** The flags each fake child was spawned with, one entry per child. */
+export function readSpawnArguments(root: string): string[][] {
+  return readLines(path.join(root, "arguments.log")).map(
+    (line) => JSON.parse(line) as string[],
+  );
+}
+
+function readLines(file: string): string[] {
+  if (!fs.existsSync(file)) return [];
+  return fs
+    .readFileSync(file, "utf8")
+    .split(/\r?\n/u)
+    .filter((line) => line.trim() !== "");
+}
+
 export function readPids(root: string): number[] {
   const file = path.join(root, "pids.log");
   if (!fs.existsSync(file)) return [];

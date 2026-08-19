@@ -37,6 +37,7 @@ func main() {
     os.Exit(2)
   }
   recordPID(cwd)
+  recordArguments(cwd)
 
   switch cfg.Mode {
   case "hang":
@@ -423,6 +424,33 @@ func argument(name string) string {
   return ""
 }
 
+// recordArguments writes the flags this child was spawned with, so a case can
+// pin what the client passes rather than what it says it passes.
+func recordArguments(cwd string) {
+  encoded, err := json.Marshal(os.Args[1:])
+  if err != nil {
+    fmt.Fprintln(os.Stderr, err)
+    os.Exit(2)
+  }
+  appendLine(filepath.Join(cwd, "arguments.log"), string(encoded))
+}
+
+// recordRequest writes one received request line verbatim, which is the only
+// place a case can see what the client actually put on the wire.
+func recordRequest(cwd string, line []byte) {
+  appendLine(filepath.Join(cwd, "requests.log"), string(line))
+}
+
+func appendLine(file, line string) {
+  handle, err := os.OpenFile(file, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600)
+  if err != nil {
+    fmt.Fprintln(os.Stderr, err)
+    os.Exit(2)
+  }
+  defer handle.Close()
+  fmt.Fprintln(handle, line)
+}
+
 func recordPID(cwd string) {
   file, err := os.OpenFile(filepath.Join(cwd, "pids.log"), os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600)
   if err != nil {
@@ -472,6 +500,7 @@ func serve(cwd string, cfg config, stallAfterFirst bool) {
   initial := true
   requests := 0
   for scanner.Scan() {
+    recordRequest(cwd, scanner.Bytes())
     var req request
     if err := json.Unmarshal(scanner.Bytes(), &req); err != nil {
       fmt.Fprintln(os.Stderr, err)
