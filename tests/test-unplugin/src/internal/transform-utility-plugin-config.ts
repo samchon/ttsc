@@ -933,7 +933,7 @@ function createNestedUtilityPluginProject(props: {
   plugin: "banner" | "strip";
   outerConfig?: string;
   source: string;
-}): { middle: string; outer: string; root: string } {
+}): { middle: string; root: string } {
   const outer = TestProject.tmpdir(`ttsc-${props.plugin}-outer-`);
   const middle = path.join(outer, "packages");
   const root = path.join(middle, "app");
@@ -971,7 +971,7 @@ function createNestedUtilityPluginProject(props: {
     );
   }
   seedUtilityPlugin(root, props.plugin);
-  return { middle, outer, root };
+  return { middle, root };
 }
 
 /**
@@ -1004,12 +1004,22 @@ async function assertPersistentBannerConfigSupersessionInvalidatesTransform() {
   );
   assert.ok(first);
   assert.match(first.code, /OUTER BANNER/);
-
-  fs.writeFileSync(
-    path.join(middle, "banner.config.json"),
-    JSON.stringify({ text: "NEARER BANNER" }),
-    "utf8",
+  const nearer = path.join(middle, "banner.config.json");
+  const cached = (await [...cache.values()][0]!) as {
+    result?: { hostInputs?: string[] };
+  };
+  // The declaration itself, not only its effect: the path has to be in the
+  // envelope for a consumer to watch it at all, and asserting the effect alone
+  // cannot tell an invalidation apart from a generation that was never
+  // reusable.
+  assert.ok(
+    cached.result?.hostInputs?.some(
+      (input) => path.resolve(input) === path.resolve(nearer),
+    ),
+    `the superseding candidate is missing from the envelope: ${JSON.stringify(cached.result?.hostInputs ?? [])}`,
   );
+
+  fs.writeFileSync(nearer, JSON.stringify({ text: "NEARER BANNER" }), "utf8");
   const second = await transformTtsc(
     file,
     source,
@@ -1020,6 +1030,57 @@ async function assertPersistentBannerConfigSupersessionInvalidatesTransform() {
   assert.ok(second);
   assert.match(second.code, /NEARER BANNER/);
   assert.doesNotMatch(second.code, /OUTER BANNER/);
+}
+
+/**
+ * Asserts an unrelated file in a probed directory does not invalidate anything.
+ *
+ * The twin of the supersession case. The probes make a set of paths matter that
+ * did not before, and a generation that woke for any neighbour of them would
+ * trade one defect for a worse one: the config directories are ordinary
+ * directories with ordinary traffic.
+ */
+async function assertUnrelatedFileInAProbedDirectoryKeepsTheGeneration() {
+  const { createTtscTransformCache, resolveOptions, transformTtsc } =
+    await TestUnpluginRuntime.loadUnpluginApi();
+  const { middle, root } = createNestedUtilityPluginProject({
+    outerConfig: JSON.stringify({ text: "OUTER BANNER" }),
+    plugin: "banner",
+    source: 'export const value: string = "kept";\n',
+  });
+  const file = path.join(root, "src", "main.ts");
+  const source = fs.readFileSync(file, "utf8");
+  const cache = createTtscTransformCache();
+  const first = await transformTtsc(
+    file,
+    source,
+    resolveOptions(),
+    undefined,
+    cache,
+  );
+  assert.ok(first);
+  const firstGeneration = [...cache.values()][0];
+
+  fs.writeFileSync(
+    path.join(middle, "unrelated.json"),
+    JSON.stringify({ text: "IGNORED" }),
+    "utf8",
+  );
+  const second = await transformTtsc(
+    file,
+    source,
+    resolveOptions(),
+    undefined,
+    cache,
+  );
+
+  assert.ok(second);
+  assert.equal(
+    [...cache.values()][0],
+    firstGeneration,
+    "a neighbour of a probed candidate must not replace the generation",
+  );
+  assert.match(second.code, /OUTER BANNER/);
 }
 
 /**
@@ -1077,6 +1138,7 @@ export {
   assertAliasOverlayResolvesRelativeConfigFile,
   assertPersistentBannerConfigEditInvalidatesTransform,
   assertPersistentBannerConfigSupersessionInvalidatesTransform,
+  assertUnrelatedFileInAProbedDirectoryKeepsTheGeneration,
   assertPersistentStripDefaultsYieldToAnAppearingConfig,
   assertPersistentUtilityConfigDependencyEditInvalidatesTransform,
   assertPersistentUtilityConfigLinkRetargetInvalidatesTransform,

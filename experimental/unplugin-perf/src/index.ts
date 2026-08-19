@@ -100,6 +100,9 @@ async function main(): Promise<void> {
       count: 50,
       emitExternalKey: false,
       graphFanout: 50,
+      // One partitioned external, the config chain and the delivered file's own
+      // entry. Nothing here may grow with the envelope's size.
+      lstatBudget: 8,
       partitionExternalInputs: true,
       unrelatedDirectoryCount: 100,
     }),
@@ -140,7 +143,8 @@ async function main(): Promise<void> {
     "  invariant: the derived set collapses to the reported dependencies, the",
   );
   console.log(
-    "  config chain and the candidates, so only the candidate probe is left\n",
+    "  config chain and the candidates, and stays measurably below the same\n" +
+      "  shape without the declaration\n",
   );
   recordFailure(
     failures,
@@ -150,6 +154,12 @@ async function main(): Promise<void> {
       emitExternalKey: false,
       graphFanout: sharedClosureModules,
       graphGlobals: 50,
+      // What the producer declared: its reported dependencies (the chain
+      // sibling and every external) plus the universal inputs. The globals and
+      // the reach that the declaration drops must not reappear, which is the
+      // claim this scenario exists to hold, so the budget sits below the
+      // undeclared scenario above rather than at a round number.
+      lstatBudget: 60,
       partitionExternalInputs: false,
       unrelatedDirectoryCount: 100,
     }),
@@ -266,6 +276,14 @@ interface MeasureOptions {
    * closure states its own budget instead of hiding the cost under the
    * membership one.
    */
+  /**
+   * Metadata calls one delivery may spend on the file's own derived inputs.
+   *
+   * The term the declaration path owns: it is the size of what the producer
+   * declared, or the whole reference closure when it declared nothing, so a
+   * scenario states the number its own envelope justifies.
+   */
+  lstatBudget?: number;
   statsBudget?: number;
   /** Unrelated nested project directories used to gate membership-stat cost. */
   unrelatedDirectoryCount?: number;
@@ -554,6 +572,7 @@ async function measureServeValidation(
   );
   const readsPerFile = harness.counters.reads / options.count;
   const statsPerFile = harness.counters.stats / options.count;
+  const lstatsPerFile = harness.counters.lstats / options.count;
   if (pluginRuns !== 1) {
     return `serve validation N=${options.count} K=${options.graphFanout} G=${options.graphGlobals ?? 0}: pluginRuns=${pluginRuns} (expected 1)`;
   }
@@ -561,9 +580,13 @@ async function measureServeValidation(
     return `serve validation N=${options.count} K=${options.graphFanout} G=${options.graphGlobals ?? 0}: reads/file=${readsPerFile.toFixed(1)} exceeds the per-file validation budget of 16`;
   }
   const statsBudget = options.statsBudget ?? MEMBERSHIP_STAT_BUDGET;
-  return statsPerFile <= statsBudget
+  if (statsPerFile > statsBudget) {
+    return `serve validation N=${options.count} dirs=${options.unrelatedDirectoryCount}: stats/file=${statsPerFile.toFixed(1)} exceeds the budget of ${statsBudget}`;
+  }
+  const lstatBudget = options.lstatBudget;
+  return lstatBudget === undefined || lstatsPerFile <= lstatBudget
     ? undefined
-    : `serve validation N=${options.count} dirs=${options.unrelatedDirectoryCount}: stats/file=${statsPerFile.toFixed(1)} exceeds the budget of ${statsBudget}`;
+    : `serve validation N=${options.count} K=${options.graphFanout} G=${options.graphGlobals ?? 0}: lstats/file=${lstatsPerFile.toFixed(1)} exceeds the budget of ${lstatBudget}`;
 }
 
 /**

@@ -9,6 +9,7 @@ import (
   "os/exec"
 
   _ "github.com/samchon/ttsc/packages/banner/driver"
+  "github.com/samchon/ttsc/packages/ttsc/driver"
   _ "unsafe"
 )
 
@@ -25,7 +26,7 @@ func bannerValidateBannerConfig(config map[string]any) error
 func bannerTextFromConfigValue(raw any, label string) (string, bool, error)
 
 //go:linkname bannerFindBannerConfigFile github.com/samchon/ttsc/packages/banner/driver.findBannerConfigFile
-func bannerFindBannerConfigFile(cwd, tsconfigPath string) (string, []string, error)
+func bannerFindBannerConfigFile(cwd, tsconfigPath string) (string, []driver.ConfigCandidate, error)
 
 //go:linkname bannerResolveBannerConfigPath github.com/samchon/ttsc/packages/banner/driver.resolveBannerConfigPath
 func bannerResolveBannerConfigPath(configPath, cwd, tsconfigPath string) string

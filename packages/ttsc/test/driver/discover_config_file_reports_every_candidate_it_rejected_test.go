@@ -47,8 +47,11 @@ func TestDiscoverConfigFileReportsEveryCandidateItRejected(t *testing.T) {
     t.Fatalf("expected %d rejected candidates, got %d: %v", len(expected), len(discovery.Probed), discovery.Probed)
   }
   for _, candidate := range discovery.Probed {
-    if _, ok := expected[candidate]; !ok {
-      t.Fatalf("unexpected rejected candidate %q in %v", candidate, discovery.Probed)
+    if _, ok := expected[candidate.Path]; !ok {
+      t.Fatalf("unexpected rejected candidate %q in %v", candidate.Path, discovery.Probed)
+    }
+    if candidate.Directory {
+      t.Fatalf("expected %q classified as absent, not as a directory", candidate.Path)
     }
   }
 }

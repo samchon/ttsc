@@ -1,4 +1,5 @@
 import { DynamicExecutor } from "@nestia/e2e";
+import fs from "node:fs";
 
 /**
  * Shared feature-test runner used by the package-shaped test projects.
@@ -42,8 +43,12 @@ export namespace TestExecutor {
     let finished = false;
     process.on("exit", (code) => {
       if (!finished && code === 0) {
-        console.error(
-          "The runner exited before finishing. Every case after the last one printed above was never run.",
+        // Written synchronously: the process is already exiting, and an async
+        // write to a pipe (which is how CI captures this) can be dropped before
+        // it flushes, leaving a failed run with no reason attached.
+        fs.writeSync(
+          2,
+          "The runner exited before finishing. Every case after the last one printed above was never run.\n",
         );
         process.exitCode = 1;
       }

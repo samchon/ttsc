@@ -395,6 +395,168 @@ async function assertSynchronousMembershipChangeReachesTheNextDelivery(): Promis
 }
 
 /**
+ * Asserts a candidate whose watch could not be opened is still probed.
+ *
+ * The bound samchon/ttsc#1261 rests on: only a candidate the tracker actually
+ * covers may skip its own check. A host that refuses watch registrations —
+ * inotify exhausted, a network filesystem, a sandbox — has no notification to
+ * offer, so the delivery must go back to asking the filesystem rather than
+ * trusting a channel that was never opened.
+ *
+ * 1. Build a project whose envelope stamps missing candidates, with a cache whose
+ *    watch registration always fails.
+ * 2. Deliver one module to capture the generation, then reset the counters.
+ * 3. Deliver the rest and assert the candidate paths were checked.
+ */
+async function assertUnwatchedAbsentCandidateIsStillProbed(): Promise<void> {
+  const { createTtscTransformCache, resolveOptions, transformTtsc } =
+    await TestUnpluginRuntime.loadUnpluginApi();
+  const graphCandidates = 3;
+  const project = createCacheProject({
+    fileCount: 4,
+    graphCandidates,
+    graphFanout: 4,
+  });
+  const candidates = new Set(
+    Array.from({ length: graphCandidates }, (_, index) =>
+      path.resolve(
+        path.join(project.root, "node_modules", `dep${index}`, "index.ts"),
+      ),
+    ),
+  );
+  const probes = { calls: 0 };
+  const count = (location: string): void => {
+    if (candidates.has(path.resolve(location))) probes.calls += 1;
+  };
+  const cache = createTtscTransformCache({
+    exists: (location: string) => {
+      count(location);
+      return fs.existsSync(location);
+    },
+    lstat: (location: string) => {
+      count(location);
+      return fs.lstatSync(location, { bigint: true });
+    },
+    readFile: (location: string) => {
+      count(location);
+      return fs.readFileSync(location);
+    },
+    stat: (location: string) => {
+      count(location);
+      return fs.statSync(location);
+    },
+    statBigInt: (location: string) => {
+      count(location);
+      return fs.statSync(location, { bigint: true });
+    },
+    watch: () => {
+      const error = new Error(
+        "watch registration refused",
+      ) as NodeJS.ErrnoException;
+      error.code = "ENOSPC";
+      throw error;
+    },
+  });
+  const modules = projectModules(project.root);
+  const options = resolveOptions();
+  const deliver = async (file: string): Promise<void> => {
+    const result = await transformTtsc(
+      file,
+      fs.readFileSync(file, "utf8"),
+      options,
+      undefined,
+      cache,
+    );
+    assert.ok(result, `expected transformed output for ${file}`);
+  };
+
+  await deliver(modules[0]!);
+  assert.equal(fs.readFileSync(project.runLog, "utf8").length, 1);
+
+  probes.calls = 0;
+  for (const file of modules.slice(1)) {
+    await deliver(file);
+  }
+
+  assert.equal(fs.readFileSync(project.runLog, "utf8").length, 1);
+  assert.ok(
+    probes.calls > 0,
+    "a candidate no watcher covers must still be checked on the filesystem",
+  );
+}
+
+/**
+ * Asserts an absent candidate reached through a link still invalidates when the
+ * link is retargeted.
+ *
+ * The proof samchon/ttsc#1261 rests on is a watcher, and a watcher opened on a
+ * spelling that traverses a link follows it to a physical directory:
+ * retargeting the link moves the answer without touching what is watched. That
+ * is the pnpm layout exactly, where `node_modules/<package>` is a link into a
+ * store, so a reinstall makes a superseding candidate appear behind a watch
+ * still looking at the old store directory. Watching each component of the
+ * spelling by the name it carries in its own parent is what reports it.
+ *
+ * 1. Point a candidate's directory at an empty target through a link, so no
+ *    realized input lives under it and only the candidate is at stake.
+ * 2. Deliver one module to capture the generation.
+ * 3. Retarget the link at a directory that does carry the candidate, and assert
+ *    the next delivery recompiled.
+ */
+async function assertRetargetedCandidateLinkInvalidatesGeneration(): Promise<void> {
+  const { createTtscTransformCache, resolveOptions, transformTtsc } =
+    await TestUnpluginRuntime.loadUnpluginApi();
+  // Fanout 1 keeps every realized edge target under `dep0`, while the second
+  // candidate points at `dep1`, which the fixture never creates: the link below
+  // is therefore the only thing standing between the candidate and its answer.
+  const project = createCacheProject({
+    fileCount: 3,
+    graphCandidates: 2,
+    graphFanout: 1,
+  });
+  const store = TestProject.tmpdir("ttsc-unplugin-candidate-store-");
+  const before = path.join(store, "before");
+  const after = path.join(store, "after");
+  fs.mkdirSync(before, { recursive: true });
+  fs.mkdirSync(after, { recursive: true });
+  fs.writeFileSync(
+    path.join(after, "index.ts"),
+    "export const superseding = 1;\n",
+    "utf8",
+  );
+  const link = path.join(project.root, "node_modules", "dep1");
+  fs.mkdirSync(path.dirname(link), { recursive: true });
+  fs.symlinkSync(before, link, "junction");
+
+  const cache = createTtscTransformCache();
+  const modules = projectModules(project.root);
+  const options = resolveOptions();
+  const deliver = async (file: string): Promise<void> => {
+    const result = await transformTtsc(
+      file,
+      fs.readFileSync(file, "utf8"),
+      options,
+      undefined,
+      cache,
+    );
+    assert.ok(result, `expected transformed output for ${file}`);
+  };
+
+  await deliver(modules[0]!);
+  assert.equal(fs.readFileSync(project.runLog, "utf8").length, 1);
+
+  fs.rmSync(link, { force: true, recursive: true });
+  fs.symlinkSync(after, link, "junction");
+  await deliver(modules[1]!);
+
+  assert.equal(
+    fs.readFileSync(project.runLog, "utf8").length,
+    2,
+    "retargeting the link a candidate is reached through must replace the generation",
+  );
+}
+
+/**
  * Asserts samchon/ttsc#1261: a delivery stops probing an absent resolution
  * candidate the generation's watcher already covers.
  *
@@ -3097,6 +3259,8 @@ export {
   assertCacheHitsDespiteOutOfWalkOutputKey,
   assertAppearingCandidateInvalidatesGeneration,
   assertNotifiedAbsentCandidateIsNotReprobed,
+  assertRetargetedCandidateLinkInvalidatesGeneration,
+  assertUnwatchedAbsentCandidateIsStillProbed,
   assertSynchronousMembershipChangeReachesTheNextDelivery,
   assertCacheTransformsMultiFileProjectOnce,
   assertNonInputWriteDuringCompileKeepsGeneration,

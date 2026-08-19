@@ -167,7 +167,7 @@ func resolveBannerTextWithReporters(config map[string]any, cwd, tsconfigPath str
   // ambiguous or empty examined them just the same, and a consumer that learns
   // of them can invalidate a generation the next search would answer
   // differently.
-  driver.ReportMissingConfigCandidates(probed, hashReporter, realpathReporter)
+  driver.ReportRejectedConfigCandidates(probed, hashReporter, realpathReporter)
   if err != nil {
     return "", err
   }
@@ -236,7 +236,7 @@ var bannerConfigFilenames = []string{
 // beside the match makes that directory ambiguous. The caller reports them so a
 // persistent consumer stops serving output built from a config a cold run would
 // no longer choose (samchon/ttsc#1271).
-func findBannerConfigFile(cwd, tsconfigPath string) (string, []string, error) {
+func findBannerConfigFile(cwd, tsconfigPath string) (string, []driver.ConfigCandidate, error) {
   discovery := driver.DiscoverConfigFile(tsconfigBaseDir(cwd, tsconfigPath), bannerConfigFilenames)
   if len(discovery.Matches) > 1 {
     names := make([]string, len(discovery.Matches))

@@ -82,7 +82,7 @@ func loadStripConfigMapWithReporters(pluginConfig map[string]any, cwd, tsconfigP
     // defaults path below: a search that ended empty examined them just the
     // same, and falling back to the built-in defaults is exactly the state a
     // config appearing later would change.
-    driver.ReportMissingConfigCandidates(probed, hashReporter, realpathReporter)
+    driver.ReportRejectedConfigCandidates(probed, hashReporter, realpathReporter)
     if err != nil {
       return nil, err
     }
@@ -119,7 +119,7 @@ func loadStripConfigMapWithReporters(pluginConfig map[string]any, cwd, tsconfigP
 // the rules of a config a cold run would no longer choose — or keeps stripping
 // under the built-in defaults after a real config appeared
 // (samchon/ttsc#1271).
-func findStripConfigFile(cwd, tsconfigPath string) (string, []string, error) {
+func findStripConfigFile(cwd, tsconfigPath string) (string, []driver.ConfigCandidate, error) {
   discovery := driver.DiscoverConfigFile(stripDiscoveryBaseDir(cwd, tsconfigPath), stripConfigFilenames)
   if len(discovery.Matches) > 1 {
     names := make([]string, 0, len(discovery.Matches))
