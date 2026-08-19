@@ -337,7 +337,7 @@ func TestAProjectRootThatIsALinkStillReadsItsDocuments(t *testing.T) {
  * that rather than assuming it, because a chain the platform itself refuses to
  * follow proves nothing about the one the resolver refuses.
  *
- *  1. Build a chain of 35 links, one longer than the resolver follows.
+ *  1. Build a chain of 35 links, past the 32 the resolver follows.
  *  2. Skip where the platform stops following at or before the same bound.
  *  3. Root a reference at its head, run the rule, and assert the root is named
  *     with no glob diagnostic derived from it.
@@ -368,7 +368,10 @@ func TestALinkChainBeyondTheResolverIsReportedNotWalked(t *testing.T) {
     t.Skipf("this platform refused to create a link: %v", err)
   }
   if _, err := os.Stat(documents); err != nil {
-    t.Skipf("this platform stops following links at or before the resolver's bound: %v", err)
+    t.Skipf(
+      "this platform did not follow the chain to a directory either (%v), so the root gate answers before the walk root can",
+      err,
+    )
   }
   messages := runRootedGraphIn(t, workspace, map[string]string{
     "project/src/sale.ts": "export interface ISale {}\n",
@@ -383,7 +386,11 @@ func TestALinkChainBeyondTheResolverIsReportedNotWalked(t *testing.T) {
       "symbol":"h2"
     }
   }]}`)
-  assertProblemContains(t, messages, "could not walk Markdown root '../documents':")
+  assertProblemContains(
+    t,
+    messages,
+    "could not walk Markdown root '../documents': the root is a chain of links this rule stops following",
+  )
   if countProblemsContaining(messages, "matched no markdown files") != 0 {
     t.Fatalf(
       "a root the walk never reached is a failed population, not an empty one:\n%s",

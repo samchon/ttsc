@@ -327,13 +327,21 @@ func baseDirectoryProblem(base populationBase, kind artifactKind) string {
   // one, the author gets `EEXIST` and reads the same sentence again, which is
   // the repair this predicate exists to avoid.
   //
-  // Only an absent answer is asked the second question. Every other failure —
-  // a loop, a parent that denies traversal, a share that went away — already
-  // says something the rule cannot improve on, and promoting it here would
-  // trade the operating system's own sentence for an assertion that a
+  // Only an absent answer is asked the second question. A loop, a parent that
+  // denies traversal, a name the filesystem refuses, and a path too long each
+  // already say something the rule cannot improve on, and promoting one here
+  // would trade the operating system's own sentence for an assertion that a
   // non-directory is in the way, which is the guess the third state exists to
-  // refuse. The second call is made only on that one path, so an ordinary root
-  // still costs one stat.
+  // refuse. The second call is made only on the absent path, so an ordinary
+  // root still costs one stat.
+  //
+  // `fs.ErrNotExist` is the whole of that test, and Windows answers it for more
+  // than an absent path: `ERROR_BAD_NETPATH` maps to it, so a UNC root whose
+  // server is unreachable reads as missing and is told to create a directory it
+  // cannot create. That is the second concession of the same shape as a path
+  // whose parent is a file, and it is left for the same reason: separating it
+  // means reading errno numbers per platform inside a file whose whole subject
+  // is that a path means the same thing on both.
   occupied := err == nil
   if errors.Is(err, fs.ErrNotExist) {
     if _, linkErr := os.Lstat(base.Absolute); linkErr == nil {

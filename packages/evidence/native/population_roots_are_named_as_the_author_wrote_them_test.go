@@ -435,10 +435,12 @@ func TestAnAbsoluteRootWithBackslashesIsStoredWithSlashes(t *testing.T) {
  * A stat fails on more than absence. An unreadable parent, a name the
  * filesystem refuses to spell, a path too long, and a link loop all come back
  * as a failure that does not say the path is absent, and under the first of
- * them the directory may already be there. Only an absent answer is asked
- * whether a link is standing there instead; the rest keep their own reason. "Create that directory" is then the
+ * them the directory may already be there. "Create that directory" is then the
  * same unfollowable repair a file occupying the path produces: the author does
- * what the message says, nothing changes, and the message returns. The rule
+ * what the message says, nothing changes, and the message returns.
+ *
+ * Only an absent answer is asked whether a link is standing there instead. The
+ * rest keep the reason the filesystem gave them. The rule
  * does not know which state it is in, so it says that, names no cause of its
  * own, and passes the operating system's reason through.
  *
@@ -473,7 +475,8 @@ func TestARootThatCouldNotBeExaminedIsNotCalledMissing(t *testing.T) {
     Path: base.Absolute,
     Err:  errors.New("The name of the file cannot be resolved by the system."),
   }
-  if terminated := describeBaseDirectoryProblem(base, artifactMarkdown, false, windows); strings.Contains(terminated, ".. ") {
+  terminated := describeBaseDirectoryProblem(base, artifactMarkdown, false, windows)
+  if strings.Contains(terminated, ".. ") {
     t.Fatalf("the sentence owns its terminator, the reason does not:\n%s", terminated)
   }
   typescript := describeBaseDirectoryProblem(base, artifactTypeScript, false, denied)
