@@ -159,8 +159,8 @@ export function artifactsAreStale(published: IPublishedArtifacts): boolean {
  * Ask the sidecars which paths their rules read.
  *
  * Through the `project-inputs` verb that already exists for this exact
- * question: `@ttsc/lint` publishes it so a host can learn that a rule depends on
- * files the Program never loads. Its snapshot carries both halves of what is
+ * question: `@ttsc/lint` publishes it so a host can learn that a rule depends
+ * on files the Program never loads. Its snapshot carries both halves of what is
  * needed here — the plugin's own configuration files, and the globs the rules
  * declared — so a configuration edit and a document edit are noticed by the
  * same state rather than by two mechanisms that could disagree.

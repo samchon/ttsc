@@ -177,11 +177,11 @@ type graphSession struct {
   // compiler fact — so the two invalidations stay separate questions, and this
   // one is answered by adoptArtifacts rather than by the build universe.
   artifacts []graph.Artifact
-  // artifactsFile and artifactsDigest are the path and content of the set
-  // currently applied. Content, not modification time: the client overwrites one
-  // path per process, so the path never moves and a republish that produced the
-  // same set must cost nothing.
-  artifactsFile   string
+  // artifactsDigest is the content of the set currently applied. Content, and
+  // not the path or its modification time: the client overwrites one file per
+  // process, so the path never moves, and a republish triggered by a document
+  // whose headings did not actually change writes the same bytes and must
+  // therefore cost nothing.
   artifactsDigest [sha256.Size]byte
 
   compiler     *driver.Session
@@ -252,7 +252,7 @@ func (s *graphSession) adoptArtifacts(path string) (bool, error) {
   if err != nil {
     return false, err
   }
-  if path == s.artifactsFile && digest == s.artifactsDigest {
+  if digest == s.artifactsDigest {
     return false, nil
   }
   next, err := graph.LoadArtifacts(path)
@@ -260,7 +260,6 @@ func (s *graphSession) adoptArtifacts(path string) (bool, error) {
     return false, err
   }
   s.artifacts = next
-  s.artifactsFile = path
   s.artifactsDigest = digest
   // The first adoption of a session reports a change like any other, and costs
   // nothing: no graph has been projected yet, so the invalidation it records is

@@ -27,11 +27,11 @@ interface IArtifactInputs {
  * only on those.
  *
  * A resident session is invalidated by the compiler's build universe, and the
- * documents behind an artifact are deliberately not in it — that is the property
- * that keeps renaming a Markdown heading from costing a typecheck. The cost is
- * that no compiler input moves when the heading does, so unless something else
- * watches those paths, the graph answers with the heading the document used to
- * have for as long as the editor stays open.
+ * documents behind an artifact are deliberately not in it — that is the
+ * property that keeps renaming a Markdown heading from costing a typecheck. The
+ * cost is that no compiler input moves when the heading does, so unless
+ * something else watches those paths, the graph answers with the heading the
+ * document used to have for as long as the editor stays open.
  *
  * Both halves are asserted, because both halves are defects. Missing an edit
  * leaves a stale graph; reporting one that did not happen re-runs the publisher
