@@ -158,31 +158,38 @@ func rememberPrismaSchema(digest string, outcome prismaSetOutcome) {
   prismaSchemas.store(digest, outcome)
 }
 
-// prismaUnitsFromOutcome rebuilds the set's units and files them under the
-// schema file each one is written in.
+// prismaUnitsFromOutcome rebuilds the set's units and files them into every
+// inventory of the schema file each one is written in.
 //
 // Units are rebuilt per cycle rather than remembered, because a unit carries
 // its location while the parsed models do not: what was cached is a property of
 // the schema, not of where its text sits.
+//
+// One unit is one pointer, shared by every population of its file rather than
+// copied per population. A copy would carry a second identity for one model,
+// and the graph keys hosts, selections, and acknowledgements by that identity —
+// so the same model would owe its obligations twice and satisfy them once. The
+// location a copy would exist to restate is the set's spelling of the file,
+// which is a path that opens.
 func prismaUnitsFromOutcome(
   root string,
-  sources []string,
+  set prismaSourceSet,
   inventories map[string]*artifactInventory,
   outcome prismaSetOutcome,
 ) []string {
   if outcome.Rejected {
     return []string{failPrismaSet(
       inventories,
-      sources,
+      set,
       prismaNormalizationFailure(outcome.Problem),
     )}
   }
-  locations, comments := locatePrismaDeclarations(root, sources)
+  locations, comments := locatePrismaDeclarations(root, set.Sources)
   fallback := ""
-  if len(sources) != 0 {
-    fallback = sources[0]
+  if len(set.Sources) != 0 {
+    fallback = set.Sources[0]
   }
-  indexed := prismaInventoriesByDisplay(inventories)
+  indexed := prismaInventoriesBySource(inventories, set)
   hosts := map[string]*evidenceUnit{}
   for _, model := range outcome.Models {
     for _, unit := range prismaModelUnits(model) {

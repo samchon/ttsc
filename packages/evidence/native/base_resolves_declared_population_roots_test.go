@@ -330,9 +330,9 @@ func TestRootedPrismaPopulationsCollectAcrossBasesWithoutDuplicating(t *testing.
   if strings.Join(displays, "\n") != want {
     t.Fatalf("addressed schemas:\n%s\nwant:\n%s", strings.Join(displays, "\n"), want)
   }
-  sources := distinctPrismaSources(addresses)
-  if strings.Join(sources, "\n") != "../schema/main.prisma\nprisma/local.prisma" {
-    t.Fatalf("parser set = %v; a file reached twice must be parsed once", sources)
+  set := distinctPrismaSources(root, addresses)
+  if strings.Join(set.Sources, "\n") != "../schema/main.prisma\nprisma/local.prisma" {
+    t.Fatalf("parser set = %v; a file reached twice must be parsed once", set.Sources)
   }
 }
 
