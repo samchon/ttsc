@@ -80,9 +80,14 @@ export function publishArtifacts(options: {
   }
   if (published.length === 0) return null;
 
+  // One file per process, overwritten, rather than a fresh temp directory per
+  // call. A resident session asks once and a one-shot asks once, but `loadGraph`
+  // is a library entry a caller may run in a loop, and a directory per call is a
+  // leak nothing here is positioned to clean: the path outlives this function by
+  // design — the native producer reads it after we return.
   const file = path.join(
-    fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-graph-artifacts-")),
-    "artifacts.json",
+    os.tmpdir(),
+    `ttsc-graph-artifacts-${String(process.pid)}.json`,
   );
   fs.writeFileSync(file, JSON.stringify(published));
   return file;
