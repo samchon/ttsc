@@ -324,12 +324,19 @@ func (loader *typeScriptLoader) locateInstalledPackage(
 // it walks the link and finds nothing. `os.Readlink` does report a junction's
 // target, and `os.Stat` sees through both, so ask those instead.
 //
-// The second answer costs nothing: every ending is a return from inside the
-// loop, so falling out of it is the one state with no proof behind it. Without
-// it the exhausted chain and the resolved directory are one string, and a
-// caller comparing paths against a link that still names another link cannot
-// tell that it holds one — which is how the leaf case of #1269 stayed silent
-// until the caller was told.
+// The second answer is what separates an exhausted chain from a resolved
+// directory, which are one string without it: a caller comparing paths against
+// a link that still names another link cannot tell that it holds one, and that
+// is how the leaf case of #1269 stayed silent until the caller was told.
+//
+// The bound counts links followed, not answers given. A chain that ends exactly
+// on the last hop this rule follows has landed on its directory with no
+// iteration left to look, and it is a chain that resolves — the filesystem
+// follows more than this on every platform. So the answer costs one `os.Lstat`
+// in that case and nothing at all in every other, since every earlier ending is
+// a return from inside the loop. Refusing it instead would turn a root that
+// works into an error at the boundary, which is what this rule exists to keep
+// from happening in the other direction.
 func resolveLinkedDirectory(directory string) (string, bool) {
   current := directory
   for range 32 {
@@ -349,7 +356,8 @@ func resolveLinkedDirectory(directory string) (string, bool) {
     }
     current = filepath.ToSlash(linked)
   }
-  return current, false
+  info, err := os.Lstat(current)
+  return current, err == nil && info.IsDir()
 }
 
 // walk lists the project-relative TypeScript files below a directory.

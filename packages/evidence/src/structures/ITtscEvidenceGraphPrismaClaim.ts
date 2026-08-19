@@ -46,6 +46,11 @@ export interface ITtscEvidenceGraphPrismaClaim extends ITtscEvidenceGraphClaimBa
    * evidence. Every matching regular file is parsed as part of one schema
    * regardless of extension, which is what lets a lint-only `.schema` ledger
    * join the population Prisma generation never reads.
+   *
+   * That schema is composed of files rather than of paths. One file reached by
+   * two populations, as a package installed under `node_modules` and rooted
+   * again at its workspace source is, joins it once and is answered for by
+   * both.
    */
   files: string[];
 
