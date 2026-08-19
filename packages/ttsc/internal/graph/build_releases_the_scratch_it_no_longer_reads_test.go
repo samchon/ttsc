@@ -2,6 +2,7 @@ package graph
 
 import (
   "path/filepath"
+  "reflect"
   "testing"
 
   "github.com/samchon/ttsc/packages/ttsc/driver"
@@ -52,23 +53,22 @@ export function run(store: Store): void { store.save() }
   defer func() { _ = prog.Close() }()
 
   g := Build(prog)
+  assertScratchReleased(t, g, "complete build")
 
-  released := map[string]bool{
-    "docTagPositions":   g.docTagPositions == nil,
-    "docHosts":          g.docHosts == nil,
-    "docHostPositions":  g.docHostPositions == nil,
-    "bodyNodes":         g.bodyNodes == nil,
-    "seen":              g.seen == nil,
-    "resolved":          g.resolved == nil,
-    "edgeEvidenceFiles": g.edgeEvidenceFiles == nil,
-    "baseNodes":         g.baseNodes == nil,
-    "selectedFiles":     g.selectedFiles == nil,
+  // The partial build is not a second case of the same thing: `baseNodes` and
+  // `selectedFiles` are nil on arrival in a complete build, so a complete build
+  // alone cannot fail on them. `baseNodes` is the largest of the nine and the
+  // one #1243 flagged as the caution, because it is passed in rather than built.
+  var mainFile string
+  for _, node := range g.Nodes {
+    mainFile = node.File
+    break
   }
-  for field, ok := range released {
-    if !ok {
-      t.Errorf("%s survived the build; it pins the AST for as long as a consumer holds the graph", field)
-    }
+  if mainFile == "" {
+    t.Fatal("the probe project produced no node to select a file from")
   }
+  partial := BuildFiles(prog, []string{mainFile}, g.Nodes)
+  assertScratchReleased(t, partial, "partial build")
 
   // The negative twin. Clearing scratch must not clear what the shard expansion
   // in cmd/ttscgraph/serve_shards.go reads after BuildFiles returns.
@@ -81,5 +81,38 @@ export function run(store: Store): void { store.save() }
   if len(g.Nodes) == 0 || len(g.Edges) == 0 || len(g.DocTags) == 0 {
     t.Fatalf("the graph itself is empty: %d nodes, %d edges, %d tags",
       len(g.Nodes), len(g.Edges), len(g.DocTags))
+  }
+}
+
+// assertScratchReleased requires every unexported reference field of a returned
+// Graph to be nil.
+//
+// It reflects rather than naming the fields, because a hand-written list has to
+// be edited by the same person who forgets to edit releaseBuildState — which is
+// exactly how docHosts arrived beside resolved. Unexported fields are readable
+// this way: reflect.Value.IsNil needs no exported access, only Interface does.
+//
+// Exported fields are skipped: Nodes, Edges, Decorators, and DocTags are the
+// graph, and ExportedTargets and ImplementationSources are read after the build.
+func assertScratchReleased(t *testing.T, g *Graph, label string) {
+  t.Helper()
+  value := reflect.ValueOf(g).Elem()
+  for index := 0; index < value.NumField(); index++ {
+    field := value.Type().Field(index)
+    if field.IsExported() {
+      continue
+    }
+    switch value.Field(index).Kind() {
+    case reflect.Map, reflect.Slice, reflect.Ptr:
+    default:
+      continue
+    }
+    if !value.Field(index).IsNil() {
+      t.Errorf(
+        "%s: %s survived; it pins the AST for as long as a consumer holds the graph",
+        label,
+        field.Name,
+      )
+    }
   }
 }
