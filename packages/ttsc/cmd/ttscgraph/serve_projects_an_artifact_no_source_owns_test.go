@@ -2,6 +2,7 @@ package main
 
 import (
   "path/filepath"
+  "slices"
   "testing"
 
   "github.com/samchon/ttsc/packages/ttsc/internal/graph"
@@ -74,5 +75,16 @@ export function priced(): void {}
     if !published[address] {
       t.Fatalf("the snapshot carries no node for %q", address)
     }
+  }
+
+  // The session's own claim, which is what the envelope answers with. An
+  // `unchanged` response carries no dump, so the envelope is the only place a
+  // client can learn this server holds artifacts; a shared constant there made
+  // the envelope and the dump disagree on exactly that frame.
+  if !slices.Contains(session.capabilities(), graph.CapabilityArtifactNodes) {
+    t.Fatalf("a session holding artifacts declares %v", session.capabilities())
+  }
+  if session.artifactProducer() == nil {
+    t.Fatal("a session holding artifacts named no second producer")
   }
 }

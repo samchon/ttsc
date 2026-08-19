@@ -68,10 +68,10 @@ var fullSnapshotCapabilities = []string{
   graph.CapabilityDocTags,
 }
 
-// serveCapabilities is what this server can prove, answered before a consumer
-// has a dump to inspect — an `unchanged` response carries no dump, and a client
-// negotiating on the first frame has not parsed one yet. It mirrors what every
-// dump this server publishes declares for itself.
+// serveCapabilities is what this server can prove before a session exists —
+// the frame a client reads when the project could not even be loaded. Once a
+// session exists its own capabilities answer, because those depend on what a
+// plugin published and this list cannot know it.
 var serveCapabilities = fullSnapshotCapabilities
 
 // capabilities is what THIS session proves, which is the shared list plus the
@@ -1053,6 +1053,12 @@ func serveSnapshotsWithArtifacts(
       dump, mode, changed, err = session.Snapshot()
     }
     response := newServeResponse(request.ID)
+    // The envelope answers for THIS session, not for the command in general. An
+    // `unchanged` response carries no dump, so the envelope is the only place a
+    // client learns what this server proves — and a session holding artifacts
+    // publishes a dump that claims them. Leaving the shared list here made the
+    // envelope and the dump disagree on the one frame that has no dump to check.
+    response.Capabilities = session.capabilities()
     response.Dump = dump
     response.Snapshot = snapshot
     response.Mode = mode
