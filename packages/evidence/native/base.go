@@ -194,9 +194,15 @@ func declaredRootIsAbsolute(declared string) bool {
 // projectRelativeDisplay spells a directory the way the project sees it.
 //
 // A relative spelling is preferred even when it ascends, because every other
-// path this rule prints is project-relative and a reader compares them against
-// each other. An absolute path appears only when no relative one exists — a
-// different Windows volume — where the alternative would be no spelling at all.
+// location this rule prints is project-relative and a reader compares them
+// against each other. An absolute path appears only when no relative one exists
+// — a different Windows volume, or a UNC share against a drive-letter project —
+// where the alternative would be no spelling at all.
+//
+// The `root` property a diagnostic asks an author to correct is the one printed
+// path this no longer decides. `populationRootLabel` spells that as the
+// configuration does, because it is a different reader doing a different thing:
+// editing a file rather than opening one.
 func projectRelativeDisplay(root string, absolute string) string {
   relative, err := filepath.Rel(root, absolute)
   if err != nil {
@@ -272,7 +278,8 @@ func configuredBases(config graphConfig, kind artifactKind) []populationBase {
 // This is the one place a declared spelling is preferred over the derived one,
 // and the split is between two questions rather than two formats. A message
 // naming a *location* spells it the way the reader opens it, which is what
-// `display` does and why every file this rule prints stays project-relative. A
+// `display` does, and which is project-relative wherever a relative spelling
+// exists. A
 // message naming a *configuration property* spells it the way the configuration
 // does, because the author's first move is to search `lint.config.ts` for it —
 // and the derived spelling of an absolute root is an ascending path that file
