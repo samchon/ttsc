@@ -3,7 +3,9 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { resolveCapabilityPlugins } from "ttsc";
+import { type ITtscCapabilityPlugin, resolveCapabilityPlugins } from "ttsc";
+
+import { TtscLintDaemon } from "./TtscLintDaemon";
 
 /**
  * Ask the project's `@ttsc/lint` for the artifacts a citation can name, and
@@ -99,7 +101,6 @@ export function publishArtifacts(options: {
     tsconfig: options.tsconfig,
   });
   if (plugins.length === 0) return unpublished(options);
-
   // The inputs are stated before the set is asked for, never after. A document
   // edited between the two calls has to read as a change next time, and only
   // this order gives that: a fingerprint taken first describes a state at least
@@ -107,48 +108,129 @@ export function publishArtifacts(options: {
   // finds nothing new. Taken afterwards it would describe a state newer than
   // the set, and the edit that landed in the gap would read as already
   // accounted for — the exact staleness this exists to remove.
-  const inputs = artifactInputs(plugins, options);
-  const fingerprint = fingerprintInputs(inputs);
+  const inputs = readInputs(
+    plugins.map((plugin) => runVerb(plugin, "project-inputs", options)),
+    options,
+  );
+  return assemble(
+    inputs,
+    plugins.map((plugin) => runVerb(plugin, "graph-nodes", options)),
+  );
+}
 
+/**
+ * The same answer, asked of sidecars this caller keeps open.
+ *
+ * A one-shot has nothing to amortize — its process exits after one question —
+ * so `publishArtifacts` stays a spawn per verb and stays synchronous, which is
+ * what its three CLI callers are. A resident session asks both verbs again
+ * every time a document moves, and that is where a process, a plugin load and a
+ * Program per question stopped being affordable.
+ *
+ * A daemon that cannot answer falls back to the direct command for that plugin,
+ * so the answer is the same one either way and only its cost differs. The
+ * fallback matters more here than most: a daemon that quietly answered nothing
+ * would be indistinguishable from a project that publishes nothing.
+ */
+export async function publishArtifactsResident(
+  options: { cwd: string; tsconfig: string },
+  daemon: (plugin: ITtscCapabilityPlugin) => TtscLintDaemon | undefined,
+): Promise<IPublishedArtifacts> {
+  const plugins = resolveCapabilityPlugins({
+    capability: "graphNodes",
+    cwd: options.cwd,
+    tsconfig: options.tsconfig,
+  });
+  if (plugins.length === 0) return unpublished(options);
+  // The first request of a republish drops the daemon's warm Program. The
+  // artifacts depend on which sources exist and what they declare — that is
+  // what activates a claim — and between two republishes the developer has
+  // been editing code as well as documents. Reusing a Program from before
+  // those edits would deactivate a claim whose files now exist, which is a
+  // stale answer of exactly the kind this whole mechanism removes. What the
+  // daemon still saves is the process, the plugin load, and the configuration
+  // evaluation, which is most of the cost.
+  const inputs = readInputs(
+    await Promise.all(
+      plugins.map((plugin) =>
+        askVerb(plugin, "project-inputs", options, daemon(plugin), true),
+      ),
+    ),
+    options,
+  );
+  return assemble(
+    inputs,
+    await Promise.all(
+      plugins.map((plugin) =>
+        askVerb(plugin, "graph-nodes", options, daemon(plugin), false),
+      ),
+    ),
+  );
+}
+
+/** Run one verb as its own process, returning its stdout or `null`. */
+function runVerb(
+  plugin: ITtscCapabilityPlugin,
+  verb: string,
+  options: { cwd: string; tsconfig: string },
+): string | null {
+  const result = spawnSync(
+    plugin.binary,
+    [
+      verb,
+      "--cwd",
+      options.cwd,
+      "--tsconfig",
+      options.tsconfig,
+      // The sidecar finds its own configured entry in this manifest. Without
+      // it, it loads an empty rule configuration and answers as though the
+      // project declared nothing — an empty answer indistinguishable from a
+      // project that genuinely publishes none.
+      `--plugins-json=${plugin.manifest}`,
+      ...projectContextArgs(plugin),
+    ],
+    {
+      // The set is one entry per document section, model field, and operation —
+      // bounded by the project's own documentation, not by its source — so the
+      // default pipe ceiling is raised rather than removed.
+      maxBuffer: 256 * 1024 * 1024,
+      encoding: "utf8",
+      windowsHide: true,
+    },
+  );
+  // A plugin that cannot answer is not a broken graph. The verb is new, so a
+  // plugin built from an older source rejects the command outright, and a
+  // project whose config does not parse has already failed somewhere the user
+  // can see. Either way the graph is the one that existed before this, and the
+  // absent capability claim is what says the producer got no answer.
+  if (result.error || result.status !== 0 || typeof result.stdout !== "string")
+    return null;
+  return result.stdout;
+}
+
+/** Ask one verb through a daemon, or as a process when it cannot answer. */
+async function askVerb(
+  plugin: ITtscCapabilityPlugin,
+  verb: string,
+  options: { cwd: string; tsconfig: string },
+  daemon: TtscLintDaemon | undefined,
+  invalidate: boolean,
+): Promise<string | null> {
+  const served = await daemon?.ask(verb, invalidate);
+  return served ?? runVerb(plugin, verb, options);
+}
+
+/** The artifact answer, from each sidecar's `graph-nodes` output. */
+function assemble(
+  inputs: IArtifactInputs,
+  outputs: readonly (string | null)[],
+): IPublishedArtifacts {
+  const fingerprint = fingerprintInputs(inputs);
   const published: unknown[] = [];
-  for (const plugin of plugins) {
-    const result = spawnSync(
-      plugin.binary,
-      [
-        "graph-nodes",
-        "--cwd",
-        options.cwd,
-        "--tsconfig",
-        options.tsconfig,
-        // The sidecar finds its own configured entry in this manifest. Without
-        // it, it loads an empty rule configuration and answers as though the
-        // project declared nothing — an empty answer indistinguishable from a
-        // project that genuinely publishes none.
-        `--plugins-json=${plugin.manifest}`,
-        ...projectContextArgs(plugin),
-      ],
-      {
-        // The set is one entry per document section, model field, and operation
-        // — bounded by the project's own documentation, not by its source — so
-        // the default pipe ceiling is raised rather than removed.
-        maxBuffer: 256 * 1024 * 1024,
-        encoding: "utf8",
-        windowsHide: true,
-      },
-    );
-    // A plugin that cannot answer is not a broken graph. The verb is new, so a
-    // plugin built from an older source rejects the command outright, and a
-    // project whose config does not parse has already failed somewhere the user
-    // can see. Either way the graph is the one that existed before this, and the
-    // absent capability claim is what says the producer got no answer.
-    if (
-      result.error ||
-      result.status !== 0 ||
-      typeof result.stdout !== "string"
-    )
-      continue;
+  for (const output of outputs) {
+    if (output === null) continue;
     try {
-      const parsed: unknown = JSON.parse(result.stdout);
+      const parsed: unknown = JSON.parse(output);
       if (Array.isArray(parsed)) published.push(...parsed);
     } catch {
       continue;
@@ -217,40 +299,23 @@ function unpublished(options: {
 }
 
 /**
- * Ask the sidecars which paths their rules read.
+ * What each sidecar said its rules read, as one watch list.
  *
- * Through the `project-inputs` verb that already exists for this exact
- * question: `@ttsc/lint` publishes it so a host can learn that a rule depends
- * on files the Program never loads. Its snapshot carries both halves of what is
- * needed here — the plugin's own configuration files, and the globs the rules
- * declared — so a configuration edit and a document edit are noticed by the
- * same state rather than by two mechanisms that could disagree.
+ * The `project-inputs` verb exists for exactly this question: `@ttsc/lint`
+ * publishes it so a host can learn that a rule depends on files the Program
+ * never loads. Its snapshot carries both halves of what is needed here — the
+ * plugin's own configuration files, and the globs the rules declared — so a
+ * configuration edit and a document edit are noticed by the same state rather
+ * than by two mechanisms that could disagree.
  */
-function artifactInputs(
-  plugins: readonly {
-    binary: string;
-    manifest: string;
-    projectContext?: string;
-  }[],
+function readInputs(
+  outputs: readonly (string | null)[],
   options: { cwd: string; tsconfig: string },
 ): IArtifactInputs {
   const files: string[] = [];
   const directories: IArtifactDirectory[] = [];
-  for (const plugin of plugins) {
-    const result = spawnSync(
-      plugin.binary,
-      [
-        "project-inputs",
-        "--cwd",
-        options.cwd,
-        "--tsconfig",
-        options.tsconfig,
-        `--plugins-json=${plugin.manifest}`,
-        ...projectContextArgs(plugin),
-      ],
-      { encoding: "utf8", maxBuffer: 64 * 1024 * 1024, windowsHide: true },
-    );
-    if (result.status !== 0 || typeof result.stdout !== "string") continue;
+  for (const output of outputs) {
+    if (output === null) continue;
     let snapshot: {
       root?: string;
       files?: string[];
@@ -259,7 +324,7 @@ function artifactInputs(
       reloadDirectories?: string[];
     };
     try {
-      snapshot = JSON.parse(result.stdout) as typeof snapshot;
+      snapshot = JSON.parse(output) as typeof snapshot;
     } catch {
       continue;
     }
@@ -279,12 +344,12 @@ function artifactInputs(
       if (directory === null) files.push(absolute(pattern, base));
       else directories.push(directory);
     }
-    // A reload directory is a resolution anchor, not a content tree. `@ttsc/lint`
-    // publishes the directories whose *immediate* topology decides which rules
-    // load — a `node_modules` chain, a config directory — and the LSP host
-    // watches exactly `<dir>/*` for that reason. Walking them recursively both
-    // over-invalidates, restarting on any descendant edit, and states the whole
-    // dependency tree before every graph request.
+    // A reload directory is a resolution anchor, not a content tree.
+    // `@ttsc/lint` publishes the directories whose *immediate* topology decides
+    // which rules load — a `node_modules` chain, a config directory — and the
+    // LSP host watches exactly `<dir>/*` for that reason. Walking them
+    // recursively both over-invalidates, restarting on any descendant edit, and
+    // states the whole dependency tree before every graph request.
     for (const directory of snapshot.reloadDirectories ?? [])
       directories.push({ path: absolute(directory, base), recursive: false });
   }

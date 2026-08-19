@@ -30,10 +30,21 @@ func RunProjectInputs(args []string) int {
   if !ok {
     return 2
   }
+  snapshot, code := computeProjectInputs(opts)
+  if code != 0 {
+    return code
+  }
+  return writeJSON(snapshot)
+}
+
+// computeProjectInputs builds the dependency snapshot for one project. Split
+// from RunProjectInputs so the resident daemon can answer the same verb without
+// a process per question, the same split hints and graph-nodes take.
+func computeProjectInputs(opts *lspCommandOptions) (ProjectInputSnapshot, int) {
   resolver, err := loadRules(opts.pluginsJSON, opts.cwd, opts.tsconfig)
   if err != nil {
     fmt.Fprintln(os.Stderr, err)
-    return 2
+    return ProjectInputSnapshot{}, 2
   }
   identity := normalizeProjectIdentity(
     opts.projectIdentity,
@@ -43,9 +54,9 @@ func RunProjectInputs(args []string) int {
   snapshot, err := collectProjectInputs(resolver, identity)
   if err != nil {
     fmt.Fprintln(os.Stderr, err)
-    return 2
+    return ProjectInputSnapshot{}, 2
   }
-  return writeJSON(snapshot)
+  return snapshot, 0
 }
 
 func collectProjectInputs(

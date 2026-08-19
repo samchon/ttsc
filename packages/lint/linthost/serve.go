@@ -310,6 +310,17 @@ func handleServeLSPLine(line string, base *lspCommandOptions, encoder *json.Enco
   case "lsp-hints":
     result, code := computeLSPHints(&opts)
     encodeServeResult(encoder, result, code)
+  case "graph-nodes":
+    // Neither of these describes a document, so neither carries a uri. They
+    // describe the project, and they join the daemon for the reason the other
+    // read verbs did: a consumer that asks them again whenever a file it
+    // watches moves would otherwise pay a process, a plugin load, and a Program
+    // for every edit.
+    result, code := computeGraphNodes(&opts)
+    encodeServeResult(encoder, result, code)
+  case "project-inputs":
+    result, code := computeProjectInputs(&opts)
+    encodeServeResult(encoder, result, code)
   case "lsp-command-ids":
     encodeServeResult(encoder, lspCommandIDs(), 0)
   case "lsp-code-action-kinds":
