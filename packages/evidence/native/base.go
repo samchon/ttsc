@@ -513,8 +513,8 @@ func resolvedBaseDirectory(base populationBase) (string, bool) {
   return from, err == nil && info.IsDir()
 }
 
-// unresolvedBaseProblem reports a declared root whose links this rule stops
-// following before they reach a directory.
+// unresolvedBaseProblem reports a base whose links this rule stops following
+// before they reach a directory.
 //
 // Every artifact kind gets this sentence, because the failure is the resolver's
 // bound rather than anything a walk or a Program does, and the kind appears only
@@ -522,10 +522,19 @@ func resolvedBaseDirectory(base populationBase) (string, bool) {
 // `describeBaseDirectoryProblem` records: that word is composition everywhere
 // else in these messages, and a lead clause borrowing it for failure would make
 // one sentence carry both senses.
+//
+// The default base is named and repaired differently, because it declared no
+// `root` and telling its author to correct that property sends them looking for
+// a line their configuration does not contain. It is the ttsc project root, so
+// it is named as one and the repair is the invocation.
 func unresolvedBaseProblem(base populationBase, kind artifactKind) string {
   label := populationRootLabel(base)
-  message := "Evidence graph found no directory at the end of the " + string(kind) +
-    " root '" + label + "'"
+  message := "Evidence graph found no directory at the end of the "
+  if base.Default {
+    message += "ttsc project root '" + label + "'"
+  } else {
+    message += string(kind) + " root '" + label + "'"
+  }
   // The resolved path is restated only when it differs from the label, which
   // covers an absolute declared root and the default base at once. This asks a
   // narrower question than `declaredRootIsAbsolute` answers: that predicate
@@ -534,8 +543,11 @@ func unresolvedBaseProblem(base populationBase, kind artifactKind) string {
   if resolved := filepath.ToSlash(base.Absolute); label != resolved {
     message += ", which resolves to '" + resolved + "'"
   }
-  return message +
-    ". That path is a chain of links longer than this rule follows. Correct the 'root' property to name the directory those links end at."
+  message += ". That path is a chain of links longer than this rule follows. "
+  if base.Default {
+    return message + "Run ttsc against the directory those links end at."
+  }
+  return message + "Correct the 'root' property to name the directory those links end at."
 }
 
 // causeText spells a reason for a sentence that owns its own terminator.
@@ -577,10 +589,10 @@ func causeReason(text string) string {
 // because that is the property an author edits, and because a base with no
 // declared root has no other name than where it is.
 //
-// One repair covers both causes that reach this. A listing the filesystem
-// refused and a link chain that reached no directory are both answered by
-// making the root a directory this process can list, so the sentence names that
-// rather than an access the second of them has nothing to do with.
+// One cause reaches this: a listing the filesystem refused. A chain of links the
+// resolver stops following used to arrive here as well and has its own sentence
+// now, because that failure is the resolver's bound and this repair is about
+// access.
 func unlistableBaseProblem(
   base populationBase,
   sources string,

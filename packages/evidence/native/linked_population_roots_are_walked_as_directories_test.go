@@ -738,3 +738,55 @@ func TestAWindowsJunctionRootIsReadThrough(t *testing.T) {
   }]}`)
   assertNoProblems(t, messages)
 }
+
+/**
+ * Verifies the project root itself is refused, and not told to correct a `root`.
+ *
+ * The default base is checked like any other, and it is the one base that
+ * declared no property, so the sentence written for a declared root would send
+ * its author looking for a line their configuration does not contain. It is the
+ * ttsc project root, so it is named as one and the repair is the invocation.
+ *
+ *  1. Build a chain longer than the resolver follows and run ttsc through it.
+ *  2. Read the refusal.
+ *  3. Assert it names the project root and asks for the invocation, not the
+ *     property.
+ */
+func TestAProjectRootPastTheResolverIsNotToldToCorrectARoot(t *testing.T) {
+  workspace := t.TempDir()
+  real := filepath.Join(workspace, "real")
+  if err := os.MkdirAll(real, 0o755); err != nil {
+    t.Fatal(err)
+  }
+  previous := real
+  for hop := range 34 {
+    link := filepath.Join(workspace, "hop"+decimal(hop))
+    if err := linkDirectory(previous, link); err != nil {
+      t.Skipf("this platform refused to create a link: %v", err)
+    }
+    previous = link
+  }
+  if _, err := os.Stat(previous); err != nil {
+    t.Skipf(
+      "this platform did not follow the chain to a directory either (%v), so nothing reaches the refusal",
+      err,
+    )
+  }
+  messages := runIndexRuleAtRoot(t, previous, map[string]string{
+    "docs/pricing.md": "## Discounts {#discounts}\n",
+    "src/sale.ts":     "export interface ISale {}\n",
+  }, `{"claims":[{
+    "type":"typescript",
+    "files":["src/**/*.ts"],
+    "symbol":"type",
+    "reference":{"type":"markdown","files":["docs/**/*.md"],"symbol":"h2"}
+  }]}`)
+  assertProblemContains(t, messages, "found no directory at the end of the ttsc project root")
+  assertProblemContains(t, messages, "Run ttsc against the directory those links end at.")
+  if countProblemsContaining(messages, "Correct the 'root' property") != 0 {
+    t.Fatalf(
+      "the base that declared no root has no property to correct:\n%s",
+      strings.Join(messages, "\n"),
+    )
+  }
+}

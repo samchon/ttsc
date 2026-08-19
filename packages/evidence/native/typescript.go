@@ -139,9 +139,13 @@ func typeScriptMatchBases(config graphConfig) []typeScriptMatchBase {
   entries := make([]typeScriptMatchBase, 0, len(bases))
   for _, base := range bases {
     // An unresolved chain is reported by the gate, and this comparison then has
-    // only the declared spelling to offer, which is what the guard in
-    // `relativeOf` reads.
-    resolved, _ := resolvedBaseDirectory(base)
+    // only the declared spelling to offer: keeping the link the resolver stopped
+    // on would spend a second comparison against a path no source can sit under,
+    // and the guard in `relativeOf` reads exactly this equality to skip it.
+    resolved, ok := resolvedBaseDirectory(base)
+    if !ok {
+      resolved = base.Absolute
+    }
     entries = append(entries, typeScriptMatchBase{base: base, resolved: resolved})
   }
   return entries
