@@ -14,20 +14,24 @@ import (
 //
 // Windows does not express this through the permission bits `os.Chmod` reaches,
 // and a process running as root ignores them on POSIX as well, so the state is
-// verified rather than assumed. Permissions are restored before the test
-// returns, because `t.TempDir` removes its tree afterwards and cannot descend
-// into a directory it may not read.
+// verified rather than assumed. Each refusal says which one it was, because a
+// lane that silently stopped denying would otherwise report these cases as
+// passing while proving nothing.
+//
+// Permissions are restored before the test returns. `t.TempDir` removes its
+// tree afterwards and cannot descend into a directory it may not read, and
+// cleanups run in reverse order of registration, so this one runs first.
 func unreadableDirectory(t *testing.T, directory string) {
   t.Helper()
   if runtime.GOOS == "windows" {
-    t.Skip("a walk failure needs a directory the process may not list")
+    t.Skip("windows does not deny a directory listing through the permission bits os.Chmod reaches")
   }
   if err := os.Chmod(directory, 0); err != nil {
-    t.Skip("a walk failure needs a directory the process may not list")
+    t.Skipf("this filesystem refused to drop the permissions: %v", err)
   }
   t.Cleanup(func() { _ = os.Chmod(directory, 0o755) })
   if _, err := os.ReadDir(directory); err == nil {
-    t.Skip("a walk failure needs a directory the process may not list")
+    t.Skip("this process may list a directory with no permission bits, so it is probably root")
   }
 }
 
@@ -36,13 +40,13 @@ func unreadableDirectory(t *testing.T, directory string) {
  *
  * The path a `filepath.WalkDir` callback hands back is OS-native and absolute,
  * and it was printed as it arrived, so one loader spelled paths three ways
- * depending on which line reported. This is the whole contract in one table: a
- * default base, a base declared relatively, a base declared absolutely, and the
- * walk root itself, which arrives as its own base-relative path.
+ * depending on which line reported. This covers the base shapes that change the
+ * composition: no declared root, one declared relatively, and one declared
+ * absolutely, where the location still ascends project-relatively.
  *
  *  1. Compose the message for each base shape.
  *  2. Read the path it names.
- *  3. Assert it is project-relative, slash-separated, and free of a trailing dot.
+ *  3. Assert it is project-relative and slash-separated.
  */
 func TestAWalkFailureNamesAPathAReaderCanOpen(t *testing.T) {
   workspace := t.TempDir()
@@ -54,10 +58,12 @@ func TestAWalkFailureNamesAPathAReaderCanOpen(t *testing.T) {
     expected string
   }{
     {"", "docs/private", "docs/private"},
-    {"", ".", "."},
     {"../documents", "requirements/private", "../documents/requirements/private"},
-    {"../documents", ".", "../documents"},
-    {filepath.ToSlash(filepath.Join(workspace, "documents")), "requirements/private", "../documents/requirements/private"},
+    {
+      filepath.ToSlash(filepath.Join(workspace, "documents")),
+      "requirements/private",
+      "../documents/requirements/private",
+    },
   } {
     base := resolvePopulationBase(root, entry.declared)
     problem := unreadableWalkEntryProblem(base, entry.relative, "Markdown", cause)
@@ -66,31 +72,68 @@ func TestAWalkFailureNamesAPathAReaderCanOpen(t *testing.T) {
     if problem != want {
       t.Fatalf("root %q entry %q:\n got %s\nwant %s", entry.declared, entry.relative, problem, want)
     }
-    if strings.Contains(problem, "\\") {
-      t.Fatalf("a path this rule prints carries no backslash: %s", problem)
-    }
   }
 }
 
 /**
- * Verifies a walk failure and a file location under one base agree.
+ * Verifies the walker composes the path rather than printing the one it was
+ * handed.
  *
- * The two sit beside each other in the same loader and an author reads them
- * together, so agreeing is the point rather than a coincidence of two helpers
- * happening to compose alike. Pinning them against each other is what keeps a
- * later change to one from silently separating them.
+ * This is the property the repair actually bought, and the unit case above
+ * cannot prove it: reverting both walkers to print the callback's own argument
+ * leaves every direct call to the message builder passing. The decision runs
+ * here over a real OS-native absolute path, so a Windows lane covers it too,
+ * where a genuine walk failure cannot be provoked at all.
  *
- *  1. Take one base-relative path under a declared root.
- *  2. Spell it as a walk failure and as a loaded file's address.
- *  3. Assert the walk failure names exactly the address a reader would open.
+ *  1. Hand the decision an OS-native absolute path inside a declared root.
+ *  2. Read the message it composes.
+ *  3. Assert the population-relative spelling and no OS-native one.
  */
-func TestAWalkFailureSpellsThePathItsFileMessageWouldSpell(t *testing.T) {
-  root := filepath.Join(t.TempDir(), "project")
-  base := resolvePopulationBase(root, "../documents")
-  address := base.addressOf("requirements/pricing.md")
-  problem := unreadableWalkEntryProblem(base, "requirements/pricing.md", "Markdown", errors.New("io"))
-  if !strings.Contains(problem, "'"+address.Display+"'") {
-    t.Fatalf("walk failure %q does not name the address %q", problem, address.Display)
+func TestAWalkerComposesThePathItPrints(t *testing.T) {
+  workspace := t.TempDir()
+  base := resolvePopulationBase(filepath.Join(workspace, "project"), "../documents")
+  current := filepath.Join(base.Absolute, "requirements", "private")
+  problem, relevant := unreadableEntryProblem(
+    base,
+    "Markdown",
+    current,
+    errors.New("permission denied"),
+    func(relative string) bool { return relative == "requirements/private" },
+  )
+  if !relevant {
+    t.Fatal("a path the population reads is relevant")
+  }
+  if !strings.Contains(problem, "'../documents/requirements/private'") {
+    t.Fatalf("the path is composed through the base, got: %s", problem)
+  }
+  if strings.Contains(problem, filepath.ToSlash(current)) {
+    t.Fatalf("the callback's own argument is not what a reader opens: %s", problem)
+  }
+}
+
+/**
+ * Verifies a path outside the configured population stays silent.
+ *
+ * The negative twin. A permission this population never needed is not its
+ * finding, and reporting it would turn an unrelated directory beside the
+ * documents into a build error. The guard predates this change and has to
+ * survive it.
+ *
+ *  1. Hand the decision a path the population does not read.
+ *  2. Read what it returns.
+ *  3. Assert it reports nothing.
+ */
+func TestAWalkFailureOutsideThePopulationIsNotReported(t *testing.T) {
+  base := resolvePopulationBase(filepath.Join(t.TempDir(), "project"), "../documents")
+  problem, relevant := unreadableEntryProblem(
+    base,
+    "Markdown",
+    filepath.Join(base.Absolute, "assets", "private"),
+    errors.New("permission denied"),
+    func(relative string) bool { return relative == "requirements/private" },
+  )
+  if relevant || problem != "" {
+    t.Fatalf("an unread path owes no diagnostic, got %q", problem)
   }
 }
 
@@ -98,9 +141,10 @@ func TestAWalkFailureSpellsThePathItsFileMessageWouldSpell(t *testing.T) {
  * Verifies the underlying filesystem error survives untouched.
  *
  * The cause belongs to the operating system and may embed an absolute path of
- * its own. Spelling the path this rule chose to print is one claim; rewriting a
- * sentence it did not author would be another, and would leave a reader unable
- * to match the message against the syscall that produced it.
+ * its own, in that system's own separators. Spelling the path this rule chose to
+ * print is one claim; rewriting a sentence it did not author would be another,
+ * and would leave a reader unable to match the message against the syscall that
+ * produced it.
  *
  *  1. Compose the message over a cause carrying an OS-native absolute path.
  *  2. Read the message.
@@ -108,7 +152,7 @@ func TestAWalkFailureSpellsThePathItsFileMessageWouldSpell(t *testing.T) {
  */
 func TestAWalkFailurePassesItsCauseThroughUnchanged(t *testing.T) {
   root := filepath.Join(t.TempDir(), "project")
-  cause := errors.New(`open C:\Users\one\docs\private: Access is denied.`)
+  cause := errors.New(`open C:\Users\one\documents\private: Access is denied.`)
   problem := unreadableWalkEntryProblem(
     resolvePopulationBase(root, "../documents"),
     "requirements/private",
@@ -117,6 +161,9 @@ func TestAWalkFailurePassesItsCauseThroughUnchanged(t *testing.T) {
   )
   if !strings.Contains(problem, cause.Error()) {
     t.Fatalf("the cause is the filesystem's own sentence, got: %s", problem)
+  }
+  if !strings.Contains(problem, "'../documents/requirements/private'") {
+    t.Fatalf("the path this rule prints is still its own, got: %s", problem)
   }
 }
 
@@ -130,7 +177,7 @@ func TestAWalkFailurePassesItsCauseThroughUnchanged(t *testing.T) {
  *
  *  1. Make a directory inside the configured globs unreadable.
  *  2. Run the rule.
- *  3. Assert the failure names the project-relative path and no absolute one.
+ *  3. Assert the path the rule prints is project-relative.
  */
 func TestARealMarkdownWalkFailureNamesTheProjectRelativePath(t *testing.T) {
   root := t.TempDir()
@@ -152,7 +199,10 @@ func TestARealMarkdownWalkFailureNamesTheProjectRelativePath(t *testing.T) {
     "reference":{"type":"markdown","files":["docs/**/*.md"],"symbol":"h2"}
   }]}`)
   assertProblemContains(t, messages, "could not inspect 'docs/private':")
-  if countProblemsContaining(messages, filepath.ToSlash(private)) != 0 {
+  // The quoted segment is the path this rule chose. The cause after it belongs
+  // to the operating system and legitimately carries an absolute path, so the
+  // absence is asserted where the rule is the author.
+  if countProblemsContaining(messages, "'"+filepath.ToSlash(private)+"'") != 0 {
     t.Fatalf(
       "the path this rule prints is project-relative:\n%s",
       strings.Join(messages, "\n"),
@@ -206,7 +256,7 @@ func TestARealWalkFailureUnderADeclaredRootAscendsThroughIt(t *testing.T) {
 /**
  * Verifies a real Prisma walk failure answers exactly as the Markdown one does.
  *
- * The two walkers were the same defect written twice, and repairing one while
+ * The two walkers were the same decision written twice, and repairing one while
  * leaving the other reinstates by artifact kind the branch asymmetry #1236
  * removed. The Prisma half is exercised through its address collector rather
  * than the whole rule, because the Prisma bridge needs a linked feature suite

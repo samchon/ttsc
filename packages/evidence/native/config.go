@@ -883,12 +883,17 @@ func describePatterns(globs globSet) string {
 }
 
 // describePopulation names the patterns a population selects with, and the base
-// they were resolved against when that base is not the project root.
+// they resolve against when that base is not the project root.
 //
 // The base is stated rather than assumed, because a citation that resolves
 // outside the project has to be repairable from the diagnostic alone: patterns
 // that look correct against a root the reader is imagining are the failure this
-// property introduces, and naming the resolved base is what removes it.
+// property introduces, and naming the base is what removes it.
+//
+// It is named by its declared spelling rather than its resolved one, because
+// the repair is an edit to a configuration property and the reader has to find
+// that property first. `populationRootLabel` owns that choice and the reasoning
+// behind it.
 func describePopulation(base populationBase, globs globSet) string {
   if base.Default {
     return describePatterns(globs)

@@ -31,9 +31,10 @@ export interface ITtscEvidenceGraphMarkdownReference extends ITtscEvidenceGraphR
    * requirements set write the same citation, and why a shared population
    * declares its root once instead of spelling `..` inside every pattern.
    *
-   * Diagnostics name the resolved base, and the resolved patterns are published
-   * to the `ttsc` host as watched inputs, so editing a document above the
-   * project still invalidates the graph.
+   * A diagnostic that asks you to correct this property quotes the spelling you
+   * declared, while the file locations beside it stay project-relative. The
+   * resolved patterns are published to the `ttsc` host as watched inputs, so
+   * editing a document above the project still invalidates the graph.
    */
   root?: string;
 

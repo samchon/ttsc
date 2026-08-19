@@ -1,6 +1,7 @@
 package evidence
 
 import (
+  "io/fs"
   "path/filepath"
   "strings"
   "testing"
@@ -83,6 +84,17 @@ func TestARelativeRootKeepsItsResolvedLocationAndClause(t *testing.T) {
     "found no directory at the typescript root '../contracts', which resolves to '",
   )
   assertProblemContains(t, messages, "it resolves against the ttsc project root")
+  assertProblemContains(
+    t,
+    messages,
+    "add that directory and make its sources part of the tsconfig Program",
+  )
+  if countProblemsContaining(messages, "because that path is not a directory") != 0 {
+    t.Fatalf(
+      "nothing occupies a path that holds nothing:\n%s",
+      strings.Join(messages, "\n"),
+    )
+  }
 }
 
 /**
@@ -381,4 +393,81 @@ func TestACitationUnderAnAbsoluteRootResolvesThroughTheRoot(t *testing.T) {
     }
   }]}`)
   assertNoProblems(t, messages)
+}
+
+/**
+ * Verifies an absolute root written with backslashes is stored and named in one
+ * slash-separated form.
+ *
+ * The end-to-end case above declares a relative root, which is the one form
+ * where the declared spelling and the derived one coincide, so it cannot tell
+ * the stored spelling from the old derivation. The form the acceptance actually
+ * names is an absolute Windows path, and it is asserted here rather than through
+ * the rule because a path with a drive letter is absolute on one platform and
+ * relative on the other, while the spelling this stores is the same on both.
+ *
+ *  1. Normalize an absolute root written with backslashes.
+ *  2. Resolve it against a project root.
+ *  3. Assert the stored spelling and the printed label are the slashed form.
+ */
+func TestAnAbsoluteRootWithBackslashesIsStoredWithSlashes(t *testing.T) {
+  normalized, problem := normalizeRootPath(`C:\contracts`)
+  if problem != "" {
+    t.Fatalf("an absolute Windows root is accepted, got: %s", problem)
+  }
+  if normalized != "C:/contracts" {
+    t.Fatalf("normalized = %q, want %q", normalized, "C:/contracts")
+  }
+  base := resolvePopulationBase(filepath.Join(t.TempDir(), "project"), normalized)
+  if base.Declared != "C:/contracts" {
+    t.Fatalf("declared = %q, want %q", base.Declared, "C:/contracts")
+  }
+  if label := populationRootLabel(base); label != "C:/contracts" {
+    t.Fatalf("label = %q, want %q", label, "C:/contracts")
+  }
+}
+
+/**
+ * Verifies a root the rule could not examine is not called missing.
+ *
+ * A stat fails on more than absence. When an unreadable parent hides the root,
+ * the directory may already be there, and "create that directory" is the same
+ * unfollowable repair a file occupying the path produces: the author does what
+ * the message says, nothing changes, and the message returns. The rule does not
+ * know which state it is in, so it says that and passes the operating system's
+ * own reason through.
+ *
+ *  1. Describe the three states a failed stat leaves behind.
+ *  2. Read each rendered sentence.
+ *  3. Assert only the absent one asks for the directory to be created.
+ */
+func TestARootThatCouldNotBeExaminedIsNotCalledMissing(t *testing.T) {
+  base := resolvePopulationBase(filepath.Join(t.TempDir(), "project"), "../contracts")
+  denied := &fs.PathError{Op: "stat", Path: base.Absolute, Err: fs.ErrPermission}
+  unexaminable := baseDirectoryProblem(base, artifactMarkdown, false, denied)
+  for _, expected := range []string{
+    "could not examine the markdown root '../contracts'",
+    "which resolves to '",
+    "permission denied",
+    "make that path reachable by this process",
+    "it resolves against the ttsc project root",
+  } {
+    if !strings.Contains(unexaminable, expected) {
+      t.Fatalf("expected %q in:\n%s", expected, unexaminable)
+    }
+  }
+  if strings.Contains(unexaminable, "create that directory") {
+    t.Fatalf("a directory that may already exist is not created:\n%s", unexaminable)
+  }
+
+  absent := baseDirectoryProblem(
+    base,
+    artifactMarkdown,
+    false,
+    &fs.PathError{Op: "stat", Path: base.Absolute, Err: fs.ErrNotExist},
+  )
+  assertProblemContains(t, []string{absent}, "create that directory")
+  if strings.Contains(absent, "could not examine") {
+    t.Fatalf("an absent path is known to be absent:\n%s", absent)
+  }
 }

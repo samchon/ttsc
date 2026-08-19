@@ -46,8 +46,9 @@ export interface ITtscEvidenceGraphClaimBase<Type extends string> {
    * path such as `C:docs` is refused, because it resolves against whatever
    * directory that drive currently sits on rather than against a stable base.
    *
-   * Diagnostics name the resolved base, and the resolved patterns are published
-   * to the `ttsc` host as watched inputs.
+   * A diagnostic that asks you to correct this property quotes the spelling you
+   * declared, while the file locations beside it stay project-relative. The
+   * resolved patterns are published to the `ttsc` host as watched inputs.
    */
   root?: string;
 

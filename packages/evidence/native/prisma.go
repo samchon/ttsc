@@ -242,18 +242,28 @@ func configuredPrismaAddressesWithHealth(
     baseFailed := false
     err := filepath.WalkDir(base.Absolute, func(current string, entry fs.DirEntry, walkErr error) error {
       if walkErr != nil {
-        relative, ok := relativeProjectPath(base.Absolute, current)
-        relevant := ok &&
-          (matchesConfiguredPrismaFile(config, base, relative) ||
-            couldContainConfiguredPrisma(config, base, relative))
-        if !relevant {
-          if entry != nil && entry.IsDir() {
-            return filepath.SkipDir
-          }
-          return nil
+        // The walk root belongs to its population by construction, and the
+        // relevance test below answers for an entry inside the base rather than
+        // for the base itself. `loadMarkdownBase` carries the same exemption on
+        // the same reasoning; leaving it in one walker would decide an
+        // identical filesystem state by artifact kind.
+        if current == base.Absolute {
+          return walkErr
         }
-        baseFailed = true
-        problems = append(problems, unreadableWalkEntryProblem(base, relative, "Prisma", walkErr))
+        problem, relevant := unreadableEntryProblem(
+          base,
+          "Prisma",
+          current,
+          walkErr,
+          func(relative string) bool {
+            return matchesConfiguredPrismaFile(config, base, relative) ||
+              couldContainConfiguredPrisma(config, base, relative)
+          },
+        )
+        if relevant {
+          baseFailed = true
+          problems = append(problems, problem)
+        }
         if entry != nil && entry.IsDir() {
           return filepath.SkipDir
         }
@@ -278,7 +288,7 @@ func configuredPrismaAddressesWithHealth(
     })
     if err != nil {
       baseFailed = true
-      problems = append(problems, "Evidence graph could not walk Prisma root '"+populationRootLabel(base)+"': "+err.Error()+".")
+      problems = append(problems, unlistableBaseProblem(base, "Prisma", err))
     }
     if baseFailed {
       failedBases = append(failedBases, base)

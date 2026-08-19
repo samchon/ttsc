@@ -47,18 +47,35 @@ func loadMarkdownBase(
   }
   err := filepath.WalkDir(base.Absolute, func(current string, entry fs.DirEntry, walkErr error) error {
     if walkErr != nil {
-      relative, ok := relativeProjectPath(base.Absolute, current)
-      relevant := ok &&
-        (matchesConfiguredMarkdownFile(config, base, relative) ||
-          couldContainConfiguredMarkdown(config, base, relative))
-      if !relevant {
-        if entry != nil && entry.IsDir() {
-          return filepath.SkipDir
-        }
-        return nil
+      // The walk root belongs to its population by construction, so a failure
+      // to list it is a failure of the population and is never decided by what
+      // the globs happen to select. The relevance test below answers for an
+      // entry inside the base and returns false for the base itself, whose
+      // base-relative path is "." and which no pattern is written to match, so
+      // the one failure that empties the whole population was the one failure
+      // this walker discarded. The success branch already exempts the base for
+      // the same reason; this is that exemption on the error side.
+      //
+      // Returning the error ends the walk and carries the failure to the
+      // handler below, which is where a population-level finding belongs and
+      // where the population is recorded failed rather than healthy and empty.
+      if current == base.Absolute {
+        return walkErr
       }
-      recordPopulationFailure(inventories, artifactMarkdown, base)
-      problems = append(problems, unreadableWalkEntryProblem(base, relative, "Markdown", walkErr))
+      problem, relevant := unreadableEntryProblem(
+        base,
+        "Markdown",
+        current,
+        walkErr,
+        func(relative string) bool {
+          return matchesConfiguredMarkdownFile(config, base, relative) ||
+            couldContainConfiguredMarkdown(config, base, relative)
+        },
+      )
+      if relevant {
+        recordPopulationFailure(inventories, artifactMarkdown, base)
+        problems = append(problems, problem)
+      }
       if entry != nil && entry.IsDir() {
         return filepath.SkipDir
       }
@@ -107,7 +124,7 @@ func loadMarkdownBase(
   })
   if err != nil {
     recordPopulationFailure(inventories, artifactMarkdown, base)
-    problems = append(problems, "Evidence graph could not walk Markdown root '"+populationRootLabel(base)+"': "+err.Error()+".")
+    problems = append(problems, unlistableBaseProblem(base, "Markdown", err))
   }
   return problems
 }

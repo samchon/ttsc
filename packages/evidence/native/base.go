@@ -1,6 +1,8 @@
 package evidence
 
 import (
+  "errors"
+  "io/fs"
   "os"
   "path"
   "path/filepath"
@@ -284,28 +286,55 @@ func populationRootLabel(base populationBase) string {
 // missingBaseDirectoryProblem reports a declared root that is not an existing
 // directory.
 //
-// The test is a stat, and three states fail it: nothing at the path, an
-// unreachable parent, and a path a non-directory occupies. The first two are one
-// message because the repair is one act — create the directory — while the third
-// is told apart, because "add that directory" cannot be followed while something
-// else stands where it would go, and an author who tries reads the same sentence
-// again.
-//
-// The Markdown and Prisma messages may still lead with "could not read", because
-// the walk each of those callers is about to run is the read the root exists to
-// serve, and it is skipped only because the root is not there. The predicate's
-// own name may not, because the third caller reads nothing and asks the same
-// question.
+// The observation and the sentence are separate functions because the sentence
+// has four shapes and the observation has one, and only the sentence can be put
+// in front of a reader without a filesystem in the state it describes.
 //
 // The default base is excluded because `Check` already validated the project
 // root, and its diagnostic names the ttsc project identity as the repair rather
 // than a configuration property that does not exist there.
+func missingBaseDirectoryProblem(base populationBase, kind artifactKind) string {
+  if base.Default {
+    return ""
+  }
+  info, err := os.Stat(base.Absolute)
+  if err == nil && info.IsDir() {
+    return ""
+  }
+  return baseDirectoryProblem(base, kind, err == nil, err)
+}
+
+// baseDirectoryProblem says what a declared root is instead of a directory, and
+// what to do about it.
+//
+// Three states reach it, and each one owns a repair the other two cannot be
+// given. `occupied` means the stat succeeded over something that is not a
+// directory, so the repair has to name what is in the way: told to "add that
+// directory" over a file, an author follows the instruction, watches it fail,
+// and reads the same sentence again. An absent path is created. A stat that
+// failed for any other reason is the state where the rule does not know which
+// of those two it is looking at, and it must not guess, because "create that
+// directory" over a directory an unreadable parent is hiding is the same
+// unfollowable repair a second time.
+//
+// `fs.ErrNotExist` is what separates the second from the third, and the split
+// is not identical on both platforms. A path whose parent is a file answers
+// `ENOTDIR` on POSIX and a not-found error on Windows, so it lands in different
+// branches there. Both sentences are true where they land, because the third
+// prints the operating system's own reason rather than asserting one.
+//
+// The Markdown and Prisma messages may still lead with "could not read",
+// because the walk each of those callers is about to run is the read the root
+// exists to serve, and it is skipped only because the root is not there. The
+// predicate's own name may not, because the third caller reads nothing and asks
+// the same question.
 //
 // Both spellings appear, and only while they differ. The declared one is the
 // property the author has to edit, and the resolved one is where that property
-// actually landed — which is the whole question the moment a root ascends out of
-// the project. An absolute declared root landed on itself, so restating it would
-// name the same path twice and offer the second as an explanation of the first.
+// actually landed, which is the whole question the moment a root ascends out of
+// the project. An absolute declared root landed on itself, so restating it
+// would name the same path twice and offer the second as an explanation of the
+// first.
 //
 // The clause about resolution goes with it, for the stronger reason that it is
 // false there. `resolvePopulationBase` joins the project root into a relative
@@ -328,34 +357,43 @@ func populationRootLabel(base populationBase) string {
 // against the project root; the sources re-base onto the root. Merging them
 // into "re-bases Program sources against the ttsc project root" states the
 // reverse of what the property does, and reads as though declaring it changed
-// nothing — which is the one conclusion an author must not draw here.
+// nothing, which is the one conclusion an author must not draw here.
 //
-// Every repair clause takes two steps, and that part is not about TypeScript at
-// all. This stat is satisfied by an empty directory, so creating one silences
-// the diagnostic and leaves the population exactly as empty — and for a claim
-// that is worse than the diagnostic was, because an empty healthy claim
-// deactivates without a word. Both branches therefore ask for what the
-// directory must hold, and the split is disk against Program rather than one
-// noun against another: the walkers want the sources on disk, and TypeScript
-// wants them in the Program.
-func missingBaseDirectoryProblem(base populationBase, kind artifactKind) string {
-  if base.Default {
-    return ""
+// Every repair clause that ends in a directory takes two steps, and that part
+// is not about TypeScript at all. This stat is satisfied by an empty directory,
+// so creating one silences the diagnostic and leaves the population exactly as
+// empty, and for a claim that is worse than the diagnostic was, because an
+// empty healthy claim deactivates without a word. Those branches therefore ask
+// for what the directory must hold, and the split is disk against Program
+// rather than one noun against another: the walkers want the sources on disk,
+// and TypeScript wants them in the Program.
+func baseDirectoryProblem(
+  base populationBase,
+  kind artifactKind,
+  occupied bool,
+  cause error,
+) string {
+  unexaminable := !occupied && !errors.Is(cause, fs.ErrNotExist)
+  label := populationRootLabel(base)
+  resolved := !declaredRootIsAbsolute(base.Declared)
+  if unexaminable {
+    message := "Evidence graph could not examine the " + string(kind) + " root '" + label + "'"
+    if resolved {
+      message += ", which resolves to '" + filepath.ToSlash(base.Absolute) + "'"
+    }
+    message += ": " + cause.Error() + ". Correct the 'root' property, or make that path reachable by this process"
+    if resolved {
+      message += "; it resolves against the ttsc project root"
+    }
+    return message + "."
   }
-  info, err := os.Stat(base.Absolute)
-  if err == nil && info.IsDir() {
-    return ""
-  }
-  message := "Evidence graph could not read the " + string(kind) + " root '" +
-    populationRootLabel(base) + "'"
+  message := "Evidence graph could not read the " + string(kind) + " root '" + label + "'"
   if kind == artifactTypeScript {
-    message = "Evidence graph found no directory at the " + string(kind) + " root '" +
-      populationRootLabel(base) + "'"
+    message = "Evidence graph found no directory at the " + string(kind) + " root '" + label + "'"
   }
-  if !declaredRootIsAbsolute(base.Declared) {
+  if resolved {
     message += ", which resolves to '" + filepath.ToSlash(base.Absolute) + "'"
   }
-  occupied := err == nil
   if occupied {
     message += ", because that path is not a directory"
   }
@@ -371,7 +409,7 @@ func missingBaseDirectoryProblem(base populationBase, kind artifactKind) string 
     message += "create that directory and the " + string(kind) + " sources it should hold"
   }
   message += "; "
-  if !declaredRootIsAbsolute(base.Declared) {
+  if resolved {
     message += "it resolves against the ttsc project root, and "
   }
   if kind == artifactTypeScript {
@@ -381,20 +419,66 @@ func missingBaseDirectoryProblem(base populationBase, kind artifactKind) string 
   return message + "an empty directory leaves the population just as empty."
 }
 
+// unlistableBaseProblem reports a population whose own base could not be
+// listed.
+//
+// This is a different finding from the entry-level one below, and the
+// difference is the whole population. An entry the walk could not read costs
+// the units in it; a base the walk could not list costs every unit there is,
+// and reporting it through the per-entry line would name the base as though it
+// were one file inside itself. Both walkers reach it through the error their
+// callback returns for that one path, which is what ends the walk and brings
+// the failure back here.
+//
+// The base is named by its configuration spelling rather than by a location,
+// because that is the property an author edits, and because a base with no
+// declared root has no other name than where it is.
+func unlistableBaseProblem(
+  base populationBase,
+  sources string,
+  cause error,
+) string {
+  return "Evidence graph could not walk " + sources + " root '" + populationRootLabel(base) +
+    "': " + cause.Error() + ". Fix filesystem access so configured " + sources +
+    " sources can be indexed."
+}
+
+// unreadableEntryProblem decides whether a walk failure inside a population
+// belongs to it, and spells it if it does.
+//
+// The Markdown and Prisma walkers share it because they are otherwise one
+// decision written twice, and the halves fail differently. Reporting a path no
+// configured glob reaches turns an unrelated permission on an unrelated
+// directory into a build error; printing the path the walker handed back
+// spells it the way the filesystem API does rather than the way every other
+// message in the same function does.
+//
+// `reads` is the population's own membership question, which is the only part
+// that differs by artifact kind. The base itself never arrives here: it is not
+// one entry among many, and each walker answers it before this is asked.
+func unreadableEntryProblem(
+  base populationBase,
+  sources string,
+  current string,
+  cause error,
+  reads func(relative string) bool,
+) (string, bool) {
+  relative, ok := relativeProjectPath(base.Absolute, current)
+  if !ok || !reads(relative) {
+    return "", false
+  }
+  return unreadableWalkEntryProblem(base, relative, sources, cause), true
+}
+
 // unreadableWalkEntryProblem names one path a population walk could not
 // inspect.
 //
-// The Markdown and Prisma walkers share it because they are otherwise one
-// defect written twice. The path a `filepath.WalkDir` callback receives is the
-// OS-native absolute one, while every other path those two functions print is
-// project-relative and slash-separated, so on Windows the failing line is the
-// only one spelled with backslashes and an author compares it against globs, a
-// root, and file locations that do not line up with it. Repairing one walker
-// and leaving the other reinstates that by artifact kind instead of by line.
-//
-// The walk root itself arrives as ".", because that is its own base-relative
-// path, and composing it onto a declared root would spell `../docs/.`.
-// `path.Clean` collapses that and leaves every other composition untouched.
+// The path a `filepath.WalkDir` callback receives is the OS-native absolute
+// one, and printing it as it arrives made this the only line in either walker
+// spelled with backslashes on Windows, against globs, a root, and file
+// locations that all pass through `filepath.ToSlash`. A reader compares them
+// against each other, so the walker composes the base-relative path it already
+// holds through the same `display` a loaded file's own message uses.
 //
 // The cause is passed through as the filesystem wrote it. It may embed an
 // OS-native absolute path of its own, and rewriting a sentence this rule did
@@ -405,7 +489,7 @@ func unreadableWalkEntryProblem(
   sources string,
   cause error,
 ) string {
-  return "Evidence graph could not inspect '" + path.Clean(base.display(relative)) +
+  return "Evidence graph could not inspect '" + base.display(relative) +
     "': " + cause.Error() + ". Fix filesystem access so configured " + sources +
     " sources can be indexed."
 }

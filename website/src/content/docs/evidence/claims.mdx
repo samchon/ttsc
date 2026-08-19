@@ -180,7 +180,7 @@ A monorepo usually keeps one requirements set that several packages implement, a
 
 `root` is one directory, never a glob. It may sit inside the project (`docs`), above it (`../../docs`), or on an absolute path (`/srv/contracts`, `C:/contracts`). A Windows drive-relative path such as `C:docs` is refused, because it resolves against whatever directory that drive currently sits on.
 
-A diagnostic that asks you to correct `root` quotes the spelling you declared, so an absolute root is found by searching `lint.config.ts` for the exact text in the message. File locations stay project-relative in the same message, because one names the property to edit and the other names the path to open.
+A diagnostic that asks you to correct `root` quotes the spelling you declared, normalized to forward slashes and with `.` and redundant segments removed, rather than a path it derived. File locations stay project-relative in the same message, because one names the property to edit and the other names the path to open.
 
 **Moving the root moves the addresses with it.** Under the configuration above a section is cited as `requirements/pricing.md#discounts`, not through the citing package's distance from the documents. That is what lets two packages share one document set: they declare the same base and write the same citation, so adopting the set costs a `root` line and nothing else.
 
