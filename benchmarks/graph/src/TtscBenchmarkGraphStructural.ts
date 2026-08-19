@@ -13,11 +13,22 @@ export namespace TtscBenchmarkGraphStructural {
     sourceFiles: number;
     nodes: number;
     externalNodes: number;
-    edges: {
-      heritage: number;
-      "value-call": number;
-      "type-ref": number;
-    };
+    /**
+     * Edge count per kind, keyed by whatever kinds the run produced.
+     *
+     * Declared open rather than as a fixed set of counters: three were named
+     * here while `graphbench` emitted every kind it found, so `exports`,
+     * `accesses`, `member-relation`, and `doc-ref` had nowhere to land and the
+     * three printed numbers did not add up to `totalEdges`.
+     */
+    edges: Record<string, number>;
+    /**
+     * Which of the three edge-kind vocabularies {@link ISample.edges} is keyed
+     * by, as `graphbench` names it. Absent from a report produced before the
+     * producer started saying so, in which case the reader is told nothing
+     * rather than guessing.
+     */
+    edgeVocabulary?: string;
     totalEdges: number;
     symbolFiles: number;
     coveredFiles: number;
@@ -130,6 +141,7 @@ export namespace TtscBenchmarkGraphStructural {
         nodes: first.nodes,
         externalNodes: first.externalNodes,
         edges: first.edges,
+        edgeVocabulary: first.edgeVocabulary,
         totalEdges: first.totalEdges,
         symbolFiles: first.symbolFiles,
         coveredFiles: first.coveredFiles,
@@ -148,10 +160,7 @@ export namespace TtscBenchmarkGraphStructural {
       console.log(
         `  nodes:         ${report.nodes} (${report.externalNodes} external boundary leaves)`,
       );
-      console.log(
-        `  edges:         ${report.totalEdges} (heritage ${report.edges.heritage}, ` +
-          `value-call ${report.edges["value-call"]}, type-ref ${report.edges["type-ref"]})`,
-      );
+      console.log(`  edges:         ${edgeBreakdown(report)}`);
       console.log(
         `  fair coverage: ${(report.coverage * 100).toFixed(1)}% ` +
           `(${report.coveredFiles}/${report.symbolFiles} symbol-bearing files cross-linked)`,
@@ -178,19 +187,63 @@ export namespace TtscBenchmarkGraphStructural {
     }
   }
 
+  /**
+   * Renders the edge line: the total, the vocabulary it is counted in, and
+   * every family, in a stable order.
+   *
+   * A breakdown accounts for its own total. When the named families do not sum
+   * to `totalEdges` the line says so instead of leaving a reader to subtract: a
+   * total that moves while none of the parts move is the shape this report used
+   * to show, and it is indistinguishable from a measurement error.
+   */
+  function edgeBreakdown(report: {
+    edges: Record<string, number>;
+    edgeVocabulary?: string;
+    totalEdges: number;
+  }): string {
+    const families: [string, number][] = Object.entries(report.edges).sort(
+      ([left]: [string, number], [right]: [string, number]) =>
+        left < right ? -1 : left > right ? 1 : 0,
+    );
+    const counted: number = families.reduce(
+      (sum: number, [, value]: [string, number]) => sum + value,
+      0,
+    );
+    const vocabulary: string =
+      report.edgeVocabulary !== undefined
+        ? `${report.edgeVocabulary} kinds: `
+        : "";
+    const remainder: number = report.totalEdges - counted;
+    const parts: string[] = families.map(
+      ([name, value]: [string, number]) => `${name} ${value}`,
+    );
+    if (remainder !== 0) parts.push(`unaccounted ${remainder}`);
+    return `${report.totalEdges} (${vocabulary}${parts.join(", ")})`;
+  }
+
   function isSample(input: unknown): input is ISample {
     if (
       TtscBenchmarkObject.isRecord(input) === false ||
       TtscBenchmarkObject.isRecord(input.edges) === false
     )
       return false;
+    const edges: Record<string, unknown> = input.edges;
+    if (Object.keys(edges).length === 0) return false;
+    if (
+      Object.values(edges).every(
+        (value: unknown) => typeof value === "number",
+      ) === false
+    )
+      return false;
+    if (
+      input.edgeVocabulary !== undefined &&
+      typeof input.edgeVocabulary !== "string"
+    )
+      return false;
     return [
       input.sourceFiles,
       input.nodes,
       input.externalNodes,
-      input.edges.heritage,
-      input.edges["value-call"],
-      input.edges["type-ref"],
       input.totalEdges,
       input.symbolFiles,
       input.coveredFiles,

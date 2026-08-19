@@ -60,6 +60,31 @@ function StatCard({
   );
 }
 
+/**
+ * The per-kind edge note: every family the run reported, in a stable order,
+ * with the vocabulary named and any remainder stated.
+ *
+ * A breakdown accounts for its own total. This panel used to name exactly three
+ * families while the benchmark emitted every kind it found, so `exports`,
+ * `accesses`, `member-relation`, and `doc-ref` were dropped and the parts shown
+ * never summed to the total beside them.
+ */
+function edgeBreakdown(data: StructuralData): string | undefined {
+  if (!data.edges) return undefined;
+  const families = Object.entries(data.edges)
+    .filter(([, value]) => typeof value === "number")
+    .sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0));
+  if (families.length === 0) return undefined;
+  const parts = families.map(([name, value]) => `${name} ${value}`);
+  if (data.totalEdges !== undefined) {
+    const remainder =
+      data.totalEdges - families.reduce((sum, [, value]) => sum + value, 0);
+    if (remainder !== 0) parts.push(`unaccounted ${remainder}`);
+  }
+  const body = parts.join(" / ");
+  return data.edgeVocabulary ? `${data.edgeVocabulary} kinds: ${body}` : body;
+}
+
 interface Stat {
   label: string;
   value: string;
@@ -107,21 +132,7 @@ function TtscWebsiteBenchmarkGraphStructuralPanel({
         data.totalEdges !== undefined
           ? TtscWebsiteBenchmarkGraphData.fmt(data.totalEdges)
           : "n/a",
-      note: data.edges
-        ? [
-            data.edges.heritage !== undefined
-              ? `heritage ${data.edges.heritage}`
-              : null,
-            data.edges["type-ref"] !== undefined
-              ? `type-ref ${data.edges["type-ref"]}`
-              : null,
-            data.edges["value-call"] !== undefined
-              ? `value-call ${data.edges["value-call"]}`
-              : null,
-          ]
-            .filter(Boolean)
-            .join(" / ")
-        : undefined,
+      note: edgeBreakdown(data),
     },
     {
       label: "Fair coverage",

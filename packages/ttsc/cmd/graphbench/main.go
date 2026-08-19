@@ -29,10 +29,16 @@ type metrics struct {
   Nodes         int            `json:"nodes"`
   ExternalNodes int            `json:"externalNodes"`
   Edges         map[string]int `json:"edges"`
-  TotalEdges    int            `json:"totalEdges"`
-  SymbolFiles   int            `json:"symbolFiles"`
-  CoveredFiles  int            `json:"coveredFiles"`
-  Coverage      float64        `json:"coverage"`
+  // EdgeVocabulary names which of the three edge-kind vocabularies Edges is
+  // keyed by, so a reader comparing these numbers against a dump does not
+  // compare the wrong things. Build produces *internal* kinds; a dump carries
+  // finer *wire* kinds (value-call splits into calls/instantiates/renders);
+  // the viewer folds wire kinds onto *display* families.
+  EdgeVocabulary string  `json:"edgeVocabulary"`
+  TotalEdges     int     `json:"totalEdges"`
+  SymbolFiles    int     `json:"symbolFiles"`
+  CoveredFiles   int     `json:"coveredFiles"`
+  Coverage       float64 `json:"coverage"`
 }
 
 func main() {
@@ -82,10 +88,13 @@ func run() int {
 // counts, edges per kind, and fair coverage (workspace files holding at least one
 // node that an edge connects to a node in another file).
 func summarize(g *graph.Graph, sourceFiles int) metrics {
-  edges := map[string]int{
-    string(graph.EdgeHeritage):  0,
-    string(graph.EdgeValueCall): 0,
-    string(graph.EdgeTypeRef):   0,
+  // Seeded with every kind Build can produce, so a family that happened not to
+  // occur reports 0 rather than vanishing from the object. Three of the seven
+  // used to be seeded and the map grew the rest on first sight, which meant the
+  // reported shape depended on the project measured.
+  edges := map[string]int{}
+  for _, kind := range graph.EdgeKinds() {
+    edges[string(kind)] = 0
   }
   for _, edge := range g.Edges {
     edges[string(edge.Kind)]++
@@ -123,13 +132,14 @@ func summarize(g *graph.Graph, sourceFiles int) metrics {
   }
 
   return metrics{
-    SourceFiles:   sourceFiles,
-    Nodes:         len(g.Nodes),
-    ExternalNodes: external,
-    Edges:         edges,
-    TotalEdges:    len(g.Edges),
-    SymbolFiles:   len(symbolFiles),
-    CoveredFiles:  len(coveredFiles),
-    Coverage:      coverage,
+    SourceFiles:    sourceFiles,
+    Nodes:          len(g.Nodes),
+    ExternalNodes:  external,
+    Edges:          edges,
+    EdgeVocabulary: "internal",
+    TotalEdges:     len(g.Edges),
+    SymbolFiles:    len(symbolFiles),
+    CoveredFiles:   len(coveredFiles),
+    Coverage:       coverage,
   }
 }

@@ -41,11 +41,20 @@ export namespace ITtscWebsiteBenchmarkGraph {
     sourceFiles?: number;
     nodes?: number;
     externalNodes?: number;
-    edges?: {
-      heritage?: number;
-      "type-ref"?: number;
-      "value-call"?: number;
-    };
+    /**
+     * Edge count per kind, keyed by whatever kinds the run produced.
+     *
+     * Open rather than a fixed three, because the benchmark emits every kind it
+     * finds. Naming three of them here dropped `exports`, `accesses`,
+     * `member-relation`, and `doc-ref` from the panel, so the parts shown never
+     * added up to {@link totalEdges}.
+     */
+    edges?: Record<string, number>;
+    /**
+     * Which edge-kind vocabulary {@link edges} is keyed by, as the benchmark
+     * names it. Absent from a report published before the producer said so.
+     */
+    edgeVocabulary?: string;
     totalEdges?: number;
     symbolFiles?: number;
     coveredFiles?: number;

@@ -183,6 +183,24 @@ const (
   EdgeExports EdgeKind = "exports"
 )
 
+// EdgeKinds returns every kind Build can put on an edge, in declaration order.
+//
+// A consumer that reports per-kind numbers needs the whole vocabulary rather
+// than the subset a particular project happens to contain: counting only what
+// was seen makes the reported shape depend on the project measured, and a
+// family that dropped to zero disappears instead of reading zero.
+func EdgeKinds() []EdgeKind {
+  return []EdgeKind{
+    EdgeHeritage,
+    EdgeMemberRelation,
+    EdgeValueCall,
+    EdgeValueAccess,
+    EdgeTypeRef,
+    EdgeDocRef,
+    EdgeExports,
+  }
+}
+
 // Edge is a directed, checker-resolved relationship from one node to another,
 // both referenced by Node.ID. File, Pos, and End bound the source expression
 // that produced the edge. File is empty when the From node names it and is set
