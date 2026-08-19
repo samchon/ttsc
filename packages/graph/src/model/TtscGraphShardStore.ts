@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 
 import { ITtscGraphDump } from "../structures/ITtscGraphDump";
 import { ITtscGraphSnapshot } from "../structures/ITtscGraphSnapshot";
+import { isArtifactNodeKind } from "../structures/TtscGraphArtifactNodeKind";
 import { DUMP_SCHEMA_VERSION } from "./loadGraph";
 
 /** Atomic validator and assembler for native `ttscgraph` shard transactions. */
@@ -323,8 +324,12 @@ function assertShardContents(
     }
     return;
   }
+  // The metadata shard carries the nodes no program source owns: external
+  // boundary leaves, and published artifacts. An artifact has no source to be
+  // owned by, so the guard that keeps authored declarations out of this shard
+  // names it rather than treating "not external" as "authored".
   for (const node of shard.nodes) {
-    if (!node.external) {
+    if (!node.external && !isArtifactNodeKind(node.kind)) {
       throw new Error(
         `@ttsc/graph: native metadata shard ${key} owns authored node ${node.id}`,
       );

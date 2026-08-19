@@ -736,8 +736,14 @@ func validateServeGraphShardContents(key string, shard serveGraphShard) error {
     }
     return nil
   }
+  // The metadata shard carries the nodes no program source owns: external
+  // boundary leaves, and published artifacts. An artifact is not authored code
+  // and has no source to be owned by — a Markdown document, a Prisma schema, or
+  // nothing at all for an operation named by method and path — so the guard that
+  // keeps authored declarations out of this shard has to name it explicitly
+  // rather than treat "not external" as "authored".
   for _, node := range shard.Nodes {
-    if !node.External {
+    if !node.External && !graph.IsArtifactKind(graph.NodeKind(node.Kind)) {
       return fmt.Errorf("ttscgraph: metadata shard %s owns authored node %s", key, node.ID)
     }
   }
@@ -860,6 +866,19 @@ func partitionServeGraphFacts(
   for _, node := range facts.Nodes {
     if node.External {
       externalNodes[node.ID] = node
+      continue
+    }
+    // A published artifact is not owned by a program source: its file is a
+    // Markdown document, a Prisma schema, or nothing at all for an operation
+    // named only by method and path. It belongs to the metadata shard, which
+    // carries the facts no source owns — and which the client exempts from the
+    // ownership check for exactly that reason. Without this the projection
+    // rejected the node outright and the resident session failed to start for
+    // any project that publishes one.
+    if graph.IsArtifactKind(graph.NodeKind(node.Kind)) {
+      metadata := shards[metadataKey]
+      metadata.Nodes = append(metadata.Nodes, node)
+      shards[metadataKey] = metadata
       continue
     }
     physical, ok := relativeToPhysical[node.File]
