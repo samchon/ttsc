@@ -721,7 +721,7 @@ func decodeFiles(raw json.RawMessage, path string) (globSet, []string) {
   }
   globs, err := newGlobSet(patterns)
   if err != nil {
-    return globSet{}, []string{"Invalid evidence/graph configuration at " + path + ": " + err.Error()}
+    return globSet{}, []string{"Invalid evidence/graph configuration at " + path + ": " + causeText(err) + "."}
   }
   return globs, nil
 }

@@ -541,14 +541,18 @@ func populationWalkRoot(base populationBase) (string, error) {
   )
 }
 
-// causeText spells a filesystem or subprocess error for a sentence that owns
-// its own terminator.
+// causeText spells a reason for a sentence that owns its own terminator.
 //
 // Windows ends its messages with a period and POSIX does not, so a rule that
 // appends one prints "denied.. Correct the" on the one platform and "denied.
 // Correct the" on the other, over the same failure. The terminator belongs to
 // the sentence this rule writes, and the reason belongs to whoever wrote it, so
 // only the punctuation is taken.
+//
+// The reason may be the filesystem's, a subprocess's, or this rule's own inner
+// validation, and the last of those is why the trim runs in both directions: a
+// glob parser writes no terminator, and the sentence quoting it has to supply
+// one rather than end without any.
 func causeText(cause error) string {
   return causeReason(cause.Error())
 }
