@@ -1,61 +1,9 @@
 import assert from "node:assert/strict";
-import path from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
 
-interface RawNode {
-  id: string;
-  name: string;
-  kind: string;
-  file: string;
-  external?: boolean;
-  ignored?: boolean;
-}
+import type { ViewerRawDump, ViewerReduce } from "../internal/viewerReducers";
+import { loadViewerReducers } from "../internal/viewerReducers";
 
-interface RawDump {
-  project: string;
-  nodes: RawNode[];
-  edges: { from: string; to: string; kind: string }[];
-}
-
-interface ViewerPayload {
-  counts: {
-    nodes: number;
-    links: number;
-    droppedIgnored?: number;
-  };
-  links?: { source: string; target: string }[];
-  nodes: { id: string; file: string }[];
-}
-
-type Reduce = (raw: RawDump) => ViewerPayload;
-
-const loadReducer = async (
-  relativePath: string,
-  exported: "named" | "default" | "namespace",
-): Promise<Reduce> => {
-  const repository = path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)),
-    "../../../..",
-  );
-  const module = (await import(
-    pathToFileURL(path.join(repository, relativePath)).href
-  )) as {
-    reduce?: Reduce;
-    default?: { reduce?: Reduce };
-    TtscBenchmarkGraphReduce?: { reduce?: Reduce };
-  };
-  const reduce =
-    exported === "named"
-      ? module.reduce
-      : exported === "default"
-        ? module.default?.reduce
-        : module.TtscBenchmarkGraphReduce?.reduce;
-  if (typeof reduce !== "function")
-    assert.fail(`${relativePath} exports reduce()`);
-  return reduce;
-};
-
-const createDump = (files: readonly string[]): RawDump => {
+const createDump = (files: readonly string[]): ViewerRawDump => {
   const nodes = files.map((file, index) => ({
     id: `${file}#symbol${index}:function`,
     name: `symbol${index}`,
@@ -74,7 +22,7 @@ const createDump = (files: readonly string[]): RawDump => {
 };
 
 const assertProjection = (
-  reduce: Reduce,
+  reduce: ViewerReduce,
   files: readonly string[],
   expectedFiles: readonly string[],
   label: string,
@@ -113,26 +61,7 @@ const assertProjection = (
  */
 export const test_ttscgraph_viewer_reducers_preserve_legacy_absolute_filenames =
   async (): Promise<void> => {
-    const reducers = [
-      {
-        name: "package",
-        reduce: await loadReducer("packages/graph/src/reduce.ts", "named"),
-      },
-      {
-        name: "website",
-        reduce: await loadReducer(
-          "website/src/components/graph/TtscWebsiteGraphReduce.ts",
-          "default",
-        ),
-      },
-      {
-        name: "fixture",
-        reduce: await loadReducer(
-          "benchmarks/graph/src/TtscBenchmarkGraphReduce.ts",
-          "namespace",
-        ),
-      },
-    ];
+    const reducers = await loadViewerReducers();
 
     const cases = [
       {
@@ -219,7 +148,7 @@ export const test_ttscgraph_viewer_reducers_preserve_legacy_absolute_filenames =
 
     const authored = "/work/src/authored.ts";
     const generated = "/work/generated/client.ts";
-    const policyDump: RawDump = {
+    const policyDump: ViewerRawDump = {
       project: "policy",
       nodes: [
         {

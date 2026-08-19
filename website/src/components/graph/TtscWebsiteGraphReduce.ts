@@ -171,10 +171,16 @@ function degreeOf(
 }
 
 /**
- * Collapse the fine-grained wire kinds `ttscgraph dump` emits (calls,
- * instantiates, renders, accesses, type_ref, doc_ref, extends, implements,
- * overrides) into the four display families the viewer colors and its legend
- * name. An unknown kind passes through and renders with the fallback color.
+ * Collapse every wire kind `ttscgraph dump` emits into the display families the
+ * viewer colors and its legend names. An unknown kind passes through and
+ * renders with the fallback color.
+ *
+ * The map has to be total over what a dump can carry. `exports` was missing and
+ * therefore drawn in the fallback color under no legend entry and, on the
+ * website, under no filter row — visible, unnamed, and unfilterable. The two
+ * kinds `TtscGraphEdgeKind` declares beyond this map cannot reach a dump:
+ * `contains` is synthesized by the TypeScript memory layer and `dispatches` is
+ * trace-only.
  */
 const DISPLAY_KIND: Record<string, string> = {
   calls: "value-call",
@@ -186,6 +192,7 @@ const DISPLAY_KIND: Record<string, string> = {
   extends: "heritage",
   implements: "heritage",
   overrides: "heritage",
+  exports: "exports",
 };
 
 function displayKind(kind: string): string {

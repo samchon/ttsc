@@ -1,7 +1,12 @@
 // Reduce a raw `ttscgraph dump` to the payload the bundled 3D viewer renders.
-// This mirrors website/src/components/graph/graphReduce.ts (the same pure
-// transform); keep the two in sync. The CLI reduces in Node before serving, so
-// the browser viewer only ever renders a ready `{ nodes, links }`.
+// The same pure transform is copied in
+// website/src/components/graph/TtscWebsiteGraphReduce.ts and
+// benchmarks/graph/src/TtscBenchmarkGraphReduce.ts, because neither consumer
+// depends on this package and adding one would be a new build dependency for a
+// browser bundle and a dependency-free benchmark. The copies are held together
+// by tests/test-graph rather than by this comment. The CLI reduces in Node
+// before serving, so the browser viewer only ever renders a ready
+// `{ nodes, links }`.
 
 export interface RawNode {
   id: string;
@@ -203,10 +208,16 @@ function degreeOf(
 }
 
 /**
- * Collapse the fine-grained wire kinds `ttscgraph dump` emits (calls,
- * instantiates, renders, accesses, type_ref, doc_ref, extends, implements,
- * overrides) into the four display families the viewer colors and its legend
- * name. An unknown kind passes through and renders with the fallback color.
+ * Collapse every wire kind `ttscgraph dump` emits into the display families the
+ * viewer colors and its legend names. An unknown kind passes through and
+ * renders with the fallback color.
+ *
+ * The map has to be total over what a dump can carry. `exports` was missing and
+ * therefore drawn in the fallback color under no legend entry and, on the
+ * website, under no filter row — visible, unnamed, and unfilterable. The two
+ * kinds `TtscGraphEdgeKind` declares beyond this map cannot reach a dump:
+ * `contains` is synthesized by the TypeScript memory layer and `dispatches` is
+ * trace-only.
  */
 const DISPLAY_KIND: Record<string, string> = {
   calls: "value-call",
@@ -218,6 +229,7 @@ const DISPLAY_KIND: Record<string, string> = {
   extends: "heritage",
   implements: "heritage",
   overrides: "heritage",
+  exports: "exports",
 };
 
 function displayKind(kind: string): string {

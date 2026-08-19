@@ -31,11 +31,16 @@ const NODE_COLORS: Record<string, string> = {
   variable: "#64748b",
 };
 
+// One definition of the edge families: the edge colour, the legend, and the
+// sidebar filter rows all read this map. `exports` is neutral because it is a
+// structural relation rather than a use, and it is darker than the slate the
+// scene falls back to for an unknown kind so the two stay distinct.
 const LINK_COLORS: Record<string, string> = {
   "value-call": "#15803d",
   "type-ref": "#b45309",
   "doc-ref": "#9333ea",
   heritage: "#2563eb",
+  exports: "#475569",
 };
 
 const LINK_KIND_LABEL: Record<string, string> = {
@@ -43,6 +48,7 @@ const LINK_KIND_LABEL: Record<string, string> = {
   "type-ref": "type-ref",
   "doc-ref": "doc-ref (documentation link)",
   heritage: "heritage (extends / implements / overrides)",
+  exports: "exports (module surface)",
 };
 
 // ---------------------------------------------------------------------------

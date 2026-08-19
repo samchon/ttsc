@@ -1,44 +1,6 @@
 import assert from "node:assert/strict";
-import path from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
 
-interface Reducer {
-  reduce(raw: {
-    project: string;
-    nodes: {
-      id: string;
-      name: string;
-      kind: string;
-      file: string;
-    }[];
-    edges: { from: string; to: string; kind: string }[];
-  }): { nodes: { id: string; file: string }[] };
-}
-
-const loadReducer = async (
-  relativePath: string,
-  exported: "named" | "default" | "namespace",
-): Promise<Reducer> => {
-  const repository = path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)),
-    "../../../..",
-  );
-  const module = (await import(
-    pathToFileURL(path.join(repository, relativePath)).href
-  )) as {
-    reduce?: Reducer["reduce"];
-    default?: { reduce?: Reducer["reduce"] };
-    TtscBenchmarkGraphReduce?: { reduce?: Reducer["reduce"] };
-  };
-  const reduce =
-    exported === "named"
-      ? module.reduce
-      : exported === "default"
-        ? module.default?.reduce
-        : module.TtscBenchmarkGraphReduce?.reduce;
-  if (reduce === undefined) assert.fail(`${relativePath} exports reduce()`);
-  return { reduce };
-};
+import { loadViewerReducers } from "../internal/viewerReducers";
 
 /**
  * Verifies viewer identity: every reducer rewrites the escaped path component,
@@ -54,17 +16,7 @@ const loadReducer = async (
  */
 export const test_ttscgraph_viewer_reducers_rewrite_escaped_identity_paths =
   async (): Promise<void> => {
-    const reducers = [
-      await loadReducer("packages/graph/src/reduce.ts", "named"),
-      await loadReducer(
-        "website/src/components/graph/TtscWebsiteGraphReduce.ts",
-        "default",
-      ),
-      await loadReducer(
-        "benchmarks/graph/src/TtscBenchmarkGraphReduce.ts",
-        "namespace",
-      ),
-    ];
+    const reducers = await loadViewerReducers();
     const file = "/work/a#b/src/main.ts";
     const id = "/work/a\\#b/src/main.ts#main:function";
     const dump = {

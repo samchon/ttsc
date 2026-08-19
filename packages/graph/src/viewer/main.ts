@@ -37,11 +37,16 @@ const NODE_COLORS: Record<string, string> = {
   variable: "#8b97a8",
 };
 
+// One definition of the edge families: the edge colour, the legend swatch, and
+// the legend name all read this map. `exports` is neutral because it is a
+// structural relation rather than a use, and it is opaque so it stays distinct
+// from the translucent fallback an unknown kind renders in.
 const LINK_COLORS: Record<string, string> = {
   "value-call": "#3fb950",
   "type-ref": "#f5b042",
   "doc-ref": "#c07de0",
   heritage: "#6ea8ff",
+  exports: "#7d8590",
 };
 
 function escapeHtml(value: string): string {
@@ -56,7 +61,37 @@ function setText(id: string, text: string): void {
   if (el) el.textContent = text;
 }
 
+/**
+ * Fill the footer legend from {@link LINK_COLORS}, the same map that colours the
+ * edges, so a family cannot be drawn without being named.
+ *
+ * The markup used to carry one hand-written span per family with the colour
+ * repeated in a `style` attribute, and nothing connected the two: `doc_ref`
+ * shipped into the viewer with no legend entry until a review read the two
+ * files side by side. The website viewer has always derived its legend this way
+ * (`website/src/components/graph/TtscWebsiteGraphViewer3D.tsx`).
+ */
+function renderLegend(): void {
+  const legend = document.getElementById("legend");
+  if (!legend) return;
+  legend.prepend(
+    ...Object.entries(LINK_COLORS).map(([kind, color]) => {
+      const dot = document.createElement("span");
+      dot.className = "dot";
+      const swatch = document.createElement("span");
+      swatch.className = "swatch";
+      swatch.style.background = color;
+      dot.append(swatch, kind);
+      return dot;
+    }),
+  );
+}
+
 async function main(): Promise<void> {
+  // Before the fetch, so a graph that fails to load still shows the legend the
+  // static markup used to guarantee.
+  renderLegend();
+
   const container = document.getElementById("graph");
   if (!container) return;
 
