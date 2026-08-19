@@ -100,15 +100,31 @@ export function runLookup(
   ranked.unshift(...cited);
 
   // Diversity: keep at most PER_FILE hits per file while filling up to the limit.
+  //
+  // A citation carrier is exempt. The cap exists so one file's roster cannot
+  // crowd out a name ranking, and a citation is not ranked against anything: it
+  // is an exact match on an address, and a module implementing one specification
+  // across four functions is the ordinary shape of the answer rather than a file
+  // dominating a shortlist. Capping those returned three of five carriers and
+  // called the result complete.
   const limit = bound(props.limit, DEFAULT_LIMIT, 1, MAX_LIMIT);
   const perFile = new Map<string, number>();
   const hits: ITtscGraphLookup.IHit[] = [];
+  let truncated = false;
   for (const hit of ranked) {
-    const used = perFile.get(hit.file) ?? 0;
-    if (used >= PER_FILE) continue;
-    perFile.set(hit.file, used + 1);
+    if (hits.length >= limit) {
+      truncated = true;
+      break;
+    }
+    if (!citedIds.has(hit.id)) {
+      const used = perFile.get(hit.file) ?? 0;
+      if (used >= PER_FILE) {
+        truncated = true;
+        continue;
+      }
+      perFile.set(hit.file, used + 1);
+    }
     hits.push(hit);
-    if (hits.length >= limit) break;
   }
 
   // Attach each kept hit's signature only for the shortlist, so the model can
@@ -123,6 +139,7 @@ export function runLookup(
     result: {
       type: "lookup",
       hits,
+      ...(truncated ? { truncated: true } : {}),
     },
     next:
       hits.length === 0
@@ -130,10 +147,16 @@ export function runLookup(
             "outside",
             "No symbol matched, so the graph did not resolve this name.",
           )
-        : resultNext(
-            "answer",
-            "The ranked hits and their signatures resolve the name.",
-          ),
+        : truncated
+          ? resultNext(
+              "answer",
+              "The hits resolve the name, and `truncated` says more matched " +
+                "than the limit returned: raise `limit` for the rest.",
+            )
+          : resultNext(
+              "answer",
+              "The ranked hits and their signatures resolve the name.",
+            ),
   };
 }
 

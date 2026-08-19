@@ -8,6 +8,19 @@ export interface ITtscGraphLookup {
 
   /** Ranked symbol matches for the query. */
   hits: ITtscGraphLookup.IHit[];
+
+  /**
+   * True when a match was left out by the limit.
+   *
+   * The audit for the ranked operations already tells a reader that
+   * `truncated` marks where more was left out, and this result had no such
+   * field — so a cut looked exactly like a complete answer. That is tolerable
+   * for a name query, where the ranking is a shortlist by design, and it is not
+   * for a documentation target: those hits are an exact match on an address, so
+   * a caller asking which code implements a specification is owed the fact that
+   * it did not get all of it.
+   */
+  truncated?: boolean;
 }
 export namespace ITtscGraphLookup {
   /** Find a concrete class, method, function, property, type, or dotted handle. */
