@@ -62,6 +62,11 @@ export class TtscGraphMemory {
       }
       for (const target of docTagTargetsOf(node)) {
         const carriers = this.byDocTagTarget.get(target);
+        // The membership check is redundant today — `docTagTargetsOf`
+        // deduplicates within a node and this loop visits each node once — and
+        // it is kept because the cost is a scan of a list that holds the
+        // carriers of one address, while the failure it prevents is a
+        // declaration reported twice as implementing one specification.
         if (carriers === undefined) this.byDocTagTarget.set(target, [node]);
         else if (!carriers.includes(node)) carriers.push(node);
       }
