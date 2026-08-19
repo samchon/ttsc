@@ -1,9 +1,9 @@
 import Link from "next/link";
 
-import { getSlides } from "./get-slides";
+import { getListedSlides } from "./get-slides";
 
 export default function SlidesPage() {
-  const slides = getSlides();
+  const slides = getListedSlides();
 
   return (
     <section className="ttsc-slides-page">
