@@ -202,6 +202,18 @@ export async function assertStripNarrowsTheEntryWatchInputs(): Promise<void> {
     false,
     `a strip-only project must not register the entry's type-only sibling; watched: ${watched.join(", ")}`,
   );
+  // The same two assertions the banner case makes: a list that collapsed to
+  // nothing would also drop the sibling, and would be a far worse bug.
+  assert.ok(
+    watched.includes(path.resolve(path.join(project.root, "tsconfig.json"))),
+    "the config chain stays universal for a file declared complete",
+  );
+  assert.ok(
+    watched.includes(
+      path.resolve(path.join(project.root, "strip.config.json")),
+    ),
+    "the plugin's own config remains a universal host input",
+  );
 }
 
 /**

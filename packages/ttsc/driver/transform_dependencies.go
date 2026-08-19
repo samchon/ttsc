@@ -9,8 +9,10 @@ import (
 // the per-file input lists a producer reports and the subset of files whose
 // list is complete.
 //
-// Both fields are empty unless something declared them, so an envelope that
-// carries no declaration is byte-identical to what it was before this existed.
+// A producer that declares nothing leaves both fields empty, so its envelope is
+// byte-identical to what it was before this existed. The lane with no linked
+// plugin at all is the deliberate exception: nothing there can contribute to a
+// file, so every file is listed.
 type TransformDependencies struct {
   // Complete lists the files whose Dependencies entry is the whole input set
   // beyond the file itself and the universal compiler-option chain.
@@ -164,6 +166,9 @@ type pluginFileDeclaration struct {
   completeAll  bool
   dependencies map[string]map[string]struct{}
   mu           sync.Mutex
+  // rejected holds the files whose reported list this plugin could not state
+  // in full, because one of its members was unusable as a key.
+  rejected map[string]struct{}
 }
 
 func newPluginFileDeclarations() *pluginFileDeclarations {
@@ -177,6 +182,7 @@ func (declarations *pluginFileDeclarations) forPlugin(index int) *pluginFileDecl
   record := &pluginFileDeclaration{
     complete:     map[string]struct{}{},
     dependencies: map[string]map[string]struct{}{},
+    rejected:     map[string]struct{}{},
   }
   if declarations == nil {
     return record
@@ -213,6 +219,16 @@ func (declaration *pluginFileDeclaration) addDependency(file string, dependency 
     declaration.dependencies[file] = entry
   }
   entry[dependency] = struct{}{}
+}
+
+// rejectDependency withdraws this plugin's completeness claim for one file.
+func (declaration *pluginFileDeclaration) rejectDependency(file string) {
+  if declaration == nil {
+    return
+  }
+  declaration.mu.Lock()
+  defer declaration.mu.Unlock()
+  declaration.rejected[file] = struct{}{}
 }
 
 func (declaration *pluginFileDeclaration) addComplete(file string) {
@@ -256,6 +272,9 @@ func (declaration *pluginFileDeclaration) declaresComplete(file string) bool {
   }
   declaration.mu.Lock()
   defer declaration.mu.Unlock()
+  if _, rejected := declaration.rejected[file]; rejected {
+    return false
+  }
   if declaration.completeAll {
     return true
   }

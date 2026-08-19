@@ -107,6 +107,7 @@ type PluginContext struct {
   reportHostInputRealpath        func(string, *string)
   reportHostInputRealpathUnknown func(string)
   reportFileDependency           func(string, string)
+  reportFileDependencyRejected   func(string)
   reportFileComplete             func(string)
   reportEveryFileComplete        func()
 }
@@ -198,6 +199,11 @@ func (ctx PluginContext) ReportHostInput(file string) {
 // Reporting alone only widens what a consumer invalidates on; it is
 // ReportFileDependenciesComplete that turns the reported set into the file's
 // whole input set.
+//
+// A dependency this cannot resolve to a key is not silently forgotten: it
+// withdraws this plugin's completeness claim for that file, because a complete
+// list missing a member is exactly what serves stale output. The plugin's other
+// files keep theirs.
 func (ctx PluginContext) ReportFileDependency(file string, dependency string) {
   if ctx.reportFileDependency == nil {
     return
@@ -208,6 +214,9 @@ func (ctx PluginContext) ReportFileDependency(file string, dependency string) {
   }
   input, ok := ctx.transformKey(dependency)
   if !ok {
+    if ctx.reportFileDependencyRejected != nil {
+      ctx.reportFileDependencyRejected(target)
+    }
     return
   }
   ctx.reportFileDependency(target, input)
@@ -254,6 +263,11 @@ func (ctx PluginContext) ReportDependenciesComplete() {
 // (absolute program file names, or paths relative to the plugin's cwd), and
 // the compiler's own file names are slash-normalized on every platform, so
 // both sides must pass through TransformOutputKey to meet.
+//
+// Separators and the project prefix reconcile, but the suffix keeps the case
+// the caller wrote: report the program's own spelling of a file rather than a
+// re-cased one, or the key will not match on a case-insensitive filesystem and
+// the declaration is dropped.
 func (ctx PluginContext) transformKey(file string) (string, bool) {
   if strings.TrimSpace(file) == "" {
     return "", false
@@ -682,6 +696,7 @@ func (state linkedPluginState) contextAt(index int, entry PluginEntry) PluginCon
     reportHostInputRealpath:        inputs.addRealpath,
     reportHostInputRealpathUnknown: inputs.invalidateRealpath,
     reportFileDependency:           declaration.addDependency,
+    reportFileDependencyRejected:   declaration.rejectDependency,
     reportFileComplete:             declaration.addComplete,
     reportEveryFileComplete:        declaration.completeEveryFile,
   }
