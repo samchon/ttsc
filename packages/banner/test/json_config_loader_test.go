@@ -69,7 +69,7 @@ func TestJSONConfigLoader(t *testing.T) {
   // Auto-discovery picks up banner.config.json.
   jsonRoot := filepath.Join(root, "json-discovery")
   writeFile(t, filepath.Join(jsonRoot, "banner.config.json"), `{"text":"discovered json banner"}`)
-  location, err := bannerFindBannerConfigFile(jsonRoot, "")
+  location, _, err := bannerFindBannerConfigFile(jsonRoot, "")
   if err != nil {
     t.Fatal(err)
   }

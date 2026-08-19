@@ -162,7 +162,12 @@ func resolveBannerTextWithReporters(config map[string]any, cwd, tsconfigPath str
     return text, nil
   }
 
-  location, err := findBannerConfigFile(cwd, tsconfigPath)
+  location, probed, err := findBannerConfigFile(cwd, tsconfigPath)
+  // Report the rejected candidates before the error checks: a search that ended
+  // ambiguous or empty examined them just the same, and a consumer that learns
+  // of them can invalidate a generation the next search would answer
+  // differently.
+  driver.ReportMissingConfigCandidates(probed, hashReporter, realpathReporter)
   if err != nil {
     return "", err
   }
@@ -209,47 +214,44 @@ func bannerTextFromConfigValue(raw any, label string) (string, bool, error) {
   return text, true, nil
 }
 
+// bannerConfigFilenames is the discovery name list, in precedence order.
+var bannerConfigFilenames = []string{
+  "banner.config.json",
+  "banner.config.js",
+  "banner.config.cjs",
+  "banner.config.mjs",
+  "banner.config.ts",
+  "banner.config.cts",
+  "banner.config.mts",
+}
+
 // findBannerConfigFile walks up from the tsconfig (or cwd) directory looking for
 // a banner.config.{ts,cts,mts,js,cjs,mjs,json} file. Returns the path when exactly
 // one match is found per directory, "" when none exists at any level, or an
 // error when multiple candidates exist in the same directory.
-func findBannerConfigFile(cwd, tsconfigPath string) (string, error) {
-  dir := tsconfigBaseDir(cwd, tsconfigPath)
-  for {
-    matches := make([]string, 0, 1)
-    for _, name := range []string{
-      "banner.config.json",
-      "banner.config.js",
-      "banner.config.cjs",
-      "banner.config.mjs",
-      "banner.config.ts",
-      "banner.config.cts",
-      "banner.config.mts",
-    } {
-      candidate := filepath.Join(dir, name)
-      if stat, err := os.Stat(candidate); err == nil && !stat.IsDir() {
-        matches = append(matches, candidate)
-      }
+//
+// The second return value is every candidate the walk examined and did not
+// find. Those paths decide the result as much as the file it returned: one
+// created nearer the entry wins the next search outright, and one created
+// beside the match makes that directory ambiguous. The caller reports them so a
+// persistent consumer stops serving output built from a config a cold run would
+// no longer choose (samchon/ttsc#1271).
+func findBannerConfigFile(cwd, tsconfigPath string) (string, []string, error) {
+  discovery := driver.DiscoverConfigFile(tsconfigBaseDir(cwd, tsconfigPath), bannerConfigFilenames)
+  if len(discovery.Matches) > 1 {
+    names := make([]string, len(discovery.Matches))
+    for i, match := range discovery.Matches {
+      names[i] = filepath.Base(match)
     }
-    if len(matches) > 1 {
-      names := make([]string, len(matches))
-      for i, match := range matches {
-        names[i] = filepath.Base(match)
-      }
-      return "", fmt.Errorf(
-        "@ttsc/banner: multiple banner config files found in %s (%s); set \"configFile\" explicitly in the tsconfig plugin entry",
-        dir, strings.Join(names, ", "),
-      )
-    }
-    if len(matches) == 1 {
-      return matches[0], nil
-    }
-    parent := filepath.Dir(dir)
-    if parent == dir {
-      return "", nil
-    }
-    dir = parent
+    return "", discovery.Probed, fmt.Errorf(
+      "@ttsc/banner: multiple banner config files found in %s (%s); set \"configFile\" explicitly in the tsconfig plugin entry",
+      discovery.Directory, strings.Join(names, ", "),
+    )
   }
+  if len(discovery.Matches) == 1 {
+    return discovery.Matches[0], discovery.Probed, nil
+  }
+  return "", discovery.Probed, nil
 }
 
 // resolveBannerConfigPath resolves a config path from the plugin entry.

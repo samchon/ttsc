@@ -77,7 +77,12 @@ func loadStripConfigMapWithReporters(pluginConfig map[string]any, cwd, tsconfigP
     }
     configFilePath = resolveStripConfigFilePath(cf, cwd, tsconfigPath)
   } else {
-    discovered, err := findStripConfigFile(cwd, tsconfigPath)
+    discovered, probed, err := findStripConfigFile(cwd, tsconfigPath)
+    // Report the rejected candidates before the error check and before the
+    // defaults path below: a search that ended empty examined them just the
+    // same, and falling back to the built-in defaults is exactly the state a
+    // config appearing later would change.
+    driver.ReportMissingConfigCandidates(probed, hashReporter, realpathReporter)
     if err != nil {
       return nil, err
     }
@@ -106,36 +111,31 @@ func loadStripConfigMapWithReporters(pluginConfig map[string]any, cwd, tsconfigP
 // tsconfig is set) and returns the first directory that contains exactly one
 // strip.config.* file. Multiple candidates in the same directory is an error.
 // Returns "" (no error) when the filesystem root is reached without a match.
-func findStripConfigFile(cwd, tsconfigPath string) (string, error) {
-  dir := stripDiscoveryBaseDir(cwd, tsconfigPath)
-  for {
-    matches := make([]string, 0, 1)
-    for _, name := range stripConfigFilenames {
-      candidate := filepath.Join(dir, name)
-      if stat, err := os.Stat(candidate); err == nil && !stat.IsDir() {
-        matches = append(matches, candidate)
-      }
+//
+// The second return value is every candidate the walk examined and did not
+// find. Those decide the result as much as the file it returned: one created
+// nearer the entry wins the next search, and one created beside the match makes
+// that directory ambiguous. Without them a persistent consumer keeps applying
+// the rules of a config a cold run would no longer choose — or keeps stripping
+// under the built-in defaults after a real config appeared
+// (samchon/ttsc#1271).
+func findStripConfigFile(cwd, tsconfigPath string) (string, []string, error) {
+  discovery := driver.DiscoverConfigFile(stripDiscoveryBaseDir(cwd, tsconfigPath), stripConfigFilenames)
+  if len(discovery.Matches) > 1 {
+    names := make([]string, 0, len(discovery.Matches))
+    for _, match := range discovery.Matches {
+      names = append(names, filepath.Base(match))
     }
-    if len(matches) > 1 {
-      names := make([]string, 0, len(matches))
-      for _, m := range matches {
-        names = append(names, filepath.Base(m))
-      }
-      return "", fmt.Errorf(
-        "@ttsc/strip: multiple strip config files found in %s (%s); "+
-          "set \"configFile\" explicitly in the tsconfig plugin entry",
-        dir, strings.Join(names, ", "),
-      )
-    }
-    if len(matches) == 1 {
-      return matches[0], nil
-    }
-    parent := filepath.Dir(dir)
-    if parent == dir {
-      return "", nil
-    }
-    dir = parent
+    return "", discovery.Probed, fmt.Errorf(
+      "@ttsc/strip: multiple strip config files found in %s (%s); "+
+        "set \"configFile\" explicitly in the tsconfig plugin entry",
+      discovery.Directory, strings.Join(names, ", "),
+    )
   }
+  if len(discovery.Matches) == 1 {
+    return discovery.Matches[0], discovery.Probed, nil
+  }
+  return "", discovery.Probed, nil
 }
 
 // stripDiscoveryBaseDir returns the directory from which auto-discovery walks

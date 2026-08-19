@@ -30,7 +30,7 @@ func TestConfigDiscoveryAnchorsAtPluginConfigDirEnv(t *testing.T) {
   writeFile(t, filepath.Join(wrapper, "banner.config.json"), `{"text":"decoy"}`)
 
   t.Setenv("TTSC_PLUGIN_CONFIG_DIR", project)
-  location, err := bannerFindBannerConfigFile(project, filepath.Join(wrapper, "tsconfig.json"))
+  location, _, err := bannerFindBannerConfigFile(project, filepath.Join(wrapper, "tsconfig.json"))
   if err != nil {
     t.Fatalf("findBannerConfigFile error: %v", err)
   }

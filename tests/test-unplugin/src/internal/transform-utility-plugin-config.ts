@@ -917,6 +917,158 @@ async function assertUnnotifiedUtilityConfigLinkRetargetInvalidatesTransform() {
   assert.doesNotMatch(second.code, /OLD LINK TARGET/);
 }
 
+/**
+ * Materialize a project two directories below its plugin config.
+ *
+ * The layout a monorepo produces: the config sits at the workspace root and the
+ * package that compiles is nested below it, so discovery finds the config by
+ * walking up through a directory that belongs to neither.
+ *
+ * The middle directory is what makes a scenario built on this fixture prove
+ * anything. A config created inside the project root is caught by the adapter's
+ * own project-membership snapshot no matter what the plugin reports, so only a
+ * config appearing _outside_ that walk isolates the probe reporting.
+ */
+function createNestedUtilityPluginProject(props: {
+  plugin: "banner" | "strip";
+  outerConfig?: string;
+  source: string;
+}): { middle: string; outer: string; root: string } {
+  const outer = TestProject.tmpdir(`ttsc-${props.plugin}-outer-`);
+  const middle = path.join(outer, "packages");
+  const root = path.join(middle, "app");
+  fs.mkdirSync(path.join(root, "src"), { recursive: true });
+  fs.writeFileSync(
+    path.join(root, "package.json"),
+    JSON.stringify({ private: true, type: "commonjs" }, null, 2),
+    "utf8",
+  );
+  fs.writeFileSync(
+    path.join(root, "tsconfig.json"),
+    JSON.stringify(
+      {
+        compilerOptions: {
+          module: "commonjs",
+          outDir: "dist",
+          plugins: [{ transform: `@ttsc/${props.plugin}` }],
+          rootDir: "src",
+          strict: true,
+          target: "ES2022",
+        },
+        include: ["src"],
+      },
+      null,
+      2,
+    ),
+    "utf8",
+  );
+  fs.writeFileSync(path.join(root, "src", "main.ts"), props.source, "utf8");
+  if (props.outerConfig !== undefined) {
+    fs.writeFileSync(
+      path.join(outer, `${props.plugin}.config.json`),
+      props.outerConfig,
+      "utf8",
+    );
+  }
+  seedUtilityPlugin(root, props.plugin);
+  return { middle, outer, root };
+}
+
+/**
+ * Asserts samchon/ttsc#1271: a banner config appearing nearer the project than
+ * the one discovery settled on replaces the generation.
+ *
+ * Discovery walks upward and stops at the first directory that answers, so
+ * every candidate it probed on the way is a path that can change the answer.
+ * Reporting only the file it found leaves a cached generation unable to notice
+ * a nearer one, and a cold build then disagrees with the warm one about which
+ * config the project has.
+ */
+async function assertPersistentBannerConfigSupersessionInvalidatesTransform() {
+  const { createTtscTransformCache, resolveOptions, transformTtsc } =
+    await TestUnpluginRuntime.loadUnpluginApi();
+  const { middle, root } = createNestedUtilityPluginProject({
+    outerConfig: JSON.stringify({ text: "OUTER BANNER" }),
+    plugin: "banner",
+    source: 'export const value: string = "kept";\n',
+  });
+  const file = path.join(root, "src", "main.ts");
+  const source = fs.readFileSync(file, "utf8");
+  const cache = createTtscTransformCache();
+  const first = await transformTtsc(
+    file,
+    source,
+    resolveOptions(),
+    undefined,
+    cache,
+  );
+  assert.ok(first);
+  assert.match(first.code, /OUTER BANNER/);
+
+  fs.writeFileSync(
+    path.join(middle, "banner.config.json"),
+    JSON.stringify({ text: "NEARER BANNER" }),
+    "utf8",
+  );
+  const second = await transformTtsc(
+    file,
+    source,
+    resolveOptions(),
+    undefined,
+    cache,
+  );
+  assert.ok(second);
+  assert.match(second.code, /NEARER BANNER/);
+  assert.doesNotMatch(second.code, /OUTER BANNER/);
+}
+
+/**
+ * Asserts the same rule where the search found nothing at all.
+ *
+ * `@ttsc/strip` falls back to its built-in defaults when no config exists
+ * anywhere up the tree, which is the state a config appearing later changes.
+ * The defaults strip `console.log`; the config planted here strips
+ * `logger.trace` instead, so each direction of the assertion distinguishes "the
+ * new config took effect" from "the defaults kept running".
+ */
+async function assertPersistentStripDefaultsYieldToAnAppearingConfig() {
+  const { createTtscTransformCache, resolveOptions, transformTtsc } =
+    await TestUnpluginRuntime.loadUnpluginApi();
+  const { middle, root } = createNestedUtilityPluginProject({
+    plugin: "strip",
+    source: STRIP_SOURCE,
+  });
+  const file = path.join(root, "src", "main.ts");
+  const source = fs.readFileSync(file, "utf8");
+  const cache = createTtscTransformCache();
+  const first = await transformTtsc(
+    file,
+    source,
+    resolveOptions(),
+    undefined,
+    cache,
+  );
+  assert.ok(first);
+  assert.doesNotMatch(first.code, /console\.log\("kept"\)/);
+  assert.match(first.code, /logger\.trace\("drop"\)/);
+
+  fs.writeFileSync(
+    path.join(middle, "strip.config.json"),
+    STRIP_CONFIG,
+    "utf8",
+  );
+  const second = await transformTtsc(
+    file,
+    source,
+    resolveOptions(),
+    undefined,
+    cache,
+  );
+  assert.ok(second);
+  assert.doesNotMatch(second.code, /logger\.trace\("drop"\)/);
+  assert.match(second.code, /console\.log\("kept"\)/);
+}
+
 export {
   assertAliasOverlayDiscoversProjectBannerConfig,
   assertAliasOverlayHonorsProjectStripConfig,
@@ -924,6 +1076,8 @@ export {
   assertAliasOverlayMatchesNoAliasStripOutput,
   assertAliasOverlayResolvesRelativeConfigFile,
   assertPersistentBannerConfigEditInvalidatesTransform,
+  assertPersistentBannerConfigSupersessionInvalidatesTransform,
+  assertPersistentStripDefaultsYieldToAnAppearingConfig,
   assertPersistentUtilityConfigDependencyEditInvalidatesTransform,
   assertPersistentUtilityConfigLinkRetargetInvalidatesTransform,
   assertUnnotifiedUtilityConfigLinkRetargetInvalidatesTransform,
