@@ -11,7 +11,7 @@ import {
  * Activation is the property this suite exists to hold, and it has two halves
  * that fail in opposite directions.
  *
- * The first is that no population came back empty. A claim or reference that
+ * The first is that no reference population came back empty. A reference that
  * matched no files says so, and that diagnostic names an obligation which
  * materialized nothing — the state a pnpm workspace link produced when it was
  * walked as a plain entry.
@@ -22,6 +22,11 @@ import {
  * satisfied none of its obligations is the defect rather than the pass. Every
  * layer this suite materializes is deliberately untagged, so there is always
  * something to owe.
+ *
+ * The claim side of the first half belongs to the second one. A claim that
+ * selects no host deactivates silently, and a broken declared root is reported
+ * against the root, which is shared and names no claim — so neither reaches the
+ * empty-population list, and both arrive here as a claim that owes nothing.
  *
  * @returns The obligations this claim reported, for a case that narrows
  *   further.
@@ -35,7 +40,7 @@ export const assertClaimActivated = (props: {
   );
   if (empty.length !== 0)
     throw new Error(
-      `Claim '${props.claim}' selected an empty population, so it owes nothing and would pass while checking nothing.\n\nCommand: pnpm run ${props.result.script}\nDirectory: ${props.result.cwd}\n\n${empty.join("\n")}\n\nFull output:\n${props.result.output}`,
+      `Claim '${props.claim}' has a reference that selected an empty population, so it owes nothing there and would pass while checking nothing.\n\nCommand: pnpm run ${props.result.script}\nDirectory: ${props.result.cwd}\n\n${empty.join("\n")}\n\nFull output:\n${props.result.output}`,
     );
   const obligations: IMissingAcknowledgement[] = readMissingAcknowledgements(
     props.result,

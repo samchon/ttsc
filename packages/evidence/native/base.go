@@ -222,8 +222,13 @@ func populationRootLabel(base populationBase) string {
   return base.Display
 }
 
-// unreadableBaseProblem reports a declared root that is not a readable
+// unreadableBaseProblem reports a declared root that is not an existing
 // directory.
+//
+// The test is a stat, not an access check, and it always was. The name comes
+// from the Markdown and Prisma reading that follows it and now covers a kind
+// that reads nothing, so say what is measured rather than what the first two
+// callers do with the answer.
 //
 // The default base is excluded because `Check` already validated the project
 // root, and its diagnostic names the ttsc project identity as the repair rather
@@ -236,8 +241,10 @@ func populationRootLabel(base populationBase) string {
 // TypeScript is told apart in the verb and in the repair clause. Its root
 // re-bases addressing over sources the Program already holds and never scans a
 // directory, so a message about reading one would name an access this artifact
-// kind never attempts, and creating the directory on its own would leave the
-// population just as empty until the project also compiles something under it.
+// kind never attempts. The repair takes two steps for the same reason: this
+// stat is satisfied by an empty directory, which would silence the diagnostic
+// and leave the population exactly as empty, so the message asks for the
+// sources too rather than only for the folder.
 //
 // The verb also has to stay clear of the path sense beside it. "Resolves to"
 // and "resolves against" are both composition, and a lead clause saying the
@@ -260,7 +267,7 @@ func unreadableBaseProblem(base populationBase, kind artifactKind) string {
   if kind == artifactTypeScript {
     return "Evidence graph found no directory at the " + string(kind) + " root '" +
       populationRootLabel(base) + "', which resolves to '" + filepath.ToSlash(base.Absolute) +
-      "'. Correct the 'root' property, or add that directory to the project; it resolves against the ttsc project root, and a " + string(kind) +
+      "'. Correct the 'root' property, or add that directory and make its sources part of the project; it resolves against the ttsc project root, and a " + string(kind) +
       " root re-bases Program sources onto itself rather than scanning the filesystem."
   }
   return "Evidence graph could not read the " + string(kind) + " root '" +

@@ -277,9 +277,10 @@ func materializeClaimStates(
     // No claim-side empty-match diagnostic belongs here. A claim arrives
     // already active, which means it either selected a host — so it matched a
     // path — or its population is unhealthy, and an unhealthy one is reported
-    // at its own cause by the loader that failed. The message this replaced
-    // told the author to fix globs that were fine; its only live caller was a
-    // TypeScript root that did not resolve, which now says so itself.
+    // at its own cause by the loader that failed. The message removed from this
+    // spot told the author to fix globs that were fine, and the only state that
+    // ever reached it was a TypeScript root that did not resolve, which now
+    // says so itself.
     hostsByID := map[string]bool{}
     for _, path := range paths {
       for _, unit := range inventories[path].Units {

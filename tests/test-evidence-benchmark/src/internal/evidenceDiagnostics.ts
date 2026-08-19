@@ -67,11 +67,18 @@ export const readMissingAcknowledgements = (
 /**
  * Reads every population the graph reported as selecting no source at all.
  *
- * A claim or reference that matched no files is the loud half of the same
- * failure the quiet half hides: both mean the obligation materialized nothing,
- * and only one of them says so. Cases assert this list is empty for the claim
- * they just enabled, so a gate that opens onto an unreadable population fails
- * instead of passing vacuously.
+ * A reference that matched no files is the loud half of the same failure the
+ * quiet half hides: both mean the obligation materialized nothing, and only one
+ * of them says so. Cases assert this list is empty for the claim they just
+ * enabled, so a gate that opens onto an unreadable population fails instead of
+ * passing vacuously.
+ *
+ * Only a reference reaches this list. A claim that selects nothing deactivates
+ * without a word, and one whose declared root is broken is reported against the
+ * root rather than against the claim, because a root is shared and carries no
+ * claim label. Both of those land on the second half of
+ * {@link assertClaimActivated} instead, where a claim that owes nothing is the
+ * failure — which is why that half exists rather than being a nicety.
  */
 export const readEmptyPopulationReports = (result: IRunResult): string[] =>
   result.output
