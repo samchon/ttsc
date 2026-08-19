@@ -1027,3 +1027,104 @@ func TestAMarkdownRootInsideALinkIsUnchanged(t *testing.T) {
   )
   assertProblemContains(t, messages, "at ../mirror/documents/requirements/pricing.md:1")
 }
+
+/**
+ * Verifies a chain past the resolver is refused on an ancestor of the root too.
+ *
+ * The twin of the case above, one component further up, and the shape that
+ * makes the refusal worth having: the declared root itself is an ordinary
+ * directory, so every stat of it answers directory and the leaf tells nobody
+ * that the path reaching it is still a link. The filesystem opens it anyway,
+ * the Program spells its sources through the other side, and the claim
+ * deactivates in silence — which is what #1269 recorded and what asking every
+ * component, rather than only the last, is for.
+ *
+ *  1. Build a chain longer than the resolver follows onto the workspace.
+ *  2. Root a TypeScript claim at a real directory inside the chain's head.
+ *  3. Assert the root is refused rather than selecting nothing.
+ */
+func TestALinkChainAboveARootIsRefusedForTypeScriptToo(t *testing.T) {
+  workspace := t.TempDir()
+  project := filepath.Join(workspace, "project")
+  if err := os.MkdirAll(project, 0o755); err != nil {
+    t.Fatal(err)
+  }
+  previous := workspace
+  head := ""
+  for hop := range 34 {
+    head = "hop" + decimal(hop)
+    link := filepath.Join(workspace, head)
+    if err := linkDirectory(previous, link); err != nil {
+      t.Skipf("this platform refused to create a link: %v", err)
+    }
+    previous = link
+  }
+  declared := "../" + head + "/project"
+  if _, err := os.Stat(filepath.Join(workspace, head, "project")); err != nil {
+    t.Skipf(
+      "this platform did not follow the chain to a directory either (%v), so the stat gate answers first",
+      err,
+    )
+  }
+  messages := runRootedGraphIn(t, workspace, map[string]string{
+    "project/docs/pricing.md": "## Discounts {#discounts}\n",
+    "project/src/sale.ts":     "export interface ISale {}\n",
+  }, `{"claims":[{
+    "type":"typescript",
+    "root":"`+declared+`",
+    "files":["src/**/*.ts"],
+    "symbol":"type",
+    "reference":{"type":"markdown","files":["docs/**/*.md"],"symbol":"h2"}
+  }]}`)
+  assertProblemContains(
+    t,
+    messages,
+    "found no directory at the end of the typescript root '"+declared+"'",
+  )
+}
+
+/**
+ * Verifies a path with no link in it resolves to the spelling it arrived as.
+ *
+ * The resolution walks components, and a volume is the one prefix that is not
+ * one: a drive root and a UNC share carry their own separator, and a share root
+ * has nothing after it at all. Recomposing such a base from the pieces the walk
+ * starts with returns a path one character from the one it was given, which
+ * names the same directory and compares as though it did not — so every
+ * consumer that asks whether resolution moved the base would answer yes forever
+ * on a base with no link in it, and pay the second spelling on every file.
+ *
+ *  1. Take each volume and root shape this platform can spell.
+ *  2. Resolve it with no link anywhere on the path.
+ *  3. Assert the answer is the cleaned input, byte for byte.
+ */
+func TestAPathWithNoLinkResolvesToItsOwnSpelling(t *testing.T) {
+  shapes := []string{}
+  if runtime.GOOS == "windows" {
+    shapes = append(
+      shapes,
+      `C:\`,
+      `C:\sales`,
+      `C:\sales\schema`,
+      `\\server\share`,
+      `\\server\share\sales`,
+      `//server/share`,
+      `\\?\C:\sales`,
+    )
+  } else {
+    shapes = append(shapes, "/", "/sales", "/sales/schema")
+  }
+  // A real directory on this platform, so the table is not only paths that do
+  // not exist: an absent path ends every chain at its first `os.Lstat`, and a
+  // present one walks the resolver's whole body.
+  shapes = append(shapes, t.TempDir())
+  for _, shape := range shapes {
+    resolved, ok := resolveLinkedPath(shape)
+    if !ok {
+      t.Fatalf("resolving '%s' must settle when no link is on it", shape)
+    }
+    if want := filepath.Clean(shape); resolved != want {
+      t.Fatalf("resolving '%s' gave '%s'; want '%s'", shape, resolved, want)
+    }
+  }
+}
