@@ -3,13 +3,21 @@ import fs from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 
+import { readLogLines } from "./logLines";
+
 const require_ = createRequire(import.meta.url);
 const graphLib = path.dirname(require_.resolve("@ttsc/graph"));
 
 /** The resident client, loaded from the built package the product ships. */
-export const { TtscLintDaemon } = require_(
+const { TtscLintDaemon } = require_(
   path.join(graphLib, "model", "TtscLintDaemon.js"),
-) as { TtscLintDaemon: new (...args: never[]) => ITtscLintDaemon };
+) as {
+  TtscLintDaemon: new (
+    target: { binary: string; manifest: string; projectContext?: string },
+    cwd: string,
+    tsconfig: string,
+  ) => ITtscLintDaemon;
+};
 
 /** What a case may ask of one open sidecar. */
 export interface ITtscLintDaemon {
@@ -44,15 +52,7 @@ export function createLintDaemonFixture(options: {
     }),
     "utf8",
   );
-  const daemon = new (TtscLintDaemon as unknown as new (
-    target: {
-      binary: string;
-      manifest: string;
-      projectContext?: string;
-    },
-    cwd: string,
-    tsconfig: string,
-  ) => ITtscLintDaemon)(
+  const daemon = new TtscLintDaemon(
     {
       binary: resolveLintDaemonFake(),
       manifest: '[{"name":"@ttsc/lint","stage":"check"}]',
@@ -68,24 +68,16 @@ export function createLintDaemonFixture(options: {
 
 /** The flags the sidecar was spawned with, one entry per spawn. */
 export function readSidecarArguments(root: string): string[][] {
-  return readLines(path.join(root, "sidecar-arguments.log")).map(
+  return readLogLines(path.join(root, "sidecar-arguments.log")).map(
     (line) => JSON.parse(line) as string[],
   );
 }
 
 /** Every request line the sidecar received, in order. */
 export function readSidecarRequests(root: string): Record<string, unknown>[] {
-  return readLines(path.join(root, "sidecar-requests.log")).map(
+  return readLogLines(path.join(root, "sidecar-requests.log")).map(
     (line) => JSON.parse(line) as Record<string, unknown>,
   );
-}
-
-function readLines(file: string): string[] {
-  if (!fs.existsSync(file)) return [];
-  return fs
-    .readFileSync(file, "utf8")
-    .split(/\r?\n/u)
-    .filter((line) => line.trim() !== "");
 }
 
 let fakeBinary: string | undefined;

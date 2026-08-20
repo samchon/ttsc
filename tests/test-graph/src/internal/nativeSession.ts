@@ -3,6 +3,8 @@ import { TestProject } from "@ttsc/testing";
 import fs from "node:fs";
 import path from "node:path";
 
+import { readLogLines } from "./logLines";
+
 let fakeBinary: string | undefined;
 
 export interface NativeSessionFixture {
@@ -47,24 +49,16 @@ export function pendingCount(session: TtscGraphSession): number {
 
 /** Every request line the fake child received, in order, parsed. */
 export function readRequests(root: string): Record<string, unknown>[] {
-  return readLines(path.join(root, "requests.log")).map(
+  return readLogLines(path.join(root, "requests.log")).map(
     (line) => JSON.parse(line) as Record<string, unknown>,
   );
 }
 
 /** The flags each fake child was spawned with, one entry per child. */
 export function readSpawnArguments(root: string): string[][] {
-  return readLines(path.join(root, "arguments.log")).map(
+  return readLogLines(path.join(root, "arguments.log")).map(
     (line) => JSON.parse(line) as string[],
   );
-}
-
-function readLines(file: string): string[] {
-  if (!fs.existsSync(file)) return [];
-  return fs
-    .readFileSync(file, "utf8")
-    .split(/\r?\n/u)
-    .filter((line) => line.trim() !== "");
 }
 
 export function readPids(root: string): number[] {
