@@ -75,12 +75,19 @@ const SCOPES = {
   // @ttsc/unplugin has to be built here too: the delivered frontend type-checks
   // `vite.config.ts`, which imports `@ttsc/unplugin/vite`, and packing that
   // package unbuilt ships a tarball with no `lib` at all.
+  //
+  // @ttsc/graph and the ttscgraph binary join them because this is the one
+  // suite that drives a resident graph session over a real evidence project,
+  // which is the only arrangement where the chain from a rule's published units
+  // to a graph node runs end to end. Trimming either back leaves that case
+  // resolving a module that was never built.
   "test-evidence": [
     "ttsc",
     "@ttsc/lint",
     "@ttsc/unplugin",
     "@ttsc/evidence",
     PLATFORM,
+    "@ttsc/graph",
   ],
   // The website redraws the evidence benchmark charts from the tracked
   // aggregate at deploy time, and that renderer runs under `ttsx`. Nothing on
@@ -114,7 +121,7 @@ const PLATFORM_TARGETS = {
   "website-charts": "ttsc",
   experimental: "ttsc",
   "test-graph": "ttsc,ttscgraph",
-  "test-evidence": "ttsc",
+  "test-evidence": "ttsc,ttscgraph",
 };
 
 function main() {

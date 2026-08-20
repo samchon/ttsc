@@ -362,6 +362,16 @@ test("lane identities and workflow matrix names stay unique", () => {
   assert.equal(PLATFORM_TARGETS["plugin-cache"], "ttsc");
   assert.equal(PLATFORM_TARGETS["test-packages"], "ttsc");
   assert.equal(PLATFORM_TARGETS["test-graph"], "ttsc,ttscgraph");
+  // The evidence suite is the only one that drives a resident graph session
+  // over a real evidence project, and it resolves both the package's built lib
+  // and the native binary at runtime. Neither is inferable from the suite's
+  // name, and dropping either fails the case with a module-resolution error
+  // rather than with anything about the graph.
+  assert.equal(PLATFORM_TARGETS["test-evidence"], "ttsc,ttscgraph");
+  assert.ok(
+    SCOPES["test-evidence"].includes("@ttsc/graph"),
+    "evidence defenses drive a resident graph session and need its built lib",
+  );
   for (const prerequisite of [
     "@ttsc/factory",
     "@ttsc/banner",
