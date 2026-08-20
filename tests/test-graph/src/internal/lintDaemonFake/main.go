@@ -19,13 +19,14 @@ import (
 )
 
 type config struct {
-  // Mode selects which sidecar this is standing in for.
+  // Mode selects which sidecar generation this is standing in for.
   //
-  //  serve      answers every verb
-  //  no-serve   exits without reading, as a sidecar built before lsp-serve
-  //  reject     answers RejectVerb with a nonzero code, as a sidecar built
-  //             before that verb joined the stream
-  Mode       string `json:"mode"`
+  //  serve      answers the stream
+  //  no-serve   exits without reading, as one built before lsp-serve existed
+  Mode string `json:"mode"`
+  // RejectVerb narrows `serve` to a sidecar that answers the stream and does
+  // not know one verb on it, which it reports the only way this protocol lets
+  // it: a nonzero code, indistinguishable from a rule that failed.
   RejectVerb string `json:"rejectVerb"`
 }
 

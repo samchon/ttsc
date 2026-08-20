@@ -34,9 +34,10 @@ export interface ITtscLintDaemonFixture {
 /**
  * Opens a daemon against a stand-in sidecar.
  *
- * `mode` selects which sidecar generation is being stood in for: one that
- * answers the stream, one built before `lsp-serve` existed, or one that answers
- * the stream and rejects `rejectVerb` as unknown.
+ * `mode` picks the sidecar generation: `serve` answers the stream, `no-serve`
+ * is one built before `lsp-serve` existed and rejects the subcommand outright.
+ * `rejectVerb` is the narrower case on top of `serve`, a sidecar that answers
+ * the stream and does not know one verb on it.
  */
 export function createLintDaemonFixture(options: {
   mode: "serve" | "no-serve";
