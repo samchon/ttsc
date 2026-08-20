@@ -4,6 +4,7 @@ import (
   "encoding/json"
   "io"
   "testing"
+  "time"
 )
 
 // TestResidentRulesAreReusedOnlyWhileTheirConfigIsUnchanged verifies the
@@ -27,6 +28,8 @@ import (
 //  3. Rewrite the configuration and require a different one.
 //  4. Send the client invalidate control and require the memo to survive it.
 //  5. Ask about a second project and require it to load on its own.
+//  6. Require a configuration that moved during the evaluation to be recorded
+//     as nothing at all.
 func TestResidentRulesAreReusedOnlyWhileTheirConfigIsUnchanged(t *testing.T) {
   root := seedLintProject(t, "/** Public value. */\nexport const value = 1;\n")
   seedLintRules(t, root, map[string]string{"jsdoc/check-tag-names": "warn"})
@@ -106,5 +109,27 @@ func TestResidentRulesAreReusedOnlyWhileTheirConfigIsUnchanged(t *testing.T) {
   }
   if cache.loads != 3 {
     t.Fatal("a second project reused the first one's rules")
+  }
+
+  // What the recorded state has to describe is the load, not the disk at the
+  // moment recording happened. Evaluating a configuration takes seconds, which
+  // is ample room for the author's next save to land inside it, and the bytes
+  // readable afterwards are then the save rather than what the resolver was
+  // built from. That is the one wrong answer that never corrects itself: the
+  // memo would agree with a file the resolver does not match, and every later
+  // request would pass the reuse test until some further edit disagreed.
+  //
+  // Driven by the start instant rather than by racing a real write, because the
+  // property is about which state a load is allowed to claim and a timing race
+  // would pin the scheduler instead.
+  resolver, err := acquireRules(manifest, other, "tsconfig.json")
+  if err != nil {
+    t.Fatalf("recording a settled configuration: %v", err)
+  }
+  if hashRuleConfigs(resolver, time.Now()) == nil {
+    t.Fatal("a configuration that settled before the load began recorded nothing; the memo could never hit and every assertion above it would pass vacuously")
+  }
+  if hashRuleConfigs(resolver, time.Now().Add(-time.Hour)) != nil {
+    t.Fatal("a configuration that moved after the load began was recorded as the state the resolver was built from; the memo would answer from rules the project no longer declares until some later edit happened to disagree")
   }
 }

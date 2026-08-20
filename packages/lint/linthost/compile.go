@@ -390,9 +390,6 @@ func runProject(opts *subcommandOpts) int {
   return 0
 }
 
-// loadRules decodes `--plugins-json`, locates the `@ttsc/lint` entry, and
-// returns its resolved RuleResolver. Returns an empty RuleConfig (no rules
-// enabled) when the lint entry is absent from the plugin manifest.
 // residentRules is the resident daemon's memo of one project's loaded rule
 // configuration, installed by RunLSPServe and nil in every one-shot process.
 //
@@ -439,6 +436,12 @@ func acquireRules(pluginsJSON, cwd, tsconfigPath string) (RuleResolver, error) {
     return cache.resolver, nil
   }
   cache.loads++
+  // Noted before the load, because the load is what the recorded state has to
+  // describe. Evaluating a configuration stands up a JavaScript runtime and
+  // takes seconds, which is ample room for an author's next save to land, and
+  // a state read afterwards would describe that save rather than the resolver
+  // built from what came before it.
+  started := time.Now()
   resolver, err := loadRules(pluginsJSON, cwd, tsconfigPath)
   if err != nil {
     // A failed load clears the memo rather than leaving the previous answer
@@ -450,14 +453,25 @@ func acquireRules(pluginsJSON, cwd, tsconfigPath string) (RuleResolver, error) {
   }
   cache.key = key
   cache.resolver = resolver
-  cache.configs = hashRuleConfigs(resolver)
+  cache.configs = hashRuleConfigs(resolver, started)
   return resolver, nil
 }
 
 // hashRuleConfigs records the content of every file the resolver was built
 // from. A resolver naming none records none, and a memo with no recorded file
 // is never reused — it could not prove anything.
-func hashRuleConfigs(resolver RuleResolver) map[string][sha256.Size]byte {
+//
+// A file the load did not finish before is recorded as nothing at all. Which
+// bytes the resolver was built from is unknowable once an edit lands inside the
+// evaluation window, and recording the ones readable now is the one wrong
+// answer that never corrects itself: the memo would agree with a file the
+// resolver does not match, and every later request would pass the reuse test
+// until some further edit happened to disagree. Declining costs one reload.
+//
+// Read first and stated second, in that order. A write landing between the two
+// moves the modification time forward and is caught; stating it first would
+// leave the window the check exists to close.
+func hashRuleConfigs(resolver RuleResolver, started time.Time) map[string][sha256.Size]byte {
   source, ok := resolver.(interface{ ConfigPaths() []string })
   if !ok {
     return nil
@@ -466,6 +480,10 @@ func hashRuleConfigs(resolver RuleResolver) map[string][sha256.Size]byte {
   for _, location := range source.ConfigPaths() {
     contents, err := os.ReadFile(location)
     if err != nil {
+      return nil
+    }
+    info, err := os.Stat(location)
+    if err != nil || !info.ModTime().Before(started) {
       return nil
     }
     configs[location] = sha256.Sum256(contents)
@@ -489,6 +507,9 @@ func ruleConfigsUnchanged(configs map[string][sha256.Size]byte) bool {
   return true
 }
 
+// loadRules decodes `--plugins-json`, locates the `@ttsc/lint` entry, and
+// returns its resolved RuleResolver. Returns an empty RuleConfig (no rules
+// enabled) when the lint entry is absent from the plugin manifest.
 func loadRules(pluginsJSON, cwd, tsconfigPath string) (RuleResolver, error) {
   entries, err := ParsePlugins(pluginsJSON)
   if err != nil {
