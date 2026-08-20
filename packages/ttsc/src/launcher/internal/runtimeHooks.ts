@@ -274,8 +274,16 @@ export interface RuntimeHookOptions {
  * `require()` made from inside a CommonJS module that was itself reached
  * through an ESM `import` (the interop translator loads it on the raw CJS
  * path). The ESM graph goes through `registerHooks`; the CommonJS `require`
- * graph goes through `Module._extensions` — the canonical loader extension
- * point `ts-node`/`tsx` use for the same reason.
+ * graph goes through `Module._extensions` and `Module._resolveFilename` — the
+ * canonical loader extension points `ts-node`/`tsx` use for the same reason.
+ *
+ * Both halves of that second graph are required, and they answer different
+ * questions. `_extensions` decides how a file that was _found_ is compiled, and
+ * Node reuses its keys when it probes an extensionless request, so
+ * `require("./x")` reaches `x.ts` for free. Nothing there resolves a request
+ * that already carries an extension: `require("./x.js")` backed only by `x.ts`
+ * is a resolution failure before any compiler is consulted, which is why the
+ * rescue is installed on `_resolveFilename` as well (samchon/ttsc#1280).
  */
 export function installRuntimeHooks(options: RuntimeHookOptions = {}): void {
   if (options.prepareEntry !== undefined) {
@@ -295,6 +303,7 @@ export function installRuntimeHooks(options: RuntimeHookOptions = {}): void {
   }
   registerHooks({ load, resolve });
   installCommonJsHook();
+  installCommonJsResolveHook();
 }
 
 /**
@@ -337,6 +346,86 @@ function installCommonJsHook(): void {
   for (const extension of [".ts", ".tsx", ".cts"]) {
     extensions[extension] = compile;
   }
+}
+
+/**
+ * Map a JavaScript spelling back to its TypeScript source on the CommonJS
+ * resolution path, so `require("./x.js")` finds `x.ts` when nothing emitted
+ * `x.js`.
+ *
+ * TypeScript asks authors to write the emitted `.js` extension in a relative
+ * specifier, so this spelling is the documented one rather than a mistake, and
+ * the ESM `resolve` hook has always rescued it. The CommonJS graph could not,
+ * and on Node 22 that graph is reached by every `require()` inside a CommonJS
+ * module the ESM loader evaluated — `module.registerHooks` sees the `import()`
+ * of that module and nothing within it. Node 24 routes the same `require`
+ * through the hooks, which is why the gap was only ever visible on the oldest
+ * runtime ttsx supports (`engines.node` is `>=22.15.0`).
+ *
+ * The wrapper only ever answers a request Node's own resolver already refused,
+ * so a resolution that succeeds is never perturbed, and a request no candidate
+ * satisfies rethrows Node's original error with its `MODULE_NOT_FOUND` code and
+ * `requireStack` intact. `require.resolve` shares this entry point and is
+ * rescued with it.
+ */
+function installCommonJsResolveHook(): void {
+  const internals = Module as unknown as {
+    _resolveFilename(
+      request: string,
+      parent: { filename?: string | null } | null | undefined,
+      isMain: boolean,
+      options?: unknown,
+    ): string;
+  };
+  const original = internals._resolveFilename;
+  internals._resolveFilename = function resolveFilename(
+    this: unknown,
+    request: string,
+    parent: { filename?: string | null } | null | undefined,
+    isMain: boolean,
+    options?: unknown,
+  ): string {
+    try {
+      return original.call(this, request, parent, isMain, options);
+    } catch (error) {
+      const rescued = rescueCommonJsRequest(request, parent);
+      if (rescued === null) {
+        throw error;
+      }
+      return rescued;
+    }
+  };
+}
+
+/**
+ * The TypeScript source a refused CommonJS request names, or `null`.
+ *
+ * Only a relative or absolute request can be rescued: a bare specifier is a
+ * package lookup, whose own resolver already probed every extension the
+ * installed `_extensions` keys declare.
+ */
+function rescueCommonJsRequest(
+  request: string,
+  parent: { filename?: string | null } | null | undefined,
+): string | null {
+  let base: string;
+  if (path.isAbsolute(request)) {
+    base = request;
+  } else if (isRelativeSpecifier(request)) {
+    const from = parent?.filename;
+    if (typeof from !== "string") {
+      return null;
+    }
+    base = path.resolve(path.dirname(from), request);
+  } else {
+    return null;
+  }
+  for (const candidate of typescriptSourcesForJavaScriptSpecifier(base)) {
+    if (isFile(candidate)) {
+      return candidate;
+    }
+  }
+  return null;
 }
 
 /**

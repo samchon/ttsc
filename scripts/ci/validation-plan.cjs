@@ -125,6 +125,11 @@ const LANES = [
       "native-plugins/utility-host",
     ],
   },
+  // Every other lane runs the current Node, so the floor `engines.node`
+  // declares is checked only here. The cases this names are the ones whose
+  // behaviour the runtime itself changed between that floor and the current
+  // release: each passes on the newer Node whatever ttsx does, so only this
+  // lane can tell a working hook from one the runtime happened to cover.
   {
     id: "ttsx-node-22",
     name: "ttsx node 22.15",
@@ -132,7 +137,8 @@ const LANES = [
     build: "pnpm --filter ttsc build",
     run:
       "pnpm --filter @ttsc/test-ttsc start -- " +
-      "--include=commonjs_loads_prefix_only_node_builtins",
+      "--include=commonjs_loads_prefix_only_node_builtins " +
+      "--include=commonjs_require_rescues_a_js_specifier_inside_a_dynamic_import",
     dirs: ["features/ttsx-runtime"],
   },
   {

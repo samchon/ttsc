@@ -306,7 +306,8 @@ func parseStripJSONConfigFile(location string, body []byte) (any, error) {
 // loadStripScriptConfigFile to evaluate a .js/.cjs/.mjs strip config and
 // serialize the result to stdout as JSON.
 const stripScriptLoaderSource = `
-const { createRequire, isBuiltin, registerHooks } = require("node:module");
+const nodeModule = require("node:module");
+const { createRequire, isBuiltin, registerHooks } = nodeModule;
 const crypto = require("node:crypto");
 const fs = require("node:fs");
 const path = require("node:path");
@@ -502,6 +503,27 @@ registerHooks({
   },
 });
 
+// The hook above never sees a require() made from inside a CommonJS module the
+// ESM loader evaluated, which on Node 22 is every require the config makes:
+// module.registerHooks observes the import() of that module and nothing within
+// it. A config's own dependencies would then be reported without the candidates
+// that decide them, so a spelling appearing later could change what the config
+// resolves to with nothing in the envelope to notice it (samchon/ttsc#1280).
+// Wrapping the CommonJS resolver records the same two observations the hook
+// does, on the graph the hook cannot reach.
+const nextResolveFilename = nodeModule._resolveFilename;
+nodeModule._resolveFilename = function resolveFilename(request, parent, isMain, options) {
+  const parentFile = parent && typeof parent.filename === "string" ? parent.filename : undefined;
+  const parentURL = parentFile === undefined ? undefined : pathToFileURL(parentFile).href;
+  recordResolutionCandidates(request, parentURL, undefined);
+  const resolved = nextResolveFilename.call(this, request, parent, isMain, options);
+  if (path.isAbsolute(resolved)) {
+    recordResolutionCandidates(request, parentURL, pathToFileURL(resolved).href);
+    recordFile(resolved);
+  }
+  return resolved;
+};
+
 (async () => {
   const mod = await import(pathToFileURL(process.argv[1]).href);
   let current = mod;
@@ -610,11 +632,11 @@ func decodeStripConfigLoaderOutput(output []byte) (stripLoadedConfig, error) {
 // `"./strip.config.ts"`) produced by json.Marshal.
 func stripTypeScriptLoaderSource(importLiteral string) string {
   return fmt.Sprintf(`// @ts-nocheck
-import { createRequire, isBuiltin, registerHooks } from "node:module";
+import Module, { createRequire, isBuiltin, registerHooks } from "node:module";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const inputs = new Set<string>();
 const hashes = new Map<string, string | null>();
@@ -820,6 +842,43 @@ registerHooks({
     return resolved;
   },
 });
+
+// The hook above never sees a require() made from inside a CommonJS module the
+// ESM loader evaluated, which on Node 22 is every require the config makes:
+// module.registerHooks observes the import() of that module and nothing within
+// it. A config's own dependencies would then be reported without the candidates
+// that decide them, so a spelling appearing later could change what the config
+// resolves to with nothing in the envelope to notice it (samchon/ttsc#1280).
+// Wrapping the CommonJS resolver records the same two observations the hook
+// does, on the graph the hook cannot reach.
+const moduleInternals = Module as unknown as {
+  _resolveFilename(
+    request: string,
+    parent: { filename?: string | null } | null | undefined,
+    isMain: boolean,
+    options?: unknown,
+  ): string;
+};
+const nextResolveFilename = moduleInternals._resolveFilename;
+moduleInternals._resolveFilename = function resolveFilename(
+  this: unknown,
+  request: string,
+  parent: { filename?: string | null } | null | undefined,
+  isMain: boolean,
+  options?: unknown,
+): string {
+  const parentURL =
+    typeof parent?.filename === "string"
+      ? pathToFileURL(parent.filename).href
+      : undefined;
+  recordResolutionCandidates(request, parentURL, undefined);
+  const resolved = nextResolveFilename.call(this, request, parent, isMain, options);
+  if (path.isAbsolute(resolved)) {
+    recordResolutionCandidates(request, parentURL, pathToFileURL(resolved).href);
+    recordFile(resolved);
+  }
+  return resolved;
+};
 
 declare const process: {
   exitCode?: number;
