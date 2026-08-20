@@ -1084,6 +1084,78 @@ async function assertUnrelatedFileInAProbedDirectoryKeepsTheGeneration() {
 }
 
 /**
+ * Asserts a directory wearing a config file's name leaves the generation
+ * reusable.
+ *
+ * The discovery walk rejects such a directory as a config, but it is not the
+ * same observation as an absent path: the host-input contract records an
+ * existing directory by a fixed directory-kind digest and its physical path.
+ * The producer's digest and the consumer's are two independently maintained
+ * constants, and the moment they disagree — or the walk reports the directory
+ * as absent — every consumer compares a nil against a digest its own filesystem
+ * keeps producing. That is not an invalidation but a permanent one: the
+ * generation is refused on every delivery for the rest of its life, which is
+ * the shape samchon/ttsc#1245 was filed for.
+ *
+ * 1. Compile a package whose config directory also carries a _directory_ named
+ *    `banner.config.ts`.
+ * 2. Assert that path reached the envelope, so the case is about how it was
+ *    recorded rather than about it being dropped.
+ * 3. Deliver again and assert the generation object is the same one.
+ */
+async function assertDirectoryShapedConfigCandidateKeepsTheGeneration() {
+  const { createTtscTransformCache, resolveOptions, transformTtsc } =
+    await TestUnpluginRuntime.loadUnpluginApi();
+  const { middle, root } = createNestedUtilityPluginProject({
+    outerConfig: JSON.stringify({ text: "OUTER BANNER" }),
+    plugin: "banner",
+    source: 'export const value: string = "kept";\n',
+  });
+  // Beside the config the walk settles on, so the search reaches it, rejects
+  // it, and reports it from the directory it stopped in.
+  const directory = path.join(path.dirname(middle), "banner.config.ts");
+  fs.mkdirSync(directory, { recursive: true });
+
+  const file = path.join(root, "src", "main.ts");
+  const source = fs.readFileSync(file, "utf8");
+  const cache = createTtscTransformCache();
+  const first = await transformTtsc(
+    file,
+    source,
+    resolveOptions(),
+    undefined,
+    cache,
+  );
+  assert.ok(first);
+  assert.match(first.code, /OUTER BANNER/);
+  const firstGeneration = [...cache.values()][0];
+  const cached = (await firstGeneration!) as {
+    result?: { hostInputs?: string[] };
+  };
+  assert.ok(
+    cached.result?.hostInputs?.some(
+      (input) => path.resolve(input) === path.resolve(directory),
+    ),
+    `the directory-shaped candidate is missing from the envelope: ${JSON.stringify(cached.result?.hostInputs ?? [])}`,
+  );
+
+  const second = await transformTtsc(
+    file,
+    source,
+    resolveOptions(),
+    undefined,
+    cache,
+  );
+  assert.ok(second);
+  assert.equal(
+    [...cache.values()][0],
+    firstGeneration,
+    "a directory wearing a config name must not make the generation unreusable",
+  );
+  assert.match(second.code, /OUTER BANNER/);
+}
+
+/**
  * Asserts the same rule where the search found nothing at all.
  *
  * `@ttsc/strip` falls back to its built-in defaults when no config exists
@@ -1136,6 +1208,7 @@ export {
   assertAliasOverlayIgnoresStripConfigPlantedInTempDir,
   assertAliasOverlayMatchesNoAliasStripOutput,
   assertAliasOverlayResolvesRelativeConfigFile,
+  assertDirectoryShapedConfigCandidateKeepsTheGeneration,
   assertPersistentBannerConfigEditInvalidatesTransform,
   assertPersistentBannerConfigSupersessionInvalidatesTransform,
   assertPersistentStripDefaultsYieldToAnAppearingConfig,
