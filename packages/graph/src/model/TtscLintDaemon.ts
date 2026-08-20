@@ -161,12 +161,17 @@ interface IReply {
 }
 
 /**
- * The `result` member as the text it arrived as.
+ * The `result` member, as the JSON text this daemon's callers parse.
  *
- * A verb's result is arbitrary JSON that the caller parses itself, and
- * re-serializing what `JSON.parse` produced is not guaranteed to be the same
- * text. Slicing it out of the line keeps the sidecar's own bytes, which is what
- * the direct command would have handed over.
+ * A verb's result is arbitrary JSON that the caller decodes itself, so it is
+ * handed back as text rather than as a value — which is what the direct command
+ * hands over, and what keeps the two paths interchangeable. The text is
+ * re-serialized rather than sliced out of the line: the bytes are not identical
+ * to the sidecar's own, but the value they decode to is, and no caller here
+ * reads anything else.
+ *
+ * A reply with no `result` is `"null"`, so a caller parses a value either way
+ * instead of being handed the empty string.
  */
 function rawResult(line: string): string {
   const parsed = JSON.parse(line) as { result?: unknown };

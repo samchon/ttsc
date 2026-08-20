@@ -113,6 +113,7 @@ export function publishArtifacts(options: {
     options,
   );
   return assemble(
+    options,
     inputs,
     plugins.map((plugin) => runVerb(plugin, "graph-nodes", options)),
   );
@@ -159,6 +160,7 @@ export async function publishArtifactsResident(
     options,
   );
   return assemble(
+    options,
     inputs,
     await Promise.all(
       plugins.map((plugin) =>
@@ -222,6 +224,7 @@ async function askVerb(
 
 /** The artifact answer, from each sidecar's `graph-nodes` output. */
 function assemble(
+  options: { cwd: string; tsconfig: string },
   inputs: IArtifactInputs,
   outputs: readonly (string | null)[],
 ): IPublishedArtifacts {
@@ -238,14 +241,22 @@ function assemble(
   }
   if (published.length === 0) return { file: null, fingerprint, inputs };
 
-  // One file per process, overwritten, rather than a fresh temp directory per
-  // call. A resident session asks once and a one-shot asks once, but `loadGraph`
-  // is a library entry a caller may run in a loop, and a directory per call is a
-  // leak nothing here is positioned to clean: the path outlives this function by
-  // design — the native producer reads it after we return.
+  // One file per process and project, overwritten, rather than a fresh temp
+  // directory per call. A directory per call is a leak nothing here is
+  // positioned to clean — the path outlives this function by design, since the
+  // native producer reads it after we return — and `loadGraph` is a library
+  // entry a caller may run in a loop.
+  //
+  // Per project as well as per process, because `TtscGraphSession` is exported
+  // and a consumer holding one per workspace is an ordinary thing to do. Keyed
+  // on the process alone, the second session's set would overwrite the first's
+  // between the moment it was written and the moment the first session's child
+  // reads the path it was handed — and a graph answering with another project's
+  // artifacts is exactly the silently-wrong answer this channel exists to make
+  // impossible.
   const file = path.join(
     os.tmpdir(),
-    `ttsc-graph-artifacts-${String(process.pid)}.json`,
+    `ttsc-graph-artifacts-${String(process.pid)}-${projectKey(options)}.json`,
   );
   fs.writeFileSync(file, JSON.stringify(published));
   return { file, fingerprint, inputs };
@@ -266,6 +277,17 @@ function assemble(
  * section used to have.
  */
 export function artifactsAreStale(published: IPublishedArtifacts): boolean {
+  // The written set is one of its own inputs, by existence alone. It lives in
+  // the system temp directory, which is swept on a schedule this session has no
+  // say in, and the server is handed the path on every request — so once it is
+  // gone every later request fails as a broken exchange, and the only cure is
+  // restarting the editor. That is the outcome `unpublished` exists to avoid,
+  // and it would be odd to accept it here.
+  //
+  // Existence and nothing else. The file is written after this answer's
+  // fingerprint was taken, so folding its size or time into that state would
+  // report stale forever.
+  if (published.file !== null && !fs.existsSync(published.file)) return true;
   return fingerprintInputs(published.inputs) !== published.fingerprint;
 }
 
@@ -292,7 +314,7 @@ function unpublished(options: {
     directories: [],
     files: [
       path.resolve(options.cwd, options.tsconfig),
-      path.join(options.cwd, "package.json"),
+      path.resolve(options.cwd, "package.json"),
     ],
   };
   return { file: null, fingerprint: fingerprintInputs(inputs), inputs };
@@ -409,6 +431,22 @@ function projectContextArgs(plugin: {
     : [`--project-context-json=${plugin.projectContext}`];
 }
 
+/**
+ * The project a published set belongs to, as a filename-safe tag.
+ *
+ * Short rather than the whole digest: it distinguishes the projects one process
+ * drives, which is a handful, and the process id beside it already separates
+ * two runs.
+ */
+function projectKey(options: { cwd: string; tsconfig: string }): string {
+  return createHash("sha256")
+    .update(path.resolve(options.cwd))
+    .update(SEPARATOR)
+    .update(options.tsconfig)
+    .digest("hex")
+    .slice(0, 16);
+}
+
 /** Wildcards a pattern may use; a pattern with none of them names one path. */
 const GLOB_MAGIC = /[*?[{]/u;
 
@@ -443,14 +481,22 @@ export function fingerprintInputs(inputs: IArtifactInputs): string {
  * file named `a`, and an edit to either would then read as no edit at all.
  */
 function stateOf(file: string): string {
-  const separator = String.fromCharCode(0);
   try {
     const stat = fs.statSync(file);
-    return [file, String(stat.size), String(stat.mtimeMs)].join(separator);
+    return [file, String(stat.size), String(stat.mtimeMs)].join(SEPARATOR);
   } catch {
-    return [file, "absent"].join(separator);
+    return [file, "absent"].join(SEPARATOR);
   }
 }
+
+/**
+ * The character that joins fields a path could otherwise forge.
+ *
+ * Built rather than written literally: a source file carrying a raw NUL is one
+ * Git classifies as binary, which exempts it from this repository's end-of-line
+ * contract and leaves it with no textual diff for a reviewer.
+ */
+const SEPARATOR = String.fromCharCode(0);
 
 /**
  * The fixed directory prefix of a glob, which is what there is to walk.

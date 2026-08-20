@@ -184,9 +184,9 @@ type graphSession struct {
   artifacts []graph.Artifact
   // artifactsDigest is the content of the set currently applied. Content, and
   // not the path or its modification time: the client overwrites one file per
-  // process, so the path never moves, and a republish triggered by a document
-  // whose headings did not actually change writes the same bytes and must
-  // therefore cost nothing.
+  // process and project, so the path never moves for a given session, and a
+  // republish triggered by a document whose headings did not actually change
+  // writes the same bytes and must therefore cost nothing.
   artifactsDigest [sha256.Size]byte
   // artifactsFile and artifactsStat are what the digest was taken from, kept so
   // an unchanged file need not be read at all. The set is one entry per

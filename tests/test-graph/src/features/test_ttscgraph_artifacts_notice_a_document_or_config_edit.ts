@@ -51,6 +51,7 @@ interface IArtifactInputs {
  * 3. Edit a document, add one, delete one, and edit the configuration.
  * 4. Require each to read stale, and an unrelated file's edit not to.
  * 5. Require a non-recursive directory to ignore what lies below it.
+ * 6. Delete the published file itself and require that to read stale too.
  */
 export const test_ttscgraph_artifacts_notice_a_document_or_config_edit =
   (): void => {
@@ -70,8 +71,10 @@ export const test_ttscgraph_artifacts_notice_a_document_or_config_edit =
       directories: [{ path: docs, recursive: true }],
       files: [config],
     };
+    const artifacts = path.join(root, "artifacts.json");
+    write(artifacts, "[]");
     const published: IPublished = {
-      file: path.join(root, "artifacts.json"),
+      file: artifacts,
       fingerprint: fingerprintInputs(inputs),
       inputs,
     };
@@ -101,6 +104,24 @@ export const test_ttscgraph_artifacts_notice_a_document_or_config_edit =
     verifyStale(published, "a deleted document", () => fs.rmSync(nested));
     verifyStale(published, "an edited lint configuration", () =>
       write(config, "export default { rules: { evidence: {} } };\n"),
+    );
+
+    // The published file is swept by a machine no session has a say in — a tmp
+    // cleaner, a disk-cleanup pass — and the server is handed its path on every
+    // request. Gone, and read as fresh, every later request fails as a broken
+    // exchange and the only cure is restarting the editor; read as stale, the
+    // next request writes it again and the session repairs itself.
+    fs.rmSync(published.file!);
+    assert.equal(
+      artifactsAreStale(published),
+      true,
+      "the published file was deleted and the answer still read fresh; the session would go on naming a path the server cannot read and fail every request until it was restarted",
+    );
+    write(published.file!, "[]");
+    assert.equal(
+      artifactsAreStale(published),
+      false,
+      "the answer stayed stale after the file it names was written again, so the repair would republish on every request forever",
     );
 
     // A pattern such as `docs/*.md` names one directory's files. Walking below
