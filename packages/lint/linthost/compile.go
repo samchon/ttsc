@@ -500,6 +500,9 @@ func acquireRules(pluginsJSON, cwd, tsconfigPath string) (RuleResolver, error) {
 // moves the modification time forward and is caught; stating it first would
 // leave the window the check exists to close.
 func hashRuleConfigs(resolver RuleResolver, started time.Time) *residentRuleConfigSnapshot {
+  if configCacheDisabled() {
+    return nil
+  }
   source, ok := resolver.(interface {
     residentRuleConfigState() residentRuleConfigState
   })
@@ -532,7 +535,8 @@ func hashRuleConfigs(resolver RuleResolver, started time.Time) *residentRuleConf
 }
 
 func ruleConfigsUnchanged(configs *residentRuleConfigSnapshot) bool {
-  if configs == nil ||
+  if configCacheDisabled() ||
+    configs == nil ||
     (len(configs.files) == 0 && len(configs.dependencies) == 0) ||
     !configDependencyDigestsAreCurrent(configs.dependencies) {
     return false
