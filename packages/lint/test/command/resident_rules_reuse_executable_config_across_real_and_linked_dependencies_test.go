@@ -55,19 +55,7 @@ func (residentConfigProjectInputRule) ProjectInputs(
 //     new project-input answer.
 //  4. Ask once more unchanged and require the refreshed resolver to settle.
 func TestResidentRulesReuseExecutableConfigAcrossRealAndLinkedDependencies(t *testing.T) {
-  previousRule, existed := registeredProjectRules[residentConfigProjectInputRuleName]
-  registeredProjectRules[residentConfigProjectInputRuleName] = projectRuleAdapter{
-    inner:          residentConfigProjectInputRule{},
-    name:           residentConfigProjectInputRuleName,
-    acceptsOptions: true,
-  }
-  defer func() {
-    if existed {
-      registeredProjectRules[residentConfigProjectInputRuleName] = previousRule
-    } else {
-      delete(registeredProjectRules, residentConfigProjectInputRuleName)
-    }
-  }()
+  installResidentConfigProjectInputRule(t)
 
   for _, linked := range []bool{false, true} {
     name := "real-directory"
@@ -97,13 +85,7 @@ func TestResidentRulesReuseExecutableConfigAcrossRealAndLinkedDependencies(t *te
       } else {
         seedResidentConfigDependency(t, packageRoot, "docs/before.md")
       }
-      writeFile(t, filepath.Join(root, "lint.config.ts"), fmt.Sprintf(`
-import options from "resident-config-dependency";
-
-export default {
-  rules: { %q: ["error", options] },
-};
-`, residentConfigProjectInputRuleName))
+      writeResidentProjectInputConfig(t, root)
 
       evaluations := filepath.Join(root, "evaluations.txt")
       if err := os.WriteFile(evaluations, nil, 0o644); err != nil {
@@ -121,51 +103,8 @@ export default {
         configEvalCacheMu.Unlock()
       }()
 
-      requestsReader, requestsWriter := io.Pipe()
-      responsesReader, responsesWriter := io.Pipe()
-      done := make(chan int, 1)
-      manifest := lintManifest(t)
-      go func() {
-        code := RunLSPServe(
-          requestsReader,
-          responsesWriter,
-          []string{
-            "--cwd", root,
-            "--tsconfig", "tsconfig.json",
-            "--plugins-json", manifest,
-          },
-        )
-        _ = responsesWriter.Close()
-        done <- code
-      }()
-      defer func() {
-        _ = requestsWriter.Close()
-        code := <-done
-        _ = responsesReader.Close()
-        if code != 0 {
-          t.Errorf("lsp-serve exit: want 0, got %d", code)
-        }
-      }()
-
-      decoder := json.NewDecoder(responsesReader)
-      ask := func(what string) ProjectInputSnapshot {
-        t.Helper()
-        if _, err := fmt.Fprintln(requestsWriter, `{"verb":"project-inputs"}`); err != nil {
-          t.Fatalf("%s request: %v", what, err)
-        }
-        var reply serveLSPResponse
-        if err := decoder.Decode(&reply); err != nil {
-          t.Fatalf("%s reply: %v", what, err)
-        }
-        if reply.Code != 0 {
-          t.Fatalf("%s reply code = %d, want 0", what, reply.Code)
-        }
-        var snapshot ProjectInputSnapshot
-        if err := json.Unmarshal(reply.Result, &snapshot); err != nil {
-          t.Fatalf("%s snapshot: %v", what, err)
-        }
-        return snapshot
-      }
+      ask, closeDaemon := startResidentProjectInputDaemon(t, root)
+      defer closeDaemon()
 
       var snapshot ProjectInputSnapshot
       for request := 1; request <= 3; request++ {
@@ -192,6 +131,87 @@ export default {
       assertResidentProjectInput(t, snapshot, root, "docs/after.md", true)
     })
   }
+}
+
+func installResidentConfigProjectInputRule(t *testing.T) {
+  t.Helper()
+  previousRule, existed := registeredProjectRules[residentConfigProjectInputRuleName]
+  registeredProjectRules[residentConfigProjectInputRuleName] = projectRuleAdapter{
+    inner:          residentConfigProjectInputRule{},
+    name:           residentConfigProjectInputRuleName,
+    acceptsOptions: true,
+  }
+  t.Cleanup(func() {
+    if existed {
+      registeredProjectRules[residentConfigProjectInputRuleName] = previousRule
+    } else {
+      delete(registeredProjectRules, residentConfigProjectInputRuleName)
+    }
+  })
+}
+
+func writeResidentProjectInputConfig(t *testing.T, root string) {
+  t.Helper()
+  writeFile(t, filepath.Join(root, "lint.config.ts"), fmt.Sprintf(`
+import options from "resident-config-dependency";
+
+export default {
+  rules: { %q: ["error", options] },
+};
+`, residentConfigProjectInputRuleName))
+}
+
+func startResidentProjectInputDaemon(
+  t *testing.T,
+  root string,
+) (func(string) ProjectInputSnapshot, func()) {
+  t.Helper()
+  requestsReader, requestsWriter := io.Pipe()
+  responsesReader, responsesWriter := io.Pipe()
+  done := make(chan int, 1)
+  manifest := lintManifest(t)
+  go func() {
+    code := RunLSPServe(
+      requestsReader,
+      responsesWriter,
+      []string{
+        "--cwd", root,
+        "--tsconfig", "tsconfig.json",
+        "--plugins-json", manifest,
+      },
+    )
+    _ = responsesWriter.Close()
+    done <- code
+  }()
+
+  decoder := json.NewDecoder(responsesReader)
+  ask := func(what string) ProjectInputSnapshot {
+    t.Helper()
+    if _, err := fmt.Fprintln(requestsWriter, `{"verb":"project-inputs"}`); err != nil {
+      t.Fatalf("%s request: %v", what, err)
+    }
+    var reply serveLSPResponse
+    if err := decoder.Decode(&reply); err != nil {
+      t.Fatalf("%s reply: %v", what, err)
+    }
+    if reply.Code != 0 {
+      t.Fatalf("%s reply code = %d, want 0", what, reply.Code)
+    }
+    var snapshot ProjectInputSnapshot
+    if err := json.Unmarshal(reply.Result, &snapshot); err != nil {
+      t.Fatalf("%s snapshot: %v", what, err)
+    }
+    return snapshot
+  }
+  closeDaemon := func() {
+    _ = requestsWriter.Close()
+    code := <-done
+    _ = responsesReader.Close()
+    if code != 0 {
+      t.Errorf("lsp-serve exit: want 0, got %d", code)
+    }
+  }
+  return ask, closeDaemon
 }
 
 func seedResidentConfigDependency(t *testing.T, root, input string) {

@@ -12,8 +12,11 @@ import (
 )
 
 // TestWindowsJunctionDependencyEntryMatchesNodeFingerprint verifies the Go
-// cache validator describes a Windows junction with the same symlink record as
-// the Node config loader that produced the dependency fingerprint.
+// cache validator reproduces Node's fingerprint for a Windows junction entry.
+//
+// Node classifies the reparse point as a symlink while Go's FileMode can report
+// it as a directory. That vocabulary mismatch makes an unchanged executable
+// config look stale on every cache lookup.
 //
 //  1. Create a privilege-free Windows directory junction.
 //  2. Encode its target with the loader's `symlink\0<target>` contract.

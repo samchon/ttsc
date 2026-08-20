@@ -1,34 +1,46 @@
 package linthost
 
 import (
+  "fmt"
+  "os"
   "path/filepath"
   "testing"
-  "time"
 )
 
-// TestResidentRuleCacheRespectsConfigCacheOptOut verifies the config-cache
-// escape hatch also declines a resolver snapshot already held by the resident
-// daemon. Otherwise the evaluator cache would be disabled while the outer memo
-// continued serving the very result the opt-out asked to bypass.
+// TestResidentRuleCacheRespectsConfigCacheOptOut verifies the resident daemon
+// re-evaluates an executable config on every request while caching is disabled.
 //
-//  1. Record a settled config while caching is enabled.
-//  2. Enable `TTSC_LINT_DISABLE_CONFIG_CACHE` and reject that snapshot.
-//  3. Require the opt-out to prevent a replacement snapshot too.
+// The opt-out exists for configs that depend on state outside the tracked
+// module graph. Disabling only the inner evaluator cache would be ineffective
+// if the daemon's outer resolver memo continued serving the first result.
+//
+//  1. Start `lsp-serve` with an executable config and the opt-out enabled.
+//  2. Ask `project-inputs` twice without changing any tracked input.
+//  3. Require two resolver loads and two executable-config evaluations.
 func TestResidentRuleCacheRespectsConfigCacheOptOut(t *testing.T) {
-  t.Setenv("TTSC_LINT_DISABLE_CONFIG_CACHE", "")
-  location := filepath.Join(t.TempDir(), "lint.config.json")
-  writeFile(t, location, `{"rules":{}}`)
-  resolver := &ConfigStore{cacheFiles: []string{location}}
-  snapshot := hashRuleConfigs(resolver, time.Now())
-  if snapshot == nil {
-    t.Fatal("enabled resident cache did not record a settled config")
-  }
+  installResidentConfigProjectInputRule(t)
+  root := seedLintProject(t, "export const value = 1;\n")
+  packageRoot := filepath.Join(
+    root,
+    "node_modules",
+    "resident-config-dependency",
+  )
+  seedResidentConfigDependency(t, packageRoot, "docs/input.md")
+  writeResidentProjectInputConfig(t, root)
 
+  evaluations := filepath.Join(root, "evaluations.txt")
+  if err := os.WriteFile(evaluations, nil, 0o644); err != nil {
+    t.Fatalf("seed evaluation log: %v", err)
+  }
+  t.Setenv("TTSC_LINT_TEST_EVALUATIONS", evaluations)
   t.Setenv("TTSC_LINT_DISABLE_CONFIG_CACHE", "1")
-  if ruleConfigsUnchanged(snapshot) {
-    t.Fatal("config cache opt-out reused an existing resident resolver")
+  ask, closeDaemon := startResidentProjectInputDaemon(t, root)
+  defer closeDaemon()
+
+  for request := 1; request <= 2; request++ {
+    snapshot := ask(fmt.Sprintf("cache-disabled request %d", request))
+    assertResidentProjectInput(t, snapshot, root, "docs/input.md", true)
   }
-  if hashRuleConfigs(resolver, time.Now()) != nil {
-    t.Fatal("config cache opt-out recorded a new resident resolver")
-  }
+  assertResidentRuleLoads(t, 2)
+  assertResidentConfigEvaluations(t, evaluations, 2)
 }
