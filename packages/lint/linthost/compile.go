@@ -461,12 +461,21 @@ func acquireRules(pluginsJSON, cwd, tsconfigPath string) (RuleResolver, error) {
 // from. A resolver naming none records none, and a memo with no recorded file
 // is never reused — it could not prove anything.
 //
-// A file the load did not finish before is recorded as nothing at all. Which
+// A file written after the load began is recorded as nothing at all. Which
 // bytes the resolver was built from is unknowable once an edit lands inside the
 // evaluation window, and recording the ones readable now is the one wrong
 // answer that never corrects itself: the memo would agree with a file the
 // resolver does not match, and every later request would pass the reuse test
 // until some further edit happened to disagree. Declining costs one reload.
+//
+// After, and not "not before". A filesystem timestamp and the instant the load
+// began are read from the same clock, whose tick is coarse on Windows, so the
+// save an author made just before asking shares its tick with the load start
+// far more often than not — and rejecting equality there rejects every
+// recording the memo could ever make. The write that equality could also mean
+// is one the load's own read, hundreds of milliseconds later behind a
+// JavaScript runtime start, would have picked up regardless; the edit this
+// guard is for lands well inside the evaluation and is well past the tick.
 //
 // Read first and stated second, in that order. A write landing between the two
 // moves the modification time forward and is caught; stating it first would
@@ -483,7 +492,7 @@ func hashRuleConfigs(resolver RuleResolver, started time.Time) map[string][sha25
       return nil
     }
     info, err := os.Stat(location)
-    if err != nil || !info.ModTime().Before(started) {
+    if err != nil || info.ModTime().After(started) {
       return nil
     }
     configs[location] = sha256.Sum256(contents)

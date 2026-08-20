@@ -3,6 +3,7 @@ package linthost
 import (
   "encoding/json"
   "io"
+  "os"
   "testing"
   "time"
 )
@@ -29,7 +30,8 @@ import (
 //  4. Send the client invalidate control and require the memo to survive it.
 //  5. Ask about a second project and require it to load on its own.
 //  6. Require a configuration that moved during the evaluation to be recorded
-//     as nothing at all.
+//     as nothing at all, and one that shares the load's start instant to be
+//     recorded normally.
 func TestResidentRulesAreReusedOnlyWhileTheirConfigIsUnchanged(t *testing.T) {
   root := seedLintProject(t, "/** Public value. */\nexport const value = 1;\n")
   seedLintRules(t, root, map[string]string{"jsdoc/check-tag-names": "warn"})
@@ -132,4 +134,34 @@ func TestResidentRulesAreReusedOnlyWhileTheirConfigIsUnchanged(t *testing.T) {
   if hashRuleConfigs(resolver, time.Now().Add(-time.Hour)) != nil {
     t.Fatal("a configuration that moved after the load began was recorded as the state the resolver was built from; the memo would answer from rules the project no longer declares until some later edit happened to disagree")
   }
+
+  // The boundary, pinned because rejecting it is the shape this guard first
+  // took and it disabled the memo outright on Windows. A save and the instant
+  // the load began are read from one clock whose tick is coarse there, so the
+  // edit an author makes immediately before asking routinely carries exactly
+  // the load's own start time — the ordinary case, not the suspicious one.
+  for _, location := range configPathsOf(t, resolver) {
+    info, err := os.Stat(location)
+    if err != nil {
+      t.Fatalf("stating %s: %v", location, err)
+    }
+    if hashRuleConfigs(resolver, info.ModTime()) == nil {
+      t.Fatalf("a configuration whose save shares the load's start instant recorded nothing; on a platform with a coarse clock that is every save, and the memo would never record at all")
+    }
+  }
+}
+
+// configPathsOf names the files a resolver was built from, which is what the
+// recording it is asked for above reads.
+func configPathsOf(t *testing.T, resolver RuleResolver) []string {
+  t.Helper()
+  source, ok := resolver.(interface{ ConfigPaths() []string })
+  if !ok {
+    t.Fatal("the resolver does not name the files it was built from, so nothing here could be recorded")
+  }
+  paths := source.ConfigPaths()
+  if len(paths) == 0 {
+    t.Fatal("the resolver named no configuration file, so the boundary below would pass vacuously")
+  }
+  return paths
 }
