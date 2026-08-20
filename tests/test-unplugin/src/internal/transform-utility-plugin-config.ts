@@ -1138,9 +1138,9 @@ export {
   assertAliasOverlayResolvesRelativeConfigFile,
   assertPersistentBannerConfigEditInvalidatesTransform,
   assertPersistentBannerConfigSupersessionInvalidatesTransform,
-  assertUnrelatedFileInAProbedDirectoryKeepsTheGeneration,
   assertPersistentStripDefaultsYieldToAnAppearingConfig,
   assertPersistentUtilityConfigDependencyEditInvalidatesTransform,
   assertPersistentUtilityConfigLinkRetargetInvalidatesTransform,
   assertUnnotifiedUtilityConfigLinkRetargetInvalidatesTransform,
+  assertUnrelatedFileInAProbedDirectoryKeepsTheGeneration,
 };

@@ -69,6 +69,17 @@ interface ICacheProjectOptions {
   graphCandidates?: number;
   graphGlobals?: number;
   /**
+   * Stamp one extra resolution candidate at this absolute spelling, which the
+   * caller places outside the project root.
+   *
+   * The bound the absent-candidate watch declines at: the chain that proves a
+   * candidate absent stops at the project's own root, so a spelling that leaves
+   * the subtree before reaching it cannot be covered and is not claimed at all.
+   * Only an absolute path exercises it, since a project-relative one can never
+   * leave.
+   */
+  outOfProjectCandidate?: string;
+  /**
    * Project-relative path the fixture transform writes while the compile runs,
    * for a file that is not an input of that compile (a build log, a coverage
    * report, a framework's generated artifact). It must not cost the
@@ -395,6 +406,89 @@ async function assertSynchronousMembershipChangeReachesTheNextDelivery(): Promis
 }
 
 /**
+ * Asserts a candidate whose spelling leaves the project subtree is still
+ * probed.
+ *
+ * The negative twin of the notification proof at the boundary it declines at.
+ * The chain that proves an absent candidate stops at the project's own root:
+ * above that line the components belong to the machine rather than the project,
+ * and a link along the part outside the subtree could move the candidate's
+ * answer with nothing inside the bound to report it. Such a candidate therefore
+ * keeps the probe it always had, and claiming it anyway would serve a
+ * generation the appearance already superseded (samchon/ttsc#1261).
+ *
+ * 1. Stamp one candidate at an absolute spelling outside the project root, with
+ *    watch registration left working so only the bound decides.
+ * 2. Deliver one module to capture the generation, then reset the counters.
+ * 3. Deliver the rest and assert that spelling was checked every time.
+ */
+async function assertOutOfProjectCandidateIsStillProbed(): Promise<void> {
+  const { createTtscTransformCache, resolveOptions, transformTtsc } =
+    await TestUnpluginRuntime.loadUnpluginApi();
+  const outside = path.join(
+    TestProject.tmpdir("ttsc-unplugin-outside-candidate-"),
+    "index.ts",
+  );
+  const project = createCacheProject({
+    fileCount: 4,
+    graphFanout: 4,
+    outOfProjectCandidate: outside,
+  });
+  const probes = { calls: 0 };
+  const count = (location: string): void => {
+    if (path.resolve(location) === path.resolve(outside)) probes.calls += 1;
+  };
+  const cache = createTtscTransformCache({
+    exists: (location: string) => {
+      count(location);
+      return fs.existsSync(location);
+    },
+    lstat: (location: string) => {
+      count(location);
+      return fs.lstatSync(location, { bigint: true });
+    },
+    readFile: (location: string) => {
+      count(location);
+      return fs.readFileSync(location);
+    },
+    stat: (location: string) => {
+      count(location);
+      return fs.statSync(location);
+    },
+    statBigInt: (location: string) => {
+      count(location);
+      return fs.statSync(location, { bigint: true });
+    },
+  });
+  const modules = projectModules(project.root);
+  const options = resolveOptions();
+  const deliver = async (file: string): Promise<void> => {
+    const result = await transformTtsc(
+      file,
+      fs.readFileSync(file, "utf8"),
+      options,
+      undefined,
+      cache,
+    );
+    assert.ok(result, `expected transformed output for ${file}`);
+  };
+
+  await deliver(modules[0]!);
+  assert.equal(fs.readFileSync(project.runLog, "utf8").length, 1);
+
+  probes.calls = 0;
+  for (const file of modules.slice(1)) {
+    await deliver(file);
+  }
+
+  assert.equal(fs.readFileSync(project.runLog, "utf8").length, 1);
+  assert.ok(
+    probes.calls > 0,
+    "a candidate outside the project subtree must keep being checked on the filesystem",
+  );
+}
+
+/**
  * Asserts a candidate whose watch could not be opened is still probed.
  *
  * The bound samchon/ttsc#1261 rests on: only a candidate the tracker actually
@@ -536,7 +630,7 @@ async function assertRecreatedCandidateDirectoryInvalidatesGeneration(): Promise
   fs.mkdirSync(directory, { recursive: true });
   fs.writeFileSync(
     path.join(directory, "index.ts"),
-    "export const superseding = 1;" + String.fromCharCode(92) + "n",
+    "export const superseding = 1;\n",
     "utf8",
   );
   await deliver(modules[1]!);
@@ -2911,6 +3005,7 @@ function createCacheProject(options: ICacheProjectOptions): {
               graphFanout: options.graphFanout ?? 0,
               graphGlobals: options.graphGlobals ?? 0,
               graphCandidates: options.graphCandidates ?? 0,
+              outOfProjectCandidate: options.outOfProjectCandidate ?? "",
               nonInputRaceFile: options.nonInputRaceFile ?? "",
               unhashedGraphInput: options.unhashedGraphInput === true,
               unprovenGraphInput: options.unprovenGraphInput === true,
@@ -3235,13 +3330,17 @@ function writeGoPlugin(root: string): void {
       // therefore never read, so no compiler proof exists for them. The host
       // enumerates them speculatively (driver/resolution_candidates.go), which
       // is why addGraphInputProof is deliberately not called here.
-      '    if probes := int(numberValue(cfg, "graphCandidates")); probes > 0 {',
+      '    outside := stringValue(cfg, "outOfProjectCandidate")',
+      '    if probes := int(numberValue(cfg, "graphCandidates")); probes > 0 || outside != "" {',
       "      result.Graph.Candidates = map[string][]string{}",
       "      for _, name := range names {",
-      "        spellings := make([]string, 0, probes)",
+      "        spellings := make([]string, 0, probes+1)",
       "        for j := 0; j < probes; j++ {",
       '          spellings = append(spellings, fmt.Sprintf("node_modules/dep%d/index.ts", j))',
       "        }",
+      // An absolute spelling outside the project root, which the adapter keeps
+      // probing because no watch of its chain can stay inside the bound.
+      '        if outside != "" { spellings = append(spellings, outside) }',
       '        result.Graph.Candidates["src/"+name] = spellings',
       "      }",
       "    }",
@@ -3322,6 +3421,7 @@ export {
   assertCacheHitsDespiteOutOfWalkOutputKey,
   assertAppearingCandidateInvalidatesGeneration,
   assertNotifiedAbsentCandidateIsNotReprobed,
+  assertOutOfProjectCandidateIsStillProbed,
   assertRecreatedCandidateDirectoryInvalidatesGeneration,
   assertRetargetedCandidateLinkInvalidatesGeneration,
   assertUnwatchedAbsentCandidateIsStillProbed,

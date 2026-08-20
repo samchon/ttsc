@@ -158,11 +158,17 @@ export interface TtscCachedProjectTransform {
    * and the directories that carry them.
    *
    * Separate from the universal-input tracker because it listens for a
-   * different thing. A candidate appears, or the link leading to it is
-   * retargeted, and both are renames; the entries it watches are directories
-   * whose attributes move whenever anything is written below them, which in a
-   * dev server is constantly. Listening for every event on those names would
-   * replace the generation each time a bundler wrote inside `node_modules`.
+   * different thing. Every event that can make an absent candidate present is a
+   * rename — the file appearing, a component of the path being created,
+   * replaced, or retargeted — so a change event on one of these names is never
+   * evidence this tracker exists to collect. What it is, on a backend that
+   * reports a write below a directory as a change to that directory's own entry
+   * (Windows does), is a dev server's steady traffic: listening for every event
+   * would replace the generation each time a bundler wrote inside
+   * `node_modules`. The filter therefore drops noise without dropping proof.
+   * The one appearance it cannot see is a Windows junction retargeted in place
+   * through `FSCTL_SET_REPARSE_POINT`, which no mainstream tool does; every
+   * package manager replaces the entry instead, which is a rename.
    */
   candidateMutationTracker?: TtscProjectMutationTracker;
   /**
@@ -3741,6 +3747,11 @@ function insideProject(directory: string, projectRoot: string): boolean {
  * Sized well below the inotify per-user default so a project's own walk keeps
  * its share, and far above the distinct `node_modules` package directories a
  * real dependency graph produces.
+ *
+ * Counted lexically, over the parents of every watched name. A missing subtree
+ * collapses onto the one watch its nearest existing ancestor carries, so the
+ * count is an upper bound on the watches actually opened rather than their
+ * number; the bound stays sound and is merely not tight.
  */
 const NOTIFIABLE_ABSENCE_DIRECTORY_LIMIT = 512;
 
@@ -4010,18 +4021,22 @@ async function transformProject(props: {
       result,
       temporaryTsconfig,
     });
-    // The tracker watches the universal inputs and the generation's absent
-    // resolution candidates together: both are exact names whose appearance
-    // must replace the generation, and watching a candidate is what lets a
-    // delivery stop probing it (samchon/ttsc#1261). The validation manifest
-    // below stays built from the universal inputs alone, so nothing else about
-    // a candidate changes.
-    const notifiableAbsence = selectNotifiableAbsentInputs({
-      filesystem: props.filesystem,
-      projectRoot,
-      result,
-      temporaryTsconfig,
-    });
+    // The generation's absent resolution candidates, which get a watcher of
+    // their own below; watching one is what lets a delivery stop probing it
+    // (samchon/ttsc#1261). The validation manifest stays built from the
+    // universal inputs alone, so nothing else about a candidate changes.
+    //
+    // Derived only where a tracker could carry it: a build-scoped adapter opens
+    // no watcher, so probing every candidate's existence here would be work
+    // whose answer nothing can read.
+    const notifiableAbsence = props.trackProjectMembership
+      ? selectNotifiableAbsentInputs({
+          filesystem: props.filesystem,
+          projectRoot,
+          result,
+          temporaryTsconfig,
+        })
+      : { candidates: [], watched: [] };
     hostInputTracker = props.trackProjectMembership
       ? await createHostInputMutationTracker(
           persistentHostInputs,
@@ -4033,13 +4048,14 @@ async function transformProject(props: {
         )
       : undefined;
     // The candidates and the directories carrying them get their own tracker,
-    // listening for renames alone. Those directory entries have their
-    // attributes moved by anything written below them — a bundler writing into
-    // `node_modules` during a dev session, above all — while every event that
-    // can change a candidate's answer is a rename: the file appearing, a
-    // component of the path being created, replaced, or retargeted.
+    // listening for renames alone. Every event that can make one of these
+    // paths appear is a rename — the file itself, or a component of the path
+    // being created, replaced, or retargeted — so nothing is given up, while a
+    // backend that reports a write below a directory as a change to that
+    // directory's entry (Windows does) would otherwise replace the generation
+    // every time a bundler wrote inside `node_modules`.
     candidateTracker =
-      props.trackProjectMembership && notifiableAbsence.watched.length !== 0
+      notifiableAbsence.watched.length !== 0
         ? await createHostInputMutationTracker(
             notifiableAbsence.watched,
             props.filesystem,

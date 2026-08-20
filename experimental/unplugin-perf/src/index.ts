@@ -237,6 +237,15 @@ function requireFromUnplugin(specifier: string): unknown {
 
 interface MeasureOptions {
   count: number;
+  /**
+   * Stamp `dependenciesComplete` for every file the sidecar reports, the shape
+   * a producer takes once it declares what it consulted (samchon/typia#2357,
+   * and what `@ttsc/banner` and `@ttsc/strip` already do). It narrows a
+   * delivery's derived set to the reported dependencies, the config chain, and
+   * the resolution candidates, which is how the closure term is removed soundly
+   * rather than by memoizing a proof.
+   */
+  declareComplete?: boolean;
   emitExternalKey: boolean;
   /**
    * Number of external `node_modules/dep{j}/index.d.ts` targets each module's
@@ -255,28 +264,6 @@ interface MeasureOptions {
    */
   graphGlobals?: number;
   /**
-   * Stamp `dependenciesComplete` for every file the sidecar reports, the shape
-   * a producer takes once it declares what it consulted (samchon/typia#2357,
-   * and what `@ttsc/banner` and `@ttsc/strip` already do). It narrows a
-   * delivery's derived set to the reported dependencies, the config chain, and
-   * the resolution candidates, which is how the closure term is removed soundly
-   * rather than by memoizing a proof.
-   */
-  declareComplete?: boolean;
-  /** Give each module one disjoint external edge instead of the whole union. */
-  partitionExternalInputs?: boolean;
-  /**
-   * Synchronous `stat` budget per delivered module, defaulting to
-   * {@link MEMBERSHIP_STAT_BUDGET}.
-   *
-   * A missing resolution candidate cannot be proven absent by metadata, so each
-   * one reachable from the delivered file costs one failed `stat` per delivery.
-   * That set is bounded by the file's reachable _source_ set, which a shared
-   * closure makes large by construction, so a scenario that stamps a shared
-   * closure states its own budget instead of hiding the cost under the
-   * membership one.
-   */
-  /**
    * Metadata calls one delivery may spend on the file's own derived inputs.
    *
    * The term the declaration path owns: it is the size of what the producer
@@ -284,7 +271,8 @@ interface MeasureOptions {
    * scenario states the number its own envelope justifies.
    */
   lstatBudget?: number;
-  statsBudget?: number;
+  /** Give each module one disjoint external edge instead of the whole union. */
+  partitionExternalInputs?: boolean;
   /** Unrelated nested project directories used to gate membership-stat cost. */
   unrelatedDirectoryCount?: number;
 }
@@ -579,9 +567,13 @@ async function measureServeValidation(
   if (readsPerFile > 16) {
     return `serve validation N=${options.count} K=${options.graphFanout} G=${options.graphGlobals ?? 0}: reads/file=${readsPerFile.toFixed(1)} exceeds the per-file validation budget of 16`;
   }
-  const statsBudget = options.statsBudget ?? MEMBERSHIP_STAT_BUDGET;
-  if (statsPerFile > statsBudget) {
-    return `serve validation N=${options.count} dirs=${options.unrelatedDirectoryCount}: stats/file=${statsPerFile.toFixed(1)} exceeds the budget of ${statsBudget}`;
+  // Every serve scenario now holds the membership budget itself. The one term
+  // that used to make a shared closure state a budget of its own — one failed
+  // stat per reachable missing candidate, per delivery — is what
+  // samchon/ttsc#1261 removed, so a scenario that needs more than membership
+  // costs is a regression rather than a shape.
+  if (statsPerFile > MEMBERSHIP_STAT_BUDGET) {
+    return `serve validation N=${options.count} dirs=${options.unrelatedDirectoryCount}: stats/file=${statsPerFile.toFixed(1)} exceeds the budget of ${MEMBERSHIP_STAT_BUDGET}`;
   }
   const lstatBudget = options.lstatBudget;
   return lstatBudget === undefined || lstatsPerFile <= lstatBudget
