@@ -655,6 +655,12 @@ registerHooks({
 // does, on the graph the hook cannot reach.
 const nextResolveFilename = nodeModule._resolveFilename;
 nodeModule._resolveFilename = function resolveFilename(request, parent, isMain, options) {
+  // _resolveFilename is an internal entry point anything may call, so a
+  // non-string request arrives here as readily as a specifier does. Reading it
+  // would replace Node's own argument error with a TypeError from this loader.
+  if (typeof request !== "string") {
+    return nextResolveFilename.call(this, request, parent, isMain, options);
+  }
   const parentFile = parent && typeof parent.filename === "string" ? parent.filename : undefined;
   const parentURL = parentFile === undefined ? undefined : pathToFileURL(parentFile).href;
   recordResolutionCandidates(request, parentURL, undefined);
@@ -1080,6 +1086,12 @@ moduleInternals._resolveFilename = function resolveFilename(
   isMain: boolean,
   options?: unknown,
 ): string {
+  // _resolveFilename is an internal entry point anything may call, so a
+  // non-string request arrives here as readily as a specifier does. Reading it
+  // would replace Node's own argument error with a TypeError from this loader.
+  if (typeof request !== "string") {
+    return nextResolveFilename.call(this, request, parent, isMain, options);
+  }
   const parentURL =
     typeof parent?.filename === "string"
       ? pathToFileURL(parent.filename).href

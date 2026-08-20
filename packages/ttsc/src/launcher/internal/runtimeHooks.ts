@@ -366,7 +366,8 @@ function installCommonJsHook(): void {
  * so a resolution that succeeds is never perturbed, and a request no candidate
  * satisfies rethrows Node's original error with its `MODULE_NOT_FOUND` code and
  * `requireStack` intact. `require.resolve` shares this entry point and is
- * rescued with it.
+ * rescued with it, except in its `{ paths }` form, which resolves against the
+ * caller's list rather than the parent this reads.
  */
 function installCommonJsResolveHook(): void {
   const internals = Module as unknown as {
@@ -388,7 +389,7 @@ function installCommonJsResolveHook(): void {
     try {
       return original.call(this, request, parent, isMain, options);
     } catch (error) {
-      const rescued = rescueCommonJsRequest(request, parent);
+      const rescued = rescueCommonJsRequest(request, parent, options);
       if (rescued === null) {
         throw error;
       }
@@ -403,11 +404,30 @@ function installCommonJsResolveHook(): void {
  * Only a relative or absolute request can be rescued: a bare specifier is a
  * package lookup, whose own resolver already probed every extension the
  * installed `_extensions` keys declare.
+ *
+ * Two shapes decline before that. `_resolveFilename` is an internal entry point
+ * anything may call, so a non-string request reaches here as readily as a
+ * specifier does, and reading it would replace Node's own argument error with a
+ * `TypeError` from this file. And `require.resolve(request, { paths })`
+ * resolves against the caller's list, which this rescue does not consult, so
+ * answering it from the parent's directory would be a different question's
+ * answer.
  */
 function rescueCommonJsRequest(
   request: string,
   parent: { filename?: string | null } | null | undefined,
+  options?: unknown,
 ): string | null {
+  if (typeof request !== "string") {
+    return null;
+  }
+  if (
+    typeof options === "object" &&
+    options !== null &&
+    Array.isArray((options as { paths?: unknown }).paths)
+  ) {
+    return null;
+  }
   let base: string;
   if (path.isAbsolute(request)) {
     base = request;

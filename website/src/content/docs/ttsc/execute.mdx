@@ -67,7 +67,7 @@ The type-check covers your whole program, but at runtime your dependencies are l
 
 Both reaches cover the CommonJS `require` graph as well as the ESM one, and that is not something the runtime can be left to do. Node routes a `require()` made from inside a CommonJS module the ESM loader evaluated — which is how a plugin loads a config file it discovered — around `module.registerHooks` on the oldest release `ttsx` supports, and through the hooks on the current one. `ttsx` therefore installs the same probes on the CommonJS resolver itself, so a graph behaves the same way on every supported Node.
 
-These hooks are runtime-only and never weaken the compile gate: the up-front tsgo build still deep-checks the whole program, imported workspace neighbours included, so a type error in a dependency's source fails the run before anything executes. A genuinely missing module still throws `ERR_MODULE_NOT_FOUND`. This makes `ttsx` strictly stronger than `tsx`: a full type-check plus the same runtime reach.
+These hooks are runtime-only and never weaken the compile gate: the up-front tsgo build still deep-checks the whole program, imported workspace neighbours included, so a type error in a dependency's source fails the run before anything executes. A genuinely missing module still throws `ERR_MODULE_NOT_FOUND`, or `MODULE_NOT_FOUND` with its require stack on the CommonJS graph. This makes `ttsx` strictly stronger than `tsx`: a full type-check plus the same runtime reach.
 
 On supported Node releases whose CommonJS resolver strips the `node:` scheme from prefix-only builtins such as `node:sqlite`, `ttsx` restores only that exact native result before loading it. Ordinary builtins, ESM imports, and custom module-hook remaps keep their original resolution.
 
