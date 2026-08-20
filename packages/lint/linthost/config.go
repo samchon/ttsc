@@ -226,6 +226,16 @@ func (r boundProjectRuleResolver) ConfigDirectories() []string {
   return resolver.ConfigDirectories()
 }
 
+func (r boundProjectRuleResolver) residentRuleConfigState() residentRuleConfigState {
+  resolver, ok := r.RuleResolver.(interface {
+    residentRuleConfigState() residentRuleConfigState
+  })
+  if !ok {
+    return residentRuleConfigState{}
+  }
+  return resolver.residentRuleConfigState()
+}
+
 // ResolveRules implements RuleResolver. A flat RuleConfig has no glob scoping,
 // so every file receives the full map unchanged.
 func (c RuleConfig) ResolveRules(string) ResolvedRuleConfig {
@@ -361,10 +371,12 @@ func (r InlineRuleResolver) ResolveProjectRules(names []string) (map[string]Proj
 // ConfigEntry per file, the extends-target entries declared before the
 // extending file's own entry so local rules win on collision.
 type ConfigStore struct {
-  directories    []string
-  entries        []ConfigEntry
-  paths          []string
-  resolutionRoot string
+  cacheDependencies []configDependencyFingerprint
+  cacheFiles        []string
+  directories       []string
+  entries           []ConfigEntry
+  paths             []string
+  resolutionRoot    string
 }
 
 // ConfigPaths returns the config and extends files that produced this store.
@@ -385,6 +397,26 @@ func (s *ConfigStore) ConfigDirectories() []string {
     return nil
   }
   return append([]string(nil), s.directories...)
+}
+
+// residentRuleConfigState returns the private cache proof for the configuration
+// that produced this store. Executable configs retain their complete dependency
+// fingerprints, including package implementation files that must invalidate a
+// resident answer without becoming public project-watch inputs. JSON configs
+// retain only their own files because they have no executable module graph.
+func (s *ConfigStore) residentRuleConfigState() residentRuleConfigState {
+  if s == nil {
+    return residentRuleConfigState{}
+  }
+  dependencies := make([]configDependencyFingerprint, len(s.cacheDependencies))
+  for index, dependency := range s.cacheDependencies {
+    dependencies[index] = dependency
+    dependencies[index].Realpath = cloneConfigDependencyRealpath(dependency.Realpath)
+  }
+  return residentRuleConfigState{
+    dependencies: dependencies,
+    files:        append([]string(nil), s.cacheFiles...),
+  }
 }
 
 // RuleOptions implements the file-agnostic RuleResolver compatibility method.
@@ -840,6 +872,7 @@ func collectConfigObject(store *ConfigStore, raw any, baseDir, path string, chai
     }
     appendConfigPaths(store, evaluated.dependencies)
     appendConfigDirectories(store, evaluated.dependencyDirectories)
+    appendResidentConfigEvaluation(store, location, evaluated)
     if err := collectConfigObject(store, evaluated.value, filepath.Dir(location), path+".extends", extendedChain); err != nil {
       return err
     }
@@ -1102,7 +1135,28 @@ func loadConfigResolver(
   }
   appendConfigPaths(store, evaluated.dependencies)
   appendConfigDirectories(store, evaluated.dependencyDirectories)
+  appendResidentConfigEvaluation(store, location, evaluated)
   return store, nil
+}
+
+func appendResidentConfigEvaluation(
+  store *ConfigStore,
+  location string,
+  evaluated evaluatedConfigFile,
+) {
+  if evaluated.dependenciesTracked {
+    for _, dependency := range evaluated.dependencyDigests {
+      cloned := dependency
+      cloned.Realpath = cloneConfigDependencyRealpath(dependency.Realpath)
+      store.cacheDependencies = append(store.cacheDependencies, cloned)
+    }
+    return
+  }
+  location = filepath.Clean(location)
+  if !containsPath(store.cacheFiles, location) {
+    store.cacheFiles = append(store.cacheFiles, location)
+    sort.Strings(store.cacheFiles)
+  }
 }
 
 func appendConfigPaths(store *ConfigStore, paths []string) {
@@ -1602,17 +1656,28 @@ func configDependencyDigest(
       if err != nil {
         return "", err
       }
-      switch {
-      case info.Mode()&os.ModeSymlink != 0:
-        kind = "symlink"
-      case info.IsDir():
-        kind = "directory"
-      case info.Mode().IsRegular():
-        kind = "file"
-      }
       target := ""
-      if kind == "symlink" {
-        target, err = os.Readlink(filepath.Join(dependency.Path, entry.Name()))
+      entryPath := filepath.Join(dependency.Path, entry.Name())
+      if linked, linkErr := os.Readlink(entryPath); linkErr == nil {
+        // Node reports Windows junctions as symbolic links even though Go's
+        // FileMode does not carry ModeSymlink for the same reparse point. The
+        // loader writes Node's classification, so validation must ask the link
+        // itself before falling back to FileMode or an unchanged junction will
+        // make every cache lookup miss.
+        kind = "symlink"
+        target = linked
+      } else {
+        switch {
+        case info.Mode()&os.ModeSymlink != 0:
+          kind = "symlink"
+        case info.IsDir():
+          kind = "directory"
+        case info.Mode().IsRegular():
+          kind = "file"
+        }
+      }
+      if kind == "symlink" && target == "" {
+        target, err = os.Readlink(entryPath)
         if err != nil {
           target = "<unreadable>"
         }
@@ -1633,6 +1698,14 @@ func configDependencyDigest(
   // script writes the fingerprint and this function is what later decides the
   // cached evaluation is still current.
   if dependency.Kind == configDependencyEntry {
+    if target, err := os.Readlink(dependency.Path); err == nil {
+      // Keep the entry form in the same Windows-junction vocabulary as the
+      // directory form above and the Node loader that produced the digest.
+      h := sha256.New()
+      h.Write([]byte("symlink\x00"))
+      h.Write([]byte(target))
+      return hex.EncodeToString(h.Sum(nil)), nil
+    }
     info, err := os.Lstat(dependency.Path)
     if err != nil {
       digest := sha256.Sum256([]byte("missing\x00"))

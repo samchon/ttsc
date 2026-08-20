@@ -404,8 +404,8 @@ type residentRuleCache struct {
   mu       sync.Mutex
   key      string
   resolver RuleResolver
-  configs  map[string][sha256.Size]byte
-  // loads counts the evaluations this memo did not avoid.
+  configs  *residentRuleConfigSnapshot
+  // loads counts the resolver loads this memo did not avoid.
   //
   // It exists because a reuse is otherwise unobservable: a RuleResolver holds
   // maps, so it is not a comparable type and two of them cannot be asked
@@ -414,14 +414,29 @@ type residentRuleCache struct {
   loads int
 }
 
+// residentRuleConfigState is the resolver-owned description of every input a
+// resident answer depends on. Files are native JSON configs; dependencies are
+// the executable loader's full fingerprints, including cache-only package
+// files that deliberately stay out of ConfigPaths and external watch lists.
+type residentRuleConfigState struct {
+  dependencies []configDependencyFingerprint
+  files        []string
+}
+
+type residentRuleConfigSnapshot struct {
+  dependencies []configDependencyFingerprint
+  files        map[string][sha256.Size]byte
+}
+
 // acquireRules returns the loaded rule configuration, reusing the daemon's memo
-// while the files it was loaded from are unchanged.
+// while the complete state it was loaded from is unchanged.
 //
-// Validated against those files rather than trusted for the daemon's life. The
-// configuration is a file on disk that an author edits, and a rule set the user
-// has just changed is exactly what a resident consumer must not keep answering
-// from. The set is small — the config and whatever it extends — so re-hashing
-// it costs nothing beside the evaluation it avoids.
+// Native JSON configs are validated against their files. Executable configs
+// retain the loader's complete dependency fingerprints, including missing
+// resolution candidates and cache-only package files. The latter must remain
+// outside public project watch lists without becoming invisible to the resident
+// memo: an imported package edit can change the resolved rules just as surely
+// as an edit to lint.config.ts itself.
 func acquireRules(pluginsJSON, cwd, tsconfigPath string) (RuleResolver, error) {
   cache := residentRules
   if cache == nil {
@@ -457,16 +472,20 @@ func acquireRules(pluginsJSON, cwd, tsconfigPath string) (RuleResolver, error) {
   return resolver, nil
 }
 
-// hashRuleConfigs records the content of every file the resolver was built
-// from. A resolver naming none records none, and a memo with no recorded file
-// is never reused — it could not prove anything.
+// hashRuleConfigs records the complete state the resolver was built from. JSON
+// configs contribute file digests. Executable configs contribute the loader's
+// full dependency fingerprints, including missing resolution candidates,
+// directories, and cache-only package files that are not public watch inputs.
+// A resolver naming no state records nothing, and a memo with no proof is never
+// reused.
 //
-// A file written after the load began is recorded as nothing at all. Which
-// bytes the resolver was built from is unknowable once an edit lands inside the
-// evaluation window, and recording the ones readable now is the one wrong
-// answer that never corrects itself: the memo would agree with a file the
+// A native JSON file written after the load began is recorded as nothing at
+// all. Which bytes the resolver was built from is unknowable once an edit lands
+// inside the evaluation window, and recording the ones readable now is the one
+// wrong answer that never corrects itself: the memo would agree with a file the
 // resolver does not match, and every later request would pass the reuse test
-// until some further edit happened to disagree. Declining costs one reload.
+// until some further edit happened to disagree. Executable configs carry the
+// loader's own pre/post dependency proof instead. Declining costs one reload.
 //
 // After, and not "not before". A filesystem timestamp and the instant the load
 // began are read from the same clock, whose tick is coarse on Windows, so the
@@ -480,13 +499,22 @@ func acquireRules(pluginsJSON, cwd, tsconfigPath string) (RuleResolver, error) {
 // Read first and stated second, in that order. A write landing between the two
 // moves the modification time forward and is caught; stating it first would
 // leave the window the check exists to close.
-func hashRuleConfigs(resolver RuleResolver, started time.Time) map[string][sha256.Size]byte {
-  source, ok := resolver.(interface{ ConfigPaths() []string })
+func hashRuleConfigs(resolver RuleResolver, started time.Time) *residentRuleConfigSnapshot {
+  source, ok := resolver.(interface {
+    residentRuleConfigState() residentRuleConfigState
+  })
   if !ok {
     return nil
   }
-  configs := map[string][sha256.Size]byte{}
-  for _, location := range source.ConfigPaths() {
+  state := source.residentRuleConfigState()
+  if len(state.files) == 0 && len(state.dependencies) == 0 {
+    return nil
+  }
+  if !configDependencyDigestsAreCurrent(state.dependencies) {
+    return nil
+  }
+  configs := make(map[string][sha256.Size]byte, len(state.files))
+  for _, location := range state.files {
     contents, err := os.ReadFile(location)
     if err != nil {
       return nil
@@ -497,17 +525,19 @@ func hashRuleConfigs(resolver RuleResolver, started time.Time) map[string][sha25
     }
     configs[location] = sha256.Sum256(contents)
   }
-  if len(configs) == 0 {
-    return nil
+  return &residentRuleConfigSnapshot{
+    dependencies: state.dependencies,
+    files:        configs,
   }
-  return configs
 }
 
-func ruleConfigsUnchanged(configs map[string][sha256.Size]byte) bool {
-  if len(configs) == 0 {
+func ruleConfigsUnchanged(configs *residentRuleConfigSnapshot) bool {
+  if configs == nil ||
+    (len(configs.files) == 0 && len(configs.dependencies) == 0) ||
+    !configDependencyDigestsAreCurrent(configs.dependencies) {
     return false
   }
-  for location, recorded := range configs {
+  for location, recorded := range configs.files {
     contents, err := os.ReadFile(location)
     if err != nil || sha256.Sum256(contents) != recorded {
       return false
