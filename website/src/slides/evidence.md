@@ -573,7 +573,7 @@ style: |
 - **Spec Driven Development**
   - Write and review only the requirements
   - AI builds everything with 100% coverage
-  - Not only programming, but also lectures
+  - Applies to programming, documents, and literature
 
 </div>
 <div class="benchmark-graphs">
@@ -1021,14 +1021,73 @@ Plain coverage falls with scope. **Evidence remains at 100%.**
 
 ---
 
+# Method D: Hand over principles only
+
+- The project already exists, so **a full document hierarchy is hard to introduce**
+- You want to **develop directly** instead of delegating requirements and specifications
+- You are not ready to design the whole graph yet
+
+> Start with one `docs/principles.md` and one claim.
+
+---
+
+# Every principle must be followed
+
+```md
+## Do not hardcode {#no-hardcoding}
+Derive behavior from inputs and models. Never special-case a fixture.
+
+## Do not monkey patch {#no-monkey-patching}
+Use public extension points. Never replace prototypes or module state.
+
+## Use the conventional solution {#conventional-solution}
+Avoid unmeasured optimization. Prefer standard structures and clear algorithms.
+
+## Fix the root cause {#fix-the-root-cause}
+Do not route around one visible failure. Trace the cause and solve the whole class.
+```
+
+---
+
+# Every function answers every rule
+
+- Each selected function checks **every H2 rule**
+- Every answer records **how and why** the rule was followed
+- "Not applicable" can be closed as an escape hatch
+- One missing answer becomes **a compile error**
+
+> Add one rule, and every function immediately gains one obligation.
+
+---
+
+# Every answer explains how
+
+```ts
+/**
+ * @evidence docs/principles.md#no-hardcoding
+ *   Builds the lookup from registered handlers, with no case-specific branch.
+ * @evidence docs/principles.md#no-monkey-patching
+ *   Uses the public adapter without replacing prototypes or module state.
+ * @evidence docs/principles.md#conventional-solution
+ *   Uses a standard Map and linear pass, with no speculative index or cache.
+ * @evidence docs/principles.md#fix-the-root-cause
+ *   Rejects invalid names at registration instead of retrying failed lookups.
+ */
+export function resolveHandler(name: string): Handler;
+```
+
+Both the target and a non-empty reason are required. Miss one and the build breaks.
+
+---
+
 <!-- _class: dark -->
 
 # Summary
 
 - Missing specification coverage becomes **a compile error**
-- Requirements are **the handoff**
+- Requirements are **the handoff**, and a principles list is enough to start
 - Coverage rises from **51.6–85.5% to 100%**
-- Human review checks **citation truth**
+- Review checks **the truth of the evidence**
 
 ---
 
