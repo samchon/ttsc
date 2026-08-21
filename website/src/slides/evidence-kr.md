@@ -144,8 +144,8 @@ style: |
   .narrative-node.scenarios,
   .narrative-node.storylines,
   .narrative-node.manuscripts { position: absolute; width: 25%; }
-  .narrative-node.scenarios { left: 41%; top: 25px; }
-  .narrative-node.storylines { left: 41%; top: 181px; }
+  .narrative-node.scenarios { left: 41%; top: 181px; }
+  .narrative-node.storylines { left: 41%; top: 25px; }
   .narrative-node.manuscripts { left: 72%; top: 316px; }
   .narrative-edge {
     position: absolute;
@@ -169,15 +169,14 @@ style: |
     border-right: 12px solid currentColor;
     border-bottom: 7px solid transparent;
   }
-  .narrative-edge.scenarios-foundations { top: 67px; }
-  .narrative-edge.storylines-foundations { top: 223px; }
+  .narrative-edge.scenarios-foundations { top: 223px; }
+  .narrative-edge.storylines-foundations { top: 67px; }
   .narrative-edge.storylines-scenarios {
     left: 53.5%;
     top: 109px;
     height: 72px;
     border-left: 3px solid currentColor;
   }
-  .narrative-edge.storylines-scenarios::after,
   .narrative-edge.manuscripts-foundations::after {
     content: "";
     position: absolute;
@@ -185,6 +184,15 @@ style: |
     left: -8px;
     border-right: 7px solid transparent;
     border-bottom: 12px solid currentColor;
+    border-left: 7px solid transparent;
+  }
+  .narrative-edge.storylines-scenarios::after {
+    content: "";
+    position: absolute;
+    bottom: -1px;
+    left: -8px;
+    border-top: 12px solid currentColor;
+    border-right: 7px solid transparent;
     border-left: 7px solid transparent;
   }
   .narrative-edge.settings-principles {
@@ -209,13 +217,13 @@ style: |
   }
   .narrative-edge.manuscripts-scenarios {
     left: 66%;
-    top: 67px;
+    top: 223px;
     width: 18.5%;
     border-top: 3px solid currentColor;
   }
   .narrative-edge.manuscripts-storylines {
     left: 66%;
-    top: 223px;
+    top: 67px;
     width: 18.5%;
     border-top: 3px solid currentColor;
   }
@@ -1160,8 +1168,8 @@ export function resolveHandler(name: string): Handler;
 <div class="narrative-edge settings-principles"></div>
 <div class="narrative-node settings">설정</div>
 </div>
-<div class="narrative-node scenarios">시나리오</div>
 <div class="narrative-node storylines">스토리라인</div>
+<div class="narrative-node scenarios">시나리오</div>
 <div class="narrative-node manuscripts">원고</div>
 <div class="narrative-edge to-foundations scenarios-foundations"></div>
 <div class="narrative-edge to-foundations storylines-foundations"></div>
