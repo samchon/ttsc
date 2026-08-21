@@ -625,23 +625,23 @@ style: |
 
 # Saying yes is not doing it
 
-- Six top models, given one simple rule: **none** kept it
-- Answered "understood" **10 of 10**, skipped it **10 of 10**
-- People reading the result spotted **0 of 15** honest runs
-- Made to **write down its reason**: **97%** kept it
+- Six frontier models: **0/60** actual process compliance under default framing
+- Verbal compliance in the same runs exceeded **90%**
+- At 8 constraints: about 41% passed individually, only **5.7% passed all eight**
+- The strongest model fell below **50%** whole-response success at 7 constraints
 
-<span class="note">Measured on tool logs, not on answers ([2605.01771](https://arxiv.org/abs/2605.01771))</span>
+<span class="note">Measured with tool logs and deterministic verifiers ([2605.01771](https://arxiv.org/abs/2605.01771)) ([2608.12426](https://arxiv.org/abs/2608.12426))</span>
 
 ---
 
 <!-- _class: stat-list -->
 
-# The longer it runs, the worse it gets
+# Split specs and long runs both degrade
 
-- Goal given in pieces, not at once: worse **16 of 20**
-- Long build: **14.8%** of steps done, **no project finished**
-- In **77%** of runs, code that was already right got worse
-- What is left is **2.3× longer** and **2× messier** than human work
+- Split across about 60 requests, single-shot was more faithful on **16/20** papers for Claude Code and **14/20** for Codex
+- Of 15 agents on 36 iterative problems, none finished one end-to-end; best strict rate: **14.8%**
+- Structural erosion rose in <strong>77%</strong> of trajectories; verbosity in **75.5%**
+- Versus 473 open-source Python repositories: **2.3× more verbose, 2× more eroded**
 
 <span class="note">Two 2026 coding-agent benchmarks ([2603.17104](https://arxiv.org/abs/2603.17104)) ([2603.24755](https://arxiv.org/abs/2603.24755))</span>
 
@@ -819,7 +819,7 @@ export function CouponStackingNotice(props: IProps): JSX.Element;
 | Loop      | Restart every round | Follow the tag list   |
 | Omissions | Search manually     | Compiler reports them |
 
-> **The compiler handles omissions. Humans handle falsehoods.**
+> **The compiler catches omissions. Review catches falsehoods.**
 
 ---
 
@@ -1168,8 +1168,8 @@ Both the target and a non-empty reason are required. Miss one and the build brea
 <div class="narrative-edge settings-principles"></div>
 <div class="narrative-node settings">Settings</div>
 </div>
-<div class="narrative-node scenarios">Scenarios</div>
 <div class="narrative-node storylines">Storylines</div>
+<div class="narrative-node scenarios">Scenarios</div>
 <div class="narrative-node manuscripts">Manuscripts</div>
 <div class="narrative-edge to-foundations scenarios-foundations"></div>
 <div class="narrative-edge to-foundations storylines-foundations"></div>
