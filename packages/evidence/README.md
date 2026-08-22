@@ -4,22 +4,24 @@
 
 [![GitHub license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/samchon/ttsc/blob/master/LICENSE) [![NPM Version](https://img.shields.io/npm/v/@ttsc/evidence.svg)](https://www.npmjs.com/package/@ttsc/evidence) [![NPM Downloads](https://img.shields.io/npm/dm/@ttsc/evidence.svg)](https://www.npmjs.com/package/@ttsc/evidence) [![Build Status](https://github.com/samchon/ttsc/actions/workflows/build.yml/badge.svg)](https://github.com/samchon/ttsc/actions/workflows/build.yml) [![Guide Documents](https://img.shields.io/badge/Guide-Documents-forestgreen)](https://ttsc.dev/docs/evidence) [![Discord Badge](https://img.shields.io/badge/discord-samchon-d91965?style=flat&labelColor=5866f2&logo=discord&logoColor=white&link=https://discord.gg/E94XhzrUCZ)](https://discord.gg/E94XhzrUCZ)
 
-Evidence Graph turns every specification your agent skips into a compile error.
+A coding agent can claim it followed every requirement while silently skipping some. Finding those omissions means rereading the specification, implementation, and tests until another review round finds nothing new.
+
+Evidence Graph replaces that loop with compile-time obligations. You declare which artifacts owe which specification units. The agent cites each unit from the code, test, schema, or document that satisfies it and states why. An unanswered unit is a compile error.
+
+Evidence Graph can also require the agent to state how each function follows project-wide principles. "No hard coding" and "Fix root causes" then become explicit obligations on every selected function.
 
 ```tsx
 /**
- * @evidence docs/discount.md#coupon-stacking
- *           States the per-issuer stacking limit
- *           this section defines, in the buyer's words.
- * @evidence POST:/orders/{orderId}/coupons
- *           Explains the rejection this endpoint returns
- *           for an over-stacked coupon set.
+ * @evidence docs/discount.md#coupon-stacking States the per-issuer stacking limit this section defines, in the buyer's words.
+ * @evidence POST:/orders/{orderId}/coupons Explains the rejection this endpoint returns for an over-stacked coupon set.
  * @evidence {@link hooks.useCouponStacking} Renders the limit this hook resolves.
+ * @evidence docs/principles.md#no-hard-coding Renders limits from props instead of branching on known issuer names.
+ * @evidenceExclude docs/principles.md#fix-root-causes-not-symptoms No failure to fix.
  */
 export function CouponStackingNotice(props: IProps): JSX.Element;
 ```
 
-`@evidence <target> <reason>`: what this code implements, and why.
+`@evidence <target> <reason>` is the agent's explicit claim about what this code implements and why. `@evidenceExclude` records why an obligation does not apply.
 
 A target is one of four kinds:
 
@@ -28,7 +30,7 @@ A target is one of four kinds:
 - **Swagger**: an operation, method and path together.
 - **TypeScript**: a type, a function, or a property, written as an inline link.
 
-Leave one uncited and the build stops.
+Leave one obligation unanswered and the build stops.
 
 ```bash
 $ npx ttsc
@@ -41,7 +43,7 @@ error TS16411: [evidence/graph] Missing acknowledgement for 'docs/discount.md#co
 Found 3 errors.
 ```
 
-One error per specification, in the same build as the type errors. The error list is the task list.
+Missing obligations appear in the same build as type errors. The error list is the agent's task list.
 
 ## Benchmark
 
@@ -106,16 +108,6 @@ One claim: the components under `src` implement the docs, so every H2 and H3 und
 
 [The rule reference](https://ttsc.dev/docs/evidence/rules) has four more rules beside `evidence/graph`, and [the claim reference](https://ttsc.dev/docs/evidence/claims) has every claim option.
 
-### Checklists
-
-Coverage asks its question once per unit: has anyone cited this. Where a document is read down a column, such as development rules or a release gate, the question is whether each file answered each item.
-
-```ts
-{ type: "markdown", files: ["docs/rules.md"], symbol: "h2", checklist: true }
-```
-
-Every selected host then owes every item, and a file carrying no tag owes the whole list.
-
 ### Tags
 
 The configuration is written once. The tags are written forever: `@evidence` cites, `@evidenceReview` verifies, and `@evidenceExclude` declines. [The tag reference](https://ttsc.dev/docs/evidence/tags) has the full grammar.
@@ -151,6 +143,39 @@ The compiler checks everything below: a dropped idea or a skipped requirement is
 Even requirements cite their evidence, in comments, so the rendered document stays clean.
 
 Backend, frontend, and even novels below are this same shape, drawn in detail.
+
+### Start with principles
+
+Spec-Driven Development does not require a complete document hierarchy. `docs/principles.md` can be only headings:
+
+```md
+## No hard coding
+## No monkey patching
+## Use the conventional solution
+## Fix root causes, not symptoms
+```
+
+Make them a checklist:
+
+```ts
+{
+  name: "every function answers every engineering principle",
+  type: "typescript",
+  files: ["src/**/*.ts"],
+  symbol: "function",
+  reference: {
+    type: "markdown",
+    files: ["docs/principles.md"],
+    symbol: "h2",
+    checklist: true,
+    requireReview: true,
+  },
+}
+```
+
+`checklist` changes the denominator from principles to functions times principles. Every selected function must answer every principle, as `CouponStackingNotice` does above.
+
+One missing answer fails the build. Adding a principle creates a new obligation on every selected function, and `requireReview` expires every affected review when that principle changes.
 
 ### Backend
 
