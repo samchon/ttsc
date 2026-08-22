@@ -5,70 +5,174 @@
   "main": "lib/index.js",
   "module": "lib/index.mjs",
   "types": "lib/index.d.ts",
+  "typesVersions": {
+    "*": {
+      "lib/*": [
+        "lib/*"
+      ],
+      "package.json": [
+        "package.json"
+      ],
+      "*": [
+        "lib/*"
+      ]
+    }
+  },
   "exports": {
     ".": {
+      "import": {
+        "types": "./lib/index.d.mts",
+        "default": "./lib/index.mjs"
+      },
+      "require": {
+        "types": "./lib/index.d.cts",
+        "default": "./lib/index.js"
+      },
       "types": "./lib/index.d.ts",
-      "import": "./lib/index.mjs",
       "default": "./lib/index.js"
     },
     "./api": {
+      "import": {
+        "types": "./lib/api.d.mts",
+        "default": "./lib/api.mjs"
+      },
+      "require": {
+        "types": "./lib/api.d.cts",
+        "default": "./lib/api.js"
+      },
       "types": "./lib/api.d.ts",
-      "import": "./lib/api.mjs",
       "default": "./lib/api.js"
     },
     "./bun": {
+      "import": {
+        "types": "./lib/bun.d.mts",
+        "default": "./lib/bun.mjs"
+      },
+      "require": {
+        "types": "./lib/bun.d.cts",
+        "default": "./lib/bun.js"
+      },
       "types": "./lib/bun.d.ts",
-      "import": "./lib/bun.mjs",
       "default": "./lib/bun.js"
     },
     "./bun-register": {
+      "import": {
+        "types": "./lib/bun-register.d.mts",
+        "default": "./lib/bun-register.mjs"
+      },
+      "require": {
+        "types": "./lib/bun-register.d.cts",
+        "default": "./lib/bun-register.js"
+      },
       "types": "./lib/bun-register.d.ts",
-      "import": "./lib/bun-register.mjs",
       "default": "./lib/bun-register.js"
     },
     "./esbuild": {
+      "import": {
+        "types": "./lib/esbuild.d.mts",
+        "default": "./lib/esbuild.mjs"
+      },
+      "require": {
+        "types": "./lib/esbuild.d.cts",
+        "default": "./lib/esbuild.js"
+      },
       "types": "./lib/esbuild.d.ts",
-      "import": "./lib/esbuild.mjs",
       "default": "./lib/esbuild.js"
     },
     "./farm": {
+      "import": {
+        "types": "./lib/farm.d.mts",
+        "default": "./lib/farm.mjs"
+      },
+      "require": {
+        "types": "./lib/farm.d.cts",
+        "default": "./lib/farm.js"
+      },
       "types": "./lib/farm.d.ts",
-      "import": "./lib/farm.mjs",
       "default": "./lib/farm.js"
     },
     "./next": {
+      "import": {
+        "types": "./lib/next.d.mts",
+        "default": "./lib/next.mjs"
+      },
+      "require": {
+        "types": "./lib/next.d.cts",
+        "default": "./lib/next.js"
+      },
       "types": "./lib/next.d.ts",
-      "import": "./lib/next.mjs",
       "default": "./lib/next.js"
     },
     "./rolldown": {
+      "import": {
+        "types": "./lib/rolldown.d.mts",
+        "default": "./lib/rolldown.mjs"
+      },
+      "require": {
+        "types": "./lib/rolldown.d.cts",
+        "default": "./lib/rolldown.js"
+      },
       "types": "./lib/rolldown.d.ts",
-      "import": "./lib/rolldown.mjs",
       "default": "./lib/rolldown.js"
     },
     "./rollup": {
+      "import": {
+        "types": "./lib/rollup.d.mts",
+        "default": "./lib/rollup.mjs"
+      },
+      "require": {
+        "types": "./lib/rollup.d.cts",
+        "default": "./lib/rollup.js"
+      },
       "types": "./lib/rollup.d.ts",
-      "import": "./lib/rollup.mjs",
       "default": "./lib/rollup.js"
     },
     "./rspack": {
+      "import": {
+        "types": "./lib/rspack.d.mts",
+        "default": "./lib/rspack.mjs"
+      },
+      "require": {
+        "types": "./lib/rspack.d.cts",
+        "default": "./lib/rspack.js"
+      },
       "types": "./lib/rspack.d.ts",
-      "import": "./lib/rspack.mjs",
       "default": "./lib/rspack.js"
     },
     "./turbopack": {
+      "import": {
+        "types": "./lib/turbopack.d.mts",
+        "default": "./lib/turbopack.mjs"
+      },
+      "require": {
+        "types": "./lib/turbopack.d.cts",
+        "default": "./lib/turbopack.js"
+      },
       "types": "./lib/turbopack.d.ts",
-      "import": "./lib/turbopack.mjs",
       "default": "./lib/turbopack.js"
     },
     "./vite": {
+      "import": {
+        "types": "./lib/vite.d.mts",
+        "default": "./lib/vite.mjs"
+      },
+      "require": {
+        "types": "./lib/vite.d.cts",
+        "default": "./lib/vite.js"
+      },
       "types": "./lib/vite.d.ts",
-      "import": "./lib/vite.mjs",
       "default": "./lib/vite.js"
     },
     "./webpack": {
+      "import": {
+        "types": "./lib/webpack.d.mts",
+        "default": "./lib/webpack.mjs"
+      },
+      "require": {
+        "types": "./lib/webpack.d.cts",
+        "default": "./lib/webpack.js"
+      },
       "types": "./lib/webpack.d.ts",
-      "import": "./lib/webpack.mjs",
       "default": "./lib/webpack.js"
     },
     "./package.json": "./package.json"
@@ -77,7 +181,7 @@
     "access": "public"
   },
   "scripts": {
-    "build": "rimraf lib && tsc --emitDeclarationOnly && rollup -c"
+    "build": "rimraf lib && tsc --emitDeclarationOnly && node scripts/emit-dual-declarations.mjs && rollup -c"
   },
   "keywords": [
     "ttsc",
@@ -108,6 +212,7 @@
     "rimraf": "catalog:utils",
     "rollup": "^4.60.3",
     "tinyglobby": "^0.2.16",
+    "ts-legacy": "catalog:typescript",
     "tslib": "^2.8.1",
     "ttsc": "workspace:*",
     "typescript": "catalog:typescript",
