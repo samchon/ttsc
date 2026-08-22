@@ -33,6 +33,8 @@ Adapters ship for Vite, Rollup, Rolldown, esbuild, webpack, Rspack, Next.js, Tur
 
 Then register the adapter that matches your bundler.
 
+The package publishes matching ESM and CommonJS runtime and type branches. The default imports below type-check under both `moduleResolution: "nodenext"` and `moduleResolution: "bundler"`; CommonJS `require()` continues to expose each adapter as `.default`.
+
 ## Keep the two versions together
 
 `@ttsc/unplugin` declares `ttsc` as a peer dependency pinned to the minor it was published with. Both packages are released from one repository at one version, and the adapter compiles against `ttsc`'s exported compiler surface, so a `0.x` minor is allowed to change what it imports. The pin is what turns that into an install error instead of a runtime failure in your bundler.

@@ -411,6 +411,9 @@ importers:
       tinyglobby:
         specifier: ^0.2.16
         version: 0.2.16
+      ts-legacy:
+        specifier: catalog:typescript
+        version: typescript@6.0.3
       tslib:
         specifier: ^2.8.1
         version: 2.8.1
