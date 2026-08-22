@@ -200,16 +200,19 @@ void options;
       `${config} failed against the packed declarations:\n${result.stdout}${result.stderr}`,
     );
   }
-  const node10 = TestProject.spawn(
-    process.execPath,
-    [resolveLegacyTypeScriptCompiler(), "--project", "tsconfig.node10.json"],
-    { cwd: consumer },
-  );
-  assert.equal(
-    node10.status,
-    0,
-    `tsconfig.node10.json failed against the packed declarations:\n${node10.stdout}${node10.stderr}`,
-  );
+  const legacyCompiler = resolveLegacyTypeScriptCompiler();
+  for (const config of ["tsconfig.nodenext.json", "tsconfig.node10.json"]) {
+    const result = TestProject.spawn(
+      process.execPath,
+      [legacyCompiler, "--project", config, "--pretty", "false"],
+      { cwd: consumer },
+    );
+    assert.equal(
+      result.status,
+      0,
+      `ts-legacy ${config} failed against the packed declarations:\n${result.stdout}${result.stderr}`,
+    );
+  }
 }
 
 function assertModuleFaithfulExportMap({
