@@ -1,0 +1,530 @@
+---
+title: "I Made Evidence Graph: 100% Spec Coverage for Coding Agents"
+description: "@ttsc/evidence turns missing specification obligations into compiler errors, replacing review-until-dry with a graph that reached 100% coverage on 4.8–13.3x fewer tokens."
+date: "2026-08-25"
+author: "Jeongho Nam"
+ogImage: "/og-evidence.png"
+tags:
+  - typescript
+  - ai
+  - coding-agents
+  - spec-driven-development
+  - opensource
+---
+
+> ## TL;DR
+>
+> A coding agent can say it followed every requirement while silently skipping some of them. A type checker cannot see that omission, and a test suite only covers what somebody remembered to test.
+>
+> I built [`@ttsc/evidence`](https://github.com/samchon/ttsc/tree/master/packages/evidence) to give omissions a denominator. You declare which artifacts owe which specification units. The code, test, schema, or document that satisfies a unit cites it with `@evidence <target> <reason>`. `@evidenceExclude` records why a unit does not apply. An unanswered unit is a compiler error.
+>
+> The graph changes review too. The compiler finds missing citations. Review checks whether the written reasons are true, and required review fingerprints expire when the cited content changes.
+>
+> In four frozen application builds, Plain runs finished at **51.6–85.5% coverage**. Evidence runs finished at **100%**, using **4.8–13.3x fewer tokens**. On the largest ERP subject, the result moved from **5,449M tokens, $68.72 in API-equivalent cost, and 102 hours** to **411M tokens, $4.96, and 14 hours**.
+>
+> [Repository](https://github.com/samchon/ttsc/tree/master/packages/evidence) · [Guide](https://ttsc.dev/docs/evidence) · [Benchmark](https://ttsc.dev/docs/benchmark/evidence) · [Slides](https://ttsc.dev/slides/evidence)
+
+---
+
+## 1. The Failure a Type Checker Cannot See
+
+Suppose the requirements contain this section:
+
+```md
+## Coupon Stacking {#coupon-stacking}
+
+At most one seller coupon and one platform coupon may combine on one order.
+```
+
+The code compiles. The tests pass. The agent says the feature is complete.
+
+But no screen explains the limit, no endpoint rejects an invalid combination, and no test proves either behavior. Nothing is technically malformed. The work is simply absent.
+
+That is the uncomfortable gap in agentic coding. Type checking detects contradictions inside the program. Tests detect behavior somebody chose to exercise. Neither system knows the complete set of obligations that should exist.
+
+I kept meeting this exact failure in agent-built applications. Review could find it, but the build had no name for it.
+
+## 2. Why Better Prompting Does Not Close the Gap
+
+The problem is not that agents cannot repeat a rule. It is that saying “understood” and preserving the rule through a long execution are different capabilities.
+
+### 2.1. Agreement is not execution
+
+[The Compliance Gap](https://arxiv.org/abs/2605.01771) measured process fidelity from tool logs rather than from the assistant's final prose. Under the study's default framing, six frontier models had 0% actual process compliance. Verbal agreement remained high. In one reported condition, the model agreed ten times and bypassed the instruction ten times.
+
+The same study found a useful asymmetry: compliance reached 97% where the system rewarded an explicit rationale. Requiring a reason does not make a model honest, but it turns silent behavior into a claim another system can inspect.
+
+The problem compounds when instructions accumulate. [Constraint Saturation Evaluation](https://arxiv.org/abs/2608.12426) found that at eight simultaneous constraints, models passed an individual constraint about 41% of the time but passed all eight in only 5.7% of responses. The strongest tested model fell below 50% whole-response success at seven constraints.
+
+A checklist in a prompt is still a checklist the model must remember to execute.
+
+### 2.2. Long sessions erode earlier commitments
+
+Real projects rarely arrive in one perfect prompt. The specification emerges across meetings, corrections, issue comments, and implementation discoveries.
+
+[SLUMP](https://arxiv.org/abs/2603.17104) split a target specification across roughly 60 coding requests. A single-shot specification produced the more faithful implementation on 16 of 20 papers with Claude Code and 14 of 20 with Codex. The study's external project-state layer recovered much of that loss, which points to the important part: durable state beats conversational memory.
+
+[SlopCodeBench](https://arxiv.org/abs/2603.24755) measured another long-horizon effect. Across iterative extensions, no evaluated agent completed a full problem end to end. Structural erosion increased in 77% of trajectories and verbosity in 75.5%. Compared with 473 human-written open-source Python repositories, the agent code was 2.3 times more verbose and twice as eroded by the study's measures.
+
+## 3. Loop Until Dry Is the Rational Fallback
+
+The usual response is more review. Read everything, repair every finding, restart, and keep going until a fresh round is empty. I used the same fallback.
+
+Humans reread the requirements, design, implementation, tests, and then the fixes. When one fix changes the consequence surface, the review restarts. The stopping condition is a complete round that finds nothing new.
+
+That process works. I call it Loop Engineering, or loop until dry. It also means the only reliable answer to “did the agent implement everything?” is “read everything again.”
+
+![Asked whether every requirement was met, a human explains while the compiler stops the build](/evidence/meme-coverage.svg)
+
+The Plain ERP benchmark shows where that fallback ends at scale. After **102.2 hours**, **5,449M tokens**, and **$68.72 in API-equivalent cost**, the application still covered only **51.6%** of the measured provenance graph. Review loops consumed 90% of its tokens.
+
+Loop Engineering is the best available response when missing work has no identity. The cost explodes because every review must rediscover the denominator.
+
+## 4. Replace the Loop with a Graph
+
+`@ttsc/evidence` gives missing work a compiler-visible identity. An Evidence Graph starts by dividing the artifacts into two populations:
+
+- **Claim hosts** are the artifacts that owe answers: Markdown sections, Prisma models, TypeScript declarations, or tests.
+- **Reference units** are the questions they owe: Markdown sections, Prisma models and fields, Swagger operations, or TypeScript symbols.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcSet="/evidence/documents-dark.svg" />
+  <img alt="Idea notes grounding requirements and specifications, which ground implementation and tests" src="/evidence/documents-light.svg" width="100%" />
+</picture>
+
+The arrow points from a downstream artifact back to its evidence. One claim in `lint.config.ts` declares an edge:
+
+```ts
+{
+  type: "typescript",
+  files: ["src/components/**/*.tsx"],
+  symbol: "function",
+  reference: {
+    type: "markdown",
+    files: ["docs/requirements/**/*.md"],
+    symbol: ["h2", "h3"],
+  },
+}
+```
+
+Read it as a sentence:
+
+> The component functions under `src` claim to implement the H2 and H3 requirements under `docs`, so every selected requirement must be cited by a selected component.
+
+The graph does not infer architecture from directory names. You declare each edge, and each claim-reference pair is an independent 100% obligation. A requirement cited by the database does not become covered by the API, test, screen, or user journey. Each layer answers for itself.
+
+### 4.1. One grammar across four artifact kinds
+
+The target token says exactly what the declaration answers for:
+
+| Target                              | Unit                             |
+| ----------------------------------- | -------------------------------- |
+| `docs/sales.md#sale-price`          | one Markdown section             |
+| `prisma:Sale.price`                 | one Prisma column or relation    |
+| `POST:/members`                     | one Swagger or OpenAPI operation |
+| `{@link sales.IShoppingSale.price}` | one exported TypeScript symbol   |
+
+### 4.2. Code cites the specification
+
+The code cites the specification unit it answers:
+
+```tsx
+/**
+ * @evidence docs/requirements/discount.md#coupon-stacking
+ *           Renders the combination limit defined by this requirement.
+ */
+export function CouponStackingNotice(): JSX.Element;
+```
+
+Remove that citation and the normal build stops:
+
+```text
+$ npx ttsc --noEmit
+error TS16411: [evidence/graph]
+  Missing acknowledgement for
+  'docs/requirements/discount.md#coupon-stacking'
+  (Markdown H2 'Coupon Stacking' at docs/requirements/discount.md:3)
+```
+
+One missing unit produces one diagnostic. The error list is the task list.
+
+The reason says what the relationship means:
+
+```tsx
+/**
+ * @evidence docs/requirements/discount.md#coupon-stacking
+ *           Shows the combination limit in the buyer's words.
+ * @evidence POST:/orders/{orderId}/coupons
+ *           Explains the rejection returned for an invalid coupon set.
+ * @evidence {@link hooks.useCouponStacking}
+ *           Renders the limit resolved by this hook.
+ */
+export function CouponStackingNotice(props: IProps): JSX.Element;
+```
+
+The configuration is written once. Citations are written beside the artifact at the moment the author knows why they are true.
+
+## 5. Coverage Is Not Truth
+
+A graph can prove that every selected unit received an answer. It cannot prove that the answer is true.
+
+An agent can write this against the coupon requirement above:
+
+```ts
+/**
+ * @evidence docs/requirements/discount.md#coupon-stacking
+ *           Implements the documented five-coupon limit.
+ */
+export function CouponStackingNotice(): JSX.Element;
+```
+
+The target exists and the reason is non-empty, so coverage is complete. The statement is still false.
+
+This is where citations earn their keep. [A controlled study of citation discipline in Spec-Driven Development](https://arxiv.org/abs/2606.30689) found that only its cited condition enabled automated hallucination detection: 86.4% for Claude and 88.0% for GLM, with 0% false positives in both studies. The citation did not remove the hallucination. It made the hallucination inspectable.
+
+`@evidenceReview` records that inspection:
+
+```ts
+/**
+ * @evidence docs/requirements/discount.md#coupon-stacking
+ *           Implements one seller coupon plus one platform coupon.
+ * @evidenceReview docs/requirements/discount.md#coupon-stacking
+ *                 #a1b2c3d4e5f6 Verified both issuer classes and the refusal path.
+ */
+export function CouponStackingNotice(): JSX.Element;
+```
+
+A review matches the same declaration, acknowledgement kind, and target. Set `requireReview: true` on the reference and the fingerprint becomes mandatory. When the cited section changes, the fingerprint no longer matches and the build reports the new value it expects.
+
+The tag list becomes the review checklist. That division of labor is the product:
+
+| Review question | Plain workflow | Evidence workflow |
+| --- | --- | --- |
+| What is missing? | Reread the whole surface | Compiler diagnostics list it |
+| Is the mapping true? | Reconstruct it from the diff | Read the target and adjacent reason |
+| What changed since review? | Restart the review | Changed fingerprints expire |
+| When is it done? | A fresh full round finds nothing | The graph is green and reviews are current |
+
+The compiler handles omissions. Review handles falsehoods.
+
+## 6. What the Benchmark Measured
+
+I wanted to know whether the graph merely moved review work around. The benchmark therefore built the same application twice:
+
+- same frozen requirements and shared base template;
+- same base sequence of eight objectives in the same order;
+- same coding engine, model, and reasoning effort;
+- arm-owned instructions, with only Evidence receiving the package, its claims and tags, and Evidence-specific guidance.
+
+The four subjects grow from a todo application to an ERP with more than 100 tables and more than 150,000 generated and authored lines.
+
+![Coverage and token spend across the four Evidence Graph benchmark subjects](/benchmark/evidence/summary.svg)
+
+| Subject | Plain coverage | Evidence coverage | Plain tokens | Evidence tokens |
+| --- | --: | --: | --: | --: |
+| todo | 85.5% | 100% | 866M | 92M |
+| reddit | 80.3% | 100% | 1,179M | 245M |
+| shopping | 63.1% | 100% | 1,516M | 271M |
+| erp | 51.6% | 100% | 5,449M | 411M |
+
+Plain coverage fell as the application grew. Evidence stayed at 100% because an open obligation prevents completion.
+
+The token difference was **4.8–13.3x**. Review consumed **90–95%** of Plain tokens and **15–41%** of Evidence tokens. The ERP result was the clearest:
+
+| ERP                 |       Plain |   Evidence |         Change |
+| ------------------- | ----------: | ---------: | -------------: |
+| Coverage            |       51.6% |       100% | complete graph |
+| Tokens              |      5,449M |       411M |    13.3x lower |
+| API-equivalent cost |      $68.72 |      $4.96 |    13.9x lower |
+| Work time           | 102.2 hours | 13.6 hours |     7.5x lower |
+
+There are important limits to the claim. This is one engine, one model, and four applications. The savings are measurements on this cohort, not a universal multiplier. The USD values are reconstructed API-equivalent costs from retained token categories and a published OpenRouter price snapshot, not invoices.
+
+Plain coverage is a post-run human judgment over thirteen graph edges. The ERP workspace was counted three times at 50.0%, 49.1%, and 51.6%; the last two counts disagreed while reading byte-identical evidence. The current aggregate publishes 51.6%. The other three subjects were counted once, so their judgment risk remains unquantified. Evidence coverage is complete by construction and was never manually counted because the configured build cannot finish with an open edge.
+
+The complete applications, raw sessions, aggregation, coverage judgments, and per-phase counters are public in [`samchon/evidence-benchmark-results`](https://github.com/samchon/evidence-benchmark-results) and the [benchmark guide](https://ttsc.dev/docs/benchmark/evidence).
+
+The result I care about most is not the cost ratio. It is where the work moved. The agent spent less time rereading a world whose missing pieces had no names.
+
+## 7. Requirements Become the Handoff
+
+[Spec-Driven Development](https://arxiv.org/abs/2602.00180) treats the specification as the primary artifact and durable source of truth. That is a useful handoff, but a specification alone does not count whether downstream work honored it.
+
+The graph closes that gap.
+
+### 7.1. Hand over reviewed requirements
+
+The simplest operating model is:
+
+1. A human writes or reviews `docs/requirements`.
+2. The agent writes the design specifications, schema, implementation, and tests.
+3. Every downstream layer cites the reviewed requirements.
+4. The build refuses to finish until every configured edge is complete.
+
+The person owns the source layer. The agent owns everything below it under compiler-checked coverage.
+
+All four benchmark subjects above used this handoff.
+
+### 7.2. Hand over raw idea notes
+
+Requirements can cite their own evidence too:
+
+```md
+## Coupon Stacking Limit {#coupon-stacking}
+
+<!-- @evidence docs/ideas/discount.md#discount-policy
+     Carries forward the per-issuer limit recorded in the idea notes. -->
+```
+
+That lets the handoff move one layer earlier. A meeting decision, interview note, support ticket, or raw product idea becomes an upstream unit. The agent may write the requirements, but a dropped idea breaks the requirements build before it can vanish from implementation.
+
+Markdown citations live in HTML comments, so the rendered document remains clean.
+
+The reverse edge matters too. Delete an upstream clause and its citations stop resolving. Rewrite it and every fingerprinted review grounded in that scope expires.
+
+## 8. The Same Graph Across a Full Application
+
+The graph becomes more useful when each boundary states what it owes.
+
+### 8.1. Backend
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcSet="/evidence/backend-dark.svg" />
+  <img alt="Requirements and specifications grounding database schema, API operations, API schema, and tests" src="/evidence/backend-light.svg" width="100%" />
+</picture>
+
+In the benchmark backend:
+
+- Prisma models cite the requirements that need persisted state.
+- API operations cite requirements and models.
+- DTO types cite requirements and models, while DTO properties cite schema columns.
+- Tests cite requirements and generated SDK operations.
+
+A requirement implemented in the database but missing from the wire remains red. A published operation with no test remains red. A column omitted from every response remains red even when the TypeScript types are internally consistent.
+
+### 8.2. Frontend
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcSet="/evidence/frontend-dark.svg" />
+  <img alt="Requirements and specifications grounding backend operations, hooks, screens, and user journeys" src="/evidence/frontend-light.svg" width="100%" />
+</picture>
+
+The frontend starts from the backend's generated SDK:
+
+- hooks cite the operations they call;
+- screens cite the hooks they render and the requirements they deliver;
+- end-to-end journeys cite the screens they walk and the requirements they prove.
+
+“The API is wired but there is no UI yet” is no longer a green build. The hook satisfies the operation edge and fails the screen edge.
+
+The [complete examples](https://ttsc.dev/docs/evidence/examples) show all thirteen backend and frontend claim-reference pairs and the real benchmark configuration behind them.
+
+## 9. Start with Principles, Not a Perfect Document Hierarchy
+
+Most existing projects do not have clean requirement and design layers. That should not block adoption.
+
+![Asked whether every function follows every rule, a human rereads the file while the compiler asks each function directly](/evidence/meme-checklist.svg)
+
+Start with one file:
+
+```md filename="docs/principles.md"
+## Do Not Hardcode {#no-hardcoding}
+Derive behavior from inputs and models. Never special-case a fixture.
+
+## Do Not Monkey Patch {#no-monkey-patching}
+Use public extension points. Never replace prototypes or module state.
+
+## Use the Conventional Solution {#conventional-solution}
+Prefer standard structures and clear algorithms over speculative machinery.
+
+## Fix the Root Cause {#fix-the-root-cause}
+Trace the cause and solve the whole class instead of routing around one failure.
+```
+
+Then make the document a checklist for every selected function:
+
+```ts
+{
+  name: "every function answers every engineering principle",
+  type: "typescript",
+  files: ["src/**/*.ts"],
+  symbol: "function",
+  reference: {
+    type: "markdown",
+    files: ["docs/principles.md"],
+    symbol: "h2",
+    checklist: true,
+    noEvidenceExclude: true,
+  },
+}
+```
+
+Ordinary coverage asks whether somebody cited each principle. `checklist: true` changes the denominator to functions times principles. Every selected function must answer every H2:
+
+```ts
+/**
+ * @evidence docs/principles.md#no-hardcoding
+ *   Builds the lookup from registered handlers, with no case-specific branch.
+ * @evidence docs/principles.md#no-monkey-patching
+ *   Uses the public adapter without replacing prototypes or module state.
+ * @evidence docs/principles.md#conventional-solution
+ *   Uses a standard Map and one linear pass, with no speculative cache.
+ * @evidence docs/principles.md#fix-the-root-cause
+ *   Rejects invalid names at registration instead of retrying failed lookups.
+ */
+export function resolveHandler(name: string): Handler;
+```
+
+Add one principle and every selected function immediately gains one obligation. Add `requireReview: true` when each answer must also be approved; changing one principle then expires every fingerprinted review of that principle.
+
+This is the smallest useful Evidence Graph: one document, one claim, and a compiler-enforced answer at every function.
+
+## 10. What a Green Build Means
+
+A green Evidence Graph means exactly this:
+
+> Every obligation cell created by the configured claim and reference populations received an allowed acknowledgement under the policies declared for that edge.
+
+An allowed acknowledgement is usually positive `@evidence`. Where non-applicability is legitimate, `@evidenceExclude` records the decision and its boundary:
+
+```tsx
+/**
+ * @evidenceExclude docs/requirements/discount.md#coupon-stacking
+ *   This receipt only displays accepted coupons. Reject this exclusion if it
+ *   begins accepting or validating coupon combinations.
+ */
+export function OrderReceipt(): JSX.Element;
+```
+
+An exclusion is more dangerous than a citation because it discharges an obligation with nothing built. The graph can confine exclusions to named ledger files, and `noEvidenceExclude: true` refuses them where “not applicable” is not an acceptable answer. The compiler does not decide whether an exclusion is wise. It prevents the decision from disappearing.
+
+It does not mean:
+
+- every requirement in the repository was selected by the globs;
+- every reason is true;
+- every exclusion is a good product decision;
+- every test is meaningful;
+- the implementation is correct in ways no configured edge expresses.
+
+That precision is a strength. “100%” without a declared denominator is a feeling. The graph publishes the denominator and fails on every open cell.
+
+The remaining work is visible too:
+
+- review the source layer humans chose to own;
+- review the reasons and exclusions written against it;
+- run normal type checks and behavioral tests;
+- expand the graph when a consequence surface is missing.
+
+Evidence Graph does not replace engineering judgment. It removes omission hunting from the part of engineering judgment that had to be repeated by hand.
+
+That closes the coding story: omissions become compiler errors, requirements become the handoff, and a principles file is enough to start. In the four benchmark applications, coverage moved from 51.6–85.5% to 100%. Human review narrows to whether each cited reason and exclusion is true.
+
+## 11. Appendix: The Graph Does Not Care Whether the Artifact Is Code
+
+Evidence Graph parses identities and relationships, not meaning. A Markdown heading can owe another Markdown heading exactly as a function can owe a requirement. That makes the same mechanism useful for long-form writing.
+
+### 11.1. Fluency is not authorship
+
+A scene can be polished and still be wrong for its story. A difficult character softens into the model's familiar archetype. A conflict disappears because the next paragraph reaches for a tidy reconciliation. A situated voice becomes smoother and less recognizably its own.
+
+These are measurable tendencies. [Narrative Flattening](https://arxiv.org/abs/2605.27878) found that post-training compresses thematic motion, emotional intensity, and stylistic diversity in generated fiction, with the largest gap against professional literary fiction. [ConStory-Bench](https://picrew.github.io/constory-bench.github.io/) found that consistency errors grow approximately linearly with output length. Facts cluster around the first 15–30% of a story, while contradictions tend to appear around 40–60%.
+
+The local paragraph remains plausible. The failure is global: it has lost an earlier fact, motive, rule, causal promise, or voice.
+
+### 11.2. More revision can make the failure worse
+
+Loop until dry assumes another pass moves the artifact toward truth. Long-form prose can move in another direction. A study of [document-level literary translation refinement](https://arxiv.org/abs/2605.13368) found that repeated refinement improved fluency, style, and terminology more consistently than adequacy, while pulling outputs toward the refiner's distribution. [Voice Under Revision](https://arxiv.org/abs/2604.22142) found the same directional pressure in personal narratives: even voice-preserving prompts reduced but did not remove stylistic normalization.
+
+That produces five recurring failures:
+
+- **Memory:** a character acts on knowledge they never acquired.
+- **Invention:** a scene violates established history, geography, or world rules.
+- **Contradiction:** a later number, date, motive, or trait reverses an earlier one.
+- **Revision residue:** a scene survives after an upstream rewrite invalidated it.
+- **Forgetting:** a setting or planted promise is never used, with no denominator that reveals the omission.
+
+Another pass may polish every scene and make the manuscript less faithful to itself. Here the review loop can amplify the same drift it is supposed to remove.
+
+### 11.3. Compile continuity instead
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcSet="/evidence/novel-dark.svg" />
+  <img alt="Principles and settings grounding storylines, scenarios, and manuscripts" src="/evidence/novel-light.svg" width="100%" />
+</picture>
+
+The [`samchon/novels`](https://github.com/samchon/novels) graph assigns a different continuity question to each edge:
+
+| Claim layer | Cites | What the edge protects |
+| --- | --- | --- |
+| Storylines, scenarios, manuscripts | Principles | literary purpose |
+| Storylines, scenarios, manuscripts | Settings | facts, world rules, and character knowledge |
+| Scenarios and manuscripts | Storylines | causes and consequences |
+| Manuscripts | Scenarios | exact execution of the planned scene |
+
+The graph changes the unit of review. A scene receives the commitments it actually owes instead of asking a reviewer to hold the whole novel in working memory. Explicit lineage makes a plausible but ungrounded scene visible. A setting edit expires every fingerprinted review that depends on it. Reverse coverage finds a promise that no downstream artifact ever used.
+
+The Napoleon project currently carries 25 principles, roughly 350 setting commitments, and 742 scenes. That is an operating example, not part of the application benchmark above. Its goal is creative freedom inside strict continuity: the graph guards what must remain true and leaves the writing free everywhere else.
+
+## 12. Try It
+
+Install the compiler, lint engine, and contributor:
+
+```bash
+npm install -D typescript ttsc @ttsc/lint @ttsc/evidence
+```
+
+Create one claim:
+
+```ts filename="lint.config.ts"
+import { evidence, type ITtscEvidenceGraphConfig } from "@ttsc/evidence";
+import type { ITtscLintConfig } from "@ttsc/lint";
+
+const graph: ITtscEvidenceGraphConfig = {
+  claims: [
+    {
+      type: "typescript",
+      files: ["src/components/**/*.tsx"],
+      symbol: "function",
+      reference: {
+        type: "markdown",
+        files: ["docs/requirements/**/*.md"],
+        symbol: ["h2", "h3"],
+        requireReview: true,
+      },
+    },
+  ],
+};
+
+export default {
+  plugins: { evidence },
+  rules: {
+    "evidence/graph": ["error", graph],
+    "evidence/review": "error",
+  },
+} satisfies ITtscLintConfig;
+```
+
+Run the build:
+
+```bash
+npx ttsc --noEmit
+```
+
+Start with the edge that hurts most. Requirements to screens and published operations to tests are common first choices. On a legacy project, declare the intended graph with `disabled: true`, enable one claim, settle its diagnostics, and then enable the next.
+
+Read next:
+
+- [Ten-minute setup](https://ttsc.dev/docs/setup/evidence)
+- [Evidence Graph overview](https://ttsc.dev/docs/evidence)
+- [Adoption](https://ttsc.dev/docs/evidence/adoption)
+- [Complete backend, frontend, and novel examples](https://ttsc.dev/docs/evidence/examples)
+- [Claims and references](https://ttsc.dev/docs/evidence/claims)
+- [Evidence tag grammar](https://ttsc.dev/docs/evidence/tags)
+- [Benchmark method and raw applications](https://ttsc.dev/docs/benchmark/evidence)
+- [English slides](https://ttsc.dev/slides/evidence) and [Korean slides](https://ttsc.dev/slides/evidence-kr)
+
+The old completion signal was an agent saying it was done, followed by a reviewer reading everything until they believed it.
+
+The new signal is smaller and harder:
+
+> Every obligation has a name. Every name has an answer. Every answer can be reviewed.
