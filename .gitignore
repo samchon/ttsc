@@ -82,3 +82,6 @@ website/compiler/playground
 
 # Compiled Go binaries left by `go build .` in the cmd directory.
 packages/ttsc/cmd/ttsc/ttsc
+
+# ttsc plugin cache; ttsc writes Go plugin binaries to projectRoot/.ttsc/plugins/<hash>/.
+.ttsc/
