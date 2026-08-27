@@ -1112,9 +1112,10 @@ async function assertDirectoryShapedConfigCandidateKeepsTheGeneration() {
     plugin: "banner",
     source: 'export const value: string = "kept";\n',
   });
-  // Beside the config the walk settles on, so the search reaches it, rejects
-  // it, and reports it from the directory it stopped in.
-  const directory = path.join(path.dirname(middle), "banner.config.ts");
+  // One level nearer than the config the walk settles on. The search rejects
+  // the directory on its way outward, and replacing it with a file must later
+  // supersede the outer config rather than merely change an inert neighbour.
+  const directory = path.join(middle, "banner.config.json");
   fs.mkdirSync(directory, { recursive: true });
 
   const file = path.join(root, "src", "main.ts");
@@ -1178,6 +1179,44 @@ async function assertDirectoryShapedConfigCandidateKeepsTheGeneration() {
     "a directory wearing a config name must not make the generation unreusable",
   );
   assert.match(second.code, /OUTER BANNER/);
+
+  fs.rmSync(directory, { recursive: true });
+  fs.writeFileSync(
+    directory,
+    JSON.stringify({ text: "NEARER BANNER" }),
+    "utf8",
+  );
+  const third = await transformTtsc(
+    file,
+    source,
+    resolveOptions(),
+    undefined,
+    cache,
+  );
+  assert.ok(third);
+  const replacementGeneration = [...cache.values()][0];
+  assert.notEqual(
+    replacementGeneration,
+    firstGeneration,
+    "replacing the directory candidate with a config file must replace the generation",
+  );
+  assert.match(third.code, /NEARER BANNER/);
+  assert.doesNotMatch(third.code, /OUTER BANNER/);
+
+  const fourth = await transformTtsc(
+    file,
+    source,
+    resolveOptions(),
+    undefined,
+    cache,
+  );
+  assert.ok(fourth);
+  assert.equal(
+    [...cache.values()][0],
+    replacementGeneration,
+    "the replacement config must compile exactly one new reusable generation",
+  );
+  assert.match(fourth.code, /NEARER BANNER/);
 }
 
 /**
