@@ -1,7 +1,7 @@
 {
   "private": true,
   "name": "@ttsc/benchmark-performance",
-  "version": "0.28.2",
+  "version": "0.28.3",
   "description": "Performance benchmark harness comparing ttsc against tsc, eslint, and prettier.",
   "type": "module",
   "devDependencies": {

@@ -1,7 +1,7 @@
 {
   "private": true,
   "name": "@ttsc/benchmark-graph",
-  "version": "0.28.2",
+  "version": "0.28.3",
   "description": "Graph benchmark harness for @ttsc/graph and its comparators.",
   "type": "module",
   "devDependencies": {
