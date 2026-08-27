@@ -1,0 +1,110 @@
+# Troubleshooting
+
+Every diagnostic this plugin raises names its own repair, and this page groups them by what actually went wrong.
+
+All of them arrive as ordinary `ttsc` errors. Match on the bracketed rule id rather than the number, because a contributor's code is assigned deterministically from the complete set of loaded contributors: adding a plugin can renumber `TS16411` while `[evidence/graph]` stays what it is. Search this page by the first few words of the message.
+
+## The graph did not load
+
+A population that cannot be read fails the build rather than degrading into an empty one. That distinction is the product: an obligation set of zero is satisfied by anything, so a loader that swallowed its own failure would report perfect coverage of nothing.
+
+| Message opens with | Cause |
+| --- | --- |
+| `Invalid evidence/graph configuration at claims` | The options are not a valid `ITtscEvidenceGraphConfig`. |
+| `Evidence graph found no directory at the` | A `root` names a path that does not exist. |
+| `Evidence graph could not read the` | A configured file or directory is unreadable. |
+| `Evidence graph could not read Markdown file` | One selected document could not be opened. |
+| `Evidence graph could not parse the configured Prisma schema` | Prisma itself rejected the schema, with its own message and location. |
+| `Evidence graph could not normalize Swagger source` | The document is invalid, unreachable, or over the limits. |
+
+Fix the input rather than narrowing the glob around it. A document you remove from the population stops being an obligation, which turns a loading problem into missing coverage nobody will notice.
+
+Two more come from the environment rather than from anything you configured. `Node.js executable was not found` means the Prisma and Swagger loaders have no runtime to call, since both parse through a JavaScript bridge. `Reinstall @ttsc/evidence; the native and JavaScript bridge contracts disagree` means a half-updated install, where the Go rule and the bundled bridge came from different versions.
+
+The bridges also carry their own 60-second timeout, reported as `Prisma schema loader exceeded its 60 second timeout` or the Swagger equivalent. That is a different limit from the 30 seconds a remote Swagger URL is given to answer.
+
+## A target does not resolve
+
+```bash
+$ npx ttsc --noEmit
+error TS16411: [evidence/graph] Unresolved evidence target
+  'docs/requirements/discount.md#coupon-limit' at src/pages/orders.tsx:9
+  for Claim 1 across reference 1 (markdown, symbols: h2, h3): no configured
+  source materializes that evidence unit.
+  Correct the target, make one of the named references select the source unit
+  this claim actually uses, or remove the tag when this host does not answer for
+  that target. Never leave an untrue tag standing just to pass this check; it
+  removes the error, not the problem.
+```
+
+This is the most common diagnostic, and it is usually a renamed heading rather than a wrong citation. A Markdown slug moves the moment someone edits the heading text, which is the argument for putting an explicit `{#anchor}` on any section you expect to be cited.
+
+Read the repairs in the order they are printed. Correcting the target is right when the address moved; widening the reference is right when the claim really does answer for something the configuration never selected; deleting the tag is right when this host does not answer for that target at all. The last sentence is there because the fastest way to clear the error is none of the three: point the tag at anything that resolves.
+
+`Unbraced TypeScript evidence target` is a variant with one fix. A symbol is cited as an inline link so that the citing module's import resolves it, so write `{@link Sale}` rather than `Sale` and import the symbol; `import type` is enough. `Unresolved module` on a symbol target means the import itself resolves nowhere the project can reach.
+
+## An acknowledgement was refused
+
+These say the tag was read, understood, and rejected. Nothing is wrong with the address.
+
+**`Forbidden @evidenceExclude for ...: noEvidenceExclude requires positive @evidence`.** The reference does not accept "not applicable" as an answer. Either build the thing and cite it, or change the policy in `lint.config.ts` and be ready to defend that in review.
+
+**`Out-of-scope @evidenceExclude carrier at ...`.** The exclusion sits somewhere it cannot count, either outside the [carrier files](/docs/evidence/claims#exclusion-carriers) the claim declares or on a declaration that hosts nothing. Move it to a selected host, or to the ledger file the claim names.
+
+**`Duplicate @evidenceExclude for ...`.** Two exclusions cover the same scope. One of them is redundant, and the diagnostic prints both locations so you can decide which reads better.
+
+**`Conflicting acknowledgements for ...`.** One host both cites and excludes the same scope, which cannot both be true. Delete whichever is untrue of that host, and note that this is expected rather than contradictory inside a [checklist](/docs/evidence/claims#checklists), where each host answers for itself.
+
+## A unit went unanswered
+
+`Missing acknowledgement for ...` is the coverage error, and it is the one the product exists to produce. [The overview](/docs/evidence) shows its shape and [Adoption](/docs/evidence/adoption) covers what to do when the first build produces more of them than anyone can read.
+
+If the count looks wrong, check the reference's `symbol` selector before anything else. Selecting `column` on a Prisma reference puts every `id` and `created_at` into the denominator, and selecting `file` on Markdown adds the document itself to its own headings.
+
+If the count is zero when you expected obligations, the population is empty rather than satisfied, and the loader has already said so in its own words: `matched no markdown files for ...`, or the Swagger, Prisma, TypeScript, or package equivalent. That message is the one to read, because an empty population contains no units and reports full coverage without checking anything.
+
+## A review is missing or expired
+
+`evidence/review` reports an acknowledgement with no review beside it, and the message names which question is unanswered: the citation states why this declaration answers for that target, while the exclusion states that this claim does not cover it. Those are separate verifications, so a review of one never discharges the other.
+
+Under [`requireReview`](/docs/evidence/claims#policies) a review can also expire. The cited content moved, the stored fingerprint no longer matches, and the diagnostic prints the value that replaces it. Treat that as a request to read the change, not as a value to paste.
+
+## The file layout rules
+
+`evidence/singular` reports two shapes: a file that declares more than one public identity, and a file whose name does not match the identity it declares. Both exist so that a citation naming a symbol cannot be ambiguous between two files.
+
+Adopt it only where you want that layout. It is the one rule here that asks you to move code rather than to write a tag.
+
+## A tag that does nothing
+
+A tag in the wrong position is reported rather than ignored, which is the point: a citation that silently does nothing is exactly what this plugin exists to remove. The usual wrong positions are a `//` line comment, a block inside a destructuring pattern, a Prisma comment separated from its block by a blank line or sitting above a closing brace, and Markdown prose that was never an HTML comment.
+
+[Evidence Tags](/docs/evidence/tags#where-a-tag-may-live) has the eligible position for each artifact kind. When a tag is left behind in commented-out code, the repair is deletion rather than relocation.
+
+## A declaration that cannot cite
+
+`Missing JSDoc on ...` and `Empty JSDoc on ...` come from `evidence/documented`, and both say the same thing about the future: a TypeScript declaration cites only from a JSDoc block, so this one can never cite anything as it stands.
+
+The empty variant is the one worth pausing on. A block that carries no text and no tag looks documented in a diff and is worth nothing to the graph, which is why it is reported separately rather than accepted.
+
+## Work that is not finished
+
+`Unrealized '@todo': ...` comes from `evidence/todo`, and the message carries your own note back to you. The tag named work the declaration still owes, so the contract it promises is not realized, and the repair is to realize it and delete the tag rather than to soften the note.
+
+One diagnostic per tag, each printing its own text, so the findings read as the ledger of what remains rather than as a count. [Adoption](/docs/evidence/adoption) covers when to switch the rule on.
+
+## Nothing is reported at all
+
+A green build with no diagnostics is either the goal or an empty graph, and the two read identically from the outside.
+
+Check that the claim is not `disabled`, that its `files` glob matches something, and that a TypeScript population is inside the Program the owning `tsconfig.json` builds. A TypeScript claim never scans a directory, so a file the project does not include cannot match however well the glob reads.
+
+A package reference has its own version of that trap, reported as `matched no files inside package '...'`, because those globs resolve against the package root rather than the project root. A claim whose `evidenceExcludeCarriers` select none of its own files gets its own message, naming how many claim files the patterns missed, because carriers narrow a population they must already belong to.
+
+Then check that the rule is enabled at a severity that fails. A rule set to `"warning"` reports without stopping the build, which is a reasonable staging choice and an easy thing to forget.
+
+## If the message is not here
+
+Every diagnostic states its own repair, so read the message before the page. It names the target first, then where the tag or the unanswered unit sits, then the claim and reference that own the obligation, and it ends with what to do about it. [Claims and References](/docs/evidence/claims) explains the configuration a message names, and [Evidence Tags](/docs/evidence/tags) explains the grammar it quotes.
+
+If the message describes something this page contradicts, trust the message. It comes from the version you have installed.

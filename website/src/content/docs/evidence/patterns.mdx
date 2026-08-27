@@ -1,0 +1,244 @@
+# Graph Patterns
+
+Four real graphs, from a backend spanning documents, schema, and code to a novel with no code in it at all.
+
+Each block below is the `claims` array of one `lint.config.ts`, printed without the wrapper around it. The shape repeats, so read the first graph closely and the rest by their differences.
+
+## Backend
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcSet="/evidence/backend-dark.svg" />
+  <img alt="Requirements and specifications grounding the DB schema, API operations, API schemas, and tests" src="/evidence/backend-light.svg" width="100%" />
+</picture>
+
+The backend answers in a chain. The schema answers to the requirements, the operations answer to the requirements and to the schema they read, and the tests answer to the operations. The paths below are this project's own, so `docs/analysis` is where its reviewed requirements live and `@your-scope/api` stands in for the package it publishes.
+
+```ts
+claims: [
+  {
+    name: "schema-models",
+    type: "prisma",
+    files: ["prisma/schema/**/*.prisma"],
+    symbol: "model",
+    reference: {
+      type: "markdown",
+      root: "../..",
+      files: ["docs/analysis/**/*.md"],
+      symbol: ["h2", "h3"],
+    },
+  },
+  {
+    name: "api-operations",
+    type: "typescript",
+    files: ["src/controllers/**/*.ts"],
+    symbol: "function",
+    reference: [
+      { type: "markdown", root: "../..", files: ["docs/analysis/**/*.md"], symbol: ["h2", "h3"] },
+      { type: "prisma", files: ["prisma/schema/**/*.prisma"], symbol: ["model"] },
+    ],
+  },
+  {
+    name: "backend-tests",
+    type: "typescript",
+    files: ["features/**/*.ts"],
+    symbol: "function",
+    reference: [
+      { type: "markdown", root: "../..", files: ["docs/analysis/**/*.md"], symbol: ["h2", "h3"] },
+      {
+        type: "typescript",
+        package: "@your-scope/api",
+        files: ["src/functional/**/*.ts"],
+        symbol: ["function"],
+        noEvidenceExclude: true,
+        singleEvidencePerSymbol: true,
+      },
+    ],
+  },
+]
+```
+
+The schema claim is the one people leave out and regret. A column nobody asked for is invisible until someone reads the whole schema against the whole specification, and this edge turns that reading into a build result.
+
+The test claim is where the [policies](/docs/evidence/claims#policies) earn their place. `noEvidenceExclude` refuses "not applicable" for a published operation, because an untested endpoint is missing work rather than a decision, and `singleEvidencePerSymbol` demands that one test function answers for exactly one operation. Without the second, one thorough test could carry the whole suite's obligation on its own.
+
+Notice that the test reference reads the API through `package` rather than through the local Program. That is deliberate: the operations this suite has not reached yet are precisely the ones no local file imports, so a Program-based population would leave them out of the count.
+
+The DTO types live in the API package, since a TypeScript claim can only select files its own `tsconfig.json` already includes. The schema they cite stays in the backend package and is reached with a `root`, rather than by moving the claim to the schema.
+
+```ts
+{
+  name: "dto-types",
+  type: "typescript",
+  root: ".",
+  files: ["src/structures/**/*.ts"],
+  evidenceExcludeCarriers: ["src/structures/DTO_EVIDENCE_EXCLUDE.ts"],
+  symbol: "type",
+  reference: [
+    { type: "markdown", root: "../..", files: ["docs/analysis/**/*.md"], symbol: ["h2", "h3"] },
+    { type: "prisma", root: "../backend", files: ["prisma/schema/**/*.prisma"], symbol: ["model"] },
+  ],
+}
+```
+
+One file is named as the only place an exclusion may be written, so the carrier is declared rather than conventional and an `@evidenceExclude` on a DTO itself is a compile error. Reading every exclusion this claim owns is then one file rather than one population.
+
+A second claim over the same files with `symbol: "property"` points at `symbol: ["column"]` on the Prisma side, so a DTO property answers to the column it carries. Two claims over one population is the normal way to say two different things about it.
+
+Where this graph fails first tells you what it is worth. A requirement section nobody built shows up as a missing acknowledgement on the requirements reference, a table nobody asked for shows up on the schema claim, and an endpoint nobody tested shows up on the test claim. Each of the three is a different conversation, and none of them used to be visible until someone read all three artifacts side by side.
+
+The real configuration is [`packages/api/lint.config.ts`](https://github.com/samchon/ttsc/blob/master/benchmarks/evidence/template/evidence/packages/api/lint.config.ts) and [`packages/backend/test/lint.config.ts`](https://github.com/samchon/ttsc/blob/master/benchmarks/evidence/template/evidence/packages/backend/test/lint.config.ts).
+
+## Frontend
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcSet="/evidence/frontend-dark.svg" />
+  <img alt="Requirements and specifications grounding Swagger, hooks, screens, and journeys" src="/evidence/frontend-light.svg" width="100%" />
+</picture>
+
+The frontend starts from what the backend published, so a graph can begin at another project's output. The source layer below is the generated API package; a team that only receives an OpenAPI document writes `{ type: "swagger", file: "api/openapi.json" }` in the same position and owes the same coverage.
+
+```ts
+claims: [
+  {
+    name: "frontend-hooks",
+    type: "typescript",
+    files: ["src/lib/*/hooks.ts"],
+    symbol: "function",
+    reference: {
+      type: "typescript",
+      package: "@your-scope/api",
+      files: ["src/functional/**/*.ts"],
+      symbol: ["function"],
+      noEvidenceExclude: true,
+    },
+  },
+  {
+    name: "frontend-screens",
+    type: "typescript",
+    files: ["src/components/*/*-page.tsx", "!src/components/dev/**"],
+    evidenceExcludeCarriers: ["src/components/SCREEN_EVIDENCE_EXCLUDE.ts"],
+    symbol: "function",
+    reference: [
+      { type: "markdown", root: "../..", files: ["docs/analysis/**/*.md"], symbol: ["h2", "h3"] },
+      { type: "typescript", files: ["src/lib/*/hooks.ts"], symbol: ["function"], noEvidenceExclude: true },
+    ],
+  },
+  {
+    name: "frontend-journeys",
+    type: "typescript",
+    files: ["tests/journeys/**/*.ts"],
+    evidenceExcludeCarriers: ["tests/journeys/JOURNEY_EVIDENCE_EXCLUDE.ts"],
+    symbol: "function",
+    reference: [
+      { type: "markdown", root: "../..", files: ["docs/analysis/**/*.md"], symbol: ["h2", "h3"] },
+      { type: "typescript", files: ["src/components/*/*-page.tsx", "!src/components/dev/**"], symbol: ["function"] },
+    ],
+  },
+]
+```
+
+Owning an operation is not delivering it, and the chain is what keeps those apart. A hook wrapping an accessor that no screen renders passes the hook claim and fails the screen claim, so the gap surfaces where it actually is.
+
+The populations stay narrow on purpose. A primitive, the layout chrome, and a composed provider serve every requirement at once and therefore none in particular, so only the page components and the journeys are selected as hosts.
+
+A journey cites each screen it walks as `{@link ThatPage}` through its own type-only import, which is what makes a screen no journey covers a compiler error rather than a review finding.
+
+The requirement and screen references accept an exclusion while the operation and hook references refuse one. That split is the whole judgment in this graph: an unconsumed operation is missing work, and a screen outside the journeys is a decision somebody has to write down and defend.
+
+This graph fails first at the seam nobody watches. An operation the backend published and the frontend never called is red on the hook claim before anyone notices the feature is missing, and a screen that exists but no journey walks is red on the journey claim while every unit test still passes.
+
+The real configuration is [`packages/frontend/lint.config.ts`](https://github.com/samchon/ttsc/blob/master/benchmarks/evidence/template/evidence/packages/frontend/lint.config.ts).
+
+## Principles
+
+Both graphs above need a document hierarchy. This one needs a single file, which is why it is where most existing codebases start.
+
+<img
+  alt="Asked whether the rule document was read, a human reads it out again while the compiler asks at every file"
+  src="/evidence/meme-checklist.svg"
+  width="100%"
+/>
+
+```md
+## No hard coding {#no-hard-coding}
+
+Derive behavior from inputs and models. Never special-case a fixture.
+
+## Fix root causes, not symptoms {#fix-root-causes-not-symptoms}
+
+Do not route around one visible failure. Trace the cause and solve the whole class.
+```
+
+```ts
+{
+  name: "every function answers every engineering principle",
+  type: "typescript",
+  files: ["src/**/*.ts"],
+  symbol: "function",
+  reference: {
+    type: "markdown",
+    files: ["docs/principles.md"],
+    symbol: "h2",
+    checklist: true,
+    requireReview: true,
+  },
+}
+```
+
+`checklist` changes the denominator from principles to functions times principles. Every selected function must answer every principle, and a function carrying no tag owes all of them rather than being absent from the count.
+
+```ts
+/**
+ * @evidence docs/principles.md#no-hard-coding Renders limits from props instead of branching on known issuer names.
+ * @evidenceExclude docs/principles.md#fix-root-causes-not-symptoms No failure to fix.
+ */
+export function CouponStackingNotice(props: IProps): JSX.Element;
+```
+
+An exclusion is how a host records that an item does not apply to it, and pairing the reference with `noEvidenceExclude` takes that answer away and demands positive evidence from every host.
+
+The list is not fixed. Add a heading and every selected function owes one more answer from the next build onward, and under `requireReview` an edited principle sends every host back to re-answer that one.
+
+## Novels
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcSet="/evidence/novel-dark.svg" />
+  <img alt="Principles and settings grounding storylines, scenarios, and manuscripts" src="/evidence/novel-light.svg" width="100%" />
+</picture>
+
+The graph reads no meaning, only obligations and citations, so it works on any text. [AutoNovel](https://github.com/samchon/AutoNovel) writes long-form novels this way, and its claims are Markdown on both sides.
+
+```ts
+{
+  name: "prose units preserve the narrative principles",
+  type: "markdown",
+  root: "docs",
+  files: ["prose/**/*.md"],
+  symbol: "file",
+  reference: [
+    {
+      type: "markdown",
+      root: "docs",
+      files: ["contracts/principles-narratives.md"],
+      symbol: "h2",
+      checklist: true,
+      noEvidenceExclude: true,
+      requireReview: true,
+    },
+  ],
+}
+```
+
+Humans read two layers and no more: the principles, which are universal literary fundamentals rather than something written per work, and the settings, which hold history, world rules, and character. Everything below them is authored against those two and answers to them.
+
+The claim above is one edge of that diagram, and each of the others blocks a different drift. Citing the principles keeps a scene's literary purpose stated, citing the settings keeps its facts accountable, citing the storylines keeps cause and consequence attached, and a manuscript citing its scenario keeps the execution exact.
+
+Expiry is what makes a revision safe. Editing one setting expires every review written against it, so a changed fact cannot leave a stale scene standing somewhere in the work. Napoleon Imperator is ten volumes, which is well past the point where anyone could hold the whole canon in their head and check a scene against it by hand.
+
+`disabled` is doing the staging here. Each layer stays disabled until the layer above it passes review, so the graph grows downward as the work does rather than owing the whole unwritten novel on day one.
+
+## What the four have in common
+
+Every graph names a reviewed source layer and makes everything below it cite that layer. What differs is only which artifacts play which part: requirements and schema in the backend, published operations in the frontend, one principles file in an existing codebase, and settings and contracts in a novel.
+
+Copying a shape is the easy part. [Adoption](/docs/evidence/adoption) covers the harder one: which layer you hand over, and the order to turn these claims on in a codebase that already exists.

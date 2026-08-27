@@ -1,161 +1,145 @@
-import TtscWebsiteBenchmarkEvidenceSpend from "../../../components/benchmark/evidence/TtscWebsiteBenchmarkEvidenceSpend";
-
 # Adoption
 
-Requirements are the handoff: whether a human or an AI wrote them, a human must review them last. That reviewed layer is the source of truth, and the agent builds everything below it with the graph counting what actually arrived.
+The configuration is the easy half. The decision is which layer you hand over.
 
-- Hand over the requirements, and the agent writes the rest.
-- Hand over raw idea notes, and it writes the requirements too. The document chains below are what keep that second form safe.
+An evidence graph always has a top: one layer a human reviewed and signed, which everything below must cite. Choosing that layer is what you are actually doing when you write your first claim, and the four answers below differ in how far up it sits, or whether you own it at all.
 
-Keeping the versioned specification as the single source of truth is Spec-Driven Development, the practice GitHub Spec Kit named and AWS built Kiro around. SDD uses the specification as an input and does not count whether it was implemented. That is the gap this fills, which is why adopting it costs a configuration block rather than a workflow: nothing here requires a new process.
+## The handoff
 
-## Start with one claim
+Whether a human or an AI wrote the requirements, a human reviews them last. That reviewed layer is the source of truth, and the graph's only job is to make sure nothing below it was quietly skipped.
 
-```ts
-{
-  type: "typescript",
-  files: ["src/components/**/*.tsx"],
-  symbol: "function",
-  reference: {
-    type: "markdown",
-    files: ["docs/requirements/**/*.md"],
-    symbol: ["h2", "h3"],
-  },
-}
-```
+### Hand over the requirements
 
-Read as one sentence: the components under `src` claim to implement the requirements, so every H2 and H3 under `docs/requirements` must be cited by a component.
-
-Turn on that single block, and the moment someone adds a section the build says nobody has built it yet.
-
-## Chain the documents to each other
-
-Code citing documents is the obvious direction. Documents citing documents is the one that changes how planning works.
-
-A document hierarchy usually flows the same way: a decision comes out of a meeting, becomes a clause in the requirements, becomes a screen flow in the feature specification, and becomes code and tests. Wire each step to cite the one before it and the whole chain is compiler-checked.
-
-```ts
-// 1. Requirements reflect what the meetings decided.
-{
-  type: "markdown",
-  files: ["docs/requirements/**/*.md"],
-  reference: {
-    type: "markdown",
-    files: ["docs/meetings/**/*.md"],
-    symbol: ["h2", "h3"],
-  },
-},
-// 2. Feature specifications are built on the requirements.
-{
-  type: "markdown",
-  files: ["docs/features/**/*.md"],
-  reference: {
-    type: "markdown",
-    files: ["docs/requirements/**/*.md"],
-    symbol: ["h2", "h3"],
-  },
-}
-```
-
-Citations are HTML comments, so the rendered document is unchanged for whoever reads it:
-
-```md filename="docs/features/checkout.md"
-# Checkout Feature Specification
-
-## Coupon Application Flow
-
-<!-- @evidence docs/requirements/pricing.md#coupon-stacking This section turns the coupon stacking rule into a screen flow. -->
-```
-
-Three failures become build failures: a decision made in a meeting that never reached the requirements, a requirement clause no feature specification covers, and a feature flow no screen implements.
-
-The reverse direction closes too. Delete a requirement clause and every feature specification that leaned on it breaks immediately, so a ghost specification with no basis cannot survive in the tree. A gap discovered while writing code becomes a citation that demands the document be written.
-
-One thing changes for the person writing the specification. **You stop asking whether what you wrote was reflected.** The build answers.
-
-## Put the upstream in too
-
-Anything with headings can be an evidence source. Meeting notes are the common one, and they are not the only one: idea notes, user research and interview records, competitor analysis, data analysis results, support tickets and customer feedback.
-
-Idea notes are the most useful of these, precisely because most ideas never become products. An adopted idea leaves a citation naming the requirement it became, a rejected idea leaves an exclusion naming why and what would make the team revisit it, and an idea nobody judged blocks the build.
-
-```md
-<!-- @evidenceExclude docs/ideas/2026-q1.md#social-login
-     Deferred out of this release; the identity provider contract is unsigned. Reject this exclusion once legal confirms the contract. -->
-```
-
-Where an idea note used to be quietly forgotten, the history of what was taken and what was declined stays in the repository.
-
-## Consume an external API specification
-
-If another team hands you an OpenAPI document to implement or to consume, cite it directly:
+You write and review `docs/requirements`. Specifications, schema, implementation, and tests are delegated, and each one owes complete coverage of the layer above it.
 
 ```ts
 {
   type: "typescript",
   files: ["src/controllers/**/*.ts"],
-  reference: {
-    type: "swagger",
-    file: "https://api.partner.com/openapi.json",
-  },
-}
-```
-
-Every operation under `paths` becomes a unit. When the other team adds an operation, your next build reports that you have not implemented it yet.
-
-A remote document is fetched once per process, so a running watch session keeps the document it started with, while a one-shot `ttsc check` in CI always fetches. Pin the document locally when you need the boundary to be reviewable in a diff.
-
-## Roll it out on an existing codebase
-
-Do not enable everything at once. Staged enabling is the adoption strategy.
-
-1. **Declare the whole graph, with every claim `disabled: true`.** The shape is validated, nothing is enforced, and the target picture is in the repository where the team can argue about it.
-2. **Pick the boundary that hurts most.** Usually requirements to screens, or API to tests.
-3. **Enable that one claim and settle the flood.** Build what was never built. For everything the team decides not to build, write the reason into the exclusion ledger.
-4. **Go green, then enable the next claim.**
-
-```ts
-{
-  name: "screens",
-  type: "typescript",
-  files: ["src/components/**/*.tsx"],
   symbol: "function",
   reference: {
     type: "markdown",
     files: ["docs/requirements/**/*.md"],
     symbol: ["h2", "h3"],
   },
-  // Remove once every required screen and its evidence mapping is complete.
+}
+```
+
+This is what the benchmark subjects used, and it is the shape to reach for on a new project. Your review effort collapses onto one folder of prose, and the compiler holds everything downstream to it.
+
+### Hand over the idea notes
+
+Sometimes the requirements are the work you want delegated. Then the reviewed layer moves one step up, to whatever you actually have: meeting notes, an interview transcript, a page of half-formed intentions.
+
+```md
+## Coupon stacking limit {#coupon-stacking}
+
+<!-- @evidence docs/ideas/discount.md#discount-policy Carries over the per-issuer limit recorded in the idea notes. -->
+```
+
+The requirements document then cites its own evidence, and a dropped idea breaks the requirements build before a single line of code exists. Because a Markdown citation lives in an HTML comment, the rendered document a stakeholder reads stays clean.
+
+Hand over notes as they are, without tidying them first. Tidying is the step you are trying to delegate, and an omission introduced while tidying is exactly what nothing downstream can catch.
+
+### Hand over nothing but the principles
+
+An existing project rarely has a document hierarchy, and building one before you can start is a good way never to start. One file is enough.
+
+```md
+## No hard coding {#no-hard-coding}
+## No monkey patching {#no-monkey-patching}
+## Use the conventional solution {#conventional-solution}
+## Fix root causes, not symptoms {#fix-root-causes-not-symptoms}
+```
+
+Point a `checklist` reference at it and every selected function owes an answer to every heading. Nothing above the code has to exist yet, and the obligations are real from the first build.
+
+Headings alone work. Write the body when a repeated argument tells you which sentence was missing, and expect the list to grow, since each new heading lands on every selected function at once.
+
+### Start from someone else's specification
+
+The source layer does not have to be yours. A Swagger document another team publishes, or the API package they ship, is already a population of units somebody committed to.
+
+```ts
+reference: {
+  type: "swagger",
+  file: "contracts/orders-openapi.json",
+  noEvidenceExclude: true,
+}
+```
+
+Your side then owes complete coverage of an interface you do not control, and an operation that appears in their next release turns your build red until something consumes it.
+
+Vendor their document into your repository as above. The release that adds an operation is then a pull request you can read, rather than a build that changed under you overnight.
+
+This is the cheapest graph to introduce, because nothing above your code had to be written by anyone on your team.
+
+## Turning it on without drowning
+
+The first build of a real codebase reports every unanswered obligation at once. That number is a backlog, not a verdict, but a backlog nobody can read is the same as no backlog at all.
+
+`disabled: true` is how you meter it. A disabled claim validates its own shape and contributes nothing else, so you can write the whole graph today and switch it on one claim at a time.
+
+```ts
+{
+  name: "dto-types",
+  type: "typescript",
+  files: ["src/structures/**/*.ts"],
+  symbol: "type",
+  reference: { type: "prisma", root: "../backend", files: ["prisma/schema/**/*.prisma"] },
+  // Remove after every DTO and its truthful evidence mapping is complete.
   disabled: true,
 }
 ```
 
-Step 3 is where the value shows up before any enforcement does. What accumulates in the exclusion ledger is the debt list the team had never written down.
+Enable the claim whose population you can finish in one sitting. Coverage is never pooled across claims, so a finished claim stays finished while the next one is still red, and the build gives you a completion signal per edge rather than one number that only moves at the end.
 
-Declare `evidenceExcludeCarriers` from the start, so that ledger is one file rather than a grep. Reviewing it is the one review that cannot be skipped: an exclusion is the only acknowledgement that reports an obligation discharged with nothing built.
+Narrowing `files` is the second lever, and often the better one on a large repository. One directory, then the next, beats one claim over `src/**` that nobody can close.
+
+## Then tighten
+
+Everything a reference can demand is opt-in, and the order they are added in matters. Coverage first, because it is the obligation the rest are refinements of.
+
+Add `noEvidenceExclude` where "not applicable" would hide missing work: a published operation is exercised by its test suite or the suite is incomplete, and the exclusion is the sentence that conceals the second case. Add `singleEvidencePerSymbol` where one host is supposed to answer for one thing, which is what stops a population's whole obligation from landing on the one host that cited generously.
+
+Add `evidenceExcludeCarriers` the moment the first exclusion is written, not later. Its whole value is that reading every excused obligation is opening one file, and a convention introduced after the exclusions are already scattered has to be enforced retroactively.
+
+Save `requireReview` for last. It is the switch that turns a green build into a reviewed build, and turning it on before the citations exist produces a wall of unreviewed diagnostics with nothing behind them.
 
 ## What it costs
 
-Clearing an obligation is work an agent has to do, so the honest question is what that does to a run. The benchmark measured both arms on four subjects of ascending size.
+The graph adds a step to every piece of work, since something now has to cite the evidence, and citing a section nobody read is not citing it.
 
-<TtscWebsiteBenchmarkEvidenceSpend />
+On the measured subjects that step paid for itself, because the review loop it removes is larger than the citations it adds. [The benchmark](/docs/benchmark/evidence) has both arms in full.
 
-The arm with the graph finished on between a thirteenth and a fifth of the tokens on every subject, and the largest saved the most: the ERP closed on 411M tokens and $4.96 against 5,449M and $68.72. Four subjects and one engine do not make that a law, so treat the saving as measured on these four rather than as one you can assume.
+Your first graph is the exception to plan for. It reports a backlog that was always owed and never counted, and paying that down is real work with no measurement behind it. Budget for it once, and read the measured runs as the steady state that follows.
 
-[The full benchmark](/docs/benchmark/evidence) has the phase split, the reconciled prices, and the raw counters.
+## Who writes the tags
 
-## What review looks like afterwards
+You do not. The agent clearing the errors writes them, because the error list is the task list and every one of them names the target that needs an answer.
 
-The tags are written by the agent as it implements. What reaches a human changes shape.
+Nothing here requires an agent. A team clearing the same errors by hand gets the same guarantee, since the compiler counts either way; what changes is only who does the typing, and how much of it there is.
+
+What you own is the review. The human question moves from "what did it skip" to "is this sentence true", and only the second one is a question a reviewer can actually finish.
+
+Where you enable [`evidence/review`](/docs/evidence/rules) follows from that: the package that authors citations ships it off, and the pass that reviews them turns it on.
+
+Review itself changes shape once the graph is green.
 
 - **Read the reasons, not the diff.** Each citation sits beside the section it claims to honor, so a misreading is visible without reconstructing the change.
-- **Read the exclusion ledger in full.** Every entry is a decision to build nothing. "Not applicable" is a conclusion; send it back for the owner, the alternative, and the condition that reverses it.
-- **Stop checking for omissions.** That is the one thing the build now does better than a reviewer, because it counts.
+- **Read the exclusion ledger in full.** Every entry is a decision to build nothing, so each one owes either the population that does own the target or the fact that makes it inapplicable here.
+- **Stop hunting omissions.** That is the one thing the build now does better than a reviewer, because it counts.
 
-`evidence/todo` is the companion habit. Keep it `"off"` while stubs are the plan of record, then turn it to `"error"` when the work is meant to be finished, and every remaining stub names itself.
+## The failure modes
 
-## Related
+**A tag written to go green.** It is the one failure the compiler cannot see, and it is why `@evidenceReview` and its fingerprint exist. If you never intend to review, expect coverage rather than truth, and say so out loud rather than believing the build.
 
-- [Examples](/docs/evidence/examples) is the finished shape this ladder climbs toward, on a backend, a frontend, and a novel.
-- [Claims and References](/docs/evidence/claims) covers `disabled`, `evidenceExcludeCarriers`, and the reference policies used above.
-- [The Evidence Graph benchmark](/docs/benchmark/evidence) measures what changes when a coding agent builds the same application with and without this graph.
+**A claim that selects everything.** Primitives, layout chrome, and providers cannot truthfully own a requirement, so selecting them buys tags nobody can review. Select the artifacts that deliver something, and let the rest be covered by the ones that do.
+
+**An obligation with nowhere to land.** An export with no documentation comment has nowhere to put a citation, so the obligation quietly shifts to a sibling that does. [`evidence/documented`](/docs/evidence/rules) closes that hole and is the cheapest rule here to enable.
+
+**A citation nobody can address.** Two selected files exporting the same qualified name leave a citation of it [ambiguous](/docs/evidence/tags#typescript-identities). Rename, qualify further, or adopt `evidence/singular` where the collisions repeat.
+
+## Where to go next
+
+[Setup](/docs/setup/evidence) is the ten-minute version of this page, with a starter config and the first failing build. [Graph Patterns](/docs/evidence/patterns) shows finished graphs for a backend, a frontend, a principles checklist, and a novel, and [Claims and References](/docs/evidence/claims) is the full surface behind every property used here.

@@ -1,6 +1,6 @@
 # Evidence Tags
 
-Two tags satisfy every obligation the graph declares, and two more record that one of them was verified.
+The configuration is written once, and the tags are written forever.
 
 ```text
 @evidence <target> <reason>
@@ -11,243 +11,154 @@ Two tags satisfy every obligation the graph declares, and two more record that o
 @evidenceExcludeReview <target> #<fingerprint> <description>
 ```
 
-These are not tags you maintain by hand. An agent writes each one as it implements, and your job is to review the stated reasons. In an agent workflow they cost nothing extra: the citation is written at the moment the author knows why it is true.
+The target is one whitespace-delimited token, except that a target opening with `{@link`, `{@linkcode`, or `{@linkplain` runs to its closing brace. Everything after the target is prose for a human. One declaration may carry any number of tags, and every tag needs a target and a non-empty reason and is validated on its own.
 
-## Grammar
+## The four tags
 
-The target is one whitespace-delimited token, except that a target opening with `{@link`, `{@linkcode`, or `{@linkplain` runs to its closing brace. Everything after the target is prose. A declaration may carry any number of tags, and each is validated on its own.
+`@evidence` is a positive citation. It says this declaration implements, verifies, or documents the target, and the reason says why.
 
-The reason is required. It sits beside the exact unit it claims to honor, so a misreading surfaces where a reader can see both. The compiler never judges whether a reason is true; it forces a concrete claim, and a claim is reviewable in a way that silence is not.
+`@evidenceExclude` is the opposite decision, recorded rather than assumed. It says nothing here owes the target, and the reason is what a reviewer reads to agree or disagree. A reference that declares `noEvidenceExclude` refuses this answer outright, and a claim that declares [`evidenceExcludeCarriers`](/docs/evidence/claims#exclusion-carriers) accepts it only from the files it names.
 
-A reason may run past one line. Continuation lines join it until the next tag of this grammar, and inside a JSDoc or Prisma comment any other line-opening `@tag` ends it too. That boundary is what keeps a neighboring `@param` or another tool's `@namespace` out of the reason above it. An HTML comment has no field syntax, so there `@architecture approved this` stays prose and only this grammar's own tags close a reason.
+`@evidenceReview` and `@evidenceExcludeReview` annotate a citation and an exclusion respectively. They are not a third kind of acknowledgement: a review discharges no coverage, contributes no host, and never answers a unit on its own.
 
-## Target forms
+The two review forms stay separate because they answer different questions. Whether a screen truly renders a limit and whether a screen truly owes nothing are not the same verification, and one tag for both would let the easier one discharge the harder. A review is therefore paired by acknowledgement kind together with target, which also lets one host cite a target for one claim and exclude it for another: two decisions, two reviews.
 
-| Target | Cites |
-| --- | --- |
-| `docs/sales.md` | A Markdown document and every selected heading below it |
-| `docs/sales.md#sale-price` | A heading section and its selected descendants |
-| `prisma:Sale` | A Prisma model and its selected columns and relations |
-| `prisma:Sale.price` | One column or relation |
-| `POST:/members` | One Swagger or OpenAPI operation |
-| `{@link sales.IShoppingSale}` | An exported type, class, function, or namespace, with its selected descendants |
-| `{@link sales.IShoppingSale.price}` | One member of an exported interface or object-shaped type alias that no class merges with, whether it carries data or is written as a callable |
-| `{@link sales.ShoppingSale.prototype.price}` | One instance member of an exported class, including one an interface merged with it declares |
-| `{@link sales.ShoppingSale.currency}` | One static member of an exported class |
-| `{@link sales.SALE_LIMIT}` | An exported variable at module or namespace scope |
+## Writing the reason
 
-A member address is the path a consumer would actually write to reach it, which is why a constructor parameter property takes the instance form of the field it declares. [Claims and References](/docs/evidence/claims#typescript-kinds) covers which members are selected and why the two class forms differ.
+The reason is the only part a reviewer can disagree with, so it has to say what this declaration does about the target rather than what the target says.
 
-A path-addressed target is one whitespace-delimited token, which is why a Swagger operation is written `POST:/members` rather than `POST /members`. The second form still parses, as target `POST` and reason `/members ...`, and that grammar is preserved deliberately because `POST` may be the name of a TypeScript symbol.
+```ts
+// unfalsifiable: true of anything in the same folder
+/** @evidence docs/requirements/discount.md#coupon-stacking Handles coupon stacking. */
 
-Identity is exact. Paths are case-sensitive on every host, Swagger methods canonicalize to uppercase while Swagger paths do not normalize at all, and a Prisma target always carries its `prisma:` prefix so a model named `Sale` cannot compete with a TypeScript type of the same name.
+// checkable: names what a reader can look for and fail to find
+/** @evidence docs/requirements/discount.md#coupon-stacking Renders the per-issuer limit this section defines, in the buyer's words. */
+```
+
+A restated heading passes every check and proves nothing, which is why the first form is worse than no citation: it spends the reviewer's attention and returns a sentence that cannot be wrong.
+
+An exclusion's reason carries more, because it records a decision rather than describing work. Where another population owns the target, name it and the condition that would bring the target back: "Settlement owns coupon combination; reject this exclusion once a screen displays a stacked total."
+
+Where the target simply does not apply, say what makes it inapplicable rather than asserting that it is. A principle about fixing root causes does not reach a component that only renders, and "No failure to fix." is the whole reason, because a reviewer can check it against the declaration in one look.
+
+Nothing scores any of this, and [that is deliberate](/docs/evidence/rules#evidencedocumented). A graded reason becomes a reason written for the grader, and the sentence stops being worth a reviewer's time.
+
+## Targets
+
+```ts
+/** @evidence docs/requirements/pricing.md#sale-price Sale price derives from this section. */
+/** @evidence prisma:Sale.price The stored column this figure is read from. */
+/** @evidence POST:/members Member creation follows this API operation. */
+/** @evidence {@link ISale} The complete sale contract is mirrored here. */
+```
+
+| Kind           | Address                                                     |
+| -------------- | ----------------------------------------------------------- |
+| **Markdown**   | `<path>` for a file, `<path>#<anchor>` for an H1-H4 section |
+| **Prisma**     | `prisma:<Model>`, `prisma:<Model>.<member>`                 |
+| **Swagger**    | `<UPPERCASE_METHOD>:<path>`, such as `GET:/members/{id}`    |
+| **TypeScript** | `{@link QualifiedName}`, resolved through your imports      |
+
+Those are two resolvers, and the token itself says which. A path address resolves against the configured populations, while an inline link resolves through the citing module's imports, so a symbol citation is a real reference rather than a string that happens to spell a name.
+
+The braces are load-bearing rather than decoration. TypeScript resolves a name inside an inline link and counts it as a use, so an import that exists only to support a citation survives `noUnusedLocals`; an unbraced name leaves that import unreferenced and raises `TS6133`. Prefer `import type` for a citation-only import, since it is erased at emit and creates no runtime dependency or cycle.
+
+Keeping the discrimination inside the token is also why a path target must stay one token. `POST /members` cannot be read as a two-token target without reinterpreting a TypeScript target named `POST` whose reason begins with `/members`.
 
 ### Markdown anchors
 
-A heading's anchor is the explicit `{#anchor}` suffix when it has one, and a slug generated from the heading text otherwise. The slug lowercases the title, keeps letters, digits, and underscores, and turns spaces and hyphens into single `-` separators.
+A file target is its path inside the reference root, written with `/` or `\`. A heading target appends its anchor.
 
-```md
-## Coupon Stacking {#coupon-stacking}
-```
+An explicit `{#anchor}` suffix on the heading wins, and it must start with an ASCII letter or digit and may then contain letters, digits, `.`, `_`, `:`, and `-`. Without one, the heading becomes a lowercase slug: letters, numbers, and `_` survive, whitespace and `-` collapse to `-`, and other punctuation is dropped.
 
-Prefer the explicit form on anything a citation points at. A generated anchor changes when someone rewords the heading, and every citation of it breaks at once. An explicit anchor survives the rewording, which is the point of naming it.
+Two selected headings that slug to the same target are ambiguous and need distinct explicit anchors. A source path containing whitespace cannot be addressed at all, so the rule reports it with a rename diagnostic rather than creating an impossible obligation.
 
-## Where a tag lives
+### TypeScript identities
 
-### TypeScript, in JSDoc
+A top-level identity uses its public export name, so `export { Local as Public }` is addressed as `Public`. A namespace member prepends its namespace, as in `Orders.create`. A static class member is `ClassName.member` and an instance member is `ClassName.prototype.member`, which is also how a constructor parameter property is addressed.
 
-```ts
-/**
- * @evidence docs/sales.md#sale-price This DTO exposes the documented price.
- */
-export interface IShoppingSale {
-  price: number;
-}
-```
+Targets deliberately carry no file path. If two selected files expose the same qualified name, a citation of it is ambiguous and the fix is to rename or further qualify the symbol. A re-export creates no second unit in the barrel file.
 
-A JSDoc block is the only place a TypeScript citation is read from, which is why `evidence/documented` exists: an export with no block cannot cite anything, and the obligation silently shifts onto whichever sibling does have one.
+## Where a tag may live
 
-A tag written in a comment the parser attaches to no declaration is reported rather than discarded. A `//` line comment is not documentation to TypeScript, and neither is a block between the braces of a destructuring pattern, because a binding element is given none. Both are one edit away from a block that works, and both used to do nothing without saying so. A tag behind a third or fourth slash is answered the same way, and so is one left behind in code an author commented out. The diagnostic names both repairs, because a citation meant to be kept belongs in a block on a declaration while one left behind belongs nowhere. Text that merely looks like a tag inside a string or template literal is not a comment and is not reported, and neither is a tag in a file no claim or reference glob selects: the rule answers for the population you declared and not for the rest of the program.
+A tag is read only from a comment the parser attached to a declaration. One written anywhere else is reported rather than silently ignored, because a tag that does nothing is the exact failure this plugin exists to remove.
 
-One declaration stacks as many tags as the rules it honors:
-
-```tsx
-/**
- * @evidence docs/sales.md#sale-price Renders the price exactly as the pricing rule defines it.
- * @evidence docs/discount.md#discount-display Shows the discounted price next to the original.
- */
-export function SalePrice({ sale }: { sale: IShoppingSale }) {
-  return <strong>{formatPrice(sale.price)}</strong>;
-}
-```
-
-### Markdown, in an HTML comment
-
-```md
-# Pricing Guide
-
-<!-- @evidence docs/requirements/pricing.md#sale-price Uses the approved sale-price definition. -->
-```
-
-Rendered prose stays clean, so the document a reader sees is unchanged. A file citation sits before the document's first heading; a heading citation sits right below its heading.
-
-A tag written as prose rather than inside a comment is reported rather than discarded, because the tag renders invisibly either way and an author cannot see which one they wrote. A bullet or a quote marker in front of it changes nothing. The tag has to be the first thing on its line once those markers come off, so a sentence that mentions one goes on describing it, and the line has to be prose: anything that renders as code stays silent, whether it is a fence, an indented block, an HTML `<pre>`, or a template literal handed to an MDX component.
-
-A heading citation belongs to the nearest preceding heading, and that heading's exact level has to be selected by the claim. Under `symbol: ["h2"]`, a tag written below an H3 is an H3 declaration rather than a contribution to the H2 above it, so it hosts nothing and is reported.
-
-### Prisma, in a documentation comment
+| Artifact | Host | Not a host |
+| --- | --- | --- |
+| **TypeScript** | A JSDoc block on the declaration | `//` lines, comments inside a binding pattern |
+| **Prisma** | A `///` run or block comment above the declaration | `//` lines, comments above a closing brace |
+| **Markdown** | An HTML comment | Rendered prose |
 
 ```prisma
-/// @evidence docs/requirements/pricing.md#discount-policy Discount columns exist for this policy.
+/// @evidence docs/requirements/pricing.md#sale-price Sale price derives from this section.
 model Sale {
-  /// @evidence docs/requirements/pricing.md#coupon-stacking The stacking limit is stored here.
+  /// @evidence docs/requirements/discount.md#coupon-stacking The stacking limit is stored here.
   coupon_limit Int
 }
 ```
 
-A `/* */` block comment hosts one too. Both forms reach the generated client types, which is Prisma's own rule rather than a choice made here.
-
-A `//` line comment is discarded by Prisma itself and cannot host a citation, so a tag written in one is reported rather than ignored. So is one buried behind an extra slash: `//// @evidence` arrives as content beginning with a slash and opens no tag.
-
-A comment documents whatever declaration immediately follows it. A blank line before a top-level block detaches it, a blank line inside a field's run does not, an intervening `//` line does not break a run, and a comment above a block attribute or a closing brace documents nothing. Each of those placements is reported with the move that fixes it.
-
-## Citing a TypeScript symbol
-
-A TypeScript target is written as an inline link and resolved through the citing module's own imports:
-
-```ts
-import type * as sales from "./contracts/IShoppingSale.js";
-
-/**
- * @evidence {@link sales.IShoppingSale} Renders the price exactly as the contract declares it.
- */
-export function SalePrice(): null {
-  return null;
-}
-```
-
-The braces are load-bearing. TypeScript resolves a name inside an inline link and counts it as a use, so an import that exists only to carry a citation survives `noUnusedLocals`. It does not resolve names inside an unknown tag, so a bare `@evidence sales.IShoppingSale` would leave that import unreferenced and raise `TS6133`.
-
-Use `import type`. It is erased at emit, so a citation creates no runtime dependency and no import cycle. A project also running `@typescript-eslint/no-unused-vars` still sees a false positive there, because that rule does not count JSDoc usage.
-
-```text
-$ npx ttsc check
-error TS16411: [evidence/graph] Unimported evidence target '{@link contracts.ISale}' at src/ui/SalePrice.ts:2
-  for Claim 1 across reference 1 (typescript, symbols: type): 'contracts' is not imported by this module,
-  so the citation names a symbol this file does not reference. Import it; 'import type' is enough and is
-  erased at emit.
-```
-
-Resolving through the module's own imports also removes an ambiguity that has no fix. A generated SDK puts the same leaf name in many modules, so `get` alone names several symbols. Resolved from one file's bindings, `{@link api.functional.questions.get}` names exactly one.
-
-**Only a TypeScript claim may cite TypeScript evidence.** Any other artifact would have to match a bare name against every exported symbol in the repository, so two modules exporting `IPage` would make the citation impossible and the only repair would be renaming your code. Configure the obligation the other way round and let the code cite the document, the schema, or the operation.
-
-## Stacking and overlap
-
-- The same unit may be cited by several declarations. One requirement can need several implementations.
-- Parent and child evidence scopes may overlap. A narrow target documents a narrow implementation; a parent target deliberately accepts responsibility for the whole selected subtree.
-- Repeating the same resolved scope on one declaration is rejected. Keep the truthful reason, or fold the useful detail into it.
-- A citation may sit on any declaration of a merged identity. Placement changes neither resolution nor coverage.
-
-`uniqueEvidence` and `singleEvidencePerSymbol` on a reference tighten the first two rules where an obligation needs an owner, and `checklist` on a Markdown reference reverses the second one for the positive tag: a parent target answers itself alone and stops accepting responsibility for the subtree. `@evidenceExclude` keeps the subtree there. [Reference policies](/docs/evidence/claims#reference-policies) covers all three.
-
-## Exclusions
-
-`@evidenceExclude <target> <reason>` records that a claim intentionally does not use the target scope.
-
 ```md
-## Editorial Terminology
-
-<!-- @evidenceExclude docs/requirements/coupons.md#coupon-stacking This section defines wording and intentionally does not implement coupon behavior. -->
+<!-- @evidence docs/ideas/discount.md#discount-policy Carries over the per-issuer limit recorded in the idea notes. -->
 ```
 
-It follows the same hierarchy as `@evidence`, so excluding an H2 also excludes its selected H3 and H4 descendants, and excluding a type or namespace excludes its selected children.
+Markdown uses an HTML comment so the citation renders invisibly and the document a reader sees stays clean. The tag must be the first content on its line, though a bullet or quote marker in front of it is read through, so a sentence merely mentioning a tag goes on describing it. Anything that renders as code stays silent, which is what lets this page print tags in fenced blocks without answering for them.
 
-Three properties decide whether an exclusion is worth anything.
-
-- **The reason is mandatory.** "Not applicable", "internal only", and "later" are conclusions, not reasons. Name the actual owner or the observable alternative, and name the condition that would make this exclusion wrong.
-- **It belongs to one claim.** Another claim referencing the same source still owes its own acknowledgement, and a reference declaring `noEvidenceExclude` refuses it outright.
-- **It must not overlap.** One claim-reference obligation may exclude a selected scope only once, even across different carriers, because the reason needs one reviewable owner. An evidence scope and an exclusion scope covering the same unit are rejected as contradictory intent. Under a `checklist` reference the obligation carries the host as well, so two hosts excluding one item, and one host citing an item another host excludes, are the expected state rather than an overlap.
-
-### Where an exclusion may sit
-
-Carrier eligibility is wider than ownership evidence and no wider than the claim's file population.
-
-- A TypeScript exclusion may sit on any supported public export in a claim file, even when that export's symbol kind is not selected by the claim. Unexported declarations, unsupported locations, and files outside the population do not qualify.
-- A Prisma exclusion may sit on a selected model or field, or in an unattached top-level `///` run in a matching claim file. That permits a lint-only `.schema` ledger outside the Prisma generation glob, which adds no model to the schema. The same unattached position never accepts `@evidence`, because ownership evidence belongs directly above the declaration that carries it.
-- A Markdown exclusion keeps the selected-symbol behavior of ownership evidence: it sits on a host kind the claim selects. Swagger hosts neither tag, because it never makes a claim in the first place.
-- Under a [`checklist`](/docs/evidence/claims#checklist-documents) reference that width stops paying. Every acknowledgement there is one host's own answer, so an exclusion on an eligible carrier that is not a selected host answers no item and is reported where it sits once no other obligation consumes it. `evidenceExcludeCarriers` is refused beside the option for the same reason.
-
-`evidenceExcludeCarriers` on the claim narrows this further to named ledger files. The benchmark template uses one per claim, so a reviewer opens `CONTROLLER_EVIDENCE_EXCLUDE.ts` instead of reading every controller:
-
-```ts filename="src/controllers/CONTROLLER_EVIDENCE_EXCLUDE.ts"
-/**
- * Central exclusions for API-operation evidence claims.
- *
- * Keep real ownership evidence on the controller method that implements it.
- * Add only reviewed non-applicability decisions here.
- *
- * @evidenceExclude docs/analysis/example.md#section Frontend owns this presentation-only requirement; reject this exclusion if the API gains a related response or refusal.
- */
-export const CONTROLLER_EVIDENCE_EXCLUDE = true;
-```
-
-Never auto-exclude, auto-retarget, or delete an artifact to make a graph green. Every diagnostic names the repair, and the repair belongs to the author.
-
-## Reviews
-
-A review answers a different question from the reason beside it. The reason says why this declaration answers for a target; the review says what was checked. Only the first is written unless something asks for the second, which is what [`evidence/review`](/docs/evidence/rules) does.
-
-There are two review tags because there are two acknowledgements, and neither answers the other. `@evidenceReview` verifies a citation: the code does what the cited unit describes. `@evidenceExcludeReview` verifies an exclusion: the unit genuinely does not apply here, which no reading of the code establishes. One tag for both would let the easier check discharge the harder one.
-
-```ts
-/**
- * @evidence docs/discount.md#coupon-stacking <reason>
- * @evidenceReview docs/discount.md#coupon-stacking <what you checked>
- * @evidenceExclude docs/discount.md#tax <reason>
- * @evidenceExcludeReview docs/discount.md#tax <what you checked>
- */
-```
-
-The target is spelled exactly as the acknowledgement spells it, including the inline-link form, and it is compared as a token rather than resolved a second time. The pairing key is the tag together with the target, so one host may both cite and exclude one target and then owes two reviews. A review is not an acknowledgement: it discharges no coverage and changes no `evidence/graph` diagnostic.
-
-The `#`-prefixed token is a fingerprint of the cited content, optional in the grammar and required by a reference declaring [`requireReview`](/docs/evidence/claims). It is what makes a review expire: when the cited section, operation, model, or symbol changes, the fingerprint stops matching and the build fails again with the new value stated in the diagnostic. Without it a review is written once and stays green forever, which is the same as never having asked.
-
-The `#` is required rather than inferred, the way a braced code target's braces are. A bare fixed-width hex token would have to be guessed at, and ordinary prose supplies the counter-examples.
+Prisma follows Prisma's own rule that a comment documents the declaration immediately below it. A blank line before a top-level block detaches the comment, and a comment above a block attribute or a closing brace documents nothing. One exception exists on the exclusion side: an unattached top-level `/// @evidenceExclude` run is a file-level carrier, which supports a lint-only `.schema` ledger outside Prisma generation.
 
 ## Editor completions
 
-While `evidence/graph` reports nothing, it publishes its configured targets as completion items in `ttscserver`, so typing `@evidence docs/spec.md#` offers the anchors that actually exist. The host publishes a rule's corpus only on the cycles where that rule passes, so a broken graph never suggests targets from a stale index.
+`evidence/graph` publishes the configured targets as editor completions through `ttscserver`, so a citation can be picked from the real address list instead of typed from memory.
 
-At the `@evidenceExclude` trigger, a target selected only by references that refuse exclusions is omitted. A target any enabled reference still allows stays on offer, because the completion API has no cursor-specific claim context to narrow it further.
+The host withholds a rule's completions on any cycle where that rule reports something, which is deliberate rather than a limitation: a target list computed from a graph that failed to load would suggest addresses that do not exist. Clear the diagnostics and the completions come back.
 
-## What a violation looks like
+## Scope
 
-```md filename="docs/discount.md"
-## Coupon Stacking {#coupon-stacking}
+Units contain other units. A Markdown file contains its outline and a heading contains the lower headings until the next one of equal or higher level. A Prisma model contains its columns and relations. An interface or object-shaped type alias contains its members, a class contains its selected members, and a namespace contains everything public nested below it.
 
-At most one seller coupon and one platform coupon may combine on a single order.
+An `@evidence` target acknowledges the unit it names and every selected descendant, and `@evidenceExclude` does the same unless its reference refuses exclusions. That is what lets one citation of an H2 answer for the H3s beneath it when the whole section is what the declaration implements.
+
+The reference's `symbol` selector defines the denominator, not the set of addressable targets. Every structural ancestor of a selected unit stays resolvable as an aggregate scope even when its own kind is not selected.
+
+A [`checklist`](/docs/evidence/claims#checklists) reference is the one place this cascade is cut back, because the whole point of a checklist is that each item was answered on purpose.
+
+## Withdrawing a declaration
+
+A declaration whose documentation carries `@internal`, `@hidden`, or `@ignore` materializes no unit, and neither does anything nested inside it. The three are equivalent statements that the declaration is not API, and the graph honors the decision the source already made.
+
+Withdrawal applies to both sides. A withdrawn declaration is neither a selected reference unit nor a selected claim host, and it cannot serve as an exclusion carrier either. TypeScript JSDoc and Prisma `///` comments behave identically, and a withdrawn Prisma model takes its columns and relations with it.
+
+The tag has to open its own line, so prose that mentions one is describing it rather than declaring it. A citation naming a withdrawn declaration is answered with the tag as the cause, rather than as an unresolved target that would send you hunting for a typo that is not there.
+
+Note that `stripInternal` deletes a withdrawn declaration from emitted declaration files. Writing one of these tags inside a published doc comment removes the API it documents from what consumers see.
+
+## Reviews and fingerprints
+
+```ts
+/**
+ * @evidence docs/requirements/discount.md#coupon-stacking States the per-issuer limit.
+ * @evidenceReview docs/requirements/discount.md#coupon-stacking #a1b2c3d Verified against policy section 3.
+ * @evidenceExclude docs/principles.md#fix-root-causes-not-symptoms No failure to fix.
+ * @evidenceExcludeReview docs/principles.md#fix-root-causes-not-symptoms #f0e1d2c Confirmed the component only renders.
+ */
+export function CouponStackingNotice(props: IProps): JSX.Element;
 ```
 
-```text
-$ npx ttsc check
-error TS16411: [evidence/graph] Missing acknowledgement for 'docs/discount.md#coupon-stacking'
-  (Markdown H2 'Coupon Stacking' at docs/discount.md:3)
-  in Claim 1 reference 1 (markdown, symbols: h2, h3).
+A review matches the same declaration and the same target as the acknowledgement it annotates, and the two kinds pair separately: the citation above is answered by `@evidenceReview`, the exclusion beneath it by `@evidenceExcludeReview`. A review filed against a target nothing on that declaration cites is its own finding, because the author did the work and an orphan message would send them looking for a typo instead.
 
-  Cite the artifact that answers for this unit with @evidence on a selected
-  typescript host, building that artifact first when none does, or write
-  @evidenceExclude on an eligible carrier when nothing here owes it. Never
-  leave an untrue tag standing just to pass this check; it removes the error,
-  not the problem.
+The `#`-prefixed fingerprint is seven lowercase hex characters, optional in the grammar and required by a reference that declares `requireReview`. It digests the cited scope's content, so editing that content expires the review and the diagnostic hands you the value that replaces it. Write the new one only after re-reading what moved; copying it from the diagnostic is how a review becomes a formality.
 
-Found 1 error.
-```
+The `#` is doing the same work the braces do around an inline link. The token discriminates itself rather than being guessed at, which matters because a requirement anchor such as `#req-search-policies` opens a description in exactly that shape.
 
-The section exists in the spec and no component cites it, so the build fails. The diagnostic names the exact section, the obligation that owes it, and both repairs.
+What a review proves is narrow and worth stating plainly. It proves that a separately addressed statement exists and was written against the cited content as it now stands. It does not prove anyone read that content, and no rule judges whether the prose is sincere.
 
-Match on `[evidence/graph]` rather than on `TS16411`. A contributor rule's numeric code is assigned deterministically from the complete set of loaded contributors, so changing that set can renumber it.
+## When a tag is wrong
 
-## Next
+A tag is data the compiler reads, so every way of getting one wrong has its own diagnostic rather than silence. A target that resolves nowhere, a tag with no reason, a review naming a target its declaration never cites, an exclusion written outside the declared carriers, and a tag sitting where nothing can attach it are each reported where they sit.
 
-→ [Rules](/docs/evidence/rules) for the five rules that read these tags, or [Examples](/docs/evidence/examples) for complete graphs built from them.
+[Troubleshooting](/docs/evidence/troubleshooting) groups those messages by cause and prints the repair each one names.
+
+## What the tags cannot do
+
+A citation cannot cross from another artifact kind into TypeScript evidence, because an inline link needs the citing module's import scope. Documentation therefore cannot cite code, and the inverse obligation is a different one rather than a substitute.
+
+A tag also cannot make a false statement true. It removes the error, not the problem, which is why [`evidence/review`](/docs/evidence/rules) exists and why [the overview](/docs/evidence) draws the line where it does: the compiler catches omissions, and review catches falsehoods.
