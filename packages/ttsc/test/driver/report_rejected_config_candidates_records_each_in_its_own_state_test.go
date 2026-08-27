@@ -34,8 +34,8 @@ func TestReportRejectedConfigCandidatesRecordsEachInItsOwnState(t *testing.T) {
     func(file string, realpath *string) { realpaths[file] = realpath },
   )
 
-  if len(hashes) != 3 || len(realpaths) != 3 {
-    t.Fatalf("expected both halves for every candidate, got %v and %v", hashes, realpaths)
+  if len(hashes) != 3 || len(realpaths) != 2 {
+    t.Fatalf("expected every hash and only proven realpaths, got %v and %v", hashes, realpaths)
   }
   if hashes[absent] != nil || realpaths[absent] != nil {
     t.Fatalf("an absent candidate must be reported as absent, got %v and %v", hashes[absent], realpaths[absent])
@@ -53,9 +53,10 @@ func TestReportRejectedConfigCandidatesRecordsEachInItsOwnState(t *testing.T) {
   if *hashes[directory] == "" {
     t.Fatalf("expected the directory-kind digest, got an empty hash")
   }
-  if hashes[disappearedDirectory] == nil || realpaths[disappearedDirectory] != nil {
+  _, hasDisappearedRealpath := realpaths[disappearedDirectory]
+  if hashes[disappearedDirectory] == nil || hasDisappearedRealpath {
     t.Fatalf(
-      "a vanished directory must keep its observed kind without fabricated physical proof, got %v and %v",
+      "a vanished directory must keep its observed kind without any fabricated physical proof, got %v and %v",
       hashes[disappearedDirectory],
       realpaths[disappearedDirectory],
     )

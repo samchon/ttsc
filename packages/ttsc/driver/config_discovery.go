@@ -120,7 +120,10 @@ func ReportRejectedConfigCandidates(candidates []ConfigCandidate, hashReporter, 
     if hashReporter != nil {
       hashReporter(candidate.Path, hash)
     }
-    if realpathReporter != nil {
+    // A nil report is the explicit observed-missing state, not an unknown
+    // proof. Only absent candidates may publish it; a directory whose physical
+    // identity could not be resolved must leave the realpath observation out.
+    if realpathReporter != nil && (!candidate.Directory || realpath != nil) {
       realpathReporter(candidate.Path, realpath)
     }
   }
