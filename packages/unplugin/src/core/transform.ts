@@ -69,6 +69,8 @@ interface TtscProjectWalkFailure {
 interface TtscProjectMutationTracker {
   /** Absolute paths named by generation-time mutation events. */
   changes: Set<string>;
+  /** Whether additional event paths were discarded after the witness bound. */
+  changesOmitted: boolean;
   close: () => void;
   /**
    * Absolute spellings whose creation, change or removal this tracker would
@@ -114,14 +116,56 @@ interface TtscGenerationProofFailures {
   seen: Set<string>;
 }
 
+/** Filesystem state that may authorize replacing one terminal failed generation. */
+interface TtscFailedGenerationValidation {
+  /** Last attempted generation, retained only as a comparison baseline. */
+  cached: TtscCachedProjectTransform;
+  /** Input keys whose content can affect the generation, or the whole walk. */
+  declaredInputs: ReadonlySet<string> | undefined;
+  /** Fingerprints of every out-of-walk and exact host input. */
+  inputStates: ReadonlyMap<string, string>;
+  /** Coherence and exact failure state of the final project walk. */
+  projectWalkComplete: boolean;
+  projectWalkFailures: string;
+}
+
+/** A bounded proof failure that stays authoritative until its inputs change. */
+class TtscUnstableGenerationError extends Error {
+  public readonly validation: TtscFailedGenerationValidation;
+
+  public constructor(
+    message: string,
+    validation: TtscFailedGenerationValidation,
+  ) {
+    super(message);
+    this.name = "TtscUnstableGenerationError";
+    this.validation = validation;
+  }
+}
+
 /** Proof witnesses retained beside a compiler result without extending its API. */
 const TRANSFORM_GENERATION_FAILURES = new WeakMap<
   ITtscCompilerTransformation,
   TtscGenerationProofFailures
 >();
 
+/** Retry baselines retained only for attempts that could not be published. */
+const TRANSFORM_FAILED_GENERATION_VALIDATIONS = new WeakMap<
+  ITtscCompilerTransformation,
+  TtscFailedGenerationValidation
+>();
+
+/** Rejected cache promises whose unchanged terminal verdict may be replayed. */
+const TERMINAL_TRANSFORM_GENERATIONS = new WeakMap<
+  Promise<TtscCachedProjectTransform>,
+  TtscUnstableGenerationError
+>();
+
 /** Maximum witnesses printed and retained for each failed transform attempt. */
 const MAX_GENERATION_PROOF_FAILURES = 8;
+
+/** Maximum exact mutation paths kept after a tracker already proved a change. */
+const MAX_GENERATION_MUTATION_PATHS = 8;
 
 /** One retry absorbs a transient watch write without admitting an infinite loop. */
 const TRANSFORM_GENERATION_ATTEMPTS = 2;
@@ -532,8 +576,29 @@ export async function transformTtsc(
   for (;;) {
     let transformed = cache?.get(key);
     if (transformed !== undefined) {
-      // A rejected in-flight generation must not stay cached: evict it (only if
-      // it is still the current entry) so a later call re-runs the transform.
+      const terminal = TERMINAL_TRANSFORM_GENERATIONS.get(transformed);
+      if (terminal !== undefined) {
+        // A proof failure is a verdict about one observed environment, not an
+        // invitation for every later module to repeat the whole compile. Keep
+        // replaying it until a source/input probe or an explicit cache reset
+        // establishes that a new generation could differ.
+        if (
+          !failedGenerationEnvironmentChanged(terminal.validation, {
+            currentFile: file,
+            currentSource: source,
+            filesystem,
+          })
+        ) {
+          throw terminal;
+        }
+        evictGeneration(cache, key, transformed);
+        if (cache?.get(key) !== undefined) {
+          continue;
+        }
+        transformed = undefined;
+      }
+    }
+    if (transformed !== undefined) {
       const cached = await awaitOrEvict(cache, key, transformed);
       TRANSFORM_RESULT_FILESYSTEM.set(cached.result, filesystem);
       // While this caller awaited the old Promise, another caller may have
@@ -619,13 +684,15 @@ export async function transformTtsc(
 }
 
 /**
- * Await a cached generation, evicting it on rejection.
+ * Await a cached generation, retaining only terminal proof failures.
  *
  * The cache stores the in-flight transform Promise before it settles so
- * concurrent callers share one compilation. A rejected generation must not
- * remain the authoritative cached result, or a transient toolchain/host failure
- * becomes permanent for a long-lived worker. Eviction is identity-guarded so a
- * newer generation another caller installed under the same key survives.
+ * concurrent callers share one compilation. Ordinary compiler and host
+ * rejections are evicted so a transient failure cannot become permanent. A
+ * bounded stabilization failure is different: it already spent its retry and
+ * repeating it for every later module recreates the issue this gate prevents.
+ * It stays authoritative until its retained input baseline changes or the cache
+ * owner starts a new lifecycle.
  */
 async function awaitOrEvict(
   cache: TtscTransformCache | undefined,
@@ -635,7 +702,14 @@ async function awaitOrEvict(
   try {
     return await generation;
   } catch (error) {
-    evictGeneration(cache, key, generation);
+    if (
+      error instanceof TtscUnstableGenerationError &&
+      cache?.get(key) === generation
+    ) {
+      TERMINAL_TRANSFORM_GENERATIONS.set(generation, error);
+    } else {
+      evictGeneration(cache, key, generation);
+    }
     throw error;
   }
 }
@@ -3053,6 +3127,7 @@ async function createProjectMutationTracker(
 ): Promise<TtscProjectMutationTracker> {
   const tracker: TtscProjectMutationTracker = {
     changes: new Set(),
+    changesOmitted: false,
     close: () => undefined,
     failed: false,
     membershipChanged: false,
@@ -3079,8 +3154,8 @@ async function createProjectMutationTracker(
           directory.path,
           (eventType, filename) => {
             if (eventType === "rename") {
-              tracker.membershipChanged = true;
-              tracker.changes.add(
+              recordProjectMutation(
+                tracker,
                 filename === null
                   ? directory.path
                   : path.join(directory.path, filename),
@@ -3138,6 +3213,7 @@ async function createHostInputMutationTracker(
   }));
   const tracker: TtscProjectMutationTracker = {
     changes: new Set(),
+    changesOmitted: false,
     close: () => undefined,
     // Coverage is the caller's claim, and it is required rather than derived
     // from the input list: an input is watched by its exact name here, but only
@@ -3180,8 +3256,8 @@ async function createHostInputMutationTracker(
                 ? null
                 : normalizeHostInputName(filename, caseSensitive);
             if (reported === null || names.has(reported)) {
-              tracker.membershipChanged = true;
-              tracker.changes.add(
+              recordProjectMutation(
+                tracker,
                 filename === null
                   ? location.directory
                   : path.join(location.directory, filename),
@@ -3198,6 +3274,20 @@ async function createHostInputMutationTracker(
     }
   }
   return tracker;
+}
+
+/** Record enough exact mutation evidence without retaining an event stream. */
+function recordProjectMutation(
+  tracker: TtscProjectMutationTracker,
+  changed: string,
+): void {
+  tracker.membershipChanged = true;
+  if (tracker.changes.has(changed)) return;
+  if (tracker.changes.size < MAX_GENERATION_MUTATION_PATHS) {
+    tracker.changes.add(changed);
+  } else {
+    tracker.changesOmitted = true;
+  }
 }
 
 interface WindowsProjectMutationBroker {
@@ -3353,13 +3443,15 @@ function getWindowsProjectMutationBroker(): WindowsProjectMutationBroker {
     if (record.failed === true) registration.tracker.failed = true;
     if (record.ready === true) registration.ready();
     if (record.ready !== true && record.failed !== true) {
-      registration.tracker.membershipChanged = true;
       if (typeof record.directory === "string") {
-        registration.tracker.changes.add(
+        recordProjectMutation(
+          registration.tracker,
           typeof record.filename === "string"
             ? path.join(record.directory, record.filename)
             : record.directory,
         );
+      } else {
+        registration.tracker.membershipChanged = true;
       }
     }
   });
@@ -4164,6 +4256,12 @@ function recordProjectSnapshotFailures(
         path: changed,
       });
     }
+    if (tracker.changesOmitted) {
+      failures.omitted = Math.min(
+        Number.MAX_SAFE_INTEGER,
+        failures.omitted + 1,
+      );
+    }
   };
   recordTracker(props.tracker, "project-membership-event");
   recordTracker(props.hostInputTracker, "host-input-event");
@@ -4259,11 +4357,13 @@ function recordGenerationProofFailure(
     failure.detail,
   ]);
   if (failures.seen.has(key)) return;
-  failures.seen.add(key);
   if (failures.entries.length < MAX_GENERATION_PROOF_FAILURES) {
+    // `seen` follows the same bound as `entries`: retaining every discarded
+    // identity would make a bounded diagnostic an unbounded memory sink.
+    failures.seen.add(key);
     failures.entries.push(failure);
   } else {
-    failures.omitted += 1;
+    failures.omitted = Math.min(Number.MAX_SAFE_INTEGER, failures.omitted + 1);
   }
 }
 
@@ -4275,7 +4375,152 @@ function mergeGenerationProofFailures(
   for (const failure of source.entries) {
     recordGenerationProofFailure(target, failure);
   }
-  target.omitted += source.omitted;
+  target.omitted = Math.min(
+    Number.MAX_SAFE_INTEGER,
+    target.omitted + source.omitted,
+  );
+}
+
+/** Hash the exact failure shape of one project walk without retaining it. */
+function projectWalkFailureFingerprint(snapshot: {
+  complete: boolean;
+  directoryComplete: boolean;
+  unstableFiles: ReadonlySet<string>;
+  walkFailures: readonly TtscProjectWalkFailure[];
+}): string {
+  return hashText(
+    JSON.stringify({
+      complete: snapshot.complete,
+      directoryComplete: snapshot.directoryComplete,
+      failures: snapshot.walkFailures
+        .map((failure) => `${failure.kind}\0${path.resolve(failure.path)}`)
+        .sort(),
+      unstableFiles: [...snapshot.unstableFiles].sort(),
+    }),
+  );
+}
+
+/** Compact state of one exact out-of-walk input in a failed generation. */
+function failedGenerationInputState(
+  input: string,
+  filesystem: TtscTransformFilesystemOperations,
+): string {
+  let directory = "not-directory";
+  try {
+    if (filesystem.stat(input).isDirectory()) {
+      directory = hashText(
+        filesystem
+          .readdir(input)
+          .map((entry) =>
+            [
+              entry.name,
+              entry.isDirectory(),
+              entry.isFile(),
+              entry.isSymbolicLink(),
+            ].join(":"),
+          )
+          .sort()
+          .join("\0"),
+      );
+    }
+  } catch {
+    directory = "unavailable";
+  }
+  return hashText(
+    JSON.stringify([
+      inputMetadataSignature(input, filesystem) ?? "missing",
+      hostInputStateHash(input, filesystem) ?? MISSING_INPUT_STATE,
+      hostInputRealpath(input, filesystem),
+      directory,
+    ]),
+  );
+}
+
+/** Snapshot every input outside the project walk that could change a retry. */
+function captureFailedGenerationInputStates(
+  cached: TtscCachedProjectTransform,
+  failures: TtscGenerationProofFailures,
+): ReadonlyMap<string, string> {
+  const filesystem = resultFilesystem(cached.result);
+  const inputs = new Set(
+    (cached.externalInputPaths ?? []).map((input) => path.resolve(input)),
+  );
+  for (const input of selectPersistentHostInputs({
+    filesystem,
+    projectRoot: cached.projectRoot,
+    result: cached.result,
+    temporaryTsconfig: cached.temporaryTsconfig,
+  })) {
+    inputs.add(path.resolve(input));
+  }
+  for (const failure of failures.entries) {
+    if (failure.path !== undefined) inputs.add(path.resolve(failure.path));
+  }
+  return new Map(
+    [...inputs]
+      .sort()
+      .map((input) => [input, failedGenerationInputState(input, filesystem)]),
+  );
+}
+
+/**
+ * Whether a terminal proof failure's observed environment actually changed.
+ *
+ * This is deliberately a confirmation test: inability to re-probe retains the
+ * old verdict instead of turning every module request into another compile.
+ * Cache lifecycle reset remains the unconditional recovery boundary.
+ */
+function failedGenerationEnvironmentChanged(
+  validation: TtscFailedGenerationValidation,
+  props: {
+    currentFile: string;
+    currentSource: string;
+    filesystem: TtscTransformFilesystemOperations;
+  },
+): boolean {
+  try {
+    const identities = envelopeDerivation(validation.cached).identityContext;
+    const currentFileKey = toProjectKey(
+      validation.cached.projectRoot,
+      props.currentFile,
+      identities,
+    );
+    const currentSourceHash = hashText(props.currentSource);
+    if (validation.cached.inputHashes[currentFileKey] !== currentSourceHash) {
+      return true;
+    }
+    const current = collectProjectInputSnapshot(
+      validation.cached.projectRoot,
+      identities,
+      props.filesystem,
+    );
+    current.hashes[currentFileKey] = currentSourceHash;
+    if (
+      validation.projectWalkComplete !==
+        walkSnapshotComplete(current, validation.declaredInputs) ||
+      validation.projectWalkFailures !==
+        projectWalkFailureFingerprint(current) ||
+      !sameHashes(
+        validation.cached.inputHashes,
+        current.hashes,
+        validation.declaredInputs,
+      ) ||
+      !sameProjectDirectories(
+        validation.cached.projectDirectories ?? [],
+        current.projectDirectories,
+      )
+    ) {
+      return true;
+    }
+    for (const [input, recorded] of validation.inputStates) {
+      if (failedGenerationInputState(input, props.filesystem) !== recorded) {
+        return true;
+      }
+    }
+    return false;
+  } catch {
+    return false;
+  }
 }
 
 /** Render one input without leaking source content or control characters. */
@@ -4300,7 +4545,8 @@ function formatGenerationFailurePath(
 function createUnstableGenerationError(
   projectRoot: string,
   attempts: readonly TtscGenerationProofFailures[],
-): Error {
+  validation: TtscFailedGenerationValidation,
+): TtscUnstableGenerationError {
   const lines = [
     `ttsc: could not capture a reusable transform generation after ${attempts.length} attempts.`,
     `  project: ${projectRoot}`,
@@ -4330,7 +4576,7 @@ function createUnstableGenerationError(
   lines.push(
     "  Stop writes to the listed inputs before compilation, or fix the producer that omitted or contradicted the listed proof.",
   );
-  return new Error(lines.join("\n"));
+  return new TtscUnstableGenerationError(lines.join("\n"), validation);
 }
 
 function hashText(input: string | Buffer): string {
@@ -4361,9 +4607,25 @@ async function transformProject(props: {
       TRANSFORM_GENERATION_FAILURES.get(cached.result) ??
         createGenerationProofFailures(),
     );
+    if (attempt + 1 === TRANSFORM_GENERATION_ATTEMPTS) {
+      const validation = TRANSFORM_FAILED_GENERATION_VALIDATIONS.get(
+        cached.result,
+      );
+      if (validation === undefined) {
+        disposeCachedTransform(cached);
+        throw new Error(
+          "ttsc: failed transform generation has no retry validation baseline",
+        );
+      }
+      throw createUnstableGenerationError(
+        path.dirname(props.tsconfig),
+        attempts,
+        validation,
+      );
+    }
     disposeCachedTransform(cached);
   }
-  throw createUnstableGenerationError(path.dirname(props.tsconfig), attempts);
+  throw new Error("ttsc: transform generation retry loop did not terminate");
 }
 
 /** Capture one whole-project transform attempt and all of its reuse proofs. */
@@ -4586,6 +4848,16 @@ async function captureTransformGeneration(props: {
       universalInputs;
     if (!stableProjectSnapshot) {
       TRANSFORM_GENERATION_FAILURES.set(result, failures);
+      TRANSFORM_FAILED_GENERATION_VALIDATIONS.set(result, {
+        cached,
+        declaredInputs,
+        inputStates: captureFailedGenerationInputStates(cached, failures),
+        projectWalkComplete: walkSnapshotComplete(
+          inputSnapshot,
+          declaredInputs,
+        ),
+        projectWalkFailures: projectWalkFailureFingerprint(inputSnapshot),
+      });
     }
     cached.projectSnapshotComplete = stableProjectSnapshot;
     // Attach notifications only while they can actually prove membership. A
