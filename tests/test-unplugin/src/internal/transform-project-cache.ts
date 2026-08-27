@@ -870,7 +870,10 @@ async function assertNotifiedAbsentCandidateIsNotReprobed(): Promise<void> {
  * 2. Request all modules concurrently through one persistent cache.
  * 3. Assert two attempts, one shared terminal error, bounded witnesses, and the
  *    exact producer path.
- * 4. Request later waves and prove they replay that verdict without compiling.
+ * 4. Request later waves with the first module's in-memory overlay intact and
+ *    prove they replay that verdict without compiling.
+ * 5. Prove a real disk edit and an explicit lifecycle reset each authorize one
+ *    new bounded wave.
  */
 async function assertUnprovenRealizedInputFailsAfterBoundedAttempts(): Promise<void> {
   const {
@@ -886,15 +889,16 @@ async function assertUnprovenRealizedInputFailsAfterBoundedAttempts(): Promise<v
   });
   const cache = createTtscTransformCache();
   const options = resolveOptions();
+  const modules = projectModules(project.root);
+  const sources = new Map(
+    modules.map((file, index) => [
+      file,
+      `${fs.readFileSync(file, "utf8")}${index === 0 ? "// in-memory overlay\n" : ""}`,
+    ]),
+  );
   const settled = await Promise.allSettled(
-    projectModules(project.root).map((file) =>
-      transformTtsc(
-        file,
-        fs.readFileSync(file, "utf8"),
-        options,
-        undefined,
-        cache,
-      ),
+    modules.map((file) =>
+      transformTtsc(file, sources.get(file)!, options, undefined, cache),
     ),
   );
   const failures = settled.map((entry) => {
@@ -920,16 +924,9 @@ async function assertUnprovenRealizedInputFailsAfterBoundedAttempts(): Promise<v
     1,
     "the terminal failed generation must remain authoritative",
   );
-  for (const file of projectModules(project.root)) {
+  for (const file of modules) {
     await assert.rejects(
-      () =>
-        transformTtsc(
-          file,
-          fs.readFileSync(file, "utf8"),
-          options,
-          undefined,
-          cache,
-        ),
+      () => transformTtsc(file, sources.get(file)!, options, undefined, cache),
       (error: Error) => error === failures[0],
     );
   }
@@ -939,21 +936,38 @@ async function assertUnprovenRealizedInputFailsAfterBoundedAttempts(): Promise<v
     "later request waves must reuse the verdict until an input changes",
   );
 
-  resetTtscTransformCache(cache);
+  const edited = modules[1]!;
+  const editedSource = `${sources.get(edited)!}// disk edit\n`;
+  fs.writeFileSync(edited, editedSource, "utf8");
+  let editedFailure: Error | undefined;
   await assert.rejects(
-    () =>
-      transformTtsc(
-        projectModules(project.root)[0]!,
-        fs.readFileSync(projectModules(project.root)[0]!, "utf8"),
-        options,
-        undefined,
-        cache,
-      ),
-    (error: Error) => error !== failures[0],
+    () => transformTtsc(edited, editedSource, options, undefined, cache),
+    (error: Error) => {
+      editedFailure = error;
+      return error !== failures[0];
+    },
   );
   assert.equal(
     fs.readFileSync(project.runLog, "utf8").length,
     4,
+    "a real input edit must authorize one new bounded wave",
+  );
+
+  resetTtscTransformCache(cache);
+  await assert.rejects(
+    () =>
+      transformTtsc(
+        modules[0]!,
+        sources.get(modules[0]!)!,
+        options,
+        undefined,
+        cache,
+      ),
+    (error: Error) => error !== editedFailure,
+  );
+  assert.equal(
+    fs.readFileSync(project.runLog, "utf8").length,
+    6,
     "an explicit cache lifecycle reset must authorize one new bounded wave",
   );
 }

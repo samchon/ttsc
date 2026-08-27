@@ -122,8 +122,14 @@ interface TtscFailedGenerationValidation {
   cached: TtscCachedProjectTransform;
   /** Input keys whose content can affect the generation, or the whole walk. */
   declaredInputs: ReadonlySet<string> | undefined;
+  /** Project key whose bundler-supplied source overlaid the disk snapshot. */
+  initialFileKey: string;
+  /** Bundler-supplied source hash used by the failed compiler attempt. */
+  initialSourceHash: string;
   /** Fingerprints of every out-of-walk and exact host input. */
   inputStates: ReadonlyMap<string, string>;
+  /** Unmodified on-disk project hashes before the in-memory source overlay. */
+  projectInputHashes: Readonly<Record<string, string>>;
   /** Coherence and exact failure state of the final project walk. */
   projectWalkComplete: boolean;
   projectWalkFailures: string;
@@ -4486,7 +4492,11 @@ function failedGenerationEnvironmentChanged(
       identities,
     );
     const currentSourceHash = hashText(props.currentSource);
-    if (validation.cached.inputHashes[currentFileKey] !== currentSourceHash) {
+    const expectedSourceHash =
+      currentFileKey === validation.initialFileKey
+        ? validation.initialSourceHash
+        : validation.projectInputHashes[currentFileKey];
+    if (expectedSourceHash !== currentSourceHash) {
       return true;
     }
     const current = collectProjectInputSnapshot(
@@ -4494,14 +4504,13 @@ function failedGenerationEnvironmentChanged(
       identities,
       props.filesystem,
     );
-    current.hashes[currentFileKey] = currentSourceHash;
     if (
       validation.projectWalkComplete !==
         walkSnapshotComplete(current, validation.declaredInputs) ||
       validation.projectWalkFailures !==
         projectWalkFailureFingerprint(current) ||
       !sameHashes(
-        validation.cached.inputHashes,
+        validation.projectInputHashes,
         current.hashes,
         validation.declaredInputs,
       ) ||
@@ -4783,7 +4792,9 @@ async function captureTransformGeneration(props: {
       props.currentFile,
       identities,
     );
-    inputSnapshot.hashes[currentFileKey] = hashText(props.currentSource);
+    const currentSourceHash = hashText(props.currentSource);
+    const projectInputHashes = { ...inputSnapshot.hashes };
+    inputSnapshot.hashes[currentFileKey] = currentSourceHash;
     // That overlay makes this one key the only recorded hash a disk signature
     // cannot stand for: the bytes it names came from the bundler, not the file.
     delete inputSnapshot.provenSignatures[currentFileKey];
@@ -4851,7 +4862,10 @@ async function captureTransformGeneration(props: {
       TRANSFORM_FAILED_GENERATION_VALIDATIONS.set(result, {
         cached,
         declaredInputs,
+        initialFileKey: currentFileKey,
+        initialSourceHash: currentSourceHash,
         inputStates: captureFailedGenerationInputStates(cached, failures),
+        projectInputHashes,
         projectWalkComplete: walkSnapshotComplete(
           inputSnapshot,
           declaredInputs,
