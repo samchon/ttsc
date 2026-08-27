@@ -293,6 +293,7 @@ export async function collectServeWatchRegistrations(
 ): Promise<string[]> {
   const plugin = await loadViteAdapterPlugin();
   const invoke = invokeVitePluginHook;
+  const lifecycle = {};
   invoke(
     plugin.configResolved,
     {},
@@ -302,15 +303,19 @@ export async function collectServeWatchRegistrations(
       server: options.watching ? { watch: {} } : { watch: null },
     },
   );
-  await invoke(plugin.buildStart, {});
+  await invoke(plugin.buildStart, lifecycle);
   const watched: string[] = [];
-  await invoke(
-    plugin.transform,
-    { addWatchFile: (file: string) => watched.push(file) },
-    fs.readFileSync(fixture.mainFile, "utf8"),
-    fixture.mainFile,
-  );
-  return watched;
+  try {
+    await invoke(
+      plugin.transform,
+      { addWatchFile: (file: string) => watched.push(file) },
+      fs.readFileSync(fixture.mainFile, "utf8"),
+      fixture.mainFile,
+    );
+    return watched;
+  } finally {
+    await invoke(plugin.buildEnd, lifecycle);
+  }
 }
 
 /** Resolve the ttsc plugin object out of the Vite adapter's factory result. */

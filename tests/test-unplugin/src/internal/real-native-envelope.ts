@@ -335,15 +335,49 @@ async function assertViteLifecycle(
     server: { hmr: false, middlewareMode: true, watch: null },
   });
   try {
+    const graph =
+      server.environments?.client?.moduleGraph ?? server.moduleGraph;
+    const nodes: any[] = [];
     for (const file of fixture.modules) {
       const url = `/${path.relative(fixture.root, file).split(path.sep).join("/")}`;
       const result = await server.transformRequest(url);
       assert.ok(result?.code, `Vite must transform ${url}`);
+      const node = await graph.getModuleByUrl(url);
+      assert.ok(node, `Vite's module graph must contain ${url}`);
+      assert.ok(
+        node.transformResult,
+        `Vite must cache the first transform result for ${url}`,
+      );
+      nodes.push(node);
     }
     assert.equal(
       programRuns(fixture.runLog),
       1,
       "the Vite watcherless lifecycle must serve every sibling module from one production host invocation",
+    );
+
+    // Vite can transpile TypeScript even if the ttsc adapter bypasses a module,
+    // so returned code alone does not prove all four requests crossed our
+    // transform hook. The adapter registers this real missing candidate for
+    // every importer it serves; its private poll invalidates exactly those
+    // module nodes when the candidate appears, even with Vite's watcher off.
+    fs.writeFileSync(
+      fixture.missingCandidate,
+      'export const linked = "typescript";\n',
+      "utf8",
+    );
+    await waitFor(
+      () =>
+        nodes.every(
+          (node) =>
+            node.transformResult === null || node.transformResult === undefined,
+        ),
+      "every sibling module to be invalidated by the adapter's candidate registry",
+    );
+    assert.equal(
+      programRuns(fixture.runLog),
+      1,
+      "candidate notification must invalidate sibling deliveries without compiling until Vite requests them again",
     );
   } finally {
     await server.close();
@@ -362,14 +396,27 @@ async function deliver(
   options: unknown,
   file: string,
 ): Promise<void> {
-  const transformed = await api.transformTtsc(
+  await api.transformTtsc(
     file,
     fs.readFileSync(file, "utf8"),
     options,
     undefined,
     cache,
   );
-  assert.ok(transformed?.code, `transformTtsc must deliver ${file}`);
+}
+
+/** Poll an asynchronous adapter consequence until it is observed. */
+async function waitFor(
+  predicate: () => boolean,
+  what: string,
+  timeout = 20_000,
+): Promise<void> {
+  const deadline = Date.now() + timeout;
+  while (Date.now() < deadline) {
+    if (predicate()) return;
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  assert.fail(`timed out waiting for ${what}`);
 }
 
 /** Inspect the actual generation admitted by @ttsc/unplugin. */
