@@ -1,158 +1,139 @@
 # Rules
 
-`@ttsc/evidence` contributes five rules under the `evidence/` namespace. They are enabled independently, each takes `"error"`, `"warning"`, or `"off"`, and every finding lands in the same diagnostic stream as a type error.
+`@ttsc/evidence` contributes five rules. One is the graph, and the other four answer questions the graph does not ask.
 
-```ts filename="lint.config.ts"
+```ts
+// lint.config.ts
 import { evidence, type ITtscEvidenceGraphConfig } from "@ttsc/evidence";
 import type { ITtscLintConfig } from "@ttsc/lint";
 
-const graph: ITtscEvidenceGraphConfig = { claims: [] };
+const graph: ITtscEvidenceGraphConfig = {
+  /* claims */
+};
 
 export default {
-  plugins: {
-    evidence,
-  },
+  plugins: { evidence },
   rules: {
     "evidence/graph": ["error", graph],
     "evidence/documented": "error",
     "evidence/singular": "error",
-    "evidence/todo": "error",
     "evidence/review": "error",
+    "evidence/todo": "error",
   },
 } satisfies ITtscLintConfig;
 ```
 
-| Rule | Takes | Scope |
-| --- | --- | --- |
-| `evidence/graph` | [`ITtscEvidenceGraphConfig`](/docs/evidence/claims) | the whole project |
-| `evidence/documented` | [`ITtscEvidenceDocumentedConfig`](#evidencedocumented) | one file |
-| `evidence/singular` | nothing | one file |
-| `evidence/todo` | nothing | one file |
-| `evidence/review` | nothing | one file |
+That block registers everything the plugin has, which is not where anyone should start: [Choosing a set](#choosing-a-set) at the end of this page is the order to switch them on in.
 
-One is the graph. The other four protect the conditions the graph depends on.
+Each rule is enabled on its own and carries the severities `@ttsc/lint` accepts, so `"warning"` and `"off"` work everywhere `"error"` does. Two of the five take options and the other three take a bare severity, because they have nothing to configure.
 
-## `evidence/graph`
+## evidence/graph
 
-The configured graph. It evaluates the whole declared graph once per Program and answers three separate questions.
+The configured graph itself. Every target a declaration writes must resolve, and every selected evidence unit must be acknowledged, under the claims you declare in [`ITtscEvidenceGraphConfig`](/docs/evidence/claims).
 
-- **Resolution.** Does every declared target resolve to exactly one selected unit or structural ancestor?
-- **Host eligibility.** Does each `@evidence` sit on a symbol kind its claim selects, and each `@evidenceExclude` on an eligible carrier in a matching claim file? Under a [`checklist`](/docs/evidence/claims#checklist-documents) reference every acknowledgement answers for one selected host, so a tag sitting on no selected host answers nothing there and is reported where it sits once no other obligation consumes it.
-- **Coverage.** Does every selected reference unit have at least one acknowledgement in this claim, and does that acknowledgement satisfy whatever the reference's own policy demands? A [`checklist`](/docs/evidence/claims#checklist-documents) reference asks that question per host instead: every selected claim host owes every unit, so a unit somebody already cited still fails for every host that stayed silent.
+```ts
+"evidence/graph": ["error", graph]
+```
 
-The rule is project-scoped, so its config entry must carry no `files` selector; the host rejects one that does. Scope a file rule in its own entry when you need to.
+An artifact that cites nothing has no proof it was needed, and an artifact citing a target no configured population declares has proof of nothing. Both states are compile errors here, which is the whole product in one sentence.
 
-Claim and reference state stay separate. A declaration that satisfies one obligation never leaks coverage into another, even when the physical target is the same.
-
-While the rule reports nothing it also publishes its configured targets as [editor completions](/docs/evidence/tags#editor-completions).
+The rule also feeds the editor: its configured targets become completions while it is green, which [Evidence Tags](/docs/evidence/tags#editor-completions) covers with the rest of what an author sees.
 
 ### Watched inputs
 
-The rule declares its configured Markdown globs, Prisma globs, and local Swagger paths to the `ttsc` host, so editing a spec section or regenerating an OpenAPI document starts the next `ttsc --watch` cycle on its own, with no TypeScript file touched.
+The rule declares its Markdown globs, Prisma globs, and local Swagger paths to the `ttsc` host, so editing a specification section or regenerating an OpenAPI document starts the next `--watch` cycle by itself, with no TypeScript file touched.
 
-A path stays declared while it is missing, which lets a document that has not been generated yet be observed the moment it appears. A source above the project is declared on the same terms. An `http:`/`https:` Swagger source is the one exception: a URL has no filesystem event to observe.
+A path stays declared while it is missing, which is what lets a document that has not been generated yet be picked up the moment it appears, and a population above the project is declared on the same terms. An `http:` or `https:` Swagger source is the one exception, since a URL has no filesystem event to observe.
 
-## `evidence/documented`
+## evidence/documented
 
-Requires a JSDoc block on every selected export.
-
-```ts
-"evidence/documented": ["error", { symbol: ["type", "function"] }],
-```
-
-Evidence declarations are read from JSDoc and nowhere else, so an export without a block is not merely undocumented. It is structurally unable to carry a citation, and the graph will never say so: coverage is counted from the evidence side, so the obligation is discharged by whichever host does have a block while every undocumented export in the claim looks exactly like a passing file.
-
-| Option | Default | Meaning |
-| --- | --- | --- |
-| `symbol` | `["type", "function", "property"]` | Which symbol kinds must carry a block. One value or a non-empty array. |
-
-The default selects every kind a claim can use as a host, deliberately: the population that must be able to hold a tag is exactly the population a claim can select, so a narrower default would leave some potential host unable to cite while the rule reported success.
-
-Members are part of that population, so the rule reaches inside a class, an interface, and an object-shaped type alias. A field, a method, a constructor parameter property, and a method signature each need their own block, because each is a unit a claim can select and therefore a position a citation can live in. A block on the container does not stand in for them: a class explains the subject, a method what it does, and a field the fact it carries, and the graph counts them separately.
-
-It reaches only the members a claim can select, which is the population [the TypeScript kinds](/docs/evidence/claims#typescript-kinds) define. A `private` or `protected` member, an accessor, and the constructor itself are not in it, so none of them is asked for a block.
-
-`symbol` narrows that population the same way a claim's does, and narrowing it can stop asking for a block with no message. A configuration of `symbol: ["property"]` over interfaces no longer reaches a member spelled `onOpen: () => void`, because that member is now a `function`. The demand disappears rather than moving, so check a narrowed `symbol` here after upgrading, exactly as you would on a claim.
-
-Presence is the whole check. The rule never judges what the prose says, how long it is, or whether it is sincere. A rule that tried would only teach authors to write filler that satisfies it.
-
-For a merged identity the block belongs on the first declaration by source position, which is the one every diagnostic names. Documenting only a later half is reported, because the declaration a reader meets first would otherwise stay unexplained. A citation is the opposite: `@evidence` may sit on any declaration of a merged identity, since the graph judges the identity rather than the placement.
-
-## `evidence/singular`
-
-One public identity per file, named after the file.
+A JSDoc block on every selected export.
 
 ```ts
-"evidence/singular": "error",
+"evidence/documented": ["error", { symbol: ["type", "function"] }]
 ```
 
-The unit counted is an identity, not an export. Declaration merging exposes one name through several declarations, `export interface I` beside `export namespace I`, and every such form counts once. Permitted merges fall out of what is counted rather than being carved out of it.
-
-Three findings, most structural first.
-
-- **Two or more identities.** The file has to be split before its name can mean anything. Move each extra identity to its own file, or re-export them from a barrel.
-- **An anonymous default export.** There is no name for the file to take. Name the declaration, or export a named one instead.
-- **A name that does not match the file.** Rename the file, or rename the identity.
-
-A file named `index` is exempt, because a barrel is addressed by its directory. A re-export declares nothing, so a barrel owns no identity and needs no exemption of its own. An export list or default assignment naming an imported binding is the same case one step removed.
-
-This matters to the graph because addresses are how citations are written. A file holding three unrelated exports gives a reviewer no way to tell which one a claim is about.
-
-## `evidence/todo`
-
-Reports every remaining JSDoc `@todo` in a checked file, exported or not.
+A JSDoc block is the only place a TypeScript declaration's `@evidence` tag is read from, so an export without one cannot cite anything. Worse than the missing tag is what happens next: the obligation shifts onto whichever sibling does have a block, and the graph reports success while the wrong declaration answers for the work.
 
 ```ts
-"evidence/todo": "error",
+// reported: Missing JSDoc on exported function 'createOrder'
+export function createOrder(props: IProps): IOrder;
+
+// accepted
+/** Creates one order from a validated cart. */
+export function createOrder(props: IProps): IOrder;
 ```
 
-A stub enters the world carrying a `@todo` that names what its realization still owes, and no other rule calls that debt: the graph judges citations, `evidence/documented` judges presence, and a block whose only content is a `@todo` satisfies both. Each remaining tag fails the build with its own text, so the diagnostics read as the ledger of what is left to build.
+An empty block is reported separately from a missing one, since the two need different repairs: one needs a sentence, the other needs a block.
 
-There is nothing to select. A debt on a local helper is as unrealized as one on an export, so every declaration's block is read. Per-directory scoping belongs in the outer `files` setting of `lint.config.ts`.
+`symbol` takes one kind or an array of `"type"`, `"function"`, and `"property"`, and defaults to all three. That default is deliberate, since the population which must be able to hold a tag is exactly the population a claim can select as a host.
 
-One physical block is one entry. TypeScript cascades a leading block onto nested nodes, so a variable statement and each of its declarations all answer for one comment; blocks are deduplicated by position.
+Presence is the entire check. The rule never judges what the prose says, how long it is, or whether it is sincere, because a rule that tried would only teach authors to write filler that satisfies it.
 
-Stage it. Keep the rule `"off"` while stubs are the plan of record, and flip it to `"error"` once the work is meant to be finished. The stubs that remain enumerate themselves.
+## evidence/singular
 
-## `evidence/review`
-
-Requires an `@evidenceReview` beside every `@evidence` and an `@evidenceExcludeReview` beside every `@evidenceExclude`, naming the same target. Takes no options.
+One public identity per TypeScript file, named after the file.
 
 ```ts
-"evidence/review": "error",
+"evidence/singular": "error"
 ```
 
-The citation states why this declaration answers for a target. Nothing asks what was actually checked. Those are two different questions, and only the first one is written unless something demands the second, so an unverified citation and a verified one are byte-identical in the source.
+TypeScript targets carry no file path, so two selected files exposing the same qualified name make every citation of that name ambiguous. This rule removes the class of problem instead of reporting each instance: when a file holds one public identity and that identity is the file's name, the file path and the target agree by construction.
+
+```ts
+// src/createOrder.ts, reported: a file declares exactly one public identity
+export function createOrder(props: IProps): IOrder;
+export interface IOrder {}
+
+// src/createOrder.ts, accepted
+export function createOrder(props: IProps): IOrder;
+```
+
+It changes how a codebase is laid out, which is why it ships as its own rule rather than as part of the graph. Adopt it where citations are dense enough that ambiguity is a recurring cost.
+
+## evidence/review
+
+An `@evidenceReview` beside every `@evidence`, and an `@evidenceExcludeReview` beside every `@evidenceExclude`, naming the same target.
+
+```ts
+"evidence/review": "error"
+```
+
+The citation's reason says why this declaration answers for a target. Nothing in it says what was actually verified, and an unverified citation is byte-identical to a verified one. This rule asks the second question.
+
+Where it is enabled matters more than whether it is. A package that only writes citations ships it `"off"` and the review pass that owns those claims turns it on, so every acknowledgement reports itself as unreviewed until a reviewer has reached it.
+
+Expiry is a separate switch. This rule demands that a review exists; [`requireReview`](/docs/evidence/claims#policies) on a reference demands that it carries an unexpired fingerprint of the content it was written against.
+
+## evidence/todo
+
+No remaining JSDoc `@todo` tag anywhere in a checked file, exported or not.
+
+```ts
+"evidence/todo": "error"
+```
+
+The tag is reported wherever it sits, with the text it carries.
 
 ```ts
 /**
- * @evidence docs/discount.md#coupon-stacking <reason>
- * @evidenceReview docs/discount.md#coupon-stacking <what you checked>
- * @evidenceExclude docs/discount.md#tax <reason>
- * @evidenceExcludeReview docs/discount.md#tax <what you checked>
+ * Settles one order against its coupons.
+ *
+ * @todo apply the per-issuer stacking limit
  */
+export function settleOrder(props: IProps): ISettlement;
 ```
 
-A review is an annotation of a citation, never an acknowledgement of a unit. It discharges no coverage, contributes no host to `uniqueEvidence`, and counts toward no `singleEvidencePerSymbol` total, so enabling this rule cannot change an `evidence/graph` diagnostic.
+A `@todo` is an unrealized contract someone wrote down. Each one is reported with its own text, so the diagnostic list reads as the ledger of what is left rather than as a count.
 
-Five findings, most structural first.
+This is what keeps a scaffold honest during delegated work. An agent that stubs a declaration and records the gap cannot then report the work finished, because its own note is a build error until the gap closes.
 
-- **A citation with no review of its target.** The verification statement was never written.
-- **A review naming a target this identity does not acknowledge with that tag.** An orphan, which is what turns a mistyped target into a finding rather than a silent hole: the typo leaves one citation unreviewed and one review answering nothing.
-- **A second review of one target in one block.** One acknowledgement is verified once. Copying a block onto each half of a merged identity is not this, since the count is per block.
-- **A review with no description.** A target and a fingerprint state what was reviewed, never what was checked.
-- **A review filed under the wrong question.** `@evidenceReview` on a target this identity excludes, or the reverse. The author did the work and filed it against the wrong acknowledgement, so the finding names the tag that answers and what to rewrite rather than sending them after a typo.
+## Choosing a set
 
-The unit judged is an identity rather than a declaration, so a review on `namespace ISale` answers a citation on `interface ISale`. A declaration withdrawn by `@internal`, `@hidden`, or `@ignore` owes nothing, because it can carry no citation the graph would read.
+Start with `evidence/graph` alone. It is the rule that carries the product, and the first red build teaches the tag grammar faster than any page here can.
 
-Presence is the whole check here too. A second prose block is as hedgeable as the first, and a rule that tried to judge sincerity would only teach authors to write filler that satisfies it. What makes a review expire when the thing it reviewed moves is the optional `#`-prefixed fingerprint, which this rule carries without interpreting and [`requireReview`](/docs/evidence/claims) validates against the cited content.
+Add `evidence/documented` as soon as citations are being written, since it is the cheapest way to stop an obligation from silently moving to the wrong declaration. Add `evidence/review` when the question turns from whether the work was covered to whether the coverage is true, and `evidence/todo` when an agent is authoring against a scaffold you did not write.
 
-## Where they surface
+Leave `evidence/singular` for last, and only where you want the file layout it implies.
 
-Violations arrive in every `ttsc` build, every `--noEmit` check, every `ttsx` run, and in the editor through `ttscserver`. The CI step that already runs `ttsc --noEmit` gates the graph without a second job.
-
-Match on the bracketed rule id rather than on the numeric code. A contributor rule's code is assigned deterministically from the complete set of loaded contributors, so changing that set can renumber it, while `[evidence/graph]` is stable. [Diagnostic code compatibility](/docs/lint#diagnostic-code-compatibility) covers the banding policy.
-
-## Next
-
-→ [Examples](/docs/evidence/examples) puts `evidence/graph` on a real monorepo and a novel, alongside `evidence/singular` and a staged `evidence/todo`.
+When one of them fires and the message is not self-explanatory, [Troubleshooting](/docs/evidence/troubleshooting) groups every diagnostic by cause.

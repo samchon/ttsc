@@ -1,65 +1,151 @@
 import TtscWebsiteBenchmarkEvidenceCoverage from "../../../components/benchmark/evidence/TtscWebsiteBenchmarkEvidenceCoverage";
+import TtscWebsiteBenchmarkEvidenceSpend from "../../../components/benchmark/evidence/TtscWebsiteBenchmarkEvidenceSpend";
 
 # Evidence Graph
 
-`@ttsc/evidence` turns a specification into a compile error until some declaration cites it by name.
+Every specification becomes a compile-time obligation.
 
-You declare the graph in `lint.config.ts`: which files owe answers, and which documents, schema models, API operations, or TypeScript symbols they owe answers to. Every pair is one independently complete obligation. A unit nothing acknowledges fails the build, in the same diagnostic stream as a type error.
+`@ttsc/evidence` is a rule contributor to [`@ttsc/lint`](/docs/lint), so it runs inside the type-check you already run. You declare in `lint.config.ts` which artifacts owe answers to which specification units, and a unit nothing answers for is reported as a compile error beside your type errors.
+
+## The failure nobody can see
+
+A type error is caught by the compiler. Wrong behavior is caught by a test. An omission has only ever been caught by a person rereading the specification, the implementation, and the tests until one more round turns up nothing new.
+
+Asking the author does not substitute for that reading. Agents agree to a process and then bypass it, and the agreement is worth nothing as evidence: measured across frontier models, they said yes nearly every time and complied in none of the runs ([2605.01771](https://arxiv.org/abs/2605.01771)). The gap widens with scope. A specification delivered in pieces is answered less faithfully than the same specification delivered at once, and long runs erode the work they already did ([2603.17104](https://arxiv.org/abs/2603.17104), [2603.24755](https://arxiv.org/abs/2603.24755)).
+
+So the working method became the loop: read everything again, fix every finding, restart because one fix broke another, and stop only when a full pass finds nothing. It is the state of the art, and it does work.
+
+It is also where the budget goes. Across the benchmark subjects that loop took most of everything spent, and the delivered work still left requirements unanswered, more of them as the subject grew.
+
+<img
+  alt="Asked whether every requirement was met, a human explains while the compiler stops the build"
+  src="/evidence/meme-coverage.svg"
+  width="100%"
+/>
+
+Coverage has no denominator until someone counts the specification. This plugin hands that count to the compiler.
+
+## An obligation is a pair
+
+A **claim** names the artifacts that owe answers. A **reference** names the population they owe answers to. Every claim-reference pair is one independently complete obligation, and an acknowledgement toward one pair never counts toward another.
+
+```ts
+// lint.config.ts
+{
+  type: "typescript",
+  files: ["src/components/**/*.tsx"],
+  symbol: "function",
+  reference: {
+    type: "markdown",
+    files: ["docs/requirements/**/*.md"],
+    symbol: ["h2", "h3"],
+  },
+}
+```
+
+Read as a sentence, that says the components implement the requirements. Every H2 and H3 under `docs/requirements` now owes a citation from some function under `src/components`, and the compiler is what counts them.
+
+A real project stacks those pairs into layers, each one grounded in the layer above it.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcSet="/evidence/documents-dark.svg" />
+  <img alt="Idea notes grounding requirements and specifications, which ground implementation and tests" src="/evidence/documents-light.svg" width="100%" />
+</picture>
+
+Every arrow is one claim, pointing from an artifact to the evidence it cites. Where you cut the stack decides how much you review and how much you delegate, which is the decision [Adoption](/docs/evidence/adoption) is about.
+
+## The tag is the answer
 
 ```tsx
 /**
- * @evidence docs/discount.md#coupon-stacking
- *           States the per-issuer stacking limit this section defines.
+ * @evidence docs/requirements/discount.md#coupon-stacking States the per-issuer stacking limit this section defines, in the buyer's words.
+ * @evidence POST:/orders/{orderId}/coupons Explains the rejection this endpoint returns for an over-stacked coupon set.
+ * @evidence {@link hooks.useCouponStacking} Renders the limit this hook resolves.
+ * @evidence docs/principles.md#no-hard-coding Renders limits from props instead of branching on known issuer names.
+ * @evidenceExclude docs/principles.md#fix-root-causes-not-symptoms No failure to fix.
  */
 export function CouponStackingNotice(props: IProps): JSX.Element;
 ```
 
-`@evidence <target> <reason>` names one unit of the spec and why this declaration answers for it. Without it the next build stops:
+`@evidence` states what this declaration answers for and why. `@evidenceExclude` states why nothing here owes the target at all.
 
-```text
+The first two targets are the specification this screen implements and the endpoint behind it. The third is the hook it renders. The last two are project principles, which the same machinery turns into an obligation on every function you select, so "no hard coding" stops being advice nobody can audit.
+
+Neither tag is accepted without a reason, and that reason exists for a human reviewer rather than for machine judgment. No rule scores whether the prose is sincere, and [Rules](/docs/evidence/rules) explains why none ever will.
+
+## An unanswered unit fails the build
+
+```bash
 $ npx ttsc
-error TS16411: [evidence/graph] Missing acknowledgement for 'docs/discount.md#coupon-stacking'
-  (Markdown H2 'Coupon Stacking' at docs/discount.md:3)
+error TS16411: [evidence/graph] Missing acknowledgement for 'docs/requirements/discount.md#coupon-stacking'
+  (Markdown H2 'Coupon Stacking' at docs/requirements/discount.md:3)
   in Claim 1 reference 1 (markdown, symbols: h2, h3).
 
-  Cite the artifact that answers for this unit with @evidence on a selected
-  typescript host, building that artifact first when none does, or write
-  @evidenceExclude on an eligible carrier when nothing here owes it. Never
-  leave an untrue tag standing just to pass this check; it removes the error,
-  not the problem.
+...
+
+Found 5 errors.
 ```
 
-You do not write these tags. An AI coding agent has to clear the errors to finish, and the error list is the task list.
+Each unit fails on its own, because a citation of one unit says nothing about another. An agent cannot report the work finished while the build is red, so nothing it skipped stays invisible.
 
-A type error is caught by the compiler and wrong behavior by a test; an omission has only ever been caught by a person rereading everything until a round finds nothing new, the loop until dry. Coverage needs a denominator, and the graph hands it to the compiler. Documents gain the reference integrity code always had.
+Those diagnostics arrive in the stream that already carries your type errors, in every `ttsc` build, every `--noEmit` check, every `ttsx` run, and in the editor through `ttscserver`. There is no second command to add and no CI job to gate separately.
 
-100% coverage is still not 100% truth, so human review narrows to one question: whether each written reason is true. `@evidenceReview` records the verdict with a fingerprint that expires when the cited content changes. The compiler handles omissions. Humans handle falsehoods.
+## Omission is not the only failure
+
+Full coverage counts citations, not truth. A cheap model can write a fluent reason for a section it never opened, and that tag turns the error green while the problem stays. A false tag removes the error, not the problem.
+
+What the citation does buy is that the false claim is now addressed to something. It names the scope it depends on, so a reviewer reads that scope against one sentence instead of hunting a codebase for what might be wrong.
+
+`@evidenceReview` records the verdict, and a fingerprint of the cited content makes it expire when that content moves. Without expiry a review is written once and stays green forever, and on a second pass over a large citation set nobody can tell which verdicts were written against text that has since changed.
+
+That is the division of labor the plugin is built around. The compiler catches omissions. Review catches falsehoods.
+
+## What the benchmark shows
 
 <TtscWebsiteBenchmarkEvidenceCoverage expandable={false} />
 
-One coding engine built the same four applications twice from the same frozen requirements, with and without the graph: coverage of 51.6–85.5% against 100%, on between a thirteenth and a fifth of the tokens, with review's share falling from 90–95% to 15–41%. [The benchmark](/docs/benchmark/evidence) has the thirteen edges behind each score, what both arms spent, and the method.
+One coding engine built the same applications twice from the same frozen requirements, with and without the graph. Coverage is the first axis, and the two arms part company as the subject grows: the plain one slides, the graph one does not.
 
-What that buys is the handoff. Whether a human or an AI wrote the requirements, a human reviews them last, and the agent builds everything below that reviewed layer at 100% coverage: [Examples](/docs/evidence/examples) shows the shape, and [Adoption](/docs/evidence/adoption) shows the path.
+Clearing an obligation is work an agent has to do, so the fair question is what that does to a run.
+
+<TtscWebsiteBenchmarkEvidenceSpend />
+
+The graph arm finished on a fraction of the tokens on every subject, and the largest subject saved the most. Review's share of the spend fell with it, which is the same story told from the other side.
+
+A handful of subjects and one engine do not make that a law. Treat the saving as measured rather than as one you can assume, and read [the benchmark](/docs/benchmark/evidence) for the edges behind each score, the reconciled prices, and the method behind both arms.
+
+## Not only for code
+
+The graph reads no meaning. It reads which units exist, which artifacts owe them, and which citations were written, so it applies wherever a body of work has to honor a body of rules.
+
+Four artifact kinds materialize units: Markdown documents and their headings, Prisma models and their fields, Swagger operations, and TypeScript symbols. A backend graph reaches documents, schema, and code from one configuration, while a graph over documents alone never touches a line of code.
+
+[AutoNovel](https://github.com/samchon/AutoNovel) is the case that makes the point. It writes long-form novels as evidence graphs, where principles and settings are the reviewed source layer and every treatment, script, and manuscript cites the settings it consults and the principles it serves. The compiler has no opinion about prose. It reports that a setting was committed to and that nothing written since ever answered for it.
 
 ## Install
-
-`@ttsc/evidence` is a rule contributor to [`@ttsc/lint`](/docs/lint), not a top-level `ttsc` plugin. The compiler never loads it; `lint.config.ts` does, and violations surface in every `ttsc` build, every `--noEmit` check, every `ttsx` run, and in the editor through `ttscserver`, with no CI job to add.
 
 ```bash
 npm install -D ttsc @ttsc/lint @ttsc/evidence typescript
 ```
 
-## Guides
+`@ttsc/lint` is a peer dependency rather than a bundled one, so the engine you already run is the one that hosts these rules, and there is no `tsconfig.json` plugin entry to add anywhere.
 
-1. [Setup → Evidence Graph](/docs/setup/evidence): the ten-minute path. One claim, the first failing build, and the two ways to clear it.
-2. [Examples](/docs/evidence/examples): the backend, frontend, and novel graphs, claim by claim.
-3. [Adoption](/docs/evidence/adoption): the handoff, document-to-document chains, and staged rollout on a legacy codebase.
-4. [Claims and References](/docs/evidence/claims): the whole configuration surface, from symbol selectors to monorepo roots and reference policies.
-5. [Evidence Tags](/docs/evidence/tags): the tag grammar, target forms, and where a tag may live in each artifact kind.
-6. [Rules](/docs/evidence/rules): `evidence/graph`, `evidence/documented`, `evidence/singular`, `evidence/todo`, and `evidence/review`.
+The Prisma and Swagger loaders call a JavaScript bridge, which is why Node.js has to be on the path even though the rules themselves are Go.
+
+## The shape of the chapter
+
+1. [Graph Patterns](/docs/evidence/patterns): the backend, frontend, principles, and novel graphs, claim by claim. Read this to see what a finished graph looks like.
+2. [Adoption](/docs/evidence/adoption): which layer to hand over, what it costs, and the order to turn obligations on in a codebase that already exists.
+3. [Setup](/docs/setup/evidence): install, one claim, the first failing build, and the two ways to clear it. Ten minutes.
+4. [Claims and References](/docs/evidence/claims): the whole configuration surface, from symbol selectors to roots and reference policies.
+5. [Evidence Tags](/docs/evidence/tags): the grammar your agent writes, what makes a reason worth reviewing, and where a tag may live in each artifact kind.
+6. [Rules](/docs/evidence/rules): `evidence/graph`, and the four rules that answer questions the graph itself does not ask.
+7. [Troubleshooting](/docs/evidence/troubleshooting): every diagnostic grouped by cause, from a target that resolves nowhere to a build that reports nothing at all.
+
+If you have five minutes, read [Setup](/docs/setup/evidence), copy its starter config, and let the first red build tell you the rest.
 
 ## Related
 
 - [The Evidence Graph benchmark](/docs/benchmark/evidence) is how this package is measured: one engine builds the same application twice, once with the graph and once without.
-- [Rule contributors](/docs/lint/contributing) covers how a contributor package is built and published. `@ttsc/evidence` is the first-party example.
-- The [package README](https://github.com/samchon/ttsc/blob/master/packages/evidence/README.md) is the condensed reference for the same surface.
+- [Rule contributors](/docs/lint/contributing) covers how a contributor package is built and published, with this one as the first-party example.
+- The [package README](https://github.com/samchon/ttsc/blob/master/packages/evidence/README.md) is the condensed version of everything in this chapter.
