@@ -215,6 +215,12 @@ export namespace TestUnpluginProject {
   /**
    * Write the tiny Go transformer used by unplugin adapter tests.
    *
+   * This is a handwritten synthetic protocol double: it owns its JSON envelope
+   * shape and does not stand in for the production driver's reference graph.
+   * The real-host contract is calibrated by test-unplugin's native envelope
+   * cache gate; this fixture stays synthetic so tests can request controlled
+   * operations and deliberately incomplete shapes.
+   *
    * The plugin supports multiple operations so adapter tests can prove plugin
    * ordering, generated tsconfig paths, config path absolutization, and cache
    * invalidation without depending on a production utility plugin.

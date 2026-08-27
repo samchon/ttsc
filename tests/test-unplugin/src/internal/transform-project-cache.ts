@@ -3147,6 +3147,11 @@ function createCacheProject(options: ICacheProjectOptions): {
 /**
  * Write the multi-file counting transform sidecar.
  *
+ * This is a synthetic protocol double, not the production driver host. Its
+ * local envelope fields intentionally support adversarial, contradictory, and
+ * race-specific states; the real-host cache gate under `native-plugins/cache`
+ * owns semantic calibration against `driver.NewTransformGraph`.
+ *
  * It echoes every `src/*.ts` file (rewriting the `PROBE` marker so output
  * differs from input), appends one byte to the configured `runLog` per
  * invocation so the test can count whole-project transforms, and optionally

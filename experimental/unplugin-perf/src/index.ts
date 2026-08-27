@@ -734,6 +734,11 @@ function createProject(options: MeasureOptions): string {
  * back as the transform output (identity), appends one byte to `PLUGIN_RUN_LOG`
  * per invocation so the harness can count whole-project re-transforms, and
  * optionally emits one out-of-walk output key to trigger the cache-miss bug.
+ *
+ * This producer is a synthetic protocol double. It deliberately controls the
+ * graph shape and proof density used by each measurement scenario; the normal
+ * test-unplugin native envelope gate calibrates those claims against the real
+ * TypeScript-Go driver and JSON decoder.
  */
 function writeGoPlugin(project: string): void {
   const dir = path.join(project, "go-plugin");
