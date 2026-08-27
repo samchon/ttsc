@@ -13,8 +13,8 @@ import { assertUnreadableGraphInputKeepsTheContentComparison } from "../../inter
  * 1. Stamp one graph member with no compiler-time hash and refuse its reads
  *    through the cache-owned filesystem seam.
  * 2. Deliver every module and assert the cache still hits once.
- * 3. Allow the reads again without touching metadata, and assert the next delivery
- *    replaces the generation.
+ * 3. Allow adapter reads again without changing the compiler's missing proof, and
+ *    assert the contradiction terminates after one bounded retry wave.
  */
 export const test_transformttsc_unreadable_graph_input_keeps_the_content_comparison =
   async () => {

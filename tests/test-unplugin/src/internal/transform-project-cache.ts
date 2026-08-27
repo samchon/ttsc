@@ -52,6 +52,7 @@ interface ICacheProjectOptions {
    * platform.
    */
   aliasedGlobal?: boolean;
+  conflictingProofFailureAlias?: boolean;
   emitExternalKey?: boolean;
   /** Emit this many transformable `.ts` outputs under ignored node_modules. */
   externalSourceOutputs?: number;
@@ -72,6 +73,7 @@ interface ICacheProjectOptions {
    */
   graphCandidates?: number;
   graphGlobals?: number;
+  omitExternalSourceGraphNode?: boolean;
   /**
    * Stamp one extra resolution candidate at this absolute spelling, which the
    * caller places outside the project root.
@@ -210,7 +212,7 @@ async function assertFilesystemOperationsAreCacheLocal(): Promise<void> {
       fs.readdirSync(location, { withFileTypes: true }),
   });
 
-  const [firstResult, secondResult] = await Promise.all([
+  const [firstResult, secondResult] = await Promise.allSettled([
     transformTtsc(
       firstFile,
       fs.readFileSync(firstFile, "utf8"),
@@ -226,8 +228,17 @@ async function assertFilesystemOperationsAreCacheLocal(): Promise<void> {
       second,
     ),
   ]);
-  assert.ok(firstResult);
-  assert.ok(secondResult);
+  assert.equal(firstResult.status, "rejected");
+  assert.match(
+    (firstResult as PromiseRejectedResult).reason.message,
+    /after 2 attempts/,
+  );
+  assert.match(
+    (firstResult as PromiseRejectedResult).reason.message,
+    /project\/directory-read-failed/,
+  );
+  assert.equal(secondResult.status, "fulfilled");
+  assert.ok((secondResult as PromiseFulfilledResult<unknown>).value);
   assert.ok(reads.first > 0);
   assert.ok(reads.second > 0);
   assert.ok(firstFaults > 0);
@@ -284,6 +295,41 @@ async function assertCacheHitsDespiteOutOfWalkOutputKey(): Promise<void> {
   for (const code of outputs) {
     assert.match(code, /PROBED/);
   }
+}
+
+/** A proved source output remains usable when a legacy graph omits its node. */
+async function assertProvenOutOfWalkSourceWithoutGraphNodeKeepsGeneration(): Promise<void> {
+  const { createTtscTransformCache, resolveOptions, transformTtsc } =
+    await TestUnpluginRuntime.loadUnpluginApi();
+  const project = createCacheProject({
+    externalSourceOutputs: 1,
+    fileCount: 2,
+    graphFanout: 1,
+    omitExternalSourceGraphNode: true,
+  });
+  const cache = createTtscTransformCache();
+  const options = resolveOptions({
+    project: path.join(project.root, "tsconfig.json"),
+  });
+  for (const file of [
+    path.join(project.root, "src", "mod0.ts"),
+    ...externalSourceModules(project.root, 1),
+  ]) {
+    assert.ok(
+      await transformTtsc(
+        file,
+        fs.readFileSync(file, "utf8"),
+        options,
+        undefined,
+        cache,
+      ),
+    );
+  }
+  assert.equal(
+    fs.readFileSync(project.runLog, "utf8").length,
+    1,
+    "the source output's compiler proof must survive an omitted graph node",
+  );
 }
 
 /** Out-of-walk source outputs share the same stable project generation. */
@@ -1021,7 +1067,22 @@ async function assertUnprovenRealizedInputFailsAfterBoundedAttempts(): Promise<v
     graphFanout: 12,
     unprovenGraphInputs: 12,
   });
-  const cache = createTtscTransformCache();
+  const unrelated = path.join(project.root, "fixtures", "unrelated.log");
+  fs.mkdirSync(path.dirname(unrelated), { recursive: true });
+  fs.writeFileSync(unrelated, "steady\n", "utf8");
+  let denyUnrelated = false;
+  const cache = createTtscTransformCache({
+    readFile: (location: string) => {
+      if (denyUnrelated && path.resolve(location) === unrelated) {
+        const error = new Error(
+          "unrelated read denied",
+        ) as NodeJS.ErrnoException;
+        error.code = "EACCES";
+        throw error;
+      }
+      return fs.readFileSync(location);
+    },
+  });
   const options = resolveOptions();
   const modules = projectModules(project.root);
   const sources = new Map(
@@ -1058,6 +1119,7 @@ async function assertUnprovenRealizedInputFailsAfterBoundedAttempts(): Promise<v
     1,
     "the terminal failed generation must remain authoritative",
   );
+  denyUnrelated = true;
   for (const file of modules) {
     await assert.rejects(
       () => transformTtsc(file, sources.get(file)!, options, undefined, cache),
@@ -1069,6 +1131,7 @@ async function assertUnprovenRealizedInputFailsAfterBoundedAttempts(): Promise<v
     2,
     "later request waves must reuse the verdict until an input changes",
   );
+  denyUnrelated = false;
 
   const edited = modules[1]!;
   const editedSource = `${sources.get(edited)!}// disk edit\n`;
@@ -1111,6 +1174,36 @@ async function assertUnprovenRealizedInputFailsAfterBoundedAttempts(): Promise<v
     fs.readFileSync(project.runLog, "utf8").length,
     6,
     "an explicit cache lifecycle reset must authorize one new bounded wave",
+  );
+}
+
+/** A proof and aliased proof failure for one identity are contradictory. */
+async function assertAliasedProofFailureConflictsWithProof(): Promise<void> {
+  const { createTtscTransformCache, resolveOptions, transformTtsc } =
+    await TestUnpluginRuntime.loadUnpluginApi();
+  const project = createCacheProject({
+    conflictingProofFailureAlias: true,
+    fileCount: 1,
+    graphFanout: 1,
+    graphGlobals: 1,
+  });
+  const cache = createTtscTransformCache();
+  const main = projectModules(project.root)[0]!;
+  await assert.rejects(
+    () =>
+      transformTtsc(
+        main,
+        fs.readFileSync(main, "utf8"),
+        resolveOptions(),
+        undefined,
+        cache,
+      ),
+    /after 2 attempts[\s\S]*graph\/proof-conflict[\s\S]*producer: "content-unavailable"/,
+  );
+  assert.equal(
+    fs.readFileSync(project.runLog, "utf8").length,
+    2,
+    "an aliased proof contradiction must terminate after two attempts",
   );
 }
 
@@ -1883,11 +1976,14 @@ async function assertUnreadableHostInputKeepsTheContentComparison(): Promise<voi
   );
 
   appeared = true;
-  assert.ok(await deliver(modules[0]!));
+  await assert.rejects(
+    () => deliver(modules[0]!),
+    /after 2 attempts[\s\S]*host\/content-changed[\s\S]*host-input\.json/,
+  );
   assert.equal(
     pluginRuns(),
-    2,
-    "a universal input whose content appears must replace the generation",
+    3,
+    "a producer contradiction must terminate after one bounded retry wave",
   );
 }
 
@@ -1953,11 +2049,14 @@ async function assertUnreadableGraphInputKeepsTheContentComparison(): Promise<vo
   // Readable again, with every byte of metadata unchanged: only a content
   // comparison can see this.
   denied = false;
-  assert.ok(await deliver(modules[0]!));
+  await assert.rejects(
+    () => deliver(modules[0]!),
+    /after 2 attempts[\s\S]*graph\/content-changed[\s\S]*dep0\/index\.d\.ts/,
+  );
   assert.equal(
     pluginRuns(),
-    2,
-    "content that becomes readable must replace the generation",
+    3,
+    "a producer contradiction must terminate after one bounded retry wave",
   );
 }
 
@@ -3386,6 +3485,8 @@ function createCacheProject(options: ICacheProjectOptions): {
                 options.aliasedGlobal === true && process.platform !== "win32",
               graphFanout: options.graphFanout ?? 0,
               graphGlobals: options.graphGlobals ?? 0,
+              conflictingProofFailureAlias:
+                options.conflictingProofFailureAlias === true,
               graphCandidates: options.graphCandidates ?? 0,
               outOfProjectCandidate: options.outOfProjectCandidate ?? "",
               nonInputRaceFile: options.nonInputRaceFile ?? "",
@@ -3394,6 +3495,8 @@ function createCacheProject(options: ICacheProjectOptions): {
               unprovenGraphInputs: options.unprovenGraphInputs ?? 0,
               independentGraphLeaf: options.independentGraphLeaf,
               partitionGraph: options.partitionGraph === true,
+              omitExternalSourceGraphNode:
+                options.omitExternalSourceGraphNode === true,
               ...(options.snapshotAbaRace === true
                 ? {
                     snapshotRaceDuring,
@@ -3491,7 +3594,11 @@ function createCacheProject(options: ICacheProjectOptions): {
     // exist so the pre-fix store-side overlay could read and key it.
     const depDir = path.join(root, "node_modules", "dep");
     fs.mkdirSync(depDir, { recursive: true });
-    fs.writeFileSync(path.join(depDir, "index.d.ts"), "export {};\n", "utf8");
+    fs.writeFileSync(
+      path.join(depDir, "types.d.css.ts"),
+      "export {};\n",
+      "utf8",
+    );
   }
   for (const file of externalSourceModules(
     root,
@@ -3531,6 +3638,14 @@ function createCacheProject(options: ICacheProjectOptions): {
       path.join(globalDir, "index.d.ts"),
       path.join(globalDir, "alias.d.ts"),
       "file",
+    );
+  }
+  if (options.conflictingProofFailureAlias === true) {
+    const globalDir = path.join(root, "node_modules", "global0");
+    fs.symlinkSync(
+      globalDir,
+      path.join(root, "node_modules", "global-alias"),
+      process.platform === "win32" ? "junction" : "dir",
     );
   }
   writeGoPlugin(root);
@@ -3705,7 +3820,7 @@ function writeGoPlugin(root: string): void {
       "    }",
       "  }",
       '  if boolValue(cfg, "emitExternal") {',
-      '    ts["node_modules/dep/index.d.ts"] = "export {};\\n"',
+      '    ts["node_modules/dep/types.d.css.ts"] = "export {};\\n"',
       "  }",
       "",
       "  result := transformResult{TypeScript: ts}",
@@ -3730,8 +3845,10 @@ function writeGoPlugin(root: string): void {
       "      }",
       '      edges["src/"+name] = targets',
       "    }",
-      '    for j := 0; j < int(numberValue(cfg, "externalSourceOutputs")); j++ {',
-      '      edges[fmt.Sprintf("node_modules/external-source/mod%d.ts", j)] = []string{}',
+      '    if !boolValue(cfg, "omitExternalSourceGraphNode") {',
+      '      for j := 0; j < int(numberValue(cfg, "externalSourceOutputs")); j++ {',
+      '        edges[fmt.Sprintf("node_modules/external-source/mod%d.ts", j)] = []string{}',
+      "      }",
       "    }",
       "    result.Graph = &graphSection{",
       "      Edges:      edges,",
@@ -3781,6 +3898,13 @@ function writeGoPlugin(root: string): void {
       '      alias := "node_modules/global0/alias.d.ts"',
       "      result.Graph.Globals = append(result.Graph.Globals, alias)",
       '      addGraphInputProof(result.Graph, root, alias, "")',
+      "    }",
+      '    if boolValue(cfg, "conflictingProofFailureAlias") {',
+      '      target := "node_modules/global0/index.d.ts"',
+      '      alias := "node_modules/global-alias/index.d.ts"',
+      "      result.Graph.Globals = append(result.Graph.Globals, target, alias)",
+      '      addGraphInputProof(result.Graph, root, target, "")',
+      '      result.Graph.InputProofFailures[alias] = "content-unavailable"',
       "    }",
       '    for j := 0; j < int(numberValue(cfg, "graphGlobals")); j++ {',
       '      global := fmt.Sprintf("node_modules/global%d/index.d.ts", j)',
@@ -3845,8 +3969,10 @@ export {
   createCacheProject,
   projectModules,
   assertCacheHitsDespiteOutOfWalkOutputKey,
+  assertAliasedProofFailureConflictsWithProof,
   assertOutOfWalkSourceChangeStabilizesWithinGeneration,
   assertOutOfWalkSourceOutputsShareGeneration,
+  assertProvenOutOfWalkSourceWithoutGraphNodeKeepsGeneration,
   assertAppearingCandidateInvalidatesGeneration,
   assertNotifiedAbsentCandidateIsNotReprobed,
   assertOutOfProjectCandidateIsStillProbed,

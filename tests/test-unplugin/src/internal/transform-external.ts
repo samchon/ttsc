@@ -233,9 +233,6 @@ export async function assertCacheInvalidatesThroughLinkedGraphEdge(): Promise<vo
           .update(compilerText)
           .digest("hex"),
       },
-      inputRealpaths: {
-        "linked/types.d.ts": fs.realpathSync.native(linked),
-      },
     }),
   });
   const cache = createTtscTransformCache();

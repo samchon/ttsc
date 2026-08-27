@@ -591,7 +591,8 @@ async function assertPersistentUtilityConfigLinkRetargetInvalidatesTransform() {
     { addWatchFile: (input: string) => watched.push(input) },
   );
   assert.ok(first);
-  assert.match(first.code, /OLD LINK TARGET/);
+  assert.match(first.code, /NEW LINK TARGET/);
+  assert.doesNotMatch(first.code, /OLD LINK TARGET/);
   assert.ok(
     watched.includes(path.join(link, "selection.cjs")),
     "watch registration must preserve the lexical link spelling",
@@ -606,11 +607,15 @@ async function assertPersistentUtilityConfigLinkRetargetInvalidatesTransform() {
     cache,
   );
   assert.ok(second);
-  assert.notEqual([...cache.values()][0], firstGeneration);
+  assert.equal(
+    [...cache.values()][0],
+    firstGeneration,
+    "the first request must discard the raced output and retain its stable retry",
+  );
   assert.match(second.code, /NEW LINK TARGET/);
   assert.doesNotMatch(second.code, /OLD LINK TARGET/);
 
-  const secondGeneration = [...cache.values()][0]!;
+  const secondGeneration = firstGeneration!;
   const secondGenerationState = await secondGeneration;
   assert.equal(secondGenerationState.result.type, "success");
   const linkedSelection = path.join(link, "selection.cjs");
@@ -637,8 +642,12 @@ async function assertPersistentUtilityConfigLinkRetargetInvalidatesTransform() {
   );
   assert.ok(third);
   assert.notEqual([...cache.values()][0], secondGeneration);
-  assert.match(third.code, /OLD LINK TARGET/);
-  assert.doesNotMatch(third.code, /NEW LINK TARGET/);
+  assert.match(third.code, /NEW LINK TARGET/);
+  assert.doesNotMatch(
+    third.code,
+    /OLD LINK TARGET/,
+    "the invalidated generation must also discard its raced old-target output",
+  );
 }
 
 /** Assert Node's inherited NODE_PATH ordering contributes missing candidates. */

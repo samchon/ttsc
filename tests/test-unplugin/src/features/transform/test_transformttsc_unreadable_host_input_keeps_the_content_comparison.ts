@@ -14,8 +14,9 @@ import { assertUnreadableHostInputKeepsTheContentComparison } from "../../intern
  *    the host's own filesystem and the adapter's fail to read alike, and have
  *    the descriptor report what it observed rather than a declared constant.
  * 2. Deliver every module and assert the cache still hits once.
- * 3. Let its content appear through the cache-owned read alone, so no metadata
- *    moves, and assert the next delivery replaces the generation.
+ * 3. Let content appear only through the cache-owned read, leaving the host's
+ *    missing proof unchanged, and assert the contradiction terminates after one
+ *    bounded retry wave.
  */
 export const test_transformttsc_unreadable_host_input_keeps_the_content_comparison =
   async () => {

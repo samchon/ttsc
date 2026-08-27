@@ -1061,6 +1061,16 @@ function envelopeGraphIndexes(
         }
       }
     }
+    const transformSources = new Set<string>();
+    if (props.result.type === "success") {
+      for (const output of Object.keys(props.result.typescript)) {
+        if (!isDeclarationFile(output)) {
+          transformSources.add(
+            derivationIdentity(state, path.resolve(props.projectRoot, output)),
+          );
+        }
+      }
+    }
     for (const [input, hash] of Object.entries(graph.inputHashes ?? {})) {
       if (
         hash !== null &&
@@ -1084,7 +1094,9 @@ function envelopeGraphIndexes(
       }
       const absolute = path.resolve(props.projectRoot, input);
       const identity = derivationIdentity(state, absolute);
-      if (!built.members.has(identity)) continue;
+      if (!built.members.has(identity) && !transformSources.has(identity)) {
+        continue;
+      }
       const proof = {
         hash,
         path: absolute,
@@ -1115,8 +1127,16 @@ function envelopeGraphIndexes(
       }
       const absolute = path.resolve(props.projectRoot, input);
       const identity = derivationIdentity(state, absolute);
-      if (!built.members.has(identity)) continue;
-      built.inputProofFailures.set(identity, reason);
+      if (!built.members.has(identity) && !transformSources.has(identity)) {
+        continue;
+      }
+      if (built.inputProofs.has(identity)) {
+        built.inputProofs.delete(identity);
+        built.inputProofConflicts.add(identity);
+      }
+      if (!built.inputProofFailures.has(identity)) {
+        built.inputProofFailures.set(identity, reason);
+      }
     }
   }
   state.graph = built;
@@ -1618,11 +1638,19 @@ export function stripQuery(id: string): string {
 }
 
 /**
- * Returns `true` for TypeScript declaration files (`.d.ts`, `.d.mts`,
- * `.d.cts`).
+ * Returns `true` for every declaration-file spelling TypeScript-Go accepts.
+ * Besides the standard `.d.ts`, `.d.mts`, and `.d.cts` forms, TypeScript-Go
+ * treats an arbitrary-extension source such as `styles.d.css.ts` as a
+ * declaration file too.
  */
 export function isDeclarationFile(id: string): boolean {
-  return id.endsWith(".d.ts") || id.endsWith(".d.mts") || id.endsWith(".d.cts");
+  const base = path.basename(id);
+  return (
+    base.endsWith(".d.ts") ||
+    base.endsWith(".d.mts") ||
+    base.endsWith(".d.cts") ||
+    (base.endsWith(".ts") && base.includes(".d."))
+  );
 }
 
 /**
@@ -2800,6 +2828,7 @@ function compilerGraphInputProofFailures(
       recordGenerationProofFailure(failures, {
         domain: "graph",
         kind: "proof-conflict",
+        detail: graph.inputProofFailures.get(identity),
         path: spelling,
       });
       continue;
@@ -4169,7 +4198,7 @@ function walkSnapshotComplete(
   snapshot: {
     complete: boolean;
     directoryComplete: boolean;
-    unstableFiles: Set<string>;
+    unstableFiles: ReadonlySet<string>;
   },
   declared: ReadonlySet<string> | undefined,
 ): boolean {
@@ -4420,21 +4449,39 @@ function mergeGenerationProofFailures(
   );
 }
 
-/** Hash the exact failure shape of one project walk without retaining it. */
-function projectWalkFailureFingerprint(snapshot: {
-  complete: boolean;
-  directoryComplete: boolean;
-  unstableFiles: ReadonlySet<string>;
-  walkFailures: readonly TtscProjectWalkFailure[];
-}): string {
+/** Hash the declared-input-relevant failure shape without retaining it. */
+function projectWalkFailureFingerprint(
+  snapshot: {
+    complete: boolean;
+    directoryComplete: boolean;
+    unstableFiles: ReadonlySet<string>;
+    walkFailures: readonly TtscProjectWalkFailure[];
+  },
+  declared: ReadonlySet<string> | undefined,
+  projectRoot: string,
+  identities: FilesystemPathIdentityContext,
+): string {
+  const relevantUnstableFiles =
+    declared === undefined
+      ? [...snapshot.unstableFiles]
+      : [...snapshot.unstableFiles].filter((key) => declared.has(key));
+  const relevantFailures = snapshot.walkFailures.filter((failure) => {
+    if (!failure.kind.startsWith("file-")) return true;
+    if (declared === undefined) return true;
+    try {
+      return declared.has(toProjectKey(projectRoot, failure.path, identities));
+    } catch {
+      return true;
+    }
+  });
   return hashText(
     JSON.stringify({
-      complete: snapshot.complete,
+      complete: walkSnapshotComplete(snapshot, declared),
       directoryComplete: snapshot.directoryComplete,
-      failures: snapshot.walkFailures
+      failures: relevantFailures
         .map((failure) => `${failure.kind}\0${path.resolve(failure.path)}`)
         .sort(),
-      unstableFiles: [...snapshot.unstableFiles].sort(),
+      unstableFiles: relevantUnstableFiles.sort(),
     }),
   );
 }
@@ -4559,7 +4606,12 @@ function failedGenerationEnvironmentChanged(
       validation.projectWalkComplete !==
         walkSnapshotComplete(current, validation.declaredInputs) ||
       validation.projectWalkFailures !==
-        projectWalkFailureFingerprint(current) ||
+        projectWalkFailureFingerprint(
+          current,
+          validation.declaredInputs,
+          validation.cached.projectRoot,
+          identities,
+        ) ||
       !sameHashes(
         validation.projectInputHashes,
         current.hashes,
@@ -4928,7 +4980,12 @@ async function captureTransformGeneration(props: {
           inputSnapshot,
           declaredInputs,
         ),
-        projectWalkFailures: projectWalkFailureFingerprint(inputSnapshot),
+        projectWalkFailures: projectWalkFailureFingerprint(
+          inputSnapshot,
+          declaredInputs,
+          projectRoot,
+          identities,
+        ),
       });
     }
     cached.projectSnapshotComplete = stableProjectSnapshot;
