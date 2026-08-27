@@ -202,53 +202,60 @@ export async function assertViteBuildEndDisposesTheLastOverlappingCacheOwner(): 
     },
   );
 
-  await invokeVitePluginHook(plugin.buildStart, oldLifecycle);
-  assert.ok(await deliver(modules[0]!));
-  assert.equal(runCount(), 1);
+  try {
+    await invokeVitePluginHook(plugin.buildStart, oldLifecycle);
+    assert.ok(await deliver(modules[0]!));
+    assert.equal(runCount(), 1);
 
-  // Vite closes even a container that never reached buildStart. Its buildEnd
-  // must not consume the live lifecycle owned by a different container.
-  await invokeVitePluginHook(plugin.buildEnd, unstartedLifecycle);
-  fs.appendFileSync(
-    path.join(project.root, "plugin.cjs"),
-    "\n// changed after an unstarted container ended\n",
-    "utf8",
-  );
-  assert.ok(await deliver(modules[1]!));
-  assert.equal(
-    runCount(),
-    1,
-    "an unstarted container's buildEnd must not reset the live build-scoped generation",
-  );
+    // Vite closes even a container that never reached buildStart. Its buildEnd
+    // must not consume the live lifecycle owned by a different container.
+    await invokeVitePluginHook(plugin.buildEnd, unstartedLifecycle);
+    fs.appendFileSync(
+      path.join(project.root, "plugin.cjs"),
+      "\n// changed after an unstarted container ended\n",
+      "utf8",
+    );
+    assert.ok(await deliver(modules[1]!));
+    assert.equal(
+      runCount(),
+      1,
+      "an unstarted container's buildEnd must not reset the live build-scoped generation",
+    );
 
-  // Model Vite restart ordering: replacement buildStart precedes old buildEnd.
-  await invokeVitePluginHook(plugin.buildStart, replacementLifecycle);
-  assert.ok(await deliver(modules[2]!));
-  assert.equal(runCount(), 2);
-  await invokeVitePluginHook(plugin.buildEnd, oldLifecycle);
+    // Model Vite restart ordering: replacement buildStart precedes old buildEnd.
+    await invokeVitePluginHook(plugin.buildStart, replacementLifecycle);
+    assert.ok(await deliver(modules[2]!));
+    assert.equal(runCount(), 2);
+    await invokeVitePluginHook(plugin.buildEnd, oldLifecycle);
 
-  fs.appendFileSync(
-    path.join(project.root, "plugin.cjs"),
-    "\n// changed after the replacement generation was captured\n",
-    "utf8",
-  );
-  assert.ok(await deliver(modules[3]!));
-  assert.equal(
-    runCount(),
-    2,
-    "the old container's buildEnd must not reset the replacement's build-scoped generation",
-  );
+    fs.appendFileSync(
+      path.join(project.root, "plugin.cjs"),
+      "\n// changed after the replacement generation was captured\n",
+      "utf8",
+    );
+    assert.ok(await deliver(modules[3]!));
+    assert.equal(
+      runCount(),
+      2,
+      "the old container's buildEnd must not reset the replacement's build-scoped generation",
+    );
 
-  await invokeVitePluginHook(plugin.buildEnd, replacementLifecycle);
-  assert.ok(await deliver(modules[0]!));
-  assert.equal(
-    runCount(),
-    3,
-    "the last container's buildEnd must dispose its generation before any later transform",
-  );
-
-  // Pair one final lifecycle solely to dispose the post-close diagnostic run.
-  const finalLifecycle = {};
-  await invokeVitePluginHook(plugin.buildStart, finalLifecycle);
-  await invokeVitePluginHook(plugin.buildEnd, finalLifecycle);
+    await invokeVitePluginHook(plugin.buildEnd, replacementLifecycle);
+    assert.ok(await deliver(modules[0]!));
+    assert.equal(
+      runCount(),
+      3,
+      "the last container's buildEnd must dispose its generation before any later transform",
+    );
+  } finally {
+    // buildEnd is idempotent per context. End every modeled owner even when a
+    // transform/assertion failed, then pair one fresh lifecycle to reset any
+    // ownerless persistent generation created by the post-close diagnostic.
+    await invokeVitePluginHook(plugin.buildEnd, unstartedLifecycle);
+    await invokeVitePluginHook(plugin.buildEnd, oldLifecycle);
+    await invokeVitePluginHook(plugin.buildEnd, replacementLifecycle);
+    const cleanupLifecycle = {};
+    await invokeVitePluginHook(plugin.buildStart, cleanupLifecycle);
+    await invokeVitePluginHook(plugin.buildEnd, cleanupLifecycle);
+  }
 }
