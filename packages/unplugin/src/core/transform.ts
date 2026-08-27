@@ -122,10 +122,6 @@ interface TtscFailedGenerationValidation {
   cached: TtscCachedProjectTransform;
   /** Input keys whose content can affect the generation, or the whole walk. */
   declaredInputs: ReadonlySet<string> | undefined;
-  /** Project key whose bundler-supplied source overlaid the disk snapshot. */
-  initialFileKey: string;
-  /** Bundler-supplied source hash used by the failed compiler attempt. */
-  initialSourceHash: string;
   /** Fingerprints of every out-of-walk and exact host input. */
   inputStates: ReadonlyMap<string, string>;
   /** Unmodified on-disk project hashes before the in-memory source overlay. */
@@ -243,6 +239,13 @@ export interface TtscCachedProjectTransform {
    * disk bytes against the recorded hash, and may record a signature then.
    */
   inputSignatures?: Record<string, string>;
+  /**
+   * Raw source hash of every readable key in the transform output, keyed by
+   * filesystem identity. Unlike {@link inputHashes}, this includes source
+   * outputs outside the project walk without adding arbitrary output keys to
+   * the complete project snapshot.
+   */
+  sourceHashes?: Record<string, string>;
   /** Metadata snapshot of every directory in the stable generation walk. */
   projectDirectories?: TtscProjectDirectorySnapshot[];
   /** Live notification state for universal host-input changes. */
@@ -1672,7 +1675,12 @@ function matchesCachedSource(
 ): boolean {
   const identities = envelopeDerivation(cached).identityContext;
   const currentKey = toProjectKey(cached.projectRoot, file, identities);
-  if (cached.inputHashes[currentKey] !== hashText(source)) {
+  const identity = pathIdentityKey(file, identities);
+  const expected =
+    cached.sourceHashes?.[identity] ??
+    cached.inputHashes[currentKey] ??
+    cached.externalInputHashes?.[identity];
+  if (expected !== hashText(source)) {
     return false;
   }
   if (
@@ -2547,7 +2555,9 @@ function matchesCompleteInputSnapshot(
   ) {
     return false;
   }
-  current.hashes[currentKey] = hashText(source);
+  if (Object.prototype.hasOwnProperty.call(cached.inputHashes, currentKey)) {
+    current.hashes[currentKey] = hashText(source);
+  }
   if (!sameHashes(cached.inputHashes, current.hashes, declaredInputs)) {
     return false;
   }
@@ -3794,12 +3804,13 @@ function matchesCachedExternalInputs(cached: TtscCachedProjectTransform): {
 
 /**
  * Derive the absolute out-of-walk input set of a whole project transform: the
- * union of every reference-graph member (edge keys and targets, globals, the
- * config chain) and every plugin-reported dependency, minus everything the
- * project walk already hashes and the disposed temp-dir tsconfig. These are the
- * inputs {@link matchesCachedSource}'s walk cannot see. Resolution candidates
- * that are still missing remain in this set even under the project root: the
- * first walk cannot hash a file that has not been created yet.
+ * union of every transformed source key, reference-graph member (edge keys and
+ * targets, globals, the config chain), and plugin-reported dependency, minus
+ * everything the project walk already hashes and the disposed temp-dir
+ * tsconfig. These are the inputs {@link matchesCachedSource}'s walk cannot see.
+ * Resolution candidates that are still missing remain in this set even under
+ * the project root: the first walk cannot hash a file that has not been created
+ * yet.
  *
  * A `dependenciesComplete` declaration deliberately does not narrow the stored
  * set: other files in the same whole-project result can still own the omitted
@@ -3821,6 +3832,10 @@ function selectExternalInputPaths(props: {
   const identities = createHostPathIdentityContext(filesystem);
   const resolutionCandidates = new Set<string>();
   const graph = props.result.graph;
+  // Every transform output key names the source file whose transformed text it
+  // carries. Keep an out-of-walk source in the external snapshot instead of
+  // injecting it into the project-walk key universe (samchon/ttsc#252).
+  members.push(...Object.keys(props.result.typescript));
   if (graph !== undefined) {
     for (const [source, targets] of Object.entries(graph.edges ?? {})) {
       members.push(source);
@@ -4469,6 +4484,26 @@ function captureFailedGenerationInputStates(
   );
 }
 
+/** Capture source baselines for project and out-of-walk transform outputs. */
+function captureTransformSourceHashes(
+  cached: TtscCachedProjectTransform,
+  currentFile: string,
+  currentSourceHash: string,
+): Record<string, string> {
+  const filesystem = resultFilesystem(cached.result);
+  const identities = envelopeDerivation(cached).identityContext;
+  const hashes: Record<string, string> = {};
+  if (cached.result.type === "success") {
+    for (const output of Object.keys(cached.result.typescript)) {
+      const file = path.resolve(cached.projectRoot, output);
+      const hash = hostInputStateHash(file, filesystem);
+      if (hash !== null) hashes[pathIdentityKey(file, identities)] = hash;
+    }
+  }
+  hashes[pathIdentityKey(currentFile, identities)] = currentSourceHash;
+  return hashes;
+}
+
 /**
  * Whether a terminal proof failure's observed environment actually changed.
  *
@@ -4486,17 +4521,15 @@ function failedGenerationEnvironmentChanged(
 ): boolean {
   try {
     const identities = envelopeDerivation(validation.cached).identityContext;
-    const currentFileKey = toProjectKey(
-      validation.cached.projectRoot,
-      props.currentFile,
-      identities,
-    );
     const currentSourceHash = hashText(props.currentSource);
     const expectedSourceHash =
-      currentFileKey === validation.initialFileKey
-        ? validation.initialSourceHash
-        : validation.projectInputHashes[currentFileKey];
-    if (expectedSourceHash !== currentSourceHash) {
+      validation.cached.sourceHashes?.[
+        pathIdentityKey(props.currentFile, identities)
+      ];
+    if (
+      expectedSourceHash !== undefined &&
+      expectedSourceHash !== currentSourceHash
+    ) {
       return true;
     }
     const current = collectProjectInputSnapshot(
@@ -4794,10 +4827,14 @@ async function captureTransformGeneration(props: {
     );
     const currentSourceHash = hashText(props.currentSource);
     const projectInputHashes = { ...inputSnapshot.hashes };
-    inputSnapshot.hashes[currentFileKey] = currentSourceHash;
-    // That overlay makes this one key the only recorded hash a disk signature
-    // cannot stand for: the bytes it names came from the bundler, not the file.
-    delete inputSnapshot.provenSignatures[currentFileKey];
+    if (
+      Object.prototype.hasOwnProperty.call(inputSnapshot.hashes, currentFileKey)
+    ) {
+      inputSnapshot.hashes[currentFileKey] = currentSourceHash;
+      // That overlay makes this one key the only recorded hash a disk signature
+      // cannot stand for: the bytes it names came from the bundler, not the file.
+      delete inputSnapshot.provenSignatures[currentFileKey];
+    }
     const cached: TtscCachedProjectTransform = {
       // Capture the out-of-walk input hashes while the generation is fresh so
       // cache validation can re-check them; computed before dispose so the
@@ -4817,6 +4854,11 @@ async function captureTransformGeneration(props: {
       // but deleted file would invalidate every persistent-cache snapshot.
       ...(temporaryTsconfig === undefined ? {} : { temporaryTsconfig }),
     };
+    cached.sourceHashes = captureTransformSourceHashes(
+      cached,
+      props.currentFile,
+      currentSourceHash,
+    );
     const externalInputSnapshot = captureExternalInputSnapshot(
       cached,
       externalInputPaths,
@@ -4862,8 +4904,6 @@ async function captureTransformGeneration(props: {
       TRANSFORM_FAILED_GENERATION_VALIDATIONS.set(result, {
         cached,
         declaredInputs,
-        initialFileKey: currentFileKey,
-        initialSourceHash: currentSourceHash,
         inputStates: captureFailedGenerationInputStates(cached, failures),
         projectInputHashes,
         projectWalkComplete: walkSnapshotComplete(
