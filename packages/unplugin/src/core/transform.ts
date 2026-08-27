@@ -2640,10 +2640,10 @@ function matchesExternalInputRealpaths(
 
 /**
  * Capture external-input hashes without attaching post-compile state to an
- * earlier graph. Graph members must carry compiler-time proof and still match
- * it now; plugin-declared dependency-only paths retain the historical
- * post-compile snapshot because their own protocol does not claim generation
- * fingerprints.
+ * earlier graph. Graph members and out-of-walk transformed sources must carry
+ * compiler-time proof and still match it now; plugin-declared dependency-only
+ * paths retain the historical post-compile snapshot because their own protocol
+ * does not claim generation fingerprints.
  */
 function captureExternalInputSnapshot(
   cached: TtscCachedProjectTransform,
@@ -2658,6 +2658,19 @@ function captureExternalInputSnapshot(
   const state = envelopeDerivation(cached);
   const filesystem = resultFilesystem(cached.result);
   const graph = envelopeGraphIndexes(state, cached);
+  // A non-declaration transform output is a compiler-realized source even when
+  // a malformed or legacy graph omitted its node. Its output was computed from
+  // compiler-time bytes, so a post-compile host read cannot prove coherence.
+  const transformSources = new Set<string>();
+  if (cached.result.type === "success") {
+    for (const output of Object.keys(cached.result.typescript)) {
+      if (!isDeclarationFile(output)) {
+        transformSources.add(
+          derivationIdentity(state, path.resolve(cached.projectRoot, output)),
+        );
+      }
+    }
+  }
   const hashes: Record<string, string> = {};
   const realpaths: Record<string, string | null> = {};
   const signatures: Record<string, string> = {};
@@ -2683,11 +2696,16 @@ function captureExternalInputSnapshot(
     // through to the recorded-state branch below, the same evidence a
     // plugin-declared dependency path carries. Its absence still invalidates
     // the generation when it appears, because `missing` is recorded state.
+    const realizedTransformSource = transformSources.has(identity);
     const speculativeOnly =
+      !realizedTransformSource &&
       graph.speculative.has(identity) &&
       !graph.inputProofs.has(identity) &&
       !graph.inputProofConflicts.has(identity);
-    if (graph.members.has(identity) && !speculativeOnly) {
+    if (
+      (realizedTransformSource || graph.members.has(identity)) &&
+      !speculativeOnly
+    ) {
       const proof = graph.inputProofs.get(identity);
       if (proof === undefined || graph.inputProofConflicts.has(identity)) {
         complete = false;

@@ -247,7 +247,7 @@ The transform cache snapshots every regular file reached by the non-following pr
 
 This section is about the **transform** cache (which files a rebuild depends on), not the **source-plugin binary** cache (the compiled Go plugin ttsc builds on first use). They are independent: persisting a bundler cache such as Next.js `.next/cache` does not carry the plugin binary across builds, and a fresh CI or container build recompiles the plugin (the `ttsc: building source plugin ...` line) even with a warm bundler cache. To keep that first-build compile from recurring on every build, persist the binary cache as described in [Build cache](/docs/ttsc/cache). In a monorepo, run `ttsc prepare` from the same project directory the bundler builds, so the warmed binary matches the cache key the bundler build looks up.
 
-Transform source outputs outside the project walk are kept in that external snapshot too. Their source hashes let sibling module requests validate the same generation without adding arbitrary output keys to the project-file universe.
+Transform source outputs outside the project walk are kept in that external snapshot too. A non-declaration output is reusable only when the graph carries its compiler-time content and physical-identity proof; a post-compile disk read cannot prove which bytes produced the output. Its source hash then lets sibling module requests validate the same generation without adding arbitrary output keys to the project-file universe.
 
 ## CLI or bundler?
 

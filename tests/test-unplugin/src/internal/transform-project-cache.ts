@@ -55,6 +55,8 @@ interface ICacheProjectOptions {
   emitExternalKey?: boolean;
   /** Emit this many transformable `.ts` outputs under ignored node_modules. */
   externalSourceOutputs?: number;
+  /** Change the first external source after its compiler read on attempt one. */
+  externalSourceChangesAfterRead?: boolean;
   externalSnapshotAbaRace?: boolean;
   fileCount?: number;
   graphFanout?: number;
@@ -291,6 +293,7 @@ async function assertOutOfWalkSourceOutputsShareGeneration(): Promise<void> {
   const project = createCacheProject({
     externalSourceOutputs: 2,
     fileCount: 2,
+    graphFanout: 1,
   });
   const cache = createTtscTransformCache();
   const options = resolveOptions({
@@ -315,6 +318,101 @@ async function assertOutOfWalkSourceOutputsShareGeneration(): Promise<void> {
     fs.readFileSync(project.runLog, "utf8").length,
     1,
     "out-of-walk source siblings must reuse the project generation",
+  );
+}
+
+/** A raced out-of-walk source must stabilize before any output is delivered. */
+async function assertOutOfWalkSourceChangeStabilizesWithinGeneration(): Promise<void> {
+  const { createTtscTransformCache, resolveOptions, transformTtsc } =
+    await TestUnpluginRuntime.loadUnpluginApi();
+  const project = createCacheProject({
+    externalSourceChangesAfterRead: true,
+    externalSourceOutputs: 1,
+    fileCount: 2,
+    graphFanout: 1,
+  });
+  const cache = createTtscTransformCache();
+  const options = resolveOptions({
+    project: path.join(project.root, "tsconfig.json"),
+  });
+  const main = path.join(project.root, "src", "mod0.ts");
+  assert.ok(
+    await transformTtsc(
+      main,
+      fs.readFileSync(main, "utf8"),
+      options,
+      undefined,
+      cache,
+    ),
+  );
+  const external = externalSourceModules(project.root, 1)[0]!;
+  const result = await transformTtsc(
+    external,
+    fs.readFileSync(external, "utf8"),
+    options,
+    undefined,
+    cache,
+  );
+  assert.ok(result);
+  assert.match(result.code, /PROBED-AFTER/);
+  assert.equal(
+    fs.readFileSync(project.runLog, "utf8").length,
+    2,
+    "the raced attempt must be discarded and its stable retry shared",
+  );
+}
+
+/** A graph-free out-of-walk source has no compiler-time coherence proof. */
+async function assertUnprovenOutOfWalkSourceFailsAfterBoundedAttempts(): Promise<void> {
+  const { createTtscTransformCache, resolveOptions, transformTtsc } =
+    await TestUnpluginRuntime.loadUnpluginApi();
+  const project = createCacheProject({
+    externalSourceOutputs: 2,
+    fileCount: 1,
+  });
+  const cache = createTtscTransformCache();
+  const options = resolveOptions({
+    project: path.join(project.root, "tsconfig.json"),
+  });
+  const main = path.join(project.root, "src", "mod0.ts");
+  let terminal: Error | undefined;
+  await assert.rejects(
+    () =>
+      transformTtsc(
+        main,
+        fs.readFileSync(main, "utf8"),
+        options,
+        undefined,
+        cache,
+      ),
+    (error: Error) => {
+      terminal = error;
+      return (
+        /after 2 attempts/.test(error.message) &&
+        /external\/graph-proof-missing/.test(error.message) &&
+        /node_modules\/external-source\/mod0\.ts/.test(error.message)
+      );
+    },
+  );
+  assert.equal(fs.readFileSync(project.runLog, "utf8").length, 2);
+  assert.equal(cache.size, 1);
+  for (const external of externalSourceModules(project.root, 2)) {
+    await assert.rejects(
+      () =>
+        transformTtsc(
+          external,
+          fs.readFileSync(external, "utf8"),
+          options,
+          undefined,
+          cache,
+        ),
+      (error: Error) => error === terminal,
+    );
+  }
+  assert.equal(
+    fs.readFileSync(project.runLog, "utf8").length,
+    2,
+    "proof-less source siblings must replay one terminal verdict",
   );
 }
 
@@ -3282,6 +3380,8 @@ function createCacheProject(options: ICacheProjectOptions): {
               runLog,
               emitExternal: options.emitExternalKey === true,
               externalSourceOutputs: options.externalSourceOutputs ?? 0,
+              externalSourceChangesAfterRead:
+                options.externalSourceChangesAfterRead === true,
               aliasedGlobal:
                 options.aliasedGlobal === true && process.platform !== "win32",
               graphFanout: options.graphFanout ?? 0,
@@ -3310,6 +3410,9 @@ function createCacheProject(options: ICacheProjectOptions): {
                     snapshotRaceFile: externalRaceFile,
                     snapshotRaceMarker,
                   }
+                : {}),
+              ...(options.externalSourceChangesAfterRead === true
+                ? { snapshotRaceMarker }
                 : {}),
             },
           ],
@@ -3566,9 +3669,17 @@ function writeGoPlugin(root: string): void {
       "  }",
       '  for j := 0; j < int(numberValue(cfg, "externalSourceOutputs")); j++ {',
       '    input := fmt.Sprintf("node_modules/external-source/mod%d.ts", j)',
-      "    data, readErr := os.ReadFile(filepath.Join(root, filepath.FromSlash(input)))",
+      "    file := filepath.Join(root, filepath.FromSlash(input))",
+      "    data, readErr := os.ReadFile(file)",
       "    if readErr != nil { fmt.Fprintln(os.Stderr, readErr); return 2 }",
       "    observedInputs[input] = string(data)",
+      '    if j == 0 && boolValue(cfg, "externalSourceChangesAfterRead") {',
+      '      marker := stringValue(cfg, "snapshotRaceMarker")',
+      "      if _, statErr := os.Stat(marker); os.IsNotExist(statErr) {",
+      '        os.WriteFile(marker, []byte("1"), 0o644)',
+      '        os.WriteFile(file, []byte("export const external = \\"PROBE-AFTER\\";\\n"), 0o644)',
+      "      }",
+      "    }",
       '    ts[input] = strings.ReplaceAll(string(data), "PROBE", "PROBED")',
       "  }",
       '  externalRaceFile := stringValue(cfg, "externalRaceFile")',
@@ -3618,6 +3729,9 @@ function writeGoPlugin(root: string): void {
       "        targets = append(targets, externals...)",
       "      }",
       '      edges["src/"+name] = targets',
+      "    }",
+      '    for j := 0; j < int(numberValue(cfg, "externalSourceOutputs")); j++ {',
+      '      edges[fmt.Sprintf("node_modules/external-source/mod%d.ts", j)] = []string{}',
       "    }",
       "    result.Graph = &graphSection{",
       "      Edges:      edges,",
@@ -3731,6 +3845,7 @@ export {
   createCacheProject,
   projectModules,
   assertCacheHitsDespiteOutOfWalkOutputKey,
+  assertOutOfWalkSourceChangeStabilizesWithinGeneration,
   assertOutOfWalkSourceOutputsShareGeneration,
   assertAppearingCandidateInvalidatesGeneration,
   assertNotifiedAbsentCandidateIsNotReprobed,
@@ -3743,6 +3858,7 @@ export {
   assertCacheTransformsMultiFileProjectOnce,
   assertNonInputWriteDuringCompileKeepsGeneration,
   assertUnprovenCandidatesKeepOneCompile,
+  assertUnprovenOutOfWalkSourceFailsAfterBoundedAttempts,
   assertUnprovenRealizedInputFailsAfterBoundedAttempts,
   assertCompleteValidationProvesEachInputOnce,
   assertCompileSnapshotRaceCannotAuthorizeStaleOutput,
