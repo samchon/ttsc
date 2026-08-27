@@ -1644,7 +1644,12 @@ export function stripQuery(id: string): string {
  * declaration file too.
  */
 export function isDeclarationFile(id: string): boolean {
-  const base = path.basename(id);
+  // Module ids can cross process/platform boundaries (for example, a Windows
+  // id inspected by a POSIX host). TypeScript-Go normalizes both separators
+  // before taking the basename, so a `.d.` directory component must not turn
+  // an ordinary source into a declaration file.
+  const normalized = id.replaceAll("\\", "/");
+  const base = normalized.slice(normalized.lastIndexOf("/") + 1);
   return (
     base.endsWith(".d.ts") ||
     base.endsWith(".d.mts") ||

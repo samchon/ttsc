@@ -9,7 +9,7 @@ import { assertPersistentIncompleteProjectSnapshotFailsAfterBoundedAttempts } fr
  *
  * 1. Keep one nested directory unreadable after compilation begins.
  * 2. Request a transform through one persistent cache.
- * 3. Assert two attempts, an exact witness, eviction, and later recovery.
+ * 3. Assert two attempts, one retained terminal verdict, and later recovery.
  */
 export const test_transformttsc_persistent_incomplete_project_snapshot_fails_after_bounded_attempts =
   async () => {
