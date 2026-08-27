@@ -47,7 +47,7 @@ That covers the CLI. The integrations each have a short guide:
 
 ## Lint
 
-Lint and format inside the type-check you already run. 720+ rules across 21 families, plus a formatter whose rules are ported from Prettier 3.8.3 — see the [format guide](https://ttsc.dev/docs/lint/format) for the shapes it covers and the ones it leaves alone.
+Lint and format inside the type-check you already run. 720+ rules across 21 families, plus a formatter ported from Prettier.
 
 ```ts
 // src/index.ts
@@ -76,28 +76,28 @@ src/index.ts:1:1 - error TS11966: [no-var] Unexpected var, use let or const inst
 Found 3 errors in the same file, starting at: src/index.ts:3
 ```
 
-Type errors and lint violations arrive in one stream, so the CI step that already runs `ttsc --noEmit` gates lint with no second job and no second parse. On vscode's 6,093 files the rules take 73 ms inside that check, where ESLint spends 66.7 s as its own command.
+Because both arrive in that one stream, the CI step that already runs `ttsc --noEmit` gates lint with no second job and no second parse. On vscode the rules run about 900 times faster inside that check than ESLint does as its own command.
 
 `npx ttsc fix` applies autofixes and formatting; `npx ttsc format` only formats. Rules and every `format` key are in the [Lint and Format guide](https://ttsc.dev/docs/lint).
 
 ## Evidence Graph
 
-Your spec becomes a compile error, so requirement coverage is 100% or the build does not pass. An agent can still lie, but it cannot lie by omission.
+Every specification becomes a compile-time obligation.
 
 ```tsx
 /**
- * @evidence docs/discount.md#coupon-stacking
- *           States the per-issuer stacking limit
- *           this section defines, in the buyer's words.
- * @evidence POST:/orders/{orderId}/coupons
- *           Explains the rejection this endpoint returns
- *           for an over-stacked coupon set.
+ * @evidence docs/discount.md#coupon-stacking States the per-issuer stacking limit this section defines, in the buyer's words.
+ * @evidence POST:/orders/{orderId}/coupons Explains the rejection this endpoint returns for an over-stacked coupon set.
  * @evidence {@link hooks.useCouponStacking} Renders the limit this hook resolves.
+ * @evidence docs/principles.md#no-hard-coding Renders limits from props instead of branching on known issuer names.
+ * @evidenceExclude docs/principles.md#fix-root-causes-not-symptoms No failure to fix.
  */
 export function CouponStackingNotice(props: IProps): JSX.Element;
 ```
 
-`@evidence <target> <reason>` names one unit of the spec and why this declaration answers for it. A target is a document section, an API operation, a database schema model, or a TypeScript symbol as an inline link.
+Each tag is a stated obligation, and the compiler audits every one, so no requirement and no principle goes unanswered.
+
+You declare who owes what in `lint.config.ts`, and [the guide document](https://ttsc.dev/docs/evidence) has every option.
 
 ```bash
 $ npx ttsc
@@ -105,18 +105,18 @@ error TS16411: [evidence/graph] Missing acknowledgement for 'docs/discount.md#co
   (Markdown H2 'Coupon Stacking' at docs/discount.md:3)
   in Claim 1 reference 1 (markdown, symbols: h2, h3).
 
-  Cite the artifact that answers for this unit with @evidence on a selected
-  typescript host, building that artifact first when none does, or write
-  @evidenceExclude on an eligible carrier when nothing here owes it. Never
-  leave an untrue tag standing just to pass this check; it removes the error,
-  not the problem.
+...
 
-Found 3 errors.
+Found 5 errors.
 ```
 
-Without those tags, the build fails once per obligation, because one reference never covers another. An AI coding agent has to clear them to finish, and clearing them means citing each target and writing down why its code answers for it.
+Without those `@evidence` tags, each unanswered obligation fails the build on its own, in the same stream as your type errors.
+
+An agent cannot finish while one stands unanswered, so nothing it skipped stays invisible.
 
 ![Coverage and token spend, Plain against Evidence](https://raw.githubusercontent.com/samchon/ttsc/gh-pages/benchmark/png/evidence-summary.png)
+
+The result is 100% coverage on the first pass, at a fraction of the tokens and the time the same project costs without those obligations.
 
 ## Compiler Knowledge Graph
 
@@ -133,11 +133,11 @@ Your coding agent answers from the compiler instead of grepping and re-reading f
 }
 ```
 
-One typed MCP tool over a graph the type checker resolved: what calls what, what a change would touch, where to start reading. Answers carry names, signatures, edges, and spans, never file bodies, so a large repository cannot inflate the response.
-
-Across 64 measured question and model pairs, the median answer costs 92% fewer tokens and 95% fewer tool calls than the same agent with no MCP. The design and the comparators are in [`@ttsc/graph`](https://github.com/samchon/ttsc/tree/master/packages/graph).
+That server exposes one typed MCP tool over a graph the type checker resolved. Answers never carry file bodies, so repository size cannot inflate the response.
 
 ![Median tokens on the shared onboarding question, lower is better](https://raw.githubusercontent.com/samchon/ttsc/gh-pages/benchmark/png/graph-common-codex-gpt-5.6-sol.png)
+
+The median answer costs a fraction of the tokens and tool calls the same question takes without it. The design and the comparators are in [`@ttsc/graph`](https://github.com/samchon/ttsc/tree/master/packages/graph).
 
 ## Plugins
 
