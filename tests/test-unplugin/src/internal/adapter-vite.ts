@@ -69,13 +69,16 @@ async function assertViteServeWithoutAWatcherServesTheStartupGeneration(): Promi
   });
   const lazy = path.join(root, "src", "lazy.ts");
   fs.writeFileSync(lazy, "export const lazy = 1;\n", "utf8");
+  // Vite 7 resolves Windows temp roots to their long physical spelling and
+  // cannot then load a URL from the 8.3 root spelling supplied by os.tmpdir().
+  const viteRoot = fs.realpathSync.native(root);
   const server = await viteCreateServer({
     appType: "custom",
     configFile: false,
     logLevel: "silent",
     optimizeDeps: { include: [], noDiscovery: true },
     plugins: [unpluginVite()],
-    root,
+    root: viteRoot,
     server: { hmr: false, middlewareMode: true, watch: null },
   });
   try {

@@ -1,6 +1,8 @@
 # @ttsc/unplugin per-module cost reproduction
 
-This experiment drives the **real** `@ttsc/unplugin` Rollup plugin object over a synthetic project of `N` TypeScript files and measures, per simulated build:
+This experiment drives the **real** `@ttsc/unplugin` Rollup consumer over a synthetic project and a handwritten synthetic Go transform producer. The producer controls the graph and proof shapes for repeatable measurements; it is not the TypeScript-Go driver's native envelope. The release-gated semantic calibration is [`tests/test-unplugin/src/native-plugins/cache`](../../tests/test-unplugin/src/native-plugins/cache), which links an observer into the production host and asserts its real graph before measuring reuse.
+
+For `N` TypeScript files, the harness measures per simulated build:
 
 - **plugin runs** — how many times the whole project is re-transformed (native plugin spawns). A correct per-build cache transforms the project **once**.
 - **`fs.readFileSync` calls / bytes** — the content work the adapter performs while serving the `N` modules. A correct cache validates only each module's derived inputs.
@@ -25,4 +27,4 @@ Run from the repository root:
 pnpm --dir experimental/unplugin-perf start
 ```
 
-Requires a built `ttsc` package (`packages/ttsc/lib`) and a Go toolchain on PATH (the synthetic transform plugin is a tiny Go sidecar).
+Requires a built `ttsc` package (`packages/ttsc/lib`) and a Go toolchain on PATH. The synthetic transform producer is a tiny Go sidecar.

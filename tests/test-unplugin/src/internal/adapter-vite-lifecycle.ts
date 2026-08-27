@@ -18,6 +18,8 @@ import { createCacheProject, projectModules } from "./transform-project-cache";
  * `server.close()` and hold the test runner process open.
  */
 interface IViteAdapterSession {
+  /** End the driven Vite lifecycle and dispose its private cache. */
+  close: () => Promise<void>;
   /** Deliver one module through the adapter's `transform` hook. */
   deliver: (file: string) => Promise<unknown>;
   /** Absolute module paths of the fixture, sorted. */
@@ -40,6 +42,7 @@ export async function startViteAdapterSession(options: {
   watching: boolean;
 }): Promise<IViteAdapterSession> {
   const plugin = await loadViteAdapterPlugin();
+  const lifecycle = {};
   const project = createCacheProject({ fileCount: options.fileCount ?? 4 });
   invokeVitePluginHook(
     plugin.configResolved,
@@ -50,8 +53,11 @@ export async function startViteAdapterSession(options: {
       server: options.watching ? { watch: {} } : { watch: null },
     },
   );
-  await invokeVitePluginHook(plugin.buildStart, {});
+  await invokeVitePluginHook(plugin.buildStart, lifecycle);
   return {
+    close: async () => {
+      await invokeVitePluginHook(plugin.buildEnd, lifecycle);
+    },
     deliver: async (file: string) =>
       invokeVitePluginHook(
         plugin.transform,
@@ -88,18 +94,22 @@ function touchUnrelatedInput(session: IViteAdapterSession): void {
  */
 export async function assertWatcherlessServeTakesTheBuildScopedCache(): Promise<void> {
   const session = await startViteAdapterSession({ watching: false });
-  assert.ok(await session.deliver(session.modules[0]!));
-  assert.equal(session.projectCompiles(), 1);
+  try {
+    assert.ok(await session.deliver(session.modules[0]!));
+    assert.equal(session.projectCompiles(), 1);
 
-  touchUnrelatedInput(session);
-  for (const file of session.modules.slice(1)) {
-    assert.ok(await session.deliver(file));
+    touchUnrelatedInput(session);
+    for (const file of session.modules.slice(1)) {
+      assert.ok(await session.deliver(file));
+    }
+    assert.equal(
+      session.projectCompiles(),
+      1,
+      "a watcherless serve session must deliver every remaining module from the one generation it already compiled",
+    );
+  } finally {
+    await session.close();
   }
-  assert.equal(
-    session.projectCompiles(),
-    1,
-    "a watcherless serve session must deliver every remaining module from the one generation it already compiled",
-  );
 }
 
 /**
@@ -112,18 +122,22 @@ export async function assertWatcherlessServeTakesTheBuildScopedCache(): Promise<
  */
 export async function assertWatchingServeKeepsPersistentValidation(): Promise<void> {
   const session = await startViteAdapterSession({ watching: true });
-  assert.ok(await session.deliver(session.modules[0]!));
-  assert.equal(session.projectCompiles(), 1);
+  try {
+    assert.ok(await session.deliver(session.modules[0]!));
+    assert.equal(session.projectCompiles(), 1);
 
-  touchUnrelatedInput(session);
-  for (const file of session.modules.slice(1)) {
-    assert.ok(await session.deliver(file));
+    touchUnrelatedInput(session);
+    for (const file of session.modules.slice(1)) {
+      assert.ok(await session.deliver(file));
+    }
+    assert.equal(
+      session.projectCompiles(),
+      2,
+      "a watching dev server must replace the generation the changed input invalidated, then reuse the replacement",
+    );
+  } finally {
+    await session.close();
   }
-  assert.equal(
-    session.projectCompiles(),
-    2,
-    "a watching dev server must replace the generation the changed input invalidated, then reuse the replacement",
-  );
 }
 
 /**
@@ -136,15 +150,112 @@ export async function assertWatchingServeKeepsPersistentValidation(): Promise<vo
  */
 export async function assertWatcherlessServeRevalidatesARepeatedModule(): Promise<void> {
   const session = await startViteAdapterSession({ watching: false });
-  const first = session.modules[0]!;
-  assert.ok(await session.deliver(first));
-  assert.equal(session.projectCompiles(), 1);
+  try {
+    const first = session.modules[0]!;
+    assert.ok(await session.deliver(first));
+    assert.equal(session.projectCompiles(), 1);
 
-  touchUnrelatedInput(session);
-  assert.ok(await session.deliver(first));
-  assert.equal(
-    session.projectCompiles(),
-    2,
-    "a module delivered twice in one watcherless session must validate on its second delivery",
+    touchUnrelatedInput(session);
+    assert.ok(await session.deliver(first));
+    assert.equal(
+      session.projectCompiles(),
+      2,
+      "a module delivered twice in one watcherless session must validate on its second delivery",
+    );
+  } finally {
+    await session.close();
+  }
+}
+
+/**
+ * Assert overlapping Vite containers retain only their newest live cache.
+ *
+ * Vite constructs a replacement container before ending the old one during a
+ * restart. The old buildEnd must not clear the replacement generation, while
+ * the replacement's eventual buildEnd must dispose it and its trackers.
+ */
+export async function assertViteBuildEndDisposesTheLastOverlappingCacheOwner(): Promise<void> {
+  const plugin = await loadViteAdapterPlugin();
+  const unstartedLifecycle = {};
+  const oldLifecycle = {};
+  const replacementLifecycle = {};
+  const project = createCacheProject({ fileCount: 4 });
+  const modules = projectModules(project.root);
+  const runCount = () =>
+    fs.existsSync(project.runLog)
+      ? fs.readFileSync(project.runLog, "utf8").length
+      : 0;
+  const deliver = async (file: string) =>
+    invokeVitePluginHook(
+      plugin.transform,
+      { addWatchFile: () => undefined },
+      fs.readFileSync(file, "utf8"),
+      file,
+    );
+  invokeVitePluginHook(
+    plugin.configResolved,
+    {},
+    {
+      command: "serve",
+      resolve: { alias: [] },
+      server: { watch: null },
+    },
   );
+
+  try {
+    await invokeVitePluginHook(plugin.buildStart, oldLifecycle);
+    assert.ok(await deliver(modules[0]!));
+    assert.equal(runCount(), 1);
+
+    // Vite closes even a container that never reached buildStart. Its buildEnd
+    // must not consume the live lifecycle owned by a different container.
+    await invokeVitePluginHook(plugin.buildEnd, unstartedLifecycle);
+    fs.appendFileSync(
+      path.join(project.root, "plugin.cjs"),
+      "\n// changed after an unstarted container ended\n",
+      "utf8",
+    );
+    assert.ok(await deliver(modules[1]!));
+    assert.equal(
+      runCount(),
+      1,
+      "an unstarted container's buildEnd must not reset the live build-scoped generation",
+    );
+
+    // Model Vite restart ordering: replacement buildStart precedes old buildEnd.
+    await invokeVitePluginHook(plugin.buildStart, replacementLifecycle);
+    assert.ok(await deliver(modules[2]!));
+    assert.equal(runCount(), 2);
+    await invokeVitePluginHook(plugin.buildEnd, oldLifecycle);
+
+    fs.appendFileSync(
+      path.join(project.root, "plugin.cjs"),
+      "\n// changed after the replacement generation was captured\n",
+      "utf8",
+    );
+    assert.ok(await deliver(modules[3]!));
+    assert.equal(
+      runCount(),
+      2,
+      "the old container's buildEnd must not reset the replacement's build-scoped generation",
+    );
+
+    await invokeVitePluginHook(plugin.buildEnd, replacementLifecycle);
+    assert.ok(await deliver(modules[0]!));
+    assert.equal(
+      runCount(),
+      3,
+      "the last container's buildEnd must dispose its generation before any later transform",
+    );
+  } finally {
+    // buildEnd is idempotent per context. End every modeled owner even when a
+    // transform/assertion failed, then pair one fresh lifecycle to reset any
+    // ownerless persistent generation created by the post-close diagnostic.
+    await invokeVitePluginHook(plugin.buildEnd, unstartedLifecycle);
+    await invokeVitePluginHook(plugin.buildEnd, oldLifecycle);
+    await invokeVitePluginHook(plugin.buildEnd, replacementLifecycle);
+    const cleanupLifecycle = {};
+    await invokeVitePluginHook(plugin.buildStart, cleanupLifecycle);
+    await invokeVitePluginHook(plugin.buildEnd, cleanupLifecycle);
+  }
 }

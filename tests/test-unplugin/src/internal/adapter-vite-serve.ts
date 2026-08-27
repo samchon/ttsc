@@ -158,6 +158,10 @@ export async function startViteServer(
   fixture: IViteServeCandidateFixture,
 ): Promise<any> {
   const unpluginVite = await TestUnpluginRuntime.loadUnpluginAdapter("vite");
+  // Vite 7 cannot load a URL beneath the 8.3 spelling Windows may return from
+  // os.tmpdir(), even though Node can stat that alias. Give Vite the same long
+  // physical root its resolver will put into the resolved module id.
+  const viteRoot = fs.realpathSync.native(fixture.app);
   return viteCreateServer({
     appType: "custom",
     configFile: false,
@@ -166,7 +170,7 @@ export async function startViteServer(
     // restarts; the linked package resolves as source without it.
     optimizeDeps: { include: [], noDiscovery: true },
     plugins: [unpluginVite()],
-    root: fixture.app,
+    root: viteRoot,
     // `watch: null` disables the server's own chokidar watcher: these
     // scenarios assert the adapter's filesystem poll (which must work exactly
     // where chokidar does not look), and a chokidar instance can outlive
@@ -289,6 +293,7 @@ export async function collectServeWatchRegistrations(
 ): Promise<string[]> {
   const plugin = await loadViteAdapterPlugin();
   const invoke = invokeVitePluginHook;
+  const lifecycle = {};
   invoke(
     plugin.configResolved,
     {},
@@ -298,15 +303,19 @@ export async function collectServeWatchRegistrations(
       server: options.watching ? { watch: {} } : { watch: null },
     },
   );
-  await invoke(plugin.buildStart, {});
+  await invoke(plugin.buildStart, lifecycle);
   const watched: string[] = [];
-  await invoke(
-    plugin.transform,
-    { addWatchFile: (file: string) => watched.push(file) },
-    fs.readFileSync(fixture.mainFile, "utf8"),
-    fixture.mainFile,
-  );
-  return watched;
+  try {
+    await invoke(
+      plugin.transform,
+      { addWatchFile: (file: string) => watched.push(file) },
+      fs.readFileSync(fixture.mainFile, "utf8"),
+      fixture.mainFile,
+    );
+    return watched;
+  } finally {
+    await invoke(plugin.buildEnd, lifecycle);
+  }
 }
 
 /** Resolve the ttsc plugin object out of the Vite adapter's factory result. */

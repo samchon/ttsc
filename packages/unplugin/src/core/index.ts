@@ -55,6 +55,12 @@ const unpluginFactory: UnpluginFactory<
   let aliases: unknown;
   let viteCommand: string | undefined;
   let viteWatching = true;
+  // A restart can start the replacement plugin container before closing the
+  // old one, and Vite calls buildEnd even for a container that never started.
+  // Track the stable per-container PluginContext identity so that unstarted
+  // old containers cannot dispose a replacement's freshly initialized cache.
+  const viteBuildOwners = new WeakSet<object>();
+  let viteBuildLifecycles = 0;
 
   return {
     name,
@@ -89,13 +95,24 @@ const unpluginFactory: UnpluginFactory<
         missingInputs.attach(server);
       },
       // Vite calls buildEnd when the dev server (or build) closes; drop every
-      // poller so a stopped server leaks no watch state.
+      // poller and, once the last overlapping container has closed, every
+      // generation-owned filesystem tracker as well.
       buildEnd() {
         missingInputs.dispose();
+        if (viteBuildOwners.delete(this)) {
+          viteBuildLifecycles -= 1;
+        }
+        if (viteBuildLifecycles === 0) {
+          resetTtscTransformCache(transformCache);
+        }
       },
     },
 
     buildStart() {
+      if (viteCommand !== undefined && !viteBuildOwners.has(this as object)) {
+        viteBuildOwners.add(this as object);
+        viteBuildLifecycles += 1;
+      }
       // Persistent validation exists for a session that spans edits it can
       // observe, and a dev server told to open no watcher is not one:
       // `server.watch: null` leaves Vite with no change channel at all, so no
