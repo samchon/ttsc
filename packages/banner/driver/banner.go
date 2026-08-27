@@ -497,7 +497,7 @@ function recordInput(file) {
   const beforeSignature = inputMetadataSignature(file);
   let observed;
   let observedRealpath;
-  try { observed = fs.statSync(file).isDirectory() ? crypto.createHash("sha256").update("ttsc:host-input:directory\\0").digest("hex") : crypto.createHash("sha256").update(fs.readFileSync(file)).digest("hex"); }
+  try { observed = fs.statSync(file).isDirectory() ? crypto.createHash("sha256").update("ttsc:host-input:directory\0").digest("hex") : crypto.createHash("sha256").update(fs.readFileSync(file)).digest("hex"); }
   catch { observed = null; }
   try { observedRealpath = fs.realpathSync.native(file); }
   catch { observedRealpath = null; }
@@ -901,7 +901,7 @@ function recordInput(file: string): void {
   const beforeSignature = inputMetadataSignature(file);
   let observed: string | null;
   let observedRealpath: string | null;
-  try { observed = fs.statSync(file).isDirectory() ? crypto.createHash("sha256").update("ttsc:host-input:directory\\0").digest("hex") : crypto.createHash("sha256").update(fs.readFileSync(file)).digest("hex"); }
+  try { observed = fs.statSync(file).isDirectory() ? crypto.createHash("sha256").update("ttsc:host-input:directory\0").digest("hex") : crypto.createHash("sha256").update(fs.readFileSync(file)).digest("hex"); }
   catch { observed = null; }
   try { observedRealpath = fs.realpathSync.native(file); }
   catch { observedRealpath = null; }

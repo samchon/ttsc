@@ -76,6 +76,14 @@ export namespace ITtscCompilerTransformation {
 
     /** Compiler-time physical identities paired with {@link inputHashes}. */
     inputRealpaths?: Record<string, string | null>;
+
+    /**
+     * Why the compiler could not produce a paired proof for a graph member.
+     * Values are stable machine-readable reason codes such as `content-changed`
+     * or `realpath-unavailable`; consumers use them only for diagnostics and
+     * still treat the missing proof as authoritative refusal.
+     */
+    inputProofFailures?: Record<string, string>;
   }
 
   /** Successful source-to-source transformation result. */

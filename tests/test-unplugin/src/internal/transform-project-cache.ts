@@ -52,7 +52,12 @@ interface ICacheProjectOptions {
    * platform.
    */
   aliasedGlobal?: boolean;
+  conflictingProofFailureAlias?: boolean;
   emitExternalKey?: boolean;
+  /** Emit this many transformable `.ts` outputs under ignored node_modules. */
+  externalSourceOutputs?: number;
+  /** Change the first external source after its compiler read on attempt one. */
+  externalSourceChangesAfterRead?: boolean;
   externalSnapshotAbaRace?: boolean;
   fileCount?: number;
   graphFanout?: number;
@@ -68,6 +73,7 @@ interface ICacheProjectOptions {
    */
   graphCandidates?: number;
   graphGlobals?: number;
+  omitExternalSourceGraphNode?: boolean;
   /**
    * Stamp one extra resolution candidate at this absolute spelling, which the
    * caller places outside the project root.
@@ -92,6 +98,8 @@ interface ICacheProjectOptions {
    * candidate, this must refuse reuse.
    */
   unprovenGraphInput?: boolean;
+  /** Drop this many realized external graph proofs for witness-bound tests. */
+  unprovenGraphInputs?: number;
   /**
    * Stamp one graph member with no compiler-time content hash while keeping its
    * physical-identity proof, the shape a host reports for an input it could see
@@ -204,7 +212,7 @@ async function assertFilesystemOperationsAreCacheLocal(): Promise<void> {
       fs.readdirSync(location, { withFileTypes: true }),
   });
 
-  const [firstResult, secondResult] = await Promise.all([
+  const [firstResult, secondResult] = await Promise.allSettled([
     transformTtsc(
       firstFile,
       fs.readFileSync(firstFile, "utf8"),
@@ -220,8 +228,17 @@ async function assertFilesystemOperationsAreCacheLocal(): Promise<void> {
       second,
     ),
   ]);
-  assert.ok(firstResult);
-  assert.ok(secondResult);
+  assert.equal(firstResult.status, "rejected");
+  assert.match(
+    (firstResult as PromiseRejectedResult).reason.message,
+    /after 2 attempts/,
+  );
+  assert.match(
+    (firstResult as PromiseRejectedResult).reason.message,
+    /project\/directory-read-failed/,
+  );
+  assert.equal(secondResult.status, "fulfilled");
+  assert.ok((secondResult as PromiseFulfilledResult<unknown>).value);
   assert.ok(reads.first > 0);
   assert.ok(reads.second > 0);
   assert.ok(firstFaults > 0);
@@ -278,6 +295,171 @@ async function assertCacheHitsDespiteOutOfWalkOutputKey(): Promise<void> {
   for (const code of outputs) {
     assert.match(code, /PROBED/);
   }
+}
+
+/** A proved source output remains usable when a legacy graph omits its node. */
+async function assertProvenOutOfWalkSourceWithoutGraphNodeKeepsGeneration(): Promise<void> {
+  const { createTtscTransformCache, resolveOptions, transformTtsc } =
+    await TestUnpluginRuntime.loadUnpluginApi();
+  const project = createCacheProject({
+    externalSourceOutputs: 1,
+    fileCount: 2,
+    graphFanout: 1,
+    omitExternalSourceGraphNode: true,
+  });
+  const cache = createTtscTransformCache();
+  const options = resolveOptions({
+    project: path.join(project.root, "tsconfig.json"),
+  });
+  for (const file of [
+    path.join(project.root, "src", "mod0.ts"),
+    ...externalSourceModules(project.root, 1),
+  ]) {
+    assert.ok(
+      await transformTtsc(
+        file,
+        fs.readFileSync(file, "utf8"),
+        options,
+        undefined,
+        cache,
+      ),
+    );
+  }
+  assert.equal(
+    fs.readFileSync(project.runLog, "utf8").length,
+    1,
+    "the source output's compiler proof must survive an omitted graph node",
+  );
+}
+
+/** Out-of-walk source outputs share the same stable project generation. */
+async function assertOutOfWalkSourceOutputsShareGeneration(): Promise<void> {
+  const { createTtscTransformCache, resolveOptions, transformTtsc } =
+    await TestUnpluginRuntime.loadUnpluginApi();
+  const project = createCacheProject({
+    externalSourceOutputs: 2,
+    fileCount: 2,
+    graphFanout: 1,
+  });
+  const cache = createTtscTransformCache();
+  const options = resolveOptions({
+    project: path.join(project.root, "tsconfig.json"),
+  });
+  const modules = [
+    path.join(project.root, "src", "mod0.ts"),
+    ...externalSourceModules(project.root, 2),
+  ];
+  for (const file of modules) {
+    const result = await transformTtsc(
+      file,
+      fs.readFileSync(file, "utf8"),
+      options,
+      undefined,
+      cache,
+    );
+    assert.ok(result, `expected transformed output for ${file}`);
+    assert.match(result.code, /PROBED/);
+  }
+  assert.equal(
+    fs.readFileSync(project.runLog, "utf8").length,
+    1,
+    "out-of-walk source siblings must reuse the project generation",
+  );
+}
+
+/** A raced out-of-walk source must stabilize before any output is delivered. */
+async function assertOutOfWalkSourceChangeStabilizesWithinGeneration(): Promise<void> {
+  const { createTtscTransformCache, resolveOptions, transformTtsc } =
+    await TestUnpluginRuntime.loadUnpluginApi();
+  const project = createCacheProject({
+    externalSourceChangesAfterRead: true,
+    externalSourceOutputs: 1,
+    fileCount: 2,
+    graphFanout: 1,
+  });
+  const cache = createTtscTransformCache();
+  const options = resolveOptions({
+    project: path.join(project.root, "tsconfig.json"),
+  });
+  const main = path.join(project.root, "src", "mod0.ts");
+  assert.ok(
+    await transformTtsc(
+      main,
+      fs.readFileSync(main, "utf8"),
+      options,
+      undefined,
+      cache,
+    ),
+  );
+  const external = externalSourceModules(project.root, 1)[0]!;
+  const result = await transformTtsc(
+    external,
+    fs.readFileSync(external, "utf8"),
+    options,
+    undefined,
+    cache,
+  );
+  assert.ok(result);
+  assert.match(result.code, /PROBED-AFTER/);
+  assert.equal(
+    fs.readFileSync(project.runLog, "utf8").length,
+    2,
+    "the raced attempt must be discarded and its stable retry shared",
+  );
+}
+
+/** A graph-free out-of-walk source has no compiler-time coherence proof. */
+async function assertUnprovenOutOfWalkSourceFailsAfterBoundedAttempts(): Promise<void> {
+  const { createTtscTransformCache, resolveOptions, transformTtsc } =
+    await TestUnpluginRuntime.loadUnpluginApi();
+  const project = createCacheProject({
+    externalSourceOutputs: 2,
+    fileCount: 1,
+  });
+  const cache = createTtscTransformCache();
+  const options = resolveOptions({
+    project: path.join(project.root, "tsconfig.json"),
+  });
+  const main = path.join(project.root, "src", "mod0.ts");
+  let terminal: Error | undefined;
+  await assert.rejects(
+    () =>
+      transformTtsc(
+        main,
+        fs.readFileSync(main, "utf8"),
+        options,
+        undefined,
+        cache,
+      ),
+    (error: Error) => {
+      terminal = error;
+      return (
+        /after 2 attempts/.test(error.message) &&
+        /external\/graph-proof-missing/.test(error.message) &&
+        /node_modules\/external-source\/mod0\.ts/.test(error.message)
+      );
+    },
+  );
+  assert.equal(fs.readFileSync(project.runLog, "utf8").length, 2);
+  assert.equal(cache.size, 1);
+  for (const external of externalSourceModules(project.root, 2)) {
+    await assert.rejects(
+      () =>
+        transformTtsc(
+          external,
+          fs.readFileSync(external, "utf8"),
+          options,
+          undefined,
+          cache,
+        ),
+      (error: Error) => error === terminal,
+    );
+  }
+  assert.equal(
+    fs.readFileSync(project.runLog, "utf8").length,
+    2,
+    "proof-less source siblings must replay one terminal verdict",
+  );
 }
 
 /**
@@ -403,6 +585,60 @@ async function assertSynchronousMembershipChangeReachesTheNextDelivery(): Promis
     2,
     "a file created between two deliveries must reach the watcher before the second one validates",
   );
+}
+
+/** A generation retains only bounded diagnostic paths from a mutation burst. */
+async function assertGenerationMutationWitnessesStayBounded(): Promise<void> {
+  const {
+    createTtscTransformCache,
+    resetTtscTransformCache,
+    resolveOptions,
+    transformTtsc,
+  } = await TestUnpluginRuntime.loadUnpluginApi();
+  const listeners: ((eventType: string, filename: string | null) => void)[] =
+    [];
+  const cache = createTtscTransformCache({
+    watch: (
+      _directory: string,
+      listener: (eventType: string, filename: string | null) => void,
+    ) => {
+      listeners.push(listener);
+      return { close: () => undefined };
+    },
+  });
+  const project = createCacheProject({ fileCount: 2, graphFanout: 2 });
+  const main = path.join(project.root, "src", "mod0.ts");
+  assert.ok(
+    await transformTtsc(
+      main,
+      fs.readFileSync(main, "utf8"),
+      resolveOptions(),
+      undefined,
+      cache,
+    ),
+  );
+  const generation = (await [...cache.values()][0]!) as unknown as {
+    projectMutationTracker?: {
+      changes: Set<string>;
+      changesOmitted: boolean;
+    };
+  };
+  const tracker = generation.projectMutationTracker;
+  assert.ok(
+    tracker,
+    "a stable cached generation must retain its project watch",
+  );
+
+  for (let index = 0; index < 32; index += 1) {
+    for (const listener of listeners) listener("rename", `burst-${index}.ts`);
+  }
+  assert.equal(tracker.changes.size, 8);
+  assert.equal(
+    tracker.changesOmitted,
+    true,
+    "additional event paths must collapse into one bounded omission flag",
+  );
+  resetTtscTransformCache(cache);
 }
 
 /**
@@ -801,7 +1037,8 @@ async function assertNotifiedAbsentCandidateIsNotReprobed(): Promise<void> {
 }
 
 /**
- * Asserts a realized graph member with no compiler proof still refuses reuse.
+ * Asserts a realized graph member with no compiler proof fails one shared,
+ * bounded generation instead of recompiling once per delivered module.
  *
  * The candidate relaxation is scoped to paths the envelope reported _only_ as
  * resolution candidates. An edge target is a file the compile read, so a
@@ -809,18 +1046,165 @@ async function assertNotifiedAbsentCandidateIsNotReprobed(): Promise<void> {
  * coherent state, and replaying it could serve output computed from bytes that
  * changed during the compile.
  *
- * 1. Build a four-file project whose envelope drops the proof of one edge target.
- * 2. Run a transform over every module sharing one persistent cache.
- * 3. Assert the project was recompiled for every module.
+ * 1. Build a four-file project whose envelope drops one edge target's proof.
+ * 2. Request all modules concurrently through one persistent cache.
+ * 3. Assert two attempts, one shared terminal error, bounded witnesses, and the
+ *    exact producer path.
+ * 4. Request later waves with the first module's in-memory overlay intact and
+ *    prove they replay that verdict without compiling.
+ * 5. Prove a real disk edit and an explicit lifecycle reset each authorize one new
+ *    bounded wave.
  */
-async function assertUnprovenRealizedInputRefusesReuse(): Promise<void> {
-  const { pluginRuns, outputs } = await runProjectBuild({
+async function assertUnprovenRealizedInputFailsAfterBoundedAttempts(): Promise<void> {
+  const {
+    createTtscTransformCache,
+    resetTtscTransformCache,
+    resolveOptions,
+    transformTtsc,
+  } = await TestUnpluginRuntime.loadUnpluginApi();
+  const project = createCacheProject({
     fileCount: 4,
-    graphFanout: 4,
-    unprovenGraphInput: true,
+    graphFanout: 12,
+    unprovenGraphInputs: 12,
   });
-  assert.equal(pluginRuns, 4);
-  assert.equal(outputs.length, 4);
+  const unrelated = path.join(project.root, "fixtures", "unrelated.log");
+  fs.mkdirSync(path.dirname(unrelated), { recursive: true });
+  fs.writeFileSync(unrelated, "steady\n", "utf8");
+  let denyUnrelated = false;
+  const cache = createTtscTransformCache({
+    readFile: (location: string) => {
+      if (denyUnrelated && path.resolve(location) === unrelated) {
+        const error = new Error(
+          "unrelated read denied",
+        ) as NodeJS.ErrnoException;
+        error.code = "EACCES";
+        throw error;
+      }
+      return fs.readFileSync(location);
+    },
+  });
+  const options = resolveOptions();
+  const modules = projectModules(project.root);
+  const sources = new Map(
+    modules.map((file, index) => [
+      file,
+      `${fs.readFileSync(file, "utf8")}${index === 0 ? "// in-memory overlay\n" : ""}`,
+    ]),
+  );
+  const settled = await Promise.allSettled(
+    modules.map((file) =>
+      transformTtsc(file, sources.get(file)!, options, undefined, cache),
+    ),
+  );
+  const failures = settled.map((entry) => {
+    assert.equal(entry.status, "rejected");
+    return (entry as PromiseRejectedResult).reason as Error;
+  });
+  assert.ok(
+    failures.every((failure) => failure === failures[0]),
+    "all concurrent modules must receive the shared generation failure",
+  );
+  assert.match(failures[0]!.message, /after 2 attempts/);
+  assert.match(failures[0]!.message, /graph\/proof-missing/);
+  assert.match(failures[0]!.message, /node_modules\/dep0\/index\.d\.ts/);
+  assert.match(failures[0]!.message, /producer: "content-unavailable"/);
+  assert.match(failures[0]!.message, /additional witness\(es\) omitted/);
+  assert.equal(
+    fs.readFileSync(project.runLog, "utf8").length,
+    2,
+    "persistent proof failure must be bounded by attempts, not module count",
+  );
+  assert.equal(
+    cache.size,
+    1,
+    "the terminal failed generation must remain authoritative",
+  );
+  denyUnrelated = true;
+  for (const file of modules) {
+    await assert.rejects(
+      () => transformTtsc(file, sources.get(file)!, options, undefined, cache),
+      (error: Error) => error === failures[0],
+    );
+  }
+  assert.equal(
+    fs.readFileSync(project.runLog, "utf8").length,
+    2,
+    "later request waves must reuse the verdict until an input changes",
+  );
+  denyUnrelated = false;
+
+  const edited = modules[1]!;
+  const editedSource = `${sources.get(edited)!}// disk edit\n`;
+  fs.writeFileSync(edited, editedSource, "utf8");
+  const unchangedSibling = modules[2]!;
+  let editedFailure: Error | undefined;
+  await assert.rejects(
+    () =>
+      transformTtsc(
+        unchangedSibling,
+        sources.get(unchangedSibling)!,
+        options,
+        undefined,
+        cache,
+      ),
+    (error: Error) => {
+      editedFailure = error;
+      return error !== failures[0];
+    },
+  );
+  assert.equal(
+    fs.readFileSync(project.runLog, "utf8").length,
+    4,
+    "a real input edit must authorize one new bounded wave",
+  );
+
+  resetTtscTransformCache(cache);
+  await assert.rejects(
+    () =>
+      transformTtsc(
+        modules[0]!,
+        sources.get(modules[0]!)!,
+        options,
+        undefined,
+        cache,
+      ),
+    (error: Error) => error !== editedFailure,
+  );
+  assert.equal(
+    fs.readFileSync(project.runLog, "utf8").length,
+    6,
+    "an explicit cache lifecycle reset must authorize one new bounded wave",
+  );
+}
+
+/** A proof and aliased proof failure for one identity are contradictory. */
+async function assertAliasedProofFailureConflictsWithProof(): Promise<void> {
+  const { createTtscTransformCache, resolveOptions, transformTtsc } =
+    await TestUnpluginRuntime.loadUnpluginApi();
+  const project = createCacheProject({
+    conflictingProofFailureAlias: true,
+    fileCount: 1,
+    graphFanout: 1,
+    graphGlobals: 1,
+  });
+  const cache = createTtscTransformCache();
+  const main = projectModules(project.root)[0]!;
+  await assert.rejects(
+    () =>
+      transformTtsc(
+        main,
+        fs.readFileSync(main, "utf8"),
+        resolveOptions(),
+        undefined,
+        cache,
+      ),
+    /after 2 attempts[\s\S]*graph\/proof-conflict[\s\S]*producer: "content-unavailable"/,
+  );
+  assert.equal(
+    fs.readFileSync(project.runLog, "utf8").length,
+    2,
+    "an aliased proof contradiction must terminate after two attempts",
+  );
 }
 
 /**
@@ -1592,11 +1976,14 @@ async function assertUnreadableHostInputKeepsTheContentComparison(): Promise<voi
   );
 
   appeared = true;
-  assert.ok(await deliver(modules[0]!));
+  await assert.rejects(
+    () => deliver(modules[0]!),
+    /after 2 attempts[\s\S]*host\/content-changed[\s\S]*host-input\.json/,
+  );
   assert.equal(
     pluginRuns(),
-    2,
-    "a universal input whose content appears must replace the generation",
+    3,
+    "a producer contradiction must terminate after one bounded retry wave",
   );
 }
 
@@ -1662,11 +2049,14 @@ async function assertUnreadableGraphInputKeepsTheContentComparison(): Promise<vo
   // Readable again, with every byte of metadata unchanged: only a content
   // comparison can see this.
   denied = false;
-  assert.ok(await deliver(modules[0]!));
+  await assert.rejects(
+    () => deliver(modules[0]!),
+    /after 2 attempts[\s\S]*graph\/content-changed[\s\S]*dep0\/index\.d\.ts/,
+  );
   assert.equal(
     pluginRuns(),
-    2,
-    "content that becomes readable must replace the generation",
+    3,
+    "a producer contradiction must terminate after one bounded retry wave",
   );
 }
 
@@ -2442,10 +2832,10 @@ async function assertSeparatedStampReEarnsItsSignature(): Promise<void> {
 }
 
 /**
- * Asserts a generation-time walk failure cannot bless a partial snapshot as a
- * permanently valid narrow cache entry.
+ * Asserts one generation-time walk failure is recovered inside the same shared
+ * transform generation.
  */
-async function assertIncompleteProjectSnapshotFallsBackAndRecovers(): Promise<void> {
+async function assertIncompleteProjectSnapshotRetriesWithinGeneration(): Promise<void> {
   const { createTtscTransformCache, resolveOptions, transformTtsc } =
     await TestUnpluginRuntime.loadUnpluginApi();
   const project = createCacheProject({ fileCount: 2, graphFanout: 2 });
@@ -2456,26 +2846,16 @@ async function assertIncompleteProjectSnapshotFallsBackAndRecovers(): Promise<vo
     "declare const hiddenDuringSnapshot: string;\n",
     "utf8",
   );
-  let failureMode: "once" | "repeated" | undefined = "once";
   let failed = false;
-  let repeatedFailures = 0;
   const cache = createTtscTransformCache({
     readdir: (location: string) => {
       if (
         path.resolve(location) === transientDirectory &&
-        failureMode === "once" &&
         !failed &&
         fs.existsSync(project.runLog)
       ) {
         failed = true;
         throw new Error("transient project snapshot failure");
-      }
-      if (
-        path.resolve(location) === transientDirectory &&
-        failureMode === "repeated"
-      ) {
-        repeatedFailures += 1;
-        throw new Error("repeated project snapshot failure");
       }
       return fs.readdirSync(location, { withFileTypes: true });
     },
@@ -2493,32 +2873,107 @@ async function assertIncompleteProjectSnapshotFallsBackAndRecovers(): Promise<vo
     ),
   );
   assert.equal(failed, true, "the generation walk must exercise the failure");
-  const incompleteGeneration = [...cache.values()][0];
+  const stableGeneration = [...cache.values()][0];
+  assert.equal(
+    (await stableGeneration)?.projectSnapshotComplete,
+    true,
+    "only the retry's complete generation may settle in the cache",
+  );
+  assert.equal(
+    fs.readFileSync(project.runLog, "utf8").length,
+    2,
+    "one transient walk failure must cost exactly one retry",
+  );
+  assert.ok(
+    await transformTtsc(
+      main,
+      fs.readFileSync(main, "utf8"),
+      options,
+      undefined,
+      cache,
+    ),
+  );
+  assert.equal([...cache.values()][0], stableGeneration);
+  assert.equal(fs.readFileSync(project.runLog, "utf8").length, 2);
+}
 
-  failureMode = "repeated";
+/** A persistently unreadable project walk terminates after the retry bound. */
+async function assertPersistentIncompleteProjectSnapshotFailsAfterBoundedAttempts(): Promise<void> {
+  const { createTtscTransformCache, resolveOptions, transformTtsc } =
+    await TestUnpluginRuntime.loadUnpluginApi();
+  const project = createCacheProject({
+    externalSourceOutputs: 2,
+    fileCount: 2,
+    graphFanout: 2,
+  });
+  const transientDirectory = path.join(project.root, "src", "transient");
+  fs.mkdirSync(transientDirectory, { recursive: true });
   fs.writeFileSync(
     path.join(transientDirectory, "hidden.ts"),
-    "declare const changedWhileHidden: string;\n",
+    "declare const hiddenDuringSnapshot: string;\n",
     "utf8",
   );
-  assert.ok(
-    await transformTtsc(
-      main,
-      fs.readFileSync(main, "utf8"),
-      options,
-      undefined,
-      cache,
-    ),
+  let failures = 0;
+  let blocked = true;
+  const cache = createTtscTransformCache({
+    readdir: (location: string) => {
+      if (
+        path.resolve(location) === transientDirectory &&
+        blocked &&
+        fs.existsSync(project.runLog)
+      ) {
+        failures += 1;
+        throw new Error("persistent project snapshot failure");
+      }
+      return fs.readdirSync(location, { withFileTypes: true });
+    },
+  });
+  const main = path.join(project.root, "src", "mod0.ts");
+  const options = resolveOptions({
+    project: path.join(project.root, "tsconfig.json"),
+  });
+  let terminal: Error | undefined;
+  await assert.rejects(
+    () =>
+      transformTtsc(
+        main,
+        fs.readFileSync(main, "utf8"),
+        options,
+        undefined,
+        cache,
+      ),
+    (error: Error) => {
+      terminal = error;
+      assert.match(error.message, /after 2 attempts/);
+      assert.match(error.message, /project\/directory-read-failed/);
+      assert.match(error.message, /src\/transient/);
+      return true;
+    },
   );
-  assert.ok(repeatedFailures >= 2);
-  assert.notEqual(
-    [...cache.values()][0],
-    incompleteGeneration,
-    "two matching partial walks must never authorize the old generation",
-  );
-  const repeatedIncompleteGeneration = [...cache.values()][0];
+  assert.ok(failures >= 3, "both attempts must exercise the failed walk");
+  assert.equal(fs.readFileSync(project.runLog, "utf8").length, 2);
+  assert.equal(cache.size, 1);
 
-  failureMode = undefined;
+  for (const sibling of externalSourceModules(project.root, 2)) {
+    await assert.rejects(
+      () =>
+        transformTtsc(
+          sibling,
+          fs.readFileSync(sibling, "utf8"),
+          options,
+          undefined,
+          cache,
+        ),
+      (error: Error) => error === terminal,
+    );
+  }
+  assert.equal(
+    fs.readFileSync(project.runLog, "utf8").length,
+    2,
+    "an unchanged failed environment must not start another attempt wave",
+  );
+
+  blocked = false;
   assert.ok(
     await transformTtsc(
       main,
@@ -2528,12 +2983,12 @@ async function assertIncompleteProjectSnapshotFallsBackAndRecovers(): Promise<vo
       cache,
     ),
   );
-  assert.notEqual(
-    [...cache.values()][0],
-    repeatedIncompleteGeneration,
-    "a recovered complete walk must replace the partial generation",
+  assert.equal(
+    fs.readFileSync(project.runLog, "utf8").length,
+    3,
+    "a confirmed project-walk recovery must replace the failed generation",
   );
-  assert.equal(fs.readFileSync(project.runLog, "utf8").length, 3);
+  assert.equal(cache.size, 1);
 }
 
 /**
@@ -2575,6 +3030,12 @@ async function assertCompileSnapshotRaceCannotAuthorizeStaleOutput(): Promise<vo
     ),
   );
   assert.equal(raced, true);
+  assert.equal(
+    fs.readFileSync(project.runLog, "utf8").length,
+    2,
+    "the first delivery must stabilize the raced project before resolving",
+  );
+  const stableGeneration = [...cache.values()][0];
 
   const result = await transformTtsc(
     lazy,
@@ -2585,10 +3046,11 @@ async function assertCompileSnapshotRaceCannotAuthorizeStaleOutput(): Promise<vo
   );
   assert.ok(result);
   assert.match(result.code, /AFTER/);
+  assert.equal([...cache.values()][0], stableGeneration);
   assert.equal(
     fs.readFileSync(project.runLog, "utf8").length,
     2,
-    "the torn generation must be replaced before its stale sibling output is served",
+    "the sibling must reuse the generation stabilized by the first delivery",
   );
 }
 
@@ -2618,7 +3080,7 @@ async function assertCompileSnapshotAbaRaceCannotAuthorizeStaleOutput(): Promise
       cache,
     ),
   );
-  const firstGeneration = [...cache.values()][0];
+  const stableGeneration = [...cache.values()][0];
   assert.equal(
     fs.readFileSync(lazy, "utf8"),
     'export const value1: string = "PROBE";\n',
@@ -2633,10 +3095,10 @@ async function assertCompileSnapshotAbaRaceCannotAuthorizeStaleOutput(): Promise
   );
   assert.ok(result);
   assert.doesNotMatch(result.code, /DURING/);
-  assert.notEqual(
+  assert.equal(
     [...cache.values()][0],
-    firstGeneration,
-    "an ABA mutation during compilation must prevent persistent reuse",
+    stableGeneration,
+    "an ABA mutation must be discarded before the generation resolves",
   );
   assert.equal(fs.readFileSync(project.runLog, "utf8").length, 2);
 }
@@ -2665,7 +3127,7 @@ async function assertIndependentGraphLeafCompileSnapshotAbaRaceCannotAuthorizeSt
       cache,
     ),
   );
-  const firstGeneration = [...cache.values()][0];
+  const stableGeneration = [...cache.values()][0];
   assert.equal(
     fs.readFileSync(lazy, "utf8"),
     'export const value1: string = "PROBE";\n',
@@ -2680,10 +3142,10 @@ async function assertIndependentGraphLeafCompileSnapshotAbaRaceCannotAuthorizeSt
   );
   assert.ok(result);
   assert.doesNotMatch(result.code, /DURING/);
-  assert.notEqual(
+  assert.equal(
     [...cache.values()][0],
-    firstGeneration,
-    "an independent leaf's compiler proof must reject ABA output",
+    stableGeneration,
+    "an independent leaf race must stabilize before the first delivery",
   );
   assert.equal(fs.readFileSync(project.runLog, "utf8").length, 2);
 }
@@ -2715,8 +3177,12 @@ async function assertExternalCompileSnapshotAbaRaceCannotAuthorizeStaleOutput():
     cache,
   );
   assert.ok(first);
-  assert.match(first.code, /EXTERNAL-DURING/);
-  const firstGeneration = [...cache.values()][0];
+  assert.doesNotMatch(
+    first.code,
+    /EXTERNAL-DURING/,
+    "the first delivery must never receive the discarded ABA attempt",
+  );
+  const stableGeneration = [...cache.values()][0];
 
   const second = await transformTtsc(
     lazy,
@@ -2727,10 +3193,10 @@ async function assertExternalCompileSnapshotAbaRaceCannotAuthorizeStaleOutput():
   );
   assert.ok(second);
   assert.doesNotMatch(second.code, /EXTERNAL-DURING/);
-  assert.notEqual(
+  assert.equal(
     [...cache.values()][0],
-    firstGeneration,
-    "compiler-time external proof must reject restored post-compile bytes",
+    stableGeneration,
+    "external ABA output must be discarded before the generation resolves",
   );
   assert.equal(fs.readFileSync(project.runLog, "utf8").length, 2);
 }
@@ -2758,7 +3224,7 @@ async function assertDescriptorInputRaceCannotAuthorizeStaleGeneration(): Promis
       'const fs = require("node:fs");',
       `const source = require(${JSON.stringify(selectionBase)});`,
       "module.exports = () => {",
-      `  fs.writeFileSync(${JSON.stringify(selectionJs)}, ${JSON.stringify(`module.exports = ${JSON.stringify(path.join(project.root, "go-plugin"))};\n`)}, "utf8");`,
+      `  if (!fs.existsSync(${JSON.stringify(selectionJs)})) fs.writeFileSync(${JSON.stringify(selectionJs)}, ${JSON.stringify(`module.exports = ${JSON.stringify(path.join(project.root, "go-plugin"))};\n`)}, "utf8");`,
       '  return { name: "descriptor-race", source };',
       "};",
       "",
@@ -2772,13 +3238,18 @@ async function assertDescriptorInputRaceCannotAuthorizeStaleGeneration(): Promis
   const source = fs.readFileSync(main, "utf8");
   assert.ok(await transformTtsc(main, source, options, undefined, cache));
   assert.ok(fs.existsSync(selectionJs));
-  const firstGeneration = [...cache.values()][0];
+  assert.equal(
+    fs.readFileSync(project.runLog, "utf8").length,
+    2,
+    "descriptor appearance must stabilize inside the first delivery",
+  );
+  const stableGeneration = [...cache.values()][0];
 
   assert.ok(await transformTtsc(main, source, options, undefined, cache));
-  assert.notEqual(
+  assert.equal(
     [...cache.values()][0],
-    firstGeneration,
-    "a candidate created during descriptor evaluation must replace the torn generation",
+    stableGeneration,
+    "the settled descriptor generation must remain reusable",
   );
   assert.equal(fs.readFileSync(project.runLog, "utf8").length, 2);
 }
@@ -2928,6 +3399,13 @@ function projectModules(root: string): string[] {
     .map((name) => path.join(srcDir, name));
 }
 
+/** Transformable outputs intentionally excluded from the project directory walk. */
+function externalSourceModules(root: string, count: number): string[] {
+  return Array.from({ length: count }, (_, index) =>
+    path.join(root, "node_modules", "external-source", `mod${index}.ts`),
+  );
+}
+
 function createCacheProject(options: ICacheProjectOptions): {
   root: string;
   runLog: string;
@@ -3000,17 +3478,25 @@ function createCacheProject(options: ICacheProjectOptions): {
               name: "cache-probe",
               runLog,
               emitExternal: options.emitExternalKey === true,
+              externalSourceOutputs: options.externalSourceOutputs ?? 0,
+              externalSourceChangesAfterRead:
+                options.externalSourceChangesAfterRead === true,
               aliasedGlobal:
                 options.aliasedGlobal === true && process.platform !== "win32",
               graphFanout: options.graphFanout ?? 0,
               graphGlobals: options.graphGlobals ?? 0,
+              conflictingProofFailureAlias:
+                options.conflictingProofFailureAlias === true,
               graphCandidates: options.graphCandidates ?? 0,
               outOfProjectCandidate: options.outOfProjectCandidate ?? "",
               nonInputRaceFile: options.nonInputRaceFile ?? "",
               unhashedGraphInput: options.unhashedGraphInput === true,
               unprovenGraphInput: options.unprovenGraphInput === true,
+              unprovenGraphInputs: options.unprovenGraphInputs ?? 0,
               independentGraphLeaf: options.independentGraphLeaf,
               partitionGraph: options.partitionGraph === true,
+              omitExternalSourceGraphNode:
+                options.omitExternalSourceGraphNode === true,
               ...(options.snapshotAbaRace === true
                 ? {
                     snapshotRaceDuring,
@@ -3027,6 +3513,9 @@ function createCacheProject(options: ICacheProjectOptions): {
                     snapshotRaceFile: externalRaceFile,
                     snapshotRaceMarker,
                   }
+                : {}),
+              ...(options.externalSourceChangesAfterRead === true
+                ? { snapshotRaceMarker }
                 : {}),
             },
           ],
@@ -3105,7 +3594,18 @@ function createCacheProject(options: ICacheProjectOptions): {
     // exist so the pre-fix store-side overlay could read and key it.
     const depDir = path.join(root, "node_modules", "dep");
     fs.mkdirSync(depDir, { recursive: true });
-    fs.writeFileSync(path.join(depDir, "index.d.ts"), "export {};\n", "utf8");
+    fs.writeFileSync(
+      path.join(depDir, "types.d.css.ts"),
+      "export {};\n",
+      "utf8",
+    );
+  }
+  for (const file of externalSourceModules(
+    root,
+    options.externalSourceOutputs ?? 0,
+  )) {
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, 'export const external = "PROBE";\n', "utf8");
   }
   const graphFanout = options.graphFanout ?? 0;
   for (let index = 0; index < graphFanout; index += 1) {
@@ -3138,6 +3638,14 @@ function createCacheProject(options: ICacheProjectOptions): {
       path.join(globalDir, "index.d.ts"),
       path.join(globalDir, "alias.d.ts"),
       "file",
+    );
+  }
+  if (options.conflictingProofFailureAlias === true) {
+    const globalDir = path.join(root, "node_modules", "global0");
+    fs.symlinkSync(
+      globalDir,
+      path.join(root, "node_modules", "global-alias"),
+      process.platform === "win32" ? "junction" : "dir",
     );
   }
   writeGoPlugin(root);
@@ -3192,6 +3700,7 @@ function writeGoPlugin(root: string): void {
       '  Candidates map[string][]string `json:"candidates,omitempty"`',
       '  InputHashes map[string]*string `json:"inputHashes,omitempty"`',
       '  InputRealpaths map[string]*string `json:"inputRealpaths,omitempty"`',
+      '  InputProofFailures map[string]string `json:"inputProofFailures,omitempty"`',
       "}",
       "",
       "type transformResult struct {",
@@ -3256,10 +3765,12 @@ function writeGoPlugin(root: string): void {
       "    file := filepath.Join(srcDir, name)",
       '    raceFile := stringValue(cfg, "snapshotRaceFile")',
       '    raceMarker := stringValue(cfg, "snapshotRaceMarker")',
+      "    raced := false",
       '    if raceFile != "" && filepath.Clean(file) == filepath.Clean(raceFile) && raceMarker != "" {',
       "      if _, statErr := os.Stat(raceMarker); os.IsNotExist(statErr) {",
       '        os.WriteFile(raceMarker, []byte("1"), 0o644)',
       '        os.WriteFile(file, []byte(stringValue(cfg, "snapshotRaceDuring")), 0o644)',
+      "        raced = true",
       "      }",
       "    }",
       "    data, err := os.ReadFile(file)",
@@ -3267,19 +3778,36 @@ function writeGoPlugin(root: string): void {
       '    input := "src/"+name',
       "    observedInputs[input] = string(data)",
       '    ts[input] = strings.ReplaceAll(string(data), "PROBE", "PROBED")',
-      '    if raceFile != "" && filepath.Clean(file) == filepath.Clean(raceFile) && stringValue(cfg, "snapshotRaceOriginal") != "" {',
+      '    if raced && raceFile != "" && filepath.Clean(file) == filepath.Clean(raceFile) && stringValue(cfg, "snapshotRaceOriginal") != "" {',
       '      if err := os.WriteFile(raceFile, []byte(stringValue(cfg, "snapshotRaceOriginal")), 0o644); err != nil { fmt.Fprintln(os.Stderr, err); return 2 }',
       "    }",
+      "  }",
+      '  for j := 0; j < int(numberValue(cfg, "externalSourceOutputs")); j++ {',
+      '    input := fmt.Sprintf("node_modules/external-source/mod%d.ts", j)',
+      "    file := filepath.Join(root, filepath.FromSlash(input))",
+      "    data, readErr := os.ReadFile(file)",
+      "    if readErr != nil { fmt.Fprintln(os.Stderr, readErr); return 2 }",
+      "    observedInputs[input] = string(data)",
+      '    if j == 0 && boolValue(cfg, "externalSourceChangesAfterRead") {',
+      '      marker := stringValue(cfg, "snapshotRaceMarker")',
+      "      if _, statErr := os.Stat(marker); os.IsNotExist(statErr) {",
+      '        os.WriteFile(marker, []byte("1"), 0o644)',
+      '        os.WriteFile(file, []byte("export const external = \\"PROBE-AFTER\\";\\n"), 0o644)',
+      "      }",
+      "    }",
+      '    ts[input] = strings.ReplaceAll(string(data), "PROBE", "PROBED")',
       "  }",
       '  externalRaceFile := stringValue(cfg, "externalRaceFile")',
       '  externalRaceOriginal := stringValue(cfg, "externalRaceOriginal")',
       '  externalRaceText := ""',
       '  if externalRaceFile != "" {',
+      "    externalRaced := false",
       '    raceMarker := stringValue(cfg, "snapshotRaceMarker")',
       '    if raceMarker != "" {',
       "      if _, statErr := os.Stat(raceMarker); os.IsNotExist(statErr) {",
       '        os.WriteFile(raceMarker, []byte("1"), 0o644)',
       '        os.WriteFile(externalRaceFile, []byte(stringValue(cfg, "snapshotRaceDuring")), 0o644)',
+      "        externalRaced = true",
       "      }",
       "    }",
       "    data, readErr := os.ReadFile(externalRaceFile)",
@@ -3287,12 +3815,12 @@ function writeGoPlugin(root: string): void {
       "    externalRaceText = string(data)",
       "    observedInputs[externalRaceFile] = externalRaceText",
       '    for key, value := range ts { ts[key] = value + "// " + strings.TrimSpace(externalRaceText) + "\\n" }',
-      '    if externalRaceOriginal != "" {',
+      '    if externalRaced && externalRaceOriginal != "" {',
       "      if writeErr := os.WriteFile(externalRaceFile, []byte(externalRaceOriginal), 0o644); writeErr != nil { fmt.Fprintln(os.Stderr, writeErr); return 2 }",
       "    }",
       "  }",
       '  if boolValue(cfg, "emitExternal") {',
-      '    ts["node_modules/dep/index.d.ts"] = "export {};\\n"',
+      '    ts["node_modules/dep/types.d.css.ts"] = "export {};\\n"',
       "  }",
       "",
       "  result := transformResult{TypeScript: ts}",
@@ -3317,12 +3845,18 @@ function writeGoPlugin(root: string): void {
       "      }",
       '      edges["src/"+name] = targets',
       "    }",
+      '    if !boolValue(cfg, "omitExternalSourceGraphNode") {',
+      '      for j := 0; j < int(numberValue(cfg, "externalSourceOutputs")); j++ {',
+      '        edges[fmt.Sprintf("node_modules/external-source/mod%d.ts", j)] = []string{}',
+      "      }",
+      "    }",
       "    result.Graph = &graphSection{",
       "      Edges:      edges,",
       "      Globals:    []string{},",
       '      Configs:    []string{"tsconfig.json"},',
       "      InputHashes: map[string]*string{},",
       "      InputRealpaths: map[string]*string{},",
+      "      InputProofFailures: map[string]string{},",
       "    }",
       "    for input, observed := range observedInputs { addGraphInputProof(result.Graph, root, input, observed) }",
       '    addGraphInputProof(result.Graph, root, "tsconfig.json", "")',
@@ -3349,17 +3883,28 @@ function writeGoPlugin(root: string): void {
       '        result.Graph.Candidates["src/"+name] = spellings',
       "      }",
       "    }",
-      '    if boolValue(cfg, "unprovenGraphInput") {',
+      '    unprovenInputs := int(numberValue(cfg, "unprovenGraphInputs"))',
+      '    if boolValue(cfg, "unprovenGraphInput") && unprovenInputs == 0 { unprovenInputs = 1 }',
       // A realized edge target whose proof the host could not produce. Unlike a
       // candidate, the compile read this file, so the generation stays
       // unprovable and must not be reused.
-      '      delete(result.Graph.InputHashes, "node_modules/dep0/index.d.ts")',
-      '      delete(result.Graph.InputRealpaths, "node_modules/dep0/index.d.ts")',
+      "    for j := 0; j < unprovenInputs; j++ {",
+      '      input := fmt.Sprintf("node_modules/dep%d/index.d.ts", j)',
+      "      delete(result.Graph.InputHashes, input)",
+      "      delete(result.Graph.InputRealpaths, input)",
+      '      result.Graph.InputProofFailures[input] = "content-unavailable"',
       "    }",
       '    if boolValue(cfg, "aliasedGlobal") {',
       '      alias := "node_modules/global0/alias.d.ts"',
       "      result.Graph.Globals = append(result.Graph.Globals, alias)",
       '      addGraphInputProof(result.Graph, root, alias, "")',
+      "    }",
+      '    if boolValue(cfg, "conflictingProofFailureAlias") {',
+      '      target := "node_modules/global0/index.d.ts"',
+      '      alias := "node_modules/global-alias/index.d.ts"',
+      "      result.Graph.Globals = append(result.Graph.Globals, target, alias)",
+      '      addGraphInputProof(result.Graph, root, target, "")',
+      '      result.Graph.InputProofFailures[alias] = "content-unavailable"',
       "    }",
       '    for j := 0; j < int(numberValue(cfg, "graphGlobals")); j++ {',
       '      global := fmt.Sprintf("node_modules/global%d/index.d.ts", j)',
@@ -3424,6 +3969,10 @@ export {
   createCacheProject,
   projectModules,
   assertCacheHitsDespiteOutOfWalkOutputKey,
+  assertAliasedProofFailureConflictsWithProof,
+  assertOutOfWalkSourceChangeStabilizesWithinGeneration,
+  assertOutOfWalkSourceOutputsShareGeneration,
+  assertProvenOutOfWalkSourceWithoutGraphNodeKeepsGeneration,
   assertAppearingCandidateInvalidatesGeneration,
   assertNotifiedAbsentCandidateIsNotReprobed,
   assertOutOfProjectCandidateIsStillProbed,
@@ -3431,10 +3980,12 @@ export {
   assertRetargetedCandidateLinkInvalidatesGeneration,
   assertUnwatchedAbsentCandidateIsStillProbed,
   assertSynchronousMembershipChangeReachesTheNextDelivery,
+  assertGenerationMutationWitnessesStayBounded,
   assertCacheTransformsMultiFileProjectOnce,
   assertNonInputWriteDuringCompileKeepsGeneration,
   assertUnprovenCandidatesKeepOneCompile,
-  assertUnprovenRealizedInputRefusesReuse,
+  assertUnprovenOutOfWalkSourceFailsAfterBoundedAttempts,
+  assertUnprovenRealizedInputFailsAfterBoundedAttempts,
   assertCompleteValidationProvesEachInputOnce,
   assertCompileSnapshotRaceCannotAuthorizeStaleOutput,
   assertCompileSnapshotAbaRaceCannotAuthorizeStaleOutput,
@@ -3445,7 +3996,8 @@ export {
   assertConcurrentTransformsCompileOnce,
   assertFirstModuleDeliveriesDoNotRehashProject,
   assertHostExceptionTransformIsEvictedAndRecovers,
-  assertIncompleteProjectSnapshotFallsBackAndRecovers,
+  assertIncompleteProjectSnapshotRetriesWithinGeneration,
+  assertPersistentIncompleteProjectSnapshotFailsAfterBoundedAttempts,
   assertPersistentCacheValidatesAnUnservedModule,
   assertFailedNotificationsFallBackToCompleteValidation,
   assertOneFailedTrackerFallsBackToCompleteValidation,

@@ -53,8 +53,24 @@ interface TtscProjectDirectorySnapshot {
   signature: string;
 }
 
+/** One project-walk observation that could not prove a coherent snapshot. */
+interface TtscProjectWalkFailure {
+  kind:
+    | "directory-changed-during-walk"
+    | "directory-metadata-unavailable"
+    | "directory-read-failed"
+    | "file-changed-during-read"
+    | "file-read-failed";
+  /** Absolute lexical spelling observed by the walk. */
+  path: string;
+}
+
 /** Generation-scoped directory watchers used to detect membership changes. */
 interface TtscProjectMutationTracker {
+  /** Absolute paths named by generation-time mutation events. */
+  changes: Set<string>;
+  /** Whether additional event paths were discarded after the witness bound. */
+  changesOmitted: boolean;
   close: () => void;
   /**
    * Absolute spellings whose creation, change or removal this tracker would
@@ -81,6 +97,80 @@ interface TtscProjectMutationTracker {
   membershipChanged: boolean;
   settle?: Promise<void>;
 }
+
+/** One reason a whole-project transform cannot become a reusable generation. */
+interface TtscGenerationProofFailure {
+  domain: "external" | "graph" | "host" | "project";
+  /** Machine-readable failure class printed verbatim in terminal diagnostics. */
+  kind: string;
+  /** Optional producer detail, such as the native compiler observation failure. */
+  detail?: string;
+  /** Absolute lexical spelling of the input or directory that failed proof. */
+  path?: string;
+}
+
+/** Bounded proof witnesses for one transform attempt. */
+interface TtscGenerationProofFailures {
+  entries: TtscGenerationProofFailure[];
+  omitted: number;
+  seen: Set<string>;
+}
+
+/** Filesystem state that may authorize replacing one terminal failed generation. */
+interface TtscFailedGenerationValidation {
+  /** Last attempted generation, retained only as a comparison baseline. */
+  cached: TtscCachedProjectTransform;
+  /** Input keys whose content can affect the generation, or the whole walk. */
+  declaredInputs: ReadonlySet<string> | undefined;
+  /** Fingerprints of every out-of-walk and exact host input. */
+  inputStates: ReadonlyMap<string, string>;
+  /** Unmodified on-disk project hashes before the in-memory source overlay. */
+  projectInputHashes: Readonly<Record<string, string>>;
+  /** Coherence and exact failure state of the final project walk. */
+  projectWalkComplete: boolean;
+  projectWalkFailures: string;
+}
+
+/** A bounded proof failure that stays authoritative until its inputs change. */
+class TtscUnstableGenerationError extends Error {
+  public readonly validation: TtscFailedGenerationValidation;
+
+  public constructor(
+    message: string,
+    validation: TtscFailedGenerationValidation,
+  ) {
+    super(message);
+    this.name = "TtscUnstableGenerationError";
+    this.validation = validation;
+  }
+}
+
+/** Proof witnesses retained beside a compiler result without extending its API. */
+const TRANSFORM_GENERATION_FAILURES = new WeakMap<
+  ITtscCompilerTransformation,
+  TtscGenerationProofFailures
+>();
+
+/** Retry baselines retained only for attempts that could not be published. */
+const TRANSFORM_FAILED_GENERATION_VALIDATIONS = new WeakMap<
+  ITtscCompilerTransformation,
+  TtscFailedGenerationValidation
+>();
+
+/** Rejected cache promises whose unchanged terminal verdict may be replayed. */
+const TERMINAL_TRANSFORM_GENERATIONS = new WeakMap<
+  Promise<TtscCachedProjectTransform>,
+  TtscUnstableGenerationError
+>();
+
+/** Maximum witnesses printed and retained for each failed transform attempt. */
+const MAX_GENERATION_PROOF_FAILURES = 8;
+
+/** Maximum exact mutation paths kept after a tracker already proved a change. */
+const MAX_GENERATION_MUTATION_PATHS = 8;
+
+/** One retry absorbs a transient watch write without admitting an infinite loop. */
+const TRANSFORM_GENERATION_ATTEMPTS = 2;
 
 /**
  * A single entry in the project transform cache.
@@ -149,6 +239,13 @@ export interface TtscCachedProjectTransform {
    * disk bytes against the recorded hash, and may record a signature then.
    */
   inputSignatures?: Record<string, string>;
+  /**
+   * Raw source hash of every readable key in the transform output, keyed by
+   * filesystem identity. Unlike {@link inputHashes}, this includes source
+   * outputs outside the project walk without adding arbitrary output keys to
+   * the complete project snapshot.
+   */
+  sourceHashes?: Record<string, string>;
   /** Metadata snapshot of every directory in the stable generation walk. */
   projectDirectories?: TtscProjectDirectorySnapshot[];
   /** Live notification state for universal host-input changes. */
@@ -200,12 +297,18 @@ export interface TtscCachedProjectTransform {
    */
   servedFiles?: Set<string>;
   /**
+   * Absolute path of the adapter-owned scratch directory used for this
+   * generation. It is disposed after compilation, so none of its compiler,
+   * resolver, or plugin artifacts can be a persistent cache or watch input.
+   */
+  scratchDirectory?: string;
+  /**
    * Absolute path of the generated temp-dir tsconfig this compile ran against,
    * when an alias/compiler-options overlay required one. The compiler reports
    * it in the envelope's `graph.configs` chain, but it is disposed right after
    * the compile, so registering it as a watch input would invalidate every
-   * bundler cache snapshot on the next build; watch derivation must skip
-   * exactly this path.
+   * bundler cache snapshot on the next build; watch derivation must skip this
+   * path. {@link scratchDirectory} owns the wider disposable-input bound.
    */
   temporaryTsconfig?: string;
 }
@@ -488,8 +591,29 @@ export async function transformTtsc(
   for (;;) {
     let transformed = cache?.get(key);
     if (transformed !== undefined) {
-      // A rejected in-flight generation must not stay cached: evict it (only if
-      // it is still the current entry) so a later call re-runs the transform.
+      const terminal = TERMINAL_TRANSFORM_GENERATIONS.get(transformed);
+      if (terminal !== undefined) {
+        // A proof failure is a verdict about one observed environment, not an
+        // invitation for every later module to repeat the whole compile. Keep
+        // replaying it until a source/input probe or an explicit cache reset
+        // establishes that a new generation could differ.
+        if (
+          !failedGenerationEnvironmentChanged(terminal.validation, {
+            currentFile: file,
+            currentSource: source,
+            filesystem,
+          })
+        ) {
+          throw terminal;
+        }
+        evictGeneration(cache, key, transformed);
+        if (cache?.get(key) !== undefined) {
+          continue;
+        }
+        transformed = undefined;
+      }
+    }
+    if (transformed !== undefined) {
       const cached = await awaitOrEvict(cache, key, transformed);
       TRANSFORM_RESULT_FILESYSTEM.set(cached.result, filesystem);
       // While this caller awaited the old Promise, another caller may have
@@ -575,13 +699,15 @@ export async function transformTtsc(
 }
 
 /**
- * Await a cached generation, evicting it on rejection.
+ * Await a cached generation, retaining only terminal proof failures.
  *
  * The cache stores the in-flight transform Promise before it settles so
- * concurrent callers share one compilation. A rejected generation must not
- * remain the authoritative cached result, or a transient toolchain/host failure
- * becomes permanent for a long-lived worker. Eviction is identity-guarded so a
- * newer generation another caller installed under the same key survives.
+ * concurrent callers share one compilation. Ordinary compiler and host
+ * rejections are evicted so a transient failure cannot become permanent. A
+ * bounded stabilization failure is different: it already spent its retry and
+ * repeating it for every later module recreates the issue this gate prevents.
+ * It stays authoritative until its retained input baseline changes or the cache
+ * owner starts a new lifecycle.
  */
 async function awaitOrEvict(
   cache: TtscTransformCache | undefined,
@@ -591,7 +717,14 @@ async function awaitOrEvict(
   try {
     return await generation;
   } catch (error) {
-    evictGeneration(cache, key, generation);
+    if (
+      error instanceof TtscUnstableGenerationError &&
+      cache?.get(key) === generation
+    ) {
+      TERMINAL_TRANSFORM_GENERATIONS.set(generation, error);
+    } else {
+      evictGeneration(cache, key, generation);
+    }
     throw error;
   }
 }
@@ -791,6 +924,8 @@ interface TtscEnvelopeGraphIndexes {
     string,
     { hash: string | null; path: string; realpath: string | null }
   >;
+  /** Native compiler-observation failure for an unproven member identity. */
+  readonly inputProofFailures: Map<string, string>;
   /** Aliased graph proof keys that reported contradictory generation states. */
   readonly inputProofConflicts: Set<string>;
 }
@@ -849,6 +984,7 @@ function envelopeGraphIndexes(
     members: new Set(),
     speculative: new Set(),
     inputProofs: new Map(),
+    inputProofFailures: new Map(),
     inputProofConflicts: new Set(),
   };
   const graph =
@@ -871,7 +1007,11 @@ function envelopeGraphIndexes(
           )
           .map((target) => {
             const absoluteTarget = path.resolve(props.projectRoot, target);
-            built.members.add(derivationIdentity(state, absoluteTarget));
+            const targetIdentity = derivationIdentity(state, absoluteTarget);
+            built.members.add(targetIdentity);
+            if (!built.spellings.has(targetIdentity)) {
+              built.spellings.set(targetIdentity, absoluteTarget);
+            }
             return absoluteTarget;
           }),
       );
@@ -880,7 +1020,9 @@ function envelopeGraphIndexes(
     built.globals.push(...selectListedFiles(props.projectRoot, graph.globals));
     built.configs.push(...selectListedFiles(props.projectRoot, graph.configs));
     for (const input of [...built.globals, ...built.configs]) {
-      built.members.add(derivationIdentity(state, input));
+      const identity = derivationIdentity(state, input);
+      built.members.add(identity);
+      if (!built.spellings.has(identity)) built.spellings.set(identity, input);
     }
     const candidateEntries = Object.entries(graph.candidates ?? {}).filter(
       (entry) => Array.isArray(entry[1]),
@@ -890,9 +1032,12 @@ function envelopeGraphIndexes(
     // candidate could be classified speculative before a later entry proves
     // the same path is a realized source.
     for (const [source] of candidateEntries) {
-      built.members.add(
-        derivationIdentity(state, path.resolve(props.projectRoot, source)),
-      );
+      const absoluteSource = path.resolve(props.projectRoot, source);
+      const identity = derivationIdentity(state, absoluteSource);
+      built.members.add(identity);
+      if (!built.spellings.has(identity)) {
+        built.spellings.set(identity, absoluteSource);
+      }
     }
     const realized = new Set(built.members);
     for (const [source, candidates] of candidateEntries) {
@@ -914,6 +1059,22 @@ function envelopeGraphIndexes(
         // only as a candidate.
         if (!realized.has(identity)) built.speculative.add(identity);
         built.members.add(identity);
+        if (!built.spellings.has(identity)) {
+          built.spellings.set(
+            identity,
+            path.resolve(props.projectRoot, candidate),
+          );
+        }
+      }
+    }
+    const transformSources = new Set<string>();
+    if (props.result.type === "success") {
+      for (const output of Object.keys(props.result.typescript)) {
+        if (!isDeclarationFile(output)) {
+          transformSources.add(
+            derivationIdentity(state, path.resolve(props.projectRoot, output)),
+          );
+        }
       }
     }
     for (const [input, hash] of Object.entries(graph.inputHashes ?? {})) {
@@ -939,7 +1100,9 @@ function envelopeGraphIndexes(
       }
       const absolute = path.resolve(props.projectRoot, input);
       const identity = derivationIdentity(state, absolute);
-      if (!built.members.has(identity)) continue;
+      if (!built.members.has(identity) && !transformSources.has(identity)) {
+        continue;
+      }
       const proof = {
         hash,
         path: absolute,
@@ -960,6 +1123,25 @@ function envelopeGraphIndexes(
         built.inputProofConflicts.add(identity);
       } else if (!built.inputProofConflicts.has(identity)) {
         built.inputProofs.set(identity, proof);
+      }
+    }
+    for (const [input, reason] of Object.entries(
+      graph.inputProofFailures ?? {},
+    )) {
+      if (typeof reason !== "string" || !/^[a-z0-9-]{1,64}$/.test(reason)) {
+        continue;
+      }
+      const absolute = path.resolve(props.projectRoot, input);
+      const identity = derivationIdentity(state, absolute);
+      if (!built.members.has(identity) && !transformSources.has(identity)) {
+        continue;
+      }
+      if (built.inputProofs.has(identity)) {
+        built.inputProofs.delete(identity);
+        built.inputProofConflicts.add(identity);
+      }
+      if (!built.inputProofFailures.has(identity)) {
+        built.inputProofFailures.set(identity, reason);
       }
     }
   }
@@ -1018,8 +1200,9 @@ function collectDeclaredIdentities(
  * Envelope keys mirror the `typescript` keys (project-relative); values may be
  * project-relative or absolute. Every path is absolutized against the project
  * root and deduplicated; the file itself is dropped (the bundler already
- * watches the module it transforms), and so is the disposed temp-dir tsconfig
- * (see {@link TtscCachedProjectTransform.temporaryTsconfig}).
+ * watches the module it transforms), and so is every path in the disposed
+ * transform scratch tree (see
+ * {@link TtscCachedProjectTransform.scratchDirectory}).
  */
 function notifyWatchInputs(
   hooks: TtscTransformHooks | undefined,
@@ -1036,6 +1219,7 @@ function notifyWatchInputs(
     file,
     projectRoot: cached.projectRoot,
     result: cached.result,
+    scratchDirectory: cached.scratchDirectory,
     temporaryTsconfig: cached.temporaryTsconfig,
   })) {
     // Hand the adapter the identity this generation already resolved and the
@@ -1078,6 +1262,7 @@ function selectWatchInputs(props: {
   file: string;
   projectRoot: string;
   result: ITtscCompilerTransformation;
+  scratchDirectory?: string;
   temporaryTsconfig?: string;
 }): string[] {
   if (props.result.type === "exception") {
@@ -1101,6 +1286,7 @@ function deriveWatchInputs(
     file: string;
     projectRoot: string;
     result: ITtscCompilerTransformation;
+    scratchDirectory?: string;
     temporaryTsconfig?: string;
   },
   fileIdentity: string,
@@ -1123,6 +1309,7 @@ function deriveWatchInputs(
     if (
       spelling === currentSpelling ||
       spelling === temporarySpelling ||
+      isTransformScratchInput(spelling, props.scratchDirectory) ||
       lexicalSeen.has(spelling)
     ) {
       return;
@@ -1132,6 +1319,7 @@ function deriveWatchInputs(
     output.push(input);
   };
   const appendPhysical = (input: string): void => {
+    if (isTransformScratchInput(input, props.scratchDirectory)) return;
     const identity = derivationIdentity(state, input);
     if (excluded.has(identity) || physicalSeen.has(identity)) return;
     physicalSeen.add(identity);
@@ -1462,11 +1650,24 @@ export function stripQuery(id: string): string {
 }
 
 /**
- * Returns `true` for TypeScript declaration files (`.d.ts`, `.d.mts`,
- * `.d.cts`).
+ * Returns `true` for every declaration-file spelling TypeScript-Go accepts.
+ * Besides the standard `.d.ts`, `.d.mts`, and `.d.cts` forms, TypeScript-Go
+ * treats an arbitrary-extension source such as `styles.d.css.ts` as a
+ * declaration file too.
  */
 export function isDeclarationFile(id: string): boolean {
-  return id.endsWith(".d.ts") || id.endsWith(".d.mts") || id.endsWith(".d.cts");
+  // Module ids can cross process/platform boundaries (for example, a Windows
+  // id inspected by a POSIX host). TypeScript-Go normalizes both separators
+  // before taking the basename, so a `.d.` directory component must not turn
+  // an ordinary source into a declaration file.
+  const normalized = id.replaceAll("\\", "/");
+  const base = normalized.slice(normalized.lastIndexOf("/") + 1);
+  return (
+    base.endsWith(".d.ts") ||
+    base.endsWith(".d.mts") ||
+    base.endsWith(".d.cts") ||
+    (base.endsWith(".ts") && base.includes(".d."))
+  );
 }
 
 /**
@@ -1519,7 +1720,12 @@ function matchesCachedSource(
 ): boolean {
   const identities = envelopeDerivation(cached).identityContext;
   const currentKey = toProjectKey(cached.projectRoot, file, identities);
-  if (cached.inputHashes[currentKey] !== hashText(source)) {
+  const identity = pathIdentityKey(file, identities);
+  const expected =
+    cached.sourceHashes?.[identity] ??
+    cached.inputHashes[currentKey] ??
+    cached.externalInputHashes?.[identity];
+  if (expected !== hashText(source)) {
     return false;
   }
   if (
@@ -1583,6 +1789,7 @@ function matchesNarrowPersistentInputs(
     file,
     projectRoot: cached.projectRoot,
     result: cached.result,
+    scratchDirectory: cached.scratchDirectory,
     temporaryTsconfig: cached.temporaryTsconfig,
   });
   for (const input of inputs) {
@@ -1839,9 +2046,13 @@ function isMissingPathError(error: unknown): boolean {
 function captureUniversalHostInputValidation(
   cached: TtscCachedProjectTransform,
   currentFile: string,
-): TtscHostInputValidation | undefined {
+): {
+  failures: TtscGenerationProofFailures;
+  validation?: TtscHostInputValidation;
+} {
   const filesystem = resultFilesystem(cached.result);
   const state = envelopeDerivation(cached);
+  const failures = createGenerationProofFailures();
   const validation: TtscHostInputValidation = {
     entries: new Map(),
     covered: new Set(),
@@ -1851,6 +2062,7 @@ function captureUniversalHostInputValidation(
     filesystem,
     projectRoot: cached.projectRoot,
     result: cached.result,
+    scratchDirectory: cached.scratchDirectory,
     temporaryTsconfig: cached.temporaryTsconfig,
   })) {
     const generationHashes =
@@ -1868,7 +2080,14 @@ function captureUniversalHostInputValidation(
     let readable = false;
     if (expected === undefined) {
       const current = path.resolve(currentFile);
-      if (path.resolve(input) !== current) return undefined;
+      if (path.resolve(input) !== current) {
+        recordGenerationProofFailure(failures, {
+          domain: "host",
+          kind: "content-proof-missing",
+          path: input,
+        });
+        return { failures };
+      }
       // The current module may be supplied from an unsaved editor buffer. Its
       // generation snapshot is overlaid below from `currentSource`, so a disk
       // fingerprint would be both unavailable and the wrong authority. The
@@ -1877,7 +2096,12 @@ function captureUniversalHostInputValidation(
     } else {
       const current = hostInputStateHash(input, filesystem);
       if (expected !== current) {
-        return undefined;
+        recordGenerationProofFailure(failures, {
+          domain: "host",
+          kind: "content-changed",
+          path: input,
+        });
+        return { failures };
       }
       // A path both sides agree they could not read carries no bytes for a
       // signature to stand for. It still belongs in the manifest, so the
@@ -1897,14 +2121,38 @@ function captureUniversalHostInputValidation(
           state.identityContext,
         )
       ) {
-        return undefined;
+        recordGenerationProofFailure(failures, {
+          domain: "host",
+          kind: Object.prototype.hasOwnProperty.call(
+            generationRealpaths,
+            absoluteInput,
+          )
+            ? "realpath-changed"
+            : "realpath-proof-missing",
+          path: input,
+        });
+        return { failures };
       }
     }
     validation.covered.add(path.resolve(input));
     const before = inputMetadataEvidence(input, filesystem);
-    if (!matchesRecordedInput(cached, input)) return undefined;
+    if (!matchesRecordedInput(cached, input)) {
+      recordGenerationProofFailure(failures, {
+        domain: "host",
+        kind: "snapshot-mismatch",
+        path: input,
+      });
+      return { failures };
+    }
     const after = inputMetadataSignature(input, filesystem);
-    if (before?.signature !== after) return undefined;
+    if (before?.signature !== after) {
+      recordGenerationProofFailure(failures, {
+        domain: "host",
+        kind: "changed-during-validation",
+        path: input,
+      });
+      return { failures };
+    }
     if (before !== undefined) {
       // Do not key this manifest by physical identity. A symlink/junction
       // spelling and its selected target deliberately share that identity,
@@ -1924,7 +2172,14 @@ function captureUniversalHostInputValidation(
     const probe = missingPathProbe(input, filesystem);
     if (probe.blocker !== undefined) {
       const signature = inputMetadataSignature(probe.blocker, filesystem);
-      if (signature === undefined) return undefined;
+      if (signature === undefined) {
+        recordGenerationProofFailure(failures, {
+          domain: "host",
+          kind: "blocker-metadata-unavailable",
+          path: probe.blocker,
+        });
+        return { failures };
+      }
       // A blocker proves a kind and an identity, not content: it is the
       // non-directory ancestor that makes everything below it unreachable, and
       // it cannot stop being that without its metadata moving. So it keeps a
@@ -1956,7 +2211,7 @@ function captureUniversalHostInputValidation(
     );
   }
   cached.hostInputValidation = validation;
-  return validation;
+  return { failures, validation };
 }
 
 /**
@@ -2347,7 +2602,9 @@ function matchesCompleteInputSnapshot(
   ) {
     return false;
   }
-  current.hashes[currentKey] = hashText(source);
+  if (Object.prototype.hasOwnProperty.call(cached.inputHashes, currentKey)) {
+    current.hashes[currentKey] = hashText(source);
+  }
   if (!sameHashes(cached.inputHashes, current.hashes, declaredInputs)) {
     return false;
   }
@@ -2430,16 +2687,17 @@ function matchesExternalInputRealpaths(
 
 /**
  * Capture external-input hashes without attaching post-compile state to an
- * earlier graph. Graph members must carry compiler-time proof and still match
- * it now; plugin-declared dependency-only paths retain the historical
- * post-compile snapshot because their own protocol does not claim generation
- * fingerprints.
+ * earlier graph. Graph members and out-of-walk transformed sources must carry
+ * compiler-time proof and still match it now; plugin-declared dependency-only
+ * paths retain the historical post-compile snapshot because their own protocol
+ * does not claim generation fingerprints.
  */
 function captureExternalInputSnapshot(
   cached: TtscCachedProjectTransform,
   paths: readonly string[],
 ): {
   complete: boolean;
+  failures: TtscGenerationProofFailures;
   hashes: Record<string, string>;
   realpaths: Record<string, string | null>;
   signatures: Record<string, string>;
@@ -2447,9 +2705,23 @@ function captureExternalInputSnapshot(
   const state = envelopeDerivation(cached);
   const filesystem = resultFilesystem(cached.result);
   const graph = envelopeGraphIndexes(state, cached);
+  // A non-declaration transform output is a compiler-realized source even when
+  // a malformed or legacy graph omitted its node. Its output was computed from
+  // compiler-time bytes, so a post-compile host read cannot prove coherence.
+  const transformSources = new Set<string>();
+  if (cached.result.type === "success") {
+    for (const output of Object.keys(cached.result.typescript)) {
+      if (!isDeclarationFile(output)) {
+        transformSources.add(
+          derivationIdentity(state, path.resolve(cached.projectRoot, output)),
+        );
+      }
+    }
+  }
   const hashes: Record<string, string> = {};
   const realpaths: Record<string, string | null> = {};
   const signatures: Record<string, string> = {};
+  const failures = createGenerationProofFailures();
   let complete = true;
   // Sandwich every read between two metadata signatures. Only a signature that
   // survived its own read, and whose stamp's tick the filesystem's clock has
@@ -2471,28 +2743,54 @@ function captureExternalInputSnapshot(
     // through to the recorded-state branch below, the same evidence a
     // plugin-declared dependency path carries. Its absence still invalidates
     // the generation when it appears, because `missing` is recorded state.
+    const realizedTransformSource = transformSources.has(identity);
     const speculativeOnly =
+      !realizedTransformSource &&
       graph.speculative.has(identity) &&
       !graph.inputProofs.has(identity) &&
       !graph.inputProofConflicts.has(identity);
-    if (graph.members.has(identity) && !speculativeOnly) {
+    if (
+      (realizedTransformSource || graph.members.has(identity)) &&
+      !speculativeOnly
+    ) {
       const proof = graph.inputProofs.get(identity);
       if (proof === undefined || graph.inputProofConflicts.has(identity)) {
         complete = false;
+        recordGenerationProofFailure(failures, {
+          domain: "external",
+          kind: graph.inputProofConflicts.has(identity)
+            ? "graph-proof-conflict"
+            : "graph-proof-missing",
+          detail: graph.inputProofFailures.get(identity),
+          path: input,
+        });
         continue;
       }
       const before = inputMetadataEvidence(input, filesystem);
       const currentHash = graphInputStateHash(input, filesystem);
+      const currentRealpath = hostInputRealpath(input, filesystem);
       const after = inputMetadataSignature(input, filesystem);
-      if (
-        currentHash !== proof.hash ||
-        !sameHostInputRealpath(
-          proof.realpath,
-          hostInputRealpath(input, filesystem),
-          state.identityContext,
-        )
-      ) {
+      const realpathMatches = sameHostInputRealpath(
+        proof.realpath,
+        currentRealpath,
+        state.identityContext,
+      );
+      if (currentHash !== proof.hash || !realpathMatches) {
         complete = false;
+        if (currentHash !== proof.hash) {
+          recordGenerationProofFailure(failures, {
+            domain: "external",
+            kind: "graph-content-changed",
+            path: input,
+          });
+        }
+        if (!realpathMatches) {
+          recordGenerationProofFailure(failures, {
+            domain: "external",
+            kind: "graph-realpath-changed",
+            path: input,
+          });
+        }
       } else if (currentHash !== null) {
         // The recorded hash is the compiler's own proof, so a signature may
         // only stand for it once the current bytes were shown to match it.
@@ -2510,32 +2808,36 @@ function captureExternalInputSnapshot(
     hashes[identity] = hash ?? MISSING_INPUT_STATE;
     if (hash !== null) record(input, before, after);
   }
-  return { complete, hashes, realpaths, signatures };
+  return { complete, failures, hashes, realpaths, signatures };
 }
 
-/** Verify every graph member still has the state read by the compiler. */
-function matchesCompilerGraphInputProofs(
+/** Explain every graph member that no longer matches the compiler's state. */
+function compilerGraphInputProofFailures(
   cached: TtscCachedProjectTransform,
-): boolean {
+): TtscGenerationProofFailures {
+  const failures = createGenerationProofFailures();
   if (
     cached.result.type === "exception" ||
     cached.result.graph === undefined ||
     (cached.result.graph.inputHashes === undefined &&
-      cached.result.graph.inputRealpaths === undefined)
+      cached.result.graph.inputRealpaths === undefined &&
+      cached.result.graph.inputProofFailures === undefined)
   ) {
     // Legacy sidecars remain compatible for ordinary in-project graphs. Their
     // out-of-walk members are still rejected by captureExternalInputSnapshot,
     // where a post-compile snapshot cannot prove the compiler's generation.
-    return true;
+    return failures;
   }
   const state = envelopeDerivation(cached);
   const filesystem = resultFilesystem(cached.result);
   const graph = envelopeGraphIndexes(state, cached);
-  if (graph.inputProofConflicts.size !== 0) {
-    return false;
-  }
   for (const identity of graph.members) {
     const proof = graph.inputProofs.get(identity);
+    const spelling =
+      proof?.path ?? graph.spellings.get(identity) ?? cached.projectRoot;
+    if (isTransformScratchInput(spelling, cached.scratchDirectory)) {
+      continue;
+    }
     // A speculative candidate has no compile-time read to prove. Requiring one
     // would void every generation of every project whose resolution passes over
     // a higher-priority spelling, which is every project with a dependency
@@ -2544,19 +2846,47 @@ function matchesCompilerGraphInputProofs(
     if (proof === undefined && graph.speculative.has(identity)) {
       continue;
     }
+    if (graph.inputProofConflicts.has(identity)) {
+      recordGenerationProofFailure(failures, {
+        domain: "graph",
+        kind: "proof-conflict",
+        detail: graph.inputProofFailures.get(identity),
+        path: spelling,
+      });
+      continue;
+    }
+    if (proof === undefined) {
+      recordGenerationProofFailure(failures, {
+        domain: "graph",
+        kind: "proof-missing",
+        detail: graph.inputProofFailures.get(identity),
+        path: spelling,
+      });
+      continue;
+    }
+    const currentHash = graphInputStateHash(proof.path, filesystem);
+    if (currentHash !== proof.hash) {
+      recordGenerationProofFailure(failures, {
+        domain: "graph",
+        kind: "content-changed",
+        path: proof.path,
+      });
+    }
     if (
-      proof === undefined ||
-      graphInputStateHash(proof.path, filesystem) !== proof.hash ||
       !sameHostInputRealpath(
         proof.realpath,
         hostInputRealpath(proof.path, filesystem),
         state.identityContext,
       )
     ) {
-      return false;
+      recordGenerationProofFailure(failures, {
+        domain: "graph",
+        kind: "realpath-changed",
+        path: proof.path,
+      });
     }
   }
-  return true;
+  return failures;
 }
 
 /** Compare one derived input with the snapshot that owned it at generation. */
@@ -2653,6 +2983,7 @@ function collectProjectInputSnapshot(
   projectDirectories: TtscProjectDirectorySnapshot[];
   provenSignatures: Record<string, string>;
   unstableFiles: Set<string>;
+  walkFailures: TtscProjectWalkFailure[];
 } {
   const hashes: Record<string, string> = {};
   const fileSignatures: Record<string, string> = {};
@@ -2660,6 +2991,7 @@ function collectProjectInputSnapshot(
   const unstableFiles = new Set<string>();
   let attributed = true;
   const walked = walkProjectInputs(projectRoot, filesystem);
+  const walkFailures = [...walked.failures];
   let complete = walked.complete;
   for (const file of walked.files) {
     try {
@@ -2691,6 +3023,7 @@ function collectProjectInputSnapshot(
       ) {
         complete = false;
         unstableFiles.add(key);
+        walkFailures.push({ kind: "file-changed-during-read", path: file });
       } else {
         fileSignatures[key] = after;
         // Only a signature whose stamp's tick the filesystem's clock provably
@@ -2705,6 +3038,7 @@ function collectProjectInputSnapshot(
       // File watchers may observe a transform while another process is moving
       // or deleting files. The missing key invalidates older cache entries.
       complete = false;
+      walkFailures.push({ kind: "file-read-failed", path: file });
       try {
         unstableFiles.add(toProjectKey(projectRoot, file, identities));
       } catch {
@@ -2722,6 +3056,7 @@ function collectProjectInputSnapshot(
     projectDirectories: walked.directories,
     provenSignatures,
     unstableFiles,
+    walkFailures,
   };
 }
 
@@ -2739,10 +3074,12 @@ function walkProjectInputs(
 ): {
   complete: boolean;
   directories: TtscProjectDirectorySnapshot[];
+  failures: TtscProjectWalkFailure[];
   files: string[];
 } {
   let complete = true;
   const directories: TtscProjectDirectorySnapshot[] = [];
+  const failures: TtscProjectWalkFailure[] = [];
   const files: string[] = [];
   const stack = [root];
   while (stack.length !== 0) {
@@ -2750,6 +3087,10 @@ function walkProjectInputs(
     const before = projectDirectorySignature(current, filesystem);
     if (before === undefined) {
       complete = false;
+      failures.push({
+        kind: "directory-metadata-unavailable",
+        path: current,
+      });
       continue;
     }
     let entries: fs.Dirent[];
@@ -2757,11 +3098,19 @@ function walkProjectInputs(
       entries = filesystem.readdir(current);
     } catch {
       complete = false;
+      failures.push({ kind: "directory-read-failed", path: current });
       continue;
     }
     const after = projectDirectorySignature(current, filesystem);
     if (after === undefined || before !== after) {
       complete = false;
+      failures.push({
+        kind:
+          after === undefined
+            ? "directory-metadata-unavailable"
+            : "directory-changed-during-walk",
+        path: current,
+      });
     }
     directories.push({
       path: current,
@@ -2787,7 +3136,7 @@ function walkProjectInputs(
   }
   directories.sort((left, right) => left.path.localeCompare(right.path));
   files.sort();
-  return { complete, directories, files };
+  return { complete, directories, failures, files };
 }
 
 /** Return a cheap identity for one directory's immediate membership. */
@@ -2862,6 +3211,8 @@ async function createProjectMutationTracker(
   filesystem: TtscTransformFilesystemOperations = DEFAULT_FILESYSTEM_OPERATIONS,
 ): Promise<TtscProjectMutationTracker> {
   const tracker: TtscProjectMutationTracker = {
+    changes: new Set(),
+    changesOmitted: false,
     close: () => undefined,
     failed: false,
     membershipChanged: false,
@@ -2886,8 +3237,15 @@ async function createProjectMutationTracker(
         openDirectoryWatch(
           filesystem,
           directory.path,
-          (eventType) => {
-            if (eventType === "rename") tracker.membershipChanged = true;
+          (eventType, filename) => {
+            if (eventType === "rename") {
+              recordProjectMutation(
+                tracker,
+                filename === null
+                  ? directory.path
+                  : path.join(directory.path, filename),
+              );
+            }
           },
           () => {
             tracker.failed = true;
@@ -2939,6 +3297,8 @@ async function createHostInputMutationTracker(
     names: [...location.names],
   }));
   const tracker: TtscProjectMutationTracker = {
+    changes: new Set(),
+    changesOmitted: false,
     close: () => undefined,
     // Coverage is the caller's claim, and it is required rather than derived
     // from the input list: an input is watched by its exact name here, but only
@@ -2981,7 +3341,12 @@ async function createHostInputMutationTracker(
                 ? null
                 : normalizeHostInputName(filename, caseSensitive);
             if (reported === null || names.has(reported)) {
-              tracker.membershipChanged = true;
+              recordProjectMutation(
+                tracker,
+                filename === null
+                  ? location.directory
+                  : path.join(location.directory, filename),
+              );
             }
           },
           () => {
@@ -2994,6 +3359,20 @@ async function createHostInputMutationTracker(
     }
   }
   return tracker;
+}
+
+/** Record enough exact mutation evidence without retaining an event stream. */
+function recordProjectMutation(
+  tracker: TtscProjectMutationTracker,
+  changed: string,
+): void {
+  tracker.membershipChanged = true;
+  if (tracker.changes.has(changed)) return;
+  if (tracker.changes.size < MAX_GENERATION_MUTATION_PATHS) {
+    tracker.changes.add(changed);
+  } else {
+    tracker.changesOmitted = true;
+  }
 }
 
 interface WindowsProjectMutationBroker {
@@ -3128,8 +3507,10 @@ function getWindowsProjectMutationBroker(): WindowsProjectMutationBroker {
   child.on("message", (message: unknown) => {
     if (message === null || typeof message !== "object") return;
     const record = message as {
+      directory?: string;
       drained?: boolean;
       failed?: boolean;
+      filename?: string | null;
       id?: number;
       ready?: boolean;
     };
@@ -3147,7 +3528,16 @@ function getWindowsProjectMutationBroker(): WindowsProjectMutationBroker {
     if (record.failed === true) registration.tracker.failed = true;
     if (record.ready === true) registration.ready();
     if (record.ready !== true && record.failed !== true) {
-      registration.tracker.membershipChanged = true;
+      if (typeof record.directory === "string") {
+        recordProjectMutation(
+          registration.tracker,
+          typeof record.filename === "string"
+            ? path.join(record.directory, record.filename)
+            : record.directory,
+        );
+      } else {
+        registration.tracker.membershipChanged = true;
+      }
     }
   });
   windowsProjectMutationBroker = broker;
@@ -3238,7 +3628,7 @@ const WINDOWS_WATCH_BROKER_SOURCE = [
   "      const names = location.names === undefined ? undefined : new Set(location.names.map((name) => name.toLowerCase()));",
   "      const watcher = fs.watch(location.directory, { persistent: false }, (event, filename) => {",
   "        const matches = names === undefined || filename === null || names.has(String(filename).toLowerCase());",
-  '        if (matches && (message.allEvents || event === "rename")) process.send?.({ id: message.id });',
+  '        if (matches && (message.allEvents || event === "rename")) process.send?.({ directory: location.directory, filename: filename === null ? null : String(filename), id: message.id });',
   "      });",
   '      watcher.on("error", () => process.send?.({ failed: true, id: message.id }));',
   "      watchers.push(watcher);",
@@ -3483,12 +3873,13 @@ function matchesCachedExternalInputs(cached: TtscCachedProjectTransform): {
 
 /**
  * Derive the absolute out-of-walk input set of a whole project transform: the
- * union of every reference-graph member (edge keys and targets, globals, the
- * config chain) and every plugin-reported dependency, minus everything the
- * project walk already hashes and the disposed temp-dir tsconfig. These are the
- * inputs {@link matchesCachedSource}'s walk cannot see. Resolution candidates
- * that are still missing remain in this set even under the project root: the
- * first walk cannot hash a file that has not been created yet.
+ * union of every transformed source key, reference-graph member (edge keys and
+ * targets, globals, the config chain), and plugin-reported dependency, minus
+ * everything the project walk already hashes and the disposed transform scratch
+ * tree. These are the inputs {@link matchesCachedSource}'s walk cannot see.
+ * Resolution candidates that are still missing remain in this set even under
+ * the project root: the first walk cannot hash a file that has not been created
+ * yet.
  *
  * A `dependenciesComplete` declaration deliberately does not narrow the stored
  * set: other files in the same whole-project result can still own the omitted
@@ -3500,6 +3891,7 @@ function selectExternalInputPaths(props: {
   filesystem?: TtscTransformFilesystemOperations;
   projectRoot: string;
   result: ITtscCompilerTransformation;
+  scratchDirectory?: string;
   temporaryTsconfig?: string;
 }): string[] {
   if (props.result.type === "exception") {
@@ -3510,6 +3902,10 @@ function selectExternalInputPaths(props: {
   const identities = createHostPathIdentityContext(filesystem);
   const resolutionCandidates = new Set<string>();
   const graph = props.result.graph;
+  // Every transform output key names the source file whose transformed text it
+  // carries. Keep an out-of-walk source in the external snapshot instead of
+  // injecting it into the project-walk key universe (samchon/ttsc#252).
+  members.push(...Object.keys(props.result.typescript));
   if (graph !== undefined) {
     for (const [source, targets] of Object.entries(graph.edges ?? {})) {
       members.push(source);
@@ -3571,6 +3967,7 @@ function selectExternalInputPaths(props: {
       resolutionCandidates.has(identity) && !filesystem.exists(absolute);
     if (
       identity === excluded ||
+      isTransformScratchInput(absolute, props.scratchDirectory) ||
       seen.has(spelling) ||
       (!missingCandidate &&
         isProjectWalkPath(props.projectRoot, absolute, identities, filesystem))
@@ -3607,6 +4004,7 @@ function selectNotifiableAbsentInputs(props: {
   filesystem: TtscTransformFilesystemOperations;
   projectRoot: string;
   result: ITtscCompilerTransformation;
+  scratchDirectory?: string;
   temporaryTsconfig?: string;
 }): { candidates: string[]; watched: string[] } {
   const empty = { candidates: [], watched: [] };
@@ -3643,6 +4041,7 @@ function selectNotifiableAbsentInputs(props: {
       const spelling = path.resolve(absolute);
       if (
         seen.has(spelling) ||
+        isTransformScratchInput(absolute, props.scratchDirectory) ||
         (excluded !== undefined &&
           pathIdentityKey(absolute, identities) === excluded) ||
         props.filesystem.exists(absolute)
@@ -3825,7 +4224,7 @@ function walkSnapshotComplete(
   snapshot: {
     complete: boolean;
     directoryComplete: boolean;
-    unstableFiles: Set<string>;
+    unstableFiles: ReadonlySet<string>;
   },
   declared: ReadonlySet<string> | undefined,
 ): boolean {
@@ -3841,6 +4240,136 @@ function walkSnapshotComplete(
   return true;
 }
 
+/** Preserve exact project-walk and mutation witnesses for one failed attempt. */
+function recordProjectSnapshotFailures(
+  failures: TtscGenerationProofFailures,
+  props: {
+    before: ReturnType<typeof collectProjectInputSnapshot>;
+    candidateTracker?: TtscProjectMutationTracker;
+    declared: ReadonlySet<string> | undefined;
+    hostInputTracker?: TtscProjectMutationTracker;
+    identities: FilesystemPathIdentityContext;
+    projectRoot: string;
+    snapshot: ReturnType<typeof collectProjectInputSnapshot>;
+    tracker?: TtscProjectMutationTracker;
+  },
+): void {
+  const recordWalk = (
+    snapshot: ReturnType<typeof collectProjectInputSnapshot>,
+  ): void => {
+    for (const failure of snapshot.walkFailures) {
+      if (failure.kind.startsWith("file-") && props.declared !== undefined) {
+        try {
+          const key = toProjectKey(
+            props.projectRoot,
+            failure.path,
+            props.identities,
+          );
+          if (!props.declared.has(key)) continue;
+        } catch {
+          // An unidentifiable failed input taints the complete project walk.
+        }
+      }
+      recordGenerationProofFailure(failures, {
+        domain: "project",
+        kind: failure.kind,
+        path: failure.path,
+      });
+    }
+  };
+  recordWalk(props.before);
+  recordWalk(props.snapshot);
+
+  const keys =
+    props.declared ??
+    new Set([
+      ...Object.keys(props.before.hashes),
+      ...Object.keys(props.snapshot.hashes),
+    ]);
+  for (const key of keys) {
+    if (props.before.hashes[key] !== props.snapshot.hashes[key]) {
+      recordGenerationProofFailure(failures, {
+        domain: "project",
+        kind: "input-content-changed",
+        path: path.resolve(props.projectRoot, key),
+      });
+    }
+    if (
+      props.before.fileSignatures[key] !== props.snapshot.fileSignatures[key]
+    ) {
+      recordGenerationProofFailure(failures, {
+        domain: "project",
+        kind: "input-metadata-changed",
+        path: path.resolve(props.projectRoot, key),
+      });
+    }
+  }
+
+  const leftDirectories = new Map(
+    props.before.projectDirectories.map((entry) => [
+      entry.path,
+      entry.signature,
+    ]),
+  );
+  const rightDirectories = new Map(
+    props.snapshot.projectDirectories.map((entry) => [
+      entry.path,
+      entry.signature,
+    ]),
+  );
+  for (const directory of new Set([
+    ...leftDirectories.keys(),
+    ...rightDirectories.keys(),
+  ])) {
+    if (leftDirectories.get(directory) !== rightDirectories.get(directory)) {
+      recordGenerationProofFailure(failures, {
+        domain: "project",
+        kind: "directory-membership-changed",
+        path: directory,
+      });
+    }
+  }
+
+  const recordTracker = (
+    tracker: TtscProjectMutationTracker | undefined,
+    kind: string,
+  ): void => {
+    if (tracker?.membershipChanged !== true) return;
+    if (tracker.changes.size === 0) {
+      recordGenerationProofFailure(failures, {
+        domain: "project",
+        kind,
+        path: props.projectRoot,
+      });
+      return;
+    }
+    for (const changed of tracker.changes) {
+      recordGenerationProofFailure(failures, {
+        domain: "project",
+        kind,
+        path: changed,
+      });
+    }
+    if (tracker.changesOmitted) {
+      failures.omitted = Math.min(
+        Number.MAX_SAFE_INTEGER,
+        failures.omitted + 1,
+      );
+    }
+  };
+  recordTracker(props.tracker, "project-membership-event");
+  recordTracker(props.hostInputTracker, "host-input-event");
+  recordTracker(props.candidateTracker, "candidate-event");
+
+  if (failures.entries.length === 0) {
+    recordGenerationProofFailure(failures, {
+      domain: "project",
+      kind: "snapshot-incomplete",
+      path: props.projectRoot,
+    });
+  }
+}
+
 /** {@link selectDeclaredProjectInputKeys} memoized per envelope generation. */
 function declaredProjectInputKeys(
   state: TtscEnvelopeDerivation,
@@ -3851,6 +4380,7 @@ function declaredProjectInputKeys(
       identities: state.identityContext,
       projectRoot: cached.projectRoot,
       result: cached.result,
+      scratchDirectory: cached.scratchDirectory,
     });
     state.declaredInputKeysBuilt = true;
   }
@@ -3867,6 +4397,7 @@ function selectDeclaredProjectInputKeys(props: {
   identities: FilesystemPathIdentityContext;
   projectRoot: string;
   result: ITtscCompilerTransformation;
+  scratchDirectory?: string;
 }): Set<string> | undefined {
   if (props.result.type === "exception" || props.result.graph === undefined) {
     return undefined;
@@ -3875,13 +4406,9 @@ function selectDeclaredProjectInputKeys(props: {
   const keys = new Set<string>();
   const add = (entry: unknown): void => {
     if (typeof entry !== "string" || entry.length === 0) return;
-    keys.add(
-      toProjectKey(
-        props.projectRoot,
-        path.resolve(props.projectRoot, entry),
-        props.identities,
-      ),
-    );
+    const absolute = path.resolve(props.projectRoot, entry);
+    if (isTransformScratchInput(absolute, props.scratchDirectory)) return;
+    keys.add(toProjectKey(props.projectRoot, absolute, props.identities));
   };
   for (const [source, targets] of Object.entries(graph.edges ?? {})) {
     add(source);
@@ -3905,52 +4432,288 @@ function selectDeclaredProjectInputKeys(props: {
   return keys;
 }
 
-/**
- * Project roots already told they cannot reuse a compile, so a build reports
- * the condition once instead of once per module.
- */
-const REPORTED_UNREUSABLE_GENERATIONS = new Set<string>();
+/** Create an empty bounded witness collection for one transform attempt. */
+function createGenerationProofFailures(): TtscGenerationProofFailures {
+  return { entries: [], omitted: 0, seen: new Set() };
+}
+
+/** Retain one unique proof witness without allowing diagnostics to grow freely. */
+function recordGenerationProofFailure(
+  failures: TtscGenerationProofFailures,
+  failure: TtscGenerationProofFailure,
+): void {
+  const key = JSON.stringify([
+    failure.domain,
+    failure.kind,
+    failure.path,
+    failure.detail,
+  ]);
+  if (failures.seen.has(key)) return;
+  if (failures.entries.length < MAX_GENERATION_PROOF_FAILURES) {
+    // `seen` follows the same bound as `entries`: retaining every discarded
+    // identity would make a bounded diagnostic an unbounded memory sink.
+    failures.seen.add(key);
+    failures.entries.push(failure);
+  } else {
+    failures.omitted = Math.min(Number.MAX_SAFE_INTEGER, failures.omitted + 1);
+  }
+}
+
+/** Fold one bounded witness collection into another. */
+function mergeGenerationProofFailures(
+  target: TtscGenerationProofFailures,
+  source: TtscGenerationProofFailures,
+): void {
+  for (const failure of source.entries) {
+    recordGenerationProofFailure(target, failure);
+  }
+  target.omitted = Math.min(
+    Number.MAX_SAFE_INTEGER,
+    target.omitted + source.omitted,
+  );
+}
+
+/** Hash the declared-input-relevant failure shape without retaining it. */
+function projectWalkFailureFingerprint(
+  snapshot: {
+    complete: boolean;
+    directoryComplete: boolean;
+    unstableFiles: ReadonlySet<string>;
+    walkFailures: readonly TtscProjectWalkFailure[];
+  },
+  declared: ReadonlySet<string> | undefined,
+  projectRoot: string,
+  identities: FilesystemPathIdentityContext,
+): string {
+  const relevantUnstableFiles =
+    declared === undefined
+      ? [...snapshot.unstableFiles]
+      : [...snapshot.unstableFiles].filter((key) => declared.has(key));
+  const relevantFailures = snapshot.walkFailures.filter((failure) => {
+    if (!failure.kind.startsWith("file-")) return true;
+    if (declared === undefined) return true;
+    try {
+      return declared.has(toProjectKey(projectRoot, failure.path, identities));
+    } catch {
+      return true;
+    }
+  });
+  return hashText(
+    JSON.stringify({
+      complete: walkSnapshotComplete(snapshot, declared),
+      directoryComplete: snapshot.directoryComplete,
+      failures: relevantFailures
+        .map((failure) => `${failure.kind}\0${path.resolve(failure.path)}`)
+        .sort(),
+      unstableFiles: relevantUnstableFiles.sort(),
+    }),
+  );
+}
+
+/** Compact state of one exact out-of-walk input in a failed generation. */
+function failedGenerationInputState(
+  input: string,
+  filesystem: TtscTransformFilesystemOperations,
+): string {
+  let directory = "not-directory";
+  try {
+    if (filesystem.stat(input).isDirectory()) {
+      directory = hashText(
+        filesystem
+          .readdir(input)
+          .map((entry) =>
+            [
+              entry.name,
+              entry.isDirectory(),
+              entry.isFile(),
+              entry.isSymbolicLink(),
+            ].join(":"),
+          )
+          .sort()
+          .join("\0"),
+      );
+    }
+  } catch {
+    directory = "unavailable";
+  }
+  return hashText(
+    JSON.stringify([
+      inputMetadataSignature(input, filesystem) ?? "missing",
+      hostInputStateHash(input, filesystem) ?? MISSING_INPUT_STATE,
+      hostInputRealpath(input, filesystem),
+      directory,
+    ]),
+  );
+}
+
+/** Snapshot every input outside the project walk that could change a retry. */
+function captureFailedGenerationInputStates(
+  cached: TtscCachedProjectTransform,
+  failures: TtscGenerationProofFailures,
+): ReadonlyMap<string, string> {
+  const filesystem = resultFilesystem(cached.result);
+  const inputs = new Set(
+    (cached.externalInputPaths ?? []).map((input) => path.resolve(input)),
+  );
+  for (const input of selectPersistentHostInputs({
+    filesystem,
+    projectRoot: cached.projectRoot,
+    result: cached.result,
+    scratchDirectory: cached.scratchDirectory,
+    temporaryTsconfig: cached.temporaryTsconfig,
+  })) {
+    inputs.add(path.resolve(input));
+  }
+  for (const failure of failures.entries) {
+    if (failure.path !== undefined) inputs.add(path.resolve(failure.path));
+  }
+  return new Map(
+    [...inputs]
+      .sort()
+      .map((input) => [input, failedGenerationInputState(input, filesystem)]),
+  );
+}
+
+/** Capture source baselines for project and out-of-walk transform outputs. */
+function captureTransformSourceHashes(
+  cached: TtscCachedProjectTransform,
+  currentFile: string,
+  currentSourceHash: string,
+): Record<string, string> {
+  const filesystem = resultFilesystem(cached.result);
+  const identities = envelopeDerivation(cached).identityContext;
+  const hashes: Record<string, string> = {};
+  if (cached.result.type === "success") {
+    for (const output of Object.keys(cached.result.typescript)) {
+      const file = path.resolve(cached.projectRoot, output);
+      const hash = hostInputStateHash(file, filesystem);
+      if (hash !== null) hashes[pathIdentityKey(file, identities)] = hash;
+    }
+  }
+  hashes[pathIdentityKey(currentFile, identities)] = currentSourceHash;
+  return hashes;
+}
 
 /**
- * Report, once per project root, that a generation cannot be reused.
+ * Whether a terminal proof failure's observed environment actually changed.
  *
- * Every module of the build then recompiles the whole project, so the condition
- * is the difference between one compile and one compile per module. It stayed
- * invisible for the whole life of samchon/ttsc#970: consumers saw only a build
- * that never finished, and each investigation had to rediscover the cause from
- * outside. A named reason turns the next occurrence into a bug report instead
- * of an archaeology session.
+ * This is deliberately a confirmation test: inability to re-probe retains the
+ * old verdict instead of turning every module request into another compile.
+ * Cache lifecycle reset remains the unconditional recovery boundary.
  */
-function reportUnreusableGeneration(
-  cached: TtscCachedProjectTransform,
-  evidence: {
-    externalInputs: boolean;
-    graphProofs: boolean;
-    universalInputs: boolean;
-    walkStable: boolean;
+function failedGenerationEnvironmentChanged(
+  validation: TtscFailedGenerationValidation,
+  props: {
+    currentFile: string;
+    currentSource: string;
+    filesystem: TtscTransformFilesystemOperations;
   },
-): void {
-  const missing = [
-    ...(evidence.walkStable ? [] : ["a stable project snapshot"]),
-    ...(evidence.graphProofs ? [] : ["compiler proofs for its graph inputs"]),
-    ...(evidence.externalInputs
-      ? []
-      : ["a complete out-of-walk input snapshot"]),
-    ...(evidence.universalInputs ? [] : ["a universal host-input manifest"]),
-  ];
-  const key = `${cached.projectRoot}\0${missing.join(",")}`;
-  if (REPORTED_UNREUSABLE_GENERATIONS.has(key)) {
-    return;
+): boolean {
+  try {
+    const identities = envelopeDerivation(validation.cached).identityContext;
+    const currentSourceHash = hashText(props.currentSource);
+    const expectedSourceHash =
+      validation.cached.sourceHashes?.[
+        pathIdentityKey(props.currentFile, identities)
+      ];
+    if (
+      expectedSourceHash !== undefined &&
+      expectedSourceHash !== currentSourceHash
+    ) {
+      return true;
+    }
+    const current = collectProjectInputSnapshot(
+      validation.cached.projectRoot,
+      identities,
+      props.filesystem,
+    );
+    if (
+      validation.projectWalkComplete !==
+        walkSnapshotComplete(current, validation.declaredInputs) ||
+      validation.projectWalkFailures !==
+        projectWalkFailureFingerprint(
+          current,
+          validation.declaredInputs,
+          validation.cached.projectRoot,
+          identities,
+        ) ||
+      !sameHashes(
+        validation.projectInputHashes,
+        current.hashes,
+        validation.declaredInputs,
+      ) ||
+      !sameProjectDirectories(
+        validation.cached.projectDirectories ?? [],
+        current.projectDirectories,
+      )
+    ) {
+      return true;
+    }
+    for (const [input, recorded] of validation.inputStates) {
+      if (failedGenerationInputState(input, props.filesystem) !== recorded) {
+        return true;
+      }
+    }
+    return false;
+  } catch {
+    return false;
   }
-  REPORTED_UNREUSABLE_GENERATIONS.add(key);
-  process.stderr.write(
-    `ttsc: the transform cache cannot reuse this project's compile, so every ` +
-      `module recompiles the whole project.\n` +
-      `  project: ${cached.projectRoot}\n` +
-      `  missing: ${missing.join("; ")}\n` +
-      `  Please report this at https://github.com/samchon/ttsc/issues with ` +
-      `this message.\n`,
+}
+
+/** Render one input without leaking source content or control characters. */
+function formatGenerationFailurePath(
+  projectRoot: string,
+  input: string,
+): string {
+  const absolute = path.resolve(input);
+  const relative = path.relative(projectRoot, absolute);
+  const display =
+    relative === ""
+      ? "."
+      : relative !== ".." &&
+          !relative.startsWith(`..${path.sep}`) &&
+          !path.isAbsolute(relative)
+        ? relative
+        : absolute;
+  return JSON.stringify(display.split(path.sep).join("/"));
+}
+
+/** Build the terminal error shared by every waiter of an unstable generation. */
+function createUnstableGenerationError(
+  projectRoot: string,
+  attempts: readonly TtscGenerationProofFailures[],
+  validation: TtscFailedGenerationValidation,
+): TtscUnstableGenerationError {
+  const lines = [
+    `ttsc: could not capture a reusable transform generation after ${attempts.length} attempts.`,
+    `  project: ${projectRoot}`,
+  ];
+  attempts.forEach((failures, index) => {
+    lines.push(`  attempt ${index + 1}:`);
+    if (failures.entries.length === 0) {
+      lines.push("    - project/generation-proof-incomplete");
+    }
+    for (const failure of failures.entries) {
+      const input =
+        failure.path === undefined
+          ? ""
+          : `: ${formatGenerationFailurePath(projectRoot, failure.path)}`;
+      const detail =
+        failure.detail === undefined
+          ? ""
+          : ` (producer: ${JSON.stringify(failure.detail)})`;
+      lines.push(`    - ${failure.domain}/${failure.kind}${input}${detail}`);
+    }
+    if (failures.omitted !== 0) {
+      lines.push(
+        `    - ... ${failures.omitted} additional witness(es) omitted`,
+      );
+    }
+  });
+  lines.push(
+    "  Stop writes to the listed inputs before compilation, or fix the producer that omitted or contradicted the listed proof.",
   );
+  return new TtscUnstableGenerationError(lines.join("\n"), validation);
 }
 
 function hashText(input: string | Buffer): string {
@@ -3958,6 +4721,52 @@ function hashText(input: string | Buffer): string {
 }
 
 async function transformProject(props: {
+  aliasPaths: Record<string, string[]>;
+  compilerOptions: Record<string, unknown>;
+  currentFile: string;
+  currentSource: string;
+  filesystem: TtscTransformFilesystemOperations;
+  plugins?: ResolvedTtscUnpluginOptions["plugins"];
+  trackProjectMembership: boolean;
+  tsconfig: string;
+}): Promise<TtscCachedProjectTransform> {
+  const attempts: TtscGenerationProofFailures[] = [];
+  for (let attempt = 0; attempt < TRANSFORM_GENERATION_ATTEMPTS; attempt += 1) {
+    const cached = await captureTransformGeneration(props);
+    if (
+      !props.trackProjectMembership ||
+      cached.result.type !== "success" ||
+      cached.projectSnapshotComplete === true
+    ) {
+      return cached;
+    }
+    attempts.push(
+      TRANSFORM_GENERATION_FAILURES.get(cached.result) ??
+        createGenerationProofFailures(),
+    );
+    if (attempt + 1 === TRANSFORM_GENERATION_ATTEMPTS) {
+      const validation = TRANSFORM_FAILED_GENERATION_VALIDATIONS.get(
+        cached.result,
+      );
+      if (validation === undefined) {
+        disposeCachedTransform(cached);
+        throw new Error(
+          "ttsc: failed transform generation has no retry validation baseline",
+        );
+      }
+      throw createUnstableGenerationError(
+        path.dirname(props.tsconfig),
+        attempts,
+        validation,
+      );
+    }
+    disposeCachedTransform(cached);
+  }
+  throw new Error("ttsc: transform generation retry loop did not terminate");
+}
+
+/** Capture one whole-project transform attempt and all of its reuse proofs. */
+async function captureTransformGeneration(props: {
   aliasPaths: Record<string, string[]>;
   compilerOptions: Record<string, unknown>;
   currentFile: string;
@@ -4019,6 +4828,7 @@ async function transformProject(props: {
       filesystem: props.filesystem,
       projectRoot,
       result,
+      scratchDirectory,
       temporaryTsconfig,
     });
     // The generation's absent resolution candidates, which get a watcher of
@@ -4034,6 +4844,7 @@ async function transformProject(props: {
           filesystem: props.filesystem,
           projectRoot,
           result,
+          scratchDirectory,
           temporaryTsconfig,
         })
       : { candidates: [], watched: [] };
@@ -4067,6 +4878,7 @@ async function transformProject(props: {
       filesystem: props.filesystem,
       projectRoot,
       result,
+      scratchDirectory,
       temporaryTsconfig,
     });
     const inputSnapshot = collectProjectInputSnapshot(
@@ -4083,6 +4895,7 @@ async function transformProject(props: {
       identities,
       projectRoot,
       result,
+      scratchDirectory,
     });
     const walkStable =
       walkSnapshotComplete(before, declaredInputs) &&
@@ -4111,14 +4924,21 @@ async function transformProject(props: {
       props.currentFile,
       identities,
     );
-    inputSnapshot.hashes[currentFileKey] = hashText(props.currentSource);
-    // That overlay makes this one key the only recorded hash a disk signature
-    // cannot stand for: the bytes it names came from the bundler, not the file.
-    delete inputSnapshot.provenSignatures[currentFileKey];
+    const currentSourceHash = hashText(props.currentSource);
+    const projectInputHashes = { ...inputSnapshot.hashes };
+    if (
+      Object.prototype.hasOwnProperty.call(inputSnapshot.hashes, currentFileKey)
+    ) {
+      inputSnapshot.hashes[currentFileKey] = currentSourceHash;
+      // That overlay makes this one key the only recorded hash a disk signature
+      // cannot stand for: the bytes it names came from the bundler, not the file.
+      delete inputSnapshot.provenSignatures[currentFileKey];
+    }
     const cached: TtscCachedProjectTransform = {
       // Capture the out-of-walk input hashes while the generation is fresh so
       // cache validation can re-check them; computed before dispose so the
-      // exclusion of the temp-dir tsconfig is the only reason it never keys.
+      // scratch-tree exclusion is the only reason its disposed artifacts never
+      // key the persistent generation.
       externalInputHashes: {},
       externalInputRealpaths: {},
       externalInputPaths,
@@ -4128,12 +4948,18 @@ async function transformProject(props: {
       projectSnapshotComplete: false,
       projectRoot,
       result,
+      scratchDirectory,
       servedFiles: new Set(),
       // Remember the generated temp-dir tsconfig (disposed below) so watch
       // derivation can drop it from the envelope's config chain; a registered
       // but deleted file would invalidate every persistent-cache snapshot.
       ...(temporaryTsconfig === undefined ? {} : { temporaryTsconfig }),
     };
+    cached.sourceHashes = captureTransformSourceHashes(
+      cached,
+      props.currentFile,
+      currentSourceHash,
+    );
     const externalInputSnapshot = captureExternalInputSnapshot(
       cached,
       externalInputPaths,
@@ -4145,23 +4971,52 @@ async function transformProject(props: {
     // cannot be reused can say which evidence it lacked. The extra work runs
     // only on the failing path, where the alternative is recompiling the whole
     // project for every remaining module.
-    const graphProofs = matchesCompilerGraphInputProofs(cached);
-    const universalInputs =
-      captureUniversalHostInputValidation(cached, props.currentFile) !==
-      undefined;
+    const failures = createGenerationProofFailures();
+    if (!walkStable) {
+      recordProjectSnapshotFailures(failures, {
+        before,
+        candidateTracker,
+        declared: declaredInputs,
+        hostInputTracker,
+        identities,
+        projectRoot,
+        snapshot: inputSnapshot,
+        tracker,
+      });
+    }
+    const graphFailures = compilerGraphInputProofFailures(cached);
+    mergeGenerationProofFailures(failures, graphFailures);
+    mergeGenerationProofFailures(failures, externalInputSnapshot.failures);
+    const universalInputCapture = captureUniversalHostInputValidation(
+      cached,
+      props.currentFile,
+    );
+    mergeGenerationProofFailures(failures, universalInputCapture.failures);
+    const graphProofs =
+      graphFailures.entries.length === 0 && graphFailures.omitted === 0;
+    const universalInputs = universalInputCapture.validation !== undefined;
     const stableProjectSnapshot =
       walkStable &&
       graphProofs &&
       externalInputSnapshot.complete &&
       universalInputs;
-    // Only a caching host loses anything here: without a cache every delivery
-    // compiles by design, so an unprovable generation costs it nothing.
-    if (!stableProjectSnapshot && props.trackProjectMembership) {
-      reportUnreusableGeneration(cached, {
-        externalInputs: externalInputSnapshot.complete,
-        graphProofs,
-        universalInputs,
-        walkStable,
+    if (!stableProjectSnapshot) {
+      TRANSFORM_GENERATION_FAILURES.set(result, failures);
+      TRANSFORM_FAILED_GENERATION_VALIDATIONS.set(result, {
+        cached,
+        declaredInputs,
+        inputStates: captureFailedGenerationInputStates(cached, failures),
+        projectInputHashes,
+        projectWalkComplete: walkSnapshotComplete(
+          inputSnapshot,
+          declaredInputs,
+        ),
+        projectWalkFailures: projectWalkFailureFingerprint(
+          inputSnapshot,
+          declaredInputs,
+          projectRoot,
+          identities,
+        ),
       });
     }
     cached.projectSnapshotComplete = stableProjectSnapshot;
@@ -4209,21 +5064,30 @@ async function transformProject(props: {
   }
 }
 
-/** Exclude the disposed overlay tsconfig from live host-input tracking. */
+/** Exclude disposed transform scratch from live host-input tracking. */
 function selectPersistentHostInputs(props: {
   filesystem: TtscTransformFilesystemOperations;
   projectRoot: string;
   result: ITtscCompilerTransformation;
+  scratchDirectory?: string;
   temporaryTsconfig?: string;
 }): string[] {
   if (props.result.type === "exception") return [];
   const inputs = selectListedFiles(props.projectRoot, props.result.hostInputs);
-  if (props.temporaryTsconfig === undefined) return inputs;
+  if (
+    props.scratchDirectory === undefined &&
+    props.temporaryTsconfig === undefined
+  )
+    return inputs;
   const identities = createHostPathIdentityContext(props.filesystem);
-  const temporary = pathIdentityKey(props.temporaryTsconfig, identities);
-  return inputs.filter(
-    (input) => pathIdentityKey(input, identities) !== temporary,
-  );
+  const temporary =
+    props.temporaryTsconfig === undefined
+      ? undefined
+      : pathIdentityKey(props.temporaryTsconfig, identities);
+  return inputs.filter((input) => {
+    if (isTransformScratchInput(input, props.scratchDirectory)) return false;
+    return pathIdentityKey(input, identities) !== temporary;
+  });
 }
 
 function createTransformTsconfig(
@@ -4341,6 +5205,17 @@ function pathIsWithin(child: string, parent: string): boolean {
     (relative !== ".." &&
       !relative.startsWith(`..${path.sep}`) &&
       !path.isAbsolute(relative))
+  );
+}
+
+/** Whether an input is owned by the disposable transform scratch tree. */
+function isTransformScratchInput(
+  input: string,
+  scratchDirectory: string | undefined,
+): boolean {
+  return (
+    scratchDirectory !== undefined &&
+    pathIsWithin(path.resolve(input), path.resolve(scratchDirectory))
   );
 }
 

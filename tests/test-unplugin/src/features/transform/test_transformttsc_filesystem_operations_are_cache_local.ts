@@ -10,8 +10,9 @@ import { assertFilesystemOperationsAreCacheLocal } from "../../internal/transfor
  *
  * 1. Start transforms for two distinct projects and caches concurrently.
  * 2. Inject post-compile readdir failures only through the first cache.
- * 3. Assert both transforms finish, both counters run, and the first operation
- *    never observes the second project's paths.
+ * 3. Assert the faulty cache terminates after two attempts, the healthy cache
+ *    succeeds, both counters run, and the first operation never observes the
+ *    second project's paths.
  */
 export async function test_transformttsc_filesystem_operations_are_cache_local(): Promise<void> {
   await assertFilesystemOperationsAreCacheLocal();

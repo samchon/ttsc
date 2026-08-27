@@ -35,17 +35,23 @@ const bundledScheme = "bundled:///"
 //     its selected module target. They are a separate class from resolved
 //     edges: a probe's file appearing or changing can change an unchanged
 //     import's meaning.
+//   - InputHashes and InputRealpaths pair graph members with the exact content
+//     state and physical identity observed by the compiler filesystem.
+//   - InputProofFailures gives a stable reason when a realized member lacks
+//     that pair. Speculative candidates are omitted because the compiler was
+//     never expected to read them.
 //
 // Keys and values use the same convention as the envelope's `typescript`
 // map: project-relative slash paths, falling back to slash-normalized
 // absolute paths outside the project root (see TransformOutputKey).
 type TransformGraph struct {
-  Edges          map[string][]string `json:"edges"`
-  Globals        []string            `json:"globals"`
-  Configs        []string            `json:"configs"`
-  Candidates     map[string][]string `json:"candidates,omitempty"`
-  InputHashes    map[string]*string  `json:"inputHashes,omitempty"`
-  InputRealpaths map[string]*string  `json:"inputRealpaths,omitempty"`
+  Edges              map[string][]string `json:"edges"`
+  Globals            []string            `json:"globals"`
+  Configs            []string            `json:"configs"`
+  Candidates         map[string][]string `json:"candidates,omitempty"`
+  InputHashes        map[string]*string  `json:"inputHashes,omitempty"`
+  InputRealpaths     map[string]*string  `json:"inputRealpaths,omitempty"`
+  InputProofFailures map[string]string   `json:"inputProofFailures,omitempty"`
 }
 
 // NewTransformGraph computes the reference graph of a loaded program, keyed
@@ -94,33 +100,45 @@ func (graph *TransformGraph) attachInputProof(prog *Program, cwd string) {
     return
   }
   inputs := map[string]struct{}{}
+  realized := map[string]struct{}{}
+  addRealized := func(input string) {
+    inputs[input] = struct{}{}
+    realized[input] = struct{}{}
+  }
   for source, targets := range graph.Edges {
-    inputs[source] = struct{}{}
+    addRealized(source)
     for _, target := range targets {
-      inputs[target] = struct{}{}
+      addRealized(target)
     }
   }
   for _, input := range graph.Globals {
-    inputs[input] = struct{}{}
+    addRealized(input)
   }
   for _, input := range graph.Configs {
-    inputs[input] = struct{}{}
+    addRealized(input)
   }
   for source, candidates := range graph.Candidates {
-    inputs[source] = struct{}{}
+    addRealized(source)
     for _, candidate := range candidates {
       inputs[candidate] = struct{}{}
     }
   }
   hashes := map[string]*string{}
   realpaths := map[string]*string{}
+  failures := map[string]string{}
   for input := range inputs {
     file := filepath.FromSlash(input)
     if !filepath.IsAbs(file) {
       file = filepath.Join(cwd, file)
     }
-    hash, realpath, ok := prog.inputObserver.proof(file)
-    if !ok {
+    hash, realpath, failure := prog.inputObserver.proof(file)
+    if failure != "" {
+      // Speculative candidates are allowed to lack compiler reads. Reporting
+      // only realized members keeps this diagnostic side channel bounded to
+      // inputs whose missing proof can actually refuse generation reuse.
+      if _, ok := realized[input]; ok {
+        failures[input] = string(failure)
+      }
       continue
     }
     hashes[input] = hash
@@ -129,6 +147,9 @@ func (graph *TransformGraph) attachInputProof(prog *Program, cwd string) {
   if len(hashes) != 0 {
     graph.InputHashes = hashes
     graph.InputRealpaths = realpaths
+  }
+  if len(failures) != 0 {
+    graph.InputProofFailures = failures
   }
 }
 

@@ -9,8 +9,8 @@ import { assertIndependentGraphLeafCompileSnapshotAbaRaceCannotAuthorizeStaleOut
  * generation even though the file returns to its original bytes.
  *
  * 1. Compile two independent roots while the lazy root changes A-to-B-to-A.
- * 2. Request the lazy root from the persistent cache.
- * 3. Assert the torn generation is replaced and B's output is never served.
+ * 2. Let the shared generation retry, then request the lazy root from cache.
+ * 3. Assert the torn attempt is discarded and B's output is never served.
  */
 export const test_transformttsc_independent_graph_leaf_compile_snapshot_aba_race_cannot_authorize_stale_output =
   async () => {

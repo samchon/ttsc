@@ -827,6 +827,7 @@ function parseReferenceGraph(
     edges?: unknown;
     globals?: unknown;
     inputHashes?: unknown;
+    inputProofFailures?: unknown;
     inputRealpaths?: unknown;
   };
   const candidates = parseDependencyLists(section.candidates) ?? {};
@@ -834,6 +835,9 @@ function parseReferenceGraph(
   const globals = parseFileList(section.globals) ?? [];
   const configs = parseFileList(section.configs) ?? [];
   const inputHashes = parseGraphInputHashes(section.inputHashes);
+  const inputProofFailures = parseGraphInputProofFailures(
+    section.inputProofFailures,
+  );
   const inputRealpaths = parseGraphInputRealpaths(section.inputRealpaths);
   if (
     Object.keys(candidates).length === 0 &&
@@ -849,8 +853,30 @@ function parseReferenceGraph(
     edges,
     globals,
     ...(inputHashes === undefined ? {} : { inputHashes }),
+    ...(inputProofFailures === undefined ? {} : { inputProofFailures }),
     ...(inputRealpaths === undefined ? {} : { inputRealpaths }),
   };
+}
+
+/** Parse graph-keyed machine-readable compiler proof-failure reasons. */
+function parseGraphInputProofFailures(
+  value: unknown,
+): Record<string, string> | undefined {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return undefined;
+  }
+  const output: Record<string, string> = {};
+  for (const [file, reason] of Object.entries(value)) {
+    if (
+      file.length === 0 ||
+      typeof reason !== "string" ||
+      !/^[a-z0-9-]{1,64}$/.test(reason)
+    ) {
+      continue;
+    }
+    output[file] = reason;
+  }
+  return Object.keys(output).length === 0 ? undefined : output;
 }
 
 /** Parse graph-keyed compiler-time content/null observations. */

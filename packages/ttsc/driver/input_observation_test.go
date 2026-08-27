@@ -29,8 +29,8 @@ func TestInputObservationFSRejectsRestoredContent(t *testing.T) {
   if err := os.WriteFile(file, []byte("A"), 0o644); err != nil {
     t.Fatal(err)
   }
-  if _, _, ok := observed.proof(file); ok {
-    t.Fatal("A-B-A observation unexpectedly produced reusable proof")
+  if _, _, failure := observed.proof(file); failure != inputProofContentChanged {
+    t.Fatalf("A-B-A proof failure = %q, want %q", failure, inputProofContentChanged)
   }
 }
 
@@ -46,6 +46,9 @@ func TestInputObservationFSProvesReadBytesAndMissingCandidates(t *testing.T) {
   if !observed.FileExists(file) {
     t.Fatal("selected file was not found")
   }
+  if _, _, failure := observed.proof(file); failure != inputProofContentUnavailable {
+    t.Fatalf("existence-only proof failure = %q, want %q", failure, inputProofContentUnavailable)
+  }
   if _, ok := observed.ReadFile(file); !ok {
     t.Fatal("selected file was not read")
   }
@@ -55,9 +58,9 @@ func TestInputObservationFSProvesReadBytesAndMissingCandidates(t *testing.T) {
 
   digest := sha256.Sum256([]byte(contents))
   wantHash := hex.EncodeToString(digest[:])
-  hash, realpath, ok := observed.proof(file)
-  if !ok || hash == nil || *hash != wantHash {
-    t.Fatalf("selected proof hash = %v, %v", hash, ok)
+  hash, realpath, failure := observed.proof(file)
+  if failure != "" || hash == nil || *hash != wantHash {
+    t.Fatalf("selected proof hash = %v, failure %q", hash, failure)
   }
   wantRealpath, err := filepath.EvalSymlinks(file)
   if err != nil {
@@ -66,9 +69,9 @@ func TestInputObservationFSProvesReadBytesAndMissingCandidates(t *testing.T) {
   if realpath == nil || filepath.Clean(*realpath) != filepath.Clean(wantRealpath) {
     t.Fatalf("selected proof realpath = %v, want %q", realpath, wantRealpath)
   }
-  hash, realpath, ok = observed.proof(missing)
-  if !ok || hash != nil || realpath != nil {
-    t.Fatalf("missing proof = %v, %v, %v", hash, realpath, ok)
+  hash, realpath, failure = observed.proof(missing)
+  if failure != "" || hash != nil || realpath != nil {
+    t.Fatalf("missing proof = %v, %v, failure %q", hash, realpath, failure)
   }
 }
 
@@ -86,9 +89,9 @@ func TestInputObservationFSHashesCompilerDecodedText(t *testing.T) {
     t.Fatalf("compiler read = %q, %v; want decoded text", contents, ok)
   }
   digest := sha256.Sum256([]byte(text))
-  hash, _, ok := observed.proof(file)
-  if !ok || hash == nil || *hash != hex.EncodeToString(digest[:]) {
-    t.Fatalf("decoded proof hash = %v, %v", hash, ok)
+  hash, _, failure := observed.proof(file)
+  if failure != "" || hash == nil || *hash != hex.EncodeToString(digest[:]) {
+    t.Fatalf("decoded proof hash = %v, failure %q", hash, failure)
   }
 }
 
@@ -128,9 +131,9 @@ func TestInputObservationFSJoinsSelectedAliasProbeToPhysicalRead(t *testing.T) {
   }
 
   digest := sha256.Sum256([]byte(contents))
-  hash, realpath, ok := observed.proof(lexical)
-  if !ok || hash == nil || *hash != hex.EncodeToString(digest[:]) {
-    t.Fatalf("alias proof hash = %v, %v", hash, ok)
+  hash, realpath, failure := observed.proof(lexical)
+  if failure != "" || hash == nil || *hash != hex.EncodeToString(digest[:]) {
+    t.Fatalf("alias proof hash = %v, failure %q", hash, failure)
   }
   if realpath == nil {
     t.Fatalf("alias proof realpath = nil, want %q", physical)

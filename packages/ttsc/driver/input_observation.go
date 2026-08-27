@@ -17,6 +17,19 @@ var observedDirectoryDigest = func() string {
 
 type observedInputKind uint8
 
+type inputProofFailure string
+
+const (
+  inputProofContentChanged       inputProofFailure = "content-changed"
+  inputProofContentUnavailable   inputProofFailure = "content-unavailable"
+  inputProofInvalidPath          inputProofFailure = "invalid-path"
+  inputProofKindChanged          inputProofFailure = "kind-changed"
+  inputProofRealpathChanged      inputProofFailure = "realpath-changed"
+  inputProofRealpathUnavailable  inputProofFailure = "realpath-unavailable"
+  inputProofUnobserved           inputProofFailure = "unobserved"
+  inputProofUnsupportedInputKind inputProofFailure = "unsupported-input-kind"
+)
+
 const (
   observedInputMissing observedInputKind = iota
   observedInputFile
@@ -25,9 +38,9 @@ const (
 
 type observedInput struct {
   contentHash *string
+  failure     inputProofFailure
   kind        observedInputKind
   realpath    *string
-  unstable    bool
 }
 
 // inputObservationFS records the exact disk state returned through the
@@ -177,24 +190,36 @@ func (fs *inputObservationFS) mergeObservation(key string, next observedInput) {
     fs.observations[key] = next
     return
   }
-  if previous.unstable || next.unstable || previous.kind != next.kind || !sameOptionalString(previous.realpath, next.realpath) {
-    previous.unstable = true
-    previous.contentHash = nil
-    previous.realpath = nil
-    fs.observations[key] = previous
+  if previous.failure != "" {
+    return
+  }
+  if next.failure != "" {
+    fs.failObservation(key, previous, next.failure)
+    return
+  }
+  if previous.kind != next.kind {
+    fs.failObservation(key, previous, inputProofKindChanged)
+    return
+  }
+  if !sameOptionalString(previous.realpath, next.realpath) {
+    fs.failObservation(key, previous, inputProofRealpathChanged)
     return
   }
   if previous.contentHash != nil && next.contentHash != nil && *previous.contentHash != *next.contentHash {
-    previous.unstable = true
-    previous.contentHash = nil
-    previous.realpath = nil
-    fs.observations[key] = previous
+    fs.failObservation(key, previous, inputProofContentChanged)
     return
   }
   if previous.contentHash == nil && next.contentHash != nil {
     previous.contentHash = next.contentHash
   }
   fs.observations[key] = previous
+}
+
+func (fs *inputObservationFS) failObservation(key string, observed observedInput, failure inputProofFailure) {
+  observed.contentHash = nil
+  observed.failure = failure
+  observed.realpath = nil
+  fs.observations[key] = observed
 }
 
 func (fs *inputObservationFS) observeRealpath(path string, realpath *string) {
@@ -210,11 +235,11 @@ func (fs *inputObservationFS) observeRealpath(path string, realpath *string) {
     // directory. The ordinary resolver probes record that state separately.
     return
   }
-  if previous.unstable || !sameOptionalString(previous.realpath, realpath) {
-    previous.unstable = true
-    previous.contentHash = nil
-    previous.realpath = nil
-    fs.observations[key] = previous
+  if previous.failure != "" {
+    return
+  }
+  if !sameOptionalString(previous.realpath, realpath) {
+    fs.failObservation(key, previous, inputProofRealpathChanged)
   }
 }
 
@@ -225,49 +250,55 @@ func sameOptionalString(left, right *string) bool {
   return *left == *right
 }
 
-// proof returns a stable compiler-time state. A nil hash/realpath with ok=true
-// is an explicit JSON null for a path observed missing; ok=false means the
-// compiler never produced a complete, internally consistent observation.
-func (fs *inputObservationFS) proof(path string) (hash, realpath *string, ok bool) {
+// proof returns a stable compiler-time state. A nil hash/realpath with an empty
+// failure is an explicit JSON null for a path observed missing; a non-empty
+// failure explains why no complete, internally consistent proof exists.
+func (fs *inputObservationFS) proof(path string) (hash, realpath *string, failure inputProofFailure) {
   key := fs.observationKey(path)
   if key == "" {
-    return nil, nil, false
+    return nil, nil, inputProofInvalidPath
   }
   fs.mu.Lock()
   observation, found := fs.observations[key]
   // TypeScript-Go can probe a lexical symlink candidate and then read the
   // selected source by its physical filename. Reuse that exact observed read
   // for the alias instead of issuing an eager duplicate read from FileExists.
-  if found && !observation.unstable && observation.kind == observedInputFile && observation.contentHash == nil && observation.realpath != nil {
+  if found && observation.failure == "" && observation.kind == observedInputFile && observation.contentHash == nil && observation.realpath != nil {
     targetKey := fs.observationKey(*observation.realpath)
     target, targetFound := fs.observations[targetKey]
-    if targetFound && !target.unstable && target.kind == observedInputFile && target.contentHash != nil && sameOptionalString(target.realpath, observation.realpath) {
+    if targetFound && target.failure == "" && target.kind == observedInputFile && target.contentHash != nil && sameOptionalString(target.realpath, observation.realpath) {
       targetHash := *target.contentHash
       observation.contentHash = &targetHash
     }
   }
   fs.mu.Unlock()
-  if !found || observation.unstable {
-    return nil, nil, false
+  if !found {
+    return nil, nil, inputProofUnobserved
+  }
+  if observation.failure != "" {
+    return nil, nil, observation.failure
   }
   switch observation.kind {
   case observedInputMissing:
-    return nil, nil, true
+    return nil, nil, ""
   case observedInputDirectory:
     hash := observedDirectoryDigest
     if observation.realpath == nil {
-      return nil, nil, false
+      return nil, nil, inputProofRealpathUnavailable
     }
     realpath := *observation.realpath
-    return &hash, &realpath, true
+    return &hash, &realpath, ""
   case observedInputFile:
     if observation.contentHash == nil || observation.realpath == nil {
-      return nil, nil, false
+      if observation.contentHash == nil {
+        return nil, nil, inputProofContentUnavailable
+      }
+      return nil, nil, inputProofRealpathUnavailable
     }
     hash := *observation.contentHash
     realpath := *observation.realpath
-    return &hash, &realpath, true
+    return &hash, &realpath, ""
   default:
-    return nil, nil, false
+    return nil, nil, inputProofUnsupportedInputKind
   }
 }

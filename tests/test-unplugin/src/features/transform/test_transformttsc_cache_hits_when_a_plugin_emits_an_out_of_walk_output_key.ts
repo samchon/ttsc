@@ -10,8 +10,8 @@ import { assertCacheHitsDespiteOutOfWalkOutputKey } from "../../internal/transfo
  * project importing a typed dependency hit. This pins that an out-of-walk
  * output key no longer defeats the cache.
  *
- * 1. Create a multi-file project whose fixture transform emits one
- *    `node_modules/**` output key.
+ * 1. Create a multi-file project whose fixture transform emits the arbitrary
+ *    extension declaration `node_modules/dep/types.d.css.ts`.
  * 2. Run `transformTtsc` over every module sharing one cache.
  * 3. Assert the plugin ran exactly once, not once per module.
  */
