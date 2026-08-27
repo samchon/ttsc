@@ -297,12 +297,18 @@ export interface TtscCachedProjectTransform {
    */
   servedFiles?: Set<string>;
   /**
+   * Absolute path of the adapter-owned scratch directory used for this
+   * generation. It is disposed after compilation, so none of its compiler,
+   * resolver, or plugin artifacts can be a persistent cache or watch input.
+   */
+  scratchDirectory?: string;
+  /**
    * Absolute path of the generated temp-dir tsconfig this compile ran against,
    * when an alias/compiler-options overlay required one. The compiler reports
    * it in the envelope's `graph.configs` chain, but it is disposed right after
    * the compile, so registering it as a watch input would invalidate every
-   * bundler cache snapshot on the next build; watch derivation must skip
-   * exactly this path.
+   * bundler cache snapshot on the next build; watch derivation must skip this
+   * path. {@link scratchDirectory} owns the wider disposable-input bound.
    */
   temporaryTsconfig?: string;
 }
@@ -1194,8 +1200,9 @@ function collectDeclaredIdentities(
  * Envelope keys mirror the `typescript` keys (project-relative); values may be
  * project-relative or absolute. Every path is absolutized against the project
  * root and deduplicated; the file itself is dropped (the bundler already
- * watches the module it transforms), and so is the disposed temp-dir tsconfig
- * (see {@link TtscCachedProjectTransform.temporaryTsconfig}).
+ * watches the module it transforms), and so is every path in the disposed
+ * transform scratch tree (see
+ * {@link TtscCachedProjectTransform.scratchDirectory}).
  */
 function notifyWatchInputs(
   hooks: TtscTransformHooks | undefined,
@@ -1212,6 +1219,7 @@ function notifyWatchInputs(
     file,
     projectRoot: cached.projectRoot,
     result: cached.result,
+    scratchDirectory: cached.scratchDirectory,
     temporaryTsconfig: cached.temporaryTsconfig,
   })) {
     // Hand the adapter the identity this generation already resolved and the
@@ -1254,6 +1262,7 @@ function selectWatchInputs(props: {
   file: string;
   projectRoot: string;
   result: ITtscCompilerTransformation;
+  scratchDirectory?: string;
   temporaryTsconfig?: string;
 }): string[] {
   if (props.result.type === "exception") {
@@ -1277,6 +1286,7 @@ function deriveWatchInputs(
     file: string;
     projectRoot: string;
     result: ITtscCompilerTransformation;
+    scratchDirectory?: string;
     temporaryTsconfig?: string;
   },
   fileIdentity: string,
@@ -1299,6 +1309,7 @@ function deriveWatchInputs(
     if (
       spelling === currentSpelling ||
       spelling === temporarySpelling ||
+      isTransformScratchInput(spelling, props.scratchDirectory) ||
       lexicalSeen.has(spelling)
     ) {
       return;
@@ -1308,6 +1319,7 @@ function deriveWatchInputs(
     output.push(input);
   };
   const appendPhysical = (input: string): void => {
+    if (isTransformScratchInput(input, props.scratchDirectory)) return;
     const identity = derivationIdentity(state, input);
     if (excluded.has(identity) || physicalSeen.has(identity)) return;
     physicalSeen.add(identity);
@@ -1777,6 +1789,7 @@ function matchesNarrowPersistentInputs(
     file,
     projectRoot: cached.projectRoot,
     result: cached.result,
+    scratchDirectory: cached.scratchDirectory,
     temporaryTsconfig: cached.temporaryTsconfig,
   });
   for (const input of inputs) {
@@ -2049,6 +2062,7 @@ function captureUniversalHostInputValidation(
     filesystem,
     projectRoot: cached.projectRoot,
     result: cached.result,
+    scratchDirectory: cached.scratchDirectory,
     temporaryTsconfig: cached.temporaryTsconfig,
   })) {
     const generationHashes =
@@ -2819,6 +2833,11 @@ function compilerGraphInputProofFailures(
   const graph = envelopeGraphIndexes(state, cached);
   for (const identity of graph.members) {
     const proof = graph.inputProofs.get(identity);
+    const spelling =
+      proof?.path ?? graph.spellings.get(identity) ?? cached.projectRoot;
+    if (isTransformScratchInput(spelling, cached.scratchDirectory)) {
+      continue;
+    }
     // A speculative candidate has no compile-time read to prove. Requiring one
     // would void every generation of every project whose resolution passes over
     // a higher-priority spelling, which is every project with a dependency
@@ -2827,8 +2846,6 @@ function compilerGraphInputProofFailures(
     if (proof === undefined && graph.speculative.has(identity)) {
       continue;
     }
-    const spelling =
-      proof?.path ?? graph.spellings.get(identity) ?? cached.projectRoot;
     if (graph.inputProofConflicts.has(identity)) {
       recordGenerationProofFailure(failures, {
         domain: "graph",
@@ -3858,8 +3875,8 @@ function matchesCachedExternalInputs(cached: TtscCachedProjectTransform): {
  * Derive the absolute out-of-walk input set of a whole project transform: the
  * union of every transformed source key, reference-graph member (edge keys and
  * targets, globals, the config chain), and plugin-reported dependency, minus
- * everything the project walk already hashes and the disposed temp-dir
- * tsconfig. These are the inputs {@link matchesCachedSource}'s walk cannot see.
+ * everything the project walk already hashes and the disposed transform scratch
+ * tree. These are the inputs {@link matchesCachedSource}'s walk cannot see.
  * Resolution candidates that are still missing remain in this set even under
  * the project root: the first walk cannot hash a file that has not been created
  * yet.
@@ -3874,6 +3891,7 @@ function selectExternalInputPaths(props: {
   filesystem?: TtscTransformFilesystemOperations;
   projectRoot: string;
   result: ITtscCompilerTransformation;
+  scratchDirectory?: string;
   temporaryTsconfig?: string;
 }): string[] {
   if (props.result.type === "exception") {
@@ -3949,6 +3967,7 @@ function selectExternalInputPaths(props: {
       resolutionCandidates.has(identity) && !filesystem.exists(absolute);
     if (
       identity === excluded ||
+      isTransformScratchInput(absolute, props.scratchDirectory) ||
       seen.has(spelling) ||
       (!missingCandidate &&
         isProjectWalkPath(props.projectRoot, absolute, identities, filesystem))
@@ -3985,6 +4004,7 @@ function selectNotifiableAbsentInputs(props: {
   filesystem: TtscTransformFilesystemOperations;
   projectRoot: string;
   result: ITtscCompilerTransformation;
+  scratchDirectory?: string;
   temporaryTsconfig?: string;
 }): { candidates: string[]; watched: string[] } {
   const empty = { candidates: [], watched: [] };
@@ -4021,6 +4041,7 @@ function selectNotifiableAbsentInputs(props: {
       const spelling = path.resolve(absolute);
       if (
         seen.has(spelling) ||
+        isTransformScratchInput(absolute, props.scratchDirectory) ||
         (excluded !== undefined &&
           pathIdentityKey(absolute, identities) === excluded) ||
         props.filesystem.exists(absolute)
@@ -4359,6 +4380,7 @@ function declaredProjectInputKeys(
       identities: state.identityContext,
       projectRoot: cached.projectRoot,
       result: cached.result,
+      scratchDirectory: cached.scratchDirectory,
     });
     state.declaredInputKeysBuilt = true;
   }
@@ -4375,6 +4397,7 @@ function selectDeclaredProjectInputKeys(props: {
   identities: FilesystemPathIdentityContext;
   projectRoot: string;
   result: ITtscCompilerTransformation;
+  scratchDirectory?: string;
 }): Set<string> | undefined {
   if (props.result.type === "exception" || props.result.graph === undefined) {
     return undefined;
@@ -4383,13 +4406,9 @@ function selectDeclaredProjectInputKeys(props: {
   const keys = new Set<string>();
   const add = (entry: unknown): void => {
     if (typeof entry !== "string" || entry.length === 0) return;
-    keys.add(
-      toProjectKey(
-        props.projectRoot,
-        path.resolve(props.projectRoot, entry),
-        props.identities,
-      ),
-    );
+    const absolute = path.resolve(props.projectRoot, entry);
+    if (isTransformScratchInput(absolute, props.scratchDirectory)) return;
+    keys.add(toProjectKey(props.projectRoot, absolute, props.identities));
   };
   for (const [source, targets] of Object.entries(graph.edges ?? {})) {
     add(source);
@@ -4540,6 +4559,7 @@ function captureFailedGenerationInputStates(
     filesystem,
     projectRoot: cached.projectRoot,
     result: cached.result,
+    scratchDirectory: cached.scratchDirectory,
     temporaryTsconfig: cached.temporaryTsconfig,
   })) {
     inputs.add(path.resolve(input));
@@ -4808,6 +4828,7 @@ async function captureTransformGeneration(props: {
       filesystem: props.filesystem,
       projectRoot,
       result,
+      scratchDirectory,
       temporaryTsconfig,
     });
     // The generation's absent resolution candidates, which get a watcher of
@@ -4823,6 +4844,7 @@ async function captureTransformGeneration(props: {
           filesystem: props.filesystem,
           projectRoot,
           result,
+          scratchDirectory,
           temporaryTsconfig,
         })
       : { candidates: [], watched: [] };
@@ -4856,6 +4878,7 @@ async function captureTransformGeneration(props: {
       filesystem: props.filesystem,
       projectRoot,
       result,
+      scratchDirectory,
       temporaryTsconfig,
     });
     const inputSnapshot = collectProjectInputSnapshot(
@@ -4872,6 +4895,7 @@ async function captureTransformGeneration(props: {
       identities,
       projectRoot,
       result,
+      scratchDirectory,
     });
     const walkStable =
       walkSnapshotComplete(before, declaredInputs) &&
@@ -4913,7 +4937,8 @@ async function captureTransformGeneration(props: {
     const cached: TtscCachedProjectTransform = {
       // Capture the out-of-walk input hashes while the generation is fresh so
       // cache validation can re-check them; computed before dispose so the
-      // exclusion of the temp-dir tsconfig is the only reason it never keys.
+      // scratch-tree exclusion is the only reason its disposed artifacts never
+      // key the persistent generation.
       externalInputHashes: {},
       externalInputRealpaths: {},
       externalInputPaths,
@@ -4923,6 +4948,7 @@ async function captureTransformGeneration(props: {
       projectSnapshotComplete: false,
       projectRoot,
       result,
+      scratchDirectory,
       servedFiles: new Set(),
       // Remember the generated temp-dir tsconfig (disposed below) so watch
       // derivation can drop it from the envelope's config chain; a registered
@@ -5038,21 +5064,30 @@ async function captureTransformGeneration(props: {
   }
 }
 
-/** Exclude the disposed overlay tsconfig from live host-input tracking. */
+/** Exclude disposed transform scratch from live host-input tracking. */
 function selectPersistentHostInputs(props: {
   filesystem: TtscTransformFilesystemOperations;
   projectRoot: string;
   result: ITtscCompilerTransformation;
+  scratchDirectory?: string;
   temporaryTsconfig?: string;
 }): string[] {
   if (props.result.type === "exception") return [];
   const inputs = selectListedFiles(props.projectRoot, props.result.hostInputs);
-  if (props.temporaryTsconfig === undefined) return inputs;
+  if (
+    props.scratchDirectory === undefined &&
+    props.temporaryTsconfig === undefined
+  )
+    return inputs;
   const identities = createHostPathIdentityContext(props.filesystem);
-  const temporary = pathIdentityKey(props.temporaryTsconfig, identities);
-  return inputs.filter(
-    (input) => pathIdentityKey(input, identities) !== temporary,
-  );
+  const temporary =
+    props.temporaryTsconfig === undefined
+      ? undefined
+      : pathIdentityKey(props.temporaryTsconfig, identities);
+  return inputs.filter((input) => {
+    if (isTransformScratchInput(input, props.scratchDirectory)) return false;
+    return pathIdentityKey(input, identities) !== temporary;
+  });
 }
 
 function createTransformTsconfig(
@@ -5170,6 +5205,17 @@ function pathIsWithin(child: string, parent: string): boolean {
     (relative !== ".." &&
       !relative.startsWith(`..${path.sep}`) &&
       !path.isAbsolute(relative))
+  );
+}
+
+/** Whether an input is owned by the disposable transform scratch tree. */
+function isTransformScratchInput(
+  input: string,
+  scratchDirectory: string | undefined,
+): boolean {
+  return (
+    scratchDirectory !== undefined &&
+    pathIsWithin(path.resolve(input), path.resolve(scratchDirectory))
   );
 }
 
