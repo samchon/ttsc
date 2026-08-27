@@ -24,7 +24,10 @@ interface IRealNativeEnvelopeTransformation {
 
 type RealNativeEnvelopeCache = Map<
   string,
-  Promise<{ result: IRealNativeEnvelopeTransformation }>
+  Promise<{
+    projectSnapshotComplete?: boolean;
+    result: IRealNativeEnvelopeTransformation;
+  }>
 >;
 
 interface IRealNativeEnvelopeApi {
@@ -55,6 +58,11 @@ export interface IRealNativeEnvelopeFixture {
   runLog: string;
 }
 
+interface IRealNativeEnvelopeFixtureOptions {
+  /** Rewrite the selected declaration during the first linked-plugin pass. */
+  raceDeclarationOnce?: boolean;
+}
+
 /**
  * Materialize a package-resolution fixture driven by ttsc's utility host.
  *
@@ -62,7 +70,9 @@ export interface IRealNativeEnvelopeFixture {
  * utility host as a linked contributor, whose no-op `ApplyProgram` method runs
  * in the same native invocation that produces `driver.NewTransformGraph`.
  */
-export function createRealNativeEnvelopeFixture(): IRealNativeEnvelopeFixture {
+export function createRealNativeEnvelopeFixture(
+  options: IRealNativeEnvelopeFixtureOptions = {},
+): IRealNativeEnvelopeFixture {
   TestUnpluginProject.ensureSharedCacheDir();
   const root = TestProject.tmpdir("ttsc-unplugin-real-envelope-");
   const runLog = path.join(
@@ -123,11 +133,32 @@ export function createRealNativeEnvelopeFixture(): IRealNativeEnvelopeFixture {
       "  if err != nil {",
       "    return err",
       "  }",
+      "  info, err := file.Stat()",
+      "  if err != nil {",
+      "    _ = file.Close()",
+      "    return err",
+      "  }",
+      "  first := info.Size() == 0",
       "  if _, err := file.Write([]byte{1}); err != nil {",
       "    _ = file.Close()",
       "    return err",
       "  }",
-      "  return file.Close()",
+      "  if err := file.Close(); err != nil {",
+      "    return err",
+      "  }",
+      "  if first {",
+      '    raceFile, _ := context.Entry.Config["raceFile"].(string)',
+      '    raceContent, _ := context.Entry.Config["raceContent"].(string)',
+      '    if raceFile != "" && raceContent != "" {',
+      "      if !filepath.IsAbs(raceFile) {",
+      "        raceFile = filepath.Join(context.Cwd, raceFile)",
+      "      }",
+      "      if err := os.WriteFile(raceFile, []byte(raceContent), 0o644); err != nil {",
+      "        return err",
+      "      }",
+      "    }",
+      "  }",
+      "  return nil",
       "}",
       "",
       "func init() {",
@@ -144,6 +175,12 @@ export function createRealNativeEnvelopeFixture(): IRealNativeEnvelopeFixture {
           plugins: [
             {
               name: "real-envelope-compile-probe",
+              raceContent:
+                options.raceDeclarationOnce === true
+                  ? "export interface Shared { label: string; revision?: number; }\n"
+                  : undefined,
+              raceFile:
+                options.raceDeclarationOnce === true ? declaration : undefined,
               runLog,
               transform: "./plugin.cjs",
             },
@@ -206,6 +243,54 @@ export async function assertRealEnvelopeServesSiblingModulesFromOneCompile(): Pr
   await assertCoreLifecycle(api, fixture, false);
   await assertCoreLifecycle(api, fixture, true);
   await assertViteLifecycle(fixture);
+}
+
+/** Assert one real compiler-input race stabilizes inside one shared Promise. */
+export async function assertRealEnvelopeInputRaceStabilizesWithinSharedGeneration(): Promise<void> {
+  const fixture = createRealNativeEnvelopeFixture({
+    raceDeclarationOnce: true,
+  });
+  const api = await loadApi();
+  const cache = api.createTtscTransformCache();
+  const options = api.resolveOptions({
+    project: path.join(fixture.root, "tsconfig.json"),
+  });
+  resetRunLog(fixture.runLog);
+  try {
+    await Promise.all(
+      fixture.modules.map((file) =>
+        api.transformTtsc(
+          file,
+          fs.readFileSync(file, "utf8"),
+          options,
+          undefined,
+          cache,
+        ),
+      ),
+    );
+    assert.equal(
+      programRuns(fixture.runLog),
+      2,
+      "concurrent modules must share the failed attempt and its one retry",
+    );
+    assert.match(fs.readFileSync(fixture.declaration, "utf8"), /revision/);
+    assert.equal(cache.size, 1);
+    const stableGeneration = [...cache.values()][0]!;
+    assert.equal((await stableGeneration).projectSnapshotComplete, true);
+    await assertProductionEnvelope(cache, fixture);
+
+    for (const file of fixture.modules) {
+      await deliver(api, cache, options, file);
+    }
+    assert.equal(
+      programRuns(fixture.runLog),
+      2,
+      "every later module must reuse only the stabilized native generation",
+    );
+    assert.equal([...cache.values()][0], stableGeneration);
+  } finally {
+    api.resetTtscTransformCache(cache);
+  }
 }
 
 /** Assert a newly available superseding candidate replaces one generation. */
