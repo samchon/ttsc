@@ -107,8 +107,14 @@ func ReportRejectedConfigCandidates(candidates []ConfigCandidate, hashReporter, 
       digest := observedDirectoryDigest
       hash = &digest
       if resolved, err := filepath.Abs(candidate.Path); err == nil {
-        cleaned := filepath.Clean(resolved)
-        realpath = &cleaned
+        // Abs and Clean preserve aliases (Windows 8.3 names, symlinks, and
+        // junctions). The descriptor-side observer reports a physical path, so
+        // publishing the lexical spelling here would make the two proofs
+        // conflict and leave every persistent consumer unable to reuse.
+        if physical, err := filepath.EvalSymlinks(resolved); err == nil {
+          cleaned := filepath.Clean(physical)
+          realpath = &cleaned
+        }
       }
     }
     if hashReporter != nil {

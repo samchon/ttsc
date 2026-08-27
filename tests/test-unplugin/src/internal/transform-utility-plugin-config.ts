@@ -4,6 +4,7 @@ import {
   TestUnpluginRuntime,
 } from "@ttsc/testing";
 import assert from "node:assert/strict";
+import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -1130,13 +1131,37 @@ async function assertDirectoryShapedConfigCandidateKeepsTheGeneration() {
   assert.match(first.code, /OUTER BANNER/);
   const firstGeneration = [...cache.values()][0];
   const cached = (await firstGeneration!) as {
-    result?: { hostInputs?: string[] };
+    projectSnapshotComplete?: boolean;
+    result?: {
+      hostInputHashes?: Record<string, string | null>;
+      hostInputRealpaths?: Record<string, string | null>;
+      hostInputs?: string[];
+    };
   };
+  const absoluteDirectory = path.resolve(directory);
   assert.ok(
     cached.result?.hostInputs?.some(
       (input) => path.resolve(input) === path.resolve(directory),
     ),
     `the directory-shaped candidate is missing from the envelope: ${JSON.stringify(cached.result?.hostInputs ?? [])}`,
+  );
+  assert.equal(
+    cached.result?.hostInputHashes?.[absoluteDirectory],
+    crypto
+      .createHash("sha256")
+      .update("ttsc:host-input:directory\0")
+      .digest("hex"),
+    "the directory-shaped candidate must carry the directory-kind digest",
+  );
+  assert.equal(
+    cached.result?.hostInputRealpaths?.[absoluteDirectory],
+    fs.realpathSync.native(directory),
+    "descriptor and linked-host observations must agree on the physical directory",
+  );
+  assert.equal(
+    cached.projectSnapshotComplete,
+    true,
+    "the directory-shaped candidate must leave a reusable generation snapshot",
   );
 
   const second = await transformTtsc(
