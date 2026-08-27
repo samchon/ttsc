@@ -19,18 +19,23 @@ func TestReportRejectedConfigCandidatesRecordsEachInItsOwnState(t *testing.T) {
   root := t.TempDir()
   absent := filepath.Join(root, "demo.config.ts")
   directory := filepath.Join(root, "demo.config.json")
+  disappearedDirectory := filepath.Join(root, "gone.config.json")
   writeProjectFile(t, root, filepath.Join("demo.config.json", "keep.txt"), "")
   hashes := map[string]*string{}
   realpaths := map[string]*string{}
 
   driver.ReportRejectedConfigCandidates(
-    []driver.ConfigCandidate{{Path: absent}, {Directory: true, Path: directory}},
+    []driver.ConfigCandidate{
+      {Path: absent},
+      {Directory: true, Path: directory},
+      {Directory: true, Path: disappearedDirectory},
+    },
     func(file string, hash *string) { hashes[file] = hash },
     func(file string, realpath *string) { realpaths[file] = realpath },
   )
 
-  if len(hashes) != 2 || len(realpaths) != 2 {
-    t.Fatalf("expected both halves for both candidates, got %v and %v", hashes, realpaths)
+  if len(hashes) != 3 || len(realpaths) != 2 {
+    t.Fatalf("expected every hash and only proven realpaths, got %v and %v", hashes, realpaths)
   }
   if hashes[absent] != nil || realpaths[absent] != nil {
     t.Fatalf("an absent candidate must be reported as absent, got %v and %v", hashes[absent], realpaths[absent])
@@ -38,10 +43,22 @@ func TestReportRejectedConfigCandidatesRecordsEachInItsOwnState(t *testing.T) {
   if hashes[directory] == nil || realpaths[directory] == nil {
     t.Fatalf("a directory candidate must carry both proofs, got %v and %v", hashes[directory], realpaths[directory])
   }
-  if *realpaths[directory] != filepath.Clean(directory) {
-    t.Fatalf("expected the directory's own path, got %q", *realpaths[directory])
+  physical, err := filepath.EvalSymlinks(directory)
+  if err != nil {
+    t.Fatal(err)
+  }
+  if *realpaths[directory] != filepath.Clean(physical) {
+    t.Fatalf("expected the directory's physical path %q, got %q", physical, *realpaths[directory])
   }
   if *hashes[directory] == "" {
     t.Fatalf("expected the directory-kind digest, got an empty hash")
+  }
+  _, hasDisappearedRealpath := realpaths[disappearedDirectory]
+  if hashes[disappearedDirectory] == nil || hasDisappearedRealpath {
+    t.Fatalf(
+      "a vanished directory must keep its observed kind without any fabricated physical proof, got %v and %v",
+      hashes[disappearedDirectory],
+      realpaths[disappearedDirectory],
+    )
   }
 }
