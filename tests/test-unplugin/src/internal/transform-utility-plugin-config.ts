@@ -1098,11 +1098,13 @@ async function assertUnrelatedFileInAProbedDirectoryKeepsTheGeneration() {
  * generation is refused on every delivery for the rest of its life, which is
  * the shape samchon/ttsc#1245 was filed for.
  *
- * 1. Compile a package whose config directory also carries a _directory_ named
- *    `banner.config.ts`.
- * 2. Assert that path reached the envelope, so the case is about how it was
- *    recorded rather than about it being dropped.
- * 3. Deliver again and assert the generation object is the same one.
+ * 1. Compile through an outer config while a nearer `banner.config.json` candidate
+ *    is a directory.
+ * 2. Require that directory's digest and physical identity in a complete envelope,
+ *    then deliver again and retain the same generation.
+ * 3. Replace the directory with a real nearer config and require one new
+ *    generation with the nearer banner.
+ * 4. Deliver once more and retain that replacement generation.
  */
 async function assertDirectoryShapedConfigCandidateKeepsTheGeneration() {
   const { createTtscTransformCache, resolveOptions, transformTtsc } =
