@@ -1,6 +1,6 @@
 # Evidence Tags
 
-The configuration is written once, and the tags are written forever.
+One target, one reason, on the declaration that owes the answer.
 
 ```text
 @evidence <target> <reason>
@@ -11,7 +11,7 @@ The configuration is written once, and the tags are written forever.
 @evidenceExcludeReview <target> #<fingerprint> <description>
 ```
 
-The target is one whitespace-delimited token, except that a target opening with `{@link`, `{@linkcode`, or `{@linkplain` runs to its closing brace. Everything after the target is prose for a human. One declaration may carry any number of tags, and every tag needs a target and a non-empty reason and is validated on its own.
+The target is one whitespace-delimited token, except that one opening with `{@link`, `{@linkcode`, or `{@linkplain` runs to its closing brace. A declaration may carry any number of tags, and each is validated on its own.
 
 ## The four tags
 
@@ -21,7 +21,9 @@ The target is one whitespace-delimited token, except that a target opening with 
 
 `@evidenceReview` and `@evidenceExcludeReview` annotate a citation and an exclusion respectively. They are not a third kind of acknowledgement: a review discharges no coverage, contributes no host, and never answers a unit on its own.
 
-The two review forms stay separate because they answer different questions. Whether a screen truly renders a limit and whether a screen truly owes nothing are not the same verification, and one tag for both would let the easier one discharge the harder. A review is therefore paired by acknowledgement kind together with target, which also lets one host cite a target for one claim and exclude it for another: two decisions, two reviews.
+The two review forms stay separate because they answer different questions. Whether a screen truly renders a limit and whether it truly owes nothing are not the same verification, and one tag for both would let the easier one discharge the harder.
+
+A review is therefore paired by acknowledgement kind together with target, which also lets one host cite a target for one claim and exclude it for another.
 
 ## Writing the reason
 
@@ -35,13 +37,13 @@ The reason is the only part a reviewer can disagree with, so it has to say what 
 /** @evidence docs/requirements/discount.md#coupon-stacking Renders the per-issuer limit this section defines, in the buyer's words. */
 ```
 
-A restated heading passes every check and proves nothing, which is why the first form is worse than no citation: it spends the reviewer's attention and returns a sentence that cannot be wrong.
+A restated heading is worse than no citation. It passes every check, spends the reviewer's attention, and returns a sentence that cannot be wrong.
 
 An exclusion's reason carries more, because it records a decision rather than describing work. Where another population owns the target, name it and the condition that would bring the target back: "Settlement owns coupon combination; reject this exclusion once a screen displays a stacked total."
 
-Where the target simply does not apply, say what makes it inapplicable rather than asserting that it is. A principle about fixing root causes does not reach a component that only renders, and "No failure to fix." is the whole reason, because a reviewer can check it against the declaration in one look.
+Where the target does not apply at all, say what makes it inapplicable rather than asserting that it is. A principle about fixing root causes does not reach a component that only renders, and "No failure to fix." is the whole reason, because a reviewer can check it against the declaration in one look.
 
-Nothing scores any of this, and [that is deliberate](/docs/evidence/rules#evidencedocumented). A graded reason becomes a reason written for the grader, and the sentence stops being worth a reviewer's time.
+Nothing scores any of this, and [that is deliberate](/docs/evidence/claims#evidencedocumented). A graded reason becomes a reason written for the grader, and the sentence stops being worth a reviewer's time.
 
 ## Targets
 
@@ -137,8 +139,8 @@ Note that `stripInternal` deletes a withdrawn declaration from emitted declarati
 /**
  * @evidence docs/requirements/discount.md#coupon-stacking States the per-issuer limit.
  * @evidenceReview docs/requirements/discount.md#coupon-stacking #a1b2c3d Verified against policy section 3.
- * @evidenceExclude docs/principles.md#fix-root-causes-not-symptoms No failure to fix.
- * @evidenceExcludeReview docs/principles.md#fix-root-causes-not-symptoms #f0e1d2c Confirmed the component only renders.
+ * @evidenceExclude .agents/skills/principles/SKILL.md#fix-root-causes-not-symptoms No failure to fix.
+ * @evidenceExcludeReview .agents/skills/principles/SKILL.md#fix-root-causes-not-symptoms #f0e1d2c Confirmed the component only renders.
  */
 export function CouponStackingNotice(props: IProps): JSX.Element;
 ```
@@ -153,12 +155,10 @@ What a review proves is narrow and worth stating plainly. It proves that a separ
 
 ## When a tag is wrong
 
-A tag is data the compiler reads, so every way of getting one wrong has its own diagnostic rather than silence. A target that resolves nowhere, a tag with no reason, a review naming a target its declaration never cites, an exclusion written outside the declared carriers, and a tag sitting where nothing can attach it are each reported where they sit.
-
-[Troubleshooting](/docs/evidence/troubleshooting) groups those messages by cause and prints the repair each one names.
+A tag is data the compiler reads, so every way of getting one wrong has its own diagnostic rather than silence. A target that resolves nowhere, a tag with no reason, a review naming a target its declaration never cites, an exclusion written outside the declared carriers, and a tag sitting where nothing can attach it are each reported where they sit, with the repair named in the message.
 
 ## What the tags cannot do
 
 A citation cannot cross from another artifact kind into TypeScript evidence, because an inline link needs the citing module's import scope. Documentation therefore cannot cite code, and the inverse obligation is a different one rather than a substitute.
 
-A tag also cannot make a false statement true. It removes the error, not the problem, which is why [`evidence/review`](/docs/evidence/rules) exists and why [the overview](/docs/evidence) draws the line where it does: the compiler catches omissions, and review catches falsehoods.
+A tag also cannot make a false statement true. It removes the error, not the problem, which is why [`evidence/review`](/docs/evidence/claims#evidencereview) exists and why [the overview](/docs/evidence) draws the line where it does: the compiler catches omissions, and review catches falsehoods.
