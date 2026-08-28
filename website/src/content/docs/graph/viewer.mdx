@@ -4,19 +4,15 @@ import TtscWebsiteGraphViewer3D from "../../../components/graph/TtscWebsiteGraph
 
 The same checker-resolved graph the MCP tools answer from, rendered as a navigable 3D ontology. Every node is a module or a declaration (module, class, interface, function, method, type, enum, variable); every edge is a resolved relationship the compiler reported.
 
-The examples below are the [benchmark](/docs/benchmark/graph) fixture repositories, from VS Code's 6,093 files down to Zod. Pick one, or load a graph from your own project (see the next section). Drag to orbit, scroll to zoom, hover a node for its name, kind, and file.
+The examples below are the [benchmark](/docs/benchmark/graph) fixture repositories, from VS Code down to Zod. Drag to orbit, scroll to zoom, hover a node for its name, kind, and file.
 
-The graph is explorable, not just viewable. Click a node to focus it: its neighborhood lights up, the rest dims, and an info panel shows the declaration, its file, and its edges by family, with an "isolate 2 hops" button that re-lays out just that neighborhood. The explorer sidebar goes further: the Files tab is a directory tree of the graph (click a directory or file to spotlight it, dimming everything else in place), and the Symbols tab finds a declaration by name (picking a result flies the camera to it) and spotlights node kinds and edge families the same way. Nothing you pick removes anything from the view; only the explicit isolate does.
+Click a node to focus it: its neighborhood lights up, the rest dims, and an info panel shows the declaration, its file, and its edges by family, with an "isolate 2 hops" button that re-lays out just that neighborhood.
+
+The explorer sidebar goes further. The Files tab is a directory tree of the graph, and the Symbols tab finds a declaration by name and flies the camera to it. Both spotlight in place rather than removing anything, and only the explicit isolate changes what is drawn.
 
 <TtscWebsiteGraphViewer3D />
 
-## Use it on your own project
-
-Run the viewer on your code, or export the raw graph.
-
-### Run the viewer
-
-Run the viewer locally:
+## Run the viewer
 
 ```bash
 npx @ttsc/graph view
@@ -24,13 +20,9 @@ npx @ttsc/graph view
 
 `view` builds your project's graph, reduces it, and opens this viewer in your browser from a local port. Nothing leaves your machine.
 
-It resolves the project from the working directory and `tsconfig.json` by default; `--cwd`, `--tsconfig`, `--port`, `--max-nodes`, and `--no-open` override that. `--port` accepts an integer from 0 through 65,535, and `--max-nodes` accepts a positive integer. A missing, malformed, or unknown option stops before the graph is built. Like the MCP server, it needs `ttsc` installed so the native `ttscgraph` binary is present. Before starting the server, `view` rejects a dump whose schema or structure does not match the installed `@ttsc/graph`; a schema mismatch reports both versions and explains how to select a matching binary.
+It resolves the project from the working directory and `tsconfig.json`, and `--cwd`, `--tsconfig`, `--port`, `--max-nodes`, and `--no-open` override that. Like the MCP server, it needs `ttsc` installed so the native `ttscgraph` binary is present.
 
-If the requested port cannot be bound, the command reports the endpoint and operating-system error, then exits non-zero.
-
-### Export the graph as JSON
-
-For the data as a file instead:
+## Export the graph as JSON
 
 ```bash
 npx @ttsc/graph dump --tsconfig tsconfig.json > graph.json
@@ -38,13 +30,9 @@ npx @ttsc/graph dump --tsconfig tsconfig.json > graph.json
 
 `dump` prints the whole graph as JSON: every node and edge the build resolved, with none of the per-response caps the MCP tool applies. It is the same export the MCP server loads at startup, so what you dump is exactly what the agent queries.
 
-That file is what "Load your own JSON" above accepts. The viewer reduces it client-side before rendering (the exact reduction is in [What is left out](#what-is-left-out)) so a large project stays legible. Current dumps preserve their portable project and sibling-relative structure; legacy payloads passed directly to the reducer that contain absolute paths are rerooted at their shared source directory. The viewer also takes an already-reduced payload, so a graph you trimmed yourself loads as-is.
+That file is what "Load your own JSON" above accepts. The viewer reduces it client-side before rendering, by the rules in [What is left out](#what-is-left-out), and takes an already-reduced payload as-is.
 
-## Reading the graph
-
-What the colors and sizes mean, and what the viewer leaves out.
-
-### What the colors mean
+## What the colors mean
 
 Nodes are colored by declaration kind and sized by how many other declarations connect to them, so the load-bearing symbols stand out.
 
@@ -58,7 +46,7 @@ Edges are colored by family. The graph itself distinguishes finer relationship k
 
 Every kind a dump carries folds onto one of those five, so no edge is drawn without a name beside it.
 
-### What is left out
+## What is left out
 
 The viewer is a projection, not the whole graph. Reduction happens before rendering (in the browser for an uploaded dump, in Node for `view`), in this order:
 
