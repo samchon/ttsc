@@ -6,19 +6,18 @@
 
 Every specification becomes a compile-time obligation.
 
-A coding agent can claim it followed every requirement while silently skipping some. Finding those omissions means rereading the specification, implementation, and tests until another review round finds nothing new.
+Citing the evidence and describing the reason why are mandatory, so you get:
 
-Evidence Graph replaces that loop with compile-time obligations. You declare which artifacts owe which specification units. The agent cites each unit from the code, test, schema, or document that satisfies it and states why. An unanswered unit is a compile error.
-
-Evidence Graph can also require the agent to state how each function follows project-wide principles. "No hard coding" and "Fix root causes" then become explicit obligations on every selected function.
+- **100% coverage** of every requirement.
+- **100% compliance** with every principle.
 
 ```tsx
 /**
  * @evidence docs/discount.md#coupon-stacking States the per-issuer stacking limit this section defines, in the buyer's words.
  * @evidence POST:/orders/{orderId}/coupons Explains the rejection this endpoint returns for an over-stacked coupon set.
  * @evidence {@link hooks.useCouponStacking} Renders the limit this hook resolves.
- * @evidence docs/principles.md#no-hard-coding Renders limits from props instead of branching on known issuer names.
- * @evidenceExclude docs/principles.md#fix-root-causes-not-symptoms No failure to fix.
+ * @evidence .agents/skills/principles/SKILL.md#no-hard-coding Renders limits from props instead of branching on known issuer names.
+ * @evidenceExclude .agents/skills/principles/SKILL.md#fix-root-causes-not-symptoms No failure to fix.
  */
 export function CouponStackingNotice(props: IProps): JSX.Element;
 ```
@@ -42,7 +41,7 @@ error TS16411: [evidence/graph] Missing acknowledgement for 'docs/discount.md#co
 
 ...
 
-Found 3 errors.
+Found 5 errors.
 ```
 
 Missing obligations appear in the same build as type errors. The error list is the agent's task list.
@@ -108,7 +107,7 @@ export default {
 
 One claim: the components under `src` implement the docs, so every H2 and H3 under `docs` must be cited by a component. Run `npx ttsc` and the error count is the backlog.
 
-[The rule reference](https://ttsc.dev/docs/evidence/rules) has four more rules beside `evidence/graph`, and [the claim reference](https://ttsc.dev/docs/evidence/claims) has every claim option.
+[The configuration reference](https://ttsc.dev/docs/evidence/claims) has every claim option and the four rules beside `evidence/graph`.
 
 ### Tags
 
@@ -148,7 +147,7 @@ Backend, frontend, and even novels below are this same shape, drawn in detail.
 
 ### Start with principles
 
-Spec-Driven Development does not require a complete document hierarchy. `docs/principles.md` can be only headings:
+100% compliance with every principle.
 
 ```md
 ## No hard coding
@@ -167,7 +166,7 @@ Make them a checklist:
   symbol: "function",
   reference: {
     type: "markdown",
-    files: ["docs/principles.md"],
+    files: [".agents/skills/principles/SKILL.md"],
     symbol: "h2",
     checklist: true,
     requireReview: true,
@@ -207,7 +206,7 @@ Screens and journeys also cite the documents, so every screen traces back to a r
 
 ### Novels
 
-<picture><source media="(prefers-color-scheme: dark)" srcset="https://ttsc.dev/evidence/novel-dark.svg"><img alt="Principles and Settings grounding Storylines, Scenarios and Manuscripts" src="https://ttsc.dev/evidence/novel-light.svg" width="100%"></picture>
+<picture><source media="(prefers-color-scheme: dark)" srcset="https://ttsc.dev/evidence/novel-dark.svg"><img alt="Principles and Settings grounding Treatments, Scripts and Prose" src="https://ttsc.dev/evidence/novel-light.svg" width="100%"></picture>
 
 > Real config: [`napoleon-imperator/lint.config.ts`](https://github.com/samchon/novels/blob/master/packages/napoleon-imperator/lint.config.ts)
 
@@ -215,8 +214,8 @@ The graph reads no meaning, only obligations and citations, so it works on any t
 
 - Every layer cites the principles for its literary purpose.
 - Every layer cites the settings for facts, rules, and knowledge.
-- Scenarios and manuscripts cite storylines for cause and consequence.
-- A manuscript cites the scenario it executes, exactly.
+- Scripts and prose cite treatments for cause and consequence.
+- Prose cites the script it executes, exactly.
 
 Editing a setting expires every review on it, so a revision leaves no stale scene behind. [`samchon/novels`](https://github.com/samchon/novels) runs this graph on 25 principles, 350 setting commitments, and 742 scenes.
 
