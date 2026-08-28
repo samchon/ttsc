@@ -2,17 +2,13 @@ import TtscWebsiteBenchmarkGraphCommon from "../../../components/benchmark/graph
 
 # Comparison
 
-This page compares `@ttsc/graph` with the other tools that give a coding agent a view of a codebase over MCP: [`codegraph`](https://github.com/colbymchenry/codegraph), [`codebase-memory-mcp`](https://github.com/DeusData/codebase-memory-mcp), and [`serena`](https://github.com/oraios/serena). It is for a developer choosing between them.
+Four tools give a coding agent a view of a codebase over MCP: `@ttsc/graph`, [`codegraph`](https://github.com/colbymchenry/codegraph), [`codebase-memory-mcp`](https://github.com/DeusData/codebase-memory-mcp), and [`serena`](https://github.com/oraios/serena).
 
-`@ttsc/graph` did not invent this category. `codegraph` put a code graph in front of an agent over MCP first, `codebase-memory-mcp` took the same idea across 158 languages, and `serena` reached it from the language-server side. `@ttsc/graph` is built on what they proved was worth wanting, aimed at one case they were not built for: the open-ended "how does this work?" question, answered without the token cost climbing. The differences below are design differences, not a scoreboard.
+`@ttsc/graph` did not invent the category. `codegraph` put a code graph in front of an agent first, `codebase-memory-mcp` took it across 158 languages, and `serena` reached it from the language-server side. This one is aimed at the case they were not built for: the open-ended "how does this work?" question, answered without the token cost climbing.
 
 Every claim about another tool below links to the source it comes from, and the full list is in [Sources](#sources). The facts are current as of mid-2026 and taken from each tool's own repository and docs. All four are moving targets, so check the linked sources before relying on a specific number.
 
-## The landscape
-
-The four tools side by side, then the measured cost.
-
-### At a glance
+## At a glance
 
 |  | `@ttsc/graph` | `codegraph` | `codebase-memory-mcp` | `serena` |
 | --- | --- | --- | --- | --- |
@@ -24,21 +20,15 @@ The four tools side by side, then the measured cost.
 | Instruction strategy | States a condition, first-class `escape`, does not force | Forces hard: call before Read, do not grep | No MCP-handshake instructions; install-time skills and hooks | Replacement system prompt; recommends disabling Claude Code's own read and edit tools |
 | Its own headline claim | About 10x fewer tokens on open-ended questions | 58% fewer tool calls, file reads to about zero | Up to 120x fewer tokens on structural queries | Symbol tools "more token-efficient than typical alternatives" |
 
-### Measured cost
+## Measured cost
 
 The chart below is the shared onboarding question across the benchmark repositories, on the primary model lane. `@ttsc/graph` holds a flat, low median token cost as the repository grows, while the comparators swing with repository size and sometimes land above the no-MCP baseline.
 
 <TtscWebsiteBenchmarkGraphCommon summary />
 
-This is the summary view. The [full benchmark](/docs/benchmark/graph) adds the per-repository prompts, every model, and structural coverage, and the [launch post](/blog/i-made-ts-compiler-graph-mcp) covers the method and where the numbers hold or break down.
+The [full benchmark](/docs/benchmark/graph) adds the per-repository prompts, every model, and structural coverage, and the [launch post](/blog/i-made-ts-compiler-graph-mcp) covers the method and where the numbers hold or break down.
 
-## How they differ
-
-The design differences that decide cost and trust, one at a time.
-
-### What a query returns
-
-This is the difference that decides the token bill on a broad question, so it comes first.
+## What a query returns
 
 ![What each tool hands back to the agent](/blog/images/response-shapes.svg)
 
@@ -52,17 +42,15 @@ This is the difference that decides the token bill on a broad question, so it co
 
 `serena` returns symbol overviews and then source bodies on demand through its symbol tools ([tools](https://oraios.github.io/serena/01-about/035_tools.html)), rather than a whole-graph index.
 
-### How relationships are resolved
+## How relationships are resolved
 
-`@ttsc/graph` reads the program `ttsc` has already type-checked, so module resolution is finished before the graph is drawn. Edges that a text tool can only guess at are exact: `tsconfig` path aliases, cross-package references in a pnpm monorepo, symlinks, and barrel re-exports all land on the real declaration. The cost of that exactness is scope, covered in the last section.
+`@ttsc/graph` reads the program `ttsc` has already type-checked, so module resolution is finished before the graph is drawn. Edges that a text tool can only guess at are exact: `tsconfig` path aliases, cross-package references in a pnpm monorepo, symlinks, and barrel re-exports all land on the real declaration.
 
 `codegraph` and `codebase-memory-mcp` build their graphs from a tree-sitter parse. That is what lets them span many languages from one codebase, and it resolves what the syntax makes plain. Edges that depend on module resolution or types are inferred from text, so they can be approximate where an alias, a re-export, or a cross-package hop hides the real target.
 
 `serena` is backed by a language server, so its symbols come out resolved by the same semantic engine an IDE uses, not guessed from text. The difference from `@ttsc/graph` is shape rather than accuracy: an LSP answers symbol-scoped questions (definition, references, implementations) on request, where `@ttsc/graph` hands back a whole resolved graph with an architecture and impact projection in one response.
 
-### Tool surface and instructions
-
-A capable graph is no use if the agent never calls it, and the four tools take very different paths to adoption.
+## Tool surface and instructions
 
 ![A hammer held in the hand next to a hammer bolted where the hand used to be](/blog/images/hammer-tool-vs-prosthesis.png)
 
@@ -80,23 +68,19 @@ Its reasoning is that Claude Code's built-in tool descriptions run about sixteen
 
 `@ttsc/graph` reaches adoption from the other direction: by the shape of the tool, a typed chain of thought inside a single call, rather than the loudness of the prompt. That mechanism is the subject of the [launch post](/blog/i-made-ts-compiler-graph-mcp).
 
-### Setup and freshness
+## Setup and freshness
 
 `@ttsc/graph` has no separate index step or `init` command. Its native compiler session checks the current project snapshot before each graph operation. Unchanged calls reuse the warm in-memory indexes, source edits reuse tsgo's incremental Program when safe, and config, root-file-set, deletion, or module-resolution changes reload before the tool answers. A refresh failure returns an error rather than the previous graph.
 
 The others build an index first. `codegraph` needs `codegraph init` to construct the graph into a local `.codegraph/` directory, `codebase-memory-mcp` needs `index_repository` (and auto-indexing turned on if you want it kept current), and `serena` activates the project and starts a language server, which carries a cold-start before the first answer.
 
-### Language scope
+## Language scope
 
 This is where `@ttsc/graph` gives up the most. It is TypeScript only, because a compiler-exact graph is bound to one compiler. `codegraph` covers 20-plus languages, `serena` 40-plus, and `codebase-memory-mcp` 158. If your work is not in TypeScript, `@ttsc/graph` has nothing to hand over, and one of the others is the right pick.
 
 Inside TypeScript, the trade runs the other way. `@ttsc/graph` spends its narrow scope on depth: a resolved graph and an architecture and impact projection, in one index. It trades breadth for depth on purpose, which is the opposite bet from the multi-language tools.
 
-For how these choices play out in measured token cost, see the [Benchmark](/docs/benchmark/graph). For why `@ttsc/graph` makes them, see the [launch post](/blog/i-made-ts-compiler-graph-mcp).
-
 ## Sources
-
-The claims above are drawn from each tool's own repository and documentation, current as of mid-2026.
 
 - `codegraph`: MCP instruction text and tool guidance in [`src/mcp/server-instructions.ts`](https://github.com/colbymchenry/codegraph/blob/main/src/mcp/server-instructions.ts); project [README](https://github.com/colbymchenry/codegraph) for `codegraph_explore`, the `CODEGRAPH_MCP_TOOLS` gate, tree-sitter extraction, and `codegraph init`.
 - `codebase-memory-mcp`: [repository](https://github.com/DeusData/codebase-memory-mcp) for the fourteen tools (including `query_graph` with its openCypher subset and `get_code_snippet` by qualified name), the install-time skills and hooks written per agent, auto-index defaulting off, and the 158-language tree-sitter coverage.
