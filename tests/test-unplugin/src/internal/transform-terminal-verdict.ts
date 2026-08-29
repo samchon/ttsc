@@ -206,9 +206,12 @@ export async function assertAFailedCompileWithoutAPassIsStillEvicted(): Promise<
  * through", and a bundler reaching one is a configuration, not a fault.
  *
  * Retaining that as a pass verdict would reject every later module of the pass
- * with an error naming a file none of them asked about, which is strictly worse
- * than the eviction it replaced. This is the boundary of what a pass verdict
- * may cover.
+ * with an error naming a file none of them asked about. Evicting the generation
+ * instead, which is what happened before any of this, makes every later module
+ * recompile the whole project to reach the same answer, which is the cost
+ * samchon/ttsc#1303 is about. Neither is right: the generation compiled fine
+ * and simply has nothing for this one file, so it is left exactly where it is.
+ * This is the boundary of what a pass verdict may cover.
  */
 export async function assertAnOutOfProgramModuleDoesNotFailThePass(): Promise<void> {
   const api = await TestUnpluginRuntime.loadUnpluginApi();
@@ -234,11 +237,17 @@ export async function assertAnOutOfProgramModuleDoesNotFailThePass(): Promise<vo
   api.beginTtscTransformBuild(cache);
   try {
     assert.ok(await deliver(modules[0]!));
+    const generation = cachedGeneration(cache);
 
     await assert.rejects(
       () => deliver(outside),
       /did not return output/,
       "a module the program does not contain must report itself",
+    );
+    assert.equal(
+      cachedGeneration(cache),
+      generation,
+      "a generation that compiled fine must survive a module it has no output for",
     );
 
     for (const file of modules.slice(1)) {

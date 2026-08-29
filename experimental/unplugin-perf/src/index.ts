@@ -201,10 +201,10 @@ function recordFailure(failures: string[], failure: string | undefined): void {
 
 interface Adapter {
   beginTtscTransformBuild(cache: Map<string, Promise<unknown>>): void;
-  resetTtscTransformCache(cache: Map<string, Promise<unknown>>): void;
   createTtscTransformCache(
     operations?: Record<string, unknown>,
   ): Map<string, Promise<unknown>>;
+  resetTtscTransformCache(cache: Map<string, Promise<unknown>>): void;
   resolveOptions(options?: unknown): unknown;
   transformTtsc(
     id: string,
@@ -502,7 +502,7 @@ async function measureGraphBuild(
   await runBuild(harness, project, runLog);
   // See the note in `measure`: the warm-up's generation now survives a pass, so
   // it is discarded before the measured build.
-  adapter.resetTtscTransformCache(harness.cache);
+  harness.adapter.resetTtscTransformCache(harness.cache);
 
   const modules = projectModules(project);
   const context = {
