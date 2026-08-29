@@ -94,17 +94,36 @@ const unpluginFactory: UnpluginFactory<
       configureServer(server) {
         missingInputs.attach(server);
       },
-      // Vite calls buildEnd when the dev server (or build) closes; drop every
-      // poller and, once the last overlapping container has closed, every
-      // generation-owned filesystem tracker as well.
+      // Vite calls buildEnd when the dev server closes; drop every poller and,
+      // once the last overlapping container has closed, every generation-owned
+      // filesystem tracker as well.
+      //
+      // Only under `serve`. Rollup calls buildEnd at the end of every build
+      // phase, and its watcher repeats build phases, so under `build` this hook
+      // means "this pass ended" rather than "the session ended" — measured as
+      // `buildStart -> buildEnd -> ... -> buildStart -> buildEnd` across
+      // `vite build --watch` rebuilds. Disposing there discarded the generation
+      // once per rebuild independently of the `buildStart` clear, so a fix to
+      // one alone left this host recompiling the whole project per edit
+      // (samchon/ttsc#1301).
       buildEnd() {
         missingInputs.dispose();
         if (viteBuildOwners.delete(this)) {
           viteBuildLifecycles -= 1;
         }
-        if (viteBuildLifecycles === 0) {
+        if (viteBuildLifecycles === 0 && viteCommand === "serve") {
           resetTtscTransformCache(transformCache);
         }
+      },
+      // The watch session's real teardown, and the only hook in a
+      // `vite build --watch` trace that fires exactly once: buildEnd,
+      // writeBundle and closeBundle all repeat per rebuild. A generation
+      // retained across passes owns directory watchers, so this is where they
+      // are released. A dev server drives no Rollup watcher, so serve never
+      // reaches here and keeps disposing in buildEnd above; a host that fired
+      // both would simply reset twice, which is idempotent.
+      closeWatcher() {
+        resetTtscTransformCache(transformCache);
       },
     },
 

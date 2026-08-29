@@ -259,3 +259,116 @@ export async function assertViteBuildEndDisposesTheLastOverlappingCacheOwner(): 
     await invokeVitePluginHook(plugin.buildEnd, cleanupLifecycle);
   }
 }
+
+/**
+ * One driven `vite build --watch` session over a fixture project.
+ *
+ * Rollup's watcher repeats a whole build phase per rebuild, so the real hook
+ * order across two rebuilds is `buildStart -> buildEnd -> writeBundle ->
+ * closeBundle -> buildStart -> ... -> closeWatcher`, with only `closeWatcher`
+ * firing once. Driving the hooks directly reproduces that order exactly while
+ * keeping the scenario free of a live watcher that can outlive the runner.
+ */
+async function startViteBuildWatchSession(): Promise<{
+  close: () => Promise<void>;
+  deliver: (file: string) => Promise<unknown>;
+  endPass: () => Promise<void>;
+  modules: string[];
+  projectCompiles: () => number;
+  startPass: () => Promise<void>;
+  unrelatedInput: string;
+}> {
+  const plugin = await loadViteAdapterPlugin();
+  const project = createCacheProject({ fileCount: 4 });
+  let lifecycle = {};
+  invokeVitePluginHook(
+    plugin.configResolved,
+    {},
+    { command: "build", resolve: { alias: [] }, server: {} },
+  );
+  return {
+    close: async () => {
+      await invokeVitePluginHook(plugin.closeWatcher, {});
+    },
+    deliver: async (file: string) =>
+      invokeVitePluginHook(
+        plugin.transform,
+        { addWatchFile: () => undefined },
+        fs.readFileSync(file, "utf8"),
+        file,
+      ),
+    endPass: async () => {
+      await invokeVitePluginHook(plugin.buildEnd, lifecycle);
+    },
+    modules: projectModules(project.root),
+    projectCompiles: () =>
+      fs.existsSync(project.runLog)
+        ? fs.readFileSync(project.runLog, "utf8").length
+        : 0,
+    startPass: async () => {
+      lifecycle = {};
+      await invokeVitePluginHook(plugin.buildStart, lifecycle);
+    },
+    unrelatedInput: path.join(project.root, "plugin.cjs"),
+  };
+}
+
+/**
+ * Asserts samchon/ttsc#1301: `vite build --watch` reuses the generation across
+ * rebuilds.
+ *
+ * `buildEnd` disposes the generation only where it means the session ended,
+ * which is `serve`. Under `build` Rollup calls it at the end of every build
+ * phase, so disposing there discarded the generation once per rebuild
+ * independently of the `buildStart` clear — which is why fixing one of the two
+ * sites alone left this host recompiling the whole project per edit.
+ */
+export async function assertViteBuildWatchReusesTheGenerationAcrossRebuilds(): Promise<void> {
+  const session = await startViteBuildWatchSession();
+  try {
+    for (let rebuild = 0; rebuild < 3; rebuild += 1) {
+      await session.startPass();
+      for (const file of session.modules) {
+        assert.ok(await session.deliver(file));
+      }
+      await session.endPass();
+    }
+    assert.equal(
+      session.projectCompiles(),
+      1,
+      "every rebuild that changed no compiler input must reuse the one generation",
+    );
+  } finally {
+    await session.close();
+  }
+}
+
+/**
+ * Asserts the retained generation is still disposed at the watch session's real
+ * teardown.
+ *
+ * Retaining it across passes means nothing releases its directory watchers at a
+ * pass boundary any more, so the boundary that does mean teardown has to. Of
+ * the hooks a `vite build --watch` trace produces, `closeWatcher` is the only
+ * one that fires exactly once.
+ */
+export async function assertViteBuildWatchDisposesOnCloseWatcher(): Promise<void> {
+  const session = await startViteBuildWatchSession();
+  try {
+    await session.startPass();
+    assert.ok(await session.deliver(session.modules[0]!));
+    assert.equal(session.projectCompiles(), 1);
+    await session.endPass();
+
+    await session.close();
+    await session.startPass();
+    assert.ok(await session.deliver(session.modules[0]!));
+    assert.equal(
+      session.projectCompiles(),
+      2,
+      "closeWatcher must dispose the generation, so the next session compiles again",
+    );
+  } finally {
+    await session.close();
+  }
+}
