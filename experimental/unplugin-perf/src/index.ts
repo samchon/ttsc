@@ -165,6 +165,23 @@ async function main(): Promise<void> {
     }),
   );
 
+  console.log(
+    "\nScenario G - repeated build passes over an unchanged project:",
+  );
+  console.log(
+    "  invariant: plugin runs == 1 across every pass, not one per pass;",
+  );
+  console.log(
+    "  a pass boundary is a statement about deliveries, not about whether the",
+  );
+  console.log("  compiled program is still correct\n");
+  for (const count of [25, 50]) {
+    recordFailure(
+      failures,
+      await measureRepeatedPasses(adapter, { count, emitExternalKey: false }),
+    );
+  }
+
   if (failures.length !== 0) {
     console.error(
       `\nFAIL: a scenario violated its invariant:\n  ${failures.join("\n  ")}`,
@@ -173,8 +190,8 @@ async function main(): Promise<void> {
     return;
   }
   console.log(
-    "\nOK: every build ran exactly one whole-project transform and watch-input" +
-      " derivation stayed bounded per module.",
+    "\nOK: every build ran exactly one whole-project transform, repeated passes" +
+      " reused it, and watch-input derivation stayed bounded per module.",
   );
 }
 
@@ -399,6 +416,55 @@ async function measure(
   return pluginRuns === 1
     ? undefined
     : `scenario ${scenario} N=${options.count}: pluginRuns=${pluginRuns} (expected 1)`;
+}
+
+/**
+ * Gate the dimension every other scenario is blind to: cost *across* passes.
+ *
+ * Scenarios A-C drive exactly one build lifecycle and D-F drive none, so a
+ * boundary that discarded the generation on every rebuild was invisible to all
+ * of them while every within-pass invariant stayed green. That is how a
+ * whole-project transform per edit shipped through a harness whose stated
+ * invariant is `plugin runs == 1` (samchon/ttsc#1302).
+ *
+ * Nothing changes between the passes here, so the whole run must cost one
+ * compile. A per-pass clear makes it cost one per pass, which is the shape
+ * samchon/ttsc#1300 reported from a webpack watch session.
+ */
+async function measureRepeatedPasses(
+  adapter: Adapter,
+  options: MeasureOptions,
+): Promise<string | undefined> {
+  const passes = 3;
+  const project = createProject(options);
+  const harness = createTransformHarness(adapter, project);
+  const runLog = pluginRunLog(project);
+
+  // Warm-up pass: pays the one-time Go plugin compile and native program load.
+  await runBuild(harness, project, runLog);
+
+  resetCounters(harness);
+  fs.writeFileSync(runLog, "");
+  const timings: number[] = [];
+  for (let pass = 0; pass < passes; pass += 1) {
+    const started = process.hrtime.bigint();
+    await runBuild(harness, project, runLog);
+    timings.push(Number(process.hrtime.bigint() - started) / 1e6);
+  }
+
+  const pluginRuns = fs.existsSync(runLog)
+    ? fs.readFileSync(runLog, "utf8").length
+    : 0;
+  console.log(
+    `  N=${String(options.count).padStart(3)}  ` +
+      `passes=${passes}  ` +
+      `pluginRuns=${String(pluginRuns).padStart(3)}  ` +
+      `reads=${String(harness.counters.reads).padStart(7)}  ` +
+      `perPassMs=${timings.map((value) => value.toFixed(0)).join("/")}`,
+  );
+  return pluginRuns === 1
+    ? undefined
+    : `scenario G N=${options.count}: pluginRuns=${pluginRuns} across ${passes} unchanged passes (expected 1)`;
 }
 
 /**
