@@ -67,8 +67,8 @@ async function deliverPass(session: IDeliveryPassSession): Promise<void> {
 }
 
 /**
- * Asserts samchon/ttsc#1300: repeated passes over an unchanged project reuse the
- * one generation instead of recompiling per pass.
+ * Asserts samchon/ttsc#1300: repeated passes over an unchanged project reuse
+ * the one generation instead of recompiling per pass.
  *
  * This is the whole defect in one measurement. A pass boundary states that each
  * module is requested at most once inside it; it says nothing about whether the
@@ -196,10 +196,10 @@ export async function assertAPassRecompilesAfterAMembershipChange(): Promise<voi
  * consumed changes.
  *
  * A project root is a working directory: logs, coverage reports and generated
- * artifacts are written there constantly. Only a file the generation declares as
- * an input can change an output, so re-proving against the whole walk instead of
- * the declared set would hand back the per-pass recompile this change removes,
- * for a file nothing compiled.
+ * artifacts are written there constantly. Only a file the generation declares
+ * as an input can change an output, so re-proving against the whole walk
+ * instead of the declared set would hand back the per-pass recompile this
+ * change removes, for a file nothing compiled.
  */
 export async function assertAPassIgnoresAnUndeclaredProjectFileEdit(): Promise<void> {
   const session = await startDeliveryPassSession();
@@ -236,9 +236,8 @@ export async function assertAPassIgnoresAnUndeclaredProjectFileEdit(): Promise<v
  * bundle into the project does on its first build, which is precisely the build
  * before the first rebuild this whole change exists to make cheap.
  *
- * Its negative twin is
- * {@link assertAPassRecompilesAfterAMembershipChange}: a file the walk does
- * consider must still replace the generation.
+ * Its negative twin is {@link assertAPassRecompilesAfterAMembershipChange}: a
+ * file the walk does consider must still replace the generation.
  */
 export async function assertAPassIgnoresAnAppearingOutputDirectory(): Promise<void> {
   const session = await startDeliveryPassSession();
@@ -266,10 +265,10 @@ export async function assertAPassIgnoresAnAppearingOutputDirectory(): Promise<vo
  * Asserts a module delivered twice inside one pass still revalidates on its
  * second delivery.
  *
- * The constant-time shortcut is a statement about a module's *first* delivery in
- * a pass. A bundler asking again is the one signal the pass itself provides that
- * something may have moved, so the retained generation must not silently answer
- * it from the pass gate.
+ * The constant-time shortcut is a statement about a module's _first_ delivery
+ * in a pass. A bundler asking again is the one signal the pass itself provides
+ * that something may have moved, so the retained generation must not silently
+ * answer it from the pass gate.
  */
 export async function assertARepeatedDeliveryInsideAPassRevalidates(): Promise<void> {
   const session = await startDeliveryPassSession();

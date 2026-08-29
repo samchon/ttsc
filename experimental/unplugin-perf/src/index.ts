@@ -419,7 +419,7 @@ async function measure(
 }
 
 /**
- * Gate the dimension every other scenario is blind to: cost *across* passes.
+ * Gate the dimension every other scenario is blind to: cost _across_ passes.
  *
  * Scenarios A-C drive exactly one build lifecycle and D-F drive none, so a
  * boundary that discarded the generation on every rebuild was invisible to all

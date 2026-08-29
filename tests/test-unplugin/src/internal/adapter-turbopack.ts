@@ -158,13 +158,13 @@ async function assertTurbopackLoaderPassesThroughFilteredPaths(): Promise<void> 
  * glob wider than `*.ts`/`*.tsx` — the natural thing to write for a project
  * with mixed sources, and the reason a loader needs a filter at all — routed
  * JavaScript and virtual ids into the whole-project transform every other
- * adapter excludes. A project without `allowJs` has no program entry for such
- * a file, so the delivery failed with `did not return output`, and under the
+ * adapter excludes. A project without `allowJs` has no program entry for such a
+ * file, so the delivery failed with `did not return output`, and under the
  * per-delivery eviction each one cost a whole-project compile first.
  *
- * These are the rows the shipped filter and the loader's copy disagreed on;
- * the declaration and `node_modules` rows they already agreed on stay pinned
- * by {@link assertTurbopackLoaderPassesThroughFilteredPaths}.
+ * These are the rows the shipped filter and the loader's copy disagreed on; the
+ * declaration and `node_modules` rows they already agreed on stay pinned by
+ * {@link assertTurbopackLoaderPassesThroughFilteredPaths}.
  */
 async function assertTurbopackLoaderPassesThroughNonSourceIds(): Promise<void> {
   const root = TestUnpluginProject.createProject();

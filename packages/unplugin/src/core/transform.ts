@@ -54,7 +54,7 @@ interface TtscProjectDirectorySnapshot {
    * ignore list does not drop, with its kind.
    *
    * Deliberately not the directory's own metadata. A directory's stamp moves
-   * whenever *any* entry is added or removed, including the ones the walk
+   * whenever _any_ entry is added or removed, including the ones the walk
    * exists to ignore, so a bundler emitting into `dist/` — or merely creating
    * that directory for the first time — moved the project root's stamp and
    * voided a generation that no compiler input had touched. The ignore list
@@ -157,7 +157,7 @@ class TtscTerminalGenerationError extends Error {
 /**
  * A bounded proof failure that stays authoritative until its inputs change.
  *
- * This is the adapter failing to *obtain* a coherent snapshot — a race it lost
+ * This is the adapter failing to _obtain_ a coherent snapshot — a race it lost
  * — so a later attempt may well succeed with the same inputs. It is retried
  * when its recorded environment moves, and a new delivery epoch grants it the
  * one fresh attempt the per-pass cache clear used to give it
@@ -364,7 +364,8 @@ export interface TtscCachedProjectTransform {
    * generation rather than to a delivery; a pass that reuses a retained
    * generation still surfaces them once, because a build's warnings are part of
    * what that build reports (samchon/ttsc#1304). The two fields are separate so
-   * a persistent host, whose epoch is `undefined`, still reports the first time.
+   * a persistent host, whose epoch is `undefined`, still reports the first
+   * time.
    */
   diagnosticsReported?: boolean;
   diagnosticsEpoch?: number;
@@ -469,14 +470,14 @@ const TRANSFORM_RESULT_FILESYSTEM = new WeakMap<
  * The current delivery epoch of each cache whose owner has declared a real
  * per-pass lifecycle by calling {@link beginTtscTransformBuild}.
  *
- * A *delivery epoch* is one bundler pass: the window inside which each module
+ * A _delivery epoch_ is one bundler pass: the window inside which each module
  * is requested at most once, so its first delivery may be settled against the
  * state the pass started from. It is deliberately not the same fact as whether
- * the generation is still valid, which the recorded snapshot answers. Conflating
- * the two is what made every host with a repeating `buildStart` — webpack and
- * Rspack watch, Rollup and Rolldown watch, `vite build --watch`, esbuild rebuild
- * — discard a perfectly good whole-project compile on every edit
- * (samchon/ttsc#1300).
+ * the generation is still valid, which the recorded snapshot answers.
+ * Conflating the two is what made every host with a repeating `buildStart` —
+ * webpack and Rspack watch, Rollup and Rolldown watch, `vite build --watch`,
+ * esbuild rebuild — discard a perfectly good whole-project compile on every
+ * edit (samchon/ttsc#1300).
  *
  * Absent from the map means persistent validation: a host with no pass boundary
  * at all (a watching Vite dev server, Metro, the Turbopack loader), where every
@@ -556,7 +557,7 @@ function resultFilesystem(
  * module this pass asks for.
  *
  * This deliberately retains the cached generation. The pass boundary is a
- * statement about *deliveries* — each module is requested at most once inside
+ * statement about _deliveries_ — each module is requested at most once inside
  * it — not about whether the compiled program is still correct, which the
  * generation's own recorded snapshot answers and which
  * {@link matchesCachedSource} proves once at the pass's first delivery. Clearing
@@ -565,12 +566,15 @@ function resultFilesystem(
  * (samchon/ttsc#1300). Use {@link resetTtscTransformCache} to actually discard a
  * generation and its watchers.
  *
- * Hosts without a guaranteed pass boundary use persistent validation unless they
- * have another immutable lifecycle. Bun runtime setup, for example, defines one
- * process-scoped module-loading session.
+ * Hosts without a guaranteed pass boundary use persistent validation unless
+ * they have another immutable lifecycle. Bun runtime setup, for example,
+ * defines one process-scoped module-loading session.
  */
 export function beginTtscTransformBuild(cache: TtscTransformCache): void {
-  TRANSFORM_CACHE_EPOCHS.set(cache, (TRANSFORM_CACHE_EPOCHS.get(cache) ?? 0) + 1);
+  TRANSFORM_CACHE_EPOCHS.set(
+    cache,
+    (TRANSFORM_CACHE_EPOCHS.get(cache) ?? 0) + 1,
+  );
 }
 
 /**
@@ -750,7 +754,8 @@ export async function transformTtsc(
       ) {
         reportSuccessDiagnostics(cached, epoch);
         // A resolved `"exception"` / `"failure"` envelope makes this throw;
-        // that is a failed generation too, so evict before surfacing it.
+        // that is a failed generation too, so it is retained for this pass or
+        // evicted outside one before being surfaced.
         const code = selectOrEvict(cache, key, transformed, epoch, {
           file,
           projectRoot: cached.projectRoot,
@@ -846,8 +851,8 @@ async function awaitOrEvict(
  *
  * A generation that cannot produce output for the module asking is a failed
  * one: a host `"exception"` and a compiler `"failure"` both make
- * {@link selectTransformedSource} throw. Evicting it made every remaining
- * module of the same pass repeat the whole-project transform only to reach the
+ * {@link selectTransformedSource} throw. Evicting it made every remaining module
+ * of the same pass repeat the whole-project transform only to reach the
  * identical answer, which is what turned one broken save into a build measured
  * in hours (samchon/ttsc#1303). Inside a pass the verdict is retained and
  * replayed instead; outside one it keeps being evicted, so a long-lived worker
@@ -3362,7 +3367,7 @@ function walkProjectInputs(
 
 /**
  * Return a directory's metadata stamp, used to detect that its membership moved
- * *while* the walk was enumerating it, and to feed the observed-clock floor.
+ * _while_ the walk was enumerating it, and to feed the observed-clock floor.
  *
  * This is the right instrument for that job and the wrong one for comparing two
  * generations: it moves for ignored entries too. {@link walkProjectInputs}
@@ -4953,7 +4958,10 @@ async function transformProject(props: {
   compilerOptions: Record<string, unknown>;
   currentFile: string;
   currentSource: string;
-  /** Delivery pass this compile was started for; see {@link TtscCachedProjectTransform.deliveryEpoch}. */
+  /**
+   * Delivery pass this compile was started for; see
+   * {@link TtscCachedProjectTransform.deliveryEpoch}.
+   */
   deliveryEpoch?: number;
   filesystem: TtscTransformFilesystemOperations;
   plugins?: ResolvedTtscUnpluginOptions["plugins"];
@@ -5786,7 +5794,10 @@ function reportSuccessDiagnostics(
   if (result.type !== "success" || result.diagnostics === undefined) {
     return;
   }
-  if (cached.diagnosticsReported === true && cached.diagnosticsEpoch === epoch) {
+  if (
+    cached.diagnosticsReported === true &&
+    cached.diagnosticsEpoch === epoch
+  ) {
     return;
   }
   cached.diagnosticsReported = true;

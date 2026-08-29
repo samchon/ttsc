@@ -1,6 +1,6 @@
+import { isTransformTarget } from "./core/index";
 import type { TtscUnpluginOptions } from "./core/options";
 import { resolveOptions } from "./core/options";
-import { isTransformTarget } from "./core/index";
 import type { TtscTransformHooks } from "./core/transform";
 import {
   createTtscTransformCache,
@@ -69,12 +69,11 @@ const transformCache = createTtscTransformCache();
  * ```
  *
  * Pass {@link TtscUnpluginOptions} through the rule's `options` object. The
- * loader returns the source unchanged for anything
- * {@link isTransformTarget} excludes — declaration files, `node_modules` paths,
- * non-TypeScript sources, and virtual ids — and for transforms that produce no
- * change. It applies that shared predicate itself rather than a local copy,
- * because a broad rule glob routes everything matching the extension through
- * the loader.
+ * loader returns the source unchanged for anything {@link isTransformTarget}
+ * excludes — declaration files, `node_modules` paths, non-TypeScript sources,
+ * and virtual ids — and for transforms that produce no change. It applies that
+ * shared predicate itself rather than a local copy, because a broad rule glob
+ * routes everything matching the extension through the loader.
  */
 export default function turbopack(
   this: TtscTurbopackLoaderContext,

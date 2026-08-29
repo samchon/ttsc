@@ -343,9 +343,12 @@ async function assertBunAdapterYieldsToConfiguredInMemoryFiles(): Promise<void> 
  *
  * The first compile emits a second module but only serves `main.ts`. After
  * corrupting `main.ts`, the unchanged second module would still be a valid
- * first-use cache hit unless the next build's `onStart` clears the generation.
+ * first-use cache hit unless `onStart` opened a new delivery pass: the pass's
+ * first delivery re-proves the whole generation, sees the changed input, and
+ * compiles again. Ignoring the hook would leave the second module settled
+ * against a generation that no longer describes the project.
  */
-async function assertBunAdapterClearsCacheOnBuildStart(): Promise<void> {
+async function assertBunAdapterRevalidatesOnBuildStart(): Promise<void> {
   const unpluginBun = await TestUnpluginRuntime.loadUnpluginAdapter("bun");
   const root = TestUnpluginProject.createProject({
     plugins: [
@@ -433,7 +436,7 @@ async function assertBunRuntimeDoesNotRehashProjectPerModule(): Promise<void> {
 }
 
 export {
-  assertBunAdapterClearsCacheOnBuildStart,
+  assertBunAdapterRevalidatesOnBuildStart,
   assertBunAdapterExcludesNulVirtualIds,
   assertBunAdapterFallsThroughWhenItDoesNotTransform,
   assertBunAdapterSurvivesPluginReportedDependencies,

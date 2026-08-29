@@ -12,8 +12,8 @@ import { assertANewPassRetriesAFailedCompile } from "../../internal/transform-te
  *
  * 1. Plant a type error, open a pass, and deliver a module.
  * 2. Open a second pass and deliver the same module again.
- * 3. Assert a new generation was attempted, and that the rest of that pass
- *    replays its verdict.
+ * 3. Assert a new generation was attempted, and that the rest of that pass replays
+ *    its verdict.
  */
 export const test_real_native_envelope_new_pass_retries_a_failed_compile =
   async () => {

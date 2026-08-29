@@ -7,7 +7,8 @@ import { assertAPassIgnoresAnUndeclaredProjectFileEdit } from "../../internal/tr
  * artifacts are written there while a build runs. Only a file the generation
  * declares as an input can change an output, so proving the pass against the
  * whole walk instead of the declared set would hand back the per-pass recompile
- * for a file no compile ever read. This is the boundary case of the reuse rule.
+ * for a file no compile ever read. This is the boundary case of the reuse
+ * rule.
  *
  * 1. Plant a non-source file under `src` before the first pass.
  * 2. Deliver every module, rewrite that file in place, open a second pass.

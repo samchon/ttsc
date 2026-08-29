@@ -37,13 +37,15 @@ const virtualModulePattern = /\0/;
  * Unplugin factory that wires the ttsc transform pipeline into any supported
  * bundler (Vite, Rollup, Rolldown, webpack, Rspack, esbuild, Farm).
  *
- * The factory resolves raw options once, creates a per-build transform cache,
- * and captures Vite alias configuration via the `vite.configResolved` hook so
- * that path aliases are forwarded to the generated tsconfig overlay. Real build
- * lifecycles use a per-build cache; a watching Vite development server keeps
- * persistent validation because its one `buildStart` spans later HMR edits,
- * while a dev server configured without a watcher takes the build-scoped path
- * with them, having declared it will observe no edit at all.
+ * The factory resolves raw options once, creates one transform cache for the
+ * whole plugin instance, and captures Vite alias configuration via the
+ * `vite.configResolved` hook so that path aliases are forwarded to the
+ * generated tsconfig overlay. A host with a real `buildStart` opens a delivery
+ * pass there and keeps its generation across passes; a watching Vite
+ * development server keeps persistent validation instead, because its one
+ * `buildStart` spans later HMR edits and so cannot mark a pass, while a dev
+ * server configured without a watcher takes the pass lifecycle with them,
+ * having declared it will observe no edit at all.
  */
 const unpluginFactory: UnpluginFactory<
   TtscUnpluginOptions | undefined,
@@ -139,14 +141,18 @@ const unpluginFactory: UnpluginFactory<
       // no client is hot-updated. Validating each delivery there does not buy
       // freshness, it buys incoherence — modules delivered before an edit and
       // after it would come from two different compilations of one program —
-      // while costing a full derived-input proof per delivered module. The
-      // build-scoped lifecycle settles each module's first delivery against the
-      // generation the session started from, exactly as a build does, and still
+      // while costing a full derived-input proof per delivered module. The pass
+      // lifecycle settles each module's first delivery against the generation
+      // the session started from, exactly as a build does, and still
       // revalidates a module this session already delivered. A one-shot suite
       // configures precisely this server (`vitest --run` sets `server.watch =
       // null`) and is the workload behind samchon/ttsc#970
       // (samchon/ttsc#1260). The neighbouring watch-registration decision reads
       // the same two properties for the same reason.
+      //
+      // Opening a pass no longer discards the generation, so the `else` branch
+      // is what every host with a repeating `buildStart` takes without paying a
+      // whole-project transform per rebuild (samchon/ttsc#1300).
       if (viteCommand === "serve" && viteWatching) {
         resetTtscTransformCache(transformCache);
       } else {
