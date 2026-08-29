@@ -165,6 +165,21 @@ async function main(): Promise<void> {
     }),
   );
 
+  console.log("\nScenario G: repeated build passes over an unchanged project");
+  console.log(
+    "  invariant: plugin runs == 1 across every pass, not one per pass;",
+  );
+  console.log(
+    "  a pass boundary is a statement about deliveries, not about whether the",
+  );
+  console.log("  compiled program is still correct\n");
+  for (const count of [25, 50]) {
+    recordFailure(
+      failures,
+      await measureRepeatedPasses(adapter, { count, emitExternalKey: false }),
+    );
+  }
+
   if (failures.length !== 0) {
     console.error(
       `\nFAIL: a scenario violated its invariant:\n  ${failures.join("\n  ")}`,
@@ -173,8 +188,8 @@ async function main(): Promise<void> {
     return;
   }
   console.log(
-    "\nOK: every build ran exactly one whole-project transform and watch-input" +
-      " derivation stayed bounded per module.",
+    "\nOK: every build ran exactly one whole-project transform, repeated passes" +
+      " reused it, and watch-input derivation stayed bounded per module.",
   );
 }
 
@@ -189,6 +204,7 @@ interface Adapter {
   createTtscTransformCache(
     operations?: Record<string, unknown>,
   ): Map<string, Promise<unknown>>;
+  resetTtscTransformCache(cache: Map<string, Promise<unknown>>): void;
   resolveOptions(options?: unknown): unknown;
   transformTtsc(
     id: string,
@@ -374,7 +390,11 @@ async function measure(
 
   // Warm-up build: pays the one-time Go plugin compile + native program load so
   // the timed run reflects steady-state per-module cost, not toolchain startup.
+  // Its generation is discarded, because a delivery pass keeps one now: without
+  // the reset the measured build would reuse the warm-up's compile and this
+  // scenario's `plugin runs == 1` would read 0 (samchon/ttsc#1300).
   await runBuild(harness, project, runLog);
+  harness.adapter.resetTtscTransformCache(harness.cache);
 
   resetCounters(harness);
   fs.writeFileSync(runLog, "");
@@ -399,6 +419,59 @@ async function measure(
   return pluginRuns === 1
     ? undefined
     : `scenario ${scenario} N=${options.count}: pluginRuns=${pluginRuns} (expected 1)`;
+}
+
+/**
+ * Gate the dimension every other scenario is blind to: cost _across_ passes.
+ *
+ * Scenarios A-C do open two passes, a warm-up and a measured one, and D-F open
+ * none. But their `plugin runs == 1` held only _because_ the second pass threw
+ * the first pass's generation away, so the harness was measuring the per-pass
+ * clear rather than gating against it, and a boundary that discarded a valid
+ * compile on every rebuild could never have failed one of them
+ * (samchon/ttsc#1302).
+ *
+ * Nothing changes between the passes here, so the whole run must cost one
+ * compile. A per-pass clear makes it cost one per pass, which is the shape
+ * samchon/ttsc#1300 reported from a webpack watch session.
+ */
+async function measureRepeatedPasses(
+  adapter: Adapter,
+  options: MeasureOptions,
+): Promise<string | undefined> {
+  const passes = 3;
+  const project = createProject(options);
+  const harness = createTransformHarness(adapter, project);
+  const runLog = pluginRunLog(project);
+
+  // Warm-up pass: pays the one-time Go plugin compile and native program load.
+  // Its generation is discarded so the measured passes start from an empty
+  // cache and the count below is theirs alone.
+  await runBuild(harness, project, runLog);
+  harness.adapter.resetTtscTransformCache(harness.cache);
+
+  resetCounters(harness);
+  fs.writeFileSync(runLog, "");
+  const timings: number[] = [];
+  for (let pass = 0; pass < passes; pass += 1) {
+    const started = process.hrtime.bigint();
+    await runBuild(harness, project, runLog);
+    timings.push(Number(process.hrtime.bigint() - started) / 1e6);
+  }
+
+  const pluginRuns = fs.existsSync(runLog)
+    ? fs.readFileSync(runLog, "utf8").length
+    : 0;
+  console.log(
+    `  N=${String(options.count).padStart(3)}  ` +
+      `passes=${passes}  ` +
+      `pluginRuns=${String(pluginRuns).padStart(3)}  ` +
+      `reads=${String(harness.counters.reads).padStart(7)}  ` +
+      `perPassMs=${timings.map((value) => value.toFixed(0)).join("/")}`,
+  );
+  return pluginRuns === 1
+    ? undefined
+    : `scenario G N=${options.count}: pluginRuns=${pluginRuns} across ${passes} unchanged passes (expected 1)`;
 }
 
 /**
@@ -427,6 +500,9 @@ async function measureGraphBuild(
   const runLog = pluginRunLog(project);
 
   await runBuild(harness, project, runLog);
+  // See the note in `measure`: the warm-up's generation now survives a pass, so
+  // it is discarded before the measured build.
+  harness.adapter.resetTtscTransformCache(harness.cache);
 
   const modules = projectModules(project);
   const context = {
@@ -437,9 +513,9 @@ async function measureGraphBuild(
   };
   fs.writeFileSync(runLog, "");
   process.env.PLUGIN_RUN_LOG = runLog;
-  adapter.beginTtscTransformBuild(harness.cache);
+  harness.adapter.beginTtscTransformBuild(harness.cache);
   const [first, ...rest] = modules;
-  await adapter.transformTtsc(
+  await harness.adapter.transformTtsc(
     first!,
     fs.readFileSync(first!, "utf8"),
     harness.options,
@@ -451,7 +527,7 @@ async function measureGraphBuild(
   resetCounters(harness);
   const started = process.hrtime.bigint();
   for (const id of rest) {
-    await adapter.transformTtsc(
+    await harness.adapter.transformTtsc(
       id,
       fs.readFileSync(id, "utf8"),
       harness.options,
