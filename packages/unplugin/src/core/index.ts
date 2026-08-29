@@ -20,9 +20,13 @@ import { createViteServeMissingInputWatch } from "./viteServe";
 
 const name = "ttsc-unplugin";
 /**
- * Matches any TypeScript or JavaScript source extension (.ts, .tsx, .mts, .cts,
- * etc.). Shared with the Bun adapter (`bun.ts`) so the filter is defined once
- * and both adapters stay in sync.
+ * Matches the TypeScript source extensions the ttsc transform handles: `.ts`,
+ * `.tsx`, `.mts`, `.cts` and their `x` forms. JavaScript is deliberately not
+ * among them, so a `.js` module reaches no adapter's transform.
+ *
+ * Shared with the Bun adapter (`bun.ts`) and the standalone Turbopack loader
+ * (`turbopack.ts`) through {@link isTransformTarget}, so the filter is defined
+ * once and every adapter answers the same way.
  */
 export const sourceFilePattern = /\.[cm]?tsx?$/;
 /** Matches any path segment that is a `node_modules` directory (cross-platform). */
@@ -57,6 +61,11 @@ const unpluginFactory: UnpluginFactory<
   let aliases: unknown;
   let viteCommand: string | undefined;
   let viteWatching = true;
+  // Whether a build-mode session is driven by Rollup's watcher. `build.watch`
+  // is `null` for an ordinary build and an object under `--watch`, which is the
+  // axis the disposal boundary actually turns on: only a watching build repeats
+  // its build phase, and only a watching build ends at `closeWatcher`.
+  let viteBuildWatching = false;
   // A restart can start the replacement plugin container before closing the
   // old one, and Vite calls buildEnd even for a container that never started.
   // Track the stable per-container PluginContext identity so that unstarted
@@ -86,6 +95,10 @@ const unpluginFactory: UnpluginFactory<
         // (samchon/ttsc#1246).
         viteWatching =
           (config as { server?: { watch?: unknown } }).server?.watch !== null;
+        // Read on the same principle as the line above, from the half of the
+        // config that governs a build rather than a server.
+        viteBuildWatching =
+          (config as { build?: { watch?: unknown } }).build?.watch != null;
       },
       // Vite serve funnels every transform-context `addWatchFile()` into the
       // module's added-import graph (`_addedImports`), which import-analysis
@@ -96,34 +109,61 @@ const unpluginFactory: UnpluginFactory<
       configureServer(server) {
         missingInputs.attach(server);
       },
-      // Vite calls buildEnd when the dev server closes; drop every poller and,
-      // once the last overlapping container has closed, every generation-owned
-      // filesystem tracker as well.
+      // Vite calls buildEnd when the dev server closes, and Rollup calls it at
+      // the end of every build phase; drop every poller and, once the last
+      // overlapping container has closed, every generation-owned filesystem
+      // tracker as well.
       //
-      // Only under `serve`. Rollup calls buildEnd at the end of every build
-      // phase, and its watcher repeats build phases, so under `build` this hook
-      // means "this pass ended" rather than "the session ended" — measured as
+      // Disposing here is right wherever the end of a build phase is also the
+      // end of the session: a dev server, and an ordinary one-shot build. It is
+      // wrong for a watching build, whose watcher repeats build phases, so it
+      // means "this pass ended" there — measured as
       // `buildStart -> buildEnd -> ... -> buildStart -> buildEnd` across
-      // `vite build --watch` rebuilds. Disposing there discarded the generation
-      // once per rebuild independently of the `buildStart` clear, so a fix to
-      // one alone left this host recompiling the whole project per edit
-      // (samchon/ttsc#1301).
+      // `vite build --watch` rebuilds. Disposing on that repeat discarded the
+      // generation once per rebuild independently of the `buildStart` clear, so
+      // fixing one of the two sites alone left this host recompiling the whole
+      // project per edit (samchon/ttsc#1301). The watching build hands its
+      // teardown to `closeWatcher` below instead.
       buildEnd() {
         missingInputs.dispose();
         if (viteBuildOwners.delete(this)) {
           viteBuildLifecycles -= 1;
         }
-        if (viteBuildLifecycles === 0 && viteCommand === "serve") {
+        if (
+          viteBuildLifecycles === 0 &&
+          (viteCommand === "serve" || !viteBuildWatching)
+        ) {
           resetTtscTransformCache(transformCache);
         }
       },
-      // The watch session's real teardown, and the only hook in a
+      // The watching build's real teardown, and the only hook in a
       // `vite build --watch` trace that fires exactly once: buildEnd,
-      // writeBundle and closeBundle all repeat per rebuild. A generation
+      // writeBundle and closeBundle all repeat per rebuild there. A generation
       // retained across passes owns directory watchers, so this is where they
-      // are released. A dev server drives no Rollup watcher, so serve never
-      // reaches here and keeps disposing in buildEnd above; a host that fired
-      // both would simply reset twice, which is idempotent.
+      // are released. Vite's dev server drives no Rollup watcher and an
+      // ordinary build closes its bundle instead, so neither reaches here;
+      // a host that fired both would simply reset twice, which is idempotent.
+      //
+      // The container bookkeeping is cleared with the cache: leaving a
+      // non-zero count behind would make the first `buildEnd` of any later
+      // session on this instance decrement to a non-zero value and skip the
+      // disposal it owes.
+      closeWatcher() {
+        viteBuildLifecycles = 0;
+        resetTtscTransformCache(transformCache);
+      },
+    },
+
+    // Rollup and Rolldown carry no `buildEnd` here, so before this their watch
+    // sessions ended with the live generation and its directory watchers still
+    // open. `closeWatcher` is the same teardown boundary the Vite block uses,
+    // and unplugin merges each of these blocks only into its own adapter.
+    rollup: {
+      closeWatcher() {
+        resetTtscTransformCache(transformCache);
+      },
+    },
+    rolldown: {
       closeWatcher() {
         resetTtscTransformCache(transformCache);
       },

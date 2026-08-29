@@ -150,7 +150,11 @@ interface TtscFailedGenerationValidation {
  * it started from, and an answer the pass already holds is no exception.
  */
 class TtscTerminalGenerationError extends Error {
-  /** Last delivery epoch this verdict was produced in or confirmed for. */
+  /**
+   * Delivery epoch a pass-scoped verdict belongs to. An unstable generation
+   * leaves it unset: it is proven against a recorded environment instead, and
+   * keeps re-confirming that per delivery.
+   */
   public confirmedEpoch?: number;
 }
 
@@ -177,7 +181,7 @@ class TtscUnstableGenerationError extends TtscTerminalGenerationError {
 }
 
 /**
- * A compile this pass already attempted, which produced no output for anyone.
+ * A compile this pass already attempted, whose envelope failed outright.
  *
  * The envelope cannot say whether the host reported diagnostics about the
  * project or failed to run at all: an ordinary type error arrives as an
@@ -185,17 +189,40 @@ class TtscUnstableGenerationError extends TtscTerminalGenerationError {
  * crashed host would. Sniffing that message to tell the two apart would be a
  * guess, so the adapter uses the one boundary it genuinely owns. Inside a pass
  * the answer is already settled, so every later module replays it instead of
- * repeating a whole-project transform to reach the same verdict — which is what
+ * repeating a whole-project transform to reach the same verdict, which is what
  * made a single broken save cost one compile per delivered module
- * (samchon/ttsc#1303). Crossing into the next pass drops it and compiles again,
- * so a genuinely transient failure still recovers at the first boundary that
- * could plausibly have changed anything, and a host with no pass boundary keeps
- * retrying on the very next delivery exactly as it always has.
+ * (samchon/ttsc#1303).
+ *
+ * The scope is exactly the pass. A host whose `buildStart` repeats drops the
+ * verdict at its next rebuild, so a transient host failure costs that one
+ * rebuild. A host with no pass boundary never retains one at all and keeps
+ * retrying on its very next delivery. Between them sits a host that opens
+ * exactly one pass for its whole process — Bun's runtime plugin, and a Vite dev
+ * server configured with `server.watch: null` — where the verdict lasts the
+ * session. That follows from what those hosts already publish about themselves,
+ * that their session is one immutable load session and the remedy for changed
+ * inputs is to restart, and it is the deliberate trade: without it, one type
+ * error costs such a session a whole-project compile per delivered module,
+ * which is the workload samchon/ttsc#970 is about.
+ *
+ * It carries the original error's identity rather than replacing it, so what a
+ * bundler prints is byte-identical to what it printed before the verdict
+ * existed.
  */
 class TtscPassVerdictError extends TtscTerminalGenerationError {
-  public constructor(message: string, epoch: number) {
-    super(message);
-    this.name = "TtscPassVerdictError";
+  public constructor(original: unknown, epoch: number) {
+    super(
+      original instanceof Error
+        ? original.message
+        : formatUnknownError(original),
+      original instanceof Error ? { cause: original } : undefined,
+    );
+    if (original instanceof Error) {
+      this.name = original.name;
+      if (original.stack !== undefined) this.stack = original.stack;
+    } else {
+      this.name = "TtscPassVerdictError";
+    }
     this.confirmedEpoch = epoch;
   }
 }
@@ -872,7 +899,14 @@ function selectOrEvict(
   try {
     return selectTransformedSource(props);
   } catch (error) {
-    const verdict = retainPassVerdict(cache, key, generation, epoch, error);
+    const verdict = retainPassVerdict(
+      cache,
+      key,
+      generation,
+      epoch,
+      props.result,
+      error,
+    );
     if (verdict !== undefined) {
       throw verdict;
     }
@@ -897,19 +931,27 @@ function retainPassVerdict(
   key: string,
   generation: Promise<TtscCachedProjectTransform>,
   epoch: number | undefined,
+  result: ITtscCompilerTransformation,
   error: unknown,
 ): TtscTerminalGenerationError | undefined {
-  if (epoch === undefined || cache?.get(key) !== generation) {
+  // Only an envelope that failed outright is a statement about the generation.
+  // `selectTransformedSource` also throws for a file the compile simply has no
+  // output for, which is an ordinary condition for a module the bundle reaches
+  // but the tsconfig program does not contain, and which says nothing about the
+  // other modules. Retaining that would fail the whole pass, naming a file none
+  // of them asked about.
+  if (
+    result.type === "success" ||
+    epoch === undefined ||
+    cache?.get(key) !== generation
+  ) {
     return undefined;
   }
   const existing = TERMINAL_TRANSFORM_GENERATIONS.get(generation);
   if (existing !== undefined) {
     return existing;
   }
-  const verdict = new TtscPassVerdictError(
-    error instanceof Error ? error.message : formatUnknownError(error),
-    epoch,
-  );
+  const verdict = new TtscPassVerdictError(error, epoch);
   TERMINAL_TRANSFORM_GENERATIONS.set(generation, verdict);
   return verdict;
 }
@@ -938,23 +980,22 @@ function replaysTerminalGeneration(
     filesystem: TtscTransformFilesystemOperations;
   },
 ): boolean {
-  if (epoch !== undefined && terminal.confirmedEpoch === epoch) {
-    return true;
-  }
   if (!(terminal instanceof TtscUnstableGenerationError)) {
-    return false;
+    // A pass verdict has no recorded environment to re-confirm against, so the
+    // pass that produced it is its whole scope.
+    return epoch !== undefined && terminal.confirmedEpoch === epoch;
   }
+  // An unstable generation does have one, and confirming it per delivery is the
+  // behaviour its own contract describes, so the pass does not cache that
+  // answer. A new pass still grants the fresh attempt the per-pass cache clear
+  // used to give it.
   if (
     epoch !== undefined &&
     terminal.validation.cached.deliveryEpoch !== epoch
   ) {
     return false;
   }
-  if (failedGenerationEnvironmentChanged(terminal.validation, props)) {
-    return false;
-  }
-  terminal.confirmedEpoch = epoch;
-  return true;
+  return !failedGenerationEnvironmentChanged(terminal.validation, props);
 }
 
 /**

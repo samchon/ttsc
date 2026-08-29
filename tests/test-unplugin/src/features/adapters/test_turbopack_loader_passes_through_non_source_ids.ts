@@ -8,7 +8,9 @@ import { assertTurbopackLoaderPassesThroughNonSourceIds } from "../../internal/a
  * website all claimed parity, so a rule glob wider than `*.ts`/`*.tsx` routed
  * JavaScript and virtual ids into the whole-project transform every other
  * adapter excludes, where the program has no entry for them and the delivery
- * fails. These are exactly the rows the two filters disagreed on.
+ * fails. The JavaScript rows are that regression; the virtual row is defence in
+ * depth, since the transform short-circuits a NUL id on its own and the loader
+ * should not have to rely on that.
  *
  * 1. Run the loader over `.js`, `.mjs`, `.cjs` and `.jsx` resource paths.
  * 2. Run it over an id carrying the virtual-module NUL sentinel.

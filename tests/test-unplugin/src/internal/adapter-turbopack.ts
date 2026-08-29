@@ -162,8 +162,13 @@ async function assertTurbopackLoaderPassesThroughFilteredPaths(): Promise<void> 
  * file, so the delivery failed with `did not return output`, and under the
  * per-delivery eviction each one cost a whole-project compile first.
  *
- * These are the rows the shipped filter and the loader's copy disagreed on; the
- * declaration and `node_modules` rows they already agreed on stay pinned by
+ * The four JavaScript rows are the regression guard: before the fix each of
+ * them reached `selectTransformedSource` and failed the delivery. The virtual
+ * row is defence in depth rather than a second regression, because
+ * `transformTtsc` short-circuits a NUL id itself, so the old loader also
+ * returned that source untouched; what it pins is that the loader stops
+ * depending on a guard living inside the transform. The declaration and
+ * `node_modules` rows both filters already agreed on stay pinned by
  * {@link assertTurbopackLoaderPassesThroughFilteredPaths}.
  */
 async function assertTurbopackLoaderPassesThroughNonSourceIds(): Promise<void> {

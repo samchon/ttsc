@@ -317,6 +317,11 @@ async function assertWebpackWatchRebuildsThroughTypeOnlyEdge(): Promise<void> {
  * so the scenario does not rest on webpack's default snapshot strategy, and the
  * run log lives outside the project so the transform's own input walk never
  * sees the counter.
+ *
+ * The compile count alone would not prove anything: a compilation that did not
+ * rebuild the entry runs no delivery, and so costs no compile under the old
+ * code either. The scenario therefore waits for a compilation that actually
+ * re-ran the loader before it reads the count.
  */
 async function assertWebpackWatchReusesTheGenerationAcrossRebuilds(): Promise<void> {
   const runLog = path.join(
@@ -324,6 +329,7 @@ async function assertWebpackWatchReusesTheGenerationAcrossRebuilds(): Promise<vo
     "compiles.bin",
   );
   const root = createTypeEdgeProject(true, false, runLog);
+  const entry = TestUnpluginProject.mainFile(root);
   const typeOnly = path.join(root, "src", "mytype.ts");
   const compiles = () => (fs.existsSync(runLog) ? fs.statSync(runLog).size : 0);
   const config = await createWebpackConfig(root);
@@ -385,6 +391,23 @@ async function assertWebpackWatchReusesTheGenerationAcrossRebuilds(): Promise<vo
               // Same bytes, new timestamp: webpack's watcher sees a change, the
               // generation's recorded input does not.
               fs.writeFileSync(typeOnly, fs.readFileSync(typeOnly));
+              return;
+            }
+            // A compilation that did not rebuild the entry proves nothing:
+            // no delivery means no compile under the old code either. Keep
+            // waiting for one that actually re-ran the loader.
+            // `builtModules` is a WeakSet in webpack 5, so it is queried
+            // rather than enumerated.
+            const built = stats.compilation.builtModules;
+            const rebuilt = [...stats.compilation.modules].some((module) => {
+              const resource = (module as { resource?: unknown }).resource;
+              return (
+                typeof resource === "string" &&
+                path.resolve(resource) === path.resolve(entry) &&
+                built.has(module)
+              );
+            });
+            if (!rebuilt) {
               return;
             }
             assert.equal(

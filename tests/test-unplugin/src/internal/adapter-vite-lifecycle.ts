@@ -261,15 +261,17 @@ export async function assertViteBuildEndDisposesTheLastOverlappingCacheOwner(): 
 }
 
 /**
- * One driven `vite build --watch` session over a fixture project.
+ * One driven `vite build` session over a fixture project, watching or not.
  *
  * Rollup's watcher repeats a whole build phase per rebuild, so the real hook
  * order across two rebuilds is `buildStart -> buildEnd -> writeBundle ->
  * closeBundle -> buildStart -> ... -> closeWatcher`, with only `closeWatcher`
- * firing once. Driving the hooks directly reproduces that order exactly while
- * keeping the scenario free of a live watcher that can outlive the runner.
+ * firing once. An ordinary build closes its bundle instead and never reaches
+ * `closeWatcher` at all. Driving the hooks directly reproduces both orders
+ * exactly while keeping the scenarios free of a live watcher that can outlive
+ * the runner.
  */
-async function startViteBuildWatchSession(): Promise<{
+async function startViteBuildSession(watching: boolean): Promise<{
   close: () => Promise<void>;
   deliver: (file: string) => Promise<unknown>;
   endPass: () => Promise<void>;
@@ -284,7 +286,15 @@ async function startViteBuildWatchSession(): Promise<{
   invokeVitePluginHook(
     plugin.configResolved,
     {},
-    { command: "build", resolve: { alias: [] }, server: {} },
+    {
+      // `build.watch` is the axis the disposal boundary turns on: `null` for an
+      // ordinary build, an object under `--watch`. Modelling only one of them
+      // is what made the non-watching regression invisible.
+      build: { watch: watching ? {} : null },
+      command: "build",
+      resolve: { alias: [] },
+      server: {},
+    },
   );
   return {
     close: async () => {
@@ -324,7 +334,7 @@ async function startViteBuildWatchSession(): Promise<{
  * sites alone left this host recompiling the whole project per edit.
  */
 export async function assertViteBuildWatchReusesTheGenerationAcrossRebuilds(): Promise<void> {
-  const session = await startViteBuildWatchSession();
+  const session = await startViteBuildSession(true);
   try {
     for (let rebuild = 0; rebuild < 3; rebuild += 1) {
       await session.startPass();
@@ -353,7 +363,7 @@ export async function assertViteBuildWatchReusesTheGenerationAcrossRebuilds(): P
  * one that fires exactly once.
  */
 export async function assertViteBuildWatchDisposesOnCloseWatcher(): Promise<void> {
-  const session = await startViteBuildWatchSession();
+  const session = await startViteBuildSession(true);
   try {
     await session.startPass();
     assert.ok(await session.deliver(session.modules[0]!));
@@ -367,6 +377,39 @@ export async function assertViteBuildWatchDisposesOnCloseWatcher(): Promise<void
       session.projectCompiles(),
       2,
       "closeWatcher must dispose the generation, so the next session compiles again",
+    );
+  } finally {
+    await session.close();
+  }
+}
+
+/**
+ * Asserts an ordinary `vite build` still disposes its generation at `buildEnd`.
+ *
+ * The disposal boundary turns on whether the host is watching, not on which
+ * command it is running. Vite takes Rollup's watcher only when `build.watch` is
+ * set; an ordinary build closes its bundle instead and never emits
+ * `closeWatcher`, so gating the `buildEnd` reset on `command === "serve"` alone
+ * would leave a one-shot build with no disposal site at all, and a process that
+ * runs repeated programmatic builds accumulating one live generation and its
+ * directory watchers per build.
+ */
+export async function assertViteBuildDisposesTheGenerationAtBuildEnd(): Promise<void> {
+  const session = await startViteBuildSession(false);
+  try {
+    await session.startPass();
+    assert.ok(await session.deliver(session.modules[0]!));
+    assert.equal(session.projectCompiles(), 1);
+    await session.endPass();
+
+    // No `closeWatcher` here: an ordinary build never emits one. If `buildEnd`
+    // did not dispose, this delivery would reuse the generation instead.
+    await session.startPass();
+    assert.ok(await session.deliver(session.modules[0]!));
+    assert.equal(
+      session.projectCompiles(),
+      2,
+      "a non-watching build must dispose at buildEnd, so the next session compiles again",
     );
   } finally {
     await session.close();

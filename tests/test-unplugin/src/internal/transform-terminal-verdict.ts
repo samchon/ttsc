@@ -77,6 +77,14 @@ async function startFailingCompile(broken = true): Promise<{
  * purpose: a compile that fails never reaches the fixture's `ApplyProgram`, so
  * its run log cannot count it. The cached promise staying the same object is
  * the direct evidence that no second compilation was started.
+ *
+ * This also pins the limit of the retention. A host that opens exactly one pass
+ * for its whole process, which Bun's runtime plugin and a dev server with
+ * `server.watch: null` both do, never reaches the boundary that drops a
+ * verdict, so what this scenario measures across four deliveries is what such a
+ * session gets for its lifetime. That is deliberate: both hosts publish their
+ * session as immutable, and the alternative is the whole-project compile per
+ * module that this replaces.
  */
 export async function assertAFailedCompileCostsOneCompilePerPass(): Promise<void> {
   const { api, cache, deliver, modules } = await startFailingCompile();
@@ -184,6 +192,138 @@ export async function assertAFailedCompileWithoutAPassIsStillEvicted(): Promise<
     await assert.rejects(() => deliver(modules[1]!), /is not assignable/);
     assert.equal(cache.size, 0);
   } finally {
+    api.resetTtscTransformCache(cache);
+  }
+}
+
+/**
+ * Asserts a module the compile has no output for does not fail the whole pass.
+ *
+ * `selectTransformedSource` throws from three places, and only two of them say
+ * anything about the generation. The third says one file has no output, which
+ * is an ordinary condition for a module the bundle reaches but the tsconfig
+ * program does not contain: `@ttsc/metro` treats it as "pass this file
+ * through", and a bundler reaching one is a configuration, not a fault.
+ *
+ * Retaining that as a pass verdict would reject every later module of the pass
+ * with an error naming a file none of them asked about, which is strictly worse
+ * than the eviction it replaced. This is the boundary of what a pass verdict
+ * may cover.
+ */
+export async function assertAnOutOfProgramModuleDoesNotFailThePass(): Promise<void> {
+  const api = await TestUnpluginRuntime.loadUnpluginApi();
+  const project = createCacheProject({ fileCount: 3, graphFanout: 1 });
+  const modules = projectModules(project.root);
+  // Under the project root but outside the tsconfig's `include: ["src"]`, so
+  // the program has no entry for it. Planted before the first delivery, since
+  // creating it later would be a membership change instead.
+  const outside = path.join(project.root, "outside", "helper.ts");
+  fs.mkdirSync(path.dirname(outside), { recursive: true });
+  fs.writeFileSync(outside, "export const helper = 1;\n", "utf8");
+
+  const cache = api.createTtscTransformCache();
+  const options = api.resolveOptions();
+  const deliver = (file: string) =>
+    api.transformTtsc(
+      file,
+      fs.readFileSync(file, "utf8"),
+      options,
+      undefined,
+      cache,
+    );
+  api.beginTtscTransformBuild(cache);
+  try {
+    assert.ok(await deliver(modules[0]!));
+
+    await assert.rejects(
+      () => deliver(outside),
+      /did not return output/,
+      "a module the program does not contain must report itself",
+    );
+
+    for (const file of modules.slice(1)) {
+      assert.ok(
+        await deliver(file),
+        `${path.basename(file)} must still be served after an out-of-program module`,
+      );
+    }
+  } finally {
+    api.resetTtscTransformCache(cache);
+  }
+}
+
+/**
+ * Asserts a host with no delivery pass surfaces a generation's diagnostics once
+ * per generation.
+ *
+ * The guard is two fields rather than one because a persistent host's epoch is
+ * `undefined`, which is also the initial value: collapsing them into a single
+ * epoch comparison would silently suppress the very first report for Metro, the
+ * Turbopack loader and a watching dev server. The rule is the same one the pass
+ * uses, with one pass.
+ */
+export async function assertPersistentDiagnosticsAreReportedOncePerGeneration(): Promise<void> {
+  const api = await TestUnpluginRuntime.loadUnpluginApi();
+  const project = createCacheProject({ fileCount: 4, graphFanout: 1 });
+  const modules = projectModules(project.root);
+  const cache = api.createTtscTransformCache();
+  const options = api.resolveOptions();
+  const deliver = (file: string) =>
+    api.transformTtsc(
+      file,
+      fs.readFileSync(file, "utf8"),
+      options,
+      undefined,
+      cache,
+    );
+  const marker = "TTSC-TEST-PERSISTENT-WARNING";
+  const original = process.stderr.write.bind(process.stderr);
+  let writes = 0;
+  try {
+    // No `beginTtscTransformBuild` anywhere: this is the persistent lifecycle.
+    assert.ok(await deliver(modules[0]!));
+    const key = [...cache.keys()][0]!;
+    const good = (await cache.get(key)) as Record<string, unknown>;
+    cache.set(
+      key,
+      Promise.resolve({
+        ...good,
+        diagnosticsEpoch: undefined,
+        diagnosticsReported: false,
+        result: {
+          ...(good.result as Record<string, unknown>),
+          diagnostics: [
+            {
+              category: "warning",
+              character: 1,
+              file: "src/mod0.ts",
+              line: 1,
+              messageText: marker,
+            },
+          ],
+        },
+        servedFiles: new Set<string>(),
+      }),
+    );
+
+    (process.stderr as { write: unknown }).write = (
+      chunk: unknown,
+      ...rest: unknown[]
+    ) => {
+      if (String(chunk).includes(marker)) writes += 1;
+      return (original as (...args: unknown[]) => boolean)(chunk, ...rest);
+    };
+
+    for (const file of modules) {
+      assert.ok(await deliver(file));
+    }
+    assert.equal(
+      writes,
+      1,
+      `a persistent host must surface one generation's diagnostics once; wrote ${writes} times for ${modules.length} deliveries`,
+    );
+  } finally {
+    (process.stderr as { write: unknown }).write = original;
     api.resetTtscTransformCache(cache);
   }
 }

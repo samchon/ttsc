@@ -200,6 +200,11 @@ export async function assertAPassRecompilesAfterAMembershipChange(): Promise<voi
  * as an input can change an output, so re-proving against the whole walk
  * instead of the declared set would hand back the per-pass recompile this
  * change removes, for a file nothing compiled.
+ *
+ * This pins the declared-input filter rather than the membership digest, and it
+ * held before that digest existed too: rewriting a file in place moves neither
+ * the directory's stamp nor its entry list. The digest's own twin is
+ * {@link assertAPassIgnoresAnAppearingOutputDirectory}.
  */
 export async function assertAPassIgnoresAnUndeclaredProjectFileEdit(): Promise<void> {
   const session = await startDeliveryPassSession();
@@ -255,6 +260,44 @@ export async function assertAPassIgnoresAnAppearingOutputDirectory(): Promise<vo
       session.compiles(),
       1,
       "a bundler creating its own output directory must not void the generation",
+    );
+  } finally {
+    session.close();
+  }
+}
+
+/**
+ * Asserts a pass recompiles when a file leaves the project, or changes kind.
+ *
+ * The membership digest replaced a directory metadata stamp, so it has to be at
+ * least as strong for everything the walk can see, not just for the creation
+ * case its sibling covers. A removal has no recorded hash to differ from and a
+ * kind swap keeps the name, so both are invisible to the content comparison and
+ * the digest is the only thing that answers for them.
+ */
+export async function assertAPassRecompilesAfterAMembershipRemoval(): Promise<void> {
+  const session = await startDeliveryPassSession();
+  const note = path.join(session.root, "src", "notes.txt");
+  fs.writeFileSync(note, "planted before the generation\n", "utf8");
+  try {
+    await deliverPass(session);
+    assert.equal(session.compiles(), 1);
+
+    fs.rmSync(note);
+    await deliverPass(session);
+    assert.equal(
+      session.compiles(),
+      2,
+      "a file leaving the project must replace the generation",
+    );
+
+    // Same name, different kind: the content comparison cannot see this either.
+    fs.mkdirSync(note, { recursive: true });
+    await deliverPass(session);
+    assert.equal(
+      session.compiles(),
+      3,
+      "an entry changing kind must replace the generation",
     );
   } finally {
     session.close();
