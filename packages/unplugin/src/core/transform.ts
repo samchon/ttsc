@@ -149,7 +149,7 @@ interface TtscFailedGenerationValidation {
  * pass verdict knows the pass it belongs to, and an unstable generation knows
  * the recorded environment it was proven against.
  */
-class TtscTerminalGenerationError extends Error {}
+abstract class TtscTerminalGenerationError extends Error {}
 
 /**
  * A bounded proof failure that stays authoritative until its inputs change.

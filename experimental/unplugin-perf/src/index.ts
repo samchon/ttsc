@@ -513,9 +513,9 @@ async function measureGraphBuild(
   };
   fs.writeFileSync(runLog, "");
   process.env.PLUGIN_RUN_LOG = runLog;
-  adapter.beginTtscTransformBuild(harness.cache);
+  harness.adapter.beginTtscTransformBuild(harness.cache);
   const [first, ...rest] = modules;
-  await adapter.transformTtsc(
+  await harness.adapter.transformTtsc(
     first!,
     fs.readFileSync(first!, "utf8"),
     harness.options,
@@ -527,7 +527,7 @@ async function measureGraphBuild(
   resetCounters(harness);
   const started = process.hrtime.bigint();
   for (const id of rest) {
-    await adapter.transformTtsc(
+    await harness.adapter.transformTtsc(
       id,
       fs.readFileSync(id, "utf8"),
       harness.options,
