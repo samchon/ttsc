@@ -70,7 +70,7 @@ const unpluginFactory: UnpluginFactory<
   // old one, and Vite calls buildEnd even for a container that never started.
   // Track the stable per-container PluginContext identity so that unstarted
   // old containers cannot dispose a replacement's freshly initialized cache.
-  const viteBuildOwners = new WeakSet<object>();
+  let viteBuildOwners = new WeakSet<object>();
   let viteBuildLifecycles = 0;
 
   return {
@@ -96,7 +96,10 @@ const unpluginFactory: UnpluginFactory<
         viteWatching =
           (config as { server?: { watch?: unknown } }).server?.watch !== null;
         // Read on the same principle as the line above, from the half of the
-        // config that governs a build rather than a server.
+        // config that governs a build rather than a server. The comparison is
+        // loose where the server's is strict because the two defaults differ:
+        // `server.watch` is an object unless explicitly `null`, while
+        // `build.watch` is absent or `null` unless `--watch` supplies one.
         viteBuildWatching =
           (config as { build?: { watch?: unknown } }).build?.watch != null;
       },
@@ -144,26 +147,43 @@ const unpluginFactory: UnpluginFactory<
       // ordinary build closes its bundle instead, so neither reaches here;
       // a host that fired both would simply reset twice, which is idempotent.
       //
-      // The container bookkeeping is cleared with the cache: leaving a
-      // non-zero count behind would make the first `buildEnd` of any later
-      // session on this instance decrement to a non-zero value and skip the
-      // disposal it owes.
+      // The container bookkeeping is cleared with the cache, and the owner set
+      // is replaced rather than merely zeroed alongside it. A watcher closed
+      // mid-rebuild leaves a container still registered, and its later
+      // `buildEnd` would then decrement a counter that is already zero and
+      // strand it below zero, after which the disposal above could never fire
+      // again for this plugin instance.
       closeWatcher() {
+        viteBuildOwners = new WeakSet<object>();
         viteBuildLifecycles = 0;
         resetTtscTransformCache(transformCache);
       },
     },
 
-    // Rollup and Rolldown carry no `buildEnd` here, so before this their watch
-    // sessions ended with the live generation and its directory watchers still
-    // open. `closeWatcher` is the same teardown boundary the Vite block uses,
-    // and unplugin merges each of these blocks only into its own adapter.
+    // Rollup and Rolldown carry none of the Vite block's hooks, so before this
+    // they had no disposal site at all. They get both halves of the same
+    // boundary: a watching session ends at `closeWatcher`, and a one-shot build
+    // ends when its build phase does. `this.meta.watchMode` separates the two
+    // there, the way `build.watch` does for Vite, so a one-shot build is not
+    // left without a site the way `vite build` was (samchon/ttsc#1301).
+    // unplugin merges each of these blocks only into its own adapter, so the
+    // Vite adapter never receives them.
     rollup: {
+      buildEnd(this: { meta?: { watchMode?: boolean } }) {
+        if (this.meta?.watchMode !== true) {
+          resetTtscTransformCache(transformCache);
+        }
+      },
       closeWatcher() {
         resetTtscTransformCache(transformCache);
       },
     },
     rolldown: {
+      buildEnd(this: { meta?: { watchMode?: boolean } }) {
+        if (this.meta?.watchMode !== true) {
+          resetTtscTransformCache(transformCache);
+        }
+      },
       closeWatcher() {
         resetTtscTransformCache(transformCache);
       },

@@ -145,18 +145,11 @@ interface TtscFailedGenerationValidation {
  * A verdict about one generation that later deliveries replay instead of
  * repeating the whole compile behind it.
  *
- * Both kinds are replayed for the rest of a delivery epoch that already
- * produced or confirmed them: a pass settles every delivery against the state
- * it started from, and an answer the pass already holds is no exception.
+ * The two kinds are replayed on different evidence, and each carries its own: a
+ * pass verdict knows the pass it belongs to, and an unstable generation knows
+ * the recorded environment it was proven against.
  */
-class TtscTerminalGenerationError extends Error {
-  /**
-   * Delivery epoch a pass-scoped verdict belongs to. An unstable generation
-   * leaves it unset: it is proven against a recorded environment instead, and
-   * keeps re-confirming that per delivery.
-   */
-  public confirmedEpoch?: number;
-}
+class TtscTerminalGenerationError extends Error {}
 
 /**
  * A bounded proof failure that stays authoritative until its inputs change.
@@ -205,17 +198,20 @@ class TtscUnstableGenerationError extends TtscTerminalGenerationError {
  * error costs such a session a whole-project compile per delivered module,
  * which is the workload samchon/ttsc#970 is about.
  *
- * It carries the original error's identity rather than replacing it, so what a
- * bundler prints is byte-identical to what it printed before the verdict
- * existed.
+ * It carries the original error's message, stack and `cause` rather than
+ * replacing them, so what a bundler reports is what it reported before the
+ * verdict existed.
  */
 class TtscPassVerdictError extends TtscTerminalGenerationError {
+  /** The delivery pass this verdict belongs to, and its whole scope. */
+  public readonly epoch: number;
+
   public constructor(original: unknown, epoch: number) {
     super(
       original instanceof Error
         ? original.message
         : formatUnknownError(original),
-      original instanceof Error ? { cause: original } : undefined,
+      { cause: original },
     );
     if (original instanceof Error) {
       this.name = original.name;
@@ -223,7 +219,7 @@ class TtscPassVerdictError extends TtscTerminalGenerationError {
     } else {
       this.name = "TtscPassVerdictError";
     }
-    this.confirmedEpoch = epoch;
+    this.epoch = epoch;
   }
 }
 
@@ -992,10 +988,13 @@ function replaysTerminalGeneration(
     filesystem: TtscTransformFilesystemOperations;
   },
 ): boolean {
-  if (!(terminal instanceof TtscUnstableGenerationError)) {
+  if (terminal instanceof TtscPassVerdictError) {
     // A pass verdict has no recorded environment to re-confirm against, so the
     // pass that produced it is its whole scope.
-    return epoch !== undefined && terminal.confirmedEpoch === epoch;
+    return epoch !== undefined && terminal.epoch === epoch;
+  }
+  if (!(terminal instanceof TtscUnstableGenerationError)) {
+    return false;
   }
   // An unstable generation does have one, and confirming it per delivery is the
   // behaviour its own contract describes, so the pass does not cache that
