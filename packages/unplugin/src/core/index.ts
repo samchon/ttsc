@@ -168,6 +168,12 @@ const unpluginFactory: UnpluginFactory<
     // left without a site the way `vite build` was (samchon/ttsc#1301).
     // unplugin merges each of these blocks only into its own adapter, so the
     // Vite adapter never receives them.
+    //
+    // A `buildEnd` at the top level instead of inside a block would be a
+    // regression rather than a shorthand: unplugin forwards a top-level one to
+    // esbuild's `onEnd` and to webpack's and Rspack's `hooks.emit`, each of
+    // which repeats per rebuild, so those hosts would start discarding a valid
+    // generation on every edit, which is samchon/ttsc#1300 again.
     rollup: {
       buildEnd(this: { meta?: { watchMode?: boolean } }) {
         if (this.meta?.watchMode !== true) {

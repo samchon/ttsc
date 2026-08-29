@@ -12,8 +12,9 @@ import { assertCloseWatcherMidPassKeepsTheCounterSound } from "../../internal/ad
  * rebuild produces.
  *
  * 1. Open a pass, deliver, then tear down with that pass still open.
- * 2. Let the aborted pass's own buildEnd land afterwards.
- * 3. Drive two more sessions and assert each still disposes.
+ * 2. Let the aborted pass's own buildEnd land against the zeroed counter.
+ * 3. Resolve the same instance as an ordinary build, where buildEnd is the
+ *    disposal site, and assert two further sessions each still compile.
  */
 export const test_vite_close_watcher_mid_pass_keeps_the_counter_sound =
   async () => {
