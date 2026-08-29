@@ -725,8 +725,11 @@ export async function transformTtsc(
   });
 
   for (;;) {
-    // Re-read per iteration: a host may open the next pass while this delivery
-    // is awaiting an in-flight generation.
+    // Read once per iteration, before the cache is consulted, so a delivery
+    // belongs to the pass that was current when it started examining the
+    // generation. A pass opened while this one awaits an in-flight compile is
+    // picked up by the next iteration, which is the one that runs when the
+    // entry it awaited turns out to have been superseded.
     const epoch = transformCacheEpoch(cache);
     let transformed = cache?.get(key);
     if (transformed !== undefined) {
