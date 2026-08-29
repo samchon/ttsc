@@ -1,9 +1,9 @@
 import type { TtscUnpluginOptions } from "./core/options";
 import { resolveOptions } from "./core/options";
+import { isTransformTarget } from "./core/index";
 import type { TtscTransformHooks } from "./core/transform";
 import {
   createTtscTransformCache,
-  isDeclarationFile,
   stripQuery,
   transformTtsc,
 } from "./core/transform";
@@ -39,9 +39,6 @@ export interface TtscTurbopackLoaderContext {
   cacheable?(flag: boolean): void;
 }
 
-/** Matches any path segment that is a `node_modules` directory (cross-platform). */
-const nodeModulesPattern = /(?:^|[/\\])node_modules(?:[/\\]|$)/;
-
 /**
  * Per-process transform cache. Turbopack runs loaders in a worker pool and
  * never signals build boundaries to a loader, so the cache lives for the
@@ -72,10 +69,12 @@ const transformCache = createTtscTransformCache();
  * ```
  *
  * Pass {@link TtscUnpluginOptions} through the rule's `options` object. The
- * loader returns the source unchanged for declaration files, `node_modules`
- * paths, and transforms that produce no change, mirroring the unplugin
- * adapters' `transformInclude` filter, since a broad rule glob routes
- * everything matching the extension through the loader.
+ * loader returns the source unchanged for anything
+ * {@link isTransformTarget} excludes — declaration files, `node_modules` paths,
+ * non-TypeScript sources, and virtual ids — and for transforms that produce no
+ * change. It applies that shared predicate itself rather than a local copy,
+ * because a broad rule glob routes everything matching the extension through
+ * the loader.
  */
 export default function turbopack(
   this: TtscTurbopackLoaderContext,
@@ -83,7 +82,13 @@ export default function turbopack(
 ): void {
   const callback = this.async();
   const file = stripQuery(this.resourcePath);
-  if (isDeclarationFile(file) || nodeModulesPattern.test(file)) {
+  // The shared predicate itself, not a copy of part of it. A rule glob wider
+  // than `*.ts`/`*.tsx` — the natural thing to write for a project with mixed
+  // sources, and the reason a loader needs a filter at all — used to route
+  // JavaScript and virtual ids into the whole-project transform that every
+  // other adapter excludes, where the program has no entry for them and the
+  // delivery fails (samchon/ttsc#1305).
+  if (!isTransformTarget(file)) {
     callback(undefined, source);
     return;
   }
