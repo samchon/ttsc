@@ -45,11 +45,21 @@ export interface TtscTransformAlias {
   replacement: string;
 }
 
-/** One directory's cheap project-membership identity at generation time. */
+/** One directory's project-membership identity at generation time. */
 interface TtscProjectDirectorySnapshot {
   /** Absolute directory spelling used by the project walk. */
   path: string;
-  /** Metadata signature that changes when its immediate membership changes. */
+  /**
+   * Digest of the entries the walk itself considers: every immediate child the
+   * ignore list does not drop, with its kind.
+   *
+   * Deliberately not the directory's own metadata. A directory's stamp moves
+   * whenever *any* entry is added or removed, including the ones the walk
+   * exists to ignore, so a bundler emitting into `dist/` — or merely creating
+   * that directory for the first time — moved the project root's stamp and
+   * voided a generation that no compiler input had touched. The ignore list
+   * only protects the generation if the membership proof honours it too.
+   */
   signature: string;
 }
 
@@ -131,8 +141,29 @@ interface TtscFailedGenerationValidation {
   projectWalkFailures: string;
 }
 
-/** A bounded proof failure that stays authoritative until its inputs change. */
-class TtscUnstableGenerationError extends Error {
+/**
+ * A verdict about one generation that later deliveries replay instead of
+ * repeating the whole compile behind it.
+ *
+ * Both kinds are replayed for the rest of a delivery epoch that already
+ * produced or confirmed them: a pass settles every delivery against the state
+ * it started from, and an answer the pass already holds is no exception.
+ */
+class TtscTerminalGenerationError extends Error {
+  /** Last delivery epoch this verdict was produced in or confirmed for. */
+  public confirmedEpoch?: number;
+}
+
+/**
+ * A bounded proof failure that stays authoritative until its inputs change.
+ *
+ * This is the adapter failing to *obtain* a coherent snapshot — a race it lost
+ * — so a later attempt may well succeed with the same inputs. It is retried
+ * when its recorded environment moves, and a new delivery epoch grants it the
+ * one fresh attempt the per-pass cache clear used to give it
+ * (samchon/ttsc#1300).
+ */
+class TtscUnstableGenerationError extends TtscTerminalGenerationError {
   public readonly validation: TtscFailedGenerationValidation;
 
   public constructor(
@@ -142,6 +173,30 @@ class TtscUnstableGenerationError extends Error {
     super(message);
     this.name = "TtscUnstableGenerationError";
     this.validation = validation;
+  }
+}
+
+/**
+ * A compile this pass already attempted, which produced no output for anyone.
+ *
+ * The envelope cannot say whether the host reported diagnostics about the
+ * project or failed to run at all: an ordinary type error arrives as an
+ * `"exception"` carrying the compiler's own diagnostic text, exactly as a
+ * crashed host would. Sniffing that message to tell the two apart would be a
+ * guess, so the adapter uses the one boundary it genuinely owns. Inside a pass
+ * the answer is already settled, so every later module replays it instead of
+ * repeating a whole-project transform to reach the same verdict — which is what
+ * made a single broken save cost one compile per delivered module
+ * (samchon/ttsc#1303). Crossing into the next pass drops it and compiles again,
+ * so a genuinely transient failure still recovers at the first boundary that
+ * could plausibly have changed anything, and a host with no pass boundary keeps
+ * retrying on the very next delivery exactly as it always has.
+ */
+class TtscPassVerdictError extends TtscTerminalGenerationError {
+  public constructor(message: string, epoch: number) {
+    super(message);
+    this.name = "TtscPassVerdictError";
+    this.confirmedEpoch = epoch;
   }
 }
 
@@ -157,10 +212,10 @@ const TRANSFORM_FAILED_GENERATION_VALIDATIONS = new WeakMap<
   TtscFailedGenerationValidation
 >();
 
-/** Rejected cache promises whose unchanged terminal verdict may be replayed. */
+/** Cache promises whose unchanged terminal verdict may be replayed. */
 const TERMINAL_TRANSFORM_GENERATIONS = new WeakMap<
   Promise<TtscCachedProjectTransform>,
-  TtscUnstableGenerationError
+  TtscTerminalGenerationError
 >();
 
 /** Maximum witnesses printed and retained for each failed transform attempt. */
@@ -291,9 +346,33 @@ export interface TtscCachedProjectTransform {
   /** Raw compiler output returned by {@link TtscCompiler.transform}. */
   result: ITtscCompilerTransformation;
   /**
+   * The delivery epoch this generation is currently settled against, or
+   * `undefined` for a generation no epoch has proven.
+   *
+   * Set when the generation is compiled, and again whenever a later epoch's
+   * first delivery proves the whole generation still matches the filesystem.
+   * While it equals the cache's current epoch, each module's first delivery is
+   * settled by the supplied source alone, exactly as it was when every pass
+   * compiled its own generation (samchon/ttsc#1300).
+   */
+  deliveryEpoch?: number;
+  /**
+   * Whether this generation's non-error diagnostics have been surfaced at all,
+   * and the epoch they were last surfaced in.
+   *
+   * The diagnostics describe one compile of one program, so they belong to the
+   * generation rather than to a delivery; a pass that reuses a retained
+   * generation still surfaces them once, because a build's warnings are part of
+   * what that build reports (samchon/ttsc#1304). The two fields are separate so
+   * a persistent host, whose epoch is `undefined`, still reports the first time.
+   */
+  diagnosticsReported?: boolean;
+  diagnosticsEpoch?: number;
+  /**
    * Files already delivered from this generation, keyed by filesystem identity.
-   * Build-scoped caches use this to skip persistent validation only for a
-   * module's first delivery inside the current build.
+   * A cache with a delivery epoch uses this to skip persistent validation only
+   * for a module's first delivery inside the current pass; the set is cleared
+   * whenever a new epoch's gate re-proves the generation.
    */
   servedFiles?: Set<string>;
   /**
@@ -387,10 +466,30 @@ const TRANSFORM_RESULT_FILESYSTEM = new WeakMap<
 >();
 
 /**
- * Caches whose owner has declared a real per-build lifecycle by calling
- * {@link beginTtscTransformBuild} before transforms begin.
+ * The current delivery epoch of each cache whose owner has declared a real
+ * per-pass lifecycle by calling {@link beginTtscTransformBuild}.
+ *
+ * A *delivery epoch* is one bundler pass: the window inside which each module
+ * is requested at most once, so its first delivery may be settled against the
+ * state the pass started from. It is deliberately not the same fact as whether
+ * the generation is still valid, which the recorded snapshot answers. Conflating
+ * the two is what made every host with a repeating `buildStart` — webpack and
+ * Rspack watch, Rollup and Rolldown watch, `vite build --watch`, esbuild rebuild
+ * — discard a perfectly good whole-project compile on every edit
+ * (samchon/ttsc#1300).
+ *
+ * Absent from the map means persistent validation: a host with no pass boundary
+ * at all (a watching Vite dev server, Metro, the Turbopack loader), where every
+ * delivery proves the generation for itself.
  */
-const BUILD_SCOPED_TRANSFORM_CACHES = new WeakSet<TtscTransformCache>();
+const TRANSFORM_CACHE_EPOCHS = new WeakMap<TtscTransformCache, number>();
+
+/** The pass a delivery belongs to, or `undefined` under persistent validation. */
+function transformCacheEpoch(
+  cache: TtscTransformCache | undefined,
+): number | undefined {
+  return cache === undefined ? undefined : TRANSFORM_CACHE_EPOCHS.get(cache);
+}
 
 function createHostPathIdentityContext(
   filesystem: TtscTransformFilesystemOperations = DEFAULT_FILESYSTEM_OPERATIONS,
@@ -453,28 +552,38 @@ function resultFilesystem(
 }
 
 /**
- * Start a host build, clearing its prior generation and enabling constant-time
- * first delivery for modules compiled during this build.
+ * Open a new delivery pass, enabling constant-time first delivery for every
+ * module this pass asks for.
  *
- * Hosts without a guaranteed build-start callback use persistent validation
- * unless they have another immutable lifecycle. Bun runtime setup, for example,
- * defines one process-scoped module-loading session.
+ * This deliberately retains the cached generation. The pass boundary is a
+ * statement about *deliveries* — each module is requested at most once inside
+ * it — not about whether the compiled program is still correct, which the
+ * generation's own recorded snapshot answers and which
+ * {@link matchesCachedSource} proves once at the pass's first delivery. Clearing
+ * here instead made a host whose `buildStart` repeats recompile the whole
+ * project on every rebuild even when no compiler input had changed
+ * (samchon/ttsc#1300). Use {@link resetTtscTransformCache} to actually discard a
+ * generation and its watchers.
+ *
+ * Hosts without a guaranteed pass boundary use persistent validation unless they
+ * have another immutable lifecycle. Bun runtime setup, for example, defines one
+ * process-scoped module-loading session.
  */
 export function beginTtscTransformBuild(cache: TtscTransformCache): void {
-  clearTtscTransformCache(cache);
-  BUILD_SCOPED_TRANSFORM_CACHES.add(cache);
+  TRANSFORM_CACHE_EPOCHS.set(cache, (TRANSFORM_CACHE_EPOCHS.get(cache) ?? 0) + 1);
 }
 
 /**
- * Clear a cache and return it to persistent validation mode.
+ * Discard every generation, dispose its watchers, and return the cache to
+ * persistent validation mode.
  *
- * This is distinct from {@link beginTtscTransformBuild}: hosts such as Vite's
- * development server may invoke `buildStart` only once for a process that spans
- * many edits, so that callback cannot authorize build-scoped shortcuts.
+ * This is the unconditional lifecycle boundary, and it is distinct from
+ * {@link beginTtscTransformBuild}: a pass ending is not a reason to throw a
+ * proven compile away, while a session ending is.
  */
 export function resetTtscTransformCache(cache: TtscTransformCache): void {
   clearTtscTransformCache(cache);
-  BUILD_SCOPED_TRANSFORM_CACHES.delete(cache);
+  TRANSFORM_CACHE_EPOCHS.delete(cache);
 }
 
 /** Dispose generation-owned filesystem resources before clearing a cache. */
@@ -589,16 +698,17 @@ export async function transformTtsc(
   });
 
   for (;;) {
+    // Re-read per iteration: a host may open the next pass while this delivery
+    // is awaiting an in-flight generation.
+    const epoch = transformCacheEpoch(cache);
     let transformed = cache?.get(key);
     if (transformed !== undefined) {
       const terminal = TERMINAL_TRANSFORM_GENERATIONS.get(transformed);
       if (terminal !== undefined) {
-        // A proof failure is a verdict about one observed environment, not an
-        // invitation for every later module to repeat the whole compile. Keep
-        // replaying it until a source/input probe or an explicit cache reset
-        // establishes that a new generation could differ.
+        // A terminal verdict is an answer about one observed environment, not an
+        // invitation for every later module to repeat the whole compile.
         if (
-          !failedGenerationEnvironmentChanged(terminal.validation, {
+          replaysTerminalGeneration(terminal, epoch, {
             currentFile: file,
             currentSource: source,
             filesystem,
@@ -621,9 +731,7 @@ export async function transformTtsc(
       if (cache?.get(key) !== transformed) {
         continue;
       }
-      const buildScoped =
-        cache !== undefined && BUILD_SCOPED_TRANSFORM_CACHES.has(cache);
-      if (!buildScoped) {
+      if (epoch === undefined) {
         await settleProjectMutationEvents(cached);
         if (cache?.get(key) !== transformed) {
           continue;
@@ -638,12 +746,12 @@ export async function transformTtsc(
           projectRoot: cached.projectRoot,
           result: cached.result,
         }) &&
-        matchesCachedSource(cached, file, source, buildScoped)
+        matchesCachedSource(cached, file, source, epoch)
       ) {
-        reportSuccessDiagnostics(cached.result);
+        reportSuccessDiagnostics(cached, epoch);
         // A resolved `"exception"` / `"failure"` envelope makes this throw;
         // that is a failed generation too, so evict before surfacing it.
-        const code = selectOrEvict(cache, key, transformed, {
+        const code = selectOrEvict(cache, key, transformed, epoch, {
           file,
           projectRoot: cached.projectRoot,
           result: cached.result,
@@ -668,6 +776,10 @@ export async function transformTtsc(
         compilerOptions: options.compilerOptions,
         currentFile: file,
         currentSource: source,
+        // Stamp the pass this compile was started for, not the one it happens
+        // to finish in: a boundary crossed mid-compile leaves the generation
+        // belonging to the earlier pass, so the next pass re-proves it.
+        deliveryEpoch: epoch,
         filesystem,
         plugins: options.plugins,
         trackProjectMembership: cache !== undefined,
@@ -681,8 +793,8 @@ export async function transformTtsc(
       continue;
     }
     const { projectRoot, result } = cached;
-    reportSuccessDiagnostics(result);
-    const code = selectOrEvict(cache, key, generation, {
+    reportSuccessDiagnostics(cached, epoch);
+    const code = selectOrEvict(cache, key, generation, epoch, {
       file,
       projectRoot,
       result,
@@ -730,15 +842,22 @@ async function awaitOrEvict(
 }
 
 /**
- * Extract the transformed source, evicting the generation when the result is a
- * host `"exception"` or compiler `"failure"` (which makes
- * {@link selectTransformedSource} throw). Such a failed generation must not be
- * replayed to later callers of an unchanged module.
+ * Extract the transformed source, and decide what a throwing generation is.
+ *
+ * A generation that cannot produce output for the module asking is a failed
+ * one: a host `"exception"` and a compiler `"failure"` both make
+ * {@link selectTransformedSource} throw. Evicting it made every remaining
+ * module of the same pass repeat the whole-project transform only to reach the
+ * identical answer, which is what turned one broken save into a build measured
+ * in hours (samchon/ttsc#1303). Inside a pass the verdict is retained and
+ * replayed instead; outside one it keeps being evicted, so a long-lived worker
+ * retries on its very next delivery exactly as before.
  */
 function selectOrEvict(
   cache: TtscTransformCache | undefined,
   key: string,
   generation: Promise<TtscCachedProjectTransform>,
+  epoch: number | undefined,
   props: {
     file: string;
     projectRoot: string;
@@ -748,9 +867,89 @@ function selectOrEvict(
   try {
     return selectTransformedSource(props);
   } catch (error) {
+    const verdict = retainPassVerdict(cache, key, generation, epoch, error);
+    if (verdict !== undefined) {
+      throw verdict;
+    }
     evictGeneration(cache, key, generation);
     throw error;
   }
+}
+
+/**
+ * Retain the verdict of a compile this pass already attempted, or return
+ * `undefined` when nothing may be retained.
+ *
+ * Only inside a delivery pass. A pass is the window in which every delivery is
+ * settled against the state the pass started from, so an attempt it already
+ * made is part of that state and the remaining modules replay it rather than
+ * each repeating a whole-project transform to reach the same answer. Outside a
+ * pass there is no such window, and a long-lived worker must keep retrying on
+ * its very next delivery so a transient host failure never becomes permanent.
+ */
+function retainPassVerdict(
+  cache: TtscTransformCache | undefined,
+  key: string,
+  generation: Promise<TtscCachedProjectTransform>,
+  epoch: number | undefined,
+  error: unknown,
+): TtscTerminalGenerationError | undefined {
+  if (epoch === undefined || cache?.get(key) !== generation) {
+    return undefined;
+  }
+  const existing = TERMINAL_TRANSFORM_GENERATIONS.get(generation);
+  if (existing !== undefined) {
+    return existing;
+  }
+  const verdict = new TtscPassVerdictError(
+    error instanceof Error ? error.message : formatUnknownError(error),
+    epoch,
+  );
+  TERMINAL_TRANSFORM_GENERATIONS.set(generation, verdict);
+  return verdict;
+}
+
+/**
+ * Whether a terminal verdict still answers for this delivery.
+ *
+ * Inside the pass that produced or confirmed it, it is replayed without
+ * re-probing anything: the pass settles every delivery against the state it
+ * started from, so re-walking the project once per module would spend exactly
+ * the cost this gate exists to remove.
+ *
+ * Across passes the two kinds part company. A pass verdict is dropped, because
+ * a new pass is the first boundary at which the host itself claims something
+ * may have changed, and the compile it stood for was never proven against a
+ * recorded environment. An unstable generation was, so it keeps its own rule:
+ * one fresh attempt per pass, and otherwise replayed until that recorded
+ * environment provably moves.
+ */
+function replaysTerminalGeneration(
+  terminal: TtscTerminalGenerationError,
+  epoch: number | undefined,
+  props: {
+    currentFile: string;
+    currentSource: string;
+    filesystem: TtscTransformFilesystemOperations;
+  },
+): boolean {
+  if (epoch !== undefined && terminal.confirmedEpoch === epoch) {
+    return true;
+  }
+  if (!(terminal instanceof TtscUnstableGenerationError)) {
+    return false;
+  }
+  if (
+    epoch !== undefined &&
+    terminal.validation.cached.deliveryEpoch !== epoch
+  ) {
+    return false;
+  }
+  if (failedGenerationEnvironmentChanged(terminal.validation, props)) {
+    return false;
+  }
+  terminal.confirmedEpoch = epoch;
+  return true;
 }
 
 /**
@@ -1703,20 +1902,21 @@ export function createTransformResult(
  * state.
  *
  * Always compares the current module's in-memory source with the generation
- * snapshot. A cache whose owner called {@link beginTtscTransformBuild} can use
- * that comparison alone for a stable generation's first module delivery in the
- * current build. An incomplete generation may not take this shortcut: otherwise
- * a sibling output captured during a filesystem race could still be served
- * once. Later graph-bearing requests validate the file's derived input set and
- * project membership; graph-free envelopes conservatively re-hash the complete
- * project and out-of-walk snapshots. Any mismatch forces a complete
+ * snapshot. A cache with a delivery epoch can use that comparison alone for a
+ * stable generation's first delivery of each module in the current pass, once
+ * the pass's own first delivery has proven the whole generation still matches
+ * the filesystem. An incomplete generation may not take this shortcut:
+ * otherwise a sibling output captured during a filesystem race could still be
+ * served once. Later graph-bearing requests validate the file's derived input
+ * set and project membership; graph-free envelopes conservatively re-hash the
+ * complete project and out-of-walk snapshots. Any mismatch forces a complete
  * re-transform.
  */
 function matchesCachedSource(
   cached: TtscCachedProjectTransform,
   file: string,
   source: string,
-  buildScoped: boolean,
+  epoch: number | undefined,
 ): boolean {
   const identities = envelopeDerivation(cached).identityContext;
   const currentKey = toProjectKey(cached.projectRoot, file, identities);
@@ -1728,12 +1928,24 @@ function matchesCachedSource(
   if (expected !== hashText(source)) {
     return false;
   }
-  if (
-    buildScoped &&
-    cached.projectSnapshotComplete === true &&
-    !cached.servedFiles?.has(pathIdentityKey(file, identities))
-  ) {
-    return true;
+  if (epoch !== undefined && cached.projectSnapshotComplete === true) {
+    if (cached.deliveryEpoch !== epoch) {
+      // The pass's first delivery. The generation was settled against an
+      // earlier pass, so prove the whole of it once — every input the envelope
+      // declares, the directory membership, the universal host inputs, and the
+      // out-of-walk snapshot — before any of this pass's deliveries may be
+      // settled against it. That proof is what a per-pass recompile used to buy
+      // (samchon/ttsc#1300), at a walk instead of a compile.
+      if (!matchesCompleteInputSnapshot(cached, currentKey, source)) {
+        return false;
+      }
+      cached.deliveryEpoch = epoch;
+      cached.servedFiles?.clear();
+      return true;
+    }
+    if (!cached.servedFiles?.has(identity)) {
+      return true;
+    }
   }
   if (
     cached.result.type !== "exception" &&
@@ -3112,20 +3324,19 @@ function walkProjectInputs(
         path: current,
       });
     }
-    directories.push({
-      path: current,
-      // If membership moved during enumeration, force the next delivery to
-      // replace this generation instead of blessing a torn directory/file
-      // snapshot as stable.
-      signature:
-        after !== undefined && before === after
-          ? after
-          : `unstable:${before}:${after ?? "missing"}`,
-    });
+    const membership: string[] = [];
     for (const entry of entries) {
       if (isIgnoredProjectDirectory(entry.name)) {
         continue;
       }
+      membership.push(
+        [
+          entry.name,
+          entry.isDirectory(),
+          entry.isFile(),
+          entry.isSymbolicLink(),
+        ].join(":"),
+      );
       const file = path.join(current, entry.name);
       if (entry.isDirectory()) {
         stack.push(file);
@@ -3133,13 +3344,30 @@ function walkProjectInputs(
         files.push(file);
       }
     }
+    directories.push({
+      path: current,
+      // If membership moved during enumeration, force the next delivery to
+      // replace this generation instead of blessing a torn directory/file
+      // snapshot as stable.
+      signature:
+        after !== undefined && before === after
+          ? hashText(membership.sort().join("\0"))
+          : `unstable:${before}:${after ?? "missing"}`,
+    });
   }
   directories.sort((left, right) => left.path.localeCompare(right.path));
   files.sort();
   return { complete, directories, failures, files };
 }
 
-/** Return a cheap identity for one directory's immediate membership. */
+/**
+ * Return a directory's metadata stamp, used to detect that its membership moved
+ * *while* the walk was enumerating it, and to feed the observed-clock floor.
+ *
+ * This is the right instrument for that job and the wrong one for comparing two
+ * generations: it moves for ignored entries too. {@link walkProjectInputs}
+ * records the filtered membership digest for the comparison instead.
+ */
 function projectDirectorySignature(
   directory: string,
   filesystem: TtscTransformFilesystemOperations = DEFAULT_FILESYSTEM_OPERATIONS,
@@ -4725,6 +4953,8 @@ async function transformProject(props: {
   compilerOptions: Record<string, unknown>;
   currentFile: string;
   currentSource: string;
+  /** Delivery pass this compile was started for; see {@link TtscCachedProjectTransform.deliveryEpoch}. */
+  deliveryEpoch?: number;
   filesystem: TtscTransformFilesystemOperations;
   plugins?: ResolvedTtscUnpluginOptions["plugins"];
   trackProjectMembership: boolean;
@@ -4771,6 +5001,7 @@ async function captureTransformGeneration(props: {
   compilerOptions: Record<string, unknown>;
   currentFile: string;
   currentSource: string;
+  deliveryEpoch?: number;
   filesystem: TtscTransformFilesystemOperations;
   plugins?: ResolvedTtscUnpluginOptions["plugins"];
   trackProjectMembership: boolean;
@@ -4935,6 +5166,12 @@ async function captureTransformGeneration(props: {
       delete inputSnapshot.provenSignatures[currentFileKey];
     }
     const cached: TtscCachedProjectTransform = {
+      // The pass this compile was started for. Its snapshot describes the
+      // project as of this compile, so it is settled for this pass and any
+      // later pass must re-prove it.
+      ...(props.deliveryEpoch === undefined
+        ? {}
+        : { deliveryEpoch: props.deliveryEpoch }),
       // Capture the out-of-walk input hashes while the generation is fresh so
       // cache validation can re-check them; computed before dispose so the
       // scratch-tree exclusion is the only reason its disposed artifacts never
@@ -5527,16 +5764,33 @@ function selectTransformedSource(props: {
 }
 
 /**
- * Forward non-fatal plugin diagnostics to stderr.
+ * Forward non-fatal plugin diagnostics to stderr, once per generation per pass.
  *
  * A `success` result may still carry warnings or informational messages from
- * plugins. These are surfaced via stderr rather than throwing so the build
- * continues. Failures and exceptions are handled by the caller.
+ * plugins — `@ttsc/lint` reports every rule below error severity this way.
+ * These are surfaced via stderr rather than throwing so the build continues.
+ * Failures and exceptions are handled by the caller.
+ *
+ * They describe one compile of one program, so writing them per delivery
+ * printed the same warning once per module and scaled the noise with exactly
+ * the reuse the cache exists to provide (samchon/ttsc#1304). A pass that reuses
+ * a retained generation still surfaces them once, because a build's warnings
+ * are part of what that build reports; a host with no pass boundary surfaces
+ * them once per generation, which is the same rule with one pass.
  */
-function reportSuccessDiagnostics(result: ITtscCompilerTransformation): void {
+function reportSuccessDiagnostics(
+  cached: TtscCachedProjectTransform,
+  epoch: number | undefined,
+): void {
+  const result = cached.result;
   if (result.type !== "success" || result.diagnostics === undefined) {
     return;
   }
+  if (cached.diagnosticsReported === true && cached.diagnosticsEpoch === epoch) {
+    return;
+  }
+  cached.diagnosticsReported = true;
+  cached.diagnosticsEpoch = epoch;
   const text = formatDiagnostics(result.diagnostics);
   if (text.length !== 0) {
     process.stderr.write(`${text}\n`);
