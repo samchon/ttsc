@@ -216,10 +216,10 @@ function coveredByAnotherRule(
  * the project, so treating it as covering everything would leave every module
  * outside it with no ttsc rule at all. That is the silent failure
  * samchon/ttsc#1310 is about, and it is strictly worse than the double
- * registration this guard exists to prevent: a build that transforms twice is
- * wrong loudly, a build that never transforms is wrong quietly.
+ * registration this guard exists to prevent: a module no loader ever sees fails
+ * at runtime, while a module transformed twice costs time.
  *
- * How little such a rule covers is worth stating from measurement rather than
+ * How little a scoped rule covers is worth stating from measurement rather than
  * from the obvious guess, because the guess is wrong. Against Next.js 16.3.2,
  * `src/*.ts` and `src/**` + `/*.ts` match **nothing at all** — not even the
  * `src/` subtree they name — while `./src/*.ts`, `**` + `/src/*.ts` and a bare
@@ -227,76 +227,54 @@ function coveredByAnotherRule(
  * therefore even safer than "it only covers its subtree" implies
  * (samchon/ttsc#1319).
  *
- * Recognition is one rule rather than a list of shapes: expand a brace group
- * into the globs it stands for, drop any leading `**` + `/` segments, and
- * require that **every** alternative is then exactly `*.<extension>`. That
- * covers every spelling a caller plausibly writes for "every file with this
- * extension" — `*.ts`, `**` + `/*.ts`, `*.{ts,tsx}`, `{*.ts,*.tsx}`, `**` +
- * `/{*.ts,*.tsx}`, `{**` + `/,}*.ts` — without deciding glob equivalence in
- * general.
- *
- * Every, not any, and that distinction is the whole correctness of this
- * function. Reasoning from set semantics says `{src/,}*.ts` offers a bare
- * `*.ts` among its alternatives, so the union must cover everything and one
- * matching alternative should be enough to recognise it. Turbopack disagrees:
- * measured against Next.js 16.3.2 with a loader on that exact rule, it matches
- * **nothing** — not the project root, not `src/`, which the very alternative it
- * contains would have to match. Recognising it therefore suppressed this
- * wrapper's own rules in favour of a rule that transforms no file at all, which
- * is samchon/ttsc#1310 restored by a guard built to prevent it
- * (samchon/ttsc#1319).
- *
- * The same measurement explains why a path segment is refused wherever it
- * appears. `src/*.ts` and `src/**` + `/*.ts` match nothing either — not even
- * the `src/` subtree they name — while `./src/*.ts`, `**` + `/src/*.ts` and a
- * bare `nested-probe.ts` do match a file at `src/`. Requiring every alternative
- * to survive the test refuses all of them together, and the experimental suite
- * drives the surviving set through a real build so this stops being a belief.
- *
- * Two further shapes stay unrecognised and deliberately so, since both fail in
- * the loud direction: a character class (`*.[jt]s`) and a different case
- * (`*.TS`).
+ * The answer comes from {@link PROJECT_WIDE_GLOBS}, an exact set of measured
+ * spellings, and that document explains why it is a set rather than a rule.
  */
 function matchesExtension(glob: string, extension: string): boolean {
-  const alternatives = expandBraceGroup(glob).map((candidate) => {
-    let unprefixed = candidate;
-    while (unprefixed.startsWith("**/")) {
-      unprefixed = unprefixed.slice(3);
-    }
-    return unprefixed;
-  });
-  // Every alternative has to be project-wide, or the glob as a whole is not,
-  // and at least one has to name this extension, or it says nothing about it.
-  // `*.{ts,tsx}` passes both for `ts`: both alternatives are unscoped, and one
-  // is `*.ts`.
-  return (
-    alternatives.every((candidate) => /^\*\.[A-Za-z0-9]+$/.test(candidate)) &&
-    alternatives.includes(`*.${extension}`)
-  );
+  return PROJECT_WIDE_GLOBS.get(glob.trim())?.includes(extension) === true;
 }
 
 /**
- * Expand the first brace group in a glob into the globs it stands for, keeping
- * whatever surrounds it.
+ * The exact glob spellings a real Turbopack build has shown to name every file
+ * with an extension, and which extensions each one covers.
  *
- * `*.{ts,tsx}` becomes `*.ts` and `*.tsx`; `{**` + `/,}*.ts` becomes `**` +
- * `/*.ts` and `*.ts`. One group is enough: nothing a caller writes for two
- * extensions needs two, and a glob with no group is returned unchanged, so
- * {@link matchesExtension} has a single shape to test either way.
+ * An allowlist rather than a predicate, because recognising a glob is a claim
+ * about Turbopack's matcher and every claim here has to be one somebody
+ * measured. A rule inferred from glob semantics kept being wrong in the silent
+ * direction: `{src/,}*.ts` contains a bare `*.ts` alternative and so must cover
+ * the project by any set-theoretic reading, yet Turbopack matches nothing with
+ * it, and recognising it suppressed this wrapper's rules in favour of a rule
+ * that transforms no file at all — samchon/ttsc#1310 caused by the guard meant
+ * to prevent it (samchon/ttsc#1319).
+ *
+ * The deeper problem was that a predicate is open-ended: it answers for every
+ * spelling anyone might write, including ones no build has ever driven.
+ * `*.{ts}` and `{,**` + `/}*.ts` were both accepted on that reasoning while
+ * nothing had checked whether Turbopack expands a single-alternative group or a
+ * leading empty one. An exact set cannot overreach, so an unmeasured spelling
+ * is simply not recognised, the wrapper adds its own rules, and the failure —
+ * if any — is a second registration rather than a module that no loader ever
+ * sees.
+ *
+ * `experimental/test-unplugin` drives every entry through `next build
+ * --turbopack` and asserts a nested `.ts`, a root-level `.ts` and a nested
+ * `.tsx` all came out transformed, and
+ * `test_next_adapter_does_not_double_register_across_globs` asserts these keys
+ * and that list are the same set, so an entry cannot be added here without a
+ * build proving it.
  */
-function expandBraceGroup(glob: string): string[] {
-  const open = glob.indexOf("{");
-  const close = glob.indexOf("}", open + 1);
-  if (open === -1 || close === -1) {
-    return [glob];
-  }
-  const prefix = glob.slice(0, open);
-  const suffix = glob.slice(close + 1);
-  return glob
-    .slice(open + 1, close)
-    .split(",")
-    .map((part) => `${prefix}${part.trim()}${suffix}`);
-}
+const PROJECT_WIDE_GLOBS: ReadonlyMap<string, readonly string[]> = new Map([
+  ["*.ts", ["ts"]],
+  ["**/*.ts", ["ts"]],
+  ["{**/,}*.ts", ["ts"]],
+  ["*.tsx", ["tsx"]],
+  ["**/*.tsx", ["tsx"]],
+  ["*.{ts,tsx}", ["ts", "tsx"]],
+  ["{*.ts,*.tsx}", ["ts", "tsx"]],
+  ["**/*.{ts,tsx}", ["ts", "tsx"]],
+  ["**/{*.ts,*.tsx}", ["ts", "tsx"]],
+  ["**/**/*.{ts,tsx}", ["ts", "tsx"]],
+]);
 
 /**
  * Read the loader list out of one Turbopack rule.

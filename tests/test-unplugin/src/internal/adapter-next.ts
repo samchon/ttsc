@@ -14,12 +14,35 @@ const LOADER = "@ttsc/unplugin/turbopack";
 const RECOGNISED_PROJECT_WIDE_GLOBS = [
   "*.ts",
   "**/*.ts",
+  "{**/,}*.ts",
+  "*.tsx",
+  "**/*.tsx",
   "*.{ts,tsx}",
   "{*.ts,*.tsx}",
   "**/*.{ts,tsx}",
   "**/{*.ts,*.tsx}",
-  "{**/,}*.ts",
   "**/**/*.{ts,tsx}",
+];
+
+/**
+ * Spellings the guard must refuse, each one a shape a predicate would have
+ * accepted.
+ *
+ * `{src/,}*.ts` is the measured one: Turbopack matches nothing with it, so
+ * recognising it left every module without a rule (samchon/ttsc#1319). The rest
+ * are unmeasured, which is the same reason — nothing has shown that Turbopack
+ * expands a single-alternative group, a leading empty alternative, or two
+ * groups in one glob, so claiming they cover the project would be a guess in
+ * the direction that fails silently.
+ */
+const REFUSED_GLOBS = [
+  "{src/,}*.ts",
+  "{src,lib}/*.{ts,tsx}",
+  "{src/,lib/}*.ts",
+  "*.{ts}",
+  "{,**/}*.ts",
+  "{**/,}*.{ts,tsx}",
+  "*.{ts,}",
 ];
 
 interface INextLikeConfig {
@@ -260,13 +283,9 @@ export async function assertNextAdapterDoesNotDoubleRegisterAcrossGlobs(): Promi
   // file set the caller already routed. Every one of these is driven through a
   // real Turbopack build by `experimental/test-unplugin`, because whether a
   // glob covers the project is Turbopack's answer and not ours.
-  for (const wide of [
-    "*.{ts,tsx}",
-    "{*.ts,*.tsx}",
-    "**/*.{ts,tsx}",
-    "**/{*.ts,*.tsx}",
-    "**/**/*.{ts,tsx}",
-  ]) {
+  for (const wide of RECOGNISED_PROJECT_WIDE_GLOBS.filter((glob) =>
+    glob.includes("ts,"),
+  )) {
     assert.deepEqual(
       globs({ turbopack: { rules: { [wide]: { loaders: [LOADER] } } } }),
       [wide],
@@ -274,33 +293,35 @@ export async function assertNextAdapterDoesNotDoubleRegisterAcrossGlobs(): Promi
     );
   }
 
-  // Recognition is per extension, not per rule: a glob naming every `.ts` and
-  // no `.tsx` suppresses only the `*.ts` registration, exactly as the partial
-  // hand wiring above does.
-  for (const partial of ["{**/,}*.ts", "**/*.ts"]) {
+  // Recognition is per extension, not per rule: a glob naming every file of one
+  // extension suppresses only that registration, exactly as the partial hand
+  // wiring above does.
+  const partials: readonly (readonly [string, string])[] = [
+    ["{**/,}*.ts", "*.tsx"],
+    ["**/*.ts", "*.tsx"],
+    ["*.tsx", "*.ts"],
+    ["**/*.tsx", "*.ts"],
+  ];
+  for (const [partial, missing] of partials) {
     assert.deepEqual(
       globs({ turbopack: { rules: { [partial]: { loaders: [LOADER] } } } }),
-      [partial, "*.tsx"],
-      `${partial} names every .ts, so only the missing .tsx is added`,
+      [partial, missing],
+      `${partial} names one extension, so only the missing ${missing} is added`,
     );
   }
 
-  // A path segment anywhere disqualifies the whole glob, including inside a
-  // brace group. Set semantics say `{src/,}*.ts` offers a bare `*.ts` and so
-  // must cover everything; Turbopack, measured, matches **nothing** with it —
-  // not even `src/`. Recognising it suppressed this wrapper's rules in favour
-  // of a rule that transforms no file at all, which is samchon/ttsc#1310 caused
-  // by the guard meant to prevent it (samchon/ttsc#1319). Every alternative has
-  // to be unscoped, not merely one of them.
-  for (const scopedGroup of [
-    "{src/,}*.ts",
-    "{src,lib}/*.{ts,tsx}",
-    "{src/,lib/}*.ts",
-  ]) {
+  // Everything the guard does not recognise keeps both of the wrapper's rules.
+  // `{src/,}*.ts` is why recognition is an exact set and not a predicate: set
+  // semantics say its bare `*.ts` alternative covers the project, and Turbopack
+  // matches nothing with it, so recognising it left every module with no rule
+  // at all — samchon/ttsc#1310 caused by the guard meant to prevent it. The
+  // unmeasured brace shapes beside it would have been accepted by that same
+  // predicate on the same kind of reasoning (samchon/ttsc#1319).
+  for (const refused of REFUSED_GLOBS) {
     assert.deepEqual(
-      globs({ turbopack: { rules: { [scopedGroup]: { loaders: [LOADER] } } } }),
-      [scopedGroup, "*.ts", "*.tsx"],
-      `${scopedGroup} carries a path segment, so it must not suppress anything`,
+      globs({ turbopack: { rules: { [refused]: { loaders: [LOADER] } } } }),
+      [refused, "*.ts", "*.tsx"],
+      `${refused} is not a measured project-wide spelling, so it must suppress nothing`,
     );
   }
 

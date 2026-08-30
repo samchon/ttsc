@@ -59,11 +59,13 @@ const adapterEntrypoints = [
 const TURBOPACK_PROJECT_WIDE_GLOBS = [
   "*.ts",
   "**/*.ts",
+  "{**/,}*.ts",
+  "*.tsx",
+  "**/*.tsx",
   "*.{ts,tsx}",
   "{*.ts,*.tsx}",
   "**/*.{ts,tsx}",
   "**/{*.ts,*.tsx}",
-  "{**/,}*.ts",
   "**/**/*.{ts,tsx}",
 ];
 
