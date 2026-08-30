@@ -342,12 +342,14 @@ export async function assertCacheKeyFoldsNonceAfterSnapshotWriteFailure(): Promi
   await prepareSnapshot(root);
   const originalIdentity = readMainSnapshot(root).id;
   const originalKey = await cacheKeyForRun(root);
-  const { createSnapshotRecorder } = await TestMetroRuntime.loadFingerprint();
+  const { createSnapshotRecorder, resolveMembershipPolicy } =
+    await TestMetroRuntime.loadFingerprint();
   const recorder = createSnapshotRecorder();
+  const policy = resolveMembershipPolicy({ projectRoot: root });
 
   fs.chmodSync(snapshotDirectory(root), 0o555);
   try {
-    recorder.record({ input: external, projectRoot: root });
+    recorder.record({ input: external, policy, projectRoot: root });
     assert.deepEqual(listWorkerSnapshots(root), []);
     assert.equal(listSnapshotRecoveryFiles(root).length, 1);
     assert.notEqual(await cacheKeyForRun(root), await cacheKeyForRun(root));
@@ -356,7 +358,7 @@ export async function assertCacheKeyFoldsNonceAfterSnapshotWriteFailure(): Promi
   }
 
   // The same observation retries because the failed publication stayed dirty.
-  recorder.record({ input: external, projectRoot: root });
+  recorder.record({ input: external, policy, projectRoot: root });
   assert.deepEqual(workerSnapshotFiles(root), [external]);
   await prepareSnapshot(root);
 
@@ -671,12 +673,14 @@ export async function assertTransformerRecordsVolatileDeclarations(): Promise<vo
 export async function assertCacheKeyChangesWhenSupersedingCandidateAppears(): Promise<void> {
   const root = createBareProject();
   const candidate = path.join(root, "src", "generated.ts");
-  const { createSnapshotRecorder } = await TestMetroRuntime.loadFingerprint();
+  const { createSnapshotRecorder, resolveMembershipPolicy } =
+    await TestMetroRuntime.loadFingerprint();
 
   await prepareSnapshot(root);
   const firstWorker = createSnapshotRecorder();
   firstWorker.record({
     input: candidate,
+    policy: resolveMembershipPolicy({ projectRoot: root }),
     projectRoot: root,
   });
   assert.deepEqual(workerSnapshotFiles(root), [candidate]);
@@ -704,7 +708,8 @@ export async function assertCleanTransformClearsVolatileSnapshot(): Promise<void
   const options = {
     upstreamTransformer: TestMetroRuntime.fakeUpstreamPathOnDisk(),
   };
-  const { createSnapshotRecorder } = await TestMetroRuntime.loadFingerprint();
+  const { createSnapshotRecorder, resolveMembershipPolicy } =
+    await TestMetroRuntime.loadFingerprint();
 
   await prepareSnapshot(root);
   const volatileWorker = createSnapshotRecorder();
@@ -715,6 +720,7 @@ export async function assertCleanTransformClearsVolatileSnapshot(): Promise<void
   const cleanWorker = createSnapshotRecorder();
   cleanWorker.record({
     input: path.join(root, "src", "app.ts"),
+    policy: resolveMembershipPolicy({ projectRoot: root }),
     projectRoot: root,
   });
   await prepareSnapshot(root);
@@ -858,5 +864,50 @@ export async function assertMetroAsksTheAdaptersPolicy(): Promise<void> {
     first,
     second,
     "a file inside a directory occupying an extends candidate must not refresh the policy",
+  );
+}
+
+/**
+ * Asserts the cache key covers a source the caller's compiler-options overlay
+ * admits, which is samchon/ttsc#1316's stated acceptance criterion: "Metro's
+ * walk admits `.js` exactly as the adapter's does, provable through
+ * `getCacheKey` responding to a new `.js` file."
+ *
+ * Widening the policy object is not enough on its own, and getting only half of
+ * it is worse than getting neither. The walk and the recorder are the two
+ * halves of one cache key, and they run in different processes, so they agree
+ * only by deriving from the same declared options. Hand the overlay to the
+ * recorder alone and `isProjectWalkPath` answers that the walk covers an
+ * overlay-admitted `.js`, so the recorder drops it from the out-of-walk
+ * snapshot while the narrower walk never hashes it: the file is covered by
+ * neither half, and Metro serves its dependents' transforms across runs with
+ * nothing to notice the edit by.
+ *
+ * The strict control is what makes the positive case mean anything. Without the
+ * overlay the same `.js` is not a program input at all, so leaving the key
+ * alone is correct there, and an implementation that simply hashed every file
+ * would fail it.
+ */
+export async function assertCacheKeyCoversOverlayAdmittedSources(): Promise<void> {
+  const root = createBareProject();
+  const legacy = path.join(root, "src", "legacy.js");
+  fs.writeFileSync(legacy, "export const legacy = 1;\n", "utf8");
+  await prepareSnapshot(root);
+
+  const overlay = { compilerOptions: { allowJs: true } };
+  const before = await cacheKeyForRun(root, overlay);
+  fs.writeFileSync(legacy, "export const legacy = 2;\n", "utf8");
+  assert.notEqual(
+    before,
+    await cacheKeyForRun(root, overlay),
+    "under allowJs the walk must hash .js sources, so editing one re-keys the run",
+  );
+
+  const strict = await cacheKeyForRun(root);
+  fs.writeFileSync(legacy, "export const legacy = 3;\n", "utf8");
+  assert.equal(
+    strict,
+    await cacheKeyForRun(root),
+    "without the overlay a .js is not a program input, so it must not re-key the run",
   );
 }

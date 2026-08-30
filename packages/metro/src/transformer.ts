@@ -214,6 +214,10 @@ export function getCacheKey(...args: unknown[]): string {
   }
   hash.update(
     computeProjectFingerprint({
+      // The same overlay `transform` hands the recorder. Both read these
+      // options from `options()`, so the walk and the recorder judge one
+      // project by one program (samchon/ttsc#1316).
+      compilerOptions: opts.ttsc.compilerOptions,
       explicitProject:
         typeof opts.ttsc.project === "string" ? opts.ttsc.project : undefined,
       projectRoot: cacheKeyProjectRoot(args),
