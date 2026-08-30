@@ -27,7 +27,7 @@
  *   module.exports = withTtsc(getDefaultConfig(__dirname));
  *   ```
  */
-import { dirname, join } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { prepareSnapshot } from "./core/fingerprint";
@@ -64,12 +64,22 @@ interface MetroConfigLike {
  * With no `options`, the transformer auto-discovers `tsconfig.json` and runs
  * the plugins configured there: the standard ttsc model. Pass `options` only to
  * override the project path, plugin list, or include/exclude filters.
+ *
+ * A `babelTransformerPath` the config already carried is chained rather than
+ * replaced: it becomes the upstream this transformer delegates to, so wrapping
+ * a working config keeps whatever it configured. `react-native-svg-transformer`
+ * is installed by exactly that assignment, and replacing it silently sent every
+ * `.svg` to the auto-detected Expo default instead, with the build still
+ * succeeding (samchon/ttsc#1321). An explicit `upstreamTransformer` option
+ * still wins, since that is the caller saying it outright.
  */
 export function withTtsc<T extends MetroConfigLike>(
   config: T,
   options: TtscMetroOptions = {},
 ): T {
-  process.env[ENV_KEY] = serializeOptions(options);
+  process.env[ENV_KEY] = serializeOptions(
+    inheritConfiguredTransformer(config, options),
+  );
   // Prepare the reference-graph snapshot backing the transformer's cache-key
   // fingerprint (see `core/fingerprint.ts`). This runs in the single Metro
   // config process before any worker exists, so it is the race-free moment to
@@ -84,6 +94,56 @@ export function withTtsc<T extends MetroConfigLike>(
       babelTransformerPath: transformerModulePath(),
     },
   } as T;
+}
+
+/**
+ * Adopt the config's own `babelTransformerPath` as the upstream to delegate to.
+ *
+ * The value `withTtsc` overwrites is precisely the transformer that should run
+ * after the ttsc pass, so taking it as the default `upstreamTransformer` is
+ * what makes the wrapper additive in the one field it sets. Everything else in
+ * the config was already spread through untouched, which is what made the loss
+ * hard to see (samchon/ttsc#1321).
+ *
+ * An explicit option wins, and this package's own transformer is never adopted:
+ * a config wrapped twice would otherwise name this module as its own upstream
+ * and delegate into itself.
+ */
+function inheritConfiguredTransformer(
+  config: MetroConfigLike,
+  options: TtscMetroOptions,
+): TtscMetroOptions {
+  const declared = config.transformer?.babelTransformerPath;
+  if (
+    options.upstreamTransformer !== undefined ||
+    typeof declared !== "string" ||
+    declared.length === 0 ||
+    isOwnTransformer(declared)
+  ) {
+    return options;
+  }
+  return { ...options, upstreamTransformer: declared };
+}
+
+/**
+ * Whether a `babelTransformerPath` already points at this package's
+ * transformer.
+ *
+ * Compared by directory and base name rather than by string equality, because
+ * the same module is reachable as `transformer.js`, `transformer.mjs`, or
+ * through a path a caller spelled differently, and adopting any of them would
+ * make this transformer its own upstream.
+ */
+function isOwnTransformer(declared: string): boolean {
+  const ours = transformerModulePath();
+  const candidate = resolve(declared);
+  if (candidate === resolve(ours)) {
+    return true;
+  }
+  return (
+    dirname(candidate) === dirname(resolve(ours)) &&
+    basename(candidate).startsWith("transformer.")
+  );
 }
 
 /**

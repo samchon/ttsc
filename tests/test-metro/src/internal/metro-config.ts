@@ -125,3 +125,89 @@ export async function assertWithTtscAddsTransformerWhenAbsent(): Promise<void> {
     assert.match(config.transformer.babelTransformerPath, /transformer\.js$/);
   });
 }
+
+/**
+ * Asserts a `babelTransformerPath` the config already carried is chained rather
+ * than discarded.
+ *
+ * `withTtsc` sets that one field and used to read nothing, so a project that
+ * had configured its own transformer lost it on the line that adopted this
+ * package. Everything else survived — the config and its `transformer` are both
+ * spread through — which is what made the loss hard to see
+ * (samchon/ttsc#1321).
+ *
+ * `react-native-svg-transformer` is the case that matters, because its whole
+ * installation is that single assignment and it is ordinary in React Native and
+ * Expo projects. Losing it does not fail the build: `.svg` files are not
+ * TypeScript, so the ttsc pass hands them straight to its upstream, and the
+ * upstream was the auto-detected Expo default rather than the transformer the
+ * project chose. The build succeeds and the SVG components are wrong.
+ *
+ * The transport matters as much as the decision, so this reads the value back
+ * out of `TTSC_METRO_OPTIONS` — the environment variable Metro's workers
+ * actually consult — rather than from the returned config.
+ */
+export async function assertWithTtscChainsAnExistingTransformer(): Promise<void> {
+  await withCleanEnv(async () => {
+    const { ENV_KEY } = await TestMetroRuntime.loadOptions();
+    const { withTtsc } = await TestMetroRuntime.loadIndex();
+    const declared = path.join(
+      tempProjectRoot(),
+      "node_modules",
+      "react-native-svg-transformer",
+      "index.js",
+    );
+
+    const config = withTtsc({
+      projectRoot: tempProjectRoot(),
+      transformer: { babelTransformerPath: declared },
+    });
+    assert.equal(
+      JSON.parse(process.env[ENV_KEY] as string).upstreamTransformer,
+      declared,
+      "the transformer the config already named must become the upstream",
+    );
+    assert.notEqual(
+      config.transformer.babelTransformerPath,
+      declared,
+      "and this package's transformer must be the one Metro loads",
+    );
+
+    // An explicit option is the caller saying it outright, so it wins.
+    withTtsc(
+      {
+        projectRoot: tempProjectRoot(),
+        transformer: { babelTransformerPath: declared },
+      },
+      { upstreamTransformer: "explicit-upstream" },
+    );
+    assert.equal(
+      JSON.parse(process.env[ENV_KEY] as string).upstreamTransformer,
+      "explicit-upstream",
+      "an explicit upstreamTransformer must win over the config's value",
+    );
+
+    // A config with nothing declared still auto-detects, which is the whole
+    // point of the candidate list.
+    withTtsc({ projectRoot: tempProjectRoot() });
+    assert.equal(
+      JSON.parse(process.env[ENV_KEY] as string).upstreamTransformer,
+      undefined,
+      "a config with no transformer must still auto-detect",
+    );
+
+    // Wrapping twice must not make this transformer its own upstream.
+    const once = withTtsc({ projectRoot: tempProjectRoot() });
+    const twice = withTtsc(once);
+    assert.equal(
+      JSON.parse(process.env[ENV_KEY] as string).upstreamTransformer,
+      undefined,
+      "a doubly wrapped config must not delegate into this package's own transformer",
+    );
+    assert.equal(
+      twice.transformer.babelTransformerPath,
+      once.transformer.babelTransformerPath,
+      "and the transformer Metro loads is unchanged",
+    );
+  });
+}
