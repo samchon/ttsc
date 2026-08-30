@@ -48,6 +48,7 @@ import {
   collectExternalInputHashes,
   collectProjectInputHashes,
   isProjectWalkPath,
+  mergeMembershipPolicyOverlay,
   readProjectMembershipPolicy,
 } from "@ttsc/unplugin/api";
 import { createHash, randomBytes } from "node:crypto";
@@ -150,6 +151,26 @@ export function fingerprintRoots(
 }
 
 /**
+ * The membership policy for one transform, resolved once and handed to every
+ * watch input that transform reports.
+ *
+ * Exported because the recorder is asked once per input while the answer is a
+ * property of the project, and validating the memo means stat-ing the whole
+ * `extends` chain (samchon/ttsc#1316).
+ */
+export function resolveMembershipPolicy(props: {
+  compilerOptions?: Record<string, unknown>;
+  explicitProject?: string;
+  projectRoot?: string;
+}): ReturnType<typeof readProjectMembershipPolicy> {
+  const base = resolveFingerprintBase(props.projectRoot);
+  return membershipPolicy(
+    resolveProjectTsconfig(base, props.explicitProject),
+    props.compilerOptions,
+  );
+}
+
+/**
  * The membership policy of one project, memoized per resolved tsconfig.
  *
  * Every use of the walk pair has to ask the same policy, or the two halves
@@ -169,6 +190,7 @@ const MEMBERSHIP_POLICIES = new Map<
 
 function membershipPolicy(
   tsconfig: string,
+  compilerOptions?: Record<string, unknown>,
 ): ReturnType<typeof readProjectMembershipPolicy> {
   // Keyed by the config's own stamp, not by its path. A Metro worker outlives
   // many runs, and this is consulted once per delivered file, so a plain
@@ -180,7 +202,16 @@ function membershipPolicy(
   if (existing !== undefined && existing.stamp === stampOf(existing.sources)) {
     return existing.policy;
   }
-  const policy = readProjectMembershipPolicy(tsconfig);
+  // The caller's compiler-options overlay wins for the compile, so it has to
+  // win here too, exactly as it does in the adapter: a project given
+  // `allowJs: true` through `withTtsc` has a wider program than its tsconfig
+  // alone describes, and a narrower policy here would ask a different question
+  // about the same project (samchon/ttsc#1316).
+  const policy = mergeMembershipPolicyOverlay(
+    readProjectMembershipPolicy(tsconfig),
+    compilerOptions ?? {},
+    path.dirname(path.resolve(tsconfig)),
+  );
   // Stamp the whole `extends` chain, not the leaf. Adding `exclude` to a shared
   // `tsconfig.base.json` leaves the leaf's own mtime and size untouched while
   // changing every answer the policy gives, so a leaf-only stamp would keep the
@@ -201,7 +232,12 @@ function stampOf(sources: readonly string[]): string {
     .map((source) => {
       try {
         const stats = fs.statSync(source);
-        return `${source}:${stats.mtimeMs}:${stats.size}`;
+        // A directory occupying a candidate path can never be the config, so it
+        // contributes its existence and not its modification time, which moves
+        // whenever any child is added or removed (samchon/ttsc#1316).
+        return stats.isDirectory()
+          ? `${source}:directory`
+          : `${source}:${stats.mtimeMs}:${stats.size}`;
       } catch {
         // Absent now. `readProjectMembershipPolicy` answers for that too, and
         // the policy must be re-asked once the config appears.
@@ -471,8 +507,18 @@ export function readSnapshotState(base: string): SnapshotState | undefined {
  */
 export function createSnapshotRecorder(): {
   record: (props: {
+    compilerOptions?: Record<string, unknown>;
     explicitProject?: string;
     input: string;
+    /**
+     * The policy this transform already resolved, so the recorder does not
+     * re-derive it. `record` runs once per watch input rather than once per
+     * file, and validating the memo means stat-ing the whole `extends` chain,
+     * measured at 12 microseconds per stat: a few thousand modules times
+     * fifteen inputs each cost over half a second per run for an answer that
+     * cannot change between two inputs of one file (samchon/ttsc#1316).
+     */
+    policy?: ReturnType<typeof readProjectMembershipPolicy>;
     projectRoot?: string;
   }) => void;
   recordVolatile: (props: {
@@ -549,9 +595,12 @@ export function createSnapshotRecorder(): {
       const input = path.resolve(props.input);
       const firstObservation = !state.observed;
       state.observed = true;
-      const policy = membershipPolicy(
-        resolveProjectTsconfig(base, props.explicitProject),
-      );
+      const policy =
+        props.policy ??
+        membershipPolicy(
+          resolveProjectTsconfig(base, props.explicitProject),
+          props.compilerOptions,
+        );
       if (
         state.files.has(input) ||
         (fs.existsSync(input) &&

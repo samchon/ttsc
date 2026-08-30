@@ -27,6 +27,7 @@ import path from "node:path";
 import {
   computeProjectFingerprint,
   createSnapshotRecorder,
+  resolveMembershipPolicy,
   stableStringify,
 } from "./core/fingerprint";
 import type { ResolvedTtscMetroOptions } from "./core/options";
@@ -120,6 +121,11 @@ export async function transform(params: {
         : undefined;
     const explicitProject =
       typeof opts.ttsc.project === "string" ? opts.ttsc.project : undefined;
+    const membershipPolicy = resolveMembershipPolicy({
+      compilerOptions: opts.ttsc.compilerOptions,
+      explicitProject,
+      projectRoot,
+    });
     const result = await transformTtsc(
       resolveAbsoluteFilename(params.filename, params.options),
       params.src,
@@ -133,8 +139,17 @@ export async function transform(params: {
         // that the next run's getCacheKey re-hashes instead. Fires on cache
         // hits too, so a worker that never recompiled still records the
         // inputs backing the outputs it serves.
+        // The policy is resolved once for this file and handed to every one of
+        // its watch inputs. `record` runs per input, and validating the memo
+        // means stat-ing the whole `extends` chain, which is an answer that
+        // cannot change between two inputs of one file (samchon/ttsc#1316).
         addWatchFile: (input) =>
-          snapshotRecorder.record({ explicitProject, input, projectRoot }),
+          snapshotRecorder.record({
+            explicitProject,
+            input,
+            policy: membershipPolicy,
+            projectRoot,
+          }),
         // A volatile declaration means the output depends on non-file inputs
         // that no file fingerprint can represent; the snapshot marks it and
         // getCacheKey degrades to a per-run nonce (no cross-run reuse).

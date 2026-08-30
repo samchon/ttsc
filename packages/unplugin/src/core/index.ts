@@ -303,7 +303,10 @@ export type {
   TtscWatchInputEvidence,
 } from "./transform";
 export type { ITtscProjectMembershipPolicy } from "./tsconfigPaths";
-export { readProjectMembershipPolicy } from "./tsconfigPaths";
+export {
+  mergeMembershipPolicyOverlay,
+  readProjectMembershipPolicy,
+} from "./tsconfigPaths";
 export {
   beginTtscTransformBuild,
   collectExternalInputHashes,

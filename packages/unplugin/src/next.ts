@@ -166,12 +166,12 @@ function withTtscTurbopackRules(
  * Whether some other rule already routes this glob's files through the loader.
  *
  * Deciding glob equivalence in general means implementing Turbopack's matcher,
- * which is not worth it here. What is worth it is the set a user actually
- * writes for these two extensions: a brace list naming the extension, and the
- * same glob under a leading `**` path prefix. Anything outside that is left
- * alone, which errs toward the wrapper doing nothing rather than toward
- * registering a second time, because a missing rule is visible and a double
- * transform is not.
+ * which is not worth it here. What is recognised instead is the set of globs
+ * that mean "every file with this extension", since only those can make the
+ * wrapper's own rules redundant. Anything narrower is left alone and the
+ * wrapper still adds its rules: skipping on a scoped glob would leave every
+ * module outside that scope untransformed, which is samchon/ttsc#1310 again and
+ * the quieter of the two failures.
  */
 function coveredByAnotherRule(
   rules: Record<string, unknown>,
@@ -190,11 +190,25 @@ function coveredByAnotherRule(
 }
 
 /**
- * Whether one glob names this extension, for the shapes a hand-written rule
- * takes: `*.ts`, `**` + `/*.ts`, and a brace list such as `*.{ts,tsx}`.
+ * Whether one glob names this extension across the whole project.
+ *
+ * Unscoped only. A rule restricted to a path, `src/*.{ts,tsx}` or
+ * `node_modules/**` + `/*.ts`, covers its own subtree and says nothing about
+ * the rest of the project, so treating it as covering everything would leave
+ * every module outside that subtree with no ttsc rule at all. That is the
+ * silent failure samchon/ttsc#1310 is about, and it is strictly worse than the
+ * double registration this guard exists to prevent: a build that transforms
+ * twice is wrong loudly, a build that never transforms is wrong quietly.
+ *
+ * So the shapes recognised are exactly the two that mean "every file with this
+ * extension": `*.ts` and `**` + `/*.ts`, each also in brace-list form.
  */
 function matchesExtension(glob: string, extension: string): boolean {
-  const tail = glob.slice(glob.lastIndexOf(".") + 1);
+  const unprefixed = glob.startsWith("**/") ? glob.slice(3) : glob;
+  if (!unprefixed.startsWith("*.")) {
+    return false;
+  }
+  const tail = unprefixed.slice(2);
   if (tail === extension) {
     return true;
   }

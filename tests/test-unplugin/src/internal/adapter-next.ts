@@ -166,12 +166,11 @@ export async function assertNextAdapterPreservesTurbopackConfig(): Promise<void>
  * the caller spelled differently.
  *
  * The dedupe guard read only the rule stored under the exact key the wrapper
- * writes, so a caller who had wired `"*.{ts,tsx}"` by hand, which is the
- * natural way to write two identical rules and what the README asked for before
- * this wrapper existed, kept their rule and received `"*.ts"` and `"*.tsx"` as
- * well. Every TypeScript module then matched two rules and the loader ran twice
- * on it, with the second pass receiving the first pass's output
- * (samchon/ttsc#1314).
+ * writes, so a caller who had wired `"*.{ts,tsx}"` by hand, which is a natural
+ * way to write two identical rules, kept their rule and received `"*.ts"` and
+ * `"*.tsx"` as well. Every TypeScript module then matched two rules and the
+ * loader ran twice on it, with the second pass receiving the first pass's
+ * output (samchon/ttsc#1314).
  *
  * The wrapper still completes a partial hand wiring, since `"*.ts"` alone
  * leaves `.tsx` unrouted, and still adds its own rules beside a glob carrying
@@ -213,6 +212,31 @@ export async function assertNextAdapterDoesNotDoubleRegisterAcrossGlobs(): Promi
     globs({ turbopack: { rules: { "*.{ts,tsx}": { loaders: ["other"] } } } }),
     ["*.{ts,tsx}", "*.ts", "*.tsx"],
     "another loader's glob must not suppress ttsc's own rules",
+  );
+
+  // The direction that matters most, because getting it wrong is
+  // samchon/ttsc#1310 again rather than a double transform: a rule scoped to a
+  // path covers its own subtree and says nothing about the rest of the
+  // project, so the wrapper must still add its own.
+  for (const scoped of [
+    "src/*.{ts,tsx}",
+    "src/**/*.ts",
+    "./src/**/*.{ts,tsx}",
+    "generated.ts",
+    "*.d.ts",
+  ]) {
+    assert.deepEqual(
+      globs({ turbopack: { rules: { [scoped]: { loaders: [LOADER] } } } }),
+      [scoped, "*.ts", "*.tsx"],
+      `a rule scoped by ${scoped} must not suppress the project-wide rules`,
+    );
+  }
+
+  // And the shape the guard does recognise, under a recursive prefix.
+  assert.deepEqual(
+    globs({ turbopack: { rules: { "**/*.{ts,tsx}": { loaders: [LOADER] } } } }),
+    ["**/*.{ts,tsx}"],
+    "a project-wide brace list under a recursive prefix already covers both",
   );
 }
 
