@@ -297,8 +297,18 @@ export async function assertNextAdapterWarnsAboutASuppressedWebpackHook(): Promi
   const warned = capture({ webpack: (config) => config });
   assert.match(
     warned,
-    /withTtsc now configures Turbopack/,
+    /your own `webpack` hook does not run on a Turbopack build/,
     "a caller's own webpack hook must not be dropped in silence",
+  );
+  // What the message must not claim. It used to say Next.js would have warned
+  // and no longer will; measured against Next 16.3.2, a config with a `webpack`
+  // hook and no `turbopack` block builds cleanly with no mention of either, and
+  // Next ships no such check. A diagnostic that asserts something the reader can
+  // check and find false costs the channel that also carries the out-of-program
+  // report (samchon/ttsc#1320).
+  assert.ok(
+    !/Next\.js will not warn|refuses to build/.test(warned),
+    `the warning must not claim Next.js would have said anything (got ${JSON.stringify(warned)})`,
   );
 
   assert.equal(

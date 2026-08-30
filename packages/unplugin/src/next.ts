@@ -88,14 +88,22 @@ export default function next(
 }
 
 /**
- * Say what Next.js can no longer say once this wrapper defines `turbopack`.
+ * Tell a caller their webpack-only configuration will not run.
  *
- * Next refuses to build on Turbopack when a config carries a `webpack` hook and
- * no `turbopack` block, because the webpack hook is then silently ignored. This
- * wrapper always defines both, so that check can never fire again for anyone
- * who uses it, and a caller's own webpack customisation would be dropped on a
- * Turbopack build with nothing said. Wiring ttsc for Turbopack is worth exactly
- * one warning, not the loss of the warning Next already gave.
+ * A `webpack` hook does not apply to a Turbopack build, and this wrapper wires
+ * Turbopack, so a caller who had configured webpack and nothing else is about
+ * to build with a bundler their configuration never reaches. That is worth one
+ * line, because nothing else says it.
+ *
+ * Nothing else including Next itself, which is why this no longer claims
+ * otherwise. The message used to say Next would have warned and no longer will,
+ * and the docstring said Next "refuses to build" in this situation. Measured
+ * against Next 16.3.2, a config with a `webpack` hook and no `turbopack` block
+ * builds cleanly under `next build --turbopack`: exit 0, and no occurrence of
+ * `webpack`, `ignored`, or `warn` anywhere in the output. Next's shipped code
+ * carries no such check either. There was no warning to suppress, and saying so
+ * put a claim in front of users that they could check and find false
+ * (samchon/ttsc#1320).
  *
  * Only for a caller who wrote a `webpack` hook and no `turbopack` block. A
  * caller who configured Turbopack has already made that decision, and a caller
@@ -109,10 +117,10 @@ function warnAboutSuppressedWebpackConfig(nextConfig: NextLikeConfig): void {
     return;
   }
   process.stderr.write(
-    "@ttsc/unplugin: withTtsc now configures Turbopack as well as webpack, so " +
-      "Next.js will not warn that your own `webpack` hook is ignored on a " +
-      "Turbopack build. Port it to `turbopack`, or run the bundler you " +
-      "configured with `next build --webpack` / `next dev --webpack`." +
+    "@ttsc/unplugin: withTtsc configures Turbopack as well as webpack, and your " +
+      "own `webpack` hook does not run on a Turbopack build. Port it to " +
+      "`turbopack`, or run the bundler you configured with " +
+      "`next build --webpack` / `next dev --webpack`." +
       String.fromCharCode(10),
   );
 }
