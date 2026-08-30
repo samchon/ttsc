@@ -41,6 +41,12 @@ interface ICacheProjectOptions {
   /** Override the project's `outDir`, which the walk excludes by configuration. */
   outDir?: string;
   /**
+   * Top-level `exclude` entries. TypeScript still keeps an _imported_ file in
+   * the program whatever `exclude` says, which is what makes an excluded
+   * directory holding a real graph member reachable.
+   */
+  exclude?: string[];
+  /**
    * Add a second lexical spelling of one global — a file symlink beside it —
    * and stamp both into `graph.globals`, the alias first.
    *
@@ -3537,6 +3543,7 @@ function createCacheProject(options: ICacheProjectOptions): {
           ],
         },
         include: ["src"],
+        ...(options.exclude === undefined ? {} : { exclude: options.exclude }),
       },
       null,
       2,

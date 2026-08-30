@@ -725,13 +725,25 @@ function verifyFarmBuild() {
 }
 
 function verifyNextBuild() {
-  run("npx next build --webpack", workspace);
-  assertBuiltTreeContains(
-    "dist-next",
-    "NEXT-INSTALLED-OK",
-    "next",
-    "next-installed-ok",
-  );
+  // Both of Next's bundlers, because `withTtsc` claims both. The webpack half
+  // was the only one checked for a long time, and forcing `--webpack` here is
+  // what let the Turbopack half ship doing nothing at all: the build succeeded
+  // and the output was simply untransformed (samchon/ttsc#1310). The assertion
+  // is the same for each, and it is the one that fails when the transform did
+  // not run, since it requires the transformed marker and refuses the original.
+  for (const bundler of ["--webpack", "--turbopack"]) {
+    fs.rmSync(path.join(workspace, "dist-next"), {
+      force: true,
+      recursive: true,
+    });
+    run(`npx next build ${bundler}`, workspace);
+    assertBuiltTreeContains(
+      "dist-next",
+      "NEXT-INSTALLED-OK",
+      `next ${bundler}`,
+      "next-installed-ok",
+    );
+  }
 }
 
 function verifyBunBuild() {

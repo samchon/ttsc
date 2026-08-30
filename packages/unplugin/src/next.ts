@@ -71,6 +71,7 @@ export default function next(
   nextConfig: NextLikeConfig = {},
   options?: TtscUnpluginOptions,
 ): NextLikeConfig {
+  warnAboutSuppressedWebpackConfig(nextConfig);
   return {
     ...nextConfig,
     turbopack: withTtscTurbopackRules(nextConfig.turbopack, options),
@@ -87,14 +88,43 @@ export default function next(
 }
 
 /**
+ * Say what Next.js can no longer say once this wrapper defines `turbopack`.
+ *
+ * Next refuses to build on Turbopack when a config carries a `webpack` hook and
+ * no `turbopack` block, because the webpack hook is then silently ignored. This
+ * wrapper always defines both, so that check can never fire again for anyone
+ * who uses it, and a caller's own webpack customisation would be dropped on a
+ * Turbopack build with nothing said. Wiring ttsc for Turbopack is worth exactly
+ * one warning, not the loss of the warning Next already gave.
+ *
+ * Only for a caller who wrote a `webpack` hook and no `turbopack` block. A
+ * caller who configured Turbopack has already made that decision, and a caller
+ * with neither has no webpack-only configuration to lose.
+ */
+function warnAboutSuppressedWebpackConfig(nextConfig: NextLikeConfig): void {
+  if (
+    typeof nextConfig.webpack !== "function" ||
+    nextConfig.turbopack !== undefined
+  ) {
+    return;
+  }
+  process.stderr.write(
+    "@ttsc/unplugin: withTtsc now configures Turbopack as well as webpack, so " +
+      "Next.js will not warn that your own `webpack` hook is ignored on a " +
+      "Turbopack build. Port it to `turbopack`, or run the bundler you " +
+      "configured with `next build --webpack` / `next dev --webpack`.",
+  );
+}
+
+/**
  * Merge the ttsc loader rules into a caller's Turbopack configuration.
  *
  * Additive in every direction: unrelated Turbopack settings and unrelated rules
  * are carried through untouched, and a glob the caller already configured keeps
- * its own loaders with ttsc prepended, which is the `enforce: "pre"` ordering
- * the webpack half gets from unplugin. A caller who already wired this loader
- * by hand is left exactly as they are, so following the README's manual
- * instructions and then adopting the wrapper cannot register it twice.
+ * its own loaders with ttsc placed where the chain runs it first. A caller who
+ * already wired this loader by hand is left exactly as they are, so following
+ * the README's manual instructions and then adopting the wrapper cannot
+ * register it twice.
  */
 function withTtscTurbopackRules(
   existing: TurbopackLikeConfig | undefined,
@@ -108,10 +138,17 @@ function withTtscTurbopackRules(
       continue;
     }
     const entry = { loader: TURBOPACK_LOADER, options: options ?? {} };
+    // Appended, not prepended. Turbopack runs a rule's loaders through
+    // webpack's own `loader-runner`, which runs the normal phase right to
+    // left, so the last entry is the one that sees the original source. ttsc
+    // transforms TypeScript into TypeScript, so it has to be that one, which
+    // is the same position `enforce: "pre"` gives it on the webpack half.
     rules[glob] =
       rule === undefined || loaders.length === 0
         ? { loaders: [entry] }
-        : { ...(rule as object), loaders: [entry, ...loaders] };
+        : Array.isArray(rule)
+          ? { loaders: [...loaders, entry] }
+          : { ...(rule as object), loaders: [...loaders, entry] };
   }
   return { ...(existing ?? {}), rules };
 }

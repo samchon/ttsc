@@ -126,13 +126,82 @@ export async function assertNextAdapterPreservesTurbopackConfig(): Promise<void>
     "a hand-wired loader must not be registered a second time",
   );
 
-  // A caller with another loader on the same glob keeps it, with ttsc first,
-  // which is the ordering unplugin's `enforce: "pre"` gives the webpack half.
+  // A caller with another loader on the same glob keeps it, with ttsc placed
+  // where the chain runs it first. Turbopack runs rule loaders through
+  // webpack's `loader-runner`, whose normal phase runs right to left, so the
+  // last entry is the one that sees the original source, and ttsc has to be
+  // that one because it transforms TypeScript into TypeScript.
   const shared = next({
     turbopack: { rules: { "*.ts": { loaders: ["other-loader"] } } },
   });
   const sharedLoaders = loadersOf(shared.turbopack?.rules?.["*.ts"]);
   assert.equal(sharedLoaders.length, 2, "the caller's loader must survive");
-  assert.ok(isTtscLoader(sharedLoaders[0]), "ttsc must run first");
-  assert.equal(sharedLoaders[1], "other-loader");
+  assert.equal(sharedLoaders[0], "other-loader");
+  assert.ok(
+    isTtscLoader(sharedLoaders[1]),
+    "ttsc must see the original source",
+  );
+
+  // Turbopack also accepts a bare array of loaders. Spreading that into an
+  // object produced `{ "0": "other-loader", loaders: [...] }`, which Next's own
+  // strict schema rejects as an unrecognized key.
+  const arrayForm = next({
+    turbopack: {
+      rules: { "*.ts": ["other-loader"] } as Record<string, unknown>,
+    },
+  });
+  const arrayRule = arrayForm.turbopack?.rules?.["*.ts"];
+  assert.ok(
+    !Object.keys(arrayRule as object).some((key) => /^\d+$/.test(key)),
+    `an array rule must not be spread into an object (got ${JSON.stringify(arrayRule)})`,
+  );
+  const arrayLoaders = loadersOf(arrayRule);
+  assert.equal(arrayLoaders.length, 2);
+  assert.equal(arrayLoaders[0], "other-loader");
+  assert.ok(isTtscLoader(arrayLoaders[1]));
+}
+
+/**
+ * Asserts the wrapper says what Next.js can no longer say for it.
+ *
+ * Next refuses to build on Turbopack when a config carries a `webpack` hook and
+ * no `turbopack` block, because the hook is then silently ignored. This wrapper
+ * always defines both, so that check can never fire again for anyone who uses
+ * it. Wiring Turbopack is worth one warning, not the loss of the warning Next
+ * already gave (samchon/ttsc#1310).
+ */
+export async function assertNextAdapterWarnsAboutASuppressedWebpackHook(): Promise<void> {
+  const next = await loadNext();
+  const capture = (config: INextLikeConfig): string => {
+    const original = process.stderr.write.bind(process.stderr);
+    let written = "";
+    process.stderr.write = ((chunk: unknown) => {
+      written += String(chunk);
+      return true;
+    }) as typeof process.stderr.write;
+    try {
+      next(config);
+    } finally {
+      process.stderr.write = original;
+    }
+    return written;
+  };
+
+  const warned = capture({ webpack: (config) => config });
+  assert.match(
+    warned,
+    /withTtsc now configures Turbopack/,
+    "a caller's own webpack hook must not be dropped in silence",
+  );
+
+  assert.equal(
+    capture({}),
+    "",
+    "a caller with no webpack hook has nothing to lose",
+  );
+  assert.equal(
+    capture({ turbopack: { rules: {} }, webpack: (config) => config }),
+    "",
+    "a caller who already configured Turbopack has made the decision",
+  );
 }

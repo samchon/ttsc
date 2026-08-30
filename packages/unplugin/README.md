@@ -304,7 +304,7 @@ Supported entrypoints are:
 
 Each entrypoint supports ESM import and CJS require. In CommonJS configs, read the default export from `require("@ttsc/unplugin/vite").default`. `@ttsc/unplugin/turbopack` is not an unplugin factory but a standalone webpack loader; reference it by module name inside `turbopack.rules` instead of calling it.
 
-`@ttsc/unplugin/bun-register` is the Bun **runtime** entry rather than a bundler adapter, covered under [Bun](#bun) below. `@ttsc/unplugin/api` exposes the transform core itself (`transformTtsc`, `resolveOptions`, the cache lifecycle) for hosts that are not unplugin-shaped; `@ttsc/metro` is built on it.
+`@ttsc/unplugin/bun-register` is the Bun **runtime** entry rather than a bundler adapter, covered under [Bun](#bun) above. `@ttsc/unplugin/api` exposes the transform core itself (`transformTtsc`, `resolveOptions`, the cache lifecycle) for hosts that are not unplugin-shaped; `@ttsc/metro` is built on it.
 
 ### Options
 
@@ -330,11 +330,7 @@ Under Vite, the adapter reads the resolved `resolve.alias` and layers it onto th
 
 ### Cache and Watch Invalidation
 
-The transform graph also records module-resolution candidates that would outrank a selected target, plus the selected lexical spelling when the compiler reports its physical symlink or junction target. The adapter registers candidates for importers in the transformed file's reachability closure, so creating or changing a higher-priority probe or retargeting the selected alias invalidates watch and persistent caches without an importer or tsconfig edit.
-
-The transform host reports the program's reference graph (the transform envelope's `graph` section: per-file direct resolved references with type-only edges included, global-scope files, and the tsconfig `extends` chain, see the [plugin protocol](https://ttsc.dev/docs/development/concepts/protocol#transform)). Per transformed file, the adapter registers the graph's reachability closure, the globals, and the configs with the bundler via `addWatchFile`, so editing a type that only a generated validator depends on invalidates the module (in watch mode, in webpack's filesystem cache, and in Turbopack's `fileDependencies`) even though the bundler erased the type-only import from its own graph.
-
-Transform plugins may additionally report, per file, the source files they consulted (the envelope's `dependencies` field); the adapter registers those as watch files too, union semantics. A plugin that declares such a list [complete](https://ttsc.dev/docs/development/concepts/protocol#dependency-completeness) for a file narrows the registration instead: only its own list plus the tsconfig chain, so files the transform never consulted stop invalidating it. The JavaScript host also reports the descriptor's loaded CommonJS graph, every package manifest inspected by auto-discovery, and plugin-declared `hostInputs`. First-party plugins use that last field for implicit config discovery and evaluated config dependencies. These remain universal without turning arbitrary project assets into configuration. Files a plugin declares `volatile` (output depending on non-file inputs such as environment or time) bypass the adapter's transform cache and are marked uncacheable where the bundler exposes that control.
+Editing a type that only a generated validator depends on invalidates the module, in watch mode, in webpack's filesystem cache and in Turbopack's `fileDependencies`, even though the bundler erased the type-only import from its own graph. The adapter registers each transformed file's reference closure, the global-scope files, the configs and the resolution candidates with the bundler, plus whatever the plugins themselves report. The [setup guide](https://ttsc.dev/docs/setup/unplugin) describes how that set is derived and proven.
 
 One whole-project compile already contains every module's output, so the adapter compiles the project once and serves every module from that one result. Everything below is about when it may keep doing that.
 
@@ -344,7 +340,7 @@ A host with a build boundary opens a delivery pass there. The pass's first deliv
 
 Hosts with no build boundary (Metro workers, the Turbopack loader, and a watching Vite dev server, whose one `buildStart` spans later HMR edits) validate each generation hit against the inputs that can affect the module being asked for: its reference closure, the global-scope files, the configs, the resolution candidates, and the plugin dependencies. Sibling modules share one proof of the closure rather than repeating it per module.
 
-Project membership comes from the resolved configuration rather than from a list of directory names. `allowJs` and `resolveJsonModule` decide which file extensions can enter the program, so a bundle emitted beside your sources is not a membership change for a project that compiles no JavaScript. `outDir`, `declarationDir` and the plain entries of `exclude` name the directories the program does not contain. A directory takes part in membership only when it can hold a program input, so your bundler's output directory costs nothing whatever it is called, while a source appearing in it later is still detected.
+Project membership comes from the resolved configuration rather than from a list of directory names. `allowJs` and `resolveJsonModule` decide which file extensions can enter the program, so a bundle emitted beside your sources is not a membership change for a project that compiles no JavaScript. `outDir`, `declarationDir` and the plain entries of `exclude` name the directories the program does not contain, and those are not walked at all. Everywhere else, a directory takes part in membership only while it can hold a program input, so an output directory no configuration names still costs nothing as long as what it holds is not admissible, and the first source appearing in it is detected because the directory is walked and watched throughout. A project that does admit JavaScript should name its bundler's output directory in `exclude`, since otherwise an emitted `.js` there is a program input like any other.
 
 #### When it is discarded
 
@@ -365,8 +361,6 @@ A dev server started without a watcher (`server.watch: null`, which is what `vit
 Freshness proofs rest on filesystem timestamps, so two environments need care. A project on a network mount that accepts a watch and then reports nothing should be treated as one where notifications do not work. And a clock that jumps backwards, or a tree restored with stamps set into the future, defeats any stamp-based proof; a clock running at a constant offset does not, since it moves both sides of every comparison.
 
 The [setup guide](https://ttsc.dev/docs/setup/unplugin) describes how these proofs are built.
-
-Transform source outputs outside the project walk are kept in that external snapshot too. A non-declaration output is reusable only when the graph carries its compiler-time content and physical-identity proof; a post-compile disk read cannot prove which bytes produced the output. Its source hash then lets sibling module requests validate the same generation without adding arbitrary output keys to the project-file universe.
 
 ## Sponsors
 

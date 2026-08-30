@@ -8,6 +8,8 @@ import { createCacheProject, projectModules } from "./transform-project-cache";
 interface IMembershipSession {
   close: () => void;
   compiles: () => number;
+  /** Deliver every module with no pass boundary, as a persistent host does. */
+  deliver: () => Promise<void>;
   modules: string[];
   pass: () => Promise<void>;
   reads: () => number;
@@ -40,12 +42,25 @@ async function startMembershipSession(
   });
   const resolved = api.resolveOptions();
   const modules = projectModules(project.root);
+  const deliverAll = async (): Promise<void> => {
+    for (const file of modules) {
+      await api.transformTtsc(
+        file,
+        fs.readFileSync(file, "utf8"),
+        resolved,
+        undefined,
+        cache,
+        { addWatchFile: () => undefined },
+      );
+    }
+  };
   return {
     close: () => api.resetTtscTransformCache(cache),
     compiles: () =>
       fs.existsSync(project.runLog)
         ? fs.readFileSync(project.runLog, "utf8").length
         : 0,
+    deliver: deliverAll,
     modules,
     pass: async () => {
       api.beginTtscTransformBuild(cache);
@@ -295,4 +310,119 @@ export async function assertTheWalkAvoidsWorkItCannotUse(): Promise<void> {
   } finally {
     session.close();
   }
+}
+
+/**
+ * Asserts a host with no build boundary is not charged for emitted output
+ * either.
+ *
+ * The other half of samchon/ttsc#1307, and the half every pass-based case is
+ * blind to. `@ttsc/metro`, the Turbopack loader and a watching Vite dev server
+ * never call `beginTtscTransformBuild`, so their deliveries go through the live
+ * mutation tracker rather than through the pass gate's whole-generation proof.
+ * The tracker has to answer the same question the membership digest does, or
+ * the two disagree about one project: a content-hashed bundle fires a rename
+ * per rebuild, and treating that as a membership change kept the whole cost on
+ * exactly the hosts the narrow path exists for.
+ */
+export async function assertAPersistentHostIgnoresEmittedOutput(): Promise<void> {
+  const session = await startMembershipSession();
+  try {
+    await session.deliver();
+    assert.equal(session.compiles(), 1);
+    await session.deliver();
+    assert.equal(session.compiles(), 1, "an unchanged project costs nothing");
+
+    // The output directory appears. A live tracker has to treat a new
+    // directory as membership, because it cannot know what will be put in it
+    // and it is not watching it yet, so this one costs a compile.
+    emitHashedBundle(session.root, "lib", 1);
+    await session.deliver();
+    const settled = session.compiles();
+
+    // What must cost nothing is every rebuild after it, which is where the
+    // defect lived: content-hashed filenames change the directory's membership
+    // on every build, and the tracker used to report each one.
+    for (let build = 2; build <= 5; build += 1) {
+      emitHashedBundle(session.root, "lib", build);
+      await session.deliver();
+    }
+    assert.equal(
+      session.compiles(),
+      settled,
+      "a persistent host must not recompile per rebuild for output it cannot admit",
+    );
+
+    // The same host must still see a real one.
+    fs.writeFileSync(
+      path.join(session.root, "src", "late.ts"),
+      "export const late: number = 1;",
+      "utf8",
+    );
+    await session.deliver();
+    assert.equal(
+      session.compiles(),
+      settled + 1,
+      "a persistent host must still see a source entering the program",
+    );
+  } finally {
+    session.close();
+  }
+}
+
+/**
+ * Asserts the walk and `isProjectWalkPath` answer the same question.
+ *
+ * `selectExternalInputPaths` uses that predicate as the sole test for "the walk
+ * already covers this", and records everything else as an out-of-walk input to
+ * be proven by content and physical identity. So the two must agree exactly.
+ * Making the walk configuration-aware while the predicate stayed permissive
+ * would put a graph input the compiler really read into neither snapshot:
+ * absent from `inputHashes` because the walk skipped its directory, and absent
+ * from the out-of-walk snapshot because the predicate claimed the walk had it.
+ * On a pass-based host that is silent staleness, and on a persistent one it is
+ * a whole-project recompile per delivery, forever.
+ *
+ * Asserted against the predicate directly, because the disagreement is between
+ * two functions rather than in either one's own behaviour.
+ */
+export async function assertTheWalkPredicateMatchesTheWalk(): Promise<void> {
+  const api = await TestUnpluginRuntime.loadUnpluginApi();
+  const project = createCacheProject({
+    exclude: ["src/generated"],
+    fileCount: 1,
+    outDir: "lib",
+  });
+  const policy = api.readProjectMembershipPolicy(
+    path.join(project.root, "tsconfig.json"),
+  );
+  const walkSees = (relative: string): boolean =>
+    api.isProjectWalkPath(
+      project.root,
+      path.join(project.root, ...relative.split("/")),
+      undefined,
+      undefined,
+      policy,
+    );
+
+  for (const relative of [
+    "src/generated/helper.ts", // a plain `exclude` entry
+    "lib/helper.ts", // the configured `outDir`
+    "src/bundle.js", // an extension this program cannot admit
+    "node_modules/dep/index.ts", // the name-based residue
+  ]) {
+    assert.equal(
+      walkSees(relative),
+      false,
+      `${relative} is not hashed by the walk, so the predicate must not claim it is`,
+    );
+  }
+
+  const source = path.join(project.root, "src", "mod0.ts");
+  fs.writeFileSync(source, "export const kept: number = 1;", "utf8");
+  assert.equal(
+    walkSees("src/mod0.ts"),
+    true,
+    "an ordinary source the walk does hash must still be claimed",
+  );
 }

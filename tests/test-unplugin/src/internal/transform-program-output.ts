@@ -146,11 +146,13 @@ export async function assertAFailedCompileWatchesAndReportsPlainly(): Promise<vo
 
   const deliver = async (): Promise<{
     error: Error | undefined;
+    evidence: unknown[];
     watched: string[];
   }> => {
     const cache = api.createTtscTransformCache();
     api.beginTtscTransformBuild(cache);
     const watched: string[] = [];
+    const evidence: unknown[] = [];
     let error: Error | undefined;
     try {
       await api.transformTtsc(
@@ -159,14 +161,19 @@ export async function assertAFailedCompileWatchesAndReportsPlainly(): Promise<vo
         options,
         undefined,
         cache,
-        { addWatchFile: (input: string) => watched.push(input) },
+        {
+          addWatchFile: (input: string, supplied?: unknown) => {
+            watched.push(input);
+            evidence.push(supplied);
+          },
+        },
       );
     } catch (caught) {
       error = caught as Error;
     } finally {
       api.resetTtscTransformCache(cache);
     }
-    return { error, watched };
+    return { error, evidence, watched };
   };
 
   const healthy = await deliver();
@@ -174,6 +181,10 @@ export async function assertAFailedCompileWatchesAndReportsPlainly(): Promise<vo
   assert.ok(
     healthy.watched.length > 0,
     "a healthy delivery registers its derived watch inputs",
+  );
+  assert.ok(
+    healthy.evidence.some((supplied) => supplied !== undefined),
+    "a healthy delivery supplies the generation's own recorded evidence",
   );
 
   // A genuine type error, in a file nothing imports at runtime, so no bundler
@@ -189,6 +200,14 @@ export async function assertAFailedCompileWatchesAndReportsPlainly(): Promise<vo
   assert.ok(
     failed.watched.some((input) => path.resolve(input) === broken),
     "the file the diagnostics name must be among them",
+  );
+  // No evidence, deliberately. A failed generation is replayed for the rest of
+  // its pass without re-proving its inputs, so it cannot claim one of them
+  // still exists; the adapter has to probe, which is also what routes a
+  // deleted input to the poll that can notice it coming back.
+  assert.ok(
+    failed.evidence.every((supplied) => supplied === undefined),
+    "a failed delivery must claim nothing about inputs it has not re-proven",
   );
   assert.ok(
     !failed.error.message.includes(String.fromCharCode(27)),

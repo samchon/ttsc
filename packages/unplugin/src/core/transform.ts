@@ -1585,12 +1585,16 @@ function notifyFailedGenerationInputs(
     if (isTransformScratchInput(input, cached.scratchDirectory)) {
       continue;
     }
-    // No evidence argument, deliberately. The recorded existence belongs to the
-    // compile, and one of these inputs being deleted is a live reason for the
-    // compile to have failed, so claiming `missing: false` here would hand Vite
-    // serve a path that is absent by design and produce the 500 the adapter's
-    // missing-input poll exists to prevent. Letting the adapter probe costs one
-    // `existsSync` per input, on a failing delivery only.
+    // No evidence argument, deliberately. `missing: false` would be a claim
+    // this path cannot back: a failed generation is replayed for the rest of
+    // its pass without re-proving its inputs, so the walk that recorded them
+    // may be older than the delivery, and one of them having been deleted is a
+    // live reason for that compile to have failed. Letting the adapter probe
+    // also routes an absent input to the missing-input poll, which is the only
+    // channel through which restoring it can invalidate anything: a bundler
+    // watch on a path that does not exist registers nothing, and no module
+    // graph carries a type-only input. It costs one `existsSync` per input,
+    // and only where the adapter reads evidence at all, which is Vite serve.
     addWatchFile(input);
   }
 }
@@ -3598,11 +3602,17 @@ function walkProjectInputs(
       if (entry.isDirectory()) {
         visit.childDirectories.push(file);
         stack.push(file);
-      } else if (entry.isFile()) {
+      } else if (entry.isFile() && possible) {
+        // Only a file that could enter the program is hashed. A file that
+        // could not is either irrelevant to every generation, or it is one the
+        // compiler actually read, in which case the graph reports it and
+        // `isProjectWalkPath` now agrees it is out of the walk, so it is
+        // recorded and proven by the out-of-walk snapshot instead. Hashing an
+        // emitted tree here bought nothing and cost a read per file, including
+        // in `@ttsc/metro`, whose fingerprint re-keys every transformed file
+        // (samchon/ttsc#1307).
         files.push(file);
-        if (possible) {
-          visit.ownInput = true;
-        }
+        visit.ownInput = true;
       }
     }
     visited.push(visit);
@@ -3746,6 +3756,7 @@ function openDirectoryWatch(
 async function createProjectMutationTracker(
   directories: readonly TtscProjectDirectorySnapshot[],
   filesystem: TtscTransformFilesystemOperations = DEFAULT_FILESYSTEM_OPERATIONS,
+  policy: ITtscProjectMembershipPolicy = PERMISSIVE_PROJECT_MEMBERSHIP_POLICY,
 ): Promise<TtscProjectMutationTracker> {
   const tracker: TtscProjectMutationTracker = {
     changes: new Set(),
@@ -3760,6 +3771,13 @@ async function createProjectMutationTracker(
       directories.map((directory) => ({ directory: directory.path })),
       false,
       filesystem,
+      (location, filename) =>
+        reportsProgramMembership(
+          path.join(location, filename),
+          filename,
+          policy,
+          filesystem,
+        ),
     );
     return tracker;
   }
@@ -3775,14 +3793,26 @@ async function createProjectMutationTracker(
           filesystem,
           directory.path,
           (eventType, filename) => {
-            if (eventType === "rename") {
-              recordProjectMutation(
-                tracker,
-                filename === null
-                  ? directory.path
-                  : path.join(directory.path, filename),
-              );
+            if (eventType !== "rename") {
+              return;
             }
+            if (
+              filename !== null &&
+              !reportsProgramMembership(
+                path.join(directory.path, filename),
+                filename,
+                policy,
+                filesystem,
+              )
+            ) {
+              return;
+            }
+            recordProjectMutation(
+              tracker,
+              filename === null
+                ? directory.path
+                : path.join(directory.path, filename),
+            );
           },
           () => {
             tracker.failed = true;
@@ -3899,6 +3929,41 @@ async function createHostInputMutationTracker(
 }
 
 /** Record enough exact mutation evidence without retaining an event stream. */
+/**
+ * Whether one directory event can be a change to the program's membership.
+ *
+ * The live tracker has to answer the same question the membership digest does,
+ * or the two disagree about the same project: a bundler writing content-hashed
+ * output fires a rename per rebuild, and treating that as membership kept the
+ * cost samchon/ttsc#1307 removes on every host that has no build boundary,
+ * which is every host the narrow path exists for.
+ *
+ * A name that could be a program input counts. A name that could not still
+ * counts when the path is now a directory, because the walk's watches were
+ * opened for the directories that existed when the generation was captured, so
+ * a directory created since is not watched and the sources that may appear in
+ * it would otherwise be invisible. An event whose name the host did not report
+ * is unattributable and always counts.
+ */
+function reportsProgramMembership(
+  location: string,
+  filename: string,
+  policy: ITtscProjectMembershipPolicy,
+  filesystem: TtscTransformFilesystemOperations,
+): boolean {
+  if (isPossibleProgramFileName(filename, policy)) {
+    return true;
+  }
+  try {
+    return filesystem.lstat(location).isDirectory();
+  } catch {
+    // Gone again, or unreadable. Its name could not have been a program input,
+    // and a directory removed under this one reports its own contents leaving
+    // through the watch that was opened on it.
+    return false;
+  }
+}
+
 function recordProjectMutation(
   tracker: TtscProjectMutationTracker,
   changed: string,
@@ -3924,6 +3989,13 @@ interface WindowsProjectMutationBroker {
   trackers: Map<
     number,
     {
+      /**
+       * Whether one named event can be a program membership change. Present
+       * only for the project-directory tracker, which watches whole directories
+       * and so has to narrow what it hears; the trackers that watch exact names
+       * have already narrowed theirs by construction.
+       */
+      membership?: (location: string, filename: string) => boolean;
       ready: () => void;
       tracker: TtscProjectMutationTracker;
     }
@@ -3949,6 +4021,12 @@ async function registerWindowsProjectMutationTracker(
   locations: readonly WindowsMutationLocation[],
   allEvents: boolean,
   filesystem: TtscTransformFilesystemOperations,
+  /**
+   * Optional filter for the project-directory tracker, whose events have to be
+   * narrowed to program membership exactly as the in-process watcher's are. The
+   * name-watching trackers pass none, since they already watch exact names.
+   */
+  membership?: (location: string, filename: string) => boolean,
 ): Promise<void> {
   const broker = getWindowsProjectMutationBroker();
   const normalized = locations.map((location) => {
@@ -3971,7 +4049,7 @@ async function registerWindowsProjectMutationTracker(
   const ready = new Promise<void>((resolve) => {
     resolveReady = resolve;
   });
-  broker.trackers.set(id, { ready: resolveReady, tracker });
+  broker.trackers.set(id, { membership, ready: resolveReady, tracker });
   tracker.drain = () => drainWindowsProjectMutationBroker(broker);
   tracker.close = () => {
     const active = broker.trackers.get(id);
@@ -4066,6 +4144,13 @@ function getWindowsProjectMutationBroker(): WindowsProjectMutationBroker {
     if (record.ready === true) registration.ready();
     if (record.ready !== true && record.failed !== true) {
       if (typeof record.directory === "string") {
+        if (
+          typeof record.filename === "string" &&
+          registration.membership !== undefined &&
+          !registration.membership(record.directory, record.filename)
+        ) {
+          return;
+        }
         recordProjectMutation(
           registration.tracker,
           typeof record.filename === "string"
@@ -4303,6 +4388,14 @@ export function isProjectWalkPath(
   if (isExcludedProjectDirectory(path.dirname(path.resolve(file)), policy)) {
     return false;
   }
+  // The walk hashes only files that could enter the program, so a path it does
+  // not hash is out of the walk by definition. Answering otherwise would leave
+  // a graph input the compiler really read in neither snapshot: absent from
+  // `inputHashes` because the walk skipped it, and absent from the out-of-walk
+  // snapshot because this predicate claimed the walk covered it.
+  if (!isPossibleProgramFileName(path.basename(file), policy)) {
+    return false;
+  }
   let current = resolvedRoot;
   for (let index = 0; index < segments.length; ++index) {
     current = path.join(current, segments[index]!);
@@ -4432,6 +4525,7 @@ function matchesCachedExternalInputs(cached: TtscCachedProjectTransform): {
  */
 function selectExternalInputPaths(props: {
   filesystem?: TtscTransformFilesystemOperations;
+  membershipPolicy: ITtscProjectMembershipPolicy;
   projectRoot: string;
   result: ITtscCompilerTransformation;
   scratchDirectory?: string;
@@ -4513,7 +4607,13 @@ function selectExternalInputPaths(props: {
       isTransformScratchInput(absolute, props.scratchDirectory) ||
       seen.has(spelling) ||
       (!missingCandidate &&
-        isProjectWalkPath(props.projectRoot, absolute, identities, filesystem))
+        isProjectWalkPath(
+          props.projectRoot,
+          absolute,
+          identities,
+          filesystem,
+          props.membershipPolicy,
+        ))
     ) {
       continue;
     }
@@ -4740,11 +4840,18 @@ function isPossibleProgramEntry(
   entry: fs.Dirent,
   policy: ITtscProjectMembershipPolicy,
 ): boolean {
-  if (!entry.isFile()) {
-    return true;
-  }
-  const name = entry.name.toLowerCase();
-  return policy.inputExtensions.some((extension) => name.endsWith(extension));
+  return entry.isFile() ? isPossibleProgramFileName(entry.name, policy) : true;
+}
+
+/** The same question for a bare file name, for callers holding no `Dirent`. */
+function isPossibleProgramFileName(
+  name: string,
+  policy: ITtscProjectMembershipPolicy,
+): boolean {
+  const lowered = name.toLowerCase();
+  return policy.inputExtensions.some((extension) =>
+    lowered.endsWith(extension),
+  );
 }
 
 /**
@@ -5393,6 +5500,7 @@ async function captureTransformGeneration(props: {
       ? await createProjectMutationTracker(
           before.projectDirectories,
           props.filesystem,
+          membershipPolicy,
         )
       : undefined;
     const result = withTransformScratchEnvironment(scratchDirectory, () =>
@@ -5468,6 +5576,7 @@ async function captureTransformGeneration(props: {
         : undefined;
     const externalInputPaths = selectExternalInputPaths({
       filesystem: props.filesystem,
+      membershipPolicy,
       projectRoot,
       result,
       scratchDirectory,

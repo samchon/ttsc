@@ -324,7 +324,7 @@ export default unplugin;
  *
  * TypeScript only. {@link sourceFilePattern} deliberately excludes JavaScript,
  * so a `.js` module reaches no adapter's transform, and this docstring used to
- * say otherwise while the pattern twenty lines above said the truth
+ * say otherwise while the pattern it is built from said the truth
  * (samchon/ttsc#1309).
  *
  * Also excluded: virtual modules (NUL prefix), `.d.ts` declaration files, and
