@@ -211,7 +211,7 @@ const LANES = [
       // reader over Windows path spellings from the consumer's side.
       "pnpm --filter @ttsc/test-metro start -- " +
       "--include=cache_key --include=records_only_external " +
-      "--include=records_linked",
+      "--include=records_linked --include=adapters_policy",
   },
   {
     id: "graph",
