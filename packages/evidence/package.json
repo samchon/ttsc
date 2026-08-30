@@ -1,6 +1,6 @@
 {
   "name": "@ttsc/evidence",
-  "version": "0.28.3",
+  "version": "0.28.4",
   "description": "Evidence-graph lint contributor for @ttsc/lint: declare provenance with a JSDoc @evidence tag and fail the build when it is missing or dangling.",
   "main": "src/index.ts",
   "exports": {
