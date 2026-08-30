@@ -3951,6 +3951,13 @@ function reportsProgramMembership(
   policy: ITtscProjectMembershipPolicy,
   filesystem: TtscTransformFilesystemOperations,
 ): boolean {
+  if (isExcludedProjectDirectory(location, policy)) {
+    // The walk never descends here and the digest cannot see it, so the tracker
+    // must not be the one side that does. A build emptying and recreating its
+    // own `outDir`, which is what `emptyOutDir` and `output.clean` do on every
+    // build, would otherwise void the generation once per build.
+    return false;
+  }
   if (isPossibleProgramFileName(filename, policy)) {
     return true;
   }

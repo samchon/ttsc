@@ -132,10 +132,44 @@ export function fingerprintRoots(
   explicitProject: string | undefined,
 ): string[] {
   const tsconfig = resolveProjectTsconfig(base, explicitProject);
-  if (isProjectWalkPath(base, tsconfig)) {
+  if (
+    isProjectWalkPath(
+      base,
+      tsconfig,
+      undefined,
+      undefined,
+      membershipPolicy(tsconfig),
+    )
+  ) {
     return [base];
   }
   return [base, path.dirname(tsconfig)];
+}
+
+/**
+ * The membership policy of one project, memoized per resolved tsconfig.
+ *
+ * Every use of the walk pair has to ask the same policy, or the two halves
+ * disagree about the same project. The walk hashes what the configuration can
+ * admit, and `isProjectWalkPath` answers whether the walk covers a path, so a
+ * permissive answer here would claim coverage the walk does not provide and the
+ * input would be recorded nowhere at all (samchon/ttsc#1307).
+ */
+const MEMBERSHIP_POLICIES = new Map<
+  string,
+  ReturnType<typeof readProjectMembershipPolicy>
+>();
+
+function membershipPolicy(
+  tsconfig: string,
+): ReturnType<typeof readProjectMembershipPolicy> {
+  const existing = MEMBERSHIP_POLICIES.get(tsconfig);
+  if (existing !== undefined) {
+    return existing;
+  }
+  const policy = readProjectMembershipPolicy(tsconfig);
+  MEMBERSHIP_POLICIES.set(tsconfig, policy);
+  return policy;
 }
 
 /**
@@ -184,7 +218,7 @@ export function computeProjectFingerprint(props: {
     // does. Metro folds this into one static key, so an entry the program
     // could never contain used to re-key every transformed file rather than
     // costing one compile the way it does for a bundler (samchon/ttsc#1307).
-    const policy = readProjectMembershipPolicy(
+    const policy = membershipPolicy(
       resolveProjectTsconfig(base, props.explicitProject),
     );
     for (const root of fingerprintRoots(base, props.explicitProject)) {
@@ -476,10 +510,15 @@ export function createSnapshotRecorder(): {
       const input = path.resolve(props.input);
       const firstObservation = !state.observed;
       state.observed = true;
+      const policy = membershipPolicy(
+        resolveProjectTsconfig(base, props.explicitProject),
+      );
       if (
         state.files.has(input) ||
         (fs.existsSync(input) &&
-          state.roots.some((root) => isProjectWalkPath(root, input)))
+          state.roots.some((root) =>
+            isProjectWalkPath(root, input, undefined, undefined, policy),
+          ))
       ) {
         // Even when every input belongs to the project walk, the worker must
         // publish that it performed a clean transform. Otherwise an old main

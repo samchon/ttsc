@@ -703,3 +703,43 @@ export async function assertWithTtscPreparesTheSnapshot(): Promise<void> {
   assert.notEqual(main.id.length, 0);
   assert.deepEqual(main.files, []);
 }
+
+/**
+ * Asserts editing the project's tsconfig re-keys the whole run.
+ *
+ * The project walk stopped hashing files that cannot enter the program
+ * (samchon/ttsc#1307), and the tsconfig is one of them, so the fingerprint has
+ * to reach it some other way. This pins the outcome rather than the route: a
+ * compiler-option change must re-key every transform of the run, whichever
+ * channel carries it.
+ *
+ * The failure it guards against is the quietest one this package has, since
+ * Metro would otherwise serve transforms compiled under the previous compiler
+ * options across runs with nothing to notice it by. The agreement between the
+ * walk and `isProjectWalkPath` that keeps the routing sound is pinned directly
+ * in `@ttsc/test-unplugin`, by
+ * `test_transformttsc_the_walk_predicate_matches_the_walk`, because it is a
+ * property of two functions rather than of any one outcome.
+ */
+export async function assertCacheKeyChangesWhenTheTsconfigChanges(): Promise<void> {
+  const root = createBareProject();
+  await prepareSnapshot(root);
+  const before = await cacheKeyForRun(root);
+
+  const tsconfig = path.join(root, "tsconfig.json");
+  const parsed = JSON.parse(fs.readFileSync(tsconfig, "utf8")) as {
+    compilerOptions?: Record<string, unknown>;
+  };
+  parsed.compilerOptions = {
+    ...(parsed.compilerOptions ?? {}),
+    target: "ES2021",
+  };
+  fs.writeFileSync(tsconfig, JSON.stringify(parsed, null, 2), "utf8");
+
+  const after = await cacheKeyForRun(root);
+  assert.notEqual(
+    before,
+    after,
+    "a tsconfig edit must re-key every transform in the run",
+  );
+}

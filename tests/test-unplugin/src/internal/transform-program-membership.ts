@@ -405,16 +405,40 @@ export async function assertTheWalkPredicateMatchesTheWalk(): Promise<void> {
       policy,
     );
 
+  // Materialized, every one of them. `isProjectWalkPath` rejects a path that
+  // does not exist before it ever reaches the exclusion or extension checks, so
+  // asserting on absent paths would pass whatever the policy said and pin
+  // nothing at all.
   for (const relative of [
     "src/generated/helper.ts", // a plain `exclude` entry
     "lib/helper.ts", // the configured `outDir`
     "src/bundle.js", // an extension this program cannot admit
     "node_modules/dep/index.ts", // the name-based residue
   ]) {
+    const absolute = path.join(project.root, ...relative.split("/"));
+    fs.mkdirSync(path.dirname(absolute), { recursive: true });
+    fs.writeFileSync(absolute, "export const planted: number = 1;", "utf8");
     assert.equal(
       walkSees(relative),
       false,
       `${relative} is not hashed by the walk, so the predicate must not claim it is`,
+    );
+  }
+
+  // And the walk really does not hash them, which is the other half of the
+  // agreement: the predicate would be free to say anything if nothing checked
+  // what the walk actually collected.
+  const hashed = Object.keys(
+    api.collectProjectInputHashes(project.root, undefined, undefined, policy),
+  );
+  for (const absent of [
+    "src/generated/helper.ts",
+    "lib/helper.ts",
+    "src/bundle.js",
+  ]) {
+    assert.ok(
+      !hashed.includes(absent),
+      `the walk must not hash ${absent} (hashed: ${hashed.join(", ")})`,
     );
   }
 

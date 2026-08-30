@@ -112,7 +112,8 @@ function warnAboutSuppressedWebpackConfig(nextConfig: NextLikeConfig): void {
     "@ttsc/unplugin: withTtsc now configures Turbopack as well as webpack, so " +
       "Next.js will not warn that your own `webpack` hook is ignored on a " +
       "Turbopack build. Port it to `turbopack`, or run the bundler you " +
-      "configured with `next build --webpack` / `next dev --webpack`.",
+      "configured with `next build --webpack` / `next dev --webpack`." +
+      String.fromCharCode(10),
   );
 }
 
