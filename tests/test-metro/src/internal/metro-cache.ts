@@ -805,3 +805,58 @@ export async function assertCacheKeyChangesWhenTheTsconfigChanges(): Promise<voi
     "a tsconfig edit must re-key every transform in the run",
   );
 }
+
+/**
+ * Asserts Metro asks the membership policy the way the adapter does.
+ *
+ * Three differences the previous cycle left between the two packages
+ * (samchon/ttsc#1316), all of them the same shape: one product answering one
+ * question two ways.
+ *
+ * The overlay is the one with consequences. The adapter builds its policy as
+ * the project config plus the caller's compiler-options overlay, because the
+ * overlay wins for the compile and so must win for the membership rule. Metro
+ * read the project config alone, so `withTtsc(config, { compilerOptions: {
+ * allowJs: true } })` gave its walk a narrower program than the compile has.
+ *
+ * The directory stamp and the per-input lookup are cost rather than
+ * correctness, and both are measured in the issue.
+ */
+export async function assertMetroAsksTheAdaptersPolicy(): Promise<void> {
+  const fingerprint = await TestMetroRuntime.loadFingerprint();
+  const root = createBareProject();
+
+  const strict = fingerprint.resolveMembershipPolicy({ projectRoot: root });
+  assert.ok(
+    !strict.inputExtensions.includes(".js"),
+    `a project without allowJs must not admit .js (got ${strict.inputExtensions.join(" ")})`,
+  );
+
+  const widened = fingerprint.resolveMembershipPolicy({
+    compilerOptions: { allowJs: true },
+    projectRoot: root,
+  });
+  assert.ok(
+    widened.inputExtensions.includes(".js"),
+    "the caller's compiler-options overlay must widen Metro's policy too",
+  );
+
+  // A directory occupying an `extends` candidate can never be the config, so
+  // its children must not churn the memo.
+  const leaf = path.join(root, "tsconfig.json");
+  const declared = JSON.parse(fs.readFileSync(leaf, "utf8")) as object;
+  fs.writeFileSync(
+    leaf,
+    JSON.stringify({ ...declared, extends: "./config" }),
+    "utf8",
+  );
+  fs.mkdirSync(path.join(root, "config"), { recursive: true });
+  const first = fingerprint.resolveMembershipPolicy({ projectRoot: root });
+  fs.writeFileSync(path.join(root, "config", "note.txt"), "one", "utf8");
+  const second = fingerprint.resolveMembershipPolicy({ projectRoot: root });
+  assert.equal(
+    first,
+    second,
+    "a file inside a directory occupying an extends candidate must not refresh the policy",
+  );
+}

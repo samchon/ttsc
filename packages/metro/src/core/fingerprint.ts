@@ -198,7 +198,13 @@ function membershipPolicy(
   // started. An edit adding `exclude` would then leave the worker judging a
   // file in-walk while the next run's walk skipped it, which is precisely the
   // both-sides-disagree hole this policy exists to close.
-  const existing = MEMBERSHIP_POLICIES.get(tsconfig);
+  // Keyed by the overlay as well as the config. The overlay is part of the
+  // answer, so a memo keyed by path alone would hand a caller who passed
+  // `allowJs` the policy resolved for a caller who did not.
+  const key = [tsconfig, stableStringify(compilerOptions ?? {})].join(
+    String.fromCharCode(0),
+  );
+  const existing = MEMBERSHIP_POLICIES.get(key);
   if (existing !== undefined && existing.stamp === stampOf(existing.sources)) {
     return existing.policy;
   }
@@ -218,7 +224,7 @@ function membershipPolicy(
   // worker on the pre-edit policy for its lifetime.
   const sources =
     policy.sources.length === 0 ? [tsconfig] : [...policy.sources];
-  MEMBERSHIP_POLICIES.set(tsconfig, {
+  MEMBERSHIP_POLICIES.set(key, {
     policy,
     sources,
     stamp: stampOf(sources),
