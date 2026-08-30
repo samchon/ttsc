@@ -342,12 +342,14 @@ export async function assertCacheKeyFoldsNonceAfterSnapshotWriteFailure(): Promi
   await prepareSnapshot(root);
   const originalIdentity = readMainSnapshot(root).id;
   const originalKey = await cacheKeyForRun(root);
-  const { createSnapshotRecorder } = await TestMetroRuntime.loadFingerprint();
+  const { createSnapshotRecorder, resolveProjectView } =
+    await TestMetroRuntime.loadFingerprint();
   const recorder = createSnapshotRecorder();
+  const project = resolveProjectView({ projectRoot: root });
 
   fs.chmodSync(snapshotDirectory(root), 0o555);
   try {
-    recorder.record({ input: external, projectRoot: root });
+    recorder.record({ input: external, project });
     assert.deepEqual(listWorkerSnapshots(root), []);
     assert.equal(listSnapshotRecoveryFiles(root).length, 1);
     assert.notEqual(await cacheKeyForRun(root), await cacheKeyForRun(root));
@@ -356,7 +358,7 @@ export async function assertCacheKeyFoldsNonceAfterSnapshotWriteFailure(): Promi
   }
 
   // The same observation retries because the failed publication stayed dirty.
-  recorder.record({ input: external, projectRoot: root });
+  recorder.record({ input: external, project });
   assert.deepEqual(workerSnapshotFiles(root), [external]);
   await prepareSnapshot(root);
 
@@ -671,13 +673,14 @@ export async function assertTransformerRecordsVolatileDeclarations(): Promise<vo
 export async function assertCacheKeyChangesWhenSupersedingCandidateAppears(): Promise<void> {
   const root = createBareProject();
   const candidate = path.join(root, "src", "generated.ts");
-  const { createSnapshotRecorder } = await TestMetroRuntime.loadFingerprint();
+  const { createSnapshotRecorder, resolveProjectView } =
+    await TestMetroRuntime.loadFingerprint();
 
   await prepareSnapshot(root);
   const firstWorker = createSnapshotRecorder();
   firstWorker.record({
     input: candidate,
-    projectRoot: root,
+    project: resolveProjectView({ projectRoot: root }),
   });
   assert.deepEqual(workerSnapshotFiles(root), [candidate]);
 
@@ -704,18 +707,21 @@ export async function assertCleanTransformClearsVolatileSnapshot(): Promise<void
   const options = {
     upstreamTransformer: TestMetroRuntime.fakeUpstreamPathOnDisk(),
   };
-  const { createSnapshotRecorder } = await TestMetroRuntime.loadFingerprint();
+  const { createSnapshotRecorder, resolveProjectView } =
+    await TestMetroRuntime.loadFingerprint();
 
   await prepareSnapshot(root);
   const volatileWorker = createSnapshotRecorder();
-  volatileWorker.recordVolatile({ projectRoot: root });
+  volatileWorker.recordVolatile({
+    project: resolveProjectView({ projectRoot: root }),
+  });
   await prepareSnapshot(root);
   assert.equal(readMainSnapshot(root).volatile, true);
 
   const cleanWorker = createSnapshotRecorder();
   cleanWorker.record({
     input: path.join(root, "src", "app.ts"),
-    projectRoot: root,
+    project: resolveProjectView({ projectRoot: root }),
   });
   await prepareSnapshot(root);
 
@@ -803,5 +809,231 @@ export async function assertCacheKeyChangesWhenTheTsconfigChanges(): Promise<voi
     before,
     after,
     "a tsconfig edit must re-key every transform in the run",
+  );
+}
+
+/**
+ * Asserts Metro asks the membership policy the way the adapter does.
+ *
+ * Three differences the previous cycle left between the two packages
+ * (samchon/ttsc#1316), all of them the same shape: one product answering one
+ * question two ways.
+ *
+ * The overlay is the one with consequences. The adapter builds its policy as
+ * the project config plus the caller's compiler-options overlay, because the
+ * overlay wins for the compile and so must win for the membership rule. Metro
+ * read the project config alone, so `withTtsc(config, { compilerOptions: {
+ * allowJs: true } })` gave its walk a narrower program than the compile has.
+ *
+ * The directory stamp and the per-input lookup are cost rather than
+ * correctness, and both are measured in the issue.
+ */
+export async function assertMetroAsksTheAdaptersPolicy(): Promise<void> {
+  const fingerprint = await TestMetroRuntime.loadFingerprint();
+  const root = createBareProject();
+
+  const strict = fingerprint.resolveProjectView({ projectRoot: root });
+  assert.ok(
+    !strict.policy.inputExtensions.includes(".js"),
+    `a project without allowJs must not admit .js (got ${strict.policy.inputExtensions.join(" ")})`,
+  );
+
+  const widened = fingerprint.resolveProjectView({
+    compilerOptions: { allowJs: true },
+    projectRoot: root,
+  });
+  assert.ok(
+    widened.policy.inputExtensions.includes(".js"),
+    "the caller's compiler-options overlay must widen Metro's policy too",
+  );
+
+  // A directory occupying an `extends` candidate can never be the config, so
+  // its children must not churn the memo.
+  const leaf = path.join(root, "tsconfig.json");
+  const declared = JSON.parse(fs.readFileSync(leaf, "utf8")) as object;
+  fs.writeFileSync(
+    leaf,
+    JSON.stringify({ ...declared, extends: "./config" }),
+    "utf8",
+  );
+  fs.mkdirSync(path.join(root, "config"), { recursive: true });
+  const first = fingerprint.resolveProjectView({ projectRoot: root });
+  fs.writeFileSync(path.join(root, "config", "note.txt"), "one", "utf8");
+  const second = fingerprint.resolveProjectView({ projectRoot: root });
+  assert.equal(
+    first.policy,
+    second.policy,
+    "a file inside a directory occupying an extends candidate must not refresh the policy",
+  );
+
+  // The other direction, and the one that makes the first safe to want: the
+  // stamp still has to notice a real config arriving at a candidate path.
+  // `./config` resolves to `config.json` when that file exists, so its
+  // appearance changes the answer and must refresh the memo — a directory
+  // contributing its existence instead of its mtime must not blind the stamp
+  // to that. Widening `exclude` is what makes the refresh observable rather
+  // than merely re-derived.
+  fs.writeFileSync(
+    path.join(root, "config.json"),
+    JSON.stringify({ exclude: ["src/generated"] }),
+    "utf8",
+  );
+  const third = fingerprint.resolveProjectView({ projectRoot: root });
+  assert.notEqual(
+    second.policy,
+    third.policy,
+    "a config appearing at an extends candidate must refresh the policy",
+  );
+  assert.ok(
+    third.policy.excludedDirectories.some((directory: string) =>
+      directory.includes("generated"),
+    ),
+    `the refreshed policy must carry the new config's exclude (got ${JSON.stringify(third.policy.excludedDirectories)})`,
+  );
+
+  // And disappearing again, which #1316 asks for beside the appearance. A
+  // candidate that stops existing is the same kind of state change as one that
+  // starts, so the stamp has to move both ways or a project that deletes a
+  // shared config keeps compiling under it.
+  fs.rmSync(path.join(root, "config.json"));
+  const fourth = fingerprint.resolveProjectView({ projectRoot: root });
+  assert.notEqual(
+    third.policy,
+    fourth.policy,
+    "a config disappearing from an extends candidate must refresh the policy",
+  );
+  assert.ok(
+    !fourth.policy.excludedDirectories.some((directory: string) =>
+      directory.includes("generated"),
+    ),
+    "the refreshed policy must have dropped the deleted config's exclude",
+  );
+}
+
+/**
+ * Asserts the cache key covers a source the caller's compiler-options overlay
+ * admits, which is samchon/ttsc#1316's stated acceptance criterion: "Metro's
+ * walk admits `.js` exactly as the adapter's does, provable through
+ * `getCacheKey` responding to a new `.js` file."
+ *
+ * Widening the policy object is not enough on its own, and getting only half of
+ * it is worse than getting neither. The walk and the recorder are the two
+ * halves of one cache key, and they run in different processes, so they agree
+ * only by deriving from the same declared options. Hand the overlay to the
+ * recorder alone and `isProjectWalkPath` answers that the walk covers an
+ * overlay-admitted `.js`, so the recorder drops it from the out-of-walk
+ * snapshot while the narrower walk never hashes it: the file is covered by
+ * neither half, and Metro serves its dependents' transforms across runs with
+ * nothing to notice the edit by.
+ *
+ * The strict control is what makes the positive case mean anything. Without the
+ * overlay the same `.js` is not a program input at all, so leaving the key
+ * alone is correct there, and an implementation that simply hashed every file
+ * would fail it.
+ */
+export async function assertCacheKeyCoversOverlayAdmittedSources(): Promise<void> {
+  const root = createBareProject();
+  const legacy = path.join(root, "src", "legacy.js");
+  fs.writeFileSync(legacy, "export const legacy = 1;\n", "utf8");
+  await prepareSnapshot(root);
+
+  const overlay = { compilerOptions: { allowJs: true } };
+  const before = await cacheKeyForRun(root, overlay);
+  fs.writeFileSync(legacy, "export const legacy = 2;\n", "utf8");
+  assert.notEqual(
+    before,
+    await cacheKeyForRun(root, overlay),
+    "under allowJs the walk must hash .js sources, so editing one re-keys the run",
+  );
+
+  // The criterion's own wording is a *new* `.js` file rather than an edited
+  // one, and the two are different questions: an edit changes a file the walk
+  // already hashes, while an appearance changes which files the walk hashes at
+  // all. Both must move the key under the overlay.
+  const appeared = await cacheKeyForRun(root, overlay);
+  fs.writeFileSync(
+    path.join(root, "src", "arrived.js"),
+    "export const arrived = 1;\n",
+    "utf8",
+  );
+  assert.notEqual(
+    appeared,
+    await cacheKeyForRun(root, overlay),
+    "under allowJs a .js the program gains must re-key the run",
+  );
+
+  const strict = await cacheKeyForRun(root);
+  fs.writeFileSync(legacy, "export const legacy = 3;\n", "utf8");
+  fs.writeFileSync(
+    path.join(root, "src", "ignored.js"),
+    "export const ignored = 1;\n",
+    "utf8",
+  );
+  assert.equal(
+    strict,
+    await cacheKeyForRun(root),
+    "without the overlay a .js is not a program input, so neither editing nor adding one re-keys the run",
+  );
+}
+
+/**
+ * Asserts output in a directory no configuration names leaves the cache key
+ * alone, while a new source the program could include still moves it.
+ *
+ * The Metro half of samchon/ttsc#1307's sharpest case, required by
+ * samchon/ttsc#1317 and missing when that work merged. Content-hashed output is
+ * not a rewrite in place: every rebuild adds a name nothing had seen before,
+ * and the walk used to hash every entry regardless of whether it could ever
+ * enter the program.
+ *
+ * Metro reaches that through file hashes alone rather than through the
+ * directory-membership snapshot the adapter also keeps — `getCacheKey` folds
+ * only `collectProjectInputHashes`, so what has to be absent here is the new
+ * file's own hash. The adapter's directory identities are what make the same
+ * output cost it a compile, and
+ * {@link assertHashedBundleOutputKeepsTheGeneration} in `@ttsc/test-unplugin`
+ * covers that side.
+ *
+ * It costs more here than it does for a bundler. Metro folds one static key
+ * into every file's per-content cache key, so a walk that re-keyed on emitted
+ * output would discard the entire per-file transform cache rather than cost one
+ * compile — and `.expo/` is written to constantly by the dominant React Native
+ * toolchain, so the discard would happen on essentially every run.
+ *
+ * `lib` is deliberately neither the project's `outDir` nor one of the three
+ * names the walk still refuses, so nothing but the input-extension rule can
+ * make this pass: the project admits no JavaScript, so a `.js` bundle is not a
+ * membership change wherever it lands. The `src/late.ts` half is the control
+ * that keeps this from passing by never re-keying at all.
+ */
+export async function assertCacheKeyIgnoresOutputInAnUnlistedDirectory(): Promise<void> {
+  const root = createBareProject();
+  await prepareSnapshot(root);
+  const before = await cacheKeyForRun(root);
+
+  const lib = path.join(root, "lib");
+  fs.mkdirSync(lib, { recursive: true });
+  for (let build = 1; build <= 3; build += 1) {
+    fs.writeFileSync(
+      path.join(lib, `bundle.${build.toString(16)}f2a.js`),
+      `export const build = ${build};\n`,
+      "utf8",
+    );
+    assert.equal(
+      await cacheKeyForRun(root),
+      before,
+      "content-hashed output must not re-key the run that produced it",
+    );
+  }
+
+  fs.writeFileSync(
+    path.join(root, "src", "late.ts"),
+    "export const late: number = 1;\n",
+    "utf8",
+  );
+  assert.notEqual(
+    await cacheKeyForRun(root),
+    before,
+    "a new source the program could include must still re-key the run",
   );
 }

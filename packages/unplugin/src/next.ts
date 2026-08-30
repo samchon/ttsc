@@ -138,6 +138,14 @@ function withTtscTurbopackRules(
     if (loaders.some(referencesTtscLoader)) {
       continue;
     }
+    // The caller may have written the same file set under a different glob.
+    // Adding ours beside theirs makes every matching module run the loader
+    // twice, and the second pass receives the first pass's output, so the
+    // guard has to cover the spellings a caller plausibly uses rather than
+    // only the two this wrapper writes (samchon/ttsc#1314).
+    if (coveredByAnotherRule(rules, glob)) {
+      continue;
+    }
     const entry = { loader: TURBOPACK_LOADER, options: options ?? {} };
     // Appended, not prepended. Turbopack runs a rule's loaders through
     // webpack's own `loader-runner`, which runs the normal phase right to
@@ -152,6 +160,97 @@ function withTtscTurbopackRules(
           : { ...(rule as object), loaders: [...loaders, entry] };
   }
   return { ...(existing ?? {}), rules };
+}
+
+/**
+ * Whether some other rule already routes this glob's files through the loader.
+ *
+ * Deciding glob equivalence in general means implementing Turbopack's matcher,
+ * which is not worth it here. What is recognised instead is the spellings a
+ * caller plausibly writes for "every file with this extension", since only a
+ * glob that means every file can make the wrapper's own rules redundant. That
+ * is narrower than every glob with those semantics, and narrow on purpose:
+ * anything unrecognised is left alone and the wrapper still adds its rules,
+ * while skipping on a scoped glob would leave every module outside that scope
+ * untransformed, which is samchon/ttsc#1310 again and the quieter of the two
+ * failures. {@link matchesExtension} owns the rule and names what it declines.
+ */
+function coveredByAnotherRule(
+  rules: Record<string, unknown>,
+  glob: string,
+): boolean {
+  const extension = glob.slice(glob.lastIndexOf(".") + 1);
+  return Object.entries(rules).some(([candidate, rule]) => {
+    if (candidate === glob) {
+      return false;
+    }
+    if (!selectTurbopackLoaders(rule).some(referencesTtscLoader)) {
+      return false;
+    }
+    return matchesExtension(candidate, extension);
+  });
+}
+
+/**
+ * Whether one glob names this extension across the whole project.
+ *
+ * Unscoped only. A rule restricted to a path, `src/*.{ts,tsx}` or
+ * `node_modules/**` + `/*.ts`, covers its own subtree and says nothing about
+ * the rest of the project, so treating it as covering everything would leave
+ * every module outside that subtree with no ttsc rule at all. That is the
+ * silent failure samchon/ttsc#1310 is about, and it is strictly worse than the
+ * double registration this guard exists to prevent: a build that transforms
+ * twice is wrong loudly, a build that never transforms is wrong quietly.
+ *
+ * Recognition is one rule rather than a list of shapes: expand a brace group
+ * into the globs it stands for, drop any leading `**` + `/` segments, and ask
+ * whether what remains is exactly `*.<extension>`. That covers every spelling a
+ * caller plausibly writes for "every file with this extension" — `*.ts`, `**` +
+ * `/*.ts`, `*.{ts,tsx}`, `**` + `/{*.ts,*.tsx}`, `{**` + `/,}*.ts` — without
+ * deciding glob equivalence in general.
+ *
+ * Expanding the brace before the test is what keeps the scoped case safe.
+ * `src/*.{ts,tsx}` expands to `src/*.ts` and `src/*.tsx`, neither of which
+ * survives the test, because the path segment is still there once the group is
+ * gone. A group that spans the scope itself is judged the same way:
+ * `{src/,}*.ts` offers `*.ts` among its alternatives, and that alternative
+ * really does name every file, so recognising it is correct rather than a
+ * leak.
+ *
+ * Two shapes stay unrecognised and deliberately so, since both fail in the loud
+ * direction: a character class (`*.[jt]s`) and a different case (`*.TS`).
+ */
+function matchesExtension(glob: string, extension: string): boolean {
+  return expandBraceGroup(glob).some((candidate) => {
+    let unprefixed = candidate;
+    while (unprefixed.startsWith("**/")) {
+      unprefixed = unprefixed.slice(3);
+    }
+    return unprefixed === `*.${extension}`;
+  });
+}
+
+/**
+ * Expand the first brace group in a glob into the globs it stands for, keeping
+ * whatever surrounds it.
+ *
+ * `*.{ts,tsx}` becomes `*.ts` and `*.tsx`; `{**` + `/,}*.ts` becomes `**` +
+ * `/*.ts` and `*.ts`. One group is enough: nothing a caller writes for two
+ * extensions needs two, and a glob with no group is returned unchanged, so
+ * {@link matchesExtension} has a single shape to test either way.
+ */
+function expandBraceGroup(glob: string): string[] {
+  const open = glob.indexOf("{");
+  const close = glob.indexOf("}", open + 1);
+  if (open === -1 || close === -1) {
+    return [glob];
+  }
+  const prefix = glob.slice(0, open);
+  const suffix = glob.slice(close + 1);
+  return glob
+    .slice(open + 1, close)
+    .split(",")
+    .map((part) => `${prefix}${part.trim()}${suffix}`);
 }
 
 /**

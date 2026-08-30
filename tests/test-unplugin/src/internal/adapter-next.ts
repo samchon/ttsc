@@ -162,6 +162,113 @@ export async function assertNextAdapterPreservesTurbopackConfig(): Promise<void>
 }
 
 /**
+ * Asserts the wrapper does not register the loader a second time under a glob
+ * the caller spelled differently.
+ *
+ * The dedupe guard read only the rule stored under the exact key the wrapper
+ * writes, so a caller who had wired `"*.{ts,tsx}"` by hand, which is a natural
+ * way to write two identical rules, kept their rule and received `"*.ts"` and
+ * `"*.tsx"` as well. Every TypeScript module then matched two rules and the
+ * loader ran twice on it, with the second pass receiving the first pass's
+ * output (samchon/ttsc#1314).
+ *
+ * The wrapper still completes a partial hand wiring, since `"*.ts"` alone
+ * leaves `.tsx` unrouted, and still adds its own rules beside a glob carrying
+ * somebody else's loader, because that is not this loader running twice.
+ */
+export async function assertNextAdapterDoesNotDoubleRegisterAcrossGlobs(): Promise<void> {
+  const next = await loadNext();
+  const globs = (config: INextLikeConfig): string[] =>
+    Object.keys(next(config).turbopack?.rules ?? {});
+
+  assert.deepEqual(
+    globs({ turbopack: { rules: { "*.{ts,tsx}": { loaders: [LOADER] } } } }),
+    ["*.{ts,tsx}"],
+    "a brace list already carrying the loader must not gain two more rules",
+  );
+  assert.deepEqual(
+    globs({
+      turbopack: {
+        rules: {
+          "**/*.ts": { loaders: [LOADER] },
+          "**/*.tsx": { loaders: [LOADER] },
+        },
+      },
+    }),
+    ["**/*.ts", "**/*.tsx"],
+    "a recursive prefix already carrying the loader must not gain two more",
+  );
+
+  // A partial hand wiring is still completed: `.tsx` is unrouted without us.
+  // Both spellings of it, since samchon/ttsc#1314 asks for the recursive one by
+  // name and a guard could recognise `*.ts` while missing `**` + `/*.ts`.
+  for (const partial of ["*.ts", "**/*.ts"]) {
+    assert.deepEqual(
+      globs({ turbopack: { rules: { [partial]: { loaders: [LOADER] } } } }),
+      [partial, "*.tsx"],
+      `${partial} must still gain the glob it is missing`,
+    );
+  }
+
+  // Somebody else's loader on the same file set is not this loader running
+  // twice, so ttsc still has to be wired.
+  assert.deepEqual(
+    globs({ turbopack: { rules: { "*.{ts,tsx}": { loaders: ["other"] } } } }),
+    ["*.{ts,tsx}", "*.ts", "*.tsx"],
+    "another loader's glob must not suppress ttsc's own rules",
+  );
+
+  // The direction that matters most, because getting it wrong is
+  // samchon/ttsc#1310 again rather than a double transform: a rule scoped to a
+  // path covers its own subtree and says nothing about the rest of the
+  // project, so the wrapper must still add its own.
+  for (const scoped of [
+    "src/*.{ts,tsx}",
+    "src/**/*.ts",
+    "./src/**/*.{ts,tsx}",
+    "generated.ts",
+    "*.d.ts",
+  ]) {
+    assert.deepEqual(
+      globs({ turbopack: { rules: { [scoped]: { loaders: [LOADER] } } } }),
+      [scoped, "*.ts", "*.tsx"],
+      `a rule scoped by ${scoped} must not suppress the project-wide rules`,
+    );
+  }
+
+  // And the shapes the guard does recognise. Each names every file with the
+  // extension, so the wrapper's own rules would be a second registration of a
+  // file set the caller already routed. They are one rule rather than a list of
+  // cases: expand the brace group, drop leading `**/` segments, and what is
+  // left must be exactly `*.ts` or `*.tsx`.
+  for (const wide of ["**/*.{ts,tsx}", "**/{*.ts,*.tsx}", "**/**/*.{ts,tsx}"]) {
+    assert.deepEqual(
+      globs({ turbopack: { rules: { [wide]: { loaders: [LOADER] } } } }),
+      [wide],
+      `${wide} names every file of both extensions, so nothing is added`,
+    );
+  }
+
+  // Recognition is per extension, not per rule: a glob naming every `.ts` and
+  // no `.tsx` suppresses only the `*.ts` registration, exactly as the partial
+  // hand wiring above does. Both of these mean every `.ts` in the project.
+  for (const partial of ["{**/,}*.ts", "{src/,}*.ts"]) {
+    assert.deepEqual(
+      globs({ turbopack: { rules: { [partial]: { loaders: [LOADER] } } } }),
+      [partial, "*.tsx"],
+      `${partial} names every .ts, so only the missing .tsx is added`,
+    );
+  }
+  assert.deepEqual(
+    globs({
+      turbopack: { rules: { "{src,lib}/*.{ts,tsx}": { loaders: [LOADER] } } },
+    }),
+    ["{src,lib}/*.{ts,tsx}", "*.ts", "*.tsx"],
+    "a brace group over scopes stays scoped and must not suppress anything",
+  );
+}
+
+/**
  * Asserts the wrapper says what Next.js can no longer say for it.
  *
  * Next refuses to build on Turbopack when a config carries a `webpack` hook and

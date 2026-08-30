@@ -233,6 +233,18 @@ ttsc({
 
 Under Vite, the adapter reads the resolved `resolve.alias` and layers it onto the generated config, so an alias declared only in `vite.config.ts` still resolves during the compile. No other host's alias configuration is read: under Rollup, Rolldown, webpack, Rspack, esbuild, Farm, Turbopack and Bun, the compile resolves through the tsconfig's own `paths` alone. Declare an alias in `paths` when a module has to resolve for the compiler as well as for the bundler, which is what those hosts need anyway for `tsc` to type-check the same imports.
 
+Not every Vite alias form can be forwarded, because a tsconfig `paths` map cannot express all of them:
+
+| `resolve.alias` form | Forwarded |
+| --- | --- |
+| `{ "@": "/src" }`, or the array form with a string `find` | yes |
+| array form with a `RegExp` `find`, such as `{ find: /^~/ }` | no — `paths` has no regular-expression form |
+| a string `find` containing `*` | no — a `paths` key already reads `*` as its own wildcard |
+
+In both unforwarded cases the compile resolves that specifier through the tsconfig's `paths` alone, so declare it there if `ttsc` must resolve through it — a prefix `RegExp` such as `/^~/` is written as a `"~/*"` entry. Reducing simple prefix patterns automatically is deliberately not attempted: distinguishing `/^~/` from `/^@app/`, which also matches `@apple`, needs enough of a regular-expression engine that a wrong reduction becomes likely, and a mistranslated alias resolves imports to the wrong file without saying so.
+
+A `find` containing `*` is also reported once on stderr, naming the alias and the reason. A `RegExp` `find` is not, and the asymmetry is deliberate: Vite merges two `RegExp` aliases of its own into every resolved config, for `@vite/env` and `@vite/client`, so a report on that form would fire in every build of every project and name aliases you never wrote.
+
 ## Cache and watch invalidation
 
 The compiler also reports module-resolution candidates that would outrank a selected target. `@ttsc/unplugin` registers candidates belonging to importers in a transformed file's reference closure, so creating or changing a higher-priority probe invalidates the transform even when neither the importer nor its tsconfig changed.
