@@ -3945,36 +3945,75 @@ async function createHostInputMutationTracker(
  * it would otherwise be invisible. An event whose name the host did not report
  * is unattributable and always counts.
  */
+/**
+ * Whether a path a _watcher_ reported lies in a configuration-excluded
+ * directory.
+ *
+ * Compared through the filesystem rather than lexically. A directory watch
+ * reports its events under the spelling the watch was opened with, and on
+ * Windows that can be the long form of a path whose configuration was read
+ * under an 8.3 short one, so the two describe the same directory and share no
+ * common prefix at all. The walk itself never meets that problem, because every
+ * path it compares descends from the one root it started at.
+ *
+ * `strictly` excludes an exact match, for the case where the excluded entry
+ * names a file rather than a directory: `exclude` accepts one, and such a file
+ * is still reached and still hashed by the walk, so suppressing its events
+ * would be the walk-versus-tracker disagreement pointing the other way.
+ */
+function reportsInsideExcludedDirectory(
+  location: string,
+  policy: ITtscProjectMembershipPolicy,
+  filesystem: TtscTransformFilesystemOperations,
+  strictly: boolean,
+): boolean {
+  const canonical = (value: string): string => {
+    try {
+      return filesystem.realpath(value);
+    } catch {
+      return path.resolve(value);
+    }
+  };
+  const resolved = canonical(location);
+  return policy.excludedDirectories.some((excluded) => {
+    const target = canonical(excluded);
+    if (strictly && target === resolved) {
+      return false;
+    }
+    return pathIsWithin(resolved, target);
+  });
+}
+
 function reportsProgramMembership(
   location: string,
   filename: string,
   policy: ITtscProjectMembershipPolicy,
   filesystem: TtscTransformFilesystemOperations,
 ): boolean {
-  if (isInsideExcludedProjectDirectory(location, policy)) {
-    // The walk never descends into an excluded directory and the digest cannot
-    // see it, so the tracker must not be the one side that does. A build
-    // emptying and recreating its own `outDir`, which is what `emptyOutDir` and
-    // `output.clean` do on every build, would otherwise void the generation
-    // once per build.
-    //
-    // Strictly inside, because `exclude` also accepts a plain file entry, and
-    // that file is still walked and still hashed. Treating it as excluded here
-    // would suppress events for an input the walk does carry, which is the same
-    // disagreement in the other direction.
-    return false;
-  }
   if (isPossibleProgramFileName(filename, policy)) {
-    return true;
+    // A name the program could admit. It still says nothing if it lies inside a
+    // directory the walk never descends into, because the digest cannot see
+    // there either and the tracker must not be the one side that reacts.
+    return !reportsInsideExcludedDirectory(location, policy, filesystem, true);
   }
+  let directory: boolean;
   try {
-    return filesystem.lstat(location).isDirectory();
+    directory = filesystem.lstat(location).isDirectory();
   } catch {
     // Gone again, or unreadable. Its name could not have been a program input,
     // and a directory removed under this one reports its own contents leaving
     // through the watch that was opened on it.
     return false;
   }
+  if (!directory) {
+    return false;
+  }
+  // A directory counts, because it can hold sources and the tracker is not
+  // watching it yet, unless the configuration says the program does not contain
+  // it. Emptying and recreating an `outDir`, which is what `emptyOutDir` and
+  // `output.clean` do on every build, would otherwise void the generation once
+  // per build on every host that has no build boundary.
+  return !reportsInsideExcludedDirectory(location, policy, filesystem, false);
 }
 
 function recordProjectMutation(
@@ -4837,26 +4876,6 @@ function isExcludedProjectDirectory(
 ): boolean {
   return policy.excludedDirectories.some((excluded) =>
     pathIsWithin(directory, excluded),
-  );
-}
-
-/**
- * Whether this path lies _strictly_ below an excluded directory.
- *
- * `exclude` accepts a plain file entry as well as a directory, and such a file
- * is still reached and still hashed by the walk, since exclusion only filters
- * the `include` globs. So an equality match here would suppress events for a
- * path the walk does carry, which is the walk-versus-tracker disagreement this
- * whole rule exists to remove, pointing the other way.
- */
-function isInsideExcludedProjectDirectory(
-  location: string,
-  policy: ITtscProjectMembershipPolicy,
-): boolean {
-  const resolved = path.resolve(location);
-  return policy.excludedDirectories.some(
-    (excluded) =>
-      path.resolve(excluded) !== resolved && pathIsWithin(resolved, excluded),
   );
 }
 
