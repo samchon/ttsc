@@ -46,6 +46,42 @@ const adapterEntrypoints = [
   "webpack",
 ];
 
+/**
+ * The globs `withTtsc`'s dedupe guard treats as naming every file with an
+ * extension, so it declines to add its own rules beside them.
+ *
+ * Kept here rather than imported, because the point is to check our belief
+ * against Turbopack rather than to restate it. The unit case
+ * `test_next_adapter_does_not_double_register_across_globs` asserts this list
+ * and the guard agree in both directions, so a spelling cannot be added to one
+ * without the other.
+ */
+const TURBOPACK_PROJECT_WIDE_GLOBS = [
+  "*.ts",
+  "**/*.ts",
+  "{**/,}*.ts",
+  "*.tsx",
+  "**/*.tsx",
+  "*.{ts,tsx}",
+  "{*.ts,*.tsx}",
+  "**/*.{ts,tsx}",
+  "**/{*.ts,*.tsx}",
+  "**/**/*.{ts,tsx}",
+];
+
+/**
+ * Globs the guard must refuse, driven through a real build for the same reason
+ * the recognised set is.
+ *
+ * `{src/,}*.ts` is the one that matters. Set semantics say it offers a bare
+ * `*.ts` and therefore covers the project, and on that reasoning the guard once
+ * recognised it — but Turbopack matches **nothing** with it, so suppressing
+ * this wrapper's rules in its favour transformed no file at all. Refusing it
+ * means the wrapper adds its own rules and every source is still transformed,
+ * which is what these builds assert (samchon/ttsc#1319).
+ */
+const TURBOPACK_SCOPED_GLOBS = ["{src/,}*.ts", "src/**/*.ts"];
+
 const requireFromRoot = createRequire(path.join(root, "package.json"));
 
 /**
@@ -86,6 +122,7 @@ function main() {
   verifyRspackBuild();
   verifyFarmBuild();
   verifyNextBuild();
+  verifyTurbopackRecognisedGlobs();
   verifyBunBuild();
   verifyBunRuntime();
   console.log("Success");
@@ -161,7 +198,7 @@ function prepareWorkspace() {
             },
           ],
         },
-        include: ["src", "pages"],
+        include: ["src", "pages", "turbopack-root-entry.ts"],
       },
       null,
       2,
@@ -183,7 +220,7 @@ function prepareWorkspace() {
           noEmit: true,
           resolveJsonModule: true,
         },
-        include: ["next-env.d.ts", "pages", "src"],
+        include: ["next-env.d.ts", "pages", "src", "turbopack-root-entry.ts"],
       },
       null,
       2,
@@ -213,6 +250,7 @@ function prepareWorkspace() {
   writeSource("farm-entry.ts", "farm-installed-ok");
   writeSource("next-entry.ts", "next-installed-ok");
   writeSource("bun-entry.ts", "bun-installed-ok");
+  writeTurbopackRootEntry();
   writeNextPage();
   writeTransformPlugin();
   writeViteConfig();
@@ -236,15 +274,52 @@ function writeSource(file, marker) {
   );
 }
 
+/**
+ * A source at the project root, which `src/next-entry.ts` cannot stand in for.
+ *
+ * The dedupe guard skips the wrapper's own rules when a caller's glob already
+ * names every file with the extension, and whether a glob does that is
+ * Turbopack's answer, not ours. A `**` + `/` prefix that required at least one
+ * segment would cover `src/` and miss this file, which is how a recognised
+ * spelling turns into samchon/ttsc#1310: no rule, no transform, green build.
+ * `middleware.ts` and `instrumentation.ts` are the real files at this depth.
+ */
+function writeTurbopackRootEntry() {
+  fs.writeFileSync(
+    path.join(workspace, "turbopack-root-entry.ts"),
+    [
+      'export const rootValue = mark("turbopack-root-ok");',
+      "console.log(rootValue);",
+      "",
+    ].join("\n"),
+    "utf8",
+  );
+  // A `.tsx` source as well, because the guard decides per extension and a Next
+  // project is mostly `.tsx`. A glob recognised for `.ts` alone must still
+  // leave the wrapper adding its own `*.tsx` rule, and only a build can say
+  // whether that happened.
+  fs.writeFileSync(
+    path.join(workspace, "src", "turbopack-tsx-entry.tsx"),
+    [
+      'export const tsxValue = mark("turbopack-tsx-ok");',
+      "console.log(tsxValue);",
+      "",
+    ].join("\n"),
+    "utf8",
+  );
+}
+
 function writeNextPage() {
   fs.mkdirSync(path.join(workspace, "pages"), { recursive: true });
   fs.writeFileSync(
     path.join(workspace, "pages", "index.js"),
     [
       'import { value } from "../src/next-entry";',
+      'import { rootValue } from "../turbopack-root-entry";',
+      'import { tsxValue } from "../src/turbopack-tsx-entry";',
       "",
       "export default function Page() {",
-      "  return value;",
+      "  return value + rootValue + tsxValue;",
       "}",
       "",
     ].join("\n"),
@@ -322,9 +397,23 @@ function writeTransformPlugin() {
       "  root := *cwd",
       '  if root == "" { root, _ = os.Getwd() }',
       "  out := map[string]string{}",
-      '  err := filepath.WalkDir(filepath.Join(root, "src"), func(file string, entry fs.DirEntry, err error) error {',
-      "    if err != nil { return err }",
-      '    if entry.IsDir() || strings.HasSuffix(file, ".d.ts") || (!strings.HasSuffix(file, ".ts") && !strings.HasSuffix(file, ".tsx")) {',
+      // Walk the project rather than `src` alone. A real ttsc host returns an
+      // entry for every file in the program, so a fixture that skipped the
+      // project root made a root-level source look absent from the program and
+      // reported it as such — the fixture's answer, not the product's. The
+      // Turbopack glob verification needs a root-level source to be real
+      // (samchon/ttsc#1319).
+      // Derived rather than listed. Every build output this harness writes is a
+      // `dist-` directory, so a new adapter verification cannot silently add
+      // its emitted `.ts` to the program by landing somewhere unlisted.
+      '  skipDirs := map[string]bool{"node_modules": true, ".next": true, ".git": true, ".ttsc": true}',
+      "  err := filepath.WalkDir(root, func(file string, entry fs.DirEntry, err error) error {",
+      // A vanished entry is not a reason to fail a build. The project root is a
+      // live tree while Next is writing to it, and returning the error here
+      // aborted the whole transform; walking `src` alone never saw that.
+      "    if err != nil { if os.IsNotExist(err) { return nil }; return err }",
+      '    if entry.IsDir() { if skipDirs[entry.Name()] || strings.HasPrefix(entry.Name(), "dist-") { return filepath.SkipDir }; return nil }',
+      '    if strings.HasSuffix(file, ".d.ts") || (!strings.HasSuffix(file, ".ts") && !strings.HasSuffix(file, ".tsx")) {',
       "      return nil",
       "    }",
       "    source, err := os.ReadFile(file)",
@@ -744,6 +833,82 @@ function verifyNextBuild() {
       "next-installed-ok",
     );
   }
+}
+
+/**
+ * Verify the dedupe guard's recognised set against the bundler that owns it.
+ *
+ * `withTtsc` skips registering its `*.ts` and `*.tsx` rules when a caller's own
+ * rule already carries this loader for the same file set. Recognising a glob
+ * that does _not_ in fact cover everything leaves the uncovered modules with no
+ * ttsc rule at all — a build that succeeds with plugin-driven constructs
+ * untransformed, which is samchon/ttsc#1310 and has already happened twice in
+ * this wrapper.
+ *
+ * Every spelling is sound today, measured. What was missing is anything that
+ * would notice it stopping: the recognised set is a contract with Turbopack's
+ * matcher, and a Next.js upgrade is enough to break it (samchon/ttsc#1319). So
+ * each glob is hand-wired the way a caller would, the guard is left to
+ * recognise it and add nothing, and a real build has to show both a nested and
+ * a root-level module transformed. A unit test cannot answer this, because it
+ * would only ask our own matcher what our own matcher thinks.
+ */
+function verifyTurbopackRecognisedGlobs() {
+  for (const glob of [
+    ...TURBOPACK_PROJECT_WIDE_GLOBS,
+    ...TURBOPACK_SCOPED_GLOBS,
+  ]) {
+    fs.writeFileSync(
+      path.join(workspace, "next.config.mjs"),
+      [
+        'import withTtsc from "@ttsc/unplugin/next";',
+        "",
+        "export default withTtsc(",
+        "  {",
+        '    distDir: "dist-next",',
+        "    typescript: {",
+        "      ignoreBuildErrors: true,",
+        "    },",
+        "    turbopack: {",
+        "      rules: {",
+        `        ${JSON.stringify(glob)}: {`,
+        '          loaders: ["@ttsc/unplugin/turbopack"],',
+        "        },",
+        "      },",
+        "    },",
+        "  },",
+        "  {",
+        '    project: "tsconfig.unplugin.json",',
+        "  },",
+        ");",
+        "",
+      ].join("\n"),
+      "utf8",
+    );
+    fs.rmSync(path.join(workspace, "dist-next"), {
+      force: true,
+      recursive: true,
+    });
+    run("npx next build --turbopack", workspace);
+    // The assertion is the same either way, and that is the point: whether the
+    // guard recognised the caller's glob or added its own rules beside it, the
+    // end state has to be that every TypeScript source was transformed. A
+    // recognised glob that does not really cover the project fails here, and so
+    // does a refused one the wrapper then failed to complete.
+    for (const [marker, original, depth] of [
+      ["NEXT-INSTALLED-OK", "next-installed-ok", "nested .ts"],
+      ["TURBOPACK-ROOT-OK", "turbopack-root-ok", "root .ts"],
+      ["TURBOPACK-TSX-OK", "turbopack-tsx-ok", "nested .tsx"],
+    ]) {
+      assertBuiltTreeContains(
+        "dist-next",
+        marker,
+        `next --turbopack glob ${glob} (${depth})`,
+        original,
+      );
+    }
+  }
+  writeNextConfig();
 }
 
 function verifyBunBuild() {

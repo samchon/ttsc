@@ -90,12 +90,26 @@ export default function next(
 /**
  * Say what Next.js can no longer say once this wrapper defines `turbopack`.
  *
- * Next refuses to build on Turbopack when a config carries a `webpack` hook and
- * no `turbopack` block, because the webpack hook is then silently ignored. This
- * wrapper always defines both, so that check can never fire again for anyone
- * who uses it, and a caller's own webpack customisation would be dropped on a
- * Turbopack build with nothing said. Wiring ttsc for Turbopack is worth exactly
- * one warning, not the loss of the warning Next already gave.
+ * Next stops the build when a config carries a `webpack` hook and no
+ * `turbopack` block, because the webpack hook is then silently ignored. Read
+ * from Next 16.3.2's own `dist/lib/turbopack-warning.js`, it is
+ * `log.error(...)` followed by `process.exit(1)` — a refusal, not a warning —
+ * and it is gated on `process.env.TURBOPACK === "auto"`, which
+ * `dist/lib/bundler.js` sets only when no bundler flag was passed. Next's
+ * comment there gives the reason: an explicit `--turbopack` means the user
+ * chose it and is assumed to have configured it. So the check fires on a plain
+ * `next build` or `next dev`, which is how Next 16 is normally run.
+ *
+ * `hasTurboConfig` is read from the raw exported config, which is this
+ * wrapper's return value, and this wrapper always defines `turbopack`. The
+ * check therefore can never fire again for anyone who uses `withTtsc`, and a
+ * caller's own webpack customisation would be dropped on a Turbopack build with
+ * nothing said. Wiring ttsc for Turbopack is worth exactly one line, not the
+ * loss of the refusal Next already gave.
+ *
+ * Verifying that gate is what this docstring exists for: measured with an
+ * explicit `--turbopack`, the check is silent, and a reading that stopped there
+ * would conclude Next says nothing and delete a true statement.
  *
  * Only for a caller who wrote a `webpack` hook and no `turbopack` block. A
  * caller who configured Turbopack has already made that decision, and a caller
@@ -110,9 +124,10 @@ function warnAboutSuppressedWebpackConfig(nextConfig: NextLikeConfig): void {
   }
   process.stderr.write(
     "@ttsc/unplugin: withTtsc now configures Turbopack as well as webpack, so " +
-      "Next.js will not warn that your own `webpack` hook is ignored on a " +
-      "Turbopack build. Port it to `turbopack`, or run the bundler you " +
-      "configured with `next build --webpack` / `next dev --webpack`." +
+      "Next.js will no longer stop the build to tell you that your own " +
+      "`webpack` hook is ignored on a Turbopack build. Port it to `turbopack`, " +
+      "or run the bundler you configured with `next build --webpack` / " +
+      "`next dev --webpack`." +
       String.fromCharCode(10),
   );
 }
@@ -147,11 +162,14 @@ function withTtscTurbopackRules(
       continue;
     }
     const entry = { loader: TURBOPACK_LOADER, options: options ?? {} };
-    // Appended, not prepended. Turbopack runs a rule's loaders through
-    // webpack's own `loader-runner`, which runs the normal phase right to
-    // left, so the last entry is the one that sees the original source. ttsc
+    // Appended, not prepended. Turbopack runs a rule's loaders right to left,
+    // so the last entry is the one that sees the original source. ttsc
     // transforms TypeScript into TypeScript, so it has to be that one, which
     // is the same position `enforce: "pre"` gives it on the webpack half.
+    //
+    // Measured rather than inferred from webpack's `loader-runner`: two
+    // loaders on one rule, each marking the source, came back marked in the
+    // order that only the last-runs-first chain produces (samchon/ttsc#1319).
     rules[glob] =
       rule === undefined || loaders.length === 0
         ? { loaders: [entry] }
@@ -194,64 +212,69 @@ function coveredByAnotherRule(
 /**
  * Whether one glob names this extension across the whole project.
  *
- * Unscoped only. A rule restricted to a path, `src/*.{ts,tsx}` or
- * `node_modules/**` + `/*.ts`, covers its own subtree and says nothing about
- * the rest of the project, so treating it as covering everything would leave
- * every module outside that subtree with no ttsc rule at all. That is the
- * silent failure samchon/ttsc#1310 is about, and it is strictly worse than the
- * double registration this guard exists to prevent: a build that transforms
- * twice is wrong loudly, a build that never transforms is wrong quietly.
+ * Unscoped only. A rule carrying a path segment says nothing about the rest of
+ * the project, so treating it as covering everything would leave every module
+ * outside it with no ttsc rule at all. That is the silent failure
+ * samchon/ttsc#1310 is about, and it is strictly worse than the double
+ * registration this guard exists to prevent: a module no loader ever sees fails
+ * at runtime, while a module transformed twice costs time.
  *
- * Recognition is one rule rather than a list of shapes: expand a brace group
- * into the globs it stands for, drop any leading `**` + `/` segments, and ask
- * whether what remains is exactly `*.<extension>`. That covers every spelling a
- * caller plausibly writes for "every file with this extension" — `*.ts`, `**` +
- * `/*.ts`, `*.{ts,tsx}`, `**` + `/{*.ts,*.tsx}`, `{**` + `/,}*.ts` — without
- * deciding glob equivalence in general.
+ * How little a scoped rule covers is worth stating from measurement rather than
+ * from the obvious guess, because the guess is wrong. Against Next.js 16.3.2,
+ * `src/*.ts` and `src/**` + `/*.ts` match **nothing at all** — not even the
+ * `src/` subtree they name — while `./src/*.ts`, `**` + `/src/*.ts` and a bare
+ * `nested-probe.ts` all match a file at `src/`. Declining every one of them is
+ * therefore even safer than "it only covers its subtree" implies
+ * (samchon/ttsc#1319).
  *
- * Expanding the brace before the test is what keeps the scoped case safe.
- * `src/*.{ts,tsx}` expands to `src/*.ts` and `src/*.tsx`, neither of which
- * survives the test, because the path segment is still there once the group is
- * gone. A group that spans the scope itself is judged the same way:
- * `{src/,}*.ts` offers `*.ts` among its alternatives, and that alternative
- * really does name every file, so recognising it is correct rather than a
- * leak.
- *
- * Two shapes stay unrecognised and deliberately so, since both fail in the loud
- * direction: a character class (`*.[jt]s`) and a different case (`*.TS`).
+ * The answer comes from {@link PROJECT_WIDE_GLOBS}, an exact set of measured
+ * spellings, and that document explains why it is a set rather than a rule.
  */
 function matchesExtension(glob: string, extension: string): boolean {
-  return expandBraceGroup(glob).some((candidate) => {
-    let unprefixed = candidate;
-    while (unprefixed.startsWith("**/")) {
-      unprefixed = unprefixed.slice(3);
-    }
-    return unprefixed === `*.${extension}`;
-  });
+  return PROJECT_WIDE_GLOBS.get(glob.trim())?.includes(extension) === true;
 }
 
 /**
- * Expand the first brace group in a glob into the globs it stands for, keeping
- * whatever surrounds it.
+ * The exact glob spellings a real Turbopack build has shown to name every file
+ * with an extension, and which extensions each one covers.
  *
- * `*.{ts,tsx}` becomes `*.ts` and `*.tsx`; `{**` + `/,}*.ts` becomes `**` +
- * `/*.ts` and `*.ts`. One group is enough: nothing a caller writes for two
- * extensions needs two, and a glob with no group is returned unchanged, so
- * {@link matchesExtension} has a single shape to test either way.
+ * An allowlist rather than a predicate, because recognising a glob is a claim
+ * about Turbopack's matcher and every claim here has to be one somebody
+ * measured. A rule inferred from glob semantics kept being wrong in the silent
+ * direction: `{src/,}*.ts` contains a bare `*.ts` alternative and so must cover
+ * the project by any set-theoretic reading, yet Turbopack matches nothing with
+ * it, and recognising it suppressed this wrapper's rules in favour of a rule
+ * that transforms no file at all — samchon/ttsc#1310 caused by the guard meant
+ * to prevent it (samchon/ttsc#1319).
+ *
+ * The deeper problem was that a predicate is open-ended: it answers for every
+ * spelling anyone might write, including ones no build has ever driven.
+ * `*.{ts}` and `{,**` + `/}*.ts` were both accepted on that reasoning while
+ * nothing had checked whether Turbopack expands a single-alternative group or a
+ * leading empty one. An exact set cannot overreach, so an unmeasured spelling
+ * is simply not recognised, the wrapper adds its own rules, and the failure —
+ * if any — is a second registration rather than a module that no loader ever
+ * sees.
+ *
+ * `experimental/test-unplugin` drives every entry through `next build
+ * --turbopack` and asserts a nested `.ts`, a root-level `.ts` and a nested
+ * `.tsx` all came out transformed, and
+ * `test_next_adapter_does_not_double_register_across_globs` asserts these keys
+ * and that list are the same set, so an entry cannot be added here without a
+ * build proving it.
  */
-function expandBraceGroup(glob: string): string[] {
-  const open = glob.indexOf("{");
-  const close = glob.indexOf("}", open + 1);
-  if (open === -1 || close === -1) {
-    return [glob];
-  }
-  const prefix = glob.slice(0, open);
-  const suffix = glob.slice(close + 1);
-  return glob
-    .slice(open + 1, close)
-    .split(",")
-    .map((part) => `${prefix}${part.trim()}${suffix}`);
-}
+const PROJECT_WIDE_GLOBS: ReadonlyMap<string, readonly string[]> = new Map([
+  ["*.ts", ["ts"]],
+  ["**/*.ts", ["ts"]],
+  ["{**/,}*.ts", ["ts"]],
+  ["*.tsx", ["tsx"]],
+  ["**/*.tsx", ["tsx"]],
+  ["*.{ts,tsx}", ["ts", "tsx"]],
+  ["{*.ts,*.tsx}", ["ts", "tsx"]],
+  ["**/*.{ts,tsx}", ["ts", "tsx"]],
+  ["**/{*.ts,*.tsx}", ["ts", "tsx"]],
+  ["**/**/*.{ts,tsx}", ["ts", "tsx"]],
+]);
 
 /**
  * Read the loader list out of one Turbopack rule.

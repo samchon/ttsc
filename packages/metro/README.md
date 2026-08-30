@@ -41,6 +41,10 @@ module.exports = withTtsc(getDefaultConfig(__dirname));
 
 `withTtsc` sets `transformer.babelTransformerPath` and leaves the rest of your config untouched. It auto-detects the upstream transformer to delegate to (`@expo/metro-config/babel-transformer` for Expo, then `@react-native/metro-babel-transformer`, then the legacy `metro-react-native-babel-transformer`).
 
+If your config already set `transformer.babelTransformerPath`, that transformer is **chained rather than replaced**: the `ttsc` pass runs first and then delegates to it, so wrapping a working config keeps what it configured. This is what makes `react-native-svg-transformer` — whose entire installation is that one assignment — keep working after you adopt `@ttsc/metro`. Pass `upstreamTransformer` explicitly to override both that and auto-detection.
+
+The value is resolved from your `projectRoot`, exactly as Metro resolves it, so a relative `"./metro-svg.cjs"` and a bare `"react-native-svg-transformer"` both mean what they mean in your project rather than inside this package. A path that names `@ttsc/metro`'s own transformer is never chained — in any spelling, including a second copy installed elsewhere in your tree — because delegating this transformer into itself would recurse on every file.
+
 Auto-detection only skips a candidate whose entry point is genuinely **not available** — the package is not installed, or it is installed but the requested subpath is not exported (Expo/React Native version skew). A candidate that _does_ resolve but fails while loading — a top-level throw, an incompatible runtime ABI, or a missing peer/transitive dependency — surfaces its original error (as the `cause` of a `@ttsc/metro` wrapper) instead of being treated as absent. This stops a broken Expo/React Native install from silently falling through to the wrong transformer, and stops an explicit `upstreamTransformer` failure from being reported as if the module did not exist.
 
 ## Configuration
@@ -60,7 +64,7 @@ module.exports = withTtsc(getDefaultConfig(__dirname), {
 - `project`: path to the `tsconfig.json` the transformer should read (resolved from `process.cwd()`).
 - `compilerOptions`: a temporary overlay layered on the selected project config.
 - `plugins`: an explicit `ttsc` plugin list override, or `false` to disable project plugins.
-- `upstreamTransformer`: an explicit module path for the Babel transformer to delegate to, when auto-detection is not what you want.
+- `upstreamTransformer`: an explicit module path for the Babel transformer to delegate to, when neither the config's own transformer nor auto-detection is what you want.
 - `include` / `exclude`: substring patterns matched against the project-relative file path, selecting which files run through the `ttsc` pass (`.ts`/`.tsx`/`.cts`/`.mts` only; declaration and JavaScript files always pass straight through).
 
 Options are forwarded from the Metro **config** process to Metro's **worker** processes through the `TTSC_METRO_OPTIONS` environment variable, so they must stay JSON-serialisable (hence substring patterns rather than `RegExp`).
