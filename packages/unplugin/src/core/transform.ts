@@ -17,8 +17,12 @@ import type { TransformResult } from "unplugin";
 
 import type { ResolvedTtscUnpluginOptions } from "./options";
 import {
+  type ITtscProjectMembershipPolicy,
+  PERMISSIVE_PROJECT_MEMBERSHIP_POLICY,
   absolutizePathsTarget,
+  mergeMembershipPolicyOverlay,
   readEffectiveTsconfigPaths,
+  readProjectMembershipPolicy,
 } from "./tsconfigPaths";
 
 /**
@@ -49,6 +53,16 @@ export interface TtscTransformAlias {
 interface TtscProjectDirectorySnapshot {
   /** Absolute directory spelling used by the project walk. */
   path: string;
+  /**
+   * Whether this directory's subtree can hold a program input.
+   *
+   * A directory that cannot is still walked and still watched, so a source
+   * appearing in it later is noticed, but it takes no part in the membership
+   * comparison. That is what lets a bundler create its output directory and
+   * fill it without voiding a generation no compiler input touched, for any
+   * output directory rather than for fifteen names (samchon/ttsc#1307).
+   */
+  relevant: boolean;
   /**
    * Digest of the entries the walk itself considers: every immediate child the
    * ignore list does not drop, with its kind.
@@ -150,6 +164,32 @@ interface TtscFailedGenerationValidation {
  * the recorded environment it was proven against.
  */
 abstract class TtscTerminalGenerationError extends Error {}
+
+/**
+ * The compile succeeded and produced no output for one requested module,
+ * because the program does not contain it.
+ *
+ * Not a terminal generation error, and deliberately not a build failure. It is
+ * a fact about one file, and the answer to it is to leave that file to the host
+ * (samchon/ttsc#1308). It is a distinct type rather than a message match so the
+ * decision travels as a type: `@ttsc/metro` used to recognise this case by
+ * searching the message text for "did not return output", which is how one
+ * product came to hold two different answers to one condition.
+ */
+class TtscMissingProgramOutputError extends Error {
+  /** The module the bundler asked for. */
+  public readonly file: string;
+  /** The project config whose program does not contain it. */
+  public readonly tsconfig: string;
+  public constructor(file: string, tsconfig: string) {
+    super(
+      `ttsc: ${file} is not part of the program described by ${tsconfig}, so it was left untransformed. Add it to that project's "include" if ttsc plugins should apply to it.`,
+    );
+    this.name = "TtscMissingProgramOutputError";
+    this.file = file;
+    this.tsconfig = tsconfig;
+  }
+}
 
 /**
  * A bounded proof failure that stays authoritative until its inputs change.
@@ -306,6 +346,28 @@ export interface TtscCachedProjectTransform {
    * transform.
    */
   inputHashes: Record<string, string>;
+  /**
+   * What the resolved configuration admitted into this generation's program.
+   *
+   * Recorded per generation rather than read per validation because it is a
+   * property of the configuration the compile ran under, so a later delivery
+   * must judge membership by the same rule the compile did. A tsconfig edit
+   * that changes the rule also changes a declared input, which replaces the
+   * generation and its policy together.
+   */
+  membershipPolicy: ITtscProjectMembershipPolicy;
+  /**
+   * Files already reported as absent from the program, and the pass that
+   * reporting belongs to, so the notice is one per file per pass rather than
+   * one per delivery.
+   */
+  missingOutputReported?: Set<string>;
+  missingOutputEpoch?: number;
+  /**
+   * The project config this generation compiled, so a module the program does
+   * not contain can be told which program that was.
+   */
+  tsconfig: string;
   /**
    * Metadata signature of each {@link inputHashes} entry whose hash was proven
    * against an unracing read of the file on disk, in a tick the observed
@@ -782,11 +844,27 @@ export async function transformTtsc(
         // A resolved `"exception"` / `"failure"` envelope makes this throw;
         // that is a failed generation too, so it is retained for this pass or
         // evicted outside one before being surfaced.
-        const code = selectOrEvict(cache, key, transformed, epoch, {
-          file,
-          projectRoot: cached.projectRoot,
-          result: cached.result,
-        });
+        let code: string;
+        try {
+          code = selectOrEvict(cache, key, transformed, epoch, {
+            file,
+            projectRoot: cached.projectRoot,
+            result: cached.result,
+            tsconfig: cached.tsconfig,
+          });
+        } catch (error) {
+          if (!(error instanceof TtscMissingProgramOutputError)) {
+            notifyFailedGenerationInputs(hooks, cached);
+            throw error;
+          }
+          // The compile is fine and simply has nothing for this module, so the
+          // module goes back to the host untransformed rather than failing the
+          // build (samchon/ttsc#1308). It still counts as delivered in this
+          // pass, and there is nothing to watch for a file with no output.
+          reportMissingProgramOutput(cached, error, epoch);
+          markCachedSourceServed(cached, file);
+          return undefined;
+        }
         notifyWatchInputs(hooks, cached, file);
         markCachedSourceServed(cached, file);
         return createTransformResult(source, code);
@@ -825,11 +903,23 @@ export async function transformTtsc(
     }
     const { projectRoot, result } = cached;
     reportSuccessDiagnostics(cached, epoch);
-    const code = selectOrEvict(cache, key, generation, epoch, {
-      file,
-      projectRoot,
-      result,
-    });
+    let code: string;
+    try {
+      code = selectOrEvict(cache, key, generation, epoch, {
+        file,
+        projectRoot,
+        result,
+        tsconfig: cached.tsconfig,
+      });
+    } catch (error) {
+      if (!(error instanceof TtscMissingProgramOutputError)) {
+        notifyFailedGenerationInputs(hooks, cached);
+        throw error;
+      }
+      reportMissingProgramOutput(cached, error, epoch);
+      markCachedSourceServed(cached, file);
+      return undefined;
+    }
     notifyWatchInputs(hooks, cached, file);
     markCachedSourceServed(cached, file);
     if (
@@ -898,6 +988,7 @@ function selectOrEvict(
     file: string;
     projectRoot: string;
     result: ITtscCompilerTransformation;
+    tsconfig: string;
   },
 ): string {
   try {
@@ -1463,6 +1554,45 @@ function collectDeclaredIdentities(
  * transform scratch tree (see
  * {@link TtscCachedProjectTransform.scratchDirectory}).
  */
+/**
+ * Register the failed generation's own project inputs so the host can observe
+ * the fix.
+ *
+ * A successful delivery registers the derived watch inputs, which is how a
+ * type-only file that no bundler graph contains still invalidates the modules
+ * depending on it. A failed one used to register nothing: `selectWatchInputs`
+ * returns an empty list for an `"exception"` envelope, and the throw happens
+ * before `notifyWatchInputs` is reached at all. When the failing compile is the
+ * first of a watching session, that leaves no channel through which the fix can
+ * arrive: the user repairs a file the bundler does not track, nothing is
+ * invalidated, and the error stays on screen (samchon/ttsc#1312).
+ *
+ * The generation records the project walk even when the compile failed, so the
+ * files a fix would touch are exactly what it already holds. The cost is paid
+ * only on a failure, and only until the next compile succeeds and narrows the
+ * set back to the derived inputs.
+ */
+function notifyFailedGenerationInputs(
+  hooks: TtscTransformHooks | undefined,
+  cached: TtscCachedProjectTransform,
+): void {
+  const addWatchFile = hooks?.addWatchFile;
+  if (addWatchFile === undefined) {
+    return;
+  }
+  const state = envelopeDerivation(cached);
+  for (const key of Object.keys(cached.inputHashes)) {
+    const input = path.resolve(cached.projectRoot, key);
+    if (isTransformScratchInput(input, cached.scratchDirectory)) {
+      continue;
+    }
+    addWatchFile(input, {
+      identity: derivationIdentity(state, input),
+      missing: false,
+    });
+  }
+}
+
 function notifyWatchInputs(
   hooks: TtscTransformHooks | undefined,
   cached: TtscCachedProjectTransform,
@@ -2862,6 +2992,12 @@ function matchesCompleteInputSnapshot(
     cached.inputSignatures === undefined
       ? undefined
       : { hashes: cached.inputHashes, signatures: cached.inputSignatures },
+    {
+      // Judge membership by the rule the compile ran under, and read only the
+      // inputs this comparison actually consults.
+      declaredKeys: declaredInputs,
+      policy: cached.membershipPolicy,
+    },
   );
   if (!walkSnapshotComplete(current, declaredInputs)) {
     return false;
@@ -3233,9 +3369,17 @@ export function collectProjectInputHashes(
   projectRoot: string,
   identities: FilesystemPathIdentityContext = createHostPathIdentityContext(),
   filesystem: TtscTransformFilesystemOperations = DEFAULT_FILESYSTEM_OPERATIONS,
+  policy?: ITtscProjectMembershipPolicy,
 ): Record<string, string> {
-  return collectProjectInputSnapshot(projectRoot, identities, filesystem)
-    .hashes;
+  return collectProjectInputSnapshot(
+    projectRoot,
+    identities,
+    filesystem,
+    undefined,
+    {
+      policy,
+    },
+  ).hashes;
 }
 
 /** Hash project files and snapshot the directory topology in one walk. */
@@ -3246,6 +3390,16 @@ function collectProjectInputSnapshot(
   proven?: {
     hashes: Record<string, string>;
     signatures: Record<string, string>;
+  },
+  options?: {
+    /**
+     * Restrict hashing to these project keys. Supplied by a validating caller,
+     * which compares over exactly this set, and omitted by a capturing one,
+     * which has no generation to compare against yet.
+     */
+    declaredKeys?: ReadonlySet<string>;
+    /** What the resolved configuration admits into the program. */
+    policy?: ITtscProjectMembershipPolicy;
   },
 ): {
   complete: boolean;
@@ -3262,13 +3416,26 @@ function collectProjectInputSnapshot(
   const provenSignatures: Record<string, string> = {};
   const unstableFiles = new Set<string>();
   let attributed = true;
-  const walked = walkProjectInputs(projectRoot, filesystem);
+  const walked = walkProjectInputs(projectRoot, filesystem, options?.policy);
   const walkFailures = [...walked.failures];
   let complete = walked.complete;
   for (const file of walked.files) {
     try {
-      const before = inputMetadataEvidence(file, filesystem);
       const key = toProjectKey(projectRoot, file, identities);
+      // A caller validating a generation compares hashes over that
+      // generation's declared inputs alone (`sameHashes` takes the declared key
+      // set), so reading anything else is work whose result is never consulted.
+      // Skipping it is what keeps a directory full of emitted files from
+      // costing a read per file on the pass that first sees them
+      // (samchon/ttsc#1307). Capture passes supply no restriction and still
+      // record the whole walk.
+      if (
+        options?.declaredKeys !== undefined &&
+        !options.declaredKeys.has(key)
+      ) {
+        continue;
+      }
+      const before = inputMetadataEvidence(file, filesystem);
       // A file whose signature still equals the one captured around the read
       // that produced the recorded hash carries that content, so the whole
       // project does not have to be re-read to prove one delivery. A signature
@@ -3333,8 +3500,9 @@ function collectProjectInputSnapshot(
 }
 
 /**
- * Enumerate every regular file under `root`, skipping well-known output and
- * tooling directories (see {@link isIgnoredProjectDirectory}).
+ * Enumerate every regular file under `root`, skipping the directories no
+ * configuration can name ({@link isIgnoredProjectDirectory}) and the ones the
+ * resolved configuration excludes ({@link isExcludedProjectDirectory}).
  *
  * Uses an iterative DFS instead of `fs.readdirSync` recursion to avoid
  * unbounded call-stack depth on deep project trees. The result is sorted so
@@ -3343,6 +3511,7 @@ function collectProjectInputSnapshot(
 function walkProjectInputs(
   root: string,
   filesystem: TtscTransformFilesystemOperations = DEFAULT_FILESYSTEM_OPERATIONS,
+  policy: ITtscProjectMembershipPolicy = PERMISSIVE_PROJECT_MEMBERSHIP_POLICY,
 ): {
   complete: boolean;
   directories: TtscProjectDirectorySnapshot[];
@@ -3350,9 +3519,18 @@ function walkProjectInputs(
   files: string[];
 } {
   let complete = true;
-  const directories: TtscProjectDirectorySnapshot[] = [];
   const failures: TtscProjectWalkFailure[] = [];
   const files: string[] = [];
+  // Collected in one pass, then digested in a second. A directory's digest has
+  // to know whether each child directory can hold program inputs, and the walk
+  // learns that only after descending, so the two cannot be one pass.
+  const visited: {
+    childDirectories: string[];
+    entries: { name: string; kind: string; possible: boolean }[];
+    ownInput: boolean;
+    path: string;
+    stable: string | undefined;
+  }[] = [];
   const stack = [root];
   while (stack.length !== 0) {
     const current = stack.pop()!;
@@ -3384,37 +3562,89 @@ function walkProjectInputs(
         path: current,
       });
     }
-    const membership: string[] = [];
-    for (const entry of entries) {
-      if (isIgnoredProjectDirectory(entry.name)) {
-        continue;
-      }
-      membership.push(
-        [
-          entry.name,
-          entry.isDirectory(),
-          entry.isFile(),
-          entry.isSymbolicLink(),
-        ].join(":"),
-      );
-      const file = path.join(current, entry.name);
-      if (entry.isDirectory()) {
-        stack.push(file);
-      } else if (entry.isFile()) {
-        files.push(file);
-      }
-    }
-    directories.push({
+    const visit = {
+      childDirectories: [] as string[],
+      entries: [] as { name: string; kind: string; possible: boolean }[],
+      ownInput: false,
       path: current,
       // If membership moved during enumeration, force the next delivery to
       // replace this generation instead of blessing a torn directory/file
       // snapshot as stable.
-      signature:
+      stable:
         after !== undefined && before === after
-          ? hashText(membership.sort().join("\0"))
+          ? undefined
           : `unstable:${before}:${after ?? "missing"}`,
-    });
+    };
+    for (const entry of entries) {
+      if (isIgnoredProjectDirectory(entry.name)) {
+        continue;
+      }
+      const file = path.join(current, entry.name);
+      if (entry.isDirectory() && isExcludedProjectDirectory(file, policy)) {
+        continue;
+      }
+      const possible = isPossibleProgramEntry(entry, policy);
+      visit.entries.push({
+        kind: [
+          entry.isDirectory(),
+          entry.isFile(),
+          entry.isSymbolicLink(),
+        ].join(":"),
+        name: entry.name,
+        possible,
+      });
+      if (entry.isDirectory()) {
+        visit.childDirectories.push(file);
+        stack.push(file);
+      } else if (entry.isFile()) {
+        files.push(file);
+        if (possible) {
+          visit.ownInput = true;
+        }
+      }
+    }
+    visited.push(visit);
   }
+
+  // A directory matters to program membership only if its subtree can hold a
+  // program input. Propagate that up from the directories that hold one, so a
+  // bundler creating `out/` and filling it with JavaScript a project admitting
+  // none can never compile is not a membership change at any level: not in the
+  // directory itself, and not in the parent that now lists it
+  // (samchon/ttsc#1307).
+  const byPath = new Map(visited.map((visit) => [visit.path, visit]));
+  const relevant = new Set<string>();
+  for (const visit of visited) {
+    if (!visit.ownInput) {
+      continue;
+    }
+    let current: string | undefined = visit.path;
+    while (current !== undefined && !relevant.has(current)) {
+      relevant.add(current);
+      const parent = path.dirname(current);
+      current = parent === current || !byPath.has(parent) ? undefined : parent;
+    }
+  }
+
+  const directories: TtscProjectDirectorySnapshot[] = visited.map((visit) => {
+    const membership = visit.entries
+      .filter(
+        (entry) =>
+          entry.possible &&
+          (!visit.childDirectories.includes(
+            path.join(visit.path, entry.name),
+          ) ||
+            relevant.has(path.join(visit.path, entry.name))),
+      )
+      .map((entry) => `${entry.name}:${entry.kind}`);
+    return {
+      path: visit.path,
+      relevant: relevant.has(visit.path),
+      signature:
+        visit.stable ??
+        hashText(membership.sort().join(String.fromCharCode(0))),
+    };
+  });
   directories.sort((left, right) => left.path.localeCompare(right.path));
   files.sort();
   return { complete, directories, failures, files };
@@ -3458,14 +3688,31 @@ function sameProjectDirectories(
   left: readonly TtscProjectDirectorySnapshot[],
   right: readonly TtscProjectDirectorySnapshot[],
 ): boolean {
-  return (
-    left.length === right.length &&
-    left.every(
-      (directory, index) =>
-        directory.path === right[index]?.path &&
-        directory.signature === right[index]?.signature,
-    )
-  );
+  // Compare only the directories that can hold program inputs, on either side.
+  // A directory irrelevant on both is not part of the program's membership at
+  // all, so its appearance, disappearance or churn says nothing: that is a
+  // bundler's output tree. One that gained or lost relevance is present in the
+  // comparison from the side where it counts, and so is caught.
+  const select = (
+    snapshots: readonly TtscProjectDirectorySnapshot[],
+  ): Map<string, TtscProjectDirectorySnapshot> =>
+    new Map(
+      snapshots
+        .filter((directory) => directory.relevant)
+        .map((directory) => [directory.path, directory]),
+    );
+  const leftRelevant = select(left);
+  const rightRelevant = select(right);
+  const paths = new Set([...leftRelevant.keys(), ...rightRelevant.keys()]);
+  for (const location of paths) {
+    if (
+      leftRelevant.get(location)?.signature !==
+      rightRelevant.get(location)?.signature
+    ) {
+      return false;
+    }
+  }
+  return true;
 }
 
 /**
@@ -4029,6 +4276,7 @@ export function isProjectWalkPath(
   file: string,
   _identities: FilesystemPathIdentityContext = createHostPathIdentityContext(),
   filesystem: TtscTransformFilesystemOperations = DEFAULT_FILESYSTEM_OPERATIONS,
+  policy: ITtscProjectMembershipPolicy = PERMISSIVE_PROJECT_MEMBERSHIP_POLICY,
 ): boolean {
   // Walk membership is lexical. Resolving `file` to physical identity first
   // would turn `root/alias/value.ts` into `root/target/value.ts`, hide the
@@ -4045,7 +4293,12 @@ export function isProjectWalkPath(
     return false;
   }
   const segments = relative.split(path.sep);
-  if (segments.some(isIgnoredProjectDirectory)) {
+  // The last segment is the file itself, which the walk names rather than
+  // descends into, so only the directory components decide walk membership.
+  if (segments.slice(0, -1).some(isIgnoredProjectDirectory)) {
+    return false;
+  }
+  if (isExcludedProjectDirectory(path.dirname(path.resolve(file)), policy)) {
     return false;
   }
   let current = resolvedRoot;
@@ -4443,23 +4696,53 @@ function insideProject(directory: string, projectRoot: string): boolean {
 const NOTIFIABLE_ABSENCE_DIRECTORY_LIMIT = 512;
 
 function isIgnoredProjectDirectory(name: string): boolean {
-  return (
-    name === ".git" ||
-    name === ".ttsc" ||
-    name === ".cache" ||
-    name === ".next" ||
-    name === ".nuxt" ||
-    name === ".svelte-kit" ||
-    name === ".turbo" ||
-    name === ".vite" ||
-    name === "build" ||
-    name === "coverage" ||
-    name === "dist" ||
-    name === "node_modules" ||
-    name === "out" ||
-    name === "temp" ||
-    name === "tmp"
+  // The residue of what used to be a fifteen-name list, kept to the three
+  // directories no tsconfig can name and no program can contain: the VCS
+  // store, the package manager's tree (TypeScript's own default `exclude`
+  // carries it too), and ttsc's own plugin cache. Everything else the old list
+  // guessed at, and guessing was wrong in both directions: a bundler writing
+  // to an unnamed directory changed project membership with its own output,
+  // while a real source directory named `build` or `temp` was dropped from the
+  // walk and its new files were never seen (samchon/ttsc#1307). Those are now
+  // decided by `ITtscProjectMembershipPolicy`, which reads the configuration
+  // that actually knows.
+  return name === ".git" || name === ".ttsc" || name === "node_modules";
+}
+
+/**
+ * Whether the resolved configuration keeps this directory out of the program.
+ *
+ * Compared by physical containment rather than by name, so `outDir: "./dist"`
+ * excludes that one directory instead of every directory called `dist` at every
+ * depth, which is the distinction the name list could not draw.
+ */
+function isExcludedProjectDirectory(
+  directory: string,
+  policy: ITtscProjectMembershipPolicy,
+): boolean {
+  return policy.excludedDirectories.some((excluded) =>
+    pathIsWithin(directory, excluded),
   );
+}
+
+/**
+ * Whether this entry could enter the program, and so whether its appearance or
+ * removal is a membership change.
+ *
+ * A directory always could, since it can hold sources. A file could only if it
+ * carries an extension the resolved configuration admits, which is what makes a
+ * bundle emitted beside the sources invisible to a project that compiles no
+ * JavaScript.
+ */
+function isPossibleProgramEntry(
+  entry: fs.Dirent,
+  policy: ITtscProjectMembershipPolicy,
+): boolean {
+  if (!entry.isFile()) {
+    return true;
+  }
+  const name = entry.name.toLowerCase();
+  return policy.inputExtensions.some((extension) => name.endsWith(extension));
 }
 
 /**
@@ -4914,6 +5197,8 @@ function failedGenerationEnvironmentChanged(
       validation.cached.projectRoot,
       identities,
       props.filesystem,
+      undefined,
+      { policy: validation.cached.membershipPolicy },
     );
     if (
       validation.projectWalkComplete !==
@@ -5086,10 +5371,21 @@ async function captureTransformGeneration(props: {
     const temporaryTsconfig =
       configured.path === props.tsconfig ? undefined : configured.path;
     const identities = createHostPathIdentityContext(props.filesystem);
+    // Read from the project's own tsconfig rather than the generated one: a
+    // relative `outDir` is anchored at the config that declares it, and the
+    // generated config lives in a system temp directory. The caller's
+    // compiler-options overlay still wins, since it wins for the compile too.
+    const membershipPolicy = mergeMembershipPolicyOverlay(
+      readProjectMembershipPolicy(props.tsconfig),
+      props.compilerOptions,
+      projectRoot,
+    );
     const before = collectProjectInputSnapshot(
       projectRoot,
       identities,
       props.filesystem,
+      undefined,
+      { policy: membershipPolicy },
     );
     tracker = props.trackProjectMembership
       ? await createProjectMutationTracker(
@@ -5179,6 +5475,8 @@ async function captureTransformGeneration(props: {
       projectRoot,
       identities,
       props.filesystem,
+      undefined,
+      { policy: membershipPolicy },
     );
     // Whether the recorded snapshot describes one coherent state of the
     // project. A membership event during the compile taints it exactly like an
@@ -5244,7 +5542,9 @@ async function captureTransformGeneration(props: {
       externalInputPaths,
       inputHashes: inputSnapshot.hashes,
       inputSignatures: inputSnapshot.provenSignatures,
+      membershipPolicy,
       projectDirectories: inputSnapshot.projectDirectories,
+      tsconfig: props.tsconfig,
       projectSnapshotComplete: false,
       projectRoot,
       result,
@@ -5793,6 +6093,7 @@ function selectTransformedSource(props: {
   file: string;
   projectRoot: string;
   result: ITtscCompilerTransformation;
+  tsconfig: string;
 }): string {
   if (props.result.type === "exception") {
     throw new Error(formatUnknownError(props.result.error));
@@ -5823,7 +6124,7 @@ function selectTransformedSource(props: {
   if (source !== undefined) {
     return source;
   }
-  throw new Error(`ttsc transform did not return output for ${props.file}`);
+  throw new TtscMissingProgramOutputError(props.file, props.tsconfig);
 }
 
 /**
@@ -5841,6 +6142,34 @@ function selectTransformedSource(props: {
  * are part of what that build reports; a host with no pass boundary surfaces
  * them once per generation, which is the same rule with one pass.
  */
+/**
+ * Tell the user once that a module was left untransformed, and why.
+ *
+ * The condition is ordinary and the build continues, but it must never be
+ * silent: a file the program does not contain keeps whatever plugin syntax it
+ * carries, so a typia `assert<T>()` in it becomes a runtime failure rather than
+ * a build failure. One line per file per generation per pass, on the channel
+ * the generation's other non-fatal diagnostics already use, so a bundle that
+ * reaches many such files does not repeat itself per delivery.
+ */
+function reportMissingProgramOutput(
+  cached: TtscCachedProjectTransform,
+  error: TtscMissingProgramOutputError,
+  epoch: number | undefined,
+): void {
+  const reported = (cached.missingOutputReported ??= new Set<string>());
+  if (cached.missingOutputEpoch !== epoch) {
+    cached.missingOutputEpoch = epoch;
+    reported.clear();
+  }
+  if (reported.has(error.file)) {
+    return;
+  }
+  reported.add(error.file);
+  process.stderr.write(`${error.message}
+`);
+}
+
 function reportSuccessDiagnostics(
   cached: TtscCachedProjectTransform,
   epoch: number | undefined,
@@ -5882,7 +6211,7 @@ function formatDiagnostics(diagnostics: ITtscCompilerDiagnostic[]): string {
         diag.line === undefined
           ? undefined
           : `${diag.line}:${diag.character ?? 1}`,
-        diag.messageText,
+        stripTerminalEscapes(diag.messageText),
       ]
         .filter((part) => part !== undefined && part !== "")
         .join(": "),
@@ -5892,7 +6221,7 @@ function formatDiagnostics(diagnostics: ITtscCompilerDiagnostic[]): string {
 
 function formatUnknownError(error: unknown): string {
   if (error instanceof Error) {
-    return error.message;
+    return stripTerminalEscapes(error.message);
   }
   if (
     typeof error === "object" &&
@@ -5900,9 +6229,33 @@ function formatUnknownError(error: unknown): string {
     "message" in error &&
     typeof error.message === "string"
   ) {
-    return error.message;
+    return stripTerminalEscapes(error.message);
   }
-  return String(error);
+  return stripTerminalEscapes(String(error));
+}
+
+/**
+ * Remove terminal colour and cursor sequences from text the adapter surfaces.
+ *
+ * An ordinary type error reaches the adapter as an `"exception"` envelope whose
+ * `error` is the host's own rendered output, colour and all, and the envelope
+ * carries no structured diagnostics to format instead. What the adapter hands
+ * back is not going to a terminal: it becomes the `Error` a bundler reports, so
+ * it lands in a Vite overlay, a webpack error report or a CI annotation, where
+ * the escapes render as literal noise around the file and line the reader needs
+ * (samchon/ttsc#1312).
+ *
+ * The colour originates in the host's rendering rather than in anything this
+ * adapter configures, so this is the adapter-side repair, applied to every
+ * message it surfaces rather than to one call site.
+ */
+function stripTerminalEscapes(text: string): string {
+  // Built from a char code so no control byte lives in this source file, and
+  // written with `[[]` (a class holding one literal bracket) so the pattern
+  // needs no backslash escapes to survive the string it is assembled from.
+  const escape = String.fromCharCode(27);
+  const controlSequence = new RegExp(escape + "[[][0-9;?]*[ -/]*[@-~]", "g");
+  return text.replace(controlSequence, "");
 }
 
 /**

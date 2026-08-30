@@ -48,6 +48,7 @@ import {
   collectExternalInputHashes,
   collectProjectInputHashes,
   isProjectWalkPath,
+  readProjectMembershipPolicy,
 } from "@ttsc/unplugin/api";
 import { createHash, randomBytes } from "node:crypto";
 import fs from "node:fs";
@@ -179,8 +180,19 @@ export function computeProjectFingerprint(props: {
   try {
     const base = resolveFingerprintBase(props.projectRoot);
     const hash = createHash("sha256");
+    // Judge the fingerprint's walk by the same configuration the compile
+    // does. Metro folds this into one static key, so an entry the program
+    // could never contain used to re-key every transformed file rather than
+    // costing one compile the way it does for a bundler (samchon/ttsc#1307).
+    const policy = readProjectMembershipPolicy(
+      resolveProjectTsconfig(base, props.explicitProject),
+    );
     for (const root of fingerprintRoots(base, props.explicitProject)) {
-      hash.update(stableStringify(collectProjectInputHashes(root)));
+      hash.update(
+        stableStringify(
+          collectProjectInputHashes(root, undefined, undefined, policy),
+        ),
+      );
     }
     const snapshot = readSnapshotState(base);
     if (snapshot === undefined || snapshot.volatile) {

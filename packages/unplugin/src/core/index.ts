@@ -302,6 +302,8 @@ export type {
   TtscTransformHooks,
   TtscWatchInputEvidence,
 } from "./transform";
+export type { ITtscProjectMembershipPolicy } from "./tsconfigPaths";
+export { readProjectMembershipPolicy } from "./tsconfigPaths";
 export {
   beginTtscTransformBuild,
   collectExternalInputHashes,
