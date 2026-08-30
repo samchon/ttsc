@@ -1,7 +1,26 @@
 import { TestUnpluginRuntime } from "@ttsc/testing";
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 
 const LOADER = "@ttsc/unplugin/turbopack";
+
+/**
+ * Every glob this suite proves the dedupe guard recognises as naming the whole
+ * project, for both extensions.
+ *
+ * Cross-checked against the list the experimental suite drives through real
+ * Turbopack builds, so neither can gain a spelling the other has not seen.
+ */
+const RECOGNISED_PROJECT_WIDE_GLOBS = [
+  "*.ts",
+  "**/*.ts",
+  "*.{ts,tsx}",
+  "{*.ts,*.tsx}",
+  "**/*.{ts,tsx}",
+  "**/{*.ts,*.tsx}",
+  "{**/,}*.ts",
+  "**/**/*.{ts,tsx}",
+];
 
 interface INextLikeConfig {
   turbopack?: { rules?: Record<string, unknown> };
@@ -238,10 +257,16 @@ export async function assertNextAdapterDoesNotDoubleRegisterAcrossGlobs(): Promi
 
   // And the shapes the guard does recognise. Each names every file with the
   // extension, so the wrapper's own rules would be a second registration of a
-  // file set the caller already routed. They are one rule rather than a list of
-  // cases: expand the brace group, drop leading `**/` segments, and what is
-  // left must be exactly `*.ts` or `*.tsx`.
-  for (const wide of ["**/*.{ts,tsx}", "**/{*.ts,*.tsx}", "**/**/*.{ts,tsx}"]) {
+  // file set the caller already routed. Every one of these is driven through a
+  // real Turbopack build by `experimental/test-unplugin`, because whether a
+  // glob covers the project is Turbopack's answer and not ours.
+  for (const wide of [
+    "*.{ts,tsx}",
+    "{*.ts,*.tsx}",
+    "**/*.{ts,tsx}",
+    "**/{*.ts,*.tsx}",
+    "**/**/*.{ts,tsx}",
+  ]) {
     assert.deepEqual(
       globs({ turbopack: { rules: { [wide]: { loaders: [LOADER] } } } }),
       [wide],
@@ -251,21 +276,93 @@ export async function assertNextAdapterDoesNotDoubleRegisterAcrossGlobs(): Promi
 
   // Recognition is per extension, not per rule: a glob naming every `.ts` and
   // no `.tsx` suppresses only the `*.ts` registration, exactly as the partial
-  // hand wiring above does. Both of these mean every `.ts` in the project.
-  for (const partial of ["{**/,}*.ts", "{src/,}*.ts"]) {
+  // hand wiring above does.
+  for (const partial of ["{**/,}*.ts", "**/*.ts"]) {
     assert.deepEqual(
       globs({ turbopack: { rules: { [partial]: { loaders: [LOADER] } } } }),
       [partial, "*.tsx"],
       `${partial} names every .ts, so only the missing .tsx is added`,
     );
   }
-  assert.deepEqual(
-    globs({
-      turbopack: { rules: { "{src,lib}/*.{ts,tsx}": { loaders: [LOADER] } } },
-    }),
-    ["{src,lib}/*.{ts,tsx}", "*.ts", "*.tsx"],
-    "a brace group over scopes stays scoped and must not suppress anything",
+
+  // A path segment anywhere disqualifies the whole glob, including inside a
+  // brace group. Set semantics say `{src/,}*.ts` offers a bare `*.ts` and so
+  // must cover everything; Turbopack, measured, matches **nothing** with it —
+  // not even `src/`. Recognising it suppressed this wrapper's rules in favour
+  // of a rule that transforms no file at all, which is samchon/ttsc#1310 caused
+  // by the guard meant to prevent it (samchon/ttsc#1319). Every alternative has
+  // to be unscoped, not merely one of them.
+  for (const scopedGroup of [
+    "{src/,}*.ts",
+    "{src,lib}/*.{ts,tsx}",
+    "{src/,lib/}*.ts",
+  ]) {
+    assert.deepEqual(
+      globs({ turbopack: { rules: { [scopedGroup]: { loaders: [LOADER] } } } }),
+      [scopedGroup, "*.ts", "*.tsx"],
+      `${scopedGroup} carries a path segment, so it must not suppress anything`,
+    );
+  }
+
+  await assertRecognisedGlobsMatchTheRealBuildList(globs);
+}
+
+/**
+ * Assert the guard and the experimental suite name the same recognised set.
+ *
+ * Whether a glob covers the project is Turbopack's answer, so the recognised
+ * set is only ever as good as the real builds that check it. Those builds live
+ * in `experimental/test-unplugin`, in a list this fast suite cannot import —
+ * that harness runs against installed tarballs, not this source tree. The two
+ * lists were therefore synchronised by convention, and a convention is what
+ * lost `{src/,}*.ts`: the guard recognised a spelling no build ever drove, and
+ * it turned out to match nothing at all (samchon/ttsc#1319).
+ *
+ * So the invariant is asserted in both directions instead of trusted. Adding a
+ * spelling to the guard without adding it to the harness fails here, and so
+ * does the reverse.
+ */
+async function assertRecognisedGlobsMatchTheRealBuildList(
+  globs: (config: INextLikeConfig) => string[],
+): Promise<void> {
+  const harness = await readFile(
+    new URL(
+      "../../../../experimental/test-unplugin/src/index.ts",
+      import.meta.url,
+    ),
+    "utf8",
   );
+  const declared = /const TURBOPACK_PROJECT_WIDE_GLOBS = \[([^\]]*)\]/.exec(
+    harness,
+  );
+  const body = declared?.[1];
+  assert.ok(body, "the experimental suite must declare its recognised set");
+  const listed = [...body.matchAll(/"((?:[^"\\]|\\.)*)"/g)].map(
+    (match) => JSON.parse(`"${match[1]}"`) as string,
+  );
+  assert.ok(listed.length > 0, "that list must not be empty");
+
+  // Every glob the real builds drive must actually be recognised, or those
+  // builds are proving something about a spelling the guard never takes.
+  // Recognition means at least one of the wrapper's two rules is declined; a
+  // glob naming one extension, `*.ts`, still leaves the other to be added.
+  for (const glob of listed) {
+    const wired = globs({
+      turbopack: { rules: { [glob]: { loaders: [LOADER] } } },
+    });
+    assert.ok(
+      wired.length < 3,
+      `${glob} is driven through a real build, so the guard must recognise it (got ${JSON.stringify(wired)})`,
+    );
+  }
+
+  // And every spelling this suite proves recognised must be driven there.
+  for (const glob of RECOGNISED_PROJECT_WIDE_GLOBS) {
+    assert.ok(
+      listed.includes(glob),
+      `${glob} is recognised here, so a real Turbopack build must drive it`,
+    );
+  }
 }
 
 /**
@@ -297,18 +394,18 @@ export async function assertNextAdapterWarnsAboutASuppressedWebpackHook(): Promi
   const warned = capture({ webpack: (config) => config });
   assert.match(
     warned,
-    /your own `webpack` hook does not run on a Turbopack build/,
+    /withTtsc now configures Turbopack/,
     "a caller's own webpack hook must not be dropped in silence",
   );
-  // What the message must not claim. It used to say Next.js would have warned
-  // and no longer will; measured against Next 16.3.2, a config with a `webpack`
-  // hook and no `turbopack` block builds cleanly with no mention of either, and
-  // Next ships no such check. A diagnostic that asserts something the reader can
-  // check and find false costs the channel that also carries the out-of-program
-  // report (samchon/ttsc#1320).
-  assert.ok(
-    !/Next\.js will not warn|refuses to build/.test(warned),
-    `the warning must not claim Next.js would have said anything (got ${JSON.stringify(warned)})`,
+  // What this wrapper suppresses is a refusal, not a warning. Next 16.3.2's
+  // `turbopack-warning.js` logs an error and calls `process.exit(1)` when the
+  // bundler was defaulted, a `webpack` hook exists, and no `turbopack` block
+  // does — and `hasTurboConfig` is read from this wrapper's own return value.
+  // Saying "warn" understates what the caller loses (samchon/ttsc#1320).
+  assert.match(
+    warned,
+    /stop the build/,
+    "the message must say the build would have been stopped, not merely warned about",
   );
 
   assert.equal(

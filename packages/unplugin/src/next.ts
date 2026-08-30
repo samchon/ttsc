@@ -88,22 +88,28 @@ export default function next(
 }
 
 /**
- * Tell a caller their webpack-only configuration will not run.
+ * Say what Next.js can no longer say once this wrapper defines `turbopack`.
  *
- * A `webpack` hook does not apply to a Turbopack build, and this wrapper wires
- * Turbopack, so a caller who had configured webpack and nothing else is about
- * to build with a bundler their configuration never reaches. That is worth one
- * line, because nothing else says it.
+ * Next stops the build when a config carries a `webpack` hook and no
+ * `turbopack` block, because the webpack hook is then silently ignored. Read
+ * from Next 16.3.2's own `dist/lib/turbopack-warning.js`, it is
+ * `log.error(...)` followed by `process.exit(1)` — a refusal, not a warning —
+ * and it is gated on `process.env.TURBOPACK === "auto"`, which
+ * `dist/lib/bundler.js` sets only when no bundler flag was passed. Next's
+ * comment there gives the reason: an explicit `--turbopack` means the user
+ * chose it and is assumed to have configured it. So the check fires on a plain
+ * `next build` or `next dev`, which is how Next 16 is normally run.
  *
- * Nothing else including Next itself, which is why this no longer claims
- * otherwise. The message used to say Next would have warned and no longer will,
- * and the docstring said Next "refuses to build" in this situation. Measured
- * against Next 16.3.2, a config with a `webpack` hook and no `turbopack` block
- * builds cleanly under `next build --turbopack`: exit 0, and no occurrence of
- * `webpack`, `ignored`, or `warn` anywhere in the output. Next's shipped code
- * carries no such check either. There was no warning to suppress, and saying so
- * put a claim in front of users that they could check and find false
- * (samchon/ttsc#1320).
+ * `hasTurboConfig` is read from the raw exported config, which is this
+ * wrapper's return value, and this wrapper always defines `turbopack`. The
+ * check therefore can never fire again for anyone who uses `withTtsc`, and a
+ * caller's own webpack customisation would be dropped on a Turbopack build with
+ * nothing said. Wiring ttsc for Turbopack is worth exactly one line, not the
+ * loss of the refusal Next already gave.
+ *
+ * Verifying that gate is what this docstring exists for: measured with an
+ * explicit `--turbopack`, the check is silent, and a reading that stopped there
+ * would conclude Next says nothing and delete a true statement.
  *
  * Only for a caller who wrote a `webpack` hook and no `turbopack` block. A
  * caller who configured Turbopack has already made that decision, and a caller
@@ -117,10 +123,11 @@ function warnAboutSuppressedWebpackConfig(nextConfig: NextLikeConfig): void {
     return;
   }
   process.stderr.write(
-    "@ttsc/unplugin: withTtsc configures Turbopack as well as webpack, and your " +
-      "own `webpack` hook does not run on a Turbopack build. Port it to " +
-      "`turbopack`, or run the bundler you configured with " +
-      "`next build --webpack` / `next dev --webpack`." +
+    "@ttsc/unplugin: withTtsc now configures Turbopack as well as webpack, so " +
+      "Next.js will no longer stop the build to tell you that your own " +
+      "`webpack` hook is ignored on a Turbopack build. Port it to `turbopack`, " +
+      "or run the bundler you configured with `next build --webpack` / " +
+      "`next dev --webpack`." +
       String.fromCharCode(10),
   );
 }
@@ -221,31 +228,51 @@ function coveredByAnotherRule(
  * (samchon/ttsc#1319).
  *
  * Recognition is one rule rather than a list of shapes: expand a brace group
- * into the globs it stands for, drop any leading `**` + `/` segments, and ask
- * whether what remains is exactly `*.<extension>`. That covers every spelling a
- * caller plausibly writes for "every file with this extension" — `*.ts`, `**` +
- * `/*.ts`, `*.{ts,tsx}`, `**` + `/{*.ts,*.tsx}`, `{**` + `/,}*.ts` — without
- * deciding glob equivalence in general.
+ * into the globs it stands for, drop any leading `**` + `/` segments, and
+ * require that **every** alternative is then exactly `*.<extension>`. That
+ * covers every spelling a caller plausibly writes for "every file with this
+ * extension" — `*.ts`, `**` + `/*.ts`, `*.{ts,tsx}`, `{*.ts,*.tsx}`, `**` +
+ * `/{*.ts,*.tsx}`, `{**` + `/,}*.ts` — without deciding glob equivalence in
+ * general.
  *
- * Expanding the brace before the test is what keeps the scoped case safe.
- * `src/*.{ts,tsx}` expands to `src/*.ts` and `src/*.tsx`, neither of which
- * survives the test, because the path segment is still there once the group is
- * gone. A group that spans the scope itself is judged the same way:
- * `{src/,}*.ts` offers `*.ts` among its alternatives, and that alternative
- * really does name every file, so recognising it is correct rather than a
- * leak.
+ * Every, not any, and that distinction is the whole correctness of this
+ * function. Reasoning from set semantics says `{src/,}*.ts` offers a bare
+ * `*.ts` among its alternatives, so the union must cover everything and one
+ * matching alternative should be enough to recognise it. Turbopack disagrees:
+ * measured against Next.js 16.3.2 with a loader on that exact rule, it matches
+ * **nothing** — not the project root, not `src/`, which the very alternative it
+ * contains would have to match. Recognising it therefore suppressed this
+ * wrapper's own rules in favour of a rule that transforms no file at all, which
+ * is samchon/ttsc#1310 restored by a guard built to prevent it
+ * (samchon/ttsc#1319).
  *
- * Two shapes stay unrecognised and deliberately so, since both fail in the loud
- * direction: a character class (`*.[jt]s`) and a different case (`*.TS`).
+ * The same measurement explains why a path segment is refused wherever it
+ * appears. `src/*.ts` and `src/**` + `/*.ts` match nothing either — not even
+ * the `src/` subtree they name — while `./src/*.ts`, `**` + `/src/*.ts` and a
+ * bare `nested-probe.ts` do match a file at `src/`. Requiring every alternative
+ * to survive the test refuses all of them together, and the experimental suite
+ * drives the surviving set through a real build so this stops being a belief.
+ *
+ * Two further shapes stay unrecognised and deliberately so, since both fail in
+ * the loud direction: a character class (`*.[jt]s`) and a different case
+ * (`*.TS`).
  */
 function matchesExtension(glob: string, extension: string): boolean {
-  return expandBraceGroup(glob).some((candidate) => {
+  const alternatives = expandBraceGroup(glob).map((candidate) => {
     let unprefixed = candidate;
     while (unprefixed.startsWith("**/")) {
       unprefixed = unprefixed.slice(3);
     }
-    return unprefixed === `*.${extension}`;
+    return unprefixed;
   });
+  // Every alternative has to be project-wide, or the glob as a whole is not,
+  // and at least one has to name this extension, or it says nothing about it.
+  // `*.{ts,tsx}` passes both for `ts`: both alternatives are unscoped, and one
+  // is `*.ts`.
+  return (
+    alternatives.every((candidate) => /^\*\.[A-Za-z0-9]+$/.test(candidate)) &&
+    alternatives.includes(`*.${extension}`)
+  );
 }
 
 /**

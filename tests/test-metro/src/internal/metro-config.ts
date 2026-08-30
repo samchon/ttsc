@@ -33,6 +33,35 @@ async function withCleanEnv(body: () => Promise<void>): Promise<void> {
   }
 }
 
+/** Write a resolvable module and return its absolute path. */
+function writeModule(root: string, relative: string, body: string): string {
+  const file = path.join(root, relative);
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, body, "utf8");
+  return file;
+}
+
+/** Install a fake package under `root`'s `node_modules`, returning its main. */
+function writePackage(root: string, name: string, main: string): string {
+  const directory = path.join(root, "node_modules", ...name.split("/"));
+  fs.mkdirSync(directory, { recursive: true });
+  fs.writeFileSync(
+    path.join(directory, "package.json"),
+    JSON.stringify({
+      name: name.split("node_modules/").pop(),
+      version: "0.0.0",
+      main,
+    }),
+    "utf8",
+  );
+  return writeModule(directory, main, "module.exports = {};\n");
+}
+
+/** The `upstreamTransformer` the last `withTtsc` call published to the worker. */
+function publishedUpstream(envKey: string): unknown {
+  return JSON.parse(process.env[envKey] as string).upstreamTransformer;
+}
+
 /**
  * Asserts `withTtsc` points `transformer.babelTransformerPath` at the package's
  * built transformer module, by absolute path, and that the file exists.
@@ -127,77 +156,124 @@ export async function assertWithTtscAddsTransformerWhenAbsent(): Promise<void> {
 }
 
 /**
- * Asserts a `babelTransformerPath` the config already carried is chained rather
- * than discarded.
+ * Verifies a transformer the config already declared is chained, in every
+ * spelling a config can carry it.
  *
- * `withTtsc` sets that one field and used to read nothing, so a project that
- * had configured its own transformer lost it on the line that adopted this
- * package. Everything else survived — the config and its `transformer` are both
- * spread through — which is what made the loss hard to see
- * (samchon/ttsc#1321).
+ * `withTtsc` set that one field and read nothing, so a project that had
+ * configured its own transformer lost it on the line that adopted this package.
+ * Everything else survived — the config and its `transformer` are both spread
+ * through — which is what made the loss hard to see (samchon/ttsc#1321).
+ * `react-native-svg-transformer`'s whole installation is that single
+ * assignment, and losing it fails nothing: `.svg` is not TypeScript, so the
+ * ttsc pass hands it to its upstream, and the upstream became the auto-detected
+ * Expo default. Green build, wrong components.
  *
- * `react-native-svg-transformer` is the case that matters, because its whole
- * installation is that single assignment and it is ordinary in React Native and
- * Expo projects. Losing it does not fail the build: `.svg` files are not
- * TypeScript, so the ttsc pass hands them straight to its upstream, and the
- * upstream was the auto-detected Expo default rather than the transformer the
- * project chose. The build succeeds and the SVG components are wrong.
+ * Chaining is decided on the resolved module, never on the string. Metro
+ * resolves this value from the project while the worker resolves
+ * `upstreamTransformer` from inside `@ttsc/metro`, so a spelling left relative
+ * is looked for where it is not — turning a transformer that used to be ignored
+ * into a build that fails outright. Resolving first also lets the
+ * self-reference guard recognise this package when a caller named it as a
+ * specifier rather than a path, which no string comparison could.
  *
- * The transport matters as much as the decision, so this reads the value back
- * out of `TTSC_METRO_OPTIONS` — the environment variable Metro's workers
- * actually consult — rather than from the returned config.
+ * The refusals matter as much as the adoptions. The worker options are
+ * process-global, so a copy of this package adopted as its own upstream reads
+ * the same `TTSC_METRO_OPTIONS`, finds itself named there, and recurses until
+ * the stack ends.
+ *
+ * 1. Drive every spelling of a third-party transformer through `withTtsc`.
+ * 2. Drive every spelling that names this package, which must never be adopted.
+ * 3. Read each result back out of `TTSC_METRO_OPTIONS`, which is what Metro's
+ *    workers actually consult.
  */
 export async function assertWithTtscChainsAnExistingTransformer(): Promise<void> {
   await withCleanEnv(async () => {
     const { ENV_KEY } = await TestMetroRuntime.loadOptions();
     const { withTtsc } = await TestMetroRuntime.loadIndex();
-    const declared = path.join(
-      tempProjectRoot(),
-      "node_modules",
-      "react-native-svg-transformer",
-      "index.js",
-    );
 
+    // An absolute path, which is what `require.resolve` produces and what
+    // almost every real config carries.
+    const absoluteRoot = tempProjectRoot();
+    const absolute = writeModule(
+      absoluteRoot,
+      "vendor/svg-transformer.cjs",
+      "module.exports = {};\n",
+    );
     const config = withTtsc({
-      projectRoot: tempProjectRoot(),
-      transformer: { babelTransformerPath: declared },
+      projectRoot: absoluteRoot,
+      transformer: { babelTransformerPath: absolute },
     });
     assert.equal(
-      JSON.parse(process.env[ENV_KEY] as string).upstreamTransformer,
-      declared,
+      publishedUpstream(ENV_KEY),
+      absolute,
       "the transformer the config already named must become the upstream",
     );
     assert.notEqual(
       config.transformer.babelTransformerPath,
-      declared,
+      absolute,
       "and this package's transformer must be the one Metro loads",
     );
 
-    // A relative path is the other spelling a config can carry, and the
-    // transport is JSON over an environment variable, so it has to survive
-    // exactly as written: `resolveUpstreamTransformer` requires it, and a path
-    // silently rewritten between the config process and the worker would be
-    // loaded from the wrong place or not at all.
+    // A project-relative spelling has to be anchored to the project. Left as
+    // written it would be looked for inside `@ttsc/metro`, where it is not.
+    const relativeRoot = tempProjectRoot();
+    const relativeTarget = writeModule(
+      relativeRoot,
+      "local-transformer.cjs",
+      "module.exports = {};\n",
+    );
     withTtsc({
-      projectRoot: tempProjectRoot(),
+      projectRoot: relativeRoot,
       transformer: { babelTransformerPath: "./local-transformer.cjs" },
     });
     assert.equal(
-      JSON.parse(process.env[ENV_KEY] as string).upstreamTransformer,
-      "./local-transformer.cjs",
-      "a relative path must reach the worker exactly as the config spelled it",
+      publishedUpstream(ENV_KEY),
+      relativeTarget,
+      "a project-relative path must be anchored to the project before it travels",
+    );
+
+    // A bare specifier is a package name. Resolving it from the project is what
+    // makes it work under pnpm, where this package lives in a virtual store and
+    // walking up from it never reaches the project's own `node_modules`.
+    const bareRoot = tempProjectRoot();
+    const bareTarget = writePackage(
+      bareRoot,
+      "react-native-svg-transformer",
+      "index.js",
+    );
+    withTtsc({
+      projectRoot: bareRoot,
+      transformer: { babelTransformerPath: "react-native-svg-transformer" },
+    });
+    assert.equal(
+      publishedUpstream(ENV_KEY),
+      bareTarget,
+      "a bare specifier must be resolved from the project, not from this package",
+    );
+
+    // Nothing resolvable: hand the spelling on untouched. It may still resolve
+    // in the worker, and if it does not, the upstream loader names it in an
+    // error, which is more legible than a path invented here.
+    withTtsc({
+      projectRoot: tempProjectRoot(),
+      transformer: { babelTransformerPath: "no-such-transformer-anywhere" },
+    });
+    assert.equal(
+      publishedUpstream(ENV_KEY),
+      "no-such-transformer-anywhere",
+      "an unresolvable specifier must travel exactly as written",
     );
 
     // An explicit option is the caller saying it outright, so it wins.
     withTtsc(
       {
-        projectRoot: tempProjectRoot(),
-        transformer: { babelTransformerPath: declared },
+        projectRoot: absoluteRoot,
+        transformer: { babelTransformerPath: absolute },
       },
       { upstreamTransformer: "explicit-upstream" },
     );
     assert.equal(
-      JSON.parse(process.env[ENV_KEY] as string).upstreamTransformer,
+      publishedUpstream(ENV_KEY),
       "explicit-upstream",
       "an explicit upstreamTransformer must win over the config's value",
     );
@@ -206,7 +282,7 @@ export async function assertWithTtscChainsAnExistingTransformer(): Promise<void>
     // point of the candidate list.
     withTtsc({ projectRoot: tempProjectRoot() });
     assert.equal(
-      JSON.parse(process.env[ENV_KEY] as string).upstreamTransformer,
+      publishedUpstream(ENV_KEY),
       undefined,
       "a config with no transformer must still auto-detect",
     );
@@ -215,7 +291,7 @@ export async function assertWithTtscChainsAnExistingTransformer(): Promise<void>
     const once = withTtsc({ projectRoot: tempProjectRoot() });
     const twice = withTtsc(once);
     assert.equal(
-      JSON.parse(process.env[ENV_KEY] as string).upstreamTransformer,
+      publishedUpstream(ENV_KEY),
       undefined,
       "a doubly wrapped config must not delegate into this package's own transformer",
     );
@@ -223,6 +299,60 @@ export async function assertWithTtscChainsAnExistingTransformer(): Promise<void>
       twice.transformer.babelTransformerPath,
       once.transformer.babelTransformerPath,
       "and the transformer Metro loads is unchanged",
+    );
+
+    // A second installed copy of this package must be refused too, and this is
+    // the row that matters most: adopted, it would recurse into itself on every
+    // file. A directory comparison cannot see it, because a differently hoisted
+    // `node_modules` is a different directory; the owning `package.json` is
+    // what identifies it.
+    const duplicateRoot = tempProjectRoot();
+    const duplicate = writePackage(
+      duplicateRoot,
+      "expo/node_modules/@ttsc/metro",
+      "lib/transformer.js",
+    );
+    withTtsc({
+      projectRoot: duplicateRoot,
+      transformer: { babelTransformerPath: duplicate },
+    });
+    assert.equal(
+      publishedUpstream(ENV_KEY),
+      undefined,
+      "another installed copy of @ttsc/metro must never become the upstream",
+    );
+
+    // The same package named as a specifier rather than a path. Judging the
+    // string would adopt it; judging the resolved module refuses it.
+    const specifierRoot = tempProjectRoot();
+    writePackage(specifierRoot, "@ttsc/metro", "lib/transformer.js");
+    withTtsc({
+      projectRoot: specifierRoot,
+      transformer: { babelTransformerPath: "@ttsc/metro" },
+    });
+    assert.equal(
+      publishedUpstream(ENV_KEY),
+      undefined,
+      "naming this package as a specifier must be refused like naming its path",
+    );
+
+    // A third-party module that merely happens to be named `transformer.js` is
+    // not ours, and refusing it would drop the very transformer this feature
+    // exists to keep.
+    const lookalikeRoot = tempProjectRoot();
+    const lookalike = writePackage(
+      lookalikeRoot,
+      "some-other-transformer",
+      "lib/transformer.js",
+    );
+    withTtsc({
+      projectRoot: lookalikeRoot,
+      transformer: { babelTransformerPath: lookalike },
+    });
+    assert.equal(
+      publishedUpstream(ENV_KEY),
+      lookalike,
+      "a foreign module named transformer.js must still be chained",
     );
   });
 }
