@@ -329,6 +329,16 @@ function findDeclaredValue<T>(
   for (const specifier of extendsSpecifiers(parsed.extends).reverse()) {
     const base = resolveExtendsConfig(canonical, specifier);
     if (base === null) {
+      // Record where a relative or absolute specifier *would* have resolved,
+      // even though nothing is there. A caller stamping this policy has to
+      // notice the config appearing later, and a base config can be absent for
+      // ordinary reasons: generated during install, or missing across a branch
+      // switch. Without this the stamp never moves and a long-lived worker
+      // keeps a policy the next run's walk already disagrees with. A bare
+      // specifier is skipped, since it has no single candidate path.
+      if (isRelativeSpecifier(specifier) || path.isAbsolute(specifier)) {
+        collect?.add(path.resolve(path.dirname(canonical), specifier));
+      }
       continue;
     }
     const declared = findDeclaredValue(base, select, seen, collect);

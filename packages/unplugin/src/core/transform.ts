@@ -4050,8 +4050,12 @@ interface WindowsProjectMutationBroker {
        * The walk's own spelling for each canonical directory the child watches,
        * so a reported event can be translated back before anything compares it
        * with a path the walk or the configuration produced.
+       *
+       * Required, not optional. A registration that forgot it would fall back
+       * to the child's canonical spelling and silently reintroduce the mismatch
+       * this map exists to remove, with no type error and no failing test.
        */
-      spellings?: ReadonlyMap<string, string>;
+      spellings: ReadonlyMap<string, string>;
       tracker: TtscProjectMutationTracker;
     }
   >;
@@ -4212,21 +4216,22 @@ function getWindowsProjectMutationBroker(): WindowsProjectMutationBroker {
     if (record.ready === true) registration.ready();
     if (record.ready !== true && record.failed !== true) {
       if (typeof record.directory === "string") {
+        // The walk's spelling for this directory, which is what every
+        // comparison and every recorded witness downstream expects.
+        const reported =
+          registration.spellings.get(record.directory) ?? record.directory;
         if (
           typeof record.filename === "string" &&
           registration.membership !== undefined &&
-          !registration.membership(
-            registration.spellings?.get(record.directory) ?? record.directory,
-            record.filename,
-          )
+          !registration.membership(reported, record.filename)
         ) {
           return;
         }
         recordProjectMutation(
           registration.tracker,
           typeof record.filename === "string"
-            ? path.join(record.directory, record.filename)
-            : record.directory,
+            ? path.join(reported, record.filename)
+            : reported,
         );
       } else {
         registration.tracker.membershipChanged = true;
@@ -4893,9 +4898,7 @@ function isExcludedProjectDirectory(
   directory: string,
   policy: ITtscProjectMembershipPolicy,
 ): boolean {
-  return policy.excludedDirectories.some((excluded) =>
-    pathIsWithin(directory, excluded),
-  );
+  return insideExcludedProjectDirectory(directory, policy, false);
 }
 
 /**

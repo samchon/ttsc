@@ -261,9 +261,15 @@ export async function assertCacheKeyChangesWhenRecordedExternalInputChanges(): P
   // beside the project's own configuration inputs, which are out of walk too
   // now that the walk hashes only files that could enter the program
   // (samchon/ttsc#1307).
-  assert.ok(
-    workerSnapshotFiles(root).includes(external),
-    "the transform must record the external input",
+  assert.deepEqual(
+    workerSnapshotFiles(root),
+    [
+      external,
+      path.join(root, "package.json"),
+      path.join(root, "plugin.cjs"),
+      path.join(root, "tsconfig.json"),
+    ].sort(),
+    "exactly the out-of-walk inputs, and never a project source",
   );
 
   // Next run: withTtsc compacts the worker snapshot into the main file.
@@ -608,19 +614,19 @@ export async function assertTransformerRecordsLinkedInput(): Promise<void> {
       options: { projectRoot: root },
     },
   });
-  const recorded = workerSnapshotFiles(root);
-  assert.ok(
-    recorded.includes(linked),
-    `the linked input must be recorded (got ${recorded.join(", ")})`,
-  );
-  // The project's own configuration inputs are recorded beside it, because the
-  // walk hashes only files that could enter the program and these cannot
-  // (samchon/ttsc#1307). What must not appear is a project source.
-  assert.ok(
-    !recorded.some((file) =>
-      file.startsWith(path.join(root, "src") + path.sep),
-    ),
-    `no project source may be recorded (got ${recorded.join(", ")})`,
+  // The exact set. The project's own configuration inputs are recorded beside
+  // the linked one, because the walk hashes only files that could enter the
+  // program and these cannot (samchon/ttsc#1307); a lower bound would let a
+  // recorder that swallowed a whole subtree pass.
+  assert.deepEqual(
+    workerSnapshotFiles(root),
+    [
+      linked,
+      path.join(root, "package.json"),
+      path.join(root, "plugin.cjs"),
+      path.join(root, "tsconfig.json"),
+    ].sort(),
+    "exactly the out-of-walk inputs, and never a project source",
   );
 }
 
