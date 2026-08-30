@@ -67,6 +67,16 @@ export interface ITtscProjectMembershipPolicy {
   excludedDirectories: readonly string[];
   /** Lowercased extensions a file needs to be a possible program input. */
   inputExtensions: readonly string[];
+  /**
+   * Every config file consulted to produce this policy, the leaf and its whole
+   * `extends` ancestry.
+   *
+   * A caller that memoizes a policy has to know when to stop trusting it, and
+   * the leaf alone cannot tell it: adding `exclude` to a shared
+   * `tsconfig.base.json` leaves the leaf untouched while changing every answer
+   * this policy gives.
+   */
+  sources: readonly string[];
 }
 
 /**
@@ -84,6 +94,7 @@ export const PERMISSIVE_PROJECT_MEMBERSHIP_POLICY: ITtscProjectMembershipPolicy 
       ...JAVASCRIPT_INPUT_EXTENSIONS,
       ".json",
     ],
+    sources: [],
   };
 
 /**
@@ -105,6 +116,10 @@ export function readProjectMembershipPolicy(
   tsconfig: string,
 ): ITtscProjectMembershipPolicy {
   const resolved = path.resolve(tsconfig);
+  // Every config the chain touches, so a caller memoizing this policy can tell
+  // when it has gone stale. `findDeclaredValue` walks `extends` for each option
+  // independently, and each walk records what it read.
+  const sources = new Set<string>();
   const flag = (key: string): boolean =>
     findDeclaredValue(
       resolved,
@@ -114,6 +129,7 @@ export function readProjectMembershipPolicy(
         return typeof value === "boolean" ? value : undefined;
       },
       new Set(),
+      sources,
     )?.value === true;
 
   const inputExtensions = [...TYPESCRIPT_INPUT_EXTENSIONS];
@@ -136,6 +152,7 @@ export function readProjectMembershipPolicy(
           : undefined;
       },
       new Set(),
+      sources,
     );
     if (declared !== null) {
       excludedDirectories.push(path.resolve(declared.baseDir, declared.value));
@@ -148,6 +165,7 @@ export function readProjectMembershipPolicy(
       return Array.isArray(value) ? value : undefined;
     },
     new Set(),
+    sources,
   );
   if (excluded !== null) {
     for (const entry of excluded.value) {
@@ -163,7 +181,7 @@ export function readProjectMembershipPolicy(
       excludedDirectories.push(path.resolve(excluded.baseDir, plain));
     }
   }
-  return { excludedDirectories, inputExtensions };
+  return { excludedDirectories, inputExtensions, sources: [...sources] };
 }
 
 /**
@@ -204,7 +222,11 @@ export function mergeMembershipPolicyOverlay(
       excludedDirectories.push(path.resolve(baseDir, value));
     }
   }
-  return { excludedDirectories, inputExtensions: [...inputExtensions] };
+  return {
+    excludedDirectories,
+    inputExtensions: [...inputExtensions],
+    sources: policy.sources,
+  };
 }
 
 /**
@@ -274,12 +296,20 @@ function findDeclaredValue<T>(
   tsconfig: string,
   select: (parsed: object) => T | undefined,
   seen: Set<string>,
+  /**
+   * Every config this walk reads, accumulated across walks. Kept apart from
+   * `seen`, which guards one walk against an `extends` cycle and must start
+   * empty each time: sharing one set would make the second option's walk treat
+   * the leaf as already visited and answer `null` for everything.
+   */
+  collect?: Set<string>,
 ): { baseDir: string; value: T } | null {
   const canonical = resolveRealPath(tsconfig);
   if (seen.has(canonical)) {
     return null;
   }
   seen.add(canonical);
+  collect?.add(canonical);
 
   let parsed: { extends?: unknown };
   try {
@@ -301,7 +331,7 @@ function findDeclaredValue<T>(
     if (base === null) {
       continue;
     }
-    const declared = findDeclaredValue(base, select, seen);
+    const declared = findDeclaredValue(base, select, seen, collect);
     if (declared !== null) {
       return declared;
     }

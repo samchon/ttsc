@@ -3928,7 +3928,39 @@ async function createHostInputMutationTracker(
   return tracker;
 }
 
-/** Record enough exact mutation evidence without retaining an event stream. */
+/**
+ * Whether a path lies inside a directory the configuration excludes.
+ *
+ * Lexical, exactly like the walk and like {@link isProjectWalkPath}, and for the
+ * reason that predicate states: walk membership is lexical, so resolving a path
+ * to physical identity first would collapse two spellings the walk keeps apart
+ * and claim it covered a subtree it never followed. A junction whose target the
+ * walk hashes under its own name is exactly that, and canonicalizing here would
+ * suppress every event in it.
+ *
+ * `strictly` excludes an exact match, for the case where the excluded entry
+ * names a file rather than a directory: `exclude` accepts one, the walk applies
+ * exclusion to directories alone, so that file is still hashed and its events
+ * must keep counting.
+ */
+function insideExcludedProjectDirectory(
+  location: string,
+  policy: ITtscProjectMembershipPolicy,
+  strictly: boolean,
+): boolean {
+  if (policy.excludedDirectories.length === 0) {
+    return false;
+  }
+  const resolved = path.resolve(location);
+  return policy.excludedDirectories.some((excluded) => {
+    const target = path.resolve(excluded);
+    if (strictly && target === resolved) {
+      return false;
+    }
+    return pathIsWithin(resolved, target);
+  });
+}
+
 /**
  * Whether one directory event can be a change to the program's membership.
  *
@@ -3938,52 +3970,16 @@ async function createHostInputMutationTracker(
  * cost samchon/ttsc#1307 removes on every host that has no build boundary,
  * which is every host the narrow path exists for.
  *
- * A name that could be a program input counts. A name that could not still
- * counts when the path is now a directory, because the walk's watches were
- * opened for the directories that existed when the generation was captured, so
- * a directory created since is not watched and the sources that may appear in
- * it would otherwise be invisible. An event whose name the host did not report
- * is unattributable and always counts.
+ * A name that could be a program input counts, unless it sits under a directory
+ * the walk never descends into. A name that could not still counts when the
+ * path is now a directory, because the walk's watches were opened for the
+ * directories that existed when the generation was captured, so a directory
+ * created since is not watched and the sources that may appear in it would
+ * otherwise be invisible. A directory the configuration excludes is the
+ * exception: the walk cannot see inside it, so the tracker must not either, or
+ * emptying and recreating an `outDir` costs a compile per build. An event whose
+ * name the host did not report is unattributable and always counts.
  */
-/**
- * Whether a path a _watcher_ reported lies in a configuration-excluded
- * directory.
- *
- * Compared through the filesystem rather than lexically. A directory watch
- * reports its events under the spelling the watch was opened with, and on
- * Windows that can be the long form of a path whose configuration was read
- * under an 8.3 short one, so the two describe the same directory and share no
- * common prefix at all. The walk itself never meets that problem, because every
- * path it compares descends from the one root it started at.
- *
- * `strictly` excludes an exact match, for the case where the excluded entry
- * names a file rather than a directory: `exclude` accepts one, and such a file
- * is still reached and still hashed by the walk, so suppressing its events
- * would be the walk-versus-tracker disagreement pointing the other way.
- */
-function reportsInsideExcludedDirectory(
-  location: string,
-  policy: ITtscProjectMembershipPolicy,
-  filesystem: TtscTransformFilesystemOperations,
-  strictly: boolean,
-): boolean {
-  const canonical = (value: string): string => {
-    try {
-      return filesystem.realpath(value);
-    } catch {
-      return path.resolve(value);
-    }
-  };
-  const resolved = canonical(location);
-  return policy.excludedDirectories.some((excluded) => {
-    const target = canonical(excluded);
-    if (strictly && target === resolved) {
-      return false;
-    }
-    return pathIsWithin(resolved, target);
-  });
-}
-
 function reportsProgramMembership(
   location: string,
   filename: string,
@@ -3994,7 +3990,7 @@ function reportsProgramMembership(
     // A name the program could admit. It still says nothing if it lies inside a
     // directory the walk never descends into, because the digest cannot see
     // there either and the tracker must not be the one side that reacts.
-    return !reportsInsideExcludedDirectory(location, policy, filesystem, true);
+    return !insideExcludedProjectDirectory(location, policy, true);
   }
   let directory: boolean;
   try {
@@ -4013,9 +4009,10 @@ function reportsProgramMembership(
   // it. Emptying and recreating an `outDir`, which is what `emptyOutDir` and
   // `output.clean` do on every build, would otherwise void the generation once
   // per build on every host that has no build boundary.
-  return !reportsInsideExcludedDirectory(location, policy, filesystem, false);
+  return !insideExcludedProjectDirectory(location, policy, false);
 }
 
+/** Record enough exact mutation evidence without retaining an event stream. */
 function recordProjectMutation(
   tracker: TtscProjectMutationTracker,
   changed: string,
@@ -4049,6 +4046,12 @@ interface WindowsProjectMutationBroker {
        */
       membership?: (location: string, filename: string) => boolean;
       ready: () => void;
+      /**
+       * The walk's own spelling for each canonical directory the child watches,
+       * so a reported event can be translated back before anything compares it
+       * with a path the walk or the configuration produced.
+       */
+      spellings?: ReadonlyMap<string, string>;
       tracker: TtscProjectMutationTracker;
     }
   >;
@@ -4081,6 +4084,13 @@ async function registerWindowsProjectMutationTracker(
   membership?: (location: string, filename: string) => boolean,
 ): Promise<void> {
   const broker = getWindowsProjectMutationBroker();
+  // The child watches canonical directories, and reports its events under that
+  // spelling. Everything else in the adapter speaks the walk's own spelling,
+  // which on Windows can be an 8.3 short form of the same directory, so keep
+  // the way back: a filter that compared the child's spelling against the
+  // configuration's would be comparing two names for one directory that share
+  // no common prefix (samchon/ttsc#1307).
+  const spellings = new Map<string, string>();
   const normalized = locations.map((location) => {
     let directory: string;
     try {
@@ -4088,6 +4098,7 @@ async function registerWindowsProjectMutationTracker(
     } catch {
       directory = path.resolve(location.directory);
     }
+    spellings.set(directory, location.directory);
     return {
       directory,
       ...(location.names === undefined ? {} : { names: location.names }),
@@ -4101,7 +4112,12 @@ async function registerWindowsProjectMutationTracker(
   const ready = new Promise<void>((resolve) => {
     resolveReady = resolve;
   });
-  broker.trackers.set(id, { membership, ready: resolveReady, tracker });
+  broker.trackers.set(id, {
+    membership,
+    ready: resolveReady,
+    spellings,
+    tracker,
+  });
   tracker.drain = () => drainWindowsProjectMutationBroker(broker);
   tracker.close = () => {
     const active = broker.trackers.get(id);
@@ -4199,7 +4215,10 @@ function getWindowsProjectMutationBroker(): WindowsProjectMutationBroker {
         if (
           typeof record.filename === "string" &&
           registration.membership !== undefined &&
-          !registration.membership(record.directory, record.filename)
+          !registration.membership(
+            registration.spellings?.get(record.directory) ?? record.directory,
+            record.filename,
+          )
         ) {
           return;
         }

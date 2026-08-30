@@ -552,19 +552,22 @@ export async function assertTransformerRecordsOnlyExternalInputs(): Promise<void
       options: { projectRoot: root },
     },
   });
-  const recorded = workerSnapshotFiles(root);
-  assert.ok(
-    recorded.includes(external),
-    `the out-of-walk dependency must be recorded (got ${recorded.join(", ")})`,
+  // The exact set, not a lower bound: recording something extra is its own
+  // defect and `includes` would not catch it. The project's configuration
+  // inputs belong here now, because the walk hashes only files that could
+  // enter the program and these cannot (samchon/ttsc#1307).
+  assert.deepEqual(
+    workerSnapshotFiles(root),
+    [
+      external,
+      path.join(root, "package.json"),
+      path.join(root, "plugin.cjs"),
+      path.join(root, "tsconfig.json"),
+    ].sort(),
+    "exactly the out-of-walk inputs, and never a project source",
   );
   assert.ok(
-    !recorded.some((file) =>
-      file.startsWith(path.join(root, "src") + path.sep),
-    ),
-    `no project source may be recorded (got ${recorded.join(", ")})`,
-  );
-  assert.ok(
-    !recorded.includes(inner),
+    !workerSnapshotFiles(root).includes(inner),
     "an in-project dependency the walk hashes must not be recorded",
   );
 }

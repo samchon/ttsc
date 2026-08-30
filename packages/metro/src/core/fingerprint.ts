@@ -160,7 +160,11 @@ export function fingerprintRoots(
  */
 const MEMBERSHIP_POLICIES = new Map<
   string,
-  { policy: ReturnType<typeof readProjectMembershipPolicy>; stamp: string }
+  {
+    policy: ReturnType<typeof readProjectMembershipPolicy>;
+    sources: readonly string[];
+    stamp: string;
+  }
 >();
 
 function membershipPolicy(
@@ -172,22 +176,39 @@ function membershipPolicy(
   // started. An edit adding `exclude` would then leave the worker judging a
   // file in-walk while the next run's walk skipped it, which is precisely the
   // both-sides-disagree hole this policy exists to close.
-  let stamp: string;
-  try {
-    const stats = fs.statSync(tsconfig);
-    stamp = `${stats.mtimeMs}:${stats.size}`;
-  } catch {
-    // No config to read. `readProjectMembershipPolicy` is best-effort and
-    // answers for that too, but it must be re-asked once one appears.
-    stamp = "absent";
-  }
   const existing = MEMBERSHIP_POLICIES.get(tsconfig);
-  if (existing !== undefined && existing.stamp === stamp) {
+  if (existing !== undefined && existing.stamp === stampOf(existing.sources)) {
     return existing.policy;
   }
   const policy = readProjectMembershipPolicy(tsconfig);
-  MEMBERSHIP_POLICIES.set(tsconfig, { policy, stamp });
+  // Stamp the whole `extends` chain, not the leaf. Adding `exclude` to a shared
+  // `tsconfig.base.json` leaves the leaf's own mtime and size untouched while
+  // changing every answer the policy gives, so a leaf-only stamp would keep the
+  // worker on the pre-edit policy for its lifetime.
+  const sources =
+    policy.sources.length === 0 ? [tsconfig] : [...policy.sources];
+  MEMBERSHIP_POLICIES.set(tsconfig, {
+    policy,
+    sources,
+    stamp: stampOf(sources),
+  });
   return policy;
+}
+
+/** A stamp over every config a policy was read from, in a stable order. */
+function stampOf(sources: readonly string[]): string {
+  return sources
+    .map((source) => {
+      try {
+        const stats = fs.statSync(source);
+        return `${source}:${stats.mtimeMs}:${stats.size}`;
+      } catch {
+        // Absent now. `readProjectMembershipPolicy` answers for that too, and
+        // the policy must be re-asked once the config appears.
+        return `${source}:absent`;
+      }
+    })
+    .join("|");
 }
 
 /**
