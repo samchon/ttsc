@@ -306,6 +306,8 @@ Each entrypoint supports ESM import and CJS require. In CommonJS configs, read t
 
 `@ttsc/unplugin/bun-register` is the Bun **runtime** entry rather than a bundler adapter, covered under [Bun](#bun) above. `@ttsc/unplugin/api` exposes the transform core itself (`transformTtsc`, `resolveOptions`, the cache lifecycle) for hosts that are not unplugin-shaped; `@ttsc/metro` is built on it.
 
+That entry point also exposes the project-membership rule — `readProjectMembershipPolicy`, `mergeMembershipPolicyOverlay`, `ITtscProjectMembershipPolicy`, `isProjectWalkPath` and the input-hash collectors — which decides which files can enter the compiled program and therefore which changes invalidate a cached compile. These exist so a host that keeps its own cache asks that question exactly the way the transform core asks it: `@ttsc/metro` folds them into Metro's static transformer key, and the two halves disagreeing about one project is the bug class they exist to prevent. They are shaped for that use rather than as a general-purpose configuration reader, and they move with the core rather than under a stability guarantee of their own. Build a host on them if you need it; pin your `@ttsc/unplugin` version if you do.
+
 ### Options
 
 ```ts
@@ -327,6 +329,16 @@ const options: TtscUnpluginOptions = {
 #### Path Aliases
 
 Under Vite, the adapter reads the resolved `resolve.alias` and layers it onto the generated config, so an alias declared only in `vite.config.ts` still resolves during the compile. No other host's alias configuration is read: under Rollup, Rolldown, webpack, Rspack, esbuild, Farm, Turbopack and Bun, the compile resolves through the tsconfig's own `paths` alone. Declare an alias in `paths` when a module has to resolve for the compiler as well as for the bundler, which is what those hosts need anyway for `tsc` to type-check the same imports.
+
+Not every Vite alias form can be forwarded, because a tsconfig `paths` map cannot express all of them:
+
+| `resolve.alias` form | Forwarded |
+| --- | --- |
+| `{ "@": "/src" }`, or the array form with a string `find` | yes |
+| array form with a `RegExp` `find`, such as `{ find: /^~/ }` | no — `paths` has no regular-expression form |
+| a string `find` containing `*` | no — a `paths` key already reads `*` as its own wildcard |
+
+An alias that cannot be forwarded is reported once, naming the alias and the reason, and the compile resolves that specifier through the tsconfig's `paths` alone. Declare it there if `ttsc` must resolve through it — a prefix `RegExp` such as `/^~/` is written as a `"~/*"` entry. Reducing simple prefix patterns automatically is deliberately not attempted: distinguishing `/^~/` from `/^@app/`, which also matches `@apple`, needs enough of a regular-expression engine that a wrong reduction becomes likely, and a mistranslated alias resolves imports to the wrong file without saying so.
 
 ### Cache and Watch Invalidation
 
