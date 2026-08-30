@@ -634,6 +634,25 @@ export async function assertThePolicyReportsEveryConfigItRead(): Promise<void> {
     ),
     `the resolver's .json candidate must be reported (got ${extensionless.sources.join(", ")})`,
   );
+  // The resolver's `.json` test is case-sensitive, so `./base.JSON` really does
+  // resolve to `base.JSON.json` on a case-sensitive filesystem, and the stamp
+  // has to record that name. Asserted on what the policy reports rather than on
+  // what resolves, so it holds on every platform.
+  fs.writeFileSync(
+    leaf,
+    JSON.stringify({ ...declared, extends: "./tsconfig.base.JSON" }),
+    "utf8",
+  );
+  const uppercase = api.readProjectMembershipPolicy(leaf);
+  assert.ok(
+    uppercase.sources.some(
+      (source: string) =>
+        path.resolve(source) ===
+        path.join(project.root, "tsconfig.base.JSON.json"),
+    ),
+    `the resolver's case-sensitive .json candidate must be reported (got ${uppercase.sources.join(", ")})`,
+  );
+
   fs.writeFileSync(
     leaf,
     JSON.stringify({ ...declared, extends: "./tsconfig.base.json" }),
