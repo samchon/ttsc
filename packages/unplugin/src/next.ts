@@ -138,6 +138,14 @@ function withTtscTurbopackRules(
     if (loaders.some(referencesTtscLoader)) {
       continue;
     }
+    // The caller may have written the same file set under a different glob.
+    // Adding ours beside theirs makes every matching module run the loader
+    // twice, and the second pass receives the first pass's output, so the
+    // guard has to cover the spellings a caller plausibly uses rather than
+    // only the two this wrapper writes (samchon/ttsc#1314).
+    if (coveredByAnotherRule(rules, glob)) {
+      continue;
+    }
     const entry = { loader: TURBOPACK_LOADER, options: options ?? {} };
     // Appended, not prepended. Turbopack runs a rule's loaders through
     // webpack's own `loader-runner`, which runs the normal phase right to
@@ -152,6 +160,52 @@ function withTtscTurbopackRules(
           : { ...(rule as object), loaders: [...loaders, entry] };
   }
   return { ...(existing ?? {}), rules };
+}
+
+/**
+ * Whether some other rule already routes this glob's files through the loader.
+ *
+ * Deciding glob equivalence in general means implementing Turbopack's matcher,
+ * which is not worth it here. What is worth it is the set a user actually
+ * writes for these two extensions: a brace list naming the extension, and the
+ * same glob under a leading `**` path prefix. Anything outside that is left
+ * alone, which errs toward the wrapper doing nothing rather than toward
+ * registering a second time, because a missing rule is visible and a double
+ * transform is not.
+ */
+function coveredByAnotherRule(
+  rules: Record<string, unknown>,
+  glob: string,
+): boolean {
+  const extension = glob.slice(glob.lastIndexOf(".") + 1);
+  return Object.entries(rules).some(([candidate, rule]) => {
+    if (candidate === glob) {
+      return false;
+    }
+    if (!selectTurbopackLoaders(rule).some(referencesTtscLoader)) {
+      return false;
+    }
+    return matchesExtension(candidate, extension);
+  });
+}
+
+/**
+ * Whether one glob names this extension, for the shapes a hand-written rule
+ * takes: `*.ts`, `**` + `/*.ts`, and a brace list such as `*.{ts,tsx}`.
+ */
+function matchesExtension(glob: string, extension: string): boolean {
+  const tail = glob.slice(glob.lastIndexOf(".") + 1);
+  if (tail === extension) {
+    return true;
+  }
+  if (!tail.startsWith("{") || !tail.endsWith("}")) {
+    return false;
+  }
+  return tail
+    .slice(1, -1)
+    .split(",")
+    .map((part) => part.trim())
+    .includes(extension);
 }
 
 /**

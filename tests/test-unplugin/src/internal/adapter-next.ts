@@ -162,6 +162,61 @@ export async function assertNextAdapterPreservesTurbopackConfig(): Promise<void>
 }
 
 /**
+ * Asserts the wrapper does not register the loader a second time under a glob
+ * the caller spelled differently.
+ *
+ * The dedupe guard read only the rule stored under the exact key the wrapper
+ * writes, so a caller who had wired `"*.{ts,tsx}"` by hand, which is the
+ * natural way to write two identical rules and what the README asked for before
+ * this wrapper existed, kept their rule and received `"*.ts"` and `"*.tsx"` as
+ * well. Every TypeScript module then matched two rules and the loader ran twice
+ * on it, with the second pass receiving the first pass's output
+ * (samchon/ttsc#1314).
+ *
+ * The wrapper still completes a partial hand wiring, since `"*.ts"` alone
+ * leaves `.tsx` unrouted, and still adds its own rules beside a glob carrying
+ * somebody else's loader, because that is not this loader running twice.
+ */
+export async function assertNextAdapterDoesNotDoubleRegisterAcrossGlobs(): Promise<void> {
+  const next = await loadNext();
+  const globs = (config: INextLikeConfig): string[] =>
+    Object.keys(next(config).turbopack?.rules ?? {});
+
+  assert.deepEqual(
+    globs({ turbopack: { rules: { "*.{ts,tsx}": { loaders: [LOADER] } } } }),
+    ["*.{ts,tsx}"],
+    "a brace list already carrying the loader must not gain two more rules",
+  );
+  assert.deepEqual(
+    globs({
+      turbopack: {
+        rules: {
+          "**/*.ts": { loaders: [LOADER] },
+          "**/*.tsx": { loaders: [LOADER] },
+        },
+      },
+    }),
+    ["**/*.ts", "**/*.tsx"],
+    "a recursive prefix already carrying the loader must not gain two more",
+  );
+
+  // A partial hand wiring is still completed: `.tsx` is unrouted without us.
+  assert.deepEqual(
+    globs({ turbopack: { rules: { "*.ts": { loaders: [LOADER] } } } }),
+    ["*.ts", "*.tsx"],
+    "a partial hand wiring must still gain the glob it is missing",
+  );
+
+  // Somebody else's loader on the same file set is not this loader running
+  // twice, so ttsc still has to be wired.
+  assert.deepEqual(
+    globs({ turbopack: { rules: { "*.{ts,tsx}": { loaders: ["other"] } } } }),
+    ["*.{ts,tsx}", "*.ts", "*.tsx"],
+    "another loader's glob must not suppress ttsc's own rules",
+  );
+}
+
+/**
  * Asserts the wrapper says what Next.js can no longer say for it.
  *
  * Next refuses to build on Turbopack when a config carries a `webpack` hook and
