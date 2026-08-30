@@ -911,3 +911,57 @@ export async function assertCacheKeyCoversOverlayAdmittedSources(): Promise<void
     "without the overlay a .js is not a program input, so it must not re-key the run",
   );
 }
+
+/**
+ * Asserts output in a directory no configuration names leaves the cache key
+ * alone, while a new source the program could include still moves it.
+ *
+ * The Metro half of samchon/ttsc#1307's sharpest case, required by
+ * samchon/ttsc#1317 and missing when that work merged. Content-hashed output is
+ * not a rewrite in place: every rebuild removes a name and adds another, which
+ * is a directory membership change, and the walk used to record every entry
+ * regardless of whether it could ever enter the program.
+ *
+ * It costs more here than it does for a bundler. Metro folds one static key
+ * into every file's per-content cache key, so a walk that re-keyed on emitted
+ * output would discard the entire per-file transform cache rather than cost one
+ * compile — and `.expo/` is written to constantly by the dominant React Native
+ * toolchain, so the discard would happen on essentially every run.
+ *
+ * `lib` is deliberately neither the project's `outDir` nor one of the three
+ * names the walk still refuses, so nothing but the input-extension rule can
+ * make this pass: the project admits no JavaScript, so a `.js` bundle is not a
+ * membership change wherever it lands. The `src/late.ts` half is the control
+ * that keeps this from passing by never re-keying at all.
+ */
+export async function assertCacheKeyIgnoresOutputInAnUnlistedDirectory(): Promise<void> {
+  const root = createBareProject();
+  await prepareSnapshot(root);
+  const before = await cacheKeyForRun(root);
+
+  const lib = path.join(root, "lib");
+  fs.mkdirSync(lib, { recursive: true });
+  for (let build = 1; build <= 3; build += 1) {
+    fs.writeFileSync(
+      path.join(lib, `bundle.${build.toString(16)}f2a.js`),
+      `export const build = ${build};\n`,
+      "utf8",
+    );
+    assert.equal(
+      await cacheKeyForRun(root),
+      before,
+      "content-hashed output must not re-key the run that produced it",
+    );
+  }
+
+  fs.writeFileSync(
+    path.join(root, "src", "late.ts"),
+    "export const late: number = 1;\n",
+    "utf8",
+  );
+  assert.notEqual(
+    await cacheKeyForRun(root),
+    before,
+    "a new source the program could include must still re-key the run",
+  );
+}

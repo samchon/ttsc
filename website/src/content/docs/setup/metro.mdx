@@ -75,6 +75,22 @@ module.exports = withTtsc(getDefaultConfig(__dirname), {
 
 Options travel from the Metro config process to its worker processes through an environment variable, so they must stay JSON-serialisable: substring patterns, not `RegExp`.
 
+## Files outside the program
+
+Metro resolves its own module graph, and that graph is not the set of files your `tsconfig` describes. A file Metro delivers that the compiled program does not contain is passed to the upstream transformer untransformed, and reported once per pass naming the file and the `tsconfig` it is missing from:
+
+```text
+ttsc: /app/scripts/tool.ts is not part of the program described by /app/tsconfig.json,
+so it was left untransformed. Add it to that project's "include" if ttsc plugins
+should apply to it.
+```
+
+This is not a build error. The file is simply not this project's to transform, and the usual cause is a Metro graph reaching past the `tsconfig`'s `include` — a source beside `src` rather than inside it, or one in a sibling workspace folder. Add it to that project's `include` if `ttsc` plugins should apply to it.
+
+The report matters because passing through is not the same as leaving alone: a file that skips the `ttsc` pass keeps whatever plugin-driven syntax it carries, which fails at runtime rather than at build time. Declaration and JavaScript files never reach the pass at all, so they are not reported; they are filtered before it, as `include` / `exclude` above describes.
+
+This answer belongs to the shared transform core rather than to Metro, so every [`@ttsc/unplugin`](/docs/setup/unplugin) adapter gives the identical one.
+
 ## Cache invalidation
 
 A module-resolution candidate that would outrank a selected target is recorded as a fingerprint input. A missing candidate remains recorded even when it lies under the project root, so creating it changes the next Metro cache key even though the first project walk could not hash a path that did not yet exist. Existing unsuccessful probes are already part of the ordinary project walk or the recorded out-of-walk set.

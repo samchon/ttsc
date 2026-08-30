@@ -435,10 +435,50 @@ async function assertBunRuntimeDoesNotRehashProjectPerModule(): Promise<void> {
   assert.match(lazy.contents, /secondary = 1/);
 }
 
+/**
+ * Asserts a module the compiled program does not contain falls through the Bun
+ * bundler adapter instead of failing the build.
+ *
+ * The Bun half of what samchon/ttsc#1308 asked to be proven per adapter and
+ * samchon/ttsc#1317 records was never proven. Its pass-through spelling is
+ * Bun's own: the bundler loader returns `undefined` to hand the module to the
+ * next loader, exactly as it does for a transform that changed nothing, so the
+ * source Bun compiles is the source on disk.
+ *
+ * The discriminator is the absence of a throw rather than the `undefined`
+ * itself. This file is a genuine transform target — a real `.ts` under the
+ * project root, outside `node_modules`, matching the adapter's own filter — and
+ * is absent from the program only because the fixture's tsconfig includes `src`
+ * alone. Before #1308 that threw and Bun turned it into a build failure. The
+ * filter is asserted here too, so the case cannot pass by the module never
+ * reaching the loader at all, which is how it would decay into
+ * {@link assertBunAdapterFallsThroughWhenItDoesNotTransform}'s excluded-path
+ * row.
+ */
+async function assertBunAdapterPassesThroughAnOutOfProgramModule(): Promise<void> {
+  const unpluginBun = await TestUnpluginRuntime.loadUnpluginAdapter("bun");
+  const root = TestUnpluginProject.createProject();
+  const stray = path.join(root, "scripts", "tool.ts");
+  fs.mkdirSync(path.dirname(stray), { recursive: true });
+  fs.writeFileSync(stray, "export const tool: string = 'STRAY';\n", "utf8");
+
+  const { loader, options } = await captureBunLoader(unpluginBun(), "bundler");
+  assert.ok(
+    options.filter.test(stray),
+    "the fixture must reach the loader, or the case proves nothing",
+  );
+  assert.equal(
+    await loader({ path: stray }),
+    undefined,
+    "a module outside the program must fall through, not fail the build",
+  );
+}
+
 export {
   assertBunAdapterRevalidatesOnBuildStart,
   assertBunAdapterExcludesNulVirtualIds,
   assertBunAdapterFallsThroughWhenItDoesNotTransform,
+  assertBunAdapterPassesThroughAnOutOfProgramModule,
   assertBunAdapterSurvivesPluginReportedDependencies,
   assertBunAdapterTransformsSource,
   assertBunAdapterYieldsToConfiguredInMemoryFiles,

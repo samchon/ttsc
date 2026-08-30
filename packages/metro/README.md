@@ -74,6 +74,22 @@ For each TypeScript file Metro asks to transform:
 
 The plugin contract and `tsconfig` discovery match the Unplugin integrations. Metro's worker has no build-start callback, so its shared transform cache validates the complete project snapshot on every hit instead of using a build-scoped first-delivery shortcut.
 
+### Files outside the program
+
+Metro resolves its own module graph, and that graph is not the set of files your `tsconfig` describes. A file Metro delivers that the compiled program does not contain is passed to the upstream transformer untransformed, and reported once per pass naming the file and the `tsconfig` it is missing from:
+
+```
+ttsc: /app/scripts/tool.ts is not part of the program described by /app/tsconfig.json,
+so it was left untransformed. Add it to that project's "include" if ttsc plugins
+should apply to it.
+```
+
+This is not a build error. The file is simply not this project's to transform, and the usual cause is a Metro graph reaching past the `tsconfig`'s `include` — a source beside `src` rather than inside it, or one in a sibling workspace folder. Add it to that project's `include` if `ttsc` plugins should apply to it.
+
+The report matters because passing through is not the same as leaving alone: a file that skips the `ttsc` pass keeps whatever plugin-driven syntax it carries, which fails at runtime rather than at build time. Declaration and JavaScript files never reach the pass at all, so they are not reported; they are filtered before it, as `include` / `exclude` above describes.
+
+This is the shared core's answer rather than Metro's own, so every `@ttsc/unplugin` adapter gives the identical one. `@ttsc/metro` used to be alone in treating it as non-fatal while every adapter failed the build.
+
 ## Cache invalidation
 
 Metro keys its transform cache on each file's own content plus one static transformer key, and its babel-transformer contract has no per-file dependency registration. A `ttsc` transform can depend on a _type_ in another file, so `@ttsc/metro` folds a project fingerprint into that static key: every regular file reached by the non-following project walk, plus reference-graph inputs outside that walk (`node_modules` declarations, monorepo sibling sources, files reached through symlinks or Windows junctions, and out-of-root tsconfig `extends` ancestry) recorded under `node_modules/.cache/ttsc-metro`. Editing any of them re-keys the next run, so `metro bundle` and dev-server starts pick up cross-file type changes without `--reset-cache`.

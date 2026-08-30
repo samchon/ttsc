@@ -1,5 +1,6 @@
 import { TestUnpluginProject, TestUnpluginRuntime } from "@ttsc/testing";
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import path from "node:path";
 
 /**
@@ -355,9 +356,42 @@ async function assertTurbopackLoaderMarksVolatileModulesUncacheable(): Promise<v
   assert.deepEqual(hermeticRun.cacheableCalls, []);
 }
 
+/**
+ * Asserts a module the compiled program does not contain passes through the
+ * loader instead of failing the Turbopack build.
+ *
+ * Samchon/ttsc#1308 moved that decision into the shared core so every adapter
+ * answers it once, and asked for it to be proven per adapter rather than for
+ * the core alone; samchon/ttsc#1317 records that it never was. The core case
+ * pins the report and the once-per-pass rule, and this pins the outcome at the
+ * boundary that actually reaches a bundler.
+ *
+ * The discriminator is the absence of a throw. This file is a genuine transform
+ * target — a real `.ts` under the project root, outside `node_modules`, not a
+ * declaration — so no filter turns it away; it is simply absent from the
+ * program, because the fixture's tsconfig includes `src` alone. Before #1308
+ * the adapter threw here and Turbopack turned that into a build failure.
+ * Passing through is not silent: the core reports the file and the program on
+ * stderr once per pass.
+ */
+async function assertTurbopackLoaderPassesThroughAnOutOfProgramModule(): Promise<void> {
+  const root = TestUnpluginProject.createProject();
+  const stray = path.join(root, "scripts", "tool.ts");
+  fs.mkdirSync(path.dirname(stray), { recursive: true });
+  const source = "export const tool: string = 'STRAY';\n";
+  fs.writeFileSync(stray, source, "utf8");
+
+  assert.equal(
+    await runTurbopackLoader({ resourcePath: stray, source }),
+    source,
+    "a module outside the program must pass through the loader unchanged",
+  );
+}
+
 export {
   assertTurbopackLoaderForwardsRuleOptions,
   assertTurbopackLoaderMarksVolatileModulesUncacheable,
+  assertTurbopackLoaderPassesThroughAnOutOfProgramModule,
   assertTurbopackLoaderPassesThroughFilteredPaths,
   assertTurbopackLoaderPassesThroughNonSourceIds,
   assertTurbopackLoaderRegistersDependenciesOnCacheHit,
