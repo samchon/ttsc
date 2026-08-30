@@ -173,6 +173,21 @@ export async function assertWithTtscChainsAnExistingTransformer(): Promise<void>
       "and this package's transformer must be the one Metro loads",
     );
 
+    // A relative path is the other spelling a config can carry, and the
+    // transport is JSON over an environment variable, so it has to survive
+    // exactly as written: `resolveUpstreamTransformer` requires it, and a path
+    // silently rewritten between the config process and the worker would be
+    // loaded from the wrong place or not at all.
+    withTtsc({
+      projectRoot: tempProjectRoot(),
+      transformer: { babelTransformerPath: "./local-transformer.cjs" },
+    });
+    assert.equal(
+      JSON.parse(process.env[ENV_KEY] as string).upstreamTransformer,
+      "./local-transformer.cjs",
+      "a relative path must reach the worker exactly as the config spelled it",
+    );
+
     // An explicit option is the caller saying it outright, so it wins.
     withTtsc(
       {

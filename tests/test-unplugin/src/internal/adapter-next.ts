@@ -321,4 +321,9 @@ export async function assertNextAdapterWarnsAboutASuppressedWebpackHook(): Promi
     "",
     "a caller who already configured Turbopack has made the decision",
   );
+  assert.equal(
+    capture({ turbopack: { rules: {} } }),
+    "",
+    "a caller who configured only Turbopack has no webpack hook to lose",
+  );
 }
