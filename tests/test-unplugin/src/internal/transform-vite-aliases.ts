@@ -38,6 +38,30 @@ async function assertTransformPassesBundlerAliases() {
 
   assert.ok(result);
   assert.match(result.code, /"PLUGIN"/);
+
+  // A `find` written with a trailing slash keeps today's outcome, which
+  // samchon/ttsc#1315 asks for by name: the slash is stripped, so `"@trail/"`
+  // reaches the compile under the key `"@trail"` and its `"@trail/*"` wildcard,
+  // the same pair a slashless `find` produces. Left unpinned, a reader could
+  // reasonably think the two spellings give different keys.
+  const trailing = await transformTtsc(
+    TestUnpluginProject.mainFile(root),
+    TestUnpluginProject.mainSource(root),
+    resolveOptions({
+      plugins: [
+        {
+          transform: "./plugin.cjs",
+          name: "fixture",
+          operation: "assert-paths",
+          key: "@trail",
+          target: path.join(root, "src", "modules").replace(/\\/g, "/"),
+        },
+      ],
+    }),
+    [{ find: "@trail/", replacement: path.join(root, "src", "modules") }],
+  );
+  assert.ok(trailing);
+  assert.match(trailing.code, /"PLUGIN"/);
 }
 
 /**

@@ -890,6 +890,24 @@ export async function assertMetroAsksTheAdaptersPolicy(): Promise<void> {
     ),
     `the refreshed policy must carry the new config's exclude (got ${JSON.stringify(third.policy.excludedDirectories)})`,
   );
+
+  // And disappearing again, which #1316 asks for beside the appearance. A
+  // candidate that stops existing is the same kind of state change as one that
+  // starts, so the stamp has to move both ways or a project that deletes a
+  // shared config keeps compiling under it.
+  fs.rmSync(path.join(root, "config.json"));
+  const fourth = fingerprint.resolveProjectView({ projectRoot: root });
+  assert.notEqual(
+    third.policy,
+    fourth.policy,
+    "a config disappearing from an extends candidate must refresh the policy",
+  );
+  assert.ok(
+    !fourth.policy.excludedDirectories.some((directory: string) =>
+      directory.includes("generated"),
+    ),
+    "the refreshed policy must have dropped the deleted config's exclude",
+  );
 }
 
 /**
@@ -928,12 +946,33 @@ export async function assertCacheKeyCoversOverlayAdmittedSources(): Promise<void
     "under allowJs the walk must hash .js sources, so editing one re-keys the run",
   );
 
+  // The criterion's own wording is a *new* `.js` file rather than an edited
+  // one, and the two are different questions: an edit changes a file the walk
+  // already hashes, while an appearance changes which files the walk hashes at
+  // all. Both must move the key under the overlay.
+  const appeared = await cacheKeyForRun(root, overlay);
+  fs.writeFileSync(
+    path.join(root, "src", "arrived.js"),
+    "export const arrived = 1;\n",
+    "utf8",
+  );
+  assert.notEqual(
+    appeared,
+    await cacheKeyForRun(root, overlay),
+    "under allowJs a .js the program gains must re-key the run",
+  );
+
   const strict = await cacheKeyForRun(root);
   fs.writeFileSync(legacy, "export const legacy = 3;\n", "utf8");
+  fs.writeFileSync(
+    path.join(root, "src", "ignored.js"),
+    "export const ignored = 1;\n",
+    "utf8",
+  );
   assert.equal(
     strict,
     await cacheKeyForRun(root),
-    "without the overlay a .js is not a program input, so it must not re-key the run",
+    "without the overlay a .js is not a program input, so neither editing nor adding one re-keys the run",
   );
 }
 

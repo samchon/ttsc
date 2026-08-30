@@ -200,11 +200,15 @@ export async function assertNextAdapterDoesNotDoubleRegisterAcrossGlobs(): Promi
   );
 
   // A partial hand wiring is still completed: `.tsx` is unrouted without us.
-  assert.deepEqual(
-    globs({ turbopack: { rules: { "*.ts": { loaders: [LOADER] } } } }),
-    ["*.ts", "*.tsx"],
-    "a partial hand wiring must still gain the glob it is missing",
-  );
+  // Both spellings of it, since samchon/ttsc#1314 asks for the recursive one by
+  // name and a guard could recognise `*.ts` while missing `**` + `/*.ts`.
+  for (const partial of ["*.ts", "**/*.ts"]) {
+    assert.deepEqual(
+      globs({ turbopack: { rules: { [partial]: { loaders: [LOADER] } } } }),
+      [partial, "*.tsx"],
+      `${partial} must still gain the glob it is missing`,
+    );
+  }
 
   // Somebody else's loader on the same file set is not this loader running
   // twice, so ttsc still has to be wired.
