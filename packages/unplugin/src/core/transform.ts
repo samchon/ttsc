@@ -1580,16 +1580,18 @@ function notifyFailedGenerationInputs(
   if (addWatchFile === undefined) {
     return;
   }
-  const state = envelopeDerivation(cached);
   for (const key of Object.keys(cached.inputHashes)) {
     const input = path.resolve(cached.projectRoot, key);
     if (isTransformScratchInput(input, cached.scratchDirectory)) {
       continue;
     }
-    addWatchFile(input, {
-      identity: derivationIdentity(state, input),
-      missing: false,
-    });
+    // No evidence argument, deliberately. The recorded existence belongs to the
+    // compile, and one of these inputs being deleted is a live reason for the
+    // compile to have failed, so claiming `missing: false` here would hand Vite
+    // serve a path that is absent by design and produce the 500 the adapter's
+    // missing-input poll exists to prevent. Letting the adapter probe costs one
+    // `existsSync` per input, on a failing delivery only.
+    addWatchFile(input);
   }
 }
 
