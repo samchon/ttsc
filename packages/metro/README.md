@@ -76,7 +76,7 @@ The plugin contract and `tsconfig` discovery match the Unplugin integrations. Me
 
 ### Files outside the program
 
-Metro resolves its own module graph, and that graph is not the set of files your `tsconfig` describes. A file Metro delivers that the compiled program does not contain is passed to the upstream transformer untransformed, and reported once per pass naming the file and the `tsconfig` it is missing from:
+Metro resolves its own module graph, and that graph is not the set of files your `tsconfig` describes. A file Metro delivers that the compiled program does not contain is passed to the upstream transformer untransformed, and reported naming the file and the `tsconfig` it is missing from — once per file per compile in each Metro worker, since a Metro worker has no build boundary to reset the report at:
 
 ```
 ttsc: /app/scripts/tool.ts is not part of the program described by /app/tsconfig.json,

@@ -151,23 +151,47 @@ export function fingerprintRoots(
 }
 
 /**
- * The membership policy for one transform, resolved once and handed to every
- * watch input that transform reports.
+ * One project, and the membership policy that describes it.
+ *
+ * The recorder's question is whether the project walk already covers an input,
+ * so it needs both the walk's roots and the policy that walk used, and it is
+ * wrong exactly when those two describe different projects. Passing them
+ * separately made that mismatch expressible — the policy for one project
+ * alongside the root of another — and passing the policy alone made it
+ * expressible in a quieter way still, since a recorder that resolved its own
+ * could describe a different program than the walk hashed. Both halves travel
+ * together so neither can be supplied without the other (samchon/ttsc#1316).
+ */
+export interface TtscMetroProjectView {
+  /** The base directory both fingerprint sides agree on. */
+  readonly base: string;
+  /** The caller's explicit `project`, if any. */
+  readonly explicitProject: string | undefined;
+  /** The membership policy resolved for that project. */
+  readonly policy: ReturnType<typeof readProjectMembershipPolicy>;
+}
+
+/**
+ * Resolve one transform's project view, once, for every watch input it reports.
  *
  * Exported because the recorder is asked once per input while the answer is a
  * property of the project, and validating the memo means stat-ing the whole
  * `extends` chain (samchon/ttsc#1316).
  */
-export function resolveMembershipPolicy(props: {
+export function resolveProjectView(props: {
   compilerOptions?: Record<string, unknown>;
   explicitProject?: string;
   projectRoot?: string;
-}): ReturnType<typeof readProjectMembershipPolicy> {
+}): TtscMetroProjectView {
   const base = resolveFingerprintBase(props.projectRoot);
-  return membershipPolicy(
-    resolveProjectTsconfig(base, props.explicitProject),
-    props.compilerOptions,
-  );
+  return {
+    base,
+    explicitProject: props.explicitProject,
+    policy: membershipPolicy(
+      resolveProjectTsconfig(base, props.explicitProject),
+      props.compilerOptions,
+    ),
+  };
 }
 
 /**
@@ -312,7 +336,7 @@ export function computeProjectFingerprint(props: {
     // overlay while the recorder resolves with it leaves an overlay-admitted
     // input in neither half, which is the both-sides-disagree hole in its
     // quietest form (samchon/ttsc#1316).
-    const policy = resolveMembershipPolicy({
+    const project = resolveProjectView({
       compilerOptions: props.compilerOptions,
       explicitProject: props.explicitProject,
       projectRoot: props.projectRoot,
@@ -320,7 +344,7 @@ export function computeProjectFingerprint(props: {
     for (const root of fingerprintRoots(base, props.explicitProject)) {
       hash.update(
         stableStringify(
-          collectProjectInputHashes(root, undefined, undefined, policy),
+          collectProjectInputHashes(root, undefined, undefined, project.policy),
         ),
       );
     }
@@ -528,34 +552,29 @@ export function readSnapshotState(base: string): SnapshotState | undefined {
  */
 export function createSnapshotRecorder(): {
   record: (props: {
-    explicitProject?: string;
     input: string;
     /**
-     * The policy the walk of this same project uses, resolved once per
-     * transform through {@link resolveMembershipPolicy}.
+     * The project this input belongs to, with the policy its walk uses,
+     * resolved once per transform through {@link resolveProjectView}.
      *
-     * Required rather than defaulted, because the recorder's only question is
-     * whether the walk already covers this input. A policy the recorder derived
-     * on its own could describe a different program than the walk actually
-     * hashed — that is exactly what happened when the overlay reached one half
-     * and not the other — and the input would then be covered by neither.
-     * Demanding it from the caller keeps the disagreement unrepresentable
-     * instead of merely absent.
+     * One value rather than a root and a policy side by side, because the
+     * recorder is wrong precisely when those two describe different projects.
+     * Deriving the policy here instead would be the same fault in a quieter
+     * form: a recorder that resolved its own could describe a different program
+     * than the walk hashed, which is what happened when the caller's
+     * compiler-options overlay reached one half and not the other, and the
+     * input was then covered by neither (samchon/ttsc#1316).
      *
-     * It is hoisted for cost as well: `record` runs once per watch input rather
-     * than once per file, and validating the memo means stat-ing the whole
-     * `extends` chain, measured at 12 microseconds per stat — a few thousand
-     * modules times fifteen inputs each cost over half a second per run for an
-     * answer that cannot change between two inputs of one file
-     * (samchon/ttsc#1316).
+     * Resolving it once per transform is also what makes it affordable.
+     * `record` runs once per watch input rather than once per file, and
+     * validating the memo means stat-ing the whole `extends` chain, measured at
+     * 12 microseconds per stat — a few thousand modules times fifteen inputs
+     * each cost over half a second per run for an answer that cannot change
+     * between two inputs of one file.
      */
-    policy: ReturnType<typeof readProjectMembershipPolicy>;
-    projectRoot?: string;
+    project: TtscMetroProjectView;
   }) => void;
-  recordVolatile: (props: {
-    explicitProject?: string;
-    projectRoot?: string;
-  }) => void;
+  recordVolatile: (props: { project: TtscMetroProjectView }) => void;
 } {
   const suffix = `${process.pid.toString(36)}-${randomBytes(6).toString("hex")}`;
   interface BaseState {
@@ -567,18 +586,15 @@ export function createSnapshotRecorder(): {
   }
   const states = new Map<string, BaseState>();
 
-  function stateFor(
-    projectRoot: string | undefined,
-    explicitProject: string | undefined,
-  ): BaseState {
-    const base = resolveFingerprintBase(projectRoot);
+  function stateFor(project: TtscMetroProjectView): BaseState {
+    const base = project.base;
     let state = states.get(base);
     if (state === undefined) {
       state = {
         dirty: false,
         files: new Set(),
         observed: false,
-        roots: fingerprintRoots(base, explicitProject),
+        roots: fingerprintRoots(base, project.explicitProject),
         volatile: false,
       };
       states.set(base, state);
@@ -621,8 +637,8 @@ export function createSnapshotRecorder(): {
 
   return {
     record(props) {
-      const base = resolveFingerprintBase(props.projectRoot);
-      const state = stateFor(props.projectRoot, props.explicitProject);
+      const base = props.project.base;
+      const state = stateFor(props.project);
       const input = path.resolve(props.input);
       const firstObservation = !state.observed;
       state.observed = true;
@@ -630,7 +646,13 @@ export function createSnapshotRecorder(): {
         state.files.has(input) ||
         (fs.existsSync(input) &&
           state.roots.some((root) =>
-            isProjectWalkPath(root, input, undefined, undefined, props.policy),
+            isProjectWalkPath(
+              root,
+              input,
+              undefined,
+              undefined,
+              props.project.policy,
+            ),
           ))
       ) {
         // Even when every input belongs to the project walk, the worker must
@@ -647,8 +669,8 @@ export function createSnapshotRecorder(): {
       flush(base, state);
     },
     recordVolatile(props) {
-      const base = resolveFingerprintBase(props.projectRoot);
-      const state = stateFor(props.projectRoot, props.explicitProject);
+      const base = props.project.base;
+      const state = stateFor(props.project);
       if (state.volatile) {
         flush(base, state);
         return;

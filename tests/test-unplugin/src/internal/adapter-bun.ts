@@ -447,13 +447,18 @@ async function assertBunRuntimeDoesNotRehashProjectPerModule(): Promise<void> {
  *
  * The discriminator is the absence of a throw rather than the `undefined`
  * itself. This file is a genuine transform target — a real `.ts` under the
- * project root, outside `node_modules`, matching the adapter's own filter — and
- * is absent from the program only because the fixture's tsconfig includes `src`
- * alone. Before #1308 that threw and Bun turned it into a build failure. The
- * filter is asserted here too, so the case cannot pass by the module never
- * reaching the loader at all, which is how it would decay into
+ * project root, outside `node_modules` — and is absent from the program only
+ * because the fixture's tsconfig includes `src` alone. Before #1308 that threw
+ * and Bun turned it into a build failure.
+ *
+ * The `undefined` alone would be a weak assertion, because the loader returns
+ * it for an excluded path too: `options.filter` is only the coarse pattern
+ * `onLoad` is registered with, and the real gate is `isTransformTarget` inside
+ * the loader, so a case resting on the return value would keep passing if the
+ * module stopped reaching the transform at all and would decay into
  * {@link assertBunAdapterFallsThroughWhenItDoesNotTransform}'s excluded-path
- * row.
+ * row. The report is what tells the two apart: only a delivery that reached the
+ * compile and found no output for this file can emit it.
  */
 async function assertBunAdapterPassesThroughAnOutOfProgramModule(): Promise<void> {
   const unpluginBun = await TestUnpluginRuntime.loadUnpluginAdapter("bun");
@@ -462,15 +467,29 @@ async function assertBunAdapterPassesThroughAnOutOfProgramModule(): Promise<void
   fs.mkdirSync(path.dirname(stray), { recursive: true });
   fs.writeFileSync(stray, "export const tool: string = 'STRAY';\n", "utf8");
 
-  const { loader, options } = await captureBunLoader(unpluginBun(), "bundler");
-  assert.ok(
-    options.filter.test(stray),
-    "the fixture must reach the loader, or the case proves nothing",
-  );
+  const { loader } = await captureBunLoader(unpluginBun(), "bundler");
+  const original = process.stderr.write.bind(process.stderr);
+  let captured = "";
+  process.stderr.write = ((chunk: unknown) => {
+    captured += String(chunk);
+    return true;
+  }) as typeof process.stderr.write;
+  let result;
+  try {
+    result = await loader({ path: stray });
+  } finally {
+    process.stderr.write = original;
+  }
+
   assert.equal(
-    await loader({ path: stray }),
+    result,
     undefined,
     "a module outside the program must fall through, not fail the build",
+  );
+  assert.ok(
+    captured.includes(stray) &&
+      captured.includes(path.join(root, "tsconfig.json")),
+    `the loader must have reached the program and reported the module (got ${JSON.stringify(captured)})`,
   );
 }
 

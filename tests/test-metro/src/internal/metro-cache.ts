@@ -342,14 +342,14 @@ export async function assertCacheKeyFoldsNonceAfterSnapshotWriteFailure(): Promi
   await prepareSnapshot(root);
   const originalIdentity = readMainSnapshot(root).id;
   const originalKey = await cacheKeyForRun(root);
-  const { createSnapshotRecorder, resolveMembershipPolicy } =
+  const { createSnapshotRecorder, resolveProjectView } =
     await TestMetroRuntime.loadFingerprint();
   const recorder = createSnapshotRecorder();
-  const policy = resolveMembershipPolicy({ projectRoot: root });
+  const project = resolveProjectView({ projectRoot: root });
 
   fs.chmodSync(snapshotDirectory(root), 0o555);
   try {
-    recorder.record({ input: external, policy, projectRoot: root });
+    recorder.record({ input: external, project });
     assert.deepEqual(listWorkerSnapshots(root), []);
     assert.equal(listSnapshotRecoveryFiles(root).length, 1);
     assert.notEqual(await cacheKeyForRun(root), await cacheKeyForRun(root));
@@ -358,7 +358,7 @@ export async function assertCacheKeyFoldsNonceAfterSnapshotWriteFailure(): Promi
   }
 
   // The same observation retries because the failed publication stayed dirty.
-  recorder.record({ input: external, policy, projectRoot: root });
+  recorder.record({ input: external, project });
   assert.deepEqual(workerSnapshotFiles(root), [external]);
   await prepareSnapshot(root);
 
@@ -673,15 +673,14 @@ export async function assertTransformerRecordsVolatileDeclarations(): Promise<vo
 export async function assertCacheKeyChangesWhenSupersedingCandidateAppears(): Promise<void> {
   const root = createBareProject();
   const candidate = path.join(root, "src", "generated.ts");
-  const { createSnapshotRecorder, resolveMembershipPolicy } =
+  const { createSnapshotRecorder, resolveProjectView } =
     await TestMetroRuntime.loadFingerprint();
 
   await prepareSnapshot(root);
   const firstWorker = createSnapshotRecorder();
   firstWorker.record({
     input: candidate,
-    policy: resolveMembershipPolicy({ projectRoot: root }),
-    projectRoot: root,
+    project: resolveProjectView({ projectRoot: root }),
   });
   assert.deepEqual(workerSnapshotFiles(root), [candidate]);
 
@@ -708,20 +707,21 @@ export async function assertCleanTransformClearsVolatileSnapshot(): Promise<void
   const options = {
     upstreamTransformer: TestMetroRuntime.fakeUpstreamPathOnDisk(),
   };
-  const { createSnapshotRecorder, resolveMembershipPolicy } =
+  const { createSnapshotRecorder, resolveProjectView } =
     await TestMetroRuntime.loadFingerprint();
 
   await prepareSnapshot(root);
   const volatileWorker = createSnapshotRecorder();
-  volatileWorker.recordVolatile({ projectRoot: root });
+  volatileWorker.recordVolatile({
+    project: resolveProjectView({ projectRoot: root }),
+  });
   await prepareSnapshot(root);
   assert.equal(readMainSnapshot(root).volatile, true);
 
   const cleanWorker = createSnapshotRecorder();
   cleanWorker.record({
     input: path.join(root, "src", "app.ts"),
-    policy: resolveMembershipPolicy({ projectRoot: root }),
-    projectRoot: root,
+    project: resolveProjectView({ projectRoot: root }),
   });
   await prepareSnapshot(root);
 
@@ -832,18 +832,18 @@ export async function assertMetroAsksTheAdaptersPolicy(): Promise<void> {
   const fingerprint = await TestMetroRuntime.loadFingerprint();
   const root = createBareProject();
 
-  const strict = fingerprint.resolveMembershipPolicy({ projectRoot: root });
+  const strict = fingerprint.resolveProjectView({ projectRoot: root });
   assert.ok(
-    !strict.inputExtensions.includes(".js"),
-    `a project without allowJs must not admit .js (got ${strict.inputExtensions.join(" ")})`,
+    !strict.policy.inputExtensions.includes(".js"),
+    `a project without allowJs must not admit .js (got ${strict.policy.inputExtensions.join(" ")})`,
   );
 
-  const widened = fingerprint.resolveMembershipPolicy({
+  const widened = fingerprint.resolveProjectView({
     compilerOptions: { allowJs: true },
     projectRoot: root,
   });
   assert.ok(
-    widened.inputExtensions.includes(".js"),
+    widened.policy.inputExtensions.includes(".js"),
     "the caller's compiler-options overlay must widen Metro's policy too",
   );
 
@@ -857,12 +857,12 @@ export async function assertMetroAsksTheAdaptersPolicy(): Promise<void> {
     "utf8",
   );
   fs.mkdirSync(path.join(root, "config"), { recursive: true });
-  const first = fingerprint.resolveMembershipPolicy({ projectRoot: root });
+  const first = fingerprint.resolveProjectView({ projectRoot: root });
   fs.writeFileSync(path.join(root, "config", "note.txt"), "one", "utf8");
-  const second = fingerprint.resolveMembershipPolicy({ projectRoot: root });
+  const second = fingerprint.resolveProjectView({ projectRoot: root });
   assert.equal(
-    first,
-    second,
+    first.policy,
+    second.policy,
     "a file inside a directory occupying an extends candidate must not refresh the policy",
   );
 }
@@ -918,9 +918,17 @@ export async function assertCacheKeyCoversOverlayAdmittedSources(): Promise<void
  *
  * The Metro half of samchon/ttsc#1307's sharpest case, required by
  * samchon/ttsc#1317 and missing when that work merged. Content-hashed output is
- * not a rewrite in place: every rebuild removes a name and adds another, which
- * is a directory membership change, and the walk used to record every entry
- * regardless of whether it could ever enter the program.
+ * not a rewrite in place: every rebuild adds a name nothing had seen before,
+ * and the walk used to hash every entry regardless of whether it could ever
+ * enter the program.
+ *
+ * Metro reaches that through file hashes alone rather than through the
+ * directory-membership snapshot the adapter also keeps — `getCacheKey` folds
+ * only `collectProjectInputHashes`, so what has to be absent here is the new
+ * file's own hash. The adapter's directory identities are what make the same
+ * output cost it a compile, and
+ * {@link assertHashedBundleOutputKeepsTheGeneration} in `@ttsc/test-unplugin`
+ * covers that side.
  *
  * It costs more here than it does for a bundler. Metro folds one static key
  * into every file's per-content cache key, so a walk that re-keyed on emitted

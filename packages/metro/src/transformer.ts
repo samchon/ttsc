@@ -27,7 +27,7 @@ import path from "node:path";
 import {
   computeProjectFingerprint,
   createSnapshotRecorder,
-  resolveMembershipPolicy,
+  resolveProjectView,
   stableStringify,
 } from "./core/fingerprint";
 import type { ResolvedTtscMetroOptions } from "./core/options";
@@ -121,7 +121,7 @@ export async function transform(params: {
         : undefined;
     const explicitProject =
       typeof opts.ttsc.project === "string" ? opts.ttsc.project : undefined;
-    const membershipPolicy = resolveMembershipPolicy({
+    const project = resolveProjectView({
       compilerOptions: opts.ttsc.compilerOptions,
       explicitProject,
       projectRoot,
@@ -139,22 +139,16 @@ export async function transform(params: {
         // that the next run's getCacheKey re-hashes instead. Fires on cache
         // hits too, so a worker that never recompiled still records the
         // inputs backing the outputs it serves.
-        // The policy is resolved once for this file and handed to every one of
-        // its watch inputs. `record` runs per input, and validating the memo
-        // means stat-ing the whole `extends` chain, which is an answer that
-        // cannot change between two inputs of one file (samchon/ttsc#1316).
-        addWatchFile: (input) =>
-          snapshotRecorder.record({
-            explicitProject,
-            input,
-            policy: membershipPolicy,
-            projectRoot,
-          }),
+        // The project view is resolved once for this file and handed to every
+        // one of its watch inputs. `record` runs per input, and validating the
+        // memo means stat-ing the whole `extends` chain, which is an answer
+        // that cannot change between two inputs of one file
+        // (samchon/ttsc#1316).
+        addWatchFile: (input) => snapshotRecorder.record({ input, project }),
         // A volatile declaration means the output depends on non-file inputs
         // that no file fingerprint can represent; the snapshot marks it and
         // getCacheKey degrades to a per-run nonce (no cross-run reuse).
-        markVolatile: () =>
-          snapshotRecorder.recordVolatile({ explicitProject, projectRoot }),
+        markVolatile: () => snapshotRecorder.recordVolatile({ project }),
       },
     );
     // A file the program does not contain comes back as `undefined` from the

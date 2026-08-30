@@ -371,8 +371,15 @@ async function assertTurbopackLoaderMarksVolatileModulesUncacheable(): Promise<v
  * declaration — so no filter turns it away; it is simply absent from the
  * program, because the fixture's tsconfig includes `src` alone. Before #1308
  * the adapter threw here and Turbopack turned that into a build failure.
- * Passing through is not silent: the core reports the file and the program on
- * stderr once per pass.
+ *
+ * Returning the source unchanged is on its own a weak assertion, because it is
+ * also what the loader does for a path its filter rejects — so a case resting
+ * on it alone would keep passing if the module stopped reaching the transform
+ * at all, and would then prove nothing about the program. The report is what
+ * distinguishes them: only a delivery that reached the compile and found no
+ * output for this file can emit it, so asserting it pins that the pass-through
+ * happened for the stated reason. It is also half the contract, since passing
+ * through must not be silent.
  */
 async function assertTurbopackLoaderPassesThroughAnOutOfProgramModule(): Promise<void> {
   const root = TestUnpluginProject.createProject();
@@ -381,10 +388,28 @@ async function assertTurbopackLoaderPassesThroughAnOutOfProgramModule(): Promise
   const source = "export const tool: string = 'STRAY';\n";
   fs.writeFileSync(stray, source, "utf8");
 
+  const original = process.stderr.write.bind(process.stderr);
+  let captured = "";
+  process.stderr.write = ((chunk: unknown) => {
+    captured += String(chunk);
+    return true;
+  }) as typeof process.stderr.write;
+  let content: string;
+  try {
+    content = await runTurbopackLoader({ resourcePath: stray, source });
+  } finally {
+    process.stderr.write = original;
+  }
+
   assert.equal(
-    await runTurbopackLoader({ resourcePath: stray, source }),
+    content,
     source,
     "a module outside the program must pass through the loader unchanged",
+  );
+  assert.ok(
+    captured.includes(stray) &&
+      captured.includes(path.join(root, "tsconfig.json")),
+    `the loader must have reached the program and reported the module (got ${JSON.stringify(captured)})`,
   );
 }
 
