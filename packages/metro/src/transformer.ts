@@ -112,7 +112,7 @@ export async function transform(params: {
   }
 
   let transformedSrc = params.src;
-  try {
+  {
     unpluginOptions ??= resolveOptions(opts.ttsc);
     const projectRoot =
       typeof params.options.projectRoot === "string"
@@ -142,15 +142,16 @@ export async function transform(params: {
           snapshotRecorder.recordVolatile({ explicitProject, projectRoot }),
       },
     );
+    // A file the program does not contain comes back as `undefined` from the
+    // shared transform, exactly as an unchanged one does, so it passes through
+    // here with no special case. That decision belongs to
+    // `@ttsc/unplugin`'s core and is shared with every bundler adapter; this
+    // transformer used to hold its own copy of it, recognising the case by
+    // searching the error text for "did not return output" while the adapters
+    // failed the build for the identical condition (samchon/ttsc#1308).
+    // Genuine compile and type failures still propagate so Metro surfaces them.
     if (result !== undefined && typeof result.code === "string") {
       transformedSrc = result.code;
-    }
-  } catch (error) {
-    // A file that is not part of the tsconfig program is not a build error,
-    // pass it through untransformed. Genuine compile/type failures propagate so
-    // Metro surfaces them, matching the other ttsc bundler integrations.
-    if (!isFileOutsideProject(error)) {
-      throw error;
     }
   }
 
@@ -274,16 +275,6 @@ export function shouldTransform(
     return false;
   }
   return true;
-}
-
-/**
- * `transformTtsc` throws `"ttsc transform did not return output for <file>"`
- * when the requested file is not part of the compiled program (e.g. excluded
- * from the tsconfig). That case is non-fatal: the file should pass through.
- */
-function isFileOutsideProject(error: unknown): boolean {
-  const message = error instanceof Error ? error.message : String(error);
-  return message.includes("did not return output");
 }
 
 function packageVersion(): string {

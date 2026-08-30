@@ -399,10 +399,10 @@ export async function assertGenuineCompileErrorPropagates(): Promise<void> {
       },
     }),
     // Load-bearing: must reject with the actual plugin error (mentions
-    // goUpper), not the out-of-project swallow string, and not a vacuous
-    // environment failure.
-    (error: Error) =>
-      /goUpper/.test(error.message) &&
-      !/did not return output/.test(error.message),
+    // goUpper) rather than a vacuous environment failure. A module the program
+    // does not contain no longer reaches this path at all: the shared core
+    // returns `undefined` for it, so there is no swallow string left to
+    // distinguish from a real failure (samchon/ttsc#1308).
+    (error: Error) => /goUpper/.test(error.message),
   );
 }

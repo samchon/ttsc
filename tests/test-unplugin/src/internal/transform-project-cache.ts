@@ -31,6 +31,22 @@ import path from "node:path";
  */
 interface ICacheProjectOptions {
   /**
+   * Widen the program to JavaScript, which widens what counts as a membership
+   * change with it: an emitted `.js` beside the sources can enter a program
+   * that admits JavaScript, and must then invalidate the generation.
+   */
+  allowJs?: boolean;
+  /** Same, for `.json` inputs. */
+  resolveJsonModule?: boolean;
+  /** Override the project's `outDir`, which the walk excludes by configuration. */
+  outDir?: string;
+  /**
+   * Top-level `exclude` entries. TypeScript still keeps an _imported_ file in
+   * the program whatever `exclude` says, which is what makes an excluded
+   * directory holding a real graph member reachable.
+   */
+  exclude?: string[];
+  /**
    * Add a second lexical spelling of one global — a file symlink beside it —
    * and stamp both into `graph.globals`, the alias first.
    *
@@ -3469,7 +3485,13 @@ function createCacheProject(options: ICacheProjectOptions): {
           module: "commonjs",
           strict: true,
           rootDir: "src",
-          outDir: "dist",
+          outDir: options.outDir ?? "dist",
+          ...(options.allowJs === undefined
+            ? {}
+            : { allowJs: options.allowJs }),
+          ...(options.resolveJsonModule === undefined
+            ? {}
+            : { resolveJsonModule: options.resolveJsonModule }),
           // Options live at the plugin-entry top level: the protocol forwards
           // the whole entry as the plugin's config object.
           plugins: [
@@ -3521,6 +3543,7 @@ function createCacheProject(options: ICacheProjectOptions): {
           ],
         },
         include: ["src"],
+        ...(options.exclude === undefined ? {} : { exclude: options.exclude }),
       },
       null,
       2,

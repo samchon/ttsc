@@ -46,6 +46,189 @@ export function readEffectiveTsconfigPaths(
   return output;
 }
 
+/** Source extensions TypeScript always admits as program inputs. */
+const TYPESCRIPT_INPUT_EXTENSIONS = [".ts", ".tsx", ".mts", ".cts"];
+/** Extensions admitted only when `allowJs` widens the program. */
+const JAVASCRIPT_INPUT_EXTENSIONS = [".js", ".jsx", ".mjs", ".cjs"];
+
+/**
+ * What the resolved configuration says can and cannot enter the program.
+ *
+ * The project walk exists to notice files entering and leaving the _program_,
+ * so both halves of that question belong to configuration rather than to a
+ * guess. Before this the walk answered both from one hardcoded list of
+ * directory names, which was wrong in both directions at once: a bundler
+ * writing to any directory the list did not name changed project membership
+ * with its own output, and a source directory whose name the list did name was
+ * dropped from the walk entirely (samchon/ttsc#1307).
+ */
+export interface ITtscProjectMembershipPolicy {
+  /** Absolute directories the resolved configuration keeps out of the program. */
+  excludedDirectories: readonly string[];
+  /** Lowercased extensions a file needs to be a possible program input. */
+  inputExtensions: readonly string[];
+  /**
+   * Every config file consulted to produce this policy, the leaf and its whole
+   * `extends` ancestry.
+   *
+   * A caller that memoizes a policy has to know when to stop trusting it, and
+   * the leaf alone cannot tell it: adding `exclude` to a shared
+   * `tsconfig.base.json` leaves the leaf untouched while changing every answer
+   * this policy gives.
+   */
+  sources: readonly string[];
+}
+
+/**
+ * The policy every project falls back to when no configuration is available.
+ *
+ * Deliberately the widest one: admitting a file that cannot enter the program
+ * costs a compile, while refusing one that can costs correctness, and only the
+ * second is a defect the user cannot see.
+ */
+export const PERMISSIVE_PROJECT_MEMBERSHIP_POLICY: ITtscProjectMembershipPolicy =
+  {
+    excludedDirectories: [],
+    inputExtensions: [
+      ...TYPESCRIPT_INPUT_EXTENSIONS,
+      ...JAVASCRIPT_INPUT_EXTENSIONS,
+      ".json",
+    ],
+    sources: [],
+  };
+
+/**
+ * Read the membership policy the resolved tsconfig implies, following its
+ * `extends` chain for every option the answer depends on.
+ *
+ * `allowJs` and `resolveJsonModule` decide which extensions can enter the
+ * program at all, so a `bundle.a1b2c3.js` emitted beside the sources is not a
+ * membership change for a project that admits no JavaScript. `outDir`,
+ * `declarationDir`, and the plain entries of `exclude` name the directories the
+ * program does not contain, which is where a bundler's own output lives in
+ * every project that configures one.
+ *
+ * A glob in `exclude` is skipped rather than approximated. Failing to exclude
+ * costs a walk; excluding the wrong tree hides real sources, and this function
+ * refuses to guess in the direction that loses correctness.
+ */
+export function readProjectMembershipPolicy(
+  tsconfig: string,
+): ITtscProjectMembershipPolicy {
+  const resolved = path.resolve(tsconfig);
+  // Every config the chain touches, so a caller memoizing this policy can tell
+  // when it has gone stale. `findDeclaredValue` walks `extends` for each option
+  // independently, and each walk records what it read.
+  const sources = new Set<string>();
+  const flag = (key: string): boolean =>
+    findDeclaredValue(
+      resolved,
+      (parsed) => {
+        const value = (parsed as { compilerOptions?: Record<string, unknown> })
+          .compilerOptions?.[key];
+        return typeof value === "boolean" ? value : undefined;
+      },
+      new Set(),
+      sources,
+    )?.value === true;
+
+  const inputExtensions = [...TYPESCRIPT_INPUT_EXTENSIONS];
+  if (flag("allowJs")) {
+    inputExtensions.push(...JAVASCRIPT_INPUT_EXTENSIONS);
+  }
+  if (flag("resolveJsonModule")) {
+    inputExtensions.push(".json");
+  }
+
+  const excludedDirectories: string[] = [];
+  for (const key of ["outDir", "declarationDir"]) {
+    const declared = findDeclaredValue(
+      resolved,
+      (parsed) => {
+        const value = (parsed as { compilerOptions?: Record<string, unknown> })
+          .compilerOptions?.[key];
+        return typeof value === "string" && value.length !== 0
+          ? value
+          : undefined;
+      },
+      new Set(),
+      sources,
+    );
+    if (declared !== null) {
+      excludedDirectories.push(path.resolve(declared.baseDir, declared.value));
+    }
+  }
+  const excluded = findDeclaredValue(
+    resolved,
+    (parsed) => {
+      const value = (parsed as { exclude?: unknown }).exclude;
+      return Array.isArray(value) ? value : undefined;
+    },
+    new Set(),
+    sources,
+  );
+  if (excluded !== null) {
+    for (const entry of excluded.value) {
+      if (typeof entry !== "string" || entry.length === 0) {
+        continue;
+      }
+      // `dist/**` names exactly one directory; `**/*.spec.ts` names a set this
+      // walk cannot evaluate without a matcher, so it is left in.
+      const plain = entry.endsWith("/**") ? entry.slice(0, -3) : entry;
+      if (plain.length === 0 || /[*?]/.test(plain)) {
+        continue;
+      }
+      excludedDirectories.push(path.resolve(excluded.baseDir, plain));
+    }
+  }
+  return { excludedDirectories, inputExtensions, sources: [...sources] };
+}
+
+/**
+ * Apply the caller's compiler-options overlay on top of a policy read from the
+ * project config.
+ *
+ * The overlay wins for the compile, so it wins here too. A caller that turns
+ * `allowJs` on gets a program that admits JavaScript, and a membership rule
+ * that still refused it would miss files entering that program; a caller that
+ * turns it off gets the narrower rule for the same reason.
+ */
+export function mergeMembershipPolicyOverlay(
+  policy: ITtscProjectMembershipPolicy,
+  compilerOptions: Record<string, unknown>,
+  baseDir: string,
+): ITtscProjectMembershipPolicy {
+  const inputExtensions = new Set(policy.inputExtensions);
+  const applyFlag = (key: string, extensions: readonly string[]): void => {
+    const value = compilerOptions[key];
+    if (typeof value !== "boolean") {
+      return;
+    }
+    for (const extension of extensions) {
+      if (value) {
+        inputExtensions.add(extension);
+      } else {
+        inputExtensions.delete(extension);
+      }
+    }
+  };
+  applyFlag("allowJs", JAVASCRIPT_INPUT_EXTENSIONS);
+  applyFlag("resolveJsonModule", [".json"]);
+
+  const excludedDirectories = [...policy.excludedDirectories];
+  for (const key of ["outDir", "declarationDir"]) {
+    const value = compilerOptions[key];
+    if (typeof value === "string" && value.length !== 0) {
+      excludedDirectories.push(path.resolve(baseDir, value));
+    }
+  }
+  return {
+    excludedDirectories,
+    inputExtensions: [...inputExtensions],
+    sources: policy.sources,
+  };
+}
+
 /**
  * Anchor a single `paths` target at `baseDir` unless it is already absolute,
  * normalizing to forward slashes. The `*` wildcard survives `path.resolve` as a
@@ -78,13 +261,57 @@ function findDeclaredPaths(
   tsconfig: string,
   seen: Set<string>,
 ): IDeclaredPaths | null {
+  const declared = findDeclaredValue(
+    tsconfig,
+    (parsed) => {
+      const own = (parsed as { compilerOptions?: { paths?: unknown } })
+        .compilerOptions?.paths;
+      return typeof own === "object" && own !== null && !Array.isArray(own)
+        ? (own as Record<string, unknown>)
+        : undefined;
+    },
+    seen,
+  );
+  return declared === null
+    ? null
+    : { baseDir: declared.baseDir, paths: declared.value };
+}
+
+/**
+ * Find the nearest declaration of one config value along the `extends` chain,
+ * with the directory of the config that declared it.
+ *
+ * TypeScript merges configs per key, so the effective value of a key is the
+ * whole value from the nearest config that declares one: the config itself
+ * first, then its `extends` entries in reverse priority order. The declaring
+ * directory travels with the value because a path-valued option (`outDir`,
+ * `exclude`) is anchored at the config that wrote it, not at the one that
+ * inherited it.
+ *
+ * Best-effort by design, like {@link readEffectiveTsconfigPaths}: a missing or
+ * unparsable config in the chain yields `null` here and a real config error
+ * from the compiler, which owns config diagnostics.
+ */
+function findDeclaredValue<T>(
+  tsconfig: string,
+  select: (parsed: object) => T | undefined,
+  seen: Set<string>,
+  /**
+   * Every config this walk reads, accumulated across walks. Kept apart from
+   * `seen`, which guards one walk against an `extends` cycle and must start
+   * empty each time: sharing one set would make the second option's walk treat
+   * the leaf as already visited and answer `null` for everything.
+   */
+  collect?: Set<string>,
+): { baseDir: string; value: T } | null {
   const canonical = resolveRealPath(tsconfig);
   if (seen.has(canonical)) {
     return null;
   }
   seen.add(canonical);
+  collect?.add(canonical);
 
-  let parsed: { extends?: unknown; compilerOptions?: { paths?: unknown } };
+  let parsed: { extends?: unknown };
   try {
     parsed = parseJsonc(fs.readFileSync(canonical, "utf8")) as typeof parsed;
   } catch {
@@ -94,20 +321,39 @@ function findDeclaredPaths(
     return null;
   }
 
-  const own = parsed.compilerOptions?.paths;
-  if (typeof own === "object" && own !== null && !Array.isArray(own)) {
-    return {
-      baseDir: path.dirname(canonical),
-      paths: own as Record<string, unknown>,
-    };
+  const own = select(parsed);
+  if (own !== undefined) {
+    return { baseDir: path.dirname(canonical), value: own };
   }
 
   for (const specifier of extendsSpecifiers(parsed.extends).reverse()) {
     const base = resolveExtendsConfig(canonical, specifier);
     if (base === null) {
+      // Record where a relative or absolute specifier *would* have resolved,
+      // even though nothing is there. A caller stamping this policy has to
+      // notice the config appearing later, and a base config can be absent for
+      // ordinary reasons: generated during install, or missing across a branch
+      // switch. Without this the stamp never moves and a long-lived worker
+      // keeps a policy the next run's walk already disagrees with. A bare
+      // specifier is skipped, since it has no single candidate path.
+      if (isRelativeSpecifier(specifier) || path.isAbsolute(specifier)) {
+        // Both spellings the resolver would have tried, since it falls back to
+        // `<specifier>.json`. Recording only the literal one leaves the stamp
+        // unmoved when `./tsconfig.base` later appears as `tsconfig.base.json`,
+        // which is the same staleness this recording exists to prevent.
+        const candidate = path.resolve(path.dirname(canonical), specifier);
+        collect?.add(candidate);
+        // Case-sensitive, because `resolveExistingExtendsPath` is: it appends
+        // `.json` unless the spelling already ends in exactly that, so a
+        // `./base.JSON` specifier really does resolve to `base.JSON.json` on a
+        // case-sensitive filesystem, and the stamp has to know that name.
+        if (!candidate.endsWith(".json")) {
+          collect?.add(`${candidate}.json`);
+        }
+      }
       continue;
     }
-    const declared = findDeclaredPaths(base, seen);
+    const declared = findDeclaredValue(base, select, seen, collect);
     if (declared !== null) {
       return declared;
     }

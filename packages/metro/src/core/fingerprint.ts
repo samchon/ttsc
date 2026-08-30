@@ -48,6 +48,7 @@ import {
   collectExternalInputHashes,
   collectProjectInputHashes,
   isProjectWalkPath,
+  readProjectMembershipPolicy,
 } from "@ttsc/unplugin/api";
 import { createHash, randomBytes } from "node:crypto";
 import fs from "node:fs";
@@ -131,10 +132,83 @@ export function fingerprintRoots(
   explicitProject: string | undefined,
 ): string[] {
   const tsconfig = resolveProjectTsconfig(base, explicitProject);
-  if (isProjectWalkPath(base, tsconfig)) {
-    return [base];
+  // Containment, not walk membership. The question here is whether the
+  // tsconfig's directory already sits inside the subtree the base walk covers,
+  // so that adding it would repeat the same walk. `isProjectWalkPath` answers a
+  // different question, whether the walk *hashes* that path, and once the walk
+  // stopped hashing files that cannot enter the program it began answering
+  // `false` for every `tsconfig.json`, which returned the base twice and hashed
+  // the whole project twice on every cache key (samchon/ttsc#1307).
+  const directory = path.dirname(path.resolve(tsconfig));
+  const relative = path.relative(path.resolve(base), directory);
+  const inside =
+    relative === "" ||
+    (relative !== ".." &&
+      !relative.startsWith(`..${path.sep}`) &&
+      !path.isAbsolute(relative));
+  return inside ? [base] : [base, directory];
+}
+
+/**
+ * The membership policy of one project, memoized per resolved tsconfig.
+ *
+ * Every use of the walk pair has to ask the same policy, or the two halves
+ * disagree about the same project. The walk hashes what the configuration can
+ * admit, and `isProjectWalkPath` answers whether the walk covers a path, so a
+ * permissive answer here would claim coverage the walk does not provide and the
+ * input would be recorded nowhere at all (samchon/ttsc#1307).
+ */
+const MEMBERSHIP_POLICIES = new Map<
+  string,
+  {
+    policy: ReturnType<typeof readProjectMembershipPolicy>;
+    sources: readonly string[];
+    stamp: string;
   }
-  return [base, path.dirname(tsconfig)];
+>();
+
+function membershipPolicy(
+  tsconfig: string,
+): ReturnType<typeof readProjectMembershipPolicy> {
+  // Keyed by the config's own stamp, not by its path. A Metro worker outlives
+  // many runs, and this is consulted once per delivered file, so a plain
+  // path-keyed memo would hold the policy a project had when the worker
+  // started. An edit adding `exclude` would then leave the worker judging a
+  // file in-walk while the next run's walk skipped it, which is precisely the
+  // both-sides-disagree hole this policy exists to close.
+  const existing = MEMBERSHIP_POLICIES.get(tsconfig);
+  if (existing !== undefined && existing.stamp === stampOf(existing.sources)) {
+    return existing.policy;
+  }
+  const policy = readProjectMembershipPolicy(tsconfig);
+  // Stamp the whole `extends` chain, not the leaf. Adding `exclude` to a shared
+  // `tsconfig.base.json` leaves the leaf's own mtime and size untouched while
+  // changing every answer the policy gives, so a leaf-only stamp would keep the
+  // worker on the pre-edit policy for its lifetime.
+  const sources =
+    policy.sources.length === 0 ? [tsconfig] : [...policy.sources];
+  MEMBERSHIP_POLICIES.set(tsconfig, {
+    policy,
+    sources,
+    stamp: stampOf(sources),
+  });
+  return policy;
+}
+
+/** A stamp over every config a policy was read from, in a stable order. */
+function stampOf(sources: readonly string[]): string {
+  return sources
+    .map((source) => {
+      try {
+        const stats = fs.statSync(source);
+        return `${source}:${stats.mtimeMs}:${stats.size}`;
+      } catch {
+        // Absent now. `readProjectMembershipPolicy` answers for that too, and
+        // the policy must be re-asked once the config appears.
+        return `${source}:absent`;
+      }
+    })
+    .join("|");
 }
 
 /**
@@ -179,8 +253,19 @@ export function computeProjectFingerprint(props: {
   try {
     const base = resolveFingerprintBase(props.projectRoot);
     const hash = createHash("sha256");
+    // Judge the fingerprint's walk by the same configuration the compile
+    // does. Metro folds this into one static key, so an entry the program
+    // could never contain used to re-key every transformed file rather than
+    // costing one compile the way it does for a bundler (samchon/ttsc#1307).
+    const policy = membershipPolicy(
+      resolveProjectTsconfig(base, props.explicitProject),
+    );
     for (const root of fingerprintRoots(base, props.explicitProject)) {
-      hash.update(stableStringify(collectProjectInputHashes(root)));
+      hash.update(
+        stableStringify(
+          collectProjectInputHashes(root, undefined, undefined, policy),
+        ),
+      );
     }
     const snapshot = readSnapshotState(base);
     if (snapshot === undefined || snapshot.volatile) {
@@ -464,10 +549,15 @@ export function createSnapshotRecorder(): {
       const input = path.resolve(props.input);
       const firstObservation = !state.observed;
       state.observed = true;
+      const policy = membershipPolicy(
+        resolveProjectTsconfig(base, props.explicitProject),
+      );
       if (
         state.files.has(input) ||
         (fs.existsSync(input) &&
-          state.roots.some((root) => isProjectWalkPath(root, input)))
+          state.roots.some((root) =>
+            isProjectWalkPath(root, input, undefined, undefined, policy),
+          ))
       ) {
         // Even when every input belongs to the project walk, the worker must
         // publish that it performed a clean transform. Otherwise an old main

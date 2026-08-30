@@ -239,10 +239,10 @@ export async function assertAnOutOfProgramModuleDoesNotFailThePass(): Promise<vo
     assert.ok(await deliver(modules[0]!));
     const generation = cachedGeneration(cache);
 
-    await assert.rejects(
-      () => deliver(outside),
-      /did not return output/,
-      "a module the program does not contain must report itself",
+    assert.equal(
+      await deliver(outside),
+      undefined,
+      "a module the program does not contain is left to the host, not failed",
     );
     assert.equal(
       cachedGeneration(cache),

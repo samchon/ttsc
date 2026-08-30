@@ -183,6 +183,37 @@ const LANES = [
       "pnpm --filter @ttsc/test-metro start",
   },
   {
+    id: "bundler-defenses-windows",
+    name: "bundler defenses (windows)",
+    os: "windows-latest",
+    needsGo: true,
+    scope: "test-metro",
+    build: "pnpm run build:current",
+    // The project-membership family only, not the whole suite, because what
+    // this lane exists for is the Windows-only half of the adapter: the
+    // mutation broker, a child process that watches canonical directory
+    // spellings while everything else speaks the walk's own, and short 8.3
+    // temp paths, which make those two names for one directory share no common
+    // prefix at all. Every other lane runs this suite on Linux, where that
+    // branch is dead code and a defect in it is invisible
+    // (samchon/ttsc#1307).
+    run:
+      "pnpm --filter @ttsc/test-unplugin start -- " +
+      "--include=membership --include=output_directory --include=the_walk " +
+      "--include=new_source " +
+      "--include=persistent_host --include=hashed_bundle --include=allowjs " +
+      "--include=non_source_host_inputs --include=policy_reports && " +
+      // `packages/metro/**` selects this lane, so it has to run metro's own
+      // walk-facing cases rather than only the adapter's. There is no
+      // Windows-only branch in `@ttsc/metro` itself; what these cases add is
+      // that the fingerprint imports the adapter's config and `extends` reader
+      // and folds the project walk into a cache key, so they exercise that
+      // reader over Windows path spellings from the consumer's side.
+      "pnpm --filter @ttsc/test-metro start -- " +
+      "--include=cache_key --include=records_only_external " +
+      "--include=records_linked",
+  },
+  {
     id: "graph",
     name: "graph",
     needsGo: true,
@@ -215,6 +246,7 @@ const E2E_LANE_IDS = [
   "ttsx-node-22",
   ...LINT_LANE_IDS,
   "bundler-defenses",
+  "bundler-defenses-windows",
   "graph",
   "evidence",
 ];
@@ -227,6 +259,7 @@ const TTSC_DOWNSTREAM_IDS = [
   "ttsx-node-22",
   ...LINT_LANE_IDS,
   "bundler-defenses",
+  "bundler-defenses-windows",
   "graph",
   "evidence",
 ];
@@ -236,6 +269,7 @@ const PLATFORM_IDS = [
   "ttsc-native",
   ...LINT_LANE_IDS,
   "bundler-defenses",
+  "bundler-defenses-windows",
   "graph",
 ];
 
@@ -532,11 +566,11 @@ function planForPaths(files) {
       continue;
     }
     if (file.startsWith("packages/unplugin/")) {
-      add(["bundler-defenses"], file);
+      add(["bundler-defenses", "bundler-defenses-windows"], file);
       continue;
     }
     if (file.startsWith("packages/metro/")) {
-      add(["bundler-defenses"], file);
+      add(["bundler-defenses", "bundler-defenses-windows"], file);
       continue;
     }
     if (file.startsWith("packages/vscode/")) {
@@ -561,7 +595,7 @@ function planForPaths(files) {
         continue;
       }
       if (["unplugin", "metro"].includes(lane)) {
-        add(["bundler-defenses"], file);
+        add(["bundler-defenses", "bundler-defenses-windows"], file);
         continue;
       }
       if (lane === "lint") {

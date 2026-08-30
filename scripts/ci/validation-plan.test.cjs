@@ -39,10 +39,22 @@ test("a leaf package selects shared quality and its own executor", () => {
     "typecheck",
     "package-defenses",
   ]);
-  assert.deepEqual(ids(["packages/unplugin/src/index.ts"]), [
-    "typecheck",
-    "bundler-defenses",
-  ]);
+  // The adapter's Windows-only half, the mutation broker, is dead code on a
+  // Linux runner, so every path that can change it has to reach a Windows lane
+  // or a defect in it cannot fail anywhere (samchon/ttsc#1307). All four of
+  // them are pinned, because the mapping is the whole point of the lane.
+  for (const file of [
+    "packages/unplugin/src/index.ts",
+    "packages/metro/src/index.ts",
+    "tests/test-unplugin/src/index.ts",
+    "tests/test-metro/src/index.ts",
+  ]) {
+    assert.deepEqual(
+      ids([file]),
+      ["typecheck", "bundler-defenses", "bundler-defenses-windows"],
+      `${file} must reach the Windows bundler lane`,
+    );
+  }
   assert.deepEqual(ids(["packages/banner/src/index.ts"]), [
     "typecheck",
     "package-defenses",
@@ -330,11 +342,11 @@ test("every E2E directory has exactly one normal topology owner", () => {
 });
 
 test("lane identities and workflow matrix names stay unique", () => {
-  assert.equal(LANES.length, 13, "full main matrix must stay consolidated");
+  assert.equal(LANES.length, 14, "full main matrix must stay consolidated");
   assert.equal(
     LANES.filter((lane) => lane.build === "pnpm run build:current").length,
-    8,
-    "full logical plan must keep eight scoped native builds",
+    9,
+    "full logical plan must keep nine scoped native builds",
   );
   assert.equal(new Set(LANES.map((lane) => lane.id)).size, LANES.length);
   assert.equal(new Set(LANES.map((lane) => lane.name)).size, LANES.length);

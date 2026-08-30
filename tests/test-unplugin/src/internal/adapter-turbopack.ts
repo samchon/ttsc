@@ -159,16 +159,19 @@ async function assertTurbopackLoaderPassesThroughFilteredPaths(): Promise<void> 
  * with mixed sources, and the reason a loader needs a filter at all — routed
  * JavaScript and virtual ids into the whole-project transform every other
  * adapter excludes. A project without `allowJs` has no program entry for such a
- * file, so the delivery failed with `did not return output`, and under the
- * per-delivery eviction each one cost a whole-project compile first.
+ * file, so the delivery reached `selectTransformedSource` with nothing to
+ * return, and under the per-delivery eviction each one cost a whole-project
+ * compile first. That condition no longer fails a build (samchon/ttsc#1308),
+ * but routing a file into a whole-project transform that can never produce
+ * output for it is still work the filter exists to avoid.
  *
  * The four JavaScript rows are the regression guard: before the fix each of
- * them reached `selectTransformedSource` and failed the delivery. The virtual
- * row is defence in depth rather than a second regression, because
- * `transformTtsc` short-circuits a NUL id itself, so the old loader also
- * returned that source untouched; what it pins is that the loader stops
- * depending on a guard living inside the transform. The declaration and
- * `node_modules` rows both filters already agreed on stay pinned by
+ * them reached `selectTransformedSource` without output. The virtual row is
+ * defence in depth rather than a second regression, because `transformTtsc`
+ * short-circuits a NUL id itself, so the old loader also returned that source
+ * untouched; what it pins is that the loader stops depending on a guard living
+ * inside the transform. The declaration and `node_modules` rows both filters
+ * already agreed on stay pinned by
  * {@link assertTurbopackLoaderPassesThroughFilteredPaths}.
  */
 async function assertTurbopackLoaderPassesThroughNonSourceIds(): Promise<void> {

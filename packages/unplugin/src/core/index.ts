@@ -302,6 +302,8 @@ export type {
   TtscTransformHooks,
   TtscWatchInputEvidence,
 } from "./transform";
+export type { ITtscProjectMembershipPolicy } from "./tsconfigPaths";
+export { readProjectMembershipPolicy } from "./tsconfigPaths";
 export {
   beginTtscTransformBuild,
   collectExternalInputHashes,
@@ -317,10 +319,15 @@ export {
 export default unplugin;
 
 /**
- * Returns `true` when the module id refers to a real TypeScript/JavaScript
- * source file that should be processed by the ttsc transform.
+ * Returns `true` when the module id refers to a real TypeScript source file
+ * that should be processed by the ttsc transform.
  *
- * Excluded ids: virtual modules (NUL prefix), `.d.ts` declaration files, and
+ * TypeScript only. {@link sourceFilePattern} deliberately excludes JavaScript,
+ * so a `.js` module reaches no adapter's transform, and this docstring used to
+ * say otherwise while the pattern it is built from said the truth
+ * (samchon/ttsc#1309).
+ *
+ * Also excluded: virtual modules (NUL prefix), `.d.ts` declaration files, and
  * anything inside `node_modules`.
  */
 export function isTransformTarget(id: string): boolean {

@@ -257,8 +257,20 @@ export async function assertCacheKeyChangesWhenRecordedExternalInputChanges(): P
     },
   });
   assert.match(runOne.ast.src as string, /PLUGIN:FIRST/);
-  // The transform recorded the external input into this worker's snapshot.
-  assert.deepEqual(workerSnapshotFiles(root), [external]);
+  // The transform recorded the external input into this worker's snapshot,
+  // beside the project's own configuration inputs, which are out of walk too
+  // now that the walk hashes only files that could enter the program
+  // (samchon/ttsc#1307).
+  assert.deepEqual(
+    workerSnapshotFiles(root),
+    [
+      external,
+      path.join(root, "package.json"),
+      path.join(root, "plugin.cjs"),
+      path.join(root, "tsconfig.json"),
+    ].sort(),
+    "exactly the out-of-walk inputs, and never a project source",
+  );
 
   // Next run: withTtsc compacts the worker snapshot into the main file.
   await prepareSnapshot(root);
@@ -506,8 +518,15 @@ export async function assertPrepareSnapshotHealsCorruptWorkerFile(): Promise<voi
 
 /**
  * Asserts the transformer records only out-of-walk inputs into the worker
- * snapshot: an in-project dependency is already covered by the project-walk
- * half of the fingerprint, and recording it would only bloat the snapshot.
+ * snapshot: an in-project source is already covered by the project-walk half of
+ * the fingerprint, and recording it would only bloat the snapshot.
+ *
+ * "Out of walk" is decided by the resolved configuration rather than by
+ * location. The walk hashes only files that could enter the program
+ * (samchon/ttsc#1307), so the project's own tsconfig, package manifest and
+ * plugin descriptor are out of walk too, and recording them is exactly how the
+ * fingerprint keeps covering them. What must never appear is a project source,
+ * which the walk does hash.
  */
 export async function assertTransformerRecordsOnlyExternalInputs(): Promise<void> {
   const shared = TestProject.tmpdir("ttsc-metro-shared-");
@@ -539,7 +558,24 @@ export async function assertTransformerRecordsOnlyExternalInputs(): Promise<void
       options: { projectRoot: root },
     },
   });
-  assert.deepEqual(workerSnapshotFiles(root), [external]);
+  // The exact set, not a lower bound: recording something extra is its own
+  // defect and `includes` would not catch it. The project's configuration
+  // inputs belong here now, because the walk hashes only files that could
+  // enter the program and these cannot (samchon/ttsc#1307).
+  assert.deepEqual(
+    workerSnapshotFiles(root),
+    [
+      external,
+      path.join(root, "package.json"),
+      path.join(root, "plugin.cjs"),
+      path.join(root, "tsconfig.json"),
+    ].sort(),
+    "exactly the out-of-walk inputs, and never a project source",
+  );
+  assert.ok(
+    !workerSnapshotFiles(root).includes(inner),
+    "an in-project dependency the walk hashes must not be recorded",
+  );
 }
 
 /**
@@ -578,7 +614,20 @@ export async function assertTransformerRecordsLinkedInput(): Promise<void> {
       options: { projectRoot: root },
     },
   });
-  assert.deepEqual(workerSnapshotFiles(root), [linked]);
+  // The exact set. The project's own configuration inputs are recorded beside
+  // the linked one, because the walk hashes only files that could enter the
+  // program and these cannot (samchon/ttsc#1307); a lower bound would let a
+  // recorder that swallowed a whole subtree pass.
+  assert.deepEqual(
+    workerSnapshotFiles(root),
+    [
+      linked,
+      path.join(root, "package.json"),
+      path.join(root, "plugin.cjs"),
+      path.join(root, "tsconfig.json"),
+    ].sort(),
+    "exactly the out-of-walk inputs, and never a project source",
+  );
 }
 
 /**
@@ -702,4 +751,57 @@ export async function assertWithTtscPreparesTheSnapshot(): Promise<void> {
   assert.equal(typeof main.id, "string");
   assert.notEqual(main.id.length, 0);
   assert.deepEqual(main.files, []);
+}
+
+/**
+ * Asserts editing the project's tsconfig re-keys a run that has transformed.
+ *
+ * The project walk hashes only files that could enter the program
+ * (samchon/ttsc#1307), and a tsconfig is not one, so the fingerprint reaches it
+ * through the recorded out-of-walk snapshot instead. That routing works only if
+ * the recorder and the walk ask the same membership policy: a permissive
+ * `isProjectWalkPath` claims the walk already covers the tsconfig, the recorder
+ * drops it, the walk does not hash it either, and it is covered nowhere.
+ *
+ * The failure that would cause is the quietest one this package has, since
+ * Metro would serve transforms compiled under the previous compiler options
+ * across runs with nothing to notice it by. A transform has to run first,
+ * because an untransformed project has recorded nothing and has no cache
+ * entries to serve either.
+ */
+export async function assertCacheKeyChangesWhenTheTsconfigChanges(): Promise<void> {
+  const root = TestUnpluginProject.createProject();
+  await prepareSnapshot(root);
+  await TestMetroRuntime.runTransform({
+    options: { upstreamTransformer: TestMetroRuntime.fakeUpstreamPathOnDisk() },
+    params: {
+      src: TestUnpluginProject.mainSource(root),
+      filename: "src/main.ts",
+      options: { projectRoot: root },
+    },
+  });
+  const tsconfig = path.join(root, "tsconfig.json");
+  assert.ok(
+    workerSnapshotFiles(root).includes(tsconfig),
+    "the tsconfig must be recorded, since the walk no longer hashes it",
+  );
+
+  await prepareSnapshot(root);
+  const before = await cacheKeyForRun(root);
+
+  const parsed = JSON.parse(fs.readFileSync(tsconfig, "utf8")) as {
+    compilerOptions?: Record<string, unknown>;
+  };
+  parsed.compilerOptions = {
+    ...(parsed.compilerOptions ?? {}),
+    target: "ES2021",
+  };
+  fs.writeFileSync(tsconfig, JSON.stringify(parsed, null, 2), "utf8");
+
+  const after = await cacheKeyForRun(root);
+  assert.notEqual(
+    before,
+    after,
+    "a tsconfig edit must re-key every transform in the run",
+  );
 }

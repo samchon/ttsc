@@ -72,13 +72,15 @@ const OWNERSHIP = {
   "e2e:tests/test-factory": "test.yml lane: package defenses",
   "e2e:tests/test-graph": "test.yml lane: graph",
   "e2e:tests/test-lint": "test.yml lanes: lint end-to-end defenses 1-2",
-  "e2e:tests/test-metro": "test.yml lane: bundler defenses",
+  "e2e:tests/test-metro":
+    "test.yml lanes: bundler defenses, bundler defenses (windows)",
   "e2e:tests/test-paths": "test.yml lane: package defenses",
   "e2e:tests/test-playground": "test.yml lane: package defenses",
   "e2e:tests/test-strip": "test.yml lane: package defenses",
   "e2e:tests/test-ttsc":
     "test.yml lanes: ttsc core/native defenses, Node 22, watch",
-  "e2e:tests/test-unplugin": "test.yml lane: bundler defenses",
+  "e2e:tests/test-unplugin":
+    "test.yml lanes: bundler defenses, bundler defenses (windows)",
   "e2e:tests/test-wasm": "test.yml lane: package defenses",
   // Lives under experimental/. Discovery read only tests/ before, so this
   // suite was invisible to the gate that certifies it.
