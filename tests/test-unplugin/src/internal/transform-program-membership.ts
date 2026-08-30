@@ -619,6 +619,27 @@ export async function assertThePolicyReportsEveryConfigItRead(): Promise<void> {
     `an unresolved extends target must be reported (got ${before.sources.join(", ")})`,
   );
 
+  // The extension-less spelling records both candidates the resolver tries,
+  // since `./tsconfig.base` resolves to `tsconfig.base.json` and recording only
+  // the literal name would leave the stamp unmoved when the file appears.
+  fs.writeFileSync(
+    leaf,
+    JSON.stringify({ ...declared, extends: "./tsconfig.base" }),
+    "utf8",
+  );
+  const extensionless = api.readProjectMembershipPolicy(leaf);
+  assert.ok(
+    extensionless.sources.some(
+      (source: string) => path.resolve(source) === base,
+    ),
+    `the resolver's .json candidate must be reported (got ${extensionless.sources.join(", ")})`,
+  );
+  fs.writeFileSync(
+    leaf,
+    JSON.stringify({ ...declared, extends: "./tsconfig.base.json" }),
+    "utf8",
+  );
+
   // And once it exists, it decides an answer the leaf never mentions.
   fs.writeFileSync(base, JSON.stringify({ exclude: ["generated"] }), "utf8");
   const after = api.readProjectMembershipPolicy(leaf);

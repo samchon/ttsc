@@ -557,11 +557,11 @@ function planForPaths(files) {
       continue;
     }
     if (file.startsWith("packages/unplugin/")) {
-      add(["bundler-defenses"], file);
+      add(["bundler-defenses", "bundler-defenses-windows"], file);
       continue;
     }
     if (file.startsWith("packages/metro/")) {
-      add(["bundler-defenses"], file);
+      add(["bundler-defenses", "bundler-defenses-windows"], file);
       continue;
     }
     if (file.startsWith("packages/vscode/")) {
@@ -586,7 +586,7 @@ function planForPaths(files) {
         continue;
       }
       if (["unplugin", "metro"].includes(lane)) {
-        add(["bundler-defenses"], file);
+        add(["bundler-defenses", "bundler-defenses-windows"], file);
         continue;
       }
       if (lane === "lint") {

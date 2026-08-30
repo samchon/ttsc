@@ -32,7 +32,11 @@ test("copyGoTestsFlat throws instead of overwriting a library source", (t) => {
   const source = tmpdir(t);
   const target = tmpdir(t);
   // A linthost library source already materialized in the scratch linthost dir.
-  const library = writeFile(target, "engine.go", "package linthost\n// library\n");
+  const library = writeFile(
+    target,
+    "engine.go",
+    "package linthost\n// library\n",
+  );
   // A test tree that plants a same-basename `engine.go` (issue #624 auditor probe).
   writeFile(source, "rules/engine.go", "package linthost\n// planted\n");
 

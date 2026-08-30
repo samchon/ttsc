@@ -36,8 +36,8 @@ function insertIntoRegion(source, text) {
 
 /**
  * Rewrite `from` to `to`, refusing to pass off an unchanged source as a
- * divergence. A fixture that stops matching the Go sources would otherwise
- * make these cases assert against the passing tree and prove nothing.
+ * divergence. A fixture that stops matching the Go sources would otherwise make
+ * these cases assert against the passing tree and prove nothing.
  */
 function replaceOnce(source, from, to) {
   const rewritten = source.replace(from, to);
@@ -52,7 +52,11 @@ function replaceOnce(source, from, to) {
 /** The index of `needle`, refusing a fixture that no longer locates anything. */
 function indexOfOrFail(source, needle) {
   const index = source.indexOf(needle);
-  assert.notEqual(index, -1, `the fixture ${needle} is no longer in the source`);
+  assert.notEqual(
+    index,
+    -1,
+    `the fixture ${needle} is no longer in the source`,
+  );
   return index;
 }
 

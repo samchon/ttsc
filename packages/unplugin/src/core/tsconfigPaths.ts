@@ -337,7 +337,15 @@ function findDeclaredValue<T>(
       // keeps a policy the next run's walk already disagrees with. A bare
       // specifier is skipped, since it has no single candidate path.
       if (isRelativeSpecifier(specifier) || path.isAbsolute(specifier)) {
-        collect?.add(path.resolve(path.dirname(canonical), specifier));
+        // Both spellings the resolver would have tried, since it falls back to
+        // `<specifier>.json`. Recording only the literal one leaves the stamp
+        // unmoved when `./tsconfig.base` later appears as `tsconfig.base.json`,
+        // which is the same staleness this recording exists to prevent.
+        const candidate = path.resolve(path.dirname(canonical), specifier);
+        collect?.add(candidate);
+        if (!candidate.toLowerCase().endsWith(".json")) {
+          collect?.add(`${candidate}.json`);
+        }
       }
       continue;
     }
