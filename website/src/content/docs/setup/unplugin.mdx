@@ -241,7 +241,9 @@ Not every Vite alias form can be forwarded, because a tsconfig `paths` map canno
 | array form with a `RegExp` `find`, such as `{ find: /^~/ }` | no — `paths` has no regular-expression form |
 | a string `find` containing `*` | no — a `paths` key already reads `*` as its own wildcard |
 
-An alias that cannot be forwarded is reported once, naming the alias and the reason, and the compile resolves that specifier through the tsconfig's `paths` alone. Declare it there if `ttsc` must resolve through it — a prefix `RegExp` such as `/^~/` is written as a `"~/*"` entry. Reducing simple prefix patterns automatically is deliberately not attempted: distinguishing `/^~/` from `/^@app/`, which also matches `@apple`, needs enough of a regular-expression engine that a wrong reduction becomes likely, and a mistranslated alias resolves imports to the wrong file without saying so.
+In both unforwarded cases the compile resolves that specifier through the tsconfig's `paths` alone, so declare it there if `ttsc` must resolve through it — a prefix `RegExp` such as `/^~/` is written as a `"~/*"` entry. Reducing simple prefix patterns automatically is deliberately not attempted: distinguishing `/^~/` from `/^@app/`, which also matches `@apple`, needs enough of a regular-expression engine that a wrong reduction becomes likely, and a mistranslated alias resolves imports to the wrong file without saying so.
+
+A `find` containing `*` is also reported once on stderr, naming the alias and the reason. A `RegExp` `find` is not, and the asymmetry is deliberate: Vite merges two `RegExp` aliases of its own into every resolved config, for `@vite/env` and `@vite/client`, so a report on that form would fire in every build of every project and name aliases you never wrote.
 
 ## Cache and watch invalidation
 

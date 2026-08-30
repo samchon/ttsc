@@ -6192,10 +6192,18 @@ function createAliasPaths(aliases: unknown): Record<string, string[]> {
       // implementing enough of a regular-expression engine that a wrong
       // reduction becomes likely, and a mistranslated alias resolves imports to
       // the wrong file silently, which is worse than not forwarding it.
-      reportUntranslatableAlias(
-        String(alias.find),
-        'a tsconfig "paths" entry has no regular-expression form',
-      );
+      //
+      // Not reported, unlike the wildcard below, and that asymmetry is the
+      // whole point: Vite merges two `RegExp` aliases of its own into every
+      // resolved config, `/^\/?@vite\/env/` and `/^\/?@vite\/client/`. Measured
+      // on a bare project with no user aliases at all, `resolve.alias` has
+      // exactly those two entries under both `serve` and `build`, so a report
+      // on this form would fire twice for every Vite user in every build, name
+      // aliases they never wrote, and say nothing about their configuration.
+      // A diagnostic that cannot distinguish the user's input from the host's
+      // is noise, and noise is what teaches people to stop reading the channel
+      // the out-of-program report depends on. The documentation carries this
+      // form instead, in both README and guide.
       continue;
     }
     if (alias.find.length === 0) {
@@ -6244,6 +6252,11 @@ const REPORTED_UNTRANSLATABLE_ALIASES = new Set<string>();
  * bundler but not for the compiler surfaces as the out-of-program report
  * (samchon/ttsc#1308) — but that report names the module, not the alias, so the
  * user cannot learn from it that a configuration they wrote was ignored.
+ *
+ * Only the wildcard form reaches here. Every entry it names was written by the
+ * user, because nothing injects one; the `RegExp` form is left to the
+ * documentation precisely because Vite does inject those, and
+ * {@link createAliasPaths} carries that measurement.
  */
 function reportUntranslatableAlias(description: string, reason: string): void {
   if (REPORTED_UNTRANSLATABLE_ALIASES.has(description)) {

@@ -120,17 +120,23 @@ async function assertUntranslatableAliasesAreReported() {
     "a reported alias must not stop the forwardable ones reaching the compile",
   );
   assert.ok(
-    captured.includes("/^~/"),
-    `the RegExp alias must be named in the report (got ${JSON.stringify(captured)})`,
-  );
-  assert.ok(
     captured.includes("@glob/*"),
-    "the wildcard alias must be named in the report",
+    `the wildcard alias must be named in the report (got ${JSON.stringify(captured)})`,
   );
   assert.equal(
-    captured.split("/^~/").length - 1,
+    captured.split("@glob/*").length - 1,
     1,
     "the report must appear once per process, not once per delivery",
+  );
+  // The `RegExp` form is documented and deliberately not reported. Vite merges
+  // `/^\/?@vite\/env/` and `/^\/?@vite\/client/` into every resolved config, so
+  // a report on this form fires twice for every Vite user in every build about
+  // aliases they never wrote. This is the assertion that keeps that noise from
+  // coming back, and it is why the fixture's own `RegExp` is shaped like one a
+  // user would write rather than like Vite's.
+  assert.ok(
+    !captured.includes("/^~/"),
+    `the RegExp form must not be reported (got ${JSON.stringify(captured)})`,
   );
 }
 
