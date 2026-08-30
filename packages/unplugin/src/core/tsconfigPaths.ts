@@ -343,7 +343,11 @@ function findDeclaredValue<T>(
         // which is the same staleness this recording exists to prevent.
         const candidate = path.resolve(path.dirname(canonical), specifier);
         collect?.add(candidate);
-        if (!candidate.toLowerCase().endsWith(".json")) {
+        // Case-sensitive, because `resolveExistingExtendsPath` is: it appends
+        // `.json` unless the spelling already ends in exactly that, so a
+        // `./base.JSON` specifier really does resolve to `base.JSON.json` on a
+        // case-sensitive filesystem, and the stamp has to know that name.
+        if (!candidate.endsWith(".json")) {
           collect?.add(`${candidate}.json`);
         }
       }

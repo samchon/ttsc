@@ -202,7 +202,14 @@ const LANES = [
       "--include=membership --include=output_directory --include=the_walk " +
       "--include=new_source " +
       "--include=persistent_host --include=hashed_bundle --include=allowjs " +
-      "--include=non_source_host_inputs --include=policy_reports",
+      "--include=non_source_host_inputs --include=policy_reports && " +
+      // `packages/metro/**` selects this lane, so it has to run metro's own
+      // walk-facing cases rather than only the adapter's. They are the ones
+      // that fold the project walk into a cache key, which is the Windows
+      // path-spelling question one package over.
+      "pnpm --filter @ttsc/test-metro start -- " +
+      "--include=cache_key --include=records_only_external " +
+      "--include=records_linked",
   },
   {
     id: "graph",
