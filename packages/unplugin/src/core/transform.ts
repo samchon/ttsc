@@ -3951,11 +3951,17 @@ function reportsProgramMembership(
   policy: ITtscProjectMembershipPolicy,
   filesystem: TtscTransformFilesystemOperations,
 ): boolean {
-  if (isExcludedProjectDirectory(location, policy)) {
-    // The walk never descends here and the digest cannot see it, so the tracker
-    // must not be the one side that does. A build emptying and recreating its
-    // own `outDir`, which is what `emptyOutDir` and `output.clean` do on every
-    // build, would otherwise void the generation once per build.
+  if (isInsideExcludedProjectDirectory(location, policy)) {
+    // The walk never descends into an excluded directory and the digest cannot
+    // see it, so the tracker must not be the one side that does. A build
+    // emptying and recreating its own `outDir`, which is what `emptyOutDir` and
+    // `output.clean` do on every build, would otherwise void the generation
+    // once per build.
+    //
+    // Strictly inside, because `exclude` also accepts a plain file entry, and
+    // that file is still walked and still hashed. Treating it as excluded here
+    // would suppress events for an input the walk does carry, which is the same
+    // disagreement in the other direction.
     return false;
   }
   if (isPossibleProgramFileName(filename, policy)) {
@@ -4831,6 +4837,26 @@ function isExcludedProjectDirectory(
 ): boolean {
   return policy.excludedDirectories.some((excluded) =>
     pathIsWithin(directory, excluded),
+  );
+}
+
+/**
+ * Whether this path lies _strictly_ below an excluded directory.
+ *
+ * `exclude` accepts a plain file entry as well as a directory, and such a file
+ * is still reached and still hashed by the walk, since exclusion only filters
+ * the `include` globs. So an equality match here would suppress events for a
+ * path the walk does carry, which is the walk-versus-tracker disagreement this
+ * whole rule exists to remove, pointing the other way.
+ */
+function isInsideExcludedProjectDirectory(
+  location: string,
+  policy: ITtscProjectMembershipPolicy,
+): boolean {
+  const resolved = path.resolve(location);
+  return policy.excludedDirectories.some(
+    (excluded) =>
+      path.resolve(excluded) !== resolved && pathIsWithin(resolved, excluded),
   );
 }
 

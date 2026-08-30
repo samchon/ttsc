@@ -160,18 +160,33 @@ export function fingerprintRoots(
  */
 const MEMBERSHIP_POLICIES = new Map<
   string,
-  ReturnType<typeof readProjectMembershipPolicy>
+  { policy: ReturnType<typeof readProjectMembershipPolicy>; stamp: string }
 >();
 
 function membershipPolicy(
   tsconfig: string,
 ): ReturnType<typeof readProjectMembershipPolicy> {
+  // Keyed by the config's own stamp, not by its path. A Metro worker outlives
+  // many runs, and this is consulted once per delivered file, so a plain
+  // path-keyed memo would hold the policy a project had when the worker
+  // started. An edit adding `exclude` would then leave the worker judging a
+  // file in-walk while the next run's walk skipped it, which is precisely the
+  // both-sides-disagree hole this policy exists to close.
+  let stamp: string;
+  try {
+    const stats = fs.statSync(tsconfig);
+    stamp = `${stats.mtimeMs}:${stats.size}`;
+  } catch {
+    // No config to read. `readProjectMembershipPolicy` is best-effort and
+    // answers for that too, but it must be re-asked once one appears.
+    stamp = "absent";
+  }
   const existing = MEMBERSHIP_POLICIES.get(tsconfig);
-  if (existing !== undefined) {
-    return existing;
+  if (existing !== undefined && existing.stamp === stamp) {
+    return existing.policy;
   }
   const policy = readProjectMembershipPolicy(tsconfig);
-  MEMBERSHIP_POLICIES.set(tsconfig, policy);
+  MEMBERSHIP_POLICIES.set(tsconfig, { policy, stamp });
   return policy;
 }
 
