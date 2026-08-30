@@ -46,6 +46,24 @@ const adapterEntrypoints = [
   "webpack",
 ];
 
+/**
+ * The globs `withTtsc`'s dedupe guard treats as naming every file with an
+ * extension, so it declines to add its own rules beside them.
+ *
+ * Kept here rather than imported, because the point is to check our belief
+ * against Turbopack rather than to restate it: if `next.ts` grows a spelling,
+ * this list has to grow with it and a real build has to agree.
+ */
+const TURBOPACK_PROJECT_WIDE_GLOBS = [
+  "*.ts",
+  "**/*.ts",
+  "*.{ts,tsx}",
+  "**/*.{ts,tsx}",
+  "**/{*.ts,*.tsx}",
+  "{**/,}*.ts",
+  "**/**/*.{ts,tsx}",
+];
+
 const requireFromRoot = createRequire(path.join(root, "package.json"));
 
 /**
@@ -782,24 +800,6 @@ function verifyNextBuild() {
     );
   }
 }
-
-/**
- * The globs `withTtsc`'s dedupe guard treats as naming every file with an
- * extension, so it declines to add its own rules beside them.
- *
- * Kept here rather than imported, because the point is to check our belief
- * against Turbopack rather than to restate it: if `next.ts` grows a spelling,
- * this list has to grow with it and a real build has to agree.
- */
-const TURBOPACK_PROJECT_WIDE_GLOBS = [
-  "*.ts",
-  "**/*.ts",
-  "*.{ts,tsx}",
-  "**/*.{ts,tsx}",
-  "**/{*.ts,*.tsx}",
-  "{**/,}*.ts",
-  "**/**/*.{ts,tsx}",
-];
 
 /**
  * Verify the dedupe guard's recognised set against the bundler that owns it.
