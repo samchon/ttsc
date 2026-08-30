@@ -155,11 +155,14 @@ function withTtscTurbopackRules(
       continue;
     }
     const entry = { loader: TURBOPACK_LOADER, options: options ?? {} };
-    // Appended, not prepended. Turbopack runs a rule's loaders through
-    // webpack's own `loader-runner`, which runs the normal phase right to
-    // left, so the last entry is the one that sees the original source. ttsc
+    // Appended, not prepended. Turbopack runs a rule's loaders right to left,
+    // so the last entry is the one that sees the original source. ttsc
     // transforms TypeScript into TypeScript, so it has to be that one, which
     // is the same position `enforce: "pre"` gives it on the webpack half.
+    //
+    // Measured rather than inferred from webpack's `loader-runner`: two
+    // loaders on one rule, each marking the source, came back marked in the
+    // order that only the last-runs-first chain produces (samchon/ttsc#1319).
     rules[glob] =
       rule === undefined || loaders.length === 0
         ? { loaders: [entry] }
@@ -202,13 +205,20 @@ function coveredByAnotherRule(
 /**
  * Whether one glob names this extension across the whole project.
  *
- * Unscoped only. A rule restricted to a path, `src/*.{ts,tsx}` or
- * `node_modules/**` + `/*.ts`, covers its own subtree and says nothing about
- * the rest of the project, so treating it as covering everything would leave
- * every module outside that subtree with no ttsc rule at all. That is the
- * silent failure samchon/ttsc#1310 is about, and it is strictly worse than the
- * double registration this guard exists to prevent: a build that transforms
- * twice is wrong loudly, a build that never transforms is wrong quietly.
+ * Unscoped only. A rule carrying a path segment says nothing about the rest of
+ * the project, so treating it as covering everything would leave every module
+ * outside it with no ttsc rule at all. That is the silent failure
+ * samchon/ttsc#1310 is about, and it is strictly worse than the double
+ * registration this guard exists to prevent: a build that transforms twice is
+ * wrong loudly, a build that never transforms is wrong quietly.
+ *
+ * How little such a rule covers is worth stating from measurement rather than
+ * from the obvious guess, because the guess is wrong. Against Next.js 16.3.2,
+ * `src/*.ts` and `src/**` + `/*.ts` match **nothing at all** — not even the
+ * `src/` subtree they name — while `./src/*.ts`, `**` + `/src/*.ts` and a bare
+ * `nested-probe.ts` all match a file at `src/`. Declining every one of them is
+ * therefore even safer than "it only covers its subtree" implies
+ * (samchon/ttsc#1319).
  *
  * Recognition is one rule rather than a list of shapes: expand a brace group
  * into the globs it stands for, drop any leading `**` + `/` segments, and ask
