@@ -55,6 +55,8 @@ module.exports = withTtsc(getDefaultConfig(__dirname));
 
 If your config already set `transformer.babelTransformerPath`, that transformer is **chained rather than replaced**: the `ttsc` pass runs first and then delegates to it, so wrapping a working config keeps what it configured. This is what makes [`react-native-svg-transformer`](https://github.com/kristerkari/react-native-svg-transformer) — whose entire installation is that one assignment — keep working after you adopt `@ttsc/metro`. Pass `upstreamTransformer` explicitly to override both that and auto-detection.
 
+The value is resolved from your `projectRoot`, exactly as Metro resolves it, so a relative `"./metro-svg.cjs"` and a bare `"react-native-svg-transformer"` both mean what they mean in your project rather than inside this package. A path that names `@ttsc/metro`'s own transformer is never chained — in any spelling, including a second copy installed elsewhere in your tree — because delegating this transformer into itself would recurse on every file.
+
 ## Options
 
 By default `@ttsc/metro` finds the nearest `tsconfig.json` from the file being transformed and runs the plugins configured there, the standard `ttsc` model. If that is what you want, wrapping the default config is the whole setup.
