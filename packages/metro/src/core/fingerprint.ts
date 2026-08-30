@@ -132,18 +132,21 @@ export function fingerprintRoots(
   explicitProject: string | undefined,
 ): string[] {
   const tsconfig = resolveProjectTsconfig(base, explicitProject);
-  if (
-    isProjectWalkPath(
-      base,
-      tsconfig,
-      undefined,
-      undefined,
-      membershipPolicy(tsconfig),
-    )
-  ) {
-    return [base];
-  }
-  return [base, path.dirname(tsconfig)];
+  // Containment, not walk membership. The question here is whether the
+  // tsconfig's directory already sits inside the subtree the base walk covers,
+  // so that adding it would repeat the same walk. `isProjectWalkPath` answers a
+  // different question, whether the walk *hashes* that path, and once the walk
+  // stopped hashing files that cannot enter the program it began answering
+  // `false` for every `tsconfig.json`, which returned the base twice and hashed
+  // the whole project twice on every cache key (samchon/ttsc#1307).
+  const directory = path.dirname(path.resolve(tsconfig));
+  const relative = path.relative(path.resolve(base), directory);
+  const inside =
+    relative === "" ||
+    (relative !== ".." &&
+      !relative.startsWith(`..${path.sep}`) &&
+      !path.isAbsolute(relative));
+  return inside ? [base] : [base, directory];
 }
 
 /**
