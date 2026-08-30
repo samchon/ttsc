@@ -120,6 +120,8 @@ export default withTtsc(nextConfig);
 
 `withTtsc` covers both of Next.js's bundlers. It injects the webpack plugin and wires the Turbopack loader rules, with the options you pass reaching both, so the same config works whether Next runs on Turbopack (the default in current majors) or on webpack. Your own `webpack` hook and `turbopack` block are preserved: unrelated rules and settings survive, and a rule you already wired for this loader by hand is left alone rather than registered twice.
 
+That last part is decided by exact spelling. `withTtsc` declines to add its own rule when your glob is one it has measured against a real Turbopack build as naming every file with the extension — `*.ts`, `**/*.ts`, `{**/,}*.ts`, `*.tsx`, `**/*.tsx`, `*.{ts,tsx}`, `{*.ts,*.tsx}`, `**/*.{ts,tsx}`, `**/{*.ts,*.tsx}`, `**/**/*.{ts,tsx}`. Any other spelling keeps your rule and gains ours beside it, so a module may be transformed twice rather than not at all. The list is exact on purpose: treating an unmeasured glob as project-wide once left every module in a project with no `ttsc` rule at all, and a build that transforms twice is recoverable in a way a build that never transforms is not.
+
 ### Turbopack
 
 Turbopack has no JS plugin API, but it runs webpack loaders through `turbopack.rules`, and a ttsc transform is exactly loader-shaped (TypeScript source in, transformed source out). `@ttsc/unplugin/turbopack` is that standalone loader. In a Next.js project `withTtsc` wires it for you; wire it directly when Turbopack runs outside Next, or when you want the rules under your own control:
