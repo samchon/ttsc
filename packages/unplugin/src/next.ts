@@ -166,12 +166,14 @@ function withTtscTurbopackRules(
  * Whether some other rule already routes this glob's files through the loader.
  *
  * Deciding glob equivalence in general means implementing Turbopack's matcher,
- * which is not worth it here. What is recognised instead is the set of globs
- * that mean "every file with this extension", since only those can make the
- * wrapper's own rules redundant. Anything narrower is left alone and the
- * wrapper still adds its rules: skipping on a scoped glob would leave every
- * module outside that scope untransformed, which is samchon/ttsc#1310 again and
- * the quieter of the two failures.
+ * which is not worth it here. What is recognised instead is the spellings a
+ * caller plausibly writes for "every file with this extension", since only a
+ * glob that means every file can make the wrapper's own rules redundant. That
+ * is narrower than every glob with those semantics, and narrow on purpose:
+ * anything unrecognised is left alone and the wrapper still adds its rules,
+ * while skipping on a scoped glob would leave every module outside that scope
+ * untransformed, which is samchon/ttsc#1310 again and the quieter of the two
+ * failures. {@link matchesExtension} owns the rule and names what it declines.
  */
 function coveredByAnotherRule(
   rules: Record<string, unknown>,
@@ -200,26 +202,55 @@ function coveredByAnotherRule(
  * double registration this guard exists to prevent: a build that transforms
  * twice is wrong loudly, a build that never transforms is wrong quietly.
  *
- * So the shapes recognised are exactly the two that mean "every file with this
- * extension": `*.ts` and `**` + `/*.ts`, each also in brace-list form.
+ * Recognition is one rule rather than a list of shapes: expand a brace group
+ * into the globs it stands for, drop any leading `**` + `/` segments, and ask
+ * whether what remains is exactly `*.<extension>`. That covers every spelling a
+ * caller plausibly writes for "every file with this extension" — `*.ts`, `**` +
+ * `/*.ts`, `*.{ts,tsx}`, `**` + `/{*.ts,*.tsx}`, `{**` + `/,}*.ts` — without
+ * deciding glob equivalence in general.
+ *
+ * Expanding the brace before the test is what keeps the scoped case safe.
+ * `src/*.{ts,tsx}` expands to `src/*.ts` and `src/*.tsx`, neither of which
+ * survives the test, because the path segment is still there once the group is
+ * gone. A group that spans the scope itself is judged the same way:
+ * `{src/,}*.ts` offers `*.ts` among its alternatives, and that alternative
+ * really does name every file, so recognising it is correct rather than a
+ * leak.
+ *
+ * Two shapes stay unrecognised and deliberately so, since both fail in the loud
+ * direction: a character class (`*.[jt]s`) and a different case (`*.TS`).
  */
 function matchesExtension(glob: string, extension: string): boolean {
-  const unprefixed = glob.startsWith("**/") ? glob.slice(3) : glob;
-  if (!unprefixed.startsWith("*.")) {
-    return false;
+  return expandBraceGroup(glob).some((candidate) => {
+    let unprefixed = candidate;
+    while (unprefixed.startsWith("**/")) {
+      unprefixed = unprefixed.slice(3);
+    }
+    return unprefixed === `*.${extension}`;
+  });
+}
+
+/**
+ * Expand the first brace group in a glob into the globs it stands for, keeping
+ * whatever surrounds it.
+ *
+ * `*.{ts,tsx}` becomes `*.ts` and `*.tsx`; `{**` + `/,}*.ts` becomes `**` +
+ * `/*.ts` and `*.ts`. One group is enough: nothing a caller writes for two
+ * extensions needs two, and a glob with no group is returned unchanged, so
+ * {@link matchesExtension} has a single shape to test either way.
+ */
+function expandBraceGroup(glob: string): string[] {
+  const open = glob.indexOf("{");
+  const close = glob.indexOf("}", open + 1);
+  if (open === -1 || close === -1) {
+    return [glob];
   }
-  const tail = unprefixed.slice(2);
-  if (tail === extension) {
-    return true;
-  }
-  if (!tail.startsWith("{") || !tail.endsWith("}")) {
-    return false;
-  }
-  return tail
-    .slice(1, -1)
+  const prefix = glob.slice(0, open);
+  const suffix = glob.slice(close + 1);
+  return glob
+    .slice(open + 1, close)
     .split(",")
-    .map((part) => part.trim())
-    .includes(extension);
+    .map((part) => `${prefix}${part.trim()}${suffix}`);
 }
 
 /**

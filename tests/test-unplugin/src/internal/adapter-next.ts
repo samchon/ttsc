@@ -232,11 +232,35 @@ export async function assertNextAdapterDoesNotDoubleRegisterAcrossGlobs(): Promi
     );
   }
 
-  // And the shape the guard does recognise, under a recursive prefix.
+  // And the shapes the guard does recognise. Each names every file with the
+  // extension, so the wrapper's own rules would be a second registration of a
+  // file set the caller already routed. They are one rule rather than a list of
+  // cases: expand the brace group, drop leading `**/` segments, and what is
+  // left must be exactly `*.ts` or `*.tsx`.
+  for (const wide of ["**/*.{ts,tsx}", "**/{*.ts,*.tsx}", "**/**/*.{ts,tsx}"]) {
+    assert.deepEqual(
+      globs({ turbopack: { rules: { [wide]: { loaders: [LOADER] } } } }),
+      [wide],
+      `${wide} names every file of both extensions, so nothing is added`,
+    );
+  }
+
+  // Recognition is per extension, not per rule: a glob naming every `.ts` and
+  // no `.tsx` suppresses only the `*.ts` registration, exactly as the partial
+  // hand wiring above does. Both of these mean every `.ts` in the project.
+  for (const partial of ["{**/,}*.ts", "{src/,}*.ts"]) {
+    assert.deepEqual(
+      globs({ turbopack: { rules: { [partial]: { loaders: [LOADER] } } } }),
+      [partial, "*.tsx"],
+      `${partial} names every .ts, so only the missing .tsx is added`,
+    );
+  }
   assert.deepEqual(
-    globs({ turbopack: { rules: { "**/*.{ts,tsx}": { loaders: [LOADER] } } } }),
-    ["**/*.{ts,tsx}"],
-    "a project-wide brace list under a recursive prefix already covers both",
+    globs({
+      turbopack: { rules: { "{src,lib}/*.{ts,tsx}": { loaders: [LOADER] } } },
+    }),
+    ["{src,lib}/*.{ts,tsx}", "*.ts", "*.tsx"],
+    "a brace group over scopes stays scoped and must not suppress anything",
   );
 }
 
