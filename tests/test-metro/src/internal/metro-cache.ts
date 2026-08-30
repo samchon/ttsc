@@ -865,6 +865,31 @@ export async function assertMetroAsksTheAdaptersPolicy(): Promise<void> {
     second.policy,
     "a file inside a directory occupying an extends candidate must not refresh the policy",
   );
+
+  // The other direction, and the one that makes the first safe to want: the
+  // stamp still has to notice a real config arriving at a candidate path.
+  // `./config` resolves to `config.json` when that file exists, so its
+  // appearance changes the answer and must refresh the memo — a directory
+  // contributing its existence instead of its mtime must not blind the stamp
+  // to that. Widening `exclude` is what makes the refresh observable rather
+  // than merely re-derived.
+  fs.writeFileSync(
+    path.join(root, "config.json"),
+    JSON.stringify({ exclude: ["src/generated"] }),
+    "utf8",
+  );
+  const third = fingerprint.resolveProjectView({ projectRoot: root });
+  assert.notEqual(
+    second.policy,
+    third.policy,
+    "a config appearing at an extends candidate must refresh the policy",
+  );
+  assert.ok(
+    third.policy.excludedDirectories.some((directory: string) =>
+      directory.includes("generated"),
+    ),
+    `the refreshed policy must carry the new config's exclude (got ${JSON.stringify(third.policy.excludedDirectories)})`,
+  );
 }
 
 /**
