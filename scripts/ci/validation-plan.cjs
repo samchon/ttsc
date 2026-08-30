@@ -200,6 +200,7 @@ const LANES = [
     run:
       "pnpm --filter @ttsc/test-unplugin start -- " +
       "--include=membership --include=output_directory --include=the_walk " +
+      "--include=new_source " +
       "--include=persistent_host --include=hashed_bundle --include=allowjs " +
       "--include=non_source_host_inputs --include=policy_reports",
   },
