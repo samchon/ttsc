@@ -392,6 +392,18 @@ test("lane identities and workflow matrix names stay unique", () => {
     /build:current/,
     "typecheck prerequisites must not rebuild native binaries",
   );
+  const windowsBundlerRun =
+    LANES.find((lane) => lane.id === "bundler-defenses-windows")?.run ?? "";
+  assert.match(
+    windowsBundlerRun,
+    /@ttsc\/test-unplugin start --/,
+    "the Windows lane must admit its selected unit predicate case",
+  );
+  assert.match(
+    windowsBundlerRun,
+    /--include=predicate_proofs/,
+    "the Windows lane must exercise supplied POSIX path semantics",
+  );
   assert.deepEqual(
     SCOPES["plugin-cache"].filter((target) => typeof target === "string"),
     ["ttsc"],

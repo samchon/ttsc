@@ -32,6 +32,8 @@ import path from "node:path";
 interface ICacheProjectOptions {
   /** Capture public watch evidence while delivering the fixture's modules. */
   captureWatchEvidence?: boolean;
+  /** Count cache filesystem reads for the first speculative candidate. */
+  candidateFilesystemIo?: ICandidateFilesystemIo;
   /** Keep a private source tree for scenarios that mutate its descriptor. */
   isolatedPluginSource?: boolean;
   /**
@@ -164,6 +166,12 @@ interface ICapturedWatchInput {
   input: string;
 }
 
+interface ICandidateFilesystemIo {
+  readFile: number;
+  realpath: number;
+  stat: number;
+}
+
 // Build the Go fixture once per process; transformTtsc shells out to it.
 process.env.TTSC_CACHE_DIR ??= TestProject.tmpdir("ttsc-unplugin-cache-");
 let sharedCachePluginRoot: string | undefined;
@@ -186,7 +194,32 @@ async function runProjectBuild(options: ICacheProjectOptions): Promise<{
   const { createTtscTransformCache, resolveOptions, transformTtsc } =
     await TestUnpluginRuntime.loadUnpluginApi();
   const project = createCacheProject(options);
-  const cache = createTtscTransformCache();
+  const candidate = path.join(project.root, "node_modules", "dep0", "index.ts");
+  const recordsCandidate = (location: string): boolean =>
+    path.resolve(location) === candidate;
+  const cache =
+    options.candidateFilesystemIo === undefined
+      ? createTtscTransformCache()
+      : createTtscTransformCache({
+          readFile: (location: string) => {
+            if (recordsCandidate(location)) {
+              options.candidateFilesystemIo!.readFile += 1;
+            }
+            return fs.readFileSync(location);
+          },
+          realpath: (location: string) => {
+            if (recordsCandidate(location)) {
+              options.candidateFilesystemIo!.realpath += 1;
+            }
+            return fs.realpathSync.native(location);
+          },
+          stat: (location: string) => {
+            if (recordsCandidate(location)) {
+              options.candidateFilesystemIo!.stat += 1;
+            }
+            return fs.statSync(location);
+          },
+        });
   const outputs: string[] = [];
   const watchInputs: ICapturedWatchInput[] = [];
   for (const file of projectModules(project.root)) {
@@ -545,9 +578,15 @@ async function assertUnprovenCandidatesKeepOneCompile(): Promise<void> {
     assert.match(code, /PROBED/);
   }
 
+  const richCandidateFilesystemIo: ICandidateFilesystemIo = {
+    readFile: 0,
+    realpath: 0,
+    stat: 0,
+  };
   const rich = await runProjectBuild({
+    candidateFilesystemIo: richCandidateFilesystemIo,
     captureWatchEvidence: true,
-    fileCount: 3,
+    fileCount: 1,
     graphCandidates: 2,
     graphFanout: 1,
     richCandidateProof: true,
@@ -557,7 +596,7 @@ async function assertUnprovenCandidatesKeepOneCompile(): Promise<void> {
     1,
     "a valid rich speculative proof must supersede its unrepresentable legacy projection",
   );
-  assert.equal(rich.outputs.length, 3);
+  assert.equal(rich.outputs.length, 1);
   const richMissingCandidate = path.join(
     rich.root,
     "node_modules",
@@ -587,9 +626,15 @@ async function assertUnprovenCandidatesKeepOneCompile(): Promise<void> {
     "a rich speculative proof must not conceal a contradictory legacy proof",
   );
 
+  const conflictingCandidateFilesystemIo: ICandidateFilesystemIo = {
+    readFile: 0,
+    realpath: 0,
+    stat: 0,
+  };
   await assert.rejects(
     () =>
       runProjectBuild({
+        candidateFilesystemIo: conflictingCandidateFilesystemIo,
         fileCount: 1,
         graphCandidates: 1,
         graphFanout: 1,
@@ -597,6 +642,25 @@ async function assertUnprovenCandidatesKeepOneCompile(): Promise<void> {
       }),
     /after 2 attempts[\s\S]*graph\/proof-conflict[\s\S]*node_modules[/\\]dep0[/\\]index\.ts[\s\S]*producer: "content-unavailable"/,
     "an unprojectable rich predicate must conflict with a supplied legacy proof",
+  );
+  assert.equal(
+    richCandidateFilesystemIo.readFile,
+    0,
+    "replaying fileExists must not read candidate content",
+  );
+  // A rejected generation deliberately snapshots every external input once so
+  // the retry diagnostic can detect an environmental change. After removing
+  // that one stat/read/realpath per attempt, the consistency conflict must be
+  // operation-for-operation the same filesystem workload as replaying the rich
+  // proof.
+  assert.deepEqual(
+    conflictingCandidateFilesystemIo,
+    {
+      readFile: richCandidateFilesystemIo.readFile * 2 + 2,
+      realpath: richCandidateFilesystemIo.realpath * 2 + 2,
+      stat: richCandidateFilesystemIo.stat * 2 + 2,
+    },
+    "each rejected attempt must add only its one stat/read/realpath retry snapshot to the rich predicate baseline",
   );
 }
 
