@@ -218,7 +218,11 @@ function createManifestPresetProject(): string {
   fs.writeFileSync(
     path.join(preset, "package.json"),
     JSON.stringify(
-      { name: "example-preset", version: "1.0.0", tsconfig: "base.json" },
+      {
+        name: "example-preset",
+        version: "1.0.0",
+        tsconfig: ".\\base.json",
+      },
       null,
       2,
     ),

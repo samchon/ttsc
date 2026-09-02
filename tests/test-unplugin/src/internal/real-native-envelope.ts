@@ -53,7 +53,7 @@ interface IRealNativeEnvelopeApi {
     source: string,
     options: unknown,
     aliases: undefined,
-    cache: RealNativeEnvelopeCache,
+    cache?: RealNativeEnvelopeCache,
   ): Promise<{ code: string } | undefined>;
 }
 
@@ -265,7 +265,7 @@ export function createRealNativeEnvelopeFixture(
             {
               name: "real-envelope-compile-probe",
               raceAttempt:
-                options.raceInputsAcrossAttempts === true ? 1 : undefined,
+                options.raceInputsAcrossAttempts === true ? 99 : undefined,
               raceContent:
                 options.raceInputsAcrossAttempts === true
                   ? "export interface Shared { label: string; revision?: number; }\n"
@@ -471,13 +471,15 @@ export async function assertRealEnvelopeServesSiblingModulesFromOneCompile(): Pr
   await assertViteLifecycle(fixture);
 }
 
-/** Assert one real compiler-input race stabilizes inside one shared Promise. */
+/**
+ * Assert wrapper-state and compiler-input races stabilize in bounded
+ * lifecycles.
+ */
 export async function assertRealEnvelopeInputRaceStabilizesWithinSharedGeneration(): Promise<void> {
   const fixture = createRealNativeEnvelopeFixture({
     raceInputsAcrossAttempts: true,
   });
   const api = await loadApi();
-  const cache = api.createTtscTransformCache();
   const options = api.resolveOptions({
     compilerOptions: { strict: true },
     project: path.join(fixture.root, "tsconfig.json"),
@@ -528,6 +530,43 @@ export async function assertRealEnvelopeInputRaceStabilizesWithinSharedGeneratio
     writable: true,
   });
   try {
+    assert.ok(
+      await api.transformTtsc(
+        fixture.modules[0]!,
+        fs.readFileSync(fixture.modules[0]!, "utf8"),
+        options,
+        undefined,
+        undefined,
+      ),
+    );
+  } finally {
+    Object.defineProperty(fs, "writeFileSync", {
+      configurable: true,
+      value: originalWriteFileSync,
+      writable: true,
+    });
+  }
+  assert.equal(
+    configRaced,
+    true,
+    "the fixture must replace the inherited config after wrapper materialization",
+  );
+  assert.equal(
+    programRuns(fixture.runLog),
+    2,
+    "a cache-optional delivery must discard the mixed wrapper state and retry once",
+  );
+  assert.match(fs.readFileSync(baseConfig, "utf8"), /generated-next/);
+
+  const parsed = JSON.parse(fs.readFileSync(leafConfig, "utf8")) as {
+    compilerOptions: { plugins: Array<Record<string, unknown>> };
+  };
+  parsed.compilerOptions.plugins[0]!.raceAttempt = 0;
+  fs.writeFileSync(leafConfig, JSON.stringify(parsed, null, 2), "utf8");
+  resetRunLog(fixture.runLog);
+
+  const cache = api.createTtscTransformCache();
+  try {
     await Promise.all(
       fixture.modules.map((file) =>
         api.transformTtsc(
@@ -540,20 +579,11 @@ export async function assertRealEnvelopeInputRaceStabilizesWithinSharedGeneratio
       ),
     );
     assert.equal(
-      configRaced,
-      true,
-      "the fixture must replace the inherited config after wrapper materialization",
-    );
-    assert.equal(
       programRuns(fixture.runLog),
-      3,
-      "concurrent modules must share both failed attempts and the stable retry",
+      2,
+      "concurrent modules must share the failed declaration attempt and its stable retry",
     );
     assert.match(fs.readFileSync(fixture.declaration, "utf8"), /revision/);
-    assert.match(
-      fs.readFileSync(path.join(fixture.root, "presets", "base.json"), "utf8"),
-      /generated-next/,
-    );
     assert.equal(cache.size, 1);
     const stableGeneration = [...cache.values()][0]!;
     assert.equal((await stableGeneration).projectSnapshotComplete, true);
@@ -564,16 +594,11 @@ export async function assertRealEnvelopeInputRaceStabilizesWithinSharedGeneratio
     }
     assert.equal(
       programRuns(fixture.runLog),
-      3,
+      2,
       "every later module must reuse only the stabilized native generation",
     );
     assert.equal([...cache.values()][0], stableGeneration);
   } finally {
-    Object.defineProperty(fs, "writeFileSync", {
-      configurable: true,
-      value: originalWriteFileSync,
-      writable: true,
-    });
     api.resetTtscTransformCache(cache);
   }
 }

@@ -807,7 +807,10 @@ function resolvePackageManifestTsconfig(
     return null;
   }
   return resolveExistingExtendsPath(
-    path.resolve(path.dirname(manifestPath), field),
+    path.resolve(
+      path.dirname(manifestPath),
+      normalizeTypeScriptPathSeparators(field),
+    ),
   );
 }
 

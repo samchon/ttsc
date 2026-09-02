@@ -441,6 +441,8 @@ export interface TtscCachedProjectTransform {
   hostInputValidation?: TtscHostInputValidation;
   /** Live notification state for file/directory creation, deletion, and rename. */
   projectMutationTracker?: TtscProjectMutationTracker;
+  /** Whether a generated wrapper and its source config graph stayed coherent. */
+  configStateComplete?: boolean;
   /**
    * Whether the generation-time project walk observed every directory and file
    * it attempted to snapshot. An incomplete walk may never authorize narrow
@@ -6078,9 +6080,10 @@ async function transformProject(props: {
   for (let attempt = 0; attempt < TRANSFORM_GENERATION_ATTEMPTS; attempt += 1) {
     const cached = await captureTransformGeneration(props);
     if (
-      !props.trackProjectMembership ||
-      cached.result.type !== "success" ||
-      cached.projectSnapshotComplete === true
+      cached.configStateComplete !== false &&
+      (!props.trackProjectMembership ||
+        cached.result.type !== "success" ||
+        cached.projectSnapshotComplete === true)
     ) {
       return cached;
     }
@@ -6324,6 +6327,7 @@ async function captureTransformGeneration(props: {
       externalInputHashes: {},
       externalInputRealpaths: {},
       externalInputPaths,
+      configStateComplete: configStable,
       inputHashes: inputSnapshot.hashes,
       inputSignatures: inputSnapshot.provenSignatures,
       membershipPolicy,

@@ -389,7 +389,7 @@ function resolvePackageManifestTsconfig(
   if (typeof field !== "string" || field.length === 0) {
     return undefined;
   }
-  return path.resolve(path.dirname(manifestPath), field);
+  return path.resolve(path.dirname(manifestPath), field.replaceAll("\\", "/"));
 }
 
 /**
