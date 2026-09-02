@@ -24,6 +24,7 @@ import {
   mergeMembershipPolicyOverlay,
   readEffectiveTsconfigPaths,
   readProjectMembershipPolicy,
+  resolveConfigDirTemplatePath,
 } from "./tsconfigPaths";
 
 /**
@@ -6638,14 +6639,16 @@ function normalizeCompilerOptionsForGeneratedTsconfig(
   // Scalar path fields: resolve each against the original tsconfig directory.
   for (const key of ["declarationDir", "outDir", "rootDir"]) {
     if (typeof output[key] === "string") {
-      output[key] = path.resolve(tsconfigDir, output[key]);
+      output[key] = resolveConfigDirTemplatePath(tsconfigDir, output[key]);
     }
   }
   // Array path fields: resolve each element individually.
   for (const key of ["rootDirs", "typeRoots"]) {
     if (Array.isArray(output[key])) {
       output[key] = output[key].map((entry) =>
-        typeof entry === "string" ? path.resolve(tsconfigDir, entry) : entry,
+        typeof entry === "string"
+          ? resolveConfigDirTemplatePath(tsconfigDir, entry)
+          : entry,
       );
     }
   }

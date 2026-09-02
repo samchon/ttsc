@@ -29,7 +29,8 @@ import { TYPESCRIPT_TRANSFORM_EXTENSIONS } from "./sourceExtensions";
 export function readEffectiveTsconfigPaths(
   tsconfig: string,
 ): Record<string, string[]> {
-  const declared = findDeclaredPaths(path.resolve(tsconfig), new Set());
+  const resolved = path.resolve(tsconfig);
+  const declared = findDeclaredPaths(resolved, new Set());
   if (declared === null) {
     return {};
   }
@@ -40,7 +41,9 @@ export function readEffectiveTsconfigPaths(
     }
     const absolute = targets
       .filter((target): target is string => typeof target === "string")
-      .map((target) => absolutizePathsTarget(declared.baseDir, target));
+      .map((target) =>
+        absolutizePathsTarget(declared.baseDir, target, path.dirname(resolved)),
+      );
     if (absolute.length !== 0) {
       output[key] = absolute;
     }
@@ -79,6 +82,8 @@ export interface ITtscProjectMembershipPolicy {
     declarationDir?: string;
     exclude: readonly string[];
     outDir?: string;
+    /** Whether output options supply TypeScript's implicit default exclude. */
+    useImplicitOutputExclusions?: boolean;
   }>;
   /** Absolute directories the resolved configuration keeps out of the program. */
   excludedDirectories: readonly string[];
@@ -103,10 +108,12 @@ function flattenDirectoryExclusionOrigins(
   >,
 ): string[] {
   return [
-    ...OUTPUT_DIRECTORY_OPTIONS.flatMap((key) => {
-      const directory = origins[key];
-      return directory === undefined ? [] : [directory];
-    }),
+    ...(origins.useImplicitOutputExclusions === false
+      ? []
+      : OUTPUT_DIRECTORY_OPTIONS.flatMap((key) => {
+          const directory = origins[key];
+          return directory === undefined ? [] : [directory];
+        })),
     ...origins.exclude,
   ];
 }
@@ -120,7 +127,10 @@ function flattenDirectoryExclusionOrigins(
  */
 export const PERMISSIVE_PROJECT_MEMBERSHIP_POLICY: ITtscProjectMembershipPolicy =
   {
-    directoryExclusionOrigins: { exclude: [] },
+    directoryExclusionOrigins: {
+      exclude: [],
+      useImplicitOutputExclusions: true,
+    },
     excludedDirectories: [],
     inputExtensions: [
       ...TYPESCRIPT_TRANSFORM_EXTENSIONS,
@@ -138,8 +148,8 @@ export const PERMISSIVE_PROJECT_MEMBERSHIP_POLICY: ITtscProjectMembershipPolicy 
  * program at all, so a `bundle.a1b2c3.js` emitted beside the sources is not a
  * membership change for a project that admits no JavaScript. `outDir`,
  * `declarationDir`, and the plain entries of `exclude` name the directories the
- * program does not contain, which is where a bundler's own output lives in
- * every project that configures one.
+ * program does not contain. TypeScript supplies the two output directories as
+ * implicit exclusions only when no top-level `exclude` replaces that default.
  *
  * A glob in `exclude` is skipped rather than approximated. Failing to exclude
  * costs a walk; excluding the wrong tree hides real sources, and this function
@@ -177,36 +187,52 @@ export function readProjectMembershipPolicy(
     declarationDir?: string;
     exclude: string[];
     outDir?: string;
-  } = { exclude: [] };
+    useImplicitOutputExclusions: boolean;
+  } = { exclude: [], useImplicitOutputExclusions: true };
   for (const key of OUTPUT_DIRECTORY_OPTIONS) {
     const declared = findDeclaredValue(
       resolved,
       (parsed) => {
-        const value = (parsed as { compilerOptions?: Record<string, unknown> })
-          .compilerOptions?.[key];
-        return typeof value === "string" ? value : undefined;
+        const options = (
+          parsed as { compilerOptions?: Record<string, unknown> }
+        ).compilerOptions;
+        if (
+          options === undefined ||
+          !Object.prototype.hasOwnProperty.call(options, key)
+        ) {
+          return undefined;
+        }
+        const value = options[key];
+        return typeof value === "string" || value === null
+          ? { value }
+          : undefined;
       },
       new Set(),
       sources,
     );
-    if (declared !== null) {
-      directoryExclusionOrigins[key] = path.resolve(
+    if (declared !== null && declared.value.value !== null) {
+      directoryExclusionOrigins[key] = resolveConfigDirTemplatePath(
         declared.baseDir,
-        declared.value,
+        declared.value.value,
+        path.dirname(resolved),
       );
     }
   }
   const excluded = findDeclaredValue(
     resolved,
     (parsed) => {
-      const value = (parsed as { exclude?: unknown }).exclude;
-      return Array.isArray(value) ? value : undefined;
+      if (!Object.prototype.hasOwnProperty.call(parsed, "exclude")) {
+        return undefined;
+      }
+      return { value: (parsed as { exclude?: unknown }).exclude };
     },
     new Set(),
     sources,
   );
-  if (excluded !== null) {
-    for (const entry of excluded.value) {
+  directoryExclusionOrigins.useImplicitOutputExclusions =
+    excluded === null || excluded.value.value === null;
+  if (excluded !== null && Array.isArray(excluded.value.value)) {
+    for (const entry of excluded.value.value) {
       if (typeof entry !== "string" || entry.length === 0) {
         continue;
       }
@@ -217,7 +243,11 @@ export function readProjectMembershipPolicy(
         continue;
       }
       directoryExclusionOrigins.exclude.push(
-        path.resolve(excluded.baseDir, plain),
+        resolveConfigDirTemplatePath(
+          excluded.baseDir,
+          plain,
+          path.dirname(resolved),
+        ),
       );
     }
   }
@@ -267,15 +297,23 @@ export function mergeMembershipPolicyOverlay(
     declarationDir?: string;
     exclude: string[];
     outDir?: string;
+    useImplicitOutputExclusions: boolean;
   } = {
     declarationDir: inheritedOrigins?.declarationDir,
     exclude: [...(inheritedOrigins?.exclude ?? policy.excludedDirectories)],
     outDir: inheritedOrigins?.outDir,
+    useImplicitOutputExclusions:
+      inheritedOrigins?.useImplicitOutputExclusions ?? true,
   };
   for (const key of OUTPUT_DIRECTORY_OPTIONS) {
     const value = compilerOptions[key];
-    if (typeof value === "string") {
-      directoryExclusionOrigins[key] = path.resolve(baseDir, value);
+    if (value === null) {
+      delete directoryExclusionOrigins[key];
+    } else if (typeof value === "string") {
+      directoryExclusionOrigins[key] = resolveConfigDirTemplatePath(
+        baseDir,
+        value,
+      );
     }
   }
   return {
@@ -293,11 +331,26 @@ export function mergeMembershipPolicyOverlay(
  * normalizing to forward slashes. The `*` wildcard survives `path.resolve` as a
  * literal segment, so patterns like `./src/*` stay patterns.
  */
-export function absolutizePathsTarget(baseDir: string, target: string): string {
-  const resolved = path.isAbsolute(target)
-    ? target
-    : path.resolve(baseDir, target);
+export function absolutizePathsTarget(
+  baseDir: string,
+  target: string,
+  configDir: string = baseDir,
+): string {
+  const resolved = resolveConfigDirTemplatePath(baseDir, target, configDir);
   return resolved.replace(/\\/g, "/");
+}
+
+/** Resolve one config path with TypeScript's leading `${configDir}` template. */
+export function resolveConfigDirTemplatePath(
+  baseDir: string,
+  target: string,
+  configDir: string = baseDir,
+): string {
+  const template = "${configDir}";
+  return target.slice(0, template.length).toLowerCase() ===
+    template.toLowerCase()
+    ? path.resolve(configDir, target.replace(template, "./"))
+    : path.resolve(baseDir, target);
 }
 
 /**
