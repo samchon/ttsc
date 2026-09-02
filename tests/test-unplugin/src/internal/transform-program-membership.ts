@@ -829,7 +829,6 @@ export async function assertNonSourceHostInputsAreStillProven(): Promise<void> {
  */
 export async function assertRecreatingTheOutputDirectoryCostsNothing(): Promise<void> {
   const session = await startMembershipSession({
-    exclude: ["src/legacy.ts"],
     outDir: "artifacts",
   });
   try {
@@ -855,8 +854,20 @@ export async function assertRecreatingTheOutputDirectoryCostsNothing(): Promise<
       "recreating the configured output directory must not void the generation",
     );
 
-    // The other direction: a plain `exclude` entry naming a file the walk still
-    // hashes must keep counting when it appears.
+    // An explicit top-level `exclude` replaces TypeScript's implicit output
+    // exclusions. Install that separate boundary in the same session only
+    // after the output-directory lifecycle above has proved the default.
+    const tsconfig = path.join(session.root, "tsconfig.json");
+    const parsed = JSON.parse(fs.readFileSync(tsconfig, "utf8")) as {
+      exclude?: string[];
+    };
+    parsed.exclude = ["src/legacy.ts"];
+    fs.writeFileSync(tsconfig, JSON.stringify(parsed, null, 2), "utf8");
+    await session.deliver();
+    const explicitExcludeSettled = session.compiles();
+
+    // A plain `exclude` entry naming a file is not a directory exclusion. The
+    // walk still hashes that file, so its appearance must keep counting.
     fs.writeFileSync(
       path.join(session.root, "src", "legacy.ts"),
       "export const legacy: number = 1;",
@@ -864,7 +875,7 @@ export async function assertRecreatingTheOutputDirectoryCostsNothing(): Promise<
     );
     await session.deliver();
     assert.ok(
-      session.compiles() > settled,
+      session.compiles() > explicitExcludeSettled,
       "a file the walk hashes must still report its own membership",
     );
   } finally {
