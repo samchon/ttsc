@@ -1,4 +1,5 @@
 import type { TtscUnpluginOptions } from "./core/options";
+import { TYPESCRIPT_TURBOPACK_RULE_GLOBS } from "./core/sourceExtensions";
 import webpack from "./webpack";
 
 /** The standalone loader entry Turbopack accepts through `turbopack.rules`. */
@@ -6,11 +7,11 @@ const TURBOPACK_LOADER = "@ttsc/unplugin/turbopack";
 /**
  * The globs the loader is wired for.
  *
- * The same two the manual wiring in the README uses. A wider glob would be
- * harmless, since `isTransformTarget` declines everything else that reaches the
- * loader, but it would also route files through a worker for nothing.
+ * The same exact set the manual wiring in the README uses. A wider glob would
+ * be harmless, since `isTransformTarget` declines everything else that reaches
+ * the loader, but it would also route files through a worker for nothing.
  */
-const TURBOPACK_RULE_GLOBS = ["*.ts", "*.tsx"];
+const TURBOPACK_RULE_GLOBS = TYPESCRIPT_TURBOPACK_RULE_GLOBS;
 
 /**
  * Minimal structural type for a Next.js configuration object.
@@ -257,8 +258,8 @@ function matchesExtension(glob: string, extension: string): boolean {
  * sees.
  *
  * `experimental/test-unplugin` drives every entry through `next build
- * --turbopack` and asserts a nested `.ts`, a root-level `.ts` and a nested
- * `.tsx` all came out transformed, and
+ * --turbopack` and asserts `.ts`, `.tsx`, `.mts`, and `.cts` sources all came
+ * out transformed, and
  * `test_next_adapter_does_not_double_register_across_globs` asserts these keys
  * and that list are the same set, so an entry cannot be added here without a
  * build proving it.
@@ -269,6 +270,8 @@ const PROJECT_WIDE_GLOBS: ReadonlyMap<string, readonly string[]> = new Map([
   ["{**/,}*.ts", ["ts"]],
   ["*.tsx", ["tsx"]],
   ["**/*.tsx", ["tsx"]],
+  ["*.mts", ["mts"]],
+  ["*.cts", ["cts"]],
   ["*.{ts,tsx}", ["ts", "tsx"]],
   ["{*.ts,*.tsx}", ["ts", "tsx"]],
   ["**/*.{ts,tsx}", ["ts", "tsx"]],

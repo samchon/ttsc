@@ -62,6 +62,8 @@ const TURBOPACK_PROJECT_WIDE_GLOBS = [
   "{**/,}*.ts",
   "*.tsx",
   "**/*.tsx",
+  "*.mts",
+  "*.cts",
   "*.{ts,tsx}",
   "{*.ts,*.tsx}",
   "**/*.{ts,tsx}",
@@ -308,6 +310,24 @@ function writeTurbopackRootEntry() {
     ].join("\n"),
     "utf8",
   );
+  fs.writeFileSync(
+    path.join(workspace, "src", "turbopack-mts-entry.mts"),
+    [
+      'export const mtsValue = mark("turbopack-mts-ok");',
+      "console.log(mtsValue);",
+      "",
+    ].join("\n"),
+    "utf8",
+  );
+  fs.writeFileSync(
+    path.join(workspace, "src", "turbopack-cts-entry.cts"),
+    [
+      'export const ctsValue = mark("turbopack-cts-ok");',
+      "console.log(ctsValue);",
+      "",
+    ].join("\n"),
+    "utf8",
+  );
 }
 
 function writeNextPage() {
@@ -318,6 +338,8 @@ function writeNextPage() {
       'import { value } from "../src/next-entry";',
       'import { rootValue } from "../turbopack-root-entry";',
       'import { tsxValue } from "../src/turbopack-tsx-entry";',
+      'import "../src/turbopack-mts-entry.mts";',
+      'import "../src/turbopack-cts-entry.cts";',
       "",
       "export default function Page() {",
       "  return value + rootValue + tsxValue;",
@@ -414,7 +436,10 @@ function writeTransformPlugin() {
       // aborted the whole transform; walking `src` alone never saw that.
       "    if err != nil { if os.IsNotExist(err) { return nil }; return err }",
       '    if entry.IsDir() { if skipDirs[entry.Name()] || strings.HasPrefix(entry.Name(), "dist-") { return filepath.SkipDir }; return nil }',
-      '    if strings.HasSuffix(file, ".d.ts") || (!strings.HasSuffix(file, ".ts") && !strings.HasSuffix(file, ".tsx")) {',
+      "    base := filepath.Base(file)",
+      '    declaration := strings.HasSuffix(base, ".d.ts") || strings.HasSuffix(base, ".d.mts") || strings.HasSuffix(base, ".d.cts") || (strings.HasSuffix(base, ".ts") && strings.Contains(base, ".d."))',
+      '    isSource := strings.HasSuffix(file, ".ts") || strings.HasSuffix(file, ".tsx") || strings.HasSuffix(file, ".mts") || strings.HasSuffix(file, ".cts")',
+      "    if declaration || !isSource {",
       "      return nil",
       "    }",
       "    source, err := os.ReadFile(file)",
@@ -827,24 +852,30 @@ function verifyNextBuild() {
       recursive: true,
     });
     run(`npx next build ${bundler}`, workspace);
-    assertBuiltTreeContains(
-      "dist-next",
-      "NEXT-INSTALLED-OK",
-      `next ${bundler}`,
-      "next-installed-ok",
-    );
+    for (const [marker, original, extension] of [
+      ["NEXT-INSTALLED-OK", "next-installed-ok", ".ts"],
+      ["TURBOPACK-TSX-OK", "turbopack-tsx-ok", ".tsx"],
+      ["TURBOPACK-MTS-OK", "turbopack-mts-ok", ".mts"],
+      ["TURBOPACK-CTS-OK", "turbopack-cts-ok", ".cts"],
+    ]) {
+      assertBuiltTreeContains(
+        "dist-next",
+        marker,
+        `next ${bundler} (${extension})`,
+        original,
+      );
+    }
   }
 }
 
 /**
  * Verify the dedupe guard's recognised set against the bundler that owns it.
  *
- * `withTtsc` skips registering its `*.ts` and `*.tsx` rules when a caller's own
- * rule already carries this loader for the same file set. Recognising a glob
- * that does _not_ in fact cover everything leaves the uncovered modules with no
- * ttsc rule at all — a build that succeeds with plugin-driven constructs
- * untransformed, which is samchon/ttsc#1310 and has already happened twice in
- * this wrapper.
+ * `withTtsc` skips an automatic source rule when a caller's own rule already
+ * carries this loader for the same file set. Recognising a glob that does _not_
+ * in fact cover everything leaves the uncovered modules with no ttsc rule at
+ * all — a build that succeeds with plugin-driven constructs untransformed,
+ * which is samchon/ttsc#1310 and has already happened twice in this wrapper.
  *
  * Every spelling is sound today, measured. What was missing is anything that
  * would notice it stopping: the recognised set is a contract with Turbopack's
@@ -900,6 +931,8 @@ function verifyTurbopackRecognisedGlobs() {
       ["NEXT-INSTALLED-OK", "next-installed-ok", "nested .ts"],
       ["TURBOPACK-ROOT-OK", "turbopack-root-ok", "root .ts"],
       ["TURBOPACK-TSX-OK", "turbopack-tsx-ok", "nested .tsx"],
+      ["TURBOPACK-MTS-OK", "turbopack-mts-ok", "nested .mts"],
+      ["TURBOPACK-CTS-OK", "turbopack-cts-ok", "nested .cts"],
     ]) {
       assertBuiltTreeContains(
         "dist-next",

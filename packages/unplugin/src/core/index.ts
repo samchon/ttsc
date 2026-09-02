@@ -5,6 +5,7 @@ import { createUnplugin } from "unplugin";
 
 import type { TtscUnpluginOptions } from "./options";
 import { resolveOptions } from "./options";
+import { typescriptTransformSourcePattern } from "./sourceExtensions";
 import {
   beginTtscTransformBuild,
   collectExternalInputHashes,
@@ -20,15 +21,15 @@ import { createViteServeMissingInputWatch } from "./viteServe";
 
 const name = "ttsc-unplugin";
 /**
- * Matches the TypeScript source extensions the ttsc transform handles: `.ts`,
- * `.tsx`, `.mts`, `.cts` and their `x` forms. JavaScript is deliberately not
- * among them, so a `.js` module reaches no adapter's transform.
+ * Matches the exact TypeScript source extensions the ttsc transform handles:
+ * `.ts`, `.tsx`, `.mts`, and `.cts`. JavaScript and invented extension forms
+ * such as `.mtsx` are deliberately excluded.
  *
  * Shared with the Bun adapter (`bun.ts`) and the standalone Turbopack loader
  * (`turbopack.ts`) through {@link isTransformTarget}, so the filter is defined
  * once and every adapter answers the same way.
  */
-export const sourceFilePattern = /\.[cm]?tsx?$/;
+export const sourceFilePattern = typescriptTransformSourcePattern;
 /** Matches any path segment that is a `node_modules` directory (cross-platform). */
 const nodeModulesPattern = /(?:^|[/\\])node_modules(?:[/\\]|$)/;
 /**

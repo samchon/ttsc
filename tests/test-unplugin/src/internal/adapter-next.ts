@@ -3,10 +3,11 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
 const LOADER = "@ttsc/unplugin/turbopack";
+const AUTOMATIC_RULE_GLOBS = ["*.ts", "*.tsx", "*.mts", "*.cts"];
 
 /**
  * Every glob this suite proves the dedupe guard recognises as naming the whole
- * project, for both extensions.
+ * project, including the exact rules for all four source extensions.
  *
  * Cross-checked against the list the experimental suite drives through real
  * Turbopack builds, so neither can gain a spelling the other has not seen.
@@ -17,6 +18,8 @@ const RECOGNISED_PROJECT_WIDE_GLOBS = [
   "{**/,}*.ts",
   "*.tsx",
   "**/*.tsx",
+  "*.mts",
+  "*.cts",
   "*.{ts,tsx}",
   "{*.ts,*.tsx}",
   "**/*.{ts,tsx}",
@@ -99,7 +102,7 @@ export async function assertNextAdapterWiresBothBundlers(): Promise<void> {
   const config = next({}, options);
 
   const rules = config.turbopack?.rules ?? {};
-  for (const glob of ["*.ts", "*.tsx"]) {
+  for (const glob of AUTOMATIC_RULE_GLOBS) {
     const loaders = loadersOf(rules[glob]);
     assert.ok(
       loaders.some(isTtscLoader),
@@ -157,16 +160,26 @@ export async function assertNextAdapterPreservesTurbopackConfig(): Promise<void>
     "and ttsc is still wired beside it",
   );
 
-  // A caller who followed the README's manual instructions.
+  // A caller who followed the README's manual instructions gets the exact same
+  // four-rule set as the wrapper and none of them is registered twice.
   const manual = next({
-    turbopack: { rules: { "*.ts": { loaders: [LOADER] } } },
+    turbopack: {
+      rules: Object.fromEntries(
+        AUTOMATIC_RULE_GLOBS.map((glob) => [glob, { loaders: [LOADER] }]),
+      ),
+    },
   });
-  const manualLoaders = loadersOf(manual.turbopack?.rules?.["*.ts"]);
-  assert.equal(
-    manualLoaders.filter(isTtscLoader).length,
-    1,
-    "a hand-wired loader must not be registered a second time",
+  assert.deepEqual(
+    Object.keys(manual.turbopack?.rules ?? {}),
+    AUTOMATIC_RULE_GLOBS,
   );
+  for (const glob of AUTOMATIC_RULE_GLOBS) {
+    assert.equal(
+      loadersOf(manual.turbopack?.rules?.[glob]).filter(isTtscLoader).length,
+      1,
+      `${glob} must not be registered a second time`,
+    );
+  }
 
   // A caller with another loader on the same glob keeps it, with ttsc placed
   // where the chain runs it first. Turbopack runs rule loaders through
@@ -225,8 +238,8 @@ export async function assertNextAdapterDoesNotDoubleRegisterAcrossGlobs(): Promi
 
   assert.deepEqual(
     globs({ turbopack: { rules: { "*.{ts,tsx}": { loaders: [LOADER] } } } }),
-    ["*.{ts,tsx}"],
-    "a brace list already carrying the loader must not gain two more rules",
+    ["*.{ts,tsx}", "*.mts", "*.cts"],
+    "a brace list must suppress only the two extensions it actually names",
   );
   assert.deepEqual(
     globs({
@@ -237,18 +250,18 @@ export async function assertNextAdapterDoesNotDoubleRegisterAcrossGlobs(): Promi
         },
       },
     }),
-    ["**/*.ts", "**/*.tsx"],
-    "a recursive prefix already carrying the loader must not gain two more",
+    ["**/*.ts", "**/*.tsx", "*.mts", "*.cts"],
+    "recursive rules must leave only the missing module-format extensions",
   );
 
-  // A partial hand wiring is still completed: `.tsx` is unrouted without us.
+  // A partial hand wiring is still completed: three extensions are unrouted.
   // Both spellings of it, since samchon/ttsc#1314 asks for the recursive one by
   // name and a guard could recognise `*.ts` while missing `**` + `/*.ts`.
   for (const partial of ["*.ts", "**/*.ts"]) {
     assert.deepEqual(
       globs({ turbopack: { rules: { [partial]: { loaders: [LOADER] } } } }),
-      [partial, "*.tsx"],
-      `${partial} must still gain the glob it is missing`,
+      [partial, "*.tsx", "*.mts", "*.cts"],
+      `${partial} must still gain every glob it is missing`,
     );
   }
 
@@ -256,7 +269,7 @@ export async function assertNextAdapterDoesNotDoubleRegisterAcrossGlobs(): Promi
   // twice, so ttsc still has to be wired.
   assert.deepEqual(
     globs({ turbopack: { rules: { "*.{ts,tsx}": { loaders: ["other"] } } } }),
-    ["*.{ts,tsx}", "*.ts", "*.tsx"],
+    ["*.{ts,tsx}", ...AUTOMATIC_RULE_GLOBS],
     "another loader's glob must not suppress ttsc's own rules",
   );
 
@@ -273,7 +286,7 @@ export async function assertNextAdapterDoesNotDoubleRegisterAcrossGlobs(): Promi
   ]) {
     assert.deepEqual(
       globs({ turbopack: { rules: { [scoped]: { loaders: [LOADER] } } } }),
-      [scoped, "*.ts", "*.tsx"],
+      [scoped, ...AUTOMATIC_RULE_GLOBS],
       `a rule scoped by ${scoped} must not suppress the project-wide rules`,
     );
   }
@@ -288,29 +301,29 @@ export async function assertNextAdapterDoesNotDoubleRegisterAcrossGlobs(): Promi
   )) {
     assert.deepEqual(
       globs({ turbopack: { rules: { [wide]: { loaders: [LOADER] } } } }),
-      [wide],
-      `${wide} names every file of both extensions, so nothing is added`,
+      [wide, "*.mts", "*.cts"],
+      `${wide} suppresses its two extensions and leaves the other two`,
     );
   }
 
   // Recognition is per extension, not per rule: a glob naming every file of one
   // extension suppresses only that registration, exactly as the partial hand
   // wiring above does.
-  const partials: readonly (readonly [string, string])[] = [
-    ["{**/,}*.ts", "*.tsx"],
-    ["**/*.ts", "*.tsx"],
-    ["*.tsx", "*.ts"],
-    ["**/*.tsx", "*.ts"],
+  const partials: readonly (readonly [string, readonly string[]])[] = [
+    ["{**/,}*.ts", ["*.tsx", "*.mts", "*.cts"]],
+    ["**/*.ts", ["*.tsx", "*.mts", "*.cts"]],
+    ["*.tsx", ["*.ts", "*.mts", "*.cts"]],
+    ["**/*.tsx", ["*.ts", "*.mts", "*.cts"]],
   ];
   for (const [partial, missing] of partials) {
     assert.deepEqual(
       globs({ turbopack: { rules: { [partial]: { loaders: [LOADER] } } } }),
-      [partial, missing],
-      `${partial} names one extension, so only the missing ${missing} is added`,
+      [partial, ...missing],
+      `${partial} names one extension, so only the missing rules are added`,
     );
   }
 
-  // Everything the guard does not recognise keeps both of the wrapper's rules.
+  // Everything the guard does not recognise keeps all wrapper rules.
   // `{src/,}*.ts` is why recognition is an exact set and not a predicate: set
   // semantics say its bare `*.ts` alternative covers the project, and Turbopack
   // matches nothing with it, so recognising it left every module with no rule
@@ -320,7 +333,7 @@ export async function assertNextAdapterDoesNotDoubleRegisterAcrossGlobs(): Promi
   for (const refused of REFUSED_GLOBS) {
     assert.deepEqual(
       globs({ turbopack: { rules: { [refused]: { loaders: [LOADER] } } } }),
-      [refused, "*.ts", "*.tsx"],
+      [refused, ...AUTOMATIC_RULE_GLOBS],
       `${refused} is not a measured project-wide spelling, so it must suppress nothing`,
     );
   }
@@ -365,14 +378,14 @@ async function assertRecognisedGlobsMatchTheRealBuildList(
 
   // Every glob the real builds drive must actually be recognised, or those
   // builds are proving something about a spelling the guard never takes.
-  // Recognition means at least one of the wrapper's two rules is declined; a
-  // glob naming one extension, `*.ts`, still leaves the other to be added.
+  // Recognition means at least one automatic rule is declined; a glob naming
+  // one extension, `*.ts`, still leaves the other three to be added.
   for (const glob of listed) {
     const wired = globs({
       turbopack: { rules: { [glob]: { loaders: [LOADER] } } },
     });
     assert.ok(
-      wired.length < 3,
+      wired.length < AUTOMATIC_RULE_GLOBS.length + 1,
       `${glob} is driven through a real build, so the guard must recognise it (got ${JSON.stringify(wired)})`,
     );
   }

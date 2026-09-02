@@ -192,21 +192,33 @@ function assertPackageBuildKeepsRuntimeDependenciesExternal() {
 }
 
 /**
- * Asserts the shared `transformInclude` predicate accepts `.ts`/`.tsx` source
- * files and rejects `.js`, `.jsx`, `.css`, `node_modules` paths, `.d.ts`
- * declarations, and virtual-module IDs (prefix `\0`).
+ * Asserts the shared `transformInclude` predicate implements the complete
+ * TypeScript source-extension and path-boundary contract.
  */
 async function assertSharedAdapterFilter() {
   const { unplugin } = await TestUnpluginRuntime.loadUnpluginApi();
   const raw = unplugin.raw(undefined, {});
-  assert.equal(raw.transformInclude?.("main.ts"), true);
-  assert.equal(raw.transformInclude?.("main.tsx"), true);
-  assert.equal(raw.transformInclude?.("main.js"), false);
-  assert.equal(raw.transformInclude?.("main.jsx"), false);
-  assert.equal(raw.transformInclude?.("main.css"), false);
-  assert.equal(raw.transformInclude?.("node_modules/pkg/main.ts"), false);
-  assert.equal(raw.transformInclude?.("main.d.ts"), false);
-  assert.equal(raw.transformInclude?.("\0rolldown/runtime.js"), false);
+  for (const id of ["main.ts", "main.tsx", "main.mts", "main.cts"]) {
+    assert.equal(raw.transformInclude?.(id), true, id);
+  }
+  for (const id of [
+    "main.js",
+    "main.jsx",
+    "main.mjs",
+    "main.cjs",
+    "main.mtsx",
+    "main.ctsx",
+    "main.css",
+    "main.d.ts",
+    "main.d.mts",
+    "main.d.cts",
+    "main.d.css.ts",
+    "node_modules/pkg/main.ts",
+    "node_modules/pkg/main.mts",
+    "\0virtual.ts",
+  ]) {
+    assert.equal(raw.transformInclude?.(id), false, id);
+  }
 }
 
 /** Escapes all regex meta-characters in `value` for use in `new RegExp(...)`. */

@@ -8,14 +8,10 @@ import {
   transformTtsc,
 } from "./core/index";
 import type { TtscUnpluginOptions } from "./core/options";
-
-/**
- * Bun normally reports filesystem source paths, while plugin-created virtual
- * ids may contain a NUL sentinel. A virtual id must stay with the plugin that
- * created it: claiming it here and trying to read it from disk prevents that
- * plugin's later loader from running.
- */
-const bunSourceFilePattern = /^[^\x00]*\.[cm]?tsx?$/;
+import {
+  bunTypeScriptTransformSourcePattern,
+  typescriptTransformBunLoader,
+} from "./core/sourceExtensions";
 
 /**
  * Minimal subset of the Bun plugin API consumed by this adapter.
@@ -159,43 +155,50 @@ export default function bun(options?: TtscBunOptions): BunLikePlugin {
       // repeats it for subsequent builds.
       beginTtscTransformBuild(cache);
       build.onStart?.(() => beginTtscTransformBuild(cache));
-      build.onLoad({ filter: bunSourceFilePattern }, async (args) => {
-        if (!runtime && ownsInMemoryFile(args.path)) {
-          return undefined;
-        }
-        if (!isTransformTarget(args.path)) {
-          if (!runtime) return undefined;
-          return {
-            contents: await fs.readFile(args.path, "utf8"),
-            loader: bunLoaderFor(args.path),
-          };
-        }
-        const loader = bunLoaderFor(args.path);
-        const source = await fs.readFile(args.path, "utf8");
-        const result = await transformTtsc(
-          args.path,
-          source,
-          getOptions(),
-          undefined,
-          cache,
-          bunTransformHooks,
-        );
-        if (result !== undefined) {
-          return { contents: result.code, loader };
-        }
-        return runtime ? { contents: source, loader } : undefined;
-      });
+      build.onLoad(
+        { filter: bunTypeScriptTransformSourcePattern },
+        async (args) => {
+          if (!runtime && ownsInMemoryFile(args.path)) {
+            return undefined;
+          }
+          if (!isTransformTarget(args.path)) {
+            if (!runtime) return undefined;
+            return {
+              contents: await fs.readFile(args.path, "utf8"),
+              loader: bunLoaderFor(args.path),
+            };
+          }
+          const loader = bunLoaderFor(args.path);
+          const source = await fs.readFile(args.path, "utf8");
+          const result = await transformTtsc(
+            args.path,
+            source,
+            getOptions(),
+            undefined,
+            cache,
+            bunTransformHooks,
+          );
+          if (result !== undefined) {
+            return { contents: result.code, loader };
+          }
+          return runtime ? { contents: source, loader } : undefined;
+        },
+      );
     },
   };
 }
 
 /**
- * Pick the Bun loader for a matched file. `bunSourceFilePattern` is
- * `/\.[cm]?tsx?$/`, so a trailing `x` (`.tsx`/`.ctsx`/`.mtsx`) is JSX-flavored
- * TypeScript and everything else (`.ts`/`.cts`/`.mts`) is plain TypeScript.
+ * Pick the Bun loader recorded beside the matched extension in the shared
+ * source table. Reaching this function without a table entry would mean Bun
+ * invoked a callback whose registration filter did not match.
  */
 function bunLoaderFor(filePath: string): BunLoader {
-  return /x$/i.test(filePath) ? "tsx" : "ts";
+  const loader = typescriptTransformBunLoader(filePath);
+  if (loader === undefined) {
+    throw new Error(`Bun delivered an unsupported source path: ${filePath}`);
+  }
+  return loader;
 }
 
 /**

@@ -17,6 +17,7 @@
  */
 import {
   createTtscTransformCache,
+  isTransformTarget,
   resolveOptions,
   transformTtsc,
 } from "@ttsc/unplugin/api";
@@ -35,14 +36,6 @@ import { resolveOptionsFromEnv } from "./core/options";
 import { resolveUpstreamTransformer } from "./core/upstream";
 
 const nodeRequire = createRequire(import.meta.url);
-
-/**
- * Matches the TypeScript source extensions the ttsc pass handles (`.ts`,
- * `.tsx`, `.cts`, `.mts`). JavaScript and declaration files are passed straight
- * through to the upstream transformer.
- */
-const TS_EXTENSION = /\.[cm]?tsx?$/;
-const DECLARATION = /\.d\.[cm]?ts$/;
 
 /**
  * Per-worker singletons. Metro loads this module once per worker process and
@@ -275,7 +268,7 @@ export function shouldTransform(
   filename: string,
   opts: ResolvedTtscMetroOptions,
 ): boolean {
-  if (!TS_EXTENSION.test(filename) || DECLARATION.test(filename)) {
+  if (!isTransformTarget(filename)) {
     return false;
   }
   if (opts.exclude.some((pattern) => filename.includes(pattern))) {

@@ -156,7 +156,7 @@ export default withTtsc({
 
 `withTtsc` covers both of Next.js's bundlers: it injects the webpack plugin and wires the Turbopack loader rules, with the options you pass reaching both. Your own `webpack` hook and `turbopack` block are preserved, and a rule you already wired for this loader by hand is left alone rather than registered twice.
 
-That last part is decided by exact spelling. `withTtsc` declines to add its own rule when your glob is one it has measured against a real Turbopack build as naming every file with the extension — `*.ts`, `**/*.ts`, `{**/,}*.ts`, `*.tsx`, `**/*.tsx`, `*.{ts,tsx}`, `{*.ts,*.tsx}`, `**/*.{ts,tsx}`, `**/{*.ts,*.tsx}`, `**/**/*.{ts,tsx}`. Any other spelling keeps your rule and gains ours beside it, so a module may be transformed twice rather than not at all. The list is exact on purpose: treating an unmeasured glob as project-wide once left every module in a project with no `ttsc` rule at all, and a build that transforms twice is recoverable in a way a build that never transforms is not.
+That last part is decided by exact spelling. `withTtsc` declines to add its own rule when your glob is one it has measured against a real Turbopack build as naming every file with the extension — `*.ts`, `**/*.ts`, `{**/,}*.ts`, `*.tsx`, `**/*.tsx`, `*.mts`, `*.cts`, `*.{ts,tsx}`, `{*.ts,*.tsx}`, `**/*.{ts,tsx}`, `**/{*.ts,*.tsx}`, `**/**/*.{ts,tsx}`. Any other spelling keeps your rule and gains ours beside it, so a module may be transformed twice rather than not at all. The list is exact on purpose: treating an unmeasured glob as project-wide once left every module in a project with no `ttsc` rule at all, and a build that transforms twice is recoverable in a way a build that never transforms is not.
 
 ## Turbopack
 
@@ -169,12 +169,14 @@ export default {
     rules: {
       "*.ts": { loaders: ["@ttsc/unplugin/turbopack"] },
       "*.tsx": { loaders: ["@ttsc/unplugin/turbopack"] },
+      "*.mts": { loaders: ["@ttsc/unplugin/turbopack"] },
+      "*.cts": { loaders: ["@ttsc/unplugin/turbopack"] },
     },
   },
 };
 ```
 
-Options go through the rule's `options` object: `{ loader: "@ttsc/unplugin/turbopack", options: { project: "tsconfig.build.json" } }`. The loader applies the same filter the unplugin adapters apply, so a rule glob wider than the two above still passes declaration files, `node_modules` paths, non-TypeScript sources, and virtual ids through untouched.
+Options go through the rule's `options` object: `{ loader: "@ttsc/unplugin/turbopack", options: { project: "tsconfig.build.json" } }`. The loader applies the same filter the unplugin adapters apply, so a rule glob wider than the four above still passes declaration files, `node_modules` paths, non-TypeScript sources, and virtual ids through untouched.
 
 ## Farm
 

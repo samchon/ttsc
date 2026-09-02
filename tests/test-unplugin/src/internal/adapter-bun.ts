@@ -198,7 +198,8 @@ async function assertBunRuntimePassesThroughUnchangedSource(): Promise<void> {
 }
 
 /**
- * Asserts the Bun adapter filter excludes NUL-prefixed virtual TypeScript ids.
+ * Asserts Bun registers exactly the shared source extensions, excludes virtual
+ * ids, and selects the matching TypeScript parser for every accepted spelling.
  *
  * A virtual id that reaches this callback would be treated as a filesystem
  * path. This assertion pins the filter boundary without assuming how another
@@ -206,14 +207,47 @@ async function assertBunRuntimePassesThroughUnchangedSource(): Promise<void> {
  */
 async function assertBunAdapterExcludesNulVirtualIds(): Promise<void> {
   const unpluginBun = await TestUnpluginRuntime.loadUnpluginAdapter("bun");
-  const { options } = await captureBunLoader(
+  const { loader, options } = await captureBunLoader(
     unpluginBun({ plugins: [] }),
     "runtime",
   );
 
-  assert.equal(options.filter.test("\0virtual.ts"), false);
-  assert.equal(options.filter.test("/project/src/ordinary.ts"), true);
-  assert.equal(options.filter.test("C:\\project\\src\\ordinary.tsx"), true);
+  for (const file of [
+    "ordinary.ts",
+    "ordinary.tsx",
+    "ordinary.mts",
+    "ordinary.cts",
+  ]) {
+    assert.equal(options.filter.test(`/project/src/${file}`), true, file);
+  }
+  for (const file of [
+    "ordinary.js",
+    "ordinary.jsx",
+    "ordinary.mjs",
+    "ordinary.cjs",
+    "ordinary.mtsx",
+    "ordinary.ctsx",
+    "ordinary.css",
+    "\0virtual.ts",
+  ]) {
+    assert.equal(options.filter.test(`/project/src/${file}`), false, file);
+  }
+
+  const root = TestUnpluginProject.createProject();
+  for (const [extension, expected] of [
+    [".ts", "ts"],
+    [".tsx", "tsx"],
+    [".mts", "ts"],
+    [".cts", "ts"],
+  ] as const) {
+    const file = path.join(root, `loader${extension}`);
+    const source = "export const value = 1;\n";
+    fs.writeFileSync(file, source, "utf8");
+    assert.deepEqual(await loader({ path: file }), {
+      contents: source,
+      loader: expected,
+    });
+  }
 }
 
 /**

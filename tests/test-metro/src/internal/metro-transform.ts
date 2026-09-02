@@ -213,19 +213,26 @@ export async function assertAcceptsAllTypeScriptExtensions(): Promise<void> {
 }
 
 /**
- * Asserts `shouldTransform` rejects declaration files and non-TypeScript
- * extensions (`.d.ts`/`.d.mts`, `.js`/`.jsx`, `.json`, `.css`): they pass
- * straight through to the upstream transformer.
+ * Asserts `shouldTransform` rejects every neighboring non-source spelling,
+ * declaration form, virtual id, and dependency path through the shared gate.
  */
 export async function assertRejectsNonTypeScriptExtensions(): Promise<void> {
   const mod = await TestMetroRuntime.loadFreshTransformer();
   for (const file of [
     "/p/a.d.ts",
     "/p/a.d.mts",
+    "/p/a.d.cts",
+    "/p/a.d.css.ts",
     "/p/a.js",
     "/p/a.jsx",
+    "/p/a.mjs",
+    "/p/a.cjs",
+    "/p/a.mtsx",
+    "/p/a.ctsx",
     "/p/a.json",
     "/p/a.css",
+    "/p/node_modules/pkg/a.ts",
+    "\0virtual.ts",
   ]) {
     assert.equal(mod.shouldTransform(file, resolvedOptions()), false, file);
   }

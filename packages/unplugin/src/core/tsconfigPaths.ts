@@ -2,6 +2,8 @@ import fs from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 
+import { TYPESCRIPT_TRANSFORM_EXTENSIONS } from "./sourceExtensions";
+
 /**
  * Read the effective `compilerOptions.paths` of a tsconfig, following its
  * `extends` chain, and absolutize every mapping target.
@@ -46,8 +48,6 @@ export function readEffectiveTsconfigPaths(
   return output;
 }
 
-/** Source extensions TypeScript always admits as program inputs. */
-const TYPESCRIPT_INPUT_EXTENSIONS = [".ts", ".tsx", ".mts", ".cts"];
 /** Extensions admitted only when `allowJs` widens the program. */
 const JAVASCRIPT_INPUT_EXTENSIONS = [".js", ".jsx", ".mjs", ".cjs"];
 
@@ -90,7 +90,7 @@ export const PERMISSIVE_PROJECT_MEMBERSHIP_POLICY: ITtscProjectMembershipPolicy 
   {
     excludedDirectories: [],
     inputExtensions: [
-      ...TYPESCRIPT_INPUT_EXTENSIONS,
+      ...TYPESCRIPT_TRANSFORM_EXTENSIONS,
       ...JAVASCRIPT_INPUT_EXTENSIONS,
       ".json",
     ],
@@ -132,7 +132,7 @@ export function readProjectMembershipPolicy(
       sources,
     )?.value === true;
 
-  const inputExtensions = [...TYPESCRIPT_INPUT_EXTENSIONS];
+  const inputExtensions = [...TYPESCRIPT_TRANSFORM_EXTENSIONS];
   if (flag("allowJs")) {
     inputExtensions.push(...JAVASCRIPT_INPUT_EXTENSIONS);
   }
