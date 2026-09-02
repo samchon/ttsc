@@ -7,14 +7,16 @@ import (
 )
 
 // TestCommandFormatPrintWidthAbstainsInsideBinaryExpression verifies
-// print-width preserves nested calls when it cannot own their binary line.
+// print-width preserves nested reflow targets when it cannot own their binary
+// line.
 //
 // A supported call below an unsupported BinaryExpression otherwise makes its
 // width decision in isolation. Broken calls flatten on one pass, the combined
 // binary line overflows on the next, and `ttsc format` reaches its 10-pass cap.
 // The standalone call is the negative twin: it must still reflow normally.
 //
-//  1. Seed broken calls below `||`, `??`, and `&&` plus one long standalone call.
+//  1. Seed broken calls below `||`, `??`, and `&&`, a destructuring assignment
+//     target below `||`, and one long standalone call.
 //  2. Run `ttsc format` twice and require both commands to exit cleanly.
 //  3. Assert the binary fragments stay intact and the standalone call reflows.
 func TestCommandFormatPrintWidthAbstainsInsideBinaryExpression(t *testing.T) {
@@ -36,7 +38,8 @@ func TestCommandFormatPrintWidthAbstainsInsideBinaryExpression(t *testing.T) {
     "  value,\n" +
     ") && isAllowed(\n" +
     "  value,\n" +
-    ");\n"
+    ");\n" +
+    "([alphaValue, ...remainingValues] = sourceValues) || fallbackValue;\n"
   source := binaryFragments +
     "const formatted = standalone(\"alpha\", \"bravo\", \"charlie\");\n"
   want := binaryFragments +

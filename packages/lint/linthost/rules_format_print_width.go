@@ -519,15 +519,25 @@ func hasReflowAncestor(node *shimast.Node) bool {
 
 // hasUncontrolledBinaryExpressionAncestor reports whether `node` is a fragment
 // of a binary expression whose layout it cannot own. A destructuring assignment
-// target is safe because the literal printer owns that complete left-hand list.
+// target may skip its owning `=` because the literal printer owns that complete
+// left-hand list, but an enclosing binary expression remains uncontrolled.
 func hasUncontrolledBinaryExpressionAncestor(node *shimast.Node) bool {
-  if node == nil || isDestructuringAssignmentTarget(node) {
+  if node == nil {
     return false
   }
+  skipOwningAssignment := isDestructuringAssignmentTarget(node)
+  child := node
   for parent := node.Parent; parent != nil; parent = parent.Parent {
     if parent.Kind == shimast.KindBinaryExpression {
-      return true
+      expression := parent.AsBinaryExpression()
+      if skipOwningAssignment && expression != nil && expression.OperatorToken != nil &&
+        expression.OperatorToken.Kind == shimast.KindEqualsToken && expression.Left == child {
+        skipOwningAssignment = false
+      } else {
+        return true
+      }
     }
+    child = parent
   }
   return false
 }
