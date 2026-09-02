@@ -47,6 +47,7 @@
 import {
   collectExternalInputHashes,
   collectProjectInputHashes,
+  findNearestProjectTsconfig,
   isProjectWalkPath,
   mergeMembershipPolicyOverlay,
   readProjectMembershipPolicy,
@@ -285,7 +286,7 @@ function stampOf(sources: readonly string[]): string {
  * Locate the tsconfig governing the project, mirroring the transform core's
  * discovery: an explicit `project` resolves against the working directory;
  * otherwise ancestor directories starting at `base` are searched for a
- * `tsconfig.json`, falling back to `<base>/tsconfig.json`.
+ * `tsconfig.json` file, falling back to `<base>/tsconfig.json`.
  */
 function resolveProjectTsconfig(
   base: string,
@@ -296,17 +297,9 @@ function resolveProjectTsconfig(
       ? explicitProject
       : path.resolve(process.cwd(), explicitProject);
   }
-  let current = base;
-  while (true) {
-    const candidate = path.join(current, "tsconfig.json");
-    if (fs.existsSync(candidate)) {
-      return candidate;
-    }
-    const parent = path.dirname(current);
-    if (parent === current) {
-      break;
-    }
-    current = parent;
+  const discovered = findNearestProjectTsconfig(base);
+  if (discovered !== undefined) {
+    return discovered;
   }
   return path.resolve(base, "tsconfig.json");
 }

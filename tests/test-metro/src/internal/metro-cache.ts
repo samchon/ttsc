@@ -833,8 +833,21 @@ export async function assertCacheKeyChangesWhenTheTsconfigChanges(): Promise<voi
  */
 export async function assertMetroAsksTheAdaptersPolicy(): Promise<void> {
   const fingerprint = await TestMetroRuntime.loadFingerprint();
+  const unplugin = await TestUnpluginRuntime.loadUnpluginApi();
   const root = createBareProject();
   const leaf = path.join(root, "tsconfig.json");
+  const app = path.join(root, "packages", "app");
+  const sourceDirectory = path.join(app, "src");
+  fs.mkdirSync(sourceDirectory, { recursive: true });
+  fs.mkdirSync(path.join(app, "tsconfig.json"));
+  const adapterProject = unplugin.findNearestProjectTsconfig(sourceDirectory);
+  const metroProject = fingerprint.resolveProjectView({ projectRoot: app });
+  assert.equal(adapterProject, leaf);
+  assert.equal(
+    metroProject.policy.sources[0],
+    adapterProject,
+    "Metro and unplugin must skip the same directory collision and select the same project file",
+  );
   const configured = JSON.parse(fs.readFileSync(leaf, "utf8")) as {
     compilerOptions: Record<string, unknown>;
   };
@@ -878,7 +891,6 @@ export async function assertMetroAsksTheAdaptersPolicy(): Promise<void> {
     [path.join(root, "build"), path.join(root, "types")].sort(),
     "Metro must replace inherited output-directory exclusions with the overlay values",
   );
-  const unplugin = await TestUnpluginRuntime.loadUnpluginApi();
   const adapterPolicy = unplugin.mergeMembershipPolicyOverlay(
     unplugin.readProjectMembershipPolicy(leaf),
     overlay,

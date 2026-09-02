@@ -4,14 +4,21 @@ import fs from "node:fs";
 import path from "node:path";
 
 /**
- * Asserts that `transformTtsc` discovers the nearest `tsconfig.json`, applies
- * the plugins it declares, and does not create a `dist/` directory (single-file
- * mode, not a full build).
+ * Asserts that `transformTtsc` skips a child directory named `tsconfig.json`,
+ * discovers the nearest ancestor config file, applies the plugins it declares,
+ * and does not create a `dist/` directory (single-file mode, not a full
+ * build).
  */
 async function assertTransformReadsDiscoveredTsconfig() {
   const { resolveOptions, transformTtsc } =
     await TestUnpluginRuntime.loadUnpluginApi();
   const root = TestUnpluginProject.createProject();
+  fs.mkdirSync(
+    path.join(
+      path.dirname(TestUnpluginProject.mainFile(root)),
+      "tsconfig.json",
+    ),
+  );
   const result = await transformTtsc(
     TestUnpluginProject.mainFile(root),
     TestUnpluginProject.mainSource(root),

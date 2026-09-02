@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 
 import { createFilesystemPathIdentityContext } from "../../../../packages/ttsc/lib/internal/projectInputPathIdentity.js";
+import { findNearestProjectTsconfig } from "../../../../packages/unplugin/lib/core/projectDiscovery.js";
 import {
   type TtscTransformFilesystemOperations,
   validateGraphInputObservation,
@@ -237,7 +238,108 @@ export function assertPredicateProofMatrix(): void {
     ),
     "Vite polls must not merge distinct availability predicates",
   );
+  assertProjectTsconfigDiscovery();
   assertRealFilesystemKinds();
+}
+
+/** Assert implicit project discovery from one table-driven stat seam. */
+function assertProjectTsconfigDiscovery(): void {
+  type Kind = "directory" | "error" | "file" | "unprovable";
+  for (const scenario of [
+    {
+      entries: new Map([["/repo/app/tsconfig.json", "file"]]),
+      expected: "/repo/app/tsconfig.json",
+      name: "nearest regular file",
+      platform: "linux" as NodeJS.Platform,
+      start: "/repo/app/src",
+    },
+    {
+      entries: new Map([
+        ["/repo/app/tsconfig.json", "directory"],
+        ["/repo/tsconfig.json", "file"],
+      ]),
+      expected: "/repo/tsconfig.json",
+      name: "directory collision",
+      platform: "linux" as NodeJS.Platform,
+      start: "/repo/app",
+    },
+    {
+      entries: new Map([
+        ["/repo/app/tsconfig.json", "error"],
+        ["/repo/tsconfig.json", "file"],
+      ]),
+      expected: "/repo/tsconfig.json",
+      name: "stat failure",
+      platform: "linux" as NodeJS.Platform,
+      start: "/repo/app",
+    },
+    {
+      entries: new Map([
+        ["/repo/app/tsconfig.json", "unprovable"],
+        ["/repo/tsconfig.json", "file"],
+      ]),
+      expected: "/repo/tsconfig.json",
+      name: "unprovable kind",
+      platform: "linux" as NodeJS.Platform,
+      start: "/repo/app",
+    },
+    {
+      entries: new Map<string, Kind>(),
+      expected: undefined,
+      name: "filesystem root and no ancestor",
+      platform: "linux" as NodeJS.Platform,
+      start: "/",
+    },
+    {
+      entries: new Map([["C:\\repo\\tsconfig.json", "file"]]),
+      expected: "C:\\repo\\tsconfig.json",
+      name: "Windows spelling",
+      platform: "win32" as NodeJS.Platform,
+      start: "C:\\repo\\app",
+    },
+  ] satisfies {
+    entries: Map<string, Kind>;
+    expected: string | undefined;
+    name: string;
+    platform: NodeJS.Platform;
+    start: string;
+  }[]) {
+    const actual = findNearestProjectTsconfig(scenario.start, {
+      platform: scenario.platform,
+      stat: (location) => {
+        const kind = scenario.entries.get(location) ?? "error";
+        if (kind === "error") {
+          throw new Error("unavailable candidate");
+        }
+        return {
+          isFile: () => {
+            if (kind === "unprovable") {
+              throw new Error("unprovable candidate kind");
+            }
+            return kind === "file";
+          },
+        };
+      },
+    });
+    assert.equal(actual, scenario.expected, scenario.name);
+  }
+
+  let observations = 0;
+  assert.equal(
+    findNearestProjectTsconfig("/repo/app", {
+      platform: "linux",
+      stat: (location) => {
+        if (location !== "/repo/app/tsconfig.json") {
+          throw new Error("unexpected ancestor observation");
+        }
+        observations += 1;
+        return { isFile: () => observations === 1 };
+      },
+    }),
+    "/repo/app/tsconfig.json",
+    "one atomic stat proof must decide a candidate that would change kind on a second observation",
+  );
+  assert.equal(observations, 1);
 }
 
 /** Exercise the host implementation over real files, links, and broken links. */
@@ -282,6 +384,37 @@ function assertRealFilesystemKinds(): void {
       "replacing the directory link with a selectable file must invalidate every changed predicate",
     );
 
+    const project = path.join(root, "project");
+    const app = path.join(project, "packages", "app");
+    const ancestorConfig = path.join(project, "tsconfig.json");
+    const childConfig = path.join(app, "tsconfig.json");
+    fs.mkdirSync(app, { recursive: true });
+    fs.writeFileSync(ancestorConfig, "{}\n", "utf8");
+    fs.mkdirSync(childConfig);
+    assert.equal(
+      findNearestProjectTsconfig(app),
+      ancestorConfig,
+      "a directory named tsconfig.json must not shadow an ancestor file",
+    );
+    fs.rmSync(childConfig, { recursive: true });
+    fs.symlinkSync(
+      targetDirectory,
+      childConfig,
+      process.platform === "win32" ? "junction" : "dir",
+    );
+    assert.equal(
+      findNearestProjectTsconfig(app),
+      ancestorConfig,
+      "a directory link named tsconfig.json must not shadow an ancestor file",
+    );
+    fs.rmSync(childConfig, { recursive: true });
+    fs.writeFileSync(childConfig, "{}\n", "utf8");
+    assert.equal(
+      findNearestProjectTsconfig(app),
+      childConfig,
+      "the nearest regular config file must win",
+    );
+
     if (process.platform !== "win32") {
       const targetFile = path.join(root, "file-target.ts");
       const fileLink = path.join(root, "file-link.ts");
@@ -314,6 +447,24 @@ function assertRealFilesystemKinds(): void {
         }),
         [],
         "a broken link must remain distinguishable from a readable file or directory",
+      );
+      fs.rmSync(childConfig);
+      fs.symlinkSync(targetFile, childConfig, "file");
+      assert.equal(
+        findNearestProjectTsconfig(app),
+        childConfig,
+        "a file link must win without losing its lexical config spelling",
+      );
+      fs.rmSync(childConfig);
+      fs.symlinkSync(
+        path.join(root, "missing-config.json"),
+        childConfig,
+        "file",
+      );
+      assert.equal(
+        findNearestProjectTsconfig(app),
+        ancestorConfig,
+        "a broken config link must not shadow an ancestor file",
       );
     }
   } finally {

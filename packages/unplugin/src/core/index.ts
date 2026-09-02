@@ -306,6 +306,7 @@ export type {
   TtscUnpluginCompilerOptionsJson,
   TtscUnpluginOptions,
 } from "./options";
+export type { TtscProjectDiscoveryFilesystem } from "./projectDiscovery";
 export type {
   TtscTransformFilesystemOperations,
   TtscTransformHooks,
@@ -327,6 +328,7 @@ export {
   transformTtsc,
   unplugin,
 };
+export { findNearestProjectTsconfig } from "./projectDiscovery";
 
 export default unplugin;
 

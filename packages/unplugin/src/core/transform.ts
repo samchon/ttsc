@@ -17,6 +17,7 @@ import {
 import type { TransformResult } from "unplugin";
 
 import type { ResolvedTtscUnpluginOptions } from "./options";
+import { findNearestProjectTsconfig } from "./projectDiscovery";
 import {
   CONFIG_DIR_TEMPLATE_LIST_OPTIONS,
   CONFIG_DIR_TEMPLATE_SCALAR_OPTIONS,
@@ -7192,9 +7193,9 @@ function stripTerminalEscapes(text: string): string {
  *
  * If `tsconfig` is supplied it is returned as-is (absolute) or resolved from
  * `process.cwd()` (relative). Otherwise the function walks ancestor directories
- * starting at `file`'s directory, returning the first `tsconfig.json` found.
- * Falls back to `<cwd>/tsconfig.json` when no ancestor contains one; the
- * compiler will error if that file does not exist, which is the correct
+ * starting at `file`'s directory, returning the first `tsconfig.json` proven to
+ * be a file. Falls back to `<cwd>/tsconfig.json` when no ancestor contains one;
+ * the compiler will error if that file does not exist, which is the correct
  * behavior for a mis-configured project.
  */
 function resolveTsconfig(
@@ -7208,18 +7209,9 @@ function resolveTsconfig(
       : path.resolve(process.cwd(), tsconfig);
   }
 
-  let current = path.dirname(file);
-  while (true) {
-    const candidate = path.join(current, "tsconfig.json");
-    if (filesystem.exists(candidate)) {
-      return candidate;
-    }
-    const parent = path.dirname(current);
-    // Reached filesystem root, stop walking.
-    if (parent === current) {
-      break;
-    }
-    current = parent;
+  const discovered = findNearestProjectTsconfig(path.dirname(file), filesystem);
+  if (discovered !== undefined) {
+    return discovered;
   }
   return path.resolve(process.cwd(), "tsconfig.json");
 }
