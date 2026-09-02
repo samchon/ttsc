@@ -283,14 +283,25 @@ function writeBunRegisterOptimizerEntry() {
  * spelling turns into samchon/ttsc#1310: no rule, no transform, green build.
  * `middleware.ts` and `instrumentation.ts` are the real files at this depth.
  */
+function turbopackEntrySource(
+  variable: string,
+  marker: string,
+  extension: string,
+): string {
+  // The fixture transform is source-to-source and does not rewrite ESM into
+  // CommonJS. Keep `.cts` inputs CommonJS-compatible so this test isolates
+  // extension routing instead of assuming a separate module transform.
+  return [
+    `${extension === "cts" ? "" : "export "}const ${variable} = mark(${JSON.stringify(marker)});`,
+    `console.log(${variable});`,
+    "",
+  ].join("\n");
+}
+
 function writeTurbopackRootEntry() {
   fs.writeFileSync(
     path.join(workspace, "turbopack-root-entry.ts"),
-    [
-      'export const rootValue = mark("turbopack-root-ok");',
-      "console.log(rootValue);",
-      "",
-    ].join("\n"),
+    turbopackEntrySource("rootValue", "turbopack-root-ok", "ts"),
     "utf8",
   );
   // A `.tsx` source as well, because the guard decides per extension and a Next
@@ -299,29 +310,17 @@ function writeTurbopackRootEntry() {
   // whether that happened.
   fs.writeFileSync(
     path.join(workspace, "src", "turbopack-tsx-entry.tsx"),
-    [
-      'export const tsxValue = mark("turbopack-tsx-ok");',
-      "console.log(tsxValue);",
-      "",
-    ].join("\n"),
+    turbopackEntrySource("tsxValue", "turbopack-tsx-ok", "tsx"),
     "utf8",
   );
   fs.writeFileSync(
     path.join(workspace, "src", "turbopack-mts-entry.mts"),
-    [
-      'export const mtsValue = mark("turbopack-mts-ok");',
-      "console.log(mtsValue);",
-      "",
-    ].join("\n"),
+    turbopackEntrySource("mtsValue", "turbopack-mts-ok", "mts"),
     "utf8",
   );
   fs.writeFileSync(
     path.join(workspace, "src", "turbopack-cts-entry.cts"),
-    [
-      'export const ctsValue = mark("turbopack-cts-ok");',
-      "console.log(ctsValue);",
-      "",
-    ].join("\n"),
+    turbopackEntrySource("ctsValue", "turbopack-cts-ok", "cts"),
     "utf8",
   );
   for (const [extension, marker] of [
@@ -331,11 +330,7 @@ function writeTurbopackRootEntry() {
   ]) {
     fs.writeFileSync(
       path.join(workspace, `turbopack-root-entry.${extension}`),
-      [
-        `export const rootValue = mark(${JSON.stringify(marker)});`,
-        "console.log(rootValue);",
-        "",
-      ].join("\n"),
+      turbopackEntrySource("rootValue", marker, extension),
       "utf8",
     );
   }
@@ -344,11 +339,11 @@ function writeTurbopackRootEntry() {
   for (const extension of ["ts", "tsx", "mts", "cts"]) {
     fs.writeFileSync(
       path.join(deepDirectory, `turbopack-deep-entry.${extension}`),
-      [
-        `export const deepValue = mark(${JSON.stringify(`turbopack-deep-${extension}-ok`)});`,
-        "console.log(deepValue);",
-        "",
-      ].join("\n"),
+      turbopackEntrySource(
+        "deepValue",
+        `turbopack-deep-${extension}-ok`,
+        extension,
+      ),
       "utf8",
     );
   }
