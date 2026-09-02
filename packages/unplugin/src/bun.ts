@@ -169,11 +169,12 @@ export default function bun(options?: TtscBunOptions): BunLikePlugin {
             };
           }
           const loader = bunLoaderFor(args.path);
+          const transformOptions = getOptions();
           const source = await fs.readFile(args.path, "utf8");
           const result = await transformTtsc(
             args.path,
             source,
-            getOptions(),
+            transformOptions,
             undefined,
             cache,
             bunTransformHooks,

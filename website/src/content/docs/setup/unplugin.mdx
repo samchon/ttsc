@@ -216,7 +216,7 @@ import { register } from "@ttsc/unplugin/bun-register";
 register({ project: "tsconfig.build.json" });
 ```
 
-Importing `@ttsc/unplugin/bun-register` registers exactly one runtime loader. Calls made before the first transformable TypeScript load use last-call-wins and capture their options by value, so an immediate explicit call can replace the preload defaults. The first such load locks the options for the immutable module-loading session. A later call with the same structural value is idempotent, while a different value throws. Restart the Bun process after changing registration options, source, tsconfig, or plugin inputs.
+Importing `@ttsc/unplugin/bun-register` registers exactly one runtime loader, shared by CommonJS and ESM loads in the same Bun process. Calls made before the first transformable TypeScript load use last-call-wins and capture their options by value, so an immediate explicit call can replace the preload defaults. Entering the first such load locks the options synchronously for the immutable module-loading session. A later call with the same structural value is idempotent, while a different value throws. Restart the Bun process after changing registration options, source, tsconfig, or plugin inputs.
 
 ## Options
 
