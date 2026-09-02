@@ -78,6 +78,32 @@ export const CONFIG_DIR_TEMPLATE_LIST_OPTIONS = [
 /** Top-level file specifications that accept the same template. */
 const CONFIG_DIR_TEMPLATE_FILE_SPECS = ["exclude", "files", "include"] as const;
 
+/** One config-chain input captured for generation-state comparison. */
+export interface ITsconfigSourceSnapshotEntry {
+  /** Exact bytes decoded as UTF-8, or `null` when a probed config is absent. */
+  contents: string | null;
+  /** Canonical absolute spelling when the input exists. */
+  path: string;
+}
+
+/**
+ * Capture the leaf config and its complete `extends` graph in one deterministic
+ * list.
+ *
+ * Transform wrappers derive configuration before the compiler reads it again.
+ * Comparing this snapshot across the compile prevents a wrapper derived from
+ * one config state from being paired with membership and output from another.
+ */
+export function readTsconfigSourceSnapshot(
+  tsconfig: string,
+): ITsconfigSourceSnapshotEntry[] {
+  const output = new Map<string, string | null>();
+  collectTsconfigSourceSnapshot(path.resolve(tsconfig), new Set(), output);
+  return [...output.entries()]
+    .sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0))
+    .map(([source, contents]) => ({ contents, path: source }));
+}
+
 /**
  * What the resolved configuration says can and cannot enter the program.
  *
@@ -625,18 +651,11 @@ function findDeclaredValue<T>(
       // keeps a policy the next run's walk already disagrees with. A bare
       // specifier is skipped, since it has no single candidate path.
       if (isRelativeSpecifier(specifier) || path.isAbsolute(specifier)) {
-        // Both spellings the resolver would have tried, since it falls back to
-        // `<specifier>.json`. Recording only the literal one leaves the stamp
-        // unmoved when `./tsconfig.base` later appears as `tsconfig.base.json`,
-        // which is the same staleness this recording exists to prevent.
-        const candidate = path.resolve(path.dirname(canonical), specifier);
-        collect?.add(candidate);
-        // Case-sensitive, because `resolveExistingExtendsPath` is: it appends
-        // `.json` unless the spelling already ends in exactly that, so a
-        // `./base.JSON` specifier really does resolve to `base.JSON.json` on a
-        // case-sensitive filesystem, and the stamp has to know that name.
-        if (!candidate.endsWith(".json")) {
-          collect?.add(`${candidate}.json`);
+        for (const candidate of missingExtendsCandidates(
+          canonical,
+          specifier,
+        )) {
+          collect?.add(candidate);
         }
       }
       continue;
@@ -647,6 +666,56 @@ function findDeclaredValue<T>(
     }
   }
   return null;
+}
+
+/** Capture every config source independently of which option declares a value. */
+function collectTsconfigSourceSnapshot(
+  tsconfig: string,
+  seen: Set<string>,
+  output: Map<string, string | null>,
+): void {
+  const canonical = resolveRealPath(tsconfig);
+  if (seen.has(canonical)) return;
+  seen.add(canonical);
+
+  let contents: string;
+  let parsed: { extends?: unknown };
+  try {
+    contents = fs.readFileSync(canonical, "utf8");
+    output.set(canonical, contents);
+    parsed = parseJsonc(contents) as typeof parsed;
+  } catch {
+    output.set(canonical, null);
+    return;
+  }
+  if (typeof parsed !== "object" || parsed === null) return;
+
+  for (const rawSpecifier of extendsSpecifiers(parsed.extends)) {
+    const specifier = normalizeTypeScriptPathSeparators(rawSpecifier);
+    const base = resolveExtendsConfig(canonical, specifier);
+    if (base !== null) {
+      collectTsconfigSourceSnapshot(base, seen, output);
+      continue;
+    }
+    if (isRelativeSpecifier(specifier) || path.isAbsolute(specifier)) {
+      for (const candidate of missingExtendsCandidates(canonical, specifier)) {
+        if (!output.has(candidate)) output.set(candidate, null);
+      }
+    }
+  }
+}
+
+/** Every exact spelling the file resolver probes for a missing config. */
+function missingExtendsCandidates(
+  tsconfig: string,
+  specifier: string,
+): string[] {
+  const candidate = path.resolve(path.dirname(tsconfig), specifier);
+  // Case-sensitive, because `resolveExistingExtendsPath` appends `.json`
+  // unless the spelling already ends in exactly that suffix.
+  return candidate.endsWith(".json")
+    ? [candidate]
+    : [candidate, `${candidate}.json`];
 }
 
 /** Normalize the `extends` field into a list of string specifiers. */

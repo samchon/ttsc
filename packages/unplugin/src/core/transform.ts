@@ -28,6 +28,7 @@ import {
   readEffectiveTsconfigTemplateCompilerOptions,
   readEffectiveTsconfigTemplateFileSpecs,
   readProjectMembershipPolicy,
+  readTsconfigSourceSnapshot,
   resolveConfigDirTemplatePath,
 } from "./tsconfigPaths";
 
@@ -6132,7 +6133,18 @@ async function captureTransformGeneration(props: {
   let retainHostInputTracker = false;
   let retainCandidateTracker = false;
   try {
-    const configured = createTransformTsconfig(props, scratchDirectory);
+    const materializesConfig =
+      Object.keys(props.compilerOptions).length !== 0 ||
+      Object.keys(props.aliasPaths).length !== 0;
+    const tsconfigState = readTransformTsconfigState(
+      props.tsconfig,
+      materializesConfig,
+    );
+    const configured = createTransformTsconfig(
+      props,
+      scratchDirectory,
+      tsconfigState,
+    );
     const temporaryTsconfig =
       configured.path === props.tsconfig ? undefined : configured.path;
     const identities = createHostPathIdentityContext(props.filesystem);
@@ -6141,7 +6153,7 @@ async function captureTransformGeneration(props: {
     // generated config lives in a system temp directory. The caller's
     // compiler-options overlay still wins, since it wins for the compile too.
     const membershipPolicy = mergeMembershipPolicyOverlay(
-      readProjectMembershipPolicy(props.tsconfig),
+      tsconfigState.membershipPolicy,
       props.compilerOptions,
       projectRoot,
     );
@@ -6176,6 +6188,10 @@ async function captureTransformGeneration(props: {
       }).transform(),
     );
     TRANSFORM_RESULT_FILESYSTEM.set(result, props.filesystem);
+    const configStable =
+      tsconfigState.signature === undefined ||
+      tsconfigState.signature ===
+        readTransformTsconfigState(props.tsconfig, true).signature;
     // Mint the generation's clock reference after the compile and before any
     // signature-recording read below, so every input written before the
     // compile sits in a provably finished tick when its signature is captured.
@@ -6257,6 +6273,7 @@ async function captureTransformGeneration(props: {
       scratchDirectory,
     });
     const walkStable =
+      configStable &&
       walkSnapshotComplete(before, declaredInputs) &&
       walkSnapshotComplete(inputSnapshot, declaredInputs) &&
       sameHashes(before.hashes, inputSnapshot.hashes, declaredInputs) &&
@@ -6340,6 +6357,13 @@ async function captureTransformGeneration(props: {
     // only on the failing path, where the alternative is recompiling the whole
     // project for every remaining module.
     const failures = createGenerationProofFailures();
+    if (!configStable) {
+      recordGenerationProofFailure(failures, {
+        domain: "project",
+        kind: "config-state-changed",
+        path: props.tsconfig,
+      });
+    }
     if (!walkStable) {
       recordProjectSnapshotFailures(failures, {
         before,
@@ -6458,6 +6482,50 @@ function selectPersistentHostInputs(props: {
   });
 }
 
+interface ITransformTsconfigState {
+  effectivePaths: Record<string, string[]>;
+  membershipPolicy: ITtscProjectMembershipPolicy;
+  signature?: string;
+  templateCompilerOptions: Record<string, unknown>;
+  templateFileSpecs: Record<string, unknown>;
+}
+
+/** Read every wrapper-dependent view and bind it to one config-chain state. */
+function readTransformTsconfigState(
+  tsconfig: string,
+  materializesConfig: boolean,
+): ITransformTsconfigState {
+  const membershipPolicy = readProjectMembershipPolicy(tsconfig);
+  if (!materializesConfig) {
+    return {
+      effectivePaths: {},
+      membershipPolicy,
+      templateCompilerOptions: {},
+      templateFileSpecs: {},
+    };
+  }
+  const effectivePaths = readEffectiveTsconfigPaths(tsconfig);
+  const templateCompilerOptions =
+    readEffectiveTsconfigTemplateCompilerOptions(tsconfig);
+  const templateFileSpecs = readEffectiveTsconfigTemplateFileSpecs(tsconfig);
+  const sources = readTsconfigSourceSnapshot(tsconfig);
+  return {
+    effectivePaths,
+    membershipPolicy,
+    signature: hashText(
+      JSON.stringify({
+        effectivePaths,
+        membershipPolicy,
+        sources,
+        templateCompilerOptions,
+        templateFileSpecs,
+      }),
+    ),
+    templateCompilerOptions,
+    templateFileSpecs,
+  };
+}
+
 function createTransformTsconfig(
   props: {
     aliasPaths: Record<string, string[]>;
@@ -6465,11 +6533,12 @@ function createTransformTsconfig(
     tsconfig: string;
   },
   scratchDirectory: string,
+  state: ITransformTsconfigState,
 ): { path: string } {
   const overlay = normalizeCompilerOptionsForGeneratedTsconfig(
     {
       ...props.compilerOptions,
-      ...createAliasCompilerOptions(props),
+      ...createAliasCompilerOptions(props, state.effectivePaths),
     },
     path.dirname(props.tsconfig),
   );
@@ -6482,7 +6551,7 @@ function createTransformTsconfig(
   // project even for an unrelated overlay. Re-state only those inherited
   // values as absolute paths so the wrapper remains semantically transparent.
   const compilerOptions = {
-    ...readEffectiveTsconfigTemplateCompilerOptions(props.tsconfig),
+    ...state.templateCompilerOptions,
     ...overlay,
   };
   const file = path.join(scratchDirectory, "tsconfig.json");
@@ -6491,7 +6560,7 @@ function createTransformTsconfig(
     JSON.stringify(
       {
         extends: normalizePath(props.tsconfig),
-        ...readEffectiveTsconfigTemplateFileSpecs(props.tsconfig),
+        ...state.templateFileSpecs,
         compilerOptions,
       },
       null,
@@ -6721,17 +6790,20 @@ function normalizePluginConfigForGeneratedTsconfig(
  * No `baseUrl` is emitted: TypeScript-Go removed the option (TS5102), and all
  * targets are absolute so none is needed.
  */
-function createAliasCompilerOptions(props: {
-  aliasPaths: Record<string, string[]>;
-  compilerOptions: Record<string, unknown>;
-  tsconfig: string;
-}): Record<string, unknown> {
+function createAliasCompilerOptions(
+  props: {
+    aliasPaths: Record<string, string[]>;
+    compilerOptions: Record<string, unknown>;
+    tsconfig: string;
+  },
+  effectivePaths: Record<string, string[]>,
+): Record<string, unknown> {
   if (Object.keys(props.aliasPaths).length === 0) {
     return {};
   }
   return {
     paths: {
-      ...readEffectiveTsconfigPaths(props.tsconfig),
+      ...effectivePaths,
       ...readPaths(props.compilerOptions.paths),
       ...props.aliasPaths,
     },

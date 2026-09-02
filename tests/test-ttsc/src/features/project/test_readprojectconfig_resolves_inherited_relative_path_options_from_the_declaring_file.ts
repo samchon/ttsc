@@ -35,7 +35,7 @@ export const test_readprojectconfig_resolves_inherited_relative_path_options_fro
       JSON.stringify(
         {
           compilerOptions: {
-            baseUrl: "../shared-base",
+            baseUrl: "..\\shared-base",
             rootDir: "../shared-src",
           },
         },

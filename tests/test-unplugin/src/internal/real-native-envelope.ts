@@ -80,8 +80,8 @@ export interface IRealNativeEnvelopeFixture {
 }
 
 interface IRealNativeEnvelopeFixtureOptions {
-  /** Rewrite the selected declaration during the first linked-plugin pass. */
-  raceDeclarationOnce?: boolean;
+  /** Stage config and declaration races across consecutive compile attempts. */
+  raceInputsAcrossAttempts?: boolean;
   /** Include the full resolver-owner and module-suffix probe corpus. */
   resolutionCorpus?: boolean;
 }
@@ -118,7 +118,14 @@ export function createRealNativeEnvelopeFixture(
     "dist",
     "index.d.ts",
   );
-  const excludedSource = path.join(root, "src", "generated", "ignored.ts");
+  const excludedDirectory =
+    options.raceInputsAcrossAttempts === true ? "generated-next" : "generated";
+  const excludedSource = path.join(
+    root,
+    "src",
+    excludedDirectory,
+    "ignored.ts",
+  );
   const missingCandidate = path.join(
     root,
     "node_modules",
@@ -216,7 +223,7 @@ export function createRealNativeEnvelopeFixture(
       "    _ = file.Close()",
       "    return err",
       "  }",
-      "  first := info.Size() == 0",
+      "  attempt := info.Size()",
       "  if _, err := file.Write([]byte{1}); err != nil {",
       "    _ = file.Close()",
       "    return err",
@@ -224,7 +231,8 @@ export function createRealNativeEnvelopeFixture(
       "  if err := file.Close(); err != nil {",
       "    return err",
       "  }",
-      "  if first {",
+      '  raceAttempt, _ := context.Entry.Config["raceAttempt"].(float64)',
+      "  if attempt == int64(raceAttempt) {",
       '    raceFile, _ := context.Entry.Config["raceFile"].(string)',
       '    raceContent, _ := context.Entry.Config["raceContent"].(string)',
       '    if raceFile != "" && raceContent != "" {',
@@ -246,7 +254,7 @@ export function createRealNativeEnvelopeFixture(
     ].join("\n"),
     "tsconfig.json": JSON.stringify(
       {
-        extends: "./presets/base.json",
+        extends: ".\\presets\\base.json",
         compilerOptions: {
           allowJs: true,
           module: "NodeNext",
@@ -256,12 +264,16 @@ export function createRealNativeEnvelopeFixture(
           plugins: [
             {
               name: "real-envelope-compile-probe",
+              raceAttempt:
+                options.raceInputsAcrossAttempts === true ? 1 : undefined,
               raceContent:
-                options.raceDeclarationOnce === true
+                options.raceInputsAcrossAttempts === true
                   ? "export interface Shared { label: string; revision?: number; }\n"
                   : undefined,
               raceFile:
-                options.raceDeclarationOnce === true ? declaration : undefined,
+                options.raceInputsAcrossAttempts === true
+                  ? declaration
+                  : undefined,
               runLog,
               transform: "./plugin.cjs",
             },
@@ -284,7 +296,7 @@ export function createRealNativeEnvelopeFixture(
     "presets/base.json": JSON.stringify({
       compilerOptions: { outDir: "${configDir}\\src\\generated" },
     }),
-    "src/generated/ignored.ts":
+    [`src/${excludedDirectory}/ignored.ts`]:
       'export const ignored = "the templated outDir excludes this source";\n',
     "node_modules/typed-dep/package.json": JSON.stringify(
       {
@@ -462,14 +474,59 @@ export async function assertRealEnvelopeServesSiblingModulesFromOneCompile(): Pr
 /** Assert one real compiler-input race stabilizes inside one shared Promise. */
 export async function assertRealEnvelopeInputRaceStabilizesWithinSharedGeneration(): Promise<void> {
   const fixture = createRealNativeEnvelopeFixture({
-    raceDeclarationOnce: true,
+    raceInputsAcrossAttempts: true,
   });
   const api = await loadApi();
   const cache = api.createTtscTransformCache();
   const options = api.resolveOptions({
+    compilerOptions: { strict: true },
     project: path.join(fixture.root, "tsconfig.json"),
   });
   resetRunLog(fixture.runLog);
+  const leafConfig = path.join(fixture.root, "tsconfig.json");
+  const baseConfig = path.join(fixture.root, "presets", "base.json");
+  const originalWriteFileSync = fs.writeFileSync;
+  let configRaced = false;
+  Object.defineProperty(fs, "writeFileSync", {
+    configurable: true,
+    value: ((...args: unknown[]): unknown => {
+      const output = Reflect.apply(originalWriteFileSync, fs, args);
+      const [file, contents] = args;
+      if (
+        configRaced ||
+        typeof file !== "string" ||
+        typeof contents !== "string" ||
+        path.basename(file) !== "tsconfig.json" ||
+        path.resolve(file) === path.resolve(leafConfig)
+      ) {
+        return output;
+      }
+      let extended: unknown;
+      try {
+        extended = (JSON.parse(contents) as { extends?: unknown }).extends;
+      } catch {
+        return output;
+      }
+      if (
+        typeof extended !== "string" ||
+        path.resolve(extended) !== path.resolve(leafConfig)
+      ) {
+        return output;
+      }
+      configRaced = true;
+      originalWriteFileSync(
+        baseConfig,
+        JSON.stringify({
+          compilerOptions: {
+            outDir: "${configDir}\\src\\generated-next",
+          },
+        }),
+        "utf8",
+      );
+      return output;
+    }) as typeof fs.writeFileSync,
+    writable: true,
+  });
   try {
     await Promise.all(
       fixture.modules.map((file) =>
@@ -483,11 +540,20 @@ export async function assertRealEnvelopeInputRaceStabilizesWithinSharedGeneratio
       ),
     );
     assert.equal(
+      configRaced,
+      true,
+      "the fixture must replace the inherited config after wrapper materialization",
+    );
+    assert.equal(
       programRuns(fixture.runLog),
-      2,
-      "concurrent modules must share the failed attempt and its one retry",
+      3,
+      "concurrent modules must share both failed attempts and the stable retry",
     );
     assert.match(fs.readFileSync(fixture.declaration, "utf8"), /revision/);
+    assert.match(
+      fs.readFileSync(path.join(fixture.root, "presets", "base.json"), "utf8"),
+      /generated-next/,
+    );
     assert.equal(cache.size, 1);
     const stableGeneration = [...cache.values()][0]!;
     assert.equal((await stableGeneration).projectSnapshotComplete, true);
@@ -498,11 +564,16 @@ export async function assertRealEnvelopeInputRaceStabilizesWithinSharedGeneratio
     }
     assert.equal(
       programRuns(fixture.runLog),
-      2,
+      3,
       "every later module must reuse only the stabilized native generation",
     );
     assert.equal([...cache.values()][0], stableGeneration);
   } finally {
+    Object.defineProperty(fs, "writeFileSync", {
+      configurable: true,
+      value: originalWriteFileSync,
+      writable: true,
+    });
     api.resetTtscTransformCache(cache);
   }
 }
