@@ -476,6 +476,7 @@ function state(
   value: IFilesystemState,
   platform: NodeJS.Platform = process.platform,
 ): TtscTransformFilesystemOperations {
+  const pathApi = platform === "win32" ? path.win32 : path.posix;
   const missing = (): never => {
     const error = new Error("missing") as NodeJS.ErrnoException;
     error.code = "ENOENT";
@@ -499,11 +500,11 @@ function state(
       if (
         value.realpath !== undefined &&
         (value.lexical === undefined ||
-          path.resolve(location) === path.resolve(value.lexical))
+          pathApi.resolve(location) === pathApi.resolve(value.lexical))
       ) {
         return value.realpath;
       }
-      return path.resolve(location);
+      return pathApi.resolve(location);
     },
     stat: () => (value.kind === "missing" ? missing() : (stats as never)),
     statBigInt: () => (value.kind === "missing" ? missing() : (stats as never)),
