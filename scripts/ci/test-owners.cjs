@@ -98,6 +98,7 @@ const OWNERSHIP = {
   "node:scripts/ci/gofmt-wrapper.test.cjs": "test.yml lane: typecheck",
   "node:scripts/ci/line-endings.test.cjs": "test.yml lane: typecheck",
   "node:scripts/ci/test-owners.test.cjs": "test.yml lane: typecheck",
+  "node:scripts/ci/unplugin-test-contract.test.cjs": "test.yml lane: typecheck",
   "node:scripts/ci/validation-plan.test.cjs": "test.yml lane: typecheck",
   "node:scripts/ci/go-test-runners.test.cjs": "scripts/test-go.cjs harness",
   "node:scripts/ci/website-compiler-module.test.cjs":
