@@ -947,9 +947,12 @@ function verifyNextBuild() {
  * would notice it stopping: the recognised set is a contract with Turbopack's
  * matcher, and a Next.js upgrade is enough to break it (samchon/ttsc#1319). One
  * lightweight probe loader is registered under every spelling in one real build
- * and records the exact resources each rule matched. The ordinary ttsc rules
- * transform the same root and nested source matrix once. A unit test cannot
- * answer this because it would ask our matcher what our matcher thinks.
+ * and records the exact resources each rule matched. Transformation remains the
+ * preceding build's responsibility: overlapping probe rules compose in
+ * Turbopack and can shadow the wrapper's one automatic rule, so asking this
+ * measurement build for transformed output would make the instrument change the
+ * answer. A unit test cannot answer this because it would ask our matcher what
+ * our matcher thinks.
  */
 function verifyTurbopackRecognisedGlobs() {
   const coverage = installedTurbopackProjectWideGlobCoverage();
@@ -1001,28 +1004,6 @@ function verifyTurbopackRecognisedGlobs() {
     recursive: true,
   });
   run("npx next build --turbopack", workspace);
-
-  for (const [marker, original, depth] of [
-    ["NEXT-INSTALLED-OK", "next-installed-ok", "nested .ts"],
-    ["TURBOPACK-ROOT-OK", "turbopack-root-ok", "root .ts"],
-    ["TURBOPACK-TSX-OK", "turbopack-tsx-ok", "nested .tsx"],
-    ["TURBOPACK-ROOT-TSX-OK", "turbopack-root-tsx-ok", "root .tsx"],
-    ["TURBOPACK-MTS-OK", "turbopack-mts-ok", "nested .mts"],
-    ["TURBOPACK-ROOT-MTS-OK", "turbopack-root-mts-ok", "root .mts"],
-    ["TURBOPACK-CTS-OK", "turbopack-cts-ok", "nested .cts"],
-    ["TURBOPACK-ROOT-CTS-OK", "turbopack-root-cts-ok", "root .cts"],
-    ["TURBOPACK-DEEP-TS-OK", "turbopack-deep-ts-ok", "deep .ts"],
-    ["TURBOPACK-DEEP-TSX-OK", "turbopack-deep-tsx-ok", "deep .tsx"],
-    ["TURBOPACK-DEEP-MTS-OK", "turbopack-deep-mts-ok", "deep .mts"],
-    ["TURBOPACK-DEEP-CTS-OK", "turbopack-deep-cts-ok", "deep .cts"],
-  ]) {
-    assertBuiltTreeContains(
-      "dist-next",
-      marker,
-      `next --turbopack combined glob probe (${depth})`,
-      original,
-    );
-  }
 
   const sourcePaths = new Map([
     [
