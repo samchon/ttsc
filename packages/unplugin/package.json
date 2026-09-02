@@ -228,6 +228,9 @@
     "url": "https://github.com/samchon/ttsc/issues"
   },
   "homepage": "https://ttsc.dev",
-  "sideEffects": false,
+  "sideEffects": [
+    "./lib/bun-register.js",
+    "./lib/bun-register.mjs"
+  ],
   "packageManager": "pnpm@10.6.4"
 }

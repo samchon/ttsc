@@ -54,6 +54,12 @@ async function driveCapturedLoader(
   plugin: CapturedPlugin,
   file: string,
 ): Promise<string> {
+  const loader = await captureLoader(plugin);
+  return (await loader({ path: file })).contents;
+}
+
+/** Set up one captured runtime plugin and return its persistent load handler. */
+async function captureLoader(plugin: CapturedPlugin): Promise<BunLoader> {
   let loader: BunLoader | undefined;
   await plugin.setup({
     onLoad(_options: { filter: RegExp }, handler: BunLoader) {
@@ -61,7 +67,7 @@ async function driveCapturedLoader(
     },
   });
   assert.ok(loader, "captured plugin registered no onLoad handler");
-  return (await loader({ path: file })).contents;
+  return loader;
 }
 
 /**
@@ -101,14 +107,15 @@ async function assertBunRegisterRegistersRuntimePlugin() {
 /**
  * Asserts that accessing the explicit `register(options)` API in the real
  * same-runtime order cannot install a shadowing default loader, and that the
- * explicit options are the ones that transform.
+ * explicit options are the ones that transform and then remain immutable.
  *
  * Bun uses the first matching `onLoad` hook and does not fall through to a
  * later overlapping plugin (oven-sh/bun#20583). The module auto-registers on
  * import, so a caller importing it to reach `register(options)` would, under
  * the old code, get a default plugin registered first that shadows the explicit
  * one. The entry must register exactly one Bun loader whose effective options
- * are resolved on first load, so the later explicit call wins.
+ * are resolved on first load, so calls before that boundary are last-write-wins
+ * and calls after it cannot silently change the session.
  */
 async function assertBunRegisterSameRuntimeExplicitOptionsWin(): Promise<void> {
   const captured: CapturedPlugin[] = [];
@@ -117,22 +124,47 @@ async function assertBunRegisterSameRuntimeExplicitOptionsWin(): Promise<void> {
 
     // Import-time auto-registration produced exactly one loader.
     assert.equal(captured.length, 1);
+    const loader = await captureLoader(captured[0]!);
 
-    // Accessing the explicit API afterwards must not add a second, shadowing
-    // loader; it updates the single loader's effective options.
+    // Calls after setup but before the first load replace one detached snapshot
+    // without adding a second, shadowing loader.
     register({
       plugins: [{ transform: "./plugin.cjs", name: "prefix", prefix: "A:" }],
     });
+    const supplied = {
+      plugins: [{ transform: "./plugin.cjs", name: "prefix", prefix: "B:" }],
+    };
+    register(supplied);
+    supplied.plugins[0]!.prefix = "MUTATED:";
     assert.equal(captured.length, 1);
 
-    // The single effective loader must apply the explicit options, not
-    // defaults: the fixture's tsconfig declares no such prefix plugin.
     const root = TestUnpluginProject.createProject({ plugins: [] });
-    const output = await driveCapturedLoader(
-      captured[0]!,
-      TestUnpluginProject.mainFile(root),
+    const output = await loader({ path: TestUnpluginProject.mainFile(root) });
+    assert.match(output.contents, /"B:plugin"/);
+    assert.doesNotMatch(output.contents, /MUTATED:/);
+
+    // A structurally equal post-lock call is idempotent. A different one must
+    // fail clearly instead of returning success while the loader keeps B.
+    register({
+      plugins: [{ transform: "./plugin.cjs", name: "prefix", prefix: "B:" }],
+    });
+    assert.throws(
+      () =>
+        register({
+          plugins: [
+            { transform: "./plugin.cjs", name: "prefix", prefix: "C:" },
+          ],
+        }),
+      /options are locked[\s\S]*Restart the Bun process/,
     );
-    assert.match(output, /"A:plugin"/);
+    assert.equal(captured.length, 1);
+
+    const laterRoot = TestUnpluginProject.createProject({ plugins: [] });
+    const later = await loader({
+      path: TestUnpluginProject.mainFile(laterRoot),
+    });
+    assert.match(later.contents, /"B:plugin"/);
+    assert.doesNotMatch(later.contents, /"C:plugin"/);
   });
 }
 
@@ -148,7 +180,7 @@ async function assertBunRegisterSameRuntimeExplicitOptionsWin(): Promise<void> {
 async function assertBunRegisterPreloadOnlyRegistersOneDefaultPlugin(): Promise<void> {
   const captured: CapturedPlugin[] = [];
   await withBunRuntime(captured, async () => {
-    await importFreshBunRegister();
+    const register = await importFreshBunRegister();
 
     assert.equal(captured.length, 1);
 
@@ -158,6 +190,10 @@ async function assertBunRegisterPreloadOnlyRegistersOneDefaultPlugin(): Promise<
       TestUnpluginProject.mainFile(root),
     );
     TestUnpluginProject.assertTransformedToPlugin(output);
+    assert.doesNotThrow(
+      () => register(),
+      "repeating the locked default configuration must be idempotent",
+    );
   });
 }
 

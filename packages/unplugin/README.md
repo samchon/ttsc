@@ -183,7 +183,7 @@ import register from "@ttsc/unplugin/bun-register";
 register({ project: "tsconfig.build.json" });
 ```
 
-Importing the module registers it, so a bare `import "@ttsc/unplugin/bun-register"` is enough when the defaults are right. Registration is idempotent: a later explicit call updates the options rather than installing a second loader, because Bun uses the first matching `onLoad` hook and never falls through to an overlapping one.
+Importing the module registers it, so a bare `import "@ttsc/unplugin/bun-register"` is enough when the defaults are right. Calls made before the first transformable TypeScript load use last-call-wins and capture their options by value, which lets an immediate explicit call replace the preload defaults without installing a second loader. The first such load locks the options for the module-loading session. A later call with the same structural value is idempotent, while a different value throws and requires restarting the Bun process.
 
 Under `Bun.build`, the adapter yields to the next loader for declarations, `node_modules`, source that `ttsc` leaves unchanged, and entries supplied through `Bun.build({ files })`. In-memory entries remain with Bun because ttsc transforms filesystem-backed project inputs. Bun's runtime `onLoad` contract does not accept an undefined result, so `Bun.plugin()` explicitly passes excluded and unchanged filesystem files through with their original source. `Bun.build` clears the project generation through its `onStart` lifecycle on every build. The runtime API has no corresponding hook, so one setup is treated as one immutable module-loading session: restart the Bun process after changing source, tsconfig, or plugin inputs.
 

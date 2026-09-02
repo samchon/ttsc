@@ -223,6 +223,7 @@ function prepareWorkspace() {
   writeSource("rollup-entry.ts", "rollup-installed-ok");
   writeSource("rolldown-entry.ts", "rolldown-installed-ok");
   writeSource("esbuild-entry.ts", "esbuild-installed-ok");
+  writeBunRegisterOptimizerEntry();
   writeSource("webpack-entry.ts", "webpack-installed-ok");
   writeSource("rspack-entry.ts", "rspack-installed-ok");
   writeSource("farm-entry.ts", "farm-installed-ok");
@@ -249,6 +250,25 @@ function writeSource(file, marker) {
     [`export const value = mark("${marker}");`, "console.log(value);", ""].join(
       "\n",
     ),
+    "utf8",
+  );
+}
+
+/** Prove a packed bare runtime-registration import survives optimization. */
+function writeBunRegisterOptimizerEntry() {
+  fs.writeFileSync(
+    path.join(workspace, "src", "bun-register-optimizer-entry.ts"),
+    [
+      'import "@ttsc/unplugin/bun-register";',
+      "",
+      "const registrations = (globalThis as { __ttscBunRegistrations?: number })",
+      "  .__ttscBunRegistrations;",
+      "if (registrations !== 1) {",
+      "  throw new Error(`expected one Bun registration, received ${registrations}`);",
+      "}",
+      'console.log("BUN-REGISTER-OPTIMIZER-OK");',
+      "",
+    ].join("\n"),
     "utf8",
   );
 }
@@ -603,10 +623,19 @@ function writeEsbuildConfig() {
       "",
       "esbuild",
       "  .build({",
-      '  entryPoints: ["src/esbuild-entry.ts"],',
+      "  entryPoints: {",
+      '    "esbuild-entry": "src/esbuild-entry.ts",',
+      '    "bun-register-optimizer-entry": "src/bun-register-optimizer-entry.ts",',
+      "  },",
       "  bundle: true,",
+      '  external: ["ttsc", "unplugin"],',
       '  format: "esm",',
-      '  outfile: "dist-esbuild/esbuild-entry.js",',
+      "  banner: {",
+      "    js:",
+      '      "globalThis.__ttscBunRegistrations = 0; globalThis.Bun = { plugin() { globalThis.__ttscBunRegistrations += 1; } };",',
+      "  },",
+      '  outdir: "dist-esbuild",',
+      '  platform: "node",',
       '  plugins: [ttsc({ project: "tsconfig.unplugin.json" })],',
       "  })",
       "  .catch((error) => {",
@@ -837,6 +866,14 @@ function verifyEsbuildBuild() {
     "dist-esbuild/esbuild-entry.js",
     "ESBUILD-INSTALLED-OK",
     "esbuild",
+  );
+  const { stdout } = run(
+    "node dist-esbuild/bun-register-optimizer-entry.js",
+    workspace,
+  );
+  assert(
+    stdout.includes("BUN-REGISTER-OPTIMIZER-OK"),
+    "esbuild must retain the packed bun-register bare import and execute it exactly once",
   );
 }
 
@@ -1136,22 +1173,8 @@ function verifyBunRuntime() {
     "utf8",
   );
   fs.writeFileSync(
-    path.join(workspace, "bun-runtime-preload.mjs"),
-    [
-      // Runtime counterpart of the Bun.build adapter: register the transform on
-      // Bun's module loader so `bun run` applies it on import. Registered once
-      // via the adapter with the harness's explicit (non-default) tsconfig —
-      // `@ttsc/unplugin/bun-register` is the shipped one-liner wrapper for this,
-      // covered by its own unit test and the entrypoint resolution check.
-      'import ttsc from "@ttsc/unplugin/bun";',
-      'globalThis.Bun.plugin(ttsc({ project: "tsconfig.unplugin.json" }));',
-      "",
-    ].join("\n"),
-    "utf8",
-  );
-  fs.writeFileSync(
     path.join(workspace, "bunfig.toml"),
-    ['preload = ["./bun-runtime-preload.mjs"]', ""].join("\n"),
+    ['preload = ["@ttsc/unplugin/bun-register"]', ""].join("\n"),
     "utf8",
   );
   const { stdout } = run("bun run src/bun-runtime-entry.ts", workspace);

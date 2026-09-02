@@ -36,10 +36,10 @@ export type BunLoader = "ts" | "tsx";
  *
  * The provider form exists for the runtime registration path (`bun-register`),
  * where a single Bun plugin is registered on import but its effective options
- * may be overridden by an explicit `register(options)` call made in the same
- * synchronous tick. Resolving through the provider on first load, rather than
- * at registration, lets that later call win without Bun ever seeing a second
- * shadowing loader.
+ * may be overridden by explicit `register(options)` calls made before the first
+ * transformable TypeScript load. Resolving through the provider on that first
+ * load, rather than at registration, lets the last pending call win without Bun
+ * ever seeing a second shadowing loader.
  */
 export type TtscBunOptions =
   | TtscUnpluginOptions
@@ -137,10 +137,10 @@ export default function bun(options?: TtscBunOptions): BunLikePlugin {
   return {
     name: "ttsc-unplugin",
     setup(build) {
-      // Resolve options lazily on first load. Runtime registration may call
-      // register(options) immediately after the import-time default
-      // registration; the provider form must observe that last synchronous
-      // update without installing a second shadowing loader.
+      // Resolve options lazily on the first transformable TypeScript load.
+      // Runtime registration may replace its pending configuration at any time
+      // before then; the provider form must observe that last update without
+      // installing a second shadowing loader.
       let resolved: ReturnType<typeof resolveOptions> | undefined;
       const getOptions = () =>
         (resolved ??= resolveOptions(resolveBunOptions(options)));

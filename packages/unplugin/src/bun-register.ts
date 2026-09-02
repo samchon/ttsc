@@ -1,3 +1,5 @@
+import { isDeepStrictEqual } from "node:util";
+
 import bun, { type BunLikePlugin } from "./bun";
 import type { TtscUnpluginOptions } from "./core/options";
 
@@ -13,17 +15,18 @@ interface BunRuntimeGlobal {
 }
 
 /**
- * Effective options for the single runtime loader.
+ * Pending and locked options for the single runtime loader.
  *
  * Bun uses the first matching `onLoad` hook and does not fall through to a
  * later overlapping plugin (oven-sh/bun#20583). Registering twice — once
  * implicitly on import, once explicitly — would let the default loader shadow
- * the configured one. Instead exactly one Bun plugin is registered; it resolves
- * these options lazily on first load (see {@link bun}'s provider form), so an
- * explicit `register(options)` made right after importing this module overrides
- * the preload defaults without a second shadowing registration.
+ * the configured one. Instead exactly one Bun plugin is registered. Calls made
+ * before its first load replace this detached snapshot; the first load locks
+ * that value for the process's immutable module-loading session.
  */
 let activeOptions: TtscUnpluginOptions | undefined;
+let lockedOptions: TtscUnpluginOptions | undefined;
+let optionsLocked = false;
 /** Whether the single runtime loader has already been registered with Bun. */
 let registered = false;
 
@@ -39,14 +42,16 @@ let registered = false;
  * "@ttsc/unplugin/bun-register"`. Options are read from the nearest
  * `tsconfig.json`, identical to the bundler adapters.
  *
- * Registration is idempotent: the first call (implicit on import, or explicit)
- * registers the one loader with Bun; later calls only update the effective
- * options, so accessing the explicit API cannot install a second default loader
- * that shadows the caller's configuration. Repeated explicit calls are
- * last-write-wins for the effective options.
+ * The first call registers one loader. Calls before its first TypeScript load
+ * use last-call-wins and capture options by value, so an explicit call right
+ * after importing this module replaces the preload defaults without installing
+ * a shadowing loader. The first load locks that snapshot. Later calls with a
+ * structurally identical value are idempotent; a different value throws rather
+ * than pretending a resolved loader changed configuration.
  *
- * @throws When called explicitly off the Bun runtime (`globalThis.Bun.plugin`
- *   is unavailable). The auto-registration below stays silent off Bun so the
+ * @throws When called explicitly off the Bun runtime, when options are not
+ *   structured-cloneable, or when a different option value is supplied after
+ *   the first load. The auto-registration below stays silent off Bun so the
  *   module is harmless to import from Node (tests, tooling).
  */
 export function register(options?: TtscUnpluginOptions): void {
@@ -58,15 +63,52 @@ export function register(options?: TtscUnpluginOptions): void {
         "@ttsc/unplugin/vite for non-Bun toolchains.",
     );
   }
-  activeOptions = options;
+  const snapshot = snapshotOptions(options);
+  if (optionsLocked) {
+    if (isDeepStrictEqual(snapshot, lockedOptions)) {
+      return;
+    }
+    throw new Error(
+      "@ttsc/unplugin/bun-register options are locked because the runtime " +
+        "loader has already handled a TypeScript module. Restart the Bun " +
+        "process to use different compiler or plugin options.",
+    );
+  }
+  activeOptions = snapshot;
   if (registered) {
     return;
   }
   registered = true;
-  // Register a single loader whose options are read from `activeOptions` on
-  // first load, so an explicit call made after the import-time auto-register
-  // still wins.
-  runtime.plugin(bun(() => activeOptions));
+  try {
+    runtime.plugin(bun(lockOptions));
+  } catch (error) {
+    registered = false;
+    throw error;
+  }
+}
+
+/** Lock and return the detached option snapshot on the first module load. */
+function lockOptions(): TtscUnpluginOptions | undefined {
+  if (!optionsLocked) {
+    lockedOptions = activeOptions;
+    optionsLocked = true;
+  }
+  return lockedOptions;
+}
+
+/** Detach JSON-shaped options from mutations made after `register` returns. */
+function snapshotOptions(
+  options: TtscUnpluginOptions | undefined,
+): TtscUnpluginOptions | undefined {
+  if (options === undefined) return undefined;
+  try {
+    return structuredClone(options);
+  } catch (cause) {
+    throw new TypeError(
+      "@ttsc/unplugin/bun-register options must contain structured-cloneable values.",
+      { cause },
+    );
+  }
 }
 
 function bunRuntime(): BunRuntimeGlobal | undefined {

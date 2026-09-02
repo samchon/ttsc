@@ -216,7 +216,7 @@ import { register } from "@ttsc/unplugin/bun-register";
 register({ project: "tsconfig.build.json" });
 ```
 
-One runtime registration is one immutable module-loading session. Restart the Bun process after changing source, tsconfig, or plugin inputs.
+Importing `@ttsc/unplugin/bun-register` registers exactly one runtime loader. Calls made before the first transformable TypeScript load use last-call-wins and capture their options by value, so an immediate explicit call can replace the preload defaults. The first such load locks the options for the immutable module-loading session. A later call with the same structural value is idempotent, while a different value throws. Restart the Bun process after changing registration options, source, tsconfig, or plugin inputs.
 
 ## Options
 
