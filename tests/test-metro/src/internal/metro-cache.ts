@@ -1,4 +1,8 @@
-import { TestProject, TestUnpluginProject } from "@ttsc/testing";
+import {
+  TestProject,
+  TestUnpluginProject,
+  TestUnpluginRuntime,
+} from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -819,11 +823,10 @@ export async function assertCacheKeyChangesWhenTheTsconfigChanges(): Promise<voi
  * (samchon/ttsc#1316), all of them the same shape: one product answering one
  * question two ways.
  *
- * The overlay is the one with consequences. The adapter builds its policy as
- * the project config plus the caller's compiler-options overlay, because the
- * overlay wins for the compile and so must win for the membership rule. Metro
- * read the project config alone, so `withTtsc(config, { compilerOptions: {
- * allowJs: true } })` gave its walk a narrower program than the compile has.
+ * The overlay is the one with consequences. It can widen the program through
+ * `allowJs`, and path-valued options must replace the inherited `outDir` and
+ * `declarationDir` exclusions rather than append to them. The adapter and Metro
+ * must derive the same final policy from that effective configuration.
  *
  * The directory stamp and the per-input lookup are cost rather than
  * correctness, and both are measured in the issue.
@@ -831,25 +834,64 @@ export async function assertCacheKeyChangesWhenTheTsconfigChanges(): Promise<voi
 export async function assertMetroAsksTheAdaptersPolicy(): Promise<void> {
   const fingerprint = await TestMetroRuntime.loadFingerprint();
   const root = createBareProject();
+  const leaf = path.join(root, "tsconfig.json");
+  const configured = JSON.parse(fs.readFileSync(leaf, "utf8")) as {
+    compilerOptions: Record<string, unknown>;
+  };
+  configured.compilerOptions.outDir = "src/inherited-output";
+  configured.compilerOptions.declarationDir = "src/inherited-declarations";
+  fs.writeFileSync(leaf, JSON.stringify(configured), "utf8");
 
   const strict = fingerprint.resolveProjectView({ projectRoot: root });
   assert.ok(
     !strict.policy.inputExtensions.includes(".js"),
     `a project without allowJs must not admit .js (got ${strict.policy.inputExtensions.join(" ")})`,
   );
+  assert.ok(
+    strict.policy.excludedDirectories.includes(
+      path.join(root, "src", "inherited-output"),
+    ),
+    "without an overlay Metro must retain the inherited outDir exclusion",
+  );
+  assert.ok(
+    strict.policy.excludedDirectories.includes(
+      path.join(root, "src", "inherited-declarations"),
+    ),
+    "without an overlay Metro must retain the inherited declarationDir exclusion",
+  );
 
+  const overlay = {
+    allowJs: true,
+    declarationDir: "types",
+    outDir: "build",
+  };
   const widened = fingerprint.resolveProjectView({
-    compilerOptions: { allowJs: true },
+    compilerOptions: overlay,
     projectRoot: root,
   });
   assert.ok(
     widened.policy.inputExtensions.includes(".js"),
     "the caller's compiler-options overlay must widen Metro's policy too",
   );
+  assert.deepEqual(
+    [...widened.policy.excludedDirectories].sort(),
+    [path.join(root, "build"), path.join(root, "types")].sort(),
+    "Metro must replace inherited output-directory exclusions with the overlay values",
+  );
+  const unplugin = await TestUnpluginRuntime.loadUnpluginApi();
+  const adapterPolicy = unplugin.mergeMembershipPolicyOverlay(
+    unplugin.readProjectMembershipPolicy(leaf),
+    overlay,
+    root,
+  );
+  assert.deepEqual(
+    widened.policy,
+    adapterPolicy,
+    "Metro and the unplugin adapter must resolve the same final membership policy",
+  );
 
   // A directory occupying an `extends` candidate can never be the config, so
   // its children must not churn the memo.
-  const leaf = path.join(root, "tsconfig.json");
   const declared = JSON.parse(fs.readFileSync(leaf, "utf8")) as object;
   fs.writeFileSync(
     leaf,
@@ -926,18 +968,31 @@ export async function assertMetroAsksTheAdaptersPolicy(): Promise<void> {
  * neither half, and Metro serves its dependents' transforms across runs with
  * nothing to notice the edit by.
  *
- * The strict control is what makes the positive case mean anything. Without the
- * overlay the same `.js` is not a program input at all, so leaving the key
- * alone is correct there, and an implementation that simply hashed every file
- * would fail it.
+ * The same scenario also pins path-option replacement. New TypeScript sources
+ * under the old declaration directory enter the key after the overlay, while
+ * emitted TypeScript under the replacement output directories remains absent.
+ * The strict control is what makes the extension positive case meaningful.
  */
 export async function assertCacheKeyCoversOverlayAdmittedSources(): Promise<void> {
   const root = createBareProject();
+  const tsconfig = path.join(root, "tsconfig.json");
+  const configured = JSON.parse(fs.readFileSync(tsconfig, "utf8")) as {
+    compilerOptions: Record<string, unknown>;
+  };
+  configured.compilerOptions.outDir = "src/inherited-output";
+  configured.compilerOptions.declarationDir = "src/inherited-declarations";
+  fs.writeFileSync(tsconfig, JSON.stringify(configured), "utf8");
   const legacy = path.join(root, "src", "legacy.js");
   fs.writeFileSync(legacy, "export const legacy = 1;\n", "utf8");
   await prepareSnapshot(root);
 
-  const overlay = { compilerOptions: { allowJs: true } };
+  const overlay = {
+    compilerOptions: {
+      allowJs: true,
+      declarationDir: "types",
+      outDir: "build",
+    },
+  };
   const before = await cacheKeyForRun(root, overlay);
   fs.writeFileSync(legacy, "export const legacy = 2;\n", "utf8");
   assert.notEqual(
@@ -960,6 +1015,42 @@ export async function assertCacheKeyCoversOverlayAdmittedSources(): Promise<void
     appeared,
     await cacheKeyForRun(root, overlay),
     "under allowJs a .js the program gains must re-key the run",
+  );
+
+  const outputStable = await cacheKeyForRun(root, overlay);
+  for (const output of ["build/emitted.ts", "types/emitted.ts"]) {
+    const absolute = path.join(root, ...output.split("/"));
+    fs.mkdirSync(path.dirname(absolute), { recursive: true });
+    fs.writeFileSync(absolute, "export const emitted: number = 1;\n", "utf8");
+  }
+  assert.equal(
+    outputStable,
+    await cacheKeyForRun(root, overlay),
+    "the overlay outDir and declarationDir must stay outside Metro's key",
+  );
+
+  const admitted = path.join(root, "src", "inherited-declarations", "late.ts");
+  fs.mkdirSync(path.dirname(admitted), { recursive: true });
+  fs.writeFileSync(admitted, "export const late: number = 1;\n", "utf8");
+  const afterCreation = await cacheKeyForRun(root, overlay);
+  assert.notEqual(
+    outputStable,
+    afterCreation,
+    "creating a source under the replaced inherited declarationDir must re-key Metro",
+  );
+  fs.writeFileSync(admitted, "export const late: number = 2;\n", "utf8");
+  const afterEdit = await cacheKeyForRun(root, overlay);
+  assert.notEqual(
+    afterCreation,
+    afterEdit,
+    "editing a source under the replaced inherited declarationDir must re-key Metro",
+  );
+  fs.rmSync(admitted);
+  const afterRemoval = await cacheKeyForRun(root, overlay);
+  assert.notEqual(
+    afterEdit,
+    afterRemoval,
+    "removing a source under the replaced inherited declarationDir must re-key Metro",
   );
 
   const strict = await cacheKeyForRun(root);

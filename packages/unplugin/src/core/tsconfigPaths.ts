@@ -51,6 +51,9 @@ export function readEffectiveTsconfigPaths(
 /** Extensions admitted only when `allowJs` widens the program. */
 const JAVASCRIPT_INPUT_EXTENSIONS = [".js", ".jsx", ".mjs", ".cjs"];
 
+/** Compiler options that exclude exactly one resolved output directory. */
+const OUTPUT_DIRECTORY_OPTIONS = ["outDir", "declarationDir"] as const;
+
 /**
  * What the resolved configuration says can and cannot enter the program.
  *
@@ -63,6 +66,20 @@ const JAVASCRIPT_INPUT_EXTENSIONS = [".js", ".jsx", ".mjs", ".cjs"];
  * dropped from the walk entirely (samchon/ttsc#1307).
  */
 export interface ITtscProjectMembershipPolicy {
+  /**
+   * Absolute directory exclusions separated by the configuration entry that
+   * contributed them.
+   *
+   * Optional for compatibility with hosts that constructed this public policy
+   * before exclusion provenance was exposed. Without it, an overlay preserves
+   * every entry in `excludedDirectories` as an explicit exclusion because
+   * silently admitting a directory is the unsafe fallback.
+   */
+  directoryExclusionOrigins?: Readonly<{
+    declarationDir?: string;
+    exclude: readonly string[];
+    outDir?: string;
+  }>;
   /** Absolute directories the resolved configuration keeps out of the program. */
   excludedDirectories: readonly string[];
   /** Lowercased extensions a file needs to be a possible program input. */
@@ -79,6 +96,21 @@ export interface ITtscProjectMembershipPolicy {
   sources: readonly string[];
 }
 
+/** Flatten provenance into the directory list consumed by the project walk. */
+function flattenDirectoryExclusionOrigins(
+  origins: NonNullable<
+    ITtscProjectMembershipPolicy["directoryExclusionOrigins"]
+  >,
+): string[] {
+  return [
+    ...OUTPUT_DIRECTORY_OPTIONS.flatMap((key) => {
+      const directory = origins[key];
+      return directory === undefined ? [] : [directory];
+    }),
+    ...origins.exclude,
+  ];
+}
+
 /**
  * The policy every project falls back to when no configuration is available.
  *
@@ -88,6 +120,7 @@ export interface ITtscProjectMembershipPolicy {
  */
 export const PERMISSIVE_PROJECT_MEMBERSHIP_POLICY: ITtscProjectMembershipPolicy =
   {
+    directoryExclusionOrigins: { exclude: [] },
     excludedDirectories: [],
     inputExtensions: [
       ...TYPESCRIPT_TRANSFORM_EXTENSIONS,
@@ -140,8 +173,12 @@ export function readProjectMembershipPolicy(
     inputExtensions.push(".json");
   }
 
-  const excludedDirectories: string[] = [];
-  for (const key of ["outDir", "declarationDir"]) {
+  const directoryExclusionOrigins: {
+    declarationDir?: string;
+    exclude: string[];
+    outDir?: string;
+  } = { exclude: [] };
+  for (const key of OUTPUT_DIRECTORY_OPTIONS) {
     const declared = findDeclaredValue(
       resolved,
       (parsed) => {
@@ -155,7 +192,10 @@ export function readProjectMembershipPolicy(
       sources,
     );
     if (declared !== null) {
-      excludedDirectories.push(path.resolve(declared.baseDir, declared.value));
+      directoryExclusionOrigins[key] = path.resolve(
+        declared.baseDir,
+        declared.value,
+      );
     }
   }
   const excluded = findDeclaredValue(
@@ -178,10 +218,19 @@ export function readProjectMembershipPolicy(
       if (plain.length === 0 || /[*?]/.test(plain)) {
         continue;
       }
-      excludedDirectories.push(path.resolve(excluded.baseDir, plain));
+      directoryExclusionOrigins.exclude.push(
+        path.resolve(excluded.baseDir, plain),
+      );
     }
   }
-  return { excludedDirectories, inputExtensions, sources: [...sources] };
+  return {
+    directoryExclusionOrigins,
+    excludedDirectories: flattenDirectoryExclusionOrigins(
+      directoryExclusionOrigins,
+    ),
+    inputExtensions,
+    sources: [...sources],
+  };
 }
 
 /**
@@ -215,15 +264,27 @@ export function mergeMembershipPolicyOverlay(
   applyFlag("allowJs", JAVASCRIPT_INPUT_EXTENSIONS);
   applyFlag("resolveJsonModule", [".json"]);
 
-  const excludedDirectories = [...policy.excludedDirectories];
-  for (const key of ["outDir", "declarationDir"]) {
+  const inheritedOrigins = policy.directoryExclusionOrigins;
+  const directoryExclusionOrigins: {
+    declarationDir?: string;
+    exclude: string[];
+    outDir?: string;
+  } = {
+    declarationDir: inheritedOrigins?.declarationDir,
+    exclude: [...(inheritedOrigins?.exclude ?? policy.excludedDirectories)],
+    outDir: inheritedOrigins?.outDir,
+  };
+  for (const key of OUTPUT_DIRECTORY_OPTIONS) {
     const value = compilerOptions[key];
     if (typeof value === "string" && value.length !== 0) {
-      excludedDirectories.push(path.resolve(baseDir, value));
+      directoryExclusionOrigins[key] = path.resolve(baseDir, value);
     }
   }
   return {
-    excludedDirectories,
+    directoryExclusionOrigins,
+    excludedDirectories: flattenDirectoryExclusionOrigins(
+      directoryExclusionOrigins,
+    ),
     inputExtensions: [...inputExtensions],
     sources: policy.sources,
   };
