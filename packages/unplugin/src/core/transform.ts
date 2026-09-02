@@ -703,17 +703,18 @@ function clearTtscTransformCache(cache: TtscTransformCache): void {
  * the adapter so it does not rederive it per input per delivery.
  *
  * Both facts are generation state: the identity is the memoized
- * {@link pathIdentityKey} of the input, and `missing` is the existence the
- * generation recorded and every cache hit revalidates. An adapter that computes
- * them itself pays a `realpath`, a case-sensitivity directory listing, and an
- * `existsSync` for every input of every delivered module, which is O(modules x
- * inputs) for one build (samchon/ttsc#1246).
+ * {@link pathIdentityKey} of the input, and `unavailable` says whether the
+ * recorded predicate waits for any path or specifically for a non-directory
+ * file. An adapter that computes them itself pays a `realpath`, a
+ * case-sensitivity directory listing, and an `existsSync` for every input of
+ * every delivered module, which is O(modules x inputs) for one build
+ * (samchon/ttsc#1246).
  */
 export interface TtscWatchInputEvidence {
   /** Memoized filesystem identity of the input. */
   identity: string;
-  /** Whether the generation recorded this input as absent. */
-  missing: boolean;
+  /** Which unavailable predicate must become true before invalidation. */
+  unavailable?: "missing" | "not-file";
 }
 
 /**
@@ -1265,11 +1266,11 @@ interface TtscEnvelopeGraphIndexes {
   /** Resolved absolute `graph.globals` and `graph.configs` members. */
   readonly globals: string[];
   readonly configs: string[];
-  /** Every realized/candidate graph path, keyed by filesystem identity. */
-  readonly members: Set<string>;
+  /** Every realized/candidate graph path, keyed by absolute lexical spelling. */
+  readonly memberSpellings: Set<string>;
   /**
    * Members the envelope reported only under `graph.candidates`, keyed by
-   * filesystem identity.
+   * absolute lexical spelling.
    *
    * A superseding candidate is by construction a path the compiler did not
    * select, and usually one it never read at all: resolution stopped at the
@@ -1283,14 +1284,14 @@ interface TtscEnvelopeGraphIndexes {
    * config) is absent from this set and keeps the realized standard.
    */
   readonly speculative: Set<string>;
-  /** Compiler-time proof for graph members, keyed by filesystem identity. */
+  /** Compiler-time legacy proof keyed by absolute lexical spelling. */
   readonly inputProofs: Map<
     string,
     { hash: string | null; path: string; realpath: string | null }
   >;
-  /** Native compiler-observation failure for an unproven member identity. */
+  /** Native compiler-observation failure keyed by absolute lexical spelling. */
   readonly inputProofFailures: Map<string, string>;
-  /** Aliased graph proof keys that reported contradictory generation states. */
+  /** Graph proof spellings that reported contradictory generation states. */
   readonly inputProofConflicts: Set<string>;
   /** Predicate-preserving proofs keyed by absolute lexical spelling. */
   readonly inputObservations: Map<
@@ -1352,7 +1353,7 @@ function envelopeGraphIndexes(
     candidates: [],
     globals: [],
     configs: [],
-    members: new Set(),
+    memberSpellings: new Set(),
     speculative: new Set(),
     inputProofs: new Map(),
     inputProofFailures: new Map(),
@@ -1369,7 +1370,7 @@ function envelopeGraphIndexes(
       }
       const absolute = path.resolve(props.projectRoot, source);
       const identity = derivationIdentity(state, absolute);
-      built.members.add(identity);
+      built.memberSpellings.add(absolute);
       built.spellings.set(identity, absolute);
       const entries = built.edges.get(identity) ?? [];
       entries.push(
@@ -1381,7 +1382,7 @@ function envelopeGraphIndexes(
           .map((target) => {
             const absoluteTarget = path.resolve(props.projectRoot, target);
             const targetIdentity = derivationIdentity(state, absoluteTarget);
-            built.members.add(targetIdentity);
+            built.memberSpellings.add(absoluteTarget);
             if (!built.spellings.has(targetIdentity)) {
               built.spellings.set(targetIdentity, absoluteTarget);
             }
@@ -1394,7 +1395,7 @@ function envelopeGraphIndexes(
     built.configs.push(...selectListedFiles(props.projectRoot, graph.configs));
     for (const input of [...built.globals, ...built.configs]) {
       const identity = derivationIdentity(state, input);
-      built.members.add(identity);
+      built.memberSpellings.add(path.resolve(input));
       if (!built.spellings.has(identity)) built.spellings.set(identity, input);
     }
     const candidateEntries = Object.entries(graph.candidates ?? {}).filter(
@@ -1407,12 +1408,12 @@ function envelopeGraphIndexes(
     for (const [source] of candidateEntries) {
       const absoluteSource = path.resolve(props.projectRoot, source);
       const identity = derivationIdentity(state, absoluteSource);
-      built.members.add(identity);
+      built.memberSpellings.add(absoluteSource);
       if (!built.spellings.has(identity)) {
         built.spellings.set(identity, absoluteSource);
       }
     }
-    const realized = new Set(built.members);
+    const realized = new Set(built.memberSpellings);
     for (const [source, candidates] of candidateEntries) {
       built.candidates.push({
         source: derivationIdentity(
@@ -1423,30 +1424,26 @@ function envelopeGraphIndexes(
       });
       for (const candidate of candidates) {
         if (typeof candidate !== "string" || candidate.length === 0) continue;
-        const identity = derivationIdentity(
-          state,
-          path.resolve(props.projectRoot, candidate),
-        );
+        const absoluteCandidate = path.resolve(props.projectRoot, candidate);
+        const identity = derivationIdentity(state, absoluteCandidate);
         // Edges, globals, configs, and every candidate source are folded in
         // above, so a path absent from that set is one the envelope reported
         // only as a candidate.
-        if (!realized.has(identity)) built.speculative.add(identity);
-        built.members.add(identity);
+        if (!realized.has(absoluteCandidate)) {
+          built.speculative.add(absoluteCandidate);
+        }
+        built.memberSpellings.add(absoluteCandidate);
         if (!built.spellings.has(identity)) {
-          built.spellings.set(
-            identity,
-            path.resolve(props.projectRoot, candidate),
-          );
+          built.spellings.set(identity, absoluteCandidate);
         }
       }
     }
-    const transformSources = new Set<string>();
+    const transformSourceSpellings = new Set<string>();
     if (props.result.type === "success") {
       for (const output of Object.keys(props.result.typescript)) {
         if (!isDeclarationFile(output)) {
-          transformSources.add(
-            derivationIdentity(state, path.resolve(props.projectRoot, output)),
-          );
+          const absoluteOutput = path.resolve(props.projectRoot, output);
+          transformSourceSpellings.add(absoluteOutput);
         }
       }
     }
@@ -1455,16 +1452,18 @@ function envelopeGraphIndexes(
     )) {
       if (input.length === 0) continue;
       const absolute = path.resolve(props.projectRoot, input);
-      const identity = derivationIdentity(state, absolute);
-      if (!built.members.has(identity) && !transformSources.has(identity)) {
+      const spelling = path.resolve(absolute);
+      if (
+        !built.memberSpellings.has(spelling) &&
+        !transformSourceSpellings.has(spelling)
+      ) {
         continue;
       }
       const normalized = normalizeGraphInputObservation(reported);
-      const spelling = path.resolve(absolute);
       if (normalized === undefined) {
         built.inputObservationConflicts.add(spelling);
-        if (!built.inputProofFailures.has(identity)) {
-          built.inputProofFailures.set(identity, "malformed-observation");
+        if (!built.inputProofFailures.has(spelling)) {
+          built.inputProofFailures.set(spelling, "malformed-observation");
         }
         continue;
       }
@@ -1476,8 +1475,8 @@ function envelopeGraphIndexes(
       if (merged === undefined) {
         built.inputObservations.delete(spelling);
         built.inputObservationConflicts.add(spelling);
-        if (!built.inputProofFailures.has(identity)) {
-          built.inputProofFailures.set(identity, "conflicting-observation");
+        if (!built.inputProofFailures.has(spelling)) {
+          built.inputProofFailures.set(spelling, "conflicting-observation");
         }
       } else if (!built.inputObservationConflicts.has(spelling)) {
         built.inputObservations.set(spelling, merged);
@@ -1505,8 +1504,11 @@ function envelopeGraphIndexes(
         continue;
       }
       const absolute = path.resolve(props.projectRoot, input);
-      const identity = derivationIdentity(state, absolute);
-      if (!built.members.has(identity) && !transformSources.has(identity)) {
+      const spelling = path.resolve(absolute);
+      if (
+        !built.memberSpellings.has(spelling) &&
+        !transformSourceSpellings.has(spelling)
+      ) {
         continue;
       }
       const proof = {
@@ -1515,7 +1517,7 @@ function envelopeGraphIndexes(
         realpath:
           reportedRealpath === null ? null : path.resolve(reportedRealpath),
       };
-      const previous = built.inputProofs.get(identity);
+      const previous = built.inputProofs.get(spelling);
       if (
         previous !== undefined &&
         (previous.hash !== proof.hash ||
@@ -1525,10 +1527,10 @@ function envelopeGraphIndexes(
             state.identityContext,
           ))
       ) {
-        built.inputProofs.delete(identity);
-        built.inputProofConflicts.add(identity);
-      } else if (!built.inputProofConflicts.has(identity)) {
-        built.inputProofs.set(identity, proof);
+        built.inputProofs.delete(spelling);
+        built.inputProofConflicts.add(spelling);
+      } else if (!built.inputProofConflicts.has(spelling)) {
+        built.inputProofs.set(spelling, proof);
       }
     }
     for (const [input, reason] of Object.entries(
@@ -1538,21 +1540,35 @@ function envelopeGraphIndexes(
         continue;
       }
       const absolute = path.resolve(props.projectRoot, input);
-      const identity = derivationIdentity(state, absolute);
-      if (!built.members.has(identity) && !transformSources.has(identity)) {
+      const spelling = path.resolve(absolute);
+      if (
+        !built.memberSpellings.has(spelling) &&
+        !transformSourceSpellings.has(spelling)
+      ) {
         continue;
       }
-      const spelling = path.resolve(absolute);
+      const observation = built.inputObservations.get(spelling);
+      const legacyProjection =
+        observation === undefined
+          ? undefined
+          : legacyProjectionOfGraphInputObservation(observation);
+      if (
+        built.speculative.has(spelling) &&
+        !built.inputProofs.has(spelling) &&
+        legacyProjection?.failure === reason
+      ) {
+        continue;
+      }
       if (built.inputObservations.has(spelling)) {
         built.inputObservations.delete(spelling);
         built.inputObservationConflicts.add(spelling);
       }
-      if (built.inputProofs.has(identity)) {
-        built.inputProofs.delete(identity);
-        built.inputProofConflicts.add(identity);
+      if (built.inputProofs.has(spelling)) {
+        built.inputProofs.delete(spelling);
+        built.inputProofConflicts.add(spelling);
       }
-      if (!built.inputProofFailures.has(identity)) {
-        built.inputProofFailures.set(identity, reason);
+      if (!built.inputProofFailures.has(spelling)) {
+        built.inputProofFailures.set(spelling, reason);
       }
     }
   }
@@ -1687,6 +1703,48 @@ function graphInputObservationCompatible(
 }
 
 /**
+ * Reconstruct a legacy hash/realpath pair only when the rich predicates prove
+ * that projection without collapsing an unreadable file or failed file probe
+ * into generic absence.
+ */
+function legacyProjectionOfGraphInputObservation(
+  observation: ITtscCompilerTransformation.IInputObservation,
+):
+  | { failure?: undefined; hash: string | null; realpath: string | null }
+  | { failure: string } {
+  if (observation.readFile?.ok === true) {
+    return observation.realpath?.ok === true
+      ? {
+          hash: observation.readFile.hash,
+          realpath: observation.realpath.path,
+        }
+      : { failure: "realpath-unavailable" };
+  }
+  const directory =
+    observation.stat === "directory" || observation.directoryExists === true;
+  if (directory) {
+    return observation.realpath?.ok === true
+      ? {
+          hash: hashText("ttsc:host-input:directory\0"),
+          realpath: observation.realpath.path,
+        }
+      : { failure: "realpath-unavailable" };
+  }
+  const file = observation.stat === "file" || observation.fileExists === true;
+  if (file) {
+    return { failure: "content-unavailable" };
+  }
+  const missing =
+    observation.stat === "missing" ||
+    observation.fileExists === false ||
+    observation.directoryExists === false ||
+    observation.readFile?.ok === false;
+  return missing
+    ? { hash: null, realpath: null }
+    : { failure: "unsupported-input-kind" };
+}
+
+/**
  * {@link pathIdentityKey} memoized inside one envelope's derivation state.
  * Callers always pass already-resolved absolute paths, so the input string is a
  * stable memo key.
@@ -1772,8 +1830,8 @@ function notifyFailedGenerationInputs(
     if (isTransformScratchInput(input, cached.scratchDirectory)) {
       continue;
     }
-    // No evidence argument, deliberately. `missing: false` would be a claim
-    // this path cannot back: a failed generation is replayed for the rest of
+    // No evidence argument, deliberately. A concrete availability state would
+    // be a claim this path cannot back: a failed generation is replayed for the rest of
     // its pass without re-proving its inputs, so the walk that recorded them
     // may be older than the delivery, and one of them having been deleted is a
     // live reason for that compile to have failed. Letting the adapter probe
@@ -1813,9 +1871,12 @@ function notifyWatchInputs(
     const observation = cached.externalInputObservations?.[path.resolve(input)];
     addWatchFile(input, {
       identity,
-      missing:
-        observation?.fileExists === false ||
-        external[identity] === MISSING_INPUT_STATE,
+      unavailable:
+        observation?.fileExists === false
+          ? "not-file"
+          : external[identity] === MISSING_INPUT_STATE
+            ? "missing"
+            : undefined,
     });
   }
 }
@@ -3163,15 +3224,16 @@ function graphInputObservationFailures(
     }
   }
   if (observation.realpath !== undefined) {
-    const currentRealpath = hostInputRealpath(file, filesystem);
+    const currentRealpath = compilerInputRealpathObservation(file, filesystem);
     if (
+      observation.realpath.ok !== currentRealpath.ok ||
       (observation.realpath.ok &&
+        currentRealpath.ok &&
         !sameHostInputRealpath(
           observation.realpath.path,
-          currentRealpath,
+          currentRealpath.path,
           identities,
-        )) ||
-      (!observation.realpath.ok && currentRealpath !== null)
+        ))
     ) {
       failures.push("realpath-changed");
     }
@@ -3206,6 +3268,23 @@ function matchesGraphInputObservation(
     graphInputObservationFailures(file, observation, filesystem, identities)
       .length === 0
   );
+}
+
+/** Replay TypeScript-Go's Realpath result, including its lexical fallback. */
+function compilerInputRealpathObservation(
+  file: string,
+  filesystem: TtscTransformFilesystemOperations,
+): NonNullable<ITtscCompilerTransformation.IInputObservation["realpath"]> {
+  try {
+    const realpath = filesystem.realpath(file);
+    return realpath.length === 0
+      ? { ok: false }
+      : { ok: true, path: path.resolve(realpath) };
+  } catch {
+    // TypeScript-Go's OS and io filesystems return the cleaned input spelling
+    // when native realpath resolution fails; they do not expose the failure.
+    return { ok: true, path: path.resolve(file) };
+  }
 }
 
 /** Physical target selected by a lexical host-input path. */
@@ -3435,13 +3514,11 @@ function captureExternalInputSnapshot(
   // A non-declaration transform output is a compiler-realized source even when
   // a malformed or legacy graph omitted its node. Its output was computed from
   // compiler-time bytes, so a post-compile host read cannot prove coherence.
-  const transformSources = new Set<string>();
+  const transformSourceSpellings = new Set<string>();
   if (cached.result.type === "success") {
     for (const output of Object.keys(cached.result.typescript)) {
       if (!isDeclarationFile(output)) {
-        transformSources.add(
-          derivationIdentity(state, path.resolve(cached.projectRoot, output)),
-        );
+        transformSourceSpellings.add(path.resolve(cached.projectRoot, output));
       }
     }
   }
@@ -3474,7 +3551,7 @@ function captureExternalInputSnapshot(
     const predicateObservation = graph.inputObservations.get(spelling);
     const predicateConflict = graph.inputObservationConflicts.has(spelling);
     if (
-      graph.speculative.has(identity) &&
+      graph.speculative.has(spelling) &&
       (predicateObservation !== undefined || predicateConflict)
     ) {
       if (predicateConflict || predicateObservation === undefined) {
@@ -3482,7 +3559,7 @@ function captureExternalInputSnapshot(
         recordGenerationProofFailure(failures, {
           domain: "external",
           kind: "graph-proof-conflict",
-          detail: graph.inputProofFailures.get(identity),
+          detail: graph.inputProofFailures.get(spelling),
           path: input,
         });
         continue;
@@ -3508,26 +3585,26 @@ function captureExternalInputSnapshot(
     // through to the recorded-state branch below, the same evidence a
     // plugin-declared dependency path carries. Its absence still invalidates
     // the generation when it appears, because `missing` is recorded state.
-    const realizedTransformSource = transformSources.has(identity);
+    const realizedTransformSource = transformSourceSpellings.has(spelling);
     const speculativeOnly =
       !realizedTransformSource &&
-      graph.speculative.has(identity) &&
-      !graph.inputProofs.has(identity) &&
-      !graph.inputProofConflicts.has(identity) &&
-      !graph.inputProofFailures.has(identity);
+      graph.speculative.has(spelling) &&
+      !graph.inputProofs.has(spelling) &&
+      !graph.inputProofConflicts.has(spelling) &&
+      !graph.inputProofFailures.has(spelling);
     if (
-      (realizedTransformSource || graph.members.has(identity)) &&
+      (realizedTransformSource || graph.memberSpellings.has(spelling)) &&
       !speculativeOnly
     ) {
-      const proof = graph.inputProofs.get(identity);
-      if (proof === undefined || graph.inputProofConflicts.has(identity)) {
+      const proof = graph.inputProofs.get(spelling);
+      if (proof === undefined || graph.inputProofConflicts.has(spelling)) {
         complete = false;
         recordGenerationProofFailure(failures, {
           domain: "external",
-          kind: graph.inputProofConflicts.has(identity)
+          kind: graph.inputProofConflicts.has(spelling)
             ? "graph-proof-conflict"
             : "graph-proof-missing",
-          detail: graph.inputProofFailures.get(identity),
+          detail: graph.inputProofFailures.get(spelling),
           path: input,
         });
         continue;
@@ -3605,10 +3682,10 @@ function compilerGraphInputProofFailures(
   const state = envelopeDerivation(cached);
   const filesystem = resultFilesystem(cached.result);
   const graph = envelopeGraphIndexes(state, cached);
-  const predicateIdentities = new Set<string>();
-  const predicateConflictIdentities = new Set<string>();
+  const predicateSpellings = new Set<string>();
+  const predicateConflictSpellings = new Set<string>();
   for (const [spelling, observation] of graph.inputObservations) {
-    predicateIdentities.add(derivationIdentity(state, spelling));
+    predicateSpellings.add(spelling);
     for (const kind of graphInputObservationFailures(
       spelling,
       observation,
@@ -3623,47 +3700,44 @@ function compilerGraphInputProofFailures(
     }
   }
   for (const spelling of graph.inputObservationConflicts) {
-    const identity = derivationIdentity(state, spelling);
-    predicateIdentities.add(identity);
-    predicateConflictIdentities.add(identity);
+    predicateSpellings.add(spelling);
+    predicateConflictSpellings.add(spelling);
     recordGenerationProofFailure(failures, {
       domain: "graph",
       kind: "proof-conflict",
-      detail: graph.inputProofFailures.get(identity),
+      detail: graph.inputProofFailures.get(spelling),
       path: spelling,
     });
   }
-  for (const identity of graph.members) {
-    const proof = graph.inputProofs.get(identity);
-    const spelling =
-      proof?.path ?? graph.spellings.get(identity) ?? cached.projectRoot;
+  for (const spelling of graph.memberSpellings) {
+    const proof = graph.inputProofs.get(spelling);
     if (isTransformScratchInput(spelling, cached.scratchDirectory)) {
       continue;
     }
-    if (predicateConflictIdentities.has(identity)) {
+    if (predicateConflictSpellings.has(spelling)) {
       continue;
     }
     if (
-      graph.speculative.has(identity) &&
-      predicateIdentities.has(identity) &&
-      !graph.inputProofFailures.has(identity)
+      graph.speculative.has(spelling) &&
+      predicateSpellings.has(spelling) &&
+      !graph.inputProofFailures.has(spelling)
     ) {
       continue;
     }
-    if (graph.inputProofConflicts.has(identity)) {
+    if (graph.inputProofConflicts.has(spelling)) {
       recordGenerationProofFailure(failures, {
         domain: "graph",
         kind: "proof-conflict",
-        detail: graph.inputProofFailures.get(identity),
+        detail: graph.inputProofFailures.get(spelling),
         path: spelling,
       });
       continue;
     }
-    if (graph.inputProofFailures.has(identity)) {
+    if (graph.inputProofFailures.has(spelling)) {
       recordGenerationProofFailure(failures, {
         domain: "graph",
         kind: "proof-missing",
-        detail: graph.inputProofFailures.get(identity),
+        detail: graph.inputProofFailures.get(spelling),
         path: spelling,
       });
       continue;
@@ -3673,17 +3747,38 @@ function compilerGraphInputProofFailures(
     // generation whose predecessor enumeration is broader than the resolver
     // calls that selected its winner (samchon/ttsc#1245). It is validated
     // instead against the state captureExternalInputSnapshot recorded for it.
-    if (proof === undefined && graph.speculative.has(identity)) {
+    if (proof === undefined && graph.speculative.has(spelling)) {
       continue;
     }
     if (proof === undefined) {
       recordGenerationProofFailure(failures, {
         domain: "graph",
         kind: "proof-missing",
-        detail: graph.inputProofFailures.get(identity),
+        detail: graph.inputProofFailures.get(spelling),
         path: spelling,
       });
       continue;
+    }
+    const observation = graph.inputObservations.get(spelling);
+    if (observation !== undefined) {
+      const projection = legacyProjectionOfGraphInputObservation(observation);
+      if (projection.failure === undefined) {
+        if (
+          projection.hash !== proof.hash ||
+          !sameHostInputRealpath(
+            projection.realpath,
+            proof.realpath,
+            state.identityContext,
+          )
+        ) {
+          recordGenerationProofFailure(failures, {
+            domain: "graph",
+            kind: "proof-conflict",
+            path: spelling,
+          });
+        }
+        continue;
+      }
     }
     const currentHash = graphInputStateHash(proof.path, filesystem);
     if (currentHash !== proof.hash) {

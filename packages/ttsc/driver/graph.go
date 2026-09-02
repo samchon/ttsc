@@ -134,21 +134,26 @@ func (graph *TransformGraph) attachInputProof(prog *Program, cwd string) {
     if !filepath.IsAbs(file) {
       file = filepath.Join(cwd, file)
     }
-    observation, failure := prog.inputObserver.predicateProof(file)
-    if failure == "" {
+    observation, predicateFailure := prog.inputObserver.predicateProof(file)
+    if predicateFailure == "" {
       observations[input] = observation
     }
     var hash, realpath *string
-    if failure == "" {
-      hash, realpath, failure = prog.inputObserver.proof(file)
+    legacyFailure := predicateFailure
+    if predicateFailure == "" {
+      hash, realpath, legacyFailure = prog.inputObserver.proof(file)
     }
-    if failure != "" {
+    if legacyFailure != "" {
       // A speculative candidate may be wholly unobserved because predecessor
       // enumeration is broader than the resolver calls that selected its
-      // winner. Every other failure records a predicate the compiler did call
-      // and must refuse this generation just as a realized-input race does.
-      if _, ok := realized[input]; ok || failure != inputProofUnobserved {
-        failures[input] = string(failure)
+      // winner. It may also have a complete predicate proof that the legacy
+      // path-kind projection cannot represent, such as a readable-file check
+      // whose content was never requested. The rich proof remains sufficient
+      // for that candidate; only a predicate failure, or any realized-input
+      // failure, makes the generation inadmissible.
+      _, isRealized := realized[input]
+      if isRealized || (predicateFailure != "" && predicateFailure != inputProofUnobserved) {
+        failures[input] = string(legacyFailure)
       }
       continue
     }

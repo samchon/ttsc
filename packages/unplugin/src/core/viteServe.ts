@@ -4,14 +4,14 @@ import path from "node:path";
 import { pathIdentityKey } from "./transform";
 
 /**
- * How often each registered missing watch input is stat-polled, in
+ * How often each registered unavailable watch input is stat-polled, in
  * milliseconds.
  *
  * Polling is the only watch primitive that covers the whole class: the dev
  * server's chokidar watcher ignores every `node_modules` directory, which is
  * exactly where superseding resolution candidates usually live, and `fs.watch`
  * cannot observe a path whose parent directories do not exist yet. One `stat`
- * every half second per missing path is negligible against a dev server's
+ * every half second per unavailable path is negligible against a dev server's
  * baseline.
  */
 const MISSING_INPUT_POLL_INTERVAL = 500;
@@ -55,24 +55,23 @@ export interface ViteDevServerLike {
 }
 
 /**
- * Filesystem watch for derived watch inputs that do not exist while a Vite dev
- * server is running.
+ * Filesystem watch for derived watch inputs that do not yet satisfy their
+ * recorded availability predicate while a Vite dev server is running.
  *
  * Vite serve treats every transform-context `addWatchFile()` registration as an
  * added import: `TransformPluginContext.addWatchFile` stores the path in
  * `_addedImports`, and `vite:import-analysis` resolves each entry like a real
- * import of the transformed module. A missing path — a superseding resolution
- * candidate or a plugin-reported dependency that is not generated yet — then
- * fails that resolve and turns the importer's first request into a 500, even
- * though the transform itself succeeded.
+ * import of the transformed module. A missing path or an existing directory
+ * that failed a compiler file predicate then fails that resolve and turns the
+ * importer's first request into a 500, even though the transform succeeded.
  *
  * This registry is the serve-only replacement for those registrations. Each
- * missing path is stat-polled; when it is created, every importer that
- * registered it is invalidated in the server's module graphs and one
- * full-reload is sent, so the next request retransforms the importer against
- * the new resolution winner. The project transform cache re-validates through
- * its external-input hashes (a recorded `missing` marker differs from a content
- * hash), so the retransform recompiles instead of replaying.
+ * unavailable path is stat-polled until it exists or becomes a non-directory
+ * file, according to the recorded predicate. Its importers are then invalidated
+ * in the server's module graphs and one full-reload is sent, so the next
+ * request retransforms against the new resolution winner. The project transform
+ * cache re-validates the compiler observation, so the retransform recompiles
+ * instead of replaying.
  */
 export interface ViteServeMissingInputWatch {
   /** Adopt the dev server whose module graphs creation events invalidate. */
@@ -87,21 +86,27 @@ export interface ViteServeMissingInputWatch {
    */
   serving(): boolean;
   /**
-   * Register one missing watch input derived for `importer`.
+   * Register one unavailable watch input derived for `importer`.
    *
    * `identity` is the filesystem identity the transform generation already
    * resolved for `input`. Resolving it here instead costs a `realpath` and a
    * case-sensitivity directory listing per input per delivery, because a
    * per-call identity context memoizes nothing (samchon/ttsc#1246).
    */
-  watch(input: string, importer: string, identity?: string): void;
+  watch(
+    input: string,
+    importer: string,
+    until: "exists" | "file",
+    identity?: string,
+  ): void;
 }
 
-/** Poll bookkeeping for one registered missing path. */
+/** Poll bookkeeping for one registered unavailable path. */
 interface IMissingInputEntry {
   importers: Set<string>;
   listener: (current: fs.Stats) => void;
   spelling: string;
+  until: "exists" | "file";
 }
 
 /** Create an empty missing-input watch for one plugin instance. */
@@ -132,9 +137,15 @@ export function createViteServeMissingInputWatch(): ViteServeMissingInputWatch {
     serving() {
       return server !== undefined;
     },
-    watch(input, importer, resolved) {
+    watch(input, importer, until, resolved) {
       const spelling = path.resolve(input);
-      const identity = resolved ?? pathIdentityKey(spelling);
+      // A failed file predicate belongs to the exact lexical spelling. Two
+      // aliases can currently resolve to one directory and later diverge, so a
+      // physical-identity key would let one spelling answer for the other.
+      const identity =
+        until === "file"
+          ? `file:${spelling}`
+          : `exists:${resolved ?? pathIdentityKey(spelling)}`;
       const existing = entries.get(identity);
       if (existing !== undefined) {
         existing.importers.add(path.resolve(importer));
@@ -143,10 +154,13 @@ export function createViteServeMissingInputWatch(): ViteServeMissingInputWatch {
       const entry: IMissingInputEntry = {
         importers: new Set([path.resolve(importer)]),
         listener: (current) => {
-          // `fs.watchFile` reports a missing path as zeroed stats (and fires
-          // once with them right after registration); only a poll that
-          // observes a real file is a creation event.
-          if (current.mtimeMs === 0 && !fs.existsSync(entry.spelling)) {
+          // `fs.watchFile` reports a missing path as zeroed stats and fires once
+          // with them right after registration. Wait until the exact recorded
+          // availability predicate becomes true.
+          if (!fs.existsSync(entry.spelling)) {
+            return;
+          }
+          if (entry.until === "file" && current.isDirectory()) {
             return;
           }
           unwatch(identity, entry);
@@ -157,6 +171,7 @@ export function createViteServeMissingInputWatch(): ViteServeMissingInputWatch {
           sendFullReload(server);
         },
         spelling,
+        until,
       };
       entries.set(identity, entry);
       const watcher = fs.watchFile(

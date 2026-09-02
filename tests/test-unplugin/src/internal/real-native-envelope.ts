@@ -64,6 +64,8 @@ export interface IRealNativeEnvelopeFixture {
   missingCandidate: string;
   /** Sibling source modules delivered independently by a bundler. */
   modules: string[];
+  /** Real resolver candidates grouped by the path owner that produced them. */
+  resolutionCandidateGroups: Record<string, string[]>;
   /** Project root containing the tsconfig, plugin descriptor, and packages. */
   root: string;
   /** Log outside the project, appended once from each linked ApplyProgram call. */
@@ -113,6 +115,54 @@ export function createRealNativeEnvelopeFixture(
     "index.ts",
   );
   const fileCandidateDirectory = path.join(root, "node_modules", "punycode.js");
+  const resolutionCandidateGroups: Record<string, string[]> = {
+    "package exports subpath": [
+      path.join(
+        root,
+        "node_modules",
+        "exports-pkg",
+        "dist",
+        "feature.native.ts",
+      ),
+    ],
+    "package main target": [
+      path.join(root, "node_modules", "linked-pkg", "index.native.ts"),
+    ],
+    "package types target": [
+      path.join(root, "node_modules", "typed-dep", "dist", "index.native.ts"),
+    ],
+    paths: [path.join(root, "paths", "value.native.ts")],
+    relative: [
+      path.join(root, "src", "relative.native.ts"),
+      path.join(root, "src", "relative.ts"),
+      path.join(root, "src", "relative.native.tsx"),
+      path.join(root, "src", "relative.tsx"),
+      path.join(root, "src", "relative.d.native.ts"),
+      path.join(root, "src", "relative.d.ts"),
+      path.join(root, "src", "relative.native.js"),
+      path.join(root, "src", "react.native.tsx"),
+      path.join(root, "src", "react.tsx"),
+      path.join(root, "src", "react.native.ts"),
+      path.join(root, "src", "react.ts"),
+      path.join(root, "src", "react.d.native.ts"),
+      path.join(root, "src", "react.d.ts"),
+      path.join(root, "src", "react.native.jsx"),
+      path.join(root, "src", "esm.native.mts"),
+      path.join(root, "src", "esm.mts"),
+      path.join(root, "src", "esm.d.native.mts"),
+      path.join(root, "src", "esm.d.mts"),
+      path.join(root, "src", "esm.native.mjs"),
+      path.join(root, "src", "common.native.cts"),
+      path.join(root, "src", "common.cts"),
+      path.join(root, "src", "common.d.native.cts"),
+      path.join(root, "src", "common.d.cts"),
+      path.join(root, "src", "common.native.cjs"),
+    ],
+    rootDirs: [
+      path.join(root, "src", "rooted.native.ts"),
+      path.join(root, "generated", "rooted.native.ts"),
+    ],
+  };
 
   TestProject.writeFiles(root, {
     "go.mod": "module example.com/ttscunpluginrealenvelope\n\ngo 1.26\n",
@@ -179,9 +229,12 @@ export function createRealNativeEnvelopeFixture(
       {
         compilerOptions: {
           allowJs: true,
+          baseUrl: ".",
           module: "NodeNext",
           moduleResolution: "NodeNext",
+          moduleSuffixes: [".native", ""],
           noImplicitAny: false,
+          paths: { "@fixture/value": ["paths/value.js"] },
           plugins: [
             {
               name: "real-envelope-compile-probe",
@@ -195,6 +248,7 @@ export function createRealNativeEnvelopeFixture(
               transform: "./plugin.cjs",
             },
           ],
+          rootDirs: ["src", "generated"],
           strict: true,
           target: "ES2022",
         },
@@ -230,6 +284,18 @@ export function createRealNativeEnvelopeFixture(
     "node_modules/linked-pkg/index.d.ts":
       "export declare const linked: string;\n",
     "node_modules/linked-pkg/index.js": 'export const linked = "js";\n',
+    "node_modules/exports-pkg/package.json": JSON.stringify(
+      {
+        exports: { "./feature": "./dist/feature.js" },
+        name: "exports-pkg",
+        type: "module",
+        version: "0.0.0",
+      },
+      null,
+      2,
+    ),
+    "node_modules/exports-pkg/dist/feature.js":
+      'export const feature = "exports";\n',
     "node_modules/punycode/package.json": JSON.stringify(
       {
         main: "punycode.js",
@@ -252,21 +318,44 @@ export function createRealNativeEnvelopeFixture(
     ),
     "node_modules/punycode.js/punycode.js":
       "module.exports = { encode(value) { return `other:${value}`; } };\n",
+    "generated/rooted.js": 'export const rooted = "rootDirs";\n',
+    "paths/value.js": 'export const pathValue = "paths";\n',
+    "src/common.cjs": 'exports.common = "cjs";\n',
+    "src/esm.mjs": 'export const esm = "mjs";\n',
+    "src/react.jsx": 'export const jsx = "jsx";\n',
+    "src/relative.js": 'export const relative = "relative";\n',
     ...Object.fromEntries(
       modules.map((file, index) => [
         path.relative(root, file),
         file.endsWith(".cts")
           ? [
+              'import { common } from "./common.cjs";',
               'import { encode } from "punycode";',
               "",
-              'export const predicate = encode("proof");',
+              'export const predicate = encode("proof") + common;',
               "",
             ].join("\n")
           : [
               'import type { Shared } from "typed-dep";',
               'import { linked } from "linked-pkg";',
+              ...(index === 0
+                ? [
+                    'import { esm } from "./esm.mjs";',
+                    'import { relative } from "./relative.js";',
+                  ]
+                : []),
+              ...(index === 1
+                ? ['import { pathValue } from "@fixture/value";']
+                : []),
+              ...(index === 2 ? ['import { rooted } from "./rooted.js";'] : []),
+              ...(index === 3
+                ? [
+                    'import { feature } from "exports-pkg/feature";',
+                    'import { jsx } from "./react.jsx";',
+                  ]
+                : []),
               "",
-              `export const value${index}: Shared = { label: linked + ${JSON.stringify(String(index))} };`,
+              `export const value${index}: Shared = { label: [linked, ${JSON.stringify(String(index))}${index === 0 ? ", esm, relative" : index === 1 ? ", pathValue" : index === 2 ? ", rooted" : ", feature, jsx"}].join(":") };`,
               "",
             ].join("\n"),
       ]),
@@ -289,6 +378,7 @@ export function createRealNativeEnvelopeFixture(
     fileCandidateDirectory,
     missingCandidate,
     modules,
+    resolutionCandidateGroups,
     root,
     runLog,
   };
@@ -516,7 +606,7 @@ async function assertViteLifecycle(
   try {
     const graph =
       server.environments?.client?.moduleGraph ?? server.moduleGraph;
-    const nodes: any[] = [];
+    const entries: Array<{ file: string; node: any }> = [];
     for (const file of fixture.modules) {
       const url = `/${path.relative(fixture.root, file).split(path.sep).join("/")}`;
       const result = await server.transformRequest(url);
@@ -527,7 +617,7 @@ async function assertViteLifecycle(
         node.transformResult,
         `Vite must cache the first transform result for ${url}`,
       );
-      nodes.push(node);
+      entries.push({ file, node });
     }
     assert.equal(
       programRuns(fixture.runLog),
@@ -535,28 +625,57 @@ async function assertViteLifecycle(
       "the Vite watcherless lifecycle must serve every sibling module from one production host invocation",
     );
 
+    const events = spyReloadEvents(server);
+    await new Promise((resolve) => setTimeout(resolve, 1_100));
+    assert.ok(
+      entries.every(
+        ({ node }) =>
+          node.transformResult !== null && node.transformResult !== undefined,
+      ),
+      "several unchanged polls must preserve every cached transform",
+    );
+    assert.equal(
+      events.length,
+      0,
+      "an extension-shaped directory must not be mistaken for an appearing file",
+    );
+
     // Vite can transpile TypeScript even if the ttsc adapter bypasses a module,
-    // so returned code alone does not prove every request crossed our
-    // transform hook. The adapter registers this real missing candidate for
-    // every importer it serves; its private poll invalidates exactly those
-    // module nodes when the candidate appears, even with Vite's watcher off.
+    // so returned code alone does not prove the request crossed our transform
+    // hook. Replace the exact failed file predicate with a selectable file and
+    // require the adapter's private poll to invalidate its importer.
+    const predicate = entries.find(({ file }) =>
+      file.endsWith("predicate.cts"),
+    );
+    assert.ok(predicate, "the Vite graph must contain the predicate importer");
+    const unrelated = entries.filter((entry) => entry !== predicate);
+    fs.rmSync(fixture.fileCandidateDirectory, { recursive: true });
     fs.writeFileSync(
-      fixture.missingCandidate,
-      'export const linked = "typescript";\n',
+      fixture.fileCandidateDirectory,
+      "exports.encode = function encode(value) { return `file:${value}`; };\n",
       "utf8",
     );
     await waitFor(
       () =>
-        nodes.every(
-          (node) =>
-            node.transformResult === null || node.transformResult === undefined,
-        ),
-      "every sibling module to be invalidated by the adapter's candidate registry",
+        predicate.node.transformResult === null ||
+        predicate.node.transformResult === undefined,
+      "the predicate importer to be invalidated after its directory became a file",
+    );
+    assert.ok(
+      unrelated.every(
+        ({ node }) =>
+          node.transformResult !== null && node.transformResult !== undefined,
+      ),
+      "the file predicate must invalidate only importers that own it",
+    );
+    assert.ok(
+      events.some((event) => event.type === "full-reload"),
+      "the directory-to-file transition must announce a full reload",
     );
     assert.equal(
       programRuns(fixture.runLog),
       1,
-      "candidate notification must invalidate sibling deliveries without compiling until Vite requests them again",
+      "candidate notification must invalidate the importer without compiling until Vite requests it again",
     );
   } finally {
     await server.close();
@@ -596,6 +715,31 @@ async function waitFor(
     await new Promise((resolve) => setTimeout(resolve, 100));
   }
   assert.fail(`timed out waiting for ${what}`);
+}
+
+/** Record every Vite reload channel without requiring a connected client. */
+function spyReloadEvents(server: any): Array<{ type?: string }> {
+  const events: Array<{ type?: string }> = [];
+  const seen = new Set<object>();
+  for (const channel of [
+    server.ws,
+    server.hot,
+    server.environments?.client?.hot,
+  ]) {
+    if (
+      channel === null ||
+      channel === undefined ||
+      typeof channel.send !== "function" ||
+      seen.has(channel)
+    ) {
+      continue;
+    }
+    seen.add(channel);
+    channel.send = (payload: { type?: string }) => {
+      events.push(payload);
+    };
+  }
+  return events;
 }
 
 /** Inspect the actual generation admitted by @ttsc/unplugin. */
@@ -684,6 +828,23 @@ async function assertProductionEnvelope(
     false,
     "an existing directory must remain a failed file predicate on the production wire",
   );
+
+  for (const [owner, expected] of Object.entries(
+    fixture.resolutionCandidateGroups,
+  )) {
+    for (const file of expected) {
+      const candidate = findGraphSpelling(fixture.root, candidates, file);
+      assert.ok(
+        candidate,
+        `the real ${owner} resolver must retain ${graphKey(fixture.root, file)}`,
+      );
+      assert.equal(
+        graph.inputObservations?.[candidate]?.fileExists,
+        false,
+        `the real ${owner} probe must carry its failed file predicate for ${graphKey(fixture.root, file)}`,
+      );
+    }
+  }
 
   const declaration = findGraphSpelling(
     fixture.root,

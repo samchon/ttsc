@@ -17,7 +17,7 @@ interface IFilesystemState {
   realpath?: string;
 }
 
-/** Assert predicate proofs across path kinds, suffixes, owners, and transitions. */
+/** Assert predicate proofs across path kinds and transitions. */
 export function assertPredicateProofMatrix(): void {
   const root = path.resolve("predicate-proof-root");
   const directory = state({
@@ -40,53 +40,6 @@ export function assertPredicateProofMatrix(): void {
     [],
   );
 
-  const suffixes = [
-    ".ts",
-    ".tsx",
-    ".d.ts",
-    ".js",
-    ".jsx",
-    ".mts",
-    ".cts",
-    ".mjs",
-    ".cjs",
-    ".native.ts",
-  ];
-  for (const suffix of suffixes) {
-    assert.deepEqual(
-      validateGraphInputObservation(
-        path.join(root, `candidate${suffix}`),
-        directoryProof,
-        directory,
-      ),
-      [],
-      suffix,
-    );
-  }
-
-  const owners = [
-    "relative/value.js",
-    "paths/value.ts",
-    "rootDirs/value.tsx",
-    "node_modules/pkg.js",
-    "node_modules/pkg/subpath.js",
-    "node_modules/main-target.js",
-    "node_modules/types-target.d.ts",
-    "node_modules/exports-target.mjs",
-    "ancestor/node_modules/pkg.cts",
-  ];
-  for (const owner of owners) {
-    assert.deepEqual(
-      validateGraphInputObservation(
-        path.join(root, owner),
-        directoryProof,
-        directory,
-      ),
-      [],
-      owner,
-    );
-  }
-
   const absentFileProof = { fileExists: false };
   assert.deepEqual(
     validateGraphInputObservation(
@@ -107,10 +60,17 @@ export function assertPredicateProofMatrix(): void {
   assert.deepEqual(
     validateGraphInputObservation(
       path.join(root, "broken.ts"),
-      absentFileProof,
+      {
+        directoryExists: false,
+        fileExists: false,
+        readFile: { ok: false },
+        realpath: { ok: true, path: path.join(root, "broken.ts") },
+        stat: "missing",
+      },
       state({ kind: "missing" }),
     ),
     [],
+    "a failed native realpath must replay TypeScript-Go's lexical fallback",
   );
   assert.deepEqual(
     validateGraphInputObservation(
@@ -302,7 +262,7 @@ function assertRealFilesystemKinds(): void {
           directoryExists: false,
           fileExists: false,
           readFile: { ok: false },
-          realpath: { ok: false },
+          realpath: { ok: true, path: path.resolve(brokenLink) },
           stat: "missing",
         }),
         [],

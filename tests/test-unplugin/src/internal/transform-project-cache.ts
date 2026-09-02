@@ -70,7 +70,11 @@ interface ICacheProjectOptions {
    * platform.
    */
   aliasedGlobal?: boolean;
-  conflictingProofFailureAlias?: boolean;
+  /**
+   * Give aliased speculative candidates a proof and a failure under separate
+   * spellings.
+   */
+  lexicalCandidateProofFailureAlias?: boolean;
   emitExternalKey?: boolean;
   /** Emit this many transformable `.ts` outputs under ignored node_modules. */
   externalSourceOutputs?: number;
@@ -92,6 +96,8 @@ interface ICacheProjectOptions {
   graphCandidates?: number;
   /** Report a failed observed predicate for the first speculative candidate. */
   candidateProofFailure?: boolean;
+  /** Report a valid rich file predicate with an unrepresentable legacy proof. */
+  richCandidateProof?: boolean;
   graphGlobals?: number;
   omitExternalSourceGraphNode?: boolean;
   /**
@@ -512,6 +518,19 @@ async function assertUnprovenCandidatesKeepOneCompile(): Promise<void> {
   for (const code of outputs) {
     assert.match(code, /PROBED/);
   }
+
+  const rich = await runProjectBuild({
+    fileCount: 3,
+    graphCandidates: 1,
+    graphFanout: 1,
+    richCandidateProof: true,
+  });
+  assert.equal(
+    rich.pluginRuns,
+    1,
+    "a valid rich speculative proof must supersede its unrepresentable legacy projection",
+  );
+  assert.equal(rich.outputs.length, 3);
 }
 
 /**
@@ -1227,15 +1246,14 @@ async function assertReportedGraphProofFailuresFailAfterBoundedAttempts(): Promi
   );
 }
 
-/** A proof and aliased proof failure for one identity are contradictory. */
-async function assertAliasedProofFailureConflictsWithProof(): Promise<void> {
+/** An aliased candidate proof failure remains bound to its exact spelling. */
+async function assertAliasedCandidateProofFailureStaysLexical(): Promise<void> {
   const { createTtscTransformCache, resolveOptions, transformTtsc } =
     await TestUnpluginRuntime.loadUnpluginApi();
   const project = createCacheProject({
-    conflictingProofFailureAlias: true,
+    lexicalCandidateProofFailureAlias: true,
     fileCount: 1,
     graphFanout: 1,
-    graphGlobals: 1,
   });
   const cache = createTtscTransformCache();
   const main = projectModules(project.root)[0]!;
@@ -1248,12 +1266,12 @@ async function assertAliasedProofFailureConflictsWithProof(): Promise<void> {
         undefined,
         cache,
       ),
-    /after 2 attempts[\s\S]*graph\/proof-conflict[\s\S]*producer: "content-unavailable"/,
+    /after 2 attempts[\s\S]*graph\/proof-missing[\s\S]*candidate-alias[\s\S]*producer: "content-unavailable"/,
   );
   assert.equal(
     fs.readFileSync(project.runLog, "utf8").length,
     2,
-    "an aliased proof contradiction must terminate after two attempts",
+    "an aliased candidate failure must stay on its own spelling and terminate after two attempts",
   );
 }
 
@@ -3554,10 +3572,11 @@ function createCacheProject(options: ICacheProjectOptions): {
                 options.aliasedGlobal === true && process.platform !== "win32",
               graphFanout: options.graphFanout ?? 0,
               graphGlobals: options.graphGlobals ?? 0,
-              conflictingProofFailureAlias:
-                options.conflictingProofFailureAlias === true,
+              lexicalCandidateProofFailureAlias:
+                options.lexicalCandidateProofFailureAlias === true,
               graphCandidates: options.graphCandidates ?? 0,
               candidateProofFailure: options.candidateProofFailure === true,
+              richCandidateProof: options.richCandidateProof === true,
               outOfProjectCandidate: options.outOfProjectCandidate ?? "",
               nonInputRaceFile: options.nonInputRaceFile ?? "",
               unhashedGraphInput: options.unhashedGraphInput === true,
@@ -3689,6 +3708,13 @@ function createCacheProject(options: ICacheProjectOptions): {
       "utf8",
     );
   }
+  if (options.richCandidateProof === true) {
+    fs.writeFileSync(
+      path.join(root, "node_modules", "dep0", "index.ts"),
+      "export const present = true;\n",
+      "utf8",
+    );
+  }
   for (let index = 0; index < (options.graphGlobals ?? 0); index += 1) {
     // Global-scope declarations the envelope reports for every module. They sit
     // outside the project walk exactly like a real `@types/*` package.
@@ -3710,11 +3736,17 @@ function createCacheProject(options: ICacheProjectOptions): {
       "file",
     );
   }
-  if (options.conflictingProofFailureAlias === true) {
-    const globalDir = path.join(root, "node_modules", "global0");
+  if (options.lexicalCandidateProofFailureAlias === true) {
+    const targetDir = path.join(root, "node_modules", "candidate-target");
+    fs.mkdirSync(targetDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(targetDir, "index.ts"),
+      "export const candidate = true;\n",
+      "utf8",
+    );
     fs.symlinkSync(
-      globalDir,
-      path.join(root, "node_modules", "global-alias"),
+      targetDir,
+      path.join(root, "node_modules", "candidate-alias"),
       process.platform === "win32" ? "junction" : "dir",
     );
   }
@@ -3769,6 +3801,7 @@ function writeGoPlugin(dir: string): void {
       '  InputHashes map[string]*string `json:"inputHashes,omitempty"`',
       '  InputRealpaths map[string]*string `json:"inputRealpaths,omitempty"`',
       '  InputProofFailures map[string]string `json:"inputProofFailures,omitempty"`',
+      '  InputObservations map[string]map[string]any `json:"inputObservations,omitempty"`',
       "}",
       "",
       "type transformResult struct {",
@@ -3925,6 +3958,7 @@ function writeGoPlugin(dir: string): void {
       "      InputHashes: map[string]*string{},",
       "      InputRealpaths: map[string]*string{},",
       "      InputProofFailures: map[string]string{},",
+      "      InputObservations: map[string]map[string]any{},",
       "    }",
       "    for input, observed := range observedInputs { addGraphInputProof(result.Graph, root, input, observed) }",
       '    addGraphInputProof(result.Graph, root, "tsconfig.json", "")',
@@ -3954,6 +3988,11 @@ function writeGoPlugin(dir: string): void {
       '    if boolValue(cfg, "candidateProofFailure") {',
       '      result.Graph.InputProofFailures["node_modules/dep0/index.ts"] = "file-exists-changed"',
       "    }",
+      '    if boolValue(cfg, "richCandidateProof") {',
+      '      candidate := "node_modules/dep0/index.ts"',
+      '      result.Graph.InputObservations[candidate] = map[string]any{"fileExists": true}',
+      '      result.Graph.InputProofFailures[candidate] = "content-unavailable"',
+      "    }",
       '    unprovenInputs := int(numberValue(cfg, "unprovenGraphInputs"))',
       '    if boolValue(cfg, "unprovenGraphInput") && unprovenInputs == 0 { unprovenInputs = 1 }',
       // A realized edge target whose proof the host could not produce. Unlike a
@@ -3970,10 +4009,11 @@ function writeGoPlugin(dir: string): void {
       "      result.Graph.Globals = append(result.Graph.Globals, alias)",
       '      addGraphInputProof(result.Graph, root, alias, "")',
       "    }",
-      '    if boolValue(cfg, "conflictingProofFailureAlias") {',
-      '      target := "node_modules/global0/index.d.ts"',
-      '      alias := "node_modules/global-alias/index.d.ts"',
-      "      result.Graph.Globals = append(result.Graph.Globals, target, alias)",
+      '    if boolValue(cfg, "lexicalCandidateProofFailureAlias") {',
+      '      target := "node_modules/candidate-target/index.ts"',
+      '      alias := "node_modules/candidate-alias/index.ts"',
+      "      if result.Graph.Candidates == nil { result.Graph.Candidates = map[string][]string{} }",
+      '      for _, name := range names { result.Graph.Candidates["src/"+name] = append(result.Graph.Candidates["src/"+name], target, alias) }',
       '      addGraphInputProof(result.Graph, root, target, "")',
       '      result.Graph.InputProofFailures[alias] = "content-unavailable"',
       "    }",
@@ -4040,7 +4080,7 @@ export {
   createCacheProject,
   projectModules,
   assertCacheHitsDespiteOutOfWalkOutputKey,
-  assertAliasedProofFailureConflictsWithProof,
+  assertAliasedCandidateProofFailureStaysLexical,
   assertOutOfWalkSourceChangeStabilizesWithinGeneration,
   assertOutOfWalkSourceOutputsShareGeneration,
   assertProvenOutOfWalkSourceWithoutGraphNodeKeepsGeneration,

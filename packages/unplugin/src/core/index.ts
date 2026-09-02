@@ -253,11 +253,14 @@ const unpluginFactory: UnpluginFactory<
             // Trust the generation's recorded existence when it supplied one:
             // every cache hit revalidates it, and probing each input again
             // costs one `existsSync` per input per delivered module.
-            const missing = evidence?.missing ?? !fs.existsSync(watched);
-            if (missing) {
+            const unavailable =
+              evidence?.unavailable ??
+              (!fs.existsSync(watched) ? "missing" : undefined);
+            if (unavailable !== undefined) {
               missingInputs.watch(
                 watched,
                 path.resolve(file),
+                unavailable === "not-file" ? "file" : "exists",
                 evidence?.identity,
               );
               return;

@@ -270,14 +270,15 @@ export const TRANSFORM_CASES = {
     };
     return await execute();
   },
-  case_transformttsc_aliased_proof_failure_conflicts_with_proof: async () => {
-    const { assertAliasedProofFailureConflictsWithProof } =
-      await import("../internal/transform-project-cache");
-    const execute = async () => {
-      await assertAliasedProofFailureConflictsWithProof();
-    };
-    return await execute();
-  },
+  case_transformttsc_aliased_candidate_proof_failure_stays_lexical:
+    async () => {
+      const { assertAliasedCandidateProofFailureStaysLexical } =
+        await import("../internal/transform-project-cache");
+      const execute = async () => {
+        await assertAliasedCandidateProofFailureStaysLexical();
+      };
+      return await execute();
+    },
   case_transformttsc_allowjs_decides_javascript_membership: async () => {
     const { assertAllowJsDecidesJavaScriptMembership } =
       await import("../internal/transform-program-membership");

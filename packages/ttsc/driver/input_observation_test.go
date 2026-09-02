@@ -80,6 +80,7 @@ func TestInputObservationFSPreservesPredicateSemantics(t *testing.T) {
   t.Run("every-repeated-predicate-change", testInputObservationFSRejectsEveryRepeatedPredicateChange)
   t.Run("impossible-predicate-sets", testInputObservationFSRejectsImpossiblePredicateSets)
   t.Run("observed-candidate-failure", testTransformGraphReportsObservedCandidateFailure)
+  t.Run("rich-speculative-proof", testTransformGraphKeepsRichSpeculativeProof)
 }
 
 func testInputObservationFSKeepsFileAndDirectoryPredicatesIndependent(t *testing.T) {
@@ -228,6 +229,30 @@ func testTransformGraphReportsObservedCandidateFailure(t *testing.T) {
   }
   if failure, found := graph.InputProofFailures[unobserved]; found {
     t.Fatalf("wholly unobserved candidate failure = %q", failure)
+  }
+}
+
+func testTransformGraphKeepsRichSpeculativeProof(t *testing.T) {
+  root := t.TempDir()
+  candidate := filepath.ToSlash(filepath.Join("node_modules", "pkg.ts"))
+  observed := newInputObservationFS(DefaultFS())
+  key := observed.observationKey(filepath.Join(root, filepath.FromSlash(candidate)))
+  observed.mergeObservation(key, observedInput{
+    proof: TransformInputObservation{FileExists: boolPointer(true)},
+  })
+  graph := TransformGraph{
+    Candidates: map[string][]string{"src/main.ts": {candidate}},
+    Configs:    []string{},
+    Edges:      map[string][]string{"src/main.ts": {}},
+    Globals:    []string{},
+  }
+  graph.attachInputProof(&Program{inputObserver: observed}, root)
+  proof, found := graph.InputObservations[candidate]
+  if !found || proof.FileExists == nil || !*proof.FileExists {
+    t.Fatalf("rich speculative proof = %#v, %v; want FileExists true", proof, found)
+  }
+  if failure, found := graph.InputProofFailures[candidate]; found {
+    t.Fatalf("legacy projection failure superseded rich proof: %q", failure)
   }
 }
 
