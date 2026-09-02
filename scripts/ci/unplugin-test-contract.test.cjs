@@ -88,9 +88,19 @@ test("the packed adapter rehearsal is one pinned E2E", () => {
     1,
     "one consumer workspace must perform one dependency install",
   );
+  const workflow = fs.readFileSync(
+    path.join(root, ".github", "workflows", "test.yml"),
+    "utf8",
+  );
+  assert.match(
+    workflow,
+    /bun-version: \d+\.\d+\.\d+/,
+    "the Bun runtime exercised by the packed E2E must be pinned",
+  );
+  assert.doesNotMatch(workflow, /bun-version: latest/);
 });
 
-test("native fixtures keep one default source identity", () => {
+test("native fixtures publish one immutable content-addressed source identity", () => {
   const defaultFixture = fs.readFileSync(
     path.join(
       root,
@@ -124,20 +134,39 @@ test("native fixtures keep one default source identity", () => {
     ),
     "utf8",
   );
-  assert.match(defaultFixture, /SHARED_GO_PLUGIN_ROOT/);
-  assert.match(cacheFixture, /SHARED_CACHE_PLUGIN_ROOT/);
+  assert.match(defaultFixture, /crypto\.createHash\("sha256"\)/);
+  assert.match(defaultFixture, /fs\.mkdtempSync/);
+  assert.match(defaultFixture, /fs\.renameSync\(staging, destination\)/);
+  assert.match(
+    defaultFixture,
+    /materializeSharedSource\(\s*"default-go-plugin",\s*writeGoPlugin/,
+  );
+  assert.match(
+    cacheFixture,
+    /materializeSharedSource\(\s*"cache-go-plugin",\s*writeGoPlugin/,
+  );
   assert.match(cacheFixture, /isolatedPluginSource: true/g);
   assert.equal(
     (cacheFixture.match(/isolatedPluginSource: true/g) ?? []).length,
     2,
     "only descriptor-mutation scenarios may fork the cache plugin source",
   );
-  assert.match(realFixture, /SHARED_CONTRIBUTOR_ROOT/);
   assert.match(
     realFixture,
-    /path\.join\(SHARED_CONTRIBUTOR_MODULE_ROOT, "go\.mod"\)/,
-    "the linked contributor must remain inside a resolvable Go module",
+    /materializeSharedSource\(\s*"real-native-envelope-module"/,
   );
+  assert.match(
+    realFixture,
+    /path\.join\(moduleRoot, "go\.mod"\)/,
+    "the published fixture must own the contributor's Go module",
+  );
+  assert.match(
+    realFixture,
+    /const contributor = path\.join\(moduleRoot, "compile-probe"\)/,
+    "the linked contributor must remain below the published Go module",
+  );
+  assert.match(realFixture, /path\.join\(contributor, "probe\.go"\)/);
+  assert.match(realFixture, /source: \$\{JSON\.stringify\(contributorRoot\)\}/);
 });
 
 function collectFiles(directory) {

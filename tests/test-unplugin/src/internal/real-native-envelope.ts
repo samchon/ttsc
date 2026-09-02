@@ -63,18 +63,7 @@ interface IRealNativeEnvelopeFixtureOptions {
   raceDeclarationOnce?: boolean;
 }
 
-const SHARED_CONTRIBUTOR_MODULE_ROOT = path.join(
-  TestProject.WORKSPACE_ROOT,
-  "node_modules",
-  ".cache",
-  "ttsc-test-unplugin",
-  "real-native-envelope-module",
-);
-const SHARED_CONTRIBUTOR_ROOT = path.join(
-  SHARED_CONTRIBUTOR_MODULE_ROOT,
-  "compile-probe",
-);
-let sharedContributorReady = false;
+let sharedContributorRoot: string | undefined;
 
 /**
  * Materialize a package-resolution fixture driven by ttsc's utility host.
@@ -112,13 +101,6 @@ export function createRealNativeEnvelopeFixture(
   TestProject.writeFiles(root, {
     "go.mod": "module example.com/ttscunpluginrealenvelope\n\ngo 1.26\n",
     "package.json": JSON.stringify({ private: true, type: "module" }, null, 2),
-    "plugin.cjs": [
-      "module.exports = (context) => ({",
-      '  name: context.plugin.name ?? "real-envelope-compile-probe",',
-      `  source: ${JSON.stringify(SHARED_CONTRIBUTOR_ROOT)},`,
-      "});",
-      "",
-    ].join("\n"),
     "compile-probe/probe.go": [
       "package cacheprobe",
       "",
@@ -244,20 +226,42 @@ export function createRealNativeEnvelopeFixture(
       ]),
     ),
   });
-  if (!sharedContributorReady) {
-    fs.mkdirSync(SHARED_CONTRIBUTOR_ROOT, { recursive: true });
-    fs.writeFileSync(
-      path.join(SHARED_CONTRIBUTOR_MODULE_ROOT, "go.mod"),
-      "module example.com/ttscunpluginrealenvelope\n\ngo 1.26\n",
-      "utf8",
-    );
-    fs.copyFileSync(
-      path.join(root, "compile-probe", "probe.go"),
-      path.join(SHARED_CONTRIBUTOR_ROOT, "probe.go"),
-    );
-    sharedContributorReady = true;
-  }
+  const contributorRoot = sharedRealNativeContributor(root);
+  fs.writeFileSync(
+    path.join(root, "plugin.cjs"),
+    [
+      "module.exports = (context) => ({",
+      '  name: context.plugin.name ?? "real-envelope-compile-probe",',
+      `  source: ${JSON.stringify(contributorRoot)},`,
+      "});",
+      "",
+    ].join("\n"),
+    "utf8",
+  );
   return { declaration, missingCandidate, modules, root, runLog };
+}
+
+function sharedRealNativeContributor(root: string): string {
+  sharedContributorRoot ??= path.join(
+    TestUnpluginProject.materializeSharedSource(
+      "real-native-envelope-module",
+      (moduleRoot) => {
+        fs.writeFileSync(
+          path.join(moduleRoot, "go.mod"),
+          "module example.com/ttscunpluginrealenvelope\n\ngo 1.26\n",
+          "utf8",
+        );
+        const contributor = path.join(moduleRoot, "compile-probe");
+        fs.mkdirSync(contributor, { recursive: true });
+        fs.copyFileSync(
+          path.join(root, "compile-probe", "probe.go"),
+          path.join(contributor, "probe.go"),
+        );
+      },
+    ),
+    "compile-probe",
+  );
+  return sharedContributorRoot;
 }
 
 /** Assert persistent and build-scoped core delivery plus Vite wiring. */

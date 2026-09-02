@@ -143,14 +143,7 @@ interface ICacheProjectOptions {
 
 // Build the Go fixture once per process; transformTtsc shells out to it.
 process.env.TTSC_CACHE_DIR ??= TestProject.tmpdir("ttsc-unplugin-cache-");
-const SHARED_CACHE_PLUGIN_ROOT = path.join(
-  TestProject.WORKSPACE_ROOT,
-  "node_modules",
-  ".cache",
-  "ttsc-test-unplugin",
-  "cache-go-plugin",
-);
-let sharedCachePluginReady = false;
+let sharedCachePluginRoot: string | undefined;
 
 /**
  * Drive a real transform over every module of a multi-file project sharing one
@@ -3445,12 +3438,11 @@ function createCacheProject(options: ICacheProjectOptions): {
   const pluginSource =
     options.isolatedPluginSource === true
       ? path.join(root, "go-plugin")
-      : SHARED_CACHE_PLUGIN_ROOT;
+      : (sharedCachePluginRoot ??= TestUnpluginProject.materializeSharedSource(
+          "cache-go-plugin",
+          writeGoPlugin,
+        ));
   if (options.isolatedPluginSource === true) writeGoPlugin(pluginSource);
-  else if (!sharedCachePluginReady) {
-    writeGoPlugin(pluginSource);
-    sharedCachePluginReady = true;
-  }
   const runLog = path.join(
     TestProject.tmpdir("ttsc-unplugin-cache-log-"),
     "plugin-runs.log",

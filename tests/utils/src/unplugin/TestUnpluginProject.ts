@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import crypto from "node:crypto";
 import fs from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
@@ -13,14 +14,7 @@ import { TestProject } from "../TestProject";
  * same native source-plugin path that real bundler integrations use.
  */
 export namespace TestUnpluginProject {
-  const SHARED_GO_PLUGIN_ROOT = path.join(
-    TestProject.WORKSPACE_ROOT,
-    "node_modules",
-    ".cache",
-    "ttsc-test-unplugin",
-    "default-go-plugin",
-  );
-  let sharedGoPluginReady = false;
+  let sharedGoPluginRoot: string | undefined;
 
   /**
    * Options for the synthetic project used by unplugin transform scenarios.
@@ -109,6 +103,51 @@ export namespace TestUnpluginProject {
     }
     sharedCacheDir ??= TestProject.tmpdir("ttsc-unplugin-cache-");
     process.env.TTSC_CACHE_DIR = sharedCacheDir;
+  }
+
+  /**
+   * Publish a generated fixture under an immutable content-addressed path.
+   *
+   * Every process writes a private sibling first, then atomically renames the
+   * complete directory. A concurrent publisher either wins the rename or sees
+   * the same digest already present, so no compiler can observe a truncated Go
+   * source while another test process is materializing it.
+   */
+  export function materializeSharedSource(
+    label: string,
+    write: (directory: string) => void,
+  ): string {
+    if (!/^[a-z0-9-]+$/.test(label)) {
+      throw new Error(`Invalid shared fixture label: ${label}`);
+    }
+    const parent = path.join(
+      TestProject.WORKSPACE_ROOT,
+      "node_modules",
+      ".cache",
+      "ttsc-test-unplugin",
+    );
+    fs.mkdirSync(parent, { recursive: true });
+    const staging = fs.mkdtempSync(path.join(parent, `.${label}-`));
+    try {
+      write(staging);
+      const digest = directoryDigest(staging);
+      const destination = path.join(parent, `${label}-${digest}`);
+      try {
+        fs.renameSync(staging, destination);
+      } catch (error) {
+        if (
+          !fs.existsSync(destination) ||
+          directoryDigest(destination) !== digest
+        ) {
+          throw error;
+        }
+        fs.rmSync(staging, { force: true, recursive: true });
+      }
+      return destination;
+    } catch (error) {
+      fs.rmSync(staging, { force: true, recursive: true });
+      throw error;
+    }
   }
 
   /** Absolute path to the generated TypeScript entrypoint. */
@@ -731,11 +770,37 @@ export namespace TestUnpluginProject {
    * contract; ordinary projects all point at this one deterministic location.
    */
   function sharedGoPluginSource(): string {
-    if (!sharedGoPluginReady) {
-      writeGoPlugin(SHARED_GO_PLUGIN_ROOT);
-      sharedGoPluginReady = true;
-    }
-    return path.join(SHARED_GO_PLUGIN_ROOT, "go-plugin");
+    sharedGoPluginRoot ??= materializeSharedSource(
+      "default-go-plugin",
+      writeGoPlugin,
+    );
+    return path.join(sharedGoPluginRoot, "go-plugin");
+  }
+
+  function directoryDigest(directory: string): string {
+    const hash = crypto.createHash("sha256");
+    const visit = (current: string, relative: string): void => {
+      for (const entry of fs
+        .readdirSync(current, { withFileTypes: true })
+        .sort((left, right) =>
+          left.name < right.name ? -1 : left.name > right.name ? 1 : 0,
+        )) {
+        const childRelative = path.posix.join(relative, entry.name);
+        const child = path.join(current, entry.name);
+        if (entry.isDirectory()) {
+          hash.update(`directory\0${childRelative}\0`);
+          visit(child, childRelative);
+        } else if (entry.isFile()) {
+          hash.update(`file\0${childRelative}\0`);
+          hash.update(fs.readFileSync(child));
+          hash.update("\0");
+        } else {
+          throw new Error(`Unsupported shared fixture entry: ${child}`);
+        }
+      }
+    };
+    visit(directory, "");
+    return hash.digest("hex");
   }
 
   /**
