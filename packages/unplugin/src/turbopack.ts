@@ -63,6 +63,8 @@ const transformCache = createTtscTransformCache();
  *     rules: {
  *       "*.ts": { loaders: ["@ttsc/unplugin/turbopack"] },
  *       "*.tsx": { loaders: ["@ttsc/unplugin/turbopack"] },
+ *       "*.mts": { loaders: ["@ttsc/unplugin/turbopack"] },
+ *       "*.cts": { loaders: ["@ttsc/unplugin/turbopack"] },
  *     },
  *   },
  * };
@@ -70,10 +72,10 @@ const transformCache = createTtscTransformCache();
  *
  * Pass {@link TtscUnpluginOptions} through the rule's `options` object. The
  * loader returns the source unchanged for anything {@link isTransformTarget}
- * excludes — declaration files, `node_modules` paths, non-TypeScript sources,
- * and virtual ids — and for transforms that produce no change. It applies that
- * shared predicate itself rather than a local copy, because a broad rule glob
- * routes everything matching the extension through the loader.
+ * excludes: declaration files, `node_modules` paths, non-TypeScript sources,
+ * and virtual ids. It also preserves transforms that produce no change and
+ * applies the shared predicate itself rather than a local copy, because a broad
+ * rule glob routes everything matching the extension through the loader.
  */
 export default function turbopack(
   this: TtscTurbopackLoaderContext,
@@ -81,12 +83,11 @@ export default function turbopack(
 ): void {
   const callback = this.async();
   const file = stripQuery(this.resourcePath);
-  // The shared predicate itself, not a copy of part of it. A rule glob wider
-  // than `*.ts`/`*.tsx` — the natural thing to write for a project with mixed
-  // sources, and the reason a loader needs a filter at all — used to route
-  // JavaScript and virtual ids into the whole-project transform that every
-  // other adapter excludes, where the program has no entry for them and the
-  // delivery fails (samchon/ttsc#1305).
+  // The shared predicate itself, not a copy of part of it. A rule wider than
+  // the four exact TypeScript source rules is natural for a mixed project, but
+  // it used to route JavaScript and virtual ids into the whole-project
+  // transform that every other adapter excludes. The program has no entry for
+  // them, so delivery fails (samchon/ttsc#1305).
   if (!isTransformTarget(file)) {
     callback(undefined, source);
     return;

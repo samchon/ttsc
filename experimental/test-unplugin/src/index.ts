@@ -62,13 +62,23 @@ const TURBOPACK_PROJECT_WIDE_GLOBS = [
   "{**/,}*.ts",
   "*.tsx",
   "**/*.tsx",
+  "{**/,}*.tsx",
   "*.mts",
+  "**/*.mts",
+  "{**/,}*.mts",
   "*.cts",
+  "**/*.cts",
+  "{**/,}*.cts",
   "*.{ts,tsx}",
   "{*.ts,*.tsx}",
   "**/*.{ts,tsx}",
   "**/{*.ts,*.tsx}",
   "**/**/*.{ts,tsx}",
+  "*.{ts,tsx,mts,cts}",
+  "{*.ts,*.tsx,*.mts,*.cts}",
+  "**/*.{ts,tsx,mts,cts}",
+  "**/{*.ts,*.tsx,*.mts,*.cts}",
+  "**/**/*.{ts,tsx,mts,cts}",
 ];
 
 /**
@@ -201,7 +211,7 @@ function prepareWorkspace() {
             },
           ],
         },
-        include: ["src", "pages", "turbopack-root-entry.ts"],
+        include: ["src", "pages", "turbopack-root-entry.*"],
       },
       null,
       2,
@@ -223,7 +233,7 @@ function prepareWorkspace() {
           noEmit: true,
           resolveJsonModule: true,
         },
-        include: ["next-env.d.ts", "pages", "src", "turbopack-root-entry.ts"],
+        include: ["next-env.d.ts", "pages", "src", "turbopack-root-entry.*"],
       },
       null,
       2,
@@ -254,6 +264,7 @@ function prepareWorkspace() {
   writeSource("next-entry.ts", "next-installed-ok");
   writeSource("bun-entry.ts", "bun-installed-ok");
   writeTurbopackRootEntry();
+  writeTurbopackGlobProbeLoader();
   writeNextPage();
   writeTransformPlugin();
   writeViteConfig();
@@ -328,6 +339,44 @@ function writeTurbopackRootEntry() {
     ].join("\n"),
     "utf8",
   );
+  for (const [extension, marker] of [
+    ["tsx", "turbopack-root-tsx-ok"],
+    ["mts", "turbopack-root-mts-ok"],
+    ["cts", "turbopack-root-cts-ok"],
+  ]) {
+    fs.writeFileSync(
+      path.join(workspace, `turbopack-root-entry.${extension}`),
+      [
+        `export const rootValue = mark(${JSON.stringify(marker)});`,
+        "console.log(rootValue);",
+        "",
+      ].join("\n"),
+      "utf8",
+    );
+  }
+}
+
+/** Write the lightweight loader that records every real Turbopack glob match. */
+function writeTurbopackGlobProbeLoader() {
+  fs.writeFileSync(
+    path.join(workspace, "turbopack-glob-probe.cjs"),
+    [
+      'const crypto = require("node:crypto");',
+      'const fs = require("node:fs");',
+      'const path = require("node:path");',
+      "",
+      "module.exports = function turbopackGlobProbe(source) {",
+      "  const options = this.getOptions();",
+      "  const directory = path.join(options.outputDirectory, String(options.id));",
+      "  fs.mkdirSync(directory, { recursive: true });",
+      '  const key = crypto.createHash("sha256").update(this.resourcePath).digest("hex");',
+      '  fs.writeFileSync(path.join(directory, key), this.resourcePath, "utf8");',
+      "  return source;",
+      "};",
+      "",
+    ].join("\n"),
+    "utf8",
+  );
 }
 
 function writeNextPage() {
@@ -340,6 +389,9 @@ function writeNextPage() {
       'import { tsxValue } from "../src/turbopack-tsx-entry";',
       'import "../src/turbopack-mts-entry.mts";',
       'import "../src/turbopack-cts-entry.cts";',
+      'import "../turbopack-root-entry.tsx";',
+      'import "../turbopack-root-entry.mts";',
+      'import "../turbopack-root-entry.cts";',
       "",
       "export default function Page() {",
       "  return value + rootValue + tsxValue;",
@@ -879,68 +931,147 @@ function verifyNextBuild() {
  *
  * Every spelling is sound today, measured. What was missing is anything that
  * would notice it stopping: the recognised set is a contract with Turbopack's
- * matcher, and a Next.js upgrade is enough to break it (samchon/ttsc#1319). So
- * each glob is hand-wired the way a caller would, the guard is left to
- * recognise it and add nothing, and a real build has to show both a nested and
- * a root-level module transformed. A unit test cannot answer this, because it
- * would only ask our own matcher what our own matcher thinks.
+ * matcher, and a Next.js upgrade is enough to break it (samchon/ttsc#1319). One
+ * lightweight probe loader is registered under every spelling in one real build
+ * and records the exact resources each rule matched. The ordinary ttsc rules
+ * transform the same root and nested source matrix once. A unit test cannot
+ * answer this because it would ask our matcher what our matcher thinks.
  */
 function verifyTurbopackRecognisedGlobs() {
-  for (const glob of [
-    ...TURBOPACK_PROJECT_WIDE_GLOBS,
-    ...TURBOPACK_SCOPED_GLOBS,
+  const globs = [...TURBOPACK_PROJECT_WIDE_GLOBS, ...TURBOPACK_SCOPED_GLOBS];
+  const probeDirectory = path.join(
+    experimentRoot,
+    ".tmp",
+    "turbopack-glob-probes",
+  );
+  fs.rmSync(probeDirectory, { force: true, recursive: true });
+  fs.mkdirSync(probeDirectory, { recursive: true });
+  const probeLoader = path.join(workspace, "turbopack-glob-probe.cjs");
+  const rules = globs.flatMap((glob, index) => [
+    `        ${JSON.stringify(glob)}: {`,
+    "          loaders: [{",
+    `            loader: ${JSON.stringify(probeLoader)},`,
+    `            options: { id: ${JSON.stringify(String(index))}, outputDirectory: ${JSON.stringify(probeDirectory)} },`,
+    "          }],",
+    "        },",
+  ]);
+  fs.writeFileSync(
+    path.join(workspace, "next.config.mjs"),
+    [
+      'import withTtsc from "@ttsc/unplugin/next";',
+      "",
+      "export default withTtsc(",
+      "  {",
+      '    distDir: "dist-next",',
+      "    typescript: {",
+      "      ignoreBuildErrors: true,",
+      "    },",
+      "    turbopack: {",
+      "      rules: {",
+      ...rules,
+      "      },",
+      "    },",
+      "  },",
+      "  {",
+      '    project: "tsconfig.unplugin.json",',
+      "  },",
+      ");",
+      "",
+    ].join("\n"),
+    "utf8",
+  );
+  fs.rmSync(path.join(workspace, "dist-next"), {
+    force: true,
+    recursive: true,
+  });
+  run("npx next build --turbopack", workspace);
+
+  for (const [marker, original, depth] of [
+    ["NEXT-INSTALLED-OK", "next-installed-ok", "nested .ts"],
+    ["TURBOPACK-ROOT-OK", "turbopack-root-ok", "root .ts"],
+    ["TURBOPACK-TSX-OK", "turbopack-tsx-ok", "nested .tsx"],
+    ["TURBOPACK-ROOT-TSX-OK", "turbopack-root-tsx-ok", "root .tsx"],
+    ["TURBOPACK-MTS-OK", "turbopack-mts-ok", "nested .mts"],
+    ["TURBOPACK-ROOT-MTS-OK", "turbopack-root-mts-ok", "root .mts"],
+    ["TURBOPACK-CTS-OK", "turbopack-cts-ok", "nested .cts"],
+    ["TURBOPACK-ROOT-CTS-OK", "turbopack-root-cts-ok", "root .cts"],
   ]) {
-    fs.writeFileSync(
-      path.join(workspace, "next.config.mjs"),
-      [
-        'import withTtsc from "@ttsc/unplugin/next";',
-        "",
-        "export default withTtsc(",
-        "  {",
-        '    distDir: "dist-next",',
-        "    typescript: {",
-        "      ignoreBuildErrors: true,",
-        "    },",
-        "    turbopack: {",
-        "      rules: {",
-        `        ${JSON.stringify(glob)}: {`,
-        '          loaders: ["@ttsc/unplugin/turbopack"],',
-        "        },",
-        "      },",
-        "    },",
-        "  },",
-        "  {",
-        '    project: "tsconfig.unplugin.json",',
-        "  },",
-        ");",
-        "",
-      ].join("\n"),
-      "utf8",
+    assertBuiltTreeContains(
+      "dist-next",
+      marker,
+      `next --turbopack combined glob probe (${depth})`,
+      original,
     );
-    fs.rmSync(path.join(workspace, "dist-next"), {
-      force: true,
-      recursive: true,
-    });
-    run("npx next build --turbopack", workspace);
-    // The assertion is the same either way, and that is the point: whether the
-    // guard recognised the caller's glob or added its own rules beside it, the
-    // end state has to be that every TypeScript source was transformed. A
-    // recognised glob that does not really cover the project fails here, and so
-    // does a refused one the wrapper then failed to complete.
-    for (const [marker, original, depth] of [
-      ["NEXT-INSTALLED-OK", "next-installed-ok", "nested .ts"],
-      ["TURBOPACK-ROOT-OK", "turbopack-root-ok", "root .ts"],
-      ["TURBOPACK-TSX-OK", "turbopack-tsx-ok", "nested .tsx"],
-      ["TURBOPACK-MTS-OK", "turbopack-mts-ok", "nested .mts"],
-      ["TURBOPACK-CTS-OK", "turbopack-cts-ok", "nested .cts"],
-    ]) {
-      assertBuiltTreeContains(
-        "dist-next",
-        marker,
-        `next --turbopack glob ${glob} (${depth})`,
-        original,
-      );
-    }
+  }
+
+  const sourcePaths = new Map([
+    [
+      "ts",
+      [
+        path.join(workspace, "turbopack-root-entry.ts"),
+        path.join(workspace, "src", "next-entry.ts"),
+      ],
+    ],
+    [
+      "tsx",
+      [
+        path.join(workspace, "turbopack-root-entry.tsx"),
+        path.join(workspace, "src", "turbopack-tsx-entry.tsx"),
+      ],
+    ],
+    [
+      "mts",
+      [
+        path.join(workspace, "turbopack-root-entry.mts"),
+        path.join(workspace, "src", "turbopack-mts-entry.mts"),
+      ],
+    ],
+    [
+      "cts",
+      [
+        path.join(workspace, "turbopack-root-entry.cts"),
+        path.join(workspace, "src", "turbopack-cts-entry.cts"),
+      ],
+    ],
+  ]);
+  const dedicatedSources = [...sourcePaths.values()].flat();
+  const comparable = (file) => {
+    const resolved = path.resolve(file);
+    return process.platform === "win32" ? resolved.toLowerCase() : resolved;
+  };
+  const probeMatches = (index) => {
+    const directory = path.join(probeDirectory, String(index));
+    if (!fs.existsSync(directory)) return new Set();
+    return new Set(
+      fs
+        .readdirSync(directory)
+        .map((file) => fs.readFileSync(path.join(directory, file), "utf8"))
+        .map(comparable),
+    );
+  };
+  for (const [index, glob] of TURBOPACK_PROJECT_WIDE_GLOBS.entries()) {
+    const extensions = new Set(glob.match(/\b(?:tsx|mts|cts|ts)\b/g) ?? []);
+    const expected = [...extensions].flatMap(
+      (extension) => sourcePaths.get(extension) ?? [],
+    );
+    const matches = probeMatches(index);
+    const actual = dedicatedSources
+      .filter((file) => matches.has(comparable(file)))
+      .map(comparable)
+      .sort();
+    const wanted = expected.map(comparable).sort();
+    assert(
+      JSON.stringify(actual) === JSON.stringify(wanted),
+      `${glob} must match every root and nested source of exactly its extension family; got ${JSON.stringify(actual)}`,
+    );
+  }
+  for (const [offset, glob] of TURBOPACK_SCOPED_GLOBS.entries()) {
+    const matches = probeMatches(TURBOPACK_PROJECT_WIDE_GLOBS.length + offset);
+    const tsSources = sourcePaths.get("ts") ?? [];
+    assert(
+      tsSources.some((file) => !matches.has(comparable(file))),
+      `${glob} must remain refused because it does not cover every project-wide .ts source`,
+    );
   }
   writeNextConfig();
 }

@@ -177,11 +177,11 @@ export async function transform(params: {
  *   (`node_modules` declarations, monorepo sibling sources, out-of-root config
  *   ancestry).
  *
- * A change to any fingerprinted input re-keys every transformed file —
- * project-level granularity, forced by Metro's single static key — replacing
- * the former manual `--reset-cache` step. Resolving the upstream is
- * deliberately non-fatal here: a missing peer must not crash cache-key
- * computation. See the README "Caveats" and samchon/ttsc#721.
+ * A change to any fingerprinted input re-keys every transformed file at
+ * project-level granularity, forced by Metro's single static key, replacing the
+ * former manual `--reset-cache` step. Resolving the upstream is deliberately
+ * non-fatal here: a missing peer must not crash cache-key computation. See the
+ * README "Caveats" and samchon/ttsc#721.
  */
 export function getCacheKey(...args: unknown[]): string {
   const opts = options();
@@ -260,9 +260,9 @@ function upstreamCacheKey(
 
 /**
  * Decide whether a file should run through the ttsc pass. Only TypeScript
- * sources (`.ts`/`.tsx`/`.cts`/`.mts`, excluding `.d.ts`) qualify; `exclude`
- * substrings win over `include`, and an empty `include` means "all TypeScript".
- * Exported for unit testing.
+ * sources (`.ts`/`.tsx`/`.mts`/`.cts`, excluding every declaration form)
+ * qualify; `exclude` substrings win over `include`, and an empty `include`
+ * means "all TypeScript". Exported for unit testing.
  */
 export function shouldTransform(
   filename: string,

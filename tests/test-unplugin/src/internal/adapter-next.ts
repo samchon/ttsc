@@ -4,6 +4,10 @@ import { readFile } from "node:fs/promises";
 
 const LOADER = "@ttsc/unplugin/turbopack";
 const AUTOMATIC_RULE_GLOBS = ["*.ts", "*.tsx", "*.mts", "*.cts"];
+const EXTENSION_NAMES = AUTOMATIC_RULE_GLOBS.map((glob) => glob.slice(2));
+const CLASSIC_EXTENSION_NAMES = EXTENSION_NAMES.filter(
+  (extension) => extension === "ts" || extension === "tsx",
+);
 
 /**
  * Every glob this suite proves the dedupe guard recognises as naming the whole
@@ -12,20 +16,33 @@ const AUTOMATIC_RULE_GLOBS = ["*.ts", "*.tsx", "*.mts", "*.cts"];
  * Cross-checked against the list the experimental suite drives through real
  * Turbopack builds, so neither can gain a spelling the other has not seen.
  */
-const RECOGNISED_PROJECT_WIDE_GLOBS = [
-  "*.ts",
-  "**/*.ts",
-  "{**/,}*.ts",
-  "*.tsx",
-  "**/*.tsx",
-  "*.mts",
-  "*.cts",
-  "*.{ts,tsx}",
-  "{*.ts,*.tsx}",
-  "**/*.{ts,tsx}",
-  "**/{*.ts,*.tsx}",
-  "**/**/*.{ts,tsx}",
-];
+const PROJECT_WIDE_GLOB_COVERAGE = new Map<string, readonly string[]>([
+  ...EXTENSION_NAMES.flatMap((extension) => [
+    [`*.${extension}`, [extension]] as const,
+    [`**/*.${extension}`, [extension]] as const,
+    [`{**/,}*.${extension}`, [extension]] as const,
+  ]),
+  ...braceGlobCoverage(CLASSIC_EXTENSION_NAMES),
+  ...braceGlobCoverage(EXTENSION_NAMES),
+]);
+const RECOGNISED_PROJECT_WIDE_GLOBS = [...PROJECT_WIDE_GLOB_COVERAGE.keys()];
+
+/** Measured brace spellings and the extensions each one covers. */
+function braceGlobCoverage(
+  extensions: readonly string[],
+): ReadonlyArray<readonly [string, readonly string[]]> {
+  const suffixes = extensions.join(",");
+  const alternatives = extensions
+    .map((extension) => `*.${extension}`)
+    .join(",");
+  return [
+    [`*.{${suffixes}}`, extensions],
+    [`{${alternatives}}`, extensions],
+    [`**/*.{${suffixes}}`, extensions],
+    [`**/{${alternatives}}`, extensions],
+    [`**/**/*.{${suffixes}}`, extensions],
+  ];
+}
 
 /**
  * Spellings the guard must refuse, each one a shape a predicate would have
@@ -296,30 +313,15 @@ export async function assertNextAdapterDoesNotDoubleRegisterAcrossGlobs(): Promi
   // file set the caller already routed. Every one of these is driven through a
   // real Turbopack build by `experimental/test-unplugin`, because whether a
   // glob covers the project is Turbopack's answer and not ours.
-  for (const wide of RECOGNISED_PROJECT_WIDE_GLOBS.filter((glob) =>
-    glob.includes("ts,"),
-  )) {
+  for (const wide of RECOGNISED_PROJECT_WIDE_GLOBS) {
+    const covered = PROJECT_WIDE_GLOB_COVERAGE.get(wide) ?? [];
+    const missing = AUTOMATIC_RULE_GLOBS.filter(
+      (glob) => !covered.includes(glob.slice(2)),
+    );
     assert.deepEqual(
       globs({ turbopack: { rules: { [wide]: { loaders: [LOADER] } } } }),
-      [wide, "*.mts", "*.cts"],
-      `${wide} suppresses its two extensions and leaves the other two`,
-    );
-  }
-
-  // Recognition is per extension, not per rule: a glob naming every file of one
-  // extension suppresses only that registration, exactly as the partial hand
-  // wiring above does.
-  const partials: readonly (readonly [string, readonly string[]])[] = [
-    ["{**/,}*.ts", ["*.tsx", "*.mts", "*.cts"]],
-    ["**/*.ts", ["*.tsx", "*.mts", "*.cts"]],
-    ["*.tsx", ["*.ts", "*.mts", "*.cts"]],
-    ["**/*.tsx", ["*.ts", "*.mts", "*.cts"]],
-  ];
-  for (const [partial, missing] of partials) {
-    assert.deepEqual(
-      globs({ turbopack: { rules: { [partial]: { loaders: [LOADER] } } } }),
-      [partial, ...missing],
-      `${partial} names one extension, so only the missing rules are added`,
+      [wide, ...missing],
+      `${wide} must suppress exactly ${covered.join(", ")}`,
     );
   }
 

@@ -1,5 +1,8 @@
 import type { TtscUnpluginOptions } from "./core/options";
-import { TYPESCRIPT_TURBOPACK_RULE_GLOBS } from "./core/sourceExtensions";
+import {
+  TYPESCRIPT_TRANSFORM_EXTENSIONS,
+  TYPESCRIPT_TURBOPACK_RULE_GLOBS,
+} from "./core/sourceExtensions";
 import webpack from "./webpack";
 
 /** The standalone loader entry Turbopack accepts through `turbopack.rules`. */
@@ -158,7 +161,7 @@ function withTtscTurbopackRules(
     // Adding ours beside theirs makes every matching module run the loader
     // twice, and the second pass receives the first pass's output, so the
     // guard has to cover the spellings a caller plausibly uses rather than
-    // only the two this wrapper writes (samchon/ttsc#1314).
+    // only the four this wrapper writes (samchon/ttsc#1314).
     if (coveredByAnotherRule(rules, glob)) {
       continue;
     }
@@ -264,20 +267,38 @@ function matchesExtension(glob: string, extension: string): boolean {
  * and that list are the same set, so an entry cannot be added here without a
  * build proving it.
  */
+const TYPESCRIPT_EXTENSION_NAMES = TYPESCRIPT_TRANSFORM_EXTENSIONS.map(
+  (extension) => extension.slice(1),
+);
+const CLASSIC_TYPESCRIPT_EXTENSION_NAMES = TYPESCRIPT_EXTENSION_NAMES.filter(
+  (extension) => extension === "ts" || extension === "tsx",
+);
 const PROJECT_WIDE_GLOBS: ReadonlyMap<string, readonly string[]> = new Map([
-  ["*.ts", ["ts"]],
-  ["**/*.ts", ["ts"]],
-  ["{**/,}*.ts", ["ts"]],
-  ["*.tsx", ["tsx"]],
-  ["**/*.tsx", ["tsx"]],
-  ["*.mts", ["mts"]],
-  ["*.cts", ["cts"]],
-  ["*.{ts,tsx}", ["ts", "tsx"]],
-  ["{*.ts,*.tsx}", ["ts", "tsx"]],
-  ["**/*.{ts,tsx}", ["ts", "tsx"]],
-  ["**/{*.ts,*.tsx}", ["ts", "tsx"]],
-  ["**/**/*.{ts,tsx}", ["ts", "tsx"]],
+  ...TYPESCRIPT_EXTENSION_NAMES.flatMap((extension) => [
+    [`*.${extension}`, [extension]] as const,
+    [`**/*.${extension}`, [extension]] as const,
+    [`{**/,}*.${extension}`, [extension]] as const,
+  ]),
+  ...projectWideBraceGlobEntries(CLASSIC_TYPESCRIPT_EXTENSION_NAMES),
+  ...projectWideBraceGlobEntries(TYPESCRIPT_EXTENSION_NAMES),
 ]);
+
+/** Measured project-wide brace spellings for one extension family. */
+function projectWideBraceGlobEntries(
+  extensions: readonly string[],
+): ReadonlyArray<readonly [string, readonly string[]]> {
+  const suffixes = extensions.join(",");
+  const alternatives = extensions
+    .map((extension) => `*.${extension}`)
+    .join(",");
+  return [
+    [`*.{${suffixes}}`, extensions],
+    [`{${alternatives}}`, extensions],
+    [`**/*.{${suffixes}}`, extensions],
+    [`**/{${alternatives}}`, extensions],
+    [`**/**/*.{${suffixes}}`, extensions],
+  ];
+}
 
 /**
  * Read the loader list out of one Turbopack rule.

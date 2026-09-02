@@ -156,7 +156,7 @@ export default withTtsc({
 
 `withTtsc` covers both of Next.js's bundlers: it injects the webpack plugin and wires the Turbopack loader rules, with the options you pass reaching both. Your own `webpack` hook and `turbopack` block are preserved, and a rule you already wired for this loader by hand is left alone rather than registered twice.
 
-That last part is decided by exact spelling. `withTtsc` declines to add its own rule when your glob is one it has measured against a real Turbopack build as naming every file with the extension — `*.ts`, `**/*.ts`, `{**/,}*.ts`, `*.tsx`, `**/*.tsx`, `*.mts`, `*.cts`, `*.{ts,tsx}`, `{*.ts,*.tsx}`, `**/*.{ts,tsx}`, `**/{*.ts,*.tsx}`, `**/**/*.{ts,tsx}`. Any other spelling keeps your rule and gains ours beside it, so a module may be transformed twice rather than not at all. The list is exact on purpose: treating an unmeasured glob as project-wide once left every module in a project with no `ttsc` rule at all, and a build that transforms twice is recoverable in a way a build that never transforms is not.
+That last part is decided by exact spelling. `withTtsc` declines to add its own rule when your glob is one it has measured against a real Turbopack build as naming every file with the extension: `*.ext`, `**/*.ext`, and `{**/,}*.ext` for each of `ts`, `tsx`, `mts`, and `cts`; plus the `*.{...}`, `{*.ext,...}`, `**/*.{...}`, `**/{*.ext,...}`, and `**/**/*.{...}` forms for either `ts,tsx` or all four extensions. Any other spelling keeps your rule and gains ours beside it, so a module may be transformed twice rather than not at all. The list is exact on purpose: treating an unmeasured glob as project-wide once left every module in a project with no `ttsc` rule at all, and a build that transforms twice is recoverable in a way a build that never transforms is not.
 
 ## Turbopack
 
@@ -242,10 +242,10 @@ Not every Vite alias form can be forwarded, because a tsconfig `paths` map canno
 | `resolve.alias` form | Forwarded |
 | --- | --- |
 | `{ "@": "/src" }`, or the array form with a string `find` | yes |
-| array form with a `RegExp` `find`, such as `{ find: /^~/ }` | no — `paths` has no regular-expression form |
-| a string `find` containing `*` | no — a `paths` key already reads `*` as its own wildcard |
+| array form with a `RegExp` `find`, such as `{ find: /^~/ }` | no: `paths` has no regular-expression form |
+| a string `find` containing `*` | no: a `paths` key already reads `*` as its own wildcard |
 
-In both unforwarded cases the compile resolves that specifier through the tsconfig's `paths` alone, so declare it there if `ttsc` must resolve through it — a prefix `RegExp` such as `/^~/` is written as a `"~/*"` entry. Reducing simple prefix patterns automatically is deliberately not attempted: distinguishing `/^~/` from `/^@app/`, which also matches `@apple`, needs enough of a regular-expression engine that a wrong reduction becomes likely, and a mistranslated alias resolves imports to the wrong file without saying so.
+In both unforwarded cases the compile resolves that specifier through the tsconfig's `paths` alone, so declare it there if `ttsc` must resolve through it. A prefix `RegExp` such as `/^~/` is written as a `"~/*"` entry. Reducing simple prefix patterns automatically is deliberately not attempted: distinguishing `/^~/` from `/^@app/`, which also matches `@apple`, needs enough of a regular-expression engine that a wrong reduction becomes likely, and a mistranslated alias resolves imports to the wrong file without saying so.
 
 A `find` containing `*` is also reported once on stderr, naming the alias and the reason. A `RegExp` `find` is not, and the asymmetry is deliberate: Vite merges two `RegExp` aliases of its own into every resolved config, for `@vite/env` and `@vite/client`, so a report on that form would fire in every build of every project and name aliases you never wrote.
 
