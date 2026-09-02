@@ -235,7 +235,7 @@ function coveredByAnotherRule(
  * spellings, and that document explains why it is a set rather than a rule.
  */
 function matchesExtension(glob: string, extension: string): boolean {
-  return PROJECT_WIDE_GLOBS.get(glob.trim())?.includes(extension) === true;
+  return PROJECT_WIDE_GLOBS.get(glob)?.includes(extension) === true;
 }
 
 /**

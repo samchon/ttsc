@@ -19,17 +19,20 @@ const REQUIRED_EXTENSION_GROUPS = [
 ] as const;
 
 /**
- * Spellings the guard must refuse, each one a shape a predicate would have
- * accepted.
+ * Spellings the exact guard must refuse because no real build measured them.
  *
  * `{src/,}*.ts` is the measured one: Turbopack matches nothing with it, so
  * recognising it left every module without a rule (samchon/ttsc#1319). The rest
- * are unmeasured, which is the same reason — nothing has shown that Turbopack
- * expands a single-alternative group, a leading empty alternative, or two
- * groups in one glob, so claiming they cover the project would be a guess in
- * the direction that fails silently.
+ * include whitespace around otherwise measured keys, which cannot be assumed
+ * equivalent unless Turbopack itself proves that normalization. The other
+ * shapes are unmeasured, which is the same reason — nothing has shown that
+ * Turbopack expands a single-alternative group, a leading empty alternative, or
+ * two groups in one glob, so claiming they cover the project would be a guess
+ * in the direction that fails silently.
  */
 const REFUSED_GLOBS = [
+  " *.ts",
+  "*.ts ",
   "{src/,}*.ts",
   "{src,lib}/*.{ts,tsx}",
   "{src/,lib/}*.ts",
