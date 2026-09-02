@@ -47,41 +47,6 @@ const adapterEntrypoints = [
 ];
 
 /**
- * The globs `withTtsc`'s dedupe guard treats as naming every file with an
- * extension, so it declines to add its own rules beside them.
- *
- * Kept here rather than imported, because the point is to check our belief
- * against Turbopack rather than to restate it. The unit case
- * `case_next_adapter_does_not_double_register_across_globs` asserts this list
- * and the guard agree in both directions, so a spelling cannot be added to one
- * without the other.
- */
-const TURBOPACK_PROJECT_WIDE_GLOBS = [
-  "*.ts",
-  "**/*.ts",
-  "{**/,}*.ts",
-  "*.tsx",
-  "**/*.tsx",
-  "{**/,}*.tsx",
-  "*.mts",
-  "**/*.mts",
-  "{**/,}*.mts",
-  "*.cts",
-  "**/*.cts",
-  "{**/,}*.cts",
-  "*.{ts,tsx}",
-  "{*.ts,*.tsx}",
-  "**/*.{ts,tsx}",
-  "**/{*.ts,*.tsx}",
-  "**/**/*.{ts,tsx}",
-  "*.{ts,tsx,mts,cts}",
-  "{*.ts,*.tsx,*.mts,*.cts}",
-  "**/*.{ts,tsx,mts,cts}",
-  "**/{*.ts,*.tsx,*.mts,*.cts}",
-  "**/**/*.{ts,tsx,mts,cts}",
-];
-
-/**
  * Globs the guard must refuse, driven through a real build for the same reason
  * the recognised set is.
  *
@@ -354,6 +319,19 @@ function writeTurbopackRootEntry() {
       "utf8",
     );
   }
+  const deepDirectory = path.join(workspace, "src", "deep", "nested");
+  fs.mkdirSync(deepDirectory, { recursive: true });
+  for (const extension of ["ts", "tsx", "mts", "cts"]) {
+    fs.writeFileSync(
+      path.join(deepDirectory, `turbopack-deep-entry.${extension}`),
+      [
+        `export const deepValue = mark(${JSON.stringify(`turbopack-deep-${extension}-ok`)});`,
+        "console.log(deepValue);",
+        "",
+      ].join("\n"),
+      "utf8",
+    );
+  }
 }
 
 /** Write the lightweight loader that records every real Turbopack glob match. */
@@ -392,6 +370,10 @@ function writeNextPage() {
       'import "../turbopack-root-entry.tsx";',
       'import "../turbopack-root-entry.mts";',
       'import "../turbopack-root-entry.cts";',
+      'import "../src/deep/nested/turbopack-deep-entry.ts";',
+      'import "../src/deep/nested/turbopack-deep-entry.tsx";',
+      'import "../src/deep/nested/turbopack-deep-entry.mts";',
+      'import "../src/deep/nested/turbopack-deep-entry.cts";',
       "",
       "export default function Page() {",
       "  return value + rootValue + tsxValue;",
@@ -938,7 +920,9 @@ function verifyNextBuild() {
  * answer this because it would ask our matcher what our matcher thinks.
  */
 function verifyTurbopackRecognisedGlobs() {
-  const globs = [...TURBOPACK_PROJECT_WIDE_GLOBS, ...TURBOPACK_SCOPED_GLOBS];
+  const coverage = installedTurbopackProjectWideGlobCoverage();
+  const projectWideGlobs = coverage.map(([glob]) => glob);
+  const globs = [...projectWideGlobs, ...TURBOPACK_SCOPED_GLOBS];
   const probeDirectory = path.join(
     experimentRoot,
     ".tmp",
@@ -995,6 +979,10 @@ function verifyTurbopackRecognisedGlobs() {
     ["TURBOPACK-ROOT-MTS-OK", "turbopack-root-mts-ok", "root .mts"],
     ["TURBOPACK-CTS-OK", "turbopack-cts-ok", "nested .cts"],
     ["TURBOPACK-ROOT-CTS-OK", "turbopack-root-cts-ok", "root .cts"],
+    ["TURBOPACK-DEEP-TS-OK", "turbopack-deep-ts-ok", "deep .ts"],
+    ["TURBOPACK-DEEP-TSX-OK", "turbopack-deep-tsx-ok", "deep .tsx"],
+    ["TURBOPACK-DEEP-MTS-OK", "turbopack-deep-mts-ok", "deep .mts"],
+    ["TURBOPACK-DEEP-CTS-OK", "turbopack-deep-cts-ok", "deep .cts"],
   ]) {
     assertBuiltTreeContains(
       "dist-next",
@@ -1010,6 +998,13 @@ function verifyTurbopackRecognisedGlobs() {
       [
         path.join(workspace, "turbopack-root-entry.ts"),
         path.join(workspace, "src", "next-entry.ts"),
+        path.join(
+          workspace,
+          "src",
+          "deep",
+          "nested",
+          "turbopack-deep-entry.ts",
+        ),
       ],
     ],
     [
@@ -1017,6 +1012,13 @@ function verifyTurbopackRecognisedGlobs() {
       [
         path.join(workspace, "turbopack-root-entry.tsx"),
         path.join(workspace, "src", "turbopack-tsx-entry.tsx"),
+        path.join(
+          workspace,
+          "src",
+          "deep",
+          "nested",
+          "turbopack-deep-entry.tsx",
+        ),
       ],
     ],
     [
@@ -1024,6 +1026,13 @@ function verifyTurbopackRecognisedGlobs() {
       [
         path.join(workspace, "turbopack-root-entry.mts"),
         path.join(workspace, "src", "turbopack-mts-entry.mts"),
+        path.join(
+          workspace,
+          "src",
+          "deep",
+          "nested",
+          "turbopack-deep-entry.mts",
+        ),
       ],
     ],
     [
@@ -1031,6 +1040,13 @@ function verifyTurbopackRecognisedGlobs() {
       [
         path.join(workspace, "turbopack-root-entry.cts"),
         path.join(workspace, "src", "turbopack-cts-entry.cts"),
+        path.join(
+          workspace,
+          "src",
+          "deep",
+          "nested",
+          "turbopack-deep-entry.cts",
+        ),
       ],
     ],
   ]);
@@ -1049,9 +1065,8 @@ function verifyTurbopackRecognisedGlobs() {
         .map(comparable),
     );
   };
-  for (const [index, glob] of TURBOPACK_PROJECT_WIDE_GLOBS.entries()) {
-    const extensions = new Set(glob.match(/\b(?:tsx|mts|cts|ts)\b/g) ?? []);
-    const expected = [...extensions].flatMap(
+  for (const [index, [glob, extensions]] of coverage.entries()) {
+    const expected = extensions.flatMap(
       (extension) => sourcePaths.get(extension) ?? [],
     );
     const matches = probeMatches(index);
@@ -1066,7 +1081,7 @@ function verifyTurbopackRecognisedGlobs() {
     );
   }
   for (const [offset, glob] of TURBOPACK_SCOPED_GLOBS.entries()) {
-    const matches = probeMatches(TURBOPACK_PROJECT_WIDE_GLOBS.length + offset);
+    const matches = probeMatches(projectWideGlobs.length + offset);
     const tsSources = sourcePaths.get("ts") ?? [];
     assert(
       tsSources.some((file) => !matches.has(comparable(file))),
@@ -1074,6 +1089,20 @@ function verifyTurbopackRecognisedGlobs() {
     );
   }
   writeNextConfig();
+}
+
+/** Read the immutable allowlist from the installed package under test. */
+function installedTurbopackProjectWideGlobCoverage() {
+  const requireFromWorkspace = createRequire(
+    path.join(workspace, "package.json"),
+  );
+  const nextModule = requireFromWorkspace("@ttsc/unplugin/next");
+  const coverage = nextModule.TURBOPACK_PROJECT_WIDE_GLOB_COVERAGE;
+  assert(
+    Array.isArray(coverage) && coverage.length > 0,
+    "the installed Next adapter must export its measured Turbopack glob coverage",
+  );
+  return coverage;
 }
 
 function verifyBunBuild() {

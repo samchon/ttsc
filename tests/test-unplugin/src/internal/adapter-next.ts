@@ -1,48 +1,22 @@
 import { TestUnpluginRuntime } from "@ttsc/testing";
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
 
 const LOADER = "@ttsc/unplugin/turbopack";
 const AUTOMATIC_RULE_GLOBS = ["*.ts", "*.tsx", "*.mts", "*.cts"];
 const EXTENSION_NAMES = AUTOMATIC_RULE_GLOBS.map((glob) => glob.slice(2));
-const CLASSIC_EXTENSION_NAMES = EXTENSION_NAMES.filter(
-  (extension) => extension === "ts" || extension === "tsx",
-);
-
-/**
- * Every glob this suite proves the dedupe guard recognises as naming the whole
- * project, including the exact rules for all four source extensions.
- *
- * Cross-checked against the list the experimental suite drives through real
- * Turbopack builds, so neither can gain a spelling the other has not seen.
- */
-const PROJECT_WIDE_GLOB_COVERAGE = new Map<string, readonly string[]>([
-  ...EXTENSION_NAMES.flatMap((extension) => [
-    [`*.${extension}`, [extension]] as const,
-    [`**/*.${extension}`, [extension]] as const,
-    [`{**/,}*.${extension}`, [extension]] as const,
-  ]),
-  ...braceGlobCoverage(CLASSIC_EXTENSION_NAMES),
-  ...braceGlobCoverage(EXTENSION_NAMES),
-]);
-const RECOGNISED_PROJECT_WIDE_GLOBS = [...PROJECT_WIDE_GLOB_COVERAGE.keys()];
-
-/** Measured brace spellings and the extensions each one covers. */
-function braceGlobCoverage(
-  extensions: readonly string[],
-): ReadonlyArray<readonly [string, readonly string[]]> {
-  const suffixes = extensions.join(",");
-  const alternatives = extensions
-    .map((extension) => `*.${extension}`)
-    .join(",");
-  return [
-    [`*.{${suffixes}}`, extensions],
-    [`{${alternatives}}`, extensions],
-    [`**/*.{${suffixes}}`, extensions],
-    [`**/{${alternatives}}`, extensions],
-    [`**/**/*.{${suffixes}}`, extensions],
-  ];
-}
+const REQUIRED_EXTENSION_GROUPS = [
+  ["ts", "tsx"],
+  ["ts", "mts"],
+  ["ts", "cts"],
+  ["tsx", "mts"],
+  ["tsx", "cts"],
+  ["mts", "cts"],
+  ["ts", "tsx", "mts"],
+  ["ts", "tsx", "cts"],
+  ["ts", "mts", "cts"],
+  ["tsx", "mts", "cts"],
+  ["ts", "tsx", "mts", "cts"],
+] as const;
 
 /**
  * Spellings the guard must refuse, each one a shape a predicate would have
@@ -71,14 +45,23 @@ interface INextLikeConfig {
   [key: string]: unknown;
 }
 
+interface INextModule {
+  default: (config?: INextLikeConfig, options?: unknown) => INextLikeConfig;
+  TURBOPACK_PROJECT_WIDE_GLOB_COVERAGE: ReadonlyArray<
+    readonly [string, readonly string[]]
+  >;
+}
+
+/** Load the complete built `next` module, including its measured allowlist. */
+async function loadNextModule(): Promise<INextModule> {
+  return (await import(TestUnpluginRuntime.libUrl("next"))) as INextModule;
+}
+
 /** Load the built `next` adapter entry. */
 async function loadNext(): Promise<
   (config?: INextLikeConfig, options?: unknown) => INextLikeConfig
 > {
-  return (await TestUnpluginRuntime.loadUnpluginAdapter("next")) as (
-    config?: INextLikeConfig,
-    options?: unknown,
-  ) => INextLikeConfig;
+  return (await loadNextModule()).default;
 }
 
 /** The loader entries a rule carries, in either shape Turbopack accepts. */
@@ -249,7 +232,51 @@ export async function assertNextAdapterPreservesTurbopackConfig(): Promise<void>
  * somebody else's loader, because that is not this loader running twice.
  */
 export async function assertNextAdapterDoesNotDoubleRegisterAcrossGlobs(): Promise<void> {
-  const next = await loadNext();
+  const nextModule = await loadNextModule();
+  const next = nextModule.default;
+  const coverageEntries = nextModule.TURBOPACK_PROJECT_WIDE_GLOB_COVERAGE;
+  const coverage = new Map(coverageEntries);
+  assert.ok(
+    coverageEntries.length > 0,
+    "the measured allowlist must not be empty",
+  );
+  assert.equal(
+    coverage.size,
+    coverageEntries.length,
+    "the measured allowlist must not contain duplicate glob spellings",
+  );
+  for (const extension of EXTENSION_NAMES) {
+    for (const glob of [
+      `*.${extension}`,
+      `**/*.${extension}`,
+      `{**/,}*.${extension}`,
+    ]) {
+      assert.deepEqual(
+        coverage.get(glob),
+        [extension],
+        `${glob} must cover its complete single-extension family`,
+      );
+    }
+  }
+  for (const extensions of REQUIRED_EXTENSION_GROUPS) {
+    const suffixes = extensions.join(",");
+    const alternatives = extensions
+      .map((extension) => `*.${extension}`)
+      .join(",");
+    for (const glob of [
+      `*.{${suffixes}}`,
+      `{${alternatives}}`,
+      `**/*.{${suffixes}}`,
+      `**/{${alternatives}}`,
+      `**/**/*.{${suffixes}}`,
+    ]) {
+      assert.deepEqual(
+        coverage.get(glob),
+        extensions,
+        `${glob} must cover its complete extension combination`,
+      );
+    }
+  }
   const globs = (config: INextLikeConfig): string[] =>
     Object.keys(next(config).turbopack?.rules ?? {});
 
@@ -313,8 +340,7 @@ export async function assertNextAdapterDoesNotDoubleRegisterAcrossGlobs(): Promi
   // file set the caller already routed. Every one of these is driven through a
   // real Turbopack build by `experimental/test-unplugin`, because whether a
   // glob covers the project is Turbopack's answer and not ours.
-  for (const wide of RECOGNISED_PROJECT_WIDE_GLOBS) {
-    const covered = PROJECT_WIDE_GLOB_COVERAGE.get(wide) ?? [];
+  for (const [wide, covered] of coverageEntries) {
     const missing = AUTOMATIC_RULE_GLOBS.filter(
       (glob) => !covered.includes(glob.slice(2)),
     );
@@ -337,66 +363,6 @@ export async function assertNextAdapterDoesNotDoubleRegisterAcrossGlobs(): Promi
       globs({ turbopack: { rules: { [refused]: { loaders: [LOADER] } } } }),
       [refused, ...AUTOMATIC_RULE_GLOBS],
       `${refused} is not a measured project-wide spelling, so it must suppress nothing`,
-    );
-  }
-
-  await assertRecognisedGlobsMatchTheRealBuildList(globs);
-}
-
-/**
- * Assert the guard and the experimental suite name the same recognised set.
- *
- * Whether a glob covers the project is Turbopack's answer, so the recognised
- * set is only ever as good as the real builds that check it. Those builds live
- * in `experimental/test-unplugin`, in a list this fast suite cannot import —
- * that harness runs against installed tarballs, not this source tree. The two
- * lists were therefore synchronised by convention, and a convention is what
- * lost `{src/,}*.ts`: the guard recognised a spelling no build ever drove, and
- * it turned out to match nothing at all (samchon/ttsc#1319).
- *
- * So the invariant is asserted in both directions instead of trusted. Adding a
- * spelling to the guard without adding it to the harness fails here, and so
- * does the reverse.
- */
-async function assertRecognisedGlobsMatchTheRealBuildList(
-  globs: (config: INextLikeConfig) => string[],
-): Promise<void> {
-  const harness = await readFile(
-    new URL(
-      "../../../../experimental/test-unplugin/src/index.ts",
-      import.meta.url,
-    ),
-    "utf8",
-  );
-  const declared = /const TURBOPACK_PROJECT_WIDE_GLOBS = \[([^\]]*)\]/.exec(
-    harness,
-  );
-  const body = declared?.[1];
-  assert.ok(body, "the experimental suite must declare its recognised set");
-  const listed = [...body.matchAll(/"((?:[^"\\]|\\.)*)"/g)].map(
-    (match) => JSON.parse(`"${match[1]}"`) as string,
-  );
-  assert.ok(listed.length > 0, "that list must not be empty");
-
-  // Every glob the real builds drive must actually be recognised, or those
-  // builds are proving something about a spelling the guard never takes.
-  // Recognition means at least one automatic rule is declined; a glob naming
-  // one extension, `*.ts`, still leaves the other three to be added.
-  for (const glob of listed) {
-    const wired = globs({
-      turbopack: { rules: { [glob]: { loaders: [LOADER] } } },
-    });
-    assert.ok(
-      wired.length < AUTOMATIC_RULE_GLOBS.length + 1,
-      `${glob} is driven through a real build, so the guard must recognise it (got ${JSON.stringify(wired)})`,
-    );
-  }
-
-  // And every spelling this suite proves recognised must be driven there.
-  for (const glob of RECOGNISED_PROJECT_WIDE_GLOBS) {
-    assert.ok(
-      listed.includes(glob),
-      `${glob} is recognised here, so a real Turbopack build must drive it`,
     );
   }
 }

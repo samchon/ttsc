@@ -260,28 +260,57 @@ function matchesExtension(glob: string, extension: string): boolean {
  * if any — is a second registration rather than a module that no loader ever
  * sees.
  *
- * `experimental/test-unplugin` drives every entry through `next build
- * --turbopack` and asserts `.ts`, `.tsx`, `.mts`, and `.cts` sources all came
- * out transformed, and
- * `test_next_adapter_does_not_double_register_across_globs` asserts these keys
- * and that list are the same set, so an entry cannot be added here without a
- * build proving it.
+ * `experimental/test-unplugin` reads this exported table from the installed
+ * package, drives every entry through one `next build --turbopack`, and asserts
+ * root, nested, and deep `.ts`, `.tsx`, `.mts`, and `.cts` sources match
+ * exactly the extension family recorded here. An entry therefore cannot be
+ * recognised without that same build measuring it.
  */
 const TYPESCRIPT_EXTENSION_NAMES = TYPESCRIPT_TRANSFORM_EXTENSIONS.map(
   (extension) => extension.slice(1),
 );
-const CLASSIC_TYPESCRIPT_EXTENSION_NAMES = TYPESCRIPT_EXTENSION_NAMES.filter(
-  (extension) => extension === "ts" || extension === "tsx",
+const TYPESCRIPT_EXTENSION_GROUPS = extensionCombinations(
+  TYPESCRIPT_EXTENSION_NAMES,
 );
-const PROJECT_WIDE_GLOBS: ReadonlyMap<string, readonly string[]> = new Map([
-  ...TYPESCRIPT_EXTENSION_NAMES.flatMap((extension) => [
-    [`*.${extension}`, [extension]] as const,
-    [`**/*.${extension}`, [extension]] as const,
-    [`{**/,}*.${extension}`, [extension]] as const,
-  ]),
-  ...projectWideBraceGlobEntries(CLASSIC_TYPESCRIPT_EXTENSION_NAMES),
-  ...projectWideBraceGlobEntries(TYPESCRIPT_EXTENSION_NAMES),
+
+/**
+ * Measured project-wide Turbopack globs and the source extensions each covers.
+ *
+ * Exported so the packed-package E2E can measure the exact production allowlist
+ * instead of maintaining a second list that can drift from it.
+ */
+export const TURBOPACK_PROJECT_WIDE_GLOB_COVERAGE: ReadonlyArray<
+  readonly [string, readonly string[]]
+> = Object.freeze([
+  ...TYPESCRIPT_EXTENSION_NAMES.flatMap((extension) => {
+    const extensions = Object.freeze([extension]);
+    return [
+      Object.freeze([`*.${extension}`, extensions] as const),
+      Object.freeze([`**/*.${extension}`, extensions] as const),
+      Object.freeze([`{**/,}*.${extension}`, extensions] as const),
+    ];
+  }),
+  ...TYPESCRIPT_EXTENSION_GROUPS.flatMap(projectWideBraceGlobEntries),
 ]);
+const PROJECT_WIDE_GLOBS: ReadonlyMap<string, readonly string[]> = new Map(
+  TURBOPACK_PROJECT_WIDE_GLOB_COVERAGE,
+);
+
+/** Every source-extension subset of size two or more, in shared-table order. */
+function extensionCombinations(
+  extensions: readonly string[],
+): ReadonlyArray<readonly string[]> {
+  const output: Array<readonly string[]> = [];
+  const visit = (start: number, selected: string[]): void => {
+    for (let index = start; index < extensions.length; index += 1) {
+      const next = [...selected, extensions[index]!];
+      if (next.length >= 2) output.push(Object.freeze(next));
+      visit(index + 1, next);
+    }
+  };
+  visit(0, []);
+  return output;
+}
 
 /** Measured project-wide brace spellings for one extension family. */
 function projectWideBraceGlobEntries(
@@ -292,11 +321,11 @@ function projectWideBraceGlobEntries(
     .map((extension) => `*.${extension}`)
     .join(",");
   return [
-    [`*.{${suffixes}}`, extensions],
-    [`{${alternatives}}`, extensions],
-    [`**/*.{${suffixes}}`, extensions],
-    [`**/{${alternatives}}`, extensions],
-    [`**/**/*.{${suffixes}}`, extensions],
+    Object.freeze([`*.{${suffixes}}`, extensions] as const),
+    Object.freeze([`{${alternatives}}`, extensions] as const),
+    Object.freeze([`**/*.{${suffixes}}`, extensions] as const),
+    Object.freeze([`**/{${alternatives}}`, extensions] as const),
+    Object.freeze([`**/**/*.{${suffixes}}`, extensions] as const),
   ];
 }
 
