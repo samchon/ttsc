@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
-import crypto from "node:crypto";
 import fs from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 
 import { TestProject } from "../TestProject";
+import { materializeSharedSource as publishSharedSource } from "./materializeSharedSource";
 
 /**
  * Fixture builder for unplugin adapter and transform tests.
@@ -117,37 +117,16 @@ export namespace TestUnpluginProject {
     label: string,
     write: (directory: string) => void,
   ): string {
-    if (!/^[a-z0-9-]+$/.test(label)) {
-      throw new Error(`Invalid shared fixture label: ${label}`);
-    }
-    const parent = path.join(
-      TestProject.WORKSPACE_ROOT,
-      "node_modules",
-      ".cache",
-      "ttsc-test-unplugin",
+    return publishSharedSource(
+      path.join(
+        TestProject.WORKSPACE_ROOT,
+        "node_modules",
+        ".cache",
+        "ttsc-test-unplugin",
+      ),
+      label,
+      write,
     );
-    fs.mkdirSync(parent, { recursive: true });
-    const staging = fs.mkdtempSync(path.join(parent, `.${label}-`));
-    try {
-      write(staging);
-      const digest = directoryDigest(staging);
-      const destination = path.join(parent, `${label}-${digest}`);
-      try {
-        fs.renameSync(staging, destination);
-      } catch (error) {
-        if (
-          !fs.existsSync(destination) ||
-          directoryDigest(destination) !== digest
-        ) {
-          throw error;
-        }
-        fs.rmSync(staging, { force: true, recursive: true });
-      }
-      return destination;
-    } catch (error) {
-      fs.rmSync(staging, { force: true, recursive: true });
-      throw error;
-    }
   }
 
   /** Absolute path to the generated TypeScript entrypoint. */
@@ -775,32 +754,6 @@ export namespace TestUnpluginProject {
       writeGoPlugin,
     );
     return path.join(sharedGoPluginRoot, "go-plugin");
-  }
-
-  function directoryDigest(directory: string): string {
-    const hash = crypto.createHash("sha256");
-    const visit = (current: string, relative: string): void => {
-      for (const entry of fs
-        .readdirSync(current, { withFileTypes: true })
-        .sort((left, right) =>
-          left.name < right.name ? -1 : left.name > right.name ? 1 : 0,
-        )) {
-        const childRelative = path.posix.join(relative, entry.name);
-        const child = path.join(current, entry.name);
-        if (entry.isDirectory()) {
-          hash.update(`directory\0${childRelative}\0`);
-          visit(child, childRelative);
-        } else if (entry.isFile()) {
-          hash.update(`file\0${childRelative}\0`);
-          hash.update(fs.readFileSync(child));
-          hash.update("\0");
-        } else {
-          throw new Error(`Unsupported shared fixture entry: ${child}`);
-        }
-      }
-    };
-    visit(directory, "");
-    return hash.digest("hex");
   }
 
   /**
