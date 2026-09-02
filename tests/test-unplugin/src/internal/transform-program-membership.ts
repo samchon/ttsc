@@ -246,7 +246,7 @@ export async function assertAllowJsDecidesJavaScriptMembership(): Promise<void> 
 export async function assertTheWalkAvoidsWorkItCannotUse(): Promise<void> {
   const session = await startMembershipSession(
     { outDir: "src" },
-    { outDir: "${configDir}/generated" },
+    { outDir: "${configDir}\\generated" },
   );
   try {
     await session.pass();
@@ -423,13 +423,13 @@ export async function assertTheWalkPredicateMatchesTheWalk(): Promise<void> {
     baseConfig,
     JSON.stringify({
       compilerOptions: {
-        declarationDir: "../src/inherited-declarations",
-        outDir: "../src/inherited-output",
+        declarationDir: "..\\src\\inherited-declarations",
+        outDir: "..\\src\\inherited-output",
       },
     }),
     "utf8",
   );
-  declared.extends = "./config/tsconfig.base.json";
+  declared.extends = ".\\config\\tsconfig.base.json";
   fs.writeFileSync(tsconfig, JSON.stringify(declared, null, 2), "utf8");
 
   const policy = api.readProjectMembershipPolicy(tsconfig);
@@ -598,10 +598,10 @@ export async function assertTheWalkPredicateMatchesTheWalk(): Promise<void> {
     templateBase,
     JSON.stringify({
       compilerOptions: {
-        declarationDir: "${configDir}/template-types",
-        outDir: "${configDir}/template-output",
+        declarationDir: "${configDir}\\template-types",
+        outDir: "${configDir}\\template-output",
       },
-      exclude: ["${configDir}/template-exclude"],
+      exclude: ["${configDir}\\template-exclude"],
     }),
     "utf8",
   );
@@ -630,8 +630,8 @@ export async function assertTheWalkPredicateMatchesTheWalk(): Promise<void> {
   const templateOverlay = api.mergeMembershipPolicyOverlay(
     policy,
     {
-      declarationDir: "${configDir}/template-types",
-      outDir: "${configDir}/template-output",
+      declarationDir: "${configDir}\\template-types",
+      outDir: "${configDir}\\template-output",
     },
     overlayOwner,
   );
@@ -650,8 +650,8 @@ export async function assertTheWalkPredicateMatchesTheWalk(): Promise<void> {
   fs.writeFileSync(
     explicitConfig,
     JSON.stringify({
-      compilerOptions: { outDir: "src/retained" },
-      exclude: ["src/retained"],
+      compilerOptions: { outDir: "src\\retained" },
+      exclude: ["src\\retained\\**"],
     }),
     "utf8",
   );
@@ -686,7 +686,7 @@ export async function assertTheWalkPredicateMatchesTheWalk(): Promise<void> {
   fs.writeFileSync(
     emptyExcludeConfig,
     JSON.stringify({
-      compilerOptions: { outDir: "src/output" },
+      compilerOptions: { outDir: "src\\output" },
       exclude: [],
     }),
     "utf8",

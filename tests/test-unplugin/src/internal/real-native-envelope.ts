@@ -44,7 +44,10 @@ interface IRealNativeEnvelopeApi {
   beginTtscTransformBuild(cache: RealNativeEnvelopeCache): void;
   createTtscTransformCache(): RealNativeEnvelopeCache;
   resetTtscTransformCache(cache: RealNativeEnvelopeCache): void;
-  resolveOptions(options: { project: string }): unknown;
+  resolveOptions(options: {
+    compilerOptions?: Record<string, unknown>;
+    project: string;
+  }): unknown;
   transformTtsc(
     file: string,
     source: string,
@@ -58,6 +61,8 @@ interface IRealNativeEnvelopeApi {
 export interface IRealNativeEnvelopeFixture {
   /** Selected declaration whose compiler proof must survive the JSON boundary. */
   declaration: string;
+  /** Source kept outside the Program by an inherited templated outDir. */
+  excludedSource: string;
   /** Existing package directory that the resolver probed only as a file. */
   fileCandidateDirectory: string;
   /** Missing source that supersedes the package's selected JavaScript entry. */
@@ -113,6 +118,7 @@ export function createRealNativeEnvelopeFixture(
     "dist",
     "index.d.ts",
   );
+  const excludedSource = path.join(root, "src", "generated", "ignored.ts");
   const missingCandidate = path.join(
     root,
     "node_modules",
@@ -240,6 +246,7 @@ export function createRealNativeEnvelopeFixture(
     ].join("\n"),
     "tsconfig.json": JSON.stringify(
       {
+        extends: "./presets/base.json",
         compilerOptions: {
           allowJs: true,
           module: "NodeNext",
@@ -274,6 +281,11 @@ export function createRealNativeEnvelopeFixture(
       null,
       2,
     ),
+    "presets/base.json": JSON.stringify({
+      compilerOptions: { outDir: "${configDir}\\src\\generated" },
+    }),
+    "src/generated/ignored.ts":
+      'export const ignored = "the templated outDir excludes this source";\n',
     "node_modules/typed-dep/package.json": JSON.stringify(
       {
         main: "dist/index.js",
@@ -404,6 +416,7 @@ export function createRealNativeEnvelopeFixture(
   );
   return {
     declaration,
+    excludedSource,
     fileCandidateDirectory,
     missingCandidate,
     modules,
@@ -441,7 +454,7 @@ function sharedRealNativeContributor(root: string): string {
 export async function assertRealEnvelopeServesSiblingModulesFromOneCompile(): Promise<void> {
   const fixture = createRealNativeEnvelopeFixture();
   const api = await loadApi();
-  await assertCoreLifecycle(api, fixture, false);
+  await assertCoreLifecycle(api, fixture, false, { strict: true });
   await assertCoreLifecycle(api, fixture, true);
   await assertViteLifecycle(fixture);
 }
@@ -588,10 +601,12 @@ async function assertCoreLifecycle(
   api: IRealNativeEnvelopeApi,
   fixture: IRealNativeEnvelopeFixture,
   buildScoped: boolean,
+  compilerOptions?: Record<string, unknown>,
 ): Promise<void> {
   const cache = api.createTtscTransformCache();
   if (buildScoped) api.beginTtscTransformBuild(cache);
   const options = api.resolveOptions({
+    ...(compilerOptions === undefined ? {} : { compilerOptions }),
     project: path.join(fixture.root, "tsconfig.json"),
   });
   resetRunLog(fixture.runLog);
@@ -794,6 +809,15 @@ async function assertProductionEnvelope(
       `the native envelope must contain the sibling output ${graphKey(fixture.root, file)}`,
     );
   }
+  assert.equal(
+    findGraphSpelling(
+      fixture.root,
+      Object.keys(result.typescript),
+      fixture.excludedSource,
+    ),
+    undefined,
+    "an unrelated compiler overlay must not move an inherited configDir outDir to scratch",
+  );
 
   const graph = result.graph;
   assert.ok(

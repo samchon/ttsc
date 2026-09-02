@@ -57,6 +57,27 @@ const JAVASCRIPT_INPUT_EXTENSIONS = [".js", ".jsx", ".mjs", ".cjs"];
 /** Compiler options that exclude exactly one resolved output directory. */
 const OUTPUT_DIRECTORY_OPTIONS = ["outDir", "declarationDir"] as const;
 
+/** Scalar compiler paths TypeScript substitutes from the final config owner. */
+export const CONFIG_DIR_TEMPLATE_SCALAR_OPTIONS = [
+  "baseUrl",
+  "declarationDir",
+  "generateCpuProfile",
+  "generateTrace",
+  "outDir",
+  "outFile",
+  "rootDir",
+  "tsBuildInfoFile",
+] as const;
+
+/** List compiler paths TypeScript substitutes from the final config owner. */
+export const CONFIG_DIR_TEMPLATE_LIST_OPTIONS = [
+  "rootDirs",
+  "typeRoots",
+] as const;
+
+/** Top-level file specifications that accept the same template. */
+const CONFIG_DIR_TEMPLATE_FILE_SPECS = ["exclude", "files", "include"] as const;
+
 /**
  * What the resolved configuration says can and cannot enter the program.
  *
@@ -238,7 +259,10 @@ export function readProjectMembershipPolicy(
       }
       // `dist/**` names exactly one directory; `**/*.spec.ts` names a set this
       // walk cannot evaluate without a matcher, so it is left in.
-      const plain = entry.endsWith("/**") ? entry.slice(0, -3) : entry;
+      const normalizedEntry = normalizeTypeScriptPathSeparators(entry);
+      const plain = normalizedEntry.endsWith("/**")
+        ? normalizedEntry.slice(0, -3)
+        : normalizedEntry;
       if (plain.length === 0 || /[*?]/.test(plain)) {
         continue;
       }
@@ -327,6 +351,122 @@ export function mergeMembershipPolicyOverlay(
 }
 
 /**
+ * Materialize inherited compiler paths whose `${configDir}` owner would move
+ * when a generated wrapper becomes the final config in the chain.
+ *
+ * Only template-bearing options are returned. Ordinary inherited paths are
+ * already made absolute while TypeScript parses their declaring config, while
+ * template paths deliberately survive until the final consumer is known.
+ */
+export function readEffectiveTsconfigTemplateCompilerOptions(
+  tsconfig: string,
+): Record<string, unknown> {
+  const resolved = path.resolve(tsconfig);
+  const configDir = path.dirname(resolved);
+  const output: Record<string, unknown> = {};
+  for (const key of CONFIG_DIR_TEMPLATE_SCALAR_OPTIONS) {
+    const declared = findDeclaredCompilerOption(resolved, key);
+    if (
+      declared !== null &&
+      typeof declared.value === "string" &&
+      startsWithConfigDirTemplate(declared.value)
+    ) {
+      output[key] = resolveConfigDirTemplatePath(
+        declared.baseDir,
+        declared.value,
+        configDir,
+      );
+    }
+  }
+  for (const key of CONFIG_DIR_TEMPLATE_LIST_OPTIONS) {
+    const declared = findDeclaredCompilerOption(resolved, key);
+    if (
+      declared !== null &&
+      Array.isArray(declared.value) &&
+      declared.value.some(
+        (entry) =>
+          typeof entry === "string" && startsWithConfigDirTemplate(entry),
+      )
+    ) {
+      output[key] = declared.value.map((entry) =>
+        typeof entry === "string"
+          ? resolveConfigDirTemplatePath(declared.baseDir, entry, configDir)
+          : entry,
+      );
+    }
+  }
+
+  const declaredPaths = findDeclaredPaths(resolved, new Set());
+  if (
+    declaredPaths !== null &&
+    Object.values(declaredPaths.paths).some(
+      (targets) =>
+        Array.isArray(targets) &&
+        targets.some(
+          (target) =>
+            typeof target === "string" && startsWithConfigDirTemplate(target),
+        ),
+    )
+  ) {
+    output.paths = Object.fromEntries(
+      Object.entries(declaredPaths.paths).map(([key, targets]) => [
+        key,
+        Array.isArray(targets)
+          ? targets.map((target) =>
+              typeof target === "string"
+                ? absolutizePathsTarget(
+                    declaredPaths.baseDir,
+                    target,
+                    configDir,
+                  )
+                : target,
+            )
+          : targets,
+      ]),
+    );
+  }
+  return output;
+}
+
+/**
+ * Materialize inherited file specifications whose `${configDir}` owner would
+ * otherwise move to a generated wrapper's scratch directory.
+ */
+export function readEffectiveTsconfigTemplateFileSpecs(
+  tsconfig: string,
+): Record<string, unknown> {
+  const resolved = path.resolve(tsconfig);
+  const configDir = path.dirname(resolved);
+  const output: Record<string, unknown> = {};
+  for (const key of CONFIG_DIR_TEMPLATE_FILE_SPECS) {
+    const declared = findDeclaredValue(
+      resolved,
+      (parsed) =>
+        Object.prototype.hasOwnProperty.call(parsed, key)
+          ? (parsed as Record<string, unknown>)[key]
+          : undefined,
+      new Set(),
+    );
+    if (
+      declared === null ||
+      !Array.isArray(declared.value) ||
+      !declared.value.some(
+        (entry) =>
+          typeof entry === "string" && startsWithConfigDirTemplate(entry),
+      )
+    ) {
+      continue;
+    }
+    output[key] = declared.value.map((entry) =>
+      typeof entry === "string"
+        ? absolutizePathsTarget(declared.baseDir, entry, configDir)
+        : entry,
+    );
+  }
+  return output;
+}
+
+/**
  * Anchor a single `paths` target at `baseDir` unless it is already absolute,
  * normalizing to forward slashes. The `*` wildcard survives `path.resolve` as a
  * literal segment, so patterns like `./src/*` stay patterns.
@@ -347,10 +487,23 @@ export function resolveConfigDirTemplatePath(
   configDir: string = baseDir,
 ): string {
   const template = "${configDir}";
-  return target.slice(0, template.length).toLowerCase() ===
-    template.toLowerCase()
-    ? path.resolve(configDir, target.replace(template, "./"))
-    : path.resolve(baseDir, target);
+  const normalized = normalizeTypeScriptPathSeparators(target);
+  return startsWithConfigDirTemplate(normalized)
+    ? path.resolve(configDir, normalized.replace(template, "./"))
+    : path.resolve(baseDir, normalized);
+}
+
+/** Match the prefix predicate used by TypeScript-Go before substitution. */
+function startsWithConfigDirTemplate(target: string): boolean {
+  const template = "${configDir}";
+  return (
+    target.slice(0, template.length).toLowerCase() === template.toLowerCase()
+  );
+}
+
+/** Match TypeScript's platform-independent treatment of config separators. */
+function normalizeTypeScriptPathSeparators(target: string): string {
+  return target.replace(/\\/g, "/");
 }
 
 /**
@@ -361,6 +514,28 @@ export function resolveConfigDirTemplatePath(
 interface IDeclaredPaths {
   baseDir: string;
   paths: Record<string, unknown>;
+}
+
+/** Locate one compiler option while retaining its declaring directory. */
+function findDeclaredCompilerOption(
+  tsconfig: string,
+  key: string,
+): { baseDir: string; value: unknown } | null {
+  const declared = findDeclaredValue(
+    tsconfig,
+    (parsed) => {
+      const options = (parsed as { compilerOptions?: Record<string, unknown> })
+        .compilerOptions;
+      return options !== undefined &&
+        Object.prototype.hasOwnProperty.call(options, key)
+        ? { value: options[key] }
+        : undefined;
+    },
+    new Set(),
+  );
+  return declared === null
+    ? null
+    : { baseDir: declared.baseDir, value: declared.value.value };
 }
 
 /**
@@ -438,7 +613,8 @@ function findDeclaredValue<T>(
     return { baseDir: path.dirname(canonical), value: own };
   }
 
-  for (const specifier of extendsSpecifiers(parsed.extends).reverse()) {
+  for (const rawSpecifier of extendsSpecifiers(parsed.extends).reverse()) {
+    const specifier = normalizeTypeScriptPathSeparators(rawSpecifier);
     const base = resolveExtendsConfig(canonical, specifier);
     if (base === null) {
       // Record where a relative or absolute specifier *would* have resolved,

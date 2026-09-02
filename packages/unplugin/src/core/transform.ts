@@ -18,11 +18,15 @@ import type { TransformResult } from "unplugin";
 
 import type { ResolvedTtscUnpluginOptions } from "./options";
 import {
+  CONFIG_DIR_TEMPLATE_LIST_OPTIONS,
+  CONFIG_DIR_TEMPLATE_SCALAR_OPTIONS,
   type ITtscProjectMembershipPolicy,
   PERMISSIVE_PROJECT_MEMBERSHIP_POLICY,
   absolutizePathsTarget,
   mergeMembershipPolicyOverlay,
   readEffectiveTsconfigPaths,
+  readEffectiveTsconfigTemplateCompilerOptions,
+  readEffectiveTsconfigTemplateFileSpecs,
   readProjectMembershipPolicy,
   resolveConfigDirTemplatePath,
 } from "./tsconfigPaths";
@@ -6462,23 +6466,32 @@ function createTransformTsconfig(
   },
   scratchDirectory: string,
 ): { path: string } {
-  const compilerOptions = normalizeCompilerOptionsForGeneratedTsconfig(
+  const overlay = normalizeCompilerOptionsForGeneratedTsconfig(
     {
       ...props.compilerOptions,
       ...createAliasCompilerOptions(props),
     },
     path.dirname(props.tsconfig),
   );
-  if (Object.keys(compilerOptions).length === 0) {
+  if (Object.keys(overlay).length === 0) {
     return { path: props.tsconfig };
   }
 
+  // A `${configDir}` value survives every `extends` hop and binds only at the
+  // final consumer. The scratch wrapper would therefore move it out of the
+  // project even for an unrelated overlay. Re-state only those inherited
+  // values as absolute paths so the wrapper remains semantically transparent.
+  const compilerOptions = {
+    ...readEffectiveTsconfigTemplateCompilerOptions(props.tsconfig),
+    ...overlay,
+  };
   const file = path.join(scratchDirectory, "tsconfig.json");
   fs.writeFileSync(
     file,
     JSON.stringify(
       {
         extends: normalizePath(props.tsconfig),
+        ...readEffectiveTsconfigTemplateFileSpecs(props.tsconfig),
         compilerOptions,
       },
       null,
@@ -6637,13 +6650,13 @@ function normalizeCompilerOptionsForGeneratedTsconfig(
 ): Record<string, unknown> {
   const output = { ...compilerOptions };
   // Scalar path fields: resolve each against the original tsconfig directory.
-  for (const key of ["declarationDir", "outDir", "rootDir"]) {
+  for (const key of CONFIG_DIR_TEMPLATE_SCALAR_OPTIONS) {
     if (typeof output[key] === "string") {
       output[key] = resolveConfigDirTemplatePath(tsconfigDir, output[key]);
     }
   }
   // Array path fields: resolve each element individually.
-  for (const key of ["rootDirs", "typeRoots"]) {
+  for (const key of CONFIG_DIR_TEMPLATE_LIST_OPTIONS) {
     if (Array.isArray(output[key])) {
       output[key] = output[key].map((entry) =>
         typeof entry === "string"
