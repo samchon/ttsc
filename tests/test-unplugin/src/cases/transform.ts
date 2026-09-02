@@ -588,6 +588,12 @@ export const TRANSFORM_CASES = {
     };
     return await execute();
   },
+  case_transformttsc_predicate_proofs_cover_filesystem_kinds_and_transitions:
+    async () => {
+      const { assertPredicateProofMatrix } =
+        await import("../internal/transform-input-observation");
+      assertPredicateProofMatrix();
+    },
   case_transformttsc_ignores_completeness_for_a_volatile_file: async () => {
     const { assertVolatileFileIgnoresItsCompletenessDeclaration } =
       await import("../internal/transform-complete");
@@ -1223,12 +1229,12 @@ export const TRANSFORM_CASES = {
       };
       return await execute();
     },
-  case_transformttsc_unproven_realized_graph_input_fails_after_bounded_attempts:
+  case_transformttsc_reported_graph_proof_failures_fail_after_bounded_attempts:
     async () => {
-      const { assertUnprovenRealizedInputFailsAfterBoundedAttempts } =
+      const { assertReportedGraphProofFailuresFailAfterBoundedAttempts } =
         await import("../internal/transform-project-cache");
       const execute = async () => {
-        await assertUnprovenRealizedInputFailsAfterBoundedAttempts();
+        await assertReportedGraphProofFailuresFailAfterBoundedAttempts();
       };
       return await execute();
     },

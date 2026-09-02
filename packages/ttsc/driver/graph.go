@@ -35,23 +35,25 @@ const bundledScheme = "bundled:///"
 //     its selected module target. They are a separate class from resolved
 //     edges: a probe's file appearing or changing can change an unchanged
 //     import's meaning.
-//   - InputHashes and InputRealpaths pair graph members with the exact content
-//     state and physical identity observed by the compiler filesystem.
+//   - InputObservations preserves the independent filesystem predicates the
+//     compiler actually asked. InputHashes and InputRealpaths retain the legacy
+//     collapsed content/identity projection for older consumers.
 //   - InputProofFailures gives a stable reason when a realized member lacks
-//     that pair. Speculative candidates are omitted because the compiler was
-//     never expected to read them.
+//     proof or an observed candidate predicate changed. A wholly unobserved
+//     speculative candidate is omitted because no compiler call exists to fail.
 //
 // Keys and values use the same convention as the envelope's `typescript`
 // map: project-relative slash paths, falling back to slash-normalized
 // absolute paths outside the project root (see TransformOutputKey).
 type TransformGraph struct {
-  Edges              map[string][]string `json:"edges"`
-  Globals            []string            `json:"globals"`
-  Configs            []string            `json:"configs"`
-  Candidates         map[string][]string `json:"candidates,omitempty"`
-  InputHashes        map[string]*string  `json:"inputHashes,omitempty"`
-  InputRealpaths     map[string]*string  `json:"inputRealpaths,omitempty"`
-  InputProofFailures map[string]string   `json:"inputProofFailures,omitempty"`
+  Edges              map[string][]string                  `json:"edges"`
+  Globals            []string                             `json:"globals"`
+  Configs            []string                             `json:"configs"`
+  Candidates         map[string][]string                  `json:"candidates,omitempty"`
+  InputObservations  map[string]TransformInputObservation `json:"inputObservations,omitempty"`
+  InputHashes        map[string]*string                   `json:"inputHashes,omitempty"`
+  InputRealpaths     map[string]*string                   `json:"inputRealpaths,omitempty"`
+  InputProofFailures map[string]string                    `json:"inputProofFailures,omitempty"`
 }
 
 // NewTransformGraph computes the reference graph of a loaded program, keyed
@@ -125,18 +127,27 @@ func (graph *TransformGraph) attachInputProof(prog *Program, cwd string) {
   }
   hashes := map[string]*string{}
   realpaths := map[string]*string{}
+  observations := map[string]TransformInputObservation{}
   failures := map[string]string{}
   for input := range inputs {
     file := filepath.FromSlash(input)
     if !filepath.IsAbs(file) {
       file = filepath.Join(cwd, file)
     }
-    hash, realpath, failure := prog.inputObserver.proof(file)
+    observation, failure := prog.inputObserver.predicateProof(file)
+    if failure == "" {
+      observations[input] = observation
+    }
+    var hash, realpath *string
+    if failure == "" {
+      hash, realpath, failure = prog.inputObserver.proof(file)
+    }
     if failure != "" {
-      // Speculative candidates are allowed to lack compiler reads. Reporting
-      // only realized members keeps this diagnostic side channel bounded to
-      // inputs whose missing proof can actually refuse generation reuse.
-      if _, ok := realized[input]; ok {
+      // A speculative candidate may be wholly unobserved because predecessor
+      // enumeration is broader than the resolver calls that selected its
+      // winner. Every other failure records a predicate the compiler did call
+      // and must refuse this generation just as a realized-input race does.
+      if _, ok := realized[input]; ok || failure != inputProofUnobserved {
         failures[input] = string(failure)
       }
       continue
@@ -147,6 +158,9 @@ func (graph *TransformGraph) attachInputProof(prog *Program, cwd string) {
   if len(hashes) != 0 {
     graph.InputHashes = hashes
     graph.InputRealpaths = realpaths
+  }
+  if len(observations) != 0 {
+    graph.InputObservations = observations
   }
   if len(failures) != 0 {
     graph.InputProofFailures = failures

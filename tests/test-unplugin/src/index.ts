@@ -11,7 +11,7 @@ interface ITestCase {
   run: () => unknown;
 }
 
-const EXPECTED_CASES = 204;
+const EXPECTED_CASES = 205;
 const UNIT_CASES = new Set([
   "case_adapter_entrypoints_expose_the_expected_plugin_factories",
   "case_adapter_entrypoints_support_node_cjs_require",
@@ -27,6 +27,7 @@ const UNIT_CASES = new Set([
   "case_shared_adapter_filter_accepts_source_files_and_skips_declarations",
   "case_transformttsc_declaration_classification_is_separator_neutral",
   "case_transformttsc_ignores_bundler_virtual_modules",
+  "case_transformttsc_predicate_proofs_cover_filesystem_kinds_and_transitions",
   "case_turbopack_loader_passes_through_declarations_and_node_modules",
   "case_turbopack_loader_passes_through_non_source_ids",
 ]);

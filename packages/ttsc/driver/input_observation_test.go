@@ -75,6 +75,166 @@ func TestInputObservationFSProvesReadBytesAndMissingCandidates(t *testing.T) {
   }
 }
 
+func TestInputObservationFSPreservesPredicateSemantics(t *testing.T) {
+  t.Run("compatible-file-and-directory-predicates", testInputObservationFSKeepsFileAndDirectoryPredicatesIndependent)
+  t.Run("every-repeated-predicate-change", testInputObservationFSRejectsEveryRepeatedPredicateChange)
+  t.Run("impossible-predicate-sets", testInputObservationFSRejectsImpossiblePredicateSets)
+  t.Run("observed-candidate-failure", testTransformGraphReportsObservedCandidateFailure)
+}
+
+func testInputObservationFSKeepsFileAndDirectoryPredicatesIndependent(t *testing.T) {
+  root := t.TempDir()
+  directory := filepath.Join(root, "punycode.js")
+  if err := os.Mkdir(directory, 0o755); err != nil {
+    t.Fatal(err)
+  }
+  observed := newInputObservationFS(DefaultFS())
+  if observed.FileExists(directory) {
+    t.Fatal("directory unexpectedly satisfied FileExists")
+  }
+  if !observed.DirectoryExists(directory) {
+    t.Fatal("directory did not satisfy DirectoryExists")
+  }
+
+  proof, failure := observed.predicateProof(directory)
+  if failure != "" {
+    t.Fatalf("compatible predicates failed proof: %q", failure)
+  }
+  if proof.FileExists == nil || *proof.FileExists {
+    t.Fatalf("FileExists proof = %#v, want false", proof.FileExists)
+  }
+  if proof.DirectoryExists == nil || !*proof.DirectoryExists {
+    t.Fatalf("DirectoryExists proof = %#v, want true", proof.DirectoryExists)
+  }
+  if proof.Realpath == nil || !proof.Realpath.OK || !filepath.IsAbs(proof.Realpath.Path) {
+    t.Fatalf("directory realpath proof = %#v, want absolute success", proof.Realpath)
+  }
+  hash, realpath, legacyFailure := observed.proof(directory)
+  if legacyFailure != "" || hash == nil || *hash != observedDirectoryDigest || realpath == nil {
+    t.Fatalf("legacy directory projection = %v, %v, failure %q", hash, realpath, legacyFailure)
+  }
+}
+
+func testInputObservationFSRejectsEveryRepeatedPredicateChange(t *testing.T) {
+  root := t.TempDir()
+  cases := []struct {
+    name     string
+    first    TransformInputObservation
+    second   TransformInputObservation
+    expected inputProofFailure
+  }{
+    {
+      name:     "directory-exists",
+      first:    TransformInputObservation{DirectoryExists: boolPointer(false)},
+      second:   TransformInputObservation{DirectoryExists: boolPointer(true)},
+      expected: inputProofDirectoryExistsChanged,
+    },
+    {
+      name:     "file-exists",
+      first:    TransformInputObservation{FileExists: boolPointer(false)},
+      second:   TransformInputObservation{FileExists: boolPointer(true)},
+      expected: inputProofFileExistsChanged,
+    },
+    {
+      name:     "read-availability",
+      first:    TransformInputObservation{ReadFile: &TransformInputReadObservation{OK: false}},
+      second:   TransformInputObservation{ReadFile: &TransformInputReadObservation{OK: true, Hash: "a"}},
+      expected: inputProofContentChanged,
+    },
+    {
+      name:     "read-content",
+      first:    TransformInputObservation{ReadFile: &TransformInputReadObservation{OK: true, Hash: "a"}},
+      second:   TransformInputObservation{ReadFile: &TransformInputReadObservation{OK: true, Hash: "b"}},
+      expected: inputProofContentChanged,
+    },
+    {
+      name:     "realpath",
+      first:    TransformInputObservation{Realpath: &TransformInputRealpathObservation{OK: false}},
+      second:   TransformInputObservation{Realpath: &TransformInputRealpathObservation{OK: true, Path: filepath.Join(root, "target")}},
+      expected: inputProofRealpathChanged,
+    },
+    {
+      name:     "stat",
+      first:    TransformInputObservation{Stat: stringPointer("missing")},
+      second:   TransformInputObservation{Stat: stringPointer("file")},
+      expected: inputProofStatChanged,
+    },
+  }
+  for _, entry := range cases {
+    t.Run(entry.name, func(t *testing.T) {
+      observed := newInputObservationFS(DefaultFS())
+      key := observed.observationKey(filepath.Join(root, entry.name))
+      observed.mergeObservation(key, observedInput{proof: entry.first})
+      observed.mergeObservation(key, observedInput{proof: entry.second})
+      if failure := observed.observations[key].failure; failure != entry.expected {
+        t.Fatalf("failure = %q, want %q", failure, entry.expected)
+      }
+    })
+  }
+}
+
+func testInputObservationFSRejectsImpossiblePredicateSets(t *testing.T) {
+  root := t.TempDir()
+  cases := []struct {
+    name   string
+    first  TransformInputObservation
+    second TransformInputObservation
+  }{
+    {
+      name:   "file-and-directory",
+      first:  TransformInputObservation{FileExists: boolPointer(true)},
+      second: TransformInputObservation{DirectoryExists: boolPointer(true)},
+    },
+    {
+      name:   "missing-file-with-readable-content",
+      first:  TransformInputObservation{FileExists: boolPointer(false)},
+      second: TransformInputObservation{ReadFile: &TransformInputReadObservation{OK: true, Hash: "a"}},
+    },
+  }
+  for _, entry := range cases {
+    t.Run(entry.name, func(t *testing.T) {
+      observed := newInputObservationFS(DefaultFS())
+      key := observed.observationKey(filepath.Join(root, entry.name))
+      observed.mergeObservation(key, observedInput{proof: entry.first})
+      observed.mergeObservation(key, observedInput{proof: entry.second})
+      if failure := observed.observations[key].failure; failure != inputProofPredicateConflict {
+        t.Fatalf("failure = %q, want %q", failure, inputProofPredicateConflict)
+      }
+    })
+  }
+}
+
+func testTransformGraphReportsObservedCandidateFailure(t *testing.T) {
+  root := t.TempDir()
+  raced := filepath.ToSlash(filepath.Join("node_modules", "pkg.ts"))
+  unobserved := filepath.ToSlash(filepath.Join("node_modules", "pkg.tsx"))
+  observed := newInputObservationFS(DefaultFS())
+  key := observed.observationKey(filepath.Join(root, filepath.FromSlash(raced)))
+  observed.mergeObservation(key, observedInput{
+    proof: TransformInputObservation{FileExists: boolPointer(false)},
+  })
+  observed.mergeObservation(key, observedInput{
+    proof: TransformInputObservation{FileExists: boolPointer(true)},
+  })
+  graph := TransformGraph{
+    Candidates: map[string][]string{"src/main.ts": {raced, unobserved}},
+    Configs:    []string{},
+    Edges:      map[string][]string{"src/main.ts": {}},
+    Globals:    []string{},
+  }
+  graph.attachInputProof(&Program{inputObserver: observed}, root)
+  if failure := graph.InputProofFailures[raced]; failure != string(inputProofFileExistsChanged) {
+    t.Fatalf("observed candidate failure = %q, want %q", failure, inputProofFileExistsChanged)
+  }
+  if failure, found := graph.InputProofFailures[unobserved]; found {
+    t.Fatalf("wholly unobserved candidate failure = %q", failure)
+  }
+}
+
+func stringPointer(value string) *string {
+  return &value
+}
+
 func TestInputObservationFSHashesCompilerDecodedText(t *testing.T) {
   root := t.TempDir()
   file := filepath.Join(root, "bom.ts")

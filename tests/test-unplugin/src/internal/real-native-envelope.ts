@@ -13,6 +13,16 @@ interface IRealNativeEnvelopeGraph {
   edges: Record<string, string[]>;
   globals: string[];
   inputHashes?: Record<string, string | null>;
+  inputObservations?: Record<
+    string,
+    {
+      directoryExists?: boolean;
+      fileExists?: boolean;
+      readFile?: { hash?: string; ok: boolean };
+      realpath?: { ok: boolean; path?: string };
+      stat?: "directory" | "file" | "missing";
+    }
+  >;
   inputRealpaths?: Record<string, string | null>;
 }
 
@@ -48,6 +58,8 @@ interface IRealNativeEnvelopeApi {
 export interface IRealNativeEnvelopeFixture {
   /** Selected declaration whose compiler proof must survive the JSON boundary. */
   declaration: string;
+  /** Existing package directory that the resolver probed only as a file. */
+  fileCandidateDirectory: string;
   /** Missing source that supersedes the package's selected JavaScript entry. */
   missingCandidate: string;
   /** Sibling source modules delivered independently by a bundler. */
@@ -81,9 +93,12 @@ export function createRealNativeEnvelopeFixture(
     TestProject.tmpdir("ttsc-unplugin-real-envelope-log-"),
     "program-runs.bin",
   );
-  const modules = Array.from({ length: 4 }, (_, index) =>
-    path.join(root, "src", `mod${index}.ts`),
-  );
+  const modules = [
+    ...Array.from({ length: 4 }, (_, index) =>
+      path.join(root, "src", `mod${index}.ts`),
+    ),
+    path.join(root, "src", "predicate.cts"),
+  ];
   const declaration = path.join(
     root,
     "node_modules",
@@ -97,6 +112,7 @@ export function createRealNativeEnvelopeFixture(
     "linked-pkg",
     "index.ts",
   );
+  const fileCandidateDirectory = path.join(root, "node_modules", "punycode.js");
 
   TestProject.writeFiles(root, {
     "go.mod": "module example.com/ttscunpluginrealenvelope\n\ngo 1.26\n",
@@ -163,8 +179,9 @@ export function createRealNativeEnvelopeFixture(
       {
         compilerOptions: {
           allowJs: true,
-          module: "Node16",
-          moduleResolution: "Node16",
+          module: "NodeNext",
+          moduleResolution: "NodeNext",
+          noImplicitAny: false,
           plugins: [
             {
               name: "real-envelope-compile-probe",
@@ -213,16 +230,45 @@ export function createRealNativeEnvelopeFixture(
     "node_modules/linked-pkg/index.d.ts":
       "export declare const linked: string;\n",
     "node_modules/linked-pkg/index.js": 'export const linked = "js";\n',
+    "node_modules/punycode/package.json": JSON.stringify(
+      {
+        main: "punycode.js",
+        name: "punycode",
+        version: "0.0.0",
+      },
+      null,
+      2,
+    ),
+    "node_modules/punycode/punycode.js":
+      "module.exports = { encode(value) { return value; } };\n",
+    "node_modules/punycode.js/package.json": JSON.stringify(
+      {
+        main: "punycode.js",
+        name: "punycode.js",
+        version: "0.0.0",
+      },
+      null,
+      2,
+    ),
+    "node_modules/punycode.js/punycode.js":
+      "module.exports = { encode(value) { return `other:${value}`; } };\n",
     ...Object.fromEntries(
       modules.map((file, index) => [
         path.relative(root, file),
-        [
-          'import type { Shared } from "typed-dep";',
-          'import { linked } from "linked-pkg";',
-          "",
-          `export const value${index}: Shared = { label: linked + ${JSON.stringify(String(index))} };`,
-          "",
-        ].join("\n"),
+        file.endsWith(".cts")
+          ? [
+              'import { encode } from "punycode";',
+              "",
+              'export const predicate = encode("proof");',
+              "",
+            ].join("\n")
+          : [
+              'import type { Shared } from "typed-dep";',
+              'import { linked } from "linked-pkg";',
+              "",
+              `export const value${index}: Shared = { label: linked + ${JSON.stringify(String(index))} };`,
+              "",
+            ].join("\n"),
       ]),
     ),
   });
@@ -238,7 +284,14 @@ export function createRealNativeEnvelopeFixture(
     ].join("\n"),
     "utf8",
   );
-  return { declaration, missingCandidate, modules, root, runLog };
+  return {
+    declaration,
+    fileCandidateDirectory,
+    missingCandidate,
+    modules,
+    root,
+    runLog,
+  };
 }
 
 function sharedRealNativeContributor(root: string): string {
@@ -346,13 +399,26 @@ export async function assertRealEnvelopeCandidateAppearanceReplacesGeneration():
       2,
       "a superseding package candidate must replace the generation before its next importer is delivered",
     );
-    for (const file of fixture.modules.slice(2)) {
+    for (const file of fixture.modules.slice(2, -1)) {
       await deliver(api, cache, options, file);
     }
     assert.equal(
       programRuns(fixture.runLog),
       2,
       "sibling deliveries must reuse the generation created after candidate appearance",
+    );
+
+    fs.rmSync(fixture.fileCandidateDirectory, { recursive: true });
+    fs.writeFileSync(
+      fixture.fileCandidateDirectory,
+      "exports.encode = function encode(value) { return `file:${value}`; };\n",
+      "utf8",
+    );
+    await deliver(api, cache, options, fixture.modules.at(-1)!);
+    assert.equal(
+      programRuns(fixture.runLog),
+      3,
+      "replacing a failed file-candidate directory with a selectable file must replace the generation",
     );
   } finally {
     api.resetTtscTransformCache(cache);
@@ -470,7 +536,7 @@ async function assertViteLifecycle(
     );
 
     // Vite can transpile TypeScript even if the ttsc adapter bypasses a module,
-    // so returned code alone does not prove all four requests crossed our
+    // so returned code alone does not prove every request crossed our
     // transform hook. The adapter registers this real missing candidate for
     // every importer it serves; its private poll invalidates exactly those
     // module nodes when the candidate appears, even with Vite's watcher off.
@@ -602,6 +668,22 @@ async function assertProductionEnvelope(
     `the real graph must retain the superseding package candidate ${graphKey(fixture.root, fixture.missingCandidate)}`,
   );
   assert.equal(fs.existsSync(fixture.missingCandidate), false);
+
+  const fileCandidateDirectory = findGraphSpelling(
+    fixture.root,
+    candidates,
+    fixture.fileCandidateDirectory,
+  );
+  assert.ok(
+    fileCandidateDirectory,
+    `the real graph must retain the file probe for ${graphKey(fixture.root, fixture.fileCandidateDirectory)}`,
+  );
+  assert.equal(fs.statSync(fixture.fileCandidateDirectory).isDirectory(), true);
+  assert.equal(
+    graph.inputObservations?.[fileCandidateDirectory]?.fileExists,
+    false,
+    "an existing directory must remain a failed file predicate on the production wire",
+  );
 
   const declaration = findGraphSpelling(
     fixture.root,

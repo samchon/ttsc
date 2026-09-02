@@ -67,10 +67,19 @@ export namespace ITtscCompilerTransformation {
     candidates?: Record<string, string[]>;
 
     /**
-     * SHA-256/null states returned by the compiler filesystem while this graph
-     * was being resolved, keyed in the same vocabulary as {@link edges}.
-     * Persistent hosts use them to reject a graph whose external file or
-     * superseding candidate changed during compilation.
+     * Exact filesystem predicates observed while the compiler constructed this
+     * graph. Each property is independent: `fileExists: false` and
+     * `directoryExists: true` describe one stable directory and do not
+     * conflict. Consumers re-run only the predicates present in an entry, so a
+     * failed file candidate is never reinterpreted as generic path absence.
+     */
+    inputObservations?: Record<string, IInputObservation>;
+
+    /**
+     * Legacy SHA-256/null projection of compiler filesystem observations, keyed
+     * in the same vocabulary as {@link edges}. Current consumers prefer
+     * {@link inputObservations} for candidate predicates and retain this pair
+     * for strict realized-file content validation.
      */
     inputHashes?: Record<string, string | null>;
 
@@ -78,12 +87,43 @@ export namespace ITtscCompilerTransformation {
     inputRealpaths?: Record<string, string | null>;
 
     /**
-     * Why the compiler could not produce a paired proof for a graph member.
-     * Values are stable machine-readable reason codes such as `content-changed`
-     * or `realpath-unavailable`; consumers use them only for diagnostics and
-     * still treat the missing proof as authoritative refusal.
+     * Why the compiler could not produce a trustworthy proof for a graph
+     * member. Values are stable machine-readable reason codes such as
+     * `content-changed` or `realpath-unavailable`; consumers use them only for
+     * diagnostics and still treat the missing proof as authoritative refusal.
      */
     inputProofFailures?: Record<string, string>;
+  }
+
+  /** Predicate-preserving compiler filesystem proof for one lexical path. */
+  export interface IInputObservation {
+    /** Result returned by `DirectoryExists`, when the compiler called it. */
+    directoryExists?: boolean;
+
+    /** Result returned by `FileExists`, when the compiler called it. */
+    fileExists?: boolean;
+
+    /** Result returned by `ReadFile`, including decoded-text content identity. */
+    readFile?:
+      | { ok: false }
+      | {
+          hash: string;
+          ok: true;
+        };
+
+    /** Result returned by `Realpath` or captured beside a successful predicate. */
+    realpath?:
+      | { ok: false }
+      | {
+          ok: true;
+          path: string;
+        };
+
+    /**
+     * Result returned by `Stat`, using the compiler's file-versus-directory
+     * view.
+     */
+    stat?: "directory" | "file" | "missing";
   }
 
   /** Successful source-to-source transformation result. */

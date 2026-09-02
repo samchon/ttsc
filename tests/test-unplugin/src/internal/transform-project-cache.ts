@@ -90,6 +90,8 @@ interface ICacheProjectOptions {
    * section only for a graph-bearing envelope.
    */
   graphCandidates?: number;
+  /** Report a failed observed predicate for the first speculative candidate. */
+  candidateProofFailure?: boolean;
   graphGlobals?: number;
   omitExternalSourceGraphNode?: boolean;
   /**
@@ -1056,14 +1058,12 @@ async function assertNotifiedAbsentCandidateIsNotReprobed(): Promise<void> {
 }
 
 /**
- * Asserts a realized graph member with no compiler proof fails one shared,
- * bounded generation instead of recompiling once per delivered module.
+ * Asserts reported graph proof failures fail one shared, bounded generation
+ * instead of recompiling once per delivered module.
  *
- * The candidate relaxation is scoped to paths the envelope reported _only_ as
- * resolution candidates. An edge target is a file the compile read, so a
- * missing proof for it means the generation cannot be shown to describe one
- * coherent state, and replaying it could serve output computed from bytes that
- * changed during the compile.
+ * A wholly unobserved candidate remains admissible, but an observed candidate
+ * carrying `file-exists-changed` is evidence of a compile race and must refuse
+ * reuse just like a realized edge target whose content proof failed.
  *
  * 1. Build a four-file project whose envelope drops one edge target's proof.
  * 2. Request all modules concurrently through one persistent cache.
@@ -1073,8 +1073,10 @@ async function assertNotifiedAbsentCandidateIsNotReprobed(): Promise<void> {
  *    prove they replay that verdict without compiling.
  * 5. Prove a real disk edit and an explicit lifecycle reset each authorize one new
  *    bounded wave.
+ * 6. Report an observed candidate predicate failure and prove it also terminates
+ *    after two attempts with the exact producer reason and path.
  */
-async function assertUnprovenRealizedInputFailsAfterBoundedAttempts(): Promise<void> {
+async function assertReportedGraphProofFailuresFailAfterBoundedAttempts(): Promise<void> {
   const {
     createTtscTransformCache,
     resetTtscTransformCache,
@@ -1193,6 +1195,35 @@ async function assertUnprovenRealizedInputFailsAfterBoundedAttempts(): Promise<v
     fs.readFileSync(project.runLog, "utf8").length,
     6,
     "an explicit cache lifecycle reset must authorize one new bounded wave",
+  );
+
+  const candidateProject = createCacheProject({
+    candidateProofFailure: true,
+    fileCount: 1,
+    graphCandidates: 1,
+    graphFanout: 1,
+  });
+  const candidateCache = createTtscTransformCache();
+  const candidateMain = projectModules(candidateProject.root)[0]!;
+  await assert.rejects(
+    () =>
+      transformTtsc(
+        candidateMain,
+        fs.readFileSync(candidateMain, "utf8"),
+        resolveOptions(),
+        undefined,
+        candidateCache,
+      ),
+    (error: Error) =>
+      /after 2 attempts/.test(error.message) &&
+      /graph\/proof-missing/.test(error.message) &&
+      /node_modules[/\\]dep0[/\\]index\.ts/.test(error.message) &&
+      /producer: "file-exists-changed"/.test(error.message),
+  );
+  assert.equal(
+    fs.readFileSync(candidateProject.runLog, "utf8").length,
+    2,
+    "an observed speculative predicate failure must not receive the unobserved-candidate exemption",
   );
 }
 
@@ -3526,6 +3557,7 @@ function createCacheProject(options: ICacheProjectOptions): {
               conflictingProofFailureAlias:
                 options.conflictingProofFailureAlias === true,
               graphCandidates: options.graphCandidates ?? 0,
+              candidateProofFailure: options.candidateProofFailure === true,
               outOfProjectCandidate: options.outOfProjectCandidate ?? "",
               nonInputRaceFile: options.nonInputRaceFile ?? "",
               unhashedGraphInput: options.unhashedGraphInput === true,
@@ -3919,6 +3951,9 @@ function writeGoPlugin(dir: string): void {
       '        result.Graph.Candidates["src/"+name] = spellings',
       "      }",
       "    }",
+      '    if boolValue(cfg, "candidateProofFailure") {',
+      '      result.Graph.InputProofFailures["node_modules/dep0/index.ts"] = "file-exists-changed"',
+      "    }",
       '    unprovenInputs := int(numberValue(cfg, "unprovenGraphInputs"))',
       '    if boolValue(cfg, "unprovenGraphInput") && unprovenInputs == 0 { unprovenInputs = 1 }',
       // A realized edge target whose proof the host could not produce. Unlike a
@@ -4021,7 +4056,7 @@ export {
   assertNonInputWriteDuringCompileKeepsGeneration,
   assertUnprovenCandidatesKeepOneCompile,
   assertUnprovenOutOfWalkSourceFailsAfterBoundedAttempts,
-  assertUnprovenRealizedInputFailsAfterBoundedAttempts,
+  assertReportedGraphProofFailuresFailAfterBoundedAttempts,
   assertCompleteValidationProvesEachInputOnce,
   assertCompileSnapshotRaceCannotAuthorizeStaleOutput,
   assertCompileSnapshotAbaRaceCannotAuthorizeStaleOutput,

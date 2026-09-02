@@ -310,6 +310,11 @@ const TRANSFORM_GENERATION_ATTEMPTS = 2;
  * graph-free envelopes retain complete-snapshot validation.
  */
 export interface TtscCachedProjectTransform {
+  /** Predicate-preserving compiler proofs for external candidate spellings. */
+  externalInputObservations?: Record<
+    string,
+    ITtscCompilerTransformation.IInputObservation
+  >;
   /**
    * SHA-256 hash of every input the compiler reported outside the project walk
    * (keyed by filesystem identity), captured at the time of the transform.
@@ -1287,6 +1292,13 @@ interface TtscEnvelopeGraphIndexes {
   readonly inputProofFailures: Map<string, string>;
   /** Aliased graph proof keys that reported contradictory generation states. */
   readonly inputProofConflicts: Set<string>;
+  /** Predicate-preserving proofs keyed by absolute lexical spelling. */
+  readonly inputObservations: Map<
+    string,
+    ITtscCompilerTransformation.IInputObservation
+  >;
+  /** Absolute spellings whose predicate proof is malformed or contradictory. */
+  readonly inputObservationConflicts: Set<string>;
 }
 
 /**
@@ -1345,6 +1357,8 @@ function envelopeGraphIndexes(
     inputProofs: new Map(),
     inputProofFailures: new Map(),
     inputProofConflicts: new Set(),
+    inputObservations: new Map(),
+    inputObservationConflicts: new Set(),
   };
   const graph =
     props.result.type === "exception" ? undefined : props.result.graph;
@@ -1436,6 +1450,39 @@ function envelopeGraphIndexes(
         }
       }
     }
+    for (const [input, reported] of Object.entries(
+      graph.inputObservations ?? {},
+    )) {
+      if (input.length === 0) continue;
+      const absolute = path.resolve(props.projectRoot, input);
+      const identity = derivationIdentity(state, absolute);
+      if (!built.members.has(identity) && !transformSources.has(identity)) {
+        continue;
+      }
+      const normalized = normalizeGraphInputObservation(reported);
+      const spelling = path.resolve(absolute);
+      if (normalized === undefined) {
+        built.inputObservationConflicts.add(spelling);
+        if (!built.inputProofFailures.has(identity)) {
+          built.inputProofFailures.set(identity, "malformed-observation");
+        }
+        continue;
+      }
+      const previous = built.inputObservations.get(spelling);
+      const merged =
+        previous === undefined
+          ? normalized
+          : mergeGraphInputObservations(previous, normalized);
+      if (merged === undefined) {
+        built.inputObservations.delete(spelling);
+        built.inputObservationConflicts.add(spelling);
+        if (!built.inputProofFailures.has(identity)) {
+          built.inputProofFailures.set(identity, "conflicting-observation");
+        }
+      } else if (!built.inputObservationConflicts.has(spelling)) {
+        built.inputObservations.set(spelling, merged);
+      }
+    }
     for (const [input, hash] of Object.entries(graph.inputHashes ?? {})) {
       if (
         hash !== null &&
@@ -1495,6 +1542,11 @@ function envelopeGraphIndexes(
       if (!built.members.has(identity) && !transformSources.has(identity)) {
         continue;
       }
+      const spelling = path.resolve(absolute);
+      if (built.inputObservations.has(spelling)) {
+        built.inputObservations.delete(spelling);
+        built.inputObservationConflicts.add(spelling);
+      }
       if (built.inputProofs.has(identity)) {
         built.inputProofs.delete(identity);
         built.inputProofConflicts.add(identity);
@@ -1506,6 +1558,132 @@ function envelopeGraphIndexes(
   }
   state.graph = built;
   return built;
+}
+
+/** Normalize one untrusted predicate proof without filling missing predicates. */
+function normalizeGraphInputObservation(
+  value: unknown,
+): ITtscCompilerTransformation.IInputObservation | undefined {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return undefined;
+  }
+  const entry = value as Record<string, unknown>;
+  const observation: ITtscCompilerTransformation.IInputObservation = {};
+  if (Object.prototype.hasOwnProperty.call(entry, "fileExists")) {
+    if (typeof entry.fileExists !== "boolean") return undefined;
+    observation.fileExists = entry.fileExists;
+  }
+  if (Object.prototype.hasOwnProperty.call(entry, "directoryExists")) {
+    if (typeof entry.directoryExists !== "boolean") return undefined;
+    observation.directoryExists = entry.directoryExists;
+  }
+  if (Object.prototype.hasOwnProperty.call(entry, "stat")) {
+    if (
+      entry.stat !== "missing" &&
+      entry.stat !== "file" &&
+      entry.stat !== "directory"
+    ) {
+      return undefined;
+    }
+    observation.stat = entry.stat;
+  }
+  if (Object.prototype.hasOwnProperty.call(entry, "readFile")) {
+    const read = entry.readFile;
+    if (typeof read !== "object" || read === null || Array.isArray(read)) {
+      return undefined;
+    }
+    const result = read as Record<string, unknown>;
+    if (result.ok === false && result.hash === undefined) {
+      observation.readFile = { ok: false };
+    } else if (
+      result.ok === true &&
+      typeof result.hash === "string" &&
+      /^[0-9a-f]{64}$/.test(result.hash)
+    ) {
+      observation.readFile = { hash: result.hash, ok: true };
+    } else {
+      return undefined;
+    }
+  }
+  if (Object.prototype.hasOwnProperty.call(entry, "realpath")) {
+    const realpath = entry.realpath;
+    if (
+      typeof realpath !== "object" ||
+      realpath === null ||
+      Array.isArray(realpath)
+    ) {
+      return undefined;
+    }
+    const result = realpath as Record<string, unknown>;
+    if (result.ok === false && result.path === undefined) {
+      observation.realpath = { ok: false };
+    } else if (
+      result.ok === true &&
+      typeof result.path === "string" &&
+      path.isAbsolute(result.path)
+    ) {
+      observation.realpath = { ok: true, path: path.resolve(result.path) };
+    } else {
+      return undefined;
+    }
+  }
+  return Object.keys(observation).length !== 0 &&
+    graphInputObservationCompatible(observation)
+    ? observation
+    : undefined;
+}
+
+/** Join duplicate lexical keys only when every repeated predicate agrees. */
+function mergeGraphInputObservations(
+  left: ITtscCompilerTransformation.IInputObservation,
+  right: ITtscCompilerTransformation.IInputObservation,
+): ITtscCompilerTransformation.IInputObservation | undefined {
+  for (const property of [
+    "directoryExists",
+    "fileExists",
+    "readFile",
+    "realpath",
+    "stat",
+  ] as const) {
+    if (
+      left[property] !== undefined &&
+      right[property] !== undefined &&
+      JSON.stringify(left[property]) !== JSON.stringify(right[property])
+    ) {
+      return undefined;
+    }
+  }
+  const merged = { ...left, ...right };
+  return graphInputObservationCompatible(merged) ? merged : undefined;
+}
+
+/** Whether one predicate set can describe a single stable filesystem state. */
+function graphInputObservationCompatible(
+  observation: ITtscCompilerTransformation.IInputObservation,
+): boolean {
+  const { directoryExists, fileExists, readFile, stat } = observation;
+  if (fileExists === true && directoryExists === true) return false;
+  if (
+    stat === "directory" &&
+    (fileExists === true || directoryExists === false)
+  ) {
+    return false;
+  }
+  if (stat === "file" && (fileExists === false || directoryExists === true)) {
+    return false;
+  }
+  if (stat === "missing" && (fileExists === true || directoryExists === true)) {
+    return false;
+  }
+  if (
+    readFile?.ok === true &&
+    (fileExists === false ||
+      directoryExists === true ||
+      (stat !== undefined && stat !== "file"))
+  ) {
+    return false;
+  }
+  return true;
 }
 
 /**
@@ -1632,9 +1810,12 @@ function notifyWatchInputs(
     // listing, and an `existsSync` per input on every delivery of every module
     // (samchon/ttsc#1246).
     const identity = derivationIdentity(state, input);
+    const observation = cached.externalInputObservations?.[path.resolve(input)];
     addWatchFile(input, {
       identity,
-      missing: external[identity] === MISSING_INPUT_STATE,
+      missing:
+        observation?.fileExists === false ||
+        external[identity] === MISSING_INPUT_STATE,
     });
   }
 }
@@ -2249,6 +2430,17 @@ function matchesProvenInput(
   state: TtscEnvelopeDerivation,
   input: string,
 ): boolean {
+  const observation = cached.externalInputObservations?.[path.resolve(input)];
+  if (observation !== undefined) {
+    if (
+      observation.fileExists === false &&
+      Object.keys(observation).length === 1 &&
+      notifiesAbsence(cached, input)
+    ) {
+      return true;
+    }
+    return matchesRecordedInput(cached, input);
+  }
   const slot = inputSignatureSlot(cached, state, input);
   if (slot === undefined) {
     return matchesRecordedInput(cached, input);
@@ -2325,6 +2517,9 @@ function inputSignatureSlot(
   | { key: string; recorded: string; signatures: Record<string, string> }
   | undefined {
   const identity = derivationIdentity(state, input);
+  if (cached.externalInputObservations?.[path.resolve(input)] !== undefined) {
+    return undefined;
+  }
   const external = cached.externalInputHashes ?? {};
   if (Object.prototype.hasOwnProperty.call(external, identity)) {
     // The recorded hash is identity-keyed because aliases of one physical file
@@ -2873,7 +3068,21 @@ function graphInputStateHash(
   file: string,
   filesystem: TtscTransformFilesystemOperations = DEFAULT_FILESYSTEM_OPERATIONS,
 ): string | null {
+  const kind = compilerStatKind(file, filesystem);
+  const readHash = graphInputReadHash(file, filesystem, kind);
+  if (readHash !== null) return readHash;
+  return kind === "directory" ? hashText("ttsc:host-input:directory\0") : null;
+}
+
+/** Hash only a successful compiler-style ReadFile result, without kind fallback. */
+function graphInputReadHash(
+  file: string,
+  filesystem: TtscTransformFilesystemOperations = DEFAULT_FILESYSTEM_OPERATIONS,
+  observedKind?: "directory" | "file" | "missing",
+): string | null {
+  const kind = observedKind ?? compilerStatKind(file, filesystem);
   try {
+    if (kind === "directory") return null;
     const bytes = filesystem.readFile(file);
     if (bytes.length >= 2 && bytes[0] === 0xff && bytes[1] === 0xfe) {
       const even = bytes.subarray(
@@ -2898,14 +3107,105 @@ function graphInputStateHash(
         : bytes;
     return hashText(content);
   } catch {
-    try {
-      return filesystem.stat(file).isDirectory()
-        ? hashText("ttsc:host-input:directory\0")
-        : null;
-    } catch {
-      return null;
+    return null;
+  }
+}
+
+/** Current result of TypeScript-Go's Stat predicate. */
+function compilerStatKind(
+  file: string,
+  filesystem: TtscTransformFilesystemOperations,
+): "directory" | "file" | "missing" {
+  try {
+    return filesystem.stat(file).isDirectory() ? "directory" : "file";
+  } catch {
+    return "missing";
+  }
+}
+
+/** Return the exact recorded predicates that no longer hold for one spelling. */
+function graphInputObservationFailures(
+  file: string,
+  observation: ITtscCompilerTransformation.IInputObservation,
+  filesystem: TtscTransformFilesystemOperations,
+  identities: FilesystemPathIdentityContext,
+): string[] {
+  const failures: string[] = [];
+  const kind =
+    observation.fileExists !== undefined ||
+    observation.directoryExists !== undefined ||
+    observation.stat !== undefined ||
+    observation.readFile !== undefined
+      ? compilerStatKind(file, filesystem)
+      : undefined;
+  if (
+    observation.fileExists !== undefined &&
+    (kind === "file") !== observation.fileExists
+  ) {
+    failures.push("file-exists-changed");
+  }
+  if (
+    observation.directoryExists !== undefined &&
+    (kind === "directory") !== observation.directoryExists
+  ) {
+    failures.push("directory-exists-changed");
+  }
+  if (observation.stat !== undefined && kind !== observation.stat) {
+    failures.push("stat-changed");
+  }
+  if (observation.readFile !== undefined) {
+    const currentHash = graphInputReadHash(file, filesystem, kind);
+    if (
+      (observation.readFile.ok && currentHash !== observation.readFile.hash) ||
+      (!observation.readFile.ok && currentHash !== null)
+    ) {
+      failures.push("read-file-changed");
     }
   }
+  if (observation.realpath !== undefined) {
+    const currentRealpath = hostInputRealpath(file, filesystem);
+    if (
+      (observation.realpath.ok &&
+        !sameHostInputRealpath(
+          observation.realpath.path,
+          currentRealpath,
+          identities,
+        )) ||
+      (!observation.realpath.ok && currentRealpath !== null)
+    ) {
+      failures.push("realpath-changed");
+    }
+  }
+  return failures;
+}
+
+/** Validate one predicate-preserving graph proof against a filesystem view. */
+export function validateGraphInputObservation(
+  file: string,
+  observation: ITtscCompilerTransformation.IInputObservation,
+  filesystem: TtscTransformFilesystemOperations = DEFAULT_FILESYSTEM_OPERATIONS,
+): string[] {
+  const normalized = normalizeGraphInputObservation(observation);
+  if (normalized === undefined) return ["proof-conflict"];
+  return graphInputObservationFailures(
+    file,
+    normalized,
+    filesystem,
+    createHostPathIdentityContext(filesystem),
+  );
+}
+
+/** Whether every compiler-time predicate still returns its recorded value. */
+function matchesGraphInputObservation(
+  file: string,
+  observation: ITtscCompilerTransformation.IInputObservation,
+  filesystem: TtscTransformFilesystemOperations,
+  identities: FilesystemPathIdentityContext,
+): boolean {
+  return (
+    graphInputObservationFailures(file, observation, filesystem, identities)
+      .length === 0
+  );
 }
 
 /** Physical target selected by a lexical host-input path. */
@@ -3093,6 +3393,9 @@ function matchesExternalInputRealpaths(
   const state = envelopeDerivation(cached);
   const filesystem = resultFilesystem(cached.result);
   for (const input of cached.externalInputPaths ?? []) {
+    if (cached.externalInputObservations?.[path.resolve(input)] !== undefined) {
+      continue;
+    }
     const identity = derivationIdentity(state, input);
     if (!Object.prototype.hasOwnProperty.call(expected, identity)) continue;
     if (
@@ -3122,6 +3425,7 @@ function captureExternalInputSnapshot(
   complete: boolean;
   failures: TtscGenerationProofFailures;
   hashes: Record<string, string>;
+  observations: Record<string, ITtscCompilerTransformation.IInputObservation>;
   realpaths: Record<string, string | null>;
   signatures: Record<string, string>;
 } {
@@ -3142,6 +3446,10 @@ function captureExternalInputSnapshot(
     }
   }
   const hashes: Record<string, string> = {};
+  const observations: Record<
+    string,
+    ITtscCompilerTransformation.IInputObservation
+  > = {};
   const realpaths: Record<string, string | null> = {};
   const signatures: Record<string, string> = {};
   const failures = createGenerationProofFailures();
@@ -3162,6 +3470,40 @@ function captureExternalInputSnapshot(
   };
   for (const input of paths) {
     const identity = derivationIdentity(state, input);
+    const spelling = path.resolve(input);
+    const predicateObservation = graph.inputObservations.get(spelling);
+    const predicateConflict = graph.inputObservationConflicts.has(spelling);
+    if (
+      graph.speculative.has(identity) &&
+      (predicateObservation !== undefined || predicateConflict)
+    ) {
+      if (predicateConflict || predicateObservation === undefined) {
+        complete = false;
+        recordGenerationProofFailure(failures, {
+          domain: "external",
+          kind: "graph-proof-conflict",
+          detail: graph.inputProofFailures.get(identity),
+          path: input,
+        });
+        continue;
+      }
+      const mismatches = graphInputObservationFailures(
+        input,
+        predicateObservation,
+        filesystem,
+        state.identityContext,
+      );
+      if (mismatches.length !== 0) complete = false;
+      for (const kind of mismatches) {
+        recordGenerationProofFailure(failures, {
+          domain: "external",
+          kind: `graph-${kind}`,
+          path: input,
+        });
+      }
+      observations[spelling] = predicateObservation;
+      continue;
+    }
     // A member the envelope reported only as a resolution candidate falls
     // through to the recorded-state branch below, the same evidence a
     // plugin-declared dependency path carries. Its absence still invalidates
@@ -3171,7 +3513,8 @@ function captureExternalInputSnapshot(
       !realizedTransformSource &&
       graph.speculative.has(identity) &&
       !graph.inputProofs.has(identity) &&
-      !graph.inputProofConflicts.has(identity);
+      !graph.inputProofConflicts.has(identity) &&
+      !graph.inputProofFailures.has(identity);
     if (
       (realizedTransformSource || graph.members.has(identity)) &&
       !speculativeOnly
@@ -3231,7 +3574,14 @@ function captureExternalInputSnapshot(
     hashes[identity] = hash ?? MISSING_INPUT_STATE;
     if (hash !== null) record(input, before, after);
   }
-  return { complete, failures, hashes, realpaths, signatures };
+  return {
+    complete,
+    failures,
+    hashes,
+    observations,
+    realpaths,
+    signatures,
+  };
 }
 
 /** Explain every graph member that no longer matches the compiler's state. */
@@ -3243,6 +3593,7 @@ function compilerGraphInputProofFailures(
     cached.result.type === "exception" ||
     cached.result.graph === undefined ||
     (cached.result.graph.inputHashes === undefined &&
+      cached.result.graph.inputObservations === undefined &&
       cached.result.graph.inputRealpaths === undefined &&
       cached.result.graph.inputProofFailures === undefined)
   ) {
@@ -3254,6 +3605,34 @@ function compilerGraphInputProofFailures(
   const state = envelopeDerivation(cached);
   const filesystem = resultFilesystem(cached.result);
   const graph = envelopeGraphIndexes(state, cached);
+  const predicateIdentities = new Set<string>();
+  const predicateConflictIdentities = new Set<string>();
+  for (const [spelling, observation] of graph.inputObservations) {
+    predicateIdentities.add(derivationIdentity(state, spelling));
+    for (const kind of graphInputObservationFailures(
+      spelling,
+      observation,
+      filesystem,
+      state.identityContext,
+    )) {
+      recordGenerationProofFailure(failures, {
+        domain: "graph",
+        kind,
+        path: spelling,
+      });
+    }
+  }
+  for (const spelling of graph.inputObservationConflicts) {
+    const identity = derivationIdentity(state, spelling);
+    predicateIdentities.add(identity);
+    predicateConflictIdentities.add(identity);
+    recordGenerationProofFailure(failures, {
+      domain: "graph",
+      kind: "proof-conflict",
+      detail: graph.inputProofFailures.get(identity),
+      path: spelling,
+    });
+  }
   for (const identity of graph.members) {
     const proof = graph.inputProofs.get(identity);
     const spelling =
@@ -3261,12 +3640,14 @@ function compilerGraphInputProofFailures(
     if (isTransformScratchInput(spelling, cached.scratchDirectory)) {
       continue;
     }
-    // A speculative candidate has no compile-time read to prove. Requiring one
-    // would void every generation of every project whose resolution passes over
-    // a higher-priority spelling, which is every project with a dependency
-    // typed by a declaration file (samchon/ttsc#1245). It is validated instead
-    // against the state {@link captureExternalInputSnapshot} recorded for it.
-    if (proof === undefined && graph.speculative.has(identity)) {
+    if (predicateConflictIdentities.has(identity)) {
+      continue;
+    }
+    if (
+      graph.speculative.has(identity) &&
+      predicateIdentities.has(identity) &&
+      !graph.inputProofFailures.has(identity)
+    ) {
       continue;
     }
     if (graph.inputProofConflicts.has(identity)) {
@@ -3276,6 +3657,23 @@ function compilerGraphInputProofFailures(
         detail: graph.inputProofFailures.get(identity),
         path: spelling,
       });
+      continue;
+    }
+    if (graph.inputProofFailures.has(identity)) {
+      recordGenerationProofFailure(failures, {
+        domain: "graph",
+        kind: "proof-missing",
+        detail: graph.inputProofFailures.get(identity),
+        path: spelling,
+      });
+      continue;
+    }
+    // A speculative candidate with no reported compiler observation has no
+    // compile-time predicate to prove. Requiring one would void every
+    // generation whose predecessor enumeration is broader than the resolver
+    // calls that selected its winner (samchon/ttsc#1245). It is validated
+    // instead against the state captureExternalInputSnapshot recorded for it.
+    if (proof === undefined && graph.speculative.has(identity)) {
       continue;
     }
     if (proof === undefined) {
@@ -3331,6 +3729,15 @@ function matchesRecordedInput(
     ? cached.inputHashes[projectKey]
     : undefined;
   const identity = derivationIdentity(state, input);
+  const observation = cached.externalInputObservations?.[path.resolve(input)];
+  if (observation !== undefined) {
+    return matchesGraphInputObservation(
+      input,
+      observation,
+      filesystem,
+      state.identityContext,
+    );
+  }
   const externalHash = (cached.externalInputHashes ?? {})[identity];
   const externalRealpaths = cached.externalInputRealpaths;
   const graphInput =
@@ -4557,6 +4964,20 @@ function matchesCachedExternalInputs(cached: TtscCachedProjectTransform): {
     Object.keys(cached.externalInputHashes ?? {})) {
     const identity = derivationIdentity(state, file);
     const spelling = path.resolve(file);
+    const observation = cached.externalInputObservations?.[spelling];
+    if (observation !== undefined) {
+      if (
+        !matchesGraphInputObservation(
+          file,
+          observation,
+          filesystem,
+          state.identityContext,
+        )
+      ) {
+        matches = false;
+      }
+      continue;
+    }
     // Reuse the recorded hash of an out-of-walk input whose signature still
     // equals the one captured around the read that proved it. The signature is
     // keyed by this exact spelling, so an alias of the same physical file
@@ -4624,6 +5045,14 @@ function selectExternalInputPaths(props: {
   const identities = createHostPathIdentityContext(filesystem);
   const resolutionCandidates = new Set<string>();
   const graph = props.result.graph;
+  const graphState = envelopeDerivation({
+    projectRoot: props.projectRoot,
+    result: props.result,
+  });
+  const graphIndexes = envelopeGraphIndexes(graphState, {
+    projectRoot: props.projectRoot,
+    result: props.result,
+  });
   // Every transform output key names the source file whose transformed text it
   // carries. Keep an out-of-walk source in the external snapshot instead of
   // injecting it into the project-walk key universe (samchon/ttsc#252).
@@ -4650,7 +5079,7 @@ function selectExternalInputPaths(props: {
         }
         const absolute = path.resolve(props.projectRoot, candidate);
         members.push(candidate);
-        resolutionCandidates.add(pathIdentityKey(absolute, identities));
+        resolutionCandidates.add(path.resolve(absolute));
       }
     }
   }
@@ -4666,9 +5095,7 @@ function selectExternalInputPaths(props: {
         // Plugin discovery inputs deliberately include absent config and
         // resolution probes. A project walk cannot snapshot a path that does
         // not exist yet, even when its spelling lies below projectRoot.
-        resolutionCandidates.add(
-          pathIdentityKey(path.resolve(props.projectRoot, input), identities),
-        );
+        resolutionCandidates.add(path.resolve(props.projectRoot, input));
       }
     }
   }
@@ -4685,8 +5112,11 @@ function selectExternalInputPaths(props: {
     const absolute = path.resolve(props.projectRoot, member);
     const spelling = path.resolve(absolute);
     const identity = pathIdentityKey(absolute, identities);
+    const observation = graphIndexes.inputObservations.get(spelling);
     const missingCandidate =
-      resolutionCandidates.has(identity) && !filesystem.exists(absolute);
+      resolutionCandidates.has(spelling) &&
+      (observation?.fileExists === false ||
+        (observation === undefined && !filesystem.exists(absolute)));
     if (
       identity === excluded ||
       isTransformScratchInput(absolute, props.scratchDirectory) ||
@@ -4744,6 +5174,14 @@ function selectNotifiableAbsentInputs(props: {
     return empty;
   }
   const identities = createHostPathIdentityContext(props.filesystem);
+  const graphState = envelopeDerivation({
+    projectRoot: props.projectRoot,
+    result: props.result,
+  });
+  const graphIndexes = envelopeGraphIndexes(graphState, {
+    projectRoot: props.projectRoot,
+    result: props.result,
+  });
   const excluded =
     props.temporaryTsconfig === undefined
       ? undefined
@@ -4767,12 +5205,16 @@ function selectNotifiableAbsentInputs(props: {
       }
       const absolute = path.resolve(props.projectRoot, candidate);
       const spelling = path.resolve(absolute);
+      const observation = graphIndexes.inputObservations.get(spelling);
+      const absentAsFile =
+        observation?.fileExists === false ||
+        (observation === undefined && !props.filesystem.exists(absolute));
       if (
         seen.has(spelling) ||
         isTransformScratchInput(absolute, props.scratchDirectory) ||
         (excluded !== undefined &&
           pathIdentityKey(absolute, identities) === excluded) ||
-        props.filesystem.exists(absolute)
+        !absentAsFile
       ) {
         continue;
       }
@@ -5759,6 +6201,7 @@ async function captureTransformGeneration(props: {
       externalInputPaths,
     );
     cached.externalInputHashes = externalInputSnapshot.hashes;
+    cached.externalInputObservations = externalInputSnapshot.observations;
     cached.externalInputRealpaths = externalInputSnapshot.realpaths;
     cached.externalInputSignatures = externalInputSnapshot.signatures;
     // Evaluate every half, rather than short-circuiting, so a generation that

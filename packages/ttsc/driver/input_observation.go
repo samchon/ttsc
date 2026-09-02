@@ -15,32 +15,51 @@ var observedDirectoryDigest = func() string {
   return hex.EncodeToString(digest[:])
 }()
 
-type observedInputKind uint8
-
 type inputProofFailure string
 
 const (
-  inputProofContentChanged       inputProofFailure = "content-changed"
-  inputProofContentUnavailable   inputProofFailure = "content-unavailable"
-  inputProofInvalidPath          inputProofFailure = "invalid-path"
-  inputProofKindChanged          inputProofFailure = "kind-changed"
-  inputProofRealpathChanged      inputProofFailure = "realpath-changed"
-  inputProofRealpathUnavailable  inputProofFailure = "realpath-unavailable"
-  inputProofUnobserved           inputProofFailure = "unobserved"
-  inputProofUnsupportedInputKind inputProofFailure = "unsupported-input-kind"
+  inputProofContentChanged         inputProofFailure = "content-changed"
+  inputProofContentUnavailable     inputProofFailure = "content-unavailable"
+  inputProofDirectoryExistsChanged inputProofFailure = "directory-exists-changed"
+  inputProofFileExistsChanged      inputProofFailure = "file-exists-changed"
+  inputProofInvalidPath            inputProofFailure = "invalid-path"
+  inputProofPredicateConflict      inputProofFailure = "predicate-conflict"
+  inputProofRealpathChanged        inputProofFailure = "realpath-changed"
+  inputProofRealpathUnavailable    inputProofFailure = "realpath-unavailable"
+  inputProofStatChanged            inputProofFailure = "stat-changed"
+  inputProofUnobserved             inputProofFailure = "unobserved"
+  inputProofUnsupportedInputKind   inputProofFailure = "unsupported-input-kind"
 )
 
-const (
-  observedInputMissing observedInputKind = iota
-  observedInputFile
-  observedInputDirectory
-)
+// TransformInputReadObservation is the exact result of one compiler ReadFile
+// predicate. A failed read carries OK=false and no guessed filesystem kind.
+type TransformInputReadObservation struct {
+  OK   bool   `json:"ok"`
+  Hash string `json:"hash,omitempty"`
+}
+
+// TransformInputRealpathObservation is the exact result of one compiler
+// Realpath predicate or an identity read already performed beside a successful
+// existence predicate.
+type TransformInputRealpathObservation struct {
+  OK   bool   `json:"ok"`
+  Path string `json:"path,omitempty"`
+}
+
+// TransformInputObservation preserves independent compiler filesystem
+// predicates for one lexical path. False FileExists and true DirectoryExists
+// are compatible constraints, not a path-kind race.
+type TransformInputObservation struct {
+  DirectoryExists *bool                              `json:"directoryExists,omitempty"`
+  FileExists      *bool                              `json:"fileExists,omitempty"`
+  ReadFile        *TransformInputReadObservation     `json:"readFile,omitempty"`
+  Realpath        *TransformInputRealpathObservation `json:"realpath,omitempty"`
+  Stat            *string                            `json:"stat,omitempty"`
+}
 
 type observedInput struct {
-  contentHash *string
-  failure     inputProofFailure
-  kind        observedInputKind
-  realpath    *string
+  failure inputProofFailure
+  proof   TransformInputObservation
 }
 
 // inputObservationFS records the exact disk state returned through the
@@ -64,17 +83,14 @@ func newInputObservationFS(inner vfs.FS) *inputObservationFS {
 
 func (fs *inputObservationFS) FileExists(path string) bool {
   exists := fs.FS.FileExists(path)
+  proof := TransformInputObservation{FileExists: boolPointer(exists)}
   if exists {
     // Existence participates in resolution, but only ReadFile returns bytes
     // that can influence the resident Program. Do not duplicate every
     // resolver probe with an eager file read.
-    fs.observe(path, observedInput{
-      kind:     observedInputFile,
-      realpath: fs.currentRealpath(path),
-    })
-  } else {
-    fs.observe(path, observedInput{kind: observedInputMissing})
+    proof.Realpath = fs.currentRealpath(path)
   }
+  fs.observe(path, observedInput{proof: proof})
   return exists
 }
 
@@ -84,26 +100,28 @@ func (fs *inputObservationFS) ReadFile(path string) (string, bool) {
     digest := sha256.Sum256([]byte(contents))
     hash := hex.EncodeToString(digest[:])
     fs.observe(path, observedInput{
-      contentHash: &hash,
-      kind:        observedInputFile,
-      realpath:    fs.currentRealpath(path),
+      proof: TransformInputObservation{
+        ReadFile: &TransformInputReadObservation{OK: true, Hash: hash},
+        Realpath: fs.currentRealpath(path),
+      },
     })
   } else {
-    fs.observe(path, observedInput{kind: observedInputMissing})
+    fs.observe(path, observedInput{
+      proof: TransformInputObservation{
+        ReadFile: &TransformInputReadObservation{OK: false},
+      },
+    })
   }
   return contents, ok
 }
 
 func (fs *inputObservationFS) DirectoryExists(path string) bool {
   exists := fs.FS.DirectoryExists(path)
+  proof := TransformInputObservation{DirectoryExists: boolPointer(exists)}
   if exists {
-    fs.observe(path, observedInput{
-      kind:     observedInputDirectory,
-      realpath: fs.currentRealpath(path),
-    })
-  } else {
-    fs.observe(path, observedInput{kind: observedInputMissing})
+    proof.Realpath = fs.currentRealpath(path)
   }
+  fs.observe(path, observedInput{proof: proof})
   return exists
 }
 
@@ -116,17 +134,26 @@ func (fs *inputObservationFS) GetAccessibleEntries(path string) vfs.Entries {
 
 func (fs *inputObservationFS) Stat(path string) vfs.FileInfo {
   info := fs.FS.Stat(path)
+  kind := "missing"
   if info == nil {
-    fs.observe(path, observedInput{kind: observedInputMissing})
-  } else if info.IsDir() {
     fs.observe(path, observedInput{
-      kind:     observedInputDirectory,
-      realpath: fs.currentRealpath(path),
+      proof: TransformInputObservation{Stat: &kind},
+    })
+  } else if info.IsDir() {
+    kind = "directory"
+    fs.observe(path, observedInput{
+      proof: TransformInputObservation{
+        Stat:     &kind,
+        Realpath: fs.currentRealpath(path),
+      },
     })
   } else {
+    kind = "file"
     fs.observe(path, observedInput{
-      kind:     observedInputFile,
-      realpath: fs.currentRealpath(path),
+      proof: TransformInputObservation{
+        Stat:     &kind,
+        Realpath: fs.currentRealpath(path),
+      },
     })
   }
   return info
@@ -134,20 +161,28 @@ func (fs *inputObservationFS) Stat(path string) vfs.FileInfo {
 
 func (fs *inputObservationFS) Realpath(path string) string {
   realpath := fs.FS.Realpath(path)
-  if realpath != "" {
-    resolved := filepath.Clean(realpath)
-    fs.observeRealpath(path, &resolved)
-  }
+  fs.observe(path, observedInput{
+    proof: TransformInputObservation{Realpath: realpathObservation(realpath)},
+  })
   return realpath
 }
 
-func (fs *inputObservationFS) currentRealpath(path string) *string {
-  realpath := fs.FS.Realpath(path)
+func (fs *inputObservationFS) currentRealpath(path string) *TransformInputRealpathObservation {
+  return realpathObservation(fs.FS.Realpath(path))
+}
+
+func realpathObservation(realpath string) *TransformInputRealpathObservation {
   if realpath == "" {
-    return nil
+    return &TransformInputRealpathObservation{OK: false}
   }
-  resolved := filepath.Clean(realpath)
-  return &resolved
+  return &TransformInputRealpathObservation{
+    OK:   true,
+    Path: filepath.Clean(realpath),
+  }
+}
+
+func boolPointer(value bool) *bool {
+  return &value
 }
 
 func (fs *inputObservationFS) observationKey(path string) string {
@@ -172,8 +207,8 @@ func (fs *inputObservationFS) observe(path string, next observedInput) {
   // spelling while resolution recorded the selected lexical alias. Index the
   // returned bytes by the final physical path too, so proof can join the two
   // observations without another disk read.
-  if next.contentHash != nil && next.realpath != nil {
-    physicalKey := fs.observationKey(*next.realpath)
+  if next.proof.ReadFile != nil && next.proof.ReadFile.OK && next.proof.Realpath != nil && next.proof.Realpath.OK {
+    physicalKey := fs.observationKey(next.proof.Realpath.Path)
     if physicalKey != "" && physicalKey != key {
       keys = append(keys, physicalKey)
     }
@@ -197,108 +232,163 @@ func (fs *inputObservationFS) mergeObservation(key string, next observedInput) {
     fs.failObservation(key, previous, next.failure)
     return
   }
-  if previous.kind != next.kind {
-    fs.failObservation(key, previous, inputProofKindChanged)
+  if previous.proof.FileExists != nil && next.proof.FileExists != nil && *previous.proof.FileExists != *next.proof.FileExists {
+    fs.failObservation(key, previous, inputProofFileExistsChanged)
     return
   }
-  if !sameOptionalString(previous.realpath, next.realpath) {
-    fs.failObservation(key, previous, inputProofRealpathChanged)
+  if previous.proof.DirectoryExists != nil && next.proof.DirectoryExists != nil && *previous.proof.DirectoryExists != *next.proof.DirectoryExists {
+    fs.failObservation(key, previous, inputProofDirectoryExistsChanged)
     return
   }
-  if previous.contentHash != nil && next.contentHash != nil && *previous.contentHash != *next.contentHash {
+  if previous.proof.Stat != nil && next.proof.Stat != nil && *previous.proof.Stat != *next.proof.Stat {
+    fs.failObservation(key, previous, inputProofStatChanged)
+    return
+  }
+  if previous.proof.ReadFile != nil && next.proof.ReadFile != nil && !sameReadObservation(previous.proof.ReadFile, next.proof.ReadFile) {
     fs.failObservation(key, previous, inputProofContentChanged)
     return
   }
-  if previous.contentHash == nil && next.contentHash != nil {
-    previous.contentHash = next.contentHash
+  if previous.proof.Realpath != nil && next.proof.Realpath != nil && !sameRealpathObservation(previous.proof.Realpath, next.proof.Realpath) {
+    fs.failObservation(key, previous, inputProofRealpathChanged)
+    return
+  }
+  if previous.proof.FileExists == nil {
+    previous.proof.FileExists = next.proof.FileExists
+  }
+  if previous.proof.DirectoryExists == nil {
+    previous.proof.DirectoryExists = next.proof.DirectoryExists
+  }
+  if previous.proof.Stat == nil {
+    previous.proof.Stat = next.proof.Stat
+  }
+  if previous.proof.ReadFile == nil {
+    previous.proof.ReadFile = next.proof.ReadFile
+  }
+  if previous.proof.Realpath == nil {
+    previous.proof.Realpath = next.proof.Realpath
+  }
+  if !transformInputObservationCompatible(previous.proof) {
+    fs.failObservation(key, previous, inputProofPredicateConflict)
+    return
   }
   fs.observations[key] = previous
 }
 
 func (fs *inputObservationFS) failObservation(key string, observed observedInput, failure inputProofFailure) {
-  observed.contentHash = nil
   observed.failure = failure
-  observed.realpath = nil
   fs.observations[key] = observed
 }
 
-func (fs *inputObservationFS) observeRealpath(path string, realpath *string) {
-  key := fs.observationKey(path)
-  if key == "" {
-    return
-  }
-  fs.mu.Lock()
-  defer fs.mu.Unlock()
-  previous, found := fs.observations[key]
-  if !found {
-    // A realpath by itself cannot prove whether the path was a file or
-    // directory. The ordinary resolver probes record that state separately.
-    return
-  }
-  if previous.failure != "" {
-    return
-  }
-  if !sameOptionalString(previous.realpath, realpath) {
-    fs.failObservation(key, previous, inputProofRealpathChanged)
-  }
+func sameReadObservation(left, right *TransformInputReadObservation) bool {
+  return left.OK == right.OK && left.Hash == right.Hash
 }
 
-func sameOptionalString(left, right *string) bool {
-  if left == nil || right == nil {
-    return left == nil && right == nil
-  }
-  return *left == *right
+func sameRealpathObservation(left, right *TransformInputRealpathObservation) bool {
+  return left.OK == right.OK && left.Path == right.Path
 }
 
-// proof returns a stable compiler-time state. A nil hash/realpath with an empty
-// failure is an explicit JSON null for a path observed missing; a non-empty
-// failure explains why no complete, internally consistent proof exists.
-func (fs *inputObservationFS) proof(path string) (hash, realpath *string, failure inputProofFailure) {
+func transformInputObservationCompatible(observation TransformInputObservation) bool {
+  if observation.FileExists != nil && *observation.FileExists && observation.DirectoryExists != nil && *observation.DirectoryExists {
+    return false
+  }
+  if observation.Stat != nil {
+    switch *observation.Stat {
+    case "directory":
+      if (observation.FileExists != nil && *observation.FileExists) ||
+        (observation.DirectoryExists != nil && !*observation.DirectoryExists) {
+        return false
+      }
+    case "file":
+      if (observation.FileExists != nil && !*observation.FileExists) ||
+        (observation.DirectoryExists != nil && *observation.DirectoryExists) {
+        return false
+      }
+    case "missing":
+      if (observation.FileExists != nil && *observation.FileExists) ||
+        (observation.DirectoryExists != nil && *observation.DirectoryExists) {
+        return false
+      }
+    default:
+      return false
+    }
+  }
+  if observation.ReadFile != nil && observation.ReadFile.OK {
+    if (observation.FileExists != nil && !*observation.FileExists) ||
+      (observation.DirectoryExists != nil && *observation.DirectoryExists) ||
+      (observation.Stat != nil && *observation.Stat != "file") {
+      return false
+    }
+  }
+  return true
+}
+
+// predicateProof returns every compatible compiler filesystem constraint for
+// path without collapsing different predicates into a guessed object kind.
+func (fs *inputObservationFS) predicateProof(path string) (TransformInputObservation, inputProofFailure) {
   key := fs.observationKey(path)
   if key == "" {
-    return nil, nil, inputProofInvalidPath
+    return TransformInputObservation{}, inputProofInvalidPath
   }
   fs.mu.Lock()
   observation, found := fs.observations[key]
   // TypeScript-Go can probe a lexical symlink candidate and then read the
   // selected source by its physical filename. Reuse that exact observed read
   // for the alias instead of issuing an eager duplicate read from FileExists.
-  if found && observation.failure == "" && observation.kind == observedInputFile && observation.contentHash == nil && observation.realpath != nil {
-    targetKey := fs.observationKey(*observation.realpath)
+  if found && observation.failure == "" && observation.proof.FileExists != nil && *observation.proof.FileExists && observation.proof.ReadFile == nil && observation.proof.Realpath != nil && observation.proof.Realpath.OK {
+    targetKey := fs.observationKey(observation.proof.Realpath.Path)
     target, targetFound := fs.observations[targetKey]
-    if targetFound && target.failure == "" && target.kind == observedInputFile && target.contentHash != nil && sameOptionalString(target.realpath, observation.realpath) {
-      targetHash := *target.contentHash
-      observation.contentHash = &targetHash
+    if targetFound && target.failure == "" && target.proof.ReadFile != nil && target.proof.ReadFile.OK && target.proof.Realpath != nil && sameRealpathObservation(target.proof.Realpath, observation.proof.Realpath) {
+      read := *target.proof.ReadFile
+      observation.proof.ReadFile = &read
     }
   }
   fs.mu.Unlock()
   if !found {
-    return nil, nil, inputProofUnobserved
+    return TransformInputObservation{}, inputProofUnobserved
   }
   if observation.failure != "" {
-    return nil, nil, observation.failure
+    return TransformInputObservation{}, observation.failure
   }
-  switch observation.kind {
-  case observedInputMissing:
-    return nil, nil, ""
-  case observedInputDirectory:
+  return observation.proof, ""
+}
+
+// proof returns a stable compiler-time state. A nil hash/realpath with an empty
+// failure is an explicit JSON null for a path observed missing; a non-empty
+// failure explains why no complete, internally consistent proof exists.
+func (fs *inputObservationFS) proof(path string) (hash, realpath *string, failure inputProofFailure) {
+  observation, failure := fs.predicateProof(path)
+  if failure != "" {
+    return nil, nil, failure
+  }
+  if observation.ReadFile != nil && observation.ReadFile.OK {
+    if observation.Realpath == nil || !observation.Realpath.OK {
+      return nil, nil, inputProofRealpathUnavailable
+    }
+    hash := observation.ReadFile.Hash
+    realpath := observation.Realpath.Path
+    return &hash, &realpath, ""
+  }
+  directory := (observation.Stat != nil && *observation.Stat == "directory") ||
+    (observation.DirectoryExists != nil && *observation.DirectoryExists)
+  if directory {
     hash := observedDirectoryDigest
-    if observation.realpath == nil {
+    if observation.Realpath == nil || !observation.Realpath.OK {
       return nil, nil, inputProofRealpathUnavailable
     }
-    realpath := *observation.realpath
+    realpath := observation.Realpath.Path
     return &hash, &realpath, ""
-  case observedInputFile:
-    if observation.contentHash == nil || observation.realpath == nil {
-      if observation.contentHash == nil {
-        return nil, nil, inputProofContentUnavailable
-      }
-      return nil, nil, inputProofRealpathUnavailable
-    }
-    hash := *observation.contentHash
-    realpath := *observation.realpath
-    return &hash, &realpath, ""
-  default:
-    return nil, nil, inputProofUnsupportedInputKind
   }
+  file := (observation.Stat != nil && *observation.Stat == "file") ||
+    (observation.FileExists != nil && *observation.FileExists)
+  if file {
+    return nil, nil, inputProofContentUnavailable
+  }
+  missing := (observation.Stat != nil && *observation.Stat == "missing") ||
+    (observation.FileExists != nil && !*observation.FileExists) ||
+    (observation.DirectoryExists != nil && !*observation.DirectoryExists) ||
+    (observation.ReadFile != nil && !observation.ReadFile.OK)
+  if missing {
+    return nil, nil, ""
+  }
+  return nil, nil, inputProofUnsupportedInputKind
 }
