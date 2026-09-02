@@ -1,6 +1,11 @@
-import { TestUnpluginProject, TestUnpluginRuntime } from "@ttsc/testing";
+import {
+  TestProject,
+  TestUnpluginProject,
+  TestUnpluginRuntime,
+} from "@ttsc/testing";
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
+import path from "node:path";
 
 const REQUIRE_FROM_TEST = createRequire(import.meta.url);
 
@@ -128,9 +133,44 @@ async function assertBunRegisterRegistersRuntimePlugin() {
  * the old code, get a default plugin registered first that shadows the explicit
  * one. The entry must register exactly one Bun loader whose effective options
  * are resolved on first load, so calls before that boundary are last-write-wins
- * and calls after it cannot silently change the session.
+ * and calls after it cannot silently change the session. Evaluating the second
+ * package condition must not erase options already supplied through the first.
  */
 async function assertBunRegisterSameRuntimeExplicitOptionsWin(): Promise<void> {
+  const preservationCaptured: CapturedPlugin[] = [];
+  await withBunRuntime(preservationCaptured, async () => {
+    const registerEsm = await importFreshBunRegister();
+    const preserved = {
+      plugins: [
+        {
+          transform: "./plugin.cjs",
+          name: "prefix",
+          prefix: "PRESERVED:",
+        },
+      ],
+    };
+    registerEsm(preserved);
+
+    const registerCjs = requireFreshBunRegister();
+    assert.equal(
+      preservationCaptured.length,
+      1,
+      "evaluating the CommonJS condition must keep the existing loader",
+    );
+    const loader = await captureLoader(preservationCaptured[0]!);
+    const missing = path.join(
+      TestProject.tmpdir("ttsc-bun-register-pending-"),
+      "missing.ts",
+    );
+    const pending = loader({ path: missing });
+
+    assert.doesNotThrow(
+      () => registerCjs(preserved),
+      "the CommonJS condition must preserve options supplied through ESM",
+    );
+    await assert.rejects(pending, /ENOENT/);
+  });
+
   const captured: CapturedPlugin[] = [];
   await withBunRuntime(captured, async () => {
     const registerEsm = await importFreshBunRegister();
