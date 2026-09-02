@@ -245,7 +245,7 @@ export async function assertAllowJsDecidesJavaScriptMembership(): Promise<void> 
  */
 export async function assertTheWalkAvoidsWorkItCannotUse(): Promise<void> {
   const session = await startMembershipSession(
-    { outDir: "assets" },
+    { outDir: "src/assets" },
     { outDir: "generated" },
   );
   try {
@@ -277,7 +277,7 @@ export async function assertTheWalkAvoidsWorkItCannotUse(): Promise<void> {
     // The inherited outDir no longer excludes this directory after the caller
     // replaces that option. Files this project cannot compile still do not
     // change membership, and validation must not read them.
-    const walked = path.join(session.root, "assets");
+    const walked = path.join(session.root, "src", "assets");
     fs.mkdirSync(walked, { recursive: true });
     const before = session.reads();
     for (let index = 0; index < 40; index += 1) {
@@ -414,8 +414,23 @@ export async function assertTheWalkPredicateMatchesTheWalk(): Promise<void> {
   const tsconfig = path.join(project.root, "tsconfig.json");
   const declared = JSON.parse(fs.readFileSync(tsconfig, "utf8")) as {
     compilerOptions: Record<string, unknown>;
+    extends?: string;
   };
-  declared.compilerOptions.declarationDir = "src/inherited-declarations";
+  delete declared.compilerOptions.outDir;
+  const configOwner = path.join(project.root, "config");
+  const baseConfig = path.join(configOwner, "tsconfig.base.json");
+  fs.mkdirSync(configOwner, { recursive: true });
+  fs.writeFileSync(
+    baseConfig,
+    JSON.stringify({
+      compilerOptions: {
+        declarationDir: "../src/inherited-declarations",
+        outDir: "../src/inherited-output",
+      },
+    }),
+    "utf8",
+  );
+  declared.extends = "./config/tsconfig.base.json";
   fs.writeFileSync(tsconfig, JSON.stringify(declared, null, 2), "utf8");
 
   const policy = api.readProjectMembershipPolicy(tsconfig);
@@ -491,6 +506,59 @@ export async function assertTheWalkPredicateMatchesTheWalk(): Promise<void> {
       .excludedDirectories,
     policy.excludedDirectories,
     "without an overlay, inherited output directories must remain excluded",
+  );
+  assert.equal(
+    policy.directoryExclusionOrigins?.outDir,
+    path.join(project.root, "src", "inherited-output"),
+    "an inherited outDir must remain anchored at the config that declared it",
+  );
+  assert.equal(
+    policy.directoryExclusionOrigins?.declarationDir,
+    path.join(project.root, "src", "inherited-declarations"),
+    "an inherited declarationDir must remain anchored at its declaring config",
+  );
+
+  const emptyOverlay = api.mergeMembershipPolicyOverlay(
+    policy,
+    { declarationDir: "", outDir: "" },
+    overlayOwner,
+  );
+  assert.equal(
+    emptyOverlay.directoryExclusionOrigins?.outDir,
+    overlayOwner,
+    "an empty overlay outDir is still a path-valued replacement",
+  );
+  assert.equal(
+    emptyOverlay.directoryExclusionOrigins?.declarationDir,
+    overlayOwner,
+    "an empty overlay declarationDir is still a path-valued replacement",
+  );
+  assert.ok(
+    !emptyOverlay.excludedDirectories.includes(
+      path.join(project.root, "src", "inherited-output"),
+    ),
+    "an empty output overlay must not retain the inherited output directory",
+  );
+
+  const emptyConfig = path.join(project.root, "tsconfig.empty.json");
+  fs.writeFileSync(
+    emptyConfig,
+    JSON.stringify({
+      compilerOptions: { declarationDir: "", outDir: "" },
+      extends: "./config/tsconfig.base.json",
+    }),
+    "utf8",
+  );
+  const emptyPolicy = api.readProjectMembershipPolicy(emptyConfig);
+  assert.equal(
+    emptyPolicy.directoryExclusionOrigins?.outDir,
+    project.root,
+    "an empty child outDir must replace rather than fall through to its base",
+  );
+  assert.equal(
+    emptyPolicy.directoryExclusionOrigins?.declarationDir,
+    project.root,
+    "an empty child declarationDir must replace rather than inherit",
   );
 
   const explicitConfig = path.join(project.root, "tsconfig.explicit.json");

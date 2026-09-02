@@ -184,9 +184,7 @@ export function readProjectMembershipPolicy(
       (parsed) => {
         const value = (parsed as { compilerOptions?: Record<string, unknown> })
           .compilerOptions?.[key];
-        return typeof value === "string" && value.length !== 0
-          ? value
-          : undefined;
+        return typeof value === "string" ? value : undefined;
       },
       new Set(),
       sources,
@@ -276,7 +274,7 @@ export function mergeMembershipPolicyOverlay(
   };
   for (const key of OUTPUT_DIRECTORY_OPTIONS) {
     const value = compilerOptions[key];
-    if (typeof value === "string" && value.length !== 0) {
+    if (typeof value === "string") {
       directoryExclusionOrigins[key] = path.resolve(baseDir, value);
     }
   }
