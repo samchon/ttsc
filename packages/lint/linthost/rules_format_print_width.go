@@ -192,9 +192,10 @@ func (formatPrintWidth) Check(ctx *Context, node *shimast.Node) {
   // independently flattening or breaking its child calls and value literals
   // can change whether the complete binary line fits. The next cascade pass
   // then reverses those child decisions and `ttsc format` oscillates to the
-  // 10-pass cap. Destructuring assignment targets are the exception: their
-  // literal printer owns the complete left-hand list and already charges the
-  // `= value` suffix against its width budget.
+  // 10-pass cap. A destructuring assignment target may skip only its directly
+  // owning `=` because the literal printer owns the complete left-hand list and
+  // charges the `= value` suffix. Any binary ancestor above that assignment
+  // remains uncontrolled.
   if hasUncontrolledBinaryExpressionAncestor(node) {
     return
   }
