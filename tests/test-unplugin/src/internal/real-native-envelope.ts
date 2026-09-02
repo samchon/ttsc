@@ -63,12 +63,16 @@ interface IRealNativeEnvelopeFixtureOptions {
   raceDeclarationOnce?: boolean;
 }
 
-const SHARED_CONTRIBUTOR_ROOT = path.join(
+const SHARED_CONTRIBUTOR_MODULE_ROOT = path.join(
   TestProject.WORKSPACE_ROOT,
   "node_modules",
   ".cache",
   "ttsc-test-unplugin",
-  "real-native-envelope-contributor",
+  "real-native-envelope-module",
+);
+const SHARED_CONTRIBUTOR_ROOT = path.join(
+  SHARED_CONTRIBUTOR_MODULE_ROOT,
+  "compile-probe",
 );
 let sharedContributorReady = false;
 
@@ -242,6 +246,11 @@ export function createRealNativeEnvelopeFixture(
   });
   if (!sharedContributorReady) {
     fs.mkdirSync(SHARED_CONTRIBUTOR_ROOT, { recursive: true });
+    fs.writeFileSync(
+      path.join(SHARED_CONTRIBUTOR_MODULE_ROOT, "go.mod"),
+      "module example.com/ttscunpluginrealenvelope\n\ngo 1.26\n",
+      "utf8",
+    );
     fs.copyFileSync(
       path.join(root, "compile-probe", "probe.go"),
       path.join(SHARED_CONTRIBUTOR_ROOT, "probe.go"),

@@ -133,6 +133,11 @@ test("native fixtures keep one default source identity", () => {
     "only descriptor-mutation scenarios may fork the cache plugin source",
   );
   assert.match(realFixture, /SHARED_CONTRIBUTOR_ROOT/);
+  assert.match(
+    realFixture,
+    /path\.join\(SHARED_CONTRIBUTOR_MODULE_ROOT, "go\.mod"\)/,
+    "the linked contributor must remain inside a resolvable Go module",
+  );
 });
 
 function collectFiles(directory) {
