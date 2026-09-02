@@ -30,6 +30,8 @@ import path from "node:path";
  * graph at all and silently exercise complete-snapshot validation instead.
  */
 interface ICacheProjectOptions {
+  /** Capture public watch evidence while delivering the fixture's modules. */
+  captureWatchEvidence?: boolean;
   /** Keep a private source tree for scenarios that mutate its descriptor. */
   isolatedPluginSource?: boolean;
   /**
@@ -100,6 +102,8 @@ interface ICacheProjectOptions {
   richCandidateProof?: boolean;
   /** Report mutually inconsistent rich and legacy proofs for one candidate. */
   contradictoryRichCandidateProof?: boolean;
+  /** Pair an unprojectable rich predicate with a supplied legacy proof. */
+  unprojectableContradictoryRichCandidateProof?: boolean;
   graphGlobals?: number;
   omitExternalSourceGraphNode?: boolean;
   /**
@@ -151,6 +155,15 @@ interface ICacheProjectOptions {
   unrelatedDirectoryCount?: number;
 }
 
+interface ICapturedWatchInput {
+  evidence?: {
+    identity: string;
+    missing: boolean;
+    unavailable?: "missing" | "not-file";
+  };
+  input: string;
+}
+
 // Build the Go fixture once per process; transformTtsc shells out to it.
 process.env.TTSC_CACHE_DIR ??= TestProject.tmpdir("ttsc-unplugin-cache-");
 let sharedCachePluginRoot: string | undefined;
@@ -167,12 +180,15 @@ let sharedCachePluginRoot: string | undefined;
 async function runProjectBuild(options: ICacheProjectOptions): Promise<{
   pluginRuns: number;
   outputs: string[];
+  root: string;
+  watchInputs: ICapturedWatchInput[];
 }> {
   const { createTtscTransformCache, resolveOptions, transformTtsc } =
     await TestUnpluginRuntime.loadUnpluginApi();
   const project = createCacheProject(options);
   const cache = createTtscTransformCache();
   const outputs: string[] = [];
+  const watchInputs: ICapturedWatchInput[] = [];
   for (const file of projectModules(project.root)) {
     const result = await transformTtsc(
       file,
@@ -180,6 +196,14 @@ async function runProjectBuild(options: ICacheProjectOptions): Promise<{
       resolveOptions(),
       undefined,
       cache,
+      options.captureWatchEvidence === true
+        ? {
+            addWatchFile: (
+              input: string,
+              evidence?: ICapturedWatchInput["evidence"],
+            ) => watchInputs.push({ evidence, input }),
+          }
+        : undefined,
     );
     assert.ok(result, `expected transformed output for ${file}`);
     outputs.push(result.code);
@@ -187,7 +211,7 @@ async function runProjectBuild(options: ICacheProjectOptions): Promise<{
   const pluginRuns = fs.existsSync(project.runLog)
     ? fs.readFileSync(project.runLog, "utf8").length
     : 0;
-  return { pluginRuns, outputs };
+  return { pluginRuns, outputs, root: project.root, watchInputs };
 }
 
 /** Assert concurrent caches neither share counters nor propagate one fault. */
@@ -522,8 +546,9 @@ async function assertUnprovenCandidatesKeepOneCompile(): Promise<void> {
   }
 
   const rich = await runProjectBuild({
+    captureWatchEvidence: true,
     fileCount: 3,
-    graphCandidates: 1,
+    graphCandidates: 2,
     graphFanout: 1,
     richCandidateProof: true,
   });
@@ -533,6 +558,22 @@ async function assertUnprovenCandidatesKeepOneCompile(): Promise<void> {
     "a valid rich speculative proof must supersede its unrepresentable legacy projection",
   );
   assert.equal(rich.outputs.length, 3);
+  const richMissingCandidate = path.join(
+    rich.root,
+    "node_modules",
+    "dep1",
+    "index.ts",
+  );
+  const richMissingEvidence = rich.watchInputs.find(
+    ({ input }) => path.resolve(input) === richMissingCandidate,
+  )?.evidence;
+  assert.ok(richMissingEvidence);
+  assert.equal(
+    richMissingEvidence.missing,
+    true,
+    "a rich failed-file predicate must preserve the public missing signal",
+  );
+  assert.equal(richMissingEvidence.unavailable, "not-file");
 
   await assert.rejects(
     () =>
@@ -544,6 +585,18 @@ async function assertUnprovenCandidatesKeepOneCompile(): Promise<void> {
       }),
     /after 2 attempts[\s\S]*graph\/proof-conflict[\s\S]*node_modules[/\\]dep0[/\\]index\.ts/,
     "a rich speculative proof must not conceal a contradictory legacy proof",
+  );
+
+  await assert.rejects(
+    () =>
+      runProjectBuild({
+        fileCount: 1,
+        graphCandidates: 1,
+        graphFanout: 1,
+        unprojectableContradictoryRichCandidateProof: true,
+      }),
+    /after 2 attempts[\s\S]*graph\/proof-conflict[\s\S]*node_modules[/\\]dep0[/\\]index\.ts[\s\S]*producer: "content-unavailable"/,
+    "an unprojectable rich predicate must conflict with a supplied legacy proof",
   );
 }
 
@@ -3592,6 +3645,8 @@ function createCacheProject(options: ICacheProjectOptions): {
               candidateProofFailure: options.candidateProofFailure === true,
               contradictoryRichCandidateProof:
                 options.contradictoryRichCandidateProof === true,
+              unprojectableContradictoryRichCandidateProof:
+                options.unprojectableContradictoryRichCandidateProof === true,
               richCandidateProof: options.richCandidateProof === true,
               outOfProjectCandidate: options.outOfProjectCandidate ?? "",
               nonInputRaceFile: options.nonInputRaceFile ?? "",
@@ -3726,7 +3781,8 @@ function createCacheProject(options: ICacheProjectOptions): {
   }
   if (
     options.richCandidateProof === true ||
-    options.contradictoryRichCandidateProof === true
+    options.contradictoryRichCandidateProof === true ||
+    options.unprojectableContradictoryRichCandidateProof === true
   ) {
     fs.writeFileSync(
       path.join(root, "node_modules", "dep0", "index.ts"),
@@ -4011,6 +4067,8 @@ function writeGoPlugin(dir: string): void {
       '      candidate := "node_modules/dep0/index.ts"',
       '      result.Graph.InputObservations[candidate] = map[string]any{"fileExists": true}',
       '      result.Graph.InputProofFailures[candidate] = "content-unavailable"',
+      '      missingCandidate := "node_modules/dep1/index.ts"',
+      '      result.Graph.InputObservations[missingCandidate] = map[string]any{"fileExists": false}',
       "    }",
       '    if boolValue(cfg, "contradictoryRichCandidateProof") {',
       '      candidate := "node_modules/dep0/index.ts"',
@@ -4024,6 +4082,11 @@ function writeGoPlugin(dir: string): void {
       '      addGraphInputProof(result.Graph, root, candidate, "")',
       '      contradictoryHash := strings.Repeat("0", 64)',
       "      result.Graph.InputHashes[candidate] = &contradictoryHash",
+      "    }",
+      '    if boolValue(cfg, "unprojectableContradictoryRichCandidateProof") {',
+      '      candidate := "node_modules/dep0/index.ts"',
+      '      result.Graph.InputObservations[candidate] = map[string]any{"fileExists": true}',
+      '      addGraphInputProof(result.Graph, root, candidate, "")',
       "    }",
       '    unprovenInputs := int(numberValue(cfg, "unprovenGraphInputs"))',
       '    if boolValue(cfg, "unprovenGraphInput") && unprovenInputs == 0 { unprovenInputs = 1 }',

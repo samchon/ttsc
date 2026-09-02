@@ -4,6 +4,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
+import { createFilesystemPathIdentityContext } from "../../../../packages/ttsc/lib/internal/projectInputPathIdentity.js";
 import {
   type TtscTransformFilesystemOperations,
   validateGraphInputObservation,
@@ -85,6 +86,16 @@ export function assertPredicateProofMatrix(): void {
     ),
     [],
     "realpath fallback must follow the observed filesystem's path semantics",
+  );
+  const posix = createFilesystemPathIdentityContext({
+    caseSensitive: () => true,
+    platform: "linux",
+    realpath: (location) => path.posix.resolve(location),
+  });
+  assert.notEqual(
+    posix.resolve("/repo/a\\b.ts").key,
+    posix.resolve("/repo/a/b.ts").key,
+    "POSIX path identity must not treat a backslash as a directory separator on a Windows host",
   );
   assert.deepEqual(
     validateGraphInputObservation(

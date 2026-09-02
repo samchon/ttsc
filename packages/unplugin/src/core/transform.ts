@@ -714,7 +714,7 @@ function clearTtscTransformCache(cache: TtscTransformCache): void {
 export interface TtscWatchInputEvidence {
   /** Memoized filesystem identity of the input. */
   identity: string;
-  /** Whether the generation recorded this input as absent. */
+  /** Whether the generation recorded this input as unavailable as a file. */
   missing: boolean;
   /** Which unavailable predicate must become true before invalidation. */
   unavailable?: "missing" | "not-file";
@@ -1882,6 +1882,7 @@ function notifyWatchInputs(
     const spelling = path.resolve(input);
     const observation = cached.externalInputObservations?.[spelling];
     const missing =
+      observation?.fileExists === false ||
       state.graph?.inputProofs.get(spelling)?.hash === null ||
       external[identity] === MISSING_INPUT_STATE;
     addWatchFile(input, {
@@ -3763,26 +3764,28 @@ function compilerGraphInputProofFailures(
     const observation = graph.inputObservations.get(spelling);
     if (observation !== undefined && proof !== undefined) {
       const projection = legacyProjectionOfGraphInputObservation(observation);
-      if (projection.failure === undefined) {
-        if (
-          projection.hash !== proof.hash ||
-          !sameHostInputRealpath(
-            projection.realpath,
-            proof.realpath,
-            state.identityContext,
-          )
-        ) {
-          recordGenerationProofFailure(failures, {
-            domain: "graph",
-            kind: "proof-conflict",
-            path: spelling,
-          });
-        }
-        // The rich predicates were already replayed above. Their legacy
-        // projection is an internal producer-consistency check, never a reason
-        // to read the same filesystem input again.
-        continue;
+      if (
+        projection.failure !== undefined ||
+        projection.hash !== proof.hash ||
+        !sameHostInputRealpath(
+          projection.realpath,
+          proof.realpath,
+          state.identityContext,
+        )
+      ) {
+        recordGenerationProofFailure(failures, {
+          domain: "graph",
+          kind: "proof-conflict",
+          detail: projection.failure,
+          path: spelling,
+        });
       }
+      // The rich predicates were already replayed above. Their legacy
+      // projection is an internal producer-consistency check, never a reason
+      // to read the same filesystem input again. A projection that cannot
+      // represent the observation is itself inconsistent with a supplied
+      // legacy proof, rather than permission to trust either representation.
+      continue;
     }
     if (
       graph.speculative.has(spelling) &&
