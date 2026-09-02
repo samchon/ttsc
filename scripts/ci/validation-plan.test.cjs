@@ -222,6 +222,18 @@ test("platform integrations reuse only the physical rows they need", () => {
   assert.ok(
     experimental.every((row) => row.experimental && !row.watch && !row.vscode),
   );
+  assert.ok(
+    experimental.every((row) => !row.unplugin_e2e),
+    "the generic artifact rehearsal must not duplicate the package E2E",
+  );
+
+  const unplugin = planForPaths(["packages/unplugin/src/index.ts"])
+    .platformMatrix.include;
+  assert.deepEqual(
+    unplugin.filter((row) => row.unplugin_e2e).map((row) => row.name),
+    ["linux-x64"],
+    "the packed adapter contract belongs to one representative platform",
+  );
 
   const sourceMap = planForPaths(["experimental/source-map/src/index.ts"])
     .platformMatrix.include;
@@ -367,7 +379,7 @@ test("lane identities and workflow matrix names stay unique", () => {
     "@ttsc/wasm",
     "@ttsc/playground",
     "@ttsc/graph",
-    "--filter ttsc exec tsc --emitDeclarationOnly",
+    "--filter ttsc build",
     "@ttsc/unplugin",
   ])
     assert.match(
@@ -485,7 +497,13 @@ test("remaining workflow path filters match the repository contract", () => {
     platformSteps.find(
       (step) => step.name === "Verify Installed Tarballs With Bundled Go",
     ).run,
-    "pnpm run experimental",
+    "pnpm run experimental:install",
+  );
+  assert.equal(
+    platformSteps.find(
+      (step) => step.name === "Verify @ttsc/unplugin Package Contract",
+    ).run,
+    "pnpm --dir experimental/test-unplugin start -- --pack-current",
   );
   assert.equal(
     platformSteps.find((step) => step.name === "Run watch tests").env

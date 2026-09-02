@@ -56,10 +56,8 @@ const LANES = [
       "pnpm --filter @ttsc/playground build && " +
       "pnpm --filter @ttsc/graph exec rimraf lib && " +
       "pnpm --filter @ttsc/graph exec tsc --emitDeclarationOnly && " +
-      "pnpm --filter ttsc exec rimraf lib && " +
-      "pnpm --filter ttsc exec tsc --emitDeclarationOnly && " +
-      "pnpm --filter @ttsc/unplugin exec rimraf lib && " +
-      "pnpm --filter @ttsc/unplugin exec tsc --emitDeclarationOnly",
+      "pnpm --filter ttsc build && " +
+      "pnpm --filter @ttsc/unplugin build",
     run:
       "pnpm run check:flags && pnpm run check:dependencies && " +
       "node --test packages/ttsc/scripts/check-flags.test.cjs && " +
@@ -68,7 +66,10 @@ const LANES = [
       "scripts/ci/dependency-audit.test.cjs " +
       "scripts/ci/config-loader-copies.test.cjs " +
       "scripts/ci/gofmt-wrapper.test.cjs && " +
-      "node scripts/ci/format-check.cjs && pnpm run test:typecheck",
+      "node --test scripts/ci/unplugin-test-contract.test.cjs && " +
+      "node scripts/ci/format-check.cjs && " +
+      "pnpm --filter @ttsc/test-unplugin unit && " +
+      "pnpm run test:typecheck",
   },
   {
     id: "package-defenses",
@@ -179,7 +180,7 @@ const LANES = [
     scope: "test-metro",
     build: "pnpm run build:current",
     run:
-      "pnpm --filter @ttsc/test-unplugin start && " +
+      "pnpm --filter @ttsc/test-unplugin integration && " +
       "pnpm --filter @ttsc/test-metro start",
   },
   {
@@ -198,7 +199,7 @@ const LANES = [
     // branch is dead code and a defect in it is invisible
     // (samchon/ttsc#1307).
     run:
-      "pnpm --filter @ttsc/test-unplugin start -- " +
+      "pnpm --filter @ttsc/test-unplugin integration -- " +
       "--include=membership --include=output_directory --include=the_walk " +
       "--include=new_source " +
       "--include=persistent_host --include=hashed_bundle --include=allowjs " +
@@ -349,12 +350,17 @@ const WORKFLOW_PATHS = {
     "scripts/go-wasm-exec.cjs",
     "scripts/platform-target.cjs",
     "packages/**",
+    "!packages/unplugin/**",
     "package.json",
     "pnpm-lock.yaml",
     "pnpm-workspace.yaml",
   ],
-  nestia: integrationPaths("nestia"),
-  typia: integrationPaths("typia"),
+  nestia: integrationPaths("nestia").filter(
+    (entry) => entry !== "packages/unplugin/**",
+  ),
+  typia: integrationPaths("typia").filter(
+    (entry) => entry !== "packages/unplugin/**",
+  ),
   website: [
     ".github/workflows/website.yml",
     "config/**",
@@ -378,6 +384,7 @@ const PLATFORM_INTEGRATION_PATHS = {
     "experimental/install/**",
     "experimental/test-unplugin/**",
   ),
+  unpluginE2e: integrationSurfacePaths("experimental/test-unplugin/**"),
   pluginCache: [
     "scripts/build-current.cjs",
     "scripts/build-platform-package.cjs",
@@ -459,6 +466,10 @@ function planForPaths(files) {
     experimental: matchesAnyPath(
       normalized,
       PLATFORM_INTEGRATION_PATHS.experimental,
+    ),
+    unpluginE2e: matchesAnyPath(
+      normalized,
+      PLATFORM_INTEGRATION_PATHS.unpluginE2e,
     ),
     pluginCache: matchesAnyPath(
       normalized,
@@ -595,7 +606,12 @@ function planForPaths(files) {
         continue;
       }
       if (["unplugin", "metro"].includes(lane)) {
-        add(["bundler-defenses", "bundler-defenses-windows"], file);
+        add(
+          lane === "unplugin"
+            ? ["bundler-defenses", "bundler-defenses-windows"]
+            : ["bundler-defenses", "bundler-defenses-windows"],
+          file,
+        );
         continue;
       }
       if (lane === "lint") {
@@ -684,6 +700,7 @@ function planForPaths(files) {
         "scripts/ci/plugin-cache-persistence.mjs",
         "scripts/ci/test-owners.cjs",
         "scripts/ci/test-owners.test.cjs",
+        "scripts/ci/unplugin-test-contract.test.cjs",
       ].includes(file)
     ) {
       continue;
@@ -769,6 +786,7 @@ function fullPlan(reason) {
   return createPlan(new Set(FULL_LANE_IDS), true, [reason], {
     bun: true,
     experimental: true,
+    unpluginE2e: true,
     pluginCache: true,
     sourceMap: true,
     vscode: true,
@@ -782,6 +800,7 @@ function createPlan(selected, watch, reasons, integrations) {
   const platform = createPlatformPlan({
     bun: integrations.bun,
     experimental: integrations.experimental,
+    unpluginE2e: integrations.unpluginE2e,
     pluginCache: integrations.pluginCache,
     sourceMap: integrations.sourceMap,
     vscode: integrations.vscode,
@@ -810,6 +829,7 @@ function createPlatformPlan(tasks) {
         (row.os === "linux" || row.os === "win32");
       const sourceMap =
         tasks.sourceMap && row.representative && row.os === "linux";
+      const unpluginE2e = tasks.unpluginE2e && row.name === "linux-x64";
       const vscode = tasks.vscode && row.representative;
       const watch = tasks.watch && row.representative;
       const build = !tasks.experimental && (watch || pluginCache);
@@ -822,10 +842,16 @@ function createPlatformPlan(tasks) {
         build_scope: watch ? "experimental" : "plugin-cache",
         experimental: tasks.experimental,
         needs_go:
-          tasks.experimental || bun || pluginCache || sourceMap || watch,
+          tasks.experimental ||
+          unpluginE2e ||
+          bun ||
+          pluginCache ||
+          sourceMap ||
+          watch,
         plugin_cache: pluginCache,
         setup_bun: bun || (pluginCache && row.os === "linux"),
         source_map: sourceMap,
+        unplugin_e2e: unpluginE2e,
         watch,
         vscode,
       };
@@ -836,6 +862,7 @@ function createPlatformPlan(tasks) {
         row.bun ||
         row.plugin_cache ||
         row.source_map ||
+        row.unplugin_e2e ||
         row.watch ||
         row.vscode,
     );

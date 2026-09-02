@@ -13,6 +13,15 @@ import { TestProject } from "../TestProject";
  * same native source-plugin path that real bundler integrations use.
  */
 export namespace TestUnpluginProject {
+  const SHARED_GO_PLUGIN_ROOT = path.join(
+    TestProject.WORKSPACE_ROOT,
+    "node_modules",
+    ".cache",
+    "ttsc-test-unplugin",
+    "default-go-plugin",
+  );
+  let sharedGoPluginReady = false;
+
   /**
    * Options for the synthetic project used by unplugin transform scenarios.
    *
@@ -83,7 +92,6 @@ export namespace TestUnpluginProject {
       "utf8",
     );
     writePluginEntry(root);
-    writeGoPlugin(root);
     return root;
   }
 
@@ -135,14 +143,13 @@ export namespace TestUnpluginProject {
 
   /** Write the local CommonJS plugin descriptor consumed by ttsc. */
   export function writePluginEntry(root: string): void {
+    const source = sharedGoPluginSource();
     fs.writeFileSync(
       path.join(root, "plugin.cjs"),
       [
-        'const path = require("node:path");',
-        "",
         "module.exports = (context) => ({",
         '  name: context.plugin.name ?? "fixture",',
-        '  source: path.resolve(context.dirname, "go-plugin"),',
+        `  source: ${JSON.stringify(source)},`,
         "});",
         "",
       ].join("\n"),
@@ -712,6 +719,23 @@ export namespace TestUnpluginProject {
       ].join("\n"),
       "utf8",
     );
+  }
+
+  /**
+   * Materialize one process-wide source identity for the synthetic transformer.
+   *
+   * The native cache keys source plugins by both content and location. Writing
+   * identical Go sources below every temporary consumer therefore defeated the
+   * cache and rebuilt the same host for each scenario. The package-discovery
+   * fixture remains local because that case owns the package-relative source
+   * contract; ordinary projects all point at this one deterministic location.
+   */
+  function sharedGoPluginSource(): string {
+    if (!sharedGoPluginReady) {
+      writeGoPlugin(SHARED_GO_PLUGIN_ROOT);
+      sharedGoPluginReady = true;
+    }
+    return path.join(SHARED_GO_PLUGIN_ROOT, "go-plugin");
   }
 
   /**

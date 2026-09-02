@@ -63,6 +63,15 @@ interface IRealNativeEnvelopeFixtureOptions {
   raceDeclarationOnce?: boolean;
 }
 
+const SHARED_CONTRIBUTOR_ROOT = path.join(
+  TestProject.WORKSPACE_ROOT,
+  "node_modules",
+  ".cache",
+  "ttsc-test-unplugin",
+  "real-native-envelope-contributor",
+);
+let sharedContributorReady = false;
+
 /**
  * Materialize a package-resolution fixture driven by ttsc's utility host.
  *
@@ -100,11 +109,9 @@ export function createRealNativeEnvelopeFixture(
     "go.mod": "module example.com/ttscunpluginrealenvelope\n\ngo 1.26\n",
     "package.json": JSON.stringify({ private: true, type: "module" }, null, 2),
     "plugin.cjs": [
-      'const path = require("node:path");',
-      "",
       "module.exports = (context) => ({",
       '  name: context.plugin.name ?? "real-envelope-compile-probe",',
-      '  source: path.resolve(context.dirname, "compile-probe"),',
+      `  source: ${JSON.stringify(SHARED_CONTRIBUTOR_ROOT)},`,
       "});",
       "",
     ].join("\n"),
@@ -233,6 +240,14 @@ export function createRealNativeEnvelopeFixture(
       ]),
     ),
   });
+  if (!sharedContributorReady) {
+    fs.mkdirSync(SHARED_CONTRIBUTOR_ROOT, { recursive: true });
+    fs.copyFileSync(
+      path.join(root, "compile-probe", "probe.go"),
+      path.join(SHARED_CONTRIBUTOR_ROOT, "probe.go"),
+    );
+    sharedContributorReady = true;
+  }
   return { declaration, missingCandidate, modules, root, runLog };
 }
 

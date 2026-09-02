@@ -18,7 +18,6 @@ on:
       - "packages/lint/**"
       - "packages/paths/**"
       - "packages/strip/**"
-      - "packages/unplugin/**"
       - "packages/ttsc-*/**"
       - "package.json"
       - "pnpm-lock.yaml"

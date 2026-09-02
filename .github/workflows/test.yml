@@ -81,8 +81,12 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Verify Installed Tarballs With Bundled Go
-        if: matrix.experimental
-        run: pnpm run experimental
+        if: matrix.experimental && !matrix.unplugin_e2e
+        run: pnpm run experimental:install
+
+      - name: Verify @ttsc/unplugin Package Contract
+        if: matrix.unplugin_e2e
+        run: pnpm --dir experimental/test-unplugin start -- --pack-current
 
       - name: Use System Go For Source Plugin Tests
         if: matrix.watch || matrix.plugin_cache

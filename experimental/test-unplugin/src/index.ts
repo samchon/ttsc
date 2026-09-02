@@ -13,26 +13,26 @@ const packCurrent = process.argv.includes("--pack-current");
 const platformKey = `${process.platform}-${process.arch}`;
 const platformTarball = `ttsc-${platformKey}`;
 const registryDependencies = [
-  "@farmfe/core",
+  "@farmfe/core@1.7.11",
   // Rspack 2.0.1+ crashes on Windows ARM64 during native binding teardown.
   "@rspack/cli@2.0.0",
   "@rspack/core@2.0.0",
-  "@types/react",
-  "@types/react-dom",
-  "esbuild",
-  "next",
-  "rolldown",
-  "rollup",
-  "react",
-  "react-dom",
+  "@types/react@18.3.29",
+  "@types/react-dom@18.3.7",
+  "esbuild@0.25.12",
+  "next@16.3.0",
+  "rolldown@1.2.6",
+  "rollup@4.60.4",
+  "react@18.3.1",
+  "react-dom@18.3.1",
   // Native TypeScript 7 ships no classic JS compiler API, which Next's built-in
   // TypeScript integration loads at build start. ttsc instead receives the
   // workspace `tsc` binary through TTSC_TSGO_BINARY (set in `run`), so the
   // consumer only needs the legacy compiler here to satisfy Next.
-  "typescript@~6.0.3",
-  "vite",
-  "webpack",
-  "webpack-cli",
+  "typescript@6.0.3",
+  "vite@7.3.6",
+  "webpack@5.107.1",
+  "webpack-cli@7.2.3",
 ];
 const adapterEntrypoints = [
   "bun",
@@ -52,7 +52,7 @@ const adapterEntrypoints = [
  *
  * Kept here rather than imported, because the point is to check our belief
  * against Turbopack rather than to restate it. The unit case
- * `test_next_adapter_does_not_double_register_across_globs` asserts this list
+ * `case_next_adapter_does_not_double_register_across_globs` asserts this list
  * and the guard agree in both directions, so a spelling cannot be added to one
  * without the other.
  */
@@ -103,9 +103,10 @@ function resolveTscBinary() {
 }
 const TSC_BINARY = resolveTscBinary();
 
-main();
+test_unplugin_package_e2e();
 
-function main() {
+/** Run the complete packed-package adapter contract in one consumer install. */
+export function test_unplugin_package_e2e() {
   if (packCurrent) {
     prepareCurrentTarballs();
   } else if (!skipPack) {

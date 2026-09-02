@@ -5,7 +5,9 @@
   "description": "Adapter entrypoint and transform tests for @ttsc/unplugin.",
   "type": "module",
   "scripts": {
-    "start": "node --disable-warning=ExperimentalWarning --import ../../scripts/register-extensionless-ts-loader.mjs --experimental-transform-types src/index.ts"
+    "integration": "node --disable-warning=ExperimentalWarning --import ../../scripts/register-extensionless-ts-loader.mjs --experimental-transform-types src/index.ts --layer=integration",
+    "start": "node --disable-warning=ExperimentalWarning --import ../../scripts/register-extensionless-ts-loader.mjs --experimental-transform-types src/index.ts",
+    "unit": "node --disable-warning=ExperimentalWarning --import ../../scripts/register-extensionless-ts-loader.mjs --experimental-transform-types src/index.ts --layer=unit"
   },
   "devDependencies": {
     "@rollup/plugin-commonjs": "^29.0.2",

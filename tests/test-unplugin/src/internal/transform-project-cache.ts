@@ -30,6 +30,8 @@ import path from "node:path";
  * graph at all and silently exercise complete-snapshot validation instead.
  */
 interface ICacheProjectOptions {
+  /** Keep a private source tree for scenarios that mutate its descriptor. */
+  isolatedPluginSource?: boolean;
   /**
    * Widen the program to JavaScript, which widens what counts as a membership
    * change with it: an emitted `.js` beside the sources can enter a program
@@ -141,6 +143,14 @@ interface ICacheProjectOptions {
 
 // Build the Go fixture once per process; transformTtsc shells out to it.
 process.env.TTSC_CACHE_DIR ??= TestProject.tmpdir("ttsc-unplugin-cache-");
+const SHARED_CACHE_PLUGIN_ROOT = path.join(
+  TestProject.WORKSPACE_ROOT,
+  "node_modules",
+  ".cache",
+  "ttsc-test-unplugin",
+  "cache-go-plugin",
+);
+let sharedCachePluginReady = false;
 
 /**
  * Drive a real transform over every module of a multi-file project sharing one
@@ -1570,6 +1580,7 @@ async function assertPersistentValidationUsesPerFileInputs(): Promise<void> {
   const project = createCacheProject({
     fileCount: count,
     graphFanout: count,
+    isolatedPluginSource: true,
     partitionGraph: true,
     unrelatedDirectoryCount: 48,
   });
@@ -3224,7 +3235,11 @@ async function assertExternalCompileSnapshotAbaRaceCannotAuthorizeStaleOutput():
 async function assertDescriptorInputRaceCannotAuthorizeStaleGeneration(): Promise<void> {
   const { createTtscTransformCache, resolveOptions, transformTtsc } =
     await TestUnpluginRuntime.loadUnpluginApi();
-  const project = createCacheProject({ fileCount: 1, graphFanout: 1 });
+  const project = createCacheProject({
+    fileCount: 1,
+    graphFanout: 1,
+    isolatedPluginSource: true,
+  });
   const external = TestProject.tmpdir("ttsc-unplugin-descriptor-race-");
   const selectionBase = path.join(external, "selection");
   const selectionJson = `${selectionBase}.json`;
@@ -3427,6 +3442,15 @@ function createCacheProject(options: ICacheProjectOptions): {
   runLog: string;
 } {
   const root = TestProject.tmpdir("ttsc-unplugin-cache-project-");
+  const pluginSource =
+    options.isolatedPluginSource === true
+      ? path.join(root, "go-plugin")
+      : SHARED_CACHE_PLUGIN_ROOT;
+  if (options.isolatedPluginSource === true) writeGoPlugin(pluginSource);
+  else if (!sharedCachePluginReady) {
+    writeGoPlugin(pluginSource);
+    sharedCachePluginReady = true;
+  }
   const runLog = path.join(
     TestProject.tmpdir("ttsc-unplugin-cache-log-"),
     "plugin-runs.log",
@@ -3575,7 +3599,6 @@ function createCacheProject(options: ICacheProjectOptions): {
             'const fs = require("node:fs");',
           ]
         : []),
-      'const path = require("node:path");',
       ...(options.unreadableHostInput === true
         ? [
             "",
@@ -3605,7 +3628,7 @@ function createCacheProject(options: ICacheProjectOptions): {
             `    hostInputRealpaths: { [${JSON.stringify(unreadableHostInput)}]: observedRealpath(${JSON.stringify(unreadableHostInput)}) },`,
           ]
         : []),
-      '    source: path.resolve(context.dirname, "go-plugin"),',
+      `    source: ${JSON.stringify(pluginSource)},`,
       "  };",
       "};",
       "",
@@ -3671,7 +3694,6 @@ function createCacheProject(options: ICacheProjectOptions): {
       process.platform === "win32" ? "junction" : "dir",
     );
   }
-  writeGoPlugin(root);
   return { root, runLog };
 }
 
@@ -3688,8 +3710,7 @@ function createCacheProject(options: ICacheProjectOptions): {
  * invocation so the test can count whole-project transforms, and optionally
  * emits one out-of-walk output key.
  */
-function writeGoPlugin(root: string): void {
-  const dir = path.join(root, "go-plugin");
+function writeGoPlugin(dir: string): void {
   fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(
     path.join(dir, "go.mod"),
