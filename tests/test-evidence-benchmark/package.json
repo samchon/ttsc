@@ -1,7 +1,7 @@
 {
   "private": true,
   "name": "test-evidence-benchmark",
-  "version": "0.28.4",
+  "version": "0.28.5",
   "description": "End-to-end feature tests for the benchmark template, standing the real workspace up and running its own gates.",
   "scripts": {
     "check": "tsc --noEmit -p tsconfig.json",
