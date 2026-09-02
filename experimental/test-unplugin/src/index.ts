@@ -378,7 +378,7 @@ function writeNextPage() {
     path.join(workspace, "pages", "index.js"),
     [
       'import { value } from "../src/next-entry";',
-      'import { rootValue } from "../turbopack-root-entry";',
+      'import { rootValue } from "../turbopack-root-entry.ts";',
       'import { tsxValue } from "../src/turbopack-tsx-entry";',
       'import "../src/turbopack-mts-entry.mts";',
       'import "../src/turbopack-cts-entry.cts";',
@@ -1078,6 +1078,7 @@ function verifyTurbopackRecognisedGlobs() {
         .map(comparable),
     );
   };
+  const mismatches = [];
   for (const [index, [glob, extensions]] of coverage.entries()) {
     const expected = extensions.flatMap(
       (extension) => sourcePaths.get(extension) ?? [],
@@ -1088,19 +1089,25 @@ function verifyTurbopackRecognisedGlobs() {
       .map(comparable)
       .sort();
     const wanted = expected.map(comparable).sort();
-    assert(
-      JSON.stringify(actual) === JSON.stringify(wanted),
-      `${glob} must match every root and nested source of exactly its extension family; got ${JSON.stringify(actual)}`,
-    );
+    if (JSON.stringify(actual) !== JSON.stringify(wanted)) {
+      mismatches.push(
+        `${glob} expected ${JSON.stringify(wanted)} but matched ${JSON.stringify(actual)}`,
+      );
+    }
   }
   for (const [offset, glob] of TURBOPACK_SCOPED_GLOBS.entries()) {
     const matches = probeMatches(projectWideGlobs.length + offset);
     const tsSources = sourcePaths.get("ts") ?? [];
-    assert(
-      tsSources.some((file) => !matches.has(comparable(file))),
-      `${glob} must remain refused because it does not cover every project-wide .ts source`,
-    );
+    if (tsSources.every((file) => matches.has(comparable(file)))) {
+      mismatches.push(
+        `${glob} must remain refused because it covers every project-wide .ts source`,
+      );
+    }
   }
+  assert(
+    mismatches.length === 0,
+    `Turbopack glob coverage mismatches:\n${mismatches.join("\n")}`,
+  );
   writeNextConfig();
 }
 
