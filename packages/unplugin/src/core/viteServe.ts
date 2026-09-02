@@ -85,20 +85,8 @@ export interface ViteServeMissingInputWatch {
    * config's `command`, as the adapter does.
    */
   serving(): boolean;
-  /**
-   * Register one unavailable watch input derived for `importer`.
-   *
-   * `identity` is the filesystem identity the transform generation already
-   * resolved for `input`. Resolving it here instead costs a `realpath` and a
-   * case-sensitivity directory listing per input per delivery, because a
-   * per-call identity context memoizes nothing (samchon/ttsc#1246).
-   */
-  watch(
-    input: string,
-    importer: string,
-    until: "exists" | "file",
-    identity?: string,
-  ): void;
+  /** Register one unavailable watch input derived for `importer`. */
+  watch(input: string, importer: string, until: "exists" | "file"): void;
 }
 
 /** Poll bookkeeping for one registered unavailable path. */
@@ -137,15 +125,9 @@ export function createViteServeMissingInputWatch(): ViteServeMissingInputWatch {
     serving() {
       return server !== undefined;
     },
-    watch(input, importer, until, resolved) {
+    watch(input, importer, until) {
       const spelling = path.resolve(input);
-      // A failed file predicate belongs to the exact lexical spelling. Two
-      // aliases can currently resolve to one directory and later diverge, so a
-      // physical-identity key would let one spelling answer for the other.
-      const identity =
-        until === "file"
-          ? `file:${spelling}`
-          : `exists:${resolved ?? pathIdentityKey(spelling)}`;
+      const identity = viteServeMissingInputWatchKey(spelling, until);
       const existing = entries.get(identity);
       if (existing !== undefined) {
         existing.importers.add(path.resolve(importer));
@@ -199,6 +181,16 @@ export function createViteServeMissingInputWatch(): ViteServeMissingInputWatch {
       recheck.unref?.();
     },
   };
+}
+
+/** Key a private poll by predicate and exact lexical spelling. */
+export function viteServeMissingInputWatchKey(
+  input: string,
+  until: "exists" | "file",
+): string {
+  // Missing aliases can share a physical parent now and later retarget or
+  // diverge. Neither predicate may let one lexical spelling answer for another.
+  return `${until}:${path.resolve(input)}`;
 }
 
 /**

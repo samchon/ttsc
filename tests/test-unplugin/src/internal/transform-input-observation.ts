@@ -8,6 +8,7 @@ import {
   type TtscTransformFilesystemOperations,
   validateGraphInputObservation,
 } from "../../../../packages/unplugin/lib/core/transform.js";
+import { viteServeMissingInputWatchKey } from "../../../../packages/unplugin/lib/core/viteServe.js";
 
 interface IFilesystemState {
   contents?: Buffer;
@@ -71,6 +72,19 @@ export function assertPredicateProofMatrix(): void {
     ),
     [],
     "a failed native realpath must replay TypeScript-Go's lexical fallback",
+  );
+  const windowsBroken = "C:\\predicate-proof-root\\broken.ts";
+  assert.deepEqual(
+    validateGraphInputObservation(
+      windowsBroken,
+      {
+        fileExists: false,
+        realpath: { ok: true, path: windowsBroken },
+      },
+      state({ kind: "missing" }, "win32"),
+    ),
+    [],
+    "realpath fallback must follow the observed filesystem's path semantics",
   );
   assert.deepEqual(
     validateGraphInputObservation(
@@ -190,6 +204,28 @@ export function assertPredicateProofMatrix(): void {
     ),
     ["proof-conflict"],
   );
+  assert.notEqual(
+    viteServeMissingInputWatchKey(
+      path.join(root, "alias-a", "candidate.ts"),
+      "exists",
+    ),
+    viteServeMissingInputWatchKey(
+      path.join(root, "alias-b", "candidate.ts"),
+      "exists",
+    ),
+    "Vite polls must not merge lexical aliases that can later diverge",
+  );
+  assert.notEqual(
+    viteServeMissingInputWatchKey(
+      path.join(root, "alias-a", "candidate.ts"),
+      "exists",
+    ),
+    viteServeMissingInputWatchKey(
+      path.join(root, "alias-a", "candidate.ts"),
+      "file",
+    ),
+    "Vite polls must not merge distinct availability predicates",
+  );
   assertRealFilesystemKinds();
 }
 
@@ -274,7 +310,10 @@ function assertRealFilesystemKinds(): void {
   }
 }
 
-function state(value: IFilesystemState): TtscTransformFilesystemOperations {
+function state(
+  value: IFilesystemState,
+  platform: NodeJS.Platform = process.platform,
+): TtscTransformFilesystemOperations {
   const missing = (): never => {
     const error = new Error("missing") as NodeJS.ErrnoException;
     error.code = "ENOENT";
@@ -287,7 +326,7 @@ function state(value: IFilesystemState): TtscTransformFilesystemOperations {
     caseSensitive: () => true,
     exists: () => value.kind !== "missing",
     lstat: () => missing(),
-    platform: process.platform,
+    platform,
     readFile: () => {
       if (value.kind !== "file" || value.readable === false) return missing();
       return value.contents ?? Buffer.alloc(0);

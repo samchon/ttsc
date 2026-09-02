@@ -64,6 +64,8 @@ export interface IRealNativeEnvelopeFixture {
   missingCandidate: string;
   /** Sibling source modules delivered independently by a bundler. */
   modules: string[];
+  /** Whether this fixture carries the full resolver-owner and suffix corpus. */
+  resolutionCorpus: boolean;
   /** Real resolver candidates grouped by the path owner that produced them. */
   resolutionCandidateGroups: Record<string, string[]>;
   /** Project root containing the tsconfig, plugin descriptor, and packages. */
@@ -75,6 +77,8 @@ export interface IRealNativeEnvelopeFixture {
 interface IRealNativeEnvelopeFixtureOptions {
   /** Rewrite the selected declaration during the first linked-plugin pass. */
   raceDeclarationOnce?: boolean;
+  /** Include the full resolver-owner and module-suffix probe corpus. */
+  resolutionCorpus?: boolean;
 }
 
 let sharedContributorRoot: string | undefined;
@@ -90,6 +94,7 @@ export function createRealNativeEnvelopeFixture(
   options: IRealNativeEnvelopeFixtureOptions = {},
 ): IRealNativeEnvelopeFixture {
   TestUnpluginProject.ensureSharedCacheDir();
+  const resolutionCorpus = options.resolutionCorpus === true;
   const root = TestProject.tmpdir("ttsc-unplugin-real-envelope-");
   const runLog = path.join(
     TestProject.tmpdir("ttsc-unplugin-real-envelope-log-"),
@@ -115,54 +120,62 @@ export function createRealNativeEnvelopeFixture(
     "index.ts",
   );
   const fileCandidateDirectory = path.join(root, "node_modules", "punycode.js");
-  const resolutionCandidateGroups: Record<string, string[]> = {
-    "package exports subpath": [
-      path.join(
-        root,
-        "node_modules",
-        "exports-pkg",
-        "dist",
-        "feature.native.ts",
-      ),
-    ],
-    "package main target": [
-      path.join(root, "node_modules", "linked-pkg", "index.native.ts"),
-    ],
-    "package types target": [
-      path.join(root, "node_modules", "typed-dep", "dist", "index.native.ts"),
-    ],
-    paths: [path.join(root, "paths", "value.native.ts")],
-    relative: [
-      path.join(root, "src", "relative.native.ts"),
-      path.join(root, "src", "relative.ts"),
-      path.join(root, "src", "relative.native.tsx"),
-      path.join(root, "src", "relative.tsx"),
-      path.join(root, "src", "relative.d.native.ts"),
-      path.join(root, "src", "relative.d.ts"),
-      path.join(root, "src", "relative.native.js"),
-      path.join(root, "src", "react.native.tsx"),
-      path.join(root, "src", "react.tsx"),
-      path.join(root, "src", "react.native.ts"),
-      path.join(root, "src", "react.ts"),
-      path.join(root, "src", "react.d.native.ts"),
-      path.join(root, "src", "react.d.ts"),
-      path.join(root, "src", "react.native.jsx"),
-      path.join(root, "src", "esm.native.mts"),
-      path.join(root, "src", "esm.mts"),
-      path.join(root, "src", "esm.d.native.mts"),
-      path.join(root, "src", "esm.d.mts"),
-      path.join(root, "src", "esm.native.mjs"),
-      path.join(root, "src", "common.native.cts"),
-      path.join(root, "src", "common.cts"),
-      path.join(root, "src", "common.d.native.cts"),
-      path.join(root, "src", "common.d.cts"),
-      path.join(root, "src", "common.native.cjs"),
-    ],
-    rootDirs: [
-      path.join(root, "src", "rooted.native.ts"),
-      path.join(root, "generated", "rooted.native.ts"),
-    ],
-  };
+  const resolutionCandidateGroups: Record<string, string[]> = resolutionCorpus
+    ? {
+        "package exports subpath": [
+          path.join(
+            root,
+            "node_modules",
+            "exports-pkg",
+            "dist",
+            "feature.native.ts",
+          ),
+        ],
+        "package main target": [
+          path.join(root, "node_modules", "linked-pkg", "index.native.ts"),
+        ],
+        "package types target": [
+          path.join(
+            root,
+            "node_modules",
+            "typed-dep",
+            "dist",
+            "index.native.ts",
+          ),
+        ],
+        paths: [path.join(root, "paths", "value.native.ts")],
+        relative: [
+          path.join(root, "src", "relative.native.ts"),
+          path.join(root, "src", "relative.ts"),
+          path.join(root, "src", "relative.native.tsx"),
+          path.join(root, "src", "relative.tsx"),
+          path.join(root, "src", "relative.d.native.ts"),
+          path.join(root, "src", "relative.d.ts"),
+          path.join(root, "src", "relative.native.js"),
+          path.join(root, "src", "react.native.tsx"),
+          path.join(root, "src", "react.tsx"),
+          path.join(root, "src", "react.native.ts"),
+          path.join(root, "src", "react.ts"),
+          path.join(root, "src", "react.d.native.ts"),
+          path.join(root, "src", "react.d.ts"),
+          path.join(root, "src", "react.native.jsx"),
+          path.join(root, "src", "esm.native.mts"),
+          path.join(root, "src", "esm.mts"),
+          path.join(root, "src", "esm.d.native.mts"),
+          path.join(root, "src", "esm.d.mts"),
+          path.join(root, "src", "esm.native.mjs"),
+          path.join(root, "src", "common.native.cts"),
+          path.join(root, "src", "common.cts"),
+          path.join(root, "src", "common.d.native.cts"),
+          path.join(root, "src", "common.d.cts"),
+          path.join(root, "src", "common.native.cjs"),
+        ],
+        rootDirs: [
+          path.join(root, "src", "rooted.native.ts"),
+          path.join(root, "generated", "rooted.native.ts"),
+        ],
+      }
+    : {};
 
   TestProject.writeFiles(root, {
     "go.mod": "module example.com/ttscunpluginrealenvelope\n\ngo 1.26\n",
@@ -229,12 +242,10 @@ export function createRealNativeEnvelopeFixture(
       {
         compilerOptions: {
           allowJs: true,
-          baseUrl: ".",
           module: "NodeNext",
           moduleResolution: "NodeNext",
           moduleSuffixes: [".native", ""],
           noImplicitAny: false,
-          paths: { "@fixture/value": ["paths/value.js"] },
           plugins: [
             {
               name: "real-envelope-compile-probe",
@@ -248,7 +259,13 @@ export function createRealNativeEnvelopeFixture(
               transform: "./plugin.cjs",
             },
           ],
-          rootDirs: ["src", "generated"],
+          ...(resolutionCorpus
+            ? {
+                baseUrl: ".",
+                paths: { "@fixture/value": ["paths/value.js"] },
+                rootDirs: ["src", "generated"],
+              }
+            : {}),
           strict: true,
           target: "ES2022",
         },
@@ -271,31 +288,40 @@ export function createRealNativeEnvelopeFixture(
     "node_modules/typed-dep/dist/index.d.ts":
       "export interface Shared { label: string; }\n",
     "node_modules/typed-dep/dist/index.js": 'export const runtime = "typed";\n',
-    "node_modules/linked-pkg/package.json": JSON.stringify(
-      {
-        main: "index.js",
-        name: "linked-pkg",
-        type: "module",
-        version: "0.0.0",
-      },
-      null,
-      2,
-    ),
-    "node_modules/linked-pkg/index.d.ts":
-      "export declare const linked: string;\n",
-    "node_modules/linked-pkg/index.js": 'export const linked = "js";\n',
-    "node_modules/exports-pkg/package.json": JSON.stringify(
-      {
-        exports: { "./feature": "./dist/feature.js" },
-        name: "exports-pkg",
-        type: "module",
-        version: "0.0.0",
-      },
-      null,
-      2,
-    ),
-    "node_modules/exports-pkg/dist/feature.js":
-      'export const feature = "exports";\n',
+    ...(resolutionCorpus
+      ? {
+          "node_modules/linked-pkg/package.json": JSON.stringify(
+            {
+              main: "index.js",
+              name: "linked-pkg",
+              type: "module",
+              version: "0.0.0",
+            },
+            null,
+            2,
+          ),
+          "node_modules/linked-pkg/index.d.ts":
+            "export declare const linked: string;\n",
+          "node_modules/linked-pkg/index.js": 'export const linked = "js";\n',
+          "node_modules/exports-pkg/package.json": JSON.stringify(
+            {
+              exports: { "./feature": "./dist/feature.js" },
+              name: "exports-pkg",
+              type: "module",
+              version: "0.0.0",
+            },
+            null,
+            2,
+          ),
+          "node_modules/exports-pkg/dist/feature.js":
+            'export const feature = "exports";\n',
+          "generated/rooted.js": 'export const rooted = "rootDirs";\n',
+          "paths/value.js": 'export const pathValue = "paths";\n',
+          "src/esm.mjs": 'export const esm = "mjs";\n',
+          "src/react.jsx": 'export const jsx = "jsx";\n',
+          "src/relative.js": 'export const relative = "relative";\n',
+        }
+      : {}),
     "node_modules/punycode/package.json": JSON.stringify(
       {
         main: "punycode.js",
@@ -318,12 +344,7 @@ export function createRealNativeEnvelopeFixture(
     ),
     "node_modules/punycode.js/punycode.js":
       "module.exports = { encode(value) { return `other:${value}`; } };\n",
-    "generated/rooted.js": 'export const rooted = "rootDirs";\n',
-    "paths/value.js": 'export const pathValue = "paths";\n',
     "src/common.cjs": 'exports.common = "cjs";\n',
-    "src/esm.mjs": 'export const esm = "mjs";\n',
-    "src/react.jsx": 'export const jsx = "jsx";\n',
-    "src/relative.js": 'export const relative = "relative";\n',
     ...Object.fromEntries(
       modules.map((file, index) => [
         path.relative(root, file),
@@ -337,25 +358,33 @@ export function createRealNativeEnvelopeFixture(
             ].join("\n")
           : [
               'import type { Shared } from "typed-dep";',
-              'import { linked } from "linked-pkg";',
-              ...(index === 0
+              ...(resolutionCorpus
                 ? [
-                    'import { esm } from "./esm.mjs";',
-                    'import { relative } from "./relative.js";',
-                  ]
-                : []),
-              ...(index === 1
-                ? ['import { pathValue } from "@fixture/value";']
-                : []),
-              ...(index === 2 ? ['import { rooted } from "./rooted.js";'] : []),
-              ...(index === 3
-                ? [
-                    'import { feature } from "exports-pkg/feature";',
-                    'import { jsx } from "./react.jsx";',
+                    'import { linked } from "linked-pkg";',
+                    ...(index === 0
+                      ? [
+                          'import { esm } from "./esm.mjs";',
+                          'import { relative } from "./relative.js";',
+                        ]
+                      : []),
+                    ...(index === 1
+                      ? ['import { pathValue } from "@fixture/value";']
+                      : []),
+                    ...(index === 2
+                      ? ['import { rooted } from "./rooted.js";']
+                      : []),
+                    ...(index === 3
+                      ? [
+                          'import { feature } from "exports-pkg/feature";',
+                          'import { jsx } from "./react.jsx";',
+                        ]
+                      : []),
                   ]
                 : []),
               "",
-              `export const value${index}: Shared = { label: [linked, ${JSON.stringify(String(index))}${index === 0 ? ", esm, relative" : index === 1 ? ", pathValue" : index === 2 ? ", rooted" : ", feature, jsx"}].join(":") };`,
+              resolutionCorpus
+                ? `export const value${index}: Shared = { label: [linked, ${JSON.stringify(String(index))}${index === 0 ? ", esm, relative" : index === 1 ? ", pathValue" : index === 2 ? ", rooted" : ", feature, jsx"}].join(":") };`
+                : `export const value${index}: Shared = { label: ${JSON.stringify(String(index))} };`,
               "",
             ].join("\n"),
       ]),
@@ -378,6 +407,7 @@ export function createRealNativeEnvelopeFixture(
     fileCandidateDirectory,
     missingCandidate,
     modules,
+    resolutionCorpus,
     resolutionCandidateGroups,
     root,
     runLog,
@@ -466,7 +496,7 @@ export async function assertRealEnvelopeInputRaceStabilizesWithinSharedGeneratio
 
 /** Assert a newly available superseding candidate replaces one generation. */
 export async function assertRealEnvelopeCandidateAppearanceReplacesGeneration(): Promise<void> {
-  const fixture = createRealNativeEnvelopeFixture();
+  const fixture = createRealNativeEnvelopeFixture({ resolutionCorpus: true });
   const api = await loadApi();
   const cache = api.createTtscTransformCache();
   const options = api.resolveOptions({
@@ -802,16 +832,18 @@ async function assertProductionEnvelope(
     "the fixture must produce a candidate-only path with no compiler hash or realpath proof",
   );
 
-  const knownCandidate = findGraphSpelling(
-    fixture.root,
-    candidates,
-    fixture.missingCandidate,
-  );
-  assert.ok(
-    knownCandidate,
-    `the real graph must retain the superseding package candidate ${graphKey(fixture.root, fixture.missingCandidate)}`,
-  );
-  assert.equal(fs.existsSync(fixture.missingCandidate), false);
+  if (fixture.resolutionCorpus) {
+    const knownCandidate = findGraphSpelling(
+      fixture.root,
+      candidates,
+      fixture.missingCandidate,
+    );
+    assert.ok(
+      knownCandidate,
+      `the real graph must retain the superseding package candidate ${graphKey(fixture.root, fixture.missingCandidate)}`,
+    );
+    assert.equal(fs.existsSync(fixture.missingCandidate), false);
+  }
 
   const fileCandidateDirectory = findGraphSpelling(
     fixture.root,
@@ -829,20 +861,22 @@ async function assertProductionEnvelope(
     "an existing directory must remain a failed file predicate on the production wire",
   );
 
-  for (const [owner, expected] of Object.entries(
-    fixture.resolutionCandidateGroups,
-  )) {
-    for (const file of expected) {
-      const candidate = findGraphSpelling(fixture.root, candidates, file);
-      assert.ok(
-        candidate,
-        `the real ${owner} resolver must retain ${graphKey(fixture.root, file)}`,
-      );
-      assert.equal(
-        graph.inputObservations?.[candidate]?.fileExists,
-        false,
-        `the real ${owner} probe must carry its failed file predicate for ${graphKey(fixture.root, file)}`,
-      );
+  if (fixture.resolutionCorpus) {
+    for (const [owner, expected] of Object.entries(
+      fixture.resolutionCandidateGroups,
+    )) {
+      for (const file of expected) {
+        const candidate = findGraphSpelling(fixture.root, candidates, file);
+        assert.ok(
+          candidate,
+          `the real ${owner} resolver must retain ${graphKey(fixture.root, file)}`,
+        );
+        assert.equal(
+          graph.inputObservations?.[candidate]?.fileExists,
+          false,
+          `the real ${owner} probe must carry its failed file predicate for ${graphKey(fixture.root, file)}`,
+        );
+      }
     }
   }
 

@@ -12,6 +12,7 @@ import {
   type FilesystemPathIdentityContext,
   type FilesystemPathIdentityOperations,
   createFilesystemPathIdentityContext,
+  resolveFilesystemPath,
 } from "ttsc/path-identity";
 import type { TransformResult } from "unplugin";
 
@@ -702,17 +703,19 @@ function clearTtscTransformCache(cache: TtscTransformCache): void {
  * What the generation already knows about one derived watch input, handed to
  * the adapter so it does not rederive it per input per delivery.
  *
- * Both facts are generation state: the identity is the memoized
- * {@link pathIdentityKey} of the input, and `unavailable` says whether the
- * recorded predicate waits for any path or specifically for a non-directory
- * file. An adapter that computes them itself pays a `realpath`, a
- * case-sensitivity directory listing, and an `existsSync` for every input of
- * every delivered module, which is O(modules x inputs) for one build
- * (samchon/ttsc#1246).
+ * All facts are generation state: the identity is the memoized
+ * {@link pathIdentityKey} of the input, `missing` preserves the original public
+ * existence contract, and `unavailable` distinguishes a failed file predicate
+ * from ordinary absence. An adapter that computes them itself pays a
+ * `realpath`, a case-sensitivity directory listing, and an `existsSync` for
+ * every input of every delivered module, which is O(modules x inputs) for one
+ * build (samchon/ttsc#1246).
  */
 export interface TtscWatchInputEvidence {
   /** Memoized filesystem identity of the input. */
   identity: string;
+  /** Whether the generation recorded this input as absent. */
+  missing: boolean;
   /** Which unavailable predicate must become true before invalidation. */
   unavailable?: "missing" | "not-file";
 }
@@ -1347,6 +1350,8 @@ function envelopeGraphIndexes(
   if (state.graph !== undefined) {
     return state.graph;
   }
+  const platform = resultFilesystem(props.result).platform ?? process.platform;
+  const pathApi = platform === "win32" ? path.win32 : path.posix;
   const built: TtscEnvelopeGraphIndexes = {
     edges: new Map(),
     spellings: new Map(),
@@ -1459,7 +1464,7 @@ function envelopeGraphIndexes(
       ) {
         continue;
       }
-      const normalized = normalizeGraphInputObservation(reported);
+      const normalized = normalizeGraphInputObservation(reported, platform);
       if (normalized === undefined) {
         built.inputObservationConflicts.add(spelling);
         if (!built.inputProofFailures.has(spelling)) {
@@ -1499,7 +1504,7 @@ function envelopeGraphIndexes(
       if (
         reportedRealpath !== null &&
         (typeof reportedRealpath !== "string" ||
-          !path.isAbsolute(reportedRealpath))
+          !pathApi.isAbsolute(reportedRealpath))
       ) {
         continue;
       }
@@ -1515,7 +1520,9 @@ function envelopeGraphIndexes(
         hash,
         path: absolute,
         realpath:
-          reportedRealpath === null ? null : path.resolve(reportedRealpath),
+          reportedRealpath === null
+            ? null
+            : resolveFilesystemPath(reportedRealpath, platform),
       };
       const previous = built.inputProofs.get(spelling);
       if (
@@ -1579,6 +1586,7 @@ function envelopeGraphIndexes(
 /** Normalize one untrusted predicate proof without filling missing predicates. */
 function normalizeGraphInputObservation(
   value: unknown,
+  platform: NodeJS.Platform = process.platform,
 ): ITtscCompilerTransformation.IInputObservation | undefined {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     return undefined;
@@ -1636,9 +1644,12 @@ function normalizeGraphInputObservation(
     } else if (
       result.ok === true &&
       typeof result.path === "string" &&
-      path.isAbsolute(result.path)
+      (platform === "win32" ? path.win32 : path.posix).isAbsolute(result.path)
     ) {
-      observation.realpath = { ok: true, path: path.resolve(result.path) };
+      observation.realpath = {
+        ok: true,
+        path: resolveFilesystemPath(result.path, platform),
+      };
     } else {
       return undefined;
     }
@@ -1868,13 +1879,18 @@ function notifyWatchInputs(
     // listing, and an `existsSync` per input on every delivery of every module
     // (samchon/ttsc#1246).
     const identity = derivationIdentity(state, input);
-    const observation = cached.externalInputObservations?.[path.resolve(input)];
+    const spelling = path.resolve(input);
+    const observation = cached.externalInputObservations?.[spelling];
+    const missing =
+      state.graph?.inputProofs.get(spelling)?.hash === null ||
+      external[identity] === MISSING_INPUT_STATE;
     addWatchFile(input, {
       identity,
+      missing,
       unavailable:
         observation?.fileExists === false
           ? "not-file"
-          : external[identity] === MISSING_INPUT_STATE
+          : missing
             ? "missing"
             : undefined,
     });
@@ -3247,7 +3263,10 @@ export function validateGraphInputObservation(
   observation: ITtscCompilerTransformation.IInputObservation,
   filesystem: TtscTransformFilesystemOperations = DEFAULT_FILESYSTEM_OPERATIONS,
 ): string[] {
-  const normalized = normalizeGraphInputObservation(observation);
+  const normalized = normalizeGraphInputObservation(
+    observation,
+    filesystem.platform,
+  );
   if (normalized === undefined) return ["proof-conflict"];
   return graphInputObservationFailures(
     file,
@@ -3279,11 +3298,17 @@ function compilerInputRealpathObservation(
     const realpath = filesystem.realpath(file);
     return realpath.length === 0
       ? { ok: false }
-      : { ok: true, path: path.resolve(realpath) };
+      : {
+          ok: true,
+          path: resolveFilesystemPath(realpath, filesystem.platform),
+        };
   } catch {
     // TypeScript-Go's OS and io filesystems return the cleaned input spelling
     // when native realpath resolution fails; they do not expose the failure.
-    return { ok: true, path: path.resolve(file) };
+    return {
+      ok: true,
+      path: resolveFilesystemPath(file, filesystem.platform),
+    };
   }
 }
 
@@ -3717,13 +3742,6 @@ function compilerGraphInputProofFailures(
     if (predicateConflictSpellings.has(spelling)) {
       continue;
     }
-    if (
-      graph.speculative.has(spelling) &&
-      predicateSpellings.has(spelling) &&
-      !graph.inputProofFailures.has(spelling)
-    ) {
-      continue;
-    }
     if (graph.inputProofConflicts.has(spelling)) {
       recordGenerationProofFailure(failures, {
         domain: "graph",
@@ -3742,25 +3760,8 @@ function compilerGraphInputProofFailures(
       });
       continue;
     }
-    // A speculative candidate with no reported compiler observation has no
-    // compile-time predicate to prove. Requiring one would void every
-    // generation whose predecessor enumeration is broader than the resolver
-    // calls that selected its winner (samchon/ttsc#1245). It is validated
-    // instead against the state captureExternalInputSnapshot recorded for it.
-    if (proof === undefined && graph.speculative.has(spelling)) {
-      continue;
-    }
-    if (proof === undefined) {
-      recordGenerationProofFailure(failures, {
-        domain: "graph",
-        kind: "proof-missing",
-        detail: graph.inputProofFailures.get(spelling),
-        path: spelling,
-      });
-      continue;
-    }
     const observation = graph.inputObservations.get(spelling);
-    if (observation !== undefined) {
+    if (observation !== undefined && proof !== undefined) {
       const projection = legacyProjectionOfGraphInputObservation(observation);
       if (projection.failure === undefined) {
         if (
@@ -3777,8 +3778,35 @@ function compilerGraphInputProofFailures(
             path: spelling,
           });
         }
+        // The rich predicates were already replayed above. Their legacy
+        // projection is an internal producer-consistency check, never a reason
+        // to read the same filesystem input again.
         continue;
       }
+    }
+    if (
+      graph.speculative.has(spelling) &&
+      predicateSpellings.has(spelling) &&
+      !graph.inputProofFailures.has(spelling)
+    ) {
+      continue;
+    }
+    // A speculative candidate with no reported compiler observation has no
+    // compile-time predicate to prove. Requiring one would void every
+    // generation whose predecessor enumeration is broader than the resolver
+    // calls that selected its winner (samchon/ttsc#1245). It is validated
+    // instead against the state captureExternalInputSnapshot recorded for it.
+    if (proof === undefined && graph.speculative.has(spelling)) {
+      continue;
+    }
+    if (proof === undefined) {
+      recordGenerationProofFailure(failures, {
+        domain: "graph",
+        kind: "proof-missing",
+        detail: graph.inputProofFailures.get(spelling),
+        path: spelling,
+      });
+      continue;
     }
     const currentHash = graphInputStateHash(proof.path, filesystem);
     if (currentHash !== proof.hash) {

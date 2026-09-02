@@ -98,6 +98,8 @@ interface ICacheProjectOptions {
   candidateProofFailure?: boolean;
   /** Report a valid rich file predicate with an unrepresentable legacy proof. */
   richCandidateProof?: boolean;
+  /** Report mutually inconsistent rich and legacy proofs for one candidate. */
+  contradictoryRichCandidateProof?: boolean;
   graphGlobals?: number;
   omitExternalSourceGraphNode?: boolean;
   /**
@@ -531,6 +533,18 @@ async function assertUnprovenCandidatesKeepOneCompile(): Promise<void> {
     "a valid rich speculative proof must supersede its unrepresentable legacy projection",
   );
   assert.equal(rich.outputs.length, 3);
+
+  await assert.rejects(
+    () =>
+      runProjectBuild({
+        contradictoryRichCandidateProof: true,
+        fileCount: 1,
+        graphCandidates: 1,
+        graphFanout: 1,
+      }),
+    /after 2 attempts[\s\S]*graph\/proof-conflict[\s\S]*node_modules[/\\]dep0[/\\]index\.ts/,
+    "a rich speculative proof must not conceal a contradictory legacy proof",
+  );
 }
 
 /**
@@ -3576,6 +3590,8 @@ function createCacheProject(options: ICacheProjectOptions): {
                 options.lexicalCandidateProofFailureAlias === true,
               graphCandidates: options.graphCandidates ?? 0,
               candidateProofFailure: options.candidateProofFailure === true,
+              contradictoryRichCandidateProof:
+                options.contradictoryRichCandidateProof === true,
               richCandidateProof: options.richCandidateProof === true,
               outOfProjectCandidate: options.outOfProjectCandidate ?? "",
               nonInputRaceFile: options.nonInputRaceFile ?? "",
@@ -3708,7 +3724,10 @@ function createCacheProject(options: ICacheProjectOptions): {
       "utf8",
     );
   }
-  if (options.richCandidateProof === true) {
+  if (
+    options.richCandidateProof === true ||
+    options.contradictoryRichCandidateProof === true
+  ) {
     fs.writeFileSync(
       path.join(root, "node_modules", "dep0", "index.ts"),
       "export const present = true;\n",
@@ -3992,6 +4011,19 @@ function writeGoPlugin(dir: string): void {
       '      candidate := "node_modules/dep0/index.ts"',
       '      result.Graph.InputObservations[candidate] = map[string]any{"fileExists": true}',
       '      result.Graph.InputProofFailures[candidate] = "content-unavailable"',
+      "    }",
+      '    if boolValue(cfg, "contradictoryRichCandidateProof") {',
+      '      candidate := "node_modules/dep0/index.ts"',
+      "      file := filepath.Join(root, filepath.FromSlash(candidate))",
+      "      data, _ := os.ReadFile(file)",
+      "      digest := sha256.Sum256(data)",
+      '      observedHash := fmt.Sprintf("%x", digest[:])',
+      "      realpath, _ := filepath.EvalSymlinks(file)",
+      "      absolute, _ := filepath.Abs(realpath)",
+      '      result.Graph.InputObservations[candidate] = map[string]any{"fileExists": true, "stat": "file", "readFile": map[string]any{"ok": true, "hash": observedHash}, "realpath": map[string]any{"ok": true, "path": absolute}}',
+      '      addGraphInputProof(result.Graph, root, candidate, "")',
+      '      contradictoryHash := strings.Repeat("0", 64)',
+      "      result.Graph.InputHashes[candidate] = &contradictoryHash",
       "    }",
       '    unprovenInputs := int(numberValue(cfg, "unprovenGraphInputs"))',
       '    if boolValue(cfg, "unprovenGraphInput") && unprovenInputs == 0 { unprovenInputs = 1 }',

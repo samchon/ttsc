@@ -186,6 +186,15 @@ export async function assertAFailedCompileWatchesAndReportsPlainly(): Promise<vo
     healthy.evidence.some((supplied) => supplied !== undefined),
     "a healthy delivery supplies the generation's own recorded evidence",
   );
+  assert.ok(
+    healthy.evidence
+      .filter((supplied) => supplied !== undefined)
+      .every(
+        (supplied) =>
+          typeof (supplied as { missing?: unknown }).missing === "boolean",
+      ),
+    "watch evidence must preserve the public missing boolean for custom hosts",
+  );
 
   // A genuine type error, in a file nothing imports at runtime, so no bundler
   // module graph would carry it.

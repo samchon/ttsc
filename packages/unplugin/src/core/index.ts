@@ -255,13 +255,18 @@ const unpluginFactory: UnpluginFactory<
             // costs one `existsSync` per input per delivered module.
             const unavailable =
               evidence?.unavailable ??
-              (!fs.existsSync(watched) ? "missing" : undefined);
+              (evidence === undefined
+                ? !fs.existsSync(watched)
+                  ? "missing"
+                  : undefined
+                : evidence.missing
+                  ? "missing"
+                  : undefined);
             if (unavailable !== undefined) {
               missingInputs.watch(
                 watched,
                 path.resolve(file),
                 unavailable === "not-file" ? "file" : "exists",
-                evidence?.identity,
               );
               return;
             }
