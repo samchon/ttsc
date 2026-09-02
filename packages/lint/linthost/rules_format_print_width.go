@@ -187,6 +187,18 @@ func (formatPrintWidth) Check(ctx *Context, node *shimast.Node) {
     return
   }
 
+  // Abstain on any uncontrolled reflow target nested below a binary
+  // expression. The structured printer does not own BinaryExpression, so
+  // independently flattening or breaking its child calls and value literals
+  // can change whether the complete binary line fits. The next cascade pass
+  // then reverses those child decisions and `ttsc format` oscillates to the
+  // 10-pass cap. Destructuring assignment targets are the exception: their
+  // literal printer owns the complete left-hand list and already charges the
+  // `= value` suffix against its width budget.
+  if hasUncontrolledBinaryExpressionAncestor(node) {
+    return
+  }
+
   // Abstain on any node nested inside a template-literal substitution.
   // Prettier renders `${…}` expressions at printWidth:Infinity, it
   // never breaks an interpolation the source wrote on one line, so
@@ -499,6 +511,21 @@ func hasReflowAncestor(node *shimast.Node) bool {
   }
   for parent := node.Parent; parent != nil; parent = parent.Parent {
     if isReflowKind(parent.Kind) {
+      return true
+    }
+  }
+  return false
+}
+
+// hasUncontrolledBinaryExpressionAncestor reports whether `node` is a fragment
+// of a binary expression whose layout it cannot own. A destructuring assignment
+// target is safe because the literal printer owns that complete left-hand list.
+func hasUncontrolledBinaryExpressionAncestor(node *shimast.Node) bool {
+  if node == nil || isDestructuringAssignmentTarget(node) {
+    return false
+  }
+  for parent := node.Parent; parent != nil; parent = parent.Parent {
+    if parent.Kind == shimast.KindBinaryExpression {
       return true
     }
   }
