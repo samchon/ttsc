@@ -64,6 +64,7 @@ import type {
   TtscProjectTreeDiscoveryFilesystem,
   TtscWatchInput,
   TtscWatchInputBaseline,
+  TtscWatchInputKeyBaseline,
 } from "@ttsc/unplugin/api";
 import { createHash, randomBytes } from "node:crypto";
 import fs from "node:fs";
@@ -113,7 +114,7 @@ interface SnapshotDocument {
 
 /** Main-process input states that one Metro run's static key actually used. */
 interface KeyBaselineDocument {
-  inputs: Record<string, TtscWatchInputBaseline>;
+  inputs: Record<string, TtscWatchInputKeyBaseline>;
   runId: string;
   staticInputs: string[];
   version: number;
@@ -547,7 +548,7 @@ export function computeProjectFingerprint(props: {
 /** One coherent static-key observation and the paths it proves. */
 interface ProjectFingerprintObservation {
   fingerprint: unknown;
-  inputs: Record<string, TtscWatchInputBaseline>;
+  inputs: Record<string, TtscWatchInputKeyBaseline>;
   staticInputs: string[];
 }
 
@@ -562,7 +563,7 @@ function observeProjectFingerprint(props: {
   // The caller overlay reaches this walk and the worker through the same
   // serialized options, so neither side can silently describe another program.
   const projectMap = fingerprintProjectViews(props);
-  const inputs: Record<string, TtscWatchInputBaseline> = {};
+  const inputs: Record<string, TtscWatchInputKeyBaseline> = {};
   const staticInputs = new Set<string>();
   const configSources = new Map<
     string,
@@ -601,7 +602,7 @@ function observeProjectFingerprint(props: {
       for (const [key, expected] of Object.entries(snapshot.hashes)) {
         const file = path.resolve(root, key);
         const baseline = addBaselineInput(inputs, file, staticInputs);
-        if (baseline.hostHash === undefined || baseline.hostHash !== expected) {
+        if (baseline.hostHash !== expected) {
           throw new Error("A Metro project input changed while fingerprinted.");
         }
         fingerprintedInputs[key] = {
@@ -623,9 +624,6 @@ function observeProjectFingerprint(props: {
   const recorded: Record<string, string> = {};
   for (const file of snapshot.files) {
     const baseline = addBaselineInput(inputs, file);
-    if (baseline.hostHash === undefined) {
-      throw new Error("A recorded Metro input has no host-state baseline.");
-    }
     recorded[baseline.identity] = baseline.hostHash;
   }
   return {
@@ -643,7 +641,7 @@ function observeProjectFingerprint(props: {
 
 /** Add one lexical path's stable broad state to a key baseline. */
 function addBaselineInput(
-  inputs: Record<string, TtscWatchInputBaseline>,
+  inputs: Record<string, TtscWatchInputKeyBaseline>,
   file: string,
   staticInputs?: Set<string>,
 ): TtscWatchInputBaseline {
@@ -657,7 +655,7 @@ function addBaselineInput(
     if (
       existing.identity !== observed.identity ||
       existing.fileExists !== observed.fileExists ||
-      (existing.hostHash !== undefined &&
+      ("hostHash" in existing &&
         stableStringify(existing) !== stableStringify(observed))
     ) {
       throw new Error("A Metro input changed between baseline observations.");
@@ -672,7 +670,7 @@ function addBaselineInput(
 
 /** Add the stable file predicate used by the project-map traversal. */
 function addDiscoveryBaselineInput(
-  inputs: Record<string, TtscWatchInputBaseline>,
+  inputs: Record<string, TtscWatchInputKeyBaseline>,
   file: string,
   staticInputs: Set<string>,
 ): void {
@@ -1097,7 +1095,7 @@ function snapshotPathKey(file: string): string {
 function writeKeyBaseline(
   base: string,
   runId: string,
-  inputs: Record<string, TtscWatchInputBaseline>,
+  inputs: Record<string, TtscWatchInputKeyBaseline>,
   staticInputs: string[],
 ): void {
   if (!/^[a-f0-9]{32}$/.test(runId)) {

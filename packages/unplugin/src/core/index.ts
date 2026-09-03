@@ -323,6 +323,8 @@ export type {
   TtscWatchInput,
   TtscWatchInputBaseline,
   TtscWatchInputEvidence,
+  TtscWatchInputFileBaseline,
+  TtscWatchInputKeyBaseline,
   TtscWatchInputState,
 } from "./transform";
 export type {

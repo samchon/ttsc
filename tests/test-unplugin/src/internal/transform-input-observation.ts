@@ -20,7 +20,7 @@ import { viteServeMissingInputWatchKey } from "../../../../packages/unplugin/lib
 
 interface IFilesystemState {
   contents?: Buffer;
-  kind: "directory" | "file" | "missing";
+  kind: "directory" | "file" | "missing" | "other";
   lexical?: string;
   readable?: boolean;
   realpath?: string;
@@ -35,9 +35,11 @@ export function assertPredicateProofMatrix(): void {
     state({ kind: "missing" }),
   );
   assert.ok(candidateBaseline);
+  assert.deepEqual(Object.keys(candidateBaseline).sort(), [
+    "fileExists",
+    "identity",
+  ]);
   assert.equal(candidateBaseline.fileExists, false);
-  assert.equal(candidateBaseline.stat, "missing");
-  assert.equal(candidateBaseline.hostHash, undefined);
   assert.equal(
     watchInputEvidenceMatchesBaseline(
       {
@@ -64,6 +66,67 @@ export function assertPredicateProofMatrix(): void {
     ),
     false,
     "a predicate-only baseline must not claim coverage for a content proof",
+  );
+  for (const strongerState of [
+    { codec: "graph", hash: "unavailable", realpath: null },
+    {
+      codec: "predicates",
+      observation: { directoryExists: false },
+    },
+    {
+      codec: "predicates",
+      observation: { readFile: { ok: false } },
+    },
+    {
+      codec: "predicates",
+      observation: { realpath: { ok: false } },
+    },
+    { codec: "predicates", observation: { stat: "missing" } },
+  ] as const) {
+    assert.equal(
+      watchInputEvidenceMatchesBaseline(
+        {
+          identity: candidateBaseline.identity,
+          missing: true,
+          state: strongerState,
+        },
+        candidateBaseline,
+      ),
+      false,
+      `a file predicate must not claim the stronger ${JSON.stringify(strongerState)} proof`,
+    );
+  }
+  const specialCandidate = path.join(root, "special", "tsconfig.json");
+  const specialBaseline = captureWatchInputFileBaseline(
+    specialCandidate,
+    state({ kind: "other" }),
+  );
+  const regularBaseline = captureWatchInputFileBaseline(
+    specialCandidate,
+    state({ kind: "file" }),
+  );
+  assert.ok(specialBaseline);
+  assert.ok(regularBaseline);
+  assert.equal(
+    specialBaseline.fileExists,
+    false,
+    "a non-regular filesystem entry must not satisfy project discovery",
+  );
+  assert.equal(regularBaseline.fileExists, true);
+  assert.equal(
+    watchInputEvidenceMatchesBaseline(
+      {
+        identity: regularBaseline.identity,
+        missing: false,
+        state: {
+          codec: "predicates",
+          observation: { fileExists: true },
+        },
+      },
+      specialBaseline,
+    ),
+    false,
+    "replacing a non-regular candidate with a file must invalidate the baseline",
   );
   const directory = state({
     kind: "directory",
@@ -715,6 +778,7 @@ function state(
   };
   const stats = {
     isDirectory: () => value.kind === "directory",
+    isFile: () => value.kind === "file",
   };
   return {
     caseSensitive: () => true,

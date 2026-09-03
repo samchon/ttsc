@@ -753,17 +753,26 @@ export type TtscWatchInputState =
       observation: ITtscCompilerTransformation.IInputObservation;
     };
 
-/** Main-process state for one watch input, optionally limited to predicates. */
-export interface TtscWatchInputBaseline {
-  directoryExists?: boolean;
+/** Main-process file predicate used only by project discovery. */
+export interface TtscWatchInputFileBaseline {
   fileExists: boolean;
-  graphHash?: string;
-  graphReadHash?: string | null;
-  hostHash?: string;
   identity: string;
-  realpath?: { ok: boolean; path?: string };
-  stat?: "directory" | "file" | "missing";
 }
+
+/** Main-process state broad enough to compare every watch-input codec. */
+export interface TtscWatchInputBaseline extends TtscWatchInputFileBaseline {
+  directoryExists: boolean;
+  graphHash: string;
+  graphReadHash: string | null;
+  hostHash: string;
+  realpath: { ok: boolean; path?: string };
+  stat: "directory" | "file" | "missing";
+}
+
+/** Baseline shape stored for either a discovery predicate or a full input. */
+export type TtscWatchInputKeyBaseline =
+  | TtscWatchInputFileBaseline
+  | TtscWatchInputBaseline;
 
 /** One derived input and its optional generation proof. */
 export interface TtscWatchInput {
@@ -5206,15 +5215,18 @@ export function collectExternalInputHashes(
 export function captureWatchInputFileBaseline(
   file: string,
   filesystem: TtscTransformFilesystemOperations = DEFAULT_FILESYSTEM_OPERATIONS,
-): TtscWatchInputBaseline | undefined {
-  const capture = (): TtscWatchInputBaseline => {
+): TtscWatchInputFileBaseline | undefined {
+  const capture = (): TtscWatchInputFileBaseline => {
     const identities = createHostPathIdentityContext(filesystem);
-    const stat = compilerStatKind(file, filesystem);
+    let fileExists = false;
+    try {
+      fileExists = filesystem.stat(file).isFile();
+    } catch {
+      // Project discovery rejects every candidate not proven to be a file.
+    }
     return {
-      directoryExists: stat === "directory",
-      fileExists: stat === "file",
+      fileExists,
       identity: pathIdentityKey(file, identities),
-      stat,
     };
   };
   try {
@@ -5265,26 +5277,23 @@ export function captureWatchInputBaseline(
 /** Compare generation evidence with the main process's exact key baseline. */
 export function watchInputEvidenceMatchesBaseline(
   evidence: TtscWatchInputEvidence,
-  baseline: TtscWatchInputBaseline,
+  baseline: TtscWatchInputKeyBaseline,
 ): boolean {
   if (evidence.identity !== baseline.identity || evidence.state === undefined) {
     return false;
   }
+  const broad = broadWatchInputBaseline(baseline);
   if (evidence.state.codec === "host") {
-    return (
-      baseline.hostHash !== undefined &&
-      evidence.state.hash === baseline.hostHash
-    );
+    return broad !== undefined && evidence.state.hash === broad.hostHash;
   }
   const identities = createHostPathIdentityContext();
   if (evidence.state.codec === "graph") {
     return (
-      baseline.graphHash !== undefined &&
-      baseline.realpath !== undefined &&
-      evidence.state.hash === baseline.graphHash &&
+      broad !== undefined &&
+      evidence.state.hash === broad.graphHash &&
       sameHostInputRealpath(
         evidence.state.realpath,
-        baseline.realpath.ok ? (baseline.realpath.path ?? null) : null,
+        broad.realpath.ok ? (broad.realpath.path ?? null) : null,
         identities,
       )
     );
@@ -5298,44 +5307,39 @@ export function watchInputEvidenceMatchesBaseline(
   }
   if (
     observation.directoryExists !== undefined &&
-    baseline.directoryExists === undefined
-  ) {
-    return false;
-  }
-  if (
-    observation.directoryExists !== undefined &&
-    observation.directoryExists !== baseline.directoryExists
+    (broad === undefined ||
+      observation.directoryExists !== broad.directoryExists)
   ) {
     return false;
   }
   if (
     observation.stat !== undefined &&
-    (baseline.stat === undefined || observation.stat !== baseline.stat)
+    (broad === undefined || observation.stat !== broad.stat)
   ) {
     return false;
   }
   if (
     observation.readFile !== undefined &&
-    (baseline.graphReadHash === undefined ||
+    (broad === undefined ||
       (observation.readFile.ok &&
-        observation.readFile.hash !== baseline.graphReadHash) ||
-      (!observation.readFile.ok && baseline.graphReadHash !== null))
+        observation.readFile.hash !== broad.graphReadHash) ||
+      (!observation.readFile.ok && broad.graphReadHash !== null))
   ) {
     return false;
   }
   if (observation.realpath !== undefined) {
-    if (baseline.realpath === undefined) {
+    if (broad === undefined) {
       return false;
     }
-    if (observation.realpath.ok !== baseline.realpath.ok) {
+    if (observation.realpath.ok !== broad.realpath.ok) {
       return false;
     }
     if (
       observation.realpath.ok &&
-      baseline.realpath.ok &&
+      broad.realpath.ok &&
       !sameHostInputRealpath(
         observation.realpath.path ?? null,
-        baseline.realpath.path ?? null,
+        broad.realpath.path ?? null,
         identities,
       )
     ) {
@@ -5343,6 +5347,27 @@ export function watchInputEvidenceMatchesBaseline(
     }
   }
   return true;
+}
+
+/** Return a validated broad baseline, including for untrusted JSON input. */
+function broadWatchInputBaseline(
+  baseline: TtscWatchInputKeyBaseline,
+): TtscWatchInputBaseline | undefined {
+  const value = baseline as Partial<TtscWatchInputBaseline>;
+  return typeof value.directoryExists === "boolean" &&
+    typeof value.graphHash === "string" &&
+    (typeof value.graphReadHash === "string" || value.graphReadHash === null) &&
+    typeof value.hostHash === "string" &&
+    typeof value.realpath === "object" &&
+    value.realpath !== null &&
+    typeof value.realpath.ok === "boolean" &&
+    (value.realpath.path === undefined ||
+      typeof value.realpath.path === "string") &&
+    (value.stat === "directory" ||
+      value.stat === "file" ||
+      value.stat === "missing")
+    ? (value as TtscWatchInputBaseline)
+    : undefined;
 }
 
 /**
