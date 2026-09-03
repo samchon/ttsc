@@ -257,7 +257,11 @@ func FileCandidates(base string) []string {
 }
 
 func moduleFileCandidates(base string, context ModuleResolutionContext, includeDirectory bool) []string {
-  return moduleFileCandidatesForPass(base, context, includeDirectory, moduleCandidatePassAll)
+  directoryMode := moduleDirectoryCandidatesNone
+  if includeDirectory {
+    directoryMode = moduleDirectoryCandidatesPackageAndIndex
+  }
+  return moduleFileCandidatesForPass(base, context, directoryMode, moduleCandidatePassAll)
 }
 
 type moduleCandidatePass uint8
@@ -268,7 +272,16 @@ const (
   moduleCandidatePassFallback
 )
 
-func moduleFileCandidatesForPass(base string, context ModuleResolutionContext, includeDirectory bool, pass moduleCandidatePass) []string {
+type moduleDirectoryCandidates uint8
+
+const (
+  moduleDirectoryCandidatesNone moduleDirectoryCandidates = iota
+  moduleDirectoryCandidatesPackageAndIndex
+  moduleDirectoryCandidatesIndexOnly
+)
+
+func moduleFileCandidatesForPass(base string, context ModuleResolutionContext, directoryMode moduleDirectoryCandidates, pass moduleCandidatePass) []string {
+  directoryBase := base
   explicitExtension := filepath.Ext(base)
   base, suffixes := fileCandidateBaseAndSuffixes(base)
   if context.Options != nil && context.Options.NoDtsResolution == shimcore.TSTrue {
@@ -282,12 +295,14 @@ func moduleFileCandidatesForPass(base string, context ModuleResolutionContext, i
   for _, suffix := range suffixes {
     candidates = append(candidates, moduleSuffixCandidates(base+suffix, context)...)
   }
-  if !includeDirectory || context.isESM() {
+  if directoryMode == moduleDirectoryCandidatesNone || context.isESM() {
     return candidates
   }
-  candidates = append(candidates, filepath.Join(base, "package.json"))
+  if directoryMode == moduleDirectoryCandidatesPackageAndIndex {
+    candidates = append(candidates, filepath.Join(directoryBase, "package.json"))
+  }
   for _, suffix := range suffixes {
-    candidates = append(candidates, moduleSuffixCandidates(filepath.Join(base, "index"+suffix), context)...)
+    candidates = append(candidates, moduleSuffixCandidates(filepath.Join(directoryBase, "index"+suffix), context)...)
   }
   return candidates
 }
@@ -406,7 +421,7 @@ func ModuleResolutionCandidates(configs []*tsoptions.ParsedCommandLine, director
       // make a file that TypeScript will never select invalidate a resident
       // snapshot, so only the export-map paths participate in this branch.
       if !hasExports {
-        candidates = append(candidates, moduleFileCandidatesForPass(base, context, true, pass)...)
+        candidates = append(candidates, moduleFileCandidatesForPass(base, context, moduleDirectoryCandidatesPackageAndIndex, pass)...)
       }
       candidates = append(candidates, filepath.Join(root, "package.json"))
       candidates = append(candidates, fromManifest...)
@@ -539,28 +554,38 @@ func packageManifestCandidates(root, wildcard string, context ModuleResolutionCo
     collectPackageMappingTargets(exports, exportRequest, defaultWildcard, context.packageConditions(), &targets)
   } else {
     hasExports = false
+    usesCommonJS := manifest.Type != "module"
+    entry := packageTarget{kind: packageTargetEntry, usesCommonJS: usesCommonJS}
+    if wildcard == "" {
+      entry.path = manifest.Main
+      declarations := context.Options == nil || context.Options.NoDtsResolution != shimcore.TSTrue
+      if pass != moduleCandidatePassFallback && declarations {
+        entry.path = manifest.Typings
+        if entry.path == "" {
+          entry.path = manifest.Types
+        }
+        if entry.path == "" {
+          entry.path = manifest.Main
+        }
+      }
+    }
+    typesVersionsWildcard := defaultWildcard
+    if wildcard == "" {
+      typesVersionsWildcard = "index"
+      if entry.path != "" {
+        typesVersionsWildcard = filepath.ToSlash(filepath.Clean(filepath.FromSlash(entry.path)))
+      }
+    }
     if value, ok := decodePackageValue(manifest.TypesVersions); ok {
-      collectPackageTargets(value, defaultWildcard, nil, packageTargetTypesVersions, wildcard == "" && manifest.Type != "module", &targets)
+      if paths, ok := matchingTypesVersionsPaths(value); ok {
+        collectTypesVersionsTargets(paths, typesVersionsWildcard, wildcard == "" && usesCommonJS, &targets)
+      }
     }
     // `typings`, `types`, and `main` are directory-entrypoint fields. A
     // subpath resolution never falls back to them, and `module` is not a
     // TypeScript-Go resolution field at all.
     if wildcard == "" {
-      usesCommonJS := manifest.Type != "module"
-      declarations := context.Options == nil || context.Options.NoDtsResolution != shimcore.TSTrue
-      if pass != moduleCandidatePassFallback && declarations {
-        declared := manifest.Typings
-        if declared == "" {
-          declared = manifest.Types
-        }
-        if declared != "" {
-          targets = append(targets, packageTarget{path: declared, wildcard: defaultWildcard, kind: packageTargetEntry, usesCommonJS: usesCommonJS})
-        } else {
-          targets = append(targets, packageTarget{path: manifest.Main, wildcard: defaultWildcard, kind: packageTargetEntry, usesCommonJS: usesCommonJS})
-        }
-      } else {
-        targets = append(targets, packageTarget{path: manifest.Main, wildcard: defaultWildcard, kind: packageTargetEntry, usesCommonJS: usesCommonJS})
-      }
+      targets = append(targets, entry)
     }
   }
   return packageTargetCandidates(root, targets, context, pass), hasExports
@@ -595,7 +620,11 @@ func packageTargetCandidates(root string, targets []packageTarget, context Modul
         continue
       }
     }
-    candidates = append(candidates, moduleFileCandidatesForPass(candidate, targetContext, target.kind == packageTargetEntry, pass)...)
+    directoryMode := moduleDirectoryCandidatesNone
+    if target.kind != packageTargetMapping {
+      directoryMode = moduleDirectoryCandidatesIndexOnly
+    }
+    candidates = append(candidates, moduleFileCandidatesForPass(candidate, targetContext, directoryMode, pass)...)
   }
   return candidates
 }
@@ -618,6 +647,36 @@ func collectPackageMappingTargets(value packageValue, request, wildcard string, 
     }
   }
   collectPackageTargets(value, wildcard, conditions, packageTargetMapping, false, targets)
+}
+
+func matchingTypesVersionsPaths(value packageValue) (packageValue, bool) {
+  for _, version := range value.object {
+    if !shimcore.TypeScriptVersionSatisfiesRange(version.key) {
+      continue
+    }
+    if version.value.object == nil {
+      return packageValue{}, false
+    }
+    return version.value, true
+  }
+  return packageValue{}, false
+}
+
+func collectTypesVersionsTargets(paths packageValue, request string, usesCommonJS bool, targets *[]packageTarget) {
+  property, matched, ok := matchingPackageProperty(paths.object, request)
+  if !ok || property.value.array == nil {
+    return
+  }
+  for _, target := range property.value.array {
+    if target.text != nil {
+      *targets = append(*targets, packageTarget{
+        path:         *target.text,
+        wildcard:     matched,
+        kind:         packageTargetTypesVersions,
+        usesCommonJS: usesCommonJS,
+      })
+    }
+  }
 }
 
 func collectPackageTargets(value packageValue, wildcard string, conditions map[string]struct{}, kind packageTargetKind, usesCommonJS bool, targets *[]packageTarget) {

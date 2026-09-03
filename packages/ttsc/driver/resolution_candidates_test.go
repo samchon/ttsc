@@ -18,12 +18,15 @@ func TestPackageTargetCandidatesMirrorCompilerPassesForTypeScriptTargets(t *test
     {path: "dist/first.ts"},
     {path: "dist/second.d.ts"},
   }
-  pathsAt := func(base string, names ...string) []string {
+  pathsUnder := func(directory string, names ...string) []string {
     output := make([]string, 0, len(names))
     for _, name := range names {
-      output = append(output, filepath.Join(base, "dist", name))
+      output = append(output, filepath.Join(directory, name))
     }
     return output
+  }
+  pathsAt := func(base string, names ...string) []string {
+    return pathsUnder(filepath.Join(base, "dist"), names...)
   }
   paths := func(names ...string) []string {
     return pathsAt(root, names...)
@@ -134,7 +137,7 @@ func TestPackageTargetCandidatesMirrorCompilerPassesForTypeScriptTargets(t *test
   versionedManifest := filepath.Join(versionedRoot, "package.json")
   if err := os.WriteFile(
     versionedManifest,
-    []byte(`{"type":"module","typesVersions":{"*":{"*":["dist/*.ts"]}}}`),
+    []byte(`{"type":"module","typesVersions":{"<0.0.0":{"*":["wrong-version/*"]},"*":{"other/*":["wrong-pattern/*"],"*":["dist/*.ts"]}}}`),
     0o644,
   ); err != nil {
     t.Fatal(err)
@@ -186,7 +189,7 @@ func TestPackageTargetCandidatesMirrorCompilerPassesForTypeScriptTargets(t *test
 
   if err := os.WriteFile(
     versionedManifest,
-    []byte(`{"type":"commonjs","typesVersions":{"*":{"*":["dist/root-versioned"]}}}`),
+    []byte(`{"type":"commonjs","typesVersions":{"*":{"*":["dist/*"]}}}`),
     0o644,
   ); err != nil {
     t.Fatal(err)
@@ -194,11 +197,15 @@ func TestPackageTargetCandidatesMirrorCompilerPassesForTypeScriptTargets(t *test
   preferred, _ = packageManifestCandidates(versionedRoot, "", esmContext, moduleCandidatePassPreferred)
   fallback, _ = packageManifestCandidates(versionedRoot, "", esmContext, moduleCandidatePassFallback)
   expectedPreferredRoot := pathsAt(versionedRoot,
-    "root-versioned.native.ts", "root-versioned.ts", "root-versioned.native.tsx", "root-versioned.tsx",
-    "root-versioned.native.d.ts", "root-versioned.d.ts",
+    "index.native.ts", "index.ts", "index.native.tsx", "index.tsx", "index.native.d.ts", "index.d.ts",
+    filepath.Join("index", "index.native.ts"), filepath.Join("index", "index.ts"),
+    filepath.Join("index", "index.native.tsx"), filepath.Join("index", "index.tsx"),
+    filepath.Join("index", "index.native.d.ts"), filepath.Join("index", "index.d.ts"),
   )
   expectedFallbackRoot := pathsAt(versionedRoot,
-    "root-versioned.native.js", "root-versioned.js", "root-versioned.native.jsx", "root-versioned.jsx",
+    "index.native.js", "index.js", "index.native.jsx", "index.jsx",
+    filepath.Join("index", "index.native.js"), filepath.Join("index", "index.js"),
+    filepath.Join("index", "index.native.jsx"), filepath.Join("index", "index.jsx"),
   )
   if !reflect.DeepEqual(preferred, expectedPreferredRoot) {
     t.Fatalf("CommonJS package-root typesVersions preferred candidates = %#v, want %#v", preferred, expectedPreferredRoot)
@@ -241,6 +248,21 @@ func TestPackageTargetCandidatesMirrorCompilerPassesForTypeScriptTargets(t *test
   }
   if !reflect.DeepEqual(fallbackEntry, expectedFallbackEntry) {
     t.Fatalf("fallback package fields = %#v, want %#v", fallbackEntry, expectedFallbackEntry)
+  }
+
+  explicitDirectory := moduleFileCandidates(filepath.Join(root, "folder.js"), context, true)
+  expectedExplicitDirectory := append(pathsUnder(root,
+    "folder.native.ts", "folder.ts", "folder.native.tsx", "folder.tsx",
+    "folder.native.d.ts", "folder.d.ts", "folder.native.js", "folder.js",
+    "folder.native.jsx", "folder.jsx",
+  ), filepath.Join(root, "folder.js", "package.json"))
+  expectedExplicitDirectory = append(expectedExplicitDirectory, pathsUnder(filepath.Join(root, "folder.js"),
+    "index.native.ts", "index.ts", "index.native.tsx", "index.tsx",
+    "index.native.d.ts", "index.d.ts", "index.native.js", "index.js",
+    "index.native.jsx", "index.jsx",
+  )...)
+  if !reflect.DeepEqual(explicitDirectory, expectedExplicitDirectory) {
+    t.Fatalf("explicit-extension directory candidates = %#v, want %#v", explicitDirectory, expectedExplicitDirectory)
   }
 
   noDeclarations := ModuleResolutionContext{
