@@ -254,7 +254,7 @@ export function createRealNativeEnvelopeFixture(
     ].join("\n"),
     "tsconfig.json": JSON.stringify(
       {
-        extends: ".\\presets\\base.json",
+        extends: "./presets/base.json",
         compilerOptions: {
           allowJs: true,
           module: "NodeNext",
@@ -280,8 +280,7 @@ export function createRealNativeEnvelopeFixture(
           ],
           ...(resolutionCorpus
             ? {
-                baseUrl: ".",
-                paths: { "@fixture/value": ["paths/value.js"] },
+                paths: { "@fixture/value": ["./paths/value.js"] },
                 rootDirs: ["src", "generated"],
               }
             : {}),
