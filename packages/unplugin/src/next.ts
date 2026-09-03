@@ -331,22 +331,27 @@ function projectWideBraceGlobEntries(
 /**
  * Add one unconditional loader without flattening Next's rule collection.
  *
- * An array is a collection whose entries may be direct loaders or complete
- * conditional rule objects, so it must remain an array. A conditioned object
- * also becomes a two-item collection because putting ttsc inside that object
- * would leave the rest of the glob uncovered. An unconditioned object can keep
- * its own shape while gaining the loader, including when it had no loaders.
+ * An array is either loader shorthand or a collection whose entries may be
+ * complete conditional rule objects, so it must remain an array. A collection
+ * executes every matching rule in order; its unconditional ttsc rule therefore
+ * comes first so it sees the original source before any caller rule. A
+ * conditioned object becomes that same two-item collection because putting ttsc
+ * inside the condition would leave the rest of the glob uncovered. An
+ * unconditioned object can keep its own shape while gaining the loader,
+ * including when it had no loaders.
  */
 function appendUnconditionalTtscLoader(
   rule: unknown,
   entry: { loader: string; options: TtscUnpluginOptions },
 ): unknown {
   if (Array.isArray(rule)) {
-    return [...rule, entry];
+    return rule.every(isTurbopackLoaderItem)
+      ? [...rule, entry]
+      : [{ loaders: [entry] }, ...rule];
   }
   if (typeof rule === "object" && rule !== null) {
     if ((rule as { condition?: unknown }).condition !== undefined) {
-      return [rule, entry];
+      return [{ loaders: [entry] }, rule];
     }
     return {
       ...rule,

@@ -248,8 +248,8 @@ export async function assertNextAdapterPreservesTurbopackConfig(): Promise<void>
   });
   const arrayRule = arrayForm.turbopack?.rules?.["*.ts"];
   assert.ok(
-    !Object.keys(arrayRule as object).some((key) => /^\d+$/.test(key)),
-    `an array rule must not be spread into an object (got ${JSON.stringify(arrayRule)})`,
+    Array.isArray(arrayRule),
+    `an array rule must remain an array (got ${JSON.stringify(arrayRule)})`,
   );
   const arrayLoaders = loadersOf(arrayRule);
   assert.equal(arrayLoaders.length, 2);
@@ -273,8 +273,8 @@ export async function assertNextAdapterPreservesTurbopackConfig(): Promise<void>
     turbopack: { rules: { "*.ts": conditionalRule } },
   }).turbopack?.rules?.["*.ts"];
   assert.ok(Array.isArray(conditional));
-  assert.deepEqual(conditional[0], conditionalRule);
-  assert.ok(isTtscLoader(conditional[1]));
+  assert.ok(loadersOf(conditional[0]).some(isTtscLoader));
+  assert.deepEqual(conditional[1], conditionalRule);
 
   const mixedInput = [
     "other-loader",
@@ -285,8 +285,8 @@ export async function assertNextAdapterPreservesTurbopackConfig(): Promise<void>
     turbopack: { rules: { "*.ts": mixedInput } },
   }).turbopack?.rules?.["*.ts"];
   assert.ok(Array.isArray(mixed));
-  assert.deepEqual(mixed.slice(0, -1), mixedInput);
-  assert.ok(isTtscLoader(mixed.at(-1)));
+  assert.ok(loadersOf(mixed[0]).some(isTtscLoader));
+  assert.deepEqual(mixed.slice(1), mixedInput);
 
   for (const loader of LOADER_FORMS) {
     const resolved = next({
@@ -309,8 +309,8 @@ export async function assertNextAdapterPreservesTurbopackConfig(): Promise<void>
     turbopack: { rules: { "*.ts": conditionalLoader } },
   }).turbopack?.rules?.["*.ts"];
   assert.ok(Array.isArray(conditionallyCovered));
-  assert.deepEqual(conditionallyCovered[0], conditionalLoader);
-  assert.ok(isTtscLoader(conditionallyCovered[1]));
+  assert.ok(loadersOf(conditionallyCovered[0]).some(isTtscLoader));
+  assert.deepEqual(conditionallyCovered[1], conditionalLoader);
 
   const unrelated = path.join(
     path.dirname(LOADER_IDENTITIES[1]!),

@@ -73,6 +73,10 @@ test("the packed adapter rehearsal is one pinned E2E", () => {
     path.join(root, "experimental", "test-unplugin", "src", "index.ts"),
     "utf8",
   );
+  const genericSource = fs.readFileSync(
+    path.join(root, "experimental", "install", "src", "index.ts"),
+    "utf8",
+  );
   assert.equal(
     (source.match(/export function test_[a-z0-9_]+/g) ?? []).length,
     1,
@@ -98,6 +102,16 @@ test("the packed adapter rehearsal is one pinned E2E", () => {
     (source.match(/\binstallTarballs\(\);/g) ?? []).length,
     1,
     "one consumer workspace must perform one dependency install",
+  );
+  assert.equal(
+    packageManagerInstallCommands(source).length,
+    1,
+    "the packed unplugin E2E must contain exactly one package-manager install command",
+  );
+  assert.equal(
+    packageManagerInstallCommands(genericSource).length,
+    1,
+    "the generic packed-package rehearsal must contain exactly one package-manager install command",
   );
   const workflow = fs.readFileSync(
     path.join(root, ".github", "workflows", "test.yml"),
@@ -415,4 +429,10 @@ function collectFiles(directory) {
     const location = path.join(directory, entry.name);
     return entry.isDirectory() ? collectFiles(location) : [location];
   });
+}
+
+function packageManagerInstallCommands(source) {
+  return (
+    source.match(/["'`](?:npm|pnpm|yarn|bun) (?:install|add|i|ci)\b/g) ?? []
+  );
 }

@@ -280,6 +280,7 @@ export function createRealNativeEnvelopeFixture(
           ],
           ...(resolutionCorpus
             ? {
+                jsx: "preserve",
                 paths: { "@fixture/value": ["./paths/value.js"] },
                 rootDirs: ["src", "generated"],
               }

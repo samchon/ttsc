@@ -1180,22 +1180,24 @@ function assertBuiltTreeContains(directory, expected, label, original) {
   const rootDir = path.join(workspace, directory);
   assert(fs.existsSync(rootDir), `${label} must emit ${directory}`);
   let foundExpected = false;
-  let foundOriginal = false;
+  const originalFiles = [];
   walk(rootDir, (file) => {
     if (!/\.(?:html|js|json)$/.test(file)) {
       return;
     }
     const emitted = fs.readFileSync(file, "utf8");
     foundExpected = foundExpected || emitted.includes(expected);
-    foundOriginal = foundOriginal || emitted.includes(original);
+    if (emitted.includes(original)) {
+      originalFiles.push(path.relative(workspace, file));
+    }
   });
   assert(
     foundExpected,
     `${label} must emit the transformed marker ${expected}`,
   );
   assert(
-    !foundOriginal,
-    `${label} must not leave the original marker call in emitted assets`,
+    originalFiles.length === 0,
+    `${label} must not leave the original marker call in emitted assets: ${originalFiles.join(", ")}`,
   );
 }
 
