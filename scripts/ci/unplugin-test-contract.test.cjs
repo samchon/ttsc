@@ -101,7 +101,12 @@ test("the packed adapter rehearsal is one pinned E2E", () => {
   assert.equal(
     (source.match(/\binstallTarballs\(\);/g) ?? []).length,
     1,
-    "one consumer workspace must perform one dependency install",
+    "the packed unplugin E2E must invoke its dependency install exactly once",
+  );
+  assert.equal(
+    (genericSource.match(/\binstallTarballs\(\);/g) ?? []).length,
+    1,
+    "the generic packed-package rehearsal must invoke its dependency install exactly once",
   );
   assert.equal(
     packageManagerInstallCommands(source).length,

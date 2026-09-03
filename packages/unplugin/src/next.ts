@@ -170,15 +170,15 @@ function withTtscTurbopackRules(
       continue;
     }
     const entry = { loader: TURBOPACK_LOADER, options: options ?? {} };
-    // Appended, not prepended. Turbopack runs a rule's loaders right to left,
-    // so the last entry is the one that sees the original source. ttsc
-    // transforms TypeScript into TypeScript, so it has to be that one, which
-    // is the same position `enforce: "pre"` gives it on the webpack half.
+    // Loader shorthand runs right to left, so ttsc is appended there to see
+    // the original source. Rule collections run matching items in order, so
+    // ttsc becomes an explicit first rule there for the same reason. That is
+    // the same position `enforce: "pre"` gives it on the webpack half.
     //
     // Measured rather than inferred from webpack's `loader-runner`: two
     // loaders on one rule, each marking the source, came back marked in the
     // order that only the last-runs-first chain produces (samchon/ttsc#1319).
-    rules[glob] = appendUnconditionalTtscLoader(rule, entry);
+    rules[glob] = addUnconditionalTtscLoader(rule, entry);
   }
   return { ...(existing ?? {}), rules };
 }
@@ -340,7 +340,7 @@ function projectWideBraceGlobEntries(
  * unconditioned object can keep its own shape while gaining the loader,
  * including when it had no loaders.
  */
-function appendUnconditionalTtscLoader(
+function addUnconditionalTtscLoader(
   rule: unknown,
   entry: { loader: string; options: TtscUnpluginOptions },
 ): unknown {
