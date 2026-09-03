@@ -88,6 +88,59 @@ export function assertPredicateProofMatrix(): void {
     [],
     "realpath fallback must follow the observed filesystem's path semantics",
   );
+  for (const scenario of [
+    {
+      file: "C:\\predicate-proof-root\\nested\\..\\selected.ts",
+      lexical: "C:\\predicate-proof-root\\selected.ts",
+      platform: "win32" as const,
+      target: "C:\\predicate-proof-store\\selected.ts",
+    },
+    {
+      file: "/predicate-proof-root/a\\b/../selected.ts",
+      lexical: "/predicate-proof-root/selected.ts",
+      platform: "linux" as const,
+      target: "/predicate-proof-store/selected.ts",
+    },
+  ]) {
+    assert.deepEqual(
+      validateGraphInputObservation(
+        scenario.file,
+        { realpath: { ok: true, path: scenario.target } },
+        state(
+          {
+            kind: "file",
+            lexical: scenario.lexical,
+            realpath: scenario.target,
+          },
+          scenario.platform,
+        ),
+      ),
+      [],
+      `${scenario.platform} lexical equality must not depend on the host platform`,
+    );
+  }
+  for (const scenario of [
+    {
+      file: "C:\\predicate-proof-root\\nested\\..\\fallback.ts",
+      normalized: "C:\\predicate-proof-root\\fallback.ts",
+      platform: "win32" as const,
+    },
+    {
+      file: "/predicate-proof-root/a\\b/../fallback.ts",
+      normalized: "/predicate-proof-root/fallback.ts",
+      platform: "linux" as const,
+    },
+  ]) {
+    assert.deepEqual(
+      validateGraphInputObservation(
+        scenario.file,
+        { realpath: { ok: true, path: scenario.normalized } },
+        state({ kind: "file" }, scenario.platform),
+      ),
+      [],
+      `${scenario.platform} realpath fallback must not depend on the host platform`,
+    );
+  }
   const posix = createFilesystemPathIdentityContext({
     caseSensitive: () => true,
     platform: "linux",
