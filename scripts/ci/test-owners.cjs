@@ -77,8 +77,7 @@ const OWNERSHIP = {
   "e2e:tests/test-paths": "test.yml lane: package defenses",
   "e2e:tests/test-playground": "test.yml lane: package defenses",
   "e2e:tests/test-strip": "test.yml lane: package defenses",
-  "e2e:tests/test-ttsc":
-    "test.yml lanes: ttsc core/native defenses, Node 22, watch",
+  "e2e:tests/test-ttsc": "test.yml lanes: ttsc core/native defenses and watch",
   "e2e:tests/test-unplugin":
     "test.yml lanes: bundler defenses, bundler defenses (windows)",
   "e2e:tests/test-wasm": "test.yml lane: package defenses",
