@@ -372,20 +372,90 @@ export async function assertCacheKeySurvivesThrowingUpstreamCacheKey(): Promise<
  * swallow path). Requires the native compiler → CI-only.
  */
 export async function assertOutsideProjectFilePassesThrough(): Promise<void> {
-  const root = TestUnpluginProject.createProject();
+  const root = createBareProject();
+  const externalProject = TestUnpluginProject.createProject();
   const src = "export const value: number = 1;\n";
-  fs.mkdirSync(path.join(root, "outside"), { recursive: true });
-  fs.writeFileSync(path.join(root, "outside", "stray.ts"), src, "utf8");
+  const stray = path.join(externalProject, "scripts", "stray.ts");
+  fs.mkdirSync(path.dirname(stray), { recursive: true });
+  fs.writeFileSync(stray, src, "utf8");
+  const options = fakeUpstreamOptions();
+  const runId = await prepareSnapshot(root);
+  const before = await TestMetroRuntime.withTransformerEnv(
+    options,
+    (mod) => mod.getCacheKey({ projectRoot: root }),
+    runId,
+  );
   const result = await TestMetroRuntime.runTransform({
-    options: fakeUpstreamOptions(),
+    options,
     params: {
       src,
-      filename: "outside/stray.ts",
+      filename: stray,
       options: { projectRoot: root },
     },
+    snapshotRunId: runId,
   });
   assert.equal(result.ast.__fakeUpstream, true);
   assert.equal(result.ast.src, src);
+
+  const snapshotDirectory = path.join(
+    root,
+    "node_modules",
+    ".cache",
+    "ttsc-metro",
+  );
+  const worker = JSON.parse(
+    fs.readFileSync(
+      fs
+        .readdirSync(snapshotDirectory)
+        .map((name) => path.join(snapshotDirectory, name))
+        .find((file) =>
+          path.basename(file).startsWith("graph-inputs.worker-"),
+        )!,
+      "utf8",
+    ),
+  ) as { files: string[]; tainted: boolean };
+  assert.equal(
+    worker.tainted,
+    true,
+    "a pass-through outside the static project map must rotate the snapshot epoch",
+  );
+  assert.ok(
+    worker.files.includes(path.join(externalProject, "tsconfig.json")) &&
+      worker.files.includes(
+        path.join(externalProject, "scripts", "tsconfig.json"),
+      ),
+    "the pass-through must retain its external config and every project-selection candidate",
+  );
+
+  await prepareSnapshot(root);
+  const guardedRunId = await prepareSnapshot(root);
+  const guardedBeforeEdit = await TestMetroRuntime.withTransformerEnv(
+    options,
+    (mod) => mod.getCacheKey({ projectRoot: root }),
+    guardedRunId,
+  );
+  assert.notEqual(
+    before,
+    guardedBeforeEdit,
+    "the tainted pass-through run must be isolated under a fresh epoch",
+  );
+  const configPath = path.join(externalProject, "tsconfig.json");
+  const config = JSON.parse(fs.readFileSync(configPath, "utf8")) as {
+    include?: string[];
+  };
+  config.include = ["src", "scripts"];
+  fs.writeFileSync(configPath, JSON.stringify(config), "utf8");
+  const nextRunId = await prepareSnapshot(root);
+  const after = await TestMetroRuntime.withTransformerEnv(
+    options,
+    (mod) => mod.getCacheKey({ projectRoot: root }),
+    nextRunId,
+  );
+  assert.notEqual(
+    guardedBeforeEdit,
+    after,
+    "including a formerly passed-through external module must invalidate its cached upstream result",
+  );
 }
 
 /**

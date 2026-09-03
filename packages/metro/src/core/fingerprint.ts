@@ -51,6 +51,7 @@ import {
   captureWatchInputBaseline,
   captureWatchInputFileBaseline,
   collectProjectInputHashSnapshot,
+  discoverNearestProjectTsconfig,
   findNearestProjectTsconfig,
   findProjectTsconfigs,
   mergeMembershipPolicyOverlay,
@@ -59,6 +60,7 @@ import {
   watchInputEvidenceMatchesBaseline,
 } from "@ttsc/unplugin/api";
 import type {
+  TtscProjectDiscoveryFilesystem,
   TtscProjectTreeDiscoveryFilesystem,
   TtscWatchInput,
   TtscWatchInputBaseline,
@@ -244,6 +246,7 @@ export function resolveProjectView(props: {
   compilerOptions?: Record<string, unknown>;
   explicitProject?: string;
   filename?: string;
+  projectDiscoveryFilesystem?: TtscProjectDiscoveryFilesystem;
   projectRoot?: string;
 }): TtscMetroProjectView {
   const base = resolveFingerprintBase(props.projectRoot);
@@ -252,11 +255,27 @@ export function resolveProjectView(props: {
     explicitProject === undefined && props.filename !== undefined
       ? path.dirname(path.resolve(props.filename))
       : base;
-  const tsconfig = resolveProjectTsconfig(start, explicitProject);
+  const discovery =
+    explicitProject === undefined
+      ? discoverNearestProjectTsconfig(start, props.projectDiscoveryFilesystem)
+      : undefined;
+  const tsconfig =
+    discovery === undefined
+      ? resolveProjectTsconfig(start, explicitProject)
+      : (discovery.file ?? path.resolve(process.cwd(), "tsconfig.json"));
+  const discoveryInputs =
+    discovery === undefined
+      ? [captureProjectDiscoveryInput(tsconfig)]
+      : discovery.candidates.map((candidate) =>
+          captureProjectDiscoveryInput(candidate.file, candidate.fileExists),
+        );
+  if (!discoveryInputs.some((input) => samePath(input.file, tsconfig))) {
+    discoveryInputs.push(captureProjectDiscoveryInput(tsconfig));
+  }
   return createProjectView({
     base,
     compilerOptions: props.compilerOptions,
-    discoveryStart: start,
+    discoveryInputs,
     explicitProject,
     tsconfig,
   });
@@ -266,21 +285,14 @@ export function resolveProjectView(props: {
 function createProjectView(props: {
   base: string;
   compilerOptions?: Record<string, unknown>;
-  discoveryStart?: string;
+  discoveryInputs?: readonly TtscWatchInput[];
   explicitProject: string | undefined;
   tsconfig: string;
 }): TtscMetroProjectView {
   const policy = membershipPolicy(props.tsconfig, props.compilerOptions);
   return {
     base: props.base,
-    discoveryInputs:
-      props.discoveryStart === undefined
-        ? []
-        : captureProjectDiscoveryInputs(
-            props.discoveryStart,
-            props.tsconfig,
-            props.explicitProject,
-          ),
+    discoveryInputs: props.discoveryInputs ?? [],
     explicitProject: props.explicitProject,
     policy,
     roots: projectViewRoots(props.base, props.tsconfig, props.explicitProject),
@@ -289,56 +301,28 @@ function createProjectView(props: {
   };
 }
 
-/** Capture the config candidates whose state selected one worker project. */
-function captureProjectDiscoveryInputs(
-  start: string,
-  tsconfig: string,
-  explicitProject: string | undefined,
-): TtscWatchInput[] {
-  const selected = path.resolve(tsconfig);
-  const candidates: string[] = [];
-  if (explicitProject !== undefined) {
-    candidates.push(selected);
-  } else {
-    let current = path.resolve(start);
-    while (true) {
-      const candidate = path.join(current, "tsconfig.json");
-      candidates.push(candidate);
-      if (samePath(candidate, selected)) {
-        break;
-      }
-      const parent = path.dirname(current);
-      if (parent === current) {
-        if (!candidates.some((entry) => samePath(entry, selected))) {
-          candidates.push(selected);
-        }
-        break;
-      }
-      current = parent;
-    }
+/** Attach identity to the exact file predicate that selected a worker project. */
+function captureProjectDiscoveryInput(
+  file: string,
+  selectedFileExists?: boolean,
+): TtscWatchInput {
+  const baseline = captureWatchInputFileBaseline(file);
+  if (baseline === undefined) {
+    return { file };
   }
-  return candidates.map((file): TtscWatchInput => {
-    const baseline = captureWatchInputFileBaseline(file);
-    if (baseline === undefined) {
-      return { file };
-    }
-    return {
-      evidence: {
-        identity: baseline.identity,
-        missing: !baseline.fileExists,
-        state: {
-          codec: "predicates",
-          observation: { fileExists: baseline.fileExists },
-        },
-        unavailable: baseline.fileExists
-          ? undefined
-          : baseline.stat === "missing"
-            ? "missing"
-            : "not-file",
+  const fileExists = selectedFileExists ?? baseline.fileExists;
+  return {
+    evidence: {
+      identity: baseline.identity,
+      missing: !fileExists,
+      state: {
+        codec: "predicates",
+        observation: { fileExists },
       },
-      file,
-    };
-  });
+      unavailable: fileExists ? undefined : "not-file",
+    },
+    file,
+  };
 }
 
 /** Resolve one project policy from source rather than trusting metadata alone. */
@@ -1041,7 +1025,10 @@ export function createSnapshotRecorder(runId?: string): {
       try {
         persistUnhealthySnapshot(base, document);
       } catch (recoveryError) {
-        if (hasReadableMainSnapshot(base)) {
+        // A run id proves that the main process already authorized a cache
+        // key. Failure to read that main file now cannot prove it never
+        // existed, so losing this observation must fail the transform.
+        if (runId !== undefined || hasReadableMainSnapshot(base)) {
           throw new AggregateError(
             [snapshotError, recoveryError],
             "Unable to persist a Metro snapshot observation or its recovery record.",

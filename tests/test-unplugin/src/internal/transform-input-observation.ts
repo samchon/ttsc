@@ -6,6 +6,7 @@ import path from "node:path";
 
 import { createFilesystemPathIdentityContext } from "../../../../packages/ttsc/lib/internal/projectInputPathIdentity.js";
 import {
+  discoverNearestProjectTsconfig,
   findNearestProjectTsconfig,
   findProjectTsconfigs,
 } from "../../../../packages/unplugin/lib/core/projectDiscovery.js";
@@ -434,6 +435,39 @@ function assertProjectTsconfigDiscovery(): void {
     "one atomic stat proof must decide a candidate that would change kind on a second observation",
   );
   assert.equal(observations, 1);
+
+  let nearerObservations = 0;
+  assert.deepEqual(
+    discoverNearestProjectTsconfig("/repo/app/src", {
+      platform: "linux",
+      stat: (location) => {
+        if (location === "/repo/app/src/tsconfig.json") {
+          nearerObservations += 1;
+          if (nearerObservations === 1) {
+            throw new Error("temporarily missing");
+          }
+          return { isFile: () => true };
+        }
+        if (location === "/repo/app/tsconfig.json") {
+          return { isFile: () => true };
+        }
+        throw new Error(`unexpected candidate ${location}`);
+      },
+    }),
+    {
+      candidates: [
+        { file: "/repo/app/src/tsconfig.json", fileExists: false },
+        { file: "/repo/app/tsconfig.json", fileExists: true },
+      ],
+      file: "/repo/app/tsconfig.json",
+    },
+    "the selected project and its candidate proof must come from one discovery pass",
+  );
+  assert.equal(
+    nearerObservations,
+    1,
+    "project selection must not rediscover a candidate that can return before evidence capture",
+  );
 
   const directories = new Map<string, string[]>([
     ["/repo", [".git", "packages"]],

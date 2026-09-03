@@ -313,6 +313,8 @@ export type {
 export type {
   TtscProjectDiscoveryFilesystem,
   TtscProjectTreeDiscoveryFilesystem,
+  TtscProjectTsconfigCandidate,
+  TtscProjectTsconfigDiscovery,
 } from "./projectDiscovery";
 export type {
   TtscProjectInputHashSnapshot,
@@ -348,6 +350,7 @@ export {
   watchInputEvidenceMatchesBaseline,
 };
 export {
+  discoverNearestProjectTsconfig,
   findNearestProjectTsconfig,
   findProjectTsconfigs,
 } from "./projectDiscovery";

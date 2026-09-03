@@ -934,9 +934,11 @@ export async function transformTtsc(
           }
           // The compile is fine and simply has nothing for this module, so the
           // module goes back to the host untransformed rather than failing the
-          // build (samchon/ttsc#1308). It still counts as delivered in this
-          // pass, and there is nothing to watch for a file with no output.
+          // build (samchon/ttsc#1308). Its project config and selection inputs
+          // still decide whether a later generation will contain this module,
+          // so hosts must receive the same universal watch-input batch.
           reportMissingProgramOutput(cached, error, epoch);
+          notifyWatchInputs(hooks, cached, file);
           markCachedSourceServed(cached, file);
           return undefined;
         }
@@ -992,6 +994,7 @@ export async function transformTtsc(
         throw error;
       }
       reportMissingProgramOutput(cached, error, epoch);
+      notifyWatchInputs(hooks, cached, file);
       markCachedSourceServed(cached, file);
       return undefined;
     }

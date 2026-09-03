@@ -425,11 +425,30 @@ export async function assertSnapshotFailureWithoutRecoveryStorageFailsClosed(): 
     return;
   }
   const root = createBareProject();
-  await prepareSnapshot(root);
+  const runId = await prepareSnapshot(root);
+  const fingerprint = await TestMetroRuntime.loadFingerprint();
+  fingerprint.computeProjectFingerprint({ projectRoot: root, runId });
+  const project = fingerprint.resolveProjectView({ projectRoot: root });
+  const external = path.resolve(root, "..", "unpersisted-worker-input.d.ts");
   const cacheDirectory = snapshotCacheDirectory(root);
+  fs.chmodSync(mainSnapshotPath(root), 0o000);
   fs.chmodSync(snapshotDirectory(root), 0o555);
   fs.chmodSync(cacheDirectory, 0o555);
   try {
+    assert.throws(
+      () =>
+        fingerprint.createSnapshotRecorder(runId).record({
+          input: external,
+          project,
+        }),
+      {
+        message:
+          "Unable to persist a Metro snapshot observation or its recovery record.",
+        name: "AggregateError",
+      },
+      "a worker with a run key must fail closed even while the old main snapshot is unreadable",
+    );
+    fs.chmodSync(mainSnapshotPath(root), 0o644);
     await assert.rejects(prepareSnapshot(root), {
       message: "Unable to persist Metro snapshot state or its recovery record.",
       name: "AggregateError",
@@ -437,6 +456,7 @@ export async function assertSnapshotFailureWithoutRecoveryStorageFailsClosed(): 
   } finally {
     fs.chmodSync(cacheDirectory, 0o755);
     fs.chmodSync(snapshotDirectory(root), 0o755);
+    fs.chmodSync(mainSnapshotPath(root), 0o644);
   }
 
   await prepareSnapshot(root);
@@ -688,6 +708,60 @@ export async function assertTransformerRecordsImplicitDependencyGuards(): Promis
     fingerprint.computeProjectFingerprint({ projectRoot: abaRoot }),
     keyedBefore,
     "an ABA topology race must never return to the contaminated static key",
+  );
+
+  const selectionRoot = createBareProject();
+  const nestedRoot = path.join(selectionRoot, "nested");
+  const nestedSource = path.join(nestedRoot, "index.ts");
+  const nestedConfig = path.join(nestedRoot, "tsconfig.json");
+  fs.mkdirSync(nestedRoot);
+  fs.writeFileSync(nestedSource, "export const nested = true;\n", "utf8");
+  fs.writeFileSync(
+    nestedConfig,
+    JSON.stringify({ include: ["index.ts"] }),
+    "utf8",
+  );
+  await prepareSnapshot(selectionRoot);
+  const selectionRunId = await prepareSnapshot(selectionRoot);
+  fingerprint.computeProjectFingerprint({
+    projectRoot: selectionRoot,
+    runId: selectionRunId,
+  });
+  let nestedConfigSelections = 0;
+  const parentSelection = fingerprint.resolveProjectView({
+    filename: nestedSource,
+    projectDiscoveryFilesystem: {
+      stat: (location: string) => {
+        if (path.resolve(location) === path.resolve(nestedConfig)) {
+          nestedConfigSelections += 1;
+          if (nestedConfigSelections === 1) {
+            throw new Error("temporarily unavailable");
+          }
+        }
+        return fs.statSync(location);
+      },
+    },
+    projectRoot: selectionRoot,
+  });
+  assert.equal(
+    parentSelection.tsconfig,
+    path.join(selectionRoot, "tsconfig.json"),
+    "the worker must freeze the parent selected while the nearer config is unavailable",
+  );
+  assert.equal(
+    nestedConfigSelections,
+    1,
+    "worker evidence must reuse the predicate that selected the project",
+  );
+  fingerprint.createSnapshotRecorder(selectionRunId).recordMany({
+    inputs: parentSelection.discoveryInputs,
+    project: parentSelection,
+  });
+  assert.equal(
+    JSON.parse(fs.readFileSync(listWorkerSnapshots(selectionRoot)[0]!, "utf8"))
+      .tainted,
+    true,
+    "a config present in the main key but absent at worker selection must taint even after it returns",
   );
 }
 

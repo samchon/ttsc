@@ -15,6 +15,18 @@ export interface TtscProjectTreeDiscoveryFilesystem extends TtscProjectDiscovery
   readdir(location: string): readonly Pick<fs.Dirent, "isDirectory" | "name">[];
 }
 
+/** One exact file predicate consulted by nearest-project discovery. */
+export interface TtscProjectTsconfigCandidate {
+  readonly file: string;
+  readonly fileExists: boolean;
+}
+
+/** The selected config and the predicates that selected it. */
+export interface TtscProjectTsconfigDiscovery {
+  readonly candidates: readonly TtscProjectTsconfigCandidate[];
+  readonly file: string | undefined;
+}
+
 const HOST_PROJECT_DISCOVERY_FILESYSTEM: TtscProjectDiscoveryFilesystem =
   Object.freeze({
     stat: fs.statSync,
@@ -47,6 +59,35 @@ export function findNearestProjectTsconfig(
   startDirectory: string,
   filesystem: TtscProjectDiscoveryFilesystem = HOST_PROJECT_DISCOVERY_FILESYSTEM,
 ): string | undefined {
+  return findNearestProjectTsconfigImpl(startDirectory, filesystem);
+}
+
+/**
+ * Find the nearest config and retain the exact predicate observations used to
+ * select it. A cache host must not rediscover these candidates later: a file
+ * can disappear only for selection and return before that second observation.
+ */
+export function discoverNearestProjectTsconfig(
+  startDirectory: string,
+  filesystem: TtscProjectDiscoveryFilesystem = HOST_PROJECT_DISCOVERY_FILESYSTEM,
+): TtscProjectTsconfigDiscovery {
+  const candidates: TtscProjectTsconfigCandidate[] = [];
+  return {
+    candidates,
+    file: findNearestProjectTsconfigImpl(
+      startDirectory,
+      filesystem,
+      candidates,
+    ),
+  };
+}
+
+/** Shared walk with optional observation retention for cache hosts. */
+function findNearestProjectTsconfigImpl(
+  startDirectory: string,
+  filesystem: TtscProjectDiscoveryFilesystem,
+  candidates?: TtscProjectTsconfigCandidate[],
+): string | undefined {
   const paths =
     filesystem.platform === undefined
       ? path
@@ -56,12 +97,15 @@ export function findNearestProjectTsconfig(
   let current = paths.resolve(startDirectory);
   while (true) {
     const candidate = paths.join(current, "tsconfig.json");
+    let fileExists = false;
     try {
-      if (filesystem.stat(candidate).isFile()) {
-        return candidate;
-      }
+      fileExists = filesystem.stat(candidate).isFile();
     } catch {
       // An implicit candidate is selectable only when its file kind is proven.
+    }
+    candidates?.push({ file: candidate, fileExists });
+    if (fileExists) {
+      return candidate;
     }
     const parent = paths.dirname(current);
     if (parent === current) {

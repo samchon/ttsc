@@ -56,6 +56,7 @@ export async function assertAnOutOfProgramModuleIsPassedThroughAndReported(): Pr
   fs.mkdirSync(path.dirname(stray), { recursive: true });
   const source = "export const tool: string = 'STRAY';";
   fs.writeFileSync(stray, source, "utf8");
+  const watchBatches: string[][] = [];
 
   try {
     const deliver = () =>
@@ -65,6 +66,10 @@ export async function assertAnOutOfProgramModuleIsPassedThroughAndReported(): Pr
         options,
         undefined,
         cache,
+        {
+          addWatchFiles: (inputs: readonly { file: string }[]) =>
+            watchBatches.push(inputs.map((input) => path.resolve(input.file))),
+        },
       );
 
     const reported = await captureStderr(async () => {
@@ -83,6 +88,15 @@ export async function assertAnOutOfProgramModuleIsPassedThroughAndReported(): Pr
         await deliver(),
         undefined,
         "a module the program does not contain must pass through, not throw",
+      );
+      assert.equal(
+        watchBatches.length,
+        1,
+        "a pass-through delivery must publish one universal input batch",
+      );
+      assert.ok(
+        watchBatches[0]!.includes(path.join(fixture.root, "tsconfig.json")),
+        "the config that can later include the module must remain watched",
       );
       // Same pass, same file: the report is about the file and the generation,
       // not about the delivery, so asking again must not repeat it.
