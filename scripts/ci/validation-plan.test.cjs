@@ -10,6 +10,7 @@ const {
   PLATFORM_INTEGRATION_PATHS,
   PLATFORM_ROWS,
   WORKFLOW_PATHS,
+  fullPlan,
   normalizePath,
   planForPaths,
 } = require("./validation-plan.cjs");
@@ -354,6 +355,12 @@ test("every E2E directory has exactly one normal topology owner", () => {
 
 test("lane identities and workflow matrix names stay unique", () => {
   assert.equal(LANES.length, 13, "full main matrix must stay consolidated");
+  assert.ok(
+    fullPlan("test").matrix.include.every(
+      (lane) => !Object.hasOwn(lane, "node"),
+    ),
+    "Node versions must not become a lane matrix dimension",
+  );
   assert.equal(
     LANES.filter((lane) => lane.build === "pnpm run build:current").length,
     9,
@@ -490,6 +497,16 @@ test("remaining workflow path filters match the repository contract", () => {
     "${{ fromJSON(needs.plan.outputs.platform_matrix) }}",
   );
   const platformSteps = platformJob.steps;
+  const testSteps = testDocument.jobs.test.steps;
+  assert.equal(
+    testSteps.find(
+      (step) =>
+        typeof step.uses === "string" &&
+        step.uses.startsWith("actions/setup-node@"),
+    ).with["node-version"],
+    "24.x",
+    "the main test matrix must use one fixed Node release",
+  );
   assert.equal(
     platformSteps.find(
       (step) =>
