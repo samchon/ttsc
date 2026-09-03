@@ -66,12 +66,12 @@ export interface ViteDevServerLike {
  * importer's first request into a 500, even though the transform succeeded.
  *
  * This registry is the serve-only replacement for those registrations. Each
- * unavailable path is stat-polled until it exists or becomes a non-directory
- * file, according to the recorded predicate. Its importers are then invalidated
- * in the server's module graphs and one full-reload is sent, so the next
- * request retransforms against the new resolution winner. The project transform
- * cache re-validates the compiler observation, so the retransform recompiles
- * instead of replaying.
+ * unavailable path is stat-polled until it exists or becomes a regular file,
+ * according to the recorded predicate. Its importers are then invalidated in
+ * the server's module graphs and one full-reload is sent, so the next request
+ * retransforms against the new resolution winner. The project transform cache
+ * re-validates the compiler observation, so the retransform recompiles instead
+ * of replaying.
  */
 export interface ViteServeMissingInputWatch {
   /** Adopt the dev server whose module graphs creation events invalidate. */
@@ -139,10 +139,13 @@ export function createViteServeMissingInputWatch(): ViteServeMissingInputWatch {
           // `fs.watchFile` reports a missing path as zeroed stats and fires once
           // with them right after registration. Wait until the exact recorded
           // availability predicate becomes true.
-          if (!fs.existsSync(entry.spelling)) {
-            return;
-          }
-          if (entry.until === "file" && current.isDirectory()) {
+          if (
+            !viteServeMissingInputPredicateMatches(
+              fs.existsSync(entry.spelling),
+              current,
+              entry.until,
+            )
+          ) {
             return;
           }
           unwatch(identity, entry);
@@ -181,6 +184,15 @@ export function createViteServeMissingInputWatch(): ViteServeMissingInputWatch {
       recheck.unref?.();
     },
   };
+}
+
+/** Decide the exact availability predicate recorded for one missing input. */
+export function viteServeMissingInputPredicateMatches(
+  exists: boolean,
+  current: Pick<fs.Stats, "isFile">,
+  until: "exists" | "file",
+): boolean {
+  return exists && (until === "exists" || current.isFile());
 }
 
 /** Key a private poll by predicate and exact lexical spelling. */
