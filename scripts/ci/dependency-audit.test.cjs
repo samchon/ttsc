@@ -327,6 +327,7 @@ test("the lockfile excludes every campaign high or critical resolution", () => {
     "brace-expansion@2.1.2:",
     "brace-expansion@5.0.6:",
     "fast-uri@3.1.2:",
+    "fast-uri@3.1.5:",
     "form-data@4.0.5:",
     "js-yaml@4.1.1:",
     "linkify-it@5.0.0:",
