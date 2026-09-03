@@ -338,6 +338,7 @@ export {
 export {
   findNearestProjectTsconfig,
   findProjectTsconfigs,
+  isIgnoredProjectDirectory,
 } from "./projectDiscovery";
 
 export default unplugin;

@@ -1056,6 +1056,100 @@ export async function assertMetroAsksTheAdaptersPolicy(): Promise<void> {
     "utf8",
   );
 
+  const sharedProjectRoot = TestProject.tmpdir("ttsc-metro-shared-project-");
+  const sharedSource = path.join(sharedProjectRoot, "src", "index.ts");
+  const sharedDependency = path.join(sharedProjectRoot, "src", "dependency.ts");
+  fs.mkdirSync(path.dirname(sharedSource), { recursive: true });
+  fs.writeFileSync(
+    path.join(sharedProjectRoot, "tsconfig.json"),
+    JSON.stringify({ include: ["src"] }),
+    "utf8",
+  );
+  fs.writeFileSync(sharedSource, "export const shared = true;\n", "utf8");
+  fs.writeFileSync(sharedDependency, "export const dependency = 1;\n", "utf8");
+  const sharedProject = fingerprint.resolveProjectView({
+    filename: sharedSource,
+    projectRoot: root,
+  });
+  assert.equal(
+    sharedProject.staticallyFingerprinted,
+    false,
+    "an implicit watchFolders project outside projectRoot cannot claim main-process map coverage",
+  );
+
+  const linkedProjectTarget = TestProject.tmpdir("ttsc-metro-linked-project-");
+  const linkedProject = path.join(root, "linked-project");
+  fs.mkdirSync(path.join(linkedProjectTarget, "src"), { recursive: true });
+  fs.writeFileSync(
+    path.join(linkedProjectTarget, "tsconfig.json"),
+    JSON.stringify({ include: ["src"] }),
+    "utf8",
+  );
+  fs.writeFileSync(
+    path.join(linkedProjectTarget, "src", "index.ts"),
+    "export const linked = true;\n",
+    "utf8",
+  );
+  fs.writeFileSync(
+    path.join(linkedProjectTarget, "src", "dependency.ts"),
+    "export const dependency = 1;\n",
+    "utf8",
+  );
+  fs.symlinkSync(
+    linkedProjectTarget,
+    linkedProject,
+    process.platform === "win32" ? "junction" : "dir",
+  );
+  const linkedSource = path.join(linkedProject, "src", "index.ts");
+  const linkedDependency = path.join(linkedProject, "src", "dependency.ts");
+  const linkedProjectView = fingerprint.resolveProjectView({
+    filename: linkedSource,
+    projectRoot: root,
+  });
+  assert.equal(
+    linkedProjectView.staticallyFingerprinted,
+    false,
+    "an implicit project below a directory link cannot claim coverage from a non-following project map",
+  );
+
+  const externalRecorder = fingerprint.createSnapshotRecorder();
+  externalRecorder.record({
+    input: sharedDependency,
+    project: sharedProject,
+  });
+  externalRecorder.record({
+    input: linkedDependency,
+    project: linkedProjectView,
+  });
+  assert.deepEqual(
+    workerSnapshotFiles(root),
+    [linkedDependency, sharedDependency].sort(),
+    "every input of an implicit project outside the static map must remain in the worker snapshot",
+  );
+  fingerprint.prepareSnapshot(root);
+  const beforeSharedEdit = fingerprint.computeProjectFingerprint({
+    projectRoot: root,
+  });
+  fs.writeFileSync(sharedDependency, "export const dependency = 2;\n", "utf8");
+  const afterSharedEdit = fingerprint.computeProjectFingerprint({
+    projectRoot: root,
+  });
+  assert.notEqual(
+    beforeSharedEdit,
+    afterSharedEdit,
+    "editing an out-of-root implicit project's input must change the next key",
+  );
+  fs.writeFileSync(
+    path.join(linkedProjectTarget, "src", "dependency.ts"),
+    "export const dependency = 2;\n",
+    "utf8",
+  );
+  assert.notEqual(
+    afterSharedEdit,
+    fingerprint.computeProjectFingerprint({ projectRoot: root }),
+    "editing an input below a project link must change the next key",
+  );
+
   const configured = JSON.parse(fs.readFileSync(leaf, "utf8")) as {
     compilerOptions: Record<string, unknown>;
     exclude?: string[];

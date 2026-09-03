@@ -49,6 +49,7 @@ import {
   collectProjectInputHashes,
   findNearestProjectTsconfig,
   findProjectTsconfigs,
+  isIgnoredProjectDirectory,
   isProjectWalkPath,
   mergeMembershipPolicyOverlay,
   readProjectMembershipPolicy,
@@ -192,6 +193,8 @@ export interface TtscMetroProjectView {
   readonly policy: ReturnType<typeof readProjectMembershipPolicy>;
   /** The policy used by the routed static walk. */
   readonly walkPolicy: ReturnType<typeof readProjectMembershipPolicy>;
+  /** Whether the main-process project map can actually hash this project. */
+  readonly staticallyFingerprinted: boolean;
   /** Lexical roots whose fingerprint uses this project's policy. */
   readonly roots: readonly string[];
   /** The exact config selected for this project. */
@@ -244,6 +247,9 @@ function createProjectView(props: {
     explicitProject: props.explicitProject,
     policy,
     roots: projectViewRoots(props.base, props.tsconfig, props.explicitProject),
+    staticallyFingerprinted:
+      props.explicitProject !== undefined ||
+      implicitProjectIsStaticallyFingerprinted(props.base, props.tsconfig),
     tsconfig: props.tsconfig,
     walkPolicy: policy,
   };
@@ -486,6 +492,46 @@ function sameProjectMap(
 /** Host-platform equality for two resolved path spellings. */
 function samePath(left: string, right: string): boolean {
   return path.relative(path.resolve(left), path.resolve(right)) === "";
+}
+
+/** Whether the main-process implicit map can reach one selected config. */
+function implicitProjectIsStaticallyFingerprinted(
+  base: string,
+  tsconfig: string,
+): boolean {
+  const resolvedBase = path.resolve(base);
+  const resolvedConfig = path.resolve(tsconfig);
+  const directory = path.dirname(resolvedConfig);
+  const relative = path.relative(resolvedBase, directory);
+  if (
+    relative === "" ||
+    (relative !== ".." &&
+      !relative.startsWith(`..${path.sep}`) &&
+      !path.isAbsolute(relative))
+  ) {
+    let current = resolvedBase;
+    try {
+      for (const segment of relative.split(path.sep).filter(Boolean)) {
+        if (isIgnoredProjectDirectory(segment)) {
+          return false;
+        }
+        current = path.join(current, segment);
+        const stats = fs.lstatSync(current);
+        if (stats.isSymbolicLink() || !stats.isDirectory()) {
+          return false;
+        }
+      }
+      if (fs.statSync(resolvedConfig).isFile()) {
+        return true;
+      }
+    } catch {
+      return false;
+    }
+  }
+  return samePath(
+    resolvedConfig,
+    resolveProjectTsconfig(resolvedBase, undefined),
+  );
 }
 
 /** Whether one resolved path lies at or below another. */
@@ -806,6 +852,7 @@ export function createSnapshotRecorder(): {
     project: TtscMetroProjectView,
   ): boolean {
     if (
+      !project.staticallyFingerprinted ||
       !project.roots.some((root) =>
         isProjectWalkPath(root, input, undefined, undefined, project.policy),
       )
