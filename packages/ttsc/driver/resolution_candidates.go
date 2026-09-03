@@ -476,9 +476,17 @@ func isModuleSpecifierCall(call *ast.CallExpression) bool {
 type packageTarget struct {
   path         string
   wildcard     string
-  packageEntry bool
+  kind         packageTargetKind
   usesCommonJS bool
 }
+
+type packageTargetKind uint8
+
+const (
+  packageTargetMapping packageTargetKind = iota
+  packageTargetTypesVersions
+  packageTargetEntry
+)
 
 // packageValue preserves a package.json object's declaration order. That order
 // is resolution semantics for conditional exports/imports, so decoding into a
@@ -532,7 +540,7 @@ func packageManifestCandidates(root, wildcard string, context ModuleResolutionCo
   } else {
     hasExports = false
     if value, ok := decodePackageValue(manifest.TypesVersions); ok {
-      collectPackageTargets(value, defaultWildcard, nil, &targets)
+      collectPackageTargets(value, defaultWildcard, nil, packageTargetTypesVersions, manifest.Type != "module", &targets)
     }
     // `typings`, `types`, and `main` are directory-entrypoint fields. A
     // subpath resolution never falls back to them, and `module` is not a
@@ -546,12 +554,12 @@ func packageManifestCandidates(root, wildcard string, context ModuleResolutionCo
           declared = manifest.Types
         }
         if declared != "" {
-          targets = append(targets, packageTarget{path: declared, wildcard: defaultWildcard, packageEntry: true, usesCommonJS: usesCommonJS})
+          targets = append(targets, packageTarget{path: declared, wildcard: defaultWildcard, kind: packageTargetEntry, usesCommonJS: usesCommonJS})
         } else {
-          targets = append(targets, packageTarget{path: manifest.Main, wildcard: defaultWildcard, packageEntry: true, usesCommonJS: usesCommonJS})
+          targets = append(targets, packageTarget{path: manifest.Main, wildcard: defaultWildcard, kind: packageTargetEntry, usesCommonJS: usesCommonJS})
         }
       } else {
-        targets = append(targets, packageTarget{path: manifest.Main, wildcard: defaultWildcard, packageEntry: true, usesCommonJS: usesCommonJS})
+        targets = append(targets, packageTarget{path: manifest.Main, wildcard: defaultWildcard, kind: packageTargetEntry, usesCommonJS: usesCommonJS})
       }
     }
   }
@@ -566,27 +574,28 @@ func packageTargetCandidates(root string, targets []packageTarget, context Modul
     }
     targetPath := strings.Replace(target.path, "*", target.wildcard, 1)
     targetContext := context
-    if target.packageEntry && target.usesCommonJS {
+    if target.usesCommonJS {
       targetContext.Mode = shimcore.ResolutionModeCommonJS
     }
     candidate := filepath.Join(root, filepath.FromSlash(targetPath))
-    // A package target that already names a TypeScript implementation, or a
-    // declaration while declaration resolution is enabled, first takes the
-    // resolver's direct `tryFile` branch. In particular, `index.d.ts` first
-    // becomes `index.native.d.ts`, not `index.native.ts`. An exports or imports
-    // target stops there on a miss and advances to its next mapping target. A
-    // package entry field instead continues through the current extension pass.
-    direct := pass != moduleCandidatePassFallback &&
-      (shimtspath.HasImplementationTSFileExtension(candidate) ||
+    // Paths inside typesVersions first try any explicit known extension, then
+    // continue through the loader's current extension pass. Package fields and
+    // local exports or imports targets take the direct branch only for an active
+    // TypeScript implementation or declaration. A mapping stops there on a
+    // miss, while an entry field continues through the current extension pass.
+    direct := target.kind == packageTargetTypesVersions && shimtspath.TryGetExtensionFromPath(candidate) != ""
+    if target.kind != packageTargetTypesVersions && pass != moduleCandidatePassFallback {
+      direct = shimtspath.HasImplementationTSFileExtension(candidate) ||
         (shimtspath.IsDeclarationFileName(candidate) &&
-          (targetContext.Options == nil || targetContext.Options.NoDtsResolution != shimcore.TSTrue)))
+          (targetContext.Options == nil || targetContext.Options.NoDtsResolution != shimcore.TSTrue))
+    }
     if direct {
       candidates = append(candidates, moduleSuffixCandidates(candidate, targetContext)...)
-      if !target.packageEntry {
+      if target.kind == packageTargetMapping {
         continue
       }
     }
-    candidates = append(candidates, moduleFileCandidatesForPass(candidate, targetContext, target.packageEntry, pass)...)
+    candidates = append(candidates, moduleFileCandidatesForPass(candidate, targetContext, target.kind == packageTargetEntry, pass)...)
   }
   return candidates
 }
@@ -603,33 +612,33 @@ func collectPackageMappingTargets(value packageValue, request, wildcard string, 
     if mapping {
       property, matched, ok := matchingPackageProperty(value.object, request)
       if ok {
-        collectPackageTargets(property.value, matched, conditions, targets)
+        collectPackageTargets(property.value, matched, conditions, packageTargetMapping, false, targets)
       }
       return
     }
   }
-  collectPackageTargets(value, wildcard, conditions, targets)
+  collectPackageTargets(value, wildcard, conditions, packageTargetMapping, false, targets)
 }
 
-func collectPackageTargets(value packageValue, wildcard string, conditions map[string]struct{}, targets *[]packageTarget) {
+func collectPackageTargets(value packageValue, wildcard string, conditions map[string]struct{}, kind packageTargetKind, usesCommonJS bool, targets *[]packageTarget) {
   if value.text != nil {
-    *targets = append(*targets, packageTarget{path: *value.text, wildcard: wildcard})
+    *targets = append(*targets, packageTarget{path: *value.text, wildcard: wildcard, kind: kind, usesCommonJS: usesCommonJS})
     return
   }
   for _, child := range value.array {
-    collectPackageTargets(child, wildcard, conditions, targets)
+    collectPackageTargets(child, wildcard, conditions, kind, usesCommonJS, targets)
   }
   for _, property := range value.object {
     if conditions == nil {
-      collectPackageTargets(property.value, wildcard, nil, targets)
+      collectPackageTargets(property.value, wildcard, nil, kind, usesCommonJS, targets)
       continue
     }
     if property.key == "default" {
-      collectPackageTargets(property.value, wildcard, conditions, targets)
+      collectPackageTargets(property.value, wildcard, conditions, kind, usesCommonJS, targets)
       continue
     }
     if _, active := conditions[property.key]; active {
-      collectPackageTargets(property.value, wildcard, conditions, targets)
+      collectPackageTargets(property.value, wildcard, conditions, kind, usesCommonJS, targets)
     }
   }
 }

@@ -111,7 +111,7 @@ func TestPackageTargetCandidatesMirrorCompilerPassesForTypeScriptTargets(t *test
   esmContext.Mode = shimcore.ResolutionModeESM
   entry := packageTargetCandidates(
     root,
-    []packageTarget{{path: "dist/index.d.ts", packageEntry: true}},
+    []packageTarget{{path: "dist/index.d.ts", kind: packageTargetEntry}},
     esmContext,
     moduleCandidatePassPreferred,
   )
@@ -122,6 +122,25 @@ func TestPackageTargetCandidatesMirrorCompilerPassesForTypeScriptTargets(t *test
   )
   if !reflect.DeepEqual(entry, expectedEntry) {
     t.Fatalf("package entry candidates = %#v, want %#v", entry, expectedEntry)
+  }
+
+  versionedTarget := []packageTarget{{path: "dist/versioned.ts", kind: packageTargetTypesVersions}}
+  preferred = packageTargetCandidates(root, versionedTarget, esmContext, moduleCandidatePassPreferred)
+  fallback = packageTargetCandidates(root, versionedTarget, esmContext, moduleCandidatePassFallback)
+  expectedPreferredVersioned := paths(
+    "versioned.native.ts", "versioned.ts",
+    "versioned.native.ts", "versioned.ts", "versioned.native.tsx", "versioned.tsx",
+    "versioned.native.d.ts", "versioned.d.ts",
+  )
+  expectedFallbackVersioned := paths(
+    "versioned.native.ts", "versioned.ts",
+    "versioned.native.js", "versioned.js", "versioned.native.jsx", "versioned.jsx",
+  )
+  if !reflect.DeepEqual(preferred, expectedPreferredVersioned) {
+    t.Fatalf("typesVersions preferred candidates = %#v, want %#v", preferred, expectedPreferredVersioned)
+  }
+  if !reflect.DeepEqual(fallback, expectedFallbackVersioned) {
+    t.Fatalf("typesVersions fallback candidates = %#v, want %#v", fallback, expectedFallbackVersioned)
   }
 
   manifestRoot := filepath.Join(root, "manifest")
