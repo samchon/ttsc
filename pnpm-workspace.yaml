@@ -17,6 +17,8 @@ overrides:
   # Browserslist before 4.28.7 has two data-processing advisories. Pin the
   # patched release until every transitive consumer raises its own range.
   browserslist: 4.28.8
+  # fast-uri 3.1.5 has four URI parsing advisories. Pin the patched v3 release until every transitive consumer resolves it naturally.
+  fast-uri: 3.1.7
 catalogs:
   typescript:
     typescript: ^7.0.2
