@@ -61,6 +61,14 @@ test("unplugin scenarios run through one layered package contract", () => {
 });
 
 test("the packed adapter rehearsal is one pinned E2E", () => {
+  const workspaceManifest = JSON.parse(
+    fs.readFileSync(path.join(root, "package.json"), "utf8"),
+  );
+  assert.equal(
+    workspaceManifest.scripts.experimental,
+    "pnpm package:tgz -- --current && pnpm --dir experimental/install start -- --skip-pack && pnpm --dir experimental/test-unplugin start -- --skip-pack",
+    "the aggregate must prepare one fresh current-platform tarball set and let both consumers reuse it",
+  );
   const source = fs.readFileSync(
     path.join(root, "experimental", "test-unplugin", "src", "index.ts"),
     "utf8",

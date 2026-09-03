@@ -261,7 +261,11 @@ test("platform integrations reuse only the physical rows they need", () => {
     ["linux-x64"],
   );
   assert.equal(unpluginHarness[0].unplugin_e2e, true);
+  assert.equal(unpluginHarness[0].setup_bun, true);
+  assert.equal(unpluginHarness[0].bun, false);
   assert.equal(unpluginHarness[0].experimental, false);
+  assert.equal(unpluginHarness[0].source_map, false);
+  assert.equal(unpluginHarness[0].plugin_cache, false);
 
   const genericInstallSource = fs.readFileSync(
     path.join(root, "experimental", "install", "src", "index.ts"),
