@@ -226,8 +226,8 @@ Width is measured in **display columns** (Prettier's `getStringWidth`), not UTF-
 This list is the reflow's own, scoped to node shapes. The boundary that applies to the whole format set is [Scope](#scope).
 
 - JSX elements and fragments.
-- Binary expressions.
-- Destructuring patterns.
+- Binary expressions, including otherwise supported calls and value literals nested inside them. The rule preserves those fragments until it can render the complete binary chain. A direct destructuring assignment target remains covered because its literal printer owns the complete left-hand list; when that assignment is nested in another binary expression, the rule preserves it with the outer expression.
+- Binding destructuring patterns.
 - Decorators (their call arguments still hug per the rules above).
 - Multi-line string and template literals.
 - Lists with comments interleaved between members (the rule detects this and abstains).

@@ -1,7 +1,7 @@
 {
   "private": true,
   "name": "@ttsc/benchmark-evidence",
-  "version": "0.28.4",
+  "version": "0.28.5",
   "description": "Minimal Codex runner for the Evidence benchmark.",
   "exports": {
     "./runner": "./src/EvidenceBenchmarkRunner.ts",

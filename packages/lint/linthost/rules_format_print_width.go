@@ -187,6 +187,19 @@ func (formatPrintWidth) Check(ctx *Context, node *shimast.Node) {
     return
   }
 
+  // Abstain on any uncontrolled reflow target nested below a binary
+  // expression. The structured printer does not own BinaryExpression, so
+  // independently flattening or breaking its child calls and value literals
+  // can change whether the complete binary line fits. The next cascade pass
+  // then reverses those child decisions and `ttsc format` oscillates to the
+  // 10-pass cap. A destructuring assignment target may skip only its directly
+  // owning `=` because the literal printer owns the complete left-hand list and
+  // charges the `= value` suffix. Any binary ancestor above that assignment
+  // remains uncontrolled.
+  if hasUncontrolledBinaryExpressionAncestor(node) {
+    return
+  }
+
   // Abstain on any node nested inside a template-literal substitution.
   // Prettier renders `${…}` expressions at printWidth:Infinity, it
   // never breaks an interpolation the source wrote on one line, so
@@ -501,6 +514,31 @@ func hasReflowAncestor(node *shimast.Node) bool {
     if isReflowKind(parent.Kind) {
       return true
     }
+  }
+  return false
+}
+
+// hasUncontrolledBinaryExpressionAncestor reports whether `node` is a fragment
+// of a binary expression whose layout it cannot own. A destructuring assignment
+// target may skip its owning `=` because the literal printer owns that complete
+// left-hand list, but an enclosing binary expression remains uncontrolled.
+func hasUncontrolledBinaryExpressionAncestor(node *shimast.Node) bool {
+  if node == nil {
+    return false
+  }
+  skipOwningAssignment := isDestructuringAssignmentTarget(node)
+  child := node
+  for parent := node.Parent; parent != nil; parent = parent.Parent {
+    if parent.Kind == shimast.KindBinaryExpression {
+      expression := parent.AsBinaryExpression()
+      if skipOwningAssignment && expression != nil && expression.OperatorToken != nil &&
+        expression.OperatorToken.Kind == shimast.KindEqualsToken && expression.Left == child {
+        skipOwningAssignment = false
+      } else {
+        return true
+      }
+    }
+    child = parent
   }
   return false
 }

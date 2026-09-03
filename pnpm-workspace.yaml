@@ -14,6 +14,9 @@ autoInstallPeers: false
 # release, so keep the real Mocha register defense without accepting that edge.
 overrides:
   "mocha>serialize-javascript": 7.0.3
+  # Browserslist before 4.28.7 has two data-processing advisories. Pin the
+  # patched release until every transitive consumer raises its own range.
+  browserslist: 4.28.8
 catalogs:
   typescript:
     typescript: ^7.0.2
