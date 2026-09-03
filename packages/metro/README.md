@@ -102,7 +102,7 @@ The granularity is project-level by necessity: Metro evaluates the transformer k
 
 - **Within a running dev server**, Metro re-transforms only files its watcher reports changed. Editing a type in file B updates a dependent file A on A's next transform: save A, or restart the dev server (no `--reset-cache` needed).
 - **Files a plugin declares `volatile`** depend on non-file inputs that no fingerprint can represent; while a volatile declaration is recorded, cross-run cache reuse is disabled entirely.
-- **If snapshot persistence fails**, a recovery document beside `node_modules/.cache/ttsc-metro` makes every later key non-reusable until the pending observations are compacted under a fresh epoch; a worker that already holds a run key fails the transform if neither the snapshot nor recovery location accepts its observation, even when the old main snapshot is temporarily unreadable.
+- **If snapshot persistence fails**, a recovery document beside `node_modules/.cache/ttsc-metro` makes every later key non-reusable until the pending observations are compacted under a fresh epoch. If preparation cannot persist even that document, its run token forces a nonce across bundle and process boundaries. A worker whose run token authorized a reusable key fails the transform if neither location accepts its observation, even when the old main snapshot is temporarily unreadable.
 
 ## Caveats (v1)
 

@@ -12,7 +12,10 @@ import {
 } from "../../../../packages/unplugin/lib/core/projectDiscovery.js";
 import {
   type TtscTransformFilesystemOperations,
+  type TtscWatchInputKeyBaseline,
+  captureWatchInputBaseline,
   captureWatchInputFileBaseline,
+  isWatchInputKeyBaseline,
   validateGraphInputObservation,
   watchInputEvidenceMatchesBaseline,
 } from "../../../../packages/unplugin/lib/core/transform.js";
@@ -40,6 +43,7 @@ export function assertPredicateProofMatrix(): void {
     "identity",
   ]);
   assert.equal(candidateBaseline.fileExists, false);
+  assert.equal(isWatchInputKeyBaseline(candidateBaseline), true);
   assert.equal(
     watchInputEvidenceMatchesBaseline(
       {
@@ -128,6 +132,43 @@ export function assertPredicateProofMatrix(): void {
     false,
     "replacing a non-regular candidate with a file must invalidate the baseline",
   );
+  const broadBaseline = captureWatchInputBaseline(
+    specialCandidate,
+    state({ contents: Buffer.from("export {};\n"), kind: "file" }),
+  );
+  assert.ok(broadBaseline);
+  assert.equal(isWatchInputKeyBaseline(broadBaseline), true);
+  for (const malformed of [
+    { fileExists: false },
+    { ...candidateBaseline, identity: false },
+    { ...candidateBaseline, hostHash: broadBaseline.hostHash },
+    { ...broadBaseline, fileExists: false },
+    { ...broadBaseline, graphHash: "not-a-content-state" },
+    { ...broadBaseline, realpath: { ok: false, path: specialCandidate } },
+    { ...broadBaseline, realpath: { ok: true } },
+  ]) {
+    assert.equal(
+      isWatchInputKeyBaseline(malformed),
+      false,
+      `a malformed serialized baseline must fail closed: ${JSON.stringify(malformed)}`,
+    );
+    assert.equal(
+      watchInputEvidenceMatchesBaseline(
+        {
+          identity: broadBaseline.identity,
+          missing: false,
+          state: {
+            codec: "graph",
+            hash: broadBaseline.graphHash,
+            realpath: null,
+          },
+        },
+        malformed as TtscWatchInputKeyBaseline,
+      ),
+      false,
+      "a malformed baseline must never suppress invalidation",
+    );
+  }
   const directory = state({
     kind: "directory",
     realpath: path.join(root, "directory-target"),

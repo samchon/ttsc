@@ -54,6 +54,7 @@ import {
   discoverNearestProjectTsconfig,
   findNearestProjectTsconfig,
   findProjectTsconfigs,
+  isWatchInputKeyBaseline,
   mergeMembershipPolicyOverlay,
   readProjectMembershipPolicy,
   readTsconfigSourceSnapshot,
@@ -90,6 +91,9 @@ const CLAIMED_WORKER_SNAPSHOT_PREFIX = "graph-inputs.worker-claimed-";
 
 /** Cache-key baseline file prefix, one immutable identity per Metro run. */
 const KEY_BASELINE_PREFIX = "key-baseline-";
+
+/** Run-token prefix that forces every transformer key to be non-reusable. */
+const NON_REUSABLE_RUN_PREFIX = "nonce:";
 
 /** Union of the snapshot state readable on disk. */
 interface SnapshotState {
@@ -710,14 +714,14 @@ function nonce(): string {
  * a fresh epoch id — every key that might have depended on the lost recordings
  * is soundly orphaned, and later runs stabilize instead of degrading to a nonce
  * forever. A failed rewrite leaves a recovery document outside the snapshot
- * directory so `getCacheKey` degrades to a nonce until a later compaction
- * succeeds. If an older readable main exists and neither location is writable,
- * preparation throws instead of authorizing stale reuse.
+ * directory and returns a non-reusable run token. The token crosses bundle and
+ * process boundaries, so `getCacheKey` degrades to a nonce even when neither
+ * snapshot location can persist the failure and an old main later reappears.
  */
 export function prepareSnapshot(projectRoot: string | undefined): string {
   const base = resolveFingerprintBase(projectRoot);
   const runId = randomBytes(16).toString("hex");
-  let hadReadableMain = false;
+  let reusable = true;
   let pending: SnapshotDocument = {
     files: [],
     tainted: false,
@@ -744,7 +748,6 @@ export function prepareSnapshot(projectRoot: string | undefined): string {
       throw new Error("Unable to enumerate Metro snapshot state.");
     }
     const main = readMainDocument(directory);
-    hadReadableMain = main !== undefined && typeof main.id === "string";
     const files = new Set(main?.files ?? []);
     const observations = [...recovery.entries, ...workers.entries];
     const tainted = observations.some((entry) => entry.tainted);
@@ -798,19 +801,16 @@ export function prepareSnapshot(projectRoot: string | undefined): string {
     ) {
       unhealthySnapshots.delete(base);
     }
-  } catch (snapshotError) {
+  } catch {
+    reusable = false;
     try {
       persistUnhealthySnapshot(base, pending);
-    } catch (recoveryError) {
-      if (hadReadableMain || hasReadableMainSnapshot(base)) {
-        throw new AggregateError(
-          [snapshotError, recoveryError],
-          "Unable to persist Metro snapshot state or its recovery record.",
-        );
-      }
+    } catch {
+      // The returned token carries the failure when neither on-disk location
+      // can. No consumer may turn that token into a reusable cache key.
     }
   }
-  return runId;
+  return reusable ? runId : `${NON_REUSABLE_RUN_PREFIX}${runId}`;
 }
 
 /**
@@ -1023,10 +1023,13 @@ export function createSnapshotRecorder(runId?: string): {
       try {
         persistUnhealthySnapshot(base, document);
       } catch (recoveryError) {
-        // A run id proves that the main process already authorized a cache
-        // key. Failure to read that main file now cannot prove it never
-        // existed, so losing this observation must fail the transform.
-        if (runId !== undefined || hasReadableMainSnapshot(base)) {
+        // A reusable run id proves that the main process authorized a cache
+        // key. The explicit nonce token is different: it guarantees that this
+        // run's output cannot be reused, so losing its observation is safe.
+        if (
+          isReusableSnapshotRunId(runId) ||
+          (runId === undefined && hasReadableMainSnapshot(base))
+        ) {
           throw new AggregateError(
             [snapshotError, recoveryError],
             "Unable to persist a Metro snapshot observation or its recovery record.",
@@ -1098,7 +1101,7 @@ function writeKeyBaseline(
   inputs: Record<string, TtscWatchInputKeyBaseline>,
   staticInputs: string[],
 ): void {
-  if (!/^[a-f0-9]{32}$/.test(runId)) {
+  if (!isReusableSnapshotRunId(runId)) {
     throw new Error("Invalid Metro snapshot run identity.");
   }
   const file = path.join(
@@ -1129,7 +1132,7 @@ function readKeyBaseline(
   base: string,
   runId: string,
 ): KeyBaselineDocument | undefined {
-  if (!/^[a-f0-9]{32}$/.test(runId)) {
+  if (!isReusableSnapshotRunId(runId)) {
     return undefined;
   }
   try {
@@ -1152,8 +1155,15 @@ function readKeyBaseline(
       typeof document.inputs !== "object" ||
       document.inputs === null ||
       Array.isArray(document.inputs) ||
+      Object.values(document.inputs).some(
+        (entry) => !isWatchInputKeyBaseline(entry),
+      ) ||
       !Array.isArray(document.staticInputs) ||
-      document.staticInputs.some((entry) => typeof entry !== "string")
+      document.staticInputs.some(
+        (entry) =>
+          typeof entry !== "string" ||
+          !Object.prototype.hasOwnProperty.call(document.inputs, entry),
+      )
     ) {
       return undefined;
     }
@@ -1161,6 +1171,11 @@ function readKeyBaseline(
   } catch {
     return undefined;
   }
+}
+
+/** Whether a run token is allowed to authorize a reusable static key. */
+function isReusableSnapshotRunId(runId: string | undefined): runId is string {
+  return runId !== undefined && /^[a-f0-9]{32}$/.test(runId);
 }
 
 function snapshotDirectory(base: string): string {

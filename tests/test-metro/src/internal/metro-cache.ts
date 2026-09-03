@@ -417,8 +417,9 @@ export async function assertCacheKeyFoldsNonceAfterSnapshotCompactionFailure(): 
 
 /**
  * Asserts snapshot maintenance fails closed when neither the primary snapshot
- * directory nor its parent recovery location can accept a write. Returning
- * normally would let another process trust the still-readable old main file.
+ * directory nor its parent recovery location can accept a write. A reusable
+ * worker throws, while preparation transports a non-reusable run token so a
+ * later process cannot trust an old main file that becomes readable again.
  */
 export async function assertSnapshotFailureWithoutRecoveryStorageFailsClosed(): Promise<void> {
   if (!canEnforceReadOnlyDirectory()) {
@@ -434,6 +435,7 @@ export async function assertSnapshotFailureWithoutRecoveryStorageFailsClosed(): 
   fs.chmodSync(mainSnapshotPath(root), 0o000);
   fs.chmodSync(snapshotDirectory(root), 0o555);
   fs.chmodSync(cacheDirectory, 0o555);
+  let nonReusableRunId: string;
   try {
     assert.throws(
       () =>
@@ -448,11 +450,12 @@ export async function assertSnapshotFailureWithoutRecoveryStorageFailsClosed(): 
       },
       "a worker with a run key must fail closed even while the old main snapshot is unreadable",
     );
-    fs.chmodSync(mainSnapshotPath(root), 0o644);
-    await assert.rejects(prepareSnapshot(root), {
-      message: "Unable to persist Metro snapshot state or its recovery record.",
-      name: "AggregateError",
-    });
+    nonReusableRunId = await prepareSnapshot(root);
+    assert.match(
+      nonReusableRunId,
+      /^nonce:[a-f0-9]{32}$/,
+      "preparation must carry an unpersisted failure across process boundaries",
+    );
   } finally {
     fs.chmodSync(cacheDirectory, 0o755);
     fs.chmodSync(snapshotDirectory(root), 0o755);
@@ -461,6 +464,17 @@ export async function assertSnapshotFailureWithoutRecoveryStorageFailsClosed(): 
 
   await prepareSnapshot(root);
   assert.deepEqual(listSnapshotRecoveryFiles(root), []);
+  assert.notEqual(
+    fingerprint.computeProjectFingerprint({
+      projectRoot: root,
+      runId: nonReusableRunId!,
+    }),
+    fingerprint.computeProjectFingerprint({
+      projectRoot: root,
+      runId: nonReusableRunId!,
+    }),
+    "a non-reusable run token must still force a nonce after the old main snapshot returns",
+  );
   assert.equal(await cacheKeyForRun(root), await cacheKeyForRun(root));
 }
 
@@ -762,6 +776,65 @@ export async function assertTransformerRecordsImplicitDependencyGuards(): Promis
       .tainted,
     true,
     "a config present in the main key but absent at worker selection must taint even after it returns",
+  );
+
+  const corruptRoot = createBareProject();
+  const corruptInput = path.join(corruptRoot, "src", "app.ts");
+  await prepareSnapshot(corruptRoot);
+  const corruptRunId = await prepareSnapshot(corruptRoot);
+  fingerprint.computeProjectFingerprint({
+    projectRoot: corruptRoot,
+    runId: corruptRunId,
+  });
+  const corruptBaselinePath = path.join(
+    snapshotDirectory(corruptRoot),
+    `key-baseline-${corruptRunId}.json`,
+  );
+  const corruptBaseline = JSON.parse(
+    fs.readFileSync(corruptBaselinePath, "utf8"),
+  ) as { inputs: Record<string, Record<string, unknown>> };
+  const observedCorruptInput =
+    fingerprint.captureWatchInputBaseline(corruptInput);
+  assert.ok(observedCorruptInput);
+  const corruptEntry = Object.values(corruptBaseline.inputs).find(
+    (entry) => entry.identity === observedCorruptInput.identity,
+  );
+  assert.ok(corruptEntry);
+  corruptEntry.realpath = { ok: true };
+  fs.writeFileSync(
+    corruptBaselinePath,
+    JSON.stringify(corruptBaseline),
+    "utf8",
+  );
+  fingerprint.createSnapshotRecorder(corruptRunId).recordMany({
+    inputs: [
+      {
+        evidence: {
+          identity: observedCorruptInput.identity,
+          missing: false,
+          state: {
+            codec: "graph",
+            hash: observedCorruptInput.graphHash,
+            realpath: null,
+          },
+        },
+        file: corruptInput,
+      },
+    ],
+    project: fingerprint.resolveProjectView({ projectRoot: corruptRoot }),
+  });
+  const corruptWorker = JSON.parse(
+    fs.readFileSync(listWorkerSnapshots(corruptRoot)[0]!, "utf8"),
+  );
+  assert.deepEqual(
+    corruptWorker.files,
+    [corruptInput],
+    "a corrupt baseline must retain even a statically fingerprinted input",
+  );
+  assert.equal(
+    corruptWorker.tainted,
+    true,
+    "a corrupt baseline must rotate the snapshot epoch",
   );
 }
 

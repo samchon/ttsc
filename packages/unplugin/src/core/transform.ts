@@ -765,7 +765,7 @@ export interface TtscWatchInputBaseline extends TtscWatchInputFileBaseline {
   graphHash: string;
   graphReadHash: string | null;
   hostHash: string;
-  realpath: { ok: boolean; path?: string };
+  realpath: { ok: false; path?: never } | { ok: true; path: string };
   stat: "directory" | "file" | "missing";
 }
 
@@ -5279,7 +5279,11 @@ export function watchInputEvidenceMatchesBaseline(
   evidence: TtscWatchInputEvidence,
   baseline: TtscWatchInputKeyBaseline,
 ): boolean {
-  if (evidence.identity !== baseline.identity || evidence.state === undefined) {
+  if (
+    !isWatchInputKeyBaseline(baseline) ||
+    evidence.identity !== baseline.identity ||
+    evidence.state === undefined
+  ) {
     return false;
   }
   const broad = broadWatchInputBaseline(baseline);
@@ -5293,7 +5297,7 @@ export function watchInputEvidenceMatchesBaseline(
       evidence.state.hash === broad.graphHash &&
       sameHostInputRealpath(
         evidence.state.realpath,
-        broad.realpath.ok ? (broad.realpath.path ?? null) : null,
+        broad.realpath.ok ? broad.realpath.path : null,
         identities,
       )
     );
@@ -5338,8 +5342,8 @@ export function watchInputEvidenceMatchesBaseline(
       observation.realpath.ok &&
       broad.realpath.ok &&
       !sameHostInputRealpath(
-        observation.realpath.path ?? null,
-        broad.realpath.path ?? null,
+        observation.realpath.path,
+        broad.realpath.path,
         identities,
       )
     ) {
@@ -5349,25 +5353,102 @@ export function watchInputEvidenceMatchesBaseline(
   return true;
 }
 
-/** Return a validated broad baseline, including for untrusted JSON input. */
+/** Validate the complete narrow or broad shape stored in a key baseline. */
+export function isWatchInputKeyBaseline(
+  baseline: unknown,
+): baseline is TtscWatchInputKeyBaseline {
+  if (!isPlainRecord(baseline)) return false;
+  const keys = Object.keys(baseline).sort();
+  if (
+    typeof baseline.fileExists !== "boolean" ||
+    typeof baseline.identity !== "string" ||
+    !isAbsoluteFilesystemPath(baseline.identity)
+  ) {
+    return false;
+  }
+  if (stableStringify(keys) === stableStringify(["fileExists", "identity"])) {
+    return true;
+  }
+  if (
+    stableStringify(keys) !==
+    stableStringify([
+      "directoryExists",
+      "fileExists",
+      "graphHash",
+      "graphReadHash",
+      "hostHash",
+      "identity",
+      "realpath",
+      "stat",
+    ])
+  ) {
+    return false;
+  }
+  if (
+    typeof baseline.directoryExists !== "boolean" ||
+    !isWatchInputStateHash(baseline.graphHash) ||
+    !(
+      baseline.graphReadHash === null || isContentHash(baseline.graphReadHash)
+    ) ||
+    !isWatchInputStateHash(baseline.hostHash) ||
+    !isWatchInputRealpathBaseline(baseline.realpath) ||
+    (baseline.stat !== "directory" &&
+      baseline.stat !== "file" &&
+      baseline.stat !== "missing")
+  ) {
+    return false;
+  }
+  return (
+    baseline.fileExists === (baseline.stat === "file") &&
+    baseline.directoryExists === (baseline.stat === "directory")
+  );
+}
+
+/** Whether an unknown value is one ordinary JSON object. */
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return false;
+  }
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
+}
+
+/** Whether one identity can name an absolute path on either supported syntax. */
+function isAbsoluteFilesystemPath(value: string): boolean {
+  return path.posix.isAbsolute(value) || path.win32.isAbsolute(value);
+}
+
+/** Whether a serialized hash is a content digest. */
+function isContentHash(value: unknown): value is string {
+  return typeof value === "string" && /^[0-9a-f]{64}$/.test(value);
+}
+
+/** Whether a baseline state is either a digest or the missing marker. */
+function isWatchInputStateHash(value: unknown): value is string {
+  return value === MISSING_INPUT_STATE || isContentHash(value);
+}
+
+/** Validate the serialized Realpath predicate as an exact discriminated union. */
+function isWatchInputRealpathBaseline(
+  value: unknown,
+): value is TtscWatchInputBaseline["realpath"] {
+  if (!isPlainRecord(value) || typeof value.ok !== "boolean") return false;
+  const keys = Object.keys(value).sort();
+  if (value.ok === false) {
+    return stableStringify(keys) === stableStringify(["ok"]);
+  }
+  return (
+    stableStringify(keys) === stableStringify(["ok", "path"]) &&
+    typeof value.path === "string" &&
+    isAbsoluteFilesystemPath(value.path)
+  );
+}
+
+/** Return a broad baseline after the complete entry has been validated. */
 function broadWatchInputBaseline(
   baseline: TtscWatchInputKeyBaseline,
 ): TtscWatchInputBaseline | undefined {
-  const value = baseline as Partial<TtscWatchInputBaseline>;
-  return typeof value.directoryExists === "boolean" &&
-    typeof value.graphHash === "string" &&
-    (typeof value.graphReadHash === "string" || value.graphReadHash === null) &&
-    typeof value.hostHash === "string" &&
-    typeof value.realpath === "object" &&
-    value.realpath !== null &&
-    typeof value.realpath.ok === "boolean" &&
-    (value.realpath.path === undefined ||
-      typeof value.realpath.path === "string") &&
-    (value.stat === "directory" ||
-      value.stat === "file" ||
-      value.stat === "missing")
-    ? (value as TtscWatchInputBaseline)
-    : undefined;
+  return "directoryExists" in baseline ? baseline : undefined;
 }
 
 /**
