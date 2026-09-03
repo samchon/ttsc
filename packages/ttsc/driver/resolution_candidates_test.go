@@ -184,6 +184,29 @@ func TestPackageTargetCandidatesMirrorCompilerPassesForTypeScriptTargets(t *test
     t.Fatalf("ESM typesVersions subpath gained CommonJS implicit candidates: %#v", extensionless)
   }
 
+  if err := os.WriteFile(
+    versionedManifest,
+    []byte(`{"type":"commonjs","typesVersions":{"*":{"*":["dist/root-versioned"]}}}`),
+    0o644,
+  ); err != nil {
+    t.Fatal(err)
+  }
+  preferred, _ = packageManifestCandidates(versionedRoot, "", esmContext, moduleCandidatePassPreferred)
+  fallback, _ = packageManifestCandidates(versionedRoot, "", esmContext, moduleCandidatePassFallback)
+  expectedPreferredRoot := pathsAt(versionedRoot,
+    "root-versioned.native.ts", "root-versioned.ts", "root-versioned.native.tsx", "root-versioned.tsx",
+    "root-versioned.native.d.ts", "root-versioned.d.ts",
+  )
+  expectedFallbackRoot := pathsAt(versionedRoot,
+    "root-versioned.native.js", "root-versioned.js", "root-versioned.native.jsx", "root-versioned.jsx",
+  )
+  if !reflect.DeepEqual(preferred, expectedPreferredRoot) {
+    t.Fatalf("CommonJS package-root typesVersions preferred candidates = %#v, want %#v", preferred, expectedPreferredRoot)
+  }
+  if !reflect.DeepEqual(fallback, expectedFallbackRoot) {
+    t.Fatalf("CommonJS package-root typesVersions fallback candidates = %#v, want %#v", fallback, expectedFallbackRoot)
+  }
+
   manifestRoot := filepath.Join(root, "manifest")
   if err := os.MkdirAll(manifestRoot, 0o755); err != nil {
     t.Fatal(err)
