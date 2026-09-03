@@ -153,7 +153,7 @@ export function createRealNativeEnvelopeFixture(
             "node_modules",
             "typed-dep",
             "dist",
-            "index.native.ts",
+            "index.d.native.ts",
           ),
         ],
         paths: [path.join(root, "paths", "value.native.ts")],

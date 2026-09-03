@@ -10,6 +10,7 @@ import (
   "github.com/microsoft/typescript-go/shim/ast"
   shimcore "github.com/microsoft/typescript-go/shim/core"
   "github.com/microsoft/typescript-go/shim/tsoptions"
+  shimtspath "github.com/microsoft/typescript-go/shim/tspath"
 )
 
 // ModuleResolutionContext carries the exact TypeScript-Go configuration for a
@@ -531,7 +532,17 @@ func packageTargetCandidates(root string, targets []packageTarget, context Modul
     if target.packageEntry && target.usesCommonJS {
       targetContext.Mode = shimcore.ResolutionModeCommonJS
     }
-    candidates = append(candidates, moduleFileCandidates(filepath.Join(root, filepath.FromSlash(targetPath)), targetContext, target.packageEntry)...)
+    candidate := filepath.Join(root, filepath.FromSlash(targetPath))
+    // A package field that already names a TypeScript implementation or
+    // declaration takes the resolver's direct `tryFile` branch. In particular,
+    // `index.d.ts` becomes `index.d.native.ts`, not `index.native.ts`: stripping
+    // the declaration extension and replaying the general JS replacement
+    // family invents probes the compiler never made and omits the one it did.
+    if shimtspath.HasImplementationTSFileExtension(candidate) || shimtspath.IsDeclarationFileName(candidate) {
+      candidates = append(candidates, moduleSuffixCandidates(candidate, targetContext)...)
+    } else {
+      candidates = append(candidates, moduleFileCandidates(candidate, targetContext, target.packageEntry)...)
+    }
   }
   return candidates
 }

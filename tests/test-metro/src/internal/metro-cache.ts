@@ -4,6 +4,7 @@ import {
   TestUnpluginRuntime,
 } from "@ttsc/testing";
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -522,6 +523,70 @@ export async function assertPrepareSnapshotCompactsWorkerFiles(): Promise<void> 
     }),
     "utf8",
   );
+  const compactionLock = path.join(
+    snapshotDirectory(root),
+    "snapshot-compaction.lock",
+  );
+  fs.mkdirSync(compactionLock);
+  fs.writeFileSync(
+    path.join(compactionLock, "owner.json"),
+    JSON.stringify({ pid: process.pid, token: "1".repeat(32) }),
+    "utf8",
+  );
+  try {
+    assert.match(
+      await prepareSnapshot(root),
+      /^nonce:[a-f0-9]{32}$/,
+      "a concurrent compactor must force this run onto a private key",
+    );
+    assert.equal(
+      readMainSnapshot(root).id,
+      identity,
+      "the contender must not rewrite the shared main snapshot",
+    );
+    assert.equal(
+      listWorkerSnapshots(root).length,
+      1,
+      "the contender must leave the owner's pending worker document intact",
+    );
+  } finally {
+    fs.rmSync(compactionLock, { force: true, recursive: true });
+  }
+
+  const exited = spawnSync(process.execPath, ["-e", ""], { stdio: "ignore" });
+  assert.equal(exited.status, 0);
+  const staleToken = "2".repeat(32);
+  fs.mkdirSync(compactionLock);
+  fs.writeFileSync(
+    path.join(compactionLock, "owner.json"),
+    JSON.stringify({ pid: exited.pid, token: staleToken }),
+    "utf8",
+  );
+  assert.match(
+    await prepareSnapshot(root),
+    /^nonce:[a-f0-9]{32}$/,
+    "the run that discovers a dead compactor must remain private",
+  );
+  assert.equal(
+    fs.existsSync(compactionLock),
+    false,
+    "a proven dead owner's lock must be moved away from the shared name",
+  );
+  assert.equal(
+    fs.existsSync(
+      path.join(
+        snapshotDirectory(root),
+        `.snapshot-compaction-stale-${staleToken}`,
+      ),
+    ),
+    true,
+    "dead-owner recovery must retain an election record for delayed contenders",
+  );
+  assert.equal(
+    listWorkerSnapshots(root).length,
+    1,
+    "dead-owner recovery must leave compaction to the next run",
+  );
   await prepareSnapshot(root);
   const main = readMainSnapshot(root);
   assert.equal(main.id, identity);
@@ -837,6 +902,43 @@ export async function assertTransformerRecordsImplicitDependencyGuards(): Promis
     stabilizedEpoch,
     "an unchanged proven run must preserve its snapshot epoch",
   );
+  const fingerprint = await TestMetroRuntime.loadFingerprint();
+
+  // The static project map enumerates config candidates at and below Metro's
+  // projectRoot, while nearest-config selection can continue above it. Every
+  // rejected ancestor candidate belongs in the same run baseline; otherwise a
+  // worker correctly reporting that selection path taints every unchanged run.
+  const ancestorRoot = createBareProject();
+  const ancestorApp = path.join(ancestorRoot, "packages", "app");
+  const ancestorSource = path.join(ancestorApp, "src", "index.ts");
+  fs.mkdirSync(path.dirname(ancestorSource), { recursive: true });
+  fs.writeFileSync(ancestorSource, "export const ancestor = true;\n", "utf8");
+  const ancestorRunId = await prepareSnapshot(ancestorApp);
+  fingerprint.computeProjectFingerprint({
+    projectRoot: ancestorApp,
+    runId: ancestorRunId,
+  });
+  const ancestorProject = fingerprint.resolveProjectView({
+    filename: ancestorSource,
+    projectRoot: ancestorApp,
+  });
+  fingerprint.createSnapshotRecorder(ancestorRunId).recordMany({
+    inputs: ancestorProject.discoveryInputs,
+    project: ancestorProject,
+  });
+  const ancestorWorker = JSON.parse(
+    fs.readFileSync(listWorkerSnapshots(ancestorApp)[0]!, "utf8"),
+  );
+  assert.equal(
+    ancestorWorker.tainted,
+    false,
+    "unchanged config candidates above projectRoot must match the static run baseline",
+  );
+  assert.deepEqual(
+    ancestorWorker.files,
+    [],
+    "ancestor discovery inputs already covered by the static key must not enter the durable snapshot",
+  );
 
   // Prove the process boundary itself. The static key sees a linked input, the
   // worker compiles the same bytes after that link becomes a real directory,
@@ -857,7 +959,6 @@ export async function assertTransformerRecordsImplicitDependencyGuards(): Promis
     abaDirectory,
     process.platform === "win32" ? "junction" : "dir",
   );
-  const fingerprint = await TestMetroRuntime.loadFingerprint();
   await prepareSnapshot(abaRoot);
   const seed = fingerprint.createSnapshotRecorder();
   seed.record({

@@ -22,12 +22,12 @@
  *
  * Snapshot layout: one main file carrying a random epoch id plus per-worker
  * files with unique names, so concurrent workers never race a shared write.
- * `withTtsc` (the single config process, before workers exist) compacts worker
- * files into the main file. Readers take the union of every file, reading the
- * worker files strictly before the main file: the compactor renames the merged
- * main into place strictly before deleting a worker file, so a worker file that
- * disappears mid-read is always already merged into the main the reader loads
- * afterwards.
+ * `withTtsc` compacts worker files into the main file before its workers exist,
+ * under a process-shared lock for builds using the same project cache. Readers
+ * take the union of every file, reading the worker files strictly before the
+ * main file: the compactor renames the merged main into place strictly before
+ * deleting a worker file, so a worker file that disappears mid-read is always
+ * already merged into the main the reader loads afterwards.
  *
  * Sound degradations, by design:
  *
@@ -88,6 +88,12 @@ const WORKER_SNAPSHOT_PREFIX = "graph-inputs.worker-";
 
 /** Prefix used after a compactor atomically claims an immutable worker file. */
 const CLAIMED_WORKER_SNAPSHOT_PREFIX = "graph-inputs.worker-claimed-";
+
+/** Directory lock serializing the one mutable main-snapshot rewrite. */
+const SNAPSHOT_COMPACTION_LOCK = "snapshot-compaction.lock";
+
+/** Complete owner record stored inside an atomically published lock. */
+const SNAPSHOT_COMPACTION_OWNER = "owner.json";
 
 /** Cache-key baseline file prefix, one immutable identity per Metro run. */
 const KEY_BASELINE_PREFIX = "key-baseline-";
@@ -426,12 +432,14 @@ function fingerprintProjectViews(props: {
     primary.base,
     props.projectDiscoveryFilesystem,
   );
-  const selectedAfter = resolveProjectTsconfig(primary.base, undefined);
+  const selectedAfter = resolveProjectView(props);
   if (
     !secondMap.complete ||
     !sameProjectMap(firstMap.files, secondMap.files) ||
     !sameProjectMap(firstMap.candidates, secondMap.candidates) ||
-    !samePath(primary.tsconfig, selectedAfter) ||
+    !samePath(primary.tsconfig, selectedAfter.tsconfig) ||
+    stableStringify(primary.discoveryInputs) !==
+      stableStringify(selectedAfter.discoveryInputs) ||
     projects.some(
       (project) =>
         stableStringify(readTsconfigSourceSnapshot(project.tsconfig)) !==
@@ -442,7 +450,18 @@ function fingerprintProjectViews(props: {
   }
   const routedRoots = projects.map((project) => project.roots[0]!);
   return {
-    discoveryInputs: firstMap.candidates,
+    // `findProjectTsconfigs` covers candidates at and below Metro's base. The
+    // primary nearest-config search can also cross above that base to a
+    // monorepo config, and every rejected candidate on that ancestor path is
+    // just as capable of changing the selected project. Keep both sets in the
+    // main-process baseline so a worker does not taint every unchanged run for
+    // reporting a candidate the static key itself used.
+    discoveryInputs: [
+      ...new Set([
+        ...primary.discoveryInputs.map((input) => input.file),
+        ...firstMap.candidates,
+      ]),
+    ].sort(),
     projects: projects.map((project, index) => {
       const root = routedRoots[index]!;
       const nestedRoots = routedRoots.filter(
@@ -706,17 +725,19 @@ function nonce(): string {
 }
 
 /**
- * Prepare the snapshot for a new run. Called from `withTtsc` in the single
- * Metro config process, before any worker exists: creates the main snapshot
- * (fresh epoch id) when missing or corrupt, compacts leftover worker files into
- * it, and sweeps unparseable worker files plus crash-leftover temp files. An
- * unparseable worker file's recordings are unrecoverable, so its removal mints
- * a fresh epoch id — every key that might have depended on the lost recordings
- * is soundly orphaned, and later runs stabilize instead of degrading to a nonce
- * forever. A failed rewrite leaves a recovery document outside the snapshot
- * directory and returns a non-reusable run token. The token crosses bundle and
- * process boundaries, so `getCacheKey` degrades to a nonce even when neither
- * snapshot location can persist the failure and an old main later reappears.
+ * Prepare the snapshot for a new run. Called from `withTtsc` before any worker
+ * exists: creates the main snapshot (fresh epoch id) when missing or corrupt,
+ * compacts leftover worker files into it, and sweeps unparseable worker files
+ * plus crash-leftover temp files. Concurrent config processes are serialized; a
+ * contender takes a non-reusable run token instead of racing the mutable main
+ * rewrite. An unparseable worker file's recordings are unrecoverable, so its
+ * removal mints a fresh epoch id — every key that might have depended on the
+ * lost recordings is soundly orphaned, and later runs stabilize instead of
+ * degrading to a nonce forever. A failed rewrite leaves a recovery document
+ * outside the snapshot directory and returns a non-reusable run token. The
+ * token crosses bundle and process boundaries, so `getCacheKey` degrades to a
+ * nonce even when neither snapshot location can persist the failure and an old
+ * main later reappears.
  */
 export function prepareSnapshot(projectRoot: string | undefined): string {
   const base = resolveFingerprintBase(projectRoot);
@@ -728,6 +749,7 @@ export function prepareSnapshot(projectRoot: string | undefined): string {
     version: SNAPSHOT_VERSION,
     volatile: false,
   };
+  let releaseCompactionLock: (() => void) | undefined;
   try {
     // A nonexistent base can never be a working Metro setup (Metro verifies
     // the project root exists), so preparing a snapshot there would only
@@ -737,6 +759,13 @@ export function prepareSnapshot(projectRoot: string | undefined): string {
     }
     const directory = snapshotDirectory(base);
     fs.mkdirSync(directory, { recursive: true });
+    releaseCompactionLock = acquireSnapshotCompactionLock(directory);
+    if (releaseCompactionLock === undefined) {
+      // Another Metro config process is already rewriting the mutable main
+      // snapshot. It owns all pending worker documents, while this run takes a
+      // private nonce and therefore cannot reuse or publish under a stale key.
+      return `${NON_REUSABLE_RUN_PREFIX}${runId}`;
+    }
     // Read the worker files strictly before the main file (see the module doc
     // comment): a concurrent compactor deletes a worker file only after the
     // merged main is renamed into place, so whatever this enumeration misses
@@ -809,8 +838,137 @@ export function prepareSnapshot(projectRoot: string | undefined): string {
       // The returned token carries the failure when neither on-disk location
       // can. No consumer may turn that token into a reusable cache key.
     }
+  } finally {
+    if (releaseCompactionLock !== undefined) {
+      try {
+        releaseCompactionLock();
+      } catch {
+        reusable = false;
+        try {
+          persistUnhealthySnapshot(base, pending);
+        } catch {
+          // The returned non-reusable token remains the final safety boundary.
+        }
+      }
+    }
   }
   return reusable ? runId : `${NON_REUSABLE_RUN_PREFIX}${runId}`;
+}
+
+/**
+ * Acquire the process-shared lock for the mutable main snapshot.
+ *
+ * A complete owner directory is published atomically, and no process waits
+ * while holding a reusable run identity. A contending process therefore
+ * degrades immediately to a nonce. The owner retires the directory atomically
+ * after every success or failure path has persisted its verdict.
+ */
+function acquireSnapshotCompactionLock(
+  directory: string,
+): (() => void) | undefined {
+  const lock = path.join(directory, SNAPSHOT_COMPACTION_LOCK);
+  const token = randomBytes(16).toString("hex");
+  const candidate = path.join(
+    directory,
+    `.snapshot-compaction-${process.pid.toString(36)}-${token}`,
+  );
+  let candidateCreated = false;
+  try {
+    fs.mkdirSync(candidate);
+    candidateCreated = true;
+    fs.writeFileSync(
+      path.join(candidate, SNAPSHOT_COMPACTION_OWNER),
+      JSON.stringify({ pid: process.pid, token }),
+      "utf8",
+    );
+    if (fs.existsSync(lock)) {
+      reapDeadSnapshotCompactionLock(lock);
+      return undefined;
+    }
+    fs.renameSync(candidate, lock);
+    candidateCreated = false;
+  } catch (error) {
+    if (fs.existsSync(lock)) {
+      reapDeadSnapshotCompactionLock(lock);
+      return undefined;
+    }
+    throw error;
+  } finally {
+    if (candidateCreated) {
+      fs.rmSync(candidate, { force: true, recursive: true });
+    }
+  }
+  return () => {
+    const owner = readSnapshotCompactionOwner(lock);
+    if (owner?.pid !== process.pid || owner.token !== token) {
+      throw new Error("Metro snapshot compaction lock ownership changed.");
+    }
+    const retired = path.join(
+      directory,
+      `.snapshot-compaction-released-${token}`,
+    );
+    fs.renameSync(lock, retired);
+    try {
+      fs.rmSync(retired, { force: true, recursive: true });
+    } catch {
+      // A retired owner cannot block or be confused with the fixed lock name.
+    }
+  };
+}
+
+/** Read a complete lock owner; malformed state remains a conservative lock. */
+function readSnapshotCompactionOwner(
+  lock: string,
+): { pid: number; token: string } | undefined {
+  try {
+    const value: unknown = JSON.parse(
+      fs.readFileSync(path.join(lock, SNAPSHOT_COMPACTION_OWNER), "utf8"),
+    );
+    if (typeof value !== "object" || value === null || Array.isArray(value)) {
+      return undefined;
+    }
+    const owner = value as Record<string, unknown>;
+    return Number.isSafeInteger(owner.pid) &&
+      (owner.pid as number) > 0 &&
+      typeof owner.token === "string" &&
+      /^[a-f0-9]{32}$/.test(owner.token)
+      ? { pid: owner.pid as number, token: owner.token }
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Remove a lock whose recorded process is proven dead.
+ *
+ * The dead owner's random token also names its quarantine. At most one
+ * contender can move the fixed lock there. The quarantine remains as a tiny
+ * election record, so a delayed contender can never move a newer owner's lock
+ * after the first contender has recovered the fixed name.
+ */
+function reapDeadSnapshotCompactionLock(lock: string): void {
+  const owner = readSnapshotCompactionOwner(lock);
+  if (owner === undefined || processIsAlive(owner.pid)) return;
+  const quarantine = path.join(
+    path.dirname(lock),
+    `.snapshot-compaction-stale-${owner.token}`,
+  );
+  try {
+    fs.renameSync(lock, quarantine);
+  } catch {
+    // Another contender recovered this owner, or the lock changed after read.
+  }
+}
+
+/** Treat every process-query failure except a definite missing PID as live. */
+function processIsAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    return (error as NodeJS.ErrnoException).code !== "ESRCH";
+  }
 }
 
 /**
