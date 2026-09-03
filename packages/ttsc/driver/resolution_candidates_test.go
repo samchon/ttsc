@@ -214,6 +214,56 @@ func TestPackageTargetCandidatesMirrorCompilerPassesForTypeScriptTargets(t *test
     t.Fatalf("CommonJS package-root typesVersions fallback candidates = %#v, want %#v", fallback, expectedFallbackRoot)
   }
 
+  if err := os.WriteFile(
+    versionedManifest,
+    []byte(`{"type":"module","typesVersions":{"*":{"foo/":["wrong-slash/*.js"],"f*r":["first/*.js"],"f*bar":["wrong-tie/*.js"],"*":["fallback/*.js"]}}}`),
+    0o644,
+  ); err != nil {
+    t.Fatal(err)
+  }
+  tied, _ := packageManifestCandidates(versionedRoot, "foobar", esmContext, moduleCandidatePassPreferred)
+  if len(tied) == 0 || tied[0] != filepath.Join(versionedRoot, "first", "ooba.native.js") {
+    t.Fatalf("typesVersions equal-prefix patterns lost declaration order: %#v", tied)
+  }
+  slash, _ := packageManifestCandidates(versionedRoot, "foo/baz", esmContext, moduleCandidatePassPreferred)
+  if len(slash) == 0 || slash[0] != filepath.Join(versionedRoot, "fallback", "foo", "baz.native.js") {
+    t.Fatalf("typesVersions accepted a non-exact trailing-slash key: %#v", slash)
+  }
+
+  if err := os.WriteFile(
+    versionedManifest,
+    []byte(`{"type":"module","typesVersions":{"*":null,">=0":{"*":["shadow/*.js"]}}}`),
+    0o644,
+  ); err != nil {
+    t.Fatal(err)
+  }
+  invalidVersion, _ := packageManifestCandidates(versionedRoot, "blocked", esmContext, moduleCandidatePassPreferred)
+  if len(invalidVersion) != 0 {
+    t.Fatalf("typesVersions continued after an invalid first matching range: %#v", invalidVersion)
+  }
+
+  if err := os.WriteFile(
+    versionedManifest,
+    []byte(`{"main":"../entry.js","type":"module","typesVersions":{"*":{"../entry.js":["wrong/*.js"]}}}`),
+    0o644,
+  ); err != nil {
+    t.Fatal(err)
+  }
+  outsidePreferred, _ := packageManifestCandidates(versionedRoot, "", esmContext, moduleCandidatePassPreferred)
+  outsideFallback, _ := packageManifestCandidates(versionedRoot, "", esmContext, moduleCandidatePassFallback)
+  expectedOutsidePreferred := pathsUnder(root,
+    "entry.native.ts", "entry.ts", "entry.native.tsx", "entry.tsx", "entry.native.d.ts", "entry.d.ts",
+  )
+  expectedOutsideFallback := pathsUnder(root,
+    "entry.native.js", "entry.js", "entry.native.jsx", "entry.jsx",
+  )
+  if !reflect.DeepEqual(outsidePreferred, expectedOutsidePreferred) {
+    t.Fatalf("outside-root package entry gained typesVersions preferred candidates: %#v, want %#v", outsidePreferred, expectedOutsidePreferred)
+  }
+  if !reflect.DeepEqual(outsideFallback, expectedOutsideFallback) {
+    t.Fatalf("outside-root package entry gained typesVersions fallback candidates: %#v, want %#v", outsideFallback, expectedOutsideFallback)
+  }
+
   manifestRoot := filepath.Join(root, "manifest")
   if err := os.MkdirAll(manifestRoot, 0o755); err != nil {
     t.Fatal(err)
@@ -250,13 +300,12 @@ func TestPackageTargetCandidatesMirrorCompilerPassesForTypeScriptTargets(t *test
     t.Fatalf("fallback package fields = %#v, want %#v", fallbackEntry, expectedFallbackEntry)
   }
 
-  explicitDirectory := moduleFileCandidates(filepath.Join(root, "folder.js"), context, true)
+  explicitDirectory := moduleFileCandidates(filepath.Join(root, "folder.mjs"), context, true)
   expectedExplicitDirectory := append(pathsUnder(root,
-    "folder.native.ts", "folder.ts", "folder.native.tsx", "folder.tsx",
-    "folder.native.d.ts", "folder.d.ts", "folder.native.js", "folder.js",
-    "folder.native.jsx", "folder.jsx",
-  ), filepath.Join(root, "folder.js", "package.json"))
-  expectedExplicitDirectory = append(expectedExplicitDirectory, pathsUnder(filepath.Join(root, "folder.js"),
+    "folder.native.mts", "folder.mts", "folder.native.d.mts", "folder.d.mts",
+    "folder.native.mjs", "folder.mjs",
+  ), filepath.Join(root, "folder.mjs", "package.json"))
+  expectedExplicitDirectory = append(expectedExplicitDirectory, pathsUnder(filepath.Join(root, "folder.mjs"),
     "index.native.ts", "index.ts", "index.native.tsx", "index.tsx",
     "index.native.d.ts", "index.d.ts", "index.native.js", "index.js",
     "index.native.jsx", "index.jsx",

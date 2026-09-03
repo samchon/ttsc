@@ -301,7 +301,12 @@ func moduleFileCandidatesForPass(base string, context ModuleResolutionContext, d
   if directoryMode == moduleDirectoryCandidatesPackageAndIndex {
     candidates = append(candidates, filepath.Join(directoryBase, "package.json"))
   }
-  for _, suffix := range suffixes {
+  indexSuffixes := []string{".ts", ".tsx", ".d.ts", ".js", ".jsx"}
+  if context.Options != nil && context.Options.NoDtsResolution == shimcore.TSTrue {
+    indexSuffixes = withoutDeclarationSuffixes(indexSuffixes)
+  }
+  indexSuffixes = suffixesForModuleCandidatePass(indexSuffixes, pass)
+  for _, suffix := range indexSuffixes {
     candidates = append(candidates, moduleSuffixCandidates(filepath.Join(directoryBase, "index"+suffix), context)...)
   }
   return candidates
@@ -576,8 +581,9 @@ func packageManifestCandidates(root, wildcard string, context ModuleResolutionCo
         typesVersionsWildcard = filepath.ToSlash(filepath.Clean(filepath.FromSlash(entry.path)))
       }
     }
-    if value, ok := decodePackageValue(manifest.TypesVersions); ok {
-      if paths, ok := matchingTypesVersionsPaths(value); ok {
+    useTypesVersions := wildcard != "" || entry.path == "" || packageTargetInsideRoot(root, entry.path)
+    if useTypesVersions {
+      if paths, ok := matchingTypesVersionsPaths(manifest.TypesVersions); ok {
         collectTypesVersionsTargets(paths, typesVersionsWildcard, wildcard == "" && usesCommonJS, &targets)
       }
     }
@@ -649,21 +655,47 @@ func collectPackageMappingTargets(value packageValue, request, wildcard string, 
   collectPackageTargets(value, wildcard, conditions, packageTargetMapping, false, targets)
 }
 
-func matchingTypesVersionsPaths(value packageValue) (packageValue, bool) {
-  for _, version := range value.object {
-    if !shimcore.TypeScriptVersionSatisfiesRange(version.key) {
-      continue
-    }
-    if version.value.object == nil {
+func packageTargetInsideRoot(root, target string) bool {
+  if filepath.IsAbs(target) || strings.Contains(target, "://") {
+    return false
+  }
+  relative, err := filepath.Rel(root, filepath.Join(root, filepath.FromSlash(target)))
+  return err == nil && relative != ".." && !strings.HasPrefix(relative, ".."+string(filepath.Separator))
+}
+
+func matchingTypesVersionsPaths(raw json.RawMessage) (packageValue, bool) {
+  trimmed := bytes.TrimSpace(raw)
+  if len(trimmed) == 0 || trimmed[0] != '{' {
+    return packageValue{}, false
+  }
+  decoder := json.NewDecoder(bytes.NewReader(trimmed))
+  if _, err := decoder.Token(); err != nil {
+    return packageValue{}, false
+  }
+  for decoder.More() {
+    token, err := decoder.Token()
+    key, keyOK := token.(string)
+    if err != nil || !keyOK {
       return packageValue{}, false
     }
-    return version.value, true
+    var child json.RawMessage
+    if decoder.Decode(&child) != nil {
+      return packageValue{}, false
+    }
+    if !shimcore.TypeScriptVersionSatisfiesRange(key) {
+      continue
+    }
+    value, ok := decodePackageValue(child)
+    if !ok || value.object == nil {
+      return packageValue{}, false
+    }
+    return value, true
   }
   return packageValue{}, false
 }
 
 func collectTypesVersionsTargets(paths packageValue, request string, usesCommonJS bool, targets *[]packageTarget) {
-  property, matched, ok := matchingPackageProperty(paths.object, request)
+  property, matched, ok := matchingTypesVersionsProperty(paths.object, request)
   if !ok || property.value.array == nil {
     return
   }
@@ -677,6 +709,35 @@ func collectTypesVersionsTargets(paths packageValue, request string, usesCommonJ
       })
     }
   }
+}
+
+func matchingTypesVersionsProperty(properties []packageProperty, request string) (packageProperty, string, bool) {
+  for _, property := range properties {
+    if !strings.ContainsRune(property.key, '*') && property.key == request {
+      return property, "", true
+    }
+  }
+  selected := -1
+  selectedPrefix := -1
+  selectedText := ""
+  for index, property := range properties {
+    star := strings.IndexByte(property.key, '*')
+    if star < 0 || strings.ContainsRune(property.key[star+1:], '*') || star <= selectedPrefix {
+      continue
+    }
+    prefix := property.key[:star]
+    suffix := property.key[star+1:]
+    if len(request) < len(prefix)+len(suffix) || !strings.HasPrefix(request, prefix) || !strings.HasSuffix(request, suffix) {
+      continue
+    }
+    selected = index
+    selectedPrefix = star
+    selectedText = request[len(prefix) : len(request)-len(suffix)]
+  }
+  if selected < 0 {
+    return packageProperty{}, "", false
+  }
+  return properties[selected], selectedText, true
 }
 
 func collectPackageTargets(value packageValue, wildcard string, conditions map[string]struct{}, kind packageTargetKind, usesCommonJS bool, targets *[]packageTarget) {
@@ -732,7 +793,7 @@ func decodePackageValue(raw json.RawMessage) (packageValue, bool) {
     if _, err := decoder.Token(); err != nil {
       return packageValue{}, false
     }
-    value := packageValue{}
+    value := packageValue{object: make([]packageProperty, 0)}
     for decoder.More() {
       token, err := decoder.Token()
       key, keyOK := token.(string)
