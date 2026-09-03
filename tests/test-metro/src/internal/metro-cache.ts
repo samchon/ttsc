@@ -68,6 +68,7 @@ function canEnforceReadOnlyDirectory(): boolean {
 function readMainSnapshot(root: string): {
   files: string[];
   id: string;
+  tainted: boolean;
   version: number;
   volatile: boolean;
 } {
@@ -102,9 +103,9 @@ function workerSnapshotFiles(root: string): string[] {
 }
 
 /** Run `prepareSnapshot` the way `withTtsc` does at config load. */
-export async function prepareSnapshot(root: string): Promise<void> {
+export async function prepareSnapshot(root: string): Promise<string> {
   const fingerprint = await TestMetroRuntime.loadFingerprint();
-  fingerprint.prepareSnapshot(root);
+  return fingerprint.prepareSnapshot(root);
 }
 
 /**
@@ -523,18 +524,17 @@ export async function assertPrepareSnapshotHealsCorruptWorkerFile(): Promise<voi
 }
 
 /**
- * Asserts the transformer records only out-of-walk inputs into the worker
- * snapshot: an in-project source is already covered by the project-walk half of
- * the fingerprint, and recording it would only bloat the snapshot.
+ * Asserts the transformer guards every implicit-project dependency against the
+ * exact main-process run baseline.
  *
- * "Out of walk" is decided by the resolved configuration rather than by
- * location. The walk hashes only files that could enter the program
- * (samchon/ttsc#1307), so the project's own tsconfig, package manifest and
- * plugin descriptor are out of walk too, and recording them is exactly how the
- * fingerprint keeps covering them. What must never appear is a project source,
- * which the walk does hash.
+ * The main-process static map is not available to a worker as evidence. A
+ * worker that reclassifies from its current filesystem can see a directory link
+ * replaced by a real directory after the key was computed and falsely claim
+ * that the earlier walk covered its inputs. Generation evidence compared with a
+ * run-specific baseline proves static coverage without duplicating normal
+ * project inputs, while a mismatch rotates the epoch.
  */
-export async function assertTransformerRecordsOnlyExternalInputs(): Promise<void> {
+export async function assertTransformerRecordsImplicitDependencyGuards(): Promise<void> {
   const shared = TestProject.tmpdir("ttsc-metro-shared-");
   const external = path.join(shared, "types.d.ts");
   fs.writeFileSync(external, "declare const marker: string;\n", "utf8");
@@ -542,45 +542,152 @@ export async function assertTransformerRecordsOnlyExternalInputs(): Promise<void
   const root = TestUnpluginProject.createProject({ plugins: [] });
   const inner = path.join(root, "src", "inner.d.ts");
   fs.writeFileSync(inner, "declare const inner: string;\n", "utf8");
-  await prepareSnapshot(root);
-  await TestMetroRuntime.runTransform({
-    options: {
-      upstreamTransformer: TestMetroRuntime.fakeUpstreamPathOnDisk(),
-      plugins: [
-        {
-          transform: "./plugin.cjs",
-          name: "reporter",
-          operation: "emit-dependencies",
-          dependencies: [
-            "src/inner.d.ts",
-            path.relative(root, external).split(path.sep).join("/"),
-          ],
-        },
-      ],
+  const options = {
+    upstreamTransformer: TestMetroRuntime.fakeUpstreamPathOnDisk(),
+    plugins: [
+      {
+        transform: "./plugin.cjs",
+        name: "reporter",
+        operation: "emit-dependencies",
+        dependencies: [
+          "src/inner.d.ts",
+          path.relative(root, external).split(path.sep).join("/"),
+        ],
+      },
+    ],
+  };
+  const firstRunId = await prepareSnapshot(root);
+  await TestMetroRuntime.withTransformerEnv(
+    options,
+    async (mod) => {
+      mod.getCacheKey({ projectRoot: root });
+      await mod.transform({
+        src: TestUnpluginProject.mainSource(root),
+        filename: "src/main.ts",
+        options: { projectRoot: root },
+      });
     },
-    params: {
-      src: TestUnpluginProject.mainSource(root),
-      filename: "src/main.ts",
-      options: { projectRoot: root },
-    },
-  });
-  // The exact set, not a lower bound: recording something extra is its own
-  // defect and `includes` would not catch it. The project's configuration
-  // inputs belong here now, because the walk hashes only files that could
-  // enter the program and these cannot (samchon/ttsc#1307).
+    firstRunId,
+  );
+  // The exact set, not a lower bound: the main baseline proves the in-project
+  // source and config, while every newly discovered external input is retained.
   assert.deepEqual(
     workerSnapshotFiles(root),
     [
       external,
       path.join(root, "package.json"),
       path.join(root, "plugin.cjs"),
-      path.join(root, "tsconfig.json"),
     ].sort(),
-    "exactly the out-of-walk inputs, and never a project source",
+    "exactly the inputs outside proven static coverage must remain as snapshot guards",
   );
-  assert.ok(
-    !workerSnapshotFiles(root).includes(inner),
-    "an in-project dependency the walk hashes must not be recorded",
+  const firstWorker = JSON.parse(
+    fs.readFileSync(listWorkerSnapshots(root)[0]!, "utf8"),
+  );
+  assert.equal(
+    firstWorker.tainted,
+    true,
+    "newly discovered inputs must rotate the epoch before their first reusable key",
+  );
+  await prepareSnapshot(root);
+  const stabilizedEpoch = readMainSnapshot(root).id;
+  const stableRunId = await prepareSnapshot(root);
+  await TestMetroRuntime.withTransformerEnv(
+    options,
+    async (mod) => {
+      mod.getCacheKey({ projectRoot: root });
+      await mod.transform({
+        src: TestUnpluginProject.mainSource(root),
+        filename: "src/main.ts",
+        options: { projectRoot: root },
+      });
+    },
+    stableRunId,
+  );
+  assert.equal(
+    JSON.parse(fs.readFileSync(listWorkerSnapshots(root)[0]!, "utf8")).tainted,
+    false,
+    "a complete unchanged baseline must stabilize instead of disabling cache reuse",
+  );
+  await prepareSnapshot(root);
+  assert.equal(
+    readMainSnapshot(root).id,
+    stabilizedEpoch,
+    "an unchanged proven run must preserve its snapshot epoch",
+  );
+
+  // Prove the process boundary itself. The static key sees a linked input, the
+  // worker compiles the same bytes after that link becomes a real directory,
+  // and the topology returns before the next run. Comparing paths or contents
+  // alone aliases A -> B -> A; comparing generation evidence with the exact
+  // run baseline taints the worker document and rotates the snapshot epoch.
+  const abaRoot = createBareProject();
+  const abaTarget = TestProject.tmpdir("ttsc-metro-baseline-target-");
+  const abaDirectory = path.join(abaRoot, "linked");
+  const abaInput = path.join(abaDirectory, "types.d.ts");
+  fs.writeFileSync(
+    path.join(abaTarget, "types.d.ts"),
+    "declare const aba: true;\n",
+    "utf8",
+  );
+  fs.symlinkSync(
+    abaTarget,
+    abaDirectory,
+    process.platform === "win32" ? "junction" : "dir",
+  );
+  const fingerprint = await TestMetroRuntime.loadFingerprint();
+  await prepareSnapshot(abaRoot);
+  const seed = fingerprint.createSnapshotRecorder();
+  seed.record({
+    input: abaInput,
+    project: fingerprint.resolveProjectView({ projectRoot: abaRoot }),
+  });
+  await prepareSnapshot(abaRoot);
+  const originalEpoch = readMainSnapshot(abaRoot).id;
+  const runId = await prepareSnapshot(abaRoot);
+  const keyedBefore = fingerprint.computeProjectFingerprint({
+    projectRoot: abaRoot,
+    runId,
+  });
+
+  fs.rmSync(abaDirectory, { force: true, recursive: true });
+  fs.mkdirSync(abaDirectory);
+  fs.writeFileSync(abaInput, "declare const aba: true;\n", "utf8");
+  const observed = fingerprint.captureWatchInputBaseline(abaInput);
+  assert.ok(observed);
+  const raced = fingerprint.createSnapshotRecorder(runId);
+  raced.recordMany({
+    inputs: [
+      {
+        evidence: {
+          identity: observed.identity,
+          missing: false,
+          state: { codec: "host", hash: observed.hostHash },
+        },
+        file: abaInput,
+      },
+    ],
+    project: fingerprint.resolveProjectView({
+      filename: abaInput,
+      projectRoot: abaRoot,
+    }),
+  });
+  const racedDocument = JSON.parse(
+    fs.readFileSync(listWorkerSnapshots(abaRoot)[0]!, "utf8"),
+  );
+  assert.equal(racedDocument.tainted, true);
+
+  fs.rmSync(abaDirectory, { force: true, recursive: true });
+  fs.symlinkSync(
+    abaTarget,
+    abaDirectory,
+    process.platform === "win32" ? "junction" : "dir",
+  );
+  await prepareSnapshot(abaRoot);
+  assert.notEqual(readMainSnapshot(abaRoot).id, originalEpoch);
+  assert.notEqual(
+    fingerprint.computeProjectFingerprint({ projectRoot: abaRoot }),
+    keyedBefore,
+    "an ABA topology race must never return to the contaminated static key",
   );
 }
 
@@ -766,18 +873,10 @@ export async function assertWithTtscPreparesTheSnapshot(): Promise<void> {
 /**
  * Asserts editing the project's tsconfig re-keys a run that has transformed.
  *
- * The project walk hashes only files that could enter the program
- * (samchon/ttsc#1307), and a tsconfig is not one, so the fingerprint reaches it
- * through the recorded out-of-walk snapshot instead. That routing works only if
- * the recorder and the walk ask the same membership policy: a permissive
- * `isProjectWalkPath` claims the walk already covers the tsconfig, the recorder
- * drops it, the walk does not hash it either, and it is covered nowhere.
- *
- * The failure that would cause is the quietest one this package has, since
- * Metro would serve transforms compiled under the previous compiler options
- * across runs with nothing to notice it by. A transform has to run first,
- * because an untransformed project has recorded nothing and has no cache
- * entries to serve either.
+ * The static fingerprint hashes the effective config graph directly, while the
+ * worker also retains each config as a derived input and compares its compiler
+ * state with the exact run baseline. This transformed-project case proves both
+ * routes agree rather than letting either one silently cover a different file.
  */
 export async function assertCacheKeyChangesWhenTheTsconfigChanges(): Promise<void> {
   const root = TestUnpluginProject.createProject();
@@ -971,6 +1070,24 @@ export async function assertMetroAsksTheAdaptersPolicy(): Promise<void> {
     }),
     "an explicit root project must not join the implicit nested-project map",
   );
+  const explicitConfigText = fs.readFileSync(leaf, "utf8");
+  const explicitConfig = JSON.parse(explicitConfigText) as {
+    compilerOptions?: Record<string, unknown>;
+  };
+  explicitConfig.compilerOptions = {
+    ...(explicitConfig.compilerOptions ?? {}),
+    target: "ES2020",
+  };
+  fs.writeFileSync(leaf, JSON.stringify(explicitConfig), "utf8");
+  assert.notEqual(
+    explicitKey,
+    fingerprint.computeProjectFingerprint({
+      explicitProject: leaf,
+      projectRoot: root,
+    }),
+    "an explicit project must fingerprint its config graph before any worker snapshot exists",
+  );
+  fs.writeFileSync(leaf, explicitConfigText, "utf8");
 
   fs.rmSync(nestedConfig);
   const missingConfigKey = fingerprint.computeProjectFingerprint({
@@ -1071,11 +1188,6 @@ export async function assertMetroAsksTheAdaptersPolicy(): Promise<void> {
     filename: sharedSource,
     projectRoot: root,
   });
-  assert.equal(
-    sharedProject.staticallyFingerprinted,
-    false,
-    "an implicit watchFolders project outside projectRoot cannot claim main-process map coverage",
-  );
 
   const linkedProjectTarget = TestProject.tmpdir("ttsc-metro-linked-project-");
   const linkedProject = path.join(root, "linked-project");
@@ -1106,30 +1218,49 @@ export async function assertMetroAsksTheAdaptersPolicy(): Promise<void> {
     filename: linkedSource,
     projectRoot: root,
   });
-  assert.equal(
-    linkedProjectView.staticallyFingerprinted,
-    false,
-    "an implicit project below a directory link cannot claim coverage from a non-following project map",
-  );
 
   const externalRecorder = fingerprint.createSnapshotRecorder();
-  externalRecorder.record({
-    input: sharedDependency,
+  externalRecorder.recordMany({
+    inputs: [...sharedProject.discoveryInputs, { file: sharedDependency }],
     project: sharedProject,
   });
-  externalRecorder.record({
-    input: linkedDependency,
+  externalRecorder.recordMany({
+    inputs: [...linkedProjectView.discoveryInputs, { file: linkedDependency }],
     project: linkedProjectView,
   });
   assert.deepEqual(
     workerSnapshotFiles(root),
-    [linkedDependency, sharedDependency].sort(),
-    "every input of an implicit project outside the static map must remain in the worker snapshot",
+    [
+      linkedDependency,
+      ...linkedProjectView.discoveryInputs.map((input: { file: string }) =>
+        path.resolve(input.file),
+      ),
+      sharedDependency,
+      ...sharedProject.discoveryInputs.map((input: { file: string }) =>
+        path.resolve(input.file),
+      ),
+    ].sort(),
+    "every dependency and project-selection candidate outside the static map must remain in the worker snapshot",
   );
   fingerprint.prepareSnapshot(root);
   const beforeSharedEdit = fingerprint.computeProjectFingerprint({
     projectRoot: root,
   });
+  const nearerSharedConfig = path.join(
+    path.dirname(sharedSource),
+    "tsconfig.json",
+  );
+  fs.writeFileSync(
+    nearerSharedConfig,
+    JSON.stringify({ extends: "../tsconfig.json", include: ["."] }),
+    "utf8",
+  );
+  assert.notEqual(
+    beforeSharedEdit,
+    fingerprint.computeProjectFingerprint({ projectRoot: root }),
+    "a nearer config appearing in an out-of-root watchFolders project must change the key before a worker runs",
+  );
+  fs.rmSync(nearerSharedConfig);
   fs.writeFileSync(sharedDependency, "export const dependency = 2;\n", "utf8");
   const afterSharedEdit = fingerprint.computeProjectFingerprint({
     projectRoot: root,
@@ -1207,7 +1338,7 @@ export async function assertMetroAsksTheAdaptersPolicy(): Promise<void> {
   );
 
   // A directory occupying an `extends` candidate can never be the config, so
-  // its children must not churn the memo.
+  // its children must not change the resolved policy.
   const declared = JSON.parse(fs.readFileSync(leaf, "utf8")) as object;
   fs.writeFileSync(
     leaf,
@@ -1218,10 +1349,10 @@ export async function assertMetroAsksTheAdaptersPolicy(): Promise<void> {
   const first = fingerprint.resolveProjectView({ projectRoot: root });
   fs.writeFileSync(path.join(root, "config", "note.txt"), "one", "utf8");
   const second = fingerprint.resolveProjectView({ projectRoot: root });
-  assert.equal(
+  assert.deepEqual(
     first.policy,
     second.policy,
-    "a file inside a directory occupying an extends candidate must not refresh the policy",
+    "a file inside a directory occupying an extends candidate must not change the policy",
   );
 
   // The other direction, and the one that makes the first safe to want: the
@@ -1237,10 +1368,10 @@ export async function assertMetroAsksTheAdaptersPolicy(): Promise<void> {
     "utf8",
   );
   const third = fingerprint.resolveProjectView({ projectRoot: root });
-  assert.notEqual(
+  assert.notDeepEqual(
     second.policy,
     third.policy,
-    "a config appearing at an extends candidate must refresh the policy",
+    "a config appearing at an extends candidate must change the policy",
   );
   assert.ok(
     third.policy.excludedDirectories.some((directory: string) =>
@@ -1255,10 +1386,10 @@ export async function assertMetroAsksTheAdaptersPolicy(): Promise<void> {
   // shared config keeps compiling under it.
   fs.rmSync(path.join(root, "config.json"));
   const fourth = fingerprint.resolveProjectView({ projectRoot: root });
-  assert.notEqual(
+  assert.notDeepEqual(
     third.policy,
     fourth.policy,
-    "a config disappearing from an extends candidate must refresh the policy",
+    "a config disappearing from an extends candidate must change the policy",
   );
   assert.ok(
     !fourth.policy.excludedDirectories.some((directory: string) =>

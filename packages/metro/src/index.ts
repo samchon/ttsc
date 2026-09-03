@@ -79,15 +79,16 @@ export function withTtsc<T extends MetroConfigLike>(
   config: T,
   options: TtscMetroOptions = {},
 ): T {
-  process.env[ENV_KEY] = serializeOptions(
-    inheritConfiguredTransformer(config, options),
-  );
   // Prepare the reference-graph snapshot backing the transformer's cache-key
   // fingerprint (see `core/fingerprint.ts`). This runs in the single Metro
   // config process before any worker exists, so it is the race-free moment to
   // mint the snapshot epoch and compact the previous run's worker files.
-  prepareSnapshot(
+  const snapshotRunId = prepareSnapshot(
     typeof config.projectRoot === "string" ? config.projectRoot : undefined,
+  );
+  process.env[ENV_KEY] = serializeOptions(
+    inheritConfiguredTransformer(config, options),
+    snapshotRunId,
   );
   return {
     ...config,

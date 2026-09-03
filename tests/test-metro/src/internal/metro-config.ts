@@ -120,7 +120,8 @@ export async function assertWithTtscPreservesExistingConfig(): Promise<void> {
  */
 export async function assertWithTtscPublishesWorkerEnv(): Promise<void> {
   await withCleanEnv(async () => {
-    const { ENV_KEY } = await TestMetroRuntime.loadOptions();
+    const { ENV_KEY, resolveOptionsFromEnv } =
+      await TestMetroRuntime.loadOptions();
     const { withTtsc } = await TestMetroRuntime.loadIndex();
 
     const projectRoot = tempProjectRoot();
@@ -128,14 +129,20 @@ export async function assertWithTtscPublishesWorkerEnv(): Promise<void> {
       { projectRoot, transformer: {} },
       { project: "tsconfig.build.json", exclude: ["__tests__"] },
     );
-    assert.deepEqual(JSON.parse(process.env[ENV_KEY] as string), {
-      project: "tsconfig.build.json",
-      exclude: ["__tests__"],
-    });
+    const configured = JSON.parse(process.env[ENV_KEY] as string);
+    assert.equal(configured.project, "tsconfig.build.json");
+    assert.deepEqual(configured.exclude, ["__tests__"]);
+    assert.match(configured.__snapshotRunId, /^[a-f0-9]{32}$/);
+    assert.equal(
+      resolveOptionsFromEnv().snapshotRunId,
+      configured.__snapshotRunId,
+    );
 
-    // No options still publishes an explicit (empty) payload, never undefined.
+    // No options still publishes the private run handshake, never undefined.
     withTtsc({ projectRoot, transformer: {} });
-    assert.equal(process.env[ENV_KEY], "{}");
+    const defaults = JSON.parse(process.env[ENV_KEY] as string);
+    assert.deepEqual(Object.keys(defaults), ["__snapshotRunId"]);
+    assert.match(defaults.__snapshotRunId, /^[a-f0-9]{32}$/);
   });
 }
 

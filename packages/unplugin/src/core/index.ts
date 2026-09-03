@@ -8,7 +8,9 @@ import { resolveOptions } from "./options";
 import { typescriptTransformSourcePattern } from "./sourceExtensions";
 import {
   beginTtscTransformBuild,
+  captureWatchInputBaseline,
   collectExternalInputHashes,
+  collectProjectInputHashSnapshot,
   collectProjectInputHashes,
   createTtscTransformCache,
   isDeclarationFile,
@@ -16,6 +18,7 @@ import {
   resetTtscTransformCache,
   stripQuery,
   transformTtsc,
+  watchInputEvidenceMatchesBaseline,
 } from "./transform";
 import { createViteServeMissingInputWatch } from "./viteServe";
 
@@ -311,9 +314,13 @@ export type {
   TtscProjectTreeDiscoveryFilesystem,
 } from "./projectDiscovery";
 export type {
+  TtscProjectInputHashSnapshot,
   TtscTransformFilesystemOperations,
   TtscTransformHooks,
+  TtscWatchInput,
+  TtscWatchInputBaseline,
   TtscWatchInputEvidence,
+  TtscWatchInputState,
 } from "./transform";
 export type {
   ITsconfigSourceSnapshotEntry,
@@ -326,7 +333,9 @@ export {
 } from "./tsconfigPaths";
 export {
   beginTtscTransformBuild,
+  captureWatchInputBaseline,
   collectExternalInputHashes,
+  collectProjectInputHashSnapshot,
   collectProjectInputHashes,
   createTtscTransformCache,
   isProjectWalkPath,
@@ -334,11 +343,11 @@ export {
   resolveOptions,
   transformTtsc,
   unplugin,
+  watchInputEvidenceMatchesBaseline,
 };
 export {
   findNearestProjectTsconfig,
   findProjectTsconfigs,
-  isIgnoredProjectDirectory,
 } from "./projectDiscovery";
 
 export default unplugin;

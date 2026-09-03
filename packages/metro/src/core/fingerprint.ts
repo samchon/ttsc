@@ -14,11 +14,11 @@
  *   `projectRoot` plus the resolved tsconfig's directory when it lies outside),
  *   hashed with the exact walk universe the `@ttsc/unplugin` transform core
  *   validates its own cache against.
- * - **Recorded out-of-walk inputs.** The transform core cannot walk files outside
- *   the roots or under ignored directories, but the host-owned reference graph
- *   (samchon/ttsc#718) reports them per transform. Workers record them into a
- *   snapshot under `node_modules/.cache/ttsc-metro`; the next run's
- *   `getCacheKey` re-hashes the recorded set.
+ * - **Recorded transform inputs.** The host-owned reference graph
+ *   (samchon/ttsc#718) reports each transform's derived inputs. Workers retain
+ *   them under `node_modules/.cache/ttsc-metro`, compare their generation state
+ *   with the exact main-process key baseline, and batch one durable write per
+ *   delivered module.
  *
  * Snapshot layout: one main file carrying a random epoch id plus per-worker
  * files with unique names, so concurrent workers never race a shared write.
@@ -43,19 +43,25 @@
  *   until a later run records the volatile declaration gone.
  * - A recorded input that disappears hashes as a stable `missing` marker, so
  *   deletion and reappearance both move the key.
+ * - A worker state that differs from the static key's run baseline taints the
+ *   observation; compaction rotates the epoch so even A -> B -> A cannot reuse
+ *   output stored under the earlier A key.
  */
 import {
-  collectExternalInputHashes,
-  collectProjectInputHashes,
+  captureWatchInputBaseline,
+  collectProjectInputHashSnapshot,
   findNearestProjectTsconfig,
   findProjectTsconfigs,
-  isIgnoredProjectDirectory,
-  isProjectWalkPath,
   mergeMembershipPolicyOverlay,
   readProjectMembershipPolicy,
   readTsconfigSourceSnapshot,
+  watchInputEvidenceMatchesBaseline,
 } from "@ttsc/unplugin/api";
-import type { TtscProjectTreeDiscoveryFilesystem } from "@ttsc/unplugin/api";
+import type {
+  TtscProjectTreeDiscoveryFilesystem,
+  TtscWatchInput,
+  TtscWatchInputBaseline,
+} from "@ttsc/unplugin/api";
 import { createHash, randomBytes } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -78,22 +84,36 @@ const WORKER_SNAPSHOT_PREFIX = "graph-inputs.worker-";
 /** Prefix used after a compactor atomically claims an immutable worker file. */
 const CLAIMED_WORKER_SNAPSHOT_PREFIX = "graph-inputs.worker-claimed-";
 
+/** Cache-key baseline file prefix, one immutable identity per Metro run. */
+const KEY_BASELINE_PREFIX = "key-baseline-";
+
 /** Union of the snapshot state readable on disk. */
 interface SnapshotState {
   /** Random epoch id minted when the main snapshot was created. */
   id: string;
-  /** Absolute paths of every recorded out-of-walk input. */
+  /** Absolute paths of every recorded derived transform input. */
   files: string[];
   /** Whether any recorded transform declared volatile output. */
   volatile: boolean;
+  /** Whether a transform observed state different from its run's static key. */
+  tainted: boolean;
 }
 
 /** Serialized shape of the main and worker snapshot files. */
 interface SnapshotDocument {
   files: string[];
   id?: string;
+  tainted: boolean;
   version: number;
   volatile: boolean;
+}
+
+/** Main-process input states that one Metro run's static key actually used. */
+interface KeyBaselineDocument {
+  inputs: Record<string, TtscWatchInputBaseline>;
+  runId: string;
+  staticInputs: string[];
+  version: number;
 }
 
 /** Snapshot documents discovered during one directory scan. */
@@ -130,8 +150,8 @@ export function resolveFingerprintBase(
  * already inside the base walk (an explicit out-of-root `project`, or a
  * monorepo-root tsconfig discovered above the app). Matching the transform
  * core's own validation universe keeps the invariant simple: everything the
- * core treats as an input is fingerprinted, either by a walk here or by the
- * recorded out-of-walk snapshot.
+ * core treats as an input is fingerprinted by the walk, the recorded snapshot,
+ * or both.
  */
 export function fingerprintRoots(
   base: string,
@@ -187,14 +207,14 @@ function projectViewRoots(
 export interface TtscMetroProjectView {
   /** The base directory both fingerprint sides agree on. */
   readonly base: string;
+  /** Config candidates observed while selecting this transform's project. */
+  readonly discoveryInputs: readonly TtscWatchInput[];
   /** The caller's explicit `project`, if any. */
   readonly explicitProject: string | undefined;
   /** The membership policy resolved for that project. */
   readonly policy: ReturnType<typeof readProjectMembershipPolicy>;
   /** The policy used by the routed static walk. */
   readonly walkPolicy: ReturnType<typeof readProjectMembershipPolicy>;
-  /** Whether the main-process project map can actually hash this project. */
-  readonly staticallyFingerprinted: boolean;
   /** Lexical roots whose fingerprint uses this project's policy. */
   readonly roots: readonly string[];
   /** The exact config selected for this project. */
@@ -204,6 +224,12 @@ export interface TtscMetroProjectView {
 /** One stable implicit-project view and the config graph that produced it. */
 interface TtscMetroFingerprintProjectView extends TtscMetroProjectView {
   readonly configSources: ReturnType<typeof readTsconfigSourceSnapshot>;
+}
+
+/** Stable routed projects plus every config candidate the map observed. */
+interface TtscMetroFingerprintProjectMap {
+  readonly discoveryInputs: readonly string[];
+  readonly projects: readonly TtscMetroFingerprintProjectView[];
 }
 
 /**
@@ -229,6 +255,7 @@ export function resolveProjectView(props: {
   return createProjectView({
     base,
     compilerOptions: props.compilerOptions,
+    discoveryStart: start,
     explicitProject,
     tsconfig,
   });
@@ -238,108 +265,96 @@ export function resolveProjectView(props: {
 function createProjectView(props: {
   base: string;
   compilerOptions?: Record<string, unknown>;
+  discoveryStart?: string;
   explicitProject: string | undefined;
   tsconfig: string;
 }): TtscMetroProjectView {
   const policy = membershipPolicy(props.tsconfig, props.compilerOptions);
   return {
     base: props.base,
+    discoveryInputs:
+      props.discoveryStart === undefined
+        ? []
+        : captureProjectDiscoveryInputs(
+            props.discoveryStart,
+            props.tsconfig,
+            props.explicitProject,
+          ),
     explicitProject: props.explicitProject,
     policy,
     roots: projectViewRoots(props.base, props.tsconfig, props.explicitProject),
-    staticallyFingerprinted:
-      props.explicitProject !== undefined ||
-      implicitProjectIsStaticallyFingerprinted(props.base, props.tsconfig),
     tsconfig: props.tsconfig,
     walkPolicy: policy,
   };
 }
 
-/**
- * The membership policy of one project, memoized per resolved tsconfig and
- * caller overlay.
- *
- * Every use of the walk pair has to ask the same policy, or the two halves
- * disagree about the same project. The walk hashes what the configuration can
- * admit, and `isProjectWalkPath` answers whether the walk covers a path, so a
- * permissive answer here would claim coverage the walk does not provide and the
- * input would be recorded nowhere at all (samchon/ttsc#1307).
- */
-const MEMBERSHIP_POLICIES = new Map<
-  string,
-  {
-    policy: ReturnType<typeof readProjectMembershipPolicy>;
-    sources: readonly string[];
-    stamp: string;
+/** Capture the config candidates whose state selected one worker project. */
+function captureProjectDiscoveryInputs(
+  start: string,
+  tsconfig: string,
+  explicitProject: string | undefined,
+): TtscWatchInput[] {
+  const selected = path.resolve(tsconfig);
+  const candidates: string[] = [];
+  if (explicitProject !== undefined) {
+    candidates.push(selected);
+  } else {
+    let current = path.resolve(start);
+    while (true) {
+      const candidate = path.join(current, "tsconfig.json");
+      candidates.push(candidate);
+      if (samePath(candidate, selected)) {
+        break;
+      }
+      const parent = path.dirname(current);
+      if (parent === current) {
+        if (!candidates.some((entry) => samePath(entry, selected))) {
+          candidates.push(selected);
+        }
+        break;
+      }
+      current = parent;
+    }
   }
->();
+  return candidates.map((file): TtscWatchInput => {
+    const baseline = captureWatchInputBaseline(file);
+    if (baseline === undefined) {
+      return { file };
+    }
+    return {
+      evidence: {
+        identity: baseline.identity,
+        missing: !baseline.fileExists,
+        state: {
+          codec: "predicates",
+          observation: { fileExists: baseline.fileExists },
+        },
+        unavailable: baseline.fileExists
+          ? undefined
+          : baseline.stat === "missing"
+            ? "missing"
+            : "not-file",
+      },
+      file,
+    };
+  });
+}
 
+/** Resolve one project policy from source rather than trusting metadata alone. */
 function membershipPolicy(
   tsconfig: string,
   compilerOptions?: Record<string, unknown>,
 ): ReturnType<typeof readProjectMembershipPolicy> {
-  // Keyed by the config's path and the caller's overlay, and never trusted on
-  // the key alone: a hit is served only while the config's own stamp still
-  // matches. A Metro worker outlives many runs, and this is consulted once per
-  // delivered file, so a memo that trusted its key would hold the policy a
-  // project had when the worker started. An edit adding `exclude` would then
-  // leave the worker judging a file in-walk while the next run's walk skipped
-  // it, which is precisely the both-sides-disagree hole this policy exists to
-  // close.
-  //
-  // The overlay belongs in the key rather than the stamp because it is part of
-  // the question, not part of any file: keyed by path alone the memo would hand
-  // a caller who passed `allowJs` the policy resolved for a caller who did not.
-  const key = [tsconfig, stableStringify(compilerOptions ?? {})].join(
-    String.fromCharCode(0),
-  );
-  const existing = MEMBERSHIP_POLICIES.get(key);
-  if (existing !== undefined && existing.stamp === stampOf(existing.sources)) {
-    return existing.policy;
-  }
-  // The caller's compiler-options overlay wins for the compile, so it has to
-  // win here too, exactly as it does in the adapter: a project given
-  // `allowJs: true` through `withTtsc` has a wider program than its tsconfig
-  // alone describes, and a narrower policy here would ask a different question
-  // about the same project (samchon/ttsc#1316).
-  const policy = mergeMembershipPolicyOverlay(
+  // The caller overlay wins here exactly as it does for the compile. Re-reading
+  // source is deliberate: a long-lived worker cannot validate config contents
+  // from mtime and size, because a same-stamp rewrite is legal on coarse or
+  // restored filesystems. `resolveProjectView` runs once per delivered module,
+  // and its result is shared by the batched recorder.
+  return mergeMembershipPolicyOverlay(
     readProjectMembershipPolicy(tsconfig),
     compilerOptions ?? {},
     path.dirname(path.resolve(tsconfig)),
   );
-  // Stamp the whole `extends` chain, not the leaf. Adding `exclude` to a shared
-  // `tsconfig.base.json` leaves the leaf's own mtime and size untouched while
-  // changing every answer the policy gives, so a leaf-only stamp would keep the
-  // worker on the pre-edit policy for its lifetime.
-  const sources =
-    policy.sources.length === 0 ? [tsconfig] : [...policy.sources];
-  MEMBERSHIP_POLICIES.set(key, {
-    policy,
-    sources,
-    stamp: stampOf(sources),
-  });
-  return policy;
-}
-
-/** A stamp over every config a policy was read from, in a stable order. */
-function stampOf(sources: readonly string[]): string {
-  return sources
-    .map((source) => {
-      try {
-        const stats = fs.statSync(source);
-        // A directory occupying a candidate path can never be the config, so it
-        // contributes its existence and not its modification time, which moves
-        // whenever any child is added or removed (samchon/ttsc#1316).
-        return stats.isDirectory()
-          ? `${source}:directory`
-          : `${source}:${stats.mtimeMs}:${stats.size}`;
-      } catch {
-        // Absent now. `readProjectMembershipPolicy` answers for that too, and
-        // the policy must be re-asked once the config appears.
-        return `${source}:absent`;
-      }
-    })
-    .join("|");
 }
 
 /**
@@ -380,10 +395,13 @@ function fingerprintProjectViews(props: {
   explicitProject?: string;
   projectDiscoveryFilesystem?: TtscProjectTreeDiscoveryFilesystem;
   projectRoot?: string;
-}): TtscMetroFingerprintProjectView[] {
+}): TtscMetroFingerprintProjectMap {
   const primary = resolveProjectView(props);
   if (primary.explicitProject !== undefined) {
-    return [{ ...primary, configSources: [] }];
+    return {
+      discoveryInputs: [primary.tsconfig],
+      projects: [stableFingerprintProjectView(primary, props.compilerOptions)],
+    };
   }
   const firstMap = findProjectTsconfigs(
     primary.base,
@@ -422,6 +440,7 @@ function fingerprintProjectViews(props: {
   if (
     !secondMap.complete ||
     !sameProjectMap(firstMap.files, secondMap.files) ||
+    !sameProjectMap(firstMap.candidates, secondMap.candidates) ||
     !samePath(primary.tsconfig, selectedAfter) ||
     projects.some(
       (project) =>
@@ -432,27 +451,30 @@ function fingerprintProjectViews(props: {
     throw new Error("Metro's implicit TypeScript project map changed.");
   }
   const routedRoots = projects.map((project) => project.roots[0]!);
-  return projects.map((project, index) => {
-    const root = routedRoots[index]!;
-    const nestedRoots = routedRoots.filter(
-      (candidate, candidateIndex) =>
-        candidateIndex !== index &&
-        !samePath(candidate, root) &&
-        pathIsWithin(candidate, root),
-    );
-    return nestedRoots.length === 0
-      ? project
-      : {
-          ...project,
-          walkPolicy: {
-            ...project.policy,
-            excludedDirectories: [
-              ...project.policy.excludedDirectories,
-              ...nestedRoots,
-            ],
-          },
-        };
-  });
+  return {
+    discoveryInputs: firstMap.candidates,
+    projects: projects.map((project, index) => {
+      const root = routedRoots[index]!;
+      const nestedRoots = routedRoots.filter(
+        (candidate, candidateIndex) =>
+          candidateIndex !== index &&
+          !samePath(candidate, root) &&
+          pathIsWithin(candidate, root),
+      );
+      return nestedRoots.length === 0
+        ? project
+        : {
+            ...project,
+            walkPolicy: {
+              ...project.policy,
+              excludedDirectories: [
+                ...project.policy.excludedDirectories,
+                ...nestedRoots,
+              ],
+            },
+          };
+    }),
+  };
 }
 
 /** Read one implicit project's policy between equal complete config snapshots. */
@@ -464,7 +486,7 @@ function stableFingerprintProjectView(
   const refreshed = createProjectView({
     base: project.base,
     compilerOptions,
-    explicitProject: undefined,
+    explicitProject: project.explicitProject,
     tsconfig: project.tsconfig,
   });
   const after = readTsconfigSourceSnapshot(project.tsconfig);
@@ -494,46 +516,6 @@ function samePath(left: string, right: string): boolean {
   return path.relative(path.resolve(left), path.resolve(right)) === "";
 }
 
-/** Whether the main-process implicit map can reach one selected config. */
-function implicitProjectIsStaticallyFingerprinted(
-  base: string,
-  tsconfig: string,
-): boolean {
-  const resolvedBase = path.resolve(base);
-  const resolvedConfig = path.resolve(tsconfig);
-  const directory = path.dirname(resolvedConfig);
-  const relative = path.relative(resolvedBase, directory);
-  if (
-    relative === "" ||
-    (relative !== ".." &&
-      !relative.startsWith(`..${path.sep}`) &&
-      !path.isAbsolute(relative))
-  ) {
-    let current = resolvedBase;
-    try {
-      for (const segment of relative.split(path.sep).filter(Boolean)) {
-        if (isIgnoredProjectDirectory(segment)) {
-          return false;
-        }
-        current = path.join(current, segment);
-        const stats = fs.lstatSync(current);
-        if (stats.isSymbolicLink() || !stats.isDirectory()) {
-          return false;
-        }
-      }
-      if (fs.statSync(resolvedConfig).isFile()) {
-        return true;
-      }
-    } catch {
-      return false;
-    }
-  }
-  return samePath(
-    resolvedConfig,
-    resolveProjectTsconfig(resolvedBase, undefined),
-  );
-}
-
 /** Whether one resolved path lies at or below another. */
 function pathIsWithin(child: string, parent: string): boolean {
   const relative = path.relative(path.resolve(parent), path.resolve(child));
@@ -556,76 +538,148 @@ export function computeProjectFingerprint(props: {
   /** Test seam for proving that incomplete implicit enumeration fails closed. */
   projectDiscoveryFilesystem?: TtscProjectTreeDiscoveryFilesystem;
   projectRoot?: string;
+  /** Private identity transported from `withTtsc` to this Metro run. */
+  runId?: string;
 }): string {
   try {
     const base = resolveFingerprintBase(props.projectRoot);
+    const before = observeProjectFingerprint(props);
+    const after = observeProjectFingerprint(props);
+    if (stableStringify(before) !== stableStringify(after)) {
+      throw new Error("Metro's project fingerprint changed while observed.");
+    }
+    if (props.runId !== undefined) {
+      writeKeyBaseline(base, props.runId, after.inputs, after.staticInputs);
+    }
     const hash = createHash("sha256");
-    // Judge the fingerprint's walk by the same configuration the compile
-    // does. Metro folds this into one static key, so an entry the program
-    // could never contain used to re-key every transformed file rather than
-    // costing one compile the way it does for a bundler (samchon/ttsc#1307).
-    //
-    // The caller's compiler-options overlay is part of that configuration, and
-    // has to reach the walk as well as the recorder. The two are the halves of
-    // one cache key and run in different processes, so they agree only by
-    // deriving from the same declared options: a walk resolved without the
-    // overlay while the recorder resolves with it leaves an overlay-admitted
-    // input in neither half, which is the both-sides-disagree hole in its
-    // quietest form (samchon/ttsc#1316).
-    const projects = fingerprintProjectViews({
-      compilerOptions: props.compilerOptions,
-      explicitProject: props.explicitProject,
-      projectDiscoveryFilesystem: props.projectDiscoveryFilesystem,
-      projectRoot: props.projectRoot,
-    });
-    const configSources = new Map<string, string>();
-    for (const project of projects) {
-      for (const source of project.configSources) {
-        const existing = configSources.get(source.path);
-        if (existing !== undefined && existing !== source.contents) {
-          throw new Error("A TypeScript config changed during fingerprinting.");
-        }
-        configSources.set(source.path, source.contents!);
-      }
-      for (const root of project.roots) {
-        hash.update(
-          stableStringify({
-            inputs: collectProjectInputHashes(
-              root,
-              undefined,
-              undefined,
-              project.walkPolicy,
-            ),
-            root,
-            tsconfig: project.tsconfig,
-          }),
-        );
-      }
-    }
-    if (configSources.size !== 0) {
-      hash.update(
-        stableStringify(
-          [...configSources].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)),
-        ),
-      );
-    }
-    const snapshot = readSnapshotState(base);
-    if (snapshot === undefined || snapshot.volatile) {
-      hash.update(nonce());
-    } else {
-      hash.update(`snapshot:${snapshot.id}`);
-      hash.update(stableStringify(collectExternalInputHashes(snapshot.files)));
-    }
+    hash.update(stableStringify(after.fingerprint));
     return hash.digest("hex");
   } catch {
     return nonce();
   }
 }
 
+/** One coherent static-key observation and the paths it proves. */
+interface ProjectFingerprintObservation {
+  fingerprint: unknown;
+  inputs: Record<string, TtscWatchInputBaseline>;
+  staticInputs: string[];
+}
+
+/** Build the complete value hashed by one static key. */
+function observeProjectFingerprint(props: {
+  compilerOptions?: Record<string, unknown>;
+  explicitProject?: string;
+  projectDiscoveryFilesystem?: TtscProjectTreeDiscoveryFilesystem;
+  projectRoot?: string;
+}): ProjectFingerprintObservation {
+  // Judge the fingerprint's walk by the same configuration the compile does.
+  // The caller overlay reaches this walk and the worker through the same
+  // serialized options, so neither side can silently describe another program.
+  const projectMap = fingerprintProjectViews(props);
+  const inputs: Record<string, TtscWatchInputBaseline> = {};
+  const staticInputs = new Set<string>();
+  const configSources = new Map<
+    string,
+    { contents: string; identity: string }
+  >();
+  const projectFingerprints: unknown[] = [];
+  for (const candidate of projectMap.discoveryInputs) {
+    addBaselineInput(inputs, candidate, staticInputs);
+  }
+  for (const project of projectMap.projects) {
+    for (const source of project.configSources) {
+      const existing = configSources.get(source.path);
+      if (existing !== undefined && existing.contents !== source.contents) {
+        throw new Error("A TypeScript config changed during fingerprinting.");
+      }
+      const baseline = addBaselineInput(inputs, source.path, staticInputs);
+      configSources.set(source.path, {
+        contents: source.contents!,
+        identity: baseline.identity,
+      });
+    }
+    for (const root of project.roots) {
+      const snapshot = collectProjectInputHashSnapshot(
+        root,
+        undefined,
+        undefined,
+        project.walkPolicy,
+      );
+      if (!snapshot.complete) {
+        throw new Error("Unable to read a complete Metro project walk.");
+      }
+      const fingerprintedInputs: Record<
+        string,
+        { hash: string; identity: string }
+      > = {};
+      for (const [key, expected] of Object.entries(snapshot.hashes)) {
+        const file = path.resolve(root, key);
+        const baseline = addBaselineInput(inputs, file, staticInputs);
+        if (baseline.hostHash !== expected) {
+          throw new Error("A Metro project input changed while fingerprinted.");
+        }
+        fingerprintedInputs[key] = {
+          hash: expected,
+          identity: baseline.identity,
+        };
+      }
+      projectFingerprints.push({
+        inputs: fingerprintedInputs,
+        root,
+        tsconfig: project.tsconfig,
+      });
+    }
+  }
+  const snapshot = readSnapshotState(resolveFingerprintBase(props.projectRoot));
+  if (snapshot === undefined || snapshot.volatile || snapshot.tainted) {
+    throw new Error("Metro's recorded transform snapshot is not reusable.");
+  }
+  const recorded: Record<string, string> = {};
+  for (const file of snapshot.files) {
+    const baseline = addBaselineInput(inputs, file);
+    recorded[baseline.identity] = baseline.hostHash;
+  }
+  return {
+    fingerprint: {
+      configSources: [...configSources].sort(([a], [b]) =>
+        a < b ? -1 : a > b ? 1 : 0,
+      ),
+      projects: projectFingerprints,
+      snapshot: { id: snapshot.id, inputs: recorded },
+    },
+    inputs,
+    staticInputs: [...staticInputs].sort(),
+  };
+}
+
+/** Add one lexical path's stable broad state to a key baseline. */
+function addBaselineInput(
+  inputs: Record<string, TtscWatchInputBaseline>,
+  file: string,
+  staticInputs?: Set<string>,
+): TtscWatchInputBaseline {
+  const key = snapshotPathKey(file);
+  const observed = captureWatchInputBaseline(file);
+  if (observed === undefined) {
+    throw new Error("Unable to read a stable Metro input baseline.");
+  }
+  const existing = inputs[key];
+  if (
+    existing !== undefined &&
+    stableStringify(existing) !== stableStringify(observed)
+  ) {
+    throw new Error("A Metro input changed between baseline observations.");
+  }
+  inputs[key] = observed;
+  staticInputs?.add(key);
+  return observed;
+}
+
 /**
  * A value no other run can reproduce. Folding it means this run's cache entries
  * are written but never reused by later runs, and this run reuses nothing from
- * earlier ones — the sound fallback whenever the recorded out-of-walk input set
+ * earlier ones — the sound fallback whenever the recorded transform input set
  * is unknown or unrepresentable.
  */
 function nonce(): string {
@@ -645,11 +699,13 @@ function nonce(): string {
  * succeeds. If an older readable main exists and neither location is writable,
  * preparation throws instead of authorizing stale reuse.
  */
-export function prepareSnapshot(projectRoot: string | undefined): void {
+export function prepareSnapshot(projectRoot: string | undefined): string {
   const base = resolveFingerprintBase(projectRoot);
+  const runId = randomBytes(16).toString("hex");
   let hadReadableMain = false;
   let pending: SnapshotDocument = {
     files: [],
+    tainted: false,
     version: SNAPSHOT_VERSION,
     volatile: false,
   };
@@ -658,7 +714,7 @@ export function prepareSnapshot(projectRoot: string | undefined): void {
     // the project root exists), so preparing a snapshot there would only
     // materialize directory trees at arbitrary paths.
     if (!fs.existsSync(base)) {
-      return;
+      return runId;
     }
     const directory = snapshotDirectory(base);
     fs.mkdirSync(directory, { recursive: true });
@@ -676,6 +732,7 @@ export function prepareSnapshot(projectRoot: string | undefined): void {
     hadReadableMain = main !== undefined && typeof main.id === "string";
     const files = new Set(main?.files ?? []);
     const observations = [...recovery.entries, ...workers.entries];
+    const tainted = observations.some((entry) => entry.tainted);
     const volatile =
       observations.length === 0
         ? (main?.volatile ?? false)
@@ -695,9 +752,10 @@ export function prepareSnapshot(projectRoot: string | undefined): void {
     pending = {
       files: [...files].sort(),
       id:
-        !recovering && workers.corruptPaths.length === 0
+        !recovering && workers.corruptPaths.length === 0 && !tainted
           ? (main?.id ?? randomBytes(16).toString("hex"))
           : randomBytes(16).toString("hex"),
+      tainted: false,
       version: SNAPSHOT_VERSION,
       volatile,
     };
@@ -708,6 +766,7 @@ export function prepareSnapshot(projectRoot: string | undefined): void {
       ...recovery.paths,
       ...recovery.corruptPaths,
       ...listTemporaryFiles(directory),
+      ...listExpiredKeyBaselines(directory),
     ]) {
       try {
         fs.rmSync(file, { force: true });
@@ -736,6 +795,7 @@ export function prepareSnapshot(projectRoot: string | undefined): void {
       }
     }
   }
+  return runId;
 }
 
 /**
@@ -750,6 +810,29 @@ function listTemporaryFiles(directory: string): string[] {
     return fs
       .readdirSync(directory)
       .filter((name) => name.endsWith(".tmp"))
+      .map((name) => path.join(directory, name))
+      .filter((file) => {
+        try {
+          return fs.statSync(file).mtimeMs < horizon;
+        } catch {
+          return false;
+        }
+      });
+  } catch {
+    return [];
+  }
+}
+
+/** Old run baselines that cannot belong to an ordinary live Metro session. */
+function listExpiredKeyBaselines(directory: string): string[] {
+  const horizon = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  try {
+    return fs
+      .readdirSync(directory)
+      .filter(
+        (name) =>
+          name.startsWith(KEY_BASELINE_PREFIX) && name.endsWith(".json"),
+      )
       .map((name) => path.join(directory, name))
       .filter((file) => {
         try {
@@ -792,26 +875,27 @@ export function readSnapshotState(base: string): SnapshotState | undefined {
   }
   const files = new Set(main.files);
   let volatile = main.volatile;
+  let tainted = main.tainted;
   for (const entry of workers.entries) {
     for (const file of entry.files) {
       files.add(file);
     }
     volatile ||= entry.volatile;
+    tainted ||= entry.tainted;
   }
-  return { files: [...files].sort(), id: main.id, volatile };
+  return { files: [...files].sort(), id: main.id, tainted, volatile };
 }
 
 /**
- * Recorder held by each Metro worker. It persists out-of-walk watch inputs and
- * missing in-walk paths delivered through the transform core's `addWatchFile`
- * hook, plus any volatile declaration. Existing in-walk files stay covered by
- * the project walk; a missing path must be retained because its creation is a
- * state change that the initial walk could not hash. A clean in-walk transform
- * also writes a document so it can clear a volatile declaration from an earlier
- * run. The unique name makes worker writes race-free; `withTtsc` compacts the
- * files on the next run.
+ * Recorder held by each Metro worker. It persists every derived watch input and
+ * any volatile declaration, compares compiler-generation evidence with the
+ * matching main-process run baseline, and marks any temporal mismatch tainted.
+ * A clean transform also writes a document so it can clear a volatile
+ * declaration from an earlier run. One cumulative document is flushed per
+ * delivered module; the unique name makes worker writes race-free, and
+ * `withTtsc` compacts the files on the next run.
  */
-export function createSnapshotRecorder(): {
+export function createSnapshotRecorder(runId?: string): {
   record: (props: {
     input: string;
     /**
@@ -826,13 +910,13 @@ export function createSnapshotRecorder(): {
      * compiler-options overlay reached one half and not the other, and the
      * input was then covered by neither (samchon/ttsc#1316).
      *
-     * Resolving it once per transform is also what makes it affordable.
-     * `record` runs once per watch input rather than once per file, and
-     * validating the memo means stat-ing the whole `extends` chain, measured at
-     * 12 microseconds per stat — a few thousand modules times fifteen inputs
-     * each cost over half a second per run for an answer that cannot change
-     * between two inputs of one file.
+     * Resolving it once per transform also keeps every entry in the module's
+     * batch attached to the exact same config graph and policy.
      */
+    project: TtscMetroProjectView;
+  }) => void;
+  recordMany: (props: {
+    inputs: readonly TtscWatchInput[];
     project: TtscMetroProjectView;
   }) => void;
   recordVolatile: (props: { project: TtscMetroProjectView }) => void;
@@ -842,34 +926,46 @@ export function createSnapshotRecorder(): {
     dirty: boolean;
     files: Set<string>;
     observed: boolean;
+    tainted: boolean;
     volatile: boolean;
   }
   const states = new Map<string, BaseState>();
-  const implicitInputProjects = new Map<string, string>();
+  const baselines = new Map<string, KeyBaselineDocument | null>();
+  const baselineStaticInputs = new Map<string, Set<string>>();
 
-  function belongsToProjectWalk(
-    input: string,
-    project: TtscMetroProjectView,
-  ): boolean {
-    if (
-      !project.staticallyFingerprinted ||
-      !project.roots.some((root) =>
-        isProjectWalkPath(root, input, undefined, undefined, project.policy),
-      )
-    ) {
-      return false;
+  function keyBaselineCoverage(
+    input: TtscWatchInput,
+    base: string,
+  ): { matches: boolean; static: boolean } {
+    // Direct recorder users without the private run handshake retain the
+    // historical path-only behavior. Production always receives a run id from
+    // `withTtsc`; an absent or unreadable matching baseline then fails closed.
+    if (runId === undefined) {
+      return { matches: true, static: false };
     }
-    if (project.explicitProject !== undefined) {
-      return true;
+    let baseline = baselines.get(base);
+    if (baseline === undefined) {
+      baseline = readKeyBaseline(base, runId) ?? null;
+      baselines.set(base, baseline);
+      baselineStaticInputs.set(base, new Set(baseline?.staticInputs ?? []));
     }
-    const directory = path.dirname(input);
-    const key = `${project.base}${String.fromCharCode(0)}${directory}`;
-    let selected = implicitInputProjects.get(key);
-    if (selected === undefined) {
-      selected = resolveProjectTsconfig(directory, undefined);
-      implicitInputProjects.set(key, selected);
+    const key = snapshotPathKey(input.file);
+    const expected = baseline?.inputs[key];
+    try {
+      const matches =
+        expected !== undefined &&
+        input.evidence !== undefined &&
+        watchInputEvidenceMatchesBaseline(input.evidence, expected);
+      return {
+        matches,
+        static:
+          matches &&
+          baseline !== null &&
+          baselineStaticInputs.get(base)?.has(key) === true,
+      };
+    } catch {
+      return { matches: false, static: false };
     }
-    return path.resolve(selected) === path.resolve(project.tsconfig);
   }
 
   function stateFor(project: TtscMetroProjectView): BaseState {
@@ -880,6 +976,7 @@ export function createSnapshotRecorder(): {
         dirty: false,
         files: new Set(),
         observed: false,
+        tainted: false,
         volatile: false,
       };
       states.set(base, state);
@@ -893,6 +990,7 @@ export function createSnapshotRecorder(): {
     }
     const document: SnapshotDocument = {
       files: [...state.files].sort(),
+      tainted: state.tainted,
       version: SNAPSHOT_VERSION,
       volatile: state.volatile,
     };
@@ -920,30 +1018,41 @@ export function createSnapshotRecorder(): {
     }
   }
 
+  function recordMany(props: {
+    inputs: readonly TtscWatchInput[];
+    project: TtscMetroProjectView;
+  }): void {
+    const base = props.project.base;
+    const state = stateFor(props.project);
+    const firstObservation = !state.observed;
+    state.observed = true;
+    for (const input of props.inputs) {
+      const file = path.resolve(input.file);
+      const coverage = keyBaselineCoverage({ ...input, file }, base);
+      if (!coverage.matches) {
+        state.tainted = true;
+      }
+      if (!coverage.static && !state.files.has(file)) {
+        state.files.add(file);
+        state.dirty = true;
+      }
+    }
+    // A clean empty delivery must still clear a volatile verdict from the
+    // preceding run. Persist once for the whole module, not once per input.
+    if (firstObservation || state.tainted) {
+      state.dirty = true;
+    }
+    flush(base, state);
+  }
+
   return {
     record(props) {
-      const base = props.project.base;
-      const state = stateFor(props.project);
-      const input = path.resolve(props.input);
-      const firstObservation = !state.observed;
-      state.observed = true;
-      if (
-        state.files.has(input) ||
-        (fs.existsSync(input) && belongsToProjectWalk(input, props.project))
-      ) {
-        // Even when every input belongs to the project walk, the worker must
-        // publish that it performed a clean transform. Otherwise an old main
-        // snapshot with `volatile: true` remains sticky forever.
-        if (firstObservation || state.dirty) {
-          state.dirty = true;
-          flush(base, state);
-        }
-        return;
-      }
-      state.files.add(input);
-      state.dirty = true;
-      flush(base, state);
+      recordMany({
+        inputs: [{ file: props.input }],
+        project: props.project,
+      });
     },
+    recordMany,
     recordVolatile(props) {
       const base = props.project.base;
       const state = stateFor(props.project);
@@ -956,6 +1065,84 @@ export function createSnapshotRecorder(): {
       flush(base, state);
     },
   };
+}
+
+/** Filesystem-keyed lexical spelling used by main and worker processes. */
+function snapshotPathKey(file: string): string {
+  const resolved = path.resolve(file);
+  return process.platform === "win32" ? resolved.toLowerCase() : resolved;
+}
+
+/** Persist the exact filesystem state one run's static key observed. */
+function writeKeyBaseline(
+  base: string,
+  runId: string,
+  inputs: Record<string, TtscWatchInputBaseline>,
+  staticInputs: string[],
+): void {
+  if (!/^[a-f0-9]{32}$/.test(runId)) {
+    throw new Error("Invalid Metro snapshot run identity.");
+  }
+  const file = path.join(
+    snapshotDirectory(base),
+    `${KEY_BASELINE_PREFIX}${runId}.json`,
+  );
+  if (fs.existsSync(file)) {
+    const existing = readKeyBaseline(base, runId);
+    if (
+      existing === undefined ||
+      stableStringify(existing.inputs) !== stableStringify(inputs) ||
+      stableStringify(existing.staticInputs) !== stableStringify(staticInputs)
+    ) {
+      throw new Error("A Metro run attempted to replace its key baseline.");
+    }
+    return;
+  }
+  writeSnapshotDocument(file, {
+    inputs,
+    runId,
+    staticInputs,
+    version: SNAPSHOT_VERSION,
+  });
+}
+
+/** Read only the immutable baseline belonging to this worker's run. */
+function readKeyBaseline(
+  base: string,
+  runId: string,
+): KeyBaselineDocument | undefined {
+  if (!/^[a-f0-9]{32}$/.test(runId)) {
+    return undefined;
+  }
+  try {
+    const value: unknown = JSON.parse(
+      fs.readFileSync(
+        path.join(
+          snapshotDirectory(base),
+          `${KEY_BASELINE_PREFIX}${runId}.json`,
+        ),
+        "utf8",
+      ),
+    );
+    if (typeof value !== "object" || value === null || Array.isArray(value)) {
+      return undefined;
+    }
+    const document = value as Record<string, unknown>;
+    if (
+      document.version !== SNAPSHOT_VERSION ||
+      document.runId !== runId ||
+      typeof document.inputs !== "object" ||
+      document.inputs === null ||
+      Array.isArray(document.inputs) ||
+      !Array.isArray(document.staticInputs) ||
+      document.staticInputs.some((entry) => typeof entry !== "string")
+    ) {
+      return undefined;
+    }
+    return value as KeyBaselineDocument;
+  } catch {
+    return undefined;
+  }
 }
 
 function snapshotDirectory(base: string): string {
@@ -1140,13 +1327,17 @@ function parseSnapshotDocument(text: string): SnapshotDocument | undefined {
       (entry): entry is string => typeof entry === "string",
     ),
     ...(typeof document.id === "string" ? { id: document.id } : {}),
+    tainted: document.tainted === true,
     version: SNAPSHOT_VERSION,
     volatile: document.volatile === true,
   };
 }
 
 /** Write a snapshot document atomically (unique temp file, then rename). */
-function writeSnapshotDocument(file: string, document: SnapshotDocument): void {
+function writeSnapshotDocument(
+  file: string,
+  document: SnapshotDocument | KeyBaselineDocument,
+): void {
   const temp = `${file}.${randomBytes(6).toString("hex")}.tmp`;
   try {
     fs.writeFileSync(temp, JSON.stringify(document), "utf8");

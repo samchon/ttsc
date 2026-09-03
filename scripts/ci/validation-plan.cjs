@@ -197,7 +197,7 @@ const LANES = [
       // and folds the project walk into a cache key, so they exercise that
       // reader over Windows path spellings from the consumer's side.
       "pnpm --filter @ttsc/test-metro start -- " +
-      "--include=cache_key --include=records_only_external " +
+      "--include=cache_key --include=records_implicit_dependency_guards " +
       "--include=records_linked --include=adapters_policy",
   },
   {

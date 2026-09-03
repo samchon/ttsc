@@ -145,6 +145,7 @@ export async function assertAFailedCompileWatchesAndReportsPlainly(): Promise<vo
   const module = fixture.modules[0]!;
 
   const deliver = async (): Promise<{
+    batches: number;
     error: Error | undefined;
     evidence: unknown[];
     watched: string[];
@@ -153,6 +154,7 @@ export async function assertAFailedCompileWatchesAndReportsPlainly(): Promise<vo
     api.beginTtscTransformBuild(cache);
     const watched: string[] = [];
     const evidence: unknown[] = [];
+    let batches = 0;
     let error: Error | undefined;
     try {
       await api.transformTtsc(
@@ -162,9 +164,14 @@ export async function assertAFailedCompileWatchesAndReportsPlainly(): Promise<vo
         undefined,
         cache,
         {
-          addWatchFile: (input: string, supplied?: unknown) => {
-            watched.push(input);
-            evidence.push(supplied);
+          addWatchFiles: (
+            inputs: readonly { evidence?: unknown; file: string }[],
+          ) => {
+            batches += 1;
+            for (const input of inputs) {
+              watched.push(input.file);
+              evidence.push(input.evidence);
+            }
           },
         },
       );
@@ -173,7 +180,7 @@ export async function assertAFailedCompileWatchesAndReportsPlainly(): Promise<vo
     } finally {
       api.resetTtscTransformCache(cache);
     }
-    return { error, evidence, watched };
+    return { batches, error, evidence, watched };
   };
 
   const healthy = await deliver();
@@ -181,6 +188,11 @@ export async function assertAFailedCompileWatchesAndReportsPlainly(): Promise<vo
   assert.ok(
     healthy.watched.length > 0,
     "a healthy delivery registers its derived watch inputs",
+  );
+  assert.equal(
+    healthy.batches,
+    1,
+    "watch inputs must be delivered in one batch",
   );
   assert.ok(
     healthy.evidence.some((supplied) => supplied !== undefined),
@@ -195,6 +207,14 @@ export async function assertAFailedCompileWatchesAndReportsPlainly(): Promise<vo
       ),
     "watch evidence must preserve the public missing boolean for custom hosts",
   );
+  assert.ok(
+    healthy.evidence
+      .filter((supplied) => supplied !== undefined)
+      .every(
+        (supplied) => (supplied as { state?: unknown }).state !== undefined,
+      ),
+    "a healthy watch input must carry the generation state used by Metro's run baseline",
+  );
 
   // A genuine type error, in a file nothing imports at runtime, so no bundler
   // module graph would carry it.
@@ -206,6 +226,7 @@ export async function assertAFailedCompileWatchesAndReportsPlainly(): Promise<vo
     failed.watched.length > 0,
     "a failed delivery must still register the inputs a fix would touch",
   );
+  assert.equal(failed.batches, 1, "failed inputs must also use one batch");
   assert.ok(
     failed.watched.some((input) => path.resolve(input) === broken),
     "the file the diagnostics name must be among them",

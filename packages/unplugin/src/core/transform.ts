@@ -728,8 +728,47 @@ export interface TtscWatchInputEvidence {
   identity: string;
   /** Whether the generation recorded this input as unavailable as a file. */
   missing: boolean;
+  /** The generation state Metro can compare with its main-process baseline. */
+  state?: TtscWatchInputState;
   /** Which unavailable predicate must become true before invalidation. */
   unavailable?: "missing" | "not-file";
+}
+
+/** Exact generation state behind one derived watch input. */
+export type TtscWatchInputState =
+  | {
+      /** A project-walk or dependency-only input read as ordinary host bytes. */
+      codec: "host";
+      hash: string;
+    }
+  | {
+      /** A realized compiler-graph input, including its physical target. */
+      codec: "graph";
+      hash: string;
+      realpath: string | null;
+    }
+  | {
+      /** The exact compiler predicates observed for a speculative input. */
+      codec: "predicates";
+      observation: ITtscCompilerTransformation.IInputObservation;
+    };
+
+/** Main-process state broad enough to compare every watch-input codec. */
+export interface TtscWatchInputBaseline {
+  directoryExists: boolean;
+  fileExists: boolean;
+  graphHash: string;
+  graphReadHash: string | null;
+  hostHash: string;
+  identity: string;
+  realpath: { ok: boolean; path?: string };
+  stat: "directory" | "file" | "missing";
+}
+
+/** One derived input and its optional generation proof. */
+export interface TtscWatchInput {
+  evidence?: TtscWatchInputEvidence;
+  file: string;
 }
 
 /**
@@ -752,6 +791,12 @@ export interface TtscTransformHooks {
    * derivation.
    */
   addWatchFile?: (file: string, evidence?: TtscWatchInputEvidence) => void;
+  /**
+   * Batched form of {@link addWatchFile}. When supplied, the transform calls it
+   * once per delivered module and does not call `addWatchFile` for that
+   * module.
+   */
+  addWatchFiles?: (inputs: readonly TtscWatchInput[]) => void;
   /**
    * Invoked when the plugin declared the transformed file volatile (the
    * envelope's `volatile` list): its output depends on non-file inputs that no
@@ -1845,9 +1890,11 @@ function notifyFailedGenerationInputs(
   cached: TtscCachedProjectTransform,
 ): void {
   const addWatchFile = hooks?.addWatchFile;
-  if (addWatchFile === undefined) {
+  const addWatchFiles = hooks?.addWatchFiles;
+  if (addWatchFile === undefined && addWatchFiles === undefined) {
     return;
   }
+  const inputs: TtscWatchInput[] = [];
   for (const key of Object.keys(cached.inputHashes)) {
     const input = path.resolve(cached.projectRoot, key);
     if (isTransformScratchInput(input, cached.scratchDirectory)) {
@@ -1863,7 +1910,14 @@ function notifyFailedGenerationInputs(
     // watch on a path that does not exist registers nothing, and no module
     // graph carries a type-only input. It costs one `existsSync` per input,
     // and only where the adapter reads evidence at all, which is Vite serve.
-    addWatchFile(input);
+    inputs.push({ file: input });
+  }
+  if (addWatchFiles !== undefined) {
+    addWatchFiles(inputs);
+    return;
+  }
+  for (const input of inputs) {
+    addWatchFile!(input.file);
   }
 }
 
@@ -1873,23 +1927,23 @@ function notifyWatchInputs(
   file: string,
 ): void {
   const addWatchFile = hooks?.addWatchFile;
-  if (addWatchFile === undefined) {
+  const addWatchFiles = hooks?.addWatchFiles;
+  if (addWatchFile === undefined && addWatchFiles === undefined) {
     return;
   }
   const state = envelopeDerivation(cached);
   const external = cached.externalInputHashes ?? {};
-  for (const input of selectWatchInputs({
+  const inputs = selectWatchInputs({
     file,
     projectRoot: cached.projectRoot,
     result: cached.result,
     scratchDirectory: cached.scratchDirectory,
     temporaryTsconfig: cached.temporaryTsconfig,
-  })) {
+  }).map((input): TtscWatchInput => {
     // Hand the adapter the identity this generation already resolved and the
-    // existence state it already recorded. Both are memoized per generation,
-    // while an adapter deriving them itself pays a `realpath`, a directory
-    // listing, and an `existsSync` per input on every delivery of every module
-    // (samchon/ttsc#1246).
+    // exact state it already recorded. Both are memoized per generation, while
+    // an adapter deriving them itself pays repeated filesystem reads and can
+    // accidentally attach a later state to an earlier transform.
     const identity = derivationIdentity(state, input);
     const spelling = path.resolve(input);
     const observation = cached.externalInputObservations?.[spelling];
@@ -1897,16 +1951,60 @@ function notifyWatchInputs(
       observation?.fileExists === false ||
       state.graph?.inputProofs.get(spelling)?.hash === null ||
       external[identity] === MISSING_INPUT_STATE;
-    addWatchFile(input, {
+    const projectKey = toProjectKey(
+      cached.projectRoot,
+      input,
+      state.identityContext,
+    );
+    const externalHash = Object.prototype.hasOwnProperty.call(
+      external,
       identity,
-      missing,
-      unavailable:
-        observation?.fileExists === false
-          ? "not-file"
-          : missing
-            ? "missing"
-            : undefined,
-    });
+    )
+      ? external[identity]
+      : undefined;
+    const projectHash = Object.prototype.hasOwnProperty.call(
+      cached.inputHashes,
+      projectKey,
+    )
+      ? cached.inputHashes[projectKey]
+      : undefined;
+    const graphRealpaths = cached.externalInputRealpaths ?? {};
+    const stateEvidence: TtscWatchInputState | undefined =
+      observation !== undefined
+        ? { codec: "predicates", observation }
+        : externalHash !== undefined &&
+            Object.prototype.hasOwnProperty.call(graphRealpaths, identity)
+          ? {
+              codec: "graph",
+              hash: externalHash,
+              realpath: graphRealpaths[identity] ?? null,
+            }
+          : externalHash !== undefined
+            ? { codec: "host", hash: externalHash }
+            : projectHash !== undefined
+              ? { codec: "host", hash: projectHash }
+              : undefined;
+    return {
+      file: input,
+      evidence: {
+        identity,
+        missing,
+        ...(stateEvidence === undefined ? {} : { state: stateEvidence }),
+        unavailable:
+          observation?.fileExists === false
+            ? "not-file"
+            : missing
+              ? "missing"
+              : undefined,
+      },
+    };
+  });
+  if (addWatchFiles !== undefined) {
+    addWatchFiles(inputs);
+    return;
+  }
+  for (const input of inputs) {
+    addWatchFile!(input.file, input.evidence);
   }
 }
 
@@ -3931,7 +4029,31 @@ export function collectProjectInputHashes(
   filesystem: TtscTransformFilesystemOperations = DEFAULT_FILESYSTEM_OPERATIONS,
   policy?: ITtscProjectMembershipPolicy,
 ): Record<string, string> {
-  return collectProjectInputSnapshot(
+  return collectProjectInputHashSnapshot(
+    projectRoot,
+    identities,
+    filesystem,
+    policy,
+  ).hashes;
+}
+
+/** One project-walk hash set together with its completeness proof. */
+export interface TtscProjectInputHashSnapshot {
+  complete: boolean;
+  hashes: Record<string, string>;
+}
+
+/**
+ * Hash the project walk and retain whether every attempted directory and file
+ * was observed coherently. Cache-key hosts must reject an incomplete set.
+ */
+export function collectProjectInputHashSnapshot(
+  projectRoot: string,
+  identities: FilesystemPathIdentityContext = createHostPathIdentityContext(),
+  filesystem: TtscTransformFilesystemOperations = DEFAULT_FILESYSTEM_OPERATIONS,
+  policy?: ITtscProjectMembershipPolicy,
+): TtscProjectInputHashSnapshot {
+  const snapshot = collectProjectInputSnapshot(
     projectRoot,
     identities,
     filesystem,
@@ -3939,7 +4061,11 @@ export function collectProjectInputHashes(
     {
       policy,
     },
-  ).hashes;
+  );
+  return {
+    complete: snapshot.complete && snapshot.directoryComplete,
+    hashes: snapshot.hashes,
+  };
 }
 
 /** Hash project files and snapshot the directory topology in one walk. */
@@ -5071,6 +5197,105 @@ export function collectExternalInputHashes(
       hostInputStateHash(file, filesystem) ?? MISSING_INPUT_STATE;
   }
   return hashes;
+}
+
+/**
+ * Capture one stable main-process baseline that can be compared with any
+ * generation-owned watch-input evidence. Two equal broad observations are
+ * required so a cache key never publishes a torn path state.
+ */
+export function captureWatchInputBaseline(
+  file: string,
+  filesystem: TtscTransformFilesystemOperations = DEFAULT_FILESYSTEM_OPERATIONS,
+): TtscWatchInputBaseline | undefined {
+  const capture = (): TtscWatchInputBaseline => {
+    const identities = createHostPathIdentityContext(filesystem);
+    const stat = compilerStatKind(file, filesystem);
+    return {
+      directoryExists: stat === "directory",
+      fileExists: stat === "file",
+      graphHash: graphInputStateHash(file, filesystem) ?? MISSING_INPUT_STATE,
+      graphReadHash: graphInputReadHash(file, filesystem),
+      hostHash: hostInputStateHash(file, filesystem) ?? MISSING_INPUT_STATE,
+      identity: pathIdentityKey(file, identities),
+      realpath: compilerInputRealpathObservation(file, filesystem),
+      stat,
+    };
+  };
+  try {
+    const before = capture();
+    const after = capture();
+    return stableStringify(before) === stableStringify(after)
+      ? after
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Compare generation evidence with the main process's exact key baseline. */
+export function watchInputEvidenceMatchesBaseline(
+  evidence: TtscWatchInputEvidence,
+  baseline: TtscWatchInputBaseline,
+): boolean {
+  if (evidence.identity !== baseline.identity || evidence.state === undefined) {
+    return false;
+  }
+  if (evidence.state.codec === "host") {
+    return evidence.state.hash === baseline.hostHash;
+  }
+  const identities = createHostPathIdentityContext();
+  if (evidence.state.codec === "graph") {
+    return (
+      evidence.state.hash === baseline.graphHash &&
+      sameHostInputRealpath(
+        evidence.state.realpath,
+        baseline.realpath.ok ? (baseline.realpath.path ?? null) : null,
+        identities,
+      )
+    );
+  }
+  const observation = evidence.state.observation;
+  if (
+    observation.fileExists !== undefined &&
+    observation.fileExists !== baseline.fileExists
+  ) {
+    return false;
+  }
+  if (
+    observation.directoryExists !== undefined &&
+    observation.directoryExists !== baseline.directoryExists
+  ) {
+    return false;
+  }
+  if (observation.stat !== undefined && observation.stat !== baseline.stat) {
+    return false;
+  }
+  if (
+    observation.readFile !== undefined &&
+    ((observation.readFile.ok &&
+      observation.readFile.hash !== baseline.graphReadHash) ||
+      (!observation.readFile.ok && baseline.graphReadHash !== null))
+  ) {
+    return false;
+  }
+  if (observation.realpath !== undefined) {
+    if (observation.realpath.ok !== baseline.realpath.ok) {
+      return false;
+    }
+    if (
+      observation.realpath.ok &&
+      baseline.realpath.ok &&
+      !sameHostInputRealpath(
+        observation.realpath.path ?? null,
+        baseline.realpath.path ?? null,
+        identities,
+      )
+    ) {
+      return false;
+    }
+  }
+  return true;
 }
 
 /**

@@ -82,7 +82,7 @@ export function findNearestProjectTsconfig(
 export function findProjectTsconfigs(
   root: string,
   filesystem: TtscProjectTreeDiscoveryFilesystem = HOST_PROJECT_TREE_DISCOVERY_FILESYSTEM,
-): { complete: boolean; files: string[] } {
+): { candidates: string[]; complete: boolean; files: string[] } {
   const paths =
     filesystem.platform === undefined
       ? path
@@ -90,6 +90,7 @@ export function findProjectTsconfigs(
         ? path.win32
         : path.posix;
   const pending = [paths.resolve(root)];
+  const candidates: string[] = [];
   const files: string[] = [];
   let complete = true;
   while (pending.length !== 0) {
@@ -107,6 +108,7 @@ export function findProjectTsconfigs(
       }
     }
     const candidate = paths.join(directory, "tsconfig.json");
+    candidates.push(candidate);
     try {
       if (filesystem.stat(candidate).isFile()) {
         files.push(candidate);
@@ -118,6 +120,7 @@ export function findProjectTsconfigs(
       }
     }
   }
+  candidates.sort();
   files.sort();
-  return { complete, files };
+  return { candidates, complete, files };
 }

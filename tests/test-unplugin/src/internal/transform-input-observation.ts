@@ -423,6 +423,11 @@ function assertProjectTsconfigDiscovery(): void {
     },
   });
   assert.deepEqual(discovered, {
+    candidates: [
+      "/repo/packages/app/tsconfig.json",
+      "/repo/packages/tsconfig.json",
+      "/repo/tsconfig.json",
+    ],
     complete: true,
     files: ["/repo/packages/app/tsconfig.json", "/repo/tsconfig.json"],
   });
@@ -453,6 +458,11 @@ function assertProjectTsconfigDiscovery(): void {
       },
     }),
     {
+      candidates: [
+        "C:\\repo\\packages\\app\\tsconfig.json",
+        "C:\\repo\\packages\\tsconfig.json",
+        "C:\\repo\\tsconfig.json",
+      ],
       complete: true,
       files: [
         "C:\\repo\\packages\\app\\tsconfig.json",
@@ -482,7 +492,11 @@ function assertProjectTsconfigDiscovery(): void {
         return { isFile: () => true };
       },
     }),
-    { complete: false, files: ["/repo/tsconfig.json"] },
+    {
+      candidates: ["/repo/tsconfig.json"],
+      complete: false,
+      files: ["/repo/tsconfig.json"],
+    },
     "an unreadable subtree must refuse a complete reusable project map",
   );
 }

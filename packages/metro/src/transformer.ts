@@ -46,11 +46,17 @@ const nodeRequire = createRequire(import.meta.url);
 let resolved: ResolvedTtscMetroOptions | undefined;
 let unpluginOptions: ReturnType<typeof resolveOptions> | undefined;
 const cache = createTtscTransformCache();
-const snapshotRecorder = createSnapshotRecorder();
+let snapshotRecorder: ReturnType<typeof createSnapshotRecorder> | undefined;
 
 /** Lazily resolve the worker-side options (from {@link resolveOptionsFromEnv}). */
 function options(): ResolvedTtscMetroOptions {
   return (resolved ??= resolveOptionsFromEnv());
+}
+
+/** The recorder bound to the private run identity inherited by this worker. */
+function recorder(): ReturnType<typeof createSnapshotRecorder> {
+  const opts = options();
+  return (snapshotRecorder ??= createSnapshotRecorder(opts.snapshotRunId));
 }
 
 /**
@@ -121,10 +127,18 @@ export async function transform(params: {
       filename,
       projectRoot,
     });
+    // Freeze the implicit selection made above into this call. Re-running
+    // discovery inside the transform after a config candidate changes would
+    // attach one project's recorder evidence to another project's compiler
+    // output.
+    const transformOptions = {
+      ...unpluginOptions,
+      project: project.tsconfig,
+    };
     const result = await transformTtsc(
       filename,
       params.src,
-      unpluginOptions,
+      transformOptions,
       undefined,
       cache,
       {
@@ -139,11 +153,15 @@ export async function transform(params: {
         // memo means stat-ing the whole `extends` chain, which is an answer
         // that cannot change between two inputs of one file
         // (samchon/ttsc#1316).
-        addWatchFile: (input) => snapshotRecorder.record({ input, project }),
+        addWatchFiles: (inputs) =>
+          recorder().recordMany({
+            inputs: [...project.discoveryInputs, ...inputs],
+            project,
+          }),
         // A volatile declaration means the output depends on non-file inputs
         // that no file fingerprint can represent; the snapshot marks it and
         // getCacheKey degrades to a per-run nonce (no cross-run reuse).
-        markVolatile: () => snapshotRecorder.recordVolatile({ project }),
+        markVolatile: () => recorder().recordVolatile({ project }),
       },
     );
     // A file the program does not contain comes back as `undefined` from the
@@ -174,10 +192,9 @@ export async function transform(params: {
  *   transformer's own key (forwarded Metro's args, e.g. `projectRoot`, so a
  *   `babel.config.js` change still busts the cache);
  * - The project fingerprint (see `core/fingerprint.ts`): every input file under
- *   the project walk (tsconfig, plugin configs, type-only siblings) plus the
- *   recorded out-of-walk reference-graph members from previous transforms
- *   (`node_modules` declarations, monorepo sibling sources, out-of-root config
- *   ancestry).
+ *   the routed project walks, every effective config source, the previous
+ *   transforms' derived inputs, and the epoch that isolates a worker state
+ *   differing from this run's exact main-process baseline.
  *
  * A change to any fingerprinted input re-keys every transformed file at
  * project-level granularity, forced by Metro's single static key, replacing the
@@ -210,6 +227,7 @@ export function getCacheKey(...args: unknown[]): string {
       explicitProject:
         typeof opts.ttsc.project === "string" ? opts.ttsc.project : undefined,
       projectRoot: cacheKeyProjectRoot(args),
+      runId: opts.snapshotRunId,
     }),
   );
   return hash.digest("hex");
