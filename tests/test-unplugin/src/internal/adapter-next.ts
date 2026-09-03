@@ -224,6 +224,20 @@ export async function assertNextAdapterPreservesTurbopackConfig(): Promise<void>
   assert.equal(sharedRuleOutput.type, sharedRule.type);
   assert.deepEqual(sharedRuleOutput.futureSetting, sharedRule.futureSetting);
 
+  const noLoadersRule = {
+    as: "*.js",
+    futureSetting: { retained: true },
+    type: "typescript",
+  };
+  const noLoaders = next({
+    turbopack: { rules: { "*.ts": noLoadersRule } },
+  }).turbopack?.rules?.["*.ts"] as Record<string, unknown>;
+  assert.ok(!Array.isArray(noLoaders));
+  assert.equal(noLoaders.as, noLoadersRule.as);
+  assert.equal(noLoaders.type, noLoadersRule.type);
+  assert.deepEqual(noLoaders.futureSetting, noLoadersRule.futureSetting);
+  assert.equal(loadersOf(noLoaders).filter(isTtscLoader).length, 1);
+
   // Turbopack also accepts a bare array of loaders. Spreading that into an
   // object produced `{ "0": "other-loader", loaders: [...] }`, which Next's own
   // strict schema rejects as an unrecognized key.
@@ -241,6 +255,13 @@ export async function assertNextAdapterPreservesTurbopackConfig(): Promise<void>
   assert.equal(arrayLoaders.length, 2);
   assert.equal(arrayLoaders[0], "other-loader");
   assert.ok(isTtscLoader(arrayLoaders[1]));
+
+  const emptyCollection = next({
+    turbopack: { rules: { "*.ts": [] } },
+  }).turbopack?.rules?.["*.ts"];
+  assert.ok(Array.isArray(emptyCollection));
+  assert.equal(emptyCollection.length, 1);
+  assert.ok(isTtscLoader(emptyCollection[0]));
 
   const conditionalRule = {
     as: "*.js",
@@ -293,7 +314,10 @@ export async function assertNextAdapterPreservesTurbopackConfig(): Promise<void>
 
   const unrelated = path.join(
     path.dirname(LOADER_IDENTITIES[1]!),
-    "unrelated",
+    "..",
+    "..",
+    "ttsc",
+    "lib",
     "turbopack.js",
   );
   const unrelatedRule = next({
