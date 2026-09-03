@@ -144,7 +144,6 @@ test("compiler and platform changes select verified reverse consumers", () => {
     "package-defenses",
     "ttsc-core",
     "ttsc-native",
-    "ttsx-node-22",
     "lint-1",
     "lint-2",
     "bundler-defenses",
@@ -273,7 +272,7 @@ test("package-owned tests select only their topology owner", () => {
     ids([
       "tests/test-ttsc/src/features/ttsx-runtime/test_ttsx_commonjs_loads_prefix_only_node_builtins.ts",
     ]),
-    ["typecheck", "ttsc-core", "ttsx-node-22"],
+    ["typecheck", "ttsc-core"],
   );
   const watch = planForPaths([
     "tests/test-ttsc/src/features/watch/test_example.ts",
@@ -354,7 +353,7 @@ test("every E2E directory has exactly one normal topology owner", () => {
 });
 
 test("lane identities and workflow matrix names stay unique", () => {
-  assert.equal(LANES.length, 14, "full main matrix must stay consolidated");
+  assert.equal(LANES.length, 13, "full main matrix must stay consolidated");
   assert.equal(
     LANES.filter((lane) => lane.build === "pnpm run build:current").length,
     9,

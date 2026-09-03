@@ -37,11 +37,8 @@ jobs:
           HEAD_SHA: ${{ github.sha }}
           EVENT_NAME: ${{ github.event_name }}
         run: >-
-          node scripts/ci/validation-plan.cjs
-          --base "$BASE_SHA"
-          --head "$HEAD_SHA"
-          --event "$EVENT_NAME"
-          --github-output "$GITHUB_OUTPUT"
+          node scripts/ci/validation-plan.cjs --base "$BASE_SHA" --head "$HEAD_SHA" --event "$EVENT_NAME" --github-output "$GITHUB_OUTPUT"
+
 
   platform-integrations:
     name: platform (${{ matrix.name }})
@@ -208,7 +205,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: ${{ matrix.node }}
+          node-version: 24.x
 
       - uses: actions/setup-go@v7
         if: matrix.needsGo

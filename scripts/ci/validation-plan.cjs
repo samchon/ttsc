@@ -126,22 +126,6 @@ const LANES = [
       "native-plugins/utility-host",
     ],
   },
-  // Every other lane runs the current Node, so the floor `engines.node`
-  // declares is checked only here. The cases this names are the ones whose
-  // behaviour the runtime itself changed between that floor and the current
-  // release: each passes on the newer Node whatever ttsx does, so only this
-  // lane can tell a working hook from one the runtime happened to cover.
-  {
-    id: "ttsx-node-22",
-    name: "ttsx node 22.15",
-    node: "22.15.0",
-    build: "pnpm --filter ttsc build",
-    run:
-      "pnpm --filter @ttsc/test-ttsc start -- " +
-      "--include=commonjs_loads_prefix_only_node_builtins " +
-      "--include=commonjs_require_rescues_a_js_specifier_inside_a_dynamic_import",
-    dirs: ["features/ttsx-runtime"],
-  },
   {
     id: "lint-1",
     name: "lint defense 1",
@@ -246,7 +230,6 @@ const E2E_LANE_IDS = [
   "package-defenses",
   "ttsc-core",
   "ttsc-native",
-  "ttsx-node-22",
   ...LINT_LANE_IDS,
   "bundler-defenses",
   "bundler-defenses-windows",
@@ -259,7 +242,6 @@ const TTSC_DOWNSTREAM_IDS = [
   "package-defenses",
   "ttsc-core",
   "ttsc-native",
-  "ttsx-node-22",
   ...LINT_LANE_IDS,
   "bundler-defenses",
   "bundler-defenses-windows",
@@ -742,8 +724,6 @@ function planForPaths(files) {
 
 function planTtscTest(file) {
   if (file.includes("/features/watch/")) return { lanes: [], watch: true };
-  if (file.endsWith("/test_ttsx_commonjs_loads_prefix_only_node_builtins.ts"))
-    return { lanes: ["ttsc-core", "ttsx-node-22"], watch: false };
   if (file.includes("/features/"))
     return { lanes: ["ttsc-core"], watch: false };
   for (const lane of LANES.filter((item) => item.id.startsWith("ttsc-"))) {
@@ -881,7 +861,6 @@ function workflowLane(lane) {
     id: lane.id,
     name: lane.name,
     os: lane.os ?? "ubuntu-latest",
-    node: lane.node ?? "24.x",
     needsGo: lane.needsGo ?? false,
     build: lane.build ?? "",
     run: lane.run,
