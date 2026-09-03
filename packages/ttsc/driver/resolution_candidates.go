@@ -293,7 +293,7 @@ func moduleSuffixCandidates(path string, context ModuleResolutionContext) []stri
   if context.Options == nil || len(context.Options.ModuleSuffixes) == 0 {
     return []string{path}
   }
-  extension := filepath.Ext(path)
+  extension := shimtspath.TryGetExtensionFromPath(path)
   base := strings.TrimSuffix(path, extension)
   candidates := make([]string, 0, len(context.Options.ModuleSuffixes))
   for _, suffix := range context.Options.ModuleSuffixes {
@@ -533,16 +533,18 @@ func packageTargetCandidates(root string, targets []packageTarget, context Modul
       targetContext.Mode = shimcore.ResolutionModeCommonJS
     }
     candidate := filepath.Join(root, filepath.FromSlash(targetPath))
-    // A package field that already names a TypeScript implementation or
-    // declaration takes the resolver's direct `tryFile` branch. In particular,
-    // `index.d.ts` becomes `index.d.native.ts`, not `index.native.ts`: stripping
-    // the declaration extension and replaying the general JS replacement
-    // family invents probes the compiler never made and omits the one it did.
-    if shimtspath.HasImplementationTSFileExtension(candidate) || shimtspath.IsDeclarationFileName(candidate) {
+    // A package field that already names a TypeScript implementation, or a
+    // declaration while declaration resolution is enabled, first takes the
+    // resolver's direct `tryFile` branch. In particular, `index.d.ts` first
+    // becomes `index.native.d.ts`, not `index.native.ts`. If those direct probes
+    // miss, the resolver continues through its normal TS, declaration, and JS
+    // replacement passes, so retain that family after the direct prefix.
+    if shimtspath.HasImplementationTSFileExtension(candidate) ||
+      (shimtspath.IsDeclarationFileName(candidate) &&
+        (targetContext.Options == nil || targetContext.Options.NoDtsResolution != shimcore.TSTrue)) {
       candidates = append(candidates, moduleSuffixCandidates(candidate, targetContext)...)
-    } else {
-      candidates = append(candidates, moduleFileCandidates(candidate, targetContext, target.packageEntry)...)
     }
+    candidates = append(candidates, moduleFileCandidates(candidate, targetContext, target.packageEntry)...)
   }
   return candidates
 }
