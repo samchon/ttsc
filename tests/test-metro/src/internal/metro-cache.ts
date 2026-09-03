@@ -272,6 +272,7 @@ export async function assertCacheKeyChangesWhenRecordedExternalInputChanges(): P
       external,
       path.join(root, "package.json"),
       path.join(root, "plugin.cjs"),
+      path.join(root, "src", "tsconfig.json"),
       path.join(root, "tsconfig.json"),
     ].sort(),
     "exactly the out-of-walk inputs, and never a project source",
@@ -544,121 +545,204 @@ export async function assertPrepareSnapshotSkipsNonexistentRoot(): Promise<void>
 }
 
 /**
- * Asserts compaction heals a corrupt worker snapshot: the unparseable file is
- * swept and the epoch id changes, so keys that might have depended on the lost
- * recordings are orphaned while later runs return to a stable key instead of
- * degrading to a nonce forever.
+ * Asserts each malformed snapshot shape independently disables reuse and heals
+ * under a fresh epoch. Worker rows cover every serialized field invariant; main
+ * and recovery rows prove their distinct parser call paths too.
  */
 export async function assertPrepareSnapshotHealsCorruptWorkerFile(): Promise<void> {
-  const root = createBareProject();
-  await prepareSnapshot(root);
-  const identity = readMainSnapshot(root).id;
-  const absolute = path.join(root, "src", "app.ts");
-  const secondary = path.join(root, "src", "secondary.ts");
-  const unsorted = [absolute, secondary].sort().reverse();
-  const corruptDocuments = [
-    { name: "torn", value: "{ torn" },
+  for (const scenario of [
     {
-      name: "files",
-      value: JSON.stringify({
-        files: [absolute, 7],
-        tainted: false,
-        version: 2,
-        volatile: false,
-      }),
+      name: "torn JSON",
+      value: (absolute: string) => "{ torn",
     },
     {
-      name: "tainted",
-      value: JSON.stringify({
-        files: [absolute],
-        tainted: "true",
-        version: 2,
-        volatile: false,
-      }),
+      name: "non-string file",
+      value: (absolute: string) =>
+        JSON.stringify({
+          files: [absolute, 7],
+          tainted: false,
+          version: 2,
+          volatile: false,
+        }),
     },
     {
-      name: "volatile",
-      value: JSON.stringify({
-        files: [absolute],
-        tainted: false,
-        version: 2,
-        volatile: "true",
-      }),
+      name: "non-boolean taint",
+      value: (absolute: string) =>
+        JSON.stringify({
+          files: [absolute],
+          tainted: "true",
+          version: 2,
+          volatile: false,
+        }),
     },
     {
-      name: "identity",
-      value: JSON.stringify({
-        files: [absolute],
-        id: "not-a-snapshot-identity",
-        tainted: false,
-        version: 2,
-        volatile: false,
-      }),
+      name: "non-boolean volatility",
+      value: (absolute: string) =>
+        JSON.stringify({
+          files: [absolute],
+          tainted: false,
+          version: 2,
+          volatile: "true",
+        }),
     },
     {
-      name: "legacy-version",
-      value: JSON.stringify({
-        files: [absolute],
-        version: 1,
-        volatile: false,
-      }),
+      name: "invalid identity",
+      value: (absolute: string) =>
+        JSON.stringify({
+          files: [absolute],
+          id: "not-a-snapshot-identity",
+          tainted: false,
+          version: 2,
+          volatile: false,
+        }),
     },
     {
-      name: "relative-file",
-      value: JSON.stringify({
-        files: ["src/app.ts"],
-        tainted: false,
-        version: 2,
-        volatile: false,
-      }),
+      name: "legacy version",
+      value: (absolute: string) =>
+        JSON.stringify({
+          files: [absolute],
+          tainted: false,
+          version: 1,
+          volatile: false,
+        }),
     },
     {
-      name: "duplicate-file",
-      value: JSON.stringify({
-        files: [absolute, absolute],
-        tainted: false,
-        version: 2,
-        volatile: false,
-      }),
+      name: "relative file",
+      value: () =>
+        JSON.stringify({
+          files: ["src/app.ts"],
+          tainted: false,
+          version: 2,
+          volatile: false,
+        }),
     },
     {
-      name: "unsorted-files",
-      value: JSON.stringify({
-        files: unsorted,
-        tainted: false,
-        version: 2,
-        volatile: false,
-      }),
+      name: "duplicate file",
+      value: (absolute: string) =>
+        JSON.stringify({
+          files: [absolute, absolute],
+          tainted: false,
+          version: 2,
+          volatile: false,
+        }),
     },
     {
-      name: "foreign-field",
-      value: JSON.stringify({
-        files: [absolute],
-        foreign: true,
-        tainted: false,
-        version: 2,
-        volatile: false,
-      }),
+      name: "unsorted files",
+      value: (absolute: string, secondary: string) =>
+        JSON.stringify({
+          files: [absolute, secondary].sort().reverse(),
+          tainted: false,
+          version: 2,
+          volatile: false,
+        }),
     },
-  ].map(({ name, value }) => {
-    const file = path.join(
+    {
+      name: "foreign field",
+      value: (absolute: string) =>
+        JSON.stringify({
+          files: [absolute],
+          foreign: true,
+          tainted: false,
+          version: 2,
+          volatile: false,
+        }),
+    },
+  ]) {
+    const root = createBareProject();
+    await prepareSnapshot(root);
+    const identity = readMainSnapshot(root).id;
+    const corrupt = path.join(
       snapshotDirectory(root),
-      `graph-inputs.worker-${name}.json`,
+      "graph-inputs.worker-corrupt.json",
     );
-    fs.writeFileSync(file, value, "utf8");
-    return file;
-  });
-  // Until compaction, the unreadable recordings force the nonce degradation.
-  assert.notEqual(await cacheKeyForRun(root), await cacheKeyForRun(root));
-  await prepareSnapshot(root);
-  assert.equal(
-    corruptDocuments.every((file) => !fs.existsSync(file)),
-    true,
-    "every syntactically or structurally corrupt worker document must be swept",
+    fs.writeFileSync(
+      corrupt,
+      scenario.value(
+        path.join(root, "src", "app.ts"),
+        path.join(root, "src", "secondary.ts"),
+      ),
+      "utf8",
+    );
+    assert.notEqual(
+      await cacheKeyForRun(root),
+      await cacheKeyForRun(root),
+      `${scenario.name} worker state must disable reuse by itself`,
+    );
+    await prepareSnapshot(root);
+    assert.equal(
+      fs.existsSync(corrupt),
+      false,
+      `${scenario.name} worker state must be swept`,
+    );
+    assert.notEqual(
+      readMainSnapshot(root).id,
+      identity,
+      `${scenario.name} worker state must rotate the epoch`,
+    );
+    assert.equal(
+      await cacheKeyForRun(root),
+      await cacheKeyForRun(root),
+      `${scenario.name} worker state must heal to stable reuse`,
+    );
+  }
+
+  const mainRoot = createBareProject();
+  await prepareSnapshot(mainRoot);
+  const mainIdentity = readMainSnapshot(mainRoot).id;
+  fs.writeFileSync(
+    mainSnapshotPath(mainRoot),
+    JSON.stringify({
+      files: [],
+      id: mainIdentity,
+      tainted: "true",
+      version: 2,
+      volatile: false,
+    }),
+    "utf8",
   );
-  assert.notEqual(readMainSnapshot(root).id, identity);
-  // Healed: runs share a stable key again.
-  assert.equal(await cacheKeyForRun(root), await cacheKeyForRun(root));
+  assert.notEqual(
+    await cacheKeyForRun(mainRoot),
+    await cacheKeyForRun(mainRoot),
+    "malformed main state must disable reuse",
+  );
+  await prepareSnapshot(mainRoot);
+  assert.notEqual(readMainSnapshot(mainRoot).id, mainIdentity);
+  assert.equal(
+    await cacheKeyForRun(mainRoot),
+    await cacheKeyForRun(mainRoot),
+    "malformed main state must heal to stable reuse",
+  );
+
+  const recoveryRoot = createBareProject();
+  await prepareSnapshot(recoveryRoot);
+  const recoveryIdentity = readMainSnapshot(recoveryRoot).id;
+  const recovery = path.join(
+    snapshotCacheDirectory(recoveryRoot),
+    "ttsc-metro.unhealthy-corrupt.json",
+  );
+  fs.writeFileSync(
+    recovery,
+    JSON.stringify({
+      files: [path.join(recoveryRoot, "src", "app.ts")],
+      tainted: false,
+      version: 2,
+      volatile: "true",
+    }),
+    "utf8",
+  );
+  assert.notEqual(
+    await cacheKeyForRun(recoveryRoot),
+    await cacheKeyForRun(recoveryRoot),
+    "malformed recovery state must disable reuse",
+  );
+  await prepareSnapshot(recoveryRoot);
+  assert.equal(fs.existsSync(recovery), false);
+  assert.notEqual(readMainSnapshot(recoveryRoot).id, recoveryIdentity);
+  assert.equal(
+    await cacheKeyForRun(recoveryRoot),
+    await cacheKeyForRun(recoveryRoot),
+    "malformed recovery state must heal to stable reuse",
+  );
 }
 
 /**
@@ -673,6 +757,7 @@ export async function assertPrepareSnapshotHealsCorruptWorkerFile(): Promise<voi
  * project inputs, while a mismatch rotates the epoch.
  */
 export async function assertTransformerRecordsImplicitDependencyGuards(): Promise<void> {
+  const unplugin = await TestUnpluginRuntime.loadUnpluginApi();
   const shared = TestProject.tmpdir("ttsc-metro-shared-");
   const external = path.join(shared, "types.d.ts");
   fs.writeFileSync(external, "declare const marker: string;\n", "utf8");
@@ -790,7 +875,7 @@ export async function assertTransformerRecordsImplicitDependencyGuards(): Promis
   fs.rmSync(abaDirectory, { force: true, recursive: true });
   fs.mkdirSync(abaDirectory);
   fs.writeFileSync(abaInput, "declare const aba: true;\n", "utf8");
-  const observed = fingerprint.captureWatchInputBaseline(abaInput);
+  const observed = unplugin.captureWatchInputBaseline(abaInput);
   assert.ok(observed);
   const raced = fingerprint.createSnapshotRecorder(runId);
   raced.recordMany({
@@ -897,8 +982,7 @@ export async function assertTransformerRecordsImplicitDependencyGuards(): Promis
   const corruptBaseline = JSON.parse(
     fs.readFileSync(corruptBaselinePath, "utf8"),
   ) as { inputs: Record<string, Record<string, unknown>> };
-  const observedCorruptInput =
-    fingerprint.captureWatchInputBaseline(corruptInput);
+  const observedCorruptInput = unplugin.captureWatchInputBaseline(corruptInput);
   assert.ok(observedCorruptInput);
   const corruptEntry = Object.values(corruptBaseline.inputs).find(
     (entry) => entry.identity === observedCorruptInput.identity,
@@ -988,6 +1072,7 @@ export async function assertTransformerRecordsLinkedInput(): Promise<void> {
       linked,
       path.join(root, "package.json"),
       path.join(root, "plugin.cjs"),
+      path.join(root, "src", "tsconfig.json"),
       path.join(root, "tsconfig.json"),
     ].sort(),
     "exactly the out-of-walk inputs, and never a project source",
