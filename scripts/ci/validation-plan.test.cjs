@@ -191,6 +191,18 @@ test("platform integrations reuse only the physical rows they need", () => {
   assert.ok(
     PLATFORM_INTEGRATION_PATHS.experimental.includes("packages/ttsc-*/**"),
   );
+  assert.equal(
+    PLATFORM_INTEGRATION_PATHS.experimental.includes("packages/unplugin/**"),
+    false,
+  );
+  assert.equal(
+    PLATFORM_INTEGRATION_PATHS.sourceMap.includes("packages/unplugin/**"),
+    false,
+  );
+  assert.equal(
+    PLATFORM_INTEGRATION_PATHS.bun.includes("packages/unplugin/**"),
+    false,
+  );
 
   const watch = planForPaths([
     "tests/test-ttsc/src/features/watch/test_example.ts",
@@ -230,9 +242,35 @@ test("platform integrations reuse only the physical rows they need", () => {
   const unplugin = planForPaths(["packages/unplugin/src/index.ts"])
     .platformMatrix.include;
   assert.deepEqual(
-    unplugin.filter((row) => row.unplugin_e2e).map((row) => row.name),
+    unplugin.map((row) => row.name),
     ["linux-x64"],
-    "the packed adapter contract belongs to one representative platform",
+    "an unplugin-only change belongs to one packed E2E row",
+  );
+  assert.equal(unplugin[0].unplugin_e2e, true);
+  assert.equal(unplugin[0].setup_bun, true);
+  assert.equal(unplugin[0].bun, false);
+  assert.equal(unplugin[0].experimental, false);
+  assert.equal(unplugin[0].source_map, false);
+  assert.equal(unplugin[0].plugin_cache, false);
+
+  const unpluginHarness = planForPaths([
+    "experimental/test-unplugin/src/index.ts",
+  ]).platformMatrix.include;
+  assert.deepEqual(
+    unpluginHarness.map((row) => row.name),
+    ["linux-x64"],
+  );
+  assert.equal(unpluginHarness[0].unplugin_e2e, true);
+  assert.equal(unpluginHarness[0].experimental, false);
+
+  const genericInstallSource = fs.readFileSync(
+    path.join(root, "experimental", "install", "src", "index.ts"),
+    "utf8",
+  );
+  assert.doesNotMatch(
+    genericInstallSource,
+    /["']unplugin["']/,
+    "the generic artifact rehearsal must not pack the uninstalled unplugin package",
   );
 
   const sourceMap = planForPaths(["experimental/source-map/src/index.ts"])

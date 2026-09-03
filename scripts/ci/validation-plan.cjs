@@ -363,10 +363,13 @@ const WORKFLOW_PATHS = {
 };
 
 const PLATFORM_INTEGRATION_PATHS = {
-  bun: integrationSurfacePaths("experimental/test-unplugin/**"),
-  experimental: integrationSurfacePaths(
-    "experimental/install/**",
-    "experimental/test-unplugin/**",
+  bun: withoutUnpluginSurface(
+    integrationSurfacePaths(
+      "tests/test-ttsc/src/features/project/test_loadprojectplugins_tracks_bun_esm_descriptor_dependencies.ts",
+    ),
+  ),
+  experimental: withoutUnpluginSurface(
+    integrationSurfacePaths("experimental/install/**"),
   ),
   unpluginE2e: integrationSurfacePaths("experimental/test-unplugin/**"),
   pluginCache: [
@@ -384,7 +387,9 @@ const PLATFORM_INTEGRATION_PATHS = {
     "pnpm-lock.yaml",
     "pnpm-workspace.yaml",
   ],
-  sourceMap: integrationSurfacePaths("experimental/source-map/**"),
+  sourceMap: withoutUnpluginSurface(
+    integrationSurfacePaths("experimental/source-map/**"),
+  ),
   vscode: [
     "config/**",
     "packages/vscode/**",
@@ -430,6 +435,11 @@ function integrationSurfacePaths(...harnesses) {
     "pnpm-lock.yaml",
     "pnpm-workspace.yaml",
   ];
+}
+
+/** Remove the package that only the packed unplugin rehearsal consumes. */
+function withoutUnpluginSurface(entries) {
+  return entries.filter((entry) => entry !== "packages/unplugin/**");
 }
 
 /**
@@ -831,7 +841,7 @@ function createPlatformPlan(tasks) {
           sourceMap ||
           watch,
         plugin_cache: pluginCache,
-        setup_bun: bun || (pluginCache && row.os === "linux"),
+        setup_bun: bun || unpluginE2e || (pluginCache && row.os === "linux"),
         source_map: sourceMap,
         unplugin_e2e: unpluginE2e,
         watch,
