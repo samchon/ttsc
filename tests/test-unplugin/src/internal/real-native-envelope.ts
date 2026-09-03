@@ -292,6 +292,7 @@ export function createRealNativeEnvelopeFixture(
             : {}),
           strict: true,
           target: "ES2022",
+          types: ["*"],
         },
         include: ["src"],
       },

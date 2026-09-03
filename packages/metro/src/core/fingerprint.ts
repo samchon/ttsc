@@ -1110,9 +1110,11 @@ export function createSnapshotRecorder(runId?: string): {
     input: TtscWatchInput,
     base: string,
   ): { matches: boolean; static: boolean } {
-    // Direct recorder users without the private run handshake retain the
-    // historical path-only behavior. Production always receives a run id from
-    // `withTtsc`; an absent or unreadable matching baseline then fails closed.
+    // A direct recorder without the private run handshake cannot prove that
+    // any input belongs to the main process's static key. Retain every path
+    // without claiming a temporal mismatch. Production always receives a run
+    // id from `withTtsc`; an absent or unreadable matching baseline then fails
+    // closed.
     if (runId === undefined) {
       return { matches: true, static: false };
     }

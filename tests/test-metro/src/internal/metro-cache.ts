@@ -1656,13 +1656,34 @@ export async function assertMetroAsksTheAdaptersPolicy(): Promise<void> {
     projectRoot: root,
   });
 
-  const externalRecorder = fingerprint.createSnapshotRecorder();
+  const runId = await prepareSnapshot(root);
+  const linkedProjectKey = fingerprint.computeProjectFingerprint({
+    projectRoot: root,
+    runId,
+  });
+  assert.ok(
+    !linkedProjectKey.startsWith("nonce:"),
+    "the linked project map must produce a reusable static key",
+  );
+  const hostInput = (file: string) => {
+    const observed = unplugin.captureWatchInputBaseline(file);
+    assert.ok(observed);
+    return {
+      evidence: {
+        identity: observed.identity,
+        missing: false,
+        state: { codec: "host" as const, hash: observed.hostHash },
+      },
+      file,
+    };
+  };
+  const externalRecorder = fingerprint.createSnapshotRecorder(runId);
   externalRecorder.recordMany({
-    inputs: [...sharedProject.discoveryInputs, { file: sharedDependency }],
+    inputs: [...sharedProject.discoveryInputs, hostInput(sharedDependency)],
     project: sharedProject,
   });
   externalRecorder.recordMany({
-    inputs: [...linkedProjectView.discoveryInputs, { file: linkedDependency }],
+    inputs: [...linkedProjectView.discoveryInputs, hostInput(linkedDependency)],
     project: linkedProjectView,
   });
   assert.deepEqual(
