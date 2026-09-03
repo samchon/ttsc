@@ -575,13 +575,17 @@ func packageManifestCandidates(root, wildcard string, context ModuleResolutionCo
       }
     }
     typesVersionsWildcard := defaultWildcard
+    entryInsideRoot := entry.path == ""
     if wildcard == "" {
       typesVersionsWildcard = "index"
       if entry.path != "" {
-        typesVersionsWildcard = filepath.ToSlash(filepath.Clean(filepath.FromSlash(entry.path)))
+        if relative, ok := packageTargetRelativeToRoot(root, entry.path); ok {
+          entryInsideRoot = true
+          typesVersionsWildcard = relative
+        }
       }
     }
-    useTypesVersions := wildcard != "" || entry.path == "" || packageTargetInsideRoot(root, entry.path)
+    useTypesVersions := wildcard != "" || entryInsideRoot
     if useTypesVersions {
       if paths, ok := matchingTypesVersionsPaths(manifest.TypesVersions); ok {
         collectTypesVersionsTargets(paths, typesVersionsWildcard, wildcard == "" && usesCommonJS, &targets)
@@ -600,15 +604,21 @@ func packageManifestCandidates(root, wildcard string, context ModuleResolutionCo
 func packageTargetCandidates(root string, targets []packageTarget, context ModuleResolutionContext, pass moduleCandidatePass) []string {
   candidates := []string{}
   for _, target := range targets {
-    if target.path == "" || filepath.IsAbs(target.path) || strings.Contains(target.path, "://") {
+    if target.path == "" || strings.Contains(target.path, "://") {
       continue
     }
     targetPath := strings.Replace(target.path, "*", target.wildcard, 1)
+    candidate := filepath.FromSlash(targetPath)
+    if target.kind == packageTargetMapping && filepath.IsAbs(candidate) {
+      continue
+    }
+    if !filepath.IsAbs(candidate) {
+      candidate = filepath.Join(root, candidate)
+    }
     targetContext := context
     if target.usesCommonJS {
       targetContext.Mode = shimcore.ResolutionModeCommonJS
     }
-    candidate := filepath.Join(root, filepath.FromSlash(targetPath))
     // Paths inside typesVersions first try any explicit known extension, then
     // continue through the loader's current extension pass. Package fields and
     // local exports or imports targets take the direct branch only for an active
@@ -655,12 +665,19 @@ func collectPackageMappingTargets(value packageValue, request, wildcard string, 
   collectPackageTargets(value, wildcard, conditions, packageTargetMapping, false, targets)
 }
 
-func packageTargetInsideRoot(root, target string) bool {
-  if filepath.IsAbs(target) || strings.Contains(target, "://") {
-    return false
+func packageTargetRelativeToRoot(root, target string) (string, bool) {
+  if strings.Contains(target, "://") {
+    return "", false
   }
-  relative, err := filepath.Rel(root, filepath.Join(root, filepath.FromSlash(target)))
-  return err == nil && relative != ".." && !strings.HasPrefix(relative, ".."+string(filepath.Separator))
+  candidate := filepath.FromSlash(target)
+  if !filepath.IsAbs(candidate) {
+    candidate = filepath.Join(root, candidate)
+  }
+  relative, err := filepath.Rel(root, candidate)
+  if err != nil || relative == ".." || strings.HasPrefix(relative, ".."+string(filepath.Separator)) {
+    return "", false
+  }
+  return filepath.ToSlash(relative), true
 }
 
 func matchingTypesVersionsPaths(raw json.RawMessage) (packageValue, bool) {

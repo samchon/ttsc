@@ -1,6 +1,7 @@
 package driver
 
 import (
+  "encoding/json"
   "os"
   "path/filepath"
   "reflect"
@@ -216,7 +217,7 @@ func TestPackageTargetCandidatesMirrorCompilerPassesForTypeScriptTargets(t *test
 
   if err := os.WriteFile(
     versionedManifest,
-    []byte(`{"type":"module","typesVersions":{"*":{"foo/":["wrong-slash/*.js"],"f*r":["first/*.js"],"f*bar":["wrong-tie/*.js"],"*":["fallback/*.js"]}}}`),
+    []byte(`{"type":"module","typesVersions":{"*":{"foo/":["wrong-slash/*.js"],"f**r":["wrong-multi/*.js"],"f*r":["first/*.js"],"f*bar":["wrong-tie/*.js"],"*":["fallback/*.js"]}}}`),
     0o644,
   ); err != nil {
     t.Fatal(err)
@@ -262,6 +263,45 @@ func TestPackageTargetCandidatesMirrorCompilerPassesForTypeScriptTargets(t *test
   }
   if !reflect.DeepEqual(outsideFallback, expectedOutsideFallback) {
     t.Fatalf("outside-root package entry gained typesVersions fallback candidates: %#v, want %#v", outsideFallback, expectedOutsideFallback)
+  }
+
+  insideEntry := filepath.Join(versionedRoot, "index.js")
+  insideManifest, err := json.Marshal(map[string]any{
+    "main": insideEntry,
+    "type": "module",
+    "typesVersions": map[string]any{
+      "*": map[string]any{
+        "index.js": []string{"types/missing.d.ts", "types/index.d.ts"},
+      },
+    },
+  })
+  if err != nil {
+    t.Fatal(err)
+  }
+  if err := os.WriteFile(versionedManifest, insideManifest, 0o644); err != nil {
+    t.Fatal(err)
+  }
+  insidePreferred, _ := packageManifestCandidates(versionedRoot, "", esmContext, moduleCandidatePassPreferred)
+  expectedInsidePrefix := pathsAt(versionedRoot,
+    filepath.Join("types", "missing.native.d.ts"), filepath.Join("types", "missing.d.ts"),
+  )
+  if len(insidePreferred) < len(expectedInsidePrefix) || !reflect.DeepEqual(insidePreferred[:len(expectedInsidePrefix)], expectedInsidePrefix) {
+    t.Fatalf("absolute in-package entry lost typesVersions precedence: %#v", insidePreferred)
+  }
+  expectedVersionedEntry := filepath.Join(versionedRoot, "types", "index.native.d.ts")
+  expectedAbsoluteEntry := filepath.Join(versionedRoot, "index.native.ts")
+  versionedIndex := -1
+  entryIndex := -1
+  for index, candidate := range insidePreferred {
+    if candidate == expectedVersionedEntry {
+      versionedIndex = index
+    }
+    if candidate == expectedAbsoluteEntry {
+      entryIndex = index
+    }
+  }
+  if versionedIndex < 0 || entryIndex < 0 || versionedIndex >= entryIndex {
+    t.Fatalf("absolute in-package entry candidates = %#v; versioned index %d, entry index %d", insidePreferred, versionedIndex, entryIndex)
   }
 
   manifestRoot := filepath.Join(root, "manifest")
