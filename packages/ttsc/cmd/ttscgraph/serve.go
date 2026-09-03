@@ -10,6 +10,7 @@ import (
   "io"
   "os"
   "path/filepath"
+  "runtime"
   "slices"
   "sort"
   "strings"
@@ -574,7 +575,7 @@ func (s *graphSession) captureState() error {
   if err != nil {
     return err
   }
-  inputs := auxiliaryInputs(program, configs, s.cwd)
+  inputs := auxiliaryInputs(program, s.cwd)
   for _, path := range missingRootInputs(configs, sourceHashes) {
     inputs = append(inputs, auxiliaryInput{path: path})
   }
@@ -847,23 +848,25 @@ func changedSources(previous map[string][sha256.Size]byte) (map[string]string, b
 }
 
 type diskState struct {
-  Hash         [sha256.Size]byte
-  Exists       bool
-  Realpath     string
-  IdentityOnly bool
+  DirectoryEntries bool
+  Hash             [sha256.Size]byte
+  Exists           bool
+  Realpath         string
+  IdentityOnly     bool
 }
 
-// auxiliaryInput distinguishes speculative inputs whose contents select the
+// auxiliaryInput distinguishes resolver inputs whose contents select the
 // build universe from the lexical spelling of the source the compiler already
 // selected. The resident source hash owns the latter's contents; this input
 // owns only whether the spelling still reaches the same physical file.
 type auxiliaryInput struct {
-  path         string
-  identityOnly bool
+  directoryEntries bool
+  path             string
+  identityOnly     bool
 }
 
-// captureDiskStates records the freshness state of speculative resolution
-// candidates. Most candidates do not exist, and a module specifier can name a
+// captureDiskStates records the freshness state of resolver inputs. Many do
+// not exist, and a module specifier can name a
 // path the host OS cannot even parse (`./style.css?inline`, a `data:` URL on
 // Windows), so any path that is neither a readable file nor a directory is
 // recorded as absent instead of failing the snapshot: the recorded state only
@@ -871,12 +874,18 @@ type auxiliaryInput struct {
 func captureDiskStates(inputs []auxiliaryInput) map[string]diskState {
   states := make(map[string]diskState, len(inputs))
   for _, input := range inputs {
-    state := diskState{IdentityOnly: input.identityOnly}
+    state := diskState{
+      DirectoryEntries: input.directoryEntries,
+      IdentityOnly:     input.identityOnly,
+    }
     content, err := os.ReadFile(input.path)
     if err != nil {
       if info, statErr := os.Stat(input.path); statErr == nil && info.IsDir() {
         state.Exists = true
         state.Realpath = diskRealpath(input.path)
+        if input.directoryEntries {
+          state.Hash = accessibleDirectoryEntriesHash(input.path)
+        }
       }
       states[input.path] = state
       continue
@@ -894,7 +903,11 @@ func captureDiskStates(inputs []auxiliaryInput) map[string]diskState {
 func diskStatesChanged(previous map[string]diskState) bool {
   inputs := make([]auxiliaryInput, 0, len(previous))
   for path, state := range previous {
-    inputs = append(inputs, auxiliaryInput{path: path, identityOnly: state.IdentityOnly})
+    inputs = append(inputs, auxiliaryInput{
+      directoryEntries: state.DirectoryEntries,
+      identityOnly:     state.IdentityOnly,
+      path:             path,
+    })
   }
   current := captureDiskStates(inputs)
   for path, state := range previous {
@@ -905,7 +918,7 @@ func diskStatesChanged(previous map[string]diskState) bool {
   return false
 }
 
-func auxiliaryInputs(program *driver.Program, configs []*shimtsoptions.ParsedCommandLine, cwd string) []auxiliaryInput {
+func auxiliaryInputs(program *driver.Program, cwd string) []auxiliaryInput {
   inputs := []auxiliaryInput{
     {path: filepath.Join(cwd, ".gitignore")},
     {path: filepath.Join(cwd, ".git", "info", "exclude")},
@@ -925,73 +938,15 @@ func auxiliaryInputs(program *driver.Program, configs []*shimtsoptions.ParsedCom
     for _, path := range appendAncestorInputs(nil, directory, cwd) {
       inputs = append(inputs, auxiliaryInput{path: path})
     }
-    for _, reference := range source.ReferencedFiles {
-      for _, path := range driver.FileCandidates(filepath.Join(directory, filepath.FromSlash(reference.FileName))) {
-        inputs = append(inputs, auxiliaryInput{path: path})
-      }
-    }
-    for _, reference := range source.TypeReferenceDirectives {
-      for _, path := range driver.TypeReferenceCandidates(configs, directory, cwd, reference.FileName) {
-        inputs = append(inputs, auxiliaryInput{path: path})
-      }
-    }
-    for _, specifier := range driver.SourceModuleSpecifiers(source) {
-      context := driver.ModuleResolutionContext{
-        Mode: program.TSProgram.GetModeForUsageLocation(source, specifier),
-      }
-      for _, parsed := range configs {
-        if parsed != nil && parsed.ParsedConfig != nil && parsed.ParsedConfig.CompilerOptions != nil {
-          context.Options = parsed.ParsedConfig.CompilerOptions
-          break
-        }
-      }
-      resolved := program.TSProgram.GetResolvedModuleFromModuleSpecifier(source, specifier)
-      if resolved != nil && resolved.IsResolved() {
-        predecessors := driver.ModuleResolutionPredecessors(
-          configs,
-          directory,
-          cwd,
-          specifier.Text(),
-          resolved.ResolvedFileName,
-          program.FS.UseCaseSensitiveFileNames(),
-          context,
-        )
-        for _, path := range predecessors {
-          inputs = append(inputs, auxiliaryInput{
-            path:         path,
-            identityOnly: sameExistingAuxiliaryPath(path, resolved.ResolvedFileName),
-          })
-        }
-        continue
-      }
-      for _, path := range driver.ModuleResolutionCandidates(configs, directory, cwd, specifier.Text(), context) {
-        inputs = append(inputs, auxiliaryInput{path: path})
-      }
-    }
   }
-  // Config `types` entries request type packages without any source syntax, so
-  // a missing one (e.g. a generated typeRoots package) must contribute the same
-  // candidates as a triple-slash type directive.
-  for _, parsed := range configs {
-    if parsed == nil || parsed.ParsedConfig == nil || parsed.ParsedConfig.CompilerOptions == nil {
-      continue
-    }
-    for _, name := range parsed.ParsedConfig.CompilerOptions.Types {
-      for _, path := range driver.TypeReferenceCandidates(configs, parsed.GetCurrentDirectory(), cwd, name) {
-        inputs = append(inputs, auxiliaryInput{path: path})
-      }
-    }
+  for _, input := range driver.ObserveProgramResolutions(program, cwd).Inputs {
+    inputs = append(inputs, auxiliaryInput{
+      directoryEntries: input.DirectoryEntries,
+      identityOnly:     input.IdentityOnly,
+      path:             input.Path,
+    })
   }
   return compactAuxiliaryInputs(inputs)
-}
-
-func sameExistingAuxiliaryPath(left, right string) bool {
-  leftInfo, err := os.Stat(left)
-  if err != nil {
-    return false
-  }
-  rightInfo, err := os.Stat(right)
-  return err == nil && os.SameFile(leftInfo, rightInfo)
 }
 
 func compactAuxiliaryInputs(inputs []auxiliaryInput) []auxiliaryInput {
@@ -1001,6 +956,7 @@ func compactAuxiliaryInputs(inputs []auxiliaryInput) []auxiliaryInput {
       continue
     }
     if previous, exists := byPath[input.path]; exists {
+      input.directoryEntries = previous.directoryEntries || input.directoryEntries
       // A path that also participates as a manifest or other content-bearing
       // input keeps the stronger content-sensitive contract.
       input.identityOnly = previous.identityOnly && input.identityOnly
@@ -1017,6 +973,43 @@ func compactAuxiliaryInputs(inputs []auxiliaryInput) []auxiliaryInput {
     output = append(output, byPath[path])
   }
   return output
+}
+
+// accessibleDirectoryEntriesHash mirrors TypeScript-Go's accessible-entry
+// classification and sorted name order for a directory enumeration input.
+func accessibleDirectoryEntriesHash(directory string) [sha256.Size]byte {
+  hash := sha256.New()
+  entries, err := os.ReadDir(directory)
+  if err == nil {
+    for _, entry := range entries {
+      kind := byte(0)
+      switch {
+      case entry.Type().IsDir():
+        kind = 'D'
+      case entry.Type().IsRegular():
+        kind = 'F'
+      case entry.Type()&os.ModeSymlink != 0 || (runtime.GOOS == "windows" && entry.Type()&os.ModeIrregular != 0):
+        if info, statErr := os.Stat(filepath.Join(directory, entry.Name())); statErr == nil {
+          if info.IsDir() {
+            kind = 'D'
+          } else if info.Mode().IsRegular() {
+            kind = 'F'
+          }
+        }
+      default:
+        continue
+      }
+      if kind == 0 {
+        continue
+      }
+      _, _ = hash.Write([]byte{kind})
+      _, _ = hash.Write([]byte(entry.Name()))
+      _, _ = hash.Write([]byte{0})
+    }
+  }
+  var digest [sha256.Size]byte
+  copy(digest[:], hash.Sum(nil))
+  return digest
 }
 
 func appendAncestorInputs(inputs []string, directory, stop string) []string {

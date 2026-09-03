@@ -50,21 +50,21 @@ export namespace ITtscCompilerTransformation {
     configs: string[];
 
     /**
-     * Resolution candidates that would outrank the selected target, keyed by
-     * importing file. The compiler already resolved the import to a graph edge;
-     * a listed path can be absent now or can be an existing unsuccessful probe,
-     * and its appearance or change can alter that edge without editing the
-     * importer or a recorded file.
-     *
-     * Hosts watch and hash these paths in addition to realized graph members. A
-     * candidate strictly below the selected target is deliberately absent: its
-     * creation cannot change resolution and must not invalidate a cache.
+     * Exact lexical filesystem inputs consulted by TypeScript-Go's module,
+     * type-reference, and triple-slash path resolution, keyed by source file.
+     * Hosts watch and prove these paths in addition to realized graph members.
      *
      * A host with nothing to report leaves the whole property out rather than
-     * sending an empty map, so `undefined` and "no superseding candidate" are
-     * the same observation on the wire and after decoding.
+     * sending an empty map, so `undefined` and "no resolver input" are the same
+     * observation on the wire and after decoding.
      */
     candidates?: Record<string, string[]>;
+
+    /**
+     * Automatic type discovery and resolution inputs that affect every source,
+     * including effective type-root directory membership.
+     */
+    resolutionInputs?: string[];
 
     /**
      * Exact filesystem predicates observed while the compiler constructed this
@@ -97,6 +97,12 @@ export namespace ITtscCompilerTransformation {
 
   /** Predicate-preserving compiler filesystem proof for one lexical path. */
   export interface IInputObservation {
+    /** Result returned by `GetAccessibleEntries`, preserving both name lists. */
+    accessibleEntries?: {
+      directories: string[];
+      files: string[];
+    };
+
     /** Result returned by `DirectoryExists`, when the compiler called it. */
     directoryExists?: boolean;
 

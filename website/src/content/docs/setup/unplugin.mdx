@@ -251,7 +251,7 @@ A `find` containing `*` is also reported once on stderr, naming the alias and th
 
 ## Cache and watch invalidation
 
-The compiler also reports module-resolution candidates that would outrank a selected target. `@ttsc/unplugin` registers candidates belonging to importers in a transformed file's reference closure, so creating or changing a higher-priority probe invalidates the transform even when neither the importer nor its tsconfig changed.
+The compiler replays each resident module, type-reference, and triple-slash path resolution through the pinned TypeScript-Go resolver and reports the exact filesystem inputs it consulted. `@ttsc/unplugin` registers importer-owned inputs from a transformed file's reference closure, plus universal automatic type-root discovery inputs, so changing a package manifest, failed probe, selected lexical link, unresolved search, or `@types` directory membership invalidates the transform even when neither an importer nor its tsconfig changed.
 
 A dev server configured without a watcher (`server.watch: null`, which is how `vitest --run` and other one-shot consumers configure Vite) receives no watch registration at all. Nothing can deliver a change event there, while Vite's import analysis resolves every registered path like a real import of the transformed module, once per module. The adapter's own missing-input poll below is unaffected, because it never depended on Vite's watcher.
 
@@ -277,7 +277,7 @@ A host with a build boundary opens a delivery pass there and keeps the generatio
 
 A pass boundary states that each module is requested at most once inside it, which is a fact about deliveries rather than about whether the compiled program is still correct. `buildStart` repeats per rebuild under webpack, Rspack, Rollup, Rolldown, esbuild and `vite build --watch`, so discarding the generation there recompiled the whole project on every edit. The boundary now opens a pass and the recorded snapshot decides whether the generation survives it.
 
-Long-lived hosts without a boundary (Metro workers, the Turbopack loader, and a watching Vite development server, whose initial `buildStart` spans later HMR edits) apply the file-specific validation on every generation hit. Those deliveries validate that file's reference closure, globals, configs, resolution candidates, plugin dependencies, and exact host inputs, so sibling modules share one proof of the closure and the globals rather than repeating it per module.
+Long-lived hosts without a boundary (Metro workers, the Turbopack loader, and a watching Vite development server, whose initial `buildStart` spans later HMR edits) apply the file-specific validation on every generation hit. Those deliveries validate that file's reference closure, globals, configs, importer resolution inputs, universal automatic-type inputs, plugin dependencies, and exact host inputs, so sibling modules share one proof of the closure and the universal inputs rather than repeating it per module.
 
 ### Program membership
 

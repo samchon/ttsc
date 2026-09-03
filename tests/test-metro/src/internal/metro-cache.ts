@@ -1668,21 +1668,27 @@ export async function assertMetroAsksTheAdaptersPolicy(): Promise<void> {
   assert.deepEqual(
     workerSnapshotFiles(root),
     [
-      linkedDependency,
-      ...linkedProjectView.discoveryInputs.map((input: { file: string }) =>
-        path.resolve(input.file),
-      ),
       sharedDependency,
       ...sharedProject.discoveryInputs.map((input: { file: string }) =>
         path.resolve(input.file),
       ),
     ].sort(),
-    "every dependency and project-selection candidate outside the static map must remain in the worker snapshot",
+    "out-of-root inputs must remain durable while the linked project is covered by the static map",
   );
   fingerprint.prepareSnapshot(root);
   const beforeSharedEdit = fingerprint.computeProjectFingerprint({
     projectRoot: root,
   });
+  const linkedNewSource = path.join(linkedProjectTarget, "src", "new.ts");
+  fs.writeFileSync(linkedNewSource, "export const newMember = true;\n", "utf8");
+  const afterLinkedAppearance = fingerprint.computeProjectFingerprint({
+    projectRoot: root,
+  });
+  assert.notEqual(
+    beforeSharedEdit,
+    afterLinkedAppearance,
+    "a new program member below a linked implicit project must change the static key before a worker runs",
+  );
   const nearerSharedConfig = path.join(
     path.dirname(sharedSource),
     "tsconfig.json",
@@ -1703,7 +1709,7 @@ export async function assertMetroAsksTheAdaptersPolicy(): Promise<void> {
     projectRoot: root,
   });
   assert.notEqual(
-    beforeSharedEdit,
+    afterLinkedAppearance,
     afterSharedEdit,
     "editing an out-of-root implicit project's input must change the next key",
   );

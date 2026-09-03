@@ -125,6 +125,16 @@ func testInputObservationFSRejectsEveryRepeatedPredicateChange(t *testing.T) {
     expected inputProofFailure
   }{
     {
+      name: "accessible-entries",
+      first: TransformInputObservation{
+        AccessibleEntries: &TransformInputEntriesObservation{Directories: []string{"alpha"}, Files: []string{}},
+      },
+      second: TransformInputObservation{
+        AccessibleEntries: &TransformInputEntriesObservation{Directories: []string{"alpha", "beta"}, Files: []string{}},
+      },
+      expected: inputProofAccessibleEntriesChanged,
+    },
+    {
       name:     "directory-exists",
       first:    TransformInputObservation{DirectoryExists: boolPointer(false)},
       second:   TransformInputObservation{DirectoryExists: boolPointer(true)},
@@ -190,6 +200,14 @@ func testInputObservationFSRejectsImpossiblePredicateSets(t *testing.T) {
       name:   "missing-file-with-readable-content",
       first:  TransformInputObservation{FileExists: boolPointer(false)},
       second: TransformInputObservation{ReadFile: &TransformInputReadObservation{OK: true, Hash: "a"}},
+    },
+    {
+      name: "entries-from-a-missing-directory",
+      first: TransformInputObservation{AccessibleEntries: &TransformInputEntriesObservation{
+        Directories: []string{"package"},
+        Files:       []string{},
+      }},
+      second: TransformInputObservation{DirectoryExists: boolPointer(false)},
     },
   }
   for _, entry := range cases {

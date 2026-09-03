@@ -188,6 +188,62 @@ export function assertPredicateProofMatrix(): void {
     ),
     [],
   );
+  const typeRoot = path.join(root, "node_modules", "@types");
+  const typeRootFilesystem = {
+    ...directory,
+    readdir: () =>
+      ["zeta", "alpha"].map(
+        (name) =>
+          ({
+            isDirectory: () => true,
+            isFile: () => false,
+            name,
+          }) as fs.Dirent,
+      ),
+  };
+  assert.deepEqual(
+    validateGraphInputObservation(
+      typeRoot,
+      {
+        accessibleEntries: {
+          directories: ["alpha", "zeta"],
+          files: [],
+        },
+      },
+      typeRootFilesystem,
+    ),
+    [],
+    "automatic type discovery must preserve TypeScript-Go's accessible directory listing",
+  );
+  assert.deepEqual(
+    validateGraphInputObservation(
+      typeRoot,
+      {
+        accessibleEntries: {
+          directories: ["alpha"],
+          files: [],
+        },
+      },
+      typeRootFilesystem,
+    ),
+    ["accessible-entries-changed"],
+    "adding an automatic type package must invalidate the recorded resolver input",
+  );
+  assert.deepEqual(
+    validateGraphInputObservation(
+      typeRoot,
+      {
+        accessibleEntries: {
+          directories: ["alpha"],
+          files: [],
+        },
+        directoryExists: false,
+      },
+      typeRootFilesystem,
+    ),
+    ["proof-conflict"],
+    "a nonempty compiler directory listing cannot describe a missing directory",
+  );
 
   const absentFileProof = { fileExists: false };
   assert.deepEqual(
@@ -646,6 +702,125 @@ function assertProjectTsconfigDiscovery(): void {
       ],
     },
     "the project map must preserve the observed Windows path platform",
+  );
+  const linkedTree = new Map<
+    string,
+    Array<{ directory: boolean; link?: boolean; name: string }>
+  >([
+    ["/repo", [{ directory: false, link: true, name: "linked" }]],
+    ["/repo/linked", [{ directory: false, link: true, name: "back-to-root" }]],
+  ]);
+  assert.deepEqual(
+    findProjectTsconfigs("/repo", {
+      platform: "linux",
+      readdir: (location: string) =>
+        (linkedTree.get(location) ?? []).map((entry) => ({
+          isDirectory: () => entry.directory,
+          isSymbolicLink: () => entry.link === true,
+          name: entry.name,
+        })),
+      realpath: (location: string) => {
+        if (location === "/repo") return "/physical/repo";
+        if (location === "/repo/linked") return "/external/project";
+        if (location === "/repo/linked/back-to-root") {
+          return "/physical/repo";
+        }
+        return location;
+      },
+      stat: (location: string) => {
+        if (
+          location === "/repo/linked" ||
+          location === "/repo/linked/back-to-root"
+        ) {
+          return { isDirectory: () => true, isFile: () => false };
+        }
+        if (location === "/repo/linked/tsconfig.json") {
+          return { isDirectory: () => false, isFile: () => true };
+        }
+        const error = new Error("missing") as NodeJS.ErrnoException;
+        error.code = "ENOENT";
+        throw error;
+      },
+    }),
+    {
+      candidates: ["/repo/linked/tsconfig.json", "/repo/tsconfig.json"],
+      complete: true,
+      files: ["/repo/linked/tsconfig.json"],
+    },
+    "the project map must follow a linked project once and cut its physical ancestor cycle",
+  );
+  assert.deepEqual(
+    findProjectTsconfigs("/repo", {
+      platform: "linux",
+      readdir: (location: string) =>
+        location === "/repo"
+          ? ["alias-a", "alias-b"].map((name) => ({
+              isDirectory: () => false,
+              isSymbolicLink: () => true,
+              name,
+            }))
+          : [],
+      realpath: (location: string) =>
+        location === "/repo" ? "/physical/repo" : "/external/project",
+      stat: (location: string) => {
+        if (location === "/repo/alias-a" || location === "/repo/alias-b") {
+          return { isDirectory: () => true, isFile: () => false };
+        }
+        if (location.endsWith("/tsconfig.json")) {
+          return { isDirectory: () => false, isFile: () => true };
+        }
+        const error = new Error("missing") as NodeJS.ErrnoException;
+        error.code = "ENOENT";
+        throw error;
+      },
+    }),
+    {
+      candidates: [
+        "/repo/alias-a/tsconfig.json",
+        "/repo/alias-b/tsconfig.json",
+        "/repo/tsconfig.json",
+      ],
+      complete: true,
+      files: [
+        "/repo/alias-a/tsconfig.json",
+        "/repo/alias-b/tsconfig.json",
+        "/repo/tsconfig.json",
+      ],
+    },
+    "independent lexical aliases of one physical project must both remain in the static key",
+  );
+  assert.deepEqual(
+    findProjectTsconfigs("/repo", {
+      platform: "linux",
+      readdir: (location: string) =>
+        location === "/repo"
+          ? [
+              {
+                isDirectory: () => false,
+                isSymbolicLink: () => true,
+                name: "linked",
+              },
+            ]
+          : [],
+      realpath: (location: string) => {
+        if (location === "/repo") throw new Error("identity unavailable");
+        return "/external/project";
+      },
+      stat: (location: string) => {
+        if (location === "/repo/linked") {
+          return { isDirectory: () => true, isFile: () => false };
+        }
+        const error = new Error("missing") as NodeJS.ErrnoException;
+        error.code = "ENOENT";
+        throw error;
+      },
+    }),
+    {
+      candidates: ["/repo/tsconfig.json"],
+      complete: false,
+      files: [],
+    },
+    "an unprovable ancestor identity must refuse linked traversal instead of risking a cycle",
   );
   assert.deepEqual(
     findProjectTsconfigs("/repo", {

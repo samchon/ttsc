@@ -6,13 +6,20 @@ export interface TtscProjectDiscoveryFilesystem {
   /** Override path parsing when the observed filesystem is not the host. */
   platform?: NodeJS.Platform;
   /** Read metadata while following links, like an ordinary config-file open. */
-  stat(location: string): Pick<fs.Stats, "isFile">;
+  stat(
+    location: string,
+  ): Pick<fs.Stats, "isFile"> & Partial<Pick<fs.Stats, "isDirectory">>;
 }
 
 /** Directory enumeration required to discover every implicit child project. */
 export interface TtscProjectTreeDiscoveryFilesystem extends TtscProjectDiscoveryFilesystem {
-  /** Enumerate one lexical directory without following child directory links. */
-  readdir(location: string): readonly Pick<fs.Dirent, "isDirectory" | "name">[];
+  /** Enumerate one lexical directory and identify child directory links. */
+  readdir(
+    location: string,
+  ): readonly (Pick<fs.Dirent, "isDirectory" | "name"> &
+    Partial<Pick<fs.Dirent, "isSymbolicLink">>)[];
+  /** Resolve physical directory identity for cycle-safe linked traversal. */
+  realpath?(location: string): string;
 }
 
 /** One exact file predicate consulted by nearest-project discovery. */
@@ -36,6 +43,7 @@ const HOST_PROJECT_TREE_DISCOVERY_FILESYSTEM: TtscProjectTreeDiscoveryFilesystem
   Object.freeze({
     readdir: (location: string) =>
       fs.readdirSync(location, { withFileTypes: true }),
+    realpath: fs.realpathSync.native,
     stat: fs.statSync,
   });
 
@@ -118,10 +126,11 @@ function findNearestProjectTsconfigImpl(
 /**
  * Find every regular `tsconfig.json` below one project root.
  *
- * The traversal follows the same lexical directory boundary as the project
- * input walk, while `stat` follows a config-file link exactly as nearest
- * discovery does. An incomplete directory traversal is reported rather than
- * returned as a complete project map, so a cache-key caller can refuse reuse.
+ * The traversal retains lexical project spellings while following child
+ * directory links and junctions. A physical ancestor set cuts cycles without
+ * collapsing two independent aliases of the same project. An incomplete
+ * traversal is reported rather than returned as a complete project map, so a
+ * cache-key caller can refuse reuse.
  */
 export function findProjectTsconfigs(
   root: string,
@@ -133,13 +142,37 @@ export function findProjectTsconfigs(
       : filesystem.platform === "win32"
         ? path.win32
         : path.posix;
-  const pending = [paths.resolve(root)];
+  type PendingDirectory = {
+    ancestors: ReadonlySet<string>;
+    directory: string;
+    physicalAncestorsComplete: boolean;
+  };
+  const rootDirectory = paths.resolve(root);
+  const rootIdentity = projectDirectoryIdentity(
+    rootDirectory,
+    filesystem,
+    paths,
+  );
+  const pending: PendingDirectory[] = [
+    {
+      ancestors: new Set([
+        rootIdentity ??
+          canonicalProjectPath(rootDirectory, filesystem.platform),
+      ]),
+      directory: rootDirectory,
+      physicalAncestorsComplete:
+        filesystem.realpath === undefined || rootIdentity !== undefined,
+    },
+  ];
   const candidates: string[] = [];
   const files: string[] = [];
-  let complete = true;
+  let complete =
+    filesystem.realpath === undefined || rootIdentity !== undefined;
   while (pending.length !== 0) {
-    const directory = pending.pop()!;
-    let entries: readonly Pick<fs.Dirent, "isDirectory" | "name">[];
+    const current = pending.pop()!;
+    const directory = current.directory;
+    let entries: readonly (Pick<fs.Dirent, "isDirectory" | "name"> &
+      Partial<Pick<fs.Dirent, "isSymbolicLink">>)[];
     try {
       entries = filesystem.readdir(directory);
     } catch {
@@ -147,9 +180,39 @@ export function findProjectTsconfigs(
       continue;
     }
     for (const entry of entries) {
-      if (entry.isDirectory() && !isIgnoredProjectDirectory(entry.name)) {
-        pending.push(paths.join(directory, entry.name));
+      if (isIgnoredProjectDirectory(entry.name)) continue;
+      const child = paths.join(directory, entry.name);
+      const linked = entry.isSymbolicLink?.() === true;
+      let directoryEntry = entry.isDirectory();
+      if (!directoryEntry && linked) {
+        try {
+          directoryEntry = filesystem.stat(child).isDirectory?.() === true;
+        } catch (error) {
+          const code = (error as NodeJS.ErrnoException).code;
+          if (code !== "ENOENT" && code !== "ENOTDIR") complete = false;
+          continue;
+        }
       }
+      if (!directoryEntry) continue;
+      const identity = projectDirectoryIdentity(child, filesystem, paths);
+      const physicalAncestorsComplete =
+        current.physicalAncestorsComplete &&
+        (filesystem.realpath === undefined || identity !== undefined);
+      if (filesystem.realpath !== undefined && identity === undefined) {
+        complete = false;
+      }
+      if (linked && (identity === undefined || !physicalAncestorsComplete)) {
+        complete = false;
+        continue;
+      }
+      const stableIdentity =
+        identity ?? canonicalProjectPath(child, filesystem.platform);
+      if (current.ancestors.has(stableIdentity)) continue;
+      pending.push({
+        ancestors: new Set([...current.ancestors, stableIdentity]),
+        directory: child,
+        physicalAncestorsComplete,
+      });
     }
     const candidate = paths.join(directory, "tsconfig.json");
     candidates.push(candidate);
@@ -167,4 +230,27 @@ export function findProjectTsconfigs(
   candidates.sort();
   files.sort();
   return { candidates, complete, files };
+}
+
+function projectDirectoryIdentity(
+  directory: string,
+  filesystem: TtscProjectTreeDiscoveryFilesystem,
+  paths: typeof path.posix | typeof path.win32,
+): string | undefined {
+  if (filesystem.realpath === undefined) return undefined;
+  try {
+    return canonicalProjectPath(
+      paths.resolve(filesystem.realpath(directory)),
+      filesystem.platform,
+    );
+  } catch {
+    return undefined;
+  }
+}
+
+function canonicalProjectPath(
+  location: string,
+  platform: NodeJS.Platform | undefined,
+): string {
+  return platform === "win32" ? location.toLowerCase() : location;
 }

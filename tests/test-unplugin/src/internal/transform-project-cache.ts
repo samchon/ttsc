@@ -91,7 +91,7 @@ interface ICacheProjectOptions {
    * Stamp this many superseding resolution candidates per module: higher
    * priority spellings (`node_modules/dep{j}/index.ts`) that do not exist and
    * that the fixture deliberately leaves without a compiler proof, exactly as
-   * `driver.SupersedingModuleCandidates` does for every real project whose
+   * `driver.ObserveProgramResolutions` does for every real project whose
    * resolution passes over a `.ts` spelling on its way to a `.d.ts`.
    *
    * Requires a positive `graphFanout`: the fixture builds the whole `graph`

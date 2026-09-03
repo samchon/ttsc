@@ -16,6 +16,7 @@ interface IRealNativeEnvelopeGraph {
   inputObservations?: Record<
     string,
     {
+      accessibleEntries?: { directories: string[]; files: string[] };
       directoryExists?: boolean;
       fileExists?: boolean;
       readFile?: { hash?: string; ok: boolean };
@@ -24,6 +25,7 @@ interface IRealNativeEnvelopeGraph {
     }
   >;
   inputRealpaths?: Record<string, string | null>;
+  resolutionInputs?: string[];
 }
 
 interface IRealNativeEnvelopeTransformation {
@@ -59,6 +61,8 @@ interface IRealNativeEnvelopeApi {
 
 /** A real native-host project whose linked plugin observes Program invocations. */
 export interface IRealNativeEnvelopeFixture {
+  /** Type-root directory whose child membership affects the whole Program. */
+  automaticTypesDirectory: string;
   /** Selected declaration whose compiler proof must survive the JSON boundary. */
   declaration: string;
   /** Source kept outside the Program by an inherited templated outDir. */
@@ -133,6 +137,7 @@ export function createRealNativeEnvelopeFixture(
     "index.ts",
   );
   const fileCandidateDirectory = path.join(root, "node_modules", "punycode.js");
+  const automaticTypesDirectory = path.join(root, "node_modules", "@types");
   const resolutionCandidateGroups: Record<string, string[]> = resolutionCorpus
     ? {
         "package exports subpath": [
@@ -315,6 +320,7 @@ export function createRealNativeEnvelopeFixture(
     "node_modules/typed-dep/dist/index.d.ts":
       "export interface Shared { label: string; }\n",
     "node_modules/typed-dep/dist/index.js": 'export const runtime = "typed";\n',
+    "node_modules/@types/.keep": "",
     ...(resolutionCorpus
       ? {
           "node_modules/linked-pkg/package.json": JSON.stringify(
@@ -430,6 +436,7 @@ export function createRealNativeEnvelopeFixture(
     "utf8",
   );
   return {
+    automaticTypesDirectory,
     declaration,
     excludedSource,
     fileCandidateDirectory,
@@ -652,6 +659,23 @@ export async function assertRealEnvelopeCandidateAppearanceReplacesGeneration():
       programRuns(fixture.runLog),
       3,
       "replacing a failed file-candidate directory with a selectable file must replace the generation",
+    );
+
+    const generatedTypes = path.join(
+      fixture.automaticTypesDirectory,
+      "generated-ambient",
+    );
+    fs.mkdirSync(generatedTypes, { recursive: true });
+    fs.writeFileSync(
+      path.join(generatedTypes, "index.d.ts"),
+      "declare const generatedAmbient: string;\n",
+      "utf8",
+    );
+    await deliver(api, cache, options, fixture.modules[0]!);
+    assert.equal(
+      programRuns(fixture.runLog),
+      4,
+      "adding an automatic type package must replace the generation before a bundler can reuse it",
     );
   } finally {
     api.resetTtscTransformCache(cache);
@@ -953,7 +977,20 @@ async function assertProductionEnvelope(
   );
   assert.ok(
     unproven,
-    "the fixture must produce a candidate-only path with no compiler hash or realpath proof",
+    "the fixture must produce a predicate-only path with no legacy compiler hash or realpath projection",
+  );
+  const automaticTypes = findGraphSpelling(
+    fixture.root,
+    graph.resolutionInputs ?? [],
+    fixture.automaticTypesDirectory,
+  );
+  assert.ok(
+    automaticTypes,
+    "the production graph must retain automatic type-root membership",
+  );
+  assert.ok(
+    graph.inputObservations?.[automaticTypes]?.accessibleEntries,
+    "the automatic type root must carry its compiler-time accessible entries",
   );
 
   if (fixture.resolutionCorpus) {

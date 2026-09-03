@@ -32,15 +32,17 @@ const bundledScheme = "bundled:///"
 //     entries). A change to any of them can affect every file.
 //   - Configs lists the project tsconfig followed by its `extends` ancestry.
 //   - Candidates maps each importing file to the resolution probes that precede
-//     its selected module target. They are a separate class from resolved
-//     edges: a probe's file appearing or changing can change an unchanged
-//     import's meaning.
+//     or otherwise participate in its selected module and type-reference
+//     results. They are a separate class from resolved edges: a predicate or
+//     package manifest changing can change an unchanged reference's meaning.
+//   - ResolutionInputs lists automatic type discovery and resolution inputs
+//     whose state can affect every source file, including type-root directory
+//     membership.
 //   - InputObservations preserves the independent filesystem predicates the
 //     compiler actually asked. InputHashes and InputRealpaths retain the legacy
 //     collapsed content/identity projection for older consumers.
 //   - InputProofFailures gives a stable reason when a realized member lacks
-//     proof or an observed candidate predicate changed. A wholly unobserved
-//     speculative candidate is omitted because no compiler call exists to fail.
+//     proof or a replayed resolver predicate changed.
 //
 // Keys and values use the same convention as the envelope's `typescript`
 // map: project-relative slash paths, falling back to slash-normalized
@@ -50,6 +52,7 @@ type TransformGraph struct {
   Globals            []string                             `json:"globals"`
   Configs            []string                             `json:"configs"`
   Candidates         map[string][]string                  `json:"candidates,omitempty"`
+  ResolutionInputs   []string                             `json:"resolutionInputs,omitempty"`
   InputObservations  map[string]TransformInputObservation `json:"inputObservations,omitempty"`
   InputHashes        map[string]*string                   `json:"inputHashes,omitempty"`
   InputRealpaths     map[string]*string                   `json:"inputRealpaths,omitempty"`
@@ -65,11 +68,13 @@ func NewTransformGraph(prog *Program, cwd string) *TransformGraph {
   if prog == nil || prog.TSProgram == nil {
     return nil
   }
+  resolution := ObserveProgramResolutions(prog, cwd)
   graph := &TransformGraph{
-    Edges:      map[string][]string{},
-    Globals:    []string{},
-    Configs:    []string{},
-    Candidates: SupersedingModuleCandidates(prog, cwd),
+    Edges:            map[string][]string{},
+    Globals:          []string{},
+    Configs:          []string{},
+    Candidates:       resolution.Candidates,
+    ResolutionInputs: resolution.Universal,
   }
   for _, file := range prog.TSProgram.SourceFiles() {
     fileName := file.FileName()
@@ -89,6 +94,10 @@ func NewTransformGraph(prog *Program, cwd string) *TransformGraph {
   }
   sort.Strings(graph.Globals)
   graph.Configs = configChain(prog, cwd)
+  resolution.ApplyUniversalResolutionFailure(graph.Edges)
+  if len(resolution.Failures) != 0 {
+    graph.InputProofFailures = resolution.Failures
+  }
   graph.attachInputProof(prog, cwd)
   return graph
 }
@@ -125,10 +134,16 @@ func (graph *TransformGraph) attachInputProof(prog *Program, cwd string) {
       inputs[candidate] = struct{}{}
     }
   }
+  for _, input := range graph.ResolutionInputs {
+    inputs[input] = struct{}{}
+  }
   hashes := map[string]*string{}
   realpaths := map[string]*string{}
   observations := map[string]TransformInputObservation{}
-  failures := map[string]string{}
+  failures := graph.InputProofFailures
+  if failures == nil {
+    failures = map[string]string{}
+  }
   for input := range inputs {
     file := filepath.FromSlash(input)
     if !filepath.IsAbs(file) {
@@ -144,12 +159,10 @@ func (graph *TransformGraph) attachInputProof(prog *Program, cwd string) {
       hash, realpath, legacyFailure = prog.inputObserver.proof(file)
     }
     if legacyFailure != "" {
-      // A speculative candidate may be wholly unobserved because predecessor
-      // enumeration is broader than the resolver calls that selected its
-      // winner. It may also have a complete predicate proof that the legacy
-      // path-kind projection cannot represent, such as a readable-file check
+      // A resolver input can have a complete predicate proof that the legacy
+      // path-kind projection cannot represent, such as a successful file check
       // whose content was never requested. The rich proof remains sufficient
-      // for that candidate; only a predicate failure, or any realized-input
+      // for that input; only a predicate failure, or any realized-input
       // failure, makes the generation inadmissible.
       _, isRealized := realized[input]
       if isRealized || (predicateFailure != "" && predicateFailure != inputProofUnobserved) {

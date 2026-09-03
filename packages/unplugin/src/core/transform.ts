@@ -748,7 +748,7 @@ export type TtscWatchInputState =
       realpath: string | null;
     }
   | {
-      /** The exact compiler predicates observed for a speculative input. */
+      /** The exact compiler predicates observed for a resolver input. */
       codec: "predicates";
       observation: ITtscCompilerTransformation.IInputObservation;
     };
@@ -782,19 +782,19 @@ export interface TtscWatchInput {
 
 /**
  * Hooks the bundler adapter passes into {@link transformTtsc} so transform
- * side-channels (plugin-reported dependencies and host resolution candidates)
- * reach the bundler without leaking extra fields on the returned
- * `TransformResult`.
+ * side-channels (plugin-reported dependencies and host resolver inputs) reach
+ * the bundler without leaking extra fields on the returned `TransformResult`.
  */
 export interface TtscTransformHooks {
   /**
    * Invoked once per absolute watch-input path derived for the transformed file
    * `F`: the plugin-reported `dependencies[F]` list unioned with the host-owned
    * reference graph's contribution — the reachability closure of `graph.edges`
-   * from `F`, the `graph.globals` files, the `graph.configs` chain, and missing
-   * higher-priority `graph.candidates` — or, for a file the envelope declared
-   * `dependenciesComplete`, only `dependencies[F]`, `graph.candidates`, and the
-   * universal `graph.configs` chain. Adapters forward this to the bundler's
+   * from `F`, the `graph.globals` files, the `graph.configs` chain, importer
+   * `graph.candidates`, and universal `graph.resolutionInputs`. For a file the
+   * envelope declared `dependenciesComplete`, only `dependencies[F]`,
+   * `graph.candidates`, `graph.resolutionInputs`, and the universal
+   * `graph.configs` chain remain. Adapters forward this to the bundler's
    * `addWatchFile` so type-only inputs participate in watch-mode and
    * persistent-cache invalidation. See {@link selectWatchInputs} for the exact
    * derivation.
@@ -1333,27 +1333,21 @@ interface TtscEnvelopeGraphIndexes {
   readonly edges: Map<string, string[]>;
   /** Identity of each direct-edge source -> its absolute spelling. */
   readonly spellings: Map<string, string>;
-  /** Resolution-candidate entries in envelope order, sources pre-identified. */
+  /** Importer-owned resolver-input entries, sources pre-identified. */
   readonly candidates: { source: string; files: string[] }[];
   /** Resolved absolute `graph.globals` and `graph.configs` members. */
   readonly globals: string[];
   readonly configs: string[];
-  /** Every realized/candidate graph path, keyed by absolute lexical spelling. */
+  /** Resolver inputs whose state affects every source file. */
+  readonly resolutionInputs: string[];
+  /** Every realized or resolver-input path, keyed by lexical spelling. */
   readonly memberSpellings: Set<string>;
   /**
-   * Members the envelope reported only under `graph.candidates`, keyed by
-   * absolute lexical spelling.
-   *
-   * A superseding candidate is by construction a path the compiler did not
-   * select, and usually one it never read at all: resolution stopped at the
-   * target that won, and the host enumerates the higher-priority spellings so
-   * that one appearing later can invalidate the generation. Such a path has no
-   * compile-time read to prove, so it carries the evidence a plugin-declared
-   * dependency path carries (the state recorded when the envelope was produced)
-   * instead of a compiler proof it can never have.
-   *
-   * A candidate that is also a realized input (an edge endpoint, a global, or a
-   * config) is absent from this set and keeps the realized standard.
+   * Predicate-only resolver inputs, keyed by absolute lexical spelling. These
+   * are exact compiler calls but need not carry file content, for example a
+   * failed file predicate or automatic type-root directory enumeration. A path
+   * that is also a realized edge, global, config, or source keeps the stronger
+   * realized-file standard.
    */
   readonly speculative: Set<string>;
   /** Compiler-time legacy proof keyed by absolute lexical spelling. */
@@ -1427,6 +1421,7 @@ function envelopeGraphIndexes(
     candidates: [],
     globals: [],
     configs: [],
+    resolutionInputs: [],
     memberSpellings: new Set(),
     speculative: new Set(),
     inputProofs: new Map(),
@@ -1488,6 +1483,16 @@ function envelopeGraphIndexes(
       }
     }
     const realized = new Set(built.memberSpellings);
+    built.resolutionInputs.push(
+      ...selectListedFiles(props.projectRoot, graph.resolutionInputs),
+    );
+    for (const input of built.resolutionInputs) {
+      const spelling = path.resolve(input);
+      const identity = derivationIdentity(state, input);
+      if (!realized.has(spelling)) built.speculative.add(spelling);
+      built.memberSpellings.add(spelling);
+      if (!built.spellings.has(identity)) built.spellings.set(identity, input);
+    }
     for (const [source, candidates] of candidateEntries) {
       built.candidates.push({
         source: derivationIdentity(
@@ -1662,6 +1667,31 @@ function normalizeGraphInputObservation(
   }
   const entry = value as Record<string, unknown>;
   const observation: ITtscCompilerTransformation.IInputObservation = {};
+  if (Object.prototype.hasOwnProperty.call(entry, "accessibleEntries")) {
+    const accessible = entry.accessibleEntries;
+    if (
+      typeof accessible !== "object" ||
+      accessible === null ||
+      Array.isArray(accessible)
+    ) {
+      return undefined;
+    }
+    const lists = accessible as Record<string, unknown>;
+    if (
+      !Array.isArray(lists.directories) ||
+      !lists.directories.every(
+        (name): name is string => typeof name === "string",
+      ) ||
+      !Array.isArray(lists.files) ||
+      !lists.files.every((name): name is string => typeof name === "string")
+    ) {
+      return undefined;
+    }
+    observation.accessibleEntries = {
+      directories: [...lists.directories],
+      files: [...lists.files],
+    };
+  }
   if (Object.prototype.hasOwnProperty.call(entry, "fileExists")) {
     if (typeof entry.fileExists !== "boolean") return undefined;
     observation.fileExists = entry.fileExists;
@@ -1735,6 +1765,7 @@ function mergeGraphInputObservations(
   right: ITtscCompilerTransformation.IInputObservation,
 ): ITtscCompilerTransformation.IInputObservation | undefined {
   for (const property of [
+    "accessibleEntries",
     "directoryExists",
     "fileExists",
     "readFile",
@@ -1757,7 +1788,21 @@ function mergeGraphInputObservations(
 function graphInputObservationCompatible(
   observation: ITtscCompilerTransformation.IInputObservation,
 ): boolean {
-  const { directoryExists, fileExists, readFile, stat } = observation;
+  const { accessibleEntries, directoryExists, fileExists, readFile, stat } =
+    observation;
+  const hasAccessibleEntries =
+    accessibleEntries !== undefined &&
+    (accessibleEntries.directories.length !== 0 ||
+      accessibleEntries.files.length !== 0);
+  if (
+    hasAccessibleEntries &&
+    (fileExists === true ||
+      directoryExists === false ||
+      (stat !== undefined && stat !== "directory") ||
+      readFile?.ok === true)
+  ) {
+    return false;
+  }
   if (fileExists === true && directoryExists === true) return false;
   if (
     stat === "directory" &&
@@ -2023,10 +2068,10 @@ function notifyWatchInputs(
 /**
  * Derive the absolute, deduplicated watch-input list for a single file.
  *
- * By default the derivation is a union: `dependencies[file] ∪ reach(edges,
- * file) ∪ globals ∪ configs`. The plugin-reported list can only widen the
- * host-owned language-semantic bound, never narrow it. Resolution candidates
- * remain part of that host-owned bound in both modes.
+ * By default the derivation unions plugin dependencies, the reachable graph,
+ * globals, configs, importer resolver inputs, and universal resolver inputs.
+ * The plugin-reported list can only widen the host-owned language-semantic
+ * bound, never narrow it. Resolver inputs remain in that bound in both modes.
  *
  * An envelope that lists `file` in `dependenciesComplete` narrows it to
  * `dependencies[file] ∪ configs`: the plugin declared its reported list the
@@ -2119,7 +2164,7 @@ function deriveWatchInputs(
       !isVolatileFile(state, props),
   }))
     appendPhysical(input);
-  // Resolution candidates, plugin dependencies, and universal host inputs
+  // Resolver inputs, plugin dependencies, and universal host inputs
   // preserve lexical aliases. Physical deduplication would collapse
   // `alias/selection.cjs` into the selected target path, so a bundler would
   // watch only the target and miss a symlink/junction retarget.
@@ -2140,14 +2185,14 @@ function selectHostInputs(props: {
 }
 
 /**
- * Return the module-resolution paths that can supersede a currently resolved
- * module reachable from `file`. They remain host-owned even when a plugin
- * declares `dependenciesComplete`: plugin code cannot vouch for a compiler
- * resolution change that occurs without any plugin input changing.
+ * Return exact importer-owned and universal resolver inputs for `file`. They
+ * remain host-owned even when a plugin declares `dependenciesComplete`: plugin
+ * code cannot vouch for a compiler resolution or automatic type change that
+ * occurs without any plugin input changing.
  *
- * Candidate entries and their source identities come from the shared
- * per-envelope state, so one delivery scans only the candidates themselves
- * instead of re-resolving every candidate source.
+ * Importer entries and their source identities come from the shared
+ * per-envelope state, so one delivery scans only the recorded inputs instead of
+ * re-resolving every source.
  */
 function selectResolutionCandidateInputs(
   graph: TtscEnvelopeGraphIndexes,
@@ -2158,10 +2203,7 @@ function selectResolutionCandidateInputs(
     result: ITtscCompilerTransformation;
   },
 ): string[] {
-  if (
-    props.result.type === "exception" ||
-    props.result.graph?.candidates === undefined
-  ) {
+  if (props.result.type === "exception" || props.result.graph === undefined) {
     return [];
   }
   const reachable = new Set(
@@ -2169,7 +2211,8 @@ function selectResolutionCandidateInputs(
       derivationIdentity(state, source),
     ),
   );
-  const output: string[] = [];
+  const output: string[] = [...graph.resolutionInputs];
+  if (props.result.graph.candidates === undefined) return output;
   for (const entry of graph.candidates) {
     if (!reachable.has(entry.source)) {
       continue;
@@ -3331,6 +3374,14 @@ function graphInputObservationFailures(
   identities: FilesystemPathIdentityContext,
 ): string[] {
   const failures: string[] = [];
+  if (observation.accessibleEntries !== undefined) {
+    const current = compilerAccessibleEntries(file, filesystem);
+    if (
+      JSON.stringify(current) !== JSON.stringify(observation.accessibleEntries)
+    ) {
+      failures.push("accessible-entries-changed");
+    }
+  }
   const kind =
     observation.fileExists !== undefined ||
     observation.directoryExists !== undefined ||
@@ -3378,6 +3429,45 @@ function graphInputObservationFailures(
     }
   }
   return failures;
+}
+
+/** Replay TypeScript-Go's accessible-entry classification and sorted order. */
+function compilerAccessibleEntries(
+  directory: string,
+  filesystem: TtscTransformFilesystemOperations,
+): NonNullable<
+  ITtscCompilerTransformation.IInputObservation["accessibleEntries"]
+> {
+  const directories: string[] = [];
+  const files: string[] = [];
+  const pathApi = filesystem.platform === "win32" ? path.win32 : path.posix;
+  let entries: fs.Dirent[];
+  try {
+    entries = filesystem.readdir(directory);
+  } catch {
+    return { directories, files };
+  }
+  for (const entry of entries) {
+    if (entry.isDirectory()) {
+      directories.push(entry.name);
+      continue;
+    }
+    if (entry.isFile()) {
+      files.push(entry.name);
+      continue;
+    }
+    if (!entry.isSymbolicLink()) continue;
+    try {
+      const target = filesystem.stat(pathApi.join(directory, entry.name));
+      if (target.isDirectory()) directories.push(entry.name);
+      else if (target.isFile()) files.push(entry.name);
+    } catch {
+      // TypeScript-Go omits inaccessible and broken linked entries.
+    }
+  }
+  directories.sort();
+  files.sort();
+  return { directories, files };
 }
 
 /** Validate one predicate-preserving graph proof against a filesystem view. */
@@ -3729,7 +3819,7 @@ function captureExternalInputSnapshot(
       observations[spelling] = predicateObservation;
       continue;
     }
-    // A member the envelope reported only as a resolution candidate falls
+    // A member the envelope reported only as a resolver input falls
     // through to the recorded-state branch below, the same evidence a
     // plugin-declared dependency path carries. Its absence still invalidates
     // the generation when it appears, because `missing` is recorded state.
@@ -3916,11 +4006,8 @@ function compilerGraphInputProofFailures(
     ) {
       continue;
     }
-    // A speculative candidate with no reported compiler observation has no
-    // compile-time predicate to prove. Requiring one would void every
-    // generation whose predecessor enumeration is broader than the resolver
-    // calls that selected its winner (samchon/ttsc#1245). It is validated
-    // instead against the state captureExternalInputSnapshot recorded for it.
+    // A legacy sidecar can report a resolver candidate without a compiler
+    // predicate. Validate it against the generation snapshot instead.
     if (proof === undefined && graph.speculative.has(spelling)) {
       continue;
     }
@@ -5580,7 +5667,11 @@ function selectExternalInputPaths(props: {
         members.push(...targets);
       }
     }
-    for (const listed of [graph.globals, graph.configs]) {
+    for (const listed of [
+      graph.globals,
+      graph.configs,
+      graph.resolutionInputs,
+    ]) {
       if (Array.isArray(listed)) {
         members.push(...listed);
       }
@@ -5596,6 +5687,11 @@ function selectExternalInputPaths(props: {
         const absolute = path.resolve(props.projectRoot, candidate);
         members.push(candidate);
         resolutionCandidates.add(path.resolve(absolute));
+      }
+    }
+    for (const input of graph.resolutionInputs ?? []) {
+      if (typeof input === "string" && input.length !== 0) {
+        resolutionCandidates.add(path.resolve(props.projectRoot, input));
       }
     }
   }
@@ -5711,7 +5807,10 @@ function selectNotifiableAbsentInputs(props: {
   // them. Sharing a set would let one silently answer for the other.
   const seen = new Set<string>();
   const chain = new Set<string>();
-  for (const candidates of Object.values(graph.candidates ?? {})) {
+  for (const candidates of [
+    ...Object.values(graph.candidates ?? {}),
+    graph.resolutionInputs ?? [],
+  ]) {
     if (!Array.isArray(candidates)) {
       continue;
     }
@@ -6125,6 +6224,8 @@ function selectDeclaredProjectInputKeys(props: {
     for (const input of graph.globals) add(input);
   if (Array.isArray(graph.configs))
     for (const input of graph.configs) add(input);
+  if (Array.isArray(graph.resolutionInputs))
+    for (const input of graph.resolutionInputs) add(input);
   for (const [source, candidates] of Object.entries(graph.candidates ?? {})) {
     add(source);
     if (Array.isArray(candidates)) for (const entry of candidates) add(entry);

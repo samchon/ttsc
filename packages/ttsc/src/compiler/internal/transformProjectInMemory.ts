@@ -809,11 +809,9 @@ function parseGraphEdges(value: unknown): Record<string, string[]> | undefined {
  * compiler input proof. A section carrying nothing usable collapses to
  * `undefined`.
  *
- * `candidates` is the one optional member, so an empty one is left off the
- * result instead of being materialized as `{}`. The host omits the key when it
- * has no superseding candidate to report, and a consumer that narrows on the
- * declared optional type must see the same shape whether it reads the decoded
- * envelope or the wire.
+ * Optional resolver-input members are left off when empty. A consumer that
+ * narrows on their declared optional types therefore sees the same shape from
+ * the decoded envelope and the wire.
  */
 function parseReferenceGraph(
   value: unknown,
@@ -830,11 +828,13 @@ function parseReferenceGraph(
     inputObservations?: unknown;
     inputProofFailures?: unknown;
     inputRealpaths?: unknown;
+    resolutionInputs?: unknown;
   };
   const candidates = parseDependencyLists(section.candidates) ?? {};
   const edges = parseGraphEdges(section.edges) ?? {};
   const globals = parseFileList(section.globals) ?? [];
   const configs = parseFileList(section.configs) ?? [];
+  const resolutionInputs = parseFileList(section.resolutionInputs) ?? [];
   const inputHashes = parseGraphInputHashes(section.inputHashes);
   const parsedInputObservations = parseGraphInputObservations(
     section.inputObservations,
@@ -851,7 +851,8 @@ function parseReferenceGraph(
     Object.keys(candidates).length === 0 &&
     Object.keys(edges).length === 0 &&
     globals.length === 0 &&
-    configs.length === 0
+    configs.length === 0 &&
+    resolutionInputs.length === 0
   ) {
     return undefined;
   }
@@ -860,6 +861,7 @@ function parseReferenceGraph(
     configs,
     edges,
     globals,
+    ...(resolutionInputs.length === 0 ? {} : { resolutionInputs }),
     ...(inputHashes === undefined ? {} : { inputHashes }),
     ...(parsedInputObservations.observations === undefined
       ? {}
@@ -911,6 +913,31 @@ function parseGraphInputObservation(
   }
   const entry = value as Record<string, unknown>;
   const observation: ITtscCompilerTransformation.IInputObservation = {};
+  if (Object.prototype.hasOwnProperty.call(entry, "accessibleEntries")) {
+    const accessible = entry.accessibleEntries;
+    if (
+      typeof accessible !== "object" ||
+      accessible === null ||
+      Array.isArray(accessible)
+    ) {
+      return "malformed";
+    }
+    const lists = accessible as Record<string, unknown>;
+    if (
+      !Array.isArray(lists.directories) ||
+      !lists.directories.every(
+        (name): name is string => typeof name === "string",
+      ) ||
+      !Array.isArray(lists.files) ||
+      !lists.files.every((name): name is string => typeof name === "string")
+    ) {
+      return "malformed";
+    }
+    observation.accessibleEntries = {
+      directories: [...lists.directories],
+      files: [...lists.files],
+    };
+  }
   if (Object.prototype.hasOwnProperty.call(entry, "fileExists")) {
     if (typeof entry.fileExists !== "boolean") return "malformed";
     observation.fileExists = entry.fileExists;
@@ -975,7 +1002,21 @@ function parseGraphInputObservation(
 function graphInputObservationCompatible(
   observation: ITtscCompilerTransformation.IInputObservation,
 ): boolean {
-  const { directoryExists, fileExists, readFile, stat } = observation;
+  const { accessibleEntries, directoryExists, fileExists, readFile, stat } =
+    observation;
+  const hasAccessibleEntries =
+    accessibleEntries !== undefined &&
+    (accessibleEntries.directories.length !== 0 ||
+      accessibleEntries.files.length !== 0);
+  if (
+    hasAccessibleEntries &&
+    (fileExists === true ||
+      directoryExists === false ||
+      (stat !== undefined && stat !== "directory") ||
+      readFile?.ok === true)
+  ) {
+    return false;
+  }
   if (fileExists === true && directoryExists === true) return false;
   if (
     stat === "directory" &&

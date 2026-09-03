@@ -1,1009 +1,292 @@
 package driver
 
 import (
-  "bytes"
-  "encoding/json"
-  "os"
-  "path/filepath"
+  "sort"
   "strings"
 
-  "github.com/microsoft/typescript-go/shim/ast"
-  shimcore "github.com/microsoft/typescript-go/shim/core"
-  "github.com/microsoft/typescript-go/shim/tsoptions"
+  shimcompiler "github.com/microsoft/typescript-go/shim/compiler"
+  shimtsoptions "github.com/microsoft/typescript-go/shim/tsoptions"
   shimtspath "github.com/microsoft/typescript-go/shim/tspath"
 )
 
-// ModuleResolutionContext carries the exact TypeScript-Go configuration for a
-// module-specifier lookup. Candidate discovery must share its mode and package
-// resolution switches, otherwise a path the compiler cannot select becomes an
-// accidental freshness input.
-type ModuleResolutionContext struct {
-  Options *shimcore.CompilerOptions
-  Mode    shimcore.ResolutionMode
+// ProgramResolutionInput is one exact lexical filesystem input consulted by
+// TypeScript-Go while resolving a resident Program.
+type ProgramResolutionInput struct {
+  // DirectoryEntries is true when the compiler enumerated this directory, so
+  // membership changes as well as kind and identity must invalidate it.
+  DirectoryEntries bool
+  // IdentityOnly is true only for a selected lexical alias whose contents are
+  // already owned by the resolved graph target. A link retarget must still
+  // invalidate it, while an edit to the selected bytes is not counted twice.
+  IdentityOnly bool
+  Path         string
 }
 
-// SupersedingModuleCandidates returns, per source-file envelope key, the
-// resolution candidates strictly ahead of each module target the loaded
-// program selected. When the selected target is reported by physical path, it
-// also retains that candidate's lexical spelling. A missing member or a link
-// retarget can therefore become a freshness input without making the whole
-// resolution search (including lower-priority paths) an invalidation input.
-//
-// Candidate enumeration is host-owned. It mirrors the resident graph session's
-// speculation for relative modules, paths, rootDirs, package imports/exports,
-// and node_modules ancestry, while the compiler itself remains the authority
-// that says which target won. The returned values use TransformOutputKey so
-// they travel in the same envelope vocabulary as graph edges.
-func SupersedingModuleCandidates(prog *Program, cwd string) map[string][]string {
-  if prog == nil || prog.TSProgram == nil || prog.ParsedConfig == nil {
-    return nil
+// ProgramResolutionObservation is the deterministic result of replaying every
+// resident module and type-reference resolution through TypeScript-Go itself.
+type ProgramResolutionObservation struct {
+  // Candidates maps each source to every exact resolver input other than its
+  // identically spelled selected graph target.
+  Candidates map[string][]string
+  // Failures marks source files whose replay no longer matched the resident
+  // resolution. A universal failure is expanded to every graph source later.
+  Failures map[string]string
+  // Inputs is the flat form used by resident non-envelope hosts.
+  Inputs []ProgramResolutionInput
+  // Universal contains automatic type discovery and resolution inputs whose
+  // state can affect every source file.
+  Universal        []string
+  universalFailure bool
+}
+
+// ObserveProgramResolutions replays the pinned TypeScript-Go resolver over a
+// fresh observation transaction per source resolution set. This preserves the
+// compiler's exact ordering and complete semantics without maintaining a
+// second resolver in ttsc. Replay observations are merged into the original
+// compiler transaction, so a state change between construction and replay
+// becomes a proof failure.
+func ObserveProgramResolutions(prog *Program, cwd string) ProgramResolutionObservation {
+  output := ProgramResolutionObservation{
+    Candidates: map[string][]string{},
+    Failures:   map[string]string{},
   }
-  configs := []*tsoptions.ParsedCommandLine{prog.ParsedConfig}
-  output := map[string][]string{}
-  caseSensitive := true
-  if prog.FS != nil {
-    caseSensitive = prog.FS.UseCaseSensitiveFileNames()
+  if prog == nil || prog.TSProgram == nil || prog.FS == nil || prog.inputObserver == nil {
+    return output
   }
+  caseSensitive := prog.FS.UseCaseSensitiveFileNames()
+  tasks := shimcompiler.ProgramResolutionTasks(prog.TSProgram)
+  sort.Slice(tasks, func(left, right int) bool {
+    a, b := tasks[left], tasks[right]
+    if a.Universal != b.Universal {
+      return !a.Universal
+    }
+    if a.SourceFile != b.SourceFile {
+      return a.SourceFile < b.SourceFile
+    }
+    if a.ContainingFile != b.ContainingFile {
+      return a.ContainingFile < b.ContainingFile
+    }
+    if a.Kind != b.Kind {
+      return a.Kind < b.Kind
+    }
+    if a.Name != b.Name {
+      return a.Name < b.Name
+    }
+    return a.Mode < b.Mode
+  })
+
+  if !prog.TSProgram.Options().NoResolve.IsTrue() {
+    observeProgramPathReferences(prog, cwd, caseSensitive, &output)
+  }
+
+  // Automatic type discovery is a separate compiler operation that enumerates
+  // each effective type root before the individual directive resolutions.
+  // Replaying it records directory membership itself, so adding a new @types
+  // package invalidates a resident program without an importer edit.
+  automatic := newInputObservationFS(prog.FS)
+  shimcompiler.ReplayAutomaticTypeDirectiveDiscovery(prog.TSProgram, automatic)
+  output.Universal = appendResolutionPaths(output.Universal, cwd, automatic, nil, caseSensitive, &output.Inputs)
+  prog.inputObserver.mergeFrom(automatic)
+
+  for first := 0; first < len(tasks); {
+    last := first + 1
+    for last < len(tasks) && sameResolutionTaskOwner(tasks[first], tasks[last]) {
+      last++
+    }
+    group := tasks[first:last]
+    replay := newInputObservationFS(prog.FS)
+    matches := shimcompiler.ReplayProgramResolutions(group, replay)
+    selected := make([]string, 0, len(group))
+    for _, task := range group {
+      // A resolved target is already content-owned only when it became a
+      // Program source. noResolve, allowJs, depth, and diagnostic gates can
+      // leave a successful resolution outside the graph; retain those targets
+      // as resolver inputs instead of silently dropping them.
+      if task.ResolvedFile != "" && prog.TSProgram.GetSourceFile(task.ResolvedFile) != nil {
+        selected = append(selected, task.ResolvedFile)
+      }
+    }
+    owner := group[0]
+    if owner.Universal {
+      output.Universal = appendResolutionPaths(output.Universal, cwd, replay, selected, caseSensitive, &output.Inputs)
+      if !matches {
+        output.universalFailure = true
+      }
+    } else if owner.SourceFile != "" {
+      source := TransformOutputKey(cwd, owner.SourceFile)
+      output.Candidates[source] = appendResolutionPaths(output.Candidates[source], cwd, replay, selected, caseSensitive, &output.Inputs)
+      if !matches {
+        output.Failures[source] = string(inputProofResolutionChanged)
+      }
+    }
+    prog.inputObserver.mergeFrom(replay)
+    first = last
+  }
+  for source, candidates := range output.Candidates {
+    compacted := compactStringsInOrder(candidates)
+    if len(compacted) == 0 {
+      delete(output.Candidates, source)
+    } else {
+      sort.Strings(compacted)
+      output.Candidates[source] = compacted
+    }
+  }
+  output.Universal = compactStringsInOrder(output.Universal)
+  sort.Strings(output.Universal)
+  output.Inputs = compactResolutionInputs(output.Inputs)
+  return output
+}
+
+func sameResolutionTaskOwner(left, right shimcompiler.ProgramResolutionTask) bool {
+  return left.Universal == right.Universal && left.SourceFile == right.SourceFile && (left.Universal || left.ContainingFile == right.ContainingFile)
+}
+
+// observeProgramPathReferences replays the file predicates for triple-slash
+// path references. These use the compiler's supported-extension list directly
+// rather than the module resolver cache covered by ProgramResolutionTasks.
+func observeProgramPathReferences(prog *Program, cwd string, caseSensitive bool, output *ProgramResolutionObservation) {
+  supported := shimtsoptions.GetSupportedExtensions(prog.TSProgram.Options(), nil)
   for _, source := range prog.TSProgram.SourceFiles() {
-    if source == nil || strings.HasPrefix(source.FileName(), bundledScheme) {
+    if source == nil || source.FileName() == "" || strings.HasPrefix(source.FileName(), bundledScheme) {
       continue
     }
-    key := TransformOutputKey(cwd, source.FileName())
-    directory := filepath.Dir(source.FileName())
-    for _, specifier := range SourceModuleSpecifiers(source) {
-      context := moduleResolutionContextFor(configs, prog.TSProgram.GetModeForUsageLocation(source, specifier))
-      resolved := prog.TSProgram.GetResolvedModuleFromModuleSpecifier(source, specifier)
-      if resolved == nil || !resolved.IsResolved() {
-        continue
+    sourceKey := TransformOutputKey(cwd, source.FileName())
+    for _, reference := range source.ReferencedFiles {
+      replay := newInputObservationFS(prog.FS)
+      selected := []string(nil)
+      for _, candidate := range pathReferenceCandidates(source.FileName(), reference.FileName, prog.TSProgram.Options().AllowNonTsExtensions.IsTrue(), supported) {
+        if replay.FileExists(candidate) {
+          if prog.TSProgram.GetSourceFile(candidate) != nil {
+            selected = []string{candidate}
+          }
+          break
+        }
       }
-      before := ModuleResolutionPredecessors(
-        configs,
-        directory,
-        cwd,
-        specifier.Text(),
-        resolved.ResolvedFileName,
-        caseSensitive,
-        context,
-      )
-      for _, candidate := range before {
-        output[key] = append(output[key], TransformOutputKey(cwd, candidate))
-      }
+      output.Candidates[sourceKey] = appendResolutionPaths(output.Candidates[sourceKey], cwd, replay, selected, caseSensitive, &output.Inputs)
+      prog.inputObserver.mergeFrom(replay)
     }
   }
-  for source, candidates := range output {
-    output[source] = compactStringsInOrder(candidates)
-  }
-  return output
 }
 
-// ModuleResolutionPredecessors returns the paths in the host-owned candidate
-// search that precede resolvedFileName. When the compiler reports the winner by
-// physical realpath, the result also retains that selected candidate's lexical
-// spelling: retargeting its symlink/junction can change resolution without
-// changing the old or new target bytes. An unresolved specifier keeps the full
-// candidate list through ModuleResolutionCandidates; a resolved specifier must
-// not track a lower-priority path because creating it cannot alter resolution.
-func ModuleResolutionPredecessors(
-  configs []*tsoptions.ParsedCommandLine,
-  directory, cwd, specifier, resolvedFileName string,
+func pathReferenceCandidates(containingFile, reference string, allowNonTsExtensions bool, supported [][]string) []string {
+  base := reference
+  if !shimtspath.IsRootedDiskPath(base) {
+    base = shimtspath.CombinePaths(shimtspath.GetDirectoryPath(containingFile), base)
+  }
+  base = shimtspath.NormalizePath(base)
+  if shimtspath.HasExtension(base) {
+    if allowNonTsExtensions || supportedFileExtension(base, supported) {
+      return []string{base}
+    }
+    return nil
+  }
+  if allowNonTsExtensions {
+    return []string{base}
+  }
+  candidates := []string{}
+  if len(supported) != 0 {
+    for _, extension := range supported[0] {
+      candidates = append(candidates, base+extension)
+    }
+  }
+  return candidates
+}
+
+func supportedFileExtension(file string, supported [][]string) bool {
+  for _, extensions := range supported {
+    if shimtspath.FileExtensionIsOneOf(file, extensions) {
+      return true
+    }
+  }
+  return false
+}
+
+// ApplyUniversalResolutionFailure marks every source because automatic type
+// discovery contributes to one global Program rather than to one importer.
+func (observation ProgramResolutionObservation) ApplyUniversalResolutionFailure(sources map[string][]string) {
+  if !observation.universalFailure {
+    return
+  }
+  for source := range sources {
+    observation.Failures[source] = string(inputProofResolutionChanged)
+  }
+}
+
+func appendResolutionPaths(
+  target []string,
+  cwd string,
+  observer *inputObservationFS,
+  selected []string,
   caseSensitive bool,
-  context ModuleResolutionContext,
+  flat *[]ProgramResolutionInput,
 ) []string {
-  candidates := ModuleResolutionCandidates(configs, directory, cwd, specifier, context)
-  for index, candidate := range candidates {
-    if sameCandidatePath(candidate, resolvedFileName, caseSensitive) {
-      return compactStringsInOrder(candidates[:index])
+  for _, candidate := range observer.observedPaths() {
+    if slicesContainResolutionPath(selected, candidate, caseSensitive) {
+      continue
     }
-  }
-  // The winner is not spelled the way this search spells it. The compiler
-  // resolves a `node_modules` package through the real path, so its selected
-  // target can arrive symlink-resolved — and on Windows expanded out of an 8.3
-  // short name such as `RUNNER~1` — while every candidate carries the importing
-  // file's spelling. Ask the filesystem which candidate is that file instead of
-  // discarding the whole search.
-  //
-  // This second pass runs only when the first found nothing, so a program whose
-  // spellings already agree pays nothing for it.
-  for index, candidate := range candidates {
-    if sameExistingPath(candidate, resolvedFileName) {
-      end := index
-      if !sameCandidatePath(candidate, resolvedFileName, caseSensitive) {
-        end++
+    identityOnly := false
+    for _, target := range selected {
+      if observedResolutionAlias(observer, candidate, target, caseSensitive) {
+        identityOnly = true
+        break
       }
-      return compactStringsInOrder(candidates[:end])
+    }
+    *flat = append(*flat, ProgramResolutionInput{
+      DirectoryEntries: observer.observedAccessibleEntries(candidate),
+      IdentityOnly:     identityOnly,
+      Path:             candidate,
+    })
+    target = append(target, TransformOutputKey(cwd, candidate))
+  }
+  return target
+}
+
+func slicesContainResolutionPath(paths []string, candidate string, caseSensitive bool) bool {
+  for _, path := range paths {
+    if sameResolutionPath(candidate, path, caseSensitive) {
+      return true
     }
   }
-  // Never widen freshness to candidates whose precedence relative to the
-  // compiler's selected target we could not prove. A winner that is genuinely
-  // outside this search remains covered by its realized graph edge.
-  return nil
+  return false
 }
 
-func moduleResolutionContextFor(configs []*tsoptions.ParsedCommandLine, mode shimcore.ResolutionMode) ModuleResolutionContext {
-  context := ModuleResolutionContext{Mode: mode}
-  for _, parsed := range configs {
-    if parsed != nil && parsed.ParsedConfig != nil && parsed.ParsedConfig.CompilerOptions != nil {
-      context.Options = parsed.ParsedConfig.CompilerOptions
-      break
+func sameResolutionPath(left, right string, caseSensitive bool) bool {
+  if left == "" || right == "" {
+    return false
+  }
+  return shimtspath.GetCanonicalFileName(shimtspath.NormalizePath(left), caseSensitive) == shimtspath.GetCanonicalFileName(shimtspath.NormalizePath(right), caseSensitive)
+}
+
+func observedResolutionAlias(observer *inputObservationFS, candidate, target string, caseSensitive bool) bool {
+  if observer == nil || candidate == "" || target == "" {
+    return false
+  }
+  observation, failure := observer.predicateProof(candidate)
+  return failure == "" && observation.Realpath != nil && observation.Realpath.OK && sameResolutionPath(observation.Realpath.Path, target, caseSensitive)
+}
+
+func compactResolutionInputs(inputs []ProgramResolutionInput) []ProgramResolutionInput {
+  byPath := make(map[string]ProgramResolutionInput, len(inputs))
+  for _, input := range inputs {
+    if strings.TrimSpace(input.Path) == "" {
+      continue
     }
-  }
-  return context
-}
-
-func (context ModuleResolutionContext) isESM() bool {
-  return context.Mode == shimcore.ResolutionModeESM
-}
-
-func (context ModuleResolutionContext) moduleResolutionKind() shimcore.ModuleResolutionKind {
-  if context.Options == nil {
-    return shimcore.ModuleResolutionKindBundler
-  }
-  return context.Options.GetModuleResolutionKind()
-}
-
-func (context ModuleResolutionContext) usesPackageExports() bool {
-  switch context.moduleResolutionKind() {
-  case shimcore.ModuleResolutionKindNode16, shimcore.ModuleResolutionKindNodeNext:
-    return true
-  case shimcore.ModuleResolutionKindBundler:
-    return context.Options == nil || context.Options.GetResolvePackageJsonExports()
-  default:
-    return false
-  }
-}
-
-func (context ModuleResolutionContext) usesPackageImports() bool {
-  switch context.moduleResolutionKind() {
-  case shimcore.ModuleResolutionKindNode16, shimcore.ModuleResolutionKindNodeNext:
-    return true
-  case shimcore.ModuleResolutionKindBundler:
-    return context.Options == nil || context.Options.GetResolvePackageJsonImports()
-  default:
-    return false
-  }
-}
-
-func (context ModuleResolutionContext) packageConditions() map[string]struct{} {
-  if context.Options == nil {
-    return map[string]struct{}{"require": {}, "types": {}}
-  }
-  mode := context.Mode
-  if mode == shimcore.ResolutionModeNone && context.moduleResolutionKind() == shimcore.ModuleResolutionKindBundler {
-    mode = shimcore.ResolutionModeESM
-  }
-  conditions := map[string]struct{}{}
-  if mode == shimcore.ResolutionModeESM {
-    conditions["import"] = struct{}{}
-  } else {
-    conditions["require"] = struct{}{}
-  }
-  if context.Options.NoDtsResolution != shimcore.TSTrue {
-    conditions["types"] = struct{}{}
-  }
-  if context.moduleResolutionKind() != shimcore.ModuleResolutionKindBundler {
-    conditions["node"] = struct{}{}
-  }
-  for _, condition := range context.Options.CustomConditions {
-    conditions[condition] = struct{}{}
-  }
-  return conditions
-}
-
-func sameCandidatePath(left, right string, caseSensitive bool) bool {
-  left = filepath.Clean(left)
-  right = filepath.Clean(right)
-  if caseSensitive {
-    return left == right
-  }
-  return strings.EqualFold(left, right)
-}
-
-// sameExistingPath reports whether two spellings name the same existing
-// filesystem object. A path that does not exist answers false, so a
-// speculative candidate costs one failing `os.Stat` and never reaches the
-// second call.
-func sameExistingPath(left, right string) bool {
-  leftInfo, err := os.Stat(left)
-  if err != nil {
-    return false
-  }
-  rightInfo, err := os.Stat(right)
-  if err != nil {
-    return false
-  }
-  return os.SameFile(leftInfo, rightInfo)
-}
-
-// reachedWalkStop reports whether an upward `node_modules` walk has arrived at
-// the directory it must not pass. The walk starts from the importing file's
-// directory as the compiler spells it and stops at the project root as the
-// caller spells it, and the two need not agree character for character on a
-// case-insensitive or short-name-bearing filesystem. A missed stop walks every
-// remaining ancestor up to the volume root and watches probes the compiler
-// would never consult.
-//
-// Two spellings of one directory still share a final component up to case
-// unless that component is itself shortened, so the mismatching levels — every
-// level below the stop — are rejected without touching the filesystem. A stop
-// missed by the remaining heuristic costs breadth, never a wrong answer: the
-// extra ancestors are appended after the correct ones, so a predecessor list
-// cut at the winner is unaffected.
-func reachedWalkStop(current, stop string) bool {
-  stop = filepath.Clean(stop)
-  if current == stop {
-    return true
-  }
-  if !strings.EqualFold(filepath.Base(current), filepath.Base(stop)) {
-    return false
-  }
-  return sameExistingPath(current, stop)
-}
-
-// FileCandidates lists the ordered file and directory probes for base. The
-// suffix family follows the module specifier's explicit extension, matching the
-// resolver's extension branch instead of treating every source kind as a
-// possible predecessor.
-func FileCandidates(base string) []string {
-  base, suffixes := fileCandidateBaseAndSuffixes(base)
-  candidates := []string{}
-  for _, suffix := range suffixes {
-    candidates = append(candidates, base+suffix)
-  }
-  candidates = append(candidates, filepath.Join(base, "package.json"))
-  for _, suffix := range suffixes {
-    candidates = append(candidates, filepath.Join(base, "index"+suffix))
-  }
-  return candidates
-}
-
-func moduleFileCandidates(base string, context ModuleResolutionContext, includeDirectory bool) []string {
-  directoryMode := moduleDirectoryCandidatesNone
-  if includeDirectory {
-    directoryMode = moduleDirectoryCandidatesPackageAndIndex
-  }
-  return moduleFileCandidatesForPass(base, context, directoryMode, moduleCandidatePassAll)
-}
-
-type moduleCandidatePass uint8
-
-const (
-  moduleCandidatePassAll moduleCandidatePass = iota
-  moduleCandidatePassPreferred
-  moduleCandidatePassFallback
-)
-
-type moduleDirectoryCandidates uint8
-
-const (
-  moduleDirectoryCandidatesNone moduleDirectoryCandidates = iota
-  moduleDirectoryCandidatesPackageAndIndex
-  moduleDirectoryCandidatesIndexOnly
-)
-
-func moduleFileCandidatesForPass(base string, context ModuleResolutionContext, directoryMode moduleDirectoryCandidates, pass moduleCandidatePass) []string {
-  directoryBase := base
-  explicitExtension := filepath.Ext(base)
-  base, suffixes := fileCandidateBaseAndSuffixes(base)
-  if context.Options != nil && context.Options.NoDtsResolution == shimcore.TSTrue {
-    suffixes = withoutDeclarationSuffixes(suffixes)
-  }
-  suffixes = suffixesForModuleCandidatePass(suffixes, pass)
-  if context.isESM() && explicitExtension == "" {
-    return nil
-  }
-  candidates := []string{}
-  for _, suffix := range suffixes {
-    candidates = append(candidates, moduleSuffixCandidates(base+suffix, context)...)
-  }
-  if directoryMode == moduleDirectoryCandidatesNone || context.isESM() {
-    return candidates
-  }
-  if directoryMode == moduleDirectoryCandidatesPackageAndIndex {
-    candidates = append(candidates, filepath.Join(directoryBase, "package.json"))
-  }
-  indexSuffixes := []string{".ts", ".tsx", ".d.ts", ".js", ".jsx"}
-  if context.Options != nil && context.Options.NoDtsResolution == shimcore.TSTrue {
-    indexSuffixes = withoutDeclarationSuffixes(indexSuffixes)
-  }
-  indexSuffixes = suffixesForModuleCandidatePass(indexSuffixes, pass)
-  for _, suffix := range indexSuffixes {
-    candidates = append(candidates, moduleSuffixCandidates(filepath.Join(directoryBase, "index"+suffix), context)...)
-  }
-  return candidates
-}
-
-func suffixesForModuleCandidatePass(suffixes []string, pass moduleCandidatePass) []string {
-  if pass == moduleCandidatePassAll {
-    return suffixes
-  }
-  output := make([]string, 0, len(suffixes))
-  for _, suffix := range suffixes {
-    probe := "candidate" + suffix
-    preferred := shimtspath.HasImplementationTSFileExtension(probe) || shimtspath.IsDeclarationFileName(probe)
-    if preferred == (pass == moduleCandidatePassPreferred) {
-      output = append(output, suffix)
+    if previous, found := byPath[input.Path]; found {
+      input.DirectoryEntries = previous.DirectoryEntries || input.DirectoryEntries
+      input.IdentityOnly = previous.IdentityOnly && input.IdentityOnly
     }
+    byPath[input.Path] = input
+  }
+  paths := make([]string, 0, len(byPath))
+  for path := range byPath {
+    paths = append(paths, path)
+  }
+  sort.Strings(paths)
+  output := make([]ProgramResolutionInput, 0, len(paths))
+  for _, path := range paths {
+    output = append(output, byPath[path])
   }
   return output
-}
-
-func withoutDeclarationSuffixes(suffixes []string) []string {
-  output := make([]string, 0, len(suffixes))
-  for _, suffix := range suffixes {
-    if !strings.HasPrefix(suffix, ".d.") {
-      output = append(output, suffix)
-    }
-  }
-  return output
-}
-
-func moduleSuffixCandidates(path string, context ModuleResolutionContext) []string {
-  if context.Options == nil || len(context.Options.ModuleSuffixes) == 0 {
-    return []string{path}
-  }
-  extension := shimtspath.TryGetExtensionFromPath(path)
-  base := strings.TrimSuffix(path, extension)
-  candidates := make([]string, 0, len(context.Options.ModuleSuffixes))
-  for _, suffix := range context.Options.ModuleSuffixes {
-    candidates = append(candidates, base+suffix+extension)
-  }
-  return candidates
-}
-
-func fileCandidateBaseAndSuffixes(base string) (string, []string) {
-  lower := strings.ToLower(base)
-  switch {
-  case strings.HasSuffix(lower, ".d.mts"):
-    return base[:len(base)-len(".d.mts")], []string{".mts", ".d.mts", ".mjs"}
-  case strings.HasSuffix(lower, ".mjs"), strings.HasSuffix(lower, ".mts"):
-    return base[:len(base)-len(filepath.Ext(base))], []string{".mts", ".d.mts", ".mjs"}
-  case strings.HasSuffix(lower, ".d.cts"):
-    return base[:len(base)-len(".d.cts")], []string{".cts", ".d.cts", ".cjs"}
-  case strings.HasSuffix(lower, ".cjs"), strings.HasSuffix(lower, ".cts"):
-    return base[:len(base)-len(filepath.Ext(base))], []string{".cts", ".d.cts", ".cjs"}
-  case strings.HasSuffix(lower, ".tsx"), strings.HasSuffix(lower, ".jsx"):
-    return base[:len(base)-len(filepath.Ext(base))], []string{".tsx", ".ts", ".d.ts", ".jsx", ".js"}
-  case strings.HasSuffix(lower, ".d.ts"):
-    return base[:len(base)-len(".d.ts")], []string{".ts", ".tsx", ".d.ts", ".js", ".jsx"}
-  case strings.HasSuffix(lower, ".ts"), strings.HasSuffix(lower, ".js"):
-    return base[:len(base)-len(filepath.Ext(base))], []string{".ts", ".tsx", ".d.ts", ".js", ".jsx"}
-  default:
-    return base, []string{".ts", ".tsx", ".d.ts", ".js", ".jsx"}
-  }
-}
-
-// TypeReferenceCandidates lists the probes used for a triple-slash type
-// directive or compilerOptions.types entry.
-func TypeReferenceCandidates(configs []*tsoptions.ParsedCommandLine, directory, cwd, name string) []string {
-  candidates := []string{}
-  for _, parsed := range configs {
-    if parsed == nil || parsed.ParsedConfig == nil || parsed.ParsedConfig.CompilerOptions == nil {
-      continue
-    }
-    for _, root := range parsed.ParsedConfig.CompilerOptions.TypeRoots {
-      candidates = append(candidates, FileCandidates(filepath.Join(root, filepath.FromSlash(name)))...)
-    }
-  }
-  for current := filepath.Clean(directory); ; current = filepath.Dir(current) {
-    candidates = append(candidates, FileCandidates(filepath.Join(current, "node_modules", "@types", filepath.FromSlash(name)))...)
-    if reachedWalkStop(current, cwd) || filepath.Dir(current) == current {
-      return candidates
-    }
-  }
-}
-
-// ModuleResolutionCandidates lists the bounded speculative probes for one
-// module specifier in compiler precedence order. The list is used unchanged for
-// unresolved specifiers and is cut at the compiler-selected target for resolved
-// specifiers by ModuleResolutionPredecessors.
-func ModuleResolutionCandidates(configs []*tsoptions.ParsedCommandLine, directory, cwd, specifier string, context ModuleResolutionContext) []string {
-  if specifier == "" {
-    return nil
-  }
-  if strings.HasPrefix(specifier, ".") {
-    candidates := moduleFileCandidates(filepath.Clean(filepath.Join(directory, filepath.FromSlash(specifier))), context, true)
-    return append(candidates, rootDirsCandidates(configs, directory, specifier, context)...)
-  }
-  candidates := compilerOptionCandidates(configs, specifier, context)
-  if strings.HasPrefix(specifier, "#") {
-    if !context.usesPackageImports() {
-      return candidates
-    }
-    for current := filepath.Clean(directory); ; current = filepath.Dir(current) {
-      fromManifest, _ := packageManifestCandidates(current, specifier, context, moduleCandidatePassAll)
-      candidates = append(candidates, fromManifest...)
-      if reachedWalkStop(current, cwd) || filepath.Dir(current) == current {
-        return candidates
-      }
-    }
-  }
-  for _, pass := range []moduleCandidatePass{moduleCandidatePassPreferred, moduleCandidatePassFallback} {
-    for current := filepath.Clean(directory); ; current = filepath.Dir(current) {
-      base := filepath.Join(current, "node_modules", filepath.FromSlash(specifier))
-      root := packageRoot(base, specifier)
-      fromManifest, hasExports := packageManifestCandidates(root, packageSubpath(specifier), context, pass)
-      // Package exports block bare file and folder lookups. Recording them would
-      // make a file that TypeScript will never select invalidate a resident
-      // snapshot, so only the export-map paths participate in this branch.
-      if !hasExports {
-        candidates = append(candidates, moduleFileCandidatesForPass(base, context, moduleDirectoryCandidatesPackageAndIndex, pass)...)
-      }
-      candidates = append(candidates, filepath.Join(root, "package.json"))
-      candidates = append(candidates, fromManifest...)
-      if reachedWalkStop(current, cwd) || filepath.Dir(current) == current {
-        break
-      }
-    }
-  }
-  return candidates
-}
-
-// SourceModuleSpecifiers returns all static and dynamic module-specifier
-// literals a source file carries, including imports, exports, import-equals,
-// import types, require calls, and dynamic imports.
-func SourceModuleSpecifiers(source *ast.SourceFile) []*ast.Node {
-  if source == nil {
-    return nil
-  }
-  specifiers := []*ast.Node{}
-  var walk func(*ast.Node) bool
-  walk = func(node *ast.Node) bool {
-    if node == nil {
-      return false
-    }
-    var specifier *ast.Node
-    switch node.Kind {
-    case ast.KindImportDeclaration, ast.KindJSImportDeclaration:
-      specifier = node.AsImportDeclaration().ModuleSpecifier
-    case ast.KindExportDeclaration:
-      specifier = node.AsExportDeclaration().ModuleSpecifier
-    case ast.KindImportEqualsDeclaration:
-      reference := node.AsImportEqualsDeclaration().ModuleReference
-      if reference != nil && reference.Kind == ast.KindExternalModuleReference {
-        specifier = reference.AsExternalModuleReference().Expression
-      }
-    case ast.KindImportType:
-      argument := node.AsImportTypeNode().Argument
-      if argument != nil && argument.Kind == ast.KindLiteralType {
-        specifier = argument.AsLiteralTypeNode().Literal
-      }
-    case ast.KindCallExpression:
-      call := node.AsCallExpression()
-      if isModuleSpecifierCall(call) && call.Arguments != nil && len(call.Arguments.Nodes) > 0 {
-        specifier = call.Arguments.Nodes[0]
-      }
-    }
-    if specifier != nil && (specifier.Kind == ast.KindStringLiteral || specifier.Kind == ast.KindNoSubstitutionTemplateLiteral) {
-      specifiers = append(specifiers, specifier)
-    }
-    node.ForEachChild(walk)
-    return false
-  }
-  walk(source.AsNode())
-  return specifiers
-}
-
-func isModuleSpecifierCall(call *ast.CallExpression) bool {
-  if call == nil || call.Expression == nil {
-    return false
-  }
-  if call.Expression.Kind == ast.KindImportKeyword {
-    return true
-  }
-  return call.Expression.Kind == ast.KindIdentifier && call.Expression.Text() == "require"
-}
-
-type packageTarget struct {
-  path         string
-  wildcard     string
-  kind         packageTargetKind
-  usesCommonJS bool
-}
-
-type packageTargetKind uint8
-
-const (
-  packageTargetMapping packageTargetKind = iota
-  packageTargetTypesVersions
-  packageTargetEntry
-)
-
-// packageValue preserves a package.json object's declaration order. That order
-// is resolution semantics for conditional exports/imports, so decoding into a
-// Go map would make the speculative prefix nondeterministic.
-type packageValue struct {
-  array  []packageValue
-  object []packageProperty
-  text   *string
-}
-
-type packageProperty struct {
-  key   string
-  value packageValue
-}
-
-func packageManifestCandidates(root, wildcard string, context ModuleResolutionContext, pass moduleCandidatePass) ([]string, bool) {
-  content, err := os.ReadFile(filepath.Join(root, "package.json"))
-  if err != nil {
-    return nil, false
-  }
-  var manifest struct {
-    Main          string          `json:"main"`
-    Module        string          `json:"module"`
-    Types         string          `json:"types"`
-    Typings       string          `json:"typings"`
-    Exports       json.RawMessage `json:"exports"`
-    Imports       json.RawMessage `json:"imports"`
-    Type          string          `json:"type"`
-    TypesVersions json.RawMessage `json:"typesVersions"`
-  }
-  if json.Unmarshal(content, &manifest) != nil {
-    return nil, false
-  }
-  defaultWildcard := strings.TrimPrefix(strings.TrimPrefix(wildcard, "./"), "#")
-  targets := []packageTarget{}
-  if strings.HasPrefix(wildcard, "#") {
-    if context.usesPackageImports() {
-      if value, ok := decodePackageValue(manifest.Imports); ok {
-        collectPackageMappingTargets(value, wildcard, defaultWildcard, context.packageConditions(), &targets)
-      }
-    }
-    return packageTargetCandidates(root, targets, context, pass), false
-  }
-  exportRequest := "."
-  if wildcard != "" && !strings.HasPrefix(wildcard, "#") {
-    exportRequest = "./" + strings.TrimPrefix(wildcard, "./")
-  }
-  exports, hasExports := decodePackageValue(manifest.Exports)
-  if hasExports && context.usesPackageExports() {
-    collectPackageMappingTargets(exports, exportRequest, defaultWildcard, context.packageConditions(), &targets)
-  } else {
-    hasExports = false
-    usesCommonJS := manifest.Type != "module"
-    entry := packageTarget{kind: packageTargetEntry, usesCommonJS: usesCommonJS}
-    if wildcard == "" {
-      entry.path = manifest.Main
-      declarations := context.Options == nil || context.Options.NoDtsResolution != shimcore.TSTrue
-      if pass != moduleCandidatePassFallback && declarations {
-        entry.path = manifest.Typings
-        if entry.path == "" {
-          entry.path = manifest.Types
-        }
-        if entry.path == "" {
-          entry.path = manifest.Main
-        }
-      }
-    }
-    typesVersionsWildcard := defaultWildcard
-    entryInsideRoot := entry.path == ""
-    if wildcard == "" {
-      typesVersionsWildcard = "index"
-      if entry.path != "" {
-        if relative, ok := packageTargetRelativeToRoot(root, entry.path); ok {
-          entryInsideRoot = true
-          typesVersionsWildcard = relative
-        }
-      }
-    }
-    useTypesVersions := wildcard != "" || entryInsideRoot
-    if useTypesVersions {
-      if paths, ok := matchingTypesVersionsPaths(manifest.TypesVersions); ok {
-        collectTypesVersionsTargets(paths, typesVersionsWildcard, wildcard == "" && usesCommonJS, &targets)
-      }
-    }
-    // `typings`, `types`, and `main` are directory-entrypoint fields. A
-    // subpath resolution never falls back to them, and `module` is not a
-    // TypeScript-Go resolution field at all.
-    if wildcard == "" {
-      targets = append(targets, entry)
-    }
-  }
-  return packageTargetCandidates(root, targets, context, pass), hasExports
-}
-
-func packageTargetCandidates(root string, targets []packageTarget, context ModuleResolutionContext, pass moduleCandidatePass) []string {
-  candidates := []string{}
-  for _, target := range targets {
-    if target.path == "" || strings.Contains(target.path, "://") {
-      continue
-    }
-    targetPath := strings.Replace(target.path, "*", target.wildcard, 1)
-    if target.kind == packageTargetMapping && shimtspath.PathIsAbsolute(targetPath) {
-      continue
-    }
-    candidate := filepath.FromSlash(shimtspath.NormalizePath(shimtspath.CombinePaths(filepath.ToSlash(root), targetPath)))
-    targetContext := context
-    if target.usesCommonJS {
-      targetContext.Mode = shimcore.ResolutionModeCommonJS
-    }
-    // Paths inside typesVersions first try any explicit known extension, then
-    // continue through the loader's current extension pass. Package fields and
-    // local exports or imports targets take the direct branch only for an active
-    // TypeScript implementation or declaration. A mapping stops there on a
-    // miss, while an entry field continues through the current extension pass.
-    direct := target.kind == packageTargetTypesVersions && shimtspath.TryGetExtensionFromPath(target.path) != ""
-    if target.kind != packageTargetTypesVersions && pass != moduleCandidatePassFallback {
-      direct = shimtspath.HasImplementationTSFileExtension(candidate) ||
-        (shimtspath.IsDeclarationFileName(candidate) &&
-          (targetContext.Options == nil || targetContext.Options.NoDtsResolution != shimcore.TSTrue))
-    }
-    if direct {
-      candidates = append(candidates, moduleSuffixCandidates(candidate, targetContext)...)
-      if target.kind == packageTargetMapping {
-        continue
-      }
-    }
-    directoryMode := moduleDirectoryCandidatesNone
-    if target.kind != packageTargetMapping {
-      directoryMode = moduleDirectoryCandidatesIndexOnly
-    }
-    candidates = append(candidates, moduleFileCandidatesForPass(candidate, targetContext, directoryMode, pass)...)
-  }
-  return candidates
-}
-
-func collectPackageMappingTargets(value packageValue, request, wildcard string, conditions map[string]struct{}, targets *[]packageTarget) {
-  if value.object != nil {
-    mapping := false
-    for _, property := range value.object {
-      if strings.HasPrefix(property.key, ".") || strings.HasPrefix(property.key, "#") {
-        mapping = true
-        break
-      }
-    }
-    if mapping {
-      property, matched, ok := matchingPackageProperty(value.object, request)
-      if ok {
-        collectPackageTargets(property.value, matched, conditions, packageTargetMapping, false, targets)
-      }
-      return
-    }
-  }
-  collectPackageTargets(value, wildcard, conditions, packageTargetMapping, false, targets)
-}
-
-func packageTargetRelativeToRoot(root, target string) (string, bool) {
-  if strings.Contains(target, "://") {
-    return "", false
-  }
-  root = shimtspath.NormalizePath(filepath.ToSlash(root))
-  candidate := shimtspath.NormalizePath(shimtspath.CombinePaths(root, target))
-  options := shimtspath.ComparePathsOptions{}
-  if !shimtspath.ContainsPath(root, candidate, options) {
-    return "", false
-  }
-  return shimtspath.GetRelativePathFromDirectory(root, candidate, options), true
-}
-
-func matchingTypesVersionsPaths(raw json.RawMessage) (packageValue, bool) {
-  trimmed := bytes.TrimSpace(raw)
-  if len(trimmed) == 0 || trimmed[0] != '{' {
-    return packageValue{}, false
-  }
-  decoder := json.NewDecoder(bytes.NewReader(trimmed))
-  if _, err := decoder.Token(); err != nil {
-    return packageValue{}, false
-  }
-  for decoder.More() {
-    token, err := decoder.Token()
-    key, keyOK := token.(string)
-    if err != nil || !keyOK {
-      return packageValue{}, false
-    }
-    var child json.RawMessage
-    if decoder.Decode(&child) != nil {
-      return packageValue{}, false
-    }
-    if !shimcore.TypeScriptVersionSatisfiesRange(key) {
-      continue
-    }
-    value, ok := decodePackageValue(child)
-    if !ok || value.object == nil {
-      return packageValue{}, false
-    }
-    return value, true
-  }
-  return packageValue{}, false
-}
-
-func collectTypesVersionsTargets(paths packageValue, request string, usesCommonJS bool, targets *[]packageTarget) {
-  property, matched, ok := matchingTypesVersionsProperty(paths.object, request)
-  if !ok || property.value.array == nil {
-    return
-  }
-  for _, target := range property.value.array {
-    if target.text != nil {
-      *targets = append(*targets, packageTarget{
-        path:         *target.text,
-        wildcard:     matched,
-        kind:         packageTargetTypesVersions,
-        usesCommonJS: usesCommonJS,
-      })
-    }
-  }
-}
-
-func matchingTypesVersionsProperty(properties []packageProperty, request string) (packageProperty, string, bool) {
-  for _, property := range properties {
-    if !strings.ContainsRune(property.key, '*') && property.key == request {
-      return property, "", true
-    }
-  }
-  selected := -1
-  selectedPrefix := -1
-  selectedText := ""
-  for index, property := range properties {
-    star := strings.IndexByte(property.key, '*')
-    if star < 0 || strings.ContainsRune(property.key[star+1:], '*') || star <= selectedPrefix {
-      continue
-    }
-    prefix := property.key[:star]
-    suffix := property.key[star+1:]
-    if len(request) < len(prefix)+len(suffix) || !strings.HasPrefix(request, prefix) || !strings.HasSuffix(request, suffix) {
-      continue
-    }
-    selected = index
-    selectedPrefix = star
-    selectedText = request[len(prefix) : len(request)-len(suffix)]
-  }
-  if selected < 0 {
-    return packageProperty{}, "", false
-  }
-  return properties[selected], selectedText, true
-}
-
-func collectPackageTargets(value packageValue, wildcard string, conditions map[string]struct{}, kind packageTargetKind, usesCommonJS bool, targets *[]packageTarget) {
-  if value.text != nil {
-    *targets = append(*targets, packageTarget{path: *value.text, wildcard: wildcard, kind: kind, usesCommonJS: usesCommonJS})
-    return
-  }
-  for _, child := range value.array {
-    collectPackageTargets(child, wildcard, conditions, kind, usesCommonJS, targets)
-  }
-  for _, property := range value.object {
-    if conditions == nil {
-      collectPackageTargets(property.value, wildcard, nil, kind, usesCommonJS, targets)
-      continue
-    }
-    if property.key == "default" {
-      collectPackageTargets(property.value, wildcard, conditions, kind, usesCommonJS, targets)
-      continue
-    }
-    if _, active := conditions[property.key]; active {
-      collectPackageTargets(property.value, wildcard, conditions, kind, usesCommonJS, targets)
-    }
-  }
-}
-
-func decodePackageValue(raw json.RawMessage) (packageValue, bool) {
-  trimmed := bytes.TrimSpace(raw)
-  if len(trimmed) == 0 || bytes.Equal(trimmed, []byte("null")) {
-    return packageValue{}, false
-  }
-  switch trimmed[0] {
-  case '"':
-    var text string
-    if json.Unmarshal(trimmed, &text) != nil {
-      return packageValue{}, false
-    }
-    return packageValue{text: &text}, true
-  case '[':
-    var rawChildren []json.RawMessage
-    if json.Unmarshal(trimmed, &rawChildren) != nil {
-      return packageValue{}, false
-    }
-    value := packageValue{array: make([]packageValue, 0, len(rawChildren))}
-    for _, child := range rawChildren {
-      parsed, ok := decodePackageValue(child)
-      if ok {
-        value.array = append(value.array, parsed)
-      }
-    }
-    return value, true
-  case '{':
-    decoder := json.NewDecoder(bytes.NewReader(trimmed))
-    if _, err := decoder.Token(); err != nil {
-      return packageValue{}, false
-    }
-    value := packageValue{object: make([]packageProperty, 0)}
-    for decoder.More() {
-      token, err := decoder.Token()
-      key, keyOK := token.(string)
-      if err != nil || !keyOK {
-        return packageValue{}, false
-      }
-      var child json.RawMessage
-      if decoder.Decode(&child) != nil {
-        return packageValue{}, false
-      }
-      parsed, ok := decodePackageValue(child)
-      if ok {
-        value.object = append(value.object, packageProperty{key: key, value: parsed})
-      }
-    }
-    if _, err := decoder.Token(); err != nil {
-      return packageValue{}, false
-    }
-    return value, true
-  default:
-    return packageValue{}, false
-  }
-}
-
-func packageSubpath(specifier string) string {
-  parts := strings.Split(filepath.ToSlash(specifier), "/")
-  count := 1
-  if strings.HasPrefix(specifier, "@") && len(parts) > 1 {
-    count = 2
-  }
-  if len(parts) <= count {
-    return ""
-  }
-  return strings.Join(parts[count:], "/")
-}
-
-func compilerOptionCandidates(configs []*tsoptions.ParsedCommandLine, specifier string, context ModuleResolutionContext) []string {
-  candidates := []string{}
-  for _, parsed := range configs {
-    if parsed == nil || parsed.ParsedConfig == nil || parsed.ParsedConfig.CompilerOptions == nil {
-      continue
-    }
-    options := parsed.ParsedConfig.CompilerOptions
-    if options.Paths == nil {
-      continue
-    }
-    base := options.GetPathsBasePath(parsed.GetCurrentDirectory())
-    pattern := ""
-    matched := ""
-    targets := []string(nil)
-    for candidatePattern, candidateTargets := range options.Paths.Entries() {
-      if candidatePattern == specifier {
-        pattern = candidatePattern
-        matched = ""
-        targets = candidateTargets
-        break
-      }
-      candidateMatched, ok := matchPathPattern(candidatePattern, specifier)
-      if !ok || (pattern != "" && comparePatternKeys(candidatePattern, pattern) >= 0) {
-        continue
-      }
-      pattern = candidatePattern
-      matched = candidateMatched
-      targets = candidateTargets
-    }
-    if pattern == "" {
-      continue
-    }
-    for _, target := range targets {
-      target = strings.Replace(target, "*", matched, 1)
-      candidates = append(candidates, moduleFileCandidates(filepath.Join(base, filepath.FromSlash(target)), context, true)...)
-    }
-  }
-  return candidates
-}
-
-func rootDirsCandidates(configs []*tsoptions.ParsedCommandLine, directory, specifier string, context ModuleResolutionContext) []string {
-  candidates := []string{}
-  for _, parsed := range configs {
-    if parsed == nil || parsed.ParsedConfig == nil || parsed.ParsedConfig.CompilerOptions == nil {
-      continue
-    }
-    roots := parsed.ParsedConfig.CompilerOptions.RootDirs
-    candidate := filepath.Clean(filepath.Join(directory, filepath.FromSlash(specifier)))
-    matchedRoot := ""
-    suffix := ""
-    for _, root := range roots {
-      relative, err := filepath.Rel(root, candidate)
-      if err != nil || relative == ".." || strings.HasPrefix(relative, ".."+string(filepath.Separator)) {
-        continue
-      }
-      if len(root) > len(matchedRoot) {
-        matchedRoot = root
-        suffix = relative
-      }
-    }
-    if matchedRoot == "" {
-      continue
-    }
-    for _, targetRoot := range roots {
-      if filepath.Clean(targetRoot) == filepath.Clean(matchedRoot) {
-        continue
-      }
-      candidates = append(candidates, moduleFileCandidates(filepath.Join(targetRoot, suffix), context, true)...)
-    }
-  }
-  return candidates
-}
-
-func matchPathPattern(pattern, specifier string) (string, bool) {
-  star := strings.IndexByte(pattern, '*')
-  if star < 0 {
-    return "", pattern == specifier
-  }
-  prefix := pattern[:star]
-  suffix := pattern[star+1:]
-  if len(specifier) < len(prefix)+len(suffix) || !strings.HasPrefix(specifier, prefix) || !strings.HasSuffix(specifier, suffix) {
-    return "", false
-  }
-  return specifier[len(prefix) : len(specifier)-len(suffix)], true
-}
-
-func matchingPackageProperty(properties []packageProperty, request string) (packageProperty, string, bool) {
-  for _, property := range properties {
-    if property.key == request {
-      return property, "", true
-    }
-  }
-  var selected *packageProperty
-  selectedText := ""
-  for index := range properties {
-    matched, ok := matchPackagePathPattern(properties[index].key, request)
-    if !ok || (selected != nil && comparePatternKeys(properties[index].key, selected.key) >= 0) {
-      continue
-    }
-    selected = &properties[index]
-    selectedText = matched
-  }
-  if selected == nil {
-    return packageProperty{}, "", false
-  }
-  return *selected, selectedText, true
-}
-
-func matchPackagePathPattern(pattern, request string) (string, bool) {
-  if matched, ok := matchPathPattern(pattern, request); ok {
-    return matched, true
-  }
-  if strings.HasSuffix(pattern, "/") && strings.HasPrefix(request, pattern) {
-    return request[len(pattern):], true
-  }
-  return "", false
-}
-
-// comparePatternKeys is the TypeScript-Go resolver's pattern ordering: the
-// longest prefix wins, then a pattern with the longest trailer. It lets the
-// host retain candidates from exactly the one mapping the compiler selected.
-func comparePatternKeys(left, right string) int {
-  leftStar := strings.IndexByte(left, '*')
-  rightStar := strings.IndexByte(right, '*')
-  leftBaseLength := len(left)
-  if leftStar >= 0 {
-    leftBaseLength = leftStar + 1
-  }
-  rightBaseLength := len(right)
-  if rightStar >= 0 {
-    rightBaseLength = rightStar + 1
-  }
-  switch {
-  case leftBaseLength > rightBaseLength:
-    return -1
-  case leftBaseLength < rightBaseLength:
-    return 1
-  case leftStar < 0:
-    return 1
-  case rightStar < 0:
-    return -1
-  case len(left) > len(right):
-    return -1
-  case len(left) < len(right):
-    return 1
-  default:
-    return 0
-  }
-}
-
-func packageRoot(base, specifier string) string {
-  parts := strings.Split(filepath.ToSlash(specifier), "/")
-  count := 1
-  if strings.HasPrefix(specifier, "@") && len(parts) > 1 {
-    count = 2
-  }
-  suffixCount := len(parts) - count
-  root := base
-  for range suffixCount {
-    root = filepath.Dir(root)
-  }
-  return root
 }
 
 func compactStringsInOrder(input []string) []string {

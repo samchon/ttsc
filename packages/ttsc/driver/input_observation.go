@@ -4,6 +4,7 @@ import (
   "crypto/sha256"
   "encoding/hex"
   "path/filepath"
+  "slices"
   "sync"
 
   shimtspath "github.com/microsoft/typescript-go/shim/tspath"
@@ -18,17 +19,19 @@ var observedDirectoryDigest = func() string {
 type inputProofFailure string
 
 const (
-  inputProofContentChanged         inputProofFailure = "content-changed"
-  inputProofContentUnavailable     inputProofFailure = "content-unavailable"
-  inputProofDirectoryExistsChanged inputProofFailure = "directory-exists-changed"
-  inputProofFileExistsChanged      inputProofFailure = "file-exists-changed"
-  inputProofInvalidPath            inputProofFailure = "invalid-path"
-  inputProofPredicateConflict      inputProofFailure = "predicate-conflict"
-  inputProofRealpathChanged        inputProofFailure = "realpath-changed"
-  inputProofRealpathUnavailable    inputProofFailure = "realpath-unavailable"
-  inputProofStatChanged            inputProofFailure = "stat-changed"
-  inputProofUnobserved             inputProofFailure = "unobserved"
-  inputProofUnsupportedInputKind   inputProofFailure = "unsupported-input-kind"
+  inputProofAccessibleEntriesChanged inputProofFailure = "accessible-entries-changed"
+  inputProofContentChanged           inputProofFailure = "content-changed"
+  inputProofContentUnavailable       inputProofFailure = "content-unavailable"
+  inputProofDirectoryExistsChanged   inputProofFailure = "directory-exists-changed"
+  inputProofFileExistsChanged        inputProofFailure = "file-exists-changed"
+  inputProofInvalidPath              inputProofFailure = "invalid-path"
+  inputProofPredicateConflict        inputProofFailure = "predicate-conflict"
+  inputProofResolutionChanged        inputProofFailure = "resolution-changed"
+  inputProofRealpathChanged          inputProofFailure = "realpath-changed"
+  inputProofRealpathUnavailable      inputProofFailure = "realpath-unavailable"
+  inputProofStatChanged              inputProofFailure = "stat-changed"
+  inputProofUnobserved               inputProofFailure = "unobserved"
+  inputProofUnsupportedInputKind     inputProofFailure = "unsupported-input-kind"
 )
 
 // TransformInputReadObservation is the exact result of one compiler ReadFile
@@ -46,15 +49,24 @@ type TransformInputRealpathObservation struct {
   Path string `json:"path,omitempty"`
 }
 
+// TransformInputEntriesObservation is the exact result of one compiler
+// GetAccessibleEntries predicate. Both lists retain TypeScript-Go's sorted
+// lexical child names, including followed directory links and junctions.
+type TransformInputEntriesObservation struct {
+  Directories []string `json:"directories"`
+  Files       []string `json:"files"`
+}
+
 // TransformInputObservation preserves independent compiler filesystem
 // predicates for one lexical path. False FileExists and true DirectoryExists
 // are compatible constraints, not a path-kind race.
 type TransformInputObservation struct {
-  DirectoryExists *bool                              `json:"directoryExists,omitempty"`
-  FileExists      *bool                              `json:"fileExists,omitempty"`
-  ReadFile        *TransformInputReadObservation     `json:"readFile,omitempty"`
-  Realpath        *TransformInputRealpathObservation `json:"realpath,omitempty"`
-  Stat            *string                            `json:"stat,omitempty"`
+  AccessibleEntries *TransformInputEntriesObservation  `json:"accessibleEntries,omitempty"`
+  DirectoryExists   *bool                              `json:"directoryExists,omitempty"`
+  FileExists        *bool                              `json:"fileExists,omitempty"`
+  ReadFile          *TransformInputReadObservation     `json:"readFile,omitempty"`
+  Realpath          *TransformInputRealpathObservation `json:"realpath,omitempty"`
+  Stat              *string                            `json:"stat,omitempty"`
 }
 
 type observedInput struct {
@@ -68,16 +80,19 @@ type observedInput struct {
 // of attaching post-compile disk hashes to an earlier result.
 type inputObservationFS struct {
   vfs.FS
-  caseSensitive bool
-  mu            sync.Mutex
-  observations  map[string]observedInput
+  caseSensitive        bool
+  mu                   sync.Mutex
+  observations         map[string]observedInput
+  observationOrder     []string
+  observationSpellings map[string]string
 }
 
 func newInputObservationFS(inner vfs.FS) *inputObservationFS {
   return &inputObservationFS{
-    FS:            inner,
-    caseSensitive: inner.UseCaseSensitiveFileNames(),
-    observations:  map[string]observedInput{},
+    FS:                   inner,
+    caseSensitive:        inner.UseCaseSensitiveFileNames(),
+    observations:         map[string]observedInput{},
+    observationSpellings: map[string]string{},
   }
 }
 
@@ -126,10 +141,16 @@ func (fs *inputObservationFS) DirectoryExists(path string) bool {
 }
 
 func (fs *inputObservationFS) GetAccessibleEntries(path string) vfs.Entries {
-  // DirectoryExists records directory identity on the ordinary compiler path.
-  // An empty listing alone cannot distinguish a missing directory from an
-  // existing empty one without issuing an extra stat for every enumeration.
-  return fs.FS.GetAccessibleEntries(path)
+  entries := fs.FS.GetAccessibleEntries(path)
+  fs.observe(path, observedInput{
+    proof: TransformInputObservation{
+      AccessibleEntries: &TransformInputEntriesObservation{
+        Directories: append([]string{}, entries.Directories...),
+        Files:       append([]string{}, entries.Files...),
+      },
+    },
+  })
+  return entries
 }
 
 func (fs *inputObservationFS) Stat(path string) vfs.FileInfo {
@@ -202,6 +223,10 @@ func (fs *inputObservationFS) observe(path string, next observedInput) {
   }
   fs.mu.Lock()
   defer fs.mu.Unlock()
+  if _, found := fs.observationSpellings[key]; !found {
+    fs.observationSpellings[key] = filepath.Clean(path)
+    fs.observationOrder = append(fs.observationOrder, key)
+  }
   keys := []string{key}
   // A compiler read can arrive through an 8.3, case-variant, or already-real
   // spelling while resolution recorded the selected lexical alias. Index the
@@ -252,6 +277,13 @@ func (fs *inputObservationFS) mergeObservation(key string, next observedInput) {
     fs.failObservation(key, previous, inputProofRealpathChanged)
     return
   }
+  if previous.proof.AccessibleEntries != nil && next.proof.AccessibleEntries != nil && !sameEntriesObservation(previous.proof.AccessibleEntries, next.proof.AccessibleEntries) {
+    fs.failObservation(key, previous, inputProofAccessibleEntriesChanged)
+    return
+  }
+  if previous.proof.AccessibleEntries == nil {
+    previous.proof.AccessibleEntries = next.proof.AccessibleEntries
+  }
   if previous.proof.FileExists == nil {
     previous.proof.FileExists = next.proof.FileExists
   }
@@ -274,6 +306,65 @@ func (fs *inputObservationFS) mergeObservation(key string, next observedInput) {
   fs.observations[key] = previous
 }
 
+func sameEntriesObservation(left, right *TransformInputEntriesObservation) bool {
+  return slices.Equal(left.Directories, right.Directories) && slices.Equal(left.Files, right.Files)
+}
+
+// observedPaths returns the exact lexical spellings on which this wrapper
+// observed at least one filesystem predicate, in first-observation order.
+func (fs *inputObservationFS) observedPaths() []string {
+  fs.mu.Lock()
+  defer fs.mu.Unlock()
+  output := make([]string, 0, len(fs.observationOrder))
+  for _, key := range fs.observationOrder {
+    output = append(output, fs.observationSpellings[key])
+  }
+  return output
+}
+
+func (fs *inputObservationFS) observedAccessibleEntries(path string) bool {
+  key := fs.observationKey(path)
+  if key == "" {
+    return false
+  }
+  fs.mu.Lock()
+  defer fs.mu.Unlock()
+  observation, found := fs.observations[key]
+  return found && observation.proof.AccessibleEntries != nil
+}
+
+// mergeFrom joins a replay transaction into the compiler-time observation
+// set. Any predicate that changed between construction and replay becomes a
+// stable proof failure instead of authorizing output from mixed generations.
+func (fs *inputObservationFS) mergeFrom(replay *inputObservationFS) {
+  if replay == nil {
+    return
+  }
+  replay.mu.Lock()
+  observations := make(map[string]observedInput, len(replay.observations))
+  for key, observation := range replay.observations {
+    observations[key] = observation
+  }
+  order := append([]string{}, replay.observationOrder...)
+  spellings := make(map[string]string, len(replay.observationSpellings))
+  for key, spelling := range replay.observationSpellings {
+    spellings[key] = spelling
+  }
+  replay.mu.Unlock()
+
+  fs.mu.Lock()
+  defer fs.mu.Unlock()
+  for _, key := range order {
+    if _, found := fs.observationSpellings[key]; !found {
+      fs.observationSpellings[key] = spellings[key]
+      fs.observationOrder = append(fs.observationOrder, key)
+    }
+  }
+  for key, observation := range observations {
+    fs.mergeObservation(key, observation)
+  }
+}
+
 func (fs *inputObservationFS) failObservation(key string, observed observedInput, failure inputProofFailure) {
   observed.failure = failure
   fs.observations[key] = observed
@@ -288,6 +379,15 @@ func sameRealpathObservation(left, right *TransformInputRealpathObservation) boo
 }
 
 func transformInputObservationCompatible(observation TransformInputObservation) bool {
+  hasAccessibleEntries := observation.AccessibleEntries != nil &&
+    (len(observation.AccessibleEntries.Directories) != 0 || len(observation.AccessibleEntries.Files) != 0)
+  if hasAccessibleEntries &&
+    ((observation.FileExists != nil && *observation.FileExists) ||
+      (observation.DirectoryExists != nil && !*observation.DirectoryExists) ||
+      (observation.Stat != nil && *observation.Stat != "directory") ||
+      (observation.ReadFile != nil && observation.ReadFile.OK)) {
+    return false
+  }
   if observation.FileExists != nil && *observation.FileExists && observation.DirectoryExists != nil && *observation.DirectoryExists {
     return false
   }

@@ -1,458 +1,132 @@
 package driver
 
 import (
-  "encoding/json"
   "os"
   "path/filepath"
-  "reflect"
+  "slices"
   "testing"
-
-  shimcore "github.com/microsoft/typescript-go/shim/core"
 )
 
-func TestPackageTargetCandidatesMirrorCompilerPassesForTypeScriptTargets(t *testing.T) {
+func TestTransformGraphReplaysCompilerResolutionSemantics(t *testing.T) {
   root := t.TempDir()
-  context := ModuleResolutionContext{
-    Options: &shimcore.CompilerOptions{ModuleSuffixes: []string{".native", ""}},
+  files := map[string]string{
+    "package.json": `{
+  "name": "resolver-fixture",
+  "type": "module",
+  "imports": { "#internal": "./src/internal.js" },
+  "exports": { "./self": "./src/self.js" }
+}`,
+    "tsconfig.json": `{
+  "compilerOptions": {
+    "allowJs": true,
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "moduleSuffixes": [".native", ""],
+    "target": "es2022"
+  },
+  "files": ["src/main.ts"]
+}`,
+    "src/main.ts": `/// <reference path="./ambient" />
+/// <reference types="fixture-types" />
+import { internal } from "#internal";
+import { self } from "resolver-fixture/self";
+import type { Folder } from "./folder";
+export const value: Folder = { value: internal + self };
+`,
+    "src/ambient.d.ts": `declare const fixturePathGlobal: string;
+`,
+    "src/internal.js": `export const internal = "internal";
+`,
+    "src/self.js": `export const self = "self";
+`,
+    "src/folder/package.json": `{"types":"index.d.ts"}
+`,
+    "src/folder/index.d.ts": `export interface Folder { value: string }
+`,
+    "node_modules/@types/fixture-types/package.json": `{"name":"@types/fixture-types","types":"index.d.ts","version":"1.0.0"}
+`,
+    "node_modules/@types/fixture-types/index.d.ts": `declare const fixtureGlobal: string;
+`,
   }
-  targets := []packageTarget{
-    {path: "dist/first.ts"},
-    {path: "dist/second.d.ts"},
-  }
-  pathsUnder := func(directory string, names ...string) []string {
-    output := make([]string, 0, len(names))
-    for _, name := range names {
-      output = append(output, filepath.Join(directory, name))
+  for name, contents := range files {
+    location := filepath.Join(root, filepath.FromSlash(name))
+    if err := os.MkdirAll(filepath.Dir(location), 0o755); err != nil {
+      t.Fatal(err)
     }
-    return output
-  }
-  pathsAt := func(base string, names ...string) []string {
-    return pathsUnder(filepath.Join(base, "dist"), names...)
-  }
-  paths := func(names ...string) []string {
-    return pathsAt(root, names...)
-  }
-  extensionCases := []struct {
-    target    string
-    preferred []string
-    fallback  []string
-  }{
-    {
-      target:    "index.ts",
-      preferred: []string{"index.native.ts", "index.ts"},
-      fallback:  []string{"index.native.js", "index.js", "index.native.jsx", "index.jsx"},
-    },
-    {
-      target:    "index.tsx",
-      preferred: []string{"index.native.tsx", "index.tsx"},
-      fallback:  []string{"index.native.jsx", "index.jsx", "index.native.js", "index.js"},
-    },
-    {
-      target:    "index.mts",
-      preferred: []string{"index.native.mts", "index.mts"},
-      fallback:  []string{"index.native.mjs", "index.mjs"},
-    },
-    {
-      target:    "index.cts",
-      preferred: []string{"index.native.cts", "index.cts"},
-      fallback:  []string{"index.native.cjs", "index.cjs"},
-    },
-    {
-      target:    "index.d.ts",
-      preferred: []string{"index.native.d.ts", "index.d.ts"},
-      fallback:  []string{"index.native.js", "index.js", "index.native.jsx", "index.jsx"},
-    },
-    {
-      target:    "index.d.mts",
-      preferred: []string{"index.native.d.mts", "index.d.mts"},
-      fallback:  []string{"index.native.mjs", "index.mjs"},
-    },
-    {
-      target:    "index.d.cts",
-      preferred: []string{"index.native.d.cts", "index.d.cts"},
-      fallback:  []string{"index.native.cjs", "index.cjs"},
-    },
-  }
-  for _, test := range extensionCases {
-    target := []packageTarget{{path: filepath.ToSlash(filepath.Join("dist", test.target))}}
-    preferred := packageTargetCandidates(root, target, context, moduleCandidatePassPreferred)
-    fallback := packageTargetCandidates(root, target, context, moduleCandidatePassFallback)
-    if expected := paths(test.preferred...); !reflect.DeepEqual(preferred, expected) {
-      t.Fatalf("package target %q preferred candidates = %#v, want %#v", test.target, preferred, expected)
-    }
-    if expected := paths(test.fallback...); !reflect.DeepEqual(fallback, expected) {
-      t.Fatalf("package target %q fallback candidates = %#v, want %#v", test.target, fallback, expected)
+    if err := os.WriteFile(location, []byte(contents), 0o644); err != nil {
+      t.Fatal(err)
     }
   }
 
-  preferred := packageTargetCandidates(root, targets, context, moduleCandidatePassPreferred)
-  fallback := packageTargetCandidates(root, targets, context, moduleCandidatePassFallback)
-  actual := append(preferred, fallback...)
-  expected := paths(
-    "first.native.ts", "first.ts",
-    "second.native.d.ts", "second.d.ts",
-    "first.native.js", "first.js", "first.native.jsx", "first.jsx",
-    "second.native.js", "second.js", "second.native.jsx", "second.jsx",
-  )
-  if !reflect.DeepEqual(actual, expected) {
-    t.Fatalf("exports target candidates = %#v, want %#v", actual, expected)
-  }
-
-  imports := packageTargetCandidates(
-    root,
-    []packageTarget{{path: "dist/first.ts"}, {path: "dist/fallback.js"}},
-    context,
-    moduleCandidatePassAll,
-  )
-  expectedImports := paths(
-    "first.native.ts", "first.ts",
-    "fallback.native.ts", "fallback.ts", "fallback.native.tsx", "fallback.tsx",
-    "fallback.native.d.ts", "fallback.d.ts", "fallback.native.js", "fallback.js",
-    "fallback.native.jsx", "fallback.jsx",
-  )
-  if !reflect.DeepEqual(imports, expectedImports) {
-    t.Fatalf("imports target candidates = %#v, want %#v", imports, expectedImports)
-  }
-
-  esmContext := context
-  esmContext.Mode = shimcore.ResolutionModeESM
-  entry := packageTargetCandidates(
-    root,
-    []packageTarget{{path: "dist/index.d.ts", kind: packageTargetEntry}},
-    esmContext,
-    moduleCandidatePassPreferred,
-  )
-  expectedEntry := paths(
-    "index.native.d.ts", "index.d.ts",
-    "index.native.ts", "index.ts", "index.native.tsx", "index.tsx",
-    "index.native.d.ts", "index.d.ts",
-  )
-  if !reflect.DeepEqual(entry, expectedEntry) {
-    t.Fatalf("package entry candidates = %#v, want %#v", entry, expectedEntry)
-  }
-
-  versionedRoot := filepath.Join(root, "versioned")
-  if err := os.MkdirAll(versionedRoot, 0o755); err != nil {
-    t.Fatal(err)
-  }
-  versionedManifest := filepath.Join(versionedRoot, "package.json")
-  if err := os.WriteFile(
-    versionedManifest,
-    []byte(`{"type":"module","typesVersions":{"<0.0.0":{"*":["wrong-version/*"]},"*":{"other/*":["wrong-pattern/*"],"*":["dist/*.ts"]}}}`),
-    0o644,
-  ); err != nil {
-    t.Fatal(err)
-  }
-  preferred, _ = packageManifestCandidates(versionedRoot, "versioned", esmContext, moduleCandidatePassPreferred)
-  fallback, _ = packageManifestCandidates(versionedRoot, "versioned", esmContext, moduleCandidatePassFallback)
-  expectedPreferredVersioned := pathsAt(versionedRoot,
-    "versioned.native.ts", "versioned.ts",
-    "versioned.native.ts", "versioned.ts", "versioned.native.tsx", "versioned.tsx",
-    "versioned.native.d.ts", "versioned.d.ts",
-  )
-  expectedFallbackVersioned := pathsAt(versionedRoot,
-    "versioned.native.ts", "versioned.ts",
-    "versioned.native.js", "versioned.js", "versioned.native.jsx", "versioned.jsx",
-  )
-  if !reflect.DeepEqual(preferred, expectedPreferredVersioned) {
-    t.Fatalf("typesVersions preferred candidates = %#v, want %#v", preferred, expectedPreferredVersioned)
-  }
-  if !reflect.DeepEqual(fallback, expectedFallbackVersioned) {
-    t.Fatalf("typesVersions fallback candidates = %#v, want %#v", fallback, expectedFallbackVersioned)
-  }
-
-  if err := os.WriteFile(
-    versionedManifest,
-    []byte(`{"type":"commonjs","typesVersions":{"*":{"*":["dist/*"]}}}`),
-    0o644,
-  ); err != nil {
-    t.Fatal(err)
-  }
-  preferred, _ = packageManifestCandidates(versionedRoot, "captured.js", esmContext, moduleCandidatePassPreferred)
-  fallback, _ = packageManifestCandidates(versionedRoot, "captured.js", esmContext, moduleCandidatePassFallback)
-  expectedPreferredCaptured := pathsAt(versionedRoot,
-    "captured.native.ts", "captured.ts", "captured.native.tsx", "captured.tsx",
-    "captured.native.d.ts", "captured.d.ts",
-  )
-  expectedFallbackCaptured := pathsAt(versionedRoot,
-    "captured.native.js", "captured.js", "captured.native.jsx", "captured.jsx",
-  )
-  if !reflect.DeepEqual(preferred, expectedPreferredCaptured) {
-    t.Fatalf("wildcard-captured extension preferred candidates = %#v, want %#v", preferred, expectedPreferredCaptured)
-  }
-  if !reflect.DeepEqual(fallback, expectedFallbackCaptured) {
-    t.Fatalf("wildcard-captured extension fallback candidates = %#v, want %#v", fallback, expectedFallbackCaptured)
-  }
-  extensionless, _ := packageManifestCandidates(versionedRoot, "captured", esmContext, moduleCandidatePassPreferred)
-  if len(extensionless) != 0 {
-    t.Fatalf("ESM typesVersions subpath gained CommonJS implicit candidates: %#v", extensionless)
-  }
-
-  if err := os.WriteFile(
-    versionedManifest,
-    []byte(`{"type":"commonjs","typesVersions":{"*":{"*":["dist/*"]}}}`),
-    0o644,
-  ); err != nil {
-    t.Fatal(err)
-  }
-  preferred, _ = packageManifestCandidates(versionedRoot, "", esmContext, moduleCandidatePassPreferred)
-  fallback, _ = packageManifestCandidates(versionedRoot, "", esmContext, moduleCandidatePassFallback)
-  expectedPreferredRoot := pathsAt(versionedRoot,
-    "index.native.ts", "index.ts", "index.native.tsx", "index.tsx", "index.native.d.ts", "index.d.ts",
-    filepath.Join("index", "index.native.ts"), filepath.Join("index", "index.ts"),
-    filepath.Join("index", "index.native.tsx"), filepath.Join("index", "index.tsx"),
-    filepath.Join("index", "index.native.d.ts"), filepath.Join("index", "index.d.ts"),
-  )
-  expectedFallbackRoot := pathsAt(versionedRoot,
-    "index.native.js", "index.js", "index.native.jsx", "index.jsx",
-    filepath.Join("index", "index.native.js"), filepath.Join("index", "index.js"),
-    filepath.Join("index", "index.native.jsx"), filepath.Join("index", "index.jsx"),
-  )
-  if !reflect.DeepEqual(preferred, expectedPreferredRoot) {
-    t.Fatalf("CommonJS package-root typesVersions preferred candidates = %#v, want %#v", preferred, expectedPreferredRoot)
-  }
-  if !reflect.DeepEqual(fallback, expectedFallbackRoot) {
-    t.Fatalf("CommonJS package-root typesVersions fallback candidates = %#v, want %#v", fallback, expectedFallbackRoot)
-  }
-
-  if err := os.WriteFile(
-    versionedManifest,
-    []byte(`{"type":"module","typesVersions":{"*":{"foo/":["wrong-slash/*.js"],"f**r":["wrong-multi/*.js"],"f*r":["first/*.js"],"f*bar":["wrong-tie/*.js"],"*":["fallback/*.js"]}}}`),
-    0o644,
-  ); err != nil {
-    t.Fatal(err)
-  }
-  tied, _ := packageManifestCandidates(versionedRoot, "foobar", esmContext, moduleCandidatePassPreferred)
-  if len(tied) == 0 || tied[0] != filepath.Join(versionedRoot, "first", "ooba.native.js") {
-    t.Fatalf("typesVersions equal-prefix patterns lost declaration order: %#v", tied)
-  }
-  slash, _ := packageManifestCandidates(versionedRoot, "foo/baz", esmContext, moduleCandidatePassPreferred)
-  if len(slash) == 0 || slash[0] != filepath.Join(versionedRoot, "fallback", "foo", "baz.native.js") {
-    t.Fatalf("typesVersions accepted a non-exact trailing-slash key: %#v", slash)
-  }
-
-  if err := os.WriteFile(
-    versionedManifest,
-    []byte(`{"type":"module","typesVersions":{"*":null,">=0":{"*":["shadow/*.js"]}}}`),
-    0o644,
-  ); err != nil {
-    t.Fatal(err)
-  }
-  invalidVersion, _ := packageManifestCandidates(versionedRoot, "blocked", esmContext, moduleCandidatePassPreferred)
-  if len(invalidVersion) != 0 {
-    t.Fatalf("typesVersions continued after an invalid first matching range: %#v", invalidVersion)
-  }
-
-  if err := os.WriteFile(
-    versionedManifest,
-    []byte(`{"main":"../entry.js","type":"module","typesVersions":{"*":{"../entry.js":["wrong/*.js"]}}}`),
-    0o644,
-  ); err != nil {
-    t.Fatal(err)
-  }
-  outsidePreferred, _ := packageManifestCandidates(versionedRoot, "", esmContext, moduleCandidatePassPreferred)
-  outsideFallback, _ := packageManifestCandidates(versionedRoot, "", esmContext, moduleCandidatePassFallback)
-  expectedOutsidePreferred := pathsUnder(root,
-    "entry.native.ts", "entry.ts", "entry.native.tsx", "entry.tsx", "entry.native.d.ts", "entry.d.ts",
-  )
-  expectedOutsideFallback := pathsUnder(root,
-    "entry.native.js", "entry.js", "entry.native.jsx", "entry.jsx",
-  )
-  if !reflect.DeepEqual(outsidePreferred, expectedOutsidePreferred) {
-    t.Fatalf("outside-root package entry gained typesVersions preferred candidates: %#v, want %#v", outsidePreferred, expectedOutsidePreferred)
-  }
-  if !reflect.DeepEqual(outsideFallback, expectedOutsideFallback) {
-    t.Fatalf("outside-root package entry gained typesVersions fallback candidates: %#v, want %#v", outsideFallback, expectedOutsideFallback)
-  }
-
-  insideEntry := filepath.Join(versionedRoot, "index.js")
-  insideManifest, err := json.Marshal(map[string]any{
-    "main": insideEntry,
-    "type": "module",
-    "typesVersions": map[string]any{
-      "*": map[string]any{
-        "index.js": []string{"types/missing.d.ts", "types/index.d.ts"},
-      },
-    },
-  })
+  prog, diagnostics, err := LoadProgram(root, "tsconfig.json", LoadProgramOptions{ForceNoEmit: true})
   if err != nil {
     t.Fatal(err)
   }
-  if err := os.WriteFile(versionedManifest, insideManifest, 0o644); err != nil {
-    t.Fatal(err)
+  if len(diagnostics) != 0 {
+    t.Fatalf("unexpected diagnostics: %#v", diagnostics)
   }
-  insidePreferred, _ := packageManifestCandidates(versionedRoot, "", esmContext, moduleCandidatePassPreferred)
-  expectedInsidePrefix := pathsUnder(versionedRoot,
-    filepath.Join("types", "missing.native.d.ts"), filepath.Join("types", "missing.d.ts"),
-  )
-  if len(insidePreferred) < len(expectedInsidePrefix) || !reflect.DeepEqual(insidePreferred[:len(expectedInsidePrefix)], expectedInsidePrefix) {
-    t.Fatalf("absolute in-package entry lost typesVersions precedence: %#v", insidePreferred)
-  }
-  expectedVersionedEntry := filepath.Join(versionedRoot, "types", "index.native.d.ts")
-  expectedAbsoluteEntry := filepath.Join(versionedRoot, "index.native.ts")
-  versionedIndex := -1
-  entryIndex := -1
-  for index, candidate := range insidePreferred {
-    if candidate == expectedVersionedEntry {
-      versionedIndex = index
-    }
-    if candidate == expectedAbsoluteEntry {
-      entryIndex = index
-    }
-  }
-  if versionedIndex < 0 || entryIndex < 0 || versionedIndex >= entryIndex {
-    t.Fatalf("absolute in-package entry candidates = %#v; versioned index %d, entry index %d", insidePreferred, versionedIndex, entryIndex)
-  }
+  defer prog.Close()
 
-  if err := os.WriteFile(
-    versionedManifest,
-    []byte(`{"main":"/entry.js","type":"module","typesVersions":{"*":{"entry.js":["wrong/index.d.ts"]}}}`),
-    0o644,
-  ); err != nil {
-    t.Fatal(err)
+  graph := NewTransformGraph(prog, root)
+  if graph == nil {
+    t.Fatal("NewTransformGraph returned nil")
   }
-  slashRooted, _ := packageManifestCandidates(versionedRoot, "", esmContext, moduleCandidatePassPreferred)
-  expectedSlashRooted := pathsUnder(filepath.FromSlash("/"),
-    "entry.native.ts", "entry.ts", "entry.native.tsx", "entry.tsx", "entry.native.d.ts", "entry.d.ts",
-  )
-  if !reflect.DeepEqual(slashRooted, expectedSlashRooted) {
-    t.Fatalf("slash-rooted package entry candidates = %#v, want %#v", slashRooted, expectedSlashRooted)
-  }
-  absoluteMapping := packageTargetCandidates(
-    root,
-    []packageTarget{{path: "/mapping.js", kind: packageTargetMapping}},
-    esmContext,
-    moduleCandidatePassPreferred,
-  )
-  if len(absoluteMapping) != 0 {
-    t.Fatalf("absolute exports or imports mapping produced candidates: %#v", absoluteMapping)
-  }
-
-  manifestRoot := filepath.Join(root, "manifest")
-  if err := os.MkdirAll(manifestRoot, 0o755); err != nil {
-    t.Fatal(err)
-  }
-  if err := os.WriteFile(
-    filepath.Join(manifestRoot, "package.json"),
-    []byte(`{"typings":"dist/typed.d.ts","types":"dist/ignored.d.ts","main":"dist/runtime.js","type":"module"}`),
-    0o644,
-  ); err != nil {
-    t.Fatal(err)
-  }
-  preferredEntry, _ := packageManifestCandidates(manifestRoot, "", esmContext, moduleCandidatePassPreferred)
-  fallbackEntry, _ := packageManifestCandidates(manifestRoot, "", esmContext, moduleCandidatePassFallback)
-  expectedPreferredEntry := []string{
-    filepath.Join(manifestRoot, "dist", "typed.native.d.ts"),
-    filepath.Join(manifestRoot, "dist", "typed.d.ts"),
-    filepath.Join(manifestRoot, "dist", "typed.native.ts"),
-    filepath.Join(manifestRoot, "dist", "typed.ts"),
-    filepath.Join(manifestRoot, "dist", "typed.native.tsx"),
-    filepath.Join(manifestRoot, "dist", "typed.tsx"),
-    filepath.Join(manifestRoot, "dist", "typed.native.d.ts"),
-    filepath.Join(manifestRoot, "dist", "typed.d.ts"),
-  }
-  expectedFallbackEntry := []string{
-    filepath.Join(manifestRoot, "dist", "runtime.native.js"),
-    filepath.Join(manifestRoot, "dist", "runtime.js"),
-    filepath.Join(manifestRoot, "dist", "runtime.native.jsx"),
-    filepath.Join(manifestRoot, "dist", "runtime.jsx"),
-  }
-  if !reflect.DeepEqual(preferredEntry, expectedPreferredEntry) {
-    t.Fatalf("preferred package fields = %#v, want %#v", preferredEntry, expectedPreferredEntry)
-  }
-  if !reflect.DeepEqual(fallbackEntry, expectedFallbackEntry) {
-    t.Fatalf("fallback package fields = %#v, want %#v", fallbackEntry, expectedFallbackEntry)
-  }
-
-  explicitDirectory := moduleFileCandidates(filepath.Join(root, "folder.mjs"), context, true)
-  expectedExplicitDirectory := append(pathsUnder(root,
-    "folder.native.mts", "folder.mts", "folder.native.d.mts", "folder.d.mts",
-    "folder.native.mjs", "folder.mjs",
-  ), filepath.Join(root, "folder.mjs", "package.json"))
-  expectedExplicitDirectory = append(expectedExplicitDirectory, pathsUnder(filepath.Join(root, "folder.mjs"),
-    "index.native.ts", "index.ts", "index.native.tsx", "index.tsx",
-    "index.native.d.ts", "index.d.ts", "index.native.js", "index.js",
-    "index.native.jsx", "index.jsx",
-  )...)
-  if !reflect.DeepEqual(explicitDirectory, expectedExplicitDirectory) {
-    t.Fatalf("explicit-extension directory candidates = %#v, want %#v", explicitDirectory, expectedExplicitDirectory)
-  }
-
-  noDeclarations := ModuleResolutionContext{
-    Options: &shimcore.CompilerOptions{
-      ModuleSuffixes:  []string{".native", ""},
-      NoDtsResolution: shimcore.TSTrue,
-    },
-  }
-  noDeclarationTarget := []packageTarget{{path: "dist/index.d.ts"}}
-  preferred = packageTargetCandidates(root, noDeclarationTarget, noDeclarations, moduleCandidatePassPreferred)
-  fallback = packageTargetCandidates(root, noDeclarationTarget, noDeclarations, moduleCandidatePassFallback)
-  actual = append(preferred, fallback...)
-  expected = paths(
-    "index.native.ts", "index.ts", "index.native.tsx", "index.tsx",
-    "index.native.js", "index.js", "index.native.jsx", "index.jsx",
-  )
-  if !reflect.DeepEqual(actual, expected) {
-    t.Fatalf("noDtsResolution package target candidates = %#v, want %#v", actual, expected)
-  }
-
-  noDeclarationCases := []struct {
-    target    string
-    preferred []string
-    fallback  []string
-  }{
-    {
-      target:    "index.d.mts",
-      preferred: []string{"index.native.mts", "index.mts"},
-      fallback:  []string{"index.native.mjs", "index.mjs"},
-    },
-    {
-      target:    "index.d.cts",
-      preferred: []string{"index.native.cts", "index.cts"},
-      fallback:  []string{"index.native.cjs", "index.cjs"},
-    },
-  }
-  for _, test := range noDeclarationCases {
-    target := []packageTarget{{path: filepath.ToSlash(filepath.Join("dist", test.target))}}
-    preferred := packageTargetCandidates(root, target, noDeclarations, moduleCandidatePassPreferred)
-    fallback := packageTargetCandidates(root, target, noDeclarations, moduleCandidatePassFallback)
-    if expected := paths(test.preferred...); !reflect.DeepEqual(preferred, expected) {
-      t.Fatalf("package target %q preferred noDtsResolution candidates = %#v, want %#v", test.target, preferred, expected)
-    }
-    if expected := paths(test.fallback...); !reflect.DeepEqual(fallback, expected) {
-      t.Fatalf("package target %q fallback noDtsResolution candidates = %#v, want %#v", test.target, fallback, expected)
-    }
-  }
-
-  sourceDirectory := filepath.Join(root, "workspace", "packages", "app", "src")
-  nearPackage := filepath.Join(sourceDirectory, "node_modules", "order-pkg")
-  farPackage := filepath.Join(root, "workspace", "node_modules", "order-pkg")
-  for _, fixture := range []struct {
-    root   string
-    source string
-  }{
-    {root: nearPackage, source: `{"exports":["./dist/near.ts","./dist/near-fallback.js"]}`},
-    {root: farPackage, source: `{"exports":["./dist/far.ts","./dist/far-fallback.js"]}`},
+  source := filepath.ToSlash(filepath.Join("src", "main.ts"))
+  candidates := graph.Candidates[source]
+  for _, expected := range []string{
+    "package.json",
+    "src/ambient.ts",
+    "src/folder/package.json",
+    "src/internal.native.ts",
+    "src/self.native.ts",
   } {
-    if err := os.MkdirAll(fixture.root, 0o755); err != nil {
+    if !slices.Contains(candidates, filepath.ToSlash(expected)) {
+      t.Errorf("exact resolver inputs omit %q: %v", expected, candidates)
+    }
+  }
+  typeRoot := filepath.ToSlash(filepath.Join("node_modules", "@types"))
+  if !slices.Contains(graph.ResolutionInputs, typeRoot) {
+    t.Fatalf("automatic type-root inputs omit %q: %v", typeRoot, graph.ResolutionInputs)
+  }
+  entries := graph.InputObservations[typeRoot].AccessibleEntries
+  if entries == nil || !slices.Contains(entries.Directories, "fixture-types") {
+    t.Fatalf("automatic type-root listing = %#v", entries)
+  }
+  if len(graph.InputProofFailures) != 0 {
+    t.Fatalf("stable exact replay reported failures: %#v", graph.InputProofFailures)
+  }
+
+  noResolveRoot := t.TempDir()
+  noResolveFiles := map[string]string{
+    "tsconfig.json": `{
+  "compilerOptions": {
+    "allowJs": true,
+    "module": "commonjs",
+    "noResolve": true,
+    "target": "es2022"
+  },
+  "files": ["src/main.ts"]
+}`,
+    "src/main.ts":     `import { detached } from "./detached"; export { detached };`,
+    "src/detached.js": `export const detached = true;`,
+  }
+  for name, contents := range noResolveFiles {
+    location := filepath.Join(noResolveRoot, filepath.FromSlash(name))
+    if err := os.MkdirAll(filepath.Dir(location), 0o755); err != nil {
       t.Fatal(err)
     }
-    if err := os.WriteFile(filepath.Join(fixture.root, "package.json"), []byte(fixture.source), 0o644); err != nil {
+    if err := os.WriteFile(location, []byte(contents), 0o644); err != nil {
       t.Fatal(err)
     }
   }
-  ordered := ModuleResolutionCandidates(nil, sourceDirectory, filepath.Join(root, "workspace"), "order-pkg", context)
-  indexOf := func(candidate string) int {
-    for index, current := range ordered {
-      if current == candidate {
-        return index
-      }
-    }
-    return -1
+  noResolveProgram, _, err := LoadProgram(noResolveRoot, "tsconfig.json", LoadProgramOptions{ForceNoEmit: true})
+  if err != nil {
+    t.Fatal(err)
   }
-  farPreferred := indexOf(filepath.Join(farPackage, "dist", "far-fallback.native.d.ts"))
-  nearFallback := indexOf(filepath.Join(nearPackage, "dist", "near.native.js"))
-  if farPreferred < 0 || nearFallback < 0 || farPreferred >= nearFallback {
-    t.Fatalf("node_modules candidates must finish every ancestor's preferred pass before fallback: %#v", ordered)
+  defer noResolveProgram.Close()
+  noResolveGraph := NewTransformGraph(noResolveProgram, noResolveRoot)
+  noResolveCandidates := noResolveGraph.Candidates[filepath.ToSlash(filepath.Join("src", "main.ts"))]
+  if !slices.Contains(noResolveCandidates, filepath.ToSlash(filepath.Join("src", "detached.js"))) {
+    t.Fatalf("successful resolution outside the Program graph was dropped: %v", noResolveCandidates)
   }
 }
