@@ -608,13 +608,10 @@ func packageTargetCandidates(root string, targets []packageTarget, context Modul
       continue
     }
     targetPath := strings.Replace(target.path, "*", target.wildcard, 1)
-    candidate := filepath.FromSlash(targetPath)
-    if target.kind == packageTargetMapping && filepath.IsAbs(candidate) {
+    if target.kind == packageTargetMapping && shimtspath.PathIsAbsolute(targetPath) {
       continue
     }
-    if !filepath.IsAbs(candidate) {
-      candidate = filepath.Join(root, candidate)
-    }
+    candidate := filepath.FromSlash(shimtspath.NormalizePath(shimtspath.CombinePaths(filepath.ToSlash(root), targetPath)))
     targetContext := context
     if target.usesCommonJS {
       targetContext.Mode = shimcore.ResolutionModeCommonJS
@@ -669,15 +666,13 @@ func packageTargetRelativeToRoot(root, target string) (string, bool) {
   if strings.Contains(target, "://") {
     return "", false
   }
-  candidate := filepath.FromSlash(target)
-  if !filepath.IsAbs(candidate) {
-    candidate = filepath.Join(root, candidate)
-  }
-  relative, err := filepath.Rel(root, candidate)
-  if err != nil || relative == ".." || strings.HasPrefix(relative, ".."+string(filepath.Separator)) {
+  root = shimtspath.NormalizePath(filepath.ToSlash(root))
+  candidate := shimtspath.NormalizePath(shimtspath.CombinePaths(root, target))
+  options := shimtspath.ComparePathsOptions{}
+  if !shimtspath.ContainsPath(root, candidate, options) {
     return "", false
   }
-  return filepath.ToSlash(relative), true
+  return shimtspath.GetRelativePathFromDirectory(root, candidate, options), true
 }
 
 func matchingTypesVersionsPaths(raw json.RawMessage) (packageValue, bool) {

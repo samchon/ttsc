@@ -282,7 +282,7 @@ func TestPackageTargetCandidatesMirrorCompilerPassesForTypeScriptTargets(t *test
     t.Fatal(err)
   }
   insidePreferred, _ := packageManifestCandidates(versionedRoot, "", esmContext, moduleCandidatePassPreferred)
-  expectedInsidePrefix := pathsAt(versionedRoot,
+  expectedInsidePrefix := pathsUnder(versionedRoot,
     filepath.Join("types", "missing.native.d.ts"), filepath.Join("types", "missing.d.ts"),
   )
   if len(insidePreferred) < len(expectedInsidePrefix) || !reflect.DeepEqual(insidePreferred[:len(expectedInsidePrefix)], expectedInsidePrefix) {
@@ -302,6 +302,30 @@ func TestPackageTargetCandidatesMirrorCompilerPassesForTypeScriptTargets(t *test
   }
   if versionedIndex < 0 || entryIndex < 0 || versionedIndex >= entryIndex {
     t.Fatalf("absolute in-package entry candidates = %#v; versioned index %d, entry index %d", insidePreferred, versionedIndex, entryIndex)
+  }
+
+  if err := os.WriteFile(
+    versionedManifest,
+    []byte(`{"main":"/entry.js","type":"module","typesVersions":{"*":{"entry.js":["wrong/index.d.ts"]}}}`),
+    0o644,
+  ); err != nil {
+    t.Fatal(err)
+  }
+  slashRooted, _ := packageManifestCandidates(versionedRoot, "", esmContext, moduleCandidatePassPreferred)
+  expectedSlashRooted := pathsUnder(filepath.FromSlash("/"),
+    "entry.native.ts", "entry.ts", "entry.native.tsx", "entry.tsx", "entry.native.d.ts", "entry.d.ts",
+  )
+  if !reflect.DeepEqual(slashRooted, expectedSlashRooted) {
+    t.Fatalf("slash-rooted package entry candidates = %#v, want %#v", slashRooted, expectedSlashRooted)
+  }
+  absoluteMapping := packageTargetCandidates(
+    root,
+    []packageTarget{{path: "/mapping.js", kind: packageTargetMapping}},
+    esmContext,
+    moduleCandidatePassPreferred,
+  )
+  if len(absoluteMapping) != 0 {
+    t.Fatalf("absolute exports or imports mapping produced candidates: %#v", absoluteMapping)
   }
 
   manifestRoot := filepath.Join(root, "manifest")
