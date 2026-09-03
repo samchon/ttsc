@@ -600,12 +600,7 @@ function planForPaths(files) {
         continue;
       }
       if (["unplugin", "metro"].includes(lane)) {
-        add(
-          lane === "unplugin"
-            ? ["bundler-defenses", "bundler-defenses-windows"]
-            : ["bundler-defenses", "bundler-defenses-windows"],
-          file,
-        );
+        add(["bundler-defenses", "bundler-defenses-windows"], file);
         continue;
       }
       if (lane === "lint") {
