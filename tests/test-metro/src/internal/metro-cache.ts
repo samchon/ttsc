@@ -392,7 +392,12 @@ export async function assertCacheKeyFoldsNonceAfterSnapshotCompactionFailure(): 
   const originalIdentity = readMainSnapshot(root).id;
   fs.writeFileSync(
     path.join(snapshotDirectory(root), "graph-inputs.worker-test.json"),
-    JSON.stringify({ files: [external], version: 1, volatile: false }),
+    JSON.stringify({
+      files: [external],
+      tainted: false,
+      version: 2,
+      volatile: false,
+    }),
     "utf8",
   );
 
@@ -488,7 +493,7 @@ export async function assertCacheKeyFoldsNonceWhileSnapshotVolatile(): Promise<v
   await prepareSnapshot(root);
   fs.writeFileSync(
     path.join(snapshotDirectory(root), "graph-inputs.worker-test.json"),
-    JSON.stringify({ files: [], version: 1, volatile: true }),
+    JSON.stringify({ files: [], tainted: false, version: 2, volatile: true }),
     "utf8",
   );
   const first = await cacheKeyForRun(root);
@@ -508,7 +513,12 @@ export async function assertPrepareSnapshotCompactsWorkerFiles(): Promise<void> 
   const recorded = path.join(root, "..", "somewhere", "external.d.ts");
   fs.writeFileSync(
     path.join(snapshotDirectory(root), "graph-inputs.worker-test.json"),
-    JSON.stringify({ files: [recorded], version: 1, volatile: false }),
+    JSON.stringify({
+      files: [recorded],
+      tainted: false,
+      version: 2,
+      volatile: false,
+    }),
     "utf8",
   );
   await prepareSnapshot(root);
@@ -543,15 +553,109 @@ export async function assertPrepareSnapshotHealsCorruptWorkerFile(): Promise<voi
   const root = createBareProject();
   await prepareSnapshot(root);
   const identity = readMainSnapshot(root).id;
-  const corrupt = path.join(
-    snapshotDirectory(root),
-    "graph-inputs.worker-torn.json",
-  );
-  fs.writeFileSync(corrupt, "{ torn", "utf8");
+  const absolute = path.join(root, "src", "app.ts");
+  const secondary = path.join(root, "src", "secondary.ts");
+  const unsorted = [absolute, secondary].sort().reverse();
+  const corruptDocuments = [
+    { name: "torn", value: "{ torn" },
+    {
+      name: "files",
+      value: JSON.stringify({
+        files: [absolute, 7],
+        tainted: false,
+        version: 2,
+        volatile: false,
+      }),
+    },
+    {
+      name: "tainted",
+      value: JSON.stringify({
+        files: [absolute],
+        tainted: "true",
+        version: 2,
+        volatile: false,
+      }),
+    },
+    {
+      name: "volatile",
+      value: JSON.stringify({
+        files: [absolute],
+        tainted: false,
+        version: 2,
+        volatile: "true",
+      }),
+    },
+    {
+      name: "identity",
+      value: JSON.stringify({
+        files: [absolute],
+        id: "not-a-snapshot-identity",
+        tainted: false,
+        version: 2,
+        volatile: false,
+      }),
+    },
+    {
+      name: "legacy-version",
+      value: JSON.stringify({
+        files: [absolute],
+        version: 1,
+        volatile: false,
+      }),
+    },
+    {
+      name: "relative-file",
+      value: JSON.stringify({
+        files: ["src/app.ts"],
+        tainted: false,
+        version: 2,
+        volatile: false,
+      }),
+    },
+    {
+      name: "duplicate-file",
+      value: JSON.stringify({
+        files: [absolute, absolute],
+        tainted: false,
+        version: 2,
+        volatile: false,
+      }),
+    },
+    {
+      name: "unsorted-files",
+      value: JSON.stringify({
+        files: unsorted,
+        tainted: false,
+        version: 2,
+        volatile: false,
+      }),
+    },
+    {
+      name: "foreign-field",
+      value: JSON.stringify({
+        files: [absolute],
+        foreign: true,
+        tainted: false,
+        version: 2,
+        volatile: false,
+      }),
+    },
+  ].map(({ name, value }) => {
+    const file = path.join(
+      snapshotDirectory(root),
+      `graph-inputs.worker-${name}.json`,
+    );
+    fs.writeFileSync(file, value, "utf8");
+    return file;
+  });
   // Until compaction, the unreadable recordings force the nonce degradation.
   assert.notEqual(await cacheKeyForRun(root), await cacheKeyForRun(root));
   await prepareSnapshot(root);
-  assert.equal(fs.existsSync(corrupt), false);
+  assert.equal(
+    corruptDocuments.every((file) => !fs.existsSync(file)),
+    true,
+    "every syntactically or structurally corrupt worker document must be swept",
+  );
   assert.notEqual(readMainSnapshot(root).id, identity);
   // Healed: runs share a stable key again.
   assert.equal(await cacheKeyForRun(root), await cacheKeyForRun(root));

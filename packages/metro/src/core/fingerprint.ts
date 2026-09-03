@@ -72,7 +72,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 /** Bumped when the snapshot JSON shape changes; mismatches read as corrupt. */
-const SNAPSHOT_VERSION = 1;
+const SNAPSHOT_VERSION = 2;
 
 /** Snapshot directory segments under the fingerprint base directory. */
 const SNAPSHOT_DIRECTORY = ["node_modules", ".cache", "ttsc-metro"];
@@ -1352,17 +1352,37 @@ function parseSnapshotDocument(text: string): SnapshotDocument | undefined {
     return undefined;
   }
   const document = value as Record<string, unknown>;
-  if (document.version !== SNAPSHOT_VERSION || !Array.isArray(document.files)) {
+  const keys = Object.keys(document).sort();
+  const expectedKeys = ["files", "tainted", "version", "volatile"];
+  if (Object.prototype.hasOwnProperty.call(document, "id")) {
+    expectedKeys.push("id");
+    expectedKeys.sort();
+  }
+  if (
+    stableStringify(keys) !== stableStringify(expectedKeys) ||
+    document.version !== SNAPSHOT_VERSION ||
+    !Array.isArray(document.files) ||
+    document.files.some(
+      (entry) =>
+        typeof entry !== "string" ||
+        !(path.posix.isAbsolute(entry) || path.win32.isAbsolute(entry)),
+    ) ||
+    new Set(document.files).size !== document.files.length ||
+    stableStringify(document.files) !==
+      stableStringify([...document.files].sort()) ||
+    typeof document.tainted !== "boolean" ||
+    typeof document.volatile !== "boolean" ||
+    (document.id !== undefined &&
+      (typeof document.id !== "string" || !/^[a-f0-9]{32}$/.test(document.id)))
+  ) {
     return undefined;
   }
   return {
-    files: document.files.filter(
-      (entry): entry is string => typeof entry === "string",
-    ),
+    files: document.files as string[],
     ...(typeof document.id === "string" ? { id: document.id } : {}),
-    tainted: document.tainted === true,
+    tainted: document.tainted,
     version: SNAPSHOT_VERSION,
-    volatile: document.volatile === true,
+    volatile: document.volatile,
   };
 }
 
