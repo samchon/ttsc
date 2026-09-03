@@ -294,7 +294,10 @@ export function createRealNativeEnvelopeFixture(
       2,
     ),
     "presets/base.json": JSON.stringify({
-      compilerOptions: { outDir: "${configDir}\\src\\generated" },
+      compilerOptions: {
+        outDir: "${configDir}\\src\\generated",
+        rootDir: "${configDir}\\src",
+      },
     }),
     [`src/${excludedDirectory}/ignored.ts`]:
       'export const ignored = "the templated outDir excludes this source";\n',
@@ -521,6 +524,7 @@ export async function assertRealEnvelopeInputRaceStabilizesWithinSharedGeneratio
         JSON.stringify({
           compilerOptions: {
             outDir: "${configDir}\\src\\generated-next",
+            rootDir: "${configDir}\\src",
           },
         }),
         "utf8",
