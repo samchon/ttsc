@@ -257,11 +257,24 @@ func FileCandidates(base string) []string {
 }
 
 func moduleFileCandidates(base string, context ModuleResolutionContext, includeDirectory bool) []string {
+  return moduleFileCandidatesForPass(base, context, includeDirectory, moduleCandidatePassAll)
+}
+
+type moduleCandidatePass uint8
+
+const (
+  moduleCandidatePassAll moduleCandidatePass = iota
+  moduleCandidatePassPreferred
+  moduleCandidatePassFallback
+)
+
+func moduleFileCandidatesForPass(base string, context ModuleResolutionContext, includeDirectory bool, pass moduleCandidatePass) []string {
   explicitExtension := filepath.Ext(base)
   base, suffixes := fileCandidateBaseAndSuffixes(base)
   if context.Options != nil && context.Options.NoDtsResolution == shimcore.TSTrue {
     suffixes = withoutDeclarationSuffixes(suffixes)
   }
+  suffixes = suffixesForModuleCandidatePass(suffixes, pass)
   if context.isESM() && explicitExtension == "" {
     return nil
   }
@@ -277,6 +290,21 @@ func moduleFileCandidates(base string, context ModuleResolutionContext, includeD
     candidates = append(candidates, moduleSuffixCandidates(filepath.Join(base, "index"+suffix), context)...)
   }
   return candidates
+}
+
+func suffixesForModuleCandidatePass(suffixes []string, pass moduleCandidatePass) []string {
+  if pass == moduleCandidatePassAll {
+    return suffixes
+  }
+  output := make([]string, 0, len(suffixes))
+  for _, suffix := range suffixes {
+    probe := "candidate" + suffix
+    preferred := shimtspath.HasImplementationTSFileExtension(probe) || shimtspath.IsDeclarationFileName(probe)
+    if preferred == (pass == moduleCandidatePassPreferred) {
+      output = append(output, suffix)
+    }
+  }
+  return output
 }
 
 func withoutDeclarationSuffixes(suffixes []string) []string {
@@ -362,27 +390,29 @@ func ModuleResolutionCandidates(configs []*tsoptions.ParsedCommandLine, director
       return candidates
     }
     for current := filepath.Clean(directory); ; current = filepath.Dir(current) {
-      fromManifest, _ := packageManifestCandidates(current, specifier, context)
+      fromManifest, _ := packageManifestCandidates(current, specifier, context, moduleCandidatePassAll)
       candidates = append(candidates, fromManifest...)
       if reachedWalkStop(current, cwd) || filepath.Dir(current) == current {
         return candidates
       }
     }
   }
-  for current := filepath.Clean(directory); ; current = filepath.Dir(current) {
-    base := filepath.Join(current, "node_modules", filepath.FromSlash(specifier))
-    root := packageRoot(base, specifier)
-    fromManifest, hasExports := packageManifestCandidates(root, packageSubpath(specifier), context)
-    // Package exports block bare file and folder lookups. Recording them would
-    // make a file that TypeScript will never select invalidate a resident
-    // snapshot, so only the export-map paths participate in this branch.
-    if !hasExports {
-      candidates = append(candidates, moduleFileCandidates(base, context, true)...)
-    }
-    candidates = append(candidates, filepath.Join(root, "package.json"))
-    candidates = append(candidates, fromManifest...)
-    if reachedWalkStop(current, cwd) || filepath.Dir(current) == current {
-      break
+  for _, pass := range []moduleCandidatePass{moduleCandidatePassPreferred, moduleCandidatePassFallback} {
+    for current := filepath.Clean(directory); ; current = filepath.Dir(current) {
+      base := filepath.Join(current, "node_modules", filepath.FromSlash(specifier))
+      root := packageRoot(base, specifier)
+      fromManifest, hasExports := packageManifestCandidates(root, packageSubpath(specifier), context, pass)
+      // Package exports block bare file and folder lookups. Recording them would
+      // make a file that TypeScript will never select invalidate a resident
+      // snapshot, so only the export-map paths participate in this branch.
+      if !hasExports {
+        candidates = append(candidates, moduleFileCandidatesForPass(base, context, true, pass)...)
+      }
+      candidates = append(candidates, filepath.Join(root, "package.json"))
+      candidates = append(candidates, fromManifest...)
+      if reachedWalkStop(current, cwd) || filepath.Dir(current) == current {
+        break
+      }
     }
   }
   return candidates
@@ -464,7 +494,7 @@ type packageProperty struct {
   value packageValue
 }
 
-func packageManifestCandidates(root, wildcard string, context ModuleResolutionContext) ([]string, bool) {
+func packageManifestCandidates(root, wildcard string, context ModuleResolutionContext, pass moduleCandidatePass) ([]string, bool) {
   content, err := os.ReadFile(filepath.Join(root, "package.json"))
   if err != nil {
     return nil, false
@@ -490,7 +520,7 @@ func packageManifestCandidates(root, wildcard string, context ModuleResolutionCo
         collectPackageMappingTargets(value, wildcard, defaultWildcard, context.packageConditions(), &targets)
       }
     }
-    return packageTargetCandidates(root, targets, context), false
+    return packageTargetCandidates(root, targets, context, pass), false
   }
   exportRequest := "."
   if wildcard != "" && !strings.HasPrefix(wildcard, "#") {
@@ -509,19 +539,26 @@ func packageManifestCandidates(root, wildcard string, context ModuleResolutionCo
     // TypeScript-Go resolution field at all.
     if wildcard == "" {
       usesCommonJS := manifest.Type != "module"
-      if context.Options == nil || context.Options.NoDtsResolution != shimcore.TSTrue {
-        targets = append(targets,
-          packageTarget{path: manifest.Typings, wildcard: defaultWildcard, packageEntry: true, usesCommonJS: usesCommonJS},
-          packageTarget{path: manifest.Types, wildcard: defaultWildcard, packageEntry: true, usesCommonJS: usesCommonJS},
-        )
+      declarations := context.Options == nil || context.Options.NoDtsResolution != shimcore.TSTrue
+      if pass != moduleCandidatePassFallback && declarations {
+        declared := manifest.Typings
+        if declared == "" {
+          declared = manifest.Types
+        }
+        if declared != "" {
+          targets = append(targets, packageTarget{path: declared, wildcard: defaultWildcard, packageEntry: true, usesCommonJS: usesCommonJS})
+        } else {
+          targets = append(targets, packageTarget{path: manifest.Main, wildcard: defaultWildcard, packageEntry: true, usesCommonJS: usesCommonJS})
+        }
+      } else {
+        targets = append(targets, packageTarget{path: manifest.Main, wildcard: defaultWildcard, packageEntry: true, usesCommonJS: usesCommonJS})
       }
-      targets = append(targets, packageTarget{path: manifest.Main, wildcard: defaultWildcard, packageEntry: true, usesCommonJS: usesCommonJS})
     }
   }
-  return packageTargetCandidates(root, targets, context), hasExports
+  return packageTargetCandidates(root, targets, context, pass), hasExports
 }
 
-func packageTargetCandidates(root string, targets []packageTarget, context ModuleResolutionContext) []string {
+func packageTargetCandidates(root string, targets []packageTarget, context ModuleResolutionContext, pass moduleCandidatePass) []string {
   candidates := []string{}
   for _, target := range targets {
     if target.path == "" || filepath.IsAbs(target.path) || strings.Contains(target.path, "://") {
@@ -533,18 +570,23 @@ func packageTargetCandidates(root string, targets []packageTarget, context Modul
       targetContext.Mode = shimcore.ResolutionModeCommonJS
     }
     candidate := filepath.Join(root, filepath.FromSlash(targetPath))
-    // A package field that already names a TypeScript implementation, or a
+    // A package target that already names a TypeScript implementation, or a
     // declaration while declaration resolution is enabled, first takes the
     // resolver's direct `tryFile` branch. In particular, `index.d.ts` first
-    // becomes `index.native.d.ts`, not `index.native.ts`. If those direct probes
-    // miss, the resolver continues through its normal TS, declaration, and JS
-    // replacement passes, so retain that family after the direct prefix.
-    if shimtspath.HasImplementationTSFileExtension(candidate) ||
-      (shimtspath.IsDeclarationFileName(candidate) &&
-        (targetContext.Options == nil || targetContext.Options.NoDtsResolution != shimcore.TSTrue)) {
+    // becomes `index.native.d.ts`, not `index.native.ts`. An exports or imports
+    // target stops there on a miss and advances to its next mapping target. A
+    // package entry field instead continues through the current extension pass.
+    direct := pass != moduleCandidatePassFallback &&
+      (shimtspath.HasImplementationTSFileExtension(candidate) ||
+        (shimtspath.IsDeclarationFileName(candidate) &&
+          (targetContext.Options == nil || targetContext.Options.NoDtsResolution != shimcore.TSTrue)))
+    if direct {
       candidates = append(candidates, moduleSuffixCandidates(candidate, targetContext)...)
+      if !target.packageEntry {
+        continue
+      }
     }
-    candidates = append(candidates, moduleFileCandidates(candidate, targetContext, target.packageEntry)...)
+    candidates = append(candidates, moduleFileCandidatesForPass(candidate, targetContext, target.packageEntry, pass)...)
   }
   return candidates
 }
