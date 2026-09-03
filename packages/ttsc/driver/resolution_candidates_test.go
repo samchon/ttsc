@@ -18,12 +18,15 @@ func TestPackageTargetCandidatesMirrorCompilerPassesForTypeScriptTargets(t *test
     {path: "dist/first.ts"},
     {path: "dist/second.d.ts"},
   }
-  paths := func(names ...string) []string {
+  pathsAt := func(base string, names ...string) []string {
     output := make([]string, 0, len(names))
     for _, name := range names {
-      output = append(output, filepath.Join(root, "dist", name))
+      output = append(output, filepath.Join(base, "dist", name))
     }
     return output
+  }
+  paths := func(names ...string) []string {
+    return pathsAt(root, names...)
   }
   extensionCases := []struct {
     target    string
@@ -124,15 +127,26 @@ func TestPackageTargetCandidatesMirrorCompilerPassesForTypeScriptTargets(t *test
     t.Fatalf("package entry candidates = %#v, want %#v", entry, expectedEntry)
   }
 
-  versionedTarget := []packageTarget{{path: "dist/versioned.ts", kind: packageTargetTypesVersions}}
-  preferred = packageTargetCandidates(root, versionedTarget, esmContext, moduleCandidatePassPreferred)
-  fallback = packageTargetCandidates(root, versionedTarget, esmContext, moduleCandidatePassFallback)
-  expectedPreferredVersioned := paths(
+  versionedRoot := filepath.Join(root, "versioned")
+  if err := os.MkdirAll(versionedRoot, 0o755); err != nil {
+    t.Fatal(err)
+  }
+  versionedManifest := filepath.Join(versionedRoot, "package.json")
+  if err := os.WriteFile(
+    versionedManifest,
+    []byte(`{"type":"module","typesVersions":{"*":{"*":["dist/*.ts"]}}}`),
+    0o644,
+  ); err != nil {
+    t.Fatal(err)
+  }
+  preferred, _ = packageManifestCandidates(versionedRoot, "versioned", esmContext, moduleCandidatePassPreferred)
+  fallback, _ = packageManifestCandidates(versionedRoot, "versioned", esmContext, moduleCandidatePassFallback)
+  expectedPreferredVersioned := pathsAt(versionedRoot,
     "versioned.native.ts", "versioned.ts",
     "versioned.native.ts", "versioned.ts", "versioned.native.tsx", "versioned.tsx",
     "versioned.native.d.ts", "versioned.d.ts",
   )
-  expectedFallbackVersioned := paths(
+  expectedFallbackVersioned := pathsAt(versionedRoot,
     "versioned.native.ts", "versioned.ts",
     "versioned.native.js", "versioned.js", "versioned.native.jsx", "versioned.jsx",
   )
@@ -141,6 +155,33 @@ func TestPackageTargetCandidatesMirrorCompilerPassesForTypeScriptTargets(t *test
   }
   if !reflect.DeepEqual(fallback, expectedFallbackVersioned) {
     t.Fatalf("typesVersions fallback candidates = %#v, want %#v", fallback, expectedFallbackVersioned)
+  }
+
+  if err := os.WriteFile(
+    versionedManifest,
+    []byte(`{"type":"commonjs","typesVersions":{"*":{"*":["dist/*"]}}}`),
+    0o644,
+  ); err != nil {
+    t.Fatal(err)
+  }
+  preferred, _ = packageManifestCandidates(versionedRoot, "captured.js", esmContext, moduleCandidatePassPreferred)
+  fallback, _ = packageManifestCandidates(versionedRoot, "captured.js", esmContext, moduleCandidatePassFallback)
+  expectedPreferredCaptured := pathsAt(versionedRoot,
+    "captured.native.ts", "captured.ts", "captured.native.tsx", "captured.tsx",
+    "captured.native.d.ts", "captured.d.ts",
+  )
+  expectedFallbackCaptured := pathsAt(versionedRoot,
+    "captured.native.js", "captured.js", "captured.native.jsx", "captured.jsx",
+  )
+  if !reflect.DeepEqual(preferred, expectedPreferredCaptured) {
+    t.Fatalf("wildcard-captured extension preferred candidates = %#v, want %#v", preferred, expectedPreferredCaptured)
+  }
+  if !reflect.DeepEqual(fallback, expectedFallbackCaptured) {
+    t.Fatalf("wildcard-captured extension fallback candidates = %#v, want %#v", fallback, expectedFallbackCaptured)
+  }
+  extensionless, _ := packageManifestCandidates(versionedRoot, "captured", esmContext, moduleCandidatePassPreferred)
+  if len(extensionless) != 0 {
+    t.Fatalf("ESM typesVersions subpath gained CommonJS implicit candidates: %#v", extensionless)
   }
 
   manifestRoot := filepath.Join(root, "manifest")

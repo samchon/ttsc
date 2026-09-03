@@ -540,7 +540,7 @@ func packageManifestCandidates(root, wildcard string, context ModuleResolutionCo
   } else {
     hasExports = false
     if value, ok := decodePackageValue(manifest.TypesVersions); ok {
-      collectPackageTargets(value, defaultWildcard, nil, packageTargetTypesVersions, manifest.Type != "module", &targets)
+      collectPackageTargets(value, defaultWildcard, nil, packageTargetTypesVersions, wildcard == "" && manifest.Type != "module", &targets)
     }
     // `typings`, `types`, and `main` are directory-entrypoint fields. A
     // subpath resolution never falls back to them, and `module` is not a
@@ -583,7 +583,7 @@ func packageTargetCandidates(root string, targets []packageTarget, context Modul
     // local exports or imports targets take the direct branch only for an active
     // TypeScript implementation or declaration. A mapping stops there on a
     // miss, while an entry field continues through the current extension pass.
-    direct := target.kind == packageTargetTypesVersions && shimtspath.TryGetExtensionFromPath(candidate) != ""
+    direct := target.kind == packageTargetTypesVersions && shimtspath.TryGetExtensionFromPath(target.path) != ""
     if target.kind != packageTargetTypesVersions && pass != moduleCandidatePassFallback {
       direct = shimtspath.HasImplementationTSFileExtension(candidate) ||
         (shimtspath.IsDeclarationFileName(candidate) &&
