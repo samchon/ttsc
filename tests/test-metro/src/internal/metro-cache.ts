@@ -570,7 +570,7 @@ export async function assertPrepareSnapshotHealsCorruptWorkerFile(): Promise<voi
       value: (absolute: string) =>
         JSON.stringify({
           files: [absolute],
-          tainted: "true",
+          tainted: 0,
           version: 2,
           volatile: false,
         }),
