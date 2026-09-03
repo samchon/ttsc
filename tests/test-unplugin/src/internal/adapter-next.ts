@@ -1,7 +1,17 @@
-import { TestUnpluginRuntime } from "@ttsc/testing";
+import { TestUnpluginProject, TestUnpluginRuntime } from "@ttsc/testing";
 import assert from "node:assert/strict";
+import path from "node:path";
 
 const LOADER = "@ttsc/unplugin/turbopack";
+const LOADER_IDENTITIES = [
+  LOADER,
+  TestUnpluginProject.REQUIRE_FROM_UNPLUGIN.resolve(LOADER),
+  TestUnpluginRuntime.libPath("turbopack", "mjs"),
+];
+const LOADER_FORMS = LOADER_IDENTITIES.flatMap((loader) => [
+  loader,
+  { loader, options: { configured: true } },
+]);
 const AUTOMATIC_RULE_GLOBS = ["*.ts", "*.tsx", "*.mts", "*.cts"];
 const EXTENSION_NAMES = AUTOMATIC_RULE_GLOBS.map((glob) => glob.slice(2));
 const REQUIRED_EXTENSION_GROUPS = [
@@ -79,12 +89,13 @@ function loadersOf(rule: unknown): unknown[] {
 
 /** Whether an entry names this package's Turbopack loader. */
 function isTtscLoader(entry: unknown): boolean {
-  if (typeof entry === "string") return entry === LOADER;
-  return (
-    typeof entry === "object" &&
-    entry !== null &&
-    (entry as { loader?: unknown }).loader === LOADER
-  );
+  const identity =
+    typeof entry === "string"
+      ? entry
+      : typeof entry === "object" && entry !== null
+        ? (entry as { loader?: unknown }).loader
+        : undefined;
+  return typeof identity === "string" && LOADER_IDENTITIES.includes(identity);
 }
 
 /**
@@ -189,16 +200,29 @@ export async function assertNextAdapterPreservesTurbopackConfig(): Promise<void>
   // webpack's `loader-runner`, whose normal phase runs right to left, so the
   // last entry is the one that sees the original source, and ttsc has to be
   // that one because it transforms TypeScript into TypeScript.
+  const sharedRule = {
+    as: "*.js",
+    futureSetting: { retained: true },
+    loaders: ["other-loader"],
+    type: "typescript",
+  };
   const shared = next({
-    turbopack: { rules: { "*.ts": { loaders: ["other-loader"] } } },
+    turbopack: { rules: { "*.ts": sharedRule } },
   });
-  const sharedLoaders = loadersOf(shared.turbopack?.rules?.["*.ts"]);
+  const sharedRuleOutput = shared.turbopack?.rules?.["*.ts"] as Record<
+    string,
+    unknown
+  >;
+  const sharedLoaders = loadersOf(sharedRuleOutput);
   assert.equal(sharedLoaders.length, 2, "the caller's loader must survive");
   assert.equal(sharedLoaders[0], "other-loader");
   assert.ok(
     isTtscLoader(sharedLoaders[1]),
     "ttsc must see the original source",
   );
+  assert.equal(sharedRuleOutput.as, sharedRule.as);
+  assert.equal(sharedRuleOutput.type, sharedRule.type);
+  assert.deepEqual(sharedRuleOutput.futureSetting, sharedRule.futureSetting);
 
   // Turbopack also accepts a bare array of loaders. Spreading that into an
   // object produced `{ "0": "other-loader", loaders: [...] }`, which Next's own
@@ -217,6 +241,67 @@ export async function assertNextAdapterPreservesTurbopackConfig(): Promise<void>
   assert.equal(arrayLoaders.length, 2);
   assert.equal(arrayLoaders[0], "other-loader");
   assert.ok(isTtscLoader(arrayLoaders[1]));
+
+  const conditionalRule = {
+    as: "*.js",
+    condition: "browser",
+    futureSetting: { retained: true },
+    type: "typescript",
+  };
+  const conditional = next({
+    turbopack: { rules: { "*.ts": conditionalRule } },
+  }).turbopack?.rules?.["*.ts"];
+  assert.ok(Array.isArray(conditional));
+  assert.deepEqual(conditional[0], conditionalRule);
+  assert.ok(isTtscLoader(conditional[1]));
+
+  const mixedInput = [
+    "other-loader",
+    { condition: "browser", loaders: ["browser-loader"] },
+    { condition: "node", futureSetting: true, type: "typescript" },
+  ];
+  const mixed = next({
+    turbopack: { rules: { "*.ts": mixedInput } },
+  }).turbopack?.rules?.["*.ts"];
+  assert.ok(Array.isArray(mixed));
+  assert.deepEqual(mixed.slice(0, -1), mixedInput);
+  assert.ok(isTtscLoader(mixed.at(-1)));
+
+  for (const loader of LOADER_FORMS) {
+    const resolved = next({
+      turbopack: { rules: { "*.ts": [loader] } },
+    }).turbopack?.rules?.["*.ts"];
+    assert.ok(Array.isArray(resolved));
+    assert.equal(
+      resolved.length,
+      1,
+      `${JSON.stringify(loader)} must not be registered a second time`,
+    );
+    assert.deepEqual(resolved[0], loader);
+  }
+
+  const conditionalLoader = {
+    condition: "browser",
+    loaders: [LOADER],
+  };
+  const conditionallyCovered = next({
+    turbopack: { rules: { "*.ts": conditionalLoader } },
+  }).turbopack?.rules?.["*.ts"];
+  assert.ok(Array.isArray(conditionallyCovered));
+  assert.deepEqual(conditionallyCovered[0], conditionalLoader);
+  assert.ok(isTtscLoader(conditionallyCovered[1]));
+
+  const unrelated = path.join(
+    path.dirname(LOADER_IDENTITIES[1]!),
+    "unrelated",
+    "turbopack.js",
+  );
+  const unrelatedRule = next({
+    turbopack: { rules: { "*.ts": [unrelated] } },
+  }).turbopack?.rules?.["*.ts"];
+  assert.ok(Array.isArray(unrelatedRule));
+  assert.equal(unrelatedRule[0], unrelated);
+  assert.ok(isTtscLoader(unrelatedRule[1]));
 }
 
 /**
@@ -347,12 +432,26 @@ export async function assertNextAdapterDoesNotDoubleRegisterAcrossGlobs(): Promi
     const missing = AUTOMATIC_RULE_GLOBS.filter(
       (glob) => !covered.includes(glob.slice(2)),
     );
-    assert.deepEqual(
-      globs({ turbopack: { rules: { [wide]: { loaders: [LOADER] } } } }),
-      [wide, ...missing],
-      `${wide} must suppress exactly ${covered.join(", ")}`,
-    );
+    for (const loader of LOADER_FORMS) {
+      assert.deepEqual(
+        globs({ turbopack: { rules: { [wide]: { loaders: [loader] } } } }),
+        [wide, ...missing],
+        `${wide} with ${JSON.stringify(loader)} must suppress exactly ${covered.join(", ")}`,
+      );
+    }
   }
+
+  assert.deepEqual(
+    globs({
+      turbopack: {
+        rules: {
+          "*.{ts,tsx}": { condition: "browser", loaders: [LOADER] },
+        },
+      },
+    }),
+    ["*.{ts,tsx}", ...AUTOMATIC_RULE_GLOBS],
+    "conditional coverage under an alternate glob must suppress nothing",
+  );
 
   // Everything the guard does not recognise keeps all wrapper rules.
   // `{src/,}*.ts` is why recognition is an exact set and not a predicate: set

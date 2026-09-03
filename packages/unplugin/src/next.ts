@@ -1,3 +1,7 @@
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
 import type { TtscUnpluginOptions } from "./core/options";
 import {
   TYPESCRIPT_TRANSFORM_EXTENSIONS,
@@ -7,6 +11,7 @@ import webpack from "./webpack";
 
 /** The standalone loader entry Turbopack accepts through `turbopack.rules`. */
 const TURBOPACK_LOADER = "@ttsc/unplugin/turbopack";
+const RESOLVED_TURBOPACK_LOADER_RESULTS = new Map<string, boolean>();
 /**
  * The globs the loader is wired for.
  *
@@ -153,8 +158,7 @@ function withTtscTurbopackRules(
   const rules: Record<string, unknown> = { ...(existing?.rules ?? {}) };
   for (const glob of TURBOPACK_RULE_GLOBS) {
     const rule = rules[glob];
-    const loaders = selectTurbopackLoaders(rule);
-    if (loaders.some(referencesTtscLoader)) {
+    if (hasUnconditionalTtscLoader(rule)) {
       continue;
     }
     // The caller may have written the same file set under a different glob.
@@ -174,12 +178,7 @@ function withTtscTurbopackRules(
     // Measured rather than inferred from webpack's `loader-runner`: two
     // loaders on one rule, each marking the source, came back marked in the
     // order that only the last-runs-first chain produces (samchon/ttsc#1319).
-    rules[glob] =
-      rule === undefined || loaders.length === 0
-        ? { loaders: [entry] }
-        : Array.isArray(rule)
-          ? { loaders: [...loaders, entry] }
-          : { ...(rule as object), loaders: [...loaders, entry] };
+    rules[glob] = appendUnconditionalTtscLoader(rule, entry);
   }
   return { ...(existing ?? {}), rules };
 }
@@ -206,7 +205,7 @@ function coveredByAnotherRule(
     if (candidate === glob) {
       return false;
     }
-    if (!selectTurbopackLoaders(rule).some(referencesTtscLoader)) {
+    if (!hasUnconditionalTtscLoader(rule)) {
       return false;
     }
     return matchesExtension(candidate, extension);
@@ -330,33 +329,121 @@ function projectWideBraceGlobEntries(
 }
 
 /**
- * Read the loader list out of one Turbopack rule.
+ * Add one unconditional loader without flattening Next's rule collection.
  *
- * Turbopack accepts a bare array of loaders as well as the object form, and a
- * loader is either a module name or a `{ loader, options }` pair, so this
- * normalises only enough to answer "what is already here".
+ * An array is a collection whose entries may be direct loaders or complete
+ * conditional rule objects, so it must remain an array. A conditioned object
+ * also becomes a two-item collection because putting ttsc inside that object
+ * would leave the rest of the glob uncovered. An unconditioned object can keep
+ * its own shape while gaining the loader, including when it had no loaders.
  */
-function selectTurbopackLoaders(rule: unknown): unknown[] {
+function appendUnconditionalTtscLoader(
+  rule: unknown,
+  entry: { loader: string; options: TtscUnpluginOptions },
+): unknown {
   if (Array.isArray(rule)) {
-    return rule;
+    return [...rule, entry];
   }
   if (typeof rule === "object" && rule !== null) {
-    const loaders = (rule as { loaders?: unknown }).loaders;
-    if (Array.isArray(loaders)) {
-      return loaders;
+    if ((rule as { condition?: unknown }).condition !== undefined) {
+      return [rule, entry];
     }
+    return {
+      ...rule,
+      loaders: [...selectTurbopackConfigLoaders(rule), entry],
+    };
   }
-  return [];
+  return { loaders: [entry] };
+}
+
+/** Read the direct loader list from one Turbopack rule configuration item. */
+function selectTurbopackConfigLoaders(rule: unknown): unknown[] {
+  if (typeof rule !== "object" || rule === null || Array.isArray(rule)) {
+    return [];
+  }
+  const loaders = (rule as { loaders?: unknown }).loaders;
+  return Array.isArray(loaders) ? loaders : [];
+}
+
+/** Whether a rule collection provides this loader without a condition. */
+function hasUnconditionalTtscLoader(rule: unknown): boolean {
+  if (Array.isArray(rule)) {
+    return rule.some((item) => {
+      if (isTurbopackLoaderItem(item)) {
+        return referencesTtscLoader(item);
+      }
+      return (
+        typeof item === "object" &&
+        item !== null &&
+        (item as { condition?: unknown }).condition === undefined &&
+        selectTurbopackConfigLoaders(item).some(referencesTtscLoader)
+      );
+    });
+  }
+  return (
+    typeof rule === "object" &&
+    rule !== null &&
+    (rule as { condition?: unknown }).condition === undefined &&
+    selectTurbopackConfigLoaders(rule).some(referencesTtscLoader)
+  );
+}
+
+/** Whether one collection item is a direct Turbopack loader. */
+function isTurbopackLoaderItem(item: unknown): boolean {
+  return (
+    typeof item === "string" ||
+    (typeof item === "object" &&
+      item !== null &&
+      typeof (item as { loader?: unknown }).loader === "string")
+  );
 }
 
 /** Whether one Turbopack loader entry is already this package's loader. */
 function referencesTtscLoader(loader: unknown): boolean {
-  if (typeof loader === "string") {
-    return loader === TURBOPACK_LOADER;
-  }
+  const identity =
+    typeof loader === "string"
+      ? loader
+      : typeof loader === "object" && loader !== null
+        ? (loader as { loader?: unknown }).loader
+        : undefined;
   return (
-    typeof loader === "object" &&
-    loader !== null &&
-    (loader as { loader?: unknown }).loader === TURBOPACK_LOADER
+    typeof identity === "string" &&
+    (identity === TURBOPACK_LOADER || isResolvedTtscLoader(identity))
   );
+}
+
+/** Whether an absolute path is the Turbopack entry of an @ttsc/unplugin copy. */
+function isResolvedTtscLoader(identity: string): boolean {
+  const cached = RESOLVED_TURBOPACK_LOADER_RESULTS.get(identity);
+  if (cached !== undefined) {
+    return cached;
+  }
+  let file: string;
+  try {
+    file = identity.startsWith("file:") ? fileURLToPath(identity) : identity;
+  } catch {
+    RESOLVED_TURBOPACK_LOADER_RESULTS.set(identity, false);
+    return false;
+  }
+  if (!path.isAbsolute(file)) {
+    RESOLVED_TURBOPACK_LOADER_RESULTS.set(identity, false);
+    return false;
+  }
+  const packageRoot = path.dirname(path.dirname(file));
+  const relative = path.relative(packageRoot, file).replaceAll(path.sep, "/");
+  if (relative !== "lib/turbopack.js" && relative !== "lib/turbopack.mjs") {
+    RESOLVED_TURBOPACK_LOADER_RESULTS.set(identity, false);
+    return false;
+  }
+  let matches = false;
+  try {
+    const manifest = JSON.parse(
+      fs.readFileSync(path.join(packageRoot, "package.json"), "utf8"),
+    ) as { name?: unknown };
+    matches = manifest.name === "@ttsc/unplugin";
+  } catch {
+    // An unreadable or malformed owner cannot prove this package's identity.
+  }
+  RESOLVED_TURBOPACK_LOADER_RESULTS.set(identity, matches);
+  return matches;
 }
