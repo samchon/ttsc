@@ -11,7 +11,9 @@ import {
 } from "../../../../packages/unplugin/lib/core/projectDiscovery.js";
 import {
   type TtscTransformFilesystemOperations,
+  captureWatchInputFileBaseline,
   validateGraphInputObservation,
+  watchInputEvidenceMatchesBaseline,
 } from "../../../../packages/unplugin/lib/core/transform.js";
 import { viteServeMissingInputWatchKey } from "../../../../packages/unplugin/lib/core/viteServe.js";
 
@@ -26,6 +28,42 @@ interface IFilesystemState {
 /** Assert predicate proofs across path kinds and transitions. */
 export function assertPredicateProofMatrix(): void {
   const root = path.resolve("predicate-proof-root");
+  const missingCandidate = path.join(root, "missing", "tsconfig.json");
+  const candidateBaseline = captureWatchInputFileBaseline(
+    missingCandidate,
+    state({ kind: "missing" }),
+  );
+  assert.ok(candidateBaseline);
+  assert.equal(candidateBaseline.fileExists, false);
+  assert.equal(candidateBaseline.stat, "missing");
+  assert.equal(candidateBaseline.hostHash, undefined);
+  assert.equal(
+    watchInputEvidenceMatchesBaseline(
+      {
+        identity: candidateBaseline.identity,
+        missing: true,
+        state: {
+          codec: "predicates",
+          observation: { fileExists: false },
+        },
+      },
+      candidateBaseline,
+    ),
+    true,
+    "a project candidate needs only the file predicate used by discovery",
+  );
+  assert.equal(
+    watchInputEvidenceMatchesBaseline(
+      {
+        identity: candidateBaseline.identity,
+        missing: true,
+        state: { codec: "host", hash: "unavailable" },
+      },
+      candidateBaseline,
+    ),
+    false,
+    "a predicate-only baseline must not claim coverage for a content proof",
+  );
   const directory = state({
     kind: "directory",
     realpath: path.join(root, "directory-target"),

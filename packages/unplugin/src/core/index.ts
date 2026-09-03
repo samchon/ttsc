@@ -9,6 +9,7 @@ import { typescriptTransformSourcePattern } from "./sourceExtensions";
 import {
   beginTtscTransformBuild,
   captureWatchInputBaseline,
+  captureWatchInputFileBaseline,
   collectExternalInputHashes,
   collectProjectInputHashSnapshot,
   collectProjectInputHashes,
@@ -334,6 +335,7 @@ export {
 export {
   beginTtscTransformBuild,
   captureWatchInputBaseline,
+  captureWatchInputFileBaseline,
   collectExternalInputHashes,
   collectProjectInputHashSnapshot,
   collectProjectInputHashes,

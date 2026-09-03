@@ -49,6 +49,7 @@
  */
 import {
   captureWatchInputBaseline,
+  captureWatchInputFileBaseline,
   collectProjectInputHashSnapshot,
   findNearestProjectTsconfig,
   findProjectTsconfigs,
@@ -317,7 +318,7 @@ function captureProjectDiscoveryInputs(
     }
   }
   return candidates.map((file): TtscWatchInput => {
-    const baseline = captureWatchInputBaseline(file);
+    const baseline = captureWatchInputFileBaseline(file);
     if (baseline === undefined) {
       return { file };
     }
@@ -585,7 +586,7 @@ function observeProjectFingerprint(props: {
   >();
   const projectFingerprints: unknown[] = [];
   for (const candidate of projectMap.discoveryInputs) {
-    addBaselineInput(inputs, candidate, staticInputs);
+    addDiscoveryBaselineInput(inputs, candidate, staticInputs);
   }
   for (const project of projectMap.projects) {
     for (const source of project.configSources) {
@@ -616,7 +617,7 @@ function observeProjectFingerprint(props: {
       for (const [key, expected] of Object.entries(snapshot.hashes)) {
         const file = path.resolve(root, key);
         const baseline = addBaselineInput(inputs, file, staticInputs);
-        if (baseline.hostHash !== expected) {
+        if (baseline.hostHash === undefined || baseline.hostHash !== expected) {
           throw new Error("A Metro project input changed while fingerprinted.");
         }
         fingerprintedInputs[key] = {
@@ -638,6 +639,9 @@ function observeProjectFingerprint(props: {
   const recorded: Record<string, string> = {};
   for (const file of snapshot.files) {
     const baseline = addBaselineInput(inputs, file);
+    if (baseline.hostHash === undefined) {
+      throw new Error("A recorded Metro input has no host-state baseline.");
+    }
     recorded[baseline.identity] = baseline.hostHash;
   }
   return {
@@ -665,15 +669,44 @@ function addBaselineInput(
     throw new Error("Unable to read a stable Metro input baseline.");
   }
   const existing = inputs[key];
-  if (
-    existing !== undefined &&
-    stableStringify(existing) !== stableStringify(observed)
-  ) {
-    throw new Error("A Metro input changed between baseline observations.");
+  if (existing !== undefined) {
+    if (
+      existing.identity !== observed.identity ||
+      existing.fileExists !== observed.fileExists ||
+      (existing.hostHash !== undefined &&
+        stableStringify(existing) !== stableStringify(observed))
+    ) {
+      throw new Error("A Metro input changed between baseline observations.");
+    }
+    inputs[key] = { ...existing, ...observed };
+  } else {
+    inputs[key] = observed;
   }
-  inputs[key] = observed;
   staticInputs?.add(key);
   return observed;
+}
+
+/** Add the stable file predicate used by the project-map traversal. */
+function addDiscoveryBaselineInput(
+  inputs: Record<string, TtscWatchInputBaseline>,
+  file: string,
+  staticInputs: Set<string>,
+): void {
+  const key = snapshotPathKey(file);
+  const observed = captureWatchInputFileBaseline(file);
+  if (observed === undefined) {
+    throw new Error("Unable to read a stable Metro project candidate.");
+  }
+  const existing = inputs[key];
+  if (
+    existing !== undefined &&
+    (existing.identity !== observed.identity ||
+      existing.fileExists !== observed.fileExists)
+  ) {
+    throw new Error("A Metro project candidate changed while observed.");
+  }
+  inputs[key] = existing ?? observed;
+  staticInputs.add(key);
 }
 
 /**

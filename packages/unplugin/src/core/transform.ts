@@ -753,16 +753,16 @@ export type TtscWatchInputState =
       observation: ITtscCompilerTransformation.IInputObservation;
     };
 
-/** Main-process state broad enough to compare every watch-input codec. */
+/** Main-process state for one watch input, optionally limited to predicates. */
 export interface TtscWatchInputBaseline {
-  directoryExists: boolean;
+  directoryExists?: boolean;
   fileExists: boolean;
-  graphHash: string;
-  graphReadHash: string | null;
-  hostHash: string;
+  graphHash?: string;
+  graphReadHash?: string | null;
+  hostHash?: string;
   identity: string;
-  realpath: { ok: boolean; path?: string };
-  stat: "directory" | "file" | "missing";
+  realpath?: { ok: boolean; path?: string };
+  stat?: "directory" | "file" | "missing";
 }
 
 /** One derived input and its optional generation proof. */
@@ -5199,6 +5199,32 @@ export function collectExternalInputHashes(
   return hashes;
 }
 
+/** Capture the stable file predicate used by implicit project discovery. */
+export function captureWatchInputFileBaseline(
+  file: string,
+  filesystem: TtscTransformFilesystemOperations = DEFAULT_FILESYSTEM_OPERATIONS,
+): TtscWatchInputBaseline | undefined {
+  const capture = (): TtscWatchInputBaseline => {
+    const identities = createHostPathIdentityContext(filesystem);
+    const stat = compilerStatKind(file, filesystem);
+    return {
+      directoryExists: stat === "directory",
+      fileExists: stat === "file",
+      identity: pathIdentityKey(file, identities),
+      stat,
+    };
+  };
+  try {
+    const before = capture();
+    const after = capture();
+    return stableStringify(before) === stableStringify(after)
+      ? after
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 /**
  * Capture one stable main-process baseline that can be compared with any
  * generation-owned watch-input evidence. Two equal broad observations are
@@ -5242,11 +5268,16 @@ export function watchInputEvidenceMatchesBaseline(
     return false;
   }
   if (evidence.state.codec === "host") {
-    return evidence.state.hash === baseline.hostHash;
+    return (
+      baseline.hostHash !== undefined &&
+      evidence.state.hash === baseline.hostHash
+    );
   }
   const identities = createHostPathIdentityContext();
   if (evidence.state.codec === "graph") {
     return (
+      baseline.graphHash !== undefined &&
+      baseline.realpath !== undefined &&
       evidence.state.hash === baseline.graphHash &&
       sameHostInputRealpath(
         evidence.state.realpath,
@@ -5264,22 +5295,35 @@ export function watchInputEvidenceMatchesBaseline(
   }
   if (
     observation.directoryExists !== undefined &&
+    baseline.directoryExists === undefined
+  ) {
+    return false;
+  }
+  if (
+    observation.directoryExists !== undefined &&
     observation.directoryExists !== baseline.directoryExists
   ) {
     return false;
   }
-  if (observation.stat !== undefined && observation.stat !== baseline.stat) {
+  if (
+    observation.stat !== undefined &&
+    (baseline.stat === undefined || observation.stat !== baseline.stat)
+  ) {
     return false;
   }
   if (
     observation.readFile !== undefined &&
-    ((observation.readFile.ok &&
-      observation.readFile.hash !== baseline.graphReadHash) ||
+    (baseline.graphReadHash === undefined ||
+      (observation.readFile.ok &&
+        observation.readFile.hash !== baseline.graphReadHash) ||
       (!observation.readFile.ok && baseline.graphReadHash !== null))
   ) {
     return false;
   }
   if (observation.realpath !== undefined) {
+    if (baseline.realpath === undefined) {
+      return false;
+    }
     if (observation.realpath.ok !== baseline.realpath.ok) {
       return false;
     }
