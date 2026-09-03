@@ -17,7 +17,10 @@ import {
 import type { TransformResult } from "unplugin";
 
 import type { ResolvedTtscUnpluginOptions } from "./options";
-import { findNearestProjectTsconfig } from "./projectDiscovery";
+import {
+  findNearestProjectTsconfig,
+  isIgnoredProjectDirectory,
+} from "./projectDiscovery";
 import {
   CONFIG_DIR_TEMPLATE_LIST_OPTIONS,
   CONFIG_DIR_TEMPLATE_SCALAR_OPTIONS,
@@ -5458,20 +5461,6 @@ function insideProject(directory: string, projectRoot: string): boolean {
  * number; the bound stays sound and is merely not tight.
  */
 const NOTIFIABLE_ABSENCE_DIRECTORY_LIMIT = 512;
-
-function isIgnoredProjectDirectory(name: string): boolean {
-  // The residue of what used to be a fifteen-name list, kept to the three
-  // directories no tsconfig can name and no program can contain: the VCS
-  // store, the package manager's tree (TypeScript's own default `exclude`
-  // carries it too), and ttsc's own plugin cache. Everything else the old list
-  // guessed at, and guessing was wrong in both directions: a bundler writing
-  // to an unnamed directory changed project membership with its own output,
-  // while a real source directory named `build` or `temp` was dropped from the
-  // walk and its new files were never seen (samchon/ttsc#1307). Those are now
-  // decided by `ITtscProjectMembershipPolicy`, which reads the configuration
-  // that actually knows.
-  return name === ".git" || name === ".ttsc" || name === "node_modules";
-}
 
 /**
  * Whether the resolved configuration keeps this directory out of the program.

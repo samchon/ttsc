@@ -114,13 +114,15 @@ export async function transform(params: {
         : undefined;
     const explicitProject =
       typeof opts.ttsc.project === "string" ? opts.ttsc.project : undefined;
+    const filename = resolveAbsoluteFilename(params.filename, params.options);
     const project = resolveProjectView({
       compilerOptions: opts.ttsc.compilerOptions,
       explicitProject,
+      filename,
       projectRoot,
     });
     const result = await transformTtsc(
-      resolveAbsoluteFilename(params.filename, params.options),
+      filename,
       params.src,
       unpluginOptions,
       undefined,

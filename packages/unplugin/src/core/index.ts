@@ -306,16 +306,23 @@ export type {
   TtscUnpluginCompilerOptionsJson,
   TtscUnpluginOptions,
 } from "./options";
-export type { TtscProjectDiscoveryFilesystem } from "./projectDiscovery";
+export type {
+  TtscProjectDiscoveryFilesystem,
+  TtscProjectTreeDiscoveryFilesystem,
+} from "./projectDiscovery";
 export type {
   TtscTransformFilesystemOperations,
   TtscTransformHooks,
   TtscWatchInputEvidence,
 } from "./transform";
-export type { ITtscProjectMembershipPolicy } from "./tsconfigPaths";
+export type {
+  ITsconfigSourceSnapshotEntry,
+  ITtscProjectMembershipPolicy,
+} from "./tsconfigPaths";
 export {
   mergeMembershipPolicyOverlay,
   readProjectMembershipPolicy,
+  readTsconfigSourceSnapshot,
 } from "./tsconfigPaths";
 export {
   beginTtscTransformBuild,
@@ -328,7 +335,10 @@ export {
   transformTtsc,
   unplugin,
 };
-export { findNearestProjectTsconfig } from "./projectDiscovery";
+export {
+  findNearestProjectTsconfig,
+  findProjectTsconfigs,
+} from "./projectDiscovery";
 
 export default unplugin;
 

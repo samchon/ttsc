@@ -5,7 +5,10 @@ import os from "node:os";
 import path from "node:path";
 
 import { createFilesystemPathIdentityContext } from "../../../../packages/ttsc/lib/internal/projectInputPathIdentity.js";
-import { findNearestProjectTsconfig } from "../../../../packages/unplugin/lib/core/projectDiscovery.js";
+import {
+  findNearestProjectTsconfig,
+  findProjectTsconfigs,
+} from "../../../../packages/unplugin/lib/core/projectDiscovery.js";
 import {
   type TtscTransformFilesystemOperations,
   validateGraphInputObservation,
@@ -393,6 +396,95 @@ function assertProjectTsconfigDiscovery(): void {
     "one atomic stat proof must decide a candidate that would change kind on a second observation",
   );
   assert.equal(observations, 1);
+
+  const directories = new Map<string, string[]>([
+    ["/repo", [".git", "packages"]],
+    ["/repo/packages", ["app"]],
+    ["/repo/packages/app", []],
+  ]);
+  const configs = new Map([
+    ["/repo/tsconfig.json", "file"],
+    ["/repo/packages/app/tsconfig.json", "file"],
+  ]);
+  const discovered = findProjectTsconfigs("/repo", {
+    platform: "linux",
+    readdir: (location: string) =>
+      (directories.get(location) ?? []).map((name) => ({
+        isDirectory: () => true,
+        name,
+      })),
+    stat: (location: string) => {
+      if (configs.get(location) !== "file") {
+        const error = new Error("missing") as NodeJS.ErrnoException;
+        error.code = "ENOENT";
+        throw error;
+      }
+      return { isFile: () => true };
+    },
+  });
+  assert.deepEqual(discovered, {
+    complete: true,
+    files: ["/repo/packages/app/tsconfig.json", "/repo/tsconfig.json"],
+  });
+  const windowsDirectories = new Map<string, string[]>([
+    ["C:\\repo", [".ttsc", "packages"]],
+    ["C:\\repo\\packages", ["app"]],
+    ["C:\\repo\\packages\\app", []],
+  ]);
+  const windowsConfigs = new Set([
+    "C:\\repo\\tsconfig.json",
+    "C:\\repo\\packages\\app\\tsconfig.json",
+  ]);
+  assert.deepEqual(
+    findProjectTsconfigs("C:\\repo", {
+      platform: "win32",
+      readdir: (location: string) =>
+        (windowsDirectories.get(location) ?? []).map((name) => ({
+          isDirectory: () => true,
+          name,
+        })),
+      stat: (location: string) => {
+        if (!windowsConfigs.has(location)) {
+          const error = new Error("missing") as NodeJS.ErrnoException;
+          error.code = "ENOENT";
+          throw error;
+        }
+        return { isFile: () => true };
+      },
+    }),
+    {
+      complete: true,
+      files: [
+        "C:\\repo\\packages\\app\\tsconfig.json",
+        "C:\\repo\\tsconfig.json",
+      ],
+    },
+    "the project map must preserve the observed Windows path platform",
+  );
+  assert.deepEqual(
+    findProjectTsconfigs("/repo", {
+      platform: "linux",
+      readdir: (location: string) => {
+        if (location === "/repo/packages") {
+          throw new Error("unreadable directory");
+        }
+        return (directories.get(location) ?? []).map((name) => ({
+          isDirectory: () => true,
+          name,
+        }));
+      },
+      stat: (location: string) => {
+        if (configs.get(location) !== "file") {
+          const error = new Error("missing") as NodeJS.ErrnoException;
+          error.code = "ENOENT";
+          throw error;
+        }
+        return { isFile: () => true };
+      },
+    }),
+    { complete: false, files: ["/repo/tsconfig.json"] },
+    "an unreadable subtree must refuse a complete reusable project map",
+  );
 }
 
 /** Exercise the host implementation over real files, links, and broken links. */

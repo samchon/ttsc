@@ -838,6 +838,12 @@ export async function assertMetroAsksTheAdaptersPolicy(): Promise<void> {
   const leaf = path.join(root, "tsconfig.json");
   const app = path.join(root, "packages", "app");
   const sourceDirectory = path.join(app, "src");
+  const rootConfig = JSON.parse(fs.readFileSync(leaf, "utf8")) as {
+    compilerOptions: Record<string, unknown>;
+    exclude?: string[];
+  };
+  rootConfig.exclude = ["packages"];
+  fs.writeFileSync(leaf, JSON.stringify(rootConfig), "utf8");
   fs.mkdirSync(sourceDirectory, { recursive: true });
   fs.mkdirSync(path.join(app, "tsconfig.json"));
   const adapterProject = unplugin.findNearestProjectTsconfig(sourceDirectory);
@@ -848,9 +854,213 @@ export async function assertMetroAsksTheAdaptersPolicy(): Promise<void> {
     adapterProject,
     "Metro and unplugin must skip the same directory collision and select the same project file",
   );
+  const nestedSource = path.join(sourceDirectory, "index.ts");
+  fs.writeFileSync(nestedSource, "export const nested = true;\n", "utf8");
+  fingerprint.prepareSnapshot(root);
+  const beforeNestedProject = fingerprint.computeProjectFingerprint({
+    projectRoot: root,
+  });
+  fs.rmSync(path.join(app, "tsconfig.json"), { recursive: true });
+  const nestedConfig = path.join(app, "tsconfig.json");
+  fs.writeFileSync(
+    nestedConfig,
+    JSON.stringify({
+      compilerOptions: { allowJs: true, outDir: "build" },
+      include: ["src"],
+    }),
+    "utf8",
+  );
+  assert.notEqual(
+    beforeNestedProject,
+    fingerprint.computeProjectFingerprint({ projectRoot: root }),
+    "a directory becoming a nested config file must change the project map",
+  );
+  const nestedProject = fingerprint.resolveProjectView({
+    filename: nestedSource,
+    projectRoot: root,
+  });
+  assert.equal(
+    nestedProject.policy.sources[0],
+    nestedConfig,
+    "Metro must resolve the recorder project from the transformed file",
+  );
+  assert.deepEqual(
+    nestedProject.roots,
+    [app],
+    "the nested project must own its routed fingerprint subtree",
+  );
+  const beforeNestedJavaScript = fingerprint.computeProjectFingerprint({
+    projectRoot: root,
+  });
+  fs.writeFileSync(
+    path.join(sourceDirectory, "arrived.js"),
+    "export const arrived = true;\n",
+    "utf8",
+  );
+  assert.notEqual(
+    beforeNestedJavaScript,
+    fingerprint.computeProjectFingerprint({ projectRoot: root }),
+    "a source admitted only by the nested config must change the key even below the root project's exclusion",
+  );
+  const beforeNestedOutput = fingerprint.computeProjectFingerprint({
+    projectRoot: root,
+  });
+  fs.mkdirSync(path.join(app, "build"), { recursive: true });
+  fs.writeFileSync(
+    path.join(app, "build", "emitted.ts"),
+    "export const emitted = true;\n",
+    "utf8",
+  );
+  assert.equal(
+    beforeNestedOutput,
+    fingerprint.computeProjectFingerprint({ projectRoot: root }),
+    "the nested outDir must stay outside every routed project walk",
+  );
+  const inheritedConfig = path.join(app, "tsconfig.base.json");
+  const directConfigKey = fingerprint.computeProjectFingerprint({
+    projectRoot: root,
+  });
+  fs.writeFileSync(
+    inheritedConfig,
+    JSON.stringify({
+      compilerOptions: { allowJs: true, outDir: "build" },
+    }),
+    "utf8",
+  );
+  fs.writeFileSync(
+    nestedConfig,
+    JSON.stringify({ extends: "./tsconfig.base.json", include: ["src"] }),
+    "utf8",
+  );
+  const inheritedConfigKey = fingerprint.computeProjectFingerprint({
+    projectRoot: root,
+  });
+  assert.notEqual(
+    directConfigKey,
+    inheritedConfigKey,
+    "changing the nested config's effective ancestry must change the project map",
+  );
+  const explicitKey = fingerprint.computeProjectFingerprint({
+    explicitProject: leaf,
+    projectRoot: root,
+  });
+  fs.writeFileSync(
+    inheritedConfig,
+    JSON.stringify({
+      compilerOptions: {
+        allowJs: true,
+        outDir: "build",
+        target: "ES2022",
+      },
+    }),
+    "utf8",
+  );
+  const changedAncestryKey = fingerprint.computeProjectFingerprint({
+    projectRoot: root,
+  });
+  assert.notEqual(
+    inheritedConfigKey,
+    changedAncestryKey,
+    "editing an inherited nested config must change the implicit key",
+  );
+  assert.equal(
+    explicitKey,
+    fingerprint.computeProjectFingerprint({
+      explicitProject: leaf,
+      projectRoot: root,
+    }),
+    "an explicit root project must not join the implicit nested-project map",
+  );
+
+  fs.rmSync(nestedConfig);
+  const missingConfigKey = fingerprint.computeProjectFingerprint({
+    projectRoot: root,
+  });
+  assert.notEqual(
+    changedAncestryKey,
+    missingConfigKey,
+    "removing a nested config file must change the project map",
+  );
+  assert.equal(
+    missingConfigKey,
+    fingerprint.computeProjectFingerprint({ projectRoot: root }),
+    "a complete project map without the nested config must remain reusable",
+  );
+  fs.writeFileSync(
+    nestedConfig,
+    JSON.stringify({ extends: "./tsconfig.base.json", include: ["src"] }),
+    "utf8",
+  );
+  const appearedConfigKey = fingerprint.computeProjectFingerprint({
+    projectRoot: root,
+  });
+  assert.notEqual(
+    missingConfigKey,
+    appearedConfigKey,
+    "a nested config appearing at an absent candidate must change the project map",
+  );
+  fs.rmSync(nestedConfig);
+  fs.mkdirSync(nestedConfig);
+  const directoryConfigKey = fingerprint.computeProjectFingerprint({
+    projectRoot: root,
+  });
+  assert.notEqual(
+    appearedConfigKey,
+    directoryConfigKey,
+    "a nested config file becoming a directory must change the project map",
+  );
+  fs.rmSync(nestedConfig, { recursive: true });
+  fs.writeFileSync(
+    nestedConfig,
+    JSON.stringify({ extends: "./tsconfig.base.json", include: ["src"] }),
+    "utf8",
+  );
+  assert.notEqual(
+    directoryConfigKey,
+    fingerprint.computeProjectFingerprint({ projectRoot: root }),
+    "a nested config directory becoming a file must change the project map",
+  );
+  const incompleteFilesystem = {
+    readdir: (location: string) => {
+      if (path.resolve(location) === path.resolve(app)) {
+        throw new Error("unreadable project subtree");
+      }
+      return fs.readdirSync(location, { withFileTypes: true });
+    },
+    stat: (location: string) => fs.statSync(location),
+  };
+  assert.notEqual(
+    fingerprint.computeProjectFingerprint({
+      projectDiscoveryFilesystem: incompleteFilesystem,
+      projectRoot: root,
+    }),
+    fingerprint.computeProjectFingerprint({
+      projectDiscoveryFilesystem: incompleteFilesystem,
+      projectRoot: root,
+    }),
+    "an incomplete project-map traversal must produce a nonce instead of a reusable key",
+  );
+  fs.writeFileSync(
+    nestedConfig,
+    JSON.stringify({ extends: "./missing-base.json", include: ["src"] }),
+    "utf8",
+  );
+  assert.notEqual(
+    fingerprint.computeProjectFingerprint({ projectRoot: root }),
+    fingerprint.computeProjectFingerprint({ projectRoot: root }),
+    "an incomplete nested config graph must produce a nonce instead of a reusable key",
+  );
+  fs.writeFileSync(
+    nestedConfig,
+    JSON.stringify({ extends: "./tsconfig.base.json", include: ["src"] }),
+    "utf8",
+  );
+
   const configured = JSON.parse(fs.readFileSync(leaf, "utf8")) as {
     compilerOptions: Record<string, unknown>;
+    exclude?: string[];
   };
+  delete configured.exclude;
   configured.compilerOptions.outDir = "src/inherited-output";
   configured.compilerOptions.declarationDir = "src/inherited-declarations";
   fs.writeFileSync(leaf, JSON.stringify(configured), "utf8");

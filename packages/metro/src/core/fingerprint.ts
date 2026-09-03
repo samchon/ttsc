@@ -48,10 +48,13 @@ import {
   collectExternalInputHashes,
   collectProjectInputHashes,
   findNearestProjectTsconfig,
+  findProjectTsconfigs,
   isProjectWalkPath,
   mergeMembershipPolicyOverlay,
   readProjectMembershipPolicy,
+  readTsconfigSourceSnapshot,
 } from "@ttsc/unplugin/api";
+import type { TtscProjectTreeDiscoveryFilesystem } from "@ttsc/unplugin/api";
 import { createHash, randomBytes } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -133,7 +136,20 @@ export function fingerprintRoots(
   base: string,
   explicitProject: string | undefined,
 ): string[] {
-  const tsconfig = resolveProjectTsconfig(base, explicitProject);
+  const explicit = normalizedExplicitProject(explicitProject);
+  return projectViewRoots(
+    base,
+    resolveProjectTsconfig(base, explicit),
+    explicit,
+  );
+}
+
+/** Roots covered by one selected project's static walk. */
+function projectViewRoots(
+  base: string,
+  tsconfig: string,
+  explicitProject: string | undefined,
+): string[] {
   // Containment, not walk membership. The question here is whether the
   // tsconfig's directory already sits inside the subtree the base walk covers,
   // so that adding it would repeat the same walk. `isProjectWalkPath` answers a
@@ -141,14 +157,18 @@ export function fingerprintRoots(
   // stopped hashing files that cannot enter the program it began answering
   // `false` for every `tsconfig.json`, which returned the base twice and hashed
   // the whole project twice on every cache key (samchon/ttsc#1307).
+  const resolvedBase = path.resolve(base);
   const directory = path.dirname(path.resolve(tsconfig));
-  const relative = path.relative(path.resolve(base), directory);
+  const relative = path.relative(resolvedBase, directory);
   const inside =
     relative === "" ||
     (relative !== ".." &&
       !relative.startsWith(`..${path.sep}`) &&
       !path.isAbsolute(relative));
-  return inside ? [base] : [base, directory];
+  if (explicitProject === undefined && inside && directory !== resolvedBase) {
+    return [directory];
+  }
+  return inside ? [resolvedBase] : [resolvedBase, directory];
 }
 
 /**
@@ -170,6 +190,17 @@ export interface TtscMetroProjectView {
   readonly explicitProject: string | undefined;
   /** The membership policy resolved for that project. */
   readonly policy: ReturnType<typeof readProjectMembershipPolicy>;
+  /** The policy used by the routed static walk. */
+  readonly walkPolicy: ReturnType<typeof readProjectMembershipPolicy>;
+  /** Lexical roots whose fingerprint uses this project's policy. */
+  readonly roots: readonly string[];
+  /** The exact config selected for this project. */
+  readonly tsconfig: string;
+}
+
+/** One stable implicit-project view and the config graph that produced it. */
+interface TtscMetroFingerprintProjectView extends TtscMetroProjectView {
+  readonly configSources: ReturnType<typeof readTsconfigSourceSnapshot>;
 }
 
 /**
@@ -182,16 +213,39 @@ export interface TtscMetroProjectView {
 export function resolveProjectView(props: {
   compilerOptions?: Record<string, unknown>;
   explicitProject?: string;
+  filename?: string;
   projectRoot?: string;
 }): TtscMetroProjectView {
   const base = resolveFingerprintBase(props.projectRoot);
-  return {
+  const explicitProject = normalizedExplicitProject(props.explicitProject);
+  const start =
+    explicitProject === undefined && props.filename !== undefined
+      ? path.dirname(path.resolve(props.filename))
+      : base;
+  const tsconfig = resolveProjectTsconfig(start, explicitProject);
+  return createProjectView({
     base,
+    compilerOptions: props.compilerOptions,
+    explicitProject,
+    tsconfig,
+  });
+}
+
+/** Create one cache view from an already selected project config. */
+function createProjectView(props: {
+  base: string;
+  compilerOptions?: Record<string, unknown>;
+  explicitProject: string | undefined;
+  tsconfig: string;
+}): TtscMetroProjectView {
+  const policy = membershipPolicy(props.tsconfig, props.compilerOptions);
+  return {
+    base: props.base,
     explicitProject: props.explicitProject,
-    policy: membershipPolicy(
-      resolveProjectTsconfig(base, props.explicitProject),
-      props.compilerOptions,
-    ),
+    policy,
+    roots: projectViewRoots(props.base, props.tsconfig, props.explicitProject),
+    tsconfig: props.tsconfig,
+    walkPolicy: policy,
   };
 }
 
@@ -286,13 +340,14 @@ function stampOf(sources: readonly string[]): string {
  * Locate the tsconfig governing the project, mirroring the transform core's
  * discovery: an explicit `project` resolves against the working directory;
  * otherwise ancestor directories starting at `base` are searched for a
- * `tsconfig.json` file, falling back to `<base>/tsconfig.json`.
+ * `tsconfig.json` file, falling back to `<cwd>/tsconfig.json` like the shared
+ * transform core.
  */
 function resolveProjectTsconfig(
   base: string,
   explicitProject: string | undefined,
 ): string {
-  if (explicitProject !== undefined && explicitProject.length !== 0) {
+  if (explicitProject !== undefined) {
     return path.isAbsolute(explicitProject)
       ? explicitProject
       : path.resolve(process.cwd(), explicitProject);
@@ -301,7 +356,147 @@ function resolveProjectTsconfig(
   if (discovered !== undefined) {
     return discovered;
   }
-  return path.resolve(base, "tsconfig.json");
+  return path.resolve(process.cwd(), "tsconfig.json");
+}
+
+/** Empty project strings carry the same implicit meaning as omission. */
+function normalizedExplicitProject(
+  explicitProject: string | undefined,
+): string | undefined {
+  return explicitProject === undefined || explicitProject.length === 0
+    ? undefined
+    : explicitProject;
+}
+
+/** Resolve every implicit project whose files can be delivered below base. */
+function fingerprintProjectViews(props: {
+  compilerOptions?: Record<string, unknown>;
+  explicitProject?: string;
+  projectDiscoveryFilesystem?: TtscProjectTreeDiscoveryFilesystem;
+  projectRoot?: string;
+}): TtscMetroFingerprintProjectView[] {
+  const primary = resolveProjectView(props);
+  if (primary.explicitProject !== undefined) {
+    return [{ ...primary, configSources: [] }];
+  }
+  const firstMap = findProjectTsconfigs(
+    primary.base,
+    props.projectDiscoveryFilesystem,
+  );
+  if (!firstMap.complete) {
+    throw new Error(
+      "Unable to enumerate Metro's implicit TypeScript projects.",
+    );
+  }
+  const projects = [
+    stableFingerprintProjectView(primary, props.compilerOptions),
+  ];
+  for (const tsconfig of firstMap.files) {
+    const resolved = path.resolve(tsconfig);
+    if (projects.some((project) => samePath(project.tsconfig, resolved))) {
+      continue;
+    }
+    projects.push(
+      stableFingerprintProjectView(
+        createProjectView({
+          base: primary.base,
+          compilerOptions: props.compilerOptions,
+          explicitProject: undefined,
+          tsconfig: resolved,
+        }),
+        props.compilerOptions,
+      ),
+    );
+  }
+  const secondMap = findProjectTsconfigs(
+    primary.base,
+    props.projectDiscoveryFilesystem,
+  );
+  const selectedAfter = resolveProjectTsconfig(primary.base, undefined);
+  if (
+    !secondMap.complete ||
+    !sameProjectMap(firstMap.files, secondMap.files) ||
+    !samePath(primary.tsconfig, selectedAfter) ||
+    projects.some(
+      (project) =>
+        stableStringify(readTsconfigSourceSnapshot(project.tsconfig)) !==
+        stableStringify(project.configSources),
+    )
+  ) {
+    throw new Error("Metro's implicit TypeScript project map changed.");
+  }
+  const routedRoots = projects.map((project) => project.roots[0]!);
+  return projects.map((project, index) => {
+    const root = routedRoots[index]!;
+    const nestedRoots = routedRoots.filter(
+      (candidate, candidateIndex) =>
+        candidateIndex !== index &&
+        !samePath(candidate, root) &&
+        pathIsWithin(candidate, root),
+    );
+    return nestedRoots.length === 0
+      ? project
+      : {
+          ...project,
+          walkPolicy: {
+            ...project.policy,
+            excludedDirectories: [
+              ...project.policy.excludedDirectories,
+              ...nestedRoots,
+            ],
+          },
+        };
+  });
+}
+
+/** Read one implicit project's policy between equal complete config snapshots. */
+function stableFingerprintProjectView(
+  project: TtscMetroProjectView,
+  compilerOptions?: Record<string, unknown>,
+): TtscMetroFingerprintProjectView {
+  const before = readTsconfigSourceSnapshot(project.tsconfig);
+  const refreshed = createProjectView({
+    base: project.base,
+    compilerOptions,
+    explicitProject: undefined,
+    tsconfig: project.tsconfig,
+  });
+  const after = readTsconfigSourceSnapshot(project.tsconfig);
+  if (
+    before.some((entry) => entry.contents === null) ||
+    after.some((entry) => entry.contents === null) ||
+    stableStringify(before) !== stableStringify(after)
+  ) {
+    throw new Error("Unable to read a stable TypeScript project config graph.");
+  }
+  return { ...refreshed, configSources: after };
+}
+
+/** Whether two complete lexical config enumerations name the same paths. */
+function sameProjectMap(
+  left: readonly string[],
+  right: readonly string[],
+): boolean {
+  return (
+    left.length === right.length &&
+    left.every((entry, index) => samePath(entry, right[index]!))
+  );
+}
+
+/** Host-platform equality for two resolved path spellings. */
+function samePath(left: string, right: string): boolean {
+  return path.relative(path.resolve(left), path.resolve(right)) === "";
+}
+
+/** Whether one resolved path lies at or below another. */
+function pathIsWithin(child: string, parent: string): boolean {
+  const relative = path.relative(path.resolve(parent), path.resolve(child));
+  return (
+    relative === "" ||
+    (relative !== ".." &&
+      !relative.startsWith(`..${path.sep}`) &&
+      !path.isAbsolute(relative))
+  );
 }
 
 /**
@@ -312,6 +507,8 @@ function resolveProjectTsconfig(
 export function computeProjectFingerprint(props: {
   compilerOptions?: Record<string, unknown>;
   explicitProject?: string;
+  /** Test seam for proving that incomplete implicit enumeration fails closed. */
+  projectDiscoveryFilesystem?: TtscProjectTreeDiscoveryFilesystem;
   projectRoot?: string;
 }): string {
   try {
@@ -329,15 +526,40 @@ export function computeProjectFingerprint(props: {
     // overlay while the recorder resolves with it leaves an overlay-admitted
     // input in neither half, which is the both-sides-disagree hole in its
     // quietest form (samchon/ttsc#1316).
-    const project = resolveProjectView({
+    const projects = fingerprintProjectViews({
       compilerOptions: props.compilerOptions,
       explicitProject: props.explicitProject,
+      projectDiscoveryFilesystem: props.projectDiscoveryFilesystem,
       projectRoot: props.projectRoot,
     });
-    for (const root of fingerprintRoots(base, props.explicitProject)) {
+    const configSources = new Map<string, string>();
+    for (const project of projects) {
+      for (const source of project.configSources) {
+        const existing = configSources.get(source.path);
+        if (existing !== undefined && existing !== source.contents) {
+          throw new Error("A TypeScript config changed during fingerprinting.");
+        }
+        configSources.set(source.path, source.contents!);
+      }
+      for (const root of project.roots) {
+        hash.update(
+          stableStringify({
+            inputs: collectProjectInputHashes(
+              root,
+              undefined,
+              undefined,
+              project.walkPolicy,
+            ),
+            root,
+            tsconfig: project.tsconfig,
+          }),
+        );
+      }
+    }
+    if (configSources.size !== 0) {
       hash.update(
         stableStringify(
-          collectProjectInputHashes(root, undefined, undefined, project.policy),
+          [...configSources].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)),
         ),
       );
     }
@@ -574,10 +796,34 @@ export function createSnapshotRecorder(): {
     dirty: boolean;
     files: Set<string>;
     observed: boolean;
-    roots: string[];
     volatile: boolean;
   }
   const states = new Map<string, BaseState>();
+  const implicitInputProjects = new Map<string, string>();
+
+  function belongsToProjectWalk(
+    input: string,
+    project: TtscMetroProjectView,
+  ): boolean {
+    if (
+      !project.roots.some((root) =>
+        isProjectWalkPath(root, input, undefined, undefined, project.policy),
+      )
+    ) {
+      return false;
+    }
+    if (project.explicitProject !== undefined) {
+      return true;
+    }
+    const directory = path.dirname(input);
+    const key = `${project.base}${String.fromCharCode(0)}${directory}`;
+    let selected = implicitInputProjects.get(key);
+    if (selected === undefined) {
+      selected = resolveProjectTsconfig(directory, undefined);
+      implicitInputProjects.set(key, selected);
+    }
+    return path.resolve(selected) === path.resolve(project.tsconfig);
+  }
 
   function stateFor(project: TtscMetroProjectView): BaseState {
     const base = project.base;
@@ -587,7 +833,6 @@ export function createSnapshotRecorder(): {
         dirty: false,
         files: new Set(),
         observed: false,
-        roots: fingerprintRoots(base, project.explicitProject),
         volatile: false,
       };
       states.set(base, state);
@@ -637,16 +882,7 @@ export function createSnapshotRecorder(): {
       state.observed = true;
       if (
         state.files.has(input) ||
-        (fs.existsSync(input) &&
-          state.roots.some((root) =>
-            isProjectWalkPath(
-              root,
-              input,
-              undefined,
-              undefined,
-              props.project.policy,
-            ),
-          ))
+        (fs.existsSync(input) && belongsToProjectWalk(input, props.project))
       ) {
         // Even when every input belongs to the project walk, the worker must
         // publish that it performed a clean transform. Otherwise an old main
