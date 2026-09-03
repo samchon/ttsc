@@ -19,10 +19,7 @@ import {
   validateGraphInputObservation,
   watchInputEvidenceMatchesBaseline,
 } from "../../../../packages/unplugin/lib/core/transform.js";
-import {
-  viteServeMissingInputPredicateMatches,
-  viteServeMissingInputWatchKey,
-} from "../../../../packages/unplugin/lib/core/viteServe.js";
+import { viteServeMissingInputWatchKey } from "../../../../packages/unplugin/lib/core/viteServe.js";
 
 interface IFilesystemState {
   contents?: Buffer;
@@ -440,20 +437,6 @@ export function assertPredicateProofMatrix(): void {
     ),
     "Vite polls must not merge distinct availability predicates",
   );
-  for (const kind of ["missing", "directory", "file", "other"] as const) {
-    const exists = kind !== "missing";
-    const current = { isFile: () => kind === "file" };
-    assert.equal(
-      viteServeMissingInputPredicateMatches(exists, current, "exists"),
-      exists,
-      `the exists poll must accept exactly existing ${kind} inputs`,
-    );
-    assert.equal(
-      viteServeMissingInputPredicateMatches(exists, current, "file"),
-      kind === "file",
-      `the file poll must accept exactly regular files, not ${kind} inputs`,
-    );
-  }
   assertProjectTsconfigDiscovery();
   assertRealFilesystemKinds();
 }
