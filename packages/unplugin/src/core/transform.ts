@@ -323,6 +323,12 @@ const TRANSFORM_GENERATION_ATTEMPTS = 2;
  * graph-free envelopes retain complete-snapshot validation.
  */
 export interface TtscCachedProjectTransform {
+  /**
+   * Retained adapter-owned directory whose probe is rewritten immediately
+   * before signature-based validation. A probe can separate only inputs on the
+   * reporting device that minted its current modification stamp.
+   */
+  clockReferenceDirectory?: string;
   /** Predicate-preserving compiler proofs for external candidate spellings. */
   externalInputObservations?: Record<
     string,
@@ -1209,7 +1215,7 @@ function evictGeneration(
   }
 }
 
-/** Close one generation's directory watchers exactly once. */
+/** Release one generation's watchers and retained clock probe exactly once. */
 function disposeCachedTransform(cached: TtscCachedProjectTransform): void {
   const trackers = [
     cached.projectMutationTracker,
@@ -1219,7 +1225,15 @@ function disposeCachedTransform(cached: TtscCachedProjectTransform): void {
   cached.projectMutationTracker = undefined;
   cached.hostInputMutationTracker = undefined;
   cached.candidateMutationTracker = undefined;
-  for (const tracker of trackers) tracker?.close();
+  const clockReferenceDirectory = cached.clockReferenceDirectory;
+  cached.clockReferenceDirectory = undefined;
+  try {
+    for (const tracker of trackers) tracker?.close();
+  } finally {
+    if (clockReferenceDirectory !== undefined) {
+      disposeFilesystemClockReference(clockReferenceDirectory);
+    }
+  }
 }
 
 /**
@@ -2570,6 +2584,10 @@ function matchesCachedSource(
       // out-of-walk snapshot — before any of this pass's deliveries may be
       // settled against it. That proof is what a per-pass recompile used to buy
       // (samchon/ttsc#1300), at a walk instead of a compile.
+      refreshFilesystemClockReference(
+        cached.clockReferenceDirectory,
+        resultFilesystem(cached.result),
+      );
       if (!matchesCompleteInputSnapshot(cached, currentKey, source)) {
         return false;
       }
@@ -2581,6 +2599,10 @@ function matchesCachedSource(
       return true;
     }
   }
+  refreshFilesystemClockReference(
+    cached.clockReferenceDirectory,
+    resultFilesystem(cached.result),
+  );
   if (
     cached.result.type !== "exception" &&
     cached.result.graph !== undefined &&
@@ -2654,8 +2676,8 @@ function matchesNarrowPersistentInputs(
 
 /**
  * Validate one derived input against the generation, skipping the content read
- * while the recorded metadata signature still holds and its clock floor remains
- * safe.
+ * while the recorded metadata signature still holds and its freshly minted
+ * clock reference remains safe.
  *
  * Sibling deliveries of one generation share most of their derived inputs, and
  * `graph.globals` is shared by every one of them, so re-reading and re-hashing
@@ -3093,8 +3115,8 @@ function captureUniversalHostInputValidation(
 const MISSING_INPUT_STATE = "missing";
 
 /**
- * The highest stamp each observed filesystem clock has provably minted, keyed
- * by the operations object that observes it and, inside, by reporting device.
+ * The current stamp an adapter-owned probe has minted, keyed by the operations
+ * object that observes it and, inside, by reporting device.
  *
  * A filesystem stamps a write once per clock tick, so two same-length writes
  * inside one tick are indistinguishable by metadata alone. A signature may
@@ -3102,74 +3124,46 @@ const MISSING_INPUT_STATE = "missing";
  * it, and that guarantee needs a reference instant the observed filesystem
  * itself produced: once some stamp on the same device is strictly newer than an
  * input's modification stamp, that input's tick is provably over, so any later
- * write must mint a newer stamp and move the signature. That is git's
- * racily-clean index rule, adapted to a read-only contract: where git compares
- * entries against the index file's own timestamp, this floor accumulates every
- * stamp the cache-owned operations report, seeded per generation by
- * {@link mintFilesystemClockReference}.
+ * write must mint a newer stamp and move the signature. This adapts git's
+ * racily-clean index rule: both sides of the comparison come from the same
+ * reporting device, and the newer side is a write the adapter itself made.
  *
- * The process clock never grants proof: both sides of the separating comparison
- * are stamps the same filesystem clock reported, at the same granularity. It
- * supplies only an upper rejection bound, so an offset can decline an
- * optimization but cannot authorize it.
+ * A timestamp merely observed on another input cannot advance the reference.
+ * Tools may assign modification times, and a filesystem clock can move
+ * backwards independently of the process clock. Neither a passive historical
+ * maximum nor `Date.now()` proves what stamp a write would mint now. The probe
+ * is therefore rewritten immediately before every validation that may reuse a
+ * content signature, and its previous reference is cleared before the write. A
+ * failed refresh or a different reporting device declines the optimization and
+ * retains the content comparison (samchon/ttsc#1344).
  *
- * Accumulating observed stamps is deliberately weaker than git's own reference,
- * which is a single stamp git minted itself. A modification time may have been
- * assigned rather than minted, so one field alone cannot advance the floor: the
- * conservative observation is the earlier of `mtime` and `ctime`. A floor is
- * also rechecked against the process wall clock whenever it is consumed. The
- * process clock can reject a floor that is still in the future, including one
- * stranded there by a clock rollback, but never grants separability by itself.
- * A filesystem at an unprovable positive offset therefore keeps content reads
- * until the relationship becomes safe; correctness costs reads, not the
- * generation (samchon/ttsc#1344).
- *
- * The minted probe is not enough on its own to replace observed stamps: it
- * lands on the scratch volume, which is frequently not the inputs' volume (a
- * project on `D:` with `TEMP` on `C:`), and a probe-only floor would then
- * decline every _content_ signature, so every input carrying bytes would be
- * re-read on every delivery. A strict blocker keeps its signature either way,
- * because it proves a kind rather than content. Observed stamps keep the common
- * case working; the probe covers the case they cannot, a tree whose files were
- * all written inside one tick.
+ * The probe lives in an adapter-owned temporary directory outside the project.
+ * That directory may be on another volume, such as `C:` when a project lives on
+ * `D:`. Such a split-volume generation safely keeps reading content because no
+ * same-device reference exists; it never substitutes a process-clock guess or
+ * writes a probe into the user's project.
  */
-const FILESYSTEM_CLOCK_FLOORS = new WeakMap<
+const FILESYSTEM_CLOCK_REFERENCES = new WeakMap<
   TtscTransformFilesystemOperations,
   Map<bigint, bigint>
 >();
 
-/** Return one observed filesystem's per-device clock floor, creating it. */
-function filesystemClockFloors(
+/** Return one observed filesystem's current per-device references. */
+function filesystemClockReferences(
   filesystem: TtscTransformFilesystemOperations,
 ): Map<bigint, bigint> {
-  let floors = FILESYSTEM_CLOCK_FLOORS.get(filesystem);
-  if (floors === undefined) {
-    floors = new Map();
-    FILESYSTEM_CLOCK_FLOORS.set(filesystem, floors);
+  let references = FILESYSTEM_CLOCK_REFERENCES.get(filesystem);
+  if (references === undefined) {
+    references = new Map();
+    FILESYSTEM_CLOCK_REFERENCES.set(filesystem, references);
   }
-  return floors;
-}
-
-/** Raise a device's clock floor with the stamps one observation reported. */
-function observeFilesystemClock(
-  filesystem: TtscTransformFilesystemOperations,
-  stats: fs.BigIntStats,
-): void {
-  const floors = filesystemClockFloors(filesystem);
-  // Either field can be assigned by a copying or extraction tool. Requiring
-  // both to have reached the candidate prevents one future-dated field from
-  // forging progress for every other input on the device.
-  const stamp = stats.mtimeNs < stats.ctimeNs ? stats.mtimeNs : stats.ctimeNs;
-  const current = floors.get(stats.dev);
-  if (current === undefined || stamp > current) {
-    floors.set(stats.dev, stamp);
-  }
+  return references;
 }
 
 /**
  * Report whether a later write to the observed path is guaranteed to move its
- * modification stamp: the device's clock floor holds a stamp strictly newer, so
- * the tick that minted the stamp is provably over. The floor was observed
+ * modification stamp: the device's current probe holds a stamp strictly newer,
+ * so the tick that minted the stamp is provably over. The probe was written
  * before the caller's content read began, which is the ordering the guarantee
  * needs — a stamp minted before the read proves every post-read write lands in
  * a newer tick.
@@ -3178,46 +3172,62 @@ function stampSeparable(
   filesystem: TtscTransformFilesystemOperations,
   stats: fs.BigIntStats,
 ): boolean {
-  const floor = filesystemClockFloors(filesystem).get(stats.dev);
-  return (
-    floor !== undefined &&
-    floor <= BigInt(Date.now()) * 1_000_000n &&
-    stats.mtimeNs < floor
-  );
+  const reference = filesystemClockReferences(filesystem).get(stats.dev);
+  return reference !== undefined && stats.mtimeNs < reference;
 }
 
 /**
- * Mint a reference instant for this generation and feed it into the observed
- * filesystem's clock floor.
+ * Replace every prior clock proof with one reference minted by a fresh write.
  *
- * The scratch directory is a write the adapter already owns, deliberately
+ * The reference directory is storage the adapter already owns, deliberately
  * outside the project root, so stamping a probe file there produces a
  * freshly-minted "now" without touching the user's project — the analogue of
  * git writing its index. The probe is observed through the cache-owned
  * operations and keyed by the device those operations report, so it only ever
- * separates stamps on the filesystem that actually minted it; when the scratch
- * volume differs from the inputs' volume, or the observed filesystem cannot see
- * the probe at all, nothing is proven and signature recording simply stays
- * declined until passively observed stamps separate an input on their own.
+ * separates stamps on the filesystem that actually minted it. When its volume
+ * differs from the inputs' volume, or the observed filesystem cannot see the
+ * probe at all, nothing is proven and content comparison continues.
  *
- * Relocating the scratch directory onto the inputs' volume would make the probe
- * universal, but it would also move every compiler and plugin temporary write
- * into the project's parent (frequently a monorepo root or a home directory)
- * for those layouts. That is a product decision about where ttsc writes, not a
- * property of this rule, so the cross-volume case degrades to more reads here
- * rather than being bought with it.
+ * Forcing the reference onto the inputs' volume would require writing into the
+ * user's project or an otherwise unowned neighboring directory. That is not a
+ * valid price for this optimization, so the cross-volume case degrades to more
+ * reads instead.
  */
-function mintFilesystemClockReference(
-  scratchDirectory: string,
+function refreshFilesystemClockReference(
+  referenceDirectory: string | undefined,
   filesystem: TtscTransformFilesystemOperations,
 ): void {
+  const references = filesystemClockReferences(filesystem);
+  references.clear();
+  if (referenceDirectory === undefined) return;
   try {
-    const probe = path.join(scratchDirectory, "clock-reference");
-    fs.writeFileSync(probe, "");
-    observeFilesystemClock(filesystem, filesystem.lstat(probe));
+    const probe = path.join(referenceDirectory, "clock-reference");
+    fs.writeFileSync(probe, `${process.hrtime.bigint()}\n`);
+    const stats = filesystem.lstat(probe);
+    if (stats.isFile()) {
+      references.set(stats.dev, stats.mtimeNs);
+    }
   } catch {
-    // The absence of a reference declines signature recording; it never
-    // invalidates a generation.
+    // A failed refresh leaves no reference, so content comparison continues.
+    references.clear();
+  }
+}
+
+/** Remove only the known probe and its now-empty owned directory. */
+function disposeFilesystemClockReference(referenceDirectory: string): void {
+  try {
+    fs.rmSync(path.join(referenceDirectory, "clock-reference"), {
+      force: true,
+    });
+  } catch {
+    // The probe may already have disappeared; the directory removal below is
+    // still safe because it is deliberately non-recursive.
+  }
+  try {
+    fs.rmdirSync(referenceDirectory);
+  } catch {
+    // Eviction schedules cleanup without awaiting its Promise. A foreign entry
+    // or a concurrent removal leaves, at worst, an empty temporary directory.
   }
 }
 
@@ -3252,12 +3262,10 @@ function inputMetadataEvidence(
 ): TtscInputMetadataEvidence | undefined {
   try {
     const link = filesystem.lstat(file);
-    observeFilesystemClock(filesystem, link);
     let target = link;
     if (link.isSymbolicLink()) {
       try {
         target = filesystem.statBigInt(file);
-        observeFilesystemClock(filesystem, target);
       } catch {
         // Keep a broken link in the existing-input manifest. Its own metadata
         // stays stable while the target is missing, and the first successful
@@ -4461,7 +4469,7 @@ function walkProjectInputs(
 
 /**
  * Return a directory's metadata stamp, used to detect that its membership moved
- * _while_ the walk was enumerating it, and to feed the observed-clock floor.
+ * _while_ the walk was enumerating it.
  *
  * This is the right instrument for that job and the wrong one for comparing two
  * generations: it moves for ignored entries too. {@link walkProjectInputs}
@@ -4473,9 +4481,6 @@ function projectDirectorySignature(
 ): string | undefined {
   try {
     const stats = filesystem.statBigInt(directory);
-    // Directory stamps are minted by the same clock as file stamps, so every
-    // walk observation also raises the clock floor that separates them.
-    observeFilesystemClock(filesystem, stats);
     if (!stats.isDirectory()) {
       return undefined;
     }
@@ -5559,8 +5564,8 @@ function broadWatchInputBaseline(
 /**
  * Re-check a cached mixed graph/dependency input set with its owning codec,
  * reusing the recorded hash of any input whose metadata signature still holds
- * under a currently safe clock floor and reporting the signatures this pass
- * captured.
+ * under a freshly minted same-device reference and reporting the signatures
+ * this pass captured.
  *
  * The caller adopts those signatures only once every input is proven unchanged,
  * so a signature never outlives the content comparison that justified it.
@@ -6618,6 +6623,8 @@ async function captureTransformGeneration(props: {
     projectRoot,
     props.filesystem,
   );
+  let clockReferenceDirectory: string | undefined;
+  let retainClockReferenceDirectory = false;
   let tracker: TtscProjectMutationTracker | undefined;
   let retainTracker = false;
   let hostInputTracker: TtscProjectMutationTracker | undefined;
@@ -6625,6 +6632,17 @@ async function captureTransformGeneration(props: {
   let retainHostInputTracker = false;
   let retainCandidateTracker = false;
   try {
+    if (props.trackProjectMembership) {
+      try {
+        clockReferenceDirectory = createTransformScratchDirectory(
+          projectRoot,
+          props.filesystem,
+        );
+      } catch {
+        // A retained probe is an optimization. The live compiler scratch can
+        // still authorize capture, and later validations will compare bytes.
+      }
+    }
     const materializesConfig =
       Object.keys(props.compilerOptions).length !== 0 ||
       Object.keys(props.aliasPaths).length !== 0;
@@ -6693,7 +6711,10 @@ async function captureTransformGeneration(props: {
     // Mint the generation's clock reference after the compile and before any
     // signature-recording read below, so every input written before the
     // compile sits in a provably finished tick when its signature is captured.
-    mintFilesystemClockReference(scratchDirectory, props.filesystem);
+    refreshFilesystemClockReference(
+      clockReferenceDirectory ?? scratchDirectory,
+      props.filesystem,
+    );
     const persistentHostInputs = selectPersistentHostInputs({
       filesystem: props.filesystem,
       projectRoot,
@@ -6815,6 +6836,9 @@ async function captureTransformGeneration(props: {
       ...(props.deliveryEpoch === undefined
         ? {}
         : { deliveryEpoch: props.deliveryEpoch }),
+      ...(clockReferenceDirectory === undefined
+        ? {}
+        : { clockReferenceDirectory }),
       // Capture the out-of-walk input hashes while the generation is fresh so
       // cache validation can re-check them; computed before dispose so the
       // scratch-tree exclusion is the only reason its disposed artifacts never
@@ -6931,6 +6955,7 @@ async function captureTransformGeneration(props: {
     retainTracker = notifying && tracker !== undefined;
     retainHostInputTracker = notifying && hostInputTracker !== undefined;
     retainCandidateTracker = notifying && candidateTracker !== undefined;
+    retainClockReferenceDirectory = clockReferenceDirectory !== undefined;
     return cached;
   } finally {
     try {
@@ -6948,7 +6973,16 @@ async function captureTransformGeneration(props: {
             candidateTracker.close();
           }
         } finally {
-          fs.rmSync(scratchDirectory, { force: true, recursive: true });
+          try {
+            fs.rmSync(scratchDirectory, { force: true, recursive: true });
+          } finally {
+            if (
+              !retainClockReferenceDirectory &&
+              clockReferenceDirectory !== undefined
+            ) {
+              disposeFilesystemClockReference(clockReferenceDirectory);
+            }
+          }
         }
       }
     }

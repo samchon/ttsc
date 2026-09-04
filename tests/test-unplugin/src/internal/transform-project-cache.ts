@@ -2706,9 +2706,9 @@ const PINNED_TICK = 1_000_000_000_000_000_000n;
  * inside the tick that minted an input's recorded stamp leaves its metadata
  * signature unchanged. Real timing cannot pin that window reliably, so these
  * operations report one constant tick for every path (overridable per path
- * through `stamps`, or for modification time alone through
- * `modificationStamps`) while every other observation — kind, size, identity,
- * bytes — remains the real filesystem's. With every stamp in one tick, the
+ * through `stamps`, for modification time alone through `modificationStamps`,
+ * and for the adapter-minted probe through `reference`) while every other
+ * observation remains the real filesystem's. With every stamp in one tick, the
  * observed filesystem's clock never provably leaves it, which is exactly the
  * state a freshly written tree is in on a coarse-tick filesystem.
  *
@@ -2723,12 +2723,16 @@ function createTickPinnedFilesystem(props: {
 }): {
   modificationStamps: Map<string, bigint>;
   operations: Record<string, unknown>;
+  reference: { stamp: bigint };
   stamps: Map<string, bigint>;
 } {
   const modificationStamps = new Map<string, bigint>();
+  const reference = { stamp: PINNED_TICK };
   const stamps = new Map<string, bigint>();
   const reported = (location: string): bigint =>
-    stamps.get(path.resolve(location)) ?? PINNED_TICK;
+    path.basename(location) === "clock-reference"
+      ? reference.stamp
+      : (stamps.get(path.resolve(location)) ?? PINNED_TICK);
   const pin = (location: string, stats: fs.BigIntStats): fs.BigIntStats =>
     Object.assign(
       Object.create(Object.getPrototypeOf(stats)) as fs.BigIntStats,
@@ -2763,6 +2767,7 @@ function createTickPinnedFilesystem(props: {
         throw error;
       },
     },
+    reference,
     stamps,
   };
 }
@@ -2791,7 +2796,7 @@ async function assertSameTickDerivedRewriteReplacesTheGeneration(): Promise<void
   // tick, matching an archive or copy that assigned only `mtime`.
   pinned.modificationStamps.set(
     path.join(project.root, "package.json"),
-    8_000_000_000_000_000_000n,
+    PINNED_TICK + 1n,
   );
   const cache = createTtscTransformCache(pinned.operations);
   const options = resolveOptions();
@@ -2970,8 +2975,12 @@ async function assertSameTickRewriteReplacesTheSnapshotGeneration(): Promise<voi
  * keeps running without costing the generation.
  */
 async function assertSeparatedStampReEarnsItsSignature(): Promise<void> {
-  const { createTtscTransformCache, resolveOptions, transformTtsc } =
-    await TestUnpluginRuntime.loadUnpluginApi();
+  const {
+    createTtscTransformCache,
+    resetTtscTransformCache,
+    resolveOptions,
+    transformTtsc,
+  } = await TestUnpluginRuntime.loadUnpluginApi();
   const project = createCacheProject({
     fileCount: 4,
     graphFanout: 4,
@@ -3010,41 +3019,39 @@ async function assertSeparatedStampReEarnsItsSignature(): Promise<void> {
     "an unseparated stamp must keep the content comparison",
   );
 
-  // The filesystem's clock provably moves past the pinned tick: one observed
-  // stamp lands in a later tick. The next content comparisons may then record
-  // their signatures, and later deliveries stop re-reading everything...
+  // The adapter's freshly written probe moves past the pinned input tick. The
+  // next content comparisons may record signatures, and later deliveries stop
+  // re-reading everything...
   const touched = path.join(
     project.root,
     "node_modules",
     "global0",
     "index.d.ts",
   );
+  pinned.reference.stamp = PINNED_TICK + 1n;
   pinned.stamps.set(touched, PINNED_TICK + 1n);
-  // One full pass, because the floor rises only when `touched` is observed, and
-  // a delivery validates its reachable siblings before the globals that carry
-  // it. The module delivered while the floor rose therefore leaves its siblings
-  // unproven, and no delivery proves the module it is delivering (a file is
-  // excluded from its own derived set). The three post-floor deliveries of this
-  // four-module mesh jointly prove all four, since every module belongs to some
-  // other module's closure.
+  // One full pass lets another module's closure prove every delivered module,
+  // since a file is excluded from its own derived set. The four-module mesh
+  // also proves every shared global except the one kept at the reference tick.
   for (const file of modules) {
     assert.ok(await deliver(file));
   }
   reads.length = 0;
   assert.ok(await deliver(modules[3]!));
-  // ...except the one input now sitting at the clock floor itself, whose own
+  // ...except the one input now sitting at the reference tick itself, whose own
   // tick is not provably over: exactly it keeps the read.
   assert.deepEqual(
     reads,
     [path.resolve(touched)],
-    "a re-proven generation must re-read only the input at the clock floor",
+    "a re-proven generation must re-read only the input at the reference tick",
   );
   assert.equal(pluginRuns(), 1, "re-earning must never cost the generation");
   assert.equal([...cache.values()][0], generation);
 
-  // A floor that was safe when the signatures were earned can become unsafe
-  // after a wall-clock rollback. Cached signatures must recheck that ordering
-  // rather than remaining authoritative forever.
+  // A same-device reference that was safe when the signatures were earned can
+  // become unsafe after that filesystem clock rolls back. The process clock is
+  // still decades ahead of this fixture, so an absolute process-clock bound
+  // would incorrectly keep the old signatures authoritative.
   const rolledBackInput = path.join(
     project.root,
     "node_modules",
@@ -3056,13 +3063,8 @@ async function assertSeparatedStampReEarnsItsSignature(): Promise<void> {
     "declare const ambient1: string;\n",
     "utf8",
   );
-  const dateNow = Date.now;
-  Date.now = () => Number(PINNED_TICK / 1_000_000n) - 1;
-  try {
-    assert.ok(await deliver(modules[0]!));
-  } finally {
-    Date.now = dateNow;
-  }
+  pinned.reference.stamp = PINNED_TICK;
+  assert.ok(await deliver(modules[0]!));
   assert.equal(
     pluginRuns(),
     2,
@@ -3072,6 +3074,20 @@ async function assertSeparatedStampReEarnsItsSignature(): Promise<void> {
     [...cache.values()][0],
     generation,
     "a hidden rewrite during clock rollback must replace the generation",
+  );
+
+  const replacement = await [...cache.values()][0]!;
+  const referenceDirectory = replacement.clockReferenceDirectory;
+  assert.ok(
+    referenceDirectory !== undefined && fs.existsSync(referenceDirectory),
+    "a persistent generation must retain its refreshable clock probe",
+  );
+  resetTtscTransformCache(cache);
+  await Promise.resolve();
+  assert.equal(
+    fs.existsSync(referenceDirectory),
+    false,
+    "cache disposal must remove the retained clock probe",
   );
 }
 
