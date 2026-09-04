@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="620" height="300" viewBox="0 0 620 300" role="img" aria-label="Typia benchmark speedup chart">
+  <title>Typia benchmark speedup chart</title>
+  <defs>
+    <linearGradient id="typia-bar" x1="0" x2="1">
+      <stop offset="0%" stop-color="#2563eb" />
+      <stop offset="100%" stop-color="#0f766e" />
+    </linearGradient>
+  </defs>
+  <rect x="1" y="1" width="618" height="298" rx="8" fill="#fff" stroke="#cbd5e1" />
+  <text x="28" y="40" fill="#0f172a" font-family="Inter, Segoe UI, sans-serif" font-size="25" font-weight="900">Typia speedup</text>
+  <text x="28" y="64" fill="#64748b" font-family="Inter, Segoe UI, sans-serif" font-size="14">Log-scaled by multiplier. Baseline target = 1x.</text>
+  <text x="28" y="96" fill="#2563eb" font-family="Inter, Segoe UI, sans-serif" font-size="19" font-weight="900">Runtime validation</text>
+  <text x="42" y="128" fill="#334155" font-family="Inter, Segoe UI, sans-serif" font-size="16" font-weight="800">class-validator</text>
+  <rect x="232" y="112" width="252" height="18" rx="9" fill="#e2e8f0" />
+  <rect x="232" y="112" width="22" height="18" rx="9" fill="#94a3b8" />
+  <text x="570" y="128" text-anchor="end" fill="#0f172a" font-family="Inter, Segoe UI, sans-serif" font-size="20" font-weight="900">1x</text>
+  <text x="42" y="160" fill="#334155" font-family="Inter, Segoe UI, sans-serif" font-size="16" font-weight="800">typia</text>
+  <rect x="232" y="144" width="252" height="18" rx="9" fill="#e2e8f0" />
+  <rect x="232" y="144" width="252" height="18" rx="9" fill="url(#typia-bar)" />
+  <text x="570" y="160" text-anchor="end" fill="#0f172a" font-family="Inter, Segoe UI, sans-serif" font-size="20" font-weight="900">20,000x</text>
+  <text x="28" y="205" fill="#2563eb" font-family="Inter, Segoe UI, sans-serif" font-size="19" font-weight="900">JSON serialization</text>
+  <text x="42" y="237" fill="#334155" font-family="Inter, Segoe UI, sans-serif" font-size="16" font-weight="800">class-transformer</text>
+  <rect x="232" y="221" width="252" height="18" rx="9" fill="#e2e8f0" />
+  <rect x="232" y="221" width="22" height="18" rx="9" fill="#94a3b8" />
+  <text x="570" y="237" text-anchor="end" fill="#0f172a" font-family="Inter, Segoe UI, sans-serif" font-size="20" font-weight="900">1x</text>
+  <text x="42" y="269" fill="#334155" font-family="Inter, Segoe UI, sans-serif" font-size="16" font-weight="800">typia</text>
+  <rect x="232" y="253" width="252" height="18" rx="9" fill="#e2e8f0" />
+  <rect x="232" y="253" width="135" height="18" rx="9" fill="url(#typia-bar)" />
+  <text x="570" y="269" text-anchor="end" fill="#0f172a" font-family="Inter, Segoe UI, sans-serif" font-size="20" font-weight="900">200x</text>
+</svg>

@@ -1,0 +1,194 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1500" height="620" viewBox="0 0 1500 620" font-family="'Segoe UI', system-ui, -apple-system, Helvetica, Arial, sans-serif">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0d1117"/>
+      <stop offset="1" stop-color="#1b2330"/>
+    </linearGradient>
+    <linearGradient id="fade" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0b0f16" stop-opacity="0"/>
+      <stop offset="1" stop-color="#0b0f16" stop-opacity="1"/>
+    </linearGradient>
+    <clipPath id="clipCol1"><rect x="60" y="150" width="300" height="318" rx="12"/></clipPath>
+  </defs>
+  <rect width="1500" height="620" fill="url(#bg)"/>
+
+  <!-- title -->
+  <text x="60" y="56" font-size="30" font-weight="700" fill="#e6edf3">What each tool hands back</text>
+  <text x="60" y="86" font-size="17" font-weight="500" fill="#8b949e">Response to a broad &#8220;how does this work?&#8221; question &#8212; box size = token cost</text>
+
+  <!-- ===================== Column 1: codegraph (x=60) ===================== -->
+  <g>
+    <rect x="60" y="115" width="300" height="26" rx="13" fill="#3178c6" opacity="0.18"/>
+    <circle cx="80" cy="128" r="5" fill="#3178c6"/>
+    <text x="94" y="133" font-size="16" font-weight="700" fill="#cfe0f5">codegraph</text>
+    <text x="340" y="133" font-size="13" font-weight="600" fill="#7d93b0" text-anchor="end">source bodies</text>
+
+    <rect x="60" y="150" width="300" height="318" rx="12" fill="#0b0f16" stroke="#2a3340" stroke-width="1.5"/>
+    <g clip-path="url(#clipCol1)">
+      <g fill="#3178c6">
+        <rect x="78" y="164" width="120" height="8" rx="4" opacity="0.9"/>
+        <rect x="98" y="182" width="180" height="8" rx="4" opacity="0.55"/>
+        <rect x="98" y="200" width="140" height="8" rx="4" opacity="0.7"/>
+        <rect x="118" y="218" width="160" height="8" rx="4" opacity="0.5"/>
+        <rect x="118" y="236" width="96" height="8" rx="4" opacity="0.8"/>
+        <rect x="98" y="254" width="195" height="8" rx="4" opacity="0.5"/>
+        <rect x="78" y="272" width="150" height="8" rx="4" opacity="0.85"/>
+        <rect x="98" y="290" width="170" height="8" rx="4" opacity="0.55"/>
+        <rect x="118" y="308" width="130" height="8" rx="4" opacity="0.7"/>
+        <rect x="118" y="326" width="190" height="8" rx="4" opacity="0.5"/>
+        <rect x="98" y="344" width="110" height="8" rx="4" opacity="0.8"/>
+        <rect x="78" y="362" width="165" height="8" rx="4" opacity="0.6"/>
+        <rect x="98" y="380" width="200" height="8" rx="4" opacity="0.5"/>
+        <rect x="118" y="398" width="140" height="8" rx="4" opacity="0.7"/>
+        <rect x="98" y="416" width="175" height="8" rx="4" opacity="0.55"/>
+        <rect x="78" y="434" width="125" height="8" rx="4" opacity="0.8"/>
+        <rect x="98" y="452" width="190" height="8" rx="4" opacity="0.5"/>
+      </g>
+    </g>
+    <rect x="61" y="408" width="298" height="59" rx="12" fill="url(#fade)"/>
+    <text x="210" y="455" font-size="13" font-weight="700" fill="#9fb4cc" text-anchor="middle">&#8230; and it keeps going</text>
+
+    <text x="210" y="512" font-size="17" font-weight="700" fill="#e6edf3" text-anchor="middle">verbatim source</text>
+    <text x="210" y="540" font-size="15" font-weight="500" fill="#8b949e" text-anchor="middle">tokens explode on broad questions</text>
+  </g>
+
+  <!-- ===================== Column 2: codebase-memory (x=420, center 570) ===================== -->
+  <g>
+    <rect x="420" y="115" width="300" height="26" rx="13" fill="#3178c6" opacity="0.18"/>
+    <circle cx="440" cy="128" r="5" fill="#3178c6"/>
+    <text x="454" y="133" font-size="16" font-weight="700" fill="#cfe0f5">codebase-memory</text>
+    <text x="700" y="133" font-size="13" font-weight="600" fill="#7d93b0" text-anchor="end">graph, buried</text>
+
+    <!-- faint relation graph peeking behind the tool wall -->
+    <g opacity="0.32">
+      <g stroke="#3178c6" stroke-width="3" fill="none">
+        <line x1="446" y1="164" x2="570" y2="152"/>
+        <line x1="570" y1="152" x2="694" y2="170"/>
+        <line x1="446" y1="164" x2="440" y2="298"/>
+        <line x1="694" y1="170" x2="700" y2="292"/>
+        <line x1="440" y1="298" x2="570" y2="306"/>
+        <line x1="570" y1="306" x2="700" y2="292"/>
+        <line x1="446" y1="164" x2="570" y2="306"/>
+        <line x1="694" y1="170" x2="570" y2="306"/>
+      </g>
+      <g fill="#3178c6">
+        <circle cx="446" cy="164" r="8"/>
+        <circle cx="570" cy="152" r="8"/>
+        <circle cx="694" cy="170" r="8"/>
+        <circle cx="440" cy="298" r="8"/>
+        <circle cx="700" cy="292" r="8"/>
+      </g>
+      <circle cx="570" cy="306" r="11" fill="#3fb950"/>
+    </g>
+
+    <!-- the wall: 14 MCP tool chips covering the graph -->
+    <g>
+      <!-- row 1: 5 -->
+      <rect x="444" y="168" width="44" height="28" rx="7" fill="#1a2230" stroke="#3a4656" stroke-width="1.2"/><rect x="455" y="180" width="22" height="4" rx="2" fill="#3178c6" opacity="0.7"/>
+      <rect x="496" y="168" width="44" height="28" rx="7" fill="#1a2230" stroke="#3a4656" stroke-width="1.2"/><rect x="507" y="180" width="22" height="4" rx="2" fill="#3178c6" opacity="0.7"/>
+      <rect x="548" y="168" width="44" height="28" rx="7" fill="#1a2230" stroke="#3a4656" stroke-width="1.2"/><rect x="559" y="180" width="22" height="4" rx="2" fill="#3178c6" opacity="0.7"/>
+      <rect x="600" y="168" width="44" height="28" rx="7" fill="#1a2230" stroke="#3a4656" stroke-width="1.2"/><rect x="611" y="180" width="22" height="4" rx="2" fill="#3178c6" opacity="0.7"/>
+      <rect x="652" y="168" width="44" height="28" rx="7" fill="#1a2230" stroke="#3a4656" stroke-width="1.2"/><rect x="663" y="180" width="22" height="4" rx="2" fill="#3178c6" opacity="0.7"/>
+      <!-- row 2: 5 -->
+      <rect x="444" y="206" width="44" height="28" rx="7" fill="#1a2230" stroke="#3a4656" stroke-width="1.2"/><rect x="455" y="218" width="22" height="4" rx="2" fill="#3178c6" opacity="0.7"/>
+      <rect x="496" y="206" width="44" height="28" rx="7" fill="#1a2230" stroke="#3a4656" stroke-width="1.2"/><rect x="507" y="218" width="22" height="4" rx="2" fill="#3178c6" opacity="0.7"/>
+      <rect x="548" y="206" width="44" height="28" rx="7" fill="#1a2230" stroke="#3a4656" stroke-width="1.2"/><rect x="559" y="218" width="22" height="4" rx="2" fill="#3178c6" opacity="0.7"/>
+      <rect x="600" y="206" width="44" height="28" rx="7" fill="#1a2230" stroke="#3a4656" stroke-width="1.2"/><rect x="611" y="218" width="22" height="4" rx="2" fill="#3178c6" opacity="0.7"/>
+      <rect x="652" y="206" width="44" height="28" rx="7" fill="#1a2230" stroke="#3a4656" stroke-width="1.2"/><rect x="663" y="218" width="22" height="4" rx="2" fill="#3178c6" opacity="0.7"/>
+      <!-- row 3: 4 centered -->
+      <rect x="470" y="244" width="44" height="28" rx="7" fill="#1a2230" stroke="#3a4656" stroke-width="1.2"/><rect x="481" y="256" width="22" height="4" rx="2" fill="#3178c6" opacity="0.7"/>
+      <rect x="522" y="244" width="44" height="28" rx="7" fill="#1a2230" stroke="#3a4656" stroke-width="1.2"/><rect x="533" y="256" width="22" height="4" rx="2" fill="#3178c6" opacity="0.7"/>
+      <rect x="574" y="244" width="44" height="28" rx="7" fill="#1a2230" stroke="#3a4656" stroke-width="1.2"/><rect x="585" y="256" width="22" height="4" rx="2" fill="#3178c6" opacity="0.7"/>
+      <rect x="626" y="244" width="44" height="28" rx="7" fill="#1a2230" stroke="#3a4656" stroke-width="1.2"/><rect x="637" y="256" width="22" height="4" rx="2" fill="#3178c6" opacity="0.7"/>
+    </g>
+    <text x="570" y="294" font-size="13" font-weight="600" fill="#8b949e" text-anchor="middle">14 MCP tools &#183; graph never reached</text>
+
+    <g stroke="#566273" stroke-width="2" fill="none"><line x1="570" y1="306" x2="570" y2="326"/></g>
+    <path d="M570 334 l-7 -11 l14 0 z" fill="#566273"/>
+
+    <rect x="440" y="340" width="260" height="56" rx="12" fill="#171f2b" stroke="#3a4656" stroke-width="1.5"/>
+    <text x="570" y="366" font-size="17" font-weight="700" fill="#e6edf3" text-anchor="middle">gives up &#8594; shell</text>
+    <text x="570" y="386" font-size="13" font-weight="500" fill="#8b949e" text-anchor="middle">grep &#183; Read</text>
+
+    <text x="570" y="512" font-size="17" font-weight="700" fill="#e6edf3" text-anchor="middle">a real graph</text>
+    <text x="570" y="537" font-size="14" font-weight="500" fill="#8b949e" text-anchor="middle">buried under 14 tools &#183; 0 MCP calls</text>
+    <text x="570" y="557" font-size="14" font-weight="500" fill="#8b949e" text-anchor="middle">fell back to grep</text>
+  </g>
+
+  <!-- ===================== Column 3: Serena (x=780, center 930) ===================== -->
+  <g>
+    <rect x="780" y="115" width="300" height="26" rx="13" fill="#d98a3d" opacity="0.20"/>
+    <circle cx="800" cy="128" r="5" fill="#d98a3d"/>
+    <text x="814" y="133" font-size="16" font-weight="700" fill="#f0cfa6">serena</text>
+    <text x="1060" y="133" font-size="13" font-weight="600" fill="#b58a5c" text-anchor="end">amputate &#43; swap</text>
+
+    <rect x="780" y="150" width="300" height="318" rx="12" fill="#0b0f16" stroke="#2a3340" stroke-width="1.5"/>
+
+    <!-- native hands, forbidden -->
+    <g>
+      <rect x="812" y="166" width="72" height="30" rx="7" fill="#20161a" stroke="#7d3b3b" stroke-width="1.3"/>
+      <text x="848" y="186" font-size="13" font-weight="700" fill="#c98a8a" text-anchor="middle">Read</text>
+      <line x1="818" y1="192" x2="878" y2="170" stroke="#e05252" stroke-width="2"/>
+      <rect x="894" y="166" width="72" height="30" rx="7" fill="#20161a" stroke="#7d3b3b" stroke-width="1.3"/>
+      <text x="930" y="186" font-size="13" font-weight="700" fill="#c98a8a" text-anchor="middle">Edit</text>
+      <line x1="900" y1="192" x2="960" y2="170" stroke="#e05252" stroke-width="2"/>
+      <rect x="976" y="166" width="72" height="30" rx="7" fill="#20161a" stroke="#7d3b3b" stroke-width="1.3"/>
+      <text x="1012" y="186" font-size="13" font-weight="700" fill="#c98a8a" text-anchor="middle">Grep</text>
+      <line x1="982" y1="192" x2="1042" y2="170" stroke="#e05252" stroke-width="2"/>
+    </g>
+    <text x="930" y="216" font-size="13" font-weight="600" fill="#c98a8a" text-anchor="middle">native hands &#8212; FORBIDDEN</text>
+
+    <!-- prosthetic tool wall (~50) -->
+    <g>
+      <!-- 6 x 4 grid = 24 chips implying "many" -->
+      <g fill="#1a2230" stroke="#4a3a2a" stroke-width="1.1">
+        <rect x="807" y="226" width="36" height="18" rx="5"/><rect x="849" y="226" width="36" height="18" rx="5"/><rect x="891" y="226" width="36" height="18" rx="5"/><rect x="933" y="226" width="36" height="18" rx="5"/><rect x="975" y="226" width="36" height="18" rx="5"/><rect x="1017" y="226" width="36" height="18" rx="5"/>
+        <rect x="807" y="250" width="36" height="18" rx="5"/><rect x="849" y="250" width="36" height="18" rx="5"/><rect x="891" y="250" width="36" height="18" rx="5"/><rect x="933" y="250" width="36" height="18" rx="5"/><rect x="975" y="250" width="36" height="18" rx="5"/><rect x="1017" y="250" width="36" height="18" rx="5"/>
+        <rect x="807" y="274" width="36" height="18" rx="5"/><rect x="849" y="274" width="36" height="18" rx="5"/><rect x="891" y="274" width="36" height="18" rx="5"/><rect x="933" y="274" width="36" height="18" rx="5"/><rect x="975" y="274" width="36" height="18" rx="5"/><rect x="1017" y="274" width="36" height="18" rx="5"/>
+        <rect x="807" y="298" width="36" height="18" rx="5"/><rect x="849" y="298" width="36" height="18" rx="5"/><rect x="891" y="298" width="36" height="18" rx="5"/><rect x="933" y="298" width="36" height="18" rx="5"/><rect x="975" y="298" width="36" height="18" rx="5"/><rect x="1017" y="298" width="36" height="18" rx="5"/>
+      </g>
+      <g fill="#d98a3d" opacity="0.6">
+        <rect x="815" y="234" width="20" height="3" rx="1.5"/><rect x="857" y="234" width="20" height="3" rx="1.5"/><rect x="899" y="234" width="20" height="3" rx="1.5"/><rect x="941" y="234" width="20" height="3" rx="1.5"/><rect x="983" y="234" width="20" height="3" rx="1.5"/><rect x="1025" y="234" width="20" height="3" rx="1.5"/>
+        <rect x="815" y="258" width="20" height="3" rx="1.5"/><rect x="857" y="258" width="20" height="3" rx="1.5"/><rect x="899" y="258" width="20" height="3" rx="1.5"/><rect x="941" y="258" width="20" height="3" rx="1.5"/><rect x="983" y="258" width="20" height="3" rx="1.5"/><rect x="1025" y="258" width="20" height="3" rx="1.5"/>
+        <rect x="815" y="282" width="20" height="3" rx="1.5"/><rect x="857" y="282" width="20" height="3" rx="1.5"/><rect x="899" y="282" width="20" height="3" rx="1.5"/><rect x="941" y="282" width="20" height="3" rx="1.5"/><rect x="983" y="282" width="20" height="3" rx="1.5"/><rect x="1025" y="282" width="20" height="3" rx="1.5"/>
+        <rect x="815" y="306" width="20" height="3" rx="1.5"/><rect x="857" y="306" width="20" height="3" rx="1.5"/><rect x="899" y="306" width="20" height="3" rx="1.5"/><rect x="941" y="306" width="20" height="3" rx="1.5"/><rect x="983" y="306" width="20" height="3" rx="1.5"/><rect x="1025" y="306" width="20" height="3" rx="1.5"/>
+      </g>
+    </g>
+    <text x="930" y="332" font-size="13" font-weight="600" fill="#b58a5c" text-anchor="middle">~50 Serena tools &#183; activate + onboard first</text>
+
+    <g stroke="#566273" stroke-width="2" fill="none"><line x1="930" y1="338" x2="930" y2="356"/></g>
+    <path d="M930 364 l-7 -11 l14 0 z" fill="#566273"/>
+
+    <rect x="800" y="370" width="260" height="56" rx="12" fill="#171f2b" stroke="#3a4656" stroke-width="1.5"/>
+    <text x="930" y="396" font-size="17" font-weight="700" fill="#e6edf3" text-anchor="middle">grepped anyway</text>
+    <text x="930" y="416" font-size="13" font-weight="500" fill="#8b949e" text-anchor="middle">0&#8211;1 MCP calls</text>
+
+    <text x="930" y="512" font-size="17" font-weight="700" fill="#e6edf3" text-anchor="middle">the maximalist</text>
+    <text x="930" y="537" font-size="14" font-weight="500" fill="#8b949e" text-anchor="middle">most force, most tools</text>
+    <text x="930" y="557" font-size="14" font-weight="500" fill="#8b949e" text-anchor="middle">near baseline, up to +93%</text>
+  </g>
+
+  <!-- ===================== Column 4: @ttsc/graph (x=1140, center 1290) ===================== -->
+  <g>
+    <rect x="1140" y="115" width="300" height="26" rx="13" fill="#3fb950" opacity="0.18"/>
+    <circle cx="1160" cy="128" r="5" fill="#3fb950"/>
+    <text x="1174" y="133" font-size="16" font-weight="700" fill="#d3f0d8">@ttsc/graph</text>
+    <text x="1420" y="133" font-size="13" font-weight="600" fill="#6fae7c" text-anchor="end">compact index</text>
+
+    <rect x="1175" y="170" width="250" height="150" rx="12" fill="#0e1a13" stroke="#2c5236" stroke-width="1.5"/>
+    <text x="1195" y="200" font-size="13" font-weight="700" fill="#8b949e">names</text>
+    <rect x="1265" y="190" width="142" height="9" rx="4" fill="#3fb950" opacity="0.85"/>
+    <text x="1195" y="230" font-size="13" font-weight="700" fill="#8b949e">edges</text>
+    <rect x="1265" y="220" width="120" height="9" rx="4" fill="#3fb950" opacity="0.65"/>
+    <rect x="1265" y="234" width="142" height="9" rx="4" fill="#3fb950" opacity="0.65"/>
+    <text x="1195" y="266" font-size="13" font-weight="700" fill="#8b949e">spans</text>
+    <text x="1265" y="266" font-size="12.5" font-weight="600" fill="#7ee08c">emit.ts:17</text>
+    <text x="1195" y="298" font-size="13" font-weight="600" fill="#6fae7c">each span = a file:line anchor</text>
+
+    <circle cx="1300" cy="362" r="22" fill="#3fb950"/>
+    <path d="M1289 362 l8 8 l15 -16" stroke="#0d1117" stroke-width="4.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+
+    <text x="1300" y="512" font-size="17" font-weight="700" fill="#e6edf3" text-anchor="middle">answer</text>
+    <text x="1300" y="540" font-size="15" font-weight="500" fill="#3fb950" text-anchor="middle">grounded &#183; cites exact spans</text>
+  </g>
+</svg>
