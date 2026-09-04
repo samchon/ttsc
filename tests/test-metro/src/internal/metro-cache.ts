@@ -1014,6 +1014,65 @@ export async function assertTransformerRecordsImplicitDependencyGuards(): Promis
     "an ABA topology race must never return to the contaminated static key",
   );
 
+  // The durable snapshot is a mapping from compiler-visible lexical inputs to
+  // their selected physical targets, not merely a set of targets. Swapping two
+  // targets between two aliases changes module content and identity even
+  // though the old physical-identity-to-hash reduction produces the same set.
+  const swapRoot = createBareProject();
+  const swapTargetA = TestProject.tmpdir("ttsc-metro-swap-target-a-");
+  const swapTargetB = TestProject.tmpdir("ttsc-metro-swap-target-b-");
+  const swapAliasA = path.join(swapRoot, "linked-a");
+  const swapAliasB = path.join(swapRoot, "linked-b");
+  const swapInputA = path.join(swapAliasA, "types.d.ts");
+  const swapInputB = path.join(swapAliasB, "types.d.ts");
+  fs.writeFileSync(
+    path.join(swapTargetA, "types.d.ts"),
+    'declare const swapped: "a";\n',
+    "utf8",
+  );
+  fs.writeFileSync(
+    path.join(swapTargetB, "types.d.ts"),
+    'declare const swapped: "b";\n',
+    "utf8",
+  );
+  const linkSwapTargets = (left: string, right: string): void => {
+    fs.rmSync(swapAliasA, { force: true, recursive: true });
+    fs.rmSync(swapAliasB, { force: true, recursive: true });
+    fs.symlinkSync(
+      left,
+      swapAliasA,
+      process.platform === "win32" ? "junction" : "dir",
+    );
+    fs.symlinkSync(
+      right,
+      swapAliasB,
+      process.platform === "win32" ? "junction" : "dir",
+    );
+  };
+  linkSwapTargets(swapTargetA, swapTargetB);
+  await prepareSnapshot(swapRoot);
+  const swapSeed = fingerprint.createSnapshotRecorder();
+  const swapProject = fingerprint.resolveProjectView({ projectRoot: swapRoot });
+  swapSeed.recordMany({
+    inputs: [{ file: swapInputA }, { file: swapInputB }],
+    project: swapProject,
+  });
+  await prepareSnapshot(swapRoot);
+  const swapBefore = fingerprint.computeProjectFingerprint({
+    projectRoot: swapRoot,
+  });
+  assert.equal(
+    fingerprint.computeProjectFingerprint({ projectRoot: swapRoot }),
+    swapBefore,
+    "an unchanged lexical-to-physical mapping must keep a stable key",
+  );
+  linkSwapTargets(swapTargetB, swapTargetA);
+  assert.notEqual(
+    fingerprint.computeProjectFingerprint({ projectRoot: swapRoot }),
+    swapBefore,
+    "swapping physical targets between lexical inputs must change the key",
+  );
+
   const selectionRoot = createBareProject();
   const nestedRoot = path.join(selectionRoot, "nested");
   const nestedSource = path.join(nestedRoot, "index.ts");

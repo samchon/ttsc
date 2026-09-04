@@ -644,10 +644,13 @@ function observeProjectFingerprint(props: {
   if (snapshot === undefined || snapshot.volatile || snapshot.tainted) {
     throw new Error("Metro's recorded transform snapshot is not reusable.");
   }
-  const recorded: Record<string, string> = {};
+  const recorded: Record<string, { hash: string; identity: string }> = {};
   for (const file of snapshot.files) {
     const baseline = addBaselineInput(inputs, file);
-    recorded[baseline.identity] = baseline.hostHash;
+    recorded[snapshotPathKey(file)] = {
+      hash: baseline.hostHash,
+      identity: baseline.identity,
+    };
   }
   return {
     fingerprint: {
