@@ -92,7 +92,7 @@ async function assertAdapterEntrypointsExposeFactories() {
       ) => Promise<string | { code: string } | undefined>
     ).call(context, source, sourceFile);
     const code = typeof result === "string" ? result : result?.code;
-    assert.equal(typeof code, "string");
+    assert.ok(typeof code === "string");
     TestUnpluginProject.assertTransformedToPlugin(code);
   };
   try {
