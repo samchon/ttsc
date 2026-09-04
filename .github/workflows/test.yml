@@ -39,7 +39,6 @@ jobs:
         run: >-
           node scripts/ci/validation-plan.cjs --base "$BASE_SHA" --head "$HEAD_SHA" --event "$EVENT_NAME" --github-output "$GITHUB_OUTPUT"
 
-
   platform-integrations:
     name: platform (${{ matrix.name }})
     needs: plan
