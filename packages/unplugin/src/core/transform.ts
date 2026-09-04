@@ -1278,7 +1278,7 @@ interface TtscEnvelopeDerivation {
    * mirroring the historical scan). `undefined` until the first key miss.
    */
   dependencyIndex?: Map<string, unknown>;
-  /** Per-file memo of the final derived watch-input list. */
+  /** Per lexical delivered-module spelling memo of its final watch-input list. */
   readonly watchInputs: Map<string, string[]>;
   /**
    * Lazily built project-walk keys of the envelope's declared inputs, and
@@ -2085,10 +2085,12 @@ function notifyWatchInputs(
  * volatile keeps the baseline: the two declarations contradict, so the
  * conservative one wins.
  *
- * The derived list is a pure function of the envelope and the file's filesystem
- * identity, so it is computed at most once per generation per file: sibling and
- * repeated deliveries replay the per-envelope memo ({@link envelopeDerivation})
- * instead of re-walking the graph. Returns an empty list on exceptions.
+ * The derived list is a pure function of the envelope and the delivered file's
+ * normalized lexical spelling. Graph traversal uses its filesystem identity,
+ * but lexical inputs exclude only that exact spelling, so two aliases of one
+ * source require distinct lists. Repeated deliveries of one spelling replay the
+ * per-envelope memo ({@link envelopeDerivation}) instead of re-walking the
+ * graph. Returns an empty list on exceptions.
  */
 function selectWatchInputs(props: {
   file: string;
@@ -2102,12 +2104,13 @@ function selectWatchInputs(props: {
   }
   const state = envelopeDerivation(props);
   const fileIdentity = derivationIdentity(state, props.file);
-  const memoized = state.watchInputs.get(fileIdentity);
+  const fileSpelling = path.resolve(props.file);
+  const memoized = state.watchInputs.get(fileSpelling);
   if (memoized !== undefined) {
     return memoized;
   }
   const derived = deriveWatchInputs(state, props, fileIdentity);
-  state.watchInputs.set(fileIdentity, derived);
+  state.watchInputs.set(fileSpelling, derived);
   return derived;
 }
 

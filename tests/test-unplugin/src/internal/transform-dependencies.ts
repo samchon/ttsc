@@ -37,7 +37,7 @@ function emitDependenciesPlugins(dependencies: string[]): unknown[] {
  * when they currently resolve to the transformed module itself.
  */
 async function assertTransformForwardsDependenciesToWatchHook(): Promise<void> {
-  const { resolveOptions, transformTtsc } =
+  const { createTtscTransformCache, resolveOptions, transformTtsc } =
     await TestUnpluginRuntime.loadUnpluginApi();
   const root = TestUnpluginProject.createProject({ plugins: [] });
   const absolute = path.join(root, "src", "absolute-types.d.ts");
@@ -52,24 +52,46 @@ async function assertTransformForwardsDependenciesToWatchHook(): Promise<void> {
   }
   const firstAliasedMain = path.join(firstAlias, "main.ts");
   const secondAliasedMain = path.join(secondAlias, "main.ts");
+  const options = resolveOptions({
+    plugins: emitDependenciesPlugins([
+      "src/types.d.ts",
+      absolute,
+      "src/types.d.ts",
+      "src/main.ts",
+      path.relative(root, firstAliasedMain),
+      path.relative(root, secondAliasedMain),
+      path.relative(root, firstAliasedMain),
+    ]),
+  });
+  const cache = createTtscTransformCache();
+  const aliasedWatched: string[] = [];
+  const aliasedResult = await transformTtsc(
+    firstAliasedMain,
+    TestUnpluginProject.mainSource(root),
+    options,
+    undefined,
+    cache,
+    { addWatchFile: (file: string) => aliasedWatched.push(file) },
+  );
+  assert.ok(aliasedResult);
+  assert.deepEqual(
+    [...aliasedWatched].sort(),
+    [
+      path.join(root, "src", "types.d.ts"),
+      absolute,
+      TestUnpluginProject.mainFile(root),
+      secondAliasedMain,
+      ...fixtureHostInputs(root),
+    ].sort(),
+  );
   const watched: string[] = [];
 
   const result = await transformTtsc(
     TestUnpluginProject.mainFile(root),
     TestUnpluginProject.mainSource(root),
-    resolveOptions({
-      plugins: emitDependenciesPlugins([
-        "src/types.d.ts",
-        absolute,
-        "src/types.d.ts",
-        "src/main.ts",
-        path.relative(root, firstAliasedMain),
-        path.relative(root, secondAliasedMain),
-        path.relative(root, firstAliasedMain),
-      ]),
-    }),
+    options,
     undefined,
-    undefined,
+    cache,
     { addWatchFile: (file: string) => watched.push(file) },
   );
 
