@@ -4,18 +4,15 @@ import {
   beginTtscTransformBuild,
   createTtscTransformCache,
   isTransformTarget,
+  resetTtscTransformCache,
   resolveOptions,
   transformTtsc,
 } from "./core/index";
 import type { TtscUnpluginOptions } from "./core/options";
-
-/**
- * Bun normally reports filesystem source paths, while plugin-created virtual
- * ids may contain a NUL sentinel. A virtual id must stay with the plugin that
- * created it: claiming it here and trying to read it from disk prevents that
- * plugin's later loader from running.
- */
-const bunSourceFilePattern = /^[^\x00]*\.[cm]?tsx?$/;
+import {
+  bunTypeScriptTransformSourcePattern,
+  typescriptTransformBunLoader,
+} from "./core/sourceExtensions";
 
 /**
  * Minimal subset of the Bun plugin API consumed by this adapter.
@@ -40,10 +37,10 @@ export type BunLoader = "ts" | "tsx";
  *
  * The provider form exists for the runtime registration path (`bun-register`),
  * where a single Bun plugin is registered on import but its effective options
- * may be overridden by an explicit `register(options)` call made in the same
- * synchronous tick. Resolving through the provider on first load, rather than
- * at registration, lets that later call win without Bun ever seeing a second
- * shadowing loader.
+ * may be overridden by explicit `register(options)` calls made before the first
+ * transformable TypeScript load. Resolving through the provider on that first
+ * load, rather than at registration, lets the last pending call win without Bun
+ * ever seeing a second shadowing loader.
  */
 export type TtscBunOptions =
   | TtscUnpluginOptions
@@ -75,10 +72,10 @@ function resolveBunOptions(
 /**
  * Minimal subset of the Bun `BuildConfig` plugin build object.
  *
- * `onLoad` drives the source transform. Bun's bundler also exposes `onStart`,
- * which is used when available to forward the shared plugin's build lifecycle
- * and clear its per-build cache. The runtime plugin API omits that hook, so
- * plugin setup itself starts its one process-scoped module-loading session.
+ * `onLoad` drives the source transform. Bun's bundler also exposes `onStart`
+ * and `onEnd`, which bracket the shared plugin's build lifecycle. The runtime
+ * plugin API omits those hooks, so plugin setup itself starts its one
+ * process-scoped module-loading session.
  */
 export interface BunLikeBuild {
   /**
@@ -97,6 +94,8 @@ export interface BunLikeBuild {
    * Optional because `Bun.plugin()` runtime builders do not expose this hook.
    */
   onStart?(callback: () => void | Promise<void>): void;
+  /** Register a callback for deterministic bundler-session teardown. */
+  onEnd?(callback: () => void | Promise<void>): void;
   /**
    * Register a loader callback for files matching `filter`.
    *
@@ -141,10 +140,10 @@ export default function bun(options?: TtscBunOptions): BunLikePlugin {
   return {
     name: "ttsc-unplugin",
     setup(build) {
-      // Resolve options lazily on first load. Runtime registration may call
-      // register(options) immediately after the import-time default
-      // registration; the provider form must observe that last synchronous
-      // update without installing a second shadowing loader.
+      // Resolve options lazily on the first transformable TypeScript load.
+      // Runtime registration may replace its pending configuration at any time
+      // before then; the provider form must observe that last update without
+      // installing a second shadowing loader.
       let resolved: ReturnType<typeof resolveOptions> | undefined;
       const getOptions = () =>
         (resolved ??= resolveOptions(resolveBunOptions(options)));
@@ -159,43 +158,54 @@ export default function bun(options?: TtscBunOptions): BunLikePlugin {
       // repeats it for subsequent builds.
       beginTtscTransformBuild(cache);
       build.onStart?.(() => beginTtscTransformBuild(cache));
-      build.onLoad({ filter: bunSourceFilePattern }, async (args) => {
-        if (!runtime && ownsInMemoryFile(args.path)) {
-          return undefined;
-        }
-        if (!isTransformTarget(args.path)) {
-          if (!runtime) return undefined;
-          return {
-            contents: await fs.readFile(args.path, "utf8"),
-            loader: bunLoaderFor(args.path),
-          };
-        }
-        const loader = bunLoaderFor(args.path);
-        const source = await fs.readFile(args.path, "utf8");
-        const result = await transformTtsc(
-          args.path,
-          source,
-          getOptions(),
-          undefined,
-          cache,
-          bunTransformHooks,
-        );
-        if (result !== undefined) {
-          return { contents: result.code, loader };
-        }
-        return runtime ? { contents: source, loader } : undefined;
-      });
+      if (!runtime) {
+        build.onEnd?.(() => resetTtscTransformCache(cache));
+      }
+      build.onLoad(
+        { filter: bunTypeScriptTransformSourcePattern },
+        async (args) => {
+          if (!runtime && ownsInMemoryFile(args.path)) {
+            return undefined;
+          }
+          if (!isTransformTarget(args.path)) {
+            if (!runtime) return undefined;
+            return {
+              contents: await fs.readFile(args.path, "utf8"),
+              loader: bunLoaderFor(args.path),
+            };
+          }
+          const loader = bunLoaderFor(args.path);
+          const transformOptions = getOptions();
+          const source = await fs.readFile(args.path, "utf8");
+          const result = await transformTtsc(
+            args.path,
+            source,
+            transformOptions,
+            undefined,
+            cache,
+            bunTransformHooks,
+          );
+          if (result !== undefined) {
+            return { contents: result.code, loader };
+          }
+          return runtime ? { contents: source, loader } : undefined;
+        },
+      );
     },
   };
 }
 
 /**
- * Pick the Bun loader for a matched file. `bunSourceFilePattern` is
- * `/\.[cm]?tsx?$/`, so a trailing `x` (`.tsx`/`.ctsx`/`.mtsx`) is JSX-flavored
- * TypeScript and everything else (`.ts`/`.cts`/`.mts`) is plain TypeScript.
+ * Pick the Bun loader recorded beside the matched extension in the shared
+ * source table. Reaching this function without a table entry would mean Bun
+ * invoked a callback whose registration filter did not match.
  */
 function bunLoaderFor(filePath: string): BunLoader {
-  return /x$/i.test(filePath) ? "tsx" : "ts";
+  const loader = typescriptTransformBunLoader(filePath);
+  if (loader === undefined) {
+    throw new Error(`Bun delivered an unsupported source path: ${filePath}`);
+  }
+  return loader;
 }
 
 /**

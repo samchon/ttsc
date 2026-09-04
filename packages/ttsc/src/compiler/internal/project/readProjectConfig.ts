@@ -279,11 +279,12 @@ function resolveCompilerOptionPath(
   configDir: string,
   value: string,
 ): string {
+  const normalized = value.replaceAll("\\", "/");
   if (
-    value.slice(0, CONFIG_DIR_TEMPLATE.length).toLowerCase() !==
+    normalized.slice(0, CONFIG_DIR_TEMPLATE.length).toLowerCase() !==
     CONFIG_DIR_TEMPLATE.toLowerCase()
   ) {
-    return resolveAbsolutePath(declaringDir, value);
+    return resolveAbsolutePath(declaringDir, normalized);
   }
   // The compiler picks the base directory from a case-insensitive prefix but
   // substitutes only the exact spelling, so a mis-cased template still anchors
@@ -294,10 +295,10 @@ function resolveCompilerOptionPath(
   // The exact spelling becomes "./" before the result is normalized, which
   // keeps the value relative even when its remainder resembles an absolute
   // Windows path. Either config-file separator is accepted on every host.
-  const substituted = value.startsWith(CONFIG_DIR_TEMPLATE)
-    ? `./${value.slice(CONFIG_DIR_TEMPLATE.length)}`
-    : value;
-  return resolveAbsolutePath(configDir, substituted.replaceAll("\\", "/"));
+  const substituted = normalized.startsWith(CONFIG_DIR_TEMPLATE)
+    ? `./${normalized.slice(CONFIG_DIR_TEMPLATE.length)}`
+    : normalized;
+  return resolveAbsolutePath(configDir, substituted);
 }
 
 /**
@@ -311,6 +312,7 @@ function resolveCompilerOptionPath(
  *   also tries appending `.json` when the first attempt fails).
  */
 function resolveExtendsConfig(tsconfig: string, specifier: string): string {
+  specifier = specifier.replaceAll("\\", "/");
   const baseDir = path.dirname(tsconfig);
   if (path.isAbsolute(specifier)) {
     return resolveExistingExtendsPath(specifier);
@@ -387,7 +389,7 @@ function resolvePackageManifestTsconfig(
   if (typeof field !== "string" || field.length === 0) {
     return undefined;
   }
-  return path.resolve(path.dirname(manifestPath), field);
+  return path.resolve(path.dirname(manifestPath), field.replaceAll("\\", "/"));
 }
 
 /**

@@ -10,6 +10,7 @@ const {
   PLATFORM_INTEGRATION_PATHS,
   PLATFORM_ROWS,
   WORKFLOW_PATHS,
+  fullPlan,
   normalizePath,
   planForPaths,
 } = require("./validation-plan.cjs");
@@ -144,7 +145,6 @@ test("compiler and platform changes select verified reverse consumers", () => {
     "package-defenses",
     "ttsc-core",
     "ttsc-native",
-    "ttsx-node-22",
     "lint-1",
     "lint-2",
     "bundler-defenses",
@@ -191,6 +191,18 @@ test("platform integrations reuse only the physical rows they need", () => {
   assert.ok(
     PLATFORM_INTEGRATION_PATHS.experimental.includes("packages/ttsc-*/**"),
   );
+  assert.equal(
+    PLATFORM_INTEGRATION_PATHS.experimental.includes("packages/unplugin/**"),
+    false,
+  );
+  assert.equal(
+    PLATFORM_INTEGRATION_PATHS.sourceMap.includes("packages/unplugin/**"),
+    false,
+  );
+  assert.equal(
+    PLATFORM_INTEGRATION_PATHS.bun.includes("packages/unplugin/**"),
+    false,
+  );
 
   const watch = planForPaths([
     "tests/test-ttsc/src/features/watch/test_example.ts",
@@ -221,6 +233,48 @@ test("platform integrations reuse only the physical rows they need", () => {
   assert.equal(experimental.length, 6);
   assert.ok(
     experimental.every((row) => row.experimental && !row.watch && !row.vscode),
+  );
+  assert.ok(
+    experimental.every((row) => !row.unplugin_e2e),
+    "the generic artifact rehearsal must not duplicate the package E2E",
+  );
+
+  const unplugin = planForPaths(["packages/unplugin/src/index.ts"])
+    .platformMatrix.include;
+  assert.deepEqual(
+    unplugin.map((row) => row.name),
+    ["linux-x64"],
+    "an unplugin-only change belongs to one packed E2E row",
+  );
+  assert.equal(unplugin[0].unplugin_e2e, true);
+  assert.equal(unplugin[0].setup_bun, true);
+  assert.equal(unplugin[0].bun, false);
+  assert.equal(unplugin[0].experimental, false);
+  assert.equal(unplugin[0].source_map, false);
+  assert.equal(unplugin[0].plugin_cache, false);
+
+  const unpluginHarness = planForPaths([
+    "experimental/test-unplugin/src/index.ts",
+  ]).platformMatrix.include;
+  assert.deepEqual(
+    unpluginHarness.map((row) => row.name),
+    ["linux-x64"],
+  );
+  assert.equal(unpluginHarness[0].unplugin_e2e, true);
+  assert.equal(unpluginHarness[0].setup_bun, true);
+  assert.equal(unpluginHarness[0].bun, false);
+  assert.equal(unpluginHarness[0].experimental, false);
+  assert.equal(unpluginHarness[0].source_map, false);
+  assert.equal(unpluginHarness[0].plugin_cache, false);
+
+  const genericInstallSource = fs.readFileSync(
+    path.join(root, "experimental", "install", "src", "index.ts"),
+    "utf8",
+  );
+  assert.doesNotMatch(
+    genericInstallSource,
+    /["']unplugin["']/,
+    "the generic artifact rehearsal must not pack the uninstalled unplugin package",
   );
 
   const sourceMap = planForPaths(["experimental/source-map/src/index.ts"])
@@ -261,7 +315,7 @@ test("package-owned tests select only their topology owner", () => {
     ids([
       "tests/test-ttsc/src/features/ttsx-runtime/test_ttsx_commonjs_loads_prefix_only_node_builtins.ts",
     ]),
-    ["typecheck", "ttsc-core", "ttsx-node-22"],
+    ["typecheck", "ttsc-core"],
   );
   const watch = planForPaths([
     "tests/test-ttsc/src/features/watch/test_example.ts",
@@ -342,7 +396,13 @@ test("every E2E directory has exactly one normal topology owner", () => {
 });
 
 test("lane identities and workflow matrix names stay unique", () => {
-  assert.equal(LANES.length, 14, "full main matrix must stay consolidated");
+  assert.equal(LANES.length, 13, "full main matrix must stay consolidated");
+  assert.ok(
+    fullPlan("test").matrix.include.every(
+      (lane) => !Object.hasOwn(lane, "node"),
+    ),
+    "Node versions must not become a lane matrix dimension",
+  );
   assert.equal(
     LANES.filter((lane) => lane.build === "pnpm run build:current").length,
     9,
@@ -367,7 +427,7 @@ test("lane identities and workflow matrix names stay unique", () => {
     "@ttsc/wasm",
     "@ttsc/playground",
     "@ttsc/graph",
-    "--filter ttsc exec tsc --emitDeclarationOnly",
+    "--filter ttsc build",
     "@ttsc/unplugin",
   ])
     assert.match(
@@ -379,6 +439,18 @@ test("lane identities and workflow matrix names stay unique", () => {
     typecheckBuild ?? "",
     /build:current/,
     "typecheck prerequisites must not rebuild native binaries",
+  );
+  const windowsBundlerRun =
+    LANES.find((lane) => lane.id === "bundler-defenses-windows")?.run ?? "";
+  assert.match(
+    windowsBundlerRun,
+    /@ttsc\/test-unplugin start --/,
+    "the Windows lane must admit its selected unit predicate case",
+  );
+  assert.match(
+    windowsBundlerRun,
+    /--include=predicate_proofs/,
+    "the Windows lane must exercise supplied POSIX path semantics",
   );
   assert.deepEqual(
     SCOPES["plugin-cache"].filter((target) => typeof target === "string"),
@@ -467,6 +539,16 @@ test("remaining workflow path filters match the repository contract", () => {
     "${{ fromJSON(needs.plan.outputs.platform_matrix) }}",
   );
   const platformSteps = platformJob.steps;
+  const testSteps = testDocument.jobs.test.steps;
+  assert.equal(
+    testSteps.find(
+      (step) =>
+        typeof step.uses === "string" &&
+        step.uses.startsWith("actions/setup-node@"),
+    ).with["node-version"],
+    "24.x",
+    "the main test matrix must use one fixed Node release",
+  );
   assert.equal(
     platformSteps.find(
       (step) =>
@@ -485,7 +567,13 @@ test("remaining workflow path filters match the repository contract", () => {
     platformSteps.find(
       (step) => step.name === "Verify Installed Tarballs With Bundled Go",
     ).run,
-    "pnpm run experimental",
+    "pnpm run experimental:install",
+  );
+  assert.equal(
+    platformSteps.find(
+      (step) => step.name === "Verify @ttsc/unplugin Package Contract",
+    ).run,
+    "pnpm --dir experimental/test-unplugin start -- --pack-current",
   );
   assert.equal(
     platformSteps.find((step) => step.name === "Run watch tests").env

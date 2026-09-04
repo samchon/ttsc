@@ -45,8 +45,17 @@ export const test_ttsccompiler_transform_drops_malformed_graph_members_and_volat
         "src/good.d.ts": "a".repeat(64),
         "src/missing.d.ts": null,
       },
+      inputObservations: {
+        "src/good.d.ts": { fileExists: true },
+        "src/missing.d.ts": {
+          directoryExists: true,
+          fileExists: false,
+        },
+      },
       inputProofFailures: {
+        "src/bad.d.ts": "malformed-observation",
         "src/missing.d.ts": "content-unavailable",
+        "src/worse.d.ts": "conflicting-observation",
       },
       inputRealpaths: {
         "src/good.d.ts": null,

@@ -1,4 +1,8 @@
-import { TestProject, TestUnpluginRuntime } from "@ttsc/testing";
+import {
+  TestProject,
+  TestUnpluginProject,
+  TestUnpluginRuntime,
+} from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { createRequire } from "node:module";
@@ -22,7 +26,9 @@ const INTERNAL_DIR = path.join(
 
 /**
  * Asserts that the farm, rolldown, rspack, and webpack adapter entrypoints each
- * resolve to a callable factory function.
+ * resolve to a callable factory function. It also fills one raw plugin cache
+ * and proves that both webpack-like shutdown hooks clear it before the next
+ * delivery, without starting another test process.
  */
 async function assertAdapterEntrypointsExposeFactories() {
   const unpluginFarm = await TestUnpluginRuntime.loadUnpluginAdapter("farm");
@@ -36,6 +42,78 @@ async function assertAdapterEntrypointsExposeFactories() {
   assert.equal(typeof unpluginRolldown, "function");
   assert.equal(typeof unpluginRspack, "function");
   assert.equal(typeof unpluginWebpack, "function");
+
+  const { unplugin } = await TestUnpluginRuntime.loadUnpluginApi();
+  const root = TestUnpluginProject.createProject();
+  const runLog = path.join(root, "dist", "compiles.bin");
+  const tsconfig = path.join(root, "tsconfig.json");
+  const config = JSON.parse(fs.readFileSync(tsconfig, "utf8"));
+  config.compilerOptions.plugins.push({
+    transform: "./plugin.cjs",
+    name: "runs",
+    operation: "count-runs",
+    runLog,
+  });
+  fs.mkdirSync(path.dirname(runLog), { recursive: true });
+  fs.writeFileSync(tsconfig, JSON.stringify(config, null, 2), "utf8");
+  const sourceFile = TestUnpluginProject.mainFile(root);
+  const source = fs.readFileSync(sourceFile, "utf8");
+  for (const framework of ["webpack", "rspack"] as const) {
+    assert.equal(typeof unplugin[framework], "function");
+  }
+  const raw = unplugin.raw(undefined, {
+    framework: "webpack",
+    webpack: { compiler: {} },
+  } as never);
+  const disposals = new Map<"webpack" | "rspack", () => void>();
+  for (const framework of ["webpack", "rspack"] as const) {
+    let registeredName: string | undefined;
+    raw[framework]?.({
+      hooks: {
+        shutdown: {
+          tap(name: string, callback: () => void) {
+            registeredName = name;
+            disposals.set(framework, callback);
+          },
+        },
+      },
+    } as never);
+    assert.equal(registeredName, "ttsc-unplugin", framework);
+    assert.equal(typeof disposals.get(framework), "function", framework);
+  }
+  const context = { addWatchFile(_file: string) {} };
+  assert.equal(typeof raw.transform, "function");
+  const deliver = async (): Promise<void> => {
+    const result = await (
+      raw.transform as unknown as (
+        this: typeof context,
+        source: string,
+        id: string,
+      ) => Promise<string | { code: string } | undefined>
+    ).call(context, source, sourceFile);
+    const code = typeof result === "string" ? result : result?.code;
+    assert.ok(typeof code === "string");
+    TestUnpluginProject.assertTransformedToPlugin(code);
+  };
+  try {
+    await deliver();
+    assert.equal(
+      fs.statSync(runLog).size,
+      1,
+      "the cold delivery compiles once",
+    );
+    for (const framework of ["webpack", "rspack"] as const) {
+      disposals.get(framework)?.();
+      await deliver();
+      assert.equal(
+        fs.statSync(runLog).size,
+        framework === "webpack" ? 2 : 3,
+        `${framework} shutdown must clear the generation`,
+      );
+    }
+  } finally {
+    for (const dispose of disposals.values()) dispose();
+  }
 }
 
 /**
@@ -192,21 +270,33 @@ function assertPackageBuildKeepsRuntimeDependenciesExternal() {
 }
 
 /**
- * Asserts the shared `transformInclude` predicate accepts `.ts`/`.tsx` source
- * files and rejects `.js`, `.jsx`, `.css`, `node_modules` paths, `.d.ts`
- * declarations, and virtual-module IDs (prefix `\0`).
+ * Asserts the shared `transformInclude` predicate implements the complete
+ * TypeScript source-extension and path-boundary contract.
  */
 async function assertSharedAdapterFilter() {
   const { unplugin } = await TestUnpluginRuntime.loadUnpluginApi();
   const raw = unplugin.raw(undefined, {});
-  assert.equal(raw.transformInclude?.("main.ts"), true);
-  assert.equal(raw.transformInclude?.("main.tsx"), true);
-  assert.equal(raw.transformInclude?.("main.js"), false);
-  assert.equal(raw.transformInclude?.("main.jsx"), false);
-  assert.equal(raw.transformInclude?.("main.css"), false);
-  assert.equal(raw.transformInclude?.("node_modules/pkg/main.ts"), false);
-  assert.equal(raw.transformInclude?.("main.d.ts"), false);
-  assert.equal(raw.transformInclude?.("\0rolldown/runtime.js"), false);
+  for (const id of ["main.ts", "main.tsx", "main.mts", "main.cts"]) {
+    assert.equal(raw.transformInclude?.(id), true, id);
+  }
+  for (const id of [
+    "main.js",
+    "main.jsx",
+    "main.mjs",
+    "main.cjs",
+    "main.mtsx",
+    "main.ctsx",
+    "main.css",
+    "main.d.ts",
+    "main.d.mts",
+    "main.d.cts",
+    "main.d.css.ts",
+    "node_modules/pkg/main.ts",
+    "node_modules/pkg/main.mts",
+    "\0virtual.ts",
+  ]) {
+    assert.equal(raw.transformInclude?.(id), false, id);
+  }
 }
 
 /** Escapes all regex meta-characters in `value` for use in `new RegExp(...)`. */

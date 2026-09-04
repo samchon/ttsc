@@ -18,6 +18,11 @@ import (
   "github.com/microsoft/typescript-go/shim/vfs"
 )
 
+// SemanticConfigPathEnv carries the user-authored config path when an embedder
+// parses a disposable generated wrapper whose location must not become the
+// Program's semantic project root.
+const SemanticConfigPathEnv = "TTSC_SEMANTIC_CONFIG_PATH"
+
 // Diagnostic is the compilation diagnostic shape ttsc passes around. Kept
 // dependency-free (no shim types) so callers can render or inspect freely.
 //
@@ -208,10 +213,14 @@ type Program struct {
 // the program. `ForceEmit` is used by `ttsc --emit` and runtime compilation
 // so execution still works when the project defaults to `noEmit`.
 type LoadProgramOptions struct {
-  ForceEmit      bool
-  ForceNoEmit    bool
-  OutDir         string
-  SourcePreamble string
+  ForceEmit   bool
+  ForceNoEmit bool
+  OutDir      string
+  // SemanticConfigPath restores the user-authored config as the semantic
+  // project owner after parsing a disposable generated wrapper. Native command
+  // entry points set it explicitly; nested driver calls do not inherit it.
+  SemanticConfigPath string
+  SourcePreamble     string
   // SingleThreaded forces TypeScript-Go's single-threaded mode (one checker,
   // serial parse/check/emit), mirroring `tsgo --singleThreaded`.
   SingleThreaded bool
@@ -404,6 +413,9 @@ func LoadProgram(cwd, tsconfigPath string, options LoadProgramOptions) (*Program
   if len(diags) > 0 {
     return nil, diags, nil
   }
+  if err := applySemanticConfigPath(parsed, options.SemanticConfigPath); err != nil {
+    return nil, nil, err
+  }
   if options.ForceNoEmit {
     forceNoEmit(parsed)
   }
@@ -430,6 +442,18 @@ func LoadProgram(cwd, tsconfigPath string, options LoadProgramOptions) (*Program
   }
   prog.plugins = pluginState
   return prog, nil, nil
+}
+
+func applySemanticConfigPath(parsed *tsoptions.ParsedCommandLine, semanticConfigPath string) error {
+  configured := strings.TrimSpace(semanticConfigPath)
+  if configured == "" {
+    return nil
+  }
+  if !filepath.IsAbs(configured) {
+    return fmt.Errorf("driver: semantic config path must be absolute: %s", configured)
+  }
+  parsed.ParsedConfig.CompilerOptions.ConfigFilePath = tspath.ResolvePath(configured)
+  return nil
 }
 
 // forceEmit clears noEmit and emitDeclarationOnly so the program always

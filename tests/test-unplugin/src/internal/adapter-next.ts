@@ -1,41 +1,54 @@
-import { TestUnpluginRuntime } from "@ttsc/testing";
+import {
+  TestProject,
+  TestUnpluginProject,
+  TestUnpluginRuntime,
+} from "@ttsc/testing";
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import fs from "node:fs";
+import path from "node:path";
+import { pathToFileURL } from "node:url";
 
 const LOADER = "@ttsc/unplugin/turbopack";
-
-/**
- * Every glob this suite proves the dedupe guard recognises as naming the whole
- * project, for both extensions.
- *
- * Cross-checked against the list the experimental suite drives through real
- * Turbopack builds, so neither can gain a spelling the other has not seen.
- */
-const RECOGNISED_PROJECT_WIDE_GLOBS = [
-  "*.ts",
-  "**/*.ts",
-  "{**/,}*.ts",
-  "*.tsx",
-  "**/*.tsx",
-  "*.{ts,tsx}",
-  "{*.ts,*.tsx}",
-  "**/*.{ts,tsx}",
-  "**/{*.ts,*.tsx}",
-  "**/**/*.{ts,tsx}",
+const LOADER_IDENTITIES = [
+  LOADER,
+  TestUnpluginProject.REQUIRE_FROM_UNPLUGIN.resolve(LOADER),
+  TestUnpluginRuntime.libPath("turbopack", "mjs"),
 ];
+const LOADER_FORMS = LOADER_IDENTITIES.flatMap((loader) => [
+  loader,
+  { loader, options: { configured: true } },
+]);
+const AUTOMATIC_RULE_GLOBS = ["*.ts", "*.tsx", "*.mts", "*.cts"];
+const EXTENSION_NAMES = AUTOMATIC_RULE_GLOBS.map((glob) => glob.slice(2));
+const REQUIRED_EXTENSION_GROUPS = [
+  ["ts", "tsx"],
+  ["ts", "mts"],
+  ["ts", "cts"],
+  ["tsx", "mts"],
+  ["tsx", "cts"],
+  ["mts", "cts"],
+  ["ts", "tsx", "mts"],
+  ["ts", "tsx", "cts"],
+  ["ts", "mts", "cts"],
+  ["tsx", "mts", "cts"],
+  ["ts", "tsx", "mts", "cts"],
+] as const;
 
 /**
- * Spellings the guard must refuse, each one a shape a predicate would have
- * accepted.
+ * Spellings the exact guard must refuse because no real build measured them.
  *
  * `{src/,}*.ts` is the measured one: Turbopack matches nothing with it, so
  * recognising it left every module without a rule (samchon/ttsc#1319). The rest
- * are unmeasured, which is the same reason — nothing has shown that Turbopack
- * expands a single-alternative group, a leading empty alternative, or two
- * groups in one glob, so claiming they cover the project would be a guess in
- * the direction that fails silently.
+ * include whitespace around otherwise measured keys, which cannot be assumed
+ * equivalent unless Turbopack itself proves that normalization. The other
+ * shapes are unmeasured, which is the same reason — nothing has shown that
+ * Turbopack expands a single-alternative group, a leading empty alternative, or
+ * two groups in one glob, so claiming they cover the project would be a guess
+ * in the direction that fails silently.
  */
 const REFUSED_GLOBS = [
+  " *.ts",
+  "*.ts ",
   "{src/,}*.ts",
   "{src,lib}/*.{ts,tsx}",
   "{src/,lib/}*.ts",
@@ -51,14 +64,23 @@ interface INextLikeConfig {
   [key: string]: unknown;
 }
 
+interface INextModule {
+  default: (config?: INextLikeConfig, options?: unknown) => INextLikeConfig;
+  TURBOPACK_PROJECT_WIDE_GLOB_COVERAGE: ReadonlyArray<
+    readonly [string, readonly string[]]
+  >;
+}
+
+/** Load the complete built `next` module, including its measured allowlist. */
+async function loadNextModule(): Promise<INextModule> {
+  return (await import(TestUnpluginRuntime.libUrl("next"))) as INextModule;
+}
+
 /** Load the built `next` adapter entry. */
 async function loadNext(): Promise<
   (config?: INextLikeConfig, options?: unknown) => INextLikeConfig
 > {
-  return (await TestUnpluginRuntime.loadUnpluginAdapter("next")) as (
-    config?: INextLikeConfig,
-    options?: unknown,
-  ) => INextLikeConfig;
+  return (await loadNextModule()).default;
 }
 
 /** The loader entries a rule carries, in either shape Turbopack accepts. */
@@ -73,12 +95,13 @@ function loadersOf(rule: unknown): unknown[] {
 
 /** Whether an entry names this package's Turbopack loader. */
 function isTtscLoader(entry: unknown): boolean {
-  if (typeof entry === "string") return entry === LOADER;
-  return (
-    typeof entry === "object" &&
-    entry !== null &&
-    (entry as { loader?: unknown }).loader === LOADER
-  );
+  const identity =
+    typeof entry === "string"
+      ? entry
+      : typeof entry === "object" && entry !== null
+        ? (entry as { loader?: unknown }).loader
+        : undefined;
+  return typeof identity === "string" && LOADER_IDENTITIES.includes(identity);
 }
 
 /**
@@ -99,7 +122,7 @@ export async function assertNextAdapterWiresBothBundlers(): Promise<void> {
   const config = next({}, options);
 
   const rules = config.turbopack?.rules ?? {};
-  for (const glob of ["*.ts", "*.tsx"]) {
+  for (const glob of AUTOMATIC_RULE_GLOBS) {
     const loaders = loadersOf(rules[glob]);
     assert.ok(
       loaders.some(isTtscLoader),
@@ -157,32 +180,69 @@ export async function assertNextAdapterPreservesTurbopackConfig(): Promise<void>
     "and ttsc is still wired beside it",
   );
 
-  // A caller who followed the README's manual instructions.
+  // A caller who followed the README's manual instructions gets the exact same
+  // four-rule set as the wrapper and none of them is registered twice.
   const manual = next({
-    turbopack: { rules: { "*.ts": { loaders: [LOADER] } } },
+    turbopack: {
+      rules: Object.fromEntries(
+        AUTOMATIC_RULE_GLOBS.map((glob) => [glob, { loaders: [LOADER] }]),
+      ),
+    },
   });
-  const manualLoaders = loadersOf(manual.turbopack?.rules?.["*.ts"]);
-  assert.equal(
-    manualLoaders.filter(isTtscLoader).length,
-    1,
-    "a hand-wired loader must not be registered a second time",
+  assert.deepEqual(
+    Object.keys(manual.turbopack?.rules ?? {}),
+    AUTOMATIC_RULE_GLOBS,
   );
+  for (const glob of AUTOMATIC_RULE_GLOBS) {
+    assert.equal(
+      loadersOf(manual.turbopack?.rules?.[glob]).filter(isTtscLoader).length,
+      1,
+      `${glob} must not be registered a second time`,
+    );
+  }
 
   // A caller with another loader on the same glob keeps it, with ttsc placed
   // where the chain runs it first. Turbopack runs rule loaders through
   // webpack's `loader-runner`, whose normal phase runs right to left, so the
   // last entry is the one that sees the original source, and ttsc has to be
   // that one because it transforms TypeScript into TypeScript.
+  const sharedRule = {
+    as: "*.js",
+    futureSetting: { retained: true },
+    loaders: ["other-loader"],
+    type: "typescript",
+  };
   const shared = next({
-    turbopack: { rules: { "*.ts": { loaders: ["other-loader"] } } },
+    turbopack: { rules: { "*.ts": sharedRule } },
   });
-  const sharedLoaders = loadersOf(shared.turbopack?.rules?.["*.ts"]);
+  const sharedRuleOutput = shared.turbopack?.rules?.["*.ts"] as Record<
+    string,
+    unknown
+  >;
+  const sharedLoaders = loadersOf(sharedRuleOutput);
   assert.equal(sharedLoaders.length, 2, "the caller's loader must survive");
   assert.equal(sharedLoaders[0], "other-loader");
   assert.ok(
     isTtscLoader(sharedLoaders[1]),
     "ttsc must see the original source",
   );
+  assert.equal(sharedRuleOutput.as, sharedRule.as);
+  assert.equal(sharedRuleOutput.type, sharedRule.type);
+  assert.deepEqual(sharedRuleOutput.futureSetting, sharedRule.futureSetting);
+
+  const noLoadersRule = {
+    as: "*.js",
+    futureSetting: { retained: true },
+    type: "typescript",
+  };
+  const noLoaders = next({
+    turbopack: { rules: { "*.ts": noLoadersRule } },
+  }).turbopack?.rules?.["*.ts"] as Record<string, unknown>;
+  assert.ok(!Array.isArray(noLoaders));
+  assert.equal(noLoaders.as, noLoadersRule.as);
+  assert.equal(noLoaders.type, noLoadersRule.type);
+  assert.deepEqual(noLoaders.futureSetting, noLoadersRule.futureSetting);
+  assert.equal(loadersOf(noLoaders).filter(isTtscLoader).length, 1);
 
   // Turbopack also accepts a bare array of loaders. Spreading that into an
   // object produced `{ "0": "other-loader", loaders: [...] }`, which Next's own
@@ -194,13 +254,251 @@ export async function assertNextAdapterPreservesTurbopackConfig(): Promise<void>
   });
   const arrayRule = arrayForm.turbopack?.rules?.["*.ts"];
   assert.ok(
-    !Object.keys(arrayRule as object).some((key) => /^\d+$/.test(key)),
-    `an array rule must not be spread into an object (got ${JSON.stringify(arrayRule)})`,
+    Array.isArray(arrayRule),
+    `an array rule must remain an array (got ${JSON.stringify(arrayRule)})`,
   );
   const arrayLoaders = loadersOf(arrayRule);
   assert.equal(arrayLoaders.length, 2);
   assert.equal(arrayLoaders[0], "other-loader");
   assert.ok(isTtscLoader(arrayLoaders[1]));
+
+  const emptyCollection = next({
+    turbopack: { rules: { "*.ts": [] } },
+  }).turbopack?.rules?.["*.ts"];
+  assert.ok(Array.isArray(emptyCollection));
+  assert.equal(emptyCollection.length, 1);
+  assert.ok(isTtscLoader(emptyCollection[0]));
+
+  const conditionalRule = {
+    as: "*.js",
+    condition: "browser",
+    futureSetting: { retained: true },
+    type: "typescript",
+  };
+  const conditional = next({
+    turbopack: { rules: { "*.ts": conditionalRule } },
+  }).turbopack?.rules?.["*.ts"];
+  assert.ok(Array.isArray(conditional));
+  assert.ok(loadersOf(conditional[0]).some(isTtscLoader));
+  assert.deepEqual(conditional[1], conditionalRule);
+
+  const mixedInput = [
+    "other-loader",
+    { condition: "browser", loaders: ["browser-loader"] },
+    { condition: "node", futureSetting: true, type: "typescript" },
+  ];
+  const mixed = next({
+    turbopack: { rules: { "*.ts": mixedInput } },
+  }).turbopack?.rules?.["*.ts"];
+  assert.ok(Array.isArray(mixed));
+  assert.ok(loadersOf(mixed[0]).some(isTtscLoader));
+  assert.deepEqual(mixed.slice(1), mixedInput);
+
+  for (const loader of LOADER_FORMS) {
+    const resolved = next({
+      turbopack: { rules: { "*.ts": [loader] } },
+    }).turbopack?.rules?.["*.ts"];
+    assert.ok(Array.isArray(resolved));
+    assert.equal(
+      resolved.length,
+      1,
+      `${JSON.stringify(loader)} must not be registered a second time`,
+    );
+    assert.deepEqual(resolved[0], loader);
+  }
+
+  const conditionalLoader = {
+    condition: "browser",
+    loaders: [LOADER],
+  };
+  const conditionallyCovered = next({
+    turbopack: { rules: { "*.ts": conditionalLoader } },
+  }).turbopack?.rules?.["*.ts"];
+  assert.ok(Array.isArray(conditionallyCovered));
+  assert.ok(loadersOf(conditionallyCovered[0]).some(isTtscLoader));
+  assert.deepEqual(conditionallyCovered[1], conditionalLoader);
+
+  const unrelated = path.join(
+    path.dirname(LOADER_IDENTITIES[1]!),
+    "..",
+    "..",
+    "ttsc",
+    "lib",
+    "turbopack.js",
+  );
+  const unrelatedRule = next({
+    turbopack: { rules: { "*.ts": [unrelated] } },
+  }).turbopack?.rules?.["*.ts"];
+  assert.ok(Array.isArray(unrelatedRule));
+  assert.equal(unrelatedRule[0], unrelated);
+  assert.ok(isTtscLoader(unrelatedRule[1]));
+
+  // An absolute loader's package ownership is a filesystem observation, not a
+  // permanent property of its lexical path. Reusing the wrapper in one process
+  // must see both directions of an atomic install or link retarget.
+  const positiveRoot = TestProject.tmpdir("ttsc-next-loader-positive-");
+  const positiveLoader = path.join(positiveRoot, "lib", "turbopack.js");
+  const positiveLoaderUrl = pathToFileURL(positiveLoader).href;
+  fs.mkdirSync(path.dirname(positiveLoader), { recursive: true });
+  fs.writeFileSync(positiveLoader, "", "utf8");
+  fs.writeFileSync(
+    path.join(positiveRoot, "package.json"),
+    JSON.stringify({ name: "@ttsc/unplugin" }),
+    "utf8",
+  );
+  const initiallyOwned = loadersOf(
+    next({
+      turbopack: { rules: { "*.ts": [positiveLoaderUrl] } },
+    }).turbopack?.rules?.["*.ts"],
+  );
+  assert.deepEqual(initiallyOwned, [positiveLoaderUrl]);
+  fs.writeFileSync(
+    path.join(positiveRoot, "package.json"),
+    JSON.stringify({ name: "unrelated-loader" }),
+    "utf8",
+  );
+  const replacedOwner = loadersOf(
+    next({
+      turbopack: { rules: { "*.ts": [positiveLoaderUrl] } },
+    }).turbopack?.rules?.["*.ts"],
+  );
+  assert.equal(replacedOwner[0], positiveLoaderUrl);
+  assert.ok(
+    isTtscLoader(replacedOwner[1]),
+    "a stale positive ownership verdict must not suppress the ttsc loader",
+  );
+
+  const negativeStore = TestProject.tmpdir("ttsc-next-loader-negative-");
+  const foreignRoot = path.join(negativeStore, "foreign");
+  const ownedRoot = path.join(negativeStore, "owned");
+  const linkedRoot = path.join(negativeStore, "current");
+  for (const root of [foreignRoot, ownedRoot]) {
+    const loader = path.join(root, "lib", "turbopack.js");
+    fs.mkdirSync(path.dirname(loader), { recursive: true });
+    fs.writeFileSync(loader, "", "utf8");
+  }
+  fs.writeFileSync(
+    path.join(foreignRoot, "package.json"),
+    JSON.stringify({ name: "unrelated-loader" }),
+    "utf8",
+  );
+  fs.writeFileSync(
+    path.join(ownedRoot, "package.json"),
+    JSON.stringify({ name: "@ttsc/unplugin" }),
+    "utf8",
+  );
+  fs.symlinkSync(
+    foreignRoot,
+    linkedRoot,
+    process.platform === "win32" ? "junction" : "dir",
+  );
+  const negativeLoader = path.join(linkedRoot, "lib", "turbopack.js");
+  const initiallyForeign = loadersOf(
+    next({
+      turbopack: { rules: { "*.ts": [negativeLoader] } },
+    }).turbopack?.rules?.["*.ts"],
+  );
+  assert.equal(initiallyForeign[0], negativeLoader);
+  assert.ok(isTtscLoader(initiallyForeign[1]));
+  fs.rmSync(linkedRoot, { force: true, recursive: true });
+  fs.symlinkSync(
+    ownedRoot,
+    linkedRoot,
+    process.platform === "win32" ? "junction" : "dir",
+  );
+  assert.deepEqual(
+    loadersOf(
+      next({
+        turbopack: { rules: { "*.ts": [negativeLoader] } },
+      }).turbopack?.rules?.["*.ts"],
+    ),
+    [negativeLoader],
+    "a stale negative ownership verdict must not duplicate the ttsc loader",
+  );
+
+  // Loader ownership follows the filesystem's identity and file-kind answers,
+  // not the caller's lexical casing. A case-insensitive volume must collapse a
+  // differently cased spelling, while a case-sensitive volume must retain it
+  // as a missing foreign loader and append ttsc's real loader.
+  const identityRoot = TestProject.tmpdir("ttsc-next-loader-identity-");
+  fs.mkdirSync(path.join(identityRoot, "lib"), { recursive: true });
+  fs.writeFileSync(
+    path.join(identityRoot, "package.json"),
+    JSON.stringify({ name: "@ttsc/unplugin" }),
+    "utf8",
+  );
+  for (const extension of ["js", "mjs"]) {
+    const identityLoader = path.join(
+      identityRoot,
+      "lib",
+      `turbopack.${extension}`,
+    );
+    fs.writeFileSync(identityLoader, "", "utf8");
+    const caseVariant = path.join(
+      identityRoot,
+      "LIB",
+      `TURBOPACK.${extension.toUpperCase()}`,
+    );
+    const caseVariantLoaders = loadersOf(
+      next({
+        turbopack: { rules: { "*.ts": [caseVariant] } },
+      }).turbopack?.rules?.["*.ts"],
+    );
+    if (fs.existsSync(caseVariant)) {
+      assert.deepEqual(
+        caseVariantLoaders,
+        [caseVariant],
+        `a case-insensitive filesystem identity must suppress the duplicate ${extension} loader`,
+      );
+    } else {
+      assert.equal(caseVariantLoaders[0], caseVariant);
+      assert.ok(
+        isTtscLoader(caseVariantLoaders[1]),
+        `a case-sensitive filesystem must not fold a missing ${extension} case variant`,
+      );
+    }
+
+    const upperSchemeUrl = pathToFileURL(identityLoader).href.replace(
+      /^file:/,
+      "FILE:",
+    );
+    assert.deepEqual(
+      loadersOf(
+        next({
+          turbopack: { rules: { "*.ts": [upperSchemeUrl] } },
+        }).turbopack?.rules?.["*.ts"],
+      ),
+      [upperSchemeUrl],
+      `the case-insensitive file URL scheme must preserve ${extension} loader ownership`,
+    );
+  }
+
+  // A package manifest cannot own a loader path that does not name a regular
+  // file. Both controls would be false positives if ownership were inferred
+  // only from the lexical `lib/turbopack.js` suffix and neighboring manifest.
+  for (const kind of ["missing", "directory"] as const) {
+    const invalidRoot = TestProject.tmpdir(`ttsc-next-loader-${kind}-`);
+    const invalidLoader = path.join(invalidRoot, "lib", "turbopack.js");
+    fs.mkdirSync(path.dirname(invalidLoader), { recursive: true });
+    if (kind === "directory") {
+      fs.mkdirSync(invalidLoader);
+    }
+    fs.writeFileSync(
+      path.join(invalidRoot, "package.json"),
+      JSON.stringify({ name: "@ttsc/unplugin" }),
+      "utf8",
+    );
+    const invalidLoaders = loadersOf(
+      next({
+        turbopack: { rules: { "*.ts": [invalidLoader] } },
+      }).turbopack?.rules?.["*.ts"],
+    );
+    assert.equal(invalidLoaders[0], invalidLoader);
+    assert.ok(
+      isTtscLoader(invalidLoaders[1]),
+      `an owned package's ${kind} loader path must not suppress the real loader`,
+    );
+  }
 }
 
 /**
@@ -219,14 +517,58 @@ export async function assertNextAdapterPreservesTurbopackConfig(): Promise<void>
  * somebody else's loader, because that is not this loader running twice.
  */
 export async function assertNextAdapterDoesNotDoubleRegisterAcrossGlobs(): Promise<void> {
-  const next = await loadNext();
+  const nextModule = await loadNextModule();
+  const next = nextModule.default;
+  const coverageEntries = nextModule.TURBOPACK_PROJECT_WIDE_GLOB_COVERAGE;
+  const coverage = new Map(coverageEntries);
+  assert.ok(
+    coverageEntries.length > 0,
+    "the measured allowlist must not be empty",
+  );
+  assert.equal(
+    coverage.size,
+    coverageEntries.length,
+    "the measured allowlist must not contain duplicate glob spellings",
+  );
+  for (const extension of EXTENSION_NAMES) {
+    for (const glob of [
+      `*.${extension}`,
+      `**/*.${extension}`,
+      `{**/,}*.${extension}`,
+    ]) {
+      assert.deepEqual(
+        coverage.get(glob),
+        [extension],
+        `${glob} must cover its complete single-extension family`,
+      );
+    }
+  }
+  for (const extensions of REQUIRED_EXTENSION_GROUPS) {
+    const suffixes = extensions.join(",");
+    const alternatives = extensions
+      .map((extension) => `*.${extension}`)
+      .join(",");
+    for (const glob of [
+      `*.{${suffixes}}`,
+      `{${alternatives}}`,
+      `**/*.{${suffixes}}`,
+      `**/{${alternatives}}`,
+      `**/**/*.{${suffixes}}`,
+    ]) {
+      assert.deepEqual(
+        coverage.get(glob),
+        extensions,
+        `${glob} must cover its complete extension combination`,
+      );
+    }
+  }
   const globs = (config: INextLikeConfig): string[] =>
     Object.keys(next(config).turbopack?.rules ?? {});
 
   assert.deepEqual(
     globs({ turbopack: { rules: { "*.{ts,tsx}": { loaders: [LOADER] } } } }),
-    ["*.{ts,tsx}"],
-    "a brace list already carrying the loader must not gain two more rules",
+    ["*.{ts,tsx}", "*.mts", "*.cts"],
+    "a brace list must suppress only the two extensions it actually names",
   );
   assert.deepEqual(
     globs({
@@ -237,18 +579,18 @@ export async function assertNextAdapterDoesNotDoubleRegisterAcrossGlobs(): Promi
         },
       },
     }),
-    ["**/*.ts", "**/*.tsx"],
-    "a recursive prefix already carrying the loader must not gain two more",
+    ["**/*.ts", "**/*.tsx", "*.mts", "*.cts"],
+    "recursive rules must leave only the missing module-format extensions",
   );
 
-  // A partial hand wiring is still completed: `.tsx` is unrouted without us.
+  // A partial hand wiring is still completed: three extensions are unrouted.
   // Both spellings of it, since samchon/ttsc#1314 asks for the recursive one by
   // name and a guard could recognise `*.ts` while missing `**` + `/*.ts`.
   for (const partial of ["*.ts", "**/*.ts"]) {
     assert.deepEqual(
       globs({ turbopack: { rules: { [partial]: { loaders: [LOADER] } } } }),
-      [partial, "*.tsx"],
-      `${partial} must still gain the glob it is missing`,
+      [partial, "*.tsx", "*.mts", "*.cts"],
+      `${partial} must still gain every glob it is missing`,
     );
   }
 
@@ -256,7 +598,7 @@ export async function assertNextAdapterDoesNotDoubleRegisterAcrossGlobs(): Promi
   // twice, so ttsc still has to be wired.
   assert.deepEqual(
     globs({ turbopack: { rules: { "*.{ts,tsx}": { loaders: ["other"] } } } }),
-    ["*.{ts,tsx}", "*.ts", "*.tsx"],
+    ["*.{ts,tsx}", ...AUTOMATIC_RULE_GLOBS],
     "another loader's glob must not suppress ttsc's own rules",
   );
 
@@ -273,7 +615,7 @@ export async function assertNextAdapterDoesNotDoubleRegisterAcrossGlobs(): Promi
   ]) {
     assert.deepEqual(
       globs({ turbopack: { rules: { [scoped]: { loaders: [LOADER] } } } }),
-      [scoped, "*.ts", "*.tsx"],
+      [scoped, ...AUTOMATIC_RULE_GLOBS],
       `a rule scoped by ${scoped} must not suppress the project-wide rules`,
     );
   }
@@ -283,34 +625,32 @@ export async function assertNextAdapterDoesNotDoubleRegisterAcrossGlobs(): Promi
   // file set the caller already routed. Every one of these is driven through a
   // real Turbopack build by `experimental/test-unplugin`, because whether a
   // glob covers the project is Turbopack's answer and not ours.
-  for (const wide of RECOGNISED_PROJECT_WIDE_GLOBS.filter((glob) =>
-    glob.includes("ts,"),
-  )) {
-    assert.deepEqual(
-      globs({ turbopack: { rules: { [wide]: { loaders: [LOADER] } } } }),
-      [wide],
-      `${wide} names every file of both extensions, so nothing is added`,
+  for (const [wide, covered] of coverageEntries) {
+    const missing = AUTOMATIC_RULE_GLOBS.filter(
+      (glob) => !covered.includes(glob.slice(2)),
     );
+    for (const loader of LOADER_FORMS) {
+      assert.deepEqual(
+        globs({ turbopack: { rules: { [wide]: { loaders: [loader] } } } }),
+        [wide, ...missing],
+        `${wide} with ${JSON.stringify(loader)} must suppress exactly ${covered.join(", ")}`,
+      );
+    }
   }
 
-  // Recognition is per extension, not per rule: a glob naming every file of one
-  // extension suppresses only that registration, exactly as the partial hand
-  // wiring above does.
-  const partials: readonly (readonly [string, string])[] = [
-    ["{**/,}*.ts", "*.tsx"],
-    ["**/*.ts", "*.tsx"],
-    ["*.tsx", "*.ts"],
-    ["**/*.tsx", "*.ts"],
-  ];
-  for (const [partial, missing] of partials) {
-    assert.deepEqual(
-      globs({ turbopack: { rules: { [partial]: { loaders: [LOADER] } } } }),
-      [partial, missing],
-      `${partial} names one extension, so only the missing ${missing} is added`,
-    );
-  }
+  assert.deepEqual(
+    globs({
+      turbopack: {
+        rules: {
+          "*.{ts,tsx}": { condition: "browser", loaders: [LOADER] },
+        },
+      },
+    }),
+    ["*.{ts,tsx}", ...AUTOMATIC_RULE_GLOBS],
+    "conditional coverage under an alternate glob must suppress nothing",
+  );
 
-  // Everything the guard does not recognise keeps both of the wrapper's rules.
+  // Everything the guard does not recognise keeps all wrapper rules.
   // `{src/,}*.ts` is why recognition is an exact set and not a predicate: set
   // semantics say its bare `*.ts` alternative covers the project, and Turbopack
   // matches nothing with it, so recognising it left every module with no rule
@@ -320,68 +660,8 @@ export async function assertNextAdapterDoesNotDoubleRegisterAcrossGlobs(): Promi
   for (const refused of REFUSED_GLOBS) {
     assert.deepEqual(
       globs({ turbopack: { rules: { [refused]: { loaders: [LOADER] } } } }),
-      [refused, "*.ts", "*.tsx"],
+      [refused, ...AUTOMATIC_RULE_GLOBS],
       `${refused} is not a measured project-wide spelling, so it must suppress nothing`,
-    );
-  }
-
-  await assertRecognisedGlobsMatchTheRealBuildList(globs);
-}
-
-/**
- * Assert the guard and the experimental suite name the same recognised set.
- *
- * Whether a glob covers the project is Turbopack's answer, so the recognised
- * set is only ever as good as the real builds that check it. Those builds live
- * in `experimental/test-unplugin`, in a list this fast suite cannot import —
- * that harness runs against installed tarballs, not this source tree. The two
- * lists were therefore synchronised by convention, and a convention is what
- * lost `{src/,}*.ts`: the guard recognised a spelling no build ever drove, and
- * it turned out to match nothing at all (samchon/ttsc#1319).
- *
- * So the invariant is asserted in both directions instead of trusted. Adding a
- * spelling to the guard without adding it to the harness fails here, and so
- * does the reverse.
- */
-async function assertRecognisedGlobsMatchTheRealBuildList(
-  globs: (config: INextLikeConfig) => string[],
-): Promise<void> {
-  const harness = await readFile(
-    new URL(
-      "../../../../experimental/test-unplugin/src/index.ts",
-      import.meta.url,
-    ),
-    "utf8",
-  );
-  const declared = /const TURBOPACK_PROJECT_WIDE_GLOBS = \[([^\]]*)\]/.exec(
-    harness,
-  );
-  const body = declared?.[1];
-  assert.ok(body, "the experimental suite must declare its recognised set");
-  const listed = [...body.matchAll(/"((?:[^"\\]|\\.)*)"/g)].map(
-    (match) => JSON.parse(`"${match[1]}"`) as string,
-  );
-  assert.ok(listed.length > 0, "that list must not be empty");
-
-  // Every glob the real builds drive must actually be recognised, or those
-  // builds are proving something about a spelling the guard never takes.
-  // Recognition means at least one of the wrapper's two rules is declined; a
-  // glob naming one extension, `*.ts`, still leaves the other to be added.
-  for (const glob of listed) {
-    const wired = globs({
-      turbopack: { rules: { [glob]: { loaders: [LOADER] } } },
-    });
-    assert.ok(
-      wired.length < 3,
-      `${glob} is driven through a real build, so the guard must recognise it (got ${JSON.stringify(wired)})`,
-    );
-  }
-
-  // And every spelling this suite proves recognised must be driven there.
-  for (const glob of RECOGNISED_PROJECT_WIDE_GLOBS) {
-    assert.ok(
-      listed.includes(glob),
-      `${glob} is recognised here, so a real Turbopack build must drive it`,
     );
   }
 }

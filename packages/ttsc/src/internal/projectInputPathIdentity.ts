@@ -52,7 +52,7 @@ export function createFilesystemPathIdentityContext(
   const realpaths = new Map<string, CachedRealpath>();
   const sensitivities = new Map<string, boolean>();
   const platform = operations.platform ?? process.platform;
-  const pathApi = platform === "win32" ? path.win32 : path;
+  const pathApi = platform === "win32" ? path.win32 : path.posix;
   const throwOnRealpathError = operations.throwOnRealpathError ?? true;
   const realpath = operations.realpath ?? physicalRealpath;
   const lstat = operations.lstat ?? fs.lstatSync;
@@ -150,7 +150,7 @@ export function isFilesystemPathIdentityWithin(
   platform: NodeJS.Platform = process.platform,
 ): boolean {
   if (candidate === root) return true;
-  const separator = platform === "win32" ? path.win32.sep : path.sep;
+  const separator = platform === "win32" ? path.win32.sep : path.posix.sep;
   return candidate.startsWith(
     root.endsWith(separator) ? root : `${root}${separator}`,
   );
@@ -160,7 +160,7 @@ export function resolveFilesystemPath(
   location: string,
   platform: NodeJS.Platform = process.platform,
 ): string {
-  const pathApi = platform === "win32" ? path.win32 : path;
+  const pathApi = platform === "win32" ? path.win32 : path.posix;
   if (platform !== "win32") {
     return pathApi.resolve(location);
   }
@@ -224,6 +224,7 @@ function filesystemDirectoryIsCaseSensitive(
     realpath(location: string): string;
   },
 ): boolean {
+  const pathApi = platform === "win32" ? path.win32 : path.posix;
   let entries: string[];
   try {
     entries = operations.readdir(directory);
@@ -242,7 +243,7 @@ function filesystemDirectoryIsCaseSensitive(
     const alternate = alternateCase(name);
     if (alternate === name) continue;
     try {
-      operations.lstat(path.join(directory, alternate));
+      operations.lstat(pathApi.join(directory, alternate));
       return false;
     } catch (error) {
       if (isMissingFilesystemEntry(error)) {
@@ -261,13 +262,13 @@ function filesystemDirectoryIsCaseSensitive(
     // case-sensitive volume.
     let current = resolveFilesystemPath(directory, platform);
     while (true) {
-      const parent = path.dirname(current);
+      const parent = pathApi.dirname(current);
       if (parent === current) break;
-      const name = path.basename(current);
+      const name = pathApi.basename(current);
       const alternate = alternateCase(name);
       if (alternate !== name) {
         try {
-          operations.realpath(path.join(parent, alternate));
+          operations.realpath(pathApi.join(parent, alternate));
           return false;
         } catch (error) {
           if (isMissingFilesystemEntry(error) === false) throw error;

@@ -25,7 +25,7 @@ export const test_readprojectconfig_resolves_extends_as_a_file = () => {
   const tsconfig = path.join(project, "tsconfig.json");
   fs.writeFileSync(
     tsconfig,
-    JSON.stringify({ extends: "../config", compilerOptions: {} }),
+    JSON.stringify({ extends: "..\\config", compilerOptions: {} }),
     "utf8",
   );
 

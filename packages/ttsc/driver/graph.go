@@ -32,26 +32,31 @@ const bundledScheme = "bundled:///"
 //     entries). A change to any of them can affect every file.
 //   - Configs lists the project tsconfig followed by its `extends` ancestry.
 //   - Candidates maps each importing file to the resolution probes that precede
-//     its selected module target. They are a separate class from resolved
-//     edges: a probe's file appearing or changing can change an unchanged
-//     import's meaning.
-//   - InputHashes and InputRealpaths pair graph members with the exact content
-//     state and physical identity observed by the compiler filesystem.
+//     or otherwise participate in its selected module and type-reference
+//     results. They are a separate class from resolved edges: a predicate or
+//     package manifest changing can change an unchanged reference's meaning.
+//   - ResolutionInputs lists automatic type discovery and resolution inputs
+//     whose state can affect every source file, including type-root directory
+//     membership.
+//   - InputObservations preserves the independent filesystem predicates the
+//     compiler actually asked. InputHashes and InputRealpaths retain the legacy
+//     collapsed content/identity projection for older consumers.
 //   - InputProofFailures gives a stable reason when a realized member lacks
-//     that pair. Speculative candidates are omitted because the compiler was
-//     never expected to read them.
+//     proof or a replayed resolver predicate changed.
 //
 // Keys and values use the same convention as the envelope's `typescript`
 // map: project-relative slash paths, falling back to slash-normalized
 // absolute paths outside the project root (see TransformOutputKey).
 type TransformGraph struct {
-  Edges              map[string][]string `json:"edges"`
-  Globals            []string            `json:"globals"`
-  Configs            []string            `json:"configs"`
-  Candidates         map[string][]string `json:"candidates,omitempty"`
-  InputHashes        map[string]*string  `json:"inputHashes,omitempty"`
-  InputRealpaths     map[string]*string  `json:"inputRealpaths,omitempty"`
-  InputProofFailures map[string]string   `json:"inputProofFailures,omitempty"`
+  Edges              map[string][]string                  `json:"edges"`
+  Globals            []string                             `json:"globals"`
+  Configs            []string                             `json:"configs"`
+  Candidates         map[string][]string                  `json:"candidates,omitempty"`
+  ResolutionInputs   []string                             `json:"resolutionInputs,omitempty"`
+  InputObservations  map[string]TransformInputObservation `json:"inputObservations,omitempty"`
+  InputHashes        map[string]*string                   `json:"inputHashes,omitempty"`
+  InputRealpaths     map[string]*string                   `json:"inputRealpaths,omitempty"`
+  InputProofFailures map[string]string                    `json:"inputProofFailures,omitempty"`
 }
 
 // NewTransformGraph computes the reference graph of a loaded program, keyed
@@ -63,11 +68,13 @@ func NewTransformGraph(prog *Program, cwd string) *TransformGraph {
   if prog == nil || prog.TSProgram == nil {
     return nil
   }
+  resolution := ObserveProgramResolutions(prog, cwd)
   graph := &TransformGraph{
-    Edges:      map[string][]string{},
-    Globals:    []string{},
-    Configs:    []string{},
-    Candidates: SupersedingModuleCandidates(prog, cwd),
+    Edges:            map[string][]string{},
+    Globals:          []string{},
+    Configs:          []string{},
+    Candidates:       resolution.Candidates,
+    ResolutionInputs: resolution.Universal,
   }
   for _, file := range prog.TSProgram.SourceFiles() {
     fileName := file.FileName()
@@ -87,6 +94,10 @@ func NewTransformGraph(prog *Program, cwd string) *TransformGraph {
   }
   sort.Strings(graph.Globals)
   graph.Configs = configChain(prog, cwd)
+  resolution.ApplyUniversalResolutionFailure(graph.Edges)
+  if len(resolution.Failures) != 0 {
+    graph.InputProofFailures = resolution.Failures
+  }
   graph.attachInputProof(prog, cwd)
   return graph
 }
@@ -123,21 +134,39 @@ func (graph *TransformGraph) attachInputProof(prog *Program, cwd string) {
       inputs[candidate] = struct{}{}
     }
   }
+  for _, input := range graph.ResolutionInputs {
+    inputs[input] = struct{}{}
+  }
   hashes := map[string]*string{}
   realpaths := map[string]*string{}
-  failures := map[string]string{}
+  observations := map[string]TransformInputObservation{}
+  failures := graph.InputProofFailures
+  if failures == nil {
+    failures = map[string]string{}
+  }
   for input := range inputs {
     file := filepath.FromSlash(input)
     if !filepath.IsAbs(file) {
       file = filepath.Join(cwd, file)
     }
-    hash, realpath, failure := prog.inputObserver.proof(file)
-    if failure != "" {
-      // Speculative candidates are allowed to lack compiler reads. Reporting
-      // only realized members keeps this diagnostic side channel bounded to
-      // inputs whose missing proof can actually refuse generation reuse.
-      if _, ok := realized[input]; ok {
-        failures[input] = string(failure)
+    observation, predicateFailure := prog.inputObserver.predicateProof(file)
+    if predicateFailure == "" {
+      observations[input] = observation
+    }
+    var hash, realpath *string
+    legacyFailure := predicateFailure
+    if predicateFailure == "" {
+      hash, realpath, legacyFailure = prog.inputObserver.proof(file)
+    }
+    if legacyFailure != "" {
+      // A resolver input can have a complete predicate proof that the legacy
+      // path-kind projection cannot represent, such as a successful file check
+      // whose content was never requested. The rich proof remains sufficient
+      // for that input; only a predicate failure, or any realized-input
+      // failure, makes the generation inadmissible.
+      _, isRealized := realized[input]
+      if isRealized || (predicateFailure != "" && predicateFailure != inputProofUnobserved) {
+        failures[input] = string(legacyFailure)
       }
       continue
     }
@@ -147,6 +176,9 @@ func (graph *TransformGraph) attachInputProof(prog *Program, cwd string) {
   if len(hashes) != 0 {
     graph.InputHashes = hashes
     graph.InputRealpaths = realpaths
+  }
+  if len(observations) != 0 {
+    graph.InputObservations = observations
   }
   if len(failures) != 0 {
     graph.InputProofFailures = failures
@@ -158,18 +190,18 @@ func (graph *TransformGraph) attachInputProof(prog *Program, cwd string) {
 func referenceTargets(prog *Program, cwd string, file *ast.SourceFile) []string {
   paths := shimcompiler.GetReferencedFilePaths(prog.TSProgram, file)
   targets := make([]string, 0, len(paths))
-  for _, path := range paths {
-    fileName := path
+  for _, referencedPath := range paths {
     // Referenced paths are case-canonicalized tspath.Path values; recover the
-    // real spelling from the program so consumers can compare them against
-    // filesystem paths byte-for-byte.
-    if resolved := prog.TSProgram.GetSourceFileByPath(shimtspath.Path(path)); resolved != nil {
-      fileName = resolved.FileName()
-    }
-    if fileName == file.FileName() || strings.HasPrefix(fileName, bundledScheme) {
+    // resident source and its real spelling from the Program. The incremental
+    // helper can retain a raw extensionless project-reference directive even
+    // when no corresponding source became resident. That spelling is a
+    // resolver candidate, not a realized graph edge, and has no compiler-time
+    // content proof.
+    resolved := prog.TSProgram.GetSourceFileByPath(shimtspath.Path(referencedPath))
+    if resolved == nil || resolved == file || strings.HasPrefix(resolved.FileName(), bundledScheme) {
       continue
     }
-    targets = append(targets, TransformOutputKey(cwd, fileName))
+    targets = append(targets, TransformOutputKey(cwd, resolved.FileName()))
   }
   sort.Strings(targets)
   return targets

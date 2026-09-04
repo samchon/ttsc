@@ -19,7 +19,6 @@ import legacy = require("./legacy");
 export { exported } from "./exported";
 export type Deferred = import("./types").Deferred;
 export const lazy = import("./lazy");
-export const common = require("./common");
 export const result = legacy();
 `)
 
@@ -29,7 +28,7 @@ export const result = legacy();
   }
   defer session.Close()
 
-  for _, name := range []string{"legacy.ts", "exported.ts", "types.ts", "lazy.ts", "common.ts"} {
+  for _, name := range []string{"legacy.ts", "exported.ts", "types.ts", "lazy.ts"} {
     candidate := filepath.Join(root, "src", name)
     state, ok := session.auxStates[candidate]
     if !ok {

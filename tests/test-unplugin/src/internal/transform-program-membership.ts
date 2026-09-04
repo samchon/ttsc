@@ -26,6 +26,7 @@ interface IMembershipSession {
  */
 async function startMembershipSession(
   options: Parameters<typeof createCacheProject>[0] = {},
+  compilerOptions: Record<string, unknown> = {},
 ): Promise<IMembershipSession> {
   const api = await TestUnpluginRuntime.loadUnpluginApi();
   const project = createCacheProject({
@@ -40,7 +41,7 @@ async function startMembershipSession(
       return fs.readFileSync(location);
     },
   });
-  const resolved = api.resolveOptions();
+  const resolved = api.resolveOptions({ compilerOptions });
   const modules = projectModules(project.root);
   const deliverAll = async (): Promise<void> => {
     for (const file of modules) {
@@ -233,19 +234,20 @@ export async function assertAllowJsDecidesJavaScriptMembership(): Promise<void> 
 }
 
 /**
- * Asserts the configured `outDir` is excluded by configuration rather than by
- * name, and that validation reads only what it compares.
+ * Asserts an overlay `outDir` replaces the inherited directory exclusion and
+ * that validation reads only what it compares.
  *
- * Two properties in one session, because both are about work the walk should
- * not do. The project's `outDir` is a name the ignore list never carried, so
- * only reading the configuration can exclude it. And a directory the walk does
- * enter must still not cost a read per file: validation compares content over
- * the generation's declared inputs alone, so reading anything else is work
- * whose result is never consulted. Before the fix, two hundred emitted files
- * cost hundreds of reads on the pass that first saw them.
+ * Two properties in one session, because both are about the effective program.
+ * The replacement directory must remain outside the walk while the inherited
+ * one becomes eligible again. A directory the walk enters must still not cost a
+ * read per irrelevant file: validation compares content over the generation's
+ * declared inputs alone, so reading anything else is wasted work.
  */
 export async function assertTheWalkAvoidsWorkItCannotUse(): Promise<void> {
-  const session = await startMembershipSession({ outDir: "generated" });
+  const session = await startMembershipSession(
+    { outDir: "src" },
+    { outDir: "${configDir}\\generated" },
+  );
   try {
     await session.pass();
     await session.pass();
@@ -260,6 +262,11 @@ export async function assertTheWalkAvoidsWorkItCannotUse(): Promise<void> {
         "utf8",
       );
     }
+    fs.writeFileSync(
+      path.join(excluded, "emitted.ts"),
+      "export const emitted: number = 1;\n",
+      "utf8",
+    );
     await session.pass();
     assert.equal(
       session.compiles(),
@@ -267,12 +274,10 @@ export async function assertTheWalkAvoidsWorkItCannotUse(): Promise<void> {
       "the configured outDir must not void the generation",
     );
 
-    // A directory the walk does enter, because no configuration excludes it,
-    // holding only files this project could never compile. Neither the
-    // directory's appearance nor anything accumulating in it is a membership
-    // change, because its subtree cannot hold a program input. That is the
-    // whole output-directory case, for any name rather than for fifteen.
-    const walked = path.join(session.root, "assets");
+    // The inherited outDir no longer excludes this directory after the caller
+    // replaces that option. Files this project cannot compile still do not
+    // change membership, and validation must not read them.
+    const walked = path.join(session.root, "src");
     fs.mkdirSync(walked, { recursive: true });
     const before = session.reads();
     for (let index = 0; index < 40; index += 1) {
@@ -293,19 +298,32 @@ export async function assertTheWalkAvoidsWorkItCannotUse(): Promise<void> {
       `validation must not read files it never compares (read ${session.reads() - before}, settled pass reads ${settled})`,
     );
 
-    // The moment that same directory can hold one, it counts. The walk still
-    // enters and still watches an irrelevant directory precisely so this
-    // transition is seen rather than missed.
-    fs.writeFileSync(
-      path.join(walked, "late.ts"),
-      "export const late: number = 1;",
-      "utf8",
-    );
+    // The moment that same directory gains a source, it counts. This is the
+    // inherited-output replacement boundary: preserving the old outDir in the
+    // merged policy would miss the creation, every later edit, and removal.
+    const admitted = path.join(walked, "late.ts");
+    fs.writeFileSync(admitted, "export const late: number = 1;", "utf8");
     await session.pass();
     assert.equal(
       session.compiles(),
       2,
-      "a source appearing in a previously irrelevant directory must be detected",
+      "a source appearing under the replaced inherited outDir must be detected",
+    );
+
+    fs.writeFileSync(admitted, "export const late: number = 2;", "utf8");
+    await session.pass();
+    assert.equal(
+      session.compiles(),
+      3,
+      "editing a source under the replaced inherited outDir must be detected",
+    );
+
+    fs.rmSync(admitted);
+    await session.pass();
+    assert.equal(
+      session.compiles(),
+      4,
+      "removing a source under the replaced inherited outDir must be detected",
     );
   } finally {
     session.close();
@@ -389,20 +407,48 @@ export async function assertAPersistentHostIgnoresEmittedOutput(): Promise<void>
 export async function assertTheWalkPredicateMatchesTheWalk(): Promise<void> {
   const api = await TestUnpluginRuntime.loadUnpluginApi();
   const project = createCacheProject({
-    exclude: ["src/generated"],
     fileCount: 1,
-    outDir: "lib",
+    outDir: "src/inherited-output",
   });
-  const policy = api.readProjectMembershipPolicy(
-    path.join(project.root, "tsconfig.json"),
+  const tsconfig = path.join(project.root, "tsconfig.json");
+  const declared = JSON.parse(fs.readFileSync(tsconfig, "utf8")) as {
+    compilerOptions: Record<string, unknown>;
+    extends?: string;
+  };
+  delete declared.compilerOptions.outDir;
+  const configOwner = path.join(project.root, "config");
+  const baseConfig = path.join(configOwner, "tsconfig.base.json");
+  fs.mkdirSync(configOwner, { recursive: true });
+  fs.writeFileSync(
+    baseConfig,
+    JSON.stringify({
+      compilerOptions: {
+        declarationDir: "..\\src\\inherited-declarations",
+        outDir: "..\\src\\inherited-output",
+      },
+    }),
+    "utf8",
   );
-  const walkSees = (relative: string): boolean =>
+  declared.extends = ".\\config\\tsconfig.base.json";
+  fs.writeFileSync(tsconfig, JSON.stringify(declared, null, 2), "utf8");
+
+  const policy = api.readProjectMembershipPolicy(tsconfig);
+  const overlayOwner = path.join(project.root, "adapter-owner");
+  const merged = api.mergeMembershipPolicyOverlay(
+    policy,
+    { declarationDir: "types", outDir: "build" },
+    overlayOwner,
+  );
+  const walkSees = (
+    candidatePolicy: typeof policy,
+    relative: string,
+  ): boolean =>
     api.isProjectWalkPath(
       project.root,
       path.join(project.root, ...relative.split("/")),
       undefined,
       undefined,
-      policy,
+      candidatePolicy,
     );
 
   // Materialized, every one of them. `isProjectWalkPath` rejects a path that
@@ -410,30 +456,271 @@ export async function assertTheWalkPredicateMatchesTheWalk(): Promise<void> {
   // asserting on absent paths would pass whatever the policy said and pin
   // nothing at all.
   for (const relative of [
-    "src/generated/helper.ts", // a plain `exclude` entry
-    "lib/helper.ts", // the configured `outDir`
+    "src/inherited-output/helper.ts", // the inherited `outDir`
+    "src/inherited-declarations/helper.ts", // inherited `declarationDir`
+    "src/retained/helper.ts", // an explicit exclusion in the boundary policy
+    "adapter-owner/build/helper.ts", // the overlay `outDir`
+    "adapter-owner/types/helper.ts", // the overlay `declarationDir`
     "src/bundle.js", // an extension this program cannot admit
     "node_modules/dep/index.ts", // the name-based residue
   ]) {
     const absolute = path.join(project.root, ...relative.split("/"));
     fs.mkdirSync(path.dirname(absolute), { recursive: true });
     fs.writeFileSync(absolute, "export const planted: number = 1;", "utf8");
+  }
+
+  assert.equal(walkSees(policy, "src/inherited-output/helper.ts"), false);
+  assert.equal(walkSees(policy, "src/inherited-declarations/helper.ts"), false);
+  assert.equal(
+    walkSees(merged, "src/inherited-output/helper.ts"),
+    true,
+    "replacing outDir must admit the directory contributed by the inherited option",
+  );
+  assert.equal(
+    walkSees(merged, "src/inherited-declarations/helper.ts"),
+    true,
+    "replacing declarationDir must admit the directory contributed by the inherited option",
+  );
+  for (const relative of [
+    "adapter-owner/build/helper.ts",
+    "adapter-owner/types/helper.ts",
+    "src/bundle.js",
+    "node_modules/dep/index.ts",
+  ]) {
     assert.equal(
-      walkSees(relative),
+      walkSees(merged, relative),
       false,
-      `${relative} is not hashed by the walk, so the predicate must not claim it is`,
+      `${relative} is not hashed by the merged walk, so the predicate must not claim it is`,
     );
   }
+
+  assert.deepEqual(
+    merged.inputExtensions,
+    policy.inputExtensions,
+    "path-valued overlays must not change allowJs or resolveJsonModule membership",
+  );
+  assert.deepEqual(
+    api.mergeMembershipPolicyOverlay(policy, {}, overlayOwner)
+      .excludedDirectories,
+    policy.excludedDirectories,
+    "without an overlay, inherited output directories must remain excluded",
+  );
+  assert.equal(
+    policy.directoryExclusionOrigins?.outDir,
+    path.join(project.root, "src", "inherited-output"),
+    "an inherited outDir must remain anchored at the config that declared it",
+  );
+  assert.equal(
+    policy.directoryExclusionOrigins?.declarationDir,
+    path.join(project.root, "src", "inherited-declarations"),
+    "an inherited declarationDir must remain anchored at its declaring config",
+  );
+
+  const emptyOverlay = api.mergeMembershipPolicyOverlay(
+    policy,
+    { declarationDir: "", outDir: "" },
+    overlayOwner,
+  );
+  assert.equal(
+    emptyOverlay.directoryExclusionOrigins?.outDir,
+    overlayOwner,
+    "an empty overlay outDir is still a path-valued replacement",
+  );
+  assert.equal(
+    emptyOverlay.directoryExclusionOrigins?.declarationDir,
+    overlayOwner,
+    "an empty overlay declarationDir is still a path-valued replacement",
+  );
+  assert.ok(
+    !emptyOverlay.excludedDirectories.includes(
+      path.join(project.root, "src", "inherited-output"),
+    ),
+    "an empty output overlay must not retain the inherited output directory",
+  );
+
+  const emptyConfig = path.join(project.root, "tsconfig.empty.json");
+  fs.writeFileSync(
+    emptyConfig,
+    JSON.stringify({
+      compilerOptions: { declarationDir: "", outDir: "" },
+      extends: "./config/tsconfig.base.json",
+    }),
+    "utf8",
+  );
+  const emptyPolicy = api.readProjectMembershipPolicy(emptyConfig);
+  assert.equal(
+    emptyPolicy.directoryExclusionOrigins?.outDir,
+    project.root,
+    "an empty child outDir must replace rather than fall through to its base",
+  );
+  assert.equal(
+    emptyPolicy.directoryExclusionOrigins?.declarationDir,
+    project.root,
+    "an empty child declarationDir must replace rather than inherit",
+  );
+
+  const nullOverlay = api.mergeMembershipPolicyOverlay(
+    policy,
+    { declarationDir: null, outDir: null },
+    overlayOwner,
+  );
+  assert.equal(nullOverlay.directoryExclusionOrigins?.outDir, undefined);
+  assert.equal(
+    nullOverlay.directoryExclusionOrigins?.declarationDir,
+    undefined,
+  );
+  assert.deepEqual(
+    nullOverlay.excludedDirectories,
+    [],
+    "null output overlays must clear rather than preserve inherited exclusions",
+  );
+
+  const nullConfig = path.join(project.root, "tsconfig.null.json");
+  fs.writeFileSync(
+    nullConfig,
+    JSON.stringify({
+      compilerOptions: { declarationDir: null, outDir: null },
+      extends: "./config/tsconfig.base.json",
+    }),
+    "utf8",
+  );
+  const nullPolicy = api.readProjectMembershipPolicy(nullConfig);
+  assert.equal(nullPolicy.directoryExclusionOrigins?.outDir, undefined);
+  assert.equal(nullPolicy.directoryExclusionOrigins?.declarationDir, undefined);
+  assert.deepEqual(
+    nullPolicy.excludedDirectories,
+    [],
+    "null child output options must clear their inherited exclusions",
+  );
+
+  const templateBase = path.join(configOwner, "tsconfig.template.json");
+  fs.writeFileSync(
+    templateBase,
+    JSON.stringify({
+      compilerOptions: {
+        declarationDir: "${configDir}\\template-types",
+        outDir: "${configDir}\\template-output",
+      },
+      exclude: ["${configDir}\\template-exclude"],
+    }),
+    "utf8",
+  );
+  const templateConfig = path.join(project.root, "tsconfig.template.json");
+  fs.writeFileSync(
+    templateConfig,
+    JSON.stringify({ extends: "./config/tsconfig.template.json" }),
+    "utf8",
+  );
+  const templatePolicy = api.readProjectMembershipPolicy(templateConfig);
+  assert.equal(
+    templatePolicy.directoryExclusionOrigins?.outDir,
+    path.join(project.root, "template-output"),
+    "an inherited configDir outDir must use the resolved leaf config directory",
+  );
+  assert.equal(
+    templatePolicy.directoryExclusionOrigins?.declarationDir,
+    path.join(project.root, "template-types"),
+    "an inherited configDir declarationDir must use the resolved leaf directory",
+  );
+  assert.deepEqual(
+    templatePolicy.excludedDirectories,
+    [path.join(project.root, "template-exclude")],
+    "an inherited configDir exclude must use the resolved leaf config directory",
+  );
+  const templateOverlay = api.mergeMembershipPolicyOverlay(
+    policy,
+    {
+      declarationDir: "${configDir}\\template-types",
+      outDir: "${configDir}\\template-output",
+    },
+    overlayOwner,
+  );
+  assert.equal(
+    templateOverlay.directoryExclusionOrigins?.outDir,
+    path.join(overlayOwner, "template-output"),
+    "an overlay configDir outDir must use the overlay owner",
+  );
+  assert.equal(
+    templateOverlay.directoryExclusionOrigins?.declarationDir,
+    path.join(overlayOwner, "template-types"),
+    "an overlay configDir declarationDir must use the overlay owner",
+  );
+
+  const explicitConfig = path.join(project.root, "tsconfig.explicit.json");
+  fs.writeFileSync(
+    explicitConfig,
+    JSON.stringify({
+      compilerOptions: { outDir: "src\\retained" },
+      exclude: ["src\\retained\\**"],
+    }),
+    "utf8",
+  );
+  const explicitPolicy = api.mergeMembershipPolicyOverlay(
+    api.readProjectMembershipPolicy(explicitConfig),
+    { outDir: "build" },
+    overlayOwner,
+  );
+  assert.ok(
+    explicitPolicy.excludedDirectories.includes(
+      path.join(project.root, "src", "retained"),
+    ),
+    "an explicit exclude equal to the inherited outDir must survive its replacement",
+  );
+  assert.ok(
+    !explicitPolicy.excludedDirectories.includes(
+      path.join(overlayOwner, "build"),
+    ),
+    "an explicit exclude must replace TypeScript's implicit output exclusions",
+  );
+  assert.equal(walkSees(explicitPolicy, "src/retained/helper.ts"), false);
+  assert.equal(
+    walkSees(explicitPolicy, "adapter-owner/build/helper.ts"),
+    true,
+    "an output directory is admitted when an explicit exclude replaces the implicit default",
+  );
+
+  const emptyExcludeConfig = path.join(
+    project.root,
+    "tsconfig.empty-exclude.json",
+  );
+  fs.writeFileSync(
+    emptyExcludeConfig,
+    JSON.stringify({
+      compilerOptions: { outDir: "src\\output" },
+      exclude: [],
+    }),
+    "utf8",
+  );
+  assert.deepEqual(
+    api.readProjectMembershipPolicy(emptyExcludeConfig).excludedDirectories,
+    [],
+    "even an empty explicit exclude must replace the implicit outDir exclusion",
+  );
+
+  const legacyDirectory = path.join(project.root, "legacy-exclusion");
+  const legacyPolicy = api.mergeMembershipPolicyOverlay(
+    {
+      excludedDirectories: [legacyDirectory],
+      inputExtensions: policy.inputExtensions,
+      sources: policy.sources,
+    },
+    { outDir: "build" },
+    overlayOwner,
+  );
+  assert.ok(
+    legacyPolicy.excludedDirectories.includes(legacyDirectory),
+    "a public policy without provenance must preserve its existing exclusions",
+  );
 
   // And the walk really does not hash them, which is the other half of the
   // agreement: the predicate would be free to say anything if nothing checked
   // what the walk actually collected.
   const hashed = Object.keys(
-    api.collectProjectInputHashes(project.root, undefined, undefined, policy),
+    api.collectProjectInputHashes(project.root, undefined, undefined, merged),
   );
   for (const absent of [
-    "src/generated/helper.ts",
-    "lib/helper.ts",
+    "adapter-owner/build/helper.ts",
+    "adapter-owner/types/helper.ts",
     "src/bundle.js",
   ]) {
     assert.ok(
@@ -441,11 +728,20 @@ export async function assertTheWalkPredicateMatchesTheWalk(): Promise<void> {
       `the walk must not hash ${absent} (hashed: ${hashed.join(", ")})`,
     );
   }
+  for (const admitted of [
+    "src/inherited-output/helper.ts",
+    "src/inherited-declarations/helper.ts",
+  ]) {
+    assert.ok(
+      hashed.includes(admitted),
+      `the merged walk must hash ${admitted} (hashed: ${hashed.join(", ")})`,
+    );
+  }
 
   const source = path.join(project.root, "src", "mod0.ts");
   fs.writeFileSync(source, "export const kept: number = 1;", "utf8");
   assert.equal(
-    walkSees("src/mod0.ts"),
+    walkSees(merged, "src/mod0.ts"),
     true,
     "an ordinary source the walk does hash must still be claimed",
   );
@@ -533,7 +829,6 @@ export async function assertNonSourceHostInputsAreStillProven(): Promise<void> {
  */
 export async function assertRecreatingTheOutputDirectoryCostsNothing(): Promise<void> {
   const session = await startMembershipSession({
-    exclude: ["src/legacy.ts"],
     outDir: "artifacts",
   });
   try {
@@ -559,8 +854,20 @@ export async function assertRecreatingTheOutputDirectoryCostsNothing(): Promise<
       "recreating the configured output directory must not void the generation",
     );
 
-    // The other direction: a plain `exclude` entry naming a file the walk still
-    // hashes must keep counting when it appears.
+    // An explicit top-level `exclude` replaces TypeScript's implicit output
+    // exclusions. Install that separate boundary in the same session only
+    // after the output-directory lifecycle above has proved the default.
+    const tsconfig = path.join(session.root, "tsconfig.json");
+    const parsed = JSON.parse(fs.readFileSync(tsconfig, "utf8")) as {
+      exclude?: string[];
+    };
+    parsed.exclude = ["src/legacy.ts"];
+    fs.writeFileSync(tsconfig, JSON.stringify(parsed, null, 2), "utf8");
+    await session.deliver();
+    const explicitExcludeSettled = session.compiles();
+
+    // A plain `exclude` entry naming a file is not a directory exclusion. The
+    // walk still hashes that file, so its appearance must keep counting.
     fs.writeFileSync(
       path.join(session.root, "src", "legacy.ts"),
       "export const legacy: number = 1;",
@@ -568,7 +875,7 @@ export async function assertRecreatingTheOutputDirectoryCostsNothing(): Promise<
     );
     await session.deliver();
     assert.ok(
-      session.compiles() > settled,
+      session.compiles() > explicitExcludeSettled,
       "a file the walk hashes must still report its own membership",
     );
   } finally {

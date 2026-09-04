@@ -215,10 +215,11 @@ export namespace TestMetroRuntime {
   export async function withTransformerEnv(
     options: Record<string, unknown>,
     body: (mod: any) => unknown,
+    snapshotRunId?: string,
   ): Promise<any> {
     const { ENV_KEY, serializeOptions } = await loadOptions();
     const previous = process.env[ENV_KEY];
-    process.env[ENV_KEY] = serializeOptions(options);
+    process.env[ENV_KEY] = serializeOptions(options, snapshotRunId);
     try {
       const mod = await loadFreshTransformer();
       return await body(mod);
@@ -243,9 +244,12 @@ export namespace TestMetroRuntime {
       options?: Record<string, unknown>;
       [key: string]: unknown;
     };
+    snapshotRunId?: string;
   }): Promise<{ ast: Record<string, unknown> }> {
-    return withTransformerEnv(props.options, (mod) =>
-      mod.transform({ options: {}, ...props.params }),
+    return withTransformerEnv(
+      props.options,
+      (mod) => mod.transform({ options: {}, ...props.params }),
+      props.snapshotRunId,
     );
   }
 }

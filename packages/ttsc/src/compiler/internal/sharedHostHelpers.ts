@@ -9,6 +9,9 @@ import type { ITtscLoadedNativePlugin } from "../../structures/internal/ITtscLoa
  */
 export const TSGO_ARGS_ENV = "TTSC_TSGO_ARGS";
 
+/** Internal channel preserving a generated wrapper's user-authored config owner. */
+export const SEMANTIC_CONFIG_PATH_ENV = "TTSC_SEMANTIC_CONFIG_PATH";
+
 /**
  * Drop a forwarded-tsgo payload this invocation did not publish itself.
  *
@@ -29,6 +32,16 @@ export function clearInheritedTsgoArgs(
   }
 }
 
+/** Drop an outer generated wrapper's config owner from an unrelated child run. */
+export function clearInheritedSemanticConfigPath(
+  env: NodeJS.ProcessEnv,
+  callerEnv: NodeJS.ProcessEnv | undefined,
+): void {
+  if (callerEnv?.[SEMANTIC_CONFIG_PATH_ENV] === undefined) {
+    delete env[SEMANTIC_CONFIG_PATH_ENV];
+  }
+}
+
 /**
  * The `{ ...process.env, ...callerEnv }` a child process inherits, minus a
  * forwarded-tsgo payload this lane never published.
@@ -43,6 +56,7 @@ export function inheritedSidecarEnv(
 ): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = { ...process.env, ...callerEnv };
   clearInheritedTsgoArgs(env, callerEnv);
+  clearInheritedSemanticConfigPath(env, callerEnv);
   return env;
 }
 

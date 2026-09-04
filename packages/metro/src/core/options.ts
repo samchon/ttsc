@@ -53,6 +53,8 @@ export interface ResolvedTtscMetroOptions {
   include: string[];
   /** Resolved exclude patterns (never `undefined`). */
   exclude: string[];
+  /** Private run identity shared by `getCacheKey` and Metro workers. */
+  snapshotRunId?: string;
 }
 
 /**
@@ -71,8 +73,14 @@ export const ENV_KEY = "TTSC_METRO_OPTIONS";
  * Serialise user options for transport to the worker processes via
  * {@link ENV_KEY}.
  */
-export function serializeOptions(options: TtscMetroOptions): string {
-  return JSON.stringify(options ?? {});
+export function serializeOptions(
+  options: TtscMetroOptions,
+  snapshotRunId?: string,
+): string {
+  return JSON.stringify({
+    ...(options ?? {}),
+    ...(snapshotRunId === undefined ? {} : { __snapshotRunId: snapshotRunId }),
+  });
 }
 
 /**
@@ -98,10 +106,16 @@ export function resolveOptionsFromEnv(): ResolvedTtscMetroOptions {
         : undefined,
     include: toStringArray(parsed.include),
     exclude: toStringArray(parsed.exclude),
+    ...(typeof parsed.__snapshotRunId === "string" &&
+    parsed.__snapshotRunId.length !== 0
+      ? { snapshotRunId: parsed.__snapshotRunId }
+      : {}),
   };
 }
 
-function parse(raw: string | undefined): TtscMetroOptions {
+function parse(
+  raw: string | undefined,
+): TtscMetroOptions & { __snapshotRunId?: unknown } {
   if (raw === undefined || raw.length === 0) {
     return {};
   }
@@ -111,7 +125,7 @@ function parse(raw: string | undefined): TtscMetroOptions {
     // and booleans (all valid JSON) degrade to defaults rather than leaking a
     // wrong-shaped value downstream.
     return typeof value === "object" && value !== null && !Array.isArray(value)
-      ? (value as TtscMetroOptions)
+      ? (value as TtscMetroOptions & { __snapshotRunId?: unknown })
       : {};
   } catch {
     return {};

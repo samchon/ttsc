@@ -145,10 +145,11 @@ type lspCommandOptions struct {
   pluginsJSON  string
   // rangeJSON carries the editor selection used to limit quickfix.ttsc
   // actions. Source fix-all and format actions remain document-wide.
-  rangeJSON       string
-  tsconfig        string
-  uri             string
-  projectIdentity publicrule.ProjectIdentity
+  rangeJSON          string
+  semanticConfigPath string
+  tsconfig           string
+  uri                string
+  projectIdentity    publicrule.ProjectIdentity
 }
 
 // lspCommandIDs is the workspace/executeCommand ids owned by @ttsc/lint, shared
@@ -424,16 +425,17 @@ func parseLSPCommandOptions(name string, args []string) (*lspCommandOptions, boo
     return nil, false
   }
   return &lspCommandOptions{
-    argumentsJSON:   *argumentsJSON,
-    command:         *command,
-    contextJSON:     *contextJSON,
-    contentStdin:    *contentStdin,
-    cwd:             resolvedCwd,
-    pluginsJSON:     *pluginsJSON,
-    rangeJSON:       *rangeJSON,
-    tsconfig:        *tsconfig,
-    uri:             *uri,
-    projectIdentity: projectIdentity,
+    argumentsJSON:      *argumentsJSON,
+    command:            *command,
+    contextJSON:        *contextJSON,
+    contentStdin:       *contentStdin,
+    cwd:                resolvedCwd,
+    pluginsJSON:        *pluginsJSON,
+    rangeJSON:          *rangeJSON,
+    semanticConfigPath: os.Getenv(semanticConfigPathEnv),
+    tsconfig:           *tsconfig,
+    uri:                *uri,
+    projectIdentity:    projectIdentity,
   }, true
 }
 

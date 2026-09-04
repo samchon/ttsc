@@ -21,6 +21,7 @@ import { resolveTsgo } from "./resolveTsgo";
 import { appendBuildOutput, normalizeBuildOutput } from "./runBuild";
 import {
   assertSharedHostCompatibility,
+  clearInheritedSemanticConfigPath,
   clearInheritedTsgoArgs,
   inheritedSidecarEnv,
   linkedTransformPlugins,
@@ -622,6 +623,7 @@ function nativePluginEnv(
   // This lane forwards no tsgo argv of its own, so anything inherited belongs
   // to an outer ttsc run and must not reach these sidecars.
   clearInheritedTsgoArgs(env, options.env);
+  clearInheritedSemanticConfigPath(env, options.env);
   if (plugin?.stage === "transform") {
     const linked = linkedTransformPlugins(nativePlugins ?? []);
     if (linked.length !== 0) {
@@ -809,11 +811,9 @@ function parseGraphEdges(value: unknown): Record<string, string[]> | undefined {
  * compiler input proof. A section carrying nothing usable collapses to
  * `undefined`.
  *
- * `candidates` is the one optional member, so an empty one is left off the
- * result instead of being materialized as `{}`. The host omits the key when it
- * has no superseding candidate to report, and a consumer that narrows on the
- * declared optional type must see the same shape whether it reads the decoded
- * envelope or the wire.
+ * Optional resolver-input members are left off when empty. A consumer that
+ * narrows on their declared optional types therefore sees the same shape from
+ * the decoded envelope and the wire.
  */
 function parseReferenceGraph(
   value: unknown,
@@ -827,23 +827,34 @@ function parseReferenceGraph(
     edges?: unknown;
     globals?: unknown;
     inputHashes?: unknown;
+    inputObservations?: unknown;
     inputProofFailures?: unknown;
     inputRealpaths?: unknown;
+    resolutionInputs?: unknown;
   };
   const candidates = parseDependencyLists(section.candidates) ?? {};
   const edges = parseGraphEdges(section.edges) ?? {};
   const globals = parseFileList(section.globals) ?? [];
   const configs = parseFileList(section.configs) ?? [];
+  const resolutionInputs = parseFileList(section.resolutionInputs) ?? [];
   const inputHashes = parseGraphInputHashes(section.inputHashes);
-  const inputProofFailures = parseGraphInputProofFailures(
+  const parsedInputObservations = parseGraphInputObservations(
+    section.inputObservations,
+  );
+  const reportedInputProofFailures = parseGraphInputProofFailures(
     section.inputProofFailures,
   );
+  const inputProofFailures = {
+    ...reportedInputProofFailures,
+    ...parsedInputObservations.failures,
+  };
   const inputRealpaths = parseGraphInputRealpaths(section.inputRealpaths);
   if (
     Object.keys(candidates).length === 0 &&
     Object.keys(edges).length === 0 &&
     globals.length === 0 &&
-    configs.length === 0
+    configs.length === 0 &&
+    resolutionInputs.length === 0
   ) {
     return undefined;
   }
@@ -852,10 +863,184 @@ function parseReferenceGraph(
     configs,
     edges,
     globals,
+    ...(resolutionInputs.length === 0 ? {} : { resolutionInputs }),
     ...(inputHashes === undefined ? {} : { inputHashes }),
-    ...(inputProofFailures === undefined ? {} : { inputProofFailures }),
+    ...(parsedInputObservations.observations === undefined
+      ? {}
+      : { inputObservations: parsedInputObservations.observations }),
+    ...(Object.keys(inputProofFailures).length === 0
+      ? {}
+      : { inputProofFailures }),
     ...(inputRealpaths === undefined ? {} : { inputRealpaths }),
   };
+}
+
+/**
+ * Parse graph-keyed predicate observations and retain malformed entries as
+ * failures.
+ */
+function parseGraphInputObservations(value: unknown): {
+  failures?: Record<string, string>;
+  observations?: Record<string, ITtscCompilerTransformation.IInputObservation>;
+} {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return {};
+  }
+  const failures: Record<string, string> = {};
+  const observations: Record<
+    string,
+    ITtscCompilerTransformation.IInputObservation
+  > = {};
+  for (const [file, entry] of Object.entries(value)) {
+    if (file.length === 0) continue;
+    const parsed = parseGraphInputObservation(entry);
+    if (parsed === "malformed" || parsed === "conflicting") {
+      failures[file] = `${parsed}-observation`;
+    } else {
+      observations[file] = parsed;
+    }
+  }
+  return {
+    ...(Object.keys(failures).length === 0 ? {} : { failures }),
+    ...(Object.keys(observations).length === 0 ? {} : { observations }),
+  };
+}
+
+/** Parse one predicate observation without guessing around a malformed member. */
+function parseGraphInputObservation(
+  value: unknown,
+): ITtscCompilerTransformation.IInputObservation | "conflicting" | "malformed" {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return "malformed";
+  }
+  const entry = value as Record<string, unknown>;
+  const observation: ITtscCompilerTransformation.IInputObservation = {};
+  if (Object.prototype.hasOwnProperty.call(entry, "accessibleEntries")) {
+    const accessible = entry.accessibleEntries;
+    if (
+      typeof accessible !== "object" ||
+      accessible === null ||
+      Array.isArray(accessible)
+    ) {
+      return "malformed";
+    }
+    const lists = accessible as Record<string, unknown>;
+    if (
+      !Array.isArray(lists.directories) ||
+      !lists.directories.every(
+        (name): name is string => typeof name === "string",
+      ) ||
+      !Array.isArray(lists.files) ||
+      !lists.files.every((name): name is string => typeof name === "string")
+    ) {
+      return "malformed";
+    }
+    observation.accessibleEntries = {
+      directories: [...lists.directories],
+      files: [...lists.files],
+    };
+  }
+  if (Object.prototype.hasOwnProperty.call(entry, "fileExists")) {
+    if (typeof entry.fileExists !== "boolean") return "malformed";
+    observation.fileExists = entry.fileExists;
+  }
+  if (Object.prototype.hasOwnProperty.call(entry, "directoryExists")) {
+    if (typeof entry.directoryExists !== "boolean") return "malformed";
+    observation.directoryExists = entry.directoryExists;
+  }
+  if (Object.prototype.hasOwnProperty.call(entry, "stat")) {
+    if (!["directory", "file", "missing"].includes(entry.stat as string)) {
+      return "malformed";
+    }
+    observation.stat = entry.stat as "directory" | "file" | "missing";
+  }
+  if (Object.prototype.hasOwnProperty.call(entry, "readFile")) {
+    const read = entry.readFile;
+    if (typeof read !== "object" || read === null || Array.isArray(read)) {
+      return "malformed";
+    }
+    const result = read as Record<string, unknown>;
+    if (result.ok === false && result.hash === undefined) {
+      observation.readFile = { ok: false };
+    } else if (
+      result.ok === true &&
+      typeof result.hash === "string" &&
+      /^[0-9a-f]{64}$/.test(result.hash)
+    ) {
+      observation.readFile = { hash: result.hash, ok: true };
+    } else {
+      return "malformed";
+    }
+  }
+  if (Object.prototype.hasOwnProperty.call(entry, "realpath")) {
+    const realpath = entry.realpath;
+    if (
+      typeof realpath !== "object" ||
+      realpath === null ||
+      Array.isArray(realpath)
+    ) {
+      return "malformed";
+    }
+    const result = realpath as Record<string, unknown>;
+    if (result.ok === false && result.path === undefined) {
+      observation.realpath = { ok: false };
+    } else if (
+      result.ok === true &&
+      typeof result.path === "string" &&
+      path.isAbsolute(result.path)
+    ) {
+      observation.realpath = { ok: true, path: path.resolve(result.path) };
+    } else {
+      return "malformed";
+    }
+  }
+  if (Object.keys(observation).length === 0) return "malformed";
+  return graphInputObservationCompatible(observation)
+    ? observation
+    : "conflicting";
+}
+
+/** Whether one predicate set can describe a single stable filesystem state. */
+function graphInputObservationCompatible(
+  observation: ITtscCompilerTransformation.IInputObservation,
+): boolean {
+  const { accessibleEntries, directoryExists, fileExists, readFile, stat } =
+    observation;
+  const hasAccessibleEntries =
+    accessibleEntries !== undefined &&
+    (accessibleEntries.directories.length !== 0 ||
+      accessibleEntries.files.length !== 0);
+  if (
+    hasAccessibleEntries &&
+    (fileExists === true ||
+      directoryExists === false ||
+      (stat !== undefined && stat !== "directory") ||
+      readFile?.ok === true)
+  ) {
+    return false;
+  }
+  if (fileExists === true && directoryExists === true) return false;
+  if (
+    stat === "directory" &&
+    (fileExists === true || directoryExists === false)
+  ) {
+    return false;
+  }
+  if (stat === "file" && (fileExists === false || directoryExists === true)) {
+    return false;
+  }
+  if (stat === "missing" && (fileExists === true || directoryExists === true)) {
+    return false;
+  }
+  if (
+    readFile?.ok === true &&
+    (fileExists === false ||
+      directoryExists === true ||
+      (stat !== undefined && stat !== "file"))
+  ) {
+    return false;
+  }
+  return true;
 }
 
 /** Parse graph-keyed machine-readable compiler proof-failure reasons. */

@@ -56,10 +56,8 @@ const LANES = [
       "pnpm --filter @ttsc/playground build && " +
       "pnpm --filter @ttsc/graph exec rimraf lib && " +
       "pnpm --filter @ttsc/graph exec tsc --emitDeclarationOnly && " +
-      "pnpm --filter ttsc exec rimraf lib && " +
-      "pnpm --filter ttsc exec tsc --emitDeclarationOnly && " +
-      "pnpm --filter @ttsc/unplugin exec rimraf lib && " +
-      "pnpm --filter @ttsc/unplugin exec tsc --emitDeclarationOnly",
+      "pnpm --filter ttsc build && " +
+      "pnpm --filter @ttsc/unplugin build",
     run:
       "pnpm run check:flags && pnpm run check:dependencies && " +
       "node --test packages/ttsc/scripts/check-flags.test.cjs && " +
@@ -68,7 +66,10 @@ const LANES = [
       "scripts/ci/dependency-audit.test.cjs " +
       "scripts/ci/config-loader-copies.test.cjs " +
       "scripts/ci/gofmt-wrapper.test.cjs && " +
-      "node scripts/ci/format-check.cjs && pnpm run test:typecheck",
+      "node --test scripts/ci/unplugin-test-contract.test.cjs && " +
+      "node scripts/ci/format-check.cjs && " +
+      "pnpm --filter @ttsc/test-unplugin unit && " +
+      "pnpm run test:typecheck",
   },
   {
     id: "package-defenses",
@@ -125,22 +126,6 @@ const LANES = [
       "native-plugins/utility-host",
     ],
   },
-  // Every other lane runs the current Node, so the floor `engines.node`
-  // declares is checked only here. The cases this names are the ones whose
-  // behaviour the runtime itself changed between that floor and the current
-  // release: each passes on the newer Node whatever ttsx does, so only this
-  // lane can tell a working hook from one the runtime happened to cover.
-  {
-    id: "ttsx-node-22",
-    name: "ttsx node 22.15",
-    node: "22.15.0",
-    build: "pnpm --filter ttsc build",
-    run:
-      "pnpm --filter @ttsc/test-ttsc start -- " +
-      "--include=commonjs_loads_prefix_only_node_builtins " +
-      "--include=commonjs_require_rescues_a_js_specifier_inside_a_dynamic_import",
-    dirs: ["features/ttsx-runtime"],
-  },
   {
     id: "lint-1",
     name: "lint defense 1",
@@ -179,7 +164,7 @@ const LANES = [
     scope: "test-metro",
     build: "pnpm run build:current",
     run:
-      "pnpm --filter @ttsc/test-unplugin start && " +
+      "pnpm --filter @ttsc/test-unplugin integration && " +
       "pnpm --filter @ttsc/test-metro start",
   },
   {
@@ -189,20 +174,22 @@ const LANES = [
     needsGo: true,
     scope: "test-metro",
     build: "pnpm run build:current",
-    // The project-membership family only, not the whole suite, because what
-    // this lane exists for is the Windows-only half of the adapter: the
+    // The project-membership family plus the cheap predicate matrix, not the
+    // whole suite. The lane owns the Windows-only half of the adapter: the
     // mutation broker, a child process that watches canonical directory
     // spellings while everything else speaks the walk's own, and short 8.3
     // temp paths, which make those two names for one directory share no common
-    // prefix at all. Every other lane runs this suite on Linux, where that
-    // branch is dead code and a defect in it is invisible
-    // (samchon/ttsc#1307).
+    // prefix at all. It also proves that a POSIX filesystem supplied to a
+    // Windows host keeps POSIX path semantics. Every other lane runs these
+    // cases on Linux, where those branches are invisible (samchon/ttsc#1307,
+    // samchon/ttsc#1324).
     run:
       "pnpm --filter @ttsc/test-unplugin start -- " +
       "--include=membership --include=output_directory --include=the_walk " +
       "--include=new_source " +
       "--include=persistent_host --include=hashed_bundle --include=allowjs " +
-      "--include=non_source_host_inputs --include=policy_reports && " +
+      "--include=non_source_host_inputs --include=policy_reports " +
+      "--include=predicate_proofs && " +
       // `packages/metro/**` selects this lane, so it has to run metro's own
       // walk-facing cases rather than only the adapter's. There is no
       // Windows-only branch in `@ttsc/metro` itself; what these cases add is
@@ -210,7 +197,7 @@ const LANES = [
       // and folds the project walk into a cache key, so they exercise that
       // reader over Windows path spellings from the consumer's side.
       "pnpm --filter @ttsc/test-metro start -- " +
-      "--include=cache_key --include=records_only_external " +
+      "--include=cache_key --include=records_implicit_dependency_guards " +
       "--include=records_linked --include=adapters_policy",
   },
   {
@@ -243,7 +230,6 @@ const E2E_LANE_IDS = [
   "package-defenses",
   "ttsc-core",
   "ttsc-native",
-  "ttsx-node-22",
   ...LINT_LANE_IDS,
   "bundler-defenses",
   "bundler-defenses-windows",
@@ -256,7 +242,6 @@ const TTSC_DOWNSTREAM_IDS = [
   "package-defenses",
   "ttsc-core",
   "ttsc-native",
-  "ttsx-node-22",
   ...LINT_LANE_IDS,
   "bundler-defenses",
   "bundler-defenses-windows",
@@ -349,12 +334,17 @@ const WORKFLOW_PATHS = {
     "scripts/go-wasm-exec.cjs",
     "scripts/platform-target.cjs",
     "packages/**",
+    "!packages/unplugin/**",
     "package.json",
     "pnpm-lock.yaml",
     "pnpm-workspace.yaml",
   ],
-  nestia: integrationPaths("nestia"),
-  typia: integrationPaths("typia"),
+  nestia: integrationPaths("nestia").filter(
+    (entry) => entry !== "packages/unplugin/**",
+  ),
+  typia: integrationPaths("typia").filter(
+    (entry) => entry !== "packages/unplugin/**",
+  ),
   website: [
     ".github/workflows/website.yml",
     "config/**",
@@ -373,11 +363,15 @@ const WORKFLOW_PATHS = {
 };
 
 const PLATFORM_INTEGRATION_PATHS = {
-  bun: integrationSurfacePaths("experimental/test-unplugin/**"),
-  experimental: integrationSurfacePaths(
-    "experimental/install/**",
-    "experimental/test-unplugin/**",
+  bun: withoutUnpluginSurface(
+    integrationSurfacePaths(
+      "tests/test-ttsc/src/features/project/test_loadprojectplugins_tracks_bun_esm_descriptor_dependencies.ts",
+    ),
   ),
+  experimental: withoutUnpluginSurface(
+    integrationSurfacePaths("experimental/install/**"),
+  ),
+  unpluginE2e: integrationSurfacePaths("experimental/test-unplugin/**"),
   pluginCache: [
     "scripts/build-current.cjs",
     "scripts/build-platform-package.cjs",
@@ -393,7 +387,9 @@ const PLATFORM_INTEGRATION_PATHS = {
     "pnpm-lock.yaml",
     "pnpm-workspace.yaml",
   ],
-  sourceMap: integrationSurfacePaths("experimental/source-map/**"),
+  sourceMap: withoutUnpluginSurface(
+    integrationSurfacePaths("experimental/source-map/**"),
+  ),
   vscode: [
     "config/**",
     "packages/vscode/**",
@@ -441,6 +437,11 @@ function integrationSurfacePaths(...harnesses) {
   ];
 }
 
+/** Remove the package that only the packed unplugin rehearsal consumes. */
+function withoutUnpluginSurface(entries) {
+  return entries.filter((entry) => entry !== "packages/unplugin/**");
+}
+
 /**
  * Compute the expensive validation selected by a set of repository paths.
  *
@@ -459,6 +460,10 @@ function planForPaths(files) {
     experimental: matchesAnyPath(
       normalized,
       PLATFORM_INTEGRATION_PATHS.experimental,
+    ),
+    unpluginE2e: matchesAnyPath(
+      normalized,
+      PLATFORM_INTEGRATION_PATHS.unpluginE2e,
     ),
     pluginCache: matchesAnyPath(
       normalized,
@@ -684,6 +689,7 @@ function planForPaths(files) {
         "scripts/ci/plugin-cache-persistence.mjs",
         "scripts/ci/test-owners.cjs",
         "scripts/ci/test-owners.test.cjs",
+        "scripts/ci/unplugin-test-contract.test.cjs",
       ].includes(file)
     ) {
       continue;
@@ -723,8 +729,6 @@ function planForPaths(files) {
 
 function planTtscTest(file) {
   if (file.includes("/features/watch/")) return { lanes: [], watch: true };
-  if (file.endsWith("/test_ttsx_commonjs_loads_prefix_only_node_builtins.ts"))
-    return { lanes: ["ttsc-core", "ttsx-node-22"], watch: false };
   if (file.includes("/features/"))
     return { lanes: ["ttsc-core"], watch: false };
   for (const lane of LANES.filter((item) => item.id.startsWith("ttsc-"))) {
@@ -769,6 +773,7 @@ function fullPlan(reason) {
   return createPlan(new Set(FULL_LANE_IDS), true, [reason], {
     bun: true,
     experimental: true,
+    unpluginE2e: true,
     pluginCache: true,
     sourceMap: true,
     vscode: true,
@@ -782,6 +787,7 @@ function createPlan(selected, watch, reasons, integrations) {
   const platform = createPlatformPlan({
     bun: integrations.bun,
     experimental: integrations.experimental,
+    unpluginE2e: integrations.unpluginE2e,
     pluginCache: integrations.pluginCache,
     sourceMap: integrations.sourceMap,
     vscode: integrations.vscode,
@@ -810,6 +816,7 @@ function createPlatformPlan(tasks) {
         (row.os === "linux" || row.os === "win32");
       const sourceMap =
         tasks.sourceMap && row.representative && row.os === "linux";
+      const unpluginE2e = tasks.unpluginE2e && row.name === "linux-x64";
       const vscode = tasks.vscode && row.representative;
       const watch = tasks.watch && row.representative;
       const build = !tasks.experimental && (watch || pluginCache);
@@ -822,10 +829,16 @@ function createPlatformPlan(tasks) {
         build_scope: watch ? "experimental" : "plugin-cache",
         experimental: tasks.experimental,
         needs_go:
-          tasks.experimental || bun || pluginCache || sourceMap || watch,
+          tasks.experimental ||
+          unpluginE2e ||
+          bun ||
+          pluginCache ||
+          sourceMap ||
+          watch,
         plugin_cache: pluginCache,
-        setup_bun: bun || (pluginCache && row.os === "linux"),
+        setup_bun: bun || unpluginE2e || (pluginCache && row.os === "linux"),
         source_map: sourceMap,
+        unplugin_e2e: unpluginE2e,
         watch,
         vscode,
       };
@@ -836,6 +849,7 @@ function createPlatformPlan(tasks) {
         row.bun ||
         row.plugin_cache ||
         row.source_map ||
+        row.unplugin_e2e ||
         row.watch ||
         row.vscode,
     );
@@ -852,7 +866,6 @@ function workflowLane(lane) {
     id: lane.id,
     name: lane.name,
     os: lane.os ?? "ubuntu-latest",
-    node: lane.node ?? "24.x",
     needsGo: lane.needsGo ?? false,
     build: lane.build ?? "",
     run: lane.run,

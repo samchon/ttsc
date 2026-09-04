@@ -1,18 +1,19 @@
 import fs from "node:fs";
 import path from "node:path";
+import type { ITtscCompilerTransformation } from "ttsc";
 
-import { pathIdentityKey } from "./transform";
+import { pathIdentityKey, validateGraphInputObservation } from "./transform";
 
 /**
- * How often each registered missing watch input is stat-polled, in
+ * How often each registered Vite-unsafe input is predicate-polled, in
  * milliseconds.
  *
  * Polling is the only watch primitive that covers the whole class: the dev
  * server's chokidar watcher ignores every `node_modules` directory, which is
  * exactly where superseding resolution candidates usually live, and `fs.watch`
  * cannot observe a path whose parent directories do not exist yet. One `stat`
- * every half second per missing path is negligible against a dev server's
- * baseline.
+ * every half second per unavailable path is negligible against a dev server's
+ * baseline. Rich inputs replay only the predicates the compiler recorded.
  */
 const MISSING_INPUT_POLL_INTERVAL = 500;
 
@@ -55,24 +56,23 @@ export interface ViteDevServerLike {
 }
 
 /**
- * Filesystem watch for derived watch inputs that do not exist while a Vite dev
- * server is running.
+ * Filesystem watch for derived watch inputs that Vite cannot safely register as
+ * added imports while a development server is running.
  *
  * Vite serve treats every transform-context `addWatchFile()` registration as an
  * added import: `TransformPluginContext.addWatchFile` stores the path in
  * `_addedImports`, and `vite:import-analysis` resolves each entry like a real
- * import of the transformed module. A missing path — a superseding resolution
- * candidate or a plugin-reported dependency that is not generated yet — then
- * fails that resolve and turns the importer's first request into a 500, even
- * though the transform itself succeeded.
+ * import of the transformed module. A missing path or an existing directory
+ * that failed a compiler file predicate then fails that resolve and turns the
+ * importer's first request into a 500, even though the transform succeeded.
  *
  * This registry is the serve-only replacement for those registrations. Each
- * missing path is stat-polled; when it is created, every importer that
- * registered it is invalidated in the server's module graphs and one
- * full-reload is sent, so the next request retransforms the importer against
- * the new resolution winner. The project transform cache re-validates through
- * its external-input hashes (a recorded `missing` marker differs from a content
- * hash), so the retransform recompiles instead of replaying.
+ * path is polled until its exact compiler predicate observation changes; legacy
+ * envelopes retain their exists-or-file availability check. Its importers are
+ * then invalidated in the server's module graphs and one full-reload is sent,
+ * so the next request retransforms against the new resolution winner. The
+ * project transform cache re-validates the compiler observation, so the
+ * retransform recompiles instead of replaying.
  */
 export interface ViteServeMissingInputWatch {
   /** Adopt the dev server whose module graphs creation events invalidate. */
@@ -86,32 +86,57 @@ export interface ViteServeMissingInputWatch {
    * config's `command`, as the adapter does.
    */
   serving(): boolean;
-  /**
-   * Register one missing watch input derived for `importer`.
-   *
-   * `identity` is the filesystem identity the transform generation already
-   * resolved for `input`. Resolving it here instead costs a `realpath` and a
-   * case-sensitivity directory listing per input per delivery, because a
-   * per-call identity context memoizes nothing (samchon/ttsc#1246).
-   */
-  watch(input: string, importer: string, identity?: string): void;
+  /** Register one unsafe watch input and its exact recorded condition. */
+  watch(
+    input: string,
+    importer: string,
+    condition: ViteServeInputWatchCondition,
+  ): void;
 }
 
-/** Poll bookkeeping for one registered missing path. */
+/** A legacy availability condition or an exact compiler predicate proof. */
+export type ViteServeInputWatchCondition =
+  | "exists"
+  | "file"
+  | ITtscCompilerTransformation.IInputObservation;
+
+/** Poll bookkeeping for one registered unsafe path. */
 interface IMissingInputEntry {
+  condition: ViteServeInputWatchCondition;
   importers: Set<string>;
-  listener: (current: fs.Stats) => void;
   spelling: string;
 }
 
 /** Create an empty missing-input watch for one plugin instance. */
 export function createViteServeMissingInputWatch(): ViteServeMissingInputWatch {
   const entries = new Map<string, IMissingInputEntry>();
+  let poller: NodeJS.Timeout | undefined;
   let server: ViteDevServerLike | undefined;
 
-  const unwatch = (identity: string, entry: IMissingInputEntry): void => {
-    fs.unwatchFile(entry.spelling, entry.listener);
-    entries.delete(identity);
+  const stopPollingIfEmpty = (): void => {
+    if (entries.size !== 0 || poller === undefined) {
+      return;
+    }
+    clearInterval(poller);
+    poller = undefined;
+  };
+  const poll = (): void => {
+    const importers = new Set<string>();
+    for (const [identity, entry] of entries) {
+      if (!viteServeInputWatchConditionChanged(entry)) {
+        continue;
+      }
+      entries.delete(identity);
+      for (const importer of entry.importers) {
+        importers.add(importer);
+      }
+    }
+    stopPollingIfEmpty();
+    if (server === undefined || importers.size === 0) {
+      return;
+    }
+    invalidateImporters(server, importers);
+    sendFullReload(server);
   };
 
   return {
@@ -119,8 +144,10 @@ export function createViteServeMissingInputWatch(): ViteServeMissingInputWatch {
       server = next;
     },
     dispose() {
-      for (const [identity, entry] of entries) {
-        unwatch(identity, entry);
+      entries.clear();
+      if (poller !== undefined) {
+        clearInterval(poller);
+        poller = undefined;
       }
       // The server reference deliberately survives: `vite.restartServer`
       // configures the replacement server (attach) before it closes the old
@@ -132,58 +159,82 @@ export function createViteServeMissingInputWatch(): ViteServeMissingInputWatch {
     serving() {
       return server !== undefined;
     },
-    watch(input, importer, resolved) {
+    watch(input, importer, condition) {
       const spelling = path.resolve(input);
-      const identity = resolved ?? pathIdentityKey(spelling);
+      const identity = viteServeMissingInputWatchKey(spelling, condition);
       const existing = entries.get(identity);
       if (existing !== undefined) {
         existing.importers.add(path.resolve(importer));
         return;
       }
-      const entry: IMissingInputEntry = {
+      entries.set(identity, {
+        condition,
         importers: new Set([path.resolve(importer)]),
-        listener: (current) => {
-          // `fs.watchFile` reports a missing path as zeroed stats (and fires
-          // once with them right after registration); only a poll that
-          // observes a real file is a creation event.
-          if (current.mtimeMs === 0 && !fs.existsSync(entry.spelling)) {
-            return;
-          }
-          unwatch(identity, entry);
-          if (server === undefined) {
-            return;
-          }
-          invalidateImporters(server, entry.importers);
-          sendFullReload(server);
-        },
         spelling,
-      };
-      entries.set(identity, entry);
-      const watcher = fs.watchFile(
-        spelling,
-        { interval: MISSING_INPUT_POLL_INTERVAL },
-        entry.listener,
-      );
-      // A poller must never keep the dev-server process alive on its own.
-      watcher.unref?.();
-      // `fs.watchFile` snapshots the path's stats at registration and fires
-      // only on a subsequent change, so a file created between the adapter's
-      // existence check and this registration would count as "unchanged" and
-      // never fire. One deferred recheck closes that window; routing through
-      // the listener keeps a single finalization path.
-      const recheck = setTimeout(() => {
-        if (entries.get(identity) !== entry) {
-          return;
-        }
-        try {
-          entry.listener(fs.statSync(entry.spelling));
-        } catch {
-          // Still missing (or deleted again): the ordinary poll stays armed.
-        }
-      }, MISSING_INPUT_POLL_INTERVAL);
-      recheck.unref?.();
+      });
+      if (poller === undefined) {
+        poller = setInterval(poll, MISSING_INPUT_POLL_INTERVAL);
+        // A poller must never keep the dev-server process alive on its own.
+        poller.unref?.();
+      }
     },
   };
+}
+
+/** Key a private poll by predicate and exact lexical spelling. */
+export function viteServeMissingInputWatchKey(
+  input: string,
+  condition: ViteServeInputWatchCondition,
+): string {
+  // Missing aliases can share a physical parent now and later retarget or
+  // diverge. Neither predicate may let one lexical spelling answer for another.
+  const predicate =
+    typeof condition === "string"
+      ? condition
+      : `predicates:${JSON.stringify([
+          condition.accessibleEntries === undefined
+            ? null
+            : [
+                condition.accessibleEntries.directories,
+                condition.accessibleEntries.files,
+              ],
+          condition.directoryExists ?? null,
+          condition.fileExists ?? null,
+          condition.readFile === undefined
+            ? null
+            : condition.readFile.ok
+              ? [true, condition.readFile.hash]
+              : [false],
+          condition.realpath === undefined
+            ? null
+            : condition.realpath.ok
+              ? [true, condition.realpath.path]
+              : [false],
+          condition.stat ?? null,
+        ])}`;
+  return `${predicate}:${path.resolve(input)}`;
+}
+
+/** Whether one registered condition no longer describes its lexical path. */
+function viteServeInputWatchConditionChanged(
+  entry: IMissingInputEntry,
+): boolean {
+  if (typeof entry.condition !== "string") {
+    return (
+      validateGraphInputObservation(entry.spelling, entry.condition).length !==
+      0
+    );
+  }
+  try {
+    if (!fs.existsSync(entry.spelling)) {
+      return false;
+    }
+    return (
+      entry.condition === "exists" || !fs.statSync(entry.spelling).isDirectory()
+    );
+  } catch {
+    return false;
+  }
 }
 
 /**

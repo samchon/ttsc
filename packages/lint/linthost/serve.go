@@ -80,9 +80,10 @@ func (c *residentProgramCache) acquire(
     }
   }
   prog, diags, err := loadProgram(opts.cwd, opts.tsconfig, loadProgramOptions{
-    forceNoEmit:      true,
-    needsRuleChecker: needsChecker,
-    projectIdentity:  opts.projectIdentity,
+    forceNoEmit:        true,
+    needsRuleChecker:   needsChecker,
+    projectIdentity:    opts.projectIdentity,
+    semanticConfigPath: opts.semanticConfigPath,
   })
   if err != nil {
     return nil, nil, noopClose, err
@@ -172,9 +173,10 @@ func acquireProgram(
     return residentPrograms.acquire(opts, needsChecker)
   }
   prog, diags, err := loadProgram(opts.cwd, opts.tsconfig, loadProgramOptions{
-    forceNoEmit:      true,
-    needsRuleChecker: needsChecker,
-    projectIdentity:  opts.projectIdentity,
+    forceNoEmit:        true,
+    needsRuleChecker:   needsChecker,
+    projectIdentity:    opts.projectIdentity,
+    semanticConfigPath: opts.semanticConfigPath,
   })
   if prog == nil {
     return prog, diags, noopClose, err

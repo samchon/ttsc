@@ -6,7 +6,10 @@
 // primitives without exposing the full internal surface.
 package core
 
-import innercore "github.com/microsoft/typescript-go/internal/core"
+import (
+  innercore "github.com/microsoft/typescript-go/internal/core"
+  innersemver "github.com/microsoft/typescript-go/internal/semver"
+)
 
 // CompilerOptions holds the parsed tsconfig compiler options passed to the
 // TypeScript-Go program host.
@@ -95,6 +98,17 @@ const (
 // the same form `tsc --version` prints. A graph snapshot publishes it so a
 // consumer can tell which checker resolved the facts it is reading.
 func Version() string { return innercore.Version() }
+
+// TypeScriptVersionSatisfiesRange reports whether the compiler's own version
+// satisfies a typesVersions range under TypeScript-Go's semver grammar.
+func TypeScriptVersionSatisfiesRange(text string) bool {
+  versionRange, ok := innersemver.TryParseVersionRange(text)
+  if !ok {
+    return false
+  }
+  version, err := innersemver.TryParseVersion(innercore.Version())
+  return err == nil && versionRange.Test(&version)
+}
 
 // ComputeECMALineStarts applies the compiler's LF, CRLF, CR, LS, and PS line
 // model to UTF-8 source text.

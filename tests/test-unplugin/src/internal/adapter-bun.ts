@@ -1,4 +1,8 @@
-import { TestUnpluginProject, TestUnpluginRuntime } from "@ttsc/testing";
+import {
+  TestProject,
+  TestUnpluginProject,
+  TestUnpluginRuntime,
+} from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -198,7 +202,8 @@ async function assertBunRuntimePassesThroughUnchangedSource(): Promise<void> {
 }
 
 /**
- * Asserts the Bun adapter filter excludes NUL-prefixed virtual TypeScript ids.
+ * Asserts Bun registers exactly the shared source extensions, excludes virtual
+ * ids, and selects the matching TypeScript parser for every accepted spelling.
  *
  * A virtual id that reaches this callback would be treated as a filesystem
  * path. This assertion pins the filter boundary without assuming how another
@@ -206,14 +211,47 @@ async function assertBunRuntimePassesThroughUnchangedSource(): Promise<void> {
  */
 async function assertBunAdapterExcludesNulVirtualIds(): Promise<void> {
   const unpluginBun = await TestUnpluginRuntime.loadUnpluginAdapter("bun");
-  const { options } = await captureBunLoader(
+  const { loader, options } = await captureBunLoader(
     unpluginBun({ plugins: [] }),
     "runtime",
   );
 
-  assert.equal(options.filter.test("\0virtual.ts"), false);
-  assert.equal(options.filter.test("/project/src/ordinary.ts"), true);
-  assert.equal(options.filter.test("C:\\project\\src\\ordinary.tsx"), true);
+  for (const file of [
+    "ordinary.ts",
+    "ordinary.tsx",
+    "ordinary.mts",
+    "ordinary.cts",
+  ]) {
+    assert.equal(options.filter.test(`/project/src/${file}`), true, file);
+  }
+  for (const file of [
+    "ordinary.js",
+    "ordinary.jsx",
+    "ordinary.mjs",
+    "ordinary.cjs",
+    "ordinary.mtsx",
+    "ordinary.ctsx",
+    "ordinary.css",
+    "\0virtual.ts",
+  ]) {
+    assert.equal(options.filter.test(`/project/src/${file}`), false, file);
+  }
+
+  const root = TestUnpluginProject.createProject();
+  for (const [extension, expected] of [
+    [".ts", "ts"],
+    [".tsx", "tsx"],
+    [".mts", "ts"],
+    [".cts", "ts"],
+  ] as const) {
+    const file = path.join(root, `loader${extension}`);
+    const source = "export const value = 1;\n";
+    fs.writeFileSync(file, source, "utf8");
+    assert.deepEqual(await loader({ path: file }), {
+      contents: source,
+      loader: expected,
+    });
+  }
 }
 
 /**
@@ -339,17 +377,24 @@ async function assertBunAdapterYieldsToConfiguredInMemoryFiles(): Promise<void> 
 }
 
 /**
- * Asserts Bun bundler `onStart` forwards the shared transform build lifecycle.
+ * Asserts Bun bundler hooks bracket the shared transform build lifecycle.
  *
  * The first compile emits a second module but only serves `main.ts`. After
  * corrupting `main.ts`, the unchanged second module would still be a valid
  * first-use cache hit unless `onStart` opened a new delivery pass: the pass's
  * first delivery re-proves the whole generation, sees the changed input, and
  * compiles again. Ignoring the hook would leave the second module settled
- * against a generation that no longer describes the project.
+ * against a generation that no longer describes the project. The completed
+ * build then closes its generation: another unchanged build must compile once
+ * more instead of retaining the old generation and its filesystem trackers past
+ * `onEnd`.
  */
 async function assertBunAdapterRevalidatesOnBuildStart(): Promise<void> {
   const unpluginBun = await TestUnpluginRuntime.loadUnpluginAdapter("bun");
+  const runLog = path.join(
+    TestProject.tmpdir("ttsc-unplugin-bun-build-log-"),
+    "compiles.bin",
+  );
   const root = TestUnpluginProject.createProject({
     plugins: [
       {
@@ -358,28 +403,50 @@ async function assertBunAdapterRevalidatesOnBuildStart(): Promise<void> {
         operation: "echo-file",
         path: "src/secondary.ts",
       },
+      {
+        transform: "./plugin.cjs",
+        name: "runs",
+        operation: "count-runs",
+        runLog,
+      },
     ],
   });
   const secondary = path.join(root, "src", "secondary.ts");
   fs.writeFileSync(secondary, "export const secondary = 1;\n", "utf8");
+  const compiles = () => (fs.existsSync(runLog) ? fs.statSync(runLog).size : 0);
 
   let start: (() => void | Promise<void>) | undefined;
+  let end: (() => void | Promise<void>) | undefined;
   const loaders: BunLoader[] = [];
   unpluginBun().setup({
     onStart(callback: () => void | Promise<void>) {
       start = callback;
+    },
+    onEnd(callback: () => void | Promise<void>) {
+      end = callback;
     },
     onLoad(_options: BunLoadOptions, loader: BunLoader) {
       loaders.push(loader);
     },
   });
   assert.ok(start, "Bun bundler setup must register onStart when available");
+  assert.ok(end, "Bun bundler setup must register onEnd when available");
   const loader = loaders[0];
   assert.ok(loader);
 
   const first = await loader({ path: TestUnpluginProject.mainFile(root) });
   assert.ok(first);
   TestUnpluginProject.assertTransformedToPlugin(first.contents);
+  assert.equal(compiles(), 1);
+
+  await start();
+  const unchanged = await loader({ path: TestUnpluginProject.mainFile(root) });
+  assert.ok(unchanged);
+  assert.equal(
+    compiles(),
+    1,
+    "a new build pass must retain an unchanged active generation",
+  );
 
   fs.writeFileSync(
     TestUnpluginProject.mainFile(root),
@@ -391,6 +458,24 @@ async function assertBunAdapterRevalidatesOnBuildStart(): Promise<void> {
     () => loader({ path: secondary }),
     /expected export const value/,
     "the next build must compile again instead of serving the old generation",
+  );
+
+  fs.writeFileSync(
+    TestUnpluginProject.mainFile(root),
+    'export const value: string = goUpper("plugin");\nconsole.log(value);\n',
+    "utf8",
+  );
+  await start();
+  assert.ok(await loader({ path: TestUnpluginProject.mainFile(root) }));
+  assert.equal(compiles(), 2);
+
+  await end();
+  await start();
+  assert.ok(await loader({ path: TestUnpluginProject.mainFile(root) }));
+  assert.equal(
+    compiles(),
+    3,
+    "a completed Bun build must dispose its generation before the next build",
   );
 }
 

@@ -12,7 +12,6 @@ const packCurrent = process.argv.includes("--pack-current");
 const platformKey = `${process.platform}-${process.arch}`;
 const platformPackage = `@ttsc/${platformKey}`;
 const platformTarball = `ttsc-${platformKey}`;
-const currentPackageTarballs = ["banner", "lint", "paths", "strip", "unplugin"];
 const packageTarballs = ["banner", "lint", "paths", "strip"];
 const registryDependencies = ["typescript@^7.0.2"];
 
@@ -37,13 +36,13 @@ function prepareCurrentTarballs() {
   run("pnpm run build:current", root, { TTSC_BUILD_SCOPE: "experimental" });
 
   fs.mkdirSync(tarballs, { recursive: true });
-  for (const name of ["ttsc", platformTarball, ...currentPackageTarballs]) {
+  for (const name of ["ttsc", platformTarball, ...packageTarballs]) {
     fs.rmSync(path.join(tarballs, `${name}.tgz`), { force: true });
   }
 
   packPackage("ttsc", "ttsc");
   packPackage(platformTarball, platformTarball);
-  for (const name of currentPackageTarballs) {
+  for (const name of packageTarballs) {
     packPackage(name, name);
   }
 }

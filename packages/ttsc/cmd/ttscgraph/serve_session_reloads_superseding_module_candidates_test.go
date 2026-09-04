@@ -220,6 +220,32 @@ func TestServeSessionReloadsSupersedingModuleCandidates(t *testing.T) {
       }
     })
   }
+
+  t.Run("automatic_type_directory_membership", func(t *testing.T) {
+    root := t.TempDir()
+    writeGraphFile(t, filepath.Join(root, "tsconfig.json"), `{
+  "compilerOptions": { "module": "commonjs", "target": "ES2022", "types": ["*"] },
+  "files": ["src/main.ts"]
+}`)
+    writeGraphFile(t, filepath.Join(root, "src", "main.ts"), "export const value = 1;\n")
+    session, err := newGraphSession(root, "tsconfig.json")
+    if err != nil {
+      t.Fatal(err)
+    }
+    defer session.Close()
+    if _, _, _, err := session.Snapshot(); err != nil {
+      t.Fatal(err)
+    }
+
+    writeGraphFile(t, filepath.Join(root, "node_modules", "@types", "generated", "index.d.ts"), "declare const generatedAmbient: string;\n")
+    dump, mode, changed, err := session.Snapshot()
+    if err != nil {
+      t.Fatal(err)
+    }
+    if dump == nil || mode != serveModeReload || !changed {
+      t.Fatalf("automatic type package appearance = dump:%v mode:%q changed:%v", dump != nil, mode, changed)
+    }
+  })
 }
 
 func hasDumpNodeAt(dump graph.Dump, name, fileSuffix string) bool {

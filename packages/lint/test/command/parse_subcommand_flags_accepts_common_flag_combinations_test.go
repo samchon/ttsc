@@ -19,6 +19,8 @@ import (
 // 3. Assert values, booleans, and cwd normalization are preserved.
 func TestParseSubcommandFlagsAcceptsCommonFlagCombinations(t *testing.T) {
   root := t.TempDir()
+  semanticConfig := filepath.Join(root, "semantic", "tsconfig.json")
+  t.Setenv(semanticConfigPathEnv, semanticConfig)
   opts, err := parseSubcommandFlags("build", []string{
     "--cwd", root,
     "--tsconfig", "configs/tsconfig.json",
@@ -40,6 +42,9 @@ func TestParseSubcommandFlagsAcceptsCommonFlagCombinations(t *testing.T) {
   }
   if opts.tsconfig != "configs/tsconfig.json" || opts.pluginsJSON != "[]" || opts.outDir != "generated" {
     t.Fatalf("value flag mismatch: %+v", opts)
+  }
+  if opts.semanticConfigPath != semanticConfig {
+    t.Fatalf("semantic config path mismatch: want %s, got %s", semanticConfig, opts.semanticConfigPath)
   }
   if !opts.emit || opts.noEmit || !opts.quiet || !opts.verbose {
     t.Fatalf("boolean flag mismatch: %+v", opts)

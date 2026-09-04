@@ -2,6 +2,8 @@ import fs from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 
+import { TYPESCRIPT_TRANSFORM_EXTENSIONS } from "./sourceExtensions";
+
 /**
  * Read the effective `compilerOptions.paths` of a tsconfig, following its
  * `extends` chain, and absolutize every mapping target.
@@ -27,7 +29,8 @@ import path from "node:path";
 export function readEffectiveTsconfigPaths(
   tsconfig: string,
 ): Record<string, string[]> {
-  const declared = findDeclaredPaths(path.resolve(tsconfig), new Set());
+  const resolved = path.resolve(tsconfig);
+  const declared = findDeclaredPaths(resolved, new Set());
   if (declared === null) {
     return {};
   }
@@ -38,7 +41,9 @@ export function readEffectiveTsconfigPaths(
     }
     const absolute = targets
       .filter((target): target is string => typeof target === "string")
-      .map((target) => absolutizePathsTarget(declared.baseDir, target));
+      .map((target) =>
+        absolutizePathsTarget(declared.baseDir, target, path.dirname(resolved)),
+      );
     if (absolute.length !== 0) {
       output[key] = absolute;
     }
@@ -46,10 +51,58 @@ export function readEffectiveTsconfigPaths(
   return output;
 }
 
-/** Source extensions TypeScript always admits as program inputs. */
-const TYPESCRIPT_INPUT_EXTENSIONS = [".ts", ".tsx", ".mts", ".cts"];
 /** Extensions admitted only when `allowJs` widens the program. */
 const JAVASCRIPT_INPUT_EXTENSIONS = [".js", ".jsx", ".mjs", ".cjs"];
+
+/** Compiler options that exclude exactly one resolved output directory. */
+const OUTPUT_DIRECTORY_OPTIONS = ["outDir", "declarationDir"] as const;
+
+/** Scalar compiler paths TypeScript substitutes from the final config owner. */
+export const CONFIG_DIR_TEMPLATE_SCALAR_OPTIONS = [
+  "baseUrl",
+  "declarationDir",
+  "generateCpuProfile",
+  "generateTrace",
+  "outDir",
+  "outFile",
+  "rootDir",
+  "tsBuildInfoFile",
+] as const;
+
+/** List compiler paths TypeScript substitutes from the final config owner. */
+export const CONFIG_DIR_TEMPLATE_LIST_OPTIONS = [
+  "rootDirs",
+  "typeRoots",
+] as const;
+
+/** Top-level file specifications that accept the same template. */
+const CONFIG_DIR_TEMPLATE_FILE_SPECS = ["exclude", "files", "include"] as const;
+
+/** One config-chain input captured for generation-state comparison. */
+export interface ITsconfigSourceSnapshotEntry {
+  /** Exact bytes decoded as UTF-8, or `null` when a probed config is absent. */
+  contents: string | null;
+  /** Canonical absolute spelling when the input exists. */
+  path: string;
+}
+
+/**
+ * Capture the leaf config and its complete `extends` graph in one deterministic
+ * list.
+ *
+ * Transform wrappers derive configuration before the compiler reads it again.
+ * Comparing this snapshot across the compile prevents a wrapper derived from
+ * one config state from being paired with membership and output from another.
+ */
+export function readTsconfigSourceSnapshot(
+  tsconfig: string,
+): ITsconfigSourceSnapshotEntry[] {
+  const output = new Map<string, string | null>();
+  collectTsconfigSourceSnapshot(path.resolve(tsconfig), new Set(), output);
+  return [...output.entries()]
+    .sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0))
+    .map(([source, contents]) => ({ contents, path: source }));
+}
 
 /**
  * What the resolved configuration says can and cannot enter the program.
@@ -63,6 +116,22 @@ const JAVASCRIPT_INPUT_EXTENSIONS = [".js", ".jsx", ".mjs", ".cjs"];
  * dropped from the walk entirely (samchon/ttsc#1307).
  */
 export interface ITtscProjectMembershipPolicy {
+  /**
+   * Absolute directory exclusions separated by the configuration entry that
+   * contributed them.
+   *
+   * Optional for compatibility with hosts that constructed this public policy
+   * before exclusion provenance was exposed. Without it, an overlay preserves
+   * every entry in `excludedDirectories` as an explicit exclusion because
+   * silently admitting a directory is the unsafe fallback.
+   */
+  directoryExclusionOrigins?: Readonly<{
+    declarationDir?: string;
+    exclude: readonly string[];
+    outDir?: string;
+    /** Whether output options supply TypeScript's implicit default exclude. */
+    useImplicitOutputExclusions?: boolean;
+  }>;
   /** Absolute directories the resolved configuration keeps out of the program. */
   excludedDirectories: readonly string[];
   /** Lowercased extensions a file needs to be a possible program input. */
@@ -79,6 +148,23 @@ export interface ITtscProjectMembershipPolicy {
   sources: readonly string[];
 }
 
+/** Flatten provenance into the directory list consumed by the project walk. */
+function flattenDirectoryExclusionOrigins(
+  origins: NonNullable<
+    ITtscProjectMembershipPolicy["directoryExclusionOrigins"]
+  >,
+): string[] {
+  return [
+    ...(origins.useImplicitOutputExclusions === false
+      ? []
+      : OUTPUT_DIRECTORY_OPTIONS.flatMap((key) => {
+          const directory = origins[key];
+          return directory === undefined ? [] : [directory];
+        })),
+    ...origins.exclude,
+  ];
+}
+
 /**
  * The policy every project falls back to when no configuration is available.
  *
@@ -88,9 +174,13 @@ export interface ITtscProjectMembershipPolicy {
  */
 export const PERMISSIVE_PROJECT_MEMBERSHIP_POLICY: ITtscProjectMembershipPolicy =
   {
+    directoryExclusionOrigins: {
+      exclude: [],
+      useImplicitOutputExclusions: true,
+    },
     excludedDirectories: [],
     inputExtensions: [
-      ...TYPESCRIPT_INPUT_EXTENSIONS,
+      ...TYPESCRIPT_TRANSFORM_EXTENSIONS,
       ...JAVASCRIPT_INPUT_EXTENSIONS,
       ".json",
     ],
@@ -105,8 +195,8 @@ export const PERMISSIVE_PROJECT_MEMBERSHIP_POLICY: ITtscProjectMembershipPolicy 
  * program at all, so a `bundle.a1b2c3.js` emitted beside the sources is not a
  * membership change for a project that admits no JavaScript. `outDir`,
  * `declarationDir`, and the plain entries of `exclude` name the directories the
- * program does not contain, which is where a bundler's own output lives in
- * every project that configures one.
+ * program does not contain. TypeScript supplies the two output directories as
+ * implicit exclusions only when no top-level `exclude` replaces that default.
  *
  * A glob in `exclude` is skipped rather than approximated. Failing to exclude
  * costs a walk; excluding the wrong tree hides real sources, and this function
@@ -132,7 +222,7 @@ export function readProjectMembershipPolicy(
       sources,
     )?.value === true;
 
-  const inputExtensions = [...TYPESCRIPT_INPUT_EXTENSIONS];
+  const inputExtensions = [...TYPESCRIPT_TRANSFORM_EXTENSIONS];
   if (flag("allowJs")) {
     inputExtensions.push(...JAVASCRIPT_INPUT_EXTENSIONS);
   }
@@ -140,48 +230,85 @@ export function readProjectMembershipPolicy(
     inputExtensions.push(".json");
   }
 
-  const excludedDirectories: string[] = [];
-  for (const key of ["outDir", "declarationDir"]) {
+  const directoryExclusionOrigins: {
+    declarationDir?: string;
+    exclude: string[];
+    outDir?: string;
+    useImplicitOutputExclusions: boolean;
+  } = { exclude: [], useImplicitOutputExclusions: true };
+  for (const key of OUTPUT_DIRECTORY_OPTIONS) {
     const declared = findDeclaredValue(
       resolved,
       (parsed) => {
-        const value = (parsed as { compilerOptions?: Record<string, unknown> })
-          .compilerOptions?.[key];
-        return typeof value === "string" && value.length !== 0
-          ? value
+        const options = (
+          parsed as { compilerOptions?: Record<string, unknown> }
+        ).compilerOptions;
+        if (
+          options === undefined ||
+          !Object.prototype.hasOwnProperty.call(options, key)
+        ) {
+          return undefined;
+        }
+        const value = options[key];
+        return typeof value === "string" || value === null
+          ? { value }
           : undefined;
       },
       new Set(),
       sources,
     );
-    if (declared !== null) {
-      excludedDirectories.push(path.resolve(declared.baseDir, declared.value));
+    if (declared !== null && declared.value.value !== null) {
+      directoryExclusionOrigins[key] = resolveConfigDirTemplatePath(
+        declared.baseDir,
+        declared.value.value,
+        path.dirname(resolved),
+      );
     }
   }
   const excluded = findDeclaredValue(
     resolved,
     (parsed) => {
-      const value = (parsed as { exclude?: unknown }).exclude;
-      return Array.isArray(value) ? value : undefined;
+      if (!Object.prototype.hasOwnProperty.call(parsed, "exclude")) {
+        return undefined;
+      }
+      return { value: (parsed as { exclude?: unknown }).exclude };
     },
     new Set(),
     sources,
   );
-  if (excluded !== null) {
-    for (const entry of excluded.value) {
+  directoryExclusionOrigins.useImplicitOutputExclusions =
+    excluded === null || excluded.value.value === null;
+  if (excluded !== null && Array.isArray(excluded.value.value)) {
+    for (const entry of excluded.value.value) {
       if (typeof entry !== "string" || entry.length === 0) {
         continue;
       }
       // `dist/**` names exactly one directory; `**/*.spec.ts` names a set this
       // walk cannot evaluate without a matcher, so it is left in.
-      const plain = entry.endsWith("/**") ? entry.slice(0, -3) : entry;
+      const normalizedEntry = normalizeTypeScriptPathSeparators(entry);
+      const plain = normalizedEntry.endsWith("/**")
+        ? normalizedEntry.slice(0, -3)
+        : normalizedEntry;
       if (plain.length === 0 || /[*?]/.test(plain)) {
         continue;
       }
-      excludedDirectories.push(path.resolve(excluded.baseDir, plain));
+      directoryExclusionOrigins.exclude.push(
+        resolveConfigDirTemplatePath(
+          excluded.baseDir,
+          plain,
+          path.dirname(resolved),
+        ),
+      );
     }
   }
-  return { excludedDirectories, inputExtensions, sources: [...sources] };
+  return {
+    directoryExclusionOrigins,
+    excludedDirectories: flattenDirectoryExclusionOrigins(
+      directoryExclusionOrigins,
+    ),
+    inputExtensions,
+    sources: [...sources],
+  };
 }
 
 /**
@@ -215,18 +342,154 @@ export function mergeMembershipPolicyOverlay(
   applyFlag("allowJs", JAVASCRIPT_INPUT_EXTENSIONS);
   applyFlag("resolveJsonModule", [".json"]);
 
-  const excludedDirectories = [...policy.excludedDirectories];
-  for (const key of ["outDir", "declarationDir"]) {
+  const inheritedOrigins = policy.directoryExclusionOrigins;
+  const directoryExclusionOrigins: {
+    declarationDir?: string;
+    exclude: string[];
+    outDir?: string;
+    useImplicitOutputExclusions: boolean;
+  } = {
+    declarationDir: inheritedOrigins?.declarationDir,
+    exclude: [...(inheritedOrigins?.exclude ?? policy.excludedDirectories)],
+    outDir: inheritedOrigins?.outDir,
+    useImplicitOutputExclusions:
+      inheritedOrigins?.useImplicitOutputExclusions ?? true,
+  };
+  for (const key of OUTPUT_DIRECTORY_OPTIONS) {
     const value = compilerOptions[key];
-    if (typeof value === "string" && value.length !== 0) {
-      excludedDirectories.push(path.resolve(baseDir, value));
+    if (value === null) {
+      delete directoryExclusionOrigins[key];
+    } else if (typeof value === "string") {
+      directoryExclusionOrigins[key] = resolveConfigDirTemplatePath(
+        baseDir,
+        value,
+      );
     }
   }
   return {
-    excludedDirectories,
+    directoryExclusionOrigins,
+    excludedDirectories: flattenDirectoryExclusionOrigins(
+      directoryExclusionOrigins,
+    ),
     inputExtensions: [...inputExtensions],
     sources: policy.sources,
   };
+}
+
+/**
+ * Materialize inherited compiler paths whose `${configDir}` owner would move
+ * when a generated wrapper becomes the final config in the chain.
+ *
+ * Only template-bearing options are returned. Ordinary inherited paths are
+ * already made absolute while TypeScript parses their declaring config, while
+ * template paths deliberately survive until the final consumer is known.
+ */
+export function readEffectiveTsconfigTemplateCompilerOptions(
+  tsconfig: string,
+): Record<string, unknown> {
+  const resolved = path.resolve(tsconfig);
+  const configDir = path.dirname(resolved);
+  const output: Record<string, unknown> = {};
+  for (const key of CONFIG_DIR_TEMPLATE_SCALAR_OPTIONS) {
+    const declared = findDeclaredCompilerOption(resolved, key);
+    if (
+      declared !== null &&
+      typeof declared.value === "string" &&
+      startsWithConfigDirTemplate(declared.value)
+    ) {
+      output[key] = resolveConfigDirTemplatePath(
+        declared.baseDir,
+        declared.value,
+        configDir,
+      );
+    }
+  }
+  for (const key of CONFIG_DIR_TEMPLATE_LIST_OPTIONS) {
+    const declared = findDeclaredCompilerOption(resolved, key);
+    if (
+      declared !== null &&
+      Array.isArray(declared.value) &&
+      declared.value.some(
+        (entry) =>
+          typeof entry === "string" && startsWithConfigDirTemplate(entry),
+      )
+    ) {
+      output[key] = declared.value.map((entry) =>
+        typeof entry === "string"
+          ? resolveConfigDirTemplatePath(declared.baseDir, entry, configDir)
+          : entry,
+      );
+    }
+  }
+
+  const declaredPaths = findDeclaredPaths(resolved, new Set());
+  if (
+    declaredPaths !== null &&
+    Object.values(declaredPaths.paths).some(
+      (targets) =>
+        Array.isArray(targets) &&
+        targets.some(
+          (target) =>
+            typeof target === "string" && startsWithConfigDirTemplate(target),
+        ),
+    )
+  ) {
+    output.paths = Object.fromEntries(
+      Object.entries(declaredPaths.paths).map(([key, targets]) => [
+        key,
+        Array.isArray(targets)
+          ? targets.map((target) =>
+              typeof target === "string"
+                ? absolutizePathsTarget(
+                    declaredPaths.baseDir,
+                    target,
+                    configDir,
+                  )
+                : target,
+            )
+          : targets,
+      ]),
+    );
+  }
+  return output;
+}
+
+/**
+ * Materialize inherited file specifications whose `${configDir}` owner would
+ * otherwise move to a generated wrapper's scratch directory.
+ */
+export function readEffectiveTsconfigTemplateFileSpecs(
+  tsconfig: string,
+): Record<string, unknown> {
+  const resolved = path.resolve(tsconfig);
+  const configDir = path.dirname(resolved);
+  const output: Record<string, unknown> = {};
+  for (const key of CONFIG_DIR_TEMPLATE_FILE_SPECS) {
+    const declared = findDeclaredValue(
+      resolved,
+      (parsed) =>
+        Object.prototype.hasOwnProperty.call(parsed, key)
+          ? (parsed as Record<string, unknown>)[key]
+          : undefined,
+      new Set(),
+    );
+    if (
+      declared === null ||
+      !Array.isArray(declared.value) ||
+      !declared.value.some(
+        (entry) =>
+          typeof entry === "string" && startsWithConfigDirTemplate(entry),
+      )
+    ) {
+      continue;
+    }
+    output[key] = declared.value.map((entry) =>
+      typeof entry === "string"
+        ? absolutizePathsTarget(declared.baseDir, entry, configDir)
+        : entry,
+    );
+  }
+  return output;
 }
 
 /**
@@ -234,11 +497,39 @@ export function mergeMembershipPolicyOverlay(
  * normalizing to forward slashes. The `*` wildcard survives `path.resolve` as a
  * literal segment, so patterns like `./src/*` stay patterns.
  */
-export function absolutizePathsTarget(baseDir: string, target: string): string {
-  const resolved = path.isAbsolute(target)
-    ? target
-    : path.resolve(baseDir, target);
+export function absolutizePathsTarget(
+  baseDir: string,
+  target: string,
+  configDir: string = baseDir,
+): string {
+  const resolved = resolveConfigDirTemplatePath(baseDir, target, configDir);
   return resolved.replace(/\\/g, "/");
+}
+
+/** Resolve one config path with TypeScript's leading `${configDir}` template. */
+export function resolveConfigDirTemplatePath(
+  baseDir: string,
+  target: string,
+  configDir: string = baseDir,
+): string {
+  const template = "${configDir}";
+  const normalized = normalizeTypeScriptPathSeparators(target);
+  return startsWithConfigDirTemplate(normalized)
+    ? path.resolve(configDir, normalized.replace(template, "./"))
+    : path.resolve(baseDir, normalized);
+}
+
+/** Match the prefix predicate used by TypeScript-Go before substitution. */
+function startsWithConfigDirTemplate(target: string): boolean {
+  const template = "${configDir}";
+  return (
+    target.slice(0, template.length).toLowerCase() === template.toLowerCase()
+  );
+}
+
+/** Match TypeScript's platform-independent treatment of config separators. */
+function normalizeTypeScriptPathSeparators(target: string): string {
+  return target.replace(/\\/g, "/");
 }
 
 /**
@@ -249,6 +540,28 @@ export function absolutizePathsTarget(baseDir: string, target: string): string {
 interface IDeclaredPaths {
   baseDir: string;
   paths: Record<string, unknown>;
+}
+
+/** Locate one compiler option while retaining its declaring directory. */
+function findDeclaredCompilerOption(
+  tsconfig: string,
+  key: string,
+): { baseDir: string; value: unknown } | null {
+  const declared = findDeclaredValue(
+    tsconfig,
+    (parsed) => {
+      const options = (parsed as { compilerOptions?: Record<string, unknown> })
+        .compilerOptions;
+      return options !== undefined &&
+        Object.prototype.hasOwnProperty.call(options, key)
+        ? { value: options[key] }
+        : undefined;
+    },
+    new Set(),
+  );
+  return declared === null
+    ? null
+    : { baseDir: declared.baseDir, value: declared.value.value };
 }
 
 /**
@@ -326,7 +639,8 @@ function findDeclaredValue<T>(
     return { baseDir: path.dirname(canonical), value: own };
   }
 
-  for (const specifier of extendsSpecifiers(parsed.extends).reverse()) {
+  for (const rawSpecifier of extendsSpecifiers(parsed.extends).reverse()) {
+    const specifier = normalizeTypeScriptPathSeparators(rawSpecifier);
     const base = resolveExtendsConfig(canonical, specifier);
     if (base === null) {
       // Record where a relative or absolute specifier *would* have resolved,
@@ -337,18 +651,11 @@ function findDeclaredValue<T>(
       // keeps a policy the next run's walk already disagrees with. A bare
       // specifier is skipped, since it has no single candidate path.
       if (isRelativeSpecifier(specifier) || path.isAbsolute(specifier)) {
-        // Both spellings the resolver would have tried, since it falls back to
-        // `<specifier>.json`. Recording only the literal one leaves the stamp
-        // unmoved when `./tsconfig.base` later appears as `tsconfig.base.json`,
-        // which is the same staleness this recording exists to prevent.
-        const candidate = path.resolve(path.dirname(canonical), specifier);
-        collect?.add(candidate);
-        // Case-sensitive, because `resolveExistingExtendsPath` is: it appends
-        // `.json` unless the spelling already ends in exactly that, so a
-        // `./base.JSON` specifier really does resolve to `base.JSON.json` on a
-        // case-sensitive filesystem, and the stamp has to know that name.
-        if (!candidate.endsWith(".json")) {
-          collect?.add(`${candidate}.json`);
+        for (const candidate of missingExtendsCandidates(
+          canonical,
+          specifier,
+        )) {
+          collect?.add(candidate);
         }
       }
       continue;
@@ -359,6 +666,56 @@ function findDeclaredValue<T>(
     }
   }
   return null;
+}
+
+/** Capture every config source independently of which option declares a value. */
+function collectTsconfigSourceSnapshot(
+  tsconfig: string,
+  seen: Set<string>,
+  output: Map<string, string | null>,
+): void {
+  const canonical = resolveRealPath(tsconfig);
+  if (seen.has(canonical)) return;
+  seen.add(canonical);
+
+  let contents: string;
+  let parsed: { extends?: unknown };
+  try {
+    contents = fs.readFileSync(canonical, "utf8");
+    output.set(canonical, contents);
+    parsed = parseJsonc(contents) as typeof parsed;
+  } catch {
+    output.set(canonical, null);
+    return;
+  }
+  if (typeof parsed !== "object" || parsed === null) return;
+
+  for (const rawSpecifier of extendsSpecifiers(parsed.extends)) {
+    const specifier = normalizeTypeScriptPathSeparators(rawSpecifier);
+    const base = resolveExtendsConfig(canonical, specifier);
+    if (base !== null) {
+      collectTsconfigSourceSnapshot(base, seen, output);
+      continue;
+    }
+    if (isRelativeSpecifier(specifier) || path.isAbsolute(specifier)) {
+      for (const candidate of missingExtendsCandidates(canonical, specifier)) {
+        if (!output.has(candidate)) output.set(candidate, null);
+      }
+    }
+  }
+}
+
+/** Every exact spelling the file resolver probes for a missing config. */
+function missingExtendsCandidates(
+  tsconfig: string,
+  specifier: string,
+): string[] {
+  const candidate = path.resolve(path.dirname(tsconfig), specifier);
+  // Case-sensitive, because `resolveExistingExtendsPath` appends `.json`
+  // unless the spelling already ends in exactly that suffix.
+  return candidate.endsWith(".json")
+    ? [candidate]
+    : [candidate, `${candidate}.json`];
 }
 
 /** Normalize the `extends` field into a list of string specifiers. */
@@ -450,7 +807,10 @@ function resolvePackageManifestTsconfig(
     return null;
   }
   return resolveExistingExtendsPath(
-    path.resolve(path.dirname(manifestPath), field),
+    path.resolve(
+      path.dirname(manifestPath),
+      normalizeTypeScriptPathSeparators(field),
+    ),
   );
 }
 

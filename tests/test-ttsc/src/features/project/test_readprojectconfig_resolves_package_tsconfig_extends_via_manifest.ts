@@ -28,7 +28,11 @@ export const test_readprojectconfig_resolves_package_tsconfig_extends_via_manife
     fs.writeFileSync(
       path.join(preset, "package.json"),
       JSON.stringify(
-        { name: "example-preset", version: "1.0.0", tsconfig: "base.json" },
+        {
+          name: "example-preset",
+          version: "1.0.0",
+          tsconfig: ".\\base.json",
+        },
         null,
         2,
       ),

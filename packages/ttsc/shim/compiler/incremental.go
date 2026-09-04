@@ -20,6 +20,7 @@ import (
   innerast "github.com/microsoft/typescript-go/internal/ast"
   "github.com/microsoft/typescript-go/internal/collections"
   innercompiler "github.com/microsoft/typescript-go/internal/compiler"
+  innertsoptions "github.com/microsoft/typescript-go/internal/tsoptions"
   "github.com/microsoft/typescript-go/internal/tspath"
 
   // Imported for EmitFreshWithBuildInfo below, and for the linknamed symbols
@@ -74,16 +75,67 @@ func incrementalFileAffectsGlobalScope(file *innerast.SourceFile) bool
 // The returned strings are tspath.Path values (case-canonicalized on
 // case-insensitive filesystems); map them back to real file names through
 // Program.GetSourceFileByPath when the original spelling matters.
+// Extensionless path references are replaced with the source file Program
+// actually loaded because the upstream incremental helper retains their raw
+// directive path instead of the selected extension-bearing path.
 func GetReferencedFilePaths(program *Program, file *innerast.SourceFile) []string {
   set := incrementalGetReferencedFiles(program, file)
   if set == nil {
     return nil
   }
+  resolvedPathReferences := make(map[tspath.Path]tspath.Path, len(file.ReferencedFiles))
+  sourceDirectory := tspath.GetDirectoryPath(file.FileName())
+  for _, reference := range file.ReferencedFiles {
+    referencedFile := reference.FileName
+    if redirect := program.GetParseFileRedirect(referencedFile); redirect != "" {
+      referencedFile = redirect
+    }
+    rawPath := tspath.ToPath(referencedFile, sourceDirectory, program.UseCaseSensitiveFileNames())
+    if resolved := getSourceFileFromReference(program, file, reference); resolved != nil {
+      resolvedPathReferences[rawPath] = resolved.Path()
+    }
+  }
   out := make([]string, 0, set.Len())
+  seen := collections.Set[tspath.Path]{}
   for path := range set.Keys() {
+    if resolved := resolvedPathReferences[path]; resolved != "" {
+      path = resolved
+    }
+    if seen.Has(path) {
+      continue
+    }
+    seen.Add(path)
     out = append(out, string(path))
   }
   return out
+}
+
+// getSourceFileFromReference extends TypeScript-Go's resident-file lookup with
+// the virtual declaration outputs its project-reference filesystem accepts.
+// The upstream helper cannot see an unbuilt output in Program.filesByPath, but
+// the project-reference mapper retains the output-to-source redirect that made
+// the reference valid while the Program was loaded.
+func getSourceFileFromReference(program *Program, file *innerast.SourceFile, reference *innerast.FileReference) *innerast.SourceFile {
+  if resolved := program.GetSourceFileFromReference(file, reference); resolved != nil {
+    return resolved
+  }
+  referencedFile := tspath.ResolvePath(tspath.GetDirectoryPath(file.FileName()), reference.FileName)
+  if tspath.HasExtension(referencedFile) {
+    return nil
+  }
+  supportedExtensions := innertsoptions.GetSupportedExtensions(program.Options(), nil)
+  supportedExtensions = innertsoptions.GetSupportedExtensionsWithJsonIfResolveJsonModule(program.Options(), supportedExtensions)
+  for _, extension := range supportedExtensions[0] {
+    outputPath := tspath.ToPath(referencedFile+extension, program.GetCurrentDirectory(), program.UseCaseSensitiveFileNames())
+    redirect := program.GetProjectReferenceFromOutputDts(outputPath)
+    if redirect == nil {
+      continue
+    }
+    if source := program.GetSourceFile(redirect.Source); source != nil {
+      return source
+    }
+  }
+  return nil
 }
 
 // FileAffectsGlobalScope reports whether editing `file` can change the global

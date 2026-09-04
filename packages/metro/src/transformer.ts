@@ -17,6 +17,7 @@
  */
 import {
   createTtscTransformCache,
+  isTransformTarget,
   resolveOptions,
   transformTtsc,
 } from "@ttsc/unplugin/api";
@@ -37,14 +38,6 @@ import { resolveUpstreamTransformer } from "./core/upstream";
 const nodeRequire = createRequire(import.meta.url);
 
 /**
- * Matches the TypeScript source extensions the ttsc pass handles (`.ts`,
- * `.tsx`, `.cts`, `.mts`). JavaScript and declaration files are passed straight
- * through to the upstream transformer.
- */
-const TS_EXTENSION = /\.[cm]?tsx?$/;
-const DECLARATION = /\.d\.[cm]?ts$/;
-
-/**
  * Per-worker singletons. Metro loads this module once per worker process and
  * reuses it across every file that worker handles, so the resolved options, the
  * transform cache, and the memoised `@ttsc/unplugin` options are all scoped to
@@ -53,11 +46,17 @@ const DECLARATION = /\.d\.[cm]?ts$/;
 let resolved: ResolvedTtscMetroOptions | undefined;
 let unpluginOptions: ReturnType<typeof resolveOptions> | undefined;
 const cache = createTtscTransformCache();
-const snapshotRecorder = createSnapshotRecorder();
+let snapshotRecorder: ReturnType<typeof createSnapshotRecorder> | undefined;
 
 /** Lazily resolve the worker-side options (from {@link resolveOptionsFromEnv}). */
 function options(): ResolvedTtscMetroOptions {
   return (resolved ??= resolveOptionsFromEnv());
+}
+
+/** The recorder bound to the private run identity inherited by this worker. */
+function recorder(): ReturnType<typeof createSnapshotRecorder> {
+  const opts = options();
+  return (snapshotRecorder ??= createSnapshotRecorder(opts.snapshotRunId));
 }
 
 /**
@@ -121,15 +120,25 @@ export async function transform(params: {
         : undefined;
     const explicitProject =
       typeof opts.ttsc.project === "string" ? opts.ttsc.project : undefined;
+    const filename = resolveAbsoluteFilename(params.filename, params.options);
     const project = resolveProjectView({
       compilerOptions: opts.ttsc.compilerOptions,
       explicitProject,
+      filename,
       projectRoot,
     });
+    // Freeze the implicit selection made above into this call. Re-running
+    // discovery inside the transform after a config candidate changes would
+    // attach one project's recorder evidence to another project's compiler
+    // output.
+    const transformOptions = {
+      ...unpluginOptions,
+      project: project.tsconfig,
+    };
     const result = await transformTtsc(
-      resolveAbsoluteFilename(params.filename, params.options),
+      filename,
       params.src,
-      unpluginOptions,
+      transformOptions,
       undefined,
       cache,
       {
@@ -144,11 +153,15 @@ export async function transform(params: {
         // memo means stat-ing the whole `extends` chain, which is an answer
         // that cannot change between two inputs of one file
         // (samchon/ttsc#1316).
-        addWatchFile: (input) => snapshotRecorder.record({ input, project }),
+        addWatchFiles: (inputs) =>
+          recorder().recordMany({
+            inputs: [...project.discoveryInputs, ...inputs],
+            project,
+          }),
         // A volatile declaration means the output depends on non-file inputs
         // that no file fingerprint can represent; the snapshot marks it and
         // getCacheKey degrades to a per-run nonce (no cross-run reuse).
-        markVolatile: () => snapshotRecorder.recordVolatile({ project }),
+        markVolatile: () => recorder().recordVolatile({ project }),
       },
     );
     // A file the program does not contain comes back as `undefined` from the
@@ -179,16 +192,15 @@ export async function transform(params: {
  *   transformer's own key (forwarded Metro's args, e.g. `projectRoot`, so a
  *   `babel.config.js` change still busts the cache);
  * - The project fingerprint (see `core/fingerprint.ts`): every input file under
- *   the project walk (tsconfig, plugin configs, type-only siblings) plus the
- *   recorded out-of-walk reference-graph members from previous transforms
- *   (`node_modules` declarations, monorepo sibling sources, out-of-root config
- *   ancestry).
+ *   the routed project walks, every effective config source, the previous
+ *   transforms' derived inputs, and the epoch that isolates a worker state
+ *   differing from this run's exact main-process baseline.
  *
- * A change to any fingerprinted input re-keys every transformed file —
- * project-level granularity, forced by Metro's single static key — replacing
- * the former manual `--reset-cache` step. Resolving the upstream is
- * deliberately non-fatal here: a missing peer must not crash cache-key
- * computation. See the README "Caveats" and samchon/ttsc#721.
+ * A change to any fingerprinted input re-keys every transformed file at
+ * project-level granularity, forced by Metro's single static key, replacing the
+ * former manual `--reset-cache` step. Resolving the upstream is deliberately
+ * non-fatal here: a missing peer must not crash cache-key computation. See the
+ * README "Caveats" and samchon/ttsc#721.
  */
 export function getCacheKey(...args: unknown[]): string {
   const opts = options();
@@ -215,6 +227,7 @@ export function getCacheKey(...args: unknown[]): string {
       explicitProject:
         typeof opts.ttsc.project === "string" ? opts.ttsc.project : undefined,
       projectRoot: cacheKeyProjectRoot(args),
+      runId: opts.snapshotRunId,
     }),
   );
   return hash.digest("hex");
@@ -267,15 +280,15 @@ function upstreamCacheKey(
 
 /**
  * Decide whether a file should run through the ttsc pass. Only TypeScript
- * sources (`.ts`/`.tsx`/`.cts`/`.mts`, excluding `.d.ts`) qualify; `exclude`
- * substrings win over `include`, and an empty `include` means "all TypeScript".
- * Exported for unit testing.
+ * sources (`.ts`/`.tsx`/`.mts`/`.cts`, excluding every declaration form)
+ * qualify; `exclude` substrings win over `include`, and an empty `include`
+ * means "all TypeScript". Exported for unit testing.
  */
 export function shouldTransform(
   filename: string,
   opts: ResolvedTtscMetroOptions,
 ): boolean {
-  if (!TS_EXTENSION.test(filename) || DECLARATION.test(filename)) {
+  if (!isTransformTarget(filename)) {
     return false;
   }
   if (opts.exclude.some((pattern) => filename.includes(pattern))) {

@@ -220,12 +220,13 @@ func (s *residentCheckState) run(
       opts.cwd,
       opts.tsconfig,
       loadProgramOptions{
-        forceNoEmit:      true,
-        needsRuleChecker: engine.NeedsTypeChecker(),
-        singleThreaded:   opts.singleThreaded,
-        checkers:         opts.checkers,
-        tsgoArgs:         opts.tsgoArgs,
-        projectIdentity:  opts.projectIdentity,
+        forceNoEmit:        true,
+        semanticConfigPath: opts.semanticConfigPath,
+        needsRuleChecker:   engine.NeedsTypeChecker(),
+        singleThreaded:     opts.singleThreaded,
+        checkers:           opts.checkers,
+        tsgoArgs:           opts.tsgoArgs,
+        projectIdentity:    opts.projectIdentity,
       },
     )
     if err != nil {

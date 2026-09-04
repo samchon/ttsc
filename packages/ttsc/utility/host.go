@@ -307,13 +307,14 @@ func loadUtilityProgram(opts hostOptions) (*driver.Program, []driver.PluginEntry
   defer restoreEnv()
 
   prog, diags, err := driver.LoadProgram(opts.cwd, opts.tsconfig, driver.LoadProgramOptions{
-    ForceEmit:      opts.emit,
-    ForceNoEmit:    opts.noEmit,
-    OutDir:         opts.outDir,
-    SingleThreaded: opts.singleThreaded,
-    Checkers:       opts.checkers,
-    TsgoArgs:       opts.tsgoArgs,
-    FS:             opts.fs,
+    ForceEmit:          opts.emit,
+    ForceNoEmit:        opts.noEmit,
+    OutDir:             opts.outDir,
+    SemanticConfigPath: os.Getenv(driver.SemanticConfigPathEnv),
+    SingleThreaded:     opts.singleThreaded,
+    Checkers:           opts.checkers,
+    TsgoArgs:           opts.tsgoArgs,
+    FS:                 opts.fs,
   })
   if err != nil {
     fmt.Fprintf(opts.stderr, "ttsc utility: %v\n", err)

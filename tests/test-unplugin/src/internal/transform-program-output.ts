@@ -56,6 +56,7 @@ export async function assertAnOutOfProgramModuleIsPassedThroughAndReported(): Pr
   fs.mkdirSync(path.dirname(stray), { recursive: true });
   const source = "export const tool: string = 'STRAY';";
   fs.writeFileSync(stray, source, "utf8");
+  const watchBatches: string[][] = [];
 
   try {
     const deliver = () =>
@@ -65,6 +66,10 @@ export async function assertAnOutOfProgramModuleIsPassedThroughAndReported(): Pr
         options,
         undefined,
         cache,
+        {
+          addWatchFiles: (inputs: readonly { file: string }[]) =>
+            watchBatches.push(inputs.map((input) => path.resolve(input.file))),
+        },
       );
 
     const reported = await captureStderr(async () => {
@@ -83,6 +88,15 @@ export async function assertAnOutOfProgramModuleIsPassedThroughAndReported(): Pr
         await deliver(),
         undefined,
         "a module the program does not contain must pass through, not throw",
+      );
+      assert.equal(
+        watchBatches.length,
+        1,
+        "a pass-through delivery must publish one universal input batch",
+      );
+      assert.ok(
+        watchBatches[0]!.includes(path.join(fixture.root, "tsconfig.json")),
+        "the config that can later include the module must remain watched",
       );
       // Same pass, same file: the report is about the file and the generation,
       // not about the delivery, so asking again must not repeat it.
@@ -145,6 +159,7 @@ export async function assertAFailedCompileWatchesAndReportsPlainly(): Promise<vo
   const module = fixture.modules[0]!;
 
   const deliver = async (): Promise<{
+    batches: number;
     error: Error | undefined;
     evidence: unknown[];
     watched: string[];
@@ -153,6 +168,7 @@ export async function assertAFailedCompileWatchesAndReportsPlainly(): Promise<vo
     api.beginTtscTransformBuild(cache);
     const watched: string[] = [];
     const evidence: unknown[] = [];
+    let batches = 0;
     let error: Error | undefined;
     try {
       await api.transformTtsc(
@@ -162,9 +178,14 @@ export async function assertAFailedCompileWatchesAndReportsPlainly(): Promise<vo
         undefined,
         cache,
         {
-          addWatchFile: (input: string, supplied?: unknown) => {
-            watched.push(input);
-            evidence.push(supplied);
+          addWatchFiles: (
+            inputs: readonly { evidence?: unknown; file: string }[],
+          ) => {
+            batches += 1;
+            for (const input of inputs) {
+              watched.push(input.file);
+              evidence.push(input.evidence);
+            }
           },
         },
       );
@@ -173,7 +194,7 @@ export async function assertAFailedCompileWatchesAndReportsPlainly(): Promise<vo
     } finally {
       api.resetTtscTransformCache(cache);
     }
-    return { error, evidence, watched };
+    return { batches, error, evidence, watched };
   };
 
   const healthy = await deliver();
@@ -182,24 +203,55 @@ export async function assertAFailedCompileWatchesAndReportsPlainly(): Promise<vo
     healthy.watched.length > 0,
     "a healthy delivery registers its derived watch inputs",
   );
+  assert.equal(
+    healthy.batches,
+    1,
+    "watch inputs must be delivered in one batch",
+  );
   assert.ok(
     healthy.evidence.some((supplied) => supplied !== undefined),
     "a healthy delivery supplies the generation's own recorded evidence",
   );
+  assert.ok(
+    healthy.evidence
+      .filter((supplied) => supplied !== undefined)
+      .every(
+        (supplied) =>
+          typeof (supplied as { missing?: unknown }).missing === "boolean",
+      ),
+    "watch evidence must preserve the public missing boolean for custom hosts",
+  );
+  assert.ok(
+    healthy.evidence
+      .filter((supplied) => supplied !== undefined)
+      .every(
+        (supplied) => (supplied as { state?: unknown }).state !== undefined,
+      ),
+    "a healthy watch input must carry the generation state used by Metro's run baseline",
+  );
 
-  // A genuine type error, in a file nothing imports at runtime, so no bundler
-  // module graph would carry it.
-  const broken = path.join(fixture.root, "src", "types.ts");
-  fs.writeFileSync(broken, "export type Broken = NotARealType;", "utf8");
+  // A genuine type error in an external declaration reached only through a
+  // type import, so neither the project walk nor a bundler runtime graph can
+  // carry the file whose repair must trigger the retry.
+  const broken = fixture.declaration;
+  fs.writeFileSync(
+    broken,
+    "export interface Shared { label: NotARealExternalType; }\n",
+    "utf8",
+  );
   const failed = await deliver();
   assert.ok(failed.error !== undefined, "a type error must reach the caller");
   assert.ok(
     failed.watched.length > 0,
     "a failed delivery must still register the inputs a fix would touch",
   );
+  assert.equal(failed.batches, 1, "failed inputs must also use one batch");
   assert.ok(
-    failed.watched.some((input) => path.resolve(input) === broken),
-    "the file the diagnostics name must be among them",
+    failed.watched.some(
+      (input) =>
+        fs.realpathSync.native(input) === fs.realpathSync.native(broken),
+    ),
+    `the file the diagnostics name must be among them; watched: ${failed.watched.join(", ")}; error: ${JSON.stringify(failed.error.message)}`,
   );
   // No evidence, deliberately. A failed generation is replayed for the rest of
   // its pass without re-proving its inputs, so it cannot claim one of them
@@ -214,12 +266,16 @@ export async function assertAFailedCompileWatchesAndReportsPlainly(): Promise<vo
     `a surfaced message must carry no terminal escapes (got ${JSON.stringify(failed.error.message)})`,
   );
   assert.ok(
-    failed.error.message.includes("types.ts"),
+    failed.error.message.includes(path.basename(broken)),
     "and must still name the file the host reported",
   );
 
   // And the fix lands.
-  fs.writeFileSync(broken, "export type Fixed = string;", "utf8");
+  fs.writeFileSync(
+    broken,
+    "export interface Shared { label: string; }\n",
+    "utf8",
+  );
   const recovered = await deliver();
   assert.equal(
     recovered.error,

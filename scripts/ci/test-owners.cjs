@@ -78,7 +78,7 @@ const OWNERSHIP = {
   "e2e:tests/test-playground": "test.yml lane: package defenses",
   "e2e:tests/test-strip": "test.yml lane: package defenses",
   "e2e:tests/test-ttsc":
-    "test.yml lanes: ttsc core/native defenses, Node 22, watch",
+    "test.yml: ttsc core/native lanes and platform Bun/watch tasks",
   "e2e:tests/test-unplugin":
     "test.yml lanes: bundler defenses, bundler defenses (windows)",
   "e2e:tests/test-wasm": "test.yml lane: package defenses",
@@ -98,6 +98,7 @@ const OWNERSHIP = {
   "node:scripts/ci/gofmt-wrapper.test.cjs": "test.yml lane: typecheck",
   "node:scripts/ci/line-endings.test.cjs": "test.yml lane: typecheck",
   "node:scripts/ci/test-owners.test.cjs": "test.yml lane: typecheck",
+  "node:scripts/ci/unplugin-test-contract.test.cjs": "test.yml lane: typecheck",
   "node:scripts/ci/validation-plan.test.cjs": "test.yml lane: typecheck",
   "node:scripts/ci/go-test-runners.test.cjs": "scripts/test-go.cjs harness",
   "node:scripts/ci/website-compiler-module.test.cjs":
