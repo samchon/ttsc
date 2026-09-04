@@ -454,7 +454,11 @@ export const ADAPTER_CASES = {
         );
 
         fs.writeFileSync(
-          path.join(fixture.app, "src", "unrelated.ts"),
+          // Keep this outside the project root. A new included source under
+          // `src` changes the compiler's recorded project-membership listing
+          // and must invalidate; this case is the negative twin that proves a
+          // creation outside every recorded predicate does not.
+          path.join(path.dirname(fixture.app), "unrelated.ts"),
           "export const unrelated: number = 1;\n",
           "utf8",
         );

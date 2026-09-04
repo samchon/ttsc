@@ -93,6 +93,7 @@ export function createLinkedWorkspaceFixture(): IViteServeCandidateFixture {
           rootDir: "src",
           strict: true,
           target: "ES2022",
+          types: ["*"],
         },
         include: ["src"],
       },
