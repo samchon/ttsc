@@ -141,7 +141,8 @@ export const value: Folder = { value: internal + self };
   "files": ["src/main.ts"],
   "references": [{ "path": "./child" }]
 }`,
-    "src/main.ts": `import { child } from "../child/lib/index.js"; export { child };`,
+    "src/main.ts": `/// <reference path="../child/lib/reference" />
+import { child } from "../child/lib/index.js"; export { child };`,
     "child/tsconfig.json": `{
   "compilerOptions": {
     "composite": true,
@@ -151,9 +152,10 @@ export const value: Folder = { value: internal + self };
     "rootDir": "src",
     "target": "es2022"
   },
-  "files": ["src/index.ts"]
+  "files": ["src/index.ts", "src/reference.ts"]
 }`,
-    "child/src/index.ts": `export const child = true;`,
+    "child/src/index.ts":     `export const child = true;`,
+    "child/src/reference.ts": `export interface ChildReference { value: string }`,
   }
   for name, contents := range projectReferenceFiles {
     location := filepath.Join(projectReferenceRoot, filepath.FromSlash(name))
@@ -180,9 +182,20 @@ export const value: Folder = { value: internal + self };
   if len(projectReferenceGraph.InputProofFailures) != 0 {
     t.Fatalf("unbuilt project-reference replay reported failures: %#v", projectReferenceGraph.InputProofFailures)
   }
-  projectReferenceCandidates := projectReferenceGraph.Candidates[filepath.ToSlash(filepath.Join("src", "main.ts"))]
-  if !slices.Contains(projectReferenceCandidates, filepath.ToSlash(filepath.Join("child", "lib", "index.d.ts"))) {
-    t.Fatalf("unbuilt project-reference declaration was not observed: %v", projectReferenceCandidates)
+  projectReferenceSource := filepath.ToSlash(filepath.Join("src", "main.ts"))
+  projectReferenceCandidates := projectReferenceGraph.Candidates[projectReferenceSource]
+  for _, expected := range []string{
+    filepath.ToSlash(filepath.Join("child", "lib", "index.d.ts")),
+    filepath.ToSlash(filepath.Join("child", "lib", "reference.d.ts")),
+  } {
+    if !slices.Contains(projectReferenceCandidates, expected) {
+      t.Errorf("unbuilt project-reference declaration %q was not observed: %v", expected, projectReferenceCandidates)
+    }
+  }
+  projectReferenceEdges := projectReferenceGraph.Edges[projectReferenceSource]
+  extensionlessReferenceSource := filepath.ToSlash(filepath.Join("child", "src", "reference.ts"))
+  if !slices.Contains(projectReferenceEdges, extensionlessReferenceSource) {
+    t.Fatalf("extensionless project-reference path did not redirect to %q: %v", extensionlessReferenceSource, projectReferenceEdges)
   }
 
   semanticRoot := t.TempDir()
@@ -211,7 +224,10 @@ export const value: Folder = { value: internal + self };
     t.Fatal(err)
   }
   t.Setenv(SemanticConfigPathEnv, semanticConfig)
-  semanticProgram, semanticDiagnostics, err := LoadProgram(semanticRoot, generatedConfig, LoadProgramOptions{ForceNoEmit: true})
+  semanticProgram, semanticDiagnostics, err := LoadProgram(semanticRoot, generatedConfig, LoadProgramOptions{
+    ForceNoEmit:        true,
+    SemanticConfigPath: semanticConfig,
+  })
   if err != nil {
     t.Fatal(err)
   }
@@ -226,5 +242,23 @@ export const value: Folder = { value: internal + self };
   semanticTypeRoot := filepath.ToSlash(filepath.Join("node_modules", "@types"))
   if !slices.Contains(semanticGraph.ResolutionInputs, semanticTypeRoot) {
     t.Fatalf("generated wrapper type-root inputs omit %q: %v", semanticTypeRoot, semanticGraph.ResolutionInputs)
+  }
+  unmarkedProgram, unmarkedDiagnostics, err := LoadProgram(semanticRoot, generatedConfig, LoadProgramOptions{ForceNoEmit: true})
+  if err != nil {
+    t.Fatal(err)
+  }
+  if len(unmarkedDiagnostics) != 0 {
+    t.Fatalf("unexpected unmarked-wrapper diagnostics: %#v", unmarkedDiagnostics)
+  }
+  defer unmarkedProgram.Close()
+  if got := unmarkedProgram.TSProgram.Options().ConfigFilePath; got != filepath.ToSlash(generatedConfig) {
+    t.Fatalf("unmarked wrapper inherited ambient semantic config = %q, want %q", got, filepath.ToSlash(generatedConfig))
+  }
+  invalidProgram, _, err := LoadProgram(semanticRoot, generatedConfig, LoadProgramOptions{SemanticConfigPath: "relative.json"})
+  if invalidProgram != nil {
+    defer invalidProgram.Close()
+  }
+  if err == nil {
+    t.Fatal("relative semantic config path was accepted")
   }
 }

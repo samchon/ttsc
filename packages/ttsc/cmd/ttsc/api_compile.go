@@ -10,6 +10,7 @@ import (
   "encoding/json"
   "flag"
   "fmt"
+  "os"
 
   shimcompiler "github.com/microsoft/typescript-go/shim/compiler"
 
@@ -66,10 +67,11 @@ func runAPICompile(args []string) int {
   }
 
   prog, diags, err := driver.LoadProgram(cwd, *tsconfigPath, driver.LoadProgramOptions{
-    ForceEmit:      true,
-    SingleThreaded: *singleThreaded,
-    Checkers:       *checkers,
-    TsgoArgs:       tsgoArgs,
+    ForceEmit:          true,
+    SemanticConfigPath: os.Getenv(driver.SemanticConfigPathEnv),
+    SingleThreaded:     *singleThreaded,
+    Checkers:           *checkers,
+    TsgoArgs:           tsgoArgs,
   })
   if err != nil {
     fmt.Fprintf(stderr, "ttsc api-compile: %v\n", err)

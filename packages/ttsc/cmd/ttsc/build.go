@@ -69,12 +69,13 @@ func runBuild(args []string) int {
   }
 
   prog, diags, err := driver.LoadProgram(cwd, *tsconfigPath, driver.LoadProgramOptions{
-    ForceEmit:      *emit,
-    ForceNoEmit:    *noEmit,
-    OutDir:         *outDir,
-    SingleThreaded: *singleThreaded,
-    Checkers:       *checkers,
-    TsgoArgs:       tsgoArgs,
+    ForceEmit:          *emit,
+    ForceNoEmit:        *noEmit,
+    OutDir:             *outDir,
+    SemanticConfigPath: os.Getenv(driver.SemanticConfigPathEnv),
+    SingleThreaded:     *singleThreaded,
+    Checkers:           *checkers,
+    TsgoArgs:           tsgoArgs,
   })
   if err != nil {
     fmt.Fprintf(stderr, "ttsc: %v\n", err)

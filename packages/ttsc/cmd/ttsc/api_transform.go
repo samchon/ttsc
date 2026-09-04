@@ -10,6 +10,7 @@ import (
   "encoding/json"
   "flag"
   "fmt"
+  "os"
 
   "github.com/samchon/ttsc/packages/ttsc/driver"
   cwdutil "github.com/samchon/ttsc/packages/ttsc/internal/cwd"
@@ -71,10 +72,11 @@ func runAPITransform(args []string) int {
   }
 
   prog, diags, err := driver.LoadProgram(cwd, *tsconfigPath, driver.LoadProgramOptions{
-    ForceNoEmit:    true,
-    SingleThreaded: *singleThreaded,
-    Checkers:       *checkers,
-    TsgoArgs:       tsgoArgs,
+    ForceNoEmit:        true,
+    SemanticConfigPath: os.Getenv(driver.SemanticConfigPathEnv),
+    SingleThreaded:     *singleThreaded,
+    Checkers:           *checkers,
+    TsgoArgs:           tsgoArgs,
   })
   if err != nil {
     fmt.Fprintf(stderr, "ttsc api-transform: %v\n", err)

@@ -20,6 +20,7 @@ import (
   innerast "github.com/microsoft/typescript-go/internal/ast"
   "github.com/microsoft/typescript-go/internal/collections"
   innercompiler "github.com/microsoft/typescript-go/internal/compiler"
+  innertsoptions "github.com/microsoft/typescript-go/internal/tsoptions"
   "github.com/microsoft/typescript-go/internal/tspath"
 
   // Imported for EmitFreshWithBuildInfo below, and for the linknamed symbols
@@ -90,7 +91,7 @@ func GetReferencedFilePaths(program *Program, file *innerast.SourceFile) []strin
       referencedFile = redirect
     }
     rawPath := tspath.ToPath(referencedFile, sourceDirectory, program.UseCaseSensitiveFileNames())
-    if resolved := program.GetSourceFileFromReference(file, reference); resolved != nil {
+    if resolved := getSourceFileFromReference(program, file, reference); resolved != nil {
       resolvedPathReferences[rawPath] = resolved.Path()
     }
   }
@@ -107,6 +108,34 @@ func GetReferencedFilePaths(program *Program, file *innerast.SourceFile) []strin
     out = append(out, string(path))
   }
   return out
+}
+
+// getSourceFileFromReference extends TypeScript-Go's resident-file lookup with
+// the virtual declaration outputs its project-reference filesystem accepts.
+// The upstream helper cannot see an unbuilt output in Program.filesByPath, but
+// the project-reference mapper retains the output-to-source redirect that made
+// the reference valid while the Program was loaded.
+func getSourceFileFromReference(program *Program, file *innerast.SourceFile, reference *innerast.FileReference) *innerast.SourceFile {
+  if resolved := program.GetSourceFileFromReference(file, reference); resolved != nil {
+    return resolved
+  }
+  referencedFile := tspath.ResolvePath(tspath.GetDirectoryPath(file.FileName()), reference.FileName)
+  if tspath.HasExtension(referencedFile) {
+    return nil
+  }
+  supportedExtensions := innertsoptions.GetSupportedExtensions(program.Options(), nil)
+  supportedExtensions = innertsoptions.GetSupportedExtensionsWithJsonIfResolveJsonModule(program.Options(), supportedExtensions)
+  for _, extension := range supportedExtensions[0] {
+    outputPath := tspath.ToPath(referencedFile+extension, program.GetCurrentDirectory(), program.UseCaseSensitiveFileNames())
+    redirect := program.GetProjectReferenceFromOutputDts(outputPath)
+    if redirect == nil {
+      continue
+    }
+    if source := program.GetSourceFile(redirect.Source); source != nil {
+      return source
+    }
+  }
+  return nil
 }
 
 // FileAffectsGlobalScope reports whether editing `file` can change the global
