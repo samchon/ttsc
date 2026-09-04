@@ -138,12 +138,13 @@ export const value: Folder = { value: internal + self };
     "moduleResolution": "node10",
     "target": "es2022"
   },
-  "files": ["src/main.ts"],
+  "files": ["src/main.ts", "src/anchor.ts"],
   "references": [{ "path": "./child" }]
 }`,
     "src/main.ts": `/// <reference path="../child/lib/reference" />
 /// <reference path="../child/lib/index" />
-import { child } from "../child/lib/index.js"; export { child };`,
+export const parent = true;`,
+    "src/anchor.ts": `import { child } from "../child/lib/index.js"; export { child };`,
     "child/tsconfig.json": `{
   "compilerOptions": {
     "composite": true,
