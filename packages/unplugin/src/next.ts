@@ -443,7 +443,7 @@ function isResolvedTtscLoader(
   }
   let file: string;
   try {
-    file = identity.startsWith("file:") ? fileURLToPath(identity) : identity;
+    file = /^file:/i.test(identity) ? fileURLToPath(identity) : identity;
   } catch {
     resolvedLoaderResults.set(identity, false);
     return false;
@@ -452,8 +452,21 @@ function isResolvedTtscLoader(
     resolvedLoaderResults.set(identity, false);
     return false;
   }
-  const packageRoot = path.dirname(path.dirname(file));
-  const relative = path.relative(packageRoot, file).replaceAll(path.sep, "/");
+  let resolvedFile: string;
+  try {
+    resolvedFile = fs.realpathSync.native(file);
+    if (!fs.statSync(resolvedFile).isFile()) {
+      resolvedLoaderResults.set(identity, false);
+      return false;
+    }
+  } catch {
+    resolvedLoaderResults.set(identity, false);
+    return false;
+  }
+  const packageRoot = path.dirname(path.dirname(resolvedFile));
+  const relative = path
+    .relative(packageRoot, resolvedFile)
+    .replaceAll(path.sep, "/");
   if (relative !== "lib/turbopack.js" && relative !== "lib/turbopack.mjs") {
     resolvedLoaderResults.set(identity, false);
     return false;

@@ -415,6 +415,90 @@ export async function assertNextAdapterPreservesTurbopackConfig(): Promise<void>
     [negativeLoader],
     "a stale negative ownership verdict must not duplicate the ttsc loader",
   );
+
+  // Loader ownership follows the filesystem's identity and file-kind answers,
+  // not the caller's lexical casing. A case-insensitive volume must collapse a
+  // differently cased spelling, while a case-sensitive volume must retain it
+  // as a missing foreign loader and append ttsc's real loader.
+  const identityRoot = TestProject.tmpdir("ttsc-next-loader-identity-");
+  fs.mkdirSync(path.join(identityRoot, "lib"), { recursive: true });
+  fs.writeFileSync(
+    path.join(identityRoot, "package.json"),
+    JSON.stringify({ name: "@ttsc/unplugin" }),
+    "utf8",
+  );
+  for (const extension of ["js", "mjs"]) {
+    const identityLoader = path.join(
+      identityRoot,
+      "lib",
+      `turbopack.${extension}`,
+    );
+    fs.writeFileSync(identityLoader, "", "utf8");
+    const caseVariant = path.join(
+      identityRoot,
+      "LIB",
+      `TURBOPACK.${extension.toUpperCase()}`,
+    );
+    const caseVariantLoaders = loadersOf(
+      next({
+        turbopack: { rules: { "*.ts": [caseVariant] } },
+      }).turbopack?.rules?.["*.ts"],
+    );
+    if (fs.existsSync(caseVariant)) {
+      assert.deepEqual(
+        caseVariantLoaders,
+        [caseVariant],
+        `a case-insensitive filesystem identity must suppress the duplicate ${extension} loader`,
+      );
+    } else {
+      assert.equal(caseVariantLoaders[0], caseVariant);
+      assert.ok(
+        isTtscLoader(caseVariantLoaders[1]),
+        `a case-sensitive filesystem must not fold a missing ${extension} case variant`,
+      );
+    }
+
+    const upperSchemeUrl = pathToFileURL(identityLoader).href.replace(
+      /^file:/,
+      "FILE:",
+    );
+    assert.deepEqual(
+      loadersOf(
+        next({
+          turbopack: { rules: { "*.ts": [upperSchemeUrl] } },
+        }).turbopack?.rules?.["*.ts"],
+      ),
+      [upperSchemeUrl],
+      `the case-insensitive file URL scheme must preserve ${extension} loader ownership`,
+    );
+  }
+
+  // A package manifest cannot own a loader path that does not name a regular
+  // file. Both controls would be false positives if ownership were inferred
+  // only from the lexical `lib/turbopack.js` suffix and neighboring manifest.
+  for (const kind of ["missing", "directory"] as const) {
+    const invalidRoot = TestProject.tmpdir(`ttsc-next-loader-${kind}-`);
+    const invalidLoader = path.join(invalidRoot, "lib", "turbopack.js");
+    fs.mkdirSync(path.dirname(invalidLoader), { recursive: true });
+    if (kind === "directory") {
+      fs.mkdirSync(invalidLoader);
+    }
+    fs.writeFileSync(
+      path.join(invalidRoot, "package.json"),
+      JSON.stringify({ name: "@ttsc/unplugin" }),
+      "utf8",
+    );
+    const invalidLoaders = loadersOf(
+      next({
+        turbopack: { rules: { "*.ts": [invalidLoader] } },
+      }).turbopack?.rules?.["*.ts"],
+    );
+    assert.equal(invalidLoaders[0], invalidLoader);
+    assert.ok(
+      isTtscLoader(invalidLoaders[1]),
+      `an owned package's ${kind} loader path must not suppress the real loader`,
+    );
+  }
 }
 
 /**
