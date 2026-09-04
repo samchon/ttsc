@@ -6,6 +6,7 @@ import {
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 
 const LOADER = "@ttsc/unplugin/turbopack";
 const LOADER_IDENTITIES = [
@@ -337,6 +338,7 @@ export async function assertNextAdapterPreservesTurbopackConfig(): Promise<void>
   // must see both directions of an atomic install or link retarget.
   const positiveRoot = TestProject.tmpdir("ttsc-next-loader-positive-");
   const positiveLoader = path.join(positiveRoot, "lib", "turbopack.js");
+  const positiveLoaderUrl = pathToFileURL(positiveLoader).href;
   fs.mkdirSync(path.dirname(positiveLoader), { recursive: true });
   fs.writeFileSync(positiveLoader, "", "utf8");
   fs.writeFileSync(
@@ -346,10 +348,10 @@ export async function assertNextAdapterPreservesTurbopackConfig(): Promise<void>
   );
   const initiallyOwned = loadersOf(
     next({
-      turbopack: { rules: { "*.ts": [positiveLoader] } },
+      turbopack: { rules: { "*.ts": [positiveLoaderUrl] } },
     }).turbopack?.rules?.["*.ts"],
   );
-  assert.deepEqual(initiallyOwned, [positiveLoader]);
+  assert.deepEqual(initiallyOwned, [positiveLoaderUrl]);
   fs.writeFileSync(
     path.join(positiveRoot, "package.json"),
     JSON.stringify({ name: "unrelated-loader" }),
@@ -357,24 +359,40 @@ export async function assertNextAdapterPreservesTurbopackConfig(): Promise<void>
   );
   const replacedOwner = loadersOf(
     next({
-      turbopack: { rules: { "*.ts": [positiveLoader] } },
+      turbopack: { rules: { "*.ts": [positiveLoaderUrl] } },
     }).turbopack?.rules?.["*.ts"],
   );
-  assert.equal(replacedOwner[0], positiveLoader);
+  assert.equal(replacedOwner[0], positiveLoaderUrl);
   assert.ok(
     isTtscLoader(replacedOwner[1]),
     "a stale positive ownership verdict must not suppress the ttsc loader",
   );
 
-  const negativeRoot = TestProject.tmpdir("ttsc-next-loader-negative-");
-  const negativeLoader = path.join(negativeRoot, "lib", "turbopack.js");
-  fs.mkdirSync(path.dirname(negativeLoader), { recursive: true });
-  fs.writeFileSync(negativeLoader, "", "utf8");
+  const negativeStore = TestProject.tmpdir("ttsc-next-loader-negative-");
+  const foreignRoot = path.join(negativeStore, "foreign");
+  const ownedRoot = path.join(negativeStore, "owned");
+  const linkedRoot = path.join(negativeStore, "current");
+  for (const root of [foreignRoot, ownedRoot]) {
+    const loader = path.join(root, "lib", "turbopack.js");
+    fs.mkdirSync(path.dirname(loader), { recursive: true });
+    fs.writeFileSync(loader, "", "utf8");
+  }
   fs.writeFileSync(
-    path.join(negativeRoot, "package.json"),
+    path.join(foreignRoot, "package.json"),
     JSON.stringify({ name: "unrelated-loader" }),
     "utf8",
   );
+  fs.writeFileSync(
+    path.join(ownedRoot, "package.json"),
+    JSON.stringify({ name: "@ttsc/unplugin" }),
+    "utf8",
+  );
+  fs.symlinkSync(
+    foreignRoot,
+    linkedRoot,
+    process.platform === "win32" ? "junction" : "dir",
+  );
+  const negativeLoader = path.join(linkedRoot, "lib", "turbopack.js");
   const initiallyForeign = loadersOf(
     next({
       turbopack: { rules: { "*.ts": [negativeLoader] } },
@@ -382,10 +400,11 @@ export async function assertNextAdapterPreservesTurbopackConfig(): Promise<void>
   );
   assert.equal(initiallyForeign[0], negativeLoader);
   assert.ok(isTtscLoader(initiallyForeign[1]));
-  fs.writeFileSync(
-    path.join(negativeRoot, "package.json"),
-    JSON.stringify({ name: "@ttsc/unplugin" }),
-    "utf8",
+  fs.rmSync(linkedRoot, { force: true, recursive: true });
+  fs.symlinkSync(
+    ownedRoot,
+    linkedRoot,
+    process.platform === "win32" ? "junction" : "dir",
   );
   assert.deepEqual(
     loadersOf(
