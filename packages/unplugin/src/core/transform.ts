@@ -6957,12 +6957,7 @@ async function captureTransformGeneration(props: {
     retainTracker = notifying && tracker !== undefined;
     retainHostInputTracker = notifying && hostInputTracker !== undefined;
     retainCandidateTracker = notifying && candidateTracker !== undefined;
-    const publishableGeneration =
-      configStable &&
-      (!props.trackProjectMembership ||
-        result.type !== "success" ||
-        stableProjectSnapshot);
-    if (publishableGeneration && clockReferenceDirectory !== undefined) {
+    if (clockReferenceDirectory !== undefined) {
       retainClockReferenceDirectory = true;
       TRANSFORM_CLOCK_REFERENCE_DIRECTORIES.set(
         cached,

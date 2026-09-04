@@ -2735,6 +2735,7 @@ const PINNED_TICK = 1_000_000_000_000_000_000n;
  * whole-snapshot state.
  */
 function createTickPinnedFilesystem(props: {
+  device: bigint;
   reads?: string[];
   watch: "refused" | "silent";
 }): {
@@ -2742,7 +2743,7 @@ function createTickPinnedFilesystem(props: {
   operations: Record<string, unknown>;
   reference: {
     available: boolean;
-    deviceOffset: bigint;
+    device: bigint;
     directories: Set<string>;
     stamp: bigint;
   };
@@ -2751,7 +2752,7 @@ function createTickPinnedFilesystem(props: {
   const modificationStamps = new Map<string, bigint>();
   const reference = {
     available: true,
-    deviceOffset: 0n,
+    device: props.device,
     directories: new Set<string>(),
     stamp: PINNED_TICK,
   };
@@ -2769,7 +2770,7 @@ function createTickPinnedFilesystem(props: {
         atimeNs: reported(location),
         birthtimeNs: reported(location),
         ctimeNs: reported(location),
-        dev: clockReference ? stats.dev + reference.deviceOffset : stats.dev,
+        dev: clockReference ? reference.device : props.device,
         mtimeNs:
           modificationStamps.get(path.resolve(location)) ?? reported(location),
       },
@@ -2831,7 +2832,10 @@ async function assertSameTickDerivedRewriteReplacesTheGeneration(): Promise<void
     graphGlobals: 4,
   });
   const modules = projectModules(project.root);
-  const pinned = createTickPinnedFilesystem({ watch: "silent" });
+  const pinned = createTickPinnedFilesystem({
+    device: fs.lstatSync(project.root, { bigint: true }).dev,
+    watch: "silent",
+  });
   // One preserved future modification time must not forge clock progress for
   // the otherwise same-tick tree. The change time remains in the real pinned
   // tick, matching an archive or copy that assigned only `mtime`.
@@ -2903,7 +2907,10 @@ async function assertSameTickUniversalRewriteReplacesTheGeneration(): Promise<vo
     await TestUnpluginRuntime.loadUnpluginApi();
   const project = createCacheProject({ fileCount: 4, graphFanout: 4 });
   const modules = projectModules(project.root);
-  const pinned = createTickPinnedFilesystem({ watch: "silent" });
+  const pinned = createTickPinnedFilesystem({
+    device: fs.lstatSync(project.root, { bigint: true }).dev,
+    watch: "silent",
+  });
   const cache = createTtscTransformCache(pinned.operations);
   const options = resolveOptions();
   const deliver = (file: string) =>
@@ -2957,7 +2964,10 @@ async function assertSameTickRewriteReplacesTheSnapshotGeneration(): Promise<voi
     await TestUnpluginRuntime.loadUnpluginApi();
   const project = createCacheProject({ fileCount: 4, graphFanout: 4 });
   const modules = projectModules(project.root);
-  const pinned = createTickPinnedFilesystem({ watch: "refused" });
+  const pinned = createTickPinnedFilesystem({
+    device: fs.lstatSync(project.root, { bigint: true }).dev,
+    watch: "refused",
+  });
   const cache = createTtscTransformCache(pinned.operations);
   const options = resolveOptions();
   const deliver = (file: string) =>
@@ -3029,7 +3039,12 @@ async function assertSeparatedStampReEarnsItsSignature(): Promise<void> {
   });
   const modules = projectModules(project.root);
   const reads: string[] = [];
-  const pinned = createTickPinnedFilesystem({ reads, watch: "silent" });
+  const inputDevice = fs.lstatSync(project.root, { bigint: true }).dev;
+  const pinned = createTickPinnedFilesystem({
+    device: inputDevice,
+    reads,
+    watch: "silent",
+  });
   const cache = createTtscTransformCache(pinned.operations);
   const options = resolveOptions();
   const deliver = (file: string) =>
@@ -3167,7 +3182,7 @@ async function assertSeparatedStampReEarnsItsSignature(): Promise<void> {
     "declare const ambient3: string;\n",
     "utf8",
   );
-  pinned.reference.deviceOffset = 1n;
+  pinned.reference.device = inputDevice + 1n;
   assert.ok(await deliver(modules[0]!));
   assert.equal(
     pluginRuns(),
@@ -3180,7 +3195,7 @@ async function assertSeparatedStampReEarnsItsSignature(): Promise<void> {
     "a hidden rewrite under a device mismatch must replace the generation",
   );
 
-  pinned.reference.deviceOffset = 0n;
+  pinned.reference.device = inputDevice;
   const retainedReferenceDirectories = [...pinned.reference.directories].filter(
     (referenceDirectory) => fs.existsSync(referenceDirectory),
   );

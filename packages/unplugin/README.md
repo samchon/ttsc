@@ -376,7 +376,7 @@ A Bun runtime plugin registration is one process-scoped module-loading session, 
 
 A dev server started without a watcher (`server.watch: null`, which is what `vitest --run` configures) takes the pass lifecycle instead of per-delivery validation. Nothing can deliver a change event to such a session, so per-delivery validation there buys incoherence rather than freshness: modules delivered before an edit and after it would come from two different compilations of one program.
 
-Freshness proofs rest on filesystem timestamps, so two environments need care. A project on a network mount that accepts a watch and then reports nothing should be treated as one where notifications do not work. And a clock that jumps backwards, or a tree restored with stamps set into the future, defeats any stamp-based proof; a clock running at a constant offset does not, since it moves both sides of every comparison.
+Freshness proofs rest on filesystem observations, so two environments need care. A project on a network mount that accepts a watch and then reports nothing should be treated as one where notifications do not work. For metadata reuse, the adapter rewrites its own retained probe before validation and accepts only older stamps on the same reporting device. A clock rollback cannot strand historical proof because the previous reference is discarded before that write, and an unavailable or cross-volume probe keeps the byte comparison instead. A constant offset from the process clock is irrelevant because the process clock is never compared.
 
 The [setup guide](https://ttsc.dev/docs/setup/unplugin) describes how these proofs are built.
 
