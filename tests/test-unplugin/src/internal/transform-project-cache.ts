@@ -1607,18 +1607,33 @@ async function assertRejectedTransformIsEvictedAndRecovers(): Promise<void> {
 async function assertHostExceptionTransformIsEvictedAndRecovers(): Promise<void> {
   const { api, cache, key, good, file, source, options } =
     await primeSuccessfulTransform();
+  const projectRoot = (good as { projectRoot: string }).projectRoot;
+  const falseDiagnostic = path.resolve(projectRoot, "foo.ts");
+  const watched: string[] = [];
 
   cache.set(
     key,
     Promise.resolve({
       ...(good as Record<string, unknown>),
-      result: { type: "exception", error: new Error("host exploded") },
+      result: {
+        type: "exception",
+        error: new Error("foo.ts:1:2 - error while loading\nhost exploded"),
+      },
     }),
   );
 
   await assert.rejects(
-    () => api.transformTtsc(file, source, options, undefined, cache),
+    () =>
+      api.transformTtsc(file, source, options, undefined, cache, {
+        addWatchFiles(inputs: readonly { file: string }[]) {
+          watched.push(...inputs.map((input) => input.file));
+        },
+      }),
     /host exploded/,
+  );
+  assert.ok(
+    !watched.includes(falseDiagnostic),
+    `a generic exception line must not manufacture a diagnostic watch path; watched: ${watched.join(", ")}`,
   );
   assert.equal(cache.size, 0, "resolved-exception generation must not persist");
 

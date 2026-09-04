@@ -329,7 +329,7 @@ An input change or an explicit cache lifecycle reset permits a new generation. O
 
 A compile that succeeded but has no output for one requested file is a fact about that file rather than about the generation, so the generation is left alone and the module is returned to the host untransformed, reported once per file per pass with the file and the tsconfig it is missing from. That is one answer shared by every adapter and by `@ttsc/metro`.
 
-A failed compile registers the project inputs a fix would touch, so a watching session whose first compile failed still has a channel through which the fix arrives. Every message the adapter surfaces is plain text, since what it returns becomes a bundler's error in an overlay or a CI annotation rather than something a terminal renders.
+A failed compile registers the project-walk inputs, retained external graph and host inputs, and files named by its structured or standard TypeScript text diagnostics, so a watching session whose first compile failed still has a channel through which an internal or external fix arrives. These failure registrations make no claim about current input state; the adapter probes or watches each path for the repair. Every message the adapter surfaces is plain text, since what it returns becomes a bundler's error in an overlay or a CI annotation rather than something a terminal renders.
 
 A generation's non-error diagnostics belong to the compile rather than to a delivery, so they are surfaced once per pass rather than once per delivered module, and a later pass over a retained generation surfaces them again.
 

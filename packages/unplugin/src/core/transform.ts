@@ -1963,20 +1963,16 @@ function notifyFailedGenerationInputs(
     return;
   }
   const inputs: TtscWatchInput[] = [];
-  const identities = createHostPathIdentityContext(
-    resultFilesystem(cached.result),
-  );
   const seen = new Set<string>();
   const append = (input: string): void => {
     const spelling = path.resolve(input);
-    const identity = pathIdentityKey(spelling, identities);
     if (
-      seen.has(identity) ||
+      seen.has(spelling) ||
       isTransformScratchInput(spelling, cached.scratchDirectory)
     ) {
       return;
     }
-    seen.add(identity);
+    seen.add(spelling);
     // No evidence, deliberately. A failed generation is replayed for the rest
     // of its pass without re-proving its inputs, so the adapter must observe
     // the current availability itself.
@@ -2022,9 +2018,11 @@ function selectExceptionDiagnosticFiles(error: unknown): string[] {
   const files: string[] = [];
   for (const line of formatUnknownError(error).split(/\r?\n/)) {
     const colon =
-      /^(.+):\d+:\d+\s+-\s+(?:error|warning|suggestion|message)\s+/i.exec(line);
+      /^(.+):\d+:\d+\s+-\s+(?:error|warning|suggestion|message)\s+TS\d+:\s+.+$/i.exec(
+        line,
+      );
     const parenthesized =
-      /^(.+?)\(\d+,\d+\):\s+(?:error|warning|suggestion|message)\s+/i.exec(
+      /^(.+?)\(\d+,\d+\):\s+(?:error|warning|suggestion|message)\s+TS\d+:\s+.+$/i.exec(
         line,
       );
     const file = colon?.[1] ?? parenthesized?.[1];
