@@ -142,6 +142,7 @@ export const value: Folder = { value: internal + self };
   "references": [{ "path": "./child" }]
 }`,
     "src/main.ts": `/// <reference path="../child/lib/reference" />
+/// <reference path="../child/lib/index" />
 import { child } from "../child/lib/index.js"; export { child };`,
     "child/tsconfig.json": `{
   "compilerOptions": {
@@ -194,6 +195,10 @@ import { child } from "../child/lib/index.js"; export { child };`,
     }
   }
   projectReferenceEdges := projectReferenceGraph.Edges[projectReferenceSource]
+  residentReferenceSource := filepath.ToSlash(filepath.Join("child", "src", "index.ts"))
+  if !slices.Contains(projectReferenceEdges, residentReferenceSource) {
+    t.Fatalf("resident project-reference source was omitted from realized edges: %v", projectReferenceEdges)
+  }
   extensionlessReferenceSource := filepath.ToSlash(filepath.Join("child", "src", "reference.ts"))
   if slices.Contains(projectReferenceEdges, extensionlessReferenceSource) {
     t.Fatalf("nonresident project-reference source remained a realized edge: %v", projectReferenceEdges)
@@ -205,6 +210,11 @@ import { child } from "../child/lib/index.js"; export { child };`,
   sourceObservation := projectReferenceGraph.InputObservations[extensionlessReferenceSource]
   if sourceObservation.FileExists == nil || !*sourceObservation.FileExists {
     t.Fatalf("project-reference source existence was not preserved: %#v", sourceObservation)
+  }
+  outputReference := filepath.ToSlash(filepath.Join("child", "lib", "reference.d.ts"))
+  outputObservation := projectReferenceGraph.InputObservations[outputReference]
+  if outputObservation.FileExists == nil || *outputObservation.FileExists {
+    t.Fatalf("unbuilt project-reference output absence was not preserved: %#v", outputObservation)
   }
 
   semanticRoot := t.TempDir()
