@@ -1,5 +1,10 @@
-import { TestUnpluginProject, TestUnpluginRuntime } from "@ttsc/testing";
+import {
+  TestProject,
+  TestUnpluginProject,
+  TestUnpluginRuntime,
+} from "@ttsc/testing";
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import path from "node:path";
 
 const LOADER = "@ttsc/unplugin/turbopack";
@@ -326,6 +331,71 @@ export async function assertNextAdapterPreservesTurbopackConfig(): Promise<void>
   assert.ok(Array.isArray(unrelatedRule));
   assert.equal(unrelatedRule[0], unrelated);
   assert.ok(isTtscLoader(unrelatedRule[1]));
+
+  // An absolute loader's package ownership is a filesystem observation, not a
+  // permanent property of its lexical path. Reusing the wrapper in one process
+  // must see both directions of an atomic install or link retarget.
+  const positiveRoot = TestProject.tmpdir("ttsc-next-loader-positive-");
+  const positiveLoader = path.join(positiveRoot, "lib", "turbopack.js");
+  fs.mkdirSync(path.dirname(positiveLoader), { recursive: true });
+  fs.writeFileSync(positiveLoader, "", "utf8");
+  fs.writeFileSync(
+    path.join(positiveRoot, "package.json"),
+    JSON.stringify({ name: "@ttsc/unplugin" }),
+    "utf8",
+  );
+  const initiallyOwned = loadersOf(
+    next({
+      turbopack: { rules: { "*.ts": [positiveLoader] } },
+    }).turbopack?.rules?.["*.ts"],
+  );
+  assert.deepEqual(initiallyOwned, [positiveLoader]);
+  fs.writeFileSync(
+    path.join(positiveRoot, "package.json"),
+    JSON.stringify({ name: "unrelated-loader" }),
+    "utf8",
+  );
+  const replacedOwner = loadersOf(
+    next({
+      turbopack: { rules: { "*.ts": [positiveLoader] } },
+    }).turbopack?.rules?.["*.ts"],
+  );
+  assert.equal(replacedOwner[0], positiveLoader);
+  assert.ok(
+    isTtscLoader(replacedOwner[1]),
+    "a stale positive ownership verdict must not suppress the ttsc loader",
+  );
+
+  const negativeRoot = TestProject.tmpdir("ttsc-next-loader-negative-");
+  const negativeLoader = path.join(negativeRoot, "lib", "turbopack.js");
+  fs.mkdirSync(path.dirname(negativeLoader), { recursive: true });
+  fs.writeFileSync(negativeLoader, "", "utf8");
+  fs.writeFileSync(
+    path.join(negativeRoot, "package.json"),
+    JSON.stringify({ name: "unrelated-loader" }),
+    "utf8",
+  );
+  const initiallyForeign = loadersOf(
+    next({
+      turbopack: { rules: { "*.ts": [negativeLoader] } },
+    }).turbopack?.rules?.["*.ts"],
+  );
+  assert.equal(initiallyForeign[0], negativeLoader);
+  assert.ok(isTtscLoader(initiallyForeign[1]));
+  fs.writeFileSync(
+    path.join(negativeRoot, "package.json"),
+    JSON.stringify({ name: "@ttsc/unplugin" }),
+    "utf8",
+  );
+  assert.deepEqual(
+    loadersOf(
+      next({
+        turbopack: { rules: { "*.ts": [negativeLoader] } },
+      }).turbopack?.rules?.["*.ts"],
+    ),
+    [negativeLoader],
+    "a stale negative ownership verdict must not duplicate the ttsc loader",
+  );
 }
 
 /**
