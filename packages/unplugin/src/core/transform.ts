@@ -2654,20 +2654,21 @@ function matchesNarrowPersistentInputs(
 
 /**
  * Validate one derived input against the generation, skipping the content read
- * while the recorded metadata signature still holds.
+ * while the recorded metadata signature still holds and its clock floor remains
+ * safe.
  *
  * Sibling deliveries of one generation share most of their derived inputs, and
  * `graph.globals` is shared by every one of them, so re-reading and re-hashing
  * the whole derived set per delivery multiplies one generation's proven bytes
  * by the module count. The derived set is proven the same way the universal
  * descriptor inputs are ({@link matchesUniversalHostInputs}), under the same
- * rules: an unchanged signature stands in for the content comparison, and any
- * signature change falls back to the full comparison. A signature is recorded
- * only around a read nothing raced, only for a recorded state that came from
- * reading the input rather than from failing to, and only while the observed
- * filesystem's own clock has provably left the stamp's tick
- * ({@link stampSeparable}), so a same-length rewrite inside that tick cannot
- * hide behind an unchanged signature.
+ * rules: a currently separable unchanged signature stands in for the content
+ * comparison, and any signature or clock-ordering change falls back to the full
+ * comparison. A signature is recorded only around a read nothing raced, only
+ * for a recorded state that came from reading the input rather than from
+ * failing to, and only while the observed filesystem's own clock has provably
+ * left the stamp's tick ({@link stampSeparable}), so a same-length rewrite
+ * inside that tick cannot hide behind an unchanged signature.
  *
  * The signature carries the physical identity of both the lexical path and its
  * link target ({@link inputMetadataSignature}), so retargeting a symlink or
@@ -2703,7 +2704,11 @@ function matchesProvenInput(
   }
   const filesystem = resultFilesystem(cached.result);
   const before = inputMetadataEvidence(input, filesystem);
-  if (before !== undefined && slot.signatures[slot.key] === before.signature) {
+  if (
+    before !== undefined &&
+    before.separable &&
+    slot.signatures[slot.key] === before.signature
+  ) {
     return true;
   }
   if (!matchesRecordedInput(cached, input)) {
@@ -2827,7 +2832,8 @@ function matchesUniversalHostInputEntries(
     const evidence = inputMetadataEvidence(entry.path, filesystem);
     if (
       entry.signature !== undefined &&
-      evidence?.signature === entry.signature
+      evidence?.signature === entry.signature &&
+      (entry.strict === true || evidence.separable)
     )
       continue;
     if (entry.strict === true) return false;
@@ -3102,22 +3108,21 @@ const MISSING_INPUT_STATE = "missing";
  * stamp the cache-owned operations report, seeded per generation by
  * {@link mintFilesystemClockReference}.
  *
- * The process clock never participates: both sides of every comparison are
- * stamps the same filesystem clock minted, at the same granularity, so a
- * filesystem clock running behind (or ahead of) the host process changes
- * nothing.
+ * The process clock never grants proof: both sides of the separating comparison
+ * are stamps the same filesystem clock reported, at the same granularity. It
+ * supplies only an upper rejection bound, so an offset can decline an
+ * optimization but cannot authorize it.
  *
  * Accumulating observed stamps is deliberately weaker than git's own reference,
- * which is a single stamp git minted itself. A stamp this floor accepts may
- * instead have been _set_ rather than minted, and a set stamp is dangerous only
- * when it lands in the future: the floor is a maximum, so a restored past stamp
- * never raises it. One future-dated file — a stamp-preserving extraction or
- * copy from a machine whose clock ran ahead — pushes its device's floor past
- * the present and reopens the same-tick window for every other input on that
- * device until the clock catches up. A clock that jumps backwards strands the
- * floor above the present the same way, a different hazard from the constant
- * offset the paragraph above is about: an offset moves both operands together
- * and changes nothing, a jump moves only the present.
+ * which is a single stamp git minted itself. A modification time may have been
+ * assigned rather than minted, so one field alone cannot advance the floor: the
+ * conservative observation is the earlier of `mtime` and `ctime`. A floor is
+ * also rechecked against the process wall clock whenever it is consumed. The
+ * process clock can reject a floor that is still in the future, including one
+ * stranded there by a clock rollback, but never grants separability by itself.
+ * A filesystem at an unprovable positive offset therefore keeps content reads
+ * until the relationship becomes safe; correctness costs reads, not the
+ * generation (samchon/ttsc#1344).
  *
  * The minted probe is not enough on its own to replace observed stamps: it
  * lands on the scratch volume, which is frequently not the inputs' volume (a
@@ -3151,7 +3156,10 @@ function observeFilesystemClock(
   stats: fs.BigIntStats,
 ): void {
   const floors = filesystemClockFloors(filesystem);
-  const stamp = stats.mtimeNs > stats.ctimeNs ? stats.mtimeNs : stats.ctimeNs;
+  // Either field can be assigned by a copying or extraction tool. Requiring
+  // both to have reached the candidate prevents one future-dated field from
+  // forging progress for every other input on the device.
+  const stamp = stats.mtimeNs < stats.ctimeNs ? stats.mtimeNs : stats.ctimeNs;
   const current = floors.get(stats.dev);
   if (current === undefined || stamp > current) {
     floors.set(stats.dev, stamp);
@@ -3171,7 +3179,11 @@ function stampSeparable(
   stats: fs.BigIntStats,
 ): boolean {
   const floor = filesystemClockFloors(filesystem).get(stats.dev);
-  return floor !== undefined && stats.mtimeNs < floor;
+  return (
+    floor !== undefined &&
+    floor <= BigInt(Date.now()) * 1_000_000n &&
+    stats.mtimeNs < floor
+  );
 }
 
 /**
@@ -4228,11 +4240,12 @@ function collectProjectInputSnapshot(
       const before = inputMetadataEvidence(file, filesystem);
       // A file whose signature still equals the one captured around the read
       // that produced the recorded hash carries that content, so the whole
-      // project does not have to be re-read to prove one delivery. A signature
-      // that was already proven stays proven: its stamp has not moved since the
-      // clock provably left its tick.
+      // project does not have to be re-read to prove one delivery. Recheck the
+      // clock ordering as well: rollback can make a formerly safe floor unable
+      // to answer for a new write (samchon/ttsc#1344).
       if (
         before !== undefined &&
+        before.separable &&
         proven !== undefined &&
         proven.signatures[key] === before.signature &&
         Object.prototype.hasOwnProperty.call(proven.hashes, key)
@@ -5546,7 +5559,8 @@ function broadWatchInputBaseline(
 /**
  * Re-check a cached mixed graph/dependency input set with its owning codec,
  * reusing the recorded hash of any input whose metadata signature still holds
- * and reporting the signatures this pass captured.
+ * under a currently safe clock floor and reporting the signatures this pass
+ * captured.
  *
  * The caller adopts those signatures only once every input is proven unchanged,
  * so a signature never outlives the content comparison that justified it.
@@ -5595,6 +5609,7 @@ function matchesCachedExternalInputs(cached: TtscCachedProjectTransform): {
       before !== undefined &&
       Object.prototype.hasOwnProperty.call(recordedSignatures, spelling) &&
       Object.prototype.hasOwnProperty.call(recordedHashes, identity) &&
+      before.separable &&
       before.signature === recordedSignatures[spelling]
     ) {
       continue;

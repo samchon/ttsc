@@ -2706,10 +2706,11 @@ const PINNED_TICK = 1_000_000_000_000_000_000n;
  * inside the tick that minted an input's recorded stamp leaves its metadata
  * signature unchanged. Real timing cannot pin that window reliably, so these
  * operations report one constant tick for every path (overridable per path
- * through `stamps`) while every other observation — kind, size, identity, bytes
- * — remains the real filesystem's. With every stamp in one tick, the observed
- * filesystem's clock never provably leaves it, which is exactly the state a
- * freshly written tree is in on a coarse-tick filesystem.
+ * through `stamps`, or for modification time alone through
+ * `modificationStamps`) while every other observation — kind, size, identity,
+ * bytes — remains the real filesystem's. With every stamp in one tick, the
+ * observed filesystem's clock never provably leaves it, which is exactly the
+ * state a freshly written tree is in on a coarse-tick filesystem.
  *
  * `watch` is a seam too: `"silent"` registers healthy watchers that never
  * report, keeping the narrow validation path live without real watcher races,
@@ -2720,9 +2721,11 @@ function createTickPinnedFilesystem(props: {
   reads?: string[];
   watch: "refused" | "silent";
 }): {
+  modificationStamps: Map<string, bigint>;
   operations: Record<string, unknown>;
   stamps: Map<string, bigint>;
 } {
+  const modificationStamps = new Map<string, bigint>();
   const stamps = new Map<string, bigint>();
   const reported = (location: string): bigint =>
     stamps.get(path.resolve(location)) ?? PINNED_TICK;
@@ -2734,10 +2737,12 @@ function createTickPinnedFilesystem(props: {
         atimeNs: reported(location),
         birthtimeNs: reported(location),
         ctimeNs: reported(location),
-        mtimeNs: reported(location),
+        mtimeNs:
+          modificationStamps.get(path.resolve(location)) ?? reported(location),
       },
     );
   return {
+    modificationStamps,
     operations: {
       lstat: (location: string) =>
         pin(location, fs.lstatSync(location, { bigint: true })),
@@ -2781,6 +2786,13 @@ async function assertSameTickDerivedRewriteReplacesTheGeneration(): Promise<void
   });
   const modules = projectModules(project.root);
   const pinned = createTickPinnedFilesystem({ watch: "silent" });
+  // One preserved future modification time must not forge clock progress for
+  // the otherwise same-tick tree. The change time remains in the real pinned
+  // tick, matching an archive or copy that assigned only `mtime`.
+  pinned.modificationStamps.set(
+    path.join(project.root, "package.json"),
+    8_000_000_000_000_000_000n,
+  );
   const cache = createTtscTransformCache(pinned.operations);
   const options = resolveOptions();
   const deliver = (file: string) =>
@@ -3029,6 +3041,38 @@ async function assertSeparatedStampReEarnsItsSignature(): Promise<void> {
   );
   assert.equal(pluginRuns(), 1, "re-earning must never cost the generation");
   assert.equal([...cache.values()][0], generation);
+
+  // A floor that was safe when the signatures were earned can become unsafe
+  // after a wall-clock rollback. Cached signatures must recheck that ordering
+  // rather than remaining authoritative forever.
+  const rolledBackInput = path.join(
+    project.root,
+    "node_modules",
+    "global1",
+    "index.d.ts",
+  );
+  fs.writeFileSync(
+    rolledBackInput,
+    "declare const ambient1: string;\n",
+    "utf8",
+  );
+  const dateNow = Date.now;
+  Date.now = () => Number(PINNED_TICK / 1_000_000n) - 1;
+  try {
+    assert.ok(await deliver(modules[0]!));
+  } finally {
+    Date.now = dateNow;
+  }
+  assert.equal(
+    pluginRuns(),
+    2,
+    "a clock rollback must restore content validation before metadata reuse",
+  );
+  assert.notEqual(
+    [...cache.values()][0],
+    generation,
+    "a hidden rewrite during clock rollback must replace the generation",
+  );
 }
 
 /**
