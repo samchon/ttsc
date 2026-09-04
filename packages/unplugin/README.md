@@ -364,6 +364,8 @@ Project membership comes from the resolved configuration rather than from a list
 
 An input change or an explicit cache lifecycle reset permits a new generation. Opening a pass is not such a reset.
 
+Closing a webpack or Rspack compiler disposes its generation at the compiler's shutdown hook. esbuild disposes after a one-shot build or after the last overlapping build context closes; an older delayed disposal cannot clear a replacement context that already started. These terminal boundaries release generation-owned filesystem trackers without discarding the generation on each rebuild.
+
 A compile that failed outright is retained for the rest of that pass, so its remaining modules replay the verdict instead of repeating an identical failing compile once per module, and the next pass attempts it again. A host with no pass boundary keeps evicting a failed compile on every delivery, so a transient toolchain failure never becomes permanent for a long-lived worker.
 
 #### What this changes for you

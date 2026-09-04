@@ -78,6 +78,12 @@ const unpluginFactory: UnpluginFactory<
   // old containers cannot dispose a replacement's freshly initialized cache.
   let viteBuildOwners = new WeakSet<object>();
   let viteBuildLifecycles = 0;
+  // esbuild schedules one-shot onDispose callbacks after it settles the build
+  // Promise. Reusing a plugin immediately can therefore start the replacement
+  // setup before the old callback runs. Keep the old callback from disposing
+  // the replacement's active generation.
+  const esbuildOwners = new WeakSet<object>();
+  let esbuildLifecycles = 0;
 
   return {
     name,
@@ -198,6 +204,37 @@ const unpluginFactory: UnpluginFactory<
       },
       closeWatcher() {
         resetTtscTransformCache(transformCache);
+      },
+    },
+
+    // These hosts map a top-level buildEnd to a per-compilation hook, so use
+    // their true compiler or context teardown instead. The custom callbacks
+    // are installed by unplugin alongside its ordinary transform wiring.
+    webpack(compiler) {
+      compiler.hooks.shutdown.tap(name, () => {
+        resetTtscTransformCache(transformCache);
+      });
+    },
+    rspack(compiler) {
+      compiler.hooks.shutdown.tap(name, () => {
+        resetTtscTransformCache(transformCache);
+      });
+    },
+    esbuild: {
+      setup(build) {
+        if (!esbuildOwners.has(build)) {
+          esbuildOwners.add(build);
+          esbuildLifecycles += 1;
+        }
+        build.onDispose(() => {
+          if (!esbuildOwners.delete(build)) {
+            return;
+          }
+          esbuildLifecycles -= 1;
+          if (esbuildLifecycles === 0) {
+            resetTtscTransformCache(transformCache);
+          }
+        });
       },
     },
 

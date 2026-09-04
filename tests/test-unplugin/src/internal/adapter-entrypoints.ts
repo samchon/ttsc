@@ -22,7 +22,8 @@ const INTERNAL_DIR = path.join(
 
 /**
  * Asserts that the farm, rolldown, rspack, and webpack adapter entrypoints each
- * resolve to a callable factory function.
+ * resolve to a callable factory function, and that the webpack-like factories
+ * bind cache disposal to the compiler's terminal shutdown hook.
  */
 async function assertAdapterEntrypointsExposeFactories() {
   const unpluginFarm = await TestUnpluginRuntime.loadUnpluginAdapter("farm");
@@ -36,6 +37,29 @@ async function assertAdapterEntrypointsExposeFactories() {
   assert.equal(typeof unpluginRolldown, "function");
   assert.equal(typeof unpluginRspack, "function");
   assert.equal(typeof unpluginWebpack, "function");
+
+  const { unplugin } = await TestUnpluginRuntime.loadUnpluginApi();
+  for (const framework of ["webpack", "rspack"] as const) {
+    const raw = unplugin.raw(undefined, {
+      framework,
+      [framework]: { compiler: {} },
+    } as never);
+    let registeredName: string | undefined;
+    let dispose: (() => void) | undefined;
+    raw[framework]?.({
+      hooks: {
+        shutdown: {
+          tap(name: string, callback: () => void) {
+            registeredName = name;
+            dispose = callback;
+          },
+        },
+      },
+    } as never);
+    assert.equal(registeredName, "ttsc-unplugin", framework);
+    assert.equal(typeof dispose, "function", framework);
+    dispose?.();
+  }
 }
 
 /**
