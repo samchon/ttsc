@@ -33,6 +33,11 @@ import (
 
 var programLifecycleSequence atomic.Uint64
 
+// semanticConfigPathEnv mirrors `driver.SemanticConfigPathEnv`: the internal
+// channel that identifies the user-authored config behind a generated wrapper.
+// This module cannot import the ttsc driver; see the package boundary above.
+const semanticConfigPathEnv = "TTSC_SEMANTIC_CONFIG_PATH"
+
 // program bundles the tsgo Program with the parsed config and the standalone
 // checker used only by type-aware lint rules.
 type program struct {
@@ -54,9 +59,10 @@ type program struct {
 }
 
 type loadProgramOptions struct {
-  forceEmit   bool
-  forceNoEmit bool
-  outDir      string
+  forceEmit          bool
+  forceNoEmit        bool
+  outDir             string
+  semanticConfigPath string
   // needsRuleChecker asks loadProgram to create the standalone checker that
   // type-aware lint rules receive through Context.Checker.
   needsRuleChecker bool
@@ -118,6 +124,9 @@ func loadProgram(cwd, tsconfigPath string, options loadProgramOptions) (*program
   if len(parsed.Errors) > 0 {
     return nil, parsed.Errors, nil
   }
+  if err := applySemanticConfigPath(parsed, options.semanticConfigPath); err != nil {
+    return nil, nil, err
+  }
   if options.forceNoEmit {
     forceNoEmit(parsed)
   }
@@ -156,6 +165,18 @@ func loadProgram(cwd, tsconfigPath string, options loadProgramOptions) (*program
     checker:   checker,
     identity:  normalizeProjectIdentity(options.projectIdentity, cwd, resolved),
   }, nil, nil
+}
+
+func applySemanticConfigPath(parsed *tsoptions.ParsedCommandLine, semanticConfigPath string) error {
+  configured := strings.TrimSpace(semanticConfigPath)
+  if configured == "" {
+    return nil
+  }
+  if !filepath.IsAbs(configured) {
+    return fmt.Errorf("linthost: semantic config path must be absolute: %s", configured)
+  }
+  parsed.ParsedConfig.CompilerOptions.ConfigFilePath = shimtspath.ResolvePath(configured)
+  return nil
 }
 
 func normalizeProjectIdentity(

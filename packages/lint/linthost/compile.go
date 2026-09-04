@@ -74,6 +74,7 @@ func RunTransform(args []string) int {
 
 // RunTransformWithIO runs transform with invocation-owned output streams.
 func RunTransformWithIO(args []string, stdout, stderr io.Writer) int {
+  semanticConfigPath := os.Getenv(semanticConfigPathEnv)
   fs := flag.NewFlagSet("transform", flag.ContinueOnError)
   fs.SetOutput(stderr)
   file := fs.String("file", "", "absolute or cwd-relative path of the .ts file to transform")
@@ -122,12 +123,13 @@ func RunTransformWithIO(args []string, stdout, stderr io.Writer) int {
   engine.SetSerial(*singleThreaded)
 
   prog, parseDiags, err := loadProgram(resolvedCwd, *tsconfig, loadProgramOptions{
-    forceEmit:        true,
-    needsRuleChecker: engine.NeedsTypeChecker(),
-    singleThreaded:   *singleThreaded,
-    checkers:         *checkers,
-    tsgoArgs:         tsgoArgs,
-    projectIdentity:  projectIdentity,
+    forceEmit:          true,
+    semanticConfigPath: semanticConfigPath,
+    needsRuleChecker:   engine.NeedsTypeChecker(),
+    singleThreaded:     *singleThreaded,
+    checkers:           *checkers,
+    tsgoArgs:           tsgoArgs,
+    projectIdentity:    projectIdentity,
   })
   if err != nil {
     fmt.Fprintf(stderr, "@ttsc/lint: %v\n", err)
@@ -201,21 +203,22 @@ func RunTransformWithIO(args []string, stdout, stderr io.Writer) int {
 }
 
 type subcommandOpts struct {
-  cwd             string
-  tsconfig        string
-  pluginsJSON     string
-  emit            bool
-  noEmit          bool
-  quiet           bool
-  verbose         bool
-  diagnostics     bool
-  outDir          string
-  singleThreaded  bool
-  checkers        int
-  tsgoArgs        []string
-  projectIdentity publicrule.ProjectIdentity
-  stdout          io.Writer
-  stderr          io.Writer
+  cwd                string
+  tsconfig           string
+  pluginsJSON        string
+  emit               bool
+  noEmit             bool
+  quiet              bool
+  verbose            bool
+  diagnostics        bool
+  outDir             string
+  semanticConfigPath string
+  singleThreaded     bool
+  checkers           int
+  tsgoArgs           []string
+  projectIdentity    publicrule.ProjectIdentity
+  stdout             io.Writer
+  stderr             io.Writer
 }
 
 // parseSubcommandFlags parses the shared flag set used by the `check`,
@@ -226,6 +229,7 @@ func parseSubcommandFlags(name string, args []string) (*subcommandOpts, error) {
 }
 
 func parseSubcommandFlagsWithIO(name string, args []string, stdout, stderr io.Writer) (*subcommandOpts, error) {
+  semanticConfigPath := os.Getenv(semanticConfigPathEnv)
   if stdout == nil {
     stdout = io.Discard
   }
@@ -267,21 +271,22 @@ func parseSubcommandFlagsWithIO(name string, args []string, stdout, stderr io.Wr
     return nil, err
   }
   return &subcommandOpts{
-    cwd:             resolvedCwd,
-    tsconfig:        *tsconfig,
-    pluginsJSON:     *pluginsJSON,
-    emit:            *emit,
-    noEmit:          *noEmit,
-    quiet:           *quiet,
-    verbose:         *verbose,
-    diagnostics:     *diagnostics || *extendedDiagnostics,
-    outDir:          *outDir,
-    singleThreaded:  *singleThreaded,
-    checkers:        *checkers,
-    tsgoArgs:        tsgoArgs,
-    projectIdentity: projectIdentity,
-    stdout:          stdout,
-    stderr:          stderr,
+    cwd:                resolvedCwd,
+    tsconfig:           *tsconfig,
+    pluginsJSON:        *pluginsJSON,
+    emit:               *emit,
+    noEmit:             *noEmit,
+    quiet:              *quiet,
+    verbose:            *verbose,
+    diagnostics:        *diagnostics || *extendedDiagnostics,
+    outDir:             *outDir,
+    semanticConfigPath: semanticConfigPath,
+    singleThreaded:     *singleThreaded,
+    checkers:           *checkers,
+    tsgoArgs:           tsgoArgs,
+    projectIdentity:    projectIdentity,
+    stdout:             stdout,
+    stderr:             stderr,
   }, nil
 }
 
@@ -332,14 +337,15 @@ func runProject(opts *subcommandOpts) int {
   engine.SetSerial(opts.singleThreaded)
 
   prog, parseDiags, err := loadProgram(opts.cwd, opts.tsconfig, loadProgramOptions{
-    forceEmit:        opts.emit,
-    forceNoEmit:      opts.noEmit,
-    outDir:           opts.outDir,
-    needsRuleChecker: engine.NeedsTypeChecker(),
-    singleThreaded:   opts.singleThreaded,
-    checkers:         opts.checkers,
-    tsgoArgs:         opts.tsgoArgs,
-    projectIdentity:  opts.projectIdentity,
+    forceEmit:          opts.emit,
+    forceNoEmit:        opts.noEmit,
+    outDir:             opts.outDir,
+    semanticConfigPath: opts.semanticConfigPath,
+    needsRuleChecker:   engine.NeedsTypeChecker(),
+    singleThreaded:     opts.singleThreaded,
+    checkers:           opts.checkers,
+    tsgoArgs:           opts.tsgoArgs,
+    projectIdentity:    opts.projectIdentity,
   })
   if err != nil {
     fmt.Fprintf(opts.stderr, "@ttsc/lint: %v\n", err)

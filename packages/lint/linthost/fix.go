@@ -143,13 +143,14 @@ func runFix(opts *subcommandOpts) int {
 // NoEmit forced on. Returns (nil, 2) when loading or config parsing fails.
 func loadFixProgram(opts *subcommandOpts, needsRuleChecker bool) (*program, int) {
   prog, parseDiags, err := loadProgram(opts.cwd, opts.tsconfig, loadProgramOptions{
-    forceNoEmit:      true,
-    outDir:           opts.outDir,
-    needsRuleChecker: needsRuleChecker,
-    singleThreaded:   opts.singleThreaded,
-    checkers:         opts.checkers,
-    tsgoArgs:         opts.tsgoArgs,
-    projectIdentity:  opts.projectIdentity,
+    forceNoEmit:        true,
+    outDir:             opts.outDir,
+    semanticConfigPath: opts.semanticConfigPath,
+    needsRuleChecker:   needsRuleChecker,
+    singleThreaded:     opts.singleThreaded,
+    checkers:           opts.checkers,
+    tsgoArgs:           opts.tsgoArgs,
+    projectIdentity:    opts.projectIdentity,
   })
   if err != nil {
     fmt.Fprintf(os.Stderr, "@ttsc/lint: %v\n", err)
