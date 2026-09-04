@@ -297,6 +297,12 @@ const TRANSFORM_FAILED_GENERATION_VALIDATIONS = new WeakMap<
   TtscFailedGenerationValidation
 >();
 
+/** Internal retained clock-probe ownership for published generations. */
+const TRANSFORM_CLOCK_REFERENCE_DIRECTORIES = new WeakMap<
+  TtscCachedProjectTransform,
+  string
+>();
+
 /** Cache promises whose unchanged terminal verdict may be replayed. */
 const TERMINAL_TRANSFORM_GENERATIONS = new WeakMap<
   Promise<TtscCachedProjectTransform>,
@@ -323,12 +329,6 @@ const TRANSFORM_GENERATION_ATTEMPTS = 2;
  * graph-free envelopes retain complete-snapshot validation.
  */
 export interface TtscCachedProjectTransform {
-  /**
-   * Retained adapter-owned directory whose probe is rewritten immediately
-   * before signature-based validation. A probe can separate only inputs on the
-   * reporting device that minted its current modification stamp.
-   */
-  clockReferenceDirectory?: string;
   /** Predicate-preserving compiler proofs for external candidate spellings. */
   externalInputObservations?: Record<
     string,
@@ -1225,8 +1225,9 @@ function disposeCachedTransform(cached: TtscCachedProjectTransform): void {
   cached.projectMutationTracker = undefined;
   cached.hostInputMutationTracker = undefined;
   cached.candidateMutationTracker = undefined;
-  const clockReferenceDirectory = cached.clockReferenceDirectory;
-  cached.clockReferenceDirectory = undefined;
+  const clockReferenceDirectory =
+    TRANSFORM_CLOCK_REFERENCE_DIRECTORIES.get(cached);
+  TRANSFORM_CLOCK_REFERENCE_DIRECTORIES.delete(cached);
   try {
     for (const tracker of trackers) tracker?.close();
   } finally {
@@ -2585,7 +2586,7 @@ function matchesCachedSource(
       // settled against it. That proof is what a per-pass recompile used to buy
       // (samchon/ttsc#1300), at a walk instead of a compile.
       refreshFilesystemClockReference(
-        cached.clockReferenceDirectory,
+        TRANSFORM_CLOCK_REFERENCE_DIRECTORIES.get(cached),
         resultFilesystem(cached.result),
       );
       if (!matchesCompleteInputSnapshot(cached, currentKey, source)) {
@@ -2600,7 +2601,7 @@ function matchesCachedSource(
     }
   }
   refreshFilesystemClockReference(
-    cached.clockReferenceDirectory,
+    TRANSFORM_CLOCK_REFERENCE_DIRECTORIES.get(cached),
     resultFilesystem(cached.result),
   );
   if (
@@ -6548,6 +6549,10 @@ function createUnstableGenerationError(
   lines.push(
     "  Stop writes to the listed inputs before compilation, or fix the producer that omitted or contradicted the listed proof.",
   );
+  // The failed snapshot remains useful as immutable retry evidence, but it can
+  // never serve a module. Release every live resource before its terminal
+  // verdict is retained in the cache.
+  disposeCachedTransform(validation.cached);
   return new TtscUnstableGenerationError(lines.join("\n"), validation);
 }
 
@@ -6836,9 +6841,6 @@ async function captureTransformGeneration(props: {
       ...(props.deliveryEpoch === undefined
         ? {}
         : { deliveryEpoch: props.deliveryEpoch }),
-      ...(clockReferenceDirectory === undefined
-        ? {}
-        : { clockReferenceDirectory }),
       // Capture the out-of-walk input hashes while the generation is fresh so
       // cache validation can re-check them; computed before dispose so the
       // scratch-tree exclusion is the only reason its disposed artifacts never
@@ -6955,7 +6957,18 @@ async function captureTransformGeneration(props: {
     retainTracker = notifying && tracker !== undefined;
     retainHostInputTracker = notifying && hostInputTracker !== undefined;
     retainCandidateTracker = notifying && candidateTracker !== undefined;
-    retainClockReferenceDirectory = clockReferenceDirectory !== undefined;
+    const publishableGeneration =
+      configStable &&
+      (!props.trackProjectMembership ||
+        result.type !== "success" ||
+        stableProjectSnapshot);
+    if (publishableGeneration && clockReferenceDirectory !== undefined) {
+      retainClockReferenceDirectory = true;
+      TRANSFORM_CLOCK_REFERENCE_DIRECTORIES.set(
+        cached,
+        clockReferenceDirectory,
+      );
+    }
     return cached;
   } finally {
     try {

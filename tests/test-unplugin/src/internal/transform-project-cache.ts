@@ -1242,7 +1242,14 @@ async function assertReportedGraphProofFailuresFailAfterBoundedAttempts(): Promi
   fs.mkdirSync(path.dirname(unrelated), { recursive: true });
   fs.writeFileSync(unrelated, "steady\n", "utf8");
   let denyUnrelated = false;
+  const referenceDirectories = new Set<string>();
   const cache = createTtscTransformCache({
+    lstat: (location: string) => {
+      if (path.basename(location) === "clock-reference") {
+        referenceDirectories.add(path.dirname(location));
+      }
+      return fs.lstatSync(location, { bigint: true });
+    },
     readFile: (location: string) => {
       if (denyUnrelated && path.resolve(location) === unrelated) {
         const error = new Error(
@@ -1289,6 +1296,16 @@ async function assertReportedGraphProofFailuresFailAfterBoundedAttempts(): Promi
     cache.size,
     1,
     "the terminal failed generation must remain authoritative",
+  );
+  assert.ok(
+    referenceDirectories.size >= 2,
+    "each bounded attempt must mint its own clock reference",
+  );
+  assert.ok(
+    [...referenceDirectories].every(
+      (referenceDirectory) => !fs.existsSync(referenceDirectory),
+    ),
+    "a terminal failed generation must release every clock reference",
   );
   denyUnrelated = true;
   for (const file of modules) {
@@ -2723,33 +2740,57 @@ function createTickPinnedFilesystem(props: {
 }): {
   modificationStamps: Map<string, bigint>;
   operations: Record<string, unknown>;
-  reference: { stamp: bigint };
+  reference: {
+    available: boolean;
+    deviceOffset: bigint;
+    directories: Set<string>;
+    stamp: bigint;
+  };
   stamps: Map<string, bigint>;
 } {
   const modificationStamps = new Map<string, bigint>();
-  const reference = { stamp: PINNED_TICK };
+  const reference = {
+    available: true,
+    deviceOffset: 0n,
+    directories: new Set<string>(),
+    stamp: PINNED_TICK,
+  };
   const stamps = new Map<string, bigint>();
   const reported = (location: string): bigint =>
     path.basename(location) === "clock-reference"
       ? reference.stamp
       : (stamps.get(path.resolve(location)) ?? PINNED_TICK);
-  const pin = (location: string, stats: fs.BigIntStats): fs.BigIntStats =>
-    Object.assign(
+  const pin = (location: string, stats: fs.BigIntStats): fs.BigIntStats => {
+    const clockReference = path.basename(location) === "clock-reference";
+    return Object.assign(
       Object.create(Object.getPrototypeOf(stats)) as fs.BigIntStats,
       stats,
       {
         atimeNs: reported(location),
         birthtimeNs: reported(location),
         ctimeNs: reported(location),
+        dev: clockReference ? stats.dev + reference.deviceOffset : stats.dev,
         mtimeNs:
           modificationStamps.get(path.resolve(location)) ?? reported(location),
       },
     );
+  };
   return {
     modificationStamps,
     operations: {
-      lstat: (location: string) =>
-        pin(location, fs.lstatSync(location, { bigint: true })),
+      lstat: (location: string) => {
+        if (path.basename(location) === "clock-reference") {
+          reference.directories.add(path.dirname(location));
+          if (!reference.available) {
+            const error = new Error(
+              "clock reference observation refused",
+            ) as NodeJS.ErrnoException;
+            error.code = "EIO";
+            throw error;
+          }
+        }
+        return pin(location, fs.lstatSync(location, { bigint: true }));
+      },
       statBigInt: (location: string) =>
         pin(location, fs.statSync(location, { bigint: true })),
       readFile: (location: string) => {
@@ -3076,17 +3117,83 @@ async function assertSeparatedStampReEarnsItsSignature(): Promise<void> {
     "a hidden rewrite during clock rollback must replace the generation",
   );
 
-  const replacement = await [...cache.values()][0]!;
-  const referenceDirectory = replacement.clockReferenceDirectory;
+  // Re-earn signatures on the replacement before isolating a failed probe
+  // observation. Keeping the old reference here would wrongly authorize the
+  // next same-length rewrite.
+  pinned.reference.stamp = PINNED_TICK + 1n;
+  for (const file of modules) {
+    assert.ok(await deliver(file));
+  }
+  const generationBeforeUnavailableReference = [...cache.values()][0];
+  const unavailableInput = path.join(
+    project.root,
+    "node_modules",
+    "global2",
+    "index.d.ts",
+  );
+  fs.writeFileSync(
+    unavailableInput,
+    "declare const ambient2: string;\n",
+    "utf8",
+  );
+  pinned.reference.available = false;
+  assert.ok(await deliver(modules[0]!));
+  assert.equal(
+    pluginRuns(),
+    3,
+    "a failed probe observation must restore content validation",
+  );
+  assert.notEqual(
+    [...cache.values()][0],
+    generationBeforeUnavailableReference,
+    "a hidden rewrite during probe failure must replace the generation",
+  );
+
+  // Re-earn once more, then prove that a reference from another reported
+  // device cannot authorize metadata-only reuse for the project device.
+  pinned.reference.available = true;
+  for (const file of modules) {
+    assert.ok(await deliver(file));
+  }
+  const generationBeforeDeviceMismatch = [...cache.values()][0];
+  const mismatchedDeviceInput = path.join(
+    project.root,
+    "node_modules",
+    "global3",
+    "index.d.ts",
+  );
+  fs.writeFileSync(
+    mismatchedDeviceInput,
+    "declare const ambient3: string;\n",
+    "utf8",
+  );
+  pinned.reference.deviceOffset = 1n;
+  assert.ok(await deliver(modules[0]!));
+  assert.equal(
+    pluginRuns(),
+    4,
+    "a reference from another device must restore content validation",
+  );
+  assert.notEqual(
+    [...cache.values()][0],
+    generationBeforeDeviceMismatch,
+    "a hidden rewrite under a device mismatch must replace the generation",
+  );
+
+  pinned.reference.deviceOffset = 0n;
+  const retainedReferenceDirectories = [...pinned.reference.directories].filter(
+    (referenceDirectory) => fs.existsSync(referenceDirectory),
+  );
   assert.ok(
-    referenceDirectory !== undefined && fs.existsSync(referenceDirectory),
+    retainedReferenceDirectories.length > 0,
     "a persistent generation must retain its refreshable clock probe",
   );
   resetTtscTransformCache(cache);
   await Promise.resolve();
-  assert.equal(
-    fs.existsSync(referenceDirectory),
-    false,
+  assert.ok(
+    retainedReferenceDirectories.every(
+      (referenceDirectory) => !fs.existsSync(referenceDirectory),
+    ),
     "cache disposal must remove the retained clock probe",
   );
 }
