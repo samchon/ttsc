@@ -1402,6 +1402,8 @@ async function assertReportedGraphProofFailuresFailAfterBoundedAttempts(): Promi
     unprovenGraphInputs: 1,
   });
   const cleanupReferenceDirectories = new Set<string>();
+  const closedWatchers = new Set<number>();
+  let openedWatchers = 0;
   const cleanupCache = createTtscTransformCache({
     lstat: (location: string) => {
       if (path.basename(location) === "clock-reference") {
@@ -1409,11 +1411,17 @@ async function assertReportedGraphProofFailuresFailAfterBoundedAttempts(): Promi
       }
       return fs.lstatSync(location, { bigint: true });
     },
-    watch: () => ({
-      close: () => {
-        throw new Error("forced tracker cleanup failure");
-      },
-    }),
+    watch: () => {
+      const watcher = openedWatchers++;
+      return {
+        close: () => {
+          closedWatchers.add(watcher);
+          if (watcher === 0) {
+            throw new Error("forced tracker cleanup failure");
+          }
+        },
+      };
+    },
   });
   const cleanupMain = projectModules(cleanupProject.root)[0]!;
   await assert.rejects(
@@ -1430,6 +1438,15 @@ async function assertReportedGraphProofFailuresFailAfterBoundedAttempts(): Promi
   assert.ok(
     cleanupReferenceDirectories.size > 0,
     "the failed capture must have minted a clock reference",
+  );
+  assert.ok(
+    openedWatchers > 1,
+    "the cleanup fixture must own multiple watcher handles",
+  );
+  assert.equal(
+    closedWatchers.size,
+    openedWatchers,
+    "one throwing close must not abandon later watcher handles",
   );
   assert.ok(
     [...cleanupReferenceDirectories].every(
@@ -2793,6 +2810,12 @@ function createTickPinnedFilesystem(props: {
     stamp: bigint;
   };
   stamps: Map<string, bigint>;
+  watchers: {
+    active: Set<number>;
+    closed: Set<number>;
+    fail: number | undefined;
+    next: number;
+  };
 } {
   const modificationStamps = new Map<string, bigint>();
   const reference = {
@@ -2802,6 +2825,12 @@ function createTickPinnedFilesystem(props: {
     stamp: PINNED_TICK,
   };
   const stamps = new Map<string, bigint>();
+  const watchers = {
+    active: new Set<number>(),
+    closed: new Set<number>(),
+    fail: undefined as number | undefined,
+    next: 0,
+  };
   const reported = (location: string): bigint =>
     path.basename(location) === "clock-reference"
       ? reference.stamp
@@ -2845,7 +2874,17 @@ function createTickPinnedFilesystem(props: {
       },
       watch: () => {
         if (props.watch === "silent") {
-          return { close: () => undefined };
+          const watcher = watchers.next++;
+          watchers.active.add(watcher);
+          return {
+            close: () => {
+              if (!watchers.active.delete(watcher)) return;
+              watchers.closed.add(watcher);
+              if (watchers.fail === watcher) {
+                throw new Error("forced published watcher cleanup failure");
+              }
+            },
+          };
         }
         const error = new Error(
           "watch registration refused",
@@ -2856,6 +2895,7 @@ function createTickPinnedFilesystem(props: {
     },
     reference,
     stamps,
+    watchers,
   };
 }
 
@@ -3248,6 +3288,12 @@ async function assertSeparatedStampReEarnsItsSignature(): Promise<void> {
     retainedReferenceDirectories.length > 0,
     "a persistent generation must retain its refreshable clock probe",
   );
+  const retainedWatchers = [...pinned.watchers.active];
+  assert.ok(
+    retainedWatchers.length > 1,
+    "a persistent generation must retain multiple watcher handles",
+  );
+  pinned.watchers.fail = retainedWatchers[0];
   resetTtscTransformCache(cache);
   await Promise.resolve();
   assert.ok(
@@ -3255,6 +3301,23 @@ async function assertSeparatedStampReEarnsItsSignature(): Promise<void> {
       (referenceDirectory) => !fs.existsSync(referenceDirectory),
     ),
     "cache disposal must remove the retained clock probe",
+  );
+  assert.ok(
+    retainedWatchers.every((watcher) => pinned.watchers.closed.has(watcher)),
+    "one published watcher failure must not abandon another watcher",
+  );
+  assert.equal(
+    pinned.watchers.active.size,
+    0,
+    "published disposal must detach every watcher before closing it",
+  );
+  const closedWatchers = pinned.watchers.closed.size;
+  resetTtscTransformCache(cache);
+  await Promise.resolve();
+  assert.equal(
+    pinned.watchers.closed.size,
+    closedWatchers,
+    "repeated cache disposal must not retry detached watcher handles",
   );
 }
 

@@ -1228,12 +1228,17 @@ function disposeCachedTransform(cached: TtscCachedProjectTransform): void {
   const clockReferenceDirectory =
     TRANSFORM_CLOCK_REFERENCE_DIRECTORIES.get(cached);
   TRANSFORM_CLOCK_REFERENCE_DIRECTORIES.delete(cached);
-  try {
-    for (const tracker of trackers) tracker?.close();
-  } finally {
-    if (clockReferenceDirectory !== undefined) {
-      disposeFilesystemClockReference(clockReferenceDirectory);
+  for (const tracker of trackers) {
+    try {
+      tracker?.close();
+    } catch {
+      // Disposal is scheduled behind fulfilled generation Promises, so it has
+      // no caller that can recover from a close failure. Keep releasing every
+      // independent resource and leave no rejected cleanup Promise behind.
     }
+  }
+  if (clockReferenceDirectory !== undefined) {
+    disposeFilesystemClockReference(clockReferenceDirectory);
   }
 }
 
@@ -4555,6 +4560,24 @@ function openDirectoryWatch(
   return { close: () => watcher.close() };
 }
 
+/** Detach and close every watcher, then preserve the first cleanup failure. */
+function closeDirectoryWatches(watchers: { close: () => void }[]): void {
+  const owned = watchers.splice(0);
+  let failed = false;
+  let failure: unknown;
+  for (const watcher of owned) {
+    try {
+      watcher.close();
+    } catch (error) {
+      if (!failed) {
+        failed = true;
+        failure = error;
+      }
+    }
+  }
+  if (failed) throw failure;
+}
+
 /** Watch every walked directory for membership changes after generation. */
 async function createProjectMutationTracker(
   directories: readonly TtscProjectDirectorySnapshot[],
@@ -4585,10 +4608,7 @@ async function createProjectMutationTracker(
     return tracker;
   }
   const watchers: { close: () => void }[] = [];
-  tracker.close = () => {
-    for (const watcher of watchers) watcher.close();
-    watchers.length = 0;
-  };
+  tracker.close = () => closeDirectoryWatches(watchers);
   for (const directory of directories) {
     try {
       watchers.push(
@@ -4690,10 +4710,7 @@ async function createHostInputMutationTracker(
     return tracker;
   }
   const watchers: { close: () => void }[] = [];
-  tracker.close = () => {
-    for (const watcher of watchers) watcher.close();
-    watchers.length = 0;
-  };
+  tracker.close = () => closeDirectoryWatches(watchers);
   for (const location of locations) {
     try {
       const names = new Set(location.names);
@@ -4931,14 +4948,36 @@ async function registerWindowsProjectMutationTracker(
     if (active === undefined) return;
     broker.trackers.delete(id);
     active.ready();
-    broker.child.send?.({ id, op: "remove" });
+    let failed = false;
+    let failure: unknown;
+    try {
+      broker.child.send?.({ id, op: "remove" });
+    } catch (error) {
+      failed = true;
+      failure = error;
+    }
     if (broker.trackers.size === 0) {
-      broker.child.disconnect?.();
-      broker.child.kill();
       if (windowsProjectMutationBroker === broker) {
         windowsProjectMutationBroker = undefined;
       }
+      try {
+        broker.child.disconnect?.();
+      } catch (error) {
+        if (!failed) {
+          failed = true;
+          failure = error;
+        }
+      }
+      try {
+        broker.child.kill();
+      } catch (error) {
+        if (!failed) {
+          failed = true;
+          failure = error;
+        }
+      }
     }
+    if (failed) throw failure;
   };
   broker.child.send?.({
     allEvents,
