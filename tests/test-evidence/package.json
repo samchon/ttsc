@@ -1,7 +1,7 @@
 {
   "private": true,
   "name": "test-evidence",
-  "version": "0.28.5",
+  "version": "0.28.6",
   "description": "End-to-end feature tests for @ttsc/evidence, driving the real ttsc binary.",
   "scripts": {
     "start": "node ../../packages/ttsc/lib/launcher/ttsx.js --no-plugins src/index.ts"
