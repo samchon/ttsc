@@ -108,6 +108,7 @@ export const value: Folder = { value: internal + self };
   "files": ["src/main.ts"]
 }`, resolveJSON),
       "src/main.ts": `/// <reference path="./appearing.json" />
+/// <reference path="./appearing.JSON" />
 export const value = true;
 `,
     }
@@ -128,14 +129,26 @@ export const value = true;
     jsonReferenceGraph := NewTransformGraph(jsonReferenceProgram, jsonReferenceRoot)
     jsonReferenceSource := filepath.ToSlash(filepath.Join("src", "main.ts"))
     jsonReferenceCandidate := filepath.ToSlash(filepath.Join("src", "appearing.json"))
+    uppercaseJSONCandidate := filepath.ToSlash(filepath.Join("src", "appearing.JSON"))
     containsCandidate := slices.Contains(jsonReferenceGraph.Candidates[jsonReferenceSource], jsonReferenceCandidate)
     if containsCandidate != resolveJSON {
       t.Fatalf("resolveJsonModule=%t JSON candidates = %v", resolveJSON, jsonReferenceGraph.Candidates[jsonReferenceSource])
+    }
+    containsUppercaseCandidate := slices.Contains(jsonReferenceGraph.Candidates[jsonReferenceSource], uppercaseJSONCandidate)
+    expectsUppercaseCandidate := resolveJSON && !jsonReferenceProgram.FS.UseCaseSensitiveFileNames()
+    if containsUppercaseCandidate != expectsUppercaseCandidate {
+      t.Fatalf("resolveJsonModule=%t uppercase JSON candidates = %v", resolveJSON, jsonReferenceGraph.Candidates[jsonReferenceSource])
     }
     if resolveJSON {
       observation := jsonReferenceGraph.InputObservations[jsonReferenceCandidate]
       if observation.FileExists == nil || *observation.FileExists {
         t.Fatalf("missing JSON path observation = %#v", observation)
+      }
+      if expectsUppercaseCandidate {
+        uppercaseObservation := jsonReferenceGraph.InputObservations[uppercaseJSONCandidate]
+        if uppercaseObservation.FileExists == nil || *uppercaseObservation.FileExists {
+          t.Fatalf("missing uppercase JSON path observation = %#v", uppercaseObservation)
+        }
       }
     }
   }

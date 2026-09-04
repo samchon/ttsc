@@ -155,7 +155,7 @@ func observeProgramPathReferences(prog *Program, cwd string, caseSensitive bool,
     for _, reference := range source.ReferencedFiles {
       replay := newInputObservationFS(prog.FS)
       selected := []string(nil)
-      for _, candidate := range pathReferenceCandidates(source.FileName(), reference.FileName, prog.TSProgram.Options().AllowNonTsExtensions.IsTrue(), supported) {
+      for _, candidate := range pathReferenceCandidates(source.FileName(), reference.FileName, prog.TSProgram.Options().AllowNonTsExtensions.IsTrue(), supported, caseSensitive) {
         if replay.FileExists(candidate) {
           if resident := prog.TSProgram.GetSourceFileForResolvedModule(candidate); resident != nil {
             selected = []string{resident.FileName()}
@@ -183,14 +183,15 @@ func observeProgramPathReferences(prog *Program, cwd string, caseSensitive bool,
   }
 }
 
-func pathReferenceCandidates(containingFile, reference string, allowNonTsExtensions bool, supported [][]string) []string {
+func pathReferenceCandidates(containingFile, reference string, allowNonTsExtensions bool, supported [][]string, caseSensitive bool) []string {
   base := reference
   if !shimtspath.IsRootedDiskPath(base) {
     base = shimtspath.CombinePaths(shimtspath.GetDirectoryPath(containingFile), base)
   }
   base = shimtspath.NormalizePath(base)
   if shimtspath.HasExtension(base) {
-    if allowNonTsExtensions || supportedFileExtension(base, supported) {
+    canonicalBase := shimtspath.GetCanonicalFileName(base, caseSensitive)
+    if allowNonTsExtensions || supportedFileExtension(canonicalBase, supported) {
       return []string{base}
     }
     return nil
