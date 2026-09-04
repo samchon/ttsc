@@ -24,7 +24,8 @@ import (
 //  3. Assert the lint checker is not the Program pool's first checker.
 //  4. Assert single-threaded mode still takes precedence over the pool size.
 //  5. Restore a generated wrapper's explicit semantic config owner.
-//  6. Prove ambient-only and relative owner values cannot affect later loads.
+//  6. Carry that owner from an LSP invocation through cold and resident loads.
+//  7. Prove ambient-only and relative owner values cannot affect later loads.
 func TestLoadProgramKeepsCheckerPoolForTypeAwareRules(t *testing.T) {
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), `{
@@ -118,6 +119,41 @@ func TestLoadProgramKeepsCheckerPoolForTypeAwareRules(t *testing.T) {
   if got := generated.tsProgram.Options().ConfigFilePath; got != shimtspath.ResolvePath(semanticConfig) {
     t.Fatalf("generated wrapper semantic config = %q, want %q", got, shimtspath.ResolvePath(semanticConfig))
   }
+
+  lspOptions, ok := parseLSPCommandOptions("lsp-diagnostics", []string{
+    "--cwd", root,
+    "--tsconfig", generatedConfig,
+  })
+  if !ok {
+    t.Fatal("parseLSPCommandOptions rejected generated wrapper invocation")
+  }
+  coldLSP, coldLSPDiags, closeColdLSP, err := acquireProgram(lspOptions, false)
+  if closeColdLSP != nil {
+    defer closeColdLSP()
+  }
+  if err != nil {
+    t.Fatal(err)
+  }
+  if len(coldLSPDiags) != 0 {
+    t.Fatalf("unexpected cold LSP diagnostics: %#v", coldLSPDiags)
+  }
+  if got := coldLSP.tsProgram.Options().ConfigFilePath; got != shimtspath.ResolvePath(semanticConfig) {
+    t.Fatalf("cold LSP semantic config = %q, want %q", got, shimtspath.ResolvePath(semanticConfig))
+  }
+
+  resident := newResidentProgramCache()
+  residentLSP, residentLSPDiags, _, err := resident.acquire(lspOptions, false)
+  if err != nil {
+    t.Fatal(err)
+  }
+  if len(residentLSPDiags) != 0 {
+    t.Fatalf("unexpected resident LSP diagnostics: %#v", residentLSPDiags)
+  }
+  if got := residentLSP.tsProgram.Options().ConfigFilePath; got != shimtspath.ResolvePath(semanticConfig) {
+    t.Fatalf("resident LSP semantic config = %q, want %q", got, shimtspath.ResolvePath(semanticConfig))
+  }
+  resident.invalidate()
+
   unmarked, unmarkedDiags, err := loadProgram(root, generatedConfig, loadProgramOptions{forceNoEmit: true})
   if err != nil {
     t.Fatal(err)
