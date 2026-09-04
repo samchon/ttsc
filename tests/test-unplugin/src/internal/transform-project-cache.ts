@@ -1608,16 +1608,55 @@ async function assertHostExceptionTransformIsEvictedAndRecovers(): Promise<void>
   const { api, cache, key, good, file, source, options } =
     await primeSuccessfulTransform();
   const projectRoot = (good as { projectRoot: string }).projectRoot;
+  const scratchDirectory = (good as { scratchDirectory: string })
+    .scratchDirectory;
   const falseDiagnostic = path.resolve(projectRoot, "foo.ts");
+  const externalInputPaths = (good as { externalInputPaths: string[] })
+    .externalInputPaths;
+  const targetInput = externalInputPaths.find((input) => {
+    try {
+      return fs.statSync(input).isFile();
+    } catch {
+      return false;
+    }
+  });
+  assert.ok(
+    targetInput,
+    "the primed generation must expose a regular external input for aliasing",
+  );
+  const targetDirectory = path.dirname(targetInput);
+  const aliasDirectories = ["failure-watch-a", "failure-watch-b"].map((name) =>
+    path.join(projectRoot, "node_modules", name),
+  );
+  fs.mkdirSync(path.dirname(aliasDirectories[0]!), { recursive: true });
+  for (const alias of aliasDirectories) {
+    fs.symlinkSync(
+      targetDirectory,
+      alias,
+      process.platform === "win32" ? "junction" : "dir",
+    );
+  }
+  const aliasInputs = aliasDirectories.map((alias) =>
+    path.join(alias, path.basename(targetInput)),
+  );
+  assert.equal(
+    fs.realpathSync.native(aliasInputs[0]!),
+    fs.realpathSync.native(aliasInputs[1]!),
+    "the failure-watch aliases must share one current physical target",
+  );
+  const scratchInput = path.join(scratchDirectory, "owned.tmp");
   const watched: string[] = [];
 
   cache.set(
     key,
     Promise.resolve({
       ...(good as Record<string, unknown>),
+      externalInputPaths: [...externalInputPaths, ...aliasInputs],
       result: {
         type: "exception",
-        error: new Error("foo.ts:1:2 - error while loading\nhost exploded"),
+        error: new Error(
+          `${scratchInput}:1:2 - error TS9000: scratch failure\nfoo.ts:1:2 - error while loading\nhost exploded`,
+        ),
       },
     }),
   );
@@ -1634,6 +1673,15 @@ async function assertHostExceptionTransformIsEvictedAndRecovers(): Promise<void>
   assert.ok(
     !watched.includes(falseDiagnostic),
     `a generic exception line must not manufacture a diagnostic watch path; watched: ${watched.join(", ")}`,
+  );
+  assert.deepEqual(
+    aliasInputs.filter((input) => watched.includes(input)),
+    aliasInputs,
+    "a failed generation must preserve every independently retargetable lexical alias",
+  );
+  assert.ok(
+    !watched.includes(scratchInput),
+    "a failed generation must not register its disposed scratch tree",
   );
   assert.equal(cache.size, 0, "resolved-exception generation must not persist");
 
