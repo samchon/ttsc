@@ -79,9 +79,10 @@ const unpluginFactory: UnpluginFactory<
   let viteBuildOwners = new WeakSet<object>();
   let viteBuildLifecycles = 0;
   // esbuild schedules one-shot onDispose callbacks after it settles the build
-  // Promise. Reusing a plugin immediately can therefore start the replacement
-  // setup before the old callback runs. Keep the old callback from disposing
-  // the replacement's active generation.
+  // Promise. Acquire ownership only at onStart: plugin setup runs before build
+  // option validation, and a validation failure has no onDispose callback with
+  // which to release a setup-time owner. Once a build has actually started, the
+  // count keeps an older delayed callback from disposing its active generation.
   const esbuildOwners = new WeakSet<object>();
   let esbuildLifecycles = 0;
 
@@ -222,10 +223,12 @@ const unpluginFactory: UnpluginFactory<
     },
     esbuild: {
       setup(build) {
-        if (!esbuildOwners.has(build)) {
-          esbuildOwners.add(build);
-          esbuildLifecycles += 1;
-        }
+        build.onStart(() => {
+          if (!esbuildOwners.has(build)) {
+            esbuildOwners.add(build);
+            esbuildLifecycles += 1;
+          }
+        });
         build.onDispose(() => {
           if (!esbuildOwners.delete(build)) {
             return;

@@ -13,7 +13,6 @@ interface ITestCase {
 
 const EXPECTED_CASES = 205;
 const UNIT_CASES = new Set([
-  "case_adapter_entrypoints_expose_the_expected_plugin_factories",
   "case_adapter_entrypoints_support_node_cjs_require",
   "case_adapter_entrypoints_support_node_esm_default_import",
   "case_bun_adapter_excludes_nul_virtual_ids",
