@@ -6636,6 +6636,7 @@ async function captureTransformGeneration(props: {
   let candidateTracker: TtscProjectMutationTracker | undefined;
   let retainHostInputTracker = false;
   let retainCandidateTracker = false;
+  let captured: TtscCachedProjectTransform | undefined;
   try {
     if (props.trackProjectMembership) {
       try {
@@ -6959,42 +6960,78 @@ async function captureTransformGeneration(props: {
     retainCandidateTracker = notifying && candidateTracker !== undefined;
     if (clockReferenceDirectory !== undefined) {
       retainClockReferenceDirectory = true;
-      TRANSFORM_CLOCK_REFERENCE_DIRECTORIES.set(
-        cached,
-        clockReferenceDirectory,
-      );
     }
-    return cached;
+    captured = cached;
   } finally {
+    let cleanupFailed = false;
+    let cleanupFailure: unknown;
     try {
-      if (!retainTracker && tracker !== undefined) {
-        tracker.close();
-      }
-    } finally {
       try {
-        if (!retainHostInputTracker && hostInputTracker !== undefined) {
-          hostInputTracker.close();
+        if (!retainTracker && tracker !== undefined) {
+          tracker.close();
         }
       } finally {
         try {
-          if (!retainCandidateTracker && candidateTracker !== undefined) {
-            candidateTracker.close();
+          if (!retainHostInputTracker && hostInputTracker !== undefined) {
+            hostInputTracker.close();
           }
         } finally {
           try {
-            fs.rmSync(scratchDirectory, { force: true, recursive: true });
+            if (!retainCandidateTracker && candidateTracker !== undefined) {
+              candidateTracker.close();
+            }
           } finally {
-            if (
-              !retainClockReferenceDirectory &&
-              clockReferenceDirectory !== undefined
-            ) {
-              disposeFilesystemClockReference(clockReferenceDirectory);
+            try {
+              fs.rmSync(scratchDirectory, { force: true, recursive: true });
+            } finally {
+              if (
+                !retainClockReferenceDirectory &&
+                clockReferenceDirectory !== undefined
+              ) {
+                disposeFilesystemClockReference(clockReferenceDirectory);
+              }
             }
           }
         }
       }
+    } catch (error) {
+      cleanupFailed = true;
+      cleanupFailure = error;
+    }
+    if (cleanupFailed) {
+      // The generation never leaves this function when local cleanup fails.
+      // Close everything that was waiting to transfer, without letting a
+      // secondary teardown error replace the first failure.
+      for (const retained of [
+        retainTracker ? tracker : undefined,
+        retainHostInputTracker ? hostInputTracker : undefined,
+        retainCandidateTracker ? candidateTracker : undefined,
+      ]) {
+        try {
+          retained?.close();
+        } catch {
+          // Continue releasing the other generation-owned resources.
+        }
+      }
+      if (
+        retainClockReferenceDirectory &&
+        clockReferenceDirectory !== undefined
+      ) {
+        disposeFilesystemClockReference(clockReferenceDirectory);
+      }
+      throw cleanupFailure;
     }
   }
+  if (captured === undefined) {
+    throw new Error("ttsc: transform generation capture produced no result");
+  }
+  if (clockReferenceDirectory !== undefined) {
+    TRANSFORM_CLOCK_REFERENCE_DIRECTORIES.set(
+      captured,
+      clockReferenceDirectory,
+    );
+  }
+  return captured;
 }
 
 /** Exclude disposed transform scratch from live host-input tracking. */

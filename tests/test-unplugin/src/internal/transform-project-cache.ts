@@ -1392,6 +1392,51 @@ async function assertReportedGraphProofFailuresFailAfterBoundedAttempts(): Promi
     2,
     "an observed speculative predicate failure must not receive the unobserved-candidate exemption",
   );
+
+  // A cleanup failure happens before the capture can transfer any retained
+  // resources to its caller. The probe must still be released even though the
+  // ordinary return value never reaches the terminal-generation disposer.
+  const cleanupProject = createCacheProject({
+    fileCount: 1,
+    graphFanout: 1,
+    unprovenGraphInputs: 1,
+  });
+  const cleanupReferenceDirectories = new Set<string>();
+  const cleanupCache = createTtscTransformCache({
+    lstat: (location: string) => {
+      if (path.basename(location) === "clock-reference") {
+        cleanupReferenceDirectories.add(path.dirname(location));
+      }
+      return fs.lstatSync(location, { bigint: true });
+    },
+    watch: () => ({
+      close: () => {
+        throw new Error("forced tracker cleanup failure");
+      },
+    }),
+  });
+  const cleanupMain = projectModules(cleanupProject.root)[0]!;
+  await assert.rejects(
+    () =>
+      transformTtsc(
+        cleanupMain,
+        fs.readFileSync(cleanupMain, "utf8"),
+        resolveOptions(),
+        undefined,
+        cleanupCache,
+      ),
+    /forced tracker cleanup failure/,
+  );
+  assert.ok(
+    cleanupReferenceDirectories.size > 0,
+    "the failed capture must have minted a clock reference",
+  );
+  assert.ok(
+    [...cleanupReferenceDirectories].every(
+      (referenceDirectory) => !fs.existsSync(referenceDirectory),
+    ),
+    "fallible local cleanup must release an untransferred clock reference",
+  );
 }
 
 /** An aliased candidate proof failure remains bound to its exact spelling. */
