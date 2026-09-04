@@ -4,6 +4,7 @@ import {
   beginTtscTransformBuild,
   createTtscTransformCache,
   isTransformTarget,
+  resetTtscTransformCache,
   resolveOptions,
   transformTtsc,
 } from "./core/index";
@@ -71,10 +72,10 @@ function resolveBunOptions(
 /**
  * Minimal subset of the Bun `BuildConfig` plugin build object.
  *
- * `onLoad` drives the source transform. Bun's bundler also exposes `onStart`,
- * which is used when available to forward the shared plugin's build lifecycle
- * and clear its per-build cache. The runtime plugin API omits that hook, so
- * plugin setup itself starts its one process-scoped module-loading session.
+ * `onLoad` drives the source transform. Bun's bundler also exposes `onStart`
+ * and `onEnd`, which bracket the shared plugin's build lifecycle. The runtime
+ * plugin API omits those hooks, so plugin setup itself starts its one
+ * process-scoped module-loading session.
  */
 export interface BunLikeBuild {
   /**
@@ -93,6 +94,8 @@ export interface BunLikeBuild {
    * Optional because `Bun.plugin()` runtime builders do not expose this hook.
    */
   onStart?(callback: () => void | Promise<void>): void;
+  /** Register a callback for deterministic bundler-session teardown. */
+  onEnd?(callback: () => void | Promise<void>): void;
   /**
    * Register a loader callback for files matching `filter`.
    *
@@ -155,6 +158,9 @@ export default function bun(options?: TtscBunOptions): BunLikePlugin {
       // repeats it for subsequent builds.
       beginTtscTransformBuild(cache);
       build.onStart?.(() => beginTtscTransformBuild(cache));
+      if (!runtime) {
+        build.onEnd?.(() => resetTtscTransformCache(cache));
+      }
       build.onLoad(
         { filter: bunTypeScriptTransformSourcePattern },
         async (args) => {
