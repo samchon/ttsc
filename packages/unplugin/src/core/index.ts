@@ -134,15 +134,14 @@ const unpluginFactory: UnpluginFactory<
       // project per edit (samchon/ttsc#1301). The watching build hands its
       // teardown to `closeWatcher` below instead.
       buildEnd() {
-        missingInputs.dispose();
         if (viteBuildOwners.delete(this)) {
           viteBuildLifecycles -= 1;
         }
-        if (
-          viteBuildLifecycles === 0 &&
-          (viteCommand === "serve" || !viteBuildWatching)
-        ) {
-          resetTtscTransformCache(transformCache);
+        if (viteBuildLifecycles === 0) {
+          missingInputs.dispose();
+          if (viteCommand === "serve" || !viteBuildWatching) {
+            resetTtscTransformCache(transformCache);
+          }
         }
       },
       // The watching build's real teardown, and the only hook in a
@@ -162,6 +161,7 @@ const unpluginFactory: UnpluginFactory<
       closeWatcher() {
         viteBuildOwners = new WeakSet<object>();
         viteBuildLifecycles = 0;
+        missingInputs.dispose();
         resetTtscTransformCache(transformCache);
       },
     },
