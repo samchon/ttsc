@@ -96,6 +96,50 @@ export const value: Folder = { value: internal + self };
     t.Fatalf("stable exact replay reported failures: %#v", graph.InputProofFailures)
   }
 
+  for _, resolveJSON := range []bool{false, true} {
+    jsonReferenceRoot := t.TempDir()
+    jsonReferenceFiles := map[string]string{
+      "tsconfig.json": fmt.Sprintf(`{
+  "compilerOptions": {
+    "module": "commonjs",
+    "resolveJsonModule": %t,
+    "target": "es2022"
+  },
+  "files": ["src/main.ts"]
+}`, resolveJSON),
+      "src/main.ts": `/// <reference path="./appearing.json" />
+export const value = true;
+`,
+    }
+    for name, contents := range jsonReferenceFiles {
+      location := filepath.Join(jsonReferenceRoot, filepath.FromSlash(name))
+      if err := os.MkdirAll(filepath.Dir(location), 0o755); err != nil {
+        t.Fatal(err)
+      }
+      if err := os.WriteFile(location, []byte(contents), 0o644); err != nil {
+        t.Fatal(err)
+      }
+    }
+    jsonReferenceProgram, _, err := LoadProgram(jsonReferenceRoot, "tsconfig.json", LoadProgramOptions{ForceNoEmit: true})
+    if err != nil {
+      t.Fatal(err)
+    }
+    defer jsonReferenceProgram.Close()
+    jsonReferenceGraph := NewTransformGraph(jsonReferenceProgram, jsonReferenceRoot)
+    jsonReferenceSource := filepath.ToSlash(filepath.Join("src", "main.ts"))
+    jsonReferenceCandidate := filepath.ToSlash(filepath.Join("src", "appearing.json"))
+    containsCandidate := slices.Contains(jsonReferenceGraph.Candidates[jsonReferenceSource], jsonReferenceCandidate)
+    if containsCandidate != resolveJSON {
+      t.Fatalf("resolveJsonModule=%t JSON candidates = %v", resolveJSON, jsonReferenceGraph.Candidates[jsonReferenceSource])
+    }
+    if resolveJSON {
+      observation := jsonReferenceGraph.InputObservations[jsonReferenceCandidate]
+      if observation.FileExists == nil || *observation.FileExists {
+        t.Fatalf("missing JSON path observation = %#v", observation)
+      }
+    }
+  }
+
   noResolveRoot := t.TempDir()
   noResolveFiles := map[string]string{
     "tsconfig.json": `{

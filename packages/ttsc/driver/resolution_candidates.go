@@ -146,6 +146,7 @@ func sameResolutionTaskOwner(left, right shimcompiler.ProgramResolutionTask) boo
 // rather than the module resolver cache covered by ProgramResolutionTasks.
 func observeProgramPathReferences(prog *Program, cwd string, caseSensitive bool, output *ProgramResolutionObservation) {
   supported := shimtsoptions.GetSupportedExtensions(prog.TSProgram.Options(), nil)
+  supported = shimtsoptions.GetSupportedExtensionsWithJsonIfResolveJsonModule(prog.TSProgram.Options(), supported)
   for _, source := range prog.TSProgram.SourceFiles() {
     if source == nil || source.FileName() == "" || strings.HasPrefix(source.FileName(), bundledScheme) {
       continue
