@@ -29,6 +29,7 @@ import { resolveTsgo } from "./resolveTsgo";
 import {
   TSGO_ARGS_ENV,
   assertSharedHostCompatibility,
+  clearInheritedSemanticConfigPath,
   clearInheritedTsgoArgs,
   inheritedSidecarEnv,
   linkedTransformPlugins,
@@ -230,6 +231,7 @@ function nativePluginEnv(
   } else {
     clearInheritedTsgoArgs(env, extra);
   }
+  clearInheritedSemanticConfigPath(env, extra);
   // The anchor is per-invocation state owned by this host: when this run
   // declared none (and the caller's env does not name one), drop any value
   // inherited from an ancestor ttsc process so a nested build never

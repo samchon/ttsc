@@ -21,6 +21,7 @@ import { resolveTsgo } from "./resolveTsgo";
 import { appendBuildOutput, normalizeBuildOutput } from "./runBuild";
 import {
   assertSharedHostCompatibility,
+  clearInheritedSemanticConfigPath,
   clearInheritedTsgoArgs,
   inheritedSidecarEnv,
   linkedTransformPlugins,
@@ -622,6 +623,7 @@ function nativePluginEnv(
   // This lane forwards no tsgo argv of its own, so anything inherited belongs
   // to an outer ttsc run and must not reach these sidecars.
   clearInheritedTsgoArgs(env, options.env);
+  clearInheritedSemanticConfigPath(env, options.env);
   if (plugin?.stage === "transform") {
     const linked = linkedTransformPlugins(nativePlugins ?? []);
     if (linked.length !== 0) {

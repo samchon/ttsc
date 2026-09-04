@@ -4,6 +4,7 @@ import (
   "context"
   "fmt"
   "io"
+  "os"
   "path/filepath"
   "strings"
 
@@ -17,6 +18,11 @@ import (
   "github.com/microsoft/typescript-go/shim/tspath"
   "github.com/microsoft/typescript-go/shim/vfs"
 )
+
+// SemanticConfigPathEnv carries the user-authored config path when an embedder
+// parses a disposable generated wrapper whose location must not become the
+// Program's semantic project root.
+const SemanticConfigPathEnv = "TTSC_SEMANTIC_CONFIG_PATH"
 
 // Diagnostic is the compilation diagnostic shape ttsc passes around. Kept
 // dependency-free (no shim types) so callers can render or inspect freely.
@@ -404,6 +410,9 @@ func LoadProgram(cwd, tsconfigPath string, options LoadProgramOptions) (*Program
   if len(diags) > 0 {
     return nil, diags, nil
   }
+  if err := applySemanticConfigPath(parsed); err != nil {
+    return nil, nil, err
+  }
   if options.ForceNoEmit {
     forceNoEmit(parsed)
   }
@@ -430,6 +439,18 @@ func LoadProgram(cwd, tsconfigPath string, options LoadProgramOptions) (*Program
   }
   prog.plugins = pluginState
   return prog, nil, nil
+}
+
+func applySemanticConfigPath(parsed *tsoptions.ParsedCommandLine) error {
+  configured := strings.TrimSpace(os.Getenv(SemanticConfigPathEnv))
+  if configured == "" {
+    return nil
+  }
+  if !filepath.IsAbs(configured) {
+    return fmt.Errorf("driver: %s must be an absolute path: %s", SemanticConfigPathEnv, configured)
+  }
+  parsed.ParsedConfig.CompilerOptions.ConfigFilePath = tspath.ResolvePath(configured)
+  return nil
 }
 
 // forceEmit clears noEmit and emitDeclarationOnly so the program always

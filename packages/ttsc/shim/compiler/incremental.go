@@ -74,13 +74,36 @@ func incrementalFileAffectsGlobalScope(file *innerast.SourceFile) bool
 // The returned strings are tspath.Path values (case-canonicalized on
 // case-insensitive filesystems); map them back to real file names through
 // Program.GetSourceFileByPath when the original spelling matters.
+// Extensionless path references are replaced with the source file Program
+// actually loaded because the upstream incremental helper retains their raw
+// directive path instead of the selected extension-bearing path.
 func GetReferencedFilePaths(program *Program, file *innerast.SourceFile) []string {
   set := incrementalGetReferencedFiles(program, file)
   if set == nil {
     return nil
   }
+  resolvedPathReferences := make(map[tspath.Path]tspath.Path, len(file.ReferencedFiles))
+  sourceDirectory := tspath.GetDirectoryPath(file.FileName())
+  for _, reference := range file.ReferencedFiles {
+    referencedFile := reference.FileName
+    if redirect := program.GetParseFileRedirect(referencedFile); redirect != "" {
+      referencedFile = redirect
+    }
+    rawPath := tspath.ToPath(referencedFile, sourceDirectory, program.UseCaseSensitiveFileNames())
+    if resolved := program.GetSourceFileFromReference(file, reference); resolved != nil {
+      resolvedPathReferences[rawPath] = resolved.Path()
+    }
+  }
   out := make([]string, 0, set.Len())
+  seen := collections.Set[tspath.Path]{}
   for path := range set.Keys() {
+    if resolved := resolvedPathReferences[path]; resolved != "" {
+      path = resolved
+    }
+    if seen.Has(path) {
+      continue
+    }
+    seen.Add(path)
     out = append(out, string(path))
   }
   return out

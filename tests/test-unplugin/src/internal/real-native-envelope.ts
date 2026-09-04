@@ -286,7 +286,7 @@ export function createRealNativeEnvelopeFixture(
           ...(resolutionCorpus
             ? {
                 jsx: "preserve",
-                paths: { "@fixture/value": ["./paths/value.js"] },
+                paths: { "@fixture/value": ["./paths/value"] },
                 rootDirs: ["src", "generated"],
               }
             : {}),
@@ -321,7 +321,8 @@ export function createRealNativeEnvelopeFixture(
     "node_modules/typed-dep/dist/index.d.ts":
       "export interface Shared { label: string; }\n",
     "node_modules/typed-dep/dist/index.js": 'export const runtime = "typed";\n',
-    "node_modules/@types/.keep": "",
+    "node_modules/@types/fixture-types/index.d.ts":
+      "declare const realEnvelopeFixtureGlobal: string;\n",
     ...(resolutionCorpus
       ? {
           "node_modules/linked-pkg/package.json": JSON.stringify(
@@ -385,9 +386,12 @@ export function createRealNativeEnvelopeFixture(
         file.endsWith(".cts")
           ? [
               'import { common } from "./common.cjs";',
+              ...(resolutionCorpus
+                ? ['import { pathValue } from "@fixture/value";']
+                : []),
               'import { encode } from "punycode";',
               "",
-              'export const predicate = encode("proof") + common;',
+              `export const predicate = encode("proof") + common${resolutionCorpus ? " + pathValue" : ""};`,
               "",
             ].join("\n")
           : [
@@ -400,9 +404,6 @@ export function createRealNativeEnvelopeFixture(
                           'import { esm } from "./esm.mjs";',
                           'import { relative } from "./relative.js";',
                         ]
-                      : []),
-                    ...(index === 1
-                      ? ['import { pathValue } from "@fixture/value";']
                       : []),
                     ...(index === 2
                       ? ['import { rooted } from "./rooted.js";']
@@ -417,7 +418,7 @@ export function createRealNativeEnvelopeFixture(
                 : []),
               "",
               resolutionCorpus
-                ? `export const value${index}: Shared = { label: [linked, ${JSON.stringify(String(index))}${index === 0 ? ", esm, relative" : index === 1 ? ", pathValue" : index === 2 ? ", rooted" : ", feature, jsx"}].join(":") };`
+                ? `export const value${index}: Shared = { label: [linked, ${JSON.stringify(String(index))}${index === 0 ? ", esm, relative" : index === 2 ? ", rooted" : index === 3 ? ", feature, jsx" : ""}].join(":") };`
                 : `export const value${index}: Shared = { label: ${JSON.stringify(String(index))} };`,
               "",
             ].join("\n"),

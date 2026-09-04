@@ -36,6 +36,8 @@ import {
   resolveConfigDirTemplatePath,
 } from "./tsconfigPaths";
 
+const TTSC_SEMANTIC_CONFIG_PATH = "TTSC_SEMANTIC_CONFIG_PATH";
+
 /**
  * The normalised transform result type that this module produces.
  *
@@ -6619,6 +6621,12 @@ async function captureTransformGeneration(props: {
     );
     const temporaryTsconfig =
       configured.path === props.tsconfig ? undefined : configured.path;
+    const compilerEnvironment = transformScratchEnvironment(scratchDirectory);
+    if (temporaryTsconfig === undefined) {
+      delete compilerEnvironment[TTSC_SEMANTIC_CONFIG_PATH];
+    } else {
+      compilerEnvironment[TTSC_SEMANTIC_CONFIG_PATH] = props.tsconfig;
+    }
     const identities = createHostPathIdentityContext(props.filesystem);
     // Read from the project's own tsconfig rather than the generated one: a
     // relative `outDir` is anchored at the config that declares it, and the
@@ -6656,7 +6664,7 @@ async function captureTransformGeneration(props: {
         plugins: props.plugins,
         projectRoot,
         tsconfig: configured.path,
-        env: transformScratchEnvironment(scratchDirectory),
+        env: compilerEnvironment,
       }).transform(),
     );
     TRANSFORM_RESULT_FILESYSTEM.set(result, props.filesystem);
