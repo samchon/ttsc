@@ -230,10 +230,15 @@ export async function assertAFailedCompileWatchesAndReportsPlainly(): Promise<vo
     "a healthy watch input must carry the generation state used by Metro's run baseline",
   );
 
-  // A genuine type error, in a file nothing imports at runtime, so no bundler
-  // module graph would carry it.
-  const broken = path.join(fixture.root, "src", "types.ts");
-  fs.writeFileSync(broken, "export type Broken = NotARealType;", "utf8");
+  // A genuine type error in an external declaration reached only through a
+  // type import, so neither the project walk nor a bundler runtime graph can
+  // carry the file whose repair must trigger the retry.
+  const broken = fixture.declaration;
+  fs.writeFileSync(
+    broken,
+    "export interface Shared { label: NotARealExternalType; }\n",
+    "utf8",
+  );
   const failed = await deliver();
   assert.ok(failed.error !== undefined, "a type error must reach the caller");
   assert.ok(
@@ -242,8 +247,11 @@ export async function assertAFailedCompileWatchesAndReportsPlainly(): Promise<vo
   );
   assert.equal(failed.batches, 1, "failed inputs must also use one batch");
   assert.ok(
-    failed.watched.some((input) => path.resolve(input) === broken),
-    "the file the diagnostics name must be among them",
+    failed.watched.some(
+      (input) =>
+        fs.realpathSync.native(input) === fs.realpathSync.native(broken),
+    ),
+    `the file the diagnostics name must be among them; watched: ${failed.watched.join(", ")}; error: ${JSON.stringify(failed.error.message)}`,
   );
   // No evidence, deliberately. A failed generation is replayed for the rest of
   // its pass without re-proving its inputs, so it cannot claim one of them
@@ -258,12 +266,16 @@ export async function assertAFailedCompileWatchesAndReportsPlainly(): Promise<vo
     `a surfaced message must carry no terminal escapes (got ${JSON.stringify(failed.error.message)})`,
   );
   assert.ok(
-    failed.error.message.includes("types.ts"),
+    failed.error.message.includes(path.basename(broken)),
     "and must still name the file the host reported",
   );
 
   // And the fix lands.
-  fs.writeFileSync(broken, "export type Fixed = string;", "utf8");
+  fs.writeFileSync(
+    broken,
+    "export interface Shared { label: string; }\n",
+    "utf8",
+  );
   const recovered = await deliver();
   assert.equal(
     recovered.error,
