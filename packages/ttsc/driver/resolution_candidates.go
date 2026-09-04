@@ -156,11 +156,25 @@ func observeProgramPathReferences(prog *Program, cwd string, caseSensitive bool,
       selected := []string(nil)
       for _, candidate := range pathReferenceCandidates(source.FileName(), reference.FileName, prog.TSProgram.Options().AllowNonTsExtensions.IsTrue(), supported) {
         if replay.FileExists(candidate) {
-          if prog.TSProgram.GetSourceFile(candidate) != nil {
-            selected = []string{candidate}
+          if resident := prog.TSProgram.GetSourceFileForResolvedModule(candidate); resident != nil {
+            selected = []string{resident.FileName()}
           }
           break
         }
+        // TypeScript-Go's project-reference host can make an unbuilt output
+        // declaration exist by checking its mapped source. Replay both
+        // predicates so a later output appearance or source disappearance
+        // invalidates the same resolution without turning either spelling into
+        // a realized graph edge.
+        outputPath := shimtspath.ToPath(candidate, prog.TSProgram.GetCurrentDirectory(), caseSensitive)
+        redirect := prog.TSProgram.GetProjectReferenceFromOutputDts(outputPath)
+        if redirect == nil || !replay.FileExists(redirect.Source) {
+          continue
+        }
+        if resident := prog.TSProgram.GetSourceFile(redirect.Source); resident != nil {
+          selected = []string{resident.FileName()}
+        }
+        break
       }
       output.Candidates[sourceKey] = appendResolutionPaths(output.Candidates[sourceKey], cwd, replay, selected, caseSensitive, &output.Inputs)
       prog.inputObserver.mergeFrom(replay)

@@ -187,15 +187,24 @@ import { child } from "../child/lib/index.js"; export { child };`,
   for _, expected := range []string{
     filepath.ToSlash(filepath.Join("child", "lib", "index.d.ts")),
     filepath.ToSlash(filepath.Join("child", "lib", "reference.d.ts")),
+    filepath.ToSlash(filepath.Join("child", "src", "reference.ts")),
   } {
     if !slices.Contains(projectReferenceCandidates, expected) {
-      t.Errorf("unbuilt project-reference declaration %q was not observed: %v", expected, projectReferenceCandidates)
+      t.Errorf("project-reference resolution input %q was not observed: %v", expected, projectReferenceCandidates)
     }
   }
   projectReferenceEdges := projectReferenceGraph.Edges[projectReferenceSource]
   extensionlessReferenceSource := filepath.ToSlash(filepath.Join("child", "src", "reference.ts"))
-  if !slices.Contains(projectReferenceEdges, extensionlessReferenceSource) {
-    t.Fatalf("extensionless project-reference path did not redirect to %q: %v", extensionlessReferenceSource, projectReferenceEdges)
+  if slices.Contains(projectReferenceEdges, extensionlessReferenceSource) {
+    t.Fatalf("nonresident project-reference source remained a realized edge: %v", projectReferenceEdges)
+  }
+  rawExtensionlessReference := filepath.ToSlash(filepath.Join("child", "lib", "reference"))
+  if slices.Contains(projectReferenceEdges, rawExtensionlessReference) {
+    t.Fatalf("raw extensionless project-reference path remained a realized edge: %v", projectReferenceEdges)
+  }
+  sourceObservation := projectReferenceGraph.InputObservations[extensionlessReferenceSource]
+  if sourceObservation.FileExists == nil || !*sourceObservation.FileExists {
+    t.Fatalf("project-reference source existence was not preserved: %#v", sourceObservation)
   }
 
   semanticRoot := t.TempDir()

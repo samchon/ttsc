@@ -190,18 +190,18 @@ func (graph *TransformGraph) attachInputProof(prog *Program, cwd string) {
 func referenceTargets(prog *Program, cwd string, file *ast.SourceFile) []string {
   paths := shimcompiler.GetReferencedFilePaths(prog.TSProgram, file)
   targets := make([]string, 0, len(paths))
-  for _, path := range paths {
-    fileName := path
+  for _, referencedPath := range paths {
     // Referenced paths are case-canonicalized tspath.Path values; recover the
-    // real spelling from the program so consumers can compare them against
-    // filesystem paths byte-for-byte.
-    if resolved := prog.TSProgram.GetSourceFileByPath(shimtspath.Path(path)); resolved != nil {
-      fileName = resolved.FileName()
-    }
-    if fileName == file.FileName() || strings.HasPrefix(fileName, bundledScheme) {
+    // resident source and its real spelling from the Program. The incremental
+    // helper can retain a raw extensionless project-reference directive even
+    // when no corresponding source became resident. That spelling is a
+    // resolver candidate, not a realized graph edge, and has no compiler-time
+    // content proof.
+    resolved := prog.TSProgram.GetSourceFileByPath(shimtspath.Path(referencedPath))
+    if resolved == nil || resolved == file || strings.HasPrefix(resolved.FileName(), bundledScheme) {
       continue
     }
-    targets = append(targets, TransformOutputKey(cwd, fileName))
+    targets = append(targets, TransformOutputKey(cwd, resolved.FileName()))
   }
   sort.Strings(targets)
   return targets
