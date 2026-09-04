@@ -839,8 +839,7 @@ export interface TtscTransformHooks {
  * @param id - Bundler module id (may carry a query string or virtual prefix).
  * @param source - Current file content supplied by the bundler.
  * @param options - Resolved plugin options.
- * @param aliases - Raw bundler alias configuration (Vite array or webpack
- *   object).
+ * @param aliases - Raw Vite alias configuration (object or array).
  * @param cache - Optional project cache. Callers with a real `buildStart`
  *   boundary declare it through {@link beginTtscTransformBuild}; other hosts
  *   retain persistent validation.
