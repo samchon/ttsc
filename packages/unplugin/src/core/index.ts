@@ -248,13 +248,28 @@ const unpluginFactory: UnpluginFactory<
         // invalidate this module in watch mode and persistent caches;
         // bundlers erase type-only imports from their own module graph and
         // would otherwise serve stale generated code. Under Vite serve a
-        // missing input must not enter `addWatchFile`: import-analysis
-        // resolves added imports and 500s on a path that is absent by design
-        // (a superseding resolution candidate, a not-yet-generated
-        // dependency), so those are watched on the filesystem instead and
-        // invalidate this module when created.
+        // resolver input that is not proven to be a file must not enter
+        // `addWatchFile`: import-analysis resolves added imports and 500s on
+        // missing paths and directories, so those are watched against their
+        // compiler predicates instead and invalidate this module when the
+        // observation changes.
         addWatchFile: (watched, evidence) => {
           if (viteCommand === "serve" && missingInputs.serving()) {
+            const observation =
+              evidence?.state?.codec === "predicates"
+                ? evidence.state.observation
+                : undefined;
+            const unsafePredicate =
+              observation !== undefined &&
+              observation.fileExists !== true &&
+              observation.stat !== "file" &&
+              observation.readFile?.ok !== true
+                ? observation
+                : undefined;
+            if (unsafePredicate !== undefined) {
+              missingInputs.watch(watched, path.resolve(file), unsafePredicate);
+              return;
+            }
             // Trust the generation's recorded existence when it supplied one:
             // every cache hit revalidates it, and probing each input again
             // costs one `existsSync` per input per delivered module.

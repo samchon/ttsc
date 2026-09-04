@@ -35,6 +35,8 @@ export interface IViteServeCandidateFixture {
   linkedPackage: string;
   /** Absolute path of the app's entry module (`src/main.ts`). */
   mainFile: string;
+  /** Existing empty automatic type root whose membership is compiler input. */
+  typeRoot: string;
   /**
    * The missing higher-priority candidate as the compiler spells it: the
    * `node_modules` view of the superseding TypeScript source.
@@ -108,7 +110,8 @@ export function createLinkedWorkspaceFixture(): IViteServeCandidateFixture {
     'import { linked } from "linked-pkg";\n\nexport const value: string = linked;\n(globalThis as Record<string, unknown>).ttscLinkedValue = value;\n',
     "utf8",
   );
-  fs.mkdirSync(path.join(app, "node_modules"), { recursive: true });
+  const typeRoot = path.join(app, "node_modules", "@types");
+  fs.mkdirSync(typeRoot, { recursive: true });
   // pnpm links workspace packages into node_modules as directory links; the
   // "junction" type keeps the link creatable without elevation on Windows and
   // degrades to an ordinary directory symlink on POSIX.
@@ -123,6 +126,7 @@ export function createLinkedWorkspaceFixture(): IViteServeCandidateFixture {
     mainFile,
     missingCandidate: path.join(app, "node_modules", "linked-pkg", "index.ts"),
     supersedingSource: path.join(linkedPackage, "index.ts"),
+    typeRoot,
   };
 }
 
@@ -136,20 +140,59 @@ export async function assertFixtureDerivesMissingCandidate(
 ): Promise<void> {
   const { createTtscTransformCache, resolveOptions, transformTtsc } =
     await TestUnpluginRuntime.loadUnpluginApi();
-  const watched: string[] = [];
+  interface IWatchRegistration {
+    evidence?: {
+      state?: {
+        codec: string;
+        observation?: {
+          accessibleEntries?: { directories: string[]; files: string[] };
+          directoryExists?: boolean;
+        };
+      };
+    };
+    input: string;
+  }
+  const watched: IWatchRegistration[] = [];
   await transformTtsc(
     fixture.mainFile,
     fs.readFileSync(fixture.mainFile, "utf8"),
     resolveOptions({ project: path.join(fixture.app, "tsconfig.json") }),
     undefined,
     createTtscTransformCache(),
-    { addWatchFile: (input: string) => watched.push(input) },
+    {
+      addWatchFile: (
+        input: string,
+        evidence?: IWatchRegistration["evidence"],
+      ) => watched.push({ evidence, input }),
+    },
   );
   assert.ok(
     watched.some(
-      (input) => path.resolve(input) === path.resolve(fixture.missingCandidate),
+      ({ input }) =>
+        path.resolve(input) === path.resolve(fixture.missingCandidate),
     ),
-    `fixture must derive the missing node_modules candidate as a watch input; watched: ${watched.join(", ")}`,
+    `fixture must derive the missing node_modules candidate as a watch input; watched: ${watched.map(({ input }) => input).join(", ")}`,
+  );
+  const typeRoot = watched.find(
+    ({ input }) => path.resolve(input) === path.resolve(fixture.typeRoot),
+  );
+  const typeRootObservation =
+    typeRoot?.evidence?.state?.codec === "predicates"
+      ? typeRoot.evidence.state.observation
+      : undefined;
+  assert.ok(
+    typeRootObservation !== undefined,
+    `fixture must preserve the automatic type-root predicates; watched: ${watched.map(({ input }) => input).join(", ")}`,
+  );
+  assert.equal(
+    typeRootObservation.directoryExists,
+    true,
+    "the automatic type root must preserve its successful directory predicate",
+  );
+  assert.deepEqual(
+    typeRootObservation.accessibleEntries,
+    { directories: [], files: [] },
+    "the empty automatic type root must preserve its accessible-entry listing",
   );
 }
 

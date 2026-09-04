@@ -377,17 +377,51 @@ export const ADAPTER_CASES = {
   },
   case_vite_serve_first_request_survives_missing_resolution_candidates:
     async () => {
+      const assert: typeof import("node:assert/strict") = (
+        await import("node:assert/strict")
+      ).default;
+      const fs: typeof import("node:fs") = (await import("node:fs")).default;
+      const path: typeof import("node:path") = (await import("node:path"))
+        .default;
       const {
         assertFixtureDerivesMissingCandidate,
         createLinkedWorkspaceFixture,
+        mainModuleNode,
         requestMainModule,
+        spyReloadEvents,
         startViteServer,
+        waitFor,
       } = await import("../internal/adapter-vite-serve");
       const execute = async () => {
         const fixture = createLinkedWorkspaceFixture();
         await assertFixtureDerivesMissingCandidate(fixture);
         const server = await startViteServer(fixture);
         try {
+          await requestMainModule(server);
+          const node = await mainModuleNode(server);
+          assert.ok(
+            node.transformResult !== null && node.transformResult !== undefined,
+            "the first request must leave a cached transform on the module node",
+          );
+          const events = spyReloadEvents(server);
+
+          const generatedTypes = path.join(fixture.typeRoot, "generated");
+          fs.mkdirSync(generatedTypes);
+          fs.writeFileSync(
+            path.join(generatedTypes, "index.d.ts"),
+            "declare const generatedTypeRootMember: unique symbol;\n",
+            "utf8",
+          );
+          await waitFor(
+            () =>
+              node.transformResult === null ||
+              node.transformResult === undefined,
+            "the importer to be invalidated after automatic type-root membership changed",
+          );
+          assert.ok(
+            events.some((event) => event.type === "full-reload"),
+            "changing automatic type-root membership must announce a full reload",
+          );
           await requestMainModule(server);
         } finally {
           await server.close();

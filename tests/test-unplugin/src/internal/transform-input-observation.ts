@@ -493,6 +493,29 @@ export function assertPredicateProofMatrix(): void {
     ),
     "Vite polls must not merge distinct availability predicates",
   );
+  const polledTypeRoot = path.join(root, "node_modules", "@types");
+  assert.notEqual(
+    viteServeMissingInputWatchKey(polledTypeRoot, {
+      accessibleEntries: { directories: [], files: [] },
+      directoryExists: true,
+    }),
+    viteServeMissingInputWatchKey(polledTypeRoot, {
+      accessibleEntries: { directories: ["generated"], files: [] },
+      directoryExists: true,
+    }),
+    "Vite polls must key the complete rich predicate set",
+  );
+  assert.equal(
+    viteServeMissingInputWatchKey(polledTypeRoot, {
+      directoryExists: false,
+      fileExists: false,
+    }),
+    viteServeMissingInputWatchKey(polledTypeRoot, {
+      fileExists: false,
+      directoryExists: false,
+    }),
+    "Vite poll keys must not depend on predicate property insertion order",
+  );
   assertProjectTsconfigDiscovery();
   assertRealFilesystemKinds();
 }
