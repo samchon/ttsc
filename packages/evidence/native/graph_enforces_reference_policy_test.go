@@ -39,11 +39,11 @@ export function testContract(): void {}
     ]
   }]}`)
   if count := countProblemsContaining(messages, "Forbidden @evidenceExclude"); count != 1 {
-    t.Fatalf("expected one strict-reference exclusion diagnostic, got %d:\n%s", count, strings.Join(messages, "\n"))
+    t.Fatalf("expected one strict-reference exclusion diagnostic, got %d:\n%s", count, strings.Join(problemMessages(messages), "\n"))
   }
   assertProblemContains(t, messages, "reference 1 (markdown, symbols: h2): noEvidenceExclude")
   if count := countProblemsContaining(messages, "Missing acknowledgement"); count != 1 {
-    t.Fatalf("the ordinary reference must remain acknowledged, got %d missing diagnostics:\n%s", count, strings.Join(messages, "\n"))
+    t.Fatalf("the ordinary reference must remain acknowledged, got %d missing diagnostics:\n%s", count, strings.Join(problemMessages(messages), "\n"))
   }
   assertProblemContains(t, messages, "Missing acknowledgement for 'docs/spec.md#contract'")
   assertProblemContains(t, messages, "this reference forbids @evidenceExclude")
@@ -87,14 +87,14 @@ export function broad(): void {}
     }
   }]}`)
   if count := countProblemsContaining(messages, "singleEvidencePerSymbol requires exactly 1"); count != 2 {
-    t.Fatalf("expected zero and broad hosts to fail cardinality, got %d:\n%s", count, strings.Join(messages, "\n"))
+    t.Fatalf("expected zero and broad hosts to fail cardinality, got %d:\n%s", count, strings.Join(problemMessages(messages), "\n"))
   }
   assertProblemContains(t, messages, "TypeScript function 'empty'")
   assertProblemContains(t, messages, "cites 0 distinct selected evidence unit(s)")
   assertProblemContains(t, messages, "TypeScript function 'broad'")
   assertProblemContains(t, messages, "cites 2 distinct selected evidence unit(s)")
-  if strings.Contains(strings.Join(messages, "\n"), "TypeScript function 'duplicate'") {
-    t.Fatalf("duplicate tags inflated the semantic host count:\n%s", strings.Join(messages, "\n"))
+  if strings.Contains(strings.Join(problemMessages(messages), "\n"), "TypeScript function 'duplicate'") {
+    t.Fatalf("duplicate tags inflated the semantic host count:\n%s", strings.Join(problemMessages(messages), "\n"))
   }
   assertProblemContains(t, messages, "Duplicate @evidence")
 }
@@ -226,7 +226,7 @@ export function two(): void {}
     ]
   }]}`)
   if count := countProblemsContaining(messages, "uniqueEvidence allows at most 1"); count != 1 {
-    t.Fatalf("expected exactly one independent policy failure, got %d:\n%s", count, strings.Join(messages, "\n"))
+    t.Fatalf("expected exactly one independent policy failure, got %d:\n%s", count, strings.Join(problemMessages(messages), "\n"))
   }
   assertProblemContains(t, messages, "Claim 1 reference 2")
 }
@@ -266,7 +266,7 @@ export function testContract(): void {}
     ]
   }]}`)
   if count := countProblemsContaining(messages, "singleEvidencePerSymbol"); count != 1 {
-    t.Fatalf("expected one hierarchical-reference failure, got %d:\n%s", count, strings.Join(messages, "\n"))
+    t.Fatalf("expected one hierarchical-reference failure, got %d:\n%s", count, strings.Join(problemMessages(messages), "\n"))
   }
   assertProblemContains(t, messages, "Claim 1 reference 2")
 }
@@ -326,7 +326,7 @@ func TestReferencePolicyDerivesNothingFromAnUnhealthyReference(t *testing.T) {
     }},
   }}, nil)
   if len(messages) != 0 {
-    t.Fatalf("partial reference produced derived diagnostics instead of deferring to its loader failure:\n%s", strings.Join(messages, "\n"))
+    t.Fatalf("partial reference produced derived diagnostics instead of deferring to its loader failure:\n%s", strings.Join(problemMessages(messages), "\n"))
   }
 }
 
@@ -432,15 +432,15 @@ func TestStrictSwaggerAndOrdinaryMarkdownExclusionsCoexist(t *testing.T) {
     },
   }}, nil)
   if count := countProblemsContaining(messages, "Forbidden @evidenceExclude"); count != 1 {
-    t.Fatalf("expected only the Swagger exclusion to be forbidden, got %d:\n%s", count, strings.Join(messages, "\n"))
+    t.Fatalf("expected only the Swagger exclusion to be forbidden, got %d:\n%s", count, strings.Join(problemMessages(messages), "\n"))
   }
   assertProblemContains(t, messages, "Forbidden @evidenceExclude for 'POST:/orders'")
   if count := countProblemsContaining(messages, "Missing acknowledgement"); count != 1 {
-    t.Fatalf("ordinary Markdown exclusion did not retain coverage, got %d missing diagnostics:\n%s", count, strings.Join(messages, "\n"))
+    t.Fatalf("ordinary Markdown exclusion did not retain coverage, got %d missing diagnostics:\n%s", count, strings.Join(problemMessages(messages), "\n"))
   }
   assertProblemContains(t, messages, "Missing acknowledgement for 'POST:/orders'")
-  if strings.Contains(strings.Join(messages, "\n"), "Missing acknowledgement for 'docs/requirement.md#requirement'") {
-    t.Fatalf("strict Swagger policy leaked into the Markdown reference:\n%s", strings.Join(messages, "\n"))
+  if strings.Contains(strings.Join(problemMessages(messages), "\n"), "Missing acknowledgement for 'docs/requirement.md#requirement'") {
+    t.Fatalf("strict Swagger policy leaked into the Markdown reference:\n%s", strings.Join(problemMessages(messages), "\n"))
   }
 }
 
@@ -509,7 +509,7 @@ func TestSingleEvidencePerSymbolDerivesNothingFromAHealthyEmptyReference(t *test
   if countProblemsContaining(messages, "singleEvidencePerSymbol requires exactly 1") != 0 {
     t.Fatalf(
       "an empty population must not be re-reported per host:\n%s",
-      strings.Join(messages, "\n"),
+      strings.Join(problemMessages(messages), "\n"),
     )
   }
 }
@@ -545,7 +545,7 @@ func TestSingleEvidencePerSymbolAnswersAnUnmatchedGlobTheSameWay(t *testing.T) {
   if countProblemsContaining(messages, "singleEvidencePerSymbol requires exactly 1") != 0 {
     t.Fatalf(
       "an unmatched glob must not be re-reported per host:\n%s",
-      strings.Join(messages, "\n"),
+      strings.Join(problemMessages(messages), "\n"),
     )
   }
 }

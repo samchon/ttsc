@@ -19,6 +19,7 @@ import (
 
 type capturedProjectReporter struct {
   messages []string
+  findings graphDiagnostics
   failed   bool
   state    any
 }
@@ -30,6 +31,11 @@ func (reporter *capturedProjectReporter) Fail() {
 func (reporter *capturedProjectReporter) Report(message string) {
   reporter.failed = true
   reporter.messages = append(reporter.messages, message)
+}
+
+func (reporter *capturedProjectReporter) ReportSeverity(severity rule.Severity, message string) {
+  reporter.Report(message)
+  reporter.findings = reporter.findings.add(severity, message)
 }
 
 func (reporter *capturedProjectReporter) SetState(state any) {
@@ -143,6 +149,11 @@ func runIndexRuleAtRoot(
   config string,
 ) []string {
   t.Helper()
+  return runIndexRuleAtSeverity(t, root, files, config, rule.SeverityError).messages
+}
+
+func runIndexRuleAtSeverity(t *testing.T, root string, files map[string]string, config string, severity rule.Severity) *capturedProjectReporter {
+  t.Helper()
   paths := make([]string, 0, len(files))
   for path := range files {
     paths = append(paths, path)
@@ -177,13 +188,13 @@ func runIndexRuleAtRoot(
     rule.ProjectIdentity{PhysicalProjectRoot: root},
     sources,
     nil,
-    rule.SeverityError,
+    severity,
     json.RawMessage(config),
     reporter,
   )
   graphRule{}.Check(context)
   sort.Strings(reporter.messages)
-  return reporter.messages
+  return reporter
 }
 
 // capturedFileReporter records what a file rule reported.
@@ -323,14 +334,16 @@ func anchoredGraph(root string, config graphConfig) graphConfig {
   return config
 }
 
-func assertSilent(t *testing.T, messages []string) {
+func assertSilent[T string | graphDiagnostic](t *testing.T, problems []T) {
+  messages := problemMessages(problems)
   t.Helper()
   if len(messages) != 0 {
     t.Fatalf("expected no diagnostics, got:\n%s", strings.Join(messages, "\n"))
   }
 }
 
-func assertReportedAmong(t *testing.T, messages []string, expected string) {
+func assertReportedAmong[T string | graphDiagnostic](t *testing.T, problems []T, expected string) {
+  messages := problemMessages(problems)
   t.Helper()
   for _, message := range messages {
     if strings.Contains(message, expected) {
@@ -344,7 +357,8 @@ func assertReportedAmong(t *testing.T, messages []string, expected string) {
   )
 }
 
-func assertReported(t *testing.T, messages []string, expected string) {
+func assertReported[T string | graphDiagnostic](t *testing.T, problems []T, expected string) {
+  messages := problemMessages(problems)
   t.Helper()
   if len(messages) != 1 {
     t.Fatalf(
@@ -384,14 +398,16 @@ func parseTypeScriptInventory(
   return scanTypeScriptInventory(path, file)
 }
 
-func assertNoProblems(t *testing.T, messages []string) {
+func assertNoProblems[T string | graphDiagnostic](t *testing.T, problems []T) {
+  messages := problemMessages(problems)
   t.Helper()
   if len(messages) != 0 {
     t.Fatalf("expected no evidence diagnostics, got:\n%s", strings.Join(messages, "\n"))
   }
 }
 
-func assertProblemContains(t *testing.T, messages []string, expected string) {
+func assertProblemContains[T string | graphDiagnostic](t *testing.T, problems []T, expected string) {
+  messages := problemMessages(problems)
   t.Helper()
   for _, message := range messages {
     if strings.Contains(message, expected) {
@@ -405,7 +421,8 @@ func assertProblemContains(t *testing.T, messages []string, expected string) {
   )
 }
 
-func countProblemsContaining(messages []string, expected string) int {
+func countProblemsContaining[T string | graphDiagnostic](problems []T, expected string) int {
+  messages := problemMessages(problems)
   count := 0
   for _, message := range messages {
     if strings.Contains(message, expected) {
@@ -429,4 +446,17 @@ func linkDirectory(target string, link string) error {
     "cmd", "/c", "mklink", "/J",
     filepath.FromSlash(link), filepath.FromSlash(target),
   ).Run()
+}
+
+func problemMessages[T string | graphDiagnostic](problems []T) []string {
+  messages := make([]string, 0, len(problems))
+  for _, problem := range problems {
+    switch value := any(problem).(type) {
+    case string:
+      messages = append(messages, value)
+    case graphDiagnostic:
+      messages = append(messages, value.Message)
+    }
+  }
+  return messages
 }

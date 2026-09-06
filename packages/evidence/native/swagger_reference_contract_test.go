@@ -138,7 +138,7 @@ func TestSwaggerConfigurationRejectsClaimAndLocatorViolations(t *testing.T) {
   for _, entry := range cases {
     t.Run(entry.name, func(t *testing.T) {
       _, problems := decodeGraphConfig(json.RawMessage(entry.raw))
-      if !strings.Contains(strings.Join(problems, "\n"), entry.want) {
+      if !strings.Contains(strings.Join(problemMessages(problems), "\n"), entry.want) {
         t.Fatalf("expected %q, got %v", entry.want, problems)
       }
     })
@@ -260,7 +260,7 @@ func TestSwaggerOperationsParticipateInCoverage(t *testing.T) {
       newTypeScriptLoader("", map[string]*artifactInventory{"src/ref.ts": claimInventory}),
     )...,
   )
-  joined := strings.Join(problems, "\n")
+  joined := strings.Join(problemMessages(problems), "\n")
   if !strings.Contains(joined, "Missing acknowledgement for 'GET:/members/{id}'") {
     t.Fatalf("uncited GET operation did not fail coverage:\n%s", joined)
   }

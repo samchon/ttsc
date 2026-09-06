@@ -50,7 +50,7 @@
     "url": "https://github.com/samchon/ttsc/issues"
   },
   "peerDependencies": {
-    "@ttsc/lint": ">=0.24.0"
+    "@ttsc/lint": ">0.28.6"
   },
   "devDependencies": {
     "@ttsc/lint": "workspace:*",

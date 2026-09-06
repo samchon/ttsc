@@ -1185,6 +1185,8 @@ func init() { rule.RegisterProject(noCycles{}) }
 
 Each project rule runs once per loaded Program, before file rules. `ctx.Identity` includes the invocation cwd, logical and physical config paths and roots, an optional explicit project root, the plugin-config origin, and a lifecycle id. `Report` marks the rule failed and emits one project finding; `Fail` marks it failed without a finding. Later file rules can call `ctx.ProjectResult(name)` and distinguish `absent`, `off`, `not_evaluated`, `passed`, and `failed`.
 
+`ctx.ReportSeverity(rule.SeverityWarn, message)` overrides the level of one project finding. An off rule or off finding remains silent. A warning still marks the project result failed, while only an error fails the command. Snapshots retain each finding's severity, and duplicate messages keep the strongest reported level. Hosts implementing only `ProjectReporter` receive the message at the rule's configured level; `ProjectSeverityReporter` is the optional extension for individual levels.
+
 When a project rule reads local files outside the TypeScript Program, implement `rule.ProjectInputRule` so watch and editor hosts can observe exactly those inputs:
 
 ```go

@@ -79,8 +79,8 @@ func extendTypeScriptInventories(
 func typeScriptBaseProblems(
   config graphConfig,
   inventories map[string]*artifactInventory,
-) []string {
-  problems := []string{}
+) graphDiagnostics {
+  problems := graphDiagnostics{}
   for _, base := range configuredBases(config, artifactTypeScript) {
     problem := baseDirectoryProblem(base, artifactTypeScript)
     // The stat accepts a chain of links the resolver will not finish, and this
@@ -111,7 +111,7 @@ func typeScriptBaseProblems(
       continue
     }
     recordPopulationFailure(inventories, artifactTypeScript, base)
-    problems = append(problems, problem)
+    problems = problems.add(populationSeverity(config, artifactTypeScript, base, "", "*", false), problem)
   }
   return problems
 }

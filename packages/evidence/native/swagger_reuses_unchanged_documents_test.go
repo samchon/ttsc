@@ -321,7 +321,7 @@ func TestSwaggerRenormalizesOnlyTheChangedSource(t *testing.T) {
     t.Fatal("the edited source must be re-normalized")
   }
   for _, problem := range problems {
-    if strings.Contains(problem, "stable.json") {
+    if strings.Contains(problem.Message, "stable.json") {
       t.Fatalf("the unchanged source must not be re-normalized, got: %v", problems)
     }
   }
@@ -420,7 +420,7 @@ func TestSwaggerReusesARejectedDocumentWithoutSpawning(t *testing.T) {
 
   t.Setenv("TTSC_NODE_BINARY", filepath.Join(t.TempDir(), "node-that-does-not-exist"))
   inventories, problems := loadSwaggerInventories(root, swaggerCacheConfig(t, "swagger.json"))
-  joined := strings.Join(problems, "\n")
+  joined := strings.Join(problemMessages(problems), "\n")
   if !strings.Contains(joined, "unsupported OpenAPI version") {
     t.Fatalf("the remembered rejection must be reported verbatim, got: %v", problems)
   }
@@ -458,7 +458,7 @@ func TestSwaggerForgetsARejectedDocumentOnceItIsFixed(t *testing.T) {
   }
   t.Setenv("TTSC_NODE_BINARY", filepath.Join(t.TempDir(), "node-that-does-not-exist"))
   _, problems := loadSwaggerInventories(root, swaggerCacheConfig(t, "swagger.json"))
-  joined := strings.Join(problems, "\n")
+  joined := strings.Join(problemMessages(problems), "\n")
   if strings.Contains(joined, "unsupported OpenAPI version") {
     t.Fatalf("a repaired document must not replay its rejection, got: %v", problems)
   }
@@ -494,7 +494,7 @@ func TestSwaggerReportsARejectionThatCarriesNoReason(t *testing.T) {
   if len(problems) == 0 {
     t.Fatal("a reason-less rejection must still fail the build")
   }
-  if !strings.Contains(strings.Join(problems, "\n"), "swagger.json") {
+  if !strings.Contains(strings.Join(problemMessages(problems), "\n"), "swagger.json") {
     t.Fatalf("the diagnostic must name the refused source, got: %v", problems)
   }
   if len(inventories["swagger.json"].Units) != 0 {

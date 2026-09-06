@@ -199,7 +199,7 @@ model Sale {
     unit.Path = "prisma/schema.prisma"
     hosts[joinPrismaIdentity(unit.Identity)] = unit
   }
-  if problems := prismaDeclarationsFromComments(scan.Comments, hosts, prismaInventoriesByDisplay(inventories)); len(problems) != 0 {
+  if problems := prismaDeclarationsFromComments(scan.Comments, hosts, prismaInventoriesByDisplay(inventories), nil); len(problems) != 0 {
     t.Fatalf("validity belongs to the graph, not the scan: %v", problems)
   }
   document, _ := scanProjectMarkdown("docs/spec.md", "## Amounts {#amounts}\n")
@@ -259,7 +259,7 @@ func TestPrismaClaimSelectorRefusesAnUnselectedHost(t *testing.T) {
     unit.Path = "prisma/schema.prisma"
     hosts[joinPrismaIdentity(unit.Identity)] = unit
   }
-  if problems := prismaDeclarationsFromComments(scan.Comments, hosts, prismaInventoriesByDisplay(inventories)); len(problems) != 0 {
+  if problems := prismaDeclarationsFromComments(scan.Comments, hosts, prismaInventoriesByDisplay(inventories), nil); len(problems) != 0 {
     t.Fatalf("host eligibility belongs to the graph, not the scan: %v", problems)
   }
   document, _ := scanProjectMarkdown("docs/spec.md", "## Amounts {#amounts}\n")
@@ -363,7 +363,7 @@ model Seller {
       hosts[joinPrismaIdentity(unit.Identity)] = unit
     }
   }
-  if problems := prismaDeclarationsFromComments(scan.Comments, hosts, prismaInventoriesByDisplay(inventories)); len(problems) != 0 {
+  if problems := prismaDeclarationsFromComments(scan.Comments, hosts, prismaInventoriesByDisplay(inventories), nil); len(problems) != 0 {
     t.Fatalf("the contradiction belongs to the graph, not the scan: %v", problems)
   }
   document, _ := scanProjectMarkdown("docs/spec.md", "## Amounts {#amounts}\n")
@@ -387,7 +387,7 @@ model Seller {
   )
   messages := append(problems, evaluateEvidenceGraph(states, loader)...)
   if got := countProblemsContaining(messages, "Conflicting acknowledgements"); got != 1 {
-    t.Fatalf("expected exactly one conflict diagnostic, got %d:\n%s", got, strings.Join(messages, "\n"))
+    t.Fatalf("expected exactly one conflict diagnostic, got %d:\n%s", got, strings.Join(problemMessages(messages), "\n"))
   }
   assertProblemContains(t, messages, "docs/spec.md#amounts")
 }

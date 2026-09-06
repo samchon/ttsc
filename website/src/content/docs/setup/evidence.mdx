@@ -149,6 +149,8 @@ Start with `evidence/graph` alone and add the others once the graph is green.
 
 ## Stage the rollout
 
+To keep findings visible without failing the build, set `severity: "warning"` on one claim or reference. Omit it or set it to `undefined` to inherit the enclosing level. `severity: "off"` disables that claim or reference. See [severity precedence](/docs/evidence/claims#severity).
+
 A claim you are not ready to enforce carries `disabled: true`. Its shape is still validated, but it contributes no populations, no obligations, no completion hints, and no watched inputs:
 
 ```ts

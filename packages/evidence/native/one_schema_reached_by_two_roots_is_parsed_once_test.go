@@ -149,7 +149,7 @@ func TestOneSchemaHardLinkedIntoTwoRootsIsParsedOnce(t *testing.T) {
     t.Skipf("this filesystem does not support hard links: %v", err)
   }
   inventories, problems := loadPrismaInventories(root, twoRootedPrismaGraph(t, root))
-  assertBothPopulationsServed(t, inventories, problems)
+  assertBothPopulationsServed(t, inventories, problemMessages(problems))
 }
 
 /**
@@ -182,7 +182,7 @@ func TestOneSchemaReachedThroughALinkedDirectoryIsParsedOnce(t *testing.T) {
     t.Skipf("this environment cannot create a directory link: %v", err)
   }
   inventories, problems := loadPrismaInventories(root, twoRootedPrismaGraph(t, root))
-  assertBothPopulationsServed(t, inventories, problems)
+  assertBothPopulationsServed(t, inventories, problemMessages(problems))
 }
 
 /**
@@ -307,7 +307,7 @@ func TestAModelTheScanCouldNotLocateReachesEveryPopulationOfTheSet(t *testing.T)
       Digest: "model-digest",
       Fields: []prismaField{{Name: "id", Symbol: "column", Digest: "field-digest"}},
     }},
-  })
+  }, graphConfig{})
   if len(problems) != 0 {
     t.Fatalf("an unlocated model is not a problem, got %v", problems)
   }

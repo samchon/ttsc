@@ -234,8 +234,8 @@ func TestChecklistWithholdsTheUnhostedReportWhenALoaderFailureHidesConsumption(t
   }
 
   failed := evaluateEvidenceGraph(build(false), nil)
-  if strings.Contains(strings.Join(failed, "\n"), "Unhosted") {
-    t.Fatalf("an unknowable consumption was reported as none:\n%s", strings.Join(failed, "\n"))
+  if strings.Contains(strings.Join(problemMessages(failed), "\n"), "Unhosted") {
+    t.Fatalf("an unknowable consumption was reported as none:\n%s", strings.Join(problemMessages(failed), "\n"))
   }
   assertProblemContains(t, failed, "has not acknowledged 1 of 1 checklist item(s): 'docs/rules.md#only-rule'")
 

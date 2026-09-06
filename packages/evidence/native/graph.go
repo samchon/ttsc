@@ -31,6 +31,7 @@ func (graphRule) Check(ctx *rule.ProjectContext) {
     reportProblems(ctx, problems)
     return
   }
+  resolveGraphSeverities(&config, ctx.Severity)
   config = enabledGraphConfig(config)
   if len(config.Claims) == 0 {
     cycle.Corpus = graphCorpus{Config: config}
@@ -46,6 +47,7 @@ func (graphRule) Check(ctx *rule.ProjectContext) {
     ctx.Report("Evidence graph project root '" + root + "' is not a readable directory. Fix the ttsc project identity before evaluating evidence globs.")
     return
   }
+  diagnostics := graphDiagnostics{}
   // Every population is anchored before anything is read, so a loader, a
   // diagnostic, and the corpus the editor receives all speak of one resolved
   // base rather than each re-deriving it from the author's spelling.
@@ -68,15 +70,15 @@ func (graphRule) Check(ctx *rule.ProjectContext) {
     root,
     claimPopulationConfig(config, artifactPrisma),
   )
-  problems = append(
-    problems,
+  diagnostics = append(
+    diagnostics,
     typeScriptBaseProblems(
       claimPopulationConfig(config, artifactTypeScript),
       typescript,
     )...,
   )
-  problems = append(problems, markdownClaimProblems...)
-  problems = append(problems, prismaClaimProblems...)
+  diagnostics = append(diagnostics, markdownClaimProblems...)
+  diagnostics = append(diagnostics, prismaClaimProblems...)
   // Governance is judged against the configuration as declared, before
   // activation drops a claim whose population materialized no unit of its
   // symbol kind. The question is whether an author put this file in a
@@ -91,10 +93,10 @@ func (graphRule) Check(ctx *rule.ProjectContext) {
   markdown, markdownProblems := loadMarkdownInventories(root, config)
   prisma, prismaProblems := loadPrismaInventories(root, config)
   swagger, swaggerProblems := loadSwaggerInventories(root, config)
-  problems = append(problems, markdownProblems...)
-  problems = append(problems, prismaProblems...)
-  problems = append(problems, swaggerProblems...)
-  problems = append(problems, unreadableTypeScriptTags(typescript, governed)...)
+  diagnostics = append(diagnostics, markdownProblems...)
+  diagnostics = append(diagnostics, prismaProblems...)
+  diagnostics = append(diagnostics, swaggerProblems...)
+  diagnostics = append(diagnostics, unreadableTypeScriptTags(typescript, governed, declared)...)
   loader := newTypeScriptLoader(root, typescript)
   states, stateProblems := materializeClaimStates(
     config,
@@ -104,10 +106,10 @@ func (graphRule) Check(ctx *rule.ProjectContext) {
     typescript,
     loader,
   )
-  problems = append(problems, stateProblems...)
-  problems = append(problems, evaluateEvidenceGraph(states, loader)...)
-  reportProblems(ctx, problems)
-  if len(problems) == 0 {
+  diagnostics = append(diagnostics, stateProblems...)
+  diagnostics = append(diagnostics, evaluateEvidenceGraph(states, loader)...)
+  diagnostics.report(ctx)
+  if len(diagnostics) == 0 {
     // Published only on a clean evaluation, because the host reads state
     // from a rule that passed and reporting anything marks this one failed
     // (`linthost/hints.go:147-149`, `linthost/project_engine.go:68-77`).
@@ -238,10 +240,11 @@ func materializeClaimStates(
   swagger map[string]*artifactInventory,
   typescript map[string]*artifactInventory,
   loader *typeScriptLoader,
-) ([]claimState, []string) {
+) ([]claimState, graphDiagnostics) {
   states := make([]claimState, 0, len(config.Claims))
-  problems := []string{}
+  problems := graphDiagnostics{}
   for _, claim := range config.Claims {
+    severity := claim.Level
     inventories := inventoriesOf(claim.Type, markdown, prisma, swagger, typescript)
     paths := matchingInventoryPaths(inventories, claim.Base, claim.Files)
     state := claimState{
@@ -268,8 +271,8 @@ func materializeClaimStates(
       // exclusion the claim writes, so the misspelling is reported where
       // it was made rather than as a placement finding on each tag.
       if len(carrierPaths) == 0 && len(paths) != 0 {
-        problems = append(
-          problems,
+        problems = problems.add(
+          severity,
           claimLabel(claim)+" declares evidenceExcludeCarriers "+describePopulation(claim.Base, claim.ExclusionCarriers)+", which selects none of its "+decimal(len(paths))+" claim file(s). Point the patterns at a file this claim already selects, or drop the property to accept an exclusion anywhere in the population.",
         )
       }
@@ -346,6 +349,7 @@ func materializeClaimStates(
     }
     sortUnits(state.Hosts)
     for _, reference := range claim.References {
+      severity := reference.Level
       referenceInventories := inventoriesOf(
         reference.Type,
         markdown,
@@ -359,7 +363,7 @@ func materializeClaimStates(
           reference,
           loader,
         )
-        problems = append(problems, entryProblems...)
+        problems = problems.add(severity, entryProblems...)
         state.References = append(state.References, entryState)
         continue
       }
@@ -369,7 +373,7 @@ func materializeClaimStates(
           reference,
           loader,
         )
-        problems = append(problems, packageProblems...)
+        problems = problems.add(severity, packageProblems...)
         state.References = append(state.References, packageState)
         continue
       }
@@ -380,7 +384,7 @@ func materializeClaimStates(
           referenceInventories,
           loader,
         )
-        problems = append(problems, localProblems...)
+        problems = problems.add(severity, localProblems...)
         state.References = append(state.References, localState)
         continue
       }
@@ -396,13 +400,13 @@ func materializeClaimStates(
       }
       if len(referencePaths) == 0 && referenceState.Healthy {
         if reference.Type == artifactSwagger {
-          problems = append(
-            problems,
+          problems = problems.add(
+            severity,
             claimLabel(claim)+" "+referenceLabel(reference)+" matched no swagger source for "+describeReferenceSources(reference)+". Fix the reference location; this obligation cannot materialize evidence units without a source.",
           )
         } else {
-          problems = append(
-            problems,
+          problems = problems.add(
+            severity,
             claimLabel(claim)+" "+referenceLabel(reference)+" matched no "+string(reference.Type)+" files for "+describePopulation(reference.Base, reference.Files)+". Fix the reference globs or the root they resolve against; this obligation cannot materialize evidence units without files.",
           )
         }
@@ -477,8 +481,8 @@ func materializeClaimStates(
         len(referenceState.Units) == 0 &&
         referenceState.Healthy &&
         !selectedInventoryProblem {
-        problems = append(
-          problems,
+        problems = problems.add(
+          severity,
           claimLabel(claim)+" "+referenceLabel(reference)+" matched "+decimal(len(referencePaths))+" file(s) but found no selected evidence units ("+reference.Symbols.names()+"). Select symbol kinds present in those files or correct the reference globs.",
         )
       }
@@ -492,8 +496,8 @@ func materializeClaimStates(
 func evaluateEvidenceGraph(
   states []claimState,
   loader *typeScriptLoader,
-) []string {
-  problems := []string{}
+) graphDiagnostics {
+  problems := graphDiagnostics{}
   targets := map[string]map[string]*evidenceUnit{}
   markdownTargets := map[string]map[string]*evidenceUnit{}
   // Scoped targets are keyed by owning file as well as name, which is what
@@ -604,11 +608,12 @@ func evaluateEvidenceGraph(
 
   resolved := map[string]string{}
   for _, id := range declarationIDs {
+    severity := ownerSeverity(owners[id])
     declaration := declarations[id]
     context := declarationObligationContext(owners[id])
     if !declaration.valid() {
-      problems = append(
-        problems,
+      problems = problems.add(
+        severity,
         "Malformed @"+string(declaration.Tag)+" declaration at "+declaration.location()+" for "+context+": target and non-empty reason are mandatory. Write '@"+string(declaration.Tag)+" <target> <reason>'."+untrueTagWarning,
       )
       continue
@@ -622,7 +627,7 @@ func evaluateEvidenceGraph(
         context,
       )
       if problem != "" {
-        problems = append(problems, problem)
+        problems = problems.add(severity, problem)
         continue
       }
       resolved[id] = unitID
@@ -630,8 +635,8 @@ func evaluateEvidenceGraph(
     }
     if declaration.Type == artifactTypeScript &&
       looksLikeTypeScriptTarget(declaration.Target, targets, markdownTargets) {
-      problems = append(
-        problems,
+      problems = problems.add(
+        severity,
         "Unbraced TypeScript evidence target '"+declaration.Target+"' at "+declaration.location()+" for "+context+": a target naming a symbol is now written as an inline link, so the citing module's import is what resolves it. Write '@"+string(declaration.Tag)+" {@link "+declaration.Target+"} <reason>' and import the symbol; 'import type' is enough.",
       )
       continue
@@ -648,8 +653,8 @@ func evaluateEvidenceGraph(
     if declaration.Type != artifactTypeScript {
       addressable, code := splitCodeCandidates(candidates)
       if len(addressable) == 0 && len(code) != 0 {
-        problems = append(
-          problems,
+        problems = problems.add(
+          severity,
           "Code evidence target '"+declaration.Target+"' at "+declaration.location()+" for "+context+": a "+string(declaration.Type)+" claim cannot cite a TypeScript symbol, because a symbol citation resolves through the citing module's imports and this artifact has none. Invert the obligation so the code cites this artifact, or move the citation into TypeScript.",
         )
         continue
@@ -667,14 +672,11 @@ func evaluateEvidenceGraph(
         continue
       }
       if hidden := hiddenTargets[declaration.Target]; hidden != nil {
-        problems = append(
-          problems,
-          hiddenTargetProblem(declaration, hidden, context),
-        )
+        problems = problems.add(severity, hiddenTargetProblem(declaration, hidden, context))
         continue
       }
-      problems = append(
-        problems,
+      problems = problems.add(
+        severity,
         "Unresolved evidence target '"+declaration.Target+"' at "+declaration.location()+" for "+context+": no configured source materializes that evidence unit. Correct the target, make one of the named references select the source unit this claim actually uses, or remove the tag when this host does not answer for that target."+untrueTagWarning,
       )
     case 1:
@@ -687,8 +689,8 @@ func evaluateEvidenceGraph(
         descriptions = append(descriptions, unit.Readable+" at "+unit.location())
       }
       sort.Strings(descriptions)
-      problems = append(
-        problems,
+      problems = problems.add(
+        severity,
         "Ambiguous evidence target '"+declaration.Target+"' at "+declaration.location()+" for "+context+": it matches "+strings.Join(descriptions, "; ")+". Rename or qualify the source symbols so the target has exactly one meaning.",
       )
     }
@@ -697,11 +699,13 @@ func evaluateEvidenceGraph(
   participates := map[string]bool{}
   uncertain := map[string]bool{}
   outOfScope := map[string][]string{}
+  outOfScopeLevels := map[string]rule.Severity{}
   outOfScopeSelections := map[string]symbolSet{}
   // An exclusion outside its claim's declared carriers is a placement
   // finding, not a host-kind one, so it carries its own obligations and the
   // carrier globs its message must name.
   outsideCarrier := map[string][]string{}
+  outsideCarrierLevels := map[string]rule.Severity{}
   outsideCarrierGlobs := map[string]string{}
   // A checklist tag speaking for no selected host is a non-participation
   // finding: within its reference it answers nothing, and whether that earns a
@@ -711,6 +715,7 @@ func evaluateEvidenceGraph(
   // elsewhere — so the finding is recorded here and judged after the walk,
   // when `answers` can say whether anything consumed the tag.
   unhosted := map[string][]string{}
+  unhostedLevels := map[string]rule.Severity{}
   unhostedSelections := map[string]symbolSet{}
   // answers marks a declaration that wrote at least one acknowledgement
   // ledger, or was refused as an aggregate, which is that citation's own
@@ -732,6 +737,7 @@ func evaluateEvidenceGraph(
     // reviewing reference pays nothing.
     var reviewLedgerForClaim *reviewLedger
     for _, reference := range state.References {
+      severity := reference.Spec.Level
       if !reference.Healthy {
         for _, declaration := range state.Declarations {
           uncertain[declaration.ID] = true
@@ -819,6 +825,7 @@ func evaluateEvidenceGraph(
           continue
         }
         if declaration.Tag == tagExclude && state.OutsideCarrier[declaration.ID] {
+          outsideCarrierLevels[declaration.ID] = max(outsideCarrierLevels[declaration.ID], severity)
           outsideCarrier[declaration.ID] = appendUniqueString(
             outsideCarrier[declaration.ID],
             claimLabel(state.Spec)+" "+referenceLabel(reference.Spec),
@@ -827,6 +834,7 @@ func evaluateEvidenceGraph(
           continue
         }
         if !declarationEligibleForClaim(declaration, state.Spec) {
+          outOfScopeLevels[declaration.ID] = max(outOfScopeLevels[declaration.ID], severity)
           outOfScope[declaration.ID] = appendUniqueString(
             outOfScope[declaration.ID],
             claimLabel(state.Spec)+" "+referenceLabel(reference.Spec),
@@ -849,8 +857,8 @@ func evaluateEvidenceGraph(
           continue
         }
         if declaration.Tag == tagExclude && reference.Spec.Policy.NoExclude {
-          problems = append(
-            problems,
+          problems = problems.add(
+            severity,
             "Forbidden @evidenceExclude for '"+scopesByID[scopeID].Target+"' at "+declaration.location()+" in "+claimLabel(state.Spec)+" "+referenceLabel(reference.Spec)+": noEvidenceExclude requires positive @evidence for this reference. Remove the exclusion and cite the target from a selected "+string(state.Spec.Type)+" host that answers for it."+untrueTagWarning,
           )
           continue
@@ -889,6 +897,7 @@ func evaluateEvidenceGraph(
             // answer, and a hard diagnostic here left that valid configuration
             // no placement to exist in. The end-of-run block reports the tag
             // once nothing has consumed it.
+            unhostedLevels[declaration.ID] = max(unhostedLevels[declaration.ID], severity)
             unhosted[declaration.ID] = appendUniqueString(
               unhosted[declaration.ID],
               claimLabel(state.Spec)+" "+referenceLabel(reference.Spec),
@@ -910,8 +919,8 @@ func evaluateEvidenceGraph(
           for _, unit := range covered {
             targets = append(targets, "'"+unit.Target+"'")
           }
-          problems = append(
-            problems,
+          problems = problems.add(
+            severity,
             "Aggregate @evidence target '"+scopesByID[scopeID].Target+"' at "+declaration.location()+" in "+claimLabel(state.Spec)+" "+referenceLabel(reference.Spec)+": this reference is a checklist, so a citation answers for the item it names, and this target names a scope containing "+decimal(len(covered))+" item(s) ("+strings.Join(targets, ", ")+") rather than one of them. Cite each item this host answers for, or write @evidenceExclude on this scope when none of it applies here."+untrueTagWarning,
           )
           for _, unit := range covered {
@@ -936,7 +945,7 @@ func evaluateEvidenceGraph(
           if reviewLedgerForClaim == nil {
             reviewLedgerForClaim = newReviewLedger(state.Reviews)
           }
-          problems = append(problems, reviewProblems(
+          problems = problems.add(severity, reviewProblems(
             declaration,
             scopesByID[scopeID],
             reference,
@@ -952,8 +961,8 @@ func evaluateEvidenceGraph(
             evidenceByHostAndScope[declaration.HostID] = byScope
           }
           if first := byScope[scopeID]; first != nil {
-            problems = append(
-              problems,
+            problems = problems.add(
+              severity,
               "Duplicate @evidence for '"+scopesByID[scopeID].Target+"' on the same host at "+declaration.location()+"; first declared at "+first.location()+".",
             )
           } else {
@@ -1060,14 +1069,14 @@ func evaluateEvidenceGraph(
             evidence = conflictingDeclaration
             exclusion = declaration
           }
-          problems = append(
-            problems,
+          problems = problems.add(
+            severity,
             "Conflicting acknowledgements for '"+conflictingUnit.Target+"' in "+claimLabel(state.Spec)+" "+referenceLabel(reference.Spec)+": @evidence at "+evidence.location()+" overlaps @evidenceExclude at "+exclusion.location()+". Delete whichever is untrue of this host."+untrueTagWarning,
           )
         }
         if duplicateExclusionUnit != nil {
-          problems = append(
-            problems,
+          problems = problems.add(
+            severity,
             "Duplicate @evidenceExclude for '"+duplicateExclusionUnit.Target+"' in "+claimLabel(state.Spec)+" "+referenceLabel(reference.Spec)+": exclusion at "+declaration.location()+" overlaps exclusion at "+firstExclusion.location()+".",
           )
         }
@@ -1084,8 +1093,8 @@ func evaluateEvidenceGraph(
           if count == 1 {
             continue
           }
-          problems = append(
-            problems,
+          problems = problems.add(
+            severity,
             "Evidence host "+host.Readable+" at "+host.location()+" in "+claimLabel(state.Spec)+" "+referenceLabel(reference.Spec)+" cites "+decimal(count)+" distinct selected evidence unit(s); singleEvidencePerSymbol requires exactly 1. Split this host so each unit has one that owns it, or keep positive @evidence citations on this semantic host to exactly one distinct unit.",
           )
         }
@@ -1116,8 +1125,8 @@ func evaluateEvidenceGraph(
           if reference.Spec.Policy.NoExclude {
             repair = "Do what each item requires and cite it with @evidence on this host; this reference forbids @evidenceExclude." + untrueTagWarning
           }
-          problems = append(
-            problems,
+          problems = problems.add(
+            severity,
             "Evidence host "+host.Readable+" at "+host.location()+" in "+claimLabel(state.Spec)+" "+referenceLabel(reference.Spec)+" has not acknowledged "+decimal(len(missing))+" of "+decimal(len(reference.Units))+" checklist item(s): "+strings.Join(missing, ", ")+". "+repair,
           )
         }
@@ -1131,8 +1140,8 @@ func evaluateEvidenceGraph(
           if reference.Spec.Policy.NoExclude {
             repair = "Cite the artifact that answers for this unit with @evidence on a selected " + string(state.Spec.Type) + " host, building that artifact first when none does; this reference forbids @evidenceExclude." + untrueTagWarning
           }
-          problems = append(
-            problems,
+          problems = problems.add(
+            severity,
             "Missing acknowledgement for '"+unit.Target+"' ("+unit.Readable+" at "+unit.location()+") in "+claimLabel(state.Spec)+" "+referenceLabel(reference.Spec)+". "+repair,
           )
         }
@@ -1140,14 +1149,15 @@ func evaluateEvidenceGraph(
         if !unique || hostCount <= 1 {
           continue
         }
-        problems = append(
-          problems,
+        problems = problems.add(
+          severity,
           "Evidence unit '"+unit.Target+"' ("+unit.Readable+" at "+unit.location()+") in "+claimLabel(state.Spec)+" "+referenceLabel(reference.Spec)+" has "+decimal(hostCount)+" distinct positive evidence host(s); uniqueEvidence allows at most 1. Keep the one selected "+string(state.Spec.Type)+" host that owns this unit and remove the other citation(s).",
         )
       }
     }
   }
   for _, id := range declarationIDs {
+    severity := ownerSeverity(owners[id])
     if resolved[id] == "" {
       continue
     }
@@ -1161,8 +1171,8 @@ func evaluateEvidenceGraph(
     // withholds its own.
     if obligations := unhosted[id]; len(obligations) != 0 &&
       !answers[id] && !uncertain[id] {
-      problems = append(
-        problems,
+      problems = problems.add(
+        unhostedLevels[id],
         "Unhosted @"+string(declaration.Tag)+" at "+declaration.location()+" for "+strings.Join(obligations, "; ")+", target '"+displayTarget(declaration.Target)+"': a checklist acknowledgement answers for one selected host of its claim, and this declaration sits on no selected host and discharges no other obligation. Move the tag onto a host of a selected kind ("+unhostedSelections[id].names()+") in a claim that owes it."+untrueTagWarning,
       )
     }
@@ -1171,8 +1181,8 @@ func evaluateEvidenceGraph(
     }
     context := declarationObligationContext(owners[id])
     if obligations := outsideCarrier[id]; len(obligations) != 0 {
-      problems = append(
-        problems,
+      problems = problems.add(
+        outsideCarrierLevels[id],
         "Misplaced @evidenceExclude at "+declaration.location()+" for "+strings.Join(obligations, "; ")+", target '"+displayTarget(declaration.Target)+"': evidenceExcludeCarriers confines this claim's exclusions to "+outsideCarrierGlobs[id]+". Move the tag there, or delete it and build what the target requires of this claim."+untrueTagWarning,
       )
       continue
@@ -1183,14 +1193,14 @@ func evaluateEvidenceGraph(
         host = "unsupported or non-exported declaration"
       }
       if declaration.Tag == tagExclude {
-        problems = append(
-          problems,
+        problems = problems.add(
+          outOfScopeLevels[id],
           "Out-of-scope @evidenceExclude carrier at "+declaration.location()+" for "+strings.Join(obligations, "; ")+", target '"+displayTarget(declaration.Target)+"': '"+host+"' is not an eligible exclusion carrier in these matching claim files. Move the exclusion to a supported public export or selected declaration host, or use a top-level unattached Prisma documentation comment.",
         )
         continue
       }
-      problems = append(
-        problems,
+      problems = problems.add(
+        outOfScopeLevels[id],
         "Out-of-scope @"+string(declaration.Tag)+" host at "+declaration.location()+" for "+strings.Join(obligations, "; ")+", target '"+displayTarget(declaration.Target)+"': host kind '"+host+"' is not selected ("+outOfScopeSelections[id].names()+") by any of these claim obligations. Move the declaration to a selected host, or widen the claim symbol selector only when it genuinely owns this target."+untrueTagWarning,
       )
       continue
@@ -1201,8 +1211,8 @@ func evaluateEvidenceGraph(
       // derive a second claim from an incomplete graph.
       continue
     }
-    problems = append(
-      problems,
+    problems = problems.add(
+      severity,
       "Non-participating @"+string(declaration.Tag)+" target '"+displayTarget(declaration.Target)+"' at "+declaration.location()+" for "+context+": the target resolves, but none of this declaration's configured references selects it. Correct the target or reference, or move the tag to an eligible host or exclusion carrier in the claim that owes it; a resolving tag must discharge at least one obligation."+untrueTagWarning,
     )
   }

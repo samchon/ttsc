@@ -6,6 +6,8 @@ import (
   "os"
   "strings"
   "sync"
+
+  "github.com/samchon/ttsc/packages/lint/rule"
 )
 
 // prismaCacheLimit bounds the cache so a resident host cannot grow without end.
@@ -176,13 +178,14 @@ func prismaUnitsFromOutcome(
   set prismaSourceSet,
   inventories map[string]*artifactInventory,
   outcome prismaSetOutcome,
-) []string {
+  config graphConfig,
+) graphDiagnostics {
   if outcome.Rejected {
-    return []string{failPrismaSet(
+    return graphDiagnostics{}.add(prismaSetSeverity(config, inventories), failPrismaSet(
       inventories,
       set,
       prismaNormalizationFailure(outcome.Problem),
-    )}
+    ))
   }
   locations, comments := locatePrismaDeclarations(root, set.Sources)
   fallback := ""
@@ -230,7 +233,16 @@ func prismaUnitsFromOutcome(
   for _, inventory := range inventories {
     sortUnits(inventory.Units)
   }
-  return prismaDeclarationsFromComments(comments, hosts, indexed)
+  levels := map[string]rule.Severity{}
+  for key, inventory := range inventories {
+    levels[inventory.Path] = max(levels[inventory.Path], inventorySeverity(config, artifactPrisma, key, "*"))
+  }
+  for _, source := range set.Sources {
+    for _, spelling := range set.Spellings[source] {
+      levels[source] = max(levels[source], levels[spelling])
+    }
+  }
+  return prismaDeclarationsFromComments(comments, hosts, indexed, levels)
 }
 
 // joinPrismaIdentity renders a unit's identity the way the locator keys one.

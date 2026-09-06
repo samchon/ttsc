@@ -1,3 +1,5 @@
+import type { TtscLintSeverity } from "@ttsc/lint";
+
 /**
  * What every evidence population declares: which artifact kind it materializes,
  * and how strictly the owning claim must acknowledge it.
@@ -25,6 +27,13 @@
 export interface ITtscEvidenceGraphReferenceBase<Type extends string> {
   /** Identifies the artifact kind this population materializes. */
   type: Type;
+
+  /**
+   * Diagnostic level for this reference's obligation. Omit it or use
+   * `undefined` to inherit the claim level, then the outer `evidence/graph`
+   * rule level. `"off"` disables this reference's population and obligation.
+   */
+  severity?: TtscLintSeverity | undefined;
 
   /**
    * Whether this reference refuses `@evidenceExclude` as an acknowledgement.

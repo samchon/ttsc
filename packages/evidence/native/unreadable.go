@@ -1,7 +1,6 @@
 package evidence
 
 import (
-  "sort"
   "strings"
 
   shimast "github.com/microsoft/typescript-go/shim/ast"
@@ -142,14 +141,14 @@ func readableCommentBody(comment string) string {
 func unreadableTypeScriptTags(
   inventories map[string]*artifactInventory,
   governed map[string]bool,
-) []string {
-  reported := []string{}
+  config graphConfig,
+) graphDiagnostics {
+  reported := graphDiagnostics{}
   for address, inventory := range inventories {
-    if inventory == nil || !governed[address] {
+    if inventory == nil || len(inventory.Unreadable) == 0 || !governed[address] {
       continue
     }
-    reported = append(reported, inventory.Unreadable...)
+    reported = reported.add(inventorySeverity(config, artifactTypeScript, address, "*"), inventory.Unreadable...)
   }
-  sort.Strings(reported)
   return reported
 }

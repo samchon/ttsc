@@ -1,3 +1,5 @@
+import type { TtscLintSeverity } from "@ttsc/lint";
+
 import type { ITtscEvidenceGraphReference } from "./ITtscEvidenceGraphReference";
 
 /**
@@ -23,6 +25,13 @@ export interface ITtscEvidenceGraphClaimBase<Type extends string> {
    * configuration entries.
    */
   name?: string;
+
+  /**
+   * Diagnostic level for this claim. Omit it or use `undefined` to inherit the
+   * outer `evidence/graph` rule level. A reference may override this level
+   * again. `"off"` disables the entire claim, including its references.
+   */
+  severity?: TtscLintSeverity | undefined;
 
   /**
    * Excludes this claim from graph loading and evaluation.

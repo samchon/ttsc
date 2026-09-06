@@ -91,12 +91,11 @@ func TestConfigurationKeepsSymbolUnionAndReferencesDistinct(t *testing.T) {
 }
 
 /**
- * Verifies invalid configuration diagnostics: obsolete nested severity and
+ * Verifies invalid configuration diagnostics: invalid nested severity and
  * empty obligation arrays fail before graph evaluation.
  *
- * The public contract leaves severity to the outer lint tuple and requires a
- * real evidence population. Accepting old fields or vacuous arrays would
- * preserve the superseded model as a silent compatibility path.
+ * The public contract validates nested severity and requires a real evidence
+ * population. Invalid levels and vacuous arrays must fail at configuration.
  *
  *  1. Decode a claim with nested severity and an empty reference array.
  *  2. Decode an empty claim array separately.
@@ -107,13 +106,13 @@ func TestConfigurationRejectsObsoleteAndVacuousShapes(t *testing.T) {
     "claims": [{
       "type": "typescript",
       "files": ["src/**"],
-      "severity": "error",
+      "severity": "fatal",
       "reference": []
     }]
   }`))
   joined := strings.Join(problems, "\n")
-  if !strings.Contains(joined, "severity belongs only in the outer") {
-    t.Fatalf("nested severity was not rejected: %s", joined)
+  if !strings.Contains(joined, "claims[0].severity") {
+    t.Fatalf("invalid severity was not rejected: %s", joined)
   }
   if !strings.Contains(joined, "empty reference array") {
     t.Fatalf("empty references were not rejected: %s", joined)

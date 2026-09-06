@@ -8,6 +8,8 @@ import (
   "path"
   "sort"
   "strings"
+
+  "github.com/samchon/ttsc/packages/lint/rule"
 )
 
 func decodeGraphConfig(raw json.RawMessage) (graphConfig, []string) {
@@ -54,7 +56,7 @@ func decodeClaim(raw json.RawMessage, index int) (claimSpec, []string) {
   }
   problems := rejectUnknownFields(
     object,
-    []string{"type", "name", "disabled", "root", "files", "evidenceExcludeCarriers", "symbol", "reference"},
+    []string{"type", "name", "severity", "disabled", "root", "files", "evidenceExcludeCarriers", "symbol", "reference"},
     graphRuleName,
     path,
   )
@@ -78,6 +80,8 @@ func decodeClaim(raw json.RawMessage, index int) (claimSpec, []string) {
       problems = append(problems, "Invalid evidence/graph configuration at "+path+".disabled: expected a boolean.")
     }
   }
+  severity, severityProblems := decodeGraphSeverity(object["severity"], path+".severity")
+  problems = append(problems, severityProblems...)
   root, rootProblems := decodeClaimRoot(object["root"], kind, path+".root")
   problems = append(problems, rootProblems...)
   files, fileProblems := decodeFiles(object["files"], path+".files")
@@ -98,6 +102,7 @@ func decodeClaim(raw json.RawMessage, index int) (claimSpec, []string) {
   }
   return claimSpec{
     Index:             index,
+    Severity:          severity,
     Type:              kind,
     Name:              name,
     Disabled:          disabled,
@@ -109,16 +114,26 @@ func decodeClaim(raw json.RawMessage, index int) (claimSpec, []string) {
   }, nil
 }
 
-// enabledGraphConfig removes explicitly staged claims after their public
+// enabledGraphConfig removes disabled claims and references after their public
 // configuration has been validated. Keeping the filter separate from decoding
-// preserves original claim indexes and prevents disabled entries from hiding a
+// preserves original indexes and prevents disabled entries from hiding a
 // malformed shape.
 func enabledGraphConfig(config graphConfig) graphConfig {
   claims := make([]claimSpec, 0, len(config.Claims))
   for _, claim := range config.Claims {
-    if claim.Disabled {
+    if claim.Disabled || claim.Severity != nil && *claim.Severity == rule.SeverityOff {
       continue
     }
+    references := make([]referenceSpec, 0, len(claim.References))
+    for _, reference := range claim.References {
+      if reference.Severity == nil || *reference.Severity != rule.SeverityOff {
+        references = append(references, reference)
+      }
+    }
+    if len(references) == 0 {
+      continue
+    }
+    claim.References = references
     claims = append(claims, claim)
   }
   config.Claims = claims
@@ -183,6 +198,7 @@ func decodeReference(
     object,
     []string{
       "type",
+      "severity",
       "noEvidenceExclude",
       "uniqueEvidence",
       "singleEvidencePerSymbol",
@@ -204,6 +220,8 @@ func decodeReference(
   if problem := rejectForeignTypeScriptReference(claimKind, kind, path); problem != "" {
     problems = append(problems, problem)
   }
+  severity, severityProblems := decodeGraphSeverity(object["severity"], path+".severity")
+  problems = append(problems, severityProblems...)
   root, rootProblems := decodeRoot(object["root"], kind, path+".root")
   problems = append(problems, rootProblems...)
   policy, policyProblems := decodeReferencePolicy(object, kind, path)
@@ -265,14 +283,15 @@ func decodeReference(
     return referenceSpec{}, problems
   }
   return referenceSpec{
-    Index:   index,
-    Type:    kind,
-    Policy:  policy,
-    Root:    root,
-    Files:   files,
-    Source:  source,
-    Package: packageName,
-    Symbols: symbols,
+    Severity: severity,
+    Index:    index,
+    Type:     kind,
+    Policy:   policy,
+    Root:     root,
+    Files:    files,
+    Source:   source,
+    Package:  packageName,
+    Symbols:  symbols,
   }, nil
 }
 
