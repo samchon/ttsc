@@ -455,6 +455,7 @@ func runPrismaAcknowledgementGraph(
     scan.Comments,
     hosts,
     prismaInventoriesByDisplay(inventories),
+    nil,
   ); len(problems) != 0 {
     t.Fatalf("Prisma declaration scan failed: %v", problems)
   }
@@ -483,5 +484,5 @@ func runPrismaAcknowledgementGraph(
     map[string]*artifactInventory{},
     loader,
   )
-  return append(problems, evaluateEvidenceGraph(states, loader)...)
+  return problemMessages(append(problems, evaluateEvidenceGraph(states, loader)...))
 }

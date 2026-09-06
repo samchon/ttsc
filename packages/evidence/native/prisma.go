@@ -12,6 +12,8 @@ import (
   "sort"
   "strings"
   "time"
+
+  "github.com/samchon/ttsc/packages/lint/rule"
 )
 
 const prismaBridgeTimeout = 60 * time.Second
@@ -127,7 +129,7 @@ type prismaField struct {
 func loadPrismaInventories(
   root string,
   config graphConfig,
-) (map[string]*artifactInventory, []string) {
+) (map[string]*artifactInventory, graphDiagnostics) {
   // A graph that names no Prisma glob never pays for one. The walk below is
   // cheap on such a project — every directory fails the descendant test and is
   // skipped at once — but "cheap" is still a full listing of the project root
@@ -160,27 +162,28 @@ func loadPrismaInventories(
   // ten-model schema and a two-hundred-model one pay nearly the same. A
   // resident host repeats this every cycle, so an unchanged schema would
   // otherwise be re-parsed on every TypeScript keystroke that rebuilds.
+  severity := prismaSetSeverity(config, inventories)
   digest := prismaContentDigest(root, set.Sources)
   if outcome, hit := prismaSchemas.lookup(digest); hit {
     return inventories, append(
       problems,
-      prismaUnitsFromOutcome(root, set, inventories, outcome)...,
+      prismaUnitsFromOutcome(root, set, inventories, outcome, config)...,
     )
   }
 
   result, err := normalizePrismaSet(root, set.Sources)
   if err != nil {
     message := "Evidence graph could not run its Prisma schema loader: " + causeText(err) + ". Prisma references require Node.js and a resolvable @prisma/prisma-schema-wasm."
-    return inventories, append(problems, failPrismaSet(inventories, set, message))
+    return inventories, problems.add(severity, failPrismaSet(inventories, set, message))
   }
 
   outcome, problem := prismaOutcomeOf(result)
   if problem != "" {
-    return inventories, append(problems, failPrismaSet(inventories, set, problem))
+    return inventories, problems.add(severity, failPrismaSet(inventories, set, problem))
   }
   problems = append(
     problems,
-    prismaUnitsFromOutcome(root, set, inventories, outcome)...,
+    prismaUnitsFromOutcome(root, set, inventories, outcome, config)...,
   )
   rememberPrismaSchema(outcome.digest, outcome)
   return inventories, problems
@@ -223,27 +226,28 @@ func prismaOutcomeOf(result prismaNormalizationResult) (prismaSetOutcome, string
 // Order is the digest's, so it must not depend on filesystem enumeration.
 func configuredPrismaAddresses(
   config graphConfig,
-) ([]artifactAddress, []string) {
+) ([]artifactAddress, graphDiagnostics) {
   addresses, _, problems := configuredPrismaAddressesWithHealth(config)
   return addresses, problems
 }
 
 func configuredPrismaAddressesWithHealth(
   config graphConfig,
-) ([]artifactAddress, []populationBase, []string) {
+) ([]artifactAddress, []populationBase, graphDiagnostics) {
   addresses := []artifactAddress{}
   failedBases := []populationBase{}
-  problems := []string{}
+  problems := graphDiagnostics{}
   for _, base := range configuredBases(config, artifactPrisma) {
+    severity := populationSeverity(config, artifactPrisma, base, "", "*", false)
     if problem := baseDirectoryProblem(base, artifactPrisma); problem != "" {
-      problems = append(problems, problem)
+      problems = problems.add(severity, problem)
       failedBases = append(failedBases, base)
       continue
     }
     baseFailed := false
     from, resolved := resolvedBaseDirectory(base)
     if !resolved {
-      problems = append(problems, unresolvedBaseProblem(base, artifactPrisma))
+      problems = problems.add(severity, unresolvedBaseProblem(base, artifactPrisma))
       failedBases = append(failedBases, base)
       continue
     }
@@ -272,7 +276,8 @@ func configuredPrismaAddressesWithHealth(
         )
         if relevant {
           baseFailed = true
-          problems = append(problems, problem)
+          relative, _ := relativeProjectPath(from, current)
+          problems = problems.add(populationSeverity(config, artifactPrisma, base, relative, "*", true), problem)
         }
         return filepath.SkipDir
       }
@@ -295,7 +300,7 @@ func configuredPrismaAddressesWithHealth(
     })
     if err != nil {
       baseFailed = true
-      problems = append(problems, unlistableBaseProblem(base, "Prisma", err))
+      problems = problems.add(severity, unlistableBaseProblem(base, "Prisma", err))
     }
     if baseFailed {
       failedBases = append(failedBases, base)
@@ -647,15 +652,17 @@ func prismaDeclarationsFromComments(
   comments []prismaCommentRun,
   hosts map[string]*evidenceUnit,
   inventories map[string][]*artifactInventory,
-) []string {
-  problems := []string{}
+  levels map[string]rule.Severity,
+) graphDiagnostics {
+  problems := graphDiagnostics{}
   sequence := 0
   for _, run := range comments {
+    severity := levels[run.Path]
     location := run.Path + ":" + decimal(run.Line)
     if run.Form != prismaDocComment {
       if prismaCommentCarriesTag(run.Body) {
-        problems = append(
-          problems,
+        problems = problems.add(
+          severity,
           "Evidence tag at "+location+" sits in a '//' line comment, which Prisma discards rather than attaching to the declaration below it. Write the citation on a '///' or '/* */' documentation comment directly above the model, column, or relation it grounds.",
         )
       }
@@ -667,8 +674,8 @@ func prismaDeclarationsFromComments(
         continue
       }
       for _, offset := range prismaBuriedTagLines(run.Body) {
-        problems = append(
-          problems,
+        problems = problems.add(
+          severity,
           "Evidence tag at "+run.Path+":"+decimal(run.Line+offset)+" is buried behind an extra slash. Prisma reads a fourth slash as content, so the tag no longer opens its documentation line and nothing resolves it. Write exactly three slashes.",
         )
       }
@@ -676,8 +683,8 @@ func prismaDeclarationsFromComments(
         sequence++
         line := run.Line + parsed.LineOffset
         if parsed.Tag == tagEvidence {
-          problems = append(
-            problems,
+          problems = problems.add(
+            severity,
             "@evidence at "+run.Path+":"+decimal(line)+" is on a file-level Prisma exclusion carrier. Move ownership evidence directly above the selected model, column, or relation it grounds; only @evidenceExclude may be unattached at file level.",
           )
           continue
@@ -724,8 +731,8 @@ func prismaDeclarationsFromComments(
     }
     if run.Key == "" {
       if prismaCommentCarriesTag(run.Body) {
-        problems = append(
-          problems,
+        problems = problems.add(
+          severity,
           "Evidence tag at "+location+" documents no declaration. Prisma attaches a '///' comment to the declaration that immediately follows it, so a blank line before a top-level block, a block attribute, or a closing brace leaves the comment documenting nothing. Move the citation directly above the model, column, or relation it grounds.",
         )
       }
@@ -734,8 +741,8 @@ func prismaDeclarationsFromComments(
     host := hosts[run.Key]
     if host == nil {
       if prismaCommentCarriesTag(run.Body) {
-        problems = append(
-          problems,
+        problems = problems.add(
+          severity,
           "Evidence tag at "+location+" documents '"+run.Key+"', which is not a model, column, or relation. A model or a view and their members host an evidence citation; an enum, a composite type, and a datasource or generator setting do not.",
         )
       }
@@ -746,8 +753,8 @@ func prismaDeclarationsFromComments(
       continue
     }
     for _, offset := range prismaBuriedTagLines(run.Body) {
-      problems = append(
-        problems,
+      problems = problems.add(
+        severity,
         "Evidence tag at "+run.Path+":"+decimal(run.Line+offset)+" is buried behind an extra slash. Prisma reads a fourth slash as content, so the tag no longer opens its documentation line and nothing resolves it. Write exactly three slashes.",
       )
     }

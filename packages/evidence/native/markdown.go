@@ -23,9 +23,9 @@ var explicitAnchorPattern = regexp.MustCompile(`\s*\{#([A-Za-z0-9][A-Za-z0-9._:-
 func loadMarkdownInventories(
   root string,
   config graphConfig,
-) (map[string]*artifactInventory, []string) {
+) (map[string]*artifactInventory, graphDiagnostics) {
   inventories := map[string]*artifactInventory{}
-  problems := []string{}
+  problems := graphDiagnostics{}
   for _, base := range configuredBases(config, artifactMarkdown) {
     problems = append(
       problems,
@@ -39,16 +39,17 @@ func loadMarkdownBase(
   base populationBase,
   config graphConfig,
   inventories map[string]*artifactInventory,
-) []string {
-  problems := []string{}
+) graphDiagnostics {
+  problems := graphDiagnostics{}
+  severity := populationSeverity(config, artifactMarkdown, base, "", "*", false)
   if problem := baseDirectoryProblem(base, artifactMarkdown); problem != "" {
     recordPopulationFailure(inventories, artifactMarkdown, base)
-    return []string{problem}
+    return problems.add(severity, problem)
   }
   from, resolved := resolvedBaseDirectory(base)
   if !resolved {
     recordPopulationFailure(inventories, artifactMarkdown, base)
-    return []string{unresolvedBaseProblem(base, artifactMarkdown)}
+    return problems.add(severity, unresolvedBaseProblem(base, artifactMarkdown))
   }
   err := filepath.WalkDir(from, func(current string, entry fs.DirEntry, walkErr error) error {
     if walkErr != nil {
@@ -82,7 +83,8 @@ func loadMarkdownBase(
       )
       if relevant {
         recordPopulationFailure(inventories, artifactMarkdown, base)
-        problems = append(problems, problem)
+        relative, _ := relativeProjectPath(from, current)
+        problems = problems.add(populationSeverity(config, artifactMarkdown, base, relative, "*", true), problem)
       }
       // `WalkDir` passes a nil entry only for its root, which the guard above
       // answers, so this error belongs to a directory whose listing failed and
@@ -105,6 +107,7 @@ func loadMarkdownBase(
     if !matchesConfiguredMarkdownFile(config, base, relative) {
       return nil
     }
+    severity := populationSeverity(config, artifactMarkdown, base, relative, "*", false)
     address := base.addressOf(relative)
     content, readErr := os.ReadFile(current)
     if readErr != nil {
@@ -113,26 +116,29 @@ func loadMarkdownBase(
         Type:       artifactMarkdown,
         LoadFailed: true,
       }
-      problems = append(problems, "Evidence graph could not read Markdown file '"+address.Display+"': "+causeText(readErr)+". Fix filesystem access or exclude the file from configured globs.")
+      problems = problems.add(
+        severity,
+        "Evidence graph could not read Markdown file '"+address.Display+"': "+causeText(readErr)+". Fix filesystem access or exclude the file from configured globs.",
+      )
       return nil
     }
     inventory, _ := scanMarkdownInventory(address, string(content))
     inventories[address.Key] = inventory
     for _, inventoryProblem := range inventory.Problems {
       if selectedByMarkdownPopulation(config, base, relative, inventoryProblem.Symbol) {
-        problems = append(problems, inventoryProblem.Message)
+        problems = problems.add(populationSeverity(config, artifactMarkdown, base, relative, inventoryProblem.Symbol, false), inventoryProblem.Message)
       }
     }
     // An unreadable tag is not a health question and not a symbol question
     // either: the file loaded, its units are complete, and the tag reaches no
     // host whichever symbol a reference selects. The walk already refuses a
     // path no configured glob takes, so reaching here is enough to report.
-    problems = append(problems, inventory.Unreadable...)
+    problems = problems.add(severity, inventory.Unreadable...)
     return nil
   })
   if err != nil {
     recordPopulationFailure(inventories, artifactMarkdown, base)
-    problems = append(problems, unlistableBaseProblem(base, "Markdown", err))
+    problems = problems.add(severity, unlistableBaseProblem(base, "Markdown", err))
   }
   return problems
 }

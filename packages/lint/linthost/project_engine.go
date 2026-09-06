@@ -50,7 +50,8 @@ type projectReporter struct {
   mu       sync.Mutex
   active   bool
   failed   bool
-  messages map[string]struct{}
+  messages map[string]publicrule.Severity
+  severity publicrule.Severity
   state    any
 }
 
@@ -66,19 +67,27 @@ func (r *projectReporter) Fail() {
 }
 
 func (r *projectReporter) Report(message string) {
+  if r != nil {
+    r.ReportSeverity(r.severity, message)
+  }
+}
+
+func (r *projectReporter) ReportSeverity(severity publicrule.Severity, message string) {
   if r == nil {
     return
   }
   r.mu.Lock()
   defer r.mu.Unlock()
-  if !r.active {
+  if !r.active || severity == publicrule.SeverityOff {
     return
   }
   r.failed = true
   if r.messages == nil {
-    r.messages = map[string]struct{}{}
+    r.messages = map[string]publicrule.Severity{}
   }
-  r.messages[message] = struct{}{}
+  if severity > r.messages[message] {
+    r.messages[message] = severity
+  }
 }
 
 func (r *projectReporter) SetState(state any) {
@@ -120,7 +129,7 @@ func (r *projectReporter) snapshotLocked(close bool) publicrule.ProjectRuleResul
   }
   findings := make([]publicrule.ProjectFinding, 0, len(messages))
   for _, message := range messages {
-    findings = append(findings, publicrule.ProjectFinding{Message: message})
+    findings = append(findings, publicrule.ProjectFinding{Message: message, Severity: r.messages[message]})
   }
   return publicrule.NewProjectRuleResult(status, r.state, findings, r)
 }
@@ -144,7 +153,7 @@ func (c *projectCycle) finalize() []*Finding {
       for _, finding := range result.Findings {
         c.findings = append(c.findings, &Finding{
           Rule:     name,
-          Severity: entry.severity,
+          Severity: Severity(finding.Severity),
           Message:  finding.Message,
         })
       }
@@ -193,7 +202,7 @@ func (e *Engine) evaluateProject(
     if adapter.declinesTypeChecker {
       ruleChecker = nil
     }
-    reporter := &projectReporter{active: true}
+    reporter := &projectReporter{active: true, severity: publicrule.Severity(setting.Severity)}
     context := publicrule.NewProjectContext(
       identity,
       sources,

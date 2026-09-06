@@ -11,6 +11,8 @@ import (
   "sort"
   "strings"
   "time"
+
+  "github.com/samchon/ttsc/packages/lint/rule"
 )
 
 const swaggerBridgeTimeout = 60 * time.Second
@@ -94,7 +96,7 @@ type swaggerOperation struct {
 func loadSwaggerInventories(
   root string,
   config graphConfig,
-) (map[string]*artifactInventory, []string) {
+) (map[string]*artifactInventory, graphDiagnostics) {
   sources := configuredSwaggerSources(config)
   inventories := map[string]*artifactInventory{}
   for _, source := range sources {
@@ -114,15 +116,16 @@ func loadSwaggerInventories(
   // TypeScript keystroke that triggers a rebuild.
   digests := swaggerContentDigests(root, sources)
   pending := []string{}
-  problems := []string{}
+  problems := graphDiagnostics{}
+  severity := artifactSeverity(config, artifactSwagger)
   for _, source := range sources {
     outcome, hit := lookupSwaggerDocument(source, digests[source])
     if !hit {
       pending = append(pending, source)
       continue
     }
-    problems = append(
-      problems,
+    problems = problems.add(
+      swaggerSeverity(config, source),
       swaggerUnitsFromOutcome(source, inventories[source], outcome)...,
     )
   }
@@ -140,30 +143,34 @@ func loadSwaggerInventories(
         inventoryProblem{Symbol: "operation", Message: message},
       )
     }
-    return inventories, append(problems, message)
+    var pendingSeverity rule.Severity
+    for _, source := range pending {
+      pendingSeverity = max(pendingSeverity, swaggerSeverity(config, source))
+    }
+    return inventories, problems.add(pendingSeverity, message)
   }
 
   seen := map[string]bool{}
   for _, document := range result.Documents {
     inventory := inventories[document.Source]
     if inventory == nil {
-      problems = append(
-        problems,
+      problems = problems.add(
+        severity,
         "Evidence graph Swagger normalizer returned an unconfigured source '"+displaySwaggerSource(document.Source)+"'. Reinstall @ttsc/evidence; the native and JavaScript bridge contracts disagree.",
       )
       continue
     }
     if seen[document.Source] {
-      problems = append(
-        problems,
+      problems = problems.add(
+        swaggerSeverity(config, document.Source),
         "Evidence graph Swagger normalizer returned source '"+displaySwaggerSource(document.Source)+"' more than once. Reinstall @ttsc/evidence; the native and JavaScript bridge contracts disagree.",
       )
       continue
     }
     seen[document.Source] = true
     outcome := swaggerDocumentOutcome{Operations: document.Operations}
-    problems = append(
-      problems,
+    problems = problems.add(
+      swaggerSeverity(config, document.Source),
       swaggerUnitsFromOutcome(document.Source, inventory, outcome)...,
     )
     rememberSwaggerDocument(document.Source, document.Digest, outcome)
@@ -171,8 +178,8 @@ func loadSwaggerInventories(
   for _, problem := range result.Problems {
     inventory := inventories[problem.Source]
     if inventory == nil {
-      problems = append(
-        problems,
+      problems = problems.add(
+        severity,
         "Evidence graph Swagger normalizer rejected an unconfigured source '"+displaySwaggerSource(problem.Source)+"'. Reinstall @ttsc/evidence; the native and JavaScript bridge contracts disagree.",
       )
       continue
@@ -182,8 +189,8 @@ func loadSwaggerInventories(
       Rejected: true,
       Problem:  problem.Message,
     }
-    problems = append(
-      problems,
+    problems = problems.add(
+      swaggerSeverity(config, problem.Source),
       swaggerUnitsFromOutcome(problem.Source, inventory, outcome)...,
     )
     rememberSwaggerDocument(problem.Source, problem.Digest, outcome)
@@ -198,7 +205,7 @@ func loadSwaggerInventories(
       inventories[source].Problems,
       inventoryProblem{Symbol: "operation", Message: message},
     )
-    problems = append(problems, message)
+    problems = problems.add(swaggerSeverity(config, source), message)
   }
   return inventories, problems
 }

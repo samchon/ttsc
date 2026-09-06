@@ -33,12 +33,12 @@ func prismaClaimOf(
       hosts[key] = unit
     }
   }
-  problems := prismaDeclarationsFromComments(scan.Comments, hosts, prismaInventoriesByDisplay(inventories))
+  problems := prismaDeclarationsFromComments(scan.Comments, hosts, prismaInventoriesByDisplay(inventories), nil)
   declarations := inventories["prisma/schema.prisma"].Declarations
   sort.SliceStable(declarations, func(left int, right int) bool {
     return declarations[left].Line < declarations[right].Line
   })
-  return declarations, problems
+  return declarations, problemMessages(problems)
 }
 
 func prismaDeclarationIndex(declarations []*evidenceDeclaration) string {

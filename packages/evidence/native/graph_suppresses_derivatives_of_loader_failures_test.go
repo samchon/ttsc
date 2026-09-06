@@ -69,13 +69,13 @@ func TestReferenceLoaderFailureSuppressesOnlyItsOwnDerivedFindings(t *testing.T)
     t.Fatalf("reference health was not preserved: %+v", states[0].References)
   }
   if countProblemsContaining(messages, "found no selected evidence units") != 0 {
-    t.Fatalf("a failed loader was reinterpreted as an empty source:\n%s", strings.Join(messages, "\n"))
+    t.Fatalf("a failed loader was reinterpreted as an empty source:\n%s", strings.Join(problemMessages(messages), "\n"))
   }
   if countProblemsContaining(messages, "Missing acknowledgement") != 1 {
-    t.Fatalf("only the healthy obligation may derive coverage:\n%s", strings.Join(messages, "\n"))
+    t.Fatalf("only the healthy obligation may derive coverage:\n%s", strings.Join(problemMessages(messages), "\n"))
   }
   if countProblemsContaining(messages, "Unresolved evidence target") != 0 {
-    t.Fatalf("a failed reference cannot prove that a declaration target is unresolved:\n%s", strings.Join(messages, "\n"))
+    t.Fatalf("a failed reference cannot prove that a declaration target is unresolved:\n%s", strings.Join(problemMessages(messages), "\n"))
   }
   assertProblemContains(t, messages, "docs/good.md#good")
 }
@@ -150,7 +150,7 @@ func TestClaimLoaderFailureSuppressesOnlyItsOwnCoverage(t *testing.T) {
     t.Fatalf("claim health was not preserved: %+v", states)
   }
   if countProblemsContaining(messages, "Missing acknowledgement") != 1 {
-    t.Fatalf("only the healthy claim may derive coverage:\n%s", strings.Join(messages, "\n"))
+    t.Fatalf("only the healthy claim may derive coverage:\n%s", strings.Join(problemMessages(messages), "\n"))
   }
   assertProblemContains(t, messages, "Claim 2 ('healthy')")
 }
@@ -197,6 +197,6 @@ func TestPopulationLoaderFailureSuppressesMatchedNoFilesDerivative(t *testing.T)
     t.Fatal("a failed population root must keep its reference unhealthy")
   }
   if countProblemsContaining(messages, "matched no markdown files") != 0 {
-    t.Fatalf("a root failure was reinterpreted as a healthy glob miss:\n%s", strings.Join(messages, "\n"))
+    t.Fatalf("a root failure was reinterpreted as a healthy glob miss:\n%s", strings.Join(problemMessages(messages), "\n"))
   }
 }

@@ -5,6 +5,7 @@ import (
   "strings"
 
   shimast "github.com/microsoft/typescript-go/shim/ast"
+  "github.com/samchon/ttsc/packages/lint/rule"
 )
 
 const graphRuleName = "evidence/graph"
@@ -57,6 +58,8 @@ type graphConfig struct {
 }
 
 type claimSpec struct {
+  Severity *rule.Severity
+  Level    rule.Severity
   Index    int
   Type     artifactKind
   Name     string
@@ -84,13 +87,15 @@ type claimSpec struct {
 }
 
 type referenceSpec struct {
-  Index  int
-  Type   artifactKind
-  Policy referencePolicy
-  Root   string
-  Base   populationBase
-  Files  globSet
-  Source string
+  Severity *rule.Severity
+  Level    rule.Severity
+  Index    int
+  Type     artifactKind
+  Policy   referencePolicy
+  Root     string
+  Base     populationBase
+  Files    globSet
+  Source   string
   // Package moves the base that Files resolves against from the project to an
   // installed package. With no globs it also becomes the selection itself: the
   // package's declaration entry defines the population by reachability, while

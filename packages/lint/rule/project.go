@@ -36,7 +36,8 @@ const (
 // ProjectFinding is a non-file finding retained in a project rule's cycle
 // result. Project findings never contain edits or source ranges.
 type ProjectFinding struct {
-  Message string
+  Message  string
+  Severity Severity
 }
 
 // ProjectRuleResult is one snapshot of a named project rule in the current
@@ -169,6 +170,13 @@ type ProjectReporter interface {
   Report(message string)
 }
 
+// ProjectSeverityReporter optionally accepts a severity for each finding.
+// Reporting still marks the rule failed, including for warnings, so consumers
+// cannot treat an incomplete project result as a clean one.
+type ProjectSeverityReporter interface {
+  ReportSeverity(severity Severity, message string)
+}
+
 // ProjectContext contains the immutable inputs for one project-rule check.
 //
 // Sources is a defensive copy of the user sources the host read for this cycle:
@@ -254,6 +262,19 @@ func (c *ProjectContext) Report(message string) {
     return
   }
   c.reporter.Report(message)
+}
+
+// ReportSeverity records a finding at an explicit level. An off rule or off
+// finding remains silent. Hosts without this extension use the rule's level.
+func (c *ProjectContext) ReportSeverity(severity Severity, message string) {
+  if c == nil || c.reporter == nil || c.Severity == SeverityOff || severity == SeverityOff {
+    return
+  }
+  if reporter, ok := c.reporter.(ProjectSeverityReporter); ok {
+    reporter.ReportSeverity(severity, message)
+  } else {
+    c.reporter.Report(message)
+  }
 }
 
 var projectRegistry []ProjectRule

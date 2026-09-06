@@ -97,12 +97,39 @@ TypeScript evidence carries one more restriction: only a TypeScript claim may ci
 | `files` | yes | Globs for the artifacts that must cite. At least one positive pattern. |
 | `reference` | yes | One reference, or an array of independently complete references. |
 | `name` | no | Label carried by this claim's diagnostics, and nothing else. |
+| `severity` | no | Inherits the rule level when omitted or `undefined`; `"off"` disables the claim. |
 | `symbol` | no | Which declaration kinds may host a tag. Defaults differ per artifact kind. |
 | `root` | no | Directory the `files` patterns resolve against. Defaults to the project root. |
 | `disabled` | no | Validates the shape and contributes nothing else. |
 | `evidenceExcludeCarriers` | no | Globs for the only files that may host this claim's exclusions. |
 
 A named claim reads as `Claim 1 ('dto-types')` wherever it is reported, which is worth the line as soon as a config holds more than two claims.
+
+### Severity
+
+Per-claim and per-reference severity requires an `@ttsc/lint` release newer than 0.28.6. Update `@ttsc/evidence` and `@ttsc/lint` together.
+
+Both claims and references accept optional `severity`. Reference diagnostics use `reference.severity`, then `claim.severity`, then the outer `evidence/graph` rule level. Omitting a property or setting it to `undefined` inherits the enclosing level. The values are the same as `@ttsc/lint`: `"off"`, `"warning"` (also `"warn"`), and `"error"`, or `0`, `1`, and `2`.
+
+Keep the graph at `"error"` and lower one obligation to a warning:
+
+```ts
+{
+  type: "typescript",
+  files: ["src/controllers/**/*.ts"],
+  symbol: "function",
+  severity: undefined, // Inherit the outer rule's "error".
+  reference: [
+    { type: "markdown", files: ["docs/requirements/**/*.md"], symbol: "h2" },
+    { type: "markdown", files: ["docs/drafts/**/*.md"], symbol: "h2", severity: "warning" },
+    { type: "prisma", files: ["prisma/**/*.prisma"], severity: "off" },
+  ],
+}
+```
+
+Set severity on the claim to change its own diagnostics and the default for all its references. A claim's `"off"` disables the whole claim, including references with an explicit level. A reference's `"off"` disables only that reference. Disabled entries are still validated but contribute no populations, obligations, completion hints, or watched inputs. A claim whose references are all off contributes nothing. The outer rule's `"off"` disables the entire graph, and `disabled: true` on a claim continues to disable it regardless of severity.
+
+Coverage and reference-policy findings use the reference level. Malformed or unresolved claim tags use the claim level because no reference owns a resolved obligation yet. A shared source or tag finding keeps the strongest level among its owners. Configuration errors and an invalid project root use the outer rule level. Warnings are printed without failing the command; they still represent an incomplete graph, so completion hints remain withheld until the graph has no findings.
 
 ### Globs, not regular expressions
 
@@ -181,7 +208,7 @@ A `checklist` reference refuses these globs, because a checklist makes every ack
 
 ## Reference properties
 
-Every reference declares its `type` and may declare any of the [policies](#policies) below. The rest is per kind.
+Every reference declares its `type` and may declare [severity](#severity) and any of the [policies](#policies) below. The rest is per kind.
 
 **Markdown** takes `files`, an optional `root`, an optional `symbol`, and `checklist`. Every matching regular file is parsed as Markdown regardless of extension, so keep images and other assets out of the patterns.
 
