@@ -1,6 +1,9 @@
 package evidence
 
-import shimast "github.com/microsoft/typescript-go/shim/ast"
+import (
+  shimast "github.com/microsoft/typescript-go/shim/ast"
+  "sort"
+)
 
 // Diagnostic inspection never creates an obligation. It distinguishes a
 // declaration the collector intentionally withheld from a misspelled address.
@@ -16,7 +19,11 @@ func diagnoseFileLinkTarget(loader *typeScriptLoader, module string, segments []
     }
   }
   exports := traverseEntryExports(loader, module, nil, map[string]bool{}, false)
+  sort.SliceStable(exports, func(left, right int) bool { return len(exports[left].Address) > len(exports[right].Address) })
   for _, exported := range exports {
+    if exported.Local == "" {
+      continue
+    }
     if len(exported.Address) > len(segments) {
       continue
     }
@@ -37,8 +44,9 @@ func diagnoseFileLinkTarget(loader *typeScriptLoader, module string, segments []
     }
     tail := append([]string{local}, segments[len(exported.Address):]...)
     if exported.TypeOnly {
+      identity := append([]string{exported.Local}, segments[len(exported.Address):]...)
       for _, unit := range source.Units {
-        if unit.ValueSpace && !unit.TypeSpace && encodeTypeScriptIdentity(unit.Identity) == encodeTypeScriptIdentity(tail) {
+        if unit.ValueSpace && !unit.TypeSpace && encodeTypeScriptIdentity(unit.Identity) == encodeTypeScriptIdentity(identity) {
           return "Type-only TypeScript evidence target" + where + ": this export exposes no value through which the member can be addressed. Use a public value export or cite its type."
         }
       }
@@ -77,7 +85,7 @@ func inspectUnavailableDeclaration(statements *shimast.NodeList, segments []stri
     if statement == nil {
       continue
     }
-    if declarationName(statement.Name()) != segments[0] {
+    if typeScriptDeclarationName(statement) != segments[0] {
       continue
     }
     if len(segments) == 1 {

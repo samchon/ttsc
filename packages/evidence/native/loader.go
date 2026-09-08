@@ -194,10 +194,6 @@ func (loader *typeScriptLoader) resolveUncached(
       }
     }
     base := path.Clean(path.Join(path.Dir(from), specifier))
-    if !loader.withinBoundary(base) {
-      loader.failures[failure] = "the re-export leaves the explicitly configured root"
-      return ""
-    }
     candidates := moduleCandidates(base)
     normalized := make([]string, 0, len(candidates))
     for _, candidate := range candidates {

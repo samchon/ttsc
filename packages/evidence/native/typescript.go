@@ -1702,6 +1702,9 @@ type exportedName struct {
   // IdentityOnly materializes a default's local declaration without
   // publishing its binding as a named export.
   IdentityOnly bool
+  // ValueIdentity retains the value side needed by a default alias while
+  // TypeOnly still describes this named export's public restriction.
+  ValueIdentity bool
 }
 
 func collectLocalExportNames(
@@ -1753,6 +1756,15 @@ func collectLocalExportNames(
     if len(exports[local]) == 0 {
       binding.IdentityOnly = true
       exports[local] = []exportedName{binding}
+    } else if !binding.TypeOnly {
+      selected := 0
+      for index, name := range exports[local] {
+        current := exports[local][selected]
+        if current.TypeOnly && !name.TypeOnly || current.TypeOnly == name.TypeOnly && name.Public < current.Public {
+          selected = index
+        }
+      }
+      exports[local][selected].ValueIdentity = true
     }
   }
   return exports
@@ -1794,6 +1806,9 @@ func publicTypeScriptExports(
     names[local] = exportedName{Public: local}
   }
   for _, exported := range exports[local] {
+    if exported.ValueIdentity {
+      exported.TypeOnly = false
+    }
     if exported.TypeOnly && !allowTypeOnly {
       continue
     }
