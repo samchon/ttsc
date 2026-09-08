@@ -29,11 +29,12 @@ import (
 // depend on the hit.
 var typeScriptInventories = newTypeScriptInventoryCache()
 
-// typeScriptInventoryKey identifies one scan. The address is part of it because
-// one physical file can be addressed differently under two configured roots,
-// and the address is baked into every unit identity the scan produces.
+// typeScriptInventoryKey identifies one scan. Both the unit address and display
+// path belong to its result. Root aliases can share unit IDs while a file has
+// different project-relative paths; reusing the old path can read another file.
 type typeScriptInventoryKey struct {
   address string
+  display string
   file    *shimast.SourceFile
 }
 
@@ -69,7 +70,7 @@ func (cache *typeScriptInventoryCache) scan(
   if cache == nil || file == nil {
     return scanTypeScriptInventoryAt(address, file)
   }
-  key := typeScriptInventoryKey{address: address.Key, file: file}
+  key := typeScriptInventoryKey{address: address.Key, display: address.Display, file: file}
   cache.mutex.Lock()
   if inventory, hit := cache.live[key]; hit {
     cache.mutex.Unlock()
