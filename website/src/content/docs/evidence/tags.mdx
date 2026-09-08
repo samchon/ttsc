@@ -98,7 +98,7 @@ File-qualified targets distinguish modules by path. Existing inline links distin
 
 The same tags work in a TypeScript `/** ... */` block without importing the target. Existing `@evidence {@link ImportedName} <reason>` citations keep using imports. A file link does not count as use of an otherwise unused import.
 
-Paths resolve relative to the file containing the citation. Use `/` or `\` as file separators, `%20` for a space, `%23` for a literal `#`, and `%25` for a literal percent sign. Path identity remains case-sensitive. The accessor is separate: its slashes and backslashes are literal name characters.
+Paths resolve relative to the file containing the citation. Use `/` or `\` as file separators, `%20` for a space, `%23` for a literal `#`, and `%25` for a literal percent sign. Use the file's exact casing for portable links. The accessor is separate: its names are case-sensitive, and its slashes and backslashes are literal name characters.
 
 | Target | Declaration |
 | --- | --- |
