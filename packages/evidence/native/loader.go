@@ -281,15 +281,38 @@ func physicalTypeScriptPath(absolute string) (string, bool) {
     if !ok {
       return resolved, false
     }
-    if final, err := filepath.EvalSymlinks(resolved); err == nil && !strings.EqualFold(final, resolved) {
-      resolved = final
-    }
+    resolved = expandTypeScriptPath(resolved)
     if resolved == current {
       return resolved, true
     }
     current = resolved
   }
   return current, false
+}
+
+// An unsaved or deleted file still has an identity. Expand the deepest existing
+// prefix so Windows short names do not reappear when EvalSymlinks cannot read
+// the complete path, then restore the missing suffix without changing its case.
+func expandTypeScriptPath(absolute string) string {
+  probe := absolute
+  suffix := []string{}
+  for {
+    if final, err := filepath.EvalSymlinks(probe); err == nil {
+      if !strings.EqualFold(final, probe) {
+        probe = final
+      }
+      for index := len(suffix) - 1; index >= 0; index-- {
+        probe = filepath.Join(probe, suffix[index])
+      }
+      return probe
+    }
+    parent := filepath.Dir(probe)
+    if parent == probe {
+      return absolute
+    }
+    suffix = append(suffix, filepath.Base(probe))
+    probe = parent
+  }
 }
 
 func typeScriptModuleAddress(display string, identity string) artifactAddress {
