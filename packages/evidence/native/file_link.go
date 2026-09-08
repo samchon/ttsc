@@ -231,8 +231,12 @@ func resolveFileLinkDeclaration(declaration *evidenceDeclaration, owners []claim
       hidden[id] = unit
     }
   }
-  if len(candidates) == 0 && len(hidden) == 0 {
-    candidates, hidden = queryFileLinkClaims(index, owners, identity, link.Segments, false)
+  dynamic, withdrawn := queryFileLinkClaims(index, owners, identity, link.Segments, false)
+  for id, unit := range dynamic {
+    candidates[id] = unit
+  }
+  for id, unit := range withdrawn {
+    hidden[id] = unit
   }
   if len(candidates) == 1 {
     for id := range candidates {

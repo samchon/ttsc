@@ -1739,21 +1739,18 @@ func resolveInlineLinkDeclaration(
     return "", "Incomplete evidence target '" + displayTarget(declaration.Target) + "' at " + declaration.location() + " for " + context + ": a namespace import names a module rather than a unit. Name a symbol inside '" + binding.Specifier + "' that the named reference selects."
   }
   name := strings.Join(remaining, ".")
-  candidates := scopedTargets[scopedTargetKey{path: resolvedPath, target: name}]
-  if len(candidates) == 0 {
-    identity, _ := loader.moduleIdentity(resolvedPath)
-    dynamic, hidden := queryFileLinkClaims(fileLinks, states, identity, remaining, true)
-    if len(dynamic) != 0 {
-      candidates = dynamic
+  identity, _ := loader.moduleIdentity(resolvedPath)
+  candidates, hidden := queryFileLinkClaims(fileLinks, states, identity, remaining, true)
+  for id, unit := range scopedTargets[scopedTargetKey{path: resolvedPath, target: name}] {
+    candidates[id] = unit
+  }
+  if len(candidates) == 0 && len(hidden) != 0 {
+    ids := make([]string, 0, len(hidden))
+    for id := range hidden {
+      ids = append(ids, id)
     }
-    if len(candidates) == 0 && len(hidden) != 0 {
-      ids := make([]string, 0, len(hidden))
-      for id := range hidden {
-        ids = append(ids, id)
-      }
-      sort.Strings(ids)
-      return "", hiddenTargetProblem(declaration, hidden[ids[0]], context)
-    }
+    sort.Strings(ids)
+    return "", hiddenTargetProblem(declaration, hidden[ids[0]], context)
   }
   switch len(candidates) {
   case 0:

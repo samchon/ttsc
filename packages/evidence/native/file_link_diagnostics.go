@@ -17,11 +17,15 @@ func diagnoseFileLinkTarget(loader *typeScriptLoader, module string, segments []
   if len(resolver.lookup(module, segments, false)) != 0 {
     return "Unselected TypeScript evidence target" + where + ": the declaration exists but this reference's files or symbol selection does not admit it. Select its symbol kind or cite a selected declaration."
   }
-  exports := resolver.accessor(module, segments, nil, false)
+  exports := resolver.accessor(module, segments, nil, false, false)
   sort.SliceStable(exports, func(left, right int) bool { return len(exports[left].Address) > len(exports[right].Address) })
   for _, exported := range exports {
     if exported.Local == "" {
-      continue
+      namespace := formatFileAccessor(exported.Address)
+      if len(exported.Address) == len(segments) {
+        return "Unsupported TypeScript evidence target" + where + ": '" + namespace + "' is a module namespace, not a declared evidence unit. Cite a supported declaration inside it."
+      }
+      return "Missing TypeScript evidence export" + where + ": the module namespace '" + namespace + "' exports no declaration named '" + segments[len(exported.Address)] + "'. Correct the name inside that namespace."
     }
     if len(exported.Address) > len(segments) {
       continue

@@ -125,19 +125,29 @@ func (resolver *typeScriptExportResolver) load(entry string) {
 }
 
 // accessor follows only the namespace segments the citation actually names.
-// Each hop consumes one segment, so a self/namespace cycle is finite here.
-func (resolver *typeScriptExportResolver) accessor(entry string, segments []string, prefix []string, typeOnly bool) []reachedSymbol {
+// Each hop consumes at least one query segment, so namespace cycles are finite.
+// Legacy inline spelling can join several query segments into a literal export
+// name; Address records the consumed query segments for the remaining lookup.
+func (resolver *typeScriptExportResolver) accessor(entry string, segments []string, prefix []string, typeOnly bool, legacy bool) []reachedSymbol {
   if len(segments) == 0 {
     return nil
   }
   result := []reachedSymbol{}
-  for _, binding := range resolver.resolve(entry, segments[0]) {
-    binding.Address = append(append([]string{}, prefix...), segments[0])
-    binding.TypeOnly = binding.TypeOnly || typeOnly
-    if binding.Local == "" {
-      result = append(result, resolver.accessor(binding.Path, segments[1:], binding.Address, binding.TypeOnly)...)
-    } else {
+  limit := 1
+  if legacy {
+    limit = len(segments)
+  }
+  for consumed := 1; consumed <= limit; consumed++ {
+    name := strings.Join(segments[:consumed], ".")
+    for _, binding := range resolver.resolve(entry, name) {
+      binding.Address = append(append([]string{}, prefix...), segments[:consumed]...)
+      binding.TypeOnly = binding.TypeOnly || typeOnly
+      // Keep namespace prefixes for diagnostics, including when the next name
+      // is missing. They never become units in lookup or population traversal.
       result = append(result, binding)
+      if binding.Local == "" {
+        result = append(result, resolver.accessor(binding.Path, segments[consumed:], binding.Address, binding.TypeOnly, legacy)...)
+      }
     }
   }
   return result
@@ -146,7 +156,10 @@ func (resolver *typeScriptExportResolver) accessor(entry string, segments []stri
 func (resolver *typeScriptExportResolver) lookup(entry string, segments []string, legacy bool) []*evidenceUnit {
   result := []*evidenceUnit{}
   seen := map[string]bool{}
-  for _, binding := range resolver.accessor(entry, segments, nil, false) {
+  for _, binding := range resolver.accessor(entry, segments, nil, false, legacy) {
+    if binding.Local == "" {
+      continue
+    }
     target := append([]string{binding.Local}, segments[len(binding.Address):]...)
     for _, unit := range resolver.owned.of(binding.Path, binding.Local) {
       if binding.TypeOnly && unit.ValueSpace && !unit.TypeSpace {
