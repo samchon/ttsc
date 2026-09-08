@@ -35,10 +35,8 @@ func (graphRule) ProjectInputs(ctx *rule.ProjectInputContext) []rule.ProjectInpu
 // graphProjectInputs collects the external dependency of every configured
 // obligation.
 //
-// TypeScript claims and references are absent by design. Their inventories are
-// materialized from `ctx.Sources`, which is the Program the host already
-// watches, so declaring them again would ask for a second watcher on a file
-// that already has one.
+// Program sources are already watched. Rooted TypeScript references additionally
+// declare the directory containing their disk-loaded export closure.
 func graphProjectInputs(config graphConfig) []rule.ProjectInput {
   config = enabledGraphConfig(config)
   inputs := []rule.ProjectInput{}
@@ -49,6 +47,17 @@ func graphProjectInputs(config graphConfig) []rule.ProjectInput {
     }
     for _, reference := range claim.References {
       switch reference.Type {
+      case artifactTypeScript:
+        if reference.Rooted {
+          // Export traversal can reach a module outside the entry globs, and
+          // this pre-Program protocol cannot discover that closure. The root
+          // is its explicit boundary, including future files and repairs.
+          pattern := "**"
+          if reference.Root != "" {
+            pattern = strings.TrimSuffix(reference.Root, "/") + "/**"
+          }
+          inputs = append(inputs, rule.ProjectInput{Kind: rule.ProjectInputGlob, Pattern: pattern})
+        }
       case artifactMarkdown, artifactPrisma:
         inputs = append(inputs, globInputs(reference.Root, reference.Files)...)
       case artifactSwagger:

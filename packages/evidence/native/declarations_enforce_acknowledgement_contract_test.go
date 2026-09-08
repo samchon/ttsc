@@ -307,8 +307,8 @@ export interface IClaim {}
     }
   ]}`)
   assertProblemContains(t, messages, "Code evidence target 'Shared'")
-  assertProblemContains(t, messages, "a markdown claim cannot cite a TypeScript symbol")
-  assertProblemContains(t, messages, "Invert the obligation")
+  assertProblemContains(t, messages, "unqualified symbol has no module identity")
+  assertProblemContains(t, messages, "@link")
 }
 
 /**

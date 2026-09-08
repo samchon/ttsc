@@ -87,7 +87,7 @@ A document answering to the document above it is the same shape with both sides 
 
 Its citations live in HTML comments, so every idea note owes an answer while the page a stakeholder reads stays clean.
 
-TypeScript evidence carries one more restriction: only a TypeScript claim may cite it, because a citation of a symbol resolves through the citing module's own imports and no other artifact kind has any. The pairing is refused when the configuration is decoded rather than failing later as a mystery.
+Markdown and TypeScript claims can cite TypeScript evidence with `@link file.ts#Accessor <reason>`. The path is relative to the citing file. TypeScript claims can also use the existing import-scoped `@evidence {@link Symbol} <reason>` form. Prisma claims cannot cite TypeScript evidence.
 
 ## Claim properties
 
@@ -214,11 +214,30 @@ Every reference declares its `type` and may declare [severity](#severity) and an
 
 **Prisma** takes `files`, an optional `root`, and an optional `symbol`. Every matching file joins one schema, which lets a lint-only `.schema` ledger sit beside the schema Prisma itself generates from. A model name is unique across the whole folder, so a target never names the file a model lives in and moving one between files cannot break a citation. A view is a `model` unit, because Prisma's own parser returns it among the models; enums, composite types, indexes, and datasource settings are outside the contract entirely.
 
-**TypeScript** takes `files`, which only a `package` reference may omit, plus an optional `symbol`. A local population is read from the `ttsc` Program, so a file outside the Program is not a match however well it matches the glob.
+**TypeScript** takes `files`, which only a `package` reference may omit, plus an optional `symbol`. Without `root` or `package`, entry modules come from the `ttsc` Program. Declaring `root` explicitly loads entry modules from disk; `files` then resolves against that directory. `root` and `package` cannot be combined.
 
 **Swagger** takes exactly one `file`, which is a path or an `http:`/`https:` URL rather than a glob. The document is normalized from Swagger 2.0 or OpenAPI 3.0, 3.1, and 3.2, in JSON or YAML, before its operations are indexed. A URL is fetched while the rule runs, so an unavailable document fails the build instead of quietly emptying the population. Owe coverage to two documents by writing two references.
 
 ### TypeScript populations
+
+Use a rooted reference to review an implementation in another workspace without adding evidence tags or installing the plugin there:
+
+```ts
+{
+  type: "markdown",
+  files: ["docs/review.md"],
+  symbol: "h2",
+  reference: {
+    type: "typescript",
+    root: "../api",
+    files: ["src/**/*.ts"],
+    symbol: ["type", "function", "property"],
+    requireReview: true,
+  },
+}
+```
+
+In `docs/review.md`, cite `@link ../../api/src/example.ts#Target.property <reason>`. `root` selects a code population; it does not change the citation's relative-path base. Use `root: "."` to read files outside the Program inside the current project. A root may itself be a directory link; its resolved directory is the traversal boundary. Nested links cannot admit implementations outside it. Re-exports must exist and stay within that boundary. Choose a root containing the complete exported implementation. The loader does not search other directories for a matching filename or symbol. Active Program snapshots take precedence over the saved content of the same file. Unsaved Program files are available under an existing root, even when their parent directories have not been created.
 
 A TypeScript `files` glob selects modules, and the population is what those modules publish. A barrel therefore carries in the surface it forwards even when the declaring file sits outside the globs, which is the usual reason a population turns out wider than the directory it names.
 
@@ -361,7 +380,7 @@ The rule also feeds the editor: its configured targets become completions while 
 
 #### Watched inputs
 
-The rule declares its Markdown globs, Prisma globs, and local Swagger paths to the `ttsc` host, so editing a specification section or regenerating an OpenAPI document starts the next `--watch` cycle by itself, with no TypeScript file touched.
+The rule declares its Markdown globs, Prisma globs, local Swagger paths, and rooted TypeScript directories to the `ttsc` host. Editing those sources starts the next `--watch` cycle and refreshes editor project diagnostics. A rooted code reference watches its directory because re-exports can reach files outside the entry globs. Missing files remain observable so creating or restoring one revalidates the graph.
 
 A path stays declared while it is missing, which is what lets a document that has not been generated yet be picked up the moment it appears, and a population above the project is declared on the same terms. An `http:` or `https:` Swagger source is the one exception, since a URL has no filesystem event to observe.
 
@@ -398,7 +417,7 @@ One public identity per TypeScript file, named after the file.
 "evidence/singular": "error"
 ```
 
-TypeScript targets carry no file path, so two selected files exposing the same qualified name make every citation of that name ambiguous. This rule removes the class of problem instead of reporting each instance: when a file holds one public identity and that identity is the file's name, the file path and the target agree by construction.
+File-qualified and import-scoped references already distinguish declarations in different modules. This rule independently enforces one public identity per file and its filename convention.
 
 ```ts
 // src/createOrder.ts, reported: a file declares exactly one public identity

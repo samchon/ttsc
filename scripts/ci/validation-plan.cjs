@@ -524,7 +524,8 @@ function planForPaths(files) {
       // side of `os.Readlink`. The doubled terminator Windows writes is pinned
       // from a hand-built error and runs everywhere, so this lane is not what
       // proves that one.
-      add(["evidence", "go", "windows-go"], file);
+      // The server lane drives real evidence project diagnostics and watches.
+      add(["evidence", "go", "windows-go", "ttsc-native"], file);
       continue;
     }
     if (file.startsWith("benchmarks/evidence/")) {

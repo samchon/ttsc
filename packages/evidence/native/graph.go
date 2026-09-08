@@ -378,6 +378,12 @@ func materializeClaimStates(
         continue
       }
       if reference.Type == artifactTypeScript {
+        if reference.Rooted {
+          rootedState, rootedProblems := materializeRootedTypeScriptReference(claim, reference, loader)
+          problems = problems.add(severity, rootedProblems...)
+          state.References = append(state.References, rootedState)
+          continue
+        }
         localState, localProblems := materializeLocalTypeScriptReference(
           claim,
           reference,
@@ -607,6 +613,7 @@ func evaluateEvidenceGraph(
   sort.Strings(declarationIDs)
 
   resolved := map[string]string{}
+  fileLinks := indexFileLinkClaims(states, loader)
   for _, id := range declarationIDs {
     severity := ownerSeverity(owners[id])
     declaration := declarations[id]
@@ -618,12 +625,23 @@ func evaluateEvidenceGraph(
       )
       continue
     }
+    if isFileLinkTarget(declaration.Target) {
+      unitID, problem := resolveFileLinkDeclaration(declaration, owners[id], loader, fileLinks, context)
+      if problem != "" {
+        problems = problems.add(severity, problem)
+      } else {
+        resolved[id] = unitID
+      }
+      continue
+    }
     if isInlineLinkTarget(declaration.Target) {
       unitID, problem := resolveInlineLinkDeclaration(
         declaration,
         loader,
         scopedTargets,
         scopedHidden,
+        fileLinks,
+        states,
         context,
       )
       if problem != "" {
@@ -655,7 +673,7 @@ func evaluateEvidenceGraph(
       if len(addressable) == 0 && len(code) != 0 {
         problems = problems.add(
           severity,
-          "Code evidence target '"+declaration.Target+"' at "+declaration.location()+" for "+context+": a "+string(declaration.Type)+" claim cannot cite a TypeScript symbol, because a symbol citation resolves through the citing module's imports and this artifact has none. Invert the obligation so the code cites this artifact, or move the citation into TypeScript.",
+          "Code evidence target '"+declaration.Target+"' at "+declaration.location()+" for "+context+": an unqualified symbol has no module identity in this artifact. In Markdown, write '@link <file.ts>#<Accessor> <reason>' using a path relative to this document. Otherwise move the citation to a TypeScript claim.",
         )
         continue
       }
@@ -935,12 +953,7 @@ func evaluateEvidenceGraph(
             // Withdrawn units are absent from Population by construction, and
             // the scope composite still needs their identities so a member
             // leaving the public surface moves the fingerprint.
-            reviewScopes = newScopeIndex(
-              append(
-                append([]*evidenceUnit{}, reference.Population...),
-                reference.Hidden...,
-              ),
-            )
+            reviewScopes = referenceReviewScopes(reference, loader)
           }
           if reviewLedgerForClaim == nil {
             reviewLedgerForClaim = newReviewLedger(state.Reviews)
@@ -1448,6 +1461,7 @@ func materializeEntryReference(
   state.Units = population.Units
   state.Hidden = population.Hidden
   state.Published = population.Published
+  state.Code = population.Code
   if failure := loader.failure(entry); failure != "" {
     state.Healthy = false
     return state, []string{
@@ -1539,6 +1553,7 @@ func materializeLocalTypeScriptReference(
   state.Units = population.Units
   state.Hidden = population.Hidden
   state.Published = population.Published
+  state.Code = population.Code
   applyTraversedScopes(&state, population.Reached)
   if !state.Healthy {
     return state, nil
@@ -1624,6 +1639,7 @@ func materializePackageGlobReference(
   state.Units = population.Units
   state.Hidden = population.Hidden
   state.Published = population.Published
+  state.Code = population.Code
   applyTraversedScopes(&state, population.Reached)
   if !state.Healthy {
     return state, problems
@@ -1691,6 +1707,8 @@ func resolveInlineLinkDeclaration(
   loader *typeScriptLoader,
   scopedTargets map[scopedTargetKey]map[string]*evidenceUnit,
   scopedHidden map[scopedTargetKey]*evidenceUnit,
+  fileLinks map[int]*fileLinkClaimIndex,
+  states []claimState,
   context string,
 ) (string, string) {
   target := inlineLinkTarget(declaration.Target)
@@ -1721,7 +1739,19 @@ func resolveInlineLinkDeclaration(
     return "", "Incomplete evidence target '" + displayTarget(declaration.Target) + "' at " + declaration.location() + " for " + context + ": a namespace import names a module rather than a unit. Name a symbol inside '" + binding.Specifier + "' that the named reference selects."
   }
   name := strings.Join(remaining, ".")
-  candidates := scopedTargets[scopedTargetKey{path: resolvedPath, target: name}]
+  identity, _ := loader.moduleIdentity(resolvedPath)
+  candidates, hidden := queryFileLinkClaims(fileLinks, states, identity, remaining, true)
+  for id, unit := range scopedTargets[scopedTargetKey{path: resolvedPath, target: name}] {
+    candidates[id] = unit
+  }
+  if len(candidates) == 0 && len(hidden) != 0 {
+    ids := make([]string, 0, len(hidden))
+    for id := range hidden {
+      ids = append(ids, id)
+    }
+    sort.Strings(ids)
+    return "", hiddenTargetProblem(declaration, hidden[ids[0]], context)
+  }
   switch len(candidates) {
   case 0:
     if hidden := scopedHidden[scopedTargetKey{

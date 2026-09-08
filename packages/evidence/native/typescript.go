@@ -71,11 +71,8 @@ func extendTypeScriptInventories(
 // three kinds converge: health alone now decides that the claim stays active,
 // and the population it names is the one the author has to repair.
 //
-// Only claim bases can reach a declared root here. A TypeScript reference selects
-// the active program with `files` or an installed package with `package` and is
-// refused a `root` outright, so every reference base of this kind is the default
-// one, which this pass leaves alone: `baseDirectoryProblem` returns on it, and
-// the resolver question below is asked only of a root someone declared.
+// Check passes claim populations here. Rooted references validate their disk
+// directories after claim activation in materializeRootedTypeScriptReference.
 func typeScriptBaseProblems(
   config graphConfig,
   inventories map[string]*artifactInventory,
@@ -245,6 +242,7 @@ func scanTypeScriptInventoryAt(
   file *shimast.SourceFile,
 ) *artifactInventory {
   inventory := &artifactInventory{
+    Source:      file,
     Address:     address.Key,
     Path:        address.Display,
     Type:        artifactTypeScript,
@@ -528,7 +526,7 @@ func collectTypeScriptStatements(
       if typeOnlyProjection {
         continue
       }
-      name := declarationName(statement.Name())
+      name := typeScriptDeclarationName(statement)
       if name == "" {
         continue
       }
@@ -583,7 +581,7 @@ func collectTypeScriptStatements(
         addTypeScriptHost(supportedHosts, statement, symbol)
       }
     case shimast.KindClassDeclaration:
-      name := declarationName(statement.Name())
+      name := typeScriptDeclarationName(statement)
       if name == "" {
         continue
       }
@@ -1377,7 +1375,7 @@ func collectHiddenDeclarationNames(
     if statement == nil {
       continue
     }
-    name := declarationName(statement.Name())
+    name := typeScriptDeclarationName(statement)
     if name == "" {
       continue
     }
@@ -1701,6 +1699,12 @@ func walkTypeScriptNode(node *shimast.Node, visit func(*shimast.Node)) {
 type exportedName struct {
   Public   string
   TypeOnly bool
+  // IdentityOnly materializes a default's local declaration without
+  // publishing its binding as a named export.
+  IdentityOnly bool
+  // ValueIdentity retains the value side needed by a default alias while
+  // TypeOnly still describes this named export's public restriction.
+  ValueIdentity bool
 }
 
 func collectLocalExportNames(
@@ -1748,6 +1752,21 @@ func collectLocalExportNames(
       })
     }
   }
+  for local, binding := range collectDefaultExportBindings(statements) {
+    if len(exports[local]) == 0 {
+      binding.IdentityOnly = true
+      exports[local] = []exportedName{binding}
+    } else if !binding.TypeOnly {
+      selected := 0
+      for index, name := range exports[local] {
+        current := exports[local][selected]
+        if current.TypeOnly && !name.TypeOnly || current.TypeOnly == name.TypeOnly && name.Public < current.Public {
+          selected = index
+        }
+      }
+      exports[local][selected].ValueIdentity = true
+    }
+  }
   return exports
 }
 
@@ -1787,6 +1806,9 @@ func publicTypeScriptExports(
     names[local] = exportedName{Public: local}
   }
   for _, exported := range exports[local] {
+    if exported.ValueIdentity {
+      exported.TypeOnly = false
+    }
     if exported.TypeOnly && !allowTypeOnly {
       continue
     }
@@ -1820,9 +1842,6 @@ func declarationName(node *shimast.Node) string {
     shimast.KindStringLiteral,
     shimast.KindNumericLiteral:
     name := node.Text()
-    if containsWhitespace(name) {
-      return ""
-    }
     return name
   default:
     return ""

@@ -240,23 +240,14 @@ export function detail(): void {}
 }
 
 /**
- * Verifies a claim that cannot address code is refused the population outright.
+ * Verifies a bare symbol in Markdown still cannot identify a code module.
  *
- * This case is the inversion of one that asserted the opposite (upstream lint-plugin-evidence#82).
- * Markdown has no import scope, so a code target there could only be matched by
- * name against one repository-wide table — which made symbol-name uniqueness
- * across the whole repository load-bearing. Two modules exporting `IPage` made
- * such a citation impossible, and the only repair the diagnostic could offer
- * was renaming production code to suit a lint rule.
- *
- * What it costs is real and recorded: documentation can no longer cite code,
- * and the inverse obligation is not the same one. The rejection lands at
- * configuration decode rather than at resolution, because an author who
- * configured this needs to hear it before any file is read.
+ * File-qualified links enable this population without restoring the old
+ * repository-wide name lookup. An unqualified symbol remains an error.
  *
  *  1. Configure a Markdown claim over a TypeScript reference.
  *  2. Evaluate the graph.
- *  3. Assert the configuration is rejected, naming the reason and the repair.
+ *  3. Assert the bare citation is rejected and the file-qualified repair named.
  */
 func TestGraphRefusesCodeEvidenceToAClaimThatCannotAddressIt(t *testing.T) {
   messages := runIndexRule(t, map[string]string{
@@ -268,9 +259,9 @@ func TestGraphRefusesCodeEvidenceToAClaimThatCannotAddressIt(t *testing.T) {
     "symbol":"file",
     "reference":{"type":"typescript","files":["src/api/**"],"symbol":"function"}
   }]}`)
-  assertProblemContains(t, messages, "only a TypeScript claim can cite TypeScript evidence")
-  assertProblemContains(t, messages, "a markdown comment has none")
-  assertProblemContains(t, messages, "Invert the obligation")
+  assertProblemContains(t, messages, "Code evidence target 'get'")
+  assertProblemContains(t, messages, "@link")
+  assertProblemContains(t, messages, "Missing acknowledgement")
 }
 
 /**

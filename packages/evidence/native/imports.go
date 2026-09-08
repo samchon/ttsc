@@ -19,6 +19,7 @@ type importBinding struct {
   Specifier string
   Imported  string
   Namespace bool
+  TypeOnly  bool
 }
 
 // collectImportBindings indexes a file's imports by the local name each binds.
@@ -52,6 +53,7 @@ func collectImportBindings(file *shimast.SourceFile) map[string]importBinding {
         Local:     name,
         Specifier: specifier,
         Imported:  "default",
+        TypeOnly:  clause.IsTypeOnly(),
       }
     }
     if clause.NamedBindings == nil {
@@ -64,6 +66,7 @@ func collectImportBindings(file *shimast.SourceFile) map[string]importBinding {
           Local:     name,
           Specifier: specifier,
           Namespace: true,
+          TypeOnly:  clause.IsTypeOnly(),
         }
       }
     case shimast.KindNamedImports:
@@ -91,6 +94,7 @@ func collectImportBindings(file *shimast.SourceFile) map[string]importBinding {
           Local:     local,
           Specifier: specifier,
           Imported:  imported,
+          TypeOnly:  clause.IsTypeOnly() || specifierNode.IsTypeOnly,
         }
       }
     }
@@ -124,19 +128,28 @@ var typeScriptModuleExtensions = []string{
 // must spell its sibling as `./x.js`, so refusing to map it back would make the
 // correct import form unresolvable.
 func moduleCandidates(base string) []string {
-  candidates := []string{base}
-  stripped := base
-  for _, emitted := range []string{".js", ".mjs", ".cjs"} {
-    if strings.HasSuffix(base, emitted) {
-      stripped = strings.TrimSuffix(base, emitted)
-      break
+  if isTypeScriptPath(base) {
+    return []string{base}
+  }
+  substitutions := map[string][]string{
+    ".js":  {".ts", ".tsx", ".d.ts"},
+    ".mjs": {".mts", ".d.mts"},
+    ".cjs": {".cts", ".d.cts"},
+  }
+  if extensions, emitted := substitutions[path.Ext(base)]; emitted {
+    stripped := strings.TrimSuffix(base, path.Ext(base))
+    candidates := make([]string, 0, len(extensions))
+    for _, extension := range extensions {
+      candidates = append(candidates, stripped+extension)
     }
+    return candidates
+  }
+  candidates := []string{}
+  for _, extension := range typeScriptModuleExtensions {
+    candidates = append(candidates, base+extension)
   }
   for _, extension := range typeScriptModuleExtensions {
-    candidates = append(candidates, stripped+extension)
-  }
-  for _, extension := range typeScriptModuleExtensions {
-    candidates = append(candidates, path.Join(stripped, "index"+extension))
+    candidates = append(candidates, path.Join(base, "index"+extension))
   }
   return candidates
 }

@@ -93,9 +93,12 @@ type referenceSpec struct {
   Type     artifactKind
   Policy   referencePolicy
   Root     string
-  Base     populationBase
-  Files    globSet
-  Source   string
+  // Rooted preserves explicit disk-loading opt-in even when '.' normalizes
+  // to the empty spelling of the project root.
+  Rooted bool
+  Base   populationBase
+  Files  globSet
+  Source string
   // Package moves the base that Files resolves against from the project to an
   // installed package. With no globs it also becomes the selection itself: the
   // package's declaration entry defines the population by reachability, while
@@ -333,6 +336,8 @@ func (declaration *evidenceDeclaration) valid() bool {
 }
 
 type artifactInventory struct {
+  // Source supplies declaration diagnostics and the active editor snapshot.
+  Source *shimast.SourceFile
   // Address is the population-relative identity used for units and
   // declarations. It differs from Path when a configured root moves the
   // address space while a diagnostic keeps naming the file the way a reader
@@ -449,6 +454,8 @@ type claimState struct {
 }
 
 type referenceState struct {
+  // Code resolves finite accessor paths independently of population traversal.
+  Code   *typeScriptExportResolver
   Spec   referenceSpec
   Paths  []string
   Units  []*evidenceUnit
