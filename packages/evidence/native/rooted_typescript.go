@@ -25,6 +25,10 @@ func materializeRootedTypeScriptReference(claim claimSpec, reference referenceSp
   if !resolved {
     return state, []string{unresolvedBaseProblem(base, artifactTypeScript)}
   }
+  from, resolved = physicalTypeScriptPath(from)
+  if !resolved {
+    return state, []string{unresolvedBaseProblem(base, artifactTypeScript)}
+  }
   entries := map[string]bool{}
   problems := []string{}
   err := filepath.WalkDir(from, func(current string, entry fs.DirEntry, walkErr error) error {
@@ -53,9 +57,13 @@ func materializeRootedTypeScriptReference(claim claimSpec, reference referenceSp
   // An open Program snapshot can precede its first save. It is authoritative
   // on the same terms as an edited file that already exists on disk.
   for module := range loader.program {
-    relative, ok := relativeProjectPath(base.Absolute, resolveProjectPath(loader.root, module))
+    identity, resolved := loader.moduleIdentity(module)
+    if !resolved {
+      continue
+    }
+    relative, ok := relativeProjectPath(from, resolveProjectPath(loader.identityRoot, identity))
     if ok && reference.Files.matches(relative) {
-      entries[module] = true
+      entries[loader.projectPath(base.display(relative))] = true
     }
   }
   for entry := range entries {
@@ -100,7 +108,7 @@ func (loader *typeScriptLoader) withinBoundary(module string) bool {
   if !baseOK || !sourceOK {
     return false
   }
-  relative, ok := relativeProjectPath(resolveProjectPath(loader.root, base), resolveProjectPath(loader.root, source))
+  relative, ok := relativeProjectPath(resolveProjectPath(loader.identityRoot, base), resolveProjectPath(loader.identityRoot, source))
   if !ok || strings.Contains("/"+relative+"/", "/node_modules/") {
     return false
   }

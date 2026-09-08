@@ -24,7 +24,9 @@ import (
 type typeScriptLoader struct {
   boundary      *populationBase
   root          string
+  identityRoot  string
   program       map[string]*artifactInventory
+  programIDs    map[string]*artifactInventory
   parsed        map[string]*artifactInventory
   resolved      map[string]string
   failures      map[string]string
@@ -40,6 +42,7 @@ func newTypeScriptLoader(
   loader := &typeScriptLoader{
     root:          strings.ReplaceAll(root, "\\", "/"),
     program:       map[string]*artifactInventory{},
+    programIDs:    map[string]*artifactInventory{},
     parsed:        map[string]*artifactInventory{},
     resolved:      map[string]string{},
     failures:      map[string]string{},
@@ -47,6 +50,7 @@ func newTypeScriptLoader(
     identities:    map[string]typeScriptModuleIdentity{},
     installs:      map[string]installedPackageLocation{},
   }
+  loader.identityRoot, _ = physicalTypeScriptPath(filepath.FromSlash(loader.root))
   keys := make([]string, 0, len(program))
   for key := range program {
     keys = append(keys, key)
@@ -67,8 +71,8 @@ func newTypeScriptLoader(
       current.Address != current.Path && inventory.Address == inventory.Path {
       loader.program[location] = inventory
     }
-    if loader.program[identity] == nil || location == identity {
-      loader.program[identity] = inventory
+    if loader.programIDs[identity] == nil || location == identity {
+      loader.programIDs[identity] = inventory
     }
   }
   return loader
@@ -94,13 +98,8 @@ func (loader *typeScriptLoader) inventory(relative string) (result *artifactInve
       result = nil
     }
   }()
-  if inventory := loader.program[relative]; inventory != nil {
+  if inventory := loader.programInventory(relative); inventory != nil {
     return inventory
-  }
-  if identity, ok := loader.moduleIdentity(relative); ok {
-    if inventory := loader.program[identity]; inventory != nil {
-      return inventory
-    }
   }
   if inventory, cached := loader.parsed[relative]; cached {
     if inventory == nil && loader.parseFailures[relative] != "" {
@@ -152,10 +151,25 @@ func (loader *typeScriptLoader) failure(relative string) string {
 // without paying to scan it.
 func (loader *typeScriptLoader) exists(relative string) bool {
   relative = loader.projectPath(relative)
-  if loader.program[relative] != nil {
+  if loader.programInventory(relative) != nil {
     return true
   }
   return loader.existsOnDisk(relative)
+}
+
+// Authored module paths and physical identity keys are separate namespaces.
+// Mixing them can mistake a sibling of a linked root for a different sibling
+// of the physical project. Identity lookup still recovers its editor snapshot.
+func (loader *typeScriptLoader) programInventory(module string) *artifactInventory {
+  if inventory := loader.program[module]; inventory != nil {
+    return inventory
+  }
+  if len(loader.programIDs) != 0 {
+    if identity, ok := loader.moduleIdentity(module); ok {
+      return loader.programIDs[identity]
+    }
+  }
+  return nil
 }
 
 // existsOnDisk probes the filesystem for an already-normalized path.
@@ -190,7 +204,7 @@ func (loader *typeScriptLoader) resolveUncached(
   if strings.HasPrefix(specifier, "./") || strings.HasPrefix(specifier, "../") {
     if loader.boundary != nil {
       if canonical, ok := loader.moduleIdentity(from); ok {
-        from = canonical
+        from = filepath.ToSlash(resolveProjectPath(loader.identityRoot, canonical))
       }
     }
     base := path.Clean(path.Join(path.Dir(from), specifier))
@@ -206,7 +220,7 @@ func (loader *typeScriptLoader) resolveUncached(
     // resolving an import to emitted JavaScript would read a module whose
     // declarations the graph cannot address.
     for _, candidate := range normalized {
-      if loader.program[candidate] != nil {
+      if loader.programInventory(candidate) != nil {
         if !loader.withinBoundary(candidate) {
           loader.failures[failure] = "the re-export leaves the explicitly configured root"
           return ""
@@ -249,15 +263,33 @@ func (loader *typeScriptLoader) moduleIdentity(module string) (string, bool) {
     return cached.Path, cached.Resolved
   }
   absolute := resolveProjectPath(loader.root, module)
-  resolved, ok := resolveLinkedPath(absolute)
-  if ok {
+  resolved, ok := physicalTypeScriptPath(absolute)
+  // Resolve both sides before taking a relative identity. Canonicalizing only
+  // the file makes a project junction or Windows 8.3 root leak the checkout's
+  // absolute location into every unit ID and invalidate unchanged reviews.
+  identity := projectRelativeDisplay(loader.identityRoot, resolved)
+  loader.identities[module] = typeScriptModuleIdentity{Path: identity, Resolved: ok}
+  return identity, ok
+}
+
+func physicalTypeScriptPath(absolute string) (string, bool) {
+  current := filepath.Clean(absolute)
+  // A directory link can introduce another link in an already-walked parent.
+  // Settle the complete path, with the same finite bound as directory chains.
+  for range 32 {
+    resolved, ok := resolveLinkedPath(current)
+    if !ok {
+      return resolved, false
+    }
     if final, err := filepath.EvalSymlinks(resolved); err == nil && !strings.EqualFold(final, resolved) {
       resolved = final
     }
+    if resolved == current {
+      return resolved, true
+    }
+    current = resolved
   }
-  identity := loader.projectPath(filepath.ToSlash(resolved))
-  loader.identities[module] = typeScriptModuleIdentity{Path: identity, Resolved: ok}
-  return identity, ok
+  return current, false
 }
 
 func typeScriptModuleAddress(display string, identity string) artifactAddress {
