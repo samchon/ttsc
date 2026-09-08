@@ -245,6 +245,7 @@ func scanTypeScriptInventoryAt(
   file *shimast.SourceFile,
 ) *artifactInventory {
   inventory := &artifactInventory{
+    Source:      file,
     Address:     address.Key,
     Path:        address.Display,
     Type:        artifactTypeScript,
@@ -528,7 +529,7 @@ func collectTypeScriptStatements(
       if typeOnlyProjection {
         continue
       }
-      name := declarationName(statement.Name())
+      name := typeScriptDeclarationName(statement)
       if name == "" {
         continue
       }
@@ -583,7 +584,7 @@ func collectTypeScriptStatements(
         addTypeScriptHost(supportedHosts, statement, symbol)
       }
     case shimast.KindClassDeclaration:
-      name := declarationName(statement.Name())
+      name := typeScriptDeclarationName(statement)
       if name == "" {
         continue
       }
@@ -1748,6 +1749,11 @@ func collectLocalExportNames(
       })
     }
   }
+  for local := range collectDefaultExportBindings(statements) {
+    if len(exports[local]) == 0 {
+      exports[local] = []exportedName{{Public: local}}
+    }
+  }
   return exports
 }
 
@@ -1820,9 +1826,6 @@ func declarationName(node *shimast.Node) string {
     shimast.KindStringLiteral,
     shimast.KindNumericLiteral:
     name := node.Text()
-    if containsWhitespace(name) {
-      return ""
-    }
     return name
   default:
     return ""

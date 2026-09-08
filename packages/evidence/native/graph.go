@@ -378,6 +378,12 @@ func materializeClaimStates(
         continue
       }
       if reference.Type == artifactTypeScript {
+        if reference.Root != "" {
+          rootedState, rootedProblems := materializeRootedTypeScriptReference(claim, reference, loader)
+          problems = problems.add(severity, rootedProblems...)
+          state.References = append(state.References, rootedState)
+          continue
+        }
         localState, localProblems := materializeLocalTypeScriptReference(
           claim,
           reference,
@@ -607,6 +613,7 @@ func evaluateEvidenceGraph(
   sort.Strings(declarationIDs)
 
   resolved := map[string]string{}
+  fileLinks := indexFileLinkClaims(states, loader)
   for _, id := range declarationIDs {
     severity := ownerSeverity(owners[id])
     declaration := declarations[id]
@@ -616,6 +623,15 @@ func evaluateEvidenceGraph(
         severity,
         "Malformed @"+string(declaration.Tag)+" declaration at "+declaration.location()+" for "+context+": target and non-empty reason are mandatory. Write '@"+string(declaration.Tag)+" <target> <reason>'."+untrueTagWarning,
       )
+      continue
+    }
+    if isFileLinkTarget(declaration.Target) {
+      unitID, problem := resolveFileLinkDeclaration(declaration, owners[id], loader, fileLinks, context)
+      if problem != "" {
+        problems = problems.add(severity, problem)
+      } else {
+        resolved[id] = unitID
+      }
       continue
     }
     if isInlineLinkTarget(declaration.Target) {
@@ -655,7 +671,7 @@ func evaluateEvidenceGraph(
       if len(addressable) == 0 && len(code) != 0 {
         problems = problems.add(
           severity,
-          "Code evidence target '"+declaration.Target+"' at "+declaration.location()+" for "+context+": a "+string(declaration.Type)+" claim cannot cite a TypeScript symbol, because a symbol citation resolves through the citing module's imports and this artifact has none. Invert the obligation so the code cites this artifact, or move the citation into TypeScript.",
+          "Code evidence target '"+declaration.Target+"' at "+declaration.location()+" for "+context+": an unqualified symbol has no module identity in this artifact. In Markdown, write '@link <file.ts>#<Accessor> <reason>' using a path relative to this document. Otherwise move the citation to a TypeScript claim.",
         )
         continue
       }
@@ -935,12 +951,7 @@ func evaluateEvidenceGraph(
             // Withdrawn units are absent from Population by construction, and
             // the scope composite still needs their identities so a member
             // leaving the public surface moves the fingerprint.
-            reviewScopes = newScopeIndex(
-              append(
-                append([]*evidenceUnit{}, reference.Population...),
-                reference.Hidden...,
-              ),
-            )
+            reviewScopes = referenceReviewScopes(reference, loader)
           }
           if reviewLedgerForClaim == nil {
             reviewLedgerForClaim = newReviewLedger(state.Reviews)

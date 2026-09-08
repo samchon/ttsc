@@ -337,19 +337,16 @@ func TestRootedPrismaPopulationsCollectAcrossBasesWithoutDuplicating(t *testing.
 }
 
 /**
- * Verifies `root` is refused on references whose existing selectors already
- * own their location.
+ * Verifies TypeScript accepts a disk population root while Swagger owns a file.
  *
- * A TypeScript claim may change the base of source files already supplied by
- * ttsc, but a TypeScript reference selects a Program entry, Program globs, or
- * an installed package. A Swagger reference already carries its location in
- * `file`, where the escape is visible without a second property.
+ * Rooted TypeScript references explicitly load an external code population.
+ * Swagger continues to carry its location in its singular file property.
  *
  *  1. Declare `root` on TypeScript and Swagger references.
  *  2. Decode each configuration.
- *  3. Assert each diagnostic points at the channel that works instead.
+ *  3. Assert TypeScript accepts the root and Swagger names its file repair.
  */
-func TestRootIsRefusedOnTypeScriptAndSwaggerReferences(t *testing.T) {
+func TestTypeScriptRootsAndSwaggerFilesKeepTheirSelectionChannels(t *testing.T) {
   _, problems := decodeGraphConfig(json.RawMessage(`{"claims":[{
     "type":"typescript",
     "files":["src/**"],
@@ -359,8 +356,8 @@ func TestRootIsRefusedOnTypeScriptAndSwaggerReferences(t *testing.T) {
       "files":["src/**"]
     }
   }]}`))
-  if !strings.Contains(strings.Join(problems, "\n"), "only a TypeScript claim accepts 'root'") {
-    t.Fatalf("a TypeScript reference root must name the supported claim boundary, got %v", problems)
+  if len(problems) != 0 {
+    t.Fatalf("a TypeScript reference root must select an explicit disk population, got %v", problems)
   }
 
   _, problems = decodeGraphConfig(json.RawMessage(`{"claims":[{

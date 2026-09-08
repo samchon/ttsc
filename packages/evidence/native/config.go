@@ -434,24 +434,8 @@ func rejectChecklistConflicts(
   return problems
 }
 
-// rejectForeignTypeScriptReference refuses a code population to a claim that
-// cannot address one.
-//
-// A symbol is cited through an inline link, and that link resolves in the
-// citing module's import scope — which only a TypeScript file has. Every other
-// claim would have to fall back to matching the bare name against one
-// repository-wide table, and that makes symbol-name uniqueness across the whole
-// repository load-bearing: two modules exporting `IPage` make the citation
-// impossible, and the only repair such a diagnostic can offer is renaming
-// production code to suit a lint rule.
-//
-// The check is here rather than at resolution because a configuration error
-// belongs where the configuration is read. Reported once per reference, before
-// any file is opened, instead of once per citation that later fails to resolve.
-//
-// What this gives up is the decision it reverses: documentation can no longer
-// cite code, and the inverse obligation is not the same one. Do not restore the fallback
-// without restoring that record.
+// Code citations require an import scope or the Markdown/TypeScript file-link
+// grammar. Bare repository-wide symbol lookup remains unavailable.
 func rejectForeignTypeScriptReference(
   claimKind artifactKind,
   referenceKind artifactKind,
@@ -459,13 +443,13 @@ func rejectForeignTypeScriptReference(
 ) string {
   if referenceKind != artifactTypeScript ||
     claimKind == artifactTypeScript ||
+    claimKind == artifactMarkdown ||
     claimKind == "" {
     return ""
   }
   return "Invalid evidence/graph configuration at " + path +
-    ".type: only a TypeScript claim can cite TypeScript evidence, because a symbol citation resolves through the citing module's imports and a " +
-    string(claimKind) +
-    " comment has none. Invert the obligation so the code cites this artifact, or move the citation into TypeScript."
+    ".type: TypeScript evidence requires a Markdown or TypeScript claim; a " + string(claimKind) +
+    " claim does not support file-qualified code citations. Move the citation to a supported claim."
 }
 
 // decodeTypeScriptReference reads the two ways a TypeScript population is
@@ -482,6 +466,9 @@ func decodeTypeScriptReference(
   problems := []string{}
   reference := referenceSpec{}
   if raw, exists := object["package"]; exists {
+    if _, rooted := object["root"]; rooted {
+      problems = append(problems, "Invalid evidence/graph configuration at "+path+": 'root' and 'package' select different TypeScript populations and cannot be combined. Choose one base and its 'files' patterns.")
+    }
     var value string
     if err := json.Unmarshal(raw, &value); err != nil {
       problems = append(problems, "Invalid evidence/graph configuration at "+path+".package: expected an installed package name.")
@@ -606,11 +593,7 @@ func decodeRoot(
     return "", nil
   }
   switch kind {
-  case artifactMarkdown, artifactPrisma:
-  case artifactTypeScript:
-    return "", []string{
-      "Invalid evidence/graph configuration at " + configPath + ": a TypeScript reference selects the active ttsc program with 'files', or an installed package with 'package'; only a TypeScript claim accepts 'root'.",
-    }
+  case artifactMarkdown, artifactPrisma, artifactTypeScript:
   case artifactSwagger:
     return "", []string{
       "Invalid evidence/graph configuration at " + configPath + ": a Swagger reference owns one exact document; write the ancestor-relative or absolute location in 'file' instead.",

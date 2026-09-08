@@ -13,6 +13,9 @@ import (
 // another. Keeping the two apart is what lets identity stay with the declaring
 // file while reachability is decided by whoever re-exports it.
 type moduleExport struct {
+  // Identity overrides the local unit name for a default alias. The alias
+  // adds reachability without materializing a second declaration.
+  Identity string
   // Public is the name an importer sees. Empty for `export * from`, which
   // contributes its target's names rather than a name of its own.
   Public string
@@ -49,6 +52,7 @@ func collectModuleExports(file *shimast.SourceFile) []moduleExport {
     return exports
   }
   locals := collectLocalExportNames(file.Statements)
+  defaults := collectDefaultExportBindings(file.Statements)
   for _, statement := range file.Statements.Nodes {
     if statement == nil {
       continue
@@ -59,6 +63,12 @@ func collectModuleExports(file *shimast.SourceFile) []moduleExport {
     }
     if !isSyntacticallyExported(statement) {
       continue
+    }
+    if isDefaultExported(statement) {
+      name := typeScriptDeclarationName(statement)
+      if name != "" {
+        exports = append(exports, moduleExport{Public: "default", Local: name, Identity: name})
+      }
     }
     for _, declared := range topLevelDeclaredNames(statement) {
       exports = append(exports, moduleExport{
@@ -85,6 +95,13 @@ func collectModuleExports(file *shimast.SourceFile) []moduleExport {
         Local:  local,
       })
     }
+  }
+  for local := range defaults {
+    identity := local
+    if names := locals[local]; len(names) != 0 {
+      identity = names[0].Public
+    }
+    exports = append(exports, moduleExport{Public: "default", Local: local, Identity: identity})
   }
   return dedupeModuleExports(exports)
 }
@@ -198,9 +215,10 @@ type traversedPopulation struct {
 // several selected modules publish the same declaration: each address is legal
 // exactly where it is written, and none of them is legal everywhere.
 type publishedAddress struct {
-  Module  string
-  Address string
-  Unit    *evidenceUnit
+  Module   string
+  Address  string
+  Segments []string
+  Unit     *evidenceUnit
 }
 
 type reachedSymbol struct {
@@ -289,10 +307,14 @@ func traverseEntryExports(
       // A declaration this module exposes is inventoried under the name it
       // exposes it as. `export { local as renamed }` is one unit named
       // `renamed`, so the local binding never identifies it.
+      local := export.Public
+      if export.Identity != "" {
+        local = export.Identity
+      }
       reached = append(reached, reachedSymbol{
         Address:  append(append([]string{}, prefix...), export.Public),
         Path:     entry,
-        Local:    export.Public,
+        Local:    local,
         TypeOnly: typeOnly,
       })
       continue
@@ -403,9 +425,10 @@ func materializeEntryUnits(
           }
         }
         published = append(published, publishedAddress{
-          Module:  entry,
-          Address: target,
-          Unit:    current,
+          Module:   entry,
+          Address:  target,
+          Segments: append([]string{}, address...),
+          Unit:     current,
         })
       }
     }
@@ -509,26 +532,17 @@ func (index *ownedUnitIndex) of(path string, local string) []*evidenceUnit {
     }
     index.byPath[path] = roots
   }
-  root := local
-  if cut := strings.Index(local, "."); cut != -1 {
-    root = local[:cut]
-  }
-  return roots[root]
+  return roots[local]
 }
 
 // identitySuffix reports the segments below a reached declaration, and whether
 // the unit belongs to it at all.
 func identitySuffix(identity []string, local string) ([]string, bool) {
-  owner := strings.Split(local, ".")
-  if len(identity) < len(owner) {
+  // Local is one module export, including a quoted name containing a dot.
+  if len(identity) == 0 || identity[0] != local {
     return nil, false
   }
-  for index, segment := range owner {
-    if identity[index] != segment {
-      return nil, false
-    }
-  }
-  return identity[len(owner):], true
+  return identity[1:], true
 }
 
 func containsString(values []string, wanted string) bool {

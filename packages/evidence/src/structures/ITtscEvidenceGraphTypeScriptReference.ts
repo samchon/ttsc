@@ -15,6 +15,18 @@ import type { ITtscEvidenceGraphReferenceBase } from "./ITtscEvidenceGraphRefere
  */
 export interface ITtscEvidenceGraphTypeScriptReference extends ITtscEvidenceGraphReferenceBase<"typescript"> {
   /**
+   * Explicit directory whose TypeScript exports are read from disk.
+   *
+   * Resolves relative to the lint project's root, or accepts an absolute path.
+   * Files patterns select entry modules relative to this directory. Their
+   * re-exports must remain inside it. Active Program sources take precedence
+   * over disk snapshots. The directory is watched for changes and new files.
+   *
+   * Cannot combine with package. Omit both to select only the active Program.
+   * File-qualified citation paths remain relative to the citing file.
+   */
+  root?: string;
+  /**
    * Installed package whose declarations form this population.
    *
    * Omit it to select the active project. When present, {@link files} resolves
@@ -41,8 +53,8 @@ export interface ITtscEvidenceGraphTypeScriptReference extends ITtscEvidenceGrap
    * `ttsc` project. A matching file outside the project's `tsconfig` program is
    * not available to the rule and does not count as a match.
    *
-   * When {@link package} is set these are package-relative instead, and the
-   * files are read from disk rather than from the program.
+   * With {@link root} or {@link package}, these are relative to that directory or
+   * package and entry files can be read from disk outside the Program.
    *
    * These are globs, not regular expressions. `*` matches within one path
    * segment, `**` crosses any number of path segments, and `?` matches one

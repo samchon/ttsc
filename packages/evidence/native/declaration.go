@@ -136,6 +136,7 @@ func declarationLine(line string) (tagKind, string, bool) {
   }{
     {marker: "@evidenceExclude", tag: tagExclude},
     {marker: "@evidence", tag: tagEvidence},
+    {marker: "@link", tag: tagEvidence},
   } {
     if !strings.HasPrefix(line, candidate.marker) {
       continue
@@ -144,7 +145,11 @@ func declarationLine(line string) (tagKind, string, bool) {
     if remainder != "" && remainder[0] != ' ' && remainder[0] != '\t' {
       continue
     }
-    return candidate.tag, strings.TrimSpace(remainder), true
+    body := strings.TrimSpace(remainder)
+    if candidate.marker == "@link" {
+      body = fileLinkPrefix + body
+    }
+    return candidate.tag, body, true
   }
   return "", "", false
 }
@@ -160,6 +165,9 @@ func splitDeclarationBody(body string) (string, string) {
   body = strings.TrimSpace(body)
   if body == "" {
     return "", ""
+  }
+  if target, reason, found := splitFileLinkBody(body); found {
+    return target, reason
   }
   if target, reason, found := splitInlineLinkBody(body); found {
     return target, reason
@@ -221,6 +229,9 @@ func inlineLinkTarget(target string) string {
 
 // displayTarget renders a target the way its author wrote it.
 func displayTarget(target string) string {
+  if isFileLinkTarget(target) {
+    return strings.TrimPrefix(target, fileLinkPrefix)
+  }
   if isInlineLinkTarget(target) {
     return "{@link " + inlineLinkTarget(target) + "}"
   }

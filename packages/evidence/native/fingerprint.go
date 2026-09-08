@@ -161,12 +161,12 @@ func (index *scopeIndex) compute(rootID string) string {
   if len(scope) == 0 {
     return ""
   }
-  // Ordered by address rather than by walk order, so the value does not depend
+  // Ordered by identity rather than by walk order, so the value does not depend
   // on which file the loader happened to read first, and by symbol as well
   // because two same-titled Markdown headings answer to one anchor.
   sort.Slice(scope, func(left int, right int) bool {
-    if scope[left].Target != scope[right].Target {
-      return scope[left].Target < scope[right].Target
+    if fingerprintIdentity(scope[left]) != fingerprintIdentity(scope[right]) {
+      return fingerprintIdentity(scope[left]) < fingerprintIdentity(scope[right])
     }
     if scope[left].Symbol != scope[right].Symbol {
       return scope[left].Symbol < scope[right].Symbol
@@ -178,7 +178,7 @@ func (index *scopeIndex) compute(rootID string) string {
     // NUL separates the fields because a target may contain any printable
     // character, and a joined pair that can be re-split ambiguously lets two
     // different scopes compose one digest.
-    composite.Write([]byte(unit.Target))
+    composite.Write([]byte(fingerprintIdentity(unit)))
     composite.Write([]byte{0})
     composite.Write([]byte(unit.Symbol))
     composite.Write([]byte{0})
@@ -186,6 +186,35 @@ func (index *scopeIndex) compute(rootID string) string {
     composite.Write([]byte{0})
   }
   return presentedFingerprint(hex.EncodeToString(composite.Sum(nil)))
+}
+
+func fingerprintIdentity(unit *evidenceUnit) string {
+  if unit.Type == artifactTypeScript {
+    return unit.ID
+  }
+  return unit.Target
+}
+
+// A code review fingerprints the declaring inventory, before any public alias
+// or type-only edge projects its surface. Selection controls permission and
+// coverage; it cannot make one citation require multiple content fingerprints.
+func referenceReviewScopes(reference referenceState, loader *typeScriptLoader) *scopeIndex {
+  units := append(append([]*evidenceUnit{}, reference.Population...), reference.Hidden...)
+  if reference.Spec.Type != artifactTypeScript {
+    return newScopeIndex(units)
+  }
+  seen := map[string]bool{}
+  canonical := []*evidenceUnit{}
+  for _, unit := range units {
+    if seen[unit.Path] {
+      continue
+    }
+    seen[unit.Path] = true
+    if inventory := loader.inventory(unit.Path); inventory != nil {
+      canonical = append(canonical, inventory.Units...)
+    }
+  }
+  return newScopeIndex(canonical)
 }
 
 // scopeContribution is what one unit adds to its scope's composite.

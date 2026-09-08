@@ -22,12 +22,14 @@ import (
 // that symbol is precisely the one an obligation needs to name — an evidence
 // graph exists to report the operation the frontend never called.
 type typeScriptLoader struct {
-  root     string
-  program  map[string]*artifactInventory
-  parsed   map[string]*artifactInventory
-  resolved map[string]string
-  failures map[string]string
-  installs map[string]installedPackageLocation
+  boundary      *populationBase
+  root          string
+  program       map[string]*artifactInventory
+  parsed        map[string]*artifactInventory
+  resolved      map[string]string
+  failures      map[string]string
+  parseFailures map[string]string
+  installs      map[string]installedPackageLocation
 }
 
 func newTypeScriptLoader(
@@ -35,18 +37,22 @@ func newTypeScriptLoader(
   program map[string]*artifactInventory,
 ) *typeScriptLoader {
   loader := &typeScriptLoader{
-    root:     strings.ReplaceAll(root, "\\", "/"),
-    program:  map[string]*artifactInventory{},
-    parsed:   map[string]*artifactInventory{},
-    resolved: map[string]string{},
-    failures: map[string]string{},
-    installs: map[string]installedPackageLocation{},
+    root:          strings.ReplaceAll(root, "\\", "/"),
+    program:       map[string]*artifactInventory{},
+    parsed:        map[string]*artifactInventory{},
+    resolved:      map[string]string{},
+    failures:      map[string]string{},
+    parseFailures: map[string]string{},
+    installs:      map[string]installedPackageLocation{},
   }
   for _, inventory := range program {
     if inventory == nil || inventory.Path == "" {
       continue
     }
     location := loader.projectPath(inventory.Path)
+    if inventory.Address != inventory.Path && inventory.Source != nil {
+      inventory = scanTypeScriptInventory(location, inventory.Source)
+    }
     current := loader.program[location]
     if current == nil ||
       current.Address != current.Path && inventory.Address == inventory.Path {
@@ -60,24 +66,41 @@ func newTypeScriptLoader(
 //
 // The Program's copy wins when it exists so that a file under edit is read as
 // the editor has it, not as the disk last saw it.
-func (loader *typeScriptLoader) inventory(relative string) *artifactInventory {
+func (loader *typeScriptLoader) inventory(relative string) (result *artifactInventory) {
   if relative == "" {
     return nil
   }
   relative = loader.projectPath(relative)
+  if !loader.withinBoundary(relative) {
+    loader.failures[relative] = "the re-export leaves the explicitly configured root"
+    return nil
+  }
+  defer func() {
+    if loader.boundary != nil && result != nil && result.Source != nil && len(result.Source.Diagnostics()) != 0 {
+      diagnostic := result.Source.Diagnostics()[0]
+      loader.failures[relative] = "TypeScript syntax error TS" + decimal(int(diagnostic.Code())) + " at line " + decimal(lineAt(result.Source.Text(), diagnostic.Pos()))
+      result = nil
+    }
+  }()
   if inventory := loader.program[relative]; inventory != nil {
     return inventory
   }
   if inventory, cached := loader.parsed[relative]; cached {
+    if inventory == nil && loader.parseFailures[relative] != "" {
+      loader.failures[relative] = loader.parseFailures[relative]
+    }
     return inventory
   }
   loader.parsed[relative] = loader.parse(relative)
+  if loader.parsed[relative] == nil {
+    loader.parseFailures[relative] = loader.failures[relative]
+  }
   return loader.parsed[relative]
 }
 
 func (loader *typeScriptLoader) parse(relative string) *artifactInventory {
   relative = loader.projectPath(relative)
-  content, err := os.ReadFile(path.Join(loader.root, relative))
+  content, err := os.ReadFile(resolveProjectPath(loader.root, relative))
   if err != nil {
     loader.failures[relative] = err.Error()
     return nil
@@ -88,7 +111,7 @@ func (loader *typeScriptLoader) parse(relative string) *artifactInventory {
   }
   file := shimparser.ParseSourceFile(
     shimast.SourceFileParseOptions{
-      FileName: path.Join(loader.root, relative),
+      FileName: filepath.ToSlash(resolveProjectPath(loader.root, relative)),
     },
     string(content),
     kind,
@@ -123,7 +146,7 @@ func (loader *typeScriptLoader) exists(relative string) bool {
 // candidate, and a watch cycle resolves every re-export in the population — so
 // callers that can answer from the Program should do that first.
 func (loader *typeScriptLoader) existsOnDisk(relative string) bool {
-  info, err := os.Stat(path.Join(loader.root, relative))
+  info, err := os.Stat(resolveProjectPath(loader.root, relative))
   return err == nil && !info.IsDir()
 }
 
@@ -135,6 +158,9 @@ func (loader *typeScriptLoader) resolve(from string, specifier string) string {
     return cached
   }
   loader.resolved[key] = loader.resolveUncached(from, specifier)
+  if loader.boundary != nil && loader.resolved[key] == "" {
+    loader.failures[from+" -> "+specifier] = "the exported module cannot be resolved"
+  }
   return loader.resolved[key]
 }
 

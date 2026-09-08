@@ -4,6 +4,7 @@ One target, one reason, on the declaration that owes the answer.
 
 ```text
 @evidence <target> <reason>
+@link <file.ts>#<Accessor> <reason>
 @evidenceExclude <target> <reason>
 @evidenceReview <target> <description>
 @evidenceReview <target> #<fingerprint> <description>
@@ -11,11 +12,13 @@ One target, one reason, on the declaration that owes the answer.
 @evidenceExcludeReview <target> #<fingerprint> <description>
 ```
 
-The target is one whitespace-delimited token, except that one opening with `{@link`, `{@linkcode`, or `{@linkplain` runs to its closing brace. A declaration may carry any number of tags, and each is validated on its own.
+The target is one whitespace-delimited token, except that an inline link runs to its closing brace and a file accessor's quoted bracket segment can contain spaces. A declaration may carry any number of tags, and each is validated on its own.
 
 ## The four tags
 
 `@evidence` is a positive citation. It says this declaration implements, verifies, or documents the target, and the reason says why.
+
+`@link file.ts#Accessor <reason>` is the file-qualified spelling of a positive citation, available in Markdown HTML comments and TypeScript JSDoc. It has the same coverage and review obligations as `@evidence`. The same file-qualified target can also follow `@evidence`, `@evidenceExclude`, or their review tags.
 
 `@evidenceExclude` is the opposite decision, recorded rather than assumed. It says nothing here owes the target, and the reason is what a reviewer reads to agree or disagree. A reference that declares `noEvidenceExclude` refuses this answer outright, and a claim that declares [`evidenceExcludeCarriers`](/docs/evidence/claims#exclusion-carriers) accepts it only from the files it names.
 
@@ -79,7 +82,41 @@ Two selected headings that slug to the same target are ambiguous and need distin
 
 A top-level identity uses its public export name, so `export { Local as Public }` is addressed as `Public`. A namespace member prepends its namespace, as in `Orders.create`. A static class member is `ClassName.member` and an instance member is `ClassName.prototype.member`, which is also how a constructor parameter property is addressed.
 
-Targets deliberately carry no file path. If two selected files expose the same qualified name, a citation of it is ambiguous and the fix is to rename or further qualify the symbol. A re-export creates no second unit in the barrel file.
+File-qualified targets distinguish modules by path. Existing inline links distinguish them through imports. A re-export adds a public address and creates no second unit in the barrel file.
+
+### File-qualified code links
+
+```md
+## Existing behavior
+
+<!--
+@link ../src/example.ts#execute Reviews this operation.
+@link ../src/example.ts#Target.property Reviews this static field.
+@link ../src/example.ts#Namespace.property Reviews this namespace value.
+-->
+```
+
+The same tags work in a TypeScript `/** ... */` block without importing the target. Existing `@evidence {@link ImportedName} <reason>` citations keep using imports. A file link does not count as use of an otherwise unused import.
+
+Paths resolve relative to the file containing the citation. Use `/` or `\` as file separators, `%20` for a space, `%23` for a literal `#`, and `%25` for a literal percent sign. Path identity remains case-sensitive. The accessor is separate: its slashes and backslashes are literal name characters.
+
+| Target | Declaration |
+| --- | --- |
+| `example.ts#execute` | Exported function |
+| `example.ts#Target` | Class and its selected descendants |
+| `example.ts#Target.property` | Static class field |
+| `example.ts#Target.prototype.property` | Instance class field |
+| `example.ts#Namespace.property` | Public namespace member |
+| `example.ts#Target["a.b"]` | Static member whose literal name contains a dot |
+| `example.ts#default` | Default-exported class/function or named local declaration |
+
+Use public aliases at the module that exports them. Interfaces and object-shaped type aliases expose their declared members. Type-only re-exports keep their existing type/value restrictions. Private and protected members, constructors, accessors, computed names, inherited-only members, and unsupported expression exports do not become evidence units. Ambiguous declarations in one module require an unambiguous accessor or a narrower symbol selector.
+
+`reference.symbol` selects obligations; their structural ancestors remain addressable. For example, `#Target` can acknowledge all selected properties of the class even when the selector is `"property"`. A failed link satisfies no obligation.
+
+Pair a positive link with `@evidenceReview file.ts#Accessor <description>`. When the reference requires review, add the fingerprint from the diagnostic after the target. The review belongs to the same host, and changes to the cited code expire it. Neither a review annotation nor a fenced example supplies coverage.
+
+Upgrading to file-qualified links changes existing TypeScript review fingerprints once. They now include the declaring unit's file identity and complete declaration scope, independently of barrel aliases, selected entry modules, and type-only export paths. Re-read existing TypeScript citations and update their review fingerprints. Markdown, Prisma, and Swagger fingerprints keep their existing format. Default-only declarations and whitespace-containing literal members now join the supported code population, so existing selectors can acquire new obligations.
 
 ## Where a tag may live
 
@@ -159,6 +196,6 @@ A tag is data the compiler reads, so every way of getting one wrong has its own 
 
 ## What the tags cannot do
 
-A citation cannot cross from another artifact kind into TypeScript evidence, because an inline link needs the citing module's import scope. Documentation therefore cannot cite code, and the inverse obligation is a different one rather than a substitute.
+An import-scoped inline link still requires a TypeScript claim. Markdown uses a file-qualified code link instead. Prisma-to-TypeScript citations are unsupported.
 
 A tag also cannot make a false statement true. It removes the error, not the problem, which is why [`evidence/review`](/docs/evidence/claims#evidencereview) exists and why [the overview](/docs/evidence) draws the line where it does: the compiler catches omissions, and review catches falsehoods.

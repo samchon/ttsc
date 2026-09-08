@@ -333,6 +333,8 @@ func (declaration *evidenceDeclaration) valid() bool {
 }
 
 type artifactInventory struct {
+  // Source supplies declaration diagnostics and the active editor snapshot.
+  Source *shimast.SourceFile
   // Address is the population-relative identity used for units and
   // declarations. It differs from Path when a configured root moves the
   // address space while a diagnostic keeps naming the file the way a reader
