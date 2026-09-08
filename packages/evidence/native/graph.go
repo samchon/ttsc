@@ -378,7 +378,7 @@ func materializeClaimStates(
         continue
       }
       if reference.Type == artifactTypeScript {
-        if reference.Root != "" {
+        if reference.Rooted {
           rootedState, rootedProblems := materializeRootedTypeScriptReference(claim, reference, loader)
           problems = problems.add(severity, rootedProblems...)
           state.References = append(state.References, rootedState)

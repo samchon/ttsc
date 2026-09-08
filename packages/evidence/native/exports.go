@@ -69,6 +69,7 @@ func collectModuleExports(file *shimast.SourceFile) []moduleExport {
       if name != "" {
         exports = append(exports, moduleExport{Public: "default", Local: name, Identity: name})
       }
+      continue
     }
     for _, declared := range topLevelDeclaredNames(statement) {
       exports = append(exports, moduleExport{
@@ -78,8 +79,9 @@ func collectModuleExports(file *shimast.SourceFile) []moduleExport {
       for _, exported := range locals[declared.Name] {
         if exported.Public != declared.Name {
           exports = append(exports, moduleExport{
-            Public: exported.Public,
-            Local:  declared.Name,
+            Public:   exported.Public,
+            Local:    declared.Name,
+            TypeOnly: exported.TypeOnly,
           })
         }
       }
@@ -87,21 +89,36 @@ func collectModuleExports(file *shimast.SourceFile) []moduleExport {
   }
   for local, names := range locals {
     for _, exported := range names {
-      if exported.Public == "" {
+      if exported.Public == "" || exported.IdentityOnly {
         continue
       }
       exports = append(exports, moduleExport{
-        Public: exported.Public,
-        Local:  local,
+        Public:   exported.Public,
+        Local:    local,
+        TypeOnly: exported.TypeOnly,
       })
     }
   }
-  for local := range defaults {
+  for local, binding := range defaults {
     identity := local
-    if names := locals[local]; len(names) != 0 {
-      identity = names[0].Public
+    for index, name := range locals[local] {
+      if index == 0 || name.Public < identity {
+        identity = name.Public
+      }
     }
-    exports = append(exports, moduleExport{Public: "default", Local: local, Identity: identity})
+    exports = append(exports, moduleExport{Public: "default", Local: local, Identity: identity, TypeOnly: binding.TypeOnly})
+  }
+  imports := collectImportBindings(file)
+  for index := range exports {
+    export := &exports[index]
+    if export.Specifier != "" {
+      continue
+    }
+    if binding, imported := imports[export.Local]; imported {
+      export.Specifier, export.Imported, export.Namespace = binding.Specifier, binding.Imported, binding.Namespace
+      export.Identity = ""
+      export.TypeOnly = export.TypeOnly || binding.TypeOnly
+    }
   }
   return dedupeModuleExports(exports)
 }
@@ -226,7 +243,8 @@ type reachedSymbol struct {
   Address []string
   // Path is the file that declares the symbol, which owns its identity.
   Path string
-  // Local is the name that file's inventory gives the declaration, which is
+  // Local is empty for a module namespace, which publishes names but declares
+  // no evidence unit. Otherwise it is the name that file's inventory gives the declaration, which is
   // the name it exposes rather than the binding it wrote. `export { a as b }`
   // declares one unit called `b`, so matching on `a` would find nothing.
   Local string
@@ -262,41 +280,40 @@ func traverseEntryExports(
     return nil
   }
   reached := []reachedSymbol{}
+  explicit := map[string]bool{}
+  for _, export := range inventory.Exports {
+    if export.Public != "" {
+      explicit[export.Public] = true
+    }
+  }
   // Named re-exports are grouped by the module they come from and that module
   // is walked once. Walking it per specifier would re-traverse the whole
   // subtree for every name a barrel forwards, which is quadratic on exactly
   // the wide generated barrels this selection exists to describe.
-  surfaces := map[string]map[string]reachedSymbol{}
-  surfaceOf := func(target string) map[string]reachedSymbol {
+  surfaces := map[string]map[string][]reachedSymbol{}
+  surfaceOf := func(target string) map[string][]reachedSymbol {
     if surface, built := surfaces[target]; built {
       return surface
     }
-    surface := map[string]reachedSymbol{}
+    surface := map[string][]reachedSymbol{}
     for _, nested := range traverseEntryExports(loader, target, nil, visited, false) {
-      if len(nested.Address) != 1 {
+      if len(nested.Address) == 0 {
         continue
       }
-      existing, taken := surface[nested.Address[0]]
-      // First wins, because two paths to one declaration name the same unit and
-      // the entry has to keep describing a path that exists.
-      //
-      // The type-only mark is unioned, and only between paths to the same
-      // declaration. It differs per path while the population is the union of
-      // what the paths reach, so a value path has to clear a type-only one
-      // rather than lose to declaration order. Doing that unconditionally is
-      // two different mistakes: replacing the entry swaps `Path` and `Local`,
-      // and clearing the mark alone leaves `Path` from one entry with the mark
-      // from another, which is a combination no path produced. Two entries
-      // under one name are not always one declaration, since an explicit named
-      // re-export shadows a star, and either mistake publishes the value
-      // members of a declaration this module reaches type-only.
-      switch {
-      case !taken:
-        surface[nested.Address[0]] = nested
-      case existing.TypeOnly && !nested.TypeOnly &&
-        existing.Path == nested.Path && existing.Local == nested.Local:
-        existing.TypeOnly = false
-        surface[nested.Address[0]] = existing
+      name := nested.Address[0]
+      merged := false
+      for index := range surface[name] {
+        existing := &surface[name][index]
+        if existing.Path == nested.Path && existing.Local == nested.Local && encodeTypeScriptIdentity(existing.Address) == encodeTypeScriptIdentity(nested.Address) {
+          existing.TypeOnly = existing.TypeOnly && nested.TypeOnly
+          merged = true
+          break
+        }
+      }
+      // Distinct declarations remain candidates. Choosing the first would
+      // make a named re-export hide an ambiguity in the module it forwards.
+      if !merged {
+        surface[name] = append(surface[name], nested)
       }
     }
     surfaces[target] = surface
@@ -315,7 +332,7 @@ func traverseEntryExports(
         Address:  append(append([]string{}, prefix...), export.Public),
         Path:     entry,
         Local:    local,
-        TypeOnly: typeOnly,
+        TypeOnly: typeOnly || export.TypeOnly,
       })
       continue
     }
@@ -325,6 +342,7 @@ func traverseEntryExports(
     }
     switch {
     case export.Namespace:
+      reached = append(reached, reachedSymbol{Address: append(append([]string{}, prefix...), export.Public), Path: target, TypeOnly: typeOnly || export.TypeOnly})
       reached = append(reached, traverseEntryExports(
         loader,
         target,
@@ -333,26 +351,37 @@ func traverseEntryExports(
         typeOnly || export.TypeOnly,
       )...)
     case export.Imported == "":
-      reached = append(reached, traverseEntryExports(
+      forwarded := traverseEntryExports(
         loader,
         target,
         prefix,
         visited,
         typeOnly || export.TypeOnly,
-      )...)
+      )
+      for _, symbol := range forwarded {
+        if len(symbol.Address) > len(prefix) && (symbol.Address[len(prefix)] == "default" || explicit[symbol.Address[len(prefix)]]) {
+          continue
+        }
+        reached = append(reached, symbol)
+      }
     default:
-      nested, found := surfaceOf(target)[export.Imported]
+      candidates, found := surfaceOf(target)[export.Imported]
       if !found {
+        if loader.boundary != nil {
+          loader.failures[entry+" -> "+export.Specifier+"#"+export.Imported] = "the module has no public export named '" + export.Imported + "'"
+        }
         continue
       }
-      reached = append(reached, reachedSymbol{
-        Address: append(append([]string{}, prefix...), export.Public),
-        Path:    nested.Path,
-        Local:   nested.Local,
-        // The edge into this module and every edge the target itself walked
-        // both count, so a type-only hop anywhere on the path withholds.
-        TypeOnly: typeOnly || export.TypeOnly || nested.TypeOnly,
-      })
+      for _, nested := range candidates {
+        reached = append(reached, reachedSymbol{
+          Address: append(append(append([]string{}, prefix...), export.Public), nested.Address[1:]...),
+          Path:    nested.Path,
+          Local:   nested.Local,
+          // The edge into this module and every edge the target itself walked
+          // both count, so a type-only hop anywhere on the path withholds.
+          TypeOnly: typeOnly || export.TypeOnly || nested.TypeOnly,
+        })
+      }
     }
   }
   return reached

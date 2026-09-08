@@ -237,7 +237,7 @@ Use a rooted reference to review an implementation in another workspace without 
 }
 ```
 
-In `docs/review.md`, cite `@link ../../api/src/example.ts#Target.property <reason>`. `root` selects a code population; it does not change the citation's relative-path base. Rooted references follow re-exports inside that root, and report exports that leave it or cannot be loaded. Choose a root containing the complete exported implementation. They do not search other directories for a matching filename or symbol. Active Program snapshots take precedence over the saved content of the same file.
+In `docs/review.md`, cite `@link ../../api/src/example.ts#Target.property <reason>`. `root` selects a code population; it does not change the citation's relative-path base. Use `root: "."` to read files outside the Program inside the current project. A root may itself be a directory link; its resolved directory is the traversal boundary. Nested links cannot admit implementations outside it. Re-exports must exist and stay within that boundary. Choose a root containing the complete exported implementation. The loader does not search other directories for a matching filename or symbol. Active Program snapshots take precedence over the saved content of the same file.
 
 A TypeScript `files` glob selects modules, and the population is what those modules publish. A barrel therefore carries in the surface it forwards even when the declaring file sits outside the globs, which is the usual reason a population turns out wider than the directory it names.
 

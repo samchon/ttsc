@@ -7,22 +7,14 @@ import {
 } from "../internal/index";
 
 /**
- * Verifies a claim that cannot address code is refused the population through
- * the published consumer boundary.
+ * Verifies a Markdown citation must identify its code module through a path.
  *
- * The rejection has to arrive at configuration decode rather than at
- * resolution, and only the real binary shows which one an author actually
- * meets. Landing it later would let a project build its whole graph before
- * reporting a pairing that could never have worked, and the message would be
- * about a target rather than about the configuration that made the target
- * unaddressable.
- *
- * The Markdown claim here is otherwise complete: the citation names a symbol
- * that exists and is selected. The only thing wrong is who is citing it.
+ * File links permit Markdown-to-code populations while bare names remain
+ * unresolvable. The repair must point to the file-qualified syntax.
  *
  * 1. Configure a Markdown claim over a TypeScript reference.
  * 2. Run the real `ttsc check`.
- * 3. Assert it fails naming the rule, the reason, and the inversion.
+ * 3. Assert it fails naming the missing module identity and file-link repair.
  */
 export const test_evidence_graph_refuses_code_evidence_to_a_document =
   (): void => {
@@ -57,16 +49,16 @@ export const test_evidence_graph_refuses_code_evidence_to_a_document =
       const result = runCheck(project.directory);
       assertFailure(
         result,
-        "A claim that cannot address code must be refused the population.",
+        "A bare code symbol in Markdown must not satisfy coverage.",
       );
       assertIncludes(
         result,
-        "only a TypeScript claim can cite TypeScript evidence",
-        "The diagnostic must name the pairing rule.",
+        "unqualified symbol has no module identity",
+        "The diagnostic must explain why the target cannot resolve.",
       );
       assertIncludes(
         result,
-        "Invert the obligation",
+        "@link",
         "The diagnostic must name the repair rather than only the refusal.",
       );
     } finally {

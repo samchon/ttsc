@@ -59,12 +59,25 @@ module.exports = { plugins: { evidence }, rules: { "evidence/graph": ["error", {
       );
       await client.request("initialize", {
         capabilities: {
-          workspace: { didChangeWatchedFiles: { dynamicRegistration: true } },
+          workspace: {
+            didChangeWatchedFiles: {
+              dynamicRegistration: true,
+              relativePatternSupport: true,
+            },
+          },
         },
         processId: process.pid,
         rootUri: pathToFileURL(project.tmpdir).href,
       });
       client.notify("initialized", {});
+      client.notify("textDocument/didOpen", {
+        textDocument: {
+          uri: pathToFileURL(path.join(project.tmpdir, "src/main.ts")).href,
+          languageId: "typescript",
+          version: 1,
+          text: "export {};\n",
+        },
+      });
       const first = await initial;
       const cleared = client.waitForNotification<Publication>(
         "textDocument/publishDiagnostics",
@@ -97,7 +110,10 @@ module.exports = { plugins: { evidence }, rules: { "evidence/graph": ["error", {
         "The editor must observe external deletion.",
       );
     } finally {
-      await shutdownTtscserverClient(client);
-      project.cleanup();
+      try {
+        await shutdownTtscserverClient(client);
+      } finally {
+        project.cleanup();
+      }
     }
   };

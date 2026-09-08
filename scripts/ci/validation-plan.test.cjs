@@ -94,12 +94,14 @@ test("a leaf package selects shared quality and its own executor", () => {
     "go",
     "windows-go",
     "typecheck",
+    "ttsc-native",
     "evidence",
   ]);
   assert.deepEqual(ids(["packages/evidence/native/base.go"]), [
     "go",
     "windows-go",
     "typecheck",
+    "ttsc-native",
     "evidence",
   ]);
   assert.deepEqual(ids(["tests/test-evidence/src/index.ts"]), [

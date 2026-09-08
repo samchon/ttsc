@@ -20,6 +20,13 @@ func isFileLinkTarget(target string) bool {
 // accessor segment. Paths use percent encoding, so # always separates the file.
 func splitFileLinkBody(body string) (string, string, bool) {
   forced := isFileLinkTarget(body)
+  if !forced {
+    for _, marker := range inlineLinkTags {
+      if strings.HasPrefix(body, marker) {
+        return "", "", false
+      }
+    }
+  }
   body = strings.TrimPrefix(body, fileLinkPrefix)
   file, _, qualified := strings.Cut(body, "#")
   if !forced && (!qualified || !isTypeScriptPath(file)) {
@@ -203,16 +210,17 @@ func resolveFileLinkDeclaration(declaration *evidenceDeclaration, owners []claim
     absolute = filepath.Join(filepath.Dir(resolveProjectPath(loader.root, declaration.Path)), absolute)
   }
   module := loader.projectPath(filepath.ToSlash(absolute))
+  identity, _ := loader.moduleIdentity(module)
   candidates := map[string]*evidenceUnit{}
   hidden := map[string]*evidenceUnit{}
   selectedModule := false
-  key := scopedTargetKey{path: module, target: encodeTypeScriptIdentity(link.Segments)}
+  key := scopedTargetKey{path: identity, target: encodeTypeScriptIdentity(link.Segments)}
   for _, owner := range owners {
     claim := index[owner.Spec.Index]
     if claim == nil {
       continue
     }
-    selectedModule = selectedModule || claim.modules[module]
+    selectedModule = selectedModule || claim.modules[identity]
     for id, unit := range claim.targets[key] {
       candidates[id] = unit
     }
@@ -275,10 +283,11 @@ func indexFileLinkClaims(states []claimState, loader *typeScriptLoader) map[int]
         scopes[scope.ID] = true
       }
       for _, entry := range reference.Paths {
-        index.modules[loader.projectPath(entry)] = true
+        module, _ := loader.moduleIdentity(entry)
+        index.modules[module] = true
       }
       for _, address := range reference.Published {
-        module := loader.projectPath(address.Module)
+        module, _ := loader.moduleIdentity(address.Module)
         index.modules[module] = true
         key := scopedTargetKey{path: module, target: encodeTypeScriptIdentity(address.Segments)}
         target := index.targets

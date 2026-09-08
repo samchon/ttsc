@@ -2,6 +2,7 @@ package evidence
 
 import (
   "io/fs"
+  "os"
   "path/filepath"
   "sort"
   "strings"
@@ -13,8 +14,12 @@ func materializeRootedTypeScriptReference(claim claimSpec, reference referenceSp
   state := referenceState{Spec: reference, Healthy: false, UnitsByScope: map[string][]*evidenceUnit{}}
   context := claimLabel(claim) + " " + referenceLabel(reference)
   base := reference.Base
-  if problem := baseDirectoryProblem(base, artifactTypeScript); problem != "" {
-    return state, []string{problem}
+  if info, err := os.Stat(base.Absolute); err != nil || !info.IsDir() {
+    cause := "the path names a file"
+    if err != nil {
+      cause = causeText(err)
+    }
+    return state, []string{context + " could not read TypeScript reference root '" + populationRootLabel(base) + "': " + cause + ". Select an existing readable directory containing the reference files."}
   }
   from, resolved := resolvedBaseDirectory(base)
   if !resolved {
@@ -89,7 +94,12 @@ func (loader *typeScriptLoader) withinBoundary(module string) bool {
   if loader.boundary == nil {
     return true
   }
-  relative, ok := relativeProjectPath(loader.boundary.Absolute, resolveProjectPath(loader.root, module))
+  base, baseOK := loader.moduleIdentity(loader.boundary.Absolute)
+  source, sourceOK := loader.moduleIdentity(module)
+  if !baseOK || !sourceOK {
+    return false
+  }
+  relative, ok := relativeProjectPath(resolveProjectPath(loader.root, base), resolveProjectPath(loader.root, source))
   if !ok || strings.Contains("/"+relative+"/", "/node_modules/") {
     return false
   }

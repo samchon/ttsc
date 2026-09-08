@@ -29,6 +29,7 @@ type typeScriptLoader struct {
   resolved      map[string]string
   failures      map[string]string
   parseFailures map[string]string
+  identities    map[string]typeScriptModuleIdentity
   installs      map[string]installedPackageLocation
 }
 
@@ -43,20 +44,31 @@ func newTypeScriptLoader(
     resolved:      map[string]string{},
     failures:      map[string]string{},
     parseFailures: map[string]string{},
+    identities:    map[string]typeScriptModuleIdentity{},
     installs:      map[string]installedPackageLocation{},
   }
-  for _, inventory := range program {
+  keys := make([]string, 0, len(program))
+  for key := range program {
+    keys = append(keys, key)
+  }
+  sort.Strings(keys)
+  for _, key := range keys {
+    inventory := program[key]
     if inventory == nil || inventory.Path == "" {
       continue
     }
     location := loader.projectPath(inventory.Path)
-    if inventory.Address != inventory.Path && inventory.Source != nil {
-      inventory = scanTypeScriptInventory(location, inventory.Source)
+    identity, _ := loader.moduleIdentity(location)
+    if inventory.Address != identity && inventory.Source != nil {
+      inventory = typeScriptInventories.scan(typeScriptModuleAddress(location, identity), inventory.Source)
     }
     current := loader.program[location]
     if current == nil ||
       current.Address != current.Path && inventory.Address == inventory.Path {
       loader.program[location] = inventory
+    }
+    if loader.program[identity] == nil || location == identity {
+      loader.program[identity] = inventory
     }
   }
   return loader
@@ -84,6 +96,11 @@ func (loader *typeScriptLoader) inventory(relative string) (result *artifactInve
   }()
   if inventory := loader.program[relative]; inventory != nil {
     return inventory
+  }
+  if identity, ok := loader.moduleIdentity(relative); ok {
+    if inventory := loader.program[identity]; inventory != nil {
+      return inventory
+    }
   }
   if inventory, cached := loader.parsed[relative]; cached {
     if inventory == nil && loader.parseFailures[relative] != "" {
@@ -120,7 +137,8 @@ func (loader *typeScriptLoader) parse(relative string) *artifactInventory {
     loader.failures[relative] = "the TypeScript parser returned no source file"
     return nil
   }
-  return scanTypeScriptInventory(relative, file)
+  identity, _ := loader.moduleIdentity(relative)
+  return scanTypeScriptInventoryAt(typeScriptModuleAddress(relative, identity), file)
 }
 
 func (loader *typeScriptLoader) failure(relative string) string {
@@ -158,7 +176,7 @@ func (loader *typeScriptLoader) resolve(from string, specifier string) string {
     return cached
   }
   loader.resolved[key] = loader.resolveUncached(from, specifier)
-  if loader.boundary != nil && loader.resolved[key] == "" {
+  if loader.boundary != nil && loader.resolved[key] == "" && loader.failures[from+" -> "+specifier] == "" {
     loader.failures[from+" -> "+specifier] = "the exported module cannot be resolved"
   }
   return loader.resolved[key]
@@ -168,12 +186,23 @@ func (loader *typeScriptLoader) resolveUncached(
   from string,
   specifier string,
 ) string {
+  failure := from + " -> " + specifier
   if strings.HasPrefix(specifier, "./") || strings.HasPrefix(specifier, "../") {
+    if loader.boundary != nil {
+      if canonical, ok := loader.moduleIdentity(from); ok {
+        from = canonical
+      }
+    }
     base := path.Clean(path.Join(path.Dir(from), specifier))
+    if !loader.withinBoundary(base) {
+      loader.failures[failure] = "the re-export leaves the explicitly configured root"
+      return ""
+    }
     candidates := moduleCandidates(base)
     normalized := make([]string, 0, len(candidates))
     for _, candidate := range candidates {
-      normalized = append(normalized, loader.projectPath(candidate))
+      module := loader.projectPath(candidate)
+      normalized = append(normalized, module)
     }
     // The Program answers first, and not only because it answers without a
     // syscall. A project that emits beside its sources has both `x.js` and
@@ -182,11 +211,19 @@ func (loader *typeScriptLoader) resolveUncached(
     // declarations the graph cannot address.
     for _, candidate := range normalized {
       if loader.program[candidate] != nil {
+        if !loader.withinBoundary(candidate) {
+          loader.failures[failure] = "the re-export leaves the explicitly configured root"
+          return ""
+        }
         return candidate
       }
     }
     for _, candidate := range normalized {
       if loader.existsOnDisk(candidate) {
+        if !loader.withinBoundary(candidate) {
+          loader.failures[failure] = "the re-export leaves the explicitly configured root"
+          return ""
+        }
         return candidate
       }
     }
@@ -195,7 +232,40 @@ func (loader *typeScriptLoader) resolveUncached(
   if strings.HasPrefix(specifier, "/") {
     return ""
   }
+  if loader.boundary != nil {
+    loader.failures[failure] = "a package re-export is outside the explicitly configured root"
+    return ""
+  }
   return loader.resolvePackage(specifier)
+}
+
+type typeScriptModuleIdentity struct {
+  Path     string
+  Resolved bool
+}
+
+// Module identity follows directory links and file symlinks, while displayed
+// paths and published module addresses retain their authored spellings.
+// Cache once per evaluation so rooted populations share this filesystem work.
+func (loader *typeScriptLoader) moduleIdentity(module string) (string, bool) {
+  module = loader.projectPath(module)
+  if cached, exists := loader.identities[module]; exists {
+    return cached.Path, cached.Resolved
+  }
+  absolute := resolveProjectPath(loader.root, module)
+  resolved, ok := resolveLinkedPath(absolute)
+  if ok {
+    if final, err := filepath.EvalSymlinks(resolved); err == nil && !strings.EqualFold(final, resolved) {
+      resolved = final
+    }
+  }
+  identity := loader.projectPath(filepath.ToSlash(resolved))
+  loader.identities[module] = typeScriptModuleIdentity{Path: identity, Resolved: ok}
+  return identity, ok
+}
+
+func typeScriptModuleAddress(display string, identity string) artifactAddress {
+  return artifactAddress{Base: populationBase{Default: true}, Relative: identity, Display: display, Key: identity}
 }
 
 // projectPath gives every Program source and module candidate one identity

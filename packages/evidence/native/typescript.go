@@ -71,11 +71,8 @@ func extendTypeScriptInventories(
 // three kinds converge: health alone now decides that the claim stays active,
 // and the population it names is the one the author has to repair.
 //
-// Only claim bases can reach a declared root here. A TypeScript reference selects
-// the active program with `files` or an installed package with `package` and is
-// refused a `root` outright, so every reference base of this kind is the default
-// one, which this pass leaves alone: `baseDirectoryProblem` returns on it, and
-// the resolver question below is asked only of a root someone declared.
+// Check passes claim populations here. Rooted references validate their disk
+// directories after claim activation in materializeRootedTypeScriptReference.
 func typeScriptBaseProblems(
   config graphConfig,
   inventories map[string]*artifactInventory,
@@ -1378,7 +1375,7 @@ func collectHiddenDeclarationNames(
     if statement == nil {
       continue
     }
-    name := declarationName(statement.Name())
+    name := typeScriptDeclarationName(statement)
     if name == "" {
       continue
     }
@@ -1702,6 +1699,9 @@ func walkTypeScriptNode(node *shimast.Node, visit func(*shimast.Node)) {
 type exportedName struct {
   Public   string
   TypeOnly bool
+  // IdentityOnly materializes a default's local declaration without
+  // publishing its binding as a named export.
+  IdentityOnly bool
 }
 
 func collectLocalExportNames(
@@ -1749,9 +1749,10 @@ func collectLocalExportNames(
       })
     }
   }
-  for local := range collectDefaultExportBindings(statements) {
+  for local, binding := range collectDefaultExportBindings(statements) {
     if len(exports[local]) == 0 {
-      exports[local] = []exportedName{{Public: local}}
+      binding.IdentityOnly = true
+      exports[local] = []exportedName{binding}
     }
   }
   return exports

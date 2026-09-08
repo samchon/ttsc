@@ -58,8 +58,9 @@
  * prepend their namespace, such as `Orders.create`. A namespace itself uses its
  * qualified name, such as `Orders` or `Outer.Inner`. A local declaration
  * exposed as `export { Local as Public }` therefore uses `Public`. A named
- * default declaration keeps its declaration name; anonymous and default-only
- * aliases have no stable target and are not selected. Members of an ambient
+ * default declaration or default alias is publicly addressed as `default`;
+ * anonymous default classes and functions also have that stable address. A
+ * default-only local binding is not a named export. Members of an ambient
  * namespace are public without their own `export` modifier. A type-only alias
  * exposes a namespace or a class, its public type-space descendants, and
  * everything an object-shaped type alias, or an interface no class merges with,
@@ -79,17 +80,15 @@
  * form. Static class members use `ClassName.member`; instance members use
  * `ClassName.prototype.member`, and a constructor parameter property is an
  * instance member addressed that way. Computed names are not selected, even
- * when their expression is a literal. Literal names must be whitespace-free
- * because a declaration target is one whitespace-delimited token. A dot inside
- * a literal name is rendered unchanged; if that spelling collides with
- * qualification, the target is ambiguous.
+ * when their expression is a literal. File-qualified accessors use bracketed
+ * JSON strings for literal names, including spaces and dots. Existing inline
+ * links keep their dotted spelling and report ambiguous literal qualification.
  *
- * These targets deliberately omit file paths. If selected files expose the same
- * qualified target, a declaration using that target is ambiguous; rename or
- * further qualify the public symbols. A re-export whose declaration lives in
- * another file does not create a second unit in the barrel file. TypeScript
- * target characters are matched exactly; Markdown path-separator normalization
- * does not rewrite literal symbol names.
+ * A code citation identifies its module through a file path or the citing
+ * TypeScript module's imports. A re-export whose declaration lives in another
+ * file does not create a second unit in the barrel file. TypeScript target
+ * characters are matched exactly; Markdown path-separator normalization does
+ * not rewrite literal symbol names.
  *
  * Every supported public declaration described here may carry
  * `@evidenceExclude` when its file belongs to a claim, even when that claim's

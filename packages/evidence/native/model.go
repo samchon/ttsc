@@ -93,9 +93,12 @@ type referenceSpec struct {
   Type     artifactKind
   Policy   referencePolicy
   Root     string
-  Base     populationBase
-  Files    globSet
-  Source   string
+  // Rooted preserves explicit disk-loading opt-in even when '.' normalizes
+  // to the empty spelling of the project root.
+  Rooted bool
+  Base   populationBase
+  Files  globSet
+  Source string
   // Package moves the base that Files resolves against from the project to an
   // installed package. With no globs it also becomes the selection itself: the
   // package's declaration entry defines the population by reachability, while

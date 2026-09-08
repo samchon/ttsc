@@ -288,6 +288,7 @@ func decodeReference(
     Type:     kind,
     Policy:   policy,
     Root:     root,
+    Rooted:   kind == artifactTypeScript && object["root"] != nil,
     Files:    files,
     Source:   source,
     Package:  packageName,
@@ -575,15 +576,8 @@ func decodeClaimRoot(
   return decodePopulationRoot(raw, configPath)
 }
 
-// decodeRoot reads the directory a Markdown or Prisma population resolves
-// against.
-//
-// The property is refused on the two artifact kinds that cannot use it, and
-// each refusal names the channel that artifact does have. A TypeScript
-// population is materialized from the ttsc Program, so a directory outside the
-// project contains no file it could ever reach — `package` is the escape there,
-// and it already exists. A Swagger reference names one exact document, so the
-// location belongs in `file`, where it is visible without a second property.
+// decodeRoot reads a population directory. A TypeScript reference uses its
+// presence to opt into disk loading; Swagger still owns one exact file.
 func decodeRoot(
   raw json.RawMessage,
   kind artifactKind,

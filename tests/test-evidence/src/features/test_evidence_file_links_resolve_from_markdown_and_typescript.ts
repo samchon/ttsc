@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import {
+  assertFailure,
   assertIncludes,
   assertStatus,
   createProject,
@@ -52,6 +53,7 @@ export default { plugins: { evidence }, rules: { "evidence/graph": ["error", { c
         "export function execute(): void {}\nexport class Target { static property = 1; }\nexport namespace Namespace { export const renamed = true; }\n",
       );
       const result = runCheck(project.directory);
+      assertFailure(result, "A renamed target must fail the compiler check.");
       assertIncludes(
         result,
         "Missing TypeScript evidence member",

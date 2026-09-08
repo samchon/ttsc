@@ -112,6 +112,8 @@ Paths resolve relative to the file containing the citation. Use `/` or `\` as fi
 
 Use public aliases at the module that exports them. Interfaces and object-shaped type aliases expose their declared members. Type-only re-exports keep their existing type/value restrictions. Private and protected members, constructors, accessors, computed names, inherited-only members, and unsupported expression exports do not become evidence units. Ambiguous declarations in one module require an unambiguous accessor or a narrower symbol selector.
 
+An ordinary `export *` does not forward a default export. Name it explicitly or reach it through a namespace re-export. The default's private local binding is not a public address. A type-only default export exposes the type and withholds its value members.
+
 `reference.symbol` selects obligations; their structural ancestors remain addressable. For example, `#Target` can acknowledge all selected properties of the class even when the selector is `"property"`. A failed link satisfies no obligation.
 
 Pair a positive link with `@evidenceReview file.ts#Accessor <description>`. When the reference requires review, add the fingerprint from the diagnostic after the target. The review belongs to the same host, and changes to the cited code expire it. Neither a review annotation nor a fenced example supplies coverage.

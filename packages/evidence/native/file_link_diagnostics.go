@@ -51,6 +51,18 @@ func diagnoseFileLinkTarget(loader *typeScriptLoader, module string, segments []
     }
     return "Unsupported TypeScript evidence declaration" + where + ": the export is not a supported type, function, or property unit. Cite a supported declaration."
   }
+  if inventory.Source != nil && inventory.Source.Statements != nil {
+    for _, statement := range inventory.Source.Statements.Nodes {
+      if statement == nil {
+        continue
+      }
+      for _, declared := range topLevelDeclaredNames(statement) {
+        if declared.Name == segments[0] {
+          return "Unexported TypeScript evidence declaration" + where + ": '" + segments[0] + "' is a local binding, not a public export of this module. Use its public alias or default export."
+        }
+      }
+    }
+  }
   if cause := inspectUnavailableDeclaration(inventory.Source.Statements, segments); cause != "" {
     return "Unsupported TypeScript evidence target" + where + ": " + cause + ". Export a supported declaration or correct the target."
   }
@@ -101,6 +113,13 @@ func inspectUnavailableDeclaration(statements *shimast.NodeList, segments []stri
       continue
     }
     for _, member := range members.Nodes {
+      if member != nil && member.Kind == shimast.KindConstructor && instance {
+        for _, parameter := range member.Parameters() {
+          if parameter != nil && isParameterProperty(parameter) && declarationName(parameter.Name()) == tail[0] && !isPublicClassMember(parameter) {
+            return "the member is private or protected"
+          }
+        }
+      }
       if member == nil || member.Name() == nil {
         continue
       }

@@ -39,7 +39,7 @@ const SCOPES = {
   // test-ttsc drives ttsc + the banner/lint native plugins and asserts on the
   // @ttsc/vscode install artifact (its .vsix); it never touches graph/metro/
   // unplugin.
-  "test-ttsc": ["ttsc", "@ttsc/banner", "@ttsc/lint", "@ttsc/vscode", PLATFORM],
+  "test-ttsc": ["ttsc", "@ttsc/banner", "@ttsc/lint", "@ttsc/evidence", "@ttsc/vscode", PLATFORM],
   // test-lint drives ttsc + the lint engine, references @ttsc/banner, and builds
   // the contributor demo plugin.
   "test-lint": [

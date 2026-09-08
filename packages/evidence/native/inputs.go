@@ -48,11 +48,15 @@ func graphProjectInputs(config graphConfig) []rule.ProjectInput {
     for _, reference := range claim.References {
       switch reference.Type {
       case artifactTypeScript:
-        if reference.Root != "" {
+        if reference.Rooted {
           // Export traversal can reach a module outside the entry globs, and
           // this pre-Program protocol cannot discover that closure. The root
           // is its explicit boundary, including future files and repairs.
-          inputs = append(inputs, rule.ProjectInput{Kind: rule.ProjectInputGlob, Pattern: strings.TrimSuffix(reference.Root, "/") + "/**"})
+          pattern := "**"
+          if reference.Root != "" {
+            pattern = strings.TrimSuffix(reference.Root, "/") + "/**"
+          }
+          inputs = append(inputs, rule.ProjectInput{Kind: rule.ProjectInputGlob, Pattern: pattern})
         }
       case artifactMarkdown, artifactPrisma:
         inputs = append(inputs, globInputs(reference.Root, reference.Files)...)

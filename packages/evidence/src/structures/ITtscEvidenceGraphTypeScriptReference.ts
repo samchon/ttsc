@@ -29,10 +29,10 @@ export interface ITtscEvidenceGraphTypeScriptReference extends ITtscEvidenceGrap
   /**
    * Installed package whose declarations form this population.
    *
-   * Omit it to select the active project. When present, {@link files} resolves
-   * against the package root instead of the project root, so the globs read as
-   * a consumer thinks of the package rather than carrying its `node_modules`
-   * location.
+   * Omit it to select the active project or the explicit {@link root}. When
+   * present, {@link files} resolves against the package root instead of the
+   * project root, so the globs read as a consumer thinks of the package rather
+   * than carrying its `node_modules` location.
    *
    * A package population is read from disk rather than from the `ttsc` program.
    * That is the point: a symbol nothing imports is absent from the program by

@@ -17,8 +17,8 @@ func typeScriptDeclarationName(node *shimast.Node) string {
   return ""
 }
 
-func collectDefaultExportBindings(statements *shimast.NodeList) map[string]bool {
-  bindings := map[string]bool{}
+func collectDefaultExportBindings(statements *shimast.NodeList) map[string]exportedName {
+  bindings := map[string]exportedName{}
   if statements == nil {
     return bindings
   }
@@ -27,9 +27,11 @@ func collectDefaultExportBindings(statements *shimast.NodeList) map[string]bool 
       continue
     }
     if statement.Kind == shimast.KindExportAssignment {
-      expression := statement.AsExportAssignment().Expression
-      if expression != nil && expression.Kind == shimast.KindIdentifier {
-        bindings[declarationName(expression)] = true
+      assignment := statement.AsExportAssignment()
+      expression := assignment.Expression
+      if !assignment.IsExportEquals && expression != nil && expression.Kind == shimast.KindIdentifier {
+        local := declarationName(expression)
+        bindings[local] = exportedName{Public: local}
       }
     }
     if statement.Kind != shimast.KindExportDeclaration {
@@ -48,7 +50,12 @@ func collectDefaultExportBindings(statements *shimast.NodeList) map[string]bool 
       if local == nil {
         local = specifier.Name()
       }
-      bindings[declarationName(local)] = true
+      name := declarationName(local)
+      typeOnly := declaration.IsTypeOnly || specifier.IsTypeOnly
+      if previous, exists := bindings[name]; exists {
+        typeOnly = typeOnly && previous.TypeOnly
+      }
+      bindings[name] = exportedName{Public: name, TypeOnly: typeOnly}
     }
   }
   return bindings

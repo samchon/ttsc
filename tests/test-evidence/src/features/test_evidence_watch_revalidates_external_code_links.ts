@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import {
+  assertFailure,
   assertIncludes,
   assertStatus,
   createProject,
@@ -43,14 +44,18 @@ export default { plugins: { evidence }, rules: { "evidence/graph": ["error", { c
         "The initial external citation must pass.",
       );
       fs.writeFileSync(target, "export const renamed = 1;\n");
+      const renamed = await session.nextBuild();
+      assertFailure(renamed, "Renaming the external export must fail watch.");
       assertIncludes(
-        await session.nextBuild(),
+        renamed,
         "Missing TypeScript evidence export",
         "An external rename must invalidate the citation.",
       );
       fs.unlinkSync(target);
+      const deleted = await session.nextBuild();
+      assertFailure(deleted, "Deleting the external source must fail watch.");
       assertIncludes(
-        await session.nextBuild(),
+        deleted,
         "Missing TypeScript evidence file",
         "Deleting the source must remain observable.",
       );
