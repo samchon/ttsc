@@ -219,6 +219,7 @@ func dedupeModuleExports(exports []moduleExport) []moduleExport {
 // yields: the obligations, the scopes above them, and the addresses that reach
 // them.
 type traversedPopulation struct {
+  Code    *typeScriptExportResolver
   Units   []*evidenceUnit
   Reached []*evidenceUnit
   // Hidden are the reached declarations that withdrew themselves from the
@@ -257,23 +258,6 @@ type reachedSymbol struct {
   // because a barrel re-exported type-only withholds value-space from
   // everything below it however many hops away that is.
   TypeOnly bool
-}
-
-// traverseEntryExports walks a module's export graph and reports every public
-// symbol it reaches, with the address the entry gives it.
-//
-// Membership comes from reachability and identity comes from the declaring
-// file, so a symbol re-exported through two barrels is reached twice and still
-// resolves to one unit. Cycles are bounded by the visited set: a barrel that
-// re-exports itself is a real shape, not a reason to hang the build.
-func traverseEntryExports(
-  loader *typeScriptLoader,
-  entry string,
-  prefix []string,
-  visited map[string]bool,
-  typeOnly bool,
-) []reachedSymbol {
-  return newTypeScriptExportResolver(loader, []string{entry}).traverse(entry, prefix, visited, typeOnly)
 }
 
 // materializeEntryUnits turns reached symbols into the units an obligation
@@ -352,7 +336,7 @@ func materializeEntryUnits(
       }
     }
   }
-  population := traversedPopulation{Published: published}
+  population := traversedPopulation{Published: published, Code: exports}
   for _, id := range order {
     unit := byID[id]
     sort.Strings(unit.Aliases)
@@ -402,6 +386,7 @@ func narrowTraversedPopulation(
     withdrawn[unit.ID] = true
   }
   narrowed := traversedPopulation{
+    Code:      published.Code,
     Reached:   published.Reached,
     Published: published.Published,
   }

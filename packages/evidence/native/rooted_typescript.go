@@ -68,6 +68,7 @@ func materializeRootedTypeScriptReference(claim claimSpec, reference referenceSp
   confined.failures = map[string]string{}
   population := materializeEntryUnits(&confined, state.Paths, reference.Symbols)
   state.Units, state.Hidden, state.Published = population.Units, population.Hidden, population.Published
+  state.Code = population.Code
   applyTraversedScopes(&state, population.Reached)
   failed := []string{}
   for module := range confined.failures {

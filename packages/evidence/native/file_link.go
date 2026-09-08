@@ -29,6 +29,9 @@ func splitFileLinkBody(body string) (string, string, bool) {
   }
   body = strings.TrimPrefix(body, fileLinkPrefix)
   file, _, qualified := strings.Cut(body, "#")
+  if decoded, err := url.PathUnescape(file); err == nil {
+    file = decoded
+  }
   if !forced && (!qualified || !isTypeScriptPath(file)) {
     return "", "", false
   }
@@ -228,6 +231,9 @@ func resolveFileLinkDeclaration(declaration *evidenceDeclaration, owners []claim
       hidden[id] = unit
     }
   }
+  if len(candidates) == 0 && len(hidden) == 0 {
+    candidates, hidden = queryFileLinkClaims(index, owners, identity, link.Segments, false)
+  }
   if len(candidates) == 1 {
     for id := range candidates {
       return id, ""
@@ -262,9 +268,10 @@ func resolveFileLinkDeclaration(declaration *evidenceDeclaration, owners []claim
 }
 
 type fileLinkClaimIndex struct {
-  modules map[string]bool
-  targets map[scopedTargetKey]map[string]*evidenceUnit
-  hidden  map[scopedTargetKey]map[string]*evidenceUnit
+  references map[string][]fileLinkReference
+  modules    map[string]bool
+  targets    map[scopedTargetKey]map[string]*evidenceUnit
+  hidden     map[scopedTargetKey]map[string]*evidenceUnit
 }
 
 // Build once per evaluation. Resolution is proportional to the number of
@@ -272,7 +279,7 @@ type fileLinkClaimIndex struct {
 func indexFileLinkClaims(states []claimState, loader *typeScriptLoader) map[int]*fileLinkClaimIndex {
   result := map[int]*fileLinkClaimIndex{}
   for _, state := range states {
-    index := &fileLinkClaimIndex{modules: map[string]bool{}, targets: map[scopedTargetKey]map[string]*evidenceUnit{}, hidden: map[scopedTargetKey]map[string]*evidenceUnit{}}
+    index := &fileLinkClaimIndex{modules: map[string]bool{}, targets: map[scopedTargetKey]map[string]*evidenceUnit{}, hidden: map[scopedTargetKey]map[string]*evidenceUnit{}, references: map[string][]fileLinkReference{}}
     result[state.Spec.Index] = index
     for _, reference := range state.References {
       if reference.Spec.Type != artifactTypeScript {
@@ -281,6 +288,24 @@ func indexFileLinkClaims(states []claimState, loader *typeScriptLoader) map[int]
       scopes := map[string]bool{}
       for _, scope := range reference.Scopes {
         scopes[scope.ID] = true
+      }
+      if reference.Code != nil {
+        modules := map[string]string{}
+        for _, entry := range reference.Paths {
+          identity, _ := loader.moduleIdentity(entry)
+          modules[identity] = entry
+        }
+        for _, address := range reference.Published {
+          identity, _ := loader.moduleIdentity(address.Module)
+          modules[identity] = address.Module
+        }
+        hidden := map[string]bool{}
+        for _, unit := range reference.Hidden {
+          hidden[unit.ID] = true
+        }
+        for identity, entry := range modules {
+          index.references[identity] = append(index.references[identity], fileLinkReference{entry: entry, code: reference.Code, scopes: scopes, hidden: hidden})
+        }
       }
       for _, entry := range reference.Paths {
         module, _ := loader.moduleIdentity(entry)
@@ -304,4 +329,38 @@ func indexFileLinkClaims(states []claimState, loader *typeScriptLoader) map[int]
     }
   }
   return result
+}
+
+type fileLinkReference struct {
+  entry  string
+  code   *typeScriptExportResolver
+  scopes map[string]bool
+  hidden map[string]bool
+}
+
+// Namespace cycles have infinitely many possible spellings but a citation has
+// finitely many segments. Resolve that path on demand, then apply the same
+// reference membership as the finite population index.
+func queryFileLinkClaims(index map[int]*fileLinkClaimIndex, owners []claimState, module string, segments []string, legacy bool) (map[string]*evidenceUnit, map[string]*evidenceUnit) {
+  found, hidden := map[string]*evidenceUnit{}, map[string]*evidenceUnit{}
+  for _, owner := range owners {
+    claim := index[owner.Spec.Index]
+    if claim == nil {
+      continue
+    }
+    for _, reference := range claim.references[module] {
+      for _, unit := range reference.code.lookup(reference.entry, segments, legacy) {
+        if unit.Hidden != "" {
+          if reference.hidden[unit.ID] {
+            hidden[unit.ID] = unit
+          }
+          continue
+        }
+        if reference.scopes[unit.ID] {
+          found[unit.ID] = unit
+        }
+      }
+    }
+  }
+  return found, hidden
 }

@@ -2,6 +2,7 @@ package evidence
 
 import (
   "sort"
+  "strings"
 )
 
 // Export names are finite even when modules re-export each other. Discover
@@ -12,6 +13,7 @@ type typeScriptExportResolver struct {
   loader   *typeScriptLoader
   modules  map[string]*typeScriptExportModule
   bindings map[scopedTargetKey][]reachedSymbol
+  owned    *ownedUnitIndex
 }
 
 type typeScriptExportModule struct {
@@ -24,6 +26,7 @@ type typeScriptExportModule struct {
 
 func newTypeScriptExportResolver(loader *typeScriptLoader, entries []string) *typeScriptExportResolver {
   resolver := &typeScriptExportResolver{loader: loader, modules: map[string]*typeScriptExportModule{}, bindings: map[scopedTargetKey][]reachedSymbol{}}
+  resolver.owned = newOwnedUnitIndex(loader)
   for _, entry := range entries {
     resolver.load(entry)
   }
@@ -81,8 +84,26 @@ func (resolver *typeScriptExportResolver) load(entry string) {
     return
   }
   module := &typeScriptExportModule{exports: inventory.Exports, targets: map[string]string{}, names: map[string]bool{}, named: map[string][]moduleExport{}}
+  declarations := map[string]bool{}
+  if inventory.Source != nil && inventory.Source.Statements != nil {
+    for _, statement := range inventory.Source.Statements.Nodes {
+      if statement == nil {
+        continue
+      }
+      for _, declaration := range topLevelDeclaredNames(statement) {
+        declarations[declaration.Name] = true
+      }
+      if name := typeScriptDeclarationName(statement); name != "" {
+        declarations[name] = true
+      }
+    }
+  }
   resolver.modules[entry] = module
   for _, export := range module.exports {
+    if resolver.loader.boundary != nil && export.Specifier == "" && !declarations[export.Local] {
+      resolver.loader.failures[entry+"#"+export.Public] = "the exported binding '" + export.Local + "' has no declaration in this module"
+      continue
+    }
     if export.Public != "" {
       module.names[export.Public] = true
       module.named[export.Public] = append(module.named[export.Public], export)
@@ -101,6 +122,47 @@ func (resolver *typeScriptExportResolver) load(entry string) {
       resolver.load(target)
     }
   }
+}
+
+// accessor follows only the namespace segments the citation actually names.
+// Each hop consumes one segment, so a self/namespace cycle is finite here.
+func (resolver *typeScriptExportResolver) accessor(entry string, segments []string, prefix []string, typeOnly bool) []reachedSymbol {
+  if len(segments) == 0 {
+    return nil
+  }
+  result := []reachedSymbol{}
+  for _, binding := range resolver.resolve(entry, segments[0]) {
+    binding.Address = append(append([]string{}, prefix...), segments[0])
+    binding.TypeOnly = binding.TypeOnly || typeOnly
+    if binding.Local == "" {
+      result = append(result, resolver.accessor(binding.Path, segments[1:], binding.Address, binding.TypeOnly)...)
+    } else {
+      result = append(result, binding)
+    }
+  }
+  return result
+}
+
+func (resolver *typeScriptExportResolver) lookup(entry string, segments []string, legacy bool) []*evidenceUnit {
+  result := []*evidenceUnit{}
+  seen := map[string]bool{}
+  for _, binding := range resolver.accessor(entry, segments, nil, false) {
+    target := append([]string{binding.Local}, segments[len(binding.Address):]...)
+    for _, unit := range resolver.owned.of(binding.Path, binding.Local) {
+      if binding.TypeOnly && unit.ValueSpace && !unit.TypeSpace {
+        continue
+      }
+      matches := encodeTypeScriptIdentity(unit.Identity) == encodeTypeScriptIdentity(target)
+      if legacy {
+        matches = strings.Join(unit.Identity, ".") == strings.Join(target, ".")
+      }
+      if matches && !seen[unit.ID] {
+        seen[unit.ID] = true
+        result = append(result, unit)
+      }
+    }
+  }
+  return result
 }
 
 func (resolver *typeScriptExportResolver) resolve(module string, name string) []reachedSymbol {

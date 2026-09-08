@@ -1,8 +1,9 @@
 package evidence
 
 import (
-  shimast "github.com/microsoft/typescript-go/shim/ast"
   "sort"
+
+  shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
 // Diagnostic inspection never creates an obligation. It distinguishes a
@@ -12,13 +13,11 @@ func diagnoseFileLinkTarget(loader *typeScriptLoader, module string, segments []
   if inventory == nil {
     return "Unreadable TypeScript evidence target" + where + ": " + loader.failure(module) + ". Restore the configured source file."
   }
-  all := materializeEntryUnits(loader, []string{module}, symbolSet{"type": true, "function": true, "property": true})
-  for _, address := range all.Published {
-    if encodeTypeScriptIdentity(address.Segments) == encodeTypeScriptIdentity(segments) {
-      return "Unselected TypeScript evidence target" + where + ": the declaration exists but this reference's files or symbol selection does not admit it. Select its symbol kind or cite a selected declaration."
-    }
+  resolver := newTypeScriptExportResolver(loader, []string{module})
+  if len(resolver.lookup(module, segments, false)) != 0 {
+    return "Unselected TypeScript evidence target" + where + ": the declaration exists but this reference's files or symbol selection does not admit it. Select its symbol kind or cite a selected declaration."
   }
-  exports := traverseEntryExports(loader, module, nil, map[string]bool{}, false)
+  exports := resolver.accessor(module, segments, nil, false)
   sort.SliceStable(exports, func(left, right int) bool { return len(exports[left].Address) > len(exports[right].Address) })
   for _, exported := range exports {
     if exported.Local == "" {

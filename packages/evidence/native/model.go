@@ -454,6 +454,8 @@ type claimState struct {
 }
 
 type referenceState struct {
+  // Code resolves finite accessor paths independently of population traversal.
+  Code   *typeScriptExportResolver
   Spec   referenceSpec
   Paths  []string
   Units  []*evidenceUnit

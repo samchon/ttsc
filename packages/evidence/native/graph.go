@@ -640,6 +640,8 @@ func evaluateEvidenceGraph(
         loader,
         scopedTargets,
         scopedHidden,
+        fileLinks,
+        states,
         context,
       )
       if problem != "" {
@@ -1459,6 +1461,7 @@ func materializeEntryReference(
   state.Units = population.Units
   state.Hidden = population.Hidden
   state.Published = population.Published
+  state.Code = population.Code
   if failure := loader.failure(entry); failure != "" {
     state.Healthy = false
     return state, []string{
@@ -1550,6 +1553,7 @@ func materializeLocalTypeScriptReference(
   state.Units = population.Units
   state.Hidden = population.Hidden
   state.Published = population.Published
+  state.Code = population.Code
   applyTraversedScopes(&state, population.Reached)
   if !state.Healthy {
     return state, nil
@@ -1635,6 +1639,7 @@ func materializePackageGlobReference(
   state.Units = population.Units
   state.Hidden = population.Hidden
   state.Published = population.Published
+  state.Code = population.Code
   applyTraversedScopes(&state, population.Reached)
   if !state.Healthy {
     return state, problems
@@ -1702,6 +1707,8 @@ func resolveInlineLinkDeclaration(
   loader *typeScriptLoader,
   scopedTargets map[scopedTargetKey]map[string]*evidenceUnit,
   scopedHidden map[scopedTargetKey]*evidenceUnit,
+  fileLinks map[int]*fileLinkClaimIndex,
+  states []claimState,
   context string,
 ) (string, string) {
   target := inlineLinkTarget(declaration.Target)
@@ -1733,6 +1740,21 @@ func resolveInlineLinkDeclaration(
   }
   name := strings.Join(remaining, ".")
   candidates := scopedTargets[scopedTargetKey{path: resolvedPath, target: name}]
+  if len(candidates) == 0 {
+    identity, _ := loader.moduleIdentity(resolvedPath)
+    dynamic, hidden := queryFileLinkClaims(fileLinks, states, identity, remaining, true)
+    if len(dynamic) != 0 {
+      candidates = dynamic
+    }
+    if len(candidates) == 0 && len(hidden) != 0 {
+      ids := make([]string, 0, len(hidden))
+      for id := range hidden {
+        ids = append(ids, id)
+      }
+      sort.Strings(ids)
+      return "", hiddenTargetProblem(declaration, hidden[ids[0]], context)
+    }
+  }
   switch len(candidates) {
   case 0:
     if hidden := scopedHidden[scopedTargetKey{
