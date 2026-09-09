@@ -299,8 +299,9 @@ function buildProject(
     cacheDir: context.pluginCacheDir,
     outDir: context.emitDir,
     passthrough: runtimeCompilerArgs(
-      context.project.compilerOptions,
+      context.project,
       options.passthrough,
+      options.binary,
     ),
     // `context.emitDir` is ttsx's own temp directory, not an output the project
     // asked for, and tsgo demands an explicit `rootDir` (TS5011) as soon as any
@@ -427,8 +428,9 @@ function buildEntryProject(
       cacheDir: context.pluginCacheDir,
       outDir: emitDir,
       passthrough: runtimeCompilerArgs(
-        project.compilerOptions,
+        project,
         options.passthrough,
+        options.binary,
       ),
       forceRuntimeSourceMap: context.forceRuntimeSourceMap,
       pluginConfigDir: options.pluginConfigDir,

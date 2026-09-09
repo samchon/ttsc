@@ -42,11 +42,9 @@ import { inlineServedSourceMap } from "./servedSourceMap";
  *    type-stripping cannot do cross-file type-only elision — e.g. a
  *    value-shaped import of a type+namespace merge survives stripping and
  *    dangles at runtime.
- * 3. No owning tsconfig → transform the lone file by the format it resolves to: a
- *    CommonJS-classified file (`.cts`, or a `.ts` in a package without `type:
- *    "module"`) is lowered to CommonJS through a tsgo single-file emit so its
- *    `export` syntax becomes `module.exports`; any other (ESM) file keeps the
- *    fast in-process `mode: "transform"` type-strip.
+ * 3. No owning tsconfig: use an isolated tsgo emit in the runtime module format,
+ *    lowering standard decorators and CommonJS imports/exports. Type stripping
+ *    remains recovery when no compiler emit is available.
  *
  * The hooks are synchronous and run on the main thread (not a loader worker):
  * that is what lets a CommonJS `require("./x")` chain reach them and what makes
@@ -1037,7 +1035,7 @@ function owningModuleOptions(filename: string): OwningModuleOptions | null {
     // The owning project cannot be read, so nothing is known about the format
     // it would have emitted. That is the same state as having no project at
     // all, and it is what the dependency lane will conclude too when its build
-    // fails and the file falls through to the orphan type-strip.
+    // fails and the file falls through to the isolated orphan emit.
     moduleOptionsCache.set(tsconfig, null);
     return null;
   }
@@ -1203,9 +1201,8 @@ export function projectModuleOptions(
 /**
  * Resolve the JavaScript to run for a TypeScript source file, in priority
  * order: the entry project's pre-built emit (transform plugins applied), a
- * built raw `.ts` dependency, or — when no tsconfig owns it — a `mode:
- * "transform"` type-strip. Shared by the ESM `load` hook and the CommonJS
- * `require` handler.
+ * built raw `.ts` dependency, or an isolated emit when no tsconfig owns it.
+ * Shared by the ESM `load` hook and the CommonJS `require` handler.
  */
 function resolveServedSource(
   filename: string,
@@ -1252,7 +1249,8 @@ function resolveServedSource(
  * map's `sources`, so the JavaScript executed under the `.ts` source URL stays
  * self-describing after the per-run emit directory is deleted. Applied to both
  * the entry lane (`serveEntryEmit`) and the dependency lane
- * (`serveBuiltDependency`); the orphan type-strip lane carries no emitted map.
+ * (`serveBuiltDependency`); the orphan lane inlines its own map before
+ * caching.
  */
 function withInlineSourceMap(served: ServedSource): ServedSource {
   const source = inlineServedSourceMap(
@@ -1337,6 +1335,13 @@ function emitOrphanSource(
         // each one would otherwise pay a full single-file check.
         "--noCheck",
         "--skipLibCheck",
+        // This cache owns one source, not its dependency graph. Do not inline
+        // imported const enums or emit other files (which can share its stem).
+        // Isolated modules also retain each const enum's runtime definition.
+        "--noResolve",
+        "--isolatedModules",
+        "--sourceMap",
+        "--inlineSources",
         "--outDir",
         outDir,
         "--listEmittedFiles",
@@ -1347,7 +1352,11 @@ function emitOrphanSource(
       filename,
       parseEmittedFiles(outputText(res.stdout)),
     );
-    const lowered = emitted === null ? null : readFileOrNull(emitted);
+    const source = emitted === null ? null : readFileOrNull(emitted);
+    const lowered =
+      source === null
+        ? null
+        : inlineServedSourceMap(source, emitted!, filename);
     if (lowered !== null && cacheFile !== null) {
       writeOrphanCache(cacheFile, lowered);
     }
@@ -1427,9 +1436,9 @@ function orphanCacheRoot(): string {
 }
 
 /**
- * Content-addressed cache path for one orphan file's lowering, keyed by source
- * bytes, module format and the tsgo binary. `null` when the source cannot be
- * read.
+ * Content-addressed cache path for isolated orphan lowering, including the
+ * source path because the inlined map identifies that path. `null` when the
+ * source cannot be read.
  */
 function orphanCacheFile(
   filename: string,
@@ -1445,6 +1454,8 @@ function orphanCacheFile(
   const key = crypto
     .createHash("sha256")
     .update(tsgo)
+    .update("\0isolated-source-map-v1\0")
+    .update(filename)
     .update("\0" + format)
     .update("\0")
     .update(source)
@@ -2014,7 +2025,7 @@ function serveDependencyEmit(real: string): ServedSource | null {
   try {
     built = ensureProjectBuilt(tsconfig);
   } catch {
-    // The owning project produced no emit at all; fall back to type-stripping
+    // The owning project produced no emit at all; fall back to isolated emit of
     // this single file rather than failing the whole run.
     return null;
   }
@@ -2312,7 +2323,7 @@ function buildDependency(
   fs.mkdirSync(emitDir, { recursive: true });
   const result = runBuild({
     cwd: project.root,
-    passthrough: runtimeCompilerArgs(project.compilerOptions),
+    passthrough: runtimeCompilerArgs(project),
     emit: true,
     forceListEmittedFiles: true,
     outDir: emitDir,
@@ -2356,7 +2367,7 @@ function buildDependency(
   // list": a native transform host (typia, @ttsc/banner, …) emits without
   // printing the `--listEmittedFiles` lines, so `result.emittedFiles` is empty
   // even on a clean build. A genuinely empty output directory is the real
-  // failure; the caller then falls back to type-stripping the one file.
+  // failure; the caller then falls back to isolated emit of the one file.
   if (!emittedAnything(emitDir)) {
     // Drop the failed generation so its partial directory can never be mistaken
     // for a reusable build.
@@ -2810,8 +2821,8 @@ const moduleOptionsCache = new Map<string, OwningModuleOptions | null>();
  * walk stops at a `node_modules` boundary: a tsconfig above `node_modules`
  * belongs to the consumer, not to the published dependency inside it, so a
  * dependency that ships no tsconfig of its own has no owning project and is
- * type-stripped instead. A pnpm-symlinked workspace package is unaffected
- * because `file` is already its real path (outside `node_modules`).
+ * compiled in isolation instead. A pnpm-symlinked workspace package is
+ * unaffected because `file` is already its real path (outside `node_modules`).
  *
  * The walk is memoised per directory (the whole walked chain shares one
  * answer), so the thousands of files a fanned-out test corpus imports from the

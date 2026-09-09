@@ -57,7 +57,7 @@ Projects that enable `allowImportingTsExtensions` are supported. During the runt
 
 For runtime users, standard TC39 class and member decorators work in both ESM and CommonJS, including `ttsc/register`, entries outside `include`, and dependencies that ship TypeScript source. Keep `experimentalDecorators` unset for standard decorators; enable it only for TypeScript's legacy decorator API.
 
-TypeScript-Go preserves proposal syntax when `target` is `ESNext`. For execution, `ttsx` lowers that target to `ES2025` in its private runtime build, retaining the original library selection and module kind. Lower targets keep their configured value. The same rule applies when `--target` selects `ESNext` on the command line. The project's `tsconfig.json`, source files, and ordinary `ttsc` build output are unchanged.
+TypeScript-Go preserves proposal syntax when `target` is `ESNext`. For execution, `ttsx` lowers that target to `ES2025` in its private runtime build, retaining the original library selection and module kind. Lower targets keep their configured value. The same rule applies when `--target` selects `ESNext` on the command line or in a compiler response file. The project's `tsconfig.json`, source files, and ordinary `ttsc` build output are unchanged.
 
 ## Raw-TypeScript dependencies
 
