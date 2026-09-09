@@ -61,6 +61,22 @@ func ProgramResolutionTasks(program *Program) []ProgramResolutionTask {
     if source := program.GetSourceFileByPath(filePath); source != nil {
       sourceFile = source.FileName()
       redirectedReference, containingFile = programResolutionContext(program, source)
+    } else if kind == ProgramResolutionKindTypeReference && strings.HasSuffix(containingFile, module.InferredTypesContainingFile) {
+      // filePath is a cache key, lowercased on case-insensitive filesystems,
+      // not the lexical filename used by the resolver. Automatic types have
+      // no SourceFile to recover that spelling from. Mirror upstream
+      // fileLoader.addAutomaticTypeDirectiveTasks: the semantic config owns
+      // their containing directory, falling back to cwd for configless hosts.
+      // Secondary lookup (package subpaths and relative types) preserves this
+      // spelling in resolvedFileName or a symlink's originalPath. Replaying a
+      // lowercased key falsely rejected unchanged programs in #1353. Restore
+      // the input context here; keep the strict result comparison below so
+      // actual target, package and link changes still invalidate the program.
+      containingDirectory := program.GetCurrentDirectory()
+      if configFile := program.Options().ConfigFilePath; configFile != "" {
+        containingDirectory = tspath.GetDirectoryPath(configFile)
+      }
+      containingFile = tspath.CombinePaths(containingDirectory, module.InferredTypesContainingFile)
     }
     if target := program.GetSourceFileForResolvedModule(expected.resolvedFileName); target != nil {
       targetFile = target.FileName()
