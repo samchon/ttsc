@@ -174,22 +174,24 @@ const LANES = [
     needsGo: true,
     scope: "test-metro",
     build: "pnpm run build:current",
-    // The project-membership family plus the cheap predicate matrix, not the
-    // whole suite. The lane owns the Windows-only half of the adapter: the
+    // The project-membership family, predicate matrix and real native envelope
+    // cases. The lane owns the Windows-only half of the adapter: the
     // mutation broker, a child process that watches canonical directory
     // spellings while everything else speaks the walk's own, and short 8.3
     // temp paths, which make those two names for one directory share no common
     // prefix at all. It also proves that a POSIX filesystem supplied to a
     // Windows host keeps POSIX path semantics. Every other lane runs these
     // cases on Linux, where those branches are invisible (samchon/ttsc#1307,
-    // samchon/ttsc#1324).
+    // samchon/ttsc#1324). Native envelopes also exercise mixed-case automatic
+    // type resolution through the Go host, generated config and adapter;
+    // Linux-only coverage missed that case-insensitive regression in #1353.
     run:
       "pnpm --filter @ttsc/test-unplugin start -- " +
       "--include=membership --include=output_directory --include=the_walk " +
       "--include=new_source " +
       "--include=persistent_host --include=hashed_bundle --include=allowjs " +
       "--include=non_source_host_inputs --include=policy_reports " +
-      "--include=predicate_proofs && " +
+      "--include=predicate_proofs --include=real_native_envelope && " +
       // `packages/metro/**` selects this lane, so it has to run metro's own
       // walk-facing cases rather than only the adapter's. There is no
       // Windows-only branch in `@ttsc/metro` itself; what these cases add is
