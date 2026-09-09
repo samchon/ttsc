@@ -40,7 +40,7 @@ catalogs:
     "@nestia/core": *nestia
     "@nestia/fetcher": *nestia
     "@nestia/sdk": *nestia
-    typia: &typia 14.0.0
+    typia: &typia ^14.0.6
     "@typia/interface": *typia
     "@typia/mcp": *typia
     "@typia/utils": *typia
