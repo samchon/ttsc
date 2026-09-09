@@ -1,4 +1,3 @@
-import { parse as parseCommonJs } from "cjs-module-lexer";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import {
@@ -22,6 +21,7 @@ import {
   type FilesystemPathIdentityContext,
   createFilesystemPathIdentityContext,
 } from "../../internal/projectInputPathIdentity";
+import { parseCommonJsExports } from "./commonJsExportMetadata";
 import { runtimeCompilerArgs } from "./runtimeCompilerArgs";
 import { inlineServedSourceMap } from "./servedSourceMap";
 
@@ -1611,19 +1611,6 @@ function collectCommonJsExportNames(
     }
   }
   return names;
-}
-
-/** Read Node-compatible export metadata without replacing Node's syntax errors. */
-function parseCommonJsExports(
-  source: string,
-): ReturnType<typeof parseCommonJs> {
-  try {
-    return parseCommonJs(source);
-  } catch {
-    // Discovery is advisory. The unchanged source still reaches Node, which
-    // owns the diagnostic if the module is not valid JavaScript.
-    return { exports: [], reexports: [] };
-  }
 }
 
 function collectSourceCommonJsExportNames(

@@ -340,6 +340,9 @@ importers:
 
   packages/ttsc:
     dependencies:
+      acorn:
+        specifier: 8.16.0
+        version: 8.16.0
       cjs-module-lexer:
         specifier: 2.2.1
         version: 2.2.1
