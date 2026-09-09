@@ -42,6 +42,10 @@ const WAIVED = new Map([
     "GHSA-jmr9-qjv8-65gv",
     "extract-zip permits a malicious archive symlink to escape its destination, but no patched release exists. It reaches this workspace only through Puppeteer's browser downloader inside the website-only @marp-team/marp-cli build dependency. ttsc's slide build emits HTML from repository Markdown and does not download or extract an attacker-supplied browser archive.",
   ],
+  [
+    "GHSA-7pqw-9j4j-h8q3",
+    "extract-zip can write through a symlink followed by a same-name archive entry; no patched release exists. It has the same website-only Puppeteer browser-downloader path as GHSA-jmr9-qjv8-65gv. The slide build emits HTML from repository Markdown and does not extract an attacker-supplied archive.",
+  ],
 ]);
 
 function parseSummary(stdout) {
