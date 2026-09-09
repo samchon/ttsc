@@ -1367,7 +1367,10 @@ function emitOrphanSource(
 }
 
 /**
- * Emit a source file only for CommonJS export-name discovery.
+ * Read actual owned output for CommonJS export-name discovery, falling back to
+ * isolated emission only when no project emitted this source. Project
+ * transforms and const-enum settings decide which names exist at runtime. An
+ * ESM emit is lowered as JavaScript solely to scan its CommonJS names.
  *
  * This intentionally does not read or write the runtime orphan cache. Name
  * discovery may inspect a source dependency without executing it, so sharing
@@ -1380,6 +1383,14 @@ function emitCommonJsForNameScan(filename: string): string | null {
   if (cached !== undefined) {
     return cached;
   }
+  const served = serveEntryEmit(real) ?? serveDependencyEmit(real);
+  if (
+    served !== null &&
+    moduleFormat(real, served.moduleOptions) === "commonjs"
+  ) {
+    commonJsNameScanSources.set(real, served.source);
+    return served.source;
+  }
   let tsgo: string;
   try {
     tsgo = resolveTsgo({ cwd: path.dirname(real) }).binary;
@@ -1389,10 +1400,14 @@ function emitCommonJsForNameScan(filename: string): string | null {
   }
   const outDir = createCanonicalTempDirectory("ttsx-export-scan-");
   try {
+    // Compile the owned JavaScript, not the original TypeScript whose project
+    // may already have erased or transformed declarations. No source executes.
+    const input = served === null ? real : path.join(outDir, "source.cts");
+    if (served !== null) fs.writeFileSync(input, served.source);
     const res = spawnNative(
       tsgo,
       [
-        real,
+        input,
         "--module",
         "commonjs",
         ...ISOLATED_EMIT_ARGS,
@@ -1403,7 +1418,7 @@ function emitCommonJsForNameScan(filename: string): string | null {
       { cwd: path.dirname(real), encoding: "utf8" },
     );
     const emitted = pickEmittedJavaScript(
-      real,
+      input,
       parseEmittedFiles(outputText(res.stdout)),
     );
     const lowered = emitted === null ? null : readFileOrNull(emitted);
