@@ -25,6 +25,23 @@ import { runtimeCompilerArgs } from "./runtimeCompilerArgs";
 import { inlineServedSourceMap } from "./servedSourceMap";
 
 /**
+ * One emit policy for orphan execution and CommonJS export discovery. The
+ * compiler ignores the consumer's config, lowers proposal syntax, and checks no
+ * types because the entry build owns diagnostics. Isolation prevents imported
+ * const-enum inlining and secondary emits, and keeps const enums as runtime
+ * exports that the name scanner must also observe.
+ */
+const ISOLATED_EMIT_ARGS = [
+  "--ignoreConfig",
+  "--target",
+  "es2022",
+  "--noCheck",
+  "--skipLibCheck",
+  "--noResolve",
+  "--isolatedModules",
+] as const;
+
+/**
  * Synchronous Node module hooks installed (via `module.registerHooks`) in the
  * child process `ttsx` spawns to run a TypeScript entry _from source_.
  *
@@ -1318,28 +1335,9 @@ function emitOrphanSource(
       tsgo,
       [
         filename,
-        // The file is named on the command line, so any tsconfig tsgo would
-        // discover by walking up (the consumer's own) must be ignored — both
-        // because it is not this file's project and because tsgo errors out
-        // ("tsconfig.json is present but will not be loaded") otherwise.
-        "--ignoreConfig",
         "--module",
         format === "commonjs" ? "commonjs" : "esnext",
-        "--target",
-        "es2022",
-        // This is an emit-only lowering: the entry project's up-front build is
-        // the type gate, so the single-file pass does not need to type-check.
-        // Skipping the check (and the lib check it implies) cuts the per-file
-        // cost several-fold, which matters when a program generates and imports
-        // thousands of raw `.ts` files at runtime (a fanned-out test corpus) and
-        // each one would otherwise pay a full single-file check.
-        "--noCheck",
-        "--skipLibCheck",
-        // This cache owns one source, not its dependency graph. Do not inline
-        // imported const enums or emit other files (which can share its stem).
-        // Isolated modules also retain each const enum's runtime definition.
-        "--noResolve",
-        "--isolatedModules",
+        ...ISOLATED_EMIT_ARGS,
         "--sourceMap",
         "--inlineSources",
         "--outDir",
@@ -1395,13 +1393,9 @@ function emitCommonJsForNameScan(filename: string): string | null {
       tsgo,
       [
         real,
-        "--ignoreConfig",
         "--module",
         "commonjs",
-        "--target",
-        "es2022",
-        "--noCheck",
-        "--skipLibCheck",
+        ...ISOLATED_EMIT_ARGS,
         "--outDir",
         outDir,
         "--listEmittedFiles",
