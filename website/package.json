@@ -45,7 +45,7 @@
     "katex": "^0.16.22",
     "lz-string": "^1.5.0",
     "monaco-editor": "^0.52.0",
-    "next": "^16.3.0",
+    "next": "^16.3.3",
     "nextra": "4.6.0",
     "nextra-theme-docs": "4.6.0",
     "path": "^0.12.7",

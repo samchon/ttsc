@@ -129,6 +129,35 @@ test("the unpatched website browser-downloader advisory is explicit", () => {
   assert.match(outcome.message, /GHSA-jmr9-qjv8-65gv/);
 });
 
+test("both browser-downloader waivers expire independently when a fix appears", () => {
+  const ids = ["GHSA-jmr9-qjv8-65gv", "GHSA-7pqw-9j4j-h8q3"];
+  for (const fixed of [undefined, ...ids]) {
+    const advisories = Object.fromEntries(
+      ids.map((id, index) => [
+        index,
+        {
+          ...unfixable(id),
+          ...(id === fixed ? { patched_versions: ">=2.0.2" } : {}),
+        },
+      ]),
+    );
+    const outcome = evaluateAudit({
+      status: 1,
+      stdout: payload({ high: 2, advisories }),
+      stderr: "",
+    });
+    assert.equal(outcome.ok, fixed === undefined);
+    if (fixed === undefined) {
+      assert.match(outcome.message, /waived=2/);
+      for (const id of ids) assert.ok(outcome.message.includes(id));
+    } else {
+      assert.ok(outcome.message.includes(`blocking advisories: ${fixed}`));
+      assert.match(outcome.message, /waived=1/);
+      assert.match(outcome.message, /does not hold/);
+    }
+  }
+});
+
 test("a waiver stops applying the moment upstream publishes a fix", () => {
   const outcome = evaluateAudit({
     status: 1,
@@ -330,18 +359,22 @@ test("the lockfile excludes every campaign high or critical resolution", () => {
     "fast-uri@3.1.5:",
     "form-data@4.0.5:",
     "js-yaml@4.1.1:",
+    "js-yaml@4.3.1:",
     "linkify-it@5.0.0:",
     "nanoid@3.3.16:",
     "next@15.5.18:",
+    "next@16.3.0:",
     "postcss@8.4.31:",
     "postcss@8.5.15:",
     "sharp@0.34.5:",
+    "sharp@0.35.3:",
     "shell-quote@1.8.4:",
     "tmp@0.2.5:",
     "tmp@0.2.6:",
     "undici@7.25.0:",
     "vite@7.3.3:",
     "websocket-driver@0.7.4:",
+    "'@xmldom/xmldom@0.9.10':",
   ])
     assert.doesNotMatch(
       lockfile,

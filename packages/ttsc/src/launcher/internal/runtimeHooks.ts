@@ -21,7 +21,26 @@ import {
   type FilesystemPathIdentityContext,
   createFilesystemPathIdentityContext,
 } from "../../internal/projectInputPathIdentity";
+import { parseCommonJsExports } from "./commonJsExportMetadata";
+import { runtimeCompilerArgs } from "./runtimeCompilerArgs";
 import { inlineServedSourceMap } from "./servedSourceMap";
+
+/**
+ * One emit policy for orphan execution and CommonJS export discovery. The
+ * compiler ignores the consumer's config, lowers proposal syntax, and checks no
+ * types because the entry build owns diagnostics. Isolation prevents imported
+ * const-enum inlining and secondary emits, and keeps const enums as runtime
+ * exports that the name scanner must also observe.
+ */
+const ISOLATED_EMIT_ARGS = [
+  "--ignoreConfig",
+  "--target",
+  "es2022",
+  "--noCheck",
+  "--skipLibCheck",
+  "--noResolve",
+  "--isolatedModules",
+] as const;
 
 /**
  * Synchronous Node module hooks installed (via `module.registerHooks`) in the
@@ -41,11 +60,9 @@ import { inlineServedSourceMap } from "./servedSourceMap";
  *    type-stripping cannot do cross-file type-only elision — e.g. a
  *    value-shaped import of a type+namespace merge survives stripping and
  *    dangles at runtime.
- * 3. No owning tsconfig → transform the lone file by the format it resolves to: a
- *    CommonJS-classified file (`.cts`, or a `.ts` in a package without `type:
- *    "module"`) is lowered to CommonJS through a tsgo single-file emit so its
- *    `export` syntax becomes `module.exports`; any other (ESM) file keeps the
- *    fast in-process `mode: "transform"` type-strip.
+ * 3. No owning tsconfig: use an isolated tsgo emit in the runtime module format,
+ *    lowering standard decorators and CommonJS imports/exports. Type stripping
+ *    remains recovery when no compiler emit is available.
  *
  * The hooks are synchronous and run on the main thread (not a loader worker):
  * that is what lets a CommonJS `require("./x")` chain reach them and what makes
@@ -1036,7 +1053,7 @@ function owningModuleOptions(filename: string): OwningModuleOptions | null {
     // The owning project cannot be read, so nothing is known about the format
     // it would have emitted. That is the same state as having no project at
     // all, and it is what the dependency lane will conclude too when its build
-    // fails and the file falls through to the orphan type-strip.
+    // fails and the file falls through to the isolated orphan emit.
     moduleOptionsCache.set(tsconfig, null);
     return null;
   }
@@ -1202,9 +1219,8 @@ export function projectModuleOptions(
 /**
  * Resolve the JavaScript to run for a TypeScript source file, in priority
  * order: the entry project's pre-built emit (transform plugins applied), a
- * built raw `.ts` dependency, or — when no tsconfig owns it — a `mode:
- * "transform"` type-strip. Shared by the ESM `load` hook and the CommonJS
- * `require` handler.
+ * built raw `.ts` dependency, or an isolated emit when no tsconfig owns it.
+ * Shared by the ESM `load` hook and the CommonJS `require` handler.
  */
 function resolveServedSource(
   filename: string,
@@ -1251,7 +1267,8 @@ function resolveServedSource(
  * map's `sources`, so the JavaScript executed under the `.ts` source URL stays
  * self-describing after the per-run emit directory is deleted. Applied to both
  * the entry lane (`serveEntryEmit`) and the dependency lane
- * (`serveBuiltDependency`); the orphan type-strip lane carries no emitted map.
+ * (`serveBuiltDependency`); the orphan lane inlines its own map before
+ * caching.
  */
 function withInlineSourceMap(served: ServedSource): ServedSource {
   const source = inlineServedSourceMap(
@@ -1267,23 +1284,17 @@ function withInlineSourceMap(served: ServedSource): ServedSource {
  * vendored package that ships raw `.ts`/`.cts`/`.mts` straight under
  * `node_modules`), choosing the lowering by the format the file resolves to.
  *
- * Node's in-process `stripTypeScriptTypes` only erases type syntax; it never
- * rewrites ECMAScript `import`/`export` into CommonJS. That is correct for a
- * file Node will load as ESM, but wrong for one classified CommonJS — a `.cts`,
- * or a `.ts` in a package without `type: "module"` — when the author wrote it
- * with module syntax (`export const`, `export namespace`, `export function`).
- * Stripping leaves the `export` in place and Node's CommonJS loader dies with
- * `SyntaxError: Unexpected token 'export'`. So a CommonJS-format orphan is
- * lowered through a real tsgo `--module commonjs` single-file emit (which also
- * handles `export =`), exactly the format decision tsgo would have made for an
- * owning project; an ESM-format orphan keeps the fast in-process strip.
+ * Both module formats need the compiler: Node's type stripping neither lowers
+ * standard decorators nor rewrites ESM exports for CommonJS. Use the existing
+ * single-file emit with the file's own module format and a standard target.
+ * Retain stripping as recovery when no compiler emit is available.
  */
 function transformOrphanSource(filename: string, url: string): string {
-  if (moduleFormat(filename, null) === "commonjs") {
-    const lowered = emitOrphanAsCommonJs(filename);
-    if (lowered !== null) {
-      return lowered;
-    }
+  const format =
+    moduleFormat(filename, null) === "commonjs" ? "commonjs" : "module";
+  const lowered = emitOrphanSource(filename, format);
+  if (lowered !== null) {
+    return lowered;
   }
   return stripTypeScriptTypes(fs.readFileSync(filename, "utf8"), {
     mode: "transform",
@@ -1292,25 +1303,27 @@ function transformOrphanSource(filename: string, url: string): string {
 }
 
 /**
- * Lower a single CommonJS-format source file to CommonJS JavaScript by running
- * tsgo on the lone file with `--module commonjs`. Emit-only, no diagnostic gate
- * (the entry project's up-front check is the type gate), matching
- * `buildDependency`. Returns `null` when tsgo is unavailable or produced no
- * output, so the caller can fall back to the in-process strip.
+ * Lower a single source file to its runtime module format. Emit-only, no
+ * diagnostic gate (the entry project's up-front check is the type gate),
+ * matching `buildDependency`. Returns `null` when tsgo is unavailable or
+ * produced no output, so the caller can fall back to the in-process strip.
  */
-function emitOrphanAsCommonJs(filename: string): string | null {
+function emitOrphanSource(
+  filename: string,
+  format: "commonjs" | "module",
+): string | null {
   let tsgo: string;
   try {
     tsgo = resolveTsgo({ cwd: path.dirname(filename) }).binary;
   } catch {
     return null;
   }
-  // Content-hash cache: a CJS-format orphan ('s tsgo single-file emit) is lowered
+  // Content-hash cache: an orphan's tsgo single-file emit is lowered
   // once and reused by every other process in the run, and across runs. Without
   // it a program that fans out into many processes (the automated test corpus
   // imports the same vendored `.ts` deps from thousands of generated files) would
   // re-spawn tsgo per file per process and crawl.
-  const cacheFile = orphanCacheFile(filename, tsgo);
+  const cacheFile = orphanCacheFile(filename, tsgo, format);
   if (cacheFile !== null) {
     const hit = readFileOrNull(cacheFile);
     if (hit !== null) {
@@ -1323,31 +1336,26 @@ function emitOrphanAsCommonJs(filename: string): string | null {
       tsgo,
       [
         filename,
-        // The file is named on the command line, so any tsconfig tsgo would
-        // discover by walking up (the consumer's own) must be ignored — both
-        // because it is not this file's project and because tsgo errors out
-        // ("tsconfig.json is present but will not be loaded") otherwise.
-        "--ignoreConfig",
         "--module",
-        "commonjs",
-        "--target",
-        "es2022",
-        // This is an emit-only lowering: the entry project's up-front build is
-        // the type gate, so the single-file pass does not need to type-check.
-        // Skipping the check (and the lib check it implies) cuts the per-file
-        // cost several-fold, which matters when a program generates and imports
-        // thousands of raw `.ts` files at runtime (a fanned-out test corpus) and
-        // each one would otherwise pay a full single-file check.
-        "--noCheck",
-        "--skipLibCheck",
+        format === "commonjs" ? "commonjs" : "esnext",
+        ...ISOLATED_EMIT_ARGS,
+        "--sourceMap",
+        "--inlineSources",
         "--outDir",
         outDir,
         "--listEmittedFiles",
       ],
       { cwd: path.dirname(filename), encoding: "utf8" },
     );
-    const emitted = parseFirstEmittedFile(outputText(res.stdout));
-    const lowered = emitted === null ? null : readFileOrNull(emitted);
+    const emitted = pickEmittedJavaScript(
+      filename,
+      parseEmittedFiles(outputText(res.stdout)),
+    );
+    const source = emitted === null ? null : readFileOrNull(emitted);
+    const lowered =
+      source === null
+        ? null
+        : inlineServedSourceMap(source, emitted!, filename);
     if (lowered !== null && cacheFile !== null) {
       writeOrphanCache(cacheFile, lowered);
     }
@@ -1360,7 +1368,10 @@ function emitOrphanAsCommonJs(filename: string): string | null {
 }
 
 /**
- * Emit a source file only for CommonJS export-name discovery.
+ * Read actual owned output for CommonJS export-name discovery, falling back to
+ * isolated emission only when no project emitted this source. Project
+ * transforms and const-enum settings decide which names exist at runtime. An
+ * ESM emit is lowered as JavaScript solely to scan its CommonJS names.
  *
  * This intentionally does not read or write the runtime orphan cache. Name
  * discovery may inspect a source dependency without executing it, so sharing
@@ -1373,6 +1384,14 @@ function emitCommonJsForNameScan(filename: string): string | null {
   if (cached !== undefined) {
     return cached;
   }
+  const served = serveEntryEmit(real) ?? serveDependencyEmit(real);
+  if (
+    served !== null &&
+    moduleFormat(real, served.moduleOptions) === "commonjs"
+  ) {
+    commonJsNameScanSources.set(real, served.source);
+    return served.source;
+  }
   let tsgo: string;
   try {
     tsgo = resolveTsgo({ cwd: path.dirname(real) }).binary;
@@ -1382,17 +1401,17 @@ function emitCommonJsForNameScan(filename: string): string | null {
   }
   const outDir = createCanonicalTempDirectory("ttsx-export-scan-");
   try {
+    // Compile the owned JavaScript, not the original TypeScript whose project
+    // may already have erased or transformed declarations. No source executes.
+    const input = served === null ? real : path.join(outDir, "source.cts");
+    if (served !== null) fs.writeFileSync(input, served.source);
     const res = spawnNative(
       tsgo,
       [
-        real,
-        "--ignoreConfig",
+        input,
         "--module",
         "commonjs",
-        "--target",
-        "es2022",
-        "--noCheck",
-        "--skipLibCheck",
+        ...ISOLATED_EMIT_ARGS,
         "--outDir",
         outDir,
         "--listEmittedFiles",
@@ -1400,7 +1419,7 @@ function emitCommonJsForNameScan(filename: string): string | null {
       { cwd: path.dirname(real), encoding: "utf8" },
     );
     const emitted = pickEmittedJavaScript(
-      real,
+      input,
       parseEmittedFiles(outputText(res.stdout)),
     );
     const lowered = emitted === null ? null : readFileOrNull(emitted);
@@ -1423,15 +1442,19 @@ function orphanCacheRoot(): string {
     process.env.TTSC_CACHE_DIR && process.env.TTSC_CACHE_DIR.length !== 0
       ? process.env.TTSC_CACHE_DIR
       : path.join(os.tmpdir(), "ttsc-orphan");
-  return path.join(base, "ttsx-orphan-cjs");
+  return path.join(base, "ttsx-orphan");
 }
 
 /**
- * Content-addressed cache path for one orphan file's CommonJS lowering, keyed
- * by source bytes and the tsgo binary so a tsgo bump invalidates it. `null`
- * when the source cannot be read.
+ * Content-addressed cache path for isolated orphan lowering, including the
+ * source path because the inlined map identifies that path. `null` when the
+ * source cannot be read.
  */
-function orphanCacheFile(filename: string, tsgo: string): string | null {
+function orphanCacheFile(
+  filename: string,
+  tsgo: string,
+  format: "commonjs" | "module",
+): string | null {
   let source: Buffer;
   try {
     source = fs.readFileSync(filename);
@@ -1441,6 +1464,9 @@ function orphanCacheFile(filename: string, tsgo: string): string | null {
   const key = crypto
     .createHash("sha256")
     .update(tsgo)
+    .update("\0isolated-source-map-v1\0")
+    .update(filename)
+    .update("\0" + format)
     .update("\0")
     .update(source)
     .digest("hex")
@@ -1462,17 +1488,6 @@ function writeOrphanCache(cacheFile: string, lowered: string): void {
   } catch {
     // ignore — caching is an optimization, correctness does not depend on it
   }
-}
-
-/** First `TSFILE:` path tsgo printed under `--listEmittedFiles`, or `null`. */
-function parseFirstEmittedFile(stdout: string): string | null {
-  for (const line of stdout.split(/\r?\n/)) {
-    const match = line.match(/^TSFILE:\s*(.+)$/);
-    if (match?.[1]) {
-      return match[1].trim();
-    }
-  }
-  return null;
 }
 
 /** `TSFILE:` paths tsgo printed under `--listEmittedFiles`. */
@@ -1516,48 +1531,37 @@ function pickEmittedJavaScript(
  * Runtime CommonJS consumers see the getters that helper installs, but Node's
  * ESM linker only exposes named imports it can statically identify from
  * `exports.name = ...` assignments. For relative star re-exports whose emitted
- * target is available, replace the helper call with explicit configurable
- * export placeholders followed by the same `__createBinding` getter install.
+ * target is available, advertise its names through inert assignments that
+ * Node's static lexer recognizes. The original helper still owns every runtime
+ * binding, including values static discovery cannot enumerate.
  */
 function exposeCommonJsStarExports(
   source: string,
   emittedFile: string | undefined,
   sourceFile: string | undefined,
 ): string {
-  if (!source.includes("__exportStar(")) {
-    return source;
+  const parsed = parseCommonJsExports(source);
+  const reserved = new Set(parsed.exports);
+  const names = new Set<string>();
+  for (const specifier of parsed.reexports) {
+    for (const name of collectStarExportNames(
+      emittedFile,
+      sourceFile,
+      specifier,
+    )) {
+      if (name !== "default" && name !== "__esModule" && !reserved.has(name)) {
+        names.add(name);
+      }
+    }
   }
-  const reserved = collectStaticCommonJsExportNames(source);
-  let index = 0;
-  return source.replace(
-    /^(\s*)__exportStar\(\s*require\((["'])([^"']+)\2\)\s*,\s*exports\s*\);/gm,
-    (statement: string, indent: string, _quote: string, specifier: string) => {
-      const names = [
-        ...collectStarExportNames(emittedFile, sourceFile, specifier),
-      ].filter(
-        (name) =>
-          name !== "default" &&
-          name !== "__esModule" &&
-          isIdentifierName(name) &&
-          !reserved.has(name),
-      );
-      if (names.length === 0) {
-        return statement;
-      }
-      for (const name of names) {
-        reserved.add(name);
-      }
-      const receiver = `__ttsx_export_star_${index++}`;
-      return [
-        ...names.map((name) => `${indent}exports.${name} = void 0;`),
-        `${indent}var ${receiver} = require(${JSON.stringify(specifier)});`,
-        ...names.map(
-          (name) =>
-            `${indent}__createBinding(exports, ${receiver}, ${JSON.stringify(name)});`,
-        ),
-      ].join("\n");
-    },
-  );
+  if (names.size === 0) return source;
+  // Node's lexer reads these assignments statically. Nothing executes, and no
+  // existing statement, source position, control-flow body or runtime export
+  // is changed. Keep all specifier/literal parsing in the same lexer Node uses.
+  const hints = [...names]
+    .map((name) => `exports[${JSON.stringify(name)}] = void 0;`)
+    .join(" ");
+  return source + `\nif (false) { ${hints} }\n`;
 }
 
 function collectStarExportNames(
@@ -1593,8 +1597,9 @@ function collectCommonJsExportNames(
   if (source === null) {
     return new Set();
   }
-  const names = collectStaticCommonJsExportNames(source);
-  for (const specifier of collectExportStarSpecifiers(source)) {
+  const parsed = parseCommonJsExports(source);
+  const names = new Set(parsed.exports);
+  for (const specifier of parsed.reexports) {
     const target = resolveEmittedRequire(real, specifier);
     if (target === null) {
       continue;
@@ -1606,164 +1611,6 @@ function collectCommonJsExportNames(
     }
   }
   return names;
-}
-
-function collectStaticCommonJsExportNames(source: string): Set<string> {
-  // Scan executable syntax only. Text that merely resembles an assignment —
-  // `exports.x =` inside a comment, string, or template-literal text — must not
-  // become an ESM-visible export name, or a named import of it would link to
-  // `undefined` for a property the CommonJS module never defines. Masking the
-  // inert lexical spans before matching keeps genuine top-level assignments
-  // (and executable `${ ... }` template substitutions) while dropping the
-  // decoys.
-  const scannable = maskCommentsAndStrings(source);
-  const names = new Set<string>();
-  const pattern =
-    /(?:^|[^\w$])(?:exports|module\.exports)\.([A-Za-z_$][\w$]*)\s*=/g;
-  let match: RegExpExecArray | null;
-  while ((match = pattern.exec(scannable)) !== null) {
-    names.add(match[1]!);
-  }
-  return names;
-}
-
-/**
- * Blank out the interior of line comments, block comments, string literals, and
- * template-literal text in emitted JavaScript, replacing each masked character
- * with a space while preserving newlines, code, and template `${ ... }`
- * substitutions verbatim. Positions and length are preserved so an offset in
- * the masked text maps back to the same offset in the source.
- *
- * The input is tsgo's CommonJS emit (well-formed JavaScript), so a character
- * scanner that tracks the standard comment/string/template states is sufficient
- * to separate executable tokens from inert text. Regular-expression literals
- * are intentionally not masked: distinguishing `/`-division from a regex
- * literal needs full tokenization, and tsgo's CommonJS emit never wraps an
- * `exports.<name> =` assignment inside a regex literal.
- */
-function maskCommentsAndStrings(source: string): string {
-  const out = source.split("");
-  const n = out.length;
-  const blank = (index: number): void => {
-    const ch = out[index];
-    if (ch !== "\n" && ch !== "\r") {
-      out[index] = " ";
-    }
-  };
-  // A stack of lexical contexts. The base is code; each backtick pushes a
-  // template context, and each `${` inside a template pushes a nested code
-  // context whose `braceDepth` tracks `{}` nesting so an object literal inside
-  // the substitution does not end it early.
-  interface Context {
-    kind: "code" | "template";
-    braceDepth: number;
-  }
-  const stack: Context[] = [{ kind: "code", braceDepth: 0 }];
-  let i = 0;
-  while (i < n) {
-    const top = stack[stack.length - 1]!;
-    const ch = out[i]!;
-    if (top.kind === "template") {
-      if (ch === "\\") {
-        blank(i);
-        blank(i + 1);
-        i += 2;
-        continue;
-      }
-      if (ch === "`") {
-        blank(i);
-        stack.pop();
-        i += 1;
-        continue;
-      }
-      if (ch === "$" && out[i + 1] === "{") {
-        // Enter a code substitution: `${` and its contents stay executable.
-        stack.push({ kind: "code", braceDepth: 0 });
-        i += 2;
-        continue;
-      }
-      blank(i);
-      i += 1;
-      continue;
-    }
-    // Code context.
-    if (ch === "/" && out[i + 1] === "/") {
-      blank(i);
-      blank(i + 1);
-      i += 2;
-      while (i < n && out[i] !== "\n") {
-        blank(i);
-        i += 1;
-      }
-      continue;
-    }
-    if (ch === "/" && out[i + 1] === "*") {
-      blank(i);
-      blank(i + 1);
-      i += 2;
-      while (i < n && !(out[i] === "*" && out[i + 1] === "/")) {
-        blank(i);
-        i += 1;
-      }
-      if (i < n) {
-        blank(i);
-        blank(i + 1);
-        i += 2;
-      }
-      continue;
-    }
-    if (ch === '"' || ch === "'") {
-      blank(i);
-      i += 1;
-      while (i < n && out[i] !== ch) {
-        if (out[i] === "\\") {
-          blank(i);
-          blank(i + 1);
-          i += 2;
-          continue;
-        }
-        // A bare newline ends an unterminated string; stop masking so the rest
-        // of the line is still scanned as code (defensive — tsgo never emits
-        // one).
-        if (out[i] === "\n") {
-          break;
-        }
-        blank(i);
-        i += 1;
-      }
-      if (i < n && out[i] === ch) {
-        blank(i);
-        i += 1;
-      }
-      continue;
-    }
-    if (ch === "`") {
-      blank(i);
-      stack.push({ kind: "template", braceDepth: 0 });
-      i += 1;
-      continue;
-    }
-    if (ch === "{") {
-      top.braceDepth += 1;
-      i += 1;
-      continue;
-    }
-    if (ch === "}") {
-      if (top.braceDepth === 0 && stack.length > 1) {
-        // Close the enclosing template `${ ... }` and resume template text.
-        stack.pop();
-        i += 1;
-        continue;
-      }
-      if (top.braceDepth > 0) {
-        top.braceDepth -= 1;
-      }
-      i += 1;
-      continue;
-    }
-    i += 1;
-  }
-  return out.join("");
 }
 
 function collectSourceCommonJsExportNames(
@@ -1779,8 +1626,9 @@ function collectSourceCommonJsExportNames(
   if (source === null) {
     return new Set();
   }
-  const names = collectStaticCommonJsExportNames(source);
-  for (const specifier of collectExportStarSpecifiers(source)) {
+  const parsed = parseCommonJsExports(source);
+  const names = new Set(parsed.exports);
+  for (const specifier of parsed.reexports) {
     const target = resolveSourceSpecifier(real, specifier);
     if (target === null) {
       continue;
@@ -1792,17 +1640,6 @@ function collectSourceCommonJsExportNames(
     }
   }
   return names;
-}
-
-function collectExportStarSpecifiers(source: string): string[] {
-  const specifiers: string[] = [];
-  const pattern =
-    /^(\s*)__exportStar\(\s*require\((["'])([^"']+)\2\)\s*,\s*exports\s*\);/gm;
-  let match: RegExpExecArray | null;
-  while ((match = pattern.exec(source)) !== null) {
-    specifiers.push(match[3]!);
-  }
-  return specifiers;
 }
 
 function resolveEmittedRequire(
@@ -1840,7 +1677,8 @@ function resolveSourceSpecifier(
   }
   const base = path.resolve(path.dirname(sourceFile), specifier);
   if (path.extname(base).length !== 0) {
-    return isFile(base) ? base : null;
+    if (isFile(base)) return base;
+    return typescriptSourcesForJavaScriptSpecifier(base).find(isFile) ?? null;
   }
   for (const extension of TYPESCRIPT_EXTENSIONS) {
     const candidate = base + extension;
@@ -1855,10 +1693,6 @@ function resolveSourceSpecifier(
     }
   }
   return null;
-}
-
-function isIdentifierName(name: string): boolean {
-  return /^[A-Za-z_$][\w$]*$/.test(name);
 }
 
 /**
@@ -2020,7 +1854,7 @@ function serveDependencyEmit(real: string): ServedSource | null {
   try {
     built = ensureProjectBuilt(tsconfig);
   } catch {
-    // The owning project produced no emit at all; fall back to type-stripping
+    // The owning project produced no emit at all; fall back to isolated emit of
     // this single file rather than failing the whole run.
     return null;
   }
@@ -2140,6 +1974,7 @@ export function dependencyCacheKey(
     crypto
       .createHash("sha256")
       .update(tsconfig)
+      .update("\0runtime-es2025")
       // Descriptor evaluation promises a result bound to this process's exact
       // input observations. Reusing an emit another evaluator built can pair
       // that process's old source/config bytes with this process's later hashes.
@@ -2317,6 +2152,7 @@ function buildDependency(
   fs.mkdirSync(emitDir, { recursive: true });
   const result = runBuild({
     cwd: project.root,
+    passthrough: runtimeCompilerArgs(project),
     emit: true,
     forceListEmittedFiles: true,
     outDir: emitDir,
@@ -2360,7 +2196,7 @@ function buildDependency(
   // list": a native transform host (typia, @ttsc/banner, …) emits without
   // printing the `--listEmittedFiles` lines, so `result.emittedFiles` is empty
   // even on a clean build. A genuinely empty output directory is the real
-  // failure; the caller then falls back to type-stripping the one file.
+  // failure; the caller then falls back to isolated emit of the one file.
   if (!emittedAnything(emitDir)) {
     // Drop the failed generation so its partial directory can never be mistaken
     // for a reusable build.
@@ -2814,8 +2650,8 @@ const moduleOptionsCache = new Map<string, OwningModuleOptions | null>();
  * walk stops at a `node_modules` boundary: a tsconfig above `node_modules`
  * belongs to the consumer, not to the published dependency inside it, so a
  * dependency that ships no tsconfig of its own has no owning project and is
- * type-stripped instead. A pnpm-symlinked workspace package is unaffected
- * because `file` is already its real path (outside `node_modules`).
+ * compiled in isolation instead. A pnpm-symlinked workspace package is
+ * unaffected because `file` is already its real path (outside `node_modules`).
  *
  * The walk is memoised per directory (the whole walked chain shares one
  * answer), so the thousands of files a fanned-out test corpus imports from the
