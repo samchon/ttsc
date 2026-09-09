@@ -13,6 +13,7 @@ interface IRealNativeEnvelopeGraph {
   edges: Record<string, string[]>;
   globals: string[];
   inputHashes?: Record<string, string | null>;
+  inputProofFailures?: Record<string, string>;
   inputObservations?: Record<
     string,
     {
@@ -104,7 +105,7 @@ export function createRealNativeEnvelopeFixture(
 ): IRealNativeEnvelopeFixture {
   TestUnpluginProject.ensureSharedCacheDir();
   const resolutionCorpus = options.resolutionCorpus === true;
-  const root = TestProject.tmpdir("ttsc-unplugin-real-envelope-");
+  const root = TestProject.tmpdir("ttsc-unplugin-RealEnvelope-");
   const runLog = path.join(
     TestProject.tmpdir("ttsc-unplugin-real-envelope-log-"),
     "program-runs.bin",
@@ -292,7 +293,10 @@ export function createRealNativeEnvelopeFixture(
             : {}),
           strict: true,
           target: "ES2022",
-          types: ["*"],
+          // #1353: @types primary lookup hides a lowercased synthetic
+          // containing file. A package subpath exercises secondary lookup
+          // through the real host, including generated compiler overlays.
+          types: ["*", "envelope-client/client"],
         },
         include: ["src"],
       },
@@ -323,6 +327,13 @@ export function createRealNativeEnvelopeFixture(
     "node_modules/typed-dep/dist/index.js": 'export const runtime = "typed";\n',
     "node_modules/@types/fixture-types/index.d.ts":
       "declare const realEnvelopeFixtureGlobal: string;\n",
+    "node_modules/envelope-client/package.json": JSON.stringify({
+      exports: { "./client": "./client.d.ts" },
+      name: "envelope-client",
+      version: "1.0.0",
+    }),
+    "node_modules/envelope-client/client.d.ts":
+      "declare const realEnvelopeClientGlobal: string;\n",
     ...(resolutionCorpus
       ? {
           "node_modules/linked-pkg/package.json": JSON.stringify(
@@ -949,6 +960,11 @@ async function assertProductionEnvelope(
   assert.ok(
     graph,
     "the production native host must return its reference graph",
+  );
+  assert.deepEqual(
+    graph.inputProofFailures ?? {},
+    {},
+    "unchanged automatic types in a mixed-case project must retain reusable proofs",
   );
   const candidates = Object.values(graph.candidates ?? {}).flat();
   assert.ok(candidates.length > 0, "the real graph must contain candidates");

@@ -454,6 +454,24 @@ test("lane identities and workflow matrix names stay unique", () => {
     /--include=predicate_proofs/,
     "the Windows lane must exercise supplied POSIX path semantics",
   );
+  const unpluginIncludes = [
+    ...windowsBundlerRun.split(" && ")[0].matchAll(/--include=([^\s]+)/g),
+  ].flatMap((match) => match[1].split(","));
+  const nativeCases = [
+    ...fs
+      .readFileSync(
+        path.join(root, "tests/test-unplugin/src/cases/native.ts"),
+        "utf8",
+      )
+      .matchAll(/^  (case_[a-z0-9_]+):/gm),
+  ].map((match) => match[1]);
+  assert.ok(nativeCases.length > 0, "the native scenario inventory is empty");
+  for (const name of nativeCases) {
+    assert.ok(
+      unpluginIncludes.some((include) => name.includes(include)),
+      `the Windows lane must execute the real native envelope case ${name}`,
+    );
+  }
   assert.deepEqual(
     SCOPES["plugin-cache"].filter((target) => typeof target === "string"),
     ["ttsc"],
