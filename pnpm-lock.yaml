@@ -710,6 +710,9 @@ importers:
       mocha:
         specifier: ^11
         version: 11.8.0
+      tslib:
+        specifier: 2.8.1
+        version: 2.8.1
       ttsc:
         specifier: workspace:*
         version: link:../../packages/ttsc

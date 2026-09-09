@@ -1530,8 +1530,9 @@ function pickEmittedJavaScript(
  * Runtime CommonJS consumers see the getters that helper installs, but Node's
  * ESM linker only exposes named imports it can statically identify from
  * `exports.name = ...` assignments. For relative star re-exports whose emitted
- * target is available, replace the helper call with explicit configurable
- * export placeholders followed by the same `__createBinding` getter install.
+ * target is available, advertise its names through inert assignments that
+ * Node's static lexer recognizes. The original helper still owns every runtime
+ * binding, including values static discovery cannot enumerate.
  */
 function exposeCommonJsStarExports(
   source: string,
@@ -1542,10 +1543,17 @@ function exposeCommonJsStarExports(
     return source;
   }
   const reserved = collectStaticCommonJsExportNames(source);
-  let index = 0;
+  const executable = maskCommentsAndStrings(source);
   return source.replace(
-    /^(\s*)__exportStar\(\s*require\((["'])([^"']+)\2\)\s*,\s*exports\s*\);/gm,
-    (statement: string, indent: string, _quote: string, specifier: string) => {
+    commonJsExportStarPattern(),
+    (
+      statement: string,
+      indent: string,
+      _quote: string,
+      specifier: string,
+      offset: number,
+    ) => {
+      if (executable[offset + indent.length] === " ") return statement;
       const names = [
         ...collectStarExportNames(emittedFile, sourceFile, specifier),
       ].filter(
@@ -1561,15 +1569,10 @@ function exposeCommonJsStarExports(
       for (const name of names) {
         reserved.add(name);
       }
-      const receiver = `__ttsx_export_star_${index++}`;
-      return [
-        ...names.map((name) => `${indent}exports.${name} = void 0;`),
-        `${indent}var ${receiver} = require(${JSON.stringify(specifier)});`,
-        ...names.map(
-          (name) =>
-            `${indent}__createBinding(exports, ${receiver}, ${JSON.stringify(name)});`,
-        ),
-      ].join("\n");
+      const hints = names.map((name) => `exports.${name} = void 0;`).join(" ");
+      // A block remains one statement in an unbraced control-flow body. Keep
+      // the original line count and never execute the static lexer hints.
+      return `${indent}{ if (false) { ${hints} } ${statement.slice(indent.length)} }`;
     },
   );
 }
@@ -1810,13 +1813,19 @@ function collectSourceCommonJsExportNames(
 
 function collectExportStarSpecifiers(source: string): string[] {
   const specifiers: string[] = [];
-  const pattern =
-    /^(\s*)__exportStar\(\s*require\((["'])([^"']+)\2\)\s*,\s*exports\s*\);/gm;
+  const pattern = commonJsExportStarPattern();
+  const executable = maskCommentsAndStrings(source);
   let match: RegExpExecArray | null;
   while ((match = pattern.exec(source)) !== null) {
+    if (executable[match.index + match[1]!.length] === " ") continue;
     specifiers.push(match[3]!);
   }
   return specifiers;
+}
+
+/** TypeScript-Go's inline and tslib-qualified CommonJS star-helper calls. */
+function commonJsExportStarPattern(): RegExp {
+  return /^([ \t]*)(?:[A-Za-z_$][\w$]*\.)?__exportStar\(\s*require\((["'])([^"']+)\2\)\s*,\s*exports\s*\);/gm;
 }
 
 function resolveEmittedRequire(
@@ -1854,7 +1863,8 @@ function resolveSourceSpecifier(
   }
   const base = path.resolve(path.dirname(sourceFile), specifier);
   if (path.extname(base).length !== 0) {
-    return isFile(base) ? base : null;
+    if (isFile(base)) return base;
+    return typescriptSourcesForJavaScriptSpecifier(base).find(isFile) ?? null;
   }
   for (const extension of TYPESCRIPT_EXTENSIONS) {
     const candidate = base + extension;
