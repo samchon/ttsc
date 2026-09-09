@@ -21,6 +21,7 @@ import {
   type FilesystemPathIdentityContext,
   createFilesystemPathIdentityContext,
 } from "../../internal/projectInputPathIdentity";
+import { runtimeCompilerArgs } from "./runtimeCompilerArgs";
 import { inlineServedSourceMap } from "./servedSourceMap";
 
 /**
@@ -1267,23 +1268,17 @@ function withInlineSourceMap(served: ServedSource): ServedSource {
  * vendored package that ships raw `.ts`/`.cts`/`.mts` straight under
  * `node_modules`), choosing the lowering by the format the file resolves to.
  *
- * Node's in-process `stripTypeScriptTypes` only erases type syntax; it never
- * rewrites ECMAScript `import`/`export` into CommonJS. That is correct for a
- * file Node will load as ESM, but wrong for one classified CommonJS — a `.cts`,
- * or a `.ts` in a package without `type: "module"` — when the author wrote it
- * with module syntax (`export const`, `export namespace`, `export function`).
- * Stripping leaves the `export` in place and Node's CommonJS loader dies with
- * `SyntaxError: Unexpected token 'export'`. So a CommonJS-format orphan is
- * lowered through a real tsgo `--module commonjs` single-file emit (which also
- * handles `export =`), exactly the format decision tsgo would have made for an
- * owning project; an ESM-format orphan keeps the fast in-process strip.
+ * Both module formats need the compiler: Node's type stripping neither lowers
+ * standard decorators nor rewrites ESM exports for CommonJS. Use the existing
+ * single-file emit with the file's own module format and a standard target.
+ * Retain stripping as recovery when no compiler emit is available.
  */
 function transformOrphanSource(filename: string, url: string): string {
-  if (moduleFormat(filename, null) === "commonjs") {
-    const lowered = emitOrphanAsCommonJs(filename);
-    if (lowered !== null) {
-      return lowered;
-    }
+  const format =
+    moduleFormat(filename, null) === "commonjs" ? "commonjs" : "module";
+  const lowered = emitOrphanSource(filename, format);
+  if (lowered !== null) {
+    return lowered;
   }
   return stripTypeScriptTypes(fs.readFileSync(filename, "utf8"), {
     mode: "transform",
@@ -1292,25 +1287,27 @@ function transformOrphanSource(filename: string, url: string): string {
 }
 
 /**
- * Lower a single CommonJS-format source file to CommonJS JavaScript by running
- * tsgo on the lone file with `--module commonjs`. Emit-only, no diagnostic gate
- * (the entry project's up-front check is the type gate), matching
- * `buildDependency`. Returns `null` when tsgo is unavailable or produced no
- * output, so the caller can fall back to the in-process strip.
+ * Lower a single source file to its runtime module format. Emit-only, no
+ * diagnostic gate (the entry project's up-front check is the type gate),
+ * matching `buildDependency`. Returns `null` when tsgo is unavailable or
+ * produced no output, so the caller can fall back to the in-process strip.
  */
-function emitOrphanAsCommonJs(filename: string): string | null {
+function emitOrphanSource(
+  filename: string,
+  format: "commonjs" | "module",
+): string | null {
   let tsgo: string;
   try {
     tsgo = resolveTsgo({ cwd: path.dirname(filename) }).binary;
   } catch {
     return null;
   }
-  // Content-hash cache: a CJS-format orphan ('s tsgo single-file emit) is lowered
+  // Content-hash cache: an orphan's tsgo single-file emit is lowered
   // once and reused by every other process in the run, and across runs. Without
   // it a program that fans out into many processes (the automated test corpus
   // imports the same vendored `.ts` deps from thousands of generated files) would
   // re-spawn tsgo per file per process and crawl.
-  const cacheFile = orphanCacheFile(filename, tsgo);
+  const cacheFile = orphanCacheFile(filename, tsgo, format);
   if (cacheFile !== null) {
     const hit = readFileOrNull(cacheFile);
     if (hit !== null) {
@@ -1329,7 +1326,7 @@ function emitOrphanAsCommonJs(filename: string): string | null {
         // ("tsconfig.json is present but will not be loaded") otherwise.
         "--ignoreConfig",
         "--module",
-        "commonjs",
+        format === "commonjs" ? "commonjs" : "esnext",
         "--target",
         "es2022",
         // This is an emit-only lowering: the entry project's up-front build is
@@ -1346,7 +1343,10 @@ function emitOrphanAsCommonJs(filename: string): string | null {
       ],
       { cwd: path.dirname(filename), encoding: "utf8" },
     );
-    const emitted = parseFirstEmittedFile(outputText(res.stdout));
+    const emitted = pickEmittedJavaScript(
+      filename,
+      parseEmittedFiles(outputText(res.stdout)),
+    );
     const lowered = emitted === null ? null : readFileOrNull(emitted);
     if (lowered !== null && cacheFile !== null) {
       writeOrphanCache(cacheFile, lowered);
@@ -1423,15 +1423,19 @@ function orphanCacheRoot(): string {
     process.env.TTSC_CACHE_DIR && process.env.TTSC_CACHE_DIR.length !== 0
       ? process.env.TTSC_CACHE_DIR
       : path.join(os.tmpdir(), "ttsc-orphan");
-  return path.join(base, "ttsx-orphan-cjs");
+  return path.join(base, "ttsx-orphan");
 }
 
 /**
- * Content-addressed cache path for one orphan file's CommonJS lowering, keyed
- * by source bytes and the tsgo binary so a tsgo bump invalidates it. `null`
- * when the source cannot be read.
+ * Content-addressed cache path for one orphan file's lowering, keyed by source
+ * bytes, module format and the tsgo binary. `null` when the source cannot be
+ * read.
  */
-function orphanCacheFile(filename: string, tsgo: string): string | null {
+function orphanCacheFile(
+  filename: string,
+  tsgo: string,
+  format: "commonjs" | "module",
+): string | null {
   let source: Buffer;
   try {
     source = fs.readFileSync(filename);
@@ -1441,6 +1445,7 @@ function orphanCacheFile(filename: string, tsgo: string): string | null {
   const key = crypto
     .createHash("sha256")
     .update(tsgo)
+    .update("\0" + format)
     .update("\0")
     .update(source)
     .digest("hex")
@@ -1462,17 +1467,6 @@ function writeOrphanCache(cacheFile: string, lowered: string): void {
   } catch {
     // ignore — caching is an optimization, correctness does not depend on it
   }
-}
-
-/** First `TSFILE:` path tsgo printed under `--listEmittedFiles`, or `null`. */
-function parseFirstEmittedFile(stdout: string): string | null {
-  for (const line of stdout.split(/\r?\n/)) {
-    const match = line.match(/^TSFILE:\s*(.+)$/);
-    if (match?.[1]) {
-      return match[1].trim();
-    }
-  }
-  return null;
 }
 
 /** `TSFILE:` paths tsgo printed under `--listEmittedFiles`. */
@@ -2140,6 +2134,7 @@ export function dependencyCacheKey(
     crypto
       .createHash("sha256")
       .update(tsconfig)
+      .update("\0runtime-es2025")
       // Descriptor evaluation promises a result bound to this process's exact
       // input observations. Reusing an emit another evaluator built can pair
       // that process's old source/config bytes with this process's later hashes.
@@ -2317,6 +2312,7 @@ function buildDependency(
   fs.mkdirSync(emitDir, { recursive: true });
   const result = runBuild({
     cwd: project.root,
+    passthrough: runtimeCompilerArgs(project.compilerOptions),
     emit: true,
     forceListEmittedFiles: true,
     outDir: emitDir,

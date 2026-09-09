@@ -8,6 +8,7 @@ import { resolveEmittedJavaScript } from "../../compiler/internal/resolveEmitted
 import { runBuild } from "../../compiler/internal/runBuild";
 import { createFilesystemPathIdentityContext } from "../../internal/projectInputPathIdentity";
 import type { TtscCommonOptions } from "../../structures/internal/TtscCommonOptions";
+import { runtimeCompilerArgs } from "./runtimeCompilerArgs";
 import { type OwningModuleOptions, projectModuleOptions } from "./runtimeHooks";
 
 /**
@@ -297,7 +298,10 @@ function buildProject(
     forceListEmittedFiles: true,
     cacheDir: context.pluginCacheDir,
     outDir: context.emitDir,
-    passthrough: options.passthrough,
+    passthrough: runtimeCompilerArgs(
+      context.project.compilerOptions,
+      options.passthrough,
+    ),
     // `context.emitDir` is ttsx's own temp directory, not an output the project
     // asked for, and tsgo demands an explicit `rootDir` (TS5011) as soon as any
     // `outDir` is in play. Pinning the root tsgo would infer keeps a check-only
@@ -422,7 +426,10 @@ function buildEntryProject(
       forceListEmittedFiles: true,
       cacheDir: context.pluginCacheDir,
       outDir: emitDir,
-      passthrough: options.passthrough,
+      passthrough: runtimeCompilerArgs(
+        project.compilerOptions,
+        options.passthrough,
+      ),
       forceRuntimeSourceMap: context.forceRuntimeSourceMap,
       pluginConfigDir: options.pluginConfigDir,
       plugins: options.plugins,
