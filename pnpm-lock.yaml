@@ -339,6 +339,10 @@ importers:
   packages/strip: {}
 
   packages/ttsc:
+    dependencies:
+      cjs-module-lexer:
+        specifier: 2.2.1
+        version: 2.2.1
     devDependencies:
       '@types/node':
         specifier: catalog:utils
@@ -3429,6 +3433,9 @@ packages:
     resolution: {integrity: sha512-9gYlLtS6tStdRWzrtXaTMnqcM4dudNegMXJxkR0I/CXObHalYeYcAMPrL19eroNZHtJ8DQmu1E+ZNOYu/IXMXw==}
     peerDependencies:
       devtools-protocol: '*'
+
+  cjs-module-lexer@2.2.1:
+    resolution: {integrity: sha512-Ca8swihM+/4yKecYHY52kgJd300hi2lADU/a1RxNTRe+RJ9jvqQlESpbz9DnG9mowez8qwXHB8qYdIUw9e+F5Q==}
 
   client-only@0.0.1:
     resolution: {integrity: sha512-IV3Ou0jSMzZrd3pZ48nLkT9DA7Ag1pnPzaiQhpW7c3RbcqqzvzzVu+L8gfqMp/8IM2MQtSiqaCxrrcfu8I8rMA==}
@@ -9259,6 +9266,8 @@ snapshots:
       devtools-protocol: 0.0.1608973
       mitt: 3.0.1
       zod: 3.25.76
+
+  cjs-module-lexer@2.2.1: {}
 
   client-only@0.0.1: {}
 

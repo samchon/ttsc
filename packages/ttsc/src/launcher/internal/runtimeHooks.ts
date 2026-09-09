@@ -1,3 +1,4 @@
+import { parse as parseCommonJs } from "cjs-module-lexer";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import {
@@ -1539,42 +1540,28 @@ function exposeCommonJsStarExports(
   emittedFile: string | undefined,
   sourceFile: string | undefined,
 ): string {
-  if (!source.includes("__exportStar(")) {
-    return source;
+  const parsed = parseCommonJsExports(source);
+  const reserved = new Set(parsed.exports);
+  const names = new Set<string>();
+  for (const specifier of parsed.reexports) {
+    for (const name of collectStarExportNames(
+      emittedFile,
+      sourceFile,
+      specifier,
+    )) {
+      if (name !== "default" && name !== "__esModule" && !reserved.has(name)) {
+        names.add(name);
+      }
+    }
   }
-  const reserved = collectStaticCommonJsExportNames(source);
-  const executable = maskCommentsAndStrings(source);
-  return source.replace(
-    commonJsExportStarPattern(),
-    (
-      statement: string,
-      indent: string,
-      _quote: string,
-      specifier: string,
-      offset: number,
-    ) => {
-      if (executable[offset + indent.length] === " ") return statement;
-      const names = [
-        ...collectStarExportNames(emittedFile, sourceFile, specifier),
-      ].filter(
-        (name) =>
-          name !== "default" &&
-          name !== "__esModule" &&
-          isIdentifierName(name) &&
-          !reserved.has(name),
-      );
-      if (names.length === 0) {
-        return statement;
-      }
-      for (const name of names) {
-        reserved.add(name);
-      }
-      const hints = names.map((name) => `exports.${name} = void 0;`).join(" ");
-      // A block remains one statement in an unbraced control-flow body. Keep
-      // the original line count and never execute the static lexer hints.
-      return `${indent}{ if (false) { ${hints} } ${statement.slice(indent.length)} }`;
-    },
-  );
+  if (names.size === 0) return source;
+  // Node's lexer reads these assignments statically. Nothing executes, and no
+  // existing statement, source position, control-flow body or runtime export
+  // is changed. Keep all specifier/literal parsing in the same lexer Node uses.
+  const hints = [...names]
+    .map((name) => `exports[${JSON.stringify(name)}] = void 0;`)
+    .join(" ");
+  return source + `\nif (false) { ${hints} }\n`;
 }
 
 function collectStarExportNames(
@@ -1610,8 +1597,9 @@ function collectCommonJsExportNames(
   if (source === null) {
     return new Set();
   }
-  const names = collectStaticCommonJsExportNames(source);
-  for (const specifier of collectExportStarSpecifiers(source)) {
+  const parsed = parseCommonJsExports(source);
+  const names = new Set(parsed.exports);
+  for (const specifier of parsed.reexports) {
     const target = resolveEmittedRequire(real, specifier);
     if (target === null) {
       continue;
@@ -1625,162 +1613,17 @@ function collectCommonJsExportNames(
   return names;
 }
 
-function collectStaticCommonJsExportNames(source: string): Set<string> {
-  // Scan executable syntax only. Text that merely resembles an assignment —
-  // `exports.x =` inside a comment, string, or template-literal text — must not
-  // become an ESM-visible export name, or a named import of it would link to
-  // `undefined` for a property the CommonJS module never defines. Masking the
-  // inert lexical spans before matching keeps genuine top-level assignments
-  // (and executable `${ ... }` template substitutions) while dropping the
-  // decoys.
-  const scannable = maskCommentsAndStrings(source);
-  const names = new Set<string>();
-  const pattern =
-    /(?:^|[^\w$])(?:exports|module\.exports)\.([A-Za-z_$][\w$]*)\s*=/g;
-  let match: RegExpExecArray | null;
-  while ((match = pattern.exec(scannable)) !== null) {
-    names.add(match[1]!);
+/** Read Node-compatible export metadata without replacing Node's syntax errors. */
+function parseCommonJsExports(
+  source: string,
+): ReturnType<typeof parseCommonJs> {
+  try {
+    return parseCommonJs(source);
+  } catch {
+    // Discovery is advisory. The unchanged source still reaches Node, which
+    // owns the diagnostic if the module is not valid JavaScript.
+    return { exports: [], reexports: [] };
   }
-  return names;
-}
-
-/**
- * Blank out the interior of line comments, block comments, string literals, and
- * template-literal text in emitted JavaScript, replacing each masked character
- * with a space while preserving newlines, code, and template `${ ... }`
- * substitutions verbatim. Positions and length are preserved so an offset in
- * the masked text maps back to the same offset in the source.
- *
- * The input is tsgo's CommonJS emit (well-formed JavaScript), so a character
- * scanner that tracks the standard comment/string/template states is sufficient
- * to separate executable tokens from inert text. Regular-expression literals
- * are intentionally not masked: distinguishing `/`-division from a regex
- * literal needs full tokenization, and tsgo's CommonJS emit never wraps an
- * `exports.<name> =` assignment inside a regex literal.
- */
-function maskCommentsAndStrings(source: string): string {
-  const out = source.split("");
-  const n = out.length;
-  const blank = (index: number): void => {
-    const ch = out[index];
-    if (ch !== "\n" && ch !== "\r") {
-      out[index] = " ";
-    }
-  };
-  // A stack of lexical contexts. The base is code; each backtick pushes a
-  // template context, and each `${` inside a template pushes a nested code
-  // context whose `braceDepth` tracks `{}` nesting so an object literal inside
-  // the substitution does not end it early.
-  interface Context {
-    kind: "code" | "template";
-    braceDepth: number;
-  }
-  const stack: Context[] = [{ kind: "code", braceDepth: 0 }];
-  let i = 0;
-  while (i < n) {
-    const top = stack[stack.length - 1]!;
-    const ch = out[i]!;
-    if (top.kind === "template") {
-      if (ch === "\\") {
-        blank(i);
-        blank(i + 1);
-        i += 2;
-        continue;
-      }
-      if (ch === "`") {
-        blank(i);
-        stack.pop();
-        i += 1;
-        continue;
-      }
-      if (ch === "$" && out[i + 1] === "{") {
-        // Enter a code substitution: `${` and its contents stay executable.
-        stack.push({ kind: "code", braceDepth: 0 });
-        i += 2;
-        continue;
-      }
-      blank(i);
-      i += 1;
-      continue;
-    }
-    // Code context.
-    if (ch === "/" && out[i + 1] === "/") {
-      blank(i);
-      blank(i + 1);
-      i += 2;
-      while (i < n && out[i] !== "\n") {
-        blank(i);
-        i += 1;
-      }
-      continue;
-    }
-    if (ch === "/" && out[i + 1] === "*") {
-      blank(i);
-      blank(i + 1);
-      i += 2;
-      while (i < n && !(out[i] === "*" && out[i + 1] === "/")) {
-        blank(i);
-        i += 1;
-      }
-      if (i < n) {
-        blank(i);
-        blank(i + 1);
-        i += 2;
-      }
-      continue;
-    }
-    if (ch === '"' || ch === "'") {
-      blank(i);
-      i += 1;
-      while (i < n && out[i] !== ch) {
-        if (out[i] === "\\") {
-          blank(i);
-          blank(i + 1);
-          i += 2;
-          continue;
-        }
-        // A bare newline ends an unterminated string; stop masking so the rest
-        // of the line is still scanned as code (defensive — tsgo never emits
-        // one).
-        if (out[i] === "\n") {
-          break;
-        }
-        blank(i);
-        i += 1;
-      }
-      if (i < n && out[i] === ch) {
-        blank(i);
-        i += 1;
-      }
-      continue;
-    }
-    if (ch === "`") {
-      blank(i);
-      stack.push({ kind: "template", braceDepth: 0 });
-      i += 1;
-      continue;
-    }
-    if (ch === "{") {
-      top.braceDepth += 1;
-      i += 1;
-      continue;
-    }
-    if (ch === "}") {
-      if (top.braceDepth === 0 && stack.length > 1) {
-        // Close the enclosing template `${ ... }` and resume template text.
-        stack.pop();
-        i += 1;
-        continue;
-      }
-      if (top.braceDepth > 0) {
-        top.braceDepth -= 1;
-      }
-      i += 1;
-      continue;
-    }
-    i += 1;
-  }
-  return out.join("");
 }
 
 function collectSourceCommonJsExportNames(
@@ -1796,8 +1639,9 @@ function collectSourceCommonJsExportNames(
   if (source === null) {
     return new Set();
   }
-  const names = collectStaticCommonJsExportNames(source);
-  for (const specifier of collectExportStarSpecifiers(source)) {
+  const parsed = parseCommonJsExports(source);
+  const names = new Set(parsed.exports);
+  for (const specifier of parsed.reexports) {
     const target = resolveSourceSpecifier(real, specifier);
     if (target === null) {
       continue;
@@ -1809,23 +1653,6 @@ function collectSourceCommonJsExportNames(
     }
   }
   return names;
-}
-
-function collectExportStarSpecifiers(source: string): string[] {
-  const specifiers: string[] = [];
-  const pattern = commonJsExportStarPattern();
-  const executable = maskCommentsAndStrings(source);
-  let match: RegExpExecArray | null;
-  while ((match = pattern.exec(source)) !== null) {
-    if (executable[match.index + match[1]!.length] === " ") continue;
-    specifiers.push(match[3]!);
-  }
-  return specifiers;
-}
-
-/** TypeScript-Go's inline and tslib-qualified CommonJS star-helper calls. */
-function commonJsExportStarPattern(): RegExp {
-  return /^([ \t]*)(?:[A-Za-z_$][\w$]*\.)?__exportStar\(\s*require\((["'])([^"']+)\2\)\s*,\s*exports\s*\);/gm;
 }
 
 function resolveEmittedRequire(
@@ -1879,10 +1706,6 @@ function resolveSourceSpecifier(
     }
   }
   return null;
-}
-
-function isIdentifierName(name: string): boolean {
-  return /^[A-Za-z_$][\w$]*$/.test(name);
 }
 
 /**

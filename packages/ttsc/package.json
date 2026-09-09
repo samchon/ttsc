@@ -63,6 +63,9 @@
     "url": "https://github.com/samchon/ttsc/issues"
   },
   "homepage": "https://ttsc.dev",
+  "dependencies": {
+    "cjs-module-lexer": "2.2.1"
+  },
   "devDependencies": {
     "@types/node": "catalog:utils",
     "rimraf": "catalog:utils",

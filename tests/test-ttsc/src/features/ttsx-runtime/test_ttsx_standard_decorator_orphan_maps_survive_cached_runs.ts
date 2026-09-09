@@ -32,6 +32,7 @@ export const test_ttsx_standard_decorator_orphan_maps_survive_cached_runs =
           exports: "./index.ts",
         }),
         "node_modules/dep/index.ts": [
+          'export * from "./values";',
           "function decorated(value: Function, context: ClassDecoratorContext) {}",
           "@decorated",
           "class Foo {",
@@ -41,6 +42,7 @@ export const test_ttsx_standard_decorator_orphan_maps_survive_cached_runs =
           "}",
           "export const run = () => new Foo().run();",
         ].join("\n"),
+        "node_modules/dep/values.ts": "export const value = 1;",
       });
       for (let i = 0; i < 2; i++) {
         const result = TestProject.spawn(
@@ -56,7 +58,7 @@ export const test_ttsx_standard_decorator_orphan_maps_survive_cached_runs =
             .includes(
               path
                 .join(root, "node_modules/dep/index.ts")
-                .replaceAll("\\", "/") + ":5:",
+                .replaceAll("\\", "/") + ":6:",
             ),
           result.stderr,
         );
