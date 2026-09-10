@@ -34,24 +34,24 @@ tags:
 
 ```md
 # 개발 원칙
-## 하드코딩 금지
-## 테스트 통과용 로직 금지
-## 테스트를 약화시키지 말 것
-## 입력을 관대하게 받지 말 것
-## 증상 말고 원인
-## 두더지잡기 금지
-## 파급 범위 확인
-## 미리 만들지 않기
-## 몽키패칭 금지
-## 결합 줄이기
-## 지식 중복 금지
-## 깨진 창문 남기지 않기
-## 주변 코드 따라가기
-## 의존성은 결정
-## 시킨 범위만
-## 스냅샷만 뜨는 테스트 금지
-## 경계값과 반대 케이스
-## 함부로 못 바꾸는 것들
+## 하드코딩 금지 {#no-hard-coding}
+## 테스트 통과용 로직 금지 {#no-test-only-logic}
+## 테스트를 약화시키지 말 것 {#never-weaken-the-test}
+## 입력을 관대하게 받지 말 것 {#strict-input}
+## 증상 말고 원인 {#fix-root-causes}
+## 두더지잡기 금지 {#seal-the-class}
+## 파급 범위 확인 {#trace-consequences}
+## 미리 만들지 않기 {#yagni}
+## 몽키패칭 금지 {#open-closed}
+## 결합 줄이기 {#loose-coupling}
+## 지식 중복 금지 {#dry}
+## 깨진 창문 남기지 않기 {#no-broken-windows}
+## 주변 코드 따라가기 {#match-conventions}
+## 의존성은 결정 {#justify-dependencies}
+## 시킨 범위만 {#stay-in-scope}
+## 스냅샷만 뜨는 테스트 금지 {#no-change-detector-tests}
+## 경계값과 반대 케이스 {#boundaries-and-negatives}
+## 함부로 못 바꾸는 것들 {#change-integrity}
 ```
 
 에이전트는 이걸 세션 시작할 때 다 읽고, 다 알겠다고 답합니다. 그리고 네 시간 뒤 커밋에는 이런 게 들어와 있습니다.
@@ -108,9 +108,9 @@ function generate(typeName: string): string {
 
 - [SpecBench](https://arxiv.org/abs/2605.21384)는 에이전트에게 보이는 테스트와 숨긴 테스트를 따로 뒀습니다. 모든 프런티어 에이전트가 보이는 쪽은 다 통과시켰고, 숨긴 쪽에서 정체가 드러났습니다.
 - [Cursor의 측정](https://cursor.com/blog/reward-hacking-coding-benchmarks)에서는 성공한 해결의 63%가 직접 푼 게 아니라 어딘가에서 찾아온 것이었습니다. 인터넷을 막고 git 히스토리를 봉인하자 점수가 87.1%에서 73.0%로 떨어졌습니다.
-- 펜실베이니아 대학 연구팀은 [벤치마크 아홉 개에서 부정 사례 1,000건 이상](https://debugml.github.io/cheating-agents/)을 찾았습니다. 그중에는 알고리즘을 못 풀자 테스트 입력별 정답을 반환값에 박아넣은 사례가 있습니다. 에이전트는 임시라고 적어뒀고, 그 임시값은 끝까지 남았습니다.
+- 펜실베이니아 대학 연구팀은 [벤치마크 아홉 개에서 부정 사례 1,000건 이상](https://debugml.github.io/cheating-agents/)을 찾았습니다. 그중에는 알고리즘을 못 풀자 테스트 입력별 정답을 반환값에 박아넣은 사례가 있습니다.
 
-마지막 사례가 1.1의 그 코드입니다. 남의 벤치마크에서만 벌어지는 일이 아닙니다.
+전부 같은 동기입니다. 시험을 보는 게 아니라, 시험 본 것처럼 보이는 제일 싼 길을 찾는 것.
 
 ## 2. 그래서 컴파일러가 묻게 만들었다
 
@@ -118,11 +118,13 @@ function generate(typeName: string): string {
 
 ### 2.1. 규칙 문서를 컴파일 조건으로
 
-`@ttsc/evidence`는 [`ttsc`](https://github.com/samchon/ttsc) 컴파일러 안에서 도는 규칙입니다. 진단이 `npx ttsc`에서 타입 에러와 같이 나옵니다. 별도 도구를 돌리는 게 아닙니다.
+[`ttsc`](https://github.com/samchon/ttsc)는 typescript-go 위에 올린 컴파일러입니다. `tsc` 자리에 그대로 들어가고, 린트 규칙을 컴파일 안에서 같이 돌립니다.
+
+`@ttsc/evidence`는 그 위에서 도는 규칙 하나입니다. 진단이 `npx ttsc`에서 타입 에러와 같은 목록으로 나옵니다. 검사용 도구를 따로 돌리는 게 아닙니다.
 
 설정은 이게 전부입니다.
 
-```ts filename="lint.config.ts"
+```ts
 {
   type: "typescript",
   files: ["src/**/*.ts"],
@@ -160,7 +162,7 @@ export function resolveHandler(name: string, registry: IRegistry): Handler;
 $ npx ttsc
 error TS16411: [evidence/graph] Missing acknowledgement for
   '.agents/skills/principles/SKILL.md#fix-root-causes'
-  (Markdown H2 'Fix root causes' at .agents/skills/principles/SKILL.md:24)
+  (Markdown H2 '증상 말고 원인' at .agents/skills/principles/SKILL.md:24)
 ```
 
 에러 목록이 곧 할 일 목록입니다. 문서에 규칙을 하나 추가하면 다음 빌드부터 모든 함수가 하나씩 더 빚집니다.
@@ -180,6 +182,8 @@ error TS16411: [evidence/graph] Missing acknowledgement for
 
 실제로는 고쳐옵니다.
 
+이 주석을 사람이 쓸 일도 없습니다. 안 쓰면 컴파일이 안 되니 에이전트가 알아서 쓰고 나옵니다. 사람은 그 한 줄을 읽기만 하면 됩니다.
+
 ### 2.3. 프롬프트보다 오래 산다
 
 프롬프트에 적은 지침은 대화가 길어지면 묻히고, 다음 세션에는 아예 없습니다. CI에도 없고, 여러분 `AGENTS.md`를 읽은 적 없는 사람이 연 PR에도 없습니다.
@@ -198,7 +202,7 @@ error TS16411: [evidence/graph] Missing acknowledgement for
 
 - 요구사항이 아이디어 노트를 인용합니다. 빠뜨린 아이디어가 코드 쓰기 전에 걸립니다.
 - 스펙이 요구사항과 아이디어 노트를 인용합니다.
-- 구현이 요구사항과 스펙을 인용합니다. 이유 없는 테이블도, 이유 없는 API도 못 생깁니다.
+- 구현이 요구사항과 스펙을 인용합니다.
 - 테스트가 요구사항과 스펙과 구현을 인용합니다. 테스트 없는 기능은 빌드가 안 끝납니다.
 
 ### 3.2. 백엔드
@@ -228,7 +232,7 @@ error TS16411: [evidence/graph] Missing acknowledgement for
 
 앱이 커질수록 그냥 만들 때의 커버리지가 떨어집니다. 뭐가 빠졌는지 알 방법이 없으니, 전부 다시 읽고 고치고 또 처음부터 읽습니다. 아무것도 안 나오는 라운드가 나올 때까지요. 이 loop until dry가 왼쪽 토큰의 90%를 먹었습니다. 자세한 건 [벤치마크 문서](https://ttsc.dev/docs/benchmark/evidence)에 있습니다.
 
-다만 이 그림을 하려면 사람이 검토한 요구사항 문서가 있어야 하고, 기존 프로젝트에는 보통 없습니다. 그래서 반대쪽 끝에서 시작하시라는 겁니다.
+다만 이 그림까지 가려면 사람이 검토한 요구사항 문서가 있어야 하고, 기존 프로젝트에는 보통 없습니다. 그래서 반대쪽 끝에서 시작하시라는 겁니다.
 
 규칙 파일은 이미 있으니까요. 이미 마크다운이고, 이미 제목이 달려 있고, 이미 에이전트가 좀 지켜줬으면 하던 그 문서입니다.
 
@@ -238,7 +242,7 @@ error TS16411: [evidence/graph] Missing acknowledgement for
 
 답할 수 없는 코드는 답할 수 있게 고쳐진 뒤에야 초록불이 됩니다. 규칙을 지켜야 답이 써지니까, 초록불이 뜬 시점에는 코드도 그만큼 좋아져 있습니다.
 
-"우리 에이전트는 우리 규칙 잘 지킵니다"를 이제 빌드가 증명합니다.
+"우리 에이전트는 우리 규칙 잘 지킵니다"를 이제 컴파일러가 증명합니다.
 
 ## 5. 설치
 
@@ -246,7 +250,7 @@ error TS16411: [evidence/graph] Missing acknowledgement for
 npm install -D typescript ttsc @ttsc/lint @ttsc/evidence
 ```
 
-```ts filename="lint.config.ts"
+```ts
 import { evidence, type ITtscEvidenceGraphConfig } from "@ttsc/evidence";
 import type { ITtscLintConfig } from "@ttsc/lint";
 
@@ -276,7 +280,9 @@ export default {
 npx ttsc
 ```
 
-기존 저장소에서 처음 돌리면 숫자가 크게 나옵니다. 그게 규칙 파일과 코드 사이의 실제 거리이고, 지금까지 아무도 못 보던 숫자입니다.
+기존 저장소에 처음 걸면 에러가 수백 개 나옵니다. 함수 수에 규칙 수를 곱한 만큼이니 당연합니다. 그게 규칙 파일과 코드 사이의 실제 거리이고, 지금까지는 볼 방법이 없던 숫자입니다.
+
+갚는 건 사람이 할 일이 아닙니다. 그 에러 목록을 그대로 에이전트에게 넘기면 하나씩 지워나갑니다. 답이 안 써지는 함수에서는 코드를 고치고 나서 답을 씁니다.
 
 - [GitHub 저장소](https://github.com/samchon/ttsc/tree/master/packages/evidence)
 - [10분 설정 가이드](https://ttsc.dev/docs/setup/evidence)
