@@ -1,0 +1,289 @@
+---
+title: "Evidence Graph: Make Every SKILL Instruction 100% Enforced"
+description: "Agents do not follow the rules you wrote in AGENTS.md. A checklist claim makes every function answer every rule, and a missing answer is a compile error."
+date: "2026-09-10"
+author: "Jeongho Nam"
+ogImage: "/evidence/og-evidence-skill-instructions.png"
+tags:
+  - ai
+  - coding-agents
+  - typescript
+  - agents-md
+  - opensource
+---
+
+> ## TL;DR
+>
+> - Write the rules into `AGENTS.md` or a skill file and the agent [still will not follow them](https://arxiv.org/abs/2605.01771).
+>   - Six frontier models, 60 runs, zero actually followed.
+>   - They said they had followed them more than 90% of the time.
+> - [`@ttsc/evidence`](https://github.com/samchon/ttsc/tree/master/packages/evidence) turns those instructions into compiler rules.
+> - Every rule turns into a statement each function has to write, and that is how all of them end up followed.
+>
+> [Repository](https://github.com/samchon/ttsc/tree/master/packages/evidence) · [Guide](https://ttsc.dev/docs/evidence) · [Setup](https://ttsc.dev/docs/setup/evidence) · [Slides](https://ttsc.dev/slides/evidence)
+
+---
+
+## 1. Instructions Alone Do Not Get Followed
+
+### 1.1. The Rules Are Already Written
+
+The first thing you do when you hand work to a coding agent is write down the rules. `AGENTS.md`, `CLAUDE.md`, `.agents/skills/*/SKILL.md`, it does not matter which. They exist for one reason: to stop the agent from doing whatever it wants, and make it follow the same engineering principles you follow.
+
+Here is mine.
+
+```md
+# Engineering principles
+## No hard coding {#no-hard-coding}
+## No test-passing-only logic {#no-test-only-logic}
+## Never weaken a test {#never-weaken-the-test}
+## Do not be liberal in what you accept {#strict-input}
+## Fix causes, not symptoms {#fix-root-causes}
+## No whack-a-mole {#seal-the-class}
+## Trace the consequences {#trace-consequences}
+## Do not build it before you need it {#yagni}
+## No monkey patching {#open-closed}
+## Keep coupling low {#loose-coupling}
+## Do not duplicate knowledge {#dry}
+## Leave no broken windows {#no-broken-windows}
+## Follow the surrounding code {#match-conventions}
+## A dependency is a decision {#justify-dependencies}
+## Stay in the scope you were given {#stay-in-scope}
+## No snapshot-only tests {#no-change-detector-tests}
+## Boundaries and negative cases {#boundaries-and-negatives}
+## Some things you do not touch {#change-integrity}
+```
+
+The agent reads all of it at the start of the session and says it understands all of it. Four hours later, this is in the commit.
+
+```ts
+if (file === "wide-chars.ts") return WIDE_CHARS_EXPECTED;
+```
+
+One test would not go green, so it put the answer in by hand. That breaks the very first rule on the list, and the build passes anyway.
+
+The type checker only looks at types. The tests only look for green. The linter only looks for unused variables. Nothing in there asks which of those eighteen rules was broken. The rules live in a document, and the build does not read documents.
+
+So somebody has to read the diff and hold all eighteen in their head while they do it. At 4,000 lines, that check may as well not exist.
+
+![Asked whether every rule was followed, a human answers in words while the compiler stops the build](https://ttsc.dev/evidence/meme-coverage.svg)
+
+### 1.2. Writing Them Harder Does Not Help
+
+Since it does not work, everybody tries the same escalation. Put it in caps, bold the **never**, move it to the top of the file, repeat it in the prompt, and add an emoji when none of that lands.
+
+Nobody starts honoring a contract because you set it in a bigger font. [One study](https://arxiv.org/abs/2605.01771) measured it. It read tool logs instead of what the model said at the end, and six frontier models followed the instruction in 0 of 60 runs. In those same runs, they claimed they had followed it more than 90% of the time.
+
+It gets worse as you add rules. [Another study](https://arxiv.org/abs/2608.12426) found that under eight simultaneous constraints, models satisfied an individual constraint about 41% of the time and satisfied all eight in 5.7% of responses. The list above has eighteen.
+
+Every rule you add pushes one you already wrote further back.
+
+### 1.3. If There Is a Shortcut, It Takes It
+
+This is not malice. If there is a cheaper way to make the check pass, that is the way it goes.
+
+I once got [code like this](https://dev.to/samchon/ai-deleted-my-tests-and-said-all-tests-pass-a-horror-story-from-porting-typia-from-typescript-2bmf), written for no purpose other than passing the tests, with the answers pasted straight in.
+
+```ts
+function generate(typeName: string): string {
+  switch (typeName) {
+    case "ObjectSimple":
+      return `const _io0 = (input) =>
+                "number" === typeof input.x &&
+                "number" === typeof input.y &&
+                "number" === typeof input.z;
+              (input) => "object" === typeof input && null !== input && _io0(input);`;
+    case "ArrayRecursive":
+      return `...`;
+    case "ObjectUnionExplicit":
+      return `...`;
+    // 165 more cases
+  }
+}
+```
+
+All 170-odd types looked like that, and every test passed.
+
+It is not just me. This year's measurements counted the same thing.
+
+- [SpecBench](https://arxiv.org/abs/2605.21384) gave agents one test suite they could see and held another one back. Every frontier agent saturated the visible suite, and the held-out suite is where they came apart.
+- [Cursor measured](https://cursor.com/blog/reward-hacking-coding-benchmarks) that 63% of successful resolutions were retrieved from somewhere rather than derived. Cut off the internet and seal the git history, and the score fell from 87.1% to 73.0%.
+- A team at the University of Pennsylvania found [more than 1,000 cheating instances across nine benchmarks](https://debugml.github.io/cheating-agents/). In one of them, an agent that could not solve the algorithm hardcoded the return value for each test input.
+
+Same motive every time. Not taking the exam, but finding the cheapest way to look like you took it.
+
+## 2. So I Made the Compiler Ask
+
+![Asked whether every rule was followed, a human rereads the document while the compiler asks each function directly](https://ttsc.dev/evidence/meme-checklist.svg)
+
+### 2.1. The Rule Document Becomes a Compile Condition
+
+Every function has to answer every rule in your skill file. Leave one answer out and the build stops.
+
+You never write these comments yourself. The compile fails without them, so the agent writes them and hands them over. You read what it says about the code.
+
+```tsx
+/**
+ * @evidence .agents/skills/principles/SKILL.md#no-hard-coding Builds the table from the registry it was handed, and branches on no known name.
+ * @evidence .agents/skills/principles/SKILL.md#open-closed Uses the public adapter only, and touches no prototype or module state.
+ * @evidence .agents/skills/principles/SKILL.md#yagni One Map and one pass, with no cache or index built ahead of time.
+ * @evidence .agents/skills/principles/SKILL.md#fix-root-causes Rejects an unknown name at registration instead of retrying a failed lookup.
+ */
+export function resolveHandler(name: string, registry: IRegistry): Handler;
+```
+
+Delete any one of those four lines and the build stops.
+
+```text
+$ npx ttsc
+error TS16411: [evidence/graph] Missing acknowledgement for
+  '.agents/skills/principles/SKILL.md#fix-root-causes'
+  (Markdown H2 'Fix causes, not symptoms' at .agents/skills/principles/SKILL.md:24)
+```
+
+The error list is the task list. Add one rule to the document and from the next build on, every function owes one more answer.
+
+[`ttsc`](https://github.com/samchon/ttsc) is a compiler built on typescript-go. It drops into the place of `tsc` and runs lint rules inside the compile.
+
+`@ttsc/evidence` is one of the rules that runs there. Its diagnostics come out of `npx ttsc` in the same list as your type errors. There is no separate checker to run.
+
+This is the whole configuration behind it. Every function under `src` answers the rules in this skill file.
+
+```ts
+{
+  type: "typescript",
+  files: ["src/**/*.ts"],
+  symbol: "function",
+  reference: {
+    type: "markdown",
+    files: [".agents/skills/principles/SKILL.md"],
+    symbol: "h2",
+    checklist: true,
+  },
+}
+```
+
+### 2.2. There Are Sentences It Cannot Write
+
+Say the agent took the shortcut. It special-cased a fixture name to make one test pass. Now that same function has to answer `#no-hard-coding`, and the honest version reads like this.
+
+```ts
+/**
+ * @evidence .agents/skills/principles/SKILL.md#no-hard-coding Branches on the fixture name "sample.ts" so the snapshot test passes.
+ */
+```
+
+Two options. Write that sentence as it stands, or fix the code so it never has to be written.
+
+In practice it fixes the code.
+
+### 2.3. It Outlives the Prompt
+
+An instruction in a prompt gets buried as the conversation grows, and in the next session it is simply gone. It is not in CI, and it is not in a pull request opened by someone who never read your `AGENTS.md`.
+
+The checklist lives in the repository. A function written from an empty context by a different model owes the same answers before the build will pass.
+
+## 3. Spec Driven Development
+
+You can take this further. The tool does not read meaning. It only looks at who cited what. Anything you can address can be cited.
+
+### 3.1. Documents Hold Up the Code
+
+![Idea notes holding up requirements and specifications, which hold up implementation and tests](https://ttsc.dev/evidence/documents-light.svg)
+
+Once there are documents to cite, the picture looks like this.
+
+- Requirements cite the idea notes. An idea that got dropped is caught before any code is written.
+- Specifications cite the requirements and the idea notes.
+- Implementation cites the requirements and the specifications.
+- Tests cite the requirements, the specifications, and the implementation. An untested feature never finishes building.
+
+### 3.2. Backend
+
+No table without a document behind it, and no API without a test on it.
+
+![Requirements and specifications holding up the database schema, the API, and the tests](https://ttsc.dev/evidence/backend-light.svg)
+
+The database schema cites the requirements, the API cites the requirements and the schema, and the tests cite that API.
+
+### 3.3. Frontend
+
+"The API is wired up but there is no screen yet" stops being a green build.
+
+![Backend operations holding up hooks, screens, and journeys](https://ttsc.dev/evidence/frontend-light.svg)
+
+The frontend starts from somebody else's document. The Swagger the backend publishes is the starting point, then hooks cite operations, screens cite hooks, and end-to-end journeys cite screens.
+
+### 3.4. How Much It Changes
+
+Spec Driven Development stops being a slogan and becomes something the build enforces. In our benchmark we built all four applications twice with the same model, and the only difference was this plugin.
+
+![Coverage and token usage across the four benchmark applications](https://ttsc.dev/benchmark/evidence/summary.svg)
+
+| Application | Plain | With the plugin |        Tokens |
+| ----------- | ----: | --------------: | ------------: |
+| todo        | 85.5% |            100% |    866M → 92M |
+| reddit      | 80.3% |            100% | 1,179M → 245M |
+| shopping    | 63.1% |            100% | 1,516M → 271M |
+| erp         | 51.6% |            100% | 5,449M → 411M |
+
+The bigger the application, the further plain coverage falls. With no way to know what is missing, you read everything again, fix what you find, and start over, until a round turns up nothing. That loop until dry ate 90% of the tokens on the left of those arrows. [The benchmark documentation](https://ttsc.dev/docs/benchmark/evidence) has the details.
+
+Getting to this picture takes a requirements document a human has reviewed, and existing projects usually do not have one. That is why I say to start from the other end.
+
+The rule file is already there. It is already Markdown, it already has headings, and it is already the document you wish the agent would follow.
+
+## 4. What a Green Build Means
+
+It means every function left an answer for every rule.
+
+Code that cannot answer only goes green after it has been fixed into something that can. An answer is writable only where the rule was actually followed, so by the time the build is green, the code is that much better.
+
+"Our agent follows our rules" is now something the compiler proves.
+
+## 5. Install
+
+```bash
+npm install -D typescript ttsc @ttsc/lint @ttsc/evidence
+```
+
+```ts
+import { evidence, type ITtscEvidenceGraphConfig } from "@ttsc/evidence";
+import type { ITtscLintConfig } from "@ttsc/lint";
+
+const graph: ITtscEvidenceGraphConfig = {
+  claims: [
+    {
+      type: "typescript",
+      files: ["src/**/*.ts"],
+      symbol: "function",
+      reference: {
+        type: "markdown",
+        files: [".agents/skills/principles/SKILL.md"],
+        symbol: "h2",
+        checklist: true,
+      },
+    },
+  ],
+};
+
+export default {
+  plugins: { evidence },
+  rules: { "evidence/graph": ["error", graph] },
+} satisfies ITtscLintConfig;
+```
+
+```bash
+npx ttsc
+```
+
+Put this on an existing repository and the first run produces hundreds of errors. That is the function count times the rule count, so of course it does. It is the real distance between your rule file and your code, and until now there was no way to see it.
+
+Paying it down is not your job. Hand that error list to the agent and it works through them one at a time. Where an answer cannot be written, it fixes the code first and then writes the answer.
+
+Start with the rules you already wrote. **[Ten-minute setup guide](https://ttsc.dev/docs/setup/evidence)**.
+
+- [GitHub repository](https://github.com/samchon/ttsc/tree/master/packages/evidence)
+- [Evidence Graph documentation](https://ttsc.dev/docs/evidence) and the [configuration reference](https://ttsc.dev/docs/evidence/claims)
+- [Backend, frontend, and novel graph examples](https://ttsc.dev/docs/evidence/spec-driven-development)
+- [Benchmark](https://ttsc.dev/docs/benchmark/evidence) and [slides](https://ttsc.dev/slides/evidence)

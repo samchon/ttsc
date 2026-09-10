@@ -20,19 +20,11 @@ const BUILTINS = new Set(
 
 function createTypiaDependencyGraph(options = {}) {
   const websiteRoot = path.resolve(options.websiteRoot ?? DEFAULT_WEBSITE_ROOT);
-  const repoRoot = path.resolve(websiteRoot, "..");
   const requestedRoot =
     options.typiaRoot ?? path.join(websiteRoot, "node_modules", "typia");
   const typiaRoot = realPackageRoot(requestedRoot, "typia");
   const typiaManifest = readManifest(typiaRoot);
-  const expectedVersion =
-    options.expectedVersion ??
-    (options.typiaRoot ? typiaManifest.version : readExactTypiaPin(repoRoot));
-  if (typiaManifest.version !== expectedVersion) {
-    throw new Error(
-      `[typia-graph] installed typia ${typiaManifest.version} does not match exact workspace pin ${expectedVersion}`,
-    );
-  }
+  const expectedVersion = options.expectedVersion ?? typiaManifest.version;
   const goAdapterRoot = path.join(typiaRoot, "native", "adapter");
   if (!fs.existsSync(goAdapterRoot)) {
     throw new Error(
@@ -384,24 +376,6 @@ function readManifest(root) {
   return JSON.parse(fs.readFileSync(file, "utf8"));
 }
 
-function readExactTypiaPin(repoRoot) {
-  const workspace = fs.readFileSync(
-    path.join(repoRoot, "pnpm-workspace.yaml"),
-    "utf8",
-  );
-  const samchon =
-    workspace.match(/\n  samchon:\r?\n([\s\S]*?)(?:\n  [a-zA-Z]|$)/)?.[1] ?? "";
-  const version = samchon.match(
-    /^    typia:\s+(?:&[^\s#]+\s+)?['"]?([^'"\s#]+)['"]?/m,
-  )?.[1];
-  if (!version || !/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(version)) {
-    throw new Error(
-      `[typia-graph] catalogs.samchon.typia must be one exact version, found ${JSON.stringify(version)}`,
-    );
-  }
-  return version;
-}
-
 function splitPackageSpecifier(specifier) {
   const parts = specifier.split("/");
   if (specifier.startsWith("@")) {
@@ -465,6 +439,5 @@ function slash(value) {
 module.exports = {
   createTypiaDependencyGraph,
   parseModuleSpecifiers,
-  readExactTypiaPin,
   rewriteSourceManifest,
 };
