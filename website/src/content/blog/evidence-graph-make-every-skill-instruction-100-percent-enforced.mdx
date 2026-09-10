@@ -14,7 +14,7 @@ tags:
 
 > ## TL;DR
 >
-> - Write instructions in your skills and the agent [still will not follow them](https://arxiv.org/abs/2605.01771).
+> - Write the rules into `AGENTS.md` or a skill file and the agent [still will not follow them](https://arxiv.org/abs/2605.01771).
 >   - Six frontier models, 60 runs, zero actually followed.
 >   - They said they had followed them more than 90% of the time.
 > - [`@ttsc/evidence`](https://github.com/samchon/ttsc/tree/master/packages/evidence) turns those instructions into compiler rules.
@@ -214,7 +214,7 @@ The frontend starts from somebody else's document. The Swagger the backend publi
 
 ### 3.4. How Much It Changes
 
-Spec Driven Development stops being a slogan and becomes something the build enforces. In our benchmark we built the same application twice with the same model, and the only difference was this plugin.
+Spec Driven Development stops being a slogan and becomes something the build enforces. In our benchmark we built all four applications twice with the same model, and the only difference was this plugin.
 
 ![Coverage and token usage across the four benchmark applications](https://ttsc.dev/benchmark/evidence/summary.svg)
 
@@ -225,7 +225,7 @@ Spec Driven Development stops being a slogan and becomes something the build enf
 | shopping    | 63.1% |            100% | 1,516M → 271M |
 | erp         | 51.6% |            100% | 5,449M → 411M |
 
-The bigger the application, the further plain coverage falls. With no way to know what is missing, you read everything again, fix what you find, and start over, until a round turns up nothing. That loop until dry ate 90% of the tokens in the left column. [The benchmark documentation](https://ttsc.dev/docs/benchmark/evidence) has the details.
+The bigger the application, the further plain coverage falls. With no way to know what is missing, you read everything again, fix what you find, and start over, until a round turns up nothing. That loop until dry ate 90% of the tokens on the left of those arrows. [The benchmark documentation](https://ttsc.dev/docs/benchmark/evidence) has the details.
 
 Getting to this picture takes a requirements document a human has reviewed, and existing projects usually do not have one. That is why I say to start from the other end.
 
