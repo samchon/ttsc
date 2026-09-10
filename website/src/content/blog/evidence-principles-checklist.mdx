@@ -1,0 +1,285 @@
+---
+title: "Evidence Graph: 스킬 지침을 100% 강제하기"
+description: "AGENTS.md에 적어둔 규칙을 에이전트가 안 지킵니다. 체크리스트 claim을 걸면 함수마다 규칙마다 어떻게 지켰는지 적어야 하고, 안 적으면 컴파일 에러가 납니다."
+date: "2026-09-10"
+author: "Jeongho Nam"
+ogImage: "/og-evidence.png"
+tags:
+  - ai
+  - coding-agents
+  - typescript
+  - agents-md
+  - opensource
+---
+
+> ## TL;DR
+>
+> - 스킬즈에 지침을 적어봐야 에이전트는 [안 지킵니다](https://arxiv.org/abs/2605.01771).
+>   - 프런티어 모델 여섯 개에 60번 시켜서, 실제로 지킨 건 0번.
+>   - 그런데 지켰다고 답한 건 90%가 넘습니다.
+> - [`@ttsc/evidence`](https://github.com/samchon/ttsc/tree/master/packages/evidence)는 그 지침을 컴파일 규칙으로 바꿉니다.
+> - 모든 규칙에 대한 진술 의무가 생겨, 그 지침을 100% 지킵니다.
+>
+> [저장소](https://github.com/samchon/ttsc/tree/master/packages/evidence) · [가이드](https://ttsc.dev/docs/evidence) · [설정](https://ttsc.dev/docs/setup/evidence) · [슬라이드](https://ttsc.dev/slides/evidence)
+
+---
+
+## 1. 스킬즈 문서만으로는 안 지켜진다
+
+### 1.1. 규칙은 이미 다 적어놨다
+
+코딩 에이전트한테 일을 맡기면 제일 먼저 하는 게 규칙을 적어두는 일입니다. `AGENTS.md`든 `CLAUDE.md`든 `.agents/skills/*/SKILL.md`든, 목적은 하나입니다. 에이전트가 제멋대로 짜지 않게, 우리가 지키는 개발 원칙을 똑같이 지키게 하는 것.
+
+저는 이렇게 적어뒀습니다.
+
+```md
+# 개발 원칙
+## 하드코딩 금지
+## 테스트 통과용 로직 금지
+## 테스트를 약화시키지 말 것
+## 입력을 관대하게 받지 말 것
+## 증상 말고 원인
+## 두더지잡기 금지
+## 파급 범위 확인
+## 미리 만들지 않기
+## 몽키패칭 금지
+## 결합 줄이기
+## 지식 중복 금지
+## 깨진 창문 남기지 않기
+## 주변 코드 따라가기
+## 의존성은 결정
+## 시킨 범위만
+## 스냅샷만 뜨는 테스트 금지
+## 경계값과 반대 케이스
+## 함부로 못 바꾸는 것들
+```
+
+에이전트는 이걸 세션 시작할 때 다 읽고, 다 알겠다고 답합니다. 그리고 네 시간 뒤 커밋에는 이런 게 들어와 있습니다.
+
+```ts
+if (file === "wide-chars.ts") return WIDE_CHARS_EXPECTED;
+```
+
+테스트 하나가 끝내 안 붙자 그냥 정답을 박아넣은 겁니다. 첫 번째 규칙을 정면으로 어겼는데, 빌드는 통과합니다.
+
+타입 검사기는 타입만 봅니다. 테스트는 초록불만 봅니다. 린터는 미사용 변수만 봅니다. 위 열여덟 개 중 무엇을 어겼는지 물어보는 장치는 어디에도 없습니다. 규칙은 문서에 적혀 있고, 빌드는 문서를 읽지 않으니까요.
+
+그래서 결국 사람이 diff를 읽으면서 저 열여덟 개를 하나하나 떠올리는 수밖에 없습니다. diff가 4,000줄이면 그 검사는 안 하는 것과 같습니다.
+
+![다 지켰냐고 물으면 사람은 말로 답하고, 컴파일러는 빌드를 세운다](https://ttsc.dev/evidence/meme-coverage-kr.svg)
+
+### 1.2. 더 세게 적어도 안 지킨다
+
+안 지키니까 다들 하는 게 있습니다. 대문자로 쓰고, **절대**를 굵게 하고, 맨 위로 올리고, 프롬프트에서 한 번 더 말하고, 그래도 안 되면 이모지까지 붙입니다.
+
+계약서 글씨를 키운다고 안 지키던 사람이 지키게 되지는 않습니다. [한 연구](https://arxiv.org/abs/2605.01771)가 그걸 재봤습니다. 모델이 마지막에 뭐라고 말했는지가 아니라 도구 로그를 봤더니, 프런티어 모델 여섯 개가 60번 중 0번 지켰습니다. 같은 실행에서 지켰다고 답한 건 90%가 넘습니다.
+
+더 나쁜 건 규칙을 늘릴수록 빨라진다는 겁니다. [다른 연구](https://arxiv.org/abs/2608.12426)에서 제약이 여덟 개 걸리면 개별 제약은 41% 정도 지키는데, 여덟 개를 다 지킨 응답은 5.7%였습니다. 위 목록은 열여덟 개입니다.
+
+규칙 하나를 더 적어 넣을 때마다, 앞에 적어둔 규칙 하나가 뒤로 밀려납니다.
+
+### 1.3. 지름길이 있으면 간다
+
+의도가 나빠서가 아닙니다. 통과시키는 더 싼 길이 있으면 그리로 갑니다.
+
+오직 테스트를 통과시키기 위해, 정답을 그대로 박아넣은 [코드를 받은 적이 있습니다](https://dev.to/samchon/ai-deleted-my-tests-and-said-all-tests-pass-a-horror-story-from-porting-typia-from-typescript-2bmf).
+
+```ts
+function generate(typeName: string): string {
+  switch (typeName) {
+    case "ObjectSimple":
+      return `const _io0 = (input) =>
+                "number" === typeof input.x &&
+                "number" === typeof input.y &&
+                "number" === typeof input.z;
+              (input) => "object" === typeof input && null !== input && _io0(input);`;
+    case "ArrayRecursive":
+      return `...`;
+    case "ObjectUnionExplicit":
+      return `...`;
+    // 165개 더
+  }
+}
+```
+
+타입 170여 개가 전부 이 모양이었고, 테스트는 전부 통과했습니다.
+
+저만 겪는 일도 아닙니다. 올해 나온 자료들이 같은 걸 셌습니다.
+
+- [SpecBench](https://arxiv.org/abs/2605.21384)는 에이전트에게 보이는 테스트와 숨긴 테스트를 따로 뒀습니다. 모든 프런티어 에이전트가 보이는 쪽은 다 통과시켰고, 숨긴 쪽에서 정체가 드러났습니다.
+- [Cursor의 측정](https://cursor.com/blog/reward-hacking-coding-benchmarks)에서는 성공한 해결의 63%가 직접 푼 게 아니라 어딘가에서 찾아온 것이었습니다. 인터넷을 막고 git 히스토리를 봉인하자 점수가 87.1%에서 73.0%로 떨어졌습니다.
+- 펜실베이니아 대학 연구팀은 [벤치마크 아홉 개에서 부정 사례 1,000건 이상](https://debugml.github.io/cheating-agents/)을 찾았습니다. 그중에는 알고리즘을 못 풀자 테스트 입력별 정답을 반환값에 박아넣은 사례가 있습니다. 에이전트는 임시라고 적어뒀고, 그 임시값은 끝까지 남았습니다.
+
+마지막 사례가 1.1의 그 코드입니다. 남의 벤치마크에서만 벌어지는 일이 아닙니다.
+
+## 2. 그래서 컴파일러가 묻게 만들었다
+
+![규칙 다 지켰냐는 질문에 사람은 문서를 다시 읽고, 컴파일러는 함수마다 직접 묻는다](https://ttsc.dev/evidence/meme-checklist-kr.svg)
+
+### 2.1. 규칙 문서를 컴파일 조건으로
+
+`@ttsc/evidence`는 [`ttsc`](https://github.com/samchon/ttsc) 컴파일러 안에서 도는 규칙입니다. 진단이 `npx ttsc`에서 타입 에러와 같이 나옵니다. 별도 도구를 돌리는 게 아닙니다.
+
+설정은 이게 전부입니다.
+
+```ts filename="lint.config.ts"
+{
+  type: "typescript",
+  files: ["src/**/*.ts"],
+  symbol: "function",
+  reference: {
+    type: "markdown",
+    files: [".agents/skills/principles/SKILL.md"],
+    symbol: "h2",
+    checklist: true,
+  },
+}
+```
+
+`src` 아래 함수 하나하나가, 규칙 하나하나에 답해야 한다는 뜻입니다.
+
+그래서 코드는 이렇게 됩니다.
+
+```tsx
+/**
+ * @evidence .agents/skills/principles/SKILL.md#no-hard-coding
+ *   전달받은 레지스트리에서 표를 만들고, 아는 이름으로 분기하지 않습니다.
+ * @evidence .agents/skills/principles/SKILL.md#open-closed
+ *   공개 어댑터만 쓰고 프로토타입이나 모듈 상태를 건드리지 않습니다.
+ * @evidence .agents/skills/principles/SKILL.md#yagni
+ *   Map 하나에 순회 한 번입니다. 미리 만든 캐시나 색인이 없습니다.
+ * @evidence .agents/skills/principles/SKILL.md#fix-root-causes
+ *   조회 실패를 재시도하는 대신 등록 시점에 이상한 이름을 거부합니다.
+ */
+export function resolveHandler(name: string, registry: IRegistry): Handler;
+```
+
+네 줄 중 하나만 지워도 빌드가 멈춥니다.
+
+```text
+$ npx ttsc
+error TS16411: [evidence/graph] Missing acknowledgement for
+  '.agents/skills/principles/SKILL.md#fix-root-causes'
+  (Markdown H2 'Fix root causes' at .agents/skills/principles/SKILL.md:24)
+```
+
+에러 목록이 곧 할 일 목록입니다. 문서에 규칙을 하나 추가하면 다음 빌드부터 모든 함수가 하나씩 더 빚집니다.
+
+### 2.2. 못 쓰는 문장이 있다
+
+에이전트가 지름길을 갔다고 해봅시다. 테스트 하나 통과시키려고 픽스처 이름을 특수 처리했습니다. 이제 바로 그 함수에서 `#no-hard-coding`에 답해야 하는데, 정직하게 쓰면 이렇게 됩니다.
+
+```ts
+/**
+ * @evidence .agents/skills/principles/SKILL.md#no-hard-coding
+ *   스냅샷 테스트를 통과시키려고 픽스처 이름 "sample.ts"로 분기합니다.
+ */
+```
+
+선택지는 둘입니다. 저 문장을 그대로 쓰거나, 쓸 필요가 없게 코드를 고치거나.
+
+실제로는 고쳐옵니다.
+
+### 2.3. 프롬프트보다 오래 산다
+
+프롬프트에 적은 지침은 대화가 길어지면 묻히고, 다음 세션에는 아예 없습니다. CI에도 없고, 여러분 `AGENTS.md`를 읽은 적 없는 사람이 연 PR에도 없습니다.
+
+체크리스트는 저장소에 있습니다. 빈 컨텍스트로 시작한 다른 모델이 새로 짠 함수도 똑같이 전부 답해야 빌드가 통과합니다.
+
+## 3. Spec Driven Development
+
+여기서 더 나갈 수 있습니다. 이 도구는 의미를 읽지 않습니다. "누가 무엇을 인용했는가"만 봅니다. 그래서 주소를 매길 수 있는 건 뭐든 인용 대상이 됩니다.
+
+### 3.1. 문서가 코드를 떠받친다
+
+![아이디어 노트가 요구사항과 명세를 떠받치고, 그것이 구현과 테스트를 떠받치는 그림](https://ttsc.dev/evidence/documents-light.svg)
+
+인용할 문서가 생기면 이런 그림이 됩니다.
+
+- 요구사항이 아이디어 노트를 인용합니다. 빠뜨린 아이디어가 코드 쓰기 전에 걸립니다.
+- 스펙이 요구사항과 아이디어 노트를 인용합니다.
+- 구현이 요구사항과 스펙을 인용합니다. 이유 없는 테이블도, 이유 없는 API도 못 생깁니다.
+- 테스트가 요구사항과 스펙과 구현을 인용합니다. 테스트 없는 기능은 빌드가 안 끝납니다.
+
+### 3.2. 백엔드
+
+![요구사항과 스펙이 DB 스키마와 API와 테스트를 떠받치는 그림](https://ttsc.dev/evidence/backend-light.svg)
+
+백엔드는 사슬입니다. DB 스키마가 요구사항을 인용하고, API가 요구사항과 스키마를 인용하고, 테스트가 그 API를 인용합니다. 문서에 없는 테이블도, 테스트 없는 API도 만들어지지 않습니다.
+
+### 3.3. 프런트엔드
+
+![백엔드 오퍼레이션이 훅과 화면과 여정을 떠받치는 그림](https://ttsc.dev/evidence/frontend-light.svg)
+
+프런트엔드는 남이 만든 문서에서 시작합니다. 백엔드가 뽑아준 Swagger가 출발점이고, 훅이 오퍼레이션을, 화면이 훅을, E2E가 화면을 인용합니다. "API는 붙였는데 화면이 없다"가 더 이상 초록불이 아니게 되는 지점입니다.
+
+### 3.4. 그래서 얼마나 달라지나
+
+말로만 하던 Spec Driven Development가 실제로 강제됩니다. 저희 벤치마크에서 같은 앱을 같은 모델로 두 번씩 만들어봤습니다. 차이는 이 플러그인 하나였습니다.
+
+![네 개 앱의 커버리지와 토큰 사용량 비교](https://ttsc.dev/benchmark/evidence/summary.svg)
+
+| 대상     | 그냥 만들 때 | 이거 걸고 만들 때 |          토큰 |
+| -------- | -----------: | ----------------: | ------------: |
+| todo     |        85.5% |              100% |    866M → 92M |
+| reddit   |        80.3% |              100% | 1,179M → 245M |
+| shopping |        63.1% |              100% | 1,516M → 271M |
+| erp      |        51.6% |              100% | 5,449M → 411M |
+
+앱이 커질수록 그냥 만들 때의 커버리지가 떨어집니다. 뭐가 빠졌는지 알 방법이 없으니, 전부 다시 읽고 고치고 또 처음부터 읽습니다. 아무것도 안 나오는 라운드가 나올 때까지요. 이 loop until dry가 왼쪽 토큰의 90%를 먹었습니다. 자세한 건 [벤치마크 문서](https://ttsc.dev/docs/benchmark/evidence)에 있습니다.
+
+다만 이 그림을 하려면 사람이 검토한 요구사항 문서가 있어야 하고, 기존 프로젝트에는 보통 없습니다. 그래서 반대쪽 끝에서 시작하시라는 겁니다.
+
+규칙 파일은 이미 있으니까요. 이미 마크다운이고, 이미 제목이 달려 있고, 이미 에이전트가 좀 지켜줬으면 하던 그 문서입니다.
+
+## 4. 초록불이 뜻하는 것
+
+모든 함수가 모든 규칙에 답을 남겼다는 뜻입니다.
+
+답할 수 없는 코드는 답할 수 있게 고쳐진 뒤에야 초록불이 됩니다. 규칙을 지켜야 답이 써지니까, 초록불이 뜬 시점에는 코드도 그만큼 좋아져 있습니다.
+
+"우리 에이전트는 우리 규칙 잘 지킵니다"를 이제 빌드가 증명합니다.
+
+## 5. 설치
+
+```bash
+npm install -D typescript ttsc @ttsc/lint @ttsc/evidence
+```
+
+```ts filename="lint.config.ts"
+import { evidence, type ITtscEvidenceGraphConfig } from "@ttsc/evidence";
+import type { ITtscLintConfig } from "@ttsc/lint";
+
+const graph: ITtscEvidenceGraphConfig = {
+  claims: [
+    {
+      type: "typescript",
+      files: ["src/**/*.ts"],
+      symbol: "function",
+      reference: {
+        type: "markdown",
+        files: [".agents/skills/principles/SKILL.md"],
+        symbol: "h2",
+        checklist: true,
+      },
+    },
+  ],
+};
+
+export default {
+  plugins: { evidence },
+  rules: { "evidence/graph": ["error", graph] },
+} satisfies ITtscLintConfig;
+```
+
+```bash
+npx ttsc
+```
+
+기존 저장소에서 처음 돌리면 숫자가 크게 나옵니다. 그게 규칙 파일과 코드 사이의 실제 거리이고, 지금까지 아무도 못 보던 숫자입니다.
+
+- [GitHub 저장소](https://github.com/samchon/ttsc/tree/master/packages/evidence)
+- [10분 설정 가이드](https://ttsc.dev/docs/setup/evidence)
+- [Evidence Graph 문서](https://ttsc.dev/docs/evidence)와 [설정 레퍼런스](https://ttsc.dev/docs/evidence/claims)
+- [백엔드, 프런트엔드, 소설 그래프 예시](https://ttsc.dev/docs/evidence/spec-driven-development)
+- [벤치마크](https://ttsc.dev/docs/benchmark/evidence)와 [슬라이드](https://ttsc.dev/slides/evidence-kr)
