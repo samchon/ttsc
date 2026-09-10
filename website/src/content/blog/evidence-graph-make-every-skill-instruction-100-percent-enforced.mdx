@@ -118,29 +118,9 @@ Same motive every time. Not taking the exam, but finding the cheapest way to loo
 
 ### 2.1. The Rule Document Becomes a Compile Condition
 
-[`ttsc`](https://github.com/samchon/ttsc) is a compiler built on typescript-go. It drops into the place of `tsc` and runs lint rules inside the compile.
+Every function has to answer every rule in your skill file. Leave one answer out and the build stops.
 
-`@ttsc/evidence` is one of the rules that runs there. Its diagnostics come out of `npx ttsc` in the same list as your type errors. There is no separate checker to run.
-
-This is the whole configuration.
-
-```ts
-{
-  type: "typescript",
-  files: ["src/**/*.ts"],
-  symbol: "function",
-  reference: {
-    type: "markdown",
-    files: [".agents/skills/principles/SKILL.md"],
-    symbol: "h2",
-    checklist: true,
-  },
-}
-```
-
-It means every single function under `src` has to answer every single rule.
-
-So the code ends up like this.
+You never write these comments yourself. The compile fails without them, so the agent writes them and hands them over. You read what it says about the code.
 
 ```tsx
 /**
@@ -163,6 +143,26 @@ error TS16411: [evidence/graph] Missing acknowledgement for
 
 The error list is the task list. Add one rule to the document and from the next build on, every function owes one more answer.
 
+[`ttsc`](https://github.com/samchon/ttsc) is a compiler built on typescript-go. It drops into the place of `tsc` and runs lint rules inside the compile.
+
+`@ttsc/evidence` is one of the rules that runs there. Its diagnostics come out of `npx ttsc` in the same list as your type errors. There is no separate checker to run.
+
+This is the whole configuration behind it. Every function under `src` answers the rules in this skill file.
+
+```ts
+{
+  type: "typescript",
+  files: ["src/**/*.ts"],
+  symbol: "function",
+  reference: {
+    type: "markdown",
+    files: [".agents/skills/principles/SKILL.md"],
+    symbol: "h2",
+    checklist: true,
+  },
+}
+```
+
 ### 2.2. There Are Sentences It Cannot Write
 
 Say the agent took the shortcut. It special-cased a fixture name to make one test pass. Now that same function has to answer `#no-hard-coding`, and the honest version reads like this.
@@ -176,8 +176,6 @@ Say the agent took the shortcut. It special-cased a fixture name to make one tes
 Two options. Write that sentence as it stands, or fix the code so it never has to be written.
 
 In practice it fixes the code.
-
-You never write these comments yourself. The compile fails without them, so the agent writes them and hands them over. You only read the line.
 
 ### 2.3. It Outlives the Prompt
 
@@ -202,15 +200,19 @@ Once there are documents to cite, the picture looks like this.
 
 ### 3.2. Backend
 
+No table without a document behind it, and no API without a test on it.
+
 ![Requirements and specifications holding up the database schema, the API, and the tests](https://ttsc.dev/evidence/backend-light.svg)
 
-The backend is a chain. The database schema cites the requirements, the API cites the requirements and the schema, and the tests cite that API. No table without a document behind it, and no API without a test on it.
+The database schema cites the requirements, the API cites the requirements and the schema, and the tests cite that API.
 
 ### 3.3. Frontend
 
+"The API is wired up but there is no screen yet" stops being a green build.
+
 ![Backend operations holding up hooks, screens, and journeys](https://ttsc.dev/evidence/frontend-light.svg)
 
-The frontend starts from somebody else's document. The Swagger the backend publishes is the starting point, then hooks cite operations, screens cite hooks, and end-to-end journeys cite screens. This is where "the API is wired up but there is no screen yet" stops being a green build.
+The frontend starts from somebody else's document. The Swagger the backend publishes is the starting point, then hooks cite operations, screens cite hooks, and end-to-end journeys cite screens.
 
 ### 3.4. How Much It Changes
 
@@ -279,8 +281,9 @@ Put this on an existing repository and the first run produces hundreds of errors
 
 Paying it down is not your job. Hand that error list to the agent and it works through them one at a time. Where an answer cannot be written, it fixes the code first and then writes the answer.
 
+Start with the rules you already wrote. **[Ten-minute setup guide](https://ttsc.dev/docs/setup/evidence)**.
+
 - [GitHub repository](https://github.com/samchon/ttsc/tree/master/packages/evidence)
-- [Ten-minute setup guide](https://ttsc.dev/docs/setup/evidence)
 - [Evidence Graph documentation](https://ttsc.dev/docs/evidence) and the [configuration reference](https://ttsc.dev/docs/evidence/claims)
 - [Backend, frontend, and novel graph examples](https://ttsc.dev/docs/evidence/spec-driven-development)
 - [Benchmark](https://ttsc.dev/docs/benchmark/evidence) and [slides](https://ttsc.dev/slides/evidence)
