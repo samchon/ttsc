@@ -13,10 +13,10 @@ import (
 // that only check the Go error still reject an incomplete build and display
 // the compiler's code, severity and available source context.
 type PluginEmitError struct {
-  Diagnostics []Diagnostic
-  Phase string
+  Diagnostics  []Diagnostic
+  Phase        string
   Declarations bool
-  cwd string
+  cwd          string
 }
 
 func (e *PluginEmitError) Error() string {
@@ -36,17 +36,17 @@ func (p *Program) pluginEmitDiagnostics(phase string, raw []*shimast.Diagnostic)
     return diagnostics, nil
   }
   return diagnostics, &PluginEmitError{
-    Diagnostics: diagnostics,
-    Phase: phase,
+    Diagnostics:  diagnostics,
+    Phase:        phase,
     Declarations: p.TSProgram.Options().GetEmitDeclarations(),
-    cwd: p.TSProgram.GetCurrentDirectory(),
+    cwd:          p.TSProgram.GetCurrentDirectory(),
   }
 }
 
 type pluginEmitOutput struct {
   writeFile shimcompiler.WriteFile
-  buffered bool
-  pending []pluginEmitFile
+  buffered  bool
+  pending   []pluginEmitFile
 }
 
 type pluginEmitFile struct {
