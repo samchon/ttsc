@@ -114,10 +114,9 @@ func runBuild(args []string) int {
       fmt.Fprintf(stderr, "ttsc: emit failed: %v\n", err)
       return 3
     }
-    for _, d := range eDiags {
-      fmt.Fprintln(stderr, "  -", d.String())
-    }
+    driver.WritePrettyDiagnostics(stderr, eDiags, cwd)
     if driver.CountErrors(eDiags) > 0 {
+      fmt.Fprintln(stderr, "ttsc: emit failed; build output is incomplete")
       return 2
     }
     if !*quiet {

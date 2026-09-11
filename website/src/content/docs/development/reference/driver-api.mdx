@@ -51,6 +51,16 @@ text := shimprinter.EmitSourceFile(printer, file)
 | `EmitFile(...)` | You only need one file's emit (rarely used outside the utility host). |
 | `DefaultWriteFile` | The default `WriteFileFunc`. Writes through the program's FS. Pass to `EmitAll` when you don't need interception. |
 
+### Native plugin emission
+
+Use `EmitWithPluginTransformer`, `EmitWithPluginTransformers`, or `EmitLinkedTransforms` when your native host transforms ASTs in the compiler's emit context. Build generated nodes with `ec.Factory` and use `ec.SetOriginal` when rebuilding an authored node. The constant resolver only accepts member accesses present in the program before the emit transforms run. Standalone-factory accesses remain generated expressions even if they lack synthesized flags or copy a source range; genuine original links still allow const-enum inlining.
+
+Compiler errors from these methods return both the diagnostic slice and a `*driver.PluginEmitError`. Check the Go error before publishing pending files, a manifest, or a successful build result. Its message includes the native plugin emit phase, compiler codes and severity, available source context, and an incomplete-output summary. Hosts may use `errors.As` to read its `Diagnostics`, `Phase`, and `Declarations` fields. When printing the error, do not print the same diagnostic slice again.
+
+With `noEmitOnError`, the driver checks before JavaScript emission and holds JavaScript, maps, declarations and build information until compilation succeeds. A compiler error invokes no output callbacks. Without that option, TypeScript's emit-despite-errors policy remains, but an emit error still returns a failing Go error. A filesystem or callback failure can leave files already written; report failure and withhold the success manifest. `noEmit` delegates to the upstream emitter, including its incremental build-information policy, without running JavaScript transforms.
+
+`WritePrettyDiagnostics` retains codes and severity when an emit diagnostic has no authored location. A diagnostic from a generated node uses a location-free message instead of a fabricated source line or snippet. Explicit warning diagnostics do not count as errors, including plain diagnostic values without compiler or lint objects.
+
 For the `transform` subcommand, the host treats `typescript[fileName]` as opaque text. See [Plugin protocol → Transform](/docs/development/concepts/protocol#transform). Run a printer before placing AST-mutated source in the map.
 
 ### Emit-concurrency contract

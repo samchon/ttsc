@@ -6,6 +6,7 @@
     "outDir": "dist",
     "rootDir": "src",
     "declaration": true,
+    "noEmitOnError": true,
     "declarationMap": true,
     "sourceMap": true,
     "plugins": [

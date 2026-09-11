@@ -1,7 +1,9 @@
 package driver
 
 import (
+  "context"
   "errors"
+  "fmt"
   "strings"
   "sync"
 
@@ -37,25 +39,34 @@ func (h *pluginEmitHost) GetEmitModuleFormatOfFile(file shimast.HasFileName) shi
   return h.program.GetEmitModuleFormatOfFile(file)
 }
 func (h *pluginEmitHost) GetEmitResolver() shimprinter.EmitResolver {
-  return guardedEmitResolver{h.emitResolver}
+  return h.emitResolver
 }
 
-// guardedEmitResolver makes tsgo's const-enum inliner safe against plugin-built
-// nodes. The inliner calls GetConstantValue on every property/element access it
-// visits — including synthetic ones a plugin injects — and tsgo's checker can
-// nil-panic while computing a contextual type for such a node. A failure there
-// only means "not a const enum", so recover to nil and leave the node as-is.
+// guardedEmitResolver only resolves member accesses from the program's input
+// trees. ParseNode follows original links but trusts the synthesized flag:
+// standalone factories leave it clear, even on generated nodes with copied
+// source positions. Recovering a checker panic is too late to prevent that
+// lookup from recording diagnostics on a parameter the binder never saw.
 type guardedEmitResolver struct {
   shimprinter.EmitResolver
+  originalMembers map[*shimast.Node]struct{}
 }
 
-func (g guardedEmitResolver) GetConstantValue(node *shimast.Node) (result any) {
-  defer func() {
-    if recover() != nil {
-      result = nil
-    }
-  }()
+func (g guardedEmitResolver) GetConstantValue(node *shimast.Node) any {
+  if _, original := g.originalMembers[node]; !original {
+    return nil
+  }
   return g.EmitResolver.GetConstantValue(node)
+}
+
+func collectOriginalMembers(node *shimast.Node, members map[*shimast.Node]struct{}) {
+  if node.Kind == shimast.KindPropertyAccessExpression || node.Kind == shimast.KindElementAccessExpression {
+    members[node] = struct{}{}
+  }
+  node.ForEachChild(func(child *shimast.Node) bool {
+    collectOriginalMembers(child, members)
+    return false
+  })
 }
 func (h *pluginEmitHost) GetProjectReferenceFromSource(path shimtspath.Path) *shimtsoptions.SourceOutputAndProjectReference {
   return h.program.GetProjectReferenceFromSource(path)
@@ -180,8 +191,31 @@ func (p *Program) EmitWithPluginTransformers(transforms []PluginTransform, write
   if len(linked) != 0 {
     transforms = append(append([]PluginTransform{}, transforms...), linked...)
   }
-  host := &pluginEmitHost{program: p.TSProgram, emitResolver: p.Checker.GetEmitResolver()}
   options := p.TSProgram.Options()
+  if options.NoEmit.IsTrue() {
+    // Analysis-only incremental projects may still write build information.
+    // Delegate that policy to the ordinary emitter without running JS hooks.
+    result, diagnostics, err := p.EmitAllRaw(writeFile)
+    if err != nil {
+      return diagnostics, err
+    }
+    return p.pluginEmitDiagnostics("analysis-only emit", result.Diagnostics)
+  }
+  if result := shimcompiler.HandleNoEmitOnError(context.Background(), p.TSProgram, nil); result != nil {
+    return p.pluginEmitDiagnostics("pre-emit checking", result.Diagnostics)
+  }
+  // Snapshot ownership before any transformer runs, including transforms that
+  // mutate their input in place or reuse a member from another source file.
+  members := make(map[*shimast.Node]struct{})
+  for _, sf := range p.TSProgram.SourceFiles() {
+    collectOriginalMembers(sf.AsNode(), members)
+  }
+  host := &pluginEmitHost{program: p.TSProgram, emitResolver: guardedEmitResolver{p.Checker.GetEmitResolver(), members}}
+
+  // noEmitOnError applies to the whole build. The JS lane runs before the
+  // declaration lane, so defer callbacks until both have succeeded. Outside
+  // that option keep upstream's emit-despite-errors behavior.
+  output := newPluginEmitOutput(writeFile, options.NoEmitOnError.IsTrue())
   for _, sf := range shimcompiler.GetSourceFilesToEmit(host, nil, false) {
     paths := shimcompiler.GetOutputPathsFor(sf, options, host, false)
     if paths.JsFilePath() != "" && !p.outputEscapesOutDir(paths.JsFilePath()) {
@@ -262,11 +296,11 @@ func (p *Program) EmitWithPluginTransformers(transforms []PluginTransform, write
       // why the remaining fields stay zero.
       if err := p.writePluginEmitOutput(paths.JsFilePath(), printed.JS, &shimcompiler.WriteFileData{
         SourceMapUrlPos: printed.SourceMapUrlPos,
-      }, writeFile); err != nil {
-        return nil, err
+      }, output.write); err != nil {
+        return nil, fmt.Errorf("driver: native plugin JavaScript emit failed: %w", err)
       }
-      if err := p.writePluginEmitOutput(printed.MapPath, printed.MapText, nil, writeFile); err != nil {
-        return nil, err
+      if err := p.writePluginEmitOutput(printed.MapPath, printed.MapText, nil, output.write); err != nil {
+        return nil, fmt.Errorf("driver: native plugin source map emit failed: %w", err)
       }
     }
   }
@@ -274,7 +308,10 @@ func (p *Program) EmitWithPluginTransformers(transforms []PluginTransform, write
   // so it also runs for a JavaScript-only `incremental` / `composite` project
   // that has no declarations to write at all.
   if !options.GetEmitDeclarations() && !p.emitsBuildInfo() {
-    return nil, nil
+    if result := shimcompiler.HandleNoEmitOnError(context.Background(), p.TSProgram, nil); result != nil {
+      return p.pluginEmitDiagnostics("JavaScript emit", result.Diagnostics)
+    }
+    return nil, output.flush()
   }
 
   // What the build information this pass writes does and does not claim.
@@ -304,16 +341,18 @@ func (p *Program) EmitWithPluginTransformers(transforms []PluginTransform, write
         }
         return nil
       }
-      if writeFile != nil {
-        return writeFile(fileName, text, data)
-      }
-      return DefaultWriteFile(fileName, text)
+      return output.write(fileName, text, data)
     },
   })
+  var diagnostics []Diagnostic
   if result != nil && len(result.Diagnostics) != 0 {
-    return p.convertProgramDiagnostics(result.Diagnostics), nil
+    var err error
+    diagnostics, err = p.pluginEmitDiagnostics("declaration emit", result.Diagnostics)
+    if err != nil {
+      return diagnostics, err
+    }
   }
-  return nil, nil
+  return diagnostics, output.flush()
 }
 
 // writePluginEmitOutput writes one artifact of the hand-assembled emit, passing

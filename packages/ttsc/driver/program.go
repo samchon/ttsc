@@ -142,7 +142,9 @@ func WritePrettyDiagnostics(w io.Writer, diagnostics []Diagnostic, cwd string) {
   rich := make([]Diagnostic, 0, len(diagnostics))
   plain := make([]Diagnostic, 0)
   for _, d := range diagnostics {
-    if d.raw != nil || d.lint != nil {
+    if d.raw != nil && d.raw.File() != nil && d.raw.Pos() < 0 {
+      plain = append(plain, d)
+    } else if d.raw != nil || d.lint != nil {
       rich = append(rich, d)
     } else {
       plain = append(plain, d)
@@ -162,7 +164,18 @@ func WritePrettyDiagnostics(w io.Writer, diagnostics []Diagnostic, cwd string) {
     shimdiagnosticwriter.FormatMixedDiagnostics(w, astDiags, lintDiags, cwd)
   }
   for _, d := range plain {
-    fmt.Fprintln(w, "  -", d.String())
+    severity := "error"
+    if d.Severity == SeverityWarning {
+      severity = "warning"
+    }
+    code := ""
+    if d.Code != 0 {
+      code = fmt.Sprintf(" TS%d", d.Code)
+    }
+    fmt.Fprintf(w, "  - %s%s: %s\n", severity, code, d.String())
+    if d.raw != nil && d.raw.File() != nil && d.raw.Pos() < 0 {
+      fmt.Fprintln(w, "    Diagnostic refers to generated code; no authored source location is available.")
+    }
   }
 }
 
@@ -187,9 +200,10 @@ func CountErrors(diagnostics []Diagnostic) int {
       }
       continue
     }
-    // Plain text diagnostics (manually assembled): treat as errors so
-    // "ttsc: tsconfig not found"-style failures still flip the exit code.
-    n++
+    // Plain diagnostics default to error but may explicitly declare warning.
+    if d.Severity != SeverityWarning {
+      n++
+    }
   }
   return n
 }
