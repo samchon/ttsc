@@ -1,0 +1,3604 @@
+{
+  "date": "2026-06-01T13:53:08.306Z",
+  "runs": 5,
+  "warmup": 1,
+  "host": {
+    "os": "Ubuntu 24.04.4 LTS",
+    "kernel": "6.17.0-1015-azure",
+    "cpu": "AMD EPYC 7763 64-Core Processor",
+    "cores": 4,
+    "ramGB": 16,
+    "node": "v24.16.0",
+    "ttsc": "0.14.2",
+    "typescript": "v6.0.3",
+    "tsgo": "7.0.0-dev.20260421.2"
+  },
+  "projects": [
+    {
+      "name": "vscode",
+      "repo": "ttsc-benchmark-vscode",
+      "kind": "application monorepo",
+      "files": 6093,
+      "typescript": "v6.0.3",
+      "tsgo": "7.0.0-dev.20260421.2",
+      "measurements": [
+        {
+          "id": "vscode:legacy:build:multi",
+          "branch": "legacy",
+          "tool": "tsc",
+          "op": "build",
+          "threading": "multi",
+          "samples": [
+            94309.647165,
+            94793.021973,
+            93923.583588,
+            94422.325323,
+            98532.168303
+          ]
+        },
+        {
+          "id": "vscode:legacy:noEmit:multi",
+          "branch": "legacy",
+          "tool": "tsc",
+          "op": "noEmit",
+          "threading": "multi",
+          "samples": [
+            78063.664339,
+            79059.063015,
+            73293.674386,
+            74591.831999,
+            74565.617596
+          ]
+        },
+        {
+          "id": "vscode:legacy:eslint:multi",
+          "branch": "legacy",
+          "tool": "eslint",
+          "op": "eslint",
+          "threading": "multi",
+          "samples": [
+            68348.626416,
+            68248.240048,
+            67929.966971,
+            68658.072552,
+            66700.226106
+          ]
+        },
+        {
+          "id": "vscode:legacy:format:multi",
+          "branch": "legacy",
+          "tool": "prettier",
+          "op": "format",
+          "threading": "multi",
+          "samples": [
+            110301.654443,
+            112249.422924,
+            112789.48487,
+            109142.890809,
+            109409.908121
+          ]
+        },
+        {
+          "id": "vscode:ttsc:build:single",
+          "branch": "ttsc",
+          "tool": "ttsc",
+          "op": "build",
+          "threading": "single",
+          "samples": [
+            34407.158035,
+            34103.948706,
+            34104.751931,
+            34098.851791,
+            34502.702486
+          ]
+        },
+        {
+          "id": "vscode:ttsc:build:checkers2",
+          "branch": "ttsc",
+          "tool": "ttsc",
+          "op": "build",
+          "threading": "checkers2",
+          "samples": [
+            17346.823606,
+            16639.973707,
+            16466.795227,
+            16591.251508,
+            16616.169181
+          ]
+        },
+        {
+          "id": "vscode:ttsc:build:checkers4",
+          "branch": "ttsc",
+          "tool": "ttsc",
+          "op": "build",
+          "threading": "checkers4",
+          "samples": [
+            10741.664489,
+            10663.354635,
+            10703.913092,
+            10584.913931,
+            11112.821995
+          ]
+        },
+        {
+          "id": "vscode:ttsc:build:checkers8",
+          "branch": "ttsc",
+          "tool": "ttsc",
+          "op": "build",
+          "threading": "checkers8",
+          "samples": [
+            8495.463528,
+            8844.579208,
+            8367.392744,
+            8249.897679,
+            8387.676371
+          ]
+        },
+        {
+          "id": "vscode:ttsc:noEmit:single",
+          "branch": "ttsc",
+          "tool": "ttsc",
+          "op": "noEmit",
+          "threading": "single",
+          "samples": [
+            25289.25443,
+            25299.331744,
+            25096.28039,
+            25158.645081,
+            25230.044292
+          ]
+        },
+        {
+          "id": "vscode:ttsc:noEmit:checkers2",
+          "branch": "ttsc",
+          "tool": "ttsc",
+          "op": "noEmit",
+          "threading": "checkers2",
+          "samples": [
+            13540.986566,
+            13639.266074,
+            13687.73526,
+            13973.935955,
+            13633.628187
+          ]
+        },
+        {
+          "id": "vscode:ttsc:noEmit:checkers4",
+          "branch": "ttsc",
+          "tool": "ttsc",
+          "op": "noEmit",
+          "threading": "checkers4",
+          "samples": [
+            8744.879986,
+            8921.827858,
+            9044.348262,
+            8603.326244,
+            8842.91118
+          ]
+        },
+        {
+          "id": "vscode:ttsc:noEmit:checkers8",
+          "branch": "ttsc",
+          "tool": "ttsc",
+          "op": "noEmit",
+          "threading": "checkers8",
+          "samples": [
+            6681.199214,
+            7289.456181,
+            7310.651285,
+            6505.101498,
+            6914.411827
+          ]
+        },
+        {
+          "id": "vscode:ttsc-lint:build:single",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "build",
+          "threading": "single",
+          "samples": [
+            60978.859862,
+            61344.507653,
+            60956.742386,
+            61001.755966,
+            61277.456392
+          ],
+          "lintSamples": [
+            25533,
+            26029,
+            25538,
+            25611,
+            25697
+          ],
+          "lintPluginSamples": [
+            651,
+            656,
+            645,
+            655,
+            658
+          ]
+        },
+        {
+          "id": "vscode:ttsc-lint:build:checkers2",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "build",
+          "threading": "checkers2",
+          "samples": [
+            31848.559284,
+            31624.844875,
+            31645.054251,
+            31938.583249,
+            31555.287031
+          ],
+          "lintSamples": [
+            13438,
+            13754,
+            13571,
+            13486,
+            13593
+          ],
+          "lintPluginSamples": [
+            79,
+            171,
+            78,
+            79,
+            180
+          ]
+        },
+        {
+          "id": "vscode:ttsc-lint:build:checkers4",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "build",
+          "threading": "checkers4",
+          "samples": [
+            21843.859396,
+            21463.292039,
+            20979.904866,
+            20465.561495,
+            21804.580785
+          ],
+          "lintSamples": [
+            8983,
+            8536,
+            8750,
+            8376,
+            8918
+          ],
+          "lintPluginSamples": [
+            76,
+            78,
+            80,
+            77,
+            73
+          ]
+        },
+        {
+          "id": "vscode:ttsc-lint:build:checkers8",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "build",
+          "threading": "checkers8",
+          "samples": [
+            16805.61806,
+            16679.257509,
+            17980.236248,
+            17388.89843,
+            17459.826763
+          ],
+          "lintSamples": [
+            7052,
+            6766,
+            6967,
+            7246,
+            6766
+          ],
+          "lintPluginSamples": [
+            79,
+            77,
+            75,
+            91,
+            80
+          ]
+        },
+        {
+          "id": "vscode:ttsc-lint:noEmit:single",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "noEmit",
+          "threading": "single",
+          "samples": [
+            26182.632194,
+            25918.004631,
+            26009.316696,
+            25774.879798,
+            26272.987391
+          ],
+          "lintSamples": [
+            25785,
+            25521,
+            25612,
+            25378,
+            25875
+          ],
+          "lintPluginSamples": [
+            657,
+            657,
+            660,
+            656,
+            657
+          ]
+        },
+        {
+          "id": "vscode:ttsc-lint:noEmit:checkers2",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "noEmit",
+          "threading": "checkers2",
+          "samples": [
+            13695.979321,
+            14012.016515,
+            13819.905377,
+            13885.582407,
+            13944.482926
+          ],
+          "lintSamples": [
+            13301,
+            13617,
+            13422,
+            13482,
+            13531
+          ],
+          "lintPluginSamples": [
+            77,
+            79,
+            80,
+            80,
+            78
+          ]
+        },
+        {
+          "id": "vscode:ttsc-lint:noEmit:checkers4",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "noEmit",
+          "threading": "checkers4",
+          "samples": [
+            9006.100228,
+            9269.859209,
+            9320.07025,
+            9282.066582,
+            9340.969102
+          ],
+          "lintSamples": [
+            8605,
+            8877,
+            8925,
+            8885,
+            8944
+          ],
+          "lintPluginSamples": [
+            79,
+            74,
+            83,
+            80,
+            75
+          ]
+        },
+        {
+          "id": "vscode:ttsc-lint:noEmit:checkers8",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "noEmit",
+          "threading": "checkers8",
+          "samples": [
+            6960.496348,
+            7102.368904,
+            7005.652579,
+            6973.370914,
+            7145.71155
+          ],
+          "lintSamples": [
+            6567,
+            6696,
+            6608,
+            6576,
+            6748
+          ],
+          "lintPluginSamples": [
+            78,
+            78,
+            78,
+            78,
+            79
+          ]
+        },
+        {
+          "id": "vscode:ttsc-lint:format:single",
+          "branch": "ttsc-lint",
+          "tool": "ttsc-format",
+          "op": "format",
+          "threading": "single",
+          "samples": [
+            39734.529233,
+            39811.285457,
+            40125.031248,
+            40116.008389,
+            39961.846272
+          ]
+        },
+        {
+          "id": "vscode:ttsc-lint:format:multi",
+          "branch": "ttsc-lint",
+          "tool": "ttsc-format",
+          "op": "format",
+          "threading": "multi",
+          "samples": [
+            8066.584802,
+            7977.422151,
+            8150.899946,
+            8142.328348,
+            7826.90518
+          ]
+        },
+        {
+          "id": "vscode:ttsc:tsgo:build:single",
+          "branch": "ttsc",
+          "tool": "tsgo",
+          "op": "build",
+          "threading": "single",
+          "samples": [
+            33791.024547,
+            33618.713374,
+            33925.19302,
+            33843.5376,
+            33693.385282
+          ]
+        },
+        {
+          "id": "vscode:ttsc:tsgo:build:checkers2",
+          "branch": "ttsc",
+          "tool": "tsgo",
+          "op": "build",
+          "threading": "checkers2",
+          "samples": [
+            16408.319361,
+            16423.176573,
+            16871.502395,
+            16543.625757,
+            16407.794738
+          ]
+        },
+        {
+          "id": "vscode:ttsc:tsgo:build:checkers4",
+          "branch": "ttsc",
+          "tool": "tsgo",
+          "op": "build",
+          "threading": "checkers4",
+          "samples": [
+            10738.53765,
+            11068.950684,
+            10811.556165,
+            10469.259834,
+            10654.850483
+          ]
+        },
+        {
+          "id": "vscode:ttsc:tsgo:build:checkers8",
+          "branch": "ttsc",
+          "tool": "tsgo",
+          "op": "build",
+          "threading": "checkers8",
+          "samples": [
+            8151.574995,
+            8433.342897,
+            8366.021956,
+            8223.777508,
+            8418.241285
+          ]
+        },
+        {
+          "id": "vscode:ttsc:tsgo:noEmit:single",
+          "branch": "ttsc",
+          "tool": "tsgo",
+          "op": "noEmit",
+          "threading": "single",
+          "samples": [
+            25284.865771,
+            25222.009993,
+            25397.120994,
+            25732.228985,
+            25478.275417
+          ]
+        },
+        {
+          "id": "vscode:ttsc:tsgo:noEmit:checkers2",
+          "branch": "ttsc",
+          "tool": "tsgo",
+          "op": "noEmit",
+          "threading": "checkers2",
+          "samples": [
+            13507.868553,
+            13689.513068,
+            13543.078957,
+            13781.076455,
+            13328.399658
+          ]
+        },
+        {
+          "id": "vscode:ttsc:tsgo:noEmit:checkers4",
+          "branch": "ttsc",
+          "tool": "tsgo",
+          "op": "noEmit",
+          "threading": "checkers4",
+          "samples": [
+            8740.053385,
+            8575.546886,
+            8510.645055,
+            8604.822645,
+            8912.243781
+          ]
+        },
+        {
+          "id": "vscode:ttsc:tsgo:noEmit:checkers8",
+          "branch": "ttsc",
+          "tool": "tsgo",
+          "op": "noEmit",
+          "threading": "checkers8",
+          "samples": [
+            6752.228642,
+            7114.501165,
+            6839.065434,
+            6680.291679,
+            6543.664965
+          ]
+        }
+      ]
+    },
+    {
+      "name": "nestjs",
+      "repo": "ttsc-benchmark-nestjs",
+      "kind": "backend framework monorepo",
+      "files": 769,
+      "typescript": "v6.0.3",
+      "tsgo": "7.0.0-dev.20260421.2",
+      "measurements": [
+        {
+          "id": "nestjs:legacy:build:multi",
+          "branch": "legacy",
+          "tool": "tsc",
+          "op": "build",
+          "threading": "multi",
+          "samples": [
+            23156.65238,
+            23116.817046,
+            22947.742676,
+            23123.264354,
+            22905.426343
+          ]
+        },
+        {
+          "id": "nestjs:legacy:noEmit:multi",
+          "branch": "legacy",
+          "tool": "tsc",
+          "op": "noEmit",
+          "threading": "multi",
+          "samples": [
+            19225.387552,
+            19537.851782,
+            19563.380442,
+            19706.731295,
+            19744.69287
+          ]
+        },
+        {
+          "id": "nestjs:legacy:eslint:multi",
+          "branch": "legacy",
+          "tool": "eslint",
+          "op": "eslint",
+          "threading": "multi",
+          "samples": [
+            5559.026119,
+            5664.757073,
+            5543.106493,
+            5707.460088,
+            5704.50014
+          ]
+        },
+        {
+          "id": "nestjs:legacy:format:multi",
+          "branch": "legacy",
+          "tool": "prettier",
+          "op": "format",
+          "threading": "multi",
+          "samples": [
+            4732.07906,
+            4628.719076,
+            4775.131761,
+            4829.066994,
+            4807.40278
+          ]
+        },
+        {
+          "id": "nestjs:ttsc:build:single",
+          "branch": "ttsc",
+          "tool": "ttsc",
+          "op": "build",
+          "threading": "single",
+          "samples": [
+            7101.034281,
+            7122.209613,
+            7074.036972,
+            7152.019615,
+            7071.335181
+          ]
+        },
+        {
+          "id": "nestjs:ttsc:build:checkers2",
+          "branch": "ttsc",
+          "tool": "ttsc",
+          "op": "build",
+          "threading": "checkers2",
+          "samples": [
+            5191.926048,
+            5226.473593,
+            5194.382314,
+            5235.023059,
+            5150.133983
+          ]
+        },
+        {
+          "id": "nestjs:ttsc:build:checkers4",
+          "branch": "ttsc",
+          "tool": "ttsc",
+          "op": "build",
+          "threading": "checkers4",
+          "samples": [
+            4856.518376,
+            4803.19975,
+            4813.185698,
+            4881.593507,
+            4853.140941
+          ]
+        },
+        {
+          "id": "nestjs:ttsc:build:checkers8",
+          "branch": "ttsc",
+          "tool": "ttsc",
+          "op": "build",
+          "threading": "checkers8",
+          "samples": [
+            4707.537628,
+            4648.419218,
+            4683.649352,
+            4706.291076,
+            4678.548348
+          ]
+        },
+        {
+          "id": "nestjs:ttsc:noEmit:single",
+          "branch": "ttsc",
+          "tool": "ttsc",
+          "op": "noEmit",
+          "threading": "single",
+          "samples": [
+            5896.940528,
+            5906.532525,
+            5864.00965,
+            5915.307082,
+            5873.469612
+          ]
+        },
+        {
+          "id": "nestjs:ttsc:noEmit:checkers2",
+          "branch": "ttsc",
+          "tool": "ttsc",
+          "op": "noEmit",
+          "threading": "checkers2",
+          "samples": [
+            4830.486613,
+            4769.366134,
+            4877.661098,
+            4842.857047,
+            4847.525346
+          ]
+        },
+        {
+          "id": "nestjs:ttsc:noEmit:checkers4",
+          "branch": "ttsc",
+          "tool": "ttsc",
+          "op": "noEmit",
+          "threading": "checkers4",
+          "samples": [
+            4655.788248,
+            4565.863382,
+            4588.504685,
+            4570.851326,
+            4560.232958
+          ]
+        },
+        {
+          "id": "nestjs:ttsc:noEmit:checkers8",
+          "branch": "ttsc",
+          "tool": "ttsc",
+          "op": "noEmit",
+          "threading": "checkers8",
+          "samples": [
+            4483.058004,
+            4460.568942,
+            4443.701613,
+            4447.488448,
+            4411.143522
+          ]
+        },
+        {
+          "id": "nestjs:ttsc-lint:build:single",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "build",
+          "threading": "single",
+          "samples": [
+            12971.933384,
+            12982.594606,
+            12996.400226,
+            13117.128566,
+            13041.304293
+          ],
+          "lintSamples": [
+            2906,
+            2883,
+            2883,
+            2934,
+            2929
+          ],
+          "lintPluginSamples": [
+            13,
+            13,
+            12,
+            11,
+            13
+          ]
+        },
+        {
+          "id": "nestjs:ttsc-lint:build:checkers2",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "build",
+          "threading": "checkers2",
+          "samples": [
+            10118.038898,
+            10248.299473,
+            10012.32098,
+            9944.281933,
+            9996.274189
+          ],
+          "lintSamples": [
+            1853,
+            1862,
+            1819,
+            1815,
+            1839
+          ],
+          "lintPluginSamples": [
+            4,
+            4,
+            5,
+            3,
+            3
+          ]
+        },
+        {
+          "id": "nestjs:ttsc-lint:build:checkers4",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "build",
+          "threading": "checkers4",
+          "samples": [
+            9335.826908,
+            9351.461657,
+            9446.978303,
+            9436.049356,
+            9407.800599
+          ],
+          "lintSamples": [
+            1587,
+            1559,
+            1574,
+            1566,
+            1586
+          ],
+          "lintPluginSamples": [
+            6,
+            5,
+            4,
+            5,
+            3
+          ]
+        },
+        {
+          "id": "nestjs:ttsc-lint:build:checkers8",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "build",
+          "threading": "checkers8",
+          "samples": [
+            9119.95989,
+            9241.240607,
+            9174.962554,
+            9130.310608,
+            9194.677692
+          ],
+          "lintSamples": [
+            1455,
+            1517,
+            1454,
+            1500,
+            1501
+          ],
+          "lintPluginSamples": [
+            4,
+            4,
+            4,
+            3,
+            3
+          ]
+        },
+        {
+          "id": "nestjs:ttsc-lint:noEmit:single",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "noEmit",
+          "threading": "single",
+          "samples": [
+            8658.00643,
+            8660.163018,
+            8594.440342,
+            8652.673894,
+            8622.038096
+          ],
+          "lintSamples": [
+            2886,
+            2859,
+            2863,
+            2876,
+            2863
+          ],
+          "lintPluginSamples": [
+            11,
+            12,
+            11,
+            12,
+            11
+          ]
+        },
+        {
+          "id": "nestjs:ttsc-lint:noEmit:checkers2",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "noEmit",
+          "threading": "checkers2",
+          "samples": [
+            7625.736271,
+            7568.646937,
+            7592.456502,
+            7591.523797,
+            7567.928021
+          ],
+          "lintSamples": [
+            1851,
+            1802,
+            1841,
+            1809,
+            1806
+          ],
+          "lintPluginSamples": [
+            3,
+            3,
+            3,
+            3,
+            3
+          ]
+        },
+        {
+          "id": "nestjs:ttsc-lint:noEmit:checkers4",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "noEmit",
+          "threading": "checkers4",
+          "samples": [
+            7442.660671,
+            7424.99481,
+            7311.681207,
+            7316.580135,
+            7361.267832
+          ],
+          "lintSamples": [
+            1620,
+            1570,
+            1554,
+            1568,
+            1573
+          ],
+          "lintPluginSamples": [
+            4,
+            3,
+            4,
+            3,
+            4
+          ]
+        },
+        {
+          "id": "nestjs:ttsc-lint:noEmit:checkers8",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "noEmit",
+          "threading": "checkers8",
+          "samples": [
+            7230.171693,
+            7268.698988,
+            7296.129923,
+            7247.694305,
+            7259.476482
+          ],
+          "lintSamples": [
+            1484,
+            1506,
+            1495,
+            1508,
+            1503
+          ],
+          "lintPluginSamples": [
+            3,
+            3,
+            4,
+            3,
+            4
+          ]
+        },
+        {
+          "id": "nestjs:ttsc-lint:format:single",
+          "branch": "ttsc-lint",
+          "tool": "ttsc-format",
+          "op": "format",
+          "threading": "single",
+          "samples": [
+            8676.988613,
+            8671.056495,
+            8705.61018,
+            8722.543285,
+            8678.065013
+          ]
+        },
+        {
+          "id": "nestjs:ttsc-lint:format:multi",
+          "branch": "ttsc-lint",
+          "tool": "ttsc-format",
+          "op": "format",
+          "threading": "multi",
+          "samples": [
+            7141.421588,
+            7107.019207,
+            7070.092697,
+            7116.458342,
+            7124.771619
+          ]
+        },
+        {
+          "id": "nestjs:ttsc:tsgo:build:single",
+          "branch": "ttsc",
+          "tool": "tsgo",
+          "op": "build",
+          "threading": "single",
+          "samples": [
+            6833.923783,
+            6866.137877,
+            6806.116456,
+            6851.990198,
+            6874.822681
+          ]
+        },
+        {
+          "id": "nestjs:ttsc:tsgo:build:checkers2",
+          "branch": "ttsc",
+          "tool": "tsgo",
+          "op": "build",
+          "threading": "checkers2",
+          "samples": [
+            5022.785041,
+            4957.253098,
+            4968.469205,
+            4968.305281,
+            5013.637009
+          ]
+        },
+        {
+          "id": "nestjs:ttsc:tsgo:build:checkers4",
+          "branch": "ttsc",
+          "tool": "tsgo",
+          "op": "build",
+          "threading": "checkers4",
+          "samples": [
+            4646.420938,
+            4593.089189,
+            4615.136908,
+            4611.090142,
+            4582.323178
+          ]
+        },
+        {
+          "id": "nestjs:ttsc:tsgo:build:checkers8",
+          "branch": "ttsc",
+          "tool": "tsgo",
+          "op": "build",
+          "threading": "checkers8",
+          "samples": [
+            4470.202151,
+            4458.680198,
+            4501.832395,
+            4512.22832,
+            4501.299064
+          ]
+        },
+        {
+          "id": "nestjs:ttsc:tsgo:noEmit:single",
+          "branch": "ttsc",
+          "tool": "tsgo",
+          "op": "noEmit",
+          "threading": "single",
+          "samples": [
+            5670.56375,
+            5665.653734,
+            5694.691761,
+            5663.68783,
+            5673.048537
+          ]
+        },
+        {
+          "id": "nestjs:ttsc:tsgo:noEmit:checkers2",
+          "branch": "ttsc",
+          "tool": "tsgo",
+          "op": "noEmit",
+          "threading": "checkers2",
+          "samples": [
+            4603.385249,
+            4653.403906,
+            4598.471851,
+            4587.718723,
+            4641.221195
+          ]
+        },
+        {
+          "id": "nestjs:ttsc:tsgo:noEmit:checkers4",
+          "branch": "ttsc",
+          "tool": "tsgo",
+          "op": "noEmit",
+          "threading": "checkers4",
+          "samples": [
+            4421.920674,
+            4474.178445,
+            4435.027173,
+            4456.550995,
+            4386.043222
+          ]
+        },
+        {
+          "id": "nestjs:ttsc:tsgo:noEmit:checkers8",
+          "branch": "ttsc",
+          "tool": "tsgo",
+          "op": "noEmit",
+          "threading": "checkers8",
+          "samples": [
+            4333.634938,
+            4295.274524,
+            4268.135901,
+            4241.177288,
+            4294.663597
+          ]
+        }
+      ]
+    },
+    {
+      "name": "vue",
+      "repo": "ttsc-benchmark-vue",
+      "kind": "frontend monorepo",
+      "files": 442,
+      "typescript": "v6.0.3",
+      "tsgo": "7.0.0-dev.20260421.2",
+      "measurements": [
+        {
+          "id": "vue:legacy:build:multi",
+          "branch": "legacy",
+          "tool": "tsc",
+          "op": "build",
+          "threading": "multi",
+          "samples": [
+            14483.02847,
+            14391.290481,
+            14432.7906,
+            14369.288376,
+            14726.033007
+          ]
+        },
+        {
+          "id": "vue:legacy:noEmit:multi",
+          "branch": "legacy",
+          "tool": "tsc",
+          "op": "noEmit",
+          "threading": "multi",
+          "samples": [
+            13325.414172,
+            13360.41358,
+            13339.530333,
+            13205.208645,
+            13063.813393
+          ]
+        },
+        {
+          "id": "vue:legacy:eslint:multi",
+          "branch": "legacy",
+          "tool": "eslint",
+          "op": "eslint",
+          "threading": "multi",
+          "samples": [
+            3811.056313,
+            3815.698086,
+            3843.866686,
+            3784.185822,
+            3829.216874
+          ]
+        },
+        {
+          "id": "vue:legacy:format:multi",
+          "branch": "legacy",
+          "tool": "prettier",
+          "op": "format",
+          "threading": "multi",
+          "samples": [
+            8674.380627,
+            8827.947235,
+            8714.288867,
+            8563.038263,
+            8728.303531
+          ]
+        },
+        {
+          "id": "vue:ttsc:build:single",
+          "branch": "ttsc",
+          "tool": "ttsc",
+          "op": "build",
+          "threading": "single",
+          "samples": [
+            4650.504552,
+            4627.041205,
+            4566.254357,
+            4600.627075,
+            4608.206393
+          ]
+        },
+        {
+          "id": "vue:ttsc:build:checkers2",
+          "branch": "ttsc",
+          "tool": "ttsc",
+          "op": "build",
+          "threading": "checkers2",
+          "samples": [
+            2860.437551,
+            2835.711323,
+            2806.060472,
+            2838.452187,
+            2875.825419
+          ]
+        },
+        {
+          "id": "vue:ttsc:build:checkers4",
+          "branch": "ttsc",
+          "tool": "ttsc",
+          "op": "build",
+          "threading": "checkers4",
+          "samples": [
+            2173.515324,
+            2210.145866,
+            2146.875661,
+            2239.648935,
+            2207.780231
+          ]
+        },
+        {
+          "id": "vue:ttsc:build:checkers8",
+          "branch": "ttsc",
+          "tool": "ttsc",
+          "op": "build",
+          "threading": "checkers8",
+          "samples": [
+            1956.385589,
+            1929.003839,
+            1929.848793,
+            1898.180793,
+            1934.268841
+          ]
+        },
+        {
+          "id": "vue:ttsc:noEmit:single",
+          "branch": "ttsc",
+          "tool": "ttsc",
+          "op": "noEmit",
+          "threading": "single",
+          "samples": [
+            4184.418071,
+            4153.701256,
+            4143.100048,
+            4159.390161,
+            4172.189277
+          ]
+        },
+        {
+          "id": "vue:ttsc:noEmit:checkers2",
+          "branch": "ttsc",
+          "tool": "ttsc",
+          "op": "noEmit",
+          "threading": "checkers2",
+          "samples": [
+            2716.085327,
+            2774.743727,
+            2733.347372,
+            2795.417075,
+            2740.145519
+          ]
+        },
+        {
+          "id": "vue:ttsc:noEmit:checkers4",
+          "branch": "ttsc",
+          "tool": "ttsc",
+          "op": "noEmit",
+          "threading": "checkers4",
+          "samples": [
+            2108.018,
+            2121.616819,
+            2121.329627,
+            2184.811372,
+            2130.413766
+          ]
+        },
+        {
+          "id": "vue:ttsc:noEmit:checkers8",
+          "branch": "ttsc",
+          "tool": "ttsc",
+          "op": "noEmit",
+          "threading": "checkers8",
+          "samples": [
+            1900.526953,
+            1826.956648,
+            1834.774793,
+            1824.84425,
+            1845.672668
+          ]
+        },
+        {
+          "id": "vue:ttsc-lint:build:single",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "build",
+          "threading": "single",
+          "samples": [
+            8537.816466,
+            8576.672403,
+            8543.703705,
+            8570.8701,
+            8556.918882
+          ],
+          "lintSamples": [
+            3564,
+            3539,
+            3543,
+            3554,
+            3590
+          ],
+          "lintPluginSamples": [
+            33,
+            32,
+            33,
+            34,
+            34
+          ]
+        },
+        {
+          "id": "vue:ttsc-lint:build:checkers2",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "build",
+          "threading": "checkers2",
+          "samples": [
+            5403.047739,
+            5384.116279,
+            5437.548846,
+            5387.771525,
+            5434.198189
+          ],
+          "lintSamples": [
+            2129,
+            2105,
+            2127,
+            2113,
+            2117
+          ],
+          "lintPluginSamples": [
+            5,
+            5,
+            5,
+            5,
+            5
+          ]
+        },
+        {
+          "id": "vue:ttsc-lint:build:checkers4",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "build",
+          "threading": "checkers4",
+          "samples": [
+            4154.060983,
+            4188.97546,
+            4147.0109,
+            4201.695389,
+            4152.634987
+          ],
+          "lintSamples": [
+            1512,
+            1510,
+            1529,
+            1527,
+            1478
+          ],
+          "lintPluginSamples": [
+            5,
+            5,
+            19,
+            5,
+            5
+          ]
+        },
+        {
+          "id": "vue:ttsc-lint:build:checkers8",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "build",
+          "threading": "checkers8",
+          "samples": [
+            3611.957548,
+            3719.620465,
+            3727.525866,
+            3622.038246,
+            3620.436801
+          ],
+          "lintSamples": [
+            1171,
+            1221,
+            1287,
+            1221,
+            1250
+          ],
+          "lintPluginSamples": [
+            5,
+            6,
+            5,
+            5,
+            5
+          ]
+        },
+        {
+          "id": "vue:ttsc-lint:noEmit:single",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "noEmit",
+          "threading": "single",
+          "samples": [
+            4516.124879,
+            4523.496043,
+            4533.218905,
+            4564.359997,
+            4615.017471
+          ],
+          "lintSamples": [
+            3556,
+            3570,
+            3580,
+            3608,
+            3625
+          ],
+          "lintPluginSamples": [
+            34,
+            34,
+            33,
+            44,
+            45
+          ]
+        },
+        {
+          "id": "vue:ttsc-lint:noEmit:checkers2",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "noEmit",
+          "threading": "checkers2",
+          "samples": [
+            3144.083139,
+            3101.484475,
+            3029.72061,
+            3064.775144,
+            3090.216186
+          ],
+          "lintSamples": [
+            2177,
+            2132,
+            2073,
+            2094,
+            2117
+          ],
+          "lintPluginSamples": [
+            5,
+            5,
+            5,
+            5,
+            16
+          ]
+        },
+        {
+          "id": "vue:ttsc-lint:noEmit:checkers4",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "noEmit",
+          "threading": "checkers4",
+          "samples": [
+            2461.135958,
+            2505.593319,
+            2468.173348,
+            2500.233903,
+            2432.818575
+          ],
+          "lintSamples": [
+            1509,
+            1541,
+            1514,
+            1530,
+            1475
+          ],
+          "lintPluginSamples": [
+            5,
+            5,
+            5,
+            5,
+            5
+          ]
+        },
+        {
+          "id": "vue:ttsc-lint:noEmit:checkers8",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "noEmit",
+          "threading": "checkers8",
+          "samples": [
+            2144.715923,
+            2211.504106,
+            2127.073229,
+            2201.351182,
+            2248.643934
+          ],
+          "lintSamples": [
+            1184,
+            1242,
+            1160,
+            1256,
+            1298
+          ],
+          "lintPluginSamples": [
+            5,
+            5,
+            5,
+            5,
+            5
+          ]
+        },
+        {
+          "id": "vue:ttsc-lint:format:single",
+          "branch": "ttsc-lint",
+          "tool": "ttsc-format",
+          "op": "format",
+          "threading": "single",
+          "samples": [
+            1895.656558,
+            1904.052749,
+            1890.773786,
+            1896.11487,
+            1893.903194
+          ]
+        },
+        {
+          "id": "vue:ttsc-lint:format:multi",
+          "branch": "ttsc-lint",
+          "tool": "ttsc-format",
+          "op": "format",
+          "threading": "multi",
+          "samples": [
+            1236.940511,
+            1197.462186,
+            1251.430874,
+            1227.184337,
+            1207.317864
+          ]
+        },
+        {
+          "id": "vue:ttsc:tsgo:build:single",
+          "branch": "ttsc",
+          "tool": "tsgo",
+          "op": "build",
+          "threading": "single",
+          "samples": [
+            4529.008802,
+            4527.504402,
+            4570.900292,
+            4552.162223,
+            4513.456672
+          ]
+        },
+        {
+          "id": "vue:ttsc:tsgo:build:checkers2",
+          "branch": "ttsc",
+          "tool": "tsgo",
+          "op": "build",
+          "threading": "checkers2",
+          "samples": [
+            2809.536475,
+            2795.729449,
+            2753.332783,
+            2813.465166,
+            2769.522294
+          ]
+        },
+        {
+          "id": "vue:ttsc:tsgo:build:checkers4",
+          "branch": "ttsc",
+          "tool": "tsgo",
+          "op": "build",
+          "threading": "checkers4",
+          "samples": [
+            2115.859078,
+            2162.897509,
+            2127.279461,
+            2177.361699,
+            2156.598712
+          ]
+        },
+        {
+          "id": "vue:ttsc:tsgo:build:checkers8",
+          "branch": "ttsc",
+          "tool": "tsgo",
+          "op": "build",
+          "threading": "checkers8",
+          "samples": [
+            1904.92663,
+            1876.211175,
+            1832.998033,
+            1933.822498,
+            1859.375285
+          ]
+        },
+        {
+          "id": "vue:ttsc:tsgo:noEmit:single",
+          "branch": "ttsc",
+          "tool": "tsgo",
+          "op": "noEmit",
+          "threading": "single",
+          "samples": [
+            4154.621454,
+            4135.606369,
+            4128.591431,
+            4180.420964,
+            4130.264177
+          ]
+        },
+        {
+          "id": "vue:ttsc:tsgo:noEmit:checkers2",
+          "branch": "ttsc",
+          "tool": "tsgo",
+          "op": "noEmit",
+          "threading": "checkers2",
+          "samples": [
+            2693.774184,
+            2675.891386,
+            2710.932469,
+            2748.100416,
+            2677.679803
+          ]
+        },
+        {
+          "id": "vue:ttsc:tsgo:noEmit:checkers4",
+          "branch": "ttsc",
+          "tool": "tsgo",
+          "op": "noEmit",
+          "threading": "checkers4",
+          "samples": [
+            2113.794384,
+            2138.191774,
+            2123.609025,
+            2070.706963,
+            2110.14363
+          ]
+        },
+        {
+          "id": "vue:ttsc:tsgo:noEmit:checkers8",
+          "branch": "ttsc",
+          "tool": "tsgo",
+          "op": "noEmit",
+          "threading": "checkers8",
+          "samples": [
+            1865.757072,
+            1822.213791,
+            1834.754137,
+            1912.606848,
+            1835.092124
+          ]
+        }
+      ]
+    },
+    {
+      "name": "zod",
+      "repo": "ttsc-benchmark-zod",
+      "kind": "schema library monorepo",
+      "files": 286,
+      "typescript": "v6.0.3",
+      "tsgo": "7.0.0-dev.20260421.2",
+      "measurements": [
+        {
+          "id": "zod:legacy:build:multi",
+          "branch": "legacy",
+          "tool": "tsc",
+          "op": "build",
+          "threading": "multi",
+          "samples": [
+            4898.476019,
+            4901.282534,
+            4927.945942,
+            4962.871308,
+            5063.227137
+          ]
+        },
+        {
+          "id": "zod:legacy:noEmit:multi",
+          "branch": "legacy",
+          "tool": "tsc",
+          "op": "noEmit",
+          "threading": "multi",
+          "samples": [
+            10105.172874,
+            10052.794935,
+            10313.249092,
+            10206.131715,
+            9986.757525
+          ]
+        },
+        {
+          "id": "zod:legacy:eslint:multi",
+          "branch": "legacy",
+          "tool": "eslint",
+          "op": "eslint",
+          "threading": "multi",
+          "samples": [
+            4878.003494,
+            4796.572781,
+            4695.818601,
+            4833.946544,
+            4599.361273
+          ]
+        },
+        {
+          "id": "zod:legacy:format:multi",
+          "branch": "legacy",
+          "tool": "prettier",
+          "op": "format",
+          "threading": "multi",
+          "samples": [
+            6288.680064,
+            6209.919863,
+            6205.471631,
+            6317.429197,
+            6303.903305
+          ]
+        },
+        {
+          "id": "zod:ttsc:build:single",
+          "branch": "ttsc",
+          "tool": "ttsc",
+          "op": "build",
+          "threading": "single",
+          "samples": [
+            1655.126221,
+            1680.206548,
+            1727.713343,
+            1683.868202,
+            1701.897846
+          ]
+        },
+        {
+          "id": "zod:ttsc:build:checkers2",
+          "branch": "ttsc",
+          "tool": "ttsc",
+          "op": "build",
+          "threading": "checkers2",
+          "samples": [
+            1424.296438,
+            1465.236937,
+            1447.430625,
+            1424.315265,
+            1479.144578
+          ]
+        },
+        {
+          "id": "zod:ttsc:build:checkers4",
+          "branch": "ttsc",
+          "tool": "ttsc",
+          "op": "build",
+          "threading": "checkers4",
+          "samples": [
+            1395.275668,
+            1400.39247,
+            1414.327304,
+            1419.917255,
+            1401.68627
+          ]
+        },
+        {
+          "id": "zod:ttsc:build:checkers8",
+          "branch": "ttsc",
+          "tool": "ttsc",
+          "op": "build",
+          "threading": "checkers8",
+          "samples": [
+            1379.461178,
+            1412.737805,
+            1371.091541,
+            1411.109471,
+            1421.710942
+          ]
+        },
+        {
+          "id": "zod:ttsc:noEmit:single",
+          "branch": "ttsc",
+          "tool": "ttsc",
+          "op": "noEmit",
+          "threading": "single",
+          "samples": [
+            3769.343884,
+            3762.160865,
+            3712.803324,
+            3736.040394,
+            3735.758257
+          ]
+        },
+        {
+          "id": "zod:ttsc:noEmit:checkers2",
+          "branch": "ttsc",
+          "tool": "ttsc",
+          "op": "noEmit",
+          "threading": "checkers2",
+          "samples": [
+            2529.694041,
+            2530.480282,
+            2515.416719,
+            2451.519441,
+            2522.790191
+          ]
+        },
+        {
+          "id": "zod:ttsc:noEmit:checkers4",
+          "branch": "ttsc",
+          "tool": "ttsc",
+          "op": "noEmit",
+          "threading": "checkers4",
+          "samples": [
+            2045.894853,
+            2091.599727,
+            2023.545674,
+            2059.44152,
+            2049.609707
+          ]
+        },
+        {
+          "id": "zod:ttsc:noEmit:checkers8",
+          "branch": "ttsc",
+          "tool": "ttsc",
+          "op": "noEmit",
+          "threading": "checkers8",
+          "samples": [
+            1895.847425,
+            1923.072594,
+            1914.779997,
+            1887.67516,
+            1916.364554
+          ]
+        },
+        {
+          "id": "zod:ttsc-lint:build:single",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "build",
+          "threading": "single",
+          "samples": [
+            3359.104514,
+            3054.547184,
+            3051.123951,
+            3063.964929,
+            3049.493788
+          ],
+          "lintSamples": [
+            1010.9999999999999,
+            999,
+            992,
+            991,
+            999
+          ],
+          "lintPluginSamples": [
+            9,
+            9,
+            9,
+            9,
+            9
+          ]
+        },
+        {
+          "id": "zod:ttsc-lint:build:checkers2",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "build",
+          "threading": "checkers2",
+          "samples": [
+            2615.353913,
+            2614.30047,
+            2638.589323,
+            2628.132432,
+            2747.88601
+          ],
+          "lintSamples": [
+            791,
+            790,
+            802,
+            790,
+            809
+          ],
+          "lintPluginSamples": [
+            5,
+            5,
+            5,
+            5,
+            15
+          ]
+        },
+        {
+          "id": "zod:ttsc-lint:build:checkers4",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "build",
+          "threading": "checkers4",
+          "samples": [
+            2592.627814,
+            2512.035957,
+            2570.800651,
+            2514.610367,
+            2551.328669
+          ],
+          "lintSamples": [
+            803,
+            734,
+            775,
+            741,
+            757
+          ],
+          "lintPluginSamples": [
+            5,
+            5,
+            5,
+            5,
+            4
+          ]
+        },
+        {
+          "id": "zod:ttsc-lint:build:checkers8",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "build",
+          "threading": "checkers8",
+          "samples": [
+            2583.055028,
+            2562.347236,
+            2595.496448,
+            2549.944299,
+            2571.59013
+          ],
+          "lintSamples": [
+            802,
+            773,
+            774,
+            768,
+            779
+          ],
+          "lintPluginSamples": [
+            5,
+            5,
+            5,
+            5,
+            5
+          ]
+        },
+        {
+          "id": "zod:ttsc-lint:noEmit:single",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "noEmit",
+          "threading": "single",
+          "samples": [
+            4122.019082,
+            4162.887468,
+            4151.411698,
+            4189.287356,
+            4133.096353
+          ],
+          "lintSamples": [
+            3182,
+            3185,
+            3187,
+            3233,
+            3189
+          ],
+          "lintPluginSamples": [
+            20,
+            21,
+            21,
+            21,
+            20
+          ]
+        },
+        {
+          "id": "zod:ttsc-lint:noEmit:checkers2",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "noEmit",
+          "threading": "checkers2",
+          "samples": [
+            2861.386706,
+            2867.574696,
+            2787.814845,
+            2758.561866,
+            2831.206711
+          ],
+          "lintSamples": [
+            1921,
+            1936,
+            1850,
+            1822,
+            1894
+          ],
+          "lintPluginSamples": [
+            5,
+            4,
+            5,
+            4,
+            5
+          ]
+        },
+        {
+          "id": "zod:ttsc-lint:noEmit:checkers4",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "noEmit",
+          "threading": "checkers4",
+          "samples": [
+            2359.837493,
+            2388.447808,
+            2375.072526,
+            2383.547161,
+            2366.267965
+          ],
+          "lintSamples": [
+            1414,
+            1420,
+            1413,
+            1441,
+            1428
+          ],
+          "lintPluginSamples": [
+            5,
+            4,
+            5,
+            5,
+            4
+          ]
+        },
+        {
+          "id": "zod:ttsc-lint:noEmit:checkers8",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "noEmit",
+          "threading": "checkers8",
+          "samples": [
+            2283.157057,
+            2230.962017,
+            2225.046752,
+            2290.330235,
+            2254.694428
+          ],
+          "lintSamples": [
+            1313,
+            1301,
+            1288,
+            1317,
+            1314
+          ],
+          "lintPluginSamples": [
+            4,
+            4,
+            5,
+            5,
+            5
+          ]
+        },
+        {
+          "id": "zod:ttsc-lint:format:single",
+          "branch": "ttsc-lint",
+          "tool": "ttsc-format",
+          "op": "format",
+          "threading": "single",
+          "samples": [
+            2006.242184,
+            2008.741693,
+            2027.201567,
+            2026.908287,
+            1997.272732
+          ]
+        },
+        {
+          "id": "zod:ttsc-lint:format:multi",
+          "branch": "ttsc-lint",
+          "tool": "ttsc-format",
+          "op": "format",
+          "threading": "multi",
+          "samples": [
+            1232.903116,
+            1226.474309,
+            1231.355446,
+            1271.833601,
+            1243.373264
+          ]
+        },
+        {
+          "id": "zod:ttsc:tsgo:build:single",
+          "branch": "ttsc",
+          "tool": "tsgo",
+          "op": "build",
+          "threading": "single",
+          "samples": [
+            1711.70154,
+            1652.72443,
+            1646.190982,
+            1672.948979,
+            1685.714512
+          ]
+        },
+        {
+          "id": "zod:ttsc:tsgo:build:checkers2",
+          "branch": "ttsc",
+          "tool": "tsgo",
+          "op": "build",
+          "threading": "checkers2",
+          "samples": [
+            1445.678259,
+            1418.474993,
+            1394.983588,
+            1424.716286,
+            1376.41391
+          ]
+        },
+        {
+          "id": "zod:ttsc:tsgo:build:checkers4",
+          "branch": "ttsc",
+          "tool": "tsgo",
+          "op": "build",
+          "threading": "checkers4",
+          "samples": [
+            1379.179991,
+            1400.699169,
+            1421.52713,
+            1374.652565,
+            1423.245813
+          ]
+        },
+        {
+          "id": "zod:ttsc:tsgo:build:checkers8",
+          "branch": "ttsc",
+          "tool": "tsgo",
+          "op": "build",
+          "threading": "checkers8",
+          "samples": [
+            1382.132839,
+            1398.742195,
+            1410.739753,
+            1362.759591,
+            1371.259184
+          ]
+        },
+        {
+          "id": "zod:ttsc:tsgo:noEmit:single",
+          "branch": "ttsc",
+          "tool": "tsgo",
+          "op": "noEmit",
+          "threading": "single",
+          "samples": [
+            3726.760488,
+            3728.847781,
+            3708.595067,
+            3700.128854,
+            3739.091803
+          ]
+        },
+        {
+          "id": "zod:ttsc:tsgo:noEmit:checkers2",
+          "branch": "ttsc",
+          "tool": "tsgo",
+          "op": "noEmit",
+          "threading": "checkers2",
+          "samples": [
+            2436.030278,
+            2403.518053,
+            2446.817121,
+            2444.547023,
+            2511.695699
+          ]
+        },
+        {
+          "id": "zod:ttsc:tsgo:noEmit:checkers4",
+          "branch": "ttsc",
+          "tool": "tsgo",
+          "op": "noEmit",
+          "threading": "checkers4",
+          "samples": [
+            2034.960882,
+            2004.625475,
+            2044.708433,
+            2074.350644,
+            2007.823923
+          ]
+        },
+        {
+          "id": "zod:ttsc:tsgo:noEmit:checkers8",
+          "branch": "ttsc",
+          "tool": "tsgo",
+          "op": "noEmit",
+          "threading": "checkers8",
+          "samples": [
+            1921.96318,
+            1894.718112,
+            1953.745194,
+            1918.975039,
+            1850.80191
+          ]
+        }
+      ]
+    },
+    {
+      "name": "typeorm",
+      "repo": "ttsc-benchmark-typeorm",
+      "kind": "ORM library",
+      "files": 495,
+      "typescript": "v6.0.3",
+      "tsgo": "7.0.0-dev.20260421.2",
+      "measurements": [
+        {
+          "id": "typeorm:legacy:build:multi",
+          "branch": "legacy",
+          "tool": "tsc",
+          "op": "build",
+          "threading": "multi",
+          "samples": [
+            18116.758623,
+            17823.780652,
+            17741.371342,
+            17768.190019,
+            17732.029963
+          ]
+        },
+        {
+          "id": "typeorm:legacy:noEmit:multi",
+          "branch": "legacy",
+          "tool": "tsc",
+          "op": "noEmit",
+          "threading": "multi",
+          "samples": [
+            12047.850105,
+            12037.619032,
+            11885.096191,
+            12012.229113,
+            12124.923452
+          ]
+        },
+        {
+          "id": "typeorm:legacy:eslint:multi",
+          "branch": "legacy",
+          "tool": "eslint",
+          "op": "eslint",
+          "threading": "multi",
+          "samples": [
+            12235.211177,
+            11999.393161,
+            12045.175619,
+            12147.424895,
+            12186.812679
+          ]
+        },
+        {
+          "id": "typeorm:legacy:format:multi",
+          "branch": "legacy",
+          "tool": "prettier",
+          "op": "format",
+          "threading": "multi",
+          "samples": [
+            24497.876015,
+            24815.560531,
+            25041.623562,
+            24554.681057,
+            24482.856887
+          ]
+        },
+        {
+          "id": "typeorm:ttsc:build:single",
+          "branch": "ttsc",
+          "tool": "ttsc",
+          "op": "build",
+          "threading": "single",
+          "samples": [
+            5949.94656,
+            5976.566238,
+            5992.743004,
+            5928.09874,
+            5991.648561
+          ]
+        },
+        {
+          "id": "typeorm:ttsc:build:checkers2",
+          "branch": "ttsc",
+          "tool": "ttsc",
+          "op": "build",
+          "threading": "checkers2",
+          "samples": [
+            2959.451358,
+            2968.421553,
+            2961.846177,
+            2924.683575,
+            2932.770331
+          ]
+        },
+        {
+          "id": "typeorm:ttsc:build:checkers4",
+          "branch": "ttsc",
+          "tool": "ttsc",
+          "op": "build",
+          "threading": "checkers4",
+          "samples": [
+            2338.031377,
+            2251.41608,
+            2242.549489,
+            2293.409789,
+            2282.49829
+          ]
+        },
+        {
+          "id": "typeorm:ttsc:build:checkers8",
+          "branch": "ttsc",
+          "tool": "ttsc",
+          "op": "build",
+          "threading": "checkers8",
+          "samples": [
+            1966.272411,
+            2024.168248,
+            2035.850817,
+            1958.541361,
+            2036.900537
+          ]
+        },
+        {
+          "id": "typeorm:ttsc:noEmit:single",
+          "branch": "ttsc",
+          "tool": "ttsc",
+          "op": "noEmit",
+          "threading": "single",
+          "samples": [
+            3809.363655,
+            3781.502424,
+            3808.271891,
+            3815.004415,
+            3782.363886
+          ]
+        },
+        {
+          "id": "typeorm:ttsc:noEmit:checkers2",
+          "branch": "ttsc",
+          "tool": "ttsc",
+          "op": "noEmit",
+          "threading": "checkers2",
+          "samples": [
+            2346.383995,
+            2361.496161,
+            2389.366358,
+            2402.390921,
+            2393.161963
+          ]
+        },
+        {
+          "id": "typeorm:ttsc:noEmit:checkers4",
+          "branch": "ttsc",
+          "tool": "ttsc",
+          "op": "noEmit",
+          "threading": "checkers4",
+          "samples": [
+            1868.384602,
+            1811.729102,
+            1854.36061,
+            1855.816227,
+            1828.632245
+          ]
+        },
+        {
+          "id": "typeorm:ttsc:noEmit:checkers8",
+          "branch": "ttsc",
+          "tool": "ttsc",
+          "op": "noEmit",
+          "threading": "checkers8",
+          "samples": [
+            1656.191555,
+            1572.05883,
+            1613.305181,
+            1620.735516,
+            1596.561068
+          ]
+        },
+        {
+          "id": "typeorm:ttsc-lint:build:single",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "build",
+          "threading": "single",
+          "samples": [],
+          "failure": "error",
+          "exitStatus": 2
+        },
+        {
+          "id": "typeorm:ttsc-lint:build:checkers2",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "build",
+          "threading": "checkers2",
+          "samples": [],
+          "failure": "error",
+          "exitStatus": 2
+        },
+        {
+          "id": "typeorm:ttsc-lint:build:checkers4",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "build",
+          "threading": "checkers4",
+          "samples": [],
+          "failure": "error",
+          "exitStatus": 2
+        },
+        {
+          "id": "typeorm:ttsc-lint:build:checkers8",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "build",
+          "threading": "checkers8",
+          "samples": [],
+          "failure": "error",
+          "exitStatus": 2
+        },
+        {
+          "id": "typeorm:ttsc-lint:noEmit:single",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "noEmit",
+          "threading": "single",
+          "samples": [],
+          "failure": "error",
+          "exitStatus": 2
+        },
+        {
+          "id": "typeorm:ttsc-lint:noEmit:checkers2",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "noEmit",
+          "threading": "checkers2",
+          "samples": [],
+          "failure": "error",
+          "exitStatus": 2
+        },
+        {
+          "id": "typeorm:ttsc-lint:noEmit:checkers4",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "noEmit",
+          "threading": "checkers4",
+          "samples": [],
+          "failure": "error",
+          "exitStatus": 2
+        },
+        {
+          "id": "typeorm:ttsc-lint:noEmit:checkers8",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "noEmit",
+          "threading": "checkers8",
+          "samples": [],
+          "failure": "error",
+          "exitStatus": 2
+        },
+        {
+          "id": "typeorm:ttsc-lint:format:single",
+          "branch": "ttsc-lint",
+          "tool": "ttsc-format",
+          "op": "format",
+          "threading": "single",
+          "samples": [],
+          "failure": "error",
+          "exitStatus": 2
+        },
+        {
+          "id": "typeorm:ttsc-lint:format:multi",
+          "branch": "ttsc-lint",
+          "tool": "ttsc-format",
+          "op": "format",
+          "threading": "multi",
+          "samples": [],
+          "failure": "error",
+          "exitStatus": 2
+        },
+        {
+          "id": "typeorm:ttsc:tsgo:build:single",
+          "branch": "ttsc",
+          "tool": "tsgo",
+          "op": "build",
+          "threading": "single",
+          "samples": [
+            5859.271054,
+            5896.896435,
+            5958.73267,
+            5887.990473,
+            5896.679098
+          ]
+        },
+        {
+          "id": "typeorm:ttsc:tsgo:build:checkers2",
+          "branch": "ttsc",
+          "tool": "tsgo",
+          "op": "build",
+          "threading": "checkers2",
+          "samples": [
+            2835.179528,
+            2865.023184,
+            2860.655533,
+            2922.903453,
+            2852.218798
+          ]
+        },
+        {
+          "id": "typeorm:ttsc:tsgo:build:checkers4",
+          "branch": "ttsc",
+          "tool": "tsgo",
+          "op": "build",
+          "threading": "checkers4",
+          "samples": [
+            2175.029113,
+            2172.911183,
+            2133.134082,
+            2107.510339,
+            2137.246159
+          ]
+        },
+        {
+          "id": "typeorm:ttsc:tsgo:build:checkers8",
+          "branch": "ttsc",
+          "tool": "tsgo",
+          "op": "build",
+          "threading": "checkers8",
+          "samples": [
+            1953.276972,
+            1972.19493,
+            1972.25894,
+            1969.438666,
+            2007.880454
+          ]
+        },
+        {
+          "id": "typeorm:ttsc:tsgo:noEmit:single",
+          "branch": "ttsc",
+          "tool": "tsgo",
+          "op": "noEmit",
+          "threading": "single",
+          "samples": [
+            3781.579688,
+            3762.920535,
+            3806.48279,
+            3778.804688,
+            3750.215188
+          ]
+        },
+        {
+          "id": "typeorm:ttsc:tsgo:noEmit:checkers2",
+          "branch": "ttsc",
+          "tool": "tsgo",
+          "op": "noEmit",
+          "threading": "checkers2",
+          "samples": [
+            2360.169089,
+            2367.743617,
+            2334.602449,
+            2382.077351,
+            2317.219254
+          ]
+        },
+        {
+          "id": "typeorm:ttsc:tsgo:noEmit:checkers4",
+          "branch": "ttsc",
+          "tool": "tsgo",
+          "op": "noEmit",
+          "threading": "checkers4",
+          "samples": [
+            1779.735513,
+            1817.741805,
+            1854.191001,
+            1888.583632,
+            1818.950997
+          ]
+        },
+        {
+          "id": "typeorm:ttsc:tsgo:noEmit:checkers8",
+          "branch": "ttsc",
+          "tool": "tsgo",
+          "op": "noEmit",
+          "threading": "checkers8",
+          "samples": [
+            1593.062139,
+            1584.947617,
+            1560.245845,
+            1584.404565,
+            1560.112306
+          ]
+        }
+      ]
+    },
+    {
+      "name": "rxjs",
+      "repo": "ttsc-benchmark-rxjs",
+      "kind": "library monorepo",
+      "files": 515,
+      "typescript": "v6.0.3",
+      "tsgo": "7.0.0-dev.20260421.2",
+      "measurements": [
+        {
+          "id": "rxjs:legacy:build:multi",
+          "branch": "legacy",
+          "tool": "tsc",
+          "op": "build",
+          "threading": "multi",
+          "samples": [
+            9065.582173,
+            9178.077739,
+            9074.969419,
+            9084.893841,
+            9103.498835
+          ]
+        },
+        {
+          "id": "rxjs:legacy:noEmit:multi",
+          "branch": "legacy",
+          "tool": "tsc",
+          "op": "noEmit",
+          "threading": "multi",
+          "samples": [
+            8350.50002,
+            8350.079488,
+            8384.458661,
+            8415.542324,
+            8395.592834
+          ]
+        },
+        {
+          "id": "rxjs:legacy:eslint:multi",
+          "branch": "legacy",
+          "tool": "eslint",
+          "op": "eslint",
+          "threading": "multi",
+          "samples": [
+            3274.585473,
+            3271.826881,
+            3275.038613,
+            3263.487223,
+            3297.285073
+          ]
+        },
+        {
+          "id": "rxjs:legacy:format:multi",
+          "branch": "legacy",
+          "tool": "prettier",
+          "op": "format",
+          "threading": "multi",
+          "samples": [
+            3190.848247,
+            3239.450223,
+            3208.587707,
+            3206.005904,
+            3218.035621
+          ]
+        },
+        {
+          "id": "rxjs:ttsc:build:single",
+          "branch": "ttsc",
+          "tool": "ttsc",
+          "op": "build",
+          "threading": "single",
+          "samples": [
+            2790.303648,
+            2779.322983,
+            2791.417071,
+            2801.575137,
+            2782.398793
+          ]
+        },
+        {
+          "id": "rxjs:ttsc:build:checkers2",
+          "branch": "ttsc",
+          "tool": "ttsc",
+          "op": "build",
+          "threading": "checkers2",
+          "samples": [
+            2386.851015,
+            2348.585913,
+            2351.219051,
+            2380.67672,
+            2347.257163
+          ]
+        },
+        {
+          "id": "rxjs:ttsc:build:checkers4",
+          "branch": "ttsc",
+          "tool": "ttsc",
+          "op": "build",
+          "threading": "checkers4",
+          "samples": [
+            2255.864722,
+            2336.725263,
+            2277.091792,
+            2317.641169,
+            2267.304216
+          ]
+        },
+        {
+          "id": "rxjs:ttsc:build:checkers8",
+          "branch": "ttsc",
+          "tool": "ttsc",
+          "op": "build",
+          "threading": "checkers8",
+          "samples": [
+            2223.249665,
+            2227.348754,
+            2269.100385,
+            2209.482971,
+            2220.126515
+          ]
+        },
+        {
+          "id": "rxjs:ttsc:noEmit:single",
+          "branch": "ttsc",
+          "tool": "ttsc",
+          "op": "noEmit",
+          "threading": "single",
+          "samples": [
+            2557.227812,
+            2571.545253,
+            2569.431627,
+            2558.830259,
+            2558.630867
+          ]
+        },
+        {
+          "id": "rxjs:ttsc:noEmit:checkers2",
+          "branch": "ttsc",
+          "tool": "ttsc",
+          "op": "noEmit",
+          "threading": "checkers2",
+          "samples": [
+            2334.203166,
+            2288.707635,
+            2286.801779,
+            2296.417504,
+            2288.320007
+          ]
+        },
+        {
+          "id": "rxjs:ttsc:noEmit:checkers4",
+          "branch": "ttsc",
+          "tool": "ttsc",
+          "op": "noEmit",
+          "threading": "checkers4",
+          "samples": [
+            2190.225225,
+            2257.550096,
+            2222.787328,
+            2246.615398,
+            2200.222068
+          ]
+        },
+        {
+          "id": "rxjs:ttsc:noEmit:checkers8",
+          "branch": "ttsc",
+          "tool": "ttsc",
+          "op": "noEmit",
+          "threading": "checkers8",
+          "samples": [
+            2174.723599,
+            2150.165818,
+            2166.578326,
+            2136.059239,
+            2189.342541
+          ]
+        },
+        {
+          "id": "rxjs:ttsc-lint:build:single",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "build",
+          "threading": "single",
+          "samples": [
+            5636.541229,
+            5716.220397,
+            5665.762151,
+            5748.499696,
+            5689.983759
+          ],
+          "lintSamples": [
+            1496,
+            1511,
+            1527,
+            1512,
+            1538
+          ],
+          "lintPluginSamples": [
+            12,
+            13,
+            13,
+            12,
+            13
+          ]
+        },
+        {
+          "id": "rxjs:ttsc-lint:build:checkers2",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "build",
+          "threading": "checkers2",
+          "samples": [
+            4999.296479,
+            4968.172225,
+            5005.549578,
+            4945.464617,
+            5009.742358
+          ],
+          "lintSamples": [
+            1234,
+            1244,
+            1265,
+            1224,
+            1236
+          ],
+          "lintPluginSamples": [
+            7,
+            6,
+            5,
+            7,
+            5
+          ]
+        },
+        {
+          "id": "rxjs:ttsc-lint:build:checkers4",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "build",
+          "threading": "checkers4",
+          "samples": [
+            4865.208462,
+            4845.869751,
+            4838.147305,
+            4828.753004,
+            4868.898444
+          ],
+          "lintSamples": [
+            1182,
+            1166,
+            1156,
+            1159,
+            1174
+          ],
+          "lintPluginSamples": [
+            11,
+            8,
+            6,
+            6,
+            5
+          ]
+        },
+        {
+          "id": "rxjs:ttsc-lint:build:checkers8",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "build",
+          "threading": "checkers8",
+          "samples": [
+            4788.181127,
+            4719.947465,
+            4722.188358,
+            4695.201575,
+            4735.013913
+          ],
+          "lintSamples": [
+            1123,
+            1091,
+            1139,
+            1116,
+            1118
+          ],
+          "lintPluginSamples": [
+            5,
+            9,
+            6,
+            9,
+            7
+          ]
+        },
+        {
+          "id": "rxjs:ttsc-lint:noEmit:single",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "noEmit",
+          "threading": "single",
+          "samples": [
+            3828.303854,
+            3840.681185,
+            3829.41602,
+            3820.712788,
+            3850.755406
+          ],
+          "lintSamples": [
+            1502,
+            1521,
+            1511,
+            1511,
+            1525
+          ],
+          "lintPluginSamples": [
+            12,
+            12,
+            13,
+            12,
+            12
+          ]
+        },
+        {
+          "id": "rxjs:ttsc-lint:noEmit:checkers2",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "noEmit",
+          "threading": "checkers2",
+          "samples": [
+            3569.374832,
+            3558.8379,
+            3553.027658,
+            3568.519513,
+            3559.187333
+          ],
+          "lintSamples": [
+            1258,
+            1236,
+            1220,
+            1239,
+            1251
+          ],
+          "lintPluginSamples": [
+            6,
+            5,
+            5,
+            8,
+            7
+          ]
+        },
+        {
+          "id": "rxjs:ttsc-lint:noEmit:checkers4",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "noEmit",
+          "threading": "checkers4",
+          "samples": [
+            3510.397338,
+            3482.160064,
+            3485.925187,
+            3512.738409,
+            3485.51481
+          ],
+          "lintSamples": [
+            1193,
+            1148,
+            1159,
+            1185,
+            1175
+          ],
+          "lintPluginSamples": [
+            6,
+            10,
+            7,
+            8,
+            11
+          ]
+        },
+        {
+          "id": "rxjs:ttsc-lint:noEmit:checkers8",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "noEmit",
+          "threading": "checkers8",
+          "samples": [
+            3450.138694,
+            3435.820419,
+            3495.483536,
+            3449.368859,
+            3417.591048
+          ],
+          "lintSamples": [
+            1133,
+            1111,
+            1132,
+            1130,
+            1106
+          ],
+          "lintPluginSamples": [
+            7,
+            8,
+            13,
+            6,
+            7
+          ]
+        },
+        {
+          "id": "rxjs:ttsc-lint:format:single",
+          "branch": "ttsc-lint",
+          "tool": "ttsc-format",
+          "op": "format",
+          "threading": "single",
+          "samples": [
+            3087.144408,
+            3072.414872,
+            3066.155196,
+            3063.004053,
+            3060.126474
+          ]
+        },
+        {
+          "id": "rxjs:ttsc-lint:format:multi",
+          "branch": "ttsc-lint",
+          "tool": "ttsc-format",
+          "op": "format",
+          "threading": "multi",
+          "samples": [
+            2741.173422,
+            2761.132511,
+            2732.503501,
+            2742.260713,
+            2734.977419
+          ]
+        },
+        {
+          "id": "rxjs:ttsc:tsgo:build:single",
+          "branch": "ttsc",
+          "tool": "tsgo",
+          "op": "build",
+          "threading": "single",
+          "samples": [
+            2690.161418,
+            2668.164587,
+            2652.829948,
+            2677.058132,
+            2662.250434
+          ]
+        },
+        {
+          "id": "rxjs:ttsc:tsgo:build:checkers2",
+          "branch": "ttsc",
+          "tool": "tsgo",
+          "op": "build",
+          "threading": "checkers2",
+          "samples": [
+            2268.174886,
+            2280.255351,
+            2257.086866,
+            2273.181958,
+            2227.769023
+          ]
+        },
+        {
+          "id": "rxjs:ttsc:tsgo:build:checkers4",
+          "branch": "ttsc",
+          "tool": "tsgo",
+          "op": "build",
+          "threading": "checkers4",
+          "samples": [
+            2175.180399,
+            2205.754236,
+            2150.945652,
+            2159.81509,
+            2211.954576
+          ]
+        },
+        {
+          "id": "rxjs:ttsc:tsgo:build:checkers8",
+          "branch": "ttsc",
+          "tool": "tsgo",
+          "op": "build",
+          "threading": "checkers8",
+          "samples": [
+            2139.935048,
+            2102.178771,
+            2127.094527,
+            2141.208198,
+            2108.41858
+          ]
+        },
+        {
+          "id": "rxjs:ttsc:tsgo:noEmit:single",
+          "branch": "ttsc",
+          "tool": "tsgo",
+          "op": "noEmit",
+          "threading": "single",
+          "samples": [
+            2470.904678,
+            2473.162262,
+            2466.182022,
+            2469.608121,
+            2462.679358
+          ]
+        },
+        {
+          "id": "rxjs:ttsc:tsgo:noEmit:checkers2",
+          "branch": "ttsc",
+          "tool": "tsgo",
+          "op": "noEmit",
+          "threading": "checkers2",
+          "samples": [
+            2167.769307,
+            2189.743638,
+            2187.179251,
+            2165.733829,
+            2208.554861
+          ]
+        },
+        {
+          "id": "rxjs:ttsc:tsgo:noEmit:checkers4",
+          "branch": "ttsc",
+          "tool": "tsgo",
+          "op": "noEmit",
+          "threading": "checkers4",
+          "samples": [
+            2131.965635,
+            2129.142324,
+            2131.74644,
+            2109.000955,
+            2128.779908
+          ]
+        },
+        {
+          "id": "rxjs:ttsc:tsgo:noEmit:checkers8",
+          "branch": "ttsc",
+          "tool": "tsgo",
+          "op": "noEmit",
+          "threading": "checkers8",
+          "samples": [
+            2074.422535,
+            2062.073366,
+            2044.88458,
+            2075.703492,
+            2073.022958
+          ]
+        }
+      ]
+    },
+    {
+      "name": "shopping-backend",
+      "repo": "shopping-backend",
+      "kind": "plugin-heavy service",
+      "files": 464,
+      "typescript": "v6.0.3",
+      "tsgo": "7.0.0-dev.20260421.2",
+      "measurements": [
+        {
+          "id": "shopping-backend:legacy:build:multi",
+          "branch": "legacy",
+          "tool": "tsc",
+          "op": "build",
+          "threading": "multi",
+          "samples": [
+            6391.264677,
+            6457.310914,
+            6453.09865,
+            6401.628839,
+            6426.621924
+          ]
+        },
+        {
+          "id": "shopping-backend:legacy:noEmit:multi",
+          "branch": "legacy",
+          "tool": "tsc",
+          "op": "noEmit",
+          "threading": "multi",
+          "samples": [
+            5407.450738,
+            5422.146184,
+            5405.153187,
+            5417.35178,
+            5401.314388
+          ]
+        },
+        {
+          "id": "shopping-backend:legacy:eslint:multi",
+          "branch": "legacy",
+          "tool": "eslint",
+          "op": "eslint",
+          "threading": "multi",
+          "samples": [
+            6651.754489,
+            6445.23144,
+            6416.270517,
+            6459.661843,
+            6460.848934
+          ]
+        },
+        {
+          "id": "shopping-backend:legacy:format:multi",
+          "branch": "legacy",
+          "tool": "prettier",
+          "op": "format",
+          "threading": "multi",
+          "samples": [
+            8396.928696,
+            8449.305665,
+            8470.554752,
+            8368.185997,
+            8415.710362
+          ]
+        },
+        {
+          "id": "shopping-backend:ttsc:build:single",
+          "branch": "ttsc",
+          "tool": "ttsc",
+          "op": "build",
+          "threading": "single",
+          "samples": [
+            8276.386349,
+            8298.50211,
+            8287.012688,
+            8214.516073,
+            8207.085869
+          ]
+        },
+        {
+          "id": "shopping-backend:ttsc:build:checkers2",
+          "branch": "ttsc",
+          "tool": "ttsc",
+          "op": "build",
+          "threading": "checkers2",
+          "samples": [
+            8002.99461,
+            8022.136127,
+            7989.180933,
+            8004.56575,
+            8088.122772
+          ]
+        },
+        {
+          "id": "shopping-backend:ttsc:build:checkers4",
+          "branch": "ttsc",
+          "tool": "ttsc",
+          "op": "build",
+          "threading": "checkers4",
+          "samples": [
+            8073.159578,
+            8080.831897,
+            7983.076382,
+            8090.273427,
+            8005.407453
+          ]
+        },
+        {
+          "id": "shopping-backend:ttsc:build:checkers8",
+          "branch": "ttsc",
+          "tool": "ttsc",
+          "op": "build",
+          "threading": "checkers8",
+          "samples": [
+            8012.104994,
+            8040.567493,
+            8092.827471,
+            7927.382709,
+            8021.543542
+          ]
+        },
+        {
+          "id": "shopping-backend:ttsc:noEmit:single",
+          "branch": "ttsc",
+          "tool": "ttsc",
+          "op": "noEmit",
+          "threading": "single",
+          "samples": [
+            2076.567519,
+            2083.836472,
+            2086.443811,
+            2106.899225,
+            2086.61776
+          ]
+        },
+        {
+          "id": "shopping-backend:ttsc:noEmit:checkers2",
+          "branch": "ttsc",
+          "tool": "ttsc",
+          "op": "noEmit",
+          "threading": "checkers2",
+          "samples": [
+            2099.519742,
+            2107.708521,
+            2074.112157,
+            2114.858314,
+            2089.663437
+          ]
+        },
+        {
+          "id": "shopping-backend:ttsc:noEmit:checkers4",
+          "branch": "ttsc",
+          "tool": "ttsc",
+          "op": "noEmit",
+          "threading": "checkers4",
+          "samples": [
+            2116.410645,
+            2094.583791,
+            2077.020937,
+            2088.37369,
+            2085.960068
+          ]
+        },
+        {
+          "id": "shopping-backend:ttsc:noEmit:checkers8",
+          "branch": "ttsc",
+          "tool": "ttsc",
+          "op": "noEmit",
+          "threading": "checkers8",
+          "samples": [
+            2104.082822,
+            2083.200427,
+            2084.352745,
+            2086.451163,
+            2093.758286
+          ]
+        },
+        {
+          "id": "shopping-backend:ttsc-lint:build:single",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "build",
+          "threading": "single",
+          "samples": [
+            9614.989064,
+            9626.065837,
+            9605.677927,
+            9587.074718,
+            9653.877028
+          ],
+          "lintSamples": [
+            1386,
+            1359,
+            1350,
+            1351,
+            1363
+          ],
+          "lintPluginSamples": [
+            88,
+            77,
+            77,
+            78,
+            77
+          ],
+          "transformHostSamples": [
+            6796,
+            6817,
+            6808,
+            6776,
+            6848
+          ]
+        },
+        {
+          "id": "shopping-backend:ttsc-lint:build:checkers2",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "build",
+          "threading": "checkers2",
+          "samples": [
+            9053.725238,
+            9029.412718,
+            9040.721542,
+            9025.159378,
+            9052.952346
+          ],
+          "lintSamples": [
+            748,
+            757,
+            762,
+            739,
+            755
+          ],
+          "lintPluginSamples": [
+            11,
+            11,
+            12,
+            11,
+            11
+          ],
+          "transformHostSamples": [
+            6857,
+            6827,
+            6829,
+            6841,
+            6848
+          ]
+        },
+        {
+          "id": "shopping-backend:ttsc-lint:build:checkers4",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "build",
+          "threading": "checkers4",
+          "samples": [
+            8921.65858,
+            8861.546934,
+            8914.564255,
+            8922.064265,
+            8920.015021
+          ],
+          "lintSamples": [
+            636,
+            648,
+            615,
+            626,
+            654
+          ],
+          "lintPluginSamples": [
+            12,
+            11,
+            11,
+            12,
+            12
+          ],
+          "transformHostSamples": [
+            6839,
+            6787,
+            6852,
+            6821,
+            6826
+          ]
+        },
+        {
+          "id": "shopping-backend:ttsc-lint:build:checkers8",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "build",
+          "threading": "checkers8",
+          "samples": [
+            8882.587265,
+            8904.424221,
+            8906.406238,
+            8994.430624,
+            8853.755477
+          ],
+          "lintSamples": [
+            602,
+            643,
+            611,
+            601,
+            600
+          ],
+          "lintPluginSamples": [
+            11,
+            13,
+            11,
+            11,
+            13
+          ],
+          "transformHostSamples": [
+            6839,
+            6809,
+            6850,
+            6927,
+            6804
+          ]
+        },
+        {
+          "id": "shopping-backend:ttsc-lint:noEmit:single",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "noEmit",
+          "threading": "single",
+          "samples": [
+            3705.480302,
+            3737.557078,
+            3679.363468,
+            3700.041209,
+            3726.12452
+          ],
+          "lintSamples": [
+            1380,
+            1372,
+            1362,
+            1349,
+            1371
+          ],
+          "lintPluginSamples": [
+            89,
+            77,
+            77,
+            77,
+            78
+          ],
+          "transformHostSamples": [
+            895,
+            931,
+            881,
+            917,
+            917
+          ]
+        },
+        {
+          "id": "shopping-backend:ttsc-lint:noEmit:checkers2",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "noEmit",
+          "threading": "checkers2",
+          "samples": [
+            3089.682071,
+            3094.354122,
+            3023.465173,
+            3074.81986,
+            3064.598463
+          ],
+          "lintSamples": [
+            748,
+            726,
+            693,
+            748,
+            734
+          ],
+          "lintPluginSamples": [
+            11,
+            12,
+            12,
+            11,
+            12
+          ],
+          "transformHostSamples": [
+            896,
+            915,
+            893,
+            904,
+            880
+          ]
+        },
+        {
+          "id": "shopping-backend:ttsc-lint:noEmit:checkers4",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "noEmit",
+          "threading": "checkers4",
+          "samples": [
+            2948.524721,
+            2955.464098,
+            2975.281836,
+            2986.241684,
+            2963.410701
+          ],
+          "lintSamples": [
+            617,
+            600,
+            647,
+            650,
+            627
+          ],
+          "lintPluginSamples": [
+            11,
+            12,
+            13,
+            13,
+            11
+          ],
+          "transformHostSamples": [
+            892,
+            932,
+            898,
+            910,
+            899
+          ]
+        },
+        {
+          "id": "shopping-backend:ttsc-lint:noEmit:checkers8",
+          "branch": "ttsc-lint",
+          "tool": "ttsc+@ttsc/lint",
+          "op": "noEmit",
+          "threading": "checkers8",
+          "samples": [
+            2928.916291,
+            2899.201585,
+            2991.179582,
+            2919.851798,
+            2929.902406
+          ],
+          "lintSamples": [
+            580,
+            570,
+            609,
+            591,
+            593
+          ],
+          "lintPluginSamples": [
+            11,
+            11,
+            11,
+            11,
+            11
+          ],
+          "transformHostSamples": [
+            895,
+            890,
+            932,
+            883,
+            906
+          ]
+        },
+        {
+          "id": "shopping-backend:ttsc-lint:format:single",
+          "branch": "ttsc-lint",
+          "tool": "ttsc-format",
+          "op": "format",
+          "threading": "single",
+          "samples": [
+            2381.760859,
+            2375.86047,
+            2379.336235,
+            2367.364373,
+            2366.787227
+          ]
+        },
+        {
+          "id": "shopping-backend:ttsc-lint:format:multi",
+          "branch": "ttsc-lint",
+          "tool": "ttsc-format",
+          "op": "format",
+          "threading": "multi",
+          "samples": [
+            1713.492805,
+            1707.601121,
+            1714.737985,
+            1700.044121,
+            1719.634003
+          ]
+        }
+      ]
+    }
+  ]
+}

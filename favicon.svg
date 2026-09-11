@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="ttsc icon">
+  <defs>
+    <clipPath id="clip"><rect width="512" height="512" rx="72"/></clipPath>
+    <style>
+      .word {
+        font-family: "Ubuntu Sans", "DejaVu Sans", Arial, sans-serif;
+        font-size: 218px;
+        font-weight: 950;
+        letter-spacing: -10px;
+      }
+    </style>
+  </defs>
+  <g clip-path="url(#clip)">
+    <rect width="512" height="512" fill="#3178C6"/>
+    <path d="M90 404 H220 C262 404 276 372 322 372 H426 M220 404 C262 404 276 428 322 428 H426" fill="none" stroke="#BFE2FF" stroke-width="14" stroke-linecap="round" opacity=".55"/>
+    <circle cx="90" cy="404" r="19" fill="#23D18B" opacity=".84"/>
+    <circle cx="322" cy="372" r="18" fill="#58A6FF" opacity=".84"/>
+    <circle cx="322" cy="428" r="18" fill="#F59E0B" opacity=".84"/>
+    <circle cx="426" cy="372" r="18" fill="#FFFFFF" opacity=".74"/>
+    <circle cx="426" cy="428" r="18" fill="#FFFFFF" opacity=".72"/>
+    <g transform="translate(0 -48) scale(1 1.19)">
+      <text class="word" x="41" y="303" textLength="430" lengthAdjust="spacingAndGlyphs" fill="#FFFFFF">ttsc</text>
+    </g>
+  </g>
+</svg>
