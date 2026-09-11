@@ -1,23 +1,5 @@
 package driver_test
 
-// R4: the const-enum inliner must survive plugin-built member accesses.
-//
-// tsgo's ConstEnumInliningTransformer calls EmitResolver.GetConstantValue on
-// every property/element access it visits during emit, including the synthetic
-// nodes a plugin injects. The checker can nil-panic computing a type for such a
-// node, so the driver wraps the resolver in an unexported guardedEmitResolver
-// whose GetConstantValue recovers any panic to nil ("not a const-enum member").
-//
-// This test drives the full emit pipeline with a const enum present (so the
-// inliner runs and visits every property/element access) and a plugin that
-// injects a synthetic property access AND a synthetic element access. Emit must
-// complete without panic, the real const-enum references must be inlined
-// (proving the inliner is active over the transformed tree), and the synthetic
-// accesses must survive verbatim. This locks the integration-level contract
-// that a plugin may freely inject member-access AST into a const-enum project
-// without crashing emit, which is exactly the path the guardedEmitResolver
-// recover backstops.
-
 import (
   "path/filepath"
   "strings"
@@ -30,6 +12,15 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
+// Verifies emit-context member accesses remain generated during enum inlining.
+//
+// The inliner follows original mappings before consulting the resolver. An
+// emit-factory access has no parse original and must never enter the checker,
+// while genuine enum members still resolve to their constants.
+//
+// 1. Load a const-enum project and inject nested synthetic member accesses.
+// 2. Emit through the real plugin pipeline.
+// 3. Assert both real enum inlining and unchanged generated accesses.
 func TestEmitWithSyntheticMemberAccessDoesNotPanicWithConstEnum(t *testing.T) {
   root := t.TempDir()
   writeProjectFile(t, root, "tsconfig.json", `{"compilerOptions":{"module":"commonjs","target":"es2020","outDir":"bin","strict":true},"files":["index.ts"]}`)
@@ -47,7 +38,7 @@ func TestEmitWithSyntheticMemberAccessDoesNotPanicWithConstEnum(t *testing.T) {
   // The plugin replaces the `0` initializer with a synthetic element access
   // built on top of a synthetic property access: `synthObj.X[3]`. Both are
   // property/element accesses, so the const-enum inliner's visitor descends
-  // into them and calls GetConstantValue on each.
+  // into them while ParseNode excludes them from constant resolution.
   transform := func(ec *shimprinter.EmitContext, sf *shimast.SourceFile) *shimast.SourceFile {
     var visitor *shimast.NodeVisitor
     visit := func(node *shimast.Node) *shimast.Node {
@@ -69,11 +60,11 @@ func TestEmitWithSyntheticMemberAccessDoesNotPanicWithConstEnum(t *testing.T) {
   emitted := map[string]string{}
   // EmitWithPluginTransformer would panic here (and fail the test) if the
   // const-enum inliner hit GetConstantValue on the synthetic access unguarded.
-  if _, err := prog.EmitWithPluginTransformer(transform, func(fileName, text string, _ *shimcompiler.WriteFileData) error {
+  if diagnostics, err := prog.EmitWithPluginTransformer(transform, func(fileName, text string, _ *shimcompiler.WriteFileData) error {
     emitted[filepath.Base(fileName)] = text
     return nil
-  }); err != nil {
-    t.Fatal(err)
+  }); err != nil || len(diagnostics) != 0 {
+    t.Fatalf("emit: %v %v", err, diagnostics)
   }
 
   js := emitted["index.js"]

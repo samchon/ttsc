@@ -1,6 +1,7 @@
 package main
 
 import (
+  "encoding/json"
   "flag"
   "fmt"
   "os"
@@ -40,6 +41,7 @@ func runBuild(args []string) int {
   fs.SetOutput(os.Stderr)
   cwd := fs.String("cwd", "", "")
   tsconfig := fs.String("tsconfig", "", "")
+  manifest := fs.String("manifest", "manifest.json", "")
   _ = fs.String("plugins-json", "", "")
   _ = fs.Bool("emit", false, "")
   _ = fs.Bool("noEmit", false, "")
@@ -74,14 +76,40 @@ func runBuild(args []string) int {
   }
   defer prog.Close()
 
-  emitDiags, err := prog.EmitWithPluginTransformers([]driver.PluginTransform{replaceBeforeLiteral}, writeFile)
+  // Match existing native hosts that buffer outputs and check only the Go
+  // error before publication. Compiler diagnostics must also fail this host.
+  pending := map[string]string{}
+  emitDiags, err := prog.EmitWithPluginTransformers([]driver.PluginTransform{replaceBeforeLiteral}, func(name, text string, _ *shimcompiler.WriteFileData) error {
+    pending[name] = text
+    return nil
+  })
   if err != nil {
-    fmt.Fprintln(os.Stderr, err)
+    fmt.Fprintln(os.Stderr, "go-driver-emit-plugin: emit failed:", err)
     return 2
   }
-  if len(emitDiags) != 0 {
-    driver.WritePrettyDiagnostics(os.Stderr, emitDiags, root)
-    return 2
+  driver.WritePrettyDiagnostics(os.Stderr, emitDiags, root)
+  emitted := []string{}
+  for name, text := range pending {
+    if err := writeFile(name, text, nil); err != nil {
+      fmt.Fprintln(os.Stderr, err)
+      return 2
+    }
+    emitted = append(emitted, name)
+  }
+  if *manifest != "" {
+    manifestPath := *manifest
+    if !filepath.IsAbs(manifestPath) {
+      manifestPath = filepath.Join(root, manifestPath)
+    }
+    data, err := json.Marshal(emitted)
+    if err != nil {
+      fmt.Fprintln(os.Stderr, err)
+      return 2
+    }
+    if err := writeFile(manifestPath, string(data), nil); err != nil {
+      fmt.Fprintln(os.Stderr, err)
+      return 2
+    }
   }
   return 0
 }
@@ -93,7 +121,15 @@ func replaceBeforeLiteral(ec *shimprinter.EmitContext, sf *shimast.SourceFile) *
       return node
     }
     if node.Kind == shimast.KindStringLiteral && node.Text() == "before" {
-      return ec.Factory.NewStringLiteral("GO DRIVER EMIT PLUGIN", 0)
+      f := ec.Factory
+      standalone := shimast.NewNodeFactory(shimast.NodeFactoryHooks{})
+      access := standalone.NewPropertyAccessExpression(f.NewIdentifier("input"), nil, standalone.NewIdentifier("value"), shimast.NodeFlagsNone)
+      parameter := f.NewParameterDeclaration(nil, nil, f.NewIdentifier("input"), nil, nil, nil)
+      arrow := f.NewArrowFunction(nil, nil, f.NewNodeList([]*shimast.Node{parameter}), nil, nil, f.NewToken(shimast.KindEqualsGreaterThanToken), access)
+      argument := f.NewObjectLiteralExpression(f.NewNodeList([]*shimast.Node{
+        f.NewPropertyAssignment(nil, f.NewIdentifier("value"), nil, nil, f.NewStringLiteral("GO DRIVER EMIT PLUGIN", 0)),
+      }), false)
+      return f.NewCallExpression(f.NewParenthesizedExpression(arrow), nil, nil, f.NewNodeList([]*shimast.Node{argument}), shimast.NodeFlagsNone)
     }
     return visitor.VisitEachChild(node)
   }

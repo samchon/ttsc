@@ -20,7 +20,8 @@ import {
  * the cost of dropping declaration artifacts.
  *
  * 1. Copy the `go-driver-emit-plugin` fixture, which enables declaration,
- *    declarationMap, and sourceMap.
+ *    declarationMap, sourceMap, and noEmitOnError. Its transform creates a
+ *    standalone-factory member access inside a generated arrow.
  * 2. Run `ttsc --emit` so the source plugin is built and executes its own
  *    driver.EmitWithPluginTransformers build.
  * 3. Assert `.js`, `.js.map`, `.d.ts`, and `.d.ts.map` all exist, the JS is
@@ -52,9 +53,25 @@ export const test_plugin_corpus_driver_emit_transform_preserves_declaration_outp
       assert.ok(fs.existsSync(path.join(root, rel)), `${rel} was not emitted`);
     }
 
+    const manifest: string[] = JSON.parse(
+      fs.readFileSync(path.join(root, "manifest.json"), "utf8"),
+    );
+    assert.ok(manifest.some((file) => file.endsWith("main.d.ts")));
+
     const js = fs.readFileSync(path.join(root, "dist", "main.js"), "utf8");
     assert.match(js, /GO DRIVER EMIT PLUGIN/);
+    assert.match(js, /input => input\.value/);
     assert.match(js, /\/\/# sourceMappingURL=main\.js\.map/);
+
+    const executed = spawn(
+      process.execPath,
+      [path.join(root, "dist", "main.js")],
+      {
+        cwd: root,
+      },
+    );
+    assert.equal(executed.status, 0, executed.stderr);
+    assert.equal(executed.stdout.trim(), "GO DRIVER EMIT PLUGIN");
 
     const dts = fs.readFileSync(path.join(root, "dist", "main.d.ts"), "utf8");
     assert.match(dts, /export interface Payload/);
