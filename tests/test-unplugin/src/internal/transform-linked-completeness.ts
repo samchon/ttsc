@@ -51,7 +51,12 @@ function createLinkedPluginProject(
   // still links its own host, but without this every project would rebuild the
   // host into its own `node_modules/.cache`.
   TestUnpluginProject.ensureSharedCacheDir();
-  const root = TestProject.tmpdir("ttsc-unplugin-linked-complete-");
+  // These cases isolate content-dependency completeness. A short Windows root
+  // spelling is a resolver alias whose identity must remain watched even for
+  // a complete plugin, so use the physical root for this fixture.
+  const root = fs.realpathSync.native(
+    TestProject.tmpdir("ttsc-unplugin-linked-complete-"),
+  );
   fs.mkdirSync(path.join(root, "src"), { recursive: true });
   const types = path.join(root, "src", "types.ts");
   fs.writeFileSync(

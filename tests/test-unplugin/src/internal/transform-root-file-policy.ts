@@ -17,6 +17,7 @@ import path from "node:path";
 export async function assertRootFilePolicyResolvesDiscoverySpecs(): Promise<void> {
   const api = await TestUnpluginRuntime.loadUnpluginApi();
   const root = TestProject.tmpdir("ttsc-root-file-policy-");
+  const physicalRoot = fs.realpathSync.native(root);
   const files = [
     "src/main.ts",
     "src/other.ts",
@@ -34,6 +35,10 @@ export async function assertRootFilePolicyResolvesDiscoverySpecs(): Promise<void
   const config = path.join(root, "tsconfig.json");
   const scenarios: [Record<string, unknown>, string[]][] = [
     [{ include: ["src/*.ts"] }, ["src/a[1].ts", "src/main.ts", "src/other.ts"]],
+    [
+      { include: ["../*/src/*.ts"] },
+      ["src/a[1].ts", "src/main.ts", "src/other.ts"],
+    ],
     [
       { include: ["src"] },
       files.filter((file) => file.startsWith("src/") && !file.includes("/.")),
@@ -55,30 +60,32 @@ export async function assertRootFilePolicyResolvesDiscoverySpecs(): Promise<void
       { allowJs: true },
       root,
     );
-    const snapshot = api.collectProjectInputHashSnapshot(
-      root,
-      undefined,
-      undefined,
-      policy,
-    );
-    assert.equal(snapshot.complete, true);
-    assert.deepEqual(
-      Object.keys(snapshot.hashes).sort(),
-      [...expected].sort(),
-      JSON.stringify(specs),
-    );
-    for (const file of files) {
-      assert.equal(
-        api.isProjectWalkPath(
-          root,
-          path.join(root, file),
-          undefined,
-          undefined,
-          policy,
-        ),
-        expected.includes(file),
-        file,
+    for (const walkRoot of new Set([root, physicalRoot])) {
+      const snapshot = api.collectProjectInputHashSnapshot(
+        walkRoot,
+        undefined,
+        undefined,
+        policy,
       );
+      assert.equal(snapshot.complete, true);
+      assert.deepEqual(
+        Object.keys(snapshot.hashes).sort(),
+        [...expected].sort(),
+        JSON.stringify(specs),
+      );
+      for (const file of files) {
+        assert.equal(
+          api.isProjectWalkPath(
+            walkRoot,
+            path.join(walkRoot, file),
+            undefined,
+            undefined,
+            policy,
+          ),
+          expected.includes(file),
+          file,
+        );
+      }
     }
   }
   fs.mkdirSync(path.join(root, "config"));
@@ -120,37 +127,43 @@ export async function assertRootFilePolicyResolvesDiscoverySpecs(): Promise<void
     alias,
     process.platform === "win32" ? "junction" : "dir",
   );
-  for (const include of [["src/*.ts"], ["${configDir}/src/*.ts"]]) {
+  for (const include of [
+    ["src/*.ts"],
+    ["${configDir}/src/*.ts"],
+    ["../*/src/*.ts"],
+  ]) {
     fs.writeFileSync(config, JSON.stringify({ include }));
     const policy = api.readProjectMembershipPolicy(
       path.join(alias, "tsconfig.json"),
     );
-    assert.deepEqual(
-      Object.keys(
-        api.collectProjectInputHashes(alias, undefined, undefined, policy),
-      ).sort(),
-      ["src/a[1].ts", "src/main.ts", "src/other.ts"],
-    );
-    assert.equal(
-      api.isProjectWalkPath(
-        alias,
-        path.join(alias, "src", "main.ts"),
-        undefined,
-        undefined,
-        policy,
-      ),
-      true,
-    );
-    fs.writeFileSync(
-      path.join(root, "src", "added.ts"),
-      "export const added = 1;\n",
-    );
-    assert.ok(
-      Object.keys(
-        api.collectProjectInputHashes(alias, undefined, undefined, policy),
-      ).includes("src/added.ts"),
-    );
-    fs.unlinkSync(path.join(root, "src", "added.ts"));
+    for (const walkRoot of new Set([alias, root, physicalRoot])) {
+      assert.deepEqual(
+        Object.keys(
+          api.collectProjectInputHashes(walkRoot, undefined, undefined, policy),
+        ).sort(),
+        ["src/a[1].ts", "src/main.ts", "src/other.ts"],
+      );
+      assert.equal(
+        api.isProjectWalkPath(
+          walkRoot,
+          path.join(walkRoot, "src", "main.ts"),
+          undefined,
+          undefined,
+          policy,
+        ),
+        true,
+      );
+      fs.writeFileSync(
+        path.join(root, "src", "added.ts"),
+        "export const added = 1;\n",
+      );
+      assert.ok(
+        Object.keys(
+          api.collectProjectInputHashes(walkRoot, undefined, undefined, policy),
+        ).includes("src/added.ts"),
+      );
+      fs.unlinkSync(path.join(root, "src", "added.ts"));
+    }
   }
 
   // Windows rejects LF in file names, but Unicode line separators are valid
@@ -170,4 +183,26 @@ export async function assertRootFilePolicyResolvesDiscoverySpecs(): Promise<void
     ),
     [`${specialDirectory}/${special}.ts`],
   );
+
+  // Native case-insensitive glob matching uses Unicode simple folding, which
+  // equates sigma/final sigma even though their lowercase forms differ.
+  fs.mkdirSync(path.join(root, "unicode"));
+  fs.writeFileSync(path.join(root, "unicode", "\u03c3.ts"), "export {};\n");
+  fs.writeFileSync(path.join(root, "unicode", "\u03c4.ts"), "export {};\n");
+  for (const include of [["unicode/\u03c2.ts"], ["unicode/\u03c2*.ts"]]) {
+    fs.writeFileSync(config, JSON.stringify({ include }));
+    const unicodePolicy = api.readProjectMembershipPolicy(config);
+    assert.deepEqual(
+      Object.keys(
+        api.collectProjectInputHashes(
+          root,
+          undefined,
+          undefined,
+          unicodePolicy,
+        ),
+      ),
+      process.platform === "linux" ? [] : ["unicode/\u03c3.ts"],
+      JSON.stringify(include),
+    );
+  }
 }

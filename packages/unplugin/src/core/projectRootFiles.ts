@@ -3,7 +3,7 @@ import path from "node:path";
 import type { ITtscProjectMembershipPolicy } from "./tsconfigPaths";
 
 interface IRootPattern {
-  components: readonly (string | RegExp)[];
+  components: readonly (string | { expression: RegExp; wildcard: boolean })[];
   literal: boolean;
 }
 
@@ -27,39 +27,44 @@ export function matchesProjectRootFile(
   let patterns = compiled.get(policy);
   if (patterns === undefined) {
     patterns = [
-      ...policy.rootFileSpecs.files.map((spec) =>
-        compile(rootSpelling(spec, policy), true),
-      ),
-      ...policy.rootFileSpecs.include.map((spec) =>
-        compile(rootSpelling(spec, policy), false),
-      ),
+      ...policy.rootFileSpecs.files.map((spec) => compile(spec, true)),
+      ...policy.rootFileSpecs.include.map((spec) => compile(spec, false)),
     ].filter((pattern): pattern is IRootPattern => pattern !== undefined);
     compiled.set(policy, patterns);
   }
-  const parts = rootSpelling(location, policy).replace(/\\/g, "/").split("/");
-  return patterns.some((pattern) => matches(parts, pattern, directory));
+  return rootSpellings(location, policy).some((spelling) => {
+    const parts = spelling.replace(/\\/g, "/").split("/");
+    return patterns.some((pattern) => matches(parts, pattern, directory));
+  });
 }
 
 /**
  * Config ancestry is anchored physically, but the walk retains lexical paths.
- * Translate only the project-root prefix so opening the project through a
- * junction does not prune its roots. Child symlinks remain lexical and keep
- * their existing out-of-walk classification. Apply the same translation to
- * configDir templates, whose specs may still use the requested root spelling.
+ * Match each equivalent project-root spelling without following child links.
+ * Native Windows watchers expand short names even when regular realpath keeps
+ * them. Keep patterns intact: a glob can begin above the root, and configDir
+ * can retain the requested spelling even when ancestry uses the physical one.
  */
-function rootSpelling(
+function rootSpellings(
   location: string,
   policy: ITtscProjectMembershipPolicy,
-): string {
+): string[] {
   const resolved = path.resolve(location);
   const root = policy.rootFileSpecs?.root;
-  if (root === undefined) return resolved;
-  const relative = path.relative(root.path, resolved);
-  return relative !== ".." &&
-    !relative.startsWith(`..${path.sep}`) &&
-    !path.isAbsolute(relative)
-    ? path.resolve(root.realpath, relative)
-    : resolved;
+  if (root === undefined) return [resolved];
+  const spellings = [
+    ...new Set([root.path, root.realpath, root.nativepath ?? root.realpath]),
+  ];
+  for (const spelling of spellings) {
+    const relative = path.relative(spelling, resolved);
+    if (
+      relative !== ".." &&
+      !relative.startsWith(`..${path.sep}`) &&
+      !path.isAbsolute(relative)
+    )
+      return spellings.map((candidate) => path.resolve(candidate, relative));
+  }
+  return [resolved];
 }
 
 function compile(spec: string, literal: boolean): IRootPattern | undefined {
@@ -72,21 +77,28 @@ function compile(spec: string, literal: boolean): IRootPattern | undefined {
   return {
     literal,
     components: parts.map((part) => {
-      if (literal || !/[*?]/.test(part) || part === "**") return part;
+      if (!literal && part === "**") return part;
+      const wildcard = !literal && /[*?]/.test(part);
+      if (!wildcard && process.platform === "linux") return part;
       const expression = [...part]
         .map((char) =>
-          char === "*"
+          wildcard && char === "*"
             ? "[^/]*"
-            : char === "?"
+            : wildcard && char === "?"
               ? "[^/]"
               : char.replace(/[\\^$.*+?()[\]{}|]/g, "\\$&"),
         )
         .join("");
       // Case folding on macOS is conservative on case-sensitive volumes.
-      return new RegExp(
-        `^${part.startsWith("*") || part.startsWith("?") ? "(?!\\.)" : ""}${expression}$`,
-        process.platform === "linux" ? "u" : "iu",
-      );
+      // Unicode simple folding also belongs to literal components: lowercasing
+      // alone misses equivalences such as Greek sigma/final sigma in Go.
+      return {
+        expression: new RegExp(
+          `^${wildcard && (part.startsWith("*") || part.startsWith("?")) ? "(?!\\.)" : ""}${expression}$`,
+          process.platform === "linux" ? "u" : "iu",
+        ),
+        wildcard,
+      };
     }),
   };
 }
@@ -112,14 +124,13 @@ function matches(
       if (component === undefined) continue;
       if (!pattern.literal && component === "**") {
         if (!part.startsWith(".") && !isPackageDirectory(part)) next.add(state);
-      } else if (component instanceof RegExp) {
-        if (!isPackageDirectory(part) && component.test(part))
+      } else if (typeof component !== "string") {
+        if (
+          (!component.wildcard || !isPackageDirectory(part)) &&
+          component.expression.test(part)
+        )
           next.add(state + 1);
-      } else if (
-        process.platform === "linux"
-          ? component === part
-          : component.toLowerCase() === part.toLowerCase()
-      ) {
+      } else if (component === part) {
         next.add(state + 1);
       }
     }

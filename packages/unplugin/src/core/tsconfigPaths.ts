@@ -121,10 +121,10 @@ export interface ITtscProjectMembershipPolicy {
     files: readonly string[];
     include: readonly string[];
     /**
-     * The project's lexical root and its physical spelling, without following
-     * child links.
+     * The requested root and its regular/native realpath spellings, without
+     * following child links. Native realpath expands Windows short names.
      */
-    root?: Readonly<{ path: string; realpath: string }>;
+    root?: Readonly<{ path: string; realpath: string; nativepath?: string }>;
   }>;
   /**
    * Absolute directory exclusions separated by the configuration entry that
@@ -251,6 +251,7 @@ export function readProjectMembershipPolicy(
   const root = {
     path: path.dirname(resolved),
     realpath: resolveRealPath(path.dirname(resolved)),
+    nativepath: resolveNativeRootPath(path.dirname(resolved)),
   };
   // Missing/invalid specs keep the wide fallback. A files-only project has no
   // implicit include, whereas include and files together form a union.
@@ -919,10 +920,16 @@ function isRelativeSpecifier(specifier: string): boolean {
   );
 }
 
-/**
- * Resolve symlinks on `location`, returning the original path when
- * `realpathSync` fails (e.g. when the file does not exist).
- */
+/** Native watchers expand Windows short names that regular realpath retains. */
+function resolveNativeRootPath(location: string): string {
+  try {
+    return fs.realpathSync.native(location);
+  } catch {
+    return resolveRealPath(location);
+  }
+}
+
+/** Resolve symlinks, retaining the original spelling when the path is missing. */
 function resolveRealPath(location: string): string {
   try {
     return fs.realpathSync(location);
