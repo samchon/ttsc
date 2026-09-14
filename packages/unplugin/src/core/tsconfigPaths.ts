@@ -116,6 +116,11 @@ export function readTsconfigSourceSnapshot(
  * dropped from the walk entirely (samchon/ttsc#1307).
  */
 export interface ITtscProjectMembershipPolicy {
+  /** Absolute root-file specifications; absent means conservative discovery. */
+  rootFileSpecs?: Readonly<{
+    files: readonly string[];
+    include: readonly string[];
+  }>;
   /**
    * Absolute directory exclusions separated by the configuration entry that
    * contributed them.
@@ -210,6 +215,32 @@ export function readProjectMembershipPolicy(
   // when it has gone stale. `findDeclaredValue` walks `extends` for each option
   // independently, and each walk records what it read.
   const sources = new Set<string>();
+  const fileSpec = (key: "files" | "include") =>
+    findDeclaredValue(
+      resolved,
+      (parsed) => Object.prototype.hasOwnProperty.call(parsed, key)
+        ? { value: (parsed as Record<string, unknown>)[key] }
+        : undefined,
+      new Set(),
+      sources,
+    );
+  const files = fileSpec("files");
+  const include = fileSpec("include");
+  const resolveSpecs = (declared: ReturnType<typeof fileSpec>): string[] | undefined => {
+    if (declared === null || declared.value.value == null) return undefined;
+    const value = declared.value.value;
+    if (!Array.isArray(value) || !value.every((entry) => typeof entry === "string")) return undefined;
+    return value.map((entry) => absolutizePathsTarget(declared.baseDir, entry, path.dirname(resolved)));
+  };
+  const explicitFiles = resolveSpecs(files);
+  const includes = resolveSpecs(include);
+  // Missing/invalid specs keep the wide fallback. A files-only project has no
+  // implicit include, whereas include and files together form a union.
+  const rootFileSpecs = includes !== undefined
+    ? { files: explicitFiles ?? [], include: includes }
+    : explicitFiles !== undefined && (include === null || include.value.value == null)
+      ? { files: explicitFiles, include: [] }
+      : undefined;
   const flag = (key: string): boolean =>
     findDeclaredValue(
       resolved,
@@ -302,6 +333,7 @@ export function readProjectMembershipPolicy(
     }
   }
   return {
+    rootFileSpecs,
     directoryExclusionOrigins,
     excludedDirectories: flattenDirectoryExclusionOrigins(
       directoryExclusionOrigins,
@@ -367,6 +399,7 @@ export function mergeMembershipPolicyOverlay(
     }
   }
   return {
+    rootFileSpecs: policy.rootFileSpecs,
     directoryExclusionOrigins,
     excludedDirectories: flattenDirectoryExclusionOrigins(
       directoryExclusionOrigins,

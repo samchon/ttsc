@@ -21,6 +21,7 @@ import {
   findNearestProjectTsconfig,
   isIgnoredProjectDirectory,
 } from "./projectDiscovery";
+import { matchesProjectRootFile } from "./projectRootFiles";
 import {
   CONFIG_DIR_TEMPLATE_LIST_OPTIONS,
   CONFIG_DIR_TEMPLATE_SCALAR_OPTIONS,
@@ -4442,7 +4443,10 @@ function walkProjectInputs(
         continue;
       }
       const file = path.join(current, entry.name);
-      if (entry.isDirectory() && isExcludedProjectDirectory(file, policy)) {
+      if (
+        (entry.isDirectory() && isExcludedProjectDirectory(file, policy)) ||
+        !matchesProjectRootFile(file, policy, entry.isDirectory())
+      ) {
         continue;
       }
       const possible = isPossibleProgramEntry(entry, policy);
@@ -4851,30 +4855,28 @@ function reportsProgramMembership(
   policy: ITtscProjectMembershipPolicy,
   filesystem: TtscTransformFilesystemOperations,
 ): boolean {
+  if (!matchesProjectRootFile(location, policy, false) &&
+      !matchesProjectRootFile(location, policy, true)) {
+    return false;
+  }
+  try {
+    if (filesystem.lstat(location).isDirectory()) {
+      return matchesProjectRootFile(location, policy, true) &&
+        !insideExcludedProjectDirectory(location, policy, false);
+    }
+  } catch {
+    // Deleted file names still need classification below.
+  }
   if (isPossibleProgramFileName(filename, policy)) {
     // A name the program could admit. It still says nothing if it lies inside a
     // directory the walk never descends into, because the digest cannot see
     // there either and the tracker must not be the one side that reacts.
-    return !insideExcludedProjectDirectory(location, policy, true);
+    return matchesProjectRootFile(location, policy, false) &&
+      !insideExcludedProjectDirectory(location, policy, true);
   }
-  let directory: boolean;
-  try {
-    directory = filesystem.lstat(location).isDirectory();
-  } catch {
-    // Gone again, or unreadable. Its name could not have been a program input,
-    // and a directory removed under this one reports its own contents leaving
-    // through the watch that was opened on it.
-    return false;
-  }
-  if (!directory) {
-    return false;
-  }
-  // A directory counts, because it can hold sources and the tracker is not
-  // watching it yet, unless the configuration says the program does not contain
-  // it. Emptying and recreating an `outDir`, which is what `emptyOutDir` and
-  // `output.clean` do on every build, would otherwise void the generation once
-  // per build on every host that has no build boundary.
-  return !insideExcludedProjectDirectory(location, policy, false);
+  // Removed directories report their source removals through their own watch.
+  // A non-source file name cannot introduce program membership.
+  return false;
 }
 
 /** Record enough exact mutation evidence without retaining an event stream. */
@@ -5356,7 +5358,8 @@ export function isProjectWalkPath(
   // a graph input the compiler really read in neither snapshot: absent from
   // `inputHashes` because the walk skipped it, and absent from the out-of-walk
   // snapshot because this predicate claimed the walk covered it.
-  if (!isPossibleProgramFileName(path.basename(file), policy)) {
+  if (!isPossibleProgramFileName(path.basename(file), policy) ||
+      !matchesProjectRootFile(file, policy, false)) {
     return false;
   }
   let current = resolvedRoot;

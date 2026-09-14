@@ -11,7 +11,7 @@ interface ITestCase {
   run: () => unknown;
 }
 
-const EXPECTED_CASES = 205;
+const EXPECTED_CASES = 207;
 const UNIT_CASES = new Set([
   "case_adapter_entrypoints_support_node_cjs_require",
   "case_adapter_entrypoints_support_node_esm_default_import",
