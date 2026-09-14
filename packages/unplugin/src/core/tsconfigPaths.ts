@@ -120,6 +120,11 @@ export interface ITtscProjectMembershipPolicy {
   rootFileSpecs?: Readonly<{
     files: readonly string[];
     include: readonly string[];
+    /**
+     * The project's lexical root and its physical spelling, without following
+     * child links.
+     */
+    root?: Readonly<{ path: string; realpath: string }>;
   }>;
   /**
    * Absolute directory exclusions separated by the configuration entry that
@@ -218,29 +223,44 @@ export function readProjectMembershipPolicy(
   const fileSpec = (key: "files" | "include") =>
     findDeclaredValue(
       resolved,
-      (parsed) => Object.prototype.hasOwnProperty.call(parsed, key)
-        ? { value: (parsed as Record<string, unknown>)[key] }
-        : undefined,
+      (parsed) =>
+        Object.prototype.hasOwnProperty.call(parsed, key)
+          ? { value: (parsed as Record<string, unknown>)[key] }
+          : undefined,
       new Set(),
       sources,
     );
   const files = fileSpec("files");
   const include = fileSpec("include");
-  const resolveSpecs = (declared: ReturnType<typeof fileSpec>): string[] | undefined => {
+  const resolveSpecs = (
+    declared: ReturnType<typeof fileSpec>,
+  ): string[] | undefined => {
     if (declared === null || declared.value.value == null) return undefined;
     const value = declared.value.value;
-    if (!Array.isArray(value) || !value.every((entry) => typeof entry === "string")) return undefined;
-    return value.map((entry) => absolutizePathsTarget(declared.baseDir, entry, path.dirname(resolved)));
+    if (
+      !Array.isArray(value) ||
+      !value.every((entry) => typeof entry === "string")
+    )
+      return undefined;
+    return value.map((entry) =>
+      absolutizePathsTarget(declared.baseDir, entry, path.dirname(resolved)),
+    );
   };
   const explicitFiles = resolveSpecs(files);
   const includes = resolveSpecs(include);
+  const root = {
+    path: path.dirname(resolved),
+    realpath: resolveRealPath(path.dirname(resolved)),
+  };
   // Missing/invalid specs keep the wide fallback. A files-only project has no
   // implicit include, whereas include and files together form a union.
-  const rootFileSpecs = includes !== undefined
-    ? { files: explicitFiles ?? [], include: includes }
-    : explicitFiles !== undefined && (include === null || include.value.value == null)
-      ? { files: explicitFiles, include: [] }
-      : undefined;
+  const rootFileSpecs =
+    includes !== undefined
+      ? { files: explicitFiles ?? [], include: includes, root }
+      : explicitFiles !== undefined &&
+          (include === null || include.value.value == null)
+        ? { files: explicitFiles, include: [], root }
+        : undefined;
   const flag = (key: string): boolean =>
     findDeclaredValue(
       resolved,

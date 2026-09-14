@@ -40,14 +40,20 @@ func TestCommandFormatPrintWidthConvergesOnUnbracedControlFlow(t *testing.T) {
         code, _, stderr := captureCommandOutput(t, func() int {
           return run([]string{"format", "--cwd", root, "--plugins-json", lintManifest(t), "--single-threaded"})
         })
-        if code != 0 { t.Fatalf("pass %d: code=%d stderr=%q", pass, code, stderr) }
+        if code != 0 {
+          t.Fatalf("pass %d: code=%d stderr=%q", pass, code, stderr)
+        }
         bytes, err := os.ReadFile(main)
-        if err != nil { t.Fatal(err) }
+        if err != nil {
+          t.Fatal(err)
+        }
         got := string(bytes)
         if !strings.Contains(got, "fs.existsSync(entry)") || !strings.Contains(got, branch) {
           t.Fatalf("unsupported fragments changed: %s", got)
         }
-        if pass > 0 && got != previous { t.Fatalf("second format changed output: %s", got) }
+        if pass > 0 && got != previous {
+          t.Fatalf("second format changed output: %s", got)
+        }
         previous = got
       }
     })
@@ -63,12 +69,20 @@ func TestCommandFormatPrintWidthConvergesOnUnbracedControlFlow(t *testing.T) {
     code, _, stderr := captureCommandOutput(t, func() int {
       return run([]string{"format", "--cwd", root, "--plugins-json", lintManifest(t), "--single-threaded"})
     })
-    if code != 0 { t.Fatalf("braced pass %d: code=%d stderr=%q", pass, code, stderr) }
+    if code != 0 {
+      t.Fatalf("braced pass %d: code=%d stderr=%q", pass, code, stderr)
+    }
     bytes, err := os.ReadFile(filepath.Join(root, "src", "main.ts"))
-    if err != nil { t.Fatal(err) }
+    if err != nil {
+      t.Fatal(err)
+    }
     got := string(bytes)
-    if strings.Count(got, "standalone(\n") != 5 { t.Fatalf("calls did not reflow: %s", got) }
-    if pass > 0 && got != previous { t.Fatalf("braced second format changed output: %s", got) }
+    if strings.Count(got, "standalone(\n") != 5 {
+      t.Fatalf("calls did not reflow: %s", got)
+    }
+    if pass > 0 && got != previous {
+      t.Fatalf("braced second format changed output: %s", got)
+    }
     previous = got
   }
 }

@@ -15,8 +15,8 @@ const compiled = new WeakMap<ITtscProjectMembershipPolicy, IRootPattern[]>();
  * This is discovery, not dependency membership: imports outside these specs
  * remain compiler inputs and are proven by the external-input snapshot.
  * TypeScript's include grammar has only *, ?, ** and implicit directory globs.
- * Unknown policies stay permissive; no filesystem existence probe is needed,
- * so a newly created directory receives the same answer as an existing one.
+ * Unknown policies stay permissive; no filesystem existence probe is needed, so
+ * a newly created directory receives the same answer as an existing one.
  */
 export function matchesProjectRootFile(
   location: string,
@@ -27,13 +27,39 @@ export function matchesProjectRootFile(
   let patterns = compiled.get(policy);
   if (patterns === undefined) {
     patterns = [
-      ...policy.rootFileSpecs.files.map((spec) => compile(spec, true)),
-      ...policy.rootFileSpecs.include.map((spec) => compile(spec, false)),
+      ...policy.rootFileSpecs.files.map((spec) =>
+        compile(rootSpelling(spec, policy), true),
+      ),
+      ...policy.rootFileSpecs.include.map((spec) =>
+        compile(rootSpelling(spec, policy), false),
+      ),
     ].filter((pattern): pattern is IRootPattern => pattern !== undefined);
     compiled.set(policy, patterns);
   }
-  const parts = path.resolve(location).replace(/\\/g, "/").split("/");
+  const parts = rootSpelling(location, policy).replace(/\\/g, "/").split("/");
   return patterns.some((pattern) => matches(parts, pattern, directory));
+}
+
+/**
+ * Config ancestry is anchored physically, but the walk retains lexical paths.
+ * Translate only the project-root prefix so opening the project through a
+ * junction does not prune its roots. Child symlinks remain lexical and keep
+ * their existing out-of-walk classification. Apply the same translation to
+ * configDir templates, whose specs may still use the requested root spelling.
+ */
+function rootSpelling(
+  location: string,
+  policy: ITtscProjectMembershipPolicy,
+): string {
+  const resolved = path.resolve(location);
+  const root = policy.rootFileSpecs?.root;
+  if (root === undefined) return resolved;
+  const relative = path.relative(root.path, resolved);
+  return relative !== ".." &&
+    !relative.startsWith(`..${path.sep}`) &&
+    !path.isAbsolute(relative)
+    ? path.resolve(root.realpath, relative)
+    : resolved;
 }
 
 function compile(spec: string, literal: boolean): IRootPattern | undefined {
@@ -47,17 +73,30 @@ function compile(spec: string, literal: boolean): IRootPattern | undefined {
     literal,
     components: parts.map((part) => {
       if (literal || !/[*?]/.test(part) || part === "**") return part;
-      const expression = [...part].map((char) =>
-        char === "*" ? ".*" : char === "?" ? "." : char.replace(/[\\^$.*+?()[\]{}|]/g, "\\$&"),
-      ).join("");
+      const expression = [...part]
+        .map((char) =>
+          char === "*"
+            ? "[^/]*"
+            : char === "?"
+              ? "[^/]"
+              : char.replace(/[\\^$.*+?()[\]{}|]/g, "\\$&"),
+        )
+        .join("");
       // Case folding on macOS is conservative on case-sensitive volumes.
-      return new RegExp(`^${part.startsWith("*") || part.startsWith("?") ? "(?!\\.)" : ""}${expression}$`, process.platform === "linux" ? "u" : "iu");
+      return new RegExp(
+        `^${part.startsWith("*") || part.startsWith("?") ? "(?!\\.)" : ""}${expression}$`,
+        process.platform === "linux" ? "u" : "iu",
+      );
     }),
   };
 }
 
 /** Iterative glob-state traversal avoids recursion on deep directory trees. */
-function matches(parts: string[], pattern: IRootPattern, directory: boolean): boolean {
+function matches(
+  parts: string[],
+  pattern: IRootPattern,
+  directory: boolean,
+): boolean {
   const { components } = pattern;
   let states = new Set([0]);
   const expand = (): void => {
@@ -74,8 +113,13 @@ function matches(parts: string[], pattern: IRootPattern, directory: boolean): bo
       if (!pattern.literal && component === "**") {
         if (!part.startsWith(".") && !isPackageDirectory(part)) next.add(state);
       } else if (component instanceof RegExp) {
-        if (!isPackageDirectory(part) && component.test(part)) next.add(state + 1);
-      } else if (process.platform === "linux" ? component === part : component.toLowerCase() === part.toLowerCase()) {
+        if (!isPackageDirectory(part) && component.test(part))
+          next.add(state + 1);
+      } else if (
+        process.platform === "linux"
+          ? component === part
+          : component.toLowerCase() === part.toLowerCase()
+      ) {
         next.add(state + 1);
       }
     }

@@ -2625,6 +2625,29 @@ function matchesCachedSource(
     cached.sourceHashes?.[identity] ??
     cached.inputHashes[currentKey] ??
     cached.externalInputHashes?.[identity];
+  if (
+    expected === undefined &&
+    cached.result.type === "success" &&
+    !matchesProjectRootFile(file, cached.membershipPolicy, false)
+  ) {
+    const state = envelopeDerivation(cached);
+    const outputs = (state.outputIndex ??= createEnvelopeKeyIndex(
+      state,
+      cached.projectRoot,
+      cached.result.typescript,
+    ));
+    if (!outputs.has(identity)) {
+      // Root discovery deliberately never hashed this unrelated module. Its
+      // bytes cannot affect an output the compiler did not produce, but the
+      // whole program must still be current before we reuse that absence: a
+      // changed config or importer can bring this file into the next program.
+      refreshFilesystemClockReference(
+        TRANSFORM_CLOCK_REFERENCE_DIRECTORIES.get(cached),
+        resultFilesystem(cached.result),
+      );
+      return matchesCompleteInputSnapshot(cached, currentKey, source);
+    }
+  }
   if (expected !== hashText(source)) {
     return false;
   }
@@ -4855,14 +4878,18 @@ function reportsProgramMembership(
   policy: ITtscProjectMembershipPolicy,
   filesystem: TtscTransformFilesystemOperations,
 ): boolean {
-  if (!matchesProjectRootFile(location, policy, false) &&
-      !matchesProjectRootFile(location, policy, true)) {
+  if (
+    !matchesProjectRootFile(location, policy, false) &&
+    !matchesProjectRootFile(location, policy, true)
+  ) {
     return false;
   }
   try {
     if (filesystem.lstat(location).isDirectory()) {
-      return matchesProjectRootFile(location, policy, true) &&
-        !insideExcludedProjectDirectory(location, policy, false);
+      return (
+        matchesProjectRootFile(location, policy, true) &&
+        !insideExcludedProjectDirectory(location, policy, false)
+      );
     }
   } catch {
     // Deleted file names still need classification below.
@@ -4871,8 +4898,10 @@ function reportsProgramMembership(
     // A name the program could admit. It still says nothing if it lies inside a
     // directory the walk never descends into, because the digest cannot see
     // there either and the tracker must not be the one side that reacts.
-    return matchesProjectRootFile(location, policy, false) &&
-      !insideExcludedProjectDirectory(location, policy, true);
+    return (
+      matchesProjectRootFile(location, policy, false) &&
+      !insideExcludedProjectDirectory(location, policy, true)
+    );
   }
   // Removed directories report their source removals through their own watch.
   // A non-source file name cannot introduce program membership.
@@ -5358,8 +5387,10 @@ export function isProjectWalkPath(
   // a graph input the compiler really read in neither snapshot: absent from
   // `inputHashes` because the walk skipped it, and absent from the out-of-walk
   // snapshot because this predicate claimed the walk covered it.
-  if (!isPossibleProgramFileName(path.basename(file), policy) ||
-      !matchesProjectRootFile(file, policy, false)) {
+  if (
+    !isPossibleProgramFileName(path.basename(file), policy) ||
+    !matchesProjectRootFile(file, policy, false)
+  ) {
     return false;
   }
   let current = resolvedRoot;

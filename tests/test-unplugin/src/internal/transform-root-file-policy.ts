@@ -17,7 +17,16 @@ import path from "node:path";
 export async function assertRootFilePolicyResolvesDiscoverySpecs(): Promise<void> {
   const api = await TestUnpluginRuntime.loadUnpluginApi();
   const root = TestProject.tmpdir("ttsc-root-file-policy-");
-  const files = ["src/main.ts", "src/other.ts", "src/nested/deep.ts", "src/.hidden.ts", "test/a.ts", "scratch/a.ts", "src/a[1].ts"];
+  const files = [
+    "src/main.ts",
+    "src/other.ts",
+    "src/nested/deep.ts",
+    "src/artifact.ts/nested.ts",
+    "src/.hidden.ts",
+    "test/a.ts",
+    "scratch/a.ts",
+    "src/a[1].ts",
+  ];
   for (const file of files) {
     fs.mkdirSync(path.dirname(path.join(root, file)), { recursive: true });
     fs.writeFileSync(path.join(root, file), "export const value = 1;\n");
@@ -25,9 +34,15 @@ export async function assertRootFilePolicyResolvesDiscoverySpecs(): Promise<void
   const config = path.join(root, "tsconfig.json");
   const scenarios: [Record<string, unknown>, string[]][] = [
     [{ include: ["src/*.ts"] }, ["src/a[1].ts", "src/main.ts", "src/other.ts"]],
-    [{ include: ["src"] }, files.filter((file) => file.startsWith("src/") && !file.includes("/."))],
+    [
+      { include: ["src"] },
+      files.filter((file) => file.startsWith("src/") && !file.includes("/.")),
+    ],
     [{ files: ["src/main.ts"] }, ["src/main.ts"]],
-    [{ files: ["src/.hidden.ts"], include: ["test/?.ts"] }, ["src/.hidden.ts", "test/a.ts"]],
+    [
+      { files: ["src/.hidden.ts"], include: ["test/?.ts"] },
+      ["src/.hidden.ts", "test/a.ts"],
+    ],
     [{ include: [] }, []],
     [{ include: ["src/**"] }, []],
     [{ include: ["src/a[1].ts"] }, ["src/a[1].ts"]],
@@ -35,12 +50,35 @@ export async function assertRootFilePolicyResolvesDiscoverySpecs(): Promise<void
   ];
   for (const [specs, expected] of scenarios) {
     fs.writeFileSync(config, JSON.stringify(specs));
-    const policy = api.mergeMembershipPolicyOverlay(api.readProjectMembershipPolicy(config), { allowJs: true }, root);
-    const snapshot = api.collectProjectInputHashSnapshot(root, undefined, undefined, policy);
+    const policy = api.mergeMembershipPolicyOverlay(
+      api.readProjectMembershipPolicy(config),
+      { allowJs: true },
+      root,
+    );
+    const snapshot = api.collectProjectInputHashSnapshot(
+      root,
+      undefined,
+      undefined,
+      policy,
+    );
     assert.equal(snapshot.complete, true);
-    assert.deepEqual(Object.keys(snapshot.hashes).sort(), [...expected].sort(), JSON.stringify(specs));
+    assert.deepEqual(
+      Object.keys(snapshot.hashes).sort(),
+      [...expected].sort(),
+      JSON.stringify(specs),
+    );
     for (const file of files) {
-      assert.equal(api.isProjectWalkPath(root, path.join(root, file), undefined, undefined, policy), expected.includes(file), file);
+      assert.equal(
+        api.isProjectWalkPath(
+          root,
+          path.join(root, file),
+          undefined,
+          undefined,
+          policy,
+        ),
+        expected.includes(file),
+        file,
+      );
     }
   }
   fs.mkdirSync(path.join(root, "config"));
@@ -48,8 +86,88 @@ export async function assertRootFilePolicyResolvesDiscoverySpecs(): Promise<void
   fs.writeFileSync(base, JSON.stringify({ include: ["../src/*.ts"] }));
   fs.writeFileSync(config, JSON.stringify({ extends: "./config/base.json" }));
   const inherited = api.readProjectMembershipPolicy(config);
-  assert.ok(inherited.sources.some((file: string) => path.resolve(file) === base));
-  assert.deepEqual(Object.keys(api.collectProjectInputHashes(root, undefined, undefined, inherited)).sort(), ["src/a[1].ts", "src/main.ts", "src/other.ts"]);
-  fs.writeFileSync(config, JSON.stringify({ extends: "./config/base.json", include: ["test/*.ts"] }));
-  assert.deepEqual(Object.keys(api.collectProjectInputHashes(root, undefined, undefined, api.readProjectMembershipPolicy(config))), ["test/a.ts"]);
+  assert.ok(
+    inherited.sources.some((file: string) => path.resolve(file) === base),
+  );
+  assert.deepEqual(
+    Object.keys(
+      api.collectProjectInputHashes(root, undefined, undefined, inherited),
+    ).sort(),
+    ["src/a[1].ts", "src/main.ts", "src/other.ts"],
+  );
+  fs.writeFileSync(
+    config,
+    JSON.stringify({ extends: "./config/base.json", include: ["test/*.ts"] }),
+  );
+  assert.deepEqual(
+    Object.keys(
+      api.collectProjectInputHashes(
+        root,
+        undefined,
+        undefined,
+        api.readProjectMembershipPolicy(config),
+      ),
+    ),
+    ["test/a.ts"],
+  );
+
+  // The same configured project opened through a junction must discover the
+  // same roots. The link lives in this test's tracked temporary directory.
+  const aliasParent = TestProject.tmpdir("ttsc-root-file-alias-");
+  const alias = path.join(aliasParent, "project");
+  fs.symlinkSync(
+    root,
+    alias,
+    process.platform === "win32" ? "junction" : "dir",
+  );
+  for (const include of [["src/*.ts"], ["${configDir}/src/*.ts"]]) {
+    fs.writeFileSync(config, JSON.stringify({ include }));
+    const policy = api.readProjectMembershipPolicy(
+      path.join(alias, "tsconfig.json"),
+    );
+    assert.deepEqual(
+      Object.keys(
+        api.collectProjectInputHashes(alias, undefined, undefined, policy),
+      ).sort(),
+      ["src/a[1].ts", "src/main.ts", "src/other.ts"],
+    );
+    assert.equal(
+      api.isProjectWalkPath(
+        alias,
+        path.join(alias, "src", "main.ts"),
+        undefined,
+        undefined,
+        policy,
+      ),
+      true,
+    );
+    fs.writeFileSync(
+      path.join(root, "src", "added.ts"),
+      "export const added = 1;\n",
+    );
+    assert.ok(
+      Object.keys(
+        api.collectProjectInputHashes(alias, undefined, undefined, policy),
+      ).includes("src/added.ts"),
+    );
+    fs.unlinkSync(path.join(root, "src", "added.ts"));
+  }
+
+  // Windows rejects LF in file names, but Unicode line separators are valid
+  // there too. TypeScript wildcards consume every character except '/'.
+  const special = process.platform === "win32" ? "\u2028" : "\n";
+  const specialDirectory = `line${special}break`;
+  fs.mkdirSync(path.join(root, specialDirectory));
+  fs.writeFileSync(
+    path.join(root, specialDirectory, `${special}.ts`),
+    "export const value = 1;\n",
+  );
+  fs.writeFileSync(config, JSON.stringify({ include: ["line*break/?.ts"] }));
+  const specialPolicy = api.readProjectMembershipPolicy(config);
+  assert.deepEqual(
+    Object.keys(
+      api.collectProjectInputHashes(root, undefined, undefined, specialPolicy),
+    ),
+    [`${specialDirectory}/${special}.ts`],
+  );
 }

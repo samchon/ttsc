@@ -1,10 +1,12 @@
 export const TRANSFORM_CASES = {
   case_transformttsc_root_file_membership_ignores_unrelated_churn: async () => {
-    const { assertRootFileMembershipIgnoresUnrelatedChurn } = await import("../internal/transform-root-file-membership");
+    const { assertRootFileMembershipIgnoresUnrelatedChurn } =
+      await import("../internal/transform-root-file-membership");
     await assertRootFileMembershipIgnoresUnrelatedChurn();
   },
   case_transformttsc_root_file_policy_resolves_discovery_specs: async () => {
-    const { assertRootFilePolicyResolvesDiscoverySpecs } = await import("../internal/transform-root-file-policy");
+    const { assertRootFilePolicyResolvesDiscoverySpecs } =
+      await import("../internal/transform-root-file-policy");
     await assertRootFilePolicyResolvesDiscoverySpecs();
   },
   case_resolveoptions_keeps_only_the_public_ttsc_adapter_contract: async () => {
