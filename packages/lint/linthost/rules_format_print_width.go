@@ -200,6 +200,13 @@ func (formatPrintWidth) Check(ctx *Context, node *shimast.Node) {
     return
   }
 
+  // The header and an unbraced body share a layout the control-flow printer
+  // preserves verbatim. Reflowing either fragment independently lets its
+  // changing columns reverse the other fragment's decision on the next pass.
+  if hasUnbracedControlFlowAncestor(node) {
+    return
+  }
+
   // Abstain on any node nested inside a template-literal substitution.
   // Prettier renders `${…}` expressions at printWidth:Infinity, it
   // never breaks an interpolation the source wrote on one line, so
@@ -539,6 +546,37 @@ func hasUncontrolledBinaryExpressionAncestor(node *shimast.Node) bool {
       }
     }
     child = parent
+  }
+  return false
+}
+
+// hasUnbracedControlFlowAncestor keeps both the header and body of an
+// unsupported control-flow layout intact. A block is a layout boundary: calls
+// inside a braced body can reflow even below an outer unbraced statement.
+func hasUnbracedControlFlowAncestor(node *shimast.Node) bool {
+  for parent := node.Parent; parent != nil; parent = parent.Parent {
+    if parent.Kind == shimast.KindBlock {
+      return false
+    }
+    var body *shimast.Node
+    switch parent.Kind {
+    case shimast.KindIfStatement:
+      statement := parent.AsIfStatement()
+      if statement.ThenStatement != nil && statement.ThenStatement.Kind != shimast.KindBlock ||
+        statement.ElseStatement != nil && statement.ElseStatement.Kind != shimast.KindBlock {
+        return true
+      }
+    case shimast.KindForStatement, shimast.KindForInStatement,
+      shimast.KindForOfStatement, shimast.KindWhileStatement:
+      body = singleControlFlowBody(parent)
+    case shimast.KindDoStatement:
+      body = parent.AsDoStatement().Statement
+    case shimast.KindWithStatement:
+      body = parent.AsWithStatement().Statement
+    }
+    if body != nil && body.Kind != shimast.KindBlock {
+      return true
+    }
   }
   return false
 }
