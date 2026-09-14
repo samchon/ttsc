@@ -54,7 +54,8 @@ func TestCommandFormatPrintWidthConvergesOnUnbracedControlFlow(t *testing.T) {
   }
   source := "if (ready) {\n  standalone(\"alpha\", \"bravo\", \"charlie\");\n}\n" +
     "if (ready) while (ready) {\n  standalone(\"alpha\", \"bravo\", \"charlie\");\n}\n" +
-    "const formatted = standalone(\"alpha\", \"bravo\", \"charlie\");\n"
+    "const formatted = standalone(\"alpha\", \"bravo\", \"charlie\");\n" +
+    "if (standalone(\"alpha\", \"bravo\", \"charlie\")) {} else if (standalone(\"alpha\", \"bravo\", \"charlie\")) {}\n"
   root := seedLintProject(t, source)
   seedLintConfig(t, root, map[string]any{"format": map[string]any{"printWidth": 40}})
   var previous string
@@ -66,7 +67,7 @@ func TestCommandFormatPrintWidthConvergesOnUnbracedControlFlow(t *testing.T) {
     bytes, err := os.ReadFile(filepath.Join(root, "src", "main.ts"))
     if err != nil { t.Fatal(err) }
     got := string(bytes)
-    if strings.Count(got, "standalone(\n") != 3 { t.Fatalf("calls did not reflow: %s", got) }
+    if strings.Count(got, "standalone(\n") != 5 { t.Fatalf("calls did not reflow: %s", got) }
     if pass > 0 && got != previous { t.Fatalf("braced second format changed output: %s", got) }
     previous = got
   }

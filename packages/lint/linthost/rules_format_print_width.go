@@ -561,9 +561,7 @@ func hasUnbracedControlFlowAncestor(node *shimast.Node) bool {
     var body *shimast.Node
     switch parent.Kind {
     case shimast.KindIfStatement:
-      statement := parent.AsIfStatement()
-      if statement.ThenStatement != nil && statement.ThenStatement.Kind != shimast.KindBlock ||
-        statement.ElseStatement != nil && statement.ElseStatement.Kind != shimast.KindBlock {
+      if _, supported := printableIfChildren(parent); !supported {
         return true
       }
     case shimast.KindForStatement, shimast.KindForInStatement,
