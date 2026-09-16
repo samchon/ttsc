@@ -50,6 +50,8 @@ export async function nextContract(bundler) {
   );
   let output = "";
   let url;
+  let socket;
+  const completedBuilds = [];
   let readyResolve;
   let readyReject;
   const ready = new Promise((resolve, reject) => {
@@ -73,6 +75,24 @@ export async function nextContract(bundler) {
   );
   try {
     await deadline(ready, `Next ${bundler} ready`, 120_000);
+    socket = new WebSocket(`${url.replace("http:", "ws:")}/_next/hmr`);
+    socket.addEventListener("message", (event) => {
+      const message = JSON.parse(String(event.data));
+      if (message.type === "built") completedBuilds.push(message);
+    });
+    await deadline(
+      new Promise((resolve, reject) => {
+        socket.addEventListener("open", resolve, { once: true });
+        socket.addEventListener("error", reject, { once: true });
+      }),
+      `Next ${bundler} HMR connection`,
+    );
+    const completed = (after) =>
+      eventually(
+        () => completedBuilds.slice(after),
+        (builds) => builds.some((build) => build.errors.length === 0),
+        `Next ${bundler} completed compiler update`,
+      );
     const hasValues = (html, value) =>
       html.includes(
         `data-contract="value">${Array(4).fill(value).join("|")}</p>`,
@@ -92,16 +112,19 @@ export async function nextContract(bundler) {
     const initialFailure = await request();
     assert.equal(initialFailure.status, 500);
     assert.match(initialFailure.html, /invalid contract type/);
+    let beforeUpdate = completedBuilds.length;
     project.change("FIRST");
     await eventually(
       read,
       (html) => hasValues(html, "FIRST"),
       `Next ${bundler} initial recovery`,
     );
+    await completed(beforeUpdate);
     const initial = project.runs();
     // Next owns separate server/client compiler sessions. Repeated requests
-    // must reuse their generations; a request-count wall-clock proxy cannot
-    // establish this contract on a loaded CI machine.
+    // must reuse their generations after the public HMR completion event.
+    // An HTML response can precede Turbopack's background data/client builds;
+    // their first compilation is not an unchanged-request cache miss.
     for (let index = 0; index < 3; index++)
       assert.ok(hasValues(await read(), "FIRST"));
     assert.equal(
@@ -109,12 +132,14 @@ export async function nextContract(bundler) {
       initial,
       `Next ${bundler} recompiles no unchanged request`,
     );
+    beforeUpdate = completedBuilds.length;
     project.change("SECOND");
     await eventually(
       read,
       (html) => hasValues(html, "SECOND"),
       `Next ${bundler} compiler-only edit`,
     );
+    await completed(beforeUpdate);
     assert.ok(
       project.runs() > initial,
       "the changed compiler input must produce a new generation",
@@ -129,12 +154,14 @@ export async function nextContract(bundler) {
         status === 500 && html.includes("invalid contract type"),
       `Next ${bundler} failed rebuild`,
     );
+    beforeUpdate = completedBuilds.length;
     project.change("THIRD");
     await eventually(
       read,
       (html) => hasValues(html, "THIRD"),
       `Next ${bundler} recovered rebuild`,
     );
+    await completed(beforeUpdate);
     const recovered = project.runs();
     assert.ok(recovered > changed);
     assert.ok(hasValues(await read(), "THIRD"));
@@ -142,6 +169,7 @@ export async function nextContract(bundler) {
   } catch (error) {
     throw new Error(`Next ${bundler}: ${error.stack ?? error}\n${output}`);
   } finally {
+    socket?.close();
     // A dev CLI owns long-lived framework workers. Stop its process tree after
     // the assertions, then wait for exit before the fixture can be reused.
     if (child.exitCode === null && child.signalCode === null) {

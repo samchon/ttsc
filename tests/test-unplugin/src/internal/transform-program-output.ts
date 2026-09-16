@@ -144,11 +144,10 @@ export async function assertAnOutOfProgramModuleIsPassedThroughAndReported(): Pr
  * the failing compile is a watching session's first, that leaves no channel
  * through which the fix can arrive.
  *
- * The same delivery's message used to carry the host's raw colour escapes,
- * because an ordinary type error arrives as an exception envelope and the
- * structured formatter serves only the `failure` branch. What the adapter hands
- * back becomes a bundler's error, so it lands in an overlay or a CI annotation
- * where the escapes are noise around the file and line the reader needs.
+ * The same delivery's message used to carry the host's raw colour escapes.
+ * Native type errors now retain structured diagnostics and recovery graphs;
+ * opaque exceptions must also reach an overlay or CI annotation without
+ * terminal escapes obscuring the file and line the reader needs.
  */
 export async function assertAFailedCompileWatchesAndReportsPlainly(): Promise<void> {
   const fixture = createRealNativeEnvelopeFixture();
@@ -246,9 +245,12 @@ export async function assertAFailedCompileWatchesAndReportsPlainly(): Promise<vo
     "a failed delivery must still register the inputs a fix would touch",
   );
   assert.equal(failed.batches, 1, "failed inputs must also use one batch");
+  // Recovery graphs also contain absent resolution candidates. Only existing
+  // inputs can be compared with the broken declaration by physical identity.
   assert.ok(
     failed.watched.some(
       (input) =>
+        fs.existsSync(input) &&
         fs.realpathSync.native(input) === fs.realpathSync.native(broken),
     ),
     `the file the diagnostics name must be among them; watched: ${failed.watched.join(", ")}; error: ${JSON.stringify(failed.error.message)}`,
