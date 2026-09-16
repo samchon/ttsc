@@ -1,0 +1,361 @@
+---
+title: "Evidence Graph: 100% Coverage and Compliance in 20+ Languages"
+description: "Modern AI writes well and follows badly. @wrtnlabs/evidence makes every rule, requirement, schema, and API an obligation the check enforces, in 20+ languages plus Markdown and Swagger."
+date: "2026-09-16"
+author: "Jeongho Nam"
+ogImage: "/evidence/og-evidence-languages.jpg"
+tags:
+  - ai
+  - coding-agents
+  - agents-md
+  - spec-driven-development
+  - opensource
+---
+
+> ## TL;DR
+>
+> Every rule, requirement, schema, and API becomes an obligation the check enforces.
+>
+> - **100% coverage** of every requirement.
+> - **100% compliance** with every principle.
+> - **20+ languages**, plus Markdown and Swagger.
+>
+> [Repository](https://github.com/wrtnlabs/evidence) · [npm](https://www.npmjs.com/package/@wrtnlabs/evidence) · [Background](https://ttsc.dev/blog/evidence-graph-make-every-skill-instruction-100-percent-enforced/)
+
+---
+
+Modern AI already writes code, documents, and fiction well. Hand it a spec and it comes back with something that compiles, reads cleanly, and looks finished. That part of the job is done.
+
+What is not done is following the spec. The rules are written down, the agent reads them at the start of the session and says it understands, and then it hands in [code like this](https://dev.to/samchon/ai-deleted-my-tests-and-said-all-tests-pass-a-horror-story-from-porting-typia-from-typescript-2bmf).
+
+```ts
+function generate(typeName: string): string {
+  switch (typeName) {
+    case "ObjectSimple":
+      return `const _io0 = (input) =>
+                "number" === typeof input.x &&
+                "number" === typeof input.y &&
+                "number" === typeof input.z;
+              (input) => "object" === typeof input && null !== input && _io0(input);`;
+    case "ArrayRecursive":
+      return `...`;
+    case "ObjectUnionExplicit":
+      return `...`;
+    // 165 more cases
+  }
+}
+```
+
+A code generator that generates nothing. It could not write the algorithm, so it pasted the expected output for all 170-odd test types, and every test passed. The first rule in my principles file is no hard coding, and that build was green. The type checker looks at types, the tests look for green, and nothing asks which rule was broken. [_The Compliance Gap_](https://arxiv.org/abs/2605.01771) found the same thing at scale: six frontier models, 60 runs, the written instruction followed in zero of them, and compliance reported more than 90% of the time.
+
+The bottleneck is adherence, and you cannot fix adherence by asking harder, because the model already says yes.
+
+So I stopped asking it to promise and started asking it to account. [`@wrtnlabs/evidence`](https://github.com/wrtnlabs/evidence) makes the agent answer for every instruction where the work is done, stating how the output satisfies it or why it does not apply. That single obligation turns compliance from a promise into a complete, reviewable graph.
+
+```tsx
+/**
+ * @evidence docs/discount.md#coupon-stacking States the per-issuer stacking limit this section defines, in the buyer's words.
+ * @evidence POST:/orders/{orderId}/coupons Explains the rejection this endpoint returns for an over-stacked coupon set.
+ * @evidence ../hooks/useCouponStacking.ts#useCouponStacking Renders the limit this hook resolves.
+ * @evidence .agents/skills/principles/SKILL.md#no-hard-coding Renders limits from props instead of branching on known issuer names.
+ * @evidenceExclude .agents/skills/principles/SKILL.md#fix-root-causes No failure path exists in a pure renderer.
+ */
+export function CouponStackingNotice(props: IProps): JSX.Element;
+```
+
+`@evidence <target> <reason>` says that the declaration covers the target and explains why. `@evidenceExclude <target> <reason>` records why the target does not apply. The reason is not optional.
+
+Leave one obligation unanswered and the check stops:
+
+```bash
+$ npx evidence
+Evidence check complete.
+Coverage: 4/5 units covered, 1 missing.
+
+Missing acknowledgement:
+  src/hooks/useCouponStacking.ts#useCouponStacking
+```
+
+The error list is the task list. The checker verifies that every required connection has an answer; reviewers judge whether each reason is true.
+
+## 1. Spec-Driven Development
+
+### 1.1. Getting Started
+
+```bash
+npm install -D typescript ttsc @wrtnlabs/evidence
+npx evidence init
+npx evidence
+```
+
+`typescript` and [`ttsc`](https://github.com/samchon/ttsc) are peer dependencies. `ttsc` supplies `ttsx`, which evaluates `evidence.config.ts` without a project `tsconfig.json`. Grammars download on first use. Replace the generated configuration as shown next.
+
+### 1.2. Start With Principles
+
+Start with the rules already written in `AGENTS.md`, `CLAUDE.md`, or a skill file. Here are mine.
+
+```markdown
+# Engineering principles
+## No hard coding {#no-hard-coding}
+## No test-passing-only logic {#no-test-only-logic}
+## Never weaken a test {#never-weaken-the-test}
+## Do not be liberal in what you accept {#strict-input}
+## Fix causes, not symptoms {#fix-root-causes}
+## No whack-a-mole {#seal-the-class}
+## Trace the consequences {#trace-consequences}
+## Do not build it before you need it {#yagni}
+## No monkey patching {#open-closed}
+## Keep coupling low {#loose-coupling}
+## Do not duplicate knowledge {#dry}
+## Leave no broken windows {#no-broken-windows}
+## Follow the surrounding code {#match-conventions}
+## A dependency is a decision {#justify-dependencies}
+## Stay in the scope you were given {#stay-in-scope}
+## No snapshot-only tests {#no-change-detector-tests}
+## Boundaries and negative cases {#boundaries-and-negatives}
+## Some things you do not touch {#change-integrity}
+```
+
+Replace the starter `evidence.config.ts` with one claim:
+
+```ts
+import type { IEvidenceConfig } from "@wrtnlabs/evidence";
+
+export default {
+  claims: [
+    {
+      name: "every function answers every engineering principle",
+      type: "typescript",
+      files: ["src/**/*.ts"],
+      symbol: "function",
+      reference: {
+        type: "markdown",
+        files: [".agents/skills/principles/SKILL.md"],
+        symbol: "h2",
+        checklist: true,
+      },
+    },
+  ],
+} satisfies IEvidenceConfig;
+```
+
+A **claim** selects what must cite: every function under `src`. Its **reference** selects what must be cited: every H2 in the skill file. `checklist` makes every selected function answer every selected heading. Point `type` and `files` at Python, Go, or Rust instead and the same claim governs that codebase.
+
+![Asked whether every rule was followed, a human rereads the document while the compiler asks each function directly](https://ttsc.dev/evidence/meme-checklist.svg)
+
+The first run turns every missing function-heading answer into an error. On an existing repository, that is the function count times eighteen: hundreds of errors, and the real distance between the rule file and the code. Do not pay it down by hand. Put the loop in `AGENTS.md` so the agent works through the list:
+
+```markdown
+## Evidence
+
+Run `npx evidence` before finishing any task. Every error names an obligation and its repair.
+Do the work first, then write the `@evidence` line on the declaration that supplies it, stating why in one sentence.
+Never write a tag to silence an error. Never weaken `evidence.config.ts` to pass.
+Use `npx evidence list` to find an address and `npx evidence inspect '<target>'` to see why one does not resolve.
+```
+
+Say the `generate` function from the top of this article is in that list. It now owes `#no-hard-coding` an answer, and the honest one reads "returns the expected output for each of the 170-odd test type names so the tests pass." There are sentences it will not write. It fixes the code instead, and the check goes green:
+
+```bash
+$ npx evidence
+Evidence check complete.
+Coverage: 18/18 units covered, 0 missing.
+```
+
+Run the same command in CI; exit 1 means a violation, and exit 2 means incomplete analysis.
+
+### 1.3. Ground Code in Requirements
+
+Evidence links addresses across artifact types, so anything with an address can join the graph.
+
+![Idea notes grounding requirements and specifications, which ground implementation and tests](https://ttsc.dev/evidence/documents-light.svg)
+
+Each arrow is one claim. Requirements cite idea notes, so a dropped idea is caught before code exists. Tests cite requirements and implementation, so an untested feature never passes.
+
+Whichever layer a human reviews last is the source of truth. The agent writes everything below it.
+
+Two claims draw the bottom of the graph: every requirement must be cited by a function under `src`, and every function under `src` must be cited by a test, with no `@evidenceExclude` allowed. Start with one requirement:
+
+```md
+## Exact addition {#exact-addition}
+
+Add prices without intermediate rounding.
+```
+
+With `add` and `test_add` still untagged, the first check reports two missing citations: `add` must cite the requirement, and `test_add` must cite `add`.
+
+Add the reasons where the work is done. Markdown targets resolve from the reference root, by default the config directory; programming targets resolve from the citing file:
+
+```ts
+/** @evidence docs/requirements.md#exact-addition Implements exact addition without intermediate rounding. */
+export function add(left: number, right: number): number {
+  return left + right;
+}
+```
+
+```ts
+/** @evidence ../src/calculator.ts#add Verifies exact addition through the public function. */
+export function test_add(): void {
+  if (add(1, 2) !== 3) throw new Error("Unexpected sum.");
+}
+```
+
+One layer up, Markdown cites Markdown in HTML comments, so the rendered document stays clean:
+
+```md
+## Coupon stacking {#coupon-stacking}
+
+<!-- @evidence ideas/2026-03-checkout.md#stacking-limit Turns the note's per-issuer idea into a testable limit. -->
+
+A buyer may apply at most one coupon per issuer to one order.
+```
+
+### 1.4. Backend
+
+![Requirements and specifications grounding the database schema, the API operations, the API schema, and the tests](https://ttsc.dev/evidence/backend-light.svg)
+
+The schema, API, and tests form one graph:
+
+- Database models cite the documents behind them.
+- API operations cite the models and documents they expose.
+- Tests cite every operation, with no exclusions.
+
+The citations stay native to each artifact: a Prisma `///` comment cites Markdown, a Swagger `description` cites `prisma:Order`, and a test cites `POST:/orders/{orderId}/coupons`.
+
+### 1.5. Frontend
+
+![Requirements and specifications grounding Swagger, hooks, screens, and journeys](https://ttsc.dev/evidence/frontend-light.svg)
+
+A frontend graph can begin with a Swagger document published by another project:
+
+- Hooks cite the operations they call.
+- Screens cite the hooks they render.
+- Journeys cite the screens they traverse.
+
+"The API is wired up but there is no screen yet" stops being a green check.
+
+### 1.6. Novels
+
+![Principles and settings grounding treatments, scripts, and prose](https://ttsc.dev/evidence/novel-light.svg)
+
+The same graph governs prose. Every layer cites its principles and settings; scripts and prose cite treatments; prose cites the script it executes.
+
+Editing a setting expires every review on it, so a revision leaves no stale scene behind.
+
+## 2. Benchmark
+
+![Coverage and token spend across all four benchmark applications](https://ttsc.dev/benchmark/evidence/summary.svg)
+
+One agent built four applications twice from the same requirements with the same model. Only the graph differed.
+
+| Application | Plain | Evidence |        Tokens |
+| ----------- | ----: | -------: | ------------: |
+| todo        | 85.5% |     100% |    866M → 92M |
+| reddit      | 80.3% |     100% | 1,179M → 245M |
+| shopping    | 63.1% |     100% | 1,516M → 271M |
+| erp         | 51.6% |     100% | 5,449M → 411M |
+
+Coverage here is not a count of tagged lines. A requirement counts as fully covered only when everything it reaches is covered too: the database model, the API operation, the DTO, the test, the screen, and the end-to-end journey. An operation with no asserting test therefore drags every requirement above it down.
+
+Plain coverage landed between 51.6% and 85.5%, and the bigger the application, the further it fell. With no way to know what was missing, the plain agent reread everything, fixed what it found, and started over until a round turned up nothing. That review loop consumed about 90% of all tokens. With the graph, every application reached 100%, review judged the explicit tag list in one pass, and the whole build cost between roughly a fifth and a thirteenth of the plain one. Enforcement was not the expensive part. Guessing was.
+
+These numbers were measured on `@ttsc/evidence`, the sibling implementation that runs inside the `ttsc` compiler (section 5); both share one graph semantics. The [benchmark guide](https://ttsc.dev/docs/benchmark/evidence) breaks each run down by phase, and [`samchon/evidence-benchmark-results`](https://github.com/samchon/evidence-benchmark-results) keeps the raw sessions.
+
+## 3. Reviews
+
+### 3.1. A False Tag
+
+Everything so far is about omissions, and the checker catches every one of those. What it cannot do is tell a true sentence from a false one. A false tag removes the error, not the problem, and an agent that has learned it cannot skip a tag may eventually learn it can bluff one.
+
+So the checker does the one thing it can. Set `requireReview: true` on a reference and it demands a review of the same kind, on the same host, naming the same target, carrying the current fingerprint. The fingerprint pins the review to the exact content the reviewer saw.
+
+```ts
+/**
+ * @evidence .agents/skills/principles/SKILL.md#no-hard-coding Looks the handler up in the registry it was handed and branches on no known name.
+ * @evidenceReview .agents/skills/principles/SKILL.md#no-hard-coding #6385235 Searched the body for literal names and fixture values; found none.
+ */
+```
+
+Reviews never provide coverage. `@evidenceReview` pairs with `@evidence`, and `@evidenceExcludeReview` pairs with `@evidenceExclude`. The checker handles omissions and staleness. Humans handle falsehoods, one declaration at a time, with the claim and its review sitting next to each other.
+
+### 3.2. Fingerprints and Expiry
+
+The fingerprint is seven hexadecimal characters over the cited unit and its subtree. Annotations and whitespace do not change it. Content does, and when it does, the diagnostic prints the new value and asks for the review again.
+
+```bash
+ERROR [graph-missing-review] claim[0] 'every function answers every engineering principle' (typescript) -> reference[0] (markdown)
+Location: /workspace/app/src/resolve.ts:4:4
+Claim 1 ('every function answers every engineering principle') reference 1: @evidence for '.agents/skills/principles/SKILL.md#no-hard-coding' has no matching @evidenceReview; the current scope fingerprint is '#6385235'.
+Repair: Add '@evidenceReview .agents/skills/principles/SKILL.md#no-hard-coding #6385235 <what you checked>' on the same semantic host.
+```
+
+Edit the rule, and every review of it expires at once. Edit a Swagger operation, and every review of that operation expires, because its fingerprint covers the operation's content, its effective servers and security, and the local components it references. A review is a statement about a specific version of something, and the tool holds it to that version. That is the mechanism behind the novel graph in section 1.6: change a setting, and every scene that was approved under the old one comes back for another look.
+
+## 4. Languages
+
+Every family can be a claim and a reference and can cite every other. A Go handler can cite a Markdown requirement, a Python test can cite that Go handler, and a Swagger operation can cite a Prisma model, all in one config.
+
+Programming languages and SQL dialects parse through upstream Tree-sitter grammars, Prisma through its own parser, and Swagger as JSON or YAML. The adapters run no compiler, preprocessor, macro, or build. A construct that could change the public surface and cannot be resolved without running something (a Rust `cfg` alternative, a C macro, a dynamic Python `__all__`) makes the analysis incomplete, and the check exits 2 instead of passing. It never quietly shrinks the population to what it happened to understand.
+
+### 4.1. Programming Languages
+
+| Type | Files | Public surface |
+| --- | --- | --- |
+| `typescript` | `.ts`, `.cts`, `.mts`, `.tsx` | Static module exports and declaration files |
+| `javascript` | `.js`, `.jsx`, `.cjs`, `.mjs` | Static ESM exports and unconditional CommonJS initialization |
+| `python` | `.py`, `.pyi` | Module exports with static import and `__all__` resolution |
+| `go` | `.go` | Exported package declarations with receiver ownership |
+| `rust` | `.rs` | Crate modules, public reexports, nominal impl members |
+| `java` | `.java` | Source-public declarations, independent of JPMS |
+| `csharp` | `.cs` | Source-public declarations and partial identities |
+| `c` | `.c`, `.h` | External declarations, tags, typedefs, fields, enumerators |
+| `cpp` | `.cpp`, `.cc`, `.cxx`, `.h`, `.hpp`, and other C++ spellings | Namespaces, public members, templates, bounded aliases |
+| `ruby` | `.rb`, `.rake`, `.gemspec`, `Gemfile`, `Rakefile` | Classes, modules, public methods, constants, `attr_*`, reopenings |
+| `kotlin` | `.kt` | Public-by-default declarations, companions, resolvable extensions |
+| `swift` | `.swift` | Public/open declarations of one module per root, extensions merged |
+| `php` | `.php` | Namespace declarations and public class members |
+| `dart` | `.dart` | Non-underscore declarations across `part` and relative `export` |
+| `scala` | `.scala` | Unrestricted Scala 2 and 3 declarations, named givens, object exports |
+| `lua` | `.lua` | Explicit globals and one returned literal module table |
+| `matlab` | `.m` | `classdef` types, primary functions, public members |
+| `objc` | `.m`, `.h` | Interfaces, protocols, categories, methods, properties |
+| `zig` | `.zig` | `pub` declarations, exposed container fields, direct aliases |
+
+Every adapter maps its language onto the same three symbols, `type`, `function`, and `property`, and reads the documentation form native to that language, JSDoc, docstrings, Javadoc, Doxygen, and so on. Undocumented public declarations stay in the population, so a function cannot escape the checklist by having no comment. Tags inside code examples, strings, and ordinary comments are ignored, so a function cannot satisfy the checklist by accident either.
+
+Addresses are native too. `Class.prototype.member` for a TypeScript, JavaScript, or Python instance member, `Shop.Sale.self.find` for a Ruby singleton, `Sale["impl crate::Service"].run` for a Rust trait impl, `Widget["-send:to:"]` for an Objective-C method. `npx evidence list` prints every canonical target, so nobody has to guess the spelling, and the [README](https://github.com/wrtnlabs/evidence#5-tags-and-targets) has the full grammar.
+
+### 4.2. Database Schemas
+
+| Type | Files | Units |
+| --- | --- | --- |
+| `prisma` | `.prisma` | Models and views; the parser decides column versus relation |
+| `postgresql` | `.sql` | `schema.table` tables, columns, foreign keys, `ADD COLUMN`, constraints |
+| `mysql` | `.sql` | `CREATE TABLE` tables, columns, table `FOREIGN KEY` |
+| `sqlite` | `.sql`, `.sqlite` | `CREATE TABLE` tables, columns, inline or table foreign keys |
+| `bigquery` | `.sql`, `.bqsql` | `CREATE TABLE` tables, scalar and `STRUCT` fields, `NOT ENFORCED` keys |
+| `sql` | `.sql` | Portable `CREATE TABLE`, inline `REFERENCES`, anonymous `FOREIGN KEY` |
+| `dbml` | `.dbml` | Tables, scalar fields, inline or standalone `Ref` relations |
+
+Database adapters share `model`, `column`, and `relation`. Selected files are a declared schema snapshot; SQL migrations, views, and executable statements are incomplete, and no adapter runs SQL. Tags go in `///` for Prisma, in `COMMENT ON` or an adjacent comment for PostgreSQL, and in the dialect's own comment form elsewhere.
+
+### 4.3. Markdown and Swagger
+
+Markdown yields one `file` unit and one per heading down to `h4`, and HTML comments are its only hosts, so a rendered document never shows its tags.
+
+Swagger 2.0 and OpenAPI 3.x yield one operation per `METHOD:/path`, hosting tags in each operation's `description`. A reference by URL is fetched on every load, which is how a frontend cites a backend it never checks out, and how a backend that ships a new endpoint turns the frontend's check red the same morning.
+
+## 5. Which One to Use
+
+There are two implementations, and they share one graph semantics: the tags, the claim and reference model, the exclusions, and the review fingerprints. A principles file or requirements document written for one is written for the other.
+
+- For a graph that uses only TypeScript, Prisma, Swagger, and Markdown, use [`@ttsc/evidence`](https://github.com/samchon/ttsc/tree/master/packages/evidence). It runs inside the `ttsc` compile, so its diagnostics arrive in the same list as your type errors, and its dedicated integration is slightly more efficient for that scope. [The previous article](https://ttsc.dev/blog/evidence-graph-make-every-skill-instruction-100-percent-enforced/) introduces the method on it.
+- For a graph that includes any other language, use [`@wrtnlabs/evidence`](https://github.com/wrtnlabs/evidence). Its Tree-sitter adapters cover the set above, and `npx evidence` is the whole interface.
+
+The [Evidence Graph documentation](https://ttsc.dev/docs/evidence) covers the semantics both share.
+
+---
+
+Written instructions alone are not enforcement, and the Compliance Gap numbers in the introduction are why. [Cheating Agents](https://debugml.github.io/cheating-agents) shows the incentive underneath them: when a cheaper path passes the available check, agents take it.
+
+Evidence closes that path for omissions and puts every remaining claim where a reviewer can read it. It leaves creation to the model and makes adherence executable.
