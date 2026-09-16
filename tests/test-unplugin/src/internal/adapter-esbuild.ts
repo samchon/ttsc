@@ -51,8 +51,16 @@ async function assertEsbuildAdapterTransformsSource() {
     /Invalid value/,
     "a failure after plugin setup must not retain a cache owner",
   );
-  const firstContext = await esbuild.context(options);
-  const secondContext = await esbuild.context(options);
+  const firstEnd = observeDispose();
+  const secondEnd = observeDispose();
+  const firstContext = await esbuild.context({
+    ...options,
+    plugins: [plugin, firstEnd.plugin],
+  });
+  const secondContext = await esbuild.context({
+    ...options,
+    plugins: [plugin, secondEnd.plugin],
+  });
   let firstDisposed = false;
   let secondDisposed = false;
   try {
@@ -73,7 +81,7 @@ async function assertEsbuildAdapterTransformsSource() {
 
     await firstContext.dispose();
     firstDisposed = true;
-    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    await firstEnd.disposed;
     const overlapping = await secondContext.rebuild();
     TestUnpluginProject.assertTransformedToPlugin(
       overlapping.outputFiles[0].text,
@@ -86,73 +94,77 @@ async function assertEsbuildAdapterTransformsSource() {
 
     await secondContext.dispose();
     secondDisposed = true;
-    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    await secondEnd.disposed;
 
-    const originalSetTimeout = globalThis.setTimeout;
-    const delayedDisposals: Array<() => void> = [];
-    globalThis.setTimeout = ((
-      callback: (...arguments_: unknown[]) => void,
-      delay?: number,
-      ...arguments_: unknown[]
-    ) => {
-      const stack = new Error().stack ?? "";
-      if (
-        delay === 0 &&
-        stack.includes("esbuild") &&
-        stack.includes("scheduleOnDisposeCallbacks")
-      ) {
-        delayedDisposals.push(() => callback(...arguments_));
-        return {} as ReturnType<typeof setTimeout>;
-      }
-      return originalSetTimeout(callback, delay, ...arguments_);
-    }) as typeof setTimeout;
+    const firstBuildEnd = observeDispose();
+    const replacementEnd = observeDispose();
+    let startReplacement!: () => void;
+    let releaseReplacement!: () => void;
+    const replacementStarted = new Promise<void>((resolve) => {
+      startReplacement = resolve;
+    });
+    const replacementReleased = new Promise<void>((resolve) => {
+      releaseReplacement = resolve;
+    });
+    let replacement: Promise<any> | undefined;
     try {
-      const afterDispose = await esbuild.build(options);
-      TestUnpluginProject.assertTransformedToPlugin(
-        afterDispose.outputFiles[0].text,
-      );
-      assert.equal(
-        fs.statSync(runLog).size,
-        2,
-        "the last context disposal must release the generation",
-      );
-      assert.equal(delayedDisposals.length, 1);
-
-      let signalReplacementStart: (() => void) | undefined;
-      const replacementStarted = new Promise<void>((resolve) => {
-        signalReplacementStart = resolve;
-      });
-      const replacement = esbuild.build({
+      const first = await esbuild.build({
         ...options,
         plugins: [
           plugin,
+          firstBuildEnd.plugin,
           {
-            name: "signal-replacement-start",
-            setup(build: { onStart(callback: () => void): void }) {
-              build.onStart(() => signalReplacementStart?.());
+            name: "overlap-build-lifetimes",
+            setup(build: any) {
+              build.onEnd(async () => {
+                replacement = esbuild.build({
+                  ...options,
+                  plugins: [
+                    plugin,
+                    replacementEnd.plugin,
+                    {
+                      name: "hold-active-replacement",
+                      setup(next: any) {
+                        next.onStart(() => {
+                          startReplacement();
+                          return replacementReleased;
+                        });
+                      },
+                    },
+                  ],
+                });
+                await replacementStarted;
+              });
             },
           },
         ],
       });
-      await replacementStarted;
-      delayedDisposals.shift()?.();
-      const overlappingOneShot = await replacement;
-      TestUnpluginProject.assertTransformedToPlugin(
-        overlappingOneShot.outputFiles[0].text,
-      );
+      TestUnpluginProject.assertTransformedToPlugin(first.outputFiles[0].text);
       assert.equal(
         fs.statSync(runLog).size,
         2,
-        "an older delayed disposal must retain the active replacement",
+        "last-context disposal must release its generation",
       );
-      assert.equal(delayedDisposals.length, 1);
-      delayedDisposals.shift()?.();
+      await firstBuildEnd.disposed;
+      releaseReplacement();
+      const next = await replacement;
+      TestUnpluginProject.assertTransformedToPlugin(next.outputFiles[0].text);
+      assert.equal(
+        fs.statSync(runLog).size,
+        2,
+        "an older one-shot disposal must retain the active replacement",
+      );
+      await replacementEnd.disposed;
     } finally {
-      globalThis.setTimeout = originalSetTimeout;
-      for (const dispose of delayedDisposals.splice(0)) dispose();
+      releaseReplacement();
+      await replacement;
     }
 
-    const afterOneShotDispose = await esbuild.build(options);
+    const finalEnd = observeDispose();
+    const afterOneShotDispose = await esbuild.build({
+      ...options,
+      plugins: [plugin, finalEnd.plugin],
+    });
     TestUnpluginProject.assertTransformedToPlugin(
       afterOneShotDispose.outputFiles[0].text,
     );
@@ -161,11 +173,28 @@ async function assertEsbuildAdapterTransformsSource() {
       3,
       "the final one-shot disposal must release the generation",
     );
-    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    await finalEnd.disposed;
   } finally {
     if (!firstDisposed) await firstContext.dispose();
     if (!secondDisposed) await secondContext.dispose();
   }
+}
+
+/** Observe the public host lifecycle without intercepting global timers. */
+function observeDispose() {
+  let done!: () => void;
+  const disposed = new Promise<void>((resolve) => {
+    done = resolve;
+  });
+  return {
+    disposed,
+    plugin: {
+      name: "observe-disposal",
+      setup(build: { onDispose(callback: () => void): void }) {
+        build.onDispose(done);
+      },
+    },
+  };
 }
 
 export { assertEsbuildAdapterTransformsSource };

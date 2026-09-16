@@ -280,15 +280,32 @@ const unpluginFactory: UnpluginFactory<
       return transformTtsc(file, source, options, aliases, transformCache, {
         // A watcherless server has no invalidation channel and needs no
         // watch-input derivation. Every other host keeps its native contract.
-        addWatchFiles: viteCommand === "serve" && !viteWatching
-          ? undefined
-          : (inputs, failed) => {
-              if (viteCommand === "serve") {
-                serveInputs.replace(file, inputs, failed);
-              } else {
-                for (const input of inputs) this.addWatchFile(input.file);
-              }
-            },
+        addWatchFiles:
+          viteCommand === "serve" && !viteWatching
+            ? undefined
+            : (inputs, failed) => {
+                if (viteCommand === "serve") {
+                  serveInputs.replace(file, inputs, failed);
+                } else {
+                  const native = this.getNativeBuildContext?.();
+                  for (const input of inputs) {
+                    if (
+                      native?.framework === "rspack" &&
+                      native.loaderContext !== undefined
+                    ) {
+                      // Compilation-level dependencies schedule a pass but do
+                      // not invalidate Rspack's cached transformed modules.
+                      if (input.evidence?.missing === true)
+                        native.loaderContext.addMissingDependency(input.file);
+                      else native.loaderContext.addDependency(input.file);
+                    } else if (native?.framework === "farm") {
+                      native.context.addWatchFile(file, input.file);
+                    } else {
+                      this.addWatchFile(input.file);
+                    }
+                  }
+                }
+              },
         // A module the plugin declared volatile depends on non-file inputs,
         // which no file-dependency snapshot can represent; mark it
         // uncacheable where the bundler exposes that control.

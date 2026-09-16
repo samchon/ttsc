@@ -1,0 +1,225 @@
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+
+import {
+  adapter,
+  changedOutput,
+  deadline,
+  eventQueue,
+  expectOutput,
+  fixture,
+} from "./common.mjs";
+
+/** Rollup and Rolldown must follow the real watcher dependency graph. */
+export async function rollupContract(name) {
+  const project = fixture(name);
+  const bundler = await import(name);
+  const events = eventQueue();
+  const watcher = bundler.watch({
+    input: project.entry,
+    plugins: [await adapter(name, project.options)],
+    output: { file: project.output, format: "esm" },
+    watch: { clearScreen: false },
+  });
+  watcher.on("event", async (event) => {
+    if (event.code === "ERROR") events.push(event.error);
+    if (event.code === "BUNDLE_END") {
+      try {
+        const code = fs.readFileSync(project.output, "utf8");
+        await event.result?.close();
+        events.push(code);
+      } catch (error) {
+        events.push(error);
+      }
+    }
+  });
+  try {
+    expectOutput(await events.next(`${name} first build`), "FIRST");
+    assert.equal(
+      project.runs(),
+      1,
+      `${name} compiles the four-module project once`,
+    );
+    project.change("SECOND");
+    expectOutput(await events.next(`${name} type-only rebuild`), "SECOND");
+    assert.equal(
+      project.runs(),
+      2,
+      `${name} shares one compile across rebuilt modules`,
+    );
+    project.change("THIRD");
+    expectOutput(await events.next(`${name} second rebuild`), "THIRD");
+    assert.equal(project.runs(), 3);
+  } finally {
+    await watcher.close();
+  }
+}
+
+/** A real esbuild watch context must re-run loaders for erased dependencies. */
+export async function esbuildContract() {
+  const esbuild = await import("esbuild");
+  const project = fixture("esbuild");
+  const events = eventQueue();
+  const context = await esbuild.context({
+    absWorkingDir: project.root,
+    entryPoints: [project.entry],
+    bundle: true,
+    write: false,
+    format: "esm",
+    logLevel: "silent",
+    plugins: [
+      await adapter("esbuild", project.options),
+      {
+        name: "observe-build-result",
+        setup(build) {
+          build.onEnd((result) => {
+            events.push(
+              result.errors.length
+                ? new Error(JSON.stringify(result.errors))
+                : result.outputFiles[0].text,
+            );
+          });
+        },
+      },
+    ],
+  });
+  try {
+    await context.watch();
+    expectOutput(await events.next("esbuild first build"), "FIRST");
+    assert.equal(project.runs(), 1);
+    project.change("SECOND");
+    expectOutput(await events.next("esbuild dependency change"), "SECOND");
+    assert.equal(project.runs(), 2);
+    const unchanged = await context.rebuild();
+    expectOutput(unchanged.outputFiles[0].text, "SECOND");
+    assert.equal(
+      project.runs(),
+      2,
+      "an unchanged esbuild pass reuses its generation",
+    );
+  } finally {
+    await context.dispose();
+  }
+}
+
+/** Both webpack implementations must rebuild through real loader dependencies. */
+export async function webpackContract(name) {
+  const project = fixture(name);
+  const bundler =
+    name === "webpack"
+      ? (await import("webpack")).default
+      : (await import("@rspack/core")).rspack;
+  const plugin = await adapter(name, project.options);
+  const events = eventQueue();
+  const options = {
+    context: project.root,
+    mode: "development",
+    devtool: false,
+    entry: project.entry,
+    output: { path: path.dirname(project.output), filename: "bundle.js" },
+    module: { rules: [{ test: /\.ts$/, type: "javascript/auto" }] },
+    resolve: { extensions: [".ts", ".js"] },
+    plugins: [plugin],
+  };
+  const compiler = bundler(options);
+  const watcher = compiler.watch({}, (error, stats) => {
+    if (error || stats?.hasErrors())
+      events.push(error ?? new Error(stats.toString({ errors: true })));
+    else events.push(fs.readFileSync(project.output, "utf8"));
+  });
+  try {
+    expectOutput(await events.next(`${name} first build`), "FIRST");
+    assert.equal(project.runs(), 1);
+    project.change("SECOND");
+    expectOutput(
+      await changedOutput(events, `${name} type-only edit`, "SECOND"),
+      "SECOND",
+    );
+    assert.equal(project.runs(), 2);
+    watcher.invalidate();
+    expectOutput(await events.next(`${name} unchanged rebuild`), "SECOND");
+    assert.equal(project.runs(), 2);
+  } finally {
+    await deadline(
+      new Promise((resolve, reject) =>
+        watcher.close((error) => (error ? reject(error) : resolve())),
+      ),
+      `${name} watcher close`,
+    );
+    await deadline(
+      new Promise((resolve, reject) =>
+        compiler.close((error) => (error ? reject(error) : resolve())),
+      ),
+      `${name} compiler close`,
+    );
+  }
+  // Reuse the plugin object after a true compiler shutdown. A new compiler
+  // must not inherit the generation resources owned by the closed one.
+  const next = bundler(options);
+  try {
+    await deadline(
+      new Promise((resolve, reject) =>
+        next.run((error, stats) =>
+          error || stats?.hasErrors()
+            ? reject(error ?? new Error(stats.toString()))
+            : resolve(),
+        ),
+      ),
+      `${name} replacement build`,
+    );
+    expectOutput(fs.readFileSync(project.output, "utf8"), "SECOND");
+    assert.equal(project.runs(), 3);
+  } finally {
+    await new Promise((resolve, reject) =>
+      next.close((error) => (error ? reject(error) : resolve())),
+    );
+  }
+}
+
+/** Farm's public Compiler.update owns incremental dependency expansion. */
+export async function farmContract() {
+  const farm = await import("@farmfe/core");
+  const project = fixture("farm");
+  const logger = new farm.Logger({ exit: false });
+  const resolved = await farm.resolveConfig(
+    {
+      root: project.root,
+      configFile: false,
+      compilation: {
+        input: { main: "./src/main.ts" },
+        output: { path: "./dist-contract", targetEnv: "node", format: "esm" },
+        minify: false,
+        persistentCache: false,
+        lazyCompilation: false,
+        progress: false,
+      },
+      plugins: [await adapter("farm", project.options)],
+    },
+    "development",
+    logger,
+  );
+  const compiler = await farm.createCompiler(resolved, logger);
+  const output = () =>
+    Object.values(compiler.resources())
+      .map((value) => value.toString())
+      .join("\n");
+  await compiler.compile();
+  expectOutput(output(), "FIRST");
+  assert.equal(project.runs(), 1);
+  assert.ok(
+    compiler
+      .resolvedWatchPaths()
+      .some((file) => path.resolve(project.root, file) === project.input),
+    `Farm must receive the compiler-only dependency: ${JSON.stringify(compiler.resolvedWatchPaths())}`,
+  );
+  project.change("SECOND");
+  const updated = await compiler.update([project.input]);
+  expectOutput(JSON.stringify(updated), "SECOND");
+  assert.equal(project.runs(), 2);
+  project.change("THIRD");
+  expectOutput(JSON.stringify(await compiler.update([project.input])), "THIRD");
+  assert.equal(project.runs(), 3);
+  // Farm's Compiler API has no close/dispose method. No server or FileWatcher
+  // is constructed here; the aggregate process owns its native compiler.
+}

@@ -32,9 +32,9 @@ test("unplugin scenarios run through one layered package contract", () => {
     4,
     "three family tables plus one self-contained filesystem case",
   );
-  assert.equal(cases.length, 208, "the scenario inventory must stay explicit");
+  assert.equal(cases.length, 209, "the scenario inventory must stay explicit");
   assert.deepEqual(wrappers, []);
-  assert.match(runner, /const EXPECTED_CASES = 208;/);
+  assert.match(runner, /const EXPECTED_CASES = 209;/);
   assert.equal(
     (runner.match(/export async function test_[a-z0-9_]+/g) ?? []).length,
     1,

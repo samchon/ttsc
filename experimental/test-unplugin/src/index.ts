@@ -14,17 +14,20 @@ const platformKey = `${process.platform}-${process.arch}`;
 const platformTarball = `ttsc-${platformKey}`;
 const registryDependencies = [
   "@farmfe/core@1.7.11",
+  "@react-router/dev@8.4.0",
+  "react-router@8.4.0",
+  "vite8@npm:vite@8.3.0",
   // Rspack 2.0.1+ crashes on Windows ARM64 during native binding teardown.
   "@rspack/cli@2.0.0",
   "@rspack/core@2.0.0",
-  "@types/react@18.3.29",
-  "@types/react-dom@18.3.7",
-  "esbuild@0.25.12",
+  "@types/react@19.3.0",
+  "@types/react-dom@19.3.0",
+  "esbuild@0.28.2",
   "next@16.3.0",
   "rolldown@1.2.6",
   "rollup@4.60.4",
-  "react@18.3.1",
-  "react-dom@18.3.1",
+  "react@19.2.7",
+  "react-dom@19.2.7",
   // Native TypeScript 7 ships no classic JS compiler API, which Next's built-in
   // TypeScript integration loads at build start. ttsc instead receives the
   // workspace `tsc` binary through TTSC_TSGO_BINARY (set in `run`), so the
@@ -84,6 +87,10 @@ test_unplugin_package_e2e();
 
 /** Run the complete packed-package adapter contract in one consumer install. */
 export function test_unplugin_package_e2e() {
+  assert(
+    commandExists("bun"),
+    "The complete adapter contract requires Bun on PATH (CI pins its version).",
+  );
   if (packCurrent) {
     prepareCurrentTarballs();
   } else if (!skipPack) {
@@ -101,6 +108,7 @@ export function test_unplugin_package_e2e() {
   verifyFarmBuild();
   verifyNextBuild();
   verifyTurbopackRecognisedGlobs();
+  verifyEcosystemContracts();
   verifyBunBuild();
   verifyBunRuntime();
   console.log("Success");
@@ -415,104 +423,10 @@ function writeTransformPlugin() {
     ].join("\n"),
     "utf8",
   );
-  fs.mkdirSync(path.join(workspace, "unplugin-transform-go"), {
-    recursive: true,
-  });
-  fs.writeFileSync(
-    path.join(workspace, "unplugin-transform-go", "go.mod"),
-    "module example.com/ttscunplugintest\n\ngo 1.26\n",
-    "utf8",
-  );
-  fs.writeFileSync(
-    path.join(workspace, "unplugin-transform-go", "main.go"),
-    [
-      "package main",
-      "",
-      "import (",
-      '  "encoding/json"',
-      '  "flag"',
-      '  "fmt"',
-      '  "io/fs"',
-      '  "os"',
-      '  "path/filepath"',
-      '  "regexp"',
-      '  "strings"',
-      ")",
-      "",
-      'var markerCall = regexp.MustCompile(`mark\\("([^"]*)"\\)`)',
-      "",
-      "type transformResult struct {",
-      '  TypeScript map[string]string `json:"typescript"`',
-      "}",
-      "",
-      "func main() { os.Exit(run(os.Args[1:])) }",
-      "",
-      "func run(args []string) int {",
-      "  if len(args) == 0 { return 2 }",
-      "  switch args[0] {",
-      '  case "transform":',
-      "    return transform(args[1:])",
-      '  case "check", "version", "build":',
-      "    return 0",
-      "  default:",
-      '    fmt.Fprintf(os.Stderr, "unknown command %q\\n", args[0])',
-      "    return 2",
-      "  }",
-      "}",
-      "",
-      "func transform(args []string) int {",
-      '  flags := flag.NewFlagSet("transform", flag.ContinueOnError)',
-      '  cwd := flags.String("cwd", "", "")',
-      '  _ = flags.String("tsconfig", "", "")',
-      '  _ = flags.String("plugins-json", "", "")',
-      "  if err := flags.Parse(args); err != nil { return 2 }",
-      "  root := *cwd",
-      '  if root == "" { root, _ = os.Getwd() }',
-      "  out := map[string]string{}",
-      // Walk the project rather than `src` alone. A real ttsc host returns an
-      // entry for every file in the program, so a fixture that skipped the
-      // project root made a root-level source look absent from the program and
-      // reported it as such — the fixture's answer, not the product's. The
-      // Turbopack glob verification needs a root-level source to be real
-      // (samchon/ttsc#1319).
-      // Derived rather than listed. Every build output this harness writes is a
-      // `dist-` directory, so a new adapter verification cannot silently add
-      // its emitted `.ts` to the program by landing somewhere unlisted.
-      '  skipDirs := map[string]bool{"node_modules": true, ".next": true, ".git": true, ".ttsc": true}',
-      "  err := filepath.WalkDir(root, func(file string, entry fs.DirEntry, err error) error {",
-      // A vanished entry is not a reason to fail a build. The project root is a
-      // live tree while Next is writing to it, and returning the error here
-      // aborted the whole transform; walking `src` alone never saw that.
-      "    if err != nil { if os.IsNotExist(err) { return nil }; return err }",
-      '    if entry.IsDir() { if skipDirs[entry.Name()] || strings.HasPrefix(entry.Name(), "dist-") { return filepath.SkipDir }; return nil }',
-      "    base := filepath.Base(file)",
-      '    declaration := strings.HasSuffix(base, ".d.ts") || strings.HasSuffix(base, ".d.mts") || strings.HasSuffix(base, ".d.cts") || (strings.HasSuffix(base, ".ts") && strings.Contains(base, ".d."))',
-      '    isSource := strings.HasSuffix(file, ".ts") || strings.HasSuffix(file, ".tsx") || strings.HasSuffix(file, ".mts") || strings.HasSuffix(file, ".cts")',
-      "    if declaration || !isSource {",
-      "      return nil",
-      "    }",
-      "    source, err := os.ReadFile(file)",
-      "    if err != nil { return err }",
-      "    code := markerCall.ReplaceAllStringFunc(string(source), func(call string) string {",
-      "      match := markerCall.FindStringSubmatch(call)",
-      "      if len(match) != 2 { return call }",
-      '      return fmt.Sprintf("%q", strings.ToUpper(match[1]))',
-      "    })",
-      "    relative, err := filepath.Rel(root, file)",
-      "    if err != nil { return err }",
-      "    out[filepath.ToSlash(relative)] = code",
-      "    return nil",
-      "  })",
-      "  if err != nil { fmt.Fprintln(os.Stderr, err); return 2 }",
-      '  if len(out) == 0 { fmt.Fprintln(os.Stderr, "no TypeScript sources found"); return 2 }',
-      "  data, err := json.Marshal(transformResult{TypeScript: out})",
-      "  if err != nil { fmt.Fprintln(os.Stderr, err); return 2 }",
-      "  fmt.Fprintln(os.Stdout, string(data))",
-      "  return 0",
-      "}",
-      "",
-    ].join("\n"),
-    "utf8",
+  fs.cpSync(
+    path.join(experimentRoot, "assets", "transform"),
+    path.join(workspace, "unplugin-transform-go"),
+    { recursive: true },
   );
 }
 
@@ -846,6 +760,15 @@ function verifyEntrypoints() {
   run("node verify-entrypoints.cjs", workspace);
 }
 
+function verifyEcosystemContracts() {
+  fs.cpSync(
+    path.join(experimentRoot, "src", "contracts"),
+    path.join(workspace, "contracts"),
+    { recursive: true },
+  );
+  run("node contracts/index.mjs", workspace);
+}
+
 function verifyViteBuild() {
   run("npx vite build --config vite.config.mjs", workspace);
   assertBuiltOutput("dist-vite/vite-entry.js", "VITE-INSTALLED-OK", "vite");
@@ -1131,10 +1054,6 @@ function installedTurbopackProjectWideGlobCoverage() {
 }
 
 function verifyBunBuild() {
-  if (!commandExists("bun")) {
-    console.log("$ bun build skipped: bun executable is not available");
-    return;
-  }
   run("bun bun-build.mjs", workspace);
   const output = findSingleBuiltFile("dist-bun", "bun-entry");
   assertBuiltOutput(output, "BUN-INSTALLED-OK", "bun");
@@ -1145,10 +1064,6 @@ function verifyBunBuild() {
 // `bun run entry.ts` executes transformed code — no bundling step. Written
 // after verifyBunBuild so the bunfig preload cannot affect the earlier build.
 function verifyBunRuntime() {
-  if (!commandExists("bun")) {
-    console.log("$ bun run skipped: bun executable is not available");
-    return;
-  }
   fs.writeFileSync(
     path.join(workspace, "src", "bun-runtime-entry.ts"),
     [
@@ -1246,7 +1161,7 @@ function walk(dir, visit) {
 
 function commandExists(command) {
   const result = cp.spawnSync(command, ["--version"], {
-    cwd: workspace,
+    cwd: root,
     encoding: "utf8",
     stdio: ["ignore", "ignore", "ignore"],
     windowsHide: true,
@@ -1281,6 +1196,7 @@ function run(command, cwd, extraEnv = {}) {
         // ttsc resolves the native `tsc` binary from here, so the consumer need
         // not install the native `typescript` package (Next cannot load it).
         TTSC_TSGO_BINARY: TSC_BINARY,
+        TTSC_CACHE_DIR: path.join(workspace, ".ttsc", "source-cache"),
       },
       maxBuffer: 1024 * 1024 * 64,
       stdio: ["ignore", "pipe", "pipe"],

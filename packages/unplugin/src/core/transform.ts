@@ -811,9 +811,9 @@ export interface TtscTransformHooks {
   addWatchFile?: (file: string, evidence?: TtscWatchInputEvidence) => void;
   /**
    * Batched form of {@link addWatchFile}. When supplied, the transform calls it
-   * once per delivered module and does not call `addWatchFile` for that
-   * module. `failed` marks a recovery batch: a failed compiler can omit inputs
-   * from its previous successful result, so replacing hosts should retain those
+   * once per delivered module and does not call `addWatchFile` for that module.
+   * `failed` marks a recovery batch: a failed compiler can omit inputs from its
+   * previous successful result, so replacing hosts should retain those
    * spellings until the next successful delivery.
    */
   addWatchFiles?: (inputs: readonly TtscWatchInput[], failed?: boolean) => void;
@@ -5008,7 +5008,9 @@ async function registerWindowsProjectMutationTracker(
   });
   broker.pendingRegistrations += 1;
   broker.child.ref();
-  broker.child.channel?.ref();
+  // Bun's IPC channel omits Node's Control.ref/unref methods. The child itself
+  // still owns the outstanding acknowledgement on that runtime.
+  broker.child.channel?.ref?.();
   const id = broker.nextId++;
   let resolveReady!: () => void;
   const ready = new Promise<void>((resolve) => {
@@ -5073,7 +5075,7 @@ async function registerWindowsProjectMutationTracker(
     // exit mid-build.
     if (broker.pendingRegistrations === 0 && broker.pendingDrains === 0) {
       broker.child.unref();
-      broker.child.channel?.unref();
+      broker.child.channel?.unref?.();
     }
   }
 }
@@ -5201,7 +5203,7 @@ function startWindowsProjectMutationDrain(
       broker.pendingDrains -= 1;
       if (broker.pendingDrains === 0 && broker.pendingRegistrations === 0) {
         broker.child.unref();
-        broker.child.channel?.unref();
+        broker.child.channel?.unref?.();
       }
       resolve();
     };
@@ -5212,7 +5214,7 @@ function startWindowsProjectMutationDrain(
     // process exits mid-build with nothing to report.
     broker.pendingDrains += 1;
     broker.child.ref();
-    broker.child.channel?.ref();
+    broker.child.channel?.ref?.();
     const timer = setTimeout(release, WINDOWS_MUTATION_DRAIN_FALLBACK_MS);
     broker.drains.set(id, release);
     if (broker.child.send?.({ id, op: "drain" }) !== true) {

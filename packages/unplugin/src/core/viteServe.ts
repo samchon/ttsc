@@ -1,15 +1,15 @@
-import { watch, type FSWatcher } from "chokidar";
+import { type FSWatcher, watch } from "chokidar";
 import fs from "node:fs";
 import path from "node:path";
 
 import {
+  type TtscWatchInput,
+  type TtscWatchInputBaseline,
+  type TtscWatchInputEvidence,
   captureWatchInputBaseline,
   pathIdentityKey,
   validateGraphInputObservation,
   watchInputEvidenceMatchesBaseline,
-  type TtscWatchInput,
-  type TtscWatchInputBaseline,
-  type TtscWatchInputEvidence,
 } from "./transform";
 
 /** One module node inside a Vite module graph; opaque to this module. */
@@ -50,7 +50,6 @@ export interface ViteDevServerLike {
   ws?: ViteHotChannelLike;
 }
 
-
 interface InputCondition {
   baseline?: TtscWatchInputBaseline;
   evidence?: TtscWatchInputEvidence;
@@ -75,7 +74,11 @@ interface LinkedPath {
 export interface ViteServeInputWatch {
   attach(server: ViteDevServerLike): void;
   dispose(): Promise<void>;
-  replace(importer: string, inputs: readonly TtscWatchInput[], failed?: boolean): void;
+  replace(
+    importer: string,
+    inputs: readonly TtscWatchInput[],
+    failed?: boolean,
+  ): void;
 }
 
 /**
@@ -119,12 +122,17 @@ export function createViteServeInputWatch(): ViteServeInputWatch {
         const state = condition.evidence?.state;
         let changed: boolean;
         if (state?.codec === "predicates") {
-          changed = validateGraphInputObservation(entry.file, state.observation).length !== 0;
+          changed =
+            validateGraphInputObservation(entry.file, state.observation)
+              .length !== 0;
         } else {
           baseline ??= captureWatchInputBaseline(entry.file);
-          changed = baseline === undefined || (condition.evidence?.state !== undefined
-            ? !watchInputEvidenceMatchesBaseline(condition.evidence, baseline)
-            : JSON.stringify(condition.baseline) !== JSON.stringify(baseline));
+          changed =
+            baseline === undefined ||
+            (condition.evidence?.state !== undefined
+              ? !watchInputEvidenceMatchesBaseline(condition.evidence, baseline)
+              : JSON.stringify(condition.baseline) !==
+                JSON.stringify(baseline));
         }
         if (!changed) continue;
         for (const importer of condition.importers) importers.add(importer);
@@ -160,16 +168,25 @@ export function createViteServeInputWatch(): ViteServeInputWatch {
 
   const ensureWatcher = (): FSWatcher => {
     if (watcher !== undefined) return watcher;
-    const active = watch([], { depth: 0, ignoreInitial: false, persistent: false });
+    // Chokidar's persistent:false backend omits its native error listener on
+    // Windows. Keep the owned subscription alive until dispose() closes it.
+    const active = watch([], { depth: 0, ignoreInitial: false });
     watcher = active;
     // Initial add events compare compiler-time evidence too: an edit between
     // compilation and asynchronous watcher setup must not be missed.
     active.on("all", (event, file) => {
-      if (watcher === active) enqueue(file, event === "add" || event === "addDir");
+      if (watcher === active)
+        enqueue(file, event === "add" || event === "addDir");
     });
-    active.on("error", () => { if (watcher === active) failed = true; });
+    active.on("error", () => {
+      if (watcher === active) failed = true;
+    });
     poller = setInterval(() => {
-      const selected = new Set([...entries.values()].filter((entry) => failed || entry.poll || !entry.observed));
+      const selected = new Set(
+        [...entries.values()].filter(
+          (entry) => failed || entry.poll || !entry.observed,
+        ),
+      );
       // Files reached through one linked directory share one topology check.
       // Content edits remain event-driven; retargeting a junction does not
       // reliably emit an event on its previously watched descendants.
@@ -192,7 +209,9 @@ export function createViteServeInputWatch(): ViteServeInputWatch {
   };
 
   return {
-    attach(next) { server = next; },
+    attach(next) {
+      server = next;
+    },
     async dispose() {
       entries.clear();
       importerInputs.clear();
@@ -211,13 +230,21 @@ export function createViteServeInputWatch(): ViteServeInputWatch {
     replace(importer, inputs, failed = false) {
       if (server === undefined) return;
       importer = path.resolve(importer);
-      const previous = importerInputs.get(importer) ?? new Map<string, string>();
+      const previous =
+        importerInputs.get(importer) ?? new Map<string, string>();
       if (failed) {
         // An exception can omit the dependency whose deletion caused it.
         // Keep the last successful spellings until a successful delivery can
         // replace them, observing their current failed state for recovery.
-        const reported = new Set(inputs.map((input) => path.resolve(input.file)));
-        inputs = [...inputs, ...[...previous.keys()].filter((file) => !reported.has(file)).map((file) => ({ file }))];
+        const reported = new Set(
+          inputs.map((input) => path.resolve(input.file)),
+        );
+        inputs = [
+          ...inputs,
+          ...[...previous.keys()]
+            .filter((file) => !reported.has(file))
+            .map((file) => ({ file })),
+        ];
       }
       const current = new Map<string, string>();
       const added: string[] = [];
@@ -228,16 +255,31 @@ export function createViteServeInputWatch(): ViteServeInputWatch {
         current.set(file, key);
         let entry = entries.get(file);
         if (entry === undefined) {
-          entry = { file, conditions: new Map(), poll: false, observed: false, links: new Set() };
+          entry = {
+            file,
+            conditions: new Map(),
+            poll: false,
+            observed: false,
+            links: new Set(),
+          };
           entries.set(file, entry);
           added.push(file);
           const directory = path.dirname(file);
           const directoryTarget = realpath(directory);
           const fileTarget = realpath(file);
           const linked = [
-            ...(directoryTarget !== undefined && !sameSpelling(directory, directoryTarget) ? [directory] : []),
-            ...(fileTarget !== undefined && directoryTarget !== undefined &&
-              !sameSpelling(fileTarget, path.join(directoryTarget, path.basename(file))) ? [file] : []),
+            ...(directoryTarget !== undefined &&
+            !sameSpelling(directory, directoryTarget)
+              ? [directory]
+              : []),
+            ...(fileTarget !== undefined &&
+            directoryTarget !== undefined &&
+            !sameSpelling(
+              fileTarget,
+              path.join(directoryTarget, path.basename(file)),
+            )
+              ? [file]
+              : []),
           ];
           for (const linkedFile of linked) {
             let link = links.get(linkedFile);
@@ -253,18 +295,28 @@ export function createViteServeInputWatch(): ViteServeInputWatch {
         if (condition === undefined) {
           condition = {
             evidence,
-            baseline: evidence?.state === undefined ? captureWatchInputBaseline(file) : undefined,
+            baseline:
+              evidence?.state === undefined
+                ? captureWatchInputBaseline(file)
+                : undefined,
             importers: new Set(),
           };
           entry.conditions.set(key, condition);
         }
         condition.importers.add(importer);
-        const observation = evidence?.state?.codec === "predicates"
-          ? evidence.state.observation : undefined;
-        entry.poll ||= evidence?.missing === true || evidence?.unavailable !== undefined ||
-          (observation !== undefined && observation.fileExists !== true &&
-            observation.stat !== "file" && observation.readFile?.ok !== true) ||
-          (evidence?.state === undefined && condition.baseline?.fileExists !== true);
+        const observation =
+          evidence?.state?.codec === "predicates"
+            ? evidence.state.observation
+            : undefined;
+        entry.poll ||=
+          evidence?.missing === true ||
+          evidence?.unavailable !== undefined ||
+          (observation !== undefined &&
+            observation.fileExists !== true &&
+            observation.stat !== "file" &&
+            observation.readFile?.ok !== true) ||
+          (evidence?.state === undefined &&
+            condition.baseline?.fileExists !== true);
       }
       for (const [file, key] of previous) {
         if (current.get(file) === key) continue;
@@ -283,11 +335,17 @@ export function createViteServeInputWatch(): ViteServeInputWatch {
 }
 
 function realpath(file: string): string | undefined {
-  try { return fs.realpathSync.native(file); } catch { return undefined; }
+  try {
+    return fs.realpathSync.native(file);
+  } catch {
+    return undefined;
+  }
 }
 
 function sameSpelling(left: string, right: string): boolean {
-  return process.platform === "win32" ? left.toLowerCase() === right.toLowerCase() : left === right;
+  return process.platform === "win32"
+    ? left.toLowerCase() === right.toLowerCase()
+    : left === right;
 }
 
 /**

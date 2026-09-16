@@ -46,22 +46,6 @@ export type TtscBunOptions =
   | TtscUnpluginOptions
   | (() => TtscUnpluginOptions | undefined);
 
-/**
- * Transform hooks handed to the shared transform under Bun.
- *
- * The shared transform calls `addWatchFile` once per plugin-reported dependency
- * so type-only inputs can enter a bundler's watch graph. Bun's bundler and
- * runtime loaders expose no per-module dependency-registration channel, so the
- * hook is an explicit no-op here: reported dependencies cannot participate in
- * Bun invalidation, but a valid dependency list must never crash the loader by
- * reaching a missing context method. Passing an empty object made
- * `this.addWatchFile` `undefined`, so any plugin reporting dependencies threw
- * `TypeError: this.addWatchFile is not a function`.
- */
-const bunTransformHooks = {
-  addWatchFile(): void {},
-};
-
 /** Resolve {@link TtscBunOptions} to a plain options object (or `undefined`). */
 function resolveBunOptions(
   options?: TtscBunOptions,
@@ -177,13 +161,14 @@ export default function bun(options?: TtscBunOptions): BunLikePlugin {
           const loader = bunLoaderFor(args.path);
           const transformOptions = getOptions();
           const source = await fs.readFile(args.path, "utf8");
+          // Bun has no dependency subscription API. Omitting watch hooks also
+          // avoids deriving a filesystem watch graph that this host cannot use.
           const result = await transformTtsc(
             args.path,
             source,
             transformOptions,
             undefined,
             cache,
-            bunTransformHooks,
           );
           if (result !== undefined) {
             return { contents: result.code, loader };

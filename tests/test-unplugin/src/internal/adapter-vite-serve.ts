@@ -218,7 +218,7 @@ export async function startViteServer(
     root: viteRoot,
     // These scenarios exercise the real watching serve lifecycle. The private
     // compiler watcher owns node_modules and missing-resolution predicates.
-    server: { host: "127.0.0.1", port: 0, watch: { persistent: false } },
+    server: { host: "127.0.0.1", port: 0 },
   });
   await server.listen();
   return server;
@@ -234,7 +234,34 @@ export async function requestMainModule(server: any): Promise<string> {
       result.code.length !== 0,
     `vite serve must answer the entry module request with transformed code; received: ${JSON.stringify(result)}`,
   );
+  await waitForViteWatchRegistration(server);
   return result.code;
+}
+
+/** Wait for the host to own runtime subscriptions before ending its lifecycle. */
+export async function waitForViteWatchRegistration(server: any): Promise<void> {
+  const files = new Set<string>();
+  for (const environment of Object.values(server.environments) as any[]) {
+    for (const file of environment.moduleGraph.fileToModulesMap.keys()) {
+      if (
+        !/(?:^|[/\\])node_modules(?:[/\\]|$)/.test(file) &&
+        fs.existsSync(file)
+      )
+        files.add(path.resolve(file));
+    }
+  }
+  // Vite adds outside-root runtime imports asynchronously. Closing during that
+  // registration can strand its Chokidar subscription after server.close().
+  // Observe the public watch inventory instead of delaying by an assumed time.
+  await waitFor(() => {
+    const watched = new Set(
+      Object.entries(server.watcher.getWatched()).flatMap(
+        ([directory, names]) =>
+          (names as string[]).map((name) => path.resolve(directory, name)),
+      ),
+    );
+    return [...files].every((file) => watched.has(file));
+  }, "Vite runtime watch registration");
 }
 
 /** Look up the entry module's node in the server's client module graph. */
@@ -249,7 +276,9 @@ export async function mainModuleNode(server: any): Promise<any> {
 }
 
 /** Observe reload messages through a real HMR WebSocket client. */
-export async function observeReloadEvents(server: any): Promise<Array<{ type?: string }>> {
+export async function observeReloadEvents(
+  server: any,
+): Promise<Array<{ type?: string }>> {
   const events: Array<{ type?: string }> = [];
   const address = server.httpServer.address();
   const socket = new WebSocket(`ws://127.0.0.1:${address.port}/`, "vite-hmr");

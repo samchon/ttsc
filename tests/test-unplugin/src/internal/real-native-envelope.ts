@@ -4,9 +4,10 @@ import {
   TestUnpluginRuntime,
 } from "@ttsc/testing";
 import assert from "node:assert/strict";
-import { observeReloadEvents } from "./adapter-vite-serve";
 import fs from "node:fs";
 import path from "node:path";
+
+import { observeReloadEvents } from "./adapter-vite-serve";
 
 interface IRealNativeEnvelopeGraph {
   candidates?: Record<string, string[]>;
@@ -784,7 +785,7 @@ async function assertViteLifecycle(
     optimizeDeps: { include: [], noDiscovery: true },
     plugins: [unpluginVite()],
     root: viteRoot,
-    server: { host: "127.0.0.1", port: 0, watch: { persistent: false } },
+    server: { host: "127.0.0.1", port: 0 },
   });
   try {
     await server.listen();
@@ -852,7 +853,10 @@ async function assertViteLifecycle(
       ),
       "the file predicate must invalidate only importers that own it",
     );
-    await waitFor(() => events.length !== 0, "the HMR client to receive a reload");
+    await waitFor(
+      () => events.length !== 0,
+      "the HMR client to receive a reload",
+    );
     assert.ok(
       events.some((event) => event.type === "full-reload"),
       "the directory-to-file transition must announce a full reload",
