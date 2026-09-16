@@ -13,6 +13,7 @@ import {
 export async function viteContract(name) {
   const { createServer } = await import(name === "vite7" ? "vite" : "vite8");
   const project = fixture(name);
+  project.break();
   let resolutions = 0;
   let ready;
   const watcherReady = new Promise((resolve) => {
@@ -51,6 +52,8 @@ export async function viteContract(name) {
   };
   try {
     await deadline(watcherReady, `${name} watcher ready`);
+    await assert.rejects(request("FIRST"), /invalid contract type/);
+    project.change("FIRST");
     for (const ssr of [false, true]) await request("FIRST", ssr);
     assert.equal(project.runs(), 1);
     const nodes = await Promise.all(
@@ -77,10 +80,21 @@ export async function viteContract(name) {
       for (const ssr of [false, true]) await request(value, ssr);
     }
     assert.equal(project.runs(), 3);
+    project.break();
+    await eventually(
+      () => nodes.every((node) => node.transformResult === null),
+      Boolean,
+      `${name} failure invalidation`,
+    );
+    for (const ssr of [false, true])
+      await assert.rejects(request("THIRD", ssr), /invalid contract type/);
+    project.change("THIRD");
+    for (const ssr of [false, true]) await request("THIRD", ssr);
+    assert.equal(project.runs(), 4);
     assert.equal(resolutions, 0);
     await server.restart();
     await request("THIRD");
-    assert.equal(project.runs(), 4);
+    assert.equal(project.runs(), 5);
     const restarted = await Promise.all(
       urls.map((url) =>
         server.environments.client.moduleGraph.getModuleByUrl(url),
@@ -93,7 +107,7 @@ export async function viteContract(name) {
       `${name} subscription after restart`,
     );
     await request("FOURTH");
-    assert.equal(project.runs(), 5);
+    assert.equal(project.runs(), 6);
   } finally {
     await server.close();
   }
@@ -159,6 +173,15 @@ export async function reactRouterContract() {
         (entry) => !entry.id.includes("contract-input.server"),
       ),
     );
+    project.break();
+    await eventually(
+      () => !node.transformResult,
+      Boolean,
+      "React Router failed-input invalidation",
+    );
+    await assert.rejects(server.transformRequest(url), /invalid contract type/);
+    project.change("THIRD");
+    expectOutput((await server.transformRequest(url)).code, "THIRD");
   } finally {
     await server?.close();
     process.chdir(before);

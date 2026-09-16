@@ -213,6 +213,16 @@ const unpluginFactory: UnpluginFactory<
         resetTtscTransformCache(transformCache);
       });
     },
+    farm: {
+      // Farm calls buildStart only for the initial compilation. Every update
+      // opens a new pass so a failed verdict can recover, while an unchanged
+      // successful generation remains reusable across its module deliveries.
+      updateModules: {
+        executor() {
+          beginTtscTransformBuild(transformCache);
+        },
+      },
+    },
     buildStart() {
       if (viteCommand !== undefined && !viteBuildOwners.has(this as object)) {
         viteBuildOwners.add(this as object);

@@ -9,6 +9,7 @@ import { deadline, eventually, fixture, workspace, write } from "./common.mjs";
 /** Drive both of Next's real development compilers through HTTP requests. */
 export async function nextContract(bundler) {
   const project = fixture(`next-${bundler}`);
+  project.break();
   write(
     project.root,
     "pages/index.tsx",
@@ -76,15 +77,27 @@ export async function nextContract(bundler) {
       html.includes(
         `data-contract="value">${Array(4).fill(value).join("|")}</p>`,
       );
-    const read = async () => {
+    const request = async () => {
       const response = await fetch(url, {
         signal: AbortSignal.timeout(60_000),
       });
       const html = await response.text();
-      assert.equal(response.status, 200, html.slice(0, 2000));
+      return { status: response.status, html };
+    };
+    const read = async () => {
+      const { status, html } = await request();
+      assert.equal(status, 200, html.slice(0, 2000));
       return html;
     };
-    assert.ok(hasValues(await read(), "FIRST"), `Next ${bundler} first page`);
+    const initialFailure = await request();
+    assert.equal(initialFailure.status, 500);
+    assert.match(initialFailure.html, /invalid contract type/);
+    project.change("FIRST");
+    await eventually(
+      read,
+      (html) => hasValues(html, "FIRST"),
+      `Next ${bundler} initial recovery`,
+    );
     const initial = project.runs();
     // Next owns separate server/client compiler sessions. Repeated requests
     // must reuse their generations; a request-count wall-clock proxy cannot
@@ -109,6 +122,23 @@ export async function nextContract(bundler) {
     const changed = project.runs();
     assert.ok(hasValues(await read(), "SECOND"));
     assert.equal(project.runs(), changed);
+    project.break();
+    await eventually(
+      request,
+      ({ status, html }) =>
+        status === 500 && html.includes("invalid contract type"),
+      `Next ${bundler} failed rebuild`,
+    );
+    project.change("THIRD");
+    await eventually(
+      read,
+      (html) => hasValues(html, "THIRD"),
+      `Next ${bundler} recovered rebuild`,
+    );
+    const recovered = project.runs();
+    assert.ok(recovered > changed);
+    assert.ok(hasValues(await read(), "THIRD"));
+    assert.equal(project.runs(), recovered);
   } catch (error) {
     throw new Error(`Next ${bundler}: ${error.stack ?? error}\n${output}`);
   } finally {
@@ -145,6 +175,16 @@ export async function bunContract() {
     project.root,
     "bunfig.toml",
     'preload = ["@ttsc/unplugin/bun-register"]\n',
+  );
+  project.break();
+  await assert.rejects(
+    run("bun", ["run", "src/main.ts"], {
+      cwd: project.root,
+      env: process.env,
+      windowsHide: true,
+      timeout: 120_000,
+    }),
+    /invalid contract type/,
   );
   for (const value of ["RUNTIME_FIRST", "RUNTIME_SECOND"]) {
     project.change(value);

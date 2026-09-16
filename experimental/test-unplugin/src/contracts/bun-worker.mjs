@@ -12,7 +12,16 @@ const build = () =>
     entrypoints: [path.join(root, "src/main.ts")],
     plugins: [plugin],
     target: "bun",
+    throw: false,
   });
+const input = path.join(root, "src/contract-input.server.ts");
+const fail = async () => {
+  fs.writeFileSync(input, "export type ContractInput = ;\n");
+  const result = await build();
+  assert.equal(result.success, false);
+  assert.match(result.logs.join("\n"), /invalid contract type/);
+};
+await fail();
 for (const [index, value] of ["FIRST", "SECOND", "SECOND"].entries()) {
   fs.writeFileSync(
     path.join(root, "src/contract-input.server.ts"),
@@ -26,4 +35,5 @@ for (const [index, value] of ["FIRST", "SECOND", "SECOND"].entries()) {
     index + 1,
     "each Bun build compiles once for all four modules and releases its generation at completion",
   );
+  if (index === 0) await fail();
 }

@@ -14,11 +14,28 @@ import {
 /** Rollup and Rolldown must follow the real watcher dependency graph. */
 export async function rollupContract(name) {
   const project = fixture(name);
+  project.break();
   const bundler = await import(name);
+  const plugin = await adapter(name, project.options);
+  if (name === "rollup") {
+    // Rollup emits its first watch ERROR before Chokidar owns subscriptions.
+    // An immediate repair can be missed even by a plain native Rollup plugin.
+    // Prove initial error delivery and dependency ownership through rollup(),
+    // then reuse the plugin in a watcher for the later error/recovery contract.
+    await assert.rejects(
+      bundler.rollup({ input: project.entry, plugins: [plugin] }),
+      (error) => {
+        assert.match(error.message, /invalid contract type/);
+        assert.ok(error.watchFiles.includes(project.input));
+        return true;
+      },
+    );
+    project.change("FIRST");
+  }
   const events = eventQueue();
   const watcher = bundler.watch({
     input: project.entry,
-    plugins: [await adapter(name, project.options)],
+    plugins: [plugin],
     output: { file: project.output, format: "esm" },
     watch: { clearScreen: false },
   });
@@ -35,6 +52,13 @@ export async function rollupContract(name) {
     }
   });
   try {
+    if (name !== "rollup") {
+      await assert.rejects(
+        events.next(`${name} initial failure`),
+        /invalid contract type/,
+      );
+      project.change("FIRST");
+    }
     expectOutput(await events.next(`${name} first build`), "FIRST", 4);
     assert.equal(
       project.runs(),
@@ -51,6 +75,14 @@ export async function rollupContract(name) {
     project.change("THIRD");
     expectOutput(await events.next(`${name} second rebuild`), "THIRD", 4);
     assert.equal(project.runs(), 3);
+    project.break();
+    await assert.rejects(
+      events.next(`${name} failed rebuild`),
+      /invalid contract type/,
+    );
+    project.change("FOURTH");
+    expectOutput(await events.next(`${name} recovered rebuild`), "FOURTH", 4);
+    assert.equal(project.runs(), 4);
   } finally {
     await watcher.close();
   }
@@ -60,6 +92,7 @@ export async function rollupContract(name) {
 export async function esbuildContract() {
   const esbuild = await import("esbuild");
   const project = fixture("esbuild");
+  project.break();
   const events = eventQueue();
   const context = await esbuild.context({
     absWorkingDir: project.root,
@@ -86,16 +119,29 @@ export async function esbuildContract() {
   });
   try {
     await context.watch();
+    await assert.rejects(
+      events.next("esbuild initial failure"),
+      /invalid contract type/,
+    );
+    project.change("FIRST");
     expectOutput(await events.next("esbuild first build"), "FIRST", 4);
     assert.equal(project.runs(), 1);
     project.change("SECOND");
     expectOutput(await events.next("esbuild dependency change"), "SECOND", 4);
     assert.equal(project.runs(), 2);
+    project.break();
+    await assert.rejects(
+      events.next("esbuild failed rebuild"),
+      /invalid contract type/,
+    );
+    project.change("THIRD");
+    expectOutput(await events.next("esbuild recovered rebuild"), "THIRD", 4);
+    assert.equal(project.runs(), 3);
     const unchanged = await context.rebuild();
-    expectOutput(unchanged.outputFiles[0].text, "SECOND", 4);
+    expectOutput(unchanged.outputFiles[0].text, "THIRD", 4);
     assert.equal(
       project.runs(),
-      2,
+      3,
       "an unchanged esbuild pass reuses its generation",
     );
   } finally {
@@ -106,6 +152,7 @@ export async function esbuildContract() {
 /** Both webpack implementations must rebuild through real loader dependencies. */
 export async function webpackContract(name) {
   const project = fixture(name);
+  project.break();
   const bundler =
     name === "webpack"
       ? (await import("webpack")).default
@@ -129,6 +176,11 @@ export async function webpackContract(name) {
     else events.push(fs.readFileSync(project.output, "utf8"));
   });
   try {
+    await assert.rejects(
+      events.next(`${name} initial failure`),
+      /invalid contract type/,
+    );
+    project.change("FIRST");
     expectOutput(await events.next(`${name} first build`), "FIRST", 4);
     assert.equal(project.runs(), 1);
     project.change("SECOND");
@@ -138,9 +190,17 @@ export async function webpackContract(name) {
       4,
     );
     assert.equal(project.runs(), 2);
+    project.break();
+    await assert.rejects(
+      events.next(`${name} failed rebuild`),
+      /invalid contract type/,
+    );
+    project.change("THIRD");
+    expectOutput(await events.next(`${name} recovered rebuild`), "THIRD", 4);
+    assert.equal(project.runs(), 3);
     watcher.invalidate();
-    expectOutput(await events.next(`${name} unchanged rebuild`), "SECOND", 4);
-    assert.equal(project.runs(), 2);
+    expectOutput(await events.next(`${name} unchanged rebuild`), "THIRD", 4);
+    assert.equal(project.runs(), 3);
   } finally {
     await deadline(
       new Promise((resolve, reject) =>
@@ -169,8 +229,8 @@ export async function webpackContract(name) {
       ),
       `${name} replacement build`,
     );
-    expectOutput(fs.readFileSync(project.output, "utf8"), "SECOND", 4);
-    assert.equal(project.runs(), 3);
+    expectOutput(fs.readFileSync(project.output, "utf8"), "THIRD", 4);
+    assert.equal(project.runs(), 4);
   } finally {
     await new Promise((resolve, reject) =>
       next.close((error) => (error ? reject(error) : resolve())),
@@ -224,6 +284,48 @@ export async function farmContract() {
     );
     assert.equal(project.runs(), index + 2);
   }
+  for (const [index, value] of ["FOURTH", "FIRST"].entries()) {
+    project.break();
+    await assert.rejects(
+      compiler.update([project.input]),
+      /invalid contract type/,
+    );
+    project.change(value);
+    const recovered = await compiler.update([project.input]);
+    expectOutput(
+      [recovered.mutableModules, recovered.immutableModules].join("\n"),
+      value,
+      4,
+    );
+    assert.equal(project.runs(), index + 4);
+    const unchanged = await compiler.update([project.input]);
+    expectOutput(
+      [unchanged.mutableModules, unchanged.immutableModules].join("\n"),
+      value,
+      4,
+    );
+    assert.equal(
+      project.runs(),
+      index + 4,
+      "unchanged Farm update reuses its generation",
+    );
+  }
+  // Farm's compile() leaves its own failed compiler in the compiling state.
+  // Its public recovery is a replacement compiler; the plugin object is reused.
+  project.break();
+  const failing = await farm.createCompiler(resolved, logger);
+  await assert.rejects(failing.compile(), /invalid contract type/);
+  project.change("SECOND");
+  const replacement = await farm.createCompiler(resolved, logger);
+  await replacement.compile();
+  expectOutput(
+    Object.values(replacement.resources())
+      .map((value) => value.toString())
+      .join("\n"),
+    "SECOND",
+    4,
+  );
+  assert.equal(project.runs(), 6);
   // Farm's Compiler API has no close/dispose method. No server or FileWatcher
   // is constructed here; the aggregate process owns its native compiler.
 }

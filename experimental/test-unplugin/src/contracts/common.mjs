@@ -56,6 +56,9 @@ export function fixture(name) {
     root,
     input,
     change,
+    break() {
+      fs.writeFileSync(input, "export type ContractInput = ;\n");
+    },
     entry: path.join(root, "src/main.ts"),
     output: path.join(root, "dist-contract/bundle.js"),
     options: { project: path.join(root, "tsconfig.json") },
