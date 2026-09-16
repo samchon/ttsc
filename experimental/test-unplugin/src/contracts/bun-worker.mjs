@@ -20,7 +20,7 @@ for (const [index, value] of ["FIRST", "SECOND", "SECOND"].entries()) {
   );
   const result = await build();
   assert.equal(result.success, true, result.logs.join("\n"));
-  expectOutput(await result.outputs[0].text(), value);
+  expectOutput(await result.outputs[0].text(), value, 4);
   assert.equal(
     fs.statSync(path.join(root, ".ttsc/contract-runs")).size,
     index + 1,

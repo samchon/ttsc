@@ -35,21 +35,21 @@ export async function rollupContract(name) {
     }
   });
   try {
-    expectOutput(await events.next(`${name} first build`), "FIRST");
+    expectOutput(await events.next(`${name} first build`), "FIRST", 4);
     assert.equal(
       project.runs(),
       1,
       `${name} compiles the four-module project once`,
     );
     project.change("SECOND");
-    expectOutput(await events.next(`${name} type-only rebuild`), "SECOND");
+    expectOutput(await events.next(`${name} type-only rebuild`), "SECOND", 4);
     assert.equal(
       project.runs(),
       2,
       `${name} shares one compile across rebuilt modules`,
     );
     project.change("THIRD");
-    expectOutput(await events.next(`${name} second rebuild`), "THIRD");
+    expectOutput(await events.next(`${name} second rebuild`), "THIRD", 4);
     assert.equal(project.runs(), 3);
   } finally {
     await watcher.close();
@@ -86,13 +86,13 @@ export async function esbuildContract() {
   });
   try {
     await context.watch();
-    expectOutput(await events.next("esbuild first build"), "FIRST");
+    expectOutput(await events.next("esbuild first build"), "FIRST", 4);
     assert.equal(project.runs(), 1);
     project.change("SECOND");
-    expectOutput(await events.next("esbuild dependency change"), "SECOND");
+    expectOutput(await events.next("esbuild dependency change"), "SECOND", 4);
     assert.equal(project.runs(), 2);
     const unchanged = await context.rebuild();
-    expectOutput(unchanged.outputFiles[0].text, "SECOND");
+    expectOutput(unchanged.outputFiles[0].text, "SECOND", 4);
     assert.equal(
       project.runs(),
       2,
@@ -129,16 +129,17 @@ export async function webpackContract(name) {
     else events.push(fs.readFileSync(project.output, "utf8"));
   });
   try {
-    expectOutput(await events.next(`${name} first build`), "FIRST");
+    expectOutput(await events.next(`${name} first build`), "FIRST", 4);
     assert.equal(project.runs(), 1);
     project.change("SECOND");
     expectOutput(
       await changedOutput(events, `${name} type-only edit`, "SECOND"),
       "SECOND",
+      4,
     );
     assert.equal(project.runs(), 2);
     watcher.invalidate();
-    expectOutput(await events.next(`${name} unchanged rebuild`), "SECOND");
+    expectOutput(await events.next(`${name} unchanged rebuild`), "SECOND", 4);
     assert.equal(project.runs(), 2);
   } finally {
     await deadline(
@@ -168,7 +169,7 @@ export async function webpackContract(name) {
       ),
       `${name} replacement build`,
     );
-    expectOutput(fs.readFileSync(project.output, "utf8"), "SECOND");
+    expectOutput(fs.readFileSync(project.output, "utf8"), "SECOND", 4);
     assert.equal(project.runs(), 3);
   } finally {
     await new Promise((resolve, reject) =>
@@ -205,7 +206,7 @@ export async function farmContract() {
       .map((value) => value.toString())
       .join("\n");
   await compiler.compile();
-  expectOutput(output(), "FIRST");
+  expectOutput(output(), "FIRST", 4);
   assert.equal(project.runs(), 1);
   assert.ok(
     compiler
@@ -213,13 +214,16 @@ export async function farmContract() {
       .some((file) => path.resolve(project.root, file) === project.input),
     `Farm must receive the compiler-only dependency: ${JSON.stringify(compiler.resolvedWatchPaths())}`,
   );
-  project.change("SECOND");
-  const updated = await compiler.update([project.input]);
-  expectOutput(JSON.stringify(updated), "SECOND");
-  assert.equal(project.runs(), 2);
-  project.change("THIRD");
-  expectOutput(JSON.stringify(await compiler.update([project.input])), "THIRD");
-  assert.equal(project.runs(), 3);
+  for (const [index, value] of ["SECOND", "THIRD"].entries()) {
+    project.change(value);
+    const updated = await compiler.update([project.input]);
+    expectOutput(
+      [updated.mutableModules, updated.immutableModules].join("\n"),
+      value,
+      4,
+    );
+    assert.equal(project.runs(), index + 2);
+  }
   // Farm's Compiler API has no close/dispose method. No server or FileWatcher
   // is constructed here; the aggregate process owns its native compiler.
 }

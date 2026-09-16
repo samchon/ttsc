@@ -69,20 +69,20 @@ export function write(root, file, contents) {
   fs.writeFileSync(target, contents);
 }
 
-export function expectOutput(code, value) {
-  assert.ok(
-    code.includes(value),
-    `generated output must contain ${value}: ${code.slice(0, 500)}`,
+export function expectOutput(code, value, consumers = 1) {
+  const values = [
+    ...code.matchAll(/(["'`])(FIRST|SECOND|THIRD|FOURTH)\1/g),
+  ].map((match) => match[2]);
+  assert.equal(
+    values.length,
+    consumers,
+    `every consumer must retain its observable transformed value: ${code.slice(0, 500)}`,
   );
+  assert.deepEqual(values, Array(consumers).fill(value));
   assert.ok(
     !code.includes("watchValue()"),
     "the transform must execute, not merely build successfully",
   );
-  if (value !== "FIRST")
-    assert.ok(
-      !code.includes('"FIRST"'),
-      "the consumer must not retain the old type-derived value",
-    );
 }
 
 /** Deadlines diagnose a missing event; successful runs pay no fixed sleep. */
