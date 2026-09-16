@@ -1,7 +1,9 @@
 package strip_test
 
 import (
+  "encoding/json"
   "path/filepath"
+  "slices"
   "strings"
   "testing"
 )
@@ -18,8 +20,8 @@ import (
 //  1. Create a minimal project with no config file.
 //  2. Invoke transform with a manifest that carries "calls" directly on the
 //     plugin entry.
-//  3. Assert a non-zero exit and that the error message names the unsupported
-//     key and mentions strip.config.*.
+//  3. Assert a non-zero exit, structured recovery metadata without source output,
+//     and a diagnostic naming the unsupported key and strip.config.*.
 func TestCommandRejectsInlineConfigKeys(t *testing.T) {
   root := seedStripProject(t, false)
   for _, key := range []string{"calls", "statements"} {
@@ -39,8 +41,23 @@ func TestCommandRejectsInlineConfigKeys(t *testing.T) {
     if code == 0 {
       t.Fatalf("key %q: expected non-zero exit, got 0", key)
     }
-    if stdout != "" {
-      t.Fatalf("key %q: expected empty stdout, got %q", key, stdout)
+    var failure struct {
+      TypeScript  map[string]string `json:"typescript"`
+      Diagnostics []struct {
+        MessageText string `json:"messageText"`
+      } `json:"diagnostics"`
+      Graph *struct {
+        Configs []string `json:"configs"`
+      } `json:"graph"`
+    }
+    if err := json.Unmarshal([]byte(stdout), &failure); err != nil {
+      t.Fatalf("key %q: expected structured transform failure: %v; stdout=%q", key, err, stdout)
+    }
+    if failure.TypeScript == nil || len(failure.TypeScript) != 0 || failure.Graph == nil || !slices.Contains(failure.Graph.Configs, "tsconfig.json") {
+      t.Fatalf("key %q: failure must retain recovery metadata without source output: %s", key, stdout)
+    }
+    if len(failure.Diagnostics) != 1 || !strings.Contains(failure.Diagnostics[0].MessageText, `"`+key+`"`) || !strings.Contains(failure.Diagnostics[0].MessageText, "strip.config") {
+      t.Fatalf("key %q: missing structured migration diagnostic: %s", key, stdout)
     }
     if !strings.Contains(stderr, "unsupported key") || !strings.Contains(stderr, `"`+key+`"`) {
       t.Fatalf("key %q: error %q does not mention unsupported key", key, stderr)
