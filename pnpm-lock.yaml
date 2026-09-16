@@ -398,6 +398,9 @@ importers:
 
   packages/unplugin:
     dependencies:
+      chokidar:
+        specifier: ^4.0.3
+        version: 4.0.3
       unplugin:
         specifier: ^2.3.11
         version: 2.3.11

@@ -1,21 +1,16 @@
-import fs from "node:fs";
+import { watch, type FSWatcher } from "chokidar";
 import path from "node:path";
 import type { ITtscCompilerTransformation } from "ttsc";
 
-import { pathIdentityKey, validateGraphInputObservation } from "./transform";
-
-/**
- * How often each registered Vite-unsafe input is predicate-polled, in
- * milliseconds.
- *
- * Polling is the only watch primitive that covers the whole class: the dev
- * server's chokidar watcher ignores every `node_modules` directory, which is
- * exactly where superseding resolution candidates usually live, and `fs.watch`
- * cannot observe a path whose parent directories do not exist yet. One `stat`
- * every half second per unavailable path is negligible against a dev server's
- * baseline. Rich inputs replay only the predicates the compiler recorded.
- */
-const MISSING_INPUT_POLL_INTERVAL = 500;
+import {
+  captureWatchInputBaseline,
+  pathIdentityKey,
+  validateGraphInputObservation,
+  watchInputEvidenceMatchesBaseline,
+  type TtscWatchInput,
+  type TtscWatchInputBaseline,
+  type TtscWatchInputEvidence,
+} from "./transform";
 
 /** One module node inside a Vite module graph; opaque to this module. */
 type ViteModuleNodeLike = object;
@@ -55,128 +50,177 @@ export interface ViteDevServerLike {
   ws?: ViteHotChannelLike;
 }
 
-/**
- * Filesystem watch for derived watch inputs that Vite cannot safely register as
- * added imports while a development server is running.
- *
- * Vite serve treats every transform-context `addWatchFile()` registration as an
- * added import: `TransformPluginContext.addWatchFile` stores the path in
- * `_addedImports`, and `vite:import-analysis` resolves each entry like a real
- * import of the transformed module. A missing path or an existing directory
- * that failed a compiler file predicate then fails that resolve and turns the
- * importer's first request into a 500, even though the transform succeeded.
- *
- * This registry is the serve-only replacement for those registrations. Each
- * path is polled until its exact compiler predicate observation changes; legacy
- * envelopes retain their exists-or-file availability check. Its importers are
- * then invalidated in the server's module graphs and one full-reload is sent,
- * so the next request retransforms against the new resolution winner. The
- * project transform cache re-validates the compiler observation, so the
- * retransform recompiles instead of replaying.
- */
-export interface ViteServeMissingInputWatch {
-  /** Adopt the dev server whose module graphs creation events invalidate. */
-  attach(server: ViteDevServerLike): void;
-  /** Stop every poll; safe to call repeatedly. */
-  dispose(): void;
-  /**
-   * Report whether a dev server has ever been attached. This is not a liveness
-   * predicate — the reference intentionally survives the server's close (see
-   * {@link dispose}) — so route decisions must also gate on the resolved
-   * config's `command`, as the adapter does.
-   */
-  serving(): boolean;
-  /** Register one unsafe watch input and its exact recorded condition. */
-  watch(
-    input: string,
-    importer: string,
-    condition: ViteServeInputWatchCondition,
-  ): void;
-}
 
-/** A legacy availability condition or an exact compiler predicate proof. */
+/** A legacy availability condition or exact compiler predicate proof. */
 export type ViteServeInputWatchCondition =
   | "exists"
   | "file"
   | ITtscCompilerTransformation.IInputObservation;
 
-/** Poll bookkeeping for one registered unsafe path. */
-interface IMissingInputEntry {
-  condition: ViteServeInputWatchCondition;
+interface InputCondition {
+  baseline?: TtscWatchInputBaseline;
+  evidence?: TtscWatchInputEvidence;
   importers: Set<string>;
-  spelling: string;
 }
 
-/** Create an empty missing-input watch for one plugin instance. */
-export function createViteServeMissingInputWatch(): ViteServeMissingInputWatch {
-  const entries = new Map<string, IMissingInputEntry>();
-  let poller: NodeJS.Timeout | undefined;
-  let server: ViteDevServerLike | undefined;
+interface InputEntry {
+  conditions: Map<string, InputCondition>;
+  file: string;
+  /** Missing paths and directory predicates still need the predicate poll. */
+  poll: boolean;
+}
 
-  const stopPollingIfEmpty = (): void => {
-    if (entries.size !== 0 || poller === undefined) {
-      return;
-    }
-    clearInterval(poller);
-    poller = undefined;
-  };
-  const poll = (): void => {
+/** Serve-time compiler dependencies never enter Vite's runtime import graph. */
+export interface ViteServeInputWatch {
+  attach(server: ViteDevServerLike): void;
+  dispose(): Promise<void>;
+  replace(importer: string, inputs: readonly TtscWatchInput[]): void;
+}
+
+/**
+ * One filesystem subscription per unique input, shared by all served modules.
+ *
+ * Vite resolves transform-context addWatchFile as a runtime import, including
+ * type-only .server files and non-module plugin assets. Use a separate watcher
+ * for compiler inputs, including node_modules, which Vite's watcher ignores.
+ * Ordinary files are checked only on filesystem events. Missing spellings and
+ * directory predicates keep the bounded-frequency predicate poll because a
+ * directory creation or symlink retarget can change a resolution observation.
+ */
+export function createViteServeInputWatch(): ViteServeInputWatch {
+  const entries = new Map<string, InputEntry>();
+  const importerInputs = new Map<string, Map<string, string>>();
+  const pending = new Set<InputEntry>();
+  let server: ViteDevServerLike | undefined;
+  let watcher: FSWatcher | undefined;
+  let poller: NodeJS.Timeout | undefined;
+  let flushTimer: NodeJS.Timeout | undefined;
+  let failed = false;
+
+  const check = (selected: Iterable<InputEntry>): void => {
     const importers = new Set<string>();
-    for (const [identity, entry] of entries) {
-      if (!viteServeInputWatchConditionChanged(entry)) {
-        continue;
+    for (const entry of selected) {
+      if (entries.get(entry.file) !== entry) continue;
+      let baseline: TtscWatchInputBaseline | undefined;
+      for (const [key, condition] of entry.conditions) {
+        const state = condition.evidence?.state;
+        let changed: boolean;
+        if (state?.codec === "predicates") {
+          changed = validateGraphInputObservation(entry.file, state.observation).length !== 0;
+        } else {
+          baseline ??= captureWatchInputBaseline(entry.file);
+          changed = baseline === undefined || (condition.evidence?.state !== undefined
+            ? !watchInputEvidenceMatchesBaseline(condition.evidence, baseline)
+            : JSON.stringify(condition.baseline) !== JSON.stringify(baseline));
+        }
+        if (!changed) continue;
+        for (const importer of condition.importers) importers.add(importer);
+        entry.conditions.delete(key);
       }
-      entries.delete(identity);
-      for (const importer of entry.importers) {
-        importers.add(importer);
+      if (entry.conditions.size === 0) {
+        entries.delete(entry.file);
+        watcher?.unwatch(entry.file);
       }
     }
-    stopPollingIfEmpty();
-    if (server === undefined || importers.size === 0) {
-      return;
+    if (server !== undefined && importers.size !== 0) {
+      invalidateImporters(server, importers);
+      sendFullReload(server);
     }
-    invalidateImporters(server, importers);
-    sendFullReload(server);
+  };
+
+  const enqueue = (file: string): void => {
+    const absolute = path.resolve(file);
+    for (const candidate of [absolute, path.dirname(absolute)]) {
+      const entry = entries.get(candidate);
+      if (entry !== undefined) pending.add(entry);
+    }
+    if (pending.size === 0 || flushTimer !== undefined) return;
+    flushTimer = setTimeout(() => {
+      flushTimer = undefined;
+      const selected = [...pending];
+      pending.clear();
+      check(selected);
+    }, 0);
+    flushTimer.unref();
+  };
+
+  const ensureWatcher = (): FSWatcher => {
+    if (watcher !== undefined) return watcher;
+    watcher = watch([], { depth: 0, ignoreInitial: false, persistent: false });
+    // Initial add events compare compiler-time evidence too: an edit between
+    // compilation and asynchronous watcher setup must not be missed.
+    watcher.on("all", (_event, file) => enqueue(file));
+    watcher.on("error", () => { failed = true; });
+    poller = setInterval(() => {
+      check([...entries.values()].filter((entry) => failed || entry.poll));
+    }, 500);
+    poller.unref();
+    return watcher;
   };
 
   return {
-    attach(next) {
-      server = next;
-    },
-    dispose() {
+    attach(next) { server = next; },
+    async dispose() {
       entries.clear();
-      if (poller !== undefined) {
-        clearInterval(poller);
-        poller = undefined;
-      }
-      // The server reference deliberately survives: `vite.restartServer`
-      // configures the replacement server (attach) before it closes the old
-      // one (whose buildEnd runs this dispose), so unsetting it here would
-      // detach the freshly attached replacement and revive the 500 this
-      // module exists to prevent. A same-instance `vite build` after a serve
-      // is instead excluded by the adapter's `config.command` gate.
+      importerInputs.clear();
+      pending.clear();
+      if (poller !== undefined) clearInterval(poller);
+      if (flushTimer !== undefined) clearTimeout(flushTimer);
+      poller = undefined;
+      flushTimer = undefined;
+      const closing = watcher;
+      watcher = undefined;
+      failed = false;
+      await closing?.close();
+      // Retain the attached server across overlapping Vite restart containers.
     },
-    serving() {
-      return server !== undefined;
-    },
-    watch(input, importer, condition) {
-      const spelling = path.resolve(input);
-      const identity = viteServeMissingInputWatchKey(spelling, condition);
-      const existing = entries.get(identity);
-      if (existing !== undefined) {
-        existing.importers.add(path.resolve(importer));
-        return;
+    replace(importer, inputs) {
+      if (server === undefined) return;
+      importer = path.resolve(importer);
+      const previous = importerInputs.get(importer) ?? new Map<string, string>();
+      const current = new Map<string, string>();
+      const added: string[] = [];
+      for (const input of inputs) {
+        const file = path.resolve(input.file);
+        const evidence = input.evidence;
+        const key = JSON.stringify(evidence ?? null);
+        current.set(file, key);
+        let entry = entries.get(file);
+        if (entry === undefined) {
+          entry = { file, conditions: new Map(), poll: false };
+          entries.set(file, entry);
+          added.push(file);
+        }
+        let condition = entry.conditions.get(key);
+        if (condition === undefined) {
+          condition = {
+            evidence,
+            baseline: evidence?.state === undefined ? captureWatchInputBaseline(file) : undefined,
+            importers: new Set(),
+          };
+          entry.conditions.set(key, condition);
+        }
+        condition.importers.add(importer);
+        const observation = evidence?.state?.codec === "predicates"
+          ? evidence.state.observation : undefined;
+        entry.poll ||= evidence?.missing === true || evidence?.unavailable !== undefined ||
+          (observation !== undefined && observation.fileExists !== true &&
+            observation.stat !== "file" && observation.readFile?.ok !== true) ||
+          (evidence?.state === undefined && condition.baseline?.fileExists !== true);
       }
-      entries.set(identity, {
-        condition,
-        importers: new Set([path.resolve(importer)]),
-        spelling,
-      });
-      if (poller === undefined) {
-        poller = setInterval(poll, MISSING_INPUT_POLL_INTERVAL);
-        // A poller must never keep the dev-server process alive on its own.
-        poller.unref?.();
+      for (const [file, key] of previous) {
+        if (current.get(file) === key) continue;
+        const entry = entries.get(file);
+        const condition = entry?.conditions.get(key);
+        condition?.importers.delete(importer);
+        if (condition?.importers.size === 0) entry?.conditions.delete(key);
+        if (entry?.conditions.size === 0 && !current.has(file)) {
+          entries.delete(file);
+          watcher?.unwatch(file);
+        }
       }
+      importerInputs.set(importer, current);
+      if (added.length !== 0) ensureWatcher().add(added);
     },
   };
 }
@@ -215,27 +259,6 @@ export function viteServeMissingInputWatchKey(
   return `${predicate}:${path.resolve(input)}`;
 }
 
-/** Whether one registered condition no longer describes its lexical path. */
-function viteServeInputWatchConditionChanged(
-  entry: IMissingInputEntry,
-): boolean {
-  if (typeof entry.condition !== "string") {
-    return (
-      validateGraphInputObservation(entry.spelling, entry.condition).length !==
-      0
-    );
-  }
-  try {
-    if (!fs.existsSync(entry.spelling)) {
-      return false;
-    }
-    return (
-      entry.condition === "exists" || !fs.statSync(entry.spelling).isDirectory()
-    );
-  } catch {
-    return false;
-  }
-}
 
 /**
  * Invalidate every module-graph node of the registered importers so the next

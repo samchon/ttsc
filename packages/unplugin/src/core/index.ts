@@ -1,5 +1,3 @@
-import fs from "node:fs";
-import path from "node:path";
 import type { UnpluginFactory, UnpluginInstance } from "unplugin";
 import { createUnplugin } from "unplugin";
 
@@ -22,7 +20,7 @@ import {
   transformTtsc,
   watchInputEvidenceMatchesBaseline,
 } from "./transform";
-import { createViteServeMissingInputWatch } from "./viteServe";
+import { createViteServeInputWatch } from "./viteServe";
 
 const name = "ttsc-unplugin";
 /**
@@ -63,7 +61,7 @@ const unpluginFactory: UnpluginFactory<
 > = (rawOptions = {}) => {
   const options = resolveOptions(rawOptions);
   const transformCache = createTtscTransformCache();
-  const missingInputs = createViteServeMissingInputWatch();
+  const serveInputs = createViteServeInputWatch();
   let aliases: unknown;
   let viteCommand: string | undefined;
   let viteWatching = true;
@@ -116,14 +114,11 @@ const unpluginFactory: UnpluginFactory<
         viteBuildWatching =
           (config as { build?: { watch?: unknown } }).build?.watch != null;
       },
-      // Vite serve funnels every transform-context `addWatchFile()` into the
-      // module's added-import graph (`_addedImports`), which import-analysis
-      // resolves like real imports. Capture the dev server so the transform
-      // hook can route watch inputs that do not exist yet — superseding
-      // resolution candidates above all — around that graph and still
-      // invalidate their importers when the path is created.
+      // Compiler dependencies belong to the filesystem watch graph. Vite's
+      // transform-context addWatchFile also inserts runtime imports, so none
+      // of those dependencies may use that channel during serve (#1368).
       configureServer(server) {
-        missingInputs.attach(server);
+        serveInputs.attach(server);
       },
       // Vite calls buildEnd when the dev server closes, and Rollup calls it at
       // the end of every build phase; drop every poller and, once the last
@@ -140,15 +135,15 @@ const unpluginFactory: UnpluginFactory<
       // fixing one of the two sites alone left this host recompiling the whole
       // project per edit (samchon/ttsc#1301). The watching build hands its
       // teardown to `closeWatcher` below instead.
-      buildEnd() {
+      async buildEnd() {
         if (viteBuildOwners.delete(this)) {
           viteBuildLifecycles -= 1;
         }
         if (viteBuildLifecycles === 0) {
-          missingInputs.dispose();
           if (viteCommand === "serve" || !viteBuildWatching) {
             resetTtscTransformCache(transformCache);
           }
+          await serveInputs.dispose();
         }
       },
       // The watching build's real teardown, and the only hook in a
@@ -165,11 +160,11 @@ const unpluginFactory: UnpluginFactory<
       // `buildEnd` would then decrement a counter that is already zero and
       // strand it below zero, after which the disposal above could never fire
       // again for this plugin instance.
-      closeWatcher() {
+      async closeWatcher() {
         viteBuildOwners = new WeakSet<object>();
         viteBuildLifecycles = 0;
-        missingInputs.dispose();
         resetTtscTransformCache(transformCache);
+        await serveInputs.dispose();
       },
     },
 
@@ -283,65 +278,17 @@ const unpluginFactory: UnpluginFactory<
         return undefined;
       }
       return transformTtsc(file, source, options, aliases, transformCache, {
-        // Register the derived watch inputs (plugin-reported `dependencies`
-        // unioned with the host-owned reference graph) so type-only inputs
-        // invalidate this module in watch mode and persistent caches;
-        // bundlers erase type-only imports from their own module graph and
-        // would otherwise serve stale generated code. Under Vite serve a
-        // resolver input that is not proven to be a file must not enter
-        // `addWatchFile`: import-analysis resolves added imports and 500s on
-        // missing paths and directories, so those are watched against their
-        // compiler predicates instead and invalidate this module when the
-        // observation changes.
-        addWatchFile: (watched, evidence) => {
-          if (viteCommand === "serve" && missingInputs.serving()) {
-            const observation =
-              evidence?.state?.codec === "predicates"
-                ? evidence.state.observation
-                : undefined;
-            const unsafePredicate =
-              observation !== undefined &&
-              observation.fileExists !== true &&
-              observation.stat !== "file" &&
-              observation.readFile?.ok !== true
-                ? observation
-                : undefined;
-            if (unsafePredicate !== undefined) {
-              missingInputs.watch(watched, path.resolve(file), unsafePredicate);
-              return;
-            }
-            // Trust the generation's recorded existence when it supplied one:
-            // every cache hit revalidates it, and probing each input again
-            // costs one `existsSync` per input per delivered module.
-            const unavailable =
-              evidence?.unavailable ??
-              (evidence === undefined
-                ? !fs.existsSync(watched)
-                  ? "missing"
-                  : undefined
-                : evidence.missing
-                  ? "missing"
-                  : undefined);
-            if (unavailable !== undefined) {
-              missingInputs.watch(
-                watched,
-                path.resolve(file),
-                unavailable === "not-file" ? "file" : "exists",
-              );
-              return;
-            }
-          }
-          // A dev server configured without a watcher can never deliver a
-          // change event, so a registration here buys nothing, and it is not
-          // free: Vite's import analysis resolves every registered path like a
-          // real import of the transformed module, once per module. The
-          // adapter's own missing-input poll above stays active either way,
-          // because it never depended on Vite's watcher.
-          if (viteCommand === "serve" && !viteWatching) {
-            return;
-          }
-          this.addWatchFile(watched);
-        },
+        // A watcherless server has no invalidation channel and needs no
+        // watch-input derivation. Every other host keeps its native contract.
+        addWatchFiles: viteCommand === "serve" && !viteWatching
+          ? undefined
+          : (inputs) => {
+              if (viteCommand === "serve") {
+                serveInputs.replace(file, inputs);
+              } else {
+                for (const input of inputs) this.addWatchFile(input.file);
+              }
+            },
         // A module the plugin declared volatile depends on non-file inputs,
         // which no file-dependency snapshot can represent; mark it
         // uncacheable where the bundler exposes that control.

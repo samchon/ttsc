@@ -475,28 +475,10 @@ export const ADAPTER_CASES = {
     };
     return await execute();
   },
-  case_vite_serve_registers_existing_watch_inputs_when_the_server_watches:
-    async () => {
-      const assert: typeof import("node:assert/strict") = (
-        await import("node:assert/strict")
-      ).default;
-      const path: typeof import("node:path") = (await import("node:path"))
-        .default;
-      const { collectServeWatchRegistrations, createLinkedWorkspaceFixture } =
-        await import("../internal/adapter-vite-serve");
-      const execute = async () => {
-        const fixture = createLinkedWorkspaceFixture();
-        const watched = await collectServeWatchRegistrations(fixture, {
-          watching: true,
-        });
-        const tsconfig = path.join(fixture.app, "tsconfig.json");
-        assert.ok(
-          watched.some((file) => path.resolve(file) === tsconfig),
-          `a watching server must receive the tsconfig registration; watched: ${watched.join(", ")}`,
-        );
-      };
-      return await execute();
-    },
+  case_vite_serve_keeps_compiler_inputs_out_of_runtime_imports: async () => {
+    const { assertViteCompilerInputIsolation } = await import("../internal/adapter-vite-inputs");
+    await assertViteCompilerInputIsolation();
+  },
   case_vite_serve_registers_no_watch_inputs_without_a_watcher: async () => {
     const assert: typeof import("node:assert/strict") = (
       await import("node:assert/strict")

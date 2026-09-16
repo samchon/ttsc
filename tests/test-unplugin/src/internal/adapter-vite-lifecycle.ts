@@ -206,23 +206,6 @@ export async function assertViteBuildEndDisposesTheLastOverlappingCacheOwner(): 
     },
   );
   invokeVitePluginHook(plugin.configureServer, {}, {});
-  const countPollerDisposals = async (lifecycle: object): Promise<number> => {
-    const host = globalThis as typeof globalThis & {
-      clearInterval: typeof clearInterval;
-    };
-    const original = host.clearInterval;
-    let disposals = 0;
-    host.clearInterval = ((timer: Parameters<typeof clearInterval>[0]) => {
-      disposals += 1;
-      original(timer);
-    }) as typeof clearInterval;
-    try {
-      await invokeVitePluginHook(plugin.buildEnd, lifecycle);
-    } finally {
-      host.clearInterval = original;
-    }
-    return disposals;
-  };
 
   try {
     await invokeVitePluginHook(plugin.buildStart, oldLifecycle);
@@ -231,11 +214,7 @@ export async function assertViteBuildEndDisposesTheLastOverlappingCacheOwner(): 
 
     // Vite closes even a container that never reached buildStart. Its buildEnd
     // must not consume the live lifecycle owned by a different container.
-    assert.equal(
-      await countPollerDisposals(unstartedLifecycle),
-      0,
-      "an unstarted container must not stop the live missing-input poll",
-    );
+    await invokeVitePluginHook(plugin.buildEnd, unstartedLifecycle);
     fs.appendFileSync(
       path.join(project.root, "plugin.cjs"),
       "\n// changed after an unstarted container ended\n",
@@ -252,11 +231,7 @@ export async function assertViteBuildEndDisposesTheLastOverlappingCacheOwner(): 
     await invokeVitePluginHook(plugin.buildStart, replacementLifecycle);
     assert.ok(await deliver(modules[2]!));
     assert.equal(runCount(), 2);
-    assert.equal(
-      await countPollerDisposals(oldLifecycle),
-      0,
-      "a superseded container must not stop the replacement's missing-input poll",
-    );
+    await invokeVitePluginHook(plugin.buildEnd, oldLifecycle);
 
     fs.appendFileSync(
       path.join(project.root, "plugin.cjs"),
@@ -270,11 +245,7 @@ export async function assertViteBuildEndDisposesTheLastOverlappingCacheOwner(): 
       "the old container's buildEnd must not reset the replacement's build-scoped generation",
     );
 
-    assert.equal(
-      await countPollerDisposals(replacementLifecycle),
-      1,
-      "the final container must stop the shared missing-input poll exactly once",
-    );
+    await invokeVitePluginHook(plugin.buildEnd, replacementLifecycle);
     assert.ok(await deliver(modules[0]!));
     assert.equal(
       runCount(),

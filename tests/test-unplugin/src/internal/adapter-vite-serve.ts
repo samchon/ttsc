@@ -216,14 +216,9 @@ export async function startViteServer(
     optimizeDeps: { include: [], noDiscovery: true },
     plugins: [unpluginVite()],
     root: viteRoot,
-    // `watch: null` disables the server's own chokidar watcher: these
-    // scenarios assert the adapter's filesystem poll (which must work exactly
-    // where chokidar does not look), and a chokidar instance can outlive
-    // `server.close()` and hold the test runner process open. A scenario that
-    // asserts what the adapter hands to Vite's watch graph therefore drives
-    // the adapter's own hooks instead, through
-    // {@link collectServeWatchRegistrations}.
-    server: { hmr: false, middlewareMode: true, watch: null },
+    // These scenarios exercise the real watching serve lifecycle. The private
+    // compiler watcher owns node_modules and missing-resolution predicates.
+    server: { hmr: false, middlewareMode: true },
   });
 }
 
