@@ -812,9 +812,11 @@ export interface TtscTransformHooks {
   /**
    * Batched form of {@link addWatchFile}. When supplied, the transform calls it
    * once per delivered module and does not call `addWatchFile` for that
-   * module.
+   * module. `failed` marks a recovery batch: a failed compiler can omit inputs
+   * from its previous successful result, so replacing hosts should retain those
+   * spellings until the next successful delivery.
    */
-  addWatchFiles?: (inputs: readonly TtscWatchInput[]) => void;
+  addWatchFiles?: (inputs: readonly TtscWatchInput[], failed?: boolean) => void;
   /**
    * Invoked when the plugin declared the transformed file volatile (the
    * envelope's `volatile` list): its output depends on non-file inputs that no
@@ -2002,7 +2004,7 @@ function notifyFailedGenerationInputs(
     }
   }
   if (addWatchFiles !== undefined) {
-    addWatchFiles(inputs);
+    addWatchFiles(inputs, true);
     return;
   }
   for (const input of inputs) {

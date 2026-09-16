@@ -19,7 +19,6 @@ import {
   validateGraphInputObservation,
   watchInputEvidenceMatchesBaseline,
 } from "../../../../packages/unplugin/lib/core/transform.js";
-import { viteServeMissingInputWatchKey } from "../../../../packages/unplugin/lib/core/viteServe.js";
 
 interface IFilesystemState {
   contents?: Buffer;
@@ -470,51 +469,6 @@ export function assertPredicateProofMatrix(): void {
       directory,
     ),
     ["proof-conflict"],
-  );
-  assert.notEqual(
-    viteServeMissingInputWatchKey(
-      path.join(root, "alias-a", "candidate.ts"),
-      "exists",
-    ),
-    viteServeMissingInputWatchKey(
-      path.join(root, "alias-b", "candidate.ts"),
-      "exists",
-    ),
-    "Vite polls must not merge lexical aliases that can later diverge",
-  );
-  assert.notEqual(
-    viteServeMissingInputWatchKey(
-      path.join(root, "alias-a", "candidate.ts"),
-      "exists",
-    ),
-    viteServeMissingInputWatchKey(
-      path.join(root, "alias-a", "candidate.ts"),
-      "file",
-    ),
-    "Vite polls must not merge distinct availability predicates",
-  );
-  const polledTypeRoot = path.join(root, "node_modules", "@types");
-  assert.notEqual(
-    viteServeMissingInputWatchKey(polledTypeRoot, {
-      accessibleEntries: { directories: [], files: [] },
-      directoryExists: true,
-    }),
-    viteServeMissingInputWatchKey(polledTypeRoot, {
-      accessibleEntries: { directories: ["generated"], files: [] },
-      directoryExists: true,
-    }),
-    "Vite polls must key the complete rich predicate set",
-  );
-  assert.equal(
-    viteServeMissingInputWatchKey(polledTypeRoot, {
-      directoryExists: false,
-      fileExists: false,
-    }),
-    viteServeMissingInputWatchKey(polledTypeRoot, {
-      fileExists: false,
-      directoryExists: false,
-    }),
-    "Vite poll keys must not depend on predicate property insertion order",
   );
   assertProjectTsconfigDiscovery();
   assertRealFilesystemKinds();

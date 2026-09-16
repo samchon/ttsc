@@ -282,9 +282,9 @@ const unpluginFactory: UnpluginFactory<
         // watch-input derivation. Every other host keeps its native contract.
         addWatchFiles: viteCommand === "serve" && !viteWatching
           ? undefined
-          : (inputs) => {
+          : (inputs, failed) => {
               if (viteCommand === "serve") {
-                serveInputs.replace(file, inputs);
+                serveInputs.replace(file, inputs, failed);
               } else {
                 for (const input of inputs) this.addWatchFile(input.file);
               }

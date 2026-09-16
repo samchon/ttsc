@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import { waitFor } from "./adapter-vite-serve";
+import { observeReloadEvents, waitFor } from "./adapter-vite-serve";
 
 /**
  * Verifies Vite serves and refreshes compiler-only inputs without resolving imports.
@@ -47,12 +47,14 @@ export async function assertViteCompilerInputIsolation(): Promise<void> {
         }
       },
     }],
-    server: { hmr: false, middlewareMode: true },
+    server: { host: "127.0.0.1", port: 0, watch: { persistent: false } },
   });
   const request = (ssr = false) => server.transformRequest("/src/main.ts", { ssr });
   const nodes = async () => Promise.all(["client", "ssr"].map((name) =>
     server.environments[name].moduleGraph.getModuleByUrl("/src/main.ts")));
   try {
+    await server.listen();
+    const events = await observeReloadEvents(server);
     for (const ssr of [false, true]) assert.match((await request(ssr)).code, /INITIAL/);
     assert.equal(compilerResolutions, 0);
     const loaded = await nodes();
@@ -76,13 +78,16 @@ export async function assertViteCompilerInputIsolation(): Promise<void> {
     fs.unlinkSync(dependency);
     await waitFor(() => !loaded[0].transformResult, "dependency deletion");
     await assert.rejects(request(), /secret\.server/);
+    events.length = 0;
     fs.writeFileSync(dependency, 'export type Secret = "recovered";\n');
-    await waitFor(async () => {
-      try { return /RECOVERED/.test((await request()).code); }
-      catch { return false; }
-    }, "failed transform recovery");
+    await waitFor(() => events.length !== 0, "failed transform recovery notification before refetch");
+    assert.match((await request()).code, /RECOVERED/);
     await server.restart();
     assert.match((await request()).code, /RECOVERED/);
+    const restarted = (await nodes())[0];
+    fs.writeFileSync(dependency, 'export type Secret = "restarted";\n');
+    await waitFor(() => !restarted.transformResult, "dependency edit after server restart");
+    assert.match((await request()).code, /RESTARTED/);
     assert.equal(compilerResolutions, 0);
   } finally {
     await server.close();

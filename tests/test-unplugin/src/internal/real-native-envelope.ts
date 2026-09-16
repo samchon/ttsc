@@ -4,6 +4,7 @@ import {
   TestUnpluginRuntime,
 } from "@ttsc/testing";
 import assert from "node:assert/strict";
+import { observeReloadEvents } from "./adapter-vite-serve";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -783,9 +784,10 @@ async function assertViteLifecycle(
     optimizeDeps: { include: [], noDiscovery: true },
     plugins: [unpluginVite()],
     root: viteRoot,
-    server: { hmr: false, middlewareMode: true, watch: null },
+    server: { host: "127.0.0.1", port: 0, watch: { persistent: false } },
   });
   try {
+    await server.listen();
     const graph =
       server.environments?.client?.moduleGraph ?? server.moduleGraph;
     const entries: Array<{ file: string; node: any }> = [];
@@ -804,10 +806,10 @@ async function assertViteLifecycle(
     assert.equal(
       programRuns(fixture.runLog),
       1,
-      "the Vite watcherless lifecycle must serve every sibling module from one production host invocation",
+      "the Vite serve lifecycle must share one production host invocation across sibling modules",
     );
 
-    const events = spyReloadEvents(server);
+    const events = await observeReloadEvents(server);
     await new Promise((resolve) => setTimeout(resolve, 1_100));
     assert.ok(
       entries.every(
@@ -850,6 +852,7 @@ async function assertViteLifecycle(
       ),
       "the file predicate must invalidate only importers that own it",
     );
+    await waitFor(() => events.length !== 0, "the HMR client to receive a reload");
     assert.ok(
       events.some((event) => event.type === "full-reload"),
       "the directory-to-file transition must announce a full reload",
@@ -897,31 +900,6 @@ async function waitFor(
     await new Promise((resolve) => setTimeout(resolve, 100));
   }
   assert.fail(`timed out waiting for ${what}`);
-}
-
-/** Record every Vite reload channel without requiring a connected client. */
-function spyReloadEvents(server: any): Array<{ type?: string }> {
-  const events: Array<{ type?: string }> = [];
-  const seen = new Set<object>();
-  for (const channel of [
-    server.ws,
-    server.hot,
-    server.environments?.client?.hot,
-  ]) {
-    if (
-      channel === null ||
-      channel === undefined ||
-      typeof channel.send !== "function" ||
-      seen.has(channel)
-    ) {
-      continue;
-    }
-    seen.add(channel);
-    channel.send = (payload: { type?: string }) => {
-      events.push(payload);
-    };
-  }
-  return events;
 }
 
 /** Inspect the actual generation admitted by @ttsc/unplugin. */

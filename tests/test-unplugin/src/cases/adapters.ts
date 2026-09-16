@@ -388,7 +388,7 @@ export const ADAPTER_CASES = {
         createLinkedWorkspaceFixture,
         mainModuleNode,
         requestMainModule,
-        spyReloadEvents,
+        observeReloadEvents,
         startViteServer,
         waitFor,
       } = await import("../internal/adapter-vite-serve");
@@ -403,7 +403,7 @@ export const ADAPTER_CASES = {
             node.transformResult !== null && node.transformResult !== undefined,
             "the first request must leave a cached transform on the module node",
           );
-          const events = spyReloadEvents(server);
+          const events = await observeReloadEvents(server);
 
           const generatedTypes = path.join(fixture.typeRoot, "generated");
           fs.mkdirSync(generatedTypes);
@@ -418,6 +418,7 @@ export const ADAPTER_CASES = {
               node.transformResult === undefined,
             "the importer to be invalidated after automatic type-root membership changed",
           );
+          await waitFor(() => events.length !== 0, "the HMR client to receive a reload");
           assert.ok(
             events.some((event) => event.type === "full-reload"),
             "changing automatic type-root membership must announce a full reload",
@@ -479,6 +480,10 @@ export const ADAPTER_CASES = {
     const { assertViteCompilerInputIsolation } = await import("../internal/adapter-vite-inputs");
     await assertViteCompilerInputIsolation();
   },
+  case_vite_compiler_watch_tracks_subscription_and_alias_boundaries: async () => {
+    const { assertViteWatchBoundaries } = await import("../internal/adapter-vite-watch-boundaries");
+    await assertViteWatchBoundaries();
+  },
   case_vite_serve_registers_no_watch_inputs_without_a_watcher: async () => {
     const assert: typeof import("node:assert/strict") = (
       await import("node:assert/strict")
@@ -508,7 +513,7 @@ export const ADAPTER_CASES = {
         createLinkedWorkspaceFixture,
         mainModuleNode,
         requestMainModule,
-        spyReloadEvents,
+        observeReloadEvents,
         startViteServer,
         waitFor,
       } = await import("../internal/adapter-vite-serve");
@@ -522,7 +527,7 @@ export const ADAPTER_CASES = {
             node.transformResult !== null && node.transformResult !== undefined,
             "the first request must leave a cached transform on the module node",
           );
-          const events = spyReloadEvents(server);
+          const events = await observeReloadEvents(server);
 
           fs.writeFileSync(
             fixture.supersedingSource,
@@ -535,6 +540,7 @@ export const ADAPTER_CASES = {
               node.transformResult === undefined,
             "the importer to be invalidated after the candidate appeared",
           );
+          await waitFor(() => events.length !== 0, "the HMR client to receive a reload");
           assert.ok(
             events.some((event) => event.type === "full-reload"),
             "creating the superseding candidate must announce a full reload",
