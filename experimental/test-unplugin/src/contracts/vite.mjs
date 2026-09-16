@@ -42,17 +42,21 @@ export async function viteContract(name) {
     ],
     server: { middlewareMode: true, hmr: false },
   });
-  const request = (ssr = false) =>
-    server.transformRequest("/src/main.ts", { ssr });
+  const urls = ["main", "mod1", "mod2", "mod3"].map(
+    (name) => `/src/${name}.ts`,
+  );
+  const request = async (value, ssr = false) => {
+    for (const url of urls)
+      expectOutput((await server.transformRequest(url, { ssr })).code, value);
+  };
   try {
     await deadline(watcherReady, `${name} watcher ready`);
-    for (const ssr of [false, true])
-      expectOutput((await request(ssr)).code, "FIRST");
+    for (const ssr of [false, true]) await request("FIRST", ssr);
     assert.equal(project.runs(), 1);
     const nodes = await Promise.all(
-      ["client", "ssr"].map((environment) =>
-        server.environments[environment].moduleGraph.getModuleByUrl(
-          "/src/main.ts",
+      ["client", "ssr"].flatMap((environment) =>
+        urls.map((url) =>
+          server.environments[environment].moduleGraph.getModuleByUrl(url),
         ),
       ),
     );
@@ -70,24 +74,26 @@ export async function viteContract(name) {
         Boolean,
         `${name} invalidation before refetch`,
       );
-      for (const ssr of [false, true])
-        expectOutput((await request(ssr)).code, value);
+      for (const ssr of [false, true]) await request(value, ssr);
     }
     assert.equal(project.runs(), 3);
     assert.equal(resolutions, 0);
     await server.restart();
-    expectOutput((await request()).code, "THIRD");
-    const node =
-      await server.environments.client.moduleGraph.getModuleByUrl(
-        "/src/main.ts",
-      );
+    await request("THIRD");
+    assert.equal(project.runs(), 4);
+    const restarted = await Promise.all(
+      urls.map((url) =>
+        server.environments.client.moduleGraph.getModuleByUrl(url),
+      ),
+    );
     project.change("FOURTH");
     await eventually(
-      () => node.transformResult === null,
+      () => restarted.every((node) => node.transformResult === null),
       Boolean,
       `${name} subscription after restart`,
     );
-    expectOutput((await request()).code, "FOURTH");
+    await request("FOURTH");
+    assert.equal(project.runs(), 5);
   } finally {
     await server.close();
   }

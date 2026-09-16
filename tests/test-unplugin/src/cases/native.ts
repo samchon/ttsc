@@ -1,4 +1,10 @@
 export const NATIVE_CASES = {
+  case_real_native_envelope_esbuild_observes_directories_and_recovers:
+    async () => {
+      const { assertRealEnvelopeEsbuildDirectoryChanges } =
+        await import("../internal/real-native-envelope");
+      await assertRealEnvelopeEsbuildDirectoryChanges();
+    },
   case_real_native_envelope_candidate_appearance_replaces_generation:
     async () => {
       const { assertRealEnvelopeCandidateAppearanceReplacesGeneration } =

@@ -12,7 +12,13 @@ export async function nextContract(bundler) {
   write(
     project.root,
     "pages/index.tsx",
-    'import { value } from "../src/main"; export default function Page() { return <p data-contract="value">{value}</p>; }',
+    [
+      'import { value } from "../src/main";',
+      ...[1, 2, 3].map(
+        (i) => `import { value as value${i} } from "../src/mod${i}";`,
+      ),
+      'export default function Page() { return <p data-contract="value">{[value, value1, value2, value3].join("|")}</p>; }',
+    ].join("\n"),
   );
   write(
     project.root,
@@ -66,6 +72,10 @@ export async function nextContract(bundler) {
   );
   try {
     await deadline(ready, `Next ${bundler} ready`, 120_000);
+    const hasValues = (html, value) =>
+      html.includes(
+        `data-contract="value">${Array(4).fill(value).join("|")}</p>`,
+      );
     const read = async () => {
       const response = await fetch(url, {
         signal: AbortSignal.timeout(60_000),
@@ -74,16 +84,13 @@ export async function nextContract(bundler) {
       assert.equal(response.status, 200, html.slice(0, 2000));
       return html;
     };
-    assert.ok(
-      (await read()).includes('data-contract="value">FIRST</p>'),
-      `Next ${bundler} first page`,
-    );
+    assert.ok(hasValues(await read(), "FIRST"), `Next ${bundler} first page`);
     const initial = project.runs();
     // Next owns separate server/client compiler sessions. Repeated requests
     // must reuse their generations; a request-count wall-clock proxy cannot
     // establish this contract on a loaded CI machine.
     for (let index = 0; index < 3; index++)
-      assert.ok((await read()).includes("FIRST"));
+      assert.ok(hasValues(await read(), "FIRST"));
     assert.equal(
       project.runs(),
       initial,
@@ -92,7 +99,7 @@ export async function nextContract(bundler) {
     project.change("SECOND");
     await eventually(
       read,
-      (html) => html.includes('data-contract="value">SECOND</p>'),
+      (html) => hasValues(html, "SECOND"),
       `Next ${bundler} compiler-only edit`,
     );
     assert.ok(
@@ -100,7 +107,7 @@ export async function nextContract(bundler) {
       "the changed compiler input must produce a new generation",
     );
     const changed = project.runs();
-    assert.ok((await read()).includes("SECOND"));
+    assert.ok(hasValues(await read(), "SECOND"));
     assert.equal(project.runs(), changed);
   } catch (error) {
     throw new Error(`Next ${bundler}: ${error.stack ?? error}\n${output}`);

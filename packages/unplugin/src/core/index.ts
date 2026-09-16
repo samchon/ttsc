@@ -1,6 +1,7 @@
 import type { UnpluginFactory, UnpluginInstance } from "unplugin";
 import { createUnplugin } from "unplugin";
 
+import { createEsbuildOptions } from "./esbuild";
 import type { TtscUnpluginOptions } from "./options";
 import { resolveOptions } from "./options";
 import { typescriptTransformSourcePattern } from "./sourceExtensions";
@@ -58,8 +59,11 @@ const virtualModulePattern = /\0/;
 const unpluginFactory: UnpluginFactory<
   TtscUnpluginOptions | undefined,
   false
-> = (rawOptions = {}) => {
+> = (rawOptions = {}, meta) => {
   const options = resolveOptions(rawOptions);
+  if (meta.framework === "esbuild") {
+    return createEsbuildOptions(options, isTransformTarget);
+  }
   const transformCache = createTtscTransformCache();
   const serveInputs = createViteServeInputWatch();
   let aliases: unknown;
@@ -76,13 +80,6 @@ const unpluginFactory: UnpluginFactory<
   // old containers cannot dispose a replacement's freshly initialized cache.
   let viteBuildOwners = new WeakSet<object>();
   let viteBuildLifecycles = 0;
-  // esbuild schedules one-shot onDispose callbacks after it settles the build
-  // Promise. Acquire ownership only at onStart: plugin setup runs before build
-  // option validation, and a validation failure has no onDispose callback with
-  // which to release a setup-time owner. Once a build has actually started, the
-  // count keeps an older delayed callback from disposing its active generation.
-  const esbuildOwners = new WeakSet<object>();
-  let esbuildLifecycles = 0;
 
   return {
     name,
@@ -216,26 +213,6 @@ const unpluginFactory: UnpluginFactory<
         resetTtscTransformCache(transformCache);
       });
     },
-    esbuild: {
-      setup(build) {
-        build.onStart(() => {
-          if (!esbuildOwners.has(build)) {
-            esbuildOwners.add(build);
-            esbuildLifecycles += 1;
-          }
-        });
-        build.onDispose(() => {
-          if (!esbuildOwners.delete(build)) {
-            return;
-          }
-          esbuildLifecycles -= 1;
-          if (esbuildLifecycles === 0) {
-            resetTtscTransformCache(transformCache);
-          }
-        });
-      },
-    },
-
     buildStart() {
       if (viteCommand !== undefined && !viteBuildOwners.has(this as object)) {
         viteBuildOwners.add(this as object);
