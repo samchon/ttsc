@@ -473,7 +473,7 @@ export function createRealNativeEnvelopeFixture(
  *
  * 1. Add and remove automatic type packages and their parent directory.
  * 2. Check shared compilation and reuse across an unchanged rebuild.
- * 3. Recover from a deleted declaration and an initially broken declaration.
+ * 3. Recover from deleted, initially broken, and initially absent declarations.
  */
 export async function assertRealEnvelopeEsbuildDirectoryChanges(): Promise<void> {
   const esbuild = TestUnpluginProject.REQUIRE_FROM_UNPLUGIN("esbuild");
@@ -574,6 +574,19 @@ export async function assertRealEnvelopeEsbuildDirectoryChanges(): Promise<void>
     await context.watch();
     await nextResult(1, true);
     fs.writeFileSync(fixture.declaration, declaration);
+    await nextResult(2);
+    await context.dispose();
+
+    // TS2307 names the consumer, not the missing dependency. Recovery must
+    // come from the failed native Program's graph, with no successful history.
+    fs.unlinkSync(fixture.declaration);
+    fs.unlinkSync(runtimeFile);
+    results.length = 0;
+    context = await start();
+    await context.watch();
+    await nextResult(1, true);
+    fs.writeFileSync(fixture.declaration, declaration);
+    fs.writeFileSync(runtimeFile, runtime);
     await nextResult(2);
   } finally {
     await context.dispose();
@@ -894,6 +907,11 @@ async function assertViteLifecycle(
   const unpluginVite = await TestUnpluginRuntime.loadUnpluginAdapter("vite");
   const viteRoot = fs.realpathSync.native(fixture.root);
   resetRunLog(fixture.runLog);
+  const declaration = fs.readFileSync(fixture.declaration, "utf8");
+  const runtimeFile = path.join(path.dirname(fixture.declaration), "index.js");
+  const runtime = fs.readFileSync(runtimeFile, "utf8");
+  fs.unlinkSync(fixture.declaration);
+  fs.unlinkSync(runtimeFile);
   const server = await createServer({
     appType: "custom",
     configFile: false,
@@ -905,6 +923,15 @@ async function assertViteLifecycle(
   });
   try {
     await server.listen();
+    const events = await observeReloadEvents(server);
+    await assert.rejects(server.transformRequest("/src/mod0.ts"), /typed-dep/);
+    fs.writeFileSync(fixture.declaration, declaration);
+    fs.writeFileSync(runtimeFile, runtime);
+    await waitFor(
+      () => events.length !== 0,
+      "initially missing native dependency recovery before refetch",
+    );
+    events.length = 0;
     const graph =
       server.environments?.client?.moduleGraph ?? server.moduleGraph;
     const entries: Array<{ file: string; node: any }> = [];
@@ -926,7 +953,6 @@ async function assertViteLifecycle(
       "the Vite serve lifecycle must share one production host invocation across sibling modules",
     );
 
-    const events = await observeReloadEvents(server);
     await new Promise((resolve) => setTimeout(resolve, 1_100));
     assert.ok(
       entries.every(

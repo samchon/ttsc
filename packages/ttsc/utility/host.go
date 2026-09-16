@@ -39,8 +39,8 @@ type hostOptions struct {
 }
 
 // transformResult is the JSON envelope written to stdout by RunTransform.
-// TypeScript maps relative output key → printer output; Diagnostics is
-// reserved for future plugin diagnostics (currently always empty/omitted).
+// TypeScript maps relative output key → printer output. Failed transforms
+// retain diagnostics and recovery inputs without publishing partial output.
 // Graph carries the host-owned reference graph (direct resolved reference
 // edges, global-scope files, tsconfig extends chain) keyed like TypeScript,
 // so cache layers can register every file whose content can influence a
@@ -52,12 +52,24 @@ type transformResult struct {
   // driver.Program.TransformDependenciesFor.
   Dependencies         map[string][]string    `json:"dependencies,omitempty"`
   DependenciesComplete []string               `json:"dependenciesComplete,omitempty"`
-  Diagnostics          []any                  `json:"diagnostics,omitempty"`
+  Diagnostics          []transformDiagnostic  `json:"diagnostics,omitempty"`
   Graph                *driver.TransformGraph `json:"graph,omitempty"`
   HostInputs           []string               `json:"hostInputs,omitempty"`
   HostInputHashes      map[string]*string     `json:"hostInputHashes,omitempty"`
   HostInputRealpaths   map[string]*string     `json:"hostInputRealpaths,omitempty"`
   TypeScript           map[string]string      `json:"typescript"`
+}
+
+// transformDiagnostic matches the public JavaScript compiler diagnostic shape.
+type transformDiagnostic struct {
+  File        *string `json:"file"`
+  Category    string  `json:"category"`
+  Code        int32   `json:"code"`
+  Start       *int    `json:"start,omitempty"`
+  Length      *int    `json:"length,omitempty"`
+  Line        int     `json:"line,omitempty"`
+  Character   int     `json:"character,omitempty"`
+  MessageText string  `json:"messageText"`
 }
 
 // RunCheck validates the project and linked plugin configuration without
@@ -138,34 +150,60 @@ func RunTransformWithIO(args []string, stdout, stderr io.Writer) int {
   if !ok {
     return 2
   }
-  prog, _, ok := loadUtilityProgram(opts)
+  prog, _, diags, ok := loadUtilityProgramWithDiagnostics(opts)
   if !ok {
     return 2
   }
-  defer prog.Close()
-  // Compute the reference graph before linked plugins run: plugin hooks
-  // mutate parsed ASTs in place (e.g. @ttsc/paths rewrites import
-  // specifiers), and the graph must describe the original source's resolved
-  // references — the transform's inputs — not the mutated output.
-  graph := driver.NewTransformGraph(prog, opts.cwd)
-  if err := prog.ApplyLinkedPlugins(); err != nil {
-    fmt.Fprintln(opts.stderr, err)
-    return 2
+  out := transformResult{TypeScript: map[string]string{}}
+  if prog != nil {
+    defer prog.Close()
+    // The same failed Program owns the missing resolution candidates needed
+    // for recovery. Capture them before closing it or applying mutations.
+    out.Graph = driver.NewTransformGraph(prog, opts.cwd)
   }
-  printer := shimprinter.NewPrinter(shimprinter.PrinterOptions{}, shimprinter.PrintHandlers{}, nil)
-  out := transformResult{TypeScript: map[string]string{}, Graph: graph}
-  for _, file := range prog.SourceFiles() {
-    text := shimprinter.EmitSourceFile(printer, file)
-    out.TypeScript[apiOutputKey(opts.cwd, file.FileName())] = text
+  if len(diags) != 0 {
+    driver.WritePrettyDiagnostics(opts.stderr, diags, opts.cwd)
+  } else if prog != nil {
+    if err := prog.ApplyLinkedPlugins(); err != nil {
+      fmt.Fprintln(opts.stderr, err)
+      diags = append(diags, driver.Diagnostic{Message: err.Error()})
+    } else {
+      printer := shimprinter.NewPrinter(shimprinter.PrinterOptions{}, shimprinter.PrintHandlers{}, nil)
+      for _, file := range prog.SourceFiles() {
+        text := shimprinter.EmitSourceFile(printer, file)
+        out.TypeScript[apiOutputKey(opts.cwd, file.FileName())] = text
+      }
+      dependencies := prog.TransformDependenciesFor(opts.cwd)
+      out.Dependencies = dependencies.Dependencies
+      out.DependenciesComplete = dependencies.Complete
+    }
   }
-  dependencies := prog.TransformDependenciesFor(opts.cwd)
-  out.Dependencies = dependencies.Dependencies
-  out.DependenciesComplete = dependencies.Complete
-  out.HostInputs = prog.PluginHostInputs()
-  out.HostInputHashes = prog.PluginHostInputHashes()
-  out.HostInputRealpaths = prog.PluginHostInputRealpaths()
+  if prog != nil {
+    out.HostInputs = prog.PluginHostInputs()
+    out.HostInputHashes = prog.PluginHostInputHashes()
+    out.HostInputRealpaths = prog.PluginHostInputRealpaths()
+  }
+  for _, diag := range diags {
+    var file *string
+    if diag.File != "" {
+      value := diag.File
+      file = &value
+    }
+    category := "error"
+    if diag.Severity == driver.SeverityWarning {
+      category = "warning"
+    }
+    out.Diagnostics = append(out.Diagnostics, transformDiagnostic{
+      File: file, Category: category, Code: diag.Code,
+      Start: diag.Start, Length: diag.Length, Line: diag.Line,
+      Character: diag.Column, MessageText: diag.Message,
+    })
+  }
   data, _ := json.Marshal(out)
   fmt.Fprintln(opts.stdout, string(data))
+  if len(diags) != 0 {
+    return 2
+  }
   return 0
 }
 
@@ -297,10 +335,28 @@ func flagName(arg string) (string, bool) {
 // Program along with the decoded plugin entries. Returns (nil, nil, false) and
 // prints diagnostics to stderr on any error.
 func loadUtilityProgram(opts hostOptions) (*driver.Program, []driver.PluginEntry, bool) {
+  prog, entries, diags, ok := loadUtilityProgramWithDiagnostics(opts)
+  if !ok {
+    return nil, nil, false
+  }
+  if len(diags) != 0 {
+    driver.WritePrettyDiagnostics(opts.stderr, diags, opts.cwd)
+    if prog != nil {
+      _ = prog.Close()
+    }
+    return nil, nil, false
+  }
+  return prog, entries, true
+}
+
+// loadUtilityProgramWithDiagnostics leaves a loaded Program owned by its caller,
+// even on compiler diagnostics. Transform must publish its recovery graph;
+// check/build/serve retain their existing rejection boundary in the wrapper.
+func loadUtilityProgramWithDiagnostics(opts hostOptions) (*driver.Program, []driver.PluginEntry, []driver.Diagnostic, bool) {
   entries, err := parsePluginEntries(opts.pluginsJSON)
   if err != nil {
     fmt.Fprintln(opts.stderr, err)
-    return nil, nil, false
+    return nil, nil, nil, false
   }
   restoreEnv := setLinkedPluginManifest(opts.pluginsJSON)
   defer restoreEnv()
@@ -317,18 +373,12 @@ func loadUtilityProgram(opts hostOptions) (*driver.Program, []driver.PluginEntry
   })
   if err != nil {
     fmt.Fprintf(opts.stderr, "ttsc utility: %v\n", err)
-    return nil, nil, false
+    return nil, nil, nil, false
   }
-  if len(diags) > 0 {
-    driver.WritePrettyDiagnostics(opts.stderr, diags, opts.cwd)
-    return nil, nil, false
+  if prog != nil {
+    diags = append(diags, prog.Diagnostics()...)
   }
-  if diags := prog.Diagnostics(); len(diags) > 0 {
-    driver.WritePrettyDiagnostics(opts.stderr, diags, opts.cwd)
-    _ = prog.Close()
-    return nil, nil, false
-  }
-  return prog, entries, true
+  return prog, entries, diags, true
 }
 
 // parsePluginEntries decodes the --plugins-json flag value into a slice of

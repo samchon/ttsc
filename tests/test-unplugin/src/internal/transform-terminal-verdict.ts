@@ -20,11 +20,9 @@ function cachedGeneration(cache: Map<string, Promise<unknown>>): unknown {
  * here: its transform lane never type-checks, so a planted type error would
  * produce an ordinary `"success"` and the scenario would assert nothing.
  *
- * Measured, and worth stating because it is not the obvious half of the
- * envelope contract: an ordinary type error arrives as `type: "exception"`
- * carrying the compiler's own diagnostic text, not as the `"failure"` variant
- * whose documentation describes exactly this case. That is why the adapter
- * cannot classify the two apart and bounds the repetition by the pass instead.
+ * Native type errors retain a structured failure envelope and its dependency
+ * graph. The adapter bounds repeated attempts by the delivery pass for both
+ * these diagnostics and opaque host exceptions.
  */
 async function startFailingCompile(broken = true): Promise<{
   api: any;
@@ -110,13 +108,12 @@ export async function assertAFailedCompileCostsOneCompilePerPass(): Promise<void
  * Asserts the next pass drops the verdict and attempts the compile again.
  *
  * A pass verdict is bounded by the pass that produced it, and deliberately not
- * proven against a recorded environment: the envelope cannot say whether the
- * host reported diagnostics about the project or failed to run at all, since an
- * ordinary type error arrives as an `"exception"` carrying the compiler's own
- * diagnostic text exactly as a crashed host would. A new pass is the first
- * boundary at which the host itself claims something may have changed, so the
- * attempt is repeated there — which is what keeps a genuinely transient failure
- * from becoming permanent, at a bounded cost of one compile per pass.
+ * proven against a recorded environment: project diagnostics and opaque host
+ * exceptions both settle the attempt without claiming permanent failure. A new
+ * pass is the first boundary at which the host itself claims something may have
+ * changed, so the attempt is repeated there — which is what keeps a genuinely
+ * transient failure from becoming permanent, at a bounded cost of one compile
+ * per pass.
  */
 export async function assertANewPassRetriesAFailedCompile(): Promise<void> {
   const { api, cache, deliver, modules } = await startFailingCompile();

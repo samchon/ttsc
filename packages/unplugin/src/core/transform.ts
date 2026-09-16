@@ -239,14 +239,13 @@ class TtscUnstableGenerationError extends TtscTerminalGenerationError {
 /**
  * A compile this pass already attempted, whose envelope failed outright.
  *
- * The envelope cannot say whether the host reported diagnostics about the
- * project or failed to run at all: an ordinary type error arrives as an
- * `"exception"` carrying the compiler's own diagnostic text, exactly as a
- * crashed host would. Sniffing that message to tell the two apart would be a
- * guess, so the adapter uses the one boundary it genuinely owns. Inside a pass
- * the answer is already settled, so every later module replays it instead of
- * repeating a whole-project transform to reach the same verdict, which is what
- * made a single broken save cost one compile per delivered module
+ * Native project diagnostics carry a structured failure envelope; setup and
+ * host failures can still arrive as opaque exceptions. Both settle the current
+ * attempt, so the adapter uses the delivery boundary it owns rather than
+ * guessing retryability from a diagnostic message. Inside a pass the answer is
+ * already settled, so every later module replays it instead of repeating a
+ * whole-project transform to reach the same verdict, which is what made a
+ * single broken save cost one compile per delivered module
  * (samchon/ttsc#1303).
  *
  * The scope is exactly the pass. A host whose `buildStart` repeats drops the
@@ -1949,11 +1948,11 @@ function collectDeclaredIdentities(
  * invalidated, and the error stays on screen (samchon/ttsc#1312).
  *
  * A failure envelope can retain exact external input spellings from its graph
- * and host metadata. A pre-transform typecheck failure may have no graph yet;
- * its structured diagnostics, or the host's standard diagnostic lines when it
- * could return only an exception, still name the external files that need a
- * repair. The cost is paid only on a failure, and only until the next compile
- * succeeds and narrows the set back to the derived inputs.
+ * and host metadata, including missing resolution candidates on native
+ * typecheck failures. For hosts that return no graph, structured diagnostics or
+ * standard diagnostic lines provide only the paths they actually name. The cost
+ * is paid only on a failure, and only until the next compile succeeds and
+ * narrows the set back to the derived inputs.
  */
 function notifyFailedGenerationInputs(
   hooks: TtscTransformHooks | undefined,
@@ -7862,13 +7861,12 @@ function formatUnknownError(error: unknown): string {
 /**
  * Remove terminal colour and cursor sequences from text the adapter surfaces.
  *
- * An ordinary type error reaches the adapter as an `"exception"` envelope whose
- * `error` is the host's own rendered output, colour and all, and the envelope
- * carries no structured diagnostics to format instead. What the adapter hands
- * back is not going to a terminal: it becomes the `Error` a bundler reports, so
- * it lands in a Vite overlay, a webpack error report or a CI annotation, where
- * the escapes render as literal noise around the file and line the reader needs
- * (samchon/ttsc#1312).
+ * An opaque host exception can contain the host's own rendered output, colour
+ * and all, with no structured diagnostics to format instead. What the adapter
+ * hands back is not going to a terminal: it becomes the `Error` a bundler
+ * reports, so it lands in a Vite overlay, a webpack error report or a CI
+ * annotation, where the escapes render as literal noise around the file and
+ * line the reader needs (samchon/ttsc#1312).
  *
  * The colour originates in the host's rendering rather than in anything this
  * adapter configures, so this is the adapter-side repair, applied to every
