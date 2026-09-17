@@ -112,9 +112,10 @@ export interface ViteServeInputWatch {
  * type-only .server files and non-module plugin assets. Use a separate watcher
  * for compiler inputs, including node_modules, which Vite's watcher ignores.
  * Ordinary files use events after their initial subscription is observed.
- * Missing spellings and directory predicates keep a shared predicate poll.
- * Linked files also share topology checks by directory because retargeting a
- * junction need not emit events on its previously watched descendants.
+ * Missing spellings and directory predicates use the recursive observer for
+ * their nearest available scope. Inputs a native scope cannot safely cover
+ * share one bounded fallback poll; linked files also share topology checks
+ * because retargeting a junction need not emit events on its old descendants.
  */
 export function createViteServeInputWatch(
   operations: Partial<ViteServeWatchOperations> = {},
@@ -362,6 +363,11 @@ export function createViteServeInputWatch(
           MAX_EXTERNAL_WATCH_SCOPES
       )
         return undefined;
+      // Opening a scope is itself an observation boundary. Advance the same
+      // sequence returned by begin() so an external scope first discovered
+      // after compilation cannot claim it was already live at that token when
+      // no filesystem event happened in between.
+      changeSequence += 1;
       scope = {
         entries: new Set(),
         failed: false,
@@ -520,6 +526,7 @@ export function createViteServeInputWatch(
     }
 
     const target = realpath(entry.file);
+    if (hasMultipleLinks(entry.file)) requirePolling(entry);
     if (target !== undefined) {
       bindAlias(entry, target);
       bindRenameAncestors(entry, target);
@@ -672,27 +679,39 @@ export function createViteServeInputWatch(
       // Watchers are live before this proof. It closes the compile-to-subscribe
       // race without manufacturing one native subscription per input.
       if (touched.size !== 0) {
-        const raced =
-          startedAt === undefined || startedAt < historyFloor
-            ? [...touched]
-            : [...touched].filter(
-                (entry) =>
-                  entry.fallback ||
-                  entry.changedAt > startedAt ||
-                  [...entry.scopes].some(
-                    (scope) =>
-                      scope.failed ||
-                      scope.startedAt > startedAt ||
-                      (added.has(entry) &&
-                        ([...entry.aliases].some(
-                          (alias) => (changes.get(alias) ?? 0) > startedAt,
-                        ) ||
-                          [...entry.renameAliases].some(
-                            (alias) => (changes.get(alias) ?? 0) > startedAt,
-                          ))),
-                  ),
-              );
-        if (raced.length !== 0) check(raced);
+        if (startedAt === undefined || startedAt < historyFloor) {
+          check(touched);
+        } else {
+          const raced: InputEntry[] = [];
+          for (const entry of touched) {
+            if (entry.fallback || entry.changedAt > startedAt) {
+              raced.push(entry);
+              continue;
+            }
+            const observedAfterCompile =
+              added.has(entry) &&
+              (someSet(
+                entry.aliases,
+                (alias) => (changes.get(alias) ?? 0) > startedAt,
+              ) ||
+                someSet(
+                  entry.renameAliases,
+                  (alias) => (changes.get(alias) ?? 0) > startedAt,
+                ));
+            if (
+              someSet(
+                entry.scopes,
+                (scope) =>
+                  scope.failed ||
+                  scope.startedAt > startedAt ||
+                  observedAfterCompile,
+              )
+            ) {
+              raced.push(entry);
+            }
+          }
+          if (raced.length !== 0) check(raced);
+        }
       }
     },
   };
@@ -702,6 +721,15 @@ const MAX_EXTERNAL_WATCH_SCOPES = 16;
 const MAX_CHANGE_HISTORY = 100_000;
 const MAX_FALLBACK_PROBES_PER_TICK = 64;
 const MAX_LINK_PROBES_PER_TICK = 64;
+
+/** Test a set without allocating a transient array on the registration path. */
+function someSet<T>(
+  values: ReadonlySet<T>,
+  predicate: (value: T) => boolean,
+): boolean {
+  for (const value of values) if (predicate(value)) return true;
+  return false;
+}
 
 function openWatchPoller(listener: () => void): { close(): void } {
   const timer = setInterval(listener, 500);
@@ -801,6 +829,16 @@ function realpath(file: string): string | undefined {
     return fs.realpathSync.native(file);
   } catch {
     return undefined;
+  }
+}
+
+/** Whether writes can reach this input through an unobserved hardlink alias. */
+function hasMultipleLinks(file: string): boolean {
+  try {
+    const stats = fs.statSync(file);
+    return stats.isFile() && stats.nlink > 1;
+  } catch {
+    return false;
   }
 }
 

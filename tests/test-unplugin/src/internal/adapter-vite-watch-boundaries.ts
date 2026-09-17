@@ -189,6 +189,8 @@ export async function assertViteWatchBoundaries(): Promise<void> {
     await watch.dispose();
   }
   await assertExistingViteSubscriptionClosesCompileRace(root);
+  await assertExternalViteSubscriptionClosesCompileRace(root);
+  await assertViteHardlinkFallbackInvalidates(root);
 }
 
 /** An existing input must use its event witness when a new proof replaces it. */
@@ -241,6 +243,116 @@ async function assertExistingViteSubscriptionClosesCompileRace(
     assert.ok(
       invalidated.has(importer),
       "an existing subscription must reject restored bytes observed during compilation",
+    );
+  } finally {
+    await watch.dispose();
+  }
+}
+
+/** A scope discovered after compilation must validate the uncovered interval. */
+async function assertExternalViteSubscriptionClosesCompileRace(
+  root: string,
+): Promise<void> {
+  const invalidated = new Set<string>();
+  const watch = createViteServeInputWatch({
+    watch() {
+      return { close: () => undefined };
+    },
+  });
+  const externalRoot = TestProject.tmpdir("ttsc-vite-watch-external-race-");
+  const file = path.join(externalRoot, "value.txt");
+  const importer = path.join(root, "external-race.ts").replace(/\\/g, "/");
+  fs.writeFileSync(file, "before");
+  const baseline = captureWatchInputBaseline(file);
+  assert.ok(baseline);
+  watch.attach({
+    config: { root },
+    moduleGraph: {
+      getModulesByFile: (candidate) =>
+        candidate === importer ? new Set([{ file: candidate }]) : undefined,
+      invalidateModule: (node) =>
+        invalidated.add((node as { file: string }).file),
+    },
+  });
+  try {
+    const startedAt = watch.begin();
+    fs.writeFileSync(file, "after");
+    watch.replace(
+      importer,
+      [
+        {
+          file,
+          evidence: {
+            identity: baseline.identity,
+            missing: false,
+            state: { codec: "host", hash: baseline.hostHash },
+          },
+        },
+      ],
+      false,
+      startedAt,
+    );
+    assert.ok(
+      invalidated.has(importer),
+      "an external scope opened after compilation must reject the uncovered change",
+    );
+  } finally {
+    await watch.dispose();
+  }
+}
+
+/** A hardlink write outside every watched scope must use bounded polling. */
+async function assertViteHardlinkFallbackInvalidates(
+  root: string,
+): Promise<void> {
+  const invalidated = new Set<string>();
+  let poll: (() => void) | undefined;
+  const watch = createViteServeInputWatch({
+    poll(listener) {
+      poll = listener;
+      return { close: () => (poll = undefined) };
+    },
+    watch() {
+      return { close: () => undefined };
+    },
+  });
+  const file = path.join(root, "hardlink-input.txt");
+  const alias = path.join(
+    TestProject.tmpdir("ttsc-vite-watch-hardlink-"),
+    "hardlink-alias.txt",
+  );
+  const importer = path.join(root, "hardlink.ts").replace(/\\/g, "/");
+  fs.writeFileSync(file, "before");
+  fs.linkSync(file, alias);
+  const baseline = captureWatchInputBaseline(file);
+  assert.ok(baseline);
+  watch.attach({
+    config: { root },
+    moduleGraph: {
+      getModulesByFile: (candidate) =>
+        candidate === importer ? new Set([{ file: candidate }]) : undefined,
+      invalidateModule: (node) =>
+        invalidated.add((node as { file: string }).file),
+    },
+  });
+  try {
+    watch.replace(importer, [
+      {
+        file,
+        evidence: {
+          identity: baseline.identity,
+          missing: false,
+          state: { codec: "host", hash: baseline.hostHash },
+        },
+      },
+    ]);
+    const tick = poll;
+    assert.ok(tick, "a multiply linked input must enter the shared fallback");
+    fs.writeFileSync(alias, "after");
+    tick();
+    assert.ok(
+      invalidated.has(importer),
+      "a write through an external hardlink must invalidate the importer",
     );
   } finally {
     await watch.dispose();

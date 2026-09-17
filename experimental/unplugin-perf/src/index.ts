@@ -295,6 +295,7 @@ interface TransformHarness {
   cache: Map<string, Promise<unknown>>;
   counters: {
     bytes: number;
+    exists: number;
     lstats: number;
     probes: number;
     readdirs: number;
@@ -310,6 +311,7 @@ function createTransformHarness(
 ): TransformHarness {
   const counters = {
     bytes: 0,
+    exists: 0,
     lstats: 0,
     probes: 0,
     readdirs: 0,
@@ -317,6 +319,10 @@ function createTransformHarness(
     stats: 0,
   };
   const cache = adapter.createTtscTransformCache({
+    exists: (location: string) => {
+      counters.exists += 1;
+      return fs.existsSync(location);
+    },
     // `lstat` is the metadata call every derived input's validation makes
     // first, so leaving it uncounted hid the largest per-delivery term behind
     // the ones below (samchon/ttsc#1261).
@@ -360,6 +366,7 @@ function createTransformHarness(
 /** Every counted filesystem call, which is what a delivery actually costs. */
 function totalSyscalls(harness: TransformHarness): number {
   return (
+    harness.counters.exists +
     harness.counters.lstats +
     harness.counters.probes +
     harness.counters.readdirs +
@@ -370,6 +377,7 @@ function totalSyscalls(harness: TransformHarness): number {
 
 function resetCounters(harness: TransformHarness): void {
   harness.counters.bytes = 0;
+  harness.counters.exists = 0;
   harness.counters.lstats = 0;
   harness.counters.probes = 0;
   harness.counters.readdirs = 0;
@@ -538,12 +546,13 @@ async function measureGraphBuild(
     ? fs.readFileSync(runLog, "utf8").length
     : 0;
   const edges = options.count * (options.graphFanout ?? 0) + options.count - 1;
-  const probesPerModule = harness.counters.probes / rest.length;
+  const identityProbes = harness.counters.exists + harness.counters.probes;
+  const probesPerModule = identityProbes / rest.length;
   console.log(
     `  N=${String(options.count).padStart(3)}  ` +
       `E=${String(edges).padStart(6)}  ` +
       `pluginRuns=${String(pluginRuns).padStart(3)}  ` +
-      `probes=${String(harness.counters.probes).padStart(9)}  ` +
+      `probes=${String(identityProbes).padStart(9)}  ` +
       `probes/file=${probesPerModule.toFixed(1).padStart(9)}  ` +
       `${elapsedMs.toFixed(0).padStart(7)}ms`,
   );
@@ -624,6 +633,7 @@ async function measureServeValidation(
       `shared=${options.partitionExternalInputs === true ? "no " : "yes"}  ` +
       `pluginRuns=${String(pluginRuns).padStart(3)}  ` +
       `reads/file=${(harness.counters.reads / options.count).toFixed(1).padStart(5)}  ` +
+      `exists/file=${(harness.counters.exists / options.count).toFixed(1).padStart(6)}  ` +
       `lstats/file=${(harness.counters.lstats / options.count).toFixed(1).padStart(6)}  ` +
       `stats/file=${(harness.counters.stats / options.count).toFixed(1).padStart(6)}  ` +
       `syscalls/file=${(totalSyscalls(harness) / options.count).toFixed(1).padStart(6)}  ` +

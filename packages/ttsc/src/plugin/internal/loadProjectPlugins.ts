@@ -87,6 +87,7 @@ export function loadProjectPlugins(options: {
   projectRoot?: string;
   tsconfig?: string;
 }): {
+  deferredHostInputs: string[];
   hostInputHashes: Record<string, string | null>;
   hostInputRealpaths: Record<string, string | null>;
   hostInputs: string[];
@@ -390,6 +391,7 @@ function collectHostInputSnapshot(
   baselineHashes: Readonly<Record<string, string | null>>,
   baselineRealpaths: Readonly<Record<string, string | null>>,
 ): {
+  deferredHostInputs: string[];
   hostInputHashes: Record<string, string | null>;
   hostInputRealpaths: Record<string, string | null>;
   hostInputs: string[];
@@ -397,6 +399,20 @@ function collectHostInputSnapshot(
   const inputs = new Set<string>(
     baselineInputs.map((file) => path.resolve(file)),
   );
+  // A path consumed by any JavaScript-host stage keeps that stage's proof
+  // obligation, even when another plugin merely forwards the same spelling as
+  // its conventional native `configFile`. Otherwise one non-consuming record
+  // could let the native result replace a missing/raced JavaScript proof for a
+  // different record that really read the file.
+  const consumed = new Set<string>(
+    baselineInputs.map((file) => path.resolve(file)),
+  );
+  for (const record of records) {
+    for (const hostInput of record.hostInputs) {
+      consumed.add(path.resolve(hostInput));
+    }
+  }
+  const deferred = new Set<string>();
   const configBase = context.pluginConfigDir ?? path.dirname(project.path);
   for (const record of records) {
     inputs.add(path.resolve(record.request));
@@ -409,11 +425,17 @@ function collectHostInputSnapshot(
     }
     const configFile = record.config.configFile;
     if (typeof configFile === "string" && configFile.trim() !== "") {
-      inputs.add(
-        path.isAbsolute(configFile)
-          ? path.resolve(configFile)
-          : path.resolve(configBase, configFile),
-      );
+      const absolute = path.isAbsolute(configFile)
+        ? path.resolve(configFile)
+        : path.resolve(configBase, configFile);
+      inputs.add(absolute);
+      // `configFile` is a convention forwarded to the native plugin, not a
+      // file the JavaScript loader reads. Its compile-time proof must therefore
+      // come back from that plugin. A descriptor that separately reports the
+      // same path did consume it here and remains subject to its own proof.
+      if (!consumed.has(absolute)) {
+        deferred.add(absolute);
+      }
     }
   }
   const hostInputs = [...inputs].sort();
@@ -457,7 +479,12 @@ function collectHostInputSnapshot(
         : [],
     ),
   );
-  return { hostInputHashes, hostInputRealpaths, hostInputs };
+  return {
+    deferredHostInputs: [...deferred].sort(),
+    hostInputHashes,
+    hostInputRealpaths,
+    hostInputs,
+  };
 }
 
 /**

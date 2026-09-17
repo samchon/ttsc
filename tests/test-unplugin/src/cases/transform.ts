@@ -573,6 +573,15 @@ export const TRANSFORM_CASES = {
       };
       return await execute();
     },
+  case_transformttsc_external_hardlink_write_invalidates_generation:
+    async () => {
+      const { assertExternalHardlinkWriteInvalidatesGeneration } =
+        await import("../internal/transform-project-cache");
+      const execute = async () => {
+        await assertExternalHardlinkWriteInvalidatesGeneration();
+      };
+      return await execute();
+    },
   case_transformttsc_filesystem_operations_are_cache_local: async () => {
     const { assertFilesystemOperationsAreCacheLocal } =
       await import("../internal/transform-project-cache");

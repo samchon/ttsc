@@ -321,12 +321,14 @@ function transformProjectWithPlugins(
       finalOutputHostInputHashes,
       loaded.hostInputs,
       output.hostInputs,
+      loaded.deferredHostInputs,
     ),
     hostInputRealpaths: mergeCompatibleHostInputHashes(
       finalLoadedHostInputRealpaths,
       finalOutputHostInputRealpaths,
       loaded.hostInputs,
       output.hostInputs,
+      loaded.deferredHostInputs,
     ),
     hostInputs: mergeHostInputs(loaded.hostInputs, output.hostInputs),
     result: appendBuildOutput(checked, result),
@@ -416,12 +418,16 @@ function mergeCompatibleHostInputHashes(
   second: Readonly<Record<string, string | null>> | undefined,
   firstInputs: readonly string[],
   secondInputs: readonly string[] | undefined,
+  deferredFirstInputs: readonly string[] = [],
 ): Record<string, string | null> {
   const firstDeclared = new Set(
     firstInputs.map((input) => path.resolve(input)),
   );
   const secondDeclared = new Set(
     (secondInputs ?? []).map((input) => path.resolve(input)),
+  );
+  const deferredFirst = new Set(
+    deferredFirstInputs.map((input) => path.resolve(input)),
   );
   const output = Object.fromEntries(
     Object.entries(first).flatMap(([file, hash]) => {
@@ -434,7 +440,11 @@ function mergeCompatibleHostInputHashes(
     const absolute = path.resolve(input);
     if (!Object.prototype.hasOwnProperty.call(first, absolute)) {
       delete output[absolute];
-      unproven.add(absolute);
+      // A conventional `configFile` is only forwarded by the JavaScript
+      // loader. Let the native consumer supply its own compile-time proof; if
+      // it does not, no second entry can repopulate this path and the adapter
+      // still rejects the generation as unproven.
+      if (!deferredFirst.has(absolute)) unproven.add(absolute);
     }
   }
   for (const input of secondInputs ?? []) {

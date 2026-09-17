@@ -327,6 +327,7 @@ function loadLSPProjectPlugins(
         tsconfig: project.identity.logicalConfigPath,
       })
     : {
+        deferredHostInputs: [],
         hostInputHashes: {},
         hostInputRealpaths: {},
         hostInputs: [...project.configPaths],

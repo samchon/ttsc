@@ -2964,13 +2964,14 @@ function matchesUniversalHostInputs(
   cached: TtscCachedProjectTransform,
   validation: TtscHostInputValidation,
 ): boolean {
-  if (
-    [...validation.covered].every((input) =>
-      trackerProvesInputUnchanged(cached.hostInputMutationTracker, input),
-    )
-  ) {
-    return true;
+  let notificationsProveAll = true;
+  for (const input of validation.covered) {
+    if (!trackerProvesInputUnchanged(cached.hostInputMutationTracker, input)) {
+      notificationsProveAll = false;
+      break;
+    }
   }
+  if (notificationsProveAll) return true;
   return (
     matchesUniversalHostInputEntries(cached, validation) &&
     matchesUniversalHostInputProbes(cached, validation)
@@ -3425,6 +3426,8 @@ function disposeFilesystemClockReference(referenceDirectory: string): void {
 interface TtscInputMetadataEvidence {
   /** The joined metadata signature of the lexical path and its link target. */
   signature: string;
+  /** Whether a directory observer can account for every content mutation. */
+  notificationAuthoritative: boolean;
   /**
    * Whether a later write is guaranteed to move this signature. Only a
    * signature captured with this evidence may be recorded to stand in for a
@@ -3470,6 +3473,7 @@ function inputMetadataEvidence(
             link.ctimeNs,
             "missing-target",
           ].join(":"),
+          notificationAuthoritative: false,
           separable: false,
         };
       }
@@ -3478,17 +3482,26 @@ function inputMetadataEvidence(
       signature: [
         link.dev,
         link.ino,
+        link.nlink,
         link.mode,
         link.size,
         link.mtimeNs,
         link.ctimeNs,
         target.dev,
         target.ino,
+        target.nlink,
         target.mode,
         target.size,
         target.mtimeNs,
         target.ctimeNs,
       ].join(":"),
+      // A write through a hardlink outside the watched tree changes this inode
+      // without notifying either the original directory or a watcher opened on
+      // the original path. Keep such files on metadata validation. Symlinks are
+      // likewise governed by the target path, outside the lexical observer.
+      notificationAuthoritative:
+        !link.isSymbolicLink() &&
+        !(link.isFile() && (link.nlink > 1n || target.nlink > 1n)),
       // Both halves must be separable: a write remints the target's stamp, a
       // link retarget the link's own, and either one hiding inside its recorded
       // tick would evade the skipped content and realpath comparisons.
@@ -4406,12 +4419,14 @@ function collectProjectInputSnapshot(
   directoryComplete: boolean;
   fileSignatures: Record<string, string>;
   hashes: Record<string, string>;
+  notificationUnsafeInputs: Set<string>;
   projectDirectories: TtscProjectDirectorySnapshot[];
   provenSignatures: Record<string, string>;
   unstableFiles: Set<string>;
   walkFailures: TtscProjectWalkFailure[];
 } {
   const hashes: Record<string, string> = {};
+  const notificationUnsafeInputs = new Set<string>();
   const fileSignatures: Record<string, string> = {};
   const provenSignatures: Record<string, string> = {};
   const unstableFiles = new Set<string>();
@@ -4436,6 +4451,9 @@ function collectProjectInputSnapshot(
         continue;
       }
       const before = inputMetadataEvidence(file, filesystem);
+      if (before?.notificationAuthoritative !== true) {
+        notificationUnsafeInputs.add(key);
+      }
       // A file whose signature still equals the one captured around the read
       // that produced the recorded hash carries that content, so the whole
       // project does not have to be re-read to prove one delivery. Recheck the
@@ -4454,24 +4472,27 @@ function collectProjectInputSnapshot(
         continue;
       }
       const contents = filesystem.readFile(file);
-      const after = inputMetadataSignature(file, filesystem);
+      const after = inputMetadataEvidence(file, filesystem);
+      if (after?.notificationAuthoritative !== true) {
+        notificationUnsafeInputs.add(key);
+      }
       hashes[key] = hashText(contents);
       if (
         before === undefined ||
         after === undefined ||
-        before.signature !== after
+        before.signature !== after.signature
       ) {
         complete = false;
         unstableFiles.add(key);
         walkFailures.push({ kind: "file-changed-during-read", path: file });
       } else {
-        fileSignatures[key] = after;
+        fileSignatures[key] = after.signature;
         // Only a signature whose stamp's tick the filesystem's clock provably
         // left before this read may later stand in for the content comparison
         // ({@link stampSeparable}); the raw signature above still participates
         // in the generation-time stability comparison.
         if (before.separable) {
-          provenSignatures[key] = after;
+          provenSignatures[key] = after.signature;
         }
       }
     } catch {
@@ -4493,6 +4514,7 @@ function collectProjectInputSnapshot(
     directoryComplete: walked.complete && attributed,
     fileSignatures,
     hashes,
+    notificationUnsafeInputs,
     projectDirectories: walked.directories,
     provenSignatures,
     unstableFiles,
@@ -4774,13 +4796,26 @@ async function createProjectMutationTracker(
   policy: ITtscProjectMembershipPolicy = PERMISSIVE_PROJECT_MEMBERSHIP_POLICY,
 ): Promise<TtscProjectMutationTracker> {
   const identities = createHostPathIdentityContext(filesystem);
+  const root = commonDirectoryRoot(
+    directories.map((directory) => directory.path),
+  );
+  const authoritative =
+    root !== undefined &&
+    filesystem.watch === undefined &&
+    pathTraversesSymbolicLink(
+      path.join(root, ".ttsc-notification-authority"),
+      filesystem,
+      new Map(),
+    )
+      ? new Set<string>()
+      : covered;
   const tracker: TtscProjectMutationTracker = {
     changes: new Set(),
     changesOmitted: false,
     close: () => {
       tracker.failed = true;
     },
-    covered,
+    covered: authoritative,
     failed: false,
     membershipChanged: false,
     overlaps: (input, changed) =>
@@ -4788,9 +4823,6 @@ async function createProjectMutationTracker(
       identities.isWithin(changed, input),
     contentAuthoritative: filesystem.watch === undefined,
   };
-  const root = commonDirectoryRoot(
-    directories.map((directory) => directory.path),
-  );
   if (root === undefined) return tracker;
   const knownDirectories = new Set(
     directories
@@ -7170,9 +7202,9 @@ async function captureTransformGeneration(props: {
       ? await createProjectMutationTracker(
           before.projectDirectories,
           new Set(
-            Object.keys(before.hashes).map((key) =>
-              path.resolve(projectRoot, key),
-            ),
+            Object.keys(before.hashes)
+              .filter((key) => !before.notificationUnsafeInputs.has(key))
+              .map((key) => path.resolve(projectRoot, key)),
           ),
           props.filesystem,
           membershipPolicy,
@@ -7560,7 +7592,9 @@ function trackerChangedDeclaredProjectInput(
   for (const changed of tracker.changes) {
     if (
       inputs.some(
-        (input) => pathIsWithin(input, changed) || pathIsWithin(changed, input),
+        (input) =>
+          tracker.overlaps?.(input, changed) ??
+          (pathIsWithin(input, changed) || pathIsWithin(changed, input)),
       )
     ) {
       return true;
