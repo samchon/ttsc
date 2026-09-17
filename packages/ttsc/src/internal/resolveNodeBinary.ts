@@ -1,6 +1,12 @@
-import childProcess from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
+import childProcess from "node:child_process";
+
+import { captureProcessOutput } from "../compiler/internal/captureProcessOutput";
+import {
+  isSpawnSyncFdExhaustion,
+  spawnSyncWithLowDescriptors,
+} from "./spawnSyncResilient";
 
 export type JavaScriptRuntimeCapabilities = {
   bun: boolean;
@@ -29,20 +35,42 @@ export function javascriptRuntimeCapabilities(
     if (cached?.identity === beforeIdentity) return { ...cached.capabilities };
     runtimeCapabilityCache.delete(cacheKey);
   }
-  const result = childProcess.spawnSync(
-    runtime,
-    [
-      "-e",
-      `const Module = require("node:module"); process.stdout.write(JSON.stringify({ bun: typeof globalThis.Bun === "object", executable: process.execPath, registerHooks: typeof Module.registerHooks === "function" }));`,
-    ],
-    {
-      cwd,
-      encoding: "utf8",
-      env: effectiveEnv,
-      timeout: 30_000,
-      windowsHide: true,
-    },
-  );
+  const args = [
+    "-e",
+    `const Module = require("node:module"); process.stdout.write(JSON.stringify({ bun: typeof globalThis.Bun === "object", executable: process.execPath, registerHooks: typeof Module.registerHooks === "function" }));`,
+  ];
+  const options = {
+    cwd,
+    encoding: "utf8" as const,
+    env: effectiveEnv,
+    timeout: 30_000,
+    windowsHide: true,
+  };
+  let result = childProcess.spawnSync(runtime, args, options);
+  if (
+    process.platform !== "win32" &&
+    isSpawnSyncFdExhaustion(result.error)
+  ) {
+    const capture = captureProcessOutput();
+    try {
+      const retried = spawnSyncWithLowDescriptors(
+        runtime,
+        args,
+        options,
+        { stderr: capture.stderrPath, stdout: capture.stdoutPath },
+      );
+      const stdout = capture.read("stdout", "utf8") as string;
+      const stderr = capture.read("stderr", "utf8") as string;
+      result = {
+        ...retried,
+        output: [null, stdout, stderr],
+        stderr,
+        stdout,
+      };
+    } finally {
+      capture.dispose();
+    }
+  }
   let capabilities: JavaScriptRuntimeCapabilities = {
     bun: false,
     registerHooks: false,

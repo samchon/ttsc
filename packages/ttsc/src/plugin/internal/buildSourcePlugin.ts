@@ -16,6 +16,7 @@ import { Worker } from "node:worker_threads";
 import { captureProcessOutput } from "../../compiler/internal/captureProcessOutput";
 import { findNearestGoMod } from "../../compiler/internal/paths";
 import { createCanonicalTempDirectory } from "../../internal/createCanonicalTempDirectory";
+import { spawnSyncResilient } from "../../internal/spawnSyncResilient";
 
 const GO_MOD_SEARCH_MAX_DEPTH = 3;
 const TTSC_GO_MODULE_PATH = "github.com/samchon/ttsc/packages/ttsc";
@@ -1863,7 +1864,10 @@ export function spawnGoTool(
     stdio: ["ignore", capture.stdoutFd, capture.stderrFd] as StdioOptions,
   };
   try {
-    const result = spawnGoToolProcess(goBinary, args, spawnOptions);
+    const result = spawnGoToolProcess(goBinary, args, spawnOptions, {
+      stderr: capture.stderrPath,
+      stdout: capture.stdoutPath,
+    });
     const stdout = capture.read("stdout", "utf8") as string;
     const stderr = capture.read("stderr", "utf8") as string;
     return {
@@ -1886,9 +1890,10 @@ function spawnGoToolProcess(
   goBinary: string,
   args: readonly string[],
   options: SpawnSyncOptionsWithStringEncoding,
-): SpawnSyncReturns<string> {
+  output: { stderr: string; stdout: string },
+): ReturnType<typeof spawnSync> {
   if (process.platform !== "win32") {
-    return spawnSync(goBinary, [...args], options);
+    return spawnSyncResilient(goBinary, args, options, output);
   }
   const inheritedEnv = options.env ?? process.env;
   const resolved = resolveWindowsGoTool(
@@ -3705,8 +3710,9 @@ function startGoBuildCacheHeartbeat(
   } catch {}
 
   // Node's permission model can deny Worker construction while still allowing
-  // the child process required for `go build`. An IPC-bound helper provides
-  // the same independent heartbeat and exits automatically if its parent dies.
+  // the child process required for `go build`. The fallback inherits only the
+  // low standard descriptors and checks its parent PID. An IPC channel would
+  // allocate another high descriptor and recreate Darwin's spawn EBADF limit.
   try {
     const child = spawn(
       process.execPath,
@@ -3716,30 +3722,27 @@ function startGoBuildCacheHeartbeat(
           'const fs = require("node:fs");',
           "const file = process.argv[1];",
           "const interval = Number(process.argv[2]);",
+          "const parent = Number(process.argv[3]);",
           "const timer = setInterval(() => {",
+          "  try { process.kill(parent, 0); } catch { clearInterval(timer); process.exit(0); }",
           "  try {",
           "    const now = new Date();",
           "    fs.utimesSync(file, now, now);",
           "  } catch {}",
           "}, interval);",
-          'process.on("disconnect", () => {',
-          "  clearInterval(timer);",
-          "  process.exit(0);",
-          "});",
         ].join("\n"),
         file,
         String(GO_BUILD_CACHE_COORDINATION_HEARTBEAT_MS),
+        String(process.pid),
       ],
       {
-        stdio: ["ignore", "ignore", "ignore", "ipc"],
+        stdio: [0, 1, 2],
         windowsHide: true,
       },
     );
     child.unref();
-    child.channel?.unref();
     return {
       stop: () => {
-        if (child.connected) child.disconnect();
         child.kill();
       },
     };

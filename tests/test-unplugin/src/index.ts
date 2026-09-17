@@ -11,7 +11,7 @@ interface ITestCase {
   run: () => unknown;
 }
 
-const EXPECTED_CASES = 211;
+const EXPECTED_CASES = 213;
 const UNIT_CASES = new Set([
   "case_vite_compiler_watch_resources_are_bounded_by_scope",
   "case_vite_compiler_watch_tracks_subscription_and_alias_boundaries",

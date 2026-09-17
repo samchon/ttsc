@@ -1,6 +1,7 @@
-import { type SpawnSyncReturns, spawnSync } from "node:child_process";
+import { type SpawnSyncReturns } from "node:child_process";
 import fs from "node:fs";
 
+import { spawnSyncResilient } from "../../internal/spawnSyncResilient";
 import { captureProcessOutput } from "./captureProcessOutput";
 
 /**
@@ -33,7 +34,7 @@ export function spawnNative(
   }
   const capture = captureProcessOutput();
   try {
-    const result = spawnSync(
+    const result = spawnSyncResilient(
       viaNode ? process.execPath : binary,
       viaNode ? [binary, ...args] : [...args],
       {
@@ -42,6 +43,7 @@ export function spawnNative(
         stdio: ["ignore", capture.stdoutFd, capture.stderrFd],
         windowsHide: true,
       },
+      { stderr: capture.stderrPath, stdout: capture.stdoutPath },
     );
     const stdout = capture.read("stdout", options.encoding);
     const stderr = capture.read("stderr", options.encoding);

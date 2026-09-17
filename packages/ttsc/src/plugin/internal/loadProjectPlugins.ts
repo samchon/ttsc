@@ -9,6 +9,7 @@ import { findNearestGoMod } from "../../compiler/internal/paths";
 import { readJsonFile } from "../../compiler/internal/project/readConfigJson";
 import { readProjectConfig } from "../../compiler/internal/project/readProjectConfig";
 import { createCanonicalTempDirectory } from "../../internal/createCanonicalTempDirectory";
+import { spawnSyncResilient } from "../../internal/spawnSyncResilient";
 import {
   javascriptRuntimeCapabilities,
   resolveNodeBinary,
@@ -1443,7 +1444,7 @@ function loadCommonJsDescriptor(
     const diagnosticsFd = fs.openSync(diagnostics, "w");
     let result: ReturnType<typeof childProcess.spawnSync>;
     try {
-      result = childProcess.spawnSync(
+      result = spawnSyncResilient(
         runtime,
         [
           ...(runtimeCapabilities.bun
@@ -1482,6 +1483,7 @@ function loadCommonJsDescriptor(
           stdio: ["ignore", diagnosticsFd, diagnosticsFd],
           windowsHide: true,
         },
+        { stderr: diagnostics, stdout: diagnostics },
       );
     } finally {
       fs.closeSync(diagnosticsFd);

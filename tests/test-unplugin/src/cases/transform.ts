@@ -70,6 +70,22 @@ export const TRANSFORM_CASES = {
       };
       return await execute();
     },
+  case_transformttsc_build_passes_open_no_filesystem_watchers: async () => {
+    const { assertDeliveryPassesOpenNoFilesystemWatchers } =
+      await import("../internal/transform-delivery-epoch");
+    const execute = async () => {
+      await assertDeliveryPassesOpenNoFilesystemWatchers();
+    };
+    return await execute();
+  },
+  case_transformttsc_survives_high_darwin_descriptors: async () => {
+    const { assertTransformSurvivesHighDarwinDescriptors } =
+      await import("../internal/transform-delivery-epoch");
+    const execute = async () => {
+      await assertTransformSurvivesHighDarwinDescriptors();
+    };
+    return await execute();
+  },
   case_transformttsc_a_failed_compile_watches_and_reports_plainly: async () => {
     const { assertAFailedCompileWatchesAndReportsPlainly } =
       await import("../internal/transform-program-output");

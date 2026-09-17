@@ -12,7 +12,9 @@ export interface CapturedProcessOutput {
     encoding: BufferEncoding | "buffer" | undefined,
   ): string | Buffer;
   stderrFd: number;
+  stderrPath: string;
   stdoutFd: number;
+  stdoutPath: string;
 }
 
 /**
@@ -67,7 +69,9 @@ export function captureProcessOutput(): CapturedProcessOutput {
       return encoding === "buffer" ? raw : raw.toString(encoding ?? "utf8");
     },
     stderrFd,
+    stderrPath,
     stdoutFd,
+    stdoutPath,
   };
 }
 

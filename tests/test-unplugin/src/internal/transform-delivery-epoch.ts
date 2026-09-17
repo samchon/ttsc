@@ -66,6 +66,77 @@ async function deliverPass(session: IDeliveryPassSession): Promise<void> {
   }
 }
 
+/** Prove delivery-pass caches own no native filesystem watchers. */
+export async function assertDeliveryPassesOpenNoFilesystemWatchers(): Promise<void> {
+  const api = await TestUnpluginRuntime.loadUnpluginApi();
+  const project = createCacheProject({ fileCount: 4, graphFanout: 1 });
+  let opened = 0;
+  let closed = 0;
+  const cache = api.createTtscTransformCache({
+    watch: () => {
+      opened += 1;
+      return { close: () => (closed += 1) };
+    },
+  });
+  const options = api.resolveOptions();
+  const modules = projectModules(project.root);
+  const deliver = (file: string) =>
+    api.transformTtsc(
+      file,
+      fs.readFileSync(file, "utf8"),
+      options,
+      undefined,
+      cache,
+      { addWatchFile: () => undefined },
+    );
+  try {
+    api.beginTtscTransformBuild(cache);
+    for (const file of modules) assert.ok(await deliver(file));
+    api.beginTtscTransformBuild(cache);
+    fs.appendFileSync(modules[0]!, "\nexport const changed = 1;\n", "utf8");
+    for (const file of modules) assert.ok(await deliver(file));
+    assert.equal(opened, 0, "pass-scoped validation must open no watchers");
+    assert.equal(
+      fs.readFileSync(project.runLog, "utf8").length,
+      2,
+      "the watcher-free pass must still recompile after an input edit",
+    );
+  } finally {
+    api.resetTtscTransformCache(cache);
+  }
+  assert.equal(closed, 0, "watcher-free teardown must have nothing to close");
+}
+
+/** Prove the complete transform survives Darwin's high-descriptor spawn edge. */
+export async function assertTransformSurvivesHighDarwinDescriptors(): Promise<void> {
+  if (process.platform !== "darwin") return;
+  const api = await TestUnpluginRuntime.loadUnpluginApi();
+  const project = createCacheProject({ fileCount: 1, graphFanout: 1 });
+  const file = projectModules(project.root)[0]!;
+  const cache = api.createTtscTransformCache();
+  const descriptors: number[] = [];
+  try {
+    while ((descriptors.at(-1) ?? -1) < 10_500) {
+      descriptors.push(fs.openSync("/dev/null", "r"));
+    }
+    api.beginTtscTransformBuild(cache);
+    assert.ok(
+      await api.transformTtsc(
+        file,
+        fs.readFileSync(file, "utf8"),
+        api.resolveOptions(),
+        undefined,
+        cache,
+        { addWatchFile: () => undefined },
+      ),
+      "runtime probes, descriptor evaluation, Go build and native execution must survive high descriptors",
+    );
+  } finally {
+    api.resetTtscTransformCache(cache);
+    for (const descriptor of descriptors.reverse()) fs.closeSync(descriptor);
+  }
+}
+
 /**
  * Asserts samchon/ttsc#1300: repeated passes over an unchanged project reuse
  * the one generation instead of recompiling per pass.

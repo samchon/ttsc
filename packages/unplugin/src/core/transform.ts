@@ -986,7 +986,11 @@ export async function transformTtsc(
         deliveryEpoch: epoch,
         filesystem,
         plugins: options.plugins,
-        trackProjectMembership: cache !== undefined,
+        // A declared delivery epoch already performs one complete snapshot
+        // proof at the first delivery of every pass. Native watchers cannot add
+        // correctness inside that lifecycle, so build-scoped adapters own zero
+        // background filesystem resources.
+        trackProjectMembership: cache !== undefined && epoch === undefined,
         tsconfig,
       });
       cache?.set(key, transformed);

@@ -67,6 +67,12 @@ const SCOPES = {
     "@ttsc/metro",
     PLATFORM,
   ],
+  "test-unplugin": [
+    "ttsc",
+    "@ttsc/banner",
+    "@ttsc/unplugin",
+    PLATFORM,
+  ],
   "test-graph": ["ttsc", PLATFORM, "@ttsc/graph"],
   // The evidence suites drive ttsc plus the lint engine the contributor's rules
   // link into, and the benchmark suite materializes workspaces that install the
@@ -117,6 +123,7 @@ const PLATFORM_TARGETS = {
   "test-lint": "ttsc",
   "test-packages": "ttsc",
   "test-metro": "ttsc",
+  "test-unplugin": "ttsc",
   "plugin-cache": "ttsc",
   "website-charts": "ttsc",
   experimental: "ttsc",
