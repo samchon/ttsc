@@ -169,6 +169,63 @@ export async function assertViteWatchBoundaries(): Promise<void> {
   } finally {
     await watch.dispose();
   }
+  await assertExistingViteSubscriptionClosesCompileRace(root);
+}
+
+/** An existing input must use its event witness when a new proof replaces it. */
+async function assertExistingViteSubscriptionClosesCompileRace(
+  root: string,
+): Promise<void> {
+  const invalidated = new Set<string>();
+  let notify: ((eventType: string, file: string | null) => void) | undefined;
+  const watch = createViteServeInputWatch({
+    watch(_scope, listener) {
+      notify = listener;
+      return { close: () => undefined };
+    },
+  });
+  const importer = path.join(root, "existing-race.ts").replace(/\\/g, "/");
+  const file = path.join(root, "existing-race.txt");
+  const evidence = () => {
+    const baseline = captureWatchInputBaseline(file);
+    assert.ok(baseline);
+    return {
+      identity: baseline.identity,
+      missing: false,
+      state: { codec: "host" as const, hash: baseline.hostHash },
+    };
+  };
+  fs.writeFileSync(file, "stable");
+  watch.attach({
+    config: { root },
+    moduleGraph: {
+      getModulesByFile: (candidate) =>
+        candidate === importer ? new Set([{ file: candidate }]) : undefined,
+      invalidateModule: (node) =>
+        invalidated.add((node as { file: string }).file),
+    },
+  });
+  try {
+    watch.replace(
+      importer,
+      [{ file, evidence: evidence() }],
+      false,
+      watch.begin(),
+    );
+    const startedAt = watch.begin();
+    fs.writeFileSync(file, "transient");
+    const transient = evidence();
+    fs.writeFileSync(file, "stable");
+    assert.ok(notify);
+    notify("change", path.relative(root, file));
+    watch.replace(importer, [{ file, evidence: transient }], false, startedAt);
+    assert.ok(
+      invalidated.has(importer),
+      "an existing subscription must reject restored bytes observed during compilation",
+    );
+  } finally {
+    await watch.dispose();
+  }
 }
 
 /** Prove native watch resources stay constant as the compiler graph grows. */
@@ -254,6 +311,7 @@ export async function assertViteWatchFallbackWorkIsBounded(): Promise<void> {
   );
   const invalidated = new Set<string>();
   let poll: (() => void) | undefined;
+  let failedWatcherCloses = 0;
   const watch = createViteServeInputWatch({
     poll(listener) {
       assert.equal(poll, undefined, "fallback must use one shared scheduler");
@@ -262,7 +320,7 @@ export async function assertViteWatchFallbackWorkIsBounded(): Promise<void> {
     },
     watch(_scope, _listener, onError) {
       onError();
-      return { close: () => undefined };
+      return { close: () => (failedWatcherCloses += 1) };
     },
   });
   // One entry beyond the per-tick budget proves both the cap and eventual
@@ -287,6 +345,11 @@ export async function assertViteWatchFallbackWorkIsBounded(): Promise<void> {
       fs.writeFileSync(file, "after");
     }
     assert.ok(poll, "failed native observation must start the shared fallback");
+    assert.equal(
+      failedWatcherCloses,
+      1,
+      "fallback must release the failed native watcher immediately",
+    );
     const tick = poll;
     for (const expected of [64, 65]) {
       tick();
@@ -304,4 +367,9 @@ export async function assertViteWatchFallbackWorkIsBounded(): Promise<void> {
   } finally {
     await watch.dispose();
   }
+  assert.equal(
+    failedWatcherCloses,
+    1,
+    "disposal must not re-close the detached failed watcher",
+  );
 }

@@ -58,6 +58,8 @@ interface InputCondition {
 
 interface InputEntry {
   aliases: Set<string>;
+  /** Latest native event already associated with this registered spelling. */
+  changedAt: number;
   conditions: Map<string, InputCondition>;
   fallback: boolean;
   file: string;
@@ -240,10 +242,16 @@ export function createViteServeInputWatch(
     const absolute = path.resolve(file);
     recordChange(absolute);
     for (const candidate of [absolute, path.dirname(absolute)]) {
-      for (const entry of aliases.get(candidate) ?? []) pending.add(entry);
+      for (const entry of aliases.get(candidate) ?? []) {
+        entry.changedAt = changeSequence;
+        pending.add(entry);
+      }
     }
     if (eventType === "rename") {
-      for (const entry of renameAliases.get(absolute) ?? []) pending.add(entry);
+      for (const entry of renameAliases.get(absolute) ?? []) {
+        entry.changedAt = changeSequence;
+        pending.add(entry);
+      }
     }
     if (pending.size === 0 || flushTimer !== undefined) return;
     flushTimer = setTimeout(() => {
@@ -318,7 +326,10 @@ export function createViteServeInputWatch(
               changeSequence += 1;
               historyFloor = changeSequence;
               changes.clear();
-              for (const candidate of owned.entries) pending.add(candidate);
+              for (const candidate of owned.entries) {
+                candidate.changedAt = changeSequence;
+                pending.add(candidate);
+              }
               scheduleFlush();
               return;
             }
@@ -330,10 +341,25 @@ export function createViteServeInputWatch(
           () => {
             if (scopes.get(root) !== owned) return;
             owned.failed = true;
+            try {
+              owned.watcher?.close();
+            } catch {
+              // The fallback owns validation now; a failed native handle is no
+              // longer useful, and cleanup must not replace that recovery.
+            }
+            owned.watcher = undefined;
             for (const entry of owned.entries) requirePolling(entry);
             updatePoller();
           },
         );
+        if (scope.failed) {
+          // An injected or platform watcher may report failure synchronously
+          // during construction, before its handle can be assigned above.
+          try {
+            scope.watcher?.close();
+          } catch {}
+          scope.watcher = undefined;
+        }
       } catch {
         scope.failed = true;
       }
@@ -534,7 +560,8 @@ export function createViteServeInputWatch(
         ];
       }
       const current = new Map<string, string>();
-      const added: InputEntry[] = [];
+      const added = new Set<InputEntry>();
+      const touched = new Set<InputEntry>();
       for (const input of inputs) {
         const file = path.resolve(input.file);
         const evidence = input.evidence;
@@ -544,6 +571,7 @@ export function createViteServeInputWatch(
         if (entry === undefined) {
           entry = {
             aliases: new Set(),
+            changedAt: 0,
             file,
             conditions: new Map(),
             fallback: false,
@@ -552,9 +580,10 @@ export function createViteServeInputWatch(
             scopes: new Set(),
           };
           entries.set(file, entry);
-          added.push(entry);
+          added.add(entry);
           observe(entry);
         }
+        touched.add(entry);
         let condition = entry.conditions.get(key);
         if (condition === undefined) {
           condition = {
@@ -587,22 +616,26 @@ export function createViteServeInputWatch(
       updatePoller();
       // Watchers are live before this proof. It closes the compile-to-subscribe
       // race without manufacturing one native subscription per input.
-      if (added.length !== 0) {
+      if (touched.size !== 0) {
         const raced =
           startedAt === undefined || startedAt < historyFloor
-            ? added
-            : added.filter((entry) =>
-                [...entry.scopes].some(
-                  (scope) =>
-                    scope.failed ||
-                    scope.startedAt > startedAt ||
-                    [...entry.aliases].some(
-                      (alias) => (changes.get(alias) ?? 0) > startedAt,
-                    ) ||
-                    [...entry.renameAliases].some(
-                      (alias) => (changes.get(alias) ?? 0) > startedAt,
-                    ),
-                ),
+            ? [...touched]
+            : [...touched].filter(
+                (entry) =>
+                  entry.fallback ||
+                  entry.changedAt > startedAt ||
+                  [...entry.scopes].some(
+                    (scope) =>
+                      scope.failed ||
+                      scope.startedAt > startedAt ||
+                      (added.has(entry) &&
+                        ([...entry.aliases].some(
+                          (alias) => (changes.get(alias) ?? 0) > startedAt,
+                        ) ||
+                          [...entry.renameAliases].some(
+                            (alias) => (changes.get(alias) ?? 0) > startedAt,
+                          ))),
+                  ),
               );
         if (raced.length !== 0) check(raced);
       }
