@@ -104,6 +104,8 @@ async function main(): Promise<void> {
       // entry. Nothing here may grow with the envelope's size.
       lstatBudget: 8,
       partitionExternalInputs: true,
+      readBudget: 0,
+      syscallBudget: 1,
       unrelatedDirectoryCount: 100,
     }),
   );
@@ -132,6 +134,8 @@ async function main(): Promise<void> {
       graphFanout: sharedClosureModules,
       graphGlobals: 50,
       partitionExternalInputs: false,
+      readBudget: 0,
+      syscallBudget: 1,
       unrelatedDirectoryCount: 100,
     }),
   );
@@ -161,6 +165,8 @@ async function main(): Promise<void> {
       // undeclared scenario above rather than at a round number.
       lstatBudget: 60,
       partitionExternalInputs: false,
+      readBudget: 0,
+      syscallBudget: 1,
       unrelatedDirectoryCount: 100,
     }),
   );
@@ -289,6 +295,10 @@ interface MeasureOptions {
   lstatBudget?: number;
   /** Give each module one disjoint external edge instead of the whole union. */
   partitionExternalInputs?: boolean;
+  /** Source-byte reads one unchanged delivery may perform. */
+  readBudget?: number;
+  /** Total filesystem calls one unchanged delivery may perform. */
+  syscallBudget?: number;
   /** Unrelated nested project directories used to gate membership-stat cost. */
   unrelatedDirectoryCount?: number;
 }
@@ -475,13 +485,12 @@ async function measureRepeatedPasses(
 }
 
 /**
- * An fs probe pair (`existsSync` + `realpathSync.native`) is what one
- * `pathIdentityKey` call costs on macOS. A bounded watch-input derivation pays
- * that once per distinct graph path per generation, so the amortized budget
- * below is per module: well above the fixed point, far below the
- * O(edges)-per-delivery defect this scenario reproduces.
+ * Every graph identity is memoized while the generation is captured. Sibling
+ * deliveries must therefore spend no filesystem probes deriving their watch
+ * inputs. This exact budget catches even a constant residual cost instead of
+ * merely ruling out the original O(edges)-per-delivery defect.
  */
-const GRAPH_PROBES_PER_MODULE_BUDGET = 64;
+const GRAPH_PROBES_PER_MODULE_BUDGET = 0;
 
 /**
  * Drive a build-scoped run over a graph-bearing envelope and count the fs
@@ -641,11 +650,13 @@ async function measureServeValidation(
   if (pluginRuns !== 1) {
     return `serve validation N=${options.count} K=${options.graphFanout} G=${options.graphGlobals ?? 0}: pluginRuns=${pluginRuns} (expected 1)`;
   }
-  if (readsPerFile > 16) {
-    return `serve validation N=${options.count} K=${options.graphFanout} G=${options.graphGlobals ?? 0}: reads/file=${readsPerFile.toFixed(1)} exceeds the per-file validation budget of 16`;
+  const readBudget = options.readBudget ?? 16;
+  if (readsPerFile > readBudget) {
+    return `serve validation N=${options.count} K=${options.graphFanout} G=${options.graphGlobals ?? 0}: reads/file=${readsPerFile.toFixed(1)} exceeds the per-file validation budget of ${readBudget}`;
   }
-  if (syscallsPerFile > 16) {
-    return `serve validation N=${options.count} K=${options.graphFanout} G=${options.graphGlobals ?? 0}: syscalls/file=${syscallsPerFile.toFixed(1)} exceeds the per-file resource budget of 16`;
+  const syscallBudget = options.syscallBudget ?? 16;
+  if (syscallsPerFile > syscallBudget) {
+    return `serve validation N=${options.count} K=${options.graphFanout} G=${options.graphGlobals ?? 0}: syscalls/file=${syscallsPerFile.toFixed(1)} exceeds the per-file resource budget of ${syscallBudget}`;
   }
   // Every serve scenario now holds the membership budget itself. The one term
   // that used to make a shared closure state a budget of its own — one failed
