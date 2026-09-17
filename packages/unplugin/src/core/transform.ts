@@ -316,6 +316,8 @@ const MAX_GENERATION_PROOF_FAILURES = 8;
 
 /** Maximum exact mutation paths kept after a tracker already proved a change. */
 const MAX_GENERATION_MUTATION_PATHS = 8;
+
+/** Maximum unrelated roots watched before snapshot validation takes over. */
 const MAX_HOST_INPUT_WATCH_SCOPES = 16;
 
 /** One retry absorbs a transient watch write without admitting an infinite loop. */
@@ -990,11 +992,12 @@ export async function transformTtsc(
         deliveryEpoch: epoch,
         filesystem,
         plugins: options.plugins,
-        // A declared delivery epoch already performs one complete snapshot
-        // proof at the first delivery of every pass. Native watchers cannot add
-        // correctness inside that lifecycle, so build-scoped adapters own zero
-        // background filesystem resources.
-        trackProjectMembership: cache !== undefined && epoch === undefined,
+        // One bounded recursive project observer witnesses content restored
+        // during the compile itself. Build-scoped adapters close it with the
+        // attempt; persistent adapters retain it to make later validations
+        // constant-cost while the generation remains live.
+        retainProjectMembership: cache !== undefined && epoch === undefined,
+        trackProjectMembership: cache !== undefined,
         tsconfig,
       });
       cache?.set(key, transformed);
@@ -2804,7 +2807,10 @@ function matchesProvenInput(
   state: TtscEnvelopeDerivation,
   input: string,
 ): boolean {
-  if (trackerProvesInputUnchanged(cached.projectMutationTracker, input)) {
+  if (
+    trackerProvesInputUnchanged(cached.projectMutationTracker, input) ||
+    trackerProvesInputUnchanged(cached.hostInputMutationTracker, input)
+  ) {
     return true;
   }
   const observation = cached.externalInputObservations?.[path.resolve(input)];
@@ -2816,7 +2822,25 @@ function matchesProvenInput(
     ) {
       return true;
     }
-    return matchesRecordedInput(cached, input);
+    const filesystem = resultFilesystem(cached.result);
+    const spelling = path.resolve(input);
+    const before = inputMetadataEvidence(input, filesystem);
+    if (
+      before !== undefined &&
+      before.separable &&
+      cached.externalInputSignatures?.[spelling] === before.signature
+    ) {
+      return true;
+    }
+    if (!matchesRecordedInput(cached, input)) return false;
+    const after = inputMetadataSignature(input, filesystem);
+    const signatures = (cached.externalInputSignatures ??= {});
+    if (before?.separable === true && before.signature === after) {
+      signatures[spelling] = after;
+    } else {
+      delete signatures[spelling];
+    }
+    return true;
   }
   const slot = inputSignatureSlot(cached, state, input);
   if (slot === undefined) {
@@ -3940,12 +3964,14 @@ function captureExternalInputSnapshot(
         });
         continue;
       }
+      const before = inputMetadataEvidence(input, filesystem);
       const mismatches = graphInputObservationFailures(
         input,
         predicateObservation,
         filesystem,
         state.identityContext,
       );
+      const after = inputMetadataSignature(input, filesystem);
       if (mismatches.length !== 0) complete = false;
       for (const kind of mismatches) {
         recordGenerationProofFailure(failures, {
@@ -3954,6 +3980,7 @@ function captureExternalInputSnapshot(
           path: input,
         });
       }
+      if (mismatches.length === 0) record(input, before, after);
       observations[spelling] = predicateObservation;
       continue;
     }
@@ -4800,6 +4827,15 @@ async function createHostInputMutationTracker(
     [...covered]
       .map((input) => path.resolve(input))
       .filter((input) => {
+        try {
+          // A lexical symlink can keep its own directory silent while a target
+          // elsewhere changes or appears. Its joined metadata proof must stay
+          // on the validation path, including while the link is broken.
+          if (filesystem.lstat(input).isSymbolicLink()) return false;
+        } catch {
+          // A genuinely absent lexical path is covered by its nearest existing
+          // ancestor and remains eligible for notification proof.
+        }
         const target = hostInputRealpath(input, filesystem);
         return (
           target === null ||
@@ -5863,15 +5899,26 @@ function matchesCachedExternalInputs(cached: TtscCachedProjectTransform): {
     const spelling = path.resolve(file);
     const observation = cached.externalInputObservations?.[spelling];
     if (observation !== undefined) {
+      const before = inputMetadataEvidence(file, filesystem);
       if (
-        !matchesGraphInputObservation(
-          file,
-          observation,
-          filesystem,
-          state.identityContext,
-        )
+        before !== undefined &&
+        before.separable &&
+        recordedSignatures[spelling] === before.signature
       ) {
+        signatures[spelling] = before.signature;
+        continue;
+      }
+      const observed = matchesGraphInputObservation(
+        file,
+        observation,
+        filesystem,
+        state.identityContext,
+      );
+      const after = inputMetadataSignature(file, filesystem);
+      if (!observed) {
         matches = false;
+      } else if (before?.separable === true && before.signature === after) {
+        signatures[spelling] = after;
       }
       continue;
     }
@@ -6841,6 +6888,7 @@ async function transformProject(props: {
   deliveryEpoch?: number;
   filesystem: TtscTransformFilesystemOperations;
   plugins?: ResolvedTtscUnpluginOptions["plugins"];
+  retainProjectMembership: boolean;
   trackProjectMembership: boolean;
   tsconfig: string;
 }): Promise<TtscCachedProjectTransform> {
@@ -6888,6 +6936,7 @@ async function captureTransformGeneration(props: {
   deliveryEpoch?: number;
   filesystem: TtscTransformFilesystemOperations;
   plugins?: ResolvedTtscUnpluginOptions["plugins"];
+  retainProjectMembership: boolean;
   trackProjectMembership: boolean;
   tsconfig: string;
 }): Promise<TtscCachedProjectTransform> {
@@ -6906,7 +6955,7 @@ async function captureTransformGeneration(props: {
   let retainCandidateTracker = false;
   let captured: TtscCachedProjectTransform | undefined;
   try {
-    if (props.trackProjectMembership) {
+    if (props.retainProjectMembership) {
       try {
         clockReferenceDirectory = createTransformScratchDirectory(
           projectRoot,
@@ -7001,15 +7050,26 @@ async function captureTransformGeneration(props: {
       scratchDirectory,
       temporaryTsconfig,
     });
+    const externalInputPaths = selectExternalInputPaths({
+      filesystem: props.filesystem,
+      membershipPolicy,
+      projectRoot,
+      result,
+      scratchDirectory,
+      temporaryTsconfig,
+    });
+    const persistentValidationInputs = [
+      ...new Set([...persistentHostInputs, ...externalInputPaths]),
+    ];
     // The generation's absent resolution candidates, which get a watcher of
     // their own below; watching one is what lets a delivery stop probing it
     // (samchon/ttsc#1261). The validation manifest stays built from the
     // universal inputs alone, so nothing else about a candidate changes.
     //
-    // Derived only where a tracker could carry it: a build-scoped adapter opens
-    // no watcher, so probing every candidate's existence here would be work
-    // whose answer nothing can read.
-    const notifiableAbsence = props.trackProjectMembership
+    // Derived only where a retained tracker could carry it: a build-scoped
+    // adapter keeps only the compile-time project observer, so probing every
+    // candidate here would be work whose answer nothing can later read.
+    const notifiableAbsence = props.retainProjectMembership
       ? selectNotifiableAbsentInputs({
           filesystem: props.filesystem,
           projectRoot,
@@ -7018,14 +7078,16 @@ async function captureTransformGeneration(props: {
           temporaryTsconfig,
         })
       : { candidates: [], watched: [] };
-    hostInputTracker = props.trackProjectMembership
+    hostInputTracker = props.retainProjectMembership
       ? await createHostInputMutationTracker(
-          persistentHostInputs,
+          persistentValidationInputs,
           props.filesystem,
           // A universal input never reaches the per-input loop that consults a
           // coverage claim: an absent one is proven by its directory listing
           // instead, which re-resolves the spelling every delivery.
-          new Set(persistentHostInputs.map((input) => path.resolve(input))),
+          new Set(
+            persistentValidationInputs.map((input) => path.resolve(input)),
+          ),
           "all",
           projectRoot,
         )
@@ -7047,14 +7109,6 @@ async function captureTransformGeneration(props: {
             projectRoot,
           )
         : undefined;
-    const externalInputPaths = selectExternalInputPaths({
-      filesystem: props.filesystem,
-      membershipPolicy,
-      projectRoot,
-      result,
-      scratchDirectory,
-      temporaryTsconfig,
-    });
     const inputSnapshot = collectProjectInputSnapshot(
       projectRoot,
       identities,
@@ -7227,7 +7281,10 @@ async function captureTransformGeneration(props: {
     // Attach notifications only while they can actually prove membership. A
     // generation that could not open its watchers keeps its recorded snapshot
     // and validates through it, rather than losing the cache entirely.
-    const notifying = stableProjectSnapshot && notificationsAvailable;
+    const notifying =
+      props.retainProjectMembership &&
+      stableProjectSnapshot &&
+      notificationsAvailable;
     if (notifying && tracker !== undefined) {
       cached.projectMutationTracker = tracker;
     }

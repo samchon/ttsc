@@ -3606,18 +3606,23 @@ async function assertCompileSnapshotRaceCannotAuthorizeStaleOutput(): Promise<vo
 }
 
 /**
- * Asserts a project input changed and restored during native compilation cannot
- * pair the transient output with the identical pre/post filesystem snapshots.
+ * Asserts a graph-free build-scoped project input changed and restored during
+ * native compilation cannot pair transient output with identical snapshots.
  */
 async function assertCompileSnapshotAbaRaceCannotAuthorizeStaleOutput(): Promise<void> {
-  const { createTtscTransformCache, resolveOptions, transformTtsc } =
-    await TestUnpluginRuntime.loadUnpluginApi();
+  const {
+    beginTtscTransformBuild,
+    createTtscTransformCache,
+    resolveOptions,
+    transformTtsc,
+  } = await TestUnpluginRuntime.loadUnpluginApi();
   const project = createCacheProject({
     fileCount: 2,
-    graphFanout: 2,
+    graphFanout: 0,
     snapshotAbaRace: true,
   });
   const cache = createTtscTransformCache();
+  beginTtscTransformBuild(cache);
   const options = resolveOptions();
   const main = path.join(project.root, "src", "mod0.ts");
   const lazy = path.join(project.root, "src", "mod1.ts");
@@ -4589,6 +4594,7 @@ function writeGoPlugin(dir: string): void {
 /** Prove persistent project observers stay constant at any tree size. */
 async function assertPersistentProjectWatcherCardinalityIsBounded(): Promise<void> {
   const {
+    beginTtscTransformBuild,
     createTtscTransformCache,
     resetTtscTransformCache,
     resolveOptions,
@@ -4643,6 +4649,34 @@ async function assertPersistentProjectWatcherCardinalityIsBounded(): Promise<voi
     await new Promise<void>((resolve) => setImmediate(resolve));
   }
   assert.equal(active, 0, "cache reset must close every logical observer");
+  const persistentOpenCount = opened.length;
+  beginTtscTransformBuild(cache);
+  try {
+    assert.ok(
+      await transformTtsc(
+        main,
+        fs.readFileSync(main, "utf8"),
+        resolveOptions(),
+        undefined,
+        cache,
+      ),
+    );
+    const buildObservers = opened
+      .slice(persistentOpenCount)
+      .filter((watcher) => watcher.recursive);
+    assert.equal(
+      buildObservers.length,
+      1,
+      "a build attempt needs one bounded compile-race observer",
+    );
+    assert.equal(
+      active,
+      0,
+      "a build-scoped generation must retain no background observer",
+    );
+  } finally {
+    resetTtscTransformCache(cache);
+  }
 }
 
 export {

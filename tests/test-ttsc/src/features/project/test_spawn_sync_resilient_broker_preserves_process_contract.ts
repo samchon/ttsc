@@ -5,7 +5,18 @@ import path from "node:path";
 
 import { spawnSyncWithLowDescriptors } from "../../../../../packages/ttsc/lib/internal/spawnSyncResilient.js";
 
-/** The Darwin EBADF recovery broker preserves argv, I/O and failure results. */
+/**
+ * Verifies subprocess resilience: the low-descriptor broker preserves spawn
+ * semantics.
+ *
+ * The POSIX EBADF recovery path must never interpret argv through a shell or
+ * change the observable result while it redirects output through scarce file
+ * descriptors.
+ *
+ * 1. Preserve literal argv, cwd, environment, stdout and stderr.
+ * 2. Preserve nonzero, missing-command, signal and timeout results.
+ * 3. Remove every broker result file after the parent consumes it.
+ */
 export const test_spawn_sync_resilient_broker_preserves_process_contract =
   (): void => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-spawn-broker-"));

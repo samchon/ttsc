@@ -265,7 +265,9 @@ export async function assertViteWatchFallbackWorkIsBounded(): Promise<void> {
       return { close: () => undefined };
     },
   });
-  const count = 128;
+  // One entry beyond the per-tick budget proves both the cap and eventual
+  // progress without making this constant-cost scheduler test do extra work.
+  const count = 65;
   const nodes = new Map<string, Set<{ file: string }>>();
   watch.attach({
     config: { root },
@@ -286,7 +288,7 @@ export async function assertViteWatchFallbackWorkIsBounded(): Promise<void> {
     }
     assert.ok(poll, "failed native observation must start the shared fallback");
     const tick = poll;
-    for (const expected of [64, 128]) {
+    for (const expected of [64, 65]) {
       tick();
       assert.equal(
         invalidated.size,

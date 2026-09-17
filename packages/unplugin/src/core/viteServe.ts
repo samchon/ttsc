@@ -170,6 +170,7 @@ export function createViteServeInputWatch(
 
   const remove = (entry: InputEntry): void => {
     entries.delete(entry.file);
+    pending.delete(entry);
     polled.delete(entry);
     for (const alias of entry.aliases) unbindAlias(alias, entry);
     entry.aliases.clear();
@@ -189,6 +190,14 @@ export function createViteServeInputWatch(
       link?.inputs.delete(entry);
       if (link?.inputs.size === 0) links.delete(file);
     }
+    entry.links.clear();
+    // Component resolution is only an observation-time optimization. Entries
+    // can introduce arbitrary missing ancestors, so discard the shared memo
+    // when one leaves rather than retaining its path components indefinitely.
+    componentLinks.clear();
+    missingComponents.clear();
+    if (links.size === 0) linkIterator = undefined;
+    if (polled.size === 0) pollIterator = undefined;
   };
 
   const check = (selected: Iterable<InputEntry>): void => {
@@ -570,7 +579,8 @@ export function createViteServeInputWatch(
           remove(entry);
         }
       }
-      importerInputs.set(importer, current);
+      if (current.size === 0) importerInputs.delete(importer);
+      else importerInputs.set(importer, current);
       // Registration and removal can each touch thousands of compiler inputs.
       // Decide the one shared poller's state once per atomic replacement,
       // rather than rescanning the whole graph once per input.
