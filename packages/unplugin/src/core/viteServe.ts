@@ -227,15 +227,14 @@ export function createViteServeInputWatch(
   ): { direct: Set<string>; parent: Set<string> } => {
     const absolute = path.resolve(file);
     const parent = path.dirname(absolute);
-    // Retain both sides of a topology transition. A newly created Windows
-    // directory can carry a different case policy from the missing spelling
-    // recorded before the rename; either key must still reach the old index.
     const direct = new Set<string>();
     const parents = new Set<string>();
     if (eventType === "rename") {
-      direct.add(watchPathKey(absolute));
-      parents.add(watchPathKey(parent));
-      resetPathIdentityMemos();
+      // Keep the active identity context until affected entries are removed.
+      // Their alias and scope indexes were built with that context; changing
+      // only the resolver here could make later events unable to reach them.
+      // `check()` resets the memos atomically if this topology change removes
+      // an entry, while unrelated renames leave still-valid indexes intact.
       componentLinks.clear();
       missingComponents.clear();
     }
