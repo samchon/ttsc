@@ -102,7 +102,6 @@ async function main(): Promise<void> {
       graphFanout: 50,
       // One partitioned external, the config chain and the delivered file's own
       // entry. Nothing here may grow with the envelope's size.
-      lstatBudget: 8,
       partitionExternalInputs: true,
       readBudget: 0,
       syscallBudget: 1,
@@ -158,12 +157,8 @@ async function main(): Promise<void> {
       emitExternalKey: false,
       graphFanout: sharedClosureModules,
       graphGlobals: 50,
-      // What the producer declared: its reported dependencies (the chain
-      // sibling and every external) plus the universal inputs. The globals and
-      // the reach that the declaration drops must not reappear, which is the
-      // claim this scenario exists to hold, so the budget sits below the
-      // undeclared scenario above rather than at a round number.
-      lstatBudget: 60,
+      // The producer-declared dependencies must collapse into the generation's
+      // shared proof, leaving only the delivered module's metadata check.
       partitionExternalInputs: false,
       readBudget: 0,
       syscallBudget: 1,
@@ -285,14 +280,6 @@ interface MeasureOptions {
    * for a graph-bearing envelope.
    */
   graphGlobals?: number;
-  /**
-   * Metadata calls one delivery may spend on the file's own derived inputs.
-   *
-   * The term the declaration path owns: it is the size of what the producer
-   * declared, or the whole reference closure when it declared nothing, so a
-   * scenario states the number its own envelope justifies.
-   */
-  lstatBudget?: number;
   /** Give each module one disjoint external edge instead of the whole union. */
   partitionExternalInputs?: boolean;
   /** Source-byte reads one unchanged delivery may perform. */
@@ -580,9 +567,8 @@ async function measureGraphBuild(
  * module reaches the same externals and the same globals — the shape a real
  * program has, since a program's global-scope declarations belong to all of it
  * — so reads grow with that shared set unless one generation's proof of an
- * input is reused across its sibling deliveries. Both are gated by the same
- * per-file read budget; the stat budget is per scenario, because missing
- * resolution candidates cannot be proven absent by metadata.
+ * input is reused across its sibling deliveries. Every shape is gated by the
+ * same zero-read, one-filesystem-call steady-state contract.
  */
 async function measureServeValidation(
   adapter: Adapter,
@@ -645,7 +631,6 @@ async function measureServeValidation(
   );
   const readsPerFile = harness.counters.reads / options.count;
   const statsPerFile = harness.counters.stats / options.count;
-  const lstatsPerFile = harness.counters.lstats / options.count;
   const syscallsPerFile = totalSyscalls(harness) / options.count;
   if (pluginRuns !== 1) {
     return `serve validation N=${options.count} K=${options.graphFanout} G=${options.graphGlobals ?? 0}: pluginRuns=${pluginRuns} (expected 1)`;
@@ -666,10 +651,7 @@ async function measureServeValidation(
   if (statsPerFile > MEMBERSHIP_STAT_BUDGET) {
     return `serve validation N=${options.count} dirs=${options.unrelatedDirectoryCount}: stats/file=${statsPerFile.toFixed(1)} exceeds the budget of ${MEMBERSHIP_STAT_BUDGET}`;
   }
-  const lstatBudget = options.lstatBudget;
-  return lstatBudget === undefined || lstatsPerFile <= lstatBudget
-    ? undefined
-    : `serve validation N=${options.count} K=${options.graphFanout} G=${options.graphGlobals ?? 0}: lstats/file=${lstatsPerFile.toFixed(1)} exceeds the budget of ${lstatBudget}`;
+  return undefined;
 }
 
 /**
