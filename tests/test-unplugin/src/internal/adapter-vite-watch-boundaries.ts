@@ -97,6 +97,25 @@ export async function assertViteWatchBoundaries(): Promise<void> {
       "an ancestor directory rename",
     );
 
+    const caseProbe = path.join(root, "Case-Watch-Probe.ts");
+    const alternateCaseProbe = path.join(root, "case-watch-probe.ts");
+    fs.writeFileSync(caseProbe, "probe");
+    const caseInsensitive = fs.existsSync(alternateCaseProbe);
+    fs.unlinkSync(caseProbe);
+    if (caseInsensitive) {
+      watch.replace(
+        importer("case-insensitive-creation"),
+        [{ file: caseProbe, evidence: evidence(caseProbe) }],
+        false,
+        watch.begin(),
+      );
+      fs.writeFileSync(alternateCaseProbe, "created");
+      await waitFor(
+        () => invalidated.has(importer("case-insensitive-creation")),
+        "case-insensitive creation under a different spelling",
+      );
+    }
+
     if (process.platform !== "win32") {
       const externalRoot = TestProject.tmpdir("ttsc-vite-watch-external-link-");
       const external = path.join(externalRoot, "value.txt");

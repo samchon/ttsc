@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { createFilesystemPathIdentityContext } from "ttsc/path-identity";
 
 import {
   type TtscWatchInput,
@@ -140,6 +141,48 @@ export function createViteServeInputWatch(
 
   const open = operations.watch ?? openRecursiveWatch;
   const openPoller = operations.poll ?? openWatchPoller;
+  const caseIdentities = createFilesystemPathIdentityContext({
+    throwOnRealpathError: false,
+  });
+  const directoryCaseSensitivity = new Map<string, boolean>();
+
+  /** Lexical event key under the nearest existing directory's case policy. */
+  const watchPathKey = (file: string): string => {
+    const absolute = path.resolve(file);
+    if (process.platform !== "win32" && process.platform !== "darwin") {
+      return absolute;
+    }
+    let current = path.dirname(absolute);
+    const traversed: string[] = [];
+    let sensitive: boolean | undefined;
+    for (;;) {
+      const cacheKey =
+        process.platform === "win32" ? current.toLowerCase() : current;
+      sensitive = directoryCaseSensitivity.get(cacheKey);
+      if (sensitive !== undefined) break;
+      traversed.push(cacheKey);
+      try {
+        if (fs.statSync(current).isDirectory()) {
+          sensitive = caseIdentities.caseSensitive(current);
+          break;
+        }
+      } catch {
+        // A missing suffix inherits the nearest existing ancestor's policy.
+      }
+      const parent = path.dirname(current);
+      if (parent === current) {
+        // The shared identity resolver uses the platform default when even the
+        // volume root cannot answer the read-only case-sensitivity probe.
+        sensitive = caseIdentities.caseSensitive(current);
+        break;
+      }
+      current = parent;
+    }
+    for (const directory of traversed) {
+      directoryCaseSensitivity.set(directory, sensitive);
+    }
+    return sensitive ? absolute : absolute.toLowerCase();
+  };
 
   const unbindAlias = (alias: string, entry: InputEntry): void => {
     const indexed = aliases.get(alias);
@@ -148,7 +191,7 @@ export function createViteServeInputWatch(
   };
 
   const closeScope = (scope: WatchScope): void => {
-    scopes.delete(scope.root);
+    scopes.delete(watchPathKey(scope.root));
     try {
       scope.watcher?.close();
     } catch {
@@ -160,10 +203,11 @@ export function createViteServeInputWatch(
   const recordChange = (file: string): void => {
     changeSequence += 1;
     const absolute = path.resolve(file);
-    componentLinks.delete(absolute);
-    missingComponents.delete(absolute);
-    changes.set(absolute, changeSequence);
-    changes.set(path.dirname(absolute), changeSequence);
+    const key = watchPathKey(absolute);
+    componentLinks.delete(key);
+    missingComponents.delete(key);
+    changes.set(key, changeSequence);
+    changes.set(watchPathKey(path.dirname(absolute)), changeSequence);
     if (changes.size > MAX_CHANGE_HISTORY) {
       changes.clear();
       historyFloor = changeSequence;
@@ -242,13 +286,13 @@ export function createViteServeInputWatch(
     const absolute = path.resolve(file);
     recordChange(absolute);
     for (const candidate of [absolute, path.dirname(absolute)]) {
-      for (const entry of aliases.get(candidate) ?? []) {
+      for (const entry of aliases.get(watchPathKey(candidate)) ?? []) {
         entry.changedAt = changeSequence;
         pending.add(entry);
       }
     }
     if (eventType === "rename") {
-      for (const entry of renameAliases.get(absolute) ?? []) {
+      for (const entry of renameAliases.get(watchPathKey(absolute)) ?? []) {
         entry.changedAt = changeSequence;
         pending.add(entry);
       }
@@ -264,7 +308,7 @@ export function createViteServeInputWatch(
   };
 
   const bindAlias = (entry: InputEntry, alias: string): void => {
-    alias = path.resolve(alias);
+    alias = watchPathKey(alias);
     if (entry.aliases.has(alias)) return;
     entry.aliases.add(alias);
     let indexed = aliases.get(alias);
@@ -278,12 +322,13 @@ export function createViteServeInputWatch(
   const bindRenameAncestors = (entry: InputEntry, file: string): void => {
     let current = path.dirname(path.resolve(file));
     for (;;) {
-      if (!entry.renameAliases.has(current)) {
-        entry.renameAliases.add(current);
-        let indexed = renameAliases.get(current);
+      const key = watchPathKey(current);
+      if (!entry.renameAliases.has(key)) {
+        entry.renameAliases.add(key);
+        let indexed = renameAliases.get(key);
         if (indexed === undefined) {
           indexed = new Set();
-          renameAliases.set(current, indexed);
+          renameAliases.set(key, indexed);
         }
         indexed.add(entry);
       }
@@ -299,13 +344,13 @@ export function createViteServeInputWatch(
     pinned = false,
   ): WatchScope | undefined => {
     root = path.resolve(root);
-    let scope = scopes.get(root);
+    const key = watchPathKey(root);
+    let scope = scopes.get(key);
     if (scope === undefined) {
       if (
         external &&
-        [...scopes.values()].filter(
-          (candidate) => candidate.root !== projectRoot,
-        ).length >= MAX_EXTERNAL_WATCH_SCOPES
+        [...scopes.values()].filter((candidate) => !candidate.pinned).length >=
+          MAX_EXTERNAL_WATCH_SCOPES
       )
         return undefined;
       scope = {
@@ -315,13 +360,13 @@ export function createViteServeInputWatch(
         root,
         startedAt: changeSequence,
       };
-      scopes.set(root, scope);
+      scopes.set(key, scope);
       try {
         const owned = scope;
         scope.watcher = open(
           root,
           (eventType, file) => {
-            if (scopes.get(root) !== owned) return;
+            if (scopes.get(key) !== owned) return;
             if (file === null) {
               changeSequence += 1;
               historyFloor = changeSequence;
@@ -339,7 +384,7 @@ export function createViteServeInputWatch(
             );
           },
           () => {
-            if (scopes.get(root) !== owned) return;
+            if (scopes.get(key) !== owned) return;
             owned.failed = true;
             try {
               owned.watcher?.close();
@@ -491,6 +536,7 @@ export function createViteServeInputWatch(
         root,
         componentLinks,
         missingComponents,
+        watchPathKey,
       )) {
         bindAlias(entry, linkedFile);
         let link = links.get(linkedFile);
@@ -705,6 +751,7 @@ function linkedComponents(
   root: string,
   cached: Map<string, string | null>,
   missing: Set<string>,
+  keyOf: (file: string) => string,
 ): string[] {
   const relative = path.relative(root, file);
   if (
@@ -718,21 +765,22 @@ function linkedComponents(
   let current = path.resolve(root);
   for (const component of relative.split(path.sep).slice(0, -1)) {
     current = path.join(current, component);
-    if (missing.has(current)) break;
-    const known = cached.get(current);
+    const key = keyOf(current);
+    if (missing.has(key)) break;
+    const known = cached.get(key);
     if (known !== undefined) {
       if (known !== null) output.push(current);
       continue;
     }
     try {
       if (fs.lstatSync(current).isSymbolicLink()) {
-        cached.set(current, realpath(current) ?? current);
+        cached.set(key, realpath(current) ?? current);
         output.push(current);
       } else {
-        cached.set(current, null);
+        cached.set(key, null);
       }
     } catch {
-      missing.add(current);
+      missing.add(key);
       break;
     }
   }
