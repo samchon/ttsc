@@ -84,6 +84,10 @@ interface WatchScope {
 }
 
 export interface ViteServeWatchOperations {
+  /** Override case-policy discovery for a simulated host filesystem. */
+  caseSensitive?(directory: string): boolean;
+  /** Override path semantics when testing a non-host platform. */
+  platform?: NodeJS.Platform;
   poll(listener: () => void): { close(): void };
   watch(
     root: string,
@@ -97,6 +101,8 @@ export interface ViteServeInputWatch {
   attach(server: ViteDevServerLike): void;
   begin(): number;
   dispose(): Promise<void>;
+  /** Release every compiler input owned by one removed source module. */
+  forget(importer: string): void;
   replace(
     importer: string,
     inputs: readonly TtscWatchInput[],
@@ -142,23 +148,37 @@ export function createViteServeInputWatch(
 
   const open = operations.watch ?? openRecursiveWatch;
   const openPoller = operations.poll ?? openWatchPoller;
-  const caseIdentities = createFilesystemPathIdentityContext({
-    throwOnRealpathError: false,
-  });
+  const platform = operations.platform ?? process.platform;
+  const createCaseIdentities = () =>
+    createFilesystemPathIdentityContext({
+      ...(operations.caseSensitive === undefined
+        ? {}
+        : { caseSensitive: operations.caseSensitive }),
+      platform,
+      throwOnRealpathError: false,
+    });
+  let caseIdentities = createCaseIdentities();
   const directoryCaseSensitivity = new Map<string, boolean>();
+  let pathIdentityMemosDirty = false;
+
+  /** Drop path facts after topology or ownership changes make them stale. */
+  const resetPathIdentityMemos = (): void => {
+    caseIdentities = createCaseIdentities();
+    directoryCaseSensitivity.clear();
+    pathIdentityMemosDirty = false;
+  };
 
   /** Lexical event key under the nearest existing directory's case policy. */
   const watchPathKey = (file: string): string => {
     const absolute = path.resolve(file);
-    if (process.platform !== "win32" && process.platform !== "darwin") {
+    if (platform !== "win32" && platform !== "darwin") {
       return absolute;
     }
     let current = path.dirname(absolute);
     const traversed: string[] = [];
     let sensitive: boolean | undefined;
     for (;;) {
-      const cacheKey =
-        process.platform === "win32" ? current.toLowerCase() : current;
+      const cacheKey = platform === "win32" ? current.toLowerCase() : current;
       sensitive = directoryCaseSensitivity.get(cacheKey);
       if (sensitive !== undefined) break;
       traversed.push(cacheKey);
@@ -201,18 +221,38 @@ export function createViteServeInputWatch(
     scope.watcher = undefined;
   };
 
-  const recordChange = (file: string): void => {
-    changeSequence += 1;
+  const recordChange = (
+    eventType: string,
+    file: string,
+  ): { direct: Set<string>; parent: Set<string> } => {
     const absolute = path.resolve(file);
-    const key = watchPathKey(absolute);
-    componentLinks.delete(key);
-    missingComponents.delete(key);
-    changes.set(key, changeSequence);
-    changes.set(watchPathKey(path.dirname(absolute)), changeSequence);
+    const parent = path.dirname(absolute);
+    // Retain both sides of a topology transition. A newly created Windows
+    // directory can carry a different case policy from the missing spelling
+    // recorded before the rename; either key must still reach the old index.
+    const direct = new Set<string>();
+    const parents = new Set<string>();
+    if (eventType === "rename") {
+      direct.add(watchPathKey(absolute));
+      parents.add(watchPathKey(parent));
+      resetPathIdentityMemos();
+      componentLinks.clear();
+      missingComponents.clear();
+    }
+    changeSequence += 1;
+    direct.add(watchPathKey(absolute));
+    parents.add(watchPathKey(parent));
+    for (const key of direct) {
+      componentLinks.delete(key);
+      missingComponents.delete(key);
+      changes.set(key, changeSequence);
+    }
+    for (const key of parents) changes.set(key, changeSequence);
     if (changes.size > MAX_CHANGE_HISTORY) {
       changes.clear();
       historyFloor = changeSequence;
     }
+    return { direct, parent: parents };
   };
 
   const remove = (entry: InputEntry): void => {
@@ -245,6 +285,7 @@ export function createViteServeInputWatch(
     missingComponents.clear();
     if (links.size === 0) linkIterator = undefined;
     if (polled.size === 0) pollIterator = undefined;
+    pathIdentityMemosDirty = true;
   };
 
   const check = (selected: Iterable<InputEntry>): void => {
@@ -276,6 +317,7 @@ export function createViteServeInputWatch(
         remove(entry);
       }
     }
+    if (pathIdentityMemosDirty) resetPathIdentityMemos();
     updatePoller();
     if (server !== undefined && importers.size !== 0) {
       invalidateImporters(server, importers);
@@ -285,23 +327,34 @@ export function createViteServeInputWatch(
 
   const enqueue = (eventType: string, file: string): void => {
     const absolute = path.resolve(file);
-    recordChange(absolute);
-    for (const candidate of [absolute, path.dirname(absolute)]) {
-      for (const entry of aliases.get(watchPathKey(candidate)) ?? []) {
+    const eventKeys = recordChange(eventType, absolute);
+    for (const key of eventKeys.direct) {
+      for (const entry of aliases.get(key) ?? []) {
+        entry.changedAt = changeSequence;
+        pending.add(entry);
+      }
+    }
+    for (const key of eventKeys.parent) {
+      for (const entry of aliases.get(key) ?? []) {
         entry.changedAt = changeSequence;
         pending.add(entry);
       }
     }
     if (eventType === "rename") {
-      const exact = renameAliases.get(watchPathKey(absolute));
+      const exact = new Set<InputEntry>();
+      for (const key of eventKeys.direct) {
+        for (const entry of renameAliases.get(key) ?? []) exact.add(entry);
+      }
       // Linux may report only the destination spelling of a directory rename.
       // That spelling cannot be indexed before the move. Fall back to the
       // renamed entry's parent only when no exact old spelling matched; the
       // baseline check below still invalidates solely inputs that really moved.
-      const selected =
-        exact !== undefined && exact.size !== 0
-          ? exact
-          : (renameAliases.get(watchPathKey(path.dirname(absolute))) ?? []);
+      const selected = exact;
+      if (selected.size === 0) {
+        for (const key of eventKeys.parent) {
+          for (const entry of renameAliases.get(key) ?? []) selected.add(entry);
+        }
+      }
       for (const entry of selected) {
         entry.changedAt = changeSequence;
         pending.add(entry);
@@ -383,6 +436,7 @@ export function createViteServeInputWatch(
           (eventType, file) => {
             if (scopes.get(key) !== owned) return;
             if (file === null) {
+              resetPathIdentityMemos();
               changeSequence += 1;
               historyFloor = changeSequence;
               changes.clear();
@@ -600,7 +654,23 @@ export function createViteServeInputWatch(
       poller = undefined;
       flushTimer = undefined;
       for (const scope of [...scopes.values()]) closeScope(scope);
+      resetPathIdentityMemos();
       // Retain the attached server across overlapping Vite restart containers.
+    },
+    forget(importer) {
+      importer = path.resolve(importer);
+      const previous = importerInputs.get(importer);
+      if (previous === undefined) return;
+      importerInputs.delete(importer);
+      for (const [file, key] of previous) {
+        const entry = entries.get(file);
+        const condition = entry?.conditions.get(key);
+        condition?.importers.delete(importer);
+        if (condition?.importers.size === 0) entry?.conditions.delete(key);
+        if (entry?.conditions.size === 0) remove(entry);
+      }
+      if (pathIdentityMemosDirty) resetPathIdentityMemos();
+      updatePoller();
     },
     replace(importer, inputs, failed = false, startedAt) {
       if (server === undefined) return;
@@ -670,6 +740,7 @@ export function createViteServeInputWatch(
           remove(entry);
         }
       }
+      if (pathIdentityMemosDirty) resetPathIdentityMemos();
       if (current.size === 0) importerInputs.delete(importer);
       else importerInputs.set(importer, current);
       // Registration and removal can each touch thousands of compiler inputs.

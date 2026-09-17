@@ -117,6 +117,9 @@ const unpluginFactory: UnpluginFactory<
       configureServer(server) {
         serveInputs.attach(server);
       },
+      watchChange(id, change) {
+        if (change.event === "delete") serveInputs.forget(stripQuery(id));
+      },
       // Vite calls buildEnd when the dev server closes, and Rollup calls it at
       // the end of every build phase; drop every poller and, once the last
       // overlapping container has closed, every generation-owned filesystem

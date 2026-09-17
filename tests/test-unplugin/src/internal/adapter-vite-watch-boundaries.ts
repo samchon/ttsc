@@ -6,7 +6,7 @@ import { performance } from "node:perf_hooks";
 
 import { captureWatchInputBaseline } from "../../../../packages/unplugin/lib/core/transform.js";
 import { createViteServeInputWatch } from "../../../../packages/unplugin/lib/core/viteServe.js";
-import { waitFor } from "./adapter-vite-serve";
+import { loadViteAdapterPlugin, waitFor } from "./adapter-vite-serve";
 
 /**
  * Exercise subscription races, lexical aliases and predicates on the real
@@ -191,6 +191,8 @@ export async function assertViteWatchBoundaries(): Promise<void> {
   await assertExistingViteSubscriptionClosesCompileRace(root);
   await assertExternalViteSubscriptionClosesCompileRace(root);
   await assertViteHardlinkFallbackInvalidates(root);
+  await assertViteCaseIdentityMemosReset(root);
+  await assertViteDeletedImporterReleasesFallback(root);
 }
 
 /** An existing input must use its event witness when a new proof replaces it. */
@@ -357,6 +359,127 @@ async function assertViteHardlinkFallbackInvalidates(
   } finally {
     await watch.dispose();
   }
+}
+
+/** A server restart must discard cached physical and case identity facts. */
+async function assertViteCaseIdentityMemosReset(root: string): Promise<void> {
+  let caseProbes = 0;
+  const watch = createViteServeInputWatch({
+    caseSensitive() {
+      caseProbes += 1;
+      return true;
+    },
+    platform: "darwin",
+    watch() {
+      return { close: () => undefined };
+    },
+  });
+  const file = path.join(root, "case-memo", "input.txt");
+  const importer = path.join(root, "case-memo.ts").replace(/\\/g, "/");
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, "value");
+  const register = () => {
+    const baseline = captureWatchInputBaseline(file);
+    assert.ok(baseline);
+    watch.attach({ config: { root } });
+    watch.replace(importer, [
+      {
+        file,
+        evidence: {
+          identity: baseline.identity,
+          missing: false,
+          state: { codec: "host", hash: baseline.hostHash },
+        },
+      },
+    ]);
+  };
+
+  register();
+  const firstSessionProbes = caseProbes;
+  assert.ok(firstSessionProbes > 0, "the simulated Darwin host must be probed");
+  await watch.dispose();
+  register();
+  try {
+    assert.ok(
+      caseProbes > firstSessionProbes,
+      "a replacement server must rediscover case policy instead of retaining the old session's path cache",
+    );
+  } finally {
+    await watch.dispose();
+  }
+}
+
+/** Deleting an importer must release its private hardlink fallback state. */
+async function assertViteDeletedImporterReleasesFallback(
+  root: string,
+): Promise<void> {
+  const plugin = await loadViteAdapterPlugin();
+  assert.equal(
+    typeof plugin.watchChange,
+    "function",
+    "the published Vite adapter must forward source deletion to private input cleanup",
+  );
+  let poll: (() => void) | undefined;
+  let closed = 0;
+  const watch = createViteServeInputWatch({
+    poll(listener) {
+      poll = listener;
+      return {
+        close() {
+          poll = undefined;
+          closed += 1;
+        },
+      };
+    },
+    watch() {
+      return { close: () => undefined };
+    },
+  });
+  const file = path.join(root, "deleted-importer-input.txt");
+  const alias = path.join(
+    TestProject.tmpdir("ttsc-vite-watch-deleted-importer-"),
+    "alias.txt",
+  );
+  const importer = path.join(root, "deleted-importer.ts").replace(/\\/g, "/");
+  const survivor = path.join(root, "surviving-importer.ts").replace(/\\/g, "/");
+  fs.writeFileSync(file, "value");
+  fs.linkSync(file, alias);
+  const baseline = captureWatchInputBaseline(file);
+  assert.ok(baseline);
+  watch.attach({ config: { root } });
+  try {
+    const input = {
+      file,
+      evidence: {
+        identity: baseline.identity,
+        missing: false as const,
+        state: { codec: "host" as const, hash: baseline.hostHash },
+      },
+    };
+    watch.replace(importer, [input]);
+    watch.replace(survivor, [input]);
+    assert.ok(poll, "a multiply linked input must own fallback work");
+    watch.forget(importer);
+    assert.ok(
+      poll,
+      "deleting one importer must retain fallback work owned by another importer",
+    );
+    assert.equal(closed, 0, "shared fallback work must remain open");
+    watch.forget(survivor);
+    assert.equal(
+      poll,
+      undefined,
+      "a deleted importer must leave no fallback work",
+    );
+    assert.equal(
+      closed,
+      1,
+      "the unused shared scheduler must close immediately",
+    );
+  } finally {
+    await watch.dispose();
+  }
+  assert.equal(closed, 1, "server disposal must not re-close the scheduler");
 }
 
 /** Prove native watch resources stay constant as the compiler graph grows. */
