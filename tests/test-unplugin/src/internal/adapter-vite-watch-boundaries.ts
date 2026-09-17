@@ -364,13 +364,16 @@ async function assertViteHardlinkFallbackInvalidates(
 /** A server restart must discard cached physical and case identity facts. */
 async function assertViteCaseIdentityMemosReset(root: string): Promise<void> {
   let caseProbes = 0;
+  let caseSensitive = true;
+  let emit: ((eventType: string, file: string | null) => void) | undefined;
   const watch = createViteServeInputWatch({
     caseSensitive() {
       caseProbes += 1;
-      return true;
+      return caseSensitive;
     },
     platform: "darwin",
-    watch() {
+    watch(_root, listener) {
+      emit = listener;
       return { close: () => undefined };
     },
   });
@@ -397,6 +400,13 @@ async function assertViteCaseIdentityMemosReset(root: string): Promise<void> {
   register();
   const firstSessionProbes = caseProbes;
   assert.ok(firstSessionProbes > 0, "the simulated Darwin host must be probed");
+  caseSensitive = false;
+  emit?.("rename", file);
+  assert.equal(
+    caseProbes,
+    firstSessionProbes,
+    "a topology event must not switch the identity context underneath live path indexes",
+  );
   await watch.dispose();
   register();
   try {
