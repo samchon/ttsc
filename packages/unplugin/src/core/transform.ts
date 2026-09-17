@@ -144,6 +144,8 @@ interface TtscProjectMutationTracker {
   drain?: () => Promise<void>;
   failed: boolean;
   membershipChanged: boolean;
+  /** Compare event and input paths through this tracker's filesystem identity. */
+  overlaps?: (input: string, changed: string) => boolean;
   settle?: Promise<void>;
 }
 
@@ -1329,10 +1331,14 @@ interface TtscHostInputValidation {
     {
       path: string;
       /**
-       * Whether the recorded state of this input came from reading its bytes.
-       * An input that existed but could not be read records a missing state, so
-       * no signature may stand in for it: its metadata holds still while the
-       * bytes behind it appear.
+       * Whether the recorded state of this input has been matched to readable
+       * bytes. Capture sets it immediately for compiler-proven inputs; a
+       * current module supplied from an editor buffer can earn it later after
+       * its disk bytes match the recorded source.
+       *
+       * An input that still cannot be read records a missing state, so no
+       * signature may stand in for it: its metadata holds still while the bytes
+       * behind it appear.
        */
       readable: boolean;
       realpath: string | null;
@@ -2773,7 +2779,10 @@ function trackerProvesInputUnchanged(
   const absolute = path.resolve(input);
   if (tracker.covered?.has(absolute) !== true) return false;
   for (const changed of tracker.changes) {
-    if (pathIsWithin(absolute, changed) || pathIsWithin(changed, absolute)) {
+    if (
+      tracker.overlaps?.(absolute, changed) ??
+      (pathIsWithin(absolute, changed) || pathIsWithin(changed, absolute))
+    ) {
       return false;
     }
   }
@@ -2894,12 +2903,7 @@ function notifiesAbsence(
   cached: TtscCachedProjectTransform,
   input: string,
 ): boolean {
-  const tracker = cached.candidateMutationTracker;
-  return (
-    tracker !== undefined &&
-    !tracker.failed &&
-    tracker.covered?.has(path.resolve(input)) === true
-  );
+  return trackerProvesInputUnchanged(cached.candidateMutationTracker, input);
 }
 
 /**
@@ -3000,6 +3004,15 @@ function matchesUniversalHostInputEntries(
       return false;
     if (!matchesRecordedInput(cached, entry.path)) {
       return false;
+    }
+    if (entry.readable === false) {
+      const slot = inputSignatureSlot(
+        cached,
+        envelopeDerivation(cached),
+        entry.path,
+      );
+      entry.readable =
+        slot !== undefined && slot.recorded !== MISSING_INPUT_STATE;
     }
     if (evidence === undefined) return false;
     // Re-earn the proof under the rules the capture applies: an entry whose
@@ -3237,6 +3250,43 @@ function captureUniversalHostInputValidation(
   }
   cached.hostInputValidation = validation;
   return { failures, validation };
+}
+
+/**
+ * Keep watcher silence as a content proof only for inputs whose bytes capture
+ * actually proved.
+ *
+ * The observers must open before the post-compile snapshots so they can witness
+ * an A-B-A race. Their exact coverage can only be narrowed after those reads.
+ * Existing-but-unreadable and absent inputs record the same `missing` state;
+ * neither may inherit a content shortcut because its metadata can stay fixed
+ * while bytes become readable. Missing resolver candidates inside the project
+ * retain their separate component-aware candidate tracker, while every other
+ * such input continues through the recorded predicate or directory-list proof.
+ */
+function restrictNotificationCoverageToProvenInputs(
+  tracker: TtscProjectMutationTracker | undefined,
+  cached: TtscCachedProjectTransform,
+  hostValidation: TtscHostInputValidation | undefined,
+): void {
+  if (!(tracker?.covered instanceof Set)) return;
+  const covered = tracker.covered as Set<string>;
+  const state = envelopeDerivation(cached);
+  for (const input of [...covered]) {
+    const absolute = path.resolve(input);
+    const hostEntry = hostValidation?.entries.get(absolute);
+    if (
+      (hostValidation?.covered.has(absolute) === true &&
+        (hostEntry === undefined ||
+          (hostEntry.readable === false && hostEntry.strict !== true))) ||
+      cached.externalInputHashes?.[derivationIdentity(state, absolute)] ===
+        MISSING_INPUT_STATE ||
+      cached.externalInputObservations?.[absolute]?.readFile?.ok === false ||
+      cached.externalInputObservations?.[absolute]?.fileExists === false
+    ) {
+      covered.delete(input);
+    }
+  }
 }
 
 /**
@@ -4723,13 +4773,19 @@ async function createProjectMutationTracker(
   filesystem: TtscTransformFilesystemOperations = DEFAULT_FILESYSTEM_OPERATIONS,
   policy: ITtscProjectMembershipPolicy = PERMISSIVE_PROJECT_MEMBERSHIP_POLICY,
 ): Promise<TtscProjectMutationTracker> {
+  const identities = createHostPathIdentityContext(filesystem);
   const tracker: TtscProjectMutationTracker = {
     changes: new Set(),
     changesOmitted: false,
-    close: () => undefined,
+    close: () => {
+      tracker.failed = true;
+    },
     covered,
     failed: false,
     membershipChanged: false,
+    overlaps: (input, changed) =>
+      identities.isWithin(input, changed) ||
+      identities.isWithin(changed, input),
     contentAuthoritative: filesystem.watch === undefined,
   };
   const root = commonDirectoryRoot(
@@ -4753,6 +4809,15 @@ async function createProjectMutationTracker(
       )
     );
   };
+  const reportsNewMembership = (
+    location: string,
+    filename: string,
+  ): boolean => {
+    const changed = path.resolve(location, filename);
+    return (
+      !knownDirectories.has(changed) && tracker.covered?.has(changed) !== true
+    );
+  };
   if (process.platform === "win32" && filesystem.watch === undefined) {
     await registerWindowsProjectMutationTracker(
       tracker,
@@ -4762,11 +4827,15 @@ async function createProjectMutationTracker(
       reportsMembership,
       (_location, filename) =>
         isPossibleProgramFileName(path.basename(filename), policy),
+      reportsNewMembership,
     );
     return tracker;
   }
   const watchers: { close: () => void }[] = [];
-  tracker.close = () => closeDirectoryWatches(watchers);
+  tracker.close = () => {
+    tracker.failed = true;
+    closeDirectoryWatches(watchers);
+  };
   try {
     watchers.push(
       openDirectoryWatch(
@@ -4776,7 +4845,11 @@ async function createProjectMutationTracker(
           const changed = filename === null ? root : path.join(root, filename);
           const membership =
             filename === null || reportsMembership(root, filename);
-          if (eventType === "rename" && membership) {
+          if (
+            membership &&
+            (eventType === "rename" ||
+              reportsNewMembership(root, filename ?? ""))
+          ) {
             recordProjectMutation(tracker, changed);
           } else if (
             filename === null ||
@@ -4823,15 +4896,24 @@ async function createHostInputMutationTracker(
   preferredRoot?: string,
 ): Promise<TtscProjectMutationTracker> {
   const identities = createHostPathIdentityContext(filesystem);
+  const linkedAncestors = new Map<string, boolean>();
   const authoritative = new Set(
     [...covered]
       .map((input) => path.resolve(input))
       .filter((input) => {
+        if (pathTraversesSymbolicLink(input, filesystem, linkedAncestors)) {
+          return false;
+        }
         try {
           // A lexical symlink can keep its own directory silent while a target
           // elsewhere changes or appears. Its joined metadata proof must stay
           // on the validation path, including while the link is broken.
-          if (filesystem.lstat(input).isSymbolicLink()) return false;
+          const lexical = filesystem.lstat(input);
+          if (
+            lexical.isSymbolicLink() ||
+            (lexical.isFile() && lexical.nlink > 1n)
+          )
+            return false;
         } catch {
           // A genuinely absent lexical path is covered by its nearest existing
           // ancestor and remains eligible for notification proof.
@@ -4861,7 +4943,7 @@ async function createHostInputMutationTracker(
       ? { directory: path.dirname(absolute), name: path.basename(absolute) }
       : missingPathProbe(absolute, filesystem);
     const internal =
-      internalRoot !== undefined && pathIsWithin(probe.directory, internalRoot);
+      internalRoot !== undefined && pathIsWithin(absolute, internalRoot);
     const directory = internal ? internalRoot : probe.directory;
     const directoryIdentity = identities.resolve(directory);
     let location = locationsByDirectory.get(directoryIdentity.key);
@@ -4890,7 +4972,9 @@ async function createHostInputMutationTracker(
   const tracker: TtscProjectMutationTracker = {
     changes: new Set(),
     changesOmitted: false,
-    close: () => undefined,
+    close: () => {
+      tracker.failed = true;
+    },
     // Coverage is the caller's claim, and it is required rather than derived
     // from the input list: an input is watched by its exact name here, but only
     // the caller knows whether the path leading to it is watched as well, which
@@ -4901,6 +4985,9 @@ async function createHostInputMutationTracker(
     contentAuthoritative: filesystem.watch === undefined,
     failed: false,
     membershipChanged: false,
+    overlaps: (input, changed) =>
+      identities.isWithin(input, changed) ||
+      identities.isWithin(changed, input),
   };
   if (locations.length > MAX_HOST_INPUT_WATCH_SCOPES) {
     // A graph spread over unrelated external roots cannot be folded into one
@@ -4916,9 +5003,17 @@ async function createHostInputMutationTracker(
     );
     if (location === undefined) return false;
     if (location.paths !== undefined) {
-      return location.paths.has(
-        pathIdentityKey(path.resolve(directory, filename), identities),
-      );
+      let changed = path.resolve(directory, filename);
+      for (;;) {
+        if (location.paths.has(pathIdentityKey(changed, identities))) {
+          return true;
+        }
+        const parent = path.dirname(changed);
+        if (parent === changed || !pathIsWithin(parent, location.directory)) {
+          return false;
+        }
+        changed = parent;
+      }
     }
     return location.names.has(
       normalizeHostInputName(filename, identities.caseSensitive(directory)),
@@ -4941,7 +5036,10 @@ async function createHostInputMutationTracker(
     return tracker;
   }
   const watchers: { close: () => void }[] = [];
-  tracker.close = () => closeDirectoryWatches(watchers);
+  tracker.close = () => {
+    tracker.failed = true;
+    closeDirectoryWatches(watchers);
+  };
   for (const location of locations) {
     try {
       watchers.push(
@@ -4953,12 +5051,15 @@ async function createHostInputMutationTracker(
               return;
             }
             if (filename === null || matches(location.directory, filename)) {
-              recordProjectMutation(
-                tracker,
+              const changed =
                 filename === null
                   ? location.directory
-                  : path.join(location.directory, filename),
-              );
+                  : path.join(location.directory, filename);
+              if (eventType === "rename") {
+                recordProjectMutation(tracker, changed);
+              } else {
+                recordProjectChange(tracker, changed);
+              }
             }
           },
           () => {
@@ -4972,6 +5073,47 @@ async function createHostInputMutationTracker(
     }
   }
   return tracker;
+}
+
+/**
+ * Whether any lexical component above an input is a symbolic link or junction.
+ *
+ * A recursive observer follows the component to its current physical target.
+ * Retargeting it can therefore move the input without producing an event on the
+ * old target. Keep those spellings on metadata/realpath validation. The memo
+ * makes this one lstat per distinct directory component for the generation,
+ * rather than one walk per graph input.
+ */
+function pathTraversesSymbolicLink(
+  input: string,
+  filesystem: TtscTransformFilesystemOperations,
+  memo: Map<string, boolean>,
+): boolean {
+  const visited: string[] = [];
+  let current = path.dirname(path.resolve(input));
+  let linked = false;
+  for (;;) {
+    const known = memo.get(current);
+    if (known !== undefined) {
+      linked = known;
+      break;
+    }
+    visited.push(current);
+    try {
+      if (filesystem.lstat(current).isSymbolicLink()) {
+        linked = true;
+        break;
+      }
+    } catch {
+      // A missing component is not a link. Its nearest existing ancestor will
+      // still be inspected before the walk reaches the volume root.
+    }
+    const parent = path.dirname(current);
+    if (parent === current) break;
+    current = parent;
+  }
+  for (const directory of visited) memo.set(directory, linked);
+  return linked;
 }
 
 /**
@@ -5105,6 +5247,8 @@ interface WindowsProjectMutationBroker {
       membership?: (location: string, filename: string) => boolean;
       /** Whether one named event can change compiler-consumed content. */
       content?: (location: string, filename: string) => boolean;
+      /** Classify a backend `change` that can add one unknown program path. */
+      changeAddsMembership?: (location: string, filename: string) => boolean;
       ready: () => void;
       /**
        * The walk's own spelling for each canonical directory the child watches,
@@ -5148,6 +5292,7 @@ async function registerWindowsProjectMutationTracker(
    */
   membership?: (location: string, filename: string) => boolean,
   content?: (location: string, filename: string) => boolean,
+  changeAddsMembership?: (location: string, filename: string) => boolean,
 ): Promise<void> {
   const broker = getWindowsProjectMutationBroker();
   // The child watches canonical directories, and reports its events under that
@@ -5182,6 +5327,7 @@ async function registerWindowsProjectMutationTracker(
     resolveReady = resolve;
   });
   broker.trackers.set(id, {
+    ...(changeAddsMembership === undefined ? {} : { changeAddsMembership }),
     ...(content === undefined ? {} : { content }),
     ...(membership === undefined ? {} : { membership }),
     ready: resolveReady,
@@ -5190,6 +5336,7 @@ async function registerWindowsProjectMutationTracker(
   });
   tracker.drain = () => drainWindowsProjectMutationBroker(broker);
   tracker.close = () => {
+    tracker.failed = true;
     const active = broker.trackers.get(id);
     if (active === undefined) return;
     broker.trackers.delete(id);
@@ -5318,7 +5465,12 @@ function getWindowsProjectMutationBroker(): WindowsProjectMutationBroker {
           registration.membership !== undefined
         ) {
           const membership = registration.membership(reported, record.filename);
-          if (record.eventType === "rename" && membership) {
+          if (
+            membership &&
+            (record.eventType === "rename" ||
+              registration.changeAddsMembership?.(reported, record.filename) ===
+                true)
+          ) {
             recordProjectMutation(registration.tracker, changed);
             return;
           }
@@ -5446,16 +5598,18 @@ const WINDOWS_WATCH_BROKER_SOURCE = [
 ].join("\n");
 
 /**
- * Report whether either live notification observed a membership event. This is
- * positive evidence that the generation is stale, so it outranks the question
- * of whether the notifications still work.
+ * Report whether the project walk observed a membership event. This is positive
+ * evidence that the program's root set changed, so it outranks the question of
+ * whether the notifications still work.
+ *
+ * Host and resolution-candidate trackers cover the union of every module's
+ * inputs. Their events remain path witnesses: the requested module's narrow
+ * validation decides whether that path is relevant. Promoting one of them to a
+ * project-wide verdict would discard a generation when an unreachable external
+ * input changes, defeating per-file completeness and doing needless compiles.
  */
 function reportsMembershipChange(cached: TtscCachedProjectTransform): boolean {
-  return (
-    cached.projectMutationTracker?.membershipChanged === true ||
-    cached.hostInputMutationTracker?.membershipChanged === true ||
-    cached.candidateMutationTracker?.membershipChanged === true
-  );
+  return cached.projectMutationTracker?.membershipChanged === true;
 }
 
 /**
@@ -6526,6 +6680,7 @@ function declaredProjectInputKeys(
   if (state.declaredInputKeysBuilt !== true) {
     state.declaredInputKeys = selectDeclaredProjectInputKeys({
       identities: state.identityContext,
+      projectInputHashes: cached.inputHashes,
       projectRoot: cached.projectRoot,
       result: cached.result,
       scratchDirectory: cached.scratchDirectory,
@@ -6538,11 +6693,16 @@ function declaredProjectInputKeys(
 /**
  * Project-walk keys of every input the envelope declares: the reference graph's
  * edge endpoints, globals, config chain, and resolution candidates, plus the
- * universal host inputs. Returns `undefined` for an envelope with no graph,
- * which declares no input set and therefore keeps whole-walk comparison.
+ * universal host inputs, intersected with the files the project walk actually
+ * hashed. Out-of-walk declarations and candidates carry their own graph proof;
+ * asking the project observer to witness them as well makes unrelated activity
+ * in ignored directories invalidate an otherwise complete generation. Returns
+ * `undefined` for an envelope with no graph, which declares no input set and
+ * therefore keeps whole-walk comparison.
  */
 function selectDeclaredProjectInputKeys(props: {
   identities: FilesystemPathIdentityContext;
+  projectInputHashes: Readonly<Record<string, string>>;
   projectRoot: string;
   result: ITtscCompilerTransformation;
   scratchDirectory?: string;
@@ -6556,7 +6716,10 @@ function selectDeclaredProjectInputKeys(props: {
     if (typeof entry !== "string" || entry.length === 0) return;
     const absolute = path.resolve(props.projectRoot, entry);
     if (isTransformScratchInput(absolute, props.scratchDirectory)) return;
-    keys.add(toProjectKey(props.projectRoot, absolute, props.identities));
+    const key = toProjectKey(props.projectRoot, absolute, props.identities);
+    if (Object.prototype.hasOwnProperty.call(props.projectInputHashes, key)) {
+      keys.add(key);
+    }
   };
   for (const [source, targets] of Object.entries(graph.edges ?? {})) {
     add(source);
@@ -7123,6 +7286,7 @@ async function captureTransformGeneration(props: {
     // provable from its own recorded state.
     const declaredInputs = selectDeclaredProjectInputKeys({
       identities,
+      projectInputHashes: inputSnapshot.hashes,
       projectRoot,
       result,
       scratchDirectory,
@@ -7248,6 +7412,11 @@ async function captureTransformGeneration(props: {
     const universalInputCapture = captureUniversalHostInputValidation(
       cached,
       props.currentFile,
+    );
+    restrictNotificationCoverageToProvenInputs(
+      hostInputTracker,
+      cached,
+      universalInputCapture.validation,
     );
     mergeGenerationProofFailures(failures, universalInputCapture.failures);
     const graphProofs =

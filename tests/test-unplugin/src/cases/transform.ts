@@ -70,11 +70,11 @@ export const TRANSFORM_CASES = {
       };
       return await execute();
     },
-  case_transformttsc_build_passes_open_no_filesystem_watchers: async () => {
-    const { assertDeliveryPassesOpenNoFilesystemWatchers } =
+  case_transformttsc_build_passes_retain_no_filesystem_watchers: async () => {
+    const { assertDeliveryPassesRetainNoFilesystemWatchers } =
       await import("../internal/transform-delivery-epoch");
     const execute = async () => {
-      await assertDeliveryPassesOpenNoFilesystemWatchers();
+      await assertDeliveryPassesRetainNoFilesystemWatchers();
     };
     return await execute();
   },

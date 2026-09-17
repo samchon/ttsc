@@ -292,7 +292,16 @@ export function createViteServeInputWatch(
       }
     }
     if (eventType === "rename") {
-      for (const entry of renameAliases.get(watchPathKey(absolute)) ?? []) {
+      const exact = renameAliases.get(watchPathKey(absolute));
+      // Linux may report only the destination spelling of a directory rename.
+      // That spelling cannot be indexed before the move. Fall back to the
+      // renamed entry's parent only when no exact old spelling matched; the
+      // baseline check below still invalidates solely inputs that really moved.
+      const selected =
+        exact !== undefined && exact.size !== 0
+          ? exact
+          : (renameAliases.get(watchPathKey(path.dirname(absolute))) ?? []);
+      for (const entry of selected) {
         entry.changedAt = changeSequence;
         pending.add(entry);
       }

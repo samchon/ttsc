@@ -66,8 +66,8 @@ async function deliverPass(session: IDeliveryPassSession): Promise<void> {
   }
 }
 
-/** Prove delivery-pass caches own no native filesystem watchers. */
-export async function assertDeliveryPassesOpenNoFilesystemWatchers(): Promise<void> {
+/** Prove delivery-pass caches retain no native filesystem watchers. */
+export async function assertDeliveryPassesRetainNoFilesystemWatchers(): Promise<void> {
   const api = await TestUnpluginRuntime.loadUnpluginApi();
   const project = createCacheProject({ fileCount: 4, graphFanout: 1 });
   let opened = 0;
@@ -95,7 +95,16 @@ export async function assertDeliveryPassesOpenNoFilesystemWatchers(): Promise<vo
     api.beginTtscTransformBuild(cache);
     fs.appendFileSync(modules[0]!, "\nexport const changed = 1;\n", "utf8");
     for (const file of modules) assert.ok(await deliver(file));
-    assert.equal(opened, 0, "pass-scoped validation must open no watchers");
+    assert.equal(
+      opened,
+      2,
+      "each native compile must open one bounded A-B-A witness",
+    );
+    assert.equal(
+      closed,
+      opened,
+      "a build-scoped generation must close its witness before delivery",
+    );
     assert.equal(
       fs.readFileSync(project.runLog, "utf8").length,
       2,
@@ -104,7 +113,7 @@ export async function assertDeliveryPassesOpenNoFilesystemWatchers(): Promise<vo
   } finally {
     api.resetTtscTransformCache(cache);
   }
-  assert.equal(closed, 0, "watcher-free teardown must have nothing to close");
+  assert.equal(closed, opened, "teardown must retain no build-scoped watcher");
 }
 
 /** Prove the complete transform survives Darwin's high-descriptor spawn edge. */
