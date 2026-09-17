@@ -1,4 +1,3 @@
-import { type FSWatcher, watch } from "chokidar";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -44,6 +43,7 @@ interface ViteEnvironmentLike {
  * carries.
  */
 export interface ViteDevServerLike {
+  config?: { root?: string };
   environments?: Record<string, ViteEnvironmentLike>;
   hot?: ViteHotChannelLike;
   moduleGraph?: ViteModuleGraphLike;
@@ -57,12 +57,12 @@ interface InputCondition {
 }
 
 interface InputEntry {
+  aliases: Set<string>;
   conditions: Map<string, InputCondition>;
+  fallback: boolean;
   file: string;
-  /** Missing paths and directory predicates still need the predicate poll. */
-  poll: boolean;
-  observed: boolean;
   links: Set<string>;
+  scopes: Set<WatchScope>;
 }
 
 interface LinkedPath {
@@ -70,19 +70,38 @@ interface LinkedPath {
   inputs: Set<InputEntry>;
 }
 
+interface WatchScope {
+  entries: Set<InputEntry>;
+  failed: boolean;
+  root: string;
+  pinned: boolean;
+  startedAt: number;
+  watcher?: { close(): void };
+}
+
+export interface ViteServeWatchOperations {
+  watch(
+    root: string,
+    listener: (file: string | null) => void,
+    onError: () => void,
+  ): { close(): void };
+}
+
 /** Serve-time compiler dependencies never enter Vite's runtime import graph. */
 export interface ViteServeInputWatch {
   attach(server: ViteDevServerLike): void;
+  begin(): number;
   dispose(): Promise<void>;
   replace(
     importer: string,
     inputs: readonly TtscWatchInput[],
     failed?: boolean,
+    startedAt?: number,
   ): void;
 }
 
 /**
- * One filesystem subscription per unique input, shared by all served modules.
+ * A bounded recursive filesystem observer shared by all served modules.
  *
  * Vite resolves transform-context addWatchFile as a runtime import, including
  * type-only .server files and non-module plugin assets. Use a separate watcher
@@ -92,20 +111,68 @@ export interface ViteServeInputWatch {
  * Linked files also share topology checks by directory because retargeting a
  * junction need not emit events on its previously watched descendants.
  */
-export function createViteServeInputWatch(): ViteServeInputWatch {
+export function createViteServeInputWatch(
+  operations: Partial<ViteServeWatchOperations> = {},
+): ViteServeInputWatch {
   const entries = new Map<string, InputEntry>();
+  const aliases = new Map<string, Set<InputEntry>>();
   const importerInputs = new Map<string, Map<string, string>>();
   const pending = new Set<InputEntry>();
+  const polled = new Set<InputEntry>();
   const links = new Map<string, LinkedPath>();
+  const scopes = new Map<string, WatchScope>();
+  const componentLinks = new Map<string, string | null>();
+  const missingComponents = new Set<string>();
+  const changes = new Map<string, number>();
   let server: ViteDevServerLike | undefined;
-  let watcher: FSWatcher | undefined;
+  let projectRoot: string | undefined;
+  let changeSequence = 0;
+  let historyFloor = 0;
+  let linkCursor = 0;
   let poller: NodeJS.Timeout | undefined;
   let flushTimer: NodeJS.Timeout | undefined;
-  let failed = false;
+
+  const open = operations.watch ?? openRecursiveWatch;
+
+  const unbindAlias = (alias: string, entry: InputEntry): void => {
+    const indexed = aliases.get(alias);
+    indexed?.delete(entry);
+    if (indexed?.size === 0) aliases.delete(alias);
+  };
+
+  const closeScope = (scope: WatchScope): void => {
+    scopes.delete(scope.root);
+    try {
+      scope.watcher?.close();
+    } catch {
+      // The generation no longer trusts this scope, so cleanup is best effort.
+    }
+    scope.watcher = undefined;
+  };
+
+  const recordChange = (file: string): void => {
+    changeSequence += 1;
+    const absolute = path.resolve(file);
+    componentLinks.delete(absolute);
+    missingComponents.delete(absolute);
+    changes.set(absolute, changeSequence);
+    changes.set(path.dirname(absolute), changeSequence);
+    if (changes.size > MAX_CHANGE_HISTORY) {
+      changes.clear();
+      historyFloor = changeSequence;
+    }
+  };
 
   const remove = (entry: InputEntry): void => {
     entries.delete(entry.file);
-    watcher?.unwatch(entry.file);
+    polled.delete(entry);
+    for (const alias of entry.aliases) unbindAlias(alias, entry);
+    entry.aliases.clear();
+    for (const scope of entry.scopes) {
+      scope.entries.delete(entry);
+      if (scope.entries.size === 0 && !scope.pinned) closeScope(scope);
+    }
+    entry.scopes.clear();
     for (const file of entry.links) {
       const link = links.get(file);
       link?.inputs.delete(entry);
@@ -142,19 +209,18 @@ export function createViteServeInputWatch(): ViteServeInputWatch {
         remove(entry);
       }
     }
+    updatePoller();
     if (server !== undefined && importers.size !== 0) {
       invalidateImporters(server, importers);
       sendFullReload(server);
     }
   };
 
-  const enqueue = (file: string, observed: boolean): void => {
+  const enqueue = (file: string): void => {
     const absolute = path.resolve(file);
-    const direct = entries.get(absolute);
-    if (direct !== undefined && observed) direct.observed = true;
+    recordChange(absolute);
     for (const candidate of [absolute, path.dirname(absolute)]) {
-      const entry = entries.get(candidate);
-      if (entry !== undefined) pending.add(entry);
+      for (const entry of aliases.get(candidate) ?? []) pending.add(entry);
     }
     if (pending.size === 0 || flushTimer !== undefined) return;
     flushTimer = setTimeout(() => {
@@ -166,68 +232,208 @@ export function createViteServeInputWatch(): ViteServeInputWatch {
     flushTimer.unref();
   };
 
-  const ensureWatcher = (): FSWatcher => {
-    if (watcher !== undefined) return watcher;
-    // Chokidar's persistent:false backend omits its native error listener on
-    // Windows. Keep the owned subscription alive until dispose() closes it.
-    const active = watch([], { depth: 0, ignoreInitial: false });
-    watcher = active;
-    // Initial add events compare compiler-time evidence too: an edit between
-    // compilation and asynchronous watcher setup must not be missed.
-    active.on("all", (event, file) => {
-      if (watcher === active)
-        enqueue(file, event === "add" || event === "addDir");
-    });
-    active.on("error", () => {
-      if (watcher === active) failed = true;
-    });
+  const bindAlias = (entry: InputEntry, alias: string): void => {
+    alias = path.resolve(alias);
+    if (entry.aliases.has(alias)) return;
+    entry.aliases.add(alias);
+    let indexed = aliases.get(alias);
+    if (indexed === undefined) {
+      indexed = new Set();
+      aliases.set(alias, indexed);
+    }
+    indexed.add(entry);
+  };
+
+  const ensureScope = (
+    root: string,
+    external: boolean,
+    pinned = false,
+  ): WatchScope | undefined => {
+    root = path.resolve(root);
+    let scope = scopes.get(root);
+    if (scope === undefined) {
+      if (
+        external &&
+        [...scopes.values()].filter(
+          (candidate) => candidate.root !== projectRoot,
+        ).length >= MAX_EXTERNAL_WATCH_SCOPES
+      )
+        return undefined;
+      scope = {
+        entries: new Set(),
+        failed: false,
+        pinned,
+        root,
+        startedAt: changeSequence,
+      };
+      scopes.set(root, scope);
+      try {
+        const owned = scope;
+        scope.watcher = open(
+          root,
+          (file) => {
+            if (scopes.get(root) !== owned) return;
+            if (file === null) {
+              changeSequence += 1;
+              historyFloor = changeSequence;
+              changes.clear();
+              for (const candidate of owned.entries) pending.add(candidate);
+              scheduleFlush();
+              return;
+            }
+            enqueue(path.isAbsolute(file) ? file : path.resolve(root, file));
+          },
+          () => {
+            if (scopes.get(root) !== owned) return;
+            owned.failed = true;
+            updatePoller();
+          },
+        );
+      } catch {
+        scope.failed = true;
+      }
+    } else if (pinned) {
+      scope.pinned = true;
+    }
+    return scope;
+  };
+
+  const bindScope = (
+    root: string,
+    entry: InputEntry,
+    external: boolean,
+  ): boolean => {
+    const scope = ensureScope(root, external);
+    if (scope === undefined) return false;
+    scope.entries.add(entry);
+    entry.scopes.add(scope);
+    return !scope.failed;
+  };
+
+  const requirePolling = (entry: InputEntry): void => {
+    entry.fallback = true;
+    polled.add(entry);
+  };
+
+  const scheduleFlush = (): void => {
+    if (pending.size === 0 || flushTimer !== undefined) return;
+    flushTimer = setTimeout(() => {
+      flushTimer = undefined;
+      const selected = [...pending];
+      pending.clear();
+      check(selected);
+    }, 0);
+    flushTimer.unref();
+  };
+
+  function updatePoller(): void {
+    const needed =
+      links.size !== 0 ||
+      polled.size !== 0 ||
+      [...scopes.values()].some((scope) => scope.failed);
+    if (!needed) {
+      if (poller !== undefined) clearInterval(poller);
+      poller = undefined;
+      return;
+    }
+    if (poller !== undefined) return;
     poller = setInterval(() => {
-      const selected = new Set(
-        [...entries.values()].filter(
-          (entry) => failed || entry.poll || !entry.observed,
-        ),
-      );
+      const selected = new Set(polled);
+      for (const scope of scopes.values()) {
+        if (scope.failed) for (const entry of scope.entries) selected.add(entry);
+      }
       // Files reached through one linked directory share one topology check.
       // Content edits remain event-driven; retargeting a junction does not
-      // reliably emit an event on its previously watched descendants.
-      for (const [file, link] of links) {
+      // reliably emit an event on its previously watched descendants. Reconcile
+      // a fixed-size slice as a safety net; ordinary retargets arrive at once
+      // through the project-root observer, while even an enormous dependency
+      // graph has constant idle CPU cost.
+      const linked = [...links.entries()];
+      const count = Math.min(linked.length, MAX_LINK_PROBES_PER_TICK);
+      for (let offset = 0; offset < count; offset += 1) {
+        const [file, link] = linked[(linkCursor + offset) % linked.length]!;
         const target = realpath(file);
         if (target !== link.target) {
           link.target = target;
           for (const entry of link.inputs) {
             selected.add(entry);
-            entry.observed = false;
-            active.unwatch(entry.file);
-            active.add(entry.file);
           }
         }
       }
+      linkCursor = linked.length === 0 ? 0 : (linkCursor + count) % linked.length;
       check(selected);
     }, 500);
     poller.unref();
-    return watcher;
+  }
+
+  const observe = (entry: InputEntry): void => {
+    bindAlias(entry, entry.file);
+    const root = projectRoot;
+    if (root !== undefined && containsPath(root, entry.file)) {
+      if (!bindScope(root, entry, false)) requirePolling(entry);
+    } else {
+      const external = nearestExistingDirectory(entry.file);
+      if (
+        external === undefined ||
+        !bindScope(external, entry, true)
+      )
+        requirePolling(entry);
+    }
+
+    const target = realpath(entry.file);
+    if (target !== undefined) bindAlias(entry, target);
+    if (root !== undefined) {
+      for (const linkedFile of linkedComponents(
+        entry.file,
+        root,
+        componentLinks,
+        missingComponents,
+      )) {
+        bindAlias(entry, linkedFile);
+        let link = links.get(linkedFile);
+        if (link === undefined) {
+          link = { target: realpath(linkedFile), inputs: new Set() };
+          links.set(linkedFile, link);
+        }
+        link.inputs.add(entry);
+        entry.links.add(linkedFile);
+        if (link.target === undefined) requirePolling(entry);
+        else if (
+          !containsPath(root, link.target) &&
+          !bindScope(link.target, entry, true)
+        )
+          requirePolling(entry);
+      }
+    }
   };
 
   return {
     attach(next) {
       server = next;
+      projectRoot = path.resolve(next.config?.root ?? process.cwd());
+      ensureScope(projectRoot, false, true);
+    },
+    begin() {
+      return changeSequence;
     },
     async dispose() {
       entries.clear();
+      aliases.clear();
       importerInputs.clear();
       pending.clear();
+      polled.clear();
       links.clear();
+      componentLinks.clear();
+      missingComponents.clear();
+      changes.clear();
       if (poller !== undefined) clearInterval(poller);
       if (flushTimer !== undefined) clearTimeout(flushTimer);
       poller = undefined;
       flushTimer = undefined;
-      const closing = watcher;
-      watcher = undefined;
-      failed = false;
-      await closing?.close();
+      for (const scope of [...scopes.values()]) closeScope(scope);
       // Retain the attached server across overlapping Vite restart containers.
     },
-    replace(importer, inputs, failed = false) {
+    replace(importer, inputs, failed = false, startedAt) {
       if (server === undefined) return;
       importer = path.resolve(importer);
       const previous =
@@ -247,7 +453,7 @@ export function createViteServeInputWatch(): ViteServeInputWatch {
         ];
       }
       const current = new Map<string, string>();
-      const added: string[] = [];
+      const added: InputEntry[] = [];
       for (const input of inputs) {
         const file = path.resolve(input.file);
         const evidence = input.evidence;
@@ -256,40 +462,16 @@ export function createViteServeInputWatch(): ViteServeInputWatch {
         let entry = entries.get(file);
         if (entry === undefined) {
           entry = {
+            aliases: new Set(),
             file,
             conditions: new Map(),
-            poll: false,
-            observed: false,
+            fallback: false,
             links: new Set(),
+            scopes: new Set(),
           };
           entries.set(file, entry);
-          added.push(file);
-          const directory = path.dirname(file);
-          const directoryTarget = realpath(directory);
-          const fileTarget = realpath(file);
-          const linked = [
-            ...(directoryTarget !== undefined &&
-            !sameSpelling(directory, directoryTarget)
-              ? [directory]
-              : []),
-            ...(fileTarget !== undefined &&
-            directoryTarget !== undefined &&
-            !sameSpelling(
-              fileTarget,
-              path.join(directoryTarget, path.basename(file)),
-            )
-              ? [file]
-              : []),
-          ];
-          for (const linkedFile of linked) {
-            let link = links.get(linkedFile);
-            if (link === undefined) {
-              link = { target: realpath(linkedFile), inputs: new Set() };
-              links.set(linkedFile, link);
-            }
-            link.inputs.add(entry);
-            entry.links.add(linkedFile);
-          }
+          added.push(entry);
+          observe(entry);
         }
         let condition = entry.conditions.get(key);
         if (condition === undefined) {
@@ -304,19 +486,6 @@ export function createViteServeInputWatch(): ViteServeInputWatch {
           entry.conditions.set(key, condition);
         }
         condition.importers.add(importer);
-        const observation =
-          evidence?.state?.codec === "predicates"
-            ? evidence.state.observation
-            : undefined;
-        entry.poll ||=
-          evidence?.missing === true ||
-          evidence?.unavailable !== undefined ||
-          (observation !== undefined &&
-            observation.fileExists !== true &&
-            observation.stat !== "file" &&
-            observation.readFile?.ok !== true) ||
-          (evidence?.state === undefined &&
-            condition.baseline?.fileExists !== true);
       }
       for (const [file, key] of previous) {
         if (current.get(file) === key) continue;
@@ -329,9 +498,119 @@ export function createViteServeInputWatch(): ViteServeInputWatch {
         }
       }
       importerInputs.set(importer, current);
-      if (added.length !== 0) ensureWatcher().add(added);
+      // Registration and removal can each touch thousands of compiler inputs.
+      // Decide the one shared poller's state once per atomic replacement,
+      // rather than rescanning the whole graph once per input.
+      updatePoller();
+      // Watchers are live before this proof. It closes the compile-to-subscribe
+      // race without manufacturing one native subscription per input.
+      if (added.length !== 0) {
+        const raced =
+          startedAt === undefined || startedAt < historyFloor
+            ? added
+            : added.filter(
+                (entry) =>
+                  [...entry.scopes].some(
+                    (scope) =>
+                      scope.failed ||
+                      scope.startedAt > startedAt ||
+                      [...entry.aliases].some(
+                        (alias) => (changes.get(alias) ?? 0) > startedAt,
+                      ),
+                  ),
+              );
+        if (raced.length !== 0) check(raced);
+      }
     },
   };
+}
+
+const MAX_EXTERNAL_WATCH_SCOPES = 16;
+const MAX_CHANGE_HISTORY = 100_000;
+const MAX_LINK_PROBES_PER_TICK = 64;
+
+function openRecursiveWatch(
+  root: string,
+  listener: (file: string | null) => void,
+  onError: () => void,
+): { close(): void } {
+  const watcher = fs.watch(
+    root,
+    { persistent: false, recursive: true },
+    (_event, file) => listener(file === null ? null : String(file)),
+  );
+  watcher.on("error", onError);
+  return { close: () => watcher.close() };
+}
+
+function containsPath(root: string, file: string): boolean {
+  const relative = path.relative(path.resolve(root), path.resolve(file));
+  return (
+    relative === "" ||
+    (relative !== ".." &&
+      !relative.startsWith(`..${path.sep}`) &&
+      !path.isAbsolute(relative))
+  );
+}
+
+function nearestExistingDirectory(file: string): string | undefined {
+  let current = path.resolve(file);
+  try {
+    if (!fs.statSync(current).isDirectory()) current = path.dirname(current);
+  } catch {
+    current = path.dirname(current);
+  }
+  for (;;) {
+    try {
+      if (fs.statSync(current).isDirectory()) {
+        return path.dirname(current) === current ? undefined : current;
+      }
+    } catch {
+      // Keep climbing to the nearest directory a recursive watch can own.
+    }
+    const parent = path.dirname(current);
+    if (parent === current) return undefined;
+    current = parent;
+  }
+}
+
+function linkedComponents(
+  file: string,
+  root: string,
+  cached: Map<string, string | null>,
+  missing: Set<string>,
+): string[] {
+  const relative = path.relative(root, file);
+  if (
+    relative === "" ||
+    relative === ".." ||
+    relative.startsWith(`..${path.sep}`) ||
+    path.isAbsolute(relative)
+  )
+    return [];
+  const output: string[] = [];
+  let current = path.resolve(root);
+  for (const component of relative.split(path.sep).slice(0, -1)) {
+    current = path.join(current, component);
+    if (missing.has(current)) break;
+    const known = cached.get(current);
+    if (known !== undefined) {
+      if (known !== null) output.push(current);
+      continue;
+    }
+    try {
+      if (fs.lstatSync(current).isSymbolicLink()) {
+        cached.set(current, realpath(current) ?? current);
+        output.push(current);
+      } else {
+        cached.set(current, null);
+      }
+    } catch {
+      missing.add(current);
+      break;
+    }
+  }
+  return output;
 }
 
 function realpath(file: string): string | undefined {
@@ -340,12 +619,6 @@ function realpath(file: string): string | undefined {
   } catch {
     return undefined;
   }
-}
-
-function sameSpelling(left: string, right: string): boolean {
-  return process.platform === "win32"
-    ? left.toLowerCase() === right.toLowerCase()
-    : left === right;
 }
 
 /**

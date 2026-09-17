@@ -199,7 +199,6 @@
     "src"
   ],
   "dependencies": {
-    "chokidar": "^4.0.3",
     "unplugin": "^2.3.11"
   },
   "peerDependencies": {

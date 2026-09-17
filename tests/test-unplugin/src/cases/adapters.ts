@@ -495,6 +495,11 @@ export const ADAPTER_CASES = {
         await import("../internal/adapter-vite-watch-boundaries");
       await assertViteWatchBoundaries();
     },
+  case_vite_compiler_watch_resources_are_bounded_by_scope: async () => {
+    const { assertViteWatchCardinalityIsBounded } =
+      await import("../internal/adapter-vite-watch-boundaries");
+    await assertViteWatchCardinalityIsBounded();
+  },
   case_vite_serve_registers_no_watch_inputs_without_a_watcher: async () => {
     const assert: typeof import("node:assert/strict") = (
       await import("node:assert/strict")

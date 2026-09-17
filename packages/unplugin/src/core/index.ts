@@ -264,6 +264,14 @@ const unpluginFactory: UnpluginFactory<
       if (!isTransformTarget(file)) {
         return undefined;
       }
+      // The project-root observer is already live when a Vite serve transform
+      // begins. Its sequence token lets registration prove only inputs that
+      // could have changed during compilation, instead of synchronously
+      // re-reading every input in a large compiler graph.
+      const serveStartedAt =
+        viteCommand === "serve" && viteWatching
+          ? serveInputs.begin()
+          : undefined;
       return transformTtsc(file, source, options, aliases, transformCache, {
         // A watcherless server has no invalidation channel and needs no
         // watch-input derivation. Every other host keeps its native contract.
@@ -272,7 +280,7 @@ const unpluginFactory: UnpluginFactory<
             ? undefined
             : (inputs, failed) => {
                 if (viteCommand === "serve") {
-                  serveInputs.replace(file, inputs, failed);
+                  serveInputs.replace(file, inputs, failed, serveStartedAt);
                 } else {
                   const native = this.getNativeBuildContext?.();
                   for (const input of inputs) {
