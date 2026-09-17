@@ -1,6 +1,6 @@
+import childProcess from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-import childProcess from "node:child_process";
 
 import { captureProcessOutput } from "../compiler/internal/captureProcessOutput";
 import {
@@ -47,18 +47,13 @@ export function javascriptRuntimeCapabilities(
     windowsHide: true,
   };
   let result = childProcess.spawnSync(runtime, args, options);
-  if (
-    process.platform !== "win32" &&
-    isSpawnSyncFdExhaustion(result.error)
-  ) {
+  if (process.platform !== "win32" && isSpawnSyncFdExhaustion(result.error)) {
     const capture = captureProcessOutput();
     try {
-      const retried = spawnSyncWithLowDescriptors(
-        runtime,
-        args,
-        options,
-        { stderr: capture.stderrPath, stdout: capture.stdoutPath },
-      );
+      const retried = spawnSyncWithLowDescriptors(runtime, args, options, {
+        stderr: capture.stderrPath,
+        stdout: capture.stdoutPath,
+      });
       const stdout = capture.read("stdout", "utf8") as string;
       const stderr = capture.read("stderr", "utf8") as string;
       result = {

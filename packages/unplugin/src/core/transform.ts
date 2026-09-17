@@ -129,6 +129,8 @@ interface TtscProjectMutationTracker {
    * whole, which cannot answer for one name.
    */
   covered?: ReadonlySet<string>;
+  /** Whether this is the repository-owned backend with content-event coverage. */
+  contentAuthoritative?: boolean;
   /**
    * Wait until every event this tracker's watcher has already dispatched has
    * been applied to it.
@@ -314,6 +316,7 @@ const MAX_GENERATION_PROOF_FAILURES = 8;
 
 /** Maximum exact mutation paths kept after a tracker already proved a change. */
 const MAX_GENERATION_MUTATION_PATHS = 8;
+const MAX_HOST_INPUT_WATCH_SCOPES = 16;
 
 /** One retry absorbs a transient watch write without admitting an infinite loop. */
 const TRANSFORM_GENERATION_ATTEMPTS = 2;
@@ -562,6 +565,7 @@ export interface TtscTransformFilesystemOperations {
     directory: string,
     listener: (eventType: string, filename: string | null) => void,
     onError: () => void,
+    recursive?: boolean,
   ): { close: () => void };
 }
 
@@ -2754,6 +2758,25 @@ function matchesNarrowPersistentInputs(
   return true;
 }
 
+/** Whether a healthy notification scope proves one exact input unchanged. */
+function trackerProvesInputUnchanged(
+  tracker: TtscProjectMutationTracker | undefined,
+  input: string,
+): boolean {
+  if (tracker === undefined || tracker.failed || tracker.changesOmitted) {
+    return false;
+  }
+  if (tracker.contentAuthoritative !== true) return false;
+  const absolute = path.resolve(input);
+  if (tracker.covered?.has(absolute) !== true) return false;
+  for (const changed of tracker.changes) {
+    if (pathIsWithin(absolute, changed) || pathIsWithin(changed, absolute)) {
+      return false;
+    }
+  }
+  return true;
+}
+
 /**
  * Validate one derived input against the generation, skipping the content read
  * while the recorded metadata signature still holds and its freshly minted
@@ -2781,6 +2804,9 @@ function matchesProvenInput(
   state: TtscEnvelopeDerivation,
   input: string,
 ): boolean {
+  if (trackerProvesInputUnchanged(cached.projectMutationTracker, input)) {
+    return true;
+  }
   const observation = cached.externalInputObservations?.[path.resolve(input)];
   if (observation !== undefined) {
     if (
@@ -2910,6 +2936,13 @@ function matchesUniversalHostInputs(
   cached: TtscCachedProjectTransform,
   validation: TtscHostInputValidation,
 ): boolean {
+  if (
+    [...validation.covered].every((input) =>
+      trackerProvesInputUnchanged(cached.hostInputMutationTracker, input),
+    )
+  ) {
+    return true;
+  }
   return (
     matchesUniversalHostInputEntries(cached, validation) &&
     matchesUniversalHostInputProbes(cached, validation)
@@ -4623,13 +4656,14 @@ function openDirectoryWatch(
   directory: string,
   listener: (eventType: string, filename: string | null) => void,
   onError: () => void,
+  recursive = false,
 ): { close: () => void } {
   if (filesystem.watch !== undefined) {
-    return filesystem.watch(directory, listener, onError);
+    return filesystem.watch(directory, listener, onError, recursive);
   }
   const watcher = fs.watch(
     directory,
-    { persistent: false },
+    { persistent: false, recursive },
     (eventType, filename) =>
       listener(eventType, filename === null ? null : String(filename)),
   );
@@ -4658,6 +4692,7 @@ function closeDirectoryWatches(watchers: { close: () => void }[]): void {
 /** Watch every walked directory for membership changes after generation. */
 async function createProjectMutationTracker(
   directories: readonly TtscProjectDirectorySnapshot[],
+  covered: ReadonlySet<string>,
   filesystem: TtscTransformFilesystemOperations = DEFAULT_FILESYSTEM_OPERATIONS,
   policy: ITtscProjectMembershipPolicy = PERMISSIVE_PROJECT_MEMBERSHIP_POLICY,
 ): Promise<TtscProjectMutationTracker> {
@@ -4665,65 +4700,91 @@ async function createProjectMutationTracker(
     changes: new Set(),
     changesOmitted: false,
     close: () => undefined,
+    covered,
     failed: false,
     membershipChanged: false,
+    contentAuthoritative: filesystem.watch === undefined,
+  };
+  const root = commonDirectoryRoot(
+    directories.map((directory) => directory.path),
+  );
+  if (root === undefined) return tracker;
+  const knownDirectories = new Set(
+    directories
+      .filter((directory) => directory.relevant)
+      .map((directory) => path.resolve(directory.path)),
+  );
+  const reportsMembership = (location: string, filename: string): boolean => {
+    const changed = path.join(location, filename);
+    return (
+      knownDirectories.has(path.resolve(changed)) ||
+      reportsProgramMembership(
+        changed,
+        path.basename(filename),
+        policy,
+        filesystem,
+      )
+    );
   };
   if (process.platform === "win32" && filesystem.watch === undefined) {
     await registerWindowsProjectMutationTracker(
       tracker,
-      directories.map((directory) => ({ directory: directory.path })),
+      [{ directory: root, recursive: true }],
       false,
       filesystem,
-      (location, filename) =>
-        reportsProgramMembership(
-          path.join(location, filename),
-          filename,
-          policy,
-          filesystem,
-        ),
+      reportsMembership,
+      (_location, filename) =>
+        isPossibleProgramFileName(path.basename(filename), policy),
     );
     return tracker;
   }
   const watchers: { close: () => void }[] = [];
   tracker.close = () => closeDirectoryWatches(watchers);
-  for (const directory of directories) {
-    try {
-      watchers.push(
-        openDirectoryWatch(
-          filesystem,
-          directory.path,
-          (eventType, filename) => {
-            if (eventType !== "rename") {
-              return;
-            }
-            if (
-              filename !== null &&
-              !reportsProgramMembership(
-                path.join(directory.path, filename),
-                filename,
-                policy,
-                filesystem,
-              )
-            ) {
-              return;
-            }
-            recordProjectMutation(
-              tracker,
-              filename === null
-                ? directory.path
-                : path.join(directory.path, filename),
-            );
-          },
-          () => {
-            tracker.failed = true;
-          },
-        ),
-      );
-    } catch {
-      tracker.failed = true;
-    }
+  try {
+    watchers.push(
+      openDirectoryWatch(
+        filesystem,
+        root,
+        (eventType, filename) => {
+          const changed = filename === null ? root : path.join(root, filename);
+          const membership =
+            filename === null || reportsMembership(root, filename);
+          if (eventType === "rename" && membership) {
+            recordProjectMutation(tracker, changed);
+          } else if (
+            filename === null ||
+            isPossibleProgramFileName(path.basename(filename), policy)
+          ) {
+            recordProjectChange(tracker, changed);
+          }
+        },
+        () => {
+          tracker.failed = true;
+        },
+        true,
+      ),
+    );
+  } catch {
+    tracker.failed = true;
   }
   return tracker;
+}
+
+/** Common ancestor owned by every project directory snapshot. */
+function commonDirectoryRoot(
+  directories: readonly string[],
+): string | undefined {
+  if (directories.length === 0) return undefined;
+  let root = path.resolve(directories[0]!);
+  for (const directory of directories.slice(1)) {
+    const absolute = path.resolve(directory);
+    while (!pathIsWithin(absolute, root)) {
+      const parent = path.dirname(root);
+      if (parent === root) return root;
+      root = parent;
+    }
+  }
+  return root;
 }
 
 /** Watch exact universal inputs, or their nearest existing parent if missing. */
@@ -4732,37 +4793,64 @@ async function createHostInputMutationTracker(
   filesystem: TtscTransformFilesystemOperations,
   covered: ReadonlySet<string>,
   events: "all" | "rename" = "all",
+  preferredRoot?: string,
 ): Promise<TtscProjectMutationTracker> {
   const identities = createHostPathIdentityContext(filesystem);
-  const namesByDirectory = new Map<
+  const authoritative = new Set(
+    [...covered]
+      .map((input) => path.resolve(input))
+      .filter((input) => {
+        const target = hostInputRealpath(input, filesystem);
+        return (
+          target === null ||
+          pathIdentityKey(target, identities) ===
+            pathIdentityKey(input, identities)
+        );
+      }),
+  );
+  const locationsByDirectory = new Map<
     string,
-    { directory: string; names: Set<string> }
+    {
+      directory: string;
+      names: Set<string>;
+      paths?: Set<string>;
+      recursive?: boolean;
+    }
   >();
+  const internalRoot =
+    preferredRoot === undefined ? undefined : path.resolve(preferredRoot);
   for (const input of inputs) {
     const absolute = path.resolve(input);
     const probe = filesystem.exists(absolute)
       ? { directory: path.dirname(absolute), name: path.basename(absolute) }
       : missingPathProbe(absolute, filesystem);
-    const directoryIdentity = identities.resolve(probe.directory);
-    let location = namesByDirectory.get(directoryIdentity.key);
+    const internal =
+      internalRoot !== undefined && pathIsWithin(probe.directory, internalRoot);
+    const directory = internal ? internalRoot : probe.directory;
+    const directoryIdentity = identities.resolve(directory);
+    let location = locationsByDirectory.get(directoryIdentity.key);
     if (location === undefined) {
       location = {
         directory: directoryIdentity.path,
         names: new Set<string>(),
+        ...(internal ? { paths: new Set<string>(), recursive: true } : {}),
       };
-      namesByDirectory.set(directoryIdentity.key, location);
+      locationsByDirectory.set(directoryIdentity.key, location);
     }
-    location.names.add(
-      normalizeHostInputName(
-        probe.name,
-        identities.caseSensitive(directoryIdentity.path),
-      ),
-    );
+    if (location.paths !== undefined) {
+      location.paths.add(
+        pathIdentityKey(path.resolve(probe.directory, probe.name), identities),
+      );
+    } else {
+      location.names.add(
+        normalizeHostInputName(
+          probe.name,
+          identities.caseSensitive(directoryIdentity.path),
+        ),
+      );
+    }
   }
-  const locations = [...namesByDirectory.values()].map((location) => ({
-    directory: location.directory,
-    names: [...location.names],
-  }));
+  const locations = [...locationsByDirectory.values()];
   const tracker: TtscProjectMutationTracker = {
     changes: new Set(),
     changesOmitted: false,
@@ -4773,16 +4861,46 @@ async function createHostInputMutationTracker(
     // is what a later validation needs before it trusts the watcher instead of
     // probing the path again. Deriving it here would hand that claim to every
     // future caller by default (samchon/ttsc#1261).
-    covered,
+    covered: authoritative,
+    contentAuthoritative: filesystem.watch === undefined,
     failed: false,
     membershipChanged: false,
+  };
+  if (locations.length > MAX_HOST_INPUT_WATCH_SCOPES) {
+    // A graph spread over unrelated external roots cannot be folded into one
+    // recursive observer without watching an arbitrarily broad filesystem
+    // ancestor. Decline the notification proof and use the recorded snapshots;
+    // descriptor count must never scale with an adversarial input graph.
+    tracker.failed = true;
+    return tracker;
+  }
+  const matches = (directory: string, filename: string): boolean => {
+    const location = locationsByDirectory.get(
+      identities.resolve(directory).key,
+    );
+    if (location === undefined) return false;
+    if (location.paths !== undefined) {
+      return location.paths.has(
+        pathIdentityKey(path.resolve(directory, filename), identities),
+      );
+    }
+    return location.names.has(
+      normalizeHostInputName(filename, identities.caseSensitive(directory)),
+    );
   };
   if (process.platform === "win32" && filesystem.watch === undefined) {
     await registerWindowsProjectMutationTracker(
       tracker,
-      locations,
+      locations.map((location) => ({
+        directory: location.directory,
+        ...(location.recursive === true
+          ? { recursive: true }
+          : { names: [...location.names] }),
+      })),
       events === "all",
       filesystem,
+      matches,
+      matches,
     );
     return tracker;
   }
@@ -4790,8 +4908,6 @@ async function createHostInputMutationTracker(
   tracker.close = () => closeDirectoryWatches(watchers);
   for (const location of locations) {
     try {
-      const names = new Set(location.names);
-      const caseSensitive = identities.caseSensitive(location.directory);
       watchers.push(
         openDirectoryWatch(
           filesystem,
@@ -4800,11 +4916,7 @@ async function createHostInputMutationTracker(
             if (events === "rename" && eventType !== "rename") {
               return;
             }
-            const reported =
-              filename === null
-                ? null
-                : normalizeHostInputName(filename, caseSensitive);
-            if (reported === null || names.has(reported)) {
+            if (filename === null || matches(location.directory, filename)) {
               recordProjectMutation(
                 tracker,
                 filename === null
@@ -4816,6 +4928,7 @@ async function createHostInputMutationTracker(
           () => {
             tracker.failed = true;
           },
+          location.recursive === true,
         ),
       );
     } catch {
@@ -4919,6 +5032,14 @@ function recordProjectMutation(
   changed: string,
 ): void {
   tracker.membershipChanged = true;
+  recordProjectChange(tracker, changed);
+}
+
+/** Record a content event without classifying it as a membership change. */
+function recordProjectChange(
+  tracker: TtscProjectMutationTracker,
+  changed: string,
+): void {
   if (tracker.changes.has(changed)) return;
   if (tracker.changes.size < MAX_GENERATION_MUTATION_PATHS) {
     tracker.changes.add(changed);
@@ -4946,6 +5067,8 @@ interface WindowsProjectMutationBroker {
        * have already narrowed theirs by construction.
        */
       membership?: (location: string, filename: string) => boolean;
+      /** Whether one named event can change compiler-consumed content. */
+      content?: (location: string, filename: string) => boolean;
       ready: () => void;
       /**
        * The walk's own spelling for each canonical directory the child watches,
@@ -4967,6 +5090,7 @@ let windowsProjectMutationBroker: WindowsProjectMutationBroker | undefined;
 interface WindowsMutationLocation {
   directory: string;
   names?: string[];
+  recursive?: boolean;
 }
 
 /**
@@ -4987,6 +5111,7 @@ async function registerWindowsProjectMutationTracker(
    * name-watching trackers pass none, since they already watch exact names.
    */
   membership?: (location: string, filename: string) => boolean,
+  content?: (location: string, filename: string) => boolean,
 ): Promise<void> {
   const broker = getWindowsProjectMutationBroker();
   // The child watches canonical directories, and reports its events under that
@@ -5007,6 +5132,7 @@ async function registerWindowsProjectMutationTracker(
     return {
       directory,
       ...(location.names === undefined ? {} : { names: location.names }),
+      ...(location.recursive === true ? { recursive: true } : {}),
     };
   });
   broker.pendingRegistrations += 1;
@@ -5020,7 +5146,8 @@ async function registerWindowsProjectMutationTracker(
     resolveReady = resolve;
   });
   broker.trackers.set(id, {
-    membership,
+    ...(content === undefined ? {} : { content }),
+    ...(membership === undefined ? {} : { membership }),
     ready: resolveReady,
     spellings,
     tracker,
@@ -5123,6 +5250,7 @@ function getWindowsProjectMutationBroker(): WindowsProjectMutationBroker {
       drained?: boolean;
       failed?: boolean;
       filename?: string | null;
+      eventType?: string;
       id?: number;
       ready?: boolean;
     };
@@ -5145,19 +5273,28 @@ function getWindowsProjectMutationBroker(): WindowsProjectMutationBroker {
         // comparison and every recorded witness downstream expects.
         const reported =
           registration.spellings.get(record.directory) ?? record.directory;
-        if (
-          typeof record.filename === "string" &&
-          registration.membership !== undefined &&
-          !registration.membership(reported, record.filename)
-        ) {
-          return;
-        }
-        recordProjectMutation(
-          registration.tracker,
+        const changed =
           typeof record.filename === "string"
             ? path.join(reported, record.filename)
-            : reported,
-        );
+            : reported;
+        if (
+          typeof record.filename === "string" &&
+          registration.membership !== undefined
+        ) {
+          const membership = registration.membership(reported, record.filename);
+          if (record.eventType === "rename" && membership) {
+            recordProjectMutation(registration.tracker, changed);
+            return;
+          }
+          if (
+            record.eventType !== "rename" &&
+            registration.content?.(reported, record.filename) === true
+          ) {
+            recordProjectChange(registration.tracker, changed);
+          }
+          return;
+        }
+        recordProjectMutation(registration.tracker, changed);
       } else {
         registration.tracker.membershipChanged = true;
       }
@@ -5249,9 +5386,9 @@ const WINDOWS_WATCH_BROKER_SOURCE = [
   "  for (const location of message.locations) {",
   "    try {",
   "      const names = location.names === undefined ? undefined : new Set(location.names.map((name) => name.toLowerCase()));",
-  "      const watcher = fs.watch(location.directory, { persistent: false }, (event, filename) => {",
+  "      const watcher = fs.watch(location.directory, { persistent: false, recursive: location.recursive === true }, (event, filename) => {",
   "        const matches = names === undefined || filename === null || names.has(String(filename).toLowerCase());",
-  '        if (matches && (message.allEvents || event === "rename")) process.send?.({ directory: location.directory, filename: filename === null ? null : String(filename), id: message.id });',
+  '        if (matches && (message.allEvents || event === "rename" || location.recursive === true)) process.send?.({ directory: location.directory, eventType: event, filename: filename === null ? null : String(filename), id: message.id });',
   "      });",
   '      watcher.on("error", () => process.send?.({ failed: true, id: message.id }));',
   "      watchers.push(watcher);",
@@ -5333,11 +5470,18 @@ function drainOnNextTurn(): Promise<void> {
 async function settleProjectMutationEvents(
   cached: TtscCachedProjectTransform,
 ): Promise<void> {
-  const trackers = [
+  await settleMutationTrackers([
     cached.projectMutationTracker,
     cached.hostInputMutationTracker,
     cached.candidateMutationTracker,
-  ].filter(
+  ]);
+}
+
+/** Settle one set of optional trackers through one shared barrier each. */
+async function settleMutationTrackers(
+  candidates: readonly (TtscProjectMutationTracker | undefined)[],
+): Promise<void> {
+  const trackers = candidates.filter(
     (tracker): tracker is TtscProjectMutationTracker => tracker !== undefined,
   );
   await Promise.all(
@@ -6705,8 +6849,7 @@ async function transformProject(props: {
     const cached = await captureTransformGeneration(props);
     if (
       cached.configStateComplete !== false &&
-      (!props.trackProjectMembership ||
-        cached.result.type !== "success" ||
+      (cached.result.type !== "success" ||
         cached.projectSnapshotComplete === true)
     ) {
       return cached;
@@ -6814,6 +6957,11 @@ async function captureTransformGeneration(props: {
     tracker = props.trackProjectMembership
       ? await createProjectMutationTracker(
           before.projectDirectories,
+          new Set(
+            Object.keys(before.hashes).map((key) =>
+              path.resolve(projectRoot, key),
+            ),
+          ),
           props.filesystem,
           membershipPolicy,
         )
@@ -6877,7 +7025,9 @@ async function captureTransformGeneration(props: {
           // A universal input never reaches the per-input loop that consults a
           // coverage claim: an absent one is proven by its directory listing
           // instead, which re-resolves the spelling every delivery.
-          new Set(),
+          new Set(persistentHostInputs.map((input) => path.resolve(input))),
+          "all",
+          projectRoot,
         )
       : undefined;
     // The candidates and the directories carrying them get their own tracker,
@@ -6894,6 +7044,7 @@ async function captureTransformGeneration(props: {
             props.filesystem,
             new Set(notifiableAbsence.candidates),
             "rename",
+            projectRoot,
           )
         : undefined;
     const externalInputPaths = selectExternalInputPaths({
@@ -6922,6 +7073,11 @@ async function captureTransformGeneration(props: {
       result,
       scratchDirectory,
     });
+    // The before/after snapshots prove bytes and metadata. Drain the watcher
+    // opened before compilation as the independent A-B-A witness: a producer
+    // can restore both bytes and timestamps before the second walk, but it
+    // cannot withdraw the already queued content event.
+    await settleMutationTrackers([tracker, hostInputTracker, candidateTracker]);
     const walkStable =
       configStable &&
       walkSnapshotComplete(before, declaredInputs) &&
@@ -6935,6 +7091,11 @@ async function captureTransformGeneration(props: {
       sameProjectDirectories(
         before.projectDirectories,
         inputSnapshot.projectDirectories,
+      ) &&
+      !trackerChangedDeclaredProjectInput(
+        tracker,
+        declaredInputs,
+        projectRoot,
       ) &&
       tracker?.membershipChanged !== true &&
       hostInputTracker?.membershipChanged !== true &&
@@ -7157,6 +7318,29 @@ async function captureTransformGeneration(props: {
     );
   }
   return captured;
+}
+
+/** Whether a compile-time content event overlaps any declared project input. */
+function trackerChangedDeclaredProjectInput(
+  tracker: TtscProjectMutationTracker | undefined,
+  declared: ReadonlySet<string> | undefined,
+  projectRoot: string,
+): boolean {
+  if (tracker === undefined) return false;
+  if (tracker.changesOmitted) return true;
+  if (tracker.changes.size === 0) return false;
+  if (declared === undefined) return true;
+  const inputs = [...declared].map((input) => path.resolve(projectRoot, input));
+  for (const changed of tracker.changes) {
+    if (
+      inputs.some(
+        (input) => pathIsWithin(input, changed) || pathIsWithin(changed, input),
+      )
+    ) {
+      return true;
+    }
+  }
+  return false;
 }
 
 /** Exclude disposed transform scratch from live host-input tracking. */

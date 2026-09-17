@@ -637,11 +637,15 @@ async function measureServeValidation(
   const readsPerFile = harness.counters.reads / options.count;
   const statsPerFile = harness.counters.stats / options.count;
   const lstatsPerFile = harness.counters.lstats / options.count;
+  const syscallsPerFile = totalSyscalls(harness) / options.count;
   if (pluginRuns !== 1) {
     return `serve validation N=${options.count} K=${options.graphFanout} G=${options.graphGlobals ?? 0}: pluginRuns=${pluginRuns} (expected 1)`;
   }
   if (readsPerFile > 16) {
     return `serve validation N=${options.count} K=${options.graphFanout} G=${options.graphGlobals ?? 0}: reads/file=${readsPerFile.toFixed(1)} exceeds the per-file validation budget of 16`;
+  }
+  if (syscallsPerFile > 16) {
+    return `serve validation N=${options.count} K=${options.graphFanout} G=${options.graphGlobals ?? 0}: syscalls/file=${syscallsPerFile.toFixed(1)} exceeds the per-file resource budget of 16`;
   }
   // Every serve scenario now holds the membership budget itself. The one term
   // that used to make a shared closure state a budget of its own — one failed

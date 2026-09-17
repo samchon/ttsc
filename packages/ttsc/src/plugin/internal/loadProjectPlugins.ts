@@ -9,11 +9,11 @@ import { findNearestGoMod } from "../../compiler/internal/paths";
 import { readJsonFile } from "../../compiler/internal/project/readConfigJson";
 import { readProjectConfig } from "../../compiler/internal/project/readProjectConfig";
 import { createCanonicalTempDirectory } from "../../internal/createCanonicalTempDirectory";
-import { spawnSyncResilient } from "../../internal/spawnSyncResilient";
 import {
   javascriptRuntimeCapabilities,
   resolveNodeBinary,
 } from "../../internal/resolveNodeBinary";
+import { spawnSyncResilient } from "../../internal/spawnSyncResilient";
 import type { ITtscPlugin } from "../../structures/ITtscPlugin";
 import type { ITtscPluginContributor } from "../../structures/ITtscPluginContributor";
 import type { ITtscPluginFactoryContext } from "../../structures/ITtscPluginFactoryContext";

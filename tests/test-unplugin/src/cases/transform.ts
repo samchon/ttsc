@@ -877,6 +877,15 @@ export const TRANSFORM_CASES = {
       };
       return await execute();
     },
+  case_transformttsc_persistent_project_watcher_cardinality_is_bounded:
+    async () => {
+      const { assertPersistentProjectWatcherCardinalityIsBounded } =
+        await import("../internal/transform-project-cache");
+      const execute = async () => {
+        await assertPersistentProjectWatcherCardinalityIsBounded();
+      };
+      return await execute();
+    },
   case_transformttsc_persistent_diagnostics_are_reported_once_per_generation:
     async () => {
       const { assertPersistentDiagnosticsAreReportedOncePerGeneration } =

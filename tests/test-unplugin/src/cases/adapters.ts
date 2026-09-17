@@ -1,4 +1,9 @@
 export const ADAPTER_CASES = {
+  case_vite_compiler_watch_fallback_work_is_bounded: async () => {
+    const { assertViteWatchFallbackWorkIsBounded } =
+      await import("../internal/adapter-vite-watch-boundaries");
+    await assertViteWatchFallbackWorkIsBounded();
+  },
   case_bun_native_host_owns_build_and_runtime_sessions: async () => {
     const { assertBunNativeSessions } =
       await import("../internal/adapter-bun-native");

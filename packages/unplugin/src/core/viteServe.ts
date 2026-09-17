@@ -62,6 +62,7 @@ interface InputEntry {
   fallback: boolean;
   file: string;
   links: Set<string>;
+  renameAliases: Set<string>;
   scopes: Set<WatchScope>;
 }
 
@@ -80,9 +81,10 @@ interface WatchScope {
 }
 
 export interface ViteServeWatchOperations {
+  poll(listener: () => void): { close(): void };
   watch(
     root: string,
-    listener: (file: string | null) => void,
+    listener: (eventType: string, file: string | null) => void,
     onError: () => void,
   ): { close(): void };
 }
@@ -116,6 +118,7 @@ export function createViteServeInputWatch(
 ): ViteServeInputWatch {
   const entries = new Map<string, InputEntry>();
   const aliases = new Map<string, Set<InputEntry>>();
+  const renameAliases = new Map<string, Set<InputEntry>>();
   const importerInputs = new Map<string, Map<string, string>>();
   const pending = new Set<InputEntry>();
   const polled = new Set<InputEntry>();
@@ -128,11 +131,13 @@ export function createViteServeInputWatch(
   let projectRoot: string | undefined;
   let changeSequence = 0;
   let historyFloor = 0;
-  let linkCursor = 0;
-  let poller: NodeJS.Timeout | undefined;
+  let linkIterator: MapIterator<[string, LinkedPath]> | undefined;
+  let pollIterator: SetIterator<InputEntry> | undefined;
+  let poller: { close(): void } | undefined;
   let flushTimer: NodeJS.Timeout | undefined;
 
   const open = operations.watch ?? openRecursiveWatch;
+  const openPoller = operations.poll ?? openWatchPoller;
 
   const unbindAlias = (alias: string, entry: InputEntry): void => {
     const indexed = aliases.get(alias);
@@ -168,6 +173,12 @@ export function createViteServeInputWatch(
     polled.delete(entry);
     for (const alias of entry.aliases) unbindAlias(alias, entry);
     entry.aliases.clear();
+    for (const alias of entry.renameAliases) {
+      const indexed = renameAliases.get(alias);
+      indexed?.delete(entry);
+      if (indexed?.size === 0) renameAliases.delete(alias);
+    }
+    entry.renameAliases.clear();
     for (const scope of entry.scopes) {
       scope.entries.delete(entry);
       if (scope.entries.size === 0 && !scope.pinned) closeScope(scope);
@@ -216,11 +227,14 @@ export function createViteServeInputWatch(
     }
   };
 
-  const enqueue = (file: string): void => {
+  const enqueue = (eventType: string, file: string): void => {
     const absolute = path.resolve(file);
     recordChange(absolute);
     for (const candidate of [absolute, path.dirname(absolute)]) {
       for (const entry of aliases.get(candidate) ?? []) pending.add(entry);
+    }
+    if (eventType === "rename") {
+      for (const entry of renameAliases.get(absolute) ?? []) pending.add(entry);
     }
     if (pending.size === 0 || flushTimer !== undefined) return;
     flushTimer = setTimeout(() => {
@@ -242,6 +256,24 @@ export function createViteServeInputWatch(
       aliases.set(alias, indexed);
     }
     indexed.add(entry);
+  };
+
+  const bindRenameAncestors = (entry: InputEntry, file: string): void => {
+    let current = path.dirname(path.resolve(file));
+    for (;;) {
+      if (!entry.renameAliases.has(current)) {
+        entry.renameAliases.add(current);
+        let indexed = renameAliases.get(current);
+        if (indexed === undefined) {
+          indexed = new Set();
+          renameAliases.set(current, indexed);
+        }
+        indexed.add(entry);
+      }
+      const parent = path.dirname(current);
+      if (parent === current) return;
+      current = parent;
+    }
   };
 
   const ensureScope = (
@@ -271,7 +303,7 @@ export function createViteServeInputWatch(
         const owned = scope;
         scope.watcher = open(
           root,
-          (file) => {
+          (eventType, file) => {
             if (scopes.get(root) !== owned) return;
             if (file === null) {
               changeSequence += 1;
@@ -281,11 +313,15 @@ export function createViteServeInputWatch(
               scheduleFlush();
               return;
             }
-            enqueue(path.isAbsolute(file) ? file : path.resolve(root, file));
+            enqueue(
+              eventType,
+              path.isAbsolute(file) ? file : path.resolve(root, file),
+            );
           },
           () => {
             if (scopes.get(root) !== owned) return;
             owned.failed = true;
+            for (const entry of owned.entries) requirePolling(entry);
             updatePoller();
           },
         );
@@ -310,10 +346,11 @@ export function createViteServeInputWatch(
     return !scope.failed;
   };
 
-  const requirePolling = (entry: InputEntry): void => {
+  function requirePolling(entry: InputEntry): void {
     entry.fallback = true;
+    if (polled.size === 0) pollIterator = undefined;
     polled.add(entry);
-  };
+  }
 
   const scheduleFlush = (): void => {
     if (pending.size === 0 || flushTimer !== undefined) return;
@@ -327,20 +364,28 @@ export function createViteServeInputWatch(
   };
 
   function updatePoller(): void {
-    const needed =
-      links.size !== 0 ||
-      polled.size !== 0 ||
-      [...scopes.values()].some((scope) => scope.failed);
+    const needed = links.size !== 0 || polled.size !== 0;
     if (!needed) {
-      if (poller !== undefined) clearInterval(poller);
+      poller?.close();
       poller = undefined;
       return;
     }
     if (poller !== undefined) return;
-    poller = setInterval(() => {
-      const selected = new Set(polled);
-      for (const scope of scopes.values()) {
-        if (scope.failed) for (const entry of scope.entries) selected.add(entry);
+    poller = openPoller(() => {
+      const selected = new Set<InputEntry>();
+      for (
+        let count = 0;
+        count < MAX_FALLBACK_PROBES_PER_TICK && polled.size !== 0;
+        count += 1
+      ) {
+        pollIterator ??= polled.values();
+        let next = pollIterator.next();
+        if (next.done) {
+          pollIterator = polled.values();
+          next = pollIterator.next();
+        }
+        if (next.done) break;
+        selected.add(next.value);
       }
       // Files reached through one linked directory share one topology check.
       // Content edits remain event-driven; retargeting a junction does not
@@ -348,10 +393,19 @@ export function createViteServeInputWatch(
       // a fixed-size slice as a safety net; ordinary retargets arrive at once
       // through the project-root observer, while even an enormous dependency
       // graph has constant idle CPU cost.
-      const linked = [...links.entries()];
-      const count = Math.min(linked.length, MAX_LINK_PROBES_PER_TICK);
-      for (let offset = 0; offset < count; offset += 1) {
-        const [file, link] = linked[(linkCursor + offset) % linked.length]!;
+      for (
+        let count = 0;
+        count < MAX_LINK_PROBES_PER_TICK && links.size !== 0;
+        count += 1
+      ) {
+        linkIterator ??= links.entries();
+        let next = linkIterator.next();
+        if (next.done) {
+          linkIterator = links.entries();
+          next = linkIterator.next();
+        }
+        if (next.done) break;
+        const [file, link] = next.value;
         const target = realpath(file);
         if (target !== link.target) {
           link.target = target;
@@ -360,28 +414,42 @@ export function createViteServeInputWatch(
           }
         }
       }
-      linkCursor = linked.length === 0 ? 0 : (linkCursor + count) % linked.length;
       check(selected);
-    }, 500);
-    poller.unref();
+    });
   }
 
   const observe = (entry: InputEntry): void => {
     bindAlias(entry, entry.file);
+    bindRenameAncestors(entry, entry.file);
     const root = projectRoot;
     if (root !== undefined && containsPath(root, entry.file)) {
       if (!bindScope(root, entry, false)) requirePolling(entry);
     } else {
       const external = nearestExistingDirectory(entry.file);
-      if (
-        external === undefined ||
-        !bindScope(external, entry, true)
-      )
+      if (external === undefined || !bindScope(external, entry, true))
         requirePolling(entry);
     }
 
     const target = realpath(entry.file);
-    if (target !== undefined) bindAlias(entry, target);
+    if (target !== undefined) {
+      bindAlias(entry, target);
+      bindRenameAncestors(entry, target);
+      if (!sameSpelling(entry.file, target)) {
+        let link = links.get(entry.file);
+        if (link === undefined) {
+          link = { target, inputs: new Set() };
+          if (links.size === 0) linkIterator = undefined;
+          links.set(entry.file, link);
+        }
+        link.inputs.add(entry);
+        entry.links.add(entry.file);
+        if (root === undefined || !containsPath(root, target)) {
+          const targetRoot = nearestExistingDirectory(target);
+          if (targetRoot === undefined || !bindScope(targetRoot, entry, true))
+            requirePolling(entry);
+        }
+      }
+    }
     if (root !== undefined) {
       for (const linkedFile of linkedComponents(
         entry.file,
@@ -393,6 +461,7 @@ export function createViteServeInputWatch(
         let link = links.get(linkedFile);
         if (link === undefined) {
           link = { target: realpath(linkedFile), inputs: new Set() };
+          if (links.size === 0) linkIterator = undefined;
           links.set(linkedFile, link);
         }
         link.inputs.add(entry);
@@ -419,6 +488,7 @@ export function createViteServeInputWatch(
     async dispose() {
       entries.clear();
       aliases.clear();
+      renameAliases.clear();
       importerInputs.clear();
       pending.clear();
       polled.clear();
@@ -426,7 +496,9 @@ export function createViteServeInputWatch(
       componentLinks.clear();
       missingComponents.clear();
       changes.clear();
-      if (poller !== undefined) clearInterval(poller);
+      linkIterator = undefined;
+      pollIterator = undefined;
+      poller?.close();
       if (flushTimer !== undefined) clearTimeout(flushTimer);
       poller = undefined;
       flushTimer = undefined;
@@ -467,6 +539,7 @@ export function createViteServeInputWatch(
             conditions: new Map(),
             fallback: false,
             links: new Set(),
+            renameAliases: new Set(),
             scopes: new Set(),
           };
           entries.set(file, entry);
@@ -508,16 +581,18 @@ export function createViteServeInputWatch(
         const raced =
           startedAt === undefined || startedAt < historyFloor
             ? added
-            : added.filter(
-                (entry) =>
-                  [...entry.scopes].some(
-                    (scope) =>
-                      scope.failed ||
-                      scope.startedAt > startedAt ||
-                      [...entry.aliases].some(
-                        (alias) => (changes.get(alias) ?? 0) > startedAt,
-                      ),
-                  ),
+            : added.filter((entry) =>
+                [...entry.scopes].some(
+                  (scope) =>
+                    scope.failed ||
+                    scope.startedAt > startedAt ||
+                    [...entry.aliases].some(
+                      (alias) => (changes.get(alias) ?? 0) > startedAt,
+                    ) ||
+                    [...entry.renameAliases].some(
+                      (alias) => (changes.get(alias) ?? 0) > startedAt,
+                    ),
+                ),
               );
         if (raced.length !== 0) check(raced);
       }
@@ -527,17 +602,25 @@ export function createViteServeInputWatch(
 
 const MAX_EXTERNAL_WATCH_SCOPES = 16;
 const MAX_CHANGE_HISTORY = 100_000;
+const MAX_FALLBACK_PROBES_PER_TICK = 64;
 const MAX_LINK_PROBES_PER_TICK = 64;
+
+function openWatchPoller(listener: () => void): { close(): void } {
+  const timer = setInterval(listener, 500);
+  timer.unref();
+  return { close: () => clearInterval(timer) };
+}
 
 function openRecursiveWatch(
   root: string,
-  listener: (file: string | null) => void,
+  listener: (eventType: string, file: string | null) => void,
   onError: () => void,
 ): { close(): void } {
   const watcher = fs.watch(
     root,
     { persistent: false, recursive: true },
-    (_event, file) => listener(file === null ? null : String(file)),
+    (eventType, file) =>
+      listener(eventType, file === null ? null : String(file)),
   );
   watcher.on("error", onError);
   return { close: () => watcher.close() };
@@ -619,6 +702,12 @@ function realpath(file: string): string | undefined {
   } catch {
     return undefined;
   }
+}
+
+function sameSpelling(left: string, right: string): boolean {
+  return process.platform === "win32"
+    ? path.resolve(left).toLowerCase() === path.resolve(right).toLowerCase()
+    : path.resolve(left) === path.resolve(right);
 }
 
 /**

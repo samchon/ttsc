@@ -82,6 +82,37 @@ export async function assertViteWatchBoundaries(): Promise<void> {
       "one alias must not invalidate an unchanged spelling",
     );
 
+    const nested = path.join(root, "ordinary", "nested", "value.txt");
+    fs.mkdirSync(path.dirname(nested), { recursive: true });
+    fs.writeFileSync(nested, "nested");
+    watch.replace(importer("directory-rename"), [
+      { file: nested, evidence: evidence(nested) },
+    ]);
+    fs.renameSync(
+      path.join(root, "ordinary"),
+      path.join(root, "ordinary-moved"),
+    );
+    await waitFor(
+      () => invalidated.has(importer("directory-rename")),
+      "an ancestor directory rename",
+    );
+
+    if (process.platform !== "win32") {
+      const externalRoot = TestProject.tmpdir("ttsc-vite-watch-external-link-");
+      const external = path.join(externalRoot, "value.txt");
+      const linked = path.join(root, "external-value.txt");
+      fs.writeFileSync(external, "before");
+      fs.symlinkSync(external, linked, "file");
+      watch.replace(importer("external-file-link"), [
+        { file: linked, evidence: evidence(linked) },
+      ]);
+      fs.writeFileSync(external, "after");
+      await waitFor(
+        () => invalidated.has(importer("external-file-link")),
+        "content behind an external file symlink",
+      );
+    }
+
     const candidate = path.join(root, "candidate.ts");
     const identity = evidence(candidate).identity;
     for (const [name, observation] of [
@@ -188,7 +219,11 @@ export async function assertViteWatchCardinalityIsBounded(): Promise<void> {
       [root],
       `${count} project inputs must share the project-root subscription`,
     );
-    assert.equal(active, 1, "one recursive project observer must remain active");
+    assert.equal(
+      active,
+      1,
+      "one recursive project observer must remain active",
+    );
 
     watch.replace(path.join(root, "src", "main.ts"), []);
     assert.equal(
@@ -205,5 +240,66 @@ export async function assertViteWatchCardinalityIsBounded(): Promise<void> {
     await watch.dispose();
   }
   assert.equal(active, 0, "final disposal must leave no native observer");
-  assert.equal(closed, 1, "final disposal must not re-close a detached observer");
+  assert.equal(
+    closed,
+    1,
+    "final disposal must not re-close a detached observer",
+  );
+}
+
+/** Prove a failed native watcher never turns fallback into a full-graph scan. */
+export async function assertViteWatchFallbackWorkIsBounded(): Promise<void> {
+  const root = fs.realpathSync.native(
+    TestProject.tmpdir("ttsc-vite-watch-fallback-budget-"),
+  );
+  const invalidated = new Set<string>();
+  let poll: (() => void) | undefined;
+  const watch = createViteServeInputWatch({
+    poll(listener) {
+      assert.equal(poll, undefined, "fallback must use one shared scheduler");
+      poll = listener;
+      return { close: () => (poll = undefined) };
+    },
+    watch(_scope, _listener, onError) {
+      onError();
+      return { close: () => undefined };
+    },
+  });
+  const count = 128;
+  const nodes = new Map<string, Set<{ file: string }>>();
+  watch.attach({
+    config: { root },
+    moduleGraph: {
+      getModulesByFile: (file) => nodes.get(file),
+      invalidateModule: (node) =>
+        invalidated.add((node as { file: string }).file),
+    },
+  });
+  try {
+    for (let index = 0; index < count; index += 1) {
+      const file = path.join(root, `${index}.txt`);
+      const importer = path.join(root, `${index}.ts`).replace(/\\/g, "/");
+      fs.writeFileSync(file, "before");
+      nodes.set(importer, new Set([{ file: importer }]));
+      watch.replace(importer, [{ file }]);
+      fs.writeFileSync(file, "after");
+    }
+    assert.ok(poll, "failed native observation must start the shared fallback");
+    const tick = poll;
+    for (const expected of [64, 128]) {
+      tick();
+      assert.equal(
+        invalidated.size,
+        expected,
+        "each tick must inspect one fair, fixed-size slice of the graph",
+      );
+    }
+    assert.equal(
+      poll,
+      undefined,
+      "the scheduler must stop when no work remains",
+    );
+  } finally {
+    await watch.dispose();
+  }
 }

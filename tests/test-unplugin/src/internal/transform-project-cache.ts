@@ -2744,8 +2744,9 @@ async function assertPersistentValidationProvesSharedInputsOnce(): Promise<void>
     "an aliased spelling must keep its own proof rather than its target's",
   );
 
-  // A metadata-only change must revalidate by content, keep the generation, and
-  // then stop being re-read.
+  // A metadata-only change keeps the generation. A repository-owned watcher
+  // may prove the bytes untouched without a read; a supplied watcher seam falls
+  // back to the content comparison.
   const touched = path.join(
     project.root,
     "node_modules",
@@ -2764,10 +2765,7 @@ async function assertPersistentValidationProvesSharedInputsOnce(): Promise<void>
     beforeTouch,
     "a metadata-only change must not replace the generation",
   );
-  assert.ok(
-    reads >= 1,
-    "a changed metadata signature must fall back to the content comparison",
-  );
+  assert.ok(reads <= 1, "metadata-only proof must read the input at most once");
   reads = 0;
   assert.ok(await deliver(modules[1]!));
   // Every input of this generation is proven by now, the generation's own
@@ -4588,6 +4586,65 @@ function writeGoPlugin(dir: string): void {
   );
 }
 
+/** Prove persistent project observers stay constant at any tree size. */
+async function assertPersistentProjectWatcherCardinalityIsBounded(): Promise<void> {
+  const {
+    createTtscTransformCache,
+    resetTtscTransformCache,
+    resolveOptions,
+    transformTtsc,
+  } = await TestUnpluginRuntime.loadUnpluginApi();
+  const project = createCacheProject({
+    fileCount: 1,
+    graphFanout: 1,
+    unrelatedDirectoryCount: 250,
+  });
+  const opened: { directory: string; recursive: boolean }[] = [];
+  let active = 0;
+  const cache = createTtscTransformCache({
+    watch: (
+      directory: string,
+      _listener: unknown,
+      _onError: unknown,
+      recursive = false,
+    ) => {
+      opened.push({ directory: path.resolve(directory), recursive });
+      active += 1;
+      return { close: () => (active -= 1) };
+    },
+  });
+  const main = projectModules(project.root)[0]!;
+  try {
+    assert.ok(
+      await transformTtsc(
+        main,
+        fs.readFileSync(main, "utf8"),
+        resolveOptions(),
+        undefined,
+        cache,
+      ),
+    );
+    const recursive = opened.filter((watcher) => watcher.recursive);
+    assert.ok(
+      recursive.length <= 2,
+      "project membership and host inputs may own at most one observer each",
+    );
+    assert.equal(
+      new Set(
+        recursive.map((watcher) =>
+          fs.realpathSync.native(watcher.directory).toLowerCase(),
+        ),
+      ).size,
+      1,
+      "both logical observers must share the one physical project root",
+    );
+  } finally {
+    resetTtscTransformCache(cache);
+    await new Promise<void>((resolve) => setImmediate(resolve));
+  }
+  assert.equal(active, 0, "cache reset must close every logical observer");
+}
+
 export {
   createCacheProject,
   projectModules,
@@ -4625,6 +4682,7 @@ export {
   assertFailedNotificationsFallBackToCompleteValidation,
   assertOneFailedTrackerFallsBackToCompleteValidation,
   assertPersistentValidationProvesSharedInputsOnce,
+  assertPersistentProjectWatcherCardinalityIsBounded,
   assertPersistentValidationUsesPerFileInputs,
   assertRejectedTransformIsEvictedAndRecovers,
   assertSameTickDerivedRewriteReplacesTheGeneration,

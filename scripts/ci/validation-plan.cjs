@@ -165,6 +165,7 @@ const LANES = [
     build: "pnpm run build:current",
     run:
       "pnpm --filter @ttsc/test-unplugin integration && " +
+      "pnpm run experimental:unplugin-perf && " +
       "pnpm --filter @ttsc/test-metro start",
   },
   {
@@ -212,6 +213,8 @@ const LANES = [
     scope: "test-unplugin",
     build: "pnpm run build:current",
     run:
+      "sudo sysctl -w kern.maxfiles=524288 && " +
+      "sudo sysctl -w kern.maxfilesperproc=262144 && " +
       "ulimit -n 65536 && " +
       "pnpm --filter @ttsc/test-unplugin integration --include=high_darwin_descriptors",
   },
