@@ -1,0 +1,137 @@
+import { TestUnpluginProject, TestUnpluginRuntime } from "@ttsc/testing";
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+
+import { createRealNativeEnvelopeFixture } from "../../internal/real-native-envelope/createRealNativeEnvelopeFixture";
+import { programRuns } from "../../internal/real-native-envelope/programRuns";
+import { waitFor } from "../../internal/real-native-envelope/waitFor";
+
+/**
+ * Verifies esbuild observes real compiler directory proofs and failed loads.
+ *
+ * Generic watchFiles cannot observe directory membership. The actual native
+ * envelope must reach watchDirs, while failed loads must retain subscriptions
+ * so a repair can reach the same context without manual invalidation.
+ *
+ * 1. Add and remove automatic type packages and their parent directory.
+ * 2. Check shared compilation and reuse across an unchanged rebuild.
+ * 3. Recover from deleted, initially broken, and initially absent declarations.
+ */
+export async function test_real_native_envelope_esbuild_observes_directories_and_recovers(): Promise<void> {
+  const esbuild = TestUnpluginProject.REQUIRE_FROM_UNPLUGIN("esbuild");
+  const adapter = await TestUnpluginRuntime.loadUnpluginAdapter("esbuild");
+  const fixture = createRealNativeEnvelopeFixture();
+  const root = fs.realpathSync.native(fixture.root);
+  const options = { project: path.join(root, "tsconfig.json") };
+  const results: Array<{ errors: unknown[] }> = [];
+  const start = () =>
+    esbuild.context({
+      absWorkingDir: root,
+      entryPoints: fixture.modules.slice(0, 4),
+      outdir: path.join(root, "dist-esbuild"),
+      bundle: true,
+      write: false,
+      logLevel: "silent",
+      plugins: [
+        adapter(options),
+        {
+          name: "observe-native-esbuild",
+          setup(build: any) {
+            build.onEnd((result: { errors: unknown[] }) => {
+              results.push(result);
+            });
+          },
+        },
+      ],
+    });
+  const nextResult = async (count: number, failed = false) => {
+    // The first event can build the shared native host on a cold cache. Later
+    // events must arrive promptly; no fixed delay is paid on either path.
+    await waitFor(
+      () => results.length >= count,
+      "esbuild watch result",
+      count === 1 ? 240_000 : 20_000,
+    );
+    assert.equal(results[count - 1]!.errors.length !== 0, failed);
+  };
+  const observe = async (change: () => void, failed = false) => {
+    const count = results.length + 1;
+    change();
+    await nextResult(count, failed);
+  };
+  let context = await start();
+  try {
+    await context.watch();
+    await nextResult(1);
+    assert.equal(programRuns(fixture.runLog), 1);
+    const generated = path.join(fixture.automaticTypesDirectory, "generated");
+    fs.mkdirSync(generated);
+    fs.writeFileSync(
+      path.join(generated, "index.d.ts"),
+      "declare const generatedGlobal: string;\n",
+    );
+    await nextResult(2);
+    assert.equal(programRuns(fixture.runLog), 2);
+    fs.rmSync(generated, { recursive: true });
+    await nextResult(3);
+    assert.equal(programRuns(fixture.runLog), 3);
+    await context.rebuild();
+    assert.equal(programRuns(fixture.runLog), 3);
+    await observe(() =>
+      fs.rmSync(fixture.automaticTypesDirectory, { recursive: true }),
+    );
+    assert.equal(programRuns(fixture.runLog), 4);
+    await observe(() => {
+      fs.mkdirSync(generated, { recursive: true });
+      fs.writeFileSync(
+        path.join(generated, "index.d.ts"),
+        "declare const generatedGlobal: string;\n",
+      );
+    });
+    assert.equal(programRuns(fixture.runLog), 5);
+
+    const declaration = fs.readFileSync(fixture.declaration, "utf8");
+    const runtimeFile = path.join(
+      path.dirname(fixture.declaration),
+      "index.js",
+    );
+    const runtime = fs.readFileSync(runtimeFile, "utf8");
+    // Remove the runtime fallback too: this fixture permits untyped JS, so
+    // deleting only the declaration legitimately resolves to index.js.
+    await observe(() => {
+      fs.unlinkSync(fixture.declaration);
+      fs.unlinkSync(runtimeFile);
+    }, true);
+    await observe(() => {
+      fs.writeFileSync(fixture.declaration, declaration);
+      fs.writeFileSync(runtimeFile, runtime);
+    });
+    await context.dispose();
+
+    // An initially failing compilation has no prior successful esbuild watch
+    // result to retain. Its error result must carry its own dependencies.
+    fs.writeFileSync(fixture.declaration, "export interface Shared {\n");
+    results.length = 0;
+    context = await start();
+    await context.watch();
+    await nextResult(1, true);
+    fs.writeFileSync(fixture.declaration, declaration);
+    await nextResult(2);
+    await context.dispose();
+
+    // TS2307 names the consumer, not the missing dependency. Recovery must
+    // come from the failed native Program's graph, with no successful history.
+    fs.unlinkSync(fixture.declaration);
+    fs.unlinkSync(runtimeFile);
+    results.length = 0;
+    context = await start();
+    await context.watch();
+    await nextResult(1, true);
+    fs.writeFileSync(fixture.declaration, declaration);
+    fs.writeFileSync(runtimeFile, runtime);
+    await nextResult(2);
+  } finally {
+    await context.dispose();
+  }
+}

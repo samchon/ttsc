@@ -8,7 +8,7 @@ const { pathToFileURL } = require("node:url");
 
 const root = path.resolve(__dirname, "..", "..");
 
-test("unplugin scenarios run through one layered package contract", () => {
+test("unplugin scenarios follow the repository test layout", () => {
   const packageRoot = path.join(root, "tests", "test-unplugin");
   const runner = fs.readFileSync(
     path.join(packageRoot, "src", "index.ts"),
@@ -17,47 +17,43 @@ test("unplugin scenarios run through one layered package contract", () => {
   const manifest = JSON.parse(
     fs.readFileSync(path.join(packageRoot, "package.json"), "utf8"),
   );
-  const caseFiles = collectFiles(path.join(packageRoot, "src", "cases")).filter(
-    (file) => file.endsWith(".ts"),
+  // One scenario per file, discovered by the shared runner: `features` needs
+  // neither a Go host nor a bundler process, `native-plugins` does.
+  const scenarios = ["features", "native-plugins"].flatMap((tree) =>
+    collectFiles(path.join(packageRoot, "src", tree)).map((file) => {
+      const name = path.basename(file, ".ts");
+      const exported = [
+        ...fs
+          .readFileSync(file, "utf8")
+          .matchAll(/^export (?:const|(?:async )?function) ([A-Za-z0-9_]+)/gm),
+      ].map((match) => match[1]);
+      assert.ok(file.endsWith(".ts"), `${file} must be a TypeScript scenario`);
+      assert.match(name, /^test_[a-z0-9_]+$/);
+      assert.deepEqual(
+        exported,
+        [name],
+        `${path.relative(packageRoot, file)} must export exactly the one test its file is named after`,
+      );
+      return name;
+    }),
   );
-  const cases = caseFiles
-    .map((file) => fs.readFileSync(file, "utf8"))
-    .flatMap((source) => source.match(/^  case_[a-z0-9_]+:/gm) ?? []);
-  const wrappers = collectFiles(path.join(packageRoot, "src"))
-    .filter((file) => path.basename(file).startsWith("test_"))
-    .map((file) => path.relative(packageRoot, file).replaceAll(path.sep, "/"));
-
   assert.equal(
-    caseFiles.length,
-    4,
-    "three family tables plus one self-contained filesystem case",
+    scenarios.length,
+    216,
+    "the scenario inventory must stay explicit",
   );
-  assert.equal(cases.length, 216, "the scenario inventory must stay explicit");
-  assert.deepEqual(wrappers, []);
-  assert.match(runner, /const EXPECTED_CASES = 216;/);
-  assert.equal(
-    (runner.match(/export async function test_[a-z0-9_]+/g) ?? []).length,
-    1,
-    "the package must expose one aggregate contract",
+  assert.equal(new Set(scenarios).size, scenarios.length);
+  assert.match(runner, /TestExecutor\.main\(/);
+  assert.match(runner, /TTSC_TEST_DIRS/);
+  assert.deepEqual(Object.keys(manifest.scripts), ["start"]);
+  const leftovers = collectFiles(path.join(packageRoot, "src")).filter((file) =>
+    /\bcase_[a-z0-9_]+/.test(fs.readFileSync(file, "utf8")),
   );
-  assert.doesNotMatch(runner, /DynamicExecutor|TestExecutor/);
-  assert.equal(
-    (
-      collectFiles(path.join(packageRoot, "src"))
-        .map((file) => fs.readFileSync(file, "utf8"))
-        .join("\n")
-        .match(/export (?:async )?(?:function|const) test_[a-z0-9_]+/g) ?? []
-    ).length,
-    1,
-    "only the aggregate package contract may be a test function",
+  assert.deepEqual(
+    leftovers,
+    [],
+    "no scenario may keep the retired case_ prefix",
   );
-  assert.deepEqual(Object.keys(manifest.scripts).sort(), [
-    "integration",
-    "start",
-    "unit",
-  ]);
-  assert.match(manifest.scripts.unit, /--layer=unit$/);
-  assert.match(manifest.scripts.integration, /--layer=integration$/);
 });
 
 test("the packed adapter rehearsal is one pinned E2E", () => {
@@ -153,27 +149,11 @@ test("native fixtures publish one immutable content-addressed source identity", 
     ),
     "utf8",
   );
-  const cacheFixture = fs.readFileSync(
-    path.join(
-      root,
-      "tests",
-      "test-unplugin",
-      "src",
-      "internal",
-      "transform-project-cache.ts",
-    ),
-    "utf8",
+  const cacheFixture = readTree(
+    path.join(root, "tests", "test-unplugin", "src"),
   );
-  const realFixture = fs.readFileSync(
-    path.join(
-      root,
-      "tests",
-      "test-unplugin",
-      "src",
-      "internal",
-      "real-native-envelope.ts",
-    ),
-    "utf8",
+  const realFixture = readTree(
+    path.join(root, "tests", "test-unplugin", "src"),
   );
   assert.match(defaultFixture, /return publishSharedSource\(/);
   assert.match(publisher, /crypto\.createHash\("sha256"\)/);
@@ -427,6 +407,18 @@ async function waitFor(predicate) {
       throw new Error("timed out waiting for fixture publishers");
     await new Promise((resolve) => setTimeout(resolve, 10));
   }
+}
+
+/**
+ * Concatenate every source of one tree. Scenarios and their helpers are one
+ * file per identity, so a fixture invariant is a property of the whole suite,
+ * not of whichever file happens to hold it.
+ */
+function readTree(directory) {
+  return collectFiles(directory)
+    .sort()
+    .map((file) => fs.readFileSync(file, "utf8"))
+    .join(String.fromCharCode(10));
 }
 
 function collectFiles(directory) {

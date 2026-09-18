@@ -69,8 +69,11 @@ const LANES = [
       "node --test scripts/ci/unplugin-test-contract.test.cjs " +
       "scripts/ci/unplugin-structure.test.cjs && " +
       "node scripts/ci/format-check.cjs && " +
-      "pnpm --filter @ttsc/test-unplugin unit && " +
+      "pnpm --filter @ttsc/test-unplugin start && " +
       "pnpm run test:typecheck",
+    // Only the unplugin scenarios that need neither a Go host nor a bundler
+    // process; this lane builds no native binary.
+    dirs: ["features"],
   },
   {
     id: "package-defenses",
@@ -165,9 +168,12 @@ const LANES = [
     scope: "test-metro",
     build: "pnpm run build:current",
     run:
-      "pnpm --filter @ttsc/test-unplugin integration && " +
+      "pnpm --filter @ttsc/test-unplugin start && " +
       "pnpm run experimental:unplugin-perf && " +
       "pnpm --filter @ttsc/test-metro start",
+    // test-metro reads no directory selection, so this only narrows unplugin
+    // to its native tree; the no-host tree already runs in `typecheck`.
+    dirs: ["native-plugins"],
   },
   {
     id: "bundler-defenses-windows",
@@ -217,7 +223,8 @@ const LANES = [
       "sudo sysctl -w kern.maxfiles=524288 && " +
       "sudo sysctl -w kern.maxfilesperproc=262144 && " +
       "ulimit -n 65536 && " +
-      "pnpm --filter @ttsc/test-unplugin integration --include=high_darwin_descriptors",
+      "pnpm --filter @ttsc/test-unplugin start -- --include=high_darwin_descriptors",
+    dirs: ["native-plugins"],
   },
   {
     id: "graph",
