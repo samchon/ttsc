@@ -63,11 +63,10 @@ export function captureUniversalHostInputValidation(
         });
         return { failures };
       }
-      // The current module may be supplied from an unsaved editor buffer. Its
-      // generation snapshot is overlaid below from `currentSource`, so a disk
-      // fingerprint would be both unavailable and the wrong authority. The
-      // recorded state is the bundler's, so a signature of the disk cannot
-      // stand for it however readable that disk is.
+      // The current module is the one this compile was started for, and its
+      // host carries no hash for it. Its recorded state is the walk's read of
+      // the disk, which `matchesRecordedInput` below compares; no signature
+      // is adopted for it, so every delivery re-reads it.
     } else {
       const current = hostInputStateHash(input, filesystem);
       if (expected !== current) {

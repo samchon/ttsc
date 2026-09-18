@@ -18,6 +18,7 @@ import { declareTtscTransformPolling } from "./transform/cache/declareTtscTransf
 import { resetTtscTransformCache } from "./transform/cache/resetTtscTransformCache";
 import { hostDeclaresPolling } from "./transform/tracker/hostDeclaresPolling";
 import { transformTtsc } from "./transform/transformTtsc";
+import { isHostWrapperQuery } from "./transform/utils/isHostWrapperQuery";
 import { stripQuery } from "./transform/utils/stripQuery";
 import type { TtscWatchInputKind } from "./transform/watch/TtscWatchInputKind";
 import { createViteServeInputWatch } from "./vite/createViteServeInputWatch";
@@ -280,13 +281,14 @@ const unpluginFactory: UnpluginFactory<
     },
 
     transformInclude(id) {
-      const file = stripQuery(id);
-      return isTransformTarget(file);
+      // A host-generated wrapper such as `?raw` is not the file's program
+      // (samchon/ttsc#1394).
+      return isTransformTarget(stripQuery(id)) && !isHostWrapperQuery(id);
     },
 
     async transform(source, id) {
       const file = stripQuery(id);
-      if (!isTransformTarget(file)) {
+      if (!isTransformTarget(file) || isHostWrapperQuery(id)) {
         return undefined;
       }
       // The project-root observer is already live when a Vite serve transform

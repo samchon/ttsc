@@ -9,6 +9,7 @@ import type { TtscCachedProjectTransform } from "../cache/TtscCachedProjectTrans
 import { TRANSFORM_CLOCK_REFERENCE_DIRECTORIES } from "../clock/TRANSFORM_CLOCK_REFERENCE_DIRECTORIES";
 import { disposeFilesystemClockReference } from "../clock/disposeFilesystemClockReference";
 import { refreshFilesystemClockReference } from "../clock/refreshFilesystemClockReference";
+import { reportDivergentDelivery } from "../diagnostics/reportDivergentDelivery";
 import { selectDeclaredProjectInputKeys } from "../envelope/selectDeclaredProjectInputKeys";
 import { selectExternalInputPaths } from "../envelope/selectExternalInputPaths";
 import { selectNotifiableAbsentInputs } from "../envelope/selectNotifiableAbsentInputs";
@@ -318,23 +319,25 @@ export async function captureTransformGeneration(props: {
       tracker?.failed !== true &&
       hostInputTracker?.failed !== true &&
       candidateTracker?.failed !== true;
-    // Overlay the in-memory source only after proving the two on-disk snapshots
-    // stable; an unsaved editor buffer must not look like a compile-time race.
+    // The compile read this file from disk, so the disk's bytes are its state in
+    // this generation. A delivered text that differs, because a plugin ordered
+    // before ttsc rewrote the module or the file changed after the host read
+    // it, must not replace them: every sibling delivery compares the disk and
+    // would recompile the project (samchon/ttsc#1394). It is reported once
+    // instead, and the file's own compile is served.
     const currentFileKey = toProjectKey(
       projectRoot,
       props.currentFile,
       identities,
     );
-    const currentSourceHash = hashText(props.currentSource);
+    const deliveredHash = hashText(props.currentSource);
+    const diskHash = Object.prototype.hasOwnProperty.call(
+      inputSnapshot.hashes,
+      currentFileKey,
+    )
+      ? inputSnapshot.hashes[currentFileKey]
+      : undefined;
     const projectInputHashes = { ...inputSnapshot.hashes };
-    if (
-      Object.prototype.hasOwnProperty.call(inputSnapshot.hashes, currentFileKey)
-    ) {
-      inputSnapshot.hashes[currentFileKey] = currentSourceHash;
-      // That overlay makes this one key the only recorded hash a disk signature
-      // cannot stand for: the bytes it names came from the bundler, not the file.
-      delete inputSnapshot.provenSignatures[currentFileKey];
-    }
     const cached: TtscCachedProjectTransform = {
       // The pass this compile was started for. Its snapshot describes the
       // project as of this compile, so it is settled for this pass and any
@@ -368,8 +371,11 @@ export async function captureTransformGeneration(props: {
     cached.sourceHashes = captureTransformSourceHashes(
       cached,
       props.currentFile,
-      currentSourceHash,
+      diskHash ?? deliveredHash,
     );
+    if (diskHash !== undefined && diskHash !== deliveredHash) {
+      reportDivergentDelivery(cached, props.currentFile);
+    }
     const externalInputSnapshot = captureExternalInputSnapshot(
       cached,
       externalInputPaths,

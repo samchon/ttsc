@@ -77,6 +77,11 @@ export interface TtscCachedProjectTransform {
    */
   membershipPolicy: ITtscProjectMembershipPolicy;
   /**
+   * Files whose delivered text was found to differ from the file on disk, so
+   * the notice is one per file per generation (samchon/ttsc#1394).
+   */
+  divergentDeliveryReported?: Set<string>;
+  /**
    * Files already reported as absent from the program, and the pass that
    * reporting belongs to, so the notice is one per file per pass rather than
    * one per delivery.

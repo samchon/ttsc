@@ -79,6 +79,10 @@ export default defineConfig({
 });
 ```
 
+A query that makes the host generate a module around a source file is left to the host: `?raw`, `?url`, `?inline`, `?no-inline`, `?worker`, and `?sharedworker`, on Vite and on webpack or Rspack rules that use the same names. `import text from "./schema.ts?raw"` therefore yields the file's own text, and importing the file both ways compiles the project once. Every other query still denotes the file's program and is transformed, including cache busting such as `?t=`, the `?worker_file` entry, and route chunks such as React Router's `?route-chunk=`.
+
+ttsc compiles each file from disk. A module that reaches it with different text, because a plugin ordered before ttsc rewrote it or the file changed after the host read it, is served from the file's compile. ttsc reports that once per file and never recompiles the project for it, so a rewrite made before ttsc runs is visible rather than silently lost. Order such plugins after ttsc, which runs with `enforce: "pre"`.
+
 ## Rollup
 
 ```ts

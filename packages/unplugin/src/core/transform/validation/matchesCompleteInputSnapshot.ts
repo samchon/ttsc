@@ -3,7 +3,6 @@ import { resultFilesystem } from "../cache/resultFilesystem";
 import { declaredProjectInputKeys } from "../envelope/declaredProjectInputKeys";
 import { envelopeDerivation } from "../envelope/envelopeDerivation";
 import { collectProjectInputSnapshot } from "../project/collectProjectInputSnapshot";
-import { hashText } from "../utils/hashText";
 import { matchesCachedExternalInputs } from "./matchesCachedExternalInputs";
 import { matchesExternalInputRealpaths } from "./matchesExternalInputRealpaths";
 import { matchesUniversalHostInputEntries } from "./matchesUniversalHostInputEntries";
@@ -21,11 +20,13 @@ import { walkSnapshotComplete } from "./walkSnapshotComplete";
  * directly — the recorded directory signatures plus the recorded file-key
  * universe — so a created, deleted, or renamed input still invalidates without
  * any watcher.
+ *
+ * The delivered module is compared from disk like every other input: the
+ * compile read it from disk, so a delivered text that differs is not the file's
+ * state (samchon/ttsc#1394).
  */
 export function matchesCompleteInputSnapshot(
   cached: TtscCachedProjectTransform,
-  currentKey: string,
-  source: string,
 ): boolean {
   if (
     cached.projectSnapshotComplete !== true ||
@@ -73,9 +74,6 @@ export function matchesCompleteInputSnapshot(
   ) {
     return false;
   }
-  if (Object.prototype.hasOwnProperty.call(cached.inputHashes, currentKey)) {
-    current.hashes[currentKey] = hashText(source);
-  }
   if (!sameHashes(cached.inputHashes, current.hashes, declaredInputs)) {
     return false;
   }
@@ -92,7 +90,6 @@ export function matchesCompleteInputSnapshot(
     return false;
   }
   adoptProvenSignatures(cached, {
-    currentKey,
     external: externalCurrent.signatures,
     project: current.provenSignatures,
   });
@@ -109,21 +106,19 @@ export function matchesCompleteInputSnapshot(
  * narrow path self-heals through `matchesProvenInput`; this is the same refresh
  * for the path that proves the whole snapshot at once.
  *
- * The delivered file is the single exclusion: its recorded hash is the source
- * the bundler supplied, so the disk bytes this walk read for it were compared
- * against nothing.
+ * The delivered file is no exception: its recorded hash is the disk's, like
+ * every other input's, since the compile read it from disk
+ * (samchon/ttsc#1394).
  */
 function adoptProvenSignatures(
   cached: TtscCachedProjectTransform,
   proven: {
-    currentKey: string;
     external: Record<string, string>;
     project: Record<string, string>;
   },
 ): void {
   const projectSignatures = (cached.inputSignatures ??= {});
   for (const [key, signature] of Object.entries(proven.project)) {
-    if (key === proven.currentKey) continue;
     projectSignatures[key] = signature;
   }
   const externalSignatures = (cached.externalInputSignatures ??= {});

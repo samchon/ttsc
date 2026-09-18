@@ -1,9 +1,10 @@
 /**
  * Strip a query string or hash fragment from a bundler module id.
  *
- * Vite appends query parameters (e.g. `?raw`, `?url`, `?inline`) to
- * differentiate import variants of the same file. We must strip them before
- * using the id as a file-system path.
+ * Hosts append query parameters to differentiate import variants of the same
+ * file, such as Vite's `?t=` cache busting. They must be stripped before the id
+ * is used as a filesystem path. A variant that is a host-generated wrapper,
+ * such as `?raw`, is never transformed at all; see `isHostWrapperQuery`.
  */
 export function stripQuery(id: string): string {
   const query = id.search(/[?#]/);

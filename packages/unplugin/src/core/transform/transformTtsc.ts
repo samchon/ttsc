@@ -24,6 +24,7 @@ import { settleProjectMutationEvents } from "./tracker/settleProjectMutationEven
 import { resolveTsconfig } from "./tsconfig/resolveTsconfig";
 import { createTransformResult } from "./utils/createTransformResult";
 import { isDeclarationFile } from "./utils/isDeclarationFile";
+import { isHostWrapperQuery } from "./utils/isHostWrapperQuery";
 import { pluginsAreDisabled } from "./utils/pluginsAreDisabled";
 import { stripQuery } from "./utils/stripQuery";
 import { markCachedSourceServed } from "./validation/markCachedSourceServed";
@@ -66,6 +67,13 @@ export async function transformTtsc(
   const filesystem = transformFilesystem(cache);
   const clean = stripQuery(id);
   if (clean.includes("\0")) {
+    return undefined;
+  }
+  // A wrapper the host generates around the file, such as `?raw`, is not the
+  // file's program: substituting the compiled program would change what the
+  // import yields, and its text would poison the generation's baseline
+  // (samchon/ttsc#1394).
+  if (isHostWrapperQuery(id)) {
     return undefined;
   }
   const file = path.resolve(clean);

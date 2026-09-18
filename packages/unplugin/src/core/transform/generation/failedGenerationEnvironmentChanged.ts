@@ -1,6 +1,7 @@
 import { envelopeDerivation } from "../envelope/envelopeDerivation";
 import type { TtscTransformFilesystemOperations } from "../filesystem/TtscTransformFilesystemOperations";
 import { pathIdentityKey } from "../filesystem/pathIdentityKey";
+import { hostInputStateHash } from "../inputs/hostInputStateHash";
 import { collectProjectInputSnapshot } from "../project/collectProjectInputSnapshot";
 import { hashText } from "../utils/hashText";
 import { sameHashes } from "../validation/sameHashes";
@@ -32,9 +33,13 @@ export function failedGenerationEnvironmentChanged(
       validation.cached.sourceHashes?.[
         pathIdentityKey(props.currentFile, identities)
       ];
+    // A delivered text that differs from the file changes nothing while the
+    // disk still holds the bytes the compile read (samchon/ttsc#1394).
     if (
       expectedSourceHash !== undefined &&
-      expectedSourceHash !== currentSourceHash
+      expectedSourceHash !== currentSourceHash &&
+      hostInputStateHash(props.currentFile, props.filesystem) !==
+        expectedSourceHash
     ) {
       return true;
     }

@@ -3,9 +3,11 @@ import type { TtscCachedProjectTransform } from "../cache/TtscCachedProjectTrans
 import { resultFilesystem } from "../cache/resultFilesystem";
 import { TRANSFORM_CLOCK_REFERENCE_DIRECTORIES } from "../clock/TRANSFORM_CLOCK_REFERENCE_DIRECTORIES";
 import { refreshFilesystemClockReference } from "../clock/refreshFilesystemClockReference";
+import { reportDivergentDelivery } from "../diagnostics/reportDivergentDelivery";
 import { createEnvelopeKeyIndex } from "../envelope/createEnvelopeKeyIndex";
 import { envelopeDerivation } from "../envelope/envelopeDerivation";
 import { pathIdentityKey } from "../filesystem/pathIdentityKey";
+import { hostInputStateHash } from "../inputs/hostInputStateHash";
 import { toProjectKey } from "../project/toProjectKey";
 import { hashText } from "../utils/hashText";
 import { matchesCompleteInputSnapshot } from "./matchesCompleteInputSnapshot";
@@ -59,11 +61,22 @@ export function matchesCachedSource(
         TRANSFORM_CLOCK_REFERENCE_DIRECTORIES.get(cached),
         resultFilesystem(cached.result),
       );
-      return matchesCompleteInputSnapshot(cached, currentKey, source);
+      return matchesCompleteInputSnapshot(cached);
     }
   }
   if (expected !== hashText(source)) {
-    return false;
+    // The generation compiled the file from disk. When the disk still holds
+    // exactly those bytes, the delivered text came from somewhere else, a
+    // plugin ordered before ttsc or a read that raced an edit, and cannot
+    // change the output; recompiling for it would repeat on every delivery
+    // (samchon/ttsc#1394).
+    if (
+      expected === undefined ||
+      hostInputStateHash(file, resultFilesystem(cached.result)) !== expected
+    ) {
+      return false;
+    }
+    reportDivergentDelivery(cached, file);
   }
   if (epoch !== undefined && cached.projectSnapshotComplete === true) {
     if (cached.deliveryEpoch !== epoch) {
@@ -77,7 +90,7 @@ export function matchesCachedSource(
         TRANSFORM_CLOCK_REFERENCE_DIRECTORIES.get(cached),
         resultFilesystem(cached.result),
       );
-      if (!matchesCompleteInputSnapshot(cached, currentKey, source)) {
+      if (!matchesCompleteInputSnapshot(cached)) {
         return false;
       }
       cached.deliveryEpoch = epoch;
@@ -108,5 +121,5 @@ export function matchesCachedSource(
     // produced. Losing the proof is not evidence of a change, so fall through
     // to the snapshot the entry still carries.
   }
-  return matchesCompleteInputSnapshot(cached, currentKey, source);
+  return matchesCompleteInputSnapshot(cached);
 }
