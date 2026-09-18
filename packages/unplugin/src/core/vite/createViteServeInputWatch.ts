@@ -17,15 +17,14 @@ import type { ViteServeWatchOperations } from "./ViteServeWatchOperations";
 import type { WatchScope } from "./WatchScope";
 import { containsPath } from "./containsPath";
 import { hasMultipleLinks } from "./hasMultipleLinks";
-import { invalidateImporters } from "./invalidateImporters";
 import { linkedComponents } from "./linkedComponents";
 import { nearestExistingDirectory } from "./nearestExistingDirectory";
 import { openIsolatedRecursiveWatch } from "./openIsolatedRecursiveWatch";
 import { openRecursiveWatch } from "./openRecursiveWatch";
 import { openWatchPoller } from "./openWatchPoller";
 import { realpath } from "./realpath";
+import { reloadImporters } from "./reloadImporters";
 import { sameSpelling } from "./sameSpelling";
-import { sendFullReload } from "./sendFullReload";
 import { someSet } from "./someSet";
 
 /**
@@ -247,8 +246,7 @@ export function createViteServeInputWatch(
     if (pathIdentityMemosDirty) resetPathIdentityMemos();
     updatePoller();
     if (server !== undefined && importers.size !== 0) {
-      invalidateImporters(server, importers);
-      sendFullReload(server);
+      reloadImporters(server, importers);
     }
   };
 
