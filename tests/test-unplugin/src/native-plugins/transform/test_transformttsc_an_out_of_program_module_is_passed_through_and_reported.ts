@@ -75,15 +75,15 @@ export async function test_transformttsc_an_out_of_program_module_is_passed_thro
 
     const reported = await captureStderr(async () => {
       api.beginTtscTransformBuild(cache);
-      assert.equal(
-        (await api.transformTtsc(
+      assert.ok(
+        await api.transformTtsc(
           fixture.modules[0]!,
           fs.readFileSync(fixture.modules[0]!, "utf8"),
           options,
           undefined,
           cache,
-        )) !== undefined || true,
-        true,
+        ),
+        "a module of the program is transformed",
       );
       assert.equal(
         await deliver(),

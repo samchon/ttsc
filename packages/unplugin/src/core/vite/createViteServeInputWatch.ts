@@ -285,14 +285,7 @@ export function createViteServeInputWatch(
         pending.add(entry);
       }
     }
-    if (pending.size === 0 || flushTimer !== undefined) return;
-    flushTimer = setTimeout(() => {
-      flushTimer = undefined;
-      const selected = [...pending];
-      pending.clear();
-      check(selected);
-    }, 0);
-    flushTimer.unref();
+    scheduleFlush();
   };
 
   const bindAlias = (entry: InputEntry, alias: string): void => {

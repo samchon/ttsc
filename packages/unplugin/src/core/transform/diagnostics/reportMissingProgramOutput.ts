@@ -25,6 +25,5 @@ export function reportMissingProgramOutput(
     return;
   }
   reported.add(error.file);
-  process.stderr.write(`${error.message}
-`);
+  process.stderr.write(`${error.message}\n`);
 }

@@ -108,8 +108,7 @@ function warnAboutSuppressedWebpackConfig(nextConfig: NextLikeConfig): void {
       "Next.js will no longer stop the build to tell you that your own " +
       "`webpack` hook is ignored on a Turbopack build. Port it to `turbopack`, " +
       "or run the bundler you configured with `next build --webpack` / " +
-      "`next dev --webpack`." +
-      String.fromCharCode(10),
+      "`next dev --webpack`.\n",
   );
 }
 

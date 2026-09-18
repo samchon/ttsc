@@ -4,6 +4,8 @@ import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 
+import { pathIsWithin } from "../../../../../packages/unplugin/lib/core/transform/filesystem/pathIsWithin.mjs";
+
 /**
  * Verifies `withTtsc` opens the transform session Turbopack's workers inherit,
  * outside the project, and that the session ends with its process
@@ -49,9 +51,8 @@ export async function test_next_adapter_opens_a_session_its_workers_inherit(): P
   assert.ok(path.isAbsolute(report.store), report.store);
   assert.ok(report.exists, "the store exists while its process runs");
   assert.equal(report.inherited, report.store, "a forked worker inherits it");
-  const relative = path.relative(process.cwd(), report.store);
   assert.ok(
-    relative.startsWith("..") || path.isAbsolute(relative),
+    !pathIsWithin(report.store, process.cwd()),
     "the store lives outside the project",
   );
   assert.equal(report.orphan, false, "a dead process's store is removed");

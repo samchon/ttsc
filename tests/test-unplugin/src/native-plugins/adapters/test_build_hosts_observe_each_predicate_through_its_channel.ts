@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
+import { pathIsWithin } from "../../../../../packages/unplugin/lib/core/transform/filesystem/pathIsWithin.mjs";
 import { waitFor } from "../../internal/adapter-vite-serve/waitFor";
 import { createRealNativeEnvelopeFixture } from "../../internal/real-native-envelope/createRealNativeEnvelopeFixture";
 
@@ -57,7 +58,7 @@ export async function test_build_hosts_observe_each_predicate_through_its_channe
     return plugin;
   };
   const isSentinel = (file: string) =>
-    file.endsWith(".signal") && path.relative(root, file).startsWith("..");
+    file.endsWith(".signal") && !pathIsWithin(file, root);
 
   const webpack = async (watchMode: boolean) => {
     const channels = {

@@ -9,7 +9,9 @@ import { type ChildProcess, spawn } from "node:child_process";
  * The process builds its own transform cache, declares it shared through the
  * session it inherits, and transforms `file` once. It answers with the
  * transformed code, `null` for an unchanged module, or the error it hit.
- * `onSpawn` receives the process, so a scenario can kill it mid-compile.
+ * `killed` is true when the process ended without an answer, as a worker the
+ * host killed does, and `error` then carries what it wrote to stderr. `onSpawn`
+ * receives the process, so a scenario can kill it mid-compile.
  */
 export function runPooledWorker(props: {
   file: string;

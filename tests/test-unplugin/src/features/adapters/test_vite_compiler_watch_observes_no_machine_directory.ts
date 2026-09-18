@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
+import { pathIsWithin } from "../../../../../packages/unplugin/lib/core/transform/filesystem/pathIsWithin.js";
 import { createViteServeInputWatch } from "../../../../../packages/unplugin/lib/core/vite/createViteServeInputWatch.js";
 
 /**
@@ -67,10 +68,7 @@ export async function test_vite_compiler_watch_observes_no_machine_directory(): 
   try {
     watch.replace(importer, [{ file: probe }, { file: shared }]);
     const ancestors = opened.filter(
-      (scope) =>
-        scope !== path.resolve(root) &&
-        path.relative(scope, root) !== "" &&
-        !path.relative(scope, root).startsWith(".."),
+      (scope) => scope !== path.resolve(root) && pathIsWithin(root, scope),
     );
     assert.deepEqual(
       ancestors,

@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
+import { pathIsWithin } from "../../filesystem/pathIsWithin";
 import { subscribeLinuxDirectoryWatch } from "./subscribeLinuxDirectoryWatch";
 
 /**
@@ -126,8 +127,9 @@ export function openLinuxDirectoryObserver(
       watched.clear();
     },
     track: (file) => {
-      const relative = path.relative(base, path.resolve(file));
-      if (relative.startsWith("..") || path.isAbsolute(relative)) return;
+      const absolute = path.resolve(file);
+      if (!pathIsWithin(absolute, base)) return;
+      const relative = path.relative(base, absolute);
       let directory = base;
       for (const segment of relative.split(path.sep).slice(0, -1)) {
         directory = path.join(directory, segment);

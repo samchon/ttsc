@@ -39,10 +39,11 @@ function resolveBunOptions(
  * The same object works for `Bun.build({ plugins: [ttsc()] })` (bundler) and
  * for `Bun.plugin(ttsc())` / a `bunfig.toml` preload (runtime) — see
  * `bun-register`. Every result carries an explicit `loader` so Bun keeps
- * transpiling the emitted TypeScript at runtime; `bunSourceFilePattern` only
- * matches TypeScript, so the loader is always `ts`/`tsx`. A runtime plugin
- * instance is one immutable load session, like Bun's own module cache; restart
- * the process after changing compiler inputs.
+ * transpiling the emitted TypeScript at runtime;
+ * `bunTypeScriptTransformSourcePattern` only matches TypeScript, so the loader
+ * is always `ts`/`tsx`. A runtime plugin instance is one immutable load
+ * session, like Bun's own module cache; restart the process after changing
+ * compiler inputs.
  */
 export function bun(options?: TtscBunOptions): BunLikePlugin {
   return {

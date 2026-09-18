@@ -16,8 +16,8 @@ import {
  * cannot describe any output and must not reach a consumer. Dropping it
  * degrades that file to having no map, exactly as a host that writes none.
  *
- * 1. Create a project whose fixture plugin prints one valid map, one map with
- *    the wrong version, and one map for a file without text.
+ * 1. Create a project whose fixture plugin prints one valid map, one map with the
+ *    wrong version, and one map for a file without text.
  * 2. Call `transform()` via the programmatic API.
  * 3. Assert success and that only the valid map survives.
  */
