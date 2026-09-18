@@ -17,7 +17,8 @@ import { startViteBuildSession } from "../../internal/adapter-vite-lifecycle/sta
  * 1. Deliver a module in a watching pass, then close the watcher before ending the
  *    pass.
  * 2. Resolve the same plugin as an ordinary build and run a pass.
- * 3. Assert the following pass compiles again, so `buildEnd` disposal still works.
+ * 3. Let the release grace pass, and assert the following pass compiles again, so
+ *    `buildEnd` disposal still works (samchon/ttsc#1396).
  */
 export async function test_vite_close_watcher_mid_pass_keeps_the_counter_sound(): Promise<void> {
   const session = await startViteBuildSession(true);
@@ -39,6 +40,10 @@ export async function test_vite_close_watcher_mid_pass_keeps_the_counter_sound()
     assert.equal(session.projectCompiles(), 2);
     await session.endPass();
 
+    // The ended build keeps its generation for the next environment's build
+    // until the release grace passes, and only a counter back at zero lets the
+    // release begin.
+    await new Promise((resolve) => setTimeout(resolve, 2_500));
     await session.startPass();
     assert.ok(await session.deliver(session.modules[0]!));
     assert.equal(
