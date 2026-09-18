@@ -252,6 +252,17 @@ export async function captureTransformGeneration(props: {
     // opened before compilation as the independent A-B-A witness: a producer
     // can restore both bytes and timestamps before the second walk, but it
     // cannot withdraw the already queued content event.
+    //
+    // Only that watcher can decide the verdict. The host-input and candidate
+    // trackers opened after the compile returned, so they never saw what it
+    // read: a change in their window before the reads below is already visible
+    // to those reads, which fail the attempt on a real mismatch, and a change
+    // after them stays queued as a path witness that sends the input back to
+    // being proven on the next delivery. Letting their events reject the
+    // attempt added no correctness and turned unrelated writes, a test
+    // runner's cache under `node_modules` among them, into a terminal
+    // generation failure (samchon/ttsc#1383). They are still settled here so
+    // a failed watcher is known before the generation is published.
     await settleMutationTrackers([tracker, hostInputTracker, candidateTracker]);
     const walkStable =
       configStable &&
@@ -272,9 +283,7 @@ export async function captureTransformGeneration(props: {
         declaredInputs,
         projectRoot,
       ) &&
-      tracker?.membershipChanged !== true &&
-      hostInputTracker?.membershipChanged !== true &&
-      candidateTracker?.membershipChanged !== true;
+      tracker?.membershipChanged !== true;
     const notificationsAvailable =
       tracker?.failed !== true &&
       hostInputTracker?.failed !== true &&
@@ -354,9 +363,7 @@ export async function captureTransformGeneration(props: {
     if (!walkStable) {
       recordProjectSnapshotFailures(failures, {
         before,
-        candidateTracker,
         declared: declaredInputs,
-        hostInputTracker,
         identities,
         projectRoot,
         snapshot: inputSnapshot,

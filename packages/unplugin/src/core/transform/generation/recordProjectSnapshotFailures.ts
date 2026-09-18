@@ -12,9 +12,7 @@ export function recordProjectSnapshotFailures(
   failures: TtscGenerationProofFailures,
   props: {
     before: ReturnType<typeof collectProjectInputSnapshot>;
-    candidateTracker?: TtscProjectMutationTracker;
     declared: ReadonlySet<string> | undefined;
-    hostInputTracker?: TtscProjectMutationTracker;
     identities: FilesystemPathIdentityContext;
     projectRoot: string;
     snapshot: ReturnType<typeof collectProjectInputSnapshot>;
@@ -125,8 +123,6 @@ export function recordProjectSnapshotFailures(
     }
   };
   recordTracker(props.tracker, "project-membership-event");
-  recordTracker(props.hostInputTracker, "host-input-event");
-  recordTracker(props.candidateTracker, "candidate-event");
 
   if (failures.entries.length === 0) {
     recordGenerationProofFailure(failures, {
