@@ -126,7 +126,7 @@ function buildEntryProject(
   entry: string,
 ): void {
   const emitDir = path.join(context.virtualRoot, ENTRY_PROJECT_EMIT_DIR);
-  const { project, rootDir } = buildSingleRootProject({
+  const { rootDir } = buildSingleRootProject({
     checked: true,
     emitDir,
     key: context.runtimeCacheKey,
@@ -139,8 +139,12 @@ function buildEntryProject(
   context.emitDir = emitDir;
   context.outputs = EmitOwnershipIndex.listOutputs(emitDir);
   context.runtimeRootDir = rootDir;
+  // Classified by the project itself: the synthesized config only extends it
+  // with overrides that do not touch the module format, and it is already
+  // removed, so a response file expanded through `--showConfig` could not read
+  // it again.
   context.moduleOptions = runtimeEmitProfile(
-    project,
+    context.project,
     options.passthrough,
     options.binary,
   ).moduleOptions;

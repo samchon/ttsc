@@ -1,5 +1,7 @@
 import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
 
 /**
  * Verifies ttsx serves the entry project in the module format a forwarded
@@ -12,9 +14,15 @@ import assert from "node:assert/strict";
  * of output. The forwarded flag decides the emit, so it decides the
  * classification too, for a project entry and for one outside `include`.
  *
- * 1. Create a CommonJS project whose entry imports a sibling, and an entry outside
- *    `include`.
- * 2. Run each entry with `--module esnext` and with `--module preserve`.
+ * A response file carries the flag as well, and the compiler expands it through
+ * `--showConfig` against a tsconfig. For an entry outside `include` that
+ * tsconfig must be the project's own: the synthesized one the entry was built
+ * through is gone by the time the entry is classified.
+ *
+ * 1. Create a CommonJS project whose entry imports a sibling, an entry outside
+ *    `include`, and a response file naming `--module esnext`.
+ * 2. Run each entry with `--module esnext`, with `--module preserve`, and with the
+ *    response file.
  * 3. Assert every run prints the imported value.
  */
 export const test_ttsx_classifies_the_entry_by_a_forwarded_module_flag = () => {
@@ -43,19 +51,26 @@ export const test_ttsx_classifies_the_entry_by_a_forwarded_module_flag = () => {
       ``,
     ].join("\n"),
   });
+  const responseFile = path.join(root, "module.rsp");
+  fs.writeFileSync(responseFile, "--module\nesnext\n", "utf8");
 
-  for (const module of ["esnext", "preserve"]) {
+  for (const flags of [
+    ["--module", "esnext"],
+    ["--module", "preserve"],
+    [`@${responseFile}`],
+  ]) {
     for (const [entry, expected] of [
       ["src/main.ts", "inside helped"],
       ["outside.ts", "outside helped"],
     ] as const) {
+      const label = `${flags.join(" ")} ${entry}`;
       const result = TestProject.spawn(
         TestProject.TTSX_BIN,
-        ["--cwd", root, "--module", module, entry],
+        ["--cwd", root, ...flags, entry],
         { cwd: root },
       );
-      assert.equal(result.status, 0, `${module} ${entry}: ${result.stderr}`);
-      assert.equal(result.stdout.trim(), expected, `${module} ${entry}`);
+      assert.equal(result.status, 0, `${label}: ${result.stderr}`);
+      assert.equal(result.stdout.trim(), expected, label);
     }
   }
 };
