@@ -81,6 +81,7 @@ export async function createHostInputMutationTracker(
   const tracked = new Map<string, Set<TtscTrackedInputScope>>();
   // Every ancestor of a tracked path, whose rename moves the path with it.
   const ancestors = new Set<string>();
+  const walkedAncestors = new Set<string>();
   const track = (file: string, scope: TtscTrackedInputScope): void => {
     const key = pathIdentityKey(file, identities);
     // A path observed two ways keeps every answer either observation needs.
@@ -89,9 +90,11 @@ export async function createHostInputMutationTracker(
     tracked.set(key, current);
     for (
       let child = path.resolve(file), parent = path.dirname(child);
-      parent !== child;
+      parent !== child && !walkedAncestors.has(parent);
       child = parent, parent = path.dirname(child)
     ) {
+      // Every ancestor above one already walked is already recorded.
+      walkedAncestors.add(parent);
       ancestors.add(pathIdentityKey(parent, identities));
     }
   };
