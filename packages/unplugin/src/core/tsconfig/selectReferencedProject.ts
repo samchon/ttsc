@@ -20,41 +20,48 @@ import { readProjectSelectionEntry } from "./readProjectSelectionEntry";
  * selected. When none does, the nearest config is kept and the module is left
  * to the host as before.
  *
- * @returns The selected config, and the configs whose content decided the
- *   selection besides it. A change to one of those can re-route the file, so
- *   the caller registers them as watch inputs.
+ * @returns The selected config, and every other config the search read on the
+ *   way to it: the solutions it passed through, each project searched before it
+ *   that declined the file, each of their `extends` ancestors, and each
+ *   referenced config that does not exist yet. A change to any of them can
+ *   re-route the file, whether an earlier project's `include` starts admitting
+ *   it or a missing reference appears, so the caller registers them as watch
+ *   inputs. When no project admits the file, that is every config searched.
  */
 export function selectReferencedProject(
   file: string,
   nearest: string,
 ): { consulted: string[]; tsconfig: string } {
   const visited = new Set<string>();
-  const search = (
-    tsconfig: string,
-    trail: readonly string[],
-  ): { consulted: string[]; tsconfig: string } | undefined => {
+  const consulted = new Set<string>();
+  const search = (tsconfig: string, nested: boolean): string | undefined => {
     const key = path.resolve(tsconfig);
     if (visited.has(key)) return undefined;
     visited.add(key);
     // A reference that names no readable config selects nothing: its policy
-    // would be the permissive fallback, which admits every file.
-    if (trail.length !== 0 && !isFile(key)) return undefined;
-    const entry = readProjectSelectionEntry(key);
-    if (trail.length !== 0 && entry.policy.rootFileSpecs === undefined) {
+    // would be the permissive fallback, which admits every file. Its content
+    // appearing would change that, so it is consulted all the same.
+    if (nested && !isFile(key)) {
+      consulted.add(key);
       return undefined;
     }
-    if (containsRootFile(file, entry.policy)) {
-      return { consulted: [...trail], tsconfig: key };
+    const entry = readProjectSelectionEntry(key);
+    const selectable = !nested || entry.policy.rootFileSpecs !== undefined;
+    if (selectable && containsRootFile(file, entry.policy)) return key;
+    consulted.add(key);
+    for (const source of entry.policy.sources) {
+      consulted.add(path.resolve(source));
     }
+    if (!selectable) return undefined;
     for (const reference of entry.references) {
-      const selected = search(reference, [...trail, key]);
+      const selected = search(reference, true);
       if (selected !== undefined) return selected;
     }
     return undefined;
   };
-  const selected = search(nearest, []);
-  if (selected !== undefined) return selected;
-  return { consulted: [], tsconfig: path.resolve(nearest) };
+  const tsconfig = search(nearest, false) ?? path.resolve(nearest);
+  consulted.delete(tsconfig);
+  return { consulted: [...consulted], tsconfig };
 }
 
 /**

@@ -89,8 +89,9 @@ export async function transformTtsc(
 
   const selection = resolveProjectSelection(file, options.project, filesystem);
   const tsconfig = selection.tsconfig;
-  // A solution config that routed this file elsewhere is a watch input too:
-  // editing its `references` can move the file (samchon/ttsc#1397).
+  // Every config the selection read is a watch input too: editing a solution's
+  // `references`, or the `include` of a project searched before the selected
+  // one, can move the file (samchon/ttsc#1397).
   hooks = withSelectionInputs(hooks, selection.consulted, filesystem);
   const aliasPaths = createAliasPaths(aliases);
   const key = createTransformCacheKey({

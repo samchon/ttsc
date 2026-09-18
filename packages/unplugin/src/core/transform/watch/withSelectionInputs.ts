@@ -15,8 +15,9 @@ import type { TtscWatchInput } from "./TtscWatchInput";
  * The generation's own inputs cover the selected config and its `extends`
  * chain, but not the solution config whose `references` led there. Editing that
  * config, or the `include` of a project searched before the selected one, can
- * move the file to another project, so each of those configs is registered with
- * the host as well, with its current content as evidence.
+ * move the file to another project, and so can a referenced config appearing,
+ * so each config the selection read is registered with the host as well, with
+ * its current content as evidence, or as missing when it does not exist.
  */
 export function withSelectionInputs(
   hooks: TtscTransformHooks | undefined,

@@ -15,12 +15,21 @@ import { selectReferencedProject } from "../../../../../packages/unplugin/lib/co
  * an empty program, so every module was left untransformed with advice to add
  * an `include` that would break the `tsc -b` graph.
  *
+ * Every config the search read besides the selected one is reported as
+ * consulted, because editing any of them can re-route the file: a solution's
+ * `references`, the `include` of a project searched earlier, or a referenced
+ * config that does not exist yet. A reference is spelled the way TypeScript-Go
+ * spells it, by its `.json` suffix rather than by what is on disk, so a missing
+ * config is consulted under the name it will appear with.
+ *
  * 1. Select sources and the Vite config of the create-vite layout, and assert each
- *    reaches its referenced project with the solution as consulted.
- * 2. Select through a nested solution, a reference cycle, and a reference to a
- *    missing config.
+ *    reaches its referenced project with every config searched before it as
+ *    consulted.
+ * 2. Select through a nested solution, a reference cycle, a reference to a missing
+ *    directory, and a missing `.json` reference that later appears.
  * 3. Assert a config that admits the file itself keeps it despite its
- *    `references`, and a file no project admits keeps the nearest config.
+ *    `references`, and a file no project admits keeps the nearest config with
+ *    every searched config consulted.
  * 4. Select below a directory one reference includes and excludes, and assert the
  *    reference that includes it wins unless the first lists the file.
  */
@@ -39,6 +48,7 @@ export async function test_default_project_follows_solution_references(): Promis
     "split/src/main.ts": "export {};\n",
     "split/src/legacy/old.ts": "export {};\n",
     "split/src/legacy/pinned.ts": "export {};\n",
+    "late/src/main.ts": "export {};\n",
   });
   config("tsconfig.json", {
     files: [],
@@ -81,28 +91,65 @@ export async function test_default_project_follows_solution_references(): Promis
     files: [],
     references: [{ path: "./tsconfig.json" }],
   });
+  config("late/tsconfig.json", {
+    files: [],
+    references: [{ path: "./tsconfig.later.json" }],
+  });
 
   const solution = at("tsconfig.json");
   assert.deepEqual(selectReferencedProject(at("src", "App.tsx"), solution), {
     consulted: [solution],
     tsconfig: at("tsconfig.app.json"),
   });
-  assert.deepEqual(selectReferencedProject(at("vite.config.ts"), solution), {
-    consulted: [solution],
-    tsconfig: at("tsconfig.node.json"),
-  });
+  assert.deepEqual(
+    selectReferencedProject(at("vite.config.ts"), solution),
+    {
+      consulted: [solution, at("tsconfig.app.json")],
+      tsconfig: at("tsconfig.node.json"),
+    },
+    "a project searched before the selected one is consulted",
+  );
   assert.deepEqual(
     selectReferencedProject(at("packages", "lib", "src", "index.ts"), solution),
     {
-      consulted: [solution, at("packages", "tsconfig.json")],
+      consulted: [
+        solution,
+        at("tsconfig.app.json"),
+        at("tsconfig.node.json"),
+        at("missing", "tsconfig.json"),
+        at("packages", "tsconfig.json"),
+      ],
       tsconfig: at("packages", "lib", "tsconfig.json"),
     },
     "a nested solution is followed depth-first",
   );
   assert.deepEqual(
     selectReferencedProject(at("scripts", "tool.ts"), solution),
-    { consulted: [], tsconfig: solution },
-    "a file no project admits keeps the nearest config",
+    {
+      consulted: [
+        at("tsconfig.app.json"),
+        at("tsconfig.node.json"),
+        at("missing", "tsconfig.json"),
+        at("packages", "tsconfig.json"),
+        at("packages", "lib", "tsconfig.json"),
+      ],
+      tsconfig: solution,
+    },
+    "a file no project admits keeps the nearest config and consults every other",
+  );
+  const late = at("late", "tsconfig.json");
+  const later = at("late", "tsconfig.later.json");
+  const lateFile = at("late", "src", "main.ts");
+  assert.deepEqual(
+    selectReferencedProject(lateFile, late),
+    { consulted: [later], tsconfig: late },
+    "a missing .json reference is consulted under its own spelling",
+  );
+  config("late/tsconfig.later.json", { include: ["src"] });
+  assert.deepEqual(
+    selectReferencedProject(lateFile, late),
+    { consulted: [late], tsconfig: later },
+    "the reference selects the file once it appears",
   );
   assert.deepEqual(
     selectReferencedProject(
@@ -117,26 +164,36 @@ export async function test_default_project_follows_solution_references(): Promis
       at("cycle", "src", "main.ts"),
       at("cycle", "tsconfig.json"),
     ),
-    { consulted: [], tsconfig: at("cycle", "tsconfig.json") },
+    {
+      consulted: [at("cycle", "tsconfig.a.json")],
+      tsconfig: at("cycle", "tsconfig.json"),
+    },
     "a reference cycle terminates",
   );
   const split = at("split", "tsconfig.json");
-  for (const [file, selected, reason] of [
-    ["main.ts", "tsconfig.app.json", "an included file stays with its project"],
+  for (const [file, selected, earlier, reason] of [
+    [
+      "main.ts",
+      "tsconfig.app.json",
+      [],
+      "an included file stays with its project",
+    ],
     [
       "legacy/old.ts",
       "tsconfig.legacy.json",
+      [at("split", "tsconfig.app.json")],
       "an excluded file belongs to the reference that includes it",
     ],
     [
       "legacy/pinned.ts",
       "tsconfig.app.json",
+      [],
       "a `files` entry is taken despite `exclude`",
     ],
   ] as const) {
     assert.deepEqual(
       selectReferencedProject(at("split", "src", ...file.split("/")), split),
-      { consulted: [split], tsconfig: at("split", selected) },
+      { consulted: [split, ...earlier], tsconfig: at("split", selected) },
       reason,
     );
   }
