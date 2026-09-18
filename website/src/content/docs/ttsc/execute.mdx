@@ -111,13 +111,15 @@ When an ESM entry imports named bindings from a CommonJS-classified source packa
 
 ## Pass arguments to the script
 
-Use `--` to separate `ttsx` flags from the script's own args:
+Everything after the entry file is the script's own argv, the same as `node`:
 
 ```bash
-npx ttsx src/server.ts -- --port 3000 --watch
+npx ttsx src/server.ts --port 3000 --watch
 ```
 
-Everything after `--` is passed through to `process.argv` unchanged.
+`ttsx` reads options only before the entry, so `--help`, `--version`, `-r`, or `--watch` after it reach the script's `process.argv` unchanged. A `--` directly after the entry is accepted as an optional separator and dropped (`ttsx src/server.ts -- --port 3000` passes `--port 3000`). Any later `--` is an ordinary argument, so `ttsx src/args.ts a -- b` passes `a -- b`.
+
+`ttsx` has no watch mode. `--watch` before the entry is refused with a pointer to `ttsc --watch --noEmit`, for a watching type-check, and to `node --watch --require ttsc/register src/index.ts`, which restarts the program on changes and checks each start.
 
 ## Preload modules
 

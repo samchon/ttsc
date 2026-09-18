@@ -36,8 +36,17 @@ export function parseFlags(opts: ParseOptions): ParseResult {
   const positional: string[] = [];
   const tail: string[] = [];
 
+  // With `forwardAfterFirstPositional`, the separator is read in order rather
+  // than split off first, because only the launcher's own part of argv may
+  // hold it. Everything after the entry belongs to the program, which gets
+  // its own `--` tokens exactly as `node` would hand them over; the one
+  // separator directly after the entry is still consumed, so the documented
+  // `ttsx entry.ts -- --port 3000` passes `--port 3000` (samchon/ttsc#1401).
+  const separatorInOrder =
+    opts.honorDoubleDashSeparator === true &&
+    opts.forwardAfterFirstPositional === true;
   let remainder: string[] | null = null;
-  if (opts.honorDoubleDashSeparator === true) {
+  if (opts.honorDoubleDashSeparator === true && !separatorInOrder) {
     const separator = opts.argv.indexOf("--");
     if (separator !== -1) {
       remainder = [...opts.argv.slice(separator + 1)];
@@ -52,6 +61,14 @@ export function parseFlags(opts: ParseOptions): ParseResult {
   let forwardingTail = false;
   while (head.length !== 0) {
     const current = head.shift()!;
+    if (separatorInOrder && current === "--") {
+      if (!forwardingTail) {
+        // Before the entry, `--` ends the launcher's options as it always has.
+        remainder = head.splice(0);
+        break;
+      }
+      if (tail.length === 0) continue;
+    }
     if (forwardingTail) {
       // Post-sentinel tokens belong to the user's program (e.g. the typia.ts
       // entry's own argv: `ttsx typia.ts generate --input X`). They MUST NOT

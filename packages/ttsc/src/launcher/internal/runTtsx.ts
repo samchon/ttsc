@@ -105,31 +105,45 @@ function parseCLI(argv: readonly string[]) {
   // `-p` reach it. A textual pre-rewrite here would be a second rule for a job
   // the engine owns.
   //
-  // Terminal flags (--help / --version) short-circuit before parsing so
-  // ttsx prints help text even when the entry file is missing. Resolved
-  // through the schema so every spelling the compiler accepts (`--HELP`,
-  // `-Version`) reaches the same branch.
-  for (const token of argv) {
-    const flag = resolveFlagSpec(token)?.name;
-    if (flag === "--help") return "help" as const;
-    if (flag === "--version") return "version" as const;
+  // Terminal flags (--help / --version) belong to ttsx only before the entry;
+  // after it they are the program's own argv, exactly as `node entry.js
+  // --version` hands `--version` to the program (samchon/ttsc#1401). The
+  // parser already draws that boundary, so they are read off its result, and
+  // resolved through the schema so every spelling the compiler accepts
+  // (`--HELP`, `-Version`) reaches the same branch.
+  let result: ReturnType<typeof parseFlags>;
+  try {
+    result = parseFlags({
+      argv,
+      errorPrefix: "ttsx:",
+      forwardAfterFirstPositional: true,
+      honorDoubleDashSeparator: true,
+      // Only a TypeScript-extensioned bare token is the entry; every other bare
+      // token before it (e.g. the `es2020` in `--target es2020 entry.ts`) is a
+      // forwarded flag value. Classifying values via the predicate keeps them
+      // in `passthrough` in order AND stops a pre-entry value from being
+      // mistaken for the first positional sentinel — which previously flipped
+      // the parser into tail mode and pushed the real entry into `tail`,
+      // failing with "entry file is required".
+      isPositional: looksLikeEntryFile,
+      subcommand: "ttsx",
+    });
+  } catch (error) {
+    // Help still prints when the other options do not parse, as long as it was
+    // asked for before anything that looks like the entry.
+    const terminal = terminalRequest(
+      argv.slice(0, firstEntryLikeIndex(argv)),
+    );
+    if (terminal !== null) return terminal;
+    throw error;
   }
-  const result = parseFlags({
-    argv,
-    errorPrefix: "ttsx:",
-    forwardAfterFirstPositional: true,
-    honorDoubleDashSeparator: true,
-    // Only a TypeScript-extensioned bare token is the entry; every other bare
-    // token before it (e.g. the `es2020` in `--target es2020 entry.ts`) is a
-    // forwarded flag value. Classifying values via the predicate keeps them in
-    // `passthrough` in order AND stops a pre-entry value from being mistaken for
-    // the first positional sentinel — which previously flipped the parser into
-    // tail mode and pushed the real entry into `tail`, failing with
-    // "entry file is required".
-    isPositional: looksLikeEntryFile,
-    subcommand: "ttsx",
-  });
+  const terminal = terminalRequest([
+    ...[...result.values.keys()],
+    ...result.passthrough,
+  ]);
+  if (terminal !== null) return terminal;
   assertNoSolutionBuild(result, "ttsx:");
+  assertNoWatch(result);
 
   const entry = result.positional.find(looksLikeEntryFile);
   if (entry === undefined) {
@@ -179,6 +193,54 @@ function parseCLI(argv: readonly string[]) {
  * forwarded flag's value. ttsx runs a TypeScript entrypoint, so only a token
  * with a TypeScript source extension is treated as the entry.
  */
+/**
+ * `"help"` or `"version"` when one of `tokens` asks for it, else `null`. Only
+ * dash-prefixed tokens can name a flag; a bare value such as the `all` of
+ * `--target all` must not read as `--all`.
+ */
+function terminalRequest(
+  tokens: readonly string[],
+): "help" | "version" | null {
+  for (const token of tokens) {
+    if (!token.startsWith("-")) continue;
+    const flag = resolveFlagSpec(token)?.name;
+    if (flag === "--help") return "help";
+    if (flag === "--version") return "version";
+  }
+  return null;
+}
+
+/** Index of the first bare token that looks like the entry, or the length. */
+function firstEntryLikeIndex(argv: readonly string[]): number {
+  const index = argv.findIndex(
+    (token) => !token.startsWith("-") && looksLikeEntryFile(token),
+  );
+  return index === -1 ? argv.length : index;
+}
+
+/**
+ * Refuse `--watch` (or `-w`) given to ttsx itself, before any compiler starts.
+ *
+ * Forwarded to the type-check, it turned the check into a process that never
+ * returns, so the entry never ran and the command hung with no output
+ * (samchon/ttsc#1409). ttsx runs the entry once after one check, and a watch
+ * that restarts the program is a different feature; the message names the two
+ * tools that already provide the halves. A `--watch` after the entry is the
+ * program's own flag and never reaches here.
+ */
+function assertNoWatch(result: ReturnType<typeof parseFlags>): void {
+  const watching =
+    result.values.has("--watch") ||
+    result.passthrough.some(
+      (token) =>
+        token.startsWith("-") && resolveFlagSpec(token)?.name === "--watch",
+    );
+  if (!watching) return;
+  throw new Error(
+    "ttsx: --watch is not supported; ttsx type-checks once and then runs the entry. For a watching type-check use `ttsc --watch --noEmit`; to restart the program on changes use `node --watch --require ttsc/register <entry.ts>`. Arguments after the entry, including --watch, go to the program.",
+  );
+}
+
 function looksLikeEntryFile(token: string): boolean {
   return [".ts", ".tsx", ".mts", ".cts"].some((ext) => token.endsWith(ext));
 }
@@ -189,7 +251,7 @@ function printHelp(): void {
       "ttsx — TypeScript runner provided by ttsc.",
       "",
       "Usage:",
-      "  ttsx [options] <entry.ts> [-- <argv...>]",
+      "  ttsx [options] <entry.ts> [argv...]",
       "",
       "Options:",
       "  -P, --project <file>   Use an explicit tsconfig.json",
@@ -205,6 +267,8 @@ function printHelp(): void {
       "",
       "  Any other flag before the entry is forwarded to tsgo, so options like",
       "  --strict apply to the type-check (e.g. ttsx --strict src/index.ts).",
+      "  Everything after the entry is the program's own argv, --help and",
+      "  --version included. --watch is not supported before the entry.",
       "",
       "Examples:",
       "  ttsx src/index.ts",
