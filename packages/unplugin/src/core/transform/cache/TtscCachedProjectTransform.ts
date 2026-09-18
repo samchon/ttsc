@@ -102,10 +102,9 @@ export interface TtscCachedProjectTransform {
    * against an unracing read of the file on disk, in a tick the observed
    * filesystem's clock had provably left (`stampSeparable`).
    *
-   * The generation's own current file is absent at capture: its recorded hash
-   * comes from the bundler's in-memory source, so the walk that produced it
-   * compared nothing. A later delivery of a sibling does compare that file's
-   * disk bytes against the recorded hash, and may record a signature then.
+   * The generation's own current file is no exception. The compile reads it
+   * from disk, so its recorded hash is the disk's like every other input's, and
+   * the delivered text never replaces it (samchon/ttsc#1394).
    */
   inputSignatures?: Record<string, string>;
   /**
@@ -159,7 +158,12 @@ export interface TtscCachedProjectTransform {
   projectSnapshotComplete?: boolean;
   /** Absolute path to the directory that owns the tsconfig. */
   projectRoot: string;
-  /** Raw compiler output returned by `TtscCompiler.transform`. */
+  /**
+   * Raw compiler output: what `TtscCompiler.transformAsync` returned for this
+   * generation's compile (samchon/ttsc#1391), or the publication another worker
+   * of the host's session made after proving the same project state
+   * (samchon/ttsc#1390).
+   */
   result: ITtscCompilerTransformation;
   /**
    * The delivery epoch this generation is currently settled against, or
@@ -199,7 +203,9 @@ export interface TtscCachedProjectTransform {
   /**
    * Absolute path of the adapter-owned scratch directory used for this
    * generation. It is disposed after compilation, so none of its compiler,
-   * resolver, or plugin artifacts can be a persistent cache or watch input.
+   * resolver, or plugin artifacts can be a persistent cache or watch input. An
+   * adopted publication carries the publisher's, since that is the directory
+   * its envelope names.
    */
   scratchDirectory?: string;
   /**
@@ -208,7 +214,8 @@ export interface TtscCachedProjectTransform {
    * it in the envelope's `graph.configs` chain, but it is disposed right after
    * the compile, so registering it as a watch input would invalidate every
    * bundler cache snapshot on the next build; watch derivation must skip this
-   * path. {@link scratchDirectory} owns the wider disposable-input bound.
+   * path. {@link scratchDirectory} owns the wider disposable-input bound. An
+   * adopted publication carries the publisher's, as with that directory.
    */
   temporaryTsconfig?: string;
 }

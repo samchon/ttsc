@@ -12,15 +12,16 @@ import { projectModules } from "../../internal/transform-project-cache/projectMo
  * With notifications unavailable, every delivery re-proves the recorded
  * snapshot from disk, so a metadata-only change to any input would cost a
  * re-read for the rest of the generation's life unless the walk that proved the
- * snapshot hands its signatures back. The delivered file is the one input that
- * must not receive one: its recorded hash is the source the bundler supplied,
- * so the bytes this walk read for it were compared against nothing.
+ * snapshot hands its signatures back. The delivered file is proven from disk
+ * like every other input, because the compile reads the disk
+ * (samchon/ttsc#1394), so a stale delivered text cannot hide an edit.
  *
  * 1. Compile through a cache whose watches are refused, counting file reads.
  * 2. Touch an input and assert no recompile, with the changed signature re-proven
  *    once and then not reread.
- * 3. Drift the delivered file on disk and assert the bundler's source stays
- *    authoritative for it while a sibling delivery sees the drift.
+ * 3. Edit a module on disk, deliver it with its old text, and assert the delivery
+ *    recompiles from disk and reports the difference, and a sibling reuses that
+ *    compile.
  */
 export async function test_transformttsc_complete_validation_proves_each_input_once(): Promise<void> {
   const { createTtscTransformCache, resolveOptions, transformTtsc } =
@@ -90,10 +91,8 @@ export async function test_transformttsc_complete_validation_proves_each_input_o
     `a re-proven input must not be reread per delivery (read ${reads}, steady ${steady})`,
   );
 
-  // The delivered file's own key must never acquire a disk signature: its
-  // recorded hash is the bundler's source. Hand the transform the stale buffer
-  // while the file on disk moves ahead, then deliver a sibling: the walk has to
-  // read that file and see the edit.
+  // A stale delivered text cannot hide an edit on disk: the compile reads the
+  // disk, so the delivered file is proven from it like any other input.
   const drifting = path.join(project.root, "src", "mod0.ts");
   const stale = fs.readFileSync(drifting, "utf8");
   fs.writeFileSync(
@@ -101,16 +100,22 @@ export async function test_transformttsc_complete_validation_proves_each_input_o
     'export const value0: string = "PROBE-DRIFTED";\n',
     "utf8",
   );
-  assert.ok(await deliver(drifting, stale));
-  assert.equal(
-    pluginRuns(),
-    1,
-    "the bundler's own source stays authoritative for the file it delivers",
-  );
+  const write = process.stderr.write.bind(process.stderr);
+  let reported = "";
+  process.stderr.write = ((chunk: unknown) => {
+    reported += String(chunk);
+    return true;
+  }) as typeof process.stderr.write;
+  let drifted;
+  try {
+    drifted = await deliver(drifting, stale);
+  } finally {
+    process.stderr.write = write;
+  }
+  assert.ok(drifted);
+  assert.match(drifted.code, /DRIFTED/, "the output is the disk's");
+  assert.equal(pluginRuns(), 2, "an edit on disk recompiles");
+  assert.match(reported, /differs from the file on disk/);
   assert.ok(await deliver(modules[3]!));
-  assert.equal(
-    pluginRuns(),
-    2,
-    "a sibling delivery must still see the drifted file on disk",
-  );
+  assert.equal(pluginRuns(), 2, "a sibling reuses the recompiled generation");
 }

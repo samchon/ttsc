@@ -27,7 +27,9 @@ import { notificationsProveProgramUnchanged } from "./notificationsProveProgramU
  * served once. Later graph-bearing requests validate the file's derived input
  * set and project membership; graph-free envelopes conservatively re-hash the
  * complete project and out-of-walk snapshots. Any mismatch forces a complete
- * re-transform.
+ * re-transform. A delivered text that differs from the file while the disk
+ * still holds the bytes the generation compiled is not one: it is reported and
+ * served, since the compile read the disk (samchon/ttsc#1394).
  */
 export function matchesCachedSource(
   cached: TtscCachedProjectTransform,
