@@ -338,13 +338,16 @@ Not every Vite alias form can be forwarded, because a tsconfig `paths` map canno
 
 | `resolve.alias` form | Forwarded |
 | --- | --- |
-| `{ "@": "/src" }`, or the array form with a string `find` | yes |
+| a string `find` whose replacement is an absolute path | yes |
+| a replacement with a leading `/` outside the root, such as `{ "@": "/src" }` | yes, as the Vite root's `src` first and the absolute `/src` second, the order Vite tries them |
+| a relative replacement, such as `"./src"` | no: Vite resolves it against each importing module, which `paths` cannot express |
+| a bare replacement, such as `"lodash-es"` | no: Vite resolves it as a package, which `paths` cannot express |
 | array form with a `RegExp` `find`, such as `{ find: /^~/ }` | no: `paths` has no regular-expression form |
 | a string `find` containing `*` | no: a `paths` key already reads `*` as its own wildcard |
 
-In both unforwarded cases the compile resolves that specifier through the tsconfig's `paths` alone, so declare it there if `ttsc` must resolve through it. A prefix `RegExp` such as `/^~/` is written as a `"~/*"` entry. Reducing simple prefix patterns automatically is deliberately not attempted: distinguishing `/^~/` from `/^@app/`, which also matches `@apple`, needs enough of a regular-expression engine that a wrong reduction becomes likely, and a mistranslated alias resolves imports to the wrong file without saying so.
+In every unforwarded case the compile resolves that specifier through the tsconfig's `paths` alone, and a forwarded alias never replaces a tsconfig mapping with a meaning Vite does not give it, so declare it there if `ttsc` must resolve through it. A prefix `RegExp` such as `/^~/` is written as a `"~/*"` entry. Reducing simple prefix patterns automatically is deliberately not attempted: distinguishing `/^~/` from `/^@app/`, which also matches `@apple`, needs enough of a regular-expression engine that a wrong reduction becomes likely, and a mistranslated alias resolves imports to the wrong file without saying so.
 
-A `find` containing `*` is also reported once on stderr, naming the alias and the reason. A `RegExp` `find` is not, and the asymmetry is deliberate: Vite merges two `RegExp` aliases of its own into every resolved config, for `@vite/env` and `@vite/client`, so a report on that form would fire in every build of every project and name aliases you never wrote.
+A `find` containing `*`, and a relative or bare replacement, is also reported once on stderr, naming the alias and the reason. A `RegExp` `find` is not, and the asymmetry is deliberate: Vite merges two `RegExp` aliases of its own into every resolved config, for `@vite/env` and `@vite/client`, so a report on that form would fire in every build of every project and name aliases you never wrote.
 
 ### Cache and Watch Invalidation
 

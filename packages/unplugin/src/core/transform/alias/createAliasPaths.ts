@@ -1,14 +1,29 @@
 import path from "node:path";
 
 import { normalizePath } from "../filesystem/normalizePath";
+import { pathIsWithin } from "../filesystem/pathIsWithin";
 import { normalizeAliases } from "./normalizeAliases";
 
 /**
- * Convert bundler aliases into absolute `paths` mappings.
+ * Convert bundler aliases into absolute `paths` mappings, in the meaning Vite
+ * gives each replacement (samchon/ttsc#1399).
  *
  * Targets are written as absolute paths on purpose: the generated tsconfig
  * lives in a system temp directory, where TypeScript-Go would reject bare
  * relative targets (TS5090) and anchor `./`-style ones at the wrong directory.
+ *
+ * Vite substitutes the replacement into the specifier and resolves the result:
+ *
+ * - A replacement with a leading `/` that is not already below the root, such as
+ *   `"/src"`, is tried against the Vite root first and only then as an absolute
+ *   path. Both targets are listed in that order, since `paths` tries its
+ *   targets in order too. Reading it as absolute alone sent every `@/...`
+ *   import to the filesystem root, or on Windows to the drive root, and the
+ *   overlay then overrode the project's own correct `paths` entry.
+ * - Any other absolute replacement means itself.
+ * - A relative replacement is resolved against each importing module, and a bare
+ *   one as a package. `paths` can express neither, so each is reported once and
+ *   not forwarded, leaving the tsconfig's own mapping in force.
  */
 export function createAliasPaths(aliases: unknown): Record<string, string[]> {
   const paths: Record<string, string[]> = {};
@@ -53,13 +68,30 @@ export function createAliasPaths(aliases: unknown): Record<string, string[]> {
     if (key.length === 0) {
       continue;
     }
-    const target = normalizePath(
-      path.isAbsolute(alias.replacement)
-        ? alias.replacement
-        : path.resolve(process.cwd(), alias.replacement),
-    );
-    paths[key] = [target];
-    paths[`${key}/*`] = [`${target}/*`];
+    const replacement = alias.replacement;
+    let targets: string[];
+    // Vite's root-relative test is a leading `/`, exactly as `vite:resolve`
+    // checks `id[0] === "/"`; a `//` prefix is a UNC-style absolute path.
+    if (replacement.startsWith("/") && !replacement.startsWith("//")) {
+      const root = path.resolve(alias.root ?? process.cwd());
+      const absolute = path.resolve(replacement);
+      targets = pathIsWithin(absolute, root)
+        ? [absolute]
+        : [path.join(root, replacement.slice(1)), absolute];
+    } else if (path.isAbsolute(replacement)) {
+      targets = [replacement];
+    } else {
+      reportUntranslatableAlias(
+        JSON.stringify(alias.find),
+        replacement.startsWith(".")
+          ? `its replacement ${JSON.stringify(replacement)} is relative, which Vite resolves against each importing module`
+          : `its replacement ${JSON.stringify(replacement)} is not a path, which Vite resolves as a package`,
+      );
+      continue;
+    }
+    const normalized = targets.map((target) => normalizePath(target));
+    paths[key] = normalized;
+    paths[`${key}/*`] = normalized.map((target) => `${target}/*`);
   }
   return paths;
 }
@@ -84,10 +116,11 @@ const REPORTED_UNTRANSLATABLE_ALIASES = new Set<string>();
  * (samchon/ttsc#1308) — but that report names the module, not the alias, so the
  * user cannot learn from it that a configuration they wrote was ignored.
  *
- * Only the wildcard form reaches here. Every entry it names was written by the
- * user, because nothing injects one; the `RegExp` form is left to the
- * documentation precisely because Vite does inject those, and
- * {@link createAliasPaths} carries that measurement.
+ * The wildcard form and relative or bare replacements reach here. Every entry
+ * it names was written by the user or the user's framework, because Vite
+ * injects none of them; the `RegExp` form is left to the documentation
+ * precisely because Vite does inject those, and {@link createAliasPaths} carries
+ * that measurement.
  */
 function reportUntranslatableAlias(description: string, reason: string): void {
   if (REPORTED_UNTRANSLATABLE_ALIASES.has(description)) {

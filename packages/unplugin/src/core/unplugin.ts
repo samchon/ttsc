@@ -83,7 +83,15 @@ const unpluginFactory: UnpluginFactory<
 
     vite: {
       configResolved(config) {
-        aliases = config.resolve.alias;
+        // Vite resolves a root-relative replacement such as `"/src"` against
+        // its root before the filesystem, so each alias carries the root it
+        // belongs to (samchon/ttsc#1399).
+        aliases = Array.isArray(config.resolve.alias)
+          ? config.resolve.alias.map((alias) => ({
+              ...alias,
+              root: config.root,
+            }))
+          : config.resolve.alias;
         // Re-read per config resolution: a plugin instance reused across a
         // serve and a later build must stop routing missing inputs to the
         // serve-time poll, even though the closed server stays attached
