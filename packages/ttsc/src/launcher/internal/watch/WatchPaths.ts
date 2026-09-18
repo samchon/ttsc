@@ -2,11 +2,13 @@ import fs from "node:fs";
 import path from "node:path";
 
 /**
- * Cheap, lexical path helpers the watch topology calls per event.
+ * Cheap path helpers the watch topology calls per event.
  *
  * They deliberately avoid the filesystem-identity resolver: watcher events
  * arrive in bursts and these questions (is this under that, are these two maps
- * equal) only need the spelling the topology already normalized.
+ * equal) only need the spelling the topology already normalized. Containment
+ * and comparison are lexical; `isDirectory` and `nearestExistingDirectory` ask
+ * the filesystem with one `stat` per probed directory and nothing more.
  */
 export namespace WatchPaths {
 /** Whether `location` exists and is a directory, following links. */

@@ -8,8 +8,10 @@
  */
 export type IJavaScriptRuntimeCapabilities = {
   /**
-   * The executable is Bun. Bun loads TypeScript descriptors natively, so the
-   * descriptor evaluator skips the ttsx runtime hooks entirely.
+   * The executable is Bun. Bun loads TypeScript descriptors natively and has no
+   * `module.registerHooks`, so the descriptor evaluator runs it without the ttsx
+   * runtime-hook preload and isolates it from Bun's own config and `.env`
+   * loading instead.
    */
   bun: boolean;
 

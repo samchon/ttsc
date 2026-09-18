@@ -23,8 +23,9 @@ import type { PluginBuildLockFence } from "./PluginBuildLockFence";
 export namespace PluginBuildLockProtocol {
 /**
  * How long a waiter trusts a live-looking holder before stealing the lock. It
- * matches the ttsx dependency-build lock (`DependencyBuildLockProtocol`), so a
- * crashed builder never wedges a fan-out for longer than ten minutes.
+ * matches the ttsx dependency-build lock (`DEP_BUILD_LOCK_STEAL_MS` in
+ * `installRuntimeHooks.ts`), so a crashed builder never wedges a fan-out for
+ * longer than ten minutes.
  */
 export const PLUGIN_BUILD_LOCK_STEAL_MS = 600_000;
 

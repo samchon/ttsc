@@ -82,6 +82,14 @@ export const test_evidence_repository_ttsc_source_holds_one_documented_identity_
       linkPackageDependencies(packageRoot, project.directory);
       const result: IRunResult = runCheck(project.directory);
       const diagnostics: IDiagnostic[] = parseDiagnostics(result.output);
+      // A diagnostic with no location (an option error, say) matches no parsed
+      // line, so every code the compiler printed has to be one of them.
+      const printed: number =
+        stripColors(result.output).match(/\berror TS\d+:/g)?.length ?? 0;
+      if (printed !== diagnostics.length)
+        throw new Error(
+          `The check printed ${printed} error code(s) but only ${diagnostics.length} located diagnostic(s); a failure outside any file would otherwise pass unseen.\n\nActual output:\n${result.output}`,
+        );
       const canary: IDiagnostic[] = diagnostics.filter(
         (diagnostic) => diagnostic.file === CANARY,
       );
@@ -203,7 +211,7 @@ const linkPackageDependencies = (
  * lines of the `file:line:column - error` shape count.
  */
 const parseDiagnostics = (output: string): IDiagnostic[] => {
-  const plain: string = output.replace(/\x1b\[[0-9;]*m/g, "");
+  const plain: string = stripColors(output);
   const diagnostics: IDiagnostic[] = [];
   for (const line of plain.split(/\r?\n/)) {
     const match: RegExpMatchArray | null = line.match(
@@ -218,3 +226,7 @@ const parseDiagnostics = (output: string): IDiagnostic[] => {
   }
   return diagnostics;
 };
+
+/** The check output with its ANSI color sequences removed. */
+const stripColors = (output: string): string =>
+  output.replace(/\x1b\[[0-9;]*m/g, "");
