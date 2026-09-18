@@ -55,8 +55,8 @@ const LEGACY: ILegacyParser = createRequire(
  * crashes the build on Node 22; the config derives its externals from
  * `package.json` instead.
  *
- * 1. Parse every emitted `.js` and `.mjs` module and collect its bare import
- *    specifiers.
+ * 1. Assert every emitted `.js` and `.mjs` module maps to one source file, and
+ *    collect its bare import specifiers from the parse.
  * 2. Assert each is a Node builtin or a declared, optional, or peer dependency,
  *    and that `ttsc`, `ttsc/path-identity`, and `unplugin` stay external in
  *    both formats.
@@ -80,6 +80,22 @@ export async function test_package_build_keeps_runtime_dependencies_external(): 
   const lib = path.dirname(TestUnpluginRuntime.libPath("index", "js"));
   const outputs = collectRuntimeOutputs(lib);
   assert.ok(outputs.length > 0, "the build emitted no runtime modules");
+  // With `preserveModules`, every emitted module maps back to one source file.
+  // A module without one was copied in from elsewhere, such as a workspace
+  // package resolved through its real path, and no specifier check can see it.
+  const src = path.join(PACKAGE_DIR, "src");
+  const sources = new Set(
+    collectSources(src).map((file) =>
+      path.relative(src, file).replace(/\.ts$/, "").replaceAll(path.sep, "/"),
+    ),
+  );
+  for (const file of outputs) {
+    const module = path
+      .relative(lib, file)
+      .replace(/\.m?js$/, "")
+      .replaceAll(path.sep, "/");
+    assert.ok(sources.has(module), `lib/${module} has no source in src`);
+  }
 
   const externals = { js: new Set<string>(), mjs: new Set<string>() };
   for (const file of outputs) {
@@ -129,6 +145,15 @@ export async function test_package_build_keeps_runtime_dependencies_external(): 
   }
 }
 
+/** Every TypeScript source below `directory`. */
+function collectSources(directory: string): string[] {
+  return fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    const location = path.join(directory, entry.name);
+    if (entry.isDirectory()) return collectSources(location);
+    return entry.name.endsWith(".ts") ? [location] : [];
+  });
+}
+
 /** Every emitted `.js` and `.mjs` module below `directory`. */
 function collectRuntimeOutputs(directory: string): string[] {
   return fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
@@ -160,7 +185,9 @@ function bareSpecifiers(file: string, source: string): string[] {
       specifier = text(node.moduleSpecifier);
     } else if (
       node.kind === kinds.CallExpression &&
-      node.arguments?.length === 1 &&
+      // `import(x, { with: … })` carries a second argument.
+      node.arguments !== undefined &&
+      node.arguments.length >= 1 &&
       node.expression !== undefined &&
       (node.expression.kind === kinds.ImportKeyword ||
         (node.expression.kind === kinds.Identifier &&

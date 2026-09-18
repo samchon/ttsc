@@ -9,13 +9,16 @@ import { captureBunLoader } from "../../internal/adapter-bun/captureBunLoader";
  * Verifies a module the compiled program does not contain falls through the Bun
  * bundler adapter instead of failing the build.
  *
- * The Bun half of what samchon/ttsc#1308 asked to be proven per adapter had
- * never been proven (samchon/ttsc#1317). Its pass-through spelling is Bun's
- * own: the loader returns `undefined` to hand the module to the next loader, so
- * the source Bun compiles is the source on disk. The `undefined` alone would be
- * weak, because the loader returns it for an excluded path too. The stderr
- * report tells the two apart: only a delivery that reached the compile and
- * found no output for this file can emit it.
+ * Before samchon/ttsc#1308 the adapter threw here and Bun turned the throw into
+ * a build failure; #1308 asked for the fix to be proven per adapter, and
+ * samchon/ttsc#1317 records that the Bun half never was. Its pass-through
+ * spelling is Bun's own: the loader returns `undefined` to hand the module to
+ * the next loader, so the source Bun compiles is the source on disk. The
+ * `undefined` alone would be weak, because the loader returns it for an
+ * excluded path too, as
+ * `test_bun_adapter_falls_through_for_excluded_and_unchanged_modules` pins. The
+ * stderr report tells the two apart: only a delivery that reached the compile
+ * and found no output for this file can emit it.
  *
  * 1. Create a real `.ts` file outside the tsconfig's `include`.
  * 2. Load it through the bundler-mode loader while capturing stderr.

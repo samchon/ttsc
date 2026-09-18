@@ -11,13 +11,13 @@ import path from "node:path";
  * generated tsconfig lives in a temp directory, so a relative path left as
  * written would resolve there and read nothing. The file is also a compiler
  * input, so editing it must replace the generation, while a forwarded file the
- * native host reports no evidence for must stay uncacheable.
+ * native host reports no evidence for cannot be proven at all.
  *
  * 1. Transform with a relative `configFile`, and assert the fixture plugin
  *    received its absolute path.
  * 2. Edit the config file and assert the next transform replaces the generation.
- * 3. Forward a `configFile` without native evidence and assert the result is not
- *    cached.
+ * 3. Forward a `configFile` the host reports no content proof for, and assert the
+ *    transform rejects naming it.
  */
 export async function test_transformttsc_absolutizes_relative_plugin_configfile_paths_in_generated_tsconfig(): Promise<void> {
   const { createTtscTransformCache, resolveOptions, transformTtsc } =

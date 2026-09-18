@@ -14,10 +14,11 @@ const esbuild = TestUnpluginProject.REQUIRE_FROM_UNPLUGIN("esbuild");
  * `onStart` may acquire the generation, and a delayed disposal must never clear
  * a newer active owner, or a live session would lose its proof mid-build.
  *
- * 1. Build once and assert the output is transformed, then fail a build after
- *    setup and assert it holds no owner.
- * 2. Open two contexts and assert they share one compile, and disposing one keeps
- *    the generation for the other.
+ * 1. Fail a `context()` call after plugin setup, then rebuild two live contexts
+ *    and assert the output is transformed with one compile shared between
+ *    them.
+ * 2. Dispose one context and assert a rebuild of the other reuses the generation,
+ *    then dispose the last.
  * 3. Overlap one-shot builds and assert an older disposal keeps the active
  *    replacement's generation, while the final one releases it.
  */

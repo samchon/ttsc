@@ -18,12 +18,13 @@ import { emitGraphPlugins } from "../../internal/transform-graph/emitGraphPlugin
  * temp root is inside the project, directly or through an alias, and without
  * masking a real descriptor or config edit.
  *
- * 1. Point `TEMP`, `TMP`, and `TMPDIR` at a directory inside the project through a
- *    junction, and transform with an overlay.
- * 2. Assert the generation is complete and records its temporary tsconfig, and an
- *    unchanged retransform reuses it while a real edit replaces it.
- * 3. Repeat without an overlay and with a canonical temp alias, and assert the
- *    same reuse.
+ * 1. Point `TEMP`, `TMP`, and `TMPDIR` at a project directory through a link (a
+ *    junction on Windows), and transform with an overlay.
+ * 2. Assert the generation is complete and records its temporary tsconfig, an
+ *    unchanged retransform reuses it, a real edit replaces it, and the same
+ *    reuse holds without an overlay.
+ * 3. Point the temp variables at an alias of an outside directory, and assert the
+ *    temporary tsconfig lands in that directory's physical path.
  */
 export async function test_transformttsc_external_validation_ignores_the_generated_tsconfig(): Promise<void> {
   const { resolveOptions, transformTtsc, createTtscTransformCache } =

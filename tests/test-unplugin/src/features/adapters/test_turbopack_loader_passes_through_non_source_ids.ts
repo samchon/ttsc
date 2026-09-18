@@ -11,10 +11,13 @@ import { runTurbopackLoader } from "../../internal/adapter-turbopack/runTurbopac
  * The loader used to re-implement two of `isTransformTarget`'s four conditions,
  * so a rule glob wider than `*.ts`/`*.tsx` routed JavaScript and virtual ids
  * into the whole-project transform every other adapter excludes. A project
- * without `allowJs` has no program entry for such a file, so each delivery cost
- * a whole-project compile that could never produce output. The virtual row is
- * defence in depth: `transformTtsc` short-circuits a NUL id itself, and the row
- * pins that the loader no longer depends on a guard inside the transform.
+ * without `allowJs` has no program entry for such a file; that no longer fails
+ * a build (samchon/ttsc#1308), but it still cost a whole-project compile that
+ * could never produce output. The virtual row is defence in depth:
+ * `transformTtsc` short-circuits a NUL id itself, and the row pins that the
+ * loader no longer depends on a guard inside the transform. The declaration and
+ * `node_modules` rows stay pinned by
+ * `test_turbopack_loader_passes_through_declarations_and_node_modules`.
  *
  * 1. Run the loader on `.js`, `.mjs`, `.cjs`, and `.jsx` siblings of a project
  *    source.

@@ -4,15 +4,16 @@ import { collectServeWatchRegistrations } from "../../internal/adapter-vite-serv
 import { createLinkedWorkspaceFixture } from "../../internal/adapter-vite-serve/createLinkedWorkspaceFixture";
 
 /**
- * Verifies a dev server configured without a watcher receives no watch-input
- * registration.
+ * Verifies the Vite adapter registers no watch inputs when serve runs without a
+ * watcher.
  *
  * With `server.watch: null`, as `vitest --run` configures it, nothing can
  * deliver a change event. Vite's import analysis would resolve every registered
  * path like a runtime import, so any registration is pure cost.
  *
  * 1. Create the linked workspace fixture.
- * 2. Serve it with watching disabled and collect every watch registration.
+ * 2. Drive the adapter's hooks with `command: "serve"` and `server.watch: null`,
+ *    collecting every watch registration.
  * 3. Assert nothing was registered.
  */
 export async function test_vite_serve_registers_no_watch_inputs_without_a_watcher(): Promise<void> {

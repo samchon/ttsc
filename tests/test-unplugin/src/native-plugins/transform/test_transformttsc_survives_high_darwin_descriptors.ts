@@ -14,7 +14,7 @@ import { projectModules } from "../../internal/transform-project-cache/projectMo
  * all spawn or open files, so each must survive it.
  *
  * 1. Skip unless the host is macOS.
- * 2. Open descriptors until the next one exceeds 10,500.
+ * 2. Open descriptors until the last one opened is at least 10,500.
  * 3. Run a build-scoped transform and assert it succeeds, then close every
  *    descriptor.
  */

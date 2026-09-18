@@ -1,6 +1,7 @@
 const assert = require("node:assert/strict");
 const { spawn } = require("node:child_process");
 const fs = require("node:fs");
+const { createRequire } = require("node:module");
 const os = require("node:os");
 const path = require("node:path");
 const { test } = require("node:test");
@@ -9,11 +10,9 @@ const { pathToFileURL } = require("node:url");
 const root = path.resolve(__dirname, "..", "..");
 // TypeScript 7 ships no classic compiler API; the unplugin package's own
 // declaration build already depends on the legacy one.
-const ts = require(
-  require.resolve("ts-legacy", {
-    paths: [path.join(root, "packages", "unplugin")],
-  }),
-);
+const ts = createRequire(
+  path.join(root, "packages", "unplugin", "package.json"),
+)("ts-legacy");
 
 test("unplugin scenarios follow the repository test layout", () => {
   const packageRoot = path.join(root, "tests", "test-unplugin");
@@ -444,35 +443,47 @@ function readTree(directory) {
 }
 
 /**
- * The development skill's scenario doc: a one-line `Verifies …` headline, at
- * least one paragraph stating why, and a closing list of two to four numbered
- * steps, directly above the exported test.
+ * The development skill's scenario doc: a one-sentence `Verifies …` headline,
+ * at least one paragraph stating why, and a closing list of two to four steps
+ * numbered from one, directly above the exported test. Every line of the list
+ * is a step or an indented continuation of one, so prose cannot hide after it.
  */
 function assertScenarioDoc(relative, text, name) {
   const declaration = text.indexOf(`export async function ${name}(`);
   const end = text.lastIndexOf("*/", declaration);
+  // A doc opens at the start of a line, so `/**` inside backticks such as
+  // `node_modules/**` is never mistaken for one; the file's first line counts.
   const start = text.lastIndexOf("\n/**", end) + 1;
   assert.ok(
-    start > 0 && text.slice(end + 2, declaration).trim() === "",
+    end > 0 &&
+      text.startsWith("/**", start) &&
+      text.slice(end + 2, declaration).trim() === "",
     `${relative} must open with a doc comment directly above its test`,
   );
   const blocks = text
     .slice(start + 3, end)
-    .split("\n")
-    .map((line) => line.replace(/^\s*\*\s?/, ""))
+    .split(/\r?\n/)
+    .map((line) => line.replace(/^\s*\*( |$)/, ""))
     .join("\n")
     .trim()
     .split(/\n\s*\n/);
-  const steps = blocks.at(-1).match(/^\d+\. /gm) ?? [];
   assert.match(
     blocks[0],
-    /^Verifies /,
-    `${relative} must open with "Verifies"`,
+    /^Verifies [^]*[.)]$/,
+    `${relative} must open with one "Verifies" sentence`,
   );
   assert.ok(blocks.length >= 3, `${relative} must say why it exists`);
+  const lines = blocks.at(-1).split("\n");
+  const markers = lines
+    .map((line) => /^(\d+)\. \S/.exec(line)?.[1])
+    .filter((marker) => marker !== undefined);
   assert.ok(
-    /^1\. /.test(blocks.at(-1)) && steps.length >= 2 && steps.length <= 4,
-    `${relative} must close with two to four numbered steps`,
+    /^1\. /.test(lines[0]) &&
+      markers.length >= 2 &&
+      markers.length <= 4 &&
+      markers.every((marker, index) => Number(marker) === index + 1) &&
+      lines.every((line) => /^\d+\. \S/.test(line) || /^ {3}\S/.test(line)),
+    `${relative} must close with two to four steps numbered from one`,
   );
 }
 
@@ -499,17 +510,20 @@ function exportedDeclarations(file, text) {
           exported.push({ isAsyncTest: false, name: element.name.text });
         }
       } else {
-        exported.push({ isAsyncTest: false, name: "*" });
+        // `export * as name` publishes one name; a bare `export *` many.
+        exported.push({
+          isAsyncTest: false,
+          name: statement.exportClause?.name.text ?? "*",
+        });
       }
     } else if (ts.isExportAssignment(statement)) {
       exported.push({ isAsyncTest: false, name: "default" });
     } else if (flags(statement) & ts.ModifierFlags.Export) {
       if (ts.isVariableStatement(statement)) {
         for (const declaration of statement.declarationList.declarations) {
-          exported.push({
-            isAsyncTest: false,
-            name: declaration.name.getText(source),
-          });
+          for (const name of bindingNames(declaration.name)) {
+            exported.push({ isAsyncTest: false, name });
+          }
         }
         continue;
       }
@@ -519,13 +533,23 @@ function exportedDeclarations(file, text) {
           ts.isFunctionDeclaration(statement) &&
           !isDefault &&
           (flags(statement) & ts.ModifierFlags.Async) !== 0 &&
+          statement.typeParameters === undefined &&
           statement.parameters.length === 0 &&
+          statement.body !== undefined &&
           statement.type?.getText(source) === "Promise<void>",
         name: isDefault ? "default" : (statement.name?.text ?? "default"),
       });
     }
   }
   return exported;
+}
+
+/** Every identifier a variable binding declares, through nested patterns. */
+function bindingNames(name) {
+  if (ts.isIdentifier(name)) return [name.text];
+  return name.elements.flatMap((element) =>
+    ts.isBindingElement(element) ? bindingNames(element.name) : [],
+  );
 }
 
 function collectFiles(directory) {

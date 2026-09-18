@@ -11,11 +11,11 @@ import { primeSuccessfulTransform } from "../../internal/transform-project-cache
  * source, yet it is no longer the cache's answer, and serving it would return
  * output the cache itself has already discarded.
  *
- * 1. Prime a successful generation, and install a stale but matching one under the
- *    same key.
- * 2. Start a delivery, then let a mismatching caller replace the generation while
- *    it waits.
- * 3. Assert the waiting delivery does not return the superseded output.
+ * 1. Prime a successful generation, and install a pending stale generation that
+ *    still matches the source under the same key.
+ * 2. Start a mismatching caller, which will replace it, then a matching caller,
+ *    and resolve the stale generation.
+ * 3. Assert the matching caller does not return the superseded output.
  */
 export async function test_transformttsc_does_not_serve_a_superseded_matching_generation(): Promise<void> {
   const { api, cache, key, good, file, source, options } =

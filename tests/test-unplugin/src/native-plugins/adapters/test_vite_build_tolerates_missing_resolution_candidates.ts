@@ -14,7 +14,7 @@ import { createLinkedWorkspaceFixture } from "../../internal/adapter-vite-serve/
  *
  * 1. Create the linked workspace fixture whose graph records missing candidates.
  * 2. Build it with Vite and the ttsc adapter.
- * 3. Assert the bundle contains the linked module's transformed value.
+ * 3. Assert the bundle contains the linked package's binding.
  */
 export async function test_vite_build_tolerates_missing_resolution_candidates(): Promise<void> {
   const fixture = createLinkedWorkspaceFixture();

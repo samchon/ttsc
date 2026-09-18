@@ -11,12 +11,14 @@ import path from "node:path";
  * Plugin options sit at the entry's top level, because the protocol forwards
  * the whole `compilerOptions.plugins[i]` entry as the plugin's config; a nested
  * `config` object would make the fixture fall back to its default operation and
- * never assert.
+ * never assert. A `find` written with a trailing slash reaches the compile
+ * under the same key as a slashless one (samchon/ttsc#1315).
  *
  * 1. Create a project with no configured plugins.
  * 2. Transform with an alias map through the fixture's `assert-paths` operation,
  *    naming the expected absolute target.
- * 3. Assert the transform succeeds.
+ * 3. Assert the transform succeeds, and a trailing-slash `find` produces the same
+ *    key.
  */
 export async function test_transformttsc_passes_bundler_aliases_through_compileroptions_paths(): Promise<void> {
   const { resolveOptions, transformTtsc } =

@@ -12,10 +12,13 @@ import { projectModules } from "../../internal/transform-project-cache/projectMo
  * The guard is two fields, because a persistent host's epoch is `undefined`,
  * which is also the initial value. Collapsing them into one epoch comparison
  * would silently suppress the very first report for Metro, the Turbopack
- * loader, and a watching dev server.
+ * loader, and a watching dev server. No fixture plugin emits a warning, so the
+ * cached generation is re-published with a `warning`-category diagnostic
+ * attached.
  *
- * 1. Create a project whose plugin emits a warning, and capture stderr.
- * 2. Deliver every module through a persistent cache.
+ * 1. Deliver one module through a persistent cache, then replace its cached
+ *    generation with one carrying a warning.
+ * 2. Deliver every module while capturing stderr.
  * 3. Assert the warning was written once.
  */
 export async function test_transformttsc_persistent_diagnostics_are_reported_once_per_generation(): Promise<void> {

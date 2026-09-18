@@ -14,11 +14,11 @@ import { projectModules } from "../../internal/transform-project-cache/projectMo
  * needs one bounded watcher as its A-B-A witness, which has to close before
  * delivery.
  *
- * 1. Open a pass through a cache that counts opened and closed watchers, and
- *    deliver a module.
- * 2. Assert the compile opened one witness and closed it before delivery.
- * 3. Edit an input, run another pass, and assert it recompiles and teardown leaves
- *    no watcher open.
+ * 1. Run a pass that delivers every module through a cache that counts opened and
+ *    closed watchers.
+ * 2. Edit a module and run a second pass over every module.
+ * 3. Assert two witnesses were opened and all closed, the edit recompiled, and
+ *    teardown leaves no watcher open.
  */
 export async function test_transformttsc_build_passes_retain_no_filesystem_watchers(): Promise<void> {
   const api = await TestUnpluginRuntime.loadUnpluginApi();

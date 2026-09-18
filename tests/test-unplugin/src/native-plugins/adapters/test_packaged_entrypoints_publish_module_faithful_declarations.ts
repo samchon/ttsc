@@ -19,8 +19,8 @@ import { packUnpluginPackage } from "../../internal/packaged-host-contract/packU
  * 1. Pack the package, and assert every subpath uses conditional exports whose
  *    files exist and whose registration entries survive tree shaking.
  * 2. Install the extracted package into a consumer beside its real dependencies.
- * 3. Compile NodeNext, Bundler, and Node10 consumers with TypeScript-Go and the
- *    legacy compiler, and assert every one succeeds.
+ * 3. Compile NodeNext and Bundler consumers with TypeScript-Go, and NodeNext and
+ *    Node10 consumers with the legacy compiler, and assert every one succeeds.
  */
 export async function test_packaged_entrypoints_publish_module_faithful_declarations(): Promise<void> {
   const packed = packUnpluginPackage();

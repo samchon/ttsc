@@ -69,10 +69,11 @@ test("unplugin sources declare one public identity named after the file", () => 
 /**
  * `evidence/documented` with its default selection (`type`, `function`,
  * `property`): every public unit carries a JSDoc block with content on the
- * first declaration that founds it. Units are exported interfaces, type
- * aliases, functions, variables, and classes (enums found none), the named
- * signatures of an interface or object-literal type alias, and the public
- * methods, properties, and parameter properties of a class. A hiding tag
+ * first declaration that founds it. A unit is one symbol kind at one address:
+ * exported interfaces, type aliases, functions, variables, and classes (enums
+ * found none), the named signatures of an interface or object-literal type
+ * alias, and the public methods, properties, and parameter properties of a
+ * class, instance members through `prototype`. A hiding tag on any declaration
  * withdraws a unit and everything beneath it.
  */
 test("unplugin sources document every public identity and member", () => {
@@ -196,7 +197,10 @@ function bindingNames(name) {
   );
 }
 
-/** Local `export { … }` lists; `default` names no address. */
+/**
+ * Local `export { … }` lists. `default` names no address of its own; it is a
+ * default binding of the local instead (`collectDefaultExportBindings`).
+ */
 function localExportAliases(statement) {
   if (
     statement.moduleSpecifier !== undefined ||
@@ -216,33 +220,82 @@ function localExportAliases(statement) {
 }
 
 /**
- * `collectTypeScriptStatements` for the forms these trees can hold. A unit is
- * judged on the first declaration that founds it, and a hidden unit withdraws
- * its members with it.
+ * `collectLocalExportNames`: the public names each local takes through export
+ * lists and default bindings. A default binding alone publishes the local's own
+ * name; beside other aliases it makes one of them a value identity, so a
+ * type-only alias no longer withholds the class members behind it.
  */
-function documentedHosts(source) {
+function localExportNames(source) {
   const exports = new Map();
+  const defaults = new Map();
+  const push = (local, entry) => {
+    if (!exports.has(local)) exports.set(local, []);
+    exports.get(local).push(entry);
+  };
   for (const statement of source.statements) {
     if (ts.isExportDeclaration(statement)) {
       for (const alias of localExportAliases(statement)) {
-        if (!exports.has(alias.local)) exports.set(alias.local, []);
-        if (alias.address !== "") exports.get(alias.local).push(alias);
+        if (alias.address !== "") push(alias.local, { ...alias });
+        else {
+          const previous = defaults.get(alias.local);
+          defaults.set(alias.local, {
+            typeOnly: alias.typeOnly && (previous?.typeOnly ?? true),
+          });
+        }
       }
     } else if (
       ts.isExportAssignment(statement) &&
       !statement.isExportEquals &&
       ts.isIdentifier(statement.expression)
     ) {
-      const local = statement.expression.text;
-      if (!exports.has(local)) exports.set(local, []);
-      exports.get(local).push({ address: local, typeOnly: false });
+      defaults.set(statement.expression.text, { typeOnly: false });
     }
   }
-  const classes = new Set(
-    source.statements
-      .filter((statement) => ts.isClassDeclaration(statement) && statement.name)
-      .map((statement) => statement.name.text),
-  );
+  for (const [local, binding] of defaults) {
+    const aliases = exports.get(local);
+    if (aliases === undefined) {
+      push(local, { address: local, local, typeOnly: binding.typeOnly });
+    } else if (!binding.typeOnly) {
+      let selected = 0;
+      aliases.forEach((alias, index) => {
+        const current = aliases[selected];
+        if (
+          (current.typeOnly && !alias.typeOnly) ||
+          (current.typeOnly === alias.typeOnly &&
+            alias.address < current.address)
+        )
+          selected = index;
+      });
+      aliases[selected] = { ...aliases[selected], typeOnly: false };
+    }
+  }
+  return exports;
+}
+
+/**
+ * `collectTypeScriptStatements` for the forms these trees can hold. A unit is
+ * one `(symbol, address)` pair, judged on the first declaration that founds it,
+ * and any declaration carrying a hiding tag withdraws the whole unit and
+ * everything beneath it.
+ */
+function documentedHosts(source) {
+  const exports = localExportNames(source);
+  const classes = new Set();
+  // `collectHiddenDeclarationNames`: a tag on any same-named statement hides
+  // every declaration of that name.
+  const hiddenNames = new Map();
+  for (const statement of source.statements) {
+    const name =
+      !ts.isVariableStatement(statement) &&
+      statement.name !== undefined &&
+      ts.isIdentifier(statement.name)
+        ? statement.name.text
+        : undefined;
+    if (name === undefined) continue;
+    if (ts.isClassDeclaration(statement)) classes.add(name);
+    const tag = hidingTag(source, statement);
+    if (tag !== "" && !hiddenNames.has(name)) hiddenNames.set(name, tag);
+  }
   /** Public names of one declaration: its own export plus local aliases. */
   const targets = (statement, local, allowTypeOnly) => {
     const names = new Map();
@@ -257,22 +310,27 @@ function documentedHosts(source) {
     return [...names.values()];
   };
   const units = new Map();
-  const add = (identity, node, hidden) => {
-    const current = units.get(identity);
-    if (current === undefined || node.pos < current.node.pos) {
-      units.set(identity, { hidden, identity, node });
+  const add = (symbol, identity, node, hidden) => {
+    const key = `${symbol}:${identity}`;
+    const current = units.get(key);
+    if (current === undefined) {
+      units.set(key, { hidden, identity, node, symbol });
+      return;
     }
+    if (hidden !== "" && current.hidden === "") current.hidden = hidden;
+    if (node.pos < current.node.pos) current.node = node;
   };
   for (const statement of source.statements) {
     if (ts.isModuleDeclaration(statement)) {
-      // The collector recurses into namespaces with implicit exports, type-only
-      // projections, and function-merged static sides; this check does not
-      // model that, so it refuses to judge a tree that has one.
+      // The collector recurses into namespaces and ambient module blocks with
+      // implicit exports, type-only projections, and function-merged static
+      // sides; this check does not model that, so it refuses to judge them.
       throw new Error(
-        `${source.fileName}: namespaces are not modeled; extend this check before adding one`,
+        `${source.fileName}: namespace and module blocks are not modeled; extend this check before adding one`,
       );
     }
     const local = statement.name?.text;
+    const hidden = () => hiddenNames.get(local) ?? hidingTag(source, statement);
     if (ts.isInterfaceDeclaration(statement)) {
       const names = targets(statement, local, true);
       if (names.length === 0) continue;
@@ -281,48 +339,58 @@ function documentedHosts(source) {
           `${source.fileName}: a class-merged interface is not modeled; extend this check before adding one`,
         );
       }
-      const hidden = hidingTag(source, statement);
       for (const name of names) {
-        add(name.address, statement, hidden);
-        signatureMembers(source, statement.members, name.address, hidden, add);
+        add("type", name.address, statement, hidden());
+        signatureMembers(
+          source,
+          statement.members,
+          name.address,
+          hidden(),
+          add,
+        );
       }
     } else if (ts.isTypeAliasDeclaration(statement)) {
-      const hidden = hidingTag(source, statement);
       for (const name of targets(statement, local, true)) {
-        add(name.address, statement, hidden);
+        add("type", name.address, statement, hidden());
         if (ts.isTypeLiteralNode(statement.type)) {
           signatureMembers(
             source,
             statement.type.members,
             name.address,
-            hidden,
+            hidden(),
             add,
           );
         }
       }
     } else if (ts.isFunctionDeclaration(statement) && local !== undefined) {
-      const hidden = hidingTag(source, statement);
       for (const name of targets(statement, local, false)) {
-        add(name.address, statement, hidden);
+        add("function", name.address, statement, hidden());
       }
     } else if (ts.isVariableStatement(statement)) {
       // The leading JSDoc of a variable attaches to the statement wrapper.
-      const hidden = hidingTag(source, statement);
+      const statementHidden = hidingTag(source, statement);
+      const constant =
+        (statement.declarationList.flags & ts.NodeFlags.Const) !== 0;
       for (const declaration of statement.declarationList.declarations) {
-        const own = hidden || hidingTag(source, declaration);
+        const symbol =
+          constant &&
+          ts.isIdentifier(declaration.name) &&
+          isFunctionValue(declaration.initializer)
+            ? "function"
+            : "property";
+        const own = statementHidden || hidingTag(source, declaration);
         for (const binding of bindingNames(declaration.name)) {
           for (const name of targets(statement, binding, false)) {
-            add(name.address, statement, own);
+            add(symbol, name.address, statement, own);
           }
         }
       }
     } else if (ts.isClassDeclaration(statement) && local !== undefined) {
-      const hidden = hidingTag(source, statement);
       for (const name of targets(statement, local, true)) {
-        add(name.address, statement, hidden);
+        add("type", name.address, statement, hidden());
         // A type-only export exposes no class value to walk members from.
         if (!name.typeOnly) {
-          classMembers(source, statement, name.address, hidden, add);
+          classMembers(source, statement, name.address, hidden(), add);
         }
       }
     }
@@ -333,25 +401,45 @@ function documentedHosts(source) {
 /** `collectPropertyMembers`: named property and method signatures. */
 function signatureMembers(source, members, owner, hidden, add) {
   for (const member of members) {
-    if (!ts.isPropertySignature(member) && !ts.isMethodSignature(member))
-      continue;
+    const symbol = ts.isMethodSignature(member)
+      ? "function"
+      : ts.isPropertySignature(member)
+        ? memberSymbol(undefined, member.type)
+        : undefined;
     const name = memberName(member.name);
-    if (name === "") continue;
-    add(`${owner}.${name}`, member, hidden || hidingTag(source, member));
+    if (symbol === undefined || name === "") continue;
+    add(
+      symbol,
+      `${owner}.${name}`,
+      member,
+      hidden || hidingTag(source, member),
+    );
   }
 }
 
-/** `collectClassMembers`: public methods, properties, and parameter properties. */
+/**
+ * `collectClassMembers`: public methods, properties, and parameter properties,
+ * addressed through `prototype` unless static (`addClassMemberUnit`). A hiding
+ * tag on any constructor overload hides every parameter property
+ * (`constructorHidingTag`).
+ */
 function classMembers(source, statement, owner, hidden, add) {
+  const constructorHidden =
+    hidden ||
+    statement.members
+      .filter(ts.isConstructorDeclaration)
+      .map((member) => hidingTag(source, member))
+      .find((tag) => tag !== "") ||
+    "";
   for (const member of statement.members) {
     if (ts.isConstructorDeclaration(member)) {
-      const constructorHidden = hidden || hidingTag(source, member);
       for (const parameter of member.parameters) {
         if (!isParameterProperty(parameter) || !isPublic(parameter)) continue;
         const name = memberName(parameter.name);
         if (name === "") continue;
         add(
-          `${owner}.${name}`,
+          memberSymbol(parameter.initializer, parameter.type),
+          `${owner}.prototype.${name}`,
           parameter,
           constructorHidden || hidingTag(source, parameter),
         );
@@ -359,18 +447,53 @@ function classMembers(source, statement, owner, hidden, add) {
       continue;
     }
     if (!isPublic(member)) continue;
-    if (
-      !ts.isMethodDeclaration(member) &&
-      !(
-        ts.isPropertyDeclaration(member) &&
-        !(ts.getCombinedModifierFlags(member) & ts.ModifierFlags.Accessor)
-      )
+    let symbol;
+    if (ts.isMethodDeclaration(member)) symbol = "function";
+    else if (
+      ts.isPropertyDeclaration(member) &&
+      !(ts.getCombinedModifierFlags(member) & ts.ModifierFlags.Accessor)
     )
-      continue;
+      symbol = memberSymbol(member.initializer, member.type);
+    else continue;
     const name = memberName(member.name);
     if (name === "") continue;
-    add(`${owner}.${name}`, member, hidden || hidingTag(source, member));
+    const isStatic =
+      (ts.getCombinedModifierFlags(member) & ts.ModifierFlags.Static) !== 0;
+    add(
+      symbol,
+      isStatic ? `${owner}.${name}` : `${owner}.prototype.${name}`,
+      member,
+      hidden || hidingTag(source, member),
+    );
   }
+}
+
+/** `memberSymbol`: a function value or a direct function type is a function. */
+function memberSymbol(initializer, type) {
+  let declared = type;
+  while (declared !== undefined && ts.isParenthesizedTypeNode(declared))
+    declared = declared.type;
+  return isFunctionValue(initializer) ||
+    (declared !== undefined && ts.isFunctionTypeNode(declared))
+    ? "function"
+    : "property";
+}
+
+/** `isFunctionValue`: an arrow or function expression through wrappers. */
+function isFunctionValue(node) {
+  while (node !== undefined) {
+    if (ts.isArrowFunction(node) || ts.isFunctionExpression(node)) return true;
+    if (
+      ts.isParenthesizedExpression(node) ||
+      ts.isAsExpression(node) ||
+      ts.isSatisfiesExpression(node) ||
+      ts.isNonNullExpression(node) ||
+      ts.isTypeAssertionExpression(node)
+    )
+      node = node.expression;
+    else return false;
+  }
+  return false;
 }
 
 /** `declarationName`: identifiers and string or numeric literals only. */
@@ -416,32 +539,45 @@ function attachedDocs(source, node) {
   return (node.jsDoc ?? []).map((doc) => text.slice(doc.pos, doc.end));
 }
 
-/** `commentHidingTag`: a hiding tag that opens its own line. */
+/**
+ * `commentHidingTag`: a hiding tag that opens its own line outside a code
+ * fence. Each line is trimmed, stripped of a leading `*` and then `///`, and
+ * fed through `commentFence`/`markdownFence` before the tag test.
+ */
 function hidingTag(source, node) {
   for (const doc of attachedDocs(source, node)) {
     let fence;
     for (const raw of commentLines(doc)) {
-      // `commentFence`: a fence closes only with its own marker, at least as
-      // long, and nothing after it.
-      const marker = /^(`{3,}|~{3,})(.*)$/.exec(raw);
-      if (marker !== null) {
-        if (fence === undefined) fence = marker[1];
+      const line = raw.replace(/^\/\/\//, "").trim();
+      const opened = markdownFence(line);
+      if (opened !== undefined) {
+        if (fence === undefined) fence = opened;
         else if (
-          marker[1][0] === fence[0] &&
-          marker[1].length >= fence.length &&
-          marker[2].trim() === ""
+          opened.marker === fence.marker &&
+          opened.length >= fence.length &&
+          opened.remainder.trim() === ""
         )
           fence = undefined;
         continue;
       }
       if (fence !== undefined) continue;
       const tag = HIDING_TAGS.find(
-        (candidate) => raw === candidate || raw.startsWith(`${candidate} `),
+        (candidate) => line === candidate || line.startsWith(`${candidate} `),
       );
       if (tag !== undefined) return tag;
     }
   }
   return "";
+}
+
+/** `markdownFence`: a run of three or more backticks or tildes. */
+function markdownFence(line) {
+  const match = /^( {0,3})(`{3,}|~{3,})(.*)$/.exec(line);
+  if (match === null) return undefined;
+  const [, , run, remainder] = match;
+  // A backtick fence's info string may not contain a backtick.
+  if (run[0] === "`" && remainder.includes("`")) return undefined;
+  return { length: run.length, marker: run[0], remainder };
 }
 
 /** `jsdocHasContent` over every attached block: content, empty, or missing. */
@@ -452,6 +588,7 @@ function documentation(source, node) {
   return docs.length === 0 ? "missing" : "empty";
 }
 
+/** The trimmed lines of one comment, each without its leading `*`. */
 function commentLines(comment) {
   return comment
     .trim()

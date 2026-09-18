@@ -25,7 +25,10 @@ async function driveCapturedLoader(
  *
  * The one-line `bunfig.toml` preload convenience must keep working without an
  * explicit call. Evaluating both package conditions, CommonJS then ESM, must
- * share one loader, since two would transform every module twice.
+ * share one loader: Bun uses the first matching `onLoad` hook and does not fall
+ * through (oven-sh/bun#20583), so a second registration would shadow the first
+ * rather than run beside it, and which options applied would depend on
+ * evaluation order.
  *
  * 1. Require the CommonJS entry under a Bun stub, then import the ESM entry.
  * 2. Assert only one plugin was registered.

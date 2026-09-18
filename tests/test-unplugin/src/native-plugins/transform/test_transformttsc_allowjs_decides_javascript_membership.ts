@@ -16,7 +16,7 @@ import { startMembershipSession } from "../../internal/transform-program-members
  *
  * 1. Run a pass over a project without `allowJs`, add a `.js` file, and assert the
  *    next pass reuses the generation.
- * 2. Run a pass over the same project with `allowJs`.
+ * 2. Run a pass over a fresh project with `allowJs`.
  * 3. Add a `.js` file and assert the next pass recompiles.
  */
 export async function test_transformttsc_allowjs_decides_javascript_membership(): Promise<void> {

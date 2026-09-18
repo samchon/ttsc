@@ -17,7 +17,7 @@ import { projectModules } from "../../internal/transform-project-cache/projectMo
  * 1. Create two projects, each with a cache whose operations count reads and the
  *    first of which injects a directory-listing failure.
  * 2. Transform both concurrently.
- * 3. Assert only the first rejects, each cache read its own project, and the first
+ * 3. Assert only the first rejects, both caches performed reads, and the first
  *    cache's fault never observed the second project.
  */
 export async function test_transformttsc_filesystem_operations_are_cache_local(): Promise<void> {

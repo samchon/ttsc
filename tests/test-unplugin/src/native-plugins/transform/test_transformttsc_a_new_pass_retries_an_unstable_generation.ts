@@ -16,10 +16,11 @@ import { projectModules } from "../../internal/transform-project-cache/projectMo
  * attempt the per-pass cache clear used to provide. The run log counts
  * attempts: the compile succeeds and only the walk around it is torn.
  *
- * 1. Fail the project walk during a pass and assert the pass spends its bounded
- *    attempts.
- * 2. Deliver again in the same pass and assert no new attempt starts.
- * 3. Open a new pass with the walk recovered and assert it produces a real
+ * 1. Fail the project walk during a pass, assert the pass spends its bounded
+ *    attempts, and assert a second delivery in that pass starts none.
+ * 2. Open a new pass with the walk still failing, and assert it starts a fresh
+ *    attempt.
+ * 3. Open another pass with the walk recovered, and assert it produces a real
  *    generation.
  */
 export async function test_transformttsc_a_new_pass_retries_an_unstable_generation(): Promise<void> {
