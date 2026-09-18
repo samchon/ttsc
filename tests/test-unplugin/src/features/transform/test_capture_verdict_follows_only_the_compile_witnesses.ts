@@ -20,8 +20,9 @@ import type { TtscProjectMutationTracker } from "../../../../../packages/unplugi
  * walk, an unstable configuration, and a queued event on a declared input.
  *
  * 1. Decide the verdict for a baseline, and for each single change to it.
- * 2. Record the witnesses of a membership event, of an overflowing one, and of an
- *    attempt with no evidence at all.
+ * 2. Record the witnesses of a membership event, of an overflowing one, of an
+ *    attempt with no evidence at all, and of a directory change on each side of
+ *    the program-input line, which the witnesses draw where the verdict does.
  */
 export async function test_capture_verdict_follows_only_the_compile_witnesses(): Promise<void> {
   const root = path.resolve("/project");
@@ -195,14 +196,17 @@ export async function test_capture_verdict_follows_only_the_compile_witnesses():
   );
 
   const identities = createHostPathIdentityContext();
-  const witnesses = (event: TtscProjectMutationTracker | undefined) => {
+  const witnesses = (
+    event: TtscProjectMutationTracker | undefined,
+    snapshot: ReturnType<typeof walk> = walk(),
+  ) => {
     const failures = createGenerationProofFailures();
     recordProjectSnapshotFailures(failures, {
       before: walk(),
       declared,
       identities,
       projectRoot: root,
-      snapshot: walk(),
+      snapshot,
       ...(event === undefined ? {} : { tracker: event }),
     });
     return failures;
@@ -224,4 +228,25 @@ export async function test_capture_verdict_follows_only_the_compile_witnesses():
   assert.deepEqual(witnesses(undefined).entries, [
     { domain: "project", kind: "snapshot-incomplete", path: root },
   ]);
+  assert.deepEqual(
+    witnesses(
+      undefined,
+      walk({ projectDirectories: directories("emitted", "src") }),
+    ).entries,
+    [{ domain: "project", kind: "snapshot-incomplete", path: root }],
+    "a directory that cannot hold a program input is no witness",
+  );
+  assert.deepEqual(
+    witnesses(
+      undefined,
+      walk({ projectDirectories: directories("dist", "added") }),
+    ).entries,
+    [
+      {
+        domain: "project",
+        kind: "directory-membership-changed",
+        path: path.join(root, "src"),
+      },
+    ],
+  );
 }

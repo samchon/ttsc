@@ -70,18 +70,18 @@ export function recordProjectSnapshotFailures(
     }
   }
 
-  const leftDirectories = new Map(
-    props.before.projectDirectories.map((entry) => [
-      entry.path,
-      entry.signature,
-    ]),
-  );
-  const rightDirectories = new Map(
-    props.snapshot.projectDirectories.map((entry) => [
-      entry.path,
-      entry.signature,
-    ]),
-  );
+  // The same selection `sameProjectDirectories` decides by: a directory that
+  // can hold no program input on either side is no witness, however it churns.
+  const relevantDirectories = (
+    snapshot: ReturnType<typeof collectProjectInputSnapshot>,
+  ): Map<string, string> =>
+    new Map(
+      snapshot.projectDirectories
+        .filter((entry) => entry.relevant)
+        .map((entry) => [entry.path, entry.signature]),
+    );
+  const leftDirectories = relevantDirectories(props.before);
+  const rightDirectories = relevantDirectories(props.snapshot);
   for (const directory of new Set([
     ...leftDirectories.keys(),
     ...rightDirectories.keys(),

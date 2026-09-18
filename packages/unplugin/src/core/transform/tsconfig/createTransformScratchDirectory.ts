@@ -54,11 +54,9 @@ export function createTransformScratchDirectory(
     try {
       canonicalDirectory = filesystem.realpath(directory);
     } catch (error) {
-      try {
-        fs.rmdirSync(directory);
-      } catch (cleanupError) {
-        throw cleanupError;
-      }
+      // A child this call created and cannot remove is a leak, not a skipped
+      // candidate, so its removal failure propagates.
+      fs.rmdirSync(directory);
       failure = error;
       continue;
     }
