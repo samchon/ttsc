@@ -9,7 +9,11 @@ import path from "node:path";
  *
  * Ttsx must run the entry module in a child process whose `process.argv` and
  * `process.cwd()` match the values a normal Node.js invocation would provide.
- * Arguments after `--` must be forwarded verbatim as the child's argv.
+ * Arguments after `--` must be forwarded verbatim as the child's argv. A normal
+ * invocation reports the directory the kernel resolved, so on macOS, whose temp
+ * directory sits below the `/var` symlink, it reads `/private/var/...`;
+ * `fs.realpathSync` gives that spelling on every platform while leaving a
+ * Windows 8.3 name as Node reports it.
  *
  * 1. Create an entry that writes its argv, cwd, and an execution flag to a marker
  *    file.
@@ -56,7 +60,7 @@ export const test_runner_corpus_ttsx_executes_the_intended_entrypoint_and_side_e
     assert.equal(result.stdout.trim(), "ttsx-intended-execution");
     assert.deepEqual(JSON.parse(fs.readFileSync(marker, "utf8")), {
       argv: ["--mode", "probe"],
-      cwd: root,
+      cwd: fs.realpathSync(root),
       executed: true,
     });
   };
