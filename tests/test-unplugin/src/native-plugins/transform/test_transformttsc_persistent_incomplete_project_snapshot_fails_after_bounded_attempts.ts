@@ -19,8 +19,8 @@ import { externalSourceModules } from "../../internal/transform-project-cache/ex
  *    starts.
  * 2. Deliver and assert both attempts exercise the failed walk, and an unchanged
  *    environment starts no further wave.
- * 3. Restore the directory and assert the next delivery replaces the failed
- *    generation.
+ * 3. Restore the directory and assert the next delivery, from a later turn,
+ *    replaces the failed generation.
  */
 export async function test_transformttsc_persistent_incomplete_project_snapshot_fails_after_bounded_attempts(): Promise<void> {
   const { createTtscTransformCache, resolveOptions, transformTtsc } =
@@ -98,6 +98,10 @@ export async function test_transformttsc_persistent_incomplete_project_snapshot_
   );
 
   blocked = false;
+  // A host delivers a recovered module from a later turn than the wave that
+  // confirmed the failure, which is when that shared confirmation expires
+  // (samchon/ttsc#1398).
+  await new Promise((resolve) => setImmediate(resolve));
   assert.ok(
     await transformTtsc(
       main,
