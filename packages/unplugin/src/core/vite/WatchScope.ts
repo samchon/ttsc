@@ -9,6 +9,13 @@ import type { InputEntry } from "./InputEntry";
  * tell whether a change could have happened before its scope was watching.
  */
 export interface WatchScope {
+  /**
+   * Keys of the directories below `root` that lead to a covered file, the only
+   * ones a directory-level backend watches (samchon/ttsc#1389). A key outlives
+   * the entry that added it, so a pinned scope keeps watching a directory an
+   * input once needed until that directory disappears.
+   */
+  directories: Set<string>;
   /** Entries this observer covers; an unpinned scope closes when it empties. */
   entries: Set<InputEntry>;
   /**
@@ -32,6 +39,9 @@ export interface WatchScope {
   pinned: boolean;
   /** Change sequence at which the observer became live. */
   startedAt: number;
-  /** The native handle, absent once failed or closed. */
-  watcher?: { close(): void };
+  /**
+   * The native handle, absent once failed or closed. `track` exists only on a
+   * directory-level backend.
+   */
+  watcher?: { close(): void; track?(file: string): void };
 }

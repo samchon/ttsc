@@ -1,17 +1,29 @@
 import fs from "node:fs";
 
+import { openLinuxDirectoryObserver } from "../transform/tracker/linux/openLinuxDirectoryObserver";
+
 /**
  * Open the native recursive observer for one Vite serve scope.
  *
  * Non-persistent, so it never keeps a dev server process alive by itself.
  * Errors are reported to `onError`, which moves the scope's entries to the
  * bounded fallback poll instead of losing them.
+ *
+ * Where Node has no native recursive notification, its `recursive` option walks
+ * the whole tree and watches every file, `node_modules` included. There the
+ * scope opens the directory-level observer instead, which watches only the
+ * directories `admit` accepts and those its handle's `track` names
+ * (samchon/ttsc#1389).
  */
 export function openRecursiveWatch(
   root: string,
   listener: (eventType: string, file: string | null) => void,
   onError: () => void,
-): { close(): void } {
+  admit: (directory: string) => boolean = () => true,
+): { close(): void; track?(file: string): void } {
+  if (process.platform !== "darwin" && process.platform !== "win32") {
+    return openLinuxDirectoryObserver(root, admit, listener, onError);
+  }
   const watcher = fs.watch(
     root,
     { persistent: false, recursive: true },

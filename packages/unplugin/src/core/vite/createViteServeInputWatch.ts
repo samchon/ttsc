@@ -344,6 +344,7 @@ export function createViteServeInputWatch(
       // no filesystem event happened in between.
       changeSequence += 1;
       scope = {
+        directories: new Set(),
         entries: new Set(),
         failed: false,
         ...(external
@@ -387,6 +388,7 @@ export function createViteServeInputWatch(
             failScope(owned);
             updatePoller();
           },
+          (directory) => owned.directories.has(watchPathKey(directory)),
         );
         if (scope.failed) {
           // An injected or platform watcher may report failure synchronously
@@ -409,6 +411,7 @@ export function createViteServeInputWatch(
     root: string,
     entry: InputEntry,
     external: boolean,
+    file: string,
   ): boolean => {
     // An ancestor of the project root belongs to the machine, not to the
     // project: TypeScript-Go probes `node_modules` in every ancestor, so a
@@ -426,6 +429,18 @@ export function createViteServeInputWatch(
     if (scope === undefined) return false;
     scope.entries.add(entry);
     entry.scopes.add(scope);
+    // A directory-level backend hears only the directories leading to what
+    // its scope covers (samchon/ttsc#1389).
+    for (
+      let directory = path.dirname(path.resolve(file));
+      directory !== scope.root && containsPath(scope.root, directory);
+      directory = path.dirname(directory)
+    ) {
+      const directoryKey = watchPathKey(directory);
+      if (scope.directories.has(directoryKey)) break;
+      scope.directories.add(directoryKey);
+    }
+    scope.watcher?.track?.(file);
     return !scope.failed;
   };
 
@@ -539,10 +554,13 @@ export function createViteServeInputWatch(
     bindRenameAncestors(entry, entry.file);
     const root = projectRoot;
     if (root !== undefined && containsPath(root, entry.file)) {
-      if (!bindScope(root, entry, false)) requirePolling(entry);
+      if (!bindScope(root, entry, false, entry.file)) requirePolling(entry);
     } else {
       const external = nearestExistingDirectory(entry.file);
-      if (external === undefined || !bindScope(external, entry, true))
+      if (
+        external === undefined ||
+        !bindScope(external, entry, true, entry.file)
+      )
         requirePolling(entry);
     }
 
@@ -560,9 +578,16 @@ export function createViteServeInputWatch(
         }
         link.inputs.add(entry);
         entry.links.add(entry.file);
-        if (root === undefined || !containsPath(root, target)) {
+        if (root !== undefined && containsPath(root, target)) {
+          // The project scope hears the target; a directory-level backend
+          // needs its spelling as well.
+          if (!bindScope(root, entry, false, target)) requirePolling(entry);
+        } else {
           const targetRoot = nearestExistingDirectory(target);
-          if (targetRoot === undefined || !bindScope(targetRoot, entry, true))
+          if (
+            targetRoot === undefined ||
+            !bindScope(targetRoot, entry, true, target)
+          )
             requirePolling(entry);
         }
       }
@@ -596,10 +621,8 @@ export function createViteServeInputWatch(
         );
         bindAlias(entry, targetFile);
         bindRenameAncestors(entry, targetFile);
-        if (
-          !containsPath(root, link.target) &&
-          !bindScope(link.target, entry, true)
-        )
+        const inRoot = containsPath(root, link.target);
+        if (!bindScope(inRoot ? root : link.target, entry, !inRoot, targetFile))
           requirePolling(entry);
       }
     }

@@ -12,6 +12,7 @@ import type { TtscProjectWalkFailure } from "./TtscProjectWalkFailure";
 import { isExcludedProjectDirectory } from "./isExcludedProjectDirectory";
 import { isIgnoredProjectEntry } from "./isIgnoredProjectEntry";
 import { isPossibleProgramEntry } from "./isPossibleProgramEntry";
+import { isProjectWalkDirectory } from "./isProjectWalkDirectory";
 
 /**
  * Enumerate every regular file under `root` that the resolved configuration can
@@ -91,13 +92,12 @@ export function walkProjectInputs(
           : `unstable:${before}:${after ?? "missing"}`,
     };
     for (const entry of entries) {
-      if (isIgnoredProjectEntry(entry.name, policy)) {
-        continue;
-      }
       const file = path.join(current, entry.name);
       if (
-        (entry.isDirectory() && isExcludedProjectDirectory(file, policy)) ||
-        !matchesProjectRootFile(file, policy, entry.isDirectory())
+        entry.isDirectory()
+          ? !isProjectWalkDirectory(file, policy)
+          : isIgnoredProjectEntry(entry.name, policy) ||
+            !matchesProjectRootFile(file, policy, false)
       ) {
         continue;
       }

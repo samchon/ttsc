@@ -109,6 +109,34 @@ export async function createHostInputMutationTracker(
   >();
   const internalRoot =
     preferredRoot === undefined ? undefined : path.resolve(preferredRoot);
+  // The directories below `internalRoot` its recursive observer must hear, for
+  // a backend that watches directory by directory (samchon/ttsc#1389): every
+  // directory leading to a tracked path, a `children` path itself, and all of
+  // a `subtree` path. Nothing else under the root can change an answer.
+  const internalDirectories = new Set<string>();
+  const internalSubtrees: string[] = [];
+  const admitInternal = (
+    probed: string,
+    scope: TtscTrackedInputScope,
+  ): void => {
+    for (
+      let directory = path.dirname(probed);
+      internalRoot !== undefined &&
+      directory !== internalRoot &&
+      pathIsWithin(directory, internalRoot);
+      directory = path.dirname(directory)
+    ) {
+      const key = pathIdentityKey(directory, identities);
+      // Every directory above one already admitted is admitted as well.
+      if (internalDirectories.has(key)) break;
+      internalDirectories.add(key);
+    }
+    if (scope === "children") {
+      internalDirectories.add(pathIdentityKey(probed, identities));
+    } else if (scope === "subtree") {
+      internalSubtrees.push(probed);
+    }
+  };
   const watchDirectory = (
     directory: string,
     name: string | undefined,
@@ -150,6 +178,7 @@ export async function createHostInputMutationTracker(
     track(probed, scope);
     if (internalRoot !== undefined && pathIsWithin(absolute, internalRoot)) {
       watchDirectory(internalRoot, undefined, true);
+      admitInternal(probed, scope);
       continue;
     }
     watchDirectory(probe.directory, probe.name, false);
@@ -295,6 +324,11 @@ export async function createHostInputMutationTracker(
             tracker.failed = true;
           },
           location.recursive === true,
+          (directory) =>
+            internalDirectories.has(pathIdentityKey(directory, identities)) ||
+            internalSubtrees.some((subtree) =>
+              identities.isWithin(subtree, directory),
+            ),
         ),
       );
     } catch {

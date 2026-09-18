@@ -8,6 +8,7 @@ import { createHostPathIdentityContext } from "../filesystem/createHostPathIdent
 import { pathIsWithin } from "../filesystem/pathIsWithin";
 import type { TtscProjectDirectorySnapshot } from "../project/TtscProjectDirectorySnapshot";
 import { isPossibleProgramFileName } from "../project/isPossibleProgramFileName";
+import { isProjectWalkDirectory } from "../project/isProjectWalkDirectory";
 import { reportsProgramMembership } from "../project/reportsProgramMembership";
 import type { TtscProjectMutationTracker } from "./TtscProjectMutationTracker";
 import { closeDirectoryWatches } from "./closeDirectoryWatches";
@@ -138,6 +139,9 @@ export async function createProjectMutationTracker(
           tracker.failed = true;
         },
         true,
+        // Only the directories the walk enters, so a Linux capture never
+        // walks or watches `node_modules`.
+        (directory) => isProjectWalkDirectory(directory, policy),
       ),
     );
   } catch {

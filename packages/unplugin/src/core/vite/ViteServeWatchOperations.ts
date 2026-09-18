@@ -12,10 +12,18 @@ export interface ViteServeWatchOperations {
   platform?: NodeJS.Platform;
   /** Open the shared fallback timer. */
   poll(listener: () => void): { close(): void };
-  /** Open one recursive native observer on `root`. */
+  /**
+   * Open one recursive native observer on `root`.
+   *
+   * `admit` names the directories below `root` a directory-level backend must
+   * watch, and `track` on the handle forces the directories leading to a newly
+   * covered file; a natively recursive backend needs neither
+   * (samchon/ttsc#1389).
+   */
   watch(
     root: string,
     listener: (eventType: string, file: string | null) => void,
     onError: () => void,
-  ): { close(): void };
+    admit?: (directory: string) => boolean,
+  ): { close(): void; track?(file: string): void };
 }
