@@ -20,21 +20,43 @@ import { checkNodeRuntimeSupport } from "./runtime/checkNodeRuntimeSupport";
  * JavaScript to a PID-isolated temp directory, rewrites ESM specifiers when
  * needed, and executes the compiled entry with the current Node.js runtime.
  *
+ * The launcher owns the process tree it starts, so it behaves toward it the way
+ * a shell does (samchon/ttsc#1403). A termination signal that arrives while the
+ * project is being prepared is held until preparation has cleaned up after
+ * itself. While the program runs, `SIGTERM` and `SIGHUP`, which a supervisor
+ * or container runtime sends to the launcher's pid alone, are forwarded to it;
+ * `SIGINT` from a terminal already reaches the whole process group, so it is
+ * not delivered a second time. The runtime directory is removed on every exit
+ * path, and a program that died of a signal makes ttsx die of the same one, so
+ * a shell sees `128 + n` exactly as it would for `node`.
+ *
  * @param argv - Command-line arguments (defaults to `process.argv.slice(2)`).
- * @returns The child-process exit code, or `2` on a ttsx-level error.
+ * @returns The program's exit code, or `2` on a ttsx-level error. When the
+ *   program died of a signal, the promise never settles: ttsx re-raises the
+ *   signal on itself instead.
  */
-export function runTtsx(
+export async function runTtsx(
   argv: readonly string[] = process.argv.slice(2),
-): number {
+): Promise<number> {
+  const signals = new LauncherSignals();
   try {
-    return run(argv);
+    return await run(argv, signals);
   } catch (error) {
     process.stderr.write(`${formatError(error)}\n`);
+    // A signal that interrupted the synchronous preparation is still pending:
+    // its listener runs once the event loop turns.
+    await settleSignals();
+    signals.raiseReceived();
     return 2;
+  } finally {
+    signals.dispose();
   }
 }
 
-function run(argv: readonly string[]): number {
+async function run(
+  argv: readonly string[],
+  signals: LauncherSignals,
+): Promise<number> {
   const parsed = parseCLI(argv);
   if (parsed === "help") {
     printHelp();
@@ -83,7 +105,14 @@ function run(argv: readonly string[]): number {
     project: parsed.project,
     singleThreaded: parsed.singleThreaded,
   });
-  return runPreparedEntry(parsed, prepared, cwd, entry);
+  await settleSignals();
+  if (signals.received !== undefined) {
+    // The signal arrived while the project was prepared. Preparation has
+    // finished cleaning up its own files; the runtime output goes now.
+    removeRuntimeOutput(prepared.cleanupDir);
+    signals.raiseReceived();
+  }
+  return runPreparedEntry(parsed, prepared, cwd, entry, signals);
 }
 
 function formatError(error: unknown): string {
@@ -331,7 +360,8 @@ function runPreparedEntry(
   execution: ReturnType<typeof prepareExecution>,
   cwd: string,
   sourceEntry: string,
-): number {
+  signals: LauncherSignals,
+): Promise<number> {
   try {
     const depCacheDir = path.join(execution.cleanupDir, "deps");
     const manifestPath = path.join(
@@ -378,21 +408,139 @@ function runPreparedEntry(
       TTSC_TSGO_BINARY: process.env.TTSC_TSGO_BINARY ?? tsgo,
       TTSX_RUNTIME_MANIFEST: manifestPath,
     };
-    const result = spawnSync(process.execPath, args, {
+    const child = spawn(process.execPath, args, {
       cwd,
       env: runtimeEnv,
       stdio: "inherit",
       windowsHide: true,
     });
-    if (result.error) {
-      process.stderr.write(`${result.error.message}\n`);
+    signals.forwardTo(child);
+    const outcome = await new Promise<{
+      code: number | null;
+      signal: NodeJS.Signals | null;
+      error?: Error;
+    }>((resolve) => {
+      child.once("error", (error) =>
+        resolve({ code: null, signal: null, error }),
+      );
+      child.once("exit", (code, signal) => resolve({ code, signal }));
+    });
+    removeRuntimeOutput(execution.cleanupDir);
+    if (outcome.error !== undefined) {
+      process.stderr.write(`${outcome.error.message}\n`);
       return 1;
     }
-    return result.status ?? 1;
+    if (outcome.signal !== null) {
+      signals.raise(outcome.signal);
+    }
+    return outcome.code ?? 1;
   } finally {
     removeRuntimeOutput(execution.cleanupDir);
   }
 }
+
+/**
+ * Let one turn of the event loop pass, so a signal that arrived while
+ * synchronous work blocked the loop reaches its listener before the launcher
+ * decides how to end.
+ */
+function settleSignals(): Promise<void> {
+  return new Promise((resolve) => setImmediate(resolve));
+}
+
+/** The part of a spawned child the signal forwarding needs. */
+interface ForwardTarget {
+  /** Send `signal` to the child. */
+  kill(signal: NodeJS.Signals): boolean;
+  /** The child's exit code, or `null` while it runs or after a signal. */
+  exitCode: number | null;
+  /** The signal that ended the child, or `null` while it runs. */
+  signalCode: string | null;
+}
+
+/**
+ * The launcher's hold on the termination signals for the life of one run.
+ *
+ * Listening at all is what keeps an unhandled `SIGINT` or `SIGTERM` from
+ * killing the launcher mid-way, before `finally` blocks remove what it wrote.
+ * A signal is recorded, forwarded to the program when one is running and the
+ * signal is one only the launcher received, and re-raised on the launcher once
+ * everything is cleaned up, with the listeners removed so the default action
+ * ends the process with that signal.
+ */
+class LauncherSignals {
+  /** The first termination signal received, if any. */
+  public received: NodeJS.Signals | undefined;
+
+  private child: ForwardTarget | undefined;
+  private readonly listeners = new Map<NodeJS.Signals, () => void>();
+
+  /** Start holding every termination signal of this platform. */
+  public constructor() {
+    for (const signal of TERMINATION_SIGNALS) {
+      const listener = (): void => {
+        this.received ??= signal;
+        if (signal !== "SIGINT") this.deliver(signal);
+      };
+      this.listeners.set(signal, listener);
+      process.on(signal, listener);
+    }
+  }
+
+  /** Forward the signals only the launcher receives to the running program. */
+  public forwardTo(child: ForwardTarget): void {
+    this.child = child;
+    if (this.received !== undefined && this.received !== "SIGINT") {
+      this.deliver(this.received);
+    }
+  }
+
+  /** Re-raise the signal received so far, if any. */
+  public raiseReceived(): void {
+    if (this.received !== undefined) this.raise(this.received);
+  }
+
+  /** End the launcher with `signal`, as the program it ran ended. */
+  public raise(signal: NodeJS.Signals): void {
+    this.dispose();
+    try {
+      process.kill(process.pid, signal);
+    } catch {
+      // A signal this platform cannot send to itself (Windows emulates only a
+      // few) still has to end the run as a failure.
+      process.exit(1);
+    }
+  }
+
+  /** Stop listening, restoring each signal's default action. */
+  public dispose(): void {
+    for (const [signal, listener] of this.listeners) {
+      process.removeListener(signal, listener);
+    }
+    this.listeners.clear();
+  }
+
+  private deliver(signal: NodeJS.Signals): void {
+    const child = this.child;
+    if (
+      child !== undefined &&
+      child.exitCode === null &&
+      child.signalCode === null
+    ) {
+      child.kill(signal);
+    }
+  }
+}
+
+/**
+ * Signals that end a process by default and that ttsx holds for cleanup.
+ * Windows has no `SIGHUP`, and Node emulates only `SIGINT` and `SIGBREAK`
+ * there as signals a process can listen to.
+ */
+const TERMINATION_SIGNALS: readonly NodeJS.Signals[] =
+  process.platform === "win32"
+    ? ["SIGINT", "SIGBREAK"]
+    : ["SIGINT", "SIGTERM", "SIGHUP"];
 
 function removeRuntimeOutput(directory: string): void {
   try {

@@ -18,6 +18,8 @@ Type errors stop execution. So do `@ttsc/lint` errors (warnings don't).
 
 The entry runs as Node's own main module, exactly as under `node <entry>`. `require.main === module` and `import.meta.main` hold in it, `process.argv[1]` is the entry, an error it throws reaches `process.on("uncaughtException")`, and the exit status is the program's.
 
+`ttsx` stays in front of the program as its parent and behaves the way a shell does. `SIGTERM` and `SIGHUP` sent to the `ttsx` process, as a supervisor or `docker stop` does, are forwarded to the program. `SIGINT` from a terminal already reaches the program through the process group, so it is not sent twice. When the program ends, `ttsx` removes its private runtime directory, including when a signal ended it. It then ends the same way: with the program's exit code, or by the same signal, which a shell reports as `128 + n`. A signal that arrives while the project is still being checked stops the run after that step has cleaned up.
+
 ## Register in Node and test runners
 
 When Node, Mocha, or another JavaScript tool owns the process, preload the ttsx runtime from the `ttsc` package:
