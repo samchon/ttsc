@@ -14,10 +14,10 @@ import path from "node:path";
  * found nothing, so `ttsc src/x.ts --rootDir src` refused an included file and
  * ttsx reported its entry missing. Each lane now reads the effective root.
  *
- * 1. Create a project with `rootDir: "src"`, and one entry that imports a
- *    sibling module.
- * 2. Run it through ttsx with `--rootDir .`, and emit it with
- *    `ttsc src/main.ts --rootDir .` and with `--rootDir src`.
+ * 1. Create a project with `rootDir: "src"`, and one entry that imports a sibling
+ *    module.
+ * 2. Run it through ttsx with `--rootDir .`, and emit it with `ttsc src/main.ts
+ *    --rootDir .` and with `--rootDir src`.
  * 3. Assert ttsx runs the entry and each emit writes the entry's own code.
  */
 export const test_ttsx_and_ttsc_follow_a_forwarded_root_dir = () => {

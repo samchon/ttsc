@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+
 import { RuntimeManifestRegistry } from "./RuntimeManifestRegistry";
 import { isLocalProcessGone } from "./isLocalProcessGone";
 
@@ -13,14 +14,14 @@ import { isLocalProcessGone } from "./isLocalProcessGone";
  * manifest's per-run `depCacheDir` is used, shared by every process of one run
  * and removed with it.
  *
- * Without any manifest there is no run to share with: a child whose
- * environment dropped `TTSX_RUNTIME_MANIFEST`, or one that loads its first
- * TypeScript after the launcher removed the manifest. Its builds go to a
- * directory private to this process and removed when it exits. A shared,
- * persistent directory used to serve that case, keyed only by the tsconfig
- * path, so an edited dependency kept running its first build until the temp
- * directory was cleared (samchon/ttsc#1405). A process that could not remove
- * its directory (it was killed) is swept by the next one that starts.
+ * Without any manifest there is no run to share with: a child whose environment
+ * dropped `TTSX_RUNTIME_MANIFEST`, or one that loads its first TypeScript after
+ * the launcher removed the manifest. Its builds go to a directory private to
+ * this process and removed when it exits. A shared, persistent directory used
+ * to serve that case, keyed only by the tsconfig path, so an edited dependency
+ * kept running its first build until the temp directory was cleared
+ * (samchon/ttsc#1405). A process that could not remove its directory (it was
+ * killed) is swept by the next one that starts.
  *
  * @param env Environment to read the descriptor-evaluation variables from.
  */

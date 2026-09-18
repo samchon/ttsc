@@ -15,11 +15,11 @@ import path from "node:path";
  * both, as the first ownership rule did, broke the ordinary layout with no
  * exclude at all.
  *
- * 1. Create `src/twin.ts` and `src/twin.tsx` with different outputs, and an
- *    entry that imports `./twin`.
- * 2. With no exclude, run the entry and `ttsx src/twin.ts`, and emit
- *    `src/twin.ts` with `ttsc`. Then exclude `src/twin.ts` and the entry that
- *    imports it, and run `ttsx src/twin.tsx`.
+ * 1. Create `src/twin.ts` and `src/twin.tsx` with different outputs, and an entry
+ *    that imports `./twin`.
+ * 2. With no exclude, run the entry and `ttsx src/twin.ts`, and emit `src/twin.ts`
+ *    with `ttsc`. Then exclude `src/twin.ts` and the entry that imports it, and
+ *    run `ttsx src/twin.tsx`.
  * 3. Assert every run uses the file the compiler compiled.
  */
 export const test_ttsx_serves_a_source_whose_twin_has_another_typescript_extension =
@@ -63,7 +63,10 @@ export const test_ttsx_serves_a_source_whose_twin_has_another_typescript_extensi
     );
     assert.equal(emitted.status, 0, `${emitted.stdout}${emitted.stderr}`);
     const output = emitted.stdout.trim().split(/\r?\n/).pop()!;
-    assert.match(fs.readFileSync(path.resolve(root, output), "utf8"), /from ts/);
+    assert.match(
+      fs.readFileSync(path.resolve(root, output), "utf8"),
+      /from ts/,
+    );
 
     // The entry's `import "./twin"` would pull `twin.ts` back into the
     // program, so it leaves with it.

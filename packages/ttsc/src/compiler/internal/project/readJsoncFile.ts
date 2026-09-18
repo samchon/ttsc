@@ -1,4 +1,5 @@
 import fs from "node:fs";
+
 import { ConfigJsonText } from "./ConfigJsonText";
 
 /**
@@ -10,7 +11,9 @@ export function readJsoncFile(file: string): unknown {
   try {
     return parseJsonc(text);
   } catch (error) {
-    throw new Error(`ttsc: failed to parse ${file}: ${ConfigJsonText.describe(error)}`);
+    throw new Error(
+      `ttsc: failed to parse ${file}: ${ConfigJsonText.describe(error)}`,
+    );
   }
 }
 
@@ -20,7 +23,9 @@ export function readJsoncFile(file: string): unknown {
  * {@link readJsoncFile} and their failures are attributed.
  */
 function parseJsonc(input: string): unknown {
-  return JSON.parse(stripTrailingCommas(stripComments(ConfigJsonText.stripLeadingBom(input))));
+  return JSON.parse(
+    stripTrailingCommas(stripComments(ConfigJsonText.stripLeadingBom(input))),
+  );
 }
 
 /**

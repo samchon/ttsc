@@ -8,8 +8,8 @@ import {
 } from "../../internal/ttsx-jsx";
 
 /**
- * Verifies ttsx runs JSX a project preserves while declaring a classic
- * factory, compiled through that factory.
+ * Verifies ttsx runs JSX a project preserves while declaring a classic factory,
+ * compiled through that factory.
  *
  * The runtime build replaces a preserved JSX mode with an executable one, and
  * which one follows the project's declaration (samchon/ttsc#1408): a project
@@ -18,9 +18,9 @@ import {
  * automatic runtime instead would import a `jsx-runtime` the project never
  * asked for.
  *
- * 1. Create a `preserve` project with `jsxFactory: "h"` and
- *    `jsxFragmentFactory: "Fragment"`, whose component imports both from the
- *    local runtime and declares the global `JSX` namespace.
+ * 1. Create a `preserve` project with `jsxFactory: "h"` and `jsxFragmentFactory:
+ *    "Fragment"`, whose component imports both from the local runtime and
+ *    declares the global `JSX` namespace.
  * 2. Run the entry.
  * 3. Assert the component renders.
  */
@@ -54,9 +54,11 @@ export const test_ttsx_runs_preserved_jsx_through_a_classic_factory = () => {
       `void Fragment;`,
       JSX_COMPONENT_SOURCE,
     ].join("\n"),
-    "src/main.tsx": [`import { view } from "./view";`, `console.log(view);`, ``].join(
-      "\n",
-    ),
+    "src/main.tsx": [
+      `import { view } from "./view";`,
+      `console.log(view);`,
+      ``,
+    ].join("\n"),
   });
 
   const result = TestProject.spawn(

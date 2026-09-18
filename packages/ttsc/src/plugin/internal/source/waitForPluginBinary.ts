@@ -1,8 +1,9 @@
 import fs from "node:fs";
+
 import type { PluginBinaryWaitResult } from "./PluginBinaryWaitResult";
-import { inspectPluginBuildLock } from "./inspectPluginBuildLock";
-import { formatDuration } from "./formatDuration";
 import { PluginBuildLockProtocol } from "./PluginBuildLockProtocol";
+import { formatDuration } from "./formatDuration";
+import { inspectPluginBuildLock } from "./inspectPluginBuildLock";
 
 /**
  * Poll for the locked builder to publish its binary, up to `timeoutMs`.

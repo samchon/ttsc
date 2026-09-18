@@ -9,14 +9,14 @@ import fs from "node:fs";
  * Pins samchon/ttsc#1404. A flag before the entry reaches the compiler after
  * the private `--outDir` ttsx injected, so `ttsx --outDir distx main.ts` wrote
  * the whole emit into `distx/` and ran only because a name match found it
- * there. Output-location flags may still shape the check, but every build
- * ttsx starts now puts all of its output in the run's own directory.
+ * there. Output-location flags may still shape the check, but every build ttsx
+ * starts now puts all of its output in the run's own directory.
  *
  * 1. Create a project with `rootDir: "src"` and `outDir: "lib"`.
  * 2. Run the entry once per forwarded flag set: `--outDir`, `--declaration
  *    --declarationDir`, `--incremental --tsBuildInfoFile`, and `--outFile`.
- * 3. Assert each run prints the entry's output and leaves the project's file
- *    list unchanged.
+ * 3. Assert each run prints the entry's output and leaves the project's file list
+ *    unchanged.
  */
 export const test_ttsx_forwarded_output_flags_create_nothing_in_the_project =
   () => {
@@ -56,7 +56,11 @@ export const test_ttsx_forwarded_output_flags_create_nothing_in_the_project =
       const label = flags.join(" ");
       assert.equal(result.status, 0, `${label}: ${result.stderr}`);
       assert.equal(result.stdout.trim(), "ran", label);
-      assert.deepEqual(listProject(root), before, `${label} wrote into the project`);
+      assert.deepEqual(
+        listProject(root),
+        before,
+        `${label} wrote into the project`,
+      );
     }
   };
 

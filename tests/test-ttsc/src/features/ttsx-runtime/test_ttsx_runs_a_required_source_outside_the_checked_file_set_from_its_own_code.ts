@@ -14,14 +14,14 @@ import { TTSX_REGISTER, linkTtscPackage } from "../../internal/ttsx-register";
  * `entry/index.js` alone. The lookup used to score emitted files by shared
  * trailing path segments, and `index` was enough: `other/index.ts` ran the
  * entry's emitted code and reported itself as `entry`, with exit status 0.
- * Ownership is now proven by filesystem identity, and a file no build
- * compiled is compiled through its own project before it runs.
+ * Ownership is now proven by filesystem identity, and a file no build compiled
+ * is compiled through its own project before it runs.
  *
  * 1. Create a project whose `files` names `entry/index.ts`, which requires the
  *    unlisted `other/index.ts`.
  * 2. Run the entry through ttsx and through the `ttsc/register` preload.
- * 3. Assert both run `other/index.ts` itself, and that no synthesized tsconfig
- *    is left beside the project's own.
+ * 3. Assert both run `other/index.ts` itself, and that no synthesized tsconfig is
+ *    left beside the project's own.
  */
 export const test_ttsx_runs_a_required_source_outside_the_checked_file_set_from_its_own_code =
   () => {

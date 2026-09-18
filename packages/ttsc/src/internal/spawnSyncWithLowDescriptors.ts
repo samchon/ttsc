@@ -1,5 +1,6 @@
 import { type SpawnSyncOptions, spawnSync } from "node:child_process";
 import fs from "node:fs";
+
 import type { SpawnSyncOutputFiles } from "./SpawnSyncOutputFiles";
 
 /** Launch through a shell-free child broker that owns only low descriptors. */

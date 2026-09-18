@@ -1,7 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
-import type { IGoBuildCachePruneOptions } from "./IGoBuildCachePruneOptions";
+
 import { GoBuildCacheCoordination } from "./GoBuildCacheCoordination";
+import type { IGoBuildCachePruneOptions } from "./IGoBuildCachePruneOptions";
 import { SourceBuildCacheLayout } from "./SourceBuildCacheLayout";
 
 /**
@@ -16,7 +17,9 @@ export function pruneGoBuildCacheRoot(
   root: string,
   options: IGoBuildCachePruneOptions = {},
 ): void {
-  let intent: GoBuildCacheCoordination.GoBuildCacheCoordinationRecord | undefined;
+  let intent:
+    | GoBuildCacheCoordination.GoBuildCacheCoordinationRecord
+    | undefined;
   try {
     const cacheRoot = GoBuildCacheCoordination.canonicalGoBuildCacheRoot(root);
     const marker = path.join(cacheRoot, GO_BUILD_CACHE_GC_MARKER_FILE);
@@ -67,7 +70,10 @@ export function pruneGoBuildCacheRoot(
       remainingBytes > maxBytes
         ? now - GO_BUILD_CACHE_GC_INTERVAL_MS + protectedAgeMs
         : now;
-    SourceBuildCacheLayout.replaceCacheMetadataFile(marker, `${markerTimestamp}\n`);
+    SourceBuildCacheLayout.replaceCacheMetadataFile(
+      marker,
+      `${markerTimestamp}\n`,
+    );
   } catch {
     // Go-cache GC is opportunistic; builds still proceed when it fails.
   } finally {

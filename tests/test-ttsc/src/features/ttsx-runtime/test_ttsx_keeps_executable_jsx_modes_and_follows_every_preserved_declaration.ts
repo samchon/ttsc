@@ -23,8 +23,8 @@ import {
  *
  * 1. Create one project per configuration: `react` with a factory, `react-jsxdev`
  *    with an import source, `preserve` with `reactNamespace`, `preserve` with a
- *    factory or a namespace beside an import source, and `react-jsx` run with a response file that
- *    forwards `--jsx preserve`.
+ *    factory or a namespace beside an import source, and `react-jsx` run with a
+ *    response file that forwards `--jsx preserve`.
  * 2. Run each entry.
  * 3. Assert every run renders the component.
  */
@@ -47,7 +47,11 @@ export const test_ttsx_keeps_executable_jsx_modes_and_follows_every_preserved_de
     }[] = [
       {
         label: "react",
-        options: { jsx: "react", jsxFactory: "h", jsxFragmentFactory: "Fragment" },
+        options: {
+          jsx: "react",
+          jsxFactory: "h",
+          jsxFragmentFactory: "Fragment",
+        },
         view: classicImports + JSX_COMPONENT_SOURCE,
         files: { "src/jsx.d.ts": globalJsx },
       },

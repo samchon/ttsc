@@ -47,7 +47,9 @@ function parseCompilerDiagnostics(
   result: Pick<TtscBuildResult, "stderr" | "stdout">,
   cwd: string | undefined,
 ): ITtscCompilerDiagnostic[] {
-  const lines = CompilerDiagnostics.stripAnsi(`${result.stderr}\n${result.stdout}`).split(/\r?\n/);
+  const lines = CompilerDiagnostics.stripAnsi(
+    `${result.stderr}\n${result.stdout}`,
+  ).split(/\r?\n/);
   const out: ITtscCompilerDiagnostic[] = [];
   let current: ITtscCompilerDiagnostic | undefined;
   for (const line of lines) {

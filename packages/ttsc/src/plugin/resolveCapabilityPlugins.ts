@@ -1,11 +1,12 @@
 import fs from "node:fs";
 import path from "node:path";
+
 import { createNativeProjectContextJson } from "../compiler/internal/project/createNativeProjectContextJson";
 import { resolveBinary } from "../compiler/internal/resolveBinary";
+import type { ITtscCapabilityPlugin } from "./ITtscCapabilityPlugin";
+import { loadProjectPlugins } from "./internal/load/loadProjectPlugins";
 import { readCapabilityResolution } from "./internal/readCapabilityResolution";
 import { writeCapabilityResolution } from "./internal/writeCapabilityResolution";
-import { loadProjectPlugins } from "./internal/load/loadProjectPlugins";
-import type { ITtscCapabilityPlugin } from "./ITtscCapabilityPlugin";
 
 /**
  * The built sidecars of a project's configured plugins that declare one

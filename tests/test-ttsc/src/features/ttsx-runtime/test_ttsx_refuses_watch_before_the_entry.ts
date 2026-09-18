@@ -2,21 +2,21 @@ import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 
 /**
- * Verifies ttsx refuses `--watch` before the entry at once, and hands it to
- * the program after the entry.
+ * Verifies ttsx refuses `--watch` before the entry at once, and hands it to the
+ * program after the entry.
  *
  * Pins samchon/ttsc#1409. `--watch` before the entry was forwarded to the
  * type-check, which then never returned: the entry never ran and the command
  * hung with no output. ttsx runs the entry once after one check, so the flag is
  * refused before any compiler starts, with the two tools that already cover a
- * watching check and a restarting program. After the entry it is the
- * program's own argument (samchon/ttsc#1401).
+ * watching check and a restarting program. After the entry it is the program's
+ * own argument (samchon/ttsc#1401).
  *
  * 1. Create an entry that prints its argv.
- * 2. Run `ttsx --watch src/args.ts` and `ttsx -w src/args.ts` with a timeout,
- *    then `ttsx src/args.ts --watch`.
- * 3. Assert both refusals exit 2 promptly with a message naming the flag and
- *    the alternatives, and the last run prints `--watch` as program argv.
+ * 2. Run `ttsx --watch src/args.ts` and `ttsx -w src/args.ts` with a timeout, then
+ *    `ttsx src/args.ts --watch`.
+ * 3. Assert both refusals exit 2 promptly with a message naming the flag and the
+ *    alternatives, and the last run prints `--watch` as program argv.
  */
 export const test_ttsx_refuses_watch_before_the_entry = () => {
   const root = TestProject.createProject({

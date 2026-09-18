@@ -10,10 +10,10 @@ import { spawnNative } from "./spawnNative";
  * order the compiler applies them.
  *
  * Several decisions ttsc makes about a build depend on an option the user can
- * override from the command line: whether the runtime build lowers
- * `target: ESNext` or a preserved `jsx`, and which `rootDir` the compiler
- * mirrors outputs against. Reading the config alone answers for a build that
- * is not the one that runs.
+ * override from the command line: whether the runtime build lowers `target:
+ * ESNext` or a preserved `jsx`, and which `rootDir` the compiler mirrors
+ * outputs against. Reading the config alone answers for a build that is not the
+ * one that runs.
  *
  * A forwarded `@file` response file is expanded by the compiler itself through
  * `--showConfig`, which owns its quoting, nesting, and ordering; replaying only
@@ -39,10 +39,8 @@ export function readEffectiveCompilerOptions(
       { cwd: project.root, encoding: "utf8" },
     );
     if (result.status !== 0) return null;
-    const shown = JSON.parse(outputText(result.stdout)).compilerOptions as Record<
-      string,
-      unknown
-    >;
+    const shown = JSON.parse(outputText(result.stdout))
+      .compilerOptions as Record<string, unknown>;
     return (name) => shown[name];
   }
   const compilerOptions = project.compilerOptions as Record<string, unknown>;

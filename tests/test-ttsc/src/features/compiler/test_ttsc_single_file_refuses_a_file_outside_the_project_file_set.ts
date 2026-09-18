@@ -23,8 +23,8 @@ import {
  * 1. Create a project with `include: ["src"]`, `outDir: "lib"`, and both
  *    `src/index.ts` and `scripts/index.ts`.
  * 2. Run `ttsc scripts/index.ts`, then `ttsc src/index.ts`.
- * 3. Assert the first fails naming the file and the tsconfig and writes
- *    nothing, and the second emits `src/index.ts`'s own code.
+ * 3. Assert the first fails naming the file and the tsconfig and writes nothing,
+ *    and the second emits `src/index.ts`'s own code.
  */
 export const test_ttsc_single_file_refuses_a_file_outside_the_project_file_set =
   (): void => {

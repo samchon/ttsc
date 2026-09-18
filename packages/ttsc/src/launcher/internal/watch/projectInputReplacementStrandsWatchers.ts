@@ -1,8 +1,9 @@
 import path from "node:path";
+
 import { createProjectInputPathIdentityContext } from "../../../internal/pathIdentity/createProjectInputPathIdentityContext";
 import type { ITtscProjectInputSnapshot } from "../../../structures/internal/ITtscProjectInputSnapshot";
-import { WatchPaths } from "./WatchPaths";
 import { ProjectInputWatchRules } from "./ProjectInputWatchRules";
+import { WatchPaths } from "./WatchPaths";
 
 /**
  * Whether a replacement at this path leaves a recursive watcher bound to the

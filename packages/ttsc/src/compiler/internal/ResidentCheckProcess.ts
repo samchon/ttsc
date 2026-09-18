@@ -1,5 +1,6 @@
 import { type ChildProcess, spawn } from "node:child_process";
 import { type Interface, createInterface } from "node:readline";
+
 import type { ResidentCheckProcessOptions } from "./ResidentCheckProcessOptions";
 import type { ResidentCheckRequest } from "./ResidentCheckRequest";
 import type { ResidentCheckResult } from "./ResidentCheckResult";
@@ -86,8 +87,8 @@ export class ResidentCheckProcess {
   }
 
   /**
-   * Retire the sidecar: reject every pending request and terminate the
-   * process. Idempotent; a process that already failed is left as is.
+   * Retire the sidecar: reject every pending request and terminate the process.
+   * Idempotent; a process that already failed is left as is.
    */
   public dispose(): void {
     if (this.failure !== undefined) return;

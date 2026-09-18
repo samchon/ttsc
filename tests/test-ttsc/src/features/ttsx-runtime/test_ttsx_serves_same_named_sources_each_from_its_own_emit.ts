@@ -6,8 +6,8 @@ import assert from "node:assert/strict";
  * own compiled output.
  *
  * The negative twin of the samchon/ttsc#1382 cases: removing name matching must
- * not make the lookup lose a file it legitimately owns. Two `index.ts` files the
- * build emitted resolve to their own outputs whether they are imported
+ * not make the lookup lose a file it legitimately owns. Two `index.ts` files
+ * the build emitted resolve to their own outputs whether they are imported
  * statically or required by a computed path, and a third `index.ts` the build
  * never saw is compiled on its own instead of borrowing either.
  *

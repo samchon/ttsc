@@ -82,9 +82,9 @@ export function buildSingleRootProject(props: {
   // writing a `.js` and its map beside the user's `.ts` where nothing cleans
   // them up.
   const volumeRoot = path.parse(
-    createFilesystemPathIdentityContext({ throwOnRealpathError: false }).resolve(
-      props.source,
-    ).path,
+    createFilesystemPathIdentityContext({
+      throwOnRealpathError: false,
+    }).resolve(props.source).path,
   ).root;
   const tsconfig = path.join(
     path.dirname(props.tsconfig),

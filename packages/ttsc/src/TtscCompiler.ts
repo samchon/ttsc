@@ -1,15 +1,15 @@
 import fs from "node:fs";
 import path from "node:path";
 
+import { createProcessDiagnostic } from "./compiler/internal/build/createProcessDiagnostic";
 import { compileProjectInMemory } from "./compiler/internal/compileProjectInMemory";
 import { resolveProjectConfig } from "./compiler/internal/project/resolveProjectConfig";
 import { resolveBinary } from "./compiler/internal/resolveBinary";
-import { createProcessDiagnostic } from "./compiler/internal/build/createProcessDiagnostic";
 import { transformProjectInMemory } from "./compiler/internal/transformProjectInMemory";
 import { type SafeCacheCleanupTarget } from "./internal/SafeCacheCleanupTarget";
 import { resolveSafeCacheCleanupTargets } from "./internal/resolveSafeCacheCleanupTargets";
-import { resolveCleanTargets } from "./plugin/internal/source/resolveCleanTargets";
 import { loadProjectPlugins } from "./plugin/internal/load/loadProjectPlugins";
+import { resolveCleanTargets } from "./plugin/internal/source/resolveCleanTargets";
 import type { ITtscCompilerContext } from "./structures/ITtscCompilerContext";
 import type { ITtscCompilerDiagnostic } from "./structures/ITtscCompilerDiagnostic";
 import type { ITtscCompilerResult } from "./structures/ITtscCompilerResult";

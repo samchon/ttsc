@@ -2,10 +2,11 @@
  * Shared helpers for the ttsx dependency-cache regressions
  * (`acquireDependencyBuildLock`, `releaseDependencyBuildLock`,
  * `reclaimDependencyBuildLock`, `inspectDependencyBuildLock`,
- * `readDependencyCache`). These drive the fenced generation protocol in
- * the built dependency-lock modules directly, with real child processes held at explicit
- * barrier files instead of sleeps, so a stale-observer / delayed-finalizer
- * interleaving is deterministic rather than timing-dependent.
+ * `readDependencyCache`). These drive the fenced generation protocol in the
+ * built dependency-lock modules directly, with real child processes held at
+ * explicit barrier files instead of sleeps, so a stale-observer /
+ * delayed-finalizer interleaving is deterministic rather than
+ * timing-dependent.
  */
 import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";

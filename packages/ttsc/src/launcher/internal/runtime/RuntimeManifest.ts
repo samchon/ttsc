@@ -16,9 +16,9 @@ export interface RuntimeManifest {
   /** Exact JavaScript emitted for `entrySource`. */
   entryFile?: string;
   /**
-   * The build's record of the JavaScript it emitted, relative to `emitDir`
-   * with `/` separators. Ownership is decided against it, so every process of
-   * the run agrees on what the build compiled without listing the directory.
+   * The build's record of the JavaScript it emitted, relative to `emitDir` with
+   * `/` separators. Ownership is decided against it, so every process of the
+   * run agrees on what the build compiled without listing the directory.
    */
   outputs?: readonly string[];
   /**

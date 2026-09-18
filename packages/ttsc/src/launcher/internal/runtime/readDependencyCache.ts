@@ -1,4 +1,5 @@
 import fs from "node:fs";
+
 import { DependencyBuildGeneration } from "./DependencyBuildGeneration";
 import { projectModuleOptions } from "./projectModuleOptions";
 
@@ -21,7 +22,9 @@ export function readDependencyCache(
 ): DependencyBuildGeneration.BuiltProject | null {
   let meta: DependencyBuildGeneration.DependencyCacheMeta;
   try {
-    meta = JSON.parse(fs.readFileSync(metaPath, "utf8")) as DependencyBuildGeneration.DependencyCacheMeta;
+    meta = JSON.parse(
+      fs.readFileSync(metaPath, "utf8"),
+    ) as DependencyBuildGeneration.DependencyCacheMeta;
   } catch {
     return null;
   }
@@ -41,7 +44,10 @@ export function readDependencyCache(
   ) {
     return null;
   }
-  const emitDir = DependencyBuildGeneration.dependencyGenerationDir(cacheDir, meta.generation);
+  const emitDir = DependencyBuildGeneration.dependencyGenerationDir(
+    cacheDir,
+    meta.generation,
+  );
   if (!DependencyBuildGeneration.emittedAnything(emitDir)) {
     return null;
   }

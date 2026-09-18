@@ -24,8 +24,8 @@ import {
  * runs the packaged `evidence/singular` and `evidence/documented` rules over it
  * through the real toolchain.
  *
- * A clean run alone would not prove anything, because a rule the host failed
- * to register is silent. A canary file with one violation of each rule rides
+ * A clean run alone would not prove anything, because a rule the host failed to
+ * register is silent. A canary file with one violation of each rule rides
  * along, and the case requires both of its diagnostics before it trusts the
  * silence everywhere else.
  *
@@ -157,8 +157,8 @@ const collectSources = (
 };
 
 /**
- * The compiler options `packages/ttsc` builds with, minus what only matters
- * for emit.
+ * The compiler options `packages/ttsc` builds with, minus what only matters for
+ * emit.
  *
  * Read from the shared configuration the package extends rather than restated
  * here, so the fixture cannot drift into checking a program the package never
@@ -194,7 +194,10 @@ const linkPackageDependencies = (
   const manifest = JSON.parse(
     fs.readFileSync(path.join(packageRoot, "package.json"), "utf8"),
   ) as { dependencies?: Record<string, string> };
-  for (const name of [...Object.keys(manifest.dependencies ?? {}), "@types/node"]) {
+  for (const name of [
+    ...Object.keys(manifest.dependencies ?? {}),
+    "@types/node",
+  ]) {
     const target: string = fs.realpathSync(
       path.join(packageRoot, "node_modules", ...name.split("/")),
     );

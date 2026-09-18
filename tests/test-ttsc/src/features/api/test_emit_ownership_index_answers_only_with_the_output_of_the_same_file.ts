@@ -13,12 +13,12 @@ import { EmitOwnershipIndex } from "../../../../../packages/ttsc/lib/compiler/in
  * emitted from a source. It replaced a lookup that scored outputs by shared
  * trailing path segments, which answered for files the build never compiled
  * (samchon/ttsc#1382). The positive cases pin that no legitimate answer was
- * lost: an ordinary mirror, a directory the compiler saw through a link, a
- * root named through a link, a file symlink with another name, and each
- * extension mapping. The negative twins pin that a same-named file elsewhere, a
- * declaration file, a file outside the root, and an output the record does
- * not list are never answers, and that an output two TypeScript sources could
- * have produced goes to the one its source map names, or else to the one the
+ * lost: an ordinary mirror, a directory the compiler saw through a link, a root
+ * named through a link, a file symlink with another name, and each extension
+ * mapping. The negative twins pin that a same-named file elsewhere, a
+ * declaration file, a file outside the root, and an output the record does not
+ * list are never answers, and that an output two TypeScript sources could have
+ * produced goes to the one its source map names, or else to the one the
  * compiler's extension precedence picks.
  *
  * 1. Lay out sources under a root and outputs under an emit directory, with a
@@ -49,7 +49,11 @@ export const test_emit_ownership_index_answers_only_with_the_output_of_the_same_
     ]) {
       write(path.join(root, file));
     }
-    fs.symlinkSync(path.join(root, "real"), path.join(root, "alias"), "junction");
+    fs.symlinkSync(
+      path.join(root, "real"),
+      path.join(root, "alias"),
+      "junction",
+    );
     const outputs = [
       "a/index.js",
       "alias/aliased.js",
@@ -88,7 +92,15 @@ export const test_emit_ownership_index_answers_only_with_the_output_of_the_same_
       path.join(emit, "mapped/pair.js.map"),
       JSON.stringify({
         version: 3,
-        sources: [path.relative(path.join(emit, "mapped"), path.join(root, "mapped/pair.tsx")).split(path.sep).join("/")],
+        sources: [
+          path
+            .relative(
+              path.join(emit, "mapped"),
+              path.join(root, "mapped/pair.tsx"),
+            )
+            .split(path.sep)
+            .join("/"),
+        ],
         mappings: "",
       }),
     );
@@ -149,7 +161,11 @@ export const test_emit_ownership_index_answers_only_with_the_output_of_the_same_
 
     // Listing records real outputs only: a link inside the emit directory
     // reaches the user's tree, not the build's output.
-    fs.symlinkSync(path.join(root, "real"), path.join(emit, "linked"), "junction");
+    fs.symlinkSync(
+      path.join(root, "real"),
+      path.join(emit, "linked"),
+      "junction",
+    );
     write(path.join(root, "real", "stray.js"));
     assert.equal(
       EmitOwnershipIndex.listOutputs(emit).some((output) =>

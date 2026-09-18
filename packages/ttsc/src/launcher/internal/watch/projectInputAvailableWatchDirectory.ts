@@ -1,4 +1,5 @@
 import path from "node:path";
+
 import { type ProjectInputPathIdentityContext } from "../../../internal/pathIdentity/ProjectInputPathIdentityContext";
 import { createProjectInputPathIdentityContext } from "../../../internal/pathIdentity/createProjectInputPathIdentityContext";
 import { WatchPaths } from "./WatchPaths";

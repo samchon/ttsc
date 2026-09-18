@@ -1,10 +1,11 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
+
+import { GoSourceInputs } from "./GoSourceInputs";
+import { GoToolResolution } from "./GoToolResolution";
 import type { ITtscBuildContributor } from "./ITtscBuildContributor";
 import type { SourceBuildFilesystemOperations } from "./SourceBuildFilesystemOperations";
-import { GoToolResolution } from "./GoToolResolution";
-import { GoSourceInputs } from "./GoSourceInputs";
 import { spawnGoTool } from "./spawnGoTool";
 
 /**
@@ -37,7 +38,11 @@ export function computeCacheKey(inputs: {
   const goBinary =
     inputs.goBinary === undefined
       ? undefined
-      : GoToolResolution.resolveGoToolForBuild(inputs.goBinary, env, inputs.dir);
+      : GoToolResolution.resolveGoToolForBuild(
+          inputs.goBinary,
+          env,
+          inputs.dir,
+        );
   const hash = crypto.createHash("sha256");
   hash.update(`ttsc=${inputs.ttscVersion}\n`);
   hash.update(`tsgo=${inputs.tsgoVersion}\n`);
@@ -319,7 +324,11 @@ function findExecutablePath(
   env: NodeJS.ProcessEnv,
   cwd: string,
 ): string | null {
-  for (const candidate of GoToolResolution.executableSearchBases(binary, env, cwd)) {
+  for (const candidate of GoToolResolution.executableSearchBases(
+    binary,
+    env,
+    cwd,
+  )) {
     const resolved = findExecutableCandidate(candidate, env);
     if (resolved !== null) return resolved;
   }

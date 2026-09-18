@@ -20,10 +20,10 @@ import { TTSX_REGISTER, linkTtscPackage } from "../../internal/ttsx-register";
  *    `experimentalDecorators` for `src`, and `tsconfig.node.json`, which leaves
  *    it off for `vite.config.ts`. Add `scripts/loose.ts`, which no project
  *    contains.
- * 2. Run `src/main.ts` through ttsx and `ttsc/register`, then run
- *    `vite.config.ts` and `scripts/loose.ts` through ttsx.
- * 3. Assert the entry sees three arguments in both lanes, the config sees two,
- *    and the loose script still runs.
+ * 2. Run `src/main.ts` through ttsx and `ttsc/register`, then run `vite.config.ts`
+ *    and `scripts/loose.ts` through ttsx.
+ * 3. Assert the entry sees three arguments in both lanes, the config sees two, and
+ *    the loose script still runs.
  */
 export const test_ttsx_runs_an_entry_with_the_referenced_project_that_owns_it =
   () => {
@@ -71,7 +71,12 @@ export const test_ttsx_runs_an_entry_with_the_referenced_project_that_owns_it =
     linkTtscPackage(root);
 
     for (const [label, command, args, expected] of [
-      ["entry", TestProject.TTSX_BIN, ["--cwd", root, "src/main.ts"], "arguments=3"],
+      [
+        "entry",
+        TestProject.TTSX_BIN,
+        ["--cwd", root, "src/main.ts"],
+        "arguments=3",
+      ],
       [
         "register",
         process.execPath,

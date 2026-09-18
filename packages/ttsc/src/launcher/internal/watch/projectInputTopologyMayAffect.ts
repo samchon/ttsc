@@ -1,4 +1,5 @@
 import path from "node:path";
+
 import { createProjectInputPathIdentityContext } from "../../../internal/pathIdentity/createProjectInputPathIdentityContext";
 import type { ITtscProjectInputSnapshot } from "../../../structures/internal/ITtscProjectInputSnapshot";
 import { ProjectInputWatchRules } from "./ProjectInputWatchRules";
@@ -24,7 +25,11 @@ export function projectInputTopologyMayAffect(
 ): boolean {
   const changed = path.resolve(location);
   const anchors = (directory: string): boolean =>
-    ProjectInputWatchRules.projectInputAnchorsDeclaration(snapshot, directory, identities);
+    ProjectInputWatchRules.projectInputAnchorsDeclaration(
+      snapshot,
+      directory,
+      identities,
+    );
   // An atomic replacement never names the declared file whose bytes it changed;
   // it names the directory that was swapped, and that directory can be one the
   // declaration does not contain — renaming `docs` away reports the arriving
@@ -37,7 +42,8 @@ export function projectInputTopologyMayAffect(
   // beneath it through the branch below, because a directory appearing inside a
   // glob root can hold matches; the declaration decides that reach, not this
   // rule.
-  if (WatchPaths.isDirectory(changed) && anchors(path.dirname(changed))) return true;
+  if (WatchPaths.isDirectory(changed) && anchors(path.dirname(changed)))
+    return true;
   return (
     anchors(changed) ||
     (snapshot.reloadDirectories ?? []).some((directory) =>

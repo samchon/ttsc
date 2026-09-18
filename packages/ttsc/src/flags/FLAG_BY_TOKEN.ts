@@ -1,5 +1,5 @@
-import type { FlagSpec } from "./FlagSpec";
 import { FLAG_SCHEMA } from "./FLAG_SCHEMA";
+import type { FlagSpec } from "./FlagSpec";
 import { normalizeFlagToken } from "./normalizeFlagToken";
 
 /**

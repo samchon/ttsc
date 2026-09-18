@@ -1,4 +1,5 @@
 import { type SpawnSyncOptions, spawnSync } from "node:child_process";
+
 import type { SpawnSyncOutputFiles } from "./SpawnSyncOutputFiles";
 import { isSpawnSyncFdExhaustion } from "./isSpawnSyncFdExhaustion";
 import { spawnSyncWithLowDescriptors } from "./spawnSyncWithLowDescriptors";

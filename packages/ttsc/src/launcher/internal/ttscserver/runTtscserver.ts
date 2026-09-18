@@ -2,11 +2,12 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+
+import { outputText } from "../../../compiler/internal/outputText";
 import { createNativeProjectContextArgs } from "../../../compiler/internal/project/createNativeProjectContextArgs";
 import { readProjectConfig } from "../../../compiler/internal/project/readProjectConfig";
 import { resolveBinary } from "../../../compiler/internal/resolveBinary";
 import { resolveTsgo } from "../../../compiler/internal/resolveTsgo";
-import { outputText } from "../../../compiler/internal/outputText";
 import { spawnNative } from "../../../compiler/internal/spawnNative";
 import { resolveNodeBinary } from "../../../internal/resolveNodeBinary";
 import { hasProjectPluginEntries } from "../../../plugin/internal/load/hasProjectPluginEntries";
@@ -16,11 +17,11 @@ import type { ITtscParsedProjectConfig } from "../../../structures/internal/ITts
 import type { ITtscProjectIdentity } from "../../../structures/internal/ITtscProjectIdentity";
 import type { ITtscProjectInputSnapshot } from "../../../structures/internal/ITtscProjectInputSnapshot";
 import { resolveTtscserverBinary } from "../resolveTtscserverBinary";
-import { needsStdio } from "./needsStdio";
 import { LSPProjectInputDigest } from "./LSPProjectInputDigest";
-import { materializeLSPPluginManifest } from "./materializeLSPPluginManifest";
-import { initialLSPProjectInputSnapshotIsCurrent } from "./initialLSPProjectInputSnapshotIsCurrent";
 import { fingerprintInitialLSPProjectInputSnapshot } from "./fingerprintInitialLSPProjectInputSnapshot";
+import { initialLSPProjectInputSnapshotIsCurrent } from "./initialLSPProjectInputSnapshotIsCurrent";
+import { materializeLSPPluginManifest } from "./materializeLSPPluginManifest";
+import { needsStdio } from "./needsStdio";
 
 /**
  * Drive the ttscserver native binary from a node launcher. The launcher is
@@ -91,7 +92,10 @@ export function runTtscserver(
 }
 
 type LSPExecutionContext = {
-  initialProjectInputs: ReadonlyMap<string, LSPProjectInputDigest.InitialLSPProjectInputSnapshot>;
+  initialProjectInputs: ReadonlyMap<
+    string,
+    LSPProjectInputDigest.InitialLSPProjectInputSnapshot
+  >;
   nativePlugins: readonly ITtscLoadedNativePlugin[];
   projectContext?: ITtscProjectIdentity;
   tsgoBinary: string;
@@ -306,7 +310,10 @@ function captureInitialLSPProjectInputs(options: {
   project: ITtscParsedProjectConfig;
   tsgoBinary: string;
 }): ReadonlyMap<string, LSPProjectInputDigest.InitialLSPProjectInputSnapshot> {
-  const snapshots = new Map<string, LSPProjectInputDigest.InitialLSPProjectInputSnapshot>();
+  const snapshots = new Map<
+    string,
+    LSPProjectInputDigest.InitialLSPProjectInputSnapshot
+  >();
   const pluginsJSON = JSON.stringify(
     serializeNativePlugins(options.nativePlugins),
   );
@@ -373,8 +380,14 @@ function lspPluginTransportKey(plugin: ITtscLoadedNativePlugin): string {
 }
 
 function initialLSPProjectInputsEqual(
-  left: ReadonlyMap<string, LSPProjectInputDigest.InitialLSPProjectInputSnapshot>,
-  right: ReadonlyMap<string, LSPProjectInputDigest.InitialLSPProjectInputSnapshot>,
+  left: ReadonlyMap<
+    string,
+    LSPProjectInputDigest.InitialLSPProjectInputSnapshot
+  >,
+  right: ReadonlyMap<
+    string,
+    LSPProjectInputDigest.InitialLSPProjectInputSnapshot
+  >,
 ): boolean {
   if (left.size !== right.size) return false;
   for (const [key, leftSnapshot] of left) {

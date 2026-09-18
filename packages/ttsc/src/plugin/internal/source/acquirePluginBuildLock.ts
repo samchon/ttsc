@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+
 import type { PluginBuildLockLease } from "./PluginBuildLockLease";
 import { PluginBuildLockProtocol } from "./PluginBuildLockProtocol";
 
@@ -24,7 +25,8 @@ export function acquirePluginBuildLock(
   if (pluginBuildLockPathExists(lockDir)) {
     return null;
   }
-  const protocolDir = PluginBuildLockProtocol.pluginBuildLockProtocolDir(lockDir);
+  const protocolDir =
+    PluginBuildLockProtocol.pluginBuildLockProtocolDir(lockDir);
   ensurePluginBuildLockProtocol(protocolDir);
   // Close the initialization window as far as the legacy protocol permits. A
   // legacy holder that appeared while v2 was initialized still blocks this
@@ -38,7 +40,10 @@ export function acquirePluginBuildLock(
   fs.mkdirSync(candidateDir);
   try {
     fs.writeFileSync(
-      path.join(candidateDir, PluginBuildLockProtocol.PLUGIN_BUILD_LOCK_GENERATION_FILE),
+      path.join(
+        candidateDir,
+        PluginBuildLockProtocol.PLUGIN_BUILD_LOCK_GENERATION_FILE,
+      ),
       `${generation}\n`,
       { encoding: "utf8", flag: "wx" },
     );
@@ -46,14 +51,20 @@ export function acquirePluginBuildLock(
     try {
       fs.renameSync(
         candidateDir,
-        path.join(protocolDir, PluginBuildLockProtocol.PLUGIN_BUILD_LOCK_CURRENT_DIR),
+        path.join(
+          protocolDir,
+          PluginBuildLockProtocol.PLUGIN_BUILD_LOCK_CURRENT_DIR,
+        ),
       );
     } catch (error) {
       if (
         PluginBuildLockProtocol.isMissingPathError(error) ||
         PluginBuildLockProtocol.isRenameDestinationOccupied(
           error,
-          path.join(protocolDir, PluginBuildLockProtocol.PLUGIN_BUILD_LOCK_CURRENT_DIR),
+          path.join(
+            protocolDir,
+            PluginBuildLockProtocol.PLUGIN_BUILD_LOCK_CURRENT_DIR,
+          ),
         )
       ) {
         return null;
@@ -77,9 +88,17 @@ function ensurePluginBuildLockProtocol(protocolDir: string): void {
   const candidateDir = `${protocolDir}.candidate-${generation}`;
   fs.mkdirSync(candidateDir);
   try {
-    fs.mkdirSync(path.join(candidateDir, PluginBuildLockProtocol.PLUGIN_BUILD_LOCK_RETIRED_DIR));
+    fs.mkdirSync(
+      path.join(
+        candidateDir,
+        PluginBuildLockProtocol.PLUGIN_BUILD_LOCK_RETIRED_DIR,
+      ),
+    );
     fs.writeFileSync(
-      path.join(candidateDir, PluginBuildLockProtocol.PLUGIN_BUILD_LOCK_PROTOCOL_FILE),
+      path.join(
+        candidateDir,
+        PluginBuildLockProtocol.PLUGIN_BUILD_LOCK_PROTOCOL_FILE,
+      ),
       PluginBuildLockProtocol.PLUGIN_BUILD_LOCK_PROTOCOL,
       { encoding: "utf8", flag: "wx" },
     );
@@ -87,7 +106,10 @@ function ensurePluginBuildLockProtocol(protocolDir: string): void {
       fs.renameSync(candidateDir, protocolDir);
     } catch (error) {
       if (
-        PluginBuildLockProtocol.isRenameDestinationOccupied(error, protocolDir) &&
+        PluginBuildLockProtocol.isRenameDestinationOccupied(
+          error,
+          protocolDir,
+        ) &&
         PluginBuildLockProtocol.isPluginBuildLockProtocolV2(protocolDir)
       ) {
         return;
@@ -104,7 +126,10 @@ function writePluginBuildLockOwner(
   generation: string,
 ): void {
   fs.writeFileSync(
-    path.join(generationDir, PluginBuildLockProtocol.PLUGIN_BUILD_LOCK_OWNER_FILE),
+    path.join(
+      generationDir,
+      PluginBuildLockProtocol.PLUGIN_BUILD_LOCK_OWNER_FILE,
+    ),
     `${JSON.stringify(
       {
         generation,

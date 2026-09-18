@@ -7,13 +7,13 @@ import assert from "node:assert/strict";
  *
  * A generated file cannot be in any build that ran before the program started,
  * which puts it in the same state as a file outside `include`: no checked
- * program covered it. It must still run from its own code, compiled through
- * its owning project, and a type error in it must stop the run the same way.
- * Before samchon/ttsc#1382 a generated `index.ts` could run as any emitted
- * `index.js` that happened to share its name.
+ * program covered it. It must still run from its own code, compiled through its
+ * owning project, and a type error in it must stop the run the same way. Before
+ * samchon/ttsc#1382 a generated `index.ts` could run as any emitted `index.js`
+ * that happened to share its name.
  *
- * 1. Create a project whose entry writes `generated/value.ts` from an
- *    environment variable and then requires it.
+ * 1. Create a project whose entry writes `generated/value.ts` from an environment
+ *    variable and then requires it.
  * 2. Run it with a well-typed source, then with a mistyped one.
  * 3. Assert the first run prints the generated value, and the second fails with
  *    the generated file's diagnostic before printing anything from it.

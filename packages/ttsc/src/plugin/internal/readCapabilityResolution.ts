@@ -1,8 +1,9 @@
 import fs from "node:fs";
+
+import { CapabilityResolutionFormat } from "./CapabilityResolutionFormat";
+import type { ITtscCapabilityResolutionEntry } from "./ITtscCapabilityResolutionEntry";
 import { hashHostInputPaths } from "./load/hashHostInputPaths";
 import { realpathHostInputPaths } from "./load/realpathHostInputPaths";
-import type { ITtscCapabilityResolutionEntry } from "./ITtscCapabilityResolutionEntry";
-import { CapabilityResolutionFormat } from "./CapabilityResolutionFormat";
 
 /**
  * Read the recorded answer for a project, or `null` when there is none that is
@@ -31,7 +32,10 @@ export function readCapabilityResolution(options: {
   } catch {
     return null;
   }
-  if (!isEntry(entry) || entry.version !== CapabilityResolutionFormat.formatVersion(options.version))
+  if (
+    !isEntry(entry) ||
+    entry.version !== CapabilityResolutionFormat.formatVersion(options.version)
+  )
     return null;
   // An entry recording nothing proves nothing. Discovery always reads at least
   // the project's own manifest, so an empty input set is a malformed entry
@@ -43,7 +47,8 @@ export function readCapabilityResolution(options: {
   )
     return null;
   for (const [source, fingerprint] of Object.entries(entry.sources))
-    if (CapabilityResolutionFormat.fingerprintDirectory(source) !== fingerprint) return null;
+    if (CapabilityResolutionFormat.fingerprintDirectory(source) !== fingerprint)
+      return null;
   for (const plugin of entry.plugins)
     if (!fs.existsSync(plugin.binary)) return null;
   return entry;

@@ -18,15 +18,15 @@ import { readJsoncFile } from "./readJsoncFile";
  * shows no error (samchon/ttsc#1406). This applies the language service's rule
  * for choosing a file's project:
  *
- * 1. A config that declares no `references` owns the file. Nothing is spawned,
- *    so an ordinary project pays nothing for this.
+ * 1. A config that declares no `references` owns the file. Nothing is spawned, so
+ *    an ordinary project pays nothing for this.
  * 2. Otherwise, the config owns the file when its own root files contain it.
  * 3. Otherwise, each reference in declaration order: a referenced config that
  *    contains the file owns it; one that does not is searched through its own
  *    references, depth-first. A reference names a config file or a directory
  *    holding `tsconfig.json`, and a cycle is visited once.
- * 4. When no project contains the file, the discovered config is kept, so the
- *    file takes the same out-of-`include` lane it always did.
+ * 4. When no project contains the file, the discovered config is kept, so the file
+ *    takes the same out-of-`include` lane it always did.
  *
  * Containment is the compiler's own answer, not a reimplementation of
  * `include`/`exclude` matching: `--showConfig` lists the root files a config
@@ -37,8 +37,8 @@ import { readJsoncFile } from "./readJsoncFile";
  * @param props.tsconfig - The config project discovery found for the file.
  * @param props.file - The file whose project is asked for.
  * @param props.binary - An explicit TypeScript-Go binary, when one was given.
- * @param props.onConfig - Called with every config this reads, so a caller
- *   that fingerprints its inputs can record them.
+ * @param props.onConfig - Called with every config this reads, so a caller that
+ *   fingerprints its inputs can record them.
  */
 export function resolveOwningProjectConfig(props: {
   tsconfig: string;

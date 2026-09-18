@@ -1,4 +1,5 @@
 import { type SpawnSyncReturns } from "node:child_process";
+
 import { spawnSyncResilient } from "../../internal/spawnSyncResilient";
 import { captureProcessOutput } from "./captureProcessOutput";
 import { ensureExecutable } from "./ensureExecutable";

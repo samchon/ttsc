@@ -7,15 +7,15 @@ import type { ITtscParsedProjectConfig } from "../../structures/internal/ITtscPa
  * ordinary `ttsc` output never change.
  *
  * Two settings hand syntax Node cannot parse to a later tool, and each is
- * replaced only in the runtime build, after the forwarded flags so it wins
- * over them as well as over the config:
+ * replaced only in the runtime build, after the forwarded flags so it wins over
+ * them as well as over the config:
  *
  * - `target: ESNext` preserves proposal decorators. The build lowers to ES2025,
  *   TypeScript-Go's latest standard target, which runs the upstream decorator
  *   transform and keeps native class-field semantics, without changing the
  *   implied library or module kind.
- * - `jsx: preserve` and `jsx: react-native` keep JSX. The build compiles it
- *   with the JSX runtime the type-check already reads (samchon/ttsc#1408).
+ * - `jsx: preserve` and `jsx: react-native` keep JSX. The build compiles it with
+ *   the JSX runtime the type-check already reads (samchon/ttsc#1408).
  */
 export function runtimeCompilerArgs(
   project: ITtscParsedProjectConfig,
@@ -74,4 +74,7 @@ export function runtimeCompilerArgs(
  * JSX modes that leave the syntax in the output for a downstream tool. Node
  * cannot parse either, so a runtime build replaces them.
  */
-const PRESERVED_JSX: ReadonlySet<string> = new Set(["preserve", "react-native"]);
+const PRESERVED_JSX: ReadonlySet<string> = new Set([
+  "preserve",
+  "react-native",
+]);

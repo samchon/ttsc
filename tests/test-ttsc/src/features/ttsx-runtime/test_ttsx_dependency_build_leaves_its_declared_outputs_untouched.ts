@@ -4,16 +4,15 @@ import fs from "node:fs";
 import path from "node:path";
 
 /**
- * Verifies building a raw-TypeScript dependency through its own tsconfig
- * writes nothing into the dependency's declared output locations.
+ * Verifies building a raw-TypeScript dependency through its own tsconfig writes
+ * nothing into the dependency's declared output locations.
  *
- * The dependency lane builds the dependency's project into a private
- * generation directory. Its own `declarationDir` and `tsBuildInfoFile` name
- * locations of their own, so the build wrote `.d.ts` files and build
- * information into the dependency's tree, where a published package or a
- * sibling workspace keeps its real outputs (samchon/ttsc#1404). A root the
- * dependency's project does not include goes through a build of its own and
- * must be isolated the same way.
+ * The dependency lane builds the dependency's project into a private generation
+ * directory. Its own `declarationDir` and `tsBuildInfoFile` name locations of
+ * their own, so the build wrote `.d.ts` files and build information into the
+ * dependency's tree, where a published package or a sibling workspace keeps its
+ * real outputs (samchon/ttsc#1404). A root the dependency's project does not
+ * include goes through a build of its own and must be isolated the same way.
  *
  * 1. Create a workspace `dep` whose tsconfig declares `declaration`,
  *    `declarationDir`, `composite`, and `tsBuildInfoFile`, with one included
@@ -79,7 +78,10 @@ function listTree(directory: string): string[] {
     for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
       const location = path.join(current, entry.name);
       if (entry.isDirectory()) walk(location);
-      else files.push(path.relative(directory, location).split(path.sep).join("/"));
+      else
+        files.push(
+          path.relative(directory, location).split(path.sep).join("/"),
+        );
     }
   };
   walk(directory);

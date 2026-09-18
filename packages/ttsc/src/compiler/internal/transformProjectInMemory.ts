@@ -11,13 +11,14 @@ import type { ITtscCompilerTransformation } from "../../structures/ITtscCompiler
 import type { ITtscLoadedNativePlugin } from "../../structures/internal/ITtscLoadedNativePlugin";
 import type { ITtscParsedProjectConfig } from "../../structures/internal/ITtscParsedProjectConfig";
 import type { TtscBuildResult } from "../../structures/internal/TtscBuildResult";
+import { appendBuildOutput } from "./build/appendBuildOutput";
+import { normalizeBuildOutput } from "./build/normalizeBuildOutput";
 import { buildNativeCompiler } from "./buildNativeCompiler";
+import { outputText } from "./outputText";
 import { packageRootDir } from "./packageRootDir";
 import { createNativeProjectContextArgs } from "./project/createNativeProjectContextArgs";
 import { resolveBinary } from "./resolveBinary";
 import { resolveTsgo } from "./resolveTsgo";
-import { appendBuildOutput } from "./build/appendBuildOutput";
-import { normalizeBuildOutput } from "./build/normalizeBuildOutput";
 import { assertSharedHostCompatibility } from "./sharedHost/assertSharedHostCompatibility";
 import { clearInheritedSemanticConfigPath } from "./sharedHost/clearInheritedSemanticConfigPath";
 import { clearInheritedTsgoArgs } from "./sharedHost/clearInheritedTsgoArgs";
@@ -25,7 +26,6 @@ import { inheritedSidecarEnv } from "./sharedHost/inheritedSidecarEnv";
 import { linkedTransformPlugins } from "./sharedHost/linkedTransformPlugins";
 import { resolvePluginConfigDir } from "./sharedHost/resolvePluginConfigDir";
 import { selectSharedHostPlugin } from "./sharedHost/selectSharedHostPlugin";
-import { outputText } from "./outputText";
 import { spawnNative } from "./spawnNative";
 
 /**

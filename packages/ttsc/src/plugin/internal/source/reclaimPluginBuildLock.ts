@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+
 import type { PluginBuildLockFence } from "./PluginBuildLockFence";
 import { PluginBuildLockProtocol } from "./PluginBuildLockProtocol";
 
@@ -25,9 +26,13 @@ function retireLegacyPluginBuildLock(
   lockDir: string,
   generation: string,
 ): boolean {
-  if (!PluginBuildLockProtocol.isPluginBuildLockGeneration(generation)) return false;
+  if (!PluginBuildLockProtocol.isPluginBuildLockGeneration(generation))
+    return false;
   const captured = PluginBuildLockProtocol.readLegacyPluginBuildLockFence(
-    path.join(lockDir, PluginBuildLockProtocol.PLUGIN_BUILD_LOCK_LEGACY_FENCE_DIR),
+    path.join(
+      lockDir,
+      PluginBuildLockProtocol.PLUGIN_BUILD_LOCK_LEGACY_FENCE_DIR,
+    ),
   );
   if (captured?.fence.generation !== generation) {
     return false;

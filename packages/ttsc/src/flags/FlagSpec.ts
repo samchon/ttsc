@@ -1,7 +1,7 @@
-import type { FlagKind } from "./FlagKind";
-import type { ValueValidator } from "./ValueValidator";
 import type { AnySubcommand } from "./AnySubcommand";
+import type { FlagKind } from "./FlagKind";
 import type { FlagLayer } from "./FlagLayer";
+import type { ValueValidator } from "./ValueValidator";
 
 /**
  * One CLI flag's complete contract. Every layer's behaviour is structural —

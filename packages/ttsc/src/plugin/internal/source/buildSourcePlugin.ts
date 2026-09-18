@@ -1,28 +1,29 @@
 import fs from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
+
 import { findNearestGoMod } from "../../../compiler/internal/findNearestGoMod";
 import { createCanonicalTempDirectory } from "../../../internal/createCanonicalTempDirectory";
-import type { ITtscBuildContributor } from "./ITtscBuildContributor";
-import type { SourceBuildFilesystemOperations } from "./SourceBuildFilesystemOperations";
+import { GoSourceInputs } from "./GoSourceInputs";
 import { GoToolResolution } from "./GoToolResolution";
-import { ensureExecutableGoToolchain } from "./ensureExecutableGoToolchain";
-import { computeCacheKey } from "./computeCacheKey";
-import { resolveSourceBuildCachePaths } from "./resolveSourceBuildCachePaths";
-import { SourceBuildCacheLayout } from "./SourceBuildCacheLayout";
-import { prunePluginCacheRoot } from "./prunePluginCacheRoot";
-import { withGoBuildCacheLease } from "./withGoBuildCacheLease";
-import { pruneGoBuildCacheRoot } from "./pruneGoBuildCacheRoot";
+import type { ITtscBuildContributor } from "./ITtscBuildContributor";
+import type { ITtscSourceBuildCachePaths } from "./ITtscSourceBuildCachePaths";
 import type { PluginBuildLockLease } from "./PluginBuildLockLease";
-import { acquirePluginBuildLock } from "./acquirePluginBuildLock";
-import { waitForPluginBinary } from "./waitForPluginBinary";
 import { PluginBuildLockProtocol } from "./PluginBuildLockProtocol";
+import { SourceBuildCacheLayout } from "./SourceBuildCacheLayout";
+import type { SourceBuildFilesystemOperations } from "./SourceBuildFilesystemOperations";
+import { acquirePluginBuildLock } from "./acquirePluginBuildLock";
+import { computeCacheKey } from "./computeCacheKey";
+import { ensureExecutableGoToolchain } from "./ensureExecutableGoToolchain";
+import { formatGoWorkPath } from "./formatGoWorkPath";
+import { pruneGoBuildCacheRoot } from "./pruneGoBuildCacheRoot";
+import { prunePluginCacheRoot } from "./prunePluginCacheRoot";
 import { reclaimPluginBuildLock } from "./reclaimPluginBuildLock";
 import { releasePluginBuildLock } from "./releasePluginBuildLock";
-import { GoSourceInputs } from "./GoSourceInputs";
-import { formatGoWorkPath } from "./formatGoWorkPath";
+import { resolveSourceBuildCachePaths } from "./resolveSourceBuildCachePaths";
 import { spawnGoTool } from "./spawnGoTool";
-import type { ITtscSourceBuildCachePaths } from "./ITtscSourceBuildCachePaths";
+import { waitForPluginBinary } from "./waitForPluginBinary";
+import { withGoBuildCacheLease } from "./withGoBuildCacheLease";
 
 /**
  * Build one Go source plugin into a cached executable.
@@ -53,7 +54,11 @@ export function buildSourcePlugin(opts: {
   const overlayDirs = [...(opts.overlayDirs ?? findTtscOverlayDirs())].sort();
   const contributors = opts.contributors ?? [];
   const compiler = resolveGoCompiler(env);
-  const goBinary = GoToolResolution.resolveGoToolForBuild(compiler.binary, env, dir);
+  const goBinary = GoToolResolution.resolveGoToolForBuild(
+    compiler.binary,
+    env,
+    dir,
+  );
   ensureExecutableGoToolchain(goBinary, compiler.bundled);
   const key = computeCacheKey({
     contributors,
@@ -76,7 +81,11 @@ export function buildSourcePlugin(opts: {
   const pluginRoot = managePluginCache
     ? SourceBuildCacheLayout.canonicalPluginCacheRoot(paths.pluginRoot)
     : paths.pluginRoot;
-  SourceBuildCacheLayout.maybePruneSourceBuildCaches({ ...paths, pluginRoot }, opts.cacheDir, env);
+  SourceBuildCacheLayout.maybePruneSourceBuildCaches(
+    { ...paths, pluginRoot },
+    opts.cacheDir,
+    env,
+  );
   const cacheDir = managePluginCache
     ? canonicalPluginCacheEntry(pluginRoot, key)
     : path.join(pluginRoot, key);

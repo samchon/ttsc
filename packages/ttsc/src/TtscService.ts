@@ -1,8 +1,9 @@
 import path from "node:path";
+
+import type { TtscServiceRequestOptions } from "./TtscServiceRequestOptions";
 import type { ResidentTransformProcess } from "./compiler/internal/ResidentTransformProcess";
 import { startResidentTransform } from "./compiler/internal/startResidentTransform";
 import type { ITtscCompilerContext } from "./structures/ITtscCompilerContext";
-import type { TtscServiceRequestOptions } from "./TtscServiceRequestOptions";
 
 /**
  * Resident, incremental transform service for the `ttsc` TypeScript-Go

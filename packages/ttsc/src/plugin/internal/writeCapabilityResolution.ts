@@ -1,10 +1,11 @@
 import fs from "node:fs";
 import path from "node:path";
-import { hashHostInputPaths } from "./load/hashHostInputPaths";
-import { realpathHostInputPaths } from "./load/realpathHostInputPaths";
-import type { ITtscCapabilityResolutionPlugin } from "./ITtscCapabilityResolutionPlugin";
+
 import { CapabilityResolutionFormat } from "./CapabilityResolutionFormat";
 import type { ITtscCapabilityResolutionEntry } from "./ITtscCapabilityResolutionEntry";
+import type { ITtscCapabilityResolutionPlugin } from "./ITtscCapabilityResolutionPlugin";
+import { hashHostInputPaths } from "./load/hashHostInputPaths";
+import { realpathHostInputPaths } from "./load/realpathHostInputPaths";
 
 /**
  * Record the answer and the state it was true for.
@@ -48,7 +49,13 @@ export function writeCapabilityResolution(
     sources: Object.fromEntries(
       [...new Set(answer.plugins.map((plugin) => plugin.source))]
         .filter((source) => source !== "")
-        .map((source) => [source, CapabilityResolutionFormat.fingerprintDirectory(source)] as const),
+        .map(
+          (source) =>
+            [
+              source,
+              CapabilityResolutionFormat.fingerprintDirectory(source),
+            ] as const,
+        ),
     ),
     version: CapabilityResolutionFormat.formatVersion(options.version),
   };

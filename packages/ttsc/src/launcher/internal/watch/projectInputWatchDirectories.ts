@@ -18,6 +18,9 @@ export function projectInputWatchDirectories(
   target: string,
   projectRoot: string,
 ): string[] {
-  const root = ProjectInputWatchRules.projectInputRecursiveWatchRoot(target, projectRoot);
+  const root = ProjectInputWatchRules.projectInputRecursiveWatchRoot(
+    target,
+    projectRoot,
+  );
   return root === undefined ? [] : [root];
 }

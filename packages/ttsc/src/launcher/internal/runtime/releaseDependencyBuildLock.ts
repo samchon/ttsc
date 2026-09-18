@@ -6,5 +6,8 @@ export function releaseDependencyBuildLock(
   lockDir: string,
   lease: DependencyBuildLockLease,
 ): boolean {
-  return DependencyBuildLockProtocol.retireDependencyBuildLock(lockDir, lease.generation);
+  return DependencyBuildLockProtocol.retireDependencyBuildLock(
+    lockDir,
+    lease.generation,
+  );
 }

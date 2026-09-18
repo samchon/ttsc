@@ -1,9 +1,9 @@
 import type { FlagSpec } from "./FlagSpec";
+import type { ParseOptions } from "./ParseOptions";
+import type { ParseResult } from "./ParseResult";
 import { flagsForSubcommand } from "./flagsForSubcommand";
 import { normalizeFlagToken } from "./normalizeFlagToken";
 import { resolveFlagSpec } from "./resolveFlagSpec";
-import type { ParseOptions } from "./ParseOptions";
-import type { ParseResult } from "./ParseResult";
 
 /**
  * Parse `argv` according to FLAG_SCHEMA filtered by `subcommand`. Returns a

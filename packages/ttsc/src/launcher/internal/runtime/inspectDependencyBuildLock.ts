@@ -1,9 +1,10 @@
 import fs from "node:fs";
 import path from "node:path";
+
+import { DependencyBuildGeneration } from "./DependencyBuildGeneration";
+import type { DependencyBuildLockFence } from "./DependencyBuildLockFence";
 import type { DependencyBuildLockObservation } from "./DependencyBuildLockObservation";
 import { DependencyBuildLockProtocol } from "./DependencyBuildLockProtocol";
-import type { DependencyBuildLockFence } from "./DependencyBuildLockFence";
-import { DependencyBuildGeneration } from "./DependencyBuildGeneration";
 import { RuntimeFilesystem } from "./RuntimeFilesystem";
 import { isLocalProcessGone } from "./isLocalProcessGone";
 
@@ -15,7 +16,10 @@ export function inspectDependencyBuildLock(
   lockDir: string,
   now: number,
 ): DependencyBuildLockObservation {
-  const currentDir = path.join(lockDir, DependencyBuildLockProtocol.DEP_BUILD_LOCK_CURRENT_DIR);
+  const currentDir = path.join(
+    lockDir,
+    DependencyBuildLockProtocol.DEP_BUILD_LOCK_CURRENT_DIR,
+  );
   const generation = readDependencyLockGeneration(currentDir);
   if (generation === null) {
     if (dependencyLockAgeMs(currentDir, now) === null) {
@@ -77,7 +81,10 @@ function readDependencyLockOwner(
   try {
     const parsed = JSON.parse(
       fs.readFileSync(
-        path.join(generationDir, DependencyBuildLockProtocol.DEP_BUILD_LOCK_OWNER_FILE),
+        path.join(
+          generationDir,
+          DependencyBuildLockProtocol.DEP_BUILD_LOCK_OWNER_FILE,
+        ),
         "utf8",
       ),
     ) as Record<string, unknown>;
@@ -104,11 +111,16 @@ function readDependencyLockGeneration(generationDir: string): string | null {
   try {
     const generation = fs
       .readFileSync(
-        path.join(generationDir, DependencyBuildLockProtocol.DEP_BUILD_LOCK_GENERATION_FILE),
+        path.join(
+          generationDir,
+          DependencyBuildLockProtocol.DEP_BUILD_LOCK_GENERATION_FILE,
+        ),
         "utf8",
       )
       .trim();
-    return DependencyBuildGeneration.isDependencyGeneration(generation) ? generation : null;
+    return DependencyBuildGeneration.isDependencyGeneration(generation)
+      ? generation
+      : null;
   } catch {
     return null;
   }
@@ -131,4 +143,3 @@ function describeDependencyLockOwner(owner: DependencyLockOwner): string {
     owner.startedAt === undefined ? "" : ` started at ${owner.startedAt}`;
   return `pid ${owner.pid} on ${owner.hostname}${started}`;
 }
-

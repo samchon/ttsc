@@ -24,11 +24,12 @@ export function withGoBuildCacheLease<T>(
       cacheRoot,
       GoBuildCacheCoordination.GO_BUILD_CACHE_LEASE_DIR,
     );
-    const maintenance = GoBuildCacheCoordination.collectLiveGoBuildCacheCoordinationRecords(
-      cacheRoot,
-      GoBuildCacheCoordination.GO_BUILD_CACHE_MAINTENANCE_DIR,
-      Date.now(),
-    );
+    const maintenance =
+      GoBuildCacheCoordination.collectLiveGoBuildCacheCoordinationRecords(
+        cacheRoot,
+        GoBuildCacheCoordination.GO_BUILD_CACHE_MAINTENANCE_DIR,
+        Date.now(),
+      );
     if (maintenance.length === 0) {
       try {
         if (!lease.startHeartbeat()) {
@@ -42,7 +43,10 @@ export function withGoBuildCacheLease<T>(
       }
     }
     lease.finish();
-    if (Date.now() - started > PluginBuildLockProtocol.PLUGIN_BUILD_LOCK_STEAL_MS) {
+    if (
+      Date.now() - started >
+      PluginBuildLockProtocol.PLUGIN_BUILD_LOCK_STEAL_MS
+    ) {
       throw new Error(
         `ttsc: timed out waiting for Go build cache maintenance at ${cacheRoot}`,
       );

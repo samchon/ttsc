@@ -1,5 +1,3 @@
-
-
 /**
  * Normalize a CLI token to the identity the compiler ttsc wraps resolves it by:
  * one or two leading dashes removed, the remainder lower-cased.

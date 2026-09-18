@@ -3,18 +3,18 @@ import type { TtscBuildResult } from "../../../structures/internal/TtscBuildResu
 import { ResidentCheckProcess } from "../ResidentCheckProcess";
 import { type ResidentCheckRequest } from "../ResidentCheckRequest";
 import { BuildExecution } from "./BuildExecution";
-import type { RunBuildOptions } from "./RunBuildOptions";
-import type { ResidentCheckWatchChange } from "./ResidentCheckWatchChange";
 import { BuildTiming } from "./BuildTiming";
-import { appendBuildOutput } from "./appendBuildOutput";
-import { TsgoArguments } from "./TsgoArguments";
-import { planResidentCheckEntries } from "./planResidentCheckEntries";
 import { NativePluginArguments } from "./NativePluginArguments";
-import { residentCheckRequest } from "./residentCheckRequest";
-import { bufferResidentCheckEntryRequests } from "./bufferResidentCheckEntryRequests";
-import { takeResidentCheckEntryRequest } from "./takeResidentCheckEntryRequest";
-import { normalizeBuildOutput } from "./normalizeBuildOutput";
 import { PassthroughFlags } from "./PassthroughFlags";
+import type { ResidentCheckWatchChange } from "./ResidentCheckWatchChange";
+import type { RunBuildOptions } from "./RunBuildOptions";
+import { TsgoArguments } from "./TsgoArguments";
+import { appendBuildOutput } from "./appendBuildOutput";
+import { bufferResidentCheckEntryRequests } from "./bufferResidentCheckEntryRequests";
+import { normalizeBuildOutput } from "./normalizeBuildOutput";
+import { planResidentCheckEntries } from "./planResidentCheckEntries";
+import { residentCheckRequest } from "./residentCheckRequest";
+import { takeResidentCheckEntryRequest } from "./takeResidentCheckEntryRequest";
 
 /**
  * Analysis-only watch coordinator.
@@ -26,7 +26,9 @@ import { PassthroughFlags } from "./PassthroughFlags";
  * keep them on the established one-shot path without starting sidecars.
  */
 export class ResidentCheckWatchSession {
-  private execution: ReturnType<typeof BuildExecution.resolveExecutionContext> | undefined;
+  private execution:
+    | ReturnType<typeof BuildExecution.resolveExecutionContext>
+    | undefined;
   private readonly pendingChanges = new Map<number, ResidentCheckRequest>();
   private projectInputs: ITtscProjectInputSnapshot | undefined;
   private readonly processes = new Map<string, ResidentCheckProcess>();
@@ -75,7 +77,12 @@ export class ResidentCheckWatchSession {
       if (!residentCheckExecutionIsCompatible(buildOptions, execution)) {
         this.reset();
         return BuildTiming.appendTimingOutput(
-          BuildExecution.runPreparedBuild(options, timing, execution, buildOptions),
+          BuildExecution.runPreparedBuild(
+            options,
+            timing,
+            execution,
+            buildOptions,
+          ),
           timing,
         );
       }
@@ -105,7 +112,9 @@ export class ResidentCheckWatchSession {
         execution,
       );
     } else if (
-      BuildExecution.checkPluginsReportTypeScriptDiagnostics(execution.nativePlugins)
+      BuildExecution.checkPluginsReportTypeScriptDiagnostics(
+        execution.nativePlugins,
+      )
     ) {
       result = checked;
     } else {
@@ -171,7 +180,8 @@ export class ResidentCheckWatchSession {
     const tsgoArgs = TsgoArguments.createNativeTsgoArgs(options);
     const checks = planResidentCheckEntries(
       execution.nativePlugins,
-      (plugin) => NativePluginArguments.createNativeCheckArgs(execution, options, plugin),
+      (plugin) =>
+        NativePluginArguments.createNativeCheckArgs(execution, options, plugin),
       tsgoArgs,
     );
     const request = residentCheckRequest(change, execution.projectRoot);
@@ -201,7 +211,12 @@ export class ResidentCheckWatchSession {
             args: ["check-serve", ...args.slice(1)],
             binary: plugin.binary,
             cwd: execution.projectRoot,
-            env: BuildExecution.nativePluginEnv(options.env, execution, plugin, tsgoArgs),
+            env: BuildExecution.nativePluginEnv(
+              options.env,
+              execution,
+              plugin,
+              tsgoArgs,
+            ),
           });
           this.processes.set(key, resident);
         }

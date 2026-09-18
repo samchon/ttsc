@@ -1,18 +1,19 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+
 import { EmitOwnershipIndex } from "../../compiler/internal/EmitOwnershipIndex";
+import { runBuild } from "../../compiler/internal/build/runBuild";
 import { readProjectConfig } from "../../compiler/internal/project/readProjectConfig";
 import { resolveOwningProjectConfig } from "../../compiler/internal/project/resolveOwningProjectConfig";
 import { readEffectiveCompilerOptions } from "../../compiler/internal/readEffectiveCompilerOptions";
-import { runBuild } from "../../compiler/internal/build/runBuild";
 import { createFilesystemPathIdentityContext } from "../../internal/pathIdentity/createFilesystemPathIdentityContext";
 import type { TtscCommonOptions } from "../../structures/internal/TtscCommonOptions";
-import { runtimeCompilerArgs } from "./runtimeCompilerArgs";
-import { type OwningModuleOptions } from "./runtime/OwningModuleOptions";
-import { projectModuleOptions } from "./runtime/projectModuleOptions";
 import { buildSingleRootProject } from "./buildSingleRootProject";
 import { linkVirtualEntry } from "./linkVirtualEntry";
+import { type OwningModuleOptions } from "./runtime/OwningModuleOptions";
+import { projectModuleOptions } from "./runtime/projectModuleOptions";
+import { runtimeCompilerArgs } from "./runtimeCompilerArgs";
 
 /** Build the owning project and locate the emitted JavaScript entry for `ttsx`. */
 export function prepareExecution(
@@ -98,9 +99,9 @@ const ENTRY_PROJECT_EMIT_DIR = "entry-project";
  * set.
  *
  * Only an output proven to come from the entry itself counts. A
- * `scripts/index.ts` outside `include` shares its name with the
- * `src/index.js` the project build emitted, and taking that output would run
- * the wrong program instead of compiling the requested one (samchon/ttsc#1382).
+ * `scripts/index.ts` outside `include` shares its name with the `src/index.js`
+ * the project build emitted, and taking that output would run the wrong program
+ * instead of compiling the requested one (samchon/ttsc#1382).
  */
 function emittedEntryOf(
   context: ReturnType<typeof createProjectContext>,
@@ -114,9 +115,9 @@ function emittedEntryOf(
 }
 
 /**
- * Compile an entry the whole-project build did not emit, through a project
- * that inherits every option and declares only the entry, then point the
- * context at that build.
+ * Compile an entry the whole-project build did not emit, through a project that
+ * inherits every option and declares only the entry, then point the context at
+ * that build.
  */
 function buildEntryProject(
   context: ReturnType<typeof createProjectContext>,

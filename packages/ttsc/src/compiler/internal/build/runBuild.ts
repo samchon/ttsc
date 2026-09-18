@@ -1,7 +1,7 @@
 import type { TtscBuildResult } from "../../../structures/internal/TtscBuildResult";
-import type { RunBuildOptions } from "./RunBuildOptions";
-import { BuildTiming } from "./BuildTiming";
 import { BuildExecution } from "./BuildExecution";
+import { BuildTiming } from "./BuildTiming";
+import type { RunBuildOptions } from "./RunBuildOptions";
 
 /**
  * Run `ttsc` against a tsconfig. Returns once the binary exits so the CLI can
@@ -37,5 +37,10 @@ function runBuildWithExecution(
     setupStartedAt,
   );
   if (prepared.result !== undefined) return prepared.result;
-  return BuildExecution.runPreparedBuild(options, timing, execution, prepared.buildOptions);
+  return BuildExecution.runPreparedBuild(
+    options,
+    timing,
+    execution,
+    prepared.buildOptions,
+  );
 }

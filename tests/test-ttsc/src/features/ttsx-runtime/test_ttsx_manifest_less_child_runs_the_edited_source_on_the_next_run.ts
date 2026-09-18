@@ -5,22 +5,22 @@ import os from "node:os";
 import path from "node:path";
 
 /**
- * Verifies a child process that lost the runtime manifest runs the source as
- * it is now on the next run, and leaves no cache behind.
+ * Verifies a child process that lost the runtime manifest runs the source as it
+ * is now on the next run, and leaves no cache behind.
  *
  * Pins samchon/ttsc#1405. A child whose environment drops
  * `TTSX_RUNTIME_MANIFEST` still has the runtime hooks, but no run to share a
  * cache with. Its project builds went to a persistent, shared temp directory
  * keyed only by the tsconfig path, so after the source was edited the child
  * kept running its first build until the temp directory was cleared. Such a
- * child now builds into a directory private to its own process, removed when
- * it exits.
+ * child now builds into a directory private to its own process, removed when it
+ * exits.
  *
- * 1. Create a project whose entry spawns `node src/child.ts` without the
- *    manifest, and prints what the child printed along with its pid.
+ * 1. Create a project whose entry spawns `node src/child.ts` without the manifest,
+ *    and prints what the child printed along with its pid.
  * 2. Run it, edit `src/child.ts`, and run it again.
- * 3. Assert each run prints its own version, and that no private cache
- *    directory of either child remains.
+ * 3. Assert each run prints its own version, and that no private cache directory
+ *    of either child remains.
  */
 export const test_ttsx_manifest_less_child_runs_the_edited_source_on_the_next_run =
   () => {

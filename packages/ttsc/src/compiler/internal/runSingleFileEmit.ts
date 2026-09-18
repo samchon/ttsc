@@ -3,10 +3,10 @@ import path from "node:path";
 
 import { createCanonicalTempDirectory } from "../../internal/createCanonicalTempDirectory";
 import type { TtscSingleFileEmitOptions } from "../../structures/internal/TtscSingleFileEmitOptions";
-import { readProjectConfig } from "./project/readProjectConfig";
 import { EmitOwnershipIndex } from "./EmitOwnershipIndex";
-import { readEffectiveCompilerOptions } from "./readEffectiveCompilerOptions";
 import { runBuild } from "./build/runBuild";
+import { readProjectConfig } from "./project/readProjectConfig";
+import { readEffectiveCompilerOptions } from "./readEffectiveCompilerOptions";
 
 /**
  * Emit one source file by building its project into a temporary directory.
@@ -14,11 +14,11 @@ import { runBuild } from "./build/runBuild";
  * The full project is compiled with its `rootDir` pinned, and the output is
  * taken only when it was provably emitted from the requested file: the
  * ownership index mirrors that file below the pinned root and, for another
- * spelling of it, compares filesystem identities. A file outside the
- * project's file set has no output of its own, and it is refused by name
- * rather than answered with another file's JavaScript that shares its name
- * (samchon/ttsc#1382). The temp directory is always cleaned up in the
- * `finally` block, even on error.
+ * spelling of it, compares filesystem identities. A file outside the project's
+ * file set has no output of its own, and it is refused by name rather than
+ * answered with another file's JavaScript that shares its name
+ * (samchon/ttsc#1382). The temp directory is always cleaned up in the `finally`
+ * block, even on error.
  *
  * @returns The transformed JavaScript source text.
  * @throws When the build exits non-zero or the project does not compile the

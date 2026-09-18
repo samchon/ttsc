@@ -1,4 +1,5 @@
 import path from "node:path";
+
 import type { CompilerDirectoryWatchEventPlan } from "./CompilerDirectoryWatchEventPlan";
 import { WatchPaths } from "./WatchPaths";
 

@@ -7,13 +7,13 @@ import type { ITtscCompilerContext } from "../../structures/ITtscCompilerContext
 import type { ITtscCompilerDiagnostic } from "../../structures/ITtscCompilerDiagnostic";
 import type { ITtscParsedProjectConfig } from "../../structures/internal/ITtscParsedProjectConfig";
 import type { TtscBuildResult } from "../../structures/internal/TtscBuildResult";
+import { runBuild } from "./build/runBuild";
 import { buildNativeCompiler } from "./buildNativeCompiler";
 import { isOutsideRelativePath } from "./isOutsideRelativePath";
+import { outputText } from "./outputText";
 import { packageRootDir } from "./packageRootDir";
 import { readProjectConfig } from "./project/readProjectConfig";
-import { runBuild } from "./build/runBuild";
 import { inheritedSidecarEnv } from "./sharedHost/inheritedSidecarEnv";
-import { outputText } from "./outputText";
 import { spawnNative } from "./spawnNative";
 
 /**

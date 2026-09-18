@@ -1,10 +1,11 @@
 import childProcess from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
+
 import { captureProcessOutput } from "../compiler/internal/captureProcessOutput";
+import type { IJavaScriptRuntimeCapabilities } from "./IJavaScriptRuntimeCapabilities";
 import { isSpawnSyncFdExhaustion } from "./isSpawnSyncFdExhaustion";
 import { spawnSyncWithLowDescriptors } from "./spawnSyncWithLowDescriptors";
-import type { IJavaScriptRuntimeCapabilities } from "./IJavaScriptRuntimeCapabilities";
 
 /** Probe an interpreter instead of inferring its identity from the host. */
 export function javascriptRuntimeCapabilities(

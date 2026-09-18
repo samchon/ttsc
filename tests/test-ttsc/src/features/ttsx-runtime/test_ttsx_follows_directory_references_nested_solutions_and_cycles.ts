@@ -17,9 +17,10 @@ import assert from "node:assert/strict";
  *
  * 1. Create a root solution referencing the directory `packages/app`, whose
  *    `tsconfig.json` is itself a solution referencing `tsconfig.lib.json` and,
- *    in a cycle, the root. Create a sibling `packages/dep` shaped the same way.
- * 2. Run `packages/app/src/main.ts`, which requires `packages/dep/src/value.ts`
- *    by path.
+ *    in a cycle, the root. Create a sibling `packages/dep` shaped the same
+ *    way.
+ * 2. Run `packages/app/src/main.ts`, which requires `packages/dep/src/value.ts` by
+ *    path.
  * 3. Assert both files ran with legacy decorators.
  */
 export const test_ttsx_follows_directory_references_nested_solutions_and_cycles =

@@ -1,5 +1,5 @@
-import { clearInheritedTsgoArgs } from "./clearInheritedTsgoArgs";
 import { clearInheritedSemanticConfigPath } from "./clearInheritedSemanticConfigPath";
+import { clearInheritedTsgoArgs } from "./clearInheritedTsgoArgs";
 
 /**
  * The `{ ...process.env, ...callerEnv }` a child process inherits, minus a

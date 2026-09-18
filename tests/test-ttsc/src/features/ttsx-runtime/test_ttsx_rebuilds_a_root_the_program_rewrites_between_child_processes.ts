@@ -6,14 +6,14 @@ import assert from "node:assert/strict";
  * it between two child processes of one run.
  *
  * A root no build compiled is built once and shared across the processes of a
- * run, like a dependency. That sharing is only sound while the root is the
- * same file it was: a program that generates `job.ts`, runs it in a child
- * process, regenerates it, and runs it again must execute the second version.
- * The root's content is therefore part of what identifies its build.
+ * run, like a dependency. That sharing is only sound while the root is the same
+ * file it was: a program that generates `job.ts`, runs it in a child process,
+ * regenerates it, and runs it again must execute the second version. The root's
+ * content is therefore part of what identifies its build.
  *
- * 1. Create a project whose entry writes `generated/job.ts`, runs it with
- *    `node`, rewrites it, and runs it again. Each child inherits the runtime
- *    hooks and manifest.
+ * 1. Create a project whose entry writes `generated/job.ts`, runs it with `node`,
+ *    rewrites it, and runs it again. Each child inherits the runtime hooks and
+ *    manifest.
  * 2. Run the entry.
  * 3. Assert the children print the first and then the second version.
  */

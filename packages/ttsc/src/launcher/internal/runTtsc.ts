@@ -1,10 +1,11 @@
 import fs from "node:fs";
 import path from "node:path";
+
 import { TtscCompiler } from "../../TtscCompiler";
-import { readProjectConfig } from "../../compiler/internal/project/readProjectConfig";
-import { resolveProjectConfig } from "../../compiler/internal/project/resolveProjectConfig";
 import { ResidentCheckWatchSession } from "../../compiler/internal/build/ResidentCheckWatchSession";
 import { runBuild } from "../../compiler/internal/build/runBuild";
+import { readProjectConfig } from "../../compiler/internal/project/readProjectConfig";
+import { resolveProjectConfig } from "../../compiler/internal/project/resolveProjectConfig";
 import { runSingleFileEmit } from "../../compiler/internal/runSingleFileEmit";
 import { getBoolean } from "../../flags/getBoolean";
 import { getNumber } from "../../flags/getNumber";
@@ -18,13 +19,13 @@ import { resolveCleanTargets } from "../../plugin/internal/source/resolveCleanTa
 import { resolveSourceBuildCachePaths } from "../../plugin/internal/source/resolveSourceBuildCachePaths";
 import type { ITtscProjectInputSnapshot } from "../../structures/internal/ITtscProjectInputSnapshot";
 import type { TtscSingleFileEmitOptions } from "../../structures/internal/TtscSingleFileEmitOptions";
+import { PendingResidentCheckWatchChanges } from "./PendingResidentCheckWatchChanges";
 import { assertNoSolutionBuild } from "./assertNoSolutionBuild";
 import { getCompilerVersionText } from "./getCompilerVersionText";
 import { resolveCacheDir } from "./resolveCacheDir";
 import { resolveSingleFileOutput } from "./resolveSingleFileOutput";
 import { type WatchInputChange } from "./watch/WatchInputChange";
 import { WatchTopology } from "./watch/WatchTopology";
-import { PendingResidentCheckWatchChanges } from "./PendingResidentCheckWatchChanges";
 
 /**
  * CLI entry point for `ttsc`. Dispatches argv to the appropriate build lane

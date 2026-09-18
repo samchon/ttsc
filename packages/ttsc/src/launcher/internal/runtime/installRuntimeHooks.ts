@@ -10,39 +10,40 @@ import {
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+
+import { EmitOwnershipIndex } from "../../../compiler/internal/EmitOwnershipIndex";
+import { runBuild } from "../../../compiler/internal/build/runBuild";
 import { readProjectConfig } from "../../../compiler/internal/project/readProjectConfig";
 import { resolveOwningProjectConfig } from "../../../compiler/internal/project/resolveOwningProjectConfig";
-import { EmitOwnershipIndex } from "../../../compiler/internal/EmitOwnershipIndex";
 import { resolveTsgo } from "../../../compiler/internal/resolveTsgo";
-import { runBuild } from "../../../compiler/internal/build/runBuild";
 import { spawnNative } from "../../../compiler/internal/spawnNative";
 import { createCanonicalTempDirectory } from "../../../internal/createCanonicalTempDirectory";
-import { parseCommonJsExports } from "../parseCommonJsExports";
 import { buildSingleRootProject } from "../buildSingleRootProject";
-import { runtimeCompilerArgs } from "../runtimeCompilerArgs";
 import { inlineServedSourceMap } from "../inlineServedSourceMap";
-import type { RuntimeHookOptions } from "./RuntimeHookOptions";
+import { parseCommonJsExports } from "../parseCommonJsExports";
+import { runtimeCompilerArgs } from "../runtimeCompilerArgs";
+import { DependencyBuildGeneration } from "./DependencyBuildGeneration";
+import type { DependencyBuildLockFence } from "./DependencyBuildLockFence";
+import type { DependencyBuildLockLease } from "./DependencyBuildLockLease";
+import { DependencyBuildLockProtocol } from "./DependencyBuildLockProtocol";
 import type { OwningModuleOptions } from "./OwningModuleOptions";
 import type { ResolveResult } from "./ResolveResult";
-import { checkNodeRuntimeSupport } from "./checkNodeRuntimeSupport";
-import type { RuntimeManifest } from "./RuntimeManifest";
 import { RuntimeFilesystem } from "./RuntimeFilesystem";
-import { restoreStrippedNodeBuiltinScheme } from "./restoreStrippedNodeBuiltinScheme";
-import { DependencyBuildGeneration } from "./DependencyBuildGeneration";
-import { RuntimeModuleFormat } from "./RuntimeModuleFormat";
-import { realPath } from "./realPath";
+import type { RuntimeHookOptions } from "./RuntimeHookOptions";
+import type { RuntimeManifest } from "./RuntimeManifest";
 import { RuntimeManifestRegistry } from "./RuntimeManifestRegistry";
-import { projectModuleOptions } from "./projectModuleOptions";
-import { readDependencyCache } from "./readDependencyCache";
+import { RuntimeModuleFormat } from "./RuntimeModuleFormat";
+import { acquireDependencyBuildLock } from "./acquireDependencyBuildLock";
+import { checkNodeRuntimeSupport } from "./checkNodeRuntimeSupport";
 import { dependencyCacheKey } from "./dependencyCacheKey";
 import { dependencyCacheRoot } from "./dependencyCacheRoot";
-import type { DependencyBuildLockLease } from "./DependencyBuildLockLease";
-import { acquireDependencyBuildLock } from "./acquireDependencyBuildLock";
+import { inspectDependencyBuildLock } from "./inspectDependencyBuildLock";
+import { projectModuleOptions } from "./projectModuleOptions";
+import { readDependencyCache } from "./readDependencyCache";
+import { realPath } from "./realPath";
 import { reclaimDependencyBuildLock } from "./reclaimDependencyBuildLock";
 import { releaseDependencyBuildLock } from "./releaseDependencyBuildLock";
-import type { DependencyBuildLockFence } from "./DependencyBuildLockFence";
-import { inspectDependencyBuildLock } from "./inspectDependencyBuildLock";
-import { DependencyBuildLockProtocol } from "./DependencyBuildLockProtocol";
+import { restoreStrippedNodeBuiltinScheme } from "./restoreStrippedNodeBuiltinScheme";
 
 /**
  * Install the source-loading hooks on the current (main) thread. Idempotent:
@@ -787,7 +788,10 @@ function resolveRuntimeSource(
   prepareAsEntry: boolean = false,
 ): { format: string; source: string } {
   const served = resolveServedSource(filename, url, prepareAsEntry);
-  const format = RuntimeModuleFormat.moduleFormat(filename, served.moduleOptions);
+  const format = RuntimeModuleFormat.moduleFormat(
+    filename,
+    served.moduleOptions,
+  );
   return {
     format,
     source:
@@ -844,7 +848,12 @@ function shouldExposeCommonJsNamedExports(
     return false;
   }
   const parentFile = fileURLToPath(parentURL);
-  if (RuntimeModuleFormat.moduleFormat(parentFile, owningModuleOptions(parentFile)) !== "module") {
+  if (
+    RuntimeModuleFormat.moduleFormat(
+      parentFile,
+      owningModuleOptions(parentFile),
+    ) !== "module"
+  ) {
     return false;
   }
   return isTypeScriptSource(fileURLToPath(url));
@@ -1112,7 +1121,9 @@ function withInlineSourceMap(served: ServedSource): ServedSource {
  */
 function transformOrphanSource(filename: string, url: string): string {
   const format =
-    RuntimeModuleFormat.moduleFormat(filename, null) === "commonjs" ? "commonjs" : "module";
+    RuntimeModuleFormat.moduleFormat(filename, null) === "commonjs"
+      ? "commonjs"
+      : "module";
   const lowered = emitOrphanSource(filename, format);
   if (lowered !== null) {
     return lowered;
@@ -1279,9 +1290,7 @@ function compilerIdentity(binary: string): string {
     try {
       const real = realPath(binary);
       const stat = fs.statSync(real);
-      identity = [real, stat.size, stat.mtimeMs, stat.ino, stat.dev].join(
-        "\0",
-      );
+      identity = [real, stat.size, stat.mtimeMs, stat.ino, stat.dev].join("\0");
     } catch {
       identity = binary;
     }
@@ -1320,11 +1329,11 @@ let ownPackageVersionCache: string | undefined;
  * The cache outlives the run under `TTSC_CACHE_DIR`, so a hit has to prove the
  * current inputs would produce the cached text (samchon/ttsc#1405). The key
  * holds everything that decides it: the source's bytes and path (the inlined
- * map names the path), the module format, the emit arguments, the compiler
- * that lowers it, and the ttsc that post-processes it. The compiler is keyed by
- * what it is, not where it is: a flat `node_modules` upgrade replaces the
- * binary at the same path, and a key of the path alone kept serving the old
- * compiler's output.
+ * map names the path), the module format, the emit arguments, the compiler that
+ * lowers it, and the ttsc that post-processes it. The compiler is keyed by what
+ * it is, not where it is: a flat `node_modules` upgrade replaces the binary at
+ * the same path, and a key of the path alone kept serving the old compiler's
+ * output.
  */
 function orphanCacheFile(
   filename: string,
@@ -1539,7 +1548,11 @@ function resolveSourceSpecifier(
   const base = path.resolve(path.dirname(sourceFile), specifier);
   if (path.extname(base).length !== 0) {
     if (RuntimeFilesystem.isFile(base)) return base;
-    return typescriptSourcesForJavaScriptSpecifier(base).find(RuntimeFilesystem.isFile) ?? null;
+    return (
+      typescriptSourcesForJavaScriptSpecifier(base).find(
+        RuntimeFilesystem.isFile,
+      ) ?? null
+    );
   }
   for (const extension of TYPESCRIPT_EXTENSIONS) {
     const candidate = base + extension;
@@ -1561,9 +1574,9 @@ function resolveSourceSpecifier(
  * when no such build compiled it.
  *
  * The answer comes from the builds' ownership indexes, never from a shared
- * name. Once a build is proven to own the file its output must be there, so
- * an unreadable one is an error naming both files rather than a reason to try
- * the next lane and run something else.
+ * name. Once a build is proven to own the file its output must be there, so an
+ * unreadable one is an error naming both files rather than a reason to try the
+ * next lane and run something else.
  */
 function serveEntryEmit(real: string): ServedSource | null {
   const owner = RuntimeManifestRegistry.findEntryEmit(real);
@@ -1584,11 +1597,11 @@ function serveEntryEmit(real: string): ServedSource | null {
  *
  * The project is built once per run, honouring its own tsconfig (transform
  * plugins included), so a source-shipping package that needs a transform
- * behaves correctly at runtime. That build serves the file when it compiled
- * it. When it did not — the file sits outside the project's `include` or
- * `files` — the file is a root no build covered, and it is compiled alone
- * through the same project's options rather than handed another file's output
- * or stripped of them.
+ * behaves correctly at runtime. That build serves the file when it compiled it.
+ * When it did not — the file sits outside the project's `include` or `files` —
+ * the file is a root no build covered, and it is compiled alone through the
+ * same project's options rather than handed another file's output or stripped
+ * of them.
  *
  * Whether that root is type-checked follows who wrote it. A file of the user's
  * own tree is checked, the same gate `ttsc/register` applies to every root it
@@ -1682,15 +1695,15 @@ function readOwnedEmit(emittedFile: string, source: string): string {
 }
 
 /**
- * Compile one root its owning project's file set does not contain, once per
- * run for each content of the root, and share the result across every process
- * of the run exactly like a project build. A failed check publishes nothing,
- * so every process that reaches the root reports the same diagnostics instead
- * of reusing a build.
+ * Compile one root its owning project's file set does not contain, once per run
+ * for each content of the root, and share the result across every process of
+ * the run exactly like a project build. A failed check publishes nothing, so
+ * every process that reaches the root reports the same diagnostics instead of
+ * reusing a build.
  *
  * The root's own bytes are part of the key. A root is often a file the program
- * wrote itself, and one that rewrites it and loads it again, in this process
- * or another, must get the new code rather than the build of the old.
+ * wrote itself, and one that rewrites it and loads it again, in this process or
+ * another, must get the new code rather than the build of the old.
  */
 function ensureRootBuilt(
   tsconfig: string,
@@ -1733,7 +1746,10 @@ function ensureRootBuilt(
 
 const builtRoots = new Map<string, DependencyBuildGeneration.BuiltProject>();
 
-/** Roots whose build failed in this process, by the same key as {@link builtRoots}. */
+/**
+ * Roots whose build failed in this process, by the same key as
+ * {@link builtRoots}.
+ */
 const failedRoots = new Map<string, unknown>();
 
 /** SHA-256 of a file's bytes, or of nothing when it cannot be read. */
@@ -1749,9 +1765,9 @@ function contentDigest(file: string): string {
 
 /**
  * Compile `source` alone through the options of `tsconfig` into a fresh
- * generation directory, then publish its completion marker. The generation
- * and marker protocol is the project build's, so a reader never sees a
- * partial emit.
+ * generation directory, then publish its completion marker. The generation and
+ * marker protocol is the project build's, so a reader never sees a partial
+ * emit.
  */
 function buildRoot(
   tsconfig: string,
@@ -1854,7 +1870,9 @@ function isInstalledPackageSource(real: string): boolean {
  * (or a second import in this one) reuses, and concurrent first-builders are
  * serialised by an atomic lock directory.
  */
-function ensureProjectBuilt(tsconfig: string): DependencyBuildGeneration.BuiltProject {
+function ensureProjectBuilt(
+  tsconfig: string,
+): DependencyBuildGeneration.BuiltProject {
   const cached = builtProjects.get(tsconfig);
   if (cached !== undefined) {
     return cached;
@@ -1979,7 +1997,10 @@ function buildDependency(
 ): DependencyBuildGeneration.BuiltProject {
   const project = readPluginDescriptorProjectConfig(tsconfig);
   const generation = DependencyBuildGeneration.newDependencyGeneration();
-  const emitDir = DependencyBuildGeneration.dependencyGenerationDir(cacheDir, generation);
+  const emitDir = DependencyBuildGeneration.dependencyGenerationDir(
+    cacheDir,
+    generation,
+  );
   fs.rmSync(emitDir, { force: true, recursive: true });
   fs.mkdirSync(emitDir, { recursive: true });
   const result = runBuild({
@@ -2166,9 +2187,9 @@ interface ITsconfigLookup {
 
 /**
  * The config of the project that owns `real`: its nearest `tsconfig.json`, or,
- * when that config is a solution that does not contain the file, the
- * referenced project that does (samchon/ttsc#1406). `null` when no config
- * owns the file at all.
+ * when that config is a solution that does not contain the file, the referenced
+ * project that does (samchon/ttsc#1406). `null` when no config owns the file at
+ * all.
  */
 function owningTsconfig(real: string): string | null {
   const nearest = nearestTsconfig(real);
@@ -2178,8 +2199,7 @@ function owningTsconfig(real: string): string | null {
   if (owning === undefined) {
     owning = resolveOwningProjectConfig({
       file: real,
-      onConfig: (config) =>
-        recordPluginDescriptorTsconfigCandidates([config]),
+      onConfig: (config) => recordPluginDescriptorTsconfigCandidates([config]),
       tsconfig: nearest,
     });
     owningTsconfigCache.set(memo, owning);

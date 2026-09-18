@@ -3,6 +3,7 @@ import fs from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+
 import { findNearestGoMod } from "../../../compiler/internal/findNearestGoMod";
 import { readJsonFile } from "../../../compiler/internal/project/readJsonFile";
 import { readProjectConfig } from "../../../compiler/internal/project/readProjectConfig";
@@ -17,17 +18,17 @@ import type { ITtscProjectPluginConfig } from "../../../structures/ITtscProjectP
 import type { TtscPluginStage } from "../../../structures/TtscPluginStage";
 import type { ITtscLoadedNativePlugin } from "../../../structures/internal/ITtscLoadedNativePlugin";
 import type { ITtscParsedProjectConfig } from "../../../structures/internal/ITtscParsedProjectConfig";
-import { buildSourcePlugin } from "../source/buildSourcePlugin";
 import { pluginDescriptorFailureReason } from "../pluginDescriptorFailureReason";
 import { pluginDescriptorProcessFailure } from "../pluginDescriptorProcessFailure";
-import { ProjectPluginEntries } from "./ProjectPluginEntries";
-import { hashHostInputPaths } from "./hashHostInputPaths";
-import { realpathHostInputPaths } from "./realpathHostInputPaths";
-import { PluginPackageResolution } from "./PluginPackageResolution";
-import { collectProjectHostInputs } from "./collectProjectHostInputs";
+import { buildSourcePlugin } from "../source/buildSourcePlugin";
 import { COMMONJS_PLUGIN_DESCRIPTOR_SHIM_SOURCE } from "./COMMONJS_PLUGIN_DESCRIPTOR_SHIM_SOURCE";
 import { PLUGIN_DESCRIPTOR_SHIM_SOURCE } from "./PLUGIN_DESCRIPTOR_SHIM_SOURCE";
+import { PluginPackageResolution } from "./PluginPackageResolution";
+import { ProjectPluginEntries } from "./ProjectPluginEntries";
+import { collectProjectHostInputs } from "./collectProjectHostInputs";
+import { hashHostInputPaths } from "./hashHostInputPaths";
 import { realpathHostInput } from "./realpathHostInput";
+import { realpathHostInputPaths } from "./realpathHostInputPaths";
 
 /**
  * Resolve, load, and build all native plugin sidecars for a TypeScript project.
@@ -91,9 +92,10 @@ export function loadProjectPlugins(options: {
   const entries: ProjectPluginEntries.ProjectPluginEntry[] =
     options.entries === false
       ? []
-      : ProjectPluginEntries.resolvePluginEntries(project, options.entries).filter(
-          (entry) => entry.config.enabled !== false,
-        );
+      : ProjectPluginEntries.resolvePluginEntries(
+          project,
+          options.entries,
+        ).filter((entry) => entry.config.enabled !== false);
   if (entries.length === 0) {
     options.onWatchInputs?.([]);
     return {
@@ -141,7 +143,10 @@ export function loadProjectPlugins(options: {
       // after the resolver had already selected the old entry.
       const entryCandidateHashes = hashHostInputPaths(entryCandidates);
       const entryCandidateRealpaths = realpathHostInputPaths(entryCandidates);
-      const request = PluginPackageResolution.resolvePluginRequest(specifier, entry.baseDir);
+      const request = PluginPackageResolution.resolvePluginRequest(
+        specifier,
+        entry.baseDir,
+      );
       const loaded = loadPluginEntry(
         entry.config,
         { ...context, plugin: entry.config },
@@ -406,7 +411,9 @@ function collectHostInputSnapshot(
     for (const hostInput of record.hostInputs) {
       inputs.add(path.resolve(hostInput));
     }
-    const descriptorManifest = PluginPackageResolution.findNearestPackageJson(record.request);
+    const descriptorManifest = PluginPackageResolution.findNearestPackageJson(
+      record.request,
+    );
     if (descriptorManifest !== undefined) {
       inputs.add(path.resolve(descriptorManifest));
     }
@@ -782,7 +789,8 @@ function collectModuleResolutionCandidates(
         // supersede it while it exists.
         if (
           selectedByExactFile(base, resolvedFile) ||
-          (resolvedFile === undefined && PluginPackageResolution.existingFile(base))
+          (resolvedFile === undefined &&
+            PluginPackageResolution.existingFile(base))
         ) {
           inputs.add(path.resolve(base));
         } else {
@@ -1157,7 +1165,10 @@ function loadCommonJsDescriptor(
         `ttsc: plugin descriptor "${request}" produced invalid isolated output: ${errorMessage(error)}`,
       );
     }
-    if (!PluginPackageResolution.isRecord(parsed) || !Array.isArray(parsed.inputs)) {
+    if (
+      !PluginPackageResolution.isRecord(parsed) ||
+      !Array.isArray(parsed.inputs)
+    ) {
       throw new Error(
         `ttsc: plugin descriptor "${request}" produced an invalid isolated result`,
       );
@@ -1171,7 +1182,9 @@ function loadCommonJsDescriptor(
           ),
         )
       : {};
-    const parsedRealpaths = PluginPackageResolution.isRecord(parsed.inputRealpaths)
+    const parsedRealpaths = PluginPackageResolution.isRecord(
+      parsed.inputRealpaths,
+    )
       ? Object.fromEntries(
           Object.entries(parsed.inputRealpaths).flatMap(([file, realpath]) =>
             (typeof realpath === "string" && path.isAbsolute(realpath)) ||
@@ -1406,7 +1419,10 @@ function omitUnstableHostInputHashes(
 function commonJsDescriptorRetryWithTtsx(file: string): boolean {
   try {
     const parsed = JSON.parse(fs.readFileSync(file, "utf8"));
-    return PluginPackageResolution.isRecord(parsed) && parsed.__ttscRetryWithTtsx === true;
+    return (
+      PluginPackageResolution.isRecord(parsed) &&
+      parsed.__ttscRetryWithTtsx === true
+    );
   } catch {
     return false;
   }

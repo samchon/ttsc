@@ -1,8 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
 
-import { createFilesystemPathIdentityContext } from "../../internal/pathIdentity/createFilesystemPathIdentityContext";
 import type { FilesystemPathIdentityContext } from "../../internal/pathIdentity/FilesystemPathIdentityContext";
+import { createFilesystemPathIdentityContext } from "../../internal/pathIdentity/createFilesystemPathIdentityContext";
 import { isOutsideRelativePath } from "./isOutsideRelativePath";
 
 /**
@@ -16,8 +16,8 @@ import { isOutsideRelativePath } from "./isOutsideRelativePath";
  *
  * 1. **Forward.** Mirror the source's physical path below the physical root into
  *    the emit directory. An output there was compiled from that very file.
- * 2. **Inverse.** When the forward path misses, map the outputs that could be
- *    the source's back through the root, and compare filesystem identities. The
+ * 2. **Inverse.** When the forward path misses, map the outputs that could be the
+ *    source's back through the root, and compare filesystem identities. The
  *    forward mirror misses whenever the compiler saw the file through another
  *    spelling of it: a Windows 8.3 directory in a `files` entry, a symlinked
  *    file inside the root, or a different case on a case-insensitive volume.
@@ -26,18 +26,18 @@ import { isOutsideRelativePath } from "./isOutsideRelativePath";
  *
  * A file the build did not compile gets `null`, never the output of some other
  * file that shares its name. Callers treat `null` as "this build does not own
- * the file" and route it to the lane that does, which is the whole point:
- * a trailing-name match once served `src/index.js` for any `index.ts` the
- * build had never seen (samchon/ttsc#1382).
+ * the file" and route it to the lane that does, which is the whole point: a
+ * trailing-name match once served `src/index.js` for any `index.ts` the build
+ * had never seen (samchon/ttsc#1382).
  *
  * What the build emitted is its record, taken once when the build finished
  * ({@link EmitOwnershipIndex.listOutputs}) and handed to every process that
  * serves from it. Ownership is decided against that record, not against the
  * disk at lookup time, so an output that later disappears is still known to be
- * owned and its reader can fail by name instead of routing the source to a
- * lane that runs something else. Without a record the index takes one itself
- * on first use; every consumer owns a private, freshly written emit directory,
- * so that listing stays valid, and every answer is memoized.
+ * owned and its reader can fail by name instead of routing the source to a lane
+ * that runs something else. Without a record the index takes one itself on
+ * first use; every consumer owns a private, freshly written emit directory, so
+ * that listing stays valid, and every answer is memoized.
  */
 export class EmitOwnershipIndex {
   /** Directory the build wrote its JavaScript into. */
@@ -192,10 +192,9 @@ export class EmitOwnershipIndex {
   /**
    * Whether `output` was compiled from the source whose identity is `key`.
    *
-   * The output's name admits a few sources: `a.js` comes from `a.ts` or
-   * `a.tsx` (or, under `allowJs`, `a.js` or `a.jsx`). The asked source must be
-   * one of those that exists. When it is the only TypeScript one, that settles
-   * it.
+   * The output's name admits a few sources: `a.js` comes from `a.ts` or `a.tsx`
+   * (or, under `allowJs`, `a.js` or `a.jsx`). The asked source must be one of
+   * those that exists. When it is the only TypeScript one, that settles it.
    *
    * When `a.ts` and `a.tsx` both exist, only one of them can be in the output.
    * The build's source map names it: its `sources` entry is the file the

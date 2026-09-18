@@ -14,11 +14,11 @@ import {
  * plugin makes the build run a separate TypeScript type-check pass.
  *
  * Pins samchon/ttsc#1404 for the lane its first fix missed. A check-stage
- * plugin that does not report TypeScript diagnostics itself makes the build
- * run `tsgo --noEmit` beside it, and the compiler writes an `incremental`
- * project's build information even with `--noEmit`. That pass received the
- * forwarded flags but not the output isolation the emitting pass had, so a run
- * wrote `build/app.tsbuildinfo` into the project. Both passes now isolate.
+ * plugin that does not report TypeScript diagnostics itself makes the build run
+ * `tsgo --noEmit` beside it, and the compiler writes an `incremental` project's
+ * build information even with `--noEmit`. That pass received the forwarded
+ * flags but not the output isolation the emitting pass had, so a run wrote
+ * `build/app.tsbuildinfo` into the project. Both passes now isolate.
  *
  * 1. Create an `incremental` project with `tsBuildInfoFile` whose plugin is a
  *    check-stage Go plugin that prints a warning, plus a script outside

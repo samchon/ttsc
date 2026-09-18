@@ -6,14 +6,14 @@ import assert from "node:assert/strict";
  * emitted for a source has disappeared.
  *
  * Once a build is proven to own a source, its output is the only JavaScript
- * that may run for it. Falling through to the next lane would run something
- * the checked build never produced — an isolated emit without the project's
+ * that may run for it. Falling through to the next lane would run something the
+ * checked build never produced — an isolated emit without the project's
  * transforms, or, before samchon/ttsc#1382, another file's output. An owned
  * output that cannot be read is therefore an error that names the source and
  * the missing file.
  *
- * 1. Create a project whose entry locates its own build's output for
- *    `src/lazy.ts` through the runtime manifest and deletes it.
+ * 1. Create a project whose entry locates its own build's output for `src/lazy.ts`
+ *    through the runtime manifest and deletes it.
  * 2. Require `./lazy` afterwards.
  * 3. Assert the run fails naming `lazy.ts` and the missing `lazy.js`, and that
  *    `lazy.ts` never ran.

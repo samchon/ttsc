@@ -14,12 +14,11 @@ import assert from "node:assert/strict";
  * package's options still applied: `experimentalDecorators` passes three
  * arguments to a method decorator, where standard decorators pass two.
  *
- * 1. Install a package whose tsconfig sets `experimentalDecorators` and
- *    `include: ["src"]`, while its `main` is `index.ts` outside `src`.
+ * 1. Install a package whose tsconfig sets `experimentalDecorators` and `include:
+ *    ["src"]`, while its `main` is `index.ts` outside `src`.
  * 2. Give `index.ts` a type error and a legacy method decorator.
  * 3. Run a consumer entry that requires the package.
- * 4. Assert the program runs and observes the legacy decorator's three
- *    arguments.
+ * 4. Assert the program runs and observes the legacy decorator's three arguments.
  */
 export const test_ttsx_emits_an_installed_package_root_its_own_build_omits_without_a_type_gate =
   () => {

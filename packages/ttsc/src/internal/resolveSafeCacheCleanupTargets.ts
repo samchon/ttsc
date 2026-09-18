@@ -1,10 +1,11 @@
 import fs from "node:fs";
 import path from "node:path";
+
+import type { SafeCacheCleanupTarget } from "./SafeCacheCleanupTarget";
 import { type FilesystemPathIdentityOperations } from "./pathIdentity/FilesystemPathIdentityOperations";
 import { createFilesystemPathIdentityContext } from "./pathIdentity/createFilesystemPathIdentityContext";
 import { isFilesystemPathIdentityWithin } from "./pathIdentity/isFilesystemPathIdentityWithin";
 import { resolveFilesystemPath } from "./pathIdentity/resolveFilesystemPath";
-import type { SafeCacheCleanupTarget } from "./SafeCacheCleanupTarget";
 
 /**
  * Resolve one cache-clean transaction to physical deletion targets.

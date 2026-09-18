@@ -1,5 +1,5 @@
-import { resolveSourceBuildCachePaths } from "./resolveSourceBuildCachePaths";
 import { SourceBuildCacheLayout } from "./SourceBuildCacheLayout";
+import { resolveSourceBuildCachePaths } from "./resolveSourceBuildCachePaths";
 
 /**
  * Resolve the directory where compiled plugin binaries are cached.

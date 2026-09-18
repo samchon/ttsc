@@ -8,10 +8,10 @@ import path from "node:path";
  * compiler at the same path is replaced.
  *
  * Pins samchon/ttsc#1405. Raw TypeScript no project owns is lowered once and
- * cached under `TTSC_CACHE_DIR`, across runs. The key named the compiler by
- * its path, so upgrading `typescript` in a flat `node_modules`, which replaces
- * the binary where it stands, kept serving the old compiler's output. The key
- * now carries the binary's identity. A marker planted in the cached text makes
+ * cached under `TTSC_CACHE_DIR`, across runs. The key named the compiler by its
+ * path, so upgrading `typescript` in a flat `node_modules`, which replaces the
+ * binary where it stands, kept serving the old compiler's output. The key now
+ * carries the binary's identity. A marker planted in the cached text makes
  * reuse observable without a second compiler: the cache is reused while the
  * binary is unchanged, and missed once the binary is rewritten in place.
  *

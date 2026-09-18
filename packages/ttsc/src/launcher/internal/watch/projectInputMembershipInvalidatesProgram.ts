@@ -1,6 +1,7 @@
 import path from "node:path";
-import { WatchPaths } from "./WatchPaths";
+
 import { ProjectInputWatchRules } from "./ProjectInputWatchRules";
+import { WatchPaths } from "./WatchPaths";
 
 /**
  * Return whether a project-input population transition can reshape a Program.

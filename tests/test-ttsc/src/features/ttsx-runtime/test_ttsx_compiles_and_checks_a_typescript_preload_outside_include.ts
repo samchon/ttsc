@@ -7,8 +7,8 @@ import assert from "node:assert/strict";
  *
  * `ttsx` passes `-r` modules to Node's `--require` loader after the runtime
  * hooks are installed, so a `.ts` preload reaches the same lanes as a file the
- * program requires. Outside `include` it is a root no build compiled, and it
- * is checked like one (samchon/ttsc#1382). The documentation used to say that
+ * program requires. Outside `include` it is a root no build compiled, and it is
+ * checked like one (samchon/ttsc#1382). The documentation used to say that
  * `ttsx` does not compile preload files at all.
  *
  * 1. Create a project with `include: ["src"]` and a `preload.ts` beside the

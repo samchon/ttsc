@@ -1,4 +1,5 @@
 import path from "node:path";
+
 import { type ProjectInputPathIdentity } from "../../../internal/pathIdentity/ProjectInputPathIdentity";
 import { createProjectInputPathIdentityContext } from "../../../internal/pathIdentity/createProjectInputPathIdentityContext";
 import { literalGlobRoot } from "./literalGlobRoot";

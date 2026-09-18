@@ -1,7 +1,8 @@
 import { type ChildProcess, spawn } from "node:child_process";
 import { type Interface, createInterface } from "node:readline";
-import type { ResidentTransformProcessOptions } from "./ResidentTransformProcessOptions";
+
 import type { ResidentReplyKind } from "./ResidentReplyKind";
+import type { ResidentTransformProcessOptions } from "./ResidentTransformProcessOptions";
 import type { ResidentTransformRequestOptions } from "./ResidentTransformRequestOptions";
 
 /**

@@ -7,8 +7,8 @@ export type WatchInputChange = {
   invalidate?: boolean;
 
   /**
-   * Which population the path belongs to. `config` and `plugin` changes force
-   * a full reload; `compiler` is a TypeScript input; `project` is a file a
+   * Which population the path belongs to. `config` and `plugin` changes force a
+   * full reload; `compiler` is a TypeScript input; `project` is a file a
    * project rule declared as its own input.
    */
   kind: "compiler" | "config" | "plugin" | "project";

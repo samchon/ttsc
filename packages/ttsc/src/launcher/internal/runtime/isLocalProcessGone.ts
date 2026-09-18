@@ -6,10 +6,10 @@ import os from "node:os";
  *
  * A record from another host proves nothing, because its pid names a process
  * this machine cannot see, so it is never reported gone. An `EPERM` from the
- * probe means a process with that pid exists and belongs to someone else, so
- * it counts as alive. What this cannot rule out is a recycled pid, which makes
- * the answer err toward "alive": a caller that reclaims on "gone" never takes
- * a live owner's state.
+ * probe means a process with that pid exists and belongs to someone else, so it
+ * counts as alive. What this cannot rule out is a recycled pid, which makes the
+ * answer err toward "alive": a caller that reclaims on "gone" never takes a
+ * live owner's state.
  */
 export function isLocalProcessGone(owner: {
   /** The process id the owner recorded. */

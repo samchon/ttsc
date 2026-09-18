@@ -1,8 +1,9 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import type { DependencyBuildLockLease } from "./DependencyBuildLockLease";
+
 import { DependencyBuildGeneration } from "./DependencyBuildGeneration";
+import type { DependencyBuildLockLease } from "./DependencyBuildLockLease";
 import { DependencyBuildLockProtocol } from "./DependencyBuildLockProtocol";
 import { RuntimeFilesystem } from "./RuntimeFilesystem";
 
@@ -20,12 +21,18 @@ export function acquireDependencyBuildLock(
   fs.mkdirSync(candidateDir);
   try {
     fs.writeFileSync(
-      path.join(candidateDir, DependencyBuildLockProtocol.DEP_BUILD_LOCK_GENERATION_FILE),
+      path.join(
+        candidateDir,
+        DependencyBuildLockProtocol.DEP_BUILD_LOCK_GENERATION_FILE,
+      ),
       `${generation}\n`,
       { encoding: "utf8", flag: "wx" },
     );
     writeDependencyLockOwner(candidateDir, generation);
-    const currentDir = path.join(lockDir, DependencyBuildLockProtocol.DEP_BUILD_LOCK_CURRENT_DIR);
+    const currentDir = path.join(
+      lockDir,
+      DependencyBuildLockProtocol.DEP_BUILD_LOCK_CURRENT_DIR,
+    );
     try {
       fs.renameSync(candidateDir, currentDir);
     } catch (error) {
@@ -46,9 +53,12 @@ export function acquireDependencyBuildLock(
 }
 
 function ensureDependencyLockRoot(lockDir: string): void {
-  fs.mkdirSync(path.join(lockDir, DependencyBuildLockProtocol.DEP_BUILD_LOCK_RETIRED_DIR), {
-    recursive: true,
-  });
+  fs.mkdirSync(
+    path.join(lockDir, DependencyBuildLockProtocol.DEP_BUILD_LOCK_RETIRED_DIR),
+    {
+      recursive: true,
+    },
+  );
 }
 
 function writeDependencyLockOwner(
@@ -56,7 +66,10 @@ function writeDependencyLockOwner(
   generation: string,
 ): void {
   fs.writeFileSync(
-    path.join(generationDir, DependencyBuildLockProtocol.DEP_BUILD_LOCK_OWNER_FILE),
+    path.join(
+      generationDir,
+      DependencyBuildLockProtocol.DEP_BUILD_LOCK_OWNER_FILE,
+    ),
     `${JSON.stringify({
       generation,
       hostname: os.hostname(),

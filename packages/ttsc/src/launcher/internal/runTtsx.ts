@@ -23,8 +23,8 @@ import { checkNodeRuntimeSupport } from "./runtime/checkNodeRuntimeSupport";
  * The launcher owns the process tree it starts, so it behaves toward it the way
  * a shell does (samchon/ttsc#1403). A termination signal that arrives while the
  * project is being prepared is held until preparation has cleaned up after
- * itself. While the program runs, `SIGTERM` and `SIGHUP`, which a supervisor
- * or container runtime sends to the launcher's pid alone, are forwarded to it;
+ * itself. While the program runs, `SIGTERM` and `SIGHUP`, which a supervisor or
+ * container runtime sends to the launcher's pid alone, are forwarded to it;
  * `SIGINT` from a terminal already reaches the whole process group, so it is
  * not delivered a second time. The runtime directory is removed on every exit
  * path, and a program that died of a signal makes ttsx die of the same one, so
@@ -160,9 +160,7 @@ function parseCLI(argv: readonly string[]) {
   } catch (error) {
     // Help still prints when the other options do not parse, as long as it was
     // asked for before anything that looks like the entry.
-    const terminal = terminalRequest(
-      argv.slice(0, firstEntryLikeIndex(argv)),
-    );
+    const terminal = terminalRequest(argv.slice(0, firstEntryLikeIndex(argv)));
     if (terminal !== null) return terminal;
     throw error;
   }
@@ -227,9 +225,7 @@ function parseCLI(argv: readonly string[]) {
  * dash-prefixed tokens can name a flag; a bare value such as the `all` of
  * `--target all` must not read as `--all`.
  */
-function terminalRequest(
-  tokens: readonly string[],
-): "help" | "version" | null {
+function terminalRequest(tokens: readonly string[]): "help" | "version" | null {
   for (const token of tokens) {
     if (!token.startsWith("-")) continue;
     const flag = resolveFlagSpec(token)?.name;
@@ -345,11 +341,11 @@ function isRelativeSpecifier(specifier: string): boolean {
  * dependencies on demand.
  *
  * The child is `node [-r preload...] <source-entry> <argv...>`, with the
- * runtime-hook preload on `NODE_OPTIONS` ahead of every user preload. The
- * entry is Node's own main module, exactly as under `node <entry>` or `node
- * -r ttsc/register <entry>`: `require.main === module` and `import.meta.main`
- * hold in it, `process.argv` is Node's own, and an error thrown while it
- * evaluates reaches `process.on("uncaughtException")` and Node's exit status
+ * runtime-hook preload on `NODE_OPTIONS` ahead of every user preload. The entry
+ * is Node's own main module, exactly as under `node <entry>` or `node -r
+ * ttsc/register <entry>`: `require.main === module` and `import.meta.main` hold
+ * in it, `process.argv` is Node's own, and an error thrown while it evaluates
+ * reaches `process.on("uncaughtException")` and Node's exit status
  * (samchon/ttsc#1402). A bootstrap used to load the entry instead, and the
  * program saw the bootstrap as its main module. A runtime manifest pins the
  * entry project's emit for the hooks; `TTSC_TSGO_BINARY` lets dependency builds
@@ -462,8 +458,8 @@ interface ForwardTarget {
  * The launcher's hold on the termination signals for the life of one run.
  *
  * Listening at all is what keeps an unhandled `SIGINT` or `SIGTERM` from
- * killing the launcher mid-way, before `finally` blocks remove what it wrote.
- * A signal is recorded, forwarded to the program when one is running and the
+ * killing the launcher mid-way, before `finally` blocks remove what it wrote. A
+ * signal is recorded, forwarded to the program when one is running and the
  * signal is one only the launcher received, and re-raised on the launcher once
  * everything is cleaned up, with the listeners removed so the default action
  * ends the process with that signal.
@@ -534,8 +530,8 @@ class LauncherSignals {
 
 /**
  * Signals that end a process by default and that ttsx holds for cleanup.
- * Windows has no `SIGHUP`, and Node emulates only `SIGINT` and `SIGBREAK`
- * there as signals a process can listen to.
+ * Windows has no `SIGHUP`, and Node emulates only `SIGINT` and `SIGBREAK` there
+ * as signals a process can listen to.
  */
 const TERMINATION_SIGNALS: readonly NodeJS.Signals[] =
   process.platform === "win32"

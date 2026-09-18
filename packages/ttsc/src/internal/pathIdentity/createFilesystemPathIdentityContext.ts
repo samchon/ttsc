@@ -1,12 +1,13 @@
 import childProcess from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
+
 import { parseWindowsDirectoryCaseSensitivity } from "../parseWindowsDirectoryCaseSensitivity";
-import type { FilesystemPathIdentityOperations } from "./FilesystemPathIdentityOperations";
-import type { FilesystemPathIdentityContext } from "./FilesystemPathIdentityContext";
 import type { FilesystemPathIdentity } from "./FilesystemPathIdentity";
-import { resolveFilesystemPath } from "./resolveFilesystemPath";
+import type { FilesystemPathIdentityContext } from "./FilesystemPathIdentityContext";
+import type { FilesystemPathIdentityOperations } from "./FilesystemPathIdentityOperations";
 import { isFilesystemPathIdentityWithin } from "./isFilesystemPathIdentityWithin";
+import { resolveFilesystemPath } from "./resolveFilesystemPath";
 
 /**
  * Create one filesystem-identity resolver for a filesystem transaction.

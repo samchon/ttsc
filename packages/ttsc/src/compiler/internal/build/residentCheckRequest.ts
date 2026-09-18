@@ -1,4 +1,5 @@
 import path from "node:path";
+
 import { type ResidentCheckRequest } from "../ResidentCheckRequest";
 import type { ResidentCheckWatchChange } from "./ResidentCheckWatchChange";
 

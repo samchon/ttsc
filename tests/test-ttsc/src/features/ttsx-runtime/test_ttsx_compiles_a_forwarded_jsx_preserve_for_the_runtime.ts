@@ -11,11 +11,11 @@ import {
  * Verifies a `--jsx preserve` forwarded before the entry is compiled for the
  * runtime, the way a forwarded `--target esnext` is lowered.
  *
- * Flags before the entry reach the type-check and win over the tsconfig, so
- * the runtime build has to read the effective `jsx`, not only the configured
- * one (samchon/ttsc#1408). Its negative twin is the project's own executable
- * mode, which must stay exactly as it was: the `react-jsx` run proves the
- * replacement is added only for a preserved mode.
+ * Flags before the entry reach the type-check and win over the tsconfig, so the
+ * runtime build has to read the effective `jsx`, not only the configured one
+ * (samchon/ttsc#1408). Its negative twin is the project's own executable mode,
+ * which must stay exactly as it was: the `react-jsx` run proves the replacement
+ * is added only for a preserved mode.
  *
  * 1. Create a `react-jsx` project whose `jsxImportSource` is a local runtime.
  * 2. Run the entry as configured, then with `--jsx preserve` before it.
@@ -38,11 +38,9 @@ export const test_ttsx_compiles_a_forwarded_jsx_preserve_for_the_runtime =
         },
         include: ["src"],
       }),
-      "src/main.tsx": [
-        JSX_COMPONENT_SOURCE,
-        `console.log(view);`,
-        ``,
-      ].join("\n"),
+      "src/main.tsx": [JSX_COMPONENT_SOURCE, `console.log(view);`, ``].join(
+        "\n",
+      ),
     });
 
     for (const flags of [[], ["--jsx", "preserve"]]) {

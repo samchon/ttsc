@@ -1,10 +1,11 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
+
+import { outputText } from "../../../compiler/internal/outputText";
 import { readJsoncFile } from "../../../compiler/internal/project/readJsoncFile";
 import { readProjectConfig } from "../../../compiler/internal/project/readProjectConfig";
 import { resolveTsgo } from "../../../compiler/internal/resolveTsgo";
-import { outputText } from "../../../compiler/internal/outputText";
 import { spawnNative } from "../../../compiler/internal/spawnNative";
 import { resolveFlagSpec } from "../../../flags/resolveFlagSpec";
 import { type ProjectInputPathIdentityContext } from "../../../internal/pathIdentity/ProjectInputPathIdentityContext";
@@ -15,20 +16,20 @@ import type { ITtscParsedProjectConfig } from "../../../structures/internal/ITts
 import type { ITtscProjectInputSnapshot } from "../../../structures/internal/ITtscProjectInputSnapshot";
 import type { TtscBuildOptions } from "../../../structures/internal/TtscBuildOptions";
 import { resolveSingleFileOutput } from "../resolveSingleFileOutput";
+import { ProjectInputWatchRules } from "./ProjectInputWatchRules";
+import type { WatchInputChange } from "./WatchInputChange";
 import { WatchPaths } from "./WatchPaths";
-import { projectInputReloadEventShouldNotify } from "./projectInputReloadEventShouldNotify";
-import { syncWatchers } from "./syncWatchers";
-import { planCompilerDirectoryWatchEvent } from "./planCompilerDirectoryWatchEvent";
-import { reloadInputsForFailedTopologyRefresh } from "./reloadInputsForFailedTopologyRefresh";
 import { literalGlobRoot } from "./literalGlobRoot";
+import { planCompilerDirectoryWatchEvent } from "./planCompilerDirectoryWatchEvent";
 import { projectInputActiveWatchDirectories } from "./projectInputActiveWatchDirectories";
 import { projectInputAvailableWatchDirectory } from "./projectInputAvailableWatchDirectory";
-import { ProjectInputWatchRules } from "./ProjectInputWatchRules";
-import { projectInputTopologyMayAffect } from "./projectInputTopologyMayAffect";
-import { projectInputReplacementStrandsWatchers } from "./projectInputReplacementStrandsWatchers";
-import { projectInputMembershipInvalidatesProgram } from "./projectInputMembershipInvalidatesProgram";
 import { projectInputEventShouldNotify } from "./projectInputEventShouldNotify";
-import type { WatchInputChange } from "./WatchInputChange";
+import { projectInputMembershipInvalidatesProgram } from "./projectInputMembershipInvalidatesProgram";
+import { projectInputReloadEventShouldNotify } from "./projectInputReloadEventShouldNotify";
+import { projectInputReplacementStrandsWatchers } from "./projectInputReplacementStrandsWatchers";
+import { projectInputTopologyMayAffect } from "./projectInputTopologyMayAffect";
+import { reloadInputsForFailedTopologyRefresh } from "./reloadInputsForFailedTopologyRefresh";
+import { syncWatchers } from "./syncWatchers";
 
 /**
  * Keeps the launcher watch set aligned with the compiler's current program.
@@ -361,7 +362,8 @@ export class WatchTopology {
         if (
           [...desired].some(
             ([candidateKey, candidate]) =>
-              candidateKey !== key && WatchPaths.isPathWithin(candidate, location),
+              candidateKey !== key &&
+              WatchPaths.isPathWithin(candidate, location),
           )
         ) {
           desired.delete(key);
@@ -538,7 +540,10 @@ export class WatchTopology {
   }
 
   private recordCompilerFileSnapshot(file: string): void {
-    this.compilerFileSnapshots.set(WatchPaths.pathKey(file), compilerFileSnapshot(file));
+    this.compilerFileSnapshots.set(
+      WatchPaths.pathKey(file),
+      compilerFileSnapshot(file),
+    );
   }
 
   private rearmFileWatchers(
@@ -742,7 +747,9 @@ export class WatchTopology {
         // still miss the retarget, because the watcher goes below the link.
         if (!isSymbolicLink(declared)) continue;
         if (this.isProjectInputCompilerOutput(declared, identities)) continue;
-        const parent = WatchPaths.nearestExistingDirectory(path.dirname(declared));
+        const parent = WatchPaths.nearestExistingDirectory(
+          path.dirname(declared),
+        );
         if (parent === undefined) continue;
         desired.set(identities.resolve(parent).key, parent);
       }
@@ -1012,7 +1019,8 @@ export class WatchTopology {
   ): string | undefined {
     const key = projectInputDeclarationKey(kind, declaration);
     const retained = this.projectInputWatchRoots.get(key);
-    if (retained !== undefined && WatchPaths.isDirectory(retained)) return retained;
+    if (retained !== undefined && WatchPaths.isDirectory(retained))
+      return retained;
     const resolved = ProjectInputWatchRules.projectInputRecursiveWatchRoot(
       target,
       this.projectInputs.root,
@@ -1074,7 +1082,10 @@ export class WatchTopology {
           ? fingerprintProjectInputMatches(next)
           : this.projectInputFingerprints;
       const contentChanged =
-        WatchPaths.mapsEqual(this.projectInputFingerprints, nextFingerprints) === false;
+        WatchPaths.mapsEqual(
+          this.projectInputFingerprints,
+          nextFingerprints,
+        ) === false;
       const changedInputs = projectInputChangedPaths({
         next,
         nextFingerprints,
@@ -1327,14 +1338,17 @@ export class WatchTopology {
     location: string,
   ): "compiler" | "config" | "plugin" {
     if (this.isPluginInput(location)) return "plugin";
-    return this.reloadFiles.has(WatchPaths.pathKey(location)) ? "config" : "compiler";
+    return this.reloadFiles.has(WatchPaths.pathKey(location))
+      ? "config"
+      : "compiler";
   }
 
   private isPluginInput(location: string): boolean {
     const resolved = path.resolve(location);
     return this.extraInputs.some(
       (input) =>
-        WatchPaths.pathKey(input) === WatchPaths.pathKey(resolved) || WatchPaths.isPathWithin(input, resolved),
+        WatchPaths.pathKey(input) === WatchPaths.pathKey(resolved) ||
+        WatchPaths.isPathWithin(input, resolved),
     );
   }
 }
@@ -1621,7 +1635,8 @@ function inferPerSourceCompilerOutputs(
       }
       continue;
     }
-    if (!ProjectInputWatchRules.isCompilerEmittableSourceExtension(extension)) continue;
+    if (!ProjectInputWatchRules.isCompilerEmittableSourceExtension(extension))
+      continue;
     if (
       emit.javascript &&
       (emit.outDir !== undefined ||
@@ -1867,7 +1882,9 @@ function collectTopologyDirectories(
   }
   for (const file of files) {
     const directory = path.dirname(file);
-    const root = roots.find((candidate) => WatchPaths.isPathWithin(candidate, directory));
+    const root = roots.find((candidate) =>
+      WatchPaths.isPathWithin(candidate, directory),
+    );
     if (root === undefined) {
       directories.set(WatchPaths.pathKey(directory), directory);
       continue;

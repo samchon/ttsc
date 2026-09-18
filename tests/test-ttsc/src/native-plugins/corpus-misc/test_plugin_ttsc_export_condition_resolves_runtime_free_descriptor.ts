@@ -16,13 +16,13 @@ import {
  * descriptor over the package's default barrel entry.
  *
  * Locks the `ttsc`-condition branch added to
- * `PluginPackageResolution.ts::resolvePluginRequest`. A package whose `.` entry is a
- * runtime barrel (the real case is `typia`, whose index re-exports the whole
- * validator runtime) cannot serve as the plugin descriptor entry — loading it
- * during plugin bootstrap pulls the runtime in and, for a self-hosting
- * transform, deadlocks. The package opts in with a `ttsc` export condition that
- * points at a runtime-free descriptor; ttsc must resolve the descriptor and
- * never touch the barrel.
+ * `PluginPackageResolution.ts::resolvePluginRequest`. A package whose `.` entry
+ * is a runtime barrel (the real case is `typia`, whose index re-exports the
+ * whole validator runtime) cannot serve as the plugin descriptor entry —
+ * loading it during plugin bootstrap pulls the runtime in and, for a
+ * self-hosting transform, deadlocks. The package opts in with a `ttsc` export
+ * condition that points at a runtime-free descriptor; ttsc must resolve the
+ * descriptor and never touch the barrel.
  *
  * 1. A `node_modules/barrel-plugin` package exposes `exports["."] = { ttsc:
  *    "./descriptor.cjs", default: "./barrel.cjs" }`, where `barrel.cjs` throws

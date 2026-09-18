@@ -1,5 +1,6 @@
 import os from "node:os";
 import path from "node:path";
+
 import { SourceBuildCacheLayout } from "./SourceBuildCacheLayout";
 
 /**
@@ -23,13 +24,29 @@ export function legacyGlobalCacheTargets(): string[] {
       roots.add(path.join(local, SourceBuildCacheLayout.TTSC_CACHE_DIRNAME));
     }
     if (home) {
-      roots.add(path.join(home, "AppData", "Local", SourceBuildCacheLayout.TTSC_CACHE_DIRNAME));
+      roots.add(
+        path.join(
+          home,
+          "AppData",
+          "Local",
+          SourceBuildCacheLayout.TTSC_CACHE_DIRNAME,
+        ),
+      );
     }
   } else if (process.platform === "darwin" && home) {
-    roots.add(path.join(home, "Library", "Caches", SourceBuildCacheLayout.TTSC_CACHE_DIRNAME));
+    roots.add(
+      path.join(
+        home,
+        "Library",
+        "Caches",
+        SourceBuildCacheLayout.TTSC_CACHE_DIRNAME,
+      ),
+    );
   }
   if (home) {
-    roots.add(path.join(home, ".cache", SourceBuildCacheLayout.TTSC_CACHE_DIRNAME));
+    roots.add(
+      path.join(home, ".cache", SourceBuildCacheLayout.TTSC_CACHE_DIRNAME),
+    );
   }
   return [...roots];
 }

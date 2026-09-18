@@ -5,11 +5,11 @@ import { isAbsoluteLocalProjectInputPath } from "./isAbsoluteLocalProjectInputPa
 /**
  * Parse and validate the JSON a native host printed for `project-inputs`.
  *
- * Every path in the snapshot (root, files, globs, reload files and
- * directories) must be an absolute local path; a relative, empty, or device
- * path is rejected with the plugin's name, because a watcher cannot observe it
- * and silently dropping it would leave a declared input unwatched. Optional
- * reload lists default to empty.
+ * Every path in the snapshot (root, files, globs, reload files and directories)
+ * must be an absolute local path; a relative, empty, or device path is rejected
+ * with the plugin's name, because a watcher cannot observe it and silently
+ * dropping it would leave a declared input unwatched. Optional reload lists
+ * default to empty.
  */
 export function parseProjectInputSnapshot(
   text: string,

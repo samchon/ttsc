@@ -11,8 +11,8 @@ import fs from "node:fs";
 export type FilesystemPathIdentityOperations = {
   /**
    * Whether names inside `directory` are compared case-sensitively. Asked only
-   * about an existing directory, and only when a missing suffix below it has
-   * to be either folded or kept.
+   * about an existing directory, and only when a missing suffix below it has to
+   * be either folded or kept.
    */
   caseSensitive(directory: string): boolean;
 
@@ -36,8 +36,8 @@ export type FilesystemPathIdentityOperations = {
 
   /**
    * Physical path of an existing entry. Defaults to `fs.realpathSync.native`,
-   * which, unlike the JavaScript implementation, also expands Windows 8.3
-   * short names.
+   * which, unlike the JavaScript implementation, also expands Windows 8.3 short
+   * names.
    */
   realpath(location: string): string;
 

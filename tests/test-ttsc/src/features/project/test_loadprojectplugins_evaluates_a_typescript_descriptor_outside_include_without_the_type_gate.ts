@@ -8,18 +8,18 @@ import { assert, fs, loadProjectPlugins, path } from "../../internal/project";
  *
  * A descriptor is evaluated through ttsx's runtime hooks, and one the project
  * does not include is a root no build covered. Such a root is type-checked when
- * it is the user's program (samchon/ttsc#1382), but a descriptor is tooling
- * the compiler runs, and the consumer's `types`, `lib`, and strictness were
- * never chosen for it: a descriptor reading `process.env` under `types: []`
- * would stop every build with TS2591. It was never type-gated before, and it is
- * still compiled through the project's options, only without the gate.
+ * it is the user's program (samchon/ttsc#1382), but a descriptor is tooling the
+ * compiler runs, and the consumer's `types`, `lib`, and strictness were never
+ * chosen for it: a descriptor reading `process.env` under `types: []` would
+ * stop every build with TS2591. It was never type-gated before, and it is still
+ * compiled through the project's options, only without the gate.
  *
  * 1. Create a project with `include: ["src"]` and `types: []` whose plugin is a
  *    `.ts` descriptor outside `src` that reads `process.env` and returns a
  *    descriptor with an empty `source`.
  * 2. Invoke `loadProjectPlugins`.
- * 3. Assert loading reaches descriptor validation (`must declare source`)
- *    instead of failing the descriptor's type check.
+ * 3. Assert loading reaches descriptor validation (`must declare source`) instead
+ *    of failing the descriptor's type check.
  */
 export const test_loadprojectplugins_evaluates_a_typescript_descriptor_outside_include_without_the_type_gate =
   () => {

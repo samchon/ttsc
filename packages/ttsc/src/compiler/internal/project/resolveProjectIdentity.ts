@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+
 import type { ITtscProjectIdentity } from "../../../structures/internal/ITtscProjectIdentity";
 import type { ITtscProjectLocatorOptions } from "../../../structures/internal/ITtscProjectLocatorOptions";
 

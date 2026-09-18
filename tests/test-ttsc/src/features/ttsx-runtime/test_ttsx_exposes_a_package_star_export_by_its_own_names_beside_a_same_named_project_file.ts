@@ -15,9 +15,9 @@ import assert from "node:assert/strict";
  * reads only output proven to come from the target, and falls back to an
  * isolated emit of the target itself.
  *
- * 1. Create an ES module project that emits `src/inner.ts`, and install a
- *    CommonJS source package whose entry does `export * from "./inner"` over a
- *    different `src/inner.ts`.
+ * 1. Create an ES module project that emits `src/inner.ts`, and install a CommonJS
+ *    source package whose entry does `export * from "./inner"` over a different
+ *    `src/inner.ts`.
  * 2. Run an entry that imports the package's name through a named import.
  * 3. Assert the package's own value arrives.
  */

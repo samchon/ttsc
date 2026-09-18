@@ -2,9 +2,10 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+
+import type { PluginBuildLockFence } from "./PluginBuildLockFence";
 import type { PluginBuildLockObservation } from "./PluginBuildLockObservation";
 import { PluginBuildLockProtocol } from "./PluginBuildLockProtocol";
-import type { PluginBuildLockFence } from "./PluginBuildLockFence";
 import { formatDuration } from "./formatDuration";
 
 /**
@@ -16,7 +17,8 @@ export function inspectPluginBuildLock(
   lockDir: string,
   now: number,
 ): PluginBuildLockObservation {
-  const protocolDir = PluginBuildLockProtocol.pluginBuildLockProtocolDir(lockDir);
+  const protocolDir =
+    PluginBuildLockProtocol.pluginBuildLockProtocolDir(lockDir);
   for (;;) {
     if (PluginBuildLockProtocol.isPluginBuildLockProtocolV2(protocolDir)) {
       const v2 = inspectV2PluginBuildLock(protocolDir, now);
@@ -42,7 +44,10 @@ function inspectV2PluginBuildLock(
   lockDir: string,
   now: number,
 ): PluginBuildLockObservation {
-  const generationDir = path.join(lockDir, PluginBuildLockProtocol.PLUGIN_BUILD_LOCK_CURRENT_DIR);
+  const generationDir = path.join(
+    lockDir,
+    PluginBuildLockProtocol.PLUGIN_BUILD_LOCK_CURRENT_DIR,
+  );
   const generation = readPluginBuildLockGeneration(generationDir);
   if (generation === null) {
     if (pluginBuildLockAgeMs(generationDir, now) === null) {
@@ -144,8 +149,12 @@ function captureLegacyPluginBuildLockFence(
     throw error;
   }
 
-  const fenceDir = path.join(lockDir, PluginBuildLockProtocol.PLUGIN_BUILD_LOCK_LEGACY_FENCE_DIR);
-  let captured = PluginBuildLockProtocol.readLegacyPluginBuildLockFence(fenceDir);
+  const fenceDir = path.join(
+    lockDir,
+    PluginBuildLockProtocol.PLUGIN_BUILD_LOCK_LEGACY_FENCE_DIR,
+  );
+  let captured =
+    PluginBuildLockProtocol.readLegacyPluginBuildLockFence(fenceDir);
   if (captured === null) {
     const generation = crypto.randomBytes(16).toString("hex");
     // Keep candidates beside the legacy lock. Creating one inside `lockDir`
@@ -155,7 +164,10 @@ function captureLegacyPluginBuildLockFence(
     try {
       fs.mkdirSync(candidateDir);
       fs.writeFileSync(
-        path.join(candidateDir, PluginBuildLockProtocol.PLUGIN_BUILD_LOCK_LEGACY_FENCE_RECORD),
+        path.join(
+          candidateDir,
+          PluginBuildLockProtocol.PLUGIN_BUILD_LOCK_LEGACY_FENCE_RECORD,
+        ),
         `${JSON.stringify({ generation, legacyMtimeMs })}\n`,
         "utf8",
       );
@@ -166,8 +178,11 @@ function captureLegacyPluginBuildLockFence(
           legacyMtimeMs,
         };
       } catch (error) {
-        if (PluginBuildLockProtocol.isRenameDestinationOccupied(error, fenceDir)) {
-          captured = PluginBuildLockProtocol.readLegacyPluginBuildLockFence(fenceDir);
+        if (
+          PluginBuildLockProtocol.isRenameDestinationOccupied(error, fenceDir)
+        ) {
+          captured =
+            PluginBuildLockProtocol.readLegacyPluginBuildLockFence(fenceDir);
         } else if (PluginBuildLockProtocol.isMissingPathError(error)) {
           return null;
         } else {
@@ -190,7 +205,8 @@ function captureLegacyPluginBuildLockFence(
   // A stale observer can resume after the legacy holder released or another
   // process retired the path. Confirm both the legacy layout and token after
   // publication; v2 ownership is kept in the orthogonal sibling directory.
-  const confirmed = PluginBuildLockProtocol.readLegacyPluginBuildLockFence(fenceDir);
+  const confirmed =
+    PluginBuildLockProtocol.readLegacyPluginBuildLockFence(fenceDir);
   if (
     PluginBuildLockProtocol.isPluginBuildLockProtocolV2(lockDir) ||
     confirmed === null ||
@@ -205,11 +221,16 @@ function readPluginBuildLockGeneration(generationDir: string): string | null {
   try {
     const generation = fs
       .readFileSync(
-        path.join(generationDir, PluginBuildLockProtocol.PLUGIN_BUILD_LOCK_GENERATION_FILE),
+        path.join(
+          generationDir,
+          PluginBuildLockProtocol.PLUGIN_BUILD_LOCK_GENERATION_FILE,
+        ),
         "utf8",
       )
       .trim();
-    return PluginBuildLockProtocol.isPluginBuildLockGeneration(generation) ? generation : null;
+    return PluginBuildLockProtocol.isPluginBuildLockGeneration(generation)
+      ? generation
+      : null;
   } catch {
     return null;
   }
@@ -220,7 +241,13 @@ function readPluginBuildLockOwner(
 ): { hostname: string; pid: number; startedAt?: string } | null {
   try {
     const parsed = JSON.parse(
-      fs.readFileSync(path.join(lockDir, PluginBuildLockProtocol.PLUGIN_BUILD_LOCK_OWNER_FILE), "utf8"),
+      fs.readFileSync(
+        path.join(
+          lockDir,
+          PluginBuildLockProtocol.PLUGIN_BUILD_LOCK_OWNER_FILE,
+        ),
+        "utf8",
+      ),
     ) as Record<string, unknown>;
     if (
       typeof parsed.hostname !== "string" ||

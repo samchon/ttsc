@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+
 import type { IPluginCachePruneOptions } from "./IPluginCachePruneOptions";
 import { SourceBuildCacheLayout } from "./SourceBuildCacheLayout";
 import { inspectPluginBuildLock } from "./inspectPluginBuildLock";
@@ -8,12 +9,12 @@ import { inspectPluginBuildLock } from "./inspectPluginBuildLock";
  * Opportunistically bound the plugin binary cache.
  *
  * At most once a day (unless `force`), entries unused for 30 days are evicted
- * and, past a 2 GiB ceiling, the least-recently used down to 80% of it.
- * Entries used within the protection window and entries named in
- * `protectedEntries` (the binary a cold build just returned) survive. When the
- * protected set alone keeps the root over the ceiling, the daily marker is
- * backdated so another pass runs soon instead of a day later. Failures are
- * swallowed: pruning must never fail a build.
+ * and, past a 2 GiB ceiling, the least-recently used down to 80% of it. Entries
+ * used within the protection window and entries named in `protectedEntries`
+ * (the binary a cold build just returned) survive. When the protected set alone
+ * keeps the root over the ceiling, the daily marker is backdated so another
+ * pass runs soon instead of a day later. Failures are swallowed: pruning must
+ * never fail a build.
  */
 export function prunePluginCacheRoot(
   root: string,
@@ -49,7 +50,10 @@ export function prunePluginCacheRoot(
       remainingBytes > maxBytes
         ? now - PLUGIN_CACHE_GC_INTERVAL_MS + protectedAgeMs
         : now;
-    SourceBuildCacheLayout.replaceCacheMetadataFile(marker, `${markerTimestamp}\n`);
+    SourceBuildCacheLayout.replaceCacheMetadataFile(
+      marker,
+      `${markerTimestamp}\n`,
+    );
   } catch {
     // Plugin-cache GC is opportunistic; builds still proceed when it fails.
   }
@@ -198,7 +202,9 @@ function collectPluginCacheEntries(
 }
 
 function readCacheEntryLastUsedAt(dir: string, now: number): number {
-  const touched = SourceBuildCacheLayout.readTimestamp(path.join(dir, SourceBuildCacheLayout.CACHE_LAST_USED_FILE));
+  const touched = SourceBuildCacheLayout.readTimestamp(
+    path.join(dir, SourceBuildCacheLayout.CACHE_LAST_USED_FILE),
+  );
   if (touched !== null) {
     return touched;
   }

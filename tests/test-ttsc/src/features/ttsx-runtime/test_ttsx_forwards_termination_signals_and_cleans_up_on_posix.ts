@@ -19,8 +19,8 @@ import path from "node:path";
  *    `SIGTERM`/`SIGINT` handler that exits 3.
  * 2. Send `SIGTERM` to the launcher's pid alone, and `SIGINT` to its process
  *    group, once the program is ready.
- * 3. Assert the handler ran and its code came back, an unhandled `SIGTERM`
- *    ended ttsx by `SIGTERM`, and no runtime directory remains.
+ * 3. Assert the handler ran and its code came back, an unhandled `SIGTERM` ended
+ *    ttsx by `SIGTERM`, and no runtime directory remains.
  */
 export const test_ttsx_forwards_termination_signals_and_cleans_up_on_posix =
   async () => {

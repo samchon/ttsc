@@ -7,11 +7,11 @@ import { isLinkedTransform } from "./isLinkedTransform";
  * compiler-owner set.
  *
  * Two callers exist with subtly different error wording: the build path
- * (`runBuild`) reports "multiple compiler native backends cannot share one
- * emit pass" while the source-to-source path (`transformProjectInMemory.ts`)
- * reports "cannot share one source-to-source pass". The `pass` argument selects
- * the appropriate phrase so the error message remains diagnostic-grade instead
- * of generic.
+ * (`runBuild`) reports "multiple compiler native backends cannot share one emit
+ * pass" while the source-to-source path (`transformProjectInMemory.ts`) reports
+ * "cannot share one source-to-source pass". The `pass` argument selects the
+ * appropriate phrase so the error message remains diagnostic-grade instead of
+ * generic.
  */
 export function assertSharedHostCompatibility(
   plugins: readonly ITtscLoadedNativePlugin[],

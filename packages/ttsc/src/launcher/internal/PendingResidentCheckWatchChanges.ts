@@ -17,10 +17,10 @@ export class PendingResidentCheckWatchChanges {
   /**
    * Fold one filesystem event into the pending cycle.
    *
-   * A config or plugin change, a compiler-topology change without a path, or
-   * an explicit `reload` escalates to a full reload and discards narrower
-   * signals. Otherwise the path is recorded as changed, and additionally as
-   * external when it is a declared project-rule input.
+   * A config or plugin change, a compiler-topology change without a path, or an
+   * explicit `reload` escalates to a full reload and discards narrower signals.
+   * Otherwise the path is recorded as changed, and additionally as external
+   * when it is a declared project-rule input.
    */
   public push(change?: WatchInputChange, reload = false): void {
     if (reload || change?.kind === "config" || change?.kind === "plugin") {

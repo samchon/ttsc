@@ -21,8 +21,8 @@ import {
  * 1. Seed a complete generation whose marker has no `outputs`, then one whose
  *    `outputs` is not a list of strings.
  * 2. Read the cache after each.
- * 3. Assert both reads miss, then assert the same generation hits with its
- *    record, which the read hands back unchanged.
+ * 3. Assert both reads miss, then assert the same generation hits with its record,
+ *    which the read hands back unchanged.
  */
 export const test_ttsx_dependency_cache_rejects_a_marker_without_an_output_record =
   () => {

@@ -13,15 +13,15 @@ import { TTSX_REGISTER, linkTtscPackage } from "../../internal/ttsx-register";
  * Pins samchon/ttsc#1404. ttsx compiles into a private per-run directory, but
  * only `outDir` was redirected there. `declarationDir` and `tsBuildInfoFile`
  * name their own locations, so a run wrote `.d.ts` files into the published
- * types directory, including one for a script the project keeps out of its
- * file set, and replaced the incremental build information with its private
- * build's state. Every build ttsx starts now isolates all of its outputs.
+ * types directory, including one for a script the project keeps out of its file
+ * set, and replaced the incremental build information with its private build's
+ * state. Every build ttsx starts now isolates all of its outputs.
  *
  * 1. Create a project with `declaration`, `declarationDir`, `incremental`, and
  *    `tsBuildInfoFile`, plus `scripts/tool.ts` outside `include`, and build it
  *    with ttsc.
- * 2. Run the in-include entry and the out-of-include script through ttsx, and
- *    the entry through the `ttsc/register` preload.
+ * 2. Run the in-include entry and the out-of-include script through ttsx, and the
+ *    entry through the `ttsc/register` preload.
  * 3. Assert each run succeeds and the project tree outside `node_modules` is
  *    byte-identical to the state after the ttsc build.
  */

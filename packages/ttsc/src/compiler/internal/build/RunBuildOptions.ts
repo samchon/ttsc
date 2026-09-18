@@ -1,6 +1,7 @@
 import type { ITtscParsedProjectConfig } from "../../../structures/internal/ITtscParsedProjectConfig";
 import type { ITtscProjectInputSnapshot } from "../../../structures/internal/ITtscProjectInputSnapshot";
 import type { TtscBuildOptions } from "../../../structures/internal/TtscBuildOptions";
+
 /**
  * Options of one {@link runBuild} call: the public build options plus the knobs
  * only ttsc's own lanes set (ttsx's private runtime builds, single-file emit,
@@ -16,9 +17,9 @@ export type RunBuildOptions = TtscBuildOptions & {
    */
   skipDiagnosticsCheck?: boolean;
   /**
-   * Pass `--listEmittedFiles` so the result carries the emitted paths even
-   * when the user did not ask for them. Callers that must locate one emitted
-   * file (ttsx, single-file emit) set it.
+   * Pass `--listEmittedFiles` so the result carries the emitted paths even when
+   * the user did not ask for them. Callers that must locate one emitted file
+   * (ttsx, single-file emit) set it.
    */
   forceListEmittedFiles?: boolean;
   /** Keep every compiler-owned side product inside this private directory. */

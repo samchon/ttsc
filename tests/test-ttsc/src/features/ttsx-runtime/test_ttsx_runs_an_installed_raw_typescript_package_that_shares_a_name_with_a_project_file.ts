@@ -7,17 +7,17 @@ import assert from "node:assert/strict";
  *
  * Pins samchon/ttsc#1382 row 5, the most common shape of the defect: any
  * project with `src/index.ts` that installs a package shipping `index.ts`
- * source. With no `rootDir`, the project's source root contains
- * `node_modules`, so the entry build claimed the package file and served the
- * `src/index.js` whose name matched: the project's entry ran a second time as
- * the package, and the package's exports read as `undefined`. The package has
- * no tsconfig of its own, so the file belongs to the isolated orphan lane.
+ * source. With no `rootDir`, the project's source root contains `node_modules`,
+ * so the entry build claimed the package file and served the `src/index.js`
+ * whose name matched: the project's entry ran a second time as the package, and
+ * the package's exports read as `undefined`. The package has no tsconfig of its
+ * own, so the file belongs to the isolated orphan lane.
  *
  * 1. Create a project with `src/index.ts` and `src/main.ts`, and an installed
  *    `rawpkg` whose `main` is its own `index.ts`.
  * 2. Run `src/main.ts`, which requires `rawpkg`.
- * 3. Assert the package's own value arrives and the project's `src/index.ts`
- *    never runs.
+ * 3. Assert the package's own value arrives and the project's `src/index.ts` never
+ *    runs.
  */
 export const test_ttsx_runs_an_installed_raw_typescript_package_that_shares_a_name_with_a_project_file =
   () => {

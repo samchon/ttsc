@@ -18,8 +18,8 @@ import { TTSX_REGISTER, linkTtscPackage } from "../../internal/ttsx-register";
  *
  * 1. Create a project with `include: ["src"]`, no `rootDir`, and both
  *    `src/index.ts` and `scripts/index.ts`.
- * 2. Run `scripts/index.ts` through ttsx and through the `ttsc/register`
- *    preload, then run `src/index.ts` through ttsx.
+ * 2. Run `scripts/index.ts` through ttsx and through the `ttsc/register` preload,
+ *    then run `src/index.ts` through ttsx.
  * 3. Assert each run prints its own file's marker.
  */
 export const test_ttsx_runs_an_out_of_include_entry_that_shares_a_name_with_an_emitted_file =

@@ -1,6 +1,4 @@
-
-
- // native lint subcommand (`packages/lint/linthost/*.go`)
+// native lint subcommand (`packages/lint/linthost/*.go`)
 
 /**
  * Argument shape of a flag.

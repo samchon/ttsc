@@ -50,9 +50,18 @@ export const test_ttsx_hands_every_token_after_the_entry_to_the_program =
       [["-h"], ["-h"]],
       [["--version"], ["--version"]],
       [["-v"], ["-v"]],
-      [["a", "--", "b"], ["a", "--", "b"]],
-      [["--", "--port", "3000"], ["--port", "3000"]],
-      [["--", "--", "x"], ["--", "x"]],
+      [
+        ["a", "--", "b"],
+        ["a", "--", "b"],
+      ],
+      [
+        ["--", "--port", "3000"],
+        ["--port", "3000"],
+      ],
+      [
+        ["--", "--", "x"],
+        ["--", "x"],
+      ],
     ] as const) {
       const result = run(["src/args.ts", ...tail]);
       assert.equal(result.status, 0, `${tail.join(" ")}: ${result.stderr}`);

@@ -1,6 +1,7 @@
 import path from "node:path";
-import { resolveSourceBuildCachePaths } from "./resolveSourceBuildCachePaths";
+
 import { SourceBuildCacheLayout } from "./SourceBuildCacheLayout";
+import { resolveSourceBuildCachePaths } from "./resolveSourceBuildCachePaths";
 
 /**
  * Return every directory `ttsc clean` should remove for `projectRoot`.
@@ -28,14 +29,22 @@ export function resolveCleanTargets(
     (!cacheDir && !env.TTSC_CACHE_DIR) ||
     path.basename(paths.root) === SourceBuildCacheLayout.TTSC_CACHE_DIRNAME;
   if (isTtscOwnedRoot) {
-    targets.push(path.join(paths.root, SourceBuildCacheLayout.GO_BUILD_CACHE_DIRNAME));
+    targets.push(
+      path.join(paths.root, SourceBuildCacheLayout.GO_BUILD_CACHE_DIRNAME),
+    );
   }
   // An explicit TTSC_GO_CACHE_DIR is a ttsc-dedicated external cache; a
   // user-provided GOCACHE (source "GOCACHE") is never removed.
   if (paths.goBuildRootSource === "TTSC_GO_CACHE_DIR") {
     targets.push(paths.goBuildRoot);
   }
-  targets.push(path.join(projectRoot, SourceBuildCacheLayout.NODE_MODULES_DIRNAME, ".ttsc"));
+  targets.push(
+    path.join(
+      projectRoot,
+      SourceBuildCacheLayout.NODE_MODULES_DIRNAME,
+      ".ttsc",
+    ),
+  );
   targets.push(path.join(projectRoot, ".ttsc"));
   return targets;
 }

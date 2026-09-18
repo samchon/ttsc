@@ -2,11 +2,11 @@ import type { ITtscProjectInputSnapshot } from "../../../structures/internal/ITt
 import { LSPProjectInputDigest } from "./LSPProjectInputDigest";
 
 /**
- * Take the fingerprints of every reload directory and reload file of a
- * snapshot at the moment the language server's plugin selection is made.
+ * Take the fingerprints of every reload directory and reload file of a snapshot
+ * at the moment the language server's plugin selection is made.
  *
- * Exported for the Windows parity test, which runs this module from Go to
- * prove both sides compute the same digest.
+ * Exported for the Windows parity test, which runs this module from Go to prove
+ * both sides compute the same digest.
  */
 export function fingerprintInitialLSPProjectInputSnapshot(
   snapshot: ITtscProjectInputSnapshot,

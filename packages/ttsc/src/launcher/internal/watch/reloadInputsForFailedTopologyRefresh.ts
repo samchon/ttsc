@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+
 import { WatchPaths } from "./WatchPaths";
 
 /**
@@ -11,7 +12,8 @@ export function reloadInputsForFailedTopologyRefresh(
   reloadFiles: Iterable<string>,
   changed?: string,
 ): string[] {
-  const changedKey = changed === undefined ? undefined : WatchPaths.pathKey(changed);
+  const changedKey =
+    changed === undefined ? undefined : WatchPaths.pathKey(changed);
   const reloads = new Map<string, string>();
   for (const location of reloadFiles) {
     const resolved = path.resolve(location);

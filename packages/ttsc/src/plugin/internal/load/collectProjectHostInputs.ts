@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
+
 import type { ITtscParsedProjectConfig } from "../../../structures/internal/ITtscParsedProjectConfig";
 import { PluginPackageResolution } from "./PluginPackageResolution";
 
@@ -13,18 +14,25 @@ export function collectProjectHostInputs(
     project.configPaths.map((file) => path.resolve(file)),
   );
   if (!includePluginDiscovery) return [...inputs].sort();
-  const manifestCandidates = PluginPackageResolution.collectNearestPackageJsonCandidates(project.root);
+  const manifestCandidates =
+    PluginPackageResolution.collectNearestPackageJsonCandidates(project.root);
   for (const candidate of manifestCandidates) inputs.add(candidate);
-  const manifest = manifestCandidates.find(PluginPackageResolution.existingFile);
+  const manifest = manifestCandidates.find(
+    PluginPackageResolution.existingFile,
+  );
   if (manifest !== undefined) {
-    const projectManifest = PluginPackageResolution.readPackageManifest(manifest);
+    const projectManifest =
+      PluginPackageResolution.readPackageManifest(manifest);
     if (projectManifest !== undefined) {
       const projectRoot = path.dirname(manifest);
-      for (const dependency of PluginPackageResolution.directDependencyNames(projectManifest)) {
-        const dependencyManifest = PluginPackageResolution.resolveDependencyPackageJson(
-          dependency,
-          projectRoot,
-        );
+      for (const dependency of PluginPackageResolution.directDependencyNames(
+        projectManifest,
+      )) {
+        const dependencyManifest =
+          PluginPackageResolution.resolveDependencyPackageJson(
+            dependency,
+            projectRoot,
+          );
         for (const candidate of collectDependencyManifestCandidates(
           dependency,
           manifest,

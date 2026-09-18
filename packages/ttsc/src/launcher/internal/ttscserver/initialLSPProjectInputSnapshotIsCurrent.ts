@@ -16,7 +16,9 @@ export function initialLSPProjectInputSnapshotIsCurrent(
     (snapshot.reloadFiles ?? []).every(
       (file) =>
         snapshot.reloadFileDigests[file] ===
-        LSPProjectInputDigest.lspProjectInputFileDigest(LSPProjectInputDigest.realLSPProjectInputEntryPath(file)),
+        LSPProjectInputDigest.lspProjectInputFileDigest(
+          LSPProjectInputDigest.realLSPProjectInputEntryPath(file),
+        ),
     )
   );
 }

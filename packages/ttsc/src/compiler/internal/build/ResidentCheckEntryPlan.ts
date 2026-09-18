@@ -12,9 +12,9 @@ export type ResidentCheckEntryPlan = {
   args: string[];
 
   /**
-   * Position of the entry among the configured check-stage plugins. Two
-   * entries that share a resident process are still reported in configuration
-   * order, and pending watch changes are buffered per entry by this index.
+   * Position of the entry among the configured check-stage plugins. Two entries
+   * that share a resident process are still reported in configuration order,
+   * and pending watch changes are buffered per entry by this index.
    */
   entryIndex: number;
 

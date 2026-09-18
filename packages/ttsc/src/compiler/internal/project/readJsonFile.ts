@@ -1,4 +1,5 @@
 import fs from "node:fs";
+
 import { ConfigJsonText } from "./ConfigJsonText";
 
 /**
@@ -31,6 +32,8 @@ export function readJsonFile(file: string): unknown {
   try {
     return JSON.parse(text);
   } catch (error) {
-    throw new Error(`ttsc: failed to parse ${file}: ${ConfigJsonText.describe(error)}`);
+    throw new Error(
+      `ttsc: failed to parse ${file}: ${ConfigJsonText.describe(error)}`,
+    );
   }
 }

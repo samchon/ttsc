@@ -9,5 +9,8 @@ export function reclaimDependencyBuildLock(
   lockDir: string,
   fence: DependencyBuildLockFence,
 ): boolean {
-  return DependencyBuildLockProtocol.retireDependencyBuildLock(lockDir, fence.generation);
+  return DependencyBuildLockProtocol.retireDependencyBuildLock(
+    lockDir,
+    fence.generation,
+  );
 }
