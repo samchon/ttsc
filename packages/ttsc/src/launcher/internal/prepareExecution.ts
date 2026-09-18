@@ -13,8 +13,8 @@ import type { TtscCommonOptions } from "../../structures/internal/TtscCommonOpti
 import { buildSingleRootProject } from "./buildSingleRootProject";
 import { linkVirtualEntry } from "./linkVirtualEntry";
 import { type OwningModuleOptions } from "./runtime/OwningModuleOptions";
-import { projectModuleOptions } from "./runtime/projectModuleOptions";
 import { runtimeCompilerArgs } from "./runtimeCompilerArgs";
+import { runtimeEmitProfile } from "./runtimeEmitProfile";
 
 /** Build the owning project and locate the emitted JavaScript entry for `ttsx`. */
 export function prepareExecution(
@@ -139,7 +139,11 @@ function buildEntryProject(
   context.emitDir = emitDir;
   context.outputs = EmitOwnershipIndex.listOutputs(emitDir);
   context.runtimeRootDir = rootDir;
-  context.moduleOptions = projectModuleOptions(project.compilerOptions);
+  context.moduleOptions = runtimeEmitProfile(
+    project,
+    options.passthrough,
+    options.binary,
+  ).moduleOptions;
 }
 
 /**
@@ -207,6 +211,11 @@ function createProjectContext(
   // Resolved once: it now costs a realpath (and, for a missing directory on
   // Windows, a case-sensitivity probe) rather than a string join.
   const runtimeRootDir = resolveRuntimeSourceRoot(project, options);
+  const emitProfile = runtimeEmitProfile(
+    project,
+    options.passthrough,
+    options.binary,
+  );
   fs.mkdirSync(cacheDirSpelling, { recursive: true });
   // Pin the cache parent before deriving a generation path. Descriptors run
   // after this point and may retarget a caller-controlled symlink or junction;
@@ -236,15 +245,14 @@ function createProjectContext(
     // classify each served file the same way tsgo chose when emitting it.
     // `target` belongs here as much as `module` does: with `module` absent tsgo
     // derives the module kind from `target`, so publishing only `module` makes
-    // the hooks guess.
-    moduleOptions: projectModuleOptions(project.compilerOptions),
-    // Force a source map on the transient runtime emit only when the project
-    // configures none — when it already emits `sourceMap` or `inlineSourceMap`,
-    // the serve path inlines/absolutizes that map, so no override is needed
-    // (issue #353).
-    forceRuntimeSourceMap:
-      project.compilerOptions.sourceMap !== true &&
-      project.compilerOptions.inlineSourceMap !== true,
+    // the hooks guess. A `--module` forwarded before the entry decides the
+    // emit as much as the config does, so both are read.
+    moduleOptions: emitProfile.moduleOptions,
+    // Force a source map on the transient runtime emit only when the build
+    // would carry none — when the project or a forwarded flag already emits
+    // `sourceMap` or `inlineSourceMap`, the serve path inlines/absolutizes that
+    // map, so no override is needed (issue #353).
+    forceRuntimeSourceMap: emitProfile.forceRuntimeSourceMap,
     built: false,
     outputs: [] as readonly string[],
   };
@@ -406,6 +414,33 @@ function buildProject(
     .filter((line) => line.trim().length !== 0)
     .join("\n");
   throw new Error(detail);
+}
+
+/**
+ * The runtime cache a run uses when `--cache-dir` names none: the project's own
+ * `node_modules/.cache/ttsc/ttsx`, or, when the project refuses that directory
+ * (a read-only checkout, mount, or container filesystem), one below the system
+ * temp directory, keyed by the project.
+ *
+ * Every run writes its output into a directory of its own below the cache and
+ * removes it on exit, so any writable parent serves; the project-local default
+ * only keeps the runs of one project together. A `--cache-dir` the user named
+ * is never replaced: it is the user's choice, and a failure there is reported.
+ */
+function defaultRuntimeCacheDir(root: string): string {
+  const local = path.join(root, "node_modules", ".cache", "ttsc", "ttsx");
+  try {
+    fs.mkdirSync(local, { recursive: true });
+    return local;
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code !== "EACCES" && code !== "EPERM" && code !== "EROFS") throw error;
+  }
+  return path.join(
+    os.tmpdir(),
+    "ttsc-ttsx",
+    crypto.createHash("sha256").update(root).digest("hex").slice(0, 16),
+  );
 }
 
 function removeRuntimeOutput(directory: string): void {

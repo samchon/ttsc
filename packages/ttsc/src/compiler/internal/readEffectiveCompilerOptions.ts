@@ -54,6 +54,12 @@ export function readEffectiveCompilerOptions(
         continue;
       }
       const next = passthrough[i + 1];
+      // A boolean flag given bare (`--inlineSourceMap`, last or before another
+      // flag) is on; the compiler reads it the same way.
+      if (next === undefined || next.startsWith("-")) {
+        value = true;
+        continue;
+      }
       value =
         name === "noLib" &&
         next !== "true" &&

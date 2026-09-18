@@ -8,6 +8,7 @@ import { createFilesystemPathIdentityContext } from "../../internal/pathIdentity
 import type { TtscCommonOptions } from "../../structures/internal/TtscCommonOptions";
 import { DependencyBuildGeneration } from "./runtime/DependencyBuildGeneration";
 import { runtimeCompilerArgs } from "./runtimeCompilerArgs";
+import { runtimeEmitProfile } from "./runtimeEmitProfile";
 
 /**
  * Compile one TypeScript root that its owning project's file set does not
@@ -171,9 +172,11 @@ export function buildSingleRootProject(props: {
       ),
       // A source map on the transient emit lets the serve path inline it under
       // the source URL; a project that configures its own keeps it.
-      forceRuntimeSourceMap:
-        project.compilerOptions.sourceMap !== true &&
-        project.compilerOptions.inlineSourceMap !== true,
+      forceRuntimeSourceMap: runtimeEmitProfile(
+        project,
+        options.passthrough,
+        options.binary,
+      ).forceRuntimeSourceMap,
       // Native plugins discover their config files from the tsconfig's
       // directory, which for a private tsconfig is ttsx's cache; anchor them
       // at the real one, as a bundler adapter's temporary overlay does.
