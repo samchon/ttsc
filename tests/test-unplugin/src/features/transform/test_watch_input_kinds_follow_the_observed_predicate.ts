@@ -5,6 +5,7 @@ import path from "node:path";
 
 import type { TtscWatchInputKind } from "../../../../../packages/unplugin/lib/core/transform/watch/TtscWatchInputKind.mjs";
 import { classifyWatchInput } from "../../../../../packages/unplugin/lib/core/transform/watch/classifyWatchInput.mjs";
+import { missingWatchInputShape } from "../../../../../packages/unplugin/lib/core/transform/watch/missingWatchInputShape.mjs";
 
 /**
  * Verifies each watch input is classified by the predicate the compiler
@@ -17,9 +18,13 @@ import { classifyWatchInput } from "../../../../../packages/unplugin/lib/core/tr
  * package under watch. The rows are the observation shapes TypeScript-Go
  * reports for a real project.
  *
+ * A missing input also carries what must appear there. esbuild keeps one watch
+ * state per path and observes a file's creation and a directory's through
+ * different channels, so the shape decides its channel.
+ *
  * 1. Classify each recorded observation, and the legacy evidence without one.
  * 2. Classify evidence-free recovery inputs from the filesystem.
- * 3. Assert every kind.
+ * 3. Assert every kind, and the shape of every missing input.
  */
 export async function test_watch_input_kinds_follow_the_observed_predicate(): Promise<void> {
   const observed = (observation: object, missing = false) => ({
@@ -30,7 +35,8 @@ export async function test_watch_input_kinds_follow_the_observed_predicate(): Pr
     },
     file: "x",
   });
-  const rows: [string, object, TtscWatchInputKind][] = [
+  type Shape = ReturnType<typeof missingWatchInputShape>;
+  const rows: [string, object, TtscWatchInputKind, Shape?][] = [
     [
       "a read declaration",
       observed({ fileExists: true, readFile: { hash: "h", ok: true } }),
@@ -40,11 +46,37 @@ export async function test_watch_input_kinds_follow_the_observed_predicate(): Pr
       "a file probe that failed",
       observed({ fileExists: false }, true),
       "missing",
+      "file",
+    ],
+    [
+      "a read that failed",
+      observed({ readFile: { ok: false } }, true),
+      "missing",
+      "file",
     ],
     [
       "a missing ancestor `node_modules/@types`",
       observed({ directoryExists: false }),
       "missing",
+      "directory",
+    ],
+    [
+      "a path probed absent as both kinds",
+      observed({ directoryExists: false, fileExists: false }, true),
+      "missing",
+      "either",
+    ],
+    [
+      "a stat that found nothing",
+      observed({ stat: "missing" }),
+      "missing",
+      "either",
+    ],
+    [
+      "a realpath that failed",
+      observed({ realpath: { ok: false } }),
+      "missing",
+      "either",
     ],
     [
       "a listed type root",
@@ -61,6 +93,7 @@ export async function test_watch_input_kinds_follow_the_observed_predicate(): Pr
         directoryExists: false,
       }),
       "missing",
+      "directory",
     ],
     [
       "a package directory checked to exist",
@@ -81,12 +114,15 @@ export async function test_watch_input_kinds_follow_the_observed_predicate(): Pr
       "a missing graph input",
       { evidence: { identity: "x", missing: true }, file: "x" },
       "missing",
+      "file",
     ],
   ];
-  for (const [label, input, expected] of rows) {
+  for (const [label, input, expected, shape] of rows) {
+    const watched = input as Parameters<typeof classifyWatchInput>[0];
+    assert.equal(classifyWatchInput(watched), expected, label);
     assert.equal(
-      classifyWatchInput(input as Parameters<typeof classifyWatchInput>[0]),
-      expected,
+      expected === "missing" ? missingWatchInputShape(watched) : undefined,
+      shape,
       label,
     );
   }
@@ -98,8 +134,7 @@ export async function test_watch_input_kinds_follow_the_observed_predicate(): Pr
   fs.writeFileSync(file, "export {};\n");
   assert.equal(classifyWatchInput({ file }), "file");
   assert.equal(classifyWatchInput({ file: root }), "listing");
-  assert.equal(
-    classifyWatchInput({ file: path.join(root, "absent.d.ts") }),
-    "missing",
-  );
+  const absent = { file: path.join(root, "absent.d.ts") };
+  assert.equal(classifyWatchInput(absent), "missing");
+  assert.equal(missingWatchInputShape(absent), "either");
 }

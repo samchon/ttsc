@@ -14,7 +14,13 @@ import { waitFor } from "../../internal/real-native-envelope/waitFor";
  * envelope must reach watchDirs, while failed loads must retain subscriptions
  * so a repair can reach the same context without manual invalidation.
  *
- * 1. Add and remove automatic type packages and their parent directory.
+ * One esbuild build keeps one watch state per path, and its file read of an
+ * absent path overwrites its directory read of it. A path the build hands to
+ * both channels observes the recreated type root only when the results happen
+ * to land in a lucky order, so no build may do that.
+ *
+ * 1. Add and remove automatic type packages and their parent directory, asserting
+ *    every build gives each path to one channel.
  * 2. Check shared compilation and reuse across an unchanged rebuild.
  * 3. Recover from deleted, initially broken, and initially absent declarations.
  */
@@ -26,6 +32,33 @@ export async function test_real_native_envelope_esbuild_observes_directories_and
   const options = { project: path.join(root, "tsconfig.json") };
   const results: Array<{ errors: unknown[] }> = [];
   let starts = 0;
+  // Every path the adapter's results handed each channel in the current build.
+  const channels = new Map<string, "watchDirs" | "watchFiles">();
+  const collisions: string[] = [];
+  const traced = (plugin: any) => ({
+    ...plugin,
+    setup: (build: any) =>
+      plugin.setup(
+        new Proxy(build, {
+          get(target, key) {
+            const value = Reflect.get(target, key);
+            if (key !== "onLoad")
+              return typeof value === "function" ? value.bind(target) : value;
+            return (filter: object, load: (args: object) => Promise<any>) =>
+              value.call(target, filter, async (args: object) => {
+                const result = await load(args);
+                for (const channel of ["watchDirs", "watchFiles"] as const)
+                  for (const file of result?.[channel] ?? []) {
+                    if ((channels.get(file) ?? channel) !== channel)
+                      collisions.push(file);
+                    channels.set(file, channel);
+                  }
+                return result;
+              });
+          },
+        }),
+      ),
+  });
   const start = () =>
     esbuild.context({
       absWorkingDir: root,
@@ -35,12 +68,13 @@ export async function test_real_native_envelope_esbuild_observes_directories_and
       write: false,
       logLevel: "silent",
       plugins: [
-        adapter(options),
+        traced(adapter(options)),
         {
           name: "observe-native-esbuild",
           setup(build: any) {
             build.onStart(() => {
               starts += 1;
+              channels.clear();
             });
             build.onEnd((result: { errors: unknown[] }) => {
               results.push(result);
@@ -64,6 +98,7 @@ export async function test_real_native_envelope_esbuild_observes_directories_and
       );
     });
     assert.equal(results[count - 1]!.errors.length !== 0, failed);
+    assert.deepEqual(collisions, [], "a path reached both watch channels");
   };
   const observe = async (change: () => void, failed = false) => {
     const count = results.length + 1;
