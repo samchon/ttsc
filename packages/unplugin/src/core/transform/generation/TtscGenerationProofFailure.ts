@@ -1,5 +1,9 @@
 /** One reason a whole-project transform cannot become a reusable generation. */
 export interface TtscGenerationProofFailure {
+  /**
+   * Which evidence family failed: the project walk, out-of-walk inputs, the
+   * compiler graph, or host inputs.
+   */
   domain: "external" | "graph" | "host" | "project";
   /** Machine-readable failure class printed verbatim in terminal diagnostics. */
   kind: string;

@@ -6,6 +6,15 @@ import path from "node:path";
 
 import type { PackedUnpluginPackage } from "./PackedUnpluginPackage";
 
+/**
+ * Pack `@ttsc/unplugin` exactly as it would be published and extract it.
+ *
+ * `pnpm pack` is offline and deterministic, and it rewrites `workspace:^` to
+ * the concrete caret range a real consumer's package manager sees, the
+ * published dependency contract. Reading that manifest, rather than the source
+ * one, proves the contract a clean install would receive without a network
+ * install.
+ */
 export function packUnpluginPackage(): PackedUnpluginPackage {
   const unpluginDir = path.join(
     TestProject.WORKSPACE_ROOT,

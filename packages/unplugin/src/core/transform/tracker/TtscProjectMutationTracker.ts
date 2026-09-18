@@ -4,6 +4,10 @@ export interface TtscProjectMutationTracker {
   changes: Set<string>;
   /** Whether additional event paths were discarded after the witness bound. */
   changesOmitted: boolean;
+  /**
+   * Release the watchers and mark the tracker failed, so nothing trusts it
+   * afterwards.
+   */
   close: () => void;
   /**
    * Absolute spellings whose creation, change or removal this tracker would
@@ -28,9 +32,21 @@ export interface TtscProjectMutationTracker {
    * had already sent (samchon/ttsc#1272).
    */
   drain?: () => Promise<void>;
+  /**
+   * Whether the watcher could not be opened or has errored; a failed tracker
+   * proves nothing either way.
+   */
   failed: boolean;
+  /**
+   * Whether a rename or equivalent membership event was observed since the
+   * tracker opened.
+   */
   membershipChanged: boolean;
   /** Compare event and input paths through this tracker's filesystem identity. */
   overlaps?: (input: string, changed: string) => boolean;
+  /**
+   * The drain currently in flight, shared by concurrent deliveries so one
+   * barrier serves them all.
+   */
   settle?: Promise<void>;
 }

@@ -10,7 +10,9 @@ export interface ViteServeWatchOperations {
   caseSensitive?(directory: string): boolean;
   /** Override path semantics when testing a non-host platform. */
   platform?: NodeJS.Platform;
+  /** Open the shared fallback timer. */
   poll(listener: () => void): { close(): void };
+  /** Open one recursive native observer on `root`. */
   watch(
     root: string,
     listener: (eventType: string, file: string | null) => void,

@@ -10,9 +10,14 @@ import type { ViteModuleGraphLike } from "./ViteModuleGraphLike";
  * carries.
  */
 export interface ViteDevServerLike {
+  /** Resolved config; only `root` is read, to anchor the project scope. */
   config?: { root?: string };
+  /** Per-environment graphs and channels under the environment API (Vite 6+). */
   environments?: Record<string, ViteEnvironmentLike>;
+  /** The deprecated server-level hot channel some majors still carry. */
   hot?: ViteHotChannelLike;
+  /** The mixed module graph of Vite 5. */
   moduleGraph?: ViteModuleGraphLike;
+  /** The websocket channel of Vite 5 and earlier. */
   ws?: ViteHotChannelLike;
 }

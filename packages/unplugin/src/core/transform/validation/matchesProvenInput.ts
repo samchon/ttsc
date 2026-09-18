@@ -20,14 +20,14 @@ import { trackerProvesInputUnchanged } from "./trackerProvesInputUnchanged";
  * `graph.globals` is shared by every one of them, so re-reading and re-hashing
  * the whole derived set per delivery multiplies one generation's proven bytes
  * by the module count. The derived set is proven the same way the universal
- * descriptor inputs are ({@link matchesUniversalHostInputs}), under the same
- * rules: a currently separable unchanged signature stands in for the content
- * comparison, and any signature or clock-ordering change falls back to the full
- * comparison. A signature is recorded only around a read nothing raced, only
- * for a recorded state that came from reading the input rather than from
- * failing to, and only while the observed filesystem's own clock has provably
- * left the stamp's tick ({@link stampSeparable}), so a same-length rewrite
- * inside that tick cannot hide behind an unchanged signature.
+ * descriptor inputs are (`matchesUniversalHostInputs`), under the same rules: a
+ * currently separable unchanged signature stands in for the content comparison,
+ * and any signature or clock-ordering change falls back to the full comparison.
+ * A signature is recorded only around a read nothing raced, only for a recorded
+ * state that came from reading the input rather than from failing to, and only
+ * while the observed filesystem's own clock has provably left the stamp's tick
+ * (`stampSeparable`), so a same-length rewrite inside that tick cannot hide
+ * behind an unchanged signature.
  *
  * The signature carries the physical identity of both the lexical path and its
  * link target ({@link inputMetadataSignature}), so retargeting a symlink or

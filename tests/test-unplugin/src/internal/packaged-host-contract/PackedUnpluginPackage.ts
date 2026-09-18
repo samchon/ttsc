@@ -1,14 +1,7 @@
-/**
- * Pack `@ttsc/unplugin` exactly as it would be published and return the packed
- * `package.json`.
- *
- * `pnpm pack` is offline and deterministic, and it rewrites `workspace:^` to
- * the concrete caret range a real consumer's package manager sees — the
- * published dependency contract. Reading that manifest (rather than the source
- * one) is what proves the contract a clean install would receive, without a
- * network install.
- */
+/** The `@ttsc/unplugin` package as `pnpm pack` publishes it, extracted to disk. */
 export interface PackedUnpluginPackage {
+  /** The packed `package.json`, with `workspace:` ranges rewritten as published. */
   manifest: Record<string, any>;
+  /** Directory the tarball was extracted to. */
   packageRoot: string;
 }

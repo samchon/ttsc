@@ -106,8 +106,8 @@ export function matchesCompleteInputSnapshot(
  * Without this, a metadata-only change — a touch, or a rewrite of identical
  * bytes — costs a re-read on every later delivery for the rest of the
  * generation's life, because the recorded signature can never match again. The
- * narrow path self-heals through {@link matchesProvenInput}; this is the same
- * refresh for the path that proves the whole snapshot at once.
+ * narrow path self-heals through `matchesProvenInput`; this is the same refresh
+ * for the path that proves the whole snapshot at once.
  *
  * The delivered file is the single exclusion: its recorded hash is the source
  * the bundler supplied, so the disk bytes this walk read for it were compared

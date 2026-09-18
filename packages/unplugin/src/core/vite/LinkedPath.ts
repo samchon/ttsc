@@ -8,6 +8,8 @@ import type { InputEntry } from "./InputEntry";
  * re-checks the dependent inputs when it moves.
  */
 export interface LinkedPath {
+  /** Physical target last observed, or `undefined` when unresolvable. */
   target: string | undefined;
+  /** Entries reached through this link. */
   inputs: Set<InputEntry>;
 }

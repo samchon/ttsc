@@ -12,14 +12,25 @@ import type { TtscProjectMutationTracker } from "../TtscProjectMutationTracker";
  * spellings the rest of the adapter compares.
  */
 export interface WindowsProjectMutationBroker {
+  /** The isolated watch process; unreferenced whenever no reply is outstanding. */
   child: ChildProcess;
   /** Round-trips awaiting the child's reply, by request id. */
   drains: Map<number, () => void>;
   /** The acknowledgement currently in flight, shared by every waiter. */
   draining?: Promise<void>;
+  /** Next request id, shared by registrations and drains. */
   nextId: number;
+  /**
+   * Drain round-trips awaiting a reply; the channel stays referenced while
+   * nonzero.
+   */
   pendingDrains: number;
+  /**
+   * Registrations awaiting their ready reply; the channel stays referenced
+   * while nonzero.
+   */
   pendingRegistrations: number;
+  /** Live registrations by id, each with its filters and spelling map. */
   trackers: Map<
     number,
     {

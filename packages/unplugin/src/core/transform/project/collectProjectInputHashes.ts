@@ -8,9 +8,9 @@ import { collectProjectInputHashSnapshot } from "./collectProjectInputHashSnapsh
 
 /**
  * Hash every input file under `projectRoot` (the same walk universe
- * {@link matchesCachedSource} validates against), keyed by project-relative
- * slash path. Exported so hosts without a per-build boundary (`@ttsc/metro`)
- * can fold the identical input universe into their own cache fingerprints.
+ * `matchesCachedSource` validates against), keyed by project-relative slash
+ * path. Exported so hosts without a per-build boundary (`@ttsc/metro`) can fold
+ * the identical input universe into their own cache fingerprints.
  */
 export function collectProjectInputHashes(
   projectRoot: string,

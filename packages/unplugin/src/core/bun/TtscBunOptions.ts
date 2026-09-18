@@ -1,7 +1,7 @@
 import type { TtscUnpluginOptions } from "../options/TtscUnpluginOptions";
 
 /**
- * Options accepted by {@link bun}, either resolved eagerly or supplied through a
+ * Options accepted by `bun`, either resolved eagerly or supplied through a
  * provider evaluated lazily on the first `onLoad` call.
  *
  * The provider form exists for the runtime registration path (`bun-register`),

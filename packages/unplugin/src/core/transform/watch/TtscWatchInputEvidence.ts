@@ -5,7 +5,7 @@ import type { TtscWatchInputState } from "./TtscWatchInputState";
  * the adapter so it does not rederive it per input per delivery.
  *
  * All facts are generation state: the identity is the memoized
- * {@link pathIdentityKey} of the input, `missing` preserves the original public
+ * `pathIdentityKey` of the input, `missing` preserves the original public
  * existence contract, and `unavailable` distinguishes a failed file predicate
  * from ordinary absence. An adapter that computes them itself pays a
  * `realpath`, a case-sensitivity directory listing, and an `existsSync` for

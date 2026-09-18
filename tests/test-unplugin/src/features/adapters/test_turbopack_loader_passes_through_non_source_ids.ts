@@ -27,7 +27,7 @@ import { runTurbopackLoader } from "../../internal/adapter-turbopack/runTurbopac
  * untouched; what it pins is that the loader stops depending on a guard living
  * inside the transform. The declaration and `node_modules` rows both filters
  * already agreed on stay pinned by
- * {@link assertTurbopackLoaderPassesThroughFilteredPaths}.
+ * `assertTurbopackLoaderPassesThroughFilteredPaths`.
  */
 export async function test_turbopack_loader_passes_through_non_source_ids(): Promise<void> {
   const root = TestUnpluginProject.createProject();

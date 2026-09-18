@@ -4,6 +4,11 @@
  * relative targets).
  */
 export interface IDeclaredPaths {
+  /**
+   * Directory of the config that declared `paths`, which anchors relative
+   * targets.
+   */
   baseDir: string;
+  /** The raw `compilerOptions.paths` object as declared. */
   paths: Record<string, unknown>;
 }

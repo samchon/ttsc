@@ -51,7 +51,7 @@ export interface TtscCachedProjectTransform {
    * Metadata signature of each out-of-walk input, captured around the read that
    * proved its {@link externalInputHashes} entry and recorded only once the
    * observed filesystem's clock provably left the stamp's tick
-   * ({@link stampSeparable}). An input whose signature still holds carries the
+   * (`stampSeparable`). An input whose signature still holds carries the
    * recorded content, so revalidation may skip the read.
    *
    * Keyed by lexical spelling rather than by physical identity, for the reason
@@ -82,6 +82,10 @@ export interface TtscCachedProjectTransform {
    * one per delivery.
    */
   missingOutputReported?: Set<string>;
+  /**
+   * The pass {@link missingOutputReported} belongs to; a new pass clears the
+   * set.
+   */
   missingOutputEpoch?: number;
   /**
    * The project config this generation compiled, so a module the program does
@@ -91,7 +95,7 @@ export interface TtscCachedProjectTransform {
   /**
    * Metadata signature of each {@link inputHashes} entry whose hash was proven
    * against an unracing read of the file on disk, in a tick the observed
-   * filesystem's clock had provably left ({@link stampSeparable}).
+   * filesystem's clock had provably left (`stampSeparable`).
    *
    * The generation's own current file is absent at capture: its recorded hash
    * comes from the bundler's in-memory source, so the walk that produced it
@@ -150,7 +154,7 @@ export interface TtscCachedProjectTransform {
   projectSnapshotComplete?: boolean;
   /** Absolute path to the directory that owns the tsconfig. */
   projectRoot: string;
-  /** Raw compiler output returned by {@link TtscCompiler.transform}. */
+  /** Raw compiler output returned by `TtscCompiler.transform`. */
   result: ITtscCompilerTransformation;
   /**
    * The delivery epoch this generation is currently settled against, or
@@ -175,6 +179,10 @@ export interface TtscCachedProjectTransform {
    * time.
    */
   diagnosticsReported?: boolean;
+  /**
+   * The pass the diagnostics were last surfaced in; see
+   * {@link diagnosticsReported}.
+   */
   diagnosticsEpoch?: number;
   /**
    * Files already delivered from this generation, keyed by filesystem identity.

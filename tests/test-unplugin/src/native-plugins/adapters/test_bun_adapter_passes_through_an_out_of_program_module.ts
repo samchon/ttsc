@@ -26,9 +26,9 @@ import { captureBunLoader } from "../../internal/adapter-bun/captureBunLoader";
  * `onLoad` is registered with, and the real gate is `isTransformTarget` inside
  * the loader, so a case resting on the return value would keep passing if the
  * module stopped reaching the transform at all and would decay into
- * {@link assertBunAdapterFallsThroughWhenItDoesNotTransform}'s excluded-path
- * row. The report is what tells the two apart: only a delivery that reached the
- * compile and found no output for this file can emit it.
+ * `assertBunAdapterFallsThroughWhenItDoesNotTransform`'s excluded-path row. The
+ * report is what tells the two apart: only a delivery that reached the compile
+ * and found no output for this file can emit it.
  */
 export async function test_bun_adapter_passes_through_an_out_of_program_module(): Promise<void> {
   const unpluginBun = await TestUnpluginRuntime.loadUnpluginAdapter("bun");

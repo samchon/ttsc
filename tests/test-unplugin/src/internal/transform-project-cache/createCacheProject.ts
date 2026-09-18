@@ -7,6 +7,12 @@ import { externalSourceModules } from "./externalSourceModules";
 
 let sharedCachePluginRoot: string | undefined;
 
+/**
+ * Materialize the synthetic cache project and its fixture transform plugin.
+ *
+ * The plugin records every compile to `runLog`, so a scenario counts real
+ * whole-project transforms, and `options` shapes the envelope it reports.
+ */
 export function createCacheProject(options: ICacheProjectOptions): {
   root: string;
   runLog: string;

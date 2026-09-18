@@ -2,7 +2,7 @@ import type { TtscTransformCache } from "./TtscTransformCache";
 
 /**
  * The current delivery epoch of each cache whose owner has declared a real
- * per-pass lifecycle by calling {@link beginTtscTransformBuild}.
+ * per-pass lifecycle by calling `beginTtscTransformBuild`.
  *
  * A _delivery epoch_ is one bundler pass: the window inside which each module
  * is requested at most once, so its first delivery may be settled against the

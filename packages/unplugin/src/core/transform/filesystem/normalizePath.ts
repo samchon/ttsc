@@ -1,7 +1,7 @@
 /**
  * Convert Windows separators to forward slashes.
  *
- * Project keys, generated tsconfig targets, and diagnostics all use one
+ * Project keys, alias targets, and generated tsconfig paths all use one
  * separator, so equal paths compare equal regardless of the platform that
  * produced them.
  */

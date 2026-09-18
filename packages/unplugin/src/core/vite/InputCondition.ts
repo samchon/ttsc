@@ -11,7 +11,10 @@ import type { TtscWatchInputEvidence } from "../transform/watch/TtscWatchInputEv
  * different generations recorded different states for it.
  */
 export interface InputCondition {
+  /** State this watcher captured itself when the generation supplied none. */
   baseline?: TtscWatchInputBaseline;
+  /** The generation's recorded state for the input. */
   evidence?: TtscWatchInputEvidence;
+  /** Modules to invalidate when this state stops holding. */
   importers: Set<string>;
 }

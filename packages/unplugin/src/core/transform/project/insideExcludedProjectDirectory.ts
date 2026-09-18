@@ -6,7 +6,7 @@ import { pathIsWithin } from "../filesystem/pathIsWithin";
 /**
  * Whether a path lies inside a directory the configuration excludes.
  *
- * Lexical, exactly like the walk and like {@link isProjectWalkPath}, and for the
+ * Lexical, exactly like the walk and like `isProjectWalkPath`, and for the
  * reason that predicate states: walk membership is lexical, so resolving a path
  * to physical identity first would collapse two spellings the walk keeps apart
  * and claim it covered a subtree it never followed. A junction whose target the

@@ -37,12 +37,12 @@ const transformCache = createTtscTransformCache();
  * };
  * ```
  *
- * Pass {@link TtscUnpluginOptions} through the rule's `options` object. The
- * loader returns the source unchanged for anything {@link isTransformTarget}
- * excludes: declaration files, `node_modules` paths, non-TypeScript sources,
- * and virtual ids. It also preserves transforms that produce no change and
- * applies the shared predicate itself rather than a local copy, because a broad
- * rule glob routes everything matching the extension through the loader.
+ * Pass `TtscUnpluginOptions` through the rule's `options` object. The loader
+ * returns the source unchanged for anything {@link isTransformTarget} excludes:
+ * declaration files, `node_modules` paths, non-TypeScript sources, and virtual
+ * ids. It also preserves transforms that produce no change and applies the
+ * shared predicate itself rather than a local copy, because a broad rule glob
+ * routes everything matching the extension through the loader.
  */
 export function turbopack(
   this: TtscTurbopackLoaderContext,

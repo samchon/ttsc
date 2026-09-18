@@ -1,11 +1,14 @@
 import { unplugin } from "./core/unplugin";
 
 /**
- * The Rspack adapter of `@ttsc/unplugin`, taken from the unified instance.
+ * The Rspack adapter of `@ttsc/unplugin`, a named view of the unified plugin
+ * instance.
  *
- * Runs ttsc plugins inside Rspack compilations, sharing the transform core,
- * generation cache, and watch-input contract with every other adapter. This
- * module exists so `@ttsc/unplugin/rspack` loads only this adapter's entry.
+ * Runs ttsc plugins inside Rspack compilations. Every plugin instance the host
+ * creates owns its own generation cache, while the transform core and the
+ * watch-input contract are the ones every adapter shares. This module is the
+ * `@ttsc/unplugin/rspack` subpath entry and loads the same core as every other
+ * entry.
  */
 const rspack: typeof unplugin.rspack = unplugin.rspack;
 

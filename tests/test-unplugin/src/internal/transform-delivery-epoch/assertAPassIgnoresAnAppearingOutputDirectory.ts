@@ -18,8 +18,8 @@ import { startDeliveryPassSession } from "./startDeliveryPassSession";
  * bundle into the project does on its first build, which is precisely the build
  * before the first rebuild this whole change exists to make cheap.
  *
- * Its negative twin is {@link assertAPassRecompilesAfterAMembershipChange}: a
- * file the walk does consider must still replace the generation.
+ * Its negative twin is `assertAPassRecompilesAfterAMembershipChange`: a file
+ * the walk does consider must still replace the generation.
  */
 export async function assertAPassIgnoresAnAppearingOutputDirectory(): Promise<void> {
   const session = await startDeliveryPassSession();

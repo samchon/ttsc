@@ -12,5 +12,9 @@ export interface TtscFailedGenerationValidation {
   projectInputHashes: Readonly<Record<string, string>>;
   /** Coherence and exact failure state of the final project walk. */
   projectWalkComplete: boolean;
+  /**
+   * Fingerprint of the walk failures relevant to the declared inputs, so a
+   * change in them permits a retry.
+   */
   projectWalkFailures: string;
 }

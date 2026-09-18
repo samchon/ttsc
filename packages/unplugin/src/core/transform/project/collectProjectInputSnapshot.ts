@@ -104,7 +104,7 @@ export function collectProjectInputSnapshot(
         fileSignatures[key] = after.signature;
         // Only a signature whose stamp's tick the filesystem's clock provably
         // left before this read may later stand in for the content comparison
-        // ({@link stampSeparable}); the raw signature above still participates
+        // (`stampSeparable`); the raw signature above still participates
         // in the generation-time stability comparison.
         if (before.separable) {
           provenSignatures[key] = after.signature;

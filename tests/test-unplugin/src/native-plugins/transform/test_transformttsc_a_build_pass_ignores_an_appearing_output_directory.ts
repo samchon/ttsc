@@ -13,8 +13,8 @@ import { assertAPassIgnoresAnAppearingOutputDirectory } from "../../internal/tra
  * bundle into the project does on its first build, which is precisely the build
  * before the first rebuild this whole change exists to make cheap.
  *
- * Its negative twin is {@link assertAPassRecompilesAfterAMembershipChange}: a
- * file the walk does consider must still replace the generation.
+ * Its negative twin is `assertAPassRecompilesAfterAMembershipChange`: a file
+ * the walk does consider must still replace the generation.
  */
 export async function test_transformttsc_a_build_pass_ignores_an_appearing_output_directory(): Promise<void> {
   await assertAPassIgnoresAnAppearingOutputDirectory();

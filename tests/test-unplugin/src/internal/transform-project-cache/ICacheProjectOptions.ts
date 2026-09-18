@@ -70,13 +70,26 @@ export interface ICacheProjectOptions {
    * spellings.
    */
   lexicalCandidateProofFailureAlias?: boolean;
+  /**
+   * Emit one output entry keyed outside the directory walk, as the native host
+   * does for program dependencies.
+   */
   emitExternalKey?: boolean;
   /** Emit this many transformable `.ts` outputs under ignored node_modules. */
   externalSourceOutputs?: number;
   /** Change the first external source after its compiler read on attempt one. */
   externalSourceChangesAfterRead?: boolean;
+  /**
+   * Rewrite an out-of-walk declaration and restore it while the first compile
+   * runs, the external twin of `snapshotAbaRace`.
+   */
   externalSnapshotAbaRace?: boolean;
+  /** Number of `src/mod{i}.ts` modules; defaults to 6. */
   fileCount?: number;
+  /**
+   * Stamp a graph where every module edges to every sibling and this many
+   * planted `node_modules/dep{j}/index.d.ts` declarations.
+   */
   graphFanout?: number;
   /**
    * Stamp this many superseding resolution candidates per module: higher
@@ -97,7 +110,12 @@ export interface ICacheProjectOptions {
   contradictoryRichCandidateProof?: boolean;
   /** Pair an unprojectable rich predicate with a supplied legacy proof. */
   unprojectableContradictoryRichCandidateProof?: boolean;
+  /**
+   * Plant this many `node_modules/global{j}/index.d.ts` packages and stamp them
+   * into `graph.globals`; requires `graphFanout`.
+   */
   graphGlobals?: number;
+  /** Leave the `externalSourceOutputs` modules out of the graph's edge map. */
   omitExternalSourceGraphNode?: boolean;
   /**
    * Stamp one extra resolution candidate at this absolute spelling, which the
@@ -142,8 +160,24 @@ export interface ICacheProjectOptions {
    * state this needs, a readable link whose every traversal fails.
    */
   unreadableHostInput?: boolean;
+  /**
+   * Project-relative module that edges to nothing, while every other module
+   * edges to the external declarations only.
+   */
   independentGraphLeaf?: string;
+  /**
+   * Edge each module to one external declaration, chosen round-robin, instead
+   * of to every sibling and external.
+   */
   partitionGraph?: boolean;
+  /**
+   * Rewrite `src/mod1.ts` and restore it while the first compile runs, an A-B-A
+   * race on a walked input.
+   */
   snapshotAbaRace?: boolean;
+  /**
+   * Create this many `fixtures/unused-{i}/nested` directories holding only a
+   * non-source asset.
+   */
   unrelatedDirectoryCount?: number;
 }

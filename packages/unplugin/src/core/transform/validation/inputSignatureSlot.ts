@@ -7,7 +7,7 @@ import { toProjectKey } from "../project/toProjectKey";
 
 /**
  * Locate the signature manifest that owns one recorded input, mirroring
- * {@link matchesRecordedInput}'s own preference for the out-of-walk spelling's
+ * `matchesRecordedInput`'s own preference for the out-of-walk spelling's
  * snapshot over the walked project's.
  *
  * The manifest is returned whether or not it currently holds a signature for

@@ -16,7 +16,7 @@ import { envelopeGraphIndexes } from "./envelopeGraphIndexes";
  * union of every transformed source key, reference-graph member (edge keys and
  * targets, globals, the config chain), and plugin-reported dependency, minus
  * everything the project walk already hashes and the disposed transform scratch
- * tree. These are the inputs {@link matchesCachedSource}'s walk cannot see.
+ * tree. These are the inputs `matchesCachedSource`'s walk cannot see.
  * Resolution candidates that are still missing remain in this set even under
  * the project root: the first walk cannot hash a file that has not been created
  * yet.
@@ -24,7 +24,7 @@ import { envelopeGraphIndexes } from "./envelopeGraphIndexes";
  * A `dependenciesComplete` declaration deliberately does not narrow the stored
  * set: other files in the same whole-project result can still own the omitted
  * members. Persistent validation selects the requested file's subset through
- * {@link selectWatchInputs}, while graph-free envelopes use this union as their
+ * `selectWatchInputs`, while graph-free envelopes use this union as their
  * conservative fallback.
  */
 export function selectExternalInputPaths(props: {

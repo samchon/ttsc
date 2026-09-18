@@ -8,11 +8,11 @@ import { envelopeDerivation } from "./envelopeDerivation";
 
 /**
  * Extract the absolute, lexical-spelling-deduplicated dependency list for a
- * single file from the compiler result. Mirrors
- * {@link selectTransformedSource}'s key lookup: fast project-relative match
- * first, then a per-envelope identity index. Distinct lexical aliases must
- * survive so bundlers observe a later symlink or junction retarget. Returns an
- * empty list on exceptions or when the plugin reported nothing.
+ * single file from the compiler result. Mirrors `selectTransformedSource`'s key
+ * lookup: fast project-relative match first, then a per-envelope identity
+ * index. Distinct lexical aliases must survive so bundlers observe a later
+ * symlink or junction retarget. Returns an empty list on exceptions or when the
+ * plugin reported nothing.
  */
 export function selectFileDependencies(props: {
   file: string;

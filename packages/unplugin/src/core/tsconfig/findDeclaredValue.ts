@@ -20,7 +20,7 @@ import { resolveRealPath } from "./resolveRealPath";
  * `exclude`) is anchored at the config that wrote it, not at the one that
  * inherited it.
  *
- * Best-effort by design, like {@link readEffectiveTsconfigPaths}: a missing or
+ * Best-effort by design, like `readEffectiveTsconfigPaths`: a missing or
  * unparsable config in the chain yields `null` here and a real config error
  * from the compiler, which owns config diagnostics.
  */

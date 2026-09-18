@@ -8,8 +8,9 @@ export interface TtscEnvelopeGraphIndexes {
   readonly spellings: Map<string, string>;
   /** Importer-owned resolver-input entries, sources pre-identified. */
   readonly candidates: { source: string; files: string[] }[];
-  /** Resolved absolute `graph.globals` and `graph.configs` members. */
+  /** Resolved absolute `graph.globals` members, inputs of every source file. */
   readonly globals: string[];
+  /** Resolved absolute `graph.configs` members: the tsconfig `extends` chain. */
   readonly configs: string[];
   /** Resolver inputs whose state affects every source file. */
   readonly resolutionInputs: string[];

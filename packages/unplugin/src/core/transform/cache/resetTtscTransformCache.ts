@@ -7,8 +7,8 @@ import { disposeCachedTransform } from "./disposeCachedTransform";
  * persistent validation mode.
  *
  * This is the unconditional lifecycle boundary, and it is distinct from
- * {@link beginTtscTransformBuild}: a pass ending is not a reason to throw a
- * proven compile away, while a session ending is.
+ * `beginTtscTransformBuild`: a pass ending is not a reason to throw a proven
+ * compile away, while a session ending is.
  */
 export function resetTtscTransformCache(cache: TtscTransformCache): void {
   clearTtscTransformCache(cache);

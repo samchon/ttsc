@@ -10,9 +10,9 @@ import { projectModules } from "../../internal/transform-project-cache/projectMo
  * Verifies a generation proves each shared input once instead of once per
  * delivered module, without loosening any invalidation.
  *
- * {@link assertPersistentValidationUsesPerFileInputs} partitions the graph so
- * every module owns a disjoint external input, which hides the cost this pins:
- * a real program gives every module the same reachable closure and the same
+ * `assertPersistentValidationUsesPerFileInputs` partitions the graph so every
+ * module owns a disjoint external input, which hides the cost this pins: a real
+ * program gives every module the same reachable closure and the same
  * `graph.globals`, so re-reading each delivered file's inputs multiplies one
  * generation's proven bytes by the module count. The bound below is met only
  * when an unchanged metadata signature stands in for the content comparison,

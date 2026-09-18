@@ -74,7 +74,7 @@ export async function test_packaged_entrypoints_publish_module_faithful_declarat
     "consumer.cts": commonJsConsumerSource(),
     "consumer.ts": esmConsumerSource(),
     "consumer.node10.ts": `${esmConsumerSource()}
-import type { TtscUnpluginOptions } from "@ttsc/unplugin/lib/core/options/TtscUnpluginOptions";
+import type { TtscUnpluginOptions } from "@ttsc/unplugin/lib/core/options";
 const options: TtscUnpluginOptions = {};
 void options;
 `,

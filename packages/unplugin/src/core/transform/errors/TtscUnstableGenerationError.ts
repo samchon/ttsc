@@ -11,6 +11,10 @@ import { TtscTerminalGenerationError } from "./TtscTerminalGenerationError";
  * (samchon/ttsc#1300).
  */
 export class TtscUnstableGenerationError extends TtscTerminalGenerationError {
+  /**
+   * The recorded environment the verdict was proven against; a change to it
+   * permits a retry.
+   */
   public readonly validation: TtscFailedGenerationValidation;
 
   public constructor(

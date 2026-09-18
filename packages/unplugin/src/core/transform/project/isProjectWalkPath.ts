@@ -16,10 +16,10 @@ import { isPossibleProgramFileName } from "./isPossibleProgramFileName";
  * Report whether an absolute `file` belongs to the project walk universe of
  * `root`: it lies under `root`, every component exists without traversing a
  * symbolic link, the leaf is a regular file, and no segment of the relative
- * path is ignored. The predicate mirrors {@link walkProjectInputs} exactly, so
- * "walk-visible" here means "hashed by {@link collectProjectInputHashes}".
- * Missing paths and files reached through symlinks or Windows junctions are
- * out-of-walk inputs that only the reference graph can prove relevant.
+ * path is ignored. The predicate mirrors `walkProjectInputs` exactly, so
+ * "walk-visible" here means "hashed by `collectProjectInputHashes`". Missing
+ * paths and files reached through symlinks or Windows junctions are out-of-walk
+ * inputs that only the reference graph can prove relevant.
  */
 export function isProjectWalkPath(
   root: string,

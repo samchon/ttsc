@@ -12,8 +12,8 @@ import { createUtilityPluginProject } from "../../internal/transform-utility-plu
 /**
  * Verifies the same-byte link retarget is rejected with notifications unusable.
  *
- * {@link assertPersistentUtilityConfigLinkRetargetInvalidatesTransform} closes
- * the exact-input watcher, which leaves the generation on the narrow path and
+ * `assertPersistentUtilityConfigLinkRetargetInvalidatesTransform` closes the
+ * exact-input watcher, which leaves the generation on the narrow path and
  * proves that path's metadata manifest. A watcher that _failed_ takes the other
  * branch: validation falls back to the complete snapshot, whose out-of-walk
  * comparison records realpaths for graph members only. A universal host input

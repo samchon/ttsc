@@ -18,7 +18,7 @@ import { startDeliveryPassSession } from "../../internal/transform-delivery-epoc
  * This pins the declared-input filter rather than the membership digest, and it
  * held before that digest existed too: rewriting a file in place moves neither
  * the directory's stamp nor its entry list. The digest's own twin is
- * {@link assertAPassIgnoresAnAppearingOutputDirectory}.
+ * `assertAPassIgnoresAnAppearingOutputDirectory`.
  */
 export async function test_transformttsc_a_build_pass_ignores_an_undeclared_project_file_edit(): Promise<void> {
   const session = await startDeliveryPassSession();

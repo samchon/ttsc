@@ -2,7 +2,7 @@ import type { TtscWatchInput } from "./TtscWatchInput";
 import type { TtscWatchInputEvidence } from "./TtscWatchInputEvidence";
 
 /**
- * Hooks the bundler adapter passes into {@link transformTtsc} so transform
+ * Hooks the bundler adapter passes into `transformTtsc` so transform
  * side-channels (plugin-reported dependencies and host resolver inputs) reach
  * the bundler without leaking extra fields on the returned `TransformResult`.
  */
@@ -17,7 +17,7 @@ export interface TtscTransformHooks {
    * `graph.candidates`, `graph.resolutionInputs`, and the universal
    * `graph.configs` chain remain. Adapters forward this to the bundler's
    * `addWatchFile` so type-only inputs participate in watch-mode and
-   * persistent-cache invalidation. See {@link selectWatchInputs} for the exact
+   * persistent-cache invalidation. See `selectWatchInputs` for the exact
    * derivation.
    */
   addWatchFile?: (file: string, evidence?: TtscWatchInputEvidence) => void;

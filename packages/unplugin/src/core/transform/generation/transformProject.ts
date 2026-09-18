@@ -19,12 +19,13 @@ const TRANSFORM_GENERATION_ATTEMPTS = 2;
  * a filesystem race.
  *
  * A capture whose snapshot could not be proven stable is disposed and attempted
- * again. A second failure becomes a terminal {@link TtscUnstableGenerationError}
- * that carries the failed environment, so later deliveries replay the verdict
- * until that environment provably changes instead of each repeating a
- * whole-project compile. A failed compile (a `failure` or `exception` envelope)
- * is returned as is, because its proof is about its diagnostics, not about a
- * stable snapshot.
+ * again. A second failure becomes a terminal `TtscUnstableGenerationError` that
+ * carries the failed environment, so later deliveries replay the verdict until
+ * that environment provably changes instead of each repeating a whole-project
+ * compile. A failed compile (a `failure` or `exception` envelope) is returned
+ * as is once its config state stayed coherent, because its proof is about its
+ * diagnostics, not about a stable snapshot; a config that moved during the
+ * compile is retried like any other lost race.
  */
 export async function transformProject(props: {
   aliasPaths: Record<string, string[]>;

@@ -26,6 +26,10 @@ interface IRealNativeEnvelopeTransformation {
   typescript?: Record<string, string>;
 }
 
+/**
+ * The transform cache as the scenarios inspect it: in-flight generations keyed
+ * by cache key, each exposing its envelope and snapshot completeness.
+ */
 export type RealNativeEnvelopeCache = Map<
   string,
   Promise<{

@@ -6,9 +6,10 @@ import type { TtscTransformFilesystemOperations } from "./TtscTransformFilesyste
  * The host filesystem, expressed as the operations every generation proof uses.
  *
  * Synchronous on purpose: a proof compares a before and an after observation,
- * and nothing may interleave between them on the same turn. Metadata reads use
- * `bigint` stats for nanosecond precision, and `realpath` uses the native form
- * so Windows short names expand to what native watchers report.
+ * and nothing may interleave between them on the same turn. `lstat` and
+ * `statBigInt` read `bigint` stats for nanosecond precision, while `stat` keeps
+ * the ordinary form for classification only. `realpath` uses the native form so
+ * Windows short names expand to what native watchers report.
  */
 export const DEFAULT_FILESYSTEM_OPERATIONS: TtscTransformFilesystemOperations =
   Object.freeze({

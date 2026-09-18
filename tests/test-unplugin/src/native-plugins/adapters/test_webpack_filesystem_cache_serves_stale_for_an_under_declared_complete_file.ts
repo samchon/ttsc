@@ -13,13 +13,13 @@ import { createWebpackConfig } from "../../internal/adapter-webpack/createWebpac
  * stale generated code, exactly as if no graph existed.
  *
  * The producer here emits the reference graph edge, so
- * {@link assertWebpackFilesystemCacheRebuildsThroughTypeOnlyEdge} proves the
- * same project rebuilds soundly. The only difference is the declaration: the
- * plugin vouches that `src/main.ts`'s reported dependency list is complete
- * while reporting nothing, even though it reads `src/mytype.ts`. The host
- * honors the claim, drops the graph edge, and the loader never re-runs. This is
- * the responsibility transfer made observable: the platform behaves as
- * documented, and the stale output is the plugin's bug.
+ * `assertWebpackFilesystemCacheRebuildsThroughTypeOnlyEdge` proves the same
+ * project rebuilds soundly. The only difference is the declaration: the plugin
+ * vouches that `src/main.ts`'s reported dependency list is complete while
+ * reporting nothing, even though it reads `src/mytype.ts`. The host honors the
+ * claim, drops the graph edge, and the loader never re-runs. This is the
+ * responsibility transfer made observable: the platform behaves as documented,
+ * and the stale output is the plugin's bug.
  */
 export async function test_webpack_filesystem_cache_serves_stale_for_an_under_declared_complete_file(): Promise<void> {
   const root = createTypeEdgeProject(true, true);

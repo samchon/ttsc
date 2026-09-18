@@ -63,7 +63,7 @@ export function captureExternalInputSnapshot(
   let complete = true;
   // Sandwich every read between two metadata signatures. Only a signature that
   // survived its own read, and whose stamp's tick the filesystem's clock has
-  // provably left ({@link stampSeparable}), may stand in for the content
+  // provably left (`stampSeparable`), may stand in for the content
   // comparison; a write racing the capture, or a stamp a same-tick rewrite
   // could still reproduce, leaves the input without one, so revalidation keeps
   // re-reading it.

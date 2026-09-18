@@ -9,9 +9,9 @@ import { runProjectBuild } from "../../internal/transform-project-cache/runProje
  *
  * Every compiler output key sits inside the project walk, so this holds on both
  * the old and fixed code; the out-of-walk regression is pinned separately by
- * {@link assertCacheHitsDespiteOutOfWalkOutputKey}. A single `transformTtsc`
- * over N modules sharing one cache must spawn the native transform once; the
- * remaining modules read their output from the cached whole-project result.
+ * `assertCacheHitsDespiteOutOfWalkOutputKey`. A single `transformTtsc` over N
+ * modules sharing one cache must spawn the native transform once; the remaining
+ * modules read their output from the cached whole-project result.
  */
 export async function test_transformttsc_caches_one_compile_across_a_multi_file_project(): Promise<void> {
   // Share one Go fixture build per process; transformTtsc shells out to it.
