@@ -19,6 +19,7 @@ import { hasMultipleLinks } from "./hasMultipleLinks";
 import { invalidateImporters } from "./invalidateImporters";
 import { linkedComponents } from "./linkedComponents";
 import { nearestExistingDirectory } from "./nearestExistingDirectory";
+import { openIsolatedRecursiveWatch } from "./openIsolatedRecursiveWatch";
 import { openRecursiveWatch } from "./openRecursiveWatch";
 import { openWatchPoller } from "./openWatchPoller";
 import { realpath } from "./realpath";
@@ -61,7 +62,14 @@ export function createViteServeInputWatch(
   let poller: { close(): void } | undefined;
   let flushTimer: NodeJS.Timeout | undefined;
 
-  const open = operations.watch ?? openRecursiveWatch;
+  // Windows runs every native observer in the isolated watch broker, so an
+  // abort in Node's fs-event backend cannot take the dev server down with it
+  // (samchon/ttsc#1411).
+  const open =
+    operations.watch ??
+    (process.platform === "win32"
+      ? openIsolatedRecursiveWatch
+      : openRecursiveWatch);
   const openPoller = operations.poll ?? openWatchPoller;
   const platform = operations.platform ?? process.platform;
   const createCaseIdentities = () =>
@@ -402,6 +410,18 @@ export function createViteServeInputWatch(
     entry: InputEntry,
     external: boolean,
   ): boolean => {
+    // An ancestor of the project root belongs to the machine, not to the
+    // project: TypeScript-Go probes `node_modules` in every ancestor, so a
+    // missing probe there would otherwise open a recursive observer on a home
+    // or `AppData` directory (samchon/ttsc#1411). Such an entry is polled
+    // instead; the project root itself is the pinned scope's.
+    if (
+      external &&
+      projectRoot !== undefined &&
+      containsPath(root, projectRoot)
+    ) {
+      return false;
+    }
     const scope = ensureScope(root, external);
     if (scope === undefined) return false;
     scope.entries.add(entry);

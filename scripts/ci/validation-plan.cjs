@@ -201,6 +201,7 @@ const LANES = [
       "--include=non_source_host_inputs --include=policy_reports " +
       "--include=compiler_inputs --include=subscription_and_alias " +
       "--include=bun_native_host --include=host_input_tracker " +
+      "--include=vite_serve --include=machine_directory " +
       "--include=predicate_proofs --include=real_native_envelope && " +
       // `packages/metro/**` selects this lane, so it has to run metro's own
       // walk-facing cases rather than only the adapter's. There is no
