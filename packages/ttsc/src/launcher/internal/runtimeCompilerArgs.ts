@@ -1,7 +1,4 @@
-import { resolveTsgo } from "../../compiler/internal/resolveTsgo";
-import { outputText } from "../../compiler/internal/outputText";
-import { spawnNative } from "../../compiler/internal/spawnNative";
-import { normalizeFlagToken } from "../../flags/normalizeFlagToken";
+import { readEffectiveCompilerOptions } from "../../compiler/internal/readEffectiveCompilerOptions";
 import type { ITtscParsedProjectConfig } from "../../structures/internal/ITtscParsedProjectConfig";
 
 /**
@@ -25,44 +22,9 @@ export function runtimeCompilerArgs(
   passthrough: readonly string[] = [],
   binary?: string,
 ): string[] {
-  let compilerOptions = project.compilerOptions;
-  const hasResponseFile = passthrough.some((token) => token.startsWith("@"));
-  if (hasResponseFile) {
-    // Let TypeScript-Go own response-file quoting, nesting, cwd, and ordering.
-    // Replaying just the visible flags would overwrite options inside @files.
-    const tsgo = resolveTsgo({ cwd: project.root, binary });
-    const result = spawnNative(
-      tsgo.binary,
-      ["-p", project.path, ...passthrough, "--showConfig"],
-      { cwd: project.root, encoding: "utf8" },
-    );
-    // Preserve the original compiler's diagnostic when its arguments are invalid.
-    if (result.status !== 0) return [...passthrough];
-    compilerOptions = JSON.parse(outputText(result.stdout)).compilerOptions;
-  }
-  const option = (name: string, aliases: readonly string[] = []): unknown => {
-    if (hasResponseFile) return compilerOptions[name];
-    let value = compilerOptions[name];
-    for (let i = 0; i < passthrough.length; i++) {
-      const token = passthrough[i]!;
-      if (!token.startsWith("-")) continue;
-      const normalized = normalizeFlagToken(token);
-      if (normalized !== name.toLowerCase() && !aliases.includes(normalized)) {
-        continue;
-      }
-      const next = passthrough[i + 1];
-      value =
-        name === "noLib" &&
-        next !== "true" &&
-        next !== "false" &&
-        next !== "null"
-          ? true
-          : next === "null"
-            ? undefined
-            : next;
-    }
-    return value;
-  };
+  const option = readEffectiveCompilerOptions(project, passthrough, binary);
+  // Preserve the original compiler's diagnostic when its arguments are invalid.
+  if (option === null) return [...passthrough];
   const args = [...passthrough];
   const target = option("target", ["t"]);
   if (typeof target === "string" && target.toLowerCase() === "esnext") {

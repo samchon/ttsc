@@ -51,6 +51,8 @@ export class EmitOwnershipIndex {
 
   private readonly identities: FilesystemPathIdentityContext;
   private readonly answers = new Map<string, string | null>();
+  private readonly answersBySpelling = new Map<string, string | null>();
+  private readonly sourceKeys = new Map<string, readonly SourceCandidate[]>();
   private recorded: ReadonlySet<string> | undefined;
   private buckets: Map<string, string[]> | undefined;
   private linked: string[] | undefined;
@@ -84,9 +86,11 @@ export class EmitOwnershipIndex {
    * Every JavaScript output under `emitDir`, relative to it with `/`
    * separators: the record a build takes of itself once it finishes.
    *
-   * Symbolic links and junctions are not followed. An emit directory can share
-   * its parent with the links of ttsx's virtual project layout, and what those
-   * reach is the user's tree, not this build's output.
+   * Take it as soon as the build finishes, before anything else is placed in
+   * the directory. ttsx's virtual project layout later links or copies the
+   * user's own files in beside the outputs, and a hard link or a copy cannot be
+   * told apart from an output afterwards. Symbolic links and junctions are
+   * never followed, as they reach the user's tree, not this build's output.
    */
   public static listOutputs(emitDir: string): string[] {
     const root = path.resolve(emitDir);
@@ -120,21 +124,27 @@ export class EmitOwnershipIndex {
    *   in any spelling that names it.
    */
   public find(source: string): string | null {
-    // The requested file is resolved afresh on every call: a program may write
-    // a source after an earlier lookup cached its directory as missing.
+    const spelled = path.resolve(source);
+    const known = this.answersBySpelling.get(spelled);
+    if (known !== undefined) return known;
+    // A spelling not seen before is resolved with a fresh context: a program
+    // may write a source after an earlier lookup cached its directory as
+    // missing.
     const identity = createFilesystemPathIdentityContext({
       throwOnRealpathError: false,
-    }).resolve(path.resolve(source));
-    const cached = this.answers.get(identity.key);
-    if (cached !== undefined) return cached;
-    const answer =
-      this.findForward(identity.path) ??
-      this.findInverse(identity.path, identity.key);
-    this.answers.set(identity.key, answer);
+    }).resolve(spelled);
+    let answer = this.answers.get(identity.key);
+    if (answer === undefined) {
+      answer =
+        this.findForward(identity.path, identity.key) ??
+        this.findInverse(identity.path, identity.key);
+      this.answers.set(identity.key, answer);
+    }
+    this.answersBySpelling.set(spelled, answer);
     return answer;
   }
 
-  private findForward(physical: string): string | null {
+  private findForward(physical: string, key: string): string | null {
     const relative = path.relative(this.resolvedRoot(), physical);
     if (relative === "" || isOutsideRelativePath(relative)) return null;
     const stem = relative.slice(
@@ -143,9 +153,11 @@ export class EmitOwnershipIndex {
     );
     for (const extension of emittedExtensions(physical)) {
       const output = stem + extension;
-      if (this.recordedOutputs().has(output.split(path.sep).join("/"))) {
-        return path.join(this.resolvedEmitDir(), output);
+      if (!this.recordedOutputs().has(output.split(path.sep).join("/"))) {
+        continue;
       }
+      const location = path.join(this.resolvedEmitDir(), output);
+      return this.owns(location, key) ? location : null;
     }
     return null;
   }
@@ -168,12 +180,42 @@ export class EmitOwnershipIndex {
 
   private matchOutput(outputs: readonly string[], key: string): string | null {
     for (const output of outputs) {
-      for (const source of this.sourceCandidates(output)) {
-        if (!isFile(source)) continue;
-        if (this.identities.resolve(source).key === key) return output;
-      }
+      if (this.owns(output, key)) return output;
     }
     return null;
+  }
+
+  /**
+   * Whether `output` was compiled from the source whose identity is `key`.
+   *
+   * The output's name admits a few sources: `a.js` comes from `a.ts` or
+   * `a.tsx` (or, under `allowJs`, `a.js` or `a.jsx`). The asked source must
+   * be one of those that exists, and it must be the only TypeScript one. When
+   * `a.ts` and `a.tsx` both exist, the compiler cannot have emitted both into
+   * one file, and nothing here can tell which it did, so neither is claimed and
+   * each is left to a lane that compiles it by itself.
+   */
+  private owns(output: string, key: string): boolean {
+    const sources = this.existingSources(output);
+    if (!sources.some((source) => source.key === key)) return false;
+    return !sources.some(
+      (source) => source.typescript && source.key !== key,
+    );
+  }
+
+  /** The sources that exist for `output`, resolved once per output. */
+  private existingSources(output: string): readonly SourceCandidate[] {
+    let sources = this.sourceKeys.get(output);
+    if (sources === undefined) {
+      sources = this.sourceCandidates(output)
+        .filter(isFile)
+        .map((source) => ({
+          key: this.identities.resolve(source).key,
+          typescript: /\.[cm]?tsx?$/i.test(source),
+        }));
+      this.sourceKeys.set(output, sources);
+    }
+    return sources;
   }
 
   /** Where the source of `output` sits below the root, per source extension. */
@@ -247,6 +289,14 @@ export class EmitOwnershipIndex {
     this.buckets = buckets;
     return buckets;
   }
+}
+
+/** One existing source an output could have been compiled from. */
+interface SourceCandidate {
+  /** Its filesystem identity. */
+  key: string;
+  /** Whether it is TypeScript rather than JavaScript under `allowJs`. */
+  typescript: boolean;
 }
 
 /** Bucket of outputs whose own name may be a Windows 8.3 short name. */

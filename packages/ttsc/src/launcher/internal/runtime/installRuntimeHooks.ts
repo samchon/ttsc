@@ -1557,7 +1557,17 @@ function serveProjectEmit(real: string): ServedSource | null {
   if (served !== null) {
     return served;
   }
-  const root = ensureRootBuilt(tsconfig, real);
+  let root: DependencyBuildGeneration.BuiltProject;
+  try {
+    root = ensureRootBuilt(tsconfig, real);
+  } catch (error) {
+    // A checked root's failure is the run's type gate and stops it. An
+    // emit-only root has no gate to report: its build failing (a read-only
+    // install that refuses the synthesized config, say) leaves the file where
+    // it stood before any project was consulted, the isolated emit.
+    if (rootIsChecked(real)) throw error;
+    return null;
+  }
   const emitted = serveBuiltDependency(root, real);
   if (emitted === null) {
     throw new Error(
@@ -1636,6 +1646,10 @@ function ensureRootBuilt(
   if (cached !== undefined) {
     return cached;
   }
+  const failed = failedRoots.get(memo);
+  if (failed !== undefined) {
+    throw failed;
+  }
   const { cacheDir, lockDir, metaPath, root } = dependencyCachePaths(
     tsconfig,
     identity,
@@ -1646,14 +1660,25 @@ function ensureRootBuilt(
     return reuse;
   }
   fs.mkdirSync(root, { recursive: true });
-  const built = withBuildLock(cacheDir, metaPath, lockDir, () =>
-    buildRoot(tsconfig, source, cacheDir, metaPath),
-  );
+  let built: DependencyBuildGeneration.BuiltProject;
+  try {
+    built = withBuildLock(cacheDir, metaPath, lockDir, () =>
+      buildRoot(tsconfig, source, cacheDir, metaPath),
+    );
+  } catch (error) {
+    // The same content fails the same way, so a second reach of this root in
+    // the process (a name scan, then the load) reports without building again.
+    failedRoots.set(memo, error);
+    throw error;
+  }
   builtRoots.set(memo, built);
   return built;
 }
 
 const builtRoots = new Map<string, DependencyBuildGeneration.BuiltProject>();
+
+/** Roots whose build failed in this process, by the same key as {@link builtRoots}. */
+const failedRoots = new Map<string, unknown>();
 
 /** SHA-256 of a file's bytes, or of nothing when it cannot be read. */
 function contentDigest(file: string): string {
@@ -1690,7 +1715,7 @@ function buildRoot(
   let built: ReturnType<typeof buildSingleRootProject>;
   try {
     built = buildSingleRootProject({
-      checked: !isInstalledPackageSource(source),
+      checked: rootIsChecked(source),
       emitDir,
       key: `${process.pid}-${generation}`,
       options: { plugins: rootPluginPolicy() },
@@ -1727,6 +1752,23 @@ function rootPluginPolicy(): false | undefined {
   )
     ? false
     : undefined;
+}
+
+/**
+ * Whether a root no build covered is type-checked before it runs.
+ *
+ * A root of the user's own tree is: it is the user's program. A root inside an
+ * installed package is not, as no other file of that package is. Neither is a
+ * root reached while a plugin descriptor is being loaded: the descriptor is
+ * tooling the compiler runs, evaluated under the consumer's config, whose
+ * `types`, `lib`, and strictness were never chosen for it, and it was never
+ * type-gated before it ran.
+ */
+function rootIsChecked(real: string): boolean {
+  return (
+    process.env.TTSC_PLUGIN_DESCRIPTOR_LOAD !== "1" &&
+    !isInstalledPackageSource(real)
+  );
 }
 
 /**

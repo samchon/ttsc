@@ -3,6 +3,7 @@ import path from "node:path";
 
 import { runBuild } from "../../compiler/internal/build/runBuild";
 import { readProjectConfig } from "../../compiler/internal/project/readProjectConfig";
+import { readEffectiveCompilerOptions } from "../../compiler/internal/readEffectiveCompilerOptions";
 import { createFilesystemPathIdentityContext } from "../../internal/pathIdentity/createFilesystemPathIdentityContext";
 import type { TtscCommonOptions } from "../../structures/internal/TtscCommonOptions";
 import { DependencyBuildGeneration } from "./runtime/DependencyBuildGeneration";
@@ -28,14 +29,21 @@ import { runtimeCompilerArgs } from "./runtimeCompilerArgs";
  * any other location silently retargets them. It is removed as soon as the
  * build returns.
  *
- * `rootDir` widens to the nearest directory holding both the project root and
- * the source — for an ordinary out-of-include file, the project root itself;
- * for a symlink out of the tree, the ancestor the two trees share. It has to
- * widen at least that far, because the inherited `rootDir` (`src`) does not
- * contain the file and tsgo emits an input outside `rootDir` to its own source
- * path, beside the user's `.ts`. The caller finds the output through
- * `EmitOwnershipIndex` against the returned `rootDir`, so the widening costs
- * nothing in precision.
+ * `rootDir` is the root of the source's volume. The layout of this emit is
+ * private, so `rootDir` decides nothing here but whether a file of the program
+ * fits under it, and every narrower choice fails some program: the inherited
+ * `rootDir` (`src`) does not contain the root, and a root that imports a
+ * sibling package's source reaches outside any ancestor it shares with the
+ * project. A file outside `rootDir` is TS6059 in a checked build and, in an
+ * emit-only one, an output written beside the user's `.ts`. The caller finds
+ * the output through `EmitOwnershipIndex` against the returned `rootDir`, so
+ * the width costs nothing in precision. A `--rootDir` forwarded on the command
+ * line still wins, as it does in every build, and the returned `rootDir` is
+ * then that one.
+ *
+ * `composite` is switched off. It exists for `tsc -b`, whose project graph
+ * needs every file listed, and inherited here it would reject each import of
+ * the root with TS6307, since only the root is listed.
  *
  * @returns The project the build compiled and the `rootDir` it was pinned to.
  * @throws When the build fails. A checked build fails on any diagnostic; an
@@ -46,7 +54,7 @@ export function buildSingleRootProject(props: {
   source: string;
   /** The owning `tsconfig.json`, whose options the root inherits. */
   tsconfig: string;
-  /** Directory the build runs in and the widened `rootDir` must contain. */
+  /** Directory the build runs in. */
   projectRoot: string;
   /** Directory-safe token, unique per concurrent build of one tsconfig. */
   key: string;
@@ -71,10 +79,11 @@ export function buildSingleRootProject(props: {
   // its own source path with the extension changed instead of under `outDir`,
   // writing a `.js` and its map beside the user's `.ts` where nothing cleans
   // them up.
-  const rootDir = commonAncestorDirectory(
-    path.dirname(props.source),
-    props.projectRoot,
-  );
+  const volumeRoot = path.parse(
+    createFilesystemPathIdentityContext({ throwOnRealpathError: false }).resolve(
+      props.source,
+    ).path,
+  ).root;
   const tsconfig = path.join(
     path.dirname(props.tsconfig),
     `.ttsx-${props.role}.${props.key}.tsconfig.json`,
@@ -84,7 +93,10 @@ export function buildSingleRootProject(props: {
     JSON.stringify(
       {
         extends: props.tsconfig.replace(/\\/g, "/"),
-        compilerOptions: { rootDir: rootDir.replace(/\\/g, "/") },
+        compilerOptions: {
+          composite: false,
+          rootDir: volumeRoot.replace(/\\/g, "/"),
+        },
         // `files` alone does not displace an inherited `include`, and an
         // inherited `exclude` could drop the root back out of the program, so
         // both are overridden explicitly.
@@ -148,7 +160,20 @@ export function buildSingleRootProject(props: {
           .join("\n"),
       );
     }
-    return { project, rootDir };
+    // The root the compiler actually laid the outputs against: the one written
+    // above unless the command line forwarded another.
+    const effective = readEffectiveCompilerOptions(
+      project,
+      options.passthrough,
+      options.binary,
+    )?.("rootDir");
+    return {
+      project,
+      rootDir:
+        typeof effective === "string"
+          ? path.resolve(project.root, effective)
+          : volumeRoot,
+    };
   } finally {
     try {
       fs.rmSync(tsconfig, { force: true });
@@ -156,37 +181,5 @@ export function buildSingleRootProject(props: {
       // Best effort: a leftover synthesized tsconfig must not mask a build
       // failure, and its name can never be mistaken for a real project config.
     }
-  }
-}
-
-/**
- * The nearest directory containing both `left` and `right`, in the physical
- * spelling both of them share.
- *
- * Containment is asked through the same filesystem-identity predicate the
- * runtime hooks use, and the answer is resolved through it too, because tsgo
- * takes the returned `rootDir` verbatim and answering in anything but the
- * physical spelling would leave it unable to place a sibling source under it.
- *
- * Falls back to the left directory when there genuinely is no shared ancestor,
- * as on two different Windows volumes: the root still has to compile, and a
- * `rootDir` that contains it is the closest thing to correct available.
- */
-function commonAncestorDirectory(left: string, right: string): string {
-  const identities = createFilesystemPathIdentityContext({
-    throwOnRealpathError: false,
-  });
-  const from = identities.resolve(path.resolve(left)).path;
-  const target = identities.resolve(path.resolve(right)).path;
-  let current = from;
-  for (;;) {
-    if (identities.isWithin(current, target)) {
-      return current;
-    }
-    const parent = path.dirname(current);
-    if (parent === current) {
-      return from;
-    }
-    current = parent;
   }
 }

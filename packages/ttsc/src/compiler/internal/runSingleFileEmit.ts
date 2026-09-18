@@ -5,6 +5,7 @@ import { createCanonicalTempDirectory } from "../../internal/createCanonicalTemp
 import type { TtscSingleFileEmitOptions } from "../../structures/internal/TtscSingleFileEmitOptions";
 import { readProjectConfig } from "./project/readProjectConfig";
 import { EmitOwnershipIndex } from "./EmitOwnershipIndex";
+import { readEffectiveCompilerOptions } from "./readEffectiveCompilerOptions";
 import { runBuild } from "./build/runBuild";
 
 /**
@@ -37,11 +38,18 @@ export function runSingleFileEmit(options: TtscSingleFileEmitOptions): string {
     tsconfig: options.tsconfig,
   });
   const tsconfig = project.path;
-  // The root `pinInferredRootDir` hands tsgo below: the declared one, which
-  // `readProjectConfig` already absolutized, or the project's own directory.
+  // The root tsgo lays the outputs against: a `--rootDir` forwarded on the
+  // command line, which reaches it after the config; otherwise the declared
+  // one, which `readProjectConfig` already absolutized; otherwise the project's
+  // own directory, which `pinInferredRootDir` hands it below.
+  const effective = readEffectiveCompilerOptions(
+    project,
+    options.passthrough,
+    options.binary,
+  )?.("rootDir");
   const rootDir =
-    typeof project.compilerOptions.rootDir === "string"
-      ? project.compilerOptions.rootDir
+    typeof effective === "string"
+      ? path.resolve(project.root, effective)
       : project.root;
   const outDir = createCanonicalTempDirectory("ttsc-single-file-");
   try {

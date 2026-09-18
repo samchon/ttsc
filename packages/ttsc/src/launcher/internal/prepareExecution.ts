@@ -3,6 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { EmitOwnershipIndex } from "../../compiler/internal/EmitOwnershipIndex";
 import { readProjectConfig } from "../../compiler/internal/project/readProjectConfig";
+import { readEffectiveCompilerOptions } from "../../compiler/internal/readEffectiveCompilerOptions";
 import { runBuild } from "../../compiler/internal/build/runBuild";
 import { createFilesystemPathIdentityContext } from "../../internal/pathIdentity/createFilesystemPathIdentityContext";
 import type { TtscCommonOptions } from "../../structures/internal/TtscCommonOptions";
@@ -205,7 +206,7 @@ function createProjectContext(
   const runtimeCacheKey = resolveRuntimeCacheKey(options.runtimeCacheKey);
   // Resolved once: it now costs a realpath (and, for a missing directory on
   // Windows, a case-sensitivity probe) rather than a string join.
-  const runtimeRootDir = resolveRuntimeSourceRoot(project);
+  const runtimeRootDir = resolveRuntimeSourceRoot(project, options);
   fs.mkdirSync(cacheDirSpelling, { recursive: true });
   // Pin the cache parent before deriving a generation path. Descriptors run
   // after this point and may retarget a caller-controlled symlink or junction;
@@ -281,8 +282,18 @@ function createProjectContext(
  */
 function resolveRuntimeSourceRoot(
   project: ReturnType<typeof readProjectConfig>,
+  options: NonNullable<Parameters<typeof prepareExecution>[1]>,
 ): string {
-  const rootDir = project.compilerOptions.rootDir;
+  // A `--rootDir` forwarded before the entry reaches the compiler after the
+  // config, so it is the root the outputs are laid out against. Invalid
+  // arguments fail the build on their own; the config's root stands until then.
+  const effective = readEffectiveCompilerOptions(
+    project,
+    options.passthrough,
+    options.binary,
+  )?.("rootDir");
+  const rootDir =
+    typeof effective === "string" ? effective : project.compilerOptions.rootDir;
   const identities = createFilesystemPathIdentityContext({
     throwOnRealpathError: false,
   });
@@ -338,9 +349,13 @@ function buildProject(
     tsconfig: context.tsconfig,
   });
   if (result.status === 0) {
+    // Record the build's outputs before the virtual layout links the user's
+    // own files in beside them. Without an `outDir` the emit directory is the
+    // mirror of the project root, and a `tool.js` linked there from the user's
+    // tree would otherwise be recorded as the output of `tool.ts`.
+    context.outputs = EmitOwnershipIndex.listOutputs(context.emitDir);
     linkVirtualProjectLayout(context);
     context.built = true;
-    context.outputs = EmitOwnershipIndex.listOutputs(context.emitDir);
     return;
   }
 
