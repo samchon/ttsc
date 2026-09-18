@@ -113,11 +113,18 @@ export function installRuntimeHooks(options: RuntimeHookOptions = {}): void {
  * types because the entry build owns diagnostics. Isolation prevents imported
  * const-enum inlining and secondary emits, and keeps const enums as runtime
  * exports that the name scanner must also observe.
+ *
+ * With no config there is no `jsx` either, so a `.tsx` orphan is compiled with
+ * the automatic runtime, the one mode that needs no factory in scope: its
+ * import source is `react` unless a `@jsxImportSource` pragma in the file says
+ * otherwise (samchon/ttsc#1408).
  */
 const ISOLATED_EMIT_ARGS = [
   "--ignoreConfig",
   "--target",
   "es2022",
+  "--jsx",
+  "react-jsx",
   "--noCheck",
   "--skipLibCheck",
   "--noResolve",
@@ -1278,6 +1285,9 @@ function orphanCacheFile(
   const key = crypto
     .createHash("sha256")
     .update(tsgo)
+    // The emit policy decides the lowering, so it is part of the key: a cache
+    // filled under an earlier policy must not answer for the current one.
+    .update(`\0${ISOLATED_EMIT_ARGS.join("\0")}`)
     .update("\0isolated-source-map-v1\0")
     .update(filename)
     .update("\0" + format)

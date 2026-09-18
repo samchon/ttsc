@@ -70,6 +70,10 @@ For runtime users, standard TC39 class and member decorators work in both ESM an
 
 TypeScript-Go preserves proposal syntax when `target` is `ESNext`. For execution, `ttsx` lowers that target to `ES2025` in its private runtime build, retaining the original library selection and module kind. Lower targets keep their configured value. The same rule applies when `--target` selects `ESNext` on the command line or in a compiler response file. The project's `tsconfig.json`, source files, and ordinary `ttsc` build output are unchanged.
 
+## JSX
+
+A project that sets `jsx` to `preserve` or `react-native` keeps JSX in its output for another tool, as Next.js projects do by default. Node cannot parse JSX, so `ttsx` compiles it in its private runtime build with the factory the project declares. A `jsxFactory` or `jsxFragmentFactory` selects the classic transform (`react`). Otherwise `ttsx` uses the automatic runtime (`react-jsx`), which reads `jsxImportSource` (default `react`) and per-file `@jsxImportSource` pragmas. The same rule applies to a `--jsx` value forwarded before the entry, to dependencies built through their own `tsconfig.json`, and to `ttsc/register`. A `.tsx` file with no project compiles with the automatic runtime. The `react`, `react-jsx`, and `react-jsxdev` modes already produce executable JavaScript and are used as configured. Your `tsconfig.json` and ordinary `ttsc` output are unchanged.
+
 ## Raw-TypeScript dependencies
 
 The type-check covers your whole program, but at runtime your dependencies are loaded by Node directly. When part of the graph is ESM, Node trips over dependencies that ship raw TypeScript:
