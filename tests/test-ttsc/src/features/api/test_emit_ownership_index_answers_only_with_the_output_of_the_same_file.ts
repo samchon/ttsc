@@ -98,6 +98,21 @@ export const test_emit_ownership_index_answers_only_with_the_output_of_the_same_
       emitted("mapped/pair.js"),
     );
     assert.equal(mapped.find(path.join(root, "mapped", "pair.ts")), null);
+    // Under JSX `preserve` the twins write different files: `doc.ts` owns
+    // `doc.js`, and `doc.tsx`, refused there, owns `doc.jsx`.
+    write(path.join(root, "preserved/doc.ts"));
+    write(path.join(root, "preserved/doc.tsx"));
+    write(path.join(emit, "preserved/doc.js"));
+    write(path.join(emit, "preserved/doc.jsx"));
+    const preserved = new EmitOwnershipIndex({ emitDir: emit, rootDir: root });
+    assert.equal(
+      preserved.find(path.join(root, "preserved", "doc.ts")),
+      emitted("preserved/doc.js"),
+    );
+    assert.equal(
+      preserved.find(path.join(root, "preserved", "doc.tsx")),
+      emitted("preserved/doc.jsx"),
+    );
     assert.equal(
       index.find(path.join(base, "outside.ts")),
       null,

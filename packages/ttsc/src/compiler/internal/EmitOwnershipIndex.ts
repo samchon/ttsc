@@ -53,7 +53,7 @@ export class EmitOwnershipIndex {
   private readonly answers = new Map<string, string | null>();
   private readonly answersBySpelling = new Map<string, string | null>();
   private readonly sourceKeys = new Map<string, readonly SourceCandidate[]>();
-  private readonly mapped = new Map<string, string | null | undefined>();
+  private readonly mapped = new Map<string, string | undefined>();
   private recorded: ReadonlySet<string> | undefined;
   private buckets: Map<string, string[]> | undefined;
   private linked: string[] | undefined;
@@ -157,8 +157,11 @@ export class EmitOwnershipIndex {
       if (!this.recordedOutputs().has(output.split(path.sep).join("/"))) {
         continue;
       }
+      // Under JSX `preserve`, `a.tsx` writes `a.jsx` while a sibling `a.ts`
+      // owns `a.js`, so an output that is not this source's leaves the next
+      // extension to try.
       const location = path.join(this.resolvedEmitDir(), output);
-      return this.owns(location, key) ? location : null;
+      if (this.owns(location, key)) return location;
     }
     return null;
   }
@@ -211,13 +214,13 @@ export class EmitOwnershipIndex {
   }
 
   /**
-   * The identity of the source `output`'s source map names, `null` when the
-   * map names none this index can resolve, or `undefined` when the output has
-   * no readable map. Read only for an output two sources could have produced.
+   * The identity of the source `output`'s source map names, or `undefined` when
+   * the output has no readable map naming a file on disk. Read only for an
+   * output two sources could have produced.
    */
-  private mappedSource(output: string): string | null | undefined {
+  private mappedSource(output: string): string | undefined {
     if (this.mapped.has(output)) return this.mapped.get(output);
-    let answer: string | null | undefined;
+    let answer: string | undefined;
     try {
       const external = `${output}.map`;
       let text: string | undefined;
@@ -239,16 +242,20 @@ export class EmitOwnershipIndex {
           sources?: unknown;
         };
         const first = Array.isArray(map.sources) ? map.sources[0] : undefined;
-        answer =
+        const named =
           typeof first === "string"
-            ? this.identities.resolve(
-                path.resolve(
-                  base,
-                  typeof map.sourceRoot === "string" ? map.sourceRoot : "",
-                  first,
-                ),
-              ).key
-            : null;
+            ? path.resolve(
+                base,
+                typeof map.sourceRoot === "string" ? map.sourceRoot : "",
+                first,
+              )
+            : undefined;
+        // A `sourceRoot` the project points at a URL names no file on disk.
+        // Such a map proves nothing, so it counts as no map at all.
+        answer =
+          named !== undefined && isFile(named)
+            ? this.identities.resolve(named).key
+            : undefined;
       }
     } catch {
       answer = undefined;
