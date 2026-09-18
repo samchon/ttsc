@@ -9,6 +9,8 @@ import { hostInputRealpath } from "../inputs/hostInputRealpath";
 import { missingPathProbe } from "../inputs/missingPathProbe";
 import type { TtscProjectMutationTracker } from "./TtscProjectMutationTracker";
 import type { TtscTrackedInputScope } from "./TtscTrackedInputScope";
+import { registerBrokeredMutationTracker } from "./broker/registerBrokeredMutationTracker";
+import { usesWatchBroker } from "./broker/usesWatchBroker";
 import { closeDirectoryWatches } from "./closeDirectoryWatches";
 import { openDirectoryWatch } from "./openDirectoryWatch";
 import { pathTraversesSymbolicLink } from "./pathTraversesSymbolicLink";
@@ -16,7 +18,6 @@ import { recordProjectChange } from "./recordProjectChange";
 import { recordProjectMutation } from "./recordProjectMutation";
 import { trackedInputScope } from "./trackedInputScope";
 import { watchLocationIdentity } from "./watchLocationIdentity";
-import { registerWindowsProjectMutationTracker } from "./windows/registerWindowsProjectMutationTracker";
 
 /** Maximum unrelated roots watched before snapshot validation takes over. */
 const MAX_HOST_INPUT_WATCH_SCOPES = 16;
@@ -240,11 +241,11 @@ export async function createHostInputMutationTracker(
     }
   };
   /**
-   * The one event decision both backends share, so the POSIX listener and the
-   * Windows broker cannot disagree about the same event (samchon/ttsc#1384). A
-   * rename-only tracker drops every other event before it is classified, and an
-   * event the backend could not attribute to a name may concern any input below
-   * the watched directory, so it always counts.
+   * The one event decision both backends share, so the in-process listener and
+   * the watch broker cannot disagree about the same event (samchon/ttsc#1384).
+   * A rename-only tracker drops every other event before it is classified, and
+   * an event the backend could not attribute to a name may concern any input
+   * below the watched directory, so it always counts.
    */
   const classify = (
     directory: string,
@@ -279,8 +280,8 @@ export async function createHostInputMutationTracker(
     }
     return undefined;
   };
-  if (process.platform === "win32" && filesystem.watch === undefined) {
-    await registerWindowsProjectMutationTracker(
+  if (usesWatchBroker(filesystem)) {
+    await registerBrokeredMutationTracker(
       tracker,
       locations.map((location) => ({
         directory: location.directory,

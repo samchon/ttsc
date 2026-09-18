@@ -202,7 +202,8 @@ const LANES = [
       "--include=compiler_inputs --include=subscription_and_alias " +
       "--include=bun_native_host --include=host_input_tracker " +
       "--include=vite_serve --include=machine_directory " +
-      "--include=predicate_proofs --include=real_native_envelope && " +
+      "--include=predicate_proofs --include=real_native_envelope " +
+      "--include=watch_broker && " +
       // `packages/metro/**` selects this lane, so it has to run metro's own
       // walk-facing cases rather than only the adapter's. There is no
       // Windows-only branch in `@ttsc/metro` itself; what these cases add is
@@ -226,10 +227,15 @@ const LANES = [
       "ulimit -n 65536 && " +
       // The host-input tracker scenario runs FSEvents itself: a watched
       // directory replaced on macOS reports nothing, which only the location
-      // identity check can notice (samchon/ttsc#1384).
+      // identity check can notice (samchon/ttsc#1384). Every macOS watch runs
+      // in the shared-mode watch broker, whose proof that a re-created
+      // FSEventStream is live only FSEvents can exercise: the broker protocol,
+      // the dev server's watcher, and the build bridge run here through it
+      // (samchon/ttsc#1418).
       "pnpm --filter @ttsc/test-unplugin start -- --include=high_darwin_descriptors " +
-      "--include=host_input_tracker",
-    dirs: ["native-plugins"],
+      "--include=host_input_tracker --include=watch_broker " +
+      "--include=vite_serve --include=each_predicate",
+    dirs: ["features", "native-plugins"],
   },
   {
     id: "graph",

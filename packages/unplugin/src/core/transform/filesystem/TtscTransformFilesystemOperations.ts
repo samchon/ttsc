@@ -25,15 +25,17 @@ export interface TtscTransformFilesystemOperations {
    * Open one directory's change notification, or throw when the observed
    * filesystem cannot provide one.
    *
-   * Left undefined, generations watch the host filesystem: `fs.watch` on POSIX
-   * and an isolated broker process on Windows. An embedder observing another
-   * filesystem supplies its own; a generation whose watch cannot be opened
-   * keeps validating from recorded state instead of losing its cache.
+   * Left undefined, generations watch the host filesystem: in process on Linux,
+   * and through an isolated broker process on Windows and macOS. An embedder
+   * observing another filesystem supplies its own; a generation whose watch
+   * cannot be opened keeps validating from recorded state instead of losing its
+   * cache.
    *
-   * Supplying one replaces the Windows broker as well, so an embedder that
-   * wraps Node's own `fs.watch` there gives up the isolation that contains the
-   * native abort Node's Windows fs-event backend can raise when a watched
-   * temporary tree is deleted.
+   * Supplying one replaces the broker as well, so an embedder that wraps Node's
+   * own `fs.watch` gives up what the broker provides: on Windows, containing
+   * the native abort Node's fs-event backend can raise when a watched temporary
+   * tree is deleted, and on macOS, the proof that no event was lost while libuv
+   * re-created the FSEventStream its watches share (samchon/ttsc#1418).
    */
   watch?(
     directory: string,

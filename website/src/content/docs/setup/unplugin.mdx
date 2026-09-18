@@ -335,7 +335,7 @@ Notifications about inputs outside the project walk count only the events that c
 - An absent resolution candidate that exists as a directory counts anything below it, because only replacing that directory can turn it into the file the compiler looked for, and a recursive delete reports the directory's contents before the directory itself.
 - Every input also counts a rename of any of its ancestors, because moving or replacing a directory moves its contents without an event on each of them.
 
-Every platform applies these rules through the same decision, so the Windows notification broker and the POSIX watcher agree. On Linux and macOS, a watch keeps following the directory it opened on after that directory is replaced. Every delivery therefore re-checks each watched directory's identity and stops trusting notifications from one that changed; the Vite dev server's external observers are re-checked by the same bounded poll. The Vite dev server never observes the project root's ancestors: TypeScript-Go probes `node_modules` in each of them, and an input whose nearest existing directory is such an ancestor is polled instead, so no watch ever covers a home or `AppData` directory.
+Every platform applies these rules through the same decision, so the isolated notification broker, which hosts the Windows and macOS watches, and the in-process Linux watcher agree. On Linux and macOS, a watch keeps following the directory it opened on after that directory is replaced. Every delivery therefore re-checks each watched directory's identity and stops trusting notifications from one that changed; the Vite dev server's external observers are re-checked by the same bounded poll. The Vite dev server never observes the project root's ancestors: TypeScript-Go probes `node_modules` in each of them, and an input whose nearest existing directory is such an ancestor is polled instead, so no watch ever covers a home or `AppData` directory.
 
 ### Proving an input unchanged
 
@@ -369,7 +369,9 @@ Declare that the way your tools already expect, and ttsc honors the same declara
 
 Without a declaration, native observers keep their bounded cost, and an unchanged generation still costs one metadata check per delivery.
 
-The barrier that lets a synchronous edit reach those watchers before a delivery reads their verdict is the watcher's own acknowledgement rather than a fixed wait. An in-process watcher answers on the next turn of the loop its callbacks are queued on, and the Windows broker answers by an ordered round-trip, so a delivery waits for the crossing instead of guessing at it.
+The barrier that lets a synchronous edit reach those watchers before a delivery reads their verdict is the watcher's own acknowledgement rather than a fixed wait. An in-process watcher answers on the next turn of the loop its callbacks are queued on, and the broker answers by an ordered round-trip, so a delivery waits for the crossing instead of guessing at it.
+
+macOS needs the broker for a second reason. libuv serves every directory watch of one event loop through a single FSEventStream, and re-creates it whenever any watch in that loop opens or closes. The old stream stops without delivering what it still held, and the new one starts from that moment, so every watch in the loop misses whatever happened in between. In the broker, the loop holds only ttsc's own watches, and it shares one native watch per directory, so a later generation over the same project opens nothing new. When a registration does open or close one, the broker reports it ready only once a probe proves the re-created stream is delivering. It also warns every registration that was already live: a generation stops trusting its watcher's silence and validates against its recorded state, and a Vite dev server scope re-checks every input it covers.
 
 ### Narrowing by declared completeness
 

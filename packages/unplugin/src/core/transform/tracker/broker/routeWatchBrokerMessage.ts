@@ -2,13 +2,13 @@ import path from "node:path";
 
 import { recordProjectChange } from "../recordProjectChange";
 import { recordProjectMutation } from "../recordProjectMutation";
-import type { WindowsProjectMutationBroker } from "./WindowsProjectMutationBroker";
+import type { WatchBroker } from "./WatchBroker";
 
 /**
- * Apply one message from the isolated Windows watch process to the waiter or
- * tracker it names (samchon/ttsc#1387).
+ * Apply one message from the isolated watch process to the waiter or tracker it
+ * names (samchon/ttsc#1387).
  *
- * The child multiplexes every Windows tracker of the process, and every drain,
+ * The child multiplexes every brokered tracker of the process, and every drain,
  * over one ordered IPC channel, so each message carries the request id it
  * answers, and the decision is a table over what else it carries:
  *
@@ -17,6 +17,10 @@ import type { WindowsProjectMutationBroker } from "./WindowsProjectMutationBroke
  *   ordered, so every event the child sent before it has already been applied.
  * - A message for an id with no live registration is ignored. It is the late
  *   event of a tracker already closed.
+ * - `gap` says the child's native watches were re-created while the registration
+ *   was live, so its events may have been lost (samchon/ttsc#1418). The
+ *   registration's own `gap` answers it; without one, the tracker fails, since
+ *   its silence no longer proves anything.
  * - `failed` fails the tracker, and `ready` resolves its registration. One
  *   message can carry both, when some of the watches could not be opened.
  * - An event without a directory is a membership change the child could not
@@ -32,8 +36,8 @@ import type { WindowsProjectMutationBroker } from "./WindowsProjectMutationBroke
  * @param broker The drains and registrations of the broker the child serves.
  * @param message The message as the IPC channel delivered it.
  */
-export function routeWindowsProjectMutationMessage(
-  broker: Pick<WindowsProjectMutationBroker, "drains" | "trackers">,
+export function routeWatchBrokerMessage(
+  broker: Pick<WatchBroker, "drains" | "trackers">,
   message: unknown,
 ): void {
   if (message === null || typeof message !== "object") return;
@@ -42,6 +46,7 @@ export function routeWindowsProjectMutationMessage(
     drained?: boolean;
     failed?: boolean;
     filename?: string | null;
+    gap?: boolean;
     eventType?: string;
     id?: number;
     ready?: boolean;
@@ -55,6 +60,11 @@ export function routeWindowsProjectMutationMessage(
   }
   const registration = broker.trackers.get(record.id);
   if (registration === undefined) return;
+  if (record.gap === true) {
+    if (registration.gap !== undefined) registration.gap();
+    else registration.tracker.failed = true;
+    return;
+  }
   if (record.failed === true) registration.tracker.failed = true;
   if (record.ready === true) registration.ready();
   if (record.ready === true || record.failed === true) return;

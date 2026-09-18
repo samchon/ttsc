@@ -3,7 +3,9 @@ import fs from "node:fs";
 import { openLinuxDirectoryObserver } from "../transform/tracker/linux/openLinuxDirectoryObserver";
 
 /**
- * Open the native recursive observer for one Vite serve scope.
+ * Open the in-process recursive observer for one Vite serve scope, on a
+ * platform whose scopes are not brokered: Windows and macOS open theirs in the
+ * isolated watch broker instead (`openIsolatedRecursiveWatch`).
  *
  * Non-persistent, so it never keeps a dev server process alive by itself.
  * Errors are reported to `onError`, which moves the scope's entries to the

@@ -2,21 +2,26 @@ import path from "node:path";
 
 import type { TtscTransformFilesystemOperations } from "../../filesystem/TtscTransformFilesystemOperations";
 import type { TtscProjectMutationTracker } from "../TtscProjectMutationTracker";
-import { WINDOWS_PROJECT_MUTATION_BROKER } from "./WINDOWS_PROJECT_MUTATION_BROKER";
-import type { WindowsMutationLocation } from "./WindowsMutationLocation";
-import { drainWindowsProjectMutationBroker } from "./drainWindowsProjectMutationBroker";
-import { getWindowsProjectMutationBroker } from "./getWindowsProjectMutationBroker";
+import { WATCH_BROKER } from "./WATCH_BROKER";
+import type { WatchBrokerLocation } from "./WatchBrokerLocation";
+import { drainWatchBroker } from "./drainWatchBroker";
+import { getWatchBroker } from "./getWatchBroker";
 
 /**
- * Register directory watches in an isolated Windows process.
+ * Register directory watches in the isolated watch process, and resolve once
+ * they hear.
  *
- * Node's Windows fs-event backend can assert in native code when a watched
+ * On Windows, Node's fs-event backend can assert in native code when a watched
  * temporary tree is deleted. Isolation turns that unrecoverable process abort
- * into an ordinary broker exit and a conservative cache miss in the host.
+ * into an ordinary broker exit and a conservative cache miss in the host. On
+ * macOS, the child's loop holds only the adapter's own watches, and the child
+ * reports ready only once the FSEventStream they share is proven live
+ * (samchon/ttsc#1418). A read made after this resolves can therefore never race
+ * the watch's start.
  */
-export async function registerWindowsProjectMutationTracker(
+export async function registerBrokeredMutationTracker(
   tracker: TtscProjectMutationTracker,
-  locations: readonly WindowsMutationLocation[],
+  locations: readonly WatchBrokerLocation[],
   allEvents: boolean,
   filesystem: TtscTransformFilesystemOperations,
   /**
@@ -29,7 +34,7 @@ export async function registerWindowsProjectMutationTracker(
   changeAddsMembership?: (location: string, filename: string) => boolean,
   /**
    * The exact-input trackers' shared event decision. When present it is the
-   * only filter the broker applies, so a Windows tracker records exactly what
+   * only filter the broker applies, so a brokered tracker records exactly what
    * the in-process listener would for the same event.
    */
   classify?: (
@@ -37,8 +42,13 @@ export async function registerWindowsProjectMutationTracker(
     filename: string | null,
     eventType: string,
   ) => "change" | "mutation" | undefined,
+  /**
+   * What a gap notice means to this registration; absent, the tracker fails.
+   * See `WatchBroker`.
+   */
+  gap?: () => void,
 ): Promise<void> {
-  const broker = getWindowsProjectMutationBroker();
+  const broker = getWatchBroker();
   // The child watches canonical directories, and reports its events under that
   // spelling. Everything else in the adapter speaks the walk's own spelling,
   // which on Windows can be an 8.3 short form of the same directory, so keep
@@ -74,12 +84,13 @@ export async function registerWindowsProjectMutationTracker(
     ...(changeAddsMembership === undefined ? {} : { changeAddsMembership }),
     ...(classify === undefined ? {} : { classify }),
     ...(content === undefined ? {} : { content }),
+    ...(gap === undefined ? {} : { gap }),
     ...(membership === undefined ? {} : { membership }),
     ready: resolveReady,
     spellings,
     tracker,
   });
-  tracker.drain = () => drainWindowsProjectMutationBroker(broker);
+  tracker.drain = () => drainWatchBroker(broker);
   tracker.close = () => {
     tracker.failed = true;
     const active = broker.trackers.get(id);
@@ -95,8 +106,8 @@ export async function registerWindowsProjectMutationTracker(
       failure = error;
     }
     if (broker.trackers.size === 0) {
-      if (WINDOWS_PROJECT_MUTATION_BROKER.current === broker) {
-        WINDOWS_PROJECT_MUTATION_BROKER.current = undefined;
+      if (WATCH_BROKER.current === broker) {
+        WATCH_BROKER.current = undefined;
       }
       try {
         broker.child.disconnect?.();

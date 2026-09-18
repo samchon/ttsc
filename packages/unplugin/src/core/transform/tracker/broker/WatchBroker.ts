@@ -3,15 +3,15 @@ import type { ChildProcess } from "node:child_process";
 import type { TtscProjectMutationTracker } from "../TtscProjectMutationTracker";
 
 /**
- * The live state of the isolated Windows watch process.
+ * The live state of the isolated watch process.
  *
- * The broker multiplexes every Windows tracker of the process over one IPC
- * channel. Registrations and drains are counted so the channel is referenced
- * only while a reply is outstanding, and each tracker keeps the filters and the
- * spelling map it needs to translate the child's canonical paths back to the
- * spellings the rest of the adapter compares.
+ * The broker multiplexes every Windows and macOS tracker of the process over
+ * one IPC channel. Registrations and drains are counted so the channel is
+ * referenced only while a reply is outstanding, and each tracker keeps the
+ * filters and the spelling map it needs to translate the child's canonical
+ * paths back to the spellings the rest of the adapter compares.
  */
-export interface WindowsProjectMutationBroker {
+export interface WatchBroker {
   /** The isolated watch process; unreferenced whenever no reply is outstanding. */
   child: ChildProcess;
   /** Round-trips awaiting the child's reply, by request id. */
@@ -54,6 +54,13 @@ export interface WindowsProjectMutationBroker {
       ) => "change" | "mutation" | undefined;
       /** Classify a backend `change` that can add one unknown program path. */
       changeAddsMembership?: (location: string, filename: string) => boolean;
+      /**
+       * What a gap notice means to this registration (samchon/ttsc#1418): the
+       * child's native watches were re-created while it was live, so events may
+       * have been lost. Absent, the tracker stops trusting its silence and
+       * fails; a Vite serve scope re-checks its entries instead.
+       */
+      gap?: () => void;
       ready: () => void;
       /**
        * The walk's own spelling for each canonical directory the child watches,

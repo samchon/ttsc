@@ -66,12 +66,14 @@ export function createViteServeInputWatch(
   let poller: { close(): void } | undefined;
   let flushTimer: NodeJS.Timeout | undefined;
 
-  // Windows runs every native observer in the isolated watch broker, so an
-  // abort in Node's fs-event backend cannot take the dev server down with it
-  // (samchon/ttsc#1411).
+  // Windows and macOS run every native observer in the isolated watch broker:
+  // Windows so an abort in Node's fs-event backend cannot take the dev server
+  // down with it (samchon/ttsc#1411), and macOS so no watch opened or closed
+  // elsewhere in the dev server can re-create the FSEventStream the scopes
+  // share and lose their events (samchon/ttsc#1418).
   const open =
     operations.watch ??
-    (process.platform === "win32"
+    (process.platform === "win32" || process.platform === "darwin"
       ? openIsolatedRecursiveWatch
       : openRecursiveWatch);
   const openPoller = operations.poll ?? openWatchPoller;

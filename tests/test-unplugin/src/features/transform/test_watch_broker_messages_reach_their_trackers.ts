@@ -2,29 +2,29 @@ import assert from "node:assert/strict";
 import path from "node:path";
 
 import type { TtscProjectMutationTracker } from "../../../../../packages/unplugin/lib/core/transform/tracker/TtscProjectMutationTracker.mjs";
-import type { WindowsProjectMutationBroker } from "../../../../../packages/unplugin/lib/core/transform/tracker/windows/WindowsProjectMutationBroker.mjs";
-import { routeWindowsProjectMutationMessage } from "../../../../../packages/unplugin/lib/core/transform/tracker/windows/routeWindowsProjectMutationMessage.mjs";
+import type { WatchBroker } from "../../../../../packages/unplugin/lib/core/transform/tracker/broker/WatchBroker.mjs";
+import { routeWatchBrokerMessage } from "../../../../../packages/unplugin/lib/core/transform/tracker/broker/routeWatchBrokerMessage.mjs";
 
 /**
- * Verifies every message of the isolated Windows watch process reaches the
- * waiter or tracker it names, and records what that tracker's filters admit
+ * Verifies every message of the isolated watch process reaches the waiter or
+ * tracker it names, and records what that tracker's filters admit
  * (samchon/ttsc#1387).
  *
- * The child multiplexes every Windows tracker and every drain over one IPC
- * channel. A drain reply that released the wrong waiter would let a delivery
- * read a tracker before its events arrived, a dropped `failed` flag would let
- * silence stand as proof, and an event recorded under the child's canonical
- * spelling rather than the walk's would compare unequal to every input. The
- * table is pure, so it is decided here on every platform rather than only
- * through a broker process on Windows.
+ * The child multiplexes every Windows and macOS tracker and every drain over
+ * one IPC channel. A drain reply that released the wrong waiter would let a
+ * delivery read a tracker before its events arrived, a dropped `failed` flag or
+ * `gap` notice would let silence stand as proof (samchon/ttsc#1418), and an
+ * event recorded under the child's canonical spelling rather than the walk's
+ * would compare unequal to every input. The table is pure, so it is decided
+ * here on every platform rather than only through a broker process.
  *
- * 1. Route malformed, drain, stale, `ready`, and `failed` messages, and assert
- *    each resolves exactly its own waiter or flag.
+ * 1. Route malformed, drain, stale, `ready`, `failed`, and `gap` messages, and
+ *    assert each resolves exactly its own waiter, flag, or handler.
  * 2. Route events through a classifier, through the project-directory filters, and
  *    through no filter, and assert the witness each records under the walk's
  *    spelling.
  */
-export async function test_windows_broker_messages_reach_their_trackers(): Promise<void> {
+export async function test_watch_broker_messages_reach_their_trackers(): Promise<void> {
   const canonical = path.resolve("/canonical/project");
   const walked = path.resolve("/walked/PROJEC~1");
   const tracker = (): TtscProjectMutationTracker => ({
@@ -34,22 +34,20 @@ export async function test_windows_broker_messages_reach_their_trackers(): Promi
     failed: false,
     membershipChanged: false,
   });
-  type Registration = Parameters<
-    WindowsProjectMutationBroker["trackers"]["set"]
-  >[1];
+  type Registration = Parameters<WatchBroker["trackers"]["set"]>[1];
   const broker = (
     registration: Partial<Registration> = {},
   ): {
     readied: () => number;
     released: string[];
     route: (message: unknown) => void;
-    state: Pick<WindowsProjectMutationBroker, "drains" | "trackers">;
+    state: Pick<WatchBroker, "drains" | "trackers">;
     tracker: TtscProjectMutationTracker;
   } => {
     let readied = 0;
     const released: string[] = [];
     const owned = tracker();
-    const state: Pick<WindowsProjectMutationBroker, "drains" | "trackers"> = {
+    const state: Pick<WatchBroker, "drains" | "trackers"> = {
       drains: new Map([
         [1, () => released.push("drain 1")],
         [2, () => released.push("drain 2")],
@@ -71,7 +69,7 @@ export async function test_windows_broker_messages_reach_their_trackers(): Promi
     return {
       readied: () => readied,
       released,
-      route: (message) => routeWindowsProjectMutationMessage(state, message),
+      route: (message) => routeWatchBrokerMessage(state, message),
       state,
       tracker: owned,
     };
@@ -106,6 +104,27 @@ export async function test_windows_broker_messages_reach_their_trackers(): Promi
     new Set(),
     "a status message is not an event",
   );
+
+  // A gap fails a tracker whose silence was proof, and is answered by a
+  // registration that re-checks instead; either way nothing is recorded.
+  const gapped = broker();
+  gapped.route({ gap: true, id: 99 });
+  assert.equal(gapped.tracker.failed, false, "a stale gap reaches no one");
+  gapped.route({ gap: true, id: 7 });
+  assert.deepEqual(recorded(gapped.tracker), {
+    changes: [],
+    failed: true,
+    membershipChanged: false,
+  });
+  let rechecked = 0;
+  const answered = broker({
+    gap: () => {
+      rechecked += 1;
+    },
+  });
+  answered.route({ gap: true, id: 7 });
+  assert.equal(rechecked, 1);
+  assert.deepEqual(recorded(answered.tracker), recorded(tracker()));
 
   const unattributed = broker();
   unattributed.route({ eventType: "rename", filename: null, id: 7 });

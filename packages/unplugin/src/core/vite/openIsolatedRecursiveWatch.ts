@@ -2,24 +2,28 @@ import path from "node:path";
 
 import { DEFAULT_FILESYSTEM_OPERATIONS } from "../transform/filesystem/DEFAULT_FILESYSTEM_OPERATIONS";
 import type { TtscProjectMutationTracker } from "../transform/tracker/TtscProjectMutationTracker";
-import { registerWindowsProjectMutationTracker } from "../transform/tracker/windows/registerWindowsProjectMutationTracker";
+import { registerBrokeredMutationTracker } from "../transform/tracker/broker/registerBrokeredMutationTracker";
 
 /**
- * Open one recursive observer inside the transform core's isolated Windows
- * watch broker instead of the dev server process (samchon/ttsc#1411).
+ * Open one recursive observer inside the transform core's isolated watch broker
+ * instead of the dev server process.
  *
- * Node's Windows fs-event backend can abort the process that owns a watch, for
- * instance with `Assertion failed: !_wcsnicmp(filename, dir, dirlen)` in
- * `src\win\fs-event.c`. The transform core already runs every Windows watch in
- * a child process for that reason; this gives the Vite serve watcher the same
- * isolation. Every event reaches `listener` with an absolute path, and a watch
- * the broker reports failed reaches `onError`, which hands the scope's entries
- * to the bounded poll.
+ * On Windows, Node's fs-event backend can abort the process that owns a watch,
+ * for instance with `Assertion failed: !_wcsnicmp(filename, dir, dirlen)` in
+ * `src\win\fs-event.c` (samchon/ttsc#1411). On macOS, libuv serves every
+ * directory watch of a loop through one FSEventStream and re-creates it
+ * whenever any watch opens or closes, losing the events in between
+ * (samchon/ttsc#1418). The transform core already runs those platforms' watches
+ * in a child process; this gives the Vite serve watcher the same isolation.
+ * Every event reaches `listener` with an absolute path, and a watch the broker
+ * reports failed reaches `onError`, which hands the scope's entries to the
+ * bounded poll.
  *
- * Registration completes asynchronously. Until the broker confirms the watch,
- * an event can go unheard, so the confirmation is delivered as one unattributed
- * event, which makes the watcher re-check every entry the scope covers against
- * its recorded state.
+ * Registration completes asynchronously, and a later swap of the child's stream
+ * can lose events again. Until the broker confirms the watch, and whenever it
+ * reports such a gap, an event can have gone unheard, so each is delivered as
+ * one unattributed event, which makes the watcher re-check every entry the
+ * scope covers against its recorded state.
  */
 export function openIsolatedRecursiveWatch(
   root: string,
@@ -45,7 +49,10 @@ export function openIsolatedRecursiveWatch(
     },
     membershipChanged: false,
   } as TtscProjectMutationTracker;
-  void registerWindowsProjectMutationTracker(
+  const recheck = (): void => {
+    if (!closed && !failed) listener("rename", null);
+  };
+  void registerBrokeredMutationTracker(
     handle,
     [{ directory: root, recursive: true }],
     true,
@@ -62,14 +69,10 @@ export function openIsolatedRecursiveWatch(
       }
       return undefined;
     },
-  ).then(
-    () => {
-      if (!closed && !failed) listener("rename", null);
-    },
-    () => {
-      handle.failed = true;
-    },
-  );
+    recheck,
+  ).then(recheck, () => {
+    handle.failed = true;
+  });
   return {
     close: () => {
       closed = true;

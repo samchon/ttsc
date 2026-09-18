@@ -11,13 +11,14 @@ import { isPossibleProgramFileName } from "../project/isPossibleProgramFileName"
 import { isProjectWalkDirectory } from "../project/isProjectWalkDirectory";
 import { reportsProgramMembership } from "../project/reportsProgramMembership";
 import type { TtscProjectMutationTracker } from "./TtscProjectMutationTracker";
+import { registerBrokeredMutationTracker } from "./broker/registerBrokeredMutationTracker";
+import { usesWatchBroker } from "./broker/usesWatchBroker";
 import { closeDirectoryWatches } from "./closeDirectoryWatches";
 import { openDirectoryWatch } from "./openDirectoryWatch";
 import { pathTraversesSymbolicLink } from "./pathTraversesSymbolicLink";
 import { recordProjectChange } from "./recordProjectChange";
 import { recordProjectMutation } from "./recordProjectMutation";
 import { watchLocationIdentity } from "./watchLocationIdentity";
-import { registerWindowsProjectMutationTracker } from "./windows/registerWindowsProjectMutationTracker";
 
 /** Watch every walked directory for membership changes after generation. */
 export async function createProjectMutationTracker(
@@ -95,8 +96,8 @@ export async function createProjectMutationTracker(
       !knownDirectories.has(changed) && tracker.covered?.has(changed) !== true
     );
   };
-  if (process.platform === "win32" && filesystem.watch === undefined) {
-    await registerWindowsProjectMutationTracker(
+  if (usesWatchBroker(filesystem)) {
+    await registerBrokeredMutationTracker(
       tracker,
       [{ directory: root, recursive: true }],
       false,

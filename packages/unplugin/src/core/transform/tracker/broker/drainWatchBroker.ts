@@ -1,7 +1,7 @@
-import type { WindowsProjectMutationBroker } from "./WindowsProjectMutationBroker";
+import type { WatchBroker } from "./WatchBroker";
 
 /**
- * Ask the Windows broker to acknowledge, and resolve when it does.
+ * Ask the watch broker to acknowledge, and resolve when it does.
  *
  * The child answers after a turn of its own loop, so a watch callback it had
  * already queued has run, and the ordered IPC channel puts every message it
@@ -13,21 +13,17 @@ import type { WindowsProjectMutationBroker } from "./WindowsProjectMutationBroke
  * the previous fixed grace, after which validation proceeds against whatever
  * the tracker knows, exactly as it did before.
  */
-export function drainWindowsProjectMutationBroker(
-  broker: WindowsProjectMutationBroker,
-): Promise<void> {
+export function drainWatchBroker(broker: WatchBroker): Promise<void> {
   // Every tracker of a generation lives in one broker, so one acknowledgement
   // answers for all of them. Sharing the in-flight round-trip keeps a settle to
   // a single crossing.
-  broker.draining ??= startWindowsProjectMutationDrain(broker).finally(() => {
+  broker.draining ??= startWatchBrokerDrain(broker).finally(() => {
     broker.draining = undefined;
   });
   return broker.draining;
 }
 
-function startWindowsProjectMutationDrain(
-  broker: WindowsProjectMutationBroker,
-): Promise<void> {
+function startWatchBrokerDrain(broker: WatchBroker): Promise<void> {
   return new Promise<void>((resolve) => {
     const id = broker.nextId++;
     let settled = false;
@@ -51,7 +47,7 @@ function startWindowsProjectMutationDrain(
     broker.pendingDrains += 1;
     broker.child.ref();
     broker.child.channel?.ref?.();
-    const timer = setTimeout(release, WINDOWS_MUTATION_DRAIN_FALLBACK_MS);
+    const timer = setTimeout(release, WATCH_BROKER_DRAIN_FALLBACK_MS);
     broker.drains.set(id, release);
     if (broker.child.send?.({ id, op: "drain" }) !== true) {
       release();
@@ -60,4 +56,4 @@ function startWindowsProjectMutationDrain(
 }
 
 /** The wait a broker that stopped answering degrades to. */
-const WINDOWS_MUTATION_DRAIN_FALLBACK_MS = 10;
+const WATCH_BROKER_DRAIN_FALLBACK_MS = 10;
