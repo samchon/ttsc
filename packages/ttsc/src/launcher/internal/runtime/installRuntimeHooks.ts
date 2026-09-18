@@ -1931,6 +1931,11 @@ function buildDependency(
     passthrough: runtimeCompilerArgs(project),
     emit: true,
     outDir: emitDir,
+    // Every output this build writes stays in ttsx's private directory: a
+    // declared `declarationDir`, `tsBuildInfoFile`, or `outFile`, and any
+    // output location forwarded on the command line, would otherwise land in
+    // the user's tree (samchon/ttsc#1404).
+    isolateOutputsTo: emitDir,
     // The generation directory is an `outDir` this lane injected, not one the
     // dependency declared, and tsgo demands an explicit `rootDir` (TS5011) as
     // soon as any `outDir` is in play. Pinning the root tsgo would infer keeps

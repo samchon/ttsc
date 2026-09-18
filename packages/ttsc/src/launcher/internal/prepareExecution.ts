@@ -155,9 +155,10 @@ function buildEntryProject(
  * transform plugins, `target`, `paths`, and source map all silently dropped —
  * from a run that still prints and still exits zero.
  *
- * Resolving the link widens `rootDir` to the ancestor the two trees share,
- * which is not a cost but the requirement: the file genuinely lives outside the
- * project, and no root that excludes it can compile it.
+ * Resolving the link can place the entry outside the project, which is the
+ * truth rather than a cost: the file genuinely lives there. The project build
+ * then does not emit it, and the entry-only build, whose private layout is
+ * rooted at the volume, compiles it wherever it lives.
  */
 function resolveEntrySpelling(cwd: string, entryFile: string): string {
   const identities = createFilesystemPathIdentityContext({
@@ -323,6 +324,11 @@ function buildProject(
     env: options.env,
     cacheDir: context.pluginCacheDir,
     outDir: context.emitDir,
+    // Every output this build writes stays in ttsx's private directory: a
+    // declared `declarationDir`, `tsBuildInfoFile`, or `outFile`, and any
+    // output location forwarded on the command line, would otherwise land in
+    // the user's tree (samchon/ttsc#1404).
+    isolateOutputsTo: context.emitDir,
     passthrough: runtimeCompilerArgs(
       context.project,
       options.passthrough,

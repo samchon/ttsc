@@ -124,6 +124,11 @@ export function buildSingleRootProject(props: {
       env: options.env,
       cacheDir: options.cacheDir,
       outDir: props.emitDir,
+      // Every output this build writes stays in ttsx's private directory: a
+      // declared `declarationDir`, `tsBuildInfoFile`, or `outFile`, and any
+      // output location forwarded on the command line, would otherwise land in
+      // the user's tree (samchon/ttsc#1404).
+      isolateOutputsTo: props.emitDir,
       passthrough: runtimeCompilerArgs(
         project,
         options.passthrough,
