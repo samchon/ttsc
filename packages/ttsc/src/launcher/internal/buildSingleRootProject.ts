@@ -29,9 +29,12 @@ import { runtimeCompilerArgs } from "./runtimeCompilerArgs";
  * `${configDir}` is substituted with the directory of the config tsgo was
  * given, and the default `typeRoots` and each `types` entry are looked up from
  * there. A checked build needs all of them exactly as the user's config sees
- * them, so its tsconfig is written beside the real one. An emit-only build
- * ignores diagnostics, and none of those lookups changes what it emits, with
- * one exception: `${configDir}` inside `paths` or `baseUrl` decides which
+ * them, so its tsconfig is written beside the real one, and a directory that
+ * refuses the write is reported by name. TypeScript-Go's command line cannot
+ * combine a project with a file list, and ttsc ships no host that replaces a
+ * project's roots in memory, so no other placement is faithful. An emit-only
+ * build ignores diagnostics, and none of those lookups changes what it emits,
+ * with one exception: `${configDir}` inside `paths` or `baseUrl` decides which
  * module an import resolves to, and so whether a re-exported name is elided as
  * a type. Unless its config chain uses `${configDir}`, an emit-only build's
  * tsconfig is written beside `emitDir` instead, because such a build runs while
@@ -110,30 +113,34 @@ export function buildSingleRootProject(props: {
     `.ttsx-${props.role}.${props.key}.tsconfig.json`,
   );
   fs.mkdirSync(path.dirname(tsconfig), { recursive: true });
-  fs.writeFileSync(
-    tsconfig,
-    JSON.stringify(
-      {
-        extends: props.tsconfig.replace(/\\/g, "/"),
-        compilerOptions: {
-          composite: false,
-          declaration: false,
-          declarationMap: false,
-          ...(props.checked ? {} : { noEmitOnError: false }),
-          rootDir: volumeRoot.replace(/\\/g, "/"),
+  try {
+    fs.writeFileSync(
+      tsconfig,
+      JSON.stringify(
+        {
+          extends: props.tsconfig.replace(/\\/g, "/"),
+          compilerOptions: {
+            composite: false,
+            declaration: false,
+            declarationMap: false,
+            ...(props.checked ? {} : { noEmitOnError: false }),
+            rootDir: volumeRoot.replace(/\\/g, "/"),
+          },
+          // `files` alone does not displace an inherited `include`, and an
+          // inherited `exclude` could drop the root back out of the program,
+          // so both are overridden explicitly.
+          files: [props.source.replace(/\\/g, "/")],
+          include: [],
+          exclude: [],
         },
-        // `files` alone does not displace an inherited `include`, and an
-        // inherited `exclude` could drop the root back out of the program, so
-        // both are overridden explicitly.
-        files: [props.source.replace(/\\/g, "/")],
-        include: [],
-        exclude: [],
-      },
-      null,
-      2,
-    ),
-    "utf8",
-  );
+        null,
+        2,
+      ),
+      "utf8",
+    );
+  } catch (error) {
+    throw unwritableConfigDirectory(error, props, path.dirname(tsconfig));
+  }
   try {
     const project = readProjectConfig({
       cwd: props.projectRoot,
@@ -220,4 +227,30 @@ export function buildSingleRootProject(props: {
       // failure, and its name can never be mistaken for a real project config.
     }
   }
+}
+
+/**
+ * The error for a synthesized tsconfig the filesystem refused, naming the
+ * directory and what to do instead of surfacing a bare `EPERM`. Any other
+ * failure is returned unchanged.
+ *
+ * TypeScript-Go's command line cannot combine a project with a file list, so a
+ * build that must read the anchors of a tsconfig from its own directory needs a
+ * tsconfig in that directory. A read-only checkout, mount, or volume refuses
+ * it.
+ */
+function unwritableConfigDirectory(
+  error: unknown,
+  props: { source: string; tsconfig: string },
+  directory: string,
+): unknown {
+  const code = (error as NodeJS.ErrnoException | null)?.code;
+  if (code !== "EACCES" && code !== "EPERM" && code !== "EROFS") return error;
+  return new Error(
+    [
+      `ttsx: cannot compile ${props.source} with the options of ${props.tsconfig}: ${directory} is not writable (${code}).`,
+      "The file is outside that project's file set, and ttsx compiles it through a temporary tsconfig placed beside the project's own for the length of the build.",
+      `Make the directory writable, or add the file to the project's "include" or "files".`,
+    ].join("\n"),
+  );
 }
