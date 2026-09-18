@@ -23,11 +23,22 @@ import { runtimeCompilerArgs } from "./runtimeCompilerArgs";
  * launcher's entry when the project build did not emit it, and a TypeScript
  * file the running program reaches that no build compiled (samchon/ttsc#1382).
  *
- * The synthesized tsconfig is written beside the real one on purpose. `extends`
- * with an absolute path would resolve from anywhere, but `${configDir}` and
- * `paths` are anchored to the directory of the config that consumes them, so
- * any other location silently retargets them. It is removed as soon as the
- * build returns.
+ * Where the synthesized tsconfig lives depends on what the build reads from its
+ * location. `extends` with an absolute path resolves from anywhere, and every
+ * relative option resolves against the config that declares it, but
+ * `${configDir}` is substituted with the directory of the config tsgo was
+ * given, and the default `typeRoots` and each `types` entry are looked up from
+ * there. A checked build needs all of them exactly as the user's config sees
+ * them, so its tsconfig is written beside the real one. An emit-only build
+ * ignores diagnostics, and none of those lookups changes what it emits, with
+ * one exception: `${configDir}` inside `paths` or `baseUrl` decides which
+ * module an import resolves to, and so whether a re-exported name is elided as
+ * a type. Unless its config chain uses `${configDir}`, an emit-only build's
+ * tsconfig is written beside `emitDir` instead, because such a build runs while
+ * the program is running, for an installed package whose directory may be
+ * read-only or for a plugin descriptor whose inputs are fingerprinted by their
+ * directory's metadata, and a file created and removed in the user's tree would
+ * disturb both. Either tsconfig is removed as soon as the build returns.
  *
  * `rootDir` is the root of the source's volume. The layout of this emit is
  * private, so `rootDir` decides nothing here but whether a file of the program
@@ -46,6 +57,9 @@ import { runtimeCompilerArgs } from "./runtimeCompilerArgs";
  * the root with TS6307, since only the root is listed. Declarations go with it:
  * nothing at run time reads them, and an inherited `declarationMap` would
  * otherwise fail with TS5069 once `composite` no longer implies `declaration`.
+ * An emit-only build also switches `noEmitOnError` off, since it fails only on
+ * an empty output and an inherited `noEmitOnError` would turn any diagnostic
+ * into one.
  *
  * @returns The project the build compiled and the `rootDir` it was pinned to.
  * @throws When the build fails. A checked build fails on any diagnostic; an
@@ -86,10 +100,16 @@ export function buildSingleRootProject(props: {
       throwOnRealpathError: false,
     }).resolve(props.source).path,
   ).root;
+  const beside =
+    props.checked ||
+    readProjectConfig({ tsconfig: props.tsconfig }).configPaths.some((file) =>
+      fs.readFileSync(file, "utf8").includes("${configDir}"),
+    );
   const tsconfig = path.join(
-    path.dirname(props.tsconfig),
+    beside ? path.dirname(props.tsconfig) : path.dirname(props.emitDir),
     `.ttsx-${props.role}.${props.key}.tsconfig.json`,
   );
+  fs.mkdirSync(path.dirname(tsconfig), { recursive: true });
   fs.writeFileSync(
     tsconfig,
     JSON.stringify(
@@ -99,6 +119,7 @@ export function buildSingleRootProject(props: {
           composite: false,
           declaration: false,
           declarationMap: false,
+          ...(props.checked ? {} : { noEmitOnError: false }),
           rootDir: volumeRoot.replace(/\\/g, "/"),
         },
         // `files` alone does not displace an inherited `include`, and an
@@ -116,7 +137,10 @@ export function buildSingleRootProject(props: {
   try {
     const project = readProjectConfig({
       cwd: props.projectRoot,
-      projectRoot: options.projectRoot,
+      // A tsconfig outside the project would otherwise make its own private
+      // directory the project root.
+      projectRoot:
+        options.projectRoot ?? (beside ? undefined : props.projectRoot),
       tsconfig,
     });
     fs.mkdirSync(props.emitDir, { recursive: true });

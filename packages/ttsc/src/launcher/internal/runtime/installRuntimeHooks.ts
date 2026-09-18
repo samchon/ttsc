@@ -2007,7 +2007,10 @@ function buildDependency(
   fs.mkdirSync(emitDir, { recursive: true });
   const result = runBuild({
     cwd: project.root,
-    passthrough: runtimeCompilerArgs(project),
+    // Emit-only means diagnostics never withhold the emit, so a dependency's
+    // own `noEmitOnError` is switched off: honoured, it would turn any
+    // diagnostic into an empty output and the isolated fallback below.
+    passthrough: [...runtimeCompilerArgs(project), "--noEmitOnError", "false"],
     emit: true,
     outDir: emitDir,
     // Every output this build writes stays in ttsx's private directory: a
