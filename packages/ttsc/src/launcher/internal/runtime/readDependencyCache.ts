@@ -56,9 +56,9 @@ export function readDependencyCache(
     // — so a marker carrying an unresolved spelling was already being reused,
     // and every file of that dependency then missed the ownership index's
     // cheap forward mirror. The pass is idempotent and runs only on a hit, which
-    // `ensureProjectBuilt` memoizes per tsconfig. A marker from an earlier ttsc
-    // survives only under the shared `os.tmpdir()/ttsx-dep` fallback root; the
-    // manifest's own `depCacheDir` is per-process and removed with the run.
+    // `ensureProjectBuilt` memoizes per tsconfig. Every cache root is scoped to
+    // one run or one process and removed with it, so a marker never meets a
+    // ttsc other than the one that wrote it.
     rootDir: DependencyBuildGeneration.resolvePhysicalPath(meta.rootDir),
   };
 }

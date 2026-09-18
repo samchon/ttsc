@@ -1268,9 +1268,63 @@ function orphanCacheRoot(): string {
 }
 
 /**
- * Content-addressed cache path for isolated orphan lowering, including the
- * source path because the inlined map identifies that path. `null` when the
+ * What a compiler binary is, as far as the filesystem can say without reading
+ * its whole content: its physical path, size, modification time, and file
+ * identity. Replacing the binary, whether by a package upgrade or by a rebuilt
+ * wrapper at the same path, changes at least one of them.
+ */
+function compilerIdentity(binary: string): string {
+  let identity = compilerIdentities.get(binary);
+  if (identity === undefined) {
+    try {
+      const real = realPath(binary);
+      const stat = fs.statSync(real);
+      identity = [real, stat.size, stat.mtimeMs, stat.ino, stat.dev].join(
+        "\0",
+      );
+    } catch {
+      identity = binary;
+    }
+    compilerIdentities.set(binary, identity);
+  }
+  return identity;
+}
+
+const compilerIdentities = new Map<string, string>();
+
+/** The version of this ttsc package, which owns the orphan post-processing. */
+function ownPackageVersion(): string {
+  if (ownPackageVersionCache === undefined) {
+    try {
+      const manifest = JSON.parse(
+        fs.readFileSync(
+          path.resolve(__dirname, "..", "..", "..", "..", "package.json"),
+          "utf8",
+        ),
+      ) as { version?: unknown };
+      ownPackageVersionCache =
+        typeof manifest.version === "string" ? manifest.version : "unknown";
+    } catch {
+      ownPackageVersionCache = "unknown";
+    }
+  }
+  return ownPackageVersionCache;
+}
+
+let ownPackageVersionCache: string | undefined;
+
+/**
+ * Content-addressed cache path for isolated orphan lowering, or `null` when the
  * source cannot be read.
+ *
+ * The cache outlives the run under `TTSC_CACHE_DIR`, so a hit has to prove the
+ * current inputs would produce the cached text (samchon/ttsc#1405). The key
+ * holds everything that decides it: the source's bytes and path (the inlined
+ * map names the path), the module format, the emit arguments, the compiler
+ * that lowers it, and the ttsc that post-processes it. The compiler is keyed by
+ * what it is, not where it is: a flat `node_modules` upgrade replaces the
+ * binary at the same path, and a key of the path alone kept serving the old
+ * compiler's output.
  */
 function orphanCacheFile(
   filename: string,
@@ -1285,7 +1339,8 @@ function orphanCacheFile(
   }
   const key = crypto
     .createHash("sha256")
-    .update(tsgo)
+    .update(compilerIdentity(tsgo))
+    .update(`\0ttsc@${ownPackageVersion()}`)
     // The emit policy decides the lowering, so it is part of the key: a cache
     // filled under an earlier policy must not answer for the current one.
     .update(`\0${ISOLATED_EMIT_ARGS.join("\0")}`)

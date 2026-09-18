@@ -1,11 +1,11 @@
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import type { DependencyBuildLockObservation } from "./DependencyBuildLockObservation";
 import { DependencyBuildLockProtocol } from "./DependencyBuildLockProtocol";
 import type { DependencyBuildLockFence } from "./DependencyBuildLockFence";
 import { DependencyBuildGeneration } from "./DependencyBuildGeneration";
 import { RuntimeFilesystem } from "./RuntimeFilesystem";
+import { isLocalProcessGone } from "./isLocalProcessGone";
 
 /**
  * Classify the current state of a dependency build lock directory. Exported for
@@ -34,7 +34,7 @@ export function inspectDependencyBuildLock(
   const owner = readDependencyLockOwner(currentDir);
   if (owner !== null) {
     const label = describeDependencyLockOwner(owner);
-    if (isLocalHostName(owner.hostname) && !isProcessAlive(owner.pid)) {
+    if (isLocalProcessGone(owner)) {
       return {
         state: "abandoned",
         reason: `${label} is no longer running`,
@@ -132,15 +132,3 @@ function describeDependencyLockOwner(owner: DependencyLockOwner): string {
   return `pid ${owner.pid} on ${owner.hostname}${started}`;
 }
 
-function isLocalHostName(hostname: string): boolean {
-  return hostname.toLowerCase() === os.hostname().toLowerCase();
-}
-
-function isProcessAlive(pid: number): boolean {
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch (error) {
-    return (error as NodeJS.ErrnoException).code === "EPERM";
-  }
-}

@@ -190,6 +190,10 @@ If you currently use `tsx`: switching is one command; ergonomics are the same.
 
 Compiled JavaScript is temporary and cleaned after the script exits. Source plugin binaries still use the shared ttsc plugin cache, so repeated runs do not rebuild unchanged Go sidecars. Use `--cache-dir` when you want both the temporary runtime output root and the source-plugin binary cache anchored in a known directory. Relative `--cache-dir` values resolve from `--cwd`; `ttsx` places runtime output under `<cache-dir>/project/<pid>` and plugin binaries under `<cache-dir>/plugins`. The runtime project subtree is still removed after each run. Use `npx ttsc clean --cache-dir <dir>` to wipe an explicit plugin cache.
 
+Dependencies built through their own `tsconfig.json` are built once per run and shared by every process of that run, then removed with it. A process started by your program that has lost the run's manifest, because its environment dropped `TTSX_RUNTIME_MANIFEST` or because it outlived the `ttsx` launcher, builds into a directory of its own that is removed when it exits. Nothing a later run reads was built from older sources.
+
+Raw TypeScript that no `tsconfig.json` owns is lowered once and cached across runs under `TTSC_CACHE_DIR` when it is set, or the system temp directory otherwise. The cache key covers the source, its module format, the emit arguments, the ttsc version, and the compiler binary's identity, not only its path. Upgrading `typescript` in place therefore produces the new compiler's output on the next run without clearing anything.
+
 ## See also
 
 - [TTSC · `ttsc` CLI](/docs/ttsc/compile): the type-check / build front of the same pipeline.
