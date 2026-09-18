@@ -206,13 +206,15 @@ function coveredByAnotherRule(
  * therefore even safer than "it only covers its subtree" implies
  * (samchon/ttsc#1319).
  *
- * The answer comes from {@link PROJECT_WIDE_GLOBS}, an exact set of measured
- * spellings, and that document explains why it is a set rather than a rule.
+ * The answer comes from {@link TURBOPACK_PROJECT_WIDE_GLOB_COVERAGE}, an exact
+ * set of measured spellings, and that document explains why it is a set rather
+ * than a rule.
  */
 function matchesExtension(glob: string, extension: string): boolean {
   return PROJECT_WIDE_GLOBS.get(glob)?.includes(extension) === true;
 }
 
+/** {@link TURBOPACK_PROJECT_WIDE_GLOB_COVERAGE}, keyed by glob for lookup. */
 const PROJECT_WIDE_GLOBS: ReadonlyMap<string, readonly string[]> = new Map(
   TURBOPACK_PROJECT_WIDE_GLOB_COVERAGE,
 );

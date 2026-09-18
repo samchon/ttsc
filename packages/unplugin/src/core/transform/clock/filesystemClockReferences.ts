@@ -34,7 +34,19 @@ const FILESYSTEM_CLOCK_REFERENCES = new WeakMap<
   Map<bigint, bigint>
 >();
 
-/** Return one observed filesystem's current per-device references. */
+/**
+ * Return one observed filesystem's current clock references, creating the empty
+ * map on first use.
+ *
+ * Each entry maps a reporting device to the modification stamp the adapter's
+ * probe last minted there. `refreshFilesystemClockReference` replaces the map's
+ * contents before a validation, and `stampSeparable` reads it: an input whose
+ * stamp is strictly older than its device's reference can be trusted by
+ * signature. A device with no entry proves nothing, so its inputs keep being
+ * compared by content. The map is held per operations object, so references
+ * minted through a replaced filesystem seam never vouch for the host's
+ * filesystem.
+ */
 export function filesystemClockReferences(
   filesystem: TtscTransformFilesystemOperations,
 ): Map<bigint, bigint> {

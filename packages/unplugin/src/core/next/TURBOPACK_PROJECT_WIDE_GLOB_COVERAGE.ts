@@ -1,5 +1,15 @@
 import { TYPESCRIPT_TRANSFORM_EXTENSIONS } from "../source/TYPESCRIPT_TRANSFORM_EXTENSIONS";
 
+/** The source extensions without their leading dot, in shared-table order. */
+const TYPESCRIPT_EXTENSION_NAMES = TYPESCRIPT_TRANSFORM_EXTENSIONS.map(
+  (extension) => extension.slice(1),
+);
+
+/** Every family of two or more source extensions a brace glob can name. */
+const TYPESCRIPT_EXTENSION_GROUPS = extensionCombinations(
+  TYPESCRIPT_EXTENSION_NAMES,
+);
+
 /**
  * The exact glob spellings a real Turbopack build has shown to name every file
  * with an extension, and which extensions each one covers.
@@ -22,25 +32,12 @@ import { TYPESCRIPT_TRANSFORM_EXTENSIONS } from "../source/TYPESCRIPT_TRANSFORM_
  * if any — is a second registration rather than a module that no loader ever
  * sees.
  *
- * `experimental/test-unplugin` reads this exported table from the installed
- * package, drives every entry through one `next build --turbopack`, and asserts
+ * It is exported so `experimental/test-unplugin` can read it from the installed
+ * package instead of keeping a second list that could drift from it. That test
+ * drives every entry through one `next build --turbopack` and asserts that
  * root, nested, and deep `.ts`, `.tsx`, `.mts`, and `.cts` sources match
  * exactly the extension family recorded here. An entry therefore cannot be
  * recognised without that same build measuring it.
- */
-const TYPESCRIPT_EXTENSION_NAMES = TYPESCRIPT_TRANSFORM_EXTENSIONS.map(
-  (extension) => extension.slice(1),
-);
-
-const TYPESCRIPT_EXTENSION_GROUPS = extensionCombinations(
-  TYPESCRIPT_EXTENSION_NAMES,
-);
-
-/**
- * Measured project-wide Turbopack globs and the source extensions each covers.
- *
- * Exported so the packed-package E2E can measure the exact production allowlist
- * instead of maintaining a second list that can drift from it.
  */
 export const TURBOPACK_PROJECT_WIDE_GLOB_COVERAGE: ReadonlyArray<
   readonly [string, readonly string[]]
