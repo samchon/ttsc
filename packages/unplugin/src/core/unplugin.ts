@@ -35,8 +35,9 @@ const name = "ttsc-unplugin";
  * bundler (Vite, Rollup, Rolldown, webpack, Rspack, esbuild, Farm).
  *
  * The factory resolves raw options once, creates one transform cache for the
- * whole plugin instance, and captures Vite alias configuration via the
- * `vite.configResolved` hook so that path aliases are forwarded to the
+ * whole plugin instance (or, for webpack and Rspack, shares the one every
+ * compiler with equal options uses), and captures Vite alias configuration via
+ * the `vite.configResolved` hook so that path aliases are forwarded to the
  * generated tsconfig overlay. A host with a real `buildStart` opens a delivery
  * pass there and keeps its generation across passes; a watching Vite
  * development server keeps persistent validation instead, because its one
