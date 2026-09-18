@@ -1,4 +1,4 @@
-import { spawnSync } from "node:child_process";
+import { spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -351,7 +351,7 @@ function isRelativeSpecifier(specifier: string): boolean {
  * entry project's emit for the hooks; `TTSC_TSGO_BINARY` lets dependency builds
  * find tsgo without re-resolving it from inside the hook.
  */
-function runPreparedEntry(
+async function runPreparedEntry(
   parsed: Exclude<ReturnType<typeof parseCLI>, "help" | "version">,
   execution: ReturnType<typeof prepareExecution>,
   cwd: string,
