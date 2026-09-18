@@ -16,9 +16,10 @@ import { EmitOwnershipIndex } from "../../../../../packages/ttsc/lib/compiler/in
  * lost: an ordinary mirror, a directory the compiler saw through a link, a
  * root named through a link, a file symlink with another name, and each
  * extension mapping. The negative twins pin that a same-named file elsewhere, a
- * declaration file, a file outside the root, an output the record does not
- * list, and an output two TypeScript sources could have produced are never
- * answers.
+ * declaration file, a file outside the root, and an output the record does
+ * not list are never answers, and that an output two TypeScript sources could
+ * have produced goes to the one its source map names, or else to the one the
+ * compiler's extension precedence picks.
  *
  * 1. Lay out sources under a root and outputs under an emit directory, with a
  *    directory link and, where permitted, a file symlink.
@@ -75,9 +76,28 @@ export const test_emit_ownership_index_answers_only_with_the_output_of_the_same_
     assert.equal(found("modules/cjs.cts"), emitted("modules/cjs.cjs"));
     assert.equal(found("view/page.tsx"), emitted("view/page.jsx"));
     assert.equal(found("solo/widget.tsx"), emitted("solo/widget.js"));
-    // `twin.js` could be either source's output; neither is claimed.
-    assert.equal(found("both/twin.ts"), null, "an ambiguous output");
-    assert.equal(found("both/twin.tsx"), null, "an ambiguous output");
+    // `twin.js` could be either source's output. With no source map, the
+    // compiler's precedence decides: `.ts` before `.tsx`.
+    assert.equal(found("both/twin.ts"), emitted("both/twin.js"));
+    assert.equal(found("both/twin.tsx"), null, "the lower-precedence twin");
+    // A source map names the file the compiler actually read.
+    write(path.join(root, "mapped/pair.ts"));
+    write(path.join(root, "mapped/pair.tsx"));
+    write(path.join(emit, "mapped/pair.js"));
+    write(
+      path.join(emit, "mapped/pair.js.map"),
+      JSON.stringify({
+        version: 3,
+        sources: [path.relative(path.join(emit, "mapped"), path.join(root, "mapped/pair.tsx")).split(path.sep).join("/")],
+        mappings: "",
+      }),
+    );
+    const mapped = new EmitOwnershipIndex({ emitDir: emit, rootDir: root });
+    assert.equal(
+      mapped.find(path.join(root, "mapped", "pair.tsx")),
+      emitted("mapped/pair.js"),
+    );
+    assert.equal(mapped.find(path.join(root, "mapped", "pair.ts")), null);
     assert.equal(
       index.find(path.join(base, "outside.ts")),
       null,

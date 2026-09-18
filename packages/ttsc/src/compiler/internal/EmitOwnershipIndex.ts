@@ -53,6 +53,7 @@ export class EmitOwnershipIndex {
   private readonly answers = new Map<string, string | null>();
   private readonly answersBySpelling = new Map<string, string | null>();
   private readonly sourceKeys = new Map<string, readonly SourceCandidate[]>();
+  private readonly mapped = new Map<string, string | null | undefined>();
   private recorded: ReadonlySet<string> | undefined;
   private buckets: Map<string, string[]> | undefined;
   private linked: string[] | undefined;
@@ -189,18 +190,71 @@ export class EmitOwnershipIndex {
    * Whether `output` was compiled from the source whose identity is `key`.
    *
    * The output's name admits a few sources: `a.js` comes from `a.ts` or
-   * `a.tsx` (or, under `allowJs`, `a.js` or `a.jsx`). The asked source must
-   * be one of those that exists, and it must be the only TypeScript one. When
-   * `a.ts` and `a.tsx` both exist, the compiler cannot have emitted both into
-   * one file, and nothing here can tell which it did, so neither is claimed and
-   * each is left to a lane that compiles it by itself.
+   * `a.tsx` (or, under `allowJs`, `a.js` or `a.jsx`). The asked source must be
+   * one of those that exists. When it is the only TypeScript one, that settles
+   * it.
+   *
+   * When `a.ts` and `a.tsx` both exist, only one of them can be in the output.
+   * The build's source map names it: its `sources` entry is the file the
+   * compiler read. Without a map, the compiler's own precedence decides, the
+   * one it applies when it expands `include` and when it resolves `./a`: `.ts`
+   * before `.tsx`, which is the order {@link sourceExtensions} lists them in.
    */
   private owns(output: string, key: string): boolean {
     const sources = this.existingSources(output);
     if (!sources.some((source) => source.key === key)) return false;
-    return !sources.some(
-      (source) => source.typescript && source.key !== key,
-    );
+    const typescript = sources.filter((source) => source.typescript);
+    if (typescript.every((source) => source.key === key)) return true;
+    const mapped = this.mappedSource(output);
+    if (mapped !== undefined) return mapped === key;
+    return typescript[0]!.key === key;
+  }
+
+  /**
+   * The identity of the source `output`'s source map names, `null` when the
+   * map names none this index can resolve, or `undefined` when the output has
+   * no readable map. Read only for an output two sources could have produced.
+   */
+  private mappedSource(output: string): string | null | undefined {
+    if (this.mapped.has(output)) return this.mapped.get(output);
+    let answer: string | null | undefined;
+    try {
+      const external = `${output}.map`;
+      let text: string | undefined;
+      let base = path.dirname(output);
+      if (isFile(external)) {
+        text = fs.readFileSync(external, "utf8");
+        base = path.dirname(external);
+      } else {
+        const inline = fs
+          .readFileSync(output, "utf8")
+          .match(
+            /\/\/# sourceMappingURL=data:application\/json[^,]*;base64,([A-Za-z0-9+/=]+)\s*$/,
+          );
+        if (inline) text = Buffer.from(inline[1]!, "base64").toString("utf8");
+      }
+      if (text !== undefined) {
+        const map = JSON.parse(text) as {
+          sourceRoot?: unknown;
+          sources?: unknown;
+        };
+        const first = Array.isArray(map.sources) ? map.sources[0] : undefined;
+        answer =
+          typeof first === "string"
+            ? this.identities.resolve(
+                path.resolve(
+                  base,
+                  typeof map.sourceRoot === "string" ? map.sourceRoot : "",
+                  first,
+                ),
+              ).key
+            : null;
+      }
+    } catch {
+      answer = undefined;
+    }
+    this.mapped.set(output, answer);
+    return answer;
   }
 
   /** The sources that exist for `output`, resolved once per output. */
