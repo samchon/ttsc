@@ -426,10 +426,13 @@ export function createViteServeInputWatch(
     if (scope === undefined) return false;
     scope.entries.add(entry);
     entry.scopes.add(scope);
-    // A directory-level backend hears only the directories leading to what
-    // its scope covers (samchon/ttsc#1389).
+    // A directory-level backend hears only the directories it watches
+    // (samchon/ttsc#1389): those leading to what its scope covers, and the
+    // covered path itself, whose own entries decide a listing predicate and
+    // whatever appears below a missing one. The path is watched only while it
+    // is a directory, so a file input costs nothing.
     for (
-      let directory = path.dirname(path.resolve(file));
+      let directory = path.resolve(file);
       directory !== scope.root && containsPath(scope.root, directory);
       directory = path.dirname(directory)
     ) {

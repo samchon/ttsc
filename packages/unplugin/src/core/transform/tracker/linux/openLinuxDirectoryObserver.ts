@@ -28,7 +28,8 @@ import { subscribeLinuxDirectoryWatch } from "./subscribeLinuxDirectoryWatch";
  * to cover what it was asked to.
  *
  * @returns The handle, with `track` to watch the directories leading to a path
- *   registered after the observer opened, whatever `admit` says of them.
+ *   registered after the observer opened, and the path itself while it is a
+ *   directory, whatever `admit` says of them.
  */
 export function openLinuxDirectoryObserver(
   root: string,
@@ -131,7 +132,7 @@ export function openLinuxDirectoryObserver(
       if (!pathIsWithin(absolute, base)) return;
       const relative = path.relative(base, absolute);
       let directory = base;
-      for (const segment of relative.split(path.sep).slice(0, -1)) {
+      for (const segment of relative === "" ? [] : relative.split(path.sep)) {
         directory = path.join(directory, segment);
         // Only a directory is ever watched, never a file on the way.
         if (

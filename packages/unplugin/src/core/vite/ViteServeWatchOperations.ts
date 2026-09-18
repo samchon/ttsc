@@ -17,8 +17,8 @@ export interface ViteServeWatchOperations {
    *
    * `admit` names the directories below `root` a directory-level backend must
    * watch, and `track` on the handle forces the directories leading to a newly
-   * covered file; a natively recursive backend needs neither
-   * (samchon/ttsc#1389).
+   * covered path, and the path itself while it is a directory; a natively
+   * recursive backend needs neither (samchon/ttsc#1389).
    */
   watch(
     root: string,

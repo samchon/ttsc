@@ -26,7 +26,8 @@ import { waitFor } from "../../internal/adapter-vite-serve/waitFor";
  *    watched and the file reported relative to the root, while a new package
  *    directory stays unwatched.
  * 3. Track a file below `node_modules` and assert exactly its directory chain
- *    joins the watch set.
+ *    joins the watch set, then track a directory and assert it is watched
+ *    itself.
  * 4. Close both observers and assert every shared watch is released.
  */
 export async function test_directory_observer_watches_only_admitted_directories(): Promise<void> {
@@ -106,6 +107,11 @@ export async function test_directory_observer_watches_only_admitted_directories(
         "src/later",
       ],
       "tracking a file watches exactly the directories leading to it",
+    );
+    first.track(at("node_modules", "pkg-5"));
+    assert.ok(
+      watchedBelowRoot().includes("node_modules/pkg-5"),
+      "tracking a directory watches the directory itself, whose entries a listing decides",
     );
     assert.deepEqual(failures, []);
   } finally {

@@ -10,10 +10,11 @@ import type { InputEntry } from "./InputEntry";
  */
 export interface WatchScope {
   /**
-   * Keys of the directories below `root` that lead to a covered file, the only
-   * ones a directory-level backend watches (samchon/ttsc#1389). A key outlives
-   * the entry that added it, so a pinned scope keeps watching a directory an
-   * input once needed until that directory disappears.
+   * Keys of the covered paths below `root` and the directories leading to them,
+   * the only ones a directory-level backend watches, each while it is a
+   * directory (samchon/ttsc#1389). A key outlives the entry that added it, so a
+   * pinned scope keeps watching a directory an input once needed until that
+   * directory disappears.
    */
   directories: Set<string>;
   /** Entries this observer covers; an unpinned scope closes when it empties. */
