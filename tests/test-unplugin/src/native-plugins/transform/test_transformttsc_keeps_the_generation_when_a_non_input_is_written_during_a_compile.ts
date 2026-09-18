@@ -1,4 +1,3 @@
-import { TestUnpluginProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 
 import { runProjectBuild } from "../../internal/transform-project-cache/runProjectBuild";
@@ -21,8 +20,6 @@ import { runProjectBuild } from "../../internal/transform-project-cache/runProje
  * 3. Assert the plugin ran exactly once.
  */
 export async function test_transformttsc_keeps_the_generation_when_a_non_input_is_written_during_a_compile(): Promise<void> {
-  // Share one Go fixture build per process; transformTtsc shells out to it.
-  TestUnpluginProject.ensureSharedCacheDir();
   const { pluginRuns, outputs } = await runProjectBuild({
     fileCount: 6,
     graphFanout: 4,

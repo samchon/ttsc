@@ -1,4 +1,4 @@
-import { TestUnpluginProject, TestUnpluginRuntime } from "@ttsc/testing";
+import { TestUnpluginRuntime } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -23,8 +23,6 @@ import { projectModules } from "../../internal/transform-project-cache/projectMo
  * 3. Assert a steady project stops recompiling once its snapshot matches again.
  */
 export async function test_transformttsc_unavailable_notifications_keep_the_persistent_cache(): Promise<void> {
-  // Share one Go fixture build per process; transformTtsc shells out to it.
-  TestUnpluginProject.ensureSharedCacheDir();
   const { createTtscTransformCache, resolveOptions, transformTtsc } =
     await TestUnpluginRuntime.loadUnpluginApi();
   const project = createCacheProject({ fileCount: 6, graphFanout: 6 });

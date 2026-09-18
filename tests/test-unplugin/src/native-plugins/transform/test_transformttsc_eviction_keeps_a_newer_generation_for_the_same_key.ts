@@ -1,4 +1,3 @@
-import { TestUnpluginProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 
 import { primeSuccessfulTransform } from "../../internal/transform-project-cache/primeSuccessfulTransform";
@@ -16,8 +15,6 @@ import { primeSuccessfulTransform } from "../../internal/transform-project-cache
  * 3. Assert the delivery rejects and the newer generation survives.
  */
 export async function test_transformttsc_eviction_keeps_a_newer_generation_for_the_same_key(): Promise<void> {
-  // Share one Go fixture build per process; transformTtsc shells out to it.
-  TestUnpluginProject.ensureSharedCacheDir();
   const { api, cache, key, good, file, source, options } =
     await primeSuccessfulTransform();
 

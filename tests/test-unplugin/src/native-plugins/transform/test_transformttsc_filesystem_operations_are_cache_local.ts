@@ -1,4 +1,4 @@
-import { TestUnpluginProject, TestUnpluginRuntime } from "@ttsc/testing";
+import { TestUnpluginRuntime } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -21,8 +21,6 @@ import { projectModules } from "../../internal/transform-project-cache/projectMo
  *    cache's fault never observed the second project.
  */
 export async function test_transformttsc_filesystem_operations_are_cache_local(): Promise<void> {
-  // Share one Go fixture build per process; transformTtsc shells out to it.
-  TestUnpluginProject.ensureSharedCacheDir();
   const { createTtscTransformCache, resolveOptions, transformTtsc } =
     await TestUnpluginRuntime.loadUnpluginApi();
   const firstProject = createCacheProject({ fileCount: 1 });

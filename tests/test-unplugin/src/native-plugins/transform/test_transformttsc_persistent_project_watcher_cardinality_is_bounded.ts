@@ -1,4 +1,4 @@
-import { TestUnpluginProject, TestUnpluginRuntime } from "@ttsc/testing";
+import { TestUnpluginRuntime } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -23,8 +23,6 @@ import { projectModules } from "../../internal/transform-project-cache/projectMo
  *    that is released before delivery.
  */
 export async function test_transformttsc_persistent_project_watcher_cardinality_is_bounded(): Promise<void> {
-  // Share one Go fixture build per process; transformTtsc shells out to it.
-  TestUnpluginProject.ensureSharedCacheDir();
   const {
     beginTtscTransformBuild,
     createTtscTransformCache,

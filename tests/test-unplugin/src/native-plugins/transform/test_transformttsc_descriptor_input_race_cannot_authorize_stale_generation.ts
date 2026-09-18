@@ -1,8 +1,4 @@
-import {
-  TestProject,
-  TestUnpluginProject,
-  TestUnpluginRuntime,
-} from "@ttsc/testing";
+import { TestProject, TestUnpluginRuntime } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -27,8 +23,6 @@ import { createCacheProject } from "../../internal/transform-project-cache/creat
  *    stays reusable.
  */
 export async function test_transformttsc_descriptor_input_race_cannot_authorize_stale_generation(): Promise<void> {
-  // Share one Go fixture build per process; transformTtsc shells out to it.
-  TestUnpluginProject.ensureSharedCacheDir();
   const { createTtscTransformCache, resolveOptions, transformTtsc } =
     await TestUnpluginRuntime.loadUnpluginApi();
   const project = createCacheProject({

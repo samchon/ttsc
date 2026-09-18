@@ -18,8 +18,6 @@ import { primeSuccessfulTransform } from "../../internal/transform-project-cache
  * 3. Deliver again and assert the transform recovers.
  */
 export async function test_transformttsc_evicts_a_rejected_transform_and_recovers(): Promise<void> {
-  // Share one Go fixture build per process; transformTtsc shells out to it.
-  TestUnpluginProject.ensureSharedCacheDir();
   const { api, cache, key, file, source, options } =
     await primeSuccessfulTransform();
 

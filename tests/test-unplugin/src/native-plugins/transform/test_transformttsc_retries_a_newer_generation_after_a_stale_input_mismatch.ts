@@ -19,8 +19,6 @@ import { primeSuccessfulTransform } from "../../internal/transform-project-cache
  * 3. Assert the delivery is transformed and the newer generation remains cached.
  */
 export async function test_transformttsc_retries_a_newer_generation_after_a_stale_input_mismatch(): Promise<void> {
-  // Share one Go fixture build per process; transformTtsc shells out to it.
-  TestUnpluginProject.ensureSharedCacheDir();
   const { api, cache, key, good, file, source, options } =
     await primeSuccessfulTransform();
 

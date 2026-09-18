@@ -1,4 +1,4 @@
-import { TestUnpluginProject, TestUnpluginRuntime } from "@ttsc/testing";
+import { TestUnpluginRuntime } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -21,8 +21,6 @@ import { projectModules } from "../../internal/transform-project-cache/projectMo
  * 3. Deliver every other module once and assert the project compiled once.
  */
 export async function test_transformttsc_avoids_rehashing_the_project_for_each_first_module_delivery(): Promise<void> {
-  // Share one Go fixture build per process; transformTtsc shells out to it.
-  TestUnpluginProject.ensureSharedCacheDir();
   const {
     beginTtscTransformBuild,
     createTtscTransformCache,

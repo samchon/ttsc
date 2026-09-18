@@ -7,6 +7,13 @@ const { test } = require("node:test");
 const { pathToFileURL } = require("node:url");
 
 const root = path.resolve(__dirname, "..", "..");
+// TypeScript 7 ships no classic compiler API; the unplugin package's own
+// declaration build already depends on the legacy one.
+const ts = require(
+  require.resolve("ts-legacy", {
+    paths: [path.join(root, "packages", "unplugin")],
+  }),
+);
 
 test("unplugin scenarios follow the repository test layout", () => {
   const packageRoot = path.join(root, "tests", "test-unplugin");
@@ -31,10 +38,15 @@ test("unplugin scenarios follow the repository test layout", () => {
         `${relative} must be a TypeScript scenario`,
       );
       assert.match(name, /^test_[a-z0-9_]+$/);
+      const exported = exportedDeclarations(file, text);
       assert.deepEqual(
-        [...text.matchAll(/^export\b.*$/gm)].map((match) => match[0]),
-        [`export async function ${name}(): Promise<void> {`],
-        `${relative} must export exactly the one async test its file is named after`,
+        exported.map((entry) => entry.name),
+        [name],
+        `${relative} must export exactly the one test its file is named after`,
+      );
+      assert.ok(
+        exported[0].isAsyncTest,
+        `${relative} must declare it as \`export async function ${name}(): Promise<void>\``,
       );
       assertScenarioDoc(relative, text, name);
       return name;
@@ -53,8 +65,8 @@ test("unplugin scenarios follow the repository test layout", () => {
       !Object.keys(trees).some((tree) =>
         file.startsWith(path.join(source, tree) + path.sep),
       ) &&
-      /^export\s+(?:async\s+function|const)\s+test_/m.test(
-        fs.readFileSync(file, "utf8"),
+      exportedDeclarations(file, fs.readFileSync(file, "utf8")).some((entry) =>
+        entry.name.startsWith("test_"),
       ),
   );
   assert.deepEqual(strays, [], "every scenario must live in a discovered tree");
@@ -462,6 +474,58 @@ function assertScenarioDoc(relative, text, name) {
     /^1\. /.test(blocks.at(-1)) && steps.length >= 2 && steps.length <= 4,
     `${relative} must close with two to four numbered steps`,
   );
+}
+
+/**
+ * Every name a module exports, however it is spelled: declarations, variable
+ * bindings, local and re-exported lists, and a default. `DynamicExecutor` runs
+ * any export whose name starts with its prefix, so the contract has to see
+ * every form rather than only the one it expects.
+ */
+function exportedDeclarations(file, text) {
+  const source = ts.createSourceFile(
+    file,
+    text,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TS,
+  );
+  const flags = (node) => ts.getCombinedModifierFlags(node);
+  const exported = [];
+  for (const statement of source.statements) {
+    if (ts.isExportDeclaration(statement)) {
+      if (statement.exportClause && ts.isNamedExports(statement.exportClause)) {
+        for (const element of statement.exportClause.elements) {
+          exported.push({ isAsyncTest: false, name: element.name.text });
+        }
+      } else {
+        exported.push({ isAsyncTest: false, name: "*" });
+      }
+    } else if (ts.isExportAssignment(statement)) {
+      exported.push({ isAsyncTest: false, name: "default" });
+    } else if (flags(statement) & ts.ModifierFlags.Export) {
+      if (ts.isVariableStatement(statement)) {
+        for (const declaration of statement.declarationList.declarations) {
+          exported.push({
+            isAsyncTest: false,
+            name: declaration.name.getText(source),
+          });
+        }
+        continue;
+      }
+      const isDefault = (flags(statement) & ts.ModifierFlags.Default) !== 0;
+      exported.push({
+        isAsyncTest:
+          ts.isFunctionDeclaration(statement) &&
+          !isDefault &&
+          (flags(statement) & ts.ModifierFlags.Async) !== 0 &&
+          statement.parameters.length === 0 &&
+          statement.type?.getText(source) === "Promise<void>",
+        name: isDefault ? "default" : (statement.name?.text ?? "default"),
+      });
+    }
+  }
+  return exported;
 }
 
 function collectFiles(directory) {

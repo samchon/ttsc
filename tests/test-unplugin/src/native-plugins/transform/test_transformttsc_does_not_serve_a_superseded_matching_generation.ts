@@ -1,4 +1,3 @@
-import { TestUnpluginProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 
 import { primeSuccessfulTransform } from "../../internal/transform-project-cache/primeSuccessfulTransform";
@@ -19,8 +18,6 @@ import { primeSuccessfulTransform } from "../../internal/transform-project-cache
  * 3. Assert the waiting delivery does not return the superseded output.
  */
 export async function test_transformttsc_does_not_serve_a_superseded_matching_generation(): Promise<void> {
-  // Share one Go fixture build per process; transformTtsc shells out to it.
-  TestUnpluginProject.ensureSharedCacheDir();
   const { api, cache, key, good, file, source, options } =
     await primeSuccessfulTransform();
   const goodRecord = good as {

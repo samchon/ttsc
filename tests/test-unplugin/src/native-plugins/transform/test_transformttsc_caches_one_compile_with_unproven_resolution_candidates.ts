@@ -1,4 +1,3 @@
-import { TestUnpluginProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import path from "node:path";
 
@@ -26,8 +25,6 @@ import { runProjectBuild } from "../../internal/transform-project-cache/runProje
  *    realpath calls.
  */
 export async function test_transformttsc_caches_one_compile_with_unproven_resolution_candidates(): Promise<void> {
-  // Share one Go fixture build per process; transformTtsc shells out to it.
-  TestUnpluginProject.ensureSharedCacheDir();
   const { pluginRuns, outputs } = await runProjectBuild({
     fileCount: 6,
     graphCandidates: 3,

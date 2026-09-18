@@ -24,8 +24,6 @@ import { primeSuccessfulTransform } from "../../internal/transform-project-cache
  *    again.
  */
 export async function test_transformttsc_evicts_a_host_exception_transform_and_recovers(): Promise<void> {
-  // Share one Go fixture build per process; transformTtsc shells out to it.
-  TestUnpluginProject.ensureSharedCacheDir();
   const { api, cache, key, good, file, source, options } =
     await primeSuccessfulTransform();
   const projectRoot = (good as { projectRoot: string }).projectRoot;

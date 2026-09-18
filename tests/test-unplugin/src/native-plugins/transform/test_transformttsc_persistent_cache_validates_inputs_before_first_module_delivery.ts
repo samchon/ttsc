@@ -17,8 +17,6 @@ import path from "node:path";
  * 3. Deliver a module not served before and assert the generation was replaced.
  */
 export async function test_transformttsc_persistent_cache_validates_inputs_before_first_module_delivery(): Promise<void> {
-  // Share one Go fixture build per process; transformTtsc shells out to it.
-  TestUnpluginProject.ensureSharedCacheDir();
   const { createTtscTransformCache, resolveOptions, transformTtsc } =
     await TestUnpluginRuntime.loadUnpluginApi();
   const root = TestUnpluginProject.createProject({

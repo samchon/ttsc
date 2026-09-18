@@ -1,8 +1,4 @@
-import {
-  TestProject,
-  TestUnpluginProject,
-  TestUnpluginRuntime,
-} from "@ttsc/testing";
+import { TestProject, TestUnpluginRuntime } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -29,8 +25,6 @@ import { projectModules } from "../../internal/transform-project-cache/projectMo
  *    the next delivery recompiled.
  */
 export async function test_transformttsc_retargeted_candidate_link_invalidates_generation(): Promise<void> {
-  // Share one Go fixture build per process; transformTtsc shells out to it.
-  TestUnpluginProject.ensureSharedCacheDir();
   const { createTtscTransformCache, resolveOptions, transformTtsc } =
     await TestUnpluginRuntime.loadUnpluginApi();
   // Fanout 1 keeps every realized edge target under `dep0`, while the second

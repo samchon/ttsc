@@ -1,4 +1,3 @@
-import { TestUnpluginProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 
 import { runProjectBuild } from "../../internal/transform-project-cache/runProjectBuild";
@@ -18,8 +17,6 @@ import { runProjectBuild } from "../../internal/transform-project-cache/runProje
  * 3. Assert all six outputs are transformed.
  */
 export async function test_transformttsc_caches_one_compile_across_a_multi_file_project(): Promise<void> {
-  // Share one Go fixture build per process; transformTtsc shells out to it.
-  TestUnpluginProject.ensureSharedCacheDir();
   const { pluginRuns, outputs } = await runProjectBuild({ fileCount: 6 });
   assert.equal(pluginRuns, 1);
   assert.equal(outputs.length, 6);

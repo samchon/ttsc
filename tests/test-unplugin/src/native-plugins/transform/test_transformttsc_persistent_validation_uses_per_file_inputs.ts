@@ -1,8 +1,4 @@
-import {
-  TestProject,
-  TestUnpluginProject,
-  TestUnpluginRuntime,
-} from "@ttsc/testing";
+import { TestProject, TestUnpluginRuntime } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -28,8 +24,6 @@ import { projectModules } from "../../internal/transform-project-cache/projectMo
  *    link, and edit a descriptor dependency, and assert each replaces it.
  */
 export async function test_transformttsc_persistent_validation_uses_per_file_inputs(): Promise<void> {
-  // Share one Go fixture build per process; transformTtsc shells out to it.
-  TestUnpluginProject.ensureSharedCacheDir();
   const { createTtscTransformCache, resolveOptions, transformTtsc } =
     await TestUnpluginRuntime.loadUnpluginApi();
   const count = 12;

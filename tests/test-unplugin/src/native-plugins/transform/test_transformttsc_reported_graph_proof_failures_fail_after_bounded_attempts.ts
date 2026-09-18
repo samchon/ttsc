@@ -1,4 +1,4 @@
-import { TestUnpluginProject, TestUnpluginRuntime } from "@ttsc/testing";
+import { TestUnpluginRuntime } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -27,8 +27,6 @@ import { projectModules } from "../../internal/transform-project-cache/projectMo
  *    two attempts with the exact producer reason and path.
  */
 export async function test_transformttsc_reported_graph_proof_failures_fail_after_bounded_attempts(): Promise<void> {
-  // Share one Go fixture build per process; transformTtsc shells out to it.
-  TestUnpluginProject.ensureSharedCacheDir();
   const {
     createTtscTransformCache,
     resetTtscTransformCache,

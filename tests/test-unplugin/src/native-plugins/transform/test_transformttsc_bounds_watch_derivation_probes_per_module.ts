@@ -1,4 +1,4 @@
-import { TestUnpluginProject, TestUnpluginRuntime } from "@ttsc/testing";
+import { TestUnpluginRuntime } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -23,8 +23,6 @@ import { projectModules } from "../../internal/transform-project-cache/projectMo
  * 3. Assert the probes per cache-hit delivery stay within the fan-out bound.
  */
 export async function test_transformttsc_bounds_watch_derivation_probes_per_module(): Promise<void> {
-  // Share one Go fixture build per process; transformTtsc shells out to it.
-  TestUnpluginProject.ensureSharedCacheDir();
   const {
     beginTtscTransformBuild,
     createTtscTransformCache,

@@ -1,4 +1,4 @@
-import { TestUnpluginProject, TestUnpluginRuntime } from "@ttsc/testing";
+import { TestUnpluginRuntime } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -20,8 +20,6 @@ import { createCacheProject } from "../../internal/transform-project-cache/creat
  * 3. Assert eight paths are kept and the omission flag is set.
  */
 export async function test_transformttsc_bounds_generation_mutation_witnesses(): Promise<void> {
-  // Share one Go fixture build per process; transformTtsc shells out to it.
-  TestUnpluginProject.ensureSharedCacheDir();
   const {
     createTtscTransformCache,
     resetTtscTransformCache,
