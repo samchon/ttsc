@@ -17,8 +17,10 @@ import { checkNodeRuntimeSupport } from "./runtime/checkNodeRuntimeSupport";
 
 /**
  * CLI entry point for `ttsx`. Type-checks the owning project via tsgo, emits
- * JavaScript to a PID-isolated temp directory, rewrites ESM specifiers when
- * needed, and executes the compiled entry with the current Node.js runtime.
+ * JavaScript to a PID-isolated temp directory, rewriting relative TypeScript
+ * import extensions when the project allows them, and runs the entry as Node's
+ * main module in a child of the current Node.js runtime, whose module hooks
+ * serve that emit under the source's own path.
  *
  * The launcher owns the process tree it starts, so it behaves toward it the way
  * a shell does (samchon/ttsc#1403). A termination signal that arrives while the
@@ -216,11 +218,6 @@ function parseCLI(argv: readonly string[]) {
 }
 
 /**
- * Report whether a bare CLI token is the TypeScript entry file rather than a
- * forwarded flag's value. ttsx runs a TypeScript entrypoint, so only a token
- * with a TypeScript source extension is treated as the entry.
- */
-/**
  * `"help"` or `"version"` when one of `tokens` asks for it, else `null`. Only
  * dash-prefixed tokens can name a flag; a bare value such as the `all` of
  * `--target all` must not read as `--all`.
@@ -266,6 +263,11 @@ function assertNoWatch(result: ReturnType<typeof parseFlags>): void {
   );
 }
 
+/**
+ * Report whether a bare CLI token is the TypeScript entry file rather than a
+ * forwarded flag's value. ttsx runs a TypeScript entrypoint, so only a token
+ * with a TypeScript source extension is treated as the entry.
+ */
 function looksLikeEntryFile(token: string): boolean {
   return [".ts", ".tsx", ".mts", ".cts"].some((ext) => token.endsWith(ext));
 }
