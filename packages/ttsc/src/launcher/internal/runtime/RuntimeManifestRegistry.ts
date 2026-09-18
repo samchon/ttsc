@@ -82,10 +82,11 @@ export namespace RuntimeManifestRegistry {
   }
 
   /**
-   * The ownership index of one manifest's build, created on first use. The entry
-   * emit is written once before the run starts and never changes under it, and
-   * the index memoizes every answer, which matters because the `resolve` hook
-   * asks through `owningModuleOptions` once per import specifier.
+   * The ownership index of one manifest's build, created on first use. The
+   * entry emit is written once before the run starts and never changes under
+   * it, and the index memoizes every answer, which matters because the
+   * `resolve` hook asks through `owningModuleOptions` once per import
+   * specifier.
    */
   function ownershipIndex(manifest: RuntimeManifest): EmitOwnershipIndex {
     let index = ownershipIndexes.get(manifest);

@@ -61,8 +61,8 @@ export namespace PluginBuildLockProtocol {
   }
 
   /**
-   * Whether `lockDir` is a real directory (not a link) whose protocol marker has
-   * exactly the v2 content.
+   * Whether `lockDir` is a real directory (not a link) whose protocol marker
+   * has exactly the v2 content.
    */
   export function isPluginBuildLockProtocolV2(lockDir: string): boolean {
     try {
@@ -81,8 +81,8 @@ export namespace PluginBuildLockProtocol {
 
   /**
    * Retire `generation` if it is still the held v2 one, by renaming `current/`
-   * onto its tombstone. Returns `false` when the lock is already free or held by
-   * another generation; throws only on an unexpected filesystem error.
+   * onto its tombstone. Returns `false` when the lock is already free or held
+   * by another generation; throws only on an unexpected filesystem error.
    */
   export function retireV2PluginBuildLock(
     lockDir: string,
@@ -124,9 +124,9 @@ export namespace PluginBuildLockProtocol {
   }
 
   /**
-   * Whether a failed rename means the destination already exists. Windows reports
-   * an occupied directory destination as `EACCES` or `EPERM`, so those count only
-   * when the destination is actually present.
+   * Whether a failed rename means the destination already exists. Windows
+   * reports an occupied directory destination as `EACCES` or `EPERM`, so those
+   * count only when the destination is actually present.
    */
   export function isRenameDestinationOccupied(
     error: unknown,

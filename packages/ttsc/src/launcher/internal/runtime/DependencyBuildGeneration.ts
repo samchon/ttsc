@@ -32,11 +32,11 @@ export namespace DependencyBuildGeneration {
    *
    * `generation` names the exact immutable emit directory this marker describes
    * (`<cacheDir>/gen-<generation>`). Binding metadata to one generation is what
-   * makes publication atomic: a reader that parses this marker reads the emit of
-   * the SAME generation, never old metadata combined with a different, still
-   * partially-written directory. The marker is the last thing a build writes, and
-   * it is written by an atomic temp-and-rename, so a reader observes either one
-   * complete old generation or one complete new generation.
+   * makes publication atomic: a reader that parses this marker reads the emit
+   * of the SAME generation, never old metadata combined with a different, still
+   * partially-written directory. The marker is the last thing a build writes,
+   * and it is written by an atomic temp-and-rename, so a reader observes either
+   * one complete old generation or one complete new generation.
    */
   export interface DependencyCacheMeta {
     /** The 128-bit hex id of the published generation directory. */
@@ -49,9 +49,9 @@ export namespace DependencyBuildGeneration {
      */
     moduleOptions?: OwningModuleOptions;
     /**
-     * The build's record of the JavaScript it emitted, relative to the generation
-     * directory. Always written; a marker without it predates the field and is
-     * rebuilt, because ownership is decided against it.
+     * The build's record of the JavaScript it emitted, relative to the
+     * generation directory. Always written; a marker without it predates the
+     * field and is rebuilt, because ownership is decided against it.
      */
     outputs?: readonly string[];
   }
@@ -75,23 +75,24 @@ export namespace DependencyBuildGeneration {
   }
 
   /**
-   * The physical spelling of a path, produced the way the served sources it will
-   * be compared against are produced.
+   * The physical spelling of a path, produced the way the served sources it
+   * will be compared against are produced.
    *
    * `createFilesystemPathIdentityContext` is the same resolver the entry lane
    * uses (`prepareExecution.ts::resolveRuntimeSourceRoot`). For a path that
-   * exists it is one `realpathSync.native`. For one that does not it resolves as
-   * far as the filesystem goes and folds the missing tail by the case semantics
-   * of the surviving ancestor, which costs a directory read and, on Windows, can
-   * cost an `fsutil` query — worth knowing, but off the path a real dependency
-   * root takes.
+   * exists it is one `realpathSync.native`. For one that does not it resolves
+   * as far as the filesystem goes and folds the missing tail by the case
+   * semantics of the surviving ancestor, which costs a directory read and, on
+   * Windows, can cost an `fsutil` query — worth knowing, but off the path a
+   * real dependency root takes.
    *
    * Total on purpose. `throwOnRealpathError: false` silences a failed realpath,
    * but the case-sensitivity probe can still fail on its own (an unreadable
    * ancestor, a denied alternate-case `lstat`), and neither caller has anywhere
-   * to put that: `readDependencyCache` is contracted to answer `null` rather than
-   * throw, and `buildDependency` has already produced its emit. The unresolved
-   * spelling is exactly what both had before this pass, so it is the fallback.
+   * to put that: `readDependencyCache` is contracted to answer `null` rather
+   * than throw, and `buildDependency` has already produced its emit. The
+   * unresolved spelling is exactly what both had before this pass, so it is the
+   * fallback.
    */
   export function resolvePhysicalPath(location: string): string {
     try {
@@ -103,7 +104,10 @@ export namespace DependencyBuildGeneration {
     }
   }
 
-  /** True when `directory` holds at least one emitted JavaScript file (any depth). */
+  /**
+   * True when `directory` holds at least one emitted JavaScript file (any
+   * depth).
+   */
   export function emittedAnything(directory: string): boolean {
     let entries: fs.Dirent[];
     try {

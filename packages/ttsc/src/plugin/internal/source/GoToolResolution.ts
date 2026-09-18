@@ -72,8 +72,8 @@ export namespace GoToolResolution {
   }
 
   /**
-   * The candidate paths a binary name resolves against, in search order: the path
-   * itself when absolute or qualified, otherwise each `PATH` directory. On
+   * The candidate paths a binary name resolves against, in search order: the
+   * path itself when absolute or qualified, otherwise each `PATH` directory. On
    * Windows the current directory is searched first, as process creation does,
    * unless `NoDefaultCurrentDirectoryInExePath` is set.
    */
@@ -186,8 +186,8 @@ export namespace GoToolResolution {
 
   /**
    * Read an environment variable the way Windows does, case-insensitively. An
-   * exact-case key wins; otherwise the first matching key in sorted order, so the
-   * answer is deterministic when a caller supplied several spellings.
+   * exact-case key wins; otherwise the first matching key in sorted order, so
+   * the answer is deterministic when a caller supplied several spellings.
    */
   export function readWindowsEnvironmentValue(
     env: NodeJS.ProcessEnv,

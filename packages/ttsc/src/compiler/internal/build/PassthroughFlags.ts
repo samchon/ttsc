@@ -50,12 +50,13 @@ export namespace PassthroughFlags {
    * (`--showConfig`, `--listFilesOnly`, `--all`, `--init`, `-?`), so ttsc can
    * avoid adding compile-only flags to a command that is not going to compile.
    *
-   * Schema-derived, and resolved by flag identity rather than by exact spelling:
-   * `resolveFlagSpec` applies the one normalization the parsing engine and the
-   * generated Go allow-lists use, so `--showconfig` classifies exactly like
-   * `--showConfig`. Adding a new terminal flag means editing `FLAG_SCHEMA.ts` and
-   * re-running `pnpm run gen:flags`; this predicate needs no edit, and it grows
-   * no normalization of its own for the next consumer to forget.
+   * Schema-derived, and resolved by flag identity rather than by exact
+   * spelling: `resolveFlagSpec` applies the one normalization the parsing
+   * engine and the generated Go allow-lists use, so `--showconfig` classifies
+   * exactly like `--showConfig`. Adding a new terminal flag means editing
+   * `FLAG_SCHEMA.ts` and re-running `pnpm run gen:flags`; this predicate needs
+   * no edit, and it grows no normalization of its own for the next consumer to
+   * forget.
    */
   export function forwardsTerminalTsgoFlag(
     options: TtscCommonOptions,
@@ -72,9 +73,9 @@ export namespace PassthroughFlags {
    * presuppose a resolved project (`--init`, `--all`, `-?`).
    *
    * Derived from `FLAG_SCHEMA[*].projectFree`, through the same identity
-   * resolution as every other classification — never a literal list of flag names
-   * beside this branch, which is the shape that let terminal-flag awareness exist
-   * in one layer and be missing from the layer above it.
+   * resolution as every other classification — never a literal list of flag
+   * names beside this branch, which is the shape that let terminal-flag
+   * awareness exist in one layer and be missing from the layer above it.
    */
   export function forwardsProjectFreeTerminalTsgoFlag(
     options: TtscCommonOptions,
@@ -89,10 +90,10 @@ export namespace PassthroughFlags {
 
   /**
    * Report whether the caller forwarded a flag ttsc adds to tsgo internally —
-   * e.g. `--listEmittedFiles` (ttsc adds it to learn emitted paths) or `--noEmit`
-   * (ttsc adds it for the pre-emit type-check). When the user also forwards the
-   * same flag, post-processing must keep the user-visible effect intact instead
-   * of stripping it as ttsc-internal noise.
+   * e.g. `--listEmittedFiles` (ttsc adds it to learn emitted paths) or
+   * `--noEmit` (ttsc adds it for the pre-emit type-check). When the user also
+   * forwards the same flag, post-processing must keep the user-visible effect
+   * intact instead of stripping it as ttsc-internal noise.
    *
    * Schema-derived: `FLAG_SCHEMA[*].internalShadow === true`. RC-2 from the RCA
    * (RCA section 3, `--listEmittedFiles` / `--showConfig` swallowed): the

@@ -49,8 +49,8 @@ export namespace BuildTiming {
 
   /**
    * Append the recorded phases and the total to `result.stdout`, after the
-   * compiler's own report and on a line of their own. Returns `result` unchanged
-   * when timing is disabled.
+   * compiler's own report and on a line of their own. Returns `result`
+   * unchanged when timing is disabled.
    */
   export function appendTimingOutput(
     result: TtscBuildResult,

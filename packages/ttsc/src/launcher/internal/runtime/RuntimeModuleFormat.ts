@@ -16,24 +16,24 @@ import { RuntimeFilesystem } from "./RuntimeFilesystem";
  */
 export namespace RuntimeModuleFormat {
   /**
-   * Decide the module format the way Node and tsgo do — from configuration, never
-   * by sniffing the emitted text.
+   * Decide the module format the way Node and tsgo do — from configuration,
+   * never by sniffing the emitted text.
    *
    * The file extension is authoritative first (`.mts`/`.mjs` → module,
    * `.cts`/`.cjs` → commonjs), exactly as tsgo's
    * `getImpliedNodeFormatForEmitWorker` checks it ahead of everything else.
    *
    * After that the decision belongs to the project that emitted the file, so
-   * `options` is the whole compiler-option pair tsgo consults, not just `module`:
-   * an absent `module` is NOT "ask Node", it is "derive the kind from `target`"
-   * (tsgo's `getEmitModuleKind`), and TypeScript 7 defaults `target` to the
-   * latest standard, which means ES modules. Only the `node*` family defers to
-   * the nearest `package.json` `type`, because only that family makes tsgo
-   * consult it.
+   * `options` is the whole compiler-option pair tsgo consults, not just
+   * `module`: an absent `module` is NOT "ask Node", it is "derive the kind from
+   * `target`" (tsgo's `getEmitModuleKind`), and TypeScript 7 defaults `target`
+   * to the latest standard, which means ES modules. Only the `node*` family
+   * defers to the nearest `package.json` `type`, because only that family makes
+   * tsgo consult it.
    *
-   * `options` is `null` for a file no tsconfig owns at all — a raw `.ts` shipped
-   * under `node_modules`. Nothing emitted it, so Node's own rule is the only rule
-   * there is, and the package `type` decides.
+   * `options` is `null` for a file no tsconfig owns at all — a raw `.ts`
+   * shipped under `node_modules`. Nothing emitted it, so Node's own rule is the
+   * only rule there is, and the package `type` decides.
    */
   export function moduleFormat(
     filename: string,
@@ -81,21 +81,22 @@ export namespace RuntimeModuleFormat {
    * The `"type"` a `node_modules` package states for `filename`, or `null`.
    *
    * Tsgo's `GetImpliedNodeFormatForEmitWorker` consults a file's
-   * `packageJsonType` for **every** module kind, not just the `node*` family. So
-   * a source-shipping dependency that declares `"type": "commonjs"` is emitted as
-   * CommonJS even while the compiling project asks for `esnext`, and the mirror
-   * has to honour the same override or Node is handed the wrong format.
+   * `packageJsonType` for **every** module kind, not just the `node*` family.
+   * So a source-shipping dependency that declares `"type": "commonjs"` is
+   * emitted as CommonJS even while the compiling project asks for `esnext`, and
+   * the mirror has to honour the same override or Node is handed the wrong
+   * format.
    *
    * Outside `node_modules` that field is empty for every module kind this
-   * override can change. `loadSourceFileMetaData` does fill it elsewhere — for a
-   * file whose extension does not itself state the format (anything but `.mts`,
-   * `.cts`, `.mjs`, `.cjs`) whose project sets `moduleResolution` to the
-   * `node16`…`nodenext` family — but `program.go` rejects that resolution unless
-   * `module` is in the same family, and for a `node*` `module` the package `type`
-   * is already the whole answer, which the caller's own `node*` branch produces.
-   * So answering from a manifest outside `node_modules` could only override the
-   * project's own `module` option, the very confusion this classifier exists to
-   * end.
+   * override can change. `loadSourceFileMetaData` does fill it elsewhere — for
+   * a file whose extension does not itself state the format (anything but
+   * `.mts`, `.cts`, `.mjs`, `.cjs`) whose project sets `moduleResolution` to
+   * the `node16`…`nodenext` family — but `program.go` rejects that resolution
+   * unless `module` is in the same family, and for a `node*` `module` the
+   * package `type` is already the whole answer, which the caller's own `node*`
+   * branch produces. So answering from a manifest outside `node_modules` could
+   * only override the project's own `module` option, the very confusion this
+   * classifier exists to end.
    */
   function declaredNodeModulesPackageType(
     filename: string,
@@ -109,9 +110,9 @@ export namespace RuntimeModuleFormat {
   /**
    * Whether any path segment of `filename` is literally `node_modules`.
    *
-   * Case-sensitive on every platform, because the upstream test this mirrors is a
-   * case-sensitive substring search and Node's own resolver recognises only the
-   * exact spelling. A directory named `Node_Modules` is a package store to
+   * Case-sensitive on every platform, because the upstream test this mirrors is
+   * a case-sensitive substring search and Node's own resolver recognises only
+   * the exact spelling. A directory named `Node_Modules` is a package store to
    * neither of them, and must not become one here.
    */
   function pathHasNodeModulesSegment(filename: string): boolean {

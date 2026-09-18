@@ -68,8 +68,8 @@ export namespace PluginPackageResolution {
   /**
    * The physical `package.json` of dependency `name` as seen from the project:
    * the project's own `node_modules/<name>` first, then Node resolution of
-   * `<name>/package.json`, then the manifest nearest to the package's main entry
-   * for a package whose exports hide its manifest.
+   * `<name>/package.json`, then the manifest nearest to the package's main
+   * entry for a package whose exports hide its manifest.
    */
   export function resolveDependencyPackageJson(
     name: string,
@@ -187,23 +187,25 @@ export namespace PluginPackageResolution {
   ];
 
   /**
-   * Resolve a bare plugin specifier under the dedicated `ttsc` export condition.
+   * Resolve a bare plugin specifier under the dedicated `ttsc` export
+   * condition.
    *
    * A package whose `.` entry is a runtime barrel (e.g. `typia`, whose index
-   * re-exports the whole validator runtime) cannot serve as the plugin descriptor
-   * entry: loading it during plugin bootstrap pulls the runtime in and, for a
-   * self-hosting transform, forms a cycle. Such a package opts in by adding a
-   * `ttsc` condition to its `exports` that points at a runtime-free descriptor:
+   * re-exports the whole validator runtime) cannot serve as the plugin
+   * descriptor entry: loading it during plugin bootstrap pulls the runtime in
+   * and, for a self-hosting transform, forms a cycle. Such a package opts in by
+   * adding a `ttsc` condition to its `exports` that points at a runtime-free
+   * descriptor:
    *
-   * "exports": { ".": { "ttsc": "./lib/transform.js", "default": "./lib/index.js"
-   * } }
+   * "exports": { ".": { "ttsc": "./lib/transform.js", "default":
+   * "./lib/index.js" } }
    *
    * The condition is honoured ONLY here, scoped to plugin-entry resolution. A
    * process-wide `--conditions=ttsc` would also redirect the package's normal
    * `import`s to the descriptor and break its runtime, so it must not be used.
    *
-   * Returns an absolute path when the package opts in, or `null` to fall back to
-   * the normal `require.resolve` — no `exports`, no `ttsc` branch for the
+   * Returns an absolute path when the package opts in, or `null` to fall back
+   * to the normal `require.resolve` — no `exports`, no `ttsc` branch for the
    * requested subpath, or an unresolved/missing target — so a package that does
    * not opt in resolves exactly as it did before.
    */
@@ -242,10 +244,10 @@ export namespace PluginPackageResolution {
   }
 
   /**
-   * Split a bare specifier into its package name and the `.`-prefixed subpath it
-   * addresses (`"typia"` → `.`, `"typia/lib/transform"` → `./lib/transform`,
-   * `"@scope/pkg/sub"` → `./sub`). Returns `null` for a relative/empty specifier
-   * or a malformed scoped name.
+   * Split a bare specifier into its package name and the `.`-prefixed subpath
+   * it addresses (`"typia"` → `.`, `"typia/lib/transform"` → `./lib/transform`,
+   * `"@scope/pkg/sub"` → `./sub`). Returns `null` for a relative/empty
+   * specifier or a malformed scoped name.
    */
   function splitPackageSpecifier(
     specifier: string,
@@ -378,9 +380,9 @@ export namespace PluginPackageResolution {
 
   /**
    * Resolve a (possibly conditional) export target to a relative file string,
-   * honouring `conditions` — a string is the target, an array is a fallback list,
-   * an object picks the first key in the active condition set (package key order
-   * wins, as Node does), and an explicit `null` blocks the target.
+   * honouring `conditions` — a string is the target, an array is a fallback
+   * list, an object picks the first key in the active condition set (package
+   * key order wins, as Node does), and an explicit `null` blocks the target.
    */
   function resolveConditionalTarget(
     target: unknown,

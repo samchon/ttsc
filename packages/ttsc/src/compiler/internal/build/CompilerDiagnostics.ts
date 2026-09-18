@@ -161,8 +161,9 @@ export namespace CompilerDiagnostics {
   }
 
   /**
-   * Return an absolute file path. When `file` is already absolute it is returned
-   * unchanged; relative paths are resolved against `cwd` when available.
+   * Return an absolute file path. When `file` is already absolute it is
+   * returned unchanged; relative paths are resolved against `cwd` when
+   * available.
    */
   function normalizeDiagnosticFile(
     file: string,
@@ -192,13 +193,17 @@ export namespace CompilerDiagnostics {
 
   /**
    * Parse a diagnostic code as a number when it is all digits (TS numeric codes
-   * like `2322`), or keep it as a string for plugin-defined alphanumeric codes.
+   * like `2322`), or keep it as a string for plugin-defined alphanumeric
+   * codes.
    */
   function normalizeDiagnosticCode(value: string): number | string {
     return /^\d+$/.test(value) ? Number(value) : value;
   }
 
-  /** Strip ANSI escape sequences from `text` for line-by-line diagnostic parsing. */
+  /**
+   * Strip ANSI escape sequences from `text` for line-by-line diagnostic
+   * parsing.
+   */
   export function stripAnsi(text: string): string {
     return text.replace(/\x1b\[[0-9;?]*[ -/]*[@-~]/g, "");
   }

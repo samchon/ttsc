@@ -59,15 +59,15 @@ export namespace GoBuildCacheCoordination {
     /** Path of the record file. */
     file: string;
     /**
-     * Stop the heartbeat, mark the record complete, then delete it. Completion is
-     * persisted first so a failed delete never leaves a finished task looking
-     * active until it expires.
+     * Stop the heartbeat, mark the record complete, then delete it. Completion
+     * is persisted first so a failed delete never leaves a finished task
+     * looking active until it expires.
      */
     finish: () => void;
     /**
-     * Keep the record fresh from a background worker while this thread blocks in
-     * a synchronous build. Idempotent; returns `false` when no worker could be
-     * started (the record then relies on its stale timeout).
+     * Keep the record fresh from a background worker while this thread blocks
+     * in a synchronous build. Idempotent; returns `false` when no worker could
+     * be started (the record then relies on its stale timeout).
      */
     startHeartbeat: () => boolean;
   }
@@ -221,9 +221,9 @@ export namespace GoBuildCacheCoordination {
   }
 
   /**
-   * The live records of one coordination directory at `now`. Completed, stale, or
-   * unreadable records are deleted as they are found, so the directory does not
-   * grow with every crashed process.
+   * The live records of one coordination directory at `now`. Completed, stale,
+   * or unreadable records are deleted as they are found, so the directory does
+   * not grow with every crashed process.
    */
   export function collectLiveGoBuildCacheCoordinationRecords(
     root: string,

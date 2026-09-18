@@ -74,8 +74,8 @@ export namespace SourceBuildCacheLayout {
   }
 
   /**
-   * The millisecond timestamp a metadata file records, falling back to its mtime
-   * when its content is not a number; `null` when it cannot be read.
+   * The millisecond timestamp a metadata file records, falling back to its
+   * mtime when its content is not a number; `null` when it cannot be read.
    */
   export function readTimestamp(file: string): number | null {
     try {

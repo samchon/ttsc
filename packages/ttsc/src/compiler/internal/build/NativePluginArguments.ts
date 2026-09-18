@@ -96,8 +96,8 @@ export namespace NativePluginArguments {
 
   /**
    * Build the argv of a native host's `project-inputs` query, which reports the
-   * non-TypeScript files (documents, schemas, configs) the host's rules read, so
-   * watch and cache invalidation can observe them.
+   * non-TypeScript files (documents, schemas, configs) the host's rules read,
+   * so watch and cache invalidation can observe them.
    */
   export function createNativeProjectInputsArgs(
     execution: ReturnType<typeof BuildExecution.resolveExecutionContext>,
@@ -164,14 +164,14 @@ export namespace NativePluginArguments {
    * because its `parseSubcommandFlags` handler accepts `--singleThreaded` and
    * `--checkers` directly and threads them into `loadProgram` (parse phase) and
    * `engine.SetSerial` (rule walk). Any other check-stage host that has not
-   * declared the capability is treated as a third-party binary whose flag set is
-   * unknown, matching the conservative default from commit ad3443a.
+   * declared the capability is treated as a third-party binary whose flag set
+   * is unknown, matching the conservative default from commit ad3443a.
    *
-   * The capability flag replaces the prior `plugin.name === "@ttsc/lint"` string
-   * check: routing on a descriptor field instead of the plugin name lets the next
-   * first-party check-stage plugin opt in without ttsc needing to learn its name.
-   * See `ITtscPluginCapabilities` and issue #125 for the broader CLI-parser
-   * cleanup this is the quick-win step of.
+   * The capability flag replaces the prior `plugin.name === "@ttsc/lint"`
+   * string check: routing on a descriptor field instead of the plugin name lets
+   * the next first-party check-stage plugin opt in without ttsc needing to
+   * learn its name. See `ITtscPluginCapabilities` and issue #125 for the
+   * broader CLI-parser cleanup this is the quick-win step of.
    */
   function nativeHostAcceptsThreadingArgs(
     plugin: ITtscLoadedNativePlugin,

@@ -14,9 +14,9 @@ export namespace RuntimeFilesystem {
   }
 
   /**
-   * Whether a failed rename means the destination already exists. Windows reports
-   * an occupied directory destination as `EACCES` or `EPERM`, so those count only
-   * when the destination is actually present.
+   * Whether a failed rename means the destination already exists. Windows
+   * reports an occupied directory destination as `EACCES` or `EPERM`, so those
+   * count only when the destination is actually present.
    */
   export function isRenameDestinationOccupied(
     error: unknown,

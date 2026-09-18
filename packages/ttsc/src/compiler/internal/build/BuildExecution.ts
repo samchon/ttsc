@@ -68,12 +68,12 @@ export namespace BuildExecution {
   /**
    * Build the environment for a native plugin spawn. Injects `TTSC_TSGO_BINARY`
    * and `TTSC_TTSX_BINARY` alongside the base env from `mergeEnv`, plus
-   * `TTSC_PLUGIN_CONFIG_DIR` when the caller declared a plugin config anchor (an
-   * embedder compiling through a generated wrapper tsconfig) so config-file
-   * discovery walks the real project instead of the wrapper's temp-dir ancestry.
-   * For transform-stage plugins, also passes `TTSC_LINKED_PLUGINS_JSON`
-   * containing any linked sources so they run inside the same process as the host
-   * plugin.
+   * `TTSC_PLUGIN_CONFIG_DIR` when the caller declared a plugin config anchor
+   * (an embedder compiling through a generated wrapper tsconfig) so config-file
+   * discovery walks the real project instead of the wrapper's temp-dir
+   * ancestry. For transform-stage plugins, also passes
+   * `TTSC_LINKED_PLUGINS_JSON` containing any linked sources so they run inside
+   * the same process as the host plugin.
    */
   export function nativePluginEnv(
     extra: NodeJS.ProcessEnv | undefined,
@@ -168,8 +168,8 @@ export namespace BuildExecution {
    * Run the compile phase of a prepared build.
    *
    * With native plugins, check-stage hosts run first and a failure stops the
-   * build (with TypeScript diagnostics collected separately when the host did not
-   * report them); transform-stage hosts then emit through one shared host.
+   * build (with TypeScript diagnostics collected separately when the host did
+   * not report them); transform-stage hosts then emit through one shared host.
    * Without plugins, TypeScript-Go runs directly.
    */
   export function runPreparedBuild(
@@ -311,17 +311,17 @@ export namespace BuildExecution {
    * Answer a forwarded terminal flag whose meaning precedes a project, when no
    * project can be resolved.
    *
-   * `ttsc --init` exists to write the starter `tsconfig.json`, and `ttsc --all` /
-   * `ttsc -?` only print tsgo's help — none of them needs a project, yet all
+   * `ttsc --init` exists to write the starter `tsconfig.json`, and `ttsc --all`
+   * / `ttsc -?` only print tsgo's help — none of them needs a project, yet all
    * three died in project resolution because that layer ran first and
    * unconditionally. The classification is `FLAG_SCHEMA`'s (`terminal` +
    * `projectFree`), so marking a further flag project-free needs no edit here.
    *
    * A resolvable project keeps the established lane untouched: the build path
-   * still forwards the flag with `-p <tsconfig>` from the project root, so `ttsc
-   * --init` inside an existing project still reports tsgo's TS5054 instead of
-   * writing a second config into the current directory. Returns `null` when this
-   * lane does not apply.
+   * still forwards the flag with `-p <tsconfig>` from the project root, so
+   * `ttsc --init` inside an existing project still reports tsgo's TS5054
+   * instead of writing a second config into the current directory. Returns
+   * `null` when this lane does not apply.
    */
   export function runProjectFreeTerminalFlag(
     options: RunBuildOptions,
@@ -401,9 +401,9 @@ export namespace BuildExecution {
    * A sidecar can fail before it loads the project Program, including when a Go
    * panic or another runtime error terminates the process. The plugin failure
    * must still block emit, but it must not hide unrelated errors in the user's
-   * TypeScript source. The fallback runs only after a plugin failure, skips modes
-   * whose contract intentionally omits diagnostics, and avoids appending a batch
-   * the plugin already reported itself.
+   * TypeScript source. The fallback runs only after a plugin failure, skips
+   * modes whose contract intentionally omits diagnostics, and avoids appending
+   * a batch the plugin already reported itself.
    */
   export function appendTypeScriptDiagnosticsAfterPluginFailure(
     failure: TtscBuildResult,
@@ -447,8 +447,8 @@ export namespace BuildExecution {
   }
 
   /**
-   * Make the recovery pass parseable regardless of the user's display flags. This
-   * is an internal second pass, so plain output is required to remove only
+   * Make the recovery pass parseable regardless of the user's display flags.
+   * This is an internal second pass, so plain output is required to remove only
    * diagnostics that the failed plugin already printed.
    */
   function createPluginFailureTypecheckOptions(
@@ -479,8 +479,8 @@ export namespace BuildExecution {
 
   /**
    * Dispatch a build through the shared-host native plugin. The host plugin is
-   * the one that owns the process (non-linked); all other transform plugins ride
-   * inside it via the `--plugins-json` flag.
+   * the one that owns the process (non-linked); all other transform plugins
+   * ride inside it via the `--plugins-json` flag.
    */
   function buildWithNativeCompilerPlugins(
     options: RunBuildOptions,
@@ -546,9 +546,9 @@ export namespace BuildExecution {
   }
 
   /**
-   * Run `tsgo` with the full emit arguments and parse `TSFILE:` lines from stdout
-   * into `emittedFiles`. The TSFILE lines are stripped before the result is
-   * returned so they do not appear in the user-facing output.
+   * Run `tsgo` with the full emit arguments and parse `TSFILE:` lines from
+   * stdout into `emittedFiles`. The TSFILE lines are stripped before the result
+   * is returned so they do not appear in the user-facing output.
    */
   function runTsgoBuild(
     execution: ReturnType<typeof resolveExecutionContext>,
@@ -602,14 +602,15 @@ export namespace BuildExecution {
    * `cmd/ttsc/build.go` already prints on the native-host lane.
    *
    * Verbosity is a launcher-owned presentation concern: which lane `runBuild`
-   * selects is an implementation detail the user cannot see, so a documented flag
-   * must not change meaning with it. This lane never consumed `quiet` at all,
-   * which is why the flag was silent on every project without a ttsc plugin.
+   * selects is an implementation detail the user cannot see, so a documented
+   * flag must not change meaning with it. This lane never consumed `quiet` at
+   * all, which is why the flag was silent on every project without a ttsc
+   * plugin.
    *
    * `sites=0` is a fact about this lane rather than a placeholder: it runs
    * precisely when the project declares no native plugin. A build that emitted
-   * nothing prints the header and `emitted=0 files`, so the summary never claims
-   * files that were not written.
+   * nothing prints the header and `emitted=0 files`, so the summary never
+   * claims files that were not written.
    */
   function verboseBuildSummary(
     execution: ReturnType<typeof resolveExecutionContext>,
@@ -629,8 +630,8 @@ export namespace BuildExecution {
   }
 
   /**
-   * Run every check-stage plugin in order, short-circuiting on the first non-zero
-   * exit. Aggregates diagnostics and output across all check plugins.
+   * Run every check-stage plugin in order, short-circuiting on the first
+   * non-zero exit. Aggregates diagnostics and output across all check plugins.
    */
   function runNativeCheckPlugins(
     options: TtscBuildOptions,
@@ -666,8 +667,8 @@ export namespace BuildExecution {
 
   /**
    * Ask every check-stage host that declares the `projectInputs` capability for
-   * the files its rules read beyond the TypeScript Program, and merge the answers
-   * into one snapshot for watch and cache invalidation.
+   * the files its rules read beyond the TypeScript Program, and merge the
+   * answers into one snapshot for watch and cache invalidation.
    */
   export function discoverNativeProjectInputs(
     options: TtscBuildOptions,

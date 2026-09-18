@@ -68,7 +68,10 @@ export namespace DependencyBuildLockProtocol {
     }
   }
 
-  /** Render a millisecond duration for lock diagnostics (`137ms`, `42s`, `9m 3s`). */
+  /**
+   * Render a millisecond duration for lock diagnostics (`137ms`, `42s`, `9m
+   * 3s`).
+   */
   export function formatDuration(ms: number): string {
     if (!Number.isFinite(ms)) {
       return "an unknown time";

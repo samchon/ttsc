@@ -13,10 +13,10 @@ export namespace ConfigJsonText {
   }
 
   /**
-   * Replace a leading UTF-8 BOM with a space. JSON ignores leading whitespace, so
-   * blanking rather than removing keeps every later offset equal to the offset in
-   * the original file. A BOM anywhere else is left in place and still rejected,
-   * which is the behaviour issue #216 pinned.
+   * Replace a leading UTF-8 BOM with a space. JSON ignores leading whitespace,
+   * so blanking rather than removing keeps every later offset equal to the
+   * offset in the original file. A BOM anywhere else is left in place and still
+   * rejected, which is the behaviour issue #216 pinned.
    */
   export function stripLeadingBom(input: string): string {
     return input.charCodeAt(0) === 0xfeff ? ` ${input.slice(1)}` : input;

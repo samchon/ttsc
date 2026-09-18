@@ -53,8 +53,8 @@ export namespace GoSourceInputs {
   }
 
   /**
-   * Whether a directory never contributes plugin source: `node_modules`, `.git`,
-   * and ttsc's own `.ttsc`.
+   * Whether a directory never contributes plugin source: `node_modules`,
+   * `.git`, and ttsc's own `.ttsc`.
    */
   export function shouldPruneDirectory(name: string): boolean {
     return PRUNE_DIRS.has(name);

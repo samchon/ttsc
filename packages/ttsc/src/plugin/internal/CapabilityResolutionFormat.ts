@@ -13,20 +13,21 @@ export namespace CapabilityResolutionFormat {
   /**
    * Cache format tag.
    *
-   * Moves when the entry shape or the validation rule changes, so an older entry
-   * is discarded rather than read under new rules.
+   * Moves when the entry shape or the validation rule changes, so an older
+   * entry is discarded rather than read under new rules.
    */
   const FORMAT = "ttsc-capability-resolution-v1";
 
   /**
    * The character that joins fields a path could otherwise forge.
    *
-   * A path cannot contain it, which is the whole reason it is the separator: with
-   * a space, a file named `a 1 2` states the same string as a one-byte file named
-   * `a`, and an edit to either would read as no edit at all. Built rather than
-   * written literally, because a source file carrying a raw NUL is one Git
-   * classifies as binary — which silently exempts it from this repository's
-   * end-of-line contract and leaves it with no textual diff for a reviewer.
+   * A path cannot contain it, which is the whole reason it is the separator:
+   * with a space, a file named `a 1 2` states the same string as a one-byte
+   * file named `a`, and an edit to either would read as no edit at all. Built
+   * rather than written literally, because a source file carrying a raw NUL is
+   * one Git classifies as binary — which silently exempts it from this
+   * repository's end-of-line contract and leaves it with no textual diff for a
+   * reviewer.
    */
   const SEPARATOR = String.fromCharCode(0);
 
@@ -43,8 +44,8 @@ export namespace CapabilityResolutionFormat {
    * resolved.
    *
    * Keyed on the project rather than on the capability: the walk it replaces
-   * discovers every configured plugin, so one entry answers for all of them and a
-   * second consumer asking about a different capability costs nothing.
+   * discovers every configured plugin, so one entry answers for all of them and
+   * a second consumer asking about a different capability costs nothing.
    */
   export function resolutionFile(options: {
     cwd: string;
@@ -74,8 +75,8 @@ export namespace CapabilityResolutionFormat {
    * A directory's shape and the state of every file in it.
    *
    * Size and modification time rather than content: a plugin's Go source is
-   * hundreds of files, this runs on the fast path, and the question it answers is
-   * only whether the build cache would now key on something else. Bounded in
+   * hundreds of files, this runs on the fast path, and the question it answers
+   * is only whether the build cache would now key on something else. Bounded in
    * depth, and blind to `node_modules` and dot directories, for the same reason
    * the build that reads this source is.
    */

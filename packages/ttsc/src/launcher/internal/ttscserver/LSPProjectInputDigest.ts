@@ -27,9 +27,9 @@ export namespace LSPProjectInputDigest {
   };
 
   /**
-   * Digest of a directory's immediate topology: each child's name, kind, and link
-   * target, resolved through the directory's physical identity. Content of the
-   * children is not part of it.
+   * Digest of a directory's immediate topology: each child's name, kind, and
+   * link target, resolved through the directory's physical identity. Content of
+   * the children is not part of it.
    */
   export function lspProjectInputReloadDirectoryDigest(
     location: string,
@@ -239,8 +239,8 @@ export namespace LSPProjectInputDigest {
    * Physical path of a location whose leaf may not exist yet.
    *
    * Both ends go through the shared spelling rule rather than `path.resolve`
-   * alone. Windows hands back extended-length paths from a native realpath, and a
-   * record written as `\?\C:\project` never matches a lookup for `C:\project`
+   * alone. Windows hands back extended-length paths from a native realpath, and
+   * a record written as `\?\C:\project` never matches a lookup for `C:\project`
    * even though one file is meant — the split identity every other consumer on
    * this branch was taught to avoid.
    */
@@ -265,9 +265,9 @@ export namespace LSPProjectInputDigest {
   }
 
   /**
-   * The physical spelling of an entry's parent directory joined with the entry's
-   * own name, so a symlinked file keeps its link identity while an aliased
-   * directory above it is resolved.
+   * The physical spelling of an entry's parent directory joined with the
+   * entry's own name, so a symlinked file keeps its link identity while an
+   * aliased directory above it is resolved.
    */
   export function realLSPProjectInputEntryPath(location: string): string {
     const absolute = resolveProjectInputPath(location);

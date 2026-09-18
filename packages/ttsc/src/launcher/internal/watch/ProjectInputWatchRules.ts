@@ -35,10 +35,11 @@ export namespace ProjectInputWatchRules {
    * The directory a recursive watcher for `target` should be installed on.
    *
    * A target inside the project is observed through the project's own root. One
-   * outside it is observed through the nearest existing directory of its declared
-   * parent, or failing that of its own tree, so a tree that does not exist yet is
-   * still seen. Either candidate is refused when it contains the project, and
-   * `undefined` is returned rather than watching the whole project from above.
+   * outside it is observed through the nearest existing directory of its
+   * declared parent, or failing that of its own tree, so a tree that does not
+   * exist yet is still seen. Either candidate is refused when it contains the
+   * project, and `undefined` is returned rather than watching the whole project
+   * from above.
    */
   export function projectInputRecursiveWatchRoot(
     target: string,
@@ -112,9 +113,9 @@ export namespace ProjectInputWatchRules {
   }
 
   /**
-   * Whether a changed project input could change the TypeScript Program: a source
-   * or emittable extension, or JSON, which `resolveJsonModule` imports and
-   * tsconfig files are written in.
+   * Whether a changed project input could change the TypeScript Program: a
+   * source or emittable extension, or JSON, which `resolveJsonModule` imports
+   * and tsconfig files are written in.
    */
   export function projectInputPathMayAffectProgram(location: string): boolean {
     const extension = path.extname(location).toLowerCase();
