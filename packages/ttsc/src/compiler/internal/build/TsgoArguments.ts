@@ -183,7 +183,18 @@ export function createNativeTsgoArgs(
   return JSON.stringify(passthrough);
 }
 
-function isolatedTsgoOutputArgs(options: TtscCommonOptions): string[] {
+/**
+ * The arguments that keep every output of a build in `isolateOutputsTo`, or
+ * nothing when the caller asked for no isolation.
+ *
+ * They null each separately located output (`outFile`, `declarationDir`,
+ * `tsBuildInfoFile`) and pin `outDir`, so declarations and build information
+ * land beside the JavaScript. Callers append them after the forwarded flags,
+ * which makes them win over a location the user forwarded too. A `--noEmit`
+ * pass needs them as much as an emitting one: the compiler still writes build
+ * information for an `incremental` project.
+ */
+export function isolatedTsgoOutputArgs(options: TtscCommonOptions): string[] {
   const target =
     "isolateOutputsTo" in options &&
     typeof options.isolateOutputsTo === "string"

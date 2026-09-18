@@ -507,6 +507,7 @@ export function runTsgo(
       ...TsgoArguments.createTsgoDiagnosticArgs(options),
       ...TsgoArguments.createTsgoThreadingArgs(options),
       ...(options.passthrough ?? []),
+      ...TsgoArguments.isolatedTsgoOutputArgs(options),
     ],
     {
       cwd: execution.projectRoot,

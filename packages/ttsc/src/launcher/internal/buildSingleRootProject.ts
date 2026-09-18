@@ -43,7 +43,9 @@ import { runtimeCompilerArgs } from "./runtimeCompilerArgs";
  *
  * `composite` is switched off. It exists for `tsc -b`, whose project graph
  * needs every file listed, and inherited here it would reject each import of
- * the root with TS6307, since only the root is listed.
+ * the root with TS6307, since only the root is listed. Declarations go with it:
+ * nothing at run time reads them, and an inherited `declarationMap` would
+ * otherwise fail with TS5069 once `composite` no longer implies `declaration`.
  *
  * @returns The project the build compiled and the `rootDir` it was pinned to.
  * @throws When the build fails. A checked build fails on any diagnostic; an
@@ -95,6 +97,8 @@ export function buildSingleRootProject(props: {
         extends: props.tsconfig.replace(/\\/g, "/"),
         compilerOptions: {
           composite: false,
+          declaration: false,
+          declarationMap: false,
           rootDir: volumeRoot.replace(/\\/g, "/"),
         },
         // `files` alone does not displace an inherited `include`, and an

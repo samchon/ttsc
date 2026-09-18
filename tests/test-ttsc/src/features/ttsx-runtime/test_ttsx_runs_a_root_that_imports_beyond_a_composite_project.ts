@@ -6,12 +6,14 @@ import assert from "node:assert/strict";
  * project's sources and a sibling package's source, in a `composite` project.
  *
  * A root no build covered is compiled alone through its project's options
- * (samchon/ttsc#1382), and two of those options could reject any program such
- * a root has. `composite` requires every file of the program to be listed,
- * which a build listing only the root cannot satisfy (TS6307). And a
- * `rootDir` narrower than the source's volume leaves out a sibling package the
- * root imports (TS6059). The runtime build switches `composite` off and roots
- * its private layout at the volume, so neither applies.
+ * (samchon/ttsc#1382), and three of those options could reject any program
+ * such a root has. `composite` requires every file of the program to be
+ * listed, which a build listing only the root cannot satisfy (TS6307).
+ * Switching it off leaves an inherited `declarationMap` without the
+ * `declaration` it needs (TS5069). And a `rootDir` narrower than the source's
+ * volume leaves out a sibling package the root imports (TS6059). The runtime
+ * build switches `composite` and declarations off and roots its private layout
+ * at the volume, so none applies.
  *
  * 1. Create a `composite` project with `include: ["src"]`, a script outside it
  *    that imports `../src/lib` and `../../shared/value`, and the sibling
@@ -31,6 +33,7 @@ export const test_ttsx_runs_a_root_that_imports_beyond_a_composite_project =
           module: "commonjs",
           strict: true,
           composite: true,
+          declarationMap: true,
           outDir: "lib",
           rootDir: "src",
           types: [],
