@@ -584,8 +584,19 @@ export function createViteServeInputWatch(
         }
         link.inputs.add(entry);
         entry.links.add(linkedFile);
-        if (link.target === undefined) requirePolling(entry);
-        else if (
+        if (link.target === undefined) {
+          requirePolling(entry);
+          continue;
+        }
+        // A backend that resolves the link reports the entry under the link's
+        // target, a spelling no other alias covers while the entry is missing.
+        const targetFile = path.join(
+          link.target,
+          path.relative(linkedFile, entry.file),
+        );
+        bindAlias(entry, targetFile);
+        bindRenameAncestors(entry, targetFile);
+        if (
           !containsPath(root, link.target) &&
           !bindScope(link.target, entry, true)
         )
