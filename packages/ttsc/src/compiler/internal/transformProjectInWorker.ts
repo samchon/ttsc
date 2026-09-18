@@ -1,0 +1,93 @@
+import path from "node:path";
+import { Worker } from "node:worker_threads";
+
+import type { ITtscCompilerContext } from "../../structures/ITtscCompilerContext";
+import type { TransformProjectWorkerReply } from "./TransformProjectWorkerReply";
+import type { TransformProjectWorkerRequest } from "./TransformProjectWorkerRequest";
+import type { transformProjectInMemory } from "./transformProjectInMemory";
+
+/** Worker threads that finished their last transform, ready for the next. */
+const IDLE_WORKERS: Worker[] = [];
+
+/**
+ * {@link transformProjectInMemory} on a worker thread, so the calling thread's
+ * event loop stays free for the whole transform (samchon/ttsc#1391).
+ *
+ * Every part of a transform blocks the thread that runs it: plugin loading
+ * computes the source-plugin cache key and evaluates each descriptor in a child
+ * process, and the native compile runs synchronously. Awaiting only the native
+ * processes would leave plugin loading, measured at over a second per transform
+ * on Windows, on the caller's loop. So the unchanged synchronous transform runs
+ * on a worker thread instead, with the same envelope, failures, and
+ * descriptor-resilient launches.
+ *
+ * The worker adopts the calling thread's `process.env` as it is at this call,
+ * so a scope the caller put around the call covers the whole transform, and
+ * nothing the caller changes afterward reaches it. A worker serves one
+ * transform at a time and returns to an idle pool afterward, keeping the
+ * in-process caches plugin loading builds warm. Concurrent transforms get
+ * workers of their own. An idle worker never keeps the process alive.
+ *
+ * @param context Compiler context of the requesting {@link TtscCompiler}.
+ * @returns What {@link transformProjectInMemory} returns, or a rejection with
+ *   what it threw.
+ */
+export function transformProjectInWorker(
+  context: ITtscCompilerContext,
+): Promise<ReturnType<typeof transformProjectInMemory>> {
+  const request: TransformProjectWorkerRequest = {
+    context,
+    env: { ...process.env },
+  };
+  const worker =
+    IDLE_WORKERS.pop() ??
+    new Worker(path.join(__dirname, "transformProjectWorker.js"));
+  worker.ref();
+  return new Promise((resolve, reject) => {
+    const release = (reusable: boolean): void => {
+      worker.off("message", onMessage);
+      worker.off("error", onError);
+      worker.off("exit", onExit);
+      if (reusable) {
+        worker.unref();
+        IDLE_WORKERS.push(worker);
+      } else {
+        void worker.terminate();
+      }
+    };
+    const onMessage = (reply: TransformProjectWorkerReply): void => {
+      release(true);
+      if ("output" in reply) {
+        resolve(reply.output);
+        return;
+      }
+      const error = new Error(reply.thrown.message);
+      if (reply.thrown.name !== undefined) error.name = reply.thrown.name;
+      if (reply.thrown.stack !== undefined) error.stack = reply.thrown.stack;
+      reject(error);
+    };
+    const onError = (error: Error): void => {
+      release(false);
+      reject(error);
+    };
+    const onExit = (code: number): void => {
+      release(false);
+      reject(
+        new Error(
+          `ttsc: the transform worker exited with code ${code} before it answered`,
+        ),
+      );
+    };
+    worker.on("message", onMessage);
+    worker.on("error", onError);
+    worker.on("exit", onExit);
+    try {
+      worker.postMessage(request);
+    } catch (error) {
+      // A context that cannot be cloned never reached the worker, which stays
+      // fit for the next request.
+      release(true);
+      reject(error);
+    }
+  });
+}

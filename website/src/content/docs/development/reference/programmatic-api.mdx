@@ -104,6 +104,16 @@ When no transform-stage plugin is configured, the map contains the unmodified fi
 
 Successful and compiler-failure transformations may also carry `hostInputs`: the exact tsconfig ancestry, every package manifest inspected by auto-discovery, the JavaScript descriptor's loaded module graph, absolute paths declared by each plugin descriptor, and inputs a linked native plugin reports while evaluating configuration. First-party plugins use the reporting channels for implicit config candidates and evaluated config dependencies; missing paths are retained because creating a higher-priority candidate changes resolution. `hostInputHashes` carries the matching evaluation-time SHA-256 digest, or `null` for an observed missing candidate, while `hostInputRealpaths` carries its physical path or `null`. Bundler adapters require both when supplied before narrowly reusing a persistent generation, so concurrent content changes and symlink or junction retargeting cannot authorize stale output. Arbitrary unclassified project files remain absent.
 
+### `transformAsync()`
+
+The same transformation, run on a worker thread so it never blocks the event loop. The envelope, the failure semantics, and the descriptor-resilient launches are the same as `transform()`'s.
+
+```ts
+const t = await compiler.transformAsync();
+```
+
+A host that serves other work while it compiles uses this one; `@ttsc/unplugin` does, so a dev server keeps answering requests during a compile. Plugin loading and the native compile both run on the worker, and the worker adopts `process.env` as it is at the call. A host that points `TEMP` at a scratch directory around the call therefore covers the whole transform, and nothing that changes the environment afterward reaches it. Idle workers are kept for the next call, so plugin loading's in-process caches stay warm, and they never keep the process alive.
+
 ### `prepare()`
 
 Builds every configured Go source plugin into the cache up front. Use this in CI warmup steps so the first user-triggered compile doesn't pay the plugin build cost.

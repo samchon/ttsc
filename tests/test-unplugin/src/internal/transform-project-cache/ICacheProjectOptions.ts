@@ -136,6 +136,12 @@ export interface ICacheProjectOptions {
    */
   nonInputRaceFile?: string;
   /**
+   * Hold the native transform for this many milliseconds, so a test can tell
+   * the time the compile spends in its own process from the host's synchronous
+   * plugin loading around it.
+   */
+  transformDelayMs?: number;
+  /**
    * Drop the compiler proof of one realized graph edge target entirely, the
    * shape a host reports for an input it read but could not prove. Unlike a
    * candidate, this must refuse reuse.

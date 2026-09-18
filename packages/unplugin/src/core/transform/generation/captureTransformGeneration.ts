@@ -144,7 +144,11 @@ export async function captureTransformGeneration(props: {
           membershipPolicy,
         )
       : undefined;
-    const result = withTransformScratchEnvironment(scratchDirectory, () =>
+    // The compile runs on a worker thread that adopts the environment as it is
+    // at the call, so the scratch scope covers the whole compile yet ends as
+    // soon as the call returns, and the host keeps serving other work while it
+    // runs (samchon/ttsc#1391).
+    const result = await withTransformScratchEnvironment(scratchDirectory, () =>
       new TtscCompiler({
         cwd: projectRoot,
         // The generated tsconfig (if any) lives outside the project directory,
@@ -158,7 +162,7 @@ export async function captureTransformGeneration(props: {
         projectRoot,
         tsconfig: configured.path,
         env: compilerEnvironment,
-      }).transform(),
+      }).transformAsync(),
     );
     TRANSFORM_RESULT_FILESYSTEM.set(result, props.filesystem);
     const configStable =

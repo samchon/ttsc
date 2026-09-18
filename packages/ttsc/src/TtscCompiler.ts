@@ -6,6 +6,7 @@ import { resolveProjectConfig } from "./compiler/internal/project/resolveProject
 import { resolveBinary } from "./compiler/internal/resolveBinary";
 import { createProcessDiagnostic } from "./compiler/internal/runBuild";
 import { transformProjectInMemory } from "./compiler/internal/transformProjectInMemory";
+import { transformProjectInWorker } from "./compiler/internal/transformProjectInWorker";
 import {
   type SafeCacheCleanupTarget,
   resolveSafeCacheCleanupTargets,
@@ -37,6 +38,8 @@ import type { TtscBuildResult } from "./structures/internal/TtscBuildResult";
  *   structured result instead of terminal text.
  * - {@link TtscCompiler.transform}: transform the configured project and return an
  *   embed-style transformation result.
+ * - {@link TtscCompiler.transformAsync}: the same transform on a worker thread,
+ *   for hosts that keep serving other work meanwhile.
  */
 export class TtscCompiler {
   private readonly context: ITtscCompilerContext;
@@ -182,6 +185,35 @@ export class TtscCompiler {
     return runTransformation(() =>
       transformProjectInMemory(this.compilerContext()),
     );
+  }
+
+  /**
+   * {@link TtscCompiler.transform} without blocking the event loop.
+   *
+   * Returns the same envelope with the same failure semantics, and the same
+   * descriptor-resilient launches. The whole transform, plugin loading
+   * included, runs on a worker thread, so the calling thread's event loop stays
+   * free throughout and a host keeps serving other requests meanwhile. The
+   * worker adopts `process.env` as it is at the call: a host that scopes
+   * process-global state such as `TEMP` around the call covers the whole
+   * transform, and nothing that changes the environment afterward reaches it.
+   * Idle workers are pooled so plugin loading's in-process caches stay warm,
+   * and never keep the process alive.
+   *
+   * @returns Transformation result containing TypeScript text or diagnostics.
+   */
+  public async transformAsync(): Promise<ITtscCompilerTransformation> {
+    try {
+      return toCompilerTransformation(
+        await transformProjectInWorker(this.compilerContext()),
+      );
+    } catch (error) {
+      return {
+        error: normalizeError(error),
+        kind: classifyException(error),
+        type: "exception",
+      };
+    }
   }
 
   private compilerContext(): ITtscCompilerContext {
