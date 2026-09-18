@@ -864,10 +864,10 @@ function shouldExposeCommonJsNamedExports(
  * `null` when none does.
  *
  * The entry project owns a file only when it actually emitted it. Testing
- * `isWithin(rootDir)` alone would claim every file under a wide `rootDir` —
- * including the volume-root `rootDir` a config-loader project uses — and hand
- * them the entry project's options even though the dependency or orphan lane is
- * what serves them.
+ * whether the file lies under `rootDir` would claim every file under a wide
+ * `rootDir` — including the volume-root `rootDir` a config-loader project uses
+ * — and hand them the entry project's options even though the dependency or
+ * orphan lane is what serves them.
  */
 function owningModuleOptions(filename: string): OwningModuleOptions | null {
   if (!isTypeScriptSource(filename)) {
